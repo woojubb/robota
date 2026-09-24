@@ -1,3 +1,8 @@
+import {
+  decideExecutionCommit,
+  type TExecutionCommit,
+  type IExecutionCommitResult,
+} from '@robota-sdk/dag-core';
 import DatabaseConstructor from 'better-sqlite3';
 import { listStaleRunningTaskRunRows, setTaskRunLeaseRow } from './task-run-recovery-queries.js';
 import { type ITaskRunRow, rowToTaskRun } from './task-run-row.js';
@@ -83,6 +88,63 @@ export class SqliteStorageAdapter implements IStoragePort {
 
   public close(): void {
     this.db.close();
+  }
+
+  public async commitExecution(
+    dagRunId: string,
+    mutation: TExecutionCommit,
+  ): Promise<IExecutionCommitResult> {
+    return this.db
+      .transaction(() => {
+        const runRow = this.db
+          .prepare<[string], IDagRunRow>('SELECT * FROM dag_runs WHERE dag_run_id = ?')
+          .get(dagRunId);
+        const tasks = this.db
+          .prepare<[string], ITaskRunRow>('SELECT * FROM task_runs WHERE dag_run_id = ?')
+          .all(dagRunId)
+          .map(rowToTaskRun);
+        const decision = decideExecutionCommit(
+          runRow ? rowToDagRun(runRow) : undefined,
+          tasks,
+          mutation,
+        );
+        if (decision.dagRun) {
+          this.db
+            .prepare('UPDATE dag_runs SET status = ?, ended_at = ? WHERE dag_run_id = ?')
+            .run(decision.dagRun.status, decision.dagRun.endedAt ?? null, dagRunId);
+        }
+        const task = decision.taskRun;
+        if (task) {
+          this.db
+            .prepare(
+              `INSERT INTO task_runs
+          (task_run_id, dag_run_id, node_id, status, attempt, lease_owner, lease_until,
+           input_snapshot, output_snapshot, estimated_credits, total_credits, error_code, error_message)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(task_run_id) DO UPDATE SET status=excluded.status, attempt=excluded.attempt,
+          lease_owner=excluded.lease_owner, lease_until=excluded.lease_until,
+          input_snapshot=excluded.input_snapshot, output_snapshot=excluded.output_snapshot, estimated_credits=excluded.estimated_credits,
+          total_credits=excluded.total_credits, error_code=excluded.error_code, error_message=excluded.error_message`,
+            )
+            .run(
+              task.taskRunId,
+              task.dagRunId,
+              task.nodeId,
+              task.status,
+              task.attempt,
+              task.leaseOwner ?? null,
+              task.leaseUntil ?? null,
+              task.inputSnapshot ?? null,
+              task.outputSnapshot ?? null,
+              task.estimatedCredits ?? null,
+              task.totalCredits ?? null,
+              task.errorCode ?? null,
+              task.errorMessage ?? null,
+            );
+        }
+        return decision.result;
+      })
+      .immediate();
   }
 
   public async saveDefinition(definition: IDagDefinition): Promise<void> {

@@ -6,6 +6,8 @@ import { listFrameworkProjectContributionPaths } from '@robota-sdk/agent-framewo
 
 import { ROBOTA_AGENT_DEFINITION_ROOTS } from '../product/robota-agent-roots.js';
 import { ROBOTA_PROJECT_SETTINGS } from '../product/robota-project-settings.js';
+import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../product/robota-project-state-directories.js';
+import { ROBOTA_SKILL_ROOTS } from '../product/robota-skill-roots.js';
 import { listProjectContributionPaths } from './project-contribution-preview.js';
 
 describe('agent definition source preview', () => {
@@ -48,5 +50,57 @@ describe('project settings source preview', () => {
         expectedKind: 'file',
       })),
     );
+  });
+});
+
+describe('project state source preview', () => {
+  it('uses the CLI state roots while neutral framework inventory has no product state paths', () => {
+    expect(listFrameworkProjectContributionPaths('').filter((path) => path.id.startsWith('state:')))
+      .toEqual([]);
+    expect(listProjectContributionPaths('').filter((path) => path.id.startsWith('state:'))).toEqual(
+      Object.entries(ROBOTA_PROJECT_STATE_DIRECTORIES).map(([namespace, relativePath]) => ({
+        id: `state:${namespace}`,
+        label: `Project ${namespace}`,
+        relativePath,
+        expectedKind: 'directory',
+      })),
+    );
+  });
+});
+
+describe('skill source preview', () => {
+  it('uses the exact product roots passed to framework discovery', () => {
+    expect(listFrameworkProjectContributionPaths('').filter((path) => path.id.startsWith('skill:')))
+      .toEqual([]);
+    expect(listProjectContributionPaths('').filter((path) => path.id.startsWith('skill:'))).toEqual(
+      ROBOTA_SKILL_ROOTS.map(({ root, kind }) => ({
+        id: `skill:${root}`,
+        label: kind === 'commands' ? 'Project commands' : 'Project skills',
+        relativePath: root,
+        expectedKind: 'directory',
+      })),
+    );
+  });
+});
+
+describe('task-context source preview', () => {
+  it('uses the same explicit enabled/custom root and omits a disabled root', () => {
+    expect(
+      listProjectContributionPaths('', { enabled: true, dir: 'custom/tasks' }).filter((path) =>
+        path.id.startsWith('tasks:'),
+      ),
+    ).toEqual([
+      {
+        id: 'tasks:custom/tasks',
+        label: 'Active task context',
+        relativePath: 'custom/tasks',
+        expectedKind: 'directory',
+      },
+    ]);
+    expect(
+      listProjectContributionPaths('', { enabled: false, dir: 'custom/tasks' }).filter((path) =>
+        path.id.startsWith('tasks:'),
+      ),
+    ).toEqual([]);
   });
 });

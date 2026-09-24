@@ -12,6 +12,8 @@ export type {
   IDagFrameworkPorts,
   IDagFrameworkPaths,
   IDagFrameworkLogger,
+  IDagContributionSource,
+  IDagSkillRootDescriptor,
   IDagExecutionComposition,
 } from './types.js';
 

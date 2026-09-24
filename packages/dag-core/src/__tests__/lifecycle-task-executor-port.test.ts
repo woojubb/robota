@@ -107,6 +107,72 @@ class TestNodeLifecycleFactory implements INodeLifecycleFactory {
 }
 
 describe('LifecycleTaskExecutorPort', () => {
+  it('cancels and disposes when initialization aborts and returns a failure', async () => {
+    const controller = new AbortController();
+    const execute = vi.fn();
+    const dispose = vi.fn(async () => ({ ok: true as const, value: undefined }));
+    const lifecycle = new TestNodeLifecycle({ execute });
+    lifecycle.initialize = async () => {
+      controller.abort();
+      return {
+        ok: false,
+        error: {
+          code: 'INITIALIZE_FAILED',
+          category: 'task_execution',
+          message: 'Initialization interrupted',
+          retryable: true,
+        },
+      };
+    };
+    lifecycle.dispose = dispose;
+    const validateInput = vi.spyOn(lifecycle, 'validateInput');
+    const executor = new LifecycleTaskExecutorPort(new TestNodeManifestRegistry([testManifest]), {
+      create: () => ({ ok: true, value: lifecycle }),
+    });
+    expect(await executor.execute(makeInput({ signal: controller.signal }))).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_CANCELLED', retryable: false },
+    });
+    expect(dispose).toHaveBeenCalledOnce();
+    expect(validateInput).not.toHaveBeenCalled();
+    expect(execute).not.toHaveBeenCalled();
+  });
+
+  it('does not enter execute after cancellation during cost estimation and disposes once', async () => {
+    const controller = new AbortController();
+    const execute = vi.fn();
+    const dispose = vi.fn(async () => ({ ok: true as const, value: undefined }));
+    const lifecycle = new TestNodeLifecycle({ execute });
+    lifecycle.estimateCost = async () => {
+      controller.abort();
+      return { ok: true, value: { estimatedCredits: 0 } };
+    };
+    lifecycle.dispose = dispose;
+    const executor = new LifecycleTaskExecutorPort(new TestNodeManifestRegistry([testManifest]), {
+      create: () => ({ ok: true, value: lifecycle }),
+    });
+    expect(await executor.execute(makeInput({ signal: controller.signal }))).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_CANCELLED', retryable: false },
+    });
+    expect(execute).not.toHaveBeenCalled();
+    expect(dispose).toHaveBeenCalledOnce();
+  });
+
+  it('passes the trusted attempt signal to the running node', async () => {
+    const controller = new AbortController();
+    const execute = vi.fn(async (_input, context) => {
+      expect(context.signal).toBe(controller.signal);
+      return { ok: true as const, value: {} };
+    });
+    const executor = new LifecycleTaskExecutorPort(
+      new TestNodeManifestRegistry([testManifest]),
+      new TestNodeLifecycleFactory({ 'test-node': { execute } }),
+    );
+    expect((await executor.execute(makeInput({ signal: controller.signal }))).ok).toBe(true);
+    expect(execute).toHaveBeenCalledOnce();
+  });
+
   it('returns error when nodeDefinition is missing', async () => {
     const registry = new TestNodeManifestRegistry([testManifest]);
     const port = new LifecycleTaskExecutorPort(registry);

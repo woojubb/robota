@@ -1,3 +1,7 @@
+import type { IRegexReplaceOperation } from '../types/regex-replace-operation.js';
+import type { ITaskSnapshotBudget } from '../services/task-snapshot-budget.js';
+import type { IDagExecutionByteLimits } from '../types/execution-byte-limits.js';
+import type { TExecutionCommit, IExecutionCommitResult } from '../services/execution-commit.js';
 import type {
   ICostPolicy,
   IDagNode,
@@ -92,6 +96,8 @@ export interface ILeasePort {
 
 /** Primary persistence port for DAG definitions, runs, and task runs. */
 export interface IStoragePort {
+  /** Atomically arbitrate execution mutations against current run and task state. */
+  commitExecution(dagRunId: string, mutation: TExecutionCommit): Promise<IExecutionCommitResult>;
   saveDefinition(definition: IDagDefinition): Promise<void>;
   getDefinition(dagId: string, version: number): Promise<IDagDefinition | undefined>;
   listDefinitions(): Promise<IDagDefinition[]>;
@@ -146,6 +152,14 @@ export interface IStoragePort {
 
 /** Input bundle for executing a single task within a DAG run. */
 export interface ITaskExecutionInput {
+  /** Trusted host operation capability; never decoded from workflow data. */
+  regexReplaceOperation?: IRegexReplaceOperation;
+  /** Shared live root snapshot authority, never sourced from serialized data. */
+  snapshotBudget?: ITaskSnapshotBudget;
+  /** Trusted host limits; never deserialized from workflow configuration. */
+  byteLimits?: IDagExecutionByteLimits;
+  /** Trusted in-process attempt cancellation; never supplied by serialized node or queue data. */
+  signal?: AbortSignal;
   /** Trusted canonical absolute directory selected by the product composition root. */
   executionRoot: string;
   dagId: string;
@@ -181,6 +195,8 @@ export type TTaskExecutionResult = ITaskExecutionSuccess | ITaskExecutionFailure
 
 /** Port for executing a single task given its execution input. */
 export interface ITaskExecutorPort {
+  /** Isolated executors join termination of this exact attempt before timeout/cancel is returned. */
+  stopAndWait?(input: ITaskExecutionInput): Promise<void>;
   execute(input: ITaskExecutionInput): Promise<TTaskExecutionResult>;
 }
 

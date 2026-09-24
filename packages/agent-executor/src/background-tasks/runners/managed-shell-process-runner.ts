@@ -30,6 +30,7 @@ const SPAWN_DETACHED = process.platform !== 'win32';
 
 export interface IManagedShellProcessRunnerOptions {
   killGraceMs?: number;
+  shellExecutable?: string;
 }
 
 interface IProcessTaskRuntime {
@@ -83,7 +84,13 @@ export function createManagedShellProcessRunner(
       if (task.request.kind !== 'process') {
         throw new BackgroundTaskError('runner', `Invalid process task kind: ${task.request.kind}`);
       }
-      return startProcessTask(task.taskId, task.request, killGraceMs, task.emit);
+      return startProcessTask(
+        task.taskId,
+        task.request,
+        killGraceMs,
+        task.emit,
+        options.shellExecutable,
+      );
     },
   };
 }
@@ -93,8 +100,9 @@ function startProcessTask(
   request: IProcessBackgroundTaskRequest,
   killGraceMs: number,
   emit: ((event: TBackgroundTaskRunnerEvent) => void) | undefined,
+  shellExecutable: string | undefined,
 ): IBackgroundTaskHandle {
-  const shell = resolveBackgroundTaskShellCommand(request);
+  const shell = resolveBackgroundTaskShellCommand(request, { executable: shellExecutable });
   const wakeMatcher = createWakeMatcher(request, emit);
   const runtime: IProcessTaskRuntime = {
     taskId,

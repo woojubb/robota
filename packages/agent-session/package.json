@@ -7,15 +7,26 @@
   "types": "dist/node/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/node/index.d.ts",
       "source": "./src/index.ts",
       "node": {
-        "import": "./dist/node/index.js",
-        "require": "./dist/node/index.cjs"
+        "import": {
+          "types": "./dist/node/index.d.ts",
+          "default": "./dist/node/index.js"
+        },
+        "require": {
+          "types": "./dist/node/index.d.cts",
+          "default": "./dist/node/index.cjs"
+        }
       },
       "default": {
-        "import": "./dist/node/index.js",
-        "require": "./dist/node/index.cjs"
+        "import": {
+          "types": "./dist/node/index.d.ts",
+          "default": "./dist/node/index.js"
+        },
+        "require": {
+          "types": "./dist/node/index.d.cts",
+          "default": "./dist/node/index.cjs"
+        }
       }
     }
   },
@@ -33,18 +44,12 @@
     "README.md",
     "CHANGELOG.md"
   ],
-  "robota": {
-    "artifact": {
-      "builder": "tsdown"
-    }
-  },
   "scripts": {
-    "prepack": "node ../../scripts/artifacts/pack-guard.mjs",
-    "build": "node ../../scripts/artifacts/build-package.mjs",
+    "build": "rimraf dist && tsdown",
     "build:js": "pnpm run build",
     "build:types": "pnpm run build",
     "build:check": "pnpm run typecheck && pnpm run build",
-    "dev": "node ../../scripts/artifacts/watch-package.mjs",
+    "dev": "tsdown --watch",
     "clean": "rimraf dist && rimraf tsconfig.tsbuildinfo",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",

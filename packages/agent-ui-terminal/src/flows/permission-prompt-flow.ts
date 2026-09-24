@@ -17,11 +17,16 @@ export const PERMISSION_PROMPT_OPTIONS = [
  * Issue #2351: the "always" options name the SCOPE they grant — the consent pattern the enforcer
  * remembers (`Bash(git *)`, `Read(/w/src/**)`, `WebFetch(https://h/**)`), not the whole tool.
  */
-export function permissionPromptOptionsFor(scope: string): readonly string[] {
+export function permissionPromptOptionsFor(
+  scope: string,
+  canPersistProjectPermission = true,
+): readonly string[] {
   return [
     PERMISSION_PROMPT_OPTIONS[0],
     `Allow ${scope} always (this session) [s]`,
-    `Allow ${scope} always (this project) [p]`,
+    canPersistProjectPermission
+      ? `Allow ${scope} always (this project) [p]`
+      : 'Project-wide approval unavailable',
     PERMISSION_PROMPT_OPTIONS[3],
   ];
 }
@@ -59,17 +64,24 @@ export function getPermissionPromptInputAction(
 export function applyPermissionPromptInput(
   state: ISelectionFlowState,
   action: TPermissionPromptInputAction,
+  canPersistProjectPermission = true,
 ): { state: ISelectionFlowState; effect: TPermissionPromptEffect } {
   if (state.resolved) {
     return { state, effect: { type: 'none' } };
   }
   if (typeof action !== 'string') {
+    if (action.index === 2 && !canPersistProjectPermission) {
+      return { state, effect: { type: 'none' } };
+    }
     return resolvePermissionIndex(state, action.index);
   }
   const result = applySelectionInput(state, action, {
     itemCount: PERMISSION_PROMPT_OPTIONS.length,
   });
   if (result.effect.type !== 'select') {
+    return { state: result.state, effect: { type: 'none' } };
+  }
+  if (result.effect.index === 2 && !canPersistProjectPermission) {
     return { state: result.state, effect: { type: 'none' } };
   }
   return {

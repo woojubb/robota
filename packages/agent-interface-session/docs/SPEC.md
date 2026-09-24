@@ -37,6 +37,8 @@ Prompt settlement belongs to the interactive-session event/capability family, no
 channel: surfaces receive `permission_request` / `ask_request`, answer through `resolvePermission`
 / `resolveAsk`, and dismiss on a single canonical `prompt_resolved` event — there is no separate
 "resolved" event variant per prompt kind.
+Permission requests indicate whether project-scoped consent can be persisted, so presenting
+surfaces can disable an unavailable choice before an answer is submitted.
 
 Checkpoint surfaces consume a `branch_event` only after the transition is persisted, covering
 checkpoint creation, restoration, rollback, explicit branch fork, and branch switch. Resume-pointer

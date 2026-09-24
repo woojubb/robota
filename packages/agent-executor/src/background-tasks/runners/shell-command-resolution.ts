@@ -8,6 +8,8 @@ export interface IBackgroundTaskShellCommand {
 
 /** Pure environment/host inputs for deterministic adapter verification. */
 export interface IBackgroundTaskShellResolutionOptions {
+  /** Host-selected default, below request.shell in precedence. */
+  readonly executable?: string;
   readonly env?: NodeJS.ProcessEnv;
   readonly platform?: NodeJS.Platform;
 }
@@ -24,7 +26,7 @@ export function resolveBackgroundTaskShellCommand(
   options: IBackgroundTaskShellResolutionOptions = {},
 ): IResolvedBackgroundTaskShellCommand {
   const shell = resolvePlatformShell({
-    ...(request.shell !== undefined ? { executable: request.shell } : {}),
+    executable: request.shell?.trim() || options.executable,
     ...(options.env !== undefined ? { env: options.env } : {}),
     ...(options.platform !== undefined ? { platform: options.platform } : {}),
   });

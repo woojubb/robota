@@ -12,6 +12,24 @@ import { EditCheckpointStore } from '../../checkpoints/edit-checkpoint-store.js'
 import { InteractiveSession } from '../interactive-session.js';
 
 import type { IExecutionResult, IToolState } from '../types.js';
+import type { IUsageObservation } from '@robota-sdk/agent-interface-analytics';
+
+function recordedObservation(session: InteractiveSession): IUsageObservation {
+  const entries = session.getFullHistory().filter((entry) => entry.type === 'usage-observation');
+  expect(entries).toHaveLength(1);
+  return entries[0]!.data as unknown as IUsageObservation;
+}
+
+function expectPromptRoot(observation: IUsageObservation): void {
+  expect(observation.promptExecutionStartedAt).toMatch(/^\d{4}-\d\d-\d\dT.*Z$/);
+  expect(observation.promptExecutionEndedAt).toMatch(/^\d{4}-\d\d-\d\dT.*Z$/);
+  expect(new Date(observation.promptExecutionStartedAt!).getTime()).toBeLessThanOrEqual(
+    new Date(observation.promptExecutionEndedAt!).getTime(),
+  );
+  expect(observation.promptExecutionTraceId).toMatch(/^(?!0{32}$)[0-9a-f]{32}$/);
+  expect(observation.promptExecutionSpanId).toMatch(/^(?!0{16}$)[0-9a-f]{16}$/);
+  expect(['success', 'failure', 'interrupted']).toContain(observation.promptExecutionOutcome);
+}
 
 function createMockSession(options?: {
   runResult?: string;
@@ -116,6 +134,96 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
         }),
       }),
     );
+    const observation = recordedObservation(session);
+    expectPromptRoot(observation);
+    expect(observation.promptExecutionOutcome).toBe('success');
+    expect(JSON.stringify(observation)).not.toContain('Hello back!');
+  });
+
+  it('persists an explicit provider child linked to the prompt root without provider content', async () => {
+    const mockSession = createMockSession({ runResult: 'private response' });
+    let listener: ((event: string, data: Record<string, unknown>) => void) | undefined;
+    mockSession.getEventService.mockReturnValue({
+      subscribe: vi.fn((callback: (event: string, data: Record<string, unknown>) => void) => {
+        listener = callback;
+      }),
+      unsubscribe: vi.fn(),
+    });
+    let observedAt = '';
+    mockSession.run.mockImplementation(async () => {
+      observedAt = new Date().toISOString();
+      listener?.('provider_call_completed', {
+        timestamp: new Date(),
+        startedAt: observedAt,
+        endedAt: observedAt,
+        outcome: 'success',
+        round: 1,
+      });
+      return 'private response';
+    });
+    const session = new InteractiveSession({ session: mockSession as never, cwd: '/tmp' });
+
+    await session.submit('private prompt');
+
+    const root = recordedObservation(session);
+    const children = session
+      .getFullHistory()
+      .filter((entry) => entry.type === 'provider-call-trace');
+    expect(children).toHaveLength(1);
+    expect(children[0]!.data).toMatchObject({
+      traceId: root.promptExecutionTraceId,
+      parentSpanId: root.promptExecutionSpanId,
+      startedAt: observedAt,
+      endedAt: observedAt,
+      outcome: 'success',
+      round: 1,
+    });
+    expect(JSON.stringify(children)).not.toMatch(/private prompt|private response/);
+  });
+
+  it('persists distinct content-free children for parallel tool bodies under this prompt only', async () => {
+    const mockSession = createMockSession({ runResult: 'private response' });
+    let listener: ((event: string, data: Record<string, unknown>) => void) | undefined;
+    mockSession.getEventService.mockReturnValue({
+      subscribe: vi.fn((callback: (event: string, data: Record<string, unknown>) => void) => {
+        listener = callback;
+      }),
+      unsubscribe: vi.fn(),
+    });
+    let observedAt = '';
+    mockSession.run.mockImplementation(async () => {
+      observedAt = new Date().toISOString();
+      for (const executionId of ['call-a', 'call-b']) {
+        listener?.('tool.tool_body_completed', {
+          timestamp: new Date(),
+          startedAt: observedAt,
+          endedAt: observedAt,
+          outcome: 'success',
+          executionId,
+          toolArgs: 'private argument must be ignored',
+        });
+      }
+      return 'private response';
+    });
+    const session = new InteractiveSession({ session: mockSession as never, cwd: '/tmp' });
+    await session.submit('private prompt');
+
+    const root = recordedObservation(session);
+    const children = session.getFullHistory().filter((entry) => entry.type === 'tool-body-trace');
+    expect(children).toHaveLength(2);
+    expect(new Set(children.map((entry) => (entry.data as { spanId: string }).spanId)).size).toBe(
+      2,
+    );
+    for (const child of children) {
+      expect(child.data).toMatchObject({
+        traceId: root.promptExecutionTraceId,
+        parentSpanId: root.promptExecutionSpanId,
+        startedAt: observedAt,
+        endedAt: observedAt,
+        outcome: 'success',
+      });
+    }
+    expect(JSON.stringify(children)).not.toMatch(/private|argument|call-a|call-b/);
   });
 
   // ── Scenario: Streaming text accumulation ─────────────────────
@@ -274,6 +382,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
         data: expect.objectContaining({ outcome: 'interrupted' }),
       }),
     );
+    expectPromptRoot(recordedObservation(session));
   });
 
   // ── Scenario: Error handling ──────────────────────────────────
@@ -303,6 +412,10 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
         data: expect.objectContaining({ outcome: 'failure' }),
       }),
     );
+    const observation = recordedObservation(session);
+    expectPromptRoot(observation);
+    expect(observation.promptExecutionOutcome).toBe('failure');
+    expect(JSON.stringify(observation)).not.toContain('API rate limit exceeded');
   });
 
   // ── Scenario: ERR-001 — mid-stream failure surfacing + liveness ─
@@ -487,6 +600,43 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
     await session.submit('test');
     expect(contextUsedTokens).toBe(1000);
+  });
+
+  it('keeps the prompt root successful when a later context update fails', async () => {
+    const session = new InteractiveSession({
+      session: createMockSession({ runResult: 'completed response' }) as never,
+      cwd: '/tmp',
+    });
+    session.on('context_update', () => {
+      throw new Error('late context update failed');
+    });
+    session.on('error', () => undefined);
+
+    await session.submit('test');
+
+    const observation = recordedObservation(session);
+    expect(observation.outcome).toBe('success');
+    expectPromptRoot(observation);
+    expect(observation.promptExecutionOutcome).toBe('success');
+    expect(JSON.stringify(observation)).not.toContain('late context update failed');
+  });
+
+  it('keeps the first prompt outcome when a later context update aborts', async () => {
+    const session = new InteractiveSession({
+      session: createMockSession({ runResult: 'completed response' }) as never,
+      cwd: '/tmp',
+    });
+    session.on('context_update', () => {
+      throw new DOMException('late abort', 'AbortError');
+    });
+    session.on('error', () => undefined);
+
+    await session.submit('test');
+
+    const observation = recordedObservation(session);
+    expect(observation.outcome).toBe('interrupted');
+    expect(observation.promptExecutionOutcome).toBe('success');
+    expectPromptRoot(observation);
   });
 
   it('injected sessions without cwd emit error on submit', async () => {

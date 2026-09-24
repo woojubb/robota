@@ -6,10 +6,11 @@ import {
   getWorkspaceProjectIdentity,
   loadHostBundlePluginsFromScopes,
   PluginCommandSource,
-  PROJECT_PLUGIN_RELATIVE_DIRECTORY,
 } from '@robota-sdk/agent-framework';
 
 import type { CommandRegistry, TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
+import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
+import { ROBOTA_PLUGIN_DIRECTORY } from '../product/robota-plugin-paths.js';
 
 const PLUGIN_SOURCE_NAME = 'plugin';
 
@@ -24,7 +25,7 @@ function getHomeDir(): string {
  * plugin is present in both.
  */
 function pluginsDirUnder(base: string): string {
-  return join(base, PROJECT_PLUGIN_RELATIVE_DIRECTORY);
+  return join(base, ROBOTA_PLUGIN_DIRECTORY);
 }
 
 /**
@@ -62,7 +63,10 @@ export function reloadPluginCommandSource(
     // PLG-021 / issue #2025: the reload path reported plugins as reloaded while a disabled plugin's
     // commands came back with them, because the bare loader defaults its enablement map to `{}`.
     // allow-fallback: plugin load failure is non-fatal — clear source and return empty
-    const plugins = loadHostBundlePluginsFromScopes(pluginScopeDirs(cwd, getHomeDir(), projectAccess));
+    const plugins = loadHostBundlePluginsFromScopes(
+      pluginScopeDirs(cwd, getHomeDir(), projectAccess),
+      { settingsPath: robotaUserSettingsPath(getHomeDir()) },
+    );
     if (plugins.length === 0) {
       registry.replaceSource(PLUGIN_SOURCE_NAME);
       return 0;

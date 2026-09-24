@@ -109,6 +109,11 @@ describe('command execution tool', () => {
 });
 
 describe('model command tool projection', () => {
+  it('rejects an unsafe host tool prefix before exposing it to the provider', () => {
+    expect(() => createProviderSafeModelCommandToolName('echo', 'bad.prefix')).toThrow(
+      'Model command tool prefix must use provider-safe characters.',
+    );
+  });
   it('projects model command descriptors into provider-safe command tool names', () => {
     const projection = createModelCommandToolProjection([
       {
@@ -122,11 +127,11 @@ describe('model command tool projection', () => {
       },
     ]);
 
-    expect(projection.commandNameToToolName.get('skills')).toBe('robota_command_skills');
-    expect(projection.toolNameToCommandName.get('robota_command_agent')).toBe('agent');
+    expect(projection.commandNameToToolName.get('skills')).toBe('command_skills');
+    expect(projection.toolNameToCommandName.get('command_agent')).toBe('agent');
     expect(projection.commandTools.map((tool) => tool.toolName)).toEqual([
-      'robota_command_skills',
-      'robota_command_agent',
+      'command_skills',
+      'command_agent',
     ]);
     expect(projection.commandTools[0]?.description).toContain('Skill discovery command.');
     expect(projection.commandTools[0]?.description).toContain(
@@ -171,7 +176,7 @@ describe('model command tool projection', () => {
       ],
     });
 
-    expect(tool?.getName()).toBe('robota_command_skills');
+    expect(tool?.getName()).toBe('command_skills');
     expect(tool?.schema.parameters.properties['args']?.description).toContain(
       '[list | <skill-name> [args]]',
     );

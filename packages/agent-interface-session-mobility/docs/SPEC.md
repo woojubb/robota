@@ -7,9 +7,11 @@ and moving authority over a session to another machine (handoff). They are one a
 message and a handoff differ in what travels, data versus control — and both answer the same
 question: what happens when a session is not confined to one process.
 
-**This package declares that authority CAN move and what that looks like. It decides nothing about
-whether a given move is permitted** — its committed/authority discriminators read a recorded
-state; they are not authorization checks.
+This package declares how authority moves, whether a settled session may be offered, and how its
+resources are classified in the handoff inventory. The source retains
+authority until it holds a matching acknowledgement of durable destination persistence. Illegal
+phase transitions are refused without changing state; repeated acknowledgements for a committed
+handoff are idempotent. Authorization of a proposed move remains a host decision.
 
 ## Boundaries
 
@@ -17,6 +19,7 @@ state; they are not authorization checks.
 | ---------------------------------------- | ------------------------------------------------------------------------------------- |
 | What a session IS                        | `agent-interface-session`                                                             |
 | Carrying a peer message over a wire      | `agent-transport-webrtc`, `agent-transport`                                           |
+| Sealing and verifying handoff payloads   | `agent-transport`                                                                     |
 | Deciding whether a handoff is authorized | the host application; this package declares the shape of the decision, not the policy |
 | Transport adapters, channels, admission  | `agent-interface-transport`                                                           |
 
@@ -25,6 +28,12 @@ state; they are not authorization checks.
 - **Layer 2 — the highest in this family.** It composes `agent-interface-session`, which composes
   the layer-0 owners; nothing names a type from here. Mobility is a capability added over a
   session, never a thing a session is defined in terms of.
+- **One authority transaction.** Phase transitions and the source-authority predicate live here,
+  independent of transport delivery. Losing a connection before a durable commit acknowledgement
+  leaves the source authoritative.
+- **Settled, explicit offer.** Active model and tool work prevents a handoff offer. The inventory
+  reports resources that stay local or require destination resolution as well as transferred state;
+  provider credentials never cross the boundary.
 
 ### Peer messaging — two axes that must not collapse
 

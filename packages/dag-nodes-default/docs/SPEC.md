@@ -16,8 +16,10 @@ caller does not inject a node registry.
 
 - `createDefaultNodeRegistrySync()` constructs only nodes with no optional provider-SDK peer
   dependency, so it always succeeds to construct.
-- `createDefaultNodeRegistry(providers?, loadDefaults?)` adds the LLM node plus dynamically-loaded
-  optional media/skill nodes on top of the sync base set.
+- `createDefaultNodeRegistry()` adds the LLM node plus dynamically-loaded optional media/skill
+  nodes on top of the sync base set. Skill files are visible to the skill node only through
+  contribution sources and roots the host supplies; omitting either means no file discovery, and
+  the catalog never chooses a source from the process's own working directory or home directory.
 - The default provider set for the `llm-text` node is loaded lazily from
   `@robota-sdk/agent-builtin-providers` (an optional dependency); a load failure surfaces a
   diagnostic naming that package rather than falling back to a silent empty registry.

@@ -34,6 +34,11 @@ export class TuiChannelLifecycleCoordinator {
     return this.shuttingDown;
   }
 
+  /** False before startup and immediately when teardown begins, even if teardown later fails. */
+  get isActiveForPeerStatus(): boolean {
+    return this.started && !this.teardownBegun && !this.shuttingDown;
+  }
+
   async start(): Promise<void> {
     if (this.teardownBegun) {
       throw new Error('Cannot start a channel after teardown has begun.');

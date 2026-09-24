@@ -5,14 +5,15 @@
  * not in the caller. print-mode.ts constructs this and calls run().
  */
 
-import { execSync } from 'node:child_process';
-
 import { createHeadlessRunner, type TOutputFormat } from './headless-runner.js';
 import { buildRuntimeSession } from '../../runtime/runtime-host.js';
 
 import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
 import type { ICreateSessionOptions } from '../../assembly/create-session-types.js';
 import type { IProjectSettingsPath } from '../../config/settings-source.js';
+import type { IResolvedConfig } from '../../config/config-types.js';
+import type { IContributionSource } from '../../contributions/index.js';
+import type { ISkillRootDescriptor } from '../../commands/skill-source.js';
 import type { ICommandModule } from '../../command-api/command-module.js';
 import type { ICommandHostAdapters } from '../../command-api/host-adapters.js';
 import type { IOrgPolicy } from '../../command-api/org-policy/org-policy-types.js';
@@ -33,10 +34,19 @@ export interface IHeadlessInteractionChannelOptions {
   cwd: string;
   provider: IAIProvider;
   providerErrorGuidance?: IProviderErrorGuidance;
+  promptFileReferenceTag?: string;
+  modelCommandToolPrefix?: string;
+  subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
+  commandHookShell?: string;
   /** Resolved organization policy enforced by the interactive session. */
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
+  baselinePermissionAllow?: readonly string[];
+  /** Host-selected task-context root; absent means the framework scans no task directory. */
+  taskContext?: IResolvedConfig['taskContext'];
+  contributionSources?: readonly IContributionSource[];
+  skillRoots?: readonly ISkillRootDescriptor[];
   outputFormat: TOutputFormat;
   /**
    * CLI-076: the resolved model id (the same value the CLI header displays). Forwarded verbatim to the
@@ -92,6 +102,7 @@ export interface IHeadlessInteractionChannelOptions {
   agentDefinitions?: readonly IAgentDefinition[];
   /** Ordered host-owned relative directories for discovered agent definitions. */
   agentDefinitionRoots?: readonly string[];
+  pluginDirectories?: { readonly user?: string; readonly project?: string };
   /**
    * ARCH-006: tools contributed by the composition root (the capability packs `assembleProduct` merged)
    * and, when the profile hands the packs the whole tool surface, the suppressed framework default tier
@@ -101,7 +112,8 @@ export interface IHeadlessInteractionChannelOptions {
   defaultTools?: readonly IToolWithEventService[];
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
-  shellExec?: TShellExecFn;
+  /** Host-owned shell adapter used only when a skill explicitly requests shell interpolation. */
+  shellExec: TShellExecFn;
   /**
    * SELFHOST-008 P6: optional durable-memory store injected by the surface (agent-cli). Forwarded into
    * `buildRuntimeSession`; absent ⇒ memory OFF (today's behavior). Enablement/policy is surface-owned.
@@ -118,6 +130,9 @@ export class HeadlessInteractionChannel {
   private exitCode = 0;
 
   constructor(options: IHeadlessInteractionChannelOptions) {
+    if (typeof options.shellExec !== 'function') {
+      throw new Error('Headless shell execution must be provided by the host.');
+    }
     this.opts = options;
   }
 
@@ -152,23 +167,36 @@ export class HeadlessInteractionChannel {
   private createSession(): InteractiveSession {
     // RUNTIME-001: build through the shared construction seam (agent-framework), not a private
     // `new InteractiveSession` — one session-construction SSOT across the TUI, print, and --serve.
-    const shellExec: TShellExecFn =
-      this.opts.shellExec ??
-      ((command: string) =>
-        execSync(command, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd());
-
     return buildRuntimeSession({
       cwd: this.opts.cwd,
       provider: this.opts.provider,
       ...(this.opts.providerErrorGuidance !== undefined
         ? { providerErrorGuidance: this.opts.providerErrorGuidance }
         : {}),
+      ...(this.opts.promptFileReferenceTag !== undefined
+        ? { promptFileReferenceTag: this.opts.promptFileReferenceTag }
+        : {}),
+      ...(this.opts.modelCommandToolPrefix !== undefined
+        ? { modelCommandToolPrefix: this.opts.modelCommandToolPrefix }
+        : {}),
+      ...(this.opts.subagentHookEnvironmentNames !== undefined
+        ? { subagentHookEnvironmentNames: this.opts.subagentHookEnvironmentNames }
+        : {}),
+      ...(this.opts.commandHookShell !== undefined
+        ? { commandHookShell: this.opts.commandHookShell }
+        : {}),
       ...(this.opts.orgPolicy !== undefined ? { orgPolicy: this.opts.orgPolicy } : {}),
       ...(this.opts.projectAccess !== undefined ? { projectAccess: this.opts.projectAccess } : {}),
       ...(this.opts.projectSettingsPaths !== undefined
         ? { projectSettingsPaths: this.opts.projectSettingsPaths }
         : {}),
+      ...(this.opts.taskContext !== undefined ? { taskContext: this.opts.taskContext } : {}),
+      ...(this.opts.contributionSources !== undefined
+        ? { contributionSources: this.opts.contributionSources }
+        : {}),
+      ...(this.opts.skillRoots !== undefined ? { skillRoots: this.opts.skillRoots } : {}),
       permissionMode: this.opts.permissionMode ?? 'bypassPermissions',
+      baselinePermissionAllow: this.opts.baselinePermissionAllow,
       // CMD-004 / REMOTE-007 D4a: headless subscribes to none of the session's `ask_request` surface,
       // so getUserInteraction() is gated to undefined (the framework's event-emitting ask default is
       // always present, but the command port's PRESENCE follows the live listener count). Each command
@@ -211,13 +239,16 @@ export class HeadlessInteractionChannel {
       ...(this.opts.agentDefinitionRoots !== undefined
         ? { agentDefinitionRoots: this.opts.agentDefinitionRoots }
         : {}),
+      ...(this.opts.pluginDirectories !== undefined
+        ? { pluginDirectories: this.opts.pluginDirectories }
+        : {}),
       ...(this.opts.additionalTools !== undefined
         ? { additionalTools: this.opts.additionalTools }
         : {}),
       ...(this.opts.defaultTools !== undefined ? { defaultTools: this.opts.defaultTools } : {}),
       commandModules: this.opts.commandModules,
       commandHostAdapters: this.opts.commandHostAdapters,
-      shellExec,
+      shellExec: this.opts.shellExec,
       agentName: this.opts.agentName,
       ...(this.opts.activePresetId !== undefined
         ? { activePresetId: this.opts.activePresetId }

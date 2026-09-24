@@ -40,6 +40,28 @@ afterEach(async () => {
 
 describe('/shell command (framework functional)', () => {
   it(
+    'uses the host-selected executable captured by its module',
+    async () => {
+      if (process.platform === 'win32') return;
+      const previousShell = process.env['SHELL'];
+      process.env['SHELL'] = '/bin/false';
+      try {
+        h = scriptedSession({
+          turns: [{ text: 'unused' }],
+          terminalHandoff: fakeHandoff(true),
+          commandModules: [createShellCommandModule('/bin/bash')],
+        });
+        const result = await h.command('shell', 'exit 0');
+        expect(result?.success).toBe(true);
+      } finally {
+        if (previousShell === undefined) delete process.env['SHELL'];
+        else process.env['SHELL'] = previousShell;
+      }
+    },
+    TEST_TIMEOUT,
+  );
+
+  it(
     'runs a one-shot command through the handoff and returns exit code 0',
     async () => {
       const handoff = fakeHandoff(true);

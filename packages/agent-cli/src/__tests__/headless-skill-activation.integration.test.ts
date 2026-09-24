@@ -122,16 +122,16 @@ function createSkillToolCallingProvider(): IObservedProvider {
         firstPromptContent = messages.map((message) => message.content).join('\n');
         firstCallToolNames = options?.tools?.map((tool) => tool.name) ?? [];
         const skillsToolSchema = options?.tools?.find(
-          (tool) => tool.name === 'robota_command_skills',
+          (tool) => tool.name === 'command_skills',
         );
         firstCallSkillsToolArgsDescription =
           skillsToolSchema?.parameters.properties['args']?.description;
         return assistantMessage(null, [
           {
-            id: 'call_robota_command_skills',
+            id: 'call_command_skills',
             type: 'function',
             function: {
-              name: 'robota_command_skills',
+              name: 'command_skills',
               arguments: JSON.stringify({ args: 'repo-writing docs/architecture.md' }),
             },
           },
@@ -139,7 +139,7 @@ function createSkillToolCallingProvider(): IObservedProvider {
       }
 
       const toolMessage = messages.find(
-        (message) => message.role === 'tool' && message.name === 'robota_command_skills',
+        (message) => message.role === 'tool' && message.name === 'command_skills',
       );
       toolResultContent = toolMessage?.content ?? '';
       return assistantMessage('Headless skill activated');
@@ -298,11 +298,14 @@ describe('headless transport skill activation integration', () => {
       provider: observed.provider,
       projectAccess: await createTrustedProjectAccess(cwd),
       config: createConfig(),
+      contributionSources: [createNodeHostContributionSource(cwd)],
+      skillRoots: [{ root: join('.agents', 'skills'), kind: 'skills' }],
       permissionMode: 'bypassPermissions',
       bare: true,
       commandModules: [
         createSkillsCommandModule({
           contributionSources: [createNodeHostContributionSource(cwd)],
+          skillRoots: [{ root: join('.agents', 'skills'), kind: 'skills' }],
         }),
       ],
     });
@@ -327,7 +330,7 @@ describe('headless transport skill activation integration', () => {
       });
       expect(output['session_id']).toBeTypeOf('string');
       expect(observed.getChatCallCount()).toBe(2);
-      expect(observed.getFirstCallToolNames()).toContain('robota_command_skills');
+      expect(observed.getFirstCallToolNames()).toContain('command_skills');
       expect(observed.getFirstCallToolNames()).not.toContain('ExecuteCommand');
       expect(observed.getFirstCallToolNames()).not.toContain('ExecuteSkill');
       expect(observed.getFirstCallSkillsToolArgsDescription()).toContain(
@@ -372,11 +375,14 @@ describe('headless transport skill activation integration', () => {
       provider: observed.provider,
       projectAccess: await createTrustedProjectAccess(cwd),
       config: createConfig(),
+      contributionSources: [createNodeHostContributionSource(cwd)],
+      skillRoots: [{ root: join('.agents', 'skills'), kind: 'skills' }],
       permissionMode: 'bypassPermissions',
       bare: true,
       commandModules: [
         createSkillsCommandModule({
           contributionSources: [createNodeHostContributionSource(cwd)],
+          skillRoots: [{ root: join('.agents', 'skills'), kind: 'skills' }],
         }),
       ],
     });

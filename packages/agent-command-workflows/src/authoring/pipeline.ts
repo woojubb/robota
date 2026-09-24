@@ -15,7 +15,6 @@
 import { createDefaultNodeRegistrySync } from '@robota-sdk/dag-nodes-default';
 import {
   createProviderFromSettings,
-  createDefaultUserSettingsSources,
   ProviderConfigError,
   readProviderSettings,
 } from '@robota-sdk/agent-framework';
@@ -130,7 +129,10 @@ function resolveAuthoringProvider(
         },
       };
     }
-    const settingsSources = deps.settingsSources ?? createDefaultUserSettingsSources();
+    const settingsSources = deps.settingsSources;
+    if (settingsSources === undefined) {
+      throw new ProviderConfigError('Host settings sources are required for workflow authoring.');
+    }
     const provider = createProviderFromSettings(settingsSources, undefined, {
       providerDefinitions,
     });

@@ -2,7 +2,41 @@
 
 Browser-safe transport protocol and delivery substrate for the Robota SDK. The root exports shared
 wire messages, session bridging, channel codecs, and delivery helpers. Browser decoders are also
-available from `./client`; Node-only admission and handoff helpers are available from `./node`.
+available from `./client`; Node-only admission and handoff integrity helpers are available from
+`./node`.
+
+## Handoff offer migration
+
+`@robota-sdk/agent-transport/node` no longer exports `buildHandoffManifest`,
+`IBuildManifestInput`, `ISourceRuntimeState`, or `TManifestResult`. Handoff readiness and inventory
+classification belong to `@robota-sdk/agent-interface-session-mobility`. A host composing a handoff
+should check readiness before serializing, then pass the integrity of those exact bytes to the
+mobility offer policy:
+
+```typescript
+import {
+  assessHandoffReadiness,
+  prepareHandoffOffer,
+  type IPrepareHandoffOfferInput,
+} from '@robota-sdk/agent-interface-session-mobility';
+import { sealHandoffRecord } from '@robota-sdk/agent-transport/node';
+
+function buildOffer(request: Omit<IPrepareHandoffOfferInput, 'integrity'>) {
+  const readiness = assessHandoffReadiness(request.runtime);
+  if (!readiness.ready) return readiness;
+
+  const { serialized, integrity } = sealHandoffRecord(request.record);
+  const offer = prepareHandoffOffer({ ...request, integrity });
+  if (!offer.built) return offer;
+
+  // Send serialized unchanged: offer.manifest.integrity describes these exact bytes.
+  return { manifest: offer.manifest, serialized };
+}
+```
+
+For types, use `ISourceRuntimeState`, `IPrepareHandoffOfferInput`, and `THandoffOfferResult` from
+session mobility. `IPrepareHandoffOfferInput` includes the integrity metadata produced by
+`sealHandoffRecord`; the serialized payload remains a separate transport value.
 
 ## Installation
 
@@ -93,7 +127,7 @@ import { renderApp } from '@robota-sdk/agent-ui-terminal';
 The framework root owns headless and programmatic surfaces plus `TransportRegistry`. The transport
 root owns transport-neutral wire messages, session bridging, channel codecs, and delivery helpers;
 browser decoders are also available from `@robota-sdk/agent-transport/client`, while Node-only
-admission and handoff helpers live under `@robota-sdk/agent-transport/node`.
+admission and handoff integrity helpers live under `@robota-sdk/agent-transport/node`.
 
 ```typescript
 import { createHeadlessTransport } from '@robota-sdk/agent-framework';

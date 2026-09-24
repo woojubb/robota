@@ -19,6 +19,7 @@ import type {
   TPermissionMode,
   TBackgroundPermissionPolicy,
   TModelEffortSelection,
+  TToolChoice,
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type { IHookTypeExecutor, IResponseFormatConfig } from '@robota-sdk/agent-core';
@@ -200,4 +201,13 @@ export interface ISessionRunOptions {
    * Never an authorization input (issue #1809).
    */
   driverId?: string;
+  /** Run-scoped model tool directive; 'none' remains in force for this turn only. */
+  toolChoice?: TToolChoice;
+}
+
+export interface IProviderCallTraceObservation {
+  readonly round: number;
+  readonly startedAt: string;
+  readonly endedAt: string;
+  readonly outcome: 'success' | 'failure' | 'interrupted';
 }

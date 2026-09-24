@@ -60,9 +60,18 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     const { id, toolName, toolArgs } = h.permissionEvents[0]!;
     expect(toolName).toBe('shell');
     expect(toolArgs).toEqual({ cmd: 'ls' });
+    expect(h.permissionEvents[0]?.canPersistProjectPermission).toBe(false);
     h.registry.resolvePermission(id, true);
     await expect(pending).resolves.toBe(true);
     expect(h.resolvedEvents).toEqual([{ id }]);
+  });
+
+  it('advertises project persistence only when the session has that capability', async () => {
+    const h = harness();
+    const pending = h.registry.requestPermission('shell', {}, true);
+    expect(h.permissionEvents[0]?.canPersistProjectPermission).toBe(true);
+    h.registry.resolvePermission(h.permissionEvents[0]!.id, false);
+    await pending;
   });
 
   it('TC-01: resolvePermission(id, false) denies', async () => {

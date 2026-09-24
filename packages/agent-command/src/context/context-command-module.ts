@@ -1,4 +1,5 @@
 import { executeContextCommand } from './context-command.js';
+import { createSystemCommandFromEntry } from '../command-module-utils.js';
 
 import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
 import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-command';
@@ -10,6 +11,7 @@ export function createContextCommandEntry(): ICommand {
     description: 'Context window info, reference inventory, and auto-compact controls',
     source: 'context',
     modelInvocable: false,
+    userInvocable: true,
     argumentHint: 'list | add <path> | remove <path> | clear | auto ...',
     subcommands: [
       { name: 'list', description: 'List loaded context references', source: 'context' },
@@ -23,15 +25,11 @@ export function createContextCommandEntry(): ICommand {
 
 function createContextSystemCommand(): ISystemCommand {
   const entry = createContextCommandEntry();
-  return {
-    name: entry.name,
-    displayName: entry.displayName,
-    description: entry.description,
+  return createSystemCommandFromEntry(entry, {
     requiresPermission: false,
-    userInvocable: true,
-    modelInvocable: false,
+    lifecycle: 'inline',
     execute: executeContextCommand,
-  };
+  });
 }
 
 export class ContextCommandSource implements ICommandSource {

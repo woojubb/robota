@@ -4,8 +4,10 @@ import { join } from 'node:path';
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { SkillCommandSource } from '../skill-source.js';
-import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
+import {
+  createNodeHostContributionSourcesFixture,
+  createTestSkillCommandSource,
+} from '../../testing/contribution-source-fixture.js';
 
 function createSkillDir(base: string, dirName: string, content: string): void {
   const dir = join(base, dirName);
@@ -33,6 +35,22 @@ describe('SkillCommandSource multi-path', () => {
 
   afterEach(() => {
     rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it('discovers from host-selected non-default roots', () => {
+    const customRoot = 'workspace/extensions';
+    createSkillDir(
+      join(projectDir, customRoot),
+      'host-owned',
+      '---\nname: host-owned\ndescription: selected by host\n---\n',
+    );
+
+    const source = createTestSkillCommandSource(
+      createNodeHostContributionSourcesFixture(projectDir),
+      [{ root: customRoot, kind: 'skills' }],
+    );
+
+    expect(source.getCommands().map((command) => command.name)).toContain('host-owned');
   });
 
   it('should scan paths in priority order', () => {
@@ -68,7 +86,7 @@ describe('SkillCommandSource multi-path', () => {
       '---\nname: delta\ndescription: from agents skills\n---\n',
     );
 
-    const source = new SkillCommandSource(
+    const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(projectDir, homeDir),
     );
     const commands = source.getCommands();
@@ -103,7 +121,7 @@ describe('SkillCommandSource multi-path', () => {
       ].join('\n'),
     );
 
-    const source = new SkillCommandSource(
+    const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(projectDir, homeDir),
     );
     const commands = source.getCommands();
@@ -137,7 +155,7 @@ describe('SkillCommandSource multi-path', () => {
       ].join('\n'),
     );
 
-    const source = new SkillCommandSource(
+    const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(projectDir, homeDir),
     );
     const cmd = source.getCommands().find((c) => c.name === 'space-tools');
@@ -155,7 +173,7 @@ describe('SkillCommandSource multi-path', () => {
       '---\nname: invalid-effort\ndescription: invalid effort\neffort: extreme\n---\n',
     );
 
-    const source = new SkillCommandSource(
+    const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(projectDir, homeDir),
     );
 
@@ -176,7 +194,7 @@ describe('SkillCommandSource multi-path', () => {
       '---\nname: not-invocable\ndescription: cannot be invoked by model\ndisable-model-invocation: true\n---\n',
     );
 
-    const source = new SkillCommandSource(
+    const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(projectDir, homeDir),
     );
     const filtered = source.getModelInvocableSkills();
@@ -200,7 +218,7 @@ describe('SkillCommandSource multi-path', () => {
       '---\nname: user-no\ndescription: user cannot invoke\nuser-invocable: false\n---\n',
     );
 
-    const source = new SkillCommandSource(
+    const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(projectDir, homeDir),
     );
     const filtered = source.getUserInvocableSkills();
@@ -228,7 +246,7 @@ describe('SkillCommandSource multi-path', () => {
       '---\nname: shared\ndescription: from agents skills (low priority)\n---\n',
     );
 
-    const source = new SkillCommandSource(
+    const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(projectDir, homeDir),
     );
     const commands = source.getCommands();
@@ -247,7 +265,7 @@ describe('SkillCommandSource multi-path', () => {
       '---\nname: deploy\ndescription: Deploy the app\n---\n# Deploy\n',
     );
 
-    const source = new SkillCommandSource(
+    const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(projectDir, homeDir),
     );
     const commands = source.getCommands();
@@ -266,7 +284,7 @@ describe('SkillCommandSource multi-path', () => {
       '---\nname: bool-test\ndescription: bool test\ndisable-model-invocation: false\nuser-invocable: true\n---\n',
     );
 
-    const source = new SkillCommandSource(
+    const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(projectDir, homeDir),
     );
     const cmd = source.getCommands().find((c) => c.name === 'bool-test');
@@ -291,7 +309,7 @@ describe('SkillCommandSource multi-path', () => {
     if (root.endsWith('commands')) createMdFile(directory, 'denied.md', content);
     else createSkillDir(directory, 'denied', content);
 
-    const source = new SkillCommandSource(
+    const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(projectDir, homeDir),
     );
     expect(() => source.getModelInvocableSkills()).toThrow(file);
@@ -303,7 +321,7 @@ describe('SkillCommandSource multi-path', () => {
     mkdirSync(claudeSkills, { recursive: true });
     createSkillDir(claudeSkills, 'my-skill', '# No frontmatter here\nJust content.');
 
-    const source = new SkillCommandSource(
+    const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(projectDir, homeDir),
     );
     const cmd = source.getCommands().find((c) => c.name === 'my-skill');

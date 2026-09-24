@@ -1,5 +1,11 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it, vi } from 'vitest';
 import { createDefaultNodeRegistry, createDefaultNodeRegistrySync } from './index.js';
+import { createNodeHostContributionSource } from '@robota-sdk/agent-framework';
+import type { INodeExecutionContext } from '@robota-sdk/dag-core';
 
 describe('createDefaultNodeRegistrySync', () => {
   it('returns all built-in node types without LLM nodes', () => {
@@ -114,5 +120,85 @@ describe('createDefaultNodeRegistry — collapsed llm-text provider injection (A
     await expect(createDefaultNodeRegistry(undefined, loadDefaults)).rejects.toThrow(
       /agent-provider-openai/,
     );
+  });
+});
+
+describe('createDefaultNodeRegistry — host-owned skill discovery', () => {
+  it('resolves a skill from the supplied host source and root', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'robota-dag-skill-root-'));
+    const home = mkdtempSync(join(tmpdir(), 'robota-dag-skill-home-'));
+    vi.stubEnv('HOME', home);
+    try {
+      const skillDirectory = join(root, 'custom', 'skills', 'audit');
+      mkdirSync(skillDirectory, { recursive: true });
+      writeFileSync(
+        join(skillDirectory, 'SKILL.md'),
+        ['---', 'name: audit', 'description: Audit code', '---', 'Read $ARGUMENTS carefully.'].join(
+          '\n',
+        ),
+      );
+      const homeSkillDirectory = join(home, '.robota', 'skills', 'home-only');
+      mkdirSync(homeSkillDirectory, { recursive: true });
+      writeFileSync(
+        join(homeSkillDirectory, 'SKILL.md'),
+        ['---', 'name: home-only', 'description: Must stay private', '---', 'HOME secret.'].join(
+          '\n',
+        ),
+      );
+      const skillRoots = [
+        { root: join('custom', 'skills'), kind: 'skills' as const },
+        { root: join('.robota', 'skills'), kind: 'skills' as const },
+      ];
+      const nodes = await createDefaultNodeRegistry(
+        [],
+        async () => [],
+        { mediaProviders: [], loadMediaDefaults: async () => [] },
+        skillRoots,
+        [createNodeHostContributionSource(root)],
+      );
+      const skillNode = nodes.find((node) => node.nodeType === 'skill');
+      expect(skillNode).toBeDefined();
+      const executeSkill = (skillName: string) =>
+        skillNode!.taskHandler.execute(
+          {},
+          {
+            executionRoot: root,
+            dagId: 'dag-1',
+            dagRunId: 'run-1',
+            taskRunId: `task-${skillName}`,
+            nodeDefinition: {
+              nodeId: 'skill-1',
+              nodeType: 'skill',
+              dependsOn: [],
+              config: { skillName, args: 'src/index.ts' },
+              inputs: [],
+              outputs: [],
+            },
+            nodeManifest: {
+              nodeType: 'skill',
+              displayName: 'Skill',
+              category: 'Integration',
+              inputs: skillNode!.inputs,
+              outputs: skillNode!.outputs,
+              defaultInputPort: skillNode!.defaultInputPort,
+              defaultOutputPort: skillNode!.defaultOutputPort,
+            },
+            attempt: 1,
+            executionPath: [],
+            currentTotalCredits: 0,
+          } as unknown as INodeExecutionContext,
+        );
+
+      const result = await executeSkill('audit');
+      expect(result.ok).toBe(true);
+      if (result.ok) expect(String(result.value.prompt)).toContain('Read src/index.ts carefully.');
+      const homeResult = await executeSkill('home-only');
+      expect(homeResult.ok).toBe(false);
+      expect(JSON.stringify(homeResult)).not.toContain('HOME secret.');
+    } finally {
+      vi.unstubAllEnvs();
+      rmSync(root, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true });
+    }
   });
 });

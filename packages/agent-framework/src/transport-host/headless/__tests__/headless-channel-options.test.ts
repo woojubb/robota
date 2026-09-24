@@ -49,10 +49,23 @@ vi.mock('../../../runtime/runtime-host.js', async (importOriginal) => {
 });
 
 import { HeadlessInteractionChannel } from '../HeadlessInteractionChannel.js';
+import { createNodeHostContributionSource } from '../../../contributions/node-host-contribution-source.js';
+import type { IHeadlessInteractionChannelOptions } from '../HeadlessInteractionChannel.js';
 
 describe('HeadlessInteractionChannel session options', () => {
   beforeEach(() => {
     sessionCtorSpy.mockClear();
+  });
+
+  it('requires the host to provide shell execution instead of using a framework process default', () => {
+    expect(
+      () =>
+        new HeadlessInteractionChannel({
+          cwd: process.cwd(),
+          provider: {} as IAIProvider,
+          outputFormat: 'text',
+        } as IHeadlessInteractionChannelOptions),
+    ).toThrow('Headless shell execution must be provided by the host.');
   });
 
   it('forwards product provider recovery guidance to the live session', async () => {
@@ -68,6 +81,60 @@ describe('HeadlessInteractionChannel session options', () => {
     await channel.run('hello');
 
     expect(sessionCtorSpy.mock.calls[0]?.[0]).toMatchObject({ providerErrorGuidance });
+  });
+
+  it('forwards host model identifiers to the live session', async () => {
+    const channel = new HeadlessInteractionChannel({
+      cwd: process.cwd(),
+      provider: {} as IAIProvider,
+      promptFileReferenceTag: 'acme_files',
+      modelCommandToolPrefix: 'acme_command_',
+      subagentHookEnvironmentNames: { agentId: 'ACME_AGENT_ID' },
+      commandHookShell: '/bin/bash',
+      outputFormat: 'text',
+      shellExec: () => '',
+    });
+    await channel.run('hello');
+    expect(sessionCtorSpy.mock.calls[0]?.[0]).toMatchObject({
+      promptFileReferenceTag: 'acme_files',
+      modelCommandToolPrefix: 'acme_command_',
+      subagentHookEnvironmentNames: { agentId: 'ACME_AGENT_ID' },
+      commandHookShell: '/bin/bash',
+    });
+  });
+
+  it('forwards the host-owned shell adapter to the live session unchanged', async () => {
+    const shellExec = vi.fn(() => 'host result');
+    const channel = new HeadlessInteractionChannel({
+      cwd: process.cwd(),
+      provider: {} as IAIProvider,
+      outputFormat: 'text',
+      shellExec,
+    });
+
+    await channel.run('hello');
+
+    expect(sessionCtorSpy.mock.calls[0]?.[0]).toMatchObject({ shellExec });
+  });
+
+  it('forwards the host-selected skill roots and sources to the live session', async () => {
+    const contributionSources = [createNodeHostContributionSource(process.cwd())];
+    const skillRoots = [{ root: 'custom/skills', kind: 'skills' as const }];
+    const channel = new HeadlessInteractionChannel({
+      cwd: process.cwd(),
+      provider: {} as IAIProvider,
+      contributionSources,
+      skillRoots,
+      outputFormat: 'text',
+      shellExec: () => '',
+    });
+
+    await channel.run('hello');
+
+    expect(sessionCtorSpy.mock.calls[0]?.[0]).toMatchObject({
+      contributionSources,
+      skillRoots,
+    });
   });
 
   it('TC-01: passes deniedTools through to the InteractiveSession options', async () => {

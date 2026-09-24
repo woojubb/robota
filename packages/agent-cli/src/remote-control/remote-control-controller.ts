@@ -9,8 +9,7 @@ import { WsSignalingClient } from '@robota-sdk/agent-transport-webrtc';
 
 import { defaultCreateResumeBridge, defaultCreateTransport } from './default-transport-factory.js';
 import type { TUsageReporters } from './default-transport-factory.js';
-import type { SessionResumeBridge } from '@robota-sdk/agent-transport';
-import { bindTransportAdapter } from '@robota-sdk/agent-framework';
+import type { IProtocolSession, SessionResumeBridge } from '@robota-sdk/agent-transport';
 
 import { hasTurnServer } from './ice-config.js';
 
@@ -22,16 +21,22 @@ import type {
   IIceServer,
   ISignalingClient,
 } from '@robota-sdk/agent-transport-webrtc';
-import type { TransportRegistry } from '@robota-sdk/agent-framework';
 import type { TRemoteControlStatus } from '@robota-sdk/agent-framework';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+
+export type TRemoteControlPeer = IConfigurableTransport<IProtocolSession>;
+
+/** Host-owned registry effects; reconnect candidates never enter the registry. */
+export interface IRemoteControlTransportHost {
+  registerInitial(peer: TRemoteControlPeer, session: IProtocolSession): void;
+  promoteWinner(peer: TRemoteControlPeer, session: IProtocolSession): void;
+}
 
 /** Composition-root controller for pairing-gated `/remote-control` lifecycle and reconnect state. */
 
 export interface IRemoteControlControllerDeps {
-  /** The full transport registry (needs `register`, so not the view). */
-  registry: TransportRegistry;
+  /** The two registry effects remote control needs from its host. */
+  host: IRemoteControlTransportHost;
   /** Signaling relay URL (`transports.webrtc.options.relayUrl`), or undefined when unconfigured. */
   readRelayUrl: () => string | undefined;
   /** Client base URL for the pairing link (`transports.webrtc.options.clientUrl`); unset ⇒ enable fails closed (REMOTE-009 D5). */
@@ -41,8 +46,8 @@ export interface IRemoteControlControllerDeps {
   readIceServers?: () => readonly IIceServer[] | undefined;
   /** REMOTE-010: `transports.webrtc.options.forceTurn` — restrict ICE to relay candidates (requires a TURN server). */
   readForceTurn?: () => boolean;
-  /** The live interactive session to expose on pairing accept, or undefined before one is ready. */
-  getSession: () => IInteractiveSession | undefined;
+  /** The live protocol session to expose on pairing accept, or undefined before one is ready. */
+  getSession: () => IProtocolSession | undefined;
   /** Render a scannable QR for the given text (async). */
   renderQr: (text: string) => Promise<string>;
   /** Surface an async failure (e.g. a `werift`-absent `start()` failure) to the operator. */
@@ -53,6 +58,8 @@ export interface IRemoteControlControllerDeps {
   loadHostIdentity?: () => Promise<IHostIdentity>;
   /** Construction seams (default to the real implementations; overridden in unit tests). */
   createSignaling?: (url: string, rendezvous: string) => ISignalingClient;
+  /** Test seam for the asynchronous reconnect-room derivation. */
+  deriveReconnectRendezvous?: (seed: string, counter: number) => Promise<string>;
   createTransport?: (
     signaling: ISignalingClient,
     secret: string,
@@ -66,9 +73,9 @@ export interface IRemoteControlControllerDeps {
     resumeBridge?: SessionResumeBridge,
     localPeer?: import('@robota-sdk/agent-transport-webrtc').ILocalPeerProof,
     usageReporters?: TUsageReporters,
-  ) => IConfigurableTransport<IInteractiveSession>;
+  ) => TRemoteControlPeer;
   /** REMOTE-013 E4: build the session-scoped resume bridge (default: real `SessionResumeBridge`). */
-  createResumeBridge?: (session: IInteractiveSession) => SessionResumeBridge;
+  createResumeBridge?: (session: IProtocolSession) => SessionResumeBridge;
   /** Host-owned usage reporters shared by every admitted transport surface. */
   usageReporters?: TUsageReporters;
   /** REMOTE-013 E4: relay URL for reconnect signaling (defaults to `readRelayUrl`). */
@@ -86,7 +93,7 @@ const RECONNECT_WINDOW_MS = 50_000;
 
 export class RemoteControlController {
   private status: TRemoteControlStatus = { state: 'off' };
-  private transport?: IConfigurableTransport<IInteractiveSession>;
+  private transport?: TRemoteControlPeer;
   private signaling?: ISignalingClient;
   // REMOTE-013 E4 reconnect state (session-scoped, spans channel drops).
   private bridge?: SessionResumeBridge;
@@ -95,8 +102,9 @@ export class RemoteControlController {
   private iceConfig: { iceServers?: readonly IIceServer[]; forceTurn?: boolean } = {};
   private reconnectConfig?: IHostReconnectConfig;
   /** Active reconnect transports (the 2-room window) + their timers, torn down on reconnect/ceiling. */
-  private reconnectPeers: IConfigurableTransport<IInteractiveSession>[] = [];
+  private reconnectPeers: TRemoteControlPeer[] = [];
   private reconnectSignalings: ISignalingClient[] = [];
+  private reconnectGeneration = 0;
   private cancelReconnectRound?: () => void;
   private cancelReconnectCeiling?: () => void;
 
@@ -209,7 +217,7 @@ export class RemoteControlController {
       this.deps.usageReporters,
     );
 
-    this.deps.registry.register(bindTransportAdapter(transport, session));
+    this.deps.host.registerInitial(transport, session);
     transport.attach(session);
     // Start out-of-band: the registry's startAll won't pick up a defaultEnabled:false transport, and there is
     // no start-one method. A werift-absent / start failure fails closed: reset to off + report to the operator.
@@ -303,22 +311,28 @@ export class RemoteControlController {
     void this.safeClose(this.signaling);
     this.signaling = undefined;
 
+    const generation = ++this.reconnectGeneration;
     const counter = record.reconnectCounter ?? 0;
     const schedule = this.deps.schedule ?? defaultSchedule;
     this.cancelReconnectCeiling = schedule(() => this.giveUpReconnect(), RECONNECT_WINDOW_MS);
     // Register the 2-room window so a device that advanced its counter (lost final frame) still meets the host.
-    void this.armReconnectRoom(record.reconnectSeed, counter, session);
-    void this.armReconnectRoom(record.reconnectSeed, counter + 1, session);
+    void this.armReconnectRoom(record.reconnectSeed, counter, session, generation);
+    void this.armReconnectRoom(record.reconnectSeed, counter + 1, session, generation);
   }
 
   /** Register one reconnect transport at `rendezvous(seed, counter)`, sharing the persistent bridge. */
   private async armReconnectRoom(
     seed: string,
     counter: number,
-    session: IInteractiveSession,
+    session: IProtocolSession,
+    generation: number,
   ): Promise<void> {
     if (!this.reconnectConfig || !this.relayUrl || !this.bridge) return;
-    const rendezvous = await deriveReconnectRendezvous(seed, counter);
+    const rendezvous = await (this.deps.deriveReconnectRendezvous ?? deriveReconnectRendezvous)(
+      seed,
+      counter,
+    );
+    if (generation !== this.reconnectGeneration || !this.bridge) return;
     const signaling = (this.deps.createSignaling ?? defaultCreateSignaling)(
       this.relayUrl,
       rendezvous,
@@ -329,7 +343,7 @@ export class RemoteControlController {
       signaling,
       dummySecret,
       {
-        onPaired: () => this.onReconnected(counter, peer, signaling, session),
+        onPaired: () => this.onReconnected(counter, peer, signaling, session, generation),
         onPairingFailed: () => undefined, // a wrong/absent device at this room is not fatal; the ceiling governs
         onDropped: () => {
           if (this.transport === peer) this.onDropped();
@@ -350,11 +364,13 @@ export class RemoteControlController {
   /** A returning device confirmed the E3 reconnect at `usedCounter`. Advance (resync), promote the winner, drop the rest. */
   private onReconnected(
     usedCounter: number,
-    winner: IConfigurableTransport<IInteractiveSession>,
+    winner: TRemoteControlPeer,
     winnerSignaling: ISignalingClient,
-    session: IInteractiveSession,
+    session: IProtocolSession,
+    generation: number,
   ): void {
-    if (this.transport) return; // already promoted a winner (first wins)
+    if (this.transport || generation !== this.reconnectGeneration || !this.bridge) return;
+    this.reconnectGeneration += 1; // invalidate a sibling room still deriving its rendezvous
     this.cancelReconnectCeiling?.();
     this.cancelReconnectCeiling = undefined;
     // Resync-on-success: the next room is the USED room + 1 (erases any ±1 drift).
@@ -370,7 +386,7 @@ export class RemoteControlController {
     }
     this.reconnectPeers = [];
     this.reconnectSignalings = [];
-    this.deps.registry.replace(bindTransportAdapter(winner, session)); // #2043: the entry must name the live instance
+    this.deps.host.promoteWinner(winner, session); // #2043: the entry must name the live instance
     this.transport = winner;
     this.signaling = winnerSignaling;
     this.status = { state: 'paired' };
@@ -394,7 +410,9 @@ export class RemoteControlController {
 
   /** Stop remote control and tear down the transport + signaling. */
   async stop(): Promise<string> {
-    if (!this.transport) return 'Remote control is not running.';
+    if (!this.transport && !this.bridge && !this.signaling && !this.cancelReconnectCeiling) {
+      return 'Remote control is not running.';
+    }
     await this.teardown('off');
     return 'Remote control stopped.';
   }
@@ -405,6 +423,7 @@ export class RemoteControlController {
    * socket and never leaves the status stuck at `awaiting-pairing`). Idempotent — a no-op when already off.
    */
   private async teardown(next: 'off'): Promise<void> {
+    this.reconnectGeneration += 1;
     const transport = this.transport;
     const signaling = this.signaling;
     this.transport = undefined;

@@ -9,6 +9,10 @@ import React from 'react';
 import { useRenderMarkdown } from './hooks/useRenderMarkdown.js';
 import { humanizeToolArgument, humanizeToolName } from './humanize-tool-name.js';
 import { RenderedText, Text } from './SafeText.js';
+import {
+  useModelCommandToolPrefix,
+  useProductDisplayName,
+} from './product-display-name-context.js';
 import { useScreenReader } from './screen-reader-context.js';
 import { SCREEN_READER_LABELS } from './screen-reader-labels.js';
 import { STATUS_SYMBOL, statusGlyphColor, toolStateStatusKind } from './status-glyph.js';
@@ -52,6 +56,7 @@ function ThinkingFallback({ isThinking }: { isThinking: boolean }): React.ReactE
 
 function ActiveTools({ activeTools }: { activeTools: readonly IToolState[] }): React.ReactElement {
   const palette = usePalette();
+  const modelCommandToolPrefix = useModelCommandToolPrefix();
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Text color={palette.text.emphasis} bold>
@@ -64,7 +69,7 @@ function ActiveTools({ activeTools }: { activeTools: readonly IToolState[] }): R
           <Box key={`${t.toolName}-${i}`} flexDirection="column">
             <Text color={color} strikethrough={strikethrough}>
               {'  '}
-              {icon} {humanizeToolName(t.toolName)}({humanizeToolArgument(t.firstArg)})
+              {icon} {humanizeToolName(t.toolName, modelCommandToolPrefix)}({humanizeToolArgument(t.firstArg)})
             </Text>
             {t.diffLines && t.diffLines.length > 0 && (
               <ToolDiffBlock file={t.diffFile} lines={t.diffLines} />
@@ -86,8 +91,11 @@ function renderScreenReaderStatus(
   text: string,
   activeTools: readonly IToolState[],
   isThinking: boolean,
+  modelCommandToolPrefix?: string,
 ): React.ReactElement {
-  const running = activeTools.map((tool) => humanizeToolName(tool.toolName)).join(', ');
+  const running = activeTools
+    .map((tool) => humanizeToolName(tool.toolName, modelCommandToolPrefix))
+    .join(', ');
   const parts = [
     running.length > 0 ? `${SCREEN_READER_LABELS.tool} ${running}` : undefined,
     text.length > 0 ? text : isThinking ? SCREEN_READER_LABELS.thinking : undefined,
@@ -106,9 +114,11 @@ export default function StreamingIndicator({
   const hasTools = activeTools.length > 0;
   const hasText = text.length > 0;
   const screenReader = useScreenReader();
+  const productDisplayName = useProductDisplayName();
+  const modelCommandToolPrefix = useModelCommandToolPrefix();
 
   if (screenReader) {
-    return renderScreenReaderStatus(text, activeTools, isThinking);
+    return renderScreenReaderStatus(text, activeTools, isThinking, modelCommandToolPrefix);
   }
 
   if (!hasTools && !hasText) {
@@ -121,7 +131,7 @@ export default function StreamingIndicator({
       {hasText && (
         <Box flexDirection="column" marginBottom={1}>
           <Text color={palette.text.accent} bold>
-            Robota:
+            {productDisplayName}:
           </Text>
           <Text> </Text>
           <Box marginLeft={2}>

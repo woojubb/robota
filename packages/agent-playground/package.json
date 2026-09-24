@@ -9,22 +9,38 @@
   "types": "dist/node/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/node/index.d.ts",
       "node": {
-        "import": "./dist/node/index.js",
-        "require": "./dist/node/index.cjs"
+        "import": {
+          "types": "./dist/node/index.d.ts",
+          "default": "./dist/node/index.js"
+        },
+        "require": {
+          "types": "./dist/node/index.d.cts",
+          "default": "./dist/node/index.cjs"
+        }
       },
       "browser": {
-        "import": "./dist/browser/index.js"
+        "import": {
+          "types": "./dist/browser/index.d.ts",
+          "default": "./dist/browser/index.js"
+        }
       },
       "default": {
-        "import": "./dist/node/index.js",
-        "require": "./dist/node/index.cjs"
+        "import": {
+          "types": "./dist/node/index.d.ts",
+          "default": "./dist/node/index.js"
+        },
+        "require": {
+          "types": "./dist/node/index.d.cts",
+          "default": "./dist/node/index.cjs"
+        }
       }
     },
     "./client": {
-      "types": "./dist/browser/client.d.ts",
-      "import": "./dist/browser/client.js",
+      "import": {
+        "types": "./dist/browser/client.d.ts",
+        "default": "./dist/browser/client.js"
+      },
       "default": "./dist/browser/client.js"
     }
   },
@@ -32,17 +48,11 @@
     "dist",
     "README.md"
   ],
-  "robota": {
-    "artifact": {
-      "builder": "tsdown"
-    }
-  },
   "scripts": {
-    "prepack": "node ../../scripts/artifacts/pack-guard.mjs",
-    "build": "node ../../scripts/artifacts/build-package.mjs",
+    "build": "rimraf dist && tsdown",
     "build:js": "pnpm run build",
     "build:types": "pnpm run build",
-    "dev": "node ../../scripts/artifacts/watch-package.mjs",
+    "dev": "tsdown --watch",
     "clean": "rimraf dist",
     "test": "vitest run --passWithNoTests",
     "test:coverage": "vitest run --coverage --passWithNoTests",

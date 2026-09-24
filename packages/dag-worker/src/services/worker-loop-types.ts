@@ -19,6 +19,8 @@ export interface IWorkerLoopOptions {
   maxAttempts: number;
   defaultTimeoutMs: number;
   idleWaitMs?: number;
+  /** How often an active attempt checks durable run state for another owner's cancellation. */
+  cancellationPollMs?: number;
 }
 
 /** Result of a single worker loop iteration. */

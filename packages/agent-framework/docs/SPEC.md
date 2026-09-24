@@ -22,11 +22,12 @@ React/Ink UI.
 
 - **Assembly first, not a re-export layer.** Every feature composes existing packages; a
   general-purpose capability (permissions, hooks, tools, session mechanics) belongs in its owning
-  package, never duplicated here. Pass-through re-exports of another package's symbols are forbidden
-  except through two explicit SDK facade barrels (`background-tasks/`, `subagents/`) that exist only
-  because a permitted consumer would otherwise have no way to reach the symbol. This is enforced
-  mechanically, and the check is about the _location_ of a pass-through, not whether it is a runtime
-  value or a type.
+  package, never duplicated here. Consumers import general-purpose symbols from their owner
+  (`agent-core`, `agent-session`, `agent-tools`); this package exports only what it owns or narrows
+  behind an SDK facade. A pass-through re-export is allowed only for a symbol a permitted consumer
+  has no other legal import path to (such as `IBackgroundTaskRunner` from `agent-executor`, in
+  `background-tasks/`), so ownership stays visible in every import. This is enforced mechanically
+  across every file reachable from the `exports` map, whether the re-export is a runtime value or a type.
 - **React-free.** No React/Ink dependency, so the SDK stays usable from a CLI, server, worker, or
   test in any TypeScript context. React and Ink belong to `agent-cli`.
 - **Provider-neutral.** The consumer creates the provider and injects it; the SDK never imports a
@@ -41,23 +42,37 @@ React/Ink UI.
 - **No concrete settings-file I/O for hosts.** Host adapters (`NodeHost*`) exist for callers that
   deliberately own a host path, but never satisfy an authority parameter, and command modules must
   not assemble settings/project paths themselves — they go through host adapters or command-facing
-  common APIs. User persistence and trust-store adapters require explicit host paths; these
-  adapters do not select a product's user-local storage root.
-- **Project settings locations belong to the host.** The framework binds ordered host-supplied
-  relative settings paths to the current trusted project reader; absent paths read no project
-  settings, and a restricted project cannot read them even when paths are supplied. The framework
-  does not select product directory names or advertise those paths in its own pre-trust inventory.
-- **Interactive user settings are explicit.** A session reads only the host-supplied user settings
-  sources, and a provider switch reuses those same sources; an absent list never discovers an ambient
-  home-directory settings file. SDK runtime, query, and programmatic-agent creators forward the
-  same optional sources to their sessions. A runtime without host command adapters does not attach
-  an ambient settings-file reader or writer; settings actions require a host-supplied adapter.
-- **Agent definition discovery is host-directed.** The framework searches only the ordered relative
-  directories supplied by the host; absent roots mean no file discovery. Discovered definitions keep
-  precedence over injected and built-in definitions, without selecting a product's directory names.
-- **Command modules own product behavior.** SDK core ships no user-visible built-in commands; command
-  packages (`agent-command-*`) contribute behavior through `ICommandModule`, consuming SDK command
-  contracts and common APIs. The SDK does not know command ids in advance.
+  common APIs.
+- **Every user- and project-scoped location is host-supplied, and the framework never infers or falls
+  back to one.** Storage roots, project settings and state directories, user settings sources,
+  plugin/skill/agent-definition roots, permission baselines, and task-context directories are all
+  read only from what the host explicitly passes; an omitted discovery root means no discovery, and an
+  omitted storage root fails before any filesystem write — never an ambient default. A restricted (untrusted) project can never read project settings merely because a path
+  was supplied. A user-local storage root that resolves inside the active repository — including
+  through a symlink — is rejected. A project settings writer requires its own separately approved
+  target, and when that guarded write is unavailable, a project-wide permission approval is never
+  silently downgraded to a session-only grant. A later deny rule always takes precedence over a
+  host-supplied permission baseline, even across a live preset change.
+- **Organization policy is host-located and fail-closed.** The policy loader reads only the path
+  selected by its host. An absent or empty path is an error; a missing file at a valid path means no
+  deployed policy. A present but unreadable or malformed file raises a typed error rather than
+  silently disabling enforcement.
+- **Recovery instructions are host-owned.** Framework errors name the missing provider configuration
+  or invalid settings file without prescribing a product command. A terminal fork-attach refusal
+  carries its resume session id separately so a host can add its own reopen command while neutral
+  consumers still receive an actionable session identifier.
+- **User contributions are host-selected.** Skill discovery uses only explicitly supplied
+  contribution sources and roots; neutral SDK helpers do not infer the current process home.
+- **Headless shell execution is host-owned.** The host supplies the shell adapter for explicit
+  skill interpolation; the framework does not construct a child-process fallback.
+- **Hosts own product identifiers; command modules own product behavior.** Attached file
+  references and projected command tools use neutral identifiers unless the host supplies its own,
+  and subagent lifecycle hooks add product environment aliases only when the host supplies their names.
+  Model-facing identifiers remain consistent through prompt execution and child-tool filtering. SDK
+  core ships no user-visible built-in commands; command packages (`agent-command-*`) contribute
+  behavior through `ICommandModule`, consuming SDK command contracts and common APIs. The SDK does
+  not know command ids in advance; on session shutdown it settles every module's host-scoped work
+  before closing the session, even when another module's shutdown fails.
 
 ## Architecture position
 
@@ -77,6 +92,10 @@ factory; `config/`, `context/`, `memory/`, `checkpoints/`, `self-hosting/`, `sub
 
 These are behaviors a caller cannot infer from a type signature alone.
 
+- **Prompt trace identity has a narrow execution boundary.** Every started prompt records a fresh,
+  content-free trace root and its actual outcome even when it has no token usage or ends in failure
+  or interruption; a failure before execution begins has no root. This remains a partial trace
+  only — it does not cross process boundaries or prove final turn settlement.
 - **Session persistence is explicit, never implicit.** `InteractiveSession`/`createAgentRuntime`
   never construct a project session store from a bare `cwd`. A host wanting persistence supplies an
   explicit store (optionally composed from same-authority `sessions`/`session-logs` state facets); an
@@ -96,22 +115,28 @@ These are behaviors a caller cannot infer from a type signature alone.
   adapter for a requested action gets an explicit failure naming the missing capability — never a
   silent no-op. UI-only intents (opening a picker, a settings screen) are fire-and-forget: with no
   surface listening they are a defined no-op, and that never affects the host-action half.
+- **Local peer status is display-only.** Host-observed activity and independently verified process
+  liveness never grant authority over the peer or identify a persisted session record, and a passive
+  observer can never keep a request alive after its last answering surface leaves.
 - **Prompt/permission settlement is first-wins and fail-closed.** `InteractiveSession` exposes no
   session-level callback option for permission or ask prompts; it emits transport-neutral request
   events, and any attached surface settles them through one shared registry. The first settlement
   wins and emits exactly one resolution event — there is no second settlement path. A callback that
   rejects must resolve to deny/cancel, never leave the request open.
-- **External events require separate source and sender admission.** A host must explicitly open a
-  source; merely configuring a transport does not authorize turns. A trusted adapter authenticates
-  the sender, and the session checks that sender against its source-specific allowlist before using
-  the ordinary bounded turn queue. The host assigns source/sender/conversation attribution, so one
-  conversation may coalesce only its own pending input; an untrusted public submission cannot claim
-  that reserved identity. The model receives an escaped, bounded source envelope; file-reference
-  shorthand in external text remains literal and never reads operator-selected local context.
-  Each accepted event settles from its own turn handle, and an interrupted result never becomes a
-  successful reply. External admission and `bypassPermissions` are
-  mutually exclusive throughout active and already-admitted work, not only at startup. This SDK
-  ingress is not yet an MCP adapter or a remote permission-approval channel.
+- **External events require separate source and sender admission.** Opening a source does not itself
+  authorize turns: a trusted adapter must authenticate the sender, and the session checks that sender
+  against a source-specific allowlist before it can submit through the ordinary turn queue; an
+  untrusted submission can never claim another conversation's reserved identity. The model receives
+  only an escaped, bounded envelope — file-reference shorthand in external text stays literal and
+  never reads local context. An admitted external turn is text-only for model-generated actions: it
+  does not expose local tool schemas, and a provider tool call it produces is rejected before
+  execution. External admission is mutually exclusive with `bypassPermissions` throughout active and
+  already-admitted work. Each accepted event settles from its own turn handle, and an interrupted
+  result never becomes a successful reply. This does not sandbox trusted hooks/plugins or
+  authenticate a platform sender by itself, and it is not a remote permission-approval channel.
+- **Automatic session naming is text-only.** The title-generation call — whether triggered by an
+  operator message or the first external event — always disables tool use, so hosted web tools can
+  never be invoked merely to generate a title.
 - **Hook executor registration is replace-vs-extend, and the built-ins are seeded first.** The core
   hook runner resolves `executors ?? createDefaultExecutors()` — an _undefined-only_ fallback, so
   supplying any executor array at all replaces the built-in `command`/`http` executors rather than
@@ -145,18 +170,14 @@ These are behaviors a caller cannot infer from a type signature alone.
   turn commits any partially streamed answer to history as an interrupted entry before stream state
   clears. Errors from outside the turn boundary (background tasks, catalog refresh, uncaught promises)
   surface through the same humanize path via `reportBackgroundError`, and the session stays usable.
-- **Self-paced loop intent is durable before admission.** Creation, wake claim, running entry,
-  rescheduling, and stop are strict session-record writes; a failed or uncertain write cannot
-  authorize another iteration. The scheduler's one-shot task is replaceable, while the session-owned
-  loop identity survives resume. Missed wakes do not catch up; an uncertain running iteration is
-  not replayed. Only a successfully executed, structured, provider-neutral decision can select a
-  one-minute to one-hour delay or stop; an omitted or denied decision permits one 20-minute fallback
-  and then terminates. A stop removes only
-  that loop's queued wake, and a running iteration may finish without arming a successor.
+- **Self-paced loop intent is durable before admission.** Loop state transitions are strict
+  session-record writes; a failed or uncertain write can never authorize another iteration, missed
+  wakes are not caught up, and an uncertain running iteration is never replayed. Only a successful,
+  structured, provider-neutral decision can select the next delay or stop; an omitted or denied
+  decision falls back to one bounded delay and then terminates.
 - **Default loop prompts are live host content, not stored authority.** A loop created without an
-  explicit prompt retains that intent across resume. The host resolves the current default before
-  each admitted iteration; a missing or invalid resolver fails visibly and cannot run a stale
-  self-paced iteration. Explicit prompts never invoke this resolver.
+  explicit prompt keeps that intent across resume, and the host resolves the current default before
+  each iteration; a missing or invalid resolver fails visibly rather than running a stale iteration.
 - **Tool composition is asymmetric on purpose: replace and append are not interchangeable.**
   `defaultTools` replaces the framework's default tool tier outright; `additionalTools` only appends
   and, on a name collision with an already-assembled tool, the earlier entry silently wins and the
@@ -220,8 +241,8 @@ These are behaviors a caller cannot infer from a type signature alone.
 
 - **Workspace identity**: linked worktrees stay distinct by worktree root, while a nested working
   directory inside one worktree resolves to the same identity.
-- **Pre-trust source preview**: candidate project sources (settings, skills, agents, detection
-  metadata, context, tasks, state, plugins) are listed from the paths their owners actually load, so
+- **Pre-trust source preview**: candidate project sources (settings, host-selected skills, agents,
+  detection metadata, context, tasks, state, plugins) are listed from the paths their owners actually load, so
   the preview cannot drift from what trust would enable. Inspection reads metadata only under a
   revalidated Git identity, never follows links, never issues a content reader and grants no
   authority; where a stable no-follow walk is unavailable, names are listed with metadata unavailable.
@@ -229,9 +250,11 @@ These are behaviors a caller cannot infer from a type signature alone.
   without cancelling the loop; a boundary that is invalid or later than the loop's expiry is refused.
 
 - **Memory capture filters likely-sensitive content, heuristically.** Automatic capture and
-  `/memory add` skip candidates whose text matches secret-like wording (key, secret, token, password,
-  private key) or card/ID number formats; skipped candidates are not written to memory but stay in the
-  pending queue. This is a keyword and format filter, not a secret scanner.
+  `/memory add` skip candidates whose text matches secret-like wording, card/ID number formats, or
+  secret-shaped values (well-known credential prefixes, key blocks, JWTs, long mixed-case random runs).
+  A skipped candidate is never persisted anywhere, including the pending queue. Approval accepts only a
+  `pending` candidate and re-runs the check, so nothing flagged reaches durable memory. This is a
+  heuristic, not a secret scanner: a secret that reads like prose can still pass.
 
 ## Error taxonomy (shape, not enumeration)
 

@@ -28,12 +28,14 @@ node types. Runners must forward this lineage into every child node's execution 
 child run cannot reset the depth by constructing a fresh runner.
 
 Before launching a child run, the composite rejects a child DAG that contains its own node type or
-any ancestor composite node type, and rejects launches beyond `maxDepth` (default and hard maximum:
-three nested DAG boundaries; zero disables child launches). This is a runtime guard, not a
-constructor-time guess — direct and indirect recursion fail before the next child run starts.
-Budget and cancellation propagation remain separate unfinished parts of issue #2163. If a child
-fails, its terminal error code and retryability are preserved rather than replaced with a generic
-composite failure.
+any ancestor composite node type, and rejects launches beyond a hard maximum nesting depth. This is
+a runtime guard, not a constructor-time guess — direct and indirect recursion fail before the next
+child run starts. Composite runners also forward the same trusted task snapshot authority,
+per-operation byte limits, and active parent attempt signal to children, never reconstructing these
+capabilities from a saved manifest; a parent abort prevents child entry and takes precedence over a
+late child result or thrown error, though it does not promise that arbitrary child work has stopped
+before the parent settles. If a child fails without parent abort, its terminal error code and
+retryability are preserved rather than replaced with a generic composite failure.
 
 ## Provider registry
 
@@ -54,6 +56,11 @@ corresponding input port. Unknown placeholders are left intact rather than rejec
 Failure is distinguished by cause: a missing API key, a missing required input port, and an LLM
 call failure are reported as distinct typed errors, with LLM call failure marked retryable so
 callers can distinguish transient from configuration failures without inspecting message text.
+Prompt-backed nodes forward the trusted node-context cancellation signal to the agent run, refusing
+provider entry after abort and joining the admitted provider call before discarding a late completion,
+so providers which ignore abort keep node completion pending; they report cancellation as
+non-retryable `DAG_TASK_EXECUTION_CANCELLED` rather than a retryable LLM failure; composite runners
+forward the parent's attempt signal into the child execution path the same way.
 
 ## Non-goals / constraints
 

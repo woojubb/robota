@@ -4,6 +4,7 @@ import { ConversationHistory, ConversationStore } from '../managers/conversation
 import { AIProviders } from '../managers/ai-provider-manager';
 import { Tools } from '../managers/tool-manager';
 import { AbstractAIProvider } from '../abstracts/abstract-ai-provider';
+import { PROVIDER_CALL_EVENTS } from '../event-service/span-events';
 import type { IAssistantMessage, IToolMessage, TUniversalMessage } from '../interfaces/messages';
 import type { IAgentConfig } from '../interfaces/agent';
 import type { IChatOptions } from '../interfaces/provider';
@@ -768,13 +769,22 @@ describe('ExecutionService', () => {
       });
       mockProvider.chat = chatSpy;
 
+      const providerCompletions: Record<string, unknown>[] = [];
       const result = await executionService.execute('Record the decision', [], config, {
         conversationId: 'test-agent',
         maxExecutionRounds: 1,
+        onExecutionEvent: (event, data) => {
+          if (event === PROVIDER_CALL_EVENTS.COMPLETED) providerCompletions.push(data);
+        },
       });
 
       expect(result.success).toBe(true);
       expect(chatSpy).toHaveBeenCalledTimes(2);
+      expect(providerCompletions).toHaveLength(2);
+      expect(providerCompletions.map((completion) => completion['outcome'])).toEqual([
+        'success',
+        'success',
+      ]);
     });
 
     it('carries the run cancellation and the effort dial into the forced summary call (CORE-042)', async () => {
@@ -870,7 +880,7 @@ describe('ExecutionService', () => {
     });
 
     it('should make forced summary call when maxRounds exhausted with only tool calls', async () => {
-      setupToolMocks();
+      const { mockToolExecService } = setupToolMocks();
       const config = makeConfig();
 
       // 10 rounds of tool calls, then the forced summary call returns text
@@ -882,6 +892,13 @@ describe('ExecutionService', () => {
         id: 'msg-summary',
         role: 'assistant',
         content: 'Here is the summary of results.',
+        toolCalls: [
+          {
+            id: 'summary-tool',
+            type: 'function',
+            function: { name: 'testTool', arguments: '{"param":"unexpected"}' },
+          },
+        ],
         state: 'complete' as const,
         timestamp: new Date(),
       });
@@ -895,6 +912,9 @@ describe('ExecutionService', () => {
       expect(result.response).toBe('Here is the summary of results.');
       // 10 rounds + 1 forced call = 11 total
       expect(chatSpy).toHaveBeenCalledTimes(11);
+      expect(chatSpy.mock.calls[10]?.[1]).toMatchObject({ toolChoice: 'none' });
+      expect(chatSpy.mock.calls[10]?.[1]?.tools).toBeUndefined();
+      expect(mockToolExecService.executeTools).toHaveBeenCalledTimes(10);
     });
 
     it('should force a summary when the provider returns an empty assistant after tool results', async () => {

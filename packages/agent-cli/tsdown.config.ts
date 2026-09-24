@@ -30,7 +30,7 @@ export default defineConfig([
       index: 'src/index.ts',
     },
     define,
-    format: { esm: {}, cjs: { dts: false } },
+    format: { esm: {}, cjs: {} },
     outDir: 'dist/node',
     platform: 'node',
     clean: false,
@@ -41,7 +41,7 @@ export default defineConfig([
     splitting: false,
     outExtensions: ({ format }) => ({
       js: format === 'cjs' ? '.cjs' : '.js',
-      dts: '.d.ts',
+      dts: format === 'cjs' ? '.d.cts' : '.d.ts',
     }),
     // INFRA-028: bundle @robota-sdk into the library entry too; third-party (in `dependencies`) external.
   },

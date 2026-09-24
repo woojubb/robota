@@ -59,6 +59,10 @@ export function createLoopCommandEntry(): ICommand {
     source: 'schedule',
     argumentHint: '[prompt] | <N><s|m|h|d> [prompt] | <prompt> every <N> <unit> | list | stop <id>',
     modelInvocable: true,
+    subcommands: [
+      { name: 'list', description: 'List active loops', source: 'schedule' },
+      { name: 'stop', description: 'Stop an active loop', source: 'schedule', argumentHint: '<id>' },
+    ],
   };
 }
 
@@ -106,6 +110,7 @@ function createLoopSystemCommand(options: ILoopCommandOptions): ISystemCommand {
     userInvocable: true,
     modelInvocable: true,
     argumentHint: entry.argumentHint,
+    subcommands: entry.subcommands,
     lifecycle: 'inline',
     execute: (context, args): Promise<ICommandResult> =>
       executeLoopCommand(

@@ -92,7 +92,7 @@ export function readProviderSettings(
     return envDefault;
   }
 
-  throw new ProviderConfigError('No provider configuration found. Run `robota` to set up.');
+  throw new ProviderConfigError('No provider configuration found. Configure a provider before starting a session.');
 }
 
 export function createProviderFromSettings(

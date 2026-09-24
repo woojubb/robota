@@ -49,6 +49,12 @@ export class PendingMemoryStore {
 
   upsert(candidate: IMemoryCandidate, status: TMemoryCandidateStatus, reason: string): void {
     const document = this.read();
+    if (status === 'skipped') {
+      // A skipped candidate's text may be the sensitive content itself, so it is never stored.
+      document.records = document.records.filter((record) => record.id !== candidate.id);
+      this.write(document);
+      return;
+    }
     const updatedAt = this.now().toISOString();
     const existingIndex = document.records.findIndex((record) => record.id === candidate.id);
     const record: IMemoryPendingRecord = {
@@ -85,7 +91,10 @@ export class PendingMemoryStore {
     if (raw === undefined) return emptyDocument();
     try {
       const parsed = JSON.parse(raw) as IPendingMemoryDocument;
-      return { version: 1, records: parsed.records ?? [] };
+      // Older versions stored skipped (sensitive) candidates with their text; drop them on read so the
+      // next write removes them from disk.
+      const records = (parsed.records ?? []).filter((record) => record.status !== 'skipped');
+      return { version: 1, records };
     } catch {
       // allow-fallback: corrupt JSON treated as empty document
       return emptyDocument();

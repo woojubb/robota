@@ -45,6 +45,10 @@ async function start(): Promise<Error | undefined> {
       userSettingsSources: [
         createNodeHostSettingsSource('user', join(home, '.robota', 'settings.json')),
       ],
+      pluginDirectories: {
+        project: join(cwd, '.robota', 'plugins'),
+        user: join(home, '.robota', 'plugins'),
+      },
       provider: createScriptedProvider([]).provider,
       onTextDelta: () => {},
       onToolExecution: () => {},
@@ -78,6 +82,35 @@ describe('startup hook diagnostics retain effective plugin sources', () => {
     expect(error?.message).toContain(hooksPath);
   });
 
+  it('loads only host-selected plugin directories', async () => {
+    const ambientHooks = addPlugin('ambient', 'agent');
+    const selectedPlugin = join(cwd, 'custom-plugins', 'cache', 'market', 'selected', '1.0.0');
+    writeJson(join(selectedPlugin, '.claude-plugin', 'plugin.json'), {
+      name: 'selected',
+      version: '1.0.0',
+      description: 'Selected plugin',
+      features: { hooks: true },
+    });
+    const selectedHooks = join(selectedPlugin, 'hooks', 'hooks.json');
+    writeJson(selectedHooks, {
+      PreToolUse: [{ matcher: '', hooks: [{ type: 'prompt', prompt: 'selected' }] }],
+    });
+
+    const error = await createInteractiveSession({
+      cwd,
+      projectAccess: await createTrustedProjectAccessFixture(cwd),
+      userSettingsSources: [
+        createNodeHostSettingsSource('user', join(home, '.robota', 'settings.json')),
+      ],
+      pluginDirectories: { project: join(cwd, 'custom-plugins'), user: join(home, 'custom-plugins') },
+      provider: createScriptedProvider([]).provider,
+      onTextDelta: () => {},
+      onToolExecution: () => {},
+    }).then(() => undefined, (failure: unknown) => failure as Error);
+    expect(error?.message).toContain(selectedHooks);
+    expect(error?.message).not.toContain(ambientHooks);
+  });
+
   it('does not load project plugin hooks before workspace trust is granted', async () => {
     addPlugin('untrusted-project', 'prompt');
 
@@ -85,6 +118,42 @@ describe('startup hook diagnostics retain effective plugin sources', () => {
       createInteractiveSession({
         cwd,
         projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
+        provider: createScriptedProvider([]).provider,
+        onTextDelta: () => {},
+        onToolExecution: () => {},
+      }),
+    ).resolves.toBeDefined();
+  });
+
+  it('does not admit plugins without a host-selected enablement source', async () => {
+    addPlugin('no-host-settings', 'prompt');
+
+    await expect(
+      createInteractiveSession({
+        cwd,
+        projectAccess: await createTrustedProjectAccessFixture(cwd),
+        projectSettingsPaths: TEST_PROJECT_SETTINGS_PATHS,
+        provider: createScriptedProvider([]).provider,
+        onTextDelta: () => {},
+        onToolExecution: () => {},
+      }),
+    ).resolves.toBeDefined();
+  });
+
+  it('uses the supplied settings file for plugin enablement instead of HOME', async () => {
+    addPlugin('custom-disabled', 'prompt');
+    writeJson(join(home, '.robota', 'settings.json'), {
+      enabledPlugins: { 'custom-disabled@market': true },
+    });
+    const customSettingsPath = join(home, 'custom-settings.json');
+    writeJson(customSettingsPath, { enabledPlugins: { 'custom-disabled@market': false } });
+
+    await expect(
+      createInteractiveSession({
+        cwd,
+        projectAccess: await createTrustedProjectAccessFixture(cwd),
+        projectSettingsPaths: TEST_PROJECT_SETTINGS_PATHS,
+        userSettingsSources: [createNodeHostSettingsSource('user', customSettingsPath)],
         provider: createScriptedProvider([]).provider,
         onTextDelta: () => {},
         onToolExecution: () => {},

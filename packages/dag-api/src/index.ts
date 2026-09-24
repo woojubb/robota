@@ -11,6 +11,7 @@ export * from './controllers/dag-design-controller.js';
 export * from './controllers/dag-observability-controller.js';
 export * from './controllers/dag-runtime-controller.js';
 export * from './ports/controller-service-ports.js';
+export * from './ports/run-lifecycle-port.js';
 export { PromptApiController } from './controllers/prompt-api-controller.js';
 export * from './composition/create-dag-controller-composition.js';
 export * from './composition/run-progress-event-bus.js';

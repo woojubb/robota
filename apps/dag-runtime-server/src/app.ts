@@ -1,9 +1,14 @@
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 
-import type { IDagBuildInput } from '@robota-sdk/dag-builder';
+import type { IDagBuildInput, IDagBuildPort } from '@robota-sdk/dag-builder';
 import type { Context } from 'hono';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
+import {
+  toProblemDetails,
+  type IDagRunLifecyclePort,
+  type TPrepareRunError,
+} from '@robota-sdk/dag-api';
 import {
   buildValidationError,
   decodeOverwriteRunDraftNodeResultInput,
@@ -11,6 +16,10 @@ import {
   type IDagDefinition,
   type IAssetStore,
   type IRunDraftOperationsPort,
+  type IDagValidationPort,
+  type IDagNodeCatalogPort,
+  type IDagDefinitionReadPort,
+  type IDagDefinitionMutationPort,
   type TRunProgressEvent,
 } from '@robota-sdk/dag-core';
 import type { IDagError, TResult } from '@robota-sdk/dag-core';
@@ -22,15 +31,61 @@ import type {
 } from '@robota-sdk/dag-cost';
 import type {
   IDagOrchestrationCreateRunInput,
-  IDagOrchestrationHttpResponse,
-  IDagOrchestrationPort,
   IDagOrchestrationPublishedWorkflowRunRequest,
   IDagOrchestrationUpdateDraftInput,
 } from '@robota-sdk/dag-orchestration-client';
 import { registerAssetRoutes } from './asset-routes.js';
 
-function reply(c: Context, response: IDagOrchestrationHttpResponse): Response {
-  return c.json(response.payload, response.status as ContentfulStatusCode);
+function runProblem(
+  error: IDagError,
+  instance: string,
+  title = 'DAG operation failed',
+  status = error.code.endsWith('_NOT_FOUND') ? 404 : 400,
+) {
+  return {
+    type: `urn:robota:problems:dag:${error.category ?? 'validation'}`,
+    title,
+    status,
+    detail: error.message,
+    instance,
+    code: error.code,
+    retryable: error.retryable ?? false,
+  };
+}
+
+function runFailure(c: Context, error: IDagError, instance: string): Response {
+  const problem = runProblem(error, instance);
+  return c.json(
+    { ok: false, status: problem.status, errors: [problem] },
+    problem.status as ContentfulStatusCode,
+  );
+}
+
+function runCreateFailure(c: Context, failure: TPrepareRunError): Response {
+  if (failure.phase === 'run_create') return runFailure(c, failure.error, '/v1/dag/runs');
+  const title = failure.phase === 'definition_create' ? 'Validation failed' : 'Publish failed';
+  const errors = failure.errors.map((error) => runProblem(error, '/v1/dag/runs', title, 400));
+  return c.json({ ok: false, status: 400, errors }, 400);
+}
+
+function definitionMutationReply(
+  c: Context,
+  result: TResult<IDagDefinition, IDagError[]>,
+  successStatus: 200 | 201,
+  instance: string,
+  dataOf: (definition: IDagDefinition) => object,
+): Response {
+  if (result.ok) {
+    return c.json({ ok: true, status: successStatus, data: dataOf(result.value) }, successStatus);
+  }
+  return c.json(
+    {
+      ok: false,
+      status: 400,
+      errors: result.error.map((error) => toProblemDetails(error, instance)),
+    },
+    400,
+  );
 }
 
 function costReply<T>(
@@ -196,74 +251,213 @@ function isTerminalProgressEvent(event: TRunProgressEvent): boolean {
 }
 
 /**
- * Native DAG runtime HTTP server (WORKFLOW-002). Maps the `/v1/dag/*` route surface onto an
- * `IDagOrchestrationPort` — typically `createDagFramework().client` (the in-process implementation).
- * No external-runtime API surface. Legacy orchestration handlers forward JSON responses;
- * cost, draft and asset routes map their separate capabilities at the HTTP boundary.
+ * Native DAG runtime HTTP server (WORKFLOW-002). Maps in-process domain capabilities onto
+ * `/v1/dag/*` HTTP responses. No external-runtime API surface.
  *
  * When a `progressSource` is supplied, `GET /v1/dag/runs/:id/events` streams that run's progress as
  * Server-Sent Events; without one, that route answers 501.
  */
 export function createDagRuntimeServer(
-  port: IDagOrchestrationPort,
+  runs: IDagRunLifecyclePort,
   costMeta: ICostMetaOperationsPort,
   runDrafts: IRunDraftOperationsPort,
+  build: IDagBuildPort,
+  validation: IDagValidationPort,
+  catalog: IDagNodeCatalogPort,
+  definitionReads: IDagDefinitionReadPort,
+  definitionMutations: IDagDefinitionMutationPort,
   progressSource?: IRunProgressSource,
   assets?: IAssetStore,
 ): Hono {
   const app = new Hono();
 
   // --- Node catalog ---
-  app.get('/v1/dag/nodes', async (c) => reply(c, await port.listNodes()));
+  app.get('/v1/dag/nodes', async (c) => {
+    const manifests = await catalog.listNodes();
+    return c.json(
+      {
+        ok: true,
+        status: 200,
+        data: {
+          items: manifests.map((manifest) => ({
+            nodeType: manifest.nodeType,
+            displayName: manifest.displayName,
+            category: manifest.category,
+            inputs: manifest.inputs,
+            outputs: manifest.outputs,
+            ...(manifest.configSchema ? { configSchema: manifest.configSchema } : {}),
+          })),
+        },
+      },
+      200,
+    );
+  });
 
   // --- Definitions ---
   app.get('/v1/dag/definitions', async (c) => {
     const dagId = c.req.query('dagId');
-    return reply(c, await port.listDefinitions(dagId !== undefined ? { dagId } : undefined));
+    const items = await definitionReads.listDefinitions(dagId);
+    return c.json({ ok: true, status: 200, data: { items } }, 200);
   });
   app.get('/v1/dag/definitions/:dagId', async (c) => {
-    const version = c.req.query('version');
-    return reply(
-      c,
-      await port.getDefinition(
-        c.req.param('dagId'),
-        version !== undefined ? Number(version) : undefined,
-      ),
-    );
+    const dagId = c.req.param('dagId');
+    const versionQuery = c.req.query('version');
+    const version = versionQuery !== undefined ? Number(versionQuery) : undefined;
+    const definition = await definitionReads.getDefinition(dagId, version);
+    if (definition === undefined) {
+      return c.json(
+        {
+          ok: false,
+          status: 404,
+          errors: [
+            {
+              type: 'urn:robota:problems:dag:validation',
+              title: 'Validation failed',
+              status: 400,
+              detail: 'Definition does not exist',
+              instance: `/v1/dag/definitions/${dagId}${typeof version === 'number' ? `?version=${version}` : ''}`,
+              code: 'DAG_VALIDATION_DEFINITION_NOT_FOUND',
+              retryable: false,
+            },
+          ],
+        },
+        404,
+      );
+    }
+    return c.json({ ok: true, status: 200, data: { definition } }, 200);
   });
   app.post('/v1/dag/definitions', async (c) => {
     const body = await c.req.json<{ definition: IDagDefinition }>();
-    return reply(c, await port.createDefinition(body.definition));
+    const definition = body.definition;
+    return definitionMutationReply(
+      c,
+      await definitionMutations.createDefinition(definition),
+      201,
+      `/v1/dag/definitions/${definition.dagId}/versions/${definition.version}`,
+      (value) => ({ definitionId: `${value.dagId}:${value.version}`, definition: value }),
+    );
   });
   app.put('/v1/dag/definitions/:dagId/draft', async (c) => {
     const body = await c.req.json<Omit<IDagOrchestrationUpdateDraftInput, 'dagId'>>();
-    return reply(c, await port.updateDraft({ dagId: c.req.param('dagId'), ...body }));
+    return definitionMutationReply(
+      c,
+      await definitionMutations.updateDraft(body.definition),
+      200,
+      `/v1/dag/definitions/${c.req.param('dagId')}/versions/${body.version}`,
+      (definition) => ({ definition }),
+    );
   });
   app.post('/v1/dag/definitions/:dagId/validate', async (c) => {
     const body = await c.req.json<{ version: number }>();
-    return reply(c, await port.validateDefinition(c.req.param('dagId'), Number(body.version)));
+    const dagId = c.req.param('dagId');
+    const version = Number(body.version);
+    return definitionMutationReply(
+      c,
+      await definitionMutations.validateDefinition(dagId, version),
+      200,
+      `/v1/dag/definitions/${dagId}/versions/${version}/validate`,
+      (definition) => ({ definition, valid: true }),
+    );
   });
   app.post('/v1/dag/definitions/:dagId/publish', async (c) => {
     const body = await c.req.json<{ version?: number }>();
-    return reply(
+    const dagId = c.req.param('dagId');
+    const version =
+      body.version !== undefined
+        ? Number(body.version)
+        : (await definitionReads.getDefinition(dagId))?.version;
+    if (version === undefined) {
+      return c.json(
+        {
+          ok: false,
+          status: 404,
+          errors: [
+            {
+              type: 'urn:robota:problems:dag:not_found',
+              title: 'Resource not found',
+              status: 404,
+              detail: 'DAG definition not found',
+              instance: `/v1/dag/definitions/${dagId}/publish`,
+              code: 'DAG_NOT_FOUND',
+              retryable: false,
+            },
+          ],
+        },
+        404,
+      );
+    }
+    return definitionMutationReply(
       c,
-      await port.publishDefinition(
-        c.req.param('dagId'),
-        body.version !== undefined ? Number(body.version) : undefined,
-      ),
+      await definitionMutations.publishDefinition(dagId, version),
+      200,
+      `/v1/dag/definitions/${dagId}/versions/${version}/publish`,
+      (definition) => ({ definitionId: `${definition.dagId}:${definition.version}`, definition }),
     );
   });
 
   // --- Run lifecycle ---
   app.post('/v1/dag/runs', async (c) => {
     const body = await c.req.json<IDagOrchestrationCreateRunInput>();
-    return reply(c, await port.createRun(body));
+    const result = await runs.createRun(body);
+    if (!result.ok) return runCreateFailure(c, result.error);
+    return c.json(
+      {
+        ok: true,
+        status: 201,
+        data: {
+          dagRunId: result.value.dagRunId,
+          preparationId: result.value.dagRunId,
+          dagId: result.value.dagId,
+          version: result.value.version,
+          logicalDate: result.value.logicalDate,
+          status: result.value.status,
+        },
+      },
+      201,
+    );
   });
-  app.post('/v1/dag/runs/:id/start', async (c) => reply(c, await port.startRun(c.req.param('id'))));
-  app.get('/v1/dag/runs/:id', async (c) => reply(c, await port.getRunStatus(c.req.param('id'))));
-  app.get('/v1/dag/runs/:id/result', async (c) =>
-    reply(c, await port.getRunResult(c.req.param('id'))),
-  );
+  app.post('/v1/dag/runs/:id/start', async (c) => {
+    const id = c.req.param('id');
+    const result = await runs.startRun(id);
+    return result.ok
+      ? c.json({ ok: true, status: 200, data: result.value }, 200)
+      : runFailure(c, result.error, `/v1/dag/runs/${id}/start`);
+  });
+  app.post('/v1/dag/runs/:id/cancel', async (c) => {
+    const id = c.req.param('id');
+    const result = await runs.cancelRun(id);
+    return result.ok
+      ? c.json({ ok: true, status: 200, data: result.value }, 200)
+      : runFailure(c, result.error, `/v1/dag/runs/${id}/cancel`);
+  });
+  app.get('/v1/dag/runs/:id', async (c) => {
+    const id = c.req.param('id');
+    const result = await runs.getRun(id);
+    return result.ok
+      ? c.json(
+          {
+            ok: true,
+            status: 200,
+            data: { dagRun: result.value.dagRun, taskRuns: result.value.taskRuns },
+          },
+          200,
+        )
+      : runFailure(c, result.error, `/v1/dag/runs/${id}`);
+  });
+  app.get('/v1/dag/runs/:id/result', async (c) => {
+    const id = c.req.param('id');
+    const result = await runs.getRun(id);
+    return result.ok
+      ? c.json(
+          {
+            ok: true,
+            status: 200,
+            data: { dagRun: result.value.dagRun, taskRuns: result.value.taskRuns },
+          },
+          200,
+        )
+      : runFailure(c, result.error, `/v1/dag/runs/${id}/result`);
+  });
 
   // --- Run progress stream (SSE) ---
   app.get('/v1/dag/runs/:id/events', (c) => {
@@ -304,24 +498,70 @@ export function createDagRuntimeServer(
     const body = await c.req
       .json<IDagOrchestrationPublishedWorkflowRunRequest>()
       .catch(() => undefined);
-    return reply(
-      c,
-      await port.startPublishedWorkflowRun(
-        c.req.param('dagId'),
-        body,
-        version !== undefined ? Number(version) : undefined,
-      ),
+    const dagId = c.req.param('dagId');
+    const result = await runs.startPublishedWorkflowRun(
+      dagId,
+      body?.input,
+      version !== undefined ? Number(version) : undefined,
+    );
+    if (!result.ok) return runFailure(c, result.error, `/v1/dag/workflows/${dagId}/runs`);
+    return c.json(
+      {
+        ok: true,
+        status: 201,
+        data: {
+          dagRunId: result.value.dagRunId,
+          preparationId: result.value.dagRunId,
+          dagId: result.value.dagId,
+          version: result.value.version,
+        },
+      },
+      201,
     );
   });
 
   // --- Build / validate (definition authoring) ---
   app.post('/v1/dag/build', async (c) => {
     const body = await c.req.json<IDagBuildInput>();
-    return reply(c, await port.buildDag(body));
+    const result = await build.buildDag(body);
+    if (!result.ok) {
+      return c.json(
+        {
+          ok: false,
+          status: 400,
+          errors: [
+            {
+              type: 'urn:robota:problems:dag:validation',
+              title: 'DAG build failed',
+              status: 400,
+              detail: result.error.message,
+              instance: 'inproc://dag-framework/build',
+              code: result.error.code,
+              retryable: false,
+            },
+          ],
+        },
+        400,
+      );
+    }
+    return c.json(
+      {
+        ok: true,
+        status: 200,
+        data: {
+          definition: result.definition,
+          nodeCount: result.nodeCount,
+          edgeCount: result.edgeCount,
+          warnings: result.warnings,
+        },
+      },
+      200,
+    );
   });
   app.post('/v1/dag/validate', async (c) => {
     const body = await c.req.json<{ definition: IDagDefinition }>();
-    return reply(c, await port.validateDag(body.definition));
+    const result = await validation.validateDag(body.definition);
+    return c.json({ ok: true, status: 200, data: result }, 200);
   });
 
   // --- Assets ---

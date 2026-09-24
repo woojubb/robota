@@ -1,6 +1,5 @@
 import {
   EXECUTION_PROGRESS_EVENTS,
-  DagRunStateMachine,
   buildTaskExecutionError,
   buildValidationError,
   type IClockPort,
@@ -10,14 +9,6 @@ import {
   type ITaskRun,
   type TResult,
 } from '@robota-sdk/dag-core';
-
-/** Non-terminal task statuses that indicate the DAG run is still in progress. */
-const PENDING_TASK_STATUSES = new Set(['created', 'queued', 'running']);
-
-/** Terminal failure task statuses used to determine DAG run outcome.
- * Only 'failed' contributes to a failed DAG outcome. upstream_failed, skipped,
- * and cancelled are non-failure terminal states. */
-const FAILURE_TASK_STATUSES = new Set(['failed']);
 
 /**
  * Checks whether all tasks in a DAG run have reached a terminal state
@@ -36,8 +27,12 @@ export async function finalizeDagRunIfTerminal(
   clock: IClockPort,
   reporter?: IRunProgressEventReporter,
 ): Promise<TResult<void, IDagError>> {
-  const dagRun = await storage.getDagRun(dagRunId);
-  if (!dagRun) {
+  const committed = await storage.commitExecution(dagRunId, {
+    kind: 'finalize',
+    endedAt: clock.nowIso(),
+  });
+  if (committed.error) return { ok: false, error: committed.error };
+  if (committed.runStatus === undefined) {
     return {
       ok: false,
       error: buildValidationError(
@@ -47,28 +42,9 @@ export async function finalizeDagRunIfTerminal(
       ),
     };
   }
-
-  if (dagRun.status !== 'running') {
-    return { ok: true, value: undefined };
-  }
-
+  if (!committed.applied) return { ok: true, value: undefined };
+  const hasFailure = committed.runStatus === 'failed';
   const taskRuns = await storage.listTaskRunsByDagRunId(dagRunId);
-  const hasPendingTask = taskRuns.some((taskRun) => PENDING_TASK_STATUSES.has(taskRun.status));
-  if (hasPendingTask) {
-    return { ok: true, value: undefined };
-  }
-
-  const hasFailure = taskRuns.some((taskRun) => FAILURE_TASK_STATUSES.has(taskRun.status));
-  const transition = DagRunStateMachine.transition(
-    dagRun.status,
-    hasFailure ? 'COMPLETE_FAILURE' : 'COMPLETE_SUCCESS',
-  );
-  if (!transition.ok) {
-    return transition;
-  }
-
-  await storage.updateDagRunStatus(dagRunId, transition.value.nextStatus, clock.nowIso());
-
   if (hasFailure) {
     publishFailureEvent(dagRunId, taskRuns, clock, reporter);
   } else {
@@ -89,7 +65,7 @@ function publishFailureEvent(
   clock: IClockPort,
   reporter?: IRunProgressEventReporter,
 ): void {
-  const failedTaskRun = taskRuns.find((taskRun) => FAILURE_TASK_STATUSES.has(taskRun.status));
+  const failedTaskRun = taskRuns.find((taskRun) => taskRun.status === 'failed');
   const failedError =
     typeof failedTaskRun?.errorCode === 'string' && typeof failedTaskRun.errorMessage === 'string'
       ? buildTaskExecutionError(failedTaskRun.errorCode, failedTaskRun.errorMessage, false, {

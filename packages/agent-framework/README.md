@@ -180,7 +180,8 @@ import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 
 declare const provider: IAIProvider;
-// Supplied by a host-owned WorkspaceTrustService after identity/trust validation.
+// Supplied by a host-owned WorkspaceTrustService configured with projectStateDirectories
+// after identity/trust validation.
 declare const projectAccess: TWorkspaceProjectAccess;
 const cwd = process.cwd();
 
@@ -280,8 +281,11 @@ runtime-registered, root-bound, and cannot be reconstructed from a path or seria
 maintained offline `verify-workspace-project-authority.ts` example for a complete inspect/grant/revoke
 composition and Restricted-versus-trusted observable.
 
-The Node host supplies the production lifecycle through `createNodeWorkspaceTrustService(trustStorePath)`.
-The caller chooses the user-owned store path; the Robota CLI uses `~/.robota/workspace-trust.json`.
+The Node host supplies the production lifecycle through
+`createNodeWorkspaceTrustService(trustStorePath, projectStateDirectories)`. The caller chooses the
+user-owned store path and all four project-state directories; the Robota CLI uses
+`~/.robota/workspace-trust.json` for the trust store. Omitting project-state directories still permits
+trust inspection, but deriving project-state storage then fails closed.
 The service binds grants to the canonical Git worktree and repository common-directory identity,
 stores only owner-readable generation records, and treats non-Git paths, repository replacement,
 revocation, and trust-store errors as Restricted. A later provider settings layer that changes `baseURL`
@@ -362,19 +366,27 @@ const filtered = registry.getCommands('mod'); // matches "mode", "model"
 registry.resolveQualifiedName('audit'); // "my-plugin:audit"
 ```
 
-`SkillCommandSource` is the SDK common API used by the skills command module. It discovers skills from (highest priority first):
-
-- `<cwd>/.claude/skills/*/SKILL.md`
-- `<cwd>/.claude/commands/*.md` (Claude Code compatible)
-- `~/.robota/skills/*/SKILL.md`
-- `<cwd>/.agents/skills/*/SKILL.md`
+`SkillCommandSource` is the SDK common API used by the skills command module. The host supplies both
+the contribution sources and ordered root descriptors; absent sources or roots means no skill file
+discovery. This keeps product directory choices out of the framework and lets inspection use the same
+roots as activation.
 
 Model-invocable skills are exposed to the model as metadata only when the session has a composed
 model-invocable `skills` command descriptor. `@robota-sdk/agent-command` owns `skills` and
-activates skills through the SDK host API. Models use the SDK-projected `robota_command_skills`
-tool with skill arguments in `args`. Mentioning a skill in ordinary prose,
+activates skills through the SDK host API. Models use the SDK-projected `command_skills`
+tool by default, with skill arguments in `args`. A product host can set
+`modelCommandToolPrefix` on its session options to choose another prefix; Robota sets
+`robota_command_`. Mentioning a skill in ordinary prose,
 recommending a skill in assistant text, or matching a natural-language phrase in SDK/TUI code does
 not activate the skill.
+
+The framework's default prompt enclosure for attached `@file` content is
+`<file_references>`. Product hosts can set `promptFileReferenceTag` on session options to
+choose a different enclosure; Robota sets `robota_file_references`. SDK consumers that
+need the previous identifiers should pass `modelCommandToolPrefix: 'robota_command_'`
+and `promptFileReferenceTag: 'robota_file_references'` explicitly. Direct calls to
+`createProviderSafeModelCommandToolName`, `createModelCommandToolProjection`, and
+`buildPromptWithFileReferences` can pass the same values as their optional arguments.
 
 ### createQuery()
 

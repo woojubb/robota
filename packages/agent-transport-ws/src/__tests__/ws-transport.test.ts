@@ -26,10 +26,10 @@ function createMockSession(): IInteractiveSession {
 }
 
 describe('createWsTransport', () => {
-  it('preserves the legacy adapter declaration and accepts the named subset', () => {
+  it('accepts only the protocol session roles required by the carrier', () => {
     const transport = createWsTransport({ send: vi.fn() });
-    expectTypeOf(transport).toMatchTypeOf<ITransportAdapter<IInteractiveSession>>();
-    expectTypeOf(transport.attach).parameter(0).toMatchTypeOf<IProtocolSession>();
+    expectTypeOf(transport).toMatchTypeOf<ITransportAdapter<IProtocolSession>>();
+    expectTypeOf(transport.attach).toEqualTypeOf<(session: IProtocolSession) => void>();
   });
 
   it('returns an adapter with name "ws"', () => {

@@ -8,7 +8,6 @@
 import { createOutboundDelivery, createSessionMessageHandler } from '@robota-sdk/agent-transport';
 
 import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { TDriverId } from '@robota-sdk/agent-interface-session';
 import type {
   ITransportAdapter,
@@ -32,8 +31,7 @@ export interface IWsTransportOptions {
   surface?: TUsageSurface;
 }
 
-export interface IWsTransport extends ITransportAdapter<IInteractiveSession> {
-  attach(session: IProtocolSession): void;
+export interface IWsTransport extends ITransportAdapter<IProtocolSession> {
   onMessage: ((data: string) => void) | null;
 }
 

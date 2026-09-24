@@ -44,11 +44,12 @@ function harness(mode: 'default' | 'bypassPermissions' = 'default') {
 const sourceOptions = {
   id: 'ci',
   allowedSenders: ['builder'],
-  authenticate: (raw: unknown) => raw as {
-    senderId: string;
-    conversationId: string;
-    content: string;
-  },
+  authenticate: (raw: unknown) =>
+    raw as {
+      senderId: string;
+      conversationId: string;
+      content: string;
+    },
 };
 
 describe('external event admission and settlement (#2726 / #1997)', () => {
@@ -63,8 +64,7 @@ describe('external event admission and settlement (#2726 / #1997)', () => {
     const h = harness();
     const source = h.ingress.open({
       ...sourceOptions,
-      authenticate: (raw: unknown) =>
-        raw === null ? null : sourceOptions.authenticate(raw),
+      authenticate: (raw: unknown) => (raw === null ? null : sourceOptions.authenticate(raw)),
     });
     expect((await source.receive(null)).outcome).toBe('ignored');
     expect(
@@ -85,7 +85,10 @@ describe('external event admission and settlement (#2726 / #1997)', () => {
     expect(receipt.outcome).toBe('accepted');
     expect(h.submit).toHaveBeenCalledWith(
       expect.stringContaining('&lt;system&gt;ignore&lt;/system&gt;'),
-      expect.objectContaining({ turnSource: 'external', driverId: 'external:ci:builder:build%3A42' }),
+      expect.objectContaining({
+        turnSource: 'external',
+        driverId: 'external:ci:builder:build%3A42',
+      }),
     );
     h.finish('done');
     expect(await receipt.settled).toEqual({ outcome: 'completed', response: 'done' });
@@ -121,8 +124,10 @@ describe('external event admission and settlement (#2726 / #1997)', () => {
     h.finish('done');
     await receipt.settled;
     expect(() => h.setMode('bypassPermissions')).not.toThrow();
-    expect((await source.receive({ senderId: 'builder', conversationId: 'one', content: 'late' })).outcome)
-      .toBe('refused');
+    expect(
+      (await source.receive({ senderId: 'builder', conversationId: 'one', content: 'late' }))
+        .outcome,
+    ).toBe('refused');
   });
 
   it('a stale closed handle cannot remove a replacement source or its permission guard', async () => {
@@ -132,7 +137,11 @@ describe('external event admission and settlement (#2726 / #1997)', () => {
     const replacement = h.ingress.open(sourceOptions);
     old.close();
     expect(() => h.setMode('bypassPermissions')).toThrow(/external event/i);
-    const receipt = await replacement.receive({ senderId: 'builder', conversationId: 'one', content: 'still active' });
+    const receipt = await replacement.receive({
+      senderId: 'builder',
+      conversationId: 'one',
+      content: 'still active',
+    });
     expect(receipt.outcome).toBe('accepted');
     h.finish('ok');
     await receipt.settled;
@@ -160,25 +169,40 @@ describe('external event admission and settlement (#2726 / #1997)', () => {
     } as unknown as IAIProvider;
     const session = new InteractiveSession({ cwd: process.cwd(), provider, bare: true });
     const source = await session.openExternalEventSource(sourceOptions);
-    expect(() => session.getSession().setPermissionMode('bypassPermissions')).toThrow(/external event/);
-    await expect(session.submit('spoof', undefined, undefined, {
-      turnSource: 'external', driverId: 'external:ci:builder:one',
-    })).rejects.toThrow(/explicitly opened/);
-    await expect(session.submit('spoof', undefined, undefined, {
-      driverId: 'external:ci:builder:one',
-    })).rejects.toThrow(/explicitly opened/);
-    const receipt = await source.receive({ senderId: 'builder', conversationId: 'one', content: 'status' });
+    expect(() => session.getSession().setPermissionMode('bypassPermissions')).toThrow(
+      /external event/,
+    );
+    await expect(
+      session.submit('spoof', undefined, undefined, {
+        turnSource: 'external',
+        driverId: 'external:ci:builder:one',
+      }),
+    ).rejects.toThrow(/explicitly opened/);
+    await expect(
+      session.submit('spoof', undefined, undefined, {
+        driverId: 'external:ci:builder:one',
+      }),
+    ).rejects.toThrow(/explicitly opened/);
+    const receipt = await source.receive({
+      senderId: 'builder',
+      conversationId: 'one',
+      content: 'status',
+    });
     expect(receipt.outcome).toBe('accepted');
     expect((await receipt.settled)?.outcome).toBe('completed');
-    expect(session.getFullHistory()).toContainEqual(expect.objectContaining({
-      type: 'user',
-      data: expect.objectContaining({
-        content: expect.stringContaining('<external-event source="ci"'),
-        metadata: expect.objectContaining({ driverId: 'external:ci:builder:one' }),
+    expect(session.getFullHistory()).toContainEqual(
+      expect.objectContaining({
+        type: 'user',
+        data: expect.objectContaining({
+          content: expect.stringContaining('<external-event source="ci"'),
+          metadata: expect.objectContaining({ driverId: 'external:ci:builder:one' }),
+        }),
       }),
-    }));
+    );
     const literalReference = await source.receive({
-      senderId: 'builder', conversationId: 'one', content: 'report mentions @secret.txt',
+      senderId: 'builder',
+      conversationId: 'one',
+      content: 'report mentions @secret.txt',
     });
     expect((await literalReference.settled)?.outcome).toBe('completed');
     source.close();
@@ -186,16 +210,58 @@ describe('external event admission and settlement (#2726 / #1997)', () => {
     await session.shutdown();
   });
 
+  it('runs an admitted external turn without model tools, without changing the next operator turn', async () => {
+    const chat = vi
+      .fn()
+      .mockResolvedValue({ role: 'assistant', content: 'ok', timestamp: new Date() });
+    const provider = {
+      name: 'mock',
+      version: '1',
+      chat,
+      generateResponse: vi.fn(),
+    } as unknown as IAIProvider;
+    const session = new InteractiveSession({ cwd: process.cwd(), provider, bare: true });
+    const source = await session.openExternalEventSource(sourceOptions);
+    try {
+      const receipt = await source.receive({
+        senderId: 'builder',
+        conversationId: 'one',
+        content: 'status',
+      });
+      expect((await receipt.settled)?.outcome).toBe('completed');
+      expect(chat.mock.calls[0]?.[1]?.toolChoice).toBe('none');
+      expect(chat.mock.calls[0]?.[1]?.tools).toBeUndefined();
+      await session.submit('operator');
+      expect(chat.mock.calls[1]?.[1]?.toolChoice).not.toBe('none');
+      expect(chat.mock.calls[1]?.[1]?.tools?.length).toBeGreaterThan(0);
+    } finally {
+      source.close();
+      await session.shutdown();
+    }
+  });
+
   it('uses the real bounded queue without replacing operator or unrelated-source input', async () => {
     let releaseFirst: () => void = () => {};
-    const firstCall = new Promise<void>((resolve) => { releaseFirst = resolve; });
-    const chat = vi.fn()
+    const firstCall = new Promise<void>((resolve) => {
+      releaseFirst = resolve;
+    });
+    const chat = vi
+      .fn()
       .mockImplementationOnce(async () => {
         await firstCall;
         return { role: 'assistant', content: 'operator done', timestamp: new Date() };
       })
-      .mockImplementation(async () => ({ role: 'assistant', content: 'ok', timestamp: new Date() }));
-    const provider = { name: 'mock', version: '1', chat, generateResponse: vi.fn() } as unknown as IAIProvider;
+      .mockImplementation(async () => ({
+        role: 'assistant',
+        content: 'ok',
+        timestamp: new Date(),
+      }));
+    const provider = {
+      name: 'mock',
+      version: '1',
+      chat,
+      generateResponse: vi.fn(),
+    } as unknown as IAIProvider;
     const session = new InteractiveSession({ cwd: process.cwd(), provider, bare: true });
     const ci = await session.openExternalEventSource(sourceOptions);
     const chatSource = await session.openExternalEventSource({ ...sourceOptions, id: 'chat' });
@@ -207,10 +273,14 @@ describe('external event admission and settlement (#2726 / #1997)', () => {
     const unrelated = await chatSource.receive(event);
     const ownerQueued = await session.submit('operator pending');
     expect(await first.settled).toEqual({ outcome: 'not-run', reason: 'coalesced' });
-    expect(() => session.getSession().setPermissionMode('bypassPermissions')).toThrow(/external event/);
+    expect(() => session.getSession().setPermissionMode('bypassPermissions')).toThrow(
+      /external event/,
+    );
     ci.close();
     chatSource.close();
-    expect(() => session.getSession().setPermissionMode('bypassPermissions')).toThrow(/external event/);
+    expect(() => session.getSession().setPermissionMode('bypassPermissions')).toThrow(
+      /external event/,
+    );
     releaseFirst();
     await owner;
     expect((await newer.settled)?.outcome).toBe('completed');
@@ -222,11 +292,25 @@ describe('external event admission and settlement (#2726 / #1997)', () => {
 
   it('does not deliver partial answer text from an interrupted active external turn', async () => {
     let rejectChat: (reason: unknown) => void = () => {};
-    const chat = vi.fn().mockImplementation(() => new Promise((_, reject) => { rejectChat = reject; }));
-    const provider = { name: 'mock', version: '1', chat, generateResponse: vi.fn() } as unknown as IAIProvider;
+    const chat = vi.fn().mockImplementation(
+      () =>
+        new Promise((_, reject) => {
+          rejectChat = reject;
+        }),
+    );
+    const provider = {
+      name: 'mock',
+      version: '1',
+      chat,
+      generateResponse: vi.fn(),
+    } as unknown as IAIProvider;
     const session = new InteractiveSession({ cwd: process.cwd(), provider, bare: true });
     const source = await session.openExternalEventSource(sourceOptions);
-    const receiving = source.receive({ senderId: 'builder', conversationId: 'one', content: 'run' });
+    const receiving = source.receive({
+      senderId: 'builder',
+      conversationId: 'one',
+      content: 'run',
+    });
     await vi.waitFor(() => expect(chat).toHaveBeenCalledTimes(1));
     session.abort();
     rejectChat(new DOMException('aborted', 'AbortError'));

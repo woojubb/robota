@@ -1,7 +1,13 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 import type { ICommand } from '@robota-sdk/agent-interface-command';
 
 import { createSkillExecutionPort } from '../skill-execution-port.js';
+import { createNodeHostContributionSource } from '../../contributions/node-host-contribution-source.js';
+import { createDefaultUserContributionSources } from '../../contributions/initial-contribution-sources.js';
 
 /**
  * ARCH-PROVIDER-005 TC-02: the concrete skill-execution port must reproduce the REAL inject-prompt shape
@@ -19,8 +25,17 @@ function injectSkill(skillContent: string): ICommand {
 }
 
 describe('createSkillExecutionPort (ARCH-PROVIDER-005 TC-02)', () => {
+  it('requires host-selected contribution sources instead of discovering from ambient home', () => {
+    expect(() => createDefaultUserContributionSources(undefined as never)).toThrow(
+      'User contribution root must be provided by the host.',
+    );
+    expect(() => createSkillExecutionPort(undefined as never)).toThrow(
+      'Contribution sources must be provided by the host.',
+    );
+  });
+
   it('wraps resolved content in <skill> XML and substitutes $ARGUMENTS', async () => {
-    const port = createSkillExecutionPort();
+    const port = createSkillExecutionPort([]);
     const result = await port.resolveSkill(injectSkill('Say hello to $ARGUMENTS.'), 'World');
     expect(result.mode).toBe('inject');
     expect(result.prompt).toContain('<skill name="greet">');
@@ -30,7 +45,7 @@ describe('createSkillExecutionPort (ARCH-PROVIDER-005 TC-02)', () => {
   });
 
   it('strips shell interpolations (empty-shell) rather than executing them', async () => {
-    const port = createSkillExecutionPort();
+    const port = createSkillExecutionPort([]);
     const result = await port.resolveSkill(injectSkill('Context: !`whoami` done.'), '');
     expect(result.mode).toBe('inject');
     // No shellExec is provided by the port → the `!`...`` interpolation is stripped, not run.
@@ -39,8 +54,30 @@ describe('createSkillExecutionPort (ARCH-PROVIDER-005 TC-02)', () => {
   });
 
   it('exposes skill discovery via loadCommands', () => {
-    const port = createSkillExecutionPort();
+    const port = createSkillExecutionPort([]);
     // A directory with no skills yields an array (no throw); real discovery is filesystem-backed.
     expect(Array.isArray(port.loadCommands())).toBe(true);
+  });
+
+  it('discovers skills only under host-selected roots', () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'robota-skill-port-roots-'));
+    try {
+      const skillDir = join(cwd, 'custom', 'skills', 'audit');
+      mkdirSync(skillDir, { recursive: true });
+      writeFileSync(
+        join(skillDir, 'SKILL.md'),
+        ['---', 'name: audit', 'description: Audit code', '---', 'Audit.'].join('\n'),
+      );
+      const source = createNodeHostContributionSource(cwd);
+
+      expect(createSkillExecutionPort([source]).loadCommands()).toEqual([]);
+      expect(
+        createSkillExecutionPort([source], [{ root: join('custom', 'skills'), kind: 'skills' }])
+          .loadCommands()
+          .map((command) => command.name),
+      ).toContain('audit');
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
   });
 });

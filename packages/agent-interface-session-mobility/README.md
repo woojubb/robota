@@ -3,8 +3,8 @@
 Session-mobility contract interfaces for the Robota SDK — peer messaging between live sessions, and
 handoff of session authority to another machine.
 
-Type declarations plus four discriminators. This package declares that authority **can** move and what
-that looks like; it decides nothing about whether a given move is permitted.
+This package owns the handoff authority transaction, settled-work offer policy, and resource
+inventory classification. A host still decides whether a given destination is authorized.
 
 ```ts
 import type { IPeerMessage } from '@robota-sdk/agent-interface-session-mobility';

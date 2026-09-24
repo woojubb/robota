@@ -6,6 +6,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 import { storeAgentToolDeps } from '../../tools/agent-tool.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
+import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
 import { InteractiveSession } from '../interactive-session.js';
 
 import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
@@ -68,6 +69,13 @@ function createTempSkill(
   );
 }
 
+function skillHostOptions(cwd: string) {
+  return {
+    contributionSources: createNodeHostContributionSourcesFixture(cwd),
+    skillRoots: [{ root: join('.agents', 'skills'), kind: 'skills' as const }],
+  };
+}
+
 function makeTool(name: string): IToolWithEventService {
   return {
     getName: () => name,
@@ -119,6 +127,7 @@ describe('InteractiveSession skill activation common API', () => {
     const session = new InteractiveSession({
       session: parentSession as never,
       cwd,
+      ...skillHostOptions(cwd),
       projectAccess: await createTrustedProjectAccessFixture(cwd),
     });
     const skillActivation = vi.fn();
@@ -166,6 +175,7 @@ describe('InteractiveSession skill activation common API', () => {
     const session = new InteractiveSession({
       session: parentSession as never,
       cwd,
+      ...skillHostOptions(cwd),
       projectAccess: await createTrustedProjectAccessFixture(cwd),
     });
 
@@ -198,6 +208,7 @@ describe('InteractiveSession skill activation common API', () => {
     const session = new InteractiveSession({
       session: parentSession as never,
       cwd,
+      ...skillHostOptions(cwd),
       projectAccess: await createTrustedProjectAccessFixture(cwd),
     });
 
@@ -278,6 +289,7 @@ describe('InteractiveSession skill activation common API', () => {
     const session = new InteractiveSession({
       session: parentSession as never,
       cwd,
+      ...skillHostOptions(cwd),
       projectAccess: await createTrustedProjectAccessFixture(cwd),
       sessionStore,
     });
@@ -305,6 +317,7 @@ describe('InteractiveSession skill activation common API', () => {
     const session = new InteractiveSession({
       session: parentSession as never,
       cwd,
+      ...skillHostOptions(cwd),
       projectAccess: await createTrustedProjectAccessFixture(cwd),
     });
     const exploreAgent: IAgentDefinition = {

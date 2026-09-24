@@ -55,6 +55,12 @@ describe('parseMaxTurns', () => {
 });
 
 describe('parseCliArgs', () => {
+  it('accepts a bounded supervised session identity only in serve mode', () => {
+    const id = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
+    expect(parseCliArgs(['--serve', '--supervised-session-id', id]).supervisedSessionId).toBe(id);
+    expect(() => parseCliArgs(['--supervised-session-id', id])).toThrow(/serve/i);
+    expect(() => parseCliArgs(['--serve', '--supervised-session-id', '../escape'])).toThrow(/supervised-session-id/i);
+  });
   let originalArgv: string[];
 
   beforeEach(() => {
@@ -63,6 +69,21 @@ describe('parseCliArgs', () => {
 
   afterEach(() => {
     process.argv = originalArgv;
+  });
+
+  it('requires an explicit per-server sender grant for each external event source', () => {
+    expect(parseCliArgs(['--external-event-allow', 'chat:alice', '--external-event-allow', 'chat:bob']).externalEventAllow)
+      .toEqual(['chat:alice', 'chat:bob']);
+    expect(parseCliArgs([]).externalEventAllow).toEqual([]);
+    expect(() => parseCliArgs(['--external-event-allow', 'chat:'])).toThrow('external-event-allow');
+    expect(() => parseCliArgs(['--external-event-allow', 'chat:alice', '-p', 'hello']))
+      .toThrow('interactive');
+    expect(() => parseCliArgs(['--external-event-allow', 'chat:alice', '--serve']))
+      .toThrow('interactive');
+    expect(() => parseCliArgs(['--external-event-allow', 'chat:alice', '--reset']))
+      .toThrow('interactive');
+    expect(() => parseCliArgs(['--external-event-allow', 'chat:alice', 'user-local']))
+      .toThrow('interactive');
   });
 
   it('parses the effort flag and validates its values', () => {

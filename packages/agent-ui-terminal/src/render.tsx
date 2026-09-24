@@ -10,6 +10,7 @@ import App from './App.js';
 import { AttentionTracker } from './attention/attention-tracker.js';
 import { FocusReportingStdin } from './attention/focus-input-filter.js';
 import { KeybindingsProvider } from './keybindings/keybindings-context.js';
+import { ProductDisplayNameProvider } from './product-display-name-context.js';
 import { writeScreenReaderAnnouncement } from './screen-reader-announcement.js';
 import { ScreenReaderProvider } from './screen-reader-context.js';
 import { ScreenReaderPacingProvider } from './screen-reader-pacing-context.js';
@@ -51,8 +52,11 @@ import type {
   IOrgPolicy,
   IProviderErrorGuidance,
   IProjectSettingsPath,
+  IContributionSource,
+  ISkillRootDescriptor,
   INodeHostSettingsSource,
   IToolCallHandoffPolicy,
+  ICreateSessionOptions,
 } from '@robota-sdk/agent-framework';
 import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
 import type {
@@ -63,10 +67,21 @@ import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transpo
 
 export interface IRenderOptions {
   cwd: string;
+  /** Product identity for terminal labels, title, and host-facing copy. */
+  productDisplayName?: string;
+  modelCommandToolPrefix?: string;
+  subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
+  commandHookShell?: string;
+  promptFileReferenceTag?: string;
   provider: IAIProvider;
   providerErrorGuidance?: IProviderErrorGuidance;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
+  baselinePermissionAllow?: readonly string[];
+  /** Host-selected task-context root; absent means no framework task-directory scan. */
+  taskContext?: { readonly enabled?: boolean; readonly dir?: string };
+  contributionSources?: readonly IContributionSource[];
+  skillRoots?: readonly ISkillRootDescriptor[];
   userSettingsSources?: readonly INodeHostSettingsSource[];
   /**
    * CLI-083 (issue #2287) — the org policy, forwarded to the session so `blockedCommands` is
@@ -130,6 +145,7 @@ export interface IRenderOptions {
    */
   agentDefinitions?: readonly IAgentDefinition[];
   agentDefinitionRoots?: readonly string[];
+  pluginDirectories?: { readonly user?: string; readonly project?: string };
   /**
    * ARCH-006: tools contributed by the composition root (the capability packs `assembleProduct` merged)
    * and, when the profile hands the packs the whole tool surface, the suppressed framework default tier
@@ -219,10 +235,30 @@ export function toChannelOptions(
     ...(options.providerErrorGuidance !== undefined
       ? { providerErrorGuidance: options.providerErrorGuidance }
       : {}),
+    ...(options.promptFileReferenceTag !== undefined
+      ? { promptFileReferenceTag: options.promptFileReferenceTag }
+      : {}),
+    ...(options.modelCommandToolPrefix !== undefined
+      ? { modelCommandToolPrefix: options.modelCommandToolPrefix }
+      : {}),
+    ...(options.subagentHookEnvironmentNames !== undefined
+      ? { subagentHookEnvironmentNames: options.subagentHookEnvironmentNames }
+      : {}),
+    ...(options.commandHookShell !== undefined
+      ? { commandHookShell: options.commandHookShell }
+      : {}),
     ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
     ...(options.projectSettingsPaths !== undefined
       ? { projectSettingsPaths: options.projectSettingsPaths }
       : {}),
+    ...(options.baselinePermissionAllow !== undefined
+      ? { baselinePermissionAllow: options.baselinePermissionAllow }
+      : {}),
+    ...(options.taskContext !== undefined ? { taskContext: options.taskContext } : {}),
+    ...(options.contributionSources !== undefined
+      ? { contributionSources: options.contributionSources }
+      : {}),
+    ...(options.skillRoots !== undefined ? { skillRoots: options.skillRoots } : {}),
     ...(options.userSettingsSources !== undefined
       ? { userSettingsSources: options.userSettingsSources }
       : {}),
@@ -263,6 +299,9 @@ export function toChannelOptions(
       : {}),
     ...(options.agentDefinitionRoots !== undefined
       ? { agentDefinitionRoots: options.agentDefinitionRoots }
+      : {}),
+    ...(options.pluginDirectories !== undefined
+      ? { pluginDirectories: options.pluginDirectories }
       : {}),
     ...(options.additionalTools !== undefined ? { additionalTools: options.additionalTools } : {}),
     ...(options.defaultTools !== undefined ? { defaultTools: options.defaultTools } : {}),
@@ -409,33 +448,38 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
 
   const pacingPort = parked === undefined ? undefined : toPacingPort(parked);
   const tree = (
-    <KeybindingsProvider source={options.keybindingsSource}>
-      <ScreenReaderProvider enabled={screenReader}>
-        <App
-          cwd={options.cwd}
-          createChannel={createChannel}
-          providerOverride={options.providerOverride}
-          providerType={options.providerType}
-          modelId={options.modelId}
-          permissionMode={options.permissionMode}
-          version={options.version}
-          sessionStore={options.sessionStore}
-          resumeSessionId={options.resumeSessionId}
-          showSessionPickerOnStart={options.showSessionPickerOnStart}
-          initialInput={options.initialInput}
-          initialInputOrigin={options.initialInputOrigin}
-          startupUpdateNotice={options.startupUpdateNotice}
-          transportRegistry={options.transportRegistry}
-          pluginAdapter={options.commandHostAdapters?.plugin}
-          cliAdapter={options.cliAdapter}
-          promptHistorySource={options.promptHistorySource}
-          promptHistoryProject={options.promptHistoryProject}
-          themeRegistry={options.themeRegistry}
-          reducedMotion={options.reducedMotion}
-          reducedMotionOverride={options.reducedMotionOverride}
-        />
-      </ScreenReaderProvider>
-    </KeybindingsProvider>
+    <ProductDisplayNameProvider
+      name={options.productDisplayName}
+      modelCommandToolPrefix={options.modelCommandToolPrefix}
+    >
+      <KeybindingsProvider source={options.keybindingsSource}>
+        <ScreenReaderProvider enabled={screenReader}>
+          <App
+            cwd={options.cwd}
+            createChannel={createChannel}
+            providerOverride={options.providerOverride}
+            providerType={options.providerType}
+            modelId={options.modelId}
+            permissionMode={options.permissionMode}
+            version={options.version}
+            sessionStore={options.sessionStore}
+            resumeSessionId={options.resumeSessionId}
+            showSessionPickerOnStart={options.showSessionPickerOnStart}
+            initialInput={options.initialInput}
+            initialInputOrigin={options.initialInputOrigin}
+            startupUpdateNotice={options.startupUpdateNotice}
+            transportRegistry={options.transportRegistry}
+            pluginAdapter={options.commandHostAdapters?.plugin}
+            cliAdapter={options.cliAdapter}
+            promptHistorySource={options.promptHistorySource}
+            promptHistoryProject={options.promptHistoryProject}
+            themeRegistry={options.themeRegistry}
+            reducedMotion={options.reducedMotion}
+            reducedMotionOverride={options.reducedMotionOverride}
+          />
+        </ScreenReaderProvider>
+      </KeybindingsProvider>
+    </ProductDisplayNameProvider>
   );
   const instance = render(
     pacingPort === undefined ? (

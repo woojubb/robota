@@ -80,6 +80,36 @@ describe('LlmTextNodeDefinition (ARCH-PROVIDER-003)', () => {
     capturedConfig = undefined;
   });
 
+  it('forwards active cancellation and never falls back to another provider', async () => {
+    const controller = new AbortController();
+    mockRun.mockImplementationOnce(async (_prompt, options) => {
+      expect(options?.signal).toBe(controller.signal);
+      controller.abort();
+      throw new Error('provider aborted');
+    });
+    const node = new LlmTextNodeDefinition([stubDefinition('first'), stubDefinition('second')]);
+    const result = await node.taskHandler.execute(
+      { text: 'hello' },
+      {
+        ...createContext({
+          providers: [
+            { provider: 'first', priority: 1 },
+            { provider: 'second', priority: 2 },
+          ],
+        }),
+        signal: controller.signal,
+      },
+    );
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: 'DAG_TASK_EXECUTION_CANCELLED',
+        retryable: false,
+      },
+    });
+  });
+
   it('has the collapsed llm-text metadata', () => {
     const node = new LlmTextNodeDefinition([stubDefinition('stub')]);
     expect(node.nodeType).toBe('llm-text');

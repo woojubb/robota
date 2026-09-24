@@ -58,10 +58,19 @@ export interface ITuiInteractionChannelOptions {
   cwd: string;
   provider: IAIProvider;
   providerErrorGuidance?: IProviderErrorGuidance;
+  promptFileReferenceTag?: string;
+  modelCommandToolPrefix?: string;
+  subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
+  commandHookShell?: string;
   /** Resolved organization policy forwarded to the interactive session. */
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
+  baselinePermissionAllow?: readonly string[];
+  /** Host-selected task-context root; absent means no framework task-directory scan. */
+  taskContext?: { readonly enabled?: boolean; readonly dir?: string };
+  contributionSources?: ICreateSessionOptions['contributionSources'];
+  skillRoots?: ICreateSessionOptions['skillRoots'];
   userSettingsSources?: readonly INodeHostSettingsSource[];
   /** Explicit authority- and permission-backed edit checkpoint capability. */
   editCheckpointStore?: EditCheckpointStore;
@@ -96,6 +105,7 @@ export interface ITuiInteractionChannelOptions {
   /** ARCH-005: composition-root-contributed subagent definitions (merged capability packs). */
   agentDefinitions?: readonly IAgentDefinition[];
   agentDefinitionRoots?: readonly string[];
+  pluginDirectories?: { readonly user?: string; readonly project?: string };
   /**
    * ARCH-006: tools contributed by the composition root (the capability packs `assembleProduct` merged)
    * and, when the profile hands the packs the whole tool surface, the suppressed framework default tier
@@ -110,7 +120,7 @@ export interface ITuiInteractionChannelOptions {
   remoteCommandPolicy?: IRemoteCommandPolicy;
   transportRegistry?: ITransportRegistryView;
   /** Bind concrete transports to each newly constructed session before registry startup. */
-  bindTransports?: (session: IInteractiveSession) => void;
+  bindTransports?: (session: IInteractiveSession) => void | Promise<void>;
   language?: string;
   reloadPluginCommandSource?: (registry: CommandRegistry) => void;
   agentName?: string;

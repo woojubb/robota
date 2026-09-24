@@ -83,6 +83,12 @@ async function main(): Promise<void> {
   const service = new WorkspaceTrustService({
     identityResolver: resolver,
     store: new MemoryTrustStore(),
+    projectStateDirectories: {
+      sessions: join('.robota', 'sessions'),
+      'session-logs': join('.robota', 'logs'),
+      memory: join('.robota', 'memory'),
+      checkpoints: join('.robota', 'checkpoints'),
+    },
   });
   let revoked = false;
 
@@ -96,6 +102,7 @@ async function main(): Promise<void> {
     const settings = createWorkspaceProjectSettingsWriter(access.authority, {
       status: 'approved',
       target: 'project-local',
+      relativePath: '.robota/settings.local.json',
       purpose: 'ARCH-2151 public settings scenario',
     });
     const sessions = getWorkspaceProjectStateStorage(access.authority, 'sessions');

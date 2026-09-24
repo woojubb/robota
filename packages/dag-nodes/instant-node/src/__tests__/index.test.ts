@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+const mockRun = vi.hoisted(() => vi.fn().mockResolvedValue('mocked response'));
+
 // Only the agent entrypoint is stubbed. Provider construction is supplied through the injected
 // provider-definition registry, which keeps this leaf test independent of vendor SDK packages.
 vi.mock('@robota-sdk/agent-core', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@robota-sdk/agent-core')>()),
   Robota: vi.fn().mockImplementation(() => ({
-    run: vi.fn().mockResolvedValue('mocked response'),
+    run: mockRun,
   })),
 }));
 
@@ -122,6 +124,26 @@ describe('PromptBackedNodeDefinition.taskHandler.execute', () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+  });
+
+  it('forwards cancellation and discards a provider response returned after abort', async () => {
+    const controller = new AbortController();
+    mockRun.mockImplementationOnce(async (_prompt, options) => {
+      expect(options.signal).toBe(controller.signal);
+      controller.abort();
+      return 'late response';
+    });
+    const result = await createTestNode().taskHandler.execute(
+      { text: 'hello' },
+      { ...MOCK_CONTEXT, signal: controller.signal },
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: 'DAG_TASK_EXECUTION_CANCELLED',
+        retryable: false,
+      },
+    });
   });
 
   it('renders template and returns output on success', async () => {
@@ -314,7 +336,10 @@ describe('composite nested-run lineage', () => {
   it('passes immutable root/parent lineage to a child runner', async () => {
     const runner = vi.fn(async () => ({ ok: true, outputs: {} }));
     const node = composite('bounded', ['input'], runner);
-    const result = await node.taskHandler.execute({ text: 'x' }, context('bounded'));
+    const ctx = context('bounded');
+    ctx.snapshotBudget = { admit: vi.fn(), admitValue: vi.fn(), admitRun: vi.fn(), close: vi.fn() };
+    ctx.byteLimits = { maxTextRepeatOutputBytes: 10 };
+    const result = await node.taskHandler.execute({ text: 'x' }, ctx);
     expect(result.ok).toBe(true);
     expect(runner).toHaveBeenCalledWith(expect.any(Object), expect.any(Object), {
       rootRunId: 'test-run',
@@ -322,6 +347,47 @@ describe('composite nested-run lineage', () => {
       depth: 1,
       maxDepth: 3,
       ancestorCompositeNodeTypes: ['bounded'],
+    }, { snapshotBudget: ctx.snapshotBudget, byteLimits: ctx.byteLimits });
+  });
+
+  it('passes the exact parent signal and refuses a pre-aborted child launch', async () => {
+    const controller = new AbortController();
+    const runner = vi.fn(async () => ({ ok: true, outputs: {} }));
+    const node = composite('bounded', ['input'], runner);
+    const ctx = { ...context('bounded'), signal: controller.signal };
+    expect((await node.taskHandler.execute({ text: 'x' }, ctx)).ok).toBe(true);
+    expect(runner).toHaveBeenCalledWith(
+      expect.any(Object), expect.any(Object), expect.any(Object),
+      expect.objectContaining({ signal: controller.signal }),
+    );
+
+    controller.abort();
+    const cancelled = await node.taskHandler.execute({ text: 'x' }, ctx);
+    expect(cancelled).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_CANCELLED', retryable: false },
+    });
+    expect(runner).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(['success', 'throw'])('parent abort wins a late child %s', async (outcome) => {
+    const controller = new AbortController();
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    const runner = vi.fn(async () => {
+      await held;
+      if (outcome === 'throw') throw new Error('late child failure');
+      return { ok: true, outputs: {} };
+    });
+    const node = composite('bounded', ['input'], runner);
+    const execution = node.taskHandler.execute({ text: 'x' }, {
+      ...context('bounded'), signal: controller.signal,
+    });
+    controller.abort();
+    release();
+    expect(await execution).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_CANCELLED', retryable: false },
     });
   });
 

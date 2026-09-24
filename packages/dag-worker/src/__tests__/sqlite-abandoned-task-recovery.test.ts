@@ -92,6 +92,76 @@ describe('SQLite abandoned-task recovery (DAG-001)', () => {
     expect(await storage.getDagRun(fixture.dagRun.dagRunId)).toMatchObject({ status: 'success' });
   });
 
+  it('aborts an active attempt when another SQLite owner commits cancellation', async () => {
+    root = await realpath(await mkdtemp(path.join(tmpdir(), 'robota-dag-cancel-sqlite-')));
+    const databasePath = path.join(root, 'dag.sqlite');
+    const workerStorage = track(new SqliteStorageAdapter(databasePath));
+    const cancellingStorage = track(new SqliteStorageAdapter(databasePath));
+    const queue = track(new SqliteQueueAdapter(databasePath));
+    const fixture = createFixture();
+    await workerStorage.saveDefinition(fixture.definition);
+    await workerStorage.createDagRun(fixture.dagRun);
+    await workerStorage.createTaskRun({
+      ...fixture.taskRun,
+      status: 'queued',
+      inputSnapshot: undefined,
+    });
+    await queue.enqueue(fixture.message);
+
+    let startedAttempt: (signal: AbortSignal) => void = () => undefined;
+    const started = new Promise<AbortSignal>((resolve) => { startedAttempt = resolve; });
+    let releaseExecution: () => void = () => undefined;
+    const executor = new ScriptedTaskExecutorPort(async (input) => {
+      const signal = input.signal;
+      if (!signal) throw new Error('Worker must supply an attempt signal');
+      startedAttempt(signal);
+      return new Promise((resolve) => {
+        releaseExecution = () => resolve({ ok: true, output: { late: true } });
+      });
+    });
+    const worker = new WorkerLoopService(
+      workerStorage,
+      queue,
+      new InMemoryLeasePort(),
+      executor,
+      new ManualClockPort(NOW_MS),
+      process.cwd(),
+      {
+        workerId: 'separate-worker',
+        leaseDurationMs: 30_000,
+        visibilityTimeoutMs: 30_000,
+        retryEnabled: false,
+        maxAttempts: 3,
+        defaultTimeoutMs: 5_000,
+        cancellationPollMs: 20,
+      },
+    );
+    const processing = worker.processOnce();
+    const signal = await started;
+    const committed = await cancellingStorage.commitExecution(fixture.dagRun.dagRunId, {
+      kind: 'transition-run',
+      expectedStatus: 'running',
+      event: 'CANCEL',
+      endedAt: new Date(NOW_MS).toISOString(),
+    });
+    expect(committed.applied).toBe(true);
+
+    let timeout: ReturnType<typeof setTimeout> | undefined;
+    const sawAbort = await Promise.race([
+      new Promise<boolean>((resolve) => {
+        if (signal.aborted) resolve(true);
+        else signal.addEventListener('abort', () => resolve(true), { once: true });
+      }),
+      new Promise<boolean>((resolve) => { timeout = setTimeout(() => resolve(false), 1_000); }),
+    ]);
+    clearTimeout(timeout);
+    releaseExecution();
+    await processing;
+    expect(sawAbort).toBe(true);
+    expect((await workerStorage.getTaskRun(fixture.taskRun.taskRunId))?.outputSnapshot).toBeUndefined();
+    expect((await workerStorage.getDagRun(fixture.dagRun.dagRunId))?.status).toBe('cancelled');
+  });
+
   function track<T extends SqliteQueueAdapter | SqliteStorageAdapter>(adapter: T): T {
     openAdapters.push(adapter);
     return adapter;

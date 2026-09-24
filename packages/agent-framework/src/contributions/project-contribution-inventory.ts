@@ -1,11 +1,9 @@
 import { isAbsolute, join, sep } from 'node:path';
 
-import { SKILL_ROOTS } from '../commands/skill-source.js';
 import { AGENTS_FILENAME, CLAUDE_FILENAME } from '../context/context-loader.js';
 import { PROJECT_DETECTOR_PATHS } from '../context/project-detector.js';
-import { TASKS_DIR } from '../context/task-context.js';
-import { PROJECT_PLUGIN_RELATIVE_DIRECTORY } from '../plugins/plugin-scope-paths.js';
-import { NAMESPACE_DIRECTORIES } from '../workspace-trust/project-state-storage.js';
+
+import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 
 /** Metadata-only project paths that may become available after workspace trust is granted. */
 export interface IProjectContributionPath {
@@ -42,9 +40,11 @@ function instructionPaths(cwdRelative: string): readonly IProjectContributionPat
   ]);
 }
 
-/** Every fixed framework-owned source, derived from the paths its loader or store uses. */
+/** Framework candidate paths plus the host-selected skill roots used by its loader. */
 export function listFrameworkProjectContributionPaths(
   cwdRelative: string,
+  skillRoots: readonly ISkillRootDescriptor[] = [],
+  taskContext?: { readonly enabled?: boolean; readonly dir?: string },
 ): readonly IProjectContributionPath[] {
   return [
     ...Object.values(PROJECT_DETECTOR_PATHS).map((relativePath) => ({
@@ -53,30 +53,22 @@ export function listFrameworkProjectContributionPaths(
       relativePath,
       expectedKind: 'file' as const,
     })),
-    ...SKILL_ROOTS.map(({ root, kind }) => ({
+    ...skillRoots.map(({ root, kind }) => ({
       id: `skill:${root}`,
       label: kind === 'commands' ? 'Project commands' : 'Project skills',
       relativePath: root,
       expectedKind: 'directory' as const,
     })),
     ...instructionPaths(cwdRelative),
-    {
-      id: `tasks:${TASKS_DIR}`,
-      label: 'Active task context',
-      relativePath: TASKS_DIR,
-      expectedKind: 'directory',
-    },
-    ...Object.entries(NAMESPACE_DIRECTORIES).map(([namespace, relativePath]) => ({
-      id: `state:${namespace}`,
-      label: `Project ${namespace}`,
-      relativePath,
-      expectedKind: 'directory' as const,
-    })),
-    {
-      id: 'plugins',
-      label: 'Project plugins and plugin hooks',
-      relativePath: join(cwdRelative, PROJECT_PLUGIN_RELATIVE_DIRECTORY),
-      expectedKind: 'directory',
-    },
+    ...(taskContext?.enabled === false || !taskContext?.dir
+      ? []
+      : [
+          {
+            id: `tasks:${taskContext.dir}`,
+            label: 'Active task context',
+            relativePath: taskContext.dir,
+            expectedKind: 'directory' as const,
+          },
+        ]),
   ];
 }

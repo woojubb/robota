@@ -13,7 +13,7 @@
     "url": "https://github.com/woojubb/robota/issues"
   },
   "scripts": {
-    "build": "node scripts/artifacts/build-workspace.mjs && node scripts/build-agent-app-if-full.mjs",
+    "build": "pnpm -r --filter \"./packages/**\" run build && node scripts/build-agent-app-if-full.mjs",
     "build:all": "pnpm run build && pnpm run docs:build",
     "build:deps": "pnpm run build",
     "test": "pnpm run -r --if-present test",
@@ -45,7 +45,6 @@
     "readme:validate": "node scripts/docs/validate-readmes.js",
     "harness:scan:publish": "node scripts/harness/check-publish-safety.mjs",
     "harness:scan:sdk-public-surface": "node scripts/harness/check-sdk-public-surface.mjs",
-    "harness:scan:build-contracts": "node scripts/harness/check-build-output-contracts.mjs",
     "git:push-tags": "git push --tags",
     "pre-publish:check": "bash scripts/pre-publish-docs-check.sh",
     "publish:packages": "bash scripts/publish/publish-packages.sh",
@@ -84,6 +83,7 @@
   "author": "Robota SDK Team",
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "devDependencies": {
+    "@arethetypeswrong/cli": "^0.18.5",
     "@changesets/changelog-github": "^0.7.0",
     "@changesets/cli": "^2.31.1",
     "@commitlint/cli": "^21.2.1",
@@ -105,6 +105,7 @@
     "lint-staged": "^15.5.2",
     "marked": "^9.1.6",
     "prettier": "^3.9.6",
+    "publint": "^0.3.24",
     "tar": "^7.5.22",
     "tsx": "^4.23.1",
     "typescript": "^6.0.3",

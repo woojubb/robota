@@ -18,6 +18,10 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --language <lang>          Language preference (e.g. ko, en)
   --no-session-persistence   Disable session persistence for this run
   --permission-mode <mode>   Permission mode: plan | default | acceptEdits | bypassPermissions
+  --external-event-allow <server:sender>
+                             TUI only: allow text-only turns via a trusted MCP server
+                             that verifies the sender;
+                             repeat per sender (off by default; no tools or automatic reply)
   --max-turns <n>            Maximum agent turns before stopping
   -c, --continue             Continue the most recent session
   -r, --resume <id>          Resume a session by ID or name
@@ -69,6 +73,15 @@ Commands:
                                   directory with the prompt prefilled and unsent. It takes exactly
                                   one link; your own flags still apply after it.
   robota usage [options]           Show 7/30-day cross-session personal usage (text or JSON)
+  robota session list [--format text|json]
+                                  List live processes, saved records and supervised sessions separately
+  robota session view [--cwd <directory>] [--name <text>] [--state <state>]
+                      [--screen-reader|--no-screen-reader]
+                                  Live supervised sessions across projects, or filtered (TTY only)
+  robota session start --background [--name <name>]
+                                  Start a supervised session that outlives this terminal (no attach yet)
+  robota session stop <supervised-id>
+                                  Stop a supervised session owned by this user
   robota mcp serve [options]       Serve one Robota session over stdio or authenticated loopback HTTP
   robota eval <definition>         Run an evals-as-code definition; exit 1 on a metric breach (CI gate)
 

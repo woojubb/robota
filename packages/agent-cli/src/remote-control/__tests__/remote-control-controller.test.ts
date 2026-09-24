@@ -7,12 +7,8 @@ import { RemoteControlController } from '../remote-control-controller.js';
 
 import type { IRemoteControlControllerDeps } from '../remote-control-controller.js';
 import type { ISignalingClient } from '@robota-sdk/agent-transport-webrtc';
-import type { TransportRegistry } from '@robota-sdk/agent-framework';
-import type {
-  IConfigurableTransport,
-  TBoundConfigurableTransport,
-} from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
+import type { IProtocolSession } from '@robota-sdk/agent-transport';
 
 /**
  * REMOTE-008 Step 4 — the composition-root remote-control controller. Driven with injected construction
@@ -38,7 +34,7 @@ function pairingLinkOf(message: string): URL {
 
 function makeDeps(over: Partial<IRemoteControlControllerDeps> = {}): {
   deps: IRemoteControlControllerDeps;
-  registered: TBoundConfigurableTransport[];
+  registered: IConfigurableTransport<IProtocolSession>[];
   transport: {
     attach: ReturnType<typeof vi.fn>;
     start: ReturnType<typeof vi.fn>;
@@ -48,10 +44,11 @@ function makeDeps(over: Partial<IRemoteControlControllerDeps> = {}): {
   hooks: { onPaired?: () => void; onPairingFailed?: () => void };
   captured: { ice?: { iceServers?: unknown; forceTurn?: boolean } };
 } {
-  const registered: TBoundConfigurableTransport[] = [];
-  const registry = {
-    register: (t: TBoundConfigurableTransport) => registered.push(t),
-  } as unknown as TransportRegistry;
+  const registered: IConfigurableTransport<IProtocolSession>[] = [];
+  const host = {
+    registerInitial: (peer: IConfigurableTransport<IProtocolSession>) => { registered.push(peer); },
+    promoteWinner: vi.fn(),
+  };
   const transport = {
     name: 'webrtc',
     lifecycle: { kind: 'service' as const },
@@ -68,7 +65,7 @@ function makeDeps(over: Partial<IRemoteControlControllerDeps> = {}): {
   // Capture the ICE config the controller passes into the transport (REMOTE-010).
   const captured: { ice?: { iceServers?: unknown; forceTurn?: boolean } } = {};
   const deps: IRemoteControlControllerDeps = {
-    registry,
+    host,
     readRelayUrl: () => 'ws://127.0.0.1:9999',
     readClientUrl: () => 'https://remote.example/',
     getSession: () => Object.assign(createTestInteractiveSession(), {}),
@@ -78,7 +75,7 @@ function makeDeps(over: Partial<IRemoteControlControllerDeps> = {}): {
       hooks.onPaired = h.onPaired;
       hooks.onPairingFailed = h.onPairingFailed;
       captured.ice = ice;
-      return transport as unknown as IConfigurableTransport<IInteractiveSession>;
+      return transport as unknown as IConfigurableTransport<IProtocolSession>;
     },
     ...over,
   };

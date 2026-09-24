@@ -1,7 +1,8 @@
 import { existsSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
 
-import { getUserSettingsPath, resetUserConfig } from '@robota-sdk/agent-framework';
+import { resetUserConfig } from '@robota-sdk/agent-framework';
+import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
 
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 
@@ -34,7 +35,7 @@ export async function runResetConfig(
   terminal: ITerminalOutput,
   options: IResetConfigOptions,
 ): Promise<number> {
-  const path = getUserSettingsPath();
+  const path = robotaUserSettingsPath();
   if (!existsSync(path)) {
     terminal.writeLine('No user settings found.');
     return 0;
@@ -55,7 +56,7 @@ export async function runResetConfig(
     }
   }
 
-  const result = resetUserConfig();
+  const result = resetUserConfig(path);
   if (result.deleted) {
     terminal.writeLine(`Deleted ${result.path}`);
   } else {

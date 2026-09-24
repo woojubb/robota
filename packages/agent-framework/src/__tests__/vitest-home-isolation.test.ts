@@ -31,7 +31,7 @@ import { join } from 'node:path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { SkillCommandSource } from '../commands/skill-source.js';
+import { createTestSkillCommandSource } from '../testing/contribution-source-fixture.js';
 import { createDefaultUserContributionSources } from '../contributions/initial-contribution-sources.js';
 
 /** The variable `vitest.shared.ts` publishes so a test can name the directory it should be given. */
@@ -85,16 +85,8 @@ describe('vitest home isolation (TEST-013)', () => {
       rmSync(plantedHome, { recursive: true, force: true });
     });
 
-    it('the production default, called with NO argument, discovers no user skill', () => {
-      const names = new SkillCommandSource(createDefaultUserContributionSources())
-        .getCommands()
-        .map((command) => command.name);
-
-      expect(names).toEqual([]);
-    });
-
-    it('and that emptiness is not the discovery path being broken', () => {
-      const names = new SkillCommandSource(createDefaultUserContributionSources(plantedHome))
+    it('discovers user skills only beneath the explicitly selected host root', () => {
+      const names = createTestSkillCommandSource(createDefaultUserContributionSources(plantedHome))
         .getCommands()
         .map((command) => command.name);
 

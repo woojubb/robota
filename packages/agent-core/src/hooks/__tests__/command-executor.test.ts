@@ -17,6 +17,23 @@ describe('CommandExecutor', () => {
     expect(executor.type).toBe('command');
   });
 
+  it('uses a host-selected shell for command hooks', async () => {
+    if (process.platform === 'win32') return;
+    const previousShell = process.env['SHELL'];
+    process.env['SHELL'] = '/bin/false';
+    try {
+      const outcome = await new CommandExecutor('/bin/bash').execute(
+        { type: 'command', command: 'echo hook-shell-ok' },
+        input,
+      );
+      expect(outcome).toMatchObject({ outcome: 'allow', source: 'command' });
+      if (outcome.outcome === 'allow') expect(outcome.stdout.trim()).toBe('hook-shell-ok');
+    } finally {
+      if (previousShell === undefined) delete process.env['SHELL'];
+      else process.env['SHELL'] = previousShell;
+    }
+  });
+
   it('exit 0 is allow, carrying stdout', async () => {
     const outcome = await executor.execute({ type: 'command', command: 'echo hello' }, input);
     expect(outcome.outcome).toBe('allow');

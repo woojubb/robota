@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
-  DEFAULT_KEYBINDINGS_DOCUMENT,
   createNodeKeybindingsSource,
 } from '../node-keybindings-source.js';
 
@@ -35,12 +34,18 @@ afterEach(async () => {
 });
 
 describe('Node keybindings source', () => {
-  it('atomically creates the schema-linked sparse document and never overwrites it', async () => {
+  it('uses only the host-selected file and schema when creating the sparse document', async () => {
     const root = await temporaryRoot();
-    const source = createNodeKeybindingsSource({ homeDir: root });
+    const filePath = join(root, 'host-config', 'keys.json');
+    const schemaUrl = 'https://example.invalid/schemas/keys.json';
+    const source = createNodeKeybindingsSource({ filePath, schemaUrl });
     const firstPath = await source.ensureFile();
-    expect(firstPath).toBe(join(root, '.robota', 'keybindings.json'));
-    expect(JSON.parse(await readFile(firstPath, 'utf8'))).toEqual(DEFAULT_KEYBINDINGS_DOCUMENT);
+    expect(firstPath).toBe(filePath);
+    expect(JSON.parse(await readFile(firstPath, 'utf8'))).toEqual({
+      $schema: schemaUrl,
+      version: 1,
+      bindings: {},
+    });
 
     await writeFile(firstPath, '{"owned":true}\n', 'utf8');
     expect(await source.ensureFile()).toBe(firstPath);
@@ -50,14 +55,19 @@ describe('Node keybindings source', () => {
 
   it('loads atomic replacements, retains last-valid bindings on invalid input, and disposes', async () => {
     const root = await temporaryRoot();
+    const path = join(root, 'custom', 'keybindings.json');
     const log = vi.fn();
-    const source = createNodeKeybindingsSource({ homeDir: root, onDiagnostic: log });
+    const source = createNodeKeybindingsSource({
+      filePath: path,
+      schemaUrl: 'https://example.invalid/keys.json',
+      onDiagnostic: log,
+    });
     await source.start();
-    const path = await source.ensureFile();
+    expect(await source.ensureFile()).toBe(path);
     const snapshots = [source.getSnapshot()];
     const unsubscribe = source.subscribe((snapshot) => snapshots.push(snapshot));
 
-    const replacement = join(root, '.robota', 'keybindings.next.json');
+    const replacement = join(root, 'custom', 'keybindings.next.json');
     await writeFile(
       replacement,
       JSON.stringify({ version: 1, bindings: { 'chat-input': { submit: 'ctrl+k' } } }),
@@ -81,14 +91,17 @@ describe('Node keybindings source', () => {
     unsubscribe();
     source.dispose();
     const count = snapshots.length;
-    await writeFile(path, JSON.stringify(DEFAULT_KEYBINDINGS_DOCUMENT), 'utf8');
+    await writeFile(path, JSON.stringify({ version: 1, bindings: {} }), 'utf8');
     await new Promise((resolve) => setTimeout(resolve, 40));
     expect(snapshots).toHaveLength(count);
   });
 
   it('shares one start, and a failed start leaves no half-started source', async () => {
     const root = await temporaryRoot();
-    const source = createNodeKeybindingsSource({ homeDir: root });
+    const source = createNodeKeybindingsSource({
+      filePath: join(root, 'custom', 'keybindings.json'),
+      schemaUrl: 'https://example.invalid/keys.json',
+    });
     await Promise.all([source.start(), source.start()]);
     expect(source.isStarted()).toBe(true);
     source.dispose();

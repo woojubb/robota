@@ -8,6 +8,7 @@ import {
   getWorkspaceProjectIdentity,
   getWorkspaceProjectIdentityResolver,
   getWorkspaceProjectReader,
+  getWorkspaceProjectStateDirectories,
 } from './workspace-authority.js';
 
 import type { IWorkspaceProjectMutationBoundary } from './project-relative-writer.js';
@@ -22,25 +23,19 @@ import type {
 
 const projectStateStorages = new WeakMap<object, IWorkspaceProjectAuthority>();
 
-export const NAMESPACE_DIRECTORIES: Readonly<Record<TWorkspaceProjectStateNamespace, string>> = {
-  sessions: join('.robota', 'sessions'),
-  'session-logs': join('.robota', 'logs'),
-  memory: join('.robota', 'memory'),
-  checkpoints: join('.robota', 'checkpoints'),
-};
-
 class WorkspaceProjectStateStorage {
   readonly namespace: TWorkspaceProjectStateNamespace;
-  private readonly base: string;
+  readonly rootRelativePath: string;
 
   constructor(
     namespace: TWorkspaceProjectStateNamespace,
+    rootRelativePath: string,
     private readonly authority: IWorkspaceProjectAuthority,
     private readonly reader: IWorkspaceProjectReader,
     private readonly mutationBoundary: IWorkspaceProjectMutationBoundary,
   ) {
     this.namespace = namespace;
-    this.base = NAMESPACE_DIRECTORIES[namespace];
+    this.rootRelativePath = rootRelativePath;
   }
 
   readText(relativePath: string, purpose: string): string | undefined {
@@ -84,7 +79,9 @@ class WorkspaceProjectStateStorage {
   projectRelativePath(relativePath: string, allowRoot = false): string {
     assertWorkspaceProjectAuthority(this.authority);
     const segments = workspacePathSegments(relativePath, allowRoot);
-    return segments.length === 0 ? this.base : join(this.base, segments.join(sep));
+    return segments.length === 0
+      ? this.rootRelativePath
+      : join(this.rootRelativePath, segments.join(sep));
   }
 }
 
@@ -93,11 +90,16 @@ export function getWorkspaceProjectStateStorage(
   namespace: TWorkspaceProjectStateNamespace,
 ): IWorkspaceProjectStateStorage {
   const accepted = assertWorkspaceProjectAuthority(authority);
+  const rootRelativePath = getWorkspaceProjectStateDirectories(accepted)[namespace];
+  if (typeof rootRelativePath !== 'string') {
+    throw new WorkspaceAuthorityRequiredError('Unknown project state namespace.');
+  }
   const identity = getWorkspaceProjectIdentity(accepted);
   const reader = getWorkspaceProjectReader(accepted);
   const storage = Object.freeze(
     new WorkspaceProjectStateStorage(
       namespace,
+      rootRelativePath,
       accepted,
       reader,
       createWorkspaceProjectMutationBoundary(

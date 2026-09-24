@@ -30,6 +30,7 @@ export interface IMockCapabilities {
   tools?: IMockCapabilityDomain;
   prompts?: IMockCapabilityDomain;
   resources?: IMockCapabilityDomain;
+  experimental?: Record<string, object>;
 }
 
 export interface IMockTool {
@@ -116,6 +117,7 @@ export interface IMockMcpServer {
   close(): Promise<void>;
   /** Arms a one-shot server-initiated list_changed notification for the next tools/call. */
   queueListChanged(domains: IMockListChangedDomain[]): void;
+  queueNotification(notification: Record<string, unknown>): void;
 }
 
 /** Returns n tools named tool-1..tool-n plus an `echo` tool. */
@@ -154,11 +156,11 @@ function readBody(req: IncomingMessage): Promise<string> {
 
 function buildCapabilities(
   capabilities: IMockCapabilities | undefined,
-): Record<string, { listChanged?: boolean }> {
+): Record<string, object> {
   if (!capabilities) {
     return { tools: {} };
   }
-  const result: Record<string, { listChanged?: boolean }> = {};
+  const result: Record<string, object> = {};
   (['tools', 'prompts', 'resources'] as const).forEach((domain) => {
     const value = capabilities[domain];
     if (value === false || value === undefined) {
@@ -166,6 +168,7 @@ function buildCapabilities(
     }
     result[domain] = value;
   });
+  if (capabilities.experimental) result['experimental'] = capabilities.experimental;
   return result;
 }
 
@@ -232,7 +235,7 @@ async function dispatchRequest(
   req: IncomingMessage,
   res: ServerResponse,
   options: IMockMcpServerOptions,
-  declaredCapabilities: Record<string, { listChanged?: boolean }>,
+  declaredCapabilities: Record<string, object>,
   isDomainDeclared: (domain: IMockListChangedDomain) => boolean,
   listItemsFor: (domain: IMockListChangedDomain) => IMockTool[] | IMockPrompt[] | IMockResource[],
   state: IMockServerRuntimeState,
@@ -291,6 +294,7 @@ export async function startMockMcpServer(
     toolCallFailures: 0,
     unauthorizedSeen: 0,
     pendingListChanged: options.emitListChangedBefore ? [...options.emitListChangedBefore] : [],
+    pendingNotifications: [],
   };
 
   const declaredCapabilities = buildCapabilities(options.capabilities);
@@ -330,6 +334,9 @@ export async function startMockMcpServer(
     close: () => new Promise<void>((resolve) => server.close(() => resolve())),
     queueListChanged: (domains: IMockListChangedDomain[]): void => {
       state.pendingListChanged = [...domains];
+    },
+    queueNotification: (notification: Record<string, unknown>): void => {
+      state.pendingNotifications.push(notification);
     },
   };
 }

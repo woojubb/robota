@@ -29,6 +29,7 @@ const DEPS: ICreateSessionProjectionDeps = {
   sessionId: 'test-session',
   contextCapacityHint: undefined,
   contributionSources: [],
+  skillRoots: [],
 };
 
 function initOptions(extra: Partial<IInitOptions>): IInitOptions {

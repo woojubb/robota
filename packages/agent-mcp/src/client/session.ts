@@ -14,11 +14,13 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import {
   ErrorCode,
   McpError,
+  NotificationSchema,
   PromptListChangedNotificationSchema,
   ResourceListChangedNotificationSchema,
   ToolListChangedNotificationSchema,
 } from '@modelcontextprotocol/sdk/types.js';
 import { TypeUtils } from '@robota-sdk/agent-core';
+import { z } from 'zod/v4';
 
 import { discoverAll } from './discovery.js';
 import { MCPStdioError } from './stdio-transport.js';
@@ -55,6 +57,34 @@ export interface IMCPToolCallResult {
 /** Fired by the SDK when a server announces `notifications/<domain>/list_changed`. */
 export type TMCPListChangedListener = (domain: TMCPCapabilityDomain) => void;
 
+/** Experimental, one-way MCP server event protocol. A declaration alone never grants turn admission. */
+export const MCP_EXTERNAL_EVENT_CAPABILITY = 'com.robota.external-event';
+export const MCP_EXTERNAL_EVENT_METHOD = 'notifications/com.robota/external-event';
+
+const externalEventIdentity = z.string().min(1).max(128).refine((value) => {
+  for (const character of value) {
+    const code = character.codePointAt(0)!;
+    if (code < 32 || code === 127 || (code >= 0xd800 && code <= 0xdfff)) return false;
+  }
+  return true;
+});
+const ExternalEventNotificationSchema = NotificationSchema.extend({
+  method: z.literal(MCP_EXTERNAL_EVENT_METHOD),
+  params: z.object({
+    senderId: externalEventIdentity,
+    conversationId: externalEventIdentity,
+    content: z.string().refine((value) => Buffer.byteLength(value, 'utf8') <= 16 * 1024),
+  }),
+});
+
+export interface IMCPExternalEvent {
+  readonly senderId: string;
+  readonly conversationId: string;
+  readonly content: string;
+}
+
+export type TMCPExternalEventListener = (event: IMCPExternalEvent) => void;
+
 export interface IMCPSession {
   readonly identity: IMCPServerIdentity;
   readonly instructions?: string;
@@ -62,6 +92,8 @@ export interface IMCPSession {
   readonly declaredCapabilities: Readonly<
     Record<TMCPCapabilityDomain, { listChanged: boolean } | undefined>
   >;
+  /** A server-declared protocol fact, not authorization to inject a session turn. */
+  readonly externalEventsDeclared: boolean;
   /** Paginated discovery over every declared domain; bounded and typed (`../catalog/types.js`). */
   discover(options: IMCPDiscoverOptions): Promise<IMCPDiscovery>;
   callTool(
@@ -71,6 +103,10 @@ export interface IMCPSession {
   ): Promise<IMCPToolCallResult>;
   /** Subscribe to `list_changed`; returns an unsubscribe. */
   onListChanged(listener: TMCPListChangedListener): () => void;
+  /** Delivery is gated by the exact experimental capability and a live subscription. */
+  onExternalEvent(listener: TMCPExternalEventListener): () => void;
+  /** Fired once when the SDK client or its transport closes, including unexpected closure. */
+  onClose(listener: () => void): () => void;
   /** Closes the SDK client and its transport. Idempotent. */
   close(): Promise<void>;
 }
@@ -166,6 +202,13 @@ function buildDeclaredCapabilities(
     }
   }
   return record;
+}
+
+function supportsExternalEvents(capabilities: ServerCapabilities | undefined): boolean {
+  const declared = capabilities?.experimental?.[MCP_EXTERNAL_EVENT_CAPABILITY];
+  return declared !== null && typeof declared === 'object' &&
+    Object.hasOwn(declared, 'version') &&
+    (declared as { version?: unknown }).version === 1;
 }
 
 /** Runs `initialize` within `startupMs`, retaining a typed stdio authority refusal after cleanup. */
@@ -292,13 +335,42 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
   };
   const instructions = client.getInstructions();
   const declaredCapabilities = buildDeclaredCapabilities(client.getServerCapabilities());
+  const externalEventsDeclared = supportsExternalEvents(client.getServerCapabilities());
 
   const listeners = new Set<TMCPListChangedListener>();
+  const externalEventListeners = new Set<TMCPExternalEventListener>();
+  const closeListeners = new Set<() => void>();
   registerListChangedHandlers(client, listeners);
 
+  let externalEventsStopped = false;
+  let closed = false;
+  let closingExplicitly = false;
+  const stopExternalEvents = (): void => {
+    externalEventsStopped = true;
+    externalEventListeners.clear();
+    client.removeNotificationHandler(MCP_EXTERNAL_EVENT_METHOD);
+  };
+  const notifyClose = (): void => {
+    stopExternalEvents();
+    if (!closed) {
+      closed = true;
+      for (const listener of closeListeners) listener();
+      closeListeners.clear();
+    }
+  };
+  const previousOnClose = client.onclose;
+  client.onclose = () => {
+    if (closingExplicitly) stopExternalEvents();
+    else notifyClose();
+    previousOnClose?.();
+  };
   let closePromise: Promise<void> | undefined;
   const closeSession = (): Promise<void> => {
-    closePromise ??= client.close();
+    if (!closePromise) {
+      closingExplicitly = true;
+      stopExternalEvents();
+      closePromise = client.close().then(() => notifyClose());
+    }
     return closePromise;
   };
   const throwIfStdioChildExited = async (): Promise<void> => {
@@ -316,6 +388,7 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
     identity,
     instructions,
     declaredCapabilities,
+    externalEventsDeclared,
     async discover(discoverOptions: IMCPDiscoverOptions): Promise<IMCPDiscovery> {
       try {
         return await discoverAll(
@@ -368,6 +441,30 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
       return () => {
         listeners.delete(listener);
       };
+    },
+    onExternalEvent(listener: TMCPExternalEventListener): () => void {
+      if (!externalEventsDeclared || externalEventsStopped) return () => undefined;
+      externalEventListeners.add(listener);
+      if (externalEventListeners.size === 1) {
+        client.setNotificationHandler(ExternalEventNotificationSchema, (notification) => {
+          const event = notification.params;
+          externalEventListeners.forEach((subscriber) => subscriber(event));
+        });
+      }
+      return () => {
+        externalEventListeners.delete(listener);
+        if (externalEventListeners.size === 0) {
+          client.removeNotificationHandler(MCP_EXTERNAL_EVENT_METHOD);
+        }
+      };
+    },
+    onClose(listener: () => void): () => void {
+      if (closed) {
+        listener();
+        return () => undefined;
+      }
+      closeListeners.add(listener);
+      return () => { closeListeners.delete(listener); };
     },
     async close(): Promise<void> {
       await closeSession();

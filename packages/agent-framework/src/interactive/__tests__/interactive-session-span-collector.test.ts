@@ -9,7 +9,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { FunctionTool, ObservableEventService } from '@robota-sdk/agent-core';
+import { FunctionTool, ObservableEventService, TOOL_BODY_EVENTS } from '@robota-sdk/agent-core';
 
 import { collectSpanEntries } from '../interactive-session-execution.js';
 
@@ -68,6 +68,24 @@ describe('SELFHOST-004 P6 — collectSpanEntries over a live bus', () => {
     collector.dispose();
     await tool.execute({});
     expect(collector.entries).toHaveLength(1); // unchanged — unsubscribed
+  });
+
+  it('does not reopen a foreground tool span for a detached completion after the turn', () => {
+    const bus = new ObservableEventService();
+    const collector = collectSpanEntries(bus);
+    const observedAt = new Date().toISOString();
+    const emit = () =>
+      bus.emit(`tool.${TOOL_BODY_EVENTS.COMPLETED}`, {
+        timestamp: new Date(),
+        startedAt: observedAt,
+        endedAt: observedAt,
+        outcome: 'success',
+      });
+    emit();
+    expect(collector.toolBodies).toHaveLength(1);
+    collector.dispose();
+    emit();
+    expect(collector.toolBodies).toHaveLength(1);
   });
 
   it('ignores non-span events on the bus', () => {

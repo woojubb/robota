@@ -4,7 +4,6 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { join } from 'node:path';
 
 import { applyPresetToolLists } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
@@ -20,7 +19,6 @@ import {
 } from './create-session-runtime.js';
 import { assertConfiguredHookTypesExecutable } from './hook-type-reachability.js';
 import { SkillCommandSource } from '../commands/skill-source.js';
-import { readSettings, writeSettings } from '../config/settings-io.js';
 import {
   createModelCommandToolProjection,
   createProjectedCommandExecutionTools,
@@ -108,7 +106,10 @@ export async function createSession(
   const provider = options.provider;
   const cwd = options.cwd ?? process.cwd();
   const sessionId = options.sessionId ?? createSessionId();
-  const skillCommandSource = new SkillCommandSource(options.contributionSources ?? []);
+  const skillCommandSource = new SkillCommandSource(
+    options.contributionSources ?? [],
+    options.skillRoots ?? [],
+  );
   const modelInvocableCommandDescriptors = getModelInvocableCommandDescriptors(
     options.commandDescriptors,
   );
@@ -117,7 +118,10 @@ export async function createSession(
     options.modelCommandExecutor !== undefined &&
     options.isModelCommandInvocable !== undefined;
   const modelCommandToolProjection = modelCommandToolsEnabled
-    ? createModelCommandToolProjection(modelInvocableCommandDescriptors)
+    ? createModelCommandToolProjection(
+        modelInvocableCommandDescriptors,
+        options.modelCommandToolPrefix,
+      )
     : undefined;
   const modelVisibleSkills = hasModelInvocableCommandDescriptor(
     modelInvocableCommandDescriptors,
@@ -137,6 +141,7 @@ export async function createSession(
         execute: options.modelCommandExecutor,
         isModelInvocable: options.isModelCommandInvocable,
         commandDescriptors: modelInvocableCommandDescriptors,
+        toolNamePrefix: options.modelCommandToolPrefix,
       }),
     );
   }
@@ -187,15 +192,6 @@ export async function createSession(
     tools,
   );
 
-  const defaultAllow = [
-    'Read(.agents/**)',
-    'Read(.claude/**)',
-    'Read(.robota/**)',
-    'Glob(.agents/**)',
-    'Glob(.claude/**)',
-    'Glob(.robota/**)',
-  ];
-
   // Commands with requiresPermission: false are auto-approved — no prompt needed.
   const commandAutoAllow = modelCommandToolProjection
     ? modelCommandToolProjection.commandTools
@@ -209,31 +205,19 @@ export async function createSession(
   // re-apply a preset live: deriving it later from `mergedPermissions` would already include this
   // preset's patterns, and the first preset's allowlist would then survive every later switch.
   const presetFreePermissions = {
-    allow: [...defaultAllow, ...commandAutoAllow, ...(options.config.permissions.allow ?? [])],
+    allow: [...(options.baselinePermissionAllow ?? []), ...commandAutoAllow, ...(options.config.permissions.allow ?? [])],
     deny: options.config.permissions.deny ?? [],
   };
   const mergedPermissions = applyPresetToolLists(presetFreePermissions, options);
 
-  const projectSettingsPath = join(cwd, '.robota', 'settings.local.json');
   // Issue #2351: the enforcer hands over the CONSENT SCOPE pattern (`Bash(git *)`,
   // `Read(/w/src/**)`), which is persisted as-is; a bare tool name still widens to `Tool(*)`.
-  function onProjectAllowTool(scope: string): void {
-    const pattern = scope.includes('(') ? scope : `${scope}(*)`;
-    const settings = readSettings(projectSettingsPath);
-    const currentAllow = Array.isArray(settings.permissions)
-      ? []
-      : (((settings.permissions as Record<string, unknown> | undefined)?.allow as
-          string[] | undefined) ?? []);
-    if (!currentAllow.includes(pattern)) {
-      writeSettings(projectSettingsPath, {
-        ...settings,
-        permissions: {
-          ...((settings.permissions as Record<string, unknown>) ?? {}),
-          allow: [...currentAllow, pattern],
-        },
-      });
-    }
-  }
+  const persistProjectPermission = options.persistProjectPermission;
+  const onProjectAllowTool = persistProjectPermission
+    ? (scope: string): void => {
+        persistProjectPermission(scope.includes('(') ? scope : `${scope}(*)`);
+      }
+    : undefined;
 
   const SessionWithAutoCompact = Session as TSessionConstructorWithAutoCompact;
   const session = new SessionWithAutoCompact({
@@ -258,7 +242,7 @@ export async function createSession(
     permissionHandler: options.permissionHandler,
     // CMD-005: model-invoked tools solicit structured answers through this port.
     ...(options.ask ? { ask: options.ask } : {}),
-    onProjectAllowTool,
+    ...(onProjectAllowTool === undefined ? {} : { onProjectAllowTool }),
     onTextDelta: options.onTextDelta,
     onContextUpdate: options.onContextUpdate,
     onToolExecution: options.onToolExecution,

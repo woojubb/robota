@@ -70,3 +70,13 @@ export function buildTaskExecutionError(
 ): IDagError {
   return buildDagError('task_execution', code, message, retryable, context, fix, agentHint);
 }
+
+/** Stable non-retryable outcome when the trusted attempt signal is aborted. */
+export function buildTaskCancellationError(taskRunId: string): IDagError {
+  return buildTaskExecutionError(
+    'DAG_TASK_EXECUTION_CANCELLED',
+    'Task execution was cancelled',
+    false,
+    { taskRunId },
+  );
+}

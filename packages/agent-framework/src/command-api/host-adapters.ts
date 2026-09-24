@@ -118,6 +118,8 @@ export interface ILocalPeerSummary {
   readonly sessionId: string;
   readonly name?: string;
   readonly liveness: 'alive' | 'dead' | 'unknown';
+  /** Content-free observed activity; unknown when stale or unverified. */
+  readonly status?: 'working' | 'needs-input' | 'idle' | 'unknown';
 }
 
 /**

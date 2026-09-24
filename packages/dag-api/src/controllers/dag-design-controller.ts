@@ -5,6 +5,7 @@ import {
   type TObjectInfo,
   type TResult,
   buildValidationError,
+  summarizeDagDefinitions,
 } from '@robota-sdk/dag-core';
 import {
   toProblemDetails,
@@ -198,34 +199,11 @@ export class DagDesignController {
     request: IListDefinitionsRequest,
   ): Promise<TDesignApiResponse<{ items: IDefinitionListItem[] }>> {
     const definitions = await this.definitionService.listDefinitions(request.dagId);
-    const listItemByDagId = new Map<string, IDefinitionListItem>();
-
-    for (const definition of definitions) {
-      const existing = listItemByDagId.get(definition.dagId);
-      if (!existing) {
-        listItemByDagId.set(definition.dagId, {
-          dagId: definition.dagId,
-          latestVersion: definition.version,
-          statuses: [definition.status],
-        });
-        continue;
-      }
-
-      const nextStatuses = existing.statuses.includes(definition.status)
-        ? existing.statuses
-        : [...existing.statuses, definition.status];
-      listItemByDagId.set(definition.dagId, {
-        dagId: definition.dagId,
-        latestVersion: Math.max(existing.latestVersion, definition.version),
-        statuses: nextStatuses,
-      });
-    }
-
     return {
       ok: true,
       status: 200,
       data: {
-        items: [...listItemByDagId.values()].sort((a, b) => a.dagId.localeCompare(b.dagId)),
+        items: summarizeDagDefinitions(definitions),
       },
     };
   }

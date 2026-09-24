@@ -13,7 +13,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { SettingsParseError } from '../../../config/settings-parse-error.js';
 import { readSettings } from '../../../config/settings-io.js';
 import {
-  createDefaultUserSettingsSources,
   createNodeHostSettingsSource,
   createWorkspaceProjectSettingsSources,
 } from '../../../config/settings-source.js';
@@ -52,7 +51,8 @@ describe('corrupt settings fail fast (CLI-069)', () => {
     const access = await createTrustedProjectAccessFixture(cwd);
     if (access.status !== 'trusted') throw new Error('Expected trusted project access.');
     return [
-      ...createDefaultUserSettingsSources(home),
+      createNodeHostSettingsSource('user', join(home, '.robota', 'settings.json')),
+      createNodeHostSettingsSource('user', join(home, '.claude', 'settings.json')),
       ...createWorkspaceProjectSettingsSources(
         getWorkspaceProjectReader(access.authority),
         TEST_PROJECT_SETTINGS_PATHS,
@@ -120,9 +120,8 @@ describe('corrupt settings fail fast (CLI-069)', () => {
       thrown = error;
     }
     expect(thrown).toBeInstanceOf(SettingsParseError);
-    expect((thrown as SettingsParseError).message).toMatch(
-      /Fix or delete the file, or run robota doctor/,
-    );
+    expect((thrown as SettingsParseError).message).toContain('Fix or delete the file');
+    expect((thrown as SettingsParseError).message).not.toContain('robota doctor');
     expect(stderrSpy).not.toHaveBeenCalled();
     stderrSpy.mockRestore();
 

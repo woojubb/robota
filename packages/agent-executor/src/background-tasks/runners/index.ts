@@ -20,10 +20,12 @@ export type {
 // in one place, alongside its registration in `createDefaultBackgroundTaskRunners()` below.
 export { createToolInvocationBackgroundTaskRunner } from '../tool-invocation-runner.js';
 
-export function createDefaultBackgroundTaskRunners(): IBackgroundTaskRunner[] {
+export function createDefaultBackgroundTaskRunners(
+  shellExecutable?: string,
+): IBackgroundTaskRunner[] {
   return [
-    createManagedShellProcessRunner(),
-    createScheduledTaskRunner(),
+    createManagedShellProcessRunner({ shellExecutable }),
+    createScheduledTaskRunner({ shellExecutable }),
     createToolInvocationBackgroundTaskRunner(),
   ];
 }

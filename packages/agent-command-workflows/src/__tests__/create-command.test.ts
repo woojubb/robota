@@ -82,6 +82,15 @@ describe('parseAuthoringArgs', () => {
   });
 });
 
+it('requires host settings sources when authoring resolves its own provider', async () => {
+  const result = await executeWorkflowsCreate('summarize this', dir, {
+    providerDefinitions: [],
+  });
+
+  expect(result.success).toBe(false);
+  expect(result.message).toContain('Host settings sources are required for workflow authoring.');
+});
+
 describe('parseAuthoredSpec', () => {
   it('accepts a valid spec', () => {
     const r = parseAuthoredSpec(UPPERCASE_SPEC);

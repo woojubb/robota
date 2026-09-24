@@ -1,5 +1,3 @@
-import { join } from 'node:path';
-
 import {
   createNodeHostSettingsSource,
   readNodeHostSettingsSource,
@@ -29,16 +27,6 @@ export interface IProjectSettingsPath {
 
 export { createNodeHostSettingsSource };
 export type { INodeHostSettingsSource } from './node-host-settings-source.js';
-
-/** Default host-owned layers. Project paths are intentionally absent. */
-export function createDefaultUserSettingsSources(
-  userHome: string = process.env.HOME ?? process.env.USERPROFILE ?? '/',
-): readonly INodeHostSettingsSource[] {
-  return [
-    createNodeHostSettingsSource('user', join(userHome, '.robota', 'settings.json')),
-    createNodeHostSettingsSource('user', join(userHome, '.claude', 'settings.json')),
-  ];
-}
 
 /** Project layers bound to a runtime-accepted root-relative reader. */
 export function createWorkspaceProjectSettingsSources(

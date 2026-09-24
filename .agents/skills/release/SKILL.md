@@ -11,10 +11,12 @@ description: Bump versions, promote develop to main, and publish the @robota-sdk
 2. **Promote** `develop` → `main` with a PR whose head is `develop`. On merge,
    `release-tag-on-version-bump.yml` tags the new version; the binary and desktop release workflows run
    from that tag.
-3. **Publish** from an up-to-date `main`: run `pnpm publish:beta`. It builds, verifies tarballs and runs a
-   dry-run before asking for the OTP. **Only the owner supplies the OTP** — stop and ask; never guess or
-   reuse one. If some packages already published, rerun the same command; it only targets packages at this
-   release's version.
+3. **Publish** from an up-to-date `main`: first run `pnpm publish:beta --dry-run` (builds, runs the release
+   checks, packs every public package and verifies each tarball contains its declared files). Then run
+   `pnpm publish:beta`: the same steps, then `changeset publish` publishes every public package whose version
+   is not on npm yet, and the `beta` dist-tag is synced. **Only the owner supplies the OTP** — stop and ask;
+   never guess or reuse one. After a partial failure, rerun the same command; versions already on npm are
+   skipped.
 4. Confirm on npm that every package shows the new version under both `latest` and `beta`.
 
 Stop and ask the owner before: publishing a package for the first time, publishing from anything other than

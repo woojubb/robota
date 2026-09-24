@@ -115,6 +115,9 @@ round trip — a local round trip must be lossless.
   new one.
 - A provided idle-timeout value is enforced per provider call and its timer refreshes on
   streaming text deltas.
+- Provider-round and permitted-tool-body completions are forwarded to the session's event bus as
+  content-free observations (time, round, outcome only), scoped to the active run; the public
+  `run()` call shape is unchanged and an observer failure can never replace the tool result.
 - An omitted turn/round cap means the session run has no core round cap and is instead bounded by
   abort, context-window checks, provider idle timeout, and runtime-level controls.
 - The context-update callback fires twice per turn: once before the provider call (estimated,
@@ -140,6 +143,8 @@ round trip — a local round trip must be lossless.
 
 A session runs one turn at a time:
 
+- `run()` passes an explicit per-turn `toolChoice` through to the agent. It affects only that run;
+  the session's configured default and later turns are unchanged.
 - `run()` claims the turn synchronously, before its first `await`. A concurrent `run()` is
   **refused** (not queued, not pre-empting) with a recoverable busy error, because a session is a
   single conversation and cancelling the running turn would discard work the caller never asked
@@ -183,6 +188,8 @@ that session actually uses instead of re-deriving one that could disagree.
   projected from the invocation's argument — not the bare tool name. Approving one path, URL, or
   command family does not implicitly approve every other invocation of the same tool; a
   materially different argument prompts again.
+- Project-scoped consent requires an installed persistence callback. If it is unavailable or the
+  write fails, the approval is rejected without remembering a session-scoped grant.
 - A relative `path`-kind argument is canonicalised against the session's working directory before
   the permission gate, the hooks, the log, and the tool itself see it, so an absolute allow/deny
   pattern judges the argument correctly instead of being reported unevaluable.
@@ -244,6 +251,9 @@ person is never shown "no history" when history could not actually be read.
 
 ### Compaction
 
+- The summarization provider call is text-only (`toolChoice: none`) for manual and automatic
+  compaction, regardless of the next turn's tool policy. Provider-hosted web tools must not run
+  while summarizing session history.
 - The project-context system message is preserved across compaction — it is excluded from the
   summarization input, and re-injected (ahead of the generated summary) after history is
   cleared, so the model does not lose awareness of its working directory, rules, and tools after
@@ -277,7 +287,8 @@ Oversized tool results are spilled to disk without exposing where or what they a
 an unpredictable, owner-only directory (created with `mkdtemp`, mode `0700`); each result is written to
 an exclusively created `0600` file and addressed by a random, opaque `tool-result:` reference. No path,
 digest or payload appears in references or diagnostics, failures carry no secret material, and spilled
-results are removed on expiry and on shutdown.
+results are removed on expiry and on shutdown. The temporary directory prefix is product-neutral and
+does not disclose the host product's name.
 
 ## Error Taxonomy
 

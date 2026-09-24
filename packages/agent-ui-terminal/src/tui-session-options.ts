@@ -20,11 +20,29 @@ export function buildTuiSessionOptions(
     ...(opts.providerErrorGuidance !== undefined
       ? { providerErrorGuidance: opts.providerErrorGuidance }
       : {}),
+    ...(opts.promptFileReferenceTag !== undefined
+      ? { promptFileReferenceTag: opts.promptFileReferenceTag }
+      : {}),
+    ...(opts.modelCommandToolPrefix !== undefined
+      ? { modelCommandToolPrefix: opts.modelCommandToolPrefix }
+      : {}),
+    ...(opts.subagentHookEnvironmentNames !== undefined
+      ? { subagentHookEnvironmentNames: opts.subagentHookEnvironmentNames }
+      : {}),
+    ...(opts.commandHookShell !== undefined ? { commandHookShell: opts.commandHookShell } : {}),
     ...(opts.orgPolicy !== undefined ? { orgPolicy: opts.orgPolicy } : {}),
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
     ...(opts.projectSettingsPaths !== undefined
       ? { projectSettingsPaths: opts.projectSettingsPaths }
       : {}),
+    ...(opts.baselinePermissionAllow !== undefined
+      ? { baselinePermissionAllow: opts.baselinePermissionAllow }
+      : {}),
+    ...(opts.taskContext !== undefined ? { taskContext: opts.taskContext } : {}),
+    ...(opts.contributionSources !== undefined
+      ? { contributionSources: opts.contributionSources }
+      : {}),
+    ...(opts.skillRoots !== undefined ? { skillRoots: opts.skillRoots } : {}),
     ...(opts.userSettingsSources !== undefined
       ? { userSettingsSources: opts.userSettingsSources }
       : {}),
@@ -60,6 +78,7 @@ export function buildTuiSessionOptions(
     ...(opts.agentDefinitionRoots !== undefined
       ? { agentDefinitionRoots: opts.agentDefinitionRoots }
       : {}),
+    ...(opts.pluginDirectories !== undefined ? { pluginDirectories: opts.pluginDirectories } : {}),
     ...(opts.additionalTools !== undefined ? { additionalTools: opts.additionalTools } : {}),
     ...(opts.defaultTools !== undefined ? { defaultTools: opts.defaultTools } : {}),
     commandModules: opts.commandModules,

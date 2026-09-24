@@ -41,9 +41,9 @@ boundary has three parts:
 - Capability-pack merge precedence is base command modules < accepted packs in profile order;
   duplicate pack ids are rejected atomically before folding. Accepted packs, rejected
   capabilities, and rejected packs are all reported losslessly rather than only the accepted set.
-- `providerErrorGuidance` is plain data the fold passes through unmodified when the shell hasn't
-  supplied its own — it is never interpreted or branched on, and two assembled products in one
-  process keep separate guidance.
+- Product wording and model-facing identifiers are plain data the fold passes through unmodified
+  when the shell hasn't supplied its own — they are never interpreted or branched on, and two
+  assembled products in one process keep separate values.
 - Every field of `IProductProfile` is exhaustively classified by a fold policy; adding a new
   profile field fails compilation until it is classified and behaviorally covered.
 

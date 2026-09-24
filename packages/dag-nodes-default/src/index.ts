@@ -6,6 +6,10 @@ import {
 } from '@robota-sdk/agent-core';
 import type { ISkillExecutionPort } from '@robota-sdk/agent-interface-command';
 import { createSkillExecutionPort } from '@robota-sdk/agent-framework';
+import type {
+  IContributionSource,
+  ISkillRootDescriptor,
+} from '@robota-sdk/agent-framework';
 import { LlmTextNodeDefinition } from '@robota-sdk/dag-node-llm-text';
 import { InputNodeDefinition } from '@robota-sdk/dag-node-input';
 import { MultiInputNodeDefinition } from '@robota-sdk/dag-node-multi-input';
@@ -129,6 +133,8 @@ export async function createDefaultNodeRegistry(
     readonly mediaProviders?: readonly IMediaProviderDefinition[];
     readonly loadMediaDefaults?: TMediaProviderDefinitionLoader;
   } = {},
+  skillRoots: readonly ISkillRootDescriptor[] = [],
+  contributionSources: readonly IContributionSource[] = [],
 ): Promise<IDagNodeDefinition[]> {
   const resolvedProviders = providers ?? (await loadDefaults());
   const nodes: IDagNodeDefinition[] = [
@@ -180,7 +186,7 @@ export async function createDefaultNodeRegistry(
 
   const loadedGroups = await Promise.all([
     ...optionalLoaders.map(loadOptionalNodes),
-    loadSkillNode(),
+    loadSkillNode(contributionSources, skillRoots),
   ]);
   for (const loaded of loadedGroups) {
     nodes.push(...loaded);
@@ -202,13 +208,20 @@ export async function createDefaultNodeRegistry(
  * import of one module leaves a symbol "not in any chunk". The `dag-node-skill` NODE stays a dynamic optional
  * import (as before), so the graceful-skip for a missing skill node is preserved.
  */
-async function loadSkillNode(): Promise<IDagNodeDefinition[]> {
+async function loadSkillNode(
+  contributionSources: readonly IContributionSource[],
+  skillRoots: readonly ISkillRootDescriptor[],
+): Promise<IDagNodeDefinition[]> {
   try {
     // eslint-disable-next-line no-restricted-syntax -- optional node package (skill node is optional)
     const skillMod = (await import('@robota-sdk/dag-node-skill')) as {
       SkillNodeDefinition: new (options: { skillPort: ISkillExecutionPort }) => IDagNodeDefinition;
     };
-    return [new skillMod.SkillNodeDefinition({ skillPort: createSkillExecutionPort() })];
+    return [
+      new skillMod.SkillNodeDefinition({
+        skillPort: createSkillExecutionPort(contributionSources, skillRoots),
+      }),
+    ];
   } catch (_err) {
     // allow-fallback: the optional skill node package is absent → skip the skill node, keep the registry
     return [];

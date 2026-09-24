@@ -25,6 +25,7 @@ const RUN_OPTION_CONSUMERS: Record<keyof Required<IRunOptions>, string> = {
     'robota-execution.ts buildRunContext → IExecutionContext → execution-service.ts addUserMessage metadata (PEER-007)',
   metadata: 'robota-execution.ts buildRunContext → IExecutionContext',
   signal: 'robota.ts run queue + execution-round-provider.ts provider call',
+  awaitProviderSettlement: 'execution-provider-call.ts provider completion join',
   onTextDelta: 'execution-round-streaming.ts text delta dispatch; the streaming entry sinks it',
   onExecutionEvent: 'execution-round-streaming.ts replay event dispatch',
   maxExecutionRounds: 'execution round loop cap',

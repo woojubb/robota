@@ -49,8 +49,13 @@ executor. If the run is cancelled, the task transitions to `cancelled`, its leas
 the message is acknowledged without publishing `task.started` or invoking the executor. A claim
 that raced with cancellation may already have published `task.started`; the task still ends
 `cancelled` without invoking the executor. These checks close worker admission at the checked
-points only — they do not interrupt an executor already running, and do not make the status read
-and executor invocation atomic; that is out of scope here.
+points only — they do not make the status read and executor invocation atomic. The worker also
+registers a local attempt signal before its final status read, so a committed cancellation still
+aborts a cooperative attempt that a stale final read would otherwise have let keep running. While
+active, the worker also observes durable run state at a bounded interval, so cancellation committed
+by another owner aborts the attempt when storage reads reflect that owner's commit. An unreadable
+or missing run closes the attempt rather than authorizing continued execution. The file adapter
+remains single-owner and does not provide that cross-process visibility.
 
 ### Crash recovery (DAG-001)
 
@@ -109,9 +114,17 @@ this over an external fixed sleep interval so downstream tasks start promptly.
 
 ### Timeout enforcement scope
 
-Task timeout is enforced via an abort signal during execution. If the executor does not respect the
-signal, the timeout has no effect — node implementations must cooperate with the abort signal for
-timeout to be effective.
+Each task attempt receives a trusted in-process abort signal. A timeout settles the attempt with
+`DAG_TASK_EXECUTION_TIMEOUT` and aborts that signal before the caller resumes, so a late executor
+result cannot replace that outcome; an upstream attempt signal, when supplied, likewise aborts the
+attempt and returns non-retryable `DAG_TASK_EXECUTION_CANCELLED`, and same-process run cancellation
+aborts active attempt signals the same way.
+
+This is cooperative interruption, not CPU preemption or a guarantee that executor cleanup has
+finished. An executor ignoring its signal can continue side effects after timeout, including while
+an eligible retry runs, and synchronous work can still block the timer. Same-process notification
+aborts promptly; durable observation reaches other SQLite-backed workers, but it does not join
+arbitrary executor cleanup or provide root-owned descendant cancellation.
 
 ### Queue-scoped advancement ownership (RUNTIME-003)
 
@@ -139,3 +152,48 @@ Execution root is treated as required execution authority, not ordinary worker p
 validated and canonicalized to an absolute real directory at construction and copied into every
 task execution input; it is never read from `process.cwd()` or accepted from a queue message or DAG
 definition.
+
+## Cancellation and result precedence
+
+An executor result settles only while its run is running and its task still belongs to that exact
+attempt and worker; a prior cancellation cancels that task instead, with no output/credit
+persistence, completion/failure publication, retry, or downstream admission, and a stale attempt
+can never settle or cancel its replacement. Whichever of task settlement or cancellation commits
+first wins and is not overwritten by the other; finalization and cancellation arbitrate atomically,
+so an awaited read cannot resurrect a cancelled run. A task-free execution frontier is not
+sufficient for completion: for runs with a definition snapshot, ready nodes not yet admitted also
+keep the run running, covering a sibling finishing while another task's downstream dispatcher is
+still awaiting storage admission. Eligible failure settlement atomically reserves the next queued
+attempt before publishing the failure event, so a concurrent finalizer sees pending work; a
+cancellation that commits first rejects both the failure outcome and the retry reservation, and if
+the reservation commits first instead, the worker must settle its delivered message without
+invoking the executor. Active local attempts also receive a cooperative abort once cancellation
+commits, and a pre-aborted input never enters the executor. The worker does not itself clean up
+executors, cancel nested executions, or bound generation-time root budgets.
+
+## Trusted byte policy
+
+The worker snapshots the host's execution byte limits at construction and passes them into every
+task's lifecycle context; queue and definition data cannot raise these limits. The worker does not
+count aggregate root bytes or bound arbitrary executor allocations itself — that is the concern of
+the snapshot admission below.
+
+## Task snapshot admission
+
+When a shared root snapshot authority is supplied, input persistence is admitted before executor
+entry and output persistence before success publication or downstream dispatch, using current run,
+attempt and lease ownership in the storage commit rather than a raw setter. Snapshots are encoded
+from plain JSON data only; data-defined `toJSON` methods and accessors are never invoked. Budget exhaustion is a
+non-retryable task failure; a rejected stale or cancelled write consumes no allowance, but accepted
+input remains charged even if execution subsequently fails, and a persistence exception retains its
+capacity and closes the root authority rather than risk under-counting. Raw storage setters and
+lower-level workers without an injected authority provide no such accounting.
+
+## Explicit isolation shutdown
+
+An executor may offer an optional trusted isolation stop/join capability: the worker claims the
+settlement winner before running abort listeners, then stops and joins that owned isolation before
+the caller resumes, so a reentrant or late success can never replace the winner. A shutdown failure
+preserves the winning error code, disables retry, and is never reported as successful termination.
+Executors without this capability keep the cooperative contract above; this does not join arbitrary
+lifecycle cleanup.

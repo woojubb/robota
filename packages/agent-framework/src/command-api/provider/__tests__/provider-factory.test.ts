@@ -33,6 +33,7 @@ describe('readProviderSettings error typing (CLI-064)', () => {
       expect(error).toBeInstanceOf(ProviderConfigError);
       expect(error).toBeInstanceOf(Error);
       expect((error as Error).message).toContain('No provider configuration found');
+      expect((error as Error).message).not.toContain('robota');
     }
   });
 });

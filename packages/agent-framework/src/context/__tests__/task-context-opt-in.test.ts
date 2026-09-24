@@ -38,17 +38,16 @@ afterEach(() => {
 });
 
 /**
- * NEUT-004 — `.agents/tasks` house-schema context injection is opt-out-able and
- * configurable; the default preserves today's behavior.
+ * NEUT-004 — project task context is admitted only from an explicit host-selected root.
  */
 describe('NEUT-004 task-context injection discipline', () => {
-  it('default behavior unchanged: task files are loaded into taskContext', async () => {
+  it('does not scan an ambient task directory without a host-selected root', async () => {
     const cwd = makeWorkspace();
     writeTaskFile(cwd);
 
     const context = await loadContext(await projectSource(cwd));
 
-    expect(context.taskContext).toContain('Sample Task');
+    expect(context.taskContext).toBeUndefined();
   });
 
   it('disabled ⇒ no task section injected even when task files exist', async () => {
@@ -62,7 +61,18 @@ describe('NEUT-004 task-context injection discipline', () => {
     expect(context.taskContext).toBeUndefined();
   });
 
-  it('a custom dir replaces the default .agents/tasks scan location', async () => {
+  it('does not fall back to the ambient directory for an empty host path', async () => {
+    const cwd = makeWorkspace();
+    writeTaskFile(cwd);
+
+    const context = await loadContext(await projectSource(cwd), undefined, {
+      taskContext: { enabled: true, dir: '' },
+    });
+
+    expect(context.taskContext).toBeUndefined();
+  });
+
+  it('loads only the custom host-selected directory', async () => {
     const cwd = makeWorkspace();
     writeTaskFile(cwd, 'my-tasks');
     // A decoy in the default location must NOT be read when dir is overridden.
@@ -81,5 +91,11 @@ describe('NEUT-004 task-context injection discipline', () => {
   it('settings schema accepts the taskContext toggle', () => {
     const parsed = SettingsSchema.parse({ taskContext: { enabled: false, dir: 'my-tasks' } });
     expect(parsed.taskContext).toEqual({ enabled: false, dir: 'my-tasks' });
+  });
+
+  it('rejects an empty task-context path in settings', () => {
+    expect(SettingsSchema.safeParse({ taskContext: { enabled: true, dir: '' } }).success).toBe(
+      false,
+    );
   });
 });

@@ -51,6 +51,8 @@ describe('readUserSettingsOrExit (issue #2342)', () => {
     // The two halves of the message that make it actionable: which file, and what to do.
     expect(written.join('')).toContain('settings.json');
     expect(written.join('')).toContain('Fix or delete the file');
+    expect(written.join('')).toContain('robota doctor');
+    expect(written.join('').match(/robota doctor/g)).toHaveLength(1);
   });
 
   it('returns the settings when the file parses', () => {

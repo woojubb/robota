@@ -30,7 +30,8 @@ import type { IPromptFileReferenceRecord } from '../context/prompt-file-referenc
 import type { IProviderErrorGuidance } from '../utils/error-humanizer.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { Session } from '@robota-sdk/agent-session';
+import type { IProviderCallTraceObservation, Session } from '@robota-sdk/agent-session';
+import type { IToolBodyTraceObservation } from './interactive-session-execution.js';
 import type { TTurnSource } from '@robota-sdk/agent-interface-session';
 
 /**
@@ -56,6 +57,7 @@ export interface IPromptTurnContext {
   signal?: AbortSignal;
   turnSource?: TTurnSource;
   providerErrorGuidance?: IProviderErrorGuidance;
+  promptFileReferenceTag?: string;
   /**
    * SELFHOST-008 P3: an EPHEMERAL per-turn system block (rendered recalled memory) to include in THIS
    * turn's model call only — passed through to `session.run` and never persisted. Absent ⇒ no injection.
@@ -80,6 +82,8 @@ export interface IPromptTurnContext {
   /** Accumulated streamed text of the in-flight turn (ERR-001: preserved on error). */
   getStreamingText: () => string;
   onComplete: (result: IExecutionResult) => void;
+  onProviderCallCompleted?: (observation: IProviderCallTraceObservation) => void;
+  onToolBodyCompleted?: (observation: IToolBodyTraceObservation) => void;
   onInterrupted: (result: IExecutionResult) => void;
   onError: (err: Error) => void;
   onContextUpdate: () => void;
@@ -95,10 +99,14 @@ export async function executePromptTurn(
   const history = ctx.getHistory();
   // Keep the accepted driver's identity in the persisted display history as well as the live
   // turn. A TUI history refresh must not relabel an external (or peer) message as the operator.
-  history.push(messageToHistoryEntry(createUserMessage(
-    displayInput ?? input,
-    ctx.driverId ? { metadata: { driverId: ctx.driverId } } : {},
-  )));
+  history.push(
+    messageToHistoryEntry(
+      createUserMessage(
+        displayInput ?? input,
+        ctx.driverId ? { metadata: { driverId: ctx.driverId } } : {},
+      ),
+    ),
+  );
   ctx.onWorkspaceUpdated();
   const historyBefore = ctx.getSession().getHistory().length;
 
@@ -115,6 +123,7 @@ export async function executePromptTurn(
       rawInput,
       ctx.getContextReferences(),
       ctx.turnSource !== 'external',
+      ctx.promptFileReferenceTag,
     );
     if (preparedPrompt.promptFileReferenceEntry) {
       history.push(preparedPrompt.promptFileReferenceEntry);
@@ -131,6 +140,7 @@ export async function executePromptTurn(
         ? { ephemeralSystemContext: ctx.ephemeralSystemContext }
         : {}),
       ...(ctx.driverId !== undefined ? { driverId: ctx.driverId } : {}),
+      ...(ctx.turnSource === 'external' ? { toolChoice: 'none' as const } : {}),
     };
     const response =
       Object.keys(runOptions).length > 0
@@ -205,6 +215,12 @@ export async function executePromptTurn(
       ctx.onError(errObj);
     }
   } finally {
+    for (const observation of spanCollector.providerCalls) {
+      ctx.onProviderCallCompleted?.(observation);
+    }
+    for (const observation of spanCollector.toolBodies) {
+      ctx.onToolBodyCompleted?.(observation);
+    }
     // SELFHOST-004: always unsubscribe the span collector so a completed turn leaves no listener.
     spanCollector.dispose();
   }

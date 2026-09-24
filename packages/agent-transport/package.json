@@ -8,37 +8,64 @@
   "exports": {
     ".": {
       "source": "./src/index.ts",
-      "types": "./dist/node/index.d.ts",
       "node": {
-        "import": "./dist/node/index.js",
-        "require": "./dist/node/index.cjs"
+        "import": {
+          "types": "./dist/node/index.d.ts",
+          "default": "./dist/node/index.js"
+        },
+        "require": {
+          "types": "./dist/node/index.d.cts",
+          "default": "./dist/node/index.cjs"
+        }
       },
       "browser": {
-        "import": "./dist/browser/index.js"
+        "import": {
+          "types": "./dist/browser/index.d.ts",
+          "default": "./dist/browser/index.js"
+        }
       },
       "default": {
-        "import": "./dist/node/index.js",
-        "require": "./dist/node/index.cjs"
+        "import": {
+          "types": "./dist/node/index.d.ts",
+          "default": "./dist/node/index.js"
+        },
+        "require": {
+          "types": "./dist/node/index.d.cts",
+          "default": "./dist/node/index.cjs"
+        }
       }
     },
     "./client": {
-      "types": "./dist/browser/client.d.ts",
       "source": "./src/client.ts",
       "browser": "./dist/browser/client.js",
-      "import": "./dist/browser/client.js",
+      "import": {
+        "types": "./dist/browser/client.d.ts",
+        "default": "./dist/browser/client.js"
+      },
       "default": "./dist/browser/client.js"
     },
     "./node": {
-      "types": "./dist/node/node.d.ts",
       "source": "./src/node/index.ts",
       "node": {
-        "import": "./dist/node/node.js",
-        "require": "./dist/node/node.cjs"
+        "import": {
+          "types": "./dist/node/node.d.ts",
+          "default": "./dist/node/node.js"
+        },
+        "require": {
+          "types": "./dist/node/node.d.cts",
+          "default": "./dist/node/node.cjs"
+        }
       },
       "browser": null,
       "default": {
-        "import": "./dist/node/node.js",
-        "require": "./dist/node/node.cjs"
+        "import": {
+          "types": "./dist/node/node.d.ts",
+          "default": "./dist/node/node.js"
+        },
+        "require": {
+          "types": "./dist/node/node.d.cts",
+          "default": "./dist/node/node.cjs"
+        }
       }
     }
   },
@@ -57,14 +84,8 @@
     "dist",
     "src"
   ],
-  "robota": {
-    "artifact": {
-      "builder": "tsdown"
-    }
-  },
   "scripts": {
-    "prepack": "node ../../scripts/artifacts/pack-guard.mjs",
-    "build": "node ../../scripts/artifacts/build-package.mjs",
+    "build": "rimraf dist && tsdown",
     "build:js": "pnpm run build",
     "build:types": "pnpm run build",
     "typecheck": "tsgo --noEmit",

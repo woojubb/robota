@@ -1,5 +1,5 @@
 import { existsSync, readFileSync, writeFileSync, unlinkSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { dirname } from 'node:path';
 
 import { ensureOwnerOnlyDirectory, tightenExistingFile } from '@robota-sdk/agent-core/node';
 
@@ -11,11 +11,6 @@ import type { TUniversalValue } from '@robota-sdk/agent-core';
 export type TSettingsData = Record<string, TUniversalValue>;
 /** CLI-selectable settings write scope; project-local still requires an authorized project store. */
 export type TSettingsScope = 'user' | 'project-local';
-
-export function getUserSettingsPath(): string {
-  const home = process.env.HOME ?? process.env.USERPROFILE ?? '/';
-  return join(home, '.robota', 'settings.json');
-}
 
 /**
  * CLI-069: missing file → empty defaults (non-error); an EXISTING file that

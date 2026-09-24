@@ -16,8 +16,9 @@ const MAX_ACTIVE_LOOPS = 3;
 const LOOP_LIFETIME_MS = 7 * 24 * 60 * 60_000;
 const MAX_DEFAULT_PROMPT_LENGTH = 4_096;
 const pendingCreates = new WeakMap<object, number>();
-const TRAILING_INTERVAL =
-  /^([\s\S]+?)\s+every\s+(\d+)\s*(seconds?|minutes?|hours?|days?|s|m|h|d)$/i;
+const TRAILING_UNITS = new Set([
+  'second', 'seconds', 'minute', 'minutes', 'hour', 'hours', 'day', 'days', 's', 'm', 'h', 'd',
+]);
 const USAGE =
   'Usage: /loop [<prompt>] | /loop <N><s|m|h|d> [<prompt>] | /loop <prompt> every <N> <unit> | /loop list | /loop stop <id>. Bare and interval-only forms require a host maintenance prompt.';
 
@@ -79,6 +80,27 @@ function parseDuration(amountText: string, unit: string): number | undefined {
   return Number.isSafeInteger(milliseconds) && milliseconds <= UNIT_MS.d ? milliseconds : undefined;
 }
 
+function parseTrailingInterval(args: string): { instruction: string; amount: string; unit: string } | undefined {
+  let cursor = args.length;
+  while (cursor > 0 && /[a-z]/i.test(args[cursor - 1]!)) cursor -= 1;
+  const unit = args.slice(cursor).toLowerCase();
+  if (!TRAILING_UNITS.has(unit)) return undefined;
+  while (cursor > 0 && /\s/u.test(args[cursor - 1]!)) cursor -= 1;
+  const amountEnd = cursor;
+  while (cursor > 0 && args.charCodeAt(cursor - 1) >= 48 && args.charCodeAt(cursor - 1) <= 57) cursor -= 1;
+  if (cursor === amountEnd) return undefined;
+  const amount = args.slice(cursor, amountEnd);
+  const spaceAfterEvery = cursor;
+  while (cursor > 0 && /\s/u.test(args[cursor - 1]!)) cursor -= 1;
+  if (cursor === spaceAfterEvery || args.slice(cursor - 5, cursor).toLowerCase() !== 'every') return undefined;
+  cursor -= 5;
+  const spaceBeforeEvery = cursor;
+  while (cursor > 0 && /\s/u.test(args[cursor - 1]!)) cursor -= 1;
+  if (cursor === spaceBeforeEvery) return undefined;
+  const instruction = args.slice(0, cursor).trim();
+  return instruction ? { instruction, amount, unit } : undefined;
+}
+
 function parseCreate(
   args: string,
   defaultPrompt: string | undefined,
@@ -97,18 +119,16 @@ function parseCreate(
   if (leading) {
     const instruction = leading[3]!.trim();
     const requestedMs = parseDuration(leading[1]!, leading[2]!.toLowerCase());
-    if (instruction && requestedMs !== undefined && !TRAILING_INTERVAL.test(instruction)) {
+    if (instruction && requestedMs !== undefined && !parseTrailingInterval(instruction)) {
       return { instruction, requestedMs };
     }
     return undefined;
   }
 
-  const trailing = TRAILING_INTERVAL.exec(args);
+  const trailing = parseTrailingInterval(args);
   if (!trailing) return undefined;
-  const instruction = trailing[1]!.trim();
-  const unit = trailing[3]!.toLowerCase();
-  const requestedMs = parseDuration(trailing[2]!, unit[0]!);
-  return instruction && requestedMs !== undefined ? { instruction, requestedMs } : undefined;
+  const requestedMs = parseDuration(trailing.amount, trailing.unit[0]!);
+  return requestedMs !== undefined ? { instruction: trailing.instruction, requestedMs } : undefined;
 }
 
 function chooseCadence(requestedMs: number): ILoopCadence {
@@ -227,7 +247,7 @@ async function createLoop(
   }
   const parsed = parseCreate(args, defaultPrompt);
   if (!parsed) {
-    if (/^\d+[a-z](?:\s|$)/i.test(args) || TRAILING_INTERVAL.test(args)) {
+    if (/^\d+[a-z](?:\s|$)/i.test(args) || parseTrailingInterval(args)) {
       return { success: false, message: USAGE };
     }
     const instruction = (args || defaultPrompt || '').trim();

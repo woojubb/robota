@@ -10,15 +10,26 @@
   "types": "dist/node/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/node/index.d.ts",
       "source": "./src/index.ts",
       "node": {
-        "import": "./dist/node/index.js",
-        "require": "./dist/node/index.cjs"
+        "import": {
+          "types": "./dist/node/index.d.ts",
+          "default": "./dist/node/index.js"
+        },
+        "require": {
+          "types": "./dist/node/index.d.cts",
+          "default": "./dist/node/index.cjs"
+        }
       },
       "default": {
-        "import": "./dist/node/index.js",
-        "require": "./dist/node/index.cjs"
+        "import": {
+          "types": "./dist/node/index.d.ts",
+          "default": "./dist/node/index.js"
+        },
+        "require": {
+          "types": "./dist/node/index.d.cts",
+          "default": "./dist/node/index.cjs"
+        }
       }
     }
   },
@@ -37,29 +48,8 @@
     "dist",
     "bin"
   ],
-  "robota": {
-    "artifact": {
-      "builder": "tsdown",
-      "copies": [
-        {
-          "package": "@robota-sdk/agent-cli-web",
-          "target": "web"
-        }
-      ],
-      "variants": {
-        "bun": {
-          "output": "dist-bun"
-        },
-        "headless": {
-          "output": "dist-bun-headless"
-        }
-      }
-    }
-  },
   "scripts": {
-    "prepack": "node ../../scripts/artifacts/pack-guard.mjs",
-    "pack:verified": "node ../../scripts/artifacts/pack.mjs",
-    "build": "node ../../scripts/artifacts/build-package.mjs",
+    "build": "rimraf dist && tsdown && node scripts/copy-web.mjs",
     "build:js": "pnpm run build",
     "build:types": "pnpm run build",
     "dev": "tsx src/bin.ts",
@@ -119,6 +109,7 @@
   "devDependencies": {
     "@homebridge/node-pty-prebuilt-multiarch": "^0.14.1",
     "@robota-sdk/agent-builtin-providers": "workspace:*",
+    "@robota-sdk/agent-cli-web": "workspace:*",
     "@robota-sdk/agent-command": "workspace:*",
     "@robota-sdk/agent-command-workflows": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",

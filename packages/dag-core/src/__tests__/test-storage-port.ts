@@ -3,12 +3,17 @@ import type {
   IDagRun,
   IDagError,
   IStoragePort,
+  IExecutionCommitResult,
   ITaskRun,
   TDagRunStatus,
   TTaskRunStatus,
 } from '../index.js';
 
 export class TestStoragePort implements IStoragePort {
+  public async commitExecution(): Promise<IExecutionCommitResult> {
+    return { applied: false };
+  }
+
   private readonly definitions = new Map<string, IDagDefinition>();
 
   public async saveDefinition(definition: IDagDefinition): Promise<void> {

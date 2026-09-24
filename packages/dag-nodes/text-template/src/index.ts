@@ -1,5 +1,6 @@
 import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
 import {
+  resolveDagExecutionByteLimits,
   type ICostEstimate,
   type IDagError,
   type IDagNodeDefinition,
@@ -8,8 +9,7 @@ import {
   type TResult,
 } from '@robota-sdk/dag-core';
 import { z } from 'zod';
-
-const ESCAPED_PERCENT_S_TOKEN = '__ROBOTA_TEXT_TEMPLATE_ESCAPED_PERCENT_S__';
+import { renderTemplateWithinByteLimit } from './render-template.js';
 
 const TextTemplateConfigSchema = z.object({
   template: z
@@ -75,11 +75,12 @@ export class TextTemplateNodeDefinition extends AbstractNodeDefinition<
       return textInputResult;
     }
 
-    const text = textInputResult.value;
-    const escapedTemplate = config.template.split('%%s').join(ESCAPED_PERCENT_S_TOKEN);
-    const withHandlebars = escapedTemplate.replaceAll('{{text}}', text);
-    const withPrintf = withHandlebars.split('%s').join(text);
-    const outputText = withPrintf.split(ESCAPED_PERCENT_S_TOKEN).join('%s');
+    const rendered = renderTemplateWithinByteLimit(
+      config.template, textInputResult.value,
+      resolveDagExecutionByteLimits(context.byteLimits).maxTextTemplateOutputBytes,
+    );
+    if (!rendered.ok) return rendered;
+    const outputText = rendered.value;
     io.setOutput('text', outputText);
     io.setOutput('_agentSummary', `Template rendered. Output length: ${outputText.length} chars.`);
     return {

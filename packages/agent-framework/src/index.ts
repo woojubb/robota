@@ -71,6 +71,7 @@ export type {
   TWorkspaceProjectSettingsWriteDecision,
   TWorkspaceProjectMutationDecision,
   TWorkspaceProjectStateNamespace,
+  TWorkspaceProjectStateDirectories,
   TWorkspaceTrustState,
 } from './workspace-trust/index.js';
 
@@ -409,8 +410,10 @@ export {
   createSemanticMemoryStore,
   DEFAULT_MEMORY_EXTRACTOR_POLICY,
   RegexMemoryCandidateExtractor,
+  approvePendingMemoryCandidate,
 } from './memory/index.js';
 export type {
+  IApprovedMemoryCandidate,
   IAppendMemoryInput,
   IAppendMemoryResult,
   IProjectMemorySummary,
@@ -671,7 +674,6 @@ export type { TProviderFactory, IPromptProvider, IPromptExecutorOptions } from '
 export type { TSessionFactory, IAgentSession, IAgentExecutorOptions } from './hooks/index.js';
 
 // ── Plugin scope path ──────────────────────────────────────
-export { PROJECT_PLUGIN_RELATIVE_DIRECTORY } from './plugins/plugin-scope-paths.js';
 
 // ── Explicit project/host contribution sources ─────────────
 export {
@@ -754,7 +756,6 @@ export { consentScopeFor, promptForApproval } from './permissions/permission-pro
 
 // ── Settings I/O ─────────────────────────────────────────────
 export {
-  createDefaultUserSettingsSources,
   createNodeHostSettingsSource,
   createWorkspaceProjectSettingsSources,
   readSettingsSourceText,
@@ -773,7 +774,6 @@ export {
 } from './config/settings-store.js';
 export type { ISettingsDocumentStore } from './config/settings-store.js';
 export {
-  getUserSettingsPath,
   readSettings,
   writeSettings,
   updateModelInSettings,
@@ -792,6 +792,7 @@ export type {
 export type { TSettingsMergeRule } from './config/config-merge.js';
 export type { TSettings } from './config/config-types.js';
 export type {
+  ISkillRootDescriptor,
   ISkillRootInspection,
   ISkillSourceInspection,
   ISkillSourceSkip,

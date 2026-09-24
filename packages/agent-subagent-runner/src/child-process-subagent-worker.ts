@@ -144,6 +144,9 @@ async function runInitialPrompt(
         ? { taskDisallowedTools: payload.request.disallowedTools }
         : {}),
       hooks: payload.parentConfig.hooks,
+      ...(composition.createHookTypeExecutors !== undefined
+        ? { hookTypeExecutors: composition.createHookTypeExecutors() }
+        : {}),
       onTextDelta: (delta) => sendChildMessage({ type: 'text_delta', delta }),
       onToolExecution: forwardToolExecution,
     });

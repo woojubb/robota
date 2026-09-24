@@ -246,6 +246,40 @@ describe('AnthropicProvider', () => {
     });
   });
 
+  it('omits configured hosted web search for toolChoice none in direct and streaming requests', async () => {
+    const provider = new AnthropicProvider({ client: mockClient as unknown as Anthropic });
+    provider.configureNativeWebTools({ webSearch: true });
+    const messages: TUniversalMessage[] = [
+      {
+        id: 'no-tools-input',
+        role: 'user',
+        content: 'hello',
+        state: 'complete',
+        timestamp: new Date(),
+      },
+    ];
+    mockClient.messages.create
+      .mockResolvedValueOnce(makeStreamEvents(makeTextResponse('ok')))
+      .mockResolvedValueOnce(makeStreamEvents(makeTextResponse('ok')));
+
+    await provider.chat(messages, {
+      model: 'claude-3-opus-20240229',
+      nativeWebTools: { webSearch: true },
+      toolChoice: 'none',
+    });
+    for await (const _chunk of provider.chatStream(messages, {
+      model: 'claude-3-opus-20240229',
+      nativeWebTools: { webSearch: true },
+      toolChoice: 'none',
+    })) {
+      /* consume */
+    }
+
+    expect(mockClient.messages.create).toHaveBeenCalledTimes(2);
+    expect(mockClient.messages.create.mock.calls[0]?.[0]?.tools).toBeUndefined();
+    expect(mockClient.messages.create.mock.calls[1]?.[0]?.tools).toBeUndefined();
+  });
+
   // ── dispose ──────────────────────────────────────────────────
 
   describe('dispose', () => {

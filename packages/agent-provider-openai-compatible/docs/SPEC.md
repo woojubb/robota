@@ -46,7 +46,10 @@ schema or it throws.
 standard JSON Schema, so no keyword stripping or object closure runs. Each provider projects tools
 before handing options to the shared request builder, so the request that builder sees always
 already carries projected tools; Qwen's Responses surface (live when built-in web tools are on)
-projects the same way before building its own request.
+projects the same way before building its own request. Qwen's Responses surface also omits its
+configured server-side web search/extractor tools whenever a call selects `toolChoice: none`, for
+both direct and streaming responses, so a text-only call cannot acquire hosted web actions merely
+because the provider instance has them enabled.
 
 A tool schema the projector rejects is omitted from that request alone and reported once per cache
 identity via a dedicated log line on agent-core's global-sink schema-projection logger — audible

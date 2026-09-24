@@ -18,12 +18,11 @@
  *   everything else        `session-message-handler` → {`background-messages`, `message-decoders`,
  *                          `session-events`}, `session-resume-bridge` → {`outbound-delivery`,
  *                          `resume-buffer`, `session-message-handler`, `session-events`}, `channel-frames`,
- *                          `peer-message-ledger`, `handoff-ownership`, `handoff-chunking`,
+ *                          `peer-message-ledger`, `handoff-chunking`,
  *                          `protocol-session`, `wire-messages` — no builtin on any path.
  *
- * `handoff-ownership` keeps a VALUE import of `sourceRetainsAuthority` from
- * `@robota-sdk/agent-interface-session-mobility`; that package imports no builtin either, so the
- * edge is browser-safe.
+ * Handoff authority, offer refusal, and inventory decisions live in
+ * `agent-interface-session-mobility`, outside this wire package.
  *
  * The handoff MANIFEST types are omitted along with their functions. Keeping the `export type` lines
  * would be free at runtime, but it would put `node/handoff-manifest.ts` back on this entry's import graph
@@ -97,17 +96,7 @@ export type {
   IPeerMessageVerdict,
 } from './peer-message-ledger.js';
 
-// HANDOFF-001 (#1811): the ownership transaction. Every failure lands in the same place — the source
-// keeps authority — because it only ever gives it up on evidence it holds.
-export {
-  advanceHandoff,
-  beginHandoff,
-  commitHandoff,
-  handoffOutcome,
-  sourceStillOwns,
-} from './handoff-ownership.js';
-export type { ICommitResult, IHandoffTransaction, ITransitionResult } from './handoff-ownership.js';
-// The handoff MANIFEST (`buildHandoffManifest`, `sealHandoffRecord`, `verifyHandoffPayload`) is NOT
+// The handoff integrity helpers (`sealHandoffRecord`, `verifyHandoffPayload`) are NOT
 // here: it hashes with `node:crypto`. Chunking is, because it never hashes anything.
 export {
   chunkCountFor,

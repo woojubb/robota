@@ -5,7 +5,6 @@ import type {
   TPortPayload,
 } from '@robota-sdk/dag-core';
 import type { ICostMeta } from '@robota-sdk/dag-cost';
-import type { IDagBuildInput } from '@robota-sdk/dag-builder';
 
 export type TDagOrchestrationPayloadValue =
   string | number | boolean | null | undefined | object | readonly object[];
@@ -189,17 +188,9 @@ export interface IDagOrchestrationPublishedWorkflowRunSuccessPayload extends IDa
 
 /** Orchestration compatibility contract. Cost and run-draft editing are separate capabilities. */
 export interface IDagOrchestrationPort {
-  listDefinitions(
-    input?: IDagOrchestrationListDefinitionsInput,
-  ): Promise<IDagOrchestrationHttpResponse>;
-  getDefinition(dagId: string, version?: number): Promise<IDagOrchestrationHttpResponse>;
-  createDefinition(definition: IDagDefinition): Promise<IDagOrchestrationHttpResponse>;
-  updateDraft(input: IDagOrchestrationUpdateDraftInput): Promise<IDagOrchestrationHttpResponse>;
-  validateDefinition(dagId: string, version: number): Promise<IDagOrchestrationHttpResponse>;
-  publishDefinition(dagId: string, version?: number): Promise<IDagOrchestrationHttpResponse>;
-  listNodes(): Promise<IDagOrchestrationHttpResponse>;
   createRun(input: IDagOrchestrationCreateRunInput): Promise<IDagOrchestrationHttpResponse>;
   startRun(preparationId: string): Promise<IDagOrchestrationHttpResponse>;
+  cancelRun(dagRunId: string): Promise<IDagOrchestrationHttpResponse>;
   getRunStatus(dagRunId: string): Promise<IDagOrchestrationHttpResponse>;
   getRunResult(dagRunId: string): Promise<IDagOrchestrationHttpResponse>;
   startPublishedWorkflowRun(
@@ -207,6 +198,4 @@ export interface IDagOrchestrationPort {
     input?: IDagOrchestrationPublishedWorkflowRunRequest,
     version?: number,
   ): Promise<IDagOrchestrationHttpResponse>;
-  buildDag(input: IDagBuildInput): Promise<IDagOrchestrationHttpResponse>;
-  validateDag(definition: IDagDefinition): Promise<IDagOrchestrationHttpResponse>;
 }

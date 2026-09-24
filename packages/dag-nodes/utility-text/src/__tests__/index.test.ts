@@ -136,9 +136,26 @@ describe('TextJoinNodeDefinition', () => {
     if (r.ok) expect(r.value.text).toBe('a, b');
   });
 
+  it('filters lines containing only JavaScript trim whitespace', async () => {
+    const r = await node.taskHandler.execute({ items: 'a\n\ufeff\u00a0\nb' }, ctx('text-join'));
+    expect(r).toMatchObject({ ok: true, value: { text: 'a, b' } });
+  });
+
   it('returns error when items missing', async () => {
     const r = await node.taskHandler.execute({}, ctx('text-join'));
     expect(r.ok).toBe(false);
+  });
+
+  it('rejects separator expansion beyond the trusted UTF-8 output ceiling', async () => {
+    const context = ctx('text-join', { separator: ',' });
+    context.byteLimits = { maxTextRepeatOutputBytes: 4_194_304, maxTextJoinOutputBytes: 5 };
+    expect(await node.taskHandler.execute({ items: '😀\nx' }, context)).toMatchObject({
+      ok: false, error: { code: 'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED', retryable: false },
+    });
+    context.byteLimits = { maxTextRepeatOutputBytes: 4_194_304, maxTextJoinOutputBytes: 6 };
+    expect(await node.taskHandler.execute({ items: '😀\nx' }, context)).toMatchObject({
+      ok: true, value: { text: '😀,x' },
+    });
   });
 });
 
@@ -176,9 +193,37 @@ describe('TextSplitNodeDefinition', () => {
     if (r.ok) expect(r.value.items).toBe('a\nb\nc');
   });
 
+  it('trims JavaScript whitespace around split parts', async () => {
+    const r = await node.taskHandler.execute(
+      { text: '\ufeffa\u00a0,\u00a0\ufeff,\u00a0b\ufeff' },
+      ctx('text-split', { separator: ',', trim: true }),
+    );
+    expect(r).toMatchObject({ ok: true, value: { items: 'a\nb' } });
+  });
+
   it('returns error when text missing', async () => {
     const r = await node.taskHandler.execute({}, ctx('text-split'));
     expect(r.ok).toBe(false);
+  });
+
+  it('rejects newline expansion beyond the trusted UTF-8 output ceiling', async () => {
+    const context = ctx('text-split', { separator: ',', trim: false });
+    context.byteLimits = { maxTextRepeatOutputBytes: 4_194_304, maxTextSplitOutputBytes: 5 };
+    expect(await node.taskHandler.execute({ text: '😀,x' }, context)).toMatchObject({
+      ok: false, error: { code: 'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED', retryable: false },
+    });
+  });
+
+  it('counts split surrogate halves with newline between them', async () => {
+    const context = ctx('text-split', { separator: '', trim: false });
+    context.byteLimits = { maxTextRepeatOutputBytes: 4_194_304, maxTextSplitOutputBytes: 6 };
+    expect(await node.taskHandler.execute({ text: '😀' }, context)).toMatchObject({
+      ok: false, error: { code: 'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED' },
+    });
+    context.byteLimits = { maxTextRepeatOutputBytes: 4_194_304, maxTextSplitOutputBytes: 7 };
+    expect(await node.taskHandler.execute({ text: '😀' }, context)).toMatchObject({
+      ok: true, value: { items: '\ud83d\n\ude00' },
+    });
   });
 });
 
@@ -510,6 +555,55 @@ describe('TextCountLinesNodeDefinition', () => {
 
 describe('TextRepeatNodeDefinition', () => {
   const node = new TextRepeatNodeDefinition();
+
+  it('rejects expansion beyond the default UTF-8 ceiling before allocating output', async () => {
+    const result = await node.taskHandler.execute(
+      { text: '😀' }, ctx('text-repeat', { times: 1_048_577, maxTextRepeatOutputBytes: Number.MAX_SAFE_INTEGER }),
+    );
+    expect(result).toMatchObject({ ok: false, error: {
+      code: 'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED', retryable: false,
+    } });
+  });
+
+  it('honors a smaller trusted ceiling, counts separators and permits exact UTF-8 boundaries', async () => {
+    const context = Object.assign(ctx('text-repeat', { times: 2, separator: 'é' }), {
+      byteLimits: { maxTextRepeatOutputBytes: 10 },
+    });
+    expect(await node.taskHandler.execute({ text: '😀' }, context)).toMatchObject({ ok: true, value: { text: '😀é😀' } });
+    context.byteLimits.maxTextRepeatOutputBytes = 9;
+    expect(await node.taskHandler.execute({ text: '😀' }, context)).toMatchObject({ ok: false, error: { code: 'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED' } });
+  });
+
+  it('handles zero-output and single-copy extreme counts without an array', async () => {
+    expect(await node.taskHandler.execute({ text: '' }, ctx('text-repeat', { times: Number.MAX_SAFE_INTEGER }))).toMatchObject({ ok: true, value: { text: '' } });
+    expect(await node.taskHandler.execute({ text: 'x' }, ctx('text-repeat', { times: 0, separator: 'ignored' }))).toMatchObject({ ok: true, value: { text: '' } });
+    expect(await node.taskHandler.execute({ text: 'x' }, ctx('text-repeat', { times: 1, separator: 'ignored' }))).toMatchObject({ ok: true, value: { text: 'x' } });
+  });
+
+  it('counts surrogate pairs formed across repetition boundaries exactly', async () => {
+    const context = Object.assign(ctx('text-repeat', { times: 2 }), { byteLimits: { maxTextRepeatOutputBytes: 10 } });
+    expect(await node.taskHandler.execute({ text: '\udc00\ud800' }, context)).toMatchObject({ ok: true, value: { text: '\udc00\ud800\udc00\ud800' } });
+    context.byteLimits.maxTextRepeatOutputBytes = 9;
+    expect(await node.taskHandler.execute({ text: '\udc00\ud800' }, context)).toMatchObject({ ok: false });
+  });
+
+  it('rejects an expansion too large for native string allocation as a byte limit error', async () => {
+    expect(await node.taskHandler.execute({ text: 'x' }, ctx('text-repeat', { times: Number.MAX_SAFE_INTEGER }))).toMatchObject({ ok: false, error: { code: 'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED', retryable: false } });
+  });
+
+  it.each([Number.MAX_SAFE_INTEGER + 1, Infinity, -1, 0.5])('rejects an unsafe repetition count %s', async (times) => {
+    expect(await node.taskHandler.execute({ text: '' }, ctx('text-repeat', { times }))).toMatchObject({ ok: false });
+  });
+
+  it('counts separators when text is empty and ignores unused separators', async () => {
+    const context = Object.assign(ctx('text-repeat', { times: 3, separator: 'é' }), { byteLimits: { maxTextRepeatOutputBytes: 4 } });
+    expect(await node.taskHandler.execute({ text: '' }, context)).toMatchObject({ ok: true, value: { text: 'éé' } });
+    context.byteLimits.maxTextRepeatOutputBytes = 3;
+    expect(await node.taskHandler.execute({ text: '' }, context)).toMatchObject({ ok: false });
+    context.nodeDefinition.config = { times: 1, separator: 'ignored' };
+    context.byteLimits.maxTextRepeatOutputBytes = 0;
+    expect(await node.taskHandler.execute({ text: '' }, context)).toMatchObject({ ok: true, value: { text: '' } });
+  });
 
   it('has correct metadata', () => {
     expect(node.nodeType).toBe('text-repeat');

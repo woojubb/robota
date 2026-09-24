@@ -1,5 +1,10 @@
+import { IsolatedRegexTaskExecutor } from './isolated-regex-task-executor.js';
 import type {
   IDagDefinition,
+  IDagError,
+  ITaskSnapshotBudget,
+  ITaskSnapshotBudgetLimits,
+  IDagExecutionByteLimits,
   IDagExecutionLineage,
   IDagNodeDefinition,
   IDagRuntimeExecuteOptions,
@@ -16,7 +21,7 @@ import type {
   IWorkspaceLayout,
 } from '@robota-sdk/dag-core';
 import { resolveTrustedExecutionRoot } from '@robota-sdk/agent-core/node';
-import { LifecycleTaskExecutorPort } from '@robota-sdk/dag-core';
+import { LifecycleTaskExecutorPort, resolveDagExecutionByteLimits, resolveTaskSnapshotBudgetLimits, TaskSnapshotBudget } from '@robota-sdk/dag-core';
 import {
   InMemoryLeasePort,
   InMemoryQueuePort,
@@ -44,8 +49,20 @@ const LOCAL_VISIBILITY_TIMEOUT_MS = 60_000;
 const LOCAL_MAX_ATTEMPTS = 1;
 const LOCAL_DEFAULT_TIMEOUT_MS = 300_000;
 
+class DagStartError extends Error {
+  public constructor(public readonly dagError: IDagError) {
+    super(`startRun failed: ${dagError.code}`);
+  }
+}
+
 /** Options accepted by {@link LocalDagRuntimeProvider}. */
 export interface ILocalDagRuntimeProviderOptions {
+  /** Trusted limits for a fresh root invocation. */
+  snapshotBudgetLimits?: ITaskSnapshotBudgetLimits;
+  /** Inherited live root authority for a nested invocation. */
+  snapshotBudget?: ITaskSnapshotBudget;
+  /** Trusted host policy; workflow data cannot change this ceiling. */
+  byteLimits?: IDagExecutionByteLimits;
   /** Trusted absolute filesystem root propagated to every node. */
   executionRoot: string;
   /**
@@ -78,8 +95,12 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
   public readonly displayName = 'Local (in-process)';
 
   private readonly executionRoot: string;
+  private readonly snapshotBudgetLimits: ITaskSnapshotBudgetLimits;
+  private readonly byteLimits: IDagExecutionByteLimits;
   public constructor(private readonly options: ILocalDagRuntimeProviderOptions) {
     this.executionRoot = resolveTrustedExecutionRoot(options.executionRoot);
+    this.snapshotBudgetLimits = resolveTaskSnapshotBudgetLimits(options.snapshotBudgetLimits);
+    this.byteLimits = resolveDagExecutionByteLimits(options.byteLimits);
   }
 
   public async listNodes(): Promise<IDagNodeManifest[]> {
@@ -97,6 +118,8 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
     // node id to `node-<n>` — undoing a conversion the caller had just performed.
 
     const startMs = Date.now();
+    const inheritedBudget = this.options.snapshotBudget;
+    const snapshotBudget = inheritedBudget ?? new TaskSnapshotBudget(this.snapshotBudgetLimits);
     try {
       const result = await runDagOnce(
         dag,
@@ -106,6 +129,8 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
         options?.onProgress,
         options?.signal,
         this.options.lineage,
+        this.byteLimits,
+        snapshotBudget,
       );
 
       const durationMs = Date.now() - startMs;
@@ -144,7 +169,14 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
         durationMs,
         error,
       });
-      return { ok: false, outputs: {}, durationMs, error };
+      return {
+        ok: false, outputs: {}, durationMs, error,
+        ...(err instanceof DagStartError
+          ? { errorCode: err.dagError.code, errorRetryable: err.dagError.retryable }
+          : {}),
+      };
+    } finally {
+      if (inheritedBudget === undefined) snapshotBudget.close();
     }
   }
 
@@ -187,6 +219,8 @@ async function runDagOnce(
   onProgress: ((event: IDagRuntimeProgressEvent) => void) | undefined,
   signal: AbortSignal | undefined,
   lineage: IDagExecutionLineage | undefined,
+  byteLimits: IDagExecutionByteLimits,
+  snapshotBudget: ITaskSnapshotBudget,
 ): Promise<IDagRunOutcome> {
   const assemblyResult = buildNodeDefinitionAssembly(nodeDefinitions);
   if (!assemblyResult.ok) {
@@ -197,16 +231,16 @@ async function runDagOnce(
   const manifestRegistry = new StaticNodeManifestRegistry(assembly.manifests);
   const handlerRegistry = new StaticNodeTaskHandlerRegistry(assembly.handlersByType);
   const lifecycleFactory = new StaticNodeLifecycleFactory(handlerRegistry);
-  const executor: ITaskExecutorPort = new LifecycleTaskExecutorPort(
-    manifestRegistry,
-    lifecycleFactory,
-    lineage,
+  const executor: ITaskExecutorPort = new IsolatedRegexTaskExecutor(
+    new LifecycleTaskExecutorPort(manifestRegistry, lifecycleFactory, lineage),
   );
 
   const storage = new InMemoryStoragePort();
   const composition = createExecutionComposition(
     {
       executionRoot,
+      byteLimits,
+      snapshotBudget,
       storage,
       queue: new InMemoryQueuePort(),
       deadLetterQueue: new InMemoryQueuePort(),
@@ -271,7 +305,7 @@ async function runDagOnce(
       input: inputs,
     });
     if (!startResult.ok) {
-      throw new Error(`startRun failed: ${startResult.error.code}`);
+      throw new DagStartError(startResult.error);
     }
     const { dagRunId } = startResult.value;
 

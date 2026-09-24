@@ -1,4 +1,12 @@
-import { mkdtempSync, readdirSync, rmSync, statSync, writeFileSync, realpathSync } from 'node:fs';
+import {
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+  realpathSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -195,5 +203,33 @@ describe('#1863 — a malformed entry is not a peer', () => {
     writeFileSync(join(guardedDirectory, 'unrelated.txt'), 'x', 'utf8');
 
     expect(listPeers({ guardedDirectory, readStartTime: starts({}) })).toEqual([]);
+  });
+});
+
+describe('#2726 — peer activity is evidence, not liveness', () => {
+  it('shows only a fresh, valid observation from a confirmed live process', () => {
+    const guardedDirectory = scratch();
+    let now = 1_000;
+    const opts = { guardedDirectory, readStartTime: starts({ 100: 'T1' }), now: () => now };
+    announcePeer(opts, { sessionId: 'working', pid: 100, status: 'working' });
+    expect(listPeers(opts)[0]?.status).toBe('working');
+    now += 30_001;
+    expect(listPeers(opts)[0]?.status).toBe('unknown');
+    expect(listPeers({ ...opts, readStartTime: () => undefined })[0]?.status).toBe('unknown');
+  });
+
+  it('rejects forged or malformed activity metadata', () => {
+    const guardedDirectory = scratch();
+    const opts = { guardedDirectory, readStartTime: starts({ 100: 'T1' }), now: () => 100 };
+    announcePeer(opts, { sessionId: 'bad', pid: 100 });
+    const file = join(guardedDirectory, 'bad.peer.json');
+    const entry = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>;
+    writeFileSync(
+      file,
+      JSON.stringify({ ...entry, status: 'secret transcript', statusObservedAt: 100 }),
+    );
+    expect(listPeers(opts)[0]?.status).toBe('unknown');
+    writeFileSync(file, JSON.stringify({ ...entry, status: 'idle', statusObservedAt: 101 }));
+    expect(listPeers(opts)[0]?.status).toBe('unknown');
   });
 });

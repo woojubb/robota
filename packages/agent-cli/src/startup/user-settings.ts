@@ -1,4 +1,5 @@
-import { getUserSettingsPath, readSettings, SettingsParseError } from '@robota-sdk/agent-framework';
+import { readSettings, SettingsParseError } from '@robota-sdk/agent-framework';
+import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
 
 import type { TSettingsData } from '@robota-sdk/agent-framework';
 
@@ -15,8 +16,8 @@ import type { TSettingsData } from '@robota-sdk/agent-framework';
  * as a **stack trace** — and almost none of the message `SettingsParseError` was written to carry
  * survives that:
  *
- * > `Settings file <path> contains invalid JSON: <reason>. Fix or delete the file, or run robota
- * > diagnose.`
+ * > `Settings file <path> contains invalid JSON: <reason>. Fix or delete the file. Run robota doctor
+ * > for diagnostics.`
  *
  * It names the file and the remedy, which is the whole point of having a typed error.
  *
@@ -31,11 +32,11 @@ import type { TSettingsData } from '@robota-sdk/agent-framework';
  */
 export function readUserSettingsOrExit(): TSettingsData {
   try {
-    return readSettings(getUserSettingsPath());
+    return readSettings(robotaUserSettingsPath());
   } catch (error) {
     if (!(error instanceof SettingsParseError)) throw error;
     // allow-fallback: an unreadable settings file is terminal — surface the file and the remedy, exit
-    process.stderr.write(`${error.message}\n`);
+    process.stderr.write(`${error.message} Run robota doctor for diagnostics.\n`);
     process.exit(1);
   }
 }

@@ -6,8 +6,6 @@
  * Session restore logic lives in interactive-session-restore.ts.
  */
 
-import { homedir } from 'node:os';
-
 import { createLogger } from '@robota-sdk/agent-core';
 
 import { buildCreateSessionOptions } from './create-session-projection.js';
@@ -30,7 +28,6 @@ import {
   mergePluginHooksWithSources,
   mergeHooksIntoConfig,
 } from '../plugins/plugin-hooks-merger.js';
-import { pluginsDirUnder } from '../plugins/plugin-scope-paths.js';
 
 import type {
   IInteractiveSessionStandardOptions,
@@ -96,16 +93,24 @@ export async function createInteractiveSession(
   // Project plugins may contain executable hooks. Include that scope only after the host has
   // granted workspace trust; a restricted session still sees user-installed plugins.
   const pluginsDirs = [
-    ...(options.projectAccess?.status === 'trusted' ? [pluginsDirUnder(cwd)] : []),
-    pluginsDirUnder(homedir()),
+    ...(options.projectAccess?.status === 'trusted' &&
+    options.pluginDirectories?.project !== undefined
+      ? [options.pluginDirectories.project]
+      : []),
+    ...(options.pluginDirectories?.user !== undefined ? [options.pluginDirectories.user] : []),
   ];
   // PLG-021 / issue #2025: built through the composition root so a disabled plugin's hooks do not
   // load. The bare constructor defaults the enablement map to `{}`, which reads as "nothing
   // disabled" — indistinguishable from a user who disabled nothing. `pluginsDirs` stays a local
   // because the failure log below names it.
-  if (!options.bare) {
+  const pluginSettingsPath = options.userSettingsSources?.find(
+    (source) => source.scope === 'user',
+  )?.path;
+  if (!options.bare && pluginSettingsPath !== undefined) {
     try {
-      const plugins = loadHostBundlePluginsFromScopes(pluginsDirs);
+      const plugins = loadHostBundlePluginsFromScopes(pluginsDirs, {
+        settingsPath: pluginSettingsPath,
+      });
       if (plugins.length > 0) {
         const pluginHooks = mergePluginHooksWithSources(plugins);
         mergedConfig = {
@@ -154,6 +159,7 @@ export async function createInteractiveSession(
       sessionId,
       contextCapacityHint,
       contributionSources,
+      skillRoots: options.skillRoots,
     }),
     effectiveHookSources,
   );
@@ -237,12 +243,16 @@ export async function initializeInteractiveSessionAsync(
     ...(options.projectSettingsPaths !== undefined
       ? { projectSettingsPaths: options.projectSettingsPaths }
       : {}),
+    ...(options.taskContext !== undefined ? { taskContext: options.taskContext } : {}),
     ...(options.userSettingsSources !== undefined
       ? { userSettingsSources: options.userSettingsSources }
       : {}),
     config,
     hookSources,
+    contributionSources: options.contributionSources,
+    skillRoots: options.skillRoots,
     permissionMode: options.permissionMode,
+    baselinePermissionAllow: options.baselinePermissionAllow,
     maxTurns: options.maxTurns,
     permissionHandler: deps.permissionHandler,
     ...(deps.askHandler ? { askHandler: deps.askHandler } : {}),
@@ -258,6 +268,7 @@ export async function initializeInteractiveSessionAsync(
     onToolExecution: deps.onToolExecution,
     bare: options.bare,
     disableBuiltInHookExecutors: options.disableBuiltInHookExecutors,
+    commandHookShell: options.commandHookShell,
     allowedTools: options.allowedTools,
     deniedTools: options.deniedTools,
     model: options.model,
@@ -268,12 +279,16 @@ export async function initializeInteractiveSessionAsync(
     ...(options.systemPrompt ? { systemPrompt: options.systemPrompt } : {}),
     language: options.language,
     backgroundTaskRunners: options.backgroundTaskRunners,
+    subagentHookEnvironmentNames: options.subagentHookEnvironmentNames,
     ...(options.toolCallHandoff !== undefined ? { toolCallHandoff: options.toolCallHandoff } : {}),
     subagentRunnerFactory: options.subagentRunnerFactory,
     // ARCH-005: composition-root-contributed subagent definitions (capability packs).
     ...(options.agentDefinitions ? { agentDefinitions: options.agentDefinitions } : {}),
     ...(options.agentDefinitionRoots !== undefined
       ? { agentDefinitionRoots: options.agentDefinitionRoots }
+      : {}),
+    ...(options.pluginDirectories !== undefined
+      ? { pluginDirectories: options.pluginDirectories }
       : {}),
     ...(options.commandModules ? { commandModules: options.commandModules } : {}),
     ...(checkpointStore !== undefined ? { editCheckpointRecorder: checkpointStore } : {}),
@@ -300,6 +315,7 @@ export async function initializeInteractiveSessionAsync(
     ...(deps.commandDescriptors.length > 0
       ? {
           modelCommandExecutor: deps.executeModelCommand,
+          modelCommandToolPrefix: options.modelCommandToolPrefix,
           isModelCommandInvocable: deps.isModelCommandInvocable,
         }
       : {}),

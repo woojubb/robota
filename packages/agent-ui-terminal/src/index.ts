@@ -1,4 +1,6 @@
 export { renderApp } from './render.js';
+export { renderSupervisedSessionView } from './SupervisedSessionView.js';
+export type { ISupervisedViewRow, ISupervisedSessionViewProps } from './SupervisedSessionView.js';
 export { TuiInteractionChannel } from './TuiInteractionChannel.js';
 export type { ITuiInteractionChannelOptions } from './TuiInteractionChannel.js';
 export type { IRenderOptions } from './render.js';
@@ -6,11 +8,7 @@ export type { TScreenReaderChannel } from './screen-reader-announcement.js';
 export type { ITuiCliAdapter } from './tui-cli-adapter.js';
 export type { IDefaultTuiCliAdapterOptions } from './create-default-tui-cli-adapter.js';
 export { createDefaultTuiCliAdapter } from './create-default-tui-cli-adapter.js';
-export {
-  createNodeKeybindingsSource,
-  DEFAULT_KEYBINDINGS_DOCUMENT,
-  KEYBINDINGS_SCHEMA_URL,
-} from './keybindings/node-keybindings-source.js';
+export { createNodeKeybindingsSource } from './keybindings/node-keybindings-source.js';
 // SCREEN-2002: the product shell assembles one registry and hands it to both `/theme` and
 // `renderApp`. The theme DATA stays unexported — a caller asks the registry, never a built-in.
 export { createThemeCataloguePort, createThemeRegistry } from './theme/theme-registry.js';

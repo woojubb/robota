@@ -35,13 +35,17 @@ distinguishable outcomes.
   unregistered channel, an undeclared event name, or a malformed envelope always gets an explicit
   `protocol_error` reply — never a silent drop. An application adds a new event type by declaring a
   channel, never by forking the agent wire protocol.
+- **Protocol-scoped session attachment.** Both WebSocket adapters require only the session roles the
+  shared protocol bridge uses; a host may attach a full interactive session, but the carrier itself
+  does not depend on unrelated runtime capabilities.
 - **Authentication ordering is fixed.** Channel sinks attach only after the token check, so an
   unauthenticated socket never receives channel traffic even if a channel was registered before the
   connection existed.
-- **Optional token, constant-time comparison, closed before data.** When a per-connection token is
-  configured, a non-matching connection is closed before any session data is emitted; comparison is
-  constant-time. When unset, the transport is unauthenticated exactly as before — a
-  backward-compatible no-op, not a stricter default.
+- **Authenticated by default, constant-time comparison, closed before data.** Every connection must
+  present the token or is closed before any session data is emitted; comparison is constant-time. A
+  host may supply the token; otherwise a random per-launch token is minted and exposed only for delivery
+  to the co-located client. Running without auth needs the explicit, discouraged `open` opt-out, and
+  combining `open` with a token is rejected as a contradiction.
 - **Lifecycle rejects out-of-order use.** Starting before attaching, or a repeated active start,
   is rejected rather than silently reinitializing; a repeated stop is safe but clears the session so
   restart requires reattaching.

@@ -11,6 +11,7 @@ import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-co
 import { useCallback } from 'react';
 
 import { attachToForkedSession } from '../flows/fork-attach-flow.js';
+import { useTuiCliAdapter } from '../tui-cli-adapter-context.js';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { IExecutionWorkspaceEntry } from '@robota-sdk/agent-interface-execution';
@@ -34,6 +35,7 @@ export function useForkAttach({
   onSessionSwitch,
   addEntry,
 }: IUseForkAttachOptions): (entry: IExecutionWorkspaceEntry) => void {
+  const cliAdapter = useTuiCliAdapter();
   return useCallback(
     (entry: IExecutionWorkspaceEntry): void => {
       const notify = (message: string): void =>
@@ -48,8 +50,11 @@ export function useForkAttach({
         hasSessionRecord: (sessionId) => sessionStore.load(sessionId).status === 'valid',
         switchSession: onSessionSwitch,
         notify,
+        ...(cliAdapter.formatResumeCommand === undefined
+          ? {}
+          : { formatResumeCommand: cliAdapter.formatResumeCommand }),
       });
     },
-    [addEntry, onSessionSwitch, sessionStore],
+    [addEntry, cliAdapter, onSessionSwitch, sessionStore],
   );
 }

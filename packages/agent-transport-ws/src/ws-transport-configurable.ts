@@ -28,7 +28,6 @@ import {
 
 import type { IWsTransportConfig } from './ws-transport-config.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type {
   IChannelDescriptor,
   IConfigurableTransport,
@@ -53,7 +52,7 @@ const WS_STOP_TERMINATE_DEADLINE_MS = 5000;
  * consumer-declared channels. The two profiles share one connection and never constrain each other.
  */
 export class WsTransport
-  implements IConfigurableTransport<IInteractiveSession>, IPayloadChannelHost
+  implements IConfigurableTransport<IProtocolSession>, IPayloadChannelHost
 {
   readonly name = 'ws';
   readonly lifecycle = Object.freeze({ kind: 'service' as const });
@@ -93,8 +92,6 @@ export class WsTransport
     this.handlerOptions = configuredWsHandlerOptions(config);
   }
 
-  attach(session: IInteractiveSession): void;
-  attach(session: IProtocolSession): void;
   attach(session: IProtocolSession): void {
     this.session = session;
     this.state = 'attached';

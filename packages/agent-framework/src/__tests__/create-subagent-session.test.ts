@@ -145,7 +145,7 @@ describe('createSubagentSession', () => {
     const tools = [
       makeTool('Read'),
       makeTool('Agent'),
-      makeTool('robota_command_spawn-subagent-alt'),
+      makeTool('command_spawn-subagent-alt'),
       makeTool('Grep'),
     ];
     const agent = makeAgentDef();
@@ -166,7 +166,25 @@ describe('createSubagentSession', () => {
     const toolNames = passedTools.map((t) => t.getName());
     expect(toolNames).toEqual(['Read', 'Grep']);
     expect(toolNames).not.toContain('Agent');
-    expect(toolNames).not.toContain('robota_command_spawn-subagent-alt');
+    expect(toolNames).not.toContain('command_spawn-subagent-alt');
+  });
+
+  it('removes the host-named spawn tool from a child session', () => {
+    createSubagentSession({
+      agentDefinition: makeAgentDef(),
+      parentConfig: makeParentConfig(),
+      parentContext: makeParentContext(),
+      parentTools: [makeTool('Read'), makeTool('acme_command_delegate')],
+      provider: mockProvider,
+      terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
+      commandSemanticRoles: { subagentSpawn: 'delegate' },
+      modelCommandToolPrefix: 'acme_command_',
+    });
+
+    const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
+    const tools = passedOptions['tools'] as IToolWithEventService[];
+    expect(tools.map((tool) => tool.getName())).toEqual(['Read']);
   });
 
   it('keeps an unannotated coincidental projected agent command when the role is absent', () => {
@@ -174,7 +192,7 @@ describe('createSubagentSession', () => {
       agentDefinition: makeAgentDef(),
       parentConfig: makeParentConfig(),
       parentContext: makeParentContext(),
-      parentTools: [makeTool('Agent'), makeTool('robota_command_agent')],
+      parentTools: [makeTool('Agent'), makeTool('command_agent')],
       provider: mockProvider,
       terminal: makeTerminal(),
       cwd: SUBAGENT_ROOT,
@@ -183,7 +201,7 @@ describe('createSubagentSession', () => {
     const toolNames = (passedOptions['tools'] as IToolWithEventService[]).map((tool) =>
       tool.getName(),
     );
-    expect(toolNames).toEqual(['robota_command_agent']);
+    expect(toolNames).toEqual(['command_agent']);
   });
 
   it('should resolve model shortcut "haiku"', () => {
@@ -590,10 +608,10 @@ describe('createSubagentSession', () => {
     const tools = [
       makeTool('Read'),
       makeTool('Agent'),
-      makeTool('robota_command_agent'),
+      makeTool('command_agent'),
       makeTool('Grep'),
     ];
-    const agent = makeAgentDef({ tools: ['Read', 'Agent', 'robota_command_agent', 'Grep'] });
+    const agent = makeAgentDef({ tools: ['Read', 'Agent', 'command_agent', 'Grep'] });
 
     createSubagentSession({
       agentDefinition: agent,
@@ -611,7 +629,7 @@ describe('createSubagentSession', () => {
     const toolNames = passedTools.map((t) => t.getName());
     expect(toolNames).toEqual(['Read', 'Grep']);
     expect(toolNames).not.toContain('Agent');
-    expect(toolNames).not.toContain('robota_command_agent');
+    expect(toolNames).not.toContain('command_agent');
   });
 
   it('should handle empty parent tools', () => {

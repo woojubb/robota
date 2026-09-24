@@ -51,6 +51,26 @@ describe('TransformNodeDefinition', () => {
     }
   });
 
+  it('uses exact UTF-8 bytes across a prefix/input surrogate boundary', async () => {
+    const node = new TransformNodeDefinition();
+    const context = {
+      ...createContext('\ud83d'),
+      byteLimits: { maxTextRepeatOutputBytes: 4_194_304, maxTextTransformOutputBytes: 4 },
+    };
+    const accepted = await node.taskHandler.execute({ text: '\ude00' }, context);
+    expect(accepted.ok).toBe(true);
+    if (accepted.ok) expect(accepted.value.text).toBe('😀');
+
+    const refused = await node.taskHandler.execute({ text: '\ude00' }, {
+      ...context,
+      byteLimits: { ...context.byteLimits, maxTextTransformOutputBytes: 3 },
+    });
+    expect(refused).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED' },
+    });
+  });
+
   it('passes through all input entries when text is not string', async () => {
     const node = new TransformNodeDefinition();
     const result = await node.taskHandler.execute({ data: { key: 'value' } }, createContext());

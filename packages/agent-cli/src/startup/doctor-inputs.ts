@@ -19,6 +19,7 @@ import {
   resolveInitialCliWorkspaceProjectAccess,
 } from './workspace-project-composition.js';
 import { createRobotaUserSettingsSources } from '../product/robota-user-settings.js';
+import { ROBOTA_SKILL_ROOTS } from '../product/robota-skill-roots.js';
 
 import type { IStartCliOptions } from './cli-options-types.js';
 import type { IDoctorCheck, IDoctorInputs } from '@robota-sdk/agent-command';
@@ -115,6 +116,7 @@ export function buildDoctorInputs(opts: IBuildDoctorInputsOptions): IDoctorInput
   let settingsSources: readonly TSettingsSource[] = createRobotaUserSettingsSources(userHome);
   let contributionSources: readonly IContributionSource[] =
     createContributionSourcesForProjectAccess(projectAccess, userHome);
+  let skillRoots = ROBOTA_SKILL_ROOTS;
   if (failure === undefined) {
     try {
       const composition = createCliWorkspaceComposition({
@@ -127,6 +129,7 @@ export function buildDoctorInputs(opts: IBuildDoctorInputsOptions): IDoctorInput
       });
       settingsSources = composition.settingsSources;
       contributionSources = composition.contributionSources;
+      skillRoots = composition.skillRoots;
     } catch (error) {
       // allow-fallback: same boundary — reported, and the user-level sources stand in
       failure = compositionFailure(error instanceof Error ? error : new Error(String(error)));
@@ -147,8 +150,13 @@ export function buildDoctorInputs(opts: IBuildDoctorInputsOptions): IDoctorInput
     settingsSources,
     projectAccess,
     providerDefinitions: opts.providerDefinitions,
+    diagnosticGuidance: {
+      providerResolution: 'Run: robota --configure, or set the provider API key variable.',
+      projectTrust: 'Project sources are disabled. Run: robota trust --yes',
+    },
     env: opts.env,
     contributionSources,
+    skillRoots,
     pluginsDirs: pluginScopeDirs(opts.cwd, userHome, projectAccess),
     ...(opts.options.mcpActivationAdapter === undefined
       ? {}

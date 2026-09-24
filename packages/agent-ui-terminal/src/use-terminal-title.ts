@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 
+import { useProductDisplayName } from './product-display-name-context.js';
 import { sanitizeTerminalText } from './sanitize-terminal-text.js';
 
 /**
@@ -14,13 +15,15 @@ import { sanitizeTerminalText } from './sanitize-terminal-text.js';
  * `sessionName` is untrusted — a session can be named from a prompt, and a name containing BEL or ESC
  * terminates the OSC early, so everything after it is read by the terminal as its own command.
  *
- * Only the NAME is sanitized, not the finished string: the `\x1b]0;` … `\x07` around it is framing
- * this module is deliberately writing, and sanitizing the whole thing would strip it.
+ * Both the host-selected product name and the session name are sanitized separately from the
+ * `\x1b]0;` … `\x07` framing this module deliberately writes.
  */
 export function useTerminalTitle(sessionName: string | undefined): void {
+  const productDisplayName = useProductDisplayName();
   useEffect(() => {
     const safeName = sanitizeTerminalText(sessionName ?? '');
-    const title = safeName ? `Robota — ${safeName}` : 'Robota';
+    const safeProductName = sanitizeTerminalText(productDisplayName);
+    const title = safeName ? `${safeProductName} — ${safeName}` : safeProductName;
     process.stdout.write(`\x1b]0;${title}\x07`);
-  }, [sessionName]);
+  }, [sessionName, productDisplayName]);
 }

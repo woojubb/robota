@@ -9,6 +9,7 @@ import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IProjectInfo } from '../context/project-detector.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import type { IContributionSource } from '../contributions/index.js';
+import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 import type { TSessionFactory } from '../hooks/agent-executor.js';
 import type { TProviderFactory } from '../hooks/prompt-executor.js';
 import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
@@ -72,10 +73,14 @@ export interface ICreateSessionOptions {
   outputStyle?: IOutputStylePrompt;
   /** Resolved CLI configuration (model, API key, permissions) */
   config: IResolvedConfig;
+  /** Host-selected permission patterns independent of config and the active preset. */
+  baselinePermissionAllow?: readonly string[];
   /** Working directory used for project context, skills, and agent definitions. */
   cwd?: string;
   /** Explicit contribution sources; absence means no skill or agent-definition file access. */
   contributionSources?: readonly IContributionSource[];
+  /** Ordered skill and legacy-command roots selected by the host; absence disables file discovery. */
+  skillRoots?: readonly ISkillRootDescriptor[];
   /** Loaded AGENTS.md / CLAUDE.md context */
   context: ILoadedContext;
   /** Terminal I/O for permission prompts */
@@ -99,6 +104,8 @@ export interface ICreateSessionOptions {
   provider?: IAIProvider;
   /** Custom permission handler (overrides terminal-based prompts, used by Ink UI) */
   permissionHandler?: TPermissionHandler;
+  /** Host-authorized persistence for a project permission approved by the user. */
+  persistProjectPermission?: (scope: string) => void;
   /**
    * Injected "ask the user" port (CMD-005): forwarded into the session/agent so model-invoked tools
    * (AskUserQuestion) can solicit a structured answer. Absent headless.
@@ -131,6 +138,11 @@ export interface ICreateSessionOptions {
   includeSessionLoopDecisionTool?: boolean;
   /** Additional background task runners composed by the runtime shell. */
   backgroundTaskRunners?: IBackgroundTaskRunner[];
+  /** Host-selected environment aliases for subagent lifecycle hooks. */
+  subagentHookEnvironmentNames?: {
+    readonly agentId?: string;
+    readonly agentType?: string;
+  };
   /**
    * MCP-004 §S3: when set AND a `tool-invocation` runner is present in `backgroundTaskRunners`,
    * `buildToolCallHandoff` (`create-session-runtime.ts`) replaces each named tool in the
@@ -201,6 +213,8 @@ export interface ICreateSessionOptions {
   sessionFactory?: TSessionFactory;
   /** Additional hook type executors beyond the defaults (prompt, agent). */
   additionalHookExecutors?: IHookTypeExecutor[];
+  /** Host-selected executable for the built-in command hook executor. */
+  commandHookShell?: string;
   /** Explicitly omit the built-in command and HTTP hook executors. */
   disableBuiltInHookExecutors?: boolean;
   /**
@@ -245,6 +259,8 @@ export interface ICreateSessionOptions {
   persona?: string;
   /** Model command execution bridge. */
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
+  /** Host-selected prefix for projected command tool names. */
+  modelCommandToolPrefix?: string;
   /** Predicate for commands allowed through the model command execution bridge. */
   isModelCommandInvocable?: (command: string) => boolean;
   /** Model-visible command descriptors. */

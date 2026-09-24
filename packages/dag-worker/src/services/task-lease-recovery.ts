@@ -95,8 +95,8 @@ export interface IClaimTaskDeps {
  * Take ownership of a dequeued task and move it to `running`.
  *
  * Reclaims first if the task was abandoned, records the lease so a task abandoned from HERE is
- * findable in turn, then publishes the start event and the input snapshot. Grouped with the recovery
- * decisions above because claiming and reclaiming are the same question asked at two moments.
+ * findable in turn, then publishes the start event. The worker admits the input snapshot against
+ * this claimed attempt before executor entry. Claiming and reclaiming share these recovery rules.
  */
 export async function claimTaskForExecution(
   deps: IClaimTaskDeps,
@@ -161,7 +161,6 @@ export async function claimTaskForExecution(
     nodeId: message.nodeId,
     input: message.payload,
   });
-  await storage.saveTaskRunSnapshots(taskRun.taskRunId, JSON.stringify(message.payload));
   return { ok: true, value: attemptInForce };
 }
 

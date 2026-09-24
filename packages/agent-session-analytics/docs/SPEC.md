@@ -21,6 +21,21 @@ lifecycle/persistence (`agent-session`) and from any CLI shell.
   `agent-interface-analytics`** (they cross the sidecar boundary via a server-message carrier);
   this package computes them and re-exports the types for co-located consumers, but does not own
   them.
+- For an explicit OTLP usage export, this package only projects normalized, de-duplicated stored
+  observations into a content-free aggregate snapshot, emitting Gauges rather than additive Sums so
+  repeating an export cannot claim new usage; unknown cost and token splits stay separately visible
+  instead of becoming invented zero-priced usage. Network delivery belongs to the CLI, never to this
+  pure package.
+- Explicit prompt-root trace projection reads only canonical observations carrying a complete, valid
+  root identity, cannot infer roots from legacy summaries or tool events, and excludes duplicate or
+  contradictory roots instead of choosing one. Child spans are included only when their IDs and
+  times validate against an accepted root; malformed, orphaned, or duplicate children are counted
+  rather than inferred or repaired. It emits no content or session identity, and these partial spans
+  are not proof of final turn settlement or an end-to-end distributed trace.
+- Explicit OTLP completion-event projection reuses only these already-accepted spans, emitting one
+  fixed, content-free, outcome-only log event per span — a snapshot of recorded completions, not
+  live logging or replay-log export. Repeating an export may append the same log records again;
+  source-side deduplication does not guarantee collector-side idempotency.
 
 ## Contract
 

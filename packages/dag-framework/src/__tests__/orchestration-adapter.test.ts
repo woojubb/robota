@@ -34,53 +34,122 @@ const MINIMAL_DEFINITION: IDagDefinition = {
   edges: [{ from: 'n1', to: 'n2', bindings: [{ outputKey: 'text', inputKey: 'text' }] }],
 };
 
+it('exposes run lifecycle through a domain capability without an HTTP client', async () => {
+  expect('client' in framework).toBe(false);
+  const run = await framework.runs.getRun('missing');
+  expect(run).toMatchObject({ ok: false, error: { code: expect.any(String) } });
+  expect(run).not.toHaveProperty('status');
+});
+
 describe('listDefinitions', () => {
+  it('exposes definition reads as domain data outside the HTTP port', async () => {
+    expect('listDefinitions' in framework.runs).toBe(false);
+    expect('getDefinition' in framework.runs).toBe(false);
+    expect(await framework.definitionReads.listDefinitions()).toEqual([]);
+    expect(await framework.definitionReads.getDefinition('missing')).toBeUndefined();
+  });
+
   it('returns empty list initially', async () => {
-    const res = await framework.client.listDefinitions();
-    expect(res.ok).toBe(true);
-    expect(res.status).toBe(200);
+    expect(await framework.definitionReads.listDefinitions()).toEqual([]);
   });
 
   it('returns created definition', async () => {
-    await framework.client.createDefinition(MINIMAL_DEFINITION);
-    const res = await framework.client.listDefinitions({ dagId: 'test-dag' });
-    expect(res.ok).toBe(true);
+    await framework.definitionMutations.createDefinition(MINIMAL_DEFINITION);
+    const items = await framework.definitionReads.listDefinitions('test-dag');
+    expect(items).toEqual([{ dagId: 'test-dag', latestVersion: 1, statuses: ['draft'] }]);
   });
 });
 
 describe('createDefinition + getDefinition', () => {
-  it('creates and retrieves a definition', async () => {
-    const created = await framework.client.createDefinition(MINIMAL_DEFINITION);
-    expect(created.ok).toBe(true);
-    expect(created.status).toBe(201);
-
-    const got = await framework.client.getDefinition('test-dag', 1);
-    expect(got.ok).toBe(true);
-    const payload = got.payload as { ok: boolean; data: { definition: { dagId: string } } };
-    expect(payload.data.definition.dagId).toBe('test-dag');
+  it('exposes definition mutations as domain results outside the HTTP port', async () => {
+    expect('createDefinition' in framework.runs).toBe(false);
+    expect('updateDraft' in framework.runs).toBe(false);
+    expect('validateDefinition' in framework.runs).toBe(false);
+    expect('publishDefinition' in framework.runs).toBe(false);
+    const created = await framework.definitionMutations.createDefinition(MINIMAL_DEFINITION);
+    expect(created).toMatchObject({ ok: true, value: { dagId: 'test-dag', status: 'draft' } });
+    expect(created).not.toHaveProperty('status');
   });
 
-  it('returns 404 for missing definition', async () => {
-    const got = await framework.client.getDefinition('no-such-dag');
-    expect(got.ok).toBe(false);
-    expect(got.status).toBe(404);
+  it('creates and retrieves a definition', async () => {
+    const created = await framework.definitionMutations.createDefinition(MINIMAL_DEFINITION);
+    expect(created.ok).toBe(true);
+    expect(created).not.toHaveProperty('status');
+
+    const got = await framework.definitionReads.getDefinition('test-dag', 1);
+    expect(got?.dagId).toBe('test-dag');
+  });
+
+  it('does not let mutation callers change a stored definition through input or result', async () => {
+    const input = structuredClone(MINIMAL_DEFINITION);
+    const created = await framework.definitionMutations.createDefinition(input);
+    if (!created.ok) throw new Error('Expected a created definition.');
+    input.nodes[0]!.nodeType = 'input-mutated';
+    created.value.nodes[0]!.nodeType = 'result-mutated';
+    expect((await framework.definitionReads.getDefinition('test-dag', 1))?.nodes[0]?.nodeType).toBe(
+      'input',
+    );
+  });
+
+  it('returns undefined for a missing definition', async () => {
+    expect(await framework.definitionReads.getDefinition('no-such-dag')).toBeUndefined();
+  });
+
+  it('does not let callers mutate the stored definition through a read result', async () => {
+    await framework.definitionMutations.createDefinition(MINIMAL_DEFINITION);
+    const first = await framework.definitionReads.getDefinition('test-dag', 1);
+    if (!first) throw new Error('Expected definition.');
+    first.nodes[0]!.nodeType = 'changed-by-caller';
+    expect((await framework.definitionReads.getDefinition('test-dag', 1))?.nodes[0]?.nodeType).toBe(
+      'input',
+    );
   });
 });
 
 describe('publishDefinition', () => {
   it('publishes a draft definition', async () => {
-    await framework.client.createDefinition(MINIMAL_DEFINITION);
-    const res = await framework.client.publishDefinition('test-dag', 1);
+    await framework.definitionMutations.createDefinition(MINIMAL_DEFINITION);
+    const res = await framework.definitionMutations.publishDefinition('test-dag', 1);
     expect(res.ok).toBe(true);
   });
 });
 
 describe('listNodes', () => {
+  it('exposes registered manifests through a domain catalog instead of the HTTP port', async () => {
+    expect('listNodes' in framework.runs).toBe(false);
+    const manifests = await framework.catalog.listNodes();
+    expect(manifests.find((manifest) => manifest.nodeType === 'input')?.displayName).toBeDefined();
+  });
+
+  it('does not let catalog callers change registered node metadata', async () => {
+    const manifests = await framework.catalog.listNodes();
+    const input = manifests.find((manifest) => manifest.nodeType === 'input');
+    if (!input) throw new Error('Missing input manifest.');
+    const withInputPort = manifests.find((manifest) => manifest.inputs.length > 0);
+    if (!withInputPort) throw new Error('Missing manifest with an input port.');
+    const portNodeType = withInputPort.nodeType;
+    const originalPortKey = withInputPort.inputs[0]!.key;
+    const withSchema = manifests.find((manifest) => manifest.configSchema);
+    if (!withSchema?.configSchema) throw new Error('Missing manifest configuration schema.');
+    const schemaNodeType = withSchema.nodeType;
+    input.nodeType = 'changed-by-caller';
+    withInputPort.inputs[0]!.key = 'changed-by-caller';
+    withSchema.configSchema['changedByCaller'] = true;
+
+    const secondRead = await framework.catalog.listNodes();
+    expect(secondRead.some((manifest) => manifest.nodeType === 'input')).toBe(true);
+    expect(secondRead.find((manifest) => manifest.nodeType === portNodeType)?.inputs[0]?.key).toBe(
+      originalPortKey,
+    );
+    expect(
+      secondRead.find((manifest) => manifest.nodeType === schemaNodeType)?.configSchema,
+    ).not.toHaveProperty('changedByCaller');
+    expect((await framework.validation.validateDag(MINIMAL_DEFINITION)).valid).toBe(true);
+  });
+
   it('returns the registered node manifests', async () => {
-    const res = await framework.client.listNodes();
-    expect(res.ok).toBe(true);
-    const payload = res.payload as { data: { items: Array<{ nodeType: string }> } };
-    const types = payload.data.items.map((n) => n.nodeType);
+    const manifests = await framework.catalog.listNodes();
+    const types = manifests.map((manifest) => manifest.nodeType);
     expect(types).toContain('input');
     expect(types).toContain('text-output');
     expect(types).toContain('transform');
@@ -157,25 +226,24 @@ describe('run-draft CRUD', () => {
 
 describe('updateDraft', () => {
   it('updates an existing draft definition', async () => {
-    await framework.client.createDefinition(MINIMAL_DEFINITION);
-    const res = await framework.client.updateDraft({
-      dagId: 'test-dag',
-      version: 1,
-      definition: { ...MINIMAL_DEFINITION, nodes: [...MINIMAL_DEFINITION.nodes] },
+    await framework.definitionMutations.createDefinition(MINIMAL_DEFINITION);
+    const res = await framework.definitionMutations.updateDraft({
+      ...MINIMAL_DEFINITION,
+      nodes: [...MINIMAL_DEFINITION.nodes],
     });
-    expect([200, 201, 404]).toContain(res.status);
+    expect(res.ok).toBe(true);
   });
 });
 
 describe('validateDefinition', () => {
   it('validates a created draft definition', async () => {
-    await framework.client.createDefinition(MINIMAL_DEFINITION);
-    const res = await framework.client.validateDefinition('test-dag', 1);
-    expect([200, 400]).toContain(res.status);
+    await framework.definitionMutations.createDefinition(MINIMAL_DEFINITION);
+    const res = await framework.definitionMutations.validateDefinition('test-dag', 1);
+    expect(res.ok).toBe(true);
   });
 
   it('returns non-200 for missing definition', async () => {
-    const res = await framework.client.validateDefinition('no-such-dag', 1);
+    const res = await framework.definitionMutations.validateDefinition('no-such-dag', 1);
     expect(res.ok).toBe(false);
   });
 });
@@ -296,35 +364,48 @@ describe('overwriteRunDraftNodeResult', () => {
 });
 
 describe('buildDag', () => {
+  it('exposes build as a domain capability separate from the HTTP-shaped orchestration port', async () => {
+    expect('buildDag' in framework.runs).toBe(false);
+    const result = await framework.build.buildDag({
+      pipeline: [{ nodeType: 'input', config: { text: 'hello' } }],
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.definition.nodes).toHaveLength(1);
+  });
+
   it('builds a DAG from a valid pipeline spec', async () => {
-    const res = await framework.client.buildDag({
+    const res = await framework.build.buildDag({
       pipeline: [
         { nodeType: 'input', config: { text: 'hello' } },
         { nodeType: 'text-output', config: {} },
       ],
     });
     expect(res.ok).toBe(true);
-    expect(res.status).toBe(200);
-    const payload = res.payload as { data: { definition: IDagDefinition } };
-    expect(payload.data.definition.nodes.length).toBe(2);
+    if (res.ok) expect(res.definition.nodes.length).toBe(2);
   });
 
-  it('returns 400 for an invalid pipeline spec (unknown node type)', async () => {
-    const res = await framework.client.buildDag({
+  it('returns a domain validation error for an unknown node type', async () => {
+    const res = await framework.build.buildDag({
       pipeline: [{ nodeType: 'no-such-node-type-xyz', config: {} }],
     });
     expect(res.ok).toBe(false);
-    expect(res.status).toBe(400);
+    if (!res.ok) expect(res.error.code).toBe('UNKNOWN_NODE_TYPE');
   });
 });
 
 describe('validateDag', () => {
+  it('exposes validation as a domain result separate from the HTTP-shaped orchestration port', async () => {
+    expect('validateDag' in framework.runs).toBe(false);
+    expect(await framework.validation.validateDag(MINIMAL_DEFINITION)).toEqual({
+      valid: true,
+      errors: [],
+    });
+  });
+
   it('returns valid:true for a known-type definition', async () => {
-    const res = await framework.client.validateDag(MINIMAL_DEFINITION);
-    expect(res.ok).toBe(true);
-    const payload = res.payload as { data: { valid: boolean; errors: string[] } };
-    expect(payload.data.valid).toBe(true);
-    expect(payload.data.errors).toHaveLength(0);
+    const res = await framework.validation.validateDag(MINIMAL_DEFINITION);
+    expect(res.valid).toBe(true);
+    expect(res.errors).toHaveLength(0);
   });
 
   it('returns errors for unknown node type', async () => {
@@ -333,11 +414,9 @@ describe('validateDag', () => {
       nodes: [{ nodeId: 'x', nodeType: 'unknown-type-xyz', dependsOn: [], config: {} }],
       edges: [],
     };
-    const res = await framework.client.validateDag(badDef);
-    expect(res.ok).toBe(true);
-    const payload = res.payload as { data: { valid: boolean; errors: string[] } };
-    expect(payload.data.valid).toBe(false);
-    expect(payload.data.errors.length).toBeGreaterThan(0);
+    const res = await framework.validation.validateDag(badDef);
+    expect(res.valid).toBe(false);
+    expect(res.errors).toContain('Unknown node type "unknown-type-xyz" for node "x"');
   });
 
   it('returns errors for edge referencing unknown node', async () => {
@@ -345,37 +424,25 @@ describe('validateDag', () => {
       ...MINIMAL_DEFINITION,
       edges: [{ from: 'n1', to: 'no-such-node', bindings: [] }],
     };
-    const res = await framework.client.validateDag(badDef);
-    const payload = res.payload as { data: { valid: boolean; errors: string[] } };
-    expect(payload.data.valid).toBe(false);
+    const res = await framework.validation.validateDag(badDef);
+    expect(res.valid).toBe(false);
+    expect(res.errors).toContain('Edge references unknown target node "no-such-node"');
   });
 });
 
-describe('publishDefinition — resolvePublishVersion branches', () => {
-  it('returns 404 when no definitions exist for dagId', async () => {
-    const res = await framework.client.publishDefinition('nonexistent-dag');
-    expect(res.ok).toBe(false);
-    expect(res.status).toBe(404);
-  });
-
-  it('resolves version from last draft when version not specified', async () => {
-    await framework.client.createDefinition(MINIMAL_DEFINITION);
-    const res = await framework.client.publishDefinition('test-dag');
-    expect([200, 400]).toContain(res.status);
-  });
-
-  it('resolves version from last definition when no drafts exist', async () => {
-    await framework.client.createDefinition(MINIMAL_DEFINITION);
-    await framework.client.publishDefinition('test-dag', 1);
-    // now no drafts — fall to last definition
-    const res = await framework.client.publishDefinition('test-dag');
-    expect([200, 400]).toContain(res.status);
+describe('publishDefinition domain errors', () => {
+  it('returns a domain error when the requested definition does not exist', async () => {
+    const res = await framework.definitionMutations.publishDefinition('nonexistent-dag', 1);
+    expect(res).toMatchObject({
+      ok: false,
+      error: [{ code: 'DAG_VALIDATION_DEFINITION_NOT_FOUND' }],
+    });
   });
 });
 
 describe('startPublishedWorkflowRun', () => {
   it('returns error when DAG does not exist', async () => {
-    const res = await framework.client.startPublishedWorkflowRun('no-dag');
+    const res = await framework.runs.startPublishedWorkflowRun('no-dag');
     expect(res.ok).toBe(false);
   });
 });

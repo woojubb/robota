@@ -273,6 +273,7 @@ export function buildFullExecutionContext(
     ...(context?.userId && { userId: context.userId }),
     ...(context?.metadata && { metadata: context.metadata }),
     ...(context?.signal && { signal: context.signal }),
+    awaitProviderSettlement: context?.awaitProviderSettlement,
     ...(context?.onTextDelta && { onTextDelta: context.onTextDelta }),
     ...(context?.onExecutionEvent && { onExecutionEvent: context.onExecutionEvent }),
     ...(context?.maxExecutionRounds !== undefined && {

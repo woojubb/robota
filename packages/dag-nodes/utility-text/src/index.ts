@@ -1,6 +1,10 @@
+import { replaceLiteralWithinByteLimit } from './text-replace.js';
+import { repeatWithinByteLimit } from './text-repeat.js';
+import { joinLinesWithinByteLimit, splitTextWithinByteLimit } from './text-join-split.js';
 import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
 import {
   buildValidationError,
+  resolveDagExecutionByteLimits,
   type ICostEstimate,
   type IDagError,
   type IDagNodeDefinition,
@@ -124,8 +128,11 @@ export class TextJoinNodeDefinition extends AbstractNodeDefinition<typeof TextJo
     const io = new NodeIoAccessor(input, context.nodeDefinition.nodeId);
     const r = io.requireInputString('items');
     if (!r.ok) return r;
-    const lines = r.value.split('\n').filter((l) => l.trim() !== '');
-    io.setOutput('text', lines.join(config.separator));
+    const joined = joinLinesWithinByteLimit(
+      r.value, config.separator, resolveDagExecutionByteLimits(context.byteLimits).maxTextJoinOutputBytes,
+    );
+    if (!joined.ok) return joined;
+    io.setOutput('text', joined.value);
     return { ok: true, value: io.toOutput() };
   }
 }
@@ -163,9 +170,12 @@ export class TextSplitNodeDefinition extends AbstractNodeDefinition<typeof TextS
     const io = new NodeIoAccessor(input, context.nodeDefinition.nodeId);
     const r = io.requireInputString('text');
     if (!r.ok) return r;
-    const parts = r.value.split(config.separator);
-    const result = config.trim ? parts.map((p) => p.trim()).filter((p) => p !== '') : parts;
-    io.setOutput('items', result.join('\n'));
+    const split = splitTextWithinByteLimit(
+      r.value, config.separator, config.trim,
+      resolveDagExecutionByteLimits(context.byteLimits).maxTextSplitOutputBytes,
+    );
+    if (!split.ok) return split;
+    io.setOutput('items', split.value);
     return { ok: true, value: io.toOutput() };
   }
 }
@@ -208,7 +218,13 @@ export class TextReplaceNodeDefinition extends AbstractNodeDefinition<
     const r = io.requireInputString('text');
     if (!r.ok) return r;
     let result: string;
-    if (config.useRegex) {
+    if (config.useRegex && context.regexReplaceOperation) {
+      const replaced = await context.regexReplaceOperation.execute({
+        text: r.value, search: config.search, replacement: config.replacement, flags: config.flags,
+      }, context.signal);
+      if (!replaced.ok) return replaced;
+      result = replaced.value;
+    } else if (config.useRegex) {
       try {
         const regex = new RegExp(config.search, config.flags);
         result = r.value.replace(regex, config.replacement);
@@ -224,7 +240,12 @@ export class TextReplaceNodeDefinition extends AbstractNodeDefinition<
         };
       }
     } else {
-      result = r.value.split(config.search).join(config.replacement);
+      const replaced = replaceLiteralWithinByteLimit(
+        r.value, config.search, config.replacement,
+        resolveDagExecutionByteLimits(context.byteLimits).maxTextReplaceOutputBytes,
+      );
+      if (!replaced.ok) return replaced;
+      result = replaced.value;
     }
     io.setOutput('text', result);
     return { ok: true, value: io.toOutput() };
@@ -548,7 +569,7 @@ export class TextCountLinesNodeDefinition extends AbstractNodeDefinition<
 // ─── text-repeat ──────────────────────────────────────────────────────────────
 
 const TextRepeatConfigSchema = z.object({
-  times: z.number().int().min(0).default(2),
+  times: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).default(2),
   separator: z.string().default(''),
 });
 
@@ -580,8 +601,12 @@ export class TextRepeatNodeDefinition extends AbstractNodeDefinition<
     const io = new NodeIoAccessor(input, context.nodeDefinition.nodeId);
     const r = io.requireInputString('text');
     if (!r.ok) return r;
-    const parts = Array.from({ length: config.times }, () => r.value);
-    io.setOutput('text', parts.join(config.separator));
+    const limits = resolveDagExecutionByteLimits(context.byteLimits);
+    const repeated = repeatWithinByteLimit(
+      r.value, config.separator, config.times, limits.maxTextRepeatOutputBytes,
+    );
+    if (!repeated.ok) return repeated;
+    io.setOutput('text', repeated.value);
     return { ok: true, value: io.toOutput() };
   }
 }

@@ -440,6 +440,51 @@ describe('QwenProvider', () => {
     expect(result.metadata?.['qwenWebSearchCalls']).toBe(1);
   });
 
+  it('omits configured hosted web tools for toolChoice none in direct and streaming requests', async () => {
+    const provider = new QwenProvider({
+      apiKey: 'dashscope-key',
+      builtInWebTools: { webFetch: true },
+    });
+    const client = getResponsesClient(provider);
+    client.responses.create
+      .mockResolvedValueOnce({
+        id: 'no-tools',
+        model: 'qwen3.6-plus',
+        output_text: 'ok',
+        status: 'completed',
+        output: [],
+      })
+      .mockResolvedValueOnce(
+        asyncIterableFrom([
+          {
+            type: 'response.completed',
+            response: {
+              id: 'no-tools-stream',
+              model: 'qwen3.6-plus',
+              output_text: 'ok',
+              status: 'completed',
+              output: [],
+            },
+          },
+        ]),
+      );
+
+    await provider.chat([createUserMessage('hello')], {
+      model: 'qwen3.6-plus',
+      toolChoice: 'none',
+    });
+    for await (const _chunk of provider.chatStream([createUserMessage('hello')], {
+      model: 'qwen3.6-plus',
+      toolChoice: 'none',
+    })) {
+      /* consume */
+    }
+
+    expect(client.responses.create).toHaveBeenCalledTimes(2);
+    expect(client.responses.create.mock.calls[0]?.[0]?.tools).toBeUndefined();
+    expect(client.responses.create.mock.calls[1]?.[0]?.tools).toBeUndefined();
+  });
+
   it('emits native Qwen Responses request and response payloads', async () => {
     const provider = new QwenProvider({
       apiKey: 'dashscope-key',

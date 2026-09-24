@@ -10,7 +10,6 @@ import {
   parseKeybindingsDocument,
   resolveKeybindingInput,
 } from '../keybinding-registry.js';
-import { KEYBINDINGS_SCHEMA_URL } from '../node-keybindings-source.js';
 
 const SOURCE = '/tmp/robota-keybindings.json';
 
@@ -218,7 +217,7 @@ describe('contextual keybinding registry', () => {
       $defs: Record<string, { properties?: Record<string, unknown> }>;
     };
 
-    expect(schema.$id).toBe(KEYBINDINGS_SCHEMA_URL);
+    expect(schema.$id).toBe('https://docs.robota.io/schemas/keybindings.schema.json');
     expect(Object.keys(schema.properties.bindings.properties)).toEqual(
       Object.keys(KEYBINDING_ACTIONS),
     );

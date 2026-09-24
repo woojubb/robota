@@ -142,7 +142,7 @@ A pluggable lifecycle hook mechanism supporting multiple execution strategies (s
 
 ## Cancellation Contract
 
-A run's cancellation signal is the single source of cancellation for that run, and gates identically across every entry point into a turn — there is no second, cancellation-blind execution path. It reaches every provider call including abnormal ones (e.g. a forced end-of-round summary call goes through the same signal-carrying path as a normal round call), every tool execution (a long-running built-in tool MUST observe the signal and terminate its own work rather than completing silently after abort — silent completion after abort is a contract violation), and a streaming consumer that abandons its generator early also aborts the underlying turn, since a turn that keeps writing to history after its only reader left is worse than one that was cleanly cancelled. An aborted run always resolves as "interrupted," never as a provider error and never as an ordinary successful completion.
+A run's cancellation signal is the single source of cancellation for that run, and gates identically across every entry point into a turn — there is no second, cancellation-blind execution path. It reaches every provider call including abnormal ones (e.g. a forced end-of-round summary call goes through the same signal-carrying path as a normal round call), every tool execution (a long-running built-in tool MUST observe the signal and terminate its own work rather than completing silently after abort — silent completion after abort is a contract violation), and a streaming consumer that abandons its generator early also aborts the underlying turn, since a turn that keeps writing to history after its only reader left is worse than one that was cleanly cancelled. An aborted run always resolves as "interrupted," never as a provider error and never as an ordinary successful completion. By default cancellation can complete before the provider call settles; a host may opt into joining provider settlement so completion also releases ownership of that call, accepting that a provider which ignores abort can keep the run pending. A late provider result or rejection never replaces the cancellation or timeout that won.
 
 ## Reasoning Effort
 
@@ -179,6 +179,8 @@ Provider packages implement this package's provider base class; other layers ext
 ## Event Architecture
 
 Events are named `ownerType.localName` (e.g. an execution-service event, a tool-execution event, an agent-level event) and each event carries an owner-path trace of the execution hierarchy that produced it, so a consumer can reconstruct which agent/tool/execution nesting emitted a given event without a separate correlation mechanism.
+The tool-body completion name identifies only the awaited body of a permitted call. A consumer must
+not interpret pre-execution permission or hook failures as executed tool spans.
 
 ## Conversation History Principles
 
@@ -217,11 +219,18 @@ If a run is aborted mid-stream, partial content already produced is preserved in
 
 ## Execution Loop and Error Handling
 
+Each attempted provider round, including a forced-summary call, emits one content-free completion observation with its actual
+start/end time, round number, and success/failure/interruption outcome. It describes the shared
+provider-call boundary (which may be served from cache), not proof of an outbound network request;
+request and response bodies belong only to their existing separate execution events.
+
 The default round budget for one run is a fixed number of model/tool rounds, overridable per-run or per-config (run-scoped values win); a budget of zero disables the round cap entirely and leaves stopping to abort, the context-window guard, and provider timeouts.
+
+A run-scoped `toolChoice: none` omits local tool schemas from every ordinary provider round. If a provider nevertheless returns a tool call, the run fails before any tool body starts; the directive is not a substitute for provider-side hosted-tool suppression or for restrictions on trusted hooks and plugins. A later run without the override retains its configured tool policy.
 
 **Identical-tool-input guard.** A configured limit on repeated byte-identical invocations of one tool within a single run exists as a distinct, _named_ error rather than a generic abort, and this distinction is deliberately behavioral, not cosmetic: this package's own abort-classification logic resolves an `AbortError` as "the caller asked to stop, and got a successful, cleanly interrupted result" — but when a run gives up because it detected a pathological identical-input loop, nobody asked it to stop; the agent failed to make progress. Reporting that as a clean interruption would misreport a stuck agent as a successful outcome, so the guard raises a specifically named, recoverable error that a caller can distinguish from both a real abort and an unrelated system failure.
 
-When the round budget is exhausted without a final assistant text response, one forced summary call is made without tools (preventing further tool calls), asking the model to state what it has so far; if even that call produces no text, a fixed fallback message is returned instead of an empty response. The synthetic instruction used to request that summary is a per-call prompt artifact only — it is never written into the persisted conversation history.
+When the round budget is exhausted without a final assistant text response, one forced summary call is made with `toolChoice: none` and without local tools, including provider-hosted tools that honor that directive. Returned tool calls are not dispatched; if the call produces no text, a fixed fallback message is returned instead of an empty response. The synthetic instruction used to request that summary is a per-call prompt artifact only — it is never written into the persisted conversation history.
 
 **Pre-send context guard.** Before every provider call, estimated token usage is checked against the model's context window; this is a hard-capacity stop (distinct from — and does not replace — the session layer's own configured automatic-compaction policy) and only trips when usage exceeds a high fixed threshold of the window, at which point it emits a diagnostic message explaining why the prompt was blocked rather than sending a request likely to fail with a provider-side size error.
 

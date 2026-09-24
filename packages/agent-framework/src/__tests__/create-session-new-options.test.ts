@@ -108,6 +108,42 @@ describe('createSession — generated session id', () => {
   });
 });
 
+describe('createSession — project permission persistence', () => {
+  beforeEach(() => {
+    sessionCtorCalls.length = 0;
+  });
+
+  it('does not install a project settings writer without a host persistence capability', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+    await createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', projectNotesMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+    });
+
+    expect(sessionCtorCalls[0]?.onProjectAllowTool).toBeUndefined();
+  });
+
+  it('passes only the approved scope to the host persistence capability', async () => {
+    const { createSession } = await import('../assembly/create-session.js');
+    const persistProjectPermission = vi.fn();
+    await createSession({
+      config: baseConfig(),
+      context: { agentsMd: '', projectNotesMd: '' },
+      terminal: MOCK_TERMINAL,
+      provider: createMockProvider(),
+      persistProjectPermission,
+    });
+
+    const onProjectAllowTool = sessionCtorCalls[0]?.onProjectAllowTool as (scope: string) => void;
+    onProjectAllowTool('Bash(git *)');
+    onProjectAllowTool('Read');
+    expect(persistProjectPermission).toHaveBeenNthCalledWith(1, 'Bash(git *)');
+    expect(persistProjectPermission).toHaveBeenNthCalledWith(2, 'Read(*)');
+  });
+});
+
 describe('createSession — allowedTools option', () => {
   beforeEach(() => {
     sessionCtorCalls.length = 0;
@@ -131,7 +167,7 @@ describe('createSession — allowedTools option', () => {
     expect(allow).toContain('Read(*)');
   });
 
-  it('permissions.allow includes Bash(*) and Read(*) alongside default allow patterns', async () => {
+  it('permissions.allow includes Bash(*) and Read(*) alongside a host-selected baseline', async () => {
     const { createSession } = await import('../assembly/create-session.js');
 
     await createSession({
@@ -139,13 +175,14 @@ describe('createSession — allowedTools option', () => {
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
+      baselinePermissionAllow: ['Read(.agents/**)'],
       allowedTools: ['Bash', 'Read'],
     });
 
     const opts = sessionCtorCalls[0]!;
     const allow = (opts.permissions as { allow: string[] }).allow;
 
-    // Should still include the default config folder allow patterns
+    // A host baseline survives startup preset tool-list composition.
     expect(allow.some((p: string) => p.startsWith('Read(.agents/'))).toBe(true);
     // And the new allowedTools patterns
     expect(allow).toContain('Bash(*)');
@@ -335,7 +372,7 @@ describe('createSession — command descriptor tool guidance', () => {
     const opts = sessionCtorCalls[0]!;
     const tools = opts.tools as IToolWithEventService[];
     expect(tools.some((tool) => tool.getName() === 'ExecuteCommand')).toBe(false);
-    expect(tools.some((tool) => tool.getName().startsWith('robota_command_'))).toBe(false);
+    expect(tools.some((tool) => tool.getName().startsWith('command_'))).toBe(false);
   });
 
   it('does not expose skill metadata when the skills command is not model-invocable', async () => {
@@ -353,6 +390,7 @@ describe('createSession — command descriptor tool guidance', () => {
         config: baseConfig(),
         cwd,
         contributionSources: createNodeHostContributionSourcesFixture(cwd),
+        skillRoots: [{ root: join('.agents', 'skills'), kind: 'skills' }],
         context: { agentsMd: '', projectNotesMd: '' },
         terminal: MOCK_TERMINAL,
         provider: createMockProvider(),
@@ -382,6 +420,7 @@ describe('createSession — command descriptor tool guidance', () => {
         config: baseConfig(),
         cwd,
         contributionSources: createNodeHostContributionSourcesFixture(cwd),
+        skillRoots: [{ root: join('.agents', 'skills'), kind: 'skills' }],
         context: { agentsMd: '', projectNotesMd: '' },
         terminal: MOCK_TERMINAL,
         provider: createMockProvider(),
@@ -468,11 +507,12 @@ describe('createSession — command descriptor tool guidance', () => {
 
     const opts = sessionCtorCalls[0]!;
     const tools = opts.tools as IToolWithEventService[];
-    const compactTool = tools.find((tool) => tool.getName() === 'robota_command_compact');
+    const compactTool = tools.find((tool) => tool.getName() === 'command_compact');
 
     expect(tools.some((tool) => tool.getName() === 'ExecuteCommand')).toBe(false);
     expect(compactTool?.schema.description).toContain('explicitly requests compaction');
-    expect(compactTool?.schema.description).toContain('Robota command id: compact.');
+    expect(compactTool?.schema.description).toContain('Command id: compact.');
+    expect(compactTool?.schema.description).not.toContain('Robota');
     expect(compactTool?.schema.description).not.toContain('/compact');
   });
 });

@@ -1,5 +1,6 @@
 import {
   buildTaskExecutionError,
+  buildTaskCancellationError,
   type IDagError,
   type ITaskExecutionInput,
   type ITaskExecutorPort,
@@ -25,18 +26,10 @@ function resolveErrorMessage(error: unknown): string {
 }
 
 /**
- * Executes a task with a timeout guard. When the timeout fires, the promise resolves
- * with a timeout error, but the underlying executor continues running in the background.
- * The executor result is discarded if it completes after timeout.
- *
- * Limitation: the executor is not aborted on timeout. True cancellation would require
- * AbortController integration in `ITaskExecutorPort.execute`, which is a larger change.
- *
- * @param executor - The task executor port.
- * @param input - The task execution input.
- * @param timeoutMs - Maximum execution time in milliseconds.
- * @param taskRunId - The task run identifier for error reporting.
- * @returns The execution result or a timeout/exception error.
+ * Gives each attempt its own signal and aborts it before settling a timeout.
+ * Cooperative executors can stop their work; late results are discarded even when
+ * an executor ignores cancellation. A trusted stopAndWait port additionally joins
+ * owned isolation shutdown; ordinary cooperative cleanup is not awaited.
  */
 export function executeWithTimeout(
   executor: ITaskExecutorPort,
@@ -45,47 +38,65 @@ export function executeWithTimeout(
   taskRunId: string,
 ): Promise<TTaskExecutionResult> {
   return new Promise((resolve) => {
+    const controller = new AbortController();
     let settled = false;
-
-    const timeoutId = setTimeout(() => {
-      if (settled) {
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const finish = (result: TTaskExecutionResult): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutId);
+      input.signal?.removeEventListener('abort', cancel);
+      resolve(result);
+    };
+    const abort = (error: IDagError): void => {
+      if (settled) return;
+      // Claim the outcome before invoking user abort listeners. Reentrant completion
+      // must not replace the timeout/cancellation that triggered those listeners.
+      settled = true;
+      clearTimeout(timeoutId);
+      input.signal?.removeEventListener('abort', cancel);
+      controller.abort(error);
+      if (!executor.stopAndWait) {
+        resolve({ ok: false, error });
         return;
       }
-      settled = true;
-      resolve({
+      // Stop is an explicit trusted join, not a wait on arbitrary cooperative executor cleanup.
+      Promise.resolve()
+        .then(() => executor.stopAndWait?.(input))
+        .then(
+          () => resolve({ ok: false, error }),
+          (stopError: unknown) =>
+            resolve({
+              ok: false,
+              error: {
+                ...error,
+                retryable: false,
+                context: { ...error.context, isolationStopError: resolveErrorMessage(stopError) },
+              },
+            }),
+        );
+    };
+    const cancel = (): void => abort(buildTaskCancellationError(taskRunId));
+    if (input.signal?.aborted) {
+      cancel();
+      return;
+    }
+    input.signal?.addEventListener('abort', cancel, { once: true });
+    timeoutId = setTimeout(() => abort(buildTimeoutError(taskRunId, timeoutMs)), timeoutMs);
+    const fail = (error: unknown): void =>
+      finish({
         ok: false,
-        error: buildTimeoutError(taskRunId, timeoutMs),
+        error: buildTaskExecutionError(
+          'DAG_TASK_EXECUTION_EXCEPTION',
+          'Task executor threw an exception',
+          true,
+          { taskRunId, errorMessage: resolveErrorMessage(error) },
+        ),
       });
-    }, timeoutMs);
-
-    executor
-      .execute(input)
-      .then((result) => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        clearTimeout(timeoutId);
-        resolve(result);
-      })
-      .catch((error) => {
-        if (settled) {
-          return;
-        }
-        settled = true;
-        clearTimeout(timeoutId);
-        resolve({
-          ok: false,
-          error: buildTaskExecutionError(
-            'DAG_TASK_EXECUTION_EXCEPTION',
-            'Task executor threw an exception',
-            true,
-            {
-              taskRunId,
-              errorMessage: resolveErrorMessage(error),
-            },
-          ),
-        });
-      });
+    try {
+      executor.execute({ ...input, signal: controller.signal }).then(finish, fail);
+    } catch (error) {
+      fail(error);
+    }
   });
 }

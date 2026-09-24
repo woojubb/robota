@@ -1,5 +1,6 @@
 import {
   MEMORY_COMMAND_USAGE,
+  approvePendingMemoryCandidate,
   createCommandMemoryStores,
   hasSensitiveCommandMemoryContent,
   isCommandMemoryType,
@@ -117,9 +118,7 @@ async function approvePending(
 ): Promise<ICommandResult> {
   if (!id) return usage();
   try {
-    const approved = await store.markPending(id, 'approved', 'approved-by-user');
-    const saved = await store.append(approved);
-    const record = await store.markPending(id, 'saved', 'approved-and-saved');
+    const { record, saved } = await approvePendingMemoryCandidate(store, id);
     recordEvent(context, {
       type: 'memory_candidate_approved',
       candidateId: record.id,

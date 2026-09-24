@@ -41,6 +41,8 @@ import type { ISandboxClient, IRetrievalAdapter, IComputerDriver } from '@robota
  */
 export interface ICreateDefaultToolsOptions {
   sandboxClient?: ISandboxClient;
+  /** Host-selected executable for Shell and Bash. */
+  shellExecutable?: string;
   /**
    * The execution root every file tool is contained by. REQUIRED — ARCH-010.
    *

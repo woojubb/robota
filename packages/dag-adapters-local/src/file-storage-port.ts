@@ -1,3 +1,8 @@
+import {
+  decideExecutionCommit,
+  type TExecutionCommit,
+  type IExecutionCommitResult,
+} from '@robota-sdk/dag-core';
 import { readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 
@@ -40,6 +45,8 @@ export class FileStoragePort implements IStoragePort {
   private readonly hydration: HydrationGate;
   private readonly dagRuns = new Map<string, IDagRun>();
   private readonly taskRuns = new Map<string, ITaskRun>();
+  private runStateTail: Promise<void> = Promise.resolve();
+  private runStateFailure: { error: unknown } | undefined;
 
   public constructor(private readonly storageRootPath: string) {
     this.definitionsRootPath = path.join(this.storageRootPath, 'definitions');
@@ -74,11 +81,59 @@ export class FileStoragePort implements IStoragePort {
   }
 
   private async persistDagRuns(): Promise<void> {
-    await persistCollection(this.dagRunsFilePath, this.dagRuns.values());
+    try {
+      await persistCollection(this.dagRunsFilePath, this.dagRuns.values());
+    } catch (error) {
+      this.runStateFailure = { error };
+      throw error;
+    }
   }
 
   private async persistTaskRuns(): Promise<void> {
-    await persistCollection(this.taskRunsFilePath, this.taskRuns.values());
+    try {
+      await persistCollection(this.taskRunsFilePath, this.taskRuns.values());
+    } catch (error) {
+      this.runStateFailure = { error };
+      throw error;
+    }
+  }
+
+  /** All run/task observations and writes share the same durability boundary. */
+  private withRunState<T>(operation: () => Promise<T>): Promise<T> {
+    const pending = this.runStateTail.then(() => {
+      if (this.runStateFailure !== undefined) throw this.runStateFailure.error;
+      return operation();
+    });
+    // Handle the queue's rejection separately from the caller's result, avoiding an unobserved
+    // rejected tail. Persistence failures poison later operations; initialization failures keep
+    // the hydration gate's existing retry behavior because no state mutation has been admitted.
+    this.runStateTail = pending.then(
+      () => undefined,
+      () => undefined,
+    );
+    return pending;
+  }
+
+  public commitExecution(
+    dagRunId: string,
+    mutation: TExecutionCommit,
+  ): Promise<IExecutionCommitResult> {
+    return this.withRunState(() => this.persistExecutionCommit(dagRunId, mutation));
+  }
+
+  private async persistExecutionCommit(
+    dagRunId: string,
+    mutation: TExecutionCommit,
+  ): Promise<IExecutionCommitResult> {
+    await this.ensureInitialized();
+    const tasks = [...this.taskRuns.values()].filter((task) => task.dagRunId === dagRunId);
+    const decision = decideExecutionCommit(this.dagRuns.get(dagRunId), tasks, mutation);
+    if (decision.dagRun) this.dagRuns.set(dagRunId, decision.dagRun);
+    if (decision.taskRun)
+      this.taskRuns.set(buildTaskRunKey(dagRunId, decision.taskRun.taskRunId), decision.taskRun);
+    if (decision.dagRun) await this.persistDagRuns();
+    if (decision.taskRun) await this.persistTaskRuns();
+    return decision.result;
   }
 
   public async saveDefinition(definition: IDagDefinition): Promise<void> {
@@ -124,29 +179,37 @@ export class FileStoragePort implements IStoragePort {
   }
 
   public async createDagRun(dagRun: IDagRun): Promise<void> {
-    await this.ensureInitialized();
-    this.dagRuns.set(dagRun.dagRunId, dagRun);
-    await this.persistDagRuns();
+    return this.withRunState(async () => {
+      await this.ensureInitialized();
+      this.dagRuns.set(dagRun.dagRunId, dagRun);
+      await this.persistDagRuns();
+    });
   }
 
   public async getDagRun(dagRunId: string): Promise<IDagRun | undefined> {
-    await this.ensureInitialized();
-    return this.dagRuns.get(dagRunId);
+    return this.withRunState(async () => {
+      await this.ensureInitialized();
+      return this.dagRuns.get(dagRunId);
+    });
   }
 
   public async listDagRuns(): Promise<IDagRun[]> {
-    await this.ensureInitialized();
-    return [...this.dagRuns.values()].sort((a, b) => a.dagRunId.localeCompare(b.dagRunId));
+    return this.withRunState(async () => {
+      await this.ensureInitialized();
+      return [...this.dagRuns.values()].sort((a, b) => a.dagRunId.localeCompare(b.dagRunId));
+    });
   }
 
   public async getDagRunByRunKey(runKey: string): Promise<IDagRun | undefined> {
-    await this.ensureInitialized();
-    for (const dagRun of this.dagRuns.values()) {
-      if (dagRun.runKey === runKey) {
-        return dagRun;
+    return this.withRunState(async () => {
+      await this.ensureInitialized();
+      for (const dagRun of this.dagRuns.values()) {
+        if (dagRun.runKey === runKey) {
+          return dagRun;
+        }
       }
-    }
-    return undefined;
+      return undefined;
+    });
   }
 
   public async updateDagRunStatus(
@@ -154,60 +217,72 @@ export class FileStoragePort implements IStoragePort {
     status: TDagRunStatus,
     endedAt?: string,
   ): Promise<void> {
-    await this.ensureInitialized();
-    const currentDagRun = this.dagRuns.get(dagRunId);
-    if (!currentDagRun) {
-      return;
-    }
-    this.dagRuns.set(dagRunId, {
-      ...currentDagRun,
-      status,
-      endedAt,
+    return this.withRunState(async () => {
+      await this.ensureInitialized();
+      const currentDagRun = this.dagRuns.get(dagRunId);
+      if (!currentDagRun) {
+        return;
+      }
+      this.dagRuns.set(dagRunId, {
+        ...currentDagRun,
+        status,
+        endedAt,
+      });
+      await this.persistDagRuns();
     });
-    await this.persistDagRuns();
   }
 
   public async deleteDagRun(dagRunId: string): Promise<void> {
-    await this.ensureInitialized();
-    this.dagRuns.delete(dagRunId);
-    await this.persistDagRuns();
+    return this.withRunState(async () => {
+      await this.ensureInitialized();
+      this.dagRuns.delete(dagRunId);
+      await this.persistDagRuns();
+    });
   }
 
   public async createTaskRun(taskRun: ITaskRun): Promise<void> {
-    await this.ensureInitialized();
-    this.taskRuns.set(buildTaskRunKey(taskRun.dagRunId, taskRun.taskRunId), taskRun);
-    await this.persistTaskRuns();
+    return this.withRunState(async () => {
+      await this.ensureInitialized();
+      this.taskRuns.set(buildTaskRunKey(taskRun.dagRunId, taskRun.taskRunId), taskRun);
+      await this.persistTaskRuns();
+    });
   }
 
   public async getTaskRun(taskRunId: string): Promise<ITaskRun | undefined> {
-    await this.ensureInitialized();
-    for (const taskRun of this.taskRuns.values()) {
-      if (taskRun.taskRunId === taskRunId) {
-        return taskRun;
+    return this.withRunState(async () => {
+      await this.ensureInitialized();
+      for (const taskRun of this.taskRuns.values()) {
+        if (taskRun.taskRunId === taskRunId) {
+          return taskRun;
+        }
       }
-    }
-    return undefined;
+      return undefined;
+    });
   }
 
   public async listTaskRunsByDagRunId(dagRunId: string): Promise<ITaskRun[]> {
-    await this.ensureInitialized();
-    const taskRuns: ITaskRun[] = [];
-    for (const taskRun of this.taskRuns.values()) {
-      if (taskRun.dagRunId === dagRunId) {
-        taskRuns.push(taskRun);
+    return this.withRunState(async () => {
+      await this.ensureInitialized();
+      const taskRuns: ITaskRun[] = [];
+      for (const taskRun of this.taskRuns.values()) {
+        if (taskRun.dagRunId === dagRunId) {
+          taskRuns.push(taskRun);
+        }
       }
-    }
-    return taskRuns;
+      return taskRuns;
+    });
   }
 
   public async deleteTaskRunsByDagRunId(dagRunId: string): Promise<void> {
-    await this.ensureInitialized();
-    for (const [taskRunKey, taskRun] of this.taskRuns.entries()) {
-      if (taskRun.dagRunId === dagRunId) {
-        this.taskRuns.delete(taskRunKey);
+    return this.withRunState(async () => {
+      await this.ensureInitialized();
+      for (const [taskRunKey, taskRun] of this.taskRuns.entries()) {
+        if (taskRun.dagRunId === dagRunId) {
+          this.taskRuns.delete(taskRunKey);
+        }
       }
-    }
-    await this.persistTaskRuns();
+      await this.persistTaskRuns();
+    });
   }
 
   public async updateTaskRunStatus(
@@ -215,20 +290,22 @@ export class FileStoragePort implements IStoragePort {
     status: TTaskRunStatus,
     error?: IDagError,
   ): Promise<void> {
-    await this.ensureInitialized();
-    for (const [taskRunKey, taskRun] of this.taskRuns.entries()) {
-      if (taskRun.taskRunId !== taskRunId) {
-        continue;
+    return this.withRunState(async () => {
+      await this.ensureInitialized();
+      for (const [taskRunKey, taskRun] of this.taskRuns.entries()) {
+        if (taskRun.taskRunId !== taskRunId) {
+          continue;
+        }
+        this.taskRuns.set(taskRunKey, {
+          ...taskRun,
+          status,
+          errorCode: error?.code,
+          errorMessage: error?.message,
+        });
+        await this.persistTaskRuns();
+        return;
       }
-      this.taskRuns.set(taskRunKey, {
-        ...taskRun,
-        status,
-        errorCode: error?.code,
-        errorMessage: error?.message,
-      });
-      await this.persistTaskRuns();
-      return;
-    }
+    });
   }
 
   public async setTaskRunLease(
@@ -236,16 +313,20 @@ export class FileStoragePort implements IStoragePort {
     leaseOwner?: string,
     leaseUntil?: string,
   ): Promise<void> {
-    await this.ensureInitialized();
-    applyTaskRunLease(this.taskRuns, taskRunId, leaseOwner, leaseUntil);
-    // The lease is half of what the DAG-001 sweep reads after a crash; persisting the status without
-    // it would leave the sweeper unable to tell an abandoned task from a live one.
-    await this.persistTaskRuns();
+    return this.withRunState(async () => {
+      await this.ensureInitialized();
+      applyTaskRunLease(this.taskRuns, taskRunId, leaseOwner, leaseUntil);
+      // The lease is half of what the DAG-001 sweep reads after a crash; persisting the status without
+      // it would leave the sweeper unable to tell an abandoned task from a live one.
+      await this.persistTaskRuns();
+    });
   }
 
   public async listStaleRunningTaskRuns(asOfIso: string): Promise<ITaskRun[]> {
-    await this.ensureInitialized();
-    return selectStaleRunningTaskRuns(this.taskRuns, asOfIso);
+    return this.withRunState(async () => {
+      await this.ensureInitialized();
+      return selectStaleRunningTaskRuns(this.taskRuns, asOfIso);
+    });
   }
 
   public async saveTaskRunSnapshots(
@@ -255,24 +336,28 @@ export class FileStoragePort implements IStoragePort {
     estimatedCredits?: number,
     totalCredits?: number,
   ): Promise<void> {
-    await this.ensureInitialized();
-    const changed = applyTaskRunSnapshots(
-      this.taskRuns,
-      taskRunId,
-      inputSnapshot,
-      outputSnapshot,
-      estimatedCredits,
-      totalCredits,
-    );
-    if (changed) await this.persistTaskRuns();
+    return this.withRunState(async () => {
+      await this.ensureInitialized();
+      const changed = applyTaskRunSnapshots(
+        this.taskRuns,
+        taskRunId,
+        inputSnapshot,
+        outputSnapshot,
+        estimatedCredits,
+        totalCredits,
+      );
+      if (changed) await this.persistTaskRuns();
+    });
   }
 
   public async incrementTaskAttempt(taskRunId: string): Promise<void> {
-    await this.ensureInitialized();
-    // The retry LIMIT is counted from this. Left unpersisted, a crash mid-retry-loop reset the count
-    // on restart and a task could retry past its configured maximum — worse than losing the value,
-    // because the store then actively reports a wrong one.
-    if (applyTaskAttemptIncrement(this.taskRuns, taskRunId)) await this.persistTaskRuns();
+    return this.withRunState(async () => {
+      await this.ensureInitialized();
+      // The retry LIMIT is counted from this. Left unpersisted, a crash mid-retry-loop reset the count
+      // on restart and a task could retry past its configured maximum — worse than losing the value,
+      // because the store then actively reports a wrong one.
+      if (applyTaskAttemptIncrement(this.taskRuns, taskRunId)) await this.persistTaskRuns();
+    });
   }
 
   public async deleteDefinition(dagId: string, version: number): Promise<void> {

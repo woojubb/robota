@@ -122,6 +122,38 @@ function diagnosticsSink() {
 }
 
 describe('createMcpClientComposition', () => {
+  it('only exposes external notifications from an admitted connected server', async () => {
+    const entries = [resolvedEntry()];
+    const received: unknown[] = [];
+    let emit: ((event: { senderId: string; conversationId: string; content: string }) => void) | undefined;
+    const connection: IMcpServerConnection = {
+      discover: async () => discoveryWithOneTool(),
+      callTool: async () => ({ content: [], isError: false }),
+      onExternalEvent: (listener) => {
+        emit = listener;
+        return () => { emit = undefined; };
+      },
+      shutdown: async () => undefined,
+    };
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore: approvedApprovalStore(entries),
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: () => connection,
+      reportDiagnostic: () => undefined,
+    });
+    expect(composition.subscribeExternalEvent('weather', (event) => received.push(event)).ok).toBe(false);
+    await composition.connect();
+    expect(composition.subscribeExternalEvent('unlisted', () => undefined).ok).toBe(false);
+    const subscription = composition.subscribeExternalEvent('weather', (event) => received.push(event));
+    expect(subscription.ok).toBe(true);
+    emit?.({ senderId: 'alice', conversationId: 'chat', content: 'hello' });
+    expect(received).toEqual([{ senderId: 'alice', conversationId: 'chat', content: 'hello' }]);
+    if (subscription.ok) subscription.unsubscribe();
+    expect(emit).toBeUndefined();
+    await composition.shutdown();
+  });
+
   it('registers a discovered tool through the generic dynamic-tool path under its canonical name', async () => {
     const entries = [resolvedEntry()];
     const approvalStore = approvedApprovalStore(entries);

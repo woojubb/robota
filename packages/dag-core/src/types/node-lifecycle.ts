@@ -1,3 +1,6 @@
+import type { IRegexReplaceOperation } from './regex-replace-operation.js';
+import type { ITaskSnapshotBudget } from '../services/task-snapshot-budget.js';
+import type { IDagExecutionByteLimits } from './execution-byte-limits.js';
 import type { TPortPayload } from '../interfaces/ports.js';
 import type { IDagError } from './error.js';
 import type { TResult } from './result.js';
@@ -22,6 +25,14 @@ export interface IDagExecutionLineage {
 
 /** Runtime context passed to every node lifecycle method during execution. */
 export interface INodeExecutionContext {
+  /** Trusted host operation capability; never decoded from workflow data. */
+  regexReplaceOperation?: IRegexReplaceOperation;
+  /** Shared live root snapshot authority, never sourced from serialized data. */
+  snapshotBudget?: ITaskSnapshotBudget;
+  /** Trusted host limits; never deserialized from workflow configuration. */
+  byteLimits?: IDagExecutionByteLimits;
+  /** Trusted in-process attempt cancellation; never supplied by serialized node or queue data. */
+  signal?: AbortSignal;
   /** Trusted canonical absolute directory used as filesystem containment authority. */
   executionRoot: string;
   dagId: string;

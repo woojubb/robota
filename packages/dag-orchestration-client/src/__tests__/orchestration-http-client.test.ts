@@ -98,6 +98,17 @@ describe('DagOrchestrationHttpClient', () => {
     });
   });
 
+  it('cancels a run through the encoded POST route and preserves the server response', async () => {
+    const payload = { ok: true, status: 200, data: { dagRunId: 'run 1', status: 'cancelled' } };
+    const { client, requests } = createClient([payload]);
+
+    const result = await client.cancelRun('run 1');
+
+    expect(requests[0]?.url).toBe(`${TEST_SERVER_URL}/v1/dag/runs/run%201/cancel`);
+    expect(requests[0]?.init.method).toBe('POST');
+    expect(result).toEqual({ ok: true, status: 200, payload });
+  });
+
   it('calls run draft endpoints through package-owned HTTP contracts', async () => {
     const definition = createDefinition();
     const draft = {

@@ -7,6 +7,7 @@ import {
   applyPermissionPromptInput,
   getPermissionPromptInputAction,
   PERMISSION_PROMPT_OPTIONS,
+  permissionPromptOptionsFor,
 } from '../flows/permission-prompt-flow.js';
 import { createSelectionFlowState } from '../flows/selection-flow.js';
 
@@ -72,6 +73,24 @@ describe('permission prompt flow', () => {
         getPermissionPromptInputAction('3', {})!,
       ).effect,
     ).toEqual({ type: 'resolve', decision: 'allow-project' });
+  });
+
+  it('labels unavailable project approval and ignores its shortcut or selection', () => {
+    expect(permissionPromptOptionsFor('Bash(git *)', false)[2]).toBe(
+      'Project-wide approval unavailable',
+    );
+    const state = createSelectionFlowState();
+    expect(
+      applyPermissionPromptInput(state, getPermissionPromptInputAction('p', {})!, false),
+    ).toEqual({ state, effect: { type: 'none' } });
+    const selectedProject = applyPermissionPromptInput(
+      applyPermissionPromptInput(state, 'next', false).state,
+      'next',
+      false,
+    ).state;
+    expect(applyPermissionPromptInput(selectedProject, 'select', false).effect).toEqual({
+      type: 'none',
+    });
   });
 
   it('Given deny shortcuts When applied Then false decision is emitted', () => {

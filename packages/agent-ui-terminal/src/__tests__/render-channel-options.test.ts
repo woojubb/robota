@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
+import { createNodeHostContributionSource } from '@robota-sdk/agent-framework';
 import type { EditCheckpointStore, IPromptHistoryOptions } from '@robota-sdk/agent-framework';
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import { toChannelOptions } from '../render.js';
@@ -8,6 +9,76 @@ import { buildTuiSessionOptions } from '../tui-session-options.js';
 import type { IRenderOptions } from '../render.js';
 
 describe('toChannelOptions', () => {
+  it('keeps host model identifiers through render, channel, and session', () => {
+    const channel = toChannelOptions({
+      cwd: '/tmp/project',
+      provider: {} as IAIProvider,
+      cliAdapter: {} as ITuiCliAdapter,
+      promptFileReferenceTag: 'acme_files',
+      modelCommandToolPrefix: 'acme_command_',
+      subagentHookEnvironmentNames: { agentId: 'ACME_AGENT_ID', agentType: 'ACME_AGENT_TYPE' },
+      commandHookShell: '/bin/bash',
+    });
+    const session = buildTuiSessionOptions(channel);
+    expect(session.promptFileReferenceTag).toBe('acme_files');
+    expect(session.modelCommandToolPrefix).toBe('acme_command_');
+    expect(session.subagentHookEnvironmentNames).toEqual({
+      agentId: 'ACME_AGENT_ID',
+      agentType: 'ACME_AGENT_TYPE',
+    });
+    expect('commandHookShell' in session && session.commandHookShell).toBe('/bin/bash');
+  });
+
+  it('preserves host permission baselines through render, channel, and session', () => {
+    const baselinePermissionAllow = ['Read(custom/**)'];
+    const channel = toChannelOptions({
+      cwd: '/tmp/project',
+      provider: {} as IAIProvider,
+      cliAdapter: {} as ITuiCliAdapter,
+      baselinePermissionAllow,
+    });
+    const session = buildTuiSessionOptions(channel);
+    if (!('baselinePermissionAllow' in session)) {
+      throw new Error('TUI standard session options must preserve the host permission baseline.');
+    }
+    expect(session.baselinePermissionAllow).toBe(baselinePermissionAllow);
+  });
+  it('keeps the host task-context selection through render, channel, and session', () => {
+    const taskContext = { enabled: true, dir: 'custom/tasks' };
+    const channel = toChannelOptions({
+      cwd: '/test-project',
+      provider: {} as IAIProvider,
+      cliAdapter: {} as ITuiCliAdapter,
+      taskContext,
+    });
+    expect(channel.taskContext).toBe(taskContext);
+    const session = buildTuiSessionOptions(channel);
+    if (!('taskContext' in session)) {
+      throw new Error(
+        'TUI standard session options must preserve the host task-context selection.',
+      );
+    }
+    expect(session.taskContext).toBe(taskContext);
+  });
+
+  it('keeps the host contribution sources and skill roots through render, channel, and session', () => {
+    const sources = [createNodeHostContributionSource('/test-project')];
+    const skillRoots = [{ root: 'custom/skills', kind: 'skills' as const }];
+    const channel = toChannelOptions({
+      cwd: '/test-project',
+      provider: {} as IAIProvider,
+      cliAdapter: {} as ITuiCliAdapter,
+      contributionSources: sources,
+      skillRoots,
+    });
+    const session = buildTuiSessionOptions(channel);
+    if (!('contributionSources' in session) || !('skillRoots' in session)) {
+      throw new Error('TUI standard session options must preserve host skill discovery settings.');
+    }
+    expect(session.contributionSources).toBe(sources);
+    expect(session.skillRoots).toBe(skillRoots);
+  });
+
   it('keeps the host user settings sources through render, channel, and session', () => {
     const sources = [createNodeHostSettingsSource('user', '/test-home/settings.json')];
     const channel = toChannelOptions({

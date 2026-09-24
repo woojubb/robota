@@ -12,7 +12,6 @@ import { createRequire } from 'node:module';
 import {
   createRestrictedWorkspaceProjectAccess,
   findUnknownModuleNames,
-  getUserSettingsPath,
   selectCommandModules,
 } from '@robota-sdk/agent-framework';
 import { TransportRegistry, bindTransportAdapter } from '@robota-sdk/agent-framework';
@@ -21,12 +20,14 @@ import { WsTransport } from '@robota-sdk/agent-transport-ws';
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IAgentDefinition,
+  ICreateSessionOptions,
   ICommandModule,
   IProviderErrorGuidance,
   IUnknownCommandModuleName,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import { ROBOTA_PACKS_OWN_TOOL_SURFACE } from './robota-profile.js';
+import { robotaUserSettingsPath } from './robota-user-settings.js';
 
 import type { IAssembledProduct } from '@robota-sdk/agent-product';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
@@ -79,11 +80,11 @@ export function createDefaultTransportRegistry(
     'personalUsageReporter' | 'usageReporter' | 'storedSessionUsageReporter'
   >;
 } {
-  const registry = new TransportRegistry(getUserSettingsPath());
+  const registry = new TransportRegistry(robotaUserSettingsPath());
   // GUI-002: when a host (e.g. the agent-gui Electron shell) spawns this CLI as a loopback sidecar, it
   // passes ROBOTA_WS_TOKEN (a per-launch nonce) + optional ROBOTA_WS_PORT via env. The token makes the WS
-  // transport reject any unauthenticated connection before emitting session data. Absent = unchanged
-  // default (open localhost path); the token is never persisted to settings (secret, runtime-only).
+  // transport reject any unauthenticated connection before emitting session data. If absent,
+  // WsTransport auto-mints a distinct authenticated launch token; neither token is persisted here.
   const wsToken = process.env['ROBOTA_WS_TOKEN'];
   const wsPortRaw = process.env['ROBOTA_WS_PORT'];
   const wsPort = wsPortRaw ? Number.parseInt(wsPortRaw, 10) : undefined;
@@ -228,6 +229,9 @@ export interface IRobotaRuntimeSeamInput {
 export interface IRobotaRuntimeOptions {
   provider: IAIProvider;
   providerErrorGuidance?: IProviderErrorGuidance;
+  promptFileReferenceTag?: string;
+  modelCommandToolPrefix?: string;
+  subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
   commandModules: readonly ICommandModule[];
   agentDefinitions: readonly IAgentDefinition[];
   /** The tool surface, grouped so every presentation channel is handed the SAME pair. */

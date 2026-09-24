@@ -19,4 +19,6 @@ export interface ITuiCliAdapter {
   ): { applied: boolean };
   getGitBranch(cwd: string): string | undefined;
   getProviderDisplayName(type: string): string;
+  /** Optional host-owned command shown when a completed fork can be reopened outside the TUI. */
+  formatResumeCommand?: (sessionId: string) => string;
 }

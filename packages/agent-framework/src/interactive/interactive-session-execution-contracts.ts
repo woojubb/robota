@@ -27,6 +27,7 @@ export interface IExecutionControllerCallbacks {
   getCwd: () => string;
   getProjectAccess: () => TWorkspaceProjectAccess;
   providerErrorGuidance?: IProviderErrorGuidance;
+  promptFileReferenceTag?: string;
   getContextState: () => IContextWindowState;
   getExecutionWorkspaceSnapshot: () => IExecutionWorkspaceSnapshot;
   emit: <E extends string>(event: E, ...args: unknown[]) => void;

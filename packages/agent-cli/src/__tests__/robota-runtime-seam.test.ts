@@ -115,6 +115,15 @@ function robotaRuntimeOptions(overrides: IProbeOverrides = {}) {
 }
 
 describe('ARCH-007 — the kernel overlay is robota’s single assembly path', () => {
+  it('keeps Robota model-visible identifiers on the resolved runtime options', () => {
+    const options = robotaRuntimeOptions();
+    expect(options.promptFileReferenceTag).toBe('robota_file_references');
+    expect(options.modelCommandToolPrefix).toBe('robota_command_');
+    expect(options.subagentHookEnvironmentNames).toEqual({
+      agentId: 'ROBOTA_AGENT_ID', agentType: 'ROBOTA_AGENT_TYPE',
+    });
+  });
+
   it('carries the product provider recovery guidance into the CLI runtime options', () => {
     expect(robotaRuntimeOptions().providerErrorGuidance?.authentication).toContain('/provider');
   });

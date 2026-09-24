@@ -35,6 +35,7 @@ export async function preparePromptInput(
   rawInput?: string,
   contextReferences: readonly IContextReferenceItem[] = [],
   allowFileReferences = true,
+  promptFileReferenceTag?: string,
 ): Promise<IPreparedPromptInput> {
   // External event text is data, not an operator prompt. In particular, an @path in a webhook
   // must not read local files or fail solely because the session lacks project authority.
@@ -57,7 +58,14 @@ export async function preparePromptInput(
       promptFileReferenceRecords: [],
     };
   }
-  return prepareTrustedPromptInput(input, projectAccess, cwd, rawInput, activePaths);
+  return prepareTrustedPromptInput(
+    input,
+    projectAccess,
+    cwd,
+    rawInput,
+    activePaths,
+    promptFileReferenceTag,
+  );
 }
 
 async function prepareTrustedPromptInput(
@@ -66,6 +74,7 @@ async function prepareTrustedPromptInput(
   cwd: string,
   rawInput: string | undefined,
   activePaths: readonly string[],
+  promptFileReferenceTag: string | undefined,
 ): Promise<IPreparedPromptInput> {
   const resolveOptions = {
     reader: getWorkspaceProjectReader(projectAccess.authority),
@@ -87,7 +96,11 @@ async function prepareTrustedPromptInput(
     ...activeReferenceResult.references,
     ...promptFileReferenceResult.references,
   ]);
-  const modelInput = buildPromptWithFileReferences(input, resolvedReferences);
+  const modelInput = buildPromptWithFileReferences(
+    input,
+    resolvedReferences,
+    promptFileReferenceTag,
+  );
   const hookInput = rawInput ?? (modelInput === input ? undefined : input);
   const activeContextReferenceRecords = toPromptFileReferenceRecords(
     activeReferenceResult.references,

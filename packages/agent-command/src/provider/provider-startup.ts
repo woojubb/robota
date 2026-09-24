@@ -1,8 +1,5 @@
 import {
   checkSettingsDocument,
-  createDefaultUserSettingsSources,
-  createNodeHostSettingsStore,
-  getUserSettingsPath,
   ProviderConfigError,
   readMergedProviderSettings,
   resolveEnvDefaultProvider,
@@ -30,8 +27,8 @@ import type {
 export interface IProviderStartupContext {
   provider?: string;
   settingsScope?: TSettingsScope;
-  settingsSources?: readonly TSettingsSource[];
-  settingsStores?: readonly ISettingsDocumentStore[];
+  settingsSources: readonly TSettingsSource[];
+  settingsStores: readonly ISettingsDocumentStore[];
 }
 
 export interface IEnsureProviderConfigOptions {
@@ -124,10 +121,12 @@ function resolveSettingsAccess(ctx: IProviderStartupContext): {
   sources: readonly TSettingsSource[];
   stores: readonly ISettingsDocumentStore[];
 } {
-  const stores = ctx.settingsStores ?? [createNodeHostSettingsStore('user', getUserSettingsPath())];
+  if (ctx.settingsSources === undefined || ctx.settingsStores === undefined) {
+    throw new Error('Provider startup requires host settings sources and stores.');
+  }
   return {
-    sources: ctx.settingsSources ?? createDefaultUserSettingsSources(),
-    stores,
+    sources: ctx.settingsSources,
+    stores: ctx.settingsStores,
   };
 }
 

@@ -14,8 +14,13 @@ import {
   type IMonitorUiServer,
 } from './serve-monitor-ui.js';
 import { settleOnServeTransportFailure } from './serve-transport-failure.js';
+import {
+  startSupervisedControl,
+  type ISupervisedControl,
+} from '../session-inventory/supervised-session-control.js';
 import { startRuntimeHost } from '@robota-sdk/agent-framework';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
+import { ROBOTA_PERMISSION_BASELINE } from '../product/robota-permission-baseline.js';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
 import type { IOrgPolicy } from '@robota-sdk/agent-framework';
 
@@ -23,6 +28,7 @@ import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
 import { areSessionLoopsDisabled, createLoopDefaultPromptResolver } from '../startup/loop-options.js';
 import { homedir } from 'node:os';
+import { realpathSync } from 'node:fs';
 import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
 import type {
   IAgentDefinition,
@@ -33,6 +39,8 @@ import type {
   IProviderErrorGuidance,
   IProjectSettingsPath,
   INodeHostSettingsSource,
+  IContributionSource,
+  ISkillRootDescriptor,
   IToolCallHandoffPolicy,
   TInteractiveSessionOptions,
   TWorkspaceProjectAccess,
@@ -40,7 +48,7 @@ import type {
 } from '@robota-sdk/agent-framework';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import type { ITransportLifecycleRegistryView } from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession, ISessionLoopState } from '@robota-sdk/agent-interface-session';
 
 /** Preset-resolved identity/posture the thin-shell CLI forwards into the headless runtime session. */
 /**
@@ -50,13 +58,22 @@ export type IServeModePresetOptions = Partial<IPresetSurfaceOptions>;
 
 export interface IServeModeOptions {
   cwd: string;
+  /** Explicit host-owned control root for isolated embedded runtimes and tests. */
+  supervisedRoot?: string;
   args: IParsedCliArgs;
   provider: IAIProvider;
   providerErrorGuidance?: IProviderErrorGuidance;
+  promptFileReferenceTag?: string;
+  modelCommandToolPrefix?: string;
+  subagentHookEnvironmentNames?: TInteractiveSessionOptions['subagentHookEnvironmentNames'];
+  commandHookShell?: string;
   sessionStore: ReturnType<typeof createProjectSessionStore>;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
   userSettingsSources?: readonly INodeHostSettingsSource[];
+  contributionSources?: readonly IContributionSource[];
+  skillRoots?: readonly ISkillRootDescriptor[];
+  taskContext?: { readonly enabled?: boolean; readonly dir?: string };
   /**
    * CLI-083 (issue #2287) — the org policy, forwarded so the session's `blockedCommands` and
    * `allowedProviders` enforcement is reachable in a served session. Declared on this projection
@@ -69,6 +86,7 @@ export interface IServeModeOptions {
   /** ARCH-005: composition-root-contributed subagent definitions (the profile's merged pack subagents). */
   agentDefinitions?: readonly IAgentDefinition[];
   agentDefinitionRoots?: readonly string[];
+  pluginDirectories?: { readonly user?: string; readonly project?: string };
   /**
    * ARCH-006/007: the profile's merged pack TOOLS, laid on by the kernel overlay. Forwarded to the
    * session's `additionalTools` seam, where the framework dedupes them by name against its own default
@@ -128,6 +146,16 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(opts.providerErrorGuidance !== undefined
       ? { providerErrorGuidance: opts.providerErrorGuidance }
       : {}),
+    ...(opts.promptFileReferenceTag !== undefined
+      ? { promptFileReferenceTag: opts.promptFileReferenceTag }
+      : {}),
+    ...(opts.modelCommandToolPrefix !== undefined
+      ? { modelCommandToolPrefix: opts.modelCommandToolPrefix }
+      : {}),
+    ...(opts.subagentHookEnvironmentNames !== undefined
+      ? { subagentHookEnvironmentNames: opts.subagentHookEnvironmentNames }
+      : {}),
+    ...(opts.commandHookShell !== undefined ? { commandHookShell: opts.commandHookShell } : {}),
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
     ...(opts.projectSettingsPaths !== undefined
       ? { projectSettingsPaths: opts.projectSettingsPaths }
@@ -135,11 +163,17 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(opts.userSettingsSources !== undefined
       ? { userSettingsSources: opts.userSettingsSources }
       : {}),
+    ...(opts.contributionSources !== undefined
+      ? { contributionSources: opts.contributionSources }
+      : {}),
+    ...(opts.skillRoots !== undefined ? { skillRoots: opts.skillRoots } : {}),
+    ...(opts.taskContext !== undefined ? { taskContext: opts.taskContext } : {}),
     ...(opts.orgPolicy !== undefined ? { orgPolicy: opts.orgPolicy } : {}),
     // CLI-076: forward the resolved model so `--model` takes effect in the served runtime session.
     ...(opts.model !== undefined ? { model: opts.model } : {}),
     ...(preset.outputStyle !== undefined ? { outputStyle: preset.outputStyle } : {}),
     permissionMode: args.permissionMode ?? preset.permissionMode,
+    baselinePermissionAllow: ROBOTA_PERMISSION_BASELINE,
     // Issue #1937: the CLI-sourced prompt addition, composed once at the projection. Before this it
     // was built at print mode only, so these flags did nothing in a served session.
     maxTurns: args.maxTurns,
@@ -154,6 +188,9 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(opts.agentDefinitions !== undefined ? { agentDefinitions: opts.agentDefinitions } : {}),
     ...(opts.agentDefinitionRoots !== undefined
       ? { agentDefinitionRoots: opts.agentDefinitionRoots }
+      : {}),
+    ...(opts.pluginDirectories !== undefined
+      ? { pluginDirectories: opts.pluginDirectories }
       : {}),
     ...(opts.additionalTools !== undefined ? { additionalTools: opts.additionalTools } : {}),
     ...(opts.defaultTools !== undefined ? { defaultTools: opts.defaultTools } : {}),
@@ -181,6 +218,20 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
     ...(opts.memorySessionOptions ?? {}),
   };
+}
+
+export function nextWaitingLoopAt(loops: readonly ISessionLoopState[], nowMs: number): string | undefined {
+  let earliest: { at: string; millis: number } | undefined;
+  for (const loop of loops) {
+    if (loop.phase !== 'waiting' || loop.nextAllowedAt === undefined) continue;
+    const millis = Date.parse(loop.nextAllowedAt);
+    const expiry = Date.parse(loop.expiresAt);
+    if (!Number.isFinite(millis) || !Number.isFinite(expiry) ||
+      new Date(millis).toISOString() !== loop.nextAllowedAt ||
+      expiry <= nowMs || millis >= expiry) continue;
+    if (earliest === undefined || millis < earliest.millis) earliest = { at: loop.nextAllowedAt, millis };
+  }
+  return earliest?.at;
 }
 
 export async function runServeMode(opts: IServeModeOptions): Promise<void> {
@@ -211,16 +262,23 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
 
   // Stay alive until the supervisor (e.g. apps/agent-app on window close) signals — or a
   // host-executed session-exit/-restart action fires (CMD-004 Phase 2) — then tear down cleanly.
-  await new Promise<void>((resolve) => {
-    let settling = false;
+  let supervisedControl: ISupervisedControl | undefined;
+  let requestSettle: (reason: string) => void = () => undefined;
+  let settling = false;
+  const readinessAbort = new AbortController();
+  const lifetime = new Promise<void>((resolve) => {
     const settle = (reason: string): void => {
       if (settling) return;
       settling = true;
+      readinessAbort.abort();
       void Promise.resolve(monitorUi?.close())
         .catch(() => {})
         .then(() => host.shutdown(reason))
+        .catch(() => undefined)
+        .then(() => supervisedControl?.close())
         .finally(() => resolve());
     };
+    requestSettle = settle;
     const onSignal = (signal: NodeJS.Signals): void => settle(`received ${signal}`);
     process.once('SIGTERM', onSignal);
     process.once('SIGINT', onSignal);
@@ -254,5 +312,102 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
       requestExit: (reason) => scheduleSettle(`command exit${reason ? ` (${reason})` : ''}`),
       requestRestart: (_reason, message) => scheduleSettle(`command restart: ${message}`),
     };
+  });
+  if (args.supervisedSessionId !== undefined) {
+    try {
+      const supervisedCwd = realpathSync(opts.cwd);
+      supervisedControl = await startSupervisedControl(
+        args.supervisedSessionId,
+        () => requestSettle('supervised session stopped'),
+        opts.supervisedRoot,
+        () => settling ? undefined : host.session.getLocalActivityStatus(),
+        () => settling ? undefined : supervisedCwd,
+        () => settling || sessionOptions.disableSessionLoops
+          ? undefined : nextWaitingLoopAt(host.session.listSelfPacedLoops(), Date.now()),
+        () => settling ? undefined : host.session.getName(),
+      );
+      if (settling) throw new Error('Supervised runtime stopped before readiness.');
+      await acknowledgeSupervisedStartup(args.supervisedSessionId, readinessAbort.signal);
+      if (settling) throw new Error('Supervised runtime stopped during readiness.');
+    } catch (error) {
+      if (process.connected && process.send) {
+        try {
+          process.send({ kind: 'error', id: args.supervisedSessionId, code: 'startup-failed' }, () => {
+            // The parent may already have disconnected; failure reporting is best-effort only.
+          });
+        } catch {
+          // A closed readiness channel cannot prevent host/control cleanup below.
+        }
+      }
+      requestSettle('supervised session startup failed');
+      await supervisedControl?.close();
+      await lifetime;
+      throw error;
+    }
+  }
+  await lifetime;
+}
+
+export interface ISupervisedReadinessChannel {
+  send(message: { kind: 'ready' | 'acknowledged'; id: string }, done: (error?: Error | null) => void): void;
+  onMessage(listener: (message: unknown) => void): void;
+  offMessage(listener: (message: unknown) => void): void;
+  onDisconnect(listener: () => void): void;
+  offDisconnect(listener: () => void): void;
+}
+
+function processReadinessChannel(): ISupervisedReadinessChannel {
+  if (!process.send) throw new Error('Supervised serve mode requires a parent readiness channel.');
+  return {
+    send: (message, done) => { process.send?.(message, done); },
+    onMessage: (listener) => { process.on('message', listener); },
+    offMessage: (listener) => { process.off('message', listener); },
+    onDisconnect: (listener) => { process.on('disconnect', listener); },
+    offDisconnect: (listener) => { process.off('disconnect', listener); },
+  };
+}
+
+/** The launcher must receive readiness and acknowledge it before this runtime detaches. */
+export async function acknowledgeSupervisedStartup(
+  id: string,
+  signal: AbortSignal,
+  channel: ISupervisedReadinessChannel = processReadinessChannel(),
+): Promise<void> {
+  if (signal.aborted) throw new Error('Supervised runtime stopped before readiness.');
+  await new Promise<void>((resolve, reject) => {
+    let done = false;
+    const finish = (action: () => void): void => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      channel.offMessage(onMessage);
+      channel.offDisconnect(onDisconnect);
+      signal.removeEventListener('abort', onAbort);
+      action();
+    };
+    const onMessage = (message: unknown): void => {
+      if (signal.aborted) {
+        finish(() => reject(new Error('Supervised runtime stopped during readiness.')));
+        return;
+      }
+      if (typeof message !== 'object' || message === null || !('kind' in message) ||
+        !('id' in message) || message.kind !== 'ack' || message.id !== id) {
+        finish(() => reject(new Error('Supervised startup acknowledgement was invalid.')));
+        return;
+      }
+      channel.send({ kind: 'acknowledged', id }, (error) => {
+        if (signal.aborted || error) finish(() => reject(new Error('Supervised startup acknowledgement could not be sent.')));
+        else finish(resolve);
+      });
+    };
+    const onAbort = (): void => finish(() => reject(new Error('Supervised runtime stopped during readiness.')));
+    const onDisconnect = (): void => finish(() => reject(new Error('Supervised launcher closed before acknowledgement.')));
+    const timer = setTimeout(() => finish(() => reject(new Error('Supervised launcher did not acknowledge startup.'))), 10_000);
+    channel.onMessage(onMessage);
+    channel.onDisconnect(onDisconnect);
+    signal.addEventListener('abort', onAbort, { once: true });
+    channel.send({ kind: 'ready', id }, (error) => {
+      if (error) finish(() => reject(new Error('Supervised readiness could not be sent.')));
+    });
   });
 }

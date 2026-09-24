@@ -6,6 +6,7 @@ import {
 
 import { formatProjectContributionPreview } from './project-contribution-preview.js';
 import { userPaths } from '../product/user-paths.js';
+import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../product/robota-project-state-directories.js';
 
 type TWorkspaceTrustAction = 'status' | 'grant' | 'revoke';
 
@@ -35,7 +36,10 @@ function printAccess(access: TWorkspaceProjectAccess): void {
 export async function runWorkspaceTrustCommand(
   argv: readonly string[],
   cwd: string,
-  service: WorkspaceTrustService = createNodeWorkspaceTrustService(userPaths().workspaceTrust),
+  service: WorkspaceTrustService = createNodeWorkspaceTrustService(
+    userPaths().workspaceTrust,
+    ROBOTA_PROJECT_STATE_DIRECTORIES,
+  ),
 ): Promise<number> {
   const action = (argv.find((argument) => !argument.startsWith('-')) ??
     (argv.includes('--yes') ? 'grant' : 'status')) as TWorkspaceTrustAction;

@@ -17,6 +17,7 @@ import {
 import { initializeInteractiveSessionAsync } from './interactive-session-init.js';
 import { persistSession } from './interactive-session-persistence.js';
 import { createPromptHistoryRecorder } from './interactive-session-prompt-history.js';
+import { createProjectPermissionPersistence } from './project-permission-persistence.js';
 import { resolveUserSettingsProviderSwitch } from './interactive-session-provider-switch.js';
 import { persistSessionRename } from './interactive-session-rename.js';
 import { loadSessionRecord } from './interactive-session-restore.js';
@@ -49,7 +50,6 @@ import {
 import { SessionPromptRegistry } from './session-prompt-registry.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
-import { createContributionSourcesForProjectAccess } from '../contributions/index.js';
 import { GoalController, buildGoalContinuationPrompt } from '../goal/index.js';
 import { createUserInteractionPort } from '../interaction/user-interaction-port.js';
 import { PlanController } from '../plan/index.js';
@@ -61,7 +61,10 @@ import {
 } from '../workspace-trust/index.js';
 
 import type { IInteractiveSession } from './i-interactive-session.js';
-import type { IExternalEventSource, IExternalEventSourceOptions } from './external-event-ingress.js';
+import type {
+  IExternalEventSource,
+  IExternalEventSourceOptions,
+} from './external-event-ingress.js';
 import type { IQueuedInput, ITurnOptions } from './interactive-session-execution-controller.js';
 import type { ICreatedInteractiveSession } from './interactive-session-init.js';
 import type {
@@ -213,6 +216,7 @@ export class InteractiveSession
   private readonly promptRegistry: SessionPromptRegistry;
   private readonly projectAccess: TWorkspaceProjectAccess;
   private readonly providerErrorGuidance?: IProviderErrorGuidance;
+  private readonly promptFileReferenceTag?: string;
   private readonly resolveDefaultLoopPrompt?: () => string;
   private readonly userSettingsSources: readonly INodeHostSettingsSource[];
 
@@ -233,6 +237,7 @@ export class InteractiveSession
       },
     });
     this.providerErrorGuidance = options.providerErrorGuidance;
+    this.promptFileReferenceTag = options.promptFileReferenceTag;
     this.resolveDefaultLoopPrompt = options.resolveDefaultLoopPrompt;
     this.userSettingsSources = options.userSettingsSources ?? [];
     this.sessionLoopsDisabled = options.disableSessionLoops ?? false;
@@ -319,10 +324,14 @@ export class InteractiveSession
     const shellExec = 'shellExec' in options ? options.shellExec : undefined;
     const remoteCommandPolicy =
       'remoteCommandPolicy' in options ? options.remoteCommandPolicy : undefined;
+    const contributionSources =
+      'contributionSources' in options ? (options.contributionSources ?? []) : [];
+    const skillRoots = 'skillRoots' in options ? (options.skillRoots ?? []) : [];
 
     this.skillRouter = new SessionSkillRouter(
       commandModules,
-      createContributionSourcesForProjectAccess(this.projectAccess),
+      contributionSources,
+      skillRoots,
       commandHostAdapters,
       // ARCH-029 S1: no cast — `implements ICommandHostContext` above makes this compiler-checked.
       () => this,
@@ -348,6 +357,7 @@ export class InteractiveSession
 
     this.execCtrl = new SessionExecutionController(this.histTracker, this.skillRouter, {
       providerErrorGuidance: this.providerErrorGuidance,
+      promptFileReferenceTag: this.promptFileReferenceTag,
       getSession: () => this.session!,
       getSessionOrThrow: () => this.getSessionOrThrow(),
       getCwd: () => this.getCwd(),
@@ -478,13 +488,16 @@ export class InteractiveSession
     this.initPromise = this.initializeAsync(stdOpts);
   }
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
+    const canPersistProjectPermission =
+      createProjectPermissionPersistence(options.projectAccess, options.projectSettingsPaths) !==
+      undefined;
     const result = await initializeInteractiveSessionAsync(options, {
       sandboxSnapshotId: this.sandboxSnapshotId,
       resumeSessionId: this.resumeSessionId,
       pendingRestoreMessages: this.pendingRestoreMessages,
       restoredSystemPrompt: this.restoredSystemPrompt,
       permissionHandler: (toolName, toolArgs) =>
-        this.promptRegistry.requestPermission(toolName, toolArgs),
+        this.promptRegistry.requestPermission(toolName, toolArgs, canPersistProjectPermission),
       askHandler: this.askHandler,
       onTextDelta: (delta) => this.execCtrl.handleTextDelta(delta),
       onContextUpdate: (state) => this.emit('context_update', state),
@@ -595,7 +608,9 @@ export class InteractiveSession
   }
 
   /** Explicit host opt-in for one authenticated external source; MCP configuration alone cannot enable it. */
-  async openExternalEventSource(options: IExternalEventSourceOptions): Promise<IExternalEventSource> {
+  async openExternalEventSource(
+    options: IExternalEventSourceOptions,
+  ): Promise<IExternalEventSource> {
     await this.ensureInitialized();
     if (this.execCtrl.shuttingDown) throw new Error('Interactive session is shutting down.');
     this.externalEventIngress ??= new ExternalEventIngress({
@@ -636,18 +651,25 @@ export class InteractiveSession
       ? this.getBackgroundTaskManager()?.get(entry.options.wakeTaskId)
       : undefined;
     // A stale queued wake must not read a default file or stop a newer generation on load failure.
-    if (identity && (!selfPaced || !markSelfPacedLoopRunning(selfPaced, identity.generation, Date.now()) ||
-      this.sessionLoopsDisabled || this.selfPacedLoops.isSuspended())) {
+    if (
+      identity &&
+      (!selfPaced ||
+        !markSelfPacedLoopRunning(selfPaced, identity.generation, Date.now()) ||
+        this.sessionLoopsDisabled ||
+        this.selfPacedLoops.isSuspended())
+    ) {
       this.execCtrl.turns.refuse(entry.turnId, 'cancelled');
       this.execCtrl.wakeTaskIds.delete(entry.options.wakeTaskId!);
       return;
     }
     let input = entry.input;
-    const liveFixedDefault = scheduled?.metadata?.['sessionLoopDefaultPrompt'] === true &&
+    const liveFixedDefault =
+      scheduled?.metadata?.['sessionLoopDefaultPrompt'] === true &&
       scheduled.schedule?.agentInstruction === scheduled.metadata['sessionLoopDefaultPromptSeed'];
     if (selfPaced?.useDefaultPrompt || liveFixedDefault) {
       try {
-        if (!this.resolveDefaultLoopPrompt) throw new Error('Default loop prompt resolver is unavailable.');
+        if (!this.resolveDefaultLoopPrompt)
+          throw new Error('Default loop prompt resolver is unavailable.');
         const resolved = this.resolveDefaultLoopPrompt().trim();
         if (!resolved || Buffer.byteLength(resolved, 'utf8') > 4_096) {
           throw new Error('Default loop prompt must contain 1–4096 UTF-8 bytes.');
@@ -657,9 +679,15 @@ export class InteractiveSession
         const failure = error instanceof Error ? error : new Error(String(error));
         if (identity) {
           try {
-            await this.stopSelfPacedLoop(identity.loopId, 'Default loop prompt could not be loaded');
+            await this.stopSelfPacedLoop(
+              identity.loopId,
+              'Default loop prompt could not be loaded',
+            );
           } catch (stopError) {
-            this.reportBackgroundError(stopError instanceof Error ? stopError : new Error(String(stopError)), 'session-loop');
+            this.reportBackgroundError(
+              stopError instanceof Error ? stopError : new Error(String(stopError)),
+              'session-loop',
+            );
           }
         }
         this.execCtrl.turns.fail(entry.turnId, failure);
@@ -668,7 +696,8 @@ export class InteractiveSession
         return;
       }
     }
-    const displayInput = selfPaced?.useDefaultPrompt || liveFixedDefault ? input : entry.displayInput;
+    const displayInput =
+      selfPaced?.useDefaultPrompt || liveFixedDefault ? input : entry.displayInput;
     if (identity) {
       const current = selfPaced;
       const running = current && markSelfPacedLoopRunning(current, identity.generation, Date.now());
@@ -680,7 +709,10 @@ export class InteractiveSession
       try {
         this.selfPacedLoops.commit(running);
       } catch (error) {
-        this.execCtrl.turns.fail(entry.turnId, error instanceof Error ? error : new Error(String(error)));
+        this.execCtrl.turns.fail(
+          entry.turnId,
+          error instanceof Error ? error : new Error(String(error)),
+        );
         this.execCtrl.wakeTaskIds.delete(entry.options.wakeTaskId!);
         throw error;
       }
@@ -852,13 +884,18 @@ export class InteractiveSession
         task.status !== 'completed' &&
         task.status !== 'failed',
     ).length;
-    const dynamicCount = this.selfPacedLoops.list().filter(
-      (state) => state.phase !== 'stopped' && state.phase !== 'expired',
-    ).length;
+    const dynamicCount = this.selfPacedLoops
+      .list()
+      .filter((state) => state.phase !== 'stopped' && state.phase !== 'expired').length;
     if (fixedCount + dynamicCount >= 3) {
       throw new Error('At most 3 active loops are allowed. Stop one before creating another.');
     }
-    const state = createSelfPacedLoopState(`loop_${randomUUID()}`, instruction, Date.now(), options);
+    const state = createSelfPacedLoopState(
+      `loop_${randomUUID()}`,
+      instruction,
+      Date.now(),
+      options,
+    );
     this.selfPacedLoops.commit(state);
     this.submitSelfPacedIteration(state);
     return state;
@@ -884,7 +921,9 @@ export class InteractiveSession
     return `self-paced:${state.loopId}:${state.generation}`;
   }
 
-  private parseSelfPacedWakeId(wakeId: string | undefined): { loopId: string; generation: number } | null {
+  private parseSelfPacedWakeId(
+    wakeId: string | undefined,
+  ): { loopId: string; generation: number } | null {
     const match = /^self-paced:(loop_[^:]+):(\d+)$/.exec(wakeId ?? '');
     return match ? { loopId: match[1]!, generation: Number(match[2]) } : null;
   }
@@ -899,9 +938,10 @@ export class InteractiveSession
     if (!identity) return;
     const current = this.selfPacedLoops.get(identity.loopId);
     if (!current) return;
-    const decision = outcome === 'success' && result
-      ? extractSelfPacedLoopDecision(result.toolSummaries, toolExecutions)
-      : { action: 'stop' as const };
+    const decision =
+      outcome === 'success' && result
+        ? extractSelfPacedLoopDecision(result.toolSummaries, toolExecutions)
+        : { action: 'stop' as const };
     const next = finishSelfPacedLoopTurn(current, identity.generation, decision, Date.now());
     if (!next) return; // A user stop won while the model was running.
     this.selfPacedLoops.commit(next);
@@ -915,9 +955,10 @@ export class InteractiveSession
     }
     // Timer creation can yield to a user stop; describe the committed state, not a stale successor.
     const settled = this.selfPacedLoops.get(next.loopId) ?? next;
-    const receipt = settled.phase === 'waiting'
-      ? `Loop ${settled.loopId}: next check in ${settled.delaySeconds}s (${settled.reason}); eligible at ${settled.nextAllowedAt}.`
-      : `Loop ${settled.loopId} ${settled.phase}: ${settled.terminalReason}.`;
+    const receipt =
+      settled.phase === 'waiting'
+        ? `Loop ${settled.loopId}: next check in ${settled.delaySeconds}s (${settled.reason}); eligible at ${settled.nextAllowedAt}.`
+        : `Loop ${settled.loopId} ${settled.phase}: ${settled.terminalReason}.`;
     this.histTracker.append(messageToHistoryEntry(createSystemMessage(receipt)));
     this.persistCurrentSession();
   }
@@ -961,7 +1002,11 @@ export class InteractiveSession
   private admitSelfPacedWake(taskId: string, metadata: Record<string, unknown>): boolean {
     const loopId = metadata['sessionLoopId'];
     const generation = metadata['sessionLoopGeneration'];
-    if (typeof loopId !== 'string' || !Number.isSafeInteger(generation) || this.selfPacedWakeClaims.has(taskId)) {
+    if (
+      typeof loopId !== 'string' ||
+      !Number.isSafeInteger(generation) ||
+      this.selfPacedWakeClaims.has(taskId)
+    ) {
       return false;
     }
     this.selfPacedWakeClaims.add(taskId);
@@ -975,7 +1020,10 @@ export class InteractiveSession
       this.submitSelfPacedIteration(claimed);
       return true;
     } catch (error) {
-      this.reportBackgroundError(error instanceof Error ? error : new Error(String(error)), 'session-loop');
+      this.reportBackgroundError(
+        error instanceof Error ? error : new Error(String(error)),
+        'session-loop',
+      );
       return false;
     } finally {
       this.selfPacedWakeClaims.delete(taskId);
@@ -1000,11 +1048,17 @@ export class InteractiveSession
                 'session-loop',
               );
             }
-            this.reportBackgroundError(error instanceof Error ? error : new Error(String(error)), 'session-loop');
+            this.reportBackgroundError(
+              error instanceof Error ? error : new Error(String(error)),
+              'session-loop',
+            );
           });
         }
       } catch (error) {
-        this.reportBackgroundError(error instanceof Error ? error : new Error(String(error)), 'session-loop');
+        this.reportBackgroundError(
+          error instanceof Error ? error : new Error(String(error)),
+          'session-loop',
+        );
       }
     }
   }
@@ -1013,7 +1067,8 @@ export class InteractiveSession
     const wakeId = this.selfPacedWakeId(state);
     if (this.execCtrl.wakeTaskIds.has(wakeId)) return;
     this.execCtrl.wakeTaskIds.add(wakeId);
-    const input = `${state.instruction}\n\nAt the end of this self-paced loop iteration, call ` +
+    const input =
+      `${state.instruction}\n\nAt the end of this self-paced loop iteration, call ` +
       '`report_loop_decision` exactly once: choose stop, or continue with a 60–3600 second delay and reason.';
     void this.submitNewTurn(input, state.instruction, undefined, {
       turnSource: 'agent-wakeup',
@@ -1041,7 +1096,10 @@ export class InteractiveSession
         'session-loop',
       ),
     );
-    this.reportBackgroundError(error instanceof Error ? error : new Error(String(error)), 'session-loop');
+    this.reportBackgroundError(
+      error instanceof Error ? error : new Error(String(error)),
+      'session-loop',
+    );
   }
 
   override async cancelBackgroundTask(taskId: string, reason?: string): Promise<void> {
@@ -1173,6 +1231,7 @@ export class InteractiveSession
       this.execCtrl.clearPendingQueue();
       const session = this.session;
       session?.abort();
+      const moduleShutdownErrors = await this.skillRouter.shutdownModules();
       await this.runtimeTools.drain();
       await this.getBackgroundTaskManager()?.shutdown(options.message ?? 'Session shutdown');
       this.bgTracker.dispose();
@@ -1183,12 +1242,22 @@ export class InteractiveSession
       // fail-closed (the awaiting checkPermission/tool unblocks) rather than hanging on a cleared emitter.
       this.promptRegistry.drain();
       this.listeners.clear();
+      if (moduleShutdownErrors.length > 0) {
+        throw new AggregateError(moduleShutdownErrors, 'Command module shutdown failed');
+      }
     })();
     return this.shutdownPromise;
   }
 
   get isInitialized(): boolean {
     return this.initialized;
+  }
+
+  /** Passive, content-free host observation; never registers an answering prompt listener. */
+  getLocalActivityStatus(): 'working' | 'needs-input' | 'idle' | undefined {
+    if (!this.initialized || this.execCtrl.shuttingDown) return undefined;
+    if (this.promptRegistry.pendingCount > 0) return 'needs-input';
+    return this.execCtrl.executing ? 'working' : 'idle';
   }
 
   getAutoCompactThresholdSource(): TAutoCompactThresholdSource {

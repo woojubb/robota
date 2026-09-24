@@ -56,7 +56,7 @@ export function createTrackedSubagent(
 export function hasProjectedSpawnTool(session: TSubagentSession): boolean {
   return session
     .getToolSchemas()
-    .some((schema) => schema.name === 'robota_command_spawn-subagent-alt');
+    .some((schema) => schema.name === 'command_spawn-subagent-alt');
 }
 
 export function verifyDuplicateRoleRejections(): {

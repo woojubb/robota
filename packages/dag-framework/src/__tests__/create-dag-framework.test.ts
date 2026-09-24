@@ -1,10 +1,11 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IDagDefinition } from '@robota-sdk/dag-core';
 import { createDagFramework } from '../create-dag-framework.js';
 import { createDefaultNodeRegistrySync } from '@robota-sdk/dag-nodes-default';
+import * as defaultRegistryLoader from '../load-default-node-registry.js';
 import type { IDagFramework } from '../types.js';
 
 let tmpDir: string;
@@ -31,9 +32,9 @@ async function pollRunStatus(
 ): Promise<string> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
-    const res = await fw.client.getRunStatus(dagRunId);
+    const res = await fw.runs.getRun(dagRunId);
     if (!res.ok) return 'error';
-    const dagRun = (res.payload as { data: { dagRun: { status: string } } }).data.dagRun;
+    const dagRun = res.value.dagRun;
     if (dagRun.status === 'success' || dagRun.status === 'failed') {
       return dagRun.status;
     }
@@ -55,23 +56,54 @@ describe('Input → TextOutput (2-node pipeline)', () => {
       edges: [{ from: 'src', to: 'out', bindings: [{ outputKey: 'text', inputKey: 'text' }] }],
     };
 
-    const runRes = await framework.client.createRun({ definition });
+    const runRes = await framework.runs.createRun({ definition });
     expect(runRes.ok).toBe(true);
-    expect(runRes.status).toBe(201);
+    expect(runRes).not.toHaveProperty('status');
 
-    const { dagRunId } = (runRes.payload as { data: { dagRunId: string; preparationId: string } })
-      .data;
+    if (!runRes.ok) throw new Error('Expected a created run.');
+    const { dagRunId } = runRes.value;
     expect(typeof dagRunId).toBe('string');
 
-    await framework.client.startRun(dagRunId);
+    await framework.runs.startRun(dagRunId);
 
     const finalStatus = await pollRunStatus(framework, dagRunId);
     expect(finalStatus).toBe('success');
 
-    const resultRes = await framework.client.getRunResult(dagRunId);
+    const resultRes = await framework.runs.getRun(dagRunId);
     expect(resultRes.ok).toBe(true);
-    const taskRuns = (resultRes.payload as { data: { taskRuns: unknown[] } }).data.taskRuns;
+    if (!resultRes.ok) throw new Error('Expected a run result.');
+    const taskRuns = resultRes.value.taskRuns;
     expect(taskRuns.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('default skill discovery boundary', () => {
+  it('forwards host sources and ordered roots into the async default catalog loader', async () => {
+    const contributionSources = [
+      {
+        kind: 'host' as const,
+        displayName: 'host fixture',
+        readText: () => undefined,
+        listDirectory: () => [],
+        inspectKind: () => undefined,
+      },
+    ];
+    const skillRoots = [{ root: 'custom/skills', kind: 'skills' as const }];
+    const loader = vi.spyOn(defaultRegistryLoader, 'loadDefaultNodeRegistry');
+    const created = await createDagFramework({
+      executionRoot: tmpDir,
+      providers: [],
+      contributionSources,
+      skillRoots,
+      paths: { storageRoot: path.join(tmpDir, 'host-skill-storage') },
+    });
+
+    try {
+      expect(loader).toHaveBeenCalledWith([], skillRoots, contributionSources);
+    } finally {
+      loader.mockRestore();
+      await created.stop();
+    }
   });
 });
 
@@ -97,12 +129,13 @@ describe('Input → Transform → TextOutput (3-node pipeline)', () => {
       ],
     };
 
-    const runRes = await framework.client.createRun({ definition });
+    const runRes = await framework.runs.createRun({ definition });
     expect(runRes.ok).toBe(true);
 
-    const { dagRunId } = (runRes.payload as { data: { dagRunId: string } }).data;
+    if (!runRes.ok) throw new Error('Expected a created run.');
+    const { dagRunId } = runRes.value;
 
-    await framework.client.startRun(dagRunId);
+    await framework.runs.startRun(dagRunId);
 
     const finalStatus = await pollRunStatus(framework, dagRunId);
     expect(finalStatus).toBe('success');

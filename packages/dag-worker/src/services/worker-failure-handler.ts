@@ -1,5 +1,4 @@
 import {
-  TaskRunStateMachine,
   buildDispatchError,
   buildValidationError,
   type IClockPort,
@@ -53,22 +52,13 @@ export async function handleTerminalFailure(
   return successAfterAck(queue, message.messageId, _taskRunId, false);
 }
 
-/** Handles retry by re-enqueuing the message with an incremented attempt. */
+/** Enqueues the next attempt already reserved atomically by failure settlement. */
 export async function handleRetry(
   message: IQueueMessage,
   taskRunId: string,
-  storage: IStoragePort,
   queue: IQueuePort,
   clock: IClockPort,
 ): Promise<TResult<IWorkerLoopResult, IDagError>> {
-  const retryTransition = TaskRunStateMachine.transition('failed', 'RETRY');
-  if (!retryTransition.ok) {
-    return failAfterAck(queue, message.messageId, retryTransition.error);
-  }
-
-  await storage.incrementTaskAttempt(taskRunId);
-  await storage.updateTaskRunStatus(taskRunId, retryTransition.value.nextStatus);
-
   const nextAttempt = message.attempt + 1;
   const nextMessage: IQueueMessage = {
     ...message,

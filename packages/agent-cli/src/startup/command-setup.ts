@@ -3,7 +3,6 @@ import { homedir } from 'node:os';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import {
   deleteSettings,
-  getUserSettingsPath,
   loadOrgPolicy,
   OrgPolicyParseError,
   readMergedProviderSettings,
@@ -35,8 +34,18 @@ import {
 } from '@robota-sdk/agent-command-workflows';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import { buildDoctorInputs } from './doctor-inputs.js';
-import { areSessionLoopsDisabled, createLoopDefaultPromptResolver, DEFAULT_LOOP_MAINTENANCE_PROMPT } from './loop-options.js';
+import {
+  areSessionLoopsDisabled,
+  createLoopDefaultPromptResolver,
+  DEFAULT_LOOP_MAINTENANCE_PROMPT,
+} from './loop-options.js';
 import { createDefaultPluginCommandAdapter } from '../plugins/default-plugin-command-adapter.js';
+import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
+import {
+  formatRobotaResumeCommand,
+  ROBOTA_DOCTOR_SLASH_DISPLAY,
+} from '../product/robota-command-vocabulary.js';
+import { userLocalStorageRoot, userPaths } from '../product/user-paths.js';
 import { buildOutputStyleSources } from './output-style-sources.js';
 import type { IOutputStyleRegistry } from '@robota-sdk/agent-preset';
 import {
@@ -57,6 +66,7 @@ function loadWorkflowsCommandModule(
   providerDefinitions: readonly IProviderDefinition[],
   workspaceComposition: ICliWorkspaceComposition,
   projectMutation: IWorkspaceProjectMutation | undefined,
+  allowDetachedRuns: boolean,
 ): ICommandModule {
   // FLOW-007: pass the provider definitions so `/workflows create` can resolve the ACTIVE provider
   // to author a workflow from natural language. Workspace layout defaults to `.workflows/`.
@@ -70,6 +80,7 @@ function loadWorkflowsCommandModule(
   return createWorkflowsCommandModule({
     providerDefinitions,
     settingsSources: workspaceComposition.settingsSources,
+    allowDetachedRuns,
     ...(project === undefined ? {} : { project }),
   });
 }
@@ -167,10 +178,10 @@ export function buildCommandSetup(
   const outputStyleRegistry = createOutputStyleRegistry(outputStyleSources);
   const commandHostAdapters: ICommandHostAdapters = {
     settings: {
-      read: () => readSettings(getUserSettingsPath()),
-      write: (settings) => writeSettings(getUserSettingsPath(), settings),
+      read: () => readSettings(robotaUserSettingsPath()),
+      write: (settings) => writeSettings(robotaUserSettingsPath(), settings),
       // CMD-004 Phase 2: the host-executed `settings-reset` action deletes the user settings document.
-      delete: () => deleteSettings(getUserSettingsPath()),
+      delete: () => deleteSettings(robotaUserSettingsPath()),
     },
     plugin: createDefaultPluginCommandAdapter(cwd),
     ...(options.mcpActivationAdapter === undefined
@@ -195,6 +206,7 @@ export function buildCommandSetup(
     providerDefinitions,
     workspaceComposition,
     options.projectMutation,
+    !args.printMode && args.goal === undefined,
   );
   // The pack-supplied modules are excluded from the base; `assembleProduct` merges them back in from the
   // profile's packs. `unknownModuleNames` is not read here — every excluded name is a real module, and the
@@ -203,7 +215,7 @@ export function buildCommandSetup(
   // `92596bc6f` removed it two days later while slimming this file, and four implemented enforcement
   // sites have been unreachable since. Nothing failed, because the parameter is optional and its
   // consumers read absence as "no policy configured".
-  const orgPolicy = loadOrgPolicy();
+  const orgPolicy = loadOrgPolicy(userPaths().orgPolicy);
   // OBSERVABILITY-1991: `/doctor` runs the same runner as `robota doctor`, over the inputs this host
   // composed; the shell supplies them, the command package owns the behaviour.
   const doctorInputs = buildDoctorInputs({
@@ -216,15 +228,22 @@ export function buildCommandSetup(
   });
   const { modules: baseCommandModules } = createDefaultCommandModules({
     cwd,
+    userLocalStorageRoot: userLocalStorageRoot(),
     providerDefinitions,
     providerSettingsAdapter,
     contributionSources: workspaceComposition.contributionSources,
+    skillRoots: workspaceComposition.skillRoots,
     ...(keybindingsFilePort === undefined ? {} : { keybindingsFilePort }),
     ...(themeCataloguePort === undefined ? {} : { themeCataloguePort }),
     doctorInputs,
+    doctorDisplay: ROBOTA_DOCTOR_SLASH_DISPLAY,
+    formatForkResumeCommand: formatRobotaResumeCommand,
     loopOptions: {
       defaultPrompt: DEFAULT_LOOP_MAINTENANCE_PROMPT,
-      resolveDefaultPrompt: createLoopDefaultPromptResolver({ projectAccess: workspaceComposition.projectAccess, userHome: homedir() }),
+      resolveDefaultPrompt: createLoopDefaultPromptResolver({
+        projectAccess: workspaceComposition.projectAccess,
+        userHome: homedir(),
+      }),
       disabled: areSessionLoopsDisabled(process.env),
     },
     ...(orgPolicy === null ? {} : { orgPolicy }),

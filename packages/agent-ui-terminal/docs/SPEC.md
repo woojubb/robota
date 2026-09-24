@@ -13,8 +13,10 @@ authenticate; the OS user who started the process is the boundary.
 
 ## Boundaries
 
-- Owns the Ink/React rendering pipeline, the TUI interaction channel, and the default TUI CLI
-  adapter.
+- Owns the Ink/React rendering pipeline, the TUI interaction channel, the default TUI CLI adapter,
+  and a presentation-only supervised-session view of host-verified, content-free observations. That
+  view does not construct a session or infer ownership from matching IDs; a requested stop is delegated
+  to the host's owner-verifying control path, never decided by the displayed row alone.
 - Depends on the TUI interaction contracts and the framework's interactive-session runtime; does
   not depend on any other transport implementation package, and no other transport package depends
   on this one.
@@ -38,13 +40,23 @@ decision, session-loop toggle, and organization policy through unchanged to the 
 terminal never decides on its own whether a persisted loop may re-arm, whether project discovery
 is enabled from a bare `cwd`, or which commands an org policy blocks. Session-capability
 projections declare every field's forwarding, rename, or presentation-only disposition explicitly;
-a missing mapping is rejected rather than silently dropped.
-Host-selected user settings sources pass through the same render-to-channel-to-session projection;
-the terminal does not choose a settings file for session startup or provider switching.
+a missing mapping is rejected rather than silently dropped. The same host-supplied-only principle
+covers user settings sources, the keybindings file and schema, baseline permission patterns, plugin
+directories, product identity, and projected command-tool prefix: the terminal renders whatever the
+host passes and never selects a product path, executable name, or settings file itself. Without a
+supplied display name the renderer falls back to a neutral `Assistant` label (screen-reader role
+labels stay provider- and
+product-neutral regardless), and terminal-title composition always sanitizes both the host-selected
+name and the session name before emitting the OSC sequence. The permission prompt labels
+project-wide approval unavailable, rather than resolving the disabled choice as granted, when the
+session cannot persist it.
 
 When a self-paced loop is waiting, Esc stops that loop through the session's durable stop path.
 If several are waiting, Esc names the explicit stop command instead of choosing one silently.
 Esc retains its existing overlay and active-turn behavior.
+
+Automatic naming observes the first displayed user message, including an admitted external event.
+Its separate model call is text-only; it must never enable provider-hosted tools.
 
 ### Channel lifecycle and teardown
 
@@ -55,6 +67,8 @@ contract is authoritative for how the TUI releases resources on session switch a
   failed start unwinds its own listeners and any partially-started transports before becoming
   retryable; a rollback failure permanently closes that start path rather than risk duplicating
   live transport resources.
+- A host's asynchronous source binding finishes before transport startup. Failure follows the
+  ordinary start rollback path; the renderer never treats an unbound source as ready.
 - Stop unwires every session listener it registered, drains pending permission and user-action
   queues, stops background polling, disposes UI state, stops transports, and — unless the channel
   already shut down gracefully — shuts the underlying session down within a bounded timeout, so a
@@ -72,6 +86,8 @@ contract is authoritative for how the TUI releases resources on session switch a
   forgot to run would grant a permission no one answered.
 - A stall hint for "no provider activity" is suppressed while any tool is actively running, since a
   running tool is legitimate activity rather than a stalled connection.
+- Local peer activity is observable only after a channel has started and before teardown begins.
+  A failed stop or startup rollback must not keep the old channel's activity current.
 
 ### The renderer executes no command semantics
 

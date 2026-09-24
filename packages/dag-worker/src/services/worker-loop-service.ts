@@ -1,5 +1,8 @@
 import {
   TaskRunStateMachine,
+  type ITaskSnapshotBudget,
+  resolveDagExecutionByteLimits,
+  type IDagExecutionByteLimits,
   buildValidationError,
   type IClockPort,
   type IDagDefinition,
@@ -12,6 +15,7 @@ import {
   type ITaskRun,
   type ITaskExecutionInput,
   type ITaskExecutorPort,
+  type TTaskExecutionResult,
   type IRunProgressEventReporter,
   type TResult,
 } from '@robota-sdk/dag-core';
@@ -44,6 +48,21 @@ export type { IWorkerLoopOptions, IWorkerLoopResult } from './worker-loop-types.
  */
 export class WorkerLoopService {
   private readonly executionRoot: string;
+  private readonly byteLimits: IDagExecutionByteLimits;
+  private readonly cancellationPollMs: number;
+  private readonly activeAttempts = new Set<{
+    dagRunId: string;
+    taskRunId: string;
+    attempt: number;
+    controller: AbortController;
+  }>();
+
+  /** Signals only attempts owned by this worker instance for the cancelled run. */
+  public notifyRunCancelled(dagRunId: string): void {
+    for (const active of this.activeAttempts) {
+      if (active.dagRunId === dagRunId) active.controller.abort();
+    }
+  }
 
   public constructor(
     private readonly storage: IStoragePort,
@@ -54,8 +73,16 @@ export class WorkerLoopService {
     executionRoot: string,
     private readonly options: IWorkerLoopOptions,
     private readonly runProgressEventReporter?: IRunProgressEventReporter,
+    byteLimits?: IDagExecutionByteLimits,
+    private readonly snapshotBudget?: ITaskSnapshotBudget,
   ) {
     this.executionRoot = resolveTrustedExecutionRoot(executionRoot);
+    this.byteLimits = resolveDagExecutionByteLimits(byteLimits);
+    this.cancellationPollMs = options.cancellationPollMs ?? 250;
+    if (!Number.isSafeInteger(this.cancellationPollMs)
+      || this.cancellationPollMs < 1 || this.cancellationPollMs > 60_000) {
+      throw new RangeError('cancellationPollMs must be an integer between 1 and 60000');
+    }
   }
 
   /** DAG-001: the idle-branch sweep, throttled — see `task-lease-recovery.ts`. */
@@ -70,6 +97,7 @@ export class WorkerLoopService {
       this.clock,
       this.options,
       this.runProgressEventReporter,
+      this.snapshotBudget,
     );
     return this.outcomesInstance;
   }
@@ -137,16 +165,43 @@ export class WorkerLoopService {
       return this.settleCancelledRunMessage(message);
     }
 
+    const persistInput = (snapshot: string) => this.storage.commitExecution(claimed.dagRunId, {
+      kind: 'snapshot-input', taskRunId: claimed.taskRunId, attempt: claimed.attempt,
+      leaseOwner: this.options.workerId, inputSnapshot: snapshot,
+    });
+    const admission = this.snapshotBudget
+      ? await this.snapshotBudget.admitValue('input', claimed.payload, persistInput)
+      : { ok: true as const, value: await persistInput(JSON.stringify(claimed.payload)) };
+    if (!admission.ok) return this.outcomes.handleFailurePath(claimed, claimed.taskRunId, admission.error);
+    if (!admission.value.applied) return successAfterAck(this.queue, message.messageId, claimed.taskRunId, false);
+
     const input = await this.buildExecutionInput(claimed, dagRun, definition, nodeDefinition);
-    // Input assembly awaits storage. A cancellation during that await must close admission too.
-    const cancellationBeforeExecution = await this.cancelIfRunCancelled(message);
-    if (cancellationBeforeExecution) return cancellationBeforeExecution;
-    const executionResult = await executeWithTimeout(
-      this.executor,
-      input,
-      claimDeps.timeoutMs,
-      message.taskRunId,
-    );
+    // Registration precedes the final persisted read, closing its stale-snapshot race.
+    const controller = new AbortController();
+    const active = {
+      dagRunId: claimed.dagRunId,
+      taskRunId: claimed.taskRunId,
+      attempt: claimed.attempt,
+      controller,
+    };
+    this.activeAttempts.add(active);
+    let executionResult: TTaskExecutionResult;
+    let stopCancellationWatch: (() => void) | undefined;
+    try {
+      // Input assembly awaits storage. A cancellation during that await must close admission too.
+      const cancellationBeforeExecution = await this.cancelIfRunCancelled(message);
+      if (cancellationBeforeExecution) return cancellationBeforeExecution;
+      stopCancellationWatch = this.watchCommittedCancellation(active);
+      executionResult = await executeWithTimeout(
+        this.executor,
+        { ...input, signal: controller.signal },
+        claimDeps.timeoutMs,
+        message.taskRunId,
+      );
+    } finally {
+      stopCancellationWatch?.();
+      this.activeAttempts.delete(active);
+    }
 
     if (executionResult.ok) {
       return this.outcomes.handleSuccessPath(
@@ -161,6 +216,37 @@ export class WorkerLoopService {
     }
 
     return this.outcomes.handleFailurePath(claimed, taskRun.taskRunId, executionResult.error);
+  }
+
+  /**
+   * A separate process cannot call this worker's local notifier. Read durable state while
+   * its attempt is active so SQLite-backed workers can abort a running provider promptly.
+   * The next read is scheduled only after the previous one settles, and stopping the
+   * watcher prevents a late read from aborting an already-finished attempt.
+   */
+  private watchCommittedCancellation(
+    active: { dagRunId: string; controller: AbortController },
+  ): () => void {
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const check = async (): Promise<void> => {
+      if (stopped) return;
+      try {
+        const run = await this.storage.getDagRun(active.dagRunId);
+        if (!stopped && run?.status !== 'running') active.controller.abort();
+      } catch {
+        // An unreadable authority cannot justify continuing a live attempt.
+        if (!stopped) active.controller.abort();
+      }
+      if (!stopped && !active.controller.signal.aborted) {
+        timer = setTimeout(() => { void check(); }, this.cancellationPollMs);
+      }
+    };
+    timer = setTimeout(() => { void check(); }, this.cancellationPollMs);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
   }
 
   private async cancelIfRunCancelled(
@@ -194,6 +280,8 @@ export class WorkerLoopService {
     const currentTotalCredits = resolveCurrentTotalCredits(allTaskRunsForCost);
     return {
       executionRoot: this.executionRoot,
+      byteLimits: this.byteLimits,
+      snapshotBudget: this.snapshotBudget,
       dagId: dagRun.dagId,
       dagRunId: message.dagRunId,
       taskRunId: message.taskRunId,

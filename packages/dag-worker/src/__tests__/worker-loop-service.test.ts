@@ -77,6 +77,26 @@ describe('WorkerLoopService', () => {
   const IDLE_WAIT_MS = 50;
   const ENQUEUE_DELAY_MS = 5;
 
+  it('rejects cancellation intervals that would be clamped into rapid polling', () => {
+    expect(() => new WorkerLoopService(
+      new InMemoryStoragePort(),
+      new InMemoryQueuePort(),
+      new InMemoryLeasePort(),
+      new ScriptedTaskExecutorPort(async () => ({ ok: true, output: {} })),
+      new ManualClockPort(Date.UTC(2026, 1, 14)),
+      process.cwd(),
+      {
+        workerId: 'worker-1',
+        leaseDurationMs: 30_000,
+        visibilityTimeoutMs: 30_000,
+        retryEnabled: false,
+        maxAttempts: 3,
+        defaultTimeoutMs: 50,
+        cancellationPollMs: 2_147_483_648,
+      },
+    )).toThrow(/cancellationPollMs/);
+  });
+
   function createService(
     executor: ScriptedTaskExecutorPort,
     storage: InMemoryStoragePort,
@@ -174,6 +194,245 @@ describe('WorkerLoopService', () => {
     expect((await storage.getTaskRun(taskRun.taskRunId))?.status).toBe('cancelled');
     expect((await storage.getDagRun(dagRun.dagRunId))?.status).toBe('cancelled');
     expect(await queue.dequeue('worker-2', 1_000)).toBeUndefined();
+  });
+
+  it('closes the final status-read race after a persisted cancellation', async () => {
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const lease = new InMemoryLeasePort();
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3));
+    const { dagRun, taskRun, message } = createQueuedTaskFixture();
+    const definition = createDefinitionForRun(dagRun);
+    await storage.saveDefinition(definition);
+    await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
+    await storage.createTaskRun(taskRun);
+    await queue.enqueue(message);
+
+    let finalRead = false;
+    let releaseRead: () => void = () => undefined;
+    const readHeld = new Promise<void>((resolve) => { releaseRead = resolve; });
+    let readEntered: () => void = () => undefined;
+    const entered = new Promise<void>((resolve) => { readEntered = resolve; });
+    const originalList = storage.listTaskRunsByDagRunId.bind(storage);
+    vi.spyOn(storage, 'listTaskRunsByDagRunId').mockImplementation(async (runId) => {
+      finalRead = true;
+      return originalList(runId);
+    });
+    const originalGet = storage.getDagRun.bind(storage);
+    vi.spyOn(storage, 'getDagRun').mockImplementation(async (runId) => {
+      if (!finalRead) return originalGet(runId);
+      finalRead = false;
+      const stale = await originalGet(runId);
+      readEntered();
+      await readHeld;
+      return stale;
+    });
+    const execute = vi.fn(async () => ({ ok: true as const, output: { done: true } }));
+    const worker = createService(new ScriptedTaskExecutorPort(execute), storage, queue, lease, clock);
+    const processing = worker.processOnce();
+    await entered;
+    expect((await storage.commitExecution(dagRun.dagRunId, {
+      kind: 'transition-run', expectedStatus: 'running', event: 'CANCEL',
+    })).applied).toBe(true);
+    worker.notifyRunCancelled(dagRun.dagRunId);
+    releaseRead();
+    await processing;
+    expect(execute).not.toHaveBeenCalled();
+    expect((await storage.getDagRun(dagRun.dagRunId))?.status).toBe('cancelled');
+    expect((await storage.getTaskRun(taskRun.taskRunId))?.outputSnapshot).toBeUndefined();
+  });
+
+  it('aborts only the matching active run and unregisters its completed attempt', async () => {
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const lease = new InMemoryLeasePort();
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3));
+    const { dagRun, taskRun, message } = createQueuedTaskFixture();
+    const definition = createDefinitionForRun(dagRun);
+    await storage.saveDefinition(definition);
+    await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
+    await storage.createTaskRun(taskRun);
+    await queue.enqueue(message);
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => { release = resolve; });
+    let entered: () => void = () => undefined;
+    const started = new Promise<void>((resolve) => { entered = resolve; });
+    let attemptSignal: AbortSignal | undefined;
+    const execute = vi.fn(async (input) => {
+      attemptSignal = input.signal;
+      entered();
+      await held;
+      return { ok: true as const, output: { done: true } };
+    });
+    const worker = createService(new ScriptedTaskExecutorPort(execute), storage, queue, lease, clock);
+    const processing = worker.processOnce();
+    await started;
+    worker.notifyRunCancelled('unrelated-run');
+    expect(attemptSignal?.aborted).toBe(false);
+    release();
+    await processing;
+    worker.notifyRunCancelled(dagRun.dagRunId);
+    expect(attemptSignal?.aborted).toBe(false);
+  });
+
+  it.each(['success', 'failure', 'reclaimed'] as const)(
+    'rejects a late %s outcome after cancellation or ownership replacement',
+    async (outcome) => {
+      const storage = new InMemoryStoragePort();
+      const queue = new InMemoryQueuePort();
+      const clock = new ManualClockPort(Date.UTC(2026, 1, 14));
+      const { dagRun, taskRun, message } = createQueuedTaskFixture();
+      const definition = createDefinitionForRun(dagRun);
+      definition.nodes.push({
+        nodeId: 'child',
+        nodeType: 'input',
+        dependsOn: ['entry'],
+        config: {},
+      });
+      definition.edges.push({ from: 'entry', to: 'child' });
+      await storage.saveDefinition(definition);
+      await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
+      await storage.createTaskRun(taskRun);
+      await queue.enqueue(message);
+      const publish = vi.fn();
+      const executor = new ScriptedTaskExecutorPort(async () => {
+        if (outcome === 'reclaimed') {
+          await storage.incrementTaskAttempt(taskRun.taskRunId);
+          await storage.setTaskRunLease(taskRun.taskRunId, 'replacement', '2099-01-01');
+        } else {
+          await storage.updateDagRunStatus(dagRun.dagRunId, 'cancelled', clock.nowIso());
+        }
+        return outcome === 'failure'
+          ? {
+              ok: false,
+              error: {
+                code: 'TEST_FAILURE',
+                category: 'task_execution',
+                message: 'failed',
+                retryable: true,
+              },
+            }
+          : { ok: true, output: { done: true } };
+      });
+      await createService(executor, storage, queue, new InMemoryLeasePort(), clock, true, {
+        publish,
+      }).processOnce();
+      const updated = await storage.getTaskRun(taskRun.taskRunId);
+      expect(updated?.status).toBe(outcome === 'reclaimed' ? 'running' : 'cancelled');
+      expect(updated?.attempt).toBe(outcome === 'reclaimed' ? 2 : 1);
+      expect(updated?.outputSnapshot).toBeUndefined();
+      expect(await storage.listTaskRunsByDagRunId(dagRun.dagRunId)).toHaveLength(1);
+      expect(publish.mock.calls.map(([event]) => event.eventType)).toEqual(['task.started']);
+      expect(await queue.dequeue('other', 1000)).toBeUndefined();
+    },
+  );
+
+  it.each(['success', 'failure'] as const)(
+    'blocks new execution when cancellation follows committed %s',
+    async (outcome) => {
+      const storage = new InMemoryStoragePort();
+      const queue = new InMemoryQueuePort();
+      const clock = new ManualClockPort(Date.UTC(2026, 1, 14));
+      const { dagRun, taskRun, message } = createQueuedTaskFixture();
+      const definition = createDefinitionForRun(dagRun);
+      definition.nodes.push({
+        nodeId: 'child',
+        nodeType: 'input',
+        dependsOn: ['entry'],
+        config: {},
+      });
+      definition.edges.push({ from: 'entry', to: 'child' });
+      await storage.saveDefinition(definition);
+      await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
+      await storage.createTaskRun(taskRun);
+      await queue.enqueue(message);
+      const publish = vi.fn((event) => {
+        if (event.eventType === 'task.completed' || event.eventType === 'task.failed') {
+          // This adapter commits synchronously before its promise resolves.
+          void storage.commitExecution(dagRun.dagRunId, {
+            kind: 'transition-run',
+            expectedStatus: 'running',
+            event: 'CANCEL',
+          });
+        }
+      });
+      const executor = new ScriptedTaskExecutorPort(async () =>
+        outcome === 'success'
+          ? { ok: true, output: { done: true } }
+          : {
+              ok: false,
+              error: {
+                code: 'TEST_FAILURE',
+                category: 'task_execution',
+                message: 'failed',
+                retryable: true,
+              },
+            },
+      );
+      const service = createService(
+        executor,
+        storage,
+        queue,
+        new InMemoryLeasePort(),
+        clock,
+        true,
+        { publish },
+      );
+      const result = await service.processOnce();
+      expect(result).toMatchObject({ ok: true, value: { retried: outcome === 'failure' } });
+      if (outcome === 'failure') {
+        // The retry reservation preceded the failure event's cancellation callback.
+        // Its later queue delivery must be settled without a second executor invocation.
+        await service.processOnce();
+        expect((await storage.getTaskRun(taskRun.taskRunId))?.status).toBe('cancelled');
+        expect(
+          publish.mock.calls.filter(([event]) => event.eventType === 'task.failed'),
+        ).toHaveLength(1);
+      }
+      expect((await storage.getDagRun(dagRun.dagRunId))?.status).toBe('cancelled');
+      expect(await storage.listTaskRunsByDagRunId(dagRun.dagRunId)).toHaveLength(1);
+      expect((await storage.getTaskRun(taskRun.taskRunId))?.attempt).toBe(
+        outcome === 'failure' ? 2 : 1,
+      );
+      expect(await queue.dequeue('other', 1000)).toBeUndefined();
+    },
+  );
+
+  it('keeps cancellation terminal when it arrives during the task lease claim', async () => {
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14));
+    const { dagRun, taskRun, message } = createQueuedTaskFixture();
+    const definition = createDefinitionForRun(dagRun);
+    await storage.saveDefinition(definition);
+    await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
+    await storage.createTaskRun(taskRun);
+    await queue.enqueue(message);
+    const setLease = storage.setTaskRunLease.bind(storage);
+    vi.spyOn(storage, 'setTaskRunLease').mockImplementationOnce(async (...args) => {
+      await storage.commitExecution(dagRun.dagRunId, {
+        kind: 'transition-run',
+        expectedStatus: 'running',
+        event: 'CANCEL',
+      });
+      await setLease(...args);
+    });
+    const execute = vi.fn(async () => ({ ok: true as const, output: { done: true } }));
+    await createService(
+      new ScriptedTaskExecutorPort(execute),
+      storage,
+      queue,
+      new InMemoryLeasePort(),
+      clock,
+    ).processOnce();
+    expect(execute).not.toHaveBeenCalled();
+    expect((await storage.getDagRun(dagRun.dagRunId))?.status).toBe('cancelled');
+    expect(await storage.getTaskRun(taskRun.taskRunId)).toMatchObject({
+      status: 'cancelled',
+      leaseOwner: undefined,
+      leaseUntil: undefined,
+    });
+    expect(await queue.dequeue('other', 1000)).toBeUndefined();
   });
 
   it('marks task success and acknowledges message', async () => {

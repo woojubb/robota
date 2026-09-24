@@ -20,14 +20,17 @@ zero external runtime-server process dependencies.
   composition, worker, task, and lifecycle contracts require that root explicitly and never
   default it themselves — the factory is the sole boundary allowed to fall back to the process's
   own working directory when the root is omitted.
-- Cost-meta and run-draft operations are separate capabilities on the returned framework, not
-  folded into the main orchestration port. Until cost persistence and formula execution are wired
+- Run lifecycle, definition reads and mutations, build, catalog-aware definition validation,
+  registered-node catalog, cost-meta, and run-draft operations are domain capabilities on the
+  returned framework. Until cost persistence and formula execution are wired
   with an explicit policy, cost operations report an explicit unsupported result rather than
   fabricating a response.
-- The orchestration adapter does not encode upload bytes, fabricate download URLs, or wrap asset
-  metadata in HTTP envelopes — asset storage and byte streaming are exposed as a separate
-  capability. Remaining orchestration methods keep an HTTP-shaped response contract because a
-  native runtime server can sit behind the same port.
+- The in-process framework does not create HTTP response envelopes. Its run lifecycle owns the
+  implicit definition create/publish needed before a manually prepared run; the runtime server
+  maps those outcomes to HTTP. Asset storage and byte streaming remain separate capabilities.
+- The run lifecycle delegates cancellation to the same committed-state authority as local execution.
+  The HTTP runtime provider sends a cancel request to the native server and rejects a non-successful
+  response; it does not treat stopping a status watcher as run cancellation.
 - The diagnostics dead-letter-reinject port this composition wires has no queue to drain and
   reports that explicitly; it must never report success in a way that reads as "the queue is
   empty," which would misstate a queue the composition does not have.
@@ -36,6 +39,14 @@ zero external runtime-server process dependencies.
   jobs) have settled.
 - A run may be submitted before the framework is started; a run waiter itself creates the demand
   that starts advancement.
+- The in-process composition connects committed run cancellation to the worker attempts it owns,
+  so active calls receive their abort signal. Local runtime completion joins admitted node
+  lifecycles and their composite child runtimes after cancellation or timeout; providers that
+  ignore abort keep completion pending until their calls settle. This is an ownership guarantee,
+  not preemption of arbitrary code or a guarantee about work detached by a node or provider.
+- Default skill-node discovery reads only host-supplied contribution sources and ordered skill
+  roots; when either is omitted, no skill files are discovered, and construction never selects a
+  filesystem source from the current process or home directory.
 
 ## Design decisions
 
@@ -55,3 +66,33 @@ zero external runtime-server process dependencies.
 - Does not own the HTTP/byte mapping for assets — that belongs to the runtime server.
 - Does not scan a workspace's authored workflow files beyond returning their metadata; it does not
   interpret or validate their contents.
+
+## Text expansion ceiling
+
+The local provider snapshots trusted host byte limits before executing any workflow, so the
+default catalog used by `/workflows` bounds `text-repeat` and literal `text-replace` with no
+workflow-controlled opt-out; tighter host limits reach the node context independently of workflow
+input. These per-operation bounds are not a root aggregate budget, snapshot-size limit, or CPU preemption.
+
+## Shared local root snapshot authority
+
+Each independent local provider execution creates a fresh snapshot authority from trusted host
+limits; nested executions and concurrent sibling reservations share the same live authority and
+balance, including run definition and input snapshots consumed before dispatch. Encoding stops
+before building a complete oversized snapshot, returning a structured non-retryable refusal. The
+root owns the authority's lifetime and closes it on completion; committed cancellation closes new
+admissions across its children, though it does not interrupt child execution already admitted
+elsewhere. A host composing lower-level services directly must explicitly supply the same
+authority to its own orchestrator and every worker — persisted lineage cannot recreate or
+authorize a budget on its own.
+
+## Local regex isolation
+
+The local Node provider runs the default text-replace regex operation in an isolated worker (a
+child process on Bun), keeping lifecycle, storage and the snapshot authority in the parent; only a
+fixed trusted bootstrap and plain string data cross the boundary. A result is accepted only after
+normal worker exit, so a late result cannot authorize output persistence or downstream execution,
+and worker startup failure never falls back to inline execution. Request and response strings
+share a bounded UTF-8 transport ceiling. This isolates only the default regex operation — it is
+not a security sandbox and does not cover custom nodes, other transforms, tools, or provider code;
+direct lower-level compositions must supply their own isolation capability.

@@ -18,6 +18,6 @@ export function validateWorkspaceSessionReplayLog(
   const logs = getWorkspaceProjectStateStorage(projectAccess.authority, 'session-logs');
   return computeSessionReplayValidationReport(
     new WorkspaceSessionLogSource(logs, sessionId),
-    `.robota/logs/${sessionId}.jsonl`,
+    logs.projectRelativePath(`${sessionId}.jsonl`),
   );
 }

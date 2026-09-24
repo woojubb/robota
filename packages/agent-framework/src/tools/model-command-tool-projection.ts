@@ -8,7 +8,7 @@ import { trimEdgeChars, trimTrailingChars } from '../utils/trim-char.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
 import type { ICommandResult } from '../commands/index.js';
 
-export const MODEL_COMMAND_TOOL_PREFIX = 'robota_command_' as const;
+export const MODEL_COMMAND_TOOL_PREFIX = 'command_' as const;
 export const PROVIDER_SAFE_TOOL_NAME_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
 const MAX_PROVIDER_TOOL_NAME_LENGTH = 64;
@@ -43,13 +43,17 @@ export interface IProjectedCommandExecutionToolsDeps {
   isModelInvocable: (command: string) => boolean;
   execute: (command: string, args: string) => Promise<ICommandResult | null>;
   commandDescriptors: readonly TModelCommandDescriptor[];
+  toolNamePrefix?: string;
 }
 
 export function normalizeModelCommandName(command: string): string {
   return command.trim().replace(/^\/+/, '').split(/\s+/)[0] ?? '';
 }
 
-export function createProviderSafeModelCommandToolName(commandName: string): string {
+export function createProviderSafeModelCommandToolName(
+  commandName: string,
+  prefix: string = MODEL_COMMAND_TOOL_PREFIX,
+): string {
   const normalizedCommandName = normalizeModelCommandName(commandName);
   if (!normalizedCommandName) {
     throw new Error('Model command descriptor name must not be empty.');
@@ -64,7 +68,10 @@ export function createProviderSafeModelCommandToolName(commandName: string): str
     throw new Error(`Model command descriptor name cannot be projected safely: ${commandName}`);
   }
 
-  const rawToolName = `${MODEL_COMMAND_TOOL_PREFIX}${safeBody}`;
+  if (!/^[A-Za-z][A-Za-z0-9_-]*$/u.test(prefix)) {
+    throw new Error('Model command tool prefix must use provider-safe characters.');
+  }
+  const rawToolName = `${prefix}${safeBody}`;
   if (PROVIDER_SAFE_TOOL_NAME_PATTERN.test(rawToolName)) {
     return rawToolName;
   }
@@ -74,10 +81,7 @@ export function createProviderSafeModelCommandToolName(commandName: string): str
     .digest('hex')
     .slice(0, HASH_LENGTH);
   const maxBodyLength =
-    MAX_PROVIDER_TOOL_NAME_LENGTH -
-    MODEL_COMMAND_TOOL_PREFIX.length -
-    HASH_SEPARATOR_LENGTH -
-    HASH_LENGTH;
+    MAX_PROVIDER_TOOL_NAME_LENGTH - prefix.length - HASH_SEPARATOR_LENGTH - HASH_LENGTH;
   if (maxBodyLength < 1) {
     throw new Error('Model command tool prefix leaves no room for command names.');
   }
@@ -85,7 +89,7 @@ export function createProviderSafeModelCommandToolName(commandName: string): str
   // Same reason as `safeBody` above. `slice(0, maxBodyLength)` (≤ 64) does bound this one, but the bound lives
   // three statements away — the shape is removed rather than left resting on it.
   const truncatedBody = trimTrailingChars(safeBody.slice(0, maxBodyLength), '_-') || 'command';
-  const toolName = `${MODEL_COMMAND_TOOL_PREFIX}${truncatedBody}_${hash}`;
+  const toolName = `${prefix}${truncatedBody}_${hash}`;
   if (!PROVIDER_SAFE_TOOL_NAME_PATTERN.test(toolName)) {
     throw new Error(`Projected model command tool name is not provider-safe: ${toolName}`);
   }
@@ -94,6 +98,7 @@ export function createProviderSafeModelCommandToolName(commandName: string): str
 
 export function createModelCommandToolProjection(
   commandDescriptors: readonly TModelCommandDescriptor[],
+  toolNamePrefix: string = MODEL_COMMAND_TOOL_PREFIX,
 ): IModelCommandToolProjection {
   const commandNames = new Set<string>();
   const toolNameToCommandName = new Map<string, string>();
@@ -110,7 +115,7 @@ export function createModelCommandToolProjection(
     }
     commandNames.add(commandName);
 
-    const toolName = createProviderSafeModelCommandToolName(commandName);
+    const toolName = createProviderSafeModelCommandToolName(commandName, toolNamePrefix);
     const existingCommandName = toolNameToCommandName.get(toolName);
     if (existingCommandName !== undefined) {
       throw new Error(
@@ -164,7 +169,7 @@ export function stringifyModelCommandResult(
 export function createProjectedCommandExecutionTools(
   deps: IProjectedCommandExecutionToolsDeps,
 ): Array<ReturnType<typeof createZodFunctionTool>> {
-  const projection = createModelCommandToolProjection(deps.commandDescriptors);
+  const projection = createModelCommandToolProjection(deps.commandDescriptors, deps.toolNamePrefix);
   return projection.commandTools.map((projectedTool) => {
     const schema = createProjectedCommandArgsSchema(projectedTool.descriptor);
     return createZodFunctionTool(
@@ -205,7 +210,7 @@ function formatProjectedModelCommandToolDescription(
   commandName: string,
   descriptor: TModelCommandDescriptor,
 ): string {
-  const lines = [descriptor.description.trim(), `Robota command id: ${commandName}.`];
+  const lines = [descriptor.description.trim(), `Command id: ${commandName}.`];
   if (descriptor.argumentHint) {
     lines.push(`Argument grammar: ${descriptor.argumentHint}`);
   }

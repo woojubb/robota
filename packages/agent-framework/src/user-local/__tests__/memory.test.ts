@@ -56,7 +56,7 @@ describe('user-local memory', () => {
 
     const item = await setUserLocalMemoryItem({
       activeRepositoryRoot: repo,
-      homeDir: home,
+      storageRoot: path.join(home, '.robota'),
       category: 'view-preference',
       key: 'last-panel',
       value: 'background',
@@ -92,7 +92,7 @@ describe('user-local memory', () => {
 
     await setUserLocalMemoryItem({
       activeRepositoryRoot: repo,
-      homeDir: home,
+      storageRoot: path.join(home, '.robota'),
       category: 'view-preference',
       key: 'last-panel',
       value: 'background',
@@ -103,7 +103,7 @@ describe('user-local memory', () => {
 
     const list = await listUserLocalMemoryItems({
       activeRepositoryRoot: repo,
-      homeDir: home,
+      storageRoot: path.join(home, '.robota'),
     });
     expect(list.items.map((item) => `${item.category}/${item.key}`)).toEqual([
       'view-preference/last-panel',
@@ -111,7 +111,7 @@ describe('user-local memory', () => {
 
     const inspected = await inspectUserLocalMemoryItem({
       activeRepositoryRoot: repo,
-      homeDir: home,
+      storageRoot: path.join(home, '.robota'),
       category: 'view-preference',
       key: 'last-panel',
     });
@@ -119,7 +119,7 @@ describe('user-local memory', () => {
 
     const disabled = await disableUserLocalMemoryItem({
       activeRepositoryRoot: repo,
-      homeDir: home,
+      storageRoot: path.join(home, '.robota'),
       category: 'view-preference',
       key: 'last-panel',
       now: () => LATER,
@@ -129,7 +129,7 @@ describe('user-local memory', () => {
 
     const enabledRead = await readEnabledUserLocalMemoryItem({
       activeRepositoryRoot: repo,
-      homeDir: home,
+      storageRoot: path.join(home, '.robota'),
       category: 'view-preference',
       key: 'last-panel',
     });
@@ -141,7 +141,7 @@ describe('user-local memory', () => {
 
     await setUserLocalMemoryItem({
       activeRepositoryRoot: repo,
-      homeDir: home,
+      storageRoot: path.join(home, '.robota'),
       category: 'view-preference',
       key: 'last-panel',
       value: 'background',
@@ -153,7 +153,7 @@ describe('user-local memory', () => {
     await expect(
       deleteUserLocalMemoryItem({
         activeRepositoryRoot: repo,
-        homeDir: home,
+        storageRoot: path.join(home, '.robota'),
         category: 'view-preference',
         key: 'last-panel',
       }),
@@ -166,7 +166,7 @@ describe('user-local memory', () => {
     await expect(
       inspectUserLocalMemoryItem({
         activeRepositoryRoot: repo,
-        homeDir: home,
+        storageRoot: path.join(home, '.robota'),
         category: 'view-preference',
         key: 'last-panel',
       }),
@@ -178,7 +178,7 @@ describe('user-local memory', () => {
 
     const item = await setUserLocalMemoryItem({
       activeRepositoryRoot: repo,
-      homeDir: home,
+      storageRoot: path.join(home, '.robota'),
       category: 'display-preference',
       key: 'compact-mode',
       value: 'npm test',

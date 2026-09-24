@@ -545,6 +545,35 @@ describe('Robota Core', () => {
   // Tool-choice threading (CORE-017)
   // ----------------------------------------------------------------
   describe('toolChoice threading', () => {
+    it('does not execute a provider tool call that contradicts toolChoice none', async () => {
+      const tool = new TrackingTool();
+      const provider = new TrackingProvider();
+      provider.chat = async (_messages, options) => {
+        provider.chatCalls.push({ messages: _messages, options });
+        return {
+          id: 'unexpected-tool',
+          role: 'assistant',
+          content: '',
+          state: 'complete',
+          timestamp: new Date(),
+          toolCalls: [
+            {
+              id: 'call-1',
+              type: 'function',
+              function: { name: 'tracking-tool', arguments: '{"query":"private"}' },
+            },
+          ],
+        };
+      };
+      const robota = new Robota(createConfig({ aiProviders: [provider], tools: [tool] }));
+
+      await expect(robota.run('external input', { toolChoice: 'none' })).rejects.toThrow(
+        /toolChoice.*none/i,
+      );
+      expect(tool.executionCount).toBe(0);
+      expect(provider.chatCalls[0]?.options?.tools).toBeUndefined();
+    });
+
     it('run(): defaultModel.toolChoice reaches the provider request', async () => {
       const provider = new TrackingProvider();
       const robota = new Robota(

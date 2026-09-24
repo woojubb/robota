@@ -41,6 +41,8 @@ describe('NodeToolResultSpillStore', () => {
 
     const [directoryName] = readdirSync(root);
     expect(directoryName).toBeDefined();
+    expect(directoryName).toMatch(/^agent-tool-results-/u);
+    expect(directoryName).not.toContain('robota');
     const directory = join(root, directoryName!);
     const [fileName] = readdirSync(directory);
     expect(fileName).toBeDefined();

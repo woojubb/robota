@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
+  createCostCommandEntry,
+  createLoopCommandEntry,
+  createRemoteControlCommandEntry,
+} from '@robota-sdk/agent-command';
+import {
   appendPromptHistory,
   createPasteLabelChange,
   createPromptHistoryNavigationState,
@@ -70,6 +75,28 @@ describe('input area flow', () => {
     const result = resolveEnterCommandSelection('/ex', command('exit'));
 
     expect(result).toEqual({ type: 'submit', value: '/exit' });
+  });
+
+  it('submits the default session cost summary when Enter selects /cost', () => {
+    const cost = createCostCommandEntry();
+
+    expect(resolveEnterCommandSelection('/co', cost)).toEqual({ type: 'submit', value: '/cost' });
+    expect(resolveEnterCommandSelection('/cost', cost)).toEqual({ type: 'submit', value: '/cost' });
+  });
+
+  it.each([
+    { entry: createRemoteControlCommandEntry(), safeAction: 'status' },
+    { entry: createLoopCommandEntry(), safeAction: 'list' },
+  ])('requires an explicit safe action after autocomplete selects /$entry.name', ({ entry, safeAction }) => {
+    const firstEnter = resolveEnterCommandSelection(`/${entry.name.slice(0, 3)}`, entry);
+    expect(firstEnter).toEqual({ type: 'insert', value: `/${entry.name} `, selectedIndex: 0 });
+
+    const suggestion = entry.subcommands?.[0];
+    expect(suggestion?.name).toBe(safeAction);
+    expect(resolveEnterCommandSelection(firstEnter.value, suggestion!)).toEqual({
+      type: 'submit',
+      value: `/${entry.name} ${safeAction}`,
+    });
   });
 
   it('Given subcommand selected (args present) When enter selects Then submits', () => {

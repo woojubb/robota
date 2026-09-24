@@ -5,6 +5,7 @@ import React from 'react';
 import { formatCommandOutputSummary } from './command-output-summary.js';
 import { useRenderMarkdown } from './hooks/useRenderMarkdown.js';
 import { humanizeToolName } from './humanize-tool-name.js';
+import { useModelCommandToolPrefix } from './product-display-name-context.js';
 import { RoleLabel } from './RoleLabel.js';
 import { RenderedText, Text } from './SafeText.js';
 import { sanitizeTerminalText } from './sanitize-terminal-text.js';
@@ -48,6 +49,7 @@ function EntryLabel({
 
 function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactElement {
   const palette = usePalette();
+  const modelCommandToolPrefix = useModelCommandToolPrefix();
   if (!isToolMessage(message)) {
     return <></>;
   }
@@ -72,7 +74,7 @@ function ToolMessage({ message }: { message: TUniversalMessage }): React.ReactEl
           <EntryLabel kind="tool" text="Tool: " color={palette.text.emphasis} />
           {toolName && (
             <Text color={palette.text.emphasis} dimColor>
-              [{humanizeToolName(toolName)}]
+              [{humanizeToolName(toolName, modelCommandToolPrefix)}]
             </Text>
           )}
         </Box>
@@ -186,6 +188,7 @@ const MessageItem = React.memo(function MessageItem({
 
 function ToolSummaryEntry({ entry }: { entry: IHistoryEntry }): React.ReactElement {
   const palette = usePalette();
+  const modelCommandToolPrefix = useModelCommandToolPrefix();
   const data = entry.data as
     | {
         summary?: string;
@@ -211,7 +214,7 @@ function ToolSummaryEntry({ entry }: { entry: IHistoryEntry }): React.ReactEleme
             <Box key={i} flexDirection="column">
               <Text color={statusGlyphColor(palette, kind)}>
                 {'  '}
-                {getToolSummaryLabel(tool, kind)}
+                {getToolSummaryLabel(tool, kind, modelCommandToolPrefix)}
               </Text>
               <ToolCommandOutput tool={tool} />
               {tool.diffLines && tool.diffLines.length > 0 && (

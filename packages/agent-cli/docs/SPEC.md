@@ -26,23 +26,63 @@ assembled internally by the framework), permission/hook mechanics (only public t
 inventory, automatic project memory capture/retrieval/storage, edit-checkpoint capture/storage,
 `InteractiveSession` itself, `CommandRegistry`/`ICommand`/`ICommandSource`, background/subagent
 lifecycle contracts, transparent-workflow provenance/state vocabulary, baseline workflow storage, or
-Ink TUI components/hooks (owned by `@robota-sdk/agent-ui-terminal`).
+Ink TUI components/hooks (owned by `@robota-sdk/agent-ui-terminal`). Non-UI behavior exposed through
+the CLI is owned below it first unless it is listed as CLI-owned below.
 
 The CLI owns: argument parsing and process lifecycle assembly, `TransportRegistry`, provider
 composition (selecting an injected `IProviderDefinition`, not implementing providers), concrete local
 host adapters (background runner, child-process subagent, Git worktree, settings I/O), package-version
 update checks, and the per-mode host-action adapters (`/remote-control`, process exit) CMD-004 wires.
-It chooses its user-local storage root and passes explicit paths to SDK persistence and trust adapters.
-It also chooses the Robota display-name fallback and user-local external-preset directory before
-passing explicit values to the neutral preset resolver and loader. A second product chooses its own
-identity and preset root without inheriting Robota's defaults.
-The CLI also owns the ordered Robota/Agents/Claude-compatible agent-definition roots, passes them to
-print, serve, and terminal sessions, and lists those same project roots in the pre-trust preview.
-The CLI owns its ordered Robota and Claude-compatible project settings layers and passes them to
-trusted session construction and the pre-trust preview from one source; restricted sessions cannot
-gain a project settings reader by naming those paths.
-It also selects the ordered Robota and Claude-compatible user settings layers and passes them
-through print, serve, terminal, and eval sessions, including provider switching after startup.
+Remote control is host-owned: it receives only the session capabilities its wire protocol needs, and
+promoting a confirmed reconnect winner replaces the registered peer so host shutdown always reaches
+the live connection; pairing failure or reconnect-window expiry releases the transport, signaling,
+and resume bridge, and an expired or stopped window cannot start a room after the fact.
+The CLI selects every user- and project-scoped path and identity a session needs — storage root,
+presets, agent-definition roots, project settings layers, project-state layout, context-discovery
+permissions, plugin/skill/command roots, task-context directory, organization policy, keybindings,
+and display name — and passes them explicitly to the neutral SDK and framework packages, which never
+infer a path or identity on their own; a second product supplies its own values without inheriting
+Robota's. Restricted (untrusted) composition never gains a project settings or contribution source
+merely by knowing its path, and an externally supplied trusted authority whose project-state layout
+differs from the CLI's is refused rather than read or written. Project-wide tool-permission approvals
+persist only through the CLI-selected project-local settings path and the live workspace authority;
+an unavailable writer rejects the approval explicitly. Disabled plugins stay disabled across every
+command, theme, and discovery surface. The CLI attaches its own setup, diagnostics, and resume
+guidance to typed SDK failures — missing provider configuration, invalid settings, or a completed
+fork — and supplies the product's diagnostic and resume commands to command modules, which name no
+Robota executable or product on their own.
+
+Local peer-activity publishing exposes only fixed, content-free activity states for the current
+interactive session into a guarded, same-user rendezvous, kept separate from process-liveness checks
+(stale or unverified observations read as `unknown`) and never carrying conversation content or
+stored-session identity; `session list` surfaces this presence data separately from saved session
+records without implying a background supervisor or an attach/restart capability. The list includes
+only user-owned and currently authorized project records, never transcript content; corrupt and
+unsupported records stay visible rather than being hidden. Supervised
+background sessions (`session start --background`) run as independent, same-user processes behind the
+same headless trust boundary, each with its own guarded local control endpoint that survives the
+launching terminal; the session list reports only content-free activity and liveness for these —
+never session content, launch environment, or provider credentials. Unverified identity, a missing
+control response, initialization, or shutdown read as `unknown`; `idle` means only that the session
+is initialized with no pending question and is not executing, not that another CLI can attach or
+submit a prompt. A waiting loop's next eligible time is reported separately from activity only
+when observed from the live owner; it does not promise that a future wake will run. The global
+supervised view observes only that guarded inventory and narrows by owner-reported name or
+directory only on a live owner-verified path: it does not join peer or saved-record identities,
+expose conversation content or project paths in rows, or treat an exited
+process as completed; closing the view never stops a supervised session. A damaged registration is
+shown as unavailable without hiding healthy sessions,
+and a stop request acts only
+through the live owner's control endpoint, failing explicitly rather than guessing when ownership or
+completion cannot be established. Attach, peek, and automatic restart are not offered, and the
+transport's per-launch authentication token is never exposed through the control endpoint or
+inventory. `usage export` is explicit and local-only: it reads the same authorized user and project session
+stores as local usage reporting and sends aggregate usage data, or — when the
+trace signal is explicitly selected — verified execution records with content-free call/tool-body
+children, exclusively to a caller-named loopback OTLP collector; an explicitly selected logs signal
+sends only content-free completion snapshots and never the session replay log. None of these exports
+transcript, tool names, session identity, or provider/model labels, none auto-exports, and each fails
+visibly rather than silently on an incomplete store or partial collector rejection.
 
 Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`); it accepts
 `commandModules` and registers them generically with the SDK registry.
@@ -107,6 +147,16 @@ executable does not auto-approve package-runner commands.
 `/mcp approve` mid-session is not connected by that already-started session. An embedding host can
 supply its own `IMCPActivationApprovalStore` before `robota mcp serve` starts to admit and connect
 approved definitions ahead of building the served runtime session.
+
+**External event source opt-in.** The interactive TUI alone can opt into external event injection
+from an already-admitted, capability-declaring MCP server via an explicit launch grant. The CLI
+trusts the granted server to attest sender identity over its authenticated connection and separately
+checks a per-server sender allowlist, but the sender string alone is not proof of identity, so this is
+only as trustworthy as the granted server — operators without a verified adapter should leave it off.
+Injected events are one-way, bounded, and live only with the session and connection; an admitted
+external turn can produce model text but cannot invoke model-generated local or hosted web tools, and
+other modes (print, goal, serve, MCP-serve) refuse the flag outright. Repeated connection loss stops
+after bounded retries rather than assuming delivery from a dead channel.
 
 ### MCP background handoff settings (MCP-004)
 
@@ -296,25 +346,19 @@ overwrites existing files even with `--yes`.
 | 3    | Provider configuration error at print-mode session start — reconfigure, do not retry         |
 | 130  | Interactive TUI force-quit — a second Ctrl+C/signal while a graceful shutdown is in progress |
 
-A provider API failure during a model call must never exit 0.
-
-### Default loop prompt
-
-The default `/loop` prompt comes from a trusted project's `.robota/loop.md`, then the user's
-`~/.robota/loop.md`, then the built-in maintenance prompt. The chosen file is re-read for each
-iteration, so edits take effect without restarting the session. A present but invalid file fails
-visibly instead of falling through; project content is considered only with explicit workspace
-trust. File prompts are bounded to 4096 UTF-8 bytes and convey no new permissions.
+A provider API failure during a model call must never exit 0. The default `/loop` prompt resolves
+from trusted project content before the user's own file and finally a built-in default; project
+content is considered only with explicit workspace trust, a present but invalid file fails visibly
+rather than falling through, and a file prompt conveys no new permissions.
 
 ### CLI update check
 
-The CLI owns its package identity, install guidance, and user-local update-check cache. The
-framework provides only reusable version comparison and string utilities.
-
-Enabled by default only for interactive TUI startup, rate-limited by a 24-hour TTL; a registry lookup
-failure must never prevent startup. Print/headless execution never schedules or emits update checks,
-keeping automation and structured stdout/stderr contracts deterministic. The CLI may print the install
-command but must never execute install/update commands without explicit user confirmation.
+The CLI owns its package identity, install guidance, and user-local update-check cache; the framework
+provides only reusable version-comparison utilities. Enabled by default only for interactive TUI
+startup, rate-limited, and a registry lookup failure never prevents startup. Print/headless
+execution never schedules or emits update checks, keeping automation and structured stdout/stderr
+contracts deterministic. The CLI may print the install command but must never execute install/update
+commands without explicit user confirmation.
 
 - `robota trust status` previews the project sources that trusting the current workspace would enable,
   using metadata only: it never follows links, never reads file content and never prints credentials

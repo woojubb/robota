@@ -113,25 +113,14 @@ export ANTHROPIC_API_KEY=sk-ant-...
 pnpm build
 ```
 
-Root and affected builds assemble complete, verified output before switching `dist` to a new
-generation. A web-monitor change also selects CLI reassembly. Existing monitor servers retain their
-original generation. Do not edit managed output or pack its symlink directly; create a verified archive
-from the repository root with:
+`pnpm build` runs each package's own build in dependency order. The CLI build runs `tsdown` and then
+copies the web monitor (`agent-cli-web/dist`) into `dist/web`. To see the published tarball, run
+`pnpm --filter @robota-sdk/agent-cli pack`.
 
-```bash
-node scripts/artifacts/pack.mjs --package packages/agent-cli --destination /tmp/robota-cli-pack
-```
-
-Standalone Bun builds use the separate `dist-bun` variant
-(`pnpm --filter @robota-sdk/agent-cli build:bun`). Native dependencies make these builds exact-host:
-each supported Linux x64/arm64, macOS x64/arm64, or Windows x64 artifact must be compiled on its
-matching host. A mismatched target is refused before the selected generation changes; there is no
-cross-host `all` build mode.
-If a build reports an interrupted transaction, first ensure its writer has exited, then run
-`node scripts/artifacts/recovery.mjs packages/agent-cli` from the repository root. Recovery preserves
-previous output; it refuses to take over an active writer. The first transition from physical `dist`
-requires readers to be stopped. Only that transition and Windows replacement are non-atomic;
-normal managed Linux/macOS replacement is atomic.
+Standalone Bun binaries are written to `dist-bun` (`pnpm --filter @robota-sdk/agent-cli build:bun`) and
+`dist-bun-headless` (`build:bun:headless`). Native dependencies make these builds exact-host: each
+supported Linux x64/arm64, macOS x64/arm64, or Windows x64 binary must be compiled on its matching host,
+and a mismatched target is refused.
 
 ## Usage (Monorepo)
 
@@ -184,6 +173,7 @@ robota trust revoke --yes           # Revoke the current workspace grant
 robota usage                        # Show the last 7 days of personal usage from local session history
 robota usage --period 30d           # Show complete buckets for the last 30 calendar days
 robota usage --timezone UTC --format json # Emit the versioned JSON projection
+robota usage export --endpoint http://127.0.0.1:4318 # Explicitly send aggregate Gauges to a local OTLP collector
 robota --reset                      # Delete user settings and exit
 robota --check-update               # Check npm for a newer CLI version and exit
 robota --disable-update-check        # Skip interactive startup update check for this run
@@ -204,6 +194,14 @@ Use `--period 7d` (the default) or `--period 30d`, choose an IANA timezone with 
 `--format json` for the external `schemaVersion: 1` projection. An empty store produces an empty
 report; a supplied store set containing no readable records exits with an error instead of silently
 reporting zero usage.
+
+`robota usage export` is a separate, explicit network action. It sends a current **Gauge snapshot**
+of stored session/turn counts, tokens, known USD cost, and unknown-cost counts via OTLP/HTTP JSON to
+`/v1/metrics` on a loopback collector (`127.0.0.1` or `[::1]`) only. Repeated exports replace the
+snapshot conceptually; do not sum them as new usage. It sends no prompt, tool output, session ID,
+provider/model label, or custom source name. An unreadable stored session, collector rejection, or
+network error fails the command without reporting success. It does not yet export trace spans,
+logs, or to a remote collector.
 
 ### Doctor
 
@@ -710,7 +708,8 @@ other session is busy.
 | `/reset` | Delete user settings and return to first-run state |
 | `/exit`  | Exit CLI                                           |
 
-Skill commands discovered from `.agents/skills/` and `.claude/commands/` appear alongside built-in commands.
+Skill commands from the CLI's ordered `.robota/skills/`, `.claude/skills/`, `.claude/commands/`, and
+`.agents/skills/` roots appear alongside built-in commands.
 
 ## Talking to another session
 

@@ -39,4 +39,6 @@ The provider's schema projection profile is permissive: Anthropic accepts standa
 vendor SDK's conversion. A tool whose schema is rejected by projection (a non-`object` root, a
 prototype-key property name, a cycle, or a schema over the shared depth/node ceiling) is omitted from
 that request alone — every other tool on the turn is unaffected — and is reported once per cache
-identity through the shared tool-schema-projection logger.
+identity through the shared tool-schema-projection logger. When a call selects `toolChoice: none`,
+the provider also omits its configured server-side web search, for both ordinary and streaming
+calls, so a server tool cannot still execute when the core passed no local tool schemas.

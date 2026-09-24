@@ -4,7 +4,6 @@ import { loadConfigWithHookSources } from '../config/config-loader.js';
 import { createWorkspaceProjectSettingsSources } from '../config/settings-source.js';
 import { loadContext } from '../context/context-loader.js';
 import { detectProject } from '../context/project-detector.js';
-import { createContributionSourcesForProjectAccess } from '../contributions/index.js';
 import {
   createRestrictedWorkspaceProjectAccess,
   getWorkspaceProjectReader,
@@ -84,6 +83,7 @@ export async function loadInteractiveProjectContext(
         };
   const loadedConfig = await resolveInteractiveProjectConfig(options, projectAccess);
   const { config, hookSources } = loadedConfig;
+  const taskContext = { ...options.taskContext, ...config.taskContext };
   const [context, projectInfo] = await Promise.all([
     options.bare
       ? Promise.resolve({
@@ -95,7 +95,9 @@ export async function loadInteractiveProjectContext(
       : loadContext(
           contextSource,
           options.memoryStore,
-          config.taskContext ? { taskContext: config.taskContext } : {},
+          taskContext.dir !== undefined || taskContext.enabled !== undefined
+            ? { taskContext }
+            : {},
         ),
     options.bare || projectReader === undefined
       ? Promise.resolve({ type: 'unknown' as const, language: 'unknown' as const })
@@ -106,7 +108,7 @@ export async function loadInteractiveProjectContext(
     config,
     context,
     projectInfo,
-    contributionSources: createContributionSourcesForProjectAccess(projectAccess),
+    contributionSources: options.contributionSources ?? [],
     hookSources,
   };
 }

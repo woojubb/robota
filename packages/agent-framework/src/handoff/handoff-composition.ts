@@ -2,10 +2,9 @@
  * What the hand-off orchestration needs from the wire layer, as a contract the composition root
  * fills in (HANDOFF-001, issue #1864).
  *
- * The manifest builder, the integrity seal, the chunker and the ownership transaction all live in
- * `@robota-sdk/agent-transport`, which is the wire SSOT. Orchestration lives here, with the
- * session whose authority is being moved. Those are two packages, and the edge between them is the
- * decision this file records.
+ * Session mobility owns offer and authority decisions. Transport owns the integrity seal and
+ * chunker. Orchestration lives here, with the session whose authority is being moved; the CLI
+ * composition root supplies both collaborators.
  *
  * `agent-framework` does NOT take a dependency on the wire package. Every consumer of
  * `agent-transport` today is either a transport package or the composition root, and the
@@ -27,7 +26,7 @@ import type {
   THandoffRefusal,
 } from '@robota-sdk/agent-interface-session-mobility';
 
-/** What the source knows about work that has not settled. Mirrors the wire package's input shape. */
+/** What the source knows about work that has not settled. */
 export interface IHandoffRuntimeState {
   readonly modelCallInFlight?: boolean;
   readonly toolCallsInFlight?: number;
@@ -106,7 +105,7 @@ export interface IHandoffTransactionPort {
   sourceStillOwns(): boolean;
 }
 
-/** The wire operations the orchestration composes. Supplied by the composition root. */
+/** Mobility decisions and wire operations supplied by the composition root. */
 export interface IHandoffComposition {
   buildManifest(request: IHandoffManifestRequest): TManifestOutcome;
   beginTransaction(manifest: IHandoffManifest): IHandoffTransactionPort;

@@ -1,4 +1,4 @@
-export const USER_LOCAL_COMMAND_DESCRIPTION = 'Inspect Robota user-local storage and memory state.';
+export const USER_LOCAL_COMMAND_DESCRIPTION = 'Inspect user-local storage and memory state.';
 export const USER_LOCAL_COMMAND_ARGUMENT_HINT =
   'storage list [--format json] | memory set/list/inspect/disable/delete';
 export const USER_LOCAL_COMMAND_USAGE =

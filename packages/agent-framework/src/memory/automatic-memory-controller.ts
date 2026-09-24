@@ -1,3 +1,4 @@
+import { approvePendingMemoryCandidate } from './memory-approval.js';
 import { RegexMemoryCandidateExtractor } from './memory-candidate-extractor.js';
 import { MemoryPolicyEvaluator } from './memory-policy-evaluator.js';
 import { PROJECT_MEMORY_TRUST_NOTE, RECALLED_MEMORY_TRUST_NOTE } from './memory-trust-framing.js';
@@ -80,9 +81,10 @@ export class AutomaticMemoryController {
           this.event('memory_candidate_queued', candidate.id, candidate.topic, decision.reason),
         );
       } else {
-        await this.store.upsertPending(candidate, 'skipped', decision.reason);
+        // A skipped candidate is never persisted, and its event names only the candidate type: the
+        // text — and a topic derived from it — may be the sensitive content itself.
         events.push(
-          this.event('memory_candidate_skipped', candidate.id, candidate.topic, decision.reason),
+          this.event('memory_candidate_skipped', candidate.id, candidate.type, decision.reason),
         );
       }
     }
@@ -95,9 +97,7 @@ export class AutomaticMemoryController {
   }
 
   async approve(id: string): Promise<IMemoryPendingRecord> {
-    const record = await this.store.markPending(id, 'approved', 'approved-by-user');
-    await this.store.append(record);
-    return this.store.markPending(id, 'saved', 'approved-and-saved');
+    return (await approvePendingMemoryCandidate(this.store, id)).record;
   }
 
   async reject(id: string): Promise<IMemoryPendingRecord> {

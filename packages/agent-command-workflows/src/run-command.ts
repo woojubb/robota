@@ -3,6 +3,7 @@ import { dagDefinitionFromParsedFile } from '@robota-sdk/dag-builder';
 import {
   DEFAULT_WORKSPACE_LAYOUT,
   type IDagDefinition,
+  type ITaskSnapshotBudgetLimits,
   type IWorkspaceLayout,
 } from '@robota-sdk/dag-core';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
@@ -40,6 +41,8 @@ export async function executeWorkflowsRun(
   project: IWorkflowProject,
   workspace: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
   providerDefinitions: readonly IProviderDefinition[] = [],
+  snapshotBudgetLimits?: ITaskSnapshotBudgetLimits,
+  signal?: AbortSignal,
 ): Promise<ICommandResult> {
   const parsedArgs = parseFileArg(argStr, 'run');
   if (!parsedArgs.ok) {
@@ -60,8 +63,13 @@ export async function executeWorkflowsRun(
   }
 
   // Shared workspace runtime: built-ins + any prompt/composite nodes saved under `<root>/nodes/`.
-  const { provider } = await createWorkspaceRuntime(project, workspace, providerDefinitions);
-  const result = await provider.execute(dag, {});
+  const { provider } = await createWorkspaceRuntime(
+    project,
+    workspace,
+    providerDefinitions,
+    snapshotBudgetLimits,
+  );
+  const result = await provider.execute(dag, {}, signal === undefined ? undefined : { signal });
   if (!result.ok) {
     return {
       success: false,

@@ -9,6 +9,7 @@ export {
   type IParallelSpec,
   type TPipelineStage,
   type TDagBuildResult,
+  type IDagBuildPort,
 } from './dag-builder.js';
 
 export {

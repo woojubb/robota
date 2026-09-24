@@ -23,6 +23,11 @@ provider in an injected provider-definition registry — superseding the previou
 - Cost estimation is a fast, deterministic function of prompt length and the primary provider's
   token cost (falling back to a flat estimate when the provider's cost is unknown) — it never
   calls the provider to estimate cost.
+- The trusted node-context cancellation signal is forwarded to the agent run: an aborted attempt
+  starts no new provider, never enters provider fallback, and discards responses returned after
+  abort, returning non-retryable `DAG_TASK_EXECUTION_CANCELLED`. Provider transport termination
+  still depends on the provider's own cooperation, and node completion waits for the admitted
+  provider call to settle even after abort rather than abandoning its cleanup.
 
 ## Non-goals
 

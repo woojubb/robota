@@ -18,6 +18,7 @@ export const SHELL_COMMAND_DESCRIPTION =
 export async function executeShellCommand(
   context: ICommandHostTerminalHandoff & ICommandHostWorkspace,
   args: string,
+  executable?: string,
 ): Promise<ICommandResult> {
   if (!context.canHandoffTerminal()) {
     return {
@@ -26,7 +27,7 @@ export async function executeShellCommand(
     };
   }
 
-  const shell = resolveShell();
+  const shell = resolveShell(executable);
   const cwd = context.getCwd();
   const command = args.trim();
 

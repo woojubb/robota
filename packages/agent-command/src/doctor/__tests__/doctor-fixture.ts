@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
-  createDefaultUserSettingsSources,
   createNodeHostContributionSource,
+  createNodeHostSettingsSource,
   createRestrictedWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 
@@ -94,11 +94,15 @@ export function createDoctorFixture(options: IDoctorFixtureOptions = {}): IDocto
     userHome: home,
     userSettingsPath: join(home, '.robota', 'settings.json'),
     userStorage: { root: join(home, '.robota'), sessions: join(home, '.robota', 'sessions') },
-    settingsSources: createDefaultUserSettingsSources(home),
+    settingsSources: [
+      createNodeHostSettingsSource('user', join(home, '.robota', 'settings.json')),
+      createNodeHostSettingsSource('user', join(home, '.claude', 'settings.json')),
+    ],
     projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', home),
     providerDefinitions: options.providerDefinitions ?? [fixtureProviderDefinition()],
     env,
     contributionSources: [createNodeHostContributionSource(home)],
+    skillRoots: [{ root: join('.robota', 'skills'), kind: 'skills' }],
     pluginsDirs: [join(home, '.robota', 'plugins')],
     hostChecks: [
       { id: 'host.fixture', label: 'Fixture host check', status: 'ok', cause: 'present' },

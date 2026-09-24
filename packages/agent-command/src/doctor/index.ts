@@ -5,6 +5,7 @@ export {
 } from './doctor-command-module.js';
 export { createNodeDoctorDeps, resolveCommandOnPath } from './doctor-node-deps.js';
 export { renderDoctorReport } from './doctor-render.js';
+export type { IDoctorDisplayVocabulary } from './doctor-render.js';
 export { collectSettingsSecrets, redactDiagnosticText } from './doctor-redaction.js';
 export {
   STORAGE_REPAIR_ID,

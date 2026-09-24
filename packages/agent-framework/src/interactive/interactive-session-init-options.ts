@@ -26,6 +26,8 @@ import type { IHookDefinitionSource } from '../config/config-merge.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
 import type { IProjectSettingsPath } from '../config/settings-source.js';
+import type { IContributionSource } from '../contributions/index.js';
+import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IMemoryStore } from '../memory/types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
@@ -54,7 +56,12 @@ export interface IInitOptions {
   provider: IAIProvider;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
+  baselinePermissionAllow?: readonly string[];
+  /** Host-selected default task-context directory; resolved settings may override or disable it. */
+  taskContext?: IResolvedConfig['taskContext'];
   userSettingsSources?: readonly INodeHostSettingsSource[];
+  contributionSources?: readonly IContributionSource[];
+  skillRoots?: readonly ISkillRootDescriptor[];
   permissionMode?: ICreateSessionOptions['permissionMode'];
   /** CMD-005: unified ask renderer, forwarded into the session as the model-question tool seam. */
   askHandler?: IUserInteraction['ask'];
@@ -83,6 +90,7 @@ export interface IInitOptions {
   bare?: boolean;
   /** Omit the built-in command and HTTP hook executors. */
   disableBuiltInHookExecutors?: boolean;
+  commandHookShell?: string;
   /** Pre-approved tool names passed to createSession. */
   allowedTools?: readonly string[];
   /** Denied tool names — added to permissions.deny. denied > allowed. */
@@ -115,6 +123,7 @@ export interface IInitOptions {
   /** ARCH-005: composition-root-contributed subagent definitions (see the standard options). */
   agentDefinitions?: readonly IAgentDefinition[];
   agentDefinitionRoots?: readonly string[];
+  pluginDirectories?: { readonly user?: string; readonly project?: string };
   /** Optional command modules composed into this session. */
   commandModules?: readonly ICommandModule[];
   /** Model-visible command descriptors derived from the composed command executor. */
@@ -123,6 +132,8 @@ export interface IInitOptions {
   commandSemanticRoles?: ISystemCommandSemanticRoles;
   /** Model command execution bridge. */
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
+  modelCommandToolPrefix?: string;
+  subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
   /** Predicate for commands allowed through the model command execution bridge. */
   isModelCommandInvocable?: (command: string) => boolean;
   /** Preloaded config to avoid duplicate discovery when caller needs it too. */
