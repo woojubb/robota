@@ -10,10 +10,10 @@ import { SqliteStorageAdapter } from '@robota-sdk/dag-adapters-sqlite';
 import { WorkerLoopService } from '../services/worker-loop-service.js';
 
 /**
- * Issue #2875: a persisted run's `lineage_json` can be corrupted at rest (disk-level bit rot, a
- * hand edit, a downgrade/upgrade mismatch) independently of anything this worker did. Reading that
- * row must fail the one task that depends on it, deterministically, and never crash the loop that
- * every other queued task also depends on.
+ * A persisted run's lineage can be corrupted at rest (disk-level bit rot, a hand edit, a
+ * downgrade/upgrade mismatch) independently of anything this worker did. Reading that row must
+ * fail the one task that depends on it, deterministically, and never crash the loop that every
+ * other queued task also depends on.
  */
 describe('WorkerLoopService fails a task closed on malformed persisted lineage without crashing the loop', () => {
   let dir: string;
@@ -121,7 +121,10 @@ describe('WorkerLoopService fails a task closed on malformed persisted lineage w
         workerId: 'worker-1',
         leaseDurationMs: 30_000,
         visibilityTimeoutMs: 30_000,
-        retryEnabled: false,
+        // Retry is enabled here on purpose: DAG_VALIDATION_RUN_LINEAGE_INVALID is non-retryable, so
+        // this proves the task stays terminally failed because of the error's own retryable flag,
+        // not merely because the harness happened to have retry turned off.
+        retryEnabled: true,
         maxAttempts: 3,
         defaultTimeoutMs: 50,
       });

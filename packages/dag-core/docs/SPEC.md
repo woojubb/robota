@@ -202,14 +202,13 @@ ceilings above are separate.
 
 ## Composite child run lineage
 
-A composite node's child run carries its ancestry (root run, parent run, depth, optional max depth,
-ancestor composite node types) persisted on the run record itself, not reconstructed from in-process
-state — after a restart, the persisted record is the sole authority a worker or orchestrator has for
-depth and recursion decisions, never a constructor-captured default. Decoding this value is
-total: a present-but-malformed record (wrong types, a depth that disagrees with the ancestor list's
-length, an empty root/parent id) is rejected rather than reset to a fresh root, so a corrupted or
-tampered record fails the task closed instead of silently re-authorizing recursion an attacker or a
-storage fault could otherwise forge. An absent value decodes to a root run, not an error.
+A composite node's child run has its ancestry persisted with the run itself, not reconstructed from
+in-process state — after a restart, that persisted record is the sole authority for depth and
+recursion decisions, never a constructor-captured default. Decoding it is total: a malformed record
+is rejected rather than reset to a fresh root, so corruption or tampering fails the task closed
+instead of silently re-authorizing recursion. An absent value decodes to a root run, not an error. A
+storage adapter's plain read must never throw over a bad record — only this decode step rejects it,
+so ancestry is validated once, at the point something is about to act on it, not on every read.
 
 ## Isolated text operation capability
 

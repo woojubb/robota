@@ -59,13 +59,10 @@ remains single-owner and does not provide that cross-process visibility.
 
 ### Composite child lineage authority
 
-Before entering the executor, the worker decodes the run's persisted composite lineage (root run,
-parent run, depth, ancestor node types) rather than trusting any in-process default — this is what
-lets a restarted worker enforce composite depth/recursion limits against a run it did not create.
-Storage adapters must never raise a decode failure out of a plain read: an undecodable persisted
-value is handed through to this decode step, which fails the task deterministically with
-`DAG_VALIDATION_RUN_LINEAGE_INVALID` and leaves the worker loop free to keep processing other
-messages, rather than an adapter-level exception taking the loop down over one corrupted run.
+Before entering the executor, the worker decodes the run's persisted composite lineage rather than
+trusting any in-process default, so a restarted worker enforces composite depth/recursion limits
+against a run it did not create; invalid persisted ancestry fails that one task closed without
+taking down the worker loop.
 
 ### Crash recovery (DAG-001)
 

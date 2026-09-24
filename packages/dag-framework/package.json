@@ -76,7 +76,7 @@
     "access": "public"
   },
   "devDependencies": {
-    "@robota-sdk/dag-node-instant-node": "workspace:3.0.0-beta.63",
+    "@robota-sdk/dag-node-instant-node": "workspace:*",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.14"
   },
