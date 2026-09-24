@@ -37,7 +37,9 @@ The provider-call child's request-ID field is live-projection-only: it is never 
 provider-call trace and never becomes a metric (the same value reaches assistant-message metadata
 and live traces and logs by separate routes). None of
 these entries represents final turn settlement, a cost total, detached-work completion, or collector
-receipt. Older observations without the root identity remain valid.
+receipt. Older observations without the root identity remain valid. Opt-in prompt and response
+text never joins that projection: it has its own content batch, linked only by the prompt's trace
+and root span IDs, so a consumer that never asks for content never holds any.
 
 **Zero dependencies by design.** Every field of every declaration here is a primitive or another
 declaration in this package, so it depends on nothing at all — not even `agent-core`. It is the only

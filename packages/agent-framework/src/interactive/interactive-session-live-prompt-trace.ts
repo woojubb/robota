@@ -1,4 +1,6 @@
 import type {
+  ILivePromptContentBatch,
+  ILivePromptContentPolicy,
   ILivePromptTraceBatch,
   IProviderCallTraceEntry,
   IToolBodyTraceEntry,
@@ -28,6 +30,16 @@ export interface ILivePromptTracePort {
    * framework never writes to the process streams itself.
    */
   onDiagnostic?(message: string): void;
+  /**
+   * Opt-in prompt/response content, a separate channel from `enqueue`. Only when present does the
+   * framework copy any text, and then only for the owner-typed turns prompt history records; the
+   * host redacts before export. Failures are reported through `onFailure` like the trace's.
+   */
+  readonly content?: {
+    readonly policy: ILivePromptContentPolicy;
+    /** Synchronously enqueue only, like `enqueue`. */
+    enqueue(batch: ILivePromptContentBatch): void;
+  };
 }
 
 const reportedUnavailableProviders = new Set<string>();

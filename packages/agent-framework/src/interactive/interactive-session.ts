@@ -337,7 +337,8 @@ export class InteractiveSession
       // ARCH-029 S1: no cast — `implements ICommandHostContext` above makes this compiler-checked.
       () => this,
       () => this.session?.getSessionId() ?? '',
-      (prompt, displayInput, rawInput) => this.submit(prompt, displayInput, rawInput),
+      (prompt, displayInput, rawInput, submitOptions) =>
+        this.submit(prompt, displayInput, rawInput, submitOptions),
       (result) => this.execCtrl.applyForkSkillResult(result),
       (event, appendHistory) => this.histTracker.recordSkillActivationEvent(event, appendHistory),
       (content, forkOptions) => runSkillInFork(content, forkOptions, this.getSessionOrThrow()),

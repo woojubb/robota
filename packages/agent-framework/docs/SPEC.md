@@ -99,6 +99,10 @@ These are behaviors a caller cannot infer from a type signature alone.
   trusts — subagent, worker and background runs never inherit it — and it does not prove final turn
   settlement. A provider-call child's span ID is derived from core's call ID, never invented, so the
   propagated parent and the exported span are the same span.
+  Prompt and response text travels only through the host's separate content channel, only when the
+  host provides one, and only for the owner-typed turns prompt history records — one shared
+  predicate decides both; otherwise the framework copies no text. The framework only pre-truncates;
+  redaction is the host's.
 - **Session persistence is explicit, never implicit.** `InteractiveSession`/`createAgentRuntime`
   never construct a project session store from a bare `cwd`. A host wanting persistence supplies an
   explicit store (optionally composed from same-authority `sessions`/`session-logs` state facets); an

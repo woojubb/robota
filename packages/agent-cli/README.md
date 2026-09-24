@@ -242,6 +242,32 @@ are rejected. Export is bounded, best-effort, and does not delay or fail a turn;
 produce a content-free stderr warning. These switches do not enable content capture,
 additional event kinds, or replay of stored traces. Ambient `OTEL_*` values alone do not enable them.
 
+Prompt and response content is a separate opt-in on top of `ROBOTA_TELEMETRY_LOGS=otlp`.
+`ROBOTA_TELEMETRY_LOG_USER_PROMPTS=1` sends what you typed (never the expanded model input, such as
+`@file` contents), and `ROBOTA_TELEMETRY_LOG_ASSISTANT_RESPONSES=1` sends the assistant's final answer
+for the turn; each accepts exactly `0` or `1`. `ROBOTA_TELEMETRY_LOG_CONTENT_MAX_BYTES` bounds each
+item (an integer from 256 to 16384, default 2048) and is refused unless one of the two is `1`. Content
+is captured only in the interactive terminal and only for turns you type yourself, the same turns
+prompt history records: goal and loop wakeups, peer and external messages, remote co-drivers,
+subagents and background work are never captured. Print (`-p`, `--goal`), `--serve` and
+`robota mcp serve` refuse to start with a content setting at `1` rather than ignore it. It goes only to OTLP log records (`robota.content.captured`, joined to the prompt's trace and
+root span, with `robota.content.kind`, `robota.content.truncated`, `robota.content.original_bytes` and,
+for an interrupted turn's response, `robota.content.partial`) — never to spans, metrics or console
+output, so a content setting with `ROBOTA_TELEMETRY_LOGS=console` is refused. It is sent to the logs
+destination with its headers but in its own request and queue: a content failure never delays or
+drops the content-free logs, and is reported on stderr like any other delivery failure. Items over a
+per-request size budget are dropped and counted in a content-free `robota.content.omitted` record.
+Before sending, the CLI masks known credential shapes (vendor API keys, AWS keys, private-key blocks,
+JWTs, GitHub, Stripe, npm and GitLab tokens, bearer tokens, URL and `-u user:pass` credentials,
+`*_KEY`/`*_TOKEN`/`*_SECRET`/`*_PASSWORD=` values), the literal secrets it knows of (settings keys and
+`env` values, every resolved provider key including one switched to mid-session, and collector header
+values), your workspace path (`<workspace>`, also inside `file://` URLs) and home directory (`~`),
+control characters, and a partial token left at the size cut. This
+masking is best effort: anything it does not recognise as a secret is sent as written, and a response
+can repeat tool output (file contents, command output) that the model saw. If the secrets cannot be
+read, that request carries no content at all. Tool arguments and tool output are not captured:
+`ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS` and `ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT` stop startup.
+
 Static collector headers (for example an `Authorization` token) use
 `ROBOTA_TELEMETRY_OTLP_HEADERS` for the generic endpoint and `ROBOTA_TELEMETRY_OTLP_TRACES_HEADERS`,
 `ROBOTA_TELEMETRY_OTLP_METRICS_HEADERS` or `ROBOTA_TELEMETRY_OTLP_LOGS_HEADERS` for one signal, in
@@ -259,7 +285,7 @@ and entry position. The CLI removes every `ROBOTA_TELEMETRY_*` setting from its 
 startup, so shells, hooks, subagents and other child processes do not inherit them; the only
 handover is the supervised runtime that `session start` or `session view` launches, which receives
 them in its spawn environment. While telemetry is enabled, any other `ROBOTA_TELEMETRY_*` setting
-(for example client certificates, a locked destination or content capture) stops startup with an
+(for example client certificates, a locked destination or other content capture) stops startup with an
 error that names the setting but never prints its value, rather than exporting without it.
 Each signal also accepts `console` instead of `otlp` to write a content-free JSON diagnostic to stderr;
 console needs neither an endpoint nor a protocol and never includes collector credentials. Signals
