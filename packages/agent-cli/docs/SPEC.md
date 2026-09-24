@@ -71,6 +71,8 @@ the pre-trust project-source preview. Restricted composition omits project contr
 root descriptors alone never grant project access.
 The CLI selects the Robota organization-policy file and passes its path to the neutral loader,
 preserving policy enforcement across its command and session surfaces.
+For interactive keybindings, the CLI selects the Robota user file and schema URL and passes both
+to the terminal source; the terminal package does not infer a product-owned location or schema.
 
 **Local peer activity (#2726).** The host may publish only fixed, content-free activity states for
 its current interactive session into the same guarded, same-user rendezvous as peer discovery. The

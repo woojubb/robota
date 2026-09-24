@@ -33,6 +33,7 @@ import { resolveOutputStyle, selectOutputStyleId } from './startup/output-style-
 import type { IPreset } from '@robota-sdk/agent-preset';
 import { bindAssembledCollaborators } from './product/assembled-collaborators.js';
 import { createRobotaProfile } from './product/robota-profile.js';
+import { createRobotaKeybindingsOptions } from './product/robota-keybindings.js';
 import {
   buildRobotaRuntimeOptions,
   loadReplayProvider,
@@ -281,6 +282,7 @@ async function runCliCore(
     args.printMode || args.goal !== undefined || args.serve || mcpServe || !presentation
       ? undefined
       : presentation.createNodeKeybindingsSource({
+          ...createRobotaKeybindingsOptions(homedir()),
           onDiagnostic: (diagnostic) =>
             process.stderr.write(
               `Keybindings ${diagnostic.file} ${diagnostic.path}: ${diagnostic.message}\n`,

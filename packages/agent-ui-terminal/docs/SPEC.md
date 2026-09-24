@@ -42,6 +42,8 @@ a missing mapping is rejected rather than silently dropped.
 Host-selected user settings sources pass through the same render-to-channel-to-session projection;
 the terminal does not choose a settings file for session startup or provider switching. Its CLI
 adapter uses the host-selected write target and read sources for an active-model change.
+The Node keybindings source requires the host to provide both its file path and schema URL; it
+never infers either from the running user's home directory or a product identity.
 The permission prompt labels project-wide approval unavailable when the session cannot persist it,
 and never resolves the disabled choice as an approval.
 
