@@ -128,6 +128,24 @@ describe('supervised session view', () => {
     }
   });
 
+  it('keeps the distinguishing wide character visible in a 20-column terminal', async () => {
+    const view = render(<SupervisedSessionView loadRows={async () => [
+      { ...FIRST, cwd: '/projects/あいうえおかきくけこ甲' },
+      { ...THIRD, cwd: '/projects/あいうえおかきくけこ乙' },
+    ]} />);
+    try {
+      Object.defineProperty(view.stdout, 'columns', { value: 20 });
+      view.stdout.emit('resize');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('2 supervised'));
+      view.stdin.write('g');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('甲'));
+      expect(view.lastFrame()).toContain('乙');
+      expect((view.lastFrame() ?? '').split('\n').length).toBeLessThanOrEqual(24);
+    } finally {
+      view.unmount();
+    }
+  });
+
   it('escapes layout controls in verified directory headings', async () => {
     const view = render(<SupervisedSessionView loadRows={async () => [
       { ...FIRST, cwd: '/projects/line\nbreak/app' },

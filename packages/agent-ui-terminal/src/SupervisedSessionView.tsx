@@ -1,5 +1,6 @@
 import { Box, render, useApp, useInput, useStdout } from 'ink';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import stringWidth from 'string-width';
 
 import { useNumberedSelection } from './hooks/useNumberedSelection.js';
 import { formatNumberedSelectionPrompt, numberedRowPrefix } from './numbered-list.js';
@@ -67,19 +68,34 @@ function uniqueDirectorySuffix(cwd: string, directories: readonly string[], budg
   const suffixStart = cwd.length - uniqueLength;
   const boundary = Math.max(cwd.lastIndexOf('/', suffixStart - 1), cwd.lastIndexOf('\\', suffixStart - 1));
   const componentSuffix = cwd.slice(boundary + 1);
-  return displayPath(componentSuffix).length <= budget ? componentSuffix : cwd.slice(suffixStart);
+  return stringWidth(displayPath(componentSuffix)) <= budget ? componentSuffix : cwd.slice(suffixStart);
+}
+
+function pathTokens(path: string): readonly string[] {
+  return Array.from(path, (character) => /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(character)
+    ? `\\u{${character.codePointAt(0)!.toString(16)}}` : character);
 }
 
 function displayPath(path: string): string {
-  return path.replace(/[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/gu,
-    (character) => `\\u{${character.codePointAt(0)!.toString(16)}}`);
+  return pathTokens(path).join('');
 }
 
 function compactPath(path: string, budget: number): string {
-  const safe = Array.from(displayPath(path));
-  if (safe.length <= budget) return safe.join('');
-  const head = Math.ceil((budget - 1) / 2);
-  return `${safe.slice(0, head).join('')}…${safe.slice(-(budget - head - 1)).join('')}`;
+  const safe = pathTokens(path);
+  if (stringWidth(safe.join('')) <= budget) return safe.join('');
+  const headBudget = Math.ceil((budget - 1) / 2);
+  const tailBudget = budget - headBudget - 1;
+  let head = '';
+  for (const token of safe) {
+    if (stringWidth(head) + stringWidth(token) > headBudget) break;
+    head += token;
+  }
+  let tail = '';
+  for (const token of [...safe].reverse()) {
+    if (stringWidth(tail) + stringWidth(token) > tailBudget) break;
+    tail = token + tail;
+  }
+  return `${head}…${tail}`;
 }
 
 function sameRows(a: readonly ISupervisedViewRow[], b: readonly ISupervisedViewRow[]): boolean {
@@ -143,7 +159,8 @@ export default function SupervisedSessionView({
               const prefix = `Dir ${++directoryNumber}: `;
               const budget = Math.max(4, columns - prefix.length);
               const suffix = compactPath(uniqueDirectorySuffix(row.cwd, directories, budget), budget);
-              return `${prefix}${suffix} — ${displayPath(row.cwd)}`;
+              const full = `${prefix}${suffix} — ${displayPath(row.cwd)}`;
+              return screenReader || stringWidth(full) <= columns ? full : `${prefix}${suffix}`;
             })()
           : `${group}:`;
         lines.push({ kind: 'group', label });
@@ -152,7 +169,7 @@ export default function SupervisedSessionView({
       previousGroup = group;
     });
     return lines;
-  }, [ordered, groupByDirectory, columns]);
+  }, [ordered, groupByDirectory, columns, screenReader]);
 
   useEffect(() => {
     const controller = new AbortController();
