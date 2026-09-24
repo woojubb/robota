@@ -183,14 +183,19 @@ export default function SupervisedSessionView({
   const selectedLine = Math.max(0, displayLines.findIndex((line) => line.kind === 'row' && line.row.id === selectedId));
   const start = Math.min(Math.max(0, selectedLine - Math.floor(viewport / 2)), Math.max(0, displayLines.length - viewport));
   const visible = screenReader ? displayLines : displayLines.slice(start, start + viewport);
+  const chromeWrap = screenReader ? {} : { wrap: 'truncate-end' as const };
+  const footer = stopStatus === 'stopping' ? 'Stop in progress; wait for result.'
+    : confirmStopId !== undefined ? 'Confirm stop or cancel before closing.'
+      : screenReader ? 'Type a number and Enter to select; s Stop; Escape to close; ? Help.'
+        : '↑↓ Navigate  s Stop  ? Help  q/Esc Close';
 
   return (
     <Box flexDirection="column" {...(screenReader ? {} : { height })}>
-      <Text>Background sessions across projects</Text>
-      <Text>{ordered.length} supervised session(s). Foreground peers and saved records are separate.</Text>
-      {status === 'loading' && <Text>Loading supervised sessions...</Text>}
-      {status === 'unavailable' && <Text>Supervised session discovery unavailable; last verified rows remain below.</Text>}
-      {status === 'ready' && ordered.length === 0 && <Text>No supervised sessions.</Text>}
+      <Text {...chromeWrap}>Background sessions across projects</Text>
+      <Text {...chromeWrap}>{ordered.length} supervised session(s). Foreground peers and saved records are separate.</Text>
+      {status === 'loading' && <Text {...chromeWrap}>Loading supervised sessions...</Text>}
+      {status === 'unavailable' && <Text {...chromeWrap}>Supervised session discovery unavailable; last verified rows remain below.</Text>}
+      {status === 'ready' && ordered.length === 0 && <Text {...chromeWrap}>No supervised sessions.</Text>}
       {start > 0 && !screenReader && <Text>{start} more above</Text>}
       {visible.map((line) => line.kind === 'group'
         ? <Text key={`group-${line.group}`}>{line.group}:</Text>
@@ -201,17 +206,20 @@ export default function SupervisedSessionView({
         </Text>)}
       {!screenReader && start + visible.length < displayLines.length &&
         <Text>{displayLines.length - start - visible.length} more below</Text>}
-      {selectedId !== undefined && <Text>Selected {selectedId}</Text>}
-      {confirmStopId !== undefined && <Text>Stop {confirmStopId}? y Yes / n No</Text>}
-      {confirmStopId === undefined && stopStatus === 'unavailable' && <Text>This session cannot be stopped from the view.</Text>}
-      {stopStatus === 'stopping' && <Text>Stopping selected session; wait for confirmation.</Text>}
-      {stopStatus === 'stopped' && <Text>Stopped {lastStoppedId}</Text>}
-      {stopStatus === 'failed' && <Text>Stop failed; session remains listed until verified otherwise.</Text>}
-      {screenReader && ordered.length > 0 &&
+      {selectedId !== undefined && <Text {...chromeWrap}>Selected {selectedId}</Text>}
+      {confirmStopId !== undefined && <Text {...chromeWrap}>
+        {screenReader ? `Stop ${confirmStopId}? y Yes / n No` : `Stop? y Yes / n No — ${confirmStopId}`}
+      </Text>}
+      {confirmStopId === undefined && stopStatus === 'unavailable' &&
+        <Text {...chromeWrap}>This session cannot be stopped from the view.</Text>}
+      {stopStatus === 'stopping' && <Text {...chromeWrap}>Stopping selected session; wait for confirmation.</Text>}
+      {stopStatus === 'stopped' && <Text {...chromeWrap}>Stopped {lastStoppedId}</Text>}
+      {stopStatus === 'failed' && <Text {...chromeWrap}>Stop failed; session remains listed until verified otherwise.</Text>}
+      {screenReader && ordered.length > 0 && stopStatus !== 'stopping' &&
         <Text>{formatNumberedSelectionPrompt(ordered.length, true)}{numbered.buffer ? ` ${numbered.buffer}` : ''}</Text>}
       {screenReader && numbered.invalid && <Text>Selection out of range.</Text>}
-      <Text>{screenReader ? 'Type a number and Enter to select; s Stop; Escape to close; ? Help.' : '↑↓ Navigate  s Stop  ? Help  q/Esc Close'}</Text>
-      {showHelp && <Text>Activity is not process liveness. Idle does not allow attach. Closing this view does not stop sessions.</Text>}
+      <Text {...chromeWrap}>{footer}</Text>
+      {showHelp && <Text {...chromeWrap}>Activity is not process liveness. Idle does not allow attach. Closing this view does not stop sessions.</Text>}
     </Box>
   );
 }
@@ -232,7 +240,7 @@ export async function renderSupervisedSessionView(
     <ScreenReaderProvider enabled={options.screenReader}>
       <SupervisedSessionView loadRows={options.loadRows} onStop={options.onStop} refreshMs={options.refreshMs} />
     </ScreenReaderProvider>,
-    { isScreenReaderEnabled: options.screenReader },
+    { isScreenReaderEnabled: options.screenReader, exitOnCtrlC: false },
   );
   try {
     await instance.waitUntilExit();
