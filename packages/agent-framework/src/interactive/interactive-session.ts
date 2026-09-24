@@ -1421,18 +1421,19 @@ export class InteractiveSession
   }
 
   setName(name: string): void {
-    this.sessionName = name;
     if (this.sessionStore && this.session) {
       let id: string;
       try {
         id = this.getSessionOrThrow().getSessionId();
       } catch {
-        return; // Session not initialized yet — nothing on disk to rename.
+        this.sessionName = name; // Session not initialized yet — nothing on disk to rename.
+        return;
       }
       // TRANS-007: the store outcome is NOT swallowed. It used to sit inside the catch above, so a
       // record this build cannot read made the rename a silent no-op.
       persistSessionRename(this.sessionStore, id, name);
     }
+    this.sessionName = name;
   }
 
   private getBackgroundTaskManager(): IBackgroundTaskManager | undefined {

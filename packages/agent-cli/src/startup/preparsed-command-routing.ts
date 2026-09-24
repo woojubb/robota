@@ -5,7 +5,9 @@ import { readVersion } from './version.js';
 import { runSessionAnalyze } from '../session-analyzer/session-analyze-command.js';
 import { runSessionListCommand } from '../session-inventory/session-list-command.js';
 import { launchSupervisedSession } from '../session-inventory/supervised-session-launch.js';
-import { stopSupervisedSession } from '../session-inventory/supervised-session-control.js';
+import {
+  isSupervisedSessionName, renameSupervisedSession, stopSupervisedSession,
+} from '../session-inventory/supervised-session-control.js';
 import { runSessionViewCommand } from '../session-inventory/session-view-command.js';
 import { runUsageCommand } from '../usage/usage-command.js';
 import { runUsageExportCommand } from '../usage/usage-export-command.js';
@@ -59,6 +61,23 @@ export async function runPreparsedCliCommand(
       process.stdout.write(`Stopped supervised session ${argv[SUBCOMMAND_ARGUMENT_INDEX]}.\n`);
     } catch (error) {
       process.stderr.write(`${error instanceof Error ? error.message : 'Unable to stop supervised session.'}\n`);
+      process.exitCode = 1;
+    }
+    return true;
+  }
+  if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'rename') {
+    if (argv.length !== SUBCOMMAND_ARGUMENT_INDEX + 2 || !isSupervisedSessionName(argv[SUBCOMMAND_ARGUMENT_INDEX + 1])) {
+      process.stderr.write('Usage: robota session rename <supervised-id> <name>\n');
+      process.exitCode = 1;
+      return true;
+    }
+    try {
+      const id = argv[SUBCOMMAND_ARGUMENT_INDEX]!;
+      await renameSupervisedSession(id, argv[SUBCOMMAND_ARGUMENT_INDEX + 1]!);
+      process.stdout.write(`Renamed supervised session ${id}.\n`);
+      process.exitCode = 0;
+    } catch (error) {
+      process.stderr.write(`${error instanceof Error ? error.message : 'Unable to rename supervised session.'}\n`);
       process.exitCode = 1;
     }
     return true;

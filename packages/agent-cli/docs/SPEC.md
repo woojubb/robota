@@ -73,7 +73,7 @@ expose conversation content or project paths in rows, or treat an exited
 process as completed; starting a session from the view still requires headless workspace trust for
 its target directory, and closing the view never stops a supervised session. A damaged registration is
 shown as unavailable without hiding healthy sessions,
-and a stop request acts only
+and a stop or rename request acts only
 through the live owner's control endpoint, failing explicitly rather than guessing when ownership or
 completion cannot be established. Attach, peek, and automatic restart are not offered, and the
 transport's per-launch authentication token is never exposed through the control endpoint or

@@ -325,6 +325,10 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         () => settling || sessionOptions.disableSessionLoops
           ? undefined : nextWaitingLoopAt(host.session.listSelfPacedLoops(), Date.now()),
         () => settling ? undefined : host.session.getName(),
+        (name) => {
+          if (settling) throw new Error('Supervised runtime is stopping.');
+          host.session.setName(name);
+        },
       );
       if (settling) throw new Error('Supervised runtime stopped before readiness.');
       await acknowledgeSupervisedStartup(args.supervisedSessionId, readinessAbort.signal);
