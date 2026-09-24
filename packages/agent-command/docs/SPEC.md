@@ -54,9 +54,9 @@ repair is planned, confirmed through the caller's prompt, then **re-planned imme
 writing** and refused if the id is unknown, the state is not repairable, the state changed since
 planning, or the check is already clean — in every refusal case, nothing is written. The doctor
 performs no write of its own outside an explicit, confirmed repair.
-Report titles, product-readiness summaries, and repair command text are host-selected display
-vocabulary. Without host wording, diagnostics stay product-neutral. The same report data and repair
-decisions are used by slash and shell routes.
+Report titles, product-readiness summaries, repair command text, and provider/trust remediation
+are host-selected display vocabulary. Without host wording, diagnostics stay product-neutral. The
+same report data and repair decisions are used by slash and shell routes.
 
 **`/keybindings`.** The command knows nothing about the keybindings schema, defaults, contexts,
 watcher, or TUI implementation — it only asks an injected capability port to ensure the user document

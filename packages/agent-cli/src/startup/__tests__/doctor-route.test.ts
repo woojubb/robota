@@ -106,6 +106,7 @@ describe('robota doctor route (OBSERVABILITY-1991 TC-01)', () => {
       const text = lines.join('\n');
       expect(text).toContain(`robota ${name}`);
       expect(text).toContain('robota may work');
+      expect(text).toContain('robota trust --yes');
       outputs.push(text.replace(`robota ${name}`, 'robota <name>'));
     }
     expect(
@@ -113,6 +114,21 @@ describe('robota doctor route (OBSERVABILITY-1991 TC-01)', () => {
     ).toBe(1);
     expect(outputs[0]).toContain('[settings.user.robota] ok');
     expect(outputs[0]).toContain('[mcp.activation] not-configured');
+  });
+
+  it('keeps the Robota provider remediation in the routed doctor output', async () => {
+    const home = isolatedHome();
+    const { terminal, lines } = createCapturingTerminal();
+    const code = await runDoctorRoute({
+      version: '0.0.0-test', terminal, cwd: home,
+      options: {
+        providerDefinitions: definitions,
+        projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', home),
+      },
+      isTTY: false, env: {}, userHome: home,
+    }, []);
+    expect(code).toBe(1);
+    expect(lines.join('\n')).toContain('robota --configure');
   });
 
   it('refuses --repair without --yes in a non-TTY and applies it with --yes', async () => {

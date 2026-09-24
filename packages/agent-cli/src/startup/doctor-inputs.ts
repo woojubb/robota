@@ -150,6 +150,10 @@ export function buildDoctorInputs(opts: IBuildDoctorInputsOptions): IDoctorInput
     settingsSources,
     projectAccess,
     providerDefinitions: opts.providerDefinitions,
+    diagnosticGuidance: {
+      providerResolution: 'Run: robota --configure, or set the provider API key variable.',
+      projectTrust: 'Project sources are disabled. Run: robota trust --yes',
+    },
     env: opts.env,
     contributionSources,
     skillRoots,

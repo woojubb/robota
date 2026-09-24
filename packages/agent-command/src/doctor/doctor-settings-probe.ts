@@ -224,7 +224,10 @@ export async function probeProvider(
           label: 'Provider',
           status: 'fail',
           cause: describeDiagnosticError(error instanceof Error ? error : new Error(String(error))),
-          detail: ['Run: robota --configure, or set the provider API key variable.'],
+          detail: [
+            inputs.diagnosticGuidance?.providerResolution ??
+              'Configure a provider or set its API key environment variable.',
+          ],
         },
       ],
     };
