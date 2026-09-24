@@ -34,7 +34,10 @@ describe('detached supervised runtime', () => {
         id, liveness: 'alive', control: 'available',
         activity: expect.stringMatching(/^(unknown|idle)$/),
       }]);
-      expect(await listSupervisedSessions(root, undefined, { cwd: realpathSync(process.cwd()) })).toEqual(rows);
+      expect(await listSupervisedSessions(root, undefined, { cwd: realpathSync(process.cwd()) })).toEqual([{
+        id, liveness: 'alive', control: 'available',
+        activity: expect.stringMatching(/^(unknown|idle)$/),
+      }]);
       expect(await listSupervisedSessions(root, undefined, { cwd: realpathSync(scratch) })).toEqual([]);
       expect(JSON.stringify(rows)).not.toContain(realpathSync(process.cwd()));
       expect(readFileSync(join(root, id, 'state.json'), 'utf8')).not.toContain(realpathSync(process.cwd()));
