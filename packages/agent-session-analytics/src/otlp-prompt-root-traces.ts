@@ -66,6 +66,7 @@ export interface IPromptRootTraceCoverage {
     readonly invalid: number;
     readonly partial: number;
     readonly absent: number;
+    readonly nonInvoked: number;
   };
   readonly toolChildren: {
     readonly exported: number;
@@ -205,10 +206,6 @@ function enrichProviderSpan(
     usageCoverage.legacy += 1;
     return span;
   }
-  if (data['disposition'] === 'cache-hit' || data['disposition'] === 'preflight-refused') {
-    if (data['promptTokens'] !== undefined || data['completionTokens'] !== undefined) usageCoverage.invalid += 1;
-    return span;
-  }
   if (data['disposition'] !== 'invoked') {
     usageCoverage.invalid += 1;
     return span;
@@ -345,7 +342,7 @@ export function createOtlpPromptRootTraces(
     provider: { exported: 0, invalid: 0, orphaned: 0, duplicate: 0 },
     tool: { exported: 0, invalid: 0, orphaned: 0, duplicate: 0 },
   };
-  const providerUsage = { legacy: 0, invalid: 0, partial: 0, absent: 0 };
+  const providerUsage = { legacy: 0, invalid: 0, partial: 0, absent: 0, nonInvoked: 0 };
   const callMetrics = {
     invoked: 0, completeUsage: 0, inputTokens: 0, outputTokens: 0,
     estimatedCostUsd: 0, unknownCost: 0, exactPriceMatches: 0, familyPriceMatches: 0,
@@ -371,6 +368,15 @@ export function createOtlpPromptRootTraces(
       BigInt(span.endTimeUnixNano) > BigInt(root.endTimeUnixNano)
     ) {
       coverage.invalid += 1;
+      continue;
+    }
+    if (child.kind === 'provider' && isRecord(child.data) &&
+      (child.data['disposition'] === 'cache-hit' || child.data['disposition'] === 'preflight-refused')) {
+      providerUsage.nonInvoked += 1;
+      if (child.data['promptTokens'] !== undefined || child.data['completionTokens'] !== undefined ||
+        child.data['totalTokens'] !== undefined || child.data['usageProvenance'] === 'complete') {
+        providerUsage.invalid += 1;
+      }
       continue;
     }
     spans.push(child.kind === 'provider'

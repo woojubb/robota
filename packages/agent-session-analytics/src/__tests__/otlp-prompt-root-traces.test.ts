@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { createOtlpPromptRootTraces } from '../otlp-prompt-root-traces.js';
+import { createOtlpPromptEvents } from '../otlp-prompt-events.js';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
@@ -245,6 +246,24 @@ describe('content-free OTLP prompt root trace projection', () => {
     expect(invalid.coverage.providerUsage.invalid).toBe(1);
     expect(invalid.coverage.providerChildren.exported).toBe(1);
     expect(spans(invalid)[1]?.attributes).toEqual([{ key: 'robota.provider.outcome', value: { stringValue: 'success' } }]);
+  });
+
+  it('does not export cache or preflight refusals as provider calls or completion logs', () => {
+    const session = record('session', [root()]);
+    for (const [index, disposition] of ['cache-hit', 'preflight-refused'].entries()) {
+      session.history!.push({
+        id: `non-call-${index}`, timestamp: new Date('2026-09-24T00:00:59.900Z'), category: 'event',
+        type: 'provider-call-trace', data: {
+          traceId: TRACE_ID, parentSpanId: SPAN_ID, spanId: index === 0 ? 'abcdef1234567890' : 'fedcba0987654321',
+          startedAt: '2026-09-24T00:00:59.100Z', endedAt: '2026-09-24T00:00:59.900Z', outcome: 'success', round: 1,
+          disposition,
+        },
+      });
+    }
+    const traces = createOtlpPromptRootTraces([session], 'test');
+    expect(spans(traces).map((span) => span.name)).toEqual(['robota.prompt_execution']);
+    expect(traces.coverage.providerUsage.nonInvoked).toBe(2);
+    expect(createOtlpPromptEvents([session], 'test', new Date('2026-09-24T00:05:00.000Z')).exported).toBe(1);
   });
 
   it('exports a verified tool body child but no recorded arguments or results', () => {

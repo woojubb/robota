@@ -127,6 +127,7 @@ export async function forceSummaryCall(
     try {
       forceResponse = await callProviderWithIdleTimeout(
         (messages, options) => {
+          // The same adapter-invocation boundary as normal rounds; internal retries stay opaque.
           dispatch.invoked = true;
           dispatch.startedAtMs = Date.now();
           return resolved.provider.chat(messages, options);
@@ -153,7 +154,7 @@ export async function forceSummaryCall(
         disposition: dispatch.invoked ? 'invoked' : 'preflight-refused',
         ...(dispatch.invoked && {
           providerId: resolved.currentInfo.provider,
-          modelId: chatOptions.model,
+          modelId: resolved.aiProviderInfo.model,
         }),
         usageProvenance: usage.provenance,
         ...('promptTokens' in usage && usage.promptTokens !== undefined && {
@@ -169,11 +170,20 @@ export async function forceSummaryCall(
     const responseText = typeof forceResponse.content === 'string' ? forceResponse.content : '';
     const committedText =
       responseText || 'Maximum rounds reached. Partial results available in conversation history.';
-    if (responseText) {
-      conversationStore.addAssistantMessage(responseText, [], forceResponse.metadata);
-    } else {
-      conversationStore.addAssistantMessage(committedText);
-    }
+    const verifiedUsage = verifiedProviderCallUsage(forceResponse);
+    const summaryMetadata = {
+      ...(forceResponse.metadata ?? {}),
+      round: roundState.currentRound,
+      providerId: resolved.currentInfo.provider,
+      modelId: resolved.aiProviderInfo.model,
+      usageProvenance: verifiedUsage.provenance,
+      ...(verifiedUsage.provenance === 'complete' && {
+        inputTokens: verifiedUsage.promptTokens,
+        outputTokens: verifiedUsage.completionTokens,
+        totalTokens: verifiedUsage.totalTokens,
+      }),
+    };
+    conversationStore.addAssistantMessage(committedText, [], summaryMetadata);
     // CORE-033: the summary is the turn's answer; committing it silently left the last thing the
     // user reads absent from every replay of the conversation.
     fullContext.onExecutionEvent?.('assistant_message_committed', {

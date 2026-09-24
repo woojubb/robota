@@ -6,9 +6,10 @@ import { PROVIDER_CALL_EVENTS } from '../event-service/span-events.js';
 describe('forced-summary provider lifecycle', () => {
   it('carries final provider-reported usage separately from its content', async () => {
     const events: Array<{ name: string; data: Record<string, unknown> }> = [];
+    const addAssistantMessage = vi.fn();
     await forceSummaryCall(
-      { getMessages: () => [], addAssistantMessage: vi.fn() } as never,
-      { provider: { chat: async () => ({ role: 'assistant', content: 'private summary', metadata: { usageProvenance: 'complete', inputTokens: 20, outputTokens: 5 } }) }, currentInfo: { provider: 'anthropic' }, aiProviderInfo: { model: 'claude-sonnet-4-6' } } as never,
+      { getMessages: () => [], addAssistantMessage } as never,
+      { provider: { chat: async () => ({ role: 'assistant', content: 'private summary', metadata: { usageProvenance: 'complete' }, usage: { promptTokens: 20, completionTokens: 5, totalTokens: 25 } }) }, currentInfo: { provider: 'anthropic' }, aiProviderInfo: { model: 'claude-sonnet-4-6' } } as never,
       { defaultModel: { model: 'claude-sonnet-4-6' } } as never,
       'execution', { currentRound: 3 } as never, 'conversation',
       { onExecutionEvent: (name: string, data: Record<string, unknown>) => events.push({ name, data }) } as never,
@@ -16,6 +17,7 @@ describe('forced-summary provider lifecycle', () => {
     );
     const completion = events.find((event) => event.name === PROVIDER_CALL_EVENTS.COMPLETED)!.data;
     expect(completion).toMatchObject({ disposition: 'invoked', usageProvenance: 'complete', promptTokens: 20, completionTokens: 5, totalTokens: 25 });
+    expect(addAssistantMessage).toHaveBeenCalledWith('private summary', [], expect.objectContaining({ inputTokens: 20, outputTokens: 5, totalTokens: 25 }));
     expect(JSON.stringify(completion)).not.toContain('private summary');
   });
   it.each(['success', 'failure', 'interrupted'] as const)(

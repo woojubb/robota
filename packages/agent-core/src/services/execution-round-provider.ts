@@ -152,6 +152,7 @@ export async function callProviderWithCache(
   });
   const providerChat = resolved.provider.chat.bind(resolved.provider) as TProviderChat;
   const observedChat: TProviderChat = (messages, options) => {
+    // Invocation of the provider SDK adapter, not proof of a network attempt within that adapter.
     onDispatch?.('invoked', options.model ?? model);
     return providerChat(messages, options);
   };
