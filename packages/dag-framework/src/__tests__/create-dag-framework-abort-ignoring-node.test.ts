@@ -39,14 +39,13 @@ beforeEach(async () => {
 });
 
 afterEach(async () => {
-  // The sleeping node's own promise keeps running regardless of the run's outcome; stopping the
-  // framework may itself have to wait out that stray work, so this is given generous room.
+  // stop() does not wait for the abort-ignoring node; its detached sleep ends on its own.
   await framework.stop();
   await rm(tmpDir, { recursive: true, force: true });
-}, ABORT_IGNORING_SLEEP_MS + 2000);
+});
 
 // createDagFramework's default executor wraps its lifecycle executor in IsolatedRegexTaskExecutor
-// purely to isolate the default text-replace regex operation (see the sibling PR fixing #2875).
+// purely to isolate the default text-replace regex operation .
 // That wrapper's `stopAndWait` must not also join the wrapped node's own completion — this
 // composition hosts arbitrary node types, and dag-worker's timeout/cancel contract is that
 // ordinary cooperative cleanup is not awaited, only isolation shutdown is. A node that ignores
