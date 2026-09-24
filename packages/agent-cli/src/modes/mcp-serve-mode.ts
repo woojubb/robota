@@ -8,6 +8,10 @@ import type { TInteractiveSessionOptions } from '@robota-sdk/agent-framework';
 import type { Writable } from 'node:stream';
 
 const SHUTDOWN_TIMEOUT_MS = 5000;
+const ROBOTA_SUBMIT_TOOL = {
+  name: 'robota_submit',
+  description: 'Robota extension: submit a prompt to the agent and await its own turn',
+};
 
 async function shutdownSession(
   session: ReturnType<typeof buildRuntimeSession>,
@@ -45,10 +49,18 @@ export async function runMcpServeMode(
   const session = buildRuntimeSession(sessionOptions);
   if (http.tokenFile !== undefined) {
     const tokenFile = http.tokenFile;
-    const host = createMcpHttpHost({ name: 'robota', version, session, port: http.port });
+    const host = createMcpHttpHost({
+      name: 'robota',
+      version,
+      session,
+      port: http.port,
+      submitTool: ROBOTA_SUBMIT_TOOL,
+    });
     let createdFile: { dev: number; ino: number } | undefined;
     let onStop: (() => void) | undefined;
-    const stopped = new Promise<void>((resolve) => { onStop = resolve; });
+    const stopped = new Promise<void>((resolve) => {
+      onStop = resolve;
+    });
     const signal = (): void => onStop?.();
     process.once('SIGINT', signal);
     process.once('SIGTERM', signal);
@@ -64,7 +76,9 @@ export async function runMcpServeMode(
       } finally {
         await file.close();
       }
-      process.stderr.write(`MCP HTTP listening at ${endpoint.url}; bearer token file: ${tokenFile}\n`);
+      process.stderr.write(
+        `MCP HTTP listening at ${endpoint.url}; bearer token file: ${tokenFile}\n`,
+      );
       await Promise.race([host.waitForClose(), stopped]);
     } finally {
       process.off('SIGINT', signal);
@@ -89,7 +103,12 @@ export async function runMcpServeMode(
     }
     return;
   }
-  const transport = createMcpTransport({ name: 'robota', version, stdout });
+  const transport = createMcpTransport({
+    name: 'robota',
+    version,
+    stdout,
+    submitTool: ROBOTA_SUBMIT_TOOL,
+  });
   transport.attach(session);
   let onStop: (() => void) | undefined;
   const stopped = new Promise<void>((resolve) => {

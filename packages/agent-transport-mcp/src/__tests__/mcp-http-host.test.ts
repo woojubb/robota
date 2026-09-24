@@ -24,9 +24,11 @@ async function connect(url: string, token: string, modern: boolean): Promise<Cli
     { name: 'http-test', version: '1' },
     modern ? { versionNegotiation: { mode: { pin: '2026-07-28' } } } : {},
   );
-  await client.connect(new StreamableHTTPClientTransport(new URL(url), {
-    requestInit: { headers: { Authorization: `Bearer ${token}` } },
-  }));
+  await client.connect(
+    new StreamableHTTPClientTransport(new URL(url), {
+      requestInit: { headers: { Authorization: `Bearer ${token}` } },
+    }),
+  );
   return client;
 }
 
@@ -51,7 +53,7 @@ describe('loopback MCP HTTP host', () => {
       expect(client.getProtocolEra()).toBe(modern ? 'modern' : 'legacy');
       expect((await client.listTools()).tools.map((tool) => tool.name)).toEqual([
         schema.name,
-        'robota_submit',
+        'agent_submit',
       ]);
       expect(await client.callTool({ name: schema.name, arguments: {} })).toMatchObject({
         isError: false,
@@ -68,7 +70,12 @@ describe('loopback MCP HTTP host', () => {
     const host = createMcpHttpHost({ name: 'robota', version: '1', session });
     const endpoint = await host.start();
     const hostName = new URL(endpoint.url).host;
-    const base = { 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', Authorization: `Bearer ${endpoint.token}`, Host: hostName };
+    const base = {
+      'Content-Type': 'application/json',
+      Accept: 'application/json, text/event-stream',
+      Authorization: `Bearer ${endpoint.token}`,
+      Host: hostName,
+    };
     try {
       expect(await rawStatus(endpoint.url, { ...base, Authorization: '' })).toBe(401);
       expect(await rawStatus(endpoint.url, { ...base, Host: 'attacker.test' })).toBe(403);
@@ -80,7 +87,9 @@ describe('loopback MCP HTTP host', () => {
   });
 
   it('refuses non-loopback binding before listening', () => {
-    expect(() => createMcpHttpHost({ name: 'robota', version: '1', session: fixture(), host: '0.0.0.0' })).toThrow(/loopback/);
+    expect(() =>
+      createMcpHttpHost({ name: 'robota', version: '1', session: fixture(), host: '0.0.0.0' }),
+    ).toThrow(/loopback/);
   });
 
   it('rejects an oversized HTTP body before the SDK or runtime sees it', async () => {
@@ -108,7 +117,9 @@ describe('loopback MCP HTTP host', () => {
     let runtimeSignal: AbortSignal | undefined;
     session.invokeRuntimeTool.mockImplementation(async (_name, _parameters, options) => {
       runtimeSignal = options.signal;
-      await new Promise<void>((resolve) => options.signal.addEventListener('abort', resolve, { once: true }));
+      await new Promise<void>((resolve) =>
+        options.signal.addEventListener('abort', resolve, { once: true }),
+      );
       return { success: false, error: 'cancelled' };
     });
     const host = createMcpHttpHost({ name: 'robota', version: '1', session });
@@ -116,7 +127,10 @@ describe('loopback MCP HTTP host', () => {
     const client = await connect(endpoint.url, endpoint.token, true);
     try {
       const controller = new AbortController();
-      const call = client.callTool({ name: schema.name, arguments: {} }, { signal: controller.signal });
+      const call = client.callTool(
+        { name: schema.name, arguments: {} },
+        { signal: controller.signal },
+      );
       await vi.waitFor(() => expect(runtimeSignal).toBeDefined());
       controller.abort();
       await expect(call).rejects.toThrow();
@@ -130,9 +144,12 @@ describe('loopback MCP HTTP host', () => {
   it('does not open a listener after stop wins pending catalog validation', async () => {
     const session = fixture();
     let release: (() => void) | undefined;
-    session.listRuntimeTools.mockImplementation(() => new Promise((resolve) => {
-      release = () => resolve([schema]);
-    }));
+    session.listRuntimeTools.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = () => resolve([schema]);
+        }),
+    );
     const host = createMcpHttpHost({ name: 'robota', version: '1', session });
     const start = host.start();
     await vi.waitFor(() => expect(release).toBeDefined());

@@ -4,6 +4,7 @@ import { createTestInteractiveSession } from '@robota-sdk/agent-interface-sessio
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createAgentMcpServer } from '../mcp-server.js';
 import type { IMcpTransportSession } from '../mcp-session.js';
+import type { IMcpSubmitToolIdentity } from '../mcp-tool-surface.js';
 
 const schema = {
   name: 'robota_command_help',
@@ -22,8 +23,16 @@ const clients: Client[] = [];
 afterEach(async () => {
   await Promise.all(clients.splice(0).map((client) => client.close()));
 });
-async function connect(session: IMcpTransportSession = sessions()) {
-  const server = await createAgentMcpServer({ name: 'test', version: '1', session });
+async function connect(
+  session: IMcpTransportSession = sessions(),
+  submitTool?: IMcpSubmitToolIdentity,
+) {
+  const server = await createAgentMcpServer({
+    name: 'test',
+    version: '1',
+    session,
+    ...(submitTool ? { submitTool } : {}),
+  });
   const [peer, host] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'test-client', version: '1' });
   clients.push(client);
@@ -32,6 +41,33 @@ async function connect(session: IMcpTransportSession = sessions()) {
 }
 
 describe('canonical MCP runtime tools', () => {
+  it('does not publish a product-named submit tool for a neutral host', async () => {
+    const client = await connect();
+    const tools = (await client.listTools()).tools;
+    expect(tools.map((tool) => tool.name)).toContain('agent_submit');
+    expect(tools.map((tool) => tool.name)).not.toContain('robota_submit');
+    expect(
+      await client.callTool({ name: 'agent_submit', arguments: { prompt: 'hello' } }),
+    ).toMatchObject({
+      content: [{ type: 'text', text: '' }],
+    });
+  });
+
+  it('uses the host-selected submission identity without changing invocation', async () => {
+    const client = await connect(sessions(), {
+      name: 'robota_submit',
+      description: 'Robota extension: submit a prompt to the agent and await its own turn',
+    });
+    const tools = (await client.listTools()).tools;
+    expect(tools.map((tool) => tool.name)).toContain('robota_submit');
+    expect(tools.map((tool) => tool.name)).not.toContain('agent_submit');
+    expect(
+      await client.callTool({ name: 'robota_submit', arguments: { prompt: 'hello' } }),
+    ).toMatchObject({
+      content: [{ type: 'text', text: '' }],
+    });
+  });
+
   it('serves the catalog, invocation, and submit through only the declared port', async () => {
     const full = createTestInteractiveSession();
     const port: IMcpTransportSession = {
@@ -43,12 +79,14 @@ describe('canonical MCP runtime tools', () => {
     const client = await connect(port);
     expect((await client.listTools()).tools.map((tool) => tool.name)).toEqual([
       schema.name,
-      'robota_submit',
+      'agent_submit',
     ]);
     expect(await client.callTool({ name: schema.name, arguments: {} })).toMatchObject({
       isError: false,
     });
-    expect(await client.callTool({ name: 'robota_submit', arguments: { prompt: 'hello' } })).toMatchObject({
+    expect(
+      await client.callTool({ name: 'agent_submit', arguments: { prompt: 'hello' } }),
+    ).toMatchObject({
       content: [{ type: 'text', text: '' }],
     });
   });
@@ -57,7 +95,7 @@ describe('canonical MCP runtime tools', () => {
     const client = await connect();
     expect((await client.listTools()).tools).toEqual([
       { name: schema.name, description: schema.description, inputSchema: schema.parameters },
-      expect.objectContaining({ name: 'robota_submit' }),
+      expect.objectContaining({ name: 'agent_submit' }),
     ]);
     expect(client.getServerCapabilities()).toEqual({ tools: {} });
   });
@@ -105,11 +143,38 @@ describe('canonical MCP runtime tools', () => {
         name: 'test',
         version: '1',
         session: sessions({
+          listRuntimeTools: vi.fn().mockResolvedValue([{ ...schema, name: 'agent_submit' }]),
+        }),
+      }),
+    ).rejects.toThrow(/reserved/i);
+  });
+
+  it('reserves the host-selected submission name against runtime tools', async () => {
+    await expect(
+      createAgentMcpServer({
+        name: 'test',
+        version: '1',
+        submitTool: { name: 'robota_submit', description: 'Product submission' },
+        session: sessions({
           listRuntimeTools: vi.fn().mockResolvedValue([{ ...schema, name: 'robota_submit' }]),
         }),
       }),
     ).rejects.toThrow(/reserved/i);
   });
+
+  it.each(['', 'bad name', 'bad,name', '이름', 'x'.repeat(129)])(
+    'rejects an incompatible host-selected submission name %j',
+    async (name) => {
+      await expect(
+        createAgentMcpServer({
+          name: 'test',
+          version: '1',
+          session: sessions(),
+          submitTool: { name, description: 'Host submission' },
+        }),
+      ).rejects.toThrow(/submit tool name/i);
+    },
+  );
 
   it('rejects duplicate names and non-object schemas before accepting a carrier', async () => {
     for (const catalog of [[schema, schema], [{ ...schema, parameters: { type: 'string' } }]]) {
@@ -135,7 +200,7 @@ describe('canonical MCP runtime tools', () => {
     const base = createTestInteractiveSession();
     const session = sessions({ submit: vi.fn(base.submit), abort: vi.fn(), cancelQueue: vi.fn() });
     const client = await connect(session);
-    await client.callTool({ name: 'robota_submit', arguments: { prompt: 'hello' } });
+    await client.callTool({ name: 'agent_submit', arguments: { prompt: 'hello' } });
     expect(session.submit).toHaveBeenCalledWith('hello', undefined, undefined, {
       signal: expect.any(AbortSignal),
     });
@@ -146,7 +211,7 @@ describe('canonical MCP runtime tools', () => {
   it('rechecks catalog mutations and fails visibly on a later collision', async () => {
     const session = sessions();
     const client = await connect(session);
-    session.listRuntimeTools.mockResolvedValue([{ ...schema, name: 'robota_submit' }]);
+    session.listRuntimeTools.mockResolvedValue([{ ...schema, name: 'agent_submit' }]);
     await expect(client.listTools()).rejects.toThrow(/reserved/i);
     expect(await client.callTool({ name: schema.name })).toMatchObject({ isError: true });
     expect(session.invokeRuntimeTool).not.toHaveBeenCalled();
@@ -156,9 +221,9 @@ describe('canonical MCP runtime tools', () => {
     const session = sessions({ submit: vi.fn() });
     const client = await connect(session);
     for (const prompt of [123, '', null]) {
-      expect(await client.callTool({ name: 'robota_submit', arguments: { prompt } })).toMatchObject(
-        { isError: true },
-      );
+      expect(await client.callTool({ name: 'agent_submit', arguments: { prompt } })).toMatchObject({
+        isError: true,
+      });
     }
     expect(session.submit).not.toHaveBeenCalled();
   });
