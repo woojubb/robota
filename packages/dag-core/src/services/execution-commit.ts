@@ -184,13 +184,10 @@ export function decideExecutionCommit(
         },
       };
     }
-    const occupied = tasks.reduce(
-      (sum, sibling) =>
-        sum +
-        (sibling.status === 'success' ? (sibling.estimatedCredits ?? 0) : 0) +
-        (sibling.reservedCredits ?? 0),
-      0,
-    );
+    const charged = committedCreditTotal(tasks);
+    if (!charged.ok) return { result: { ...rejected.result, error: charged.error } };
+    const occupied =
+      charged.value + tasks.reduce((sum, sibling) => sum + (sibling.reservedCredits ?? 0), 0);
     if (occupied + credits > runCreditLimit) {
       return {
         result: {
@@ -241,6 +238,11 @@ export function decideExecutionCommit(
       mutation.estimatedCredits !== task.reservedCredits)
   )
     return rejected;
+  const charged =
+    mutation.status === 'success' && task.reservedCredits !== undefined
+      ? committedCreditTotal(tasks)
+      : undefined;
+  if (charged && !charged.ok) return { result: { ...rejected.result, error: charged.error } };
   const retry = mutation.status === 'failed' && mutation.reserveRetry === true;
   const retryTransition = retry
     ? TaskRunStateMachine.transition(transition.value.nextStatus, 'RETRY')
@@ -263,16 +265,42 @@ export function decideExecutionCommit(
       ? mutation.totalCredits === undefined
         ? {}
         : { totalCredits: mutation.totalCredits }
-      : {
-          totalCredits:
-            tasks.reduce(
-              (sum, sibling) =>
-                sum + (sibling.status === 'success' ? (sibling.estimatedCredits ?? 0) : 0),
-              0,
-            ) + task.reservedCredits,
-        }),
+      : { totalCredits: charged!.value + task.reservedCredits }),
   };
   return { taskRun, result: { applied: true, runStatus: run.status, taskRun } };
+}
+
+/** Use the larger of known charges and persisted cumulative totals as the historic floor. */
+function committedCreditTotal(tasks: readonly ITaskRun[]): TResult<number, IDagError> {
+  let estimatedTotal = 0;
+  let cumulativeFloor = 0;
+  for (const task of tasks) {
+    if (task.status !== 'success') continue;
+    if (task.totalCredits !== undefined) {
+      if (!Number.isFinite(task.totalCredits) || task.totalCredits < 0)
+        return ambiguousCreditHistory(task);
+      cumulativeFloor = Math.max(cumulativeFloor, task.totalCredits);
+    }
+    if (task.estimatedCredits === undefined && task.totalCredits === undefined)
+      return ambiguousCreditHistory(task);
+    if (task.estimatedCredits !== undefined) {
+      if (!Number.isFinite(task.estimatedCredits) || task.estimatedCredits < 0)
+        return ambiguousCreditHistory(task);
+      estimatedTotal += task.estimatedCredits;
+    }
+  }
+  return { ok: true, value: Math.max(estimatedTotal, cumulativeFloor) };
+}
+
+function ambiguousCreditHistory(task: ITaskRun): TResult<never, IDagError> {
+  return {
+    ok: false,
+    error: buildValidationError(
+      'DAG_VALIDATION_CREDIT_HISTORY_AMBIGUOUS',
+      'Prior task credits cannot be accounted for safely',
+      { taskRunId: task.taskRunId },
+    ),
+  };
 }
 
 /** A completed frontier can still have runnable nodes that a concurrent dispatcher has not admitted. */

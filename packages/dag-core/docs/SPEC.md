@@ -186,7 +186,9 @@ A live root invocation may carry one trusted shared snapshot authority through e
 bounding cumulative input and output bytes across run and task snapshots, and a separate credit
 reservation authority that counts pending sibling estimates against the root's cost limit. Neither
 authority is reconstructed from a child definition or a persisted task counter; persisted task
-totals remain scoped to their own DAG, and snapshot host policy is never deserialized from workflow
+totals remain scoped to their own DAG; a stored cumulative total remains the floor for later
+reservations when an older successful task lacks an individual estimate, while a success with no
+cost evidence closes credit admission. Snapshot host policy is never deserialized from workflow
 data. Every accepted snapshot write consumes its
 full size permanently — this is cumulative admission, not retained-size accounting, and a committed
 write is never refunded even if downstream work later fails. Encoding stops before a complete

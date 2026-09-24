@@ -82,6 +82,119 @@ async function fixture(
 }
 
 describe.each(['memory', 'file', 'sqlite'])('%s execution arbitration', (kind) => {
+  it('does not admit against a legacy success whose cumulative cost lacks an estimate', async () => {
+    const { storage, reopen } = await fixture(kind, true);
+    await storage.createTaskRun({
+      taskRunId: 'legacy',
+      dagRunId: 'run',
+      nodeId: 'legacy',
+      status: 'success',
+      attempt: 1,
+      totalCredits: 0.8,
+    });
+    const result = await storage.commitExecution('run', {
+      kind: 'reserve-credits',
+      taskRunId: 'task',
+      attempt: 1,
+      leaseOwner: 'worker',
+      estimatedCredits: 0.6,
+    });
+    expect(result).toMatchObject({
+      applied: false,
+      error: { code: 'DAG_VALIDATION_CREDIT_LIMIT_EXCEEDED' },
+    });
+    expect((await reopen().getTaskRun('task'))?.reservedCredits).toBeUndefined();
+    expect((await reopen().getTaskRun('legacy'))?.totalCredits).toBe(0.8);
+  });
+  it('carries a legacy cumulative floor into a new successful charge', async () => {
+    const { storage, reopen } = await fixture(kind, true);
+    await storage.createTaskRun({
+      taskRunId: 'legacy',
+      dagRunId: 'run',
+      nodeId: 'legacy',
+      status: 'success',
+      attempt: 1,
+      totalCredits: 0.2,
+    });
+    expect(
+      (
+        await storage.commitExecution('run', {
+          kind: 'reserve-credits',
+          taskRunId: 'task',
+          attempt: 1,
+          leaseOwner: 'worker',
+          estimatedCredits: 0.6,
+        })
+      ).applied,
+    ).toBe(true);
+    expect(
+      (
+        await storage.commitExecution('run', {
+          kind: 'settle',
+          taskRunId: 'task',
+          attempt: 1,
+          leaseOwner: 'worker',
+          status: 'success',
+          outputSnapshot: '{}',
+          estimatedCredits: 0.6,
+        })
+      ).applied,
+    ).toBe(true);
+    expect((await reopen().getTaskRun('task'))?.totalCredits).toBe(0.8);
+  });
+  it('fails closed when a legacy success has no cost evidence', async () => {
+    const { storage } = await fixture(kind, true);
+    await storage.createTaskRun({
+      taskRunId: 'legacy',
+      dagRunId: 'run',
+      nodeId: 'legacy',
+      status: 'success',
+      attempt: 1,
+    });
+    expect(
+      await storage.commitExecution('run', {
+        kind: 'reserve-credits',
+        taskRunId: 'task',
+        attempt: 1,
+        leaseOwner: 'worker',
+        estimatedCredits: 0.1,
+      }),
+    ).toMatchObject({ applied: false, error: { code: 'DAG_VALIDATION_CREDIT_HISTORY_AMBIGUOUS' } });
+  });
+  it('does not count a failed task cumulative total as a successful charge', async () => {
+    const { storage } = await fixture(kind, true);
+    await storage.createTaskRun({
+      taskRunId: 'sibling',
+      dagRunId: 'run',
+      nodeId: 'sibling',
+      status: 'running',
+      attempt: 1,
+      leaseOwner: 'worker-2',
+    });
+    expect(
+      (
+        await storage.commitExecution('run', {
+          kind: 'settle',
+          taskRunId: 'task',
+          attempt: 1,
+          leaseOwner: 'worker',
+          status: 'failed',
+          totalCredits: 0.9,
+        })
+      ).applied,
+    ).toBe(true);
+    expect(
+      (
+        await storage.commitExecution('run', {
+          kind: 'reserve-credits',
+          taskRunId: 'sibling',
+          attempt: 1,
+          leaseOwner: 'worker-2',
+          estimatedCredits: 0.6,
+        })
+      ).applied,
+    ).toBe(true);
+  });
   it('atomically admits only one parallel sibling credit hold and releases it on failure', async () => {
     const { storage, reopen } = await fixture(kind, true);
     await storage.createTaskRun({
