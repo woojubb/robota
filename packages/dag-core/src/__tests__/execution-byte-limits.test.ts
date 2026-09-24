@@ -48,3 +48,14 @@ it('retains the template default for older hosts and snapshots a tighter policy'
   source.maxTextTemplateOutputBytes = 1;
   expect(resolved.maxTextTemplateOutputBytes).toBe(0);
 });
+
+it.each(['maxTextJoinOutputBytes', 'maxTextSplitOutputBytes'] as const)('rejects malformed %s host policy and retains the default for older hosts', (name) => {
+  for (const value of [NaN, Infinity, -1, 0.5, 4_194_305, null, undefined]) {
+    expect(() => resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1, [name]: value })).toThrow(RangeError);
+  }
+  expect(resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1 })[name]).toBe(4_194_304);
+  const source = { maxTextRepeatOutputBytes: 1, [name]: 0 };
+  const resolved = resolveDagExecutionByteLimits(source);
+  source[name] = 1;
+  expect(resolved[name]).toBe(0);
+});
