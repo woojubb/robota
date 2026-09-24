@@ -609,6 +609,38 @@ describe('ToolExecutionService', () => {
         );
       });
 
+      // Consistency with the unknown-tool path (tool-execution-service.ts: CALL_ERROR is emitted
+      // there too), so a listener watching per-call events sees every call fail or succeed exactly
+      // once — decode failures included, not only the ones that reached the tool.
+      it('emits TOOL_EVENTS.CALL_ERROR on the request event service for a decode failure', async () => {
+        const executeTool = vi.fn().mockResolvedValue('ok');
+        const tools = createMockToolManager({ executeTool });
+        const service = new ToolExecutionService(tools, createMockLogger());
+        const eventService = createMockEventService();
+
+        await service.executeTools({
+          requests: [
+            createRequest({
+              executionId: 's1',
+              ownerId: 's1',
+              eventService,
+              argumentDecodeError: 'Failed to parse arguments for tool "batch-tool" (call s1): invalid JSON',
+            }),
+          ],
+          mode: 'sequential',
+          continueOnError: true,
+        });
+
+        expect(eventService.emit).toHaveBeenCalledWith(
+          TOOL_EVENTS.CALL_ERROR,
+          expect.objectContaining({
+            toolName: 'batch-tool',
+            error: 'Failed to parse arguments for tool "batch-tool" (call s1): invalid JSON',
+          }),
+        );
+        expect(executeTool).not.toHaveBeenCalled();
+      });
+
       it('should continue on error when continueOnError is true', async () => {
         const tools = createMockToolManager({
           executeTool: vi

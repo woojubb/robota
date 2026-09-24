@@ -189,4 +189,33 @@ describe('Issue #2875 — malformed tool-call arguments are isolated within a ba
       await agent.destroy();
     }
   });
+
+  it('reports the decode error instead of an empty-object placeholder on the tool_execution_request replay event', async () => {
+    const tool = new SearchTool();
+    const { provider } = createRawToolCallProvider([
+      [{ id: 'call_bad', type: 'function', function: { name: 'search', arguments: '[1]' } }],
+      { text: 'done' },
+    ]);
+    const agent = buildAgent(provider, tool);
+    const events: Array<{ event: string; data: Record<string, unknown> }> = [];
+
+    try {
+      await agent.run('go', {
+        onExecutionEvent: (event, data) => {
+          events.push({ event, data });
+        },
+      });
+
+      const requestEvent = events.find(
+        (e) => e.event === 'tool_execution_request' && e.data['toolCallId'] === 'call_bad',
+      );
+      expect(requestEvent).toBeDefined();
+      // Not the placeholder `{}` reported as if it were the call's real (empty) arguments.
+      expect(requestEvent?.data['parameters']).toEqual({
+        argumentDecodeError: expect.stringContaining('call_bad') as unknown as string,
+      });
+    } finally {
+      await agent.destroy();
+    }
+  });
 });

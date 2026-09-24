@@ -1,8 +1,9 @@
 import { ValidationError } from '../utils/errors';
 
-import { ARGUMENT_DECODE_ERROR_CODE } from './tool-execution-constants';
+import { ARGUMENT_DECODE_ERROR_CODE, TOOL_EVENTS } from './tool-execution-constants';
 
 import type { IToolExecutionBatchContext } from './tool-execution-batch-types';
+import type { IToolEventData } from '../interfaces/event-service';
 import type { IToolExecutionRequest } from '../interfaces/service';
 import type {
   IToolExecutionResult,
@@ -103,13 +104,26 @@ function createErrorResult(request: IToolExecutionRequest, error: Error): IToolE
  * the same way an unknown tool name is refused inside `ToolExecutionService.executeTool` — as a
  * normal failed result for this one request, never as a thrown error that would abort the batch.
  * `executor.executeTool` is never called, so the tool never sees the placeholder `parameters`.
+ *
+ * Emits `TOOL_EVENTS.CALL_ERROR` on the request's own event service, the same way the unknown-tool
+ * path does — a listener watching per-call events must see EVERY call fail or succeed exactly once,
+ * decode failures included, not just the ones that reached the tool.
  */
 function createArgumentDecodeErrorResult(request: IToolExecutionRequest): IToolExecutionResult {
+  const error = request.argumentDecodeError;
+  if (request.eventService && error !== undefined) {
+    const errorEvent: IToolEventData = {
+      timestamp: new Date(),
+      toolName: request.toolName,
+      error,
+    };
+    request.eventService.emit(TOOL_EVENTS.CALL_ERROR, errorEvent);
+  }
   return {
     toolName: request.toolName,
     result: null,
     success: false,
-    error: request.argumentDecodeError,
+    error,
     executionId: request.executionId,
     metadata: { errorCode: ARGUMENT_DECODE_ERROR_CODE, requestedTool: request.toolName },
   };

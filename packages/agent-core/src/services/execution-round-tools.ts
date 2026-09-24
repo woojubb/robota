@@ -131,7 +131,13 @@ export async function executeAndRecordToolCalls(
       index,
       toolName: request.toolName,
       toolCallId: request.executionId,
-      parameters: request.parameters,
+      // Issue #2875: `request.parameters` is a placeholder ({}) when the call's arguments failed to
+      // decode — reporting it unchanged would misrepresent a malformed call as one that ran with no
+      // arguments. Report the decode error instead; the field stays a record either way.
+      parameters:
+        request.argumentDecodeError !== undefined
+          ? { argumentDecodeError: request.argumentDecodeError }
+          : request.parameters,
       ownerPath: request.ownerPath,
     } as TExecutionEventData);
   });
