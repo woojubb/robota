@@ -71,6 +71,33 @@ describe('supervised session control', () => {
     }
   });
 
+  it('reports a waiting loop time only for a verified idle session', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-lw-'));
+    const root = join(scratch, 'supervised');
+    let activity: 'idle' | 'working' = 'idle';
+    let nextLoopAt = '2030-01-01T00:10:00.000Z';
+    const control = await startSupervisedControl(
+      ID, () => undefined, root, () => activity, undefined, () => nextLoopAt,
+    );
+    try {
+      expect(await listSupervisedSessions(root)).toEqual([{
+        id: ID, liveness: 'alive', control: 'available', activity: 'idle', nextLoopAt,
+      }]);
+      activity = 'working';
+      expect(await listSupervisedSessions(root)).toEqual([{
+        id: ID, liveness: 'alive', control: 'available', activity: 'working',
+      }]);
+      activity = 'idle';
+      nextLoopAt = 'not-a-time';
+      expect(await listSupervisedSessions(root)).toEqual([{
+        id: ID, liveness: 'alive', control: 'available', activity: 'idle',
+      }]);
+    } finally {
+      await control.close();
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
   it('keeps activity unknown when the live process control reply cannot be verified', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-lost-'));
     const root = join(scratch, 'supervised');

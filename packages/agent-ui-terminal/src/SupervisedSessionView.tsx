@@ -12,6 +12,7 @@ export interface ISupervisedViewRow {
   readonly liveness: 'alive' | 'dead' | 'unknown';
   readonly control: 'available' | 'unavailable';
   readonly activity: 'working' | 'needs-input' | 'idle' | 'unknown';
+  readonly nextLoopAt?: string;
   readonly problem?: 'invalid-registration';
 }
 
@@ -44,8 +45,16 @@ function sameRows(a: readonly ISupervisedViewRow[], b: readonly ISupervisedViewR
   return a.length === b.length && a.every((row, index) => {
     const other = b[index];
     return other !== undefined && row.id === other.id && row.liveness === other.liveness &&
-      row.control === other.control && row.activity === other.activity && row.problem === other.problem;
+      row.control === other.control && row.activity === other.activity && row.problem === other.problem &&
+      row.nextLoopAt === other.nextLoopAt;
   });
+}
+
+function loopWaitLabel(nextLoopAt: string, observedAtMs: number): string {
+  const remaining = Date.parse(nextLoopAt) - observedAtMs;
+  if (!Number.isFinite(remaining)) return '';
+  if (remaining <= 0) return 'loop eligible now';
+  return remaining < 60_000 ? 'loop eligible in <1m' : `loop eligible in ${Math.ceil(remaining / 60_000)}m`;
 }
 
 export default function SupervisedSessionView({
@@ -59,6 +68,7 @@ export default function SupervisedSessionView({
   const { stdout } = useStdout();
   const screenReader = useScreenReader();
   const [rows, setRows] = useState<readonly ISupervisedViewRow[]>([]);
+  const [observedAtMs, setObservedAtMs] = useState(Date.now);
   const [status, setStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [showHelp, setShowHelp] = useState(false);
@@ -89,7 +99,10 @@ export default function SupervisedSessionView({
       try {
         const next = sortedRows(await loadRows(controller.signal));
         if (!mounted || controller.signal.aborted) return;
+        const nowMs = Date.now();
         setRows((previous) => sameRows(previous, next) ? previous : next);
+        setObservedAtMs((previous) => next.some((row) => row.nextLoopAt !== undefined &&
+          loopWaitLabel(row.nextLoopAt, previous) !== loopWaitLabel(row.nextLoopAt, nowMs)) ? nowMs : previous);
         setStatus('ready');
       } catch {
         if (mounted && !controller.signal.aborted) setStatus('unavailable');
@@ -179,12 +192,18 @@ export default function SupervisedSessionView({
     onCancel: () => { if (!stoppingRef.current) exit(); },
   });
 
+  const selectedRow = ordered.find((row) => row.id === selectedId);
+  const selectedLoopStatus = status === 'ready' && selectedRow?.liveness === 'alive' &&
+    selectedRow.control === 'available' && selectedRow.activity === 'idle' && selectedRow.nextLoopAt
+    ? loopWaitLabel(selectedRow.nextLoopAt, observedAtMs) : '';
+
   const height = Math.max(8, stdout.rows ?? 24);
   // Reserve all fixed chrome plus both possible overflow indicators before choosing row lines.
   const helpVisible = showHelp && confirmStopId === undefined && stopStatus !== 'stopping';
   const fixedLines = 2 + (stateFilter === undefined ? 0 : 1)
     + (status === 'loading' || status === 'unavailable' || (status === 'ready' && ordered.length === 0) ? 1 : 0)
     + (selectedId === undefined ? 0 : 1)
+    + (selectedLoopStatus ? 1 : 0)
     + (confirmStopId !== undefined ? (screenReader ? 1 : 2) : stopStatus !== 'idle' ? 1 : 0)
     + 1 + (helpVisible ? 10 : 0) + 2;
   const viewport = Math.max(1, height - fixedLines);
@@ -223,11 +242,15 @@ export default function SupervisedSessionView({
         : <Text key={`row-${line.row.id}`} {...(screenReader ? {} : { wrap: 'truncate-end' as const })}>
           {screenReader ? numberedRowPrefix(line.index) : line.row.id === selectedId ? '> ' : '  '}
           {line.row.id}  activity {line.row.activity}  liveness {line.row.liveness}  control {line.row.control}
+          {status === 'ready' && line.row.liveness === 'alive' && line.row.control === 'available' &&
+            line.row.activity === 'idle' && line.row.nextLoopAt
+            ? `  ${loopWaitLabel(line.row.nextLoopAt, observedAtMs)}` : ''}
           {line.row.problem ? `  ${line.row.problem}` : ''}
         </Text>)}
       {!screenReader && start + visible.length < displayLines.length &&
         <Text>{displayLines.length - start - visible.length} more below</Text>}
       {selectedId !== undefined && <Text {...chromeWrap}>Selected {selectedId}</Text>}
+      {selectedLoopStatus && <Text {...chromeWrap}>{selectedLoopStatus}</Text>}
       {confirmStopId !== undefined && (screenReader
         ? <Text>Stop {confirmStopId}? y Yes / n No</Text>
         : <>
