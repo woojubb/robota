@@ -55,6 +55,12 @@ describe('parseMaxTurns', () => {
 });
 
 describe('parseCliArgs', () => {
+  it('accepts a bounded supervised session identity only in serve mode', () => {
+    const id = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
+    expect(parseCliArgs(['--serve', '--supervised-session-id', id]).supervisedSessionId).toBe(id);
+    expect(() => parseCliArgs(['--supervised-session-id', id])).toThrow(/serve/i);
+    expect(() => parseCliArgs(['--serve', '--supervised-session-id', '../escape'])).toThrow(/supervised-session-id/i);
+  });
   let originalArgv: string[];
 
   beforeEach(() => {

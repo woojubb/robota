@@ -6,6 +6,7 @@ import { admitLocalPeerDirectory } from '@robota-sdk/agent-remote-pairing/local'
 import { listPeers } from '../remote-control/local-peer-registry.js';
 import { resolveRendezvousDirectory } from '../remote-control/local-peer-rendezvous.js';
 import { userPaths } from '../product/user-paths.js';
+import { listSupervisedSessions } from './supervised-session-control.js';
 
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
@@ -144,16 +145,44 @@ export function executeSessionListCommand(
   }
 }
 
-export function runSessionListCommand(
+export async function runSessionListCommand(
   argv: readonly string[],
   projectSessionStore?: IInteractiveSessionStore,
-): number {
+): Promise<number> {
   const result = executeSessionListCommand(argv, {
     userSessionStore: createUserSessionStore(userPaths().sessions),
     ...(projectSessionStore ? { projectSessionStore } : {}),
     readPeers: readLocalPeersForInventory,
   });
-  if (result.stdout) process.stdout.write(result.stdout);
+  if (argv.length === 1 && (argv[0] === '--help' || argv[0] === '-h')) {
+    process.stdout.write(result.stdout);
+    return result.exitCode;
+  }
+  if (!result.stdout) {
+    if (result.stderr) process.stderr.write(result.stderr);
+    return result.exitCode;
+  }
+  let supervised: { status: 'available' | 'unavailable'; sessions: Awaited<ReturnType<typeof listSupervisedSessions>> };
+  try {
+    supervised = { status: 'available', sessions: await listSupervisedSessions() };
+  } catch {
+    supervised = { status: 'unavailable', sessions: [] };
+  }
+  const format = argv[1] === 'json' ? 'json' : 'text';
+  if (format === 'json') {
+    const base = JSON.parse(result.stdout) as Record<string, unknown>;
+    process.stdout.write(`${JSON.stringify({ ...base, supervised })}\n`);
+  } else {
+    const rows = supervised.status === 'unavailable'
+      ? '  (unavailable)'
+      : supervised.sessions.length === 0
+        ? '  (none)'
+        : supervised.sessions.map((row) => `  ${row.id}  liveness ${row.liveness}  control ${row.control}${row.problem ? `  ${row.problem}` : ''}`).join('\n');
+    process.stdout.write(`${result.stdout}Supervised sessions (owned, not linked to peers or saved records):\n${rows}\n`);
+  }
   if (result.stderr) process.stderr.write(result.stderr);
-  return result.exitCode;
+  if (supervised.status === 'unavailable') {
+    process.stderr.write('Supervised session discovery is unavailable.\n');
+  }
+  return result.exitCode || (supervised.status === 'unavailable' ? 1 : 0);
 }
