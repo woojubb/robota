@@ -5,6 +5,8 @@ import { executeWorkflowsValidate } from './validate-command.js';
 import { executeWorkflowsCreate } from './create-command.js';
 import { executeWorkflowsBuild } from './build-command.js';
 import { renderWorkflowsUsage, WORKFLOWS_SUBCOMMANDS } from './subcommands.js';
+import { DetachedWorkflowRuns } from './detached-runs.js';
+import { parseFileArg } from './args.js';
 
 import { DEFAULT_WORKSPACE_LAYOUT, type IWorkspaceLayout } from '@robota-sdk/dag-core';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
@@ -75,6 +77,8 @@ async function executeWorkflowsCommand(
   providerDefinitions: readonly IProviderDefinition[],
   project: IWorkflowProject | undefined,
   settingsSources: readonly TSettingsSource[] | undefined,
+  detachedRuns: DetachedWorkflowRuns,
+  allowDetachedRuns: boolean,
 ): Promise<ICommandResult> {
   const { sub, rest } = splitSubcommand(args);
 
@@ -125,7 +129,33 @@ async function executeWorkflowsCommand(
       case 'validate':
         return executeWorkflowsValidate(rest, requiredProject(), workspace, providerDefinitions);
       case 'run':
+        if (/\s+--detach$/.test(rest)) {
+          if (!allowDetachedRuns) {
+            return {
+              success: false,
+              message:
+                'Detached workflow runs are unavailable in print mode; run without --detach.',
+            };
+          }
+          const fileArgs = rest.replace(/\s+--detach$/, '');
+          const parsed = parseFileArg(fileArgs, 'run');
+          if (!parsed.ok) return { success: false, message: parsed.error };
+          return detachedRuns.start((signal) =>
+            executeWorkflowsRun(
+              fileArgs,
+              requiredProject(),
+              workspace,
+              providerDefinitions,
+              undefined,
+              signal,
+            ),
+          );
+        }
         return executeWorkflowsRun(rest, requiredProject(), workspace, providerDefinitions);
+      case 'status':
+        return detachedRuns.status(rest);
+      case 'cancel':
+        return detachedRuns.cancel(rest);
       default:
         return { success: false, message: `Unknown subcommand "${sub}".\n${USAGE}` };
     }
@@ -156,6 +186,8 @@ function createWorkflowsSystemCommand(
   providerDefinitions: readonly IProviderDefinition[],
   project: IWorkflowProject | undefined,
   settingsSources: readonly TSettingsSource[] | undefined,
+  allowDetachedRuns: boolean,
+  getDetachedRuns: (host: ICommandHostWorkspace) => DetachedWorkflowRuns,
 ): ISystemCommand {
   const entry = createWorkflowsCommandEntry();
   return {
@@ -176,6 +208,8 @@ function createWorkflowsSystemCommand(
         providerDefinitions,
         project,
         settingsSources,
+        getDetachedRuns(context),
+        allowDetachedRuns,
       ),
   };
 }
@@ -198,6 +232,8 @@ export interface IWorkflowsCommandModuleDeps {
   readonly project?: IWorkflowProject;
   /** Explicit settings layers used by workflow authoring provider resolution. */
   readonly settingsSources?: readonly TSettingsSource[];
+  /** Disable detach in one-shot hosts that cannot accept a later status or cancel command. */
+  readonly allowDetachedRuns?: boolean;
 }
 
 export function createWorkflowsCommandModule(
@@ -205,8 +241,18 @@ export function createWorkflowsCommandModule(
 ): ICommandModule {
   const workspace = deps.workspace ?? DEFAULT_WORKSPACE_LAYOUT;
   const providerDefinitions = deps.providerDefinitions ?? [];
+  const runsByHost = new WeakMap<ICommandHostWorkspace, DetachedWorkflowRuns>();
+  const getDetachedRuns = (host: ICommandHostWorkspace): DetachedWorkflowRuns => {
+    let runs = runsByHost.get(host);
+    if (!runs) {
+      runs = new DetachedWorkflowRuns();
+      runsByHost.set(host, runs);
+    }
+    return runs;
+  };
   return {
     name: 'agent-command-workflows',
+    shutdown: (host) => getDetachedRuns(host).shutdown(),
     commandSources: [new WorkflowsCommandSource()],
     systemCommands: [
       createWorkflowsSystemCommand(
@@ -214,6 +260,8 @@ export function createWorkflowsCommandModule(
         providerDefinitions,
         deps.project,
         deps.settingsSources,
+        deps.allowDetachedRuns ?? true,
+        getDetachedRuns,
       ),
     ],
   };

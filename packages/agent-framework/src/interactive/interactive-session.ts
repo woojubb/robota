@@ -1231,6 +1231,7 @@ export class InteractiveSession
       this.execCtrl.clearPendingQueue();
       const session = this.session;
       session?.abort();
+      const moduleShutdownErrors = await this.skillRouter.shutdownModules();
       await this.runtimeTools.drain();
       await this.getBackgroundTaskManager()?.shutdown(options.message ?? 'Session shutdown');
       this.bgTracker.dispose();
@@ -1241,6 +1242,9 @@ export class InteractiveSession
       // fail-closed (the awaiting checkPermission/tool unblocks) rather than hanging on a cleared emitter.
       this.promptRegistry.drain();
       this.listeners.clear();
+      if (moduleShutdownErrors.length > 0) {
+        throw new AggregateError(moduleShutdownErrors, 'Command module shutdown failed');
+      }
     })();
     return this.shutdownPromise;
   }

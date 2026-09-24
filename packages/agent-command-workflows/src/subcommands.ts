@@ -55,7 +55,19 @@ export const WORKFLOWS_SUBCOMMANDS: readonly IWorkflowsSubcommand[] = [
   {
     name: 'run',
     description: 'Run a workflow file',
-    argumentHint: FILE_HINT,
+    argumentHint: `${FILE_HINT} [--detach]`,
+    modelInvocable: false,
+  },
+  {
+    name: 'status',
+    description: 'Inspect a detached run in this CLI session',
+    argumentHint: '<run-id>',
+    modelInvocable: false,
+  },
+  {
+    name: 'cancel',
+    description: 'Cancel an active detached run in this CLI session',
+    argumentHint: '<run-id>',
     modelInvocable: false,
   },
 ];

@@ -99,6 +99,34 @@ function createMockSessionStore(records: Record<string, unknown> = {}) {
 }
 
 describe('InteractiveSession', () => {
+  it('settles every command module shutdown and completes session teardown when one fails', async () => {
+    const mockSession = { ...createMockSession(), shutdown: vi.fn().mockResolvedValue(undefined) };
+    const stopped = vi.fn().mockResolvedValue(undefined);
+    const session = new InteractiveSession({
+      session: mockSession as never,
+      cwd: '/tmp',
+      commandModules: [
+        {
+          name: 'sync-failing',
+          shutdown: () => {
+            throw new Error('module stop failed');
+          },
+        },
+        {
+          name: 'async-failing',
+          shutdown: async () => {
+            throw new Error('late stop failure');
+          },
+        },
+        { name: 'working', shutdown: stopped },
+      ],
+    });
+    await expect(session.shutdown()).rejects.toThrow('Command module shutdown failed');
+    expect(stopped).toHaveBeenCalledOnce();
+    expect(mockSession.abort).toHaveBeenCalled();
+    expect(mockSession.shutdown).toHaveBeenCalledOnce();
+  });
+
   it('emits thinking and complete events on submit', async () => {
     const mockSession = createMockSession({ runResult: 'hello world' });
     const session = new InteractiveSession({

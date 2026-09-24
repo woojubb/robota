@@ -71,7 +71,8 @@ React/Ink UI.
   Model-facing identifiers remain consistent through prompt execution and child-tool filtering. SDK
   core ships no user-visible built-in commands; command packages (`agent-command-*`) contribute
   behavior through `ICommandModule`, consuming SDK command contracts and common APIs. The SDK does
-  not know command ids in advance.
+  not know command ids in advance; on session shutdown it settles every module's host-scoped work
+  before closing the session, even when another module's shutdown fails.
 
 ## Architecture position
 

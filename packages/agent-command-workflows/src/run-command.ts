@@ -42,6 +42,7 @@ export async function executeWorkflowsRun(
   workspace: IWorkspaceLayout = DEFAULT_WORKSPACE_LAYOUT,
   providerDefinitions: readonly IProviderDefinition[] = [],
   snapshotBudgetLimits?: ITaskSnapshotBudgetLimits,
+  signal?: AbortSignal,
 ): Promise<ICommandResult> {
   const parsedArgs = parseFileArg(argStr, 'run');
   if (!parsedArgs.ok) {
@@ -62,8 +63,13 @@ export async function executeWorkflowsRun(
   }
 
   // Shared workspace runtime: built-ins + any prompt/composite nodes saved under `<root>/nodes/`.
-  const { provider } = await createWorkspaceRuntime(project, workspace, providerDefinitions, snapshotBudgetLimits);
-  const result = await provider.execute(dag, {});
+  const { provider } = await createWorkspaceRuntime(
+    project,
+    workspace,
+    providerDefinitions,
+    snapshotBudgetLimits,
+  );
+  const result = await provider.execute(dag, {}, signal === undefined ? undefined : { signal });
   if (!result.ok) {
     return {
       success: false,

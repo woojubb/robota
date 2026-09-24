@@ -152,4 +152,13 @@ describe('slash-command smoke through print mode (CLI-074 TC-06)', () => {
     const envelope = JSON.parse(lastLine) as { type?: string; result?: string };
     expect(envelope.result ?? '').toContain('No plan is active.');
   }, 60_000);
+
+  it('refuses a detached workflow run before print mode exits', async () => {
+    const run = await runPrintJson('/workflows run missing.json --detach');
+    const lastLine = run.stdout.trim().split('\n').at(-1) ?? '{}';
+    const envelope = JSON.parse(lastLine) as { type?: string; result?: string };
+    expect(envelope.type).toBe('result');
+    expect(envelope.result).toContain('unavailable in print mode');
+    expect(envelope.result).not.toContain('Run ID:');
+  }, 60_000);
 });

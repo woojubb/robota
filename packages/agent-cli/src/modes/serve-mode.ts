@@ -48,7 +48,7 @@ import type {
 } from '@robota-sdk/agent-framework';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import type { ITransportLifecycleRegistryView } from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IInteractiveSession, ISessionLoopState } from '@robota-sdk/agent-interface-session';
 
 /** Preset-resolved identity/posture the thin-shell CLI forwards into the headless runtime session. */
 /**
@@ -218,6 +218,20 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
   };
 }
 
+export function nextWaitingLoopAt(loops: readonly ISessionLoopState[], nowMs: number): string | undefined {
+  let earliest: { at: string; millis: number } | undefined;
+  for (const loop of loops) {
+    if (loop.phase !== 'waiting' || loop.nextAllowedAt === undefined) continue;
+    const millis = Date.parse(loop.nextAllowedAt);
+    const expiry = Date.parse(loop.expiresAt);
+    if (!Number.isFinite(millis) || !Number.isFinite(expiry) ||
+      new Date(millis).toISOString() !== loop.nextAllowedAt ||
+      expiry <= nowMs || millis >= expiry) continue;
+    if (earliest === undefined || millis < earliest.millis) earliest = { at: loop.nextAllowedAt, millis };
+  }
+  return earliest?.at;
+}
+
 export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   const { args } = opts;
   const sessionOptions = buildServeSessionOptions(opts);
@@ -306,6 +320,8 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         opts.supervisedRoot,
         () => settling ? undefined : host.session.getLocalActivityStatus(),
         () => settling ? undefined : supervisedCwd,
+        () => settling || sessionOptions.disableSessionLoops
+          ? undefined : nextWaitingLoopAt(host.session.listSelfPacedLoops(), Date.now()),
       );
       if (settling) throw new Error('Supervised runtime stopped before readiness.');
       await acknowledgeSupervisedStartup(args.supervisedSessionId, readinessAbort.signal);
