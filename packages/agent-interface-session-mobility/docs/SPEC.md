@@ -61,5 +61,5 @@ become an authentication or authorization input.
 ## Non-goals
 
 - No handoff policy extension points; hosts supply effects, not authority decisions.
-- Declares no transport failure taxonomy; recoverable handoff failures are explicit outcomes, while
-  invalid local call order is a programming error.
+- Declares no transport failure taxonomy; protocol refusals are explicit outcomes, while failures
+  of host-supplied effects propagate without transferring source authority absent a durable ack.
