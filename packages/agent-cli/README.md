@@ -202,8 +202,9 @@ loopback collector (`127.0.0.1` or `[::1]`) only. The default `metrics` signal s
 **Gauge snapshot** of stored session/turn counts, tokens, estimated known USD cost, and unknown-cost
 counts to `/v1/metrics`. Repeated exports are snapshots, not new usage to add together. Select
 `--signal traces` to send recorded prompt-root, provider-call, and tool spans to `/v1/traces`, or
-`--signal logs` to send recorded content-free completion events to `/v1/logs`. These signals use
-stored records; they are not live tracing, and legacy records may lack span/event coverage. No signal
+`--signal logs` to send recorded content-free completion events to `/v1/logs`. Repeating a logs export
+can resend the same events; a collector may retain duplicates. These signals use stored records;
+they are not live tracing, and legacy records may lack span/event coverage. No signal
 exports prompt or tool bodies, credentials, or a remote destination. An unreadable stored session,
 collector rejection, or network error fails the command without reporting success.
 
