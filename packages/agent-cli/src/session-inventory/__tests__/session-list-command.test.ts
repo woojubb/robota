@@ -56,10 +56,14 @@ describe('read-only local session inventory', () => {
     try {
       process.env['HOME'] = home;
       process.env['XDG_RUNTIME_DIR'] = home;
-      control = await startSupervisedControl(id, () => undefined, resolveSupervisedDirectory(), () => 'needs-input');
+      control = await startSupervisedControl(
+        id, () => undefined, resolveSupervisedDirectory(), () => 'needs-input',
+        undefined, undefined, () => 'Private session name',
+      );
       expect(await runSessionListCommand(['--format', 'text'])).toBe(0);
       const text = output.mock.calls.map(([value]) => String(value)).join('');
       expect(text).toContain(`${id}  liveness alive  control available  activity needs-input`);
+      expect(text).not.toContain('Private session name');
       expect(text).not.toMatch(/prompt|token|transcript/i);
       output.mockClear();
       expect(await runSessionListCommand(['--format', 'json'])).toBe(0);
@@ -67,6 +71,7 @@ describe('read-only local session inventory', () => {
       expect(JSON.parse(json).supervised.sessions).toEqual([
         { id, liveness: 'alive', control: 'available', activity: 'needs-input' },
       ]);
+      expect(json).not.toContain('Private session name');
       expect(json).not.toMatch(/prompt|token|transcript/i);
     } finally {
       await control?.close();

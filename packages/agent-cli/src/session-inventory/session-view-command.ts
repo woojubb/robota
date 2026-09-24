@@ -4,13 +4,15 @@ import { renderSupervisedSessionView } from '@robota-sdk/agent-ui-terminal';
 
 import { resolveScreenReaderRenderFields } from '../startup/screen-reader-enablement.js';
 import { readUserSettingsOrExit } from '../startup/user-settings.js';
-import { listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession } from './supervised-session-control.js';
+import {
+  isSupervisedSessionName, listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession,
+} from './supervised-session-control.js';
 
 import type { TSettingsData } from '@robota-sdk/agent-framework';
 
 const VIEW_STATES = ['needs-input', 'working', 'idle', 'unknown', 'unverified', 'dead'] as const;
 type TViewState = typeof VIEW_STATES[number];
-const HELP = 'Usage: robota session view [--cwd <directory>] [--state <state>] [--screen-reader|--no-screen-reader]\n'
+const HELP = 'Usage: robota session view [--cwd <directory>] [--name <text>] [--state <state>] [--screen-reader|--no-screen-reader]\n'
   + `States: ${VIEW_STATES.join(', ')}\n`;
 
 function isViewState(value: string | undefined): value is TViewState {
@@ -37,6 +39,7 @@ export async function runSessionViewCommand(
   }
   let flag: boolean | undefined;
   let cwdArg: string | undefined;
+  let nameFilter: string | undefined;
   let stateFilter: TViewState | undefined;
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
@@ -45,6 +48,8 @@ export async function runSessionViewCommand(
       flag = arg === '--screen-reader';
     } else if (arg === '--cwd' && cwdArg === undefined && argv[index + 1] && !argv[index + 1]!.startsWith('--')) {
       cwdArg = argv[++index];
+    } else if (arg === '--name' && nameFilter === undefined && isSupervisedSessionName(argv[index + 1])) {
+      nameFilter = argv[++index];
     } else if (arg === '--state' && stateFilter === undefined && isViewState(argv[index + 1])) {
       stateFilter = argv[++index] as TViewState;
     } else {
@@ -74,9 +79,10 @@ export async function runSessionViewCommand(
   try {
     const root = options.root ?? resolveSupervisedDirectory();
     await (options.render ?? renderSupervisedSessionView)({
-      loadRows: (signal) => listSupervisedSessions(root, signal, { cwd }),
+      loadRows: (signal) => listSupervisedSessions(root, signal, { cwd, name: nameFilter, includeName: true }),
       onStop: (id) => (options.stop ?? stopSupervisedSession)(id, root),
       filteredByCwd: cwd !== undefined,
+      filteredByName: nameFilter !== undefined,
       stateFilter,
       screenReader: screenReader.screenReader,
       screenReaderChannel: screenReader.screenReaderChannel,

@@ -14,6 +14,8 @@ const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9
 const MAX_FRAME_BYTES = 4_096;
 const REQUEST_TIMEOUT_MS = 2_000;
 const MAX_ENTRIES = 256;
+const MAX_NAME_BYTES = 240;
+const NAME_CONTROLS = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
 
 interface IRegistration {
   readonly id: string;
@@ -32,12 +34,19 @@ function isLoopTime(value: unknown): value is string {
     new Date(value).toISOString() === value;
 }
 
+export function isSupervisedSessionName(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0 && value.length <= 80 &&
+    value.trim() === value && !NAME_CONTROLS.test(value) &&
+    Buffer.byteLength(value, 'utf8') <= MAX_NAME_BYTES;
+}
+
 export interface ISupervisedSessionRow {
   readonly id: string;
   readonly liveness: 'alive' | 'dead' | 'unknown';
   readonly control: 'available' | 'unavailable';
   readonly activity: TSupervisedActivity;
   readonly nextLoopAt?: string;
+  readonly name?: string;
   readonly problem?: 'invalid-registration';
 }
 
@@ -167,7 +176,7 @@ async function request(directory: string, id: string, command: 'status' | 'stop'
 export async function listSupervisedSessions(
   root = resolveSupervisedDirectory(),
   signal?: AbortSignal,
-  options: { readonly cwd?: string } = {},
+  options: { readonly cwd?: string; readonly name?: string; readonly includeName?: boolean } = {},
 ): Promise<readonly ISupervisedSessionRow[]> {
   signal?.throwIfAborted();
   try {
@@ -178,6 +187,7 @@ export async function listSupervisedSessions(
   }
   const names = readdirSync(root).filter((name) => ID_PATTERN.test(name));
   if (names.length > MAX_ENTRIES) throw new Error('Too many supervised session records to list safely.');
+  const unfiltered = options.cwd === undefined && options.name === undefined;
   const rows = await Promise.all(names.map(async (id): Promise<ISupervisedSessionRow | null> => {
     signal?.throwIfAborted();
     const directory = sessionDirectory(root, id);
@@ -190,7 +200,7 @@ export async function listSupervisedSessions(
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
       }
-      return options.cwd === undefined
+      return unfiltered
         ? { id, liveness: 'unknown', control: 'unavailable', activity: 'unknown', problem: 'invalid-registration' }
         : null;
     }
@@ -198,7 +208,7 @@ export async function listSupervisedSessions(
     const liveness = currentStart === undefined
       ? probePid(record.pid) === 'absent' ? 'dead' : 'unknown'
       : currentStart === record.startedAt ? 'alive' : 'dead';
-    if (liveness !== 'alive') return options.cwd === undefined
+    if (liveness !== 'alive') return unfiltered
       ? { id, liveness, control: 'unavailable', activity: 'unknown' }
       : null;
     try {
@@ -206,9 +216,12 @@ export async function listSupervisedSessions(
       if (typeof response === 'object' && response !== null && 'id' in response && response.id === id &&
         'status' in response && response.status === 'running') {
         if (options.cwd !== undefined && (!('cwd' in response) || response.cwd !== options.cwd)) return null;
+        const name = 'name' in response && isSupervisedSessionName(response.name) ? response.name : undefined;
+        if (options.name !== undefined && !name?.toLowerCase().includes(options.name.toLowerCase())) return null;
         return {
           id, liveness, control: 'available',
           activity: 'activity' in response && isCurrentActivity(response.activity) ? response.activity : 'unknown',
+          ...(options.includeName && name !== undefined ? { name } : {}),
           ...('activity' in response && response.activity === 'idle' &&
             'nextLoopAt' in response && isLoopTime(response.nextLoopAt)
             ? { nextLoopAt: response.nextLoopAt } : {}),
@@ -218,7 +231,7 @@ export async function listSupervisedSessions(
       signal?.throwIfAborted();
       // A registered process can lose its control endpoint during shutdown.
     }
-    return options.cwd === undefined ? { id, liveness, control: 'unavailable', activity: 'unknown' } : null;
+    return unfiltered ? { id, liveness, control: 'unavailable', activity: 'unknown' } : null;
   }));
   return rows.filter((row): row is ISupervisedSessionRow => row !== null)
     .sort((a, b) => a.id.localeCompare(b.id));
@@ -266,6 +279,7 @@ export async function startSupervisedControl(
   getActivity?: () => Exclude<TSupervisedActivity, 'unknown'> | undefined,
   getCwd?: () => string | undefined,
   getNextLoopAt?: () => string | undefined,
+  getName?: () => string | undefined,
 ): Promise<ISupervisedControl> {
   if (!ID_PATTERN.test(id)) throw new Error('Invalid supervised session ID.');
   ensurePrivateDirectory(root);
@@ -295,6 +309,7 @@ export async function startSupervisedControl(
         let observed: unknown;
         let cwd: string | undefined;
         let nextLoopAt: unknown;
+        let name: unknown;
         try {
           observed = getActivity?.();
         } catch {
@@ -312,9 +327,15 @@ export async function startSupervisedControl(
             // A failed loop observation cannot turn an idle session into a false wake claim.
           }
         }
+        try {
+          name = getName?.();
+        } catch {
+          // A failed name observation does not change the session's verified activity.
+        }
         socket.end(`${JSON.stringify({ id, status: 'running', activity: isCurrentActivity(observed) ? observed : 'unknown',
           ...(cwd === undefined ? {} : { cwd }),
-          ...(isLoopTime(nextLoopAt) ? { nextLoopAt } : {}) })}\n`);
+          ...(isLoopTime(nextLoopAt) ? { nextLoopAt } : {}),
+          ...(isSupervisedSessionName(name) ? { name } : {}) })}\n`);
       } else if (value.command === 'stop') {
         socket.once('finish', onStop);
         socket.end(`${JSON.stringify({ id, status: 'stopping' })}\n`);

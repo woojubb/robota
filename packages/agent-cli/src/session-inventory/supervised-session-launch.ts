@@ -2,6 +2,7 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 
 import { resolveSelfForkWorkerEntry } from '../subagents/self-fork-worker-entry.js';
+import { isSupervisedSessionName } from './supervised-session-control.js';
 
 interface IHandshakeMessage {
   readonly kind: 'ready' | 'acknowledged' | 'error';
@@ -63,14 +64,21 @@ export async function launchSupervisedSession(
     readonly entrypoint?: string;
     readonly execArgs?: readonly string[];
     readonly env?: NodeJS.ProcessEnv;
+    readonly name?: string;
     readonly onSpawn?: (child: ChildProcess) => void;
   } = {},
 ): Promise<string> {
+  if (options.name !== undefined && !isSupervisedSessionName(options.name)) {
+    throw new Error('Supervised session name is invalid or too long.');
+  }
   const self = resolveSelfForkWorkerEntry();
   const entryArgs = options.entrypoint ? [options.entrypoint] : self.args;
   const execArgs = options.execArgs ?? self.execArgv ?? [];
   const id = randomUUID();
-  const child = spawn(self.execPath, [...execArgs, ...entryArgs, '--serve', '--supervised-session-id', id], {
+  const child = spawn(self.execPath, [
+    ...execArgs, ...entryArgs, '--serve', '--supervised-session-id', id,
+    ...(options.name === undefined ? [] : [`--name=${options.name}`]),
+  ], {
     cwd,
     detached: true,
     stdio: ['ignore', 'ignore', 'ignore', 'ipc'],

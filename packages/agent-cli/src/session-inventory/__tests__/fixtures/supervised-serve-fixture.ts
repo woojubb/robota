@@ -4,6 +4,7 @@ import { parseCliArgs } from '../../../utils/cli-args.js';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 const id = process.argv[process.argv.indexOf('--supervised-session-id') + 1];
+const nameArg = process.argv.find((arg) => arg.startsWith('--name='));
 const supervisedRoot = process.env['ROBOTA_TEST_SUPERVISED_ROOT'];
 if (!id || !supervisedRoot) throw new Error('supervised test fixture requires an id and private root');
 
@@ -20,7 +21,10 @@ const never = new Promise<never>(() => undefined);
 const options = {
   cwd: process.cwd(),
   supervisedRoot,
-  args: parseCliArgs(['--serve', '--supervised-session-id', id, '--no-session-persistence']),
+  args: parseCliArgs([
+    '--serve', '--supervised-session-id', id, '--no-session-persistence',
+    ...(nameArg === undefined ? [] : [nameArg]),
+  ]),
   provider,
   sessionStore: {},
   backgroundTaskRunners: [],

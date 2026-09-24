@@ -79,6 +79,29 @@ describe('session view command', () => {
     }
   });
 
+  it('filters by a live owner-reported name without displaying the query', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-vn-'));
+    const root = join(scratch, 'supervised');
+    const id = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
+    const control = await startSupervisedControl(
+      id, () => undefined, root, () => 'idle', undefined, undefined, () => 'Morning review',
+    );
+    const render = vi.fn(async (options: Parameters<typeof renderSupervisedSessionView>[0]) => {
+      expect(options.filteredByName).toBe(true);
+      expect(await options.loadRows(new AbortController().signal)).toEqual([{
+        id, liveness: 'alive', control: 'available', activity: 'idle', name: 'Morning review',
+      }]);
+    });
+    try {
+      expect(await runSessionViewCommand(['--name', 'REVIEW'], {
+        isTTY: true, settings: {}, env: {}, root, render,
+      })).toBe(0);
+    } finally {
+      await control.close();
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
   it('does not start an interactive renderer when input or output is not a TTY', async () => {
     const render = vi.fn(async () => undefined);
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);

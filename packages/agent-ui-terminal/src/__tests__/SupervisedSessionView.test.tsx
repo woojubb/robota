@@ -61,6 +61,17 @@ describe('supervised session view', () => {
     }
   });
 
+  it('shows a verified human name while preserving the exact selected ID', async () => {
+    const view = render(<SupervisedSessionView loadRows={async () => [{ ...THIRD, name: 'Morning review' }]} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Morning review'));
+      expect(view.lastFrame()).toContain(`Selected ${THIRD.id}`);
+      expect(view.lastFrame()).toContain('activity idle');
+    } finally {
+      view.unmount();
+    }
+  });
+
   it('does not stop a row that leaves the selected state while confirmation is open', async () => {
     let finishRefresh: ((rows: readonly ISupervisedViewRow[]) => void) | undefined;
     const refresh = new Promise<readonly ISupervisedViewRow[]>((resolve) => { finishRefresh = resolve; });

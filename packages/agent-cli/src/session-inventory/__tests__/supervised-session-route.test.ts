@@ -72,6 +72,17 @@ describe('supervised background session command', () => {
       expect(handled).toBe(true);
       expect(process.exitCode).toBe(1);
       expect(stderr.mock.calls.map(([text]) => String(text)).join('')).toMatch(/trust|untrusted/i);
+      stderr.mockClear();
+      const named = await runPreparsedCliCommand(
+        {
+          providerDefinitions: [],
+          projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
+        },
+        ['node', 'robota', 'session', 'start', '--background', '--name', 'Morning review'],
+        cwd,
+      );
+      expect(named).toBe(true);
+      expect(stderr.mock.calls.map(([text]) => String(text)).join('')).toMatch(/trust|untrusted/i);
     } finally {
       stderr.mockRestore();
       process.exitCode = previousExitCode;
