@@ -7,6 +7,23 @@ import { tokenize } from './args.js';
 type TPhase = 'running' | 'completed' | 'failed' | 'cancelled';
 const MAX_ACTIVE_RUNS = 4;
 const MAX_TERMINAL_RUNS = 100;
+const MAX_RETAINED_RESULT_BYTES = 16 * 1024;
+const TRUNCATED_RESULT_SUFFIX = '\n[Workflow result truncated for status]';
+
+function retainResult(result: ICommandResult): ICommandResult {
+  const message = result.message;
+  if (Buffer.byteLength(message, 'utf8') <= MAX_RETAINED_RESULT_BYTES) {
+    return { success: result.success, message };
+  }
+  const prefixBytes =
+    MAX_RETAINED_RESULT_BYTES - Buffer.byteLength(TRUNCATED_RESULT_SUFFIX, 'utf8');
+  const buffer = new Uint8Array(prefixBytes);
+  const { written } = new TextEncoder().encodeInto(message, buffer);
+  return {
+    success: result.success,
+    message: new TextDecoder().decode(buffer.subarray(0, written)) + TRUNCATED_RESULT_SUFFIX,
+  };
+}
 
 interface IRunEntry {
   readonly id: string;
@@ -44,7 +61,7 @@ export class DetachedWorkflowRuns {
       .then((result) => {
         entry.result = controller.signal.aborted
           ? { success: false, message: 'Workflow cancelled.' }
-          : result;
+          : retainResult(result);
         entry.phase = controller.signal.aborted
           ? 'cancelled'
           : result.success
@@ -53,10 +70,10 @@ export class DetachedWorkflowRuns {
         this.pruneTerminals();
       })
       .catch((error: unknown) => {
-        entry.result = {
+        entry.result = retainResult({
           success: false,
           message: error instanceof Error ? error.message : String(error),
-        };
+        });
         entry.phase = controller.signal.aborted ? 'cancelled' : 'failed';
         this.pruneTerminals();
       });

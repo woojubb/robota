@@ -19,7 +19,7 @@ engine inside the agent CLI by composing `@robota-sdk/dag-framework` in-process.
 
 `createWorkflowsCommandModule(...)` returns an `ICommandModule` whose dispatch reads a leading
 subcommand token. Providers are created per invocation from explicit settings sources; an explicit
-detached run retains its cancellation handle and terminal result only within its live command
+detached run retains its cancellation handle and a bounded terminal result excerpt only within its live command
 host, which must stop and join active runs on shutdown; one-shot hosts refuse detached runs
 because they cannot accept later operator commands. The workflow project capability is passed in
 rather than discovered — absence of the project is a restriction rather than an implicit fallback

@@ -215,3 +215,18 @@ it('bounds simultaneous detached roots and terminal history without evicting act
   expect(history.status(ids[0] ?? '').message).toContain('Unknown workflow run ID');
   expect(history.status(ids[100] ?? '').message).toContain('completed');
 });
+
+it('retains a bounded terminal result even when a workflow returns large output', async () => {
+  const runs = new DetachedWorkflowRuns();
+  const started = runs.start(async () => ({
+    success: true,
+    message: `Outputs: ${'😀'.repeat(10_000)}`,
+  }));
+  const id = started.message.match(/Run ID: ([\w-]+)/)?.[1] ?? '';
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  const status = runs.status(id);
+  expect(status.message).toContain('completed');
+  expect(status.message).toContain('truncated');
+  expect(status.message).not.toContain('\uFFFD');
+  expect(Buffer.byteLength(status.message, 'utf8')).toBeLessThan(17_000);
+});
