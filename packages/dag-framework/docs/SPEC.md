@@ -12,7 +12,9 @@ managing the remaining infrastructure objects individually.
 Primary use case: local workflow execution composed by the agent CLI `/workflows` command, with
 zero external runtime-server process dependencies.
 
-## Contract and guarantees
+## Contract
+
+### Composition and lifecycle
 
 - The execution composition this package assembles exposes only run advancement; it never exposes
   the raw worker loop, so a consumer cannot call the internal step function directly or create a
@@ -23,9 +25,8 @@ zero external runtime-server process dependencies.
   own working directory when the root is omitted.
 - Run lifecycle, definition reads and mutations, build, catalog-aware definition validation,
   registered-node catalog, cost-meta, and run-draft operations are domain capabilities on the
-  returned framework. Until cost persistence and formula execution are wired
-  with an explicit policy, cost operations report an explicit unsupported result rather than
-  fabricating a response.
+  returned framework. Without a wired cost policy, cost operations report an explicit unsupported
+  result rather than fabricating a response.
 - The in-process framework does not create HTTP response envelopes. Its run lifecycle owns the
   implicit definition create/publish needed before a manually prepared run; the runtime server
   maps those outcomes to HTTP. Asset storage and byte streaming remain separate capabilities.
@@ -49,6 +50,36 @@ zero external runtime-server process dependencies.
   roots; when either is omitted, no skill files are discovered, and construction never selects a
   filesystem source from the current process or home directory.
 
+### Budgets and bounds
+
+The local provider snapshots trusted host byte limits before executing any workflow, so the
+default catalog used by `/workflows` bounds `text-repeat` and literal `text-replace` with no
+workflow-controlled opt-out; tighter host limits reach the node context independently of workflow
+input. These per-operation bounds are not a root aggregate budget, snapshot-size limit, or CPU preemption.
+
+Each independent local provider execution creates a fresh snapshot authority from trusted host
+limits and a credit authority from the root run's cost policy; nested executions and concurrent
+sibling reservations share each live authority and balance. Credits are reserved before a node
+executes, committed on successful lifecycle completion, and released when it fails; a child run
+cannot replace the root's limit with its own. Snapshot accounting includes run definition and input
+snapshots consumed before dispatch. Encoding stops before building a complete oversized snapshot,
+returning a structured non-retryable refusal. The root owns both authorities' lifetimes and closes
+them on completion; committed cancellation of a participating run closes new snapshot and credit admissions across the root's children, though it
+does not interrupt child execution already admitted elsewhere. A host composing lower-level
+services directly must explicitly supply these same authorities to its orchestrator and every
+worker — persisted lineage cannot recreate or authorize a budget on its own.
+
+### Local regex isolation
+
+The local Node provider runs the default text-replace regex operation in an isolated worker (a
+child process on Bun), keeping lifecycle, storage and the snapshot authority in the parent; only a
+fixed trusted bootstrap and plain string data cross the boundary. A result is accepted only after
+normal worker exit, so a late result cannot authorize output persistence or downstream execution,
+and worker startup failure never falls back to inline execution. Request and response strings
+share a bounded UTF-8 transport ceiling. This isolates only the default regex operation — it is
+not a security sandbox and does not cover custom nodes, other transforms, tools, or provider code;
+direct lower-level compositions must supply their own isolation capability.
+
 ## Design decisions
 
 - The default node catalog lives in a separate package and is deliberately not re-exported here —
@@ -59,7 +90,7 @@ zero external runtime-server process dependencies.
   agent-runtime packages are never imported, so this package stays usable without pulling in a
   specific LLM vendor or product-level session logic.
 
-## Non-goals / boundaries
+## Non-goals
 
 - Must not import concrete provider packages or upper agent-runtime packages (session, executor,
   CLI, tools layers) — the dependency direction runs the other way.
@@ -67,36 +98,3 @@ zero external runtime-server process dependencies.
 - Does not own the HTTP/byte mapping for assets — that belongs to the runtime server.
 - Does not scan a workspace's authored workflow files beyond returning their metadata; it does not
   interpret or validate their contents.
-
-## Text expansion ceiling
-
-The local provider snapshots trusted host byte limits before executing any workflow, so the
-default catalog used by `/workflows` bounds `text-repeat` and literal `text-replace` with no
-workflow-controlled opt-out; tighter host limits reach the node context independently of workflow
-input. These per-operation bounds are not a root aggregate budget, snapshot-size limit, or CPU preemption.
-
-## Shared local root budget authority
-
-Each independent local provider execution creates a fresh snapshot authority from trusted host
-limits and a credit authority from the root run's cost policy; nested executions and concurrent
-sibling reservations share each live authority and balance. Credits are reserved before a node
-executes, committed on successful lifecycle completion, and released when it fails; a child run
-cannot replace the root's limit with its own. Snapshot accounting includes run definition and input
-snapshots consumed before dispatch. Encoding stops
-before building a complete oversized snapshot, returning a structured non-retryable refusal. The
-root owns both authorities' lifetimes and closes them on completion; committed cancellation of a
-participating run closes new snapshot and credit admissions across the root's children, though it
-does not interrupt child execution already admitted elsewhere. A host composing lower-level
-services directly must explicitly supply these same authorities to its orchestrator and every
-worker — persisted lineage cannot recreate or authorize a budget on its own.
-
-## Local regex isolation
-
-The local Node provider runs the default text-replace regex operation in an isolated worker (a
-child process on Bun), keeping lifecycle, storage and the snapshot authority in the parent; only a
-fixed trusted bootstrap and plain string data cross the boundary. A result is accepted only after
-normal worker exit, so a late result cannot authorize output persistence or downstream execution,
-and worker startup failure never falls back to inline execution. Request and response strings
-share a bounded UTF-8 transport ceiling. This isolates only the default regex operation — it is
-not a security sandbox and does not cover custom nodes, other transforms, tools, or provider code;
-direct lower-level compositions must supply their own isolation capability.

@@ -15,7 +15,7 @@ resolution (asset, data URI, HTTP), and output normalization.
 
 ## Design decisions
 
-- **Node-only by declaration and by fact (CORE-028).** Since issue #2026, a model-provided HTTP
+- **Node-only by declaration and by fact.** A model-provided HTTP
   image source is fetched through the shared Node egress boundary, so the package declares no
   `browser` export condition — consistent with the other Node-only nodes (`file-read`, `file-write`,
   `skill`) — rather than a nominal condition that happened to resolve to the Node bundle anyway.

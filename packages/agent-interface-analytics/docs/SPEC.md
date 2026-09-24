@@ -26,17 +26,18 @@ what counts as a turn, not how cost is derived, not what a report should contain
 A canonical usage observation may also carry an optional prompt-execution root identity, describing
 only the prompt call through its first terminal callback, not final turn settlement — that
 first-callback outcome may later differ from the observation's turn outcome. Related child-span
-entries (provider-call, tool-body) carry the same root linkage and timing; a provider-call child may
-also carry only attested usage evidence for a table-derived cost estimate, never prompt, response, tool,
-user, or session content; a bounded live prompt-trace projection exposes only this execution
-evidence, with a validated tool-call correlation ID and, for an invoked provider-call child, an
-opaque provider-returned request ID — this entry's own field is a live-child-projection-only
-addition, never written to the persisted provider-call trace, though the same value also reaches
-ordinary assistant-message metadata by a separate route and, among telemetry signals, only live
-traces and logs export it, never a metric — including a live-only tool-permission-decision child
-joined to a tool-body child by that same tool-call ID — not a final turn settlement, cost total,
-detached-work completion, or collector receipt.
-Older observations without this identity remain valid.
+entries (provider-call, tool-body) carry the same root linkage and timing. A provider-call child may
+also carry only attested usage evidence for a table-derived cost estimate. No entry ever carries prompt,
+response, tool, user, or session content.
+
+A bounded live prompt-trace projection exposes only this execution evidence, plus correlation IDs
+that are validated or opaque: a tool-call ID that joins tool children to live-only
+permission-decision children, and a provider-returned request ID on an invoked provider-call child.
+The provider-call child's request-ID field is live-projection-only: it is never written to the persisted
+provider-call trace and never becomes a metric (the same value reaches assistant-message metadata
+and live traces and logs by separate routes). None of
+these entries represents final turn settlement, a cost total, detached-work completion, or collector
+receipt. Older observations without the root identity remain valid.
 
 **Zero dependencies by design.** Every field of every declaration here is a primitive or another
 declaration in this package, so it depends on nothing at all — not even `agent-core`. It is the only

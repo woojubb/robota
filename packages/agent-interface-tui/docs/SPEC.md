@@ -22,4 +22,4 @@ it directly on its action-kind literal; no dedicated type-guard functions are pr
 
 - This package must never gain runtime dependencies.
 - No framework or provider knowledge may enter this package.
-- A `wizard` action kind is part of the interaction vocabulary but is not yet implemented by any transport.
+- The interaction vocabulary includes a `wizard` action kind that a transport may leave unimplemented.

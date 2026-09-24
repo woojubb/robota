@@ -31,7 +31,7 @@ both DTLS fingerprints:
   two honest peers observe different fingerprint pairs when a relay sits between them → the confirmation fails →
   abort.
 
-## SEC-011 — same user, across two computers
+## Same user, across two computers
 
 Proving possession of a machine's key, recording that a machine was enrolled somewhere, and a completed WebRTC
 connection each answer a different question; none says **whose** machine, and a hand-off must not move a session

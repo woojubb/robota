@@ -32,9 +32,9 @@ run status, cancelling runs, and publishing execution progress events.
 - **`startCreatedRun` is idempotent**: called on a run already past `created` (queued, running, or
   terminal), it returns the existing task run IDs without re-enqueuing or re-transitioning,
   preventing duplicate task creation on retry.
-- **Run key idempotency**: run keys follow `{dagId}:{logicalDate}` or
-  `{dagId}:{logicalDate}:rerun:{rerunKey}`, with a storage-level race on concurrent creation handled
-  by re-querying the existing run rather than failing, and reuse requires the request's composite
+- **Run key idempotency**: a run key is derived from the DAG and logical date (plus a rerun key for
+  reruns). A storage-level race on concurrent creation is resolved by re-querying the existing run
+  rather than failing, and reuse requires the request's composite
   lineage to match that existing run's persisted lineage rather than silently inheriting a different
   caller's ancestry.
 - All service methods return `TResult<T, IDagError>` — no fallback paths, no silent error

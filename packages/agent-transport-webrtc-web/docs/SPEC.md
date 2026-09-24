@@ -1,6 +1,6 @@
 # SPEC.md — @robota-sdk/agent-transport-webrtc-web
 
-## Transport Admission (SEC-008)
+## Transport Admission
 
 transport-admission: none — the browser side PRESENTS a credential rather than deciding who may
 present one. Its fail-closed pairing gate is the client half of the host's handshake
@@ -8,7 +8,7 @@ present one. Its fail-closed pairing gate is the client half of the host's hands
 
 ## Purpose
 
-The **browser** WebRTC transport peer for a robota session (REMOTE-009 Stage D) — the browser
+The **browser** WebRTC transport peer for a robota session — the browser
 mirror of the node-side host transport `@robota-sdk/agent-transport-webrtc`. It opens the pairing
 URL, answers the host's WebRTC offer over a **native** `RTCPeerConnection`, runs the
 directional-HMAC pairing handshake as RESPONDER behind a fail-closed gate, and co-drives the same

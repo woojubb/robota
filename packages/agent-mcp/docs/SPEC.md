@@ -83,7 +83,7 @@ false`; every `DEFAULT_INHERITED_ENV_VARS` key is explicitly shadowed rather tha
 - **The legacy protocol era is a recorded limit**: the pinned SDK generation speaks the
   pre-2026-07-28 protocol; a server that refuses the negotiated version is disconnected, not used.
 
-## Design decision: narrowing, not refusing, third-party schemas (CORE-040)
+## Design decision: narrowing, not refusing, third-party schemas
 
 An MCP tool's `inputSchema` is authored by a third-party server. Handing an expressive-but-partial
 schema to a strict validator unchanged would refuse _every_ payload for that tool once the schema
