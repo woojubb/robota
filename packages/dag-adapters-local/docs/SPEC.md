@@ -60,9 +60,15 @@ node-state and run-result data that adapters must not write back into a DAG defi
 
 Execution preconditions and their state edits are indivisible within one live adapter instance: the
 file adapter hydrates before adjudication and persists the changed collection (including credit
-holds, task success and its snapshot) in one write, and a storage root has exactly one live file-adapter owner —
-independent instances do not coordinate cached state, and this is not a cross-process or multi-file
-transaction guarantee. All file run/task reads and writes share one operation queue held through
+holds, task success and its snapshot) in one write, and a storage root has exactly one live
+file-adapter owner, enforced by an exclusive lock acquired before any hydration or persistence — a
+second instance opened over an already-owned root fails immediately instead of silently losing the
+live owner's writes, and a lock left by a same-host owner that is no longer running is taken over
+rather than wedging the root; a lock recorded by a different host is never taken over automatically,
+since this host cannot verify whether that owner is still alive. Enforcement is per-root exclusivity,
+not a cross-process or multi-file transaction guarantee: independent instances still do not
+coordinate cached state, they simply cannot both be live over the same root at once. All file
+run/task reads and writes share one operation queue held through
 persistence completion, so a reader cannot observe cancellation, settlement, or a raw mutation
 before its write completes, and a raw setter cannot flush an unfinished execution commit; raw
 persistence setters still lack execution preconditions, so execution owners must use the

@@ -3,7 +3,7 @@ import {
   type TExecutionCommit,
   type IExecutionCommitResult,
 } from '@robota-sdk/dag-core';
-import { readdir, rm } from 'node:fs/promises';
+import { mkdir, readdir, rm } from 'node:fs/promises';
 import path from 'node:path';
 
 import {
@@ -14,6 +14,7 @@ import {
   readDefinitionFromFile,
   saveDefinitionAtomically,
 } from './definition-files.js';
+import { FileStoreOwnerLock } from './file-store-owner-lock.js';
 import { persistCollection } from './json-collection-file.js';
 import { HydrationGate } from './storage-hydration.js';
 
@@ -47,6 +48,8 @@ export class FileStoragePort implements IStoragePort {
   private readonly taskRuns = new Map<string, ITaskRun>();
   private runStateTail: Promise<void> = Promise.resolve();
   private runStateFailure: { error: unknown } | undefined;
+  private ownerLock: FileStoreOwnerLock | undefined;
+  private ownerLockAcquisition: Promise<void> | undefined;
 
   public constructor(private readonly storageRootPath: string) {
     this.definitionsRootPath = path.join(this.storageRootPath, 'definitions');
@@ -77,7 +80,41 @@ export class FileStoragePort implements IStoragePort {
    * `applyTaskRunLease`, the run-key lookup — is unchanged. Only their lifetime moves.
    */
   private async ensureInitialized(): Promise<void> {
+    await this.acquireOwnerLockOnce();
     await this.hydration.ensure();
+  }
+
+  /**
+   * Acquire this root's exclusive owner lock before any hydration or persistence — a conflicting
+   * owner must fail here, before it can touch the collection files at all.
+   *
+   * Single-flight with clear-on-failure, matching {@link HydrationGate}: a transient failure (the
+   * root not existing yet, a permission error) must not be cached forever, but a genuine ownership
+   * conflict rejects every operation on this instance until the caller retries — by which point the
+   * other owner may have released it.
+   */
+  private async acquireOwnerLockOnce(): Promise<void> {
+    if (this.ownerLock) return;
+    this.ownerLockAcquisition ??= (async (): Promise<void> => {
+      await mkdir(this.storageRootPath, { recursive: true });
+      this.ownerLock = await FileStoreOwnerLock.acquire(this.storageRootPath);
+    })().catch((error: unknown) => {
+      this.ownerLockAcquisition = undefined;
+      throw error;
+    });
+    await this.ownerLockAcquisition;
+  }
+
+  /**
+   * Release this instance's ownership of the storage root. Safe to call more than once, and safe to
+   * call on an instance that never successfully acquired the lock. A later operation on this same
+   * instance re-acquires it rather than staying closed forever — `close()` releases ownership, it
+   * does not otherwise disable the instance.
+   */
+  public async close(): Promise<void> {
+    await this.ownerLock?.release();
+    this.ownerLock = undefined;
+    this.ownerLockAcquisition = undefined;
   }
 
   private async persistDagRuns(): Promise<void> {

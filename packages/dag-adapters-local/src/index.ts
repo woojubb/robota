@@ -7,5 +7,6 @@ export { SystemClockPort } from './clock-ports.js';
 // createStubPromptBackend on this main export).
 export { FileCostMetaStorage } from './file-cost-meta-storage.js';
 export { FileStoragePort } from './file-storage-port.js';
+export { FileStoreOwnerConflictError } from './file-store-owner-lock.js';
 export { InMemoryRunDraftStore } from './in-memory-run-draft-store.js';
 export { FileRunDraftStore } from './file-run-draft-store.js';

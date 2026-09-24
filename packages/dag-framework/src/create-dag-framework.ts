@@ -216,6 +216,12 @@ export async function createDagFramework(
       await promptBackend.closeIngressAndDrainSubmissions();
       await execution.runAdvancement.stop();
       await promptBackend.drainOwnedObservationJobs();
+      // Release this root's owner lock so a later `createDagFramework` call — in this process or
+      // another — can open the same file storage root again (packages/dag-adapters-local SPEC:
+      // exclusive ownership is enforced).
+      if (storage instanceof FileStoragePort) {
+        await storage.close();
+      }
     },
   };
 

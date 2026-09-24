@@ -56,10 +56,12 @@ it('cannot acknowledge finalization based on a task outcome whose persistence fa
   await expect(
     storage.commitExecution('run', { kind: 'finalize', endedAt: '2026-09-24' }),
   ).rejects.toBe(failure);
+  await storage.close();
   const reopened = new FileStoragePort(root);
   expect((await reopened.getDagRun('run'))?.status).toBe('running');
   expect((await reopened.getTaskRun('task'))?.status).toBe('running');
   expect((await reopened.getTaskRun('task'))?.outputSnapshot).toBeUndefined();
+  await reopened.close();
 });
 
 it('waits for the task snapshot write before persisting concurrent finalization', async () => {
@@ -119,12 +121,14 @@ it('waits for the task snapshot write before persisting concurrent finalization'
     release();
     await Promise.all([settled, finalized]);
   }
+  await storage.close();
   const reopened = new FileStoragePort(root);
   expect((await reopened.getDagRun('run'))?.status).toBe('success');
   expect(await reopened.getTaskRun('task')).toMatchObject({
     status: 'success',
     outputSnapshot: '{"done":true}',
   });
+  await reopened.close();
 });
 
 it('does not let cancelled-run cleanup acknowledge a message before cancellation is durable', async () => {
@@ -184,6 +188,7 @@ it('does not let cancelled-run cleanup acknowledge a message before cancellation
   failWrite();
   const cancellationResult = await cancellation;
   const cleanupResult = await cleanup;
+  await storage.close();
   const reopened = new FileStoragePort(root);
   expect({
     cancellationResult,
@@ -198,6 +203,7 @@ it('does not let cancelled-run cleanup acknowledge a message before cancellation
     runStatus: 'running',
     taskStatus: 'queued',
   });
+  await reopened.close();
 });
 
 it('does not let a raw task setter flush an unfinished execution commit after its write fails', async () => {
@@ -259,12 +265,14 @@ it('does not let a raw task setter flush an unfinished execution commit after it
   expect(await committed).toBe(failure);
   expect(await setter).toBe(failure);
   expect(writes).toBe(1);
+  await storage.close();
   const reopened = new FileStoragePort(root);
   expect(await reopened.getTaskRun('task')).toMatchObject({
     status: 'running',
     leaseOwner: 'worker',
   });
   expect((await reopened.getTaskRun('task'))?.outputSnapshot).toBeUndefined();
+  await reopened.close();
 });
 
 it('isolates every run/task read and raw mutation after a raw persistence failure', async () => {
@@ -323,9 +331,11 @@ it('isolates every run/task read and raw mutation after a raw persistence failur
     edges: [],
   });
   expect((await storage.getDefinition('independent', 1))?.dagId).toBe('independent');
+  await storage.close();
   const reopened = new FileStoragePort(root);
   expect((await reopened.getTaskRun('task'))?.status).toBe('running');
   expect((await reopened.getDagRun('run'))?.status).toBe('running');
+  await reopened.close();
 });
 
 it('retains hydration retry after initialization fails before any state mutation', async () => {
@@ -336,6 +346,7 @@ it('retains hydration retry after initialization fails before any state mutation
   await expect(storage.getDagRun('missing')).rejects.toThrow();
   await rm(join(root, 'runs'));
   await expect(storage.getDagRun('missing')).resolves.toBeUndefined();
+  await storage.close();
 });
 
 
@@ -353,4 +364,5 @@ it('closes a shared root snapshot budget when a child storage write fails', asyn
   const siblingWrite = vi.fn(async () => ({ applied: true }));
   expect(await budget.admit('input', '{}', siblingWrite)).toMatchObject({ ok: false, error: { code: 'DAG_TASK_SNAPSHOT_BUDGET_CLOSED' } });
   expect(siblingWrite).not.toHaveBeenCalled();
+  await storage.close();
 });
