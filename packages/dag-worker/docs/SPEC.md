@@ -60,9 +60,12 @@ remains single-owner and does not provide that cross-process visibility.
 ### Composite child lineage authority
 
 Before entering the executor, the worker decodes the run's persisted composite lineage rather than
-trusting any in-process default, so a restarted worker enforces composite depth/recursion limits
-against a run it did not create; invalid persisted ancestry fails that one task closed without
-taking down the worker loop.
+trusting any in-process default, so a restarted or separate-process worker enforces composite
+depth/recursion limits against a run it did not create and refuses a child run's work once its
+persisted root or immediate parent run is committed cancelled, cancelling that child run through the same committed
+transition. Invalid persisted ancestry fails that one task closed without taking down the worker
+loop; an ancestor reference with no persisted run is not a cancellation signal, because lineage may
+carry a depth cap without a persisted ancestor.
 
 ### Crash recovery (DAG-001)
 
