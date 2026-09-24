@@ -37,6 +37,10 @@ directory when the host omits that root.
 agent runtime. This is a demand switch, not a gate — it does not assume the runtime is available
 beforehand.
 
+**`/agent` command metadata.** The palette and executable command registry expose the same
+agent-job subcommands for operator discovery. The `open` action reads the job log as an alias for
+`read`.
+
 **`output-style`.** Operator-only, and uses only the injected provider-neutral style registry; it
 never reads style files itself.
 
