@@ -128,6 +128,42 @@ describe('GeminiProvider - provider request ID (stream)', () => {
     expect(chunks[0]?.metadata?.providerRequestId).toBeUndefined();
   });
 
+  it('keeps complete usage metadata from an earlier chunk when a later chunk carries only the response ID', async () => {
+    generateContentStreamMock.mockResolvedValue(
+      (async function* () {
+        yield {
+          responseId: 'r1',
+          candidates: [{ content: { parts: [{ text: 'checking' }] } }],
+          usageMetadata: { promptTokenCount: 1, candidatesTokenCount: 1, totalTokenCount: 2 },
+        };
+        yield {
+          responseId: 'r1',
+          candidates: [
+            {
+              content: {
+                parts: [{ functionCall: { id: 'call_1', name: 'lookup', args: {} } }],
+              },
+            },
+          ],
+        };
+      })(),
+    );
+
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
+    const result = await provider.chat(inputMessages, {
+      model: 'gemini-pro',
+      onTextDelta: vi.fn(),
+    });
+
+    expect(result.metadata).toEqual({
+      promptTokens: 1,
+      completionTokens: 1,
+      totalTokens: 2,
+      usageProvenance: 'complete',
+      providerRequestId: 'r1',
+    });
+  });
+
   it('carries the stream responseId onto the assembled message when chat() consumes onTextDelta', async () => {
     generateContentStreamMock.mockResolvedValue(
       (async function* () {

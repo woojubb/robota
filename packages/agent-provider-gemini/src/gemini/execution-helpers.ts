@@ -188,6 +188,9 @@ async function assembleStreamingChatResponse(
   const textParts: string[] = [];
   const toolCalls: NonNullable<IAssistantMessage['toolCalls']> = [];
   let metadata: TUniversalMessage['metadata'];
+  // The first non-empty providerRequestId seen; tracked separately so a later chunk that only
+  // carries the ID (and no other metadata) doesn't blank out an earlier chunk's usage totals.
+  let providerRequestId: string | undefined;
   for await (const chunk of executeDirectStream(
     client,
     providerOptions,
@@ -207,11 +210,21 @@ async function assembleStreamingChatResponse(
       }
     }
     if (chunk.metadata) {
-      metadata = chunk.metadata;
+      const { providerRequestId: chunkProviderRequestId, ...rest } = chunk.metadata;
+      if (
+        providerRequestId === undefined &&
+        typeof chunkProviderRequestId === 'string' &&
+        chunkProviderRequestId.length > 0
+      ) {
+        providerRequestId = chunkProviderRequestId;
+      }
+      if (Object.keys(rest).length > 0) {
+        metadata = rest as TUniversalMessage['metadata'];
+      }
     }
   }
   const content = textParts.join('');
-  return {
+  const message: TUniversalMessage = {
     id: randomUUID(),
     role: 'assistant',
     content,
@@ -221,6 +234,7 @@ async function assembleStreamingChatResponse(
     state: 'complete',
     timestamp: new Date(),
   };
+  return withProviderRequestId(message, providerRequestId);
 }
 
 function emitGeminiNativeRawPayload(
