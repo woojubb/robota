@@ -66,6 +66,12 @@ runtime. Independent `/workflows run` invocations receive independent allowances
 configure snapshot allowances, while saved workflow data cannot. This is persisted task snapshot
 admission after serialization, not generation-time memory protection or CPU preemption.
 
+Saved composites pass the parent attempt's cancellation signal into the child local runtime.
+The child's committed cancel path can then notify its active prompt provider; a parent timeout
+cannot leave that provider's signal live merely because it crossed a saved-composite boundary.
+This is active-descendant abort propagation, not a promise that arbitrary child cleanup is
+joined before the parent returns or that cancellation is broadcast across processes.
+
 ## Regex CPU interruption boundary
 
 The default sync catalog's text-replace regex executes outside the parent event loop.

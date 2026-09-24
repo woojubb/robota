@@ -242,7 +242,7 @@ export interface ICompositeSubRunner {
     dag: import('@robota-sdk/dag-core').IDagDefinition,
     input: TPortPayload,
     lineage: IDagExecutionLineage,
-    capabilities?: Pick<INodeExecutionContext, 'snapshotBudget' | 'byteLimits'>,
+    capabilities?: Pick<INodeExecutionContext, 'snapshotBudget' | 'byteLimits' | 'signal'>,
   ): Promise<{
     ok: boolean;
     outputs: Record<string, TPortPayload>;
@@ -427,11 +427,19 @@ export class CompositeInstantNodeDefinition
       ancestorCompositeNodeTypes: Object.freeze([...ancestors, this.nodeType]),
     });
 
+    if (context.signal?.aborted) {
+      return { ok: false, error: buildTaskCancellationError(context.taskRunId) };
+    }
+
     try {
       // allow-fallback: sub-DAG execution errors are caught and surfaced as structured Result
       const result = await this.spec.runner.run(this.spec.innerDag, subInput, childLineage, {
         snapshotBudget: context.snapshotBudget, byteLimits: context.byteLimits,
+        ...(context.signal === undefined ? {} : { signal: context.signal }),
       });
+      if (context.signal?.aborted) {
+        return { ok: false, error: buildTaskCancellationError(context.taskRunId) };
+      }
       if (!result.ok) {
         return {
           ok: false,
@@ -457,6 +465,9 @@ export class CompositeInstantNodeDefinition
       );
       return { ok: true, value: io.toOutput() };
     } catch (err) {
+      if (context.signal?.aborted) {
+        return { ok: false, error: buildTaskCancellationError(context.taskRunId) };
+      }
       // allow-fallback: sub-DAG execution errors are caught and surfaced as structured Result
       return {
         ok: false,
