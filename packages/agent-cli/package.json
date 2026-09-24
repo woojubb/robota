@@ -129,6 +129,7 @@
     "@robota-sdk/agent-provider-openai-compatible": "workspace:*",
     "@robota-sdk/agent-provider-replay": "workspace:*",
     "@robota-sdk/agent-remote-pairing": "workspace:*",
+    "@robota-sdk/agent-session": "workspace:*",
     "@robota-sdk/agent-session-analytics": "workspace:*",
     "@robota-sdk/agent-subagent-runner": "workspace:*",
     "@robota-sdk/agent-tool-defaults": "workspace:*",

@@ -55,3 +55,29 @@ export type {
   THandoffReadiness,
 } from './handoff-offer.js';
 export { assessHandoffReadiness, prepareHandoffOffer } from './handoff-offer.js';
+
+// ── handoff orchestration ──
+export type {
+  IAssembleOutcome,
+  ICommitOutcome,
+  IHandoffAssemblerPort,
+  IHandoffChunkFrame,
+  IHandoffComposition,
+  IHandoffManifestRequest,
+  IHandoffRuntimeState,
+  IHandoffTransactionPort,
+  IHandoffTransactionState,
+  IIntegrityOutcome,
+  ITransitionOutcome,
+  THandoffRecordDecodeOutcome,
+} from './handoff-composition.js';
+export { HandoffSource } from './handoff-source.js';
+export type { IHandoffCarrier, IHandoffSourceOptions, TOfferOutcome } from './handoff-source.js';
+export { HandoffDestination } from './handoff-destination.js';
+export type {
+  IDestinationReport,
+  IHandoffDestinationOptions,
+  TCredentialResolver,
+  TDestinationState,
+  TRecordPersister,
+} from './handoff-destination.js';
