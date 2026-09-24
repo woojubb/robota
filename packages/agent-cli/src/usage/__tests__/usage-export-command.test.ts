@@ -96,6 +96,139 @@ describe('explicit OTLP usage snapshot export', () => {
     expect(result.stdout).toMatch(/1 prompt root trace/);
   });
 
+  it('sends only verified content-free completion events when logs are explicitly selected', async () => {
+    const fetcher = vi.fn(
+      async (_input: Parameters<typeof fetch>[0], _init?: RequestInit) =>
+        new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }),
+    );
+    const result = await executeUsageExportCommand(
+      ['--signal', 'logs', '--endpoint', 'http://127.0.0.1:4318'],
+      {
+        userSessionStore: store(),
+        fetcher,
+        version: 'test-version',
+        now: new Date('2026-09-24T00:05:00.000Z'),
+      },
+    );
+    expect(result.exitCode).toBe(0);
+    const [url, init] = fetcher.mock.calls[0]!;
+    expect(String(url)).toBe('http://127.0.0.1:4318/v1/logs');
+    const body = JSON.parse(init!.body as string);
+    expect(body.resourceLogs[0].scopeLogs[0].logRecords).toMatchObject([
+      {
+        eventName: 'robota.prompt_execution.completed',
+        severityNumber: 9,
+        traceId: '1234567890abcdef1234567890abcdef',
+        spanId: '1234567890abcdef',
+        observedTimeUnixNano: '1790208300000000000',
+      },
+    ]);
+    expect(JSON.stringify(body)).not.toMatch(/secret|sess-1|turn-1|openai|usageObservationId/);
+    expect(result.stdout).toMatch(/1 completion event/);
+  });
+
+  it('treats an OTLP log partial rejection as a failed export', async () => {
+    const result = await executeUsageExportCommand(
+      ['--signal', 'logs', '--endpoint', 'http://127.0.0.1:4318'],
+      {
+        userSessionStore: store(),
+        fetcher: vi.fn(
+          async () =>
+            new Response(JSON.stringify({ partialSuccess: { rejectedLogRecords: '1' } }), {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            }),
+        ),
+      },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/reject/i);
+  });
+
+  it('does not misread an underflowed log rejection as full success', async () => {
+    const result = await executeUsageExportCommand(
+      ['--signal', 'logs', '--endpoint', 'http://127.0.0.1:4318'],
+      {
+        userSessionStore: store(),
+        fetcher: vi.fn(
+          async () =>
+            new Response(JSON.stringify({ partialSuccess: { rejectedLogRecords: '1e-9999' } }), {
+              status: 200,
+              headers: { 'content-type': 'application/json' },
+            }),
+        ),
+      },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/reject/i);
+  });
+
+  it('reports excluded child coverage for a mixed valid completion-event snapshot', async () => {
+    const session = record();
+    session.history!.push({
+      id: 'orphan-child',
+      timestamp: new Date('2026-09-24T00:00:59.900Z'),
+      category: 'event',
+      type: 'tool-body-trace',
+      data: {
+        traceId: '1234567890abcdef1234567890abcdef',
+        parentSpanId: 'ffffffffffffffff',
+        spanId: 'abcdef1234567890',
+        startedAt: '2026-09-24T00:00:59.100Z',
+        endedAt: '2026-09-24T00:00:59.900Z',
+        outcome: 'success',
+      },
+    });
+    const result = await executeUsageExportCommand(
+      ['--signal', 'logs', '--endpoint', 'http://127.0.0.1:4318'],
+      {
+        userSessionStore: {
+          ...store(),
+          list: () => [{ id: session.id, outcome: { status: 'valid', record: session } }],
+        },
+        fetcher: vi.fn(
+          async () =>
+            new Response('{}', { status: 200, headers: { 'content-type': 'application/json' } }),
+        ),
+      },
+    );
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toMatch(/tool children exported 0, invalid 0, orphaned 1, duplicate 0/);
+  });
+
+  it('reports excluded children when no valid completion event can be exported', async () => {
+    const session = record();
+    delete (session.history![0]!.data as Record<string, unknown>)['promptExecutionSpanId'];
+    session.history!.push({
+      id: 'orphan-child',
+      timestamp: new Date('2026-09-24T00:00:59.900Z'),
+      category: 'event',
+      type: 'tool-body-trace',
+      data: {
+        traceId: '1234567890abcdef1234567890abcdef',
+        parentSpanId: '1234567890abcdef',
+        spanId: 'abcdef1234567890',
+        startedAt: '2026-09-24T00:00:59.100Z',
+        endedAt: '2026-09-24T00:00:59.900Z',
+        outcome: 'success',
+      },
+    });
+    const fetcher = vi.fn();
+    const result = await executeUsageExportCommand(
+      ['--signal', 'logs', '--endpoint', 'http://127.0.0.1:4318'],
+      {
+        userSessionStore: {
+          ...store(),
+          list: () => [{ id: session.id, outcome: { status: 'valid', record: session } }],
+        },
+        fetcher,
+      },
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toMatch(/tool children invalid 0, orphaned 1, duplicate 0/);
+    expect(fetcher).not.toHaveBeenCalled();
+  });
+
   it('sends a recorded provider child with its verified parent and reports child coverage', async () => {
     const session = record();
     session.history!.push({
@@ -277,7 +410,7 @@ describe('explicit OTLP usage snapshot export', () => {
     const fetcher = vi.fn();
     for (const argv of [
       ['--signal', 'traces', '--endpoint', 'https://example.com'],
-      ['--signal', 'logs', '--endpoint', 'http://127.0.0.1:4318'],
+      ['--signal', 'profiles', '--endpoint', 'http://127.0.0.1:4318'],
       ['--signal', 'traces', '--signal', 'traces', '--endpoint', 'http://127.0.0.1:4318'],
     ]) {
       const result = await executeUsageExportCommand(argv, {

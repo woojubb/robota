@@ -70,6 +70,10 @@ only to a caller-named loopback OTLP/HTTP JSON collector. Neither auto-exports o
 tool names, session identity, or provider/model labels. An incomplete store or collector partial
 rejection fails visibly. Missing or malformed old roots are counted but never synthesized. A trace
 export is not a managed remote telemetry destination or an end-to-end distributed trace.
+An explicitly selected logs signal sends only content-free completion-event snapshots derived
+from the same validated trace records; it never exports the sensitive session replay log. It
+rejects partial acceptance and unsafe destinations in the same way. Re-export can append duplicate
+events, and this signal does not claim live logging or the full product-event catalog.
 
 Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`); it accepts
 `commandModules` and registers them generically with the SDK registry.
