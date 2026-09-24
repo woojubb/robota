@@ -7,7 +7,9 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { listSupervisedSessions, renameSupervisedSession, stopSupervisedSession } from '../supervised-session-control.js';
+import {
+  linkSupervisedPr, listSupervisedSessions, renameSupervisedSession, stopSupervisedSession, unlinkSupervisedPr,
+} from '../supervised-session-control.js';
 import { launchSupervisedSession } from '../supervised-session-launch.js';
 
 const fixture = fileURLToPath(new URL('./fixtures/supervised-serve-fixture.ts', import.meta.url));
@@ -36,6 +38,16 @@ describe('detached supervised runtime', () => {
       expect(JSON.stringify(await listSupervisedSessions(root))).not.toContain('Evening review');
       expect(readFileSync(join(root, id, 'state.json'), 'utf8')).not.toContain('Morning review');
       expect(readFileSync(join(root, id, 'state.json'), 'utf8')).not.toContain('Evening review');
+      const url = 'https://github.com/team/repo/pull/123';
+      await linkSupervisedPr(id, url, root);
+      expect(await listSupervisedSessions(root, undefined, { includePr: true, pr: 123 })).toEqual([{
+        id, liveness: 'alive', control: 'available', activity: 'idle',
+        pr: { url, host: 'github.com', number: 123, kind: 'pull' },
+      }]);
+      expect(JSON.stringify(await listSupervisedSessions(root))).not.toContain(url);
+      expect(readFileSync(join(root, id, 'state.json'), 'utf8')).not.toContain(url);
+      await unlinkSupervisedPr(id, root);
+      expect(await listSupervisedSessions(root, undefined, { includePr: true, pr: 123 })).toEqual([]);
       await stopSupervisedSession(id, root);
     } finally {
       if (id) {

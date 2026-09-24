@@ -6,7 +6,8 @@ import { runSessionAnalyze } from '../session-analyzer/session-analyze-command.j
 import { runSessionListCommand } from '../session-inventory/session-list-command.js';
 import { launchSupervisedSession } from '../session-inventory/supervised-session-launch.js';
 import {
-  isSupervisedSessionName, renameSupervisedSession, stopSupervisedSession,
+  isSupervisedSessionName, linkSupervisedPr, parseSupervisedPr,
+  renameSupervisedSession, stopSupervisedSession, unlinkSupervisedPr,
 } from '../session-inventory/supervised-session-control.js';
 import { runSessionViewCommand } from '../session-inventory/session-view-command.js';
 import { runUsageCommand } from '../usage/usage-command.js';
@@ -78,6 +79,40 @@ export async function runPreparsedCliCommand(
       process.exitCode = 0;
     } catch (error) {
       process.stderr.write(`${error instanceof Error ? error.message : 'Unable to rename supervised session.'}\n`);
+      process.exitCode = 1;
+    }
+    return true;
+  }
+  if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'link-pr') {
+    if (argv.length !== SUBCOMMAND_ARGUMENT_INDEX + 2 || !parseSupervisedPr(argv[SUBCOMMAND_ARGUMENT_INDEX + 1])) {
+      process.stderr.write('Usage: robota session link-pr <supervised-id> <https-pr-url>\n');
+      process.exitCode = 1;
+      return true;
+    }
+    try {
+      const id = argv[SUBCOMMAND_ARGUMENT_INDEX]!;
+      await linkSupervisedPr(id, argv[SUBCOMMAND_ARGUMENT_INDEX + 1]!);
+      process.stdout.write(`Linked PR to supervised session ${id}.\n`);
+      process.exitCode = 0;
+    } catch (error) {
+      process.stderr.write(`${error instanceof Error ? error.message : 'Unable to link supervised session PR.'}\n`);
+      process.exitCode = 1;
+    }
+    return true;
+  }
+  if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'unlink-pr') {
+    if (argv.length !== SUBCOMMAND_ARGUMENT_INDEX + 1) {
+      process.stderr.write('Usage: robota session unlink-pr <supervised-id>\n');
+      process.exitCode = 1;
+      return true;
+    }
+    try {
+      const id = argv[SUBCOMMAND_ARGUMENT_INDEX]!;
+      await unlinkSupervisedPr(id);
+      process.stdout.write(`Unlinked PR from supervised session ${id}.\n`);
+      process.exitCode = 0;
+    } catch (error) {
+      process.stderr.write(`${error instanceof Error ? error.message : 'Unable to unlink supervised session PR.'}\n`);
       process.exitCode = 1;
     }
     return true;

@@ -16,6 +16,8 @@ export interface ISupervisedViewRow {
   readonly nextLoopAt?: string;
   readonly name?: string;
   readonly cwd?: string;
+  readonly pr?: { readonly url: string; readonly host: string; readonly number: number;
+    readonly kind: 'pull' | 'merge-request' };
   readonly problem?: 'invalid-registration';
 }
 
@@ -23,8 +25,10 @@ export interface ISupervisedSessionViewProps {
   readonly loadRows: (signal: AbortSignal) => Promise<readonly ISupervisedViewRow[]>;
   readonly onStop?: (id: string) => Promise<void>;
   readonly onStart?: () => Promise<string>;
+  readonly onOpenPr?: (id: string, url: string) => Promise<void>;
   readonly filteredByCwd?: boolean;
   readonly filteredByName?: boolean;
+  readonly filteredByPr?: boolean;
   readonly stateFilter?: TGroup;
   readonly refreshMs?: number;
 }
@@ -103,7 +107,8 @@ function sameRows(a: readonly ISupervisedViewRow[], b: readonly ISupervisedViewR
     const other = b[index];
     return other !== undefined && row.id === other.id && row.liveness === other.liveness &&
       row.control === other.control && row.activity === other.activity && row.problem === other.problem &&
-      row.nextLoopAt === other.nextLoopAt && row.name === other.name && row.cwd === other.cwd;
+      row.nextLoopAt === other.nextLoopAt && row.name === other.name && row.cwd === other.cwd &&
+      row.pr?.url === other.pr?.url;
   });
 }
 
@@ -118,8 +123,10 @@ export default function SupervisedSessionView({
   loadRows,
   onStop,
   onStart,
+  onOpenPr,
   filteredByCwd = false,
   filteredByName = false,
+  filteredByPr = false,
   stateFilter,
   refreshMs = 2_000,
 }: ISupervisedSessionViewProps): React.ReactElement {
@@ -140,6 +147,8 @@ export default function SupervisedSessionView({
   const [startStatus, setStartStatus] = useState<'idle' | 'starting' | 'started' | 'failed'>('idle');
   const [lastStartedId, setLastStartedId] = useState<string | undefined>();
   const startingRef = useRef(false);
+  const [prOpenStatus, setPrOpenStatus] = useState<'idle' | 'opening' | 'opened' | 'failed' | 'unavailable'>('idle');
+  const openingPrRef = useRef(false);
   const mountedRef = useRef(true);
   const ordered = useMemo(() => {
     const filtered = rows.filter((row) => stateFilter === undefined || groupOf(row) === stateFilter);
@@ -210,6 +219,7 @@ export default function SupervisedSessionView({
 
   useInput((input, key) => {
     if (stoppingRef.current) return;
+    if (openingPrRef.current && input !== 'q' && !(!screenReader && key.escape) && !(key.ctrl && input === 'c')) return;
     if (startingRef.current && input !== 'q' && !(!screenReader && key.escape) && !(key.ctrl && input === 'c')) return;
     if (confirmStopId !== undefined) {
       if (input === 'n' || key.escape) {
@@ -260,6 +270,21 @@ export default function SupervisedSessionView({
       }).finally(() => { startingRef.current = false; });
       return;
     }
+    if (input === 'p' && onOpenPr !== undefined) {
+      const row = ordered.find((candidate) => candidate.id === selectedId);
+      if (status !== 'ready' || row?.liveness !== 'alive' || row.control !== 'available' || !row.pr) {
+        setPrOpenStatus('unavailable');
+        return;
+      }
+      openingPrRef.current = true;
+      setPrOpenStatus('opening');
+      void onOpenPr(row.id, row.pr.url).then(() => {
+        if (mountedRef.current) setPrOpenStatus('opened');
+      }).catch(() => {
+        if (mountedRef.current) setPrOpenStatus('failed');
+      }).finally(() => { openingPrRef.current = false; });
+      return;
+    }
     if (input === 's' && onStop !== undefined) {
       const row = ordered.find((candidate) => candidate.id === selectedId);
       if (status !== 'ready' || row?.liveness !== 'alive' || row.control !== 'available') {
@@ -296,6 +321,8 @@ export default function SupervisedSessionView({
   const selectedLoopStatus = status === 'ready' && selectedRow?.liveness === 'alive' &&
     selectedRow.control === 'available' && selectedRow.activity === 'idle' && selectedRow.nextLoopAt
     ? loopWaitLabel(selectedRow.nextLoopAt, observedAtMs) : '';
+  const selectedPr = status === 'ready' && selectedRow?.liveness === 'alive' &&
+    selectedRow.control === 'available' ? selectedRow.pr : undefined;
 
   const height = Math.max(8, stdout.rows ?? 24);
   const helpLines = [
@@ -304,6 +331,7 @@ export default function SupervisedSessionView({
     's Request stop',
     'g Group state/dir',
     ...(onStart === undefined ? [] : ['n New session']),
+    ...(onOpenPr === undefined ? [] : ['p Open linked PR']),
     'y Confirm stop',
     'n/Esc Cancel stop',
     'q/Esc/Ctrl+C Close',
@@ -318,7 +346,9 @@ export default function SupervisedSessionView({
     + (status === 'loading' || status === 'unavailable' || (status === 'ready' && ordered.length === 0) ? 1 : 0)
     + (selectedId === undefined ? 0 : 1)
     + (selectedName === undefined ? 0 : 1)
+    + (selectedPr === undefined ? 0 : 2)
     + (selectedLoopStatus ? 1 : 0)
+    + (prOpenStatus === 'idle' ? 0 : 1)
     + (startStatus === 'idle' ? 0 : 1)
     + (confirmStopId !== undefined ? (screenReader ? 1 : 2) : stopStatus !== 'idle' ? 1 : 0)
     + 1 + (helpVisible ? helpLines.length : 0) + 2;
@@ -329,13 +359,14 @@ export default function SupervisedSessionView({
   const chromeWrap = screenReader ? {} : { wrap: 'truncate-end' as const };
   const footer = stopStatus === 'stopping' ? 'Stop in progress; wait for result.'
     : confirmStopId !== undefined ? 'Confirm stop or cancel before closing.'
-      : screenReader ? `Type a number and Enter to select; s Stop;${onStart ? ' n New;' : ''} g Group; Escape to close; ? Help.`
-        : `↑↓ Navigate  s Stop${onStart ? '  n New' : ''}  g Group  ? Help  q/Esc Close`;
+      : screenReader ? `Type a number and Enter to select; s Stop;${onStart ? ' n New;' : ''}${onOpenPr ? ' p Open PR;' : ''} g Group; Escape to close; ? Help.`
+        : `↑↓ Navigate  s Stop${onStart ? '  n New' : ''}${onOpenPr ? '  p Open PR' : ''}  g Group  ? Help  q/Esc Close`;
   return (
     <Box flexDirection="column" {...(screenReader ? {} : { height })}>
       <Text {...chromeWrap}>
         {filteredByCwd ? 'Background sessions in selected directory' : 'Background sessions across projects'}
         {filteredByName ? ' · name filter active' : ''}
+        {filteredByPr ? ' · PR filter active' : ''}
       </Text>
       <Text {...chromeWrap}>{ordered.length} supervised session(s). Foreground peers and saved records are separate.</Text>
       {stateFilter !== undefined && <Text {...chromeWrap}>State: {stateFilter}</Text>}
@@ -356,12 +387,20 @@ export default function SupervisedSessionView({
             line.row.activity === 'idle' && line.row.nextLoopAt
             ? `  ${loopWaitLabel(line.row.nextLoopAt, observedAtMs)}` : ''}
           {line.row.problem ? `  ${line.row.problem}` : ''}
+          {status === 'ready' && line.row.liveness === 'alive' && line.row.control === 'available' && line.row.pr
+            ? `  ${line.row.pr.host} ${line.row.pr.kind === 'pull' ? '#' : '!'}${line.row.pr.number}` : ''}
         </Text>)}
       {!screenReader && start + visible.length < displayLines.length &&
         <Text>{displayLines.length - start - visible.length} more below</Text>}
       {selectedId !== undefined && <Text {...chromeWrap}>Selected {selectedId}</Text>}
       {selectedName !== undefined && <Text {...chromeWrap}>Name: {selectedName}</Text>}
+      {selectedPr !== undefined && <Text {...chromeWrap}>PR: {selectedPr.host} {selectedPr.kind === 'pull' ? '#' : '!'}{selectedPr.number}</Text>}
+      {selectedPr !== undefined && <Text {...chromeWrap}>URL: {selectedPr.url}</Text>}
       {selectedLoopStatus && <Text {...chromeWrap}>{selectedLoopStatus}</Text>}
+      {prOpenStatus === 'opening' && <Text {...chromeWrap}>Opening linked PR...</Text>}
+      {prOpenStatus === 'opened' && <Text {...chromeWrap}>Opened linked PR.</Text>}
+      {prOpenStatus === 'failed' && <Text {...chromeWrap}>PR link changed or could not be opened.</Text>}
+      {prOpenStatus === 'unavailable' && <Text {...chromeWrap}>No verified PR link is available.</Text>}
       {startStatus === 'starting' && <Text {...chromeWrap}>Starting a background session...</Text>}
       {startStatus === 'started' && <Text {...chromeWrap}>Started {lastStartedId}{filteredByName || stateFilter !== undefined ? ' (may be hidden by filter)' : ''}</Text>}
       {startStatus === 'failed' && <Text {...chromeWrap}>Start failed; check workspace trust or run session start --background for details.</Text>}

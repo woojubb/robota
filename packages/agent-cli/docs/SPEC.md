@@ -67,14 +67,15 @@ control response, initialization, or shutdown read as `unknown`; `idle` means on
 is initialized with no pending question and is not executing, not that another CLI can attach or
 submit a prompt. A waiting loop's next eligible time is reported separately from activity only
 when observed from the live owner; it does not promise that a future wake will run. The global
-supervised view observes only that guarded inventory and narrows by owner-reported name or
-directory only on a live owner-verified path: it does not join peer or saved-record identities,
+supervised view observes only that guarded inventory and narrows by owner-reported name, directory,
+or explicitly linked PR only on a live owner-verified path: it does not join peer or saved-record identities,
 expose conversation content or project paths in ordinary rows (verified paths appear only when
 the viewer explicitly groups by directory), or treat an exited
-process as completed; starting a session from the view still requires headless workspace trust for
+process as completed or show stale PR links; PR URLs never enter ordinary session listings or
+registration records. Starting a session from the view still requires headless workspace trust for
 its target directory, and closing the view never stops a supervised session. A damaged registration is
 shown as unavailable without hiding healthy sessions,
-and a stop or rename request acts only
+and a stop, rename, or PR-association request acts only
 through the live owner's control endpoint, failing explicitly rather than guessing when ownership or
 completion cannot be established. Attach, peek, and automatic restart are not offered, and the
 transport's per-launch authentication token is never exposed through the control endpoint or

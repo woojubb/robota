@@ -19,6 +19,55 @@ const THIRD: ISupervisedViewRow = {
 };
 
 describe('supervised session view', () => {
+  it('shows a linked PR only while verified and opens it only on explicit keypress', async () => {
+    const url = 'https://github.com/team/repo/pull/123';
+    const onOpenPr = vi.fn(async () => undefined);
+    const row = { ...FIRST, pr: { url, host: 'github.com', number: 123, kind: 'pull' as const } };
+    const view = render(<SupervisedSessionView loadRows={async () => [row]} onOpenPr={onOpenPr} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('github.com #123'));
+      expect(view.lastFrame()).toContain(url);
+      expect(onOpenPr).not.toHaveBeenCalled();
+      view.stdin.write('p');
+      await vi.waitFor(() => expect(onOpenPr).toHaveBeenCalledExactlyOnceWith(FIRST.id, url));
+    } finally { view.unmount(); }
+  });
+
+  it('hides stale PR links and refuses open when discovery fails', async () => {
+    const url = 'https://github.com/team/repo/pull/123';
+    let fail = false;
+    const onOpenPr = vi.fn(async () => undefined);
+    const view = render(<SupervisedSessionView refreshMs={20} onOpenPr={onOpenPr}
+      loadRows={async () => {
+        if (fail) throw new Error('offline');
+        return [{ ...FIRST, pr: { url, host: 'github.com', number: 123, kind: 'pull' as const } }];
+      }} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(url));
+      fail = true;
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('discovery unavailable'));
+      expect(view.lastFrame()).not.toContain(url);
+      view.stdin.write('p');
+      expect(onOpenPr).not.toHaveBeenCalled();
+    } finally { view.unmount(); }
+  });
+
+  it('refreshes a replaced or cleared association without retaining the old URL', async () => {
+    const first = 'https://github.com/team/repo/pull/123';
+    const next = 'https://git.example.org/team/repo/-/merge_requests/24';
+    let association: ISupervisedViewRow['pr'] = { url: first, host: 'github.com', number: 123, kind: 'pull' };
+    const view = render(<SupervisedSessionView refreshMs={20} loadRows={async () => [
+      { ...FIRST, ...(association ? { pr: association } : {}) },
+    ]} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(first));
+      association = { url: next, host: 'git.example.org', number: 24, kind: 'merge-request' };
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(next));
+      expect(view.lastFrame()).not.toContain(first);
+      association = undefined;
+      await vi.waitFor(() => expect(view.lastFrame()).not.toContain(next));
+    } finally { view.unmount(); }
+  });
   it('toggles verified directory grouping without losing selection or inventing unknown paths', async () => {
     const rows = [
       { ...FIRST, cwd: '/projects/alpha' },
