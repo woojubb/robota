@@ -15,6 +15,30 @@ const hungFixture = fileURLToPath(new URL('./fixtures/supervised-hung-start.mjs'
 const SECRET_MARKER = 'SUPERVISED_SECRET_MUST_NOT_APPEAR';
 
 describe('detached supervised runtime', () => {
+  it('forwards an explicit launch name from the owner without storing it in registration', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-np-'));
+    const root = join(scratch, 'supervised');
+    let id: string | undefined;
+    try {
+      id = await launchSupervisedSession(process.cwd(), {
+        entrypoint: fixture,
+        execArgs: ['--import', 'tsx', '--conditions=source'],
+        env: { ROBOTA_TEST_SUPERVISED_ROOT: root },
+        name: 'Morning review',
+      });
+      await vi.waitFor(async () => expect(await listSupervisedSessions(root, undefined, { includeName: true })).toEqual([{
+        id, liveness: 'alive', control: 'available', activity: 'idle', name: 'Morning review',
+      }]), { timeout: 15_000, interval: 100 });
+      expect(readFileSync(join(root, id, 'state.json'), 'utf8')).not.toContain('Morning review');
+      await stopSupervisedSession(id, root);
+    } finally {
+      if (id) {
+        try { await stopSupervisedSession(id, root); } catch { /* already stopped */ }
+      }
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  }, 60_000);
+
   it('remains available after its launcher disconnects, then shuts down by owned ID', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-process-'));
     const root = join(scratch, 'supervised');

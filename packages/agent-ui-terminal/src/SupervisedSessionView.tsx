@@ -13,6 +13,7 @@ export interface ISupervisedViewRow {
   readonly control: 'available' | 'unavailable';
   readonly activity: 'working' | 'needs-input' | 'idle' | 'unknown';
   readonly nextLoopAt?: string;
+  readonly name?: string;
   readonly problem?: 'invalid-registration';
 }
 
@@ -20,6 +21,7 @@ export interface ISupervisedSessionViewProps {
   readonly loadRows: (signal: AbortSignal) => Promise<readonly ISupervisedViewRow[]>;
   readonly onStop?: (id: string) => Promise<void>;
   readonly filteredByCwd?: boolean;
+  readonly filteredByName?: boolean;
   readonly stateFilter?: TGroup;
   readonly refreshMs?: number;
 }
@@ -46,7 +48,7 @@ function sameRows(a: readonly ISupervisedViewRow[], b: readonly ISupervisedViewR
     const other = b[index];
     return other !== undefined && row.id === other.id && row.liveness === other.liveness &&
       row.control === other.control && row.activity === other.activity && row.problem === other.problem &&
-      row.nextLoopAt === other.nextLoopAt;
+      row.nextLoopAt === other.nextLoopAt && row.name === other.name;
   });
 }
 
@@ -61,6 +63,7 @@ export default function SupervisedSessionView({
   loadRows,
   onStop,
   filteredByCwd = false,
+  filteredByName = false,
   stateFilter,
   refreshMs = 2_000,
 }: ISupervisedSessionViewProps): React.ReactElement {
@@ -193,6 +196,8 @@ export default function SupervisedSessionView({
   });
 
   const selectedRow = ordered.find((row) => row.id === selectedId);
+  const selectedName = status === 'ready' && selectedRow?.liveness === 'alive' &&
+    selectedRow.control === 'available' ? selectedRow.name : undefined;
   const selectedLoopStatus = status === 'ready' && selectedRow?.liveness === 'alive' &&
     selectedRow.control === 'available' && selectedRow.activity === 'idle' && selectedRow.nextLoopAt
     ? loopWaitLabel(selectedRow.nextLoopAt, observedAtMs) : '';
@@ -203,6 +208,7 @@ export default function SupervisedSessionView({
   const fixedLines = 2 + (stateFilter === undefined ? 0 : 1)
     + (status === 'loading' || status === 'unavailable' || (status === 'ready' && ordered.length === 0) ? 1 : 0)
     + (selectedId === undefined ? 0 : 1)
+    + (selectedName === undefined ? 0 : 1)
     + (selectedLoopStatus ? 1 : 0)
     + (confirmStopId !== undefined ? (screenReader ? 1 : 2) : stopStatus !== 'idle' ? 1 : 0)
     + 1 + (helpVisible ? 10 : 0) + 2;
@@ -230,7 +236,10 @@ export default function SupervisedSessionView({
 
   return (
     <Box flexDirection="column" {...(screenReader ? {} : { height })}>
-      <Text {...chromeWrap}>{filteredByCwd ? 'Background sessions in selected directory' : 'Background sessions across projects'}</Text>
+      <Text {...chromeWrap}>
+        {filteredByCwd ? 'Background sessions in selected directory' : 'Background sessions across projects'}
+        {filteredByName ? ' · name filter active' : ''}
+      </Text>
       <Text {...chromeWrap}>{ordered.length} supervised session(s). Foreground peers and saved records are separate.</Text>
       {stateFilter !== undefined && <Text {...chromeWrap}>State: {stateFilter}</Text>}
       {status === 'loading' && <Text {...chromeWrap}>Loading supervised sessions...</Text>}
@@ -241,7 +250,11 @@ export default function SupervisedSessionView({
         ? <Text key={`group-${line.group}`}>{line.group}:</Text>
         : <Text key={`row-${line.row.id}`} {...(screenReader ? {} : { wrap: 'truncate-end' as const })}>
           {screenReader ? numberedRowPrefix(line.index) : line.row.id === selectedId ? '> ' : '  '}
-          {line.row.id}  activity {line.row.activity}  liveness {line.row.liveness}  control {line.row.control}
+          {line.row.name && line.row.liveness === 'alive' && line.row.control === 'available'
+            ? screenReader
+              ? `${line.row.name} (${line.row.id})`
+              : `${Array.from(line.row.name).slice(0, 24).join('')}${Array.from(line.row.name).length > 24 ? '…' : ''} [${line.row.id.slice(-8)}]`
+            : line.row.id}  activity {line.row.activity}  liveness {line.row.liveness}  control {line.row.control}
           {status === 'ready' && line.row.liveness === 'alive' && line.row.control === 'available' &&
             line.row.activity === 'idle' && line.row.nextLoopAt
             ? `  ${loopWaitLabel(line.row.nextLoopAt, observedAtMs)}` : ''}
@@ -250,6 +263,7 @@ export default function SupervisedSessionView({
       {!screenReader && start + visible.length < displayLines.length &&
         <Text>{displayLines.length - start - visible.length} more below</Text>}
       {selectedId !== undefined && <Text {...chromeWrap}>Selected {selectedId}</Text>}
+      {selectedName !== undefined && <Text {...chromeWrap}>Name: {selectedName}</Text>}
       {selectedLoopStatus && <Text {...chromeWrap}>{selectedLoopStatus}</Text>}
       {confirmStopId !== undefined && (screenReader
         ? <Text>Stop {confirmStopId}? y Yes / n No</Text>
@@ -286,7 +300,8 @@ export async function renderSupervisedSessionView(
   const instance = render(
     <ScreenReaderProvider enabled={options.screenReader}>
       <SupervisedSessionView loadRows={options.loadRows} onStop={options.onStop}
-        filteredByCwd={options.filteredByCwd} stateFilter={options.stateFilter} refreshMs={options.refreshMs} />
+        filteredByCwd={options.filteredByCwd} filteredByName={options.filteredByName}
+        stateFilter={options.stateFilter} refreshMs={options.refreshMs} />
     </ScreenReaderProvider>,
     { isScreenReaderEnabled: options.screenReader, exitOnCtrlC: false },
   );

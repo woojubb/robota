@@ -102,8 +102,12 @@ export async function runPreparsedCliCommand(
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'start') {
-    if (argv.length !== SUBCOMMAND_ARGUMENT_INDEX + 1 || argv[SUBCOMMAND_ARGUMENT_INDEX] !== '--background') {
-      process.stderr.write('Usage: robota session start --background\n');
+    const startArgs = argv.slice(SUBCOMMAND_ARGUMENT_INDEX);
+    const unnamed = startArgs.length === 1 && startArgs[0] === '--background';
+    const named = startArgs.length === 3 && startArgs[0] === '--background' &&
+      startArgs[1] === '--name';
+    if (!unnamed && !named) {
+      process.stderr.write('Usage: robota session start --background [--name <name>]\n');
       process.exitCode = 1;
       return true;
     }
@@ -113,7 +117,7 @@ export async function runPreparsedCliCommand(
       return true;
     }
     try {
-      const id = await launchSupervisedSession(cwd);
+      const id = await launchSupervisedSession(cwd, named ? { name: startArgs[2]! } : {});
       process.stdout.write(`Supervised session: ${id}\n`);
     } catch (error) {
       process.stderr.write(`${error instanceof Error ? error.message : 'Supervised session could not start.'}\n`);

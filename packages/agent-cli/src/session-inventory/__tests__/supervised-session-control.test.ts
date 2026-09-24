@@ -98,6 +98,32 @@ describe('supervised session control', () => {
     }
   });
 
+  it('lists and filters only a bounded name reported by the live owner', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-nm-'));
+    const root = join(scratch, 'supervised');
+    let name = 'Morning review';
+    const control = await startSupervisedControl(
+      ID, () => undefined, root, () => 'idle', undefined, undefined, () => name,
+    );
+    try {
+      const named = { id: ID, liveness: 'alive', control: 'available', activity: 'idle', name };
+      expect(await listSupervisedSessions(root)).toEqual([{
+        id: ID, liveness: 'alive', control: 'available', activity: 'idle',
+      }]);
+      expect(await listSupervisedSessions(root, undefined, { includeName: true })).toEqual([named]);
+      expect(await listSupervisedSessions(root, undefined, { name: 'REVIEW', includeName: true })).toEqual([named]);
+      expect(await listSupervisedSessions(root, undefined, { name: 'other' })).toEqual([]);
+      name = 'bad\nname';
+      expect(await listSupervisedSessions(root)).toEqual([{
+        id: ID, liveness: 'alive', control: 'available', activity: 'idle',
+      }]);
+      expect(await listSupervisedSessions(root, undefined, { name: 'bad' })).toEqual([]);
+    } finally {
+      await control.close();
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
   it('keeps activity unknown when the live process control reply cannot be verified', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-lost-'));
     const root = join(scratch, 'supervised');

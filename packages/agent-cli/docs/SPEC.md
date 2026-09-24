@@ -67,9 +67,9 @@ control response, initialization, or shutdown read as `unknown`; `idle` means on
 is initialized with no pending question and is not executing, not that another CLI can attach or
 submit a prompt. A waiting loop's next eligible time is reported separately from activity only
 when observed from the live owner; it does not promise that a future wake will run. The global
-supervised view observes only that guarded inventory and narrows by
+supervised view observes only that guarded inventory and narrows by owner-reported name or
 directory only on a live owner-verified path: it does not join peer or saved-record identities,
-expose content or project paths in rows, or treat an exited
+expose conversation content or project paths in rows, or treat an exited
 process as completed; closing the view never stops a supervised session. A damaged registration is
 shown as unavailable without hiding healthy sessions,
 and a stop request acts only
