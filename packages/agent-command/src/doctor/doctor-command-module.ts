@@ -1,3 +1,4 @@
+import { createSystemCommandFromEntry } from '../command-module-utils.js';
 /**
  * `/doctor` — the interactive surface of the same runner the shell route uses (OBSERVABILITY-1991).
  *
@@ -30,6 +31,8 @@ export function createDoctorCommandEntry(): ICommand {
       'Diagnose configuration and runtime readiness; `repair <check-id>` applies an allowlisted fix',
     source: 'doctor',
     modelInvocable: false,
+    userInvocable: true,
+    argumentHint: '[repair <check-id>]',
   };
 }
 
@@ -111,17 +114,11 @@ export function createDoctorCommandModule(
   deps: IDoctorDeps = createNodeDoctorDeps({ ...inputs.env }),
 ): ICommandModule {
   const entry = createDoctorCommandEntry();
-  const command: ISystemCommand = {
-    name: entry.name,
-    displayName: entry.displayName,
-    description: entry.description,
-    argumentHint: '[repair <check-id>]',
+  const command: ISystemCommand = createSystemCommandFromEntry(entry, {
     requiresPermission: false,
-    userInvocable: true,
-    modelInvocable: false,
     lifecycle: 'inline',
     execute: (context, args) => executeDoctorCommand(inputs, deps, context, args),
-  };
+  });
   return {
     name: 'agent-command-doctor',
     commandSources: [new DoctorCommandSource()],

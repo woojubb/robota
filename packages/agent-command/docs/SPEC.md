@@ -148,10 +148,12 @@ not even the toggles submitted alongside it.
 owner command changes only that command's value, and the framework's projection follows the
 declaration.
 
-**`/remote-control` metadata.** The palette entry is the single source for its name, label,
-description, invocation visibility, and argument hint; the executable command is projected from that
-entry. Execution policy and lifecycle remain executable-command behavior. This prevents the palette
-from omitting the argument hint used by the executable command.
+**`/remote-control`, `/doctor`, and `/context` metadata.** Each palette entry is the single source
+for its name, label, description, invocation visibility, argument hint, and any specialized
+subcommands; the executable command is projected from that entry. Execution policy and lifecycle
+remain executable-command behavior. The doctor repair hint is available to palette consumers, and
+context's reference and auto-compact subcommands remain available in both projections. These commands
+remain operator-only; projecting metadata does not grant model invocation or change execution policy.
 
 **CMD-004 ask seam.** A command that needs input (selection pickers, setup wizards, destructive-action
 confirmation) asks for it inline at the top of `execute` via the host-supplied

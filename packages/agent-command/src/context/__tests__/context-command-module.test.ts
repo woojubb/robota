@@ -9,7 +9,7 @@ import type {
   TAutoCompactThresholdSource,
 } from '@robota-sdk/agent-framework';
 import type { IContextReferenceItem } from '@robota-sdk/agent-interface-session';
-import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
+import { CommandRegistry, SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createContextCommandModule } from '../context-command-module.js';
 import type { ICommandHostContextWindow } from '@robota-sdk/agent-framework';
 import {
@@ -174,6 +174,33 @@ function createExecutor(): SystemCommandExecutor {
 }
 
 describe('createContextCommandModule', () => {
+  it('preserves argument hints and specialized subcommands in both command projections', () => {
+    const module = createContextCommandModule();
+    const registry = new CommandRegistry();
+    registry.addModule(module);
+    const executor = new SystemCommandExecutor([...(module.systemCommands ?? [])]);
+    const entry = registry.getCommands().find((command) => command.name === 'context');
+    const command = executor.getCommand('context');
+    expect(entry?.argumentHint).toBe('list | add <path> | remove <path> | clear | auto ...');
+    expect(command?.argumentHint).toBe('list | add <path> | remove <path> | clear | auto ...');
+    expect(command?.subcommands?.map((subcommand) => subcommand.name)).toEqual([
+      'list',
+      'add',
+      'remove',
+      'clear',
+      'auto',
+    ]);
+    expect(command?.subcommands).toEqual(registry.getSubcommands('context'));
+    expect(command).toMatchObject({
+      modelInvocable: false,
+      userInvocable: true,
+      requiresPermission: false,
+    });
+    expect(command?.lifecycle ?? 'inline').toBe('inline');
+    expect(command?.description).toBe(entry?.description);
+    expect(executor.isModelInvocable('context')).toBe(false);
+  });
+
   it('provides context metadata and an executable command', () => {
     const module = createContextCommandModule();
     const command = module.systemCommands?.[0];
