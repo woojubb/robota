@@ -100,26 +100,27 @@ write still reports the written session record so it can be resumed by hand.
 **`/context` tool-schema accounting.** The tool-schema cost breakdown reads the **offered** tool set,
 not the registered one: a tool that declares deferred loading and that the model has not yet loaded
 is not sent with the request and is therefore not counted. The resulting number can fall as a direct,
-observable consequence of deferral — before this breakdown existed, nothing separated tool-schema
-token cost from the system-prompt cost it is billed alongside.
+observable consequence of deferral.
 
 **`/loop` (in-session repeat).** A bare or prompt-only invocation starts a self-paced loop; an
-explicit interval keeps a fixed schedule. In self-paced mode the model chooses each delay, capped at
-one hour, and a short reason, or stops the loop; a missing decision falls back once rather than
+explicit interval keeps a fixed schedule. In self-paced mode the model chooses each delay, within a
+bounded maximum, and a short reason, or stops the loop; a missing decision falls back once rather than
 looping unbounded. The session record, not the disposable timer, owns resumption for either mode.
-Fixed requested intervals are positive and at most one day. Calendar-aligned steps only divide the
+Fixed requested intervals are positive and bounded. Calendar-aligned steps only divide the
 minute, hour, or day; a request between supported steps rounds up to the next one, and the rounded
 step (not an exact elapsed-time figure) is what gets reported, because daylight-saving transitions
 can make the actual elapsed gap shorter or longer than the nominal step. Repeated in-flight wakes
 from the same loop coalesce in the bounded session queue rather than queuing a catch-up burst after
 a gap. A loop's stable identity is separate from its editable display label and the underlying
 scheduler's runtime task id, so renaming or a schedule restore cannot hide a loop from `/loop
-list`/`/loop stop` or break the stop path. A session allows at most three active loops (including
-paused ones); a fourth creation is refused. New loops carry an absolute seven-day expiry; an expired
+list`/`/loop stop` or break the stop path. A session allows a bounded number of active loops (including
+paused ones); creation beyond it is refused. New loops carry an absolute expiry; an expired
 loop is terminal and refuses to fire again even after a restore. Creation and stop are strictly
 persisted before they report success; ordinary turn snapshots remain best-effort. A host kill switch
 can block firing/re-arming while preserving paused records for a later restart, and separately
 refuses new-loop creation while still allowing `list`/`stop` so existing loops stay manageable.
+Autocomplete offers `list` and `stop` with `list` first, so selecting `/loop` cannot start the
+host-default loop on the first Enter; directly submitting bare `/loop` still creates one.
 Fixed loops carry a small stable per-loop offset to avoid synchronized wake bursts; self-paced loops
 keep the model-selected delay without added jitter. Omitted prompts use the host's live default at
 each iteration; an explicit schedule edit replaces that default for the edited fixed loop.
@@ -147,7 +148,8 @@ declaration.
 palette entry is the single source of metadata, and the executable command is projected from it;
 execution policy and lifecycle remain executable-command behavior. Projecting shared metadata does
 not grant model invocation or change execution policy, permission requirements, or model visibility
-— these commands remain operator-only.
+— these commands remain operator-only. Remote control offers `status` and `devices` before pairing or
+revoking actions, so an autocomplete selection defaults to a read-only operation.
 
 **CMD-004 ask seam.** A command that needs input (selection pickers, setup wizards, destructive-action
 confirmation) asks for it inline at the top of `execute` via the host-supplied

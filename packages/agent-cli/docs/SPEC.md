@@ -27,8 +27,7 @@ inventory, automatic project memory capture/retrieval/storage, edit-checkpoint c
 `InteractiveSession` itself, `CommandRegistry`/`ICommand`/`ICommandSource`, background/subagent
 lifecycle contracts, transparent-workflow provenance/state vocabulary, baseline workflow storage, or
 Ink TUI components/hooks (owned by `@robota-sdk/agent-ui-terminal`). Non-UI behavior exposed through
-the CLI is owned below it first; the CLI adds only TUI, input handling, ephemeral selection state,
-product composition, and concrete local host adapters.
+the CLI is owned below it first unless it is listed as CLI-owned below.
 
 The CLI owns: argument parsing and process lifecycle assembly, `TransportRegistry`, provider
 composition (selecting an injected `IProviderDefinition`, not implementing providers), concrete local
@@ -56,15 +55,22 @@ Local peer-activity publishing exposes only fixed, content-free activity states 
 interactive session into a guarded, same-user rendezvous, kept separate from process-liveness checks
 (stale or unverified observations read as `unknown`) and never carrying conversation content or
 stored-session identity; `session list` surfaces this presence data separately from saved session
-records without implying a background supervisor or an attach/restart capability. Supervised
+records without implying a background supervisor or an attach/restart capability. The list includes
+only user-owned and currently authorized project records, never transcript content; corrupt and
+unsupported records stay visible rather than being hidden. Supervised
 background sessions (`session start --background`) run as independent, same-user processes behind the
 same headless trust boundary, each with its own guarded local control endpoint that survives the
 launching terminal; the session list reports only content-free activity and liveness for these —
-never session content, launch environment, or provider credentials — and a stop request acts only
+never session content, launch environment, or provider credentials. Unverified identity, a missing
+control response, initialization, or shutdown read as `unknown`; `idle` means only that the session
+is initialized with no pending question and is not executing, not that another CLI can attach or
+submit a prompt. A damaged registration is shown as unavailable without hiding healthy sessions,
+and a stop request acts only
 through the live owner's control endpoint, failing explicitly rather than guessing when ownership or
-completion cannot be established. This does not promise attach, peek, or automatic restart, and the
+completion cannot be established. Attach, peek, and automatic restart are not offered, and the
 transport's per-launch authentication token is never exposed through the control endpoint or
-inventory. `usage export` is explicit and local-only: it sends aggregate usage data, or — when the
+inventory. `usage export` is explicit and local-only: it reads the same authorized user and project session
+stores as local usage reporting and sends aggregate usage data, or — when the
 trace signal is explicitly selected — verified execution records with content-free call/tool-body
 children, exclusively to a caller-named loopback OTLP collector; an explicitly selected logs signal
 sends only content-free completion snapshots and never the session replay log. None of these exports
@@ -342,7 +348,7 @@ rather than falling through, and a file prompt conveys no new permissions.
 
 The CLI owns its package identity, install guidance, and user-local update-check cache; the framework
 provides only reusable version-comparison utilities. Enabled by default only for interactive TUI
-startup, rate-limited so a registry lookup failure must never prevent startup. Print/headless
+startup, rate-limited, and a registry lookup failure never prevents startup. Print/headless
 execution never schedules or emits update checks, keeping automation and structured stdout/stderr
 contracts deterministic. The CLI may print the install command but must never execute install/update
 commands without explicit user confirmation.

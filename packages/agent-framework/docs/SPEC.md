@@ -25,7 +25,7 @@ React/Ink UI.
   package, never duplicated here. Consumers import general-purpose symbols from their owner
   (`agent-core`, `agent-session`, `agent-tools`); this package exports only what it owns or narrows
   behind an SDK facade. A pass-through re-export is allowed only for a symbol a permitted consumer
-  has no other legal import path to (today `IBackgroundTaskRunner` from `agent-executor`, in
+  has no other legal import path to (such as `IBackgroundTaskRunner` from `agent-executor`, in
   `background-tasks/`), so ownership stays visible in every import. This is enforced mechanically
   across every file reachable from the `exports` map, whether the re-export is a runtime value or a type.
 - **React-free.** No React/Ink dependency, so the SDK stays usable from a CLI, server, worker, or
@@ -46,8 +46,8 @@ React/Ink UI.
 - **Every user- and project-scoped location is host-supplied, and the framework never infers or falls
   back to one.** Storage roots, project settings and state directories, user settings sources,
   plugin/skill/agent-definition roots, permission baselines, and task-context directories are all
-  read only from what the host explicitly passes; omission means no discovery, never an ambient
-  default, and a restricted (untrusted) project can never read project settings merely because a path
+  read only from what the host explicitly passes; an omitted discovery root means no discovery, and an
+  omitted storage root fails before any filesystem write — never an ambient default. A restricted (untrusted) project can never read project settings merely because a path
   was supplied. A user-local storage root that resolves inside the active repository — including
   through a symlink — is rejected. A project settings writer requires its own separately approved
   target, and when that guarded write is unavailable, a project-wide permission approval is never
@@ -120,10 +120,11 @@ These are behaviors a caller cannot infer from a type signature alone.
   untrusted submission can never claim another conversation's reserved identity. The model receives
   only an escaped, bounded envelope — file-reference shorthand in external text stays literal and
   never reads local context. An admitted external turn is text-only for model-generated actions: it
-  cannot invoke a provider tool call, is rejected before execution, and is mutually exclusive with
-  `bypassPermissions` throughout active and already-admitted work. This does not sandbox trusted
-  hooks/plugins or authenticate a platform sender by itself, and it is not yet an MCP adapter or a
-  remote permission-approval channel.
+  does not expose local tool schemas, and a provider tool call it produces is rejected before
+  execution. External admission is mutually exclusive with `bypassPermissions` throughout active and
+  already-admitted work. Each accepted event settles from its own turn handle, and an interrupted
+  result never becomes a successful reply. This does not sandbox trusted hooks/plugins or
+  authenticate a platform sender by itself, and it is not a remote permission-approval channel.
 - **Automatic session naming is text-only.** The title-generation call — whether triggered by an
   operator message or the first external event — always disables tool use, so hosted web tools can
   never be invoked merely to generate a title.

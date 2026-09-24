@@ -17,9 +17,12 @@ logic, and the WebSocket server entrypoint.
 - A peer never receives its own frame echoed back, and frames never cross between rendezvous ids. Any
   non-signaling frame, or an unknown signal kind, is rejected and never relayed.
 - Imports no `@robota-sdk` runtime package — it is a dumb relay with a single dependency (`ws`).
-- Carries no authentication or trust: pairing/auth is deferred to a later stage. It exposes a no-op
-  rate-limit/auth seam for that future use, binds to loopback on an ephemeral port by default, and is
-  not wired into any default runnable, publish, or deploy path.
+- A rendezvous id admits at most two peers and is single-use: a third peer is refused even after one
+  leaves, and a half-open rendezvous (one peer waiting) expires after a bounded time.
+- Carries no authentication or trust of its own. Joins pass a built-in per-source rate limiter (on by
+  default) and then an optional host-supplied `onJoinAttempt` admission hook for custom auth. It binds
+  to loopback on an ephemeral port by default and is not wired into any default runnable, publish, or
+  deploy path.
 - Bounds resource consumption at the transport layer, safe by default: an oversized WebSocket frame is
   closed before buffering; total and per-IP concurrent-connection caps are enforced at accept and
   refused connections are never registered; and a per-connection message-rate limit throttles the
@@ -30,5 +33,5 @@ logic, and the WebSocket server entrypoint.
 
 ## Non-goals
 
-- No authentication or pairing-based admission in this stage.
+- No built-in authentication or pairing-based admission; a host adds it through the admission hook.
 - No inspection or transformation of relayed signaling data.

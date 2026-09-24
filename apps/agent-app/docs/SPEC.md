@@ -20,14 +20,12 @@ reuses `@robota-sdk/agent-ui-web`'s React session view and reducer verbatim.
 - The renderer is hardened: context isolation, no Node integration, sandboxed, loads only local
   content, a CSP restricted to `self` plus the loopback WebSocket origin, and navigation/new-window
   lockdown — so the nonce-holding renderer cannot carry the session to an external origin.
-- The token is enforced only when set: the plain TUI / `apps/agent-web` localhost path is intentionally
-  left open and is tracked separately for hardening.
 - Closing the window shuts down the sidecar cleanly (no orphaned `robota` process); if the sidecar
   dies externally, the UI reaches a non-hanging fatal state rather than hanging silently.
 
 ## Non-goals
 
-- Does not own packaging/signing (installers, code-signing, notarization, auto-update) in this stage.
+- Does not own packaging/signing (installers, code-signing, notarization, auto-update).
 - No `agent-framework`/`agent-core` dependency — the sidecar owns the runtime.
 
 ## Design decisions

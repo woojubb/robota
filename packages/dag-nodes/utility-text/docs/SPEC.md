@@ -15,7 +15,7 @@ string and JSON transformation primitives for use in DAG pipelines.
   encoding, other transforms, or CPU time, and workflow config cannot raise the ceiling.
 - Text replacement delegates regex mode to a trusted operation capability supplied by the host,
   which may isolate or reject execution; a direct invocation without that capability runs inline
-  with no CPU interruption guarantee. Configuration cannot opt out of host-supplied isolation.
+  with no CPU interruption guarantee. Configuration cannot opt out of host-supplied isolation or choose an executable worker entry.
 
 ## Non-goals
 

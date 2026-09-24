@@ -21,7 +21,7 @@ the server entrypoint.
   media types all reject with 400); the content route does not dereference external reference URIs
   until the store enforces connect-time address safety, and streaming errors after headers are sent
   abort the response rather than completing with silently truncated content.
-- Storage failures on cost and asset routes are redacted as a generic 500, never exposing internal
+- Storage failures on cost, asset, and run-draft routes are redacted as a generic 500, never exposing internal
   paths or storage errors.
 - `startDagRuntimeServer()` captures the server process's own working directory as the trusted DAG
   execution root and passes it explicitly to the framework, rather than trusting a caller-supplied path.

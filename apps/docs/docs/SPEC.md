@@ -11,7 +11,3 @@ with multilingual (en/ko) support and full-text search, statically exported to C
   at build time, and this app does not define or enforce package APIs — it only renders documentation
   authored by package owners.
 - Runs static export only — no agent execution.
-
-## Non-goals
-
-- No automated tests; validation relies on a successful static build.

@@ -53,7 +53,7 @@ authoring never searches the process home for a provider profile.
   authority/mutation capability, a file, or a DAG is missing or invalid.
 - The `workflows` command is model-invocable: an agent can author and run (or author and save) a
   workflow from a chat request, subject to the same privilege split between `create` and `build`.
-- Sync-catalog operations enforce a fixed output-size ceiling before expanding output; a saved
+- The built-in `text-repeat` operation enforces a fixed output-size ceiling before expanding output; a saved
   workflow cannot raise it, and `run` surfaces a violation as a failed command rather than an
   unbounded result.
 - A saved composite workflow shares its parent's live task-snapshot allowance and per-operation

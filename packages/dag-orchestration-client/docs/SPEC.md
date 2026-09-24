@@ -15,12 +15,14 @@ This package is consumed by command-line and MCP clients that call a DAG orchest
 ## Design Decisions
 
 - The client is intentionally thin: it forwards server response payloads without converting them into CLI or MCP-specific output. Consumers own their own command, tool, and output formatting layers.
-- Cost metadata, run drafts, pipeline building, catalog-aware definition validation, the
-  registered-node catalog, definition listing/lookup/lifecycle, and run lifecycle are each domain
-  capabilities owned by `dag-core`/`dag-builder` (run lifecycle by in-process callers). For each,
-  the concrete HTTP client keeps its own transport-facing request and maps successes/problems to
-  typed domain results, but the general orchestration port does not require an HTTP-shaped result,
-  and in-process frameworks do not implement the port or construct HTTP response envelopes.
+- Only the general orchestration port is transport-shaped; every other capability has its own
+  domain owner: cost metadata (`dag-cost`), pipeline building (`dag-builder`), catalog-aware
+  validation, the registered-node catalog, definition reads and lifecycle, and run drafts (`dag-core`),
+  and run lifecycle (in-process callers). The cost-metadata and run-draft clients validate HTTP
+  payloads and map successes/problems to typed domain results; build, validation, catalog and
+  definition requests stay transport-facing HTTP responses. The general port never requires an
+  HTTP-shaped result from the domain, and in-process frameworks do not implement it or construct
+  HTTP response envelopes.
 - Remote run cancellation uses the same encoded run identity and server-owned success/problem
   envelope as creation, start, and reads. A transport success is not inferred from aborting a
   client-side watcher.

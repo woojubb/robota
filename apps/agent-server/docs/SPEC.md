@@ -13,8 +13,9 @@ process lifecycle, while leaving provider semantics and session policy to the pa
 - The server owns chunk assembly for streaming: the wire carries text deltas plus exactly one terminal
   assembled message per stream — tool-call fragments never cross it, so clients cannot reassemble an
   incomplete or divergent message.
-- Streaming responses always end with exactly one outcome and either `done` or a distinct `error`
-  frame, so a client can never mistake a failed stream for a finished one; request validation happens
+- Streaming responses always end with either `done` or a distinct `error` frame, so a client can never
+  mistake a failed stream for a finished one. A request that selects an `effort` receives exactly one
+  effort outcome; a stream whose adapter reports zero or several is refused. Request validation happens
   before headers are sent, so a rejected request is an ordinary `400`, never an error disguised as a
   200 response.
 - If the client aborts a stream, the server aborts the underlying provider call — work stops at both
@@ -22,10 +23,14 @@ process lifecycle, while leaving provider semantics and session policy to the pa
 - Caller-supplied `tools` and per-call `options` (including `effort`) are validated as untrusted
   network input; an invalid or unsupported value is rejected wholesale with `400`, never partially
   applied, since partial application would silently ignore a caller's request.
-- Provider secrets and direct vendor API calls stay server-side; BYOK keys arrive via a dedicated
-  header and are stripped from the request before further handling.
-- Unexpected failures are surfaced with generic error details — internal paths and storage errors are
-  not exposed to callers.
+- Provider secrets and direct vendor API calls stay server-side. On the Playground routes a BYOK key
+  arrives in a dedicated header and is stripped from the request before further handling; the BYOK
+  chat route takes the key in the request body, uses it only for that call, and never logs it.
+- In production (`NODE_ENV=production`), unexpected failures are answered with generic error details —
+  internal paths and storage errors are not exposed. Other environments return the raw message for
+  debugging, so never deploy without it.
+- Without a configured `JWT_SECRET`, every Playground WebSocket authentication is refused rather than
+  accepting unauthenticated sessions.
 - On `SIGTERM`/`SIGINT`, the server stops accepting new connections, drains in-flight HTTP and
   WebSocket work, and force-exits if the drain does not complete within its timeout, so shutdown is
   bounded rather than indefinite.
@@ -34,7 +39,6 @@ process lifecycle, while leaving provider semantics and session policy to the pa
 ## Non-goals
 
 - Does not own provider semantics, session policy, or Playground UI state.
-- Does not implement an external-runtime compatibility layer.
 
 ## Design decisions
 

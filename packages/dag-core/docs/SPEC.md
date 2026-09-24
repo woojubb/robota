@@ -146,19 +146,23 @@ not own an event bus or emitter — publishing is a consumer concern.
 Execution state changes for runs and tasks arbitrate against current persisted state in a single
 atomic commit: cancellation and terminal finalization have one winner, so a terminal run cannot be
 resurrected by a delayed result, and a stale attempt or replaced worker cannot overwrite its
-successor. Failure settlement and retry reservation commit together, and downstream task admission
+successor; a rejected result emits no task outcome or retry. Failure settlement and retry reservation
+commit together, and downstream task admission
 checks current run state, so a cancellation committed first blocks a new attempt or child record —
 though queue delivery itself is not part of the storage transaction, and admission must still reject
 a message for a run already cancelled. Raw persistence setters do not provide these preconditions;
 execution owners must go through the arbitration contract. For runs with a definition snapshot,
 finalization also confirms that a missing node whose dependencies have all succeeded is pending
 admission rather than evidence of completion, so a run cannot close while a sibling dispatcher is
-still admitting a ready child; legacy runs without a snapshot keep task-only finalization.
+still admitting a ready child; a malformed snapshot returns a validation error without finalizing,
+and legacy runs without a snapshot keep task-only finalization.
 
 ## Attempt cancellation
 
 Task input and node lifecycle context carry an optional trusted in-process abort signal, never
-deserialized from queue payloads, definitions or node configuration. Once execution has begun,
+deserialized from queue payloads, definitions or node configuration. A pre-aborted input never enters
+the executor, and lifecycle progression stops at cancellation checks before initialization and after
+awaited phases. Once execution has begun,
 cancellation takes precedence over a returned failure and disposes the node, including partial
 initialization, returning non-retryable `DAG_TASK_EXECUTION_CANCELLED` without publishing a late
 node output. This is cooperative — disposal may itself take time — and the signal does not
@@ -181,7 +185,8 @@ bounding cumulative input and output bytes across run and task snapshots; the au
 host policy are never deserialized from workflow-controlled data. Every accepted write consumes its
 full size permanently — this is cumulative admission, not retained-size accounting, and a committed
 write is never refunded even if downstream work later fails. Encoding stops before a complete
-oversized snapshot is built. An ambiguous (thrown) persistence write keeps its reservation and
+oversized snapshot is built, and the encoder accepts plain JSON data only — it never invokes
+data-defined `toJSON` methods or accessors, so workflow data cannot run code during encoding. An ambiguous (thrown) persistence write keeps its reservation and
 closes the authority rather than risk under-counting; a committed cancellation in a participating
 run also closes future admissions for that root, though already-admitted writes may still finish.
 The authority is in-process only, with no crash recovery or cross-process coordination, and does

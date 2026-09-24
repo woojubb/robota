@@ -164,8 +164,8 @@ attempt before publishing the failure event, so a concurrent finalizer sees pend
 cancellation that commits first rejects both the failure outcome and the retry reservation, and if
 the reservation commits first instead, the worker must settle its delivered message without
 invoking the executor. Active local attempts also receive a cooperative abort once cancellation
-commits; executor cleanup, nested execution cancellation, and generation-time root budgets remain
-separate work.
+commits, and a pre-aborted input never enters the executor. The worker does not itself clean up
+executors, cancel nested executions, or bound generation-time root budgets.
 
 ## Trusted byte policy
 
@@ -178,7 +178,8 @@ the snapshot admission below.
 
 When a shared root snapshot authority is supplied, input persistence is admitted before executor
 entry and output persistence before success publication or downstream dispatch, using current run,
-attempt and lease ownership in the storage commit rather than a raw setter. Budget exhaustion is a
+attempt and lease ownership in the storage commit rather than a raw setter. Snapshots are encoded
+from plain JSON data only; data-defined `toJSON` methods and accessors are never invoked. Budget exhaustion is a
 non-retryable task failure; a rejected stale or cancelled write consumes no allowance, but accepted
 input remains charged even if execution subsequently fails, and a persistence exception retains its
 capacity and closes the root authority rather than risk under-counting. Raw storage setters and

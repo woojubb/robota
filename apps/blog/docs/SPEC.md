@@ -10,7 +10,3 @@ Cloudflare Pages.
 
 - Does not own SDK logic and imports no workspace packages.
 - Runs static site generation only — no agent execution.
-
-## Non-goals
-
-- No build-time link-checking or automated tests; validation relies on a successful build.

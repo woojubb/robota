@@ -16,7 +16,3 @@ deployed to Cloudflare Pages with English/Korean locales.
   provided externally.
 - All user-visible copy is sourced from locale message catalogs; there are no inline string literals
   in page components, keeping every string translatable.
-
-## Non-goals
-
-- No automated tests are configured for this app.

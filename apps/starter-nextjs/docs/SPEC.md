@@ -15,6 +15,9 @@ returns its reply. It is the canonical reference for wiring `@robota-sdk/agent-f
   fresh runtime and session.
 - Does not define custom authentication, rate limiting, or middleware, and exports no library symbols
   for programmatic consumption.
+- Safety caveat: the chat route is unauthenticated and runs the agent with
+  `permissionMode: 'bypassPermissions'` over the server's working directory. It is a local demo;
+  add authentication and a restrictive permission mode before exposing it.
 
 ## Non-goals
 

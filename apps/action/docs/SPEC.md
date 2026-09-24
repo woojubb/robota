@@ -22,4 +22,5 @@ integration point between GitHub CI/CD workflows and the Robota agent CLI.
 
 ## Design decisions
 
-- Execution is synchronous (`execSync`) so the runner waits for agent completion before proceeding.
+- The CLI is run with `execFileSync` and no shell: the step waits for the agent to finish, and inputs
+  passed as argv are never re-parsed by a shell, so workflow inputs cannot inject commands.
