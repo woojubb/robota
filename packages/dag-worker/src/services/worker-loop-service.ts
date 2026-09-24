@@ -386,9 +386,9 @@ export class WorkerLoopService {
    * ancestor commits first and this run's own cancellation, if any, follows later (e.g. after a
    * restart, from another process). Admission that reads only its own status would still hand the
    * executor a task whose result no root will ever observe. Persisted lineage carries just the
-   * root and immediate parent run ids, never a full ancestor chain, so only those two are checked;
-   * a cancellation further up the chain closes each run down to its own child in turn, whose
-   * lineage then names that now-cancelled run as its parent or root. A depth-0 (root) lineage
+   * root and immediate parent run ids, never a full ancestor chain, so only those two are checked.
+   * Every descendant carries the root id, so a cancelled root is caught at any depth; a cancelled
+   * intermediate ancestor reaches grandchildren only once its own child run is cancelled. A depth-0 (root) lineage
    * carries no parent — its `rootRunId` anchors descendant depth-capping rather than naming a
    * distinct ancestor run — so this only applies once a parent is present. Lineage is not always
    * backed by a persisted ancestor row (a depth cap can be supplied without one), and this worker

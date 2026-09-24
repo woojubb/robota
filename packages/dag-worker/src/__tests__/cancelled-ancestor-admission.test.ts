@@ -9,7 +9,7 @@ import { SqliteStorageAdapter } from '@robota-sdk/dag-adapters-sqlite';
 import { WorkerLoopService } from '../services/worker-loop-service.js';
 
 /**
- * PR #3044 persists composite child run ancestry (`IDagRun.lineage`: rootRunId, parentRunId,
+ * Persisted composite child run ancestry (`IDagRun.lineage`: rootRunId, parentRunId,
  * depth) so a restarted or separate-process worker can still enforce composite depth/recursion
  * limits. But admission (`cancelIfRunCancelled`) only ever read the task's own run status. If the
  * root of a composite tree is committed `cancelled` while a descendant run still has a queued
