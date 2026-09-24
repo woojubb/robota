@@ -38,23 +38,15 @@ decision, session-loop toggle, and organization policy through unchanged to the 
 terminal never decides on its own whether a persisted loop may re-arm, whether project discovery
 is enabled from a bare `cwd`, or which commands an org policy blocks. Session-capability
 projections declare every field's forwarding, rename, or presentation-only disposition explicitly;
-a missing mapping is rejected rather than silently dropped.
-Host-selected user settings sources pass through the same render-to-channel-to-session projection;
-the terminal does not choose a settings file for session startup or provider switching. Its CLI
-adapter uses the host-selected write target and read sources for an active-model change.
-The Node keybindings source requires the host to provide both its file path and schema URL; it
-never infers either from the running user's home directory or a product identity.
-Host-selected baseline permission patterns also pass through that projection unchanged; the
-terminal does not choose product path approvals.
-When attaching to a completed fork is refused, the terminal relays the framework's session id and
-adds a resume command only if its host supplied a formatter. The renderer does not name a product
-executable itself.
-The permission prompt labels project-wide approval unavailable when the session cannot persist it,
-and never resolves the disabled choice as an approval.
-The host may supply a product display name to `renderApp` for visible assistant labels, the
-terminal title, and restart copy. Without one, the renderer uses `Assistant`; screen-reader role
-labels remain provider- and product-neutral. Terminal-title composition sanitizes both the
-host-selected name and the session name before emitting the OSC sequence.
+a missing mapping is rejected rather than silently dropped. The same host-supplied-only principle
+covers user settings sources, the keybindings file and schema, baseline permission patterns, plugin
+directories, and product identity: the terminal renders whatever the host passes and never selects a
+product path, executable name, or settings file itself. Without a supplied display name the renderer
+falls back to a neutral `Assistant` label (screen-reader role labels stay provider- and
+product-neutral regardless), and terminal-title composition always sanitizes both the host-selected
+name and the session name before emitting the OSC sequence. The permission prompt labels
+project-wide approval unavailable, rather than resolving the disabled choice as granted, when the
+session cannot persist it.
 
 When a self-paced loop is waiting, Esc stops that loop through the session's durable stop path.
 If several are waiting, Esc names the explicit stop command instead of choosing one silently.
@@ -95,9 +87,6 @@ contract is authoritative for how the TUI releases resources on session switch a
   A failed stop or startup rollback must not keep the old channel's activity current.
 
 ### The renderer executes no command semantics
-
-The TUI forwards host-selected plugin directories to session creation without choosing product
-paths.
 
 The TUI applies no command's side effects itself. The session layer applies every command's host
 action (language change, settings reset, exit/restart, rename, statusline patch, remote control)

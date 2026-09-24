@@ -1,10 +1,10 @@
 # AGENTS.md
 
 Robota — a TypeScript pnpm monorepo for building multi-provider AI agents. North star: [VISION.md](VISION.md).
-Architecture: [ARCHITECTURE.md](ARCHITECTURE.md). `packages/*/docs/SPEC.md` holds the contract, not the code: anything
-readable from the code (type and function listings, file inventories, test tables, implementation steps) does not belong
-in it. Keep only what the code cannot tell — purpose, the public contract's intent and guarantees, invariants,
-non-goals, and design decisions with their reasons — and update it in the same change when the contract changes.
+Architecture: [ARCHITECTURE.md](ARCHITECTURE.md). `*/docs/SPEC.md` holds only what the code cannot tell: Purpose,
+Contract (the intent of its guarantees), Invariants, Non-goals, Design decisions with reasons. Most changes leave it
+untouched. Never write what code or tests show (listings, inventories, orders, limits, steps), issue numbers, stages
+or dates; when the contract changes, rewrite the existing sentence instead of appending a paragraph.
 
 ## Workflow
 
@@ -38,4 +38,5 @@ touching secrets.
 1. A correction fixes the instance. It does not add a rule, a hook, or a scan.
 2. Adding to the harness needs a failure reproduced on the current model that review and tests cannot catch;
    the same PR removes as much as it adds.
-3. When a new model ships, empty the harness back to this level and keep only what is still needed.
+3. When a new model ships, empty the harness back to this level, keep only what is still needed, and re-apply
+   the SPEC rule above to every SPEC.

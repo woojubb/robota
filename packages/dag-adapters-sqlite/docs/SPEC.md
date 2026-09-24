@@ -22,17 +22,14 @@ upgrade path to PostgreSQL by swapping the adapter.
   own constructor, so storage and queue can be provisioned independently.
 - Long-poll waiting on dequeue is implemented as synchronous poll-with-sleep rather than a blocking
   wait, which bounds wake-up latency to the poll interval rather than being immediate.
+- Execution arbitration reads the current run and tasks and applies its decision, including task
+  outcome status, output snapshot and credits, and stale-attempt/lease/cancellation predicates,
+  under one immediate SQLite transaction; queue delivery is outside this storage transaction. Task
+  input snapshots use that same guarded transaction, rejecting stale-attempt or cancelled-run
+  writes, but the adapter does not own or reconstruct the caller's in-process aggregate snapshot
+  authority.
 
 ## Design decisions
 
 - WAL journal mode is used by both adapters for concurrent read performance, since the queue is
   read far more often than it is written.
-
-Execution arbitration reads the current run and tasks and applies its decision under one immediate
-SQLite transaction. Task outcome status, output snapshot and credits commit together. Attempt and
-lease-owner predicates reject stale workers, and run-state predicates prevent post-cancellation
-retry, child admission or terminal overwrite. Queue delivery is outside this storage transaction.
-
-Task input snapshots use the same guarded execution transaction as output settlement. The adapter
-persists the accepted input snapshot and rejects stale attempt or cancelled-run writes. It does
-not own or reconstruct the caller's in-process aggregate snapshot authority.

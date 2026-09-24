@@ -12,7 +12,9 @@ or edit files.
    - **MUST** — incorrect behavior, broken contract, security or data-loss risk. Blocks merge.
    - **SHOULD** — a real problem that should be fixed before merge. Blocks merge.
    - Anything else is optional; list it briefly or leave it out.
-3. If the PR fixes a bug, check that its test would fail without the fix.
-4. Do not pad or suppress findings. Judge the code, not the PR description.
+3. A SPEC.md change that breaks the SPEC rule in AGENTS.md (code-readable detail, an appended per-issue
+   paragraph, issue numbers or stages) is a SHOULD.
+4. If the PR fixes a bug, check that its test would fail without the fix.
+5. Do not pad or suppress findings. Judge the code, not the PR description.
 
 End with one line: `ACTIONABLE FINDINGS: <number of MUST + SHOULD>`.

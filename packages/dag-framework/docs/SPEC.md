@@ -39,12 +39,12 @@ zero external runtime-server process dependencies.
   jobs) have settled.
 - A run may be submitted before the framework is started; a run waiter itself creates the demand
   that starts advancement.
-- The in-process composition connects committed run cancellation to the worker attempts it owns.
-  Local provider calls can settle promptly when their node and provider cooperate with the attempt
-  signal. This does not notify workers in other processes or wait for abandoned executor cleanup.
-- Default skill-node discovery reads only host-supplied contribution sources and ordered skill roots.
-  When either is omitted, no skill files are discovered; construction never selects a filesystem
-  source from the current process or home directory.
+- The in-process composition connects committed run cancellation to the worker attempts it owns,
+  so a cooperating local provider call can settle promptly; this does not notify workers in other
+  processes or wait for abandoned executor cleanup.
+- Default skill-node discovery reads only host-supplied contribution sources and ordered skill
+  roots; when either is omitted, no skill files are discovered, and construction never selects a
+  filesystem source from the current process or home directory.
 
 ## Design decisions
 
@@ -67,52 +67,30 @@ zero external runtime-server process dependencies.
 
 ## Text expansion ceiling
 
-The local provider snapshots trusted host byte limits before executing any workflow. Omitted
-limits retain the core default, so the default catalog used by `/workflows` bounds `text-repeat`
-without any workflow-controlled opt-out. A tighter host limit travels through the worker into the
-node context independently of workflow input and config. This limits one text expansion only; it
-is not a root aggregate budget, a snapshot-size limit, or CPU preemption.
+The local provider snapshots trusted host byte limits before executing any workflow, so the
+default catalog used by `/workflows` bounds `text-repeat` with no workflow-controlled opt-out; a
+tighter host limit reaches the node context independently of workflow input. This bounds one text
+expansion only, not a root aggregate budget, a snapshot-size limit, or CPU preemption.
 
 ## Shared local root snapshot authority
 
-Each independent local provider execution creates a fresh snapshot authority from a snapshot
-of trusted host limits. Nested executions inherit the same live authority; a new provider or local
-storage instance does not create a new allowance for that child. Concurrent sibling reservations
-share one balance even while a storage write awaits completion. The default cumulative input and
-output allowances are 16 MiB each. Run definition and input snapshots also consume the input
-allowance before run persistence or entry dispatch. Encoding stops at the remaining allowance,
-including JSON escapes and UTF-8 bytes, before building a complete oversized snapshot. This
-pre-entry refusal retains its structured non-retryable code in the local provider result. This
-accounts for persisted snapshots, not generated values, memory, CPU, durable budget recovery or
-multiple processes. A host composing lower-level services must explicitly supply the same
-authority to its run orchestrator and every participating worker. Persisted lineage identifies
-ancestry but cannot recreate or authorize a budget. The
-root owns authority lifetime and closes it on completion; committed cancellation closes new
-admissions across its children. This does not interrupt child execution or atomically cancel
-writes already admitted to another child storage instance.
+Each independent local provider execution creates a fresh snapshot authority from trusted host
+limits; nested executions and concurrent sibling reservations share the same live authority and
+balance, including run definition and input snapshots consumed before dispatch. Encoding stops
+before building a complete oversized snapshot, returning a structured non-retryable refusal. The
+root owns the authority's lifetime and closes it on completion; committed cancellation closes new
+admissions across its children, though it does not interrupt child execution already admitted
+elsewhere. A host composing lower-level services directly must explicitly supply the same
+authority to its own orchestrator and every worker — persisted lineage cannot recreate or
+authorize a budget on its own.
 
 ## Local regex isolation
 
-The local Node provider executes the default text-replace regex operation in a dedicated worker
-thread. The parent event loop owns timeout and cancellation, claims their outcome before stopping
-the worker, and joins worker exit before publishing that failure. A result is accepted only after
-normal worker exit; late results cannot authorize output persistence or downstream execution.
-Only a fixed trusted bootstrap and plain string DTO cross the boundary. Lifecycle, custom registry
-selection, storage and shared snapshot authority stay in the parent. Worker startup failure never
-falls back to inline regex execution. Literal replacement preserves its existing execution path.
-
-Request strings together and each returned string have a 4 MiB UTF-8 transport ceiling. Output
-checking happens after generation in the worker: this is neither a heap limit nor an aggregate
-generation budget. It does not isolate arbitrary custom nodes, other transforms, tools or provider
-code, and is not a security sandbox. Direct lower-level compositions must explicitly supply their
-own isolation capability.
-
-Bun uses a dedicated child process to keep the pure operation independent of its host's
-native-addon closure. The child reuses the current executable in Bun's documented standalone CLI mode
-and runs only a fixed bootstrap, with no product imports, disk sidecar or external Node dependency.
-Its termination is joined through process close. This preserves source and standalone packaging;
-Node uses a worker thread. Neither transport is a security sandbox or an OS memory quota.
-
-Bun product support still depends on native filesystem authority compatibility. The current macOS
-Bun 1.3.11 host can crash in Koffi finalization even for literal-only workflows; operation isolation
-does not repair that independent host failure or establish end-to-end Bun product reliability.
+The local Node provider runs the default text-replace regex operation in an isolated worker (a
+child process on Bun), keeping lifecycle, storage and the snapshot authority in the parent; only a
+fixed trusted bootstrap and plain string data cross the boundary. A result is accepted only after
+normal worker exit, so a late result cannot authorize output persistence or downstream execution,
+and worker startup failure never falls back to inline execution. Request and response strings
+share a bounded UTF-8 transport ceiling. This isolates only the default regex operation — it is
+not a security sandbox and does not cover custom nodes, other transforms, tools, or provider code;
+direct lower-level compositions must supply their own isolation capability.

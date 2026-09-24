@@ -28,18 +28,14 @@ non-fatal notice instead of failing closed or pretending the name took effect. S
 consumes only the explicit contribution sources and ordered skill/command roots it is given; it never
 selects product directories or reconstructs project reads from `cwd`.
 
-**User-local commands.** The direct command and the assembled slash command use the same
-host-supplied storage root for inspection and memory operations. Neither command chooses a home
-directory when the host omits that root.
+**User-local commands.** The direct command and the assembled slash command share the host-supplied
+storage root for inspection and memory operations; neither chooses a home directory itself when the
+host omits that root.
 
 **Demand-switch sessions.** The `agent` and `schedule` command modules declare
 `sessionRequirements: ['agent-runtime']`: composing either module makes the session layer enable the
 agent runtime. This is a demand switch, not a gate — it does not assume the runtime is available
 beforehand.
-
-**`/agent` command metadata.** The palette and executable command registry expose the same
-agent-job subcommands for operator discovery. The `open` action reads the job log as an alias for
-`read`.
 
 **`output-style`.** Operator-only, and uses only the injected provider-neutral style registry; it
 never reads style files itself.
@@ -85,7 +81,7 @@ direct git child, not a hook's grandchildren still holding the output pipes open
 **`/mcp`.** Reads and requests approve/reject/revoke decisions through an injected host adapter; it
 never constructs or connects an MCP client itself.
 
-**`/peers` activity (#2726).** The command renders the host's fixed activity observation separately
+**`/peers` activity.** The command renders the host's fixed activity observation separately
 from process liveness. An absent, expired, or unverified observation is shown as unknown; the command
 does not inspect another session's conversation or infer activity from a stored transcript.
 
@@ -109,46 +105,39 @@ without one, the command gives neutral host-resume guidance.
 **`/context` tool-schema accounting.** The tool-schema cost breakdown reads the **offered** tool set,
 not the registered one: a tool that declares deferred loading and that the model has not yet loaded
 is not sent with the request and is therefore not counted. The resulting number can fall as a direct,
-observable consequence of deferral — before this breakdown existed, nothing separated tool-schema
-token cost from the system-prompt cost it is billed alongside.
+observable consequence of deferral.
 
-**`/loop` (in-session repeat).** Prompt-only and bare forms start a self-paced loop; a bare form
-uses the host's bounded maintenance prompt. An explicit interval keeps the fixed schedule. In
-self-paced mode the model chooses a 1–60 minute delay and short reason through a structured tool,
-or stops; missing decisions permit only one 20-minute fallback. The stable loop id supports listing
-and stopping either mode, and the session record—not the disposable timer—owns resumption.
-Autocomplete exposes `list` and `stop` with `list` first, so selecting `/loop` cannot start the
-host-default loop on the first Enter; directly submitting bare `/loop` retains its documented
-creation behavior.
-
-Fixed requested intervals are positive and at most one day.
-Calendar-aligned steps only divide the minute, hour, or day; a request between supported steps rounds
-up to the next one, and the rounded step (not an exact elapsed-time figure) is what gets reported,
-because daylight-saving transitions can make the actual elapsed gap shorter or longer than the nominal
-step. Repeated in-flight wakes from the same loop coalesce in the bounded session queue rather than
-queuing a catch-up burst after a gap. A loop's stable identity is separate from its editable display
-label and from the underlying scheduler's runtime task id, so renaming or a schedule restore cannot
-hide a loop from `/loop list`/`/loop stop` or break the stop path. A session allows at most three
-active loops (including paused ones); a fourth creation is refused. New loops carry an absolute
-seven-day expiry; an expired loop is terminal and refuses to fire again even after a restore. Creation
-and stop are strictly persisted before they report success; ordinary turn snapshots remain
-best-effort. A host kill switch can block firing/re-arming while preserving paused records for a later
-restart, and separately refuses new-loop creation while still allowing `list`/`stop` so existing loops
-stay manageable. Fixed loops have a stable, loop-specific offset of at most 30 minutes or half
-their cadence, whichever is shorter, to avoid synchronized wake bursts; self-paced loops retain
-the model-selected delay without jitter. Omitted prompts use the host's live default at each
-iteration; an explicit schedule edit replaces that default for the edited fixed loop. Explicit
-prompts remain unchanged.
+**`/loop` (in-session repeat).** A bare or prompt-only invocation starts a self-paced loop; an
+explicit interval keeps a fixed schedule. In self-paced mode the model chooses each delay, within a
+bounded maximum, and a short reason, or stops the loop; a missing decision falls back once rather than
+looping unbounded. The session record, not the disposable timer, owns resumption for either mode.
+Fixed requested intervals are positive and bounded. Calendar-aligned steps only divide the
+minute, hour, or day; a request between supported steps rounds up to the next one, and the rounded
+step (not an exact elapsed-time figure) is what gets reported, because daylight-saving transitions
+can make the actual elapsed gap shorter or longer than the nominal step. Repeated in-flight wakes
+from the same loop coalesce in the bounded session queue rather than queuing a catch-up burst after
+a gap. A loop's stable identity is separate from its editable display label and the underlying
+scheduler's runtime task id, so renaming or a schedule restore cannot hide a loop from `/loop
+list`/`/loop stop` or break the stop path. A session allows a bounded number of active loops (including
+paused ones); creation beyond it is refused. New loops carry an absolute expiry; an expired
+loop is terminal and refuses to fire again even after a restore. Creation and stop are strictly
+persisted before they report success; ordinary turn snapshots remain best-effort. A host kill switch
+can block firing/re-arming while preserving paused records for a later restart, and separately
+refuses new-loop creation while still allowing `list`/`stop` so existing loops stay manageable.
+Autocomplete offers `list` and `stop` with `list` first, so selecting `/loop` cannot start the
+host-default loop on the first Enter; directly submitting bare `/loop` still creates one.
+Fixed loops carry a small stable per-loop offset to avoid synchronized wake bursts; self-paced loops
+keep the model-selected delay without added jitter. Omitted prompts use the host's live default at
+each iteration; an explicit schedule edit replaces that default for the edited fixed loop.
 
 **`orgPolicy` in `/provider`.** When an `IOrgPolicy` is supplied: a switch to a profile outside
 `allowedProviders` is rejected before any settings write; a completed provider setup whose API key is
 a plaintext value (not an `$ENV:` reference) is rejected when `requireApiKeyFromEnv` is set, before
 the setup patch is built; and a configured `adminContact` is appended to every violation message.
 `orgPolicy` is accepted at the `provider` command module level only — it is not a
-`createDefaultCommandModules` option.
-
-Provider startup reads and writes only settings sources and stores supplied by its host. It cannot
-select a user home or product settings path when those inputs are absent.
+`createDefaultCommandModules` option. Provider startup reads and writes only settings sources and
+stores supplied by its host; it cannot select a user home or product settings path when those inputs
+are absent.
 
 **`/theme`.** Behind an injected theme-catalogue port only — with no port, there is no command. It
 emits at most one appearance-settings patch per invocation, and an unknown theme id writes nothing,
@@ -160,20 +149,12 @@ not even the toggles submitted alongside it.
 owner command changes only that command's value, and the framework's projection follows the
 declaration.
 
-**`/remote-control`, `/doctor`, and `/context` metadata.** Each palette entry is the single source
-for its name, label, description, invocation visibility, argument hint, and any specialized
-subcommands; the executable command is projected from that entry. Execution policy and lifecycle
-remain executable-command behavior. The doctor repair hint is available to palette consumers, and
-context's reference and auto-compact subcommands remain available in both projections. Remote control
-offers `status` and `devices` before pairing or revoking actions, so autocomplete selection defaults
-to a read-only operation rather than enabling pairing. These commands remain operator-only; projecting
-metadata does not grant model invocation or change execution policy.
-
-**Session operator command metadata.** Session commands expose one operator-facing metadata contract
-to the palette and executable registry. In particular, rename advertises its required session name,
-while cost advertises the optional budget operation and its set/clear forms through an argument hint.
-Cost remains a leaf palette entry so selecting it with Enter runs the default session summary. This
-metadata does not change inline execution policy, permission requirements, or model visibility.
+**`/remote-control`, `/doctor`, `/context`, and session command metadata.** For these commands, the
+palette entry is the single source of metadata, and the executable command is projected from it;
+execution policy and lifecycle remain executable-command behavior. Projecting shared metadata does
+not grant model invocation or change execution policy, permission requirements, or model visibility
+— these commands remain operator-only. Remote control offers `status` and `devices` before pairing or
+revoking actions, so an autocomplete selection defaults to a read-only operation.
 
 **CMD-004 ask seam.** A command that needs input (selection pickers, setup wizards, destructive-action
 confirmation) asks for it inline at the top of `execute` via the host-supplied

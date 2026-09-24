@@ -22,25 +22,20 @@ lifecycle/persistence (`agent-session`) and from any CLI shell.
   this package computes them and re-exports the types for co-located consumers, but does not own
   them.
 - For an explicit OTLP usage export, this package only projects normalized, de-duplicated stored
-  observations into a content-free aggregate snapshot. It emits Gauges rather than additive Sums:
-  repeating an export must not claim new usage. Unknown cost and unknown token splits remain
-  separately visible instead of becoming invented zero-priced usage. Network delivery belongs to
-  the CLI, never to this pure package.
-- Explicit prompt-root trace projection reads only canonical observations carrying a complete,
-  valid root identity and first terminal-callback outcome. It cannot infer roots from legacy
-  summaries or tool events, and excludes duplicate or contradictory roots instead of choosing
-  one. Explicit provider-call and awaited tool-body children are included only when their validated trace/parent IDs
-  match an accepted root in the same record and their times fit within it; malformed, orphaned,
-  and duplicate children (including cross-kind ID collisions) are counted rather than inferred or repaired. It emits no content or
-  session identity; the CLI owns loopback delivery and user-visible coverage. These partial spans
+  observations into a content-free aggregate snapshot, emitting Gauges rather than additive Sums so
+  repeating an export cannot claim new usage; unknown cost and token splits stay separately visible
+  instead of becoming invented zero-priced usage. Network delivery belongs to the CLI, never to this
+  pure package.
+- Explicit prompt-root trace projection reads only canonical observations carrying a complete, valid
+  root identity, cannot infer roots from legacy summaries or tool events, and excludes duplicate or
+  contradictory roots instead of choosing one. Child spans are included only when their IDs and
+  times validate against an accepted root; malformed, orphaned, or duplicate children are counted
+  rather than inferred or repaired. It emits no content or session identity, and these partial spans
   are not proof of final turn settlement or an end-to-end distributed trace.
-- Explicit OTLP completion-event projection reuses only these already accepted spans. It emits
-  a fixed, content-free log event at each span's recorded end, with the validated trace/span IDs,
-  outcome-only attributes, and export-time observation timestamp. The prompt event denotes the
-  first terminal callback, not final turn settlement; a tool handoff event denotes only its
-  foreground body. This is a snapshot of recorded completions, not live logging or replay-log
-  export. Repeating an export may append the same log records again; source deduplication within
-  one snapshot does not guarantee collector-side idempotency.
+- Explicit OTLP completion-event projection reuses only these already-accepted spans, emitting one
+  fixed, content-free, outcome-only log event per span — a snapshot of recorded completions, not
+  live logging or replay-log export. Repeating an export may append the same log records again;
+  source-side deduplication does not guarantee collector-side idempotency.
 
 ## Contract
 

@@ -48,10 +48,11 @@ claiming the task, and again after loading execution context and immediately bef
 executor. If the run is cancelled, the task transitions to `cancelled`, its lease is cleared, and
 the message is acknowledged without publishing `task.started` or invoking the executor. A claim
 that raced with cancellation may already have published `task.started`; the task still ends
-`cancelled` without invoking the executor. The worker registers a local attempt signal before its
-final status read. A committed run cancellation aborts only active attempts for that run, so a
-stale final read cannot leave a cooperative attempt running after notification. Workers in other
-processes still rely on persisted admission checks.
+`cancelled` without invoking the executor. These checks close worker admission at the checked
+points only — they do not make the status read and executor invocation atomic. The worker also
+registers a local attempt signal before its final status read, so a committed cancellation still
+aborts a cooperative attempt that a stale final read would otherwise have let keep running; workers
+in other processes still rely on the persisted admission checks rather than that signal.
 
 ### Crash recovery (DAG-001)
 
@@ -111,16 +112,15 @@ this over an external fixed sleep interval so downstream tasks start promptly.
 ### Timeout enforcement scope
 
 Each task attempt receives a trusted in-process abort signal. A timeout settles the attempt with
-`DAG_TASK_EXECUTION_TIMEOUT` and aborts that signal before the caller resumes; a late executor
-result cannot replace that outcome. An upstream attempt signal, when supplied, also aborts the
-attempt and returns non-retryable `DAG_TASK_EXECUTION_CANCELLED`. Pre-aborted inputs never enter
-the executor. Attempt timers and upstream listeners are removed on settlement.
+`DAG_TASK_EXECUTION_TIMEOUT` and aborts that signal before the caller resumes, so a late executor
+result cannot replace that outcome; an upstream attempt signal, when supplied, likewise aborts the
+attempt and returns non-retryable `DAG_TASK_EXECUTION_CANCELLED`, and same-process run cancellation
+aborts active attempt signals the same way.
 
 This is cooperative interruption, not CPU preemption or a guarantee that executor cleanup has
 finished. An executor ignoring its signal can continue side effects after timeout, including while
-an eligible retry runs. Synchronous work can still block the timer. Same-process run cancellation
-also aborts active attempt signals; cross-process notification, root-owned descendant cancellation,
-and generation-time shared budgets remain unfinished work under #2875.
+an eligible retry runs, and synchronous work can still block the timer. Cross-process notification
+and root-owned descendant cancellation are separate concerns from this per-attempt signal.
 
 ### Queue-scoped advancement ownership (RUNTIME-003)
 
@@ -152,50 +152,44 @@ definition.
 ## Cancellation and result precedence
 
 An executor result settles only while its run is running and its task still belongs to that exact
-attempt and worker. A prior cancellation cancels that matching task instead, without output/credit
-persistence, completion/failure publication, retry or downstream admission. A stale attempt cannot
-settle or cancel its replacement. If task settlement wins first, its outcome remains valid; later
-cancellation closes downstream admission and executor entry for an already reserved retry. Already admitted messages may arrive
-later and are handled by the existing cancelled-run admission checks.
-
-Finalization and cancellation arbitrate atomically, so an awaited read cannot resurrect a cancelled
-run. Active local attempts receive a cooperative abort after cancellation commits; executor
-cleanup, nested execution cancellation and generation-time root budgets remain separate work.
-
-A task-free execution frontier is not sufficient for completion: for runs with a definition
-snapshot, ready nodes not yet admitted also keep the run running. This covers a sibling finishing
-while another completed task's downstream dispatcher is still awaiting storage admission.
-
-Retry eligibility uses the existing retryable-error and attempt-limit policy. Eligible failure
-settlement atomically reserves the next queued attempt before publishing the failure event;
-a concurrent finalizer therefore sees pending work. Cancellation committed first rejects both the
-failure outcome and retry reservation. If reservation commits first, its message may be delivered
-after cancellation, but the worker must settle it without invoking the executor.
+attempt and worker; a prior cancellation cancels that task instead, with no output/credit
+persistence, completion/failure publication, retry, or downstream admission, and a stale attempt
+can never settle or cancel its replacement. Whichever of task settlement or cancellation commits
+first wins and is not overwritten by the other; finalization and cancellation arbitrate atomically,
+so an awaited read cannot resurrect a cancelled run. A task-free execution frontier is not
+sufficient for completion: for runs with a definition snapshot, ready nodes not yet admitted also
+keep the run running, covering a sibling finishing while another task's downstream dispatcher is
+still awaiting storage admission. Eligible failure settlement atomically reserves the next queued
+attempt before publishing the failure event, so a concurrent finalizer sees pending work; a
+cancellation that commits first rejects both the failure outcome and the retry reservation, and if
+the reservation commits first instead, the worker must settle its delivered message without
+invoking the executor. Active local attempts also receive a cooperative abort once cancellation
+commits, and a pre-aborted input never enters the executor. The worker does not itself clean up
+executors, cancel nested executions, or bound generation-time root budgets.
 
 ## Trusted byte policy
 
 The worker snapshots the host's execution byte limits at construction and passes them into every
-task's lifecycle context. Queue and definition data cannot raise these limits. The initial ceiling
-is enforced by `text-repeat` before expansion; the worker does not count aggregate root bytes or
-claim to bound arbitrary executor allocations.
+task's lifecycle context; queue and definition data cannot raise these limits. The worker does not
+count aggregate root bytes or bound arbitrary executor allocations itself — that is the concern of
+the snapshot admission below.
 
 ## Task snapshot admission
 
 When a shared root snapshot authority is supplied, input persistence is admitted before executor
-entry and output persistence before success publication or downstream dispatch. JSON encoding stops
-once escaped UTF-8 bytes exceed the remaining allowance; only plain JSON data is accepted, and
-data-defined `toJSON` methods are never invoked. An input snapshot
-uses current run, attempt and lease ownership in the storage commit rather than a raw setter.
-Budget exhaustion is a non-retryable task failure; rejected stale/cancelled writes consume no
-allowance. Accepted input remains charged if execution subsequently fails. Persistence exceptions
-retain capacity and close the root authority, while preserving the storage failure. Raw storage
-setters and lower-level workers without an injected authority do not provide aggregate accounting.
+entry and output persistence before success publication or downstream dispatch, using current run,
+attempt and lease ownership in the storage commit rather than a raw setter. Snapshots are encoded
+from plain JSON data only; data-defined `toJSON` methods and accessors are never invoked. Budget exhaustion is a
+non-retryable task failure; a rejected stale or cancelled write consumes no allowance, but accepted
+input remains charged even if execution subsequently fails, and a persistence exception retains its
+capacity and closes the root authority rather than risk under-counting. Raw storage setters and
+lower-level workers without an injected authority provide no such accounting.
 
 ## Explicit isolation shutdown
 
-An executor with the optional trusted isolation stop/join capability extends timeout and upstream
-cancellation settlement: the winner is claimed before abort listeners run, then owned isolation
-is stopped and joined before the caller resumes. Reentrant or late success cannot replace that
-winner. Shutdown failure preserves the winning error code, disables retry, and records the stop
-failure; it must not be reported as successful termination. Executors without this capability
-retain the cooperative contract above. This does not join arbitrary lifecycle cleanup.
+An executor may offer an optional trusted isolation stop/join capability: the worker claims the
+settlement winner before running abort listeners, then stops and joins that owned isolation before
+the caller resumes, so a reentrant or late success can never replace the winner. A shutdown failure
+preserves the winning error code, disables retry, and is never reported as successful termination.
+Executors without this capability keep the cooperative contract above; this does not join arbitrary
+lifecycle cleanup.

@@ -9,29 +9,14 @@ string and JSON transformation primitives for use in DAG pipelines.
 
 - All transformations are pure logic with zero cost and zero credit estimate.
 - No AI calls, no network calls, no dependencies beyond the DAG core/node packages.
+- `text-repeat` checks the UTF-8 size of its output before allocating repeated text and rejects an
+  over-limit result without expansion, using exact byte arithmetic so an overflow cannot turn
+  rejection into admission; this bounds only this operation's produced text, not input, snapshot
+  encoding, other transforms, or CPU time, and workflow config cannot raise the ceiling.
+- Text replacement delegates regex mode to a trusted operation capability supplied by the host,
+  which may isolate or reject execution; a direct invocation without that capability runs inline
+  with no CPU interruption guarantee. Configuration cannot opt out of host-supplied isolation or choose an executable worker entry.
 
 ## Non-goals
 
 - Does not redefine core DAG contracts; each node extends the shared node definition base.
-
-## Bounded repetition
-
-`text-repeat` calculates the UTF-8 size of its virtual output before allocating repeated text,
-including separators and surrogate pairs formed across concatenation boundaries. An output
-exactly at the trusted core ceiling is accepted; an over-limit output fails without expansion
-with non-retryable `DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED`. Workflow config cannot raise the
-ceiling. Repetition counts must be nonnegative safe integers. Zero repetitions yield an empty
-string, one repetition ignores the separator, and empty output does not allocate an array or
-iterate over the repetition count.
-
-The guarantee bounds this operation's produced text, not already-created input, all intermediate
-heap overhead, JSON snapshot encoding, other transforms, root aggregate consumption, or synchronous
-CPU time. Byte accounting uses exact arithmetic so an overflow cannot turn rejection into admission.
-
-## Regex execution host boundary
-
-Text replacement delegates regex mode to a trusted operation capability when the host supplies
-one. Regex flags, capture substitutions and invalid-pattern errors retain native semantics on
-supported hosts. Literal mode is unchanged. A direct SDK invocation without the capability remains
-inline and has no CPU interruption guarantee. The local product host supplies isolation and may
-reject an unsupported runtime; configuration cannot opt out or choose an executable worker entry.

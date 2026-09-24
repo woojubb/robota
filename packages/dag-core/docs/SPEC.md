@@ -35,20 +35,15 @@ re-declaring them. It defines what the DAG domain looks like, not how it execute
 
 ## DAG definition port catalog policy
 
-Definition reads return domain definitions and grouped summaries without HTTP envelopes. Summary
-items group by DAG identity, keep the highest version and distinct statuses in encounter order, and
-sort by DAG identity. Embedded adapters detach returned values from mutable storage references.
-Definition lifecycle changes return domain results with definition values or domain errors, without
-choosing HTTP statuses or problem-detail instances. Embedded adapters detach caller input and
-returned values so a later caller mutation cannot change a saved definition.
-
-The registered-node catalog capability exposes detached domain manifests without choosing a
-transport projection or response envelope. A caller may inspect or adapt its copy without changing
-registered execution metadata; hosts may project the copy for their own API surface.
-
-The catalog-aware definition validation capability reports unknown node types and edges whose
-endpoints are absent from the definition as domain findings. It does not mutate the definition or
-assign an HTTP status. This lightweight check does not replace the full structural validator below.
+Definition reads and lifecycle changes (create, update, validate, publish) return domain
+definitions, results, or errors — never HTTP envelopes or status codes; that choice belongs to the
+API layer. Embedded adapters detach returned and caller-supplied values from live storage
+references, so neither a stored definition nor a caller's copy can be mutated through the other.
+The registered-node catalog capability exposes detached domain manifests the same way, so a caller
+may inspect or project its copy without affecting registered execution metadata. A separate
+catalog-aware definition validation capability reports unknown node types and dangling edge
+endpoints as domain findings without mutating the definition; it is a lightweight check, not a
+replacement for the full structural validator below.
 
 Persisted DAG JSON stores graph instances, not runtime node schemas. A node's `inputs`/`outputs`
 are optional compatibility/catalog fields; new persisted definitions should omit them. Port
@@ -148,83 +143,60 @@ not own an event bus or emitter — publishing is a consumer concern.
 
 ## Execution mutation arbitration
 
-Execution state changes arbitrate against current persisted run/task state in one adapter-owned
-commit. Cancellation and terminal finalization have a single winner; a terminal run cannot be
-resurrected by a delayed execution result. Task settlement checks both the attempt and lease owner,
-so a replaced worker cannot overwrite its successor. An accepted success includes its output
-snapshot and credit fields in the same mutation. A rejected result emits no task outcome or retry.
-
-Failure settlement and retry reservation share one commit point: an eligible retry is already
-queued with its next attempt when the failure event is published, so finalization cannot overtake
-it. Downstream admission has its own commit point. Cancellation committed before admission
-prevents the new attempt or child record. Admission committed first may still deliver a
-queue message afterwards: queue delivery is not a storage transaction, and worker admission must
-reject that message if the run has since been cancelled. Run finalization evaluates pending tasks
-and commits its terminal status together. Raw persistence setters do not provide these execution
-preconditions; execution owners must use the arbitration contract.
-
-For runs with a definition snapshot, finalization also checks the immutable DAG topology: a missing
-node whose dependencies have all succeeded is pending admission, not evidence of completion. This
-prevents parallel task completion from closing the run while another dispatcher is still admitting
-a ready child. Missing descendants of failed or skipped dependencies do not block termination.
-Malformed snapshots return a validation error without finalizing. Legacy/programmatic run records
-without a definition snapshot retain their task-only finalization behavior.
+Execution state changes for runs and tasks arbitrate against current persisted state in a single
+atomic commit: cancellation and terminal finalization have one winner, so a terminal run cannot be
+resurrected by a delayed result, and a stale attempt or replaced worker cannot overwrite its
+successor; a rejected result emits no task outcome or retry. Failure settlement and retry reservation
+commit together, and downstream task admission
+checks current run state, so a cancellation committed first blocks a new attempt or child record —
+though queue delivery itself is not part of the storage transaction, and admission must still reject
+a message for a run already cancelled. Raw persistence setters do not provide these preconditions;
+execution owners must go through the arbitration contract. For runs with a definition snapshot,
+finalization also confirms that a missing node whose dependencies have all succeeded is pending
+admission rather than evidence of completion, so a run cannot close while a sibling dispatcher is
+still admitting a ready child; a malformed snapshot returns a validation error without finalizing,
+and legacy runs without a snapshot keep task-only finalization.
 
 ## Attempt cancellation
 
-Task input and node lifecycle context carry an optional trusted in-process abort signal. It is an
-execution capability, never deserialized from queue payloads, definitions or node configuration.
-The lifecycle adapter preserves its identity. Lifecycle progression stops at cancellation checks
-before initialization and after awaited phases. Once initialization has been entered, cancellation
-takes precedence over its returned failure and disposes the node, including partial initialization.
-Cancellation returns non-retryable `DAG_TASK_EXECUTION_CANCELLED` and does not publish a late node
-output. Disposal remains cooperative and may itself take time. This signal does not establish a
-root budget owner, propagate cancellation to nested runs, or preempt synchronous code.
+Task input and node lifecycle context carry an optional trusted in-process abort signal, never
+deserialized from queue payloads, definitions or node configuration. A pre-aborted input never enters
+the executor, and lifecycle progression stops at cancellation checks before initialization and after
+awaited phases. Once execution has begun,
+cancellation takes precedence over a returned failure and disposes the node, including partial
+initialization, returning non-retryable `DAG_TASK_EXECUTION_CANCELLED` without publishing a late
+node output. This is cooperative — disposal may itself take time — and the signal does not
+establish a root budget owner, propagate to nested runs, or preempt synchronous code.
 
 ## Per-operation byte limits
 
 Execution byte limits are immutable host policy, carried separately from definitions, node config,
-queue payloads and snapshots. The initial policy bounds only `text-repeat` output: 4 MiB of UTF-8
-by default. A trusted host may tighten it to a nonnegative safe integer, including zero, but may
-not raise that built-in ceiling. Invalid host limits fail at composition rather than disabling the
-bound. Worker/provider construction snapshots the policy to prevent later caller mutation.
-
-Exhaustion returns non-retryable `DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED`. This is a per-operation
-ceiling, not a mutable consumed-byte counter or root aggregate authority. It does not bound other
-nodes, input already materialized upstream, serialized/escaped snapshots, total memory, nested or
-parallel runs, or CPU time. Generator-side aggregate reservations and CPU preemption remain separate work.
+queue payloads and snapshots, and snapshotted at construction so a later caller cannot mutate them.
+A trusted host may only tighten the built-in `text-repeat` output ceiling, never raise it; an
+invalid host limit fails at composition rather than silently disabling the bound. Exhaustion returns
+non-retryable `DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED`. This is a per-operation ceiling, not a root
+aggregate authority — it does not bound other nodes, upstream input, serialized snapshots, memory,
+nested runs, or CPU time.
 
 ## Cumulative root snapshot admission
 
-A live root invocation may carry one trusted shared snapshot authority through every child run.
-Input and output allowances are separate nonnegative safe-integer UTF-8 byte totals, with defaults
-of 16 MiB each in the local product runtime. They count persisted run definition and input snapshots
-on the input side as well as task snapshots, including JSON
-escaping, keys, structure and summaries. Every accepted snapshot write consumes its full size,
-including retry writes; this is cumulative admission, not retained-size accounting. Host policy and the authority are never
-deserialized from workflow config, lineage, queue data or saved manifests.
-
-Encoding stops as soon as the remaining UTF-8 allowance is exceeded, before a complete oversized
-snapshot exists. The encoder accepts plain JSON data and never invokes data-defined `toJSON` methods
-or accessors. Pending writes reserve capacity synchronously before persistence. A successful exact-attempt write
-commits consumption before any later publication or dispatch; downstream failures do not refund it.
-A definitively rejected commit releases its reservation. A thrown persistence operation can have
-reached durable storage, so it retains the reservation and closes both admission directions for
-the entire live root. A committed cancellation in a participating run also closes future root
-admissions. Root completion closes the authority; child completion does not. Already-admitted
-writes may finish under their own storage predicates. No observer may interpret that exception
-as an accepted snapshot. Cancellation and stale attempts reject input snapshots under the same
-run/attempt/lease predicates used for output settlement.
-
-The authority is an in-process capability with no crash recovery or cross-process coordination.
-Input and output values already exist at admission. This is not a
-pre-allocation memory bound, provider-generation limit, CPU limit, queue-size bound, snapshot-read
-limit, or bound on adapter collection encoding. The per-operation text-repeat ceiling is separate.
+A live root invocation may carry one trusted shared snapshot authority through every child run,
+bounding cumulative input and output bytes across run and task snapshots; the authority and its
+host policy are never deserialized from workflow-controlled data. Every accepted write consumes its
+full size permanently — this is cumulative admission, not retained-size accounting, and a committed
+write is never refunded even if downstream work later fails. Encoding stops before a complete
+oversized snapshot is built, and the encoder accepts plain JSON data only — it never invokes
+data-defined `toJSON` methods or accessors, so workflow data cannot run code during encoding. An ambiguous (thrown) persistence write keeps its reservation and
+closes the authority rather than risk under-counting; a committed cancellation in a participating
+run also closes future admissions for that root, though already-admitted writes may still finish.
+The authority is in-process only, with no crash recovery or cross-process coordination, and does
+not bound memory, CPU, queue size, or provider-generation output; the per-operation text-repeat
+ceiling above is separate.
 
 ## Isolated text operation capability
 
 A host may supply a trusted in-process regex replacement capability independently of workflow
-configuration. Only the plain text, pattern, flags and replacement cross its execution boundary;
-signals, storage and root snapshot authority remain in the host. A task executor may additionally
-provide an explicit isolation stop/join capability keyed to the exact attempt. It must settle only
-after its owned execution has exited, or reject shutdown; it is not arbitrary node cleanup.
+configuration; only the plain text, pattern, flags and replacement cross its execution boundary,
+keeping signals, storage and the root snapshot authority in the host. An execution isolation
+shutdown capability, if supplied, must settle only after its own execution has exited or reject
+shutdown — it is not general node cleanup.

@@ -39,21 +39,17 @@ run status, cancelling runs, and publishing execution progress events.
   swallowing.
 - When supplied with a live root snapshot authority, run creation admits its published definition
   and run input together against the shared input allowance before persisting the run or dispatching
-  entry tasks. A rejected admission creates no run. An uncertain storage write closes future root
-  admissions rather than refunding capacity and returns a stable non-retryable error. Lower-level
-  callers must supply this authority. Definition and input share the existing input pool with task
-  inputs, so nested runs cannot reset a separate run allowance.
-
-Cancellation commits against current run state. A terminal result that wins first remains terminal;
-a cancellation that wins first cannot be overwritten by a stale start or dispatch-failure result.
-Entry tasks are admitted only while the run remains running. This acknowledges stored cancellation,
-not completion of active executor cleanup or descendant cancellation.
-After cancellation wins persistence arbitration, an optional same-process listener is notified for
-that run. A failed cancellation never notifies. Notification failure cannot reverse committed state;
-workers in other processes still rely on persisted admission checks.
-
-All entry tasks are admitted before the first entry message is published. This prevents a fast
-consumer from completing the run while sibling entries have not yet become visible. If an entry
-enqueue fails, the run is failed unless cancellation already won, and all preadmitted nonterminal
-entry tasks are cancelled, including those not yet delivered. Already committed terminal task
-outcomes are preserved.
+  entry tasks; a rejected admission creates no run, and an uncertain storage write closes future
+  root admissions rather than refund capacity. Definition and input share the existing input pool
+  with task inputs, so nested runs cannot reset a separate run allowance.
+- Cancellation commits against current run state, so whichever of a terminal result or a
+  cancellation wins first is not overwritten by the other, and entry tasks are admitted only while
+  the run remains running; this acknowledges stored cancellation, not completion of active executor
+  cleanup or descendant cancellation. An optional same-process listener is notified only after
+  cancellation wins persistence arbitration, and notification failure cannot reverse committed
+  state — workers in other processes still rely on persisted admission checks.
+- All entry tasks are admitted before the first entry message is published, so a fast consumer
+  cannot complete the run while sibling entries have not yet become visible. If an entry enqueue
+  fails, the run is failed unless cancellation already won, and every preadmitted nonterminal entry
+  task is cancelled, including ones not yet delivered; already committed terminal task outcomes are
+  preserved.
