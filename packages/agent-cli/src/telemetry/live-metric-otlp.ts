@@ -1,4 +1,6 @@
+import { randomUUID } from 'node:crypto';
 import { ValueType } from '@opentelemetry/api';
+import type { HrTime } from '@opentelemetry/api';
 import { ProtobufMetricsSerializer } from '@opentelemetry/otlp-transformer';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { AggregationTemporality, DataPointType } from '@opentelemetry/sdk-metrics';
@@ -9,19 +11,24 @@ import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';
 
 const MAX_PENDING_BATCHES = 8;
 
-function hrTime(iso: string): [number, number] {
-  const milliseconds = Date.parse(iso);
+function hrTime(milliseconds: number): HrTime {
   return [Math.floor(milliseconds / 1000), (milliseconds % 1000) * 1_000_000];
 }
 
+interface IMetricWindow {
+  /** Unique per host exporter; concurrent CLI processes cannot write the same metric stream. */
+  instanceId: string;
+  startTime: HrTime;
+  endTime: HrTime;
+}
+
 /** Delta sums describe this one prompt only; no resumed history is replayed or counted twice. */
-export function projectLivePromptMetrics(batch: ILivePromptTraceBatch): ResourceMetrics {
-  const startTime = hrTime(batch.root.startedAt);
-  const endTime = hrTime(batch.root.endedAt);
+export function projectLivePromptMetrics(batch: ILivePromptTraceBatch, window: IMetricWindow): ResourceMetrics {
+  const { startTime, endTime } = window;
   const metrics: MetricData[] = [];
   const addSum = (name: string, value: number, unit: string, valueType = ValueType.INT,
-    attributes: Record<string, string> = {}): void => {
-    if (value <= 0) return;
+    attributes: Record<string, string> = {}, includeZero = false): void => {
+    if (value < 0 || (value === 0 && !includeZero)) return;
     metrics.push({
       descriptor: { name, description: '', unit, valueType },
       aggregationTemporality: AggregationTemporality.DELTA,
@@ -66,16 +73,16 @@ export function projectLivePromptMetrics(batch: ILivePromptTraceBatch): Resource
     addSum('robota.provider.usage_unavailable_calls', missingUsage, '1');
     addSum('robota.provider.cost_unpriced_calls', unpricedCalls, '1');
     if (pricedCalls > 0) addSum('robota.provider.estimated_cost_usd', estimatedCost, 'USD',
-      ValueType.DOUBLE, { 'robota.cost.provenance': 'price-table-calculated' });
+      ValueType.DOUBLE, { 'robota.cost.provenance': 'price-table-calculated' }, true);
   }
   return {
-    resource: resourceFromAttributes({ 'service.name': 'robota' }),
+    resource: resourceFromAttributes({ 'service.name': 'robota', 'service.instance.id': window.instanceId }),
     scopeMetrics: [{ scope: { name: 'robota.live-prompt-metrics', version: '1' }, metrics }],
   };
 }
 
-async function sendMetrics(batch: ILivePromptTraceBatch, endpoint: string): Promise<void> {
-  const projected = projectLivePromptMetrics(batch);
+async function sendMetrics(batch: ILivePromptTraceBatch, endpoint: string, window: IMetricWindow): Promise<void> {
+  const projected = projectLivePromptMetrics(batch, window);
   if (projected.scopeMetrics[0]?.metrics.length === 0) return;
   const body = ProtobufMetricsSerializer.serializeRequest(projected);
   if (!body || body.byteLength > 1_048_576) throw new Error('Invalid OTLP metric payload.');
@@ -115,13 +122,22 @@ export function createNodeOtlpLiveMetricPort(
   const pending: ILivePromptTraceBatch[] = [];
   let worker: Promise<void> | undefined;
   let closed = false;
+  const instanceId = randomUUID();
+  let previousEndMs: number | undefined;
   const reportFailure = (): void => {
     try { void Promise.resolve(onFailure?.('delivery-failed')).catch(() => undefined); }
     catch { /* diagnostics are isolated */ }
   };
   const drain = async (): Promise<void> => {
     while (pending.length > 0) {
-      try { await sendMetrics(pending.shift()!, endpoint); }
+      try {
+        const endMs = Math.max(Date.now(), (previousEndMs ?? 0) + 1);
+        const startMs = previousEndMs ?? endMs - 1;
+        previousEndMs = endMs;
+        await sendMetrics(pending.shift()!, endpoint, {
+          instanceId, startTime: hrTime(startMs), endTime: hrTime(endMs),
+        });
+      }
       catch {
         pending.length = 0;
         reportFailure();

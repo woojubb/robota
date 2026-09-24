@@ -1,4 +1,6 @@
 import { createServer } from 'node:http';
+import { ProtobufMetricsSerializer } from '@opentelemetry/otlp-transformer';
+import type { ResourceMetrics } from '@opentelemetry/sdk-metrics';
 import { calculateModelCost } from '@robota-sdk/agent-core';
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
 import { describe, expect, it, vi } from 'vitest';
@@ -19,6 +21,11 @@ const base: ILivePromptTraceBatch = {
   children: [],
   omittedChildren: { provider: 0, tool: 0 },
 };
+const metricWindow = {
+  instanceId: 'test-instance',
+  startTime: [1790208000, 0] as [number, number],
+  endTime: [1790208002, 0] as [number, number],
+};
 
 function provider(
   disposition: 'invoked' | 'cache-hit' | 'preflight-refused',
@@ -37,7 +44,7 @@ function provider(
 }
 
 function value(batch: ILivePromptTraceBatch, name: string): number | undefined {
-  const metric = projectLivePromptMetrics(batch).scopeMetrics[0]?.metrics.find(
+  const metric = projectLivePromptMetrics(batch, metricWindow).scopeMetrics[0]?.metrics.find(
     (item) => item.descriptor.name === name,
   );
   const point = metric?.dataPoints[0];
@@ -59,7 +66,7 @@ describe('Node live OTLP metrics', () => {
     expect(value(batch, 'robota.provider.usage_unavailable_calls')).toBe(1);
     expect(value(batch, 'robota.provider.cost_unpriced_calls')).toBe(1);
     expect(value(batch, 'robota.provider.estimated_cost_usd')).toBe(calculateModelCost('gpt-4o', 100, 50));
-    const metrics = projectLivePromptMetrics(batch).scopeMetrics[0]!.metrics;
+    const metrics = projectLivePromptMetrics(batch, metricWindow).scopeMetrics[0]!.metrics;
     expect(metrics.every((metric) => metric.dataPoints.every((point) =>
       !Object.hasOwn(point.attributes, 'sessionId') && !Object.hasOwn(point.attributes, 'turnId')))).toBe(true);
     expect(JSON.stringify(metrics)).not.toContain('private-session');
@@ -72,6 +79,55 @@ describe('Node live OTLP metrics', () => {
     expect(value(batch, 'robota.telemetry.provider_events_omitted')).toBe(5);
     expect(value(batch, 'robota.provider.calls')).toBeUndefined();
     expect(value(batch, 'robota.provider.estimated_cost_usd')).toBeUndefined();
+  });
+
+  it('retains a verified zero-dollar estimate instead of making its cost look unknown', () => {
+    const child = provider('invoked', 'complete', 'gpt-4o');
+    if (child.kind !== 'provider') throw new Error('Expected provider child');
+    const batch = { ...base, children: [{ kind: 'provider', trace: {
+      ...child.trace, promptTokens: 0, completionTokens: 0, totalTokens: 0,
+    } }] } as ILivePromptTraceBatch;
+    expect(value(batch, 'robota.provider.calls')).toBe(1);
+    expect(value(batch, 'robota.provider.estimated_cost_usd')).toBe(0);
+  });
+
+  it('gives each exporter a unique writer and successive nonoverlapping delta windows', async () => {
+    const serialized: ResourceMetrics[] = [];
+    const original = ProtobufMetricsSerializer.serializeRequest;
+    const spy = vi.spyOn(ProtobufMetricsSerializer, 'serializeRequest').mockImplementation((metrics) => {
+      serialized.push(metrics);
+      return original(metrics);
+    });
+    const server = createServer(async (request, response) => {
+      for await (const _chunk of request) { /* consume request */ }
+      response.writeHead(200, { 'content-type': 'application/x-protobuf' });
+      response.end();
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new Error('Expected TCP listener');
+      const endpoint = `http://127.0.0.1:${address.port}/v1/metrics`;
+      const first = createNodeOtlpLiveMetricPort(endpoint);
+      const turn = { ...base, children: [provider('invoked', 'complete', 'gpt-4o')] };
+      first.enqueue(turn);
+      first.enqueue(turn);
+      await first.shutdown();
+      const second = createNodeOtlpLiveMetricPort(endpoint);
+      second.enqueue(turn);
+      await second.shutdown();
+      expect(serialized).toHaveLength(3);
+      const points = serialized.map((resource) => resource.scopeMetrics[0]!.metrics[0]!.dataPoints[0]!);
+      expect(points[1]!.startTime).toEqual(points[0]!.endTime);
+      expect(points[1]!.endTime).not.toEqual(points[0]!.endTime);
+      expect(serialized[0]!.resource.attributes['service.instance.id'])
+        .toBe(serialized[1]!.resource.attributes['service.instance.id']);
+      expect(serialized[0]!.resource.attributes['service.instance.id'])
+        .not.toBe(serialized[2]!.resource.attributes['service.instance.id']);
+    } finally {
+      spy.mockRestore();
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
   });
 
   it('requires independent opt-in and resolves metrics-specific destinations', () => {
