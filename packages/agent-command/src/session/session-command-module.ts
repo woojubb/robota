@@ -13,6 +13,7 @@ import {
   executeResumeCommand,
   executeValidateSessionCommand,
 } from './session-command.js';
+import { createSystemCommandFromEntry } from '../command-module-utils.js';
 
 import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
 import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-command';
@@ -24,6 +25,7 @@ export function createClearCommandEntry(): ICommand {
     description: CLEAR_COMMAND_DESCRIPTION,
     source: 'session',
     modelInvocable: false,
+    userInvocable: true,
   };
 }
 
@@ -32,8 +34,10 @@ export function createRenameCommandEntry(): ICommand {
     name: 'rename',
     displayName: 'Rename Session',
     description: RENAME_COMMAND_DESCRIPTION,
+    argumentHint: '<name>',
     source: 'session',
     modelInvocable: false,
+    userInvocable: true,
   };
 }
 
@@ -44,6 +48,7 @@ export function createResumeCommandEntry(): ICommand {
     description: RESUME_COMMAND_DESCRIPTION,
     source: 'session',
     modelInvocable: false,
+    userInvocable: true,
   };
 }
 
@@ -52,8 +57,13 @@ export function createCostCommandEntry(): ICommand {
     name: 'cost',
     displayName: 'Session Cost',
     description: COST_COMMAND_DESCRIPTION,
+    argumentHint: '[budget [<amount>|clear]]',
+    subcommands: [
+      { name: 'budget', description: 'Show, set, or clear the monthly budget', source: 'session' },
+    ],
     source: 'session',
     modelInvocable: false,
+    userInvocable: true,
   };
 }
 
@@ -64,77 +74,53 @@ export function createValidateSessionCommandEntry(): ICommand {
     description: VALIDATE_SESSION_COMMAND_DESCRIPTION,
     source: 'session',
     modelInvocable: false,
+    userInvocable: true,
   };
 }
 
 function createClearSystemCommand(): ISystemCommand {
   const entry = createClearCommandEntry();
-  return {
-    name: entry.name,
-    displayName: entry.displayName,
-    description: entry.description,
+  return createSystemCommandFromEntry(entry, {
     requiresPermission: false,
-    userInvocable: true,
-    modelInvocable: false,
     lifecycle: 'inline',
     execute: executeClearCommand,
-  };
+  });
 }
 
 function createRenameSystemCommand(): ISystemCommand {
   const entry = createRenameCommandEntry();
-  return {
-    name: entry.name,
-    displayName: entry.displayName,
-    description: entry.description,
+  return createSystemCommandFromEntry(entry, {
     requiresPermission: false,
-    userInvocable: true,
-    modelInvocable: false,
     lifecycle: 'inline',
     execute: executeRenameCommand,
-  };
+  });
 }
 
 function createResumeSystemCommand(): ISystemCommand {
   const entry = createResumeCommandEntry();
-  return {
-    name: entry.name,
-    displayName: entry.displayName,
-    description: entry.description,
+  return createSystemCommandFromEntry(entry, {
     requiresPermission: false,
-    userInvocable: true,
-    modelInvocable: false,
     lifecycle: 'inline',
     execute: executeResumeCommand,
-  };
+  });
 }
 
 function createCostSystemCommand(): ISystemCommand {
   const entry = createCostCommandEntry();
-  return {
-    name: entry.name,
-    displayName: entry.displayName,
-    description: entry.description,
+  return createSystemCommandFromEntry(entry, {
     requiresPermission: false,
-    userInvocable: true,
-    modelInvocable: false,
     lifecycle: 'inline',
     execute: executeCostCommand,
-  };
+  });
 }
 
 function createValidateSessionSystemCommand(): ISystemCommand {
   const entry = createValidateSessionCommandEntry();
-  return {
-    name: entry.name,
-    displayName: entry.displayName,
-    description: entry.description,
+  return createSystemCommandFromEntry(entry, {
     requiresPermission: false,
-    userInvocable: true,
-    modelInvocable: false,
     lifecycle: 'inline',
     execute: executeValidateSessionCommand,
-  };
+  });
 }
 
 export class SessionCommandSource implements ICommandSource {
