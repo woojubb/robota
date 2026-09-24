@@ -466,6 +466,7 @@ describe('convertFromGeminiResponse', () => {
       promptTokens: 10,
       completionTokens: 20,
       totalTokens: 30,
+      usageProvenance: 'complete',
     });
   });
 

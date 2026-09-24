@@ -44,6 +44,7 @@ describe('OpenAICompatibleResponseParser', () => {
       totalTokens: 7,
     });
     expect(result.metadata?.['finishReason']).toBe('stop');
+    expect(result.metadata?.['usageProvenance']).toBe('complete');
   });
 
   it('applies an injected provider-owned text tool-call projector to full responses', () => {

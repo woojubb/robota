@@ -206,8 +206,16 @@ export interface ISessionRunOptions {
 }
 
 export interface IProviderCallTraceObservation {
+  readonly callId?: string;
   readonly round: number;
   readonly startedAt: string;
   readonly endedAt: string;
   readonly outcome: 'success' | 'failure' | 'interrupted';
+  readonly disposition?: 'invoked' | 'cache-hit' | 'preflight-refused';
+  readonly providerId?: string;
+  readonly modelId?: string;
+  readonly usageProvenance?: 'complete' | 'partial' | 'absent';
+  readonly promptTokens?: number;
+  readonly completionTokens?: number;
+  readonly totalTokens?: number;
 }

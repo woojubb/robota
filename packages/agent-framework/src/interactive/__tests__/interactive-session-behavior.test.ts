@@ -158,6 +158,21 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
         endedAt: observedAt,
         outcome: 'success',
         round: 1,
+        callId: '123e4567-e89b-42d3-a456-426614174000',
+        disposition: 'invoked',
+        providerId: 'openai',
+        modelId: 'gpt-4o',
+        usageProvenance: 'complete',
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
+      });
+      listener?.('provider_call_completed', {
+        startedAt: observedAt,
+        endedAt: observedAt,
+        outcome: 'success',
+        round: 1,
+        callId: '123e4567-e89b-42d3-a456-426614174000',
       });
       return 'private response';
     });
@@ -177,6 +192,14 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
       endedAt: observedAt,
       outcome: 'success',
       round: 1,
+      callId: '123e4567-e89b-42d3-a456-426614174000',
+      disposition: 'invoked',
+      providerId: 'openai',
+      modelId: 'gpt-4o',
+      usageProvenance: 'complete',
+      promptTokens: 100,
+      completionTokens: 50,
+      totalTokens: 150,
     });
     expect(JSON.stringify(children)).not.toMatch(/private prompt|private response/);
   });

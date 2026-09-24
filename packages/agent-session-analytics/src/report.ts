@@ -12,7 +12,7 @@ function fmtTokens(n: number): string {
   return `${n}`;
 }
 
-/** SELFHOST-004: render a USD cost; `~` prefix marks an inexact aggregate (some unpriced turns). */
+/** SELFHOST-004: `~` marks an estimate or incomplete aggregate, never an invoice amount. */
 function fmtCost(usd: number, exact: boolean): string {
   return `${exact ? '' : '~'}$${usd.toFixed(4)}`;
 }

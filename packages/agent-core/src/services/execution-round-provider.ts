@@ -117,6 +117,7 @@ export async function callProviderWithCache(
    */
   onRequestAssembled?: (request: IAssembledProviderRequest) => void,
   awaitProviderSettlement?: boolean,
+  onDispatch?: (disposition: 'invoked' | 'cache-hit', model: string) => void,
 ): Promise<TUniversalMessage> {
   if (!config.defaultModel?.model) {
     throw new Error('Model is required in defaultModel configuration. Please specify a model.');
@@ -150,6 +151,11 @@ export async function callProviderWithCache(
     ...(structuredOutcome !== undefined && { structuredOutput: structuredOutcome }),
   });
   const providerChat = resolved.provider.chat.bind(resolved.provider) as TProviderChat;
+  const observedChat: TProviderChat = (messages, options) => {
+    // Invocation of the provider SDK adapter, not proof of a network attempt within that adapter.
+    onDispatch?.('invoked', options.model ?? model);
+    return providerChat(messages, options);
+  };
   // API-001: a concrete selection has no persisted cache identity until DATA-007 owns the
   // resolution fingerprint. Do not let a lower-effort response satisfy a later higher-effort call.
   // The implicit `auto` fallback is not a caller selection and retains existing cache behavior.
@@ -164,6 +170,7 @@ export async function callProviderWithCache(
       { temperature: config.defaultModel.temperature, maxTokens: config.defaultModel.maxTokens },
     );
     if (cachedResponse) {
+      onDispatch?.('cache-hit', chatOptions.model ?? model);
       return {
         role: 'assistant',
         content: cachedResponse,
@@ -173,7 +180,7 @@ export async function callProviderWithCache(
       };
     }
     const response = await callProviderWithIdleTimeout(
-      providerChat,
+      observedChat,
       outgoing,
       chatOptions,
       config.timeout,
@@ -191,7 +198,7 @@ export async function callProviderWithCache(
     return response;
   }
 
-  return callProviderWithIdleTimeout(providerChat, outgoing, chatOptions, config.timeout, awaitProviderSettlement);
+  return callProviderWithIdleTimeout(observedChat, outgoing, chatOptions, config.timeout, awaitProviderSettlement);
 }
 
 /** Validate and normalize the provider response */

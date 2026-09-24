@@ -69,6 +69,7 @@ export interface IUsageObservation {
 
 /** An explicitly linked, content-free provider round under one persisted prompt root. */
 export interface IProviderCallTraceEntry {
+  callId?: string;
   traceId: string;
   parentSpanId: string;
   spanId: string;
@@ -76,6 +77,13 @@ export interface IProviderCallTraceEntry {
   endedAt: string;
   outcome: 'success' | 'failure' | 'interrupted';
   round: number;
+  disposition?: 'invoked' | 'cache-hit' | 'preflight-refused';
+  providerId?: string;
+  modelId?: string;
+  usageProvenance?: 'complete' | 'partial' | 'absent';
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
 }
 
 /** The awaited body of one permitted tool call under a persisted prompt root. */
@@ -193,7 +201,7 @@ export interface IUsageSourceTotals {
   percentage: number;
   /** Exact cost (USD) summed from each turn's `IUsageSnapshot.costUsd` (unpriced turns contribute 0). */
   costUsd: number;
-  /** Whether every turn attributed to this source carried an exact `costUsd`. */
+  /** Whether every turn has independently proven billed cost; table estimates do not qualify. */
   costExact: boolean;
 }
 

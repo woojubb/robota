@@ -159,6 +159,7 @@ export async function executePromptTurn(
       ctx.getSession().getContextState(),
       preparedPrompt.promptFileReferenceRecords,
       ctx.getSession().getModelId(),
+      spanCollector.providerCalls,
     );
     history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
     // SELFHOST-004: drain the turn's spans immediately BEFORE its usage-summary — the usage-summary is
@@ -180,6 +181,7 @@ export async function executePromptTurn(
         historyBefore,
         ctx.getSession().getContextState(),
         ctx.getSession().getModelId(),
+        spanCollector.providerCalls,
       );
       pushToolSummaryToHistory({ activeTools: ctx.getActiveTools(), history });
       ctx.clearStreaming();

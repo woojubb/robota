@@ -22,6 +22,7 @@ describe('lookupModelPrice', () => {
 
   it('returns undefined for a completely unknown model', () => {
     expect(lookupModelPrice('unknown-model-xyz-123')).toBeUndefined();
+    expect(lookupModelPrice('constructor')).toBeUndefined();
   });
 });
 

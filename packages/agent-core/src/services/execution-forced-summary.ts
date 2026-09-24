@@ -3,6 +3,7 @@ import { callProviderWithIdleTimeout } from './execution-round-provider';
 import { PROVIDER_CALL_EVENTS } from '../event-service/span-events';
 import { isAbortFailure } from '../utils/abort-classification';
 import { randomId } from '../utils/random-id.js';
+import { verifiedProviderCallUsage } from './provider-call-usage';
 
 import type {
   IExecutionContext,
@@ -119,11 +120,18 @@ export async function forceSummaryCall(
     } as TExecutionEventData);
 
     const startedAtMs = Date.now();
+    const callId = randomId();
+    const dispatch: { invoked: boolean; startedAtMs?: number } = { invoked: false };
     let providerOutcome: 'success' | 'failure' | 'interrupted' = 'failure';
-    let forceResponse: TUniversalMessage;
+    let forceResponse: TUniversalMessage | undefined;
     try {
       forceResponse = await callProviderWithIdleTimeout(
-        resolved.provider.chat.bind(resolved.provider),
+        (messages, options) => {
+          // The same adapter-invocation boundary as normal rounds; internal retries stay opaque.
+          dispatch.invoked = true;
+          dispatch.startedAtMs = Date.now();
+          return resolved.provider.chat(messages, options);
+        },
         messagesForProvider,
         chatOptions,
         config.timeout,
@@ -134,24 +142,48 @@ export async function forceSummaryCall(
       if (isAbortFailure(error, fullContext.signal)) providerOutcome = 'interrupted';
       throw error;
     } finally {
+      const usage = dispatch.invoked ? verifiedProviderCallUsage(forceResponse) : { provenance: 'absent' as const };
       fullContext.onExecutionEvent?.(PROVIDER_CALL_EVENTS.COMPLETED, {
         executionId,
         conversationId,
         round: roundState.currentRound,
-        startedAt: new Date(startedAtMs).toISOString(),
-        endedAt: new Date(Math.max(Date.now(), startedAtMs)).toISOString(),
+        startedAt: new Date(dispatch.startedAtMs ?? startedAtMs).toISOString(),
+        endedAt: new Date(Math.max(Date.now(), dispatch.startedAtMs ?? startedAtMs)).toISOString(),
         outcome: providerOutcome,
+        callId,
+        disposition: dispatch.invoked ? 'invoked' : 'preflight-refused',
+        ...(dispatch.invoked && {
+          providerId: resolved.currentInfo.provider,
+          modelId: resolved.aiProviderInfo.model,
+        }),
+        usageProvenance: usage.provenance,
+        ...('promptTokens' in usage && usage.promptTokens !== undefined && {
+          promptTokens: usage.promptTokens,
+          completionTokens: usage.completionTokens,
+          totalTokens: usage.totalTokens,
+        }),
       } as TExecutionEventData);
     }
+
+    if (!forceResponse) throw new Error('Forced summary provider returned no response.');
 
     const responseText = typeof forceResponse.content === 'string' ? forceResponse.content : '';
     const committedText =
       responseText || 'Maximum rounds reached. Partial results available in conversation history.';
-    if (responseText) {
-      conversationStore.addAssistantMessage(responseText, [], forceResponse.metadata);
-    } else {
-      conversationStore.addAssistantMessage(committedText);
-    }
+    const verifiedUsage = verifiedProviderCallUsage(forceResponse);
+    const summaryMetadata = {
+      ...(forceResponse.metadata ?? {}),
+      round: roundState.currentRound,
+      providerId: resolved.currentInfo.provider,
+      modelId: resolved.aiProviderInfo.model,
+      usageProvenance: verifiedUsage.provenance,
+      ...(verifiedUsage.provenance === 'complete' && {
+        inputTokens: verifiedUsage.promptTokens,
+        outputTokens: verifiedUsage.completionTokens,
+        totalTokens: verifiedUsage.totalTokens,
+      }),
+    };
+    conversationStore.addAssistantMessage(committedText, [], summaryMetadata);
     // CORE-033: the summary is the turn's answer; committing it silently left the last thing the
     // user reads absent from every replay of the conversation.
     fullContext.onExecutionEvent?.('assistant_message_committed', {

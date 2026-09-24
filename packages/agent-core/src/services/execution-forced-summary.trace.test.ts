@@ -4,6 +4,22 @@ import { forceSummaryCall } from './execution-forced-summary.js';
 import { PROVIDER_CALL_EVENTS } from '../event-service/span-events.js';
 
 describe('forced-summary provider lifecycle', () => {
+  it('carries final provider-reported usage separately from its content', async () => {
+    const events: Array<{ name: string; data: Record<string, unknown> }> = [];
+    const addAssistantMessage = vi.fn();
+    await forceSummaryCall(
+      { getMessages: () => [], addAssistantMessage } as never,
+      { provider: { chat: async () => ({ role: 'assistant', content: 'private summary', metadata: { usageProvenance: 'complete' }, usage: { promptTokens: 20, completionTokens: 5, totalTokens: 25 } }) }, currentInfo: { provider: 'anthropic' }, aiProviderInfo: { model: 'claude-sonnet-4-6' } } as never,
+      { defaultModel: { model: 'claude-sonnet-4-6' } } as never,
+      'execution', { currentRound: 3 } as never, 'conversation',
+      { onExecutionEvent: (name: string, data: Record<string, unknown>) => events.push({ name, data }) } as never,
+      { warn: vi.fn() } as never,
+    );
+    const completion = events.find((event) => event.name === PROVIDER_CALL_EVENTS.COMPLETED)!.data;
+    expect(completion).toMatchObject({ disposition: 'invoked', usageProvenance: 'complete', promptTokens: 20, completionTokens: 5, totalTokens: 25 });
+    expect(addAssistantMessage).toHaveBeenCalledWith('private summary', [], expect.objectContaining({ inputTokens: 20, outputTokens: 5, totalTokens: 25 }));
+    expect(JSON.stringify(completion)).not.toContain('private summary');
+  });
   it.each(['success', 'failure', 'interrupted'] as const)(
     'records a content-free %s completion for the actual summary call',
     async (outcome) => {
@@ -37,7 +53,14 @@ describe('forced-summary provider lifecycle', () => {
       const completions = events.filter((event) => event.name === PROVIDER_CALL_EVENTS.COMPLETED);
       expect(completions).toHaveLength(1);
       expect(completions[0]!.data).toMatchObject({ round: 3, outcome });
-      expect(JSON.stringify(completions[0]!.data)).not.toMatch(/private summary|private provider failure|private-model|private-provider/);
+      expect(completions[0]!.data).toMatchObject({
+        disposition: 'invoked',
+        usageProvenance: 'absent',
+        providerId: 'private-provider',
+        modelId: 'private-model',
+      });
+      expect(typeof completions[0]!.data['callId']).toBe('string');
+      expect(JSON.stringify(completions[0]!.data)).not.toMatch(/private summary|private provider failure/);
       expect(addAssistantMessage).toHaveBeenCalledTimes(outcome === 'success' ? 1 : 0);
     },
   );
