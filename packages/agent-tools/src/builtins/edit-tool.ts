@@ -5,7 +5,7 @@
  * (ensuring surgical edits). Pass replaceAll:true to replace all occurrences.
  */
 
-import { readFile } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
 
 import { z } from 'zod';
 
@@ -40,6 +40,46 @@ const EditSchema = z.object({
 
 type TEditArgs = z.infer<typeof EditSchema>;
 
+// Same ceiling as Read/Grep (MAX_READ_BYTES / MAX_GREP_FILE_BYTES): a fixed per-operation
+// budget on the whole-string operations (includes/indexOf/split/join) this tool runs on the
+// main thread. Kept as a local constant rather than an import — each builtin tool already
+// carries its own copy of this value; see read-tool.ts and grep-tool.ts.
+const MAX_EDIT_FILE_BYTES = 4 * 1024 * 1024;
+const READ_CHUNK_BYTES = 64 * 1024;
+
+/** Marks a refusal that must not surface a partial or crashed read to the caller. */
+class EditByteLimitError extends Error {
+  public constructor(public readonly boundary: 'input' | 'output') {
+    super(`Edit ${boundary} exceeds its ${MAX_EDIT_FILE_BYTES}-byte limit`);
+  }
+}
+
+/**
+ * Read a file as UTF-8 while rejecting as soon as more than `maxBytes` bytes have arrived —
+ * before the whole content is materialized. Reading actual bytes off the stream (rather than
+ * trusting stat() size) also catches a file that grows after being stat'd, or has no stable
+ * size at all (a named pipe).
+ */
+async function readBoundedUtf8File(
+  filePath: string,
+  maxBytes: number,
+): Promise<{ content: string; byteLength: number }> {
+  const stream = createReadStream(filePath, { highWaterMark: READ_CHUNK_BYTES });
+  const chunks: Buffer[] = [];
+  let bytes = 0;
+  try {
+    for await (const chunk of stream) {
+      const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+      bytes += buffer.length;
+      if (bytes > maxBytes) throw new EditByteLimitError('input');
+      chunks.push(buffer);
+    }
+  } finally {
+    stream.destroy();
+  }
+  return { content: Buffer.concat(chunks, bytes).toString('utf8'), byteLength: bytes };
+}
+
 async function editFileTool(args: TEditArgs, options: ISandboxToolOptions): Promise<string> {
   const { oldString, newString, replaceAll = false } = args;
   // A relative path anchors to the containment root before it is confined or edited (issue #2429).
@@ -53,11 +93,29 @@ async function editFileTool(args: TEditArgs, options: ISandboxToolOptions): Prom
   }
 
   let content: string;
+  let contentBytes: number;
   try {
-    content = options.sandboxClient
-      ? await options.sandboxClient.readFile(filePath)
-      : await readFile(filePath, 'utf8');
+    if (options.sandboxClient) {
+      content = await options.sandboxClient.readFile(filePath);
+      contentBytes = Buffer.byteLength(content, 'utf8');
+      // This API already returns a complete string; admission here still bounds the
+      // string operations below, while a streaming sandbox read API is needed to bound
+      // provider memory the way the host path's stream does.
+      if (contentBytes > MAX_EDIT_FILE_BYTES) throw new EditByteLimitError('input');
+    } else {
+      const bounded = await readBoundedUtf8File(filePath, MAX_EDIT_FILE_BYTES);
+      content = bounded.content;
+      contentBytes = bounded.byteLength;
+    }
   } catch (err) {
+    if (err instanceof EditByteLimitError) {
+      const result: IToolInvocationResult = {
+        success: false,
+        output: '',
+        error: `${err.message}: ${filePath}`,
+      };
+      return JSON.stringify(result);
+    }
     // allow-fallback: read failure before edit → IToolInvocationResult error (file not found)
     const result: IToolInvocationResult = {
       success: false,
@@ -77,7 +135,10 @@ async function editFileTool(args: TEditArgs, options: ISandboxToolOptions): Prom
   }
 
   // Uniqueness check when not in replaceAll mode
-  if (!replaceAll) {
+  let parts: string[] = [];
+  if (replaceAll) {
+    parts = content.split(oldString);
+  } else {
     const firstIdx = content.indexOf(oldString);
     const lastIdx = content.lastIndexOf(oldString);
     if (firstIdx !== lastIdx) {
@@ -93,8 +154,25 @@ async function editFileTool(args: TEditArgs, options: ISandboxToolOptions): Prom
     }
   }
 
+  // replaceAll can amplify: a newString much longer than oldString, repeated across many
+  // occurrences, can produce an output far bigger than the (bounded) input. The expected byte
+  // count is cheap to derive from the occurrence count computed above, without materializing
+  // the joined string, so the check runs before the write for either mode.
+  const count = replaceAll ? parts.length - 1 : 1;
+  const oldBytes = Buffer.byteLength(oldString, 'utf8');
+  const newBytes = Buffer.byteLength(newString, 'utf8');
+  const expectedOutputBytes = contentBytes - count * oldBytes + count * newBytes;
+  if (expectedOutputBytes > MAX_EDIT_FILE_BYTES) {
+    const result: IToolInvocationResult = {
+      success: false,
+      output: '',
+      error: `Edit output exceeds its ${MAX_EDIT_FILE_BYTES}-byte limit: ${filePath}`,
+    };
+    return JSON.stringify(result);
+  }
+
   const updated = replaceAll
-    ? content.split(oldString).join(newString)
+    ? parts.join(newString)
     : content.slice(0, content.indexOf(oldString)) +
       newString +
       content.slice(content.indexOf(oldString) + oldString.length);
@@ -115,7 +193,6 @@ async function editFileTool(args: TEditArgs, options: ISandboxToolOptions): Prom
     return JSON.stringify(result);
   }
 
-  const count = replaceAll ? content.split(oldString).length - 1 : 1;
   // Calculate start line number from the original content
   const matchIdx = content.indexOf(oldString);
   const startLine = matchIdx >= 0 ? content.substring(0, matchIdx).split('\n').length : 1;
