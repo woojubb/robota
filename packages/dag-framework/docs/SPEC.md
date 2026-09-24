@@ -75,7 +75,7 @@ default catalog used by `/workflows` bounds `text-repeat` and literal `text-repl
 workflow-controlled opt-out; tighter host limits reach the node context independently of workflow
 input. These per-operation bounds are not a root aggregate budget, snapshot-size limit, or CPU preemption.
 
-## Shared local root snapshot authority
+## Shared local root budget authority
 
 Each independent local provider execution creates a fresh snapshot authority from trusted host
 limits and a credit authority from the root run's cost policy; nested executions and concurrent
@@ -84,11 +84,11 @@ executes, committed on successful lifecycle completion, and released when it fai
 cannot replace the root's limit with its own. Snapshot accounting includes run definition and input
 snapshots consumed before dispatch. Encoding stops
 before building a complete oversized snapshot, returning a structured non-retryable refusal. The
-root owns the authority's lifetime and closes it on completion; committed cancellation closes new
-admissions across its children, though it does not interrupt child execution already admitted
-elsewhere. A host composing lower-level services directly must explicitly supply the same
-authority to its own orchestrator and every worker — persisted lineage cannot recreate or
-authorize a budget on its own.
+root owns both authorities' lifetimes and closes them on completion; committed cancellation of a
+participating run closes new snapshot and credit admissions across the root's children, though it
+does not interrupt child execution already admitted elsewhere. A host composing lower-level
+services directly must explicitly supply these same authorities to its orchestrator and every
+worker — persisted lineage cannot recreate or authorize a budget on its own.
 
 ## Local regex isolation
 

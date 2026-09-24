@@ -81,6 +81,7 @@ export function createExecutionComposition(
   const runCancel = new RunCancelService(dependencies.storage, dependencies.clock, {
     notifyRunCancelled(dagRunId) {
       dependencies.snapshotBudget?.close();
+      dependencies.rootCreditBudget?.close();
       workerLoop.notifyRunCancelled(dagRunId);
     },
   });
