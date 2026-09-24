@@ -46,6 +46,7 @@ import {
 import { createRemoteControlController } from './remote-control/index.js';
 import { createCliUsageTransportRegistry } from './usage/usage-transport-registry.js';
 import { createConfiguredNodeOtlpLiveTelemetryPort } from './telemetry/live-trace-otlp.js';
+import { resolveLiveTelemetrySurface } from './telemetry/live-resource.js';
 import {
   createRobotaPackSet,
   createRobotaSubagentRunnerFactory,
@@ -598,6 +599,11 @@ async function runCliCore(
   const livePromptTracePort = createConfiguredNodeOtlpLiveTelemetryPort(
     process.env,
     () => process.stderr.write('Robota telemetry export failed.\n'),
+    undefined,
+    {
+      serviceVersion: version,
+      surface: resolveLiveTelemetrySurface(args, mcpServe),
+    },
   );
 
   // GOAL-001: --goal runs an autonomous headless goal even without an explicit -p.

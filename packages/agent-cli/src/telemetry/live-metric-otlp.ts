@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { ValueType } from '@opentelemetry/api';
 import type { HrTime } from '@opentelemetry/api';
 import { ProtobufMetricsSerializer } from '@opentelemetry/otlp-transformer';
@@ -8,6 +7,8 @@ import type { MetricData, ResourceMetrics } from '@opentelemetry/sdk-metrics';
 import { calculateModelCost } from '@robota-sdk/agent-core';
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
 import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';
+import { createLiveTelemetryResource } from './live-resource.js';
+import type { ILiveTelemetryResource } from './live-resource.js';
 
 const MAX_PENDING_BATCHES = 8;
 
@@ -18,6 +19,7 @@ function hrTime(milliseconds: number): HrTime {
 interface IMetricWindow {
   /** Unique per host exporter; concurrent CLI processes cannot write the same metric stream. */
   instanceId: string;
+  resource?: ILiveTelemetryResource;
   startTime: HrTime;
   endTime: HrTime;
 }
@@ -81,7 +83,9 @@ export function projectLivePromptMetrics(batch: ILivePromptTraceBatch, window: I
       ValueType.DOUBLE, { 'robota.cost.provenance': 'price-table-calculated' }, true);
   }
   return {
-    resource: resourceFromAttributes({ 'service.name': 'robota', 'service.instance.id': window.instanceId }),
+    resource: resourceFromAttributes(window.resource?.attributes ?? {
+      'service.name': 'robota', 'service.instance.id': window.instanceId,
+    }),
     scopeMetrics: [{ scope: { name: 'robota.live-prompt-metrics', version: '1' }, metrics }],
   };
 }
@@ -123,11 +127,12 @@ async function sendMetrics(batch: ILivePromptTraceBatch, endpoint: string, windo
 export function createNodeOtlpLiveMetricPort(
   endpoint: string,
   onFailure?: (code: 'projection-failed' | 'enqueue-failed' | 'delivery-failed') => void,
+  resource: ILiveTelemetryResource = createLiveTelemetryResource(),
 ): ILivePromptTracePort & { shutdown(): Promise<void> } {
   const pending: ILivePromptTraceBatch[] = [];
   let worker: Promise<void> | undefined;
   let closed = false;
-  const instanceId = randomUUID();
+  const instanceId = resource.instanceId;
   let previousEndMs: number | undefined;
   const reportFailure = (): void => {
     try { void Promise.resolve(onFailure?.('delivery-failed')).catch(() => undefined); }
@@ -140,7 +145,7 @@ export function createNodeOtlpLiveMetricPort(
         const startMs = previousEndMs ?? endMs - 1;
         previousEndMs = endMs;
         await sendMetrics(pending.shift()!, endpoint, {
-          instanceId, startTime: hrTime(startMs), endTime: hrTime(endMs),
+          instanceId, resource, startTime: hrTime(startMs), endTime: hrTime(endMs),
         });
       }
       catch {

@@ -9,6 +9,8 @@ import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';
 import { createNodeOtlpLiveMetricPort } from './live-metric-otlp.js';
 import { createNodeOtlpLiveLogPort } from './live-log-otlp.js';
 import { createNodeLiveConsolePort } from './live-console.js';
+import { createLiveTelemetryResource } from './live-resource.js';
+import type { ILiveTelemetryHostResource, ILiveTelemetryResource } from './live-resource.js';
 
 const MAX_PENDING_BATCHES = 8;
 
@@ -21,6 +23,7 @@ export interface INodeOtlpLiveTraceOptions {
   /** Exact OTLP HTTP/protobuf traces URL, resolved by the product host. */
   endpoint: string;
   onFailure?: (code: 'projection-failed' | 'enqueue-failed' | 'delivery-failed') => void;
+  resource?: ILiveTelemetryResource;
 }
 
 type TOtlpSignal = 'traces' | 'metrics' | 'logs';
@@ -80,7 +83,7 @@ function reportFailure(options: INodeOtlpLiveTraceOptions, code: 'delivery-faile
   }
 }
 
-async function sendBatch(batch: ILivePromptTraceBatch, endpoint: string): Promise<void> {
+async function sendBatch(batch: ILivePromptTraceBatch, endpoint: string, resource: ILiveTelemetryResource): Promise<void> {
   const exporter: SpanExporter = {
     export(spans: ReadableSpan[], callback) {
       void (async () => {
@@ -121,7 +124,7 @@ async function sendBatch(batch: ILivePromptTraceBatch, endpoint: string): Promis
   };
   const ids = [batch.root.spanId, ...batch.children.map((child) => child.trace.spanId)];
   const provider = new TracerProvider({
-    resource: resourceFromAttributes({ 'service.name': 'robota' }),
+    resource: resourceFromAttributes(resource.attributes),
     idGenerator: {
       generateTraceId: () => batch.root.traceId,
       generateSpanId: () => {
@@ -183,6 +186,7 @@ async function sendBatch(batch: ILivePromptTraceBatch, endpoint: string): Promis
 
 /** Node-only host adapter; framework turns never wait for the network. */
 export function createNodeOtlpLiveTracePort(options: INodeOtlpLiveTraceOptions): INodeOtlpLiveTracePort {
+  const resource = options.resource ?? createLiveTelemetryResource();
   const pending: ILivePromptTraceBatch[] = [];
   let worker: Promise<void> | undefined;
   let closed = false;
@@ -190,7 +194,7 @@ export function createNodeOtlpLiveTracePort(options: INodeOtlpLiveTraceOptions):
     while (pending.length > 0) {
       const batch = pending.shift()!;
       try {
-        await sendBatch(batch, options.endpoint);
+        await sendBatch(batch, options.endpoint, resource);
       } catch {
         // A failing destination must not make process exit retry every queued turn serially.
         pending.length = 0;
@@ -226,24 +230,28 @@ export function createConfiguredNodeOtlpLiveTelemetryPort(
   writeConsole: (line: string) => void | Promise<void> = (line) => new Promise<void>((resolve, reject) => {
     process.stderr.write(line, (error) => error ? reject(error) : resolve());
   }),
+  hostResource?: ILiveTelemetryHostResource,
 ): INodeOtlpLiveTracePort | undefined {
   const traceEndpoint = resolveNodeOtlpLiveTraceEndpoint(env);
   const metricEndpoint = resolveNodeOtlpLiveMetricEndpoint(env);
   const logEndpoint = resolveNodeOtlpLiveLogEndpoint(env);
+  const hasConsole = env['ROBOTA_TELEMETRY_ENABLED'] === '1' &&
+    ['traces', 'metrics', 'logs'].some((signal) => env[`ROBOTA_TELEMETRY_${signal.toUpperCase()}`] === 'console');
+  if (!traceEndpoint && !metricEndpoint && !logEndpoint && !hasConsole) return undefined;
+  const resource = createLiveTelemetryResource(hostResource);
   const ports: INodeOtlpLiveTracePort[] = [];
   if (traceEndpoint) ports.push(createNodeOtlpLiveTracePort({
-    endpoint: traceEndpoint, ...(onFailure ? { onFailure } : {}),
+    endpoint: traceEndpoint, resource, ...(onFailure ? { onFailure } : {}),
   }));
-  if (metricEndpoint) ports.push(createNodeOtlpLiveMetricPort(metricEndpoint, onFailure));
-  if (logEndpoint) ports.push(createNodeOtlpLiveLogPort(logEndpoint, onFailure));
+  if (metricEndpoint) ports.push(createNodeOtlpLiveMetricPort(metricEndpoint, onFailure, resource));
+  if (logEndpoint) ports.push(createNodeOtlpLiveLogPort(logEndpoint, onFailure, resource));
   if (env['ROBOTA_TELEMETRY_ENABLED'] === '1') {
     for (const signal of ['traces', 'metrics', 'logs'] as const) {
       if (env[`ROBOTA_TELEMETRY_${signal.toUpperCase()}`] === 'console') {
-        ports.push(createNodeLiveConsolePort(signal, writeConsole, onFailure));
+        ports.push(createNodeLiveConsolePort(signal, writeConsole, onFailure, resource));
       }
     }
   }
-  if (ports.length === 0) return undefined;
   if (ports.length === 1) return ports[0];
   return {
     enqueue(batch) {

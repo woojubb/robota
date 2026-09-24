@@ -229,6 +229,9 @@ additional event kinds, or replay of stored traces. Ambient `OTEL_*` values alon
 Each signal also accepts `console` instead of `otlp` to write a content-free JSON diagnostic to stderr;
 console needs neither an endpoint nor a protocol and never includes collector credentials. Signals
 remain independent, and the Robota enable switch is still required.
+All enabled signals use the same per-process `service.instance.id` and the CLI's version and
+presentation mode as resource attributes. Ambient `OTEL_SERVICE_NAME` and other `OTEL_*` values
+cannot replace these fields.
 
 ### Doctor
 

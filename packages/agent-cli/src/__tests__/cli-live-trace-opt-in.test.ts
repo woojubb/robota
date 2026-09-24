@@ -65,11 +65,12 @@ describe('CLI live trace opt-in', () => {
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     process.argv = ['node', 'robota', '-p', 'private prompt', '--no-session-persistence'];
 
-    const requests: string[] = [];
+    const requests: Array<{ path: string; body: string }> = [];
     const server = createServer(async (request, response) => {
-      requests.push(request.url ?? '');
       expect(request.headers['content-type']).toBe('application/x-protobuf');
-      for await (const _chunk of request) { /* consume request */ }
+      const chunks: Buffer[] = [];
+      for await (const chunk of request) chunks.push(Buffer.from(chunk));
+      requests.push({ path: request.url ?? '', body: Buffer.concat(chunks).toString('utf8') });
       response.writeHead(200, { 'content-type': 'application/x-protobuf' });
       response.end();
     });
@@ -87,17 +88,28 @@ describe('CLI live trace opt-in', () => {
 
       process.env['ROBOTA_TELEMETRY_ENABLED'] = '1';
       await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
-      expect(requests).toEqual(['/v1/traces']);
+      expect(requests.map((request) => request.path)).toEqual(['/v1/traces']);
+      expect(requests[0]!.body).toContain('service.version');
+      expect(requests[0]!.body).toContain('robota.surface');
+      expect(requests[0]!.body).toContain('print');
 
       process.env['ROBOTA_TELEMETRY_TRACES'] = 'off';
       process.env['ROBOTA_TELEMETRY_METRICS'] = 'otlp';
       await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
-      expect(requests).toEqual(['/v1/traces', '/v1/metrics']);
+      expect(requests.map((request) => request.path)).toEqual(['/v1/traces', '/v1/metrics']);
 
       process.env['ROBOTA_TELEMETRY_METRICS'] = 'off';
       process.env['ROBOTA_TELEMETRY_LOGS'] = 'otlp';
       await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
-      expect(requests).toEqual(['/v1/traces', '/v1/metrics', '/v1/logs']);
+      expect(requests.map((request) => request.path)).toEqual(['/v1/traces', '/v1/metrics', '/v1/logs']);
+
+      process.env['ROBOTA_TELEMETRY_LOGS'] = 'off';
+      process.env['ROBOTA_TELEMETRY_TRACES'] = 'otlp';
+      process.argv = ['node', 'robota', '--serve', '-p', 'private prompt', '--no-session-persistence'];
+      await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
+      expect(requests.at(-1)?.path).toBe('/v1/traces');
+      expect(requests.at(-1)?.body).toContain('robota.surface');
+      expect(requests.at(-1)?.body).toContain('print');
     } finally {
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
       rmSync(home, { recursive: true, force: true });
