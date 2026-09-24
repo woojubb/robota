@@ -29,12 +29,7 @@ describe('HttpRequestNodeDefinition', () => {
   });
 
   it('TC-01: returns ok=true with statusCode=200 and body on successful fetch', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      status: 200,
-      ok: true,
-      text: async () => 'hello',
-      headers: new Headers(),
-    });
+    const mockFetch = vi.fn().mockResolvedValue(new Response('hello', { status: 200 }));
     vi.stubGlobal('fetch', mockFetch);
 
     const input: TPortPayload = { url: 'https://example.com' };
@@ -50,12 +45,7 @@ describe('HttpRequestNodeDefinition', () => {
   });
 
   it('TC-02: node succeeds (ok=true) but output.ok=false on 404 response', async () => {
-    const mockFetch = vi.fn().mockResolvedValue({
-      status: 404,
-      ok: false,
-      text: async () => 'Not Found',
-      headers: new Headers(),
-    });
+    const mockFetch = vi.fn().mockResolvedValue(new Response('Not Found', { status: 404 }));
     vi.stubGlobal('fetch', mockFetch);
 
     const input: TPortPayload = { url: 'https://example.com/missing' };
@@ -120,5 +110,94 @@ describe('HttpRequestNodeDefinition', () => {
     if (result.ok) return;
     expect(result.error.code).toBe('DAG_VALIDATION_HTTP_REQUEST_URL_REQUIRED');
     expect(mockFetch).not.toHaveBeenCalled();
+  });
+
+  it('rejects an oversized response before reading the rest of its stream', async () => {
+    let pulls = 0;
+    const response = new Response(new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulls++;
+        if (pulls > 2) controller.close();
+        else controller.enqueue(new TextEncoder().encode(pulls === 1 ? 'abc' : 'd'));
+      },
+    }, { highWaterMark: 0 }));
+    const text = vi.spyOn(response, 'text');
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response));
+
+    const context = {
+      ...makeContext({ method: 'GET', url: '', headers: {}, timeoutMs: 1000 }),
+      byteLimits: { maxTextRepeatOutputBytes: 4 * 1024 * 1024, maxHttpResponseBodyBytes: 3 },
+    } as INodeExecutionContext;
+    const result = await node.taskHandler.execute({ url: 'https://example.com' }, context);
+
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED', retryable: false },
+    });
+    expect(pulls).toBe(2);
+    expect(text).not.toHaveBeenCalled();
+  });
+
+  it('rejects a declared oversized body before pulling and counts decoded UTF-8 bytes', async () => {
+    let pulls = 0;
+    const response = new Response(new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulls++;
+        controller.enqueue(new Uint8Array([0xff]));
+        controller.close();
+      },
+    }, { highWaterMark: 0 }), { headers: { 'content-length': '3' } });
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response));
+    const context = {
+      ...makeContext({ method: 'GET', url: '', headers: {}, timeoutMs: 1000 }),
+      byteLimits: { maxTextRepeatOutputBytes: 4 * 1024 * 1024, maxHttpResponseBodyBytes: 2 },
+    } as INodeExecutionContext;
+    const result = await node.taskHandler.execute({ url: 'https://example.com' }, context);
+    expect(result).toMatchObject({ ok: false, error: { code: 'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED' } });
+    expect(pulls).toBe(0);
+
+    const undeclared = new Response(new Uint8Array([0xff]));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(undeclared));
+    const decoded = await node.taskHandler.execute({ url: 'https://example.com' }, context);
+    expect(decoded).toMatchObject({ ok: false, error: { code: 'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED' } });
+  });
+
+  it('preserves UTF-8 characters split across response chunks at the exact limit', async () => {
+    const chunks = [new Uint8Array([0xf0, 0x9f]), new Uint8Array([0x98, 0x80])];
+    const response = new Response(new ReadableStream<Uint8Array>({
+      pull(controller) {
+        const next = chunks.shift();
+        if (next) controller.enqueue(next);
+        else controller.close();
+      },
+    }, { highWaterMark: 0 }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response));
+    const context = {
+      ...makeContext({ method: 'GET', url: '', headers: {}, timeoutMs: 1000 }),
+      byteLimits: { maxTextRepeatOutputBytes: 4 * 1024 * 1024, maxHttpResponseBodyBytes: 4 },
+    } as INodeExecutionContext;
+    const result = await node.taskHandler.execute({ url: 'https://example.com' }, context);
+    expect(result).toMatchObject({ ok: true, value: { body: '😀' } });
+  });
+
+  it('keeps the request timeout active while reading the response body', async () => {
+    let unblock: (() => void) | undefined;
+    const response = new Response(new ReadableStream<Uint8Array>({
+      pull() {
+        return new Promise<void>((resolve) => { unblock = resolve; });
+      },
+    }, { highWaterMark: 0 }));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response));
+    const context = makeContext({ method: 'GET', url: '', headers: {}, timeoutMs: 10 });
+
+    const result = await Promise.race([
+      node.taskHandler.execute({ url: 'https://example.com' }, context),
+      new Promise<'hung'>((resolve) => setTimeout(() => resolve('hung'), 150)),
+    ]);
+    unblock?.();
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_HTTP_REQUEST_FAILED', context: { errorCode: 'TIMEOUT' } },
+    });
   });
 });
