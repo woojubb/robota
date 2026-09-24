@@ -3,7 +3,6 @@ import { isAbsolute, join, sep } from 'node:path';
 import { AGENTS_FILENAME, CLAUDE_FILENAME } from '../context/context-loader.js';
 import { PROJECT_DETECTOR_PATHS } from '../context/project-detector.js';
 import { TASKS_DIR } from '../context/task-context.js';
-import { NAMESPACE_DIRECTORIES } from '../workspace-trust/project-state-storage.js';
 
 import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 
@@ -67,11 +66,5 @@ export function listFrameworkProjectContributionPaths(
       relativePath: TASKS_DIR,
       expectedKind: 'directory',
     },
-    ...Object.entries(NAMESPACE_DIRECTORIES).map(([namespace, relativePath]) => ({
-      id: `state:${namespace}`,
-      label: `Project ${namespace}`,
-      relativePath,
-      expectedKind: 'directory' as const,
-    })),
   ];
 }

@@ -1,6 +1,7 @@
 import { realpathSync } from 'node:fs';
 
 import { WorkspaceTrustService } from '@robota-sdk/agent-framework';
+import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../src/product/robota-project-state-directories.js';
 
 import type {
   IWorkspaceIdentity,
@@ -36,5 +37,6 @@ export function createSessionEventDeliveryProjectAccess(
   return new WorkspaceTrustService({
     identityResolver: { resolve: () => identity },
     store: new ScenarioTrustStore(),
+    projectStateDirectories: ROBOTA_PROJECT_STATE_DIRECTORIES,
   }).inspect(canonicalRoot);
 }

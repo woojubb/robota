@@ -24,6 +24,10 @@ export class EditCheckpointAuthorityIO {
   private readonly state;
   private readonly mutation;
 
+  get checkpointRootRelativePath(): string {
+    return this.state.rootRelativePath;
+  }
+
   constructor(authority: IWorkspaceProjectAuthority, mutation: IWorkspaceProjectMutation) {
     this.cwd = resolve(getWorkspaceProjectIdentity(authority).worktreeRoot);
     this.reader = getWorkspaceProjectReader(authority);

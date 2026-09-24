@@ -71,6 +71,7 @@ export type {
   TWorkspaceProjectSettingsWriteDecision,
   TWorkspaceProjectMutationDecision,
   TWorkspaceProjectStateNamespace,
+  TWorkspaceProjectStateDirectories,
   TWorkspaceTrustState,
 } from './workspace-trust/index.js';
 

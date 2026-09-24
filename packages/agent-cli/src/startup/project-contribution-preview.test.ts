@@ -6,6 +6,7 @@ import { listFrameworkProjectContributionPaths } from '@robota-sdk/agent-framewo
 
 import { ROBOTA_AGENT_DEFINITION_ROOTS } from '../product/robota-agent-roots.js';
 import { ROBOTA_PROJECT_SETTINGS } from '../product/robota-project-settings.js';
+import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../product/robota-project-state-directories.js';
 import { ROBOTA_SKILL_ROOTS } from '../product/robota-skill-roots.js';
 import { listProjectContributionPaths } from './project-contribution-preview.js';
 
@@ -47,6 +48,21 @@ describe('project settings source preview', () => {
         label: 'Project settings and hooks',
         relativePath,
         expectedKind: 'file',
+      })),
+    );
+  });
+});
+
+describe('project state source preview', () => {
+  it('uses the CLI state roots while neutral framework inventory has no product state paths', () => {
+    expect(listFrameworkProjectContributionPaths('').filter((path) => path.id.startsWith('state:')))
+      .toEqual([]);
+    expect(listProjectContributionPaths('').filter((path) => path.id.startsWith('state:'))).toEqual(
+      Object.entries(ROBOTA_PROJECT_STATE_DIRECTORIES).map(([namespace, relativePath]) => ({
+        id: `state:${namespace}`,
+        label: `Project ${namespace}`,
+        relativePath,
+        expectedKind: 'directory',
       })),
     );
   });

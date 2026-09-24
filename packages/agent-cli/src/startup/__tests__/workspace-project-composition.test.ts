@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -6,10 +6,13 @@ import {
   WorkspaceTrustService,
   createRestrictedWorkspaceProjectAccess,
   createWorkspaceProjectSettingsWriter,
+  getWorkspaceProjectStateStorage,
 } from '@robota-sdk/agent-framework';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createCliWorkspaceComposition } from '../workspace-project-composition.js';
+import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../../product/robota-project-state-directories.js';
+import { listProjectContributionPaths } from '../project-contribution-preview.js';
 import { ROBOTA_SKILL_ROOTS } from '../../product/robota-skill-roots.js';
 import { SkillCommandSource } from '@robota-sdk/agent-framework';
 
@@ -23,7 +26,10 @@ function tempRoot(prefix: string): string {
   return root;
 }
 
-async function trustedAccess(root: string) {
+async function trustedAccess(
+  root: string,
+  projectStateDirectories = ROBOTA_PROJECT_STATE_DIRECTORIES,
+) {
   const identity: IWorkspaceIdentity = {
     repositoryKey: `fixture:${root}`,
     displayPath: root,
@@ -36,6 +42,7 @@ async function trustedAccess(root: string) {
   };
   return new WorkspaceTrustService({
     identityResolver: { resolve: () => identity },
+    projectStateDirectories,
     store: {
       inspect: async () => snapshot,
       grant: async () => snapshot,
@@ -84,6 +91,7 @@ describe('CLI workspace project composition', () => {
       messages: [],
     });
     expect(readdirSync(join(userHome, '.robota', 'sessions')).length).toBeGreaterThan(0);
+    expect(existsSync(join(cwd, ROBOTA_PROJECT_STATE_DIRECTORIES.sessions))).toBe(false);
   });
 
   // ARCH-047: project mutation is Linux-only (stable root-anchored host); refused elsewhere.
@@ -126,6 +134,21 @@ describe('CLI workspace project composition', () => {
           return o.status === 'valid' ? o.record.cwd : undefined;
         })(),
       ).toBe(cwd);
+      const preview = listProjectContributionPaths('');
+      for (const [namespace, relativePath] of Object.entries(ROBOTA_PROJECT_STATE_DIRECTORIES)) {
+        expect(preview.find((entry) => entry.id === `state:${namespace}`)?.relativePath).toBe(
+          relativePath,
+        );
+        expect(
+          getWorkspaceProjectStateStorage(
+            access.authority,
+            namespace as keyof typeof ROBOTA_PROJECT_STATE_DIRECTORIES,
+          ).rootRelativePath,
+        ).toBe(relativePath);
+      }
+      expect(readdirSync(join(cwd, ROBOTA_PROJECT_STATE_DIRECTORIES.sessions))).toContain(
+        'trusted-session.json',
+      );
     },
   );
 
@@ -137,6 +160,19 @@ describe('CLI workspace project composition', () => {
 
     expect(() => createCliWorkspaceComposition({ cwd, userHome, projectAccess: access })).toThrow(
       'Trusted project access does not cover the requested working directory.',
+    );
+  });
+
+  it('refuses an externally minted authority with state roots that disagree with preview', async () => {
+    const cwd = tempRoot('robota-cli-state-root-mismatch-');
+    const userHome = tempRoot('robota-cli-state-root-user-');
+    const access = await trustedAccess(cwd, {
+      ...ROBOTA_PROJECT_STATE_DIRECTORIES,
+      sessions: join('.other', 'sessions'),
+    });
+
+    expect(() => createCliWorkspaceComposition({ cwd, userHome, projectAccess: access })).toThrow(
+      'Trusted project state directories do not match this CLI product.',
     );
   });
 

@@ -1,4 +1,5 @@
 import { realpathSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { WorkspaceTrustService } from '@robota-sdk/agent-framework';
 
@@ -36,5 +37,11 @@ export function createSessionEventRenderingProjectAccess(
   return new WorkspaceTrustService({
     identityResolver: { resolve: () => identity },
     store: new ScenarioTrustStore(),
+    projectStateDirectories: {
+      sessions: join('.robota', 'sessions'),
+      'session-logs': join('.robota', 'logs'),
+      memory: join('.robota', 'memory'),
+      checkpoints: join('.robota', 'checkpoints'),
+    },
   }).inspect(canonicalRoot);
 }

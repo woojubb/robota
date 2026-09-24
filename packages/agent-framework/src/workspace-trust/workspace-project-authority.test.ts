@@ -13,6 +13,7 @@ import {
   getWorkspaceProjectReader,
   getWorkspaceProjectStateStorage,
 } from './index.js';
+import { TEST_PROJECT_STATE_DIRECTORIES } from '../testing/trusted-project-state-fixture.js';
 
 import type {
   IWorkspaceProjectAuthority,
@@ -90,6 +91,7 @@ describe('WorkspaceTrustService project authority', () => {
       service: new WorkspaceTrustService({
         identityResolver,
         store: new MemoryTrustStore(),
+        projectStateDirectories: TEST_PROJECT_STATE_DIRECTORIES,
       }),
     };
   }

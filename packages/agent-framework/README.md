@@ -180,7 +180,8 @@ import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 
 declare const provider: IAIProvider;
-// Supplied by a host-owned WorkspaceTrustService after identity/trust validation.
+// Supplied by a host-owned WorkspaceTrustService configured with projectStateDirectories
+// after identity/trust validation.
 declare const projectAccess: TWorkspaceProjectAccess;
 const cwd = process.cwd();
 
@@ -280,8 +281,11 @@ runtime-registered, root-bound, and cannot be reconstructed from a path or seria
 maintained offline `verify-workspace-project-authority.ts` example for a complete inspect/grant/revoke
 composition and Restricted-versus-trusted observable.
 
-The Node host supplies the production lifecycle through `createNodeWorkspaceTrustService(trustStorePath)`.
-The caller chooses the user-owned store path; the Robota CLI uses `~/.robota/workspace-trust.json`.
+The Node host supplies the production lifecycle through
+`createNodeWorkspaceTrustService(trustStorePath, projectStateDirectories)`. The caller chooses the
+user-owned store path and all four project-state directories; the Robota CLI uses
+`~/.robota/workspace-trust.json` for the trust store. Omitting project-state directories still permits
+trust inspection, but deriving project-state storage then fails closed.
 The service binds grants to the canonical Git worktree and repository common-directory identity,
 stores only owner-readable generation records, and treats non-Git paths, repository replacement,
 revocation, and trust-store errors as Restricted. A later provider settings layer that changes `baseURL`
