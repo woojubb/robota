@@ -9,9 +9,8 @@ dist-bun
 dist-bun-headless
 dist-ssr
 *.tgz
-# ARTIFACT-2655: immutable outputs, recovery records and temporary publication links.
+# Left behind by the former custom build in older checkouts; safe to delete.
 .robota-artifacts/
-packages/**/.dist-*
 
 # generated files
 packages/**/*.js

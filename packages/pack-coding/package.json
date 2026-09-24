@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/pack-coding",
   "version": "3.0.0-beta.79",
-  "description": "Robota's coding capability pack \u2014 an ICapabilityPack bundling the built-in coding tools, coding command modules, and coding subagents",
+  "description": "Robota's coding capability pack — an ICapabilityPack bundling the built-in coding tools, coding command modules, and coding subagents",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",
@@ -30,14 +30,8 @@
   "files": [
     "dist"
   ],
-  "robota": {
-    "artifact": {
-      "builder": "tsdown"
-    }
-  },
   "scripts": {
-    "prepack": "node ../../scripts/artifacts/pack-guard.mjs",
-    "build": "node ../../scripts/artifacts/build-package.mjs",
+    "build": "tsdown",
     "build:js": "pnpm run build",
     "build:types": "pnpm run build",
     "test": "vitest run --passWithNoTests",

@@ -113,25 +113,14 @@ export ANTHROPIC_API_KEY=sk-ant-...
 pnpm build
 ```
 
-Root and affected builds assemble complete, verified output before switching `dist` to a new
-generation. A web-monitor change also selects CLI reassembly. Existing monitor servers retain their
-original generation. Do not edit managed output or pack its symlink directly; create a verified archive
-from the repository root with:
+`pnpm build` runs each package's own build in dependency order. The CLI build runs `tsdown` and then
+copies the web monitor (`agent-cli-web/dist`) into `dist/web`. To see the published tarball, run
+`pnpm --filter @robota-sdk/agent-cli pack`.
 
-```bash
-node scripts/artifacts/pack.mjs --package packages/agent-cli --destination /tmp/robota-cli-pack
-```
-
-Standalone Bun builds use the separate `dist-bun` variant
-(`pnpm --filter @robota-sdk/agent-cli build:bun`). Native dependencies make these builds exact-host:
-each supported Linux x64/arm64, macOS x64/arm64, or Windows x64 artifact must be compiled on its
-matching host. A mismatched target is refused before the selected generation changes; there is no
-cross-host `all` build mode.
-If a build reports an interrupted transaction, first ensure its writer has exited, then run
-`node scripts/artifacts/recovery.mjs packages/agent-cli` from the repository root. Recovery preserves
-previous output; it refuses to take over an active writer. The first transition from physical `dist`
-requires readers to be stopped. Only that transition and Windows replacement are non-atomic;
-normal managed Linux/macOS replacement is atomic.
+Standalone Bun binaries are written to `dist-bun` (`pnpm --filter @robota-sdk/agent-cli build:bun`) and
+`dist-bun-headless` (`build:bun:headless`). Native dependencies make these builds exact-host: each
+supported Linux x64/arm64, macOS x64/arm64, or Windows x64 binary must be compiled on its matching host,
+and a mismatched target is refused.
 
 ## Usage (Monorepo)
 

@@ -2,19 +2,28 @@
 /** RUNTIME-002: real compiled-artifact parity, presentation graph, and self-worker proof. */
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { createServer, connect } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { pinGeneration } from '../../../scripts/artifacts/generation.mjs';
 
 const packageRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const target = `${process.platform === 'win32' ? 'windows' : process.platform}-${process.arch}`;
 const exe = process.platform === 'win32' ? '.exe' : '';
 const fullName = `robota-${target}${exe}`;
 const headlessName = `robota-headless-${target}${exe}`;
-const source = pinGeneration(packageRoot);
+const nodeRoot = join(packageRoot, 'dist', 'node');
+const digestOf = (path) => createHash('sha256').update(readFileSync(path)).digest('hex');
+const inputDigest = digestOf(join(nodeRoot, 'headless.js'));
 for (const args of [[target], ['headless', target]]) {
   const compile = spawnSync('bun', [join(packageRoot, 'scripts', 'build-bun.mjs'), ...args], {
     cwd: packageRoot,
@@ -22,12 +31,10 @@ for (const args of [[target], ['headless', target]]) {
   });
   if (compile.status !== 0) throw new Error(`Bun compile failed: ${compile.stderr}`);
 }
-if (pinGeneration(packageRoot).id !== source.id)
-  throw new Error('Node input generation changed during paired Bun builds');
-const full = pinGeneration(packageRoot, { outputName: 'dist-bun' });
-const headless = pinGeneration(packageRoot, { outputName: 'dist-bun-headless' });
-const fullBin = join(full.root, fullName);
-const headlessBin = join(headless.root, headlessName);
+if (digestOf(join(nodeRoot, 'headless.js')) !== inputDigest)
+  throw new Error('Node build output changed during paired Bun builds');
+const fullBin = join(packageRoot, 'dist-bun', fullName);
+const headlessBin = join(packageRoot, 'dist-bun-headless', headlessName);
 const fail = (message) => {
   throw new Error(`RUNTIME-002: ${message}`);
 };
@@ -35,15 +42,7 @@ const assert = (condition, message) => {
   if (!condition) fail(message);
 };
 
-for (const [generation, name] of [
-  [full, fullName],
-  [headless, headlessName],
-]) {
-  assert(
-    generation.manifest.files.some((record) => record.path === name),
-    `missing verified ${name}`,
-  );
-}
+for (const binary of [fullBin, headlessBin]) assert(existsSync(binary), `missing ${binary}`);
 
 // Traverse the emitted local import graph rather than trusting one minified file's string content.
 const queue = ['headless.js'];
@@ -53,7 +52,7 @@ while (queue.length) {
   const name = queue.pop();
   if (visited.has(name)) continue;
   visited.add(name);
-  const code = readFileSync(join(source.root, 'node', name), 'utf8');
+  const code = readFileSync(join(nodeRoot, name), 'utf8');
   assert(
     !/react-devtools-core|@robota-sdk\/agent-ui-terminal|["']ink["']/.test(code),
     `${name} reaches terminal presentation`,

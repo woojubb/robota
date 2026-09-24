@@ -82,10 +82,8 @@ jobs:
         run: |
           set -euo pipefail
           bun packages/agent-cli/scripts/build-bun.mjs "${{ matrix.target }}"
-          node scripts/artifacts/generation-image.mjs \
-            packages/agent-cli \
-            dist-bun \
-            ".release-output/${{ matrix.target }}"
+          mkdir -p ".release-output/${{ matrix.target }}"
+          cp "packages/agent-cli/dist-bun/${{ matrix.binary }}" ".release-output/${{ matrix.target }}/"
           standalone_root="$(mktemp -d "${RUNNER_TEMP}/robota-release-bun-${{ matrix.target }}-XXXXXX")"
           binary="$standalone_root/${{ matrix.binary }}"
           cp ".release-output/${{ matrix.target }}/${{ matrix.binary }}" "$binary"

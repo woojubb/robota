@@ -1,319 +1,150 @@
 #!/usr/bin/env bash
 #
-# publish-packages.sh — Publish all @robota-sdk packages in one shot.
+# publish-packages.sh — publish every public @robota-sdk package at the release version.
 #
 # Usage:
-#   pnpm publish:beta              # interactive (builds, checks, then prompts for OTP)
-#   pnpm publish:beta --otp=123456 --tag-otp=654321 # non-interactive
-#   pnpm publish:beta --skip-build # skip the build preflight (dist already current, e.g. from CI)
+#   pnpm publish:beta                                  # build, check, publish (prompts for OTP)
+#   pnpm publish:beta --otp=123456 --tag-otp=654321    # non-interactive
+#   pnpm publish:beta --skip-build                     # dist is already current (e.g. from CI)
+#   pnpm publish:beta --dry-run                        # build, check and pack; publish nothing
 #
-# Key design decisions:
-#   - Prepares exact-verified tarballs before OTP, then publishes only those bytes
-#     with bounded parallel package commands; retries never re-pack directories.
-#   - Publishes without --tag so npm sets `latest`, then explicitly syncs
-#     the `beta` dist-tag to the same version (in parallel, to fit one OTP window).
-#   - ALL slow, OTP-free work (build, auth, dry-run) runs BEFORE
-#     the OTP prompt, so entering the OTP runs the publish to completion at once.
-#   - Only packages at THIS release's VERSION are targeted (independently-versioned
-#     packages are excluded), so the exposure-wait never hangs on a version that
-#     will not publish.
-#   - A fresh OTP may still be prompted for dist-tag sync if the publish window closes.
+# Publishing is the standard Changesets flow: `changeset publish` runs `pnpm publish` for each public
+# package whose version is not on npm yet, so a retry only publishes what is still missing. Packages are
+# published under `latest`; the `beta` dist-tag is then pointed at the same version.
 #
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT_DIR"
 
-# ── Parse arguments ───────────────────────────────────────────
+REGISTRY=https://registry.npmjs.org/
 OTP=""
 TAG_OTP=""
 SKIP_BUILD="false"
+DRY_RUN="false"
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --skip-build) SKIP_BUILD="true" ;;
+    --dry-run) DRY_RUN="true" ;;
     --otp=*) OTP="${1#--otp=}" ;;
-    --otp)
-      if [ -z "${2:-}" ]; then
-        echo "❌ --otp requires a value"
-        exit 1
-      fi
-      OTP="$2"
-      shift
-      ;;
     --tag-otp=*) TAG_OTP="${1#--tag-otp=}" ;;
-    --tag-otp)
-      if [ -z "${2:-}" ]; then
-        echo "❌ --tag-otp requires a value"
-        exit 1
-      fi
-      TAG_OTP="$2"
-      shift
-      ;;
     *)
       echo "❌ Unknown argument: $1"
-      echo "   Usage: pnpm publish:beta [--otp=123456] [--tag-otp=654321]"
+      echo "   Usage: pnpm publish:beta [--otp=123456] [--tag-otp=654321] [--skip-build] [--dry-run]"
       exit 1
       ;;
   esac
   shift
 done
 
-# ── Detect version ────────────────────────────────────────────
 VERSION=$(node -p "require('./packages/agent-core/package.json').version")
 echo "📦 Version: $VERSION"
-echo ""
 
-# ── Build preflight (before any OTP, so the OTP → publish step is immediate) ──
-# All slow, OTP-free work happens here; entering the OTP later should run to completion at once.
 if [ "$SKIP_BUILD" = "true" ]; then
-  echo "🛠️  Skipping build (--skip-build); exact generation and tarball verification still run."
+  echo "🛠️  Skipping build (--skip-build)."
 else
-  echo "🛠️  Building complete package artifacts..."
+  echo "🛠️  Building..."
   pnpm build
 fi
-echo ""
 
+echo "🔎 Release checks..."
+node scripts/harness/check-publish-safety.mjs
+node scripts/harness/check-sdk-public-surface.mjs
+node scripts/harness/check-build-output-contracts.mjs
 
-# ── Detect publishable packages ───────────────────────────────
-# Target ONLY packages at THIS release's VERSION. Independently-versioned packages (e.g.
-# agent-process at an older beta) are private:false but not part of this lockstep release; including
-# them made the exposure-wait hang on a `<pkg>@VERSION` that never publishes (INFRA-029).
-PUBLISHABLE_PACKAGES=()
-while IFS= read -r PACKAGE_NAME; do
-  PUBLISHABLE_PACKAGES+=("$PACKAGE_NAME")
+# Public packages that belong to this lockstep release (name and directory).
+PACKAGES=()
+PACKAGE_DIRS=()
+while IFS=$'\t' read -r NAME DIR; do
+  PACKAGES+=("$NAME")
+  PACKAGE_DIRS+=("$DIR")
 done < <(
   pnpm -r --depth -1 --json list | RELEASE_VERSION="$VERSION" node -e '
 let input = "";
-process.stdin.on("data", (chunk) => {
-  input += chunk;
-});
+process.stdin.on("data", (chunk) => (input += chunk));
 process.stdin.on("end", () => {
-  const version = process.env.RELEASE_VERSION;
-  const packages = JSON.parse(input);
-  for (const packageInfo of packages) {
-    if (
-      packageInfo.name?.startsWith("@robota-sdk/") &&
-      packageInfo.private === false &&
-      packageInfo.version === version
-    ) {
-      console.log(packageInfo.name);
+  for (const pkg of JSON.parse(input)) {
+    if (pkg.name?.startsWith("@robota-sdk/") && pkg.private === false && pkg.version === process.env.RELEASE_VERSION) {
+      console.log(`${pkg.name}\t${pkg.path}`);
     }
   }
 });
 '
 )
-
-if [ "${#PUBLISHABLE_PACKAGES[@]}" -eq 0 ]; then
-  echo "❌ No publishable @robota-sdk packages found."
+if [ "${#PACKAGES[@]}" -eq 0 ]; then
+  echo "❌ No public @robota-sdk packages at $VERSION."
   exit 1
 fi
+echo "📋 ${#PACKAGES[@]} public packages at $VERSION"
 
-# Retained on failure for inspection/retry evidence; contains no OTP or credentials.
-PUBLISH_ARTIFACT_DIR=$(mktemp -d "${TMPDIR:-/tmp}/robota-publish-artifacts.XXXXXX")
-node scripts/artifacts/publish-cli.mjs prepare "$PUBLISH_ARTIFACT_DIR" "${PUBLISHABLE_PACKAGES[@]}"
-
-PUBLISHED_PACKAGES=()
-MISSING_PACKAGES=()
-
-version_is_published() {
-  local package_name="$1"
-  local published_version
-
-  if ! published_version=$(npm view "$package_name@$VERSION" version --registry https://registry.npmjs.org/ 2>/dev/null); then
-    return 1
-  fi
-
-  [ "$published_version" = "$VERSION" ]
-}
-
-refresh_publish_state() {
-  local package_name
-
-  PUBLISHED_PACKAGES=()
-  MISSING_PACKAGES=()
-  for package_name in "${PUBLISHABLE_PACKAGES[@]}"; do
-    if version_is_published "$package_name"; then
-      PUBLISHED_PACKAGES+=("$package_name")
-    else
-      MISSING_PACKAGES+=("$package_name")
-    fi
+if [ "$DRY_RUN" = "true" ]; then
+  echo "🔍 Dry run: packing every public package..."
+  PACK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/robota-pack.XXXXXX")
+  for DIR in "${PACKAGE_DIRS[@]}"; do
+    (cd "$DIR" && pnpm pack --pack-destination "$PACK_DIR" >/dev/null)
   done
-}
+  echo "✓ Tarballs in $PACK_DIR: $(find "$PACK_DIR" -name '*.tgz' | wc -l | tr -d ' ')"
+  echo "Dry run complete; nothing was published."
+  exit 0
+fi
 
-print_publish_state() {
-  echo "📋 Publish state: ${#PUBLISHED_PACKAGES[@]} already published, ${#MISSING_PACKAGES[@]} pending"
-  if [ "${#PUBLISHED_PACKAGES[@]}" -gt 0 ]; then
-    echo "   Already published packages will be skipped on retry."
-  fi
-}
-
-wait_for_registry_publish_state() {
-  local attempt
-
-  for attempt in 1 2 3 4 5 6; do
-    if [ "${#MISSING_PACKAGES[@]}" -eq 0 ]; then
-      return 0
-    fi
-
-    echo "⏳ Waiting for npm registry to expose ${#MISSING_PACKAGES[@]} package(s) (attempt $attempt/6)..."
-    sleep 5
-    refresh_publish_state
-  done
-}
-
-run_publish_command() {
-  local mode="$1"
-  local output
-  local status
-  local -a command
-
-  command=(node scripts/artifacts/publish-cli.mjs publish
-    "$PUBLISH_ARTIFACT_DIR/release-set.json" "$mode" "${MISSING_PACKAGES[@]}")
-
-  set +e
-  output=$(ROBOTA_PUBLISH_OTP="$OTP" "${command[@]}" 2>&1)
-  status=$?
-  set -e
-
-  printf '%s\n' "$output" | grep -E "^\+ @robota-sdk|npm error|previously published|You cannot publish over" || true
-  if [ "$status" -ne 0 ]; then
-    printf '%s\n' "$output" >&2
-  fi
-
-  return "$status"
-}
-
-# ── Auth preflight ────────────────────────────────────────────
 echo "🔐 Checking npm authentication..."
-if ! NPM_USER=$(npm whoami --registry https://registry.npmjs.org/ 2>/dev/null); then
-  echo "❌ npm authentication required before publish."
-  echo "   Run: npm login --registry https://registry.npmjs.org/"
+if ! NPM_USER=$(npm whoami --registry "$REGISTRY" 2>/dev/null); then
+  echo "❌ Not logged in. Run: npm login --registry $REGISTRY"
   exit 1
 fi
 echo "✓ npm user: $NPM_USER"
-echo ""
 
-refresh_publish_state
-print_publish_state
-echo ""
-
-# ── Dry-run ───────────────────────────────────────────────────
-if [ "${#MISSING_PACKAGES[@]}" -gt 0 ]; then
-  echo "🔍 Dry-run publish..."
-  run_publish_command dry-run
-  echo ""
+echo "🚀 Publishing..."
+PUBLISH_ARGS=(publish --no-git-tag)
+if [ -n "$OTP" ]; then
+  PUBLISH_ARGS+=(--otp="$OTP")
 fi
-
-# ── Prompt for OTP if not provided ────────────────────────────
-if [ "${#MISSING_PACKAGES[@]}" -gt 0 ] && [ -z "$OTP" ]; then
-  read -rp "🔑 Enter npm OTP for publish: " OTP
-fi
-
-if [ "${#MISSING_PACKAGES[@]}" -gt 0 ] && [ -z "$OTP" ]; then
-  echo "❌ OTP is required."
-  exit 1
-fi
-
-# ── Publish ───────────────────────────────────────────────────
-while [ "${#MISSING_PACKAGES[@]}" -gt 0 ]; do
-  echo ""
-  echo "🚀 Publishing ${#MISSING_PACKAGES[@]} pending package(s)..."
-  if run_publish_command publish; then
-    refresh_publish_state
-    wait_for_registry_publish_state
-    print_publish_state
-    if [ "${#MISSING_PACKAGES[@]}" -eq 0 ]; then
-      break
-    fi
-
-    if [ -t 0 ]; then
-      echo ""
-      read -rp "🔑 Publish completed but registry still has pending packages. Enter fresh npm OTP to retry: " OTP
-      continue
-    fi
-
-    echo "❌ Publish completed but npm registry still does not expose all packages."
-    exit 1
-  fi
-
-  refresh_publish_state
-  print_publish_state
-  if [ "${#MISSING_PACKAGES[@]}" -eq 0 ]; then
-    break
-  fi
-
-  if [ -t 0 ]; then
-    echo ""
-    read -rp "🔑 Publish OTP expired. Enter fresh npm OTP for remaining packages: " OTP
-    continue
-  fi
-
-  echo "❌ Publish failed before all packages were published."
-  exit 1
-done
+pnpm changeset "${PUBLISH_ARGS[@]}"
 
 if [ -z "$TAG_OTP" ]; then
   if [ -t 0 ]; then
-    echo ""
-    read -rp "🔑 Enter fresh npm OTP for beta dist-tags: " TAG_OTP
+    read -rp "🔑 Enter a fresh npm OTP for the beta dist-tags: " TAG_OTP
   else
     TAG_OTP="$OTP"
   fi
 fi
-
 if [ -z "$TAG_OTP" ]; then
-  echo "❌ OTP is required for beta dist-tag sync."
+  echo "❌ An OTP is required for the beta dist-tag sync."
   exit 1
 fi
 
-add_beta_tag() {
-  npm dist-tag add "$1@$VERSION" beta --otp "$TAG_OTP" --registry https://registry.npmjs.org/
-}
-
-# Issue all dist-tag adds concurrently so publish + tag sync finish inside one OTP window
-# (sequential ~19 calls alone could outlast a 30s window and demand another OTP). INFRA-029.
-echo ""
-echo "🏷️  Syncing beta dist-tags (parallel)..."
-TAG_PIDS=()
-for PACKAGE_NAME in "${PUBLISHABLE_PACKAGES[@]}"; do
-  add_beta_tag "$PACKAGE_NAME" >/dev/null 2>&1 &
-  TAG_PIDS+=("$!")
+# Parallel so the whole sync fits in one OTP window.
+echo "🏷️  Syncing beta dist-tags..."
+PIDS=()
+for NAME in "${PACKAGES[@]}"; do
+  npm dist-tag add "$NAME@$VERSION" beta --otp "$TAG_OTP" --registry "$REGISTRY" >/dev/null 2>&1 &
+  PIDS+=("$!")
 done
-
-FAILED_TAGS=()
-IDX=0
-for PACKAGE_NAME in "${PUBLISHABLE_PACKAGES[@]}"; do
-  if ! wait "${TAG_PIDS[$IDX]}"; then
-    FAILED_TAGS+=("$PACKAGE_NAME")
-  fi
-  IDX=$((IDX + 1))
+FAILED=()
+for INDEX in "${!PACKAGES[@]}"; do
+  wait "${PIDS[$INDEX]}" || FAILED+=("${PACKAGES[$INDEX]}")
 done
-
-# Retry any failures (typically an expired OTP) with a fresh OTP when interactive.
-if [ "${#FAILED_TAGS[@]}" -gt 0 ]; then
-  echo "⚠️  ${#FAILED_TAGS[@]} dist-tag(s) failed: ${FAILED_TAGS[*]}"
-  if [ -t 0 ]; then
-    read -rp "🔑 Enter fresh npm OTP to retry the failed dist-tag(s): " TAG_OTP
-    for PACKAGE_NAME in "${FAILED_TAGS[@]}"; do
-      add_beta_tag "$PACKAGE_NAME"
-    done
-  else
-    echo "❌ dist-tag sync failed (pass a fresh --tag-otp, or run interactively to retry)."
+if [ "${#FAILED[@]}" -gt 0 ]; then
+  echo "⚠️  dist-tag failed for: ${FAILED[*]}"
+  if [ ! -t 0 ]; then
+    echo "❌ Re-run with a fresh --tag-otp, or interactively."
     exit 1
   fi
+  read -rp "🔑 Enter a fresh npm OTP to retry: " TAG_OTP
+  for NAME in "${FAILED[@]}"; do
+    npm dist-tag add "$NAME@$VERSION" beta --otp "$TAG_OTP" --registry "$REGISTRY"
+  done
 fi
 
-echo ""
-echo "🔎 Verifying npm dist-tags..."
-for PACKAGE_NAME in "${PUBLISHABLE_PACKAGES[@]}"; do
-  LATEST_TAG=$(npm view "$PACKAGE_NAME" dist-tags.latest --registry https://registry.npmjs.org/)
-  BETA_TAG=$(npm view "$PACKAGE_NAME" dist-tags.beta --registry https://registry.npmjs.org/)
-
-  if [ "$LATEST_TAG" != "$VERSION" ] || [ "$BETA_TAG" != "$VERSION" ]; then
-    echo "❌ Dist-tag mismatch for $PACKAGE_NAME: latest=$LATEST_TAG beta=$BETA_TAG expected=$VERSION"
+echo "🔎 Verifying dist-tags..."
+for NAME in "${PACKAGES[@]}"; do
+  LATEST=$(npm view "$NAME" dist-tags.latest --registry "$REGISTRY")
+  BETA=$(npm view "$NAME" dist-tags.beta --registry "$REGISTRY")
+  if [ "$LATEST" != "$VERSION" ] || [ "$BETA" != "$VERSION" ]; then
+    echo "❌ $NAME: latest=$LATEST beta=$BETA expected=$VERSION"
     exit 1
   fi
 done
 
-echo ""
-echo "🎉 Done! Published $VERSION"
+echo "🎉 Published $VERSION"
