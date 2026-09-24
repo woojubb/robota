@@ -8,9 +8,11 @@ import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 
 const originalArgv = process.argv;
 const originalHome = process.env.HOME;
+const originalFakeKey = process.env['ROBOTA_LIVE_TRACE_TEST_KEY'];
 const telemetryKeys = [
   'ROBOTA_TELEMETRY_ENABLED', 'ROBOTA_TELEMETRY_TRACES',
   'ROBOTA_TELEMETRY_OTLP_PROTOCOL', 'ROBOTA_TELEMETRY_OTLP_ENDPOINT',
+  'ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT',
 ] as const;
 const originalTelemetry = Object.fromEntries(telemetryKeys.map((key) => [key, process.env[key]]));
 
@@ -35,7 +37,8 @@ describe('CLI live trace opt-in', () => {
     vi.restoreAllMocks();
     process.argv = originalArgv;
     process.env.HOME = originalHome;
-    delete process.env['ROBOTA_LIVE_TRACE_TEST_KEY'];
+    if (originalFakeKey === undefined) delete process.env['ROBOTA_LIVE_TRACE_TEST_KEY'];
+    else process.env['ROBOTA_LIVE_TRACE_TEST_KEY'] = originalFakeKey;
     for (const key of telemetryKeys) {
       const original = originalTelemetry[key];
       if (original === undefined) delete process.env[key];
@@ -46,6 +49,7 @@ describe('CLI live trace opt-in', () => {
   it('sends no trace when off and one live prompt trace when explicitly enabled in print mode', async () => {
     const home = mkdtempSync(join(tmpdir(), 'robota-cli-live-trace-home-'));
     process.env.HOME = home;
+    delete process.env['ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT'];
     process.env['ROBOTA_LIVE_TRACE_TEST_KEY'] = 'test-only-key';
     vi.spyOn(process, 'cwd').mockReturnValue(home);
     vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
