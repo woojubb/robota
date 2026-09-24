@@ -15,15 +15,12 @@ This package is consumed by command-line and MCP clients that call a DAG orchest
 ## Design Decisions
 
 - The client is intentionally thin: it forwards server response payloads without converting them into CLI or MCP-specific output. Consumers own their own command, tool, and output formatting layers.
-- Cost metadata and run drafts are implemented as separate domain capability ports: the client validates HTTP payloads and maps successes/problems to typed domain results, but neither group's methods belong to the general orchestration port.
-- Pipeline building has an independent domain capability owned by `dag-builder`; the concrete HTTP client retains its transport-facing build request, but the general orchestration port does not require an HTTP-shaped build result.
-- Catalog-aware definition validation is a domain capability owned by `dag-core`; the concrete HTTP client retains its transport-facing validation request, but the general orchestration port does not require an HTTP-shaped validation result.
-- Registered-node catalog access is a domain capability owned by `dag-core`; the concrete HTTP client retains its transport-facing node-list request, but the general orchestration port does not require an HTTP-shaped catalog result.
-- Definition listing and lookup are domain capabilities owned by `dag-core`; the concrete HTTP client retains transport-facing read requests, but the general orchestration port does not require HTTP-shaped definition reads.
-- Definition lifecycle changes are domain capabilities owned by `dag-core`; the concrete HTTP client retains transport-facing create, update, validation, and publish requests, but the general orchestration port does not require HTTP-shaped mutation results.
-- Run lifecycle is a domain capability for in-process callers; this package's orchestration port
-  remains a transport-only contract for the concrete remote HTTP client. In-process frameworks
-  do not implement it or construct HTTP response envelopes.
+- Cost metadata, run drafts, pipeline building, catalog-aware definition validation, the
+  registered-node catalog, definition listing/lookup/lifecycle, and run lifecycle are each domain
+  capabilities owned by `dag-core`/`dag-builder` (run lifecycle by in-process callers). For each,
+  the concrete HTTP client keeps its own transport-facing request and maps successes/problems to
+  typed domain results, but the general orchestration port does not require an HTTP-shaped result,
+  and in-process frameworks do not implement the port or construct HTTP response envelopes.
 - Remote run cancellation uses the same encoded run identity and server-owned success/problem
   envelope as creation, start, and reads. A transport success is not inferred from aborting a
   client-side watcher.

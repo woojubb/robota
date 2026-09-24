@@ -35,8 +35,8 @@ distinguishable outcomes.
   unregistered channel, an undeclared event name, or a malformed envelope always gets an explicit
   `protocol_error` reply — never a silent drop. An application adds a new event type by declaring a
   channel, never by forking the agent wire protocol.
-- **Protocol-scoped session attachment.** Both WebSocket adapters require only the session roles
-  used by the shared protocol bridge. Hosts can attach a full interactive session, but the carrier
+- **Protocol-scoped session attachment.** Both WebSocket adapters require only the session roles the
+  shared protocol bridge uses; a host may attach a full interactive session, but the carrier itself
   does not depend on unrelated runtime capabilities.
 - **Authentication ordering is fixed.** Channel sinks attach only after the token check, so an
   unauthenticated socket never receives channel traffic even if a channel was registered before the

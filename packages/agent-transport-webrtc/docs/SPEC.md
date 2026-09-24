@@ -6,10 +6,9 @@ WebRTC P2P transport. Carries the protocol-owned `IProtocolSession` capability o
 external remote client can co-drive a live `agent-cli` session directly, peer-to-peer, without routing session
 content through any server. Reuses the transport-neutral session bridge + wire protocol from
 `@robota-sdk/agent-transport` (the same handler the WebSocket transport uses) so the protocol is shared, not
-duplicated.
-
-The public attach contract accepts that protocol role set directly; a full interactive session is a
-valid host input, while unrelated session capabilities are outside the carrier's dependency.
+duplicated. The public attach contract accepts that protocol role set directly: a full interactive
+session is a valid host input, but unrelated session capabilities are outside the carrier's
+dependency.
 
 ## Boundaries
 

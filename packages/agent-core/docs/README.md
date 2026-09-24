@@ -11,12 +11,8 @@
 
 ## Document Structure
 
-- `SPEC.md`: Package scope, ownership boundaries, and canonical responsibilities.
-- `ARCHITECTURE.md`: Architectural layers and design boundaries.
-- `DEVELOPMENT.md`: Development workflow and quality expectations.
-- `PLUGINS.md`: Plugin behavior/configuration guide (merged).
-- `TYPE-OWNERSHIP-SPEC.md`: SSOT ownership rules.
-- `TYPE-OWNERSHIP-INVENTORY.md`: SSOT audit inventory summary.
+- `SPEC.md`: Package purpose, contract, invariants, and design decisions.
+- `HOOK-CATALOG.md`: User-facing catalog of hook events and blocking semantics.
 
 ## Documentation Rules
 

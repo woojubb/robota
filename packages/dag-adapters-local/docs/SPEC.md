@@ -58,25 +58,17 @@ node-state and run-result data that adapters must not write back into a DAG defi
 
 ## Execution mutation arbitration
 
-Execution preconditions and their state edits are indivisible within one live adapter instance.
-The file adapter hydrates before adjudication and persists the changed collection before resolving;
-task success and its snapshot share one collection write. A storage root has one live file-adapter
-owner: independent instances do not coordinate their cached state. This is not a cross-process or
-multi-file transaction guarantee. Queue delivery remains separate from storage admission.
-
-All file run/task reads and writes share one operation queue held through persistence completion.
-A reader cannot observe cancellation, settlement, or a raw mutation before its write completes;
-a raw setter cannot flush an unfinished execution commit through a whole-collection write. If a
-run/task persistence fails, all subsequent run/task reads and writes on that instance reject with that
-failure until recovery reopens durable state. Initialization failures before mutation retain the
-hydration gate's retry behavior. Definition-file operations remain independent.
-
-The queue orders storage operations, not multi-operation domain transactions. Raw persistence
-setters still lack execution preconditions; execution owners use the arbitration contract. The
-queue coexists with per-path collection writers and does not make separate collection files a
-crash-atomic unit.
-
-Task input snapshot admission also checks current run, attempt and lease ownership in the execution
-commit. A caller's shared live snapshot reservation is settled only after that commit resolves;
-file persistence rejection remains ambiguous to the caller and must not refund capacity. The
-adapter does not persist or reconstruct an aggregate root budget.
+Execution preconditions and their state edits are indivisible within one live adapter instance: the
+file adapter hydrates before adjudication and persists the changed collection (including task
+success and its snapshot) in one write, and a storage root has exactly one live file-adapter owner —
+independent instances do not coordinate cached state, and this is not a cross-process or multi-file
+transaction guarantee. All file run/task reads and writes share one operation queue held through
+persistence completion, so a reader cannot observe cancellation, settlement, or a raw mutation
+before its write completes, and a raw setter cannot flush an unfinished execution commit; raw
+persistence setters still lack execution preconditions, so execution owners must use the
+arbitration contract instead. If run/task persistence fails, all subsequent run/task reads and
+writes on that instance reject with that failure until recovery reopens durable state. Task input
+snapshot admission likewise checks current run, attempt and lease ownership in the execution commit;
+a caller's shared live snapshot reservation is settled only after that commit resolves, an ambiguous
+file persistence rejection must not refund capacity, and the adapter does not persist or reconstruct
+an aggregate root budget itself.

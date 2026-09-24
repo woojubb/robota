@@ -43,8 +43,8 @@ before assembly (no provider, invalid or unassemblable spec) leaves nothing on d
 
 **Provider seam.** Both authoring subcommands resolve their AI provider lazily per invocation from
 injected settings/definitions; the module depends only on `agent-core`'s provider interfaces and
-imports no concrete provider package. When no provider is injected, settings sources are required;
-authoring does not search the process home for a provider profile.
+imports no concrete provider package. When no provider is injected, settings sources are required —
+authoring never searches the process home for a provider profile.
 
 ## Invariants
 
@@ -53,38 +53,17 @@ authoring does not search the process home for a provider profile.
   authority/mutation capability, a file, or a DAG is missing or invalid.
 - The `workflows` command is model-invocable: an agent can author and run (or author and save) a
   workflow from a chat request, subject to the same privilege split between `create` and `build`.
-
-The supported sync catalog's `text-repeat` rejects output beyond the runtime's default 4 MiB UTF-8
-ceiling before expanding it, including when a saved workflow attempts to supply higher limits.
-`run` surfaces that rejection as a failed command. This is a per-operation output bound, separate
-from the existing trusted file-read bound; it is not an aggregate workflow budget or CPU preemption.
-
-Saved composite workflows inherit the parent's live task snapshot authority and per-operation
-byte ceilings through their injected runner. Parent and child accepted task input/output snapshots
-therefore consume the same cumulative allowance; a child cannot reset it by constructing its local
-runtime. Independent `/workflows run` invocations receive independent allowances. Trusted hosts may
-configure snapshot allowances, while saved workflow data cannot. This is persisted task snapshot
-admission after serialization, not generation-time memory protection or CPU preemption.
-
-Saved composites pass the parent attempt's cancellation signal into the child local runtime.
-The child's committed cancel path can then notify its active prompt provider; a parent timeout
-cannot leave that provider's signal live merely because it crossed a saved-composite boundary.
-This is active-descendant abort propagation, not a promise that arbitrary child cleanup is
-joined before the parent returns or that cancellation is broadcast across processes.
-
-## Regex CPU interruption boundary
-
-The default sync catalog's text-replace regex executes outside the parent event loop.
-Task timeout or cancellation joins that operation's isolated execution exit before returning its failure,
-preventing its late output from reaching snapshots or downstream nodes. A subsequent independent
-workflow remains executable. Registry overrides retain their own handler semantics. This guarantee
-is limited to the default regex operation, not the entire sync catalog or custom node code.
-
-Bun source and standalone artifacts use a child process running the same fixed pure operation,
-while Node uses a worker thread. Startup failure has no inline fallback. Operation DTOs have a
-4 MiB UTF-8 transport ceiling, separate from text-repeat's pre-expansion ceiling and the root's
-cumulative persisted snapshot admission budget. None is a general process memory limit.
-
-Bun product reliability remains contingent on the host's native filesystem authority: its existing
-macOS native finalizer failure also occurs without regex execution. A standalone operation probe
-does not establish end-to-end product support in the presence of that host failure.
+- Sync-catalog operations enforce a fixed output-size ceiling before expanding output; a saved
+  workflow cannot raise it, and `run` surfaces a violation as a failed command rather than an
+  unbounded result.
+- A saved composite workflow shares its parent's live task-snapshot allowance and per-operation
+  output ceilings instead of resetting them by constructing its own runtime; only a trusted host,
+  never saved workflow data, can configure that allowance, and independent `run` invocations get
+  independent allowances.
+- Cancelling or timing out a run propagates into any saved composite's child runtime, so an active
+  prompt provider is notified rather than left running merely because the call crossed a composite
+  boundary.
+- The default text-replace regex operation runs in isolated execution outside the parent event loop,
+  so a timeout or cancellation can interrupt it without leaking late output into snapshots or
+  downstream nodes and without leaving a subsequent independent workflow unable to run; this
+  guarantee covers only that default operation, not arbitrary custom node code.
