@@ -33,6 +33,7 @@ export interface IUseNumberedSelectionInputs {
 export interface INumberedSelection {
   buffer: string;
   invalid: boolean;
+  clear: () => void;
 }
 
 /** Read a typed selection for a numbered list. */
@@ -40,6 +41,12 @@ export function useNumberedSelection(inputs: IUseNumberedSelectionInputs): INumb
   const [state, setState] = useState<INumericSelectionState>(createNumericSelectionState);
   const stateRef = useRef(state);
   const { enabled, itemCount, cancellable, multi, repeatable, onSelect, onCancel, onConfirm } = inputs;
+
+  const clear = useCallback((): void => {
+    const empty = createNumericSelectionState();
+    stateRef.current = empty;
+    setState(empty);
+  }, []);
 
   const handle = useCallback(
     (input: string, key: Parameters<typeof applyNumericSelection>[2]): void => {
@@ -65,5 +72,5 @@ export function useNumberedSelection(inputs: IUseNumberedSelectionInputs): INumb
     { isActive: enabled },
   );
 
-  return { buffer: state.buffer, invalid: state.invalid };
+  return { buffer: state.buffer, invalid: state.invalid, clear };
 }

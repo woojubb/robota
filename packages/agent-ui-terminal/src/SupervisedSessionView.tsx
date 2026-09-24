@@ -52,8 +52,16 @@ function sortedDirectoryRows(rows: readonly ISupervisedViewRow[]): readonly ISup
     GROUP_ORDER.indexOf(groupOf(a)) - GROUP_ORDER.indexOf(groupOf(b)) || a.id.localeCompare(b.id));
 }
 
-function directoryName(cwd: string): string {
-  return cwd.split(/[\\/]/u).filter(Boolean).at(-1) ?? cwd;
+function uniqueDirectorySuffix(cwd: string, directories: readonly string[]): string {
+  const parts = cwd.split(/[\\/]/u).filter(Boolean);
+  for (let count = 1; count <= parts.length; count++) {
+    const suffix = parts.slice(-count).join('/');
+    if (directories.every((other) => other === cwd ||
+      other.split(/[\\/]/u).filter(Boolean).slice(-count).join('/') !== suffix)) {
+      return suffix;
+    }
+  }
+  return cwd;
 }
 
 function sameRows(a: readonly ISupervisedViewRow[], b: readonly ISupervisedViewRow[]): boolean {
@@ -104,6 +112,7 @@ export default function SupervisedSessionView({
   }, [rows, stateFilter, groupByDirectory]);
   const displayLines = useMemo((): readonly TDisplayLine[] => {
     const lines: TDisplayLine[] = [];
+    const directories = [...new Set(ordered.map((row) => row.cwd).filter((cwd): cwd is string => cwd !== undefined))];
     let previousGroup: string | undefined;
     let directoryNumber = 0;
     ordered.forEach((row, index) => {
@@ -111,7 +120,7 @@ export default function SupervisedSessionView({
       if (group !== previousGroup) {
         const label = groupByDirectory
           ? row.cwd === undefined ? 'Directory: unverified'
-            : `Directory ${++directoryNumber}: ${directoryName(row.cwd)} — ${row.cwd}`
+            : `Dir ${++directoryNumber}: ${uniqueDirectorySuffix(row.cwd, directories)} — ${row.cwd}`
           : `${group}:`;
         lines.push({ kind: 'group', label });
       }
@@ -194,6 +203,7 @@ export default function SupervisedSessionView({
       return;
     }
     if (input === 'g') {
+      numbered.clear();
       setGroupByDirectory((value) => !value);
       return;
     }
