@@ -208,6 +208,16 @@ they are not live tracing, and legacy records may lack span/event coverage. No s
 exports prompt or tool bodies, credentials, or a remote destination. An unreadable stored session,
 collector rejection, or network error fails the command without reporting success.
 
+Live prompt traces are a separate, opt-in Node CLI feature (interactive, print, and serve). Set
+`ROBOTA_TELEMETRY_ENABLED=1`, `ROBOTA_TELEMETRY_TRACES=otlp`,
+`ROBOTA_TELEMETRY_OTLP_PROTOCOL=http/protobuf`, and
+`ROBOTA_TELEMETRY_OTLP_ENDPOINT=https://collector.example` to send content-free prompt/provider/tool
+spans to the base URL's `/v1/traces`. `ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT` overrides the base with
+an exact traces URL. Plain HTTP is allowed only for loopback; URL credentials and query parameters
+are rejected. Export is bounded, best-effort, and does not delay or fail a turn; delivery failures
+produce a content-free stderr warning. This live switch does not enable live metrics or logs, content
+capture, auth headers, or replay of stored traces. Ambient `OTEL_*` values alone do not enable it.
+
 ### Doctor
 
 `robota doctor` (aliases: `checkup`, `diagnose`) diagnoses configuration and runtime readiness

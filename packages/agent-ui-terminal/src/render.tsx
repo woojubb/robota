@@ -60,6 +60,7 @@ import type {
   INodeHostSettingsSource,
   IToolCallHandoffPolicy,
   ICreateSessionOptions,
+  ILivePromptTracePort,
 } from '@robota-sdk/agent-framework';
 import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
 import type {
@@ -70,6 +71,7 @@ import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transpo
 
 export interface IRenderOptions {
   cwd: string;
+  livePromptTrace?: ILivePromptTracePort;
   /** Product identity for terminal labels, title, and host-facing copy. */
   productDisplayName?: string;
   modelCommandToolPrefix?: string;
@@ -239,6 +241,7 @@ export function toChannelOptions(
 ): ConstructorParameters<typeof TuiInteractionChannel>[0] {
   return {
     cwd: options.cwd,
+    ...(options.livePromptTrace ? { livePromptTrace: options.livePromptTrace } : {}),
     provider: options.provider,
     ...(options.providerErrorGuidance !== undefined
       ? { providerErrorGuidance: options.providerErrorGuidance }

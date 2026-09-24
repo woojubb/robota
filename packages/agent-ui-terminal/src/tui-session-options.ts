@@ -16,6 +16,7 @@ export function buildTuiSessionOptions(
 ): TInteractiveSessionOptions {
   return {
     cwd: opts.cwd,
+    ...(opts.livePromptTrace ? { livePromptTrace: opts.livePromptTrace } : {}),
     provider: opts.provider,
     ...(opts.providerErrorGuidance !== undefined
       ? { providerErrorGuidance: opts.providerErrorGuidance }

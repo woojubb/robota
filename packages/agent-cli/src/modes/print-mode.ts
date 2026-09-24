@@ -8,6 +8,7 @@ import type {
   ICommandModule,
   IOrgPolicy,
   IProviderErrorGuidance,
+  ILivePromptTracePort,
   IProjectSettingsPath,
   INodeHostSettingsSource,
   IContributionSource,
@@ -85,6 +86,7 @@ export async function runPrintMode(
   subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'],
   observerFailureWarningCode?: ICreateSessionOptions['observerFailureWarningCode'],
   commandHookShell?: string,
+  livePromptTrace?: ILivePromptTracePort,
 ): Promise<void> {
   const goalObjective = args.goal?.trim();
   let prompt = args.positional.join(' ').trim();
@@ -120,6 +122,7 @@ export async function runPrintMode(
 
   const channel = new HeadlessInteractionChannel({
     cwd,
+    ...(livePromptTrace ? { livePromptTrace } : {}),
     provider,
     shellExec: runShellCommand,
     ...(providerErrorGuidance !== undefined ? { providerErrorGuidance } : {}),

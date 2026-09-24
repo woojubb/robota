@@ -45,6 +45,7 @@ import {
 } from './product/robota-plumbing.js';
 import { createRemoteControlController } from './remote-control/index.js';
 import { createCliUsageTransportRegistry } from './usage/usage-transport-registry.js';
+import { createNodeOtlpLiveTracePort, resolveNodeOtlpLiveTraceEndpoint } from './telemetry/live-trace-otlp.js';
 import {
   createRobotaPackSet,
   createRobotaSubagentRunnerFactory,
@@ -594,6 +595,11 @@ async function runCliCore(
     args.screenReader,
     process.env,
   );
+  const liveTraceEndpoint = resolveNodeOtlpLiveTraceEndpoint(process.env);
+  const livePromptTracePort = liveTraceEndpoint ? createNodeOtlpLiveTracePort({
+    endpoint: liveTraceEndpoint,
+    onFailure: () => process.stderr.write('Robota trace export failed.\n'),
+  }) : undefined;
 
   // GOAL-001: --goal runs an autonomous headless goal even without an explicit -p.
   if (args.printMode || args.goal) {
@@ -613,6 +619,7 @@ async function runCliCore(
       memorySessionOptions,
       workspaceComposition.projectAccess,
       async () => {
+        await livePromptTracePort?.shutdown();
         if (mcp !== undefined) await mcp.shutdown();
       },
       orgPolicy,
@@ -629,10 +636,12 @@ async function runCliCore(
       subagentHookEnvironmentNames,
       observerFailureWarningCode,
       shellExecutable,
+      livePromptTracePort,
     );
     try {
       await printRun;
     } finally {
+      await livePromptTracePort?.shutdown();
       if (mcp !== undefined) await mcp.shutdown();
     }
     return;
@@ -642,6 +651,7 @@ async function runCliCore(
     if (mcpProtocolStdout === undefined) throw new Error('MCP protocol stdout was not reserved');
     const sessionOptions = buildServeSessionOptions({
       cwd,
+      ...(livePromptTracePort ? { livePromptTrace: livePromptTracePort } : {}),
       args,
       provider,
       providerErrorGuidance,
@@ -680,6 +690,7 @@ async function runCliCore(
         ...(args.mcpHttpPort !== undefined ? { port: args.mcpHttpPort } : {}),
       });
     } finally {
+      await livePromptTracePort?.shutdown();
       if (mcp !== undefined) await mcp.shutdown();
     }
     return;
@@ -692,6 +703,7 @@ async function runCliCore(
   if (args.serve) {
     const serveRun = runServeMode({
       cwd,
+      ...(livePromptTracePort ? { livePromptTrace: livePromptTracePort } : {}),
       args,
       provider,
       providerErrorGuidance,
@@ -737,6 +749,7 @@ async function runCliCore(
     try {
       await serveRun;
     } finally {
+      await livePromptTracePort?.shutdown();
       if (mcp !== undefined) await mcp.shutdown();
     }
     return;
@@ -756,6 +769,7 @@ async function runCliCore(
 
   const tuiRun = presentation.renderApp({
     productDisplayName: 'Robota',
+    ...(livePromptTracePort ? { livePromptTrace: livePromptTracePort } : {}),
     modelCommandToolPrefix,
     subagentHookEnvironmentNames,
     observerFailureWarningCode,
@@ -849,6 +863,7 @@ async function runCliCore(
     await tuiRun;
   } finally {
     externalEventHost?.close();
+    await livePromptTracePort?.shutdown();
     if (mcp !== undefined) await mcp.shutdown();
   }
   process.exit(0);

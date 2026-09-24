@@ -86,6 +86,11 @@ children, exclusively to a caller-named loopback OTLP collector; an explicitly s
 sends only content-free completion snapshots and never the session replay log. None of these exports
 transcript, tool names, session identity, or provider/model labels, none auto-exports, and each fails
 visibly rather than silently on an incomplete store or partial collector rejection.
+The separate live trace path is off unless the Robota host explicitly enables it with a selected
+signal, protocol, and validated destination. It may export bounded, content-free prompt/provider/tool
+spans with session/turn correlation and safe provider/model metadata; it never reads ambient OpenTelemetry
+credentials or allows delivery failure to change a turn result. A live trace is not a replay of stored
+usage, and it does not assert live metrics or logs.
 
 Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`); it accepts
 `commandModules` and registers them generically with the SDK registry.

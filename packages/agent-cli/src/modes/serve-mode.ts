@@ -45,6 +45,7 @@ import type {
   IToolCallHandoffPolicy,
   TInteractiveSessionOptions,
   TWorkspaceProjectAccess,
+  ILivePromptTracePort,
   createProjectSessionStore,
 } from '@robota-sdk/agent-framework';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
@@ -59,6 +60,7 @@ export type IServeModePresetOptions = Partial<IPresetSurfaceOptions>;
 
 export interface IServeModeOptions {
   cwd: string;
+  livePromptTrace?: ILivePromptTracePort;
   /** Explicit host-owned control root for isolated embedded runtimes and tests. */
   supervisedRoot?: string;
   args: IParsedCliArgs;
@@ -144,6 +146,7 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
   const { args, preset } = opts;
   return {
     cwd: opts.cwd,
+    ...(opts.livePromptTrace ? { livePromptTrace: opts.livePromptTrace } : {}),
     provider: opts.provider,
     ...(opts.providerErrorGuidance !== undefined
       ? { providerErrorGuidance: opts.providerErrorGuidance }
