@@ -79,8 +79,9 @@ export class WorkerLoopService {
     this.executionRoot = resolveTrustedExecutionRoot(executionRoot);
     this.byteLimits = resolveDagExecutionByteLimits(byteLimits);
     this.cancellationPollMs = options.cancellationPollMs ?? 250;
-    if (!Number.isSafeInteger(this.cancellationPollMs) || this.cancellationPollMs < 1) {
-      throw new RangeError('cancellationPollMs must be a positive safe integer');
+    if (!Number.isSafeInteger(this.cancellationPollMs)
+      || this.cancellationPollMs < 1 || this.cancellationPollMs > 60_000) {
+      throw new RangeError('cancellationPollMs must be an integer between 1 and 60000');
     }
   }
 

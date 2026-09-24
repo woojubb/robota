@@ -146,10 +146,15 @@ describe('SQLite abandoned-task recovery (DAG-001)', () => {
     });
     expect(committed.applied).toBe(true);
 
+    let timeout: ReturnType<typeof setTimeout> | undefined;
     const sawAbort = await Promise.race([
-      new Promise<boolean>((resolve) => signal.addEventListener('abort', () => resolve(true), { once: true })),
-      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 300)),
+      new Promise<boolean>((resolve) => {
+        if (signal.aborted) resolve(true);
+        else signal.addEventListener('abort', () => resolve(true), { once: true });
+      }),
+      new Promise<boolean>((resolve) => { timeout = setTimeout(() => resolve(false), 1_000); }),
     ]);
+    clearTimeout(timeout);
     releaseExecution();
     await processing;
     expect(sawAbort).toBe(true);

@@ -77,6 +77,26 @@ describe('WorkerLoopService', () => {
   const IDLE_WAIT_MS = 50;
   const ENQUEUE_DELAY_MS = 5;
 
+  it('rejects cancellation intervals that would be clamped into rapid polling', () => {
+    expect(() => new WorkerLoopService(
+      new InMemoryStoragePort(),
+      new InMemoryQueuePort(),
+      new InMemoryLeasePort(),
+      new ScriptedTaskExecutorPort(async () => ({ ok: true, output: {} })),
+      new ManualClockPort(Date.UTC(2026, 1, 14)),
+      process.cwd(),
+      {
+        workerId: 'worker-1',
+        leaseDurationMs: 30_000,
+        visibilityTimeoutMs: 30_000,
+        retryEnabled: false,
+        maxAttempts: 3,
+        defaultTimeoutMs: 50,
+        cancellationPollMs: 2_147_483_648,
+      },
+    )).toThrow(/cancellationPollMs/);
+  });
+
   function createService(
     executor: ScriptedTaskExecutorPort,
     storage: InMemoryStoragePort,
