@@ -6,6 +6,8 @@ import {
   resolveDagExecutionByteLimits,
   type IDagExecutionByteLimits,
   buildValidationError,
+  decodeDagExecutionLineage,
+  type IDagExecutionLineage,
   buildTaskExecutionError,
   type IClockPort,
   type IDagDefinition,
@@ -173,6 +175,21 @@ export class WorkerLoopService {
       return this.settleCancelledRunMessage(message);
     }
 
+    let lineage: IDagExecutionLineage | undefined;
+    try {
+      lineage = decodeDagExecutionLineage(dagRun.lineage);
+    } catch {
+      return this.outcomes.handleFailurePath(
+        claimed,
+        claimed.taskRunId,
+        buildValidationError(
+          'DAG_VALIDATION_RUN_LINEAGE_INVALID',
+          'Persisted composite child run lineage is invalid',
+          { dagRunId: claimed.dagRunId },
+        ),
+      );
+    }
+
     const persistInput = (snapshot: string) =>
       this.storage.commitExecution(claimed.dagRunId, {
         kind: 'snapshot-input',
@@ -189,7 +206,7 @@ export class WorkerLoopService {
     if (!admission.value.applied)
       return successAfterAck(this.queue, message.messageId, claimed.taskRunId, false);
 
-    const input = await this.buildExecutionInput(claimed, dagRun, definition, nodeDefinition);
+    const input = await this.buildExecutionInput(claimed, dagRun, definition, nodeDefinition, lineage);
     // Registration precedes the final persisted read, closing its stale-snapshot race.
     const controller = new AbortController();
     const active = {
@@ -377,11 +394,13 @@ export class WorkerLoopService {
     dagRun: IDagRun,
     definition: IDagDefinition,
     nodeDefinition: IDagDefinition['nodes'][number],
+    lineage: IDagExecutionLineage | undefined,
   ): Promise<ITaskExecutionInput> {
     const allTaskRunsForCost = await this.storage.listTaskRunsByDagRunId(message.dagRunId);
     const currentTotalCredits = resolveCurrentTotalCredits(allTaskRunsForCost);
     return {
       executionRoot: this.executionRoot,
+      ...(lineage === undefined ? {} : { lineage }),
       byteLimits: this.byteLimits,
       snapshotBudget: this.snapshotBudget,
       rootCreditBudget: this.rootCreditBudget,

@@ -28,6 +28,11 @@ intended upgrade path to PostgreSQL by swapping the adapter.
   input snapshots use that same guarded transaction, rejecting stale-attempt or cancelled-run
   writes, but the adapter does not own or reconstruct the caller's in-process aggregate snapshot
   authority.
+- A run's persisted `lineage_json` is read back unvalidated — unlike a DAG definition row, which is
+  decoded totally and treated as corruption on failure, a malformed lineage value is handed through
+  to the caller exactly as stored. Validation belongs to `dag-core`'s lineage decode contract at the
+  worker/orchestrator boundary; this adapter must not throw a plain `getDagRun`/`listDagRuns` read
+  over it, since that would take down a caller that has no lineage-specific handling on that path.
 
 ## Design decisions
 

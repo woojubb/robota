@@ -62,6 +62,10 @@ const MIGRATIONS: Array<{ version: number; sql: string }> = [
           ALTER TABLE task_runs ADD COLUMN reservation_attempt INTEGER;
           ALTER TABLE task_runs ADD COLUMN reservation_owner TEXT;`,
   },
+  {
+    version: 3,
+    sql: 'ALTER TABLE dag_runs ADD COLUMN lineage_json TEXT;',
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {

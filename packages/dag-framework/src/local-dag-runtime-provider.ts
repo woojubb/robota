@@ -323,6 +323,7 @@ async function runDagOnce(
       dagId: dagDefinition.dagId,
       version: dagDefinition.version,
       trigger: 'manual',
+      ...(lineage === undefined ? {} : { lineage }),
       input: inputs,
     });
     if (!startResult.ok) {
