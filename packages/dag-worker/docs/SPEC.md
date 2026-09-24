@@ -171,3 +171,10 @@ settlement atomically reserves the next queued attempt before publishing the fai
 a concurrent finalizer therefore sees pending work. Cancellation committed first rejects both the
 failure outcome and retry reservation. If reservation commits first, its message may be delivered
 after cancellation, but the worker must settle it without invoking the executor.
+
+## Trusted byte policy
+
+The worker snapshots the host's execution byte limits at construction and passes them into every
+task's lifecycle context. Queue and definition data cannot raise these limits. The initial ceiling
+is enforced by `text-repeat` before expansion; the worker does not count aggregate root bytes or
+claim to bound arbitrary executor allocations.

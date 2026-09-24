@@ -1,3 +1,4 @@
+import type { IDagExecutionByteLimits } from '../types/execution-byte-limits.js';
 import type { TExecutionCommit, IExecutionCommitResult } from '../services/execution-commit.js';
 import type {
   ICostPolicy,
@@ -149,6 +150,8 @@ export interface IStoragePort {
 
 /** Input bundle for executing a single task within a DAG run. */
 export interface ITaskExecutionInput {
+  /** Trusted host limits; never deserialized from workflow configuration. */
+  byteLimits?: IDagExecutionByteLimits;
   /** Trusted in-process attempt cancellation; never supplied by serialized node or queue data. */
   signal?: AbortSignal;
   /** Trusted canonical absolute directory selected by the product composition root. */

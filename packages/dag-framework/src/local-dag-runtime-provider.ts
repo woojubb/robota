@@ -1,5 +1,6 @@
 import type {
   IDagDefinition,
+  IDagExecutionByteLimits,
   IDagExecutionLineage,
   IDagNodeDefinition,
   IDagRuntimeExecuteOptions,
@@ -16,7 +17,7 @@ import type {
   IWorkspaceLayout,
 } from '@robota-sdk/dag-core';
 import { resolveTrustedExecutionRoot } from '@robota-sdk/agent-core/node';
-import { LifecycleTaskExecutorPort } from '@robota-sdk/dag-core';
+import { LifecycleTaskExecutorPort, resolveDagExecutionByteLimits } from '@robota-sdk/dag-core';
 import {
   InMemoryLeasePort,
   InMemoryQueuePort,
@@ -46,6 +47,8 @@ const LOCAL_DEFAULT_TIMEOUT_MS = 300_000;
 
 /** Options accepted by {@link LocalDagRuntimeProvider}. */
 export interface ILocalDagRuntimeProviderOptions {
+  /** Trusted host policy; workflow data cannot change this ceiling. */
+  byteLimits?: IDagExecutionByteLimits;
   /** Trusted absolute filesystem root propagated to every node. */
   executionRoot: string;
   /**
@@ -78,8 +81,10 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
   public readonly displayName = 'Local (in-process)';
 
   private readonly executionRoot: string;
+  private readonly byteLimits: IDagExecutionByteLimits;
   public constructor(private readonly options: ILocalDagRuntimeProviderOptions) {
     this.executionRoot = resolveTrustedExecutionRoot(options.executionRoot);
+    this.byteLimits = resolveDagExecutionByteLimits(options.byteLimits);
   }
 
   public async listNodes(): Promise<IDagNodeManifest[]> {
@@ -106,6 +111,7 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
         options?.onProgress,
         options?.signal,
         this.options.lineage,
+        this.byteLimits,
       );
 
       const durationMs = Date.now() - startMs;
@@ -187,6 +193,7 @@ async function runDagOnce(
   onProgress: ((event: IDagRuntimeProgressEvent) => void) | undefined,
   signal: AbortSignal | undefined,
   lineage: IDagExecutionLineage | undefined,
+  byteLimits: IDagExecutionByteLimits,
 ): Promise<IDagRunOutcome> {
   const assemblyResult = buildNodeDefinitionAssembly(nodeDefinitions);
   if (!assemblyResult.ok) {
@@ -207,6 +214,7 @@ async function runDagOnce(
   const composition = createExecutionComposition(
     {
       executionRoot,
+      byteLimits,
       storage,
       queue: new InMemoryQueuePort(),
       deadLetterQueue: new InMemoryQueuePort(),
