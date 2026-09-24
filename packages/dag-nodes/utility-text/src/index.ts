@@ -4,6 +4,7 @@ import { joinLinesWithinByteLimit, splitTextWithinByteLimit } from './text-join-
 import { changeCaseWithinByteLimit } from './text-case.js';
 import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
 import {
+  buildTaskExecutionError,
   buildValidationError,
   resolveDagExecutionByteLimits,
   type ICostEstimate,
@@ -219,27 +220,27 @@ export class TextReplaceNodeDefinition extends AbstractNodeDefinition<
     const r = io.requireInputString('text');
     if (!r.ok) return r;
     let result: string;
-    if (config.useRegex && context.regexReplaceOperation) {
+    if (config.useRegex) {
+      // Regex execution never runs inline on this thread: a pathological pattern (catastrophic
+      // backtracking) can freeze the host process, including its cancel/timeout machinery. A host
+      // that wants `useRegex` support must supply `regexReplaceOperation` (an isolated executor);
+      // without it, this fails closed rather than falling back to `new RegExp(...).replace(...)`.
+      if (!context.regexReplaceOperation) {
+        return {
+          ok: false,
+          error: buildTaskExecutionError(
+            'DAG_TASK_ISOLATION_UNAVAILABLE',
+            'Regex-based text-replace requires an isolated regex executor; none was supplied for this run',
+            false,
+            { nodeId: context.nodeDefinition.nodeId },
+          ),
+        };
+      }
       const replaced = await context.regexReplaceOperation.execute({
         text: r.value, search: config.search, replacement: config.replacement, flags: config.flags,
       }, context.signal);
       if (!replaced.ok) return replaced;
       result = replaced.value;
-    } else if (config.useRegex) {
-      try {
-        const regex = new RegExp(config.search, config.flags);
-        result = r.value.replace(regex, config.replacement);
-      } catch (_err) {
-        // allow-fallback: invalid regex is a user input error, return validation failure
-        return {
-          ok: false,
-          error: buildValidationError(
-            'DAG_VALIDATION_TEXT_REPLACE_INVALID_REGEX',
-            `Invalid regex: "${config.search}"`,
-            { nodeId: context.nodeDefinition.nodeId },
-          ),
-        };
-      }
     } else {
       const replaced = replaceLiteralWithinByteLimit(
         r.value, config.search, config.replacement,

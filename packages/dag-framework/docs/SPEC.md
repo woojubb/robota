@@ -71,14 +71,18 @@ worker — persisted lineage cannot recreate or authorize a budget on its own.
 
 ### Local regex isolation
 
-The local Node provider runs the default text-replace regex operation in an isolated worker (a
-child process on Bun), keeping lifecycle, storage and the snapshot authority in the parent; only a
-fixed trusted bootstrap and plain string data cross the boundary. A result is accepted only after
+Every default executor this package assembles — the local Node provider and the in-process
+framework composition alike — runs the default text-replace regex operation in an isolated worker
+(a child process on Bun), keeping lifecycle, storage and the snapshot authority in the parent; only
+a fixed trusted bootstrap and plain string data cross the boundary. A result is accepted only after
 normal worker exit, so a late result cannot authorize output persistence or downstream execution,
-and worker startup failure never falls back to inline execution. Request and response strings
-share a bounded UTF-8 transport ceiling. This isolates only the default regex operation — it is
-not a security sandbox and does not cover custom nodes, other transforms, tools, or provider code;
-direct lower-level compositions must supply their own isolation capability.
+and worker startup failure never falls back to inline execution: the text-replace node has no
+inline regex path at all, so without an isolated operation it refuses the request instead of
+running a pattern on the host thread. Request and response strings share a bounded UTF-8 transport
+ceiling. This isolates only the default regex operation — it is not a security sandbox and does
+not cover custom nodes, other transforms, tools, or provider code; a host supplying its own
+executor to either composition must supply this same capability itself, or `text-replace` with
+regex enabled fails closed.
 
 ## Design decisions
 
