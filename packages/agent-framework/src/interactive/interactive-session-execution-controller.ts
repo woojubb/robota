@@ -11,6 +11,11 @@ import {
 import { InteractiveExecutionClaimOwner } from './interactive-execution-claim.js';
 import { checkAndRefreshContextIfStale } from './interactive-session-context-refresh.js';
 import {
+  LivePromptTraceAccumulator,
+  enqueueLivePromptTrace,
+  reportLivePromptTraceProjectionFailure,
+} from './interactive-session-live-prompt-trace.js';
+import {
   projectCompactEvent,
   projectForkSkillResult,
   projectToolExecution,
@@ -265,6 +270,7 @@ export class SessionExecutionController {
     const providerCallEntries: IHistoryEntry<IProviderCallTraceEntry>[] = [];
     const seenProviderCallIds = new Set<string>();
     const toolBodyEntries: IHistoryEntry<IToolBodyTraceEntry>[] = [];
+    const liveTrace = this.callbacks.livePromptTrace ? new LivePromptTraceAccumulator() : undefined;
     const closePromptRoot = (outcome: 'success' | 'failure' | 'interrupted'): void => {
       if (!promptRoot || promptRoot.endedAt) return;
       promptRoot.endedAt = new Date(Math.max(Date.now(), promptRoot.startedAtMs)).toISOString();
@@ -349,7 +355,7 @@ export class SessionExecutionController {
           const spanId = observation.callId
             ? observation.callId.replaceAll('-', '').slice(0, 16)
             : randomOtelId(8);
-          providerCallEntries.push({
+          const entry: IHistoryEntry<IProviderCallTraceEntry> = {
             id: `provider_call_trace_${randomOtelId(8)}`,
             timestamp: new Date(),
             category: 'event',
@@ -376,11 +382,13 @@ export class SessionExecutionController {
                   totalTokens: observation.totalTokens,
                 }),
             },
-          });
+          };
+          providerCallEntries.push(entry);
+          if (entry.data) liveTrace?.addProvider(entry.data);
         },
         onToolBodyCompleted: (observation) => {
           if (!promptRoot) return;
-          toolBodyEntries.push({
+          const entry: IHistoryEntry<IToolBodyTraceEntry> = {
             id: `tool_body_trace_${randomOtelId(8)}`,
             timestamp: new Date(),
             category: 'event',
@@ -393,7 +401,9 @@ export class SessionExecutionController {
               endedAt: observation.endedAt,
               outcome: observation.outcome,
             },
-          });
+          };
+          toolBodyEntries.push(entry);
+          if (entry.data) liveTrace?.addTool(entry.data);
         },
         onInterrupted: (result: IExecutionResult) => {
           closePromptRoot('interrupted');
@@ -462,6 +472,23 @@ export class SessionExecutionController {
           turnError = error instanceof Error ? error : new Error(String(error));
           terminalResult = undefined;
           this.callbacks.emit('error', turnError);
+        }
+      }
+      if (liveTrace && promptRoot?.endedAt && promptRoot.outcome && this.callbacks.livePromptTrace) {
+        try {
+          enqueueLivePromptTrace(this.callbacks.livePromptTrace, liveTrace.finish({
+            sessionId: this.callbacks.getSessionOrThrow().getSessionId(),
+            turnId,
+            root: {
+              traceId: promptRoot.traceId,
+              spanId: promptRoot.spanId,
+              startedAt: promptRoot.startedAt,
+              endedAt: promptRoot.endedAt,
+              outcome: promptRoot.outcome,
+            },
+          }));
+        } catch {
+          reportLivePromptTraceProjectionFailure(this.callbacks.livePromptTrace);
         }
       }
       // Observers (including the TUI) see the completed history only after the durable wake

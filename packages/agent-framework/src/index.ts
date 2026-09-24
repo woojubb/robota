@@ -124,6 +124,7 @@ export type {
 } from './interactive/index.js';
 export type {
   TInteractiveSessionOptions,
+  ILivePromptTracePort,
   IInteractiveSessionShutdownOptions,
   IGenerateSessionNameOptions,
 } from './interactive/index.js';

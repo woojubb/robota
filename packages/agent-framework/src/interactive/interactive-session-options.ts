@@ -7,6 +7,7 @@
  */
 
 import type { IPromptHistoryOptions } from './interactive-session-prompt-history.js';
+import type { ILivePromptTracePort } from './interactive-session-live-prompt-trace.js';
 import type { IInteractiveSessionStore } from './session-persistence.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { TSessionResponseFormat } from '../assembly/create-session-types.js';
@@ -85,6 +86,8 @@ export interface IInteractiveSessionStandardOptions {
   resolveDefaultLoopPrompt?: () => string;
   /** Explicit session-log sink; absence disables diagnostic project logging. */
   sessionLogSink?: ISessionLogSink;
+  /** Optional host-owned, enqueue-only live prompt trace port; absent means no live projection. */
+  livePromptTrace?: ILivePromptTracePort;
   /** Trusted host-only path projection for hook compatibility. */
   transcriptPath?: string;
   /** Explicit authority- and permission-backed edit checkpoint capability. */
@@ -245,6 +248,8 @@ export interface IInteractiveSessionInjectedOptions {
   resolveDefaultLoopPrompt?: () => string;
   /** Explicit session-log sink; absence disables diagnostic project logging. */
   sessionLogSink?: ISessionLogSink;
+  /** Optional host-owned, enqueue-only live prompt trace port; absent means no live projection. */
+  livePromptTrace?: ILivePromptTracePort;
   /** Trusted host-only path projection for hook compatibility. */
   transcriptPath?: string;
   /** Explicit authority- and permission-backed edit checkpoint capability. */

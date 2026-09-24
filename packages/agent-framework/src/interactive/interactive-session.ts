@@ -371,6 +371,7 @@ export class InteractiveSession
           ...(args as Parameters<IInteractiveSessionEvents[TInteractiveEventName]>),
         ),
       persistSession: () => this.persistCurrentSession(),
+      ...(options.livePromptTrace ? { livePromptTrace: options.livePromptTrace } : {}),
       onWakeTurnFinalizing: (wakeTaskId, result, outcome, toolExecutions) =>
         this.finalizeSelfPacedIteration(wakeTaskId, result, outcome, toolExecutions),
       // SELFHOST-008 P2: adapter-gated — only wire capture when the surface supplied an `automaticMemory`

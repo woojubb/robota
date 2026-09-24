@@ -21,6 +21,7 @@ export { generateSessionName } from './session-naming.js';
 export { restoreSessionRecordIntoSession } from './interactive-session-restore.js';
 export type { ISessionRecordRestoreResult } from './interactive-session-restore.js';
 export type { IGenerateSessionNameOptions } from './session-naming.js';
+export type { ILivePromptTracePort } from './interactive-session-live-prompt-trace.js';
 export type {
   TInteractiveSessionOptions,
   IInteractiveSessionShutdownOptions,

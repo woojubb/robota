@@ -175,6 +175,10 @@ export interface ISpanCollector {
   readonly entries: IHistoryEntry<ISpanEntry>[];
   readonly providerCalls: IProviderCallTraceObservation[];
   readonly toolBodies: IToolBodyTraceObservation[];
+  readonly completions: (
+    | { readonly kind: 'provider'; readonly observation: IProviderCallTraceObservation }
+    | { readonly kind: 'tool'; readonly observation: IToolBodyTraceObservation }
+  )[];
   /** Unsubscribe from the bus (idempotent). */
   dispose(): void;
 }
@@ -196,6 +200,7 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
   const entries: IHistoryEntry<ISpanEntry>[] = [];
   const providerCalls: IProviderCallTraceObservation[] = [];
   const toolBodies: IToolBodyTraceObservation[] = [];
+  const completions: ISpanCollector['completions'] = [];
   const listener: TEventListener = (eventType, data) => {
     if (eventType === `tool.${TOOL_BODY_EVENTS.COMPLETED}`) {
       if (
@@ -205,11 +210,13 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
           data['outcome'] === 'failure' ||
           data['outcome'] === 'interrupted')
       ) {
-        toolBodies.push({
+        const observation: IToolBodyTraceObservation = {
           startedAt: data['startedAt'],
           endedAt: data['endedAt'],
           outcome: data['outcome'],
-        });
+        };
+        toolBodies.push(observation);
+        completions.push({ kind: 'tool', observation });
       }
       return;
     }
@@ -224,7 +231,7 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
           data['outcome'] === 'failure' ||
           data['outcome'] === 'interrupted')
       ) {
-        providerCalls.push({
+        const observation: IProviderCallTraceObservation = {
           round: data['round'],
           startedAt: data['startedAt'],
           endedAt: data['endedAt'],
@@ -241,7 +248,9 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
             completionTokens: data['completionTokens'],
             totalTokens: data['totalTokens'],
           }),
-        });
+        };
+        providerCalls.push(observation);
+        completions.push({ kind: 'provider', observation });
       }
       return;
     }
@@ -253,6 +262,7 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
     entries,
     providerCalls,
     toolBodies,
+    completions,
     dispose: () => eventService.unsubscribe(listener),
   };
 }
