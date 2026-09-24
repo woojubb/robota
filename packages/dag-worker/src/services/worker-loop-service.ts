@@ -129,12 +129,17 @@ export class WorkerLoopService {
         : { ok: true, value: { processed: false } };
     }
 
+    // Resolved once, from the claimed node's own definition, and reused both for the lease bound
+    // below and for the claim itself — a node's timeoutMs is never carried on the message payload
+    // (see resolveTimeoutMs), so this is the one place the worker looks it up before execution.
+    const timeoutMs = await this.resolveTimeoutMs(message);
+
     return withTaskLease(
       this.lease,
       message.taskRunId,
       this.options.workerId,
-      taskOwnershipMs(this.resolveTimeoutMs(message), this.options.leaseDurationMs),
-      async () => this.processAcquiredMessage(message),
+      taskOwnershipMs(timeoutMs, this.options.leaseDurationMs),
+      async () => this.processAcquiredMessage(message, timeoutMs),
       async () => {
         await this.queue.nack(message.messageId);
         return { ok: true, value: { processed: false } };
@@ -144,6 +149,7 @@ export class WorkerLoopService {
 
   private async processAcquiredMessage(
     message: IQueueMessage,
+    timeoutMs: number,
   ): Promise<TResult<IWorkerLoopResult, IDagError>> {
     const taskRun = await this.storage.getTaskRun(message.taskRunId);
     if (!taskRun) {
@@ -159,7 +165,7 @@ export class WorkerLoopService {
     if (cancellationBeforeClaim) return cancellationBeforeClaim;
 
     // Built once and passed to both: claiming and handling a failed claim need the same context.
-    const claimDeps = this.claimDepsFor(message, taskRun);
+    const claimDeps = this.claimDepsFor(message, taskRun, timeoutMs);
     const startResult = await claimTaskForExecution(claimDeps);
     if (!startResult.ok) {
       return handleFailedClaim(startResult.error, claimDeps);
@@ -501,24 +507,41 @@ export class WorkerLoopService {
     };
   }
 
-  private claimDepsFor(message: IQueueMessage, taskRun: ITaskRun): IClaimTaskDeps {
+  private claimDepsFor(
+    message: IQueueMessage,
+    taskRun: ITaskRun,
+    timeoutMs: number,
+  ): IClaimTaskDeps {
     return {
       storage: this.storage,
       queue: this.queue,
       clock: this.clock,
       reporter: this.runProgressEventReporter,
       options: this.options,
-      timeoutMs: this.resolveTimeoutMs(message),
+      timeoutMs,
       message,
       taskRun,
     };
   }
 
-  private resolveTimeoutMs(message: IQueueMessage): number {
-    const timeoutFromPayload = message.payload.timeoutMs;
-    if (typeof timeoutFromPayload === 'number' && timeoutFromPayload > 0) {
-      return timeoutFromPayload;
+  /**
+   * The attempt timeout for this message's node, read from its own definition rather than the
+   * message payload — a payload field is an ordinary input value as far as node execution is
+   * concerned, so putting the timeout there would leak it onto every node as a spurious input
+   * (an empty-input node would gain a `timeoutMs` port, and a real input field of that name would
+   * be silently overwritten). A lookup failure here (run or node definition missing) is not
+   * treated as fatal: `processAcquiredMessage` performs the authoritative load moments later and
+   * surfaces any such error there, so this falls back to the worker default rather than failing
+   * twice for the same cause.
+   */
+  private async resolveTimeoutMs(message: IQueueMessage): Promise<number> {
+    const contextResult = await loadWorkerExecutionContext(this.storage, message);
+    if (!contextResult.ok) {
+      return this.options.defaultTimeoutMs;
     }
-    return this.options.defaultTimeoutMs;
+    const configuredTimeoutMs = contextResult.value.nodeDefinition.timeoutMs;
+    return typeof configuredTimeoutMs === 'number' && configuredTimeoutMs > 0
+      ? configuredTimeoutMs
+      : this.options.defaultTimeoutMs;
   }
 }

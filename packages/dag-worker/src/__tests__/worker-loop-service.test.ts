@@ -689,23 +689,28 @@ describe('WorkerLoopService', () => {
     expect(run?.status).toBe('failed');
   });
 
-  it('carries a root task\'s configured timeoutMs onto its retry message', async () => {
+  it("does not let a node's configured timeoutMs touch a same-named input field, across a retry", async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
     const lease = new InMemoryLeasePort();
     const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
     const { dagRun, taskRun, message } = createQueuedTaskFixture();
 
-    // Simulates a root (entry) node whose own configured timeoutMs was placed onto its message
-    // payload by the entry dispatcher, the same way downstream dispatch already does for
-    // non-entry nodes.
-    const messageWithTimeout: IQueueMessage = { ...message, payload: { timeoutMs: 5_000 } };
+    // A run input field that happens to share the reserved name, on a node that also configures
+    // its own timeoutMs. The worker resolves ITS attempt timeout from the node definition (see
+    // resolveTimeoutMs), never from the payload, so this field must survive untouched — including
+    // through a retry, which replays the same payload.
+    const messageWithUserField: IQueueMessage = {
+      ...message,
+      payload: { timeoutMs: 'user-value' },
+    };
 
     const definition = createDefinitionForRun(dagRun);
+    definition.nodes[0] = { ...definition.nodes[0], timeoutMs: 5_000 };
     await storage.saveDefinition(definition);
     await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
     await storage.createTaskRun(taskRun);
-    await queue.enqueue(messageWithTimeout);
+    await queue.enqueue(messageWithUserField);
 
     const executor = new ScriptedTaskExecutorPort(async () => ({
       ok: false,
@@ -733,7 +738,7 @@ describe('WorkerLoopService', () => {
 
     const retryMessage = await queue.dequeue('worker-1', 1_000);
     expect(retryMessage?.attempt).toBe(2);
-    expect(retryMessage?.payload).toEqual({ timeoutMs: 5_000 });
+    expect(retryMessage?.payload).toEqual({ timeoutMs: 'user-value' });
   });
 
   it('reassigns processing after lease becomes available', async () => {
@@ -901,6 +906,67 @@ describe('WorkerLoopService', () => {
 
     const finalRun = await storage.getDagRun(dagRun.dagRunId);
     expect(finalRun?.status).toBe('success');
+  });
+
+  it("does not let a downstream node's configured timeoutMs leak onto its dispatched payload", async () => {
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const lease = new InMemoryLeasePort();
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const { dagRun, taskRun, message } = createQueuedTaskFixture();
+
+    const definition: IDagDefinition = {
+      dagId: dagRun.dagId,
+      version: dagRun.version,
+      status: 'published',
+      nodes: [
+        {
+          nodeId: 'entry',
+          nodeType: 'input',
+          dependsOn: [],
+          inputs: [],
+          outputs: [{ key: 'nextInput', type: 'string', required: false }],
+          config: {},
+        },
+        {
+          nodeId: 'next',
+          nodeType: 'processor',
+          dependsOn: ['entry'],
+          inputs: [{ key: 'nextInput', type: 'string', required: false }],
+          outputs: [{ key: 'done', type: 'boolean', required: false }],
+          config: {},
+          timeoutMs: 3_000,
+        },
+      ],
+      edges: [
+        {
+          from: 'entry',
+          to: 'next',
+          bindings: [{ outputKey: 'nextInput', inputKey: 'nextInput' }],
+        },
+      ],
+    };
+    await storage.saveDefinition(definition);
+    await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
+    await storage.createTaskRun(taskRun);
+    await queue.enqueue(message);
+
+    const executor = new ScriptedTaskExecutorPort(async () => ({
+      ok: true,
+      output: { nextInput: 'ok' },
+    }));
+    const service = createService(executor, storage, queue, lease, clock);
+
+    const first = await service.processOnce();
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+
+    const dispatched = await queue.dequeue('worker-1', 1_000);
+    expect(dispatched?.nodeId).toBe('next');
+    // The downstream node's own timeoutMs is a worker-side execution concern, resolved from the
+    // claimed node definition at execution time; it must never appear as an ordinary payload
+    // field alongside the real bound input.
+    expect(dispatched?.payload).toEqual({ nextInput: 'ok' });
   });
 
   it('finalizes DAG as success when downstream tasks are upstream_failed', async () => {
