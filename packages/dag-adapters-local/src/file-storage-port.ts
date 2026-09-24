@@ -68,13 +68,18 @@ export class FileStoragePort implements IStoragePort {
   private runStateFailure: { error: unknown } | undefined;
   private ownerLock: FileStoreOwnerLock | undefined;
   private ownerLockAcquisition: Promise<void> | undefined;
-  /** Set when the heartbeat lease discovers this instance no longer owns the root; poisons every
-   *  later operation instead of letting this instance keep writing as an unaccounted-for second
-   *  owner (the same durability posture as `runStateFailure` for a failed persist) — UNLESS the next
-   *  operation's recovery attempt (see `ensureInitialized`) finds nothing actually took over. */
+  /** Set when the heartbeat lease discovers this instance no longer owns the root (a real takeover,
+   *  or this instance's own self-expiry). PERMANENT: poisons every later operation instead of letting
+   *  this instance keep writing as an unaccounted-for second owner — the same durability posture as
+   *  `runStateFailure` for a failed persist. There is no recovery; a caller must open a new instance. */
   private ownershipLostError: unknown;
-  /** Set by `close()`. Final — checked before everything else, including ownership recovery. */
+  /** Set by `close()`. Final — checked at admission time for every operation (see `assertNotClosed`
+   *  and `withRunState`), not inside `ensureInitialized`, so a run/task write already queued before
+   *  `close()` was called is not rejected once its turn comes up after `close()` set this. */
   private closed = false;
+  /** Definition writes in flight, so `close()` can wait for them (definitions are not admitted through
+   *  the run/task queue, so they need their own tracking to make the same "close() waits" guarantee). */
+  private readonly pendingDefinitionWrites = new Set<Promise<unknown>>();
 
   public constructor(
     private readonly storageRootPath: string,
@@ -108,14 +113,10 @@ export class FileStoragePort implements IStoragePort {
    * `applyTaskRunLease`, the run-key lookup — is unchanged. Only their lifetime moves.
    */
   private async ensureInitialized(): Promise<void> {
-    if (this.closed) throw new FileStoragePortClosedError(this.storageRootPath);
-    if (this.ownershipLostError !== undefined) {
-      // Losing the lock is not necessarily permanent: maybe nothing ever actually took over (a
-      // false-alarm self-expiry from writes that have since started succeeding again), or the root
-      // can be freshly reacquired. Only a live, different owner leaves this refused.
-      await this.attemptOwnershipRecovery();
-      if (this.ownershipLostError !== undefined) throw this.ownershipLostError;
-    }
+    // `closed` is deliberately NOT checked here — see the field doc. Admission is checked once, at
+    // the synchronous entry point of each public operation (`assertNotClosed`, or `withRunState` for
+    // queued run/task ops), before this method's (possibly deferred) execution.
+    if (this.ownershipLostError !== undefined) throw this.ownershipLostError;
     await this.acquireOwnerLockOnce();
     // Before every operation (not just the periodic heartbeat): a stall long enough to matter delays
     // a queued persist exactly as much as it delays the heartbeat timer, so whichever the event loop
@@ -126,19 +127,22 @@ export class FileStoragePort implements IStoragePort {
     await this.hydration.ensure();
   }
 
-  /**
-   * Called once `ownershipLostError` is set: ask the (still-held) lock object whether it can resume —
-   * either because it discovers nothing ever actually took over, or because the root is now freely
-   * reacquirable. On success, the in-memory working set may no longer reflect disk (state written by
-   * whoever this instance was not tracking while poisoned), so hydration is reset to force a fresh
-   * read rather than merge into what may be stale Maps.
-   */
-  private async attemptOwnershipRecovery(): Promise<void> {
-    if (!this.ownerLock) return;
-    const recovered = await this.ownerLock.tryRecover();
-    if (!recovered) return;
-    this.ownershipLostError = undefined;
-    this.hydration.reset();
+  /** Admission-time guard for operations NOT queued through `withRunState` (definitions): `closed` is
+   *  final, so any call made after `close()` is rejected immediately, before it can enqueue any work
+   *  `close()` would then have to wait for. */
+  private assertNotClosed(): void {
+    if (this.closed) throw new FileStoragePortClosedError(this.storageRootPath);
+  }
+
+  /** Track a definition WRITE so `close()` can wait for it — definitions are not admitted through the
+   *  run/task queue, so they need their own bookkeeping to get the same "close() waits" guarantee. */
+  private trackDefinitionWrite<T>(work: Promise<T>): Promise<T> {
+    this.pendingDefinitionWrites.add(work);
+    const untrack = (): void => {
+      this.pendingDefinitionWrites.delete(work);
+    };
+    work.then(untrack, untrack);
+    return work;
   }
 
   /**
@@ -158,10 +162,12 @@ export class FileStoragePort implements IStoragePort {
         ...this.ownerLockOptions,
         onOwnershipLost: (reason) => {
           // The lease lapsed and another owner took the root over (e.g. after a long event-loop
-          // stall). This instance must stop writing rather than silently continue as a second
-          // owner — every later operation now rejects, the same posture as a failed persist.
+          // stall), or this instance self-expired. Either way this is PERMANENT: this instance must
+          // stop writing rather than silently continue as a second owner — every later operation now
+          // rejects, with no recovery. The owning process must restart, or otherwise open a new
+          // `FileStoragePort` instance, to use this storage root again.
           this.ownershipLostError = new FileStoreOwnerConflictError(
-            `file store owner lock for ${this.storageRootPath} was lost: ${reason}`,
+            `file store owner lock for ${this.storageRootPath} was lost: ${reason}. This instance is permanently unusable for this root — the owning process must restart or open a new instance to use it again.`,
           );
         },
       });
@@ -174,19 +180,23 @@ export class FileStoragePort implements IStoragePort {
 
   /**
    * Release this instance's ownership of the storage root and make the instance unusable — closing is
-   * final. Every operation after this rejects with `FileStoragePortClosedError`, including one already
-   * poisoned by a lost lease: `close()` is a deliberate, permanent shutdown, not a reset.
+   * final. A NEW operation after this rejects with `FileStoragePortClosedError`, including one already
+   * poisoned by a lost lease: `close()` is a deliberate, permanent shutdown, not a reset. An operation
+   * already admitted BEFORE `close()` was called (queued run/task work, or an in-flight definition
+   * write) is not rejected by this — `close()` waits for it instead, so a write that had already
+   * started is never silently dropped just because it happened to still be in flight.
    *
-   * Waits for any run/task write already queued (`runStateTail`) and any owner-lock acquisition
-   * already in flight to settle first, so releasing ownership never races a write or an acquire that
-   * started before `close()` was called. Safe to call more than once, and safe to call on an instance
-   * that never successfully acquired the lock.
+   * Waits for: any run/task write already queued (`runStateTail`); any definition write already in
+   * flight (`pendingDefinitionWrites`); and any owner-lock acquisition already in flight — so releasing
+   * ownership never races work that started before `close()` was called. Safe to call more than once,
+   * and safe to call on an instance that never successfully acquired the lock.
    */
   public async close(): Promise<void> {
     this.closed = true;
     // `withRunState`'s tail chain absorbs its own operation's outcome (`.then(() => undefined, () =>
     // undefined)`), so awaiting it here never itself rejects.
     await this.runStateTail;
+    await Promise.allSettled([...this.pendingDefinitionWrites]);
     if (this.ownerLockAcquisition) await this.ownerLockAcquisition.catch(() => undefined);
     await this.ownerLock?.release();
     this.ownerLock = undefined;
@@ -213,6 +223,11 @@ export class FileStoragePort implements IStoragePort {
 
   /** All run/task observations and writes share the same durability boundary. */
   private withRunState<T>(operation: () => Promise<T>): Promise<T> {
+    // Admission-time, not execution-time: this runs synchronously when the caller invokes the public
+    // method, before `operation` is ever chained onto the queue. A call admitted here is queued and
+    // will run to completion even if `close()` sets `closed` before its turn comes up — `close()`
+    // awaits `runStateTail`, so it already accounts for exactly this work.
+    this.assertNotClosed();
     const pending = this.runStateTail.then(() => {
       if (this.runStateFailure !== undefined) throw this.runStateFailure.error;
       return operation();
@@ -250,17 +265,24 @@ export class FileStoragePort implements IStoragePort {
   }
 
   public async saveDefinition(definition: IDagDefinition): Promise<void> {
-    await this.ensureInitialized();
-    await saveDefinitionAtomically(this.definitionsRootPath, definition);
+    this.assertNotClosed();
+    return this.trackDefinitionWrite(
+      (async (): Promise<void> => {
+        await this.ensureInitialized();
+        await saveDefinitionAtomically(this.definitionsRootPath, definition);
+      })(),
+    );
   }
 
   public async getDefinition(dagId: string, version: number): Promise<IDagDefinition | undefined> {
+    this.assertNotClosed();
     await this.ensureInitialized();
     const filePath = definitionFilePath(this.definitionsRootPath, dagId, version);
     return readDefinitionFromFile(filePath);
   }
 
   public async listDefinitions(): Promise<IDagDefinition[]> {
+    this.assertNotClosed();
     await this.ensureInitialized();
     const dagIdDirectories = await readdir(this.definitionsRootPath, { withFileTypes: true });
     const definitions: IDagDefinition[] = [];
@@ -276,6 +298,7 @@ export class FileStoragePort implements IStoragePort {
   }
 
   public async listDefinitionsByDagId(dagId: string): Promise<IDagDefinition[]> {
+    this.assertNotClosed();
     await this.ensureInitialized();
     return listDefinitionsForDagId(this.definitionsRootPath, dagId);
   }
@@ -481,17 +504,22 @@ export class FileStoragePort implements IStoragePort {
   }
 
   public async deleteDefinition(dagId: string, version: number): Promise<void> {
-    await this.ensureInitialized();
-    const filePath = definitionFilePath(this.definitionsRootPath, dagId, version);
-    await rm(filePath, { force: true });
-    const directoryPath = definitionDirectoryPath(this.definitionsRootPath, dagId);
-    try {
-      const entries = await readdir(directoryPath);
-      if (entries.length === 0) {
-        await rm(directoryPath, { recursive: true, force: true });
-      }
-    } catch {
-      // Directory cleanup is best-effort only.
-    }
+    this.assertNotClosed();
+    return this.trackDefinitionWrite(
+      (async (): Promise<void> => {
+        await this.ensureInitialized();
+        const filePath = definitionFilePath(this.definitionsRootPath, dagId, version);
+        await rm(filePath, { force: true });
+        const directoryPath = definitionDirectoryPath(this.definitionsRootPath, dagId);
+        try {
+          const entries = await readdir(directoryPath);
+          if (entries.length === 0) {
+            await rm(directoryPath, { recursive: true, force: true });
+          }
+        } catch {
+          // Directory cleanup is best-effort only.
+        }
+      })(),
+    );
   }
 }

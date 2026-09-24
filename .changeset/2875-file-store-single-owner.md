@@ -22,12 +22,26 @@ and stops accepting further reads and writes, rather than continuing unaware as 
 unaccounted-for owner. It also stops itself proactively: it tracks its own last successful renewal and
 refuses further reads and writes once that is old enough that another opener could legitimately treat
 its lease as expired, closing the lost-update window a heartbeat that keeps failing to write (an
-unwritable directory, a stalled event loop) would otherwise leave open. Losing the lock this way is not
-necessarily permanent — the next operation checks whether nothing actually took over (the lock still
-names this instance) or the root can be freshly reacquired, and resumes if so; it stays refused only
-when a live, different owner now holds it.
+unwritable directory, a stalled event loop) would otherwise leave open. Losing the lock this way, or
+merely being unable to prove it was never lost, is permanent for that instance: every later read and
+write rejects with `FileStoreOwnerConflictError`, and using the root again means opening a new instance,
+which acquires it the ordinary way rather than resuming the old one's in-memory state. An earlier design
+let an instance resume once it found nothing had actually taken over; that reset the working set out
+from under already-admitted operations and could itself lose writes across the recovery boundary, so it
+was removed in favor of this simpler, always-safe stop.
+
+Reclaiming a stale lock is serialized end-to-end with token-verified destructive steps, not
+check-then-remove: the guard and lock files are only ever deleted after atomically capturing whatever
+currently occupies that path and confirming its content is still the exact stale instance a taker
+observed, restoring it otherwise. This closes a window where a fresh guard or lock, written between a
+taker's check and its unconditional removal, could be destroyed out from under its rightful holder,
+letting two takers both believe they won a stale-lock takeover.
 
 `FileStoragePort` gains a `close()` method that releases ownership; closing is final — every later
-operation on that instance rejects with a typed `FileStoragePortClosedError`. `close()` waits for any
-queued write and any in-flight acquisition to settle before releasing. `createDagFramework`'s `stop()`
-releases the file storage owner lock it created itself, but never a caller-supplied storage port.
+operation on that instance rejects with a typed `FileStoragePortClosedError`. Only operations invoked
+after `close()` is called are rejected; anything already queued beforehand — a run/task write in flight,
+or a definition write in flight — is still awaited and completes normally before `close()` returns and
+releases the lock, and any in-flight acquisition is awaited too. `createDagFramework`'s `stop()` releases
+the file storage owner lock it created itself, but never a caller-supplied storage port.
+
+`IFileStoragePortOwnerLockOptions` is now exported from the package entry point alongside `FileStoragePort`.
