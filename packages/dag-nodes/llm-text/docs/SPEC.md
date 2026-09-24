@@ -29,3 +29,10 @@ provider in an injected provider-definition registry — superseding the previou
 - Real end-to-end calls against live provider APIs are out of scope for this package's own test
   suite (opt-in/out-of-band only); this package proves routing and resolution logic, not provider
   behavior.
+
+## Attempt cancellation
+
+The trusted node-context signal is forwarded to the agent run. An aborted attempt starts no new
+provider, never enters provider fallback, and discards responses returned after abort. Cancellation
+is identified from that signal, not error message text, and returns non-retryable
+`DAG_TASK_EXECUTION_CANCELLED`. Provider transport termination still depends on its cooperation.

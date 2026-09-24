@@ -7,7 +7,11 @@ import type {
   INodeLifecycleFactory,
   IRunCostPolicyEvaluator,
 } from '../types/node-lifecycle.js';
-import { buildTaskExecutionError, buildValidationError } from '../utils/error-builders.js';
+import {
+  buildTaskCancellationError,
+  buildTaskExecutionError,
+  buildValidationError,
+} from '../utils/error-builders.js';
 
 /** Default cost policy evaluator that checks if the next estimated credits stays within the run budget. */
 export class RunCostPolicyEvaluator implements IRunCostPolicyEvaluator {
@@ -62,23 +66,40 @@ export class NodeLifecycleRunner {
   ) {}
 
   public async runNode(input: IRunNodeInput): Promise<TResult<INodeExecutionResult, IDagError>> {
+    const cancellation = (): TResult<never, IDagError> => ({
+      ok: false,
+      error: buildTaskCancellationError(input.context.taskRunId),
+    });
+    if (input.context.signal?.aborted) return cancellation();
     const lifecycle = this.lifecycleFactory.create(input.context.nodeDefinition.nodeType);
     if (!lifecycle.ok) {
       return lifecycle;
     }
 
     const initialized = await lifecycle.value.initialize(input.context);
+    if (input.context.signal?.aborted) {
+      await lifecycle.value.dispose(input.context);
+      return cancellation();
+    }
     if (!initialized.ok) {
       return initialized;
     }
 
     const validatedInput = await lifecycle.value.validateInput(input.input, input.context);
+    if (input.context.signal?.aborted) {
+      await lifecycle.value.dispose(input.context);
+      return cancellation();
+    }
     if (!validatedInput.ok) {
       await lifecycle.value.dispose(input.context);
       return validatedInput;
     }
 
     const estimated = await lifecycle.value.estimateCost(input.input, input.context);
+    if (input.context.signal?.aborted) {
+      await lifecycle.value.dispose(input.context);
+      return cancellation();
+    }
     if (!estimated.ok) {
       await lifecycle.value.dispose(input.context);
       return estimated;
@@ -95,18 +116,27 @@ export class NodeLifecycleRunner {
     }
 
     const executed = await lifecycle.value.execute(input.input, input.context);
+    if (input.context.signal?.aborted) {
+      await lifecycle.value.dispose(input.context);
+      return cancellation();
+    }
     if (!executed.ok) {
       await lifecycle.value.dispose(input.context);
       return executed;
     }
 
     const validatedOutput = await lifecycle.value.validateOutput(executed.value, input.context);
+    if (input.context.signal?.aborted) {
+      await lifecycle.value.dispose(input.context);
+      return cancellation();
+    }
     if (!validatedOutput.ok) {
       await lifecycle.value.dispose(input.context);
       return validatedOutput;
     }
 
     const disposed = await lifecycle.value.dispose(input.context);
+    if (input.context.signal?.aborted) return cancellation();
     if (!disposed.ok) {
       return {
         ok: false,

@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
+const mockRun = vi.hoisted(() => vi.fn().mockResolvedValue('mocked response'));
+
 // Only the agent entrypoint is stubbed. Provider construction is supplied through the injected
 // provider-definition registry, which keeps this leaf test independent of vendor SDK packages.
 vi.mock('@robota-sdk/agent-core', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@robota-sdk/agent-core')>()),
   Robota: vi.fn().mockImplementation(() => ({
-    run: vi.fn().mockResolvedValue('mocked response'),
+    run: mockRun,
   })),
 }));
 
@@ -122,6 +124,26 @@ describe('PromptBackedNodeDefinition.taskHandler.execute', () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+  });
+
+  it('forwards cancellation and discards a provider response returned after abort', async () => {
+    const controller = new AbortController();
+    mockRun.mockImplementationOnce(async (_prompt, options) => {
+      expect(options.signal).toBe(controller.signal);
+      controller.abort();
+      return 'late response';
+    });
+    const result = await createTestNode().taskHandler.execute(
+      { text: 'hello' },
+      { ...MOCK_CONTEXT, signal: controller.signal },
+    );
+    expect(result).toMatchObject({
+      ok: false,
+      error: {
+        code: 'DAG_TASK_EXECUTION_CANCELLED',
+        retryable: false,
+      },
+    });
   });
 
   it('renders template and returns output on success', async () => {

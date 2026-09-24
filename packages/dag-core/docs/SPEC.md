@@ -169,3 +169,14 @@ prevents parallel task completion from closing the run while another dispatcher 
 a ready child. Missing descendants of failed or skipped dependencies do not block termination.
 Malformed snapshots return a validation error without finalizing. Legacy/programmatic run records
 without a definition snapshot retain their task-only finalization behavior.
+
+## Attempt cancellation
+
+Task input and node lifecycle context carry an optional trusted in-process abort signal. It is an
+execution capability, never deserialized from queue payloads, definitions or node configuration.
+The lifecycle adapter preserves its identity. Lifecycle progression stops at cancellation checks
+before initialization and after awaited phases. Once initialization has been entered, cancellation
+takes precedence over its returned failure and disposes the node, including partial initialization.
+Cancellation returns non-retryable `DAG_TASK_EXECUTION_CANCELLED` and does not publish a late node
+output. Disposal remains cooperative and may itself take time. This signal does not establish a
+root budget owner, propagate cancellation to nested runs, or preempt synchronous code.
