@@ -62,6 +62,7 @@ function buildCompositeRunner(
         projectDir: project.executionRoot,
         lineage,
         snapshotBudget: capabilities?.snapshotBudget,
+        rootCreditBudget: capabilities?.rootCreditBudget,
         byteLimits: capabilities?.byteLimits,
         ...(liveDefs.length > 0 ? { instantNodes: liveDefs } : {}),
       });

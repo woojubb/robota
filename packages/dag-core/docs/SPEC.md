@@ -183,15 +183,18 @@ nested runs, or CPU time.
 ## Cumulative root snapshot admission
 
 A live root invocation may carry one trusted shared snapshot authority through every child run,
-bounding cumulative input and output bytes across run and task snapshots; the authority and its
-host policy are never deserialized from workflow-controlled data. Every accepted write consumes its
+bounding cumulative input and output bytes across run and task snapshots, and a separate credit
+reservation authority that counts pending sibling estimates against the root's cost limit. Neither
+authority is reconstructed from a child definition or a persisted task counter; persisted task
+totals remain scoped to their own DAG, and snapshot host policy is never deserialized from workflow
+data. Every accepted snapshot write consumes its
 full size permanently — this is cumulative admission, not retained-size accounting, and a committed
 write is never refunded even if downstream work later fails. Encoding stops before a complete
 oversized snapshot is built, and the encoder accepts plain JSON data only — it never invokes
 data-defined `toJSON` methods or accessors, so workflow data cannot run code during encoding. An ambiguous (thrown) persistence write keeps its reservation and
 closes the authority rather than risk under-counting; a committed cancellation in a participating
 run also closes future admissions for that root, though already-admitted writes may still finish.
-The authority is in-process only, with no crash recovery or cross-process coordination, and does
+These authorities are in-process only, with no crash recovery or cross-process coordination, and do
 not bound memory, CPU, queue size, or provider-generation output; the per-operation text-repeat
 ceilings above are separate.
 

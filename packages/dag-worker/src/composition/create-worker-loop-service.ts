@@ -1,6 +1,7 @@
 import type {
   IClockPort,
   ITaskSnapshotBudget,
+  IRootCreditBudget,
   IDagExecutionByteLimits,
   ILeasePort,
   IQueuePort,
@@ -13,6 +14,7 @@ import { WorkerLoopService, type IWorkerLoopOptions } from '../services/worker-l
 /** Port dependencies required to construct a WorkerLoopService. */
 export interface IWorkerLoopDependencies {
   snapshotBudget?: ITaskSnapshotBudget;
+  rootCreditBudget?: IRootCreditBudget;
   /** Trusted host ceiling, independent of serialized definitions and queue messages. */
   byteLimits?: IDagExecutionByteLimits;
   /** Trusted canonical absolute directory propagated into every task execution. */
@@ -61,5 +63,6 @@ export function createWorkerLoopService(
     dependencies.runProgressEventReporter,
     dependencies.byteLimits,
     dependencies.snapshotBudget,
+    dependencies.rootCreditBudget,
   );
 }

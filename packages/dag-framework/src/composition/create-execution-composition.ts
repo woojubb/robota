@@ -1,6 +1,7 @@
 import type {
   IClockPort,
   ITaskSnapshotBudget,
+  IRootCreditBudget,
   IDagExecutionByteLimits,
   ILeasePort,
   IQueuePort,
@@ -20,6 +21,7 @@ import type { IDagExecutionComposition } from '../types.js';
 /** Infrastructure dependencies required for DAG execution. */
 export interface IDagExecutionCompositionDependencies {
   snapshotBudget?: ITaskSnapshotBudget;
+  rootCreditBudget?: IRootCreditBudget;
   /** Trusted host ceiling, independent of serialized definitions and queue messages. */
   byteLimits?: IDagExecutionByteLimits;
   executionRoot: string;
@@ -59,6 +61,7 @@ export function createExecutionComposition(
       executionRoot: dependencies.executionRoot,
       byteLimits: dependencies.byteLimits,
       snapshotBudget: dependencies.snapshotBudget,
+      rootCreditBudget: dependencies.rootCreditBudget,
       storage: dependencies.storage,
       queue: dependencies.queue,
       deadLetterQueue: dependencies.deadLetterQueue,

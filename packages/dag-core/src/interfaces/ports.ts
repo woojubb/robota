@@ -1,5 +1,6 @@
 import type { IRegexReplaceOperation } from '../types/regex-replace-operation.js';
 import type { ITaskSnapshotBudget } from '../services/task-snapshot-budget.js';
+import type { IRootCreditBudget } from '../services/root-credit-budget.js';
 import type { IDagExecutionByteLimits } from '../types/execution-byte-limits.js';
 import type { TExecutionCommit, IExecutionCommitResult } from '../services/execution-commit.js';
 import type {
@@ -156,6 +157,8 @@ export interface ITaskExecutionInput {
   regexReplaceOperation?: IRegexReplaceOperation;
   /** Shared live root snapshot authority, never sourced from serialized data. */
   snapshotBudget?: ITaskSnapshotBudget;
+  /** Shared in-process root credit authority, never sourced from workflow data. */
+  rootCreditBudget?: IRootCreditBudget;
   /** Trusted host limits; never deserialized from workflow configuration. */
   byteLimits?: IDagExecutionByteLimits;
   /** Trusted in-process attempt cancellation; never supplied by serialized node or queue data. */

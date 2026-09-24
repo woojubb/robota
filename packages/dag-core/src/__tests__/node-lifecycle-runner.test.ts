@@ -12,6 +12,7 @@ import type {
 import type { IDagError } from '../types/error.js';
 import type { TResult } from '../types/result.js';
 import { buildValidationError } from '../utils/error-builders.js';
+import { RootCreditBudget } from '../services/root-credit-budget.js';
 
 function makeContext(overrides?: Partial<INodeExecutionContext>): INodeExecutionContext {
   return {
@@ -96,6 +97,19 @@ describe('RunCostPolicyEvaluator', () => {
 });
 
 describe('NodeLifecycleRunner', () => {
+  it('releases a root reservation after a failed node so a sibling may proceed', async () => {
+    const budget = new RootCreditBudget(0.01);
+    const lifecycle = createSuccessLifecycle();
+    (lifecycle.execute as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: false, error: buildValidationError('EXEC_FAIL', 'exec failed'),
+    });
+    const runner = new NodeLifecycleRunner(createFactory(lifecycle), new RunCostPolicyEvaluator());
+    const first = await runner.runNode({ input: {}, context: makeContext({ rootCreditBudget: budget }) });
+    const second = await runner.runNode({ input: {}, context: makeContext({ rootCreditBudget: budget }) });
+    expect(first).toMatchObject({ ok: false, error: { code: 'EXEC_FAIL' } });
+    expect(second).toMatchObject({ ok: true, value: { totalCredits: 0.01 } });
+  });
+
   it('runs full lifecycle successfully', async () => {
     const lifecycle = createSuccessLifecycle();
     const factory = createFactory(lifecycle);
