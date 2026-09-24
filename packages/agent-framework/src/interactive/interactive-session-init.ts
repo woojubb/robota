@@ -312,6 +312,7 @@ export async function initializeInteractiveSessionAsync(
     ...(deps.commandDescriptors.length > 0
       ? {
           modelCommandExecutor: deps.executeModelCommand,
+          modelCommandToolPrefix: options.modelCommandToolPrefix,
           isModelCommandInvocable: deps.isModelCommandInvocable,
         }
       : {}),

@@ -131,6 +131,7 @@ export interface IInitOptions {
   commandSemanticRoles?: ISystemCommandSemanticRoles;
   /** Model command execution bridge. */
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
+  modelCommandToolPrefix?: string;
   /** Predicate for commands allowed through the model command execution bridge. */
   isModelCommandInvocable?: (command: string) => boolean;
   /** Preloaded config to avoid duplicate discovery when caller needs it too. */

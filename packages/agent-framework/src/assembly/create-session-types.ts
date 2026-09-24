@@ -252,6 +252,8 @@ export interface ICreateSessionOptions {
   persona?: string;
   /** Model command execution bridge. */
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
+  /** Host-selected prefix for projected command tool names. */
+  modelCommandToolPrefix?: string;
   /** Predicate for commands allowed through the model command execution bridge. */
   isModelCommandInvocable?: (command: string) => boolean;
   /** Model-visible command descriptors. */

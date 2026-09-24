@@ -32,6 +32,19 @@ describe('host-selected terminal display name', () => {
     expect(lastFrame()).toContain('Assistant:');
   });
 
+  it('renders a projected command using the host-selected prefix', () => {
+    const { lastFrame } = render(
+      <ProductDisplayNameProvider name="Atlas" modelCommandToolPrefix="robota_command_">
+        <StreamingIndicator
+          text=""
+          activeTools={[{ toolName: 'robota_command_echo', firstArg: '', isRunning: true }]}
+        />
+      </ProductDisplayNameProvider>,
+    );
+    expect(lastFrame()).toContain('echo(');
+    expect(lastFrame()).not.toContain('robota_command_echo');
+  });
+
   it('uses the host name in transport restart copy', () => {
     const { lastFrame } = render(
       <ProductDisplayNameProvider name="Atlas">

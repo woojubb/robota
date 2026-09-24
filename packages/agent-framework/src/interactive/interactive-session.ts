@@ -216,6 +216,7 @@ export class InteractiveSession
   private readonly promptRegistry: SessionPromptRegistry;
   private readonly projectAccess: TWorkspaceProjectAccess;
   private readonly providerErrorGuidance?: IProviderErrorGuidance;
+  private readonly promptFileReferenceTag?: string;
   private readonly resolveDefaultLoopPrompt?: () => string;
   private readonly userSettingsSources: readonly INodeHostSettingsSource[];
 
@@ -236,6 +237,7 @@ export class InteractiveSession
       },
     });
     this.providerErrorGuidance = options.providerErrorGuidance;
+    this.promptFileReferenceTag = options.promptFileReferenceTag;
     this.resolveDefaultLoopPrompt = options.resolveDefaultLoopPrompt;
     this.userSettingsSources = options.userSettingsSources ?? [];
     this.sessionLoopsDisabled = options.disableSessionLoops ?? false;
@@ -355,6 +357,7 @@ export class InteractiveSession
 
     this.execCtrl = new SessionExecutionController(this.histTracker, this.skillRouter, {
       providerErrorGuidance: this.providerErrorGuidance,
+      promptFileReferenceTag: this.promptFileReferenceTag,
       getSession: () => this.session!,
       getSessionOrThrow: () => this.getSessionOrThrow(),
       getCwd: () => this.getCwd(),

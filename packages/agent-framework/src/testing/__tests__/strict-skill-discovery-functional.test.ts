@@ -73,7 +73,7 @@ describe('strict skill discovery through a real session', () => {
         commandModules: [skillActivationModule],
         turns: [
           {
-            toolCalls: [{ name: 'robota_command_skills', args: { args: 'private-strict-skill' } }],
+            toolCalls: [{ name: 'command_skills', args: { args: 'private-strict-skill' } }],
           },
           { text: 'The private skill was not activated.' },
         ],

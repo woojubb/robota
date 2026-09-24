@@ -147,6 +147,7 @@ export interface ISubagentOptions {
   }) => void;
   /** Selected command semantic roles inherited from the parent session. */
   commandSemanticRoles?: ISystemCommandSemanticRoles;
+  modelCommandToolPrefix?: string;
 }
 
 /**
@@ -173,6 +174,7 @@ function filterTools(
   parentTools: IToolWithEventService[],
   agentDefinition: IAgentDefinition,
   subagentSpawnCommandName: string | undefined,
+  modelCommandToolPrefix?: string,
 ): IToolWithEventService[] {
   let tools = parentTools.map(unwrapToolCallHandoff);
 
@@ -190,7 +192,7 @@ function filterTools(
 
   // Step 3: Always remove agent-spawning tools
   const projectedSpawnToolName = subagentSpawnCommandName
-    ? createProviderSafeModelCommandToolName(subagentSpawnCommandName)
+    ? createProviderSafeModelCommandToolName(subagentSpawnCommandName, modelCommandToolPrefix)
     : undefined;
   tools = tools.filter(
     (tool) =>
@@ -236,6 +238,7 @@ export function createSubagentSession(options: ISubagentOptions): Session {
     parentTools,
     agentDefinition,
     options.commandSemanticRoles?.subagentSpawn,
+    options.modelCommandToolPrefix,
   );
 
   carryResidencyContract(tools, parentTools);

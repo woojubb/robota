@@ -68,6 +68,8 @@ export interface IRenderOptions {
   cwd: string;
   /** Product identity for terminal labels, title, and host-facing copy. */
   productDisplayName?: string;
+  modelCommandToolPrefix?: string;
+  promptFileReferenceTag?: string;
   provider: IAIProvider;
   providerErrorGuidance?: IProviderErrorGuidance;
   projectAccess?: TWorkspaceProjectAccess;
@@ -229,6 +231,12 @@ export function toChannelOptions(
     provider: options.provider,
     ...(options.providerErrorGuidance !== undefined
       ? { providerErrorGuidance: options.providerErrorGuidance }
+      : {}),
+    ...(options.promptFileReferenceTag !== undefined
+      ? { promptFileReferenceTag: options.promptFileReferenceTag }
+      : {}),
+    ...(options.modelCommandToolPrefix !== undefined
+      ? { modelCommandToolPrefix: options.modelCommandToolPrefix }
       : {}),
     ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
     ...(options.projectSettingsPaths !== undefined
@@ -431,7 +439,10 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
 
   const pacingPort = parked === undefined ? undefined : toPacingPort(parked);
   const tree = (
-    <ProductDisplayNameProvider name={options.productDisplayName}>
+    <ProductDisplayNameProvider
+      name={options.productDisplayName}
+      modelCommandToolPrefix={options.modelCommandToolPrefix}
+    >
       <KeybindingsProvider source={options.keybindingsSource}>
         <ScreenReaderProvider enabled={screenReader}>
           <App

@@ -372,7 +372,7 @@ describe('createSession — command descriptor tool guidance', () => {
     const opts = sessionCtorCalls[0]!;
     const tools = opts.tools as IToolWithEventService[];
     expect(tools.some((tool) => tool.getName() === 'ExecuteCommand')).toBe(false);
-    expect(tools.some((tool) => tool.getName().startsWith('robota_command_'))).toBe(false);
+    expect(tools.some((tool) => tool.getName().startsWith('command_'))).toBe(false);
   });
 
   it('does not expose skill metadata when the skills command is not model-invocable', async () => {
@@ -507,7 +507,7 @@ describe('createSession — command descriptor tool guidance', () => {
 
     const opts = sessionCtorCalls[0]!;
     const tools = opts.tools as IToolWithEventService[];
-    const compactTool = tools.find((tool) => tool.getName() === 'robota_command_compact');
+    const compactTool = tools.find((tool) => tool.getName() === 'command_compact');
 
     expect(tools.some((tool) => tool.getName() === 'ExecuteCommand')).toBe(false);
     expect(compactTool?.schema.description).toContain('explicitly requests compaction');

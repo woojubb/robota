@@ -74,6 +74,7 @@ export interface IInProcessSubagentRunnerDeps {
    */
   agentDefinitions?: readonly IAgentDefinition[];
   commandSemanticRoles?: ISystemCommandSemanticRoles;
+  modelCommandToolPrefix?: string;
   /**
    * ARCH-034: which session-assembly tiers the PARENT's tool surface carried.
    *
@@ -242,6 +243,9 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
           : {}),
         permissionMode: deps.permissionMode,
         ...(deps.commandSemanticRoles ? { commandSemanticRoles: deps.commandSemanticRoles } : {}),
+        ...(deps.modelCommandToolPrefix
+          ? { modelCommandToolPrefix: deps.modelCommandToolPrefix }
+          : {}),
         // CORE-025: carry the task's permission policy + its own tool lists so the child session gates tool
         // calls by policy BEFORE the inherited session mode (deny/preapproved bind even under bypass).
         ...(job.request.permissionPolicy !== undefined

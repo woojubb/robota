@@ -27,6 +27,8 @@ export const PRODUCT_PROFILE_FIELD_POLICIES = {
   providerSettings: 'consumed',
   provider: 'consumed-and-surfaced',
   providerErrorGuidance: 'consumed',
+  promptFileReferenceTag: 'consumed',
+  modelCommandToolPrefix: 'consumed',
   presets: 'consumed',
   presetRegistry: 'consumed-and-surfaced',
   defaultPresetId: 'consumed-and-surfaced',
@@ -42,6 +44,8 @@ export const PRODUCT_PROFILE_FIELD_POLICIES = {
 interface IOverlayMaterials {
   provider: IAIProvider | undefined;
   providerErrorGuidance: IProductProfile['providerErrorGuidance'];
+  promptFileReferenceTag: IProductProfile['promptFileReferenceTag'];
+  modelCommandToolPrefix: IProductProfile['modelCommandToolPrefix'];
   commandModules: readonly ICommandModule[];
   tools: readonly FunctionTool[];
   subagents: readonly IAgentDefinition[];
@@ -66,6 +70,8 @@ function overlaySessionOptions(
 ): TInteractiveSessionOptions {
   const provider = base.provider ?? materials.provider;
   const providerErrorGuidance = base.providerErrorGuidance ?? materials.providerErrorGuidance;
+  const promptFileReferenceTag = base.promptFileReferenceTag ?? materials.promptFileReferenceTag;
+  const modelCommandToolPrefix = base.modelCommandToolPrefix ?? materials.modelCommandToolPrefix;
   const permissionModeOverlay =
     base.permissionMode === undefined && materials.defaultPermissionMode !== undefined
       ? { permissionMode: materials.defaultPermissionMode }
@@ -90,6 +96,8 @@ function overlaySessionOptions(
       ...base,
       provider,
       ...(providerErrorGuidance !== undefined ? { providerErrorGuidance } : {}),
+      ...(promptFileReferenceTag !== undefined ? { promptFileReferenceTag } : {}),
+      ...(modelCommandToolPrefix !== undefined ? { modelCommandToolPrefix } : {}),
       commandModules,
       commandHostAdapters,
       ...permissionModeOverlay,
@@ -106,6 +114,8 @@ function overlaySessionOptions(
     ...base,
     provider,
     ...(providerErrorGuidance !== undefined ? { providerErrorGuidance } : {}),
+    ...(promptFileReferenceTag !== undefined ? { promptFileReferenceTag } : {}),
+    ...(modelCommandToolPrefix !== undefined ? { modelCommandToolPrefix } : {}),
     commandModules,
     commandHostAdapters,
     additionalTools: [
@@ -181,6 +191,8 @@ export function assembleProduct(profile: IProductProfile): IAssembledProduct {
     overlaySessionOptions(input.session, {
       provider,
       providerErrorGuidance: profile.providerErrorGuidance,
+      promptFileReferenceTag: profile.promptFileReferenceTag,
+      modelCommandToolPrefix: profile.modelCommandToolPrefix,
       commandModules: merged.commandModules,
       tools: merged.tools,
       subagents: merged.subagents,

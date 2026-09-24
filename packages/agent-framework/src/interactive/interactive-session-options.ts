@@ -54,6 +54,10 @@ export interface IInteractiveSessionStandardOptions {
   provider: IAIProvider;
   /** Optional product-owned remediation for recognized provider errors; scoped to this session. */
   providerErrorGuidance?: IProviderErrorGuidance;
+  /** Host-selected model-visible enclosure for attached file references. */
+  promptFileReferenceTag?: string;
+  /** Host-selected prefix for projected command tool names. */
+  modelCommandToolPrefix?: string;
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
   projectAccess?: TWorkspaceProjectAccess;
   /** Host-selected project settings layers, admitted only through the current project authority. */
@@ -220,6 +224,8 @@ export interface IInteractiveSessionInjectedOptions {
   session: Session;
   /** Optional product-owned remediation for recognized provider errors; scoped to this session. */
   providerErrorGuidance?: IProviderErrorGuidance;
+  promptFileReferenceTag?: string;
+  modelCommandToolPrefix?: string;
   cwd?: string;
   provider?: IAIProvider;
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */

@@ -60,6 +60,7 @@ export async function runSkillInFork(
     isForkWorker: true,
     permissionMode: deps.permissionMode,
     ...(deps.commandSemanticRoles ? { commandSemanticRoles: deps.commandSemanticRoles } : {}),
+    ...(deps.modelCommandToolPrefix ? { modelCommandToolPrefix: deps.modelCommandToolPrefix } : {}),
     permissionHandler: deps.permissionHandler,
     hooks: deps.hooks,
     hookTypeExecutors: deps.hookTypeExecutors,

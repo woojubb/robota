@@ -1,6 +1,10 @@
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { FunctionTool } from '@robota-sdk/agent-core';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
-import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { InteractiveSession, WorkspaceTrustService } from '@robota-sdk/agent-framework';
 import { createPresetRegistry } from '@robota-sdk/agent-preset';
 import { describe, expect, expectTypeOf, it } from 'vitest';
 
@@ -47,6 +51,8 @@ describe('assembleProduct — capability fold', () => {
       providerSettings: 'consumed',
       provider: 'consumed-and-surfaced',
       providerErrorGuidance: 'consumed',
+      promptFileReferenceTag: 'consumed',
+      modelCommandToolPrefix: 'consumed',
       presets: 'consumed',
       presetRegistry: 'consumed-and-surfaced',
       defaultPresetId: 'consumed-and-surfaced',
@@ -85,6 +91,97 @@ describe('assembleProduct — capability fold', () => {
         session: { ...session, providerErrorGuidance: { authentication: 'Shell choice.' } },
       }).providerErrorGuidance,
     ).toEqual({ authentication: 'Shell choice.' });
+  });
+
+  it('passes model-visible identifiers from each product profile into its real runtime options', () => {
+    const acme = assembleProduct({
+      id: 'acme',
+      providerDefinitions: [],
+      provider: testProvider(),
+      promptFileReferenceTag: 'acme_file_references',
+      modelCommandToolPrefix: 'acme_command_',
+    });
+    const options = acme.buildRuntimeOptions({
+      session: { cwd: '/tmp/acme', provider: testProvider(), bare: true },
+    });
+    expect(options.promptFileReferenceTag).toBe('acme_file_references');
+    expect(options.modelCommandToolPrefix).toBe('acme_command_');
+
+    const shellOverride = acme.buildRuntimeOptions({
+      session: {
+        cwd: '/tmp/acme',
+        provider: testProvider(),
+        bare: true,
+        promptFileReferenceTag: 'shell_files',
+        modelCommandToolPrefix: 'shell_command_',
+      },
+    });
+    expect(shellOverride.promptFileReferenceTag).toBe('shell_files');
+    expect(shellOverride.modelCommandToolPrefix).toBe('shell_command_');
+  });
+
+  it('runs a second product with its own model prompt and command tool identifiers', async () => {
+    const cwd = realpathSync(mkdtempSync(join(tmpdir(), 'acme-product-model-')));
+    let runtime: InteractiveSession | undefined;
+    try {
+      writeFileSync(join(cwd, 'guide.md'), 'ACME product guidance', 'utf8');
+      const trust = new WorkspaceTrustService({
+        identityResolver: {
+          resolve: () => ({ repositoryKey: cwd, displayPath: cwd, worktreeRoot: cwd }),
+        },
+        store: {
+          inspect: async () => ({ state: 'trusted', generation: 1 }),
+          grant: async () => ({ state: 'trusted', generation: 1 }),
+          revoke: async () => ({ state: 'revoked', generation: 2 }),
+        },
+        projectStateDirectories: {
+          sessions: '.acme/sessions',
+          'session-logs': '.acme/logs',
+          memory: '.acme/memory',
+          checkpoints: '.acme/checkpoints',
+        },
+      });
+      const scripted = createScriptedProvider([{ text: 'ok' }]);
+      const product = assembleProduct({
+        id: 'acme',
+        providerDefinitions: [],
+        provider: scripted.provider,
+        promptFileReferenceTag: 'acme_file_references',
+        modelCommandToolPrefix: 'acme_command_',
+        baseCommandModules: [
+          {
+            name: 'acme-echo',
+            systemCommands: [
+              {
+                name: 'echo',
+                description: 'Echo',
+                modelInvocable: true,
+                lifecycle: 'blocking',
+                execute: async () => ({ success: true, message: 'ok' }),
+              },
+            ],
+          },
+        ],
+      });
+      runtime = product.buildRuntime({
+        session: {
+          cwd,
+          provider: scripted.provider,
+          bare: true,
+          permissionMode: 'bypassPermissions',
+          projectAccess: await trust.inspect(cwd),
+        },
+      });
+      expect((await runtime.listRuntimeTools()).map((tool) => tool.name)).toContain(
+        'acme_command_echo',
+      );
+      await runtime.submit('Read @guide.md');
+      expect(JSON.stringify(scripted.requests[0])).toContain('<acme_file_references>');
+      expect(JSON.stringify(scripted.requests[0])).not.toContain('robota_file_references');
+    } finally {
+      await runtime?.shutdown();
+      rmSync(cwd, { recursive: true, force: true });
+    }
   });
 
   it('surfaces identity and injected runtime plumbing without changing object identity', () => {

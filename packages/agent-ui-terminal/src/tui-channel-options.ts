@@ -58,6 +58,8 @@ export interface ITuiInteractionChannelOptions {
   cwd: string;
   provider: IAIProvider;
   providerErrorGuidance?: IProviderErrorGuidance;
+  promptFileReferenceTag?: string;
+  modelCommandToolPrefix?: string;
   /** Resolved organization policy forwarded to the interactive session. */
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;

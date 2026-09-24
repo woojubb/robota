@@ -373,10 +373,20 @@ roots as activation.
 
 Model-invocable skills are exposed to the model as metadata only when the session has a composed
 model-invocable `skills` command descriptor. `@robota-sdk/agent-command` owns `skills` and
-activates skills through the SDK host API. Models use the SDK-projected `robota_command_skills`
-tool with skill arguments in `args`. Mentioning a skill in ordinary prose,
+activates skills through the SDK host API. Models use the SDK-projected `command_skills`
+tool by default, with skill arguments in `args`. A product host can set
+`modelCommandToolPrefix` on its session options to choose another prefix; Robota sets
+`robota_command_`. Mentioning a skill in ordinary prose,
 recommending a skill in assistant text, or matching a natural-language phrase in SDK/TUI code does
 not activate the skill.
+
+The framework's default prompt enclosure for attached `@file` content is
+`<file_references>`. Product hosts can set `promptFileReferenceTag` on session options to
+choose a different enclosure; Robota sets `robota_file_references`. SDK consumers that
+need the previous identifiers should pass `modelCommandToolPrefix: 'robota_command_'`
+and `promptFileReferenceTag: 'robota_file_references'` explicitly. Direct calls to
+`createProviderSafeModelCommandToolName`, `createModelCommandToolProjection`, and
+`buildPromptWithFileReferences` can pass the same values as their optional arguments.
 
 ### createQuery()
 

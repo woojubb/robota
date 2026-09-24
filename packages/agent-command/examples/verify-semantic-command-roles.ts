@@ -117,7 +117,7 @@ async function main(): Promise<void> {
 
       const projectedSpawnTool = new FunctionTool(
         {
-          name: 'robota_command_spawn-subagent-alt',
+          name: 'command_spawn-subagent-alt',
           description: 'Projected alternate spawn command',
           parameters: { type: 'object', properties: {} },
         },
@@ -127,7 +127,7 @@ async function main(): Promise<void> {
       assertCondition(
         subagent
           .getToolSchemas()
-          .every((schema) => schema.name !== 'robota_command_spawn-subagent-alt'),
+          .every((schema) => schema.name !== 'command_spawn-subagent-alt'),
         'alternate spawn command was not filtered',
       );
 

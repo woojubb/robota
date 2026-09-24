@@ -228,6 +228,8 @@ export interface IRobotaRuntimeSeamInput {
 export interface IRobotaRuntimeOptions {
   provider: IAIProvider;
   providerErrorGuidance?: IProviderErrorGuidance;
+  promptFileReferenceTag?: string;
+  modelCommandToolPrefix?: string;
   commandModules: readonly ICommandModule[];
   agentDefinitions: readonly IAgentDefinition[];
   /** The tool surface, grouped so every presentation channel is handed the SAME pair. */

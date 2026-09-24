@@ -58,6 +58,9 @@ describe('prompt file references', () => {
       expect(buildPromptWithFileReferences('Explain @docs/guide.md', result.references)).toContain(
         'Use this file.',
       );
+      expect(() =>
+        buildPromptWithFileReferences('Explain @docs/guide.md', result.references, 'bad><tag'),
+      ).toThrow('Prompt file reference tag must use safe tag characters.');
     } finally {
       await rm(cwd, { recursive: true, force: true });
     }

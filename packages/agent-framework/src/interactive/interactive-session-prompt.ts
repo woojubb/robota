@@ -57,6 +57,7 @@ export interface IPromptTurnContext {
   signal?: AbortSignal;
   turnSource?: TTurnSource;
   providerErrorGuidance?: IProviderErrorGuidance;
+  promptFileReferenceTag?: string;
   /**
    * SELFHOST-008 P3: an EPHEMERAL per-turn system block (rendered recalled memory) to include in THIS
    * turn's model call only — passed through to `session.run` and never persisted. Absent ⇒ no injection.
@@ -122,6 +123,7 @@ export async function executePromptTurn(
       rawInput,
       ctx.getContextReferences(),
       ctx.turnSource !== 'external',
+      ctx.promptFileReferenceTag,
     );
     if (preparedPrompt.promptFileReferenceEntry) {
       history.push(preparedPrompt.promptFileReferenceEntry);

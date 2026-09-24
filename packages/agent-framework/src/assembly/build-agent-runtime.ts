@@ -70,6 +70,7 @@ export function buildAgentRuntime(
       customAgentRegistry: (name: string) => agentLoader.getAgent(name),
       agentDefinitions,
       commandSemanticRoles: options.commandSemanticRoles,
+      modelCommandToolPrefix: options.modelCommandToolPrefix,
       // ARCH-033/ARCH-034: the parent's session-shaped choices, carried to the runner because a
       // runner that rebuilds the tool surface in ANOTHER process has no other way to learn them.
       // The in-process runner ignores all three — it receives `tools` already assembled — which is

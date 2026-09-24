@@ -316,6 +316,7 @@ export class SessionExecutionController {
       };
       await executePromptTurn(input, displayInput, rawInput, {
         providerErrorGuidance: this.callbacks.providerErrorGuidance,
+        promptFileReferenceTag: this.callbacks.promptFileReferenceTag,
         turnSource: turnOptions.turnSource,
         ...promptTurnAttribution(ephemeralSystemContext, turnOptions.driverId),
         ...(turnOptions.signal ? { signal: turnOptions.signal } : {}),

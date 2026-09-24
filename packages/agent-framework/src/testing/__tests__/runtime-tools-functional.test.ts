@@ -79,7 +79,7 @@ describe('canonical runtime tools through real InteractiveSession', () => {
     });
     const catalog = await harness.session.listRuntimeTools();
     expect(catalog.some((tool) => tool.name === 'Bash')).toBe(true);
-    expect(catalog.some((tool) => tool.name === 'robota_command_echo')).toBe(true);
+    expect(catalog.some((tool) => tool.name === 'command_echo')).toBe(true);
     const result = await harness.session.invokeRuntimeTool('Bash', {
       command: 'printf canonical > direct.txt',
     });
