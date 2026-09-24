@@ -18,6 +18,7 @@ export interface ISupervisedViewRow {
 export interface ISupervisedSessionViewProps {
   readonly loadRows: (signal: AbortSignal) => Promise<readonly ISupervisedViewRow[]>;
   readonly onStop?: (id: string) => Promise<void>;
+  readonly filteredByCwd?: boolean;
   readonly refreshMs?: number;
 }
 
@@ -49,6 +50,7 @@ function sameRows(a: readonly ISupervisedViewRow[], b: readonly ISupervisedViewR
 export default function SupervisedSessionView({
   loadRows,
   onStop,
+  filteredByCwd = false,
   refreshMs = 2_000,
 }: ISupervisedSessionViewProps): React.ReactElement {
   const { exit } = useApp();
@@ -192,7 +194,7 @@ export default function SupervisedSessionView({
 
   return (
     <Box flexDirection="column" {...(screenReader ? {} : { height })}>
-      <Text {...chromeWrap}>Background sessions across projects</Text>
+      <Text {...chromeWrap}>{filteredByCwd ? 'Background sessions in selected directory' : 'Background sessions across projects'}</Text>
       <Text {...chromeWrap}>{ordered.length} supervised session(s). Foreground peers and saved records are separate.</Text>
       {status === 'loading' && <Text {...chromeWrap}>Loading supervised sessions...</Text>}
       {status === 'unavailable' && <Text {...chromeWrap}>Supervised session discovery unavailable; last verified rows remain below.</Text>}
@@ -242,7 +244,8 @@ export async function renderSupervisedSessionView(
   });
   const instance = render(
     <ScreenReaderProvider enabled={options.screenReader}>
-      <SupervisedSessionView loadRows={options.loadRows} onStop={options.onStop} refreshMs={options.refreshMs} />
+      <SupervisedSessionView loadRows={options.loadRows} onStop={options.onStop}
+        filteredByCwd={options.filteredByCwd} refreshMs={options.refreshMs} />
     </ScreenReaderProvider>,
     { isScreenReaderEnabled: options.screenReader, exitOnCtrlC: false },
   );

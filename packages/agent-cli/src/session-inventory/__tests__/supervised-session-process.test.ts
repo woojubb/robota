@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -34,6 +34,10 @@ describe('detached supervised runtime', () => {
         id, liveness: 'alive', control: 'available',
         activity: expect.stringMatching(/^(unknown|idle)$/),
       }]);
+      expect(await listSupervisedSessions(root, undefined, { cwd: realpathSync(process.cwd()) })).toEqual(rows);
+      expect(await listSupervisedSessions(root, undefined, { cwd: realpathSync(scratch) })).toEqual([]);
+      expect(JSON.stringify(rows)).not.toContain(realpathSync(process.cwd()));
+      expect(readFileSync(join(root, id, 'state.json'), 'utf8')).not.toContain(realpathSync(process.cwd()));
       // The launcher handshake proves the control process is alive, not that async session
       // initialization has finished. It may legitimately report unknown before becoming idle.
       await vi.waitFor(async () => {
@@ -71,6 +75,7 @@ describe('detached supervised runtime', () => {
       expect(await listSupervisedSessions(root)).toEqual([
         { id, liveness: 'dead', control: 'unavailable', activity: 'unknown' },
       ]);
+      expect(await listSupervisedSessions(root, undefined, { cwd: realpathSync(process.cwd()) })).toEqual([]);
       await expect(stopSupervisedSession(id, root)).rejects.toThrow(/not proven alive/i);
     } finally {
       if (child?.exitCode === null && child.signalCode === null) child.kill('SIGKILL');

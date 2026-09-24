@@ -87,6 +87,32 @@ describe('supervised session control', () => {
     }
   });
 
+  it('filters only by cwd returned from a verified live control reply without exposing paths in rows', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-cwd-'));
+    const root = join(scratch, 'supervised');
+    const project = join(scratch, 'project');
+    const other = join(scratch, 'other');
+    mkdirSync(project);
+    mkdirSync(other);
+    const control = await startSupervisedControl(ID, () => undefined, root, undefined, () => project);
+    try {
+      const row = { id: ID, liveness: 'alive', control: 'available', activity: 'unknown' };
+      expect(await listSupervisedSessions(root)).toEqual([row]);
+      expect(await listSupervisedSessions(root, undefined, { cwd: project })).toEqual([row]);
+      expect(await listSupervisedSessions(root, undefined, { cwd: other })).toEqual([]);
+      expect(JSON.stringify(await listSupervisedSessions(root))).not.toContain(project);
+      const socketName = readdirSync(root).find((name) => name.endsWith('.sock'))!;
+      rmSync(join(root, socketName));
+      expect(await listSupervisedSessions(root, undefined, { cwd: project })).toEqual([]);
+      expect(await listSupervisedSessions(root)).toEqual([
+        { id: ID, liveness: 'alive', control: 'unavailable', activity: 'unknown' },
+      ]);
+    } finally {
+      await control.close();
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
   it('lists and stops only the process that registered its own control socket', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-'));
     const root = join(scratch, 'supervised');

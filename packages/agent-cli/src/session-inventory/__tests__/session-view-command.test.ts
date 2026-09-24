@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -77,5 +77,57 @@ describe('session view command', () => {
       isTTY: true, settings: {}, env: {}, root: '/tmp/supervised-view-test', render, stop,
     })).toBe(0);
     expect(stop).toHaveBeenCalledExactlyOnceWith(id, '/tmp/supervised-view-test');
+  });
+
+  it('accepts a cwd filter with screen-reader flags and shows only verified matching sessions', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-view-cwd-'));
+    const root = join(scratch, 'supervised');
+    const project = join(scratch, 'project');
+    const other = join(scratch, 'other');
+    const projectLink = join(scratch, 'project-link');
+    mkdirSync(project);
+    mkdirSync(other);
+    symlinkSync(project, projectLink, 'dir');
+    const id = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
+    const control = await startSupervisedControl(id, () => undefined, root, undefined, () => realpathSync(project));
+    const observed: unknown[] = [];
+    const render = vi.fn(async (options: Parameters<typeof renderSupervisedSessionView>[0]) => {
+      expect(options.filteredByCwd).toBe(true);
+      observed.push(await options.loadRows(new AbortController().signal));
+    });
+    try {
+      expect(await runSessionViewCommand(['--screen-reader', '--cwd', project], {
+        isTTY: true, settings: {}, env: {}, root, render,
+      })).toBe(0);
+      expect(observed[0]).toEqual([
+        { id, liveness: 'alive', control: 'available', activity: 'unknown' },
+      ]);
+      expect(await runSessionViewCommand(['--cwd', other, '--no-screen-reader'], {
+        isTTY: true, settings: {}, env: {}, root, render,
+      })).toBe(0);
+      expect(observed[1]).toEqual([]);
+      expect(await runSessionViewCommand(['--cwd', projectLink], {
+        isTTY: true, settings: {}, env: {}, root, render,
+      })).toBe(0);
+      expect(observed[2]).toEqual(observed[0]);
+    } finally {
+      await control.close();
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects a missing or nonexistent cwd filter without opening the view', async () => {
+    const render = vi.fn(async () => undefined);
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      expect(await runSessionViewCommand(['--cwd'], { isTTY: true, render })).toBe(1);
+      expect(await runSessionViewCommand(['--cwd', '/a/nonexistent/robota-view-filter'], {
+        isTTY: true, settings: {}, env: {}, render,
+      })).toBe(1);
+      expect(render).not.toHaveBeenCalled();
+      expect(stderr.mock.calls.map(([value]) => String(value)).join('')).not.toContain('/a/nonexistent');
+    } finally {
+      stderr.mockRestore();
+    }
   });
 });
