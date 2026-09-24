@@ -145,12 +145,12 @@ async function readFileTool(args: TReadArgs, options: ISandboxToolOptions): Prom
   if (options.sandboxClient) {
     try {
       const content = await options.sandboxClient.readFile(filePath);
+      if (options.signal?.aborted) throw new ReadCancelledError();
       // This API already returns a complete string; admission here still bounds formatting and
       // workflow output, while a streaming sandbox read API is needed to bound provider memory.
       if (Buffer.byteLength(content, 'utf8') > MAX_READ_BYTES) {
         throw new ReadByteLimitError('input');
       }
-      if (options.signal?.aborted) throw new ReadCancelledError();
       return formatReadResult(filePath, content, startLine, limit);
     } catch (err) {
       if (err instanceof ReadByteLimitError || err instanceof ReadCancelledError) throw err;
@@ -189,7 +189,8 @@ async function readFileTool(args: TReadArgs, options: ISandboxToolOptions): Prom
     return JSON.stringify(result);
   }
 
-  let buffer: Buffer;
+  let buffer = Buffer.alloc(0);
+  let binaryFile = false;
   try {
     const handle = await open(filePath, 'r');
     try {
@@ -205,20 +206,15 @@ async function readFileTool(args: TReadArgs, options: ISandboxToolOptions): Prom
         if (bytesRead === 0) break;
         const binaryCheckLength = Math.min(bytesRead, 8192 - binaryCheckedBytes);
         if (binaryCheckLength > 0 && isBinary(chunk.subarray(0, binaryCheckLength))) {
-          const result: IToolInvocationResult = {
-            success: false, output: '', error: `Binary file not supported: ${filePath}`,
-          };
-          return JSON.stringify(result);
+          binaryFile = true;
+          break;
         }
         binaryCheckedBytes += binaryCheckLength;
         bytes += bytesRead;
         if (bytes > MAX_READ_BYTES) throw new ReadByteLimitError('input');
         chunks.push(Buffer.from(chunk.subarray(0, bytesRead)));
-        if (binaryCheckedBytes >= 8192 && fileStats.size > MAX_READ_BYTES) {
-          throw new ReadByteLimitError('input');
-        }
       }
-      buffer = Buffer.concat(chunks, bytes);
+      if (!binaryFile) buffer = Buffer.concat(chunks, bytes);
     } finally {
       await handle.close();
     }
@@ -229,6 +225,14 @@ async function readFileTool(args: TReadArgs, options: ISandboxToolOptions): Prom
       success: false,
       output: '',
       error: err instanceof Error ? err.message : String(err),
+    };
+    return JSON.stringify(result);
+  }
+
+  if (options.signal?.aborted) throw new ReadCancelledError();
+  if (binaryFile) {
+    const result: IToolInvocationResult = {
+      success: false, output: '', error: `Binary file not supported: ${filePath}`,
     };
     return JSON.stringify(result);
   }
