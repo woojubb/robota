@@ -157,8 +157,9 @@ remain operator-only; projecting metadata does not grant model invocation or cha
 
 **Session operator command metadata.** Session commands expose one operator-facing metadata contract
 to the palette and executable registry. In particular, rename advertises its required session name,
-while cost advertises the optional budget operation and its set/clear forms. Projecting that metadata
-does not change the commands' inline execution policy, permission requirement, or model visibility.
+while cost advertises the optional budget operation and its set/clear forms through an argument hint.
+Cost remains a leaf palette entry so selecting it with Enter runs the default session summary. This
+metadata does not change inline execution policy, permission requirements, or model visibility.
 
 **CMD-004 ask seam.** A command that needs input (selection pickers, setup wizards, destructive-action
 confirmation) asks for it inline at the top of `execute` via the host-supplied

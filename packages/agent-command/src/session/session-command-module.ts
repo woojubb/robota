@@ -58,9 +58,6 @@ export function createCostCommandEntry(): ICommand {
     displayName: 'Session Cost',
     description: COST_COMMAND_DESCRIPTION,
     argumentHint: '[budget [<amount>|clear]]',
-    subcommands: [
-      { name: 'budget', description: 'Show, set, or clear the monthly budget', source: 'session' },
-    ],
     source: 'session',
     modelInvocable: false,
     userInvocable: true,
