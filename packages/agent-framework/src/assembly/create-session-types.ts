@@ -138,6 +138,11 @@ export interface ICreateSessionOptions {
   includeSessionLoopDecisionTool?: boolean;
   /** Additional background task runners composed by the runtime shell. */
   backgroundTaskRunners?: IBackgroundTaskRunner[];
+  /** Host-selected environment aliases for subagent lifecycle hooks. */
+  subagentHookEnvironmentNames?: {
+    readonly agentId?: string;
+    readonly agentType?: string;
+  };
   /**
    * MCP-004 §S3: when set AND a `tool-invocation` runner is present in `backgroundTaskRunners`,
    * `buildToolCallHandoff` (`create-session-runtime.ts`) replaces each named tool in the

@@ -16,10 +16,14 @@ describe('toChannelOptions', () => {
       cliAdapter: {} as ITuiCliAdapter,
       promptFileReferenceTag: 'acme_files',
       modelCommandToolPrefix: 'acme_command_',
+      subagentHookEnvironmentNames: { agentId: 'ACME_AGENT_ID', agentType: 'ACME_AGENT_TYPE' },
     });
     const session = buildTuiSessionOptions(channel);
     expect(session.promptFileReferenceTag).toBe('acme_files');
     expect(session.modelCommandToolPrefix).toBe('acme_command_');
+    expect(session.subagentHookEnvironmentNames).toEqual({
+      agentId: 'ACME_AGENT_ID', agentType: 'ACME_AGENT_TYPE',
+    });
   });
 
   it('preserves host permission baselines through render, channel, and session', () => {

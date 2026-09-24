@@ -20,6 +20,7 @@ import { WsTransport } from '@robota-sdk/agent-transport-ws';
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IAgentDefinition,
+  ICreateSessionOptions,
   ICommandModule,
   IProviderErrorGuidance,
   IUnknownCommandModuleName,
@@ -230,6 +231,7 @@ export interface IRobotaRuntimeOptions {
   providerErrorGuidance?: IProviderErrorGuidance;
   promptFileReferenceTag?: string;
   modelCommandToolPrefix?: string;
+  subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
   commandModules: readonly ICommandModule[];
   agentDefinitions: readonly IAgentDefinition[];
   /** The tool surface, grouped so every presentation channel is handed the SAME pair. */

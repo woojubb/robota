@@ -56,6 +56,7 @@ import type {
   ISkillRootDescriptor,
   INodeHostSettingsSource,
   IToolCallHandoffPolicy,
+  ICreateSessionOptions,
 } from '@robota-sdk/agent-framework';
 import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
 import type {
@@ -69,6 +70,7 @@ export interface IRenderOptions {
   /** Product identity for terminal labels, title, and host-facing copy. */
   productDisplayName?: string;
   modelCommandToolPrefix?: string;
+  subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
   promptFileReferenceTag?: string;
   provider: IAIProvider;
   providerErrorGuidance?: IProviderErrorGuidance;
@@ -237,6 +239,9 @@ export function toChannelOptions(
       : {}),
     ...(options.modelCommandToolPrefix !== undefined
       ? { modelCommandToolPrefix: options.modelCommandToolPrefix }
+      : {}),
+    ...(options.subagentHookEnvironmentNames !== undefined
+      ? { subagentHookEnvironmentNames: options.subagentHookEnvironmentNames }
       : {}),
     ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
     ...(options.projectSettingsPaths !== undefined

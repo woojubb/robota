@@ -89,6 +89,7 @@ describe('HeadlessInteractionChannel session options', () => {
       provider: {} as IAIProvider,
       promptFileReferenceTag: 'acme_files',
       modelCommandToolPrefix: 'acme_command_',
+      subagentHookEnvironmentNames: { agentId: 'ACME_AGENT_ID' },
       outputFormat: 'text',
       shellExec: () => '',
     });
@@ -96,6 +97,7 @@ describe('HeadlessInteractionChannel session options', () => {
     expect(sessionCtorSpy.mock.calls[0]?.[0]).toMatchObject({
       promptFileReferenceTag: 'acme_files',
       modelCommandToolPrefix: 'acme_command_',
+      subagentHookEnvironmentNames: { agentId: 'ACME_AGENT_ID' },
     });
   });
 
