@@ -49,6 +49,7 @@ export type { IWorkerLoopOptions, IWorkerLoopResult } from './worker-loop-types.
 export class WorkerLoopService {
   private readonly executionRoot: string;
   private readonly byteLimits: IDagExecutionByteLimits;
+  private readonly cancellationPollMs: number;
   private readonly activeAttempts = new Set<{
     dagRunId: string;
     taskRunId: string;
@@ -77,6 +78,10 @@ export class WorkerLoopService {
   ) {
     this.executionRoot = resolveTrustedExecutionRoot(executionRoot);
     this.byteLimits = resolveDagExecutionByteLimits(byteLimits);
+    this.cancellationPollMs = options.cancellationPollMs ?? 250;
+    if (!Number.isSafeInteger(this.cancellationPollMs) || this.cancellationPollMs < 1) {
+      throw new RangeError('cancellationPollMs must be a positive safe integer');
+    }
   }
 
   /** DAG-001: the idle-branch sweep, throttled — see `task-lease-recovery.ts`. */
@@ -180,10 +185,12 @@ export class WorkerLoopService {
     };
     this.activeAttempts.add(active);
     let executionResult: TTaskExecutionResult;
+    let stopCancellationWatch: (() => void) | undefined;
     try {
       // Input assembly awaits storage. A cancellation during that await must close admission too.
       const cancellationBeforeExecution = await this.cancelIfRunCancelled(message);
       if (cancellationBeforeExecution) return cancellationBeforeExecution;
+      stopCancellationWatch = this.watchCommittedCancellation(active);
       executionResult = await executeWithTimeout(
         this.executor,
         { ...input, signal: controller.signal },
@@ -191,6 +198,7 @@ export class WorkerLoopService {
         message.taskRunId,
       );
     } finally {
+      stopCancellationWatch?.();
       this.activeAttempts.delete(active);
     }
 
@@ -207,6 +215,37 @@ export class WorkerLoopService {
     }
 
     return this.outcomes.handleFailurePath(claimed, taskRun.taskRunId, executionResult.error);
+  }
+
+  /**
+   * A separate process cannot call this worker's local notifier. Read durable state while
+   * its attempt is active so SQLite-backed workers can abort a running provider promptly.
+   * The next read is scheduled only after the previous one settles, and stopping the
+   * watcher prevents a late read from aborting an already-finished attempt.
+   */
+  private watchCommittedCancellation(
+    active: { dagRunId: string; controller: AbortController },
+  ): () => void {
+    let stopped = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const check = async (): Promise<void> => {
+      if (stopped) return;
+      try {
+        const run = await this.storage.getDagRun(active.dagRunId);
+        if (!stopped && run?.status !== 'running') active.controller.abort();
+      } catch {
+        // An unreadable authority cannot justify continuing a live attempt.
+        if (!stopped) active.controller.abort();
+      }
+      if (!stopped && !active.controller.signal.aborted) {
+        timer = setTimeout(() => { void check(); }, this.cancellationPollMs);
+      }
+    };
+    timer = setTimeout(() => { void check(); }, this.cancellationPollMs);
+    return () => {
+      stopped = true;
+      clearTimeout(timer);
+    };
   }
 
   private async cancelIfRunCancelled(
