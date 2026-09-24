@@ -7,6 +7,7 @@ import type { ReadableSpan, SpanExporter } from '@opentelemetry/sdk-trace';
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
 import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';
 import { createNodeOtlpLiveMetricPort } from './live-metric-otlp.js';
+import type { TLiveMetricAttribute } from './live-metric-otlp.js';
 import { createNodeOtlpLiveLogPort } from './live-log-otlp.js';
 import { createNodeLiveConsolePort } from './live-console.js';
 import { createLiveTelemetryResource, safeLiveProviderRequestId, safeLiveToolCallId } from './live-resource.js';
@@ -38,7 +39,36 @@ const SUPPORTED_SETTINGS = new Set([
   'ENABLED', 'TRACES', 'METRICS', 'LOGS', 'OTLP_PROTOCOL', 'OTLP_ENDPOINT',
   'OTLP_TRACES_ENDPOINT', 'OTLP_METRICS_ENDPOINT', 'OTLP_LOGS_ENDPOINT',
   'OTLP_HEADERS', 'OTLP_TRACES_HEADERS', 'OTLP_METRICS_HEADERS', 'OTLP_LOGS_HEADERS',
+  'METRIC_ATTRIBUTES',
 ].map((suffix) => `ROBOTA_TELEMETRY_${suffix}`));
+
+const METRIC_ATTRIBUTES_SETTING = 'ROBOTA_TELEMETRY_METRIC_ATTRIBUTES';
+const METRIC_ATTRIBUTE_TOKENS: ReadonlySet<TLiveMetricAttribute> = new Set(['session', 'provider', 'model']);
+
+/**
+ * Metric attribute cardinality is opt-in and only meaningful when metrics are actually exported:
+ * the setting is refused rather than silently unused when metrics stay off. A malformed token is
+ * named only by its 1-based position, never by its text, since the text may be something the
+ * caller did not mean to disclose.
+ */
+function resolveMetricAttributesSetting(
+  env: Readonly<Record<string, string | undefined>>,
+): ReadonlySet<TLiveMetricAttribute> {
+  const raw = env[METRIC_ATTRIBUTES_SETTING];
+  if (raw === undefined) return new Set();
+  const selector = env['ROBOTA_TELEMETRY_METRICS'];
+  if (selector !== 'otlp' && selector !== 'console') {
+    throw new Error(`${METRIC_ATTRIBUTES_SETTING} is set but metrics are not exported over otlp or console.`);
+  }
+  const result = new Set<TLiveMetricAttribute>();
+  raw.split(',').forEach((token, index) => {
+    if (!(METRIC_ATTRIBUTE_TOKENS as ReadonlySet<string>).has(token) || result.has(token as TLiveMetricAttribute)) {
+      throw new Error(`${METRIC_ATTRIBUTES_SETTING} has an invalid token at position ${index + 1}.`);
+    }
+    result.add(token as TLiveMetricAttribute);
+  });
+  return result;
+}
 
 /**
  * An enabled exporter never silently drops a setting the user expected to take effect: exporting
@@ -353,6 +383,8 @@ export function createConfiguredNodeOtlpLiveTelemetryPort(
   hostResource?: ILiveTelemetryHostResource,
 ): INodeOtlpLiveTracePort | undefined {
   const { traces, metrics, logs } = resolveNodeOtlpLiveDestinations(env);
+  const metricAttributes = env['ROBOTA_TELEMETRY_ENABLED'] === '1'
+    ? resolveMetricAttributesSetting(env) : new Set<TLiveMetricAttribute>();
   const hasConsole = env['ROBOTA_TELEMETRY_ENABLED'] === '1' &&
     ['traces', 'metrics', 'logs'].some((signal) => env[`ROBOTA_TELEMETRY_${signal.toUpperCase()}`] === 'console');
   if (!traces && !metrics && !logs && !hasConsole) return undefined;
@@ -361,12 +393,12 @@ export function createConfiguredNodeOtlpLiveTelemetryPort(
   if (traces) ports.push(createNodeOtlpLiveTracePort({
     endpoint: traces.endpoint, headers: traces.headers, resource, ...(onFailure ? { onFailure } : {}),
   }));
-  if (metrics) ports.push(createNodeOtlpLiveMetricPort(metrics.endpoint, onFailure, resource, metrics.headers));
+  if (metrics) ports.push(createNodeOtlpLiveMetricPort(metrics.endpoint, onFailure, resource, metrics.headers, metricAttributes));
   if (logs) ports.push(createNodeOtlpLiveLogPort(logs.endpoint, onFailure, resource, logs.headers));
   if (env['ROBOTA_TELEMETRY_ENABLED'] === '1') {
     for (const signal of ['traces', 'metrics', 'logs'] as const) {
       if (env[`ROBOTA_TELEMETRY_${signal.toUpperCase()}`] === 'console') {
-        ports.push(createNodeLiveConsolePort(signal, writeConsole, onFailure, resource));
+        ports.push(createNodeLiveConsolePort(signal, writeConsole, onFailure, resource, metricAttributes));
       }
     }
   }

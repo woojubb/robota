@@ -55,6 +55,7 @@ describe('Robota live telemetry settings', () => {
       ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT: 'http://127.0.0.1:4318/v1/metrics',
       ROBOTA_TELEMETRY_OTLP_LOGS_ENDPOINT: 'http://127.0.0.1:4318/v1/logs',
       ROBOTA_TELEMETRY_OTLP_TRACES_HEADERS: 'authorization=Bearer%20t',
+      ROBOTA_TELEMETRY_METRIC_ATTRIBUTES: 'session,provider,model',
     }, undefined, () => undefined);
     expect(port).toBeDefined();
     await port?.shutdown();
