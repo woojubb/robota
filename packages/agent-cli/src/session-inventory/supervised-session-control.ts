@@ -148,7 +148,13 @@ function readLine(socket: Socket): Promise<string> {
   });
 }
 
-async function request(directory: string, id: string, command: 'status' | 'stop', signal?: AbortSignal): Promise<unknown> {
+async function request(
+  directory: string,
+  id: string,
+  command: 'status' | 'stop' | 'rename',
+  signal?: AbortSignal,
+  name?: string,
+): Promise<unknown> {
   signal?.throwIfAborted();
   verifyExistingDirectory(directory);
   const socketPath = controlSocketPath(dirname(directory), id);
@@ -165,7 +171,7 @@ async function request(directory: string, id: string, command: 'status' | 'stop'
       socket.setTimeout(REQUEST_TIMEOUT_MS, () => reject(new Error('Supervised session control timed out.')));
     });
     signal?.throwIfAborted();
-    socket.write(`${JSON.stringify({ command, id })}\n`);
+    socket.write(`${JSON.stringify({ command, id, ...(command === 'rename' ? { name } : {}) })}\n`);
     return JSON.parse(await readLine(socket)) as unknown;
   } finally {
     signal?.removeEventListener('abort', onAbort);
@@ -268,6 +274,25 @@ export async function stopSupervisedSession(id: string, root = resolveSupervised
   throw new Error('Supervised session accepted stop but did not finish shutdown.');
 }
 
+export async function renameSupervisedSession(
+  id: string,
+  name: string,
+  root = resolveSupervisedDirectory(),
+): Promise<void> {
+  const directory = sessionDirectory(root, id);
+  if (!isSupervisedSessionName(name)) throw new Error('Supervised session name is invalid or too long.');
+  const record = readRegistration(directory, id);
+  const currentStart = readProcessStartTime(record.pid);
+  if (currentStart === undefined || currentStart !== record.startedAt) {
+    throw new Error('Supervised session is not proven alive.');
+  }
+  const response = await request(directory, id, 'rename', undefined, name);
+  if (typeof response !== 'object' || response === null || !('id' in response) || response.id !== id ||
+    !('status' in response) || response.status !== 'renamed') {
+    throw new Error('Supervised session did not confirm rename.');
+  }
+}
+
 export interface ISupervisedControl {
   close(): Promise<void>;
 }
@@ -280,6 +305,7 @@ export async function startSupervisedControl(
   getCwd?: () => string | undefined,
   getNextLoopAt?: () => string | undefined,
   getName?: () => string | undefined,
+  onRename?: (name: string) => void,
 ): Promise<ISupervisedControl> {
   if (!ID_PATTERN.test(id)) throw new Error('Invalid supervised session ID.');
   ensurePrivateDirectory(root);
@@ -339,6 +365,14 @@ export async function startSupervisedControl(
       } else if (value.command === 'stop') {
         socket.once('finish', onStop);
         socket.end(`${JSON.stringify({ id, status: 'stopping' })}\n`);
+      } else if (value.command === 'rename' && 'name' in value &&
+        isSupervisedSessionName(value.name) && onRename !== undefined) {
+        try {
+          onRename(value.name);
+          socket.end(`${JSON.stringify({ id, status: 'renamed' })}\n`);
+        } catch {
+          socket.end(`${JSON.stringify({ id, status: 'refused' })}\n`);
+        }
       } else {
         socket.end(`${JSON.stringify({ id, status: 'refused' })}\n`);
       }

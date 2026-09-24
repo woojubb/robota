@@ -82,6 +82,8 @@ Commands:
                                   Start a supervised session that outlives this terminal (no attach yet)
   robota session stop <supervised-id>
                                   Stop a supervised session owned by this user
+  robota session rename <supervised-id> <name>
+                                  Rename a live supervised session owned by this user
   robota mcp serve [options]       Serve one Robota session over stdio or authenticated loopback HTTP
   robota eval <definition>         Run an evals-as-code definition; exit 1 on a metric breach (CI gate)
 

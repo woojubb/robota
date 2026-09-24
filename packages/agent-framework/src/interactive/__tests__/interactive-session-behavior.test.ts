@@ -1078,6 +1078,28 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(mockSessionStore.save).toHaveBeenCalled();
   });
 
+  it('keeps the live name unchanged when a persisted rename is refused', () => {
+    const mockSessionStore = {
+      save: vi.fn(() => { throw new Error('storage refused'); }),
+      load: vi.fn().mockReturnValue({
+        status: 'valid',
+        record: { id: 'sess-1', cwd: '/tmp', createdAt: '2026-09-24T00:00:00.000Z',
+          updatedAt: '2026-09-24T00:00:00.000Z', messages: [] },
+      }),
+      list: vi.fn().mockReturnValue([]),
+      delete: vi.fn(),
+    };
+    const session = new InteractiveSession({
+      session: createMockSession() as never,
+      cwd: '/tmp',
+      sessionName: 'before',
+      sessionStore: mockSessionStore,
+    } as never);
+
+    expect(() => session.setName('after')).toThrow('storage refused');
+    expect(session.getName()).toBe('before');
+  });
+
   // ── Scenario: Transport attachment ──────────────────────────
 
   it('attachTransport calls transport.attach with session', () => {

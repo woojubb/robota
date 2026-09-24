@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import {
   listSupervisedSessions,
+  renameSupervisedSession,
   startSupervisedControl,
   stopSupervisedSession,
 } from '../supervised-session-control.js';
@@ -122,6 +123,37 @@ describe('supervised session control', () => {
       await control.close();
       rmSync(scratch, { recursive: true, force: true });
     }
+  });
+
+  it('renames only a live owner through the guarded control endpoint', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-rename-'));
+    const root = join(scratch, 'supervised');
+    let name = 'Morning review';
+    let refuse = false;
+    const onRename = vi.fn((next: string) => {
+      if (refuse) throw new Error('private storage failure');
+      name = next;
+    });
+    const control = await startSupervisedControl(
+      ID, () => undefined, root, () => 'idle', undefined, undefined, () => name, onRename,
+    );
+    try {
+      await renameSupervisedSession(ID, 'Evening review', root);
+      expect(onRename).toHaveBeenCalledExactlyOnceWith('Evening review');
+      expect(await listSupervisedSessions(root, undefined, { includeName: true })).toEqual([{
+        id: ID, liveness: 'alive', control: 'available', activity: 'idle', name: 'Evening review',
+      }]);
+      await expect(renameSupervisedSession(ID, 'bad\nname', root)).rejects.toThrow(/name/i);
+      expect(onRename).toHaveBeenCalledTimes(1);
+      refuse = true;
+      await expect(renameSupervisedSession(ID, 'Refused name', root)).rejects.toThrow(/confirm rename/i);
+      expect(name).toBe('Evening review');
+      await expect(renameSupervisedSession('../escape', 'Safe name', root)).rejects.toThrow(/ID/i);
+    } finally {
+      await control.close();
+      rmSync(scratch, { recursive: true, force: true });
+    }
+    await expect(renameSupervisedSession(ID, 'After stop', root)).rejects.toThrow();
   });
 
   it('keeps activity unknown when the live process control reply cannot be verified', async () => {

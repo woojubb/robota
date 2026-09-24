@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { listSupervisedSessions, stopSupervisedSession } from '../supervised-session-control.js';
+import { listSupervisedSessions, renameSupervisedSession, stopSupervisedSession } from '../supervised-session-control.js';
 import { launchSupervisedSession } from '../supervised-session-launch.js';
 
 const fixture = fileURLToPath(new URL('./fixtures/supervised-serve-fixture.ts', import.meta.url));
@@ -29,7 +29,13 @@ describe('detached supervised runtime', () => {
       await vi.waitFor(async () => expect(await listSupervisedSessions(root, undefined, { includeName: true })).toEqual([{
         id, liveness: 'alive', control: 'available', activity: 'idle', name: 'Morning review',
       }]), { timeout: 15_000, interval: 100 });
+      await renameSupervisedSession(id, 'Evening review', root);
+      expect(await listSupervisedSessions(root, undefined, { includeName: true })).toEqual([{
+        id, liveness: 'alive', control: 'available', activity: 'idle', name: 'Evening review',
+      }]);
+      expect(JSON.stringify(await listSupervisedSessions(root))).not.toContain('Evening review');
       expect(readFileSync(join(root, id, 'state.json'), 'utf8')).not.toContain('Morning review');
+      expect(readFileSync(join(root, id, 'state.json'), 'utf8')).not.toContain('Evening review');
       await stopSupervisedSession(id, root);
     } finally {
       if (id) {
