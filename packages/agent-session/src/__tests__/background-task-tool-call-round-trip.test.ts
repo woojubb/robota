@@ -77,6 +77,20 @@ function persisted(record: IInteractiveSessionRecord): unknown {
 }
 
 describe('a persisted `tool-invocation` background task round-trips (TC-22)', () => {
+  it.each([
+    { field: 'kind', value: 'agent' },
+    { field: 'taskId', value: 'other-task' },
+  ])('rejects a persisted result whose $field differs from its task', ({ field, value }) => {
+    const record = persisted(toolInvocationRecord()) as IInteractiveSessionRecord;
+    const result = record.backgroundTasks?.[0]?.result as unknown as Record<string, unknown>;
+    result[field] = value;
+    const outcome = decodeInteractiveSessionRecord(record);
+    expect(outcome.status).toBe('corrupt');
+    if (outcome.status === 'corrupt') {
+      expect(outcome.issues.map((issue) => issue.path)).toContain(`backgroundTasks[0].result.${field}`);
+    }
+  });
+
   it('decodes to valid, not corrupt', () => {
     const outcome = decodeInteractiveSessionRecord(persisted(toolInvocationRecord()));
     if (outcome.status !== 'valid') {

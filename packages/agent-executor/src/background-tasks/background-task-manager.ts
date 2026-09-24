@@ -361,6 +361,15 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
 
   private completeTask(task: ITrackedBackgroundTask, result: IBackgroundTaskResult): void {
     if (isTerminalBackgroundTaskStatus(task.state.status)) return;
+    if (result.taskId !== task.state.id || result.kind !== task.state.kind) {
+      this.failTask(
+        task,
+        createRunnerError(
+          `Background task result identity mismatch: expected ${task.state.id} (${task.state.kind}), received ${result.taskId} (${result.kind})`,
+        ),
+      );
+      return;
+    }
     this.watchdogs.clear(task);
     const completed = markBackgroundTaskCompleted(task, result, this.now());
     this.releaseSlot(task.state.id);

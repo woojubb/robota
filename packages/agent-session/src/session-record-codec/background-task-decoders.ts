@@ -18,7 +18,7 @@ import {
   decodeBackgroundTaskSchedule,
   decodePrimitiveMap,
 } from './background-task-members.js';
-import { atKey, setOptional } from './decode-outcome.js';
+import { addIssue, atKey, setOptional } from './decode-outcome.js';
 import {
   decodeBoolean,
   decodeDeclaredObject,
@@ -154,11 +154,16 @@ export function decodeBackgroundTaskState(
       (member, memberPath, sink) => decodeLiteral(member, TASK_TIMEOUT_REASONS, memberPath, sink),
     ),
   );
-  setOptional(
-    task,
-    'result',
-    decodeOptional(raw['result'], atKey(path, 'result'), issues, decodeBackgroundTaskResult),
-  );
+  const result = decodeOptional(raw['result'], atKey(path, 'result'), issues, decodeBackgroundTaskResult);
+  if (result !== undefined) {
+    if (result.taskId !== id) {
+      addIssue(issues, atKey(atKey(path, 'result'), 'taskId'), 'must match the task ID');
+    }
+    if (result.kind !== kind) {
+      addIssue(issues, atKey(atKey(path, 'result'), 'kind'), 'must match the task kind');
+    }
+    task.result = result;
+  }
   setOptional(
     task,
     'error',
