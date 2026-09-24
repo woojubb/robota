@@ -68,6 +68,11 @@ its current interactive session into the same guarded, same-user rendezvous as p
 observation is separate from PID/start-time liveness: stale observations or unverified processes
 remain `unknown`. A TUI session switch clears the previous observation and detaches its listeners;
 neither conversation content nor stored-session identity is inferred from the peer entry.
+`robota session list` reads this guarded presence without announcing a new process and shows it
+separately from user-owned and currently authorized project session records. A matching ID does
+not prove a peer owns a saved record; corrupt and unsupported records remain visible, and neither
+transcript content nor untrusted project records are included. This inventory is not a background
+supervisor or an attach/restart promise.
 
 **Explicit local OTLP export (#2726).** `robota usage export` reads the same authorized user and
 project session stores as local usage reporting. Its default signal sends aggregate, non-additive

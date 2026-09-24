@@ -3,6 +3,7 @@ import { PrintTerminal } from '../print-terminal.js';
 import { isDoctorCommandName, runDoctorRoute } from './doctor-route.js';
 import { readVersion } from './version.js';
 import { runSessionAnalyze } from '../session-analyzer/session-analyze-command.js';
+import { runSessionListCommand } from '../session-inventory/session-list-command.js';
 import { runUsageCommand } from '../usage/usage-command.js';
 import { runUsageExportCommand } from '../usage/usage-export-command.js';
 import {
@@ -63,6 +64,13 @@ export async function runPreparsedCliCommand(
     await runSessionAnalyze(
       argv.slice(SUBCOMMAND_ARGUMENT_INDEX),
       cwd,
+      composition.projectAccess.status === 'trusted' ? composition.sessionStore : undefined,
+    );
+    return true;
+  }
+  if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'list') {
+    process.exitCode = runSessionListCommand(
+      argv.slice(SUBCOMMAND_ARGUMENT_INDEX),
       composition.projectAccess.status === 'trusted' ? composition.sessionStore : undefined,
     );
     return true;
