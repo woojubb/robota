@@ -12,6 +12,7 @@ import {
   type ITaskRun,
   type ITaskExecutionInput,
   type ITaskExecutorPort,
+  type TTaskExecutionResult,
   type IRunProgressEventReporter,
   type TResult,
 } from '@robota-sdk/dag-core';
@@ -44,6 +45,19 @@ export type { IWorkerLoopOptions, IWorkerLoopResult } from './worker-loop-types.
  */
 export class WorkerLoopService {
   private readonly executionRoot: string;
+  private readonly activeAttempts = new Set<{
+    dagRunId: string;
+    taskRunId: string;
+    attempt: number;
+    controller: AbortController;
+  }>();
+
+  /** Signals only attempts owned by this worker instance for the cancelled run. */
+  public notifyRunCancelled(dagRunId: string): void {
+    for (const active of this.activeAttempts) {
+      if (active.dagRunId === dagRunId) active.controller.abort();
+    }
+  }
 
   public constructor(
     private readonly storage: IStoragePort,
@@ -138,15 +152,29 @@ export class WorkerLoopService {
     }
 
     const input = await this.buildExecutionInput(claimed, dagRun, definition, nodeDefinition);
-    // Input assembly awaits storage. A cancellation during that await must close admission too.
-    const cancellationBeforeExecution = await this.cancelIfRunCancelled(message);
-    if (cancellationBeforeExecution) return cancellationBeforeExecution;
-    const executionResult = await executeWithTimeout(
-      this.executor,
-      input,
-      claimDeps.timeoutMs,
-      message.taskRunId,
-    );
+    // Registration precedes the final persisted read, closing its stale-snapshot race.
+    const controller = new AbortController();
+    const active = {
+      dagRunId: claimed.dagRunId,
+      taskRunId: claimed.taskRunId,
+      attempt: claimed.attempt,
+      controller,
+    };
+    this.activeAttempts.add(active);
+    let executionResult: TTaskExecutionResult;
+    try {
+      // Input assembly awaits storage. A cancellation during that await must close admission too.
+      const cancellationBeforeExecution = await this.cancelIfRunCancelled(message);
+      if (cancellationBeforeExecution) return cancellationBeforeExecution;
+      executionResult = await executeWithTimeout(
+        this.executor,
+        { ...input, signal: controller.signal },
+        claimDeps.timeoutMs,
+        message.taskRunId,
+      );
+    } finally {
+      this.activeAttempts.delete(active);
+    }
 
     if (executionResult.ok) {
       return this.outcomes.handleSuccessPath(

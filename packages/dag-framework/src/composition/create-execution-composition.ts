@@ -47,7 +47,6 @@ export function createExecutionComposition(
     runProgressEventBus,
   );
   const runQuery = new RunQueryService(dependencies.storage);
-  const runCancel = new RunCancelService(dependencies.storage, dependencies.clock);
 
   const workerLoop = createWorkerLoopService(
     {
@@ -65,6 +64,7 @@ export function createExecutionComposition(
       retryEnabled: options.worker.retryEnabled ?? false,
     },
   );
+  const runCancel = new RunCancelService(dependencies.storage, dependencies.clock, workerLoop);
   const runAdvancement = new RunAdvancementCoordinator(workerLoop, runQuery, options.logger);
 
   return {

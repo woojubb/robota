@@ -48,9 +48,10 @@ claiming the task, and again after loading execution context and immediately bef
 executor. If the run is cancelled, the task transitions to `cancelled`, its lease is cleared, and
 the message is acknowledged without publishing `task.started` or invoking the executor. A claim
 that raced with cancellation may already have published `task.started`; the task still ends
-`cancelled` without invoking the executor. These checks close worker admission at the checked
-points only — they do not interrupt an executor already running, and do not make the status read
-and executor invocation atomic; that is out of scope here.
+`cancelled` without invoking the executor. The worker registers a local attempt signal before its
+final status read. A committed run cancellation aborts only active attempts for that run, so a
+stale final read cannot leave a cooperative attempt running after notification. Workers in other
+processes still rely on persisted admission checks.
 
 ### Crash recovery (DAG-001)
 
@@ -117,9 +118,9 @@ the executor. Attempt timers and upstream listeners are removed on settlement.
 
 This is cooperative interruption, not CPU preemption or a guarantee that executor cleanup has
 finished. An executor ignoring its signal can continue side effects after timeout, including while
-an eligible retry runs. Synchronous work can still block the timer. Run cancellation is not yet
-connected to active attempt signals; root-owned descendant cancellation and shared budgets remain
-unfinished work under #2875.
+an eligible retry runs. Synchronous work can still block the timer. Same-process run cancellation
+also aborts active attempt signals; cross-process notification, root-owned descendant cancellation,
+and shared budgets remain unfinished work under #2875.
 
 ### Queue-scoped advancement ownership (RUNTIME-003)
 
@@ -158,8 +159,8 @@ cancellation closes downstream admission and executor entry for an already reser
 later and are handled by the existing cancelled-run admission checks.
 
 Finalization and cancellation arbitrate atomically, so an awaited read cannot resurrect a cancelled
-run. This contract concerns durable outcome precedence, not preemption: active executor abort,
-nested cancellation and root aggregate budgets remain separate work.
+run. Active local attempts receive a cooperative abort after cancellation commits; executor
+cleanup, nested cancellation and root aggregate budgets remain separate work.
 
 A task-free execution frontier is not sufficient for completion: for runs with a definition
 snapshot, ready nodes not yet admitted also keep the run running. This covers a sibling finishing
