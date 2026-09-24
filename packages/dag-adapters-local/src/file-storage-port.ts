@@ -48,6 +48,14 @@ export type IFileStoragePortOwnerLockOptions = Pick<
   'refreshIntervalMs' | 'leaseTimeoutMs' | 'selfExpiryMs' | 'afterRefresh'
 >;
 
+/** Thrown by any operation on a `FileStoragePort` after `close()` — closing is final. */
+export class FileStoragePortClosedError extends Error {
+  public constructor(storageRootPath: string) {
+    super(`FileStoragePort for ${storageRootPath} is closed and can no longer be used`);
+    this.name = 'FileStoragePortClosedError';
+  }
+}
+
 export class FileStoragePort implements IStoragePort {
   private readonly definitionsRootPath: string;
   private readonly runsRootPath: string;
@@ -62,8 +70,11 @@ export class FileStoragePort implements IStoragePort {
   private ownerLockAcquisition: Promise<void> | undefined;
   /** Set when the heartbeat lease discovers this instance no longer owns the root; poisons every
    *  later operation instead of letting this instance keep writing as an unaccounted-for second
-   *  owner (the same durability posture as `runStateFailure` for a failed persist). */
+   *  owner (the same durability posture as `runStateFailure` for a failed persist) — UNLESS the next
+   *  operation's recovery attempt (see `ensureInitialized`) finds nothing actually took over. */
   private ownershipLostError: unknown;
+  /** Set by `close()`. Final — checked before everything else, including ownership recovery. */
+  private closed = false;
 
   public constructor(
     private readonly storageRootPath: string,
@@ -97,7 +108,14 @@ export class FileStoragePort implements IStoragePort {
    * `applyTaskRunLease`, the run-key lookup — is unchanged. Only their lifetime moves.
    */
   private async ensureInitialized(): Promise<void> {
-    if (this.ownershipLostError !== undefined) throw this.ownershipLostError;
+    if (this.closed) throw new FileStoragePortClosedError(this.storageRootPath);
+    if (this.ownershipLostError !== undefined) {
+      // Losing the lock is not necessarily permanent: maybe nothing ever actually took over (a
+      // false-alarm self-expiry from writes that have since started succeeding again), or the root
+      // can be freshly reacquired. Only a live, different owner leaves this refused.
+      await this.attemptOwnershipRecovery();
+      if (this.ownershipLostError !== undefined) throw this.ownershipLostError;
+    }
     await this.acquireOwnerLockOnce();
     // Before every operation (not just the periodic heartbeat): a stall long enough to matter delays
     // a queued persist exactly as much as it delays the heartbeat timer, so whichever the event loop
@@ -106,6 +124,21 @@ export class FileStoragePort implements IStoragePort {
     this.ownerLock?.checkSelfExpiry();
     if (this.ownershipLostError !== undefined) throw this.ownershipLostError;
     await this.hydration.ensure();
+  }
+
+  /**
+   * Called once `ownershipLostError` is set: ask the (still-held) lock object whether it can resume —
+   * either because it discovers nothing ever actually took over, or because the root is now freely
+   * reacquirable. On success, the in-memory working set may no longer reflect disk (state written by
+   * whoever this instance was not tracking while poisoned), so hydration is reset to force a fresh
+   * read rather than merge into what may be stale Maps.
+   */
+  private async attemptOwnershipRecovery(): Promise<void> {
+    if (!this.ownerLock) return;
+    const recovered = await this.ownerLock.tryRecover();
+    if (!recovered) return;
+    this.ownershipLostError = undefined;
+    this.hydration.reset();
   }
 
   /**
@@ -140,13 +173,21 @@ export class FileStoragePort implements IStoragePort {
   }
 
   /**
-   * Release this instance's ownership of the storage root. Safe to call more than once, and safe to
-   * call on an instance that never successfully acquired the lock. A later operation on this same
-   * instance re-acquires it rather than staying closed forever — `close()` releases ownership, it
-   * does not otherwise disable the instance (unless it had already been poisoned by losing the lease,
-   * which close() does not clear — that instance is done regardless).
+   * Release this instance's ownership of the storage root and make the instance unusable — closing is
+   * final. Every operation after this rejects with `FileStoragePortClosedError`, including one already
+   * poisoned by a lost lease: `close()` is a deliberate, permanent shutdown, not a reset.
+   *
+   * Waits for any run/task write already queued (`runStateTail`) and any owner-lock acquisition
+   * already in flight to settle first, so releasing ownership never races a write or an acquire that
+   * started before `close()` was called. Safe to call more than once, and safe to call on an instance
+   * that never successfully acquired the lock.
    */
   public async close(): Promise<void> {
+    this.closed = true;
+    // `withRunState`'s tail chain absorbs its own operation's outcome (`.then(() => undefined, () =>
+    // undefined)`), so awaiting it here never itself rejects.
+    await this.runStateTail;
+    if (this.ownerLockAcquisition) await this.ownerLockAcquisition.catch(() => undefined);
     await this.ownerLock?.release();
     this.ownerLock = undefined;
     this.ownerLockAcquisition = undefined;

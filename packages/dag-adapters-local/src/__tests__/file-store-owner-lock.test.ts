@@ -1,16 +1,25 @@
-import { chmodSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import os, { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { FileStoragePort } from '../file-storage-port.js';
+import { FileStoragePort, FileStoragePortClosedError } from '../file-storage-port.js';
 import type { IFileStoragePortOwnerLockOptions } from '../file-storage-port.js';
 import {
   computeSelfExpiryMs,
   DEFAULT_LOCK_LEASE_TIMEOUT_MS,
   FileStoreOwnerConflictError,
+  FileStoreOwnerLock,
 } from '../file-store-owner-lock.js';
 
 import type { IDagRun } from '@robota-sdk/dag-core';
@@ -125,16 +134,21 @@ describe('a storage root has exactly one live file-adapter owner (ISSUE-2875)', 
     await b.close();
   });
 
-  it('the same instance can be reused after close() without staying locked out', async () => {
+  it('close() is final — a later operation on the same instance is refused, not silently reacquired', async () => {
     const root = storageRoot();
     const a = new FileStoragePort(root);
     await a.createDagRun(dagRun());
     await a.close();
 
-    // Reopen and reuse the SAME object. `close()` releases ownership; it does not brick the
-    // instance, so a caller that calls it defensively (e.g. in a `finally`) can still keep going.
-    await expect(a.getDagRun('run-1')).resolves.toMatchObject({ dagRunId: 'run-1' });
+    // `close()` is a deliberate shutdown, not a reset: it must not transparently reacquire on the
+    // next call. A caller that wants to use the root again opens a NEW instance (see the "a second
+    // owner can open once the first closes" case above).
+    await expect(a.getDagRun('run-1')).rejects.toBeInstanceOf(FileStoragePortClosedError);
+    // Calling close() again is still safe (idempotent), and a fresh instance is unaffected.
     await a.close();
+    const b = new FileStoragePort(root);
+    await expect(b.getDagRun('run-1')).resolves.toMatchObject({ dagRunId: 'run-1' });
+    await b.close();
   });
 
   it('a lock left by a dead process on this host is taken over instead of wedging the root forever', async () => {
@@ -179,12 +193,27 @@ describe('a storage root has exactly one live file-adapter owner (ISSUE-2875)', 
     await expect(storage.createDagRun(dagRun())).rejects.toBeInstanceOf(FileStoreOwnerConflictError);
   });
 
-  it('does not take over an unreadable lock file', async () => {
+  it('does not take over a young unreadable lock file', async () => {
     const root = storageRoot();
     writeFileSync(path.join(root, '.owner.lock'), 'not json');
 
     const storage = new FileStoragePort(root);
     await expect(storage.createDagRun(dagRun())).rejects.toBeInstanceOf(FileStoreOwnerConflictError);
+  });
+
+  it('takes over an unreadable lock file once it is older than the lease timeout', async () => {
+    const root = storageRoot();
+    const lockPath = path.join(root, '.owner.lock');
+    writeFileSync(lockPath, 'not json');
+    // Backdate its mtime past the lease timeout — creation is atomic now, so an unreadable file in
+    // practice means something else put it there, or a genuinely dead owner's write was interrupted
+    // before this change; either way, age is the only signal available to reclaim it.
+    const old = new Date(Date.now() - DEFAULT_LOCK_LEASE_TIMEOUT_MS - 1_000);
+    utimesSync(lockPath, old, old);
+
+    const storage = new FileStoragePort(root);
+    await expect(storage.createDagRun(dagRun())).resolves.toBeUndefined();
+    await storage.close();
   });
 });
 
@@ -305,43 +334,63 @@ describe('an owner stops acting before its lease could legitimately be taken ove
     vi.useRealTimers();
   });
 
-  it('failing heartbeat writes make the instance refuse further reads and writes before the lease timeout elapses', async () => {
-    vi.useFakeTimers();
-    const root = storageRoot();
-    const refreshIntervalMs = 1_000;
-    const leaseTimeoutMs = 10_000;
-    const selfExpiryMs = computeSelfExpiryMs(refreshIntervalMs, leaseTimeoutMs);
-    // The formula itself is exercised elsewhere; this only needs the chosen timing to actually prove
-    // the property below (self-expiry strictly before the lease timeout, with room for a few ticks).
-    expect(selfExpiryMs).toBeLessThan(leaseTimeoutMs);
+  // Running as root bypasses the directory permission bits this test revokes, so `chmod 0o500` would
+  // not actually block the heartbeat's writes and the test could not exercise anything.
+  it.skipIf(process.getuid?.() === 0)(
+    'failing heartbeat writes trigger self-expiry before the lease timeout elapses',
+    async () => {
+      vi.useFakeTimers();
+      const root = storageRoot();
+      const refreshIntervalMs = 1_000;
+      const leaseTimeoutMs = 10_000;
+      const selfExpiryMs = computeSelfExpiryMs(refreshIntervalMs, leaseTimeoutMs);
+      // The formula itself is exercised elsewhere; this only needs the chosen timing to actually
+      // prove the property below (self-expiry strictly before the lease timeout, with room to spare).
+      expect(selfExpiryMs).toBeLessThan(leaseTimeoutMs);
 
-    const signal = withRefreshSignal({ refreshIntervalMs, leaseTimeoutMs });
-    const a = new FileStoragePort(root, signal.options);
-    await a.createDagRun(dagRun());
+      const signal = withRefreshSignal({ refreshIntervalMs, leaseTimeoutMs });
+      const a = new FileStoragePort(root, signal.options);
+      await a.createDagRun(dagRun());
 
-    // Make the storage root unwritable so every heartbeat rewrite fails (EACCES) without touching the
-    // lock file's identity — simulating a wedged filesystem / lost permissions rather than a takeover.
-    chmodSync(root, 0o500);
-    try {
-      // The tick on which `age >= selfExpiryMs` first holds — the one where `checkSelfExpiry()` fires
-      // and stops the heartbeat. Looping any further would hang: no interval is left to resolve the
-      // next `nextRefresh()` promise, since self-expiry (like a takeover) stops the heartbeat.
-      const selfExpiryTick = Math.ceil(selfExpiryMs / refreshIntervalMs);
-      const elapsedAtSelfExpiry = selfExpiryTick * refreshIntervalMs;
-      expect(elapsedAtSelfExpiry).toBeLessThan(leaseTimeoutMs); // the property this test proves
+      // Make the storage root AND its `runs` subdirectory unwritable — the lock file lives directly
+      // under the root, but run/task data lives under `runs/`, and `chmod` is not recursive — so every
+      // heartbeat rewrite AND every data persist fails (EACCES) without touching the lock file's
+      // identity, simulating a wedged filesystem / lost permissions rather than a takeover.
+      chmodSync(root, 0o500);
+      chmodSync(path.join(root, 'runs'), 0o500);
+      try {
+        // The tick on which `age >= selfExpiryMs` first holds — the one where `checkSelfExpiry()`
+        // fires and stops the heartbeat. Looping any further would hang: no interval is left to
+        // resolve the next `nextRefresh()` promise, since self-expiry (like a takeover) stops it.
+        const selfExpiryTick = Math.ceil(selfExpiryMs / refreshIntervalMs);
+        const elapsedAtSelfExpiry = selfExpiryTick * refreshIntervalMs;
+        expect(elapsedAtSelfExpiry).toBeLessThan(leaseTimeoutMs); // the property this test proves
 
-      for (let tick = 0; tick < selfExpiryTick; tick += 1) {
-        const refreshed = signal.nextRefresh();
-        await vi.advanceTimersByTimeAsync(refreshIntervalMs);
-        await refreshed;
+        for (let tick = 0; tick < selfExpiryTick; tick += 1) {
+          const refreshed = signal.nextRefresh();
+          await vi.advanceTimersByTimeAsync(refreshIntervalMs);
+          await refreshed;
+        }
+
+        // Nobody else ever took the root over, so a READ recovers immediately — the lock file still
+        // names `a`'s own acquisition (ISSUE-2875 follow-up 3 below). Self-expiry stopping the
+        // instance is not the same claim as "the disk is broken forever"; it is "this instance cannot
+        // currently PROVE it still safely owns the root", and a read needs no proof beyond that.
+        await expect(a.getDagRun('run-1')).resolves.toMatchObject({ dagRunId: 'run-1' });
+        // A WRITE, in contrast, still genuinely fails: the directory really is unwritable, and
+        // recovering ownership does not paper over that — self-expiry did not let the instance's
+        // stopped heartbeat quietly get replaced by a write that succeeds anyway through some other
+        // path. (A real persist failure separately and permanently poisons run/task state on this
+        // instance — see `file-execution-commit-durability.test.ts` — so this test does not go on to
+        // assert a full recovery through the SAME instance once permissions are restored.)
+        await expect(a.createDagRun(dagRun({ dagRunId: 'run-2' }))).rejects.toThrow();
+      } finally {
+        // Restore permissions so `afterEach`'s `rmSync` can remove the directory tree.
+        chmodSync(path.join(root, 'runs'), 0o700);
+        chmodSync(root, 0o700);
       }
-    } finally {
-      // Restore permissions so `afterEach`'s `rmSync` can remove the directory tree.
-      chmodSync(root, 0o700);
-    }
-
-    await expect(a.getDagRun('run-1')).rejects.toBeInstanceOf(FileStoreOwnerConflictError);
-  });
+    },
+  );
 
   it('a healthy owner with succeeding heartbeats never self-poisons', async () => {
     vi.useFakeTimers();
@@ -362,6 +411,91 @@ describe('an owner stops acting before its lease could legitimately be taken ove
     }
 
     await a.close();
+  });
+});
+
+/**
+ * ISSUE-2875 follow-up 3 — losing the lock is not necessarily permanent. Self-expiry in particular can
+ * be a false alarm: writes were failing, then started succeeding again, and NOBODY ever actually took
+ * the root over. Staying poisoned forever in that case would be its own availability bug. `tryRecover`
+ * (run automatically on the next operation after a loss) resumes as the same owner if the lock file
+ * still names this exact acquisition, or reacquires fresh if the root is now free/stale — and stays
+ * refused only when a live, DIFFERENT token actually holds it.
+ */
+describe('losing the lock is recoverable unless someone else now holds it (ISSUE-2875 follow-up 3)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it.skipIf(process.getuid?.() === 0)(
+    'a self-expired owner whose lock is untouched recovers and reflects on-disk state',
+    async () => {
+      vi.useFakeTimers();
+      const root = storageRoot();
+      const refreshIntervalMs = 1_000;
+      const leaseTimeoutMs = 10_000;
+      const selfExpiryMs = computeSelfExpiryMs(refreshIntervalMs, leaseTimeoutMs);
+      const signal = withRefreshSignal({ refreshIntervalMs, leaseTimeoutMs });
+      const a = new FileStoragePort(root, signal.options);
+      await a.createDagRun(dagRun());
+
+      chmodSync(root, 0o500);
+      try {
+        const selfExpiryTick = Math.ceil(selfExpiryMs / refreshIntervalMs);
+        for (let tick = 0; tick < selfExpiryTick; tick += 1) {
+          const refreshed = signal.nextRefresh();
+          await vi.advanceTimersByTimeAsync(refreshIntervalMs);
+          await refreshed;
+        }
+      } finally {
+        chmodSync(root, 0o700); // writes work again; the lock file still names `a`'s own acquisition
+      }
+
+      // While `a` was poisoned, disk changed underneath it — standing in for whatever else might have
+      // written during the outage even though, in this case, nothing else ever took ownership.
+      // Recovery must re-read disk rather than trust `a`'s (possibly stale) in-memory maps.
+      const dagRunsPath = path.join(root, 'runs', 'dag-runs.json');
+      const onDisk = JSON.parse(readFileSync(dagRunsPath, 'utf8')) as unknown[];
+      writeFileSync(dagRunsPath, JSON.stringify([...onDisk, dagRun({ dagRunId: 'run-2' })]));
+
+      // The next operation recovers automatically — same token, nobody else ever took over — and
+      // sees the updated disk state.
+      const listed = await a.listDagRuns();
+      expect(listed.map((run) => run.dagRunId).sort()).toEqual(['run-1', 'run-2']);
+
+      await a.close();
+    },
+  );
+
+  it('an owner whose lock was taken over by a live, different owner stays refused even on retry', async () => {
+    vi.useFakeTimers();
+    const root = storageRoot();
+    const refreshIntervalMs = 1_000;
+    const signal = withRefreshSignal({ refreshIntervalMs, leaseTimeoutMs: 5_000 });
+    const a = new FileStoragePort(root, signal.options);
+    await a.createDagRun(dagRun());
+
+    // A different, live acquisition now holds the root (same pid/host — `isProcessAlive` sees this
+    // process itself — but a different token, so `a` must recognize it is not the one it names).
+    writeFileSync(
+      path.join(root, '.owner.lock'),
+      JSON.stringify({
+        pid: process.pid,
+        hostname: os.hostname(),
+        token: 'a-different-acquisition',
+        acquiredAt: new Date().toISOString(),
+        refreshedAt: Date.now(),
+      }),
+    );
+
+    const refreshed = signal.nextRefresh();
+    await vi.advanceTimersByTimeAsync(refreshIntervalMs);
+    await refreshed;
+
+    await expect(a.getDagRun('run-1')).rejects.toBeInstanceOf(FileStoreOwnerConflictError);
+    // Retrying does not help: recovery runs again on every attempt, but a live, different token still
+    // holds the root, so it stays refused rather than ever silently becoming a second owner.
+    await expect(a.getDagRun('run-1')).rejects.toBeInstanceOf(FileStoreOwnerConflictError);
   });
 });
 
@@ -395,11 +529,66 @@ describe('a storage root has exactly one live file-adapter owner, across process
     const parent = new FileStoragePort(root);
     await expect(parent.createDagRun(dagRun())).rejects.toBeInstanceOf(FileStoreOwnerConflictError);
 
-    // Release the child and wait for it to exit — its `process.exit` handler removes the lock file.
+    // Release the child and wait for it to exit — the fixture calls `storage.close()` itself (an
+    // explicit, orderly release) before exiting, rather than relying on the process `exit` handler.
     child.stdin.write('release\n');
     await new Promise<void>((resolve) => child.once('exit', () => resolve()));
 
     await expect(parent.createDagRun(dagRun())).resolves.toBeUndefined();
     await parent.close();
   }, 20_000);
+});
+
+/**
+ * ISSUE-2875 MUST-1 — a bare "judge stale, unlink, create" is NOT atomic across racing takers: A and
+ * B can both judge the same lock stale, both `unlink` it (the second racing whichever the first has
+ * already recreated), and both then `open(.., 'wx')` successfully, each believing it alone won.
+ * Reproduced before the takeover guard existed: 3 concurrent `acquire()` calls against one stale lock,
+ * run for 200 rounds, produced more than one winner in 2 of the 200 rounds. The guard makes "judge,
+ * unlink, create" one critical section, so this must now be exactly one winner, every round.
+ */
+describe('stale-lock takeover is atomic under concurrency (ISSUE-2875 MUST-1)', () => {
+  it('exactly one of several concurrent acquirers wins a stale lock, every round', async () => {
+    const rounds = 200;
+    const concurrency = 4;
+    // Large enough that no heartbeat or self-expiry fires during a round; this test is about
+    // takeover atomicity, not the lease timing.
+    const lockOptions = { refreshIntervalMs: 60_000, leaseTimeoutMs: 120_000 };
+
+    for (let round = 0; round < rounds; round += 1) {
+      const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'dag-owner-lock-stress-')));
+      try {
+        // A lock that is unambiguously stale by every measure (dead pid, ancient lease), so every
+        // racer immediately judges it stale and heads straight for the guarded takeover.
+        writeFileSync(
+          path.join(root, '.owner.lock'),
+          JSON.stringify({
+            pid: 999_999,
+            hostname: os.hostname(),
+            token: `stale-round-${String(round)}`,
+            acquiredAt: new Date(0).toISOString(),
+            refreshedAt: 0,
+          }),
+        );
+
+        const results = await Promise.allSettled(
+          Array.from({ length: concurrency }, () => FileStoreOwnerLock.acquire(root, lockOptions)),
+        );
+        const winners = results.filter(
+          (result): result is PromiseFulfilledResult<FileStoreOwnerLock> => result.status === 'fulfilled',
+        );
+        expect(winners).toHaveLength(1);
+        // Every loser must have failed with the typed conflict error, not crashed some other way.
+        for (const result of results) {
+          if (result.status === 'rejected') {
+            expect(result.reason).toBeInstanceOf(FileStoreOwnerConflictError);
+          }
+        }
+
+        await winners[0]?.value.release();
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    }
+  }, 30_000);
 });

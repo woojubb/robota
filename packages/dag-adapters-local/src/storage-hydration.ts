@@ -51,4 +51,19 @@ export class HydrationGate {
     await hydrateCollection(dagRunsFilePath, this.targets.dagRuns, (run) => run.dagRunId);
     await hydrateCollection(taskRunsFilePath, this.targets.taskRuns, this.targets.taskRunKeyOf);
   }
+
+  /**
+   * Discard the cached hydration AND the working set it populated, so the next `ensure()` re-reads
+   * disk from empty Maps rather than merging into whatever this instance already held.
+   *
+   * For an owner recovering after losing (or self-expiring from) the lock, that in-memory state may
+   * no longer reflect disk: `hydrateCollection` only `.set()`s what it reads and never deletes, so
+   * re-hydrating into a non-empty Map would leave behind any entry this instance's own state has that
+   * disk no longer does, rather than actually reloading.
+   */
+  public reset(): void {
+    this.hydration = undefined;
+    this.targets.dagRuns.clear();
+    this.targets.taskRuns.clear();
+  }
 }
