@@ -6,7 +6,7 @@ import {
   generatePairingSecret,
 } from '@robota-sdk/agent-remote-pairing';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IProtocolSession } from '@robota-sdk/agent-transport';
 import type { ISignalingClient } from '@robota-sdk/agent-transport-webrtc';
 import { TransportRegistry } from '@robota-sdk/agent-framework';
 import { mkdtempSync, realpathSync } from 'node:fs';
@@ -17,6 +17,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { IHostIdentity } from '../host-identity.js';
 import { RemoteControlController } from '../remote-control-controller.js';
+import { createRemoteControlTransportHost } from '../transport-host-adapter.js';
 import type { ITrustedDeviceRecord, ITrustedDeviceStore } from '../trusted-device-store.js';
 
 /**
@@ -51,7 +52,7 @@ interface ICreatedTransport {
   reconnect: unknown;
   bridge: unknown;
   rendezvous: string | undefined;
-  transport: IConfigurableTransport<IInteractiveSession>;
+  transport: IConfigurableTransport<IProtocolSession>;
 }
 
 /** Deterministically wait until the async reconnect-seed persist has landed (WebCrypto HKDF is not sync). */
@@ -73,7 +74,7 @@ function memoryStore(): ITrustedDeviceStore {
   };
 }
 
-function fakeTransport(): IConfigurableTransport<IInteractiveSession> {
+function fakeTransport(): IConfigurableTransport<IProtocolSession> {
   return {
     name: 'webrtc',
     // Issue #2043: `TransportRegistry.register` refuses a transport whose lifecycle shape disagrees
@@ -86,7 +87,7 @@ function fakeTransport(): IConfigurableTransport<IInteractiveSession> {
     start: vi.fn().mockResolvedValue(undefined),
     stop: vi.fn().mockResolvedValue(undefined),
     validateOptions: () => true,
-  } as unknown as IConfigurableTransport<IInteractiveSession>;
+  } as unknown as IConfigurableTransport<IProtocolSession>;
 }
 
 async function hostIdentity(): Promise<IHostIdentity> {
@@ -109,7 +110,7 @@ function setup(store: ITrustedDeviceStore, identity: IHostIdentity) {
   });
   const registry = realRegistry();
   const controller = new RemoteControlController({
-    registry,
+    host: createRemoteControlTransportHost(registry),
     readRelayUrl: () => 'ws://relay',
     readClientUrl: () => 'https://client/',
     getSession: () => session,
@@ -287,5 +288,9 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
     ceilings[0].cb(); // fire the ceiling — no device returned
     await new Promise((r) => setTimeout(r, 0));
     expect(controller.getStatus()).toEqual({ state: 'off' });
+    expect((created[0].bridge as { dispose: ReturnType<typeof vi.fn> }).dispose).toHaveBeenCalledOnce();
+    for (const candidate of created.slice(1)) {
+      expect(candidate.transport.stop).toHaveBeenCalledOnce();
+    }
   });
 });

@@ -17,9 +17,8 @@ import type {
 } from '@robota-sdk/agent-transport-webrtc';
 import type { IPairingResult } from '@robota-sdk/agent-remote-pairing';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import { SessionResumeBridge } from '@robota-sdk/agent-transport';
-import type { ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
+import type { IProtocolSession, ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
 
 export type TUsageReporters = Pick<
   ISessionMessageHandlerOptions,
@@ -27,7 +26,7 @@ export type TUsageReporters = Pick<
 >;
 
 export function defaultCreateResumeBridge(
-  session: IInteractiveSession,
+  session: IProtocolSession,
   usageReporters?: TUsageReporters,
 ): SessionResumeBridge {
   return new SessionResumeBridge({ session, surface: 'remote', ...usageReporters });
@@ -62,7 +61,7 @@ export function defaultCreateTransport(
   resumeBridge?: SessionResumeBridge,
   localPeer?: ILocalPeerProof,
   usageReporters?: TUsageReporters,
-): IConfigurableTransport<IInteractiveSession> {
+): IConfigurableTransport<IProtocolSession> {
   return new WebRtcTransport({
     signaling,
     secret,

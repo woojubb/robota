@@ -6,6 +6,7 @@ import { loadOrCreateHostIdentity } from './host-identity.js';
 import { parseIceServers } from './ice-config.js';
 import { renderQrToTerminal } from './render-qr.js';
 import { RemoteControlController } from './remote-control-controller.js';
+import { createRemoteControlTransportHost } from './transport-host-adapter.js';
 import { createTrustedDeviceStore } from './trusted-device-store.js';
 
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
@@ -66,7 +67,7 @@ export function createRemoteControlController(
 } {
   let channel: ILiveChannel | undefined;
   const controller = new RemoteControlController({
-    registry,
+    host: createRemoteControlTransportHost(registry),
     ...(usageReporters ? { usageReporters } : {}),
     readRelayUrl: () => readWebrtcOption('relayUrl'),
     readClientUrl: () => readWebrtcOption('clientUrl'),

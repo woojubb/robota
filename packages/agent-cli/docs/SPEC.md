@@ -32,6 +32,11 @@ The CLI owns: argument parsing and process lifecycle assembly, `TransportRegistr
 composition (selecting an injected `IProviderDefinition`, not implementing providers), concrete local
 host adapters (background runner, child-process subagent, Git worktree, settings I/O), package-version
 update checks, and the per-mode host-action adapters (`/remote-control`, process exit) CMD-004 wires.
+Remote control receives only the session capabilities required by its wire protocol and host-owned
+effects for initial transport admission and confirmed reconnect promotion. Reconnect candidates
+remain outside the registry; promoting the confirmed winner replaces the registered peer so host
+shutdown reaches the live connection. Pairing failure and reconnect-window expiry still release
+the transport, signaling, and session-scoped resume bridge.
 It chooses its user-local storage root and passes explicit paths to SDK persistence and trust adapters.
 Direct and slash user-local commands receive that same CLI-owned Robota root; the neutral command
 and framework packages never infer it from the process home.
