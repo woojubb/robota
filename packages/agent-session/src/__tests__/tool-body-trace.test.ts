@@ -114,6 +114,16 @@ describe('content-free actual tool body observations', () => {
     expect(events.filter((event) => event.name === 'tool.tool_body_completed')).toHaveLength(0);
   });
 
+  it('carries the body ID core minted, so the exported span is the one the body propagated', async () => {
+    const { wrapped, context, events } = setup(async () => ({ success: true, data: 'ok' }));
+    const toolBodyId = globalThis.crypto.randomUUID();
+    await wrapped.execute({}, { ...context('minted'), toolBodyId });
+    await wrapped.execute({}, context('unminted'));
+    const completions = events.filter((event) => event.name === 'tool.tool_body_completed');
+    expect(completions.map((event) => event.data['toolBodyId'])).toEqual([toolBodyId, undefined]);
+    expect(completions[1]?.data).not.toHaveProperty('toolBodyId');
+  });
+
   it('records interruption when a started body observes its aborted signal', async () => {
     const abort = new AbortController();
     const { wrapped, context, events } = setup(async () => {

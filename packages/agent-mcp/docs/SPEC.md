@@ -35,6 +35,11 @@ had no discovery, and two client stacks cannot both be authoritative.
   loopback, private ranges and cloud-metadata addresses are refused, and a redirect is refused
   rather than followed. There is no second admission path, so definition headers never reach a
   host the policy did not admit.
+- **Trace context stays on the call it belongs to**: a tool call's trusted `traceparent` goes only on
+  that call's own `tools/call` POST and the cancellation of it, and only to an exactly listed origin.
+  The decision is made from each request's body, not from the async context, because the SDK runs a
+  call's response stream — and any `list_changed` refresh or reply it triggers — inside that context;
+  the admitted headers are never modified, so nothing carries over to another request.
 - **Stdio authority**: definitions cannot grant execution authority — only a host-owned authority
   can, and it is consulted before reading environment values, constructing the transport, or
   spawning. Absent `cwd` means the authority's allowed root, never the ambient process cwd; lexical

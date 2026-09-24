@@ -16,6 +16,7 @@ import type {
   TExecutionEventData,
 } from '../interfaces/agent';
 import type { IToolCall } from '../interfaces/messages';
+import type { IRunTraceContext } from '../interfaces/trace-context';
 import type { ConversationStore } from '../managers/conversation-history-manager';
 
 export type { IToolResultsOutcome } from './execution-round-tool-results';
@@ -58,6 +59,7 @@ export async function executeAndRecordToolCalls(
   signal?: AbortSignal,
   onExecutionEvent?: TExecutionEventCallback,
   maxSameToolInputs?: number,
+  traceContext?: IRunTraceContext,
 ): Promise<IToolResultsOutcome> {
   const { toolExecutionService, logger, eventEmitter } = deps;
 
@@ -102,6 +104,7 @@ export async function executeAndRecordToolCalls(
       ...request,
       eventService: eventEmitter.ensureToolEventService(request.ownerId, request.ownerPath),
       baseEventService: eventEmitter.getBaseEventService(),
+      ...(traceContext ? { traceContext } : {}),
     };
   });
   const toolContext: IToolExecutionBatchContext = {

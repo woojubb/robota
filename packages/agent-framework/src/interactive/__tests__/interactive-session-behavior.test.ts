@@ -215,6 +215,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     const at = new Date().toISOString();
     mockSession.run.mockImplementation(async () => {
       listener?.('tool.tool_body_completed', {
+        toolBodyId: globalThis.crypto.randomUUID(),
         startedAt: at, endedAt: at, outcome: 'success', executionId: 'call-123',
       });
       listener?.('provider_call_completed', {
@@ -224,9 +225,11 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
         promptTokens: 100, completionTokens: 50, totalTokens: 150,
       });
       listener?.('tool.tool_body_completed', {
+        toolBodyId: globalThis.crypto.randomUUID(),
         startedAt: 'private malformed timestamp', endedAt: at, outcome: 'success',
       });
       listener?.('tool.tool_body_completed', {
+        toolBodyId: globalThis.crypto.randomUUID(),
         startedAt: at, endedAt: at, outcome: 'success', executionId: 42,
       });
       listener?.('provider_call_completed', {
@@ -300,6 +303,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
         decidedAt: at, decision: 'allowed', executionId: 'call-123',
       });
       listener?.('tool.tool_body_completed', {
+        toolBodyId: globalThis.crypto.randomUUID(),
         startedAt: at, endedAt: at, outcome: 'success', executionId: 'call-123',
       });
       listener?.('tool.tool_permission_decided', {
@@ -380,6 +384,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
       observedAt = new Date().toISOString();
       for (const executionId of ['call-a', 'call-b']) {
         listener?.('tool.tool_body_completed', {
+        toolBodyId: globalThis.crypto.randomUUID(),
           timestamp: new Date(),
           startedAt: observedAt,
           endedAt: observedAt,

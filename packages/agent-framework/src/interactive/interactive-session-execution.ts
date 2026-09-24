@@ -198,6 +198,8 @@ export interface ISpanCollector {
 export interface IToolBodyTraceObservation {
   /** Raw event value; live projection validates before export. */
   readonly toolCallId?: unknown;
+  /** The body ID core minted; the body's span is derived from it. Absent means no span to export. */
+  readonly toolBodyId?: string;
   readonly startedAt: string;
   readonly endedAt: string;
   readonly outcome: 'success' | 'failure' | 'interrupted';
@@ -281,6 +283,7 @@ export function collectSpanEntries(
       ) {
         const observation: IToolBodyTraceObservation = {
           ...(data['executionId'] !== undefined ? { toolCallId: data['executionId'] } : {}),
+          ...(typeof data['toolBodyId'] === 'string' ? { toolBodyId: data['toolBodyId'] } : {}),
           startedAt: data['startedAt'],
           endedAt: data['endedAt'],
           outcome: data['outcome'],

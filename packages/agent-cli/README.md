@@ -311,7 +311,12 @@ cannot replace these fields.
 Trace context propagation is a further opt-in. `ROBOTA_TELEMETRY_PROPAGATE_TO` is a comma list of
 exact origins (`https://api.anthropic.com,https://gateway.example.com:8443`) that may receive a
 W3C `traceparent` on provider requests: `00-<prompt trace id>-<provider-call span id>-01`, where the
-span ID is the one the exported `robota.provider_call` span carries. It needs
+span ID is the one the exported `robota.provider_call` span carries. The same list covers MCP servers
+reached over Streamable HTTP: a tool call to a server whose URL has a listed origin carries
+`00-<prompt trace id>-<tool span id>-01`, where the span ID is the one the exported tool span
+carries. Only the `tools/call` request and its cancellation carry it — never initialization,
+listing, list refreshes, notifications or the server's event stream — and stdio MCP servers receive
+nothing. It needs
 `ROBOTA_TELEMETRY_ENABLED=1` and `ROBOTA_TELEMETRY_TRACES=otlp` or `console`, and is inert while
 telemetry is off. Each entry must be exactly its own origin: `https`, or `http` only on loopback, with no
 path, trailing slash, query, credentials, wildcard or spelled-out default port; a scheme, port or
@@ -334,8 +339,12 @@ Listing a vendor's origin lets that vendor link its own request logs to your tra
 followed by the SDK carries the header to the redirect target. A provider call whose span was omitted or
 dropped from export still sent its `traceparent`, so the vendor's parent span may be missing from your
 trace; `robota.omitted.provider_count` on the prompt span shows when that happened. Ambient
-`TRACEPARENT` and `OTEL_*` values are never adopted, and propagation into subprocesses (hooks, MCP
-servers) is not supported yet; MCP HTTP transports are planned later.
+`TRACEPARENT` and `OTEL_*` values are never adopted, and propagation into subprocesses (hooks, stdio
+MCP servers) is not supported yet.
+
+Upgrading: an origin already listed for a provider now also sends `traceparent` to an MCP HTTP server
+at that exact origin. Remove the origin, or move the MCP server to a different origin, if that server
+should not link its logs to your trace.
 
 ### Doctor
 

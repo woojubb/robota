@@ -1,4 +1,6 @@
 import { ValidationError } from '../utils/errors';
+import { randomId } from '../utils/random-id.js';
+import { toolTraceContextFor } from '../utils/trace-context';
 
 import { ARGUMENT_DECODE_ERROR_CODE, TOOL_EVENTS } from './tool-execution-constants';
 
@@ -63,6 +65,11 @@ function createExecutionContext(
   signal?: AbortSignal,
 ): IToolExecutionContext {
   const required = requireExecutionRequestFields(request);
+  // Minted per body, never taken from the vendor's tool call ID, which may repeat and is not hex.
+  const toolBodyId = randomId();
+  const outboundTraceContext = request.traceContext
+    ? toolTraceContextFor(request.traceContext, toolBodyId)
+    : undefined;
   return {
     toolName: request.toolName,
     parameters: request.parameters,
@@ -76,6 +83,8 @@ function createExecutionContext(
     baseEventService: request.baseEventService,
     ...(request.ask ? { ask: request.ask } : {}),
     ...(request.deferredTools ? { deferredTools: request.deferredTools } : {}),
+    toolBodyId,
+    ...(outboundTraceContext ? { outboundTraceContext } : {}),
   };
 }
 
