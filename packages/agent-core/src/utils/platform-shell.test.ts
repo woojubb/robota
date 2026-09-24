@@ -3,6 +3,13 @@ import { describe, expect, it } from 'vitest';
 import { UnsupportedShellError, resolvePlatformShell } from './platform-shell.js';
 
 describe('resolvePlatformShell', () => {
+  it("does not inherit another product's ROBOTA_SHELL policy", () => {
+    const shell = resolvePlatformShell({
+      env: { ROBOTA_SHELL: '/bin/bash', SHELL: '/bin/sh' },
+      platform: 'linux',
+    });
+    expect(shell.command).toBe('/bin/sh');
+  });
   it('resolves POSIX and Windows defaults with matching argument families', () => {
     const posix = resolvePlatformShell({ env: {}, platform: 'darwin' });
     expect(posix).toMatchObject({ command: '/bin/sh', kind: 'sh', platform: 'darwin' });
@@ -21,7 +28,7 @@ describe('resolvePlatformShell', () => {
     ]);
   });
 
-  it('applies request executable > ROBOTA_SHELL > SHELL/platform-default precedence', () => {
+  it('applies request executable > SHELL/platform-default precedence', () => {
     expect(
       resolvePlatformShell({
         executable: '/requested/bash',
@@ -29,12 +36,6 @@ describe('resolvePlatformShell', () => {
         platform: 'linux',
       }).command,
     ).toBe('/requested/bash');
-    expect(
-      resolvePlatformShell({
-        env: { ROBOTA_SHELL: '/env/sh', SHELL: '/login/bash' },
-        platform: 'linux',
-      }).command,
-    ).toBe('/env/sh');
     expect(resolvePlatformShell({ env: { SHELL: '/login/bash' }, platform: 'linux' }).command).toBe(
       '/login/bash',
     );
@@ -77,7 +78,7 @@ describe('resolvePlatformShell', () => {
   it('treats a blank request executable as absent', () => {
     const shell = resolvePlatformShell({
       executable: '   ',
-      env: { ROBOTA_SHELL: '/bin/bash' },
+      env: { SHELL: '/bin/bash' },
       platform: 'linux',
     });
     expect(shell).toMatchObject({ command: '/bin/bash', kind: 'bash' });
@@ -105,12 +106,6 @@ describe('resolvePlatformShell', () => {
         recoverable: false,
       });
     }
-  });
-
-  it('fails closed for an unknown ROBOTA_SHELL override', () => {
-    expect(() =>
-      resolvePlatformShell({ env: { ROBOTA_SHELL: '/bin/fish' }, platform: 'linux' }),
-    ).toThrow(UnsupportedShellError);
   });
 
   it('retains host-specific syntax guidance', () => {

@@ -29,6 +29,7 @@ export function buildTuiSessionOptions(
     ...(opts.subagentHookEnvironmentNames !== undefined
       ? { subagentHookEnvironmentNames: opts.subagentHookEnvironmentNames }
       : {}),
+    ...(opts.commandHookShell !== undefined ? { commandHookShell: opts.commandHookShell } : {}),
     ...(opts.orgPolicy !== undefined ? { orgPolicy: opts.orgPolicy } : {}),
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
     ...(opts.projectSettingsPaths !== undefined
@@ -77,9 +78,7 @@ export function buildTuiSessionOptions(
     ...(opts.agentDefinitionRoots !== undefined
       ? { agentDefinitionRoots: opts.agentDefinitionRoots }
       : {}),
-    ...(opts.pluginDirectories !== undefined
-      ? { pluginDirectories: opts.pluginDirectories }
-      : {}),
+    ...(opts.pluginDirectories !== undefined ? { pluginDirectories: opts.pluginDirectories } : {}),
     ...(opts.additionalTools !== undefined ? { additionalTools: opts.additionalTools } : {}),
     ...(opts.defaultTools !== undefined ? { defaultTools: opts.defaultTools } : {}),
     commandModules: opts.commandModules,

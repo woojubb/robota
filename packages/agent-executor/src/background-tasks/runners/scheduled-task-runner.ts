@@ -29,6 +29,7 @@ const DEFAULT_OUTPUT_LIMIT_BYTES = 30_000;
 
 export interface IScheduledTaskRunnerOptions {
   timezone?: string;
+  shellExecutable?: string;
 }
 
 /** Resolve an eligible slot with the same Croner semantics as the scheduled runner. */
@@ -51,6 +52,7 @@ export function nextScheduledFireOnOrAfter(
 interface IScheduledTaskState {
   taskId: string;
   request: IScheduledBackgroundTaskRequest;
+  shellExecutable?: string;
   logs: string[];
   cancelled: boolean;
   /** SELFHOST-012: non-destructively paused via croner `.pause()`; a paused schedule fires nothing. */
@@ -91,7 +93,10 @@ function startScheduledTask(
 ): IBackgroundTaskHandle {
   // Fail closed synchronously before registering a schedule whose explicit executable is unsupported.
   if (request.command !== undefined) {
-    resolveBackgroundTaskShellCommand({ ...request, command: request.command });
+    resolveBackgroundTaskShellCommand(
+      { ...request, command: request.command },
+      { executable: options.shellExecutable },
+    );
   }
 
   let resolveResult!: (result: IBackgroundTaskResult) => void;
@@ -116,6 +121,7 @@ function startScheduledTask(
   const state: IScheduledTaskState = {
     taskId,
     request,
+    shellExecutable: options.shellExecutable,
     logs,
     cancelled: false,
     paused: false,
@@ -197,7 +203,10 @@ function runOneFire(state: IScheduledTaskState): void {
     limitBytes: state.request.outputLimitBytes ?? DEFAULT_OUTPUT_LIMIT_BYTES,
   });
 
-  const shell = resolveBackgroundTaskShellCommand({ ...state.request, command });
+  const shell = resolveBackgroundTaskShellCommand(
+    { ...state.request, command },
+    { executable: state.shellExecutable },
+  );
   const child = spawn(shell.executable, shell.args, {
     cwd: state.request.cwd,
     env: { ...process.env, ...(state.request.env ?? {}) },

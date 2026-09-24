@@ -28,7 +28,7 @@ const matrix = [
     name: 'windows-bash',
     command: 'sentinel-bash',
     shell: 'C:\\Git\\bin\\BASH.EXE',
-    options: { env: { ROBOTA_SHELL: 'powershell.exe' }, platform: 'win32' as const },
+    options: { executable: 'powershell.exe', platform: 'win32' as const },
   },
   {
     name: 'posix-pwsh',
@@ -46,7 +46,7 @@ const matrix = [
     name: 'blank-request',
     command: 'sentinel-blank',
     shell: '   ',
-    options: { env: { ROBOTA_SHELL: '/bin/bash' }, platform: 'linux' as const },
+    options: { executable: '/bin/bash', platform: 'linux' as const },
   },
 ] as const;
 

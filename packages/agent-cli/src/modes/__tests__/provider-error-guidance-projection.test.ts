@@ -11,13 +11,16 @@ describe('serve and MCP provider recovery guidance', () => {
       promptFileReferenceTag: 'acme_files',
       modelCommandToolPrefix: 'acme_command_',
       subagentHookEnvironmentNames: { agentId: 'ACME_AGENT_ID', agentType: 'ACME_AGENT_TYPE' },
+      commandHookShell: '/bin/bash',
     } as never);
 
     expect(options.promptFileReferenceTag).toBe('acme_files');
     expect(options.modelCommandToolPrefix).toBe('acme_command_');
     expect(options.subagentHookEnvironmentNames).toEqual({
-      agentId: 'ACME_AGENT_ID', agentType: 'ACME_AGENT_TYPE',
+      agentId: 'ACME_AGENT_ID',
+      agentType: 'ACME_AGENT_TYPE',
     });
+    expect('commandHookShell' in options && options.commandHookShell).toBe('/bin/bash');
   });
 
   it('preserves the product guidance in the session options both modes use', () => {

@@ -37,7 +37,7 @@ import type { IHookTypeExecutor } from '@robota-sdk/agent-core';
 export function buildHookTypeExecutors(options: ICreateSessionOptions): IHookTypeExecutor[] {
   const executors: IHookTypeExecutor[] = options.disableBuiltInHookExecutors
     ? []
-    : [new CommandExecutor(), new HttpExecutor()];
+    : [new CommandExecutor(options.commandHookShell), new HttpExecutor()];
 
   if (options.providerFactory) {
     executors.push(

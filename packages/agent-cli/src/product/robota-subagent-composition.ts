@@ -4,12 +4,14 @@ import { join } from 'node:path';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import { createGoalStatusTool } from '@robota-sdk/agent-framework';
+import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
 import { createRobotaPacks, packCommandModuleNames } from './robota-profile.js';
 import { createCliWorkspaceComposition } from '../startup/workspace-project-composition.js';
 import { selectRobotaSubagentRunner } from './subagent-provider-reproduction.js';
 import { resolveSelfForkWorkerEntry } from '../subagents/self-fork-worker-entry.js';
 import { createGitWorktreeIsolationAdapter } from '../subagents/git-worktree-isolation-adapter.js';
+import { resolveRobotaShellExecutable } from './robota-shell.js';
 
 import type { IProviderReproduction } from './subagent-provider-reproduction.js';
 
@@ -137,12 +139,14 @@ export function createRobotaSubagentComposition(
   createPacks: TRobotaPackFactory = createRobotaPacks,
   providerDefinitions: readonly IProviderDefinition[] = robotaProviderDefinitions(),
 ): ISubagentWorkerComposition {
+  const shellExecutable = resolveRobotaShellExecutable();
   return {
+    createHookTypeExecutors: () => [new CommandExecutor(shellExecutable), new HttpExecutor()],
     createTools: (context: {
       readonly cwd: string;
       readonly sessionTiers?: { readonly includeGoalTool?: boolean };
     }): IToolWithEventService[] => {
-      const tools = packTools({ cwd: context.cwd }, createPacks);
+      const tools = packTools({ cwd: context.cwd, shellExecutable }, createPacks);
       // ARCH-034: the goal tool is added by session assembly, not by any pack, so rebuilding the
       // pack set alone gave a child-process subagent a strictly smaller surface than an in-process
       // one. Choosing a runner is a packaging decision; this is what stops it being a capability one.

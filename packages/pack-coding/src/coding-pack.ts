@@ -25,6 +25,8 @@ import type { ISandboxClient } from '@robota-sdk/agent-tools';
  * impossible to forget at every layer, not only the lowest one.
  */
 export interface ICodingPackOptions {
+  /** Product-host shell choice for tools and the interactive /shell command. */
+  shellExecutable?: string;
   /**
    * Working-directory root the host file tools (`Read`/`Write`/`Edit`) are restricted to. Required: see
    * the interface note above. Pass the same value the session is assembled with.
@@ -68,6 +70,7 @@ export interface ICodingPackOptions {
 export function createCodingPack(options: ICodingPackOptions): ICapabilityPack {
   const toolOptions = {
     cwd: options.cwd,
+    ...(options.shellExecutable !== undefined ? { shellExecutable: options.shellExecutable } : {}),
     ...(options.sandboxClient ? { sandboxClient: options.sandboxClient } : {}),
   };
 
@@ -90,7 +93,7 @@ export function createCodingPack(options: ICodingPackOptions): ICapabilityPack {
     // guard cannot be disarmed by omission, and the leaf threads it into every tool it builds.
     tools: createDefaultTools(toolOptions),
     commandModules: [
-      createShellCommandModule(),
+      createShellCommandModule(options.shellExecutable),
       createEditorCommandModule(),
       createGitCommandModule(),
     ],

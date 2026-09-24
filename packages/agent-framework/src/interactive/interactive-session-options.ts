@@ -95,6 +95,8 @@ export interface IInteractiveSessionStandardOptions {
   bare?: boolean;
   /** Explicitly omit the built-in command and HTTP hook executors for this session and its children. */
   disableBuiltInHookExecutors?: boolean;
+  /** Host-selected executable for command hooks. */
+  commandHookShell?: string;
   /** Pre-approved tool names passed to createSession. */
   allowedTools?: readonly string[];
   /** Denied tool names — added to permissions.deny. denied > allowed. */

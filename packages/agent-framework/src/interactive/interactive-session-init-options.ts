@@ -90,6 +90,7 @@ export interface IInitOptions {
   bare?: boolean;
   /** Omit the built-in command and HTTP hook executors. */
   disableBuiltInHookExecutors?: boolean;
+  commandHookShell?: string;
   /** Pre-approved tool names passed to createSession. */
   allowedTools?: readonly string[];
   /** Denied tool names — added to permissions.deny. denied > allowed. */

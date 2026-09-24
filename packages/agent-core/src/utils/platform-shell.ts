@@ -32,7 +32,7 @@ export interface IPlatformShell {
 export interface IPlatformShellResolutionRequest {
   /** Request-local executable. A non-blank value has the highest precedence. */
   readonly executable?: string;
-  /** Environment used for ROBOTA_SHELL and SHELL resolution. */
+  /** Environment used for SHELL resolution. */
   readonly env?: NodeJS.ProcessEnv;
   /** Actual host platform retained in the resolved metadata. */
   readonly platform?: NodeJS.Platform;
@@ -48,9 +48,6 @@ export class UnsupportedShellError extends RobotaError {
     super(`Unsupported shell executable: ${executable}`, { executable });
   }
 }
-
-/** Explicit override env var — point at any shell executable to force it on any platform. */
-const SHELL_OVERRIDE_ENV = 'ROBOTA_SHELL';
 
 /**
  * OS-family syntax guidance for the LLM. macOS and Linux are both POSIX but ship different userlands
@@ -136,7 +133,6 @@ function nonBlank(value: string | undefined): string | undefined {
  * Resolve the shell to spawn for the current (or a given) platform.
  *
  * - request `executable` wins when non-blank.
- * - `ROBOTA_SHELL` is next and wins on every platform.
  * - **win32:** PowerShell.
  * - **posix:** `$SHELL` if set, else `/bin/sh`.
  */
@@ -147,9 +143,6 @@ export function resolvePlatformShell(
   const platform = request.platform ?? process.platform;
   const requestedExecutable = nonBlank(request.executable);
   if (requestedExecutable !== undefined) return explicitShell(requestedExecutable, platform);
-
-  const environmentOverride = nonBlank(env[SHELL_OVERRIDE_ENV]);
-  if (environmentOverride !== undefined) return explicitShell(environmentOverride, platform);
 
   if (platform === 'win32') return powerShell('powershell.exe', platform);
 

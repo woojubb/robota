@@ -17,13 +17,16 @@ describe('toChannelOptions', () => {
       promptFileReferenceTag: 'acme_files',
       modelCommandToolPrefix: 'acme_command_',
       subagentHookEnvironmentNames: { agentId: 'ACME_AGENT_ID', agentType: 'ACME_AGENT_TYPE' },
+      commandHookShell: '/bin/bash',
     });
     const session = buildTuiSessionOptions(channel);
     expect(session.promptFileReferenceTag).toBe('acme_files');
     expect(session.modelCommandToolPrefix).toBe('acme_command_');
     expect(session.subagentHookEnvironmentNames).toEqual({
-      agentId: 'ACME_AGENT_ID', agentType: 'ACME_AGENT_TYPE',
+      agentId: 'ACME_AGENT_ID',
+      agentType: 'ACME_AGENT_TYPE',
     });
+    expect('commandHookShell' in session && session.commandHookShell).toBe('/bin/bash');
   });
 
   it('preserves host permission baselines through render, channel, and session', () => {
@@ -51,7 +54,9 @@ describe('toChannelOptions', () => {
     expect(channel.taskContext).toBe(taskContext);
     const session = buildTuiSessionOptions(channel);
     if (!('taskContext' in session)) {
-      throw new Error('TUI standard session options must preserve the host task-context selection.');
+      throw new Error(
+        'TUI standard session options must preserve the host task-context selection.',
+      );
     }
     expect(session.taskContext).toBe(taskContext);
   });

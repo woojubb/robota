@@ -1,4 +1,8 @@
-import type { IProviderDefinition, IToolWithEventService } from '@robota-sdk/agent-core';
+import type {
+  IHookTypeExecutor,
+  IProviderDefinition,
+  IToolWithEventService,
+} from '@robota-sdk/agent-core';
 import type { restoreSessionRecordIntoSession } from '@robota-sdk/agent-framework';
 
 /**
@@ -31,6 +35,8 @@ export type TResumeSessionStore = Parameters<typeof restoreSessionRecordIntoSess
  * comparable product does.
  */
 export interface ISubagentWorkerComposition {
+  /** Product-selected hook executors for the child session. */
+  createHookTypeExecutors?: () => IHookTypeExecutor[];
   /**
    * The product's tool surface for THIS subagent's execution root.
    *

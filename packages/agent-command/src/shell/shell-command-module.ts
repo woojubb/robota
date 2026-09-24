@@ -16,7 +16,7 @@ export function createShellCommandEntry(): ICommand {
   };
 }
 
-function createShellSystemCommand(): ISystemCommand {
+function createShellSystemCommand(executable?: string): ISystemCommand {
   const entry = createShellCommandEntry();
   return {
     name: entry.name,
@@ -26,7 +26,7 @@ function createShellSystemCommand(): ISystemCommand {
     userInvocable: true,
     modelInvocable: false,
     lifecycle: 'inline',
-    execute: executeShellCommand,
+    execute: (context, args) => executeShellCommand(context, args, executable),
   };
 }
 
@@ -38,10 +38,10 @@ export class ShellCommandSource implements ICommandSource {
   }
 }
 
-export function createShellCommandModule(): ICommandModule {
+export function createShellCommandModule(executable?: string): ICommandModule {
   return {
     name: 'agent-command-shell',
     commandSources: [new ShellCommandSource()],
-    systemCommands: [createShellSystemCommand()],
+    systemCommands: [createShellSystemCommand(executable)],
   };
 }

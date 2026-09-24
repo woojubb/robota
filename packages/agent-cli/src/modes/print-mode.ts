@@ -83,6 +83,7 @@ export async function runPrintMode(
   promptFileReferenceTag?: string,
   modelCommandToolPrefix?: string,
   subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'],
+  commandHookShell?: string,
 ): Promise<void> {
   const goalObjective = args.goal?.trim();
   let prompt = args.positional.join(' ').trim();
@@ -124,6 +125,7 @@ export async function runPrintMode(
     ...(promptFileReferenceTag !== undefined ? { promptFileReferenceTag } : {}),
     ...(modelCommandToolPrefix !== undefined ? { modelCommandToolPrefix } : {}),
     ...(subagentHookEnvironmentNames !== undefined ? { subagentHookEnvironmentNames } : {}),
+    ...(commandHookShell !== undefined ? { commandHookShell } : {}),
     ...(orgPolicy !== undefined ? { orgPolicy } : {}),
     ...(projectAccess !== undefined ? { projectAccess } : {}),
       ...(projectSettingsPaths !== undefined ? { projectSettingsPaths } : {}),

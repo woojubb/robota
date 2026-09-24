@@ -66,6 +66,7 @@ export interface IServeModeOptions {
   promptFileReferenceTag?: string;
   modelCommandToolPrefix?: string;
   subagentHookEnvironmentNames?: TInteractiveSessionOptions['subagentHookEnvironmentNames'];
+  commandHookShell?: string;
   sessionStore: ReturnType<typeof createProjectSessionStore>;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
@@ -154,6 +155,7 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(opts.subagentHookEnvironmentNames !== undefined
       ? { subagentHookEnvironmentNames: opts.subagentHookEnvironmentNames }
       : {}),
+    ...(opts.commandHookShell !== undefined ? { commandHookShell: opts.commandHookShell } : {}),
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
     ...(opts.projectSettingsPaths !== undefined
       ? { projectSettingsPaths: opts.projectSettingsPaths }

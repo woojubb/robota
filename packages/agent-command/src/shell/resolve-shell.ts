@@ -15,8 +15,8 @@ export interface IResolvedShell {
 }
 
 /** Resolve the interactive shell for the current platform via the agent-core SSOT resolver. */
-export function resolveShell(): IResolvedShell {
-  const shell = resolvePlatformShell();
+export function resolveShell(executable?: string): IResolvedShell {
+  const shell = resolvePlatformShell({ executable });
   return {
     command: shell.command,
     interactiveArgs: shell.interactiveArgs,
