@@ -69,6 +69,10 @@ React/Ink UI.
   enablement source and host-selected user/project plugin directories; without either, an interactive
   session admits no bundle plugins. Project plugin directories are admitted only under trusted
   project access. The framework chooses no product plugin location.
+- **Permission baselines are host-selected.** Session assembly adds no product-specific file patterns
+  to a caller's permission configuration. A host may supply baseline allow patterns independently of
+  the active preset; those patterns remain in effect when the preset is changed live, while a later
+  deny rule still takes precedence.
 - **Organization policy is host-located and fail-closed.** The policy loader reads only the path
   selected by its host. An absent or empty path is an error; a missing file at a valid path means no
   deployed policy. A present but unreadable or malformed file raises a typed error rather than

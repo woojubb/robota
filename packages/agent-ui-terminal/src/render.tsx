@@ -69,6 +69,7 @@ export interface IRenderOptions {
   providerErrorGuidance?: IProviderErrorGuidance;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
+  baselinePermissionAllow?: readonly string[];
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
   userSettingsSources?: readonly INodeHostSettingsSource[];
@@ -227,6 +228,9 @@ export function toChannelOptions(
     ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
     ...(options.projectSettingsPaths !== undefined
       ? { projectSettingsPaths: options.projectSettingsPaths }
+      : {}),
+    ...(options.baselinePermissionAllow !== undefined
+      ? { baselinePermissionAllow: options.baselinePermissionAllow }
       : {}),
     ...(options.contributionSources !== undefined
       ? { contributionSources: options.contributionSources }

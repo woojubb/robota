@@ -55,6 +55,9 @@ binds that layout when workspace trust issues an authority and lists the same di
 metadata-only pre-trust preview. An externally supplied trusted authority with a different state
 layout is refused rather than reading or writing a path the preview did not name. Restricted
 composition uses user session storage and never obtains a project-state facet.
+The CLI selects its ordinary context-discovery permission baseline for Robota, Agents, and Claude
+project directories and passes it to print, serve, and terminal sessions. SDK consumers inherit no
+Robota file permissions unless they explicitly choose them.
 When a trusted interactive user approves a project-wide tool permission on a host with guarded
 project mutation support, the session persists it through the CLI-selected project-local settings
 path and its live workspace authority. An unavailable writer rejects that approval explicitly.

@@ -16,6 +16,7 @@ import type {
 import type { createProjectSessionStore } from '@robota-sdk/agent-framework';
 import { HeadlessInteractionChannel } from '@robota-sdk/agent-framework';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
+import { ROBOTA_PERMISSION_BASELINE } from '../product/robota-permission-baseline.js';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
@@ -125,6 +126,7 @@ export async function runPrintMode(
     ...(presetOptions.model !== undefined ? { model: presetOptions.model } : {}),
     ...(presetOptions.outputStyle !== undefined ? { outputStyle: presetOptions.outputStyle } : {}),
     permissionMode: args.permissionMode ?? presetOptions.permissionMode ?? 'bypassPermissions',
+    baselinePermissionAllow: ROBOTA_PERMISSION_BASELINE,
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
     disableSessionLoops: areSessionLoopsDisabled(process.env),

@@ -44,6 +44,8 @@ the terminal does not choose a settings file for session startup or provider swi
 adapter uses the host-selected write target and read sources for an active-model change.
 The Node keybindings source requires the host to provide both its file path and schema URL; it
 never infers either from the running user's home directory or a product identity.
+Host-selected baseline permission patterns also pass through that projection unchanged; the
+terminal does not choose product path approvals.
 The permission prompt labels project-wide approval unavailable when the session cannot persist it,
 and never resolves the disabled choice as an approval.
 

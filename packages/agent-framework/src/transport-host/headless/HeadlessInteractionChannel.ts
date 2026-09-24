@@ -39,6 +39,7 @@ export interface IHeadlessInteractionChannelOptions {
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
+  baselinePermissionAllow?: readonly string[];
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
   outputFormat: TOutputFormat;
@@ -178,6 +179,7 @@ export class HeadlessInteractionChannel {
         : {}),
       ...(this.opts.skillRoots !== undefined ? { skillRoots: this.opts.skillRoots } : {}),
       permissionMode: this.opts.permissionMode ?? 'bypassPermissions',
+      baselinePermissionAllow: this.opts.baselinePermissionAllow,
       // CMD-004 / REMOTE-007 D4a: headless subscribes to none of the session's `ask_request` surface,
       // so getUserInteraction() is gated to undefined (the framework's event-emitting ask default is
       // always present, but the command port's PRESENCE follows the live listener count). Each command

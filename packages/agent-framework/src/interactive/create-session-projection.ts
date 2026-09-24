@@ -63,6 +63,7 @@ export function buildCreateSessionOptions(
     skillRoots,
     projectInfo,
     permissionMode: options.permissionMode,
+    baselinePermissionAllow: options.baselinePermissionAllow,
     maxTurns: options.maxTurns,
     terminal: NOOP_TERMINAL,
     sessionLogger:

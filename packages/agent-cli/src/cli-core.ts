@@ -68,6 +68,7 @@ import { routeProjectSetup } from './startup/project-setup-routing.js';
 import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
 import { runPrintMode } from './modes/print-mode.js';
 import { buildServeSessionOptions, runServeMode } from './modes/serve-mode.js';
+import { ROBOTA_PERMISSION_BASELINE } from './product/robota-permission-baseline.js';
 import { runMcpServeMode } from './modes/mcp-serve-mode.js';
 import { reserveMcpStdout } from './modes/mcp-stdio-output.js';
 import { composeMcpClientForStartup } from './startup/mcp-startup.js';
@@ -750,6 +751,7 @@ async function runCliCore(
     agentDefinitionRoots: ROBOTA_AGENT_DEFINITION_ROOTS,
     pluginDirectories: robotaPluginDirectories(cwd, homedir()),
     projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
+    baselinePermissionAllow: ROBOTA_PERMISSION_BASELINE,
     userSettingsSources: createRobotaUserSettingsSources(homedir()),
     contributionSources: workspaceComposition.contributionSources,
     skillRoots: workspaceComposition.skillRoots,

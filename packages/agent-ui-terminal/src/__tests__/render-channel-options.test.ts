@@ -9,6 +9,20 @@ import { buildTuiSessionOptions } from '../tui-session-options.js';
 import type { IRenderOptions } from '../render.js';
 
 describe('toChannelOptions', () => {
+  it('preserves host permission baselines through render, channel, and session', () => {
+    const baselinePermissionAllow = ['Read(custom/**)'];
+    const channel = toChannelOptions({
+      cwd: '/tmp/project',
+      provider: {} as IAIProvider,
+      cliAdapter: {} as ITuiCliAdapter,
+      baselinePermissionAllow,
+    });
+    const session = buildTuiSessionOptions(channel);
+    if (!('baselinePermissionAllow' in session)) {
+      throw new Error('TUI standard session options must preserve the host permission baseline.');
+    }
+    expect(session.baselinePermissionAllow).toBe(baselinePermissionAllow);
+  });
   it('keeps the host contribution sources and skill roots through render, channel, and session', () => {
     const sources = [createNodeHostContributionSource('/test-project')];
     const skillRoots = [{ root: 'custom/skills', kind: 'skills' as const }];

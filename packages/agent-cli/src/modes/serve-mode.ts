@@ -20,6 +20,7 @@ import {
 } from '../session-inventory/supervised-session-control.js';
 import { startRuntimeHost } from '@robota-sdk/agent-framework';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
+import { ROBOTA_PERMISSION_BASELINE } from '../product/robota-permission-baseline.js';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
 import type { IOrgPolicy } from '@robota-sdk/agent-framework';
 
@@ -155,6 +156,7 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(opts.model !== undefined ? { model: opts.model } : {}),
     ...(preset.outputStyle !== undefined ? { outputStyle: preset.outputStyle } : {}),
     permissionMode: args.permissionMode ?? preset.permissionMode,
+    baselinePermissionAllow: ROBOTA_PERMISSION_BASELINE,
     // Issue #1937: the CLI-sourced prompt addition, composed once at the projection. Before this it
     // was built at print mode only, so these flags did nothing in a served session.
     maxTurns: args.maxTurns,

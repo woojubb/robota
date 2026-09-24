@@ -56,6 +56,7 @@ export interface IInitOptions {
   provider: IAIProvider;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
+  baselinePermissionAllow?: readonly string[];
   userSettingsSources?: readonly INodeHostSettingsSource[];
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];

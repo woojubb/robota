@@ -25,6 +25,9 @@ export function buildTuiSessionOptions(
     ...(opts.projectSettingsPaths !== undefined
       ? { projectSettingsPaths: opts.projectSettingsPaths }
       : {}),
+    ...(opts.baselinePermissionAllow !== undefined
+      ? { baselinePermissionAllow: opts.baselinePermissionAllow }
+      : {}),
     ...(opts.contributionSources !== undefined
       ? { contributionSources: opts.contributionSources }
       : {}),

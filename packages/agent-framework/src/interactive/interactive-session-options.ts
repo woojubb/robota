@@ -58,6 +58,8 @@ export interface IInteractiveSessionStandardOptions {
   projectAccess?: TWorkspaceProjectAccess;
   /** Host-selected project settings layers, admitted only through the current project authority. */
   projectSettingsPaths?: readonly IProjectSettingsPath[];
+  /** Host-selected permission patterns retained across live preset switches. */
+  baselinePermissionAllow?: readonly string[];
   /** Explicit user settings layers; absent means no ambient user file is read. */
   userSettingsSources?: readonly INodeHostSettingsSource[];
   /** Host-composed filesystem sources for skill activation; absence disables skill file reads. */

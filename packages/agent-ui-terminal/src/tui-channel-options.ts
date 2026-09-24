@@ -62,6 +62,7 @@ export interface ITuiInteractionChannelOptions {
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
+  baselinePermissionAllow?: readonly string[];
   contributionSources?: ICreateSessionOptions['contributionSources'];
   skillRoots?: ICreateSessionOptions['skillRoots'];
   userSettingsSources?: readonly INodeHostSettingsSource[];

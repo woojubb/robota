@@ -188,15 +188,6 @@ export async function createSession(
     tools,
   );
 
-  const defaultAllow = [
-    'Read(.agents/**)',
-    'Read(.claude/**)',
-    'Read(.robota/**)',
-    'Glob(.agents/**)',
-    'Glob(.claude/**)',
-    'Glob(.robota/**)',
-  ];
-
   // Commands with requiresPermission: false are auto-approved — no prompt needed.
   const commandAutoAllow = modelCommandToolProjection
     ? modelCommandToolProjection.commandTools
@@ -210,7 +201,7 @@ export async function createSession(
   // re-apply a preset live: deriving it later from `mergedPermissions` would already include this
   // preset's patterns, and the first preset's allowlist would then survive every later switch.
   const presetFreePermissions = {
-    allow: [...defaultAllow, ...commandAutoAllow, ...(options.config.permissions.allow ?? [])],
+    allow: [...(options.baselinePermissionAllow ?? []), ...commandAutoAllow, ...(options.config.permissions.allow ?? [])],
     deny: options.config.permissions.deny ?? [],
   };
   const mergedPermissions = applyPresetToolLists(presetFreePermissions, options);

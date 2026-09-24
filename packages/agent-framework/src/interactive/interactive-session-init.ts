@@ -250,6 +250,7 @@ export async function initializeInteractiveSessionAsync(
     contributionSources: options.contributionSources,
     skillRoots: options.skillRoots,
     permissionMode: options.permissionMode,
+    baselinePermissionAllow: options.baselinePermissionAllow,
     maxTurns: options.maxTurns,
     permissionHandler: deps.permissionHandler,
     ...(deps.askHandler ? { askHandler: deps.askHandler } : {}),
