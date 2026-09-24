@@ -159,6 +159,30 @@ describe('ToolNodeDefinition execution', () => {
     expect(result.value.isError).toBe(true);
   });
 
+  it('maps Read byte exhaustion to a nonretryable DAG failure', async () => {
+    const oversized = join(dir, 'oversized.txt');
+    writeFileSync(oversized, `small\n${'x'.repeat(4 * 1024 * 1024)}`);
+    const result = await run({ toolName: 'read', params: { filePath: oversized, limit: 1 } });
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe('DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED');
+    expect(result.error.retryable).toBe(false);
+  });
+
+  it('maps Read cancellation to a nonretryable DAG failure', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const context = {
+      ...makeContext({ toolName: 'read', params: { filePath: file } }),
+      signal: controller.signal,
+    };
+    const result = await node.taskHandler.execute({}, context);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe('DAG_TASK_EXECUTION_CANCELLED');
+    expect(result.error.retryable).toBe(false);
+  });
+
   it('passes cancellation to isolated grep and reports a hard nonretryable failure', async () => {
     const slow = join(dir, 'slow.txt');
     writeFileSync(slow, `${'a'.repeat(32)}!\n`);

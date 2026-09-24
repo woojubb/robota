@@ -108,3 +108,6 @@ never happened.
 Built-in tools report ordinary input, network, and path failures through their result envelope.
 Grep executes pattern matching outside the caller's event loop; exhaustion, worker failure, and
 cancellation are hard execution errors surfaced only after the isolated operation has stopped.
+Read admits host file bytes independent of the requested line slice and bounds formatted output;
+budget exhaustion and cancellation are hard errors, while missing and binary files remain ordinary
+tool results.
