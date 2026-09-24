@@ -36,6 +36,9 @@ zero external runtime-server process dependencies.
   jobs) have settled.
 - A run may be submitted before the framework is started; a run waiter itself creates the demand
   that starts advancement.
+- The in-process composition connects committed run cancellation to the worker attempts it owns.
+  Local provider calls can settle promptly when their node and provider cooperate with the attempt
+  signal. This does not notify workers in other processes or wait for abandoned executor cleanup.
 
 ## Design decisions
 
