@@ -66,6 +66,7 @@ function loadWorkflowsCommandModule(
   providerDefinitions: readonly IProviderDefinition[],
   workspaceComposition: ICliWorkspaceComposition,
   projectMutation: IWorkspaceProjectMutation | undefined,
+  allowDetachedRuns: boolean,
 ): ICommandModule {
   // FLOW-007: pass the provider definitions so `/workflows create` can resolve the ACTIVE provider
   // to author a workflow from natural language. Workspace layout defaults to `.workflows/`.
@@ -79,6 +80,7 @@ function loadWorkflowsCommandModule(
   return createWorkflowsCommandModule({
     providerDefinitions,
     settingsSources: workspaceComposition.settingsSources,
+    allowDetachedRuns,
     ...(project === undefined ? {} : { project }),
   });
 }
@@ -204,6 +206,7 @@ export function buildCommandSetup(
     providerDefinitions,
     workspaceComposition,
     options.projectMutation,
+    !args.printMode && args.goal === undefined,
   );
   // The pack-supplied modules are excluded from the base; `assembleProduct` merges them back in from the
   // profile's packs. `unknownModuleNames` is not read here — every excluded name is a real module, and the
