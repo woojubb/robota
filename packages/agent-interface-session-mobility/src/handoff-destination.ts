@@ -36,7 +36,7 @@ import type {
   IHandoffCommitAck,
   IHandoffManifest,
   THandoffRefusal,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from './handoff-contracts.js';
 
 /** How many decode issues a refusal detail carries before it elides the rest. */
 const MAX_REPORTED_ISSUES = 5;
