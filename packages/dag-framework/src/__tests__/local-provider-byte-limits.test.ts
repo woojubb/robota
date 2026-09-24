@@ -30,3 +30,34 @@ it('snapshots a trusted smaller limit through worker and lifecycle into the supp
   expect(success.ok).toBe(true);
   expect(success.outputs).toMatchObject({ 'repeat.text': 'é' });
 });
+
+it('isolates independent root invocations while summing each roots task inputs', async () => {
+  const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'dag-snapshot-cap-')));
+  roots.push(root);
+  const provider = new LocalDagRuntimeProvider({ executionRoot: root, snapshotBudgetLimits: { inputBytes: 12, outputBytes: 1000 } });
+  const dag: IDagDefinition = {
+    dagId: 'snapshot-cap', version: 1, status: 'draft',
+    nodes: [{ nodeId: 'repeat', nodeType: 'text-repeat', dependsOn: [], config: { times: 1 } }], edges: [],
+  };
+  const results = await Promise.all([provider.execute(dag, { text: 'x' }), provider.execute(dag, { text: 'x' })]);
+  expect(results.map((result) => result.ok)).toEqual([true, true]);
+  const denied = await provider.execute(dag, { text: 'xx' });
+  expect(denied.ok).toBe(false);
+  expect(denied.outputs).toEqual({});
+  expect(denied.errorCode).toBe('DAG_TASK_SNAPSHOT_BUDGET_EXCEEDED');
+  expect(denied.errorRetryable).toBe(false);
+});
+
+it('closes the root authority after completion so abandoned descendants cannot admit more snapshots', async () => {
+  const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'dag-budget-close-')));
+  roots.push(root);
+  let authority: import('@robota-sdk/dag-core').ITaskSnapshotBudget | undefined;
+  const provider = new LocalDagRuntimeProvider({ executionRoot: root, nodeRegistry: [{
+    nodeType: 'capture', displayName: 'Capture', category: 'test', inputs: [], outputs: [], configSchemaDefinition: null,
+    taskHandler: { execute: async (_input, context) => { authority = context.snapshotBudget; return { ok: true, value: {} }; } },
+  }] });
+  const result = await provider.execute({ dagId: 'close', version: 1, status: 'draft', nodes: [{ nodeId: 'n', nodeType: 'capture', dependsOn: [], config: {} }], edges: [] }, {});
+  expect(result.ok).toBe(true);
+  expect(authority).toBeDefined();
+  expect(await authority!.admit('output', '{}', async () => ({ applied: true }))).toMatchObject({ ok: false, error: { code: 'DAG_TASK_SNAPSHOT_BUDGET_CLOSED' } });
+});

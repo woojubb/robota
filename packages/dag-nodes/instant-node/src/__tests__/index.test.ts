@@ -336,7 +336,10 @@ describe('composite nested-run lineage', () => {
   it('passes immutable root/parent lineage to a child runner', async () => {
     const runner = vi.fn(async () => ({ ok: true, outputs: {} }));
     const node = composite('bounded', ['input'], runner);
-    const result = await node.taskHandler.execute({ text: 'x' }, context('bounded'));
+    const ctx = context('bounded');
+    ctx.snapshotBudget = { admit: vi.fn(), close: vi.fn() };
+    ctx.byteLimits = { maxTextRepeatOutputBytes: 10 };
+    const result = await node.taskHandler.execute({ text: 'x' }, ctx);
     expect(result.ok).toBe(true);
     expect(runner).toHaveBeenCalledWith(expect.any(Object), expect.any(Object), {
       rootRunId: 'test-run',
@@ -344,7 +347,7 @@ describe('composite nested-run lineage', () => {
       depth: 1,
       maxDepth: 3,
       ancestorCompositeNodeTypes: ['bounded'],
-    });
+    }, { snapshotBudget: ctx.snapshotBudget, byteLimits: ctx.byteLimits });
   });
 
   it('keeps the tightest ancestor depth ceiling', async () => {

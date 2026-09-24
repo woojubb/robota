@@ -32,3 +32,7 @@ Execution arbitration reads the current run and tasks and applies its decision u
 SQLite transaction. Task outcome status, output snapshot and credits commit together. Attempt and
 lease-owner predicates reject stale workers, and run-state predicates prevent post-cancellation
 retry, child admission or terminal overwrite. Queue delivery is outside this storage transaction.
+
+Task input snapshots use the same guarded execution transaction as output settlement. The adapter
+persists the accepted input snapshot and rejects stale attempt or cancelled-run writes. It does
+not own or reconstruct the caller's in-process aggregate snapshot authority.

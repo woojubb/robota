@@ -1,3 +1,4 @@
+export * from './services/task-snapshot-budget.js';
 export * from './types/execution-byte-limits.js';
 // @robota-sdk/dag-core
 // Core DAG contracts and state rules.

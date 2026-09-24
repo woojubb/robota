@@ -58,3 +58,10 @@ The supported sync catalog's `text-repeat` rejects output beyond the runtime's d
 ceiling before expanding it, including when a saved workflow attempts to supply higher limits.
 `run` surfaces that rejection as a failed command. This is a per-operation output bound, separate
 from the existing trusted file-read bound; it is not an aggregate workflow budget or CPU preemption.
+
+Saved composite workflows inherit the parent's live task snapshot authority and per-operation
+byte ceilings through their injected runner. Parent and child accepted task input/output snapshots
+therefore consume the same cumulative allowance; a child cannot reset it by constructing its local
+runtime. Independent `/workflows run` invocations receive independent allowances. Trusted hosts may
+configure snapshot allowances, while saved workflow data cannot. This is persisted task snapshot
+admission after serialization, not generation-time memory protection or CPU preemption.

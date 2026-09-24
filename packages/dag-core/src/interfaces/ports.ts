@@ -1,3 +1,4 @@
+import type { ITaskSnapshotBudget } from '../services/task-snapshot-budget.js';
 import type { IDagExecutionByteLimits } from '../types/execution-byte-limits.js';
 import type { TExecutionCommit, IExecutionCommitResult } from '../services/execution-commit.js';
 import type {
@@ -150,6 +151,8 @@ export interface IStoragePort {
 
 /** Input bundle for executing a single task within a DAG run. */
 export interface ITaskExecutionInput {
+  /** Shared live root snapshot authority, never sourced from serialized data. */
+  snapshotBudget?: ITaskSnapshotBudget;
   /** Trusted host limits; never deserialized from workflow configuration. */
   byteLimits?: IDagExecutionByteLimits;
   /** Trusted in-process attempt cancellation; never supplied by serialized node or queue data. */

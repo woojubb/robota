@@ -31,7 +31,9 @@ Before launching a child run, the composite rejects a child DAG that contains it
 any ancestor composite node type, and rejects launches beyond `maxDepth` (default and hard maximum:
 three nested DAG boundaries; zero disables child launches). This is a runtime guard, not a
 constructor-time guess — direct and indirect recursion fail before the next child run starts.
-Budget and cancellation propagation remain separate unfinished parts of issue #2163. If a child
+Composite runners also forward the same trusted task snapshot authority and per-operation byte
+limits to children; they never reconstruct these capabilities from a saved manifest. Cancellation
+propagation and generation-time aggregate limits remain unfinished parts of issue #2163. If a child
 fails, its terminal error code and retryability are preserved rather than replaced with a generic
 composite failure.
 

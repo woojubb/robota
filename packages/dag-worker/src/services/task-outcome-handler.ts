@@ -1,5 +1,6 @@
 import {
   TASK_PROGRESS_EVENTS,
+  type ITaskSnapshotBudget,
   type IClockPort,
   type IDagDefinition,
   type IDagError,
@@ -41,6 +42,7 @@ export class TaskOutcomeHandler {
     private readonly clock: IClockPort,
     private readonly options: IWorkerLoopOptions,
     private readonly runProgressEventReporter?: IRunProgressEventReporter,
+    private readonly snapshotBudget?: ITaskSnapshotBudget,
   ) {}
 
   public async handleSuccessPath(
@@ -52,16 +54,22 @@ export class TaskOutcomeHandler {
     estimatedCredits?: number,
     totalCredits?: number,
   ): Promise<TResult<IWorkerLoopResult, IDagError>> {
-    const committed = await this.storage.commitExecution(message.dagRunId, {
+    const snapshot = JSON.stringify(output);
+    const persist = () => this.storage.commitExecution(message.dagRunId, {
       kind: 'settle',
       taskRunId,
       attempt: message.attempt,
       leaseOwner: this.options.workerId,
       status: 'success',
-      outputSnapshot: JSON.stringify(output),
+      outputSnapshot: snapshot,
       estimatedCredits,
       totalCredits,
     });
+    const admission = this.snapshotBudget
+      ? await this.snapshotBudget.admit('output', snapshot, persist)
+      : { ok: true as const, value: await persist() };
+    if (!admission.ok) return this.handleFailurePath(message, taskRunId, admission.error);
+    const committed = admission.value;
     if (!committed.applied) return successAfterAck(this.queue, message.messageId, taskRunId, false);
     this.runProgressEventReporter?.publish({
       dagRunId: message.dagRunId,

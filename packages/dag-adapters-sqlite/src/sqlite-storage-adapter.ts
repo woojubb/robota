@@ -123,7 +123,7 @@ export class SqliteStorageAdapter implements IStoragePort {
           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(task_run_id) DO UPDATE SET status=excluded.status, attempt=excluded.attempt,
           lease_owner=excluded.lease_owner, lease_until=excluded.lease_until,
-          output_snapshot=excluded.output_snapshot, estimated_credits=excluded.estimated_credits,
+          input_snapshot=excluded.input_snapshot, output_snapshot=excluded.output_snapshot, estimated_credits=excluded.estimated_credits,
           total_credits=excluded.total_credits, error_code=excluded.error_code, error_message=excluded.error_message`,
             )
             .run(

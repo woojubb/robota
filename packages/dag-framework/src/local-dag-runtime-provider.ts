@@ -1,5 +1,7 @@
 import type {
   IDagDefinition,
+  ITaskSnapshotBudget,
+  ITaskSnapshotBudgetLimits,
   IDagExecutionByteLimits,
   IDagExecutionLineage,
   IDagNodeDefinition,
@@ -17,7 +19,7 @@ import type {
   IWorkspaceLayout,
 } from '@robota-sdk/dag-core';
 import { resolveTrustedExecutionRoot } from '@robota-sdk/agent-core/node';
-import { LifecycleTaskExecutorPort, resolveDagExecutionByteLimits } from '@robota-sdk/dag-core';
+import { LifecycleTaskExecutorPort, resolveDagExecutionByteLimits, resolveTaskSnapshotBudgetLimits, TaskSnapshotBudget } from '@robota-sdk/dag-core';
 import {
   InMemoryLeasePort,
   InMemoryQueuePort,
@@ -47,6 +49,10 @@ const LOCAL_DEFAULT_TIMEOUT_MS = 300_000;
 
 /** Options accepted by {@link LocalDagRuntimeProvider}. */
 export interface ILocalDagRuntimeProviderOptions {
+  /** Trusted limits for a fresh root invocation. */
+  snapshotBudgetLimits?: ITaskSnapshotBudgetLimits;
+  /** Inherited live root authority for a nested invocation. */
+  snapshotBudget?: ITaskSnapshotBudget;
   /** Trusted host policy; workflow data cannot change this ceiling. */
   byteLimits?: IDagExecutionByteLimits;
   /** Trusted absolute filesystem root propagated to every node. */
@@ -81,9 +87,11 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
   public readonly displayName = 'Local (in-process)';
 
   private readonly executionRoot: string;
+  private readonly snapshotBudgetLimits: ITaskSnapshotBudgetLimits;
   private readonly byteLimits: IDagExecutionByteLimits;
   public constructor(private readonly options: ILocalDagRuntimeProviderOptions) {
     this.executionRoot = resolveTrustedExecutionRoot(options.executionRoot);
+    this.snapshotBudgetLimits = resolveTaskSnapshotBudgetLimits(options.snapshotBudgetLimits);
     this.byteLimits = resolveDagExecutionByteLimits(options.byteLimits);
   }
 
@@ -102,6 +110,8 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
     // node id to `node-<n>` — undoing a conversion the caller had just performed.
 
     const startMs = Date.now();
+    const inheritedBudget = this.options.snapshotBudget;
+    const snapshotBudget = inheritedBudget ?? new TaskSnapshotBudget(this.snapshotBudgetLimits);
     try {
       const result = await runDagOnce(
         dag,
@@ -112,6 +122,7 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
         options?.signal,
         this.options.lineage,
         this.byteLimits,
+        snapshotBudget,
       );
 
       const durationMs = Date.now() - startMs;
@@ -151,6 +162,8 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
         error,
       });
       return { ok: false, outputs: {}, durationMs, error };
+    } finally {
+      if (inheritedBudget === undefined) snapshotBudget.close();
     }
   }
 
@@ -194,6 +207,7 @@ async function runDagOnce(
   signal: AbortSignal | undefined,
   lineage: IDagExecutionLineage | undefined,
   byteLimits: IDagExecutionByteLimits,
+  snapshotBudget: ITaskSnapshotBudget,
 ): Promise<IDagRunOutcome> {
   const assemblyResult = buildNodeDefinitionAssembly(nodeDefinitions);
   if (!assemblyResult.ok) {
@@ -215,6 +229,7 @@ async function runDagOnce(
     {
       executionRoot,
       byteLimits,
+      snapshotBudget,
       storage,
       queue: new InMemoryQueuePort(),
       deadLetterQueue: new InMemoryQueuePort(),
