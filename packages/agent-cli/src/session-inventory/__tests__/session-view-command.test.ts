@@ -54,6 +54,31 @@ describe('session view command', () => {
     expect(render).toHaveBeenCalledWith(expect.objectContaining({ screenReader: false }));
   });
 
+  it('passes only supported observed state filters to the view', async () => {
+    const render = vi.fn(async () => undefined);
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      expect(await runSessionViewCommand(['--state', 'idle'], {
+        isTTY: true, settings: {}, env: {}, render,
+      })).toBe(0);
+      expect(render).toHaveBeenCalledWith(expect.objectContaining({ stateFilter: 'idle' }));
+      render.mockClear();
+      expect(await runSessionViewCommand(['--cwd', '.', '--state', 'working', '--screen-reader'], {
+        isTTY: true, settings: {}, env: {}, render,
+      })).toBe(0);
+      expect(render).toHaveBeenCalledWith(expect.objectContaining({
+        stateFilter: 'working', filteredByCwd: true, screenReader: true,
+      }));
+      render.mockClear();
+      expect(await runSessionViewCommand(['--state', 'completed'], {
+        isTTY: true, settings: {}, env: {}, render,
+      })).toBe(1);
+      expect(render).not.toHaveBeenCalled();
+    } finally {
+      stderr.mockRestore();
+    }
+  });
+
   it('does not start an interactive renderer when input or output is not a TTY', async () => {
     const render = vi.fn(async () => undefined);
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);

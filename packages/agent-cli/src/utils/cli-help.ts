@@ -75,8 +75,9 @@ Commands:
   robota usage [options]           Show 7/30-day cross-session personal usage (text or JSON)
   robota session list [--format text|json]
                                   List live processes, saved records and supervised sessions separately
-  robota session view [--cwd <directory>] [--screen-reader|--no-screen-reader]
-                                  Live supervised sessions across projects, or one directory (TTY only)
+  robota session view [--cwd <directory>] [--state <state>]
+                      [--screen-reader|--no-screen-reader]
+                                  Live supervised sessions across projects, or filtered (TTY only)
   robota session start --background
                                   Start a supervised session that outlives this terminal (no attach yet)
   robota session stop <supervised-id>
