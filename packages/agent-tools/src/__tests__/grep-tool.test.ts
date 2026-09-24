@@ -1,6 +1,6 @@
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createGrepTool } from '../builtins/grep-tool.js';
 
@@ -145,9 +145,9 @@ describe('grepTool', () => {
   });
 
   it('TC-06: directory output preserves per-file blocks in file-enumeration order', async () => {
-    // files_with_matches order IS the enumeration order the sequential
-    // implementation used; content/count output must be the concatenation of
-    // per-file results in exactly that order.
+    // The path result gives the actual enumeration order. Build an independent
+    // expectation from the known fixture instead of starting another worker for
+    // every file in each mode; the latter makes this test depend on CI load.
     const filesResult = await runGrep(bulkDir, { pattern: 'alpha', path: bulkDir });
     const fileOrder = filesResult.output.split('\n');
     expect(fileOrder).toHaveLength(80);
@@ -160,12 +160,20 @@ describe('grepTool', () => {
       };
       if (mode === 'content') dirArgs.contextLines = 1;
       const dirResult = await runGrep(bulkDir, dirArgs);
-      const perFileOutputs: string[] = [];
-      for (const filePath of fileOrder) {
-        const single = await runGrep(bulkDir, { ...dirArgs, path: filePath });
-        perFileOutputs.push(single.output);
-      }
-      expect(dirResult.output).toBe(perFileOutputs.join('\n'));
+      const expected = fileOrder
+        .map((filePath) => {
+          const id = basename(filePath, '.txt').slice('bulk-'.length);
+          if (mode === 'count') return `${filePath}:2`;
+          return [
+            `${filePath}:1-start ${id}`,
+            `${filePath}:2:alpha ${id}`,
+            `${filePath}:3-middle ${id}`,
+            `${filePath}:4:alpha again ${id}`,
+            `${filePath}:5-end ${id}`,
+          ].join('\n');
+        })
+        .join('\n');
+      expect(dirResult.output).toBe(expected);
     }
   });
 
