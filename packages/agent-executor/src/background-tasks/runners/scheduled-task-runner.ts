@@ -68,12 +68,12 @@ interface IScheduledTaskState {
 
 export function createScheduledTaskRunner(
   options: IScheduledTaskRunnerOptions = {},
-): IBackgroundTaskRunner {
+): IBackgroundTaskRunner<'scheduled'> {
   return {
     kind: 'scheduled',
     nextScheduledFireOnOrAfter: (cronExpression, firstAllowedAt) =>
       nextScheduledFireOnOrAfter(cronExpression, firstAllowedAt, options),
-    start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+    start(task: IBackgroundTaskStart<'scheduled'>): IBackgroundTaskHandle {
       if (task.request.kind !== 'scheduled') {
         throw new BackgroundTaskError(
           'runner',

@@ -177,11 +177,19 @@ interface IStartBackgroundTaskRunnerOptions {
 
 export function startBackgroundTaskRunner(options: IStartBackgroundTaskRunnerOptions): void {
   try {
+    if (options.runner.kind !== options.task.request.kind) {
+      throw new BackgroundTaskError(
+        'runner',
+        `Runner kind ${options.runner.kind} does not match task kind ${options.task.request.kind}`,
+      );
+    }
+    // The kind check establishes the correlation that TypeScript cannot recover from a
+    // runtime registry of the four runner variants.
     const handle = options.runner.start({
       taskId: options.task.state.id,
       request: options.task.request,
       emit: options.onEvent,
-    });
+    } as never);
     const updated = attachBackgroundTaskHandleMetadata(options.task, handle, options.now);
     if (updated) options.onUpdated(updated);
     options.onStarted();
