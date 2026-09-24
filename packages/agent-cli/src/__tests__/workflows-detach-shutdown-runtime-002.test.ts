@@ -60,19 +60,14 @@ const RUNTIME_SHUTDOWN_TIMEOUT_MS = 5000;
 const roots: string[] = [];
 let handle: IRuntimeHostHandle | undefined;
 
-beforeEach(() => {
-  const home = mkHomeSentinel();
+beforeEach(async () => {
+  const home = await realpath(await mkdtemp(join(tmpdir(), 'runtime-002-home-')));
+  roots.push(home);
   vi.stubEnv('HOME', home);
   // Canary: os.homedir() must actually honor the stub in this runtime (it reads HOME on POSIX at
   // call time), or every "reads ~/.robota" assumption below is untested.
   expect(homedir()).toBe(home);
 });
-
-function mkHomeSentinel(): string {
-  // A distinct, never-created directory is enough to prove HOME is honored; the real fixture root
-  // (trusted, holding the workflow files) is created separately per test via `trustedRoot()`.
-  return join(tmpdir(), `runtime-002-home-sentinel-${process.pid}-${Date.now()}`);
-}
 
 afterEach(async () => {
   await handle?.shutdown().catch(() => undefined);
