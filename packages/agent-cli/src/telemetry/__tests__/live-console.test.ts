@@ -93,4 +93,26 @@ describe('live console telemetry', () => {
     await closing;
     expect(write).toHaveBeenCalledTimes(9);
   });
+
+  it('bounds shutdown when a console sink never settles', async () => {
+    vi.useFakeTimers();
+    let unblock: (() => void) | undefined;
+    const blocked = new Promise<void>((resolve) => { unblock = resolve; });
+    try {
+      const onFailure = vi.fn();
+      const port = createConfiguredNodeOtlpLiveTelemetryPort({
+        ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_TRACES: 'console',
+      }, onFailure, () => blocked)!;
+      port.enqueue(batch);
+      let settled = false;
+      const closing = port.shutdown().then(() => { settled = true; });
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(settled).toBe(true);
+      expect(onFailure).toHaveBeenCalledWith('delivery-failed');
+      await closing;
+    } finally {
+      unblock!();
+      vi.useRealTimers();
+    }
+  });
 });

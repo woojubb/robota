@@ -6,7 +6,23 @@ import { projectLivePromptLogs } from './live-log-otlp.js';
 
 type TSignal = 'traces' | 'metrics' | 'logs';
 const MAX_PENDING_BATCHES = 8;
+const WRITE_TIMEOUT_MS = 5_000;
 const boundedLabel = (value: string | undefined): string | undefined => value?.slice(0, 128);
+
+async function writeWithDeadline(write: (line: string) => void | Promise<void>, line: string): Promise<void> {
+  const result = write(line);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([
+      Promise.resolve(result),
+      new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error('Console telemetry write timed out.')), WRITE_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
 
 /** Console is a diagnostic projection of the same content-free facts, never a batch dump. */
 function projectConsoleRecord(batch: ILivePromptTraceBatch, signal: TSignal): object {
@@ -77,7 +93,7 @@ export function createNodeLiveConsolePort(
       let line: string;
       try { line = `${JSON.stringify(projectConsoleRecord(batch, signal))}\n`; }
       catch { reportFailure('projection-failed'); continue; }
-      try { await write(line); }
+      try { await writeWithDeadline(write, line); }
       catch {
         pending.length = 0;
         reportFailure('delivery-failed');
