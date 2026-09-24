@@ -34,6 +34,13 @@ lifecycle/persistence (`agent-session`) and from any CLI shell.
   and duplicate children (including cross-kind ID collisions) are counted rather than inferred or repaired. It emits no content or
   session identity; the CLI owns loopback delivery and user-visible coverage. These partial spans
   are not proof of final turn settlement or an end-to-end distributed trace.
+- Explicit OTLP completion-event projection reuses only these already accepted spans. It emits
+  a fixed, content-free log event at each span's recorded end, with the validated trace/span IDs,
+  outcome-only attributes, and export-time observation timestamp. The prompt event denotes the
+  first terminal callback, not final turn settlement; a tool handoff event denotes only its
+  foreground body. This is a snapshot of recorded completions, not live logging or replay-log
+  export. Repeating an export may append the same log records again; source deduplication within
+  one snapshot does not guarantee collector-side idempotency.
 
 ## Contract
 
