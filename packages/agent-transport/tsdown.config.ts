@@ -7,7 +7,7 @@ const shared = {
   dts: true,
   outExtensions: ({ format }: { format: string }) => ({
     js: format === 'cjs' ? '.cjs' : '.js',
-    dts: '.d.ts',
+    dts: format === 'cjs' ? '.d.cts' : '.d.ts',
   }),
   deps: {
     neverBundle: [/^@robota-sdk\/.*/],
@@ -21,7 +21,7 @@ export default defineConfig([
       index: 'src/index.ts',
       node: 'src/node/index.ts',
     },
-    format: { esm: {}, cjs: { dts: false } },
+    format: { esm: {}, cjs: {} },
     outDir: 'dist/node',
     platform: 'node',
     clean: true,

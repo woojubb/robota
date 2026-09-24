@@ -3,8 +3,8 @@ import { defineConfig } from 'tsdown';
 export default defineConfig([
   {
     entry: { index: 'src/index.ts' },
-    // Both public formats share one canonical declaration file, emitted by ESM only.
-    format: { esm: {}, cjs: { dts: false } },
+    // Each format ships its own declarations: .d.ts for import, .d.cts for require.
+    format: { esm: {}, cjs: {} },
     outDir: 'dist/node',
     platform: 'node',
     clean: true,
@@ -13,7 +13,7 @@ export default defineConfig([
     treeshake: true,
     outExtensions: ({ format }) => ({
       js: format === 'cjs' ? '.cjs' : '.js',
-      dts: '.d.ts',
+      dts: format === 'cjs' ? '.d.cts' : '.d.ts',
     }),
     deps: { neverBundle: [/^@robota-sdk\/.*/] },
   },

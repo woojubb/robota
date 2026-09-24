@@ -7,43 +7,79 @@
   "types": "dist/node/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist/node/index.d.ts",
       "source": "./src/index.ts",
       "node": {
-        "import": "./dist/node/index.js",
-        "require": "./dist/node/index.cjs"
+        "import": {
+          "types": "./dist/node/index.d.ts",
+          "default": "./dist/node/index.js"
+        },
+        "require": {
+          "types": "./dist/node/index.d.cts",
+          "default": "./dist/node/index.cjs"
+        }
       },
       "browser": {
-        "import": "./dist/browser/index.js"
+        "import": {
+          "types": "./dist/browser/index.d.ts",
+          "default": "./dist/browser/index.js"
+        }
       },
       "default": {
-        "import": "./dist/node/index.js",
-        "require": "./dist/node/index.cjs"
+        "import": {
+          "types": "./dist/node/index.d.ts",
+          "default": "./dist/node/index.js"
+        },
+        "require": {
+          "types": "./dist/node/index.d.cts",
+          "default": "./dist/node/index.cjs"
+        }
       }
     },
     "./node": {
-      "types": "./dist/node/node.d.ts",
       "source": "./src/node.ts",
       "node": {
-        "import": "./dist/node/node.js",
-        "require": "./dist/node/node.cjs"
+        "import": {
+          "types": "./dist/node/node.d.ts",
+          "default": "./dist/node/node.js"
+        },
+        "require": {
+          "types": "./dist/node/node.d.cts",
+          "default": "./dist/node/node.cjs"
+        }
       },
       "browser": null,
       "default": {
-        "import": "./dist/node/node.js",
-        "require": "./dist/node/node.cjs"
+        "import": {
+          "types": "./dist/node/node.d.ts",
+          "default": "./dist/node/node.js"
+        },
+        "require": {
+          "types": "./dist/node/node.d.cts",
+          "default": "./dist/node/node.cjs"
+        }
       }
     },
     "./testing": {
-      "types": "./dist/node/testing/index.d.ts",
       "source": "./src/testing/index.ts",
       "node": {
-        "import": "./dist/node/testing/index.js",
-        "require": "./dist/node/testing/index.cjs"
+        "import": {
+          "types": "./dist/node/testing/index.d.ts",
+          "default": "./dist/node/testing/index.js"
+        },
+        "require": {
+          "types": "./dist/node/testing/index.d.cts",
+          "default": "./dist/node/testing/index.cjs"
+        }
       },
       "default": {
-        "import": "./dist/node/testing/index.js",
-        "require": "./dist/node/testing/index.cjs"
+        "import": {
+          "types": "./dist/node/testing/index.d.ts",
+          "default": "./dist/node/testing/index.js"
+        },
+        "require": {
+          "types": "./dist/node/testing/index.d.cts",
+          "default": "./dist/node/testing/index.cjs"
+        }
       }
     }
   },

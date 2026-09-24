@@ -2,7 +2,7 @@ import { defineConfig } from 'tsdown';
 
 export default defineConfig({
   entry: ['src/index.ts'],
-  format: { esm: {}, cjs: { dts: false } },
+  format: { esm: {}, cjs: {} },
   outDir: 'dist/node',
   platform: 'node',
   clean: true,
@@ -12,7 +12,7 @@ export default defineConfig({
   minify: true,
   outExtensions: ({ format }) => ({
     js: format === 'cjs' ? '.cjs' : '.js',
-    dts: '.d.ts',
+    dts: format === 'cjs' ? '.d.cts' : '.d.ts',
   }),
   deps: {
     neverBundle: [/^@robota-sdk\/.*/, /^koffi$/],

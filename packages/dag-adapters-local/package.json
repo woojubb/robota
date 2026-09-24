@@ -15,26 +15,48 @@
   },
   "exports": {
     ".": {
-      "types": "./dist/node/index.d.ts",
       "node": {
-        "import": "./dist/node/index.js",
-        "require": "./dist/node/index.cjs"
+        "import": {
+          "types": "./dist/node/index.d.ts",
+          "default": "./dist/node/index.js"
+        },
+        "require": {
+          "types": "./dist/node/index.d.cts",
+          "default": "./dist/node/index.cjs"
+        }
       },
       "default": {
-        "import": "./dist/node/index.js",
-        "require": "./dist/node/index.cjs"
+        "import": {
+          "types": "./dist/node/index.d.ts",
+          "default": "./dist/node/index.js"
+        },
+        "require": {
+          "types": "./dist/node/index.d.cts",
+          "default": "./dist/node/index.cjs"
+        }
       }
     },
     "./testing": {
-      "types": "./dist/node/testing/index.d.ts",
       "source": "./src/testing/index.ts",
       "node": {
-        "import": "./dist/node/testing/index.js",
-        "require": "./dist/node/testing/index.cjs"
+        "import": {
+          "types": "./dist/node/testing/index.d.ts",
+          "default": "./dist/node/testing/index.js"
+        },
+        "require": {
+          "types": "./dist/node/testing/index.d.cts",
+          "default": "./dist/node/testing/index.cjs"
+        }
       },
       "default": {
-        "import": "./dist/node/testing/index.js",
-        "require": "./dist/node/testing/index.cjs"
+        "import": {
+          "types": "./dist/node/testing/index.d.ts",
+          "default": "./dist/node/testing/index.js"
+        },
+        "require": {
+          "types": "./dist/node/testing/index.d.cts",
+          "default": "./dist/node/testing/index.cjs"
+        }
       }
     }
   },
