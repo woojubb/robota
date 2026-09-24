@@ -31,7 +31,7 @@ it('counts millions of empty lines within a constrained heap without materializi
         clearTimeout(timeout);
         reject(error);
       });
-      childProcess.on('exit', (code) => {
+      childProcess.on('close', (code) => {
         clearTimeout(timeout);
         resolve({ code, stdout, stderr });
       });
