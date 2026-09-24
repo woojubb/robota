@@ -128,10 +128,29 @@ describe('supervised session view', () => {
       view.stdout.emit('resize');
       await vi.waitFor(() => expect(view.lastFrame()).toContain('Selected'));
       view.stdin.write('s');
-      await vi.waitFor(() => expect(view.lastFrame()).toContain('Stop? y Yes / n No'));
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Stop …00000000?'));
+      expect(view.lastFrame()).toContain('y Yes / n No');
       const frame = view.lastFrame() ?? '';
       expect(frame.split('\n').length).toBeLessThanOrEqual(24);
       expect(frame).toContain('Confirm stop or cancel before closing.');
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('identifies the selected stop target even at 20 columns with matching UUID prefixes', async () => {
+    const similar = { ...FIRST, id: `${FIRST.id.slice(0, -8)}ffffffff` };
+    const view = render(<SupervisedSessionView loadRows={async () => [FIRST, similar]} onStop={async () => undefined} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('\x1B[B');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${similar.id}`));
+      Object.defineProperty(view.stdout, 'columns', { value: 20 });
+      view.stdout.emit('resize');
+      view.stdin.write('s');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Stop …ffffffff?'));
+      expect(view.lastFrame()).toContain('y Yes / n No');
+      expect((view.lastFrame() ?? '').split('\n').length).toBeLessThanOrEqual(24);
     } finally {
       view.unmount();
     }
@@ -144,13 +163,13 @@ describe('supervised session view', () => {
     try {
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
       view.stdin.write('s');
-      await vi.waitFor(() => expect(view.lastFrame()).toContain('Stop? y Yes / n No'));
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('y Yes / n No'));
       expect(stop).not.toHaveBeenCalled();
       view.stdin.write('n');
       expect(stop).not.toHaveBeenCalled();
-      await vi.waitFor(() => expect(view.lastFrame()).not.toContain('Stop? y Yes / n No'));
+      await vi.waitFor(() => expect(view.lastFrame()).not.toContain('y Yes / n No'));
       view.stdin.write('s');
-      await vi.waitFor(() => expect(view.lastFrame()).toContain('Stop? y Yes / n No'));
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('y Yes / n No'));
       view.stdin.write('y');
       await vi.waitFor(() => expect(stop).toHaveBeenCalledExactlyOnceWith(FIRST.id));
       await vi.waitFor(() => expect(view.lastFrame()).toContain('Stopping'));
@@ -179,7 +198,7 @@ describe('supervised session view', () => {
     try {
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
       view.stdin.write('s');
-      await vi.waitFor(() => expect(view.lastFrame()).toContain('Stop? y Yes / n No'));
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('y Yes / n No'));
       await vi.waitFor(() => expect(loadRows).toHaveBeenCalledTimes(2));
       finishRefresh?.([{ ...FIRST, control: 'unavailable', activity: 'unknown' }]);
       await vi.waitFor(() => expect(view.lastFrame()).toContain('control unavailable'));
@@ -204,7 +223,7 @@ describe('supervised session view', () => {
       view.stdin.write('\x1B[A');
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
       view.stdin.write('s');
-      await vi.waitFor(() => expect(view.lastFrame()).toContain('Stop? y Yes / n No'));
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('y Yes / n No'));
       view.stdin.write('y');
       await vi.waitFor(() => expect(view.lastFrame()).toContain('Stop failed'));
       expect(view.lastFrame()).toContain(FIRST.id);
@@ -228,6 +247,7 @@ describe('supervised session view', () => {
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${THIRD.id}`));
       view.stdin.write('s');
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Stop ${THIRD.id}?`));
+      expect(view.lastFrame()).not.toContain('Enter selection');
       view.stdin.write('y');
       await vi.waitFor(() => expect(stop).toHaveBeenCalledExactlyOnceWith(THIRD.id));
     } finally {

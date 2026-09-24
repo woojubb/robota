@@ -177,7 +177,8 @@ export default function SupervisedSessionView({
   const height = Math.max(8, stdout.rows ?? 24);
   // Reserve all fixed chrome plus both possible overflow indicators before choosing row lines.
   const fixedLines = 2 + (status === 'loading' || status === 'unavailable' || (status === 'ready' && ordered.length === 0) ? 1 : 0)
-    + (selectedId === undefined ? 0 : 1) + (confirmStopId !== undefined || stopStatus !== 'idle' ? 1 : 0)
+    + (selectedId === undefined ? 0 : 1)
+    + (confirmStopId !== undefined ? (screenReader ? 1 : 2) : stopStatus !== 'idle' ? 1 : 0)
     + 1 + (showHelp ? 1 : 0) + 2;
   const viewport = Math.max(1, height - fixedLines);
   const selectedLine = Math.max(0, displayLines.findIndex((line) => line.kind === 'row' && line.row.id === selectedId));
@@ -207,15 +208,18 @@ export default function SupervisedSessionView({
       {!screenReader && start + visible.length < displayLines.length &&
         <Text>{displayLines.length - start - visible.length} more below</Text>}
       {selectedId !== undefined && <Text {...chromeWrap}>Selected {selectedId}</Text>}
-      {confirmStopId !== undefined && <Text {...chromeWrap}>
-        {screenReader ? `Stop ${confirmStopId}? y Yes / n No` : `Stop? y Yes / n No — ${confirmStopId}`}
-      </Text>}
+      {confirmStopId !== undefined && (screenReader
+        ? <Text>Stop {confirmStopId}? y Yes / n No</Text>
+        : <>
+          <Text {...chromeWrap}>Stop …{confirmStopId.slice(-8)}?</Text>
+          <Text {...chromeWrap}>y Yes / n No</Text>
+        </>)}
       {confirmStopId === undefined && stopStatus === 'unavailable' &&
         <Text {...chromeWrap}>This session cannot be stopped from the view.</Text>}
       {stopStatus === 'stopping' && <Text {...chromeWrap}>Stopping selected session; wait for confirmation.</Text>}
       {stopStatus === 'stopped' && <Text {...chromeWrap}>Stopped {lastStoppedId}</Text>}
       {stopStatus === 'failed' && <Text {...chromeWrap}>Stop failed; session remains listed until verified otherwise.</Text>}
-      {screenReader && ordered.length > 0 && stopStatus !== 'stopping' &&
+      {screenReader && ordered.length > 0 && confirmStopId === undefined && stopStatus !== 'stopping' &&
         <Text>{formatNumberedSelectionPrompt(ordered.length, true)}{numbered.buffer ? ` ${numbered.buffer}` : ''}</Text>}
       {screenReader && numbered.invalid && <Text>Selection out of range.</Text>}
       <Text {...chromeWrap}>{footer}</Text>
