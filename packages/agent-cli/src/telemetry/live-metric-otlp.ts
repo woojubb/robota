@@ -157,7 +157,7 @@ export function projectLivePromptMetrics(
     addGroupedSum('robota.provider.output_tokens', '{token}', ValueType.INT, (group) => group.outputTokens);
     addGroupedSum('robota.provider.usage_unavailable_calls', '1', ValueType.INT, (group) => group.missingUsage);
     addGroupedSum('robota.provider.cost_unpriced_calls', '1', ValueType.INT, (group) => group.unpricedCalls);
-    const pricedGroups = orderedGroups.filter((group) => group.pricedCalls > 0);
+    const pricedGroups = orderedGroups.filter((group) => group.pricedCalls > 0 && group.estimatedCost >= 0);
     if (pricedGroups.length > 0) metrics.push({
       descriptor: { name: 'robota.provider.estimated_cost_usd', description: '', unit: 'USD', valueType: ValueType.DOUBLE },
       aggregationTemporality: AggregationTemporality.DELTA,

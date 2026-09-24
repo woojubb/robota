@@ -89,8 +89,8 @@ It fails visibly on an incomplete store or collector rejection and never auto-ex
 live telemetry path needs an explicit Robota enable switch, individually selected signals, and an
 explicit protocol with a validated destination (OTLP or a local console sink). It uses host-owned
 resource identity, never ambient OpenTelemetry identity or credentials, and emits only content-free
-spans, logs and low-cardinality metrics correlated by validated IDs; a metric label requires the
-operator's explicit opt-in and is never added by default. Metrics derived from child records are
+spans, logs and metrics correlated by validated IDs. Metrics are low-cardinality by default; a
+higher-cardinality label is added only on the operator's explicit opt-in. Metrics derived from child records are
 emitted only when those records are complete, and omitted children or unknown prices stay visible
 as coverage gaps rather than fabricated totals.
 It does not replay stored usage or invent lifecycle events, delivery failure never changes a turn
