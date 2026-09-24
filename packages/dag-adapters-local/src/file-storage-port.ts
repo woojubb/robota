@@ -14,7 +14,11 @@ import {
   readDefinitionFromFile,
   saveDefinitionAtomically,
 } from './definition-files.js';
-import { FileStoreOwnerConflictError, FileStoreOwnerLock } from './file-store-owner-lock.js';
+import {
+  FileStoreOwnerConflictError,
+  FileStoreOwnerLock,
+  resolveOwnerLockTiming,
+} from './file-store-owner-lock.js';
 import type { IFileStoreOwnerLockOptions } from './file-store-owner-lock.js';
 import { persistCollection } from './json-collection-file.js';
 import { HydrationGate } from './storage-hydration.js';
@@ -85,6 +89,7 @@ export class FileStoragePort implements IStoragePort {
     private readonly storageRootPath: string,
     private readonly ownerLockOptions: IFileStoragePortOwnerLockOptions = {},
   ) {
+    resolveOwnerLockTiming(ownerLockOptions);
     this.definitionsRootPath = path.join(this.storageRootPath, 'definitions');
     this.runsRootPath = path.join(this.storageRootPath, 'runs');
     this.dagRunsFilePath = path.join(this.runsRootPath, 'dag-runs.json');
@@ -118,11 +123,9 @@ export class FileStoragePort implements IStoragePort {
     // queued run/task ops), before this method's (possibly deferred) execution.
     if (this.ownershipLostError !== undefined) throw this.ownershipLostError;
     await this.acquireOwnerLockOnce();
-    // Before every operation (not just the periodic heartbeat): a stall long enough to matter delays
-    // a queued persist exactly as much as it delays the heartbeat timer, so whichever the event loop
-    // resumes first must still catch a lease this instance has not been able to renew — an owner must
-    // stop acting before anyone else may legitimately consider its lease stale.
-    this.ownerLock?.checkSelfExpiry();
+    // Before every operation, not only on the heartbeat: a stall delays a queued persist as much as it
+    // delays the timer, so whichever resumes first must catch a displaced or self-expired owner.
+    await this.ownerLock?.verifyOwnership();
     if (this.ownershipLostError !== undefined) throw this.ownershipLostError;
     await this.hydration.ensure();
   }

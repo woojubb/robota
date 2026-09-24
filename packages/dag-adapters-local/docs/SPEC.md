@@ -63,11 +63,14 @@ file adapter hydrates before adjudication and persists the changed collection (i
 holds, task success and its snapshot) in one write, and a storage root has exactly one live
 file-adapter owner, enforced before any read or write reaches it — independent instances still do not
 coordinate cached state, they simply cannot both be live over the same root at once, which is not a
-cross-process or multi-file transaction guarantee. A lapsed owner is reclaimable from any host, and the
-design intent is that an owner stops acting before its ownership could be legitimately reclaimed rather
-than waiting to observe its replacement after the fact — this assumes roughly synchronized clocks
-between hosts sharing a root and no single stall longer than the owner's own self-expiry margin, so a
-clock far enough out of sync or a long enough stall can narrow or close that margin. Once an instance
+cross-process or multi-file transaction guarantee. Ownership is a sequence of epochs, each claimed
+only by exclusive creation and never deleted or restored while it is the newest, so at most one
+instance can ever hold the newest epoch and a displaced instance can always tell. A lapsed owner is
+reclaimable from any host, and the design intent is that an owner stops acting before its ownership
+could be legitimately reclaimed rather than waiting to observe its replacement after the fact — this
+assumes roughly synchronized clocks between hosts sharing a root and no single stall longer than the
+owner's own self-expiry margin, so a clock far enough out of sync or a long enough stall can narrow or
+close that margin. Once an instance
 does lose, or cannot prove it kept, ownership, that is permanent for it: it stops accepting reads and
 writes for good, and using that root again requires opening a new instance, which goes through ordinary
 acquisition rather than resuming the old one's state. All file run/task reads and writes share one
