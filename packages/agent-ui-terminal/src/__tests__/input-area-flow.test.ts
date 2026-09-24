@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createCostCommandEntry } from '@robota-sdk/agent-command';
 import {
   appendPromptHistory,
   createPasteLabelChange,
@@ -70,6 +71,13 @@ describe('input area flow', () => {
     const result = resolveEnterCommandSelection('/ex', command('exit'));
 
     expect(result).toEqual({ type: 'submit', value: '/exit' });
+  });
+
+  it('submits the default session cost summary when Enter selects /cost', () => {
+    const cost = createCostCommandEntry();
+
+    expect(resolveEnterCommandSelection('/co', cost)).toEqual({ type: 'submit', value: '/cost' });
+    expect(resolveEnterCommandSelection('/cost', cost)).toEqual({ type: 'submit', value: '/cost' });
   });
 
   it('Given subcommand selected (args present) When enter selects Then submits', () => {

@@ -119,6 +119,8 @@ describe('createSessionCommandModule', () => {
         modelInvocable: false,
       }),
     );
+    expect(entry?.argumentHint).toBe('<name>');
+    expect(command?.argumentHint).toBe(entry?.argumentHint);
   });
 
   it('provides resume metadata and user-only executable command from the same module owner', () => {
@@ -165,6 +167,10 @@ describe('createSessionCommandModule', () => {
         modelInvocable: false,
       }),
     );
+    expect(entry?.argumentHint).toBe('[budget [<amount>|clear]]');
+    expect(command?.argumentHint).toBe(entry?.argumentHint);
+    expect(entry?.subcommands).toBeUndefined();
+    expect(command?.subcommands).toBeUndefined();
   });
 
   it('provides validate-session metadata and user-only executable command from the same module owner', () => {
