@@ -147,6 +147,7 @@ describe('read-only local session inventory', () => {
       expect(JSON.parse(text)).toEqual({
         live: { status: 'available', processes: [] },
         saved: [],
+        supervised: { status: 'available', sessions: [] },
       });
     } finally {
       output.mockRestore();

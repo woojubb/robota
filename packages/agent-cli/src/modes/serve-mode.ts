@@ -14,6 +14,10 @@ import {
   type IMonitorUiServer,
 } from './serve-monitor-ui.js';
 import { settleOnServeTransportFailure } from './serve-transport-failure.js';
+import {
+  startSupervisedControl,
+  type ISupervisedControl,
+} from '../session-inventory/supervised-session-control.js';
 import { startRuntimeHost } from '@robota-sdk/agent-framework';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
@@ -52,6 +56,8 @@ export type IServeModePresetOptions = Partial<IPresetSurfaceOptions>;
 
 export interface IServeModeOptions {
   cwd: string;
+  /** Explicit host-owned control root for isolated embedded runtimes and tests. */
+  supervisedRoot?: string;
   args: IParsedCliArgs;
   provider: IAIProvider;
   providerErrorGuidance?: IProviderErrorGuidance;
@@ -223,16 +229,23 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
 
   // Stay alive until the supervisor (e.g. apps/agent-app on window close) signals — or a
   // host-executed session-exit/-restart action fires (CMD-004 Phase 2) — then tear down cleanly.
-  await new Promise<void>((resolve) => {
-    let settling = false;
+  let supervisedControl: ISupervisedControl | undefined;
+  let requestSettle: (reason: string) => void = () => undefined;
+  let settling = false;
+  const readinessAbort = new AbortController();
+  const lifetime = new Promise<void>((resolve) => {
     const settle = (reason: string): void => {
       if (settling) return;
       settling = true;
+      readinessAbort.abort();
       void Promise.resolve(monitorUi?.close())
         .catch(() => {})
         .then(() => host.shutdown(reason))
+        .catch(() => undefined)
+        .then(() => supervisedControl?.close())
         .finally(() => resolve());
     };
+    requestSettle = settle;
     const onSignal = (signal: NodeJS.Signals): void => settle(`received ${signal}`);
     process.once('SIGTERM', onSignal);
     process.once('SIGINT', onSignal);
@@ -266,5 +279,96 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
       requestExit: (reason) => scheduleSettle(`command exit${reason ? ` (${reason})` : ''}`),
       requestRestart: (_reason, message) => scheduleSettle(`command restart: ${message}`),
     };
+  });
+  if (args.supervisedSessionId !== undefined) {
+    try {
+      supervisedControl = await startSupervisedControl(
+        args.supervisedSessionId,
+        () => requestSettle('supervised session stopped'),
+        opts.supervisedRoot,
+      );
+      if (settling) throw new Error('Supervised runtime stopped before readiness.');
+      await acknowledgeSupervisedStartup(args.supervisedSessionId, readinessAbort.signal);
+      if (settling) throw new Error('Supervised runtime stopped during readiness.');
+    } catch (error) {
+      if (process.connected && process.send) {
+        try {
+          process.send({ kind: 'error', id: args.supervisedSessionId, code: 'startup-failed' }, () => {
+            // The parent may already have disconnected; failure reporting is best-effort only.
+          });
+        } catch {
+          // A closed readiness channel cannot prevent host/control cleanup below.
+        }
+      }
+      requestSettle('supervised session startup failed');
+      await supervisedControl?.close();
+      await lifetime;
+      throw error;
+    }
+  }
+  await lifetime;
+}
+
+export interface ISupervisedReadinessChannel {
+  send(message: { kind: 'ready' | 'acknowledged'; id: string }, done: (error?: Error | null) => void): void;
+  onMessage(listener: (message: unknown) => void): void;
+  offMessage(listener: (message: unknown) => void): void;
+  onDisconnect(listener: () => void): void;
+  offDisconnect(listener: () => void): void;
+}
+
+function processReadinessChannel(): ISupervisedReadinessChannel {
+  if (!process.send) throw new Error('Supervised serve mode requires a parent readiness channel.');
+  return {
+    send: (message, done) => { process.send?.(message, done); },
+    onMessage: (listener) => { process.on('message', listener); },
+    offMessage: (listener) => { process.off('message', listener); },
+    onDisconnect: (listener) => { process.on('disconnect', listener); },
+    offDisconnect: (listener) => { process.off('disconnect', listener); },
+  };
+}
+
+/** The launcher must receive readiness and acknowledge it before this runtime detaches. */
+export async function acknowledgeSupervisedStartup(
+  id: string,
+  signal: AbortSignal,
+  channel: ISupervisedReadinessChannel = processReadinessChannel(),
+): Promise<void> {
+  if (signal.aborted) throw new Error('Supervised runtime stopped before readiness.');
+  await new Promise<void>((resolve, reject) => {
+    let done = false;
+    const finish = (action: () => void): void => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      channel.offMessage(onMessage);
+      channel.offDisconnect(onDisconnect);
+      signal.removeEventListener('abort', onAbort);
+      action();
+    };
+    const onMessage = (message: unknown): void => {
+      if (signal.aborted) {
+        finish(() => reject(new Error('Supervised runtime stopped during readiness.')));
+        return;
+      }
+      if (typeof message !== 'object' || message === null || !('kind' in message) ||
+        !('id' in message) || message.kind !== 'ack' || message.id !== id) {
+        finish(() => reject(new Error('Supervised startup acknowledgement was invalid.')));
+        return;
+      }
+      channel.send({ kind: 'acknowledged', id }, (error) => {
+        if (signal.aborted || error) finish(() => reject(new Error('Supervised startup acknowledgement could not be sent.')));
+        else finish(resolve);
+      });
+    };
+    const onAbort = (): void => finish(() => reject(new Error('Supervised runtime stopped during readiness.')));
+    const onDisconnect = (): void => finish(() => reject(new Error('Supervised launcher closed before acknowledgement.')));
+    const timer = setTimeout(() => finish(() => reject(new Error('Supervised launcher did not acknowledge startup.'))), 10_000);
+    channel.onMessage(onMessage);
+    channel.onDisconnect(onDisconnect);
+    signal.addEventListener('abort', onAbort, { once: true });
+    channel.send({ kind: 'ready', id }, (error) => {
+      if (error) finish(() => reject(new Error('Supervised readiness could not be sent.')));
+    });
   });
 }

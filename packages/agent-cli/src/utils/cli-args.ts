@@ -28,6 +28,8 @@ export interface IParsedCliArgs {
   printMode: boolean;
   /** RUNTIME-001: run the headless runtime host (serve the WS, no ink) — the backend apps/agent-app spawns. */
   serve: boolean;
+  /** Internal opt-in identity for one detached, supervisor-owned runtime. */
+  supervisedSessionId?: string;
   /** MCP-2533: selecting HTTP also requires an exclusive owner-only token file. */
   mcpHttpTokenFile?: string;
   mcpHttpPort?: number;
@@ -157,6 +159,7 @@ const PARSE_ARGS_CONFIG = {
     'goal-max-iterations': { type: 'string' },
     'fork-session': { type: 'boolean', default: false },
     serve: { type: 'boolean', default: false },
+    'supervised-session-id': { type: 'string' },
     'http-token-file': { type: 'string' },
     'http-port': { type: 'string' },
     'external-event-allow': { type: 'string', multiple: true },
@@ -261,6 +264,7 @@ function mapParsedValues(
     help: values['help'] ?? false,
     printMode: values['p'] ?? false,
     serve: values['serve'] ?? false,
+    supervisedSessionId: values['supervised-session-id'],
     mcpHttpTokenFile: values['http-token-file'],
     mcpHttpPort: values['http-port'] === undefined ? undefined : Number(values['http-port']),
     externalEventAllow: values['external-event-allow'] ?? [],
@@ -322,6 +326,11 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
     (!Number.isInteger(args.mcpHttpPort) || args.mcpHttpPort < 1 || args.mcpHttpPort > 65535)
   ) {
     throw new Error('--http-port must be an integer in 1..65535');
+  }
+  if (args.supervisedSessionId !== undefined) {
+    if (!args.serve || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(args.supervisedSessionId)) {
+      throw new Error('--supervised-session-id requires --serve and a valid generated UUID');
+    }
   }
   const externalEventAllow = args.externalEventAllow ?? [];
   for (const grant of externalEventAllow) {

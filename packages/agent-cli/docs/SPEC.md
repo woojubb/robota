@@ -78,6 +78,18 @@ not prove a peer owns a saved record; corrupt and unsupported records remain vis
 transcript content nor untrusted project records are included. This inventory is not a background
 supervisor or an attach/restart promise.
 
+**Opt-in supervised sessions (#2726).** `robota session start --background` admits the current
+project through the same headless trust boundary before starting an independent, same-user runtime.
+Each supervised runtime owns its own session and guarded local control endpoint; it survives the
+launching terminal, and `session list` reports its supervisor-issued identity separately from peer
+presence and saved records. `session stop <supervised-id>` acts only through the live owner's control
+endpoint and reports failure when ownership or completion cannot be established. No session content,
+launch environment, or provider credentials appear in the control records or list. Existing GUI and
+ordinary `--serve` processes retain their window/process shutdown behavior. This stage does not
+promise attach, peek, automatic restart after crash or login, or a relationship to a saved record.
+The default WebSocket retains its transport-owned, per-launch auto-minted authentication token;
+this stage does not expose that token through the session inventory or control endpoint.
+
 **Explicit local OTLP export (#2726).** `robota usage export` reads the same authorized user and
 project session stores as local usage reporting. Its default signal sends aggregate, non-additive
 usage Gauges; an explicit trace signal sends verified prompt-execution roots and any causally
