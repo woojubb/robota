@@ -15,8 +15,11 @@ import {
 import { createGemmaToolCallProjector } from './tool-call-projector';
 import {
   assembleOpenAICompatibleStream,
+  awaitWithProviderRequestId,
   buildOpenAICompatibleRequestParams,
   observeProviderNativeRawPayloadStream,
+  readOpenAICompatibleRequestId,
+  withProviderRequestId,
 } from '../shared/openai-compatible/index.js';
 
 import type { IGemmaProviderOptions } from './types';
@@ -116,7 +119,10 @@ export class GemmaProvider extends AbstractAIProvider {
         payloadKind: 'response',
         payload: response,
       });
-      return parseGemmaChatCompletion(response, this.logger, options);
+      return withProviderRequestId(
+        parseGemmaChatCompletion(response, this.logger, options),
+        readOpenAICompatibleRequestId(response),
+      );
     } catch (error) {
       const gemmaError = error as IOpenAICompatibleError;
       const errorMessage = gemmaError.message || 'Gemma API request failed';
@@ -160,7 +166,9 @@ export class GemmaProvider extends AbstractAIProvider {
         payloadKind: 'request',
         payload: requestParams,
       });
-      const stream = await this.client.chat.completions.create(requestParams);
+      const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
+        this.client.chat.completions.create(requestParams),
+      );
       const projectionState = createGemmaStreamProjectionState(this.logger, options?.tools);
 
       const observedStream = observeProviderNativeRawPayloadStream(stream, {
@@ -171,12 +179,12 @@ export class GemmaProvider extends AbstractAIProvider {
 
       for await (const chunk of this.streamWithAbort(observedStream, options?.signal)) {
         for (const message of projectGemmaStreamChunk(chunk, projectionState)) {
-          yield message;
+          yield withProviderRequestId(message, providerRequestId);
         }
       }
 
       for (const message of flushGemmaStreamProjection(projectionState)) {
-        yield message;
+        yield withProviderRequestId(message, providerRequestId);
       }
     } catch (error) {
       const gemmaError = error as IOpenAICompatibleError;
@@ -298,9 +306,11 @@ export class GemmaProvider extends AbstractAIProvider {
         payloadKind: 'request',
         payload: requestParams,
       });
-      const stream = await this.client.chat.completions.create(
-        requestParams,
-        options.signal ? { signal: options.signal } : undefined,
+      const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
+        this.client.chat.completions.create(
+          requestParams,
+          options.signal ? { signal: options.signal } : undefined,
+        ),
       );
       const projector = new GemmaReasoningProjector();
       const result = await assembleOpenAICompatibleStream({
@@ -316,7 +326,10 @@ export class GemmaProvider extends AbstractAIProvider {
         toolCallTextProjector: createGemmaToolCallProjector(options.tools),
       });
 
-      return withGemmaProjectionMetadata(result, projector.rawText, projector.removedReasoning);
+      return withProviderRequestId(
+        withGemmaProjectionMetadata(result, projector.rawText, projector.removedReasoning),
+        providerRequestId,
+      );
     } catch (error) {
       const gemmaError = error as IOpenAICompatibleError;
       const errorMessage = gemmaError.message || 'Gemma streaming request failed';

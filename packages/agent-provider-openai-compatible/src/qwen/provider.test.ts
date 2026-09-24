@@ -370,6 +370,36 @@ describe('QwenProvider', () => {
     expect(result.metadata?.['finishReason']).toBe('stop');
   });
 
+  it('keeps usage totals from an earlier chunk AND the request ID when a later chunk carries no usage', async () => {
+    const provider = new QwenProvider({ apiKey: 'dashscope-key' });
+    const client = getClient(provider);
+    const usageChunk: OpenAI.Chat.ChatCompletionChunk = {
+      id: 'chunk-usage',
+      object: 'chat.completion.chunk',
+      created: 1,
+      model: 'qwen-plus',
+      choices: [{ index: 0, delta: { content: 'Hello' }, finish_reason: null, logprobs: null }],
+      usage: { prompt_tokens: 10, completion_tokens: 2, total_tokens: 12 },
+    };
+    const usageLessChunk = createChunk(' world', 'stop');
+    const stream = asyncIterableFrom([usageChunk, usageLessChunk]);
+    client.chat.completions.create.mockReturnValue({
+      then: (resolve: (value: unknown) => void) => resolve(stream),
+      withResponse: async () => ({ data: stream, request_id: 'req_qwen_usage_and_id' }),
+    });
+
+    const result = await provider.chat([createUserMessage('Hello')], {
+      model: 'qwen-plus',
+      onTextDelta: () => {},
+    });
+
+    if (result.role !== 'assistant') throw new Error('Expected assistant message');
+    expect(result).toMatchObject({
+      usage: { promptTokens: 10, completionTokens: 2, totalTokens: 12 },
+    });
+    expect(result.metadata?.['providerRequestId']).toBe('req_qwen_usage_and_id');
+  });
+
   it('emits ordered native Chat Completions stream chunks', async () => {
     const provider = new QwenProvider({ apiKey: 'dashscope-key' });
     const client = getClient(provider);
@@ -704,6 +734,182 @@ describe('QwenProvider', () => {
     });
     expect(chunks.map((chunk) => chunk.content)).toEqual(['Part one', ' done']);
     expect(chunks[1]?.metadata?.['isComplete']).toBe(true);
+  });
+
+  it('carries the server-returned request ID (response._request_id) onto metadata for chat-completions', async () => {
+    const provider = new QwenProvider({ apiKey: 'dashscope-key' });
+    const client = getClient(provider);
+    client.chat.completions.create.mockResolvedValue({
+      id: 'qwen-req-id',
+      _request_id: 'req_qwen_123',
+      object: 'chat.completion',
+      created: 1,
+      model: 'qwen-plus',
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: 'hi', refusal: null },
+          finish_reason: 'stop',
+          logprobs: null,
+        },
+      ],
+    } satisfies OpenAI.Chat.ChatCompletion & { _request_id: string });
+
+    const result = await provider.chat([createUserMessage('Hello')], { model: 'qwen-plus' });
+
+    expect(result.metadata?.['providerRequestId']).toBe('req_qwen_123');
+  });
+
+  it('never fabricates a request ID when the chat-completions response has no _request_id', async () => {
+    const provider = new QwenProvider({ apiKey: 'dashscope-key' });
+    const client = getClient(provider);
+    client.chat.completions.create.mockResolvedValue({
+      id: 'qwen-no-req-id',
+      object: 'chat.completion',
+      created: 1,
+      model: 'qwen-plus',
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: 'hi', refusal: null },
+          finish_reason: 'stop',
+          logprobs: null,
+        },
+      ],
+    } satisfies OpenAI.Chat.ChatCompletion);
+
+    const result = await provider.chat([createUserMessage('Hello')], { model: 'qwen-plus' });
+
+    expect(result.metadata?.['providerRequestId']).toBeUndefined();
+  });
+
+  it('carries the server-returned request ID onto every yielded chat-completions chunk when withResponse is available', async () => {
+    const provider = new QwenProvider({ apiKey: 'dashscope-key' });
+    const client = getClient(provider);
+    const stream = asyncIterableFrom([createChunk('Part one'), createChunk(' done', 'stop')]);
+    client.chat.completions.create.mockReturnValue({
+      then: (resolve: (value: unknown) => void) => resolve(stream),
+      withResponse: async () => ({ data: stream, request_id: 'req_qwen_stream' }),
+    });
+
+    const chunks: TUniversalMessage[] = [];
+    for await (const chunk of provider.chatStream?.([createUserMessage('Stream')], {
+      model: 'qwen-plus',
+    }) ?? []) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks.length).toBeGreaterThan(0);
+    expect(chunks.every((chunk) => chunk.metadata?.['providerRequestId'] === 'req_qwen_stream')).toBe(
+      true,
+    );
+  });
+
+  it('carries the server-returned request ID onto the assembled chat-completions streaming message when withResponse is available', async () => {
+    const provider = new QwenProvider({ apiKey: 'dashscope-key' });
+    const client = getClient(provider);
+    const stream = asyncIterableFrom([createChunk('Hello'), createChunk(' from Qwen', 'stop')]);
+    client.chat.completions.create.mockReturnValue({
+      then: (resolve: (value: unknown) => void) => resolve(stream),
+      withResponse: async () => ({ data: stream, request_id: 'req_qwen_assembly' }),
+    });
+
+    const result = await provider.chat([createUserMessage('Hello')], {
+      model: 'qwen-plus',
+      onTextDelta: () => {},
+    });
+
+    expect(result.metadata?.['providerRequestId']).toBe('req_qwen_assembly');
+  });
+
+  it('leaves the assembled chat-completions streaming message unchanged when withResponse is unavailable', async () => {
+    const provider = new QwenProvider({ apiKey: 'dashscope-key' });
+    const client = getClient(provider);
+    client.chat.completions.create.mockResolvedValue(
+      asyncIterableFrom([createChunk('Hello'), createChunk(' there', 'stop')]),
+    );
+
+    const result = await provider.chat([createUserMessage('Hello')], {
+      model: 'qwen-plus',
+      onTextDelta: () => {},
+    });
+
+    expect(result.metadata?.['providerRequestId']).toBeUndefined();
+  });
+
+  it('carries the server-returned request ID (response._request_id) onto metadata for the Responses API', async () => {
+    const provider = new QwenProvider({
+      apiKey: 'dashscope-key',
+      builtInWebTools: { webSearch: true },
+    });
+    const client = getResponsesClient(provider);
+    client.responses.create.mockResolvedValue({
+      id: 'resp_req_id',
+      _request_id: 'req_qwen_responses_123',
+      model: 'qwen3.6-plus',
+      output_text: 'Search-backed answer',
+      status: 'completed',
+      output: [],
+    });
+
+    const result = await provider.chat([createUserMessage('Latest Qwen news')], {
+      model: 'qwen3.6-plus',
+    });
+
+    expect(result.metadata?.['providerRequestId']).toBe('req_qwen_responses_123');
+  });
+
+  it('never fabricates a request ID when the Responses API payload has no _request_id', async () => {
+    const provider = new QwenProvider({
+      apiKey: 'dashscope-key',
+      builtInWebTools: { webSearch: true },
+    });
+    const client = getResponsesClient(provider);
+    client.responses.create.mockResolvedValue({
+      id: 'resp_no_req_id',
+      model: 'qwen3.6-plus',
+      output_text: 'Search-backed answer',
+      status: 'completed',
+      output: [],
+    });
+
+    const result = await provider.chat([createUserMessage('Latest Qwen news')], {
+      model: 'qwen3.6-plus',
+    });
+
+    expect(result.metadata?.['providerRequestId']).toBeUndefined();
+  });
+
+  it('carries the server-returned request ID onto the assembled Responses API streaming message when withResponse is available', async () => {
+    const provider = new QwenProvider({
+      apiKey: 'dashscope-key',
+      builtInWebTools: { webFetch: true },
+    });
+    const client = getResponsesClient(provider);
+    const stream = asyncIterableFrom([
+      { type: 'response.output_text.delta', delta: 'Hello ' },
+      {
+        type: 'response.completed',
+        response: {
+          id: 'resp_1',
+          model: 'qwen3.6-plus',
+          status: 'completed',
+          output_text: 'Hello world',
+          output: [],
+        },
+      },
+    ]);
+    client.responses.create.mockReturnValue({
+      then: (resolve: (value: unknown) => void) => resolve(stream),
+      withResponse: async () => ({ data: stream, request_id: 'req_qwen_responses_stream' }),
+    });
+
+    const result = await provider.chat([createUserMessage('Fetch example')], {
+      model: 'qwen3.6-plus',
+      onTextDelta: () => {},
+    });
+
+    expect(result.metadata?.['providerRequestId']).toBe('req_qwen_responses_stream');
   });
 
   it('wraps upstream chat failures with Qwen context', async () => {

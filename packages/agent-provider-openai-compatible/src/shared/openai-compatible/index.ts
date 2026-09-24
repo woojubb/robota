@@ -6,3 +6,4 @@ export * from './stream-assembler';
 export * from './native-payload-observer';
 export * from './endpoint-probe';
 export * from './tool-choice';
+export * from './request-id';

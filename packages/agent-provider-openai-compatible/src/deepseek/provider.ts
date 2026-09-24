@@ -10,9 +10,12 @@ import { DEEPSEEK_CAPABILITY_TABLE } from './capability-table';
 import { DEFAULT_DEEPSEEK_PROVIDER_BASE_URL } from './defaults';
 import {
   assembleOpenAICompatibleStream,
+  awaitWithProviderRequestId,
   buildOpenAICompatibleRequestParams,
   observeProviderNativeRawPayloadStream,
   OpenAICompatibleResponseParser,
+  readOpenAICompatibleRequestId,
+  withProviderRequestId,
 } from '../shared/openai-compatible/index.js';
 
 import type {
@@ -127,7 +130,10 @@ export class DeepSeekProvider extends AbstractAIProvider {
         payloadKind: 'response',
         payload: response,
       });
-      return this.responseParser.parseResponse(response);
+      return withProviderRequestId(
+        this.responseParser.parseResponse(response),
+        readOpenAICompatibleRequestId(response),
+      );
     } catch (error) {
       const deepSeekError = error as IOpenAICompatibleError;
       const errorMessage = deepSeekError.message || 'DeepSeek API request failed';
@@ -167,8 +173,10 @@ export class DeepSeekProvider extends AbstractAIProvider {
         payloadKind: 'request',
         payload: requestParams,
       });
-      const stream = await client.chat.completions.create(
-        requestParams as OpenAI.Chat.ChatCompletionCreateParamsStreaming,
+      const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
+        client.chat.completions.create(
+          requestParams as OpenAI.Chat.ChatCompletionCreateParamsStreaming,
+        ),
       );
       const observedStream = observeProviderNativeRawPayloadStream(stream, {
         provider: 'deepseek',
@@ -179,7 +187,7 @@ export class DeepSeekProvider extends AbstractAIProvider {
       for await (const chunk of this.streamWithAbort(observedStream, options?.signal)) {
         const universalMessage = this.responseParser.parseStreamingChunk(chunk);
         if (universalMessage) {
-          yield universalMessage;
+          yield withProviderRequestId(universalMessage, providerRequestId);
         }
       }
     } catch (error) {
@@ -300,12 +308,14 @@ export class DeepSeekProvider extends AbstractAIProvider {
         payloadKind: 'request',
         payload: requestParams,
       });
-      const stream = await client.chat.completions.create(
-        requestParams as OpenAI.Chat.ChatCompletionCreateParamsStreaming,
-        options.signal ? { signal: options.signal } : undefined,
+      const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
+        client.chat.completions.create(
+          requestParams as OpenAI.Chat.ChatCompletionCreateParamsStreaming,
+          options.signal ? { signal: options.signal } : undefined,
+        ),
       );
 
-      return assembleOpenAICompatibleStream({
+      const assembled = await assembleOpenAICompatibleStream({
         stream: observeProviderNativeRawPayloadStream(stream, {
           provider: 'deepseek',
           apiSurface: 'chat-completions',
@@ -314,6 +324,7 @@ export class DeepSeekProvider extends AbstractAIProvider {
         onTextDelta: options.onTextDelta,
         signal: options.signal,
       });
+      return withProviderRequestId(assembled, providerRequestId);
     } catch (error) {
       const deepSeekError = error as IOpenAICompatibleError;
       const errorMessage = deepSeekError.message || 'DeepSeek streaming request failed';

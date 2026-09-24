@@ -7,8 +7,11 @@ import {
 } from './responses-converter';
 import { assembleQwenResponsesStream, parseQwenResponsesResponse } from './responses-parser';
 import {
+  awaitWithProviderRequestId,
   observeProviderNativeRawPayloadStream,
+  readOpenAICompatibleRequestId,
   toOpenAIResponsesToolChoice,
+  withProviderRequestId,
   type IOpenAICompatibleError,
 } from '../shared/openai-compatible/index.js';
 
@@ -74,9 +77,12 @@ export async function chatWithQwenResponsesApi(
       payloadKind: 'response',
       payload: response,
     });
-    return parseQwenResponsesResponse(response, {
-      enabledBuiltInTools: enabledBuiltInWebTools(input),
-    });
+    return withProviderRequestId(
+      parseQwenResponsesResponse(response, {
+        enabledBuiltInTools: enabledBuiltInWebTools(input),
+      }),
+      readOpenAICompatibleRequestId(response),
+    );
   } catch (error) {
     const qwenError = error as IOpenAICompatibleError;
     const errorMessage = qwenError.message || 'Qwen Responses API request failed';
@@ -128,11 +134,13 @@ async function chatWithQwenResponsesStreamingAssembly(
       payloadKind: 'request',
       payload: requestParams,
     });
-    const stream = await input.client.responses.create(
-      requestParams as OpenAI.Responses.ResponseCreateParamsStreaming,
-      input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
+    const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
+      input.client.responses.create(
+        requestParams as OpenAI.Responses.ResponseCreateParamsStreaming,
+        input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
+      ),
     );
-    return assembleQwenResponsesStream({
+    const assembled = await assembleQwenResponsesStream({
       stream: observeProviderNativeRawPayloadStream(
         stream as AsyncIterable<TQwenResponsesStreamEvent>,
         {
@@ -145,6 +153,7 @@ async function chatWithQwenResponsesStreamingAssembly(
       onTextDelta: input.chatOptions?.onTextDelta,
       signal: input.chatOptions?.signal,
     });
+    return withProviderRequestId(assembled, providerRequestId);
   } catch (error) {
     const qwenError = error as IOpenAICompatibleError;
     const errorMessage = qwenError.message || 'Qwen Responses streaming request failed';

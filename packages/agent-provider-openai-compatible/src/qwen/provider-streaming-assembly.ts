@@ -1,6 +1,8 @@
 import {
   assembleOpenAICompatibleStream,
+  awaitWithProviderRequestId,
   observeProviderNativeRawPayloadStream,
+  withProviderRequestId,
 } from '../shared/openai-compatible/index.js';
 
 import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';
@@ -19,12 +21,14 @@ export async function qwenChatWithStreamingAssembly(
       payloadKind: 'request',
       payload: requestParams,
     });
-    const stream = await client.chat.completions.create(
-      requestParams,
-      options.signal ? { signal: options.signal } : undefined,
+    const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
+      client.chat.completions.create(
+        requestParams,
+        options.signal ? { signal: options.signal } : undefined,
+      ),
     );
 
-    return assembleOpenAICompatibleStream({
+    const assembled = await assembleOpenAICompatibleStream({
       stream: observeProviderNativeRawPayloadStream(stream, {
         provider: 'qwen',
         apiSurface: 'chat-completions',
@@ -33,6 +37,7 @@ export async function qwenChatWithStreamingAssembly(
       onTextDelta: options.onTextDelta,
       signal: options.signal,
     });
+    return withProviderRequestId(assembled, providerRequestId);
   } catch (error) {
     const qwenError = error as IOpenAICompatibleError;
     const errorMessage = qwenError.message || 'Qwen streaming request failed';
