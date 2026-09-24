@@ -166,6 +166,42 @@ describe('RunOrchestratorService', () => {
     expect(message?.nodeId).toBe('entry');
   });
 
+  it('carries an entry node\'s configured timeoutMs onto its dispatched message payload', async () => {
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
+
+    const definition = createPublishedDefinitionWithTwoEntries();
+    definition.nodes[0] = { ...definition.nodes[0], timeoutMs: 200 };
+    await storage.saveDefinition(definition);
+    const service = new RunOrchestratorService(storage, queue, clock);
+
+    const started = await service.startRun({
+      dagId: definition.dagId,
+      trigger: 'manual',
+      input: { seed: 'v1' },
+    });
+
+    expect(started.ok).toBe(true);
+    if (!started.ok) {
+      return;
+    }
+
+    const firstMessage = await queue.dequeue('worker-1', 1_000);
+    const secondMessage = await queue.dequeue('worker-1', 1_000);
+    const messages = [firstMessage, secondMessage];
+
+    const entryAMessage = messages.find((message) => message?.nodeId === 'entry-a');
+    const entryBMessage = messages.find((message) => message?.nodeId === 'entry-b');
+
+    // The node's own timeoutMs must ride the payload so the worker can honor it, matching the
+    // contract downstream dispatch already keeps for non-entry nodes.
+    expect(entryAMessage?.payload).toEqual({ seed: 'v1', timeoutMs: 200 });
+    // A sibling entry with no configured timeoutMs must not pick one up from another node's
+    // dispatch, nor from a payload object shared and mutated in place.
+    expect(entryBMessage?.payload).toEqual({ seed: 'v1' });
+  });
+
   it('fails when published definition is missing', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();

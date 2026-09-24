@@ -689,6 +689,53 @@ describe('WorkerLoopService', () => {
     expect(run?.status).toBe('failed');
   });
 
+  it('carries a root task\'s configured timeoutMs onto its retry message', async () => {
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const lease = new InMemoryLeasePort();
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 3, 0, 0));
+    const { dagRun, taskRun, message } = createQueuedTaskFixture();
+
+    // Simulates a root (entry) node whose own configured timeoutMs was placed onto its message
+    // payload by the entry dispatcher, the same way downstream dispatch already does for
+    // non-entry nodes.
+    const messageWithTimeout: IQueueMessage = { ...message, payload: { timeoutMs: 5_000 } };
+
+    const definition = createDefinitionForRun(dagRun);
+    await storage.saveDefinition(definition);
+    await storage.createDagRun({ ...dagRun, definitionSnapshot: JSON.stringify(definition) });
+    await storage.createTaskRun(taskRun);
+    await queue.enqueue(messageWithTimeout);
+
+    const executor = new ScriptedTaskExecutorPort(async () => ({
+      ok: false,
+      error: {
+        code: 'DAG_TASK_EXECUTION_FAILED',
+        category: 'task_execution',
+        message: 'Transient failure',
+        retryable: true,
+      },
+    }));
+
+    const service = new WorkerLoopService(storage, queue, lease, executor, clock, process.cwd(), {
+      workerId: 'worker-1',
+      leaseDurationMs: 30_000,
+      visibilityTimeoutMs: 30_000,
+      retryEnabled: true,
+      maxAttempts: 2,
+      defaultTimeoutMs: 50,
+    });
+
+    const first = await service.processOnce();
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    expect(first.value.retried).toBe(true);
+
+    const retryMessage = await queue.dequeue('worker-1', 1_000);
+    expect(retryMessage?.attempt).toBe(2);
+    expect(retryMessage?.payload).toEqual({ timeoutMs: 5_000 });
+  });
+
   it('reassigns processing after lease becomes available', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();

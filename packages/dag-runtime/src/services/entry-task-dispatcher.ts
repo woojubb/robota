@@ -99,6 +99,11 @@ export async function dispatchEntryTasks(
     if (!admitted.applied) continue;
     taskRunIds.push(taskRunId);
 
+    // The worker reads its per-attempt timeout off the message payload (the same contract
+    // downstream dispatch keeps in dispatchSingleDownstreamNode); an entry node must carry its
+    // own configured timeoutMs the same way or it silently falls back to the worker default.
+    const payload: TPortPayload = node.timeoutMs ? { ...input, timeoutMs: node.timeoutMs } : input;
+
     messages.push({
       messageId: `${taskRunId}:message`,
       dagRunId,
@@ -112,7 +117,7 @@ export async function dispatchEntryTasks(
         `taskRunId:${taskRunId}`,
         'attempt:1',
       ],
-      payload: input,
+      payload,
       createdAt: clock.nowIso(),
     });
   }
