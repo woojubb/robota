@@ -12,6 +12,7 @@ import {
 } from '../supervised-session-control.js';
 
 const ID = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
+const INCOMPLETE_ID = 'fe2c7f72-ecb3-4a05-9bb1-2563ec80e615';
 
 describe('supervised session control', () => {
   it('lists and stops only the process that registered its own control socket', async () => {
@@ -65,14 +66,36 @@ describe('supervised session control', () => {
     const control = await startSupervisedControl(ID, () => undefined, root);
     const socketName = readdirSync(root).find((name) => name.endsWith('.sock'));
     expect(socketName).toBeDefined();
-    const client = createConnection(join(root, socketName!));
+    const client = createConnection({ path: join(root, socketName!), allowHalfOpen: true });
     try {
       await new Promise<void>((resolve) => client.once('connect', resolve));
       client.write(`${JSON.stringify({ command: 'status', id: ID })}\n`);
       await new Promise<void>((resolve) => client.once('data', () => resolve()));
+      expect(client.writable).toBe(true);
       await expect(control.close()).resolves.toBeUndefined();
     } finally {
       client.destroy();
+      await control.close();
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps healthy registrations visible while an unpublished or incomplete sibling exists', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-i-'));
+    const root = join(scratch, 'supervised');
+    const control = await startSupervisedControl(ID, () => undefined, root);
+    try {
+      mkdirSync(join(root, `.${INCOMPLETE_ID}.pending`), { mode: 0o700 });
+      expect(await listSupervisedSessions(root)).toEqual([
+        { id: ID, liveness: 'alive', control: 'available' },
+      ]);
+
+      mkdirSync(join(root, INCOMPLETE_ID), { mode: 0o700 });
+      expect(await listSupervisedSessions(root)).toEqual([
+        { id: ID, liveness: 'alive', control: 'available' },
+        { id: INCOMPLETE_ID, liveness: 'unknown', control: 'unavailable', problem: 'invalid-registration' },
+      ]);
+    } finally {
       await control.close();
       rmSync(scratch, { recursive: true, force: true });
     }

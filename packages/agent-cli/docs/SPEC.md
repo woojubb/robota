@@ -82,7 +82,8 @@ supervisor or an attach/restart promise.
 project through the same headless trust boundary before starting an independent, same-user runtime.
 Each supervised runtime owns its own session and guarded local control endpoint; it survives the
 launching terminal, and `session list` reports its supervisor-issued identity separately from peer
-presence and saved records. `session stop <supervised-id>` acts only through the live owner's control
+presence and saved records. Unpublished starts do not appear; a damaged registration is shown as
+unavailable without hiding healthy sessions. `session stop <supervised-id>` acts only through the live owner's control
 endpoint and reports failure when ownership or completion cannot be established. No session content,
 launch environment, or provider credentials appear in the control records or list. Existing GUI and
 ordinary `--serve` processes retain their window/process shutdown behavior. This stage does not

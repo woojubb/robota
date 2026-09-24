@@ -177,7 +177,7 @@ export async function runSessionListCommand(
       ? '  (unavailable)'
       : supervised.sessions.length === 0
         ? '  (none)'
-        : supervised.sessions.map((row) => `  ${row.id}  liveness ${row.liveness}  control ${row.control}`).join('\n');
+        : supervised.sessions.map((row) => `  ${row.id}  liveness ${row.liveness}  control ${row.control}${row.problem ? `  ${row.problem}` : ''}`).join('\n');
     process.stdout.write(`${result.stdout}Supervised sessions (owned, not linked to peers or saved records):\n${rows}\n`);
   }
   if (result.stderr) process.stderr.write(result.stderr);

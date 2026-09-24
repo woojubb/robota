@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import {
-  lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync,
+  lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync,
 } from 'node:fs';
 import { createConnection, createServer, type Server, type Socket } from 'node:net';
 import { dirname, join } from 'node:path';
@@ -25,6 +25,7 @@ export interface ISupervisedSessionRow {
   readonly id: string;
   readonly liveness: 'alive' | 'dead' | 'unknown';
   readonly control: 'available' | 'unavailable';
+  readonly problem?: 'invalid-registration';
 }
 
 function probePid(pid: number): 'present' | 'absent' | 'unknown' {
@@ -153,9 +154,19 @@ export async function listSupervisedSessions(root = resolveSupervisedDirectory()
   }
   const names = readdirSync(root).filter((name) => ID_PATTERN.test(name));
   if (names.length > MAX_ENTRIES) throw new Error('Too many supervised session records to list safely.');
-  const rows = await Promise.all(names.map(async (id): Promise<ISupervisedSessionRow> => {
+  const rows = await Promise.all(names.map(async (id): Promise<ISupervisedSessionRow | null> => {
     const directory = sessionDirectory(root, id);
-    const record = readRegistration(directory, id);
+    let record: IRegistration;
+    try {
+      record = readRegistration(directory, id);
+    } catch {
+      try {
+        lstatSync(directory);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+      }
+      return { id, liveness: 'unknown', control: 'unavailable', problem: 'invalid-registration' };
+    }
     const currentStart = readProcessStartTime(record.pid);
     const liveness = currentStart === undefined
       ? probePid(record.pid) === 'absent' ? 'dead' : 'unknown'
@@ -172,7 +183,8 @@ export async function listSupervisedSessions(root = resolveSupervisedDirectory()
     }
     return { id, liveness, control: 'unavailable' };
   }));
-  return rows.sort((a, b) => a.id.localeCompare(b.id));
+  return rows.filter((row): row is ISupervisedSessionRow => row !== null)
+    .sort((a, b) => a.id.localeCompare(b.id));
 }
 
 export async function stopSupervisedSession(id: string, root = resolveSupervisedDirectory()): Promise<void> {
@@ -218,9 +230,9 @@ export async function startSupervisedControl(
   if (!ID_PATTERN.test(id)) throw new Error('Invalid supervised session ID.');
   ensurePrivateDirectory(root);
   const directory = sessionDirectory(root, id);
+  // A UUID directory is visible to list only after its registration is complete.
+  const pendingDirectory = join(root, `.${id}.pending`);
   const socketPath = controlSocketPath(root, id);
-  mkdirSync(directory, { mode: 0o700 });
-  verifyExistingDirectory(directory);
   const clients = new Set<Socket>();
   const server: Server = createServer((socket) => {
     clients.add(socket);
@@ -251,6 +263,8 @@ export async function startSupervisedControl(
   });
   let bound = false;
   try {
+    mkdirSync(pendingDirectory, { mode: 0o700 });
+    verifyExistingDirectory(pendingDirectory);
     await new Promise<void>((resolve, reject) => {
       server.once('error', reject);
       server.listen(socketPath, resolve);
@@ -263,11 +277,18 @@ export async function startSupervisedControl(
       pid: process.pid,
       startedAt,
     };
-    writeFileSync(join(directory, 'state.json'), JSON.stringify(registration), { flag: 'wx', mode: 0o600 });
+    writeFileSync(join(pendingDirectory, 'state.json'), JSON.stringify(registration), { flag: 'wx', mode: 0o600 });
+    try {
+      lstatSync(directory);
+      throw new Error('Supervised session ID is already registered.');
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+    renameSync(pendingDirectory, directory);
   } catch (error) {
-    server.close();
+    if (bound) server.close();
     if (bound) rmSync(socketPath, { force: true });
-    rmSync(directory, { recursive: true, force: true });
+    rmSync(pendingDirectory, { recursive: true, force: true });
     throw error;
   }
   let closed = false;
