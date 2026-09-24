@@ -6,7 +6,7 @@ import { context, ROOT_CONTEXT, trace, TraceFlags } from '@opentelemetry/api';
 import { describe, expect, it, vi } from 'vitest';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
-import { createConfiguredNodeOtlpLiveTracePort, createNodeOtlpLiveTracePort, resolveNodeOtlpLiveTraceEndpoint } from '../live-trace-otlp.js';
+import { createConfiguredNodeOtlpLiveTelemetryPort, createNodeOtlpLiveTracePort, resolveNodeOtlpLiveTraceEndpoint } from '../live-trace-otlp.js';
 
 const TRACE_ID = '1234567890abcdef1234567890abcdef';
 const ROOT_ID = '1234567890abcdef';
@@ -32,6 +32,38 @@ function batch(): ILivePromptTraceBatch {
 }
 
 describe('Node live OTLP trace export', () => {
+  it('exports an explicitly selected live metric signal without enabling traces', async () => {
+    const requests: Array<{ path: string; body: Buffer }> = [];
+    const server = createServer(async (request, response) => {
+      const chunks: Buffer[] = [];
+      for await (const chunk of request) chunks.push(Buffer.from(chunk));
+      requests.push({ path: request.url ?? '', body: Buffer.concat(chunks) });
+      response.writeHead(200, { 'content-type': 'application/x-protobuf' });
+      response.end();
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new Error('Expected TCP listener');
+      const port = createConfiguredNodeOtlpLiveTelemetryPort({
+        ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_METRICS: 'otlp',
+        ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
+        ROBOTA_TELEMETRY_OTLP_ENDPOINT: `http://127.0.0.1:${address.port}`,
+      });
+      expect(port).toBeDefined();
+      port!.enqueue({ ...batch(), children: [{ ...batch().children[0]!, trace: {
+        ...batch().children[0]!.trace, modelId: 'gpt-4o',
+      } }] } as ILivePromptTraceBatch);
+      await port!.shutdown();
+      expect(requests).toHaveLength(1);
+      expect(requests[0]!.path).toBe('/v1/metrics');
+      expect(requests[0]!.body.toString('utf8')).toContain('robota.provider.estimated_cost_usd');
+      expect(requests[0]!.body.toString('utf8')).not.toContain('session.1');
+    } finally {
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
+  });
+
   it('turns an explicitly enabled CLI host setting into an actual live prompt export', async () => {
     const temporaryHome = mkdtempSync(join(tmpdir(), 'robota-live-trace-'));
     vi.stubEnv('HOME', temporaryHome);
@@ -51,8 +83,8 @@ describe('Node live OTLP trace export', () => {
         ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
         ROBOTA_TELEMETRY_OTLP_ENDPOINT: `http://127.0.0.1:${address.port}`,
       };
-      expect(createConfiguredNodeOtlpLiveTracePort({ ...env, ROBOTA_TELEMETRY_ENABLED: '0' })).toBeUndefined();
-      const port = createConfiguredNodeOtlpLiveTracePort(env);
+      expect(createConfiguredNodeOtlpLiveTelemetryPort({ ...env, ROBOTA_TELEMETRY_ENABLED: '0' })).toBeUndefined();
+      const port = createConfiguredNodeOtlpLiveTelemetryPort(env);
       expect(port).toBeDefined();
       const history: unknown[] = [];
       const session = new InteractiveSession({

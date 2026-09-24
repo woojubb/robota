@@ -84,10 +84,12 @@ local-only action over the same authorized stores as local usage reporting: its 
 verified content-free execution traces, or completion snapshots go only to a caller-named loopback
 collector, never including transcript, tool names, session identity, or provider/model labels.
 It fails visibly on an incomplete store or collector rejection and never auto-exports. The separate
-live Node trace path requires a Robota-owned enable switch, selected signal and protocol, and
-validated destination; it sends bounded, content-free prompt/provider/tool spans with session/turn
-correlation and safe provider/model metadata. It does not replay stored usage, read ambient
-OpenTelemetry credentials, claim live metrics/logs, or let delivery failure change a turn result.
+live Node telemetry path requires a Robota-owned enable switch, independently selected signals and
+explicit protocol, and validated destinations; it sends bounded, content-free prompt/provider/tool
+spans with session/turn correlation and safe provider/model metadata, and separate low-cardinality
+per-call delta usage/cost metrics only when the child record is complete. Omitted children or unknown
+prices remain visible as coverage gaps rather than fabricated totals. It does not replay stored usage,
+read ambient OpenTelemetry credentials, claim live logs, or let delivery failure change a turn result.
 
 Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`); it accepts
 `commandModules` and registers them generically with the SDK registry.

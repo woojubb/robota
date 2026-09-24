@@ -208,15 +208,20 @@ they are not live tracing, and legacy records may lack span/event coverage. No s
 exports prompt or tool bodies, credentials, or a remote destination. An unreadable stored session,
 collector rejection, or network error fails the command without reporting success.
 
-Live prompt traces are a separate, opt-in Node CLI feature (interactive, print, and serve). Set
+Live prompt telemetry is a separate, opt-in Node CLI feature (interactive, print, and serve). Set
 `ROBOTA_TELEMETRY_ENABLED=1`, `ROBOTA_TELEMETRY_TRACES=otlp`,
 `ROBOTA_TELEMETRY_OTLP_PROTOCOL=http/protobuf`, and
 `ROBOTA_TELEMETRY_OTLP_ENDPOINT=https://collector.example` to send content-free prompt/provider/tool
 spans to the base URL's `/v1/traces`. `ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT` overrides the base with
-an exact traces URL. Plain HTTP is allowed only for loopback; URL credentials and query parameters
+an exact traces URL. Select `ROBOTA_TELEMETRY_METRICS=otlp` independently to send per-invoked-call
+delta counts, complete-usage token totals and price-table-estimated USD cost to `/v1/metrics`;
+`ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT` overrides that destination. Missing usage or prices are
+counted separately, never treated as zero cost. A truncated provider-event batch reports omissions
+and does not claim a complete usage/cost total. Metric datapoints omit session, turn, provider and
+model labels by default. Plain HTTP is allowed only for loopback; URL credentials and query parameters
 are rejected. Export is bounded, best-effort, and does not delay or fail a turn; delivery failures
-produce a content-free stderr warning. This live switch does not enable live metrics or logs, content
-capture, auth headers, or replay of stored traces. Ambient `OTEL_*` values alone do not enable it.
+produce a content-free stderr warning. These switches do not enable live logs, content capture,
+auth headers, or replay of stored traces. Ambient `OTEL_*` values alone do not enable them.
 
 ### Doctor
 

@@ -6,6 +6,7 @@ import { BatchSpanProcessor, TracerProvider } from '@opentelemetry/sdk-trace';
 import type { ReadableSpan, SpanExporter } from '@opentelemetry/sdk-trace';
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
 import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';
+import { createNodeOtlpLiveMetricPort } from './live-metric-otlp.js';
 
 const MAX_PENDING_BATCHES = 8;
 
@@ -47,6 +48,37 @@ export function resolveNodeOtlpLiveTraceEndpoint(
     return url.toString();
   } catch {
     throw new Error('Invalid Robota trace destination.');
+  }
+}
+
+/** Metrics are selected independently; the generic endpoint appends its own signal path. */
+export function resolveNodeOtlpLiveMetricEndpoint(
+  env: Readonly<Record<string, string | undefined>>,
+): string | undefined {
+  const enabled = env['ROBOTA_TELEMETRY_ENABLED'];
+  if (enabled === undefined || enabled === '0') return undefined;
+  if (enabled !== '1') throw new Error('Invalid Robota telemetry enable switch.');
+  const selector = env['ROBOTA_TELEMETRY_METRICS'];
+  if (selector === undefined || selector === 'off') return undefined;
+  if (selector !== 'otlp') throw new Error('Unsupported Robota metric exporter.');
+  if (env['ROBOTA_TELEMETRY_OTLP_PROTOCOL'] !== 'http/protobuf') {
+    throw new Error('Robota metric export requires explicit http/protobuf protocol.');
+  }
+  const exact = env['ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT'];
+  const input = exact ?? env['ROBOTA_TELEMETRY_OTLP_ENDPOINT'];
+  if (!input || input.length > 2048) throw new Error('Invalid Robota metric destination.');
+  try {
+    const url = new URL(input);
+    const loopback = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]';
+    if ((url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) ||
+      url.username || url.password || url.search || url.hash ||
+      (exact !== undefined && /\/v1\/(?:traces|logs)\/?$/u.test(url.pathname))) {
+      throw new Error('Invalid destination.');
+    }
+    if (!exact) url.pathname = `${url.pathname.replace(/\/$/u, '')}/v1/metrics`;
+    return url.toString();
+  } catch {
+    throw new Error('Invalid Robota metric destination.');
   }
 }
 
@@ -198,10 +230,29 @@ export function createNodeOtlpLiveTracePort(options: INodeOtlpLiveTraceOptions):
 }
 
 /** The CLI's explicit config-to-runtime boundary, shared by every Node presentation. */
-export function createConfiguredNodeOtlpLiveTracePort(
+export function createConfiguredNodeOtlpLiveTelemetryPort(
   env: Readonly<Record<string, string | undefined>>,
   onFailure?: INodeOtlpLiveTraceOptions['onFailure'],
 ): INodeOtlpLiveTracePort | undefined {
-  const endpoint = resolveNodeOtlpLiveTraceEndpoint(env);
-  return endpoint ? createNodeOtlpLiveTracePort({ endpoint, ...(onFailure ? { onFailure } : {}) }) : undefined;
+  const traceEndpoint = resolveNodeOtlpLiveTraceEndpoint(env);
+  const metricEndpoint = resolveNodeOtlpLiveMetricEndpoint(env);
+  const ports: INodeOtlpLiveTracePort[] = [];
+  if (traceEndpoint) ports.push(createNodeOtlpLiveTracePort({
+    endpoint: traceEndpoint, ...(onFailure ? { onFailure } : {}),
+  }));
+  if (metricEndpoint) ports.push(createNodeOtlpLiveMetricPort(metricEndpoint, onFailure));
+  if (ports.length === 0) return undefined;
+  if (ports.length === 1) return ports[0];
+  return {
+    enqueue(batch) {
+      for (const port of ports) {
+        try { port.enqueue(batch); }
+        catch {
+          try { void Promise.resolve(onFailure?.('enqueue-failed')).catch(() => undefined); }
+          catch { /* diagnostics are isolated */ }
+        }
+      }
+    },
+    async shutdown() { await Promise.all(ports.map((port) => port.shutdown())); },
+  };
 }
