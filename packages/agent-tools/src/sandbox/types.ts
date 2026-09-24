@@ -119,6 +119,8 @@ export interface ISandboxClient {
 
 export interface ISandboxToolOptions {
   sandboxClient?: ISandboxClient;
+  /** Abort a host file read between bounded chunks. */
+  signal?: AbortSignal;
   /**
    * The tool's working-directory root on the host (non-sandbox) path. REQUIRED — ARCH-010.
    *

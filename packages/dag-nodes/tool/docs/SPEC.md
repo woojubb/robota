@@ -20,8 +20,9 @@ workflow event loop.
   `IToolInvocationResult` with `success: false` (a soft, tool-reported failure, e.g. a binary file)
   becomes `ok: true` with `isError: true` and the error text as output; otherwise `ok: true` with the
   tool's text output and `isError: false`.
-- Grep isolation failures are nonretryable node failures. The node passes its cancellation signal
-  to grep and waits for the isolated matcher to stop before reporting failure.
+- Grep isolation and Read budget or cancellation failures are nonretryable node failures. The node
+  passes its cancellation signal to these tools and waits for active work to stop before reporting
+  failure.
 
 ## Invariants — containment (SEC-007)
 

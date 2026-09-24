@@ -14,7 +14,7 @@ import { z } from 'zod';
 
 import { resolveContainmentRoot } from './containment.js';
 import { TOOL_FACTORIES, TOOL_NODE_ALLOWED_TOOLS, type FunctionTool } from './tool-factories.js';
-import { GrepIsolationError } from '@robota-sdk/agent-tools';
+import { GrepIsolationError, ReadByteLimitError, ReadCancelledError } from '@robota-sdk/agent-tools';
 
 export { TOOL_NODE_ALLOWED_TOOLS } from './tool-factories.js';
 
@@ -153,6 +153,28 @@ async function runBuiltin(
           err.message,
           false,
           { toolName, reason: err.reason },
+        ),
+      };
+    }
+    if (err instanceof ReadByteLimitError) {
+      return {
+        ok: false,
+        error: buildTaskExecutionError(
+          'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED',
+          err.message,
+          false,
+          { toolName, boundary: err.boundary },
+        ),
+      };
+    }
+    if (err instanceof ReadCancelledError) {
+      return {
+        ok: false,
+        error: buildTaskExecutionError(
+          'DAG_TASK_EXECUTION_CANCELLED',
+          err.message,
+          false,
+          { toolName },
         ),
       };
     }

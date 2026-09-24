@@ -5,9 +5,10 @@
  * return their raw bytes. Default limit is 2000 lines.
  */
 
-import { readFile, stat } from 'node:fs/promises';
+import { open, stat } from 'node:fs/promises';
 
 import { z } from 'zod';
+import { ToolExecutionError } from '@robota-sdk/agent-core';
 
 import { checkPathWithinCwd, resolveHostPath } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
@@ -24,6 +25,22 @@ const DEFAULT_READ_DESCRIPTION =
   'Reads a file from the local filesystem.\n\nBy default, reads up to 2000 lines from the beginning of the file. You can optionally specify offset and limit for partial reads.\n\nResults are returned using cat -n format, with line numbers starting at 1.\n\nThe filePath parameter must be an absolute path, not a relative path.';
 
 const DEFAULT_LIMIT = 2000;
+const MAX_READ_BYTES = 4 * 1024 * 1024;
+const READ_CHUNK_BYTES = 64 * 1024;
+
+/** A budget refusal is a hard failure so a workflow cannot treat it as file content. */
+export class ReadByteLimitError extends ToolExecutionError {
+  public constructor(public readonly boundary: 'input' | 'output') {
+    super(`Read ${boundary} exceeds its UTF-8 byte limit`, 'Read');
+  }
+}
+
+/** Abort is a hard failure; the workflow must not accept a partial read. */
+export class ReadCancelledError extends ToolExecutionError {
+  public constructor() {
+    super('Read cancelled', 'Read');
+  }
+}
 
 const ReadSchema = z.object({
   filePath: z.string().describe('The absolute path to the file to read'),
@@ -75,24 +92,39 @@ function formatReadResult(
   startLine: number,
   limit: number,
 ): string {
-  const allLines = content.split('\n');
-
-  // Remove trailing empty line if file ends with newline (common in Unix files)
-  if (allLines[allLines.length - 1] === '') {
-    allLines.pop();
+  // Count and select without splitting the entire bounded file into potentially millions of
+  // strings. Reject selected text before formatting can amplify many short lines.
+  const selectedLines: string[] = [];
+  let selectedMinimumBytes = 0;
+  let totalLines = 0;
+  let lineStart = 0;
+  const selectedStart = Math.trunc(startLine - 1);
+  const selectedEnd = Math.trunc(startLine - 1 + limit);
+  while (lineStart < content.length) {
+    const newline = content.indexOf('\n', lineStart);
+    const lineEnd = newline === -1 ? content.length : newline;
+    totalLines++;
+    if (totalLines > selectedStart && totalLines <= selectedEnd) {
+      const line = content.slice(lineStart, lineEnd);
+      selectedMinimumBytes += Buffer.byteLength(line, 'utf8')
+        + String(startLine + selectedLines.length).length + 1;
+      if (selectedMinimumBytes > MAX_READ_BYTES) throw new ReadByteLimitError('output');
+      selectedLines.push(line);
+    }
+    if (newline === -1) break;
+    lineStart = newline + 1;
   }
-
-  const zeroBasedStart = startLine - 1;
-  const selectedLines = allLines.slice(zeroBasedStart, zeroBasedStart + limit);
-
-  const output = formatWithLineNumbers(selectedLines, startLine);
-
-  const totalLines = allLines.length;
   const returnedLines = selectedLines.length;
   const header =
     returnedLines < totalLines
       ? `[File: ${filePath} (lines ${startLine}-${startLine + returnedLines - 1} of ${totalLines})]\n`
       : `[File: ${filePath} (${totalLines} lines)]\n`;
+
+  const width = String(startLine + returnedLines - 1).length;
+  let outputBytes = Buffer.byteLength(header, 'utf8') + Math.max(0, returnedLines - 1);
+  for (const line of selectedLines) outputBytes += width + 1 + Buffer.byteLength(line, 'utf8');
+  if (outputBytes > MAX_READ_BYTES) throw new ReadByteLimitError('output');
+  const output = formatWithLineNumbers(selectedLines, startLine);
 
   const result: IToolInvocationResult = {
     success: true,
@@ -102,6 +134,7 @@ function formatReadResult(
 }
 
 async function readFileTool(args: TReadArgs, options: ISandboxToolOptions): Promise<string> {
+  if (options.signal?.aborted) throw new ReadCancelledError();
   const { offset, limit = DEFAULT_LIMIT } = args;
   // A relative path anchors to the containment root before it is confined or opened (issue #2429).
   const filePath = options.sandboxClient
@@ -112,8 +145,15 @@ async function readFileTool(args: TReadArgs, options: ISandboxToolOptions): Prom
   if (options.sandboxClient) {
     try {
       const content = await options.sandboxClient.readFile(filePath);
+      // This API already returns a complete string; admission here still bounds formatting and
+      // workflow output, while a streaming sandbox read API is needed to bound provider memory.
+      if (Buffer.byteLength(content, 'utf8') > MAX_READ_BYTES) {
+        throw new ReadByteLimitError('input');
+      }
+      if (options.signal?.aborted) throw new ReadCancelledError();
       return formatReadResult(filePath, content, startLine, limit);
     } catch (err) {
+      if (err instanceof ReadByteLimitError || err instanceof ReadCancelledError) throw err;
       // allow-fallback: sandbox read failure → surface as IToolInvocationResult error
       const result: IToolInvocationResult = {
         success: false,
@@ -151,22 +191,44 @@ async function readFileTool(args: TReadArgs, options: ISandboxToolOptions): Prom
 
   let buffer: Buffer;
   try {
-    buffer = await readFile(filePath);
+    const handle = await open(filePath, 'r');
+    try {
+      const chunks: Buffer[] = [];
+      const chunk = Buffer.allocUnsafe(READ_CHUNK_BYTES);
+      let bytes = 0;
+      let binaryCheckedBytes = 0;
+      while (bytes <= MAX_READ_BYTES) {
+        if (options.signal?.aborted) throw new ReadCancelledError();
+        const { bytesRead } = await handle.read(
+          chunk, 0, Math.min(chunk.length, MAX_READ_BYTES + 1 - bytes), null,
+        );
+        if (bytesRead === 0) break;
+        const binaryCheckLength = Math.min(bytesRead, 8192 - binaryCheckedBytes);
+        if (binaryCheckLength > 0 && isBinary(chunk.subarray(0, binaryCheckLength))) {
+          const result: IToolInvocationResult = {
+            success: false, output: '', error: `Binary file not supported: ${filePath}`,
+          };
+          return JSON.stringify(result);
+        }
+        binaryCheckedBytes += binaryCheckLength;
+        bytes += bytesRead;
+        if (bytes > MAX_READ_BYTES) throw new ReadByteLimitError('input');
+        chunks.push(Buffer.from(chunk.subarray(0, bytesRead)));
+        if (binaryCheckedBytes >= 8192 && fileStats.size > MAX_READ_BYTES) {
+          throw new ReadByteLimitError('input');
+        }
+      }
+      buffer = Buffer.concat(chunks, bytes);
+    } finally {
+      await handle.close();
+    }
   } catch (err) {
+    if (err instanceof ReadByteLimitError || err instanceof ReadCancelledError) throw err;
     // allow-fallback: read failure → IToolInvocationResult error (permissions, locks)
     const result: IToolInvocationResult = {
       success: false,
       output: '',
       error: err instanceof Error ? err.message : String(err),
-    };
-    return JSON.stringify(result);
-  }
-
-  if (isBinary(buffer)) {
-    const result: IToolInvocationResult = {
-      success: false,
-      output: '',
-      error: `Binary file not supported: ${filePath}`,
     };
     return JSON.stringify(result);
   }
