@@ -86,3 +86,29 @@ worker. Persisted lineage identifies ancestry but cannot recreate or authorize a
 root owns authority lifetime and closes it on completion; committed cancellation closes new
 admissions across its children. This does not interrupt child execution or atomically cancel
 writes already admitted to another child storage instance.
+
+## Local regex isolation
+
+The local Node provider executes the default text-replace regex operation in a dedicated worker
+thread. The parent event loop owns timeout and cancellation, claims their outcome before stopping
+the worker, and joins worker exit before publishing that failure. A result is accepted only after
+normal worker exit; late results cannot authorize output persistence or downstream execution.
+Only a fixed trusted bootstrap and plain string DTO cross the boundary. Lifecycle, custom registry
+selection, storage and shared snapshot authority stay in the parent. Worker startup failure never
+falls back to inline regex execution. Literal replacement preserves its existing execution path.
+
+Request strings together and each returned string have a 4 MiB UTF-8 transport ceiling. Output
+checking happens after generation in the worker: this is neither a heap limit nor an aggregate
+generation budget. It does not isolate arbitrary custom nodes, other transforms, tools or provider
+code, and is not a security sandbox. Direct lower-level compositions must explicitly supply their
+own isolation capability.
+
+Bun uses a dedicated child process to keep the pure operation independent of its host's
+native-addon closure. The child reuses the current executable in Bun's documented standalone CLI mode
+and runs only a fixed bootstrap, with no product imports, disk sidecar or external Node dependency.
+Its termination is joined through process close. This preserves source and standalone packaging;
+Node uses a worker thread. Neither transport is a security sandbox or an OS memory quota.
+
+Bun product support still depends on native filesystem authority compatibility. The current macOS
+Bun 1.3.11 host can crash in Koffi finalization even for literal-only workflows; operation isolation
+does not repair that independent host failure or establish end-to-end Bun product reliability.

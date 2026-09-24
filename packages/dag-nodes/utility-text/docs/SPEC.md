@@ -7,7 +7,7 @@ string and JSON transformation primitives for use in DAG pipelines.
 
 ## Contract
 
-- All transformations are pure, synchronous logic with zero cost and zero credit estimate.
+- All transformations are pure logic with zero cost and zero credit estimate.
 - No AI calls, no network calls, no dependencies beyond the DAG core/node packages.
 
 ## Non-goals
@@ -27,3 +27,11 @@ iterate over the repetition count.
 The guarantee bounds this operation's produced text, not already-created input, all intermediate
 heap overhead, JSON snapshot encoding, other transforms, root aggregate consumption, or synchronous
 CPU time. Byte accounting uses exact arithmetic so an overflow cannot turn rejection into admission.
+
+## Regex execution host boundary
+
+Text replacement delegates regex mode to a trusted operation capability when the host supplies
+one. Regex flags, capture substitutions and invalid-pattern errors retain native semantics on
+supported hosts. Literal mode is unchanged. A direct SDK invocation without the capability remains
+inline and has no CPU interruption guarantee. The local product host supplies isolation and may
+reject an unsupported runtime; configuration cannot opt out or choose an executable worker entry.

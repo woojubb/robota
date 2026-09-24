@@ -181,3 +181,62 @@ describe('executeWithTimeout', () => {
     }
   });
 });
+
+it('keeps timeout as winner but waits for the isolated executor stop/join before releasing the attempt', async () => {
+  vi.useFakeTimers();
+  try {
+    let release!: () => void;
+    const joined = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const stopAndWait = vi.fn(() => joined);
+    let late!: (result: { ok: true; output: { late: boolean } }) => void;
+    const executor = {
+      execute: () =>
+        new Promise<{ ok: true; output: { late: boolean } }>((resolve) => {
+          late = resolve;
+        }),
+      stopAndWait,
+    };
+    let settled = false;
+    const pending = executeWithTimeout(executor, TASK_INPUT, 10, 'task-run-1').then((result) => {
+      settled = true;
+      return result;
+    });
+    await vi.advanceTimersByTimeAsync(10);
+    expect(stopAndWait).toHaveBeenCalledTimes(1);
+    expect(settled).toBe(false);
+    late({ ok: true, output: { late: true } });
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    release();
+    expect(await pending).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_TIMEOUT' },
+    });
+  } finally {
+    vi.useRealTimers();
+  }
+});
+
+it('preserves the timeout winner and disables retry if isolated shutdown fails', async () => {
+  const result = await executeWithTimeout(
+    {
+      execute: () => new Promise<never>(() => {}),
+      stopAndWait: async () => {
+        throw new Error('join failed');
+      },
+    },
+    TASK_INPUT,
+    1,
+    'task-run-1',
+  );
+  expect(result).toMatchObject({
+    ok: false,
+    error: {
+      code: 'DAG_TASK_EXECUTION_TIMEOUT',
+      retryable: false,
+      context: { isolationStopError: 'join failed' },
+    },
+  });
+});

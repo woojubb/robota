@@ -1,3 +1,4 @@
+import { IsolatedRegexTaskExecutor } from './isolated-regex-task-executor.js';
 import type {
   IDagDefinition,
   ITaskSnapshotBudget,
@@ -218,10 +219,8 @@ async function runDagOnce(
   const manifestRegistry = new StaticNodeManifestRegistry(assembly.manifests);
   const handlerRegistry = new StaticNodeTaskHandlerRegistry(assembly.handlersByType);
   const lifecycleFactory = new StaticNodeLifecycleFactory(handlerRegistry);
-  const executor: ITaskExecutorPort = new LifecycleTaskExecutorPort(
-    manifestRegistry,
-    lifecycleFactory,
-    lineage,
+  const executor: ITaskExecutorPort = new IsolatedRegexTaskExecutor(
+    new LifecycleTaskExecutorPort(manifestRegistry, lifecycleFactory, lineage),
   );
 
   const storage = new InMemoryStoragePort();

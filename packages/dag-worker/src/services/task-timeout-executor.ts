@@ -28,7 +28,8 @@ function resolveErrorMessage(error: unknown): string {
 /**
  * Gives each attempt its own signal and aborts it before settling a timeout.
  * Cooperative executors can stop their work; late results are discarded even when
- * an executor ignores cancellation. This is not CPU preemption or a cleanup join.
+ * an executor ignores cancellation. A trusted stopAndWait port additionally joins
+ * owned isolation shutdown; ordinary cooperative cleanup is not awaited.
  */
 export function executeWithTimeout(
   executor: ITaskExecutorPort,
@@ -51,8 +52,29 @@ export function executeWithTimeout(
       if (settled) return;
       // Claim the outcome before invoking user abort listeners. Reentrant completion
       // must not replace the timeout/cancellation that triggered those listeners.
-      finish({ ok: false, error });
+      settled = true;
+      clearTimeout(timeoutId);
+      input.signal?.removeEventListener('abort', cancel);
       controller.abort(error);
+      if (!executor.stopAndWait) {
+        resolve({ ok: false, error });
+        return;
+      }
+      // Stop is an explicit trusted join, not a wait on arbitrary cooperative executor cleanup.
+      Promise.resolve()
+        .then(() => executor.stopAndWait?.(input))
+        .then(
+          () => resolve({ ok: false, error }),
+          (stopError: unknown) =>
+            resolve({
+              ok: false,
+              error: {
+                ...error,
+                retryable: false,
+                context: { ...error.context, isolationStopError: resolveErrorMessage(stopError) },
+              },
+            }),
+        );
     };
     const cancel = (): void => abort(buildTaskCancellationError(taskRunId));
     if (input.signal?.aborted) {

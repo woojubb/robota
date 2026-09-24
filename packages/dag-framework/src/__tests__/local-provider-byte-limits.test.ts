@@ -61,3 +61,66 @@ it('closes the root authority after completion so abandoned descendants cannot a
   expect(authority).toBeDefined();
   expect(await authority!.admit('output', '{}', async () => ({ applied: true }))).toMatchObject({ ok: false, error: { code: 'DAG_TASK_SNAPSHOT_BUDGET_CLOSED' } });
 });
+
+it('does not replace a custom registry handler merely because its nodeType is text-replace', async () => {
+  const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'dag-custom-regex-')));
+  roots.push(root);
+  const provider = new LocalDagRuntimeProvider({
+    executionRoot: root,
+    nodeRegistry: [
+      {
+        nodeType: 'text-replace',
+        displayName: 'Custom',
+        category: 'test',
+        inputs: [],
+        outputs: [],
+        configSchemaDefinition: null,
+        taskHandler: { execute: async () => ({ ok: true, value: { custom: true } }) },
+      },
+    ],
+  });
+  const result = await provider.execute(
+    {
+      dagId: 'custom',
+      version: 1,
+      status: 'draft',
+      nodes: [
+        {
+          nodeId: 'n',
+          nodeType: 'text-replace',
+          dependsOn: [],
+          config: { useRegex: true, search: '[' },
+        },
+      ],
+      edges: [],
+    },
+    {},
+  );
+  expect(result.ok).toBe(true);
+  expect(result.outputs).toEqual({ 'n.custom': true });
+});
+
+it('preserves literal text-replace semantics through the product runtime', async () => {
+  const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'dag-literal-regex-')));
+  roots.push(root);
+  const provider = new LocalDagRuntimeProvider({ executionRoot: root });
+  const result = await provider.execute(
+    {
+      dagId: 'literal',
+      version: 1,
+      status: 'draft',
+      nodes: [
+        {
+          nodeId: 'n',
+          nodeType: 'text-replace',
+          dependsOn: [],
+          config: { useRegex: false, search: '[', replacement: 'ok' },
+        },
+      ],
+      edges: [],
+    },
+    { text: '[[' },
+  );
+  expect(result.ok).toBe(true);
+  expect(result.outputs).toMatchObject({ 'n.text': 'okok' });
+});

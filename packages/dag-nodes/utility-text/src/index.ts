@@ -210,7 +210,13 @@ export class TextReplaceNodeDefinition extends AbstractNodeDefinition<
     const r = io.requireInputString('text');
     if (!r.ok) return r;
     let result: string;
-    if (config.useRegex) {
+    if (config.useRegex && context.regexReplaceOperation) {
+      const replaced = await context.regexReplaceOperation.execute({
+        text: r.value, search: config.search, replacement: config.replacement, flags: config.flags,
+      }, context.signal);
+      if (!replaced.ok) return replaced;
+      result = replaced.value;
+    } else if (config.useRegex) {
       try {
         const regex = new RegExp(config.search, config.flags);
         result = r.value.replace(regex, config.replacement);
