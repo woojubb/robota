@@ -7,9 +7,43 @@ import { describe, expect, it, vi } from 'vitest';
 import type { renderSupervisedSessionView } from '@robota-sdk/agent-ui-terminal';
 
 import { runSessionViewCommand } from '../session-view-command.js';
-import { listSupervisedSessions, startSupervisedControl } from '../supervised-session-control.js';
+import { linkSupervisedPr, listSupervisedSessions, startSupervisedControl } from '../supervised-session-control.js';
 
 describe('session view command', () => {
+  it('filters owner-linked PRs and refuses to open a stale association', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-vpr-'));
+    const root = join(scratch, 'supervised');
+    const id = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
+    let pr: ReturnType<typeof import('../supervised-session-control.js').parseSupervisedPr>;
+    const control = await startSupervisedControl(
+      id, () => undefined, root, () => 'idle', undefined, undefined, undefined, undefined,
+      { get: () => pr, set: (value) => { pr = value; } },
+    );
+    const openUrl = vi.fn(async () => undefined);
+    const first = 'https://github.com/team/repo/pull/123';
+    const next = 'https://github.com/team/repo/pull/124';
+    try {
+      await linkSupervisedPr(id, first, root);
+      const render = vi.fn(async (options: Parameters<typeof renderSupervisedSessionView>[0]) => {
+        expect(await options.loadRows(new AbortController().signal)).toEqual([{
+          id, liveness: 'alive', control: 'available', activity: 'idle',
+          pr: { url: first, host: 'github.com', number: 123, kind: 'pull' },
+        }]);
+        await linkSupervisedPr(id, next, root);
+        await expect(options.onOpenPr?.(id, first)).rejects.toThrow(/changed|stale/i);
+        expect(openUrl).not.toHaveBeenCalled();
+        await options.onOpenPr?.(id, next);
+        expect(openUrl).toHaveBeenCalledExactlyOnceWith(next);
+      });
+      expect(await runSessionViewCommand(['--pr', '123'], {
+        isTTY: true, settings: {}, env: {}, root, render, openUrl,
+      })).toBe(0);
+      expect(render).toHaveBeenCalledWith(expect.objectContaining({ filteredByPr: true }));
+    } finally {
+      await control.close();
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
   it('passes the verified global supervised inventory to its presentation without session content', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-view-'));
     const root = join(scratch, 'supervised');

@@ -12,9 +12,11 @@ import { resolveRendezvousDirectory } from '../remote-control/local-peer-rendezv
 
 const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const MAX_FRAME_BYTES = 4_096;
+const MAX_STATUS_RESPONSE_BYTES = 32_768;
 const REQUEST_TIMEOUT_MS = 2_000;
 const MAX_ENTRIES = 256;
 const MAX_NAME_BYTES = 240;
+const MAX_PR_URL_BYTES = 2_048;
 const NAME_CONTROLS = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
 
 interface IRegistration {
@@ -40,6 +42,37 @@ export function isSupervisedSessionName(value: unknown): value is string {
     Buffer.byteLength(value, 'utf8') <= MAX_NAME_BYTES;
 }
 
+export interface ISupervisedPr {
+  readonly url: string;
+  readonly host: string;
+  readonly number: number;
+  readonly kind: 'pull' | 'merge-request';
+}
+
+/** A caller-declared association, not a claim that the remote PR exists. */
+export function parseSupervisedPr(value: unknown): ISupervisedPr | undefined {
+  if (typeof value !== 'string' || Buffer.byteLength(value, 'utf8') > MAX_PR_URL_BYTES ||
+    /[\p{Cc}\p{Cf}]/u.test(value)) return undefined;
+  let parsed: URL;
+  try { parsed = new URL(value); } catch { return undefined; }
+  if (parsed.protocol !== 'https:' || parsed.href !== value || parsed.username || parsed.password ||
+    parsed.port || parsed.search || parsed.hash || !/^[a-z0-9]+(?:[.-][a-z0-9]+)*$/u.test(parsed.hostname)) return undefined;
+  const pull = /^\/[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+\/pull\/([1-9][0-9]*)$/u.exec(parsed.pathname);
+  const merge = /^\/(?:[A-Za-z0-9_.-]+\/)+-\/merge_requests\/([1-9][0-9]*)$/u.exec(parsed.pathname);
+  const match = pull ?? merge;
+  if (!match) return undefined;
+  const number = Number(match[1]);
+  if (!Number.isSafeInteger(number)) return undefined;
+  return { url: value, host: parsed.hostname, number, kind: pull ? 'pull' : 'merge-request' };
+}
+
+function isSupervisedPr(value: unknown): value is ISupervisedPr {
+  if (typeof value !== 'object' || value === null || !('url' in value)) return false;
+  const parsed = parseSupervisedPr(value.url);
+  return parsed !== undefined && 'host' in value && value.host === parsed.host &&
+    'number' in value && value.number === parsed.number && 'kind' in value && value.kind === parsed.kind;
+}
+
 export interface ISupervisedSessionRow {
   readonly id: string;
   readonly liveness: 'alive' | 'dead' | 'unknown';
@@ -48,6 +81,7 @@ export interface ISupervisedSessionRow {
   readonly nextLoopAt?: string;
   readonly name?: string;
   readonly cwd?: string;
+  readonly pr?: ISupervisedPr;
   readonly problem?: 'invalid-registration';
 }
 
@@ -117,7 +151,7 @@ function readRegistration(directory: string, id: string): IRegistration {
   return record as IRegistration;
 }
 
-function readLine(socket: Socket): Promise<string> {
+function readLine(socket: Socket, maxBytes = MAX_FRAME_BYTES): Promise<string> {
   return new Promise((resolve, reject) => {
     let received = '';
     let done = false;
@@ -133,7 +167,7 @@ function readLine(socket: Socket): Promise<string> {
     };
     const onData = (chunk: string): void => {
       received += chunk;
-      if (Buffer.byteLength(received, 'utf8') > MAX_FRAME_BYTES) {
+      if (Buffer.byteLength(received, 'utf8') > maxBytes) {
         finish(() => reject(new Error('Supervised session control frame is too large.')));
         return;
       }
@@ -152,9 +186,10 @@ function readLine(socket: Socket): Promise<string> {
 async function request(
   directory: string,
   id: string,
-  command: 'status' | 'stop' | 'rename',
+  command: 'status' | 'stop' | 'rename' | 'link-pr' | 'unlink-pr',
   signal?: AbortSignal,
   name?: string,
+  url?: string,
 ): Promise<unknown> {
   signal?.throwIfAborted();
   verifyExistingDirectory(directory);
@@ -172,8 +207,9 @@ async function request(
       socket.setTimeout(REQUEST_TIMEOUT_MS, () => reject(new Error('Supervised session control timed out.')));
     });
     signal?.throwIfAborted();
-    socket.write(`${JSON.stringify({ command, id, ...(command === 'rename' ? { name } : {}) })}\n`);
-    return JSON.parse(await readLine(socket)) as unknown;
+    socket.write(`${JSON.stringify({ command, id, ...(command === 'rename' ? { name } : {}),
+      ...(command === 'link-pr' ? { url } : {}) })}\n`);
+    return JSON.parse(await readLine(socket, command === 'status' ? MAX_STATUS_RESPONSE_BYTES : MAX_FRAME_BYTES)) as unknown;
   } finally {
     signal?.removeEventListener('abort', onAbort);
     socket.destroy();
@@ -183,7 +219,8 @@ async function request(
 export async function listSupervisedSessions(
   root = resolveSupervisedDirectory(),
   signal?: AbortSignal,
-  options: { readonly cwd?: string; readonly name?: string; readonly includeName?: boolean; readonly includeCwd?: boolean } = {},
+  options: { readonly cwd?: string; readonly name?: string; readonly pr?: number;
+    readonly includeName?: boolean; readonly includeCwd?: boolean; readonly includePr?: boolean } = {},
 ): Promise<readonly ISupervisedSessionRow[]> {
   signal?.throwIfAborted();
   try {
@@ -194,7 +231,7 @@ export async function listSupervisedSessions(
   }
   const names = readdirSync(root).filter((name) => ID_PATTERN.test(name));
   if (names.length > MAX_ENTRIES) throw new Error('Too many supervised session records to list safely.');
-  const unfiltered = options.cwd === undefined && options.name === undefined;
+  const unfiltered = options.cwd === undefined && options.name === undefined && options.pr === undefined;
   const rows = await Promise.all(names.map(async (id): Promise<ISupervisedSessionRow | null> => {
     signal?.throwIfAborted();
     const directory = sessionDirectory(root, id);
@@ -224,14 +261,17 @@ export async function listSupervisedSessions(
         'status' in response && response.status === 'running') {
         if (options.cwd !== undefined && (!('cwd' in response) || response.cwd !== options.cwd)) return null;
         const name = 'name' in response && isSupervisedSessionName(response.name) ? response.name : undefined;
+        const pr = 'pr' in response && isSupervisedPr(response.pr) ? response.pr : undefined;
         const cwd = 'cwd' in response && typeof response.cwd === 'string' && isAbsolute(response.cwd) &&
           response.cwd.length <= 4_096 ? response.cwd : undefined;
         if (options.name !== undefined && !name?.toLowerCase().includes(options.name.toLowerCase())) return null;
+        if (options.pr !== undefined && pr?.number !== options.pr) return null;
         return {
           id, liveness, control: 'available',
           activity: 'activity' in response && isCurrentActivity(response.activity) ? response.activity : 'unknown',
           ...(options.includeName && name !== undefined ? { name } : {}),
           ...(options.includeCwd && cwd !== undefined ? { cwd } : {}),
+          ...(options.includePr && pr !== undefined ? { pr } : {}),
           ...('activity' in response && response.activity === 'idle' &&
             'nextLoopAt' in response && isLoopTime(response.nextLoopAt)
             ? { nextLoopAt: response.nextLoopAt } : {}),
@@ -297,6 +337,48 @@ export async function renameSupervisedSession(
   }
 }
 
+function verifyLiveOwner(root: string, id: string): string {
+  const directory = sessionDirectory(root, id);
+  const record = readRegistration(directory, id);
+  const currentStart = readProcessStartTime(record.pid);
+  if (currentStart === undefined || currentStart !== record.startedAt) {
+    throw new Error('Supervised session is not proven alive.');
+  }
+  return directory;
+}
+
+export async function linkSupervisedPr(id: string, url: string, root = resolveSupervisedDirectory()): Promise<void> {
+  if (!parseSupervisedPr(url)) throw new Error('Invalid supervised session PR URL.');
+  const response = await request(verifyLiveOwner(root, id), id, 'link-pr', undefined, undefined, url);
+  if (typeof response !== 'object' || response === null || !('id' in response) || response.id !== id ||
+    !('status' in response) || response.status !== 'linked') {
+    throw new Error('Supervised session did not confirm PR link.');
+  }
+}
+
+export async function unlinkSupervisedPr(id: string, root = resolveSupervisedDirectory()): Promise<void> {
+  const response = await request(verifyLiveOwner(root, id), id, 'unlink-pr');
+  if (typeof response !== 'object' || response === null || !('id' in response) || response.id !== id ||
+    !('status' in response) || response.status !== 'unlinked') {
+    throw new Error('Supervised session did not confirm PR unlink.');
+  }
+}
+
+/** Re-probe the selected owner immediately before a user-triggered open action. */
+export async function getVerifiedSupervisedPr(
+  id: string,
+  root = resolveSupervisedDirectory(),
+): Promise<ISupervisedPr | undefined> {
+  const response = await request(verifyLiveOwner(root, id), id, 'status');
+  if (typeof response !== 'object' || response === null || !('id' in response) || response.id !== id ||
+    !('status' in response) || response.status !== 'running') {
+    throw new Error('Supervised session control response was not verified.');
+  }
+  if (!('pr' in response)) return undefined;
+  if (!isSupervisedPr(response.pr)) throw new Error('Supervised session PR association was not verified.');
+  return response.pr;
+}
+
 export interface ISupervisedControl {
   close(): Promise<void>;
 }
@@ -310,6 +392,7 @@ export async function startSupervisedControl(
   getNextLoopAt?: () => string | undefined,
   getName?: () => string | undefined,
   onRename?: (name: string) => void,
+  pr?: { readonly get: () => ISupervisedPr | undefined; readonly set: (value: ISupervisedPr | undefined) => void },
 ): Promise<ISupervisedControl> {
   if (!ID_PATTERN.test(id)) throw new Error('Invalid supervised session ID.');
   ensurePrivateDirectory(root);
@@ -340,6 +423,7 @@ export async function startSupervisedControl(
         let cwd: string | undefined;
         let nextLoopAt: unknown;
         let name: unknown;
+        let linkedPr: unknown;
         try {
           observed = getActivity?.();
         } catch {
@@ -362,10 +446,16 @@ export async function startSupervisedControl(
         } catch {
           // A failed name observation does not change the session's verified activity.
         }
+        try {
+          linkedPr = pr?.get();
+        } catch {
+          // A failed association observation cannot create a link.
+        }
         socket.end(`${JSON.stringify({ id, status: 'running', activity: isCurrentActivity(observed) ? observed : 'unknown',
-          ...(cwd === undefined ? {} : { cwd }),
+          ...(typeof cwd === 'string' && isAbsolute(cwd) && cwd.length <= 4_096 ? { cwd } : {}),
           ...(isLoopTime(nextLoopAt) ? { nextLoopAt } : {}),
-          ...(isSupervisedSessionName(name) ? { name } : {}) })}\n`);
+          ...(isSupervisedSessionName(name) ? { name } : {}),
+          ...(isSupervisedPr(linkedPr) ? { pr: linkedPr } : {}) })}\n`);
       } else if (value.command === 'stop') {
         socket.once('finish', onStop);
         socket.end(`${JSON.stringify({ id, status: 'stopping' })}\n`);
@@ -374,6 +464,25 @@ export async function startSupervisedControl(
         try {
           onRename(value.name);
           socket.end(`${JSON.stringify({ id, status: 'renamed' })}\n`);
+        } catch {
+          socket.end(`${JSON.stringify({ id, status: 'refused' })}\n`);
+        }
+      } else if (value.command === 'link-pr' && 'url' in value && pr?.set !== undefined) {
+        const linked = parseSupervisedPr(value.url);
+        if (!linked) {
+          socket.end(`${JSON.stringify({ id, status: 'refused' })}\n`);
+          return;
+        }
+        try {
+          pr.set(linked);
+          socket.end(`${JSON.stringify({ id, status: 'linked' })}\n`);
+        } catch {
+          socket.end(`${JSON.stringify({ id, status: 'refused' })}\n`);
+        }
+      } else if (value.command === 'unlink-pr' && pr?.set !== undefined) {
+        try {
+          pr.set(undefined);
+          socket.end(`${JSON.stringify({ id, status: 'unlinked' })}\n`);
         } catch {
           socket.end(`${JSON.stringify({ id, status: 'refused' })}\n`);
         }

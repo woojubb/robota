@@ -17,6 +17,7 @@ import { settleOnServeTransportFailure } from './serve-transport-failure.js';
 import {
   startSupervisedControl,
   type ISupervisedControl,
+  type ISupervisedPr,
 } from '../session-inventory/supervised-session-control.js';
 import { startRuntimeHost } from '@robota-sdk/agent-framework';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
@@ -320,6 +321,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   if (args.supervisedSessionId !== undefined) {
     try {
       const supervisedCwd = realpathSync(opts.cwd);
+      let linkedPr: ISupervisedPr | undefined;
       supervisedControl = await startSupervisedControl(
         args.supervisedSessionId,
         () => requestSettle('supervised session stopped'),
@@ -332,6 +334,13 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         (name) => {
           if (settling) throw new Error('Supervised runtime is stopping.');
           host.session.setName(name);
+        },
+        {
+          get: () => settling ? undefined : linkedPr,
+          set: (value) => {
+            if (settling) throw new Error('Supervised runtime is stopping.');
+            linkedPr = value;
+          },
         },
       );
       if (settling) throw new Error('Supervised runtime stopped before readiness.');
