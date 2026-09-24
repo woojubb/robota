@@ -350,6 +350,25 @@ describe('TextLowerNodeDefinition', () => {
     if (r.ok) expect(r.value.text).toBe('hello world');
   });
 
+  it('counts Unicode lowercase expansion and preserves contextual final sigma', async () => {
+    const context = ctx('text-lower');
+    context.byteLimits = { maxTextRepeatOutputBytes: 4_194_304, maxTextLowerOutputBytes: 2 };
+    expect(await node.taskHandler.execute({ text: 'İ' }, context)).toMatchObject({
+      ok: false, error: { code: 'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED', retryable: false },
+    });
+    context.byteLimits = { maxTextRepeatOutputBytes: 4_194_304, maxTextLowerOutputBytes: 3 };
+    expect(await node.taskHandler.execute({ text: 'İ' }, context)).toMatchObject({
+      ok: true, value: { text: 'i\u0307' },
+    });
+    context.byteLimits = { maxTextRepeatOutputBytes: 4_194_304, maxTextLowerOutputBytes: 4 };
+    expect(await node.taskHandler.execute({ text: 'ΟΣ' }, context)).toMatchObject({
+      ok: true, value: { text: 'ος' },
+    });
+    expect(await node.taskHandler.execute({ text: '😀' }, context)).toMatchObject({
+      ok: true, value: { text: '😀' },
+    });
+  });
+
   it('returns error when text missing', async () => {
     const r = await node.taskHandler.execute({}, ctx('text-lower'));
     expect(r.ok).toBe(false);

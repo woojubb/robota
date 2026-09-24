@@ -46,6 +46,19 @@ it('retains the uppercase default for older hosts and snapshots a tighter policy
   expect(resolved.maxTextUpperOutputBytes).toBe(0);
 });
 
+it.each([NaN, Infinity, -1, 0.5, 4_194_305, null, undefined])('rejects an invalid lowercase limit %s', (maxTextLowerOutputBytes) => {
+  // @ts-expect-error intentionally exercise malformed JavaScript host policy
+  expect(() => resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1, maxTextLowerOutputBytes })).toThrow(RangeError);
+});
+
+it('retains the lowercase default for older hosts and snapshots a tighter policy', () => {
+  expect(resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1 }).maxTextLowerOutputBytes).toBe(4_194_304);
+  const source = { maxTextRepeatOutputBytes: 1, maxTextLowerOutputBytes: 0 };
+  const resolved = resolveDagExecutionByteLimits(source);
+  source.maxTextLowerOutputBytes = 1;
+  expect(resolved.maxTextLowerOutputBytes).toBe(0);
+});
+
 it('retains the replacement default for older host policies and snapshots a tighter policy', () => {
   expect(resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1 }).maxTextReplaceOutputBytes).toBe(4_194_304);
   const source = { maxTextRepeatOutputBytes: 1, maxTextReplaceOutputBytes: 0 };
