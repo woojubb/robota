@@ -22,6 +22,8 @@ export interface IUseNumberedSelectionInputs {
   cancellable?: boolean;
   /** A checklist: a number toggles a row, the menu stays open, and an empty Enter commits. */
   multi?: boolean;
+  /** Keep a single-row selection open so the user can select another row later. */
+  repeatable?: boolean;
   onSelect: (index: number) => void;
   onCancel?: () => void;
   /** Required with `multi` — what an empty Enter commits. */
@@ -37,7 +39,7 @@ export interface INumberedSelection {
 export function useNumberedSelection(inputs: IUseNumberedSelectionInputs): INumberedSelection {
   const [state, setState] = useState<INumericSelectionState>(createNumericSelectionState);
   const stateRef = useRef(state);
-  const { enabled, itemCount, cancellable, multi, onSelect, onCancel, onConfirm } = inputs;
+  const { enabled, itemCount, cancellable, multi, repeatable, onSelect, onCancel, onConfirm } = inputs;
 
   const handle = useCallback(
     (input: string, key: Parameters<typeof applyNumericSelection>[2]): void => {
@@ -45,6 +47,7 @@ export function useNumberedSelection(inputs: IUseNumberedSelectionInputs): INumb
         itemCount,
         ...(cancellable === true ? { cancellable: true } : {}),
         ...(multi === true ? { multi: true } : {}),
+        ...(repeatable === true ? { repeatable: true } : {}),
       });
       stateRef.current = result.state;
       setState(result.state);
@@ -52,7 +55,7 @@ export function useNumberedSelection(inputs: IUseNumberedSelectionInputs): INumb
       else if (result.effect.type === 'cancel') onCancel?.();
       else if (result.effect.type === 'confirm') onConfirm?.();
     },
-    [itemCount, cancellable, multi, onSelect, onCancel, onConfirm],
+    [itemCount, cancellable, multi, repeatable, onSelect, onCancel, onConfirm],
   );
 
   useInput(

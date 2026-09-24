@@ -85,6 +85,29 @@ describe('supervised session view', () => {
       view.stdin.write('2');
       view.stdin.write('\r');
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${SECOND.id}`));
+      view.stdin.write('1');
+      view.stdin.write('\r');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('keeps grouped rows and controls within a 24-line terminal', async () => {
+    const activities = ['needs-input', 'working', 'idle', 'unknown'] as const;
+    const rows: ISupervisedViewRow[] = Array.from({ length: 17 }, (_, index) => ({
+      id: `8bf9bc27-d773-4e88-b88f-${String(index).padStart(12, '0')}`,
+      liveness: index === 16 ? 'dead' : 'alive',
+      control: index === 15 ? 'unavailable' : 'available',
+      activity: activities[index % activities.length]!,
+    }));
+    const view = render(<SupervisedSessionView loadRows={async () => rows} refreshMs={100} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('17 supervised session(s)'));
+      const frame = view.lastFrame() ?? '';
+      expect(frame.split('\n').length).toBeLessThanOrEqual(24);
+      expect(frame).toContain('more below');
+      expect(frame).toContain('↑↓ Navigate');
     } finally {
       view.unmount();
     }

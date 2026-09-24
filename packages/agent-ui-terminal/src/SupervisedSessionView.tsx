@@ -22,6 +22,9 @@ export interface ISupervisedSessionViewProps {
 
 const GROUP_ORDER = ['needs-input', 'working', 'idle', 'unknown', 'unverified', 'dead'] as const;
 type TGroup = typeof GROUP_ORDER[number];
+type TDisplayLine =
+  | { readonly kind: 'group'; readonly group: TGroup }
+  | { readonly kind: 'row'; readonly row: ISupervisedViewRow; readonly index: number };
 
 function groupOf(row: ISupervisedViewRow): TGroup {
   if (row.liveness === 'dead') return 'dead';
@@ -54,6 +57,17 @@ export default function SupervisedSessionView({
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [showHelp, setShowHelp] = useState(false);
   const ordered = useMemo(() => sortedRows(rows), [rows]);
+  const displayLines = useMemo((): readonly TDisplayLine[] => {
+    const lines: TDisplayLine[] = [];
+    let previousGroup: TGroup | undefined;
+    ordered.forEach((row, index) => {
+      const group = groupOf(row);
+      if (group !== previousGroup) lines.push({ kind: 'group', group });
+      lines.push({ kind: 'row', row, index });
+      previousGroup = group;
+    });
+    return lines;
+  }, [ordered]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -105,15 +119,19 @@ export default function SupervisedSessionView({
     enabled: screenReader,
     itemCount: ordered.length,
     cancellable: true,
+    repeatable: true,
     onSelect: (index) => setSelectedId(ordered[index]?.id),
     onCancel: exit,
   });
 
   const height = Math.max(8, stdout.rows ?? 24);
-  const viewport = Math.max(1, height - 7);
-  const selectedIndex = Math.max(0, ordered.findIndex((row) => row.id === selectedId));
-  const start = Math.min(Math.max(0, selectedIndex - Math.floor(viewport / 2)), Math.max(0, ordered.length - viewport));
-  const visible = screenReader ? ordered : ordered.slice(start, start + viewport);
+  // Reserve all fixed chrome plus both possible overflow indicators before choosing row lines.
+  const fixedLines = 2 + (status === 'loading' || status === 'unavailable' || (status === 'ready' && ordered.length === 0) ? 1 : 0)
+    + (selectedId === undefined ? 0 : 1) + 1 + (showHelp ? 1 : 0) + 2;
+  const viewport = Math.max(1, height - fixedLines);
+  const selectedLine = Math.max(0, displayLines.findIndex((line) => line.kind === 'row' && line.row.id === selectedId));
+  const start = Math.min(Math.max(0, selectedLine - Math.floor(viewport / 2)), Math.max(0, displayLines.length - viewport));
+  const visible = screenReader ? displayLines : displayLines.slice(start, start + viewport);
 
   return (
     <Box flexDirection="column" {...(screenReader ? {} : { height })}>
@@ -123,22 +141,15 @@ export default function SupervisedSessionView({
       {status === 'unavailable' && <Text>Supervised session discovery unavailable; last verified rows remain below.</Text>}
       {status === 'ready' && ordered.length === 0 && <Text>No supervised sessions.</Text>}
       {start > 0 && !screenReader && <Text>{start} more above</Text>}
-      {visible.map((row, index) => {
-        const group = groupOf(row);
-        const previous = visible[index - 1];
-        return (
-          <React.Fragment key={row.id}>
-            {(previous === undefined || groupOf(previous) !== group) && <Text>{group}:</Text>}
-            <Text>
-              {screenReader ? numberedRowPrefix(index) : row.id === selectedId ? '> ' : '  '}
-              {row.id}  activity {row.activity}  liveness {row.liveness}  control {row.control}
-              {row.problem ? `  ${row.problem}` : ''}
-            </Text>
-          </React.Fragment>
-        );
-      })}
-      {!screenReader && start + visible.length < ordered.length &&
-        <Text>{ordered.length - start - visible.length} more below</Text>}
+      {visible.map((line) => line.kind === 'group'
+        ? <Text key={`group-${line.group}`}>{line.group}:</Text>
+        : <Text key={`row-${line.row.id}`} {...(screenReader ? {} : { wrap: 'truncate-end' as const })}>
+          {screenReader ? numberedRowPrefix(line.index) : line.row.id === selectedId ? '> ' : '  '}
+          {line.row.id}  activity {line.row.activity}  liveness {line.row.liveness}  control {line.row.control}
+          {line.row.problem ? `  ${line.row.problem}` : ''}
+        </Text>)}
+      {!screenReader && start + visible.length < displayLines.length &&
+        <Text>{displayLines.length - start - visible.length} more below</Text>}
       {selectedId !== undefined && <Text>Selected {selectedId}</Text>}
       {screenReader && ordered.length > 0 &&
         <Text>{formatNumberedSelectionPrompt(ordered.length, true)}{numbered.buffer ? ` ${numbered.buffer}` : ''}</Text>}
