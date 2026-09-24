@@ -113,6 +113,14 @@ export class SessionSkillRouter {
     );
   }
 
+  async shutdownModules(): Promise<unknown[]> {
+    const host = this.getSession();
+    const results = await Promise.allSettled(
+      this.allCommandModules.map((module) => Promise.resolve().then(() => module.shutdown?.(host))),
+    );
+    return results.flatMap((result) => (result.status === 'rejected' ? [result.reason] : []));
+  }
+
   getCommandInvocationSource(): TCommandInvocationSource {
     return this.commandInvocationSource;
   }

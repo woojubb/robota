@@ -5,6 +5,8 @@ import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import { tokenize } from './args.js';
 
 type TPhase = 'running' | 'completed' | 'failed' | 'cancelled';
+const MAX_ACTIVE_RUNS = 4;
+const MAX_TERMINAL_RUNS = 100;
 
 interface IRunEntry {
   readonly id: string;
@@ -17,8 +19,22 @@ interface IRunEntry {
 /** Live, module-owned execution handles. IDs are valid for this CLI process only. */
 export class DetachedWorkflowRuns {
   private readonly entries = new Map<string, IRunEntry>();
+  private closed = false;
+  private shutdownPromise?: Promise<void>;
 
   start(run: (signal: AbortSignal) => Promise<ICommandResult>): ICommandResult {
+    if (this.closed) {
+      return { success: false, message: 'This workflow session is shutting down.' };
+    }
+    if (
+      [...this.entries.values()].filter((entry) => entry.phase === 'running').length >=
+      MAX_ACTIVE_RUNS
+    ) {
+      return {
+        success: false,
+        message: 'Too many active detached workflow runs; wait for a run to finish or cancel one.',
+      };
+    }
     const id = randomUUID();
     const controller = new AbortController();
     const entry: IRunEntry = { id, controller, phase: 'running', settled: Promise.resolve() };
@@ -34,6 +50,7 @@ export class DetachedWorkflowRuns {
           : result.success
             ? 'completed'
             : 'failed';
+        this.pruneTerminals();
       })
       .catch((error: unknown) => {
         entry.result = {
@@ -41,6 +58,7 @@ export class DetachedWorkflowRuns {
           message: error instanceof Error ? error.message : String(error),
         };
         entry.phase = controller.signal.aborted ? 'cancelled' : 'failed';
+        this.pruneTerminals();
       });
     return {
       success: true,
@@ -70,6 +88,29 @@ export class DetachedWorkflowRuns {
 
   private cancellationResult(entry: IRunEntry): ICommandResult {
     return { success: entry.phase === 'cancelled', message: `Run ${entry.id}: ${entry.phase}` };
+  }
+
+  shutdown(): Promise<void> {
+    if (this.shutdownPromise) return this.shutdownPromise;
+    this.closed = true;
+    const active = [...this.entries.values()].filter((entry) => entry.phase === 'running');
+    for (const entry of active) entry.controller.abort();
+    this.shutdownPromise = Promise.all(active.map((entry) => entry.settled)).then(() => {
+      this.entries.clear();
+    });
+    return this.shutdownPromise;
+  }
+
+  private pruneTerminals(): void {
+    let terminalCount = [...this.entries.values()].filter(
+      (entry) => entry.phase !== 'running',
+    ).length;
+    for (const [id, entry] of this.entries) {
+      if (terminalCount <= MAX_TERMINAL_RUNS) break;
+      if (entry.phase === 'running') continue;
+      this.entries.delete(id);
+      terminalCount--;
+    }
   }
 
   private find(args: string, command: 'status' | 'cancel'): IRunEntry | ICommandResult {
