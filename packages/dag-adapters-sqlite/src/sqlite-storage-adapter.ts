@@ -57,7 +57,7 @@ function rowToDefinition(row: IDefinitionRow): IDagDefinition {
 }
 
 /**
- * Issue #2875: a read must never throw over persisted lineage. Unlike `rowToDefinition`, this
+ * A read must never throw over persisted lineage. Unlike `rowToDefinition`, this
  * value is not decoded here — it is handed to callers exactly as stored, still unvalidated, so
  * `decodeDagExecutionLineage` at the worker/orchestrator boundary is the sole place that rejects
  * it. That keeps a corrupt `lineage_json` value a deterministic task failure instead of an
