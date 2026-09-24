@@ -15,12 +15,10 @@ import {
 import { createGemmaToolCallProjector } from './tool-call-projector';
 import {
   assembleOpenAICompatibleStream,
-  awaitWithProviderRequestId,
   buildOpenAICompatibleRequestParams,
   observeProviderNativeRawPayloadStream,
-  readOpenAICompatibleRequestId,
-  withProviderRequestId,
 } from '../shared/openai-compatible/index.js';
+import { awaitWithProviderRequestId, readOpenAICompatibleRequestId, withProviderRequestId } from '../shared/openai-compatible/request-id.js';
 
 import type { IGemmaProviderOptions } from './types';
 import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';

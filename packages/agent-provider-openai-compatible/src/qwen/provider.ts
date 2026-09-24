@@ -18,10 +18,8 @@ import {
   buildOpenAICompatibleRequestParams,
   observeProviderNativeRawPayloadStream,
   OpenAICompatibleResponseParser,
-  awaitWithProviderRequestId,
-  readOpenAICompatibleRequestId,
-  withProviderRequestId,
 } from '../shared/openai-compatible/index.js';
+import { awaitWithProviderRequestId, readOpenAICompatibleRequestId, withProviderRequestId } from '../shared/openai-compatible/request-id.js';
 
 import type { IQwenProviderOptions } from './types';
 import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';

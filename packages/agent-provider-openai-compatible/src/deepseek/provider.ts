@@ -10,13 +10,11 @@ import { DEEPSEEK_CAPABILITY_TABLE } from './capability-table';
 import { DEFAULT_DEEPSEEK_PROVIDER_BASE_URL } from './defaults';
 import {
   assembleOpenAICompatibleStream,
-  awaitWithProviderRequestId,
   buildOpenAICompatibleRequestParams,
   observeProviderNativeRawPayloadStream,
   OpenAICompatibleResponseParser,
-  readOpenAICompatibleRequestId,
-  withProviderRequestId,
 } from '../shared/openai-compatible/index.js';
+import { awaitWithProviderRequestId, readOpenAICompatibleRequestId, withProviderRequestId } from '../shared/openai-compatible/request-id.js';
 
 import type {
   IDeepSeekProviderOptions,

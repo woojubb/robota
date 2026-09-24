@@ -7,13 +7,11 @@ import {
 } from './responses-converter';
 import { assembleQwenResponsesStream, parseQwenResponsesResponse } from './responses-parser';
 import {
-  awaitWithProviderRequestId,
   observeProviderNativeRawPayloadStream,
-  readOpenAICompatibleRequestId,
   toOpenAIResponsesToolChoice,
-  withProviderRequestId,
   type IOpenAICompatibleError,
 } from '../shared/openai-compatible/index.js';
+import { awaitWithProviderRequestId, readOpenAICompatibleRequestId, withProviderRequestId } from '../shared/openai-compatible/request-id.js';
 
 import type {
   IQwenBuiltInWebToolsOptions,

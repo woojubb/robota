@@ -1,9 +1,8 @@
 import {
   assembleOpenAICompatibleStream,
-  awaitWithProviderRequestId,
   observeProviderNativeRawPayloadStream,
-  withProviderRequestId,
 } from '../shared/openai-compatible/index.js';
+import { awaitWithProviderRequestId, withProviderRequestId } from '../shared/openai-compatible/request-id.js';
 
 import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';
 import type { IChatOptions, TUniversalMessage } from '@robota-sdk/agent-core';
