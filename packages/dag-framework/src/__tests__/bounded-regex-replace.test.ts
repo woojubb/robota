@@ -1,3 +1,4 @@
+import { spawnSync } from 'node:child_process';
 import { expect, it, vi } from 'vitest';
 import { boundedRegexReplace } from '../bounded-regex-replace.js';
 
@@ -21,6 +22,26 @@ it.each(cases)('matches native replacement and exact UTF-8 boundaries for %#', (
   if (bytes > 0) expect(boundedRegexReplace(request, bytes - 1)).toEqual({ type: 'oversized' });
 });
 
+it('preserves native global and sticky replacement semantics across capture templates', () => {
+  const inputs = [
+    { text: 'ababa', search: '(?<letter>a)|b', flags: 'g' },
+    { text: 'ababa', search: '(?=a)', flags: 'g' },
+    { text: '😀a', search: '(?:)', flags: 'gu' },
+    { text: 'ab', search: '(?:)', flags: 'gy' },
+    { text: 'a\nb', search: '^', flags: 'gm' },
+  ];
+  const replacements = ['', '$&', '$1', '$<letter>', "$$:$`:$'", 'x'];
+  for (const { text, search, flags } of inputs) {
+    for (const replacement of replacements) {
+      const request = { text, search, flags, replacement };
+      const expected = text.replace(new RegExp(search, flags), replacement);
+      expect(boundedRegexReplace(request, Buffer.byteLength(expected))).toEqual({
+        type: 'result', value: expected,
+      });
+    }
+  }
+});
+
 it('rejects an amplified result before native replacement can allocate it', () => {
   const replace = vi.spyOn(String.prototype, 'replace');
   try {
@@ -31,4 +52,19 @@ it('rejects an amplified result before native replacement can allocate it', () =
   } finally {
     replace.mockRestore();
   }
+});
+
+it('does not retain a native global match list for an admitted input', () => {
+  const script = `
+    const boundedRegexReplace = ${boundedRegexReplace.toString()};
+    const text = 'a'.repeat(2_000_000);
+    const result = boundedRegexReplace({ text, search: '(?:)', flags: 'g', replacement: '' }, 2_000_000);
+    if (result.type !== 'result' || result.value !== text) process.exit(1);
+    process.stdout.write('ok');
+  `;
+  const child = spawnSync(process.execPath, ['--max-old-space-size=32', '-e', script], {
+    encoding: 'utf8', timeout: 30_000, maxBuffer: 1024 * 1024,
+  });
+  expect(child.status, child.stderr).toBe(0);
+  expect(child.stdout).toBe('ok');
 });

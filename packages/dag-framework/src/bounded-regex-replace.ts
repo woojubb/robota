@@ -6,9 +6,9 @@ type TRegexReplaceResult =
   | { type: 'invalid-regex' };
 
 /**
- * Self-contained so its fixed source can run in both the Node thread and Bun process. The first
- * native replace enumerates matches but returns empty replacements, so its result is no larger than
- * the admitted input. Only after exact counting do we ask native replace to build the real result.
+ * Self-contained so its fixed source can run in both the Node thread and Bun process. Matches are
+ * visited one at a time and output code units are written into a bounded buffer. Native global
+ * replacement can retain a match list much larger than an admitted input or final output.
  */
 export function boundedRegexReplace(
   request: IRegexReplaceRequest,
@@ -23,6 +23,8 @@ export function boundedRegexReplace(
   }
 
   const OVER_LIMIT = Symbol('regex output exceeds byte limit');
+  const output = new Uint16Array(maxBytes);
+  let units = 0;
   let bytes = 0;
   let previousHigh = false;
   let nextSourcePosition = 0;
@@ -34,6 +36,7 @@ export function boundedRegexReplace(
       bytes += code < 0x80 ? 1 : code < 0x800 ? 2 : low && previousHigh ? 1 : 3;
       previousHigh = code >= 0xd800 && code <= 0xdbff;
       if (bytes > maxBytes) throw OVER_LIMIT;
+      output[units++] = code;
     }
   };
 
@@ -99,26 +102,31 @@ export function boundedRegexReplace(
   };
 
   try {
-    text.replace(regex, (...args: unknown[]) => {
-      const hasNamedCaptures = typeof args[args.length - 1] === 'object';
-      const positionIndex = args.length - (hasNamedCaptures ? 3 : 2);
-      const matched = args[0] as string;
-      const position = args[positionIndex] as number;
-      const captures = args.slice(1, positionIndex) as (string | undefined)[];
-      const namedCaptures = hasNamedCaptures
-        ? args[args.length - 1] as Record<string, string | undefined>
-        : undefined;
+    const unicode = flags.includes('u') || flags.includes('v');
+    for (let match = regex.exec(text); match !== null; match = regex.exec(text)) {
+      const matched = match[0];
+      const position = match.index;
       visit(text, nextSourcePosition, position);
-      visitSubstitution(matched, captures, position, namedCaptures);
+      visitSubstitution(matched, match.slice(1), position, match.groups);
       nextSourcePosition = position + matched.length;
-      return '';
-    });
+      if (!regex.global) break;
+      if (matched.length === 0) {
+        const index = regex.lastIndex;
+        const high = text.charCodeAt(index);
+        const low = text.charCodeAt(index + 1);
+        regex.lastIndex += unicode && high >= 0xd800 && high <= 0xdbff && low >= 0xdc00 && low <= 0xdfff
+          ? 2 : 1;
+      }
+    }
     visit(text, nextSourcePosition, text.length);
   } catch (error) {
     if (error === OVER_LIMIT) return { type: 'oversized' };
     return { type: 'invalid-regex' };
   }
 
-  // Fresh regex preserves g/y/zero-length behavior; preflight has already proven this fits.
-  return { type: 'result', value: text.replace(new RegExp(search, flags), replacement) };
+  const chunks: string[] = [];
+  for (let index = 0; index < units; index += 8192) {
+    chunks.push(String.fromCharCode(...output.subarray(index, Math.min(index + 8192, units))));
+  }
+  return { type: 'result', value: chunks.join('') };
 }
