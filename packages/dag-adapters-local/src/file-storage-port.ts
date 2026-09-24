@@ -45,7 +45,7 @@ function buildTaskRunKey(dagRunId: string, taskRunId: string): string {
  */
 export type IFileStoragePortOwnerLockOptions = Pick<
   IFileStoreOwnerLockOptions,
-  'refreshIntervalMs' | 'leaseTimeoutMs' | 'afterRefresh'
+  'refreshIntervalMs' | 'leaseTimeoutMs' | 'selfExpiryMs' | 'afterRefresh'
 >;
 
 export class FileStoragePort implements IStoragePort {
@@ -99,6 +99,11 @@ export class FileStoragePort implements IStoragePort {
   private async ensureInitialized(): Promise<void> {
     if (this.ownershipLostError !== undefined) throw this.ownershipLostError;
     await this.acquireOwnerLockOnce();
+    // Before every operation (not just the periodic heartbeat): a stall long enough to matter delays
+    // a queued persist exactly as much as it delays the heartbeat timer, so whichever the event loop
+    // resumes first must still catch a lease this instance has not been able to renew — an owner must
+    // stop acting before anyone else may legitimately consider its lease stale.
+    this.ownerLock?.checkSelfExpiry();
     if (this.ownershipLostError !== undefined) throw this.ownershipLostError;
     await this.hydration.ensure();
   }

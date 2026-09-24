@@ -17,6 +17,14 @@ as a fast path, without waiting out the full lease. An owner whose lease is recl
 it during a long stall notices on its next renewal and stops accepting further reads and writes,
 rather than continuing unaware as a second, unaccounted-for owner.
 
+An owner also stops itself proactively: it tracks its own last successful renewal and refuses further
+reads and writes once that is old enough that another opener could legitimately treat its lease as
+expired — kept strictly below the lease timeout, with margin for clock and timer jitter — checked on
+every heartbeat tick and before every operation. This closes the lost-update window a heartbeat that
+keeps failing to write (an unwritable directory, a stalled event loop) would otherwise leave open: an
+owner that cannot prove it is still renewing its lease must stop acting before anyone else may
+consider that lease stale, not only once it happens to observe someone else's takeover.
+
 `FileStoragePort` gains a `close()` method that releases ownership — call it (or let process exit
 release it, best-effort) before opening another instance over the same root. `createDagFramework`'s
 `stop()` now releases its file storage owner lock.

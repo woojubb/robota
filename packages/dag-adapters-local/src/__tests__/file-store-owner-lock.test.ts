@@ -1,4 +1,4 @@
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import os, { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FileStoragePort } from '../file-storage-port.js';
 import type { IFileStoragePortOwnerLockOptions } from '../file-storage-port.js';
 import {
+  computeSelfExpiryMs,
   DEFAULT_LOCK_LEASE_TIMEOUT_MS,
   FileStoreOwnerConflictError,
 } from '../file-store-owner-lock.js';
@@ -282,6 +283,84 @@ describe('the owner lock is a heartbeat lease, not a one-shot claim (ISSUE-2875 
     );
 
     // The lock file itself must be untouched by `a` from here — it belongs to the new owner now.
+    await a.close();
+  });
+});
+
+/**
+ * ISSUE-2875 follow-up 2 — an owner must stop acting before anyone else may consider its lease stale.
+ * A refresh that keeps FAILING (an unwritable directory, a stalled event loop) never once observes
+ * someone else's token in the lock file — the read-mismatch check the previous fix added only fires
+ * once ANOTHER owner has actually taken over — so without this, the instance would keep persisting
+ * right up to (and briefly past) the lease timeout: a lost-update window against whoever takes over
+ * once the lease genuinely lapses.
+ *
+ * `checkSelfExpiry()` tracks this instance's own last SUCCESSFUL renewal and self-poisons once that is
+ * older than `selfExpiryMs`, which is kept strictly below `leaseTimeoutMs` by
+ * `computeSelfExpiryMs` (two whole heartbeats of margin) — so this instance always stops itself before
+ * the lease it is failing to renew could legitimately be taken by someone else.
+ */
+describe('an owner stops acting before its lease could legitimately be taken over (ISSUE-2875 follow-up 2)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('failing heartbeat writes make the instance refuse further reads and writes before the lease timeout elapses', async () => {
+    vi.useFakeTimers();
+    const root = storageRoot();
+    const refreshIntervalMs = 1_000;
+    const leaseTimeoutMs = 10_000;
+    const selfExpiryMs = computeSelfExpiryMs(refreshIntervalMs, leaseTimeoutMs);
+    // The formula itself is exercised elsewhere; this only needs the chosen timing to actually prove
+    // the property below (self-expiry strictly before the lease timeout, with room for a few ticks).
+    expect(selfExpiryMs).toBeLessThan(leaseTimeoutMs);
+
+    const signal = withRefreshSignal({ refreshIntervalMs, leaseTimeoutMs });
+    const a = new FileStoragePort(root, signal.options);
+    await a.createDagRun(dagRun());
+
+    // Make the storage root unwritable so every heartbeat rewrite fails (EACCES) without touching the
+    // lock file's identity — simulating a wedged filesystem / lost permissions rather than a takeover.
+    chmodSync(root, 0o500);
+    try {
+      // The tick on which `age >= selfExpiryMs` first holds — the one where `checkSelfExpiry()` fires
+      // and stops the heartbeat. Looping any further would hang: no interval is left to resolve the
+      // next `nextRefresh()` promise, since self-expiry (like a takeover) stops the heartbeat.
+      const selfExpiryTick = Math.ceil(selfExpiryMs / refreshIntervalMs);
+      const elapsedAtSelfExpiry = selfExpiryTick * refreshIntervalMs;
+      expect(elapsedAtSelfExpiry).toBeLessThan(leaseTimeoutMs); // the property this test proves
+
+      for (let tick = 0; tick < selfExpiryTick; tick += 1) {
+        const refreshed = signal.nextRefresh();
+        await vi.advanceTimersByTimeAsync(refreshIntervalMs);
+        await refreshed;
+      }
+    } finally {
+      // Restore permissions so `afterEach`'s `rmSync` can remove the directory tree.
+      chmodSync(root, 0o700);
+    }
+
+    await expect(a.getDagRun('run-1')).rejects.toBeInstanceOf(FileStoreOwnerConflictError);
+  });
+
+  it('a healthy owner with succeeding heartbeats never self-poisons', async () => {
+    vi.useFakeTimers();
+    const root = storageRoot();
+    const refreshIntervalMs = 1_000;
+    const leaseTimeoutMs = 5_000;
+    const signal = withRefreshSignal({ refreshIntervalMs, leaseTimeoutMs });
+    const a = new FileStoragePort(root, signal.options);
+    await a.createDagRun(dagRun());
+
+    // Run for several multiples of the lease timeout — far past any self-expiry threshold — with
+    // every heartbeat succeeding, and confirm the instance keeps working the whole time.
+    for (let elapsed = 0; elapsed < leaseTimeoutMs * 5; elapsed += refreshIntervalMs) {
+      const refreshed = signal.nextRefresh();
+      await vi.advanceTimersByTimeAsync(refreshIntervalMs);
+      await refreshed;
+      await expect(a.getDagRun('run-1')).resolves.toMatchObject({ dagRunId: 'run-1' });
+    }
+
     await a.close();
   });
 });

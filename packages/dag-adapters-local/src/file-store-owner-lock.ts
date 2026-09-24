@@ -21,11 +21,33 @@ const OWNER_LOCK_FILE_NAME = '.owner.lock';
 export const DEFAULT_LOCK_REFRESH_INTERVAL_MS = 5_000;
 export const DEFAULT_LOCK_LEASE_TIMEOUT_MS = 30_000;
 
+/**
+ * How the self-expiry threshold is derived from the refresh interval and lease timeout when not
+ * given explicitly. It must be strictly less than the lease timeout, with enough margin that clock
+ * drift and timer jitter cannot let another opener legitimately claim the root before this owner has
+ * stopped acting: `leaseTimeoutMs - 2 * refreshIntervalMs` gives up two whole heartbeats of slack
+ * (a single missed tick — a slow write, a GC pause — must not self-poison a live owner), clamped to
+ * never go below one refresh interval (a degenerate config, e.g. `refreshIntervalMs` close to
+ * `leaseTimeoutMs`, must not make self-expiry fire on the very first missed tick) or above
+ * `leaseTimeoutMs - 1` (self-expiry must always precede the lease timeout by at least 1ms).
+ */
+export function computeSelfExpiryMs(refreshIntervalMs: number, leaseTimeoutMs: number): number {
+  const withMargin = leaseTimeoutMs - 2 * refreshIntervalMs;
+  return Math.min(Math.max(withMargin, refreshIntervalMs), leaseTimeoutMs - 1);
+}
+
 export interface IFileStoreOwnerLockOptions {
   /** How often the live owner rewrites its lease. Defaults to {@link DEFAULT_LOCK_REFRESH_INTERVAL_MS}. */
   refreshIntervalMs?: number;
   /** Age past which a lease is stale regardless of host or pid. Defaults to {@link DEFAULT_LOCK_LEASE_TIMEOUT_MS}. */
   leaseTimeoutMs?: number;
+  /**
+   * Age since this instance's own last SUCCESSFUL lease renewal past which it must stop acting as
+   * owner, even before anything else has taken the root over. Must be strictly less than
+   * `leaseTimeoutMs` — see {@link computeSelfExpiryMs} for the default and its reasoning. Exposed
+   * mainly for tests; production callers should not normally need to override the default.
+   */
+  selfExpiryMs?: number;
   /**
    * Called when a refresh discovers this instance no longer holds the lock (another owner took it
    * over — the lease lapsed during a long event-loop stall, for instance). The caller must stop
@@ -144,6 +166,18 @@ async function writeRecordAtomically(lockFilePath: string, record: IOwnerLockRec
  * over (this owner's lease lapsed during a long stall) and `onOwnershipLost` fires so the caller can
  * poison itself rather than silently continuing to write as an unaccounted-for second owner.
  *
+ * An owner must stop acting before anyone else may consider its lease stale — a heartbeat that keeps
+ * FAILING to write (an unwritable directory, a stalled event loop that only gets to run once the
+ * failure has been going on for a while) would otherwise leave this instance still believing it owns
+ * the root right up until it happens to observe someone else's takeover, which is a lost-update
+ * window rather than a guarantee. `checkSelfExpiry()` closes that window from the other direction: it
+ * tracks this instance's own last SUCCESSFUL renewal (the initial acquisition counts), and self-
+ * poisons once that is older than `selfExpiryMs` — a threshold kept strictly below `leaseTimeoutMs`
+ * (see {@link computeSelfExpiryMs}) — regardless of whether anyone has actually taken the root over
+ * yet. It runs on every heartbeat tick and is exposed for a caller to also run it before every
+ * persist, since a stall long enough to matter delays both equally, and whichever runs first when the
+ * event loop resumes must still catch it.
+ *
  * Release removes the lock file (only if it still names this acquisition) on `close()` and,
  * best-effort, on process `exit` — `exit` handlers run synchronously, so that path uses the sync fs
  * functions and does not fire on SIGKILL or an unhandled crash.
@@ -154,9 +188,12 @@ export class FileStoreOwnerLock {
   private readonly exitHandler: () => void;
   private readonly refreshIntervalMs: number;
   private readonly leaseTimeoutMs: number;
+  private readonly selfExpiryMs: number;
   private readonly onOwnershipLost: ((reason: string) => void) | undefined;
   private readonly afterRefresh: (() => void) | undefined;
   private refreshTimer: NodeJS.Timeout | undefined;
+  /** Epoch ms of this instance's own last SUCCESSFUL lease renewal; the initial acquisition counts. */
+  private lastSuccessfulRefreshAt = 0;
 
   private constructor(
     private readonly lockFilePath: string,
@@ -164,6 +201,8 @@ export class FileStoreOwnerLock {
   ) {
     this.refreshIntervalMs = options.refreshIntervalMs ?? DEFAULT_LOCK_REFRESH_INTERVAL_MS;
     this.leaseTimeoutMs = options.leaseTimeoutMs ?? DEFAULT_LOCK_LEASE_TIMEOUT_MS;
+    this.selfExpiryMs =
+      options.selfExpiryMs ?? computeSelfExpiryMs(this.refreshIntervalMs, this.leaseTimeoutMs);
     this.onOwnershipLost = options.onOwnershipLost;
     this.afterRefresh = options.afterRefresh;
     this.exitHandler = (): void => {
@@ -235,14 +274,17 @@ export class FileStoreOwnerLock {
       throw error;
     }
     try {
+      const now = Date.now();
       const record: IOwnerLockRecord = {
         pid: process.pid,
         hostname: os.hostname(),
         token: this.token,
-        acquiredAt: new Date().toISOString(),
-        refreshedAt: Date.now(),
+        acquiredAt: new Date(now).toISOString(),
+        refreshedAt: now,
       };
       await handle.writeFile(JSON.stringify(record));
+      // The initial acquisition counts as this instance's first successful renewal.
+      this.lastSuccessfulRefreshAt = now;
     } finally {
       await handle.close();
     }
@@ -333,6 +375,9 @@ export class FileStoreOwnerLock {
   private async refresh(): Promise<void> {
     if (this.released) return;
     try {
+      this.checkSelfExpiry();
+      if (this.released) return;
+
       let record: IOwnerLockRecord | undefined;
       try {
         const raw = await readFileAsync(this.lockFilePath, 'utf8');
@@ -343,7 +388,9 @@ export class FileStoreOwnerLock {
           return;
         }
         // A transient read failure (EMFILE/EACCES/...) is not proof of losing the lease; try again
-        // on the next tick rather than poisoning the instance over a passing I/O hiccup.
+        // on the next tick rather than poisoning the instance over a passing I/O hiccup. If the
+        // failure persists, `checkSelfExpiry()` (above, next tick, and before every persist) is what
+        // eventually stops this instance — a failed READ never itself counts as a successful renewal.
         return;
       }
       if (!record || !this.isOurs(record)) {
@@ -351,13 +398,34 @@ export class FileStoreOwnerLock {
         return;
       }
       try {
-        await writeRecordAtomically(this.lockFilePath, { ...record, refreshedAt: Date.now() });
+        const refreshedAt = Date.now();
+        await writeRecordAtomically(this.lockFilePath, { ...record, refreshedAt });
+        this.lastSuccessfulRefreshAt = refreshedAt;
       } catch {
         // Same reasoning as the read above: a transient write failure does not by itself mean the
-        // lease was lost. If it truly was, the NEXT refresh's read will see someone else's record.
+        // lease was lost, and does not update `lastSuccessfulRefreshAt`. If failures persist past
+        // `selfExpiryMs`, `checkSelfExpiry()` is what stops this instance — not this catch.
       }
     } finally {
       this.afterRefresh?.();
+    }
+  }
+
+  /**
+   * Poison this instance once its own last successful renewal is older than `selfExpiryMs` — a
+   * threshold kept strictly below `leaseTimeoutMs`, so this always fires (and this instance stops
+   * acting) before another opener could legitimately treat the lease as expired and take the root
+   * over. Called on every heartbeat tick and exposed for a caller to also run before every persist,
+   * since a stall delays both the timer and any queued operation equally, and whichever the event
+   * loop resumes first must still catch it.
+   */
+  public checkSelfExpiry(): void {
+    if (this.released) return;
+    const age = Date.now() - this.lastSuccessfulRefreshAt;
+    if (age >= this.selfExpiryMs) {
+      this.handleOwnershipLost(
+        `this instance has not successfully renewed its own lease in ${String(age)}ms, at or past its ${String(this.selfExpiryMs)}ms self-expiry threshold (kept below the ${String(this.leaseTimeoutMs)}ms lease timeout so it stops before another opener may take the root over)`,
+      );
     }
   }
 

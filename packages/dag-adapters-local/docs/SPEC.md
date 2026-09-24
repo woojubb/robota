@@ -70,7 +70,11 @@ container is not the same live owner just because its lock file still says so). 
 found to no longer be running is taken over immediately as a fast path, without waiting out the
 lease. An owner that discovers its own lease was taken over — reclaimed out from under it during a
 long stall — stops accepting further reads and writes rather than continuing unaware as a second,
-unaccounted-for owner. Enforcement is per-root exclusivity, not a cross-process or multi-file
+unaccounted-for owner; it also stops itself proactively once its own renewals have failed for long
+enough that someone else could legitimately have taken the root over, rather than waiting to observe
+that takeover after the fact — an owner always stops acting before its lease could legitimately be
+considered stale, closing the lost-update window a failing-but-undetected renewal would otherwise
+leave open. Enforcement is per-root exclusivity, not a cross-process or multi-file
 transaction guarantee: independent instances still do not coordinate cached state, they simply cannot
 both be live over the same root at once. All file run/task reads and writes share one operation queue
 held through persistence completion, so a reader cannot observe cancellation, settlement, or a raw mutation
