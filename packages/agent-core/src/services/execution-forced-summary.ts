@@ -91,6 +91,9 @@ export async function forceSummaryCall(
     const chatOptions: IChatOptions = {
       model: resolved.aiProviderInfo.model,
       effort: config.defaultModel?.effort ?? 'auto',
+      // Provider-hosted tools can be enabled by adapter configuration even when no local
+      // schemas are passed. A forced summary must remain a text-only terminal call.
+      toolChoice: 'none',
       ...(config.defaultModel?.maxTokens !== undefined && {
         maxTokens: config.defaultModel.maxTokens,
       }),

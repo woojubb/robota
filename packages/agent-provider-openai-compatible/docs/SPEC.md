@@ -48,6 +48,10 @@ before handing options to the shared request builder, so the request that builde
 already carries projected tools; Qwen's Responses surface (live when built-in web tools are on)
 projects the same way before building its own request.
 
+Qwen's Responses surface omits configured server-side web search/extractor tools when a call
+selects `toolChoice: none`, for direct and streaming responses alike. Text-only calls must not
+acquire hosted web actions merely because the provider instance has them enabled.
+
 A tool schema the projector rejects is omitted from that request alone and reported once per cache
 identity via a dedicated log line on agent-core's global-sink schema-projection logger — audible
 even though these providers construct with a silent logger by default.

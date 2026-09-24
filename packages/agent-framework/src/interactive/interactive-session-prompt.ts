@@ -138,6 +138,7 @@ export async function executePromptTurn(
         ? { ephemeralSystemContext: ctx.ephemeralSystemContext }
         : {}),
       ...(ctx.driverId !== undefined ? { driverId: ctx.driverId } : {}),
+      ...(ctx.turnSource === 'external' ? { toolChoice: 'none' as const } : {}),
     };
     const response =
       Object.keys(runOptions).length > 0

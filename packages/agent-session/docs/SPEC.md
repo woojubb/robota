@@ -146,6 +146,8 @@ round trip — a local round trip must be lossless.
 
 A session runs one turn at a time:
 
+- `run()` passes an explicit per-turn `toolChoice` through to the agent. It affects only that run;
+  the session's configured default and later turns are unchanged.
 - `run()` claims the turn synchronously, before its first `await`. A concurrent `run()` is
   **refused** (not queued, not pre-empting) with a recoverable busy error, because a session is a
   single conversation and cancelling the running turn would discard work the caller never asked

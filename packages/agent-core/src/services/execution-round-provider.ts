@@ -78,7 +78,8 @@ function buildRoundChatOptions(
   // CLI-1990: read PER ROUND. The tool list used to be a per-run snapshot spread here each round, so
   // a tool loaded by round N's ToolSearch call was invisible to round N+1 — the one property a
   // search tool needs. The manager applies the residency projection inside this read.
-  const tools = resolved.readAvailableTools();
+  const effectiveToolChoice = overrides?.toolChoice ?? config.defaultModel?.toolChoice;
+  const tools = effectiveToolChoice === 'none' ? [] : resolved.readAvailableTools();
   return {
     model,
     // Preserve provider-default selection until the adapter resolves its verified model table.

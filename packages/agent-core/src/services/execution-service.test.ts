@@ -880,7 +880,7 @@ describe('ExecutionService', () => {
     });
 
     it('should make forced summary call when maxRounds exhausted with only tool calls', async () => {
-      setupToolMocks();
+      const { mockToolExecService } = setupToolMocks();
       const config = makeConfig();
 
       // 10 rounds of tool calls, then the forced summary call returns text
@@ -892,6 +892,13 @@ describe('ExecutionService', () => {
         id: 'msg-summary',
         role: 'assistant',
         content: 'Here is the summary of results.',
+        toolCalls: [
+          {
+            id: 'summary-tool',
+            type: 'function',
+            function: { name: 'testTool', arguments: '{"param":"unexpected"}' },
+          },
+        ],
         state: 'complete' as const,
         timestamp: new Date(),
       });
@@ -905,6 +912,9 @@ describe('ExecutionService', () => {
       expect(result.response).toBe('Here is the summary of results.');
       // 10 rounds + 1 forced call = 11 total
       expect(chatSpy).toHaveBeenCalledTimes(11);
+      expect(chatSpy.mock.calls[10]?.[1]).toMatchObject({ toolChoice: 'none' });
+      expect(chatSpy.mock.calls[10]?.[1]?.tools).toBeUndefined();
+      expect(mockToolExecService.executeTools).toHaveBeenCalledTimes(10);
     });
 
     it('should force a summary when the provider returns an empty assistant after tool results', async () => {
