@@ -19,10 +19,6 @@ class BodyByteLimitError extends Error {}
 
 /** Read only admitted bytes; a stalled stream must also observe the request's abort signal. */
 async function readBody(response: Response, maxBytes: number, signal: AbortSignal): Promise<string> {
-  const declared = response.headers.get('content-length');
-  if (declared !== null && /^\d+$/.test(declared) && Number(declared) > maxBytes) {
-    throw new BodyByteLimitError('HTTP response body exceeds its UTF-8 byte limit');
-  }
   if (response.body === null) return '';
 
   const reader = response.body.getReader();
@@ -58,16 +54,17 @@ async function readBody(response: Response, maxBytes: number, signal: AbortSigna
   }
 
   const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
   const pieces: string[] = [];
   let outputBytes = 0;
   for (let offset = 0; offset < length; offset += 64 * 1024) {
     const piece = decoder.decode(bytes.subarray(offset, Math.min(offset + 64 * 1024, length)), { stream: true });
-    outputBytes += Buffer.byteLength(piece, 'utf8');
+    outputBytes += encoder.encode(piece).byteLength;
     if (outputBytes > maxBytes) throw new BodyByteLimitError('HTTP response body exceeds its UTF-8 byte limit');
     pieces.push(piece);
   }
   const tail = decoder.decode();
-  outputBytes += Buffer.byteLength(tail, 'utf8');
+  outputBytes += encoder.encode(tail).byteLength;
   if (outputBytes > maxBytes) throw new BodyByteLimitError('HTTP response body exceeds its UTF-8 byte limit');
   pieces.push(tail);
   return pieces.join('');

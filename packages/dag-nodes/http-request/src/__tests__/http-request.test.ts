@@ -138,28 +138,26 @@ describe('HttpRequestNodeDefinition', () => {
     expect(text).not.toHaveBeenCalled();
   });
 
-  it('rejects a declared oversized body before pulling and counts decoded UTF-8 bytes', async () => {
-    let pulls = 0;
-    const response = new Response(new ReadableStream<Uint8Array>({
-      pull(controller) {
-        pulls++;
-        controller.enqueue(new Uint8Array([0xff]));
-        controller.close();
-      },
-    }, { highWaterMark: 0 }), { headers: { 'content-length': '3' } });
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response));
+  it('counts decoded UTF-8 bytes even when the response carries fewer raw bytes', async () => {
     const context = {
       ...makeContext({ method: 'GET', url: '', headers: {}, timeoutMs: 1000 }),
       byteLimits: { maxTextRepeatOutputBytes: 4 * 1024 * 1024, maxHttpResponseBodyBytes: 2 },
     } as INodeExecutionContext;
-    const result = await node.taskHandler.execute({ url: 'https://example.com' }, context);
-    expect(result).toMatchObject({ ok: false, error: { code: 'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED' } });
-    expect(pulls).toBe(0);
-
-    const undeclared = new Response(new Uint8Array([0xff]));
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(undeclared));
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(new Uint8Array([0xff]))));
     const decoded = await node.taskHandler.execute({ url: 'https://example.com' }, context);
     expect(decoded).toMatchObject({ ok: false, error: { code: 'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED' } });
+  });
+
+  it('accepts a bodyless 304 even when its representation length exceeds the body limit', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response(null, {
+      status: 304,
+      headers: { 'content-length': '4194305' },
+    })));
+    const result = await node.taskHandler.execute(
+      { url: 'https://example.com' },
+      makeContext({ method: 'GET', url: '', headers: {}, timeoutMs: 1000 }),
+    );
+    expect(result).toMatchObject({ ok: true, value: { statusCode: 304, body: '' } });
   });
 
   it('preserves UTF-8 characters split across response chunks at the exact limit', async () => {
@@ -178,6 +176,22 @@ describe('HttpRequestNodeDefinition', () => {
     } as INodeExecutionContext;
     const result = await node.taskHandler.execute({ url: 'https://example.com' }, context);
     expect(result).toMatchObject({ ok: true, value: { body: '😀' } });
+  });
+
+  it('reads a response in a browser environment without a Node Buffer global', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('hello')));
+    const savedBuffer = globalThis.Buffer;
+    let result: Awaited<ReturnType<typeof node.taskHandler.execute>>;
+    vi.stubGlobal('Buffer', undefined);
+    try {
+      result = await node.taskHandler.execute(
+        { url: 'https://example.com' },
+        makeContext({ method: 'GET', url: '', headers: {}, timeoutMs: 1000 }),
+      );
+    } finally {
+      vi.stubGlobal('Buffer', savedBuffer);
+    }
+    expect(result).toMatchObject({ ok: true, value: { body: 'hello' } });
   });
 
   it('keeps the request timeout active while reading the response body', async () => {
