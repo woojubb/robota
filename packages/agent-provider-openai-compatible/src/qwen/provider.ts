@@ -2,6 +2,7 @@ import {
   AbstractAIProvider,
   PERMISSIVE_TOOL_SCHEMA_PROFILE,
   SilentLogger,
+  traceHeadersFor,
 } from '@robota-sdk/agent-core';
 import OpenAI from 'openai';
 
@@ -20,6 +21,7 @@ import {
   OpenAICompatibleResponseParser,
 } from '../shared/openai-compatible/index.js';
 import { awaitWithProviderRequestId, readOpenAICompatibleRequestId, withProviderRequestId } from '../shared/openai-compatible/request-id.js';
+import { openAICompatibleRequestOptions } from '../shared/openai-compatible/request-options.js';
 
 import type { IQwenProviderOptions } from './types';
 import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';
@@ -120,6 +122,7 @@ export class QwenProvider extends AbstractAIProvider {
       defaultModel: this.options.defaultModel,
       builtInWebTools: this.options.builtInWebTools,
       onTextDelta: this.onTextDelta,
+      requestHeaders: this.traceRequestHeaders(options, client),
     });
   }
 
@@ -136,6 +139,7 @@ export class QwenProvider extends AbstractAIProvider {
           client,
           { ...requestParams, stream: true },
           { ...options, onTextDelta: textDeltaCb },
+          this.traceRequestHeaders(options, client),
         );
       }
 
@@ -145,7 +149,13 @@ export class QwenProvider extends AbstractAIProvider {
         payloadKind: 'request',
         payload: requestParams,
       });
-      const response = await client.chat.completions.create(requestParams);
+      const chatRequestOptions = openAICompatibleRequestOptions(
+        undefined,
+        this.traceRequestHeaders(options, client),
+      );
+      const response = chatRequestOptions
+        ? await client.chat.completions.create(requestParams, chatRequestOptions)
+        : await client.chat.completions.create(requestParams);
       options?.onProviderNativeRawPayload?.({
         provider: 'qwen',
         apiSurface: 'chat-completions',
@@ -200,6 +210,7 @@ export class QwenProvider extends AbstractAIProvider {
         defaultModel: this.options.defaultModel,
         builtInWebTools: this.options.builtInWebTools,
         onTextDelta: this.onTextDelta,
+        requestHeaders: this.traceRequestHeaders(options, this.responsesClient),
       });
       return;
     }
@@ -212,8 +223,14 @@ export class QwenProvider extends AbstractAIProvider {
         payloadKind: 'request',
         payload: requestParams,
       });
+      const streamRequestOptions = openAICompatibleRequestOptions(
+        undefined,
+        this.traceRequestHeaders(options, this.client),
+      );
       const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
-        this.client.chat.completions.create(requestParams),
+        streamRequestOptions
+          ? this.client.chat.completions.create(requestParams, streamRequestOptions)
+          : this.client.chat.completions.create(requestParams),
       );
 
       const observedStream = observeProviderNativeRawPayloadStream(stream, {
@@ -256,6 +273,33 @@ export class QwenProvider extends AbstractAIProvider {
 
   override async dispose(): Promise<void> {
     // OpenAI-compatible Qwen clients do not need explicit cleanup.
+  }
+
+  /**
+   * Qwen carries two clients (Chat Completions and Responses, potentially different base URLs), so
+   * the answer this reports is for the Chat Completions client agent-core always constructs — the
+   * one representative of "this provider instance can propagate at all". Each call site still
+   * computes its own header from the client it actually uses (`traceRequestHeaders`), so a Responses
+   * client on a different, listed origin still gets its header even when this answers about the
+   * other surface. An executor sends elsewhere and neither client can propagate.
+   */
+  canPropagateTraceContext(): boolean {
+    return !this.executor && this.effectiveBaseUrl(this.client) !== undefined;
+  }
+
+  private effectiveBaseUrl(client: OpenAI | undefined): string | undefined {
+    const baseURL: unknown = (client as { baseURL?: unknown } | undefined)?.baseURL;
+    return typeof baseURL === 'string' && baseURL.length > 0 ? baseURL : undefined;
+  }
+
+  private traceRequestHeaders(
+    options: IChatOptions | undefined,
+    client: OpenAI | undefined,
+  ): Readonly<Record<string, string>> {
+    if (this.executor) return {};
+    const baseUrl = this.effectiveBaseUrl(client);
+    if (baseUrl === undefined) return {};
+    return traceHeadersFor(baseUrl, options?.outboundTraceContext);
   }
 
   /**

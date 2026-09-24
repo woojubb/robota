@@ -3,6 +3,7 @@ import {
   observeProviderNativeRawPayloadStream,
 } from '../shared/openai-compatible/index.js';
 import { awaitWithProviderRequestId, withProviderRequestId } from '../shared/openai-compatible/request-id.js';
+import { openAICompatibleRequestOptions } from '../shared/openai-compatible/request-options.js';
 
 import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';
 import type { IChatOptions, TUniversalMessage } from '@robota-sdk/agent-core';
@@ -12,6 +13,7 @@ export async function qwenChatWithStreamingAssembly(
   client: OpenAI,
   requestParams: OpenAI.Chat.ChatCompletionCreateParamsStreaming,
   options: IChatOptions,
+  requestHeaders?: Readonly<Record<string, string>>,
 ): Promise<TUniversalMessage> {
   try {
     options.onProviderNativeRawPayload?.({
@@ -23,7 +25,7 @@ export async function qwenChatWithStreamingAssembly(
     const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
       client.chat.completions.create(
         requestParams,
-        options.signal ? { signal: options.signal } : undefined,
+        openAICompatibleRequestOptions(options.signal, requestHeaders),
       ),
     );
 

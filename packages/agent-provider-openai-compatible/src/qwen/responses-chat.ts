@@ -12,6 +12,7 @@ import {
   type IOpenAICompatibleError,
 } from '../shared/openai-compatible/index.js';
 import { awaitWithProviderRequestId, readOpenAICompatibleRequestId, withProviderRequestId } from '../shared/openai-compatible/request-id.js';
+import { openAICompatibleRequestOptions } from '../shared/openai-compatible/request-options.js';
 
 import type {
   IQwenBuiltInWebToolsOptions,
@@ -29,6 +30,8 @@ export interface IQwenResponsesChatOptions {
   defaultModel?: string;
   builtInWebTools?: IQwenBuiltInWebToolsOptions;
   onTextDelta?: TTextDeltaCallback;
+  /** Per-request headers (trusted `traceparent`), sent after the raw request payload is captured. */
+  requestHeaders?: Readonly<Record<string, string>>;
 }
 
 function enabledBuiltInWebTools(
@@ -67,7 +70,7 @@ export async function chatWithQwenResponsesApi(
     });
     const response = await input.client.responses.create(
       requestParams as OpenAI.Responses.ResponseCreateParamsNonStreaming,
-      input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
+      openAICompatibleRequestOptions(input.chatOptions?.signal, input.requestHeaders),
     );
     input.chatOptions?.onProviderNativeRawPayload?.({
       provider: 'qwen',
@@ -135,7 +138,7 @@ async function chatWithQwenResponsesStreamingAssembly(
     const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
       input.client.responses.create(
         requestParams as OpenAI.Responses.ResponseCreateParamsStreaming,
-        input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
+        openAICompatibleRequestOptions(input.chatOptions?.signal, input.requestHeaders),
       ),
     );
     const assembled = await assembleQwenResponsesStream({
