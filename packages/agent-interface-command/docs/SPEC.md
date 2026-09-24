@@ -24,9 +24,7 @@ no mechanism, and no runtime value except a small set of discriminators.
 - **Layer 0.** It depends on no peer `agent-interface-*` package; composition runs downward into
   it (e.g. `agent-interface-session` names these types, never the reverse). That direction is a
   boundary this package commits to beyond what the manifest alone enforces.
-- `capability-contracts` has no consumer outside this package but is exported anyway — ruled on
-  explicitly (issue #2177): zero external consumers raised the question of whether to keep the
-  surface public, and the answer was yes.
+- `capability-contracts` has no consumer outside this package but is deliberately kept public.
 - The command/session boundary test (asserting a command action and a session event remain
   distinct) lives in `agent-interface-session`, not here, because it necessarily names types from
   both sides — putting it here would create an upward dependency from this Layer 0 package.

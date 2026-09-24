@@ -35,7 +35,7 @@ Not owned here:
 
 ## Design decisions
 
-### Forking a conversation into a background task (CLI-1994)
+### Forking a conversation into a background task
 
 `IAgentBackgroundTaskRequest.resumeSessionId?` names a persisted session record the child restores
 before its first turn — how a fork (a copy of a live conversation, written under a fresh id by

@@ -129,8 +129,8 @@ committed output is handed to the terminal's own scrollback and this package nev
 
 ### Screen reader mode
 
-An explicit, opt-in plain-text mode. With it off, no output differs from today's default — a
-regression the PTY test suite pins. Enablement policy is owned by the CLI shell; this package only
+An explicit, opt-in plain-text mode. With it off, output is identical to the default
+rendering. Enablement policy is owned by the CLI shell; this package only
 receives the resolved on/off decision and never turns the mode on by detection alone. When on, the
 package trades layout-heavy chrome (boxes, colored motion, arrow-key menus, box-drawn tables) for
 line-oriented output (numbered menus, one label-per-line prompts, one-shot text instead of animated

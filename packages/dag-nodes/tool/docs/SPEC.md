@@ -24,7 +24,7 @@ workflow event loop.
   passes its cancellation signal to these tools and waits for active work to stop before reporting
   failure.
 
-## Invariants — containment (SEC-007)
+## Invariants — containment
 
 - Every builtin is constructed per invocation and bound to a containment root; none is taken from
   `agent-tools`' module-level singletons, which are context-free by construction and therefore

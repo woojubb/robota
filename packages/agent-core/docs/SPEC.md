@@ -99,7 +99,7 @@ Endpoint provenance (is this endpoint actually the vendor's own, or a custom bas
 
 The final response text is parsed and validated on every run; a validation failure triggers a bounded number of retry turns whose input carries the validation issues alongside the schema, and every attempt (including retry-feedback turns) is committed to conversation history through the standard append-only path — structured output never rewrites history. Exhausting the retry budget throws a dedicated error carrying the validation issues and attempt count. Tools may run within a structured turn; the schema is validated only against the final assistant text once tool rounds complete.
 
-A forced-tool transport (calling a synthetic tool whose parameters _are_ the schema) was considered and is deliberately not implemented as a real mechanism today: it would require a provider that simultaneously lacks a native schema parameter AND has enforceable strict-tool-argument support, and across this workspace that intersection is empty — introducing a union branch nothing can produce is a case every consumer would have to handle and no test could exercise.
+A forced-tool transport (calling a synthetic tool whose parameters _are_ the schema) was considered and deliberately not implemented: it would require a provider that simultaneously lacks a native schema parameter AND has enforceable strict-tool-argument support, and across this workspace that intersection is empty — introducing a union branch nothing can produce is a case every consumer would have to handle and no test could exercise.
 
 ## Tool Residency and Tool Search
 
