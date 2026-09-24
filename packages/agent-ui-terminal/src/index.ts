@@ -1,4 +1,6 @@
 export { renderApp } from './render.js';
+export { renderSupervisedSessionView } from './SupervisedSessionView.js';
+export type { ISupervisedViewRow, ISupervisedSessionViewProps } from './SupervisedSessionView.js';
 export { TuiInteractionChannel } from './TuiInteractionChannel.js';
 export type { ITuiInteractionChannelOptions } from './TuiInteractionChannel.js';
 export type { IRenderOptions } from './render.js';

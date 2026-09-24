@@ -133,26 +133,36 @@ function readLine(socket: Socket): Promise<string> {
   });
 }
 
-async function request(directory: string, id: string, command: 'status' | 'stop'): Promise<unknown> {
+async function request(directory: string, id: string, command: 'status' | 'stop', signal?: AbortSignal): Promise<unknown> {
+  signal?.throwIfAborted();
   verifyExistingDirectory(directory);
   const socketPath = controlSocketPath(dirname(directory), id);
   const info = lstatSync(socketPath);
   if (!info.isSocket() || info.uid !== (process.getuid?.() ?? 0)) throw new Error('Supervised session control socket was refused.');
   const socket = createConnection(socketPath);
+  const onAbort = (): void => { socket.destroy(new Error('Supervised session control aborted.')); };
+  signal?.addEventListener('abort', onAbort, { once: true });
   try {
+    signal?.throwIfAborted();
     await new Promise<void>((resolve, reject) => {
       socket.once('connect', resolve);
       socket.once('error', () => reject(new Error('Supervised session control is unavailable.')));
       socket.setTimeout(REQUEST_TIMEOUT_MS, () => reject(new Error('Supervised session control timed out.')));
     });
+    signal?.throwIfAborted();
     socket.write(`${JSON.stringify({ command, id })}\n`);
     return JSON.parse(await readLine(socket)) as unknown;
   } finally {
+    signal?.removeEventListener('abort', onAbort);
     socket.destroy();
   }
 }
 
-export async function listSupervisedSessions(root = resolveSupervisedDirectory()): Promise<readonly ISupervisedSessionRow[]> {
+export async function listSupervisedSessions(
+  root = resolveSupervisedDirectory(),
+  signal?: AbortSignal,
+): Promise<readonly ISupervisedSessionRow[]> {
+  signal?.throwIfAborted();
   try {
     verifyExistingDirectory(root);
   } catch (error) {
@@ -162,6 +172,7 @@ export async function listSupervisedSessions(root = resolveSupervisedDirectory()
   const names = readdirSync(root).filter((name) => ID_PATTERN.test(name));
   if (names.length > MAX_ENTRIES) throw new Error('Too many supervised session records to list safely.');
   const rows = await Promise.all(names.map(async (id): Promise<ISupervisedSessionRow | null> => {
+    signal?.throwIfAborted();
     const directory = sessionDirectory(root, id);
     let record: IRegistration;
     try {
@@ -180,7 +191,7 @@ export async function listSupervisedSessions(root = resolveSupervisedDirectory()
       : currentStart === record.startedAt ? 'alive' : 'dead';
     if (liveness !== 'alive') return { id, liveness, control: 'unavailable', activity: 'unknown' };
     try {
-      const response = await request(directory, id, 'status');
+      const response = await request(directory, id, 'status', signal);
       if (typeof response === 'object' && response !== null && 'id' in response && response.id === id &&
         'status' in response && response.status === 'running') {
         return {
@@ -189,6 +200,7 @@ export async function listSupervisedSessions(root = resolveSupervisedDirectory()
         };
       }
     } catch {
+      signal?.throwIfAborted();
       // A registered process can lose its control endpoint during shutdown.
     }
     return { id, liveness, control: 'unavailable', activity: 'unknown' };

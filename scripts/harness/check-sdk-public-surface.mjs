@@ -234,11 +234,11 @@ async function resolveLocalReExport(root, file, source) {
   const extension = path.extname(absoluteBase);
   const candidates = [];
   if (extension === '.js') {
-    candidates.push(`${absoluteBase.slice(0, -'.js'.length)}.ts`);
-  } else if (extension === '.ts') {
+    candidates.push(`${absoluteBase.slice(0, -'.js'.length)}.ts`, `${absoluteBase.slice(0, -'.js'.length)}.tsx`);
+  } else if (extension === '.ts' || extension === '.tsx') {
     candidates.push(absoluteBase);
   } else if (extension.length === 0) {
-    candidates.push(`${absoluteBase}.ts`, path.join(absoluteBase, 'index.ts'));
+    candidates.push(`${absoluteBase}.ts`, `${absoluteBase}.tsx`, path.join(absoluteBase, 'index.ts'), path.join(absoluteBase, 'index.tsx'));
   }
 
   for (const candidate of candidates) {
@@ -402,7 +402,8 @@ const FROZEN_FINDING_COUNTS = {
   // STRUCT-012 S2: the two host barrels moved to framework with explicit named exports.
   // The interim empty transport root earns zero; do not permit the removed stars to return.
   'agent-transport': 0,
-  'agent-ui-terminal': 1,
+  // The prior finding was a resolver false positive for an existing TSX re-export.
+  'agent-ui-terminal': 0,
 };
 
 export async function findSdkPublicSurfaceFindings(root = WORKSPACE_ROOT) {

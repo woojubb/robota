@@ -6,6 +6,7 @@ import { runSessionAnalyze } from '../session-analyzer/session-analyze-command.j
 import { runSessionListCommand } from '../session-inventory/session-list-command.js';
 import { launchSupervisedSession } from '../session-inventory/supervised-session-launch.js';
 import { stopSupervisedSession } from '../session-inventory/supervised-session-control.js';
+import { runSessionViewCommand } from '../session-inventory/session-view-command.js';
 import { runUsageCommand } from '../usage/usage-command.js';
 import { runUsageExportCommand } from '../usage/usage-export-command.js';
 import {
@@ -60,6 +61,10 @@ export async function runPreparsedCliCommand(
       process.stderr.write(`${error instanceof Error ? error.message : 'Unable to stop supervised session.'}\n`);
       process.exitCode = 1;
     }
+    return true;
+  }
+  if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'view') {
+    process.exitCode = await runSessionViewCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX));
     return true;
   }
   const projectAccess = await resolveInitialCliWorkspaceProjectAccess(cwd, options);

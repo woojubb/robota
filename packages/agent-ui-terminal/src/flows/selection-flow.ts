@@ -79,6 +79,8 @@ export interface INumericSelectionOptions {
    * the commit rather than an invalid entry. A single-choice menu resolves on the first number.
    */
   multi?: boolean;
+  /** A persistent view: selecting one row does not resolve the input. */
+  repeatable?: boolean;
 }
 
 export function createNumericSelectionState(): INumericSelectionState {
@@ -115,7 +117,7 @@ export function applyNumericSelection(
     }
     return {
       // A toggle leaves the menu open — only a single-choice selection resolves it.
-      state: { ...state, buffer: '', invalid: false, resolved: options.multi !== true },
+      state: { ...state, buffer: '', invalid: false, resolved: options.multi !== true && options.repeatable !== true },
       effect: { type: 'select', index },
     };
   }
