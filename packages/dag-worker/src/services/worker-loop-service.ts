@@ -159,14 +159,13 @@ export class WorkerLoopService {
       return this.settleCancelledRunMessage(message);
     }
 
-    const snapshot = JSON.stringify(claimed.payload);
-    const persistInput = () => this.storage.commitExecution(claimed.dagRunId, {
+    const persistInput = (snapshot: string) => this.storage.commitExecution(claimed.dagRunId, {
       kind: 'snapshot-input', taskRunId: claimed.taskRunId, attempt: claimed.attempt,
       leaseOwner: this.options.workerId, inputSnapshot: snapshot,
     });
     const admission = this.snapshotBudget
-      ? await this.snapshotBudget.admit('input', snapshot, persistInput)
-      : { ok: true as const, value: await persistInput() };
+      ? await this.snapshotBudget.admitValue('input', claimed.payload, persistInput)
+      : { ok: true as const, value: await persistInput(JSON.stringify(claimed.payload)) };
     if (!admission.ok) return this.outcomes.handleFailurePath(claimed, claimed.taskRunId, admission.error);
     if (!admission.value.applied) return successAfterAck(this.queue, message.messageId, claimed.taskRunId, false);
 

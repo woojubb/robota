@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { IDagRun, IDagDefinition, IQueueMessage, IQueuePort } from '@robota-sdk/dag-core';
+import { TaskSnapshotBudget, type IDagRun, type IDagDefinition, type IQueueMessage, type IQueuePort } from '@robota-sdk/dag-core';
 import { InMemoryQueuePort, InMemoryStoragePort } from '@robota-sdk/dag-adapters-local';
 import { ManualClockPort } from '@robota-sdk/dag-adapters-local/testing';
 import { RunOrchestratorService } from '../services/run-orchestrator-service.js';
@@ -244,6 +244,39 @@ describe('RunOrchestratorService', () => {
 
     const secondMessage = await queue.dequeue('worker-1', 1_000);
     expect(secondMessage).toBeUndefined();
+  });
+
+  it('does not charge a duplicate run lookup to the root input allowance', async () => {
+    const storage = new InMemoryStoragePort();
+    const definition = createPublishedDefinition();
+    const input = { seed: 'v1' };
+    const bytes = Buffer.byteLength(JSON.stringify(definition) + JSON.stringify(input));
+    const budget = new TaskSnapshotBudget({ inputBytes: bytes + 2, outputBytes: 0 });
+    await storage.saveDefinition(definition);
+    const service = new RunOrchestratorService(storage, new InMemoryQueuePort(),
+      new ManualClockPort(Date.UTC(2026, 1, 14)), undefined, budget);
+    const first = await service.createRun({ dagId: definition.dagId, trigger: 'manual', input });
+    const second = await service.createRun({ dagId: definition.dagId, trigger: 'manual', input });
+    expect(first.ok).toBe(true);
+    expect(second).toEqual(first);
+    expect(await budget.admitValue('input', {}, async () => ({ applied: true })))
+      .toMatchObject({ ok: true });
+  });
+
+  it('closes root admission and returns a stable non-retryable error after uncertain run creation', async () => {
+    const storage = new RacyDagRunStoragePort();
+    await storage.saveDefinition(createPublishedDefinition());
+    const budget = new TaskSnapshotBudget({ inputBytes: 10_000, outputBytes: 10_000 });
+    const service = new RunOrchestratorService(storage, new InMemoryQueuePort(),
+      new ManualClockPort(Date.UTC(2026, 1, 14)), undefined, budget);
+    const result = await service.createRun({
+      dagId: 'dag-runtime-test', trigger: 'manual', input: {},
+    });
+    expect(result).toMatchObject({ ok: false, error: {
+      code: 'DAG_RUN_SNAPSHOT_PERSISTENCE_UNCERTAIN', retryable: false,
+    } });
+    expect(await budget.admitValue('output', {}, async () => ({ applied: true })))
+      .toMatchObject({ ok: false, error: { code: 'DAG_TASK_SNAPSHOT_BUDGET_CLOSED' } });
   });
 
   it('starts existing created run without creating duplicate run id', async () => {

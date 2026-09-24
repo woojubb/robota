@@ -337,7 +337,7 @@ describe('composite nested-run lineage', () => {
     const runner = vi.fn(async () => ({ ok: true, outputs: {} }));
     const node = composite('bounded', ['input'], runner);
     const ctx = context('bounded');
-    ctx.snapshotBudget = { admit: vi.fn(), close: vi.fn() };
+    ctx.snapshotBudget = { admit: vi.fn(), admitValue: vi.fn(), admitRun: vi.fn(), close: vi.fn() };
     ctx.byteLimits = { maxTextRepeatOutputBytes: 10 };
     const result = await node.taskHandler.execute({ text: 'x' }, ctx);
     expect(result.ok).toBe(true);

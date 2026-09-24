@@ -1,6 +1,7 @@
 import { IsolatedRegexTaskExecutor } from './isolated-regex-task-executor.js';
 import type {
   IDagDefinition,
+  IDagError,
   ITaskSnapshotBudget,
   ITaskSnapshotBudgetLimits,
   IDagExecutionByteLimits,
@@ -47,6 +48,12 @@ const LOCAL_LEASE_DURATION_MS = 60_000;
 const LOCAL_VISIBILITY_TIMEOUT_MS = 60_000;
 const LOCAL_MAX_ATTEMPTS = 1;
 const LOCAL_DEFAULT_TIMEOUT_MS = 300_000;
+
+class DagStartError extends Error {
+  public constructor(public readonly dagError: IDagError) {
+    super(`startRun failed: ${dagError.code}`);
+  }
+}
 
 /** Options accepted by {@link LocalDagRuntimeProvider}. */
 export interface ILocalDagRuntimeProviderOptions {
@@ -162,7 +169,12 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
         durationMs,
         error,
       });
-      return { ok: false, outputs: {}, durationMs, error };
+      return {
+        ok: false, outputs: {}, durationMs, error,
+        ...(err instanceof DagStartError
+          ? { errorCode: err.dagError.code, errorRetryable: err.dagError.retryable }
+          : {}),
+      };
     } finally {
       if (inheritedBudget === undefined) snapshotBudget.close();
     }
@@ -293,7 +305,7 @@ async function runDagOnce(
       input: inputs,
     });
     if (!startResult.ok) {
-      throw new Error(`startRun failed: ${startResult.error.code}`);
+      throw new DagStartError(startResult.error);
     }
     const { dagRunId } = startResult.value;
 

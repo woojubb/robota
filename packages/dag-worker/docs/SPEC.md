@@ -182,7 +182,9 @@ claim to bound arbitrary executor allocations.
 ## Task snapshot admission
 
 When a shared root snapshot authority is supplied, input persistence is admitted before executor
-entry and output persistence before success publication or downstream dispatch. An input snapshot
+entry and output persistence before success publication or downstream dispatch. JSON encoding stops
+once escaped UTF-8 bytes exceed the remaining allowance; only plain JSON data is accepted, and
+data-defined `toJSON` methods are never invoked. An input snapshot
 uses current run, attempt and lease ownership in the storage commit rather than a raw setter.
 Budget exhaustion is a non-retryable task failure; rejected stale/cancelled writes consume no
 allowance. Accepted input remains charged if execution subsequently fails. Persistence exceptions

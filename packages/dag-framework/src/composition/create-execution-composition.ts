@@ -50,6 +50,7 @@ export function createExecutionComposition(
     dependencies.queue,
     dependencies.clock,
     runProgressEventBus,
+    dependencies.snapshotBudget,
   );
   const runQuery = new RunQueryService(dependencies.storage);
 
