@@ -1,10 +1,6 @@
 import type { IDagNodeDefinition } from '@robota-sdk/dag-core';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
-
-interface ISkillRootDescriptor {
-  readonly root: string;
-  readonly kind: 'skills' | 'commands';
-}
+import type { IDagContributionSource, IDagSkillRootDescriptor } from './types.js';
 
 /**
  * Lazy loader for the default node catalog (ARCH-PROVIDER-004). The catalog lives in
@@ -18,7 +14,8 @@ interface IDagNodesDefaultModule {
     providers?: readonly IProviderDefinition[],
     loadDefaults?: unknown,
     media?: unknown,
-    skillRoots?: readonly ISkillRootDescriptor[],
+    skillRoots?: readonly IDagSkillRootDescriptor[],
+    contributionSources?: readonly IDagContributionSource[],
   ) => Promise<IDagNodeDefinition[]>;
   createDefaultNodeRegistrySync: () => IDagNodeDefinition[];
 }
@@ -40,10 +37,17 @@ async function importDagNodesDefault(): Promise<IDagNodesDefaultModule> {
 /** The full async default catalog, with the collapsed `llm-text` node bound to `providers` (or the lazy default set). */
 export async function loadDefaultNodeRegistry(
   providers?: readonly IProviderDefinition[],
-  skillRoots?: readonly ISkillRootDescriptor[],
+  skillRoots?: readonly IDagSkillRootDescriptor[],
+  contributionSources?: readonly IDagContributionSource[],
 ): Promise<IDagNodeDefinition[]> {
   const mod = await importDagNodesDefault();
-  return mod.createDefaultNodeRegistry(providers, undefined, undefined, skillRoots);
+  return mod.createDefaultNodeRegistry(
+    providers,
+    undefined,
+    undefined,
+    skillRoots,
+    contributionSources,
+  );
 }
 
 /** The SDK-free base node set (async wrapper — the catalog is loaded via dynamic import). */

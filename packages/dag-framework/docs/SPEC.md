@@ -39,6 +39,9 @@ zero external runtime-server process dependencies.
 - The in-process composition connects committed run cancellation to the worker attempts it owns.
   Local provider calls can settle promptly when their node and provider cooperate with the attempt
   signal. This does not notify workers in other processes or wait for abandoned executor cleanup.
+- Default skill-node discovery reads only host-supplied contribution sources and ordered skill roots.
+  When either is omitted, no skill files are discovered; construction never selects a filesystem
+  source from the current process or home directory.
 
 ## Design decisions
 

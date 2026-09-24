@@ -6,7 +6,10 @@ import {
 } from '@robota-sdk/agent-core';
 import type { ISkillExecutionPort } from '@robota-sdk/agent-interface-command';
 import { createSkillExecutionPort } from '@robota-sdk/agent-framework';
-import type { ISkillRootDescriptor } from '@robota-sdk/agent-framework';
+import type {
+  IContributionSource,
+  ISkillRootDescriptor,
+} from '@robota-sdk/agent-framework';
 import { LlmTextNodeDefinition } from '@robota-sdk/dag-node-llm-text';
 import { InputNodeDefinition } from '@robota-sdk/dag-node-input';
 import { MultiInputNodeDefinition } from '@robota-sdk/dag-node-multi-input';
@@ -131,6 +134,7 @@ export async function createDefaultNodeRegistry(
     readonly loadMediaDefaults?: TMediaProviderDefinitionLoader;
   } = {},
   skillRoots: readonly ISkillRootDescriptor[] = [],
+  contributionSources: readonly IContributionSource[] = [],
 ): Promise<IDagNodeDefinition[]> {
   const resolvedProviders = providers ?? (await loadDefaults());
   const nodes: IDagNodeDefinition[] = [
@@ -182,7 +186,7 @@ export async function createDefaultNodeRegistry(
 
   const loadedGroups = await Promise.all([
     ...optionalLoaders.map(loadOptionalNodes),
-    loadSkillNode(skillRoots),
+    loadSkillNode(contributionSources, skillRoots),
   ]);
   for (const loaded of loadedGroups) {
     nodes.push(...loaded);
@@ -205,6 +209,7 @@ export async function createDefaultNodeRegistry(
  * import (as before), so the graceful-skip for a missing skill node is preserved.
  */
 async function loadSkillNode(
+  contributionSources: readonly IContributionSource[],
   skillRoots: readonly ISkillRootDescriptor[],
 ): Promise<IDagNodeDefinition[]> {
   try {
@@ -214,7 +219,7 @@ async function loadSkillNode(
     };
     return [
       new skillMod.SkillNodeDefinition({
-        skillPort: createSkillExecutionPort(undefined, skillRoots),
+        skillPort: createSkillExecutionPort(contributionSources, skillRoots),
       }),
     ];
   } catch (_err) {

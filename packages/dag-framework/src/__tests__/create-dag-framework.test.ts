@@ -1,10 +1,11 @@
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IDagDefinition } from '@robota-sdk/dag-core';
 import { createDagFramework } from '../create-dag-framework.js';
 import { createDefaultNodeRegistrySync } from '@robota-sdk/dag-nodes-default';
+import * as defaultRegistryLoader from '../load-default-node-registry.js';
 import type { IDagFramework } from '../types.js';
 
 let tmpDir: string;
@@ -73,6 +74,36 @@ describe('Input → TextOutput (2-node pipeline)', () => {
     if (!resultRes.ok) throw new Error('Expected a run result.');
     const taskRuns = resultRes.value.taskRuns;
     expect(taskRuns.length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('default skill discovery boundary', () => {
+  it('forwards host sources and ordered roots into the async default catalog loader', async () => {
+    const contributionSources = [
+      {
+        kind: 'host' as const,
+        displayName: 'host fixture',
+        readText: () => undefined,
+        listDirectory: () => [],
+        inspectKind: () => undefined,
+      },
+    ];
+    const skillRoots = [{ root: 'custom/skills', kind: 'skills' as const }];
+    const loader = vi.spyOn(defaultRegistryLoader, 'loadDefaultNodeRegistry');
+    const created = await createDagFramework({
+      executionRoot: tmpDir,
+      providers: [],
+      contributionSources,
+      skillRoots,
+      paths: { storageRoot: path.join(tmpDir, 'host-skill-storage') },
+    });
+
+    try {
+      expect(loader).toHaveBeenCalledWith([], skillRoots, contributionSources);
+    } finally {
+      loader.mockRestore();
+      await created.stop();
+    }
   });
 });
 
