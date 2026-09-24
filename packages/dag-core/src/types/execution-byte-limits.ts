@@ -3,12 +3,15 @@ export interface IDagExecutionByteLimits {
   readonly maxTextRepeatOutputBytes: number;
   /** Literal replacement only; omitted by older hosts to retain the built-in ceiling. */
   readonly maxTextReplaceOutputBytes?: number;
+  /** Template expansion; omitted by older hosts to retain the built-in ceiling. */
+  readonly maxTextTemplateOutputBytes?: number;
 }
 
-/** Keep text-repeat allocations bounded even when no host policy is supplied. */
+/** Keep supported text expansion bounded even when no host policy is supplied. */
 export const DEFAULT_DAG_EXECUTION_BYTE_LIMITS: IDagExecutionByteLimits = Object.freeze({
   maxTextRepeatOutputBytes: 4 * 1024 * 1024,
   maxTextReplaceOutputBytes: 4 * 1024 * 1024,
+  maxTextTemplateOutputBytes: 4 * 1024 * 1024,
 });
 
 /** Snapshot a trusted host policy; hosts may tighten the built-in ceiling. */
@@ -28,5 +31,11 @@ export function resolveDagExecutionByteLimits(
     || maxTextReplaceOutputBytes < 0 || maxTextReplaceOutputBytes > 4 * 1024 * 1024) {
     throw new RangeError('maxTextReplaceOutputBytes must be a safe integer between 0 and 4194304');
   }
-  return Object.freeze({ maxTextRepeatOutputBytes, maxTextReplaceOutputBytes });
+  const maxTextTemplateOutputBytes = limits && 'maxTextTemplateOutputBytes' in limits
+    ? limits.maxTextTemplateOutputBytes : 4 * 1024 * 1024;
+  if (typeof maxTextTemplateOutputBytes !== 'number' || !Number.isSafeInteger(maxTextTemplateOutputBytes)
+    || maxTextTemplateOutputBytes < 0 || maxTextTemplateOutputBytes > 4 * 1024 * 1024) {
+    throw new RangeError('maxTextTemplateOutputBytes must be a safe integer between 0 and 4194304');
+  }
+  return Object.freeze({ maxTextRepeatOutputBytes, maxTextReplaceOutputBytes, maxTextTemplateOutputBytes });
 }
