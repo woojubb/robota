@@ -1,6 +1,7 @@
 import { replaceLiteralWithinByteLimit } from './text-replace.js';
 import { repeatWithinByteLimit } from './text-repeat.js';
 import { joinLinesWithinByteLimit, splitTextWithinByteLimit } from './text-join-split.js';
+import { uppercaseWithinByteLimit } from './text-upper.js';
 import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
 import {
   buildValidationError,
@@ -311,7 +312,11 @@ export class TextUpperNodeDefinition extends AbstractNodeDefinition<typeof NoCon
     const io = new NodeIoAccessor(input, context.nodeDefinition.nodeId);
     const r = io.requireInputString('text');
     if (!r.ok) return r;
-    io.setOutput('text', r.value.toUpperCase());
+    const upper = uppercaseWithinByteLimit(
+      r.value, resolveDagExecutionByteLimits(context.byteLimits).maxTextUpperOutputBytes,
+    );
+    if (!upper.ok) return upper;
+    io.setOutput('text', upper.value);
     return { ok: true, value: io.toOutput() };
   }
 }
