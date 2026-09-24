@@ -40,6 +40,29 @@ describe('live prompt trace boundary', () => {
     expect(JSON.stringify(batch)).not.toMatch(/private|secret/);
   });
 
+  it('carries a provider-returned request ID only for an invoked call with a safe value', () => {
+    const accumulator = makeAccumulator();
+    const base = {
+      traceId: TRACE_ID, parentSpanId: ROOT_SPAN_ID, startedAt: AT, endedAt: AT,
+      outcome: 'success' as const, round: 1, disposition: 'invoked' as const,
+    };
+    accumulator.addProvider({ ...base, spanId: 'aaaaaaaaaaaaaaaa', providerRequestId: 'req_abc123' });
+    accumulator.addProvider({
+      ...base, spanId: 'bbbbbbbbbbbbbbbb', providerRequestId: 'private\nsecret',
+    });
+    accumulator.addProvider({
+      ...base, spanId: 'cccccccccccccccc', disposition: 'cache-hit', providerRequestId: 'req_should_omit',
+    });
+    accumulator.addProvider({ ...base, spanId: 'dddddddddddddddd' });
+    const batch = finish(accumulator);
+    expect(batch.children).toMatchObject([
+      { kind: 'provider', trace: { providerRequestId: 'req_abc123' } },
+      { kind: 'provider', trace: { spanId: 'dddddddddddddddd' } },
+    ]);
+    expect(batch.omittedChildren.provider).toBe(2);
+    expect(JSON.stringify(batch)).not.toMatch(/private|secret|req_should_omit/);
+  });
+
   it('carries a safe permission decision with its call ID and omits unsafe ones under the shared cap', () => {
     const accumulator = makeAccumulator();
     const base = { traceId: TRACE_ID, parentSpanId: ROOT_SPAN_ID, decidedAt: AT, decision: 'allowed' as const };

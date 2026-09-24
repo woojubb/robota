@@ -30,8 +30,12 @@ import type { IPromptFileReferenceRecord } from '../context/prompt-file-referenc
 import type { IProviderErrorGuidance } from '../utils/error-humanizer.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IProviderCallTraceObservation, Session } from '@robota-sdk/agent-session';
-import type { IToolBodyTraceObservation, IToolPermissionDecisionObservation } from './interactive-session-execution.js';
+import type { Session } from '@robota-sdk/agent-session';
+import type {
+  IToolBodyTraceObservation,
+  IToolPermissionDecisionObservation,
+  TRawProviderCallTraceObservation,
+} from './interactive-session-execution.js';
 import type { TTurnSource } from '@robota-sdk/agent-interface-session';
 
 /**
@@ -82,7 +86,7 @@ export interface IPromptTurnContext {
   /** Accumulated streamed text of the in-flight turn (ERR-001: preserved on error). */
   getStreamingText: () => string;
   onComplete: (result: IExecutionResult) => void;
-  onProviderCallCompleted?: (observation: IProviderCallTraceObservation) => void;
+  onProviderCallCompleted?: (observation: TRawProviderCallTraceObservation) => void;
   onToolBodyCompleted?: (observation: IToolBodyTraceObservation) => void;
   onToolPermissionDecided?: (observation: IToolPermissionDecisionObservation) => void;
   onCompletionsOmitted?: (counts: { readonly provider: number; readonly tool: number; readonly permission: number }) => void;

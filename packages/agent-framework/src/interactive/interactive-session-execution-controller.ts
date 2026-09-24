@@ -384,7 +384,17 @@ export class SessionExecutionController {
             },
           };
           providerCallEntries.push(entry);
-          if (entry.data) liveTrace?.addProvider(entry.data);
+          if (entry.data) {
+            const providerRequestId = observation.providerRequestId;
+            if (providerRequestId !== undefined && typeof providerRequestId !== 'string') {
+              liveTrace?.omit({ provider: 1, tool: 0 });
+            } else {
+              liveTrace?.addProvider({
+                ...entry.data,
+                ...(providerRequestId !== undefined ? { providerRequestId } : {}),
+              });
+            }
+          }
         },
         onToolBodyCompleted: (observation) => {
           if (!promptRoot) return;

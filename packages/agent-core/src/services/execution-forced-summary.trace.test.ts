@@ -20,6 +20,34 @@ describe('forced-summary provider lifecycle', () => {
     expect(addAssistantMessage).toHaveBeenCalledWith('private summary', [], expect.objectContaining({ inputTokens: 20, outputTokens: 5, totalTokens: 25 }));
     expect(JSON.stringify(completion)).not.toContain('private summary');
   });
+  it('carries an adapter-attested providerRequestId for the forced-summary call', async () => {
+    const events: Array<{ name: string; data: Record<string, unknown> }> = [];
+    await forceSummaryCall(
+      { getMessages: () => [], addAssistantMessage: vi.fn() } as never,
+      {
+        provider: {
+          chat: async () => ({
+            role: 'assistant',
+            content: 'private summary',
+            metadata: { providerRequestId: 'req_forced_1' },
+          }),
+        },
+        currentInfo: { provider: 'anthropic' },
+        aiProviderInfo: { model: 'claude-sonnet-4-6' },
+      } as never,
+      { defaultModel: { model: 'claude-sonnet-4-6' } } as never,
+      'execution',
+      { currentRound: 3 } as never,
+      'conversation',
+      {
+        onExecutionEvent: (name: string, data: Record<string, unknown>) =>
+          events.push({ name, data }),
+      } as never,
+      { warn: vi.fn() } as never,
+    );
+    const completion = events.find((event) => event.name === PROVIDER_CALL_EVENTS.COMPLETED)!.data;
+    expect(completion['providerRequestId']).toBe('req_forced_1');
+  });
   it.each(['success', 'failure', 'interrupted'] as const)(
     'records a content-free %s completion for the actual summary call',
     async (outcome) => {

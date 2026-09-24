@@ -9,7 +9,7 @@ import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';
 import { createNodeOtlpLiveMetricPort } from './live-metric-otlp.js';
 import { createNodeOtlpLiveLogPort } from './live-log-otlp.js';
 import { createNodeLiveConsolePort } from './live-console.js';
-import { createLiveTelemetryResource, safeLiveToolCallId } from './live-resource.js';
+import { createLiveTelemetryResource, safeLiveProviderRequestId, safeLiveToolCallId } from './live-resource.js';
 import type { ILiveTelemetryHostResource, ILiveTelemetryResource } from './live-resource.js';
 
 const MAX_PENDING_BATCHES = 8;
@@ -165,6 +165,8 @@ async function sendBatch(batch: ILivePromptTraceBatch, endpoint: string, resourc
     const parent = trace.setSpan(ROOT_CONTEXT, root);
     for (const child of batch.children.filter(hasSpan)) {
       const toolCallId = child.kind === 'tool' ? safeLiveToolCallId(child.trace.toolCallId) : undefined;
+      const providerRequestId = child.kind === 'provider'
+        ? safeLiveProviderRequestId(child.trace.providerRequestId) : undefined;
       const span = tracer.startSpan(child.kind === 'provider' ? 'robota.provider_call' : 'robota.tool_body', {
         kind: SpanKind.INTERNAL,
         startTime: new Date(child.trace.startedAt),
@@ -180,6 +182,7 @@ async function sendBatch(batch: ILivePromptTraceBatch, endpoint: string, resourc
             'robota.usage.output_tokens': child.trace.completionTokens ?? 0,
             'robota.usage.total_tokens': child.trace.totalTokens ?? 0,
           } : {}),
+          ...(providerRequestId ? { 'robota.provider.request_id': providerRequestId } : {}),
         } : {
           'robota.outcome': child.trace.outcome,
           ...(toolCallId ? { 'robota.tool.call_id': toolCallId } : {}),

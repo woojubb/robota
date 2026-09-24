@@ -219,6 +219,49 @@ describe('OpenAIProvider', () => {
       );
     });
 
+    it('carries the server-returned request ID (response._request_id) onto metadata', async () => {
+      const provider = new OpenAIProvider({ apiKey: 'sk-test' });
+      const messages: TUniversalMessage[] = [createUserMessage('Hello')];
+      const client = (
+        provider as unknown as {
+          client: { responses: { create: ReturnType<typeof vi.fn> } };
+        }
+      ).client;
+      client.responses.create.mockResolvedValue({
+        id: 'resp-test',
+        model: 'gpt-4o',
+        output_text: 'Hi there!',
+        output: [],
+        status: 'completed',
+        _request_id: 'req_responses_1',
+      });
+
+      const result = await provider.chat(messages, { model: 'gpt-4o' });
+
+      expect(result.metadata?.providerRequestId).toBe('req_responses_1');
+    });
+
+    it('never fabricates a request ID when the Responses payload has no _request_id', async () => {
+      const provider = new OpenAIProvider({ apiKey: 'sk-test' });
+      const messages: TUniversalMessage[] = [createUserMessage('Hello')];
+      const client = (
+        provider as unknown as {
+          client: { responses: { create: ReturnType<typeof vi.fn> } };
+        }
+      ).client;
+      client.responses.create.mockResolvedValue({
+        id: 'resp-test',
+        model: 'gpt-4o',
+        output_text: 'Hi there!',
+        output: [],
+        status: 'completed',
+      });
+
+      const result = await provider.chat(messages, { model: 'gpt-4o' });
+
+      expect(result.metadata?.providerRequestId).toBeUndefined();
+    });
+
     it('emits native Responses request and response payloads before normalization', async () => {
       const provider = new OpenAIProvider({ apiKey: 'sk-test' });
       const client = (
@@ -387,6 +430,34 @@ describe('OpenAIProvider', () => {
         expect.objectContaining({ model: 'gpt-4o', stream: true }),
         undefined,
       );
+    });
+
+    it('carries the server-returned request ID onto the assembled streaming Responses message when withResponse is available', async () => {
+      const provider = new OpenAIProvider({ apiKey: 'sk-test' });
+      const client = (
+        provider as unknown as {
+          client: { responses: { create: ReturnType<typeof vi.fn> } };
+        }
+      ).client;
+      async function* streamResponses() {
+        yield { type: 'response.output_text.delta', delta: 'Hello' };
+        yield {
+          type: 'response.completed',
+          response: { id: 'resp-stream', output_text: 'Hello', output: [], status: 'completed' },
+        };
+      }
+      const stream = streamResponses();
+      client.responses.create.mockReturnValue({
+        then: (resolve: (value: unknown) => void) => resolve(stream),
+        withResponse: async () => ({ data: stream, request_id: 'req_responses_stream_1' }),
+      });
+
+      const result = await provider.chat([createUserMessage('Hello')], {
+        model: 'gpt-4o',
+        onTextDelta: () => {},
+      });
+
+      expect(result.metadata?.providerRequestId).toBe('req_responses_stream_1');
     });
 
     it('emits ordered native Responses stream events', async () => {
@@ -573,6 +644,63 @@ describe('OpenAIProvider', () => {
           max_tokens: 100,
         }),
       );
+    });
+
+    it('carries the server-returned request ID (response._request_id) onto metadata', async () => {
+      const provider = new OpenAIProvider({ apiKey: 'sk-test', apiSurface: 'chat-completions' });
+      const messages: TUniversalMessage[] = [createUserMessage('Hello')];
+      const client = (
+        provider as unknown as {
+          client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+        }
+      ).client;
+      client.chat.completions.create.mockResolvedValue({
+        id: 'chatcmpl-test',
+        object: 'chat.completion',
+        created: Date.now(),
+        model: 'gpt-4',
+        _request_id: 'req_openai_123',
+        choices: [
+          {
+            index: 0,
+            message: { role: 'assistant', content: 'Hi there!', refusal: null },
+            finish_reason: 'stop',
+            logprobs: null,
+          },
+        ],
+      });
+
+      const result = await provider.chat(messages, { model: 'gpt-4' });
+
+      expect(result.metadata?.providerRequestId).toBe('req_openai_123');
+    });
+
+    it('never fabricates a request ID when the response has no _request_id', async () => {
+      const provider = new OpenAIProvider({ apiKey: 'sk-test', apiSurface: 'chat-completions' });
+      const messages: TUniversalMessage[] = [createUserMessage('Hello')];
+      const client = (
+        provider as unknown as {
+          client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+        }
+      ).client;
+      client.chat.completions.create.mockResolvedValue({
+        id: 'chatcmpl-test',
+        object: 'chat.completion',
+        created: Date.now(),
+        model: 'gpt-4',
+        choices: [
+          {
+            index: 0,
+            message: { role: 'assistant', content: 'Hi there!', refusal: null },
+            finish_reason: 'stop',
+            logprobs: null,
+          },
+        ],
+      });
+
+      const result = await provider.chat(messages, { model: 'gpt-4' });
+
+      expect(result.metadata?.providerRequestId).toBeUndefined();
     });
 
     it('emits native Chat Completions request and response payloads before normalization', async () => {
@@ -905,6 +1033,42 @@ describe('OpenAIProvider', () => {
       expect(results[1].content).toBe(' world');
     });
 
+    it('carries the server-returned request ID onto every yielded chunk when withResponse is available', async () => {
+      const provider = new OpenAIProvider({ apiKey: 'sk-test', apiSurface: 'chat-completions' });
+      const messages: TUniversalMessage[] = [createUserMessage('Hello')];
+
+      async function* mockStream() {
+        yield {
+          id: 'chunk-1',
+          object: 'chat.completion.chunk',
+          created: Date.now(),
+          model: 'gpt-4',
+          choices: [{ index: 0, delta: { content: 'Hi' }, finish_reason: 'stop', logprobs: null }],
+        };
+      }
+      const stream = mockStream();
+
+      const client = (
+        provider as unknown as {
+          client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+        }
+      ).client;
+      client.chat.completions.create.mockReturnValue({
+        then: (resolve: (value: unknown) => void) => resolve(stream),
+        withResponse: async () => ({ data: stream, request_id: 'req_stream_openai' }),
+      });
+
+      const results: TUniversalMessage[] = [];
+      for await (const chunk of provider.chatStream(messages, { model: 'gpt-4' })) {
+        results.push(chunk);
+      }
+
+      expect(results.length).toBeGreaterThan(0);
+      expect(results.every((chunk) => chunk.metadata?.providerRequestId === 'req_stream_openai')).toBe(
+        true,
+      );
+    });
+
     it('should wrap API errors with descriptive message for streaming', async () => {
       const provider = new OpenAIProvider({ apiKey: 'sk-test', apiSurface: 'chat-completions' });
       const messages: TUniversalMessage[] = [createUserMessage('Hello')];
@@ -1111,6 +1275,28 @@ describe('OpenAIProvider', () => {
         expect.objectContaining({ model: 'gpt-4', stream: true }),
         undefined,
       );
+    });
+
+    it('carries the server-returned request ID onto the assembled chat() message when withResponse is available', async () => {
+      const provider = new OpenAIProvider({ apiKey: 'sk-test', apiSurface: 'chat-completions' });
+      const messages: TUniversalMessage[] = [createUserMessage('Hello')];
+      const client = (
+        provider as unknown as {
+          client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+        }
+      ).client;
+      const stream = createTextStream();
+      client.chat.completions.create.mockReturnValue({
+        then: (resolve: (value: unknown) => void) => resolve(stream),
+        withResponse: async () => ({ data: stream, request_id: 'req_assembly_1' }),
+      });
+
+      const result = await provider.chat(messages, {
+        model: 'gpt-4',
+        onTextDelta: () => {},
+      });
+
+      expect(result.metadata?.providerRequestId).toBe('req_assembly_1');
     });
 
     async function* createUsageStream() {

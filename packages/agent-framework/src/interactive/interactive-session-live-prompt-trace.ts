@@ -46,6 +46,12 @@ function projectProvider(trace: IProviderCallTraceEntry): IProviderCallTraceEntr
     !SPAN_ID.test(trace.spanId) || !validInterval(trace.startedAt, trace.endedAt) ||
     !Number.isSafeInteger(trace.round) || trace.round < 1 ||
     (trace.outcome !== 'success' && trace.outcome !== 'failure' && trace.outcome !== 'interrupted')) return undefined;
+  // A provider-returned request ID is only ever attached to an invoked call — an unsafe string or
+  // one arriving on a non-invoked disposition means something upstream is confused, so the whole
+  // child is omitted rather than exported half-trusted (mirrors the tool-call-ID rule).
+  if (trace.providerRequestId !== undefined &&
+    (trace.disposition !== 'invoked' || typeof trace.providerRequestId !== 'string' ||
+      !ID.test(trace.providerRequestId))) return undefined;
   const complete = trace.usageProvenance === 'complete' &&
     safeTokens(trace.promptTokens) && safeTokens(trace.completionTokens) && safeTokens(trace.totalTokens);
   const usageProvenance = trace.usageProvenance === 'complete' && !complete
@@ -73,6 +79,7 @@ function projectProvider(trace: IProviderCallTraceEntry): IProviderCallTraceEntr
       completionTokens: trace.completionTokens,
       totalTokens: trace.totalTokens,
     } : {}),
+    ...(trace.providerRequestId !== undefined ? { providerRequestId: trace.providerRequestId } : {}),
   };
 }
 

@@ -84,6 +84,8 @@ export interface IProviderCallTraceEntry {
   promptTokens?: number;
   completionTokens?: number;
   totalTokens?: number;
+  /** Opaque ID the provider returned for this invoked call; live projection only, not written to history. */
+  providerRequestId?: string;
 }
 
 /** The awaited body of one permitted tool call under a persisted prompt root. */

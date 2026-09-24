@@ -70,6 +70,48 @@ describe('Node live telemetry resource identity', () => {
     }
   });
 
+  it('carries an invoked provider call\'s request ID over OTLP traces and logs, never metrics', async () => {
+    const providerBatch: ILivePromptTraceBatch = {
+      ...batch,
+      children: [{ kind: 'provider', trace: {
+        traceId: '1234567890abcdef1234567890abcdef', parentSpanId: '1234567890abcdef',
+        spanId: 'abcdef1234567890', startedAt: '2026-09-24T00:00:00.100Z',
+        endedAt: '2026-09-24T00:00:00.900Z', outcome: 'success', round: 1,
+        disposition: 'invoked', providerRequestId: 'req_abc123',
+      } }],
+    };
+    const requests: Array<{ path: string; text: string }> = [];
+    const server = createServer(async (request, response) => {
+      const chunks: Buffer[] = [];
+      for await (const chunk of request) chunks.push(Buffer.from(chunk));
+      requests.push({ path: request.url ?? '', text: Buffer.concat(chunks).toString('utf8') });
+      response.writeHead(200, { 'content-type': 'application/x-protobuf' });
+      response.end();
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new Error('Expected TCP listener');
+      const port = createConfiguredNodeOtlpLiveTelemetryPort({
+        ROBOTA_TELEMETRY_ENABLED: '1',
+        ROBOTA_TELEMETRY_TRACES: 'otlp', ROBOTA_TELEMETRY_METRICS: 'otlp',
+        ROBOTA_TELEMETRY_LOGS: 'otlp', ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
+        ROBOTA_TELEMETRY_OTLP_ENDPOINT: `http://127.0.0.1:${address.port}`,
+      }, undefined, undefined, { serviceVersion: '3.0.0-test', surface: 'print' });
+      port!.enqueue(providerBatch);
+      await port!.shutdown();
+      for (const request of requests) {
+        if (request.path === '/v1/metrics') expect(request.text).not.toContain('req_abc123');
+        else {
+          expect(request.text).toContain('robota.provider.request_id');
+          expect(request.text).toContain('req_abc123');
+        }
+      }
+    } finally {
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
+  });
+
   it('shows the same safe resource fields in console and rejects unsafe host fields', async () => {
     const lines: string[] = [];
     const port = createConfiguredNodeOtlpLiveTelemetryPort({

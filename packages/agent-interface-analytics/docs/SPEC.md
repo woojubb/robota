@@ -29,9 +29,10 @@ first-callback outcome may later differ from the observation's turn outcome. Rel
 entries (provider-call, tool-body) carry the same root linkage and timing; a provider-call child may
 also carry only attested usage evidence for a table-derived cost estimate, never prompt, response, tool,
 user, or session content; a bounded live prompt-trace projection exposes only this execution
-evidence, with a validated tool-call correlation ID only in live child projections — including a
-live-only tool-permission-decision child joined to a tool-body child by that same ID — not a final
-turn settlement, cost total, detached-work completion, or collector receipt.
+evidence, with a validated tool-call correlation ID and, for an invoked provider-call child, an
+opaque provider-returned request ID, only in live child projections — including a
+live-only tool-permission-decision child joined to a tool-body child by that same tool-call ID — not
+a final turn settlement, cost total, detached-work completion, or collector receipt.
 Older observations without this identity remain valid.
 
 **Zero dependencies by design.** Every field of every declaration here is a primitive or another
