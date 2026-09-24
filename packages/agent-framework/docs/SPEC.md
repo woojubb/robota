@@ -96,7 +96,8 @@ These are behaviors a caller cannot infer from a type signature alone.
   content-free trace root and its actual outcome even when it has no token usage or ends in failure
   or interruption; a failure before execution begins has no root. This remains a partial trace: it
   leaves the process only as a `traceparent` on that prompt's own provider calls and tool bodies to
-  origins the host trusts — subagent, worker and background runs never inherit it — and it does not
+  origins the host trusts, or in the environment of the child-process classes the host enabled —
+  either grant alone is enough, and subagent, worker and background runs never inherit it — and it does not
   prove final turn settlement. A provider-call child's span ID is derived from core's call ID and a
   tool child's from core's minted body ID, never invented, so the propagated parent and the exported
   span are the same span; a tool body reported without that ID is counted as omitted.

@@ -6,6 +6,7 @@ import { BatchSpanProcessor, TracerProvider } from '@opentelemetry/sdk-trace';
 import type { ReadableSpan, SpanExporter } from '@opentelemetry/sdk-trace';
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
 import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';
+import type { TSubprocessTraceClass } from '@robota-sdk/agent-core';
 import { createNodeOtlpLiveMetricPort } from './live-metric-otlp.js';
 import type { TLiveMetricAttribute } from './live-metric-otlp.js';
 import { createNodeOtlpLiveLogPort } from './live-log-otlp.js';
@@ -47,7 +48,7 @@ const SUPPORTED_SETTINGS = new Set([
   'ENABLED', 'TRACES', 'METRICS', 'LOGS', 'OTLP_PROTOCOL', 'OTLP_ENDPOINT',
   'OTLP_TRACES_ENDPOINT', 'OTLP_METRICS_ENDPOINT', 'OTLP_LOGS_ENDPOINT',
   'OTLP_HEADERS', 'OTLP_TRACES_HEADERS', 'OTLP_METRICS_HEADERS', 'OTLP_LOGS_HEADERS',
-  'METRIC_ATTRIBUTES', 'PROPAGATE_TO',
+  'METRIC_ATTRIBUTES', 'PROPAGATE_TO', 'PROPAGATE_TO_SUBPROCESSES',
 ].map((suffix) => `ROBOTA_TELEMETRY_${suffix}`).concat(LIVE_CONTENT_SETTINGS));
 
 const METRIC_ATTRIBUTES_SETTING = 'ROBOTA_TELEMETRY_METRIC_ATTRIBUTES';
@@ -82,9 +83,40 @@ const PROPAGATE_TO_SETTING = 'ROBOTA_TELEMETRY_PROPAGATE_TO';
 const MAX_PROPAGATION_ORIGINS = 16;
 const MAX_PROPAGATION_ORIGIN_LENGTH = 256;
 
-/** The trust a host hands the framework: exact origins that may receive `traceparent`. */
+/**
+ * The trust a host hands the framework: exact origins that may receive `traceparent`, and the
+ * subprocess classes whose children receive `TRACEPARENT`. Either may be the only one set.
+ */
 export interface ILiveTraceContextPropagation {
   readonly allowedOrigins: readonly string[];
+  readonly subprocesses?: readonly TSubprocessTraceClass[];
+}
+
+const PROPAGATE_TO_SUBPROCESSES_SETTING = 'ROBOTA_TELEMETRY_PROPAGATE_TO_SUBPROCESSES';
+const SUBPROCESS_TRACE_CLASSES: ReadonlySet<TSubprocessTraceClass> = new Set(['shell', 'hooks']);
+
+/**
+ * Subprocess propagation is a closed list, not a pattern: each entry names a class Robota knows how
+ * to hand the trace to, written exactly, once. Like the origin list it exists only while traces are
+ * exported, and its errors name the setting and a 1-based position only.
+ */
+function resolvePropagateToSubprocessesSetting(
+  env: Readonly<Record<string, string | undefined>>,
+): readonly TSubprocessTraceClass[] | undefined {
+  const raw = env[PROPAGATE_TO_SUBPROCESSES_SETTING];
+  if (raw === undefined) return undefined;
+  const traces = env['ROBOTA_TELEMETRY_TRACES'];
+  if (traces !== 'otlp' && traces !== 'console') {
+    throw new Error(`${PROPAGATE_TO_SUBPROCESSES_SETTING} is set but traces are not exported over otlp or console.`);
+  }
+  const classes: TSubprocessTraceClass[] = [];
+  raw.split(',').forEach((entry, index) => {
+    if (!(SUBPROCESS_TRACE_CLASSES as ReadonlySet<string>).has(entry) || classes.includes(entry as TSubprocessTraceClass)) {
+      throw new Error(`${PROPAGATE_TO_SUBPROCESSES_SETTING} has an invalid entry at position ${index + 1}.`);
+    }
+    classes.push(entry as TSubprocessTraceClass);
+  });
+  return Object.freeze(classes);
 }
 
 /**
@@ -116,6 +148,16 @@ function resolvePropagateToSetting(
     allowedOrigins.push(entry);
   });
   return Object.freeze({ allowedOrigins: Object.freeze(allowedOrigins) });
+}
+
+/** Origins and subprocess classes are resolved separately; either alone enables propagation. */
+function resolvePropagation(
+  env: Readonly<Record<string, string | undefined>>,
+): ILiveTraceContextPropagation | undefined {
+  const origins = resolvePropagateToSetting(env);
+  const subprocesses = resolvePropagateToSubprocessesSetting(env);
+  if (subprocesses === undefined) return origins;
+  return Object.freeze({ allowedOrigins: origins?.allowedOrigins ?? Object.freeze([]), subprocesses });
 }
 
 function isExactTrustedOrigin(entry: string): boolean {
@@ -456,7 +498,7 @@ export function createConfiguredNodeOtlpLiveTelemetryPort(
   }
   const metricAttributes = env['ROBOTA_TELEMETRY_ENABLED'] === '1'
     ? resolveMetricAttributesSetting(env) : new Set<TLiveMetricAttribute>();
-  const propagation = env['ROBOTA_TELEMETRY_ENABLED'] === '1' ? resolvePropagateToSetting(env) : undefined;
+  const propagation = env['ROBOTA_TELEMETRY_ENABLED'] === '1' ? resolvePropagation(env) : undefined;
   const hasConsole = env['ROBOTA_TELEMETRY_ENABLED'] === '1' &&
     ['traces', 'metrics', 'logs'].some((signal) => env[`ROBOTA_TELEMETRY_${signal.toUpperCase()}`] === 'console');
   if (!traces && !metrics && !logs && !hasConsole) return undefined;
