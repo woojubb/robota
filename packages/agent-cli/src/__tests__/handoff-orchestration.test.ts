@@ -6,7 +6,7 @@
  * builds — the carrier is two in-process ends, so the transfer is real and the network is scripted.
  *
  * It lives in `agent-cli` rather than beside the orchestrations because the composition is the REAL
- * wire layer. `agent-framework` deliberately does not depend on `agent-transport` — that is
+ * wire layer. Session mobility deliberately does not depend on `agent-transport` — that is
  * the whole point of `IHandoffComposition` — so the only place the two halves can be put together is
  * the composition root, which is here. A hand-written double would let the orchestration agree with
  * a manifest builder that does not exist, and the one thing these cases have to prove is that the
@@ -22,13 +22,13 @@ import {
   type IHandoffCarrier,
   type IHandoffChunkFrame,
   type IHandoffManifestRequest,
-} from '@robota-sdk/agent-framework';
+} from '@robota-sdk/agent-interface-session-mobility';
 
 import { createHandoffComposition } from '../handoff/handoff-composition-root.js';
 
 /**
  * The production composition root, not a double. It is as much the subject as the orchestrations
- * are: it is the one place the framework's port meets the wire package's functions, and a
+ * are: it is the one place mobility's port meets the wire package's functions, and a
  * hand-written stand-in would let the orchestration agree with a manifest builder that does not
  * exist.
  */
@@ -339,6 +339,17 @@ describe('TC-07: the destination has no provider credential', () => {
 });
 
 describe('what the source refuses to start', () => {
+  it('does not expose a mutable authority transaction to the caller', () => {
+    const source = new HandoffSource({
+      composition,
+      carrier: { sendManifest: async () => {}, sendChunk: async () => {} },
+      onReadOnly: () => {},
+    });
+    const offer = source.offer(offerRequest());
+    expect(offer).toMatchObject({ started: true });
+    expect('transaction' in offer).toBe(false);
+  });
+
   it('checks unsettled work before serializing the session record', () => {
     const unsettledRecord = Object.defineProperty(record(), 'messages', {
       get: () => {
@@ -346,11 +357,14 @@ describe('what the source refuses to start', () => {
       },
     });
 
-    expect(
-      composition.buildManifest(
-        offerRequest({ record: unsettledRecord, runtime: { modelCallInFlight: true } }),
-      ),
-    ).toMatchObject({ built: false, refusal: 'in-flight-work' });
+    const source = new HandoffSource({
+      composition,
+      carrier: { sendManifest: async () => {}, sendChunk: async () => {} },
+      onReadOnly: () => {},
+    });
+    expect(source.offer(
+      offerRequest({ record: unsettledRecord, runtime: { modelCallInFlight: true } }),
+    )).toMatchObject({ started: false, outcome: { refusal: 'in-flight-work' } });
   });
 
   it('will not offer a session with a model call in flight', () => {

@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-interface-session-mobility",
   "version": "3.0.0-beta.79",
-  "description": "Session-mobility contract interfaces for the Robota SDK — peer messaging between live sessions and handoff of session authority",
+  "description": "Session-mobility contracts and handoff orchestration for the Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",
   "types": "dist/node/index.d.ts",

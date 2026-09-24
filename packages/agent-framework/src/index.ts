@@ -875,29 +875,3 @@ export type {
   ICommandSessionPermissions,
   ICommandSessionPreset,
 } from './command-api/host-context.js';
-
-// HANDOFF-001 (issue #1864): the two ends of a cross-device session hand-off, and the contract the
-// composition root fills in with the wire package's operations.
-export { HandoffDestination, HandoffSource } from './handoff/index.js';
-export type {
-  IAssembleOutcome,
-  ICommitOutcome,
-  IDestinationReport,
-  IHandoffAssemblerPort,
-  IHandoffCarrier,
-  IHandoffChunkFrame,
-  IHandoffComposition,
-  IHandoffDestinationOptions,
-  IHandoffManifestRequest,
-  IHandoffRuntimeState,
-  IHandoffSourceOptions,
-  IHandoffTransactionPort,
-  IHandoffTransactionState,
-  IIntegrityOutcome,
-  ITransitionOutcome,
-  TCredentialResolver,
-  TDestinationState,
-  TManifestOutcome,
-  TOfferOutcome,
-  TRecordPersister,
-} from './handoff/index.js';

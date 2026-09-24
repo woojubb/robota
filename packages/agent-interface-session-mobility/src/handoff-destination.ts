@@ -26,8 +26,6 @@
  * hand off to a destination that then crashed before writing.
  */
 
-import { decodeInteractiveSessionRecord } from '@robota-sdk/agent-session';
-
 import type {
   IHandoffAssemblerPort,
   IHandoffChunkFrame,
@@ -193,7 +191,7 @@ export class HandoffDestination {
     } catch {
       return { status: 'invalid', detail: 'payload verified intact but is not JSON' };
     }
-    const outcome = decodeInteractiveSessionRecord(parsed);
+    const outcome = this.options.composition.decodeRecord(parsed);
     if (outcome.status === 'valid') return { status: 'valid', record: outcome.record };
     if (outcome.status === 'unsupported') {
       return {

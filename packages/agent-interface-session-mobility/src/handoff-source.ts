@@ -1,8 +1,7 @@
 /**
  * The SOURCE half of a session hand-off (HANDOFF-001, issue #1864).
  *
- * The wire layer decides what a phase transition is allowed to be. This decides WHEN to ask for one,
- * and it holds exactly one rule:
+ * This package decides which phase transitions are allowed and when to request one. It holds one rule:
  *
  *   **the source gives up authority only on evidence it holds.**
  *
@@ -22,11 +21,29 @@ import type {
   IHandoffManifestRequest,
   IHandoffTransactionPort,
 } from './handoff-composition.js';
+import { assessHandoffReadiness, prepareHandoffOffer } from './handoff-offer.js';
+import {
+  advanceHandoff,
+  beginHandoff,
+  commitHandoff,
+  sourceStillOwns,
+} from './handoff-ownership.js';
 import type {
   IHandoffCommitAck,
   IHandoffManifest,
   IHandoffOutcome,
-} from '@robota-sdk/agent-interface-session-mobility';
+} from './handoff-contracts.js';
+import type { IHandoffTransaction } from './handoff-ownership.js';
+
+/** Keep the mutable authority transaction behind one identity-bound view. */
+function transactionPort(transaction: IHandoffTransaction): IHandoffTransactionPort {
+  return {
+    get state() { return transaction; },
+    advance: (next, detail) => advanceHandoff(transaction, next, detail),
+    commit: (ack) => commitHandoff(transaction, ack),
+    sourceStillOwns: () => sourceStillOwns(transaction),
+  };
+}
 
 /** Where the frames go. The orchestration never learns what is underneath. */
 export interface IHandoffCarrier {
@@ -49,7 +66,7 @@ export interface IHandoffSourceOptions {
 
 /** Why an offer never became a transfer. Distinct from a refusal so a caller can tell them apart. */
 export type TOfferOutcome =
-  | { readonly started: true; readonly transaction: IHandoffTransactionPort }
+  | { readonly started: true }
   | { readonly started: false; readonly outcome: IHandoffOutcome };
 
 export class HandoffSource {
@@ -63,27 +80,39 @@ export class HandoffSource {
   /**
    * Build the manifest and, if the session is transferable, open the transaction.
    *
-   * The refusal comes from the manifest builder rather than being re-decided here. A turn in flight
-   * has an outcome that belongs in the history being transferred, and the builder is what knows
-   * that — asking twice is how two answers to "is this transferable" come to exist.
+   * Refuse active work before sealing any bytes, then build the offer with this package's inventory
+   * policy. The host cannot substitute an authority decision through the wire-effects port.
    */
   offer(request: IHandoffManifestRequest): TOfferOutcome {
-    const built = this.options.composition.buildManifest(request);
-    if (!built.built) {
+    const readiness = assessHandoffReadiness(request.runtime);
+    if (!readiness.ready) {
       return {
         started: false,
         outcome: {
           handoffId: request.handoffId,
           phase: 'abandoned',
-          refusal: built.refusal,
-          detail: built.detail,
+          refusal: readiness.refusal,
+          detail: readiness.detail,
         },
       };
     }
-    this.transaction = this.options.composition.beginTransaction(built.manifest);
-    this.manifestValue = built.manifest;
-    this.serialized = built.serialized;
-    return { started: true, transaction: this.transaction };
+    const sealed = this.options.composition.sealRecord(request.record);
+    const offer = prepareHandoffOffer({ ...request, integrity: sealed.integrity });
+    if (!offer.built) {
+      return {
+        started: false,
+        outcome: {
+          handoffId: request.handoffId,
+          phase: 'abandoned',
+          refusal: offer.refusal,
+          detail: offer.detail,
+        },
+      };
+    }
+    this.transaction = transactionPort(beginHandoff(offer.manifest));
+    this.manifestValue = offer.manifest;
+    this.serialized = sealed.serialized;
+    return { started: true };
   }
 
   /**

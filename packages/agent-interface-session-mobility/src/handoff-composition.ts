@@ -6,33 +6,23 @@
  * chunker. Orchestration lives here, with the session whose authority is being moved; the CLI
  * composition root supplies both collaborators.
  *
- * `agent-framework` does NOT take a dependency on the wire package. Every consumer of
- * `agent-transport` today is either a transport package or the composition root, and the
- * repository's own recent direction is to REMOVE such edges from assembly packages rather than add
- * them — ARCH-021 deleted `agent-subagent-runner`'s `agent-builtin-providers` dependency for exactly
- * this reason and had the composition root supply `ISubagentWorkerComposition` instead. This is that
- * shape again.
+ * Mobility does not depend on the wire package or the session-record decoder. The host supplies
+ * those effects while mobility alone applies offer and authority decisions.
  *
  * The methods are narrow on purpose. A port that took the whole wire module would let a later change
  * reach anything in it, and the point of naming five operations is that the orchestration below can
  * be read without reading the wire package at all.
  */
 
-import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 import type {
-  IHandoffIntegrity,
-  IHandoffManifest,
-  THandoffPhase,
-  THandoffRefusal,
-} from '@robota-sdk/agent-interface-session-mobility';
+  IInteractiveSessionRecord,
+  ISessionRecordDecodeIssue,
+} from '@robota-sdk/agent-interface-session';
+import type { IHandoffIntegrity, THandoffPhase, THandoffRefusal } from './handoff-contracts.js';
+import type { ISourceRuntimeState } from './handoff-offer.js';
 
 /** What the source knows about work that has not settled. */
-export interface IHandoffRuntimeState {
-  readonly modelCallInFlight?: boolean;
-  readonly toolCallsInFlight?: number;
-  readonly subprocesses?: number;
-  readonly uncommittedChanges?: boolean;
-}
+export type IHandoffRuntimeState = ISourceRuntimeState;
 
 export interface IHandoffManifestRequest {
   readonly handoffId: string;
@@ -43,10 +33,6 @@ export interface IHandoffManifestRequest {
   readonly runtime: IHandoffRuntimeState;
   readonly offeredAt: number;
 }
-
-export type TManifestOutcome =
-  | { readonly built: true; readonly manifest: IHandoffManifest; readonly serialized: string }
-  | { readonly built: false; readonly refusal: THandoffRefusal; readonly detail: string };
 
 /** One piece of a payload in flight. Structurally the wire package's `IHandoffChunk`. */
 export interface IHandoffChunkFrame {
@@ -105,15 +91,21 @@ export interface IHandoffTransactionPort {
   sourceStillOwns(): boolean;
 }
 
-/** Mobility decisions and wire operations supplied by the composition root. */
+/** Wire and decoder effects supplied by the composition root. */
 export interface IHandoffComposition {
-  buildManifest(request: IHandoffManifestRequest): TManifestOutcome;
-  beginTransaction(manifest: IHandoffManifest): IHandoffTransactionPort;
+  sealRecord(record: IInteractiveSessionRecord): { readonly serialized: string; readonly integrity: IHandoffIntegrity };
   chunk(handoffId: string, serialized: string): readonly IHandoffChunkFrame[];
   verifyPayload(serialized: string, integrity: IHandoffIntegrity): IIntegrityOutcome;
   /** A fresh assembler for ONE transfer. One per `handoffId`, as the wire package requires. */
   createAssembler(handoffId: string): IHandoffAssemblerPort;
+  decodeRecord(value: unknown): THandoffRecordDecodeOutcome;
 }
+
+/** The session owner's decoder result, supplied by the host after payload integrity is verified. */
+export type THandoffRecordDecodeOutcome =
+  | { readonly status: 'valid'; readonly record: IInteractiveSessionRecord }
+  | { readonly status: 'corrupt'; readonly issues: readonly ISessionRecordDecodeIssue[] }
+  | { readonly status: 'unsupported'; readonly schemaVersion: number | undefined };
 
 export interface IAssembleOutcome {
   readonly outcome: 'accepted' | 'duplicate' | 'complete' | 'refused';
