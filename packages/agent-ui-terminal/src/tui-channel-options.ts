@@ -61,6 +61,7 @@ export interface ITuiInteractionChannelOptions {
   promptFileReferenceTag?: string;
   modelCommandToolPrefix?: string;
   subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
+  observerFailureWarningCode?: ICreateSessionOptions['observerFailureWarningCode'];
   commandHookShell?: string;
   /** Resolved organization policy forwarded to the interactive session. */
   orgPolicy?: IOrgPolicy;

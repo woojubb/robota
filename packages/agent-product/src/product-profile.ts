@@ -79,6 +79,8 @@ export interface IProductProfile {
   modelCommandToolPrefix?: string;
   /** Optional product aliases for subagent hook environment variables. */
   subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
+  /** Host-owned identity for background observer process warnings. */
+  observerFailureWarningCode?: ICreateSessionOptions['observerFailureWarningCode'];
   // (3) behavior axis — external presets to register + the default id
   /**
    * External presets to register into a PER-CALL instance-scoped registry (R8). Ignored when

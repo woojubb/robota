@@ -147,6 +147,7 @@ export class SubagentManager implements ISubagentManager {
       agentMaxTextDeltas: options.agentMaxTextDeltas,
       repetitionWindow: options.repetitionWindow,
       repetitionThreshold: options.repetitionThreshold,
+      observerFailureWarningCode: options.observerFailureWarningCode,
     });
   }
 

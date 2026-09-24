@@ -304,6 +304,7 @@ export class InteractiveSession
       (entry) => this.histTracker.append(entry),
       this.sessionLoopsDisabled,
       (task) => this.armSessionLoopExpiry(task),
+      options.observerFailureWarningCode,
     );
 
     this.histTracker = new SessionHistoryTracker(

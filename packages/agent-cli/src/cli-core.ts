@@ -530,6 +530,7 @@ async function runCliCore(
     promptFileReferenceTag,
     modelCommandToolPrefix,
     subagentHookEnvironmentNames,
+    observerFailureWarningCode,
   } = buildRobotaRuntimeOptions({
     product,
     cwd,
@@ -624,6 +625,7 @@ async function runCliCore(
       promptFileReferenceTag,
       modelCommandToolPrefix,
       subagentHookEnvironmentNames,
+      observerFailureWarningCode,
       shellExecutable,
     );
     try {
@@ -644,6 +646,7 @@ async function runCliCore(
       promptFileReferenceTag,
       modelCommandToolPrefix,
       subagentHookEnvironmentNames,
+      observerFailureWarningCode,
       commandHookShell: shellExecutable,
       sessionStore,
       projectAccess: workspaceComposition.projectAccess,
@@ -693,6 +696,7 @@ async function runCliCore(
       promptFileReferenceTag,
       modelCommandToolPrefix,
       subagentHookEnvironmentNames,
+      observerFailureWarningCode,
       commandHookShell: shellExecutable,
       sessionStore,
       projectAccess: workspaceComposition.projectAccess,
@@ -752,6 +756,7 @@ async function runCliCore(
     productDisplayName: 'Robota',
     modelCommandToolPrefix,
     subagentHookEnvironmentNames,
+    observerFailureWarningCode,
     commandHookShell: shellExecutable,
     promptFileReferenceTag,
     providerDefinitions,

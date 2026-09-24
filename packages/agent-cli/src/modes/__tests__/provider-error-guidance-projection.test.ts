@@ -10,12 +10,16 @@ describe('serve and MCP provider recovery guidance', () => {
       preset: {},
       promptFileReferenceTag: 'acme_files',
       modelCommandToolPrefix: 'acme_command_',
+      observerFailureWarningCode: 'ACME_BACKGROUND_OBSERVER_FAILURE',
       subagentHookEnvironmentNames: { agentId: 'ACME_AGENT_ID', agentType: 'ACME_AGENT_TYPE' },
       commandHookShell: '/bin/bash',
     } as never);
 
     expect(options.promptFileReferenceTag).toBe('acme_files');
     expect(options.modelCommandToolPrefix).toBe('acme_command_');
+    expect(options.observerFailureWarningCode).toBe(
+      'ACME_BACKGROUND_OBSERVER_FAILURE',
+    );
     expect(options.subagentHookEnvironmentNames).toEqual({
       agentId: 'ACME_AGENT_ID',
       agentType: 'ACME_AGENT_TYPE',
