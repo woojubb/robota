@@ -11,6 +11,7 @@ import {
   readOpenAIRequestId,
   withProviderRequestId,
 } from './request-id';
+import { openAIRequestOptions } from './request-options';
 import { assembleOpenAIStream } from './streaming/stream-assembler';
 
 import type { IPayloadLogger } from './interfaces/payload-logger';
@@ -28,6 +29,8 @@ export interface IOpenAIChatCompletionsOptions {
   payloadLogger?: IPayloadLogger;
   responseParser: OpenAIResponseParser;
   onTextDelta?: TTextDeltaCallback;
+  /** Per-request headers (trusted `traceparent`), sent after the raw request payload is captured. */
+  requestHeaders?: Readonly<Record<string, string>>;
 }
 
 export async function chatWithOpenAIChatCompletions(
@@ -53,7 +56,10 @@ export async function chatWithOpenAIChatCompletions(
       payloadKind: 'request',
       payload: requestParams,
     });
-    const response = await client.chat.completions.create(requestParams);
+    const requestOptions = openAIRequestOptions(undefined, input.requestHeaders);
+    const response = requestOptions
+      ? await client.chat.completions.create(requestParams, requestOptions)
+      : await client.chat.completions.create(requestParams);
     input.chatOptions?.onProviderNativeRawPayload?.({
       provider: 'openai',
       apiSurface: 'chat-completions',
@@ -101,7 +107,7 @@ export async function* chatStreamWithOpenAIChatCompletions(
     const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
       client.chat.completions.create(
         requestParams,
-        input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
+        openAIRequestOptions(input.chatOptions?.signal, input.requestHeaders),
       ),
     );
 
@@ -188,7 +194,7 @@ async function chatWithStreamingAssembly(
     const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
       client.chat.completions.create(
         requestParams,
-        input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
+        openAIRequestOptions(input.chatOptions?.signal, input.requestHeaders),
       ),
     );
 

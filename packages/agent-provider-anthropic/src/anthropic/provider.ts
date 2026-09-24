@@ -5,6 +5,7 @@ import {
   createModelEffortOutcome,
   PERMISSIVE_TOOL_SCHEMA_PROFILE,
   resolveModelEffort,
+  traceHeadersFor,
   ValidationError,
 } from '@robota-sdk/agent-core';
 
@@ -20,7 +21,7 @@ import { ANTHROPIC_MODEL_EFFORT_TABLE } from './model-effort-table';
 import { buildOutputConfig } from './output-schema.js';
 import { anthropicProviderCapabilities } from './provider-capabilities';
 import { awaitWithProviderRequestId, withProviderRequestId } from './provider-request-id';
-import { streamAndAssemble, toUniversalStreamChunks } from './streaming-handler';
+import { anthropicRequestOptions, streamAndAssemble, toUniversalStreamChunks } from './streaming-handler';
 
 import type { IAnthropicProviderOptions } from './types';
 import type {
@@ -171,6 +172,7 @@ export class AnthropicProvider extends AbstractAIProvider {
         this.onServerToolUse,
         resolvedOptions.signal,
         resolvedOptions.onProviderNativeRawPayload,
+        this.traceRequestHeaders(resolvedOptions),
       );
       this.publishModelEffortOutcome(resolvedOptions);
       return response;
@@ -257,7 +259,15 @@ export class AnthropicProvider extends AbstractAIProvider {
     let stream: AsyncIterable<Anthropic.MessageStreamEvent>;
     let providerRequestId: string | undefined;
     try {
-      const awaited = await awaitWithProviderRequestId(this.client.messages.create(requestParams));
+      const requestOptions = anthropicRequestOptions(
+        undefined,
+        this.traceRequestHeaders(resolvedOptions),
+      );
+      const awaited = await awaitWithProviderRequestId(
+        requestOptions
+          ? this.client.messages.create(requestParams, requestOptions)
+          : this.client.messages.create(requestParams),
+      );
       stream = awaited.data;
       providerRequestId = awaited.providerRequestId;
     } catch (streamError) {
@@ -293,6 +303,25 @@ export class AnthropicProvider extends AbstractAIProvider {
   /** CORE-043: a configured `baseURL` is a gateway, whose guarantees are not the vendor's. */
   endpointIsVendorDefault(): boolean {
     return this.options.baseURL === undefined;
+  }
+
+  /**
+   * The client's own base URL is the origin every request goes to (the SDK has already applied a
+   * constructor option or `ANTHROPIC_BASE_URL`). An executor sends elsewhere, and an injected client
+   * whose base URL cannot be read gives no origin to compare, so neither can propagate.
+   */
+  canPropagateTraceContext(): boolean {
+    return !this.executor && this.effectiveBaseUrl() !== undefined;
+  }
+
+  private effectiveBaseUrl(): string | undefined {
+    const baseURL: unknown = (this.client as { baseURL?: unknown } | undefined)?.baseURL;
+    return typeof baseURL === 'string' && baseURL.length > 0 ? baseURL : undefined;
+  }
+
+  private traceRequestHeaders(options: IChatOptions | undefined): Readonly<Record<string, string>> {
+    if (!this.canPropagateTraceContext()) return {};
+    return traceHeadersFor(this.effectiveBaseUrl(), options?.outboundTraceContext);
   }
 
   private resolveEffortOptions(options: IChatOptions | undefined): IChatOptions | undefined {

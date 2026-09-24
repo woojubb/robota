@@ -154,6 +154,10 @@ The model-configuration read/write API (getting or setting the active model) is 
 
 Provider packages own their native SDK request/response/stream objects and report them through a provider-neutral callback bridge for replay-grade session capture; this package must not import concrete provider SDK types, inspect provider identity, or choose provider-specific payload fields — a provider names itself and its own API surface as opaque strings, and this package only wraps the callback, assigns a stream-order fallback when a provider omits one, and stamps the current execution/conversation/round identity onto the emitted event.
 
+## Trusted Trace Context
+
+A run carries W3C trace context only when its host supplies it; this package never adopts ambient trace state. Every call actually handed to a provider — the forced summary included, cache hits and refused preflights excluded — carries a `traceparent` whose span is derived from that call's own ID by the same function the exporter uses, so the parent a vendor sees is the span the trace contains. It is resolved at invocation, after the request was announced, so no replay event contains it. A provider that does not affirmatively declare it can propagate receives nothing and the host is told which provider, by ID only. An adapter sends the header only when its effective origin exactly equals a host-listed origin, because the header discloses trace identifiers to whoever receives it.
+
 ## Provider Contract — Dual Surface (Intentional)
 
 Every provider implementation deliberately exposes two request/response surfaces: a universal, public surface (`chat`/`chatStream`, operating on the package's normalized message type) that generic layers and SDK consumers use, and a raw, internal-protocol surface used only by this package's own conversation service to thread provider-native request/response payloads for replay capture. The two live on one interface because a provider instance is legitimately both at once; the raw methods are an internal-protocol detail, not a second public API, and only the conversation service is meant to drive them.

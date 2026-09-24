@@ -23,6 +23,7 @@ export async function executeDirect(
   messages: TUniversalMessage[],
   options?: IChatOptions,
   providerName = 'gemini',
+  requestHeaders: Readonly<Record<string, string>> = {},
 ): Promise<TUniversalMessage> {
   const model = resolveGeminiModel(providerOptions, options);
   const responseModalities = buildResponseModalities(
@@ -32,7 +33,14 @@ export async function executeDirect(
   );
 
   if (options?.onTextDelta && !responseModalities.includes('IMAGE')) {
-    return assembleStreamingChatResponse(client, providerOptions, messages, options, providerName);
+    return assembleStreamingChatResponse(
+      client,
+      providerOptions,
+      messages,
+      options,
+      providerName,
+      requestHeaders,
+    );
   }
 
   const requestFormat = convertToGeminiRequestFormat(messages);
@@ -46,7 +54,7 @@ export async function executeDirect(
   );
 
   emitGeminiNativeRawPayload(options, providerName, 'request', request);
-  const result = await client.models.generateContent(request);
+  const result = await client.models.generateContent(withRequestHeaders(request, requestHeaders));
   emitGeminiNativeRawPayload(options, providerName, 'response', result);
 
   const convertedResponse = convertFromGeminiResponse(result);
@@ -67,6 +75,7 @@ export async function* executeDirectStream(
   messages: TUniversalMessage[],
   options?: IChatOptions,
   providerName = 'gemini',
+  requestHeaders: Readonly<Record<string, string>> = {},
 ): AsyncIterable<TUniversalMessage> {
   const model = resolveGeminiModel(providerOptions, options);
   const responseModalities = buildResponseModalities(
@@ -89,7 +98,9 @@ export async function* executeDirectStream(
   );
 
   emitGeminiNativeRawPayload(options, providerName, 'request', request);
-  const stream = await client.models.generateContentStream(request);
+  const stream = await client.models.generateContentStream(
+    withRequestHeaders(request, requestHeaders),
+  );
   yield* streamResponseChunks(stream, options, providerName);
 }
 
@@ -184,6 +195,7 @@ async function assembleStreamingChatResponse(
   messages: TUniversalMessage[],
   options: IChatOptions,
   providerName = 'gemini',
+  requestHeaders: Readonly<Record<string, string>> = {},
 ): Promise<TUniversalMessage> {
   const textParts: string[] = [];
   const toolCalls: NonNullable<IAssistantMessage['toolCalls']> = [];
@@ -197,6 +209,7 @@ async function assembleStreamingChatResponse(
     messages,
     options,
     providerName,
+    requestHeaders,
   )) {
     if (typeof chunk.content === 'string') {
       textParts.push(chunk.content);
@@ -235,6 +248,25 @@ async function assembleStreamingChatResponse(
     timestamp: new Date(),
   };
   return withProviderRequestId(message, providerRequestId);
+}
+
+/**
+ * The request as sent: per-call `httpOptions.headers` added to a COPY, so the object already handed
+ * to raw-payload capture never carries them. Without headers the captured object is sent as is.
+ */
+function withRequestHeaders(
+  request: GenerateContentParameters,
+  headers: Readonly<Record<string, string>>,
+): GenerateContentParameters {
+  if (Object.keys(headers).length === 0) return request;
+  const config = request.config ?? {};
+  return {
+    ...request,
+    config: {
+      ...config,
+      httpOptions: { ...config.httpOptions, headers: { ...config.httpOptions?.headers, ...headers } },
+    },
+  };
 }
 
 function emitGeminiNativeRawPayload(

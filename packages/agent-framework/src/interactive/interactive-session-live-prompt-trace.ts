@@ -17,6 +17,38 @@ export interface ILivePromptTracePort {
   enqueue(batch: ILivePromptTraceBatch): void;
   /** A content-free diagnostic; failure of this callback is also isolated. */
   onFailure?(code: 'projection-failed' | 'enqueue-failed'): void;
+  /**
+   * Host-resolved trust for W3C trace context. Present only when the host exports traces and the
+   * operator listed exact origins; a prompt's provider calls then carry that prompt's trace to
+   * those origins. Subagent, worker and background runs never inherit it.
+   */
+  readonly traceContextPropagation?: { readonly allowedOrigins: readonly string[] };
+  /**
+   * A content-free, human-readable diagnostic the host surfaces (the CLI writes it to stderr). The
+   * framework never writes to the process streams itself.
+   */
+  onDiagnostic?(message: string): void;
+}
+
+const reportedUnavailableProviders = new Set<string>();
+
+/**
+ * Once per process per provider ID: propagation was configured, but this provider cannot carry the
+ * header, so its calls reach the vendor without it. Names the provider only — never an origin, URL
+ * or trace identifier.
+ */
+export function reportTraceContextUnavailable(port: ILivePromptTracePort, providerId: string): void {
+  // Narrower than a span label: no `:` or `/`, so a provider ID can never smuggle a URL in.
+  const id = /^[A-Za-z0-9._-]{1,64}$/u.test(providerId) ? providerId : 'unknown';
+  if (reportedUnavailableProviders.has(id)) return;
+  reportedUnavailableProviders.add(id);
+  try {
+    void Promise.resolve(
+      port.onDiagnostic?.(`Robota telemetry: provider ${id} cannot propagate trace context; its requests are sent without traceparent.`),
+    ).catch(() => undefined);
+  } catch {
+    // Diagnostics are isolated from the turn.
+  }
 }
 
 function canonicalTime(value: unknown): value is string {

@@ -16,6 +16,7 @@ import {
   convertToOpenAIResponsesInput,
   convertToOpenAIResponsesTools,
 } from './responses-converter';
+import { openAIRequestOptions } from './request-options';
 import { assembleOpenAIResponsesStream, parseOpenAIResponsesResponse } from './responses-parser';
 
 import type {
@@ -34,6 +35,8 @@ export interface IOpenAIResponsesChatOptions {
   chatOptions?: IChatOptions;
   providerOptions: IOpenAIProviderOptions;
   onTextDelta?: TTextDeltaCallback;
+  /** Per-request headers (trusted `traceparent`), sent after the raw request payload is captured. */
+  requestHeaders?: Readonly<Record<string, string>>;
 }
 
 interface IResponsesStreamMessageQueue {
@@ -71,7 +74,7 @@ export async function chatWithOpenAIResponsesApi(
     });
     const response = await input.client.responses.create(
       requestParams as OpenAI.Responses.ResponseCreateParamsNonStreaming,
-      input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
+      openAIRequestOptions(input.chatOptions?.signal, input.requestHeaders),
     );
     input.chatOptions?.onProviderNativeRawPayload?.({
       provider: 'openai',
@@ -127,7 +130,7 @@ async function chatWithOpenAIResponsesStreamingAssembly(
     const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
       input.client.responses.create(
         requestParams as OpenAI.Responses.ResponseCreateParamsStreaming,
-        input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
+        openAIRequestOptions(input.chatOptions?.signal, input.requestHeaders),
       ),
     );
     const assembled = await assembleOpenAIResponsesStream({

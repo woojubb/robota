@@ -8,6 +8,7 @@ import type {
   TToolChoice,
 } from '../interfaces/provider';
 import type { IDeferredToolCatalog } from '../interfaces/tool-search';
+import type { IRunTraceContext } from '../interfaces/trace-context';
 import type { TMetadata } from '../interfaces/types';
 
 /** Preview length for general content truncation */
@@ -61,6 +62,8 @@ export interface IResolvedProviderInfo {
      * is behind a gateway.
      */
     endpointIsVendorDefault?: () => boolean;
+    /** Whether this provider can carry a trusted `traceparent`. See `IAIProvider`. */
+    canPropagateTraceContext?: () => boolean;
   };
   currentInfo: { provider: string };
   aiProviderInfo: {
@@ -173,6 +176,8 @@ export interface IExecutionContext {
    * provider request for this run only, NEVER written to the conversation store. See `IRunOptions`.
    */
   ephemeralSystemContext?: string;
+  /** Run-scoped trusted trace context for invoked provider calls. See `IRunOptions`. */
+  traceContext?: IRunTraceContext;
 }
 
 /**
