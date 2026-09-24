@@ -71,7 +71,7 @@ function browserBuiltinProblems(tarball, manifest, files) {
       );
       if (builtins.length)
         problems.push(`${entry} reaches ${[...new Set(builtins)].join(', ')} via ${file}`);
-      for (const match of code.matchAll(/from\s*["'](\.\.?\/[^"']+)["']/gu))
+      for (const match of code.matchAll(/(?:from\s*|import\s*)["'](\.\.?\/[^"']+)["']/gu))
         queue.push(path.posix.normalize(path.posix.join(path.posix.dirname(file), match[1])));
     }
   }
