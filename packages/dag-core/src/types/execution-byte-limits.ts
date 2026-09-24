@@ -12,8 +12,9 @@ export const DEFAULT_DAG_EXECUTION_BYTE_LIMITS: IDagExecutionByteLimits = Object
 export function resolveDagExecutionByteLimits(
   limits?: IDagExecutionByteLimits,
 ): IDagExecutionByteLimits {
-  const maxTextRepeatOutputBytes = limits?.maxTextRepeatOutputBytes
-    ?? DEFAULT_DAG_EXECUTION_BYTE_LIMITS.maxTextRepeatOutputBytes;
+  const maxTextRepeatOutputBytes = limits === undefined
+    ? DEFAULT_DAG_EXECUTION_BYTE_LIMITS.maxTextRepeatOutputBytes
+    : limits.maxTextRepeatOutputBytes;
   if (!Number.isSafeInteger(maxTextRepeatOutputBytes) || maxTextRepeatOutputBytes < 0
     || maxTextRepeatOutputBytes > DEFAULT_DAG_EXECUTION_BYTE_LIMITS.maxTextRepeatOutputBytes) {
     throw new RangeError('maxTextRepeatOutputBytes must be a safe integer between 0 and 4194304');

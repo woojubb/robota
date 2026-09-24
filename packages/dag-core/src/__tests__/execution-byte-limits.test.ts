@@ -12,3 +12,13 @@ it('snapshots and freezes host ceilings including zero', () => {
   expect(limits.maxTextRepeatOutputBytes).toBe(0);
   expect(Object.isFrozen(limits)).toBe(true);
 });
+
+it.each([null, undefined])('rejects an explicitly supplied nullish limit %s', (maxTextRepeatOutputBytes) => {
+  // JavaScript hosts can violate the TypeScript contract at runtime.
+  // @ts-expect-error Exercise invalid runtime host policy.
+  expect(() => resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes })).toThrow(RangeError);
+});
+
+it('uses the default only when the policy is omitted', () => {
+  expect(resolveDagExecutionByteLimits().maxTextRepeatOutputBytes).toBe(4_194_304);
+});
