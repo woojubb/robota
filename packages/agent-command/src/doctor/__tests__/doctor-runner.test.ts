@@ -169,7 +169,7 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
       `{"currentProvider":"p","providers":{"p":{"apiKey": ${MARKERS.adjacent}}}}`,
     );
     const report = await runDoctor(f.inputs, f.deps);
-    const text = renderDoctorReport(report, { title: 'robota doctor' }).join('\n');
+    const text = renderDoctorReport(report, 'robota doctor').join('\n');
     expect(text).not.toContain(MARKERS.adjacent);
     expect(text).not.toContain(MARKERS.adjacent.slice(0, 10));
     expect(text).not.toContain('..."');
@@ -405,7 +405,7 @@ describe('runDoctor (OBSERVABILITY-1991)', () => {
       status: 'warn',
       cause: expect.stringContaining('quarantined'),
     });
-    const text = renderDoctorReport(report, { title: 'robota doctor' }).join('\n');
+    const text = renderDoctorReport(report, 'robota doctor').join('\n');
     expect(text).not.toContain(MARKERS.profile);
     expect(text).toContain('[provider.security] warn');
   });

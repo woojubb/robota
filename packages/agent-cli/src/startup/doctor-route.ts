@@ -133,10 +133,7 @@ export async function runDoctorRoute(
   }
 
   const report = await runDoctor(inputs, deps);
-  for (const line of renderDoctorReport(report, {
-    ...ROBOTA_DOCTOR_DISPLAY,
-    title: `robota ${commandName}`,
-  }))
+  for (const line of renderDoctorReport(report, `robota ${commandName}`, ROBOTA_DOCTOR_DISPLAY))
     ctx.terminal.writeLine(line);
   return report.exitCode;
 }

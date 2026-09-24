@@ -21,8 +21,7 @@ describe('doctor display vocabulary', () => {
   });
 
   it('uses the host-selected title, product name, and repair command', () => {
-    const text = renderDoctorReport(REPORT, {
-      title: 'Atlas doctor',
+    const text = renderDoctorReport(REPORT, 'Atlas doctor', {
       productName: 'Atlas',
       formatRepairCommand: (id) => `atlas doctor --repair ${id}`,
       repairOffer: 'run atlas doctor --repair <check-id>',
@@ -31,5 +30,9 @@ describe('doctor display vocabulary', () => {
     expect(text).toContain('atlas doctor --repair storage.user');
     expect(text).toContain('Atlas may work');
     expect(text).toContain('run atlas doctor --repair <check-id>');
+  });
+
+  it('preserves the public string title argument', () => {
+    expect(renderDoctorReport(REPORT, 'Atlas doctor')).toContain('Atlas doctor');
   });
 });

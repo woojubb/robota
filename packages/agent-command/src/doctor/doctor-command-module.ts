@@ -79,10 +79,7 @@ async function executeRepair(
     success: true,
     message: [
       `Repaired ${id}: ${outcome.plan.description}.`,
-      ...renderDoctorReport(report, {
-        ...display,
-        title: `${display.title ?? 'Doctor'} (after repair)`,
-      }),
+      ...renderDoctorReport(report, `${display.title ?? 'Doctor'} (after repair)`, display),
     ].join('\n'),
     data: { repair: id, applied: true, status: check?.status, exitCode: report.exitCode },
   };
@@ -105,7 +102,7 @@ async function executeDoctorCommand(
   const report = await runDoctor(inputs, deps);
   return {
     success: report.failCount === 0,
-    message: renderDoctorReport(report, display).join('\n'),
+    message: renderDoctorReport(report, display.title, display).join('\n'),
     data: {
       failCount: report.failCount,
       warnCount: report.warnCount,

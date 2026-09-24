@@ -49,11 +49,12 @@ function summary(report: IDoctorReport, display: IDoctorDisplayVocabulary): stri
 /** Render the report as lines: a title, every check, then the summary and the repair offers. */
 export function renderDoctorReport(
   report: IDoctorReport,
+  title = 'Doctor',
   display: IDoctorDisplayVocabulary = {},
 ): string[] {
   const lines = [
     '',
-    display.title ?? 'Doctor',
+    title,
     '',
     ...report.checks.flatMap((check) => renderCheck(check, display)),
     '',
