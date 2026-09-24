@@ -204,6 +204,89 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(JSON.stringify(children)).not.toMatch(/private prompt|private response/);
   });
 
+  it('enqueues one content-free live prompt trace in the actual provider/tool completion order', async () => {
+    const mockSession = createMockSession({ runResult: 'private response' });
+    mockSession.getSessionId.mockReturnValue('session.1');
+    let listener: ((event: string, data: Record<string, unknown>) => void) | undefined;
+    mockSession.getEventService.mockReturnValue({
+      subscribe: vi.fn((callback: typeof listener) => { listener = callback; }),
+      unsubscribe: vi.fn(),
+    });
+    const at = new Date().toISOString();
+    mockSession.run.mockImplementation(async () => {
+      listener?.('tool.tool_body_completed', { startedAt: at, endedAt: at, outcome: 'success' });
+      listener?.('provider_call_completed', {
+        startedAt: at, endedAt: at, outcome: 'success', round: 1,
+        callId: '123e4567-e89b-42d3-a456-426614174000', disposition: 'invoked',
+        providerId: 'openai', modelId: 'gpt-4o', usageProvenance: 'complete',
+        promptTokens: 100, completionTokens: 50, totalTokens: 150,
+      });
+      listener?.('tool.tool_body_completed', {
+        startedAt: 'private malformed timestamp', endedAt: at, outcome: 'success',
+      });
+      listener?.('provider_call_completed', {
+        startedAt: at, endedAt: at, outcome: 'success', round: 0,
+      });
+      return 'private response';
+    });
+    const enqueue = vi.fn();
+    const session = new InteractiveSession({
+      session: mockSession as never, cwd: '/tmp', livePromptTrace: { enqueue },
+    });
+
+    await session.submit('private prompt');
+
+    expect(enqueue).toHaveBeenCalledOnce();
+    const batch = enqueue.mock.calls[0]![0] as Record<string, unknown>;
+    expect(batch).toMatchObject({
+      schemaVersion: 1, sessionId: 'session.1',
+      root: { outcome: 'success' },
+      children: [{ kind: 'tool' }, { kind: 'provider' }],
+      omittedChildren: { provider: 1, tool: 1 },
+    });
+    expect(batch).toHaveProperty('turnId');
+    expect(JSON.stringify(batch)).not.toMatch(/private prompt|private response|private malformed timestamp/);
+  });
+
+  it('isolates rejected live trace enqueue and diagnostic callbacks from turn settlement', async () => {
+    const mockSession = createMockSession({ runResult: 'response' });
+    const enqueue = vi.fn(async () => { throw new Error('private exporter credential'); });
+    const onFailure = vi.fn(async () => { throw new Error('private diagnostic'); });
+    const session = new InteractiveSession({
+      session: mockSession as never, cwd: '/tmp', livePromptTrace: { enqueue, onFailure },
+    });
+
+    await session.submit('first');
+    await session.submit('second');
+    await vi.waitFor(() => expect(onFailure).toHaveBeenCalled());
+    expect(enqueue).toHaveBeenCalledTimes(2);
+    expect(session.getFullHistory().filter((entry) => entry.type === 'usage-observation')).toHaveLength(2);
+  });
+
+  it('enqueues a completed prompt before a later memory-capture callback settles', async () => {
+    const mockSession = createMockSession({ runResult: 'response' });
+    const enqueue = vi.fn();
+    const session = new InteractiveSession({
+      session: mockSession as never, cwd: '/tmp', livePromptTrace: { enqueue },
+    });
+    let releaseCapture: () => void = () => undefined;
+    const pendingCapture = new Promise<[]>((resolve) => {
+      releaseCapture = () => resolve([]);
+    });
+    const internal = session as unknown as {
+      execCtrl: { callbacks: { captureMemory?: () => Promise<[]> } };
+    };
+    internal.execCtrl.callbacks.captureMemory = () => pendingCapture;
+    const running = session.submit('prompt');
+    try {
+      await vi.waitFor(() => expect(enqueue).toHaveBeenCalledOnce());
+      expect(session.isExecuting()).toBe(true);
+    } finally {
+      releaseCapture();
+      await running;
+    }
+  });
+
   it('persists distinct content-free children for parallel tool bodies under this prompt only', async () => {
     const mockSession = createMockSession({ runResult: 'private response' });
     let listener: ((event: string, data: Record<string, unknown>) => void) | undefined;

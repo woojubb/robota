@@ -84,6 +84,7 @@ export interface IPromptTurnContext {
   onComplete: (result: IExecutionResult) => void;
   onProviderCallCompleted?: (observation: IProviderCallTraceObservation) => void;
   onToolBodyCompleted?: (observation: IToolBodyTraceObservation) => void;
+  onCompletionsOmitted?: (counts: { readonly provider: number; readonly tool: number }) => void;
   onInterrupted: (result: IExecutionResult) => void;
   onError: (err: Error) => void;
   onContextUpdate: () => void;
@@ -217,12 +218,11 @@ export async function executePromptTurn(
       ctx.onError(errObj);
     }
   } finally {
-    for (const observation of spanCollector.providerCalls) {
-      ctx.onProviderCallCompleted?.(observation);
+    for (const completion of spanCollector.completions) {
+      if (completion.kind === 'provider') ctx.onProviderCallCompleted?.(completion.observation);
+      else ctx.onToolBodyCompleted?.(completion.observation);
     }
-    for (const observation of spanCollector.toolBodies) {
-      ctx.onToolBodyCompleted?.(observation);
-    }
+    ctx.onCompletionsOmitted?.(spanCollector.omittedCompletions);
     // SELFHOST-004: always unsubscribe the span collector so a completed turn leaves no listener.
     spanCollector.dispose();
   }

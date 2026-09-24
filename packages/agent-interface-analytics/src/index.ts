@@ -12,6 +12,7 @@ export type {
   IUsageObservation,
   IProviderCallTraceEntry,
   IToolBodyTraceEntry,
+  ILivePromptTraceBatch,
   TUsageSurface,
   IPersonalUsageRequest,
   IPersonalUsageTotals,

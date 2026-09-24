@@ -96,6 +96,27 @@ export interface IToolBodyTraceEntry {
   outcome: 'success' | 'failure' | 'interrupted';
 }
 
+/** One bounded, content-free live prompt execution; not a final turn result or delivery receipt. */
+export interface ILivePromptTraceBatch {
+  readonly schemaVersion: 1;
+  readonly sessionId: string;
+  readonly turnId: string;
+  readonly root: {
+    readonly traceId: string;
+    readonly spanId: string;
+    readonly startedAt: string;
+    readonly endedAt: string;
+    readonly outcome: 'success' | 'failure' | 'interrupted';
+  };
+  /** Callback order, not an inferred causal sequence. Tool-call and retry joins are unavailable. */
+  readonly children: readonly (
+    | { readonly kind: 'provider'; readonly trace: IProviderCallTraceEntry }
+    | { readonly kind: 'tool'; readonly trace: IToolBodyTraceEntry }
+  )[];
+  /** Invalid or over-limit children are never silently represented as a complete trace. */
+  readonly omittedChildren: { readonly provider: number; readonly tool: number };
+}
+
 export interface IPersonalUsageRequest {
   period: '7d' | '30d';
   /** IANA timezone used to assign observations to local calendar days. */

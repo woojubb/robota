@@ -28,7 +28,8 @@ only the prompt call through its first terminal callback, not final turn settlem
 first-callback outcome may later differ from the observation's turn outcome. Related child-span
 entries (provider-call, tool-body) carry the same root linkage and timing; a provider-call child may
 also carry only attested usage evidence for a table-derived cost estimate, never prompt, response, tool,
-user, or session content, and neither child implies that detached background work completed.
+user, or session content; a bounded live prompt-trace projection exposes only this execution
+evidence, not a final turn settlement, cost total, detached-work completion, or collector receipt.
 Older observations without this identity remain valid.
 
 **Zero dependencies by design.** Every field of every declaration here is a primitive or another
