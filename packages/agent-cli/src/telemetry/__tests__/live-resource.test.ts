@@ -16,7 +16,7 @@ const batch: ILivePromptTraceBatch = {
     parentSpanId: '1234567890abcdef', spanId: 'abcdef1234567890',
     startedAt: '2026-09-24T00:00:00.100Z', endedAt: '2026-09-24T00:00:00.900Z',
     outcome: 'success',
-  } }], omittedChildren: { provider: 0, tool: 0 },
+  } }], omittedChildren: { provider: 0, tool: 0, permission: 0 },
 };
 
 describe('Node live telemetry resource identity', () => {

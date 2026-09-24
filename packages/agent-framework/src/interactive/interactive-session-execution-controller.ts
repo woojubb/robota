@@ -412,6 +412,21 @@ export class SessionExecutionController {
             }
           }
         },
+        onToolPermissionDecided: (observation) => {
+          if (!promptRoot) return;
+          const toolCallId = observation.toolCallId;
+          if (toolCallId !== undefined && typeof toolCallId !== 'string') {
+            liveTrace?.omit({ provider: 0, tool: 0, permission: 1 });
+          } else {
+            liveTrace?.addPermission({
+              traceId: promptRoot.traceId,
+              parentSpanId: promptRoot.spanId,
+              decidedAt: observation.decidedAt,
+              decision: observation.decision,
+              ...(toolCallId !== undefined ? { toolCallId } : {}),
+            });
+          }
+        },
         onCompletionsOmitted: (counts) => liveTrace?.omit(counts),
         onInterrupted: (result: IExecutionResult) => {
           closePromptRoot('interrupted');

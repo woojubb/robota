@@ -19,7 +19,7 @@ const base: ILivePromptTraceBatch = {
     outcome: 'success',
   },
   children: [],
-  omittedChildren: { provider: 0, tool: 0 },
+  omittedChildren: { provider: 0, tool: 0, permission: 0 },
 };
 const metricWindow = {
   instanceId: 'test-instance',
@@ -62,11 +62,11 @@ describe('Node live OTLP metrics', () => {
     const complete = { ...base, children: [tool('1111111111111111'), tool('2222222222222222')] };
     expect(value(complete, 'robota.prompt.executions')).toBe(1);
     expect(value(complete, 'robota.tool.body_completions')).toBe(2);
-    const truncated = { ...complete, omittedChildren: { provider: 0, tool: 3 } };
+    const truncated = { ...complete, omittedChildren: { provider: 0, tool: 3, permission: 0 } };
     expect(value(truncated, 'robota.telemetry.tool_events_omitted')).toBe(3);
     expect(value(truncated, 'robota.tool.body_completions')).toBeUndefined();
     expect(value(truncated, 'robota.prompt.executions')).toBe(1);
-    expect(value({ ...complete, omittedChildren: { provider: 4, tool: 0 } },
+    expect(value({ ...complete, omittedChildren: { provider: 4, tool: 0, permission: 0 } },
       'robota.tool.body_completions')).toBe(2);
     const metrics = projectLivePromptMetrics(complete, metricWindow).scopeMetrics[0]!.metrics;
     expect(JSON.stringify(metrics)).not.toMatch(/private-session|private-turn/);
@@ -103,7 +103,7 @@ describe('Node live OTLP metrics', () => {
 
   it('does not misrepresent a truncated child batch as a complete usage or cost total', () => {
     const batch = { ...base, children: [provider('invoked', 'complete', 'gpt-4o')],
-      omittedChildren: { provider: 5, tool: 0 } } as ILivePromptTraceBatch;
+      omittedChildren: { provider: 5, tool: 0, permission: 0 } } as ILivePromptTraceBatch;
     expect(value(batch, 'robota.telemetry.provider_events_omitted')).toBe(5);
     expect(value(batch, 'robota.provider.calls')).toBeUndefined();
     expect(value(batch, 'robota.provider.estimated_cost_usd')).toBeUndefined();

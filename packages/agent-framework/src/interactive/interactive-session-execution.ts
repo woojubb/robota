@@ -13,6 +13,7 @@ import {
   SPAN_EVENTS,
   PROVIDER_CALL_EVENTS,
   TOOL_BODY_EVENTS,
+  TOOL_PERMISSION_EVENTS,
 } from '@robota-sdk/agent-core';
 
 import type { IExecutionResult, IToolSummary, IUsageSnapshot } from './types.js';
@@ -178,8 +179,9 @@ export interface ISpanCollector {
   readonly completions: (
     | { readonly kind: 'provider'; readonly observation: IProviderCallTraceObservation }
     | { readonly kind: 'tool'; readonly observation: IToolBodyTraceObservation }
+    | { readonly kind: 'permission'; readonly observation: IToolPermissionDecisionObservation }
   )[];
-  readonly omittedCompletions: { provider: number; tool: number };
+  readonly omittedCompletions: { provider: number; tool: number; permission: number };
   /** Unsubscribe from the bus (idempotent). */
   dispose(): void;
 }
@@ -190,6 +192,13 @@ export interface IToolBodyTraceObservation {
   readonly startedAt: string;
   readonly endedAt: string;
   readonly outcome: 'success' | 'failure' | 'interrupted';
+}
+
+export interface IToolPermissionDecisionObservation {
+  /** Raw event value; live projection validates before export. */
+  readonly toolCallId?: unknown;
+  readonly decidedAt: string;
+  readonly decision: 'allowed' | 'denied' | 'hook-blocked';
 }
 
 /**
@@ -204,8 +213,24 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
   const providerCalls: IProviderCallTraceObservation[] = [];
   const toolBodies: IToolBodyTraceObservation[] = [];
   const completions: ISpanCollector['completions'] = [];
-  const omittedCompletions = { provider: 0, tool: 0 };
+  const omittedCompletions = { provider: 0, tool: 0, permission: 0 };
   const listener: TEventListener = (eventType, data) => {
+    if (eventType === `tool.${TOOL_PERMISSION_EVENTS.DECIDED}`) {
+      if (
+        typeof data['decidedAt'] === 'string' &&
+        (data['decision'] === 'allowed' || data['decision'] === 'denied' || data['decision'] === 'hook-blocked')
+      ) {
+        const observation: IToolPermissionDecisionObservation = {
+          ...(data['executionId'] !== undefined ? { toolCallId: data['executionId'] } : {}),
+          decidedAt: data['decidedAt'],
+          decision: data['decision'],
+        };
+        completions.push({ kind: 'permission', observation });
+      } else {
+        omittedCompletions.permission += 1;
+      }
+      return;
+    }
     if (eventType === `tool.${TOOL_BODY_EVENTS.COMPLETED}`) {
       if (
         typeof data['startedAt'] === 'string' &&

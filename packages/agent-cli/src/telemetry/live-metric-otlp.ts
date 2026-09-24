@@ -46,6 +46,26 @@ export function projectLivePromptMetrics(batch: ILivePromptTraceBatch, window: I
     addSum('robota.tool.body_completions', batch.children.filter((child) => child.kind === 'tool').length, '1');
   }
   addSum('robota.telemetry.provider_events_omitted', batch.omittedChildren.provider, '1');
+  addSum('robota.telemetry.permission_events_omitted', batch.omittedChildren.permission, '1');
+  if (batch.omittedChildren.permission === 0) {
+    const decisionCounts = new Map<string, number>();
+    for (const child of batch.children) {
+      if (child.kind !== 'permission') continue;
+      decisionCounts.set(child.decision.decision, (decisionCounts.get(child.decision.decision) ?? 0) + 1);
+    }
+    const dataPoints = [...decisionCounts]
+      .filter(([, count]) => count > 0)
+      .map(([decision, count]) => ({
+        startTime, endTime, attributes: { 'robota.permission.decision': decision }, value: count,
+      }));
+    if (dataPoints.length > 0) metrics.push({
+      descriptor: { name: 'robota.tool.permission_decisions', description: '', unit: '1', valueType: ValueType.INT },
+      aggregationTemporality: AggregationTemporality.DELTA,
+      dataPointType: DataPointType.SUM,
+      isMonotonic: true,
+      dataPoints,
+    });
+  }
   // The live trace port bounds its child list. A truncated list cannot prove a complete total.
   if (batch.omittedChildren.provider === 0) {
     let calls = 0;

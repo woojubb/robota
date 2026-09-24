@@ -27,7 +27,7 @@ function batch(): ILivePromptTraceBatch {
       outcome: 'success', round: 1, disposition: 'invoked', providerId: 'safe-provider',
       usageProvenance: 'complete', promptTokens: 2, completionTokens: 3, totalTokens: 5,
     } }],
-    omittedChildren: { provider: 0, tool: 0 },
+    omittedChildren: { provider: 0, tool: 0, permission: 0 },
   };
 }
 
@@ -51,9 +51,10 @@ describe('Node live OTLP trace export', () => {
         ROBOTA_TELEMETRY_OTLP_ENDPOINT: `http://127.0.0.1:${address.port}`,
       });
       expect(port).toBeDefined();
-      port!.enqueue({ ...batch(), children: [{ ...batch().children[0]!, trace: {
-        ...batch().children[0]!.trace, modelId: 'gpt-4o',
-      } }] } as ILivePromptTraceBatch);
+      const providerChild = batch().children[0] as unknown as { kind: 'provider'; trace: Record<string, unknown> };
+      port!.enqueue({ ...batch(), children: [{ ...providerChild, trace: {
+        ...providerChild.trace, modelId: 'gpt-4o',
+      } }] } as unknown as ILivePromptTraceBatch);
       await port!.shutdown();
       expect(requests).toHaveLength(1);
       expect(requests[0]!.path).toBe('/v1/metrics');

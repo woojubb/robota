@@ -11,7 +11,7 @@ const batch: ILivePromptTraceBatch = {
     startedAt: '2026-09-24T00:00:00.000Z', endedAt: '2026-09-24T00:00:02.000Z',
     outcome: 'success',
   },
-  children: [], omittedChildren: { provider: 0, tool: 0 },
+  children: [], omittedChildren: { provider: 0, tool: 0, permission: 0 },
 };
 
 describe('Node live OTLP logs', () => {
@@ -80,7 +80,7 @@ describe('Node live OTLP logs', () => {
           outcome: 'success',
         } },
       ],
-      omittedChildren: { provider: 2, tool: 1 },
+      omittedChildren: { provider: 2, tool: 1, permission: 0 },
     };
     const records = projectLivePromptLogs(input, new Date('2026-09-24T00:00:03.000Z'));
     expect(records.map((record) => record.eventName)).toEqual([

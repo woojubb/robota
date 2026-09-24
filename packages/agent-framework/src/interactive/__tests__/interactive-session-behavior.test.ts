@@ -254,6 +254,47 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(JSON.stringify(batch)).not.toMatch(/private prompt|private response|private malformed timestamp/);
   });
 
+  it('correlates a permission decision to its tool body by call ID, ahead of the tool child', async () => {
+    const mockSession = createMockSession({ runResult: 'private response' });
+    mockSession.getSessionId.mockReturnValue('session.1');
+    let listener: ((event: string, data: Record<string, unknown>) => void) | undefined;
+    mockSession.getEventService.mockReturnValue({
+      subscribe: vi.fn((callback: typeof listener) => { listener = callback; }),
+      unsubscribe: vi.fn(),
+    });
+    const at = new Date().toISOString();
+    mockSession.run.mockImplementation(async () => {
+      listener?.('tool.tool_permission_decided', {
+        decidedAt: at, decision: 'allowed', executionId: 'call-123',
+      });
+      listener?.('tool.tool_body_completed', {
+        startedAt: at, endedAt: at, outcome: 'success', executionId: 'call-123',
+      });
+      listener?.('tool.tool_permission_decided', {
+        decidedAt: at, decision: 'denied', executionId: 42,
+      });
+      return 'private response';
+    });
+    const enqueue = vi.fn();
+    const session = new InteractiveSession({
+      session: mockSession as never, cwd: '/tmp', livePromptTrace: { enqueue },
+    });
+
+    await session.submit('private prompt');
+
+    expect(enqueue).toHaveBeenCalledOnce();
+    const batch = enqueue.mock.calls[0]![0] as Record<string, unknown>;
+    expect(batch).toMatchObject({
+      children: [
+        { kind: 'permission', decision: { decision: 'allowed', toolCallId: 'call-123' } },
+        { kind: 'tool', trace: { toolCallId: 'call-123' } },
+      ],
+      omittedChildren: { permission: 1 },
+    });
+    expect(JSON.stringify(session.getFullHistory())).not.toContain('call-123');
+    expect(JSON.stringify(session.getFullHistory())).not.toContain('permission');
+  });
+
   it('isolates rejected live trace enqueue and diagnostic callbacks from turn settlement', async () => {
     const mockSession = createMockSession({ runResult: 'response' });
     const enqueue = vi.fn(async () => { throw new Error('private exporter credential'); });

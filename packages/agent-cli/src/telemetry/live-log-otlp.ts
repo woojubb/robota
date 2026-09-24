@@ -28,18 +28,23 @@ export function projectLivePromptLogs(
   const instrumentationScope = { name: 'robota.live-prompt-logs', version: '1' };
   const hrTimeObserved = hrTime(observedAt.toISOString());
   const record = (
-    eventName: 'robota.prompt_execution.completed' | 'robota.provider_call.completed' | 'robota.tool_body.completed',
+    eventName: 'robota.prompt_execution.completed' | 'robota.provider_call.completed' |
+      'robota.tool_body.completed' | 'robota.tool_permission.decided',
     outcome: ILivePromptTraceBatch['root']['outcome'],
     endedAt: string,
     spanId: string,
     attributes: Record<string, string | number>,
+    severityOverride?: 'INFO' | 'WARN',
   ): ReadableLogRecord => ({
     hrTime: hrTime(endedAt), hrTimeObserved,
     spanContext: { traceId: batch.root.traceId, spanId, traceFlags: TraceFlags.NONE },
     eventName,
-    severityNumber: outcome === 'success' ? SeverityNumber.INFO
+    severityNumber: severityOverride === 'INFO' ? SeverityNumber.INFO
+      : severityOverride === 'WARN' ? SeverityNumber.WARN
+      : outcome === 'success' ? SeverityNumber.INFO
       : outcome === 'failure' ? SeverityNumber.ERROR : SeverityNumber.WARN,
-    severityText: outcome === 'success' ? 'INFO' : outcome === 'failure' ? 'ERROR' : 'WARN',
+    severityText: severityOverride ??
+      (outcome === 'success' ? 'INFO' : outcome === 'failure' ? 'ERROR' : 'WARN'),
     resource, instrumentationScope, attributes, droppedAttributesCount: 0,
   });
   const logs: ReadableLogRecord[] = [];
@@ -48,13 +53,20 @@ export function projectLivePromptLogs(
       if (child.trace.disposition !== 'invoked') continue;
       logs.push(record('robota.provider_call.completed', child.trace.outcome,
         child.trace.endedAt, child.trace.spanId, { 'robota.provider.outcome': child.trace.outcome }));
-    } else {
+    } else if (child.kind === 'tool') {
       const toolCallId = safeLiveToolCallId(child.trace.toolCallId);
       logs.push(record('robota.tool_body.completed', child.trace.outcome,
         child.trace.endedAt, child.trace.spanId, {
           'robota.tool.outcome': child.trace.outcome,
           ...(toolCallId ? { 'robota.tool.call_id': toolCallId } : {}),
         }));
+    } else {
+      const toolCallId = safeLiveToolCallId(child.decision.toolCallId);
+      logs.push(record('robota.tool_permission.decided', 'success',
+        child.decision.decidedAt, batch.root.spanId, {
+          'robota.permission.decision': child.decision.decision,
+          ...(toolCallId ? { 'robota.tool.call_id': toolCallId } : {}),
+        }, child.decision.decision === 'allowed' ? 'INFO' : 'WARN'));
     }
   }
   logs.push(record('robota.prompt_execution.completed', batch.root.outcome,
@@ -64,6 +76,8 @@ export function projectLivePromptLogs(
         ? { 'robota.telemetry.omitted_provider_events': batch.omittedChildren.provider } : {}),
       ...(batch.omittedChildren.tool > 0
         ? { 'robota.telemetry.omitted_tool_events': batch.omittedChildren.tool } : {}),
+      ...(batch.omittedChildren.permission > 0
+        ? { 'robota.telemetry.omitted_permission_events': batch.omittedChildren.permission } : {}),
     }));
   return logs;
 }

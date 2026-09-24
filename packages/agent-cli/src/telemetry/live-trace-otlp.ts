@@ -83,6 +83,13 @@ function reportFailure(options: INodeOtlpLiveTraceOptions, code: 'delivery-faile
   }
 }
 
+type TSpannedChild = Exclude<ILivePromptTraceBatch['children'][number], { readonly kind: 'permission' }>;
+
+/** A permission decision is content-free but has no duration of its own — it never gets a span. */
+function hasSpan(child: ILivePromptTraceBatch['children'][number]): child is TSpannedChild {
+  return child.kind !== 'permission';
+}
+
 async function sendBatch(batch: ILivePromptTraceBatch, endpoint: string, resource: ILiveTelemetryResource): Promise<void> {
   const exporter: SpanExporter = {
     export(spans: ReadableSpan[], callback) {
@@ -122,7 +129,7 @@ async function sendBatch(batch: ILivePromptTraceBatch, endpoint: string, resourc
     },
     async shutdown() { /* no ambient SDK exporter or background network state */ },
   };
-  const ids = [batch.root.spanId, ...batch.children.map((child) => child.trace.spanId)];
+  const ids = [batch.root.spanId, ...batch.children.filter(hasSpan).map((child) => child.trace.spanId)];
   const provider = new TracerProvider({
     resource: resourceFromAttributes(resource.attributes),
     idGenerator: {
@@ -152,10 +159,11 @@ async function sendBatch(batch: ILivePromptTraceBatch, endpoint: string, resourc
         'robota.outcome': batch.root.outcome,
         'robota.omitted.provider_count': batch.omittedChildren.provider,
         'robota.omitted.tool_count': batch.omittedChildren.tool,
+        'robota.omitted.permission_count': batch.omittedChildren.permission,
       },
     }, ROOT_CONTEXT);
     const parent = trace.setSpan(ROOT_CONTEXT, root);
-    for (const child of batch.children) {
+    for (const child of batch.children.filter(hasSpan)) {
       const toolCallId = child.kind === 'tool' ? safeLiveToolCallId(child.trace.toolCallId) : undefined;
       const span = tracer.startSpan(child.kind === 'provider' ? 'robota.provider_call' : 'robota.tool_body', {
         kind: SpanKind.INTERNAL,

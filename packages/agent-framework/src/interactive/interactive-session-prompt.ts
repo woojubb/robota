@@ -31,7 +31,7 @@ import type { IProviderErrorGuidance } from '../utils/error-humanizer.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { IProviderCallTraceObservation, Session } from '@robota-sdk/agent-session';
-import type { IToolBodyTraceObservation } from './interactive-session-execution.js';
+import type { IToolBodyTraceObservation, IToolPermissionDecisionObservation } from './interactive-session-execution.js';
 import type { TTurnSource } from '@robota-sdk/agent-interface-session';
 
 /**
@@ -84,7 +84,8 @@ export interface IPromptTurnContext {
   onComplete: (result: IExecutionResult) => void;
   onProviderCallCompleted?: (observation: IProviderCallTraceObservation) => void;
   onToolBodyCompleted?: (observation: IToolBodyTraceObservation) => void;
-  onCompletionsOmitted?: (counts: { readonly provider: number; readonly tool: number }) => void;
+  onToolPermissionDecided?: (observation: IToolPermissionDecisionObservation) => void;
+  onCompletionsOmitted?: (counts: { readonly provider: number; readonly tool: number; readonly permission: number }) => void;
   onInterrupted: (result: IExecutionResult) => void;
   onError: (err: Error) => void;
   onContextUpdate: () => void;
@@ -220,7 +221,8 @@ export async function executePromptTurn(
   } finally {
     for (const completion of spanCollector.completions) {
       if (completion.kind === 'provider') ctx.onProviderCallCompleted?.(completion.observation);
-      else ctx.onToolBodyCompleted?.(completion.observation);
+      else if (completion.kind === 'tool') ctx.onToolBodyCompleted?.(completion.observation);
+      else ctx.onToolPermissionDecided?.(completion.observation);
     }
     ctx.onCompletionsOmitted?.(spanCollector.omittedCompletions);
     // SELFHOST-004: always unsubscribe the span collector so a completed turn leaves no listener.

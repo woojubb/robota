@@ -40,6 +40,22 @@ describe('live prompt trace boundary', () => {
     expect(JSON.stringify(batch)).not.toMatch(/private|secret/);
   });
 
+  it('carries a safe permission decision with its call ID and omits unsafe ones under the shared cap', () => {
+    const accumulator = makeAccumulator();
+    const base = { traceId: TRACE_ID, parentSpanId: ROOT_SPAN_ID, decidedAt: AT, decision: 'allowed' as const };
+    accumulator.addPermission({ ...base, toolCallId: 'call_123' });
+    accumulator.addPermission({ ...base, toolCallId: 'private\nsecret' });
+    accumulator.addPermission({ ...base, toolCallId: 'x'.repeat(129) });
+    accumulator.addPermission({ ...base, decision: 'denied' });
+    const batch = finish(accumulator);
+    expect(batch.children).toMatchObject([
+      { kind: 'permission', decision: { toolCallId: 'call_123', decision: 'allowed' } },
+      { kind: 'permission', decision: { decision: 'denied' } },
+    ]);
+    expect(batch.omittedChildren).toEqual({ provider: 0, tool: 0, permission: 2 });
+    expect(JSON.stringify(batch)).not.toMatch(/private|secret/);
+  });
+
   it('keeps the first 256 accepted child completions in callback order and counts omissions by kind', () => {
     const accumulator = makeAccumulator();
     accumulator.addTool({
@@ -63,7 +79,7 @@ describe('live prompt trace boundary', () => {
     expect(batch.children[0]?.kind).toBe('tool');
     expect(batch.children[1]).toMatchObject({ kind: 'provider', trace: { round: 1 } });
     expect(batch.children[255]).toMatchObject({ kind: 'provider', trace: { round: 255 } });
-    expect(batch.omittedChildren).toEqual({ provider: 1, tool: 1 });
+    expect(batch.omittedChildren).toEqual({ provider: 1, tool: 1, permission: 0 });
   });
 
   it('omits malformed timestamps, unsafe labels, and unattested partial token values', () => {
@@ -86,7 +102,7 @@ describe('live prompt trace boundary', () => {
         disposition: 'invoked', modelId: 'safe-model', usageProvenance: 'partial',
       },
     }]);
-    expect(batch.omittedChildren).toEqual({ provider: 0, tool: 1 });
+    expect(batch.omittedChildren).toEqual({ provider: 0, tool: 1, permission: 0 });
     expect(JSON.stringify(batch)).not.toMatch(/private|credential/);
   });
 

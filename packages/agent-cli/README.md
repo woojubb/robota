@@ -220,9 +220,12 @@ tool-completion counts, to `/v1/metrics`;
 counted separately, never treated as zero cost. A truncated provider-event batch reports omissions
 and does not claim a complete usage/cost total. Metric datapoints omit session, turn, provider and
 model labels by default. Select `ROBOTA_TELEMETRY_LOGS=otlp` independently for content-free
-prompt/provider/tool completion events at `/v1/logs`; `ROBOTA_TELEMETRY_OTLP_LOGS_ENDPOINT`
+prompt/provider/tool completion events, plus a tool's own permission decision (allowed, denied, or
+hook-blocked), at `/v1/logs`; `ROBOTA_TELEMETRY_OTLP_LOGS_ENDPOINT`
 overrides that destination. Tool spans and logs carry a validated opaque call ID when available;
-metric datapoints never use it as a label. Only confirmed invocations produce provider-completion events;
+metric datapoints never use it as a label, though a permission-decision count by decision value is
+still reported on `/v1/metrics`. A permission decision has no duration of its own and never produces
+a trace span. Only confirmed invocations produce provider-completion events;
 omitted child counts remain visible on the prompt event. Plain HTTP is allowed only for loopback; URL credentials and query parameters
 are rejected. Export is bounded, best-effort, and does not delay or fail a turn; delivery failures
 produce a content-free stderr warning. These switches do not enable content capture, auth headers,

@@ -6,9 +6,15 @@ import { createLiveTelemetryResource, safeLiveToolCallId } from './live-resource
 import type { ILiveTelemetryResource } from './live-resource.js';
 
 type TSignal = 'traces' | 'metrics' | 'logs';
+type TSpannedChild = Exclude<ILivePromptTraceBatch['children'][number], { readonly kind: 'permission' }>;
 const MAX_PENDING_BATCHES = 8;
 const WRITE_TIMEOUT_MS = 5_000;
 const boundedLabel = (value: string | undefined): string | undefined => value?.slice(0, 128);
+
+/** A permission decision is content-free but has no duration of its own — it never gets a span. */
+function hasSpan(child: ILivePromptTraceBatch['children'][number]): child is TSpannedChild {
+  return child.kind !== 'permission';
+}
 
 async function writeWithDeadline(write: (line: string) => void | Promise<void>, line: string): Promise<void> {
   const result = write(line);
@@ -54,8 +60,9 @@ function projectConsoleRecord(batch: ILivePromptTraceBatch, signal: TSignal, res
         startedAt: batch.root.startedAt, endedAt: batch.root.endedAt,
         outcome: batch.root.outcome,
         omittedProviderCount: batch.omittedChildren.provider,
-        omittedToolCount: batch.omittedChildren.tool },
-      ...batch.children.map((child) => ({
+        omittedToolCount: batch.omittedChildren.tool,
+        omittedPermissionCount: batch.omittedChildren.permission },
+      ...batch.children.filter(hasSpan).map((child) => ({
         name: child.kind === 'provider' ? 'robota.provider_call' : 'robota.tool_body',
         spanId: child.trace.spanId, parentSpanId: child.trace.parentSpanId,
         startedAt: child.trace.startedAt, endedAt: child.trace.endedAt,
