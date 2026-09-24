@@ -158,4 +158,27 @@ describe('ToolNodeDefinition execution', () => {
     if (!result.ok) return;
     expect(result.value.isError).toBe(true);
   });
+
+  it('passes cancellation to isolated grep and reports a hard nonretryable failure', async () => {
+    const slow = join(dir, 'slow.txt');
+    writeFileSync(slow, `${'a'.repeat(32)}!\n`);
+    const controller = new AbortController();
+    const context = {
+      ...makeContext({
+        toolName: 'grep',
+        params: { pattern: '^(a+)+$', path: slow },
+      }),
+      signal: controller.signal,
+    };
+    const started = Date.now();
+    const running = node.taskHandler.execute({}, context);
+    setTimeout(() => controller.abort(), 50);
+    const result = await running;
+    expect(Date.now() - started).toBeLessThan(1500);
+    expect(result.ok).toBe(false);
+    if (result.ok) return;
+    expect(result.error.code).toBe('DAG_TASK_EXECUTION_GREP_ISOLATION_FAILED');
+    expect(result.error.message).toContain('cancelled');
+    expect(result.error.retryable).toBe(false);
+  });
 });

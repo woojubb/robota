@@ -105,6 +105,6 @@ never happened.
 
 ## Error handling
 
-This package defines no custom error hierarchy. Built-in tools return errors through the tool
-result's error field rather than throwing; network and path-traversal failures are likewise
-returned as structured result errors, not thrown exceptions.
+Built-in tools report ordinary input, network, and path failures through their result envelope.
+Grep executes pattern matching outside the caller's event loop; exhaustion, worker failure, and
+cancellation are hard execution errors surfaced only after the isolated operation has stopped.
