@@ -10,6 +10,10 @@ import { createNodeOtlpLiveMetricPort } from './live-metric-otlp.js';
 import { createNodeOtlpLiveLogPort } from './live-log-otlp.js';
 import { createNodeLiveConsolePort } from './live-console.js';
 import { createLiveTelemetryResource, safeLiveProviderRequestId, safeLiveToolCallId } from './live-resource.js';
+import {
+  buildOtlpRequestHeaders, mergeOtlpHeaderMaps, otlpProtobufRequestHeaders, parseOtlpHeaderSetting,
+} from './live-otlp-headers.js';
+import type { TOtlpHeaderMap } from './live-otlp-headers.js';
 import type { ILiveTelemetryHostResource, ILiveTelemetryResource } from './live-resource.js';
 
 const MAX_PENDING_BATCHES = 8;
@@ -22,6 +26,8 @@ export interface INodeOtlpLiveTracePort extends ILivePromptTracePort {
 export interface INodeOtlpLiveTraceOptions {
   /** Exact OTLP HTTP/protobuf traces URL, resolved by the product host. */
   endpoint: string;
+  /** Static headers prebuilt at startup; the sender's own content type always overrides them. */
+  headers?: Headers;
   onFailure?: (code: 'projection-failed' | 'enqueue-failed' | 'delivery-failed') => void;
   resource?: ILiveTelemetryResource;
 }
@@ -31,6 +37,7 @@ type TOtlpSignal = 'traces' | 'metrics' | 'logs';
 const SUPPORTED_SETTINGS = new Set([
   'ENABLED', 'TRACES', 'METRICS', 'LOGS', 'OTLP_PROTOCOL', 'OTLP_ENDPOINT',
   'OTLP_TRACES_ENDPOINT', 'OTLP_METRICS_ENDPOINT', 'OTLP_LOGS_ENDPOINT',
+  'OTLP_HEADERS', 'OTLP_TRACES_HEADERS', 'OTLP_METRICS_HEADERS', 'OTLP_LOGS_HEADERS',
 ].map((suffix) => `ROBOTA_TELEMETRY_${suffix}`));
 
 /**
@@ -53,11 +60,17 @@ function rejectUnsupportedSettings(env: Readonly<Record<string, string | undefin
   }
 }
 
+interface IResolvedOtlpSignal {
+  readonly endpoint: string;
+  /** Decided by which setting supplied the destination, never by comparing URLs. */
+  readonly usesGenericEndpoint: boolean;
+}
+
 /** Product-owned config: every signal is selected independently; ambient OTEL_* is ignored. */
-function resolveNodeOtlpLiveSignalEndpoint(
+function resolveNodeOtlpLiveSignal(
   env: Readonly<Record<string, string | undefined>>,
   signal: TOtlpSignal,
-): string | undefined {
+): IResolvedOtlpSignal | undefined {
   const enabled = env['ROBOTA_TELEMETRY_ENABLED'];
   if (enabled === undefined || enabled === '0') return undefined;
   if (enabled !== '1') throw new Error('Invalid Robota telemetry enable switch.');
@@ -83,10 +96,74 @@ function resolveNodeOtlpLiveSignalEndpoint(
       throw new Error('Invalid destination.');
     }
     if (exact === undefined) url.pathname = `${url.pathname.replace(/\/$/u, '')}/v1/${signal}`;
-    return url.toString();
+    return { endpoint: url.toString(), usesGenericEndpoint: exact === undefined };
   } catch {
     throw new Error(`Invalid Robota ${label} destination.`);
   }
+}
+
+function resolveNodeOtlpLiveSignalEndpoint(
+  env: Readonly<Record<string, string | undefined>>,
+  signal: TOtlpSignal,
+): string | undefined { return resolveNodeOtlpLiveSignal(env, signal)?.endpoint; }
+
+const OTLP_SIGNALS = ['traces', 'metrics', 'logs'] as const;
+const GENERIC_HEADERS = 'ROBOTA_TELEMETRY_OTLP_HEADERS';
+const signalHeadersVariable = (signal: TOtlpSignal): string => `ROBOTA_TELEMETRY_OTLP_${signal.toUpperCase()}_HEADERS`;
+
+interface IOtlpDestination {
+  readonly endpoint: string;
+  readonly headers: Headers;
+}
+
+/**
+ * Credentials are scoped to the destination they were configured for: generic headers go only to
+ * signals that use the generic endpoint, and a signal with its own endpoint gets only its own
+ * headers. Headers that would be silently unused, or a destination left without the credentials
+ * its siblings carry, refuse startup instead.
+ */
+function resolveNodeOtlpLiveDestinations(
+  env: Readonly<Record<string, string | undefined>>,
+): Partial<Record<TOtlpSignal, IOtlpDestination>> {
+  const resolved = OTLP_SIGNALS.map((signal) => [signal, resolveNodeOtlpLiveSignal(env, signal)] as const);
+  const enabled = env['ROBOTA_TELEMETRY_ENABLED'];
+  if (enabled === undefined || enabled === '0') return {};
+  const parse = (variable: string): TOtlpHeaderMap | undefined => {
+    const raw = env[variable];
+    return raw === undefined ? undefined : parseOtlpHeaderSetting(variable, raw);
+  };
+  const generic = parse(GENERIC_HEADERS);
+  const own = new Map(OTLP_SIGNALS.map((signal) => [signal, parse(signalHeadersVariable(signal))] as const));
+  for (const [signal, destination] of resolved) {
+    if (own.get(signal) !== undefined && destination === undefined) {
+      throw new Error(`${signalHeadersVariable(signal)} is set but that signal does not export over OTLP.`);
+    }
+  }
+  const genericUsers = resolved.filter(([, destination]) => destination?.usesGenericEndpoint === true);
+  if (generic !== undefined) {
+    if (genericUsers.length === 0) {
+      throw new Error(`${GENERIC_HEADERS} is set but no OTLP signal uses ROBOTA_TELEMETRY_OTLP_ENDPOINT.`);
+    }
+    for (const [signal, destination] of resolved) {
+      if (destination && !destination.usesGenericEndpoint && own.get(signal) === undefined) {
+        throw new Error(`${signalHeadersVariable(signal)} is required: that signal has its own endpoint and ` +
+          `never receives ${GENERIC_HEADERS}.`);
+      }
+    }
+  }
+  const destinations: Partial<Record<TOtlpSignal, IOtlpDestination>> = {};
+  for (const [signal, destination] of resolved) {
+    if (!destination) continue;
+    const signalHeaders = own.get(signal);
+    const sources = [
+      ...(destination.usesGenericEndpoint && generic ? [[GENERIC_HEADERS, generic] as const] : []),
+      ...(signalHeaders ? [[signalHeadersVariable(signal), signalHeaders] as const] : []),
+    ];
+    const variables = sources.map(([variable]) => variable);
+    const merged = mergeOtlpHeaderMaps(variables, ...sources.map(([, map]) => map));
+    destinations[signal] = { endpoint: destination.endpoint, headers: buildOtlpRequestHeaders(variables, merged) };
+  }
+  return destinations;
 }
 
 export function resolveNodeOtlpLiveTraceEndpoint(
@@ -116,7 +193,9 @@ function hasSpan(child: ILivePromptTraceBatch['children'][number]): child is TSp
   return child.kind !== 'permission';
 }
 
-async function sendBatch(batch: ILivePromptTraceBatch, endpoint: string, resource: ILiveTelemetryResource): Promise<void> {
+async function sendBatch(
+  batch: ILivePromptTraceBatch, endpoint: string, resource: ILiveTelemetryResource, headers: Headers | undefined,
+): Promise<void> {
   const exporter: SpanExporter = {
     export(spans: ReadableSpan[], callback) {
       void (async () => {
@@ -124,7 +203,7 @@ async function sendBatch(batch: ILivePromptTraceBatch, endpoint: string, resourc
         if (!body) throw new Error('Could not encode OTLP traces.');
         const response = await fetch(endpoint, {
           method: 'POST',
-          headers: { 'content-type': 'application/x-protobuf' },
+          headers: otlpProtobufRequestHeaders(headers),
           body: Buffer.from(body),
           redirect: 'error',
           signal: AbortSignal.timeout(5000),
@@ -235,7 +314,7 @@ export function createNodeOtlpLiveTracePort(options: INodeOtlpLiveTraceOptions):
     while (pending.length > 0) {
       const batch = pending.shift()!;
       try {
-        await sendBatch(batch, options.endpoint, resource);
+        await sendBatch(batch, options.endpoint, resource, options.headers);
       } catch {
         // A failing destination must not make process exit retry every queued turn serially.
         pending.length = 0;
@@ -273,19 +352,17 @@ export function createConfiguredNodeOtlpLiveTelemetryPort(
   }),
   hostResource?: ILiveTelemetryHostResource,
 ): INodeOtlpLiveTracePort | undefined {
-  const traceEndpoint = resolveNodeOtlpLiveTraceEndpoint(env);
-  const metricEndpoint = resolveNodeOtlpLiveMetricEndpoint(env);
-  const logEndpoint = resolveNodeOtlpLiveLogEndpoint(env);
+  const { traces, metrics, logs } = resolveNodeOtlpLiveDestinations(env);
   const hasConsole = env['ROBOTA_TELEMETRY_ENABLED'] === '1' &&
     ['traces', 'metrics', 'logs'].some((signal) => env[`ROBOTA_TELEMETRY_${signal.toUpperCase()}`] === 'console');
-  if (!traceEndpoint && !metricEndpoint && !logEndpoint && !hasConsole) return undefined;
+  if (!traces && !metrics && !logs && !hasConsole) return undefined;
   const resource = createLiveTelemetryResource(hostResource);
   const ports: INodeOtlpLiveTracePort[] = [];
-  if (traceEndpoint) ports.push(createNodeOtlpLiveTracePort({
-    endpoint: traceEndpoint, resource, ...(onFailure ? { onFailure } : {}),
+  if (traces) ports.push(createNodeOtlpLiveTracePort({
+    endpoint: traces.endpoint, headers: traces.headers, resource, ...(onFailure ? { onFailure } : {}),
   }));
-  if (metricEndpoint) ports.push(createNodeOtlpLiveMetricPort(metricEndpoint, onFailure, resource));
-  if (logEndpoint) ports.push(createNodeOtlpLiveLogPort(logEndpoint, onFailure, resource));
+  if (metrics) ports.push(createNodeOtlpLiveMetricPort(metrics.endpoint, onFailure, resource, metrics.headers));
+  if (logs) ports.push(createNodeOtlpLiveLogPort(logs.endpoint, onFailure, resource, logs.headers));
   if (env['ROBOTA_TELEMETRY_ENABLED'] === '1') {
     for (const signal of ['traces', 'metrics', 'logs'] as const) {
       if (env[`ROBOTA_TELEMETRY_${signal.toUpperCase()}`] === 'console') {

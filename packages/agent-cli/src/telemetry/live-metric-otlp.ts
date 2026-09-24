@@ -9,6 +9,7 @@ import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytic
 import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';
 import { createLiveTelemetryResource } from './live-resource.js';
 import type { ILiveTelemetryResource } from './live-resource.js';
+import { otlpProtobufRequestHeaders } from './live-otlp-headers.js';
 
 const MAX_PENDING_BATCHES = 8;
 
@@ -110,14 +111,16 @@ export function projectLivePromptMetrics(batch: ILivePromptTraceBatch, window: I
   };
 }
 
-async function sendMetrics(batch: ILivePromptTraceBatch, endpoint: string, window: IMetricWindow): Promise<void> {
+async function sendMetrics(
+  batch: ILivePromptTraceBatch, endpoint: string, window: IMetricWindow, headers: Headers | undefined,
+): Promise<void> {
   const projected = projectLivePromptMetrics(batch, window);
   if (projected.scopeMetrics[0]?.metrics.length === 0) return;
   const body = ProtobufMetricsSerializer.serializeRequest(projected);
   if (!body || body.byteLength > 1_048_576) throw new Error('Invalid OTLP metric payload.');
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: { 'content-type': 'application/x-protobuf' },
+    headers: otlpProtobufRequestHeaders(headers),
     body: Buffer.from(body),
     redirect: 'error',
     signal: AbortSignal.timeout(5000),
@@ -148,6 +151,8 @@ export function createNodeOtlpLiveMetricPort(
   endpoint: string,
   onFailure?: (code: 'projection-failed' | 'enqueue-failed' | 'delivery-failed') => void,
   resource: ILiveTelemetryResource = createLiveTelemetryResource(),
+  /** Static headers prebuilt at startup; the sender's own content type always overrides them. */
+  headers?: Headers,
 ): ILivePromptTracePort & { shutdown(): Promise<void> } {
   const pending: ILivePromptTraceBatch[] = [];
   let worker: Promise<void> | undefined;
@@ -166,7 +171,7 @@ export function createNodeOtlpLiveMetricPort(
         previousEndMs = endMs;
         await sendMetrics(pending.shift()!, endpoint, {
           instanceId, resource, startTime: hrTime(startMs), endTime: hrTime(endMs),
-        });
+        }, headers);
       }
       catch {
         pending.length = 0;

@@ -93,7 +93,13 @@ spans, logs and low-cardinality metrics correlated by validated IDs; nothing ide
 metric label. Metrics derived from child records are emitted only when those records are complete,
 and omitted children or unknown prices stay visible as coverage gaps rather than fabricated totals.
 It does not replay stored usage or invent lifecycle events, delivery failure never changes a turn
-result, and an unsupported telemetry setting refuses startup instead of being silently ignored.
+result, and an unsupported telemetry setting, or a credential that would be silently unused, refuses
+startup instead of being ignored. Telemetry credentials are scoped to the destination they were
+configured for and are never sent elsewhere, printed, or written to console output, logs or resource
+attributes. Robota telemetry settings are not inherited by child processes, except the explicit
+handover to a supervised runtime launched by a session command; this is a guarantee about
+inheritance, not about hiding them from the same OS user. Because they are removed from
+`process.env` at startup, an embedding host that calls `startCli` has its own `process.env` mutated.
 
 Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`); it accepts
 `commandModules` and registers them generically with the SDK registry.
@@ -252,6 +258,12 @@ authority's frozen workspace root. Print mode, `--goal`, and `--serve` fail clos
 `untrusted`/`revoked`/`stale`/`store-unavailable` decisions before provider construction; interactive
 startup may continue Restricted with project contributions disabled. All trust diagnostics expose
 only state and canonical display path — credentials and project-controlled content are never printed.
+
+### Destination-scoped telemetry headers
+
+Generic OTLP headers go only to signals that use the generic endpoint, never to a signal with its own
+endpoint, even though OpenTelemetry would apply them there: a per-signal endpoint may be a different
+collector, and generic credentials belong to the generic destination.
 
 ### Deep links (`robota open`)
 

@@ -229,11 +229,28 @@ count by decision value is still reported on `/v1/metrics`. A permission decisio
 its own and never produces a trace span. Only confirmed invocations produce provider-completion events;
 omitted child counts remain visible on the prompt event. Plain HTTP is allowed only for loopback; URL credentials and query parameters
 are rejected. Export is bounded, best-effort, and does not delay or fail a turn; delivery failures
-produce a content-free stderr warning. These switches do not enable content capture, auth headers,
+produce a content-free stderr warning. These switches do not enable content capture,
 additional event kinds, or replay of stored traces. Ambient `OTEL_*` values alone do not enable them.
-While telemetry is enabled, any other `ROBOTA_TELEMETRY_*` setting (for example headers, client
-certificates, a locked destination or content capture) stops startup with an error that names the
-setting but never prints its value, rather than exporting without it.
+
+Static collector headers (for example an `Authorization` token) use
+`ROBOTA_TELEMETRY_OTLP_HEADERS` for the generic endpoint and `ROBOTA_TELEMETRY_OTLP_TRACES_HEADERS`,
+`ROBOTA_TELEMETRY_OTLP_METRICS_HEADERS` or `ROBOTA_TELEMETRY_OTLP_LOGS_HEADERS` for one signal, in
+OpenTelemetry's `name=value,name2=value2` form with percent-encoded values
+(`Authorization=Bearer%20abc123`). Headers are scoped to their destination: a signal that uses
+`ROBOTA_TELEMETRY_OTLP_ENDPOINT` sends the generic headers merged with its own, its own winning on the
+same name, while a signal with its own `ROBOTA_TELEMETRY_OTLP_<SIGNAL>_ENDPOINT` sends only its own
+headers. Unlike OpenTelemetry, generic headers are never sent to a per-signal endpoint. Startup is
+refused for malformed entries, empty names or values, duplicate names, reserved transport,
+content-negotiation, proxy, `sec-` or trace-propagation names, control characters other than tab, non-ASCII characters,
+oversized settings, headers no OTLP signal would send, and a per-signal endpoint without its own
+headers while another signal sends the generic ones. Header helpers and refresh are not supported.
+Console output, logs and resource attributes never contain headers, and errors name only the setting
+and entry position. The CLI removes every `ROBOTA_TELEMETRY_*` setting from its environment at
+startup, so shells, hooks, subagents and other child processes do not inherit them; the only
+handover is the supervised runtime that `session start` or `session view` launches, which receives
+them in its spawn environment. While telemetry is enabled, any other `ROBOTA_TELEMETRY_*` setting
+(for example client certificates, a locked destination or content capture) stops startup with an
+error that names the setting but never prints its value, rather than exporting without it.
 Each signal also accepts `console` instead of `otlp` to write a content-free JSON diagnostic to stderr;
 console needs neither an endpoint nor a protocol and never includes collector credentials. Signals
 remain independent, and the Robota enable switch is still required.

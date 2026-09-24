@@ -33,7 +33,11 @@ export async function runPreparsedCliCommand(
   options: IStartCliOptions,
   argv: readonly string[] = process.argv,
   cwd: string = process.cwd(),
+  telemetryEnvironment: Readonly<Record<string, string>> = {},
 ): Promise<boolean> {
+  // The Robota telemetry settings were removed from process.env at startup; the supervised runtime is
+  // the one child that receives them, through its explicit spawn environment.
+  const supervisedEnv = (): NodeJS.ProcessEnv => ({ ...process.env, ...telemetryEnvironment });
   // OBSERVABILITY-1991: the doctor is matched BEFORE the shared composition below, and composes its
   // own inside a failure boundary — a configuration broken enough to throw here must still be
   // diagnosable, and `--repair <id>` / `--yes` must never reach the strict global parser.
@@ -125,7 +129,7 @@ export async function runPreparsedCliCommand(
         if (requiresHeadlessWorkspaceTrust(access)) {
           throw new Error(formatHeadlessWorkspaceTrustError(access, targetCwd));
         }
-        return launchSupervisedSession(targetCwd);
+        return launchSupervisedSession(targetCwd, { env: supervisedEnv() });
       },
     });
     return true;
@@ -180,7 +184,9 @@ export async function runPreparsedCliCommand(
       return true;
     }
     try {
-      const id = await launchSupervisedSession(cwd, named ? { name: startArgs[2]! } : {});
+      const id = await launchSupervisedSession(cwd, {
+        env: supervisedEnv(), ...(named ? { name: startArgs[2]! } : {}),
+      });
       process.stdout.write(`Supervised session: ${id}\n`);
     } catch (error) {
       process.stderr.write(`${error instanceof Error ? error.message : 'Supervised session could not start.'}\n`);

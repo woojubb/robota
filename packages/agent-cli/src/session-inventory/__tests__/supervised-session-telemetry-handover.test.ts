@@ -15,40 +15,48 @@ import { runSessionViewCommand } from '../session-view-command.js';
 vi.mock('../session-view-command.js', () => ({ runSessionViewCommand: vi.fn() }));
 vi.mock('../supervised-session-launch.js', () => ({ launchSupervisedSession: vi.fn() }));
 
-describe('session view background start route', () => {
-  it('rechecks trust for the selected directory instead of borrowing the viewer workspace grant', async () => {
-    const scratch = mkdtempSync(join(tmpdir(), 'rs-view-route-'));
-    const cwd = join(scratch, 'viewer');
-    const other = join(scratch, 'other');
+const ID = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
+const snapshot = Object.freeze({
+  ROBOTA_TELEMETRY_ENABLED: '1',
+  ROBOTA_TELEMETRY_OTLP_HEADERS: 'authorization=Bearer%20handover-sentinel',
+});
+
+describe('supervised session telemetry handover', () => {
+  it('hands the removed telemetry settings only to the supervised runtime it launches', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-telemetry-handover-'));
+    const cwd = join(scratch, 'project');
     const home = join(scratch, 'home');
-    for (const directory of [cwd, other, home]) mkdirSync(directory);
+    for (const directory of [cwd, home]) mkdirSync(directory);
     execFileSync('git', ['init', '--quiet', cwd]);
-    execFileSync('git', ['init', '--quiet', other]);
     const previousHome = process.env['HOME'];
     const previousExitCode = process.exitCode;
     process.env['HOME'] = home;
+    process.env['RS_HANDOVER_MARKER'] = 'kept';
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
-    vi.mocked(launchSupervisedSession).mockResolvedValue('8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4');
+    vi.mocked(launchSupervisedSession).mockResolvedValue(ID);
     vi.mocked(runSessionViewCommand).mockImplementation(async (_argv, options) => {
-      expect(options?.launchCwd).toBe(cwd);
-      await expect(options?.start?.(other)).rejects.toThrow(/Workspace trust is required/);
-      expect(launchSupervisedSession).not.toHaveBeenCalled();
-      await expect(options?.start?.(cwd)).resolves.toBe('8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4');
-      expect(launchSupervisedSession).toHaveBeenCalledExactlyOnceWith(cwd, { env: expect.any(Object) });
-      expect(await runWorkspaceTrustCommand(['revoke', '--yes'], cwd)).toBe(1);
-      await expect(options?.start?.(cwd)).rejects.toThrow(/Workspace trust is required/);
-      expect(launchSupervisedSession).toHaveBeenCalledTimes(1);
+      await expect(options?.start?.(cwd)).resolves.toBe(ID);
       return 0;
     });
     try {
       expect(await runWorkspaceTrustCommand(['--yes'], cwd)).toBe(0);
-      expect(await runPreparsedCliCommand({
+      const options = {
         providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
-      }, ['node', 'robota', 'session', 'view'], cwd)).toBe(true);
-      expect(process.exitCode).toBe(0);
+      };
+      expect(await runPreparsedCliCommand(options, ['node', 'robota', 'session', 'view'], cwd, snapshot)).toBe(true);
+      expect(await runPreparsedCliCommand({ providerDefinitions: [] },
+        ['node', 'robota', 'session', 'start', '--background', '--name', 'Morning'], cwd, snapshot)).toBe(true);
+      expect(launchSupervisedSession).toHaveBeenCalledTimes(2);
+      for (const [target, launchOptions] of vi.mocked(launchSupervisedSession).mock.calls) {
+        expect(target).toBe(cwd);
+        expect(launchOptions?.env).toMatchObject({ ...snapshot, RS_HANDOVER_MARKER: 'kept', HOME: home });
+      }
+      expect(vi.mocked(launchSupervisedSession).mock.calls[1]?.[1]?.name).toBe('Morning');
+      expect(process.env['ROBOTA_TELEMETRY_OTLP_HEADERS']).toBeUndefined();
     } finally {
       if (previousHome === undefined) delete process.env['HOME'];
       else process.env['HOME'] = previousHome;
+      delete process.env['RS_HANDOVER_MARKER'];
       process.exitCode = previousExitCode;
       stdout.mockRestore();
       vi.clearAllMocks();
