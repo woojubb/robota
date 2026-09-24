@@ -221,6 +221,12 @@ describe('live content redaction', () => {
     expect(out).toContain('The cookie: is not a header here');
   });
 
+  it('masks a JWT that follows a hyphen and leaves a dotless eyJ run alone', () => {
+    const jwt = cat('eyJhbGciOiJIUzI1NiJ9', '.', 'eyJzdWIiOiIxIn0', '.', 'c2lnbmF0dXJl');
+    expect(redact(`id-${jwt} end`).text).toBe('id-[redacted] end');
+    expect(redact('see eyJ-not-a-token here').text).toBe('see eyJ-not-a-token here');
+  });
+
   it('stays linear on adversarial input for the JSON-pair and header patterns', () => {
     // A wall-clock limit alone flakes on a loaded CI runner. Growth is what separates a linear
     // pattern (about 4x for 4x input) from backtracking (16x or worse), so compare sizes instead.
@@ -237,6 +243,8 @@ describe('live content redaction', () => {
       (n) => `x-${'a-'.repeat(n / 2)}`,
       (n) => '> x-'.repeat(n / 4),
       (n) => `proxy-${'proxy-'.repeat(n / 6)}`,
+      (n) => 'eyJ-'.repeat(n / 4),
+      (n) => `${'eyJa-'.repeat(n / 5)}.x`,
     ];
     const bestOf3 = (text: string): number => {
       let best = Number.POSITIVE_INFINITY;

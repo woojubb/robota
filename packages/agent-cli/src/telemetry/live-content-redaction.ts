@@ -13,11 +13,28 @@ const TRUNCATED = '[truncated]';
 /** A partial token at the cut edge at least this long is masked: it may be the head of a secret. */
 const EDGE_TOKEN_MIN = 8;
 
+/**
+ * JWT-shaped text is found by scanning each run of token characters once. A `\beyJ…\.…\.…` pattern
+ * restarts after every `-` inside a run, which made long runs quadratic. From the first `eyJ` that
+ * starts a word, a run holding two more dots is masked to its end — over-masking is the safe side.
+ */
+const TOKEN_RUN = /(?<![A-Za-z0-9_.-])[A-Za-z0-9_.-]+/gu;
+
+function maskJwtRuns(text: string): string {
+  return text.replace(TOKEN_RUN, (run) => {
+    let start = run.indexOf('eyJ');
+    while (start > 0 && run[start - 1] !== '-' && run[start - 1] !== '.') start = run.indexOf('eyJ', start + 1);
+    if (start < 0) return run;
+    const firstDot = run.indexOf('.', start);
+    if (firstDot < 0 || run.indexOf('.', firstDot + 1) < 0) return run;
+    return `${run.slice(0, start)}${REDACTED}`;
+  });
+}
+
 /** Shapes beyond the doctor's own, each replaced whole. */
 const EXTRA_SHAPES: readonly RegExp[] = [
   /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z0-9 ]*PRIVATE KEY-----|$)/gu,
   /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/gu,
-  /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/gu,
   /\bgithub_pat_[A-Za-z0-9_]{20,}/gu,
   /\bgh[ousr]_[A-Za-z0-9]{20,}/gu,
   /\b(?:sk|rk)_live_[A-Za-z0-9]{10,}/gu,
@@ -132,6 +149,7 @@ export function prepareLiveContentRedactor(context: ILiveContentRedactionContext
   return (text, maxBytes, preTruncated) => {
     let out = redactDiagnosticText(text, secrets);
     for (const shape of EXTRA_SHAPES) out = out.replace(shape, REDACTED);
+    out = maskJwtRuns(out);
     out = out.replace(USER_PASS_FLAG, `$1$2${REDACTED}`);
     out = out.replace(SECRET_ASSIGNMENT, `$1=${REDACTED}`);
     out = out.replace(SECRET_JSON_PAIR, `$1"${REDACTED}"`);
