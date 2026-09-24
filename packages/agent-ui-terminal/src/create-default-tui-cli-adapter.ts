@@ -16,6 +16,7 @@ export interface IDefaultTuiCliAdapterOptions {
   reloadPluginCommandSource: (registry: CommandRegistry) => void;
   userSettingsPath: string;
   settingsSources: readonly TSettingsSource[];
+  formatResumeCommand?: (sessionId: string) => string;
 }
 
 export function createDefaultTuiCliAdapter({
@@ -23,6 +24,7 @@ export function createDefaultTuiCliAdapter({
   reloadPluginCommandSource,
   userSettingsPath,
   settingsSources,
+  formatResumeCommand,
 }: IDefaultTuiCliAdapterOptions): ITuiCliAdapter {
   return {
     getUserSettingsPath: () => userSettingsPath,
@@ -38,5 +40,6 @@ export function createDefaultTuiCliAdapter({
     getGitBranch: (cwd) => resolveGitBranchFromNodeHost(cwd),
     getProviderDisplayName: (type) =>
       findProviderDefinition(providerDefinitions, type)?.displayName ?? type,
+    ...(formatResumeCommand === undefined ? {} : { formatResumeCommand }),
   };
 }

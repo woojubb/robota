@@ -74,14 +74,16 @@ describe('loadContext', () => {
     },
   );
 
-  it('loads active task context when .agents/tasks contains task files', async () => {
+  it('loads active task context only from the host-selected directory', async () => {
     setupDir(join(rootDir, '.agents', 'tasks'));
     writeFileSync(
       join(rootDir, '.agents', 'tasks', 'CLI-BL-001-example.md'),
       '# CLI-BL-001\n\n- **Status**: in-progress\n\n## Objective\nKeep focus.\n',
     );
 
-    const result = await loadContext(await projectSource(rootDir));
+    const result = await loadContext(await projectSource(rootDir), undefined, {
+      taskContext: { enabled: true, dir: join('.agents', 'tasks') },
+    });
 
     expect(result.taskContext).toContain('### CLI-BL-001');
     expect(result.taskContext).toContain('- **Objective:** Keep focus.');

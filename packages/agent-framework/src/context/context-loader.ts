@@ -32,9 +32,9 @@ export const CLAUDE_FILENAME = 'CLAUDE.md';
 /** NEUT-004: context-load behavior toggles (settings-driven at the composition root). */
 export interface ILoadContextOptions {
   /**
-   * Active-task context injection. Default preserves today's behavior (enabled,
-   * scanning `.agents/tasks`); `enabled: false` skips the scan entirely; `dir`
-   * replaces the scan directory (relative to cwd).
+   * Active-task context injection. The directory must be selected by the host; no
+   * directory is scanned when it is absent. `enabled: false` skips the scan;
+   * `dir` is relative to the trusted project root.
    */
   taskContext?: {
     enabled?: boolean;
@@ -129,7 +129,8 @@ export async function loadContext(
   const startupMemory = await memoryStore?.loadStartupMemory();
   const memoryMd = startupMemory?.content || undefined;
   // NEUT-004: task-context injection is off-switchable; disabled ⇒ no scan is performed.
-  const taskContextEnabled = options.taskContext?.enabled !== false;
+  const taskContextEnabled =
+    options.taskContext?.enabled !== false && Boolean(options.taskContext?.dir);
   const loadedTaskContext =
     taskContextEnabled && source !== undefined
       ? loadTaskContext(source.reader, {

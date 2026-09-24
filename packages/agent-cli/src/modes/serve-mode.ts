@@ -20,6 +20,7 @@ import {
 } from '../session-inventory/supervised-session-control.js';
 import { startRuntimeHost } from '@robota-sdk/agent-framework';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
+import { ROBOTA_PERMISSION_BASELINE } from '../product/robota-permission-baseline.js';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
 import type { IOrgPolicy } from '@robota-sdk/agent-framework';
 
@@ -67,6 +68,7 @@ export interface IServeModeOptions {
   userSettingsSources?: readonly INodeHostSettingsSource[];
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
+  taskContext?: { readonly enabled?: boolean; readonly dir?: string };
   /**
    * CLI-083 (issue #2287) — the org policy, forwarded so the session's `blockedCommands` and
    * `allowedProviders` enforcement is reachable in a served session. Declared on this projection
@@ -150,11 +152,13 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
       ? { contributionSources: opts.contributionSources }
       : {}),
     ...(opts.skillRoots !== undefined ? { skillRoots: opts.skillRoots } : {}),
+    ...(opts.taskContext !== undefined ? { taskContext: opts.taskContext } : {}),
     ...(opts.orgPolicy !== undefined ? { orgPolicy: opts.orgPolicy } : {}),
     // CLI-076: forward the resolved model so `--model` takes effect in the served runtime session.
     ...(opts.model !== undefined ? { model: opts.model } : {}),
     ...(preset.outputStyle !== undefined ? { outputStyle: preset.outputStyle } : {}),
     permissionMode: args.permissionMode ?? preset.permissionMode,
+    baselinePermissionAllow: ROBOTA_PERMISSION_BASELINE,
     // Issue #1937: the CLI-sourced prompt addition, composed once at the projection. Before this it
     // was built at print mode only, so these flags did nothing in a served session.
     maxTurns: args.maxTurns,

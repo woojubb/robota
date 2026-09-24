@@ -53,7 +53,7 @@ describe('TRANS-009: the surface says when a toggle applies', () => {
         onClose={vi.fn()}
       />,
     );
-    expect(lastFrame()).toContain('applies the next time Robota starts');
+    expect(lastFrame()).toContain('applies the next time Assistant starts');
   });
 
   it('does not describe a saved setting as a running transport', () => {

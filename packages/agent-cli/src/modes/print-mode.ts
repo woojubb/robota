@@ -16,6 +16,7 @@ import type {
 import type { createProjectSessionStore } from '@robota-sdk/agent-framework';
 import { HeadlessInteractionChannel } from '@robota-sdk/agent-framework';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
+import { ROBOTA_PERMISSION_BASELINE } from '../product/robota-permission-baseline.js';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
@@ -76,6 +77,7 @@ export async function runPrintMode(
   userSettingsSources?: readonly INodeHostSettingsSource[],
   contributionSources?: readonly IContributionSource[],
   skillRoots?: readonly ISkillRootDescriptor[],
+  taskContext?: { readonly enabled?: boolean; readonly dir?: string },
 ): Promise<void> {
   const goalObjective = args.goal?.trim();
   let prompt = args.positional.join(' ').trim();
@@ -115,16 +117,18 @@ export async function runPrintMode(
     ...(providerErrorGuidance !== undefined ? { providerErrorGuidance } : {}),
     ...(orgPolicy !== undefined ? { orgPolicy } : {}),
     ...(projectAccess !== undefined ? { projectAccess } : {}),
-    ...(projectSettingsPaths !== undefined ? { projectSettingsPaths } : {}),
-    ...(userSettingsSources !== undefined ? { userSettingsSources } : {}),
-    ...(contributionSources !== undefined ? { contributionSources } : {}),
+      ...(projectSettingsPaths !== undefined ? { projectSettingsPaths } : {}),
+      ...(userSettingsSources !== undefined ? { userSettingsSources } : {}),
+      ...(contributionSources !== undefined ? { contributionSources } : {}),
     ...(skillRoots !== undefined ? { skillRoots } : {}),
+    ...(taskContext !== undefined ? { taskContext } : {}),
     outputFormat: args.outputFormat ?? 'text',
     // CLI-076: forward the resolved model so `--model` takes effect (an invalid model then surfaces the
     // provider's error and a non-zero exit, instead of a silent substitution succeeding with exit 0).
     ...(presetOptions.model !== undefined ? { model: presetOptions.model } : {}),
     ...(presetOptions.outputStyle !== undefined ? { outputStyle: presetOptions.outputStyle } : {}),
     permissionMode: args.permissionMode ?? presetOptions.permissionMode ?? 'bypassPermissions',
+    baselinePermissionAllow: ROBOTA_PERMISSION_BASELINE,
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
     disableSessionLoops: areSessionLoopsDisabled(process.env),

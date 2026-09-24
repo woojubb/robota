@@ -36,6 +36,8 @@ export interface IForkAttachDeps {
   readonly switchSession: (sessionId: string) => void;
   /** How a refusal reaches the operator (a system entry in the transcript). */
   readonly notify: (message: string) => void;
+  /** Optional host-owned command for reopening a completed fork outside the attach view. */
+  readonly formatResumeCommand?: (sessionId: string) => string;
 }
 
 /**
@@ -51,7 +53,8 @@ export function attachToForkedSession(
 ): IForkAttachOutcome | undefined {
   const outcome = resolveExecutionAttach(entry, { hasSessionRecord: deps.hasSessionRecord });
   if (outcome.type === 'refused') {
-    deps.notify(outcome.reason);
+    const resumeCommand = outcome.resumeSessionId && deps.formatResumeCommand?.(outcome.resumeSessionId);
+    deps.notify(resumeCommand ? `${outcome.reason} Open it with: ${resumeCommand}` : outcome.reason);
     return undefined;
   }
   deps.switchSession(outcome.sessionId);

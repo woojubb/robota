@@ -43,10 +43,10 @@ describe('StreamingIndicator', () => {
     expect(frame).toContain('⟳ Bash(ls)');
   });
 
-  it('shows Robota: section with streaming text', () => {
+  it('shows Assistant: section with streaming text', () => {
     const { lastFrame } = render(<StreamingIndicator text="Hello world" activeTools={[]} />);
     const frame = lastFrame()!;
-    expect(frame).toContain('Robota:');
+    expect(frame).toContain('Assistant:');
     expect(frame).toContain('Hello world');
     expect(frame).not.toContain('Tools:');
   });
@@ -58,7 +58,7 @@ describe('StreamingIndicator', () => {
     expect(lastFrame()).toContain(text);
   });
 
-  it('shows Tools: before Robota: when both present', () => {
+  it('shows Tools: before Assistant: when both present', () => {
     const { lastFrame } = render(
       <StreamingIndicator
         text="Analyzing..."
@@ -67,10 +67,10 @@ describe('StreamingIndicator', () => {
     );
     const frame = lastFrame()!;
     const toolsIndex = frame.indexOf('Tools:');
-    const robotaIndex = frame.indexOf('Robota:');
+    const assistantIndex = frame.indexOf('Assistant:');
     expect(toolsIndex).toBeGreaterThanOrEqual(0);
-    expect(robotaIndex).toBeGreaterThanOrEqual(0);
-    expect(toolsIndex).toBeLessThan(robotaIndex);
+    expect(assistantIndex).toBeGreaterThanOrEqual(0);
+    expect(toolsIndex).toBeLessThan(assistantIndex);
   });
 
   it('does not show Thinking... when tools are active', () => {
@@ -172,6 +172,6 @@ describe('CLI-2004 TC-19: StreamingIndicator in screen-reader mode', () => {
     const { lastFrame } = render(
       <StreamingIndicator text="Hello" activeTools={[]} isThinking={true} />,
     );
-    expect(lastFrame()).toContain('Robota:');
+    expect(lastFrame()).toContain('Assistant:');
   });
 });

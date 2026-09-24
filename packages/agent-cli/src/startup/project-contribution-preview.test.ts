@@ -82,3 +82,25 @@ describe('skill source preview', () => {
     );
   });
 });
+
+describe('task-context source preview', () => {
+  it('uses the same explicit enabled/custom root and omits a disabled root', () => {
+    expect(
+      listProjectContributionPaths('', { enabled: true, dir: 'custom/tasks' }).filter((path) =>
+        path.id.startsWith('tasks:'),
+      ),
+    ).toEqual([
+      {
+        id: 'tasks:custom/tasks',
+        label: 'Active task context',
+        relativePath: 'custom/tasks',
+        expectedKind: 'directory',
+      },
+    ]);
+    expect(
+      listProjectContributionPaths('', { enabled: false, dir: 'custom/tasks' }).filter((path) =>
+        path.id.startsWith('tasks:'),
+      ),
+    ).toEqual([]);
+  });
+});

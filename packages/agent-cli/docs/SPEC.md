@@ -55,6 +55,12 @@ binds that layout when workspace trust issues an authority and lists the same di
 metadata-only pre-trust preview. An externally supplied trusted authority with a different state
 layout is refused rather than reading or writing a path the preview did not name. Restricted
 composition uses user session storage and never obtains a project-state facet.
+The CLI selects its ordinary context-discovery permission baseline for Robota, Agents, and Claude
+project directories and passes it to print, serve, and terminal sessions. SDK consumers inherit no
+Robota file permissions unless they explicitly choose them.
+The CLI adds its own setup, diagnostics, and resume commands to typed SDK failures: missing provider
+configuration receives Robota setup guidance, invalid user settings point to `robota doctor`, and a
+completed fork can be reopened with `robota --resume <session-id>`.
 When a trusted interactive user approves a project-wide tool permission on a host with guarded
 project mutation support, the session persists it through the CLI-selected project-local settings
 path and its live workspace authority. An unavailable writer rejects that approval explicitly.
@@ -69,8 +75,17 @@ The CLI owns its ordered skill and legacy-command roots and passes them with the
 contribution sources to command discovery, print, serve, terminal activation, doctor inspection, and
 the pre-trust project-source preview. Restricted composition omits project contribution sources;
 root descriptors alone never grant project access.
+The CLI selects `.agents/tasks` as its task-context directory and forwards that same selection to
+print, serve, and terminal sessions and to the metadata-only pre-trust preview. The framework chooses
+no default task directory; a disabled or custom host selection changes the loaded and inventoried path
+together. Project settings may override the directory after trust, so that project-selected path is
+not read or revealed by the pre-trust preview.
 The CLI selects the Robota organization-policy file and passes its path to the neutral loader,
 preserving policy enforcement across its command and session surfaces.
+For interactive keybindings, the CLI selects the Robota user file and schema URL and passes both
+to the terminal source; the terminal package does not infer a product-owned location or schema.
+The CLI also supplies `Robota` as the interactive display name, keeping its transcript labels,
+terminal title, and restart copy while the terminal renderer retains a neutral default.
 
 **Local peer activity (#2726).** The host may publish only fixed, content-free activity states for
 its current interactive session into the same guarded, same-user rendezvous as peer discovery. The

@@ -23,13 +23,11 @@ export interface ITaskSelectionOptions {
   currentBranch?: string;
   maxTasks?: number;
   /**
-   * NEUT-004: task-file scan directory relative to cwd. Defaults to the supported
-   * `.agents/tasks` convention.
+   * NEUT-004: host-selected task-file scan directory relative to cwd; absence disables the scan.
    */
   dir?: string;
 }
 
-export const TASKS_DIR = join('.agents', 'tasks');
 const README_FILENAME = 'README.md';
 const MARKDOWN_EXTENSION = '.md';
 const DEFAULT_MAX_TASKS = Number('3');
@@ -152,10 +150,7 @@ export function readCurrentGitBranchFromNodeHost(
   return branch?.trim();
 }
 
-export function discoverTaskFiles(
-  reader: IWorkspaceProjectReader,
-  dir: string = TASKS_DIR,
-): string[] {
+export function discoverTaskFiles(reader: IWorkspaceProjectReader, dir: string): string[] {
   const accepted = assertWorkspaceProjectReader(reader);
   return accepted
     .listDirectory(dir, 'discover project task context')
@@ -207,6 +202,7 @@ export function loadTaskContext(
   reader: IWorkspaceProjectReader,
   options: ITaskSelectionOptions = {},
 ): string {
+  if (!options.dir) return '';
   const currentBranch = options.currentBranch;
   const tasks = discoverTaskFiles(reader, options.dir).map((path) => parseTaskFile(path, reader));
   return formatTaskContext(selectRelevantTasks(tasks, { ...options, currentBranch }));

@@ -25,6 +25,10 @@ export function buildTuiSessionOptions(
     ...(opts.projectSettingsPaths !== undefined
       ? { projectSettingsPaths: opts.projectSettingsPaths }
       : {}),
+    ...(opts.baselinePermissionAllow !== undefined
+      ? { baselinePermissionAllow: opts.baselinePermissionAllow }
+      : {}),
+    ...(opts.taskContext !== undefined ? { taskContext: opts.taskContext } : {}),
     ...(opts.contributionSources !== undefined
       ? { contributionSources: opts.contributionSources }
       : {}),

@@ -73,6 +73,8 @@ export interface ICreateSessionOptions {
   outputStyle?: IOutputStylePrompt;
   /** Resolved CLI configuration (model, API key, permissions) */
   config: IResolvedConfig;
+  /** Host-selected permission patterns independent of config and the active preset. */
+  baselinePermissionAllow?: readonly string[];
   /** Working directory used for project context, skills, and agent definitions. */
   cwd?: string;
   /** Explicit contribution sources; absence means no skill or agent-definition file access. */

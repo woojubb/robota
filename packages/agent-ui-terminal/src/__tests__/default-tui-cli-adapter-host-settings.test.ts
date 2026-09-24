@@ -32,3 +32,14 @@ it('updates the host-selected settings file when changing the active model', () 
     providers: { custom: { model: 'custom-model' } },
   });
 });
+
+it('keeps the host resume command formatter when one is supplied', () => {
+  const adapter = createDefaultTuiCliAdapter({
+    providerDefinitions: [],
+    reloadPluginCommandSource: () => undefined,
+    userSettingsPath: '/tmp/product-settings.json',
+    settingsSources: [],
+    formatResumeCommand: (sessionId) => `product --resume ${sessionId}`,
+  });
+  expect(adapter.formatResumeCommand?.('session_1')).toBe('product --resume session_1');
+});

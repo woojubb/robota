@@ -33,6 +33,8 @@ import { resolveOutputStyle, selectOutputStyleId } from './startup/output-style-
 import type { IPreset } from '@robota-sdk/agent-preset';
 import { bindAssembledCollaborators } from './product/assembled-collaborators.js';
 import { createRobotaProfile } from './product/robota-profile.js';
+import { createRobotaKeybindingsOptions } from './product/robota-keybindings.js';
+import { ROBOTA_TASK_CONTEXT } from './product/robota-task-context.js';
 import {
   buildRobotaRuntimeOptions,
   loadReplayProvider,
@@ -56,7 +58,10 @@ import { isFirstRun, markOnboarded, printFirstRunWelcome } from './startup/first
 import { warnIfTerminalAppOnMacOS } from './startup/terminal-check.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
 import { buildCommandSetupOrExit } from './startup/command-setup.js';
-import { areSessionLoopsDisabled, createLoopDefaultPromptResolver } from './startup/loop-options.js';
+import {
+  areSessionLoopsDisabled,
+  createLoopDefaultPromptResolver,
+} from './startup/loop-options.js';
 import {
   createInitialCliWorkspaceComposition,
   resolveInitialCliWorkspaceProjectAccess,
@@ -67,6 +72,7 @@ import { routeProjectSetup } from './startup/project-setup-routing.js';
 import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
 import { runPrintMode } from './modes/print-mode.js';
 import { buildServeSessionOptions, runServeMode } from './modes/serve-mode.js';
+import { ROBOTA_PERMISSION_BASELINE } from './product/robota-permission-baseline.js';
 import { runMcpServeMode } from './modes/mcp-serve-mode.js';
 import { reserveMcpStdout } from './modes/mcp-stdio-output.js';
 import { composeMcpClientForStartup } from './startup/mcp-startup.js';
@@ -281,6 +287,7 @@ async function runCliCore(
     args.printMode || args.goal !== undefined || args.serve || mcpServe || !presentation
       ? undefined
       : presentation.createNodeKeybindingsSource({
+          ...createRobotaKeybindingsOptions(homedir()),
           onDiagnostic: (diagnostic) =>
             process.stderr.write(
               `Keybindings ${diagnostic.file} ${diagnostic.path}: ${diagnostic.message}\n`,
@@ -384,9 +391,12 @@ async function runCliCore(
     workspaceComposition.projectAccess.status === 'trusted',
     args.open,
   );
-  const externalEventHost = mcp && args.externalEventAllow?.length
-    ? createMcpExternalEventHost(args.externalEventAllow, mcp, (message) => terminal.writeLine(message))
-    : undefined;
+  const externalEventHost =
+    mcp && args.externalEventAllow?.length
+      ? createMcpExternalEventHost(args.externalEventAllow, mcp, (message) =>
+          terminal.writeLine(message),
+        )
+      : undefined;
   const bindTuiTransports = async (session: IInteractiveSession): Promise<void> => {
     bindTransports(session);
     if (!externalEventHost) return;
@@ -599,6 +609,7 @@ async function runCliCore(
       createRobotaUserSettingsSources(homedir()),
       workspaceComposition.contributionSources,
       workspaceComposition.skillRoots,
+      ROBOTA_TASK_CONTEXT,
     );
     try {
       await printRun;
@@ -627,6 +638,7 @@ async function runCliCore(
       userSettingsSources: createRobotaUserSettingsSources(homedir()),
       contributionSources: workspaceComposition.contributionSources,
       skillRoots: workspaceComposition.skillRoots,
+      taskContext: ROBOTA_TASK_CONTEXT,
       ...toolOptions,
       ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
       commandModules,
@@ -671,6 +683,7 @@ async function runCliCore(
       userSettingsSources: createRobotaUserSettingsSources(homedir()),
       contributionSources: workspaceComposition.contributionSources,
       skillRoots: workspaceComposition.skillRoots,
+      taskContext: ROBOTA_TASK_CONTEXT,
       ...toolOptions,
       ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
       commandModules,
@@ -713,6 +726,7 @@ async function runCliCore(
   }
 
   const tuiRun = presentation.renderApp({
+    productDisplayName: 'Robota',
     providerDefinitions,
     ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
     ...(initialInput !== undefined
@@ -737,7 +751,10 @@ async function runCliCore(
     version,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
     disableSessionLoops: areSessionLoopsDisabled(process.env),
-    resolveDefaultLoopPrompt: createLoopDefaultPromptResolver({ projectAccess: workspaceComposition.projectAccess, userHome: homedir() }),
+    resolveDefaultLoopPrompt: createLoopDefaultPromptResolver({
+      projectAccess: workspaceComposition.projectAccess,
+      userHome: homedir(),
+    }),
     resumeSessionId,
     showSessionPickerOnStart,
     forkSession: args.forkSession,
@@ -748,9 +765,11 @@ async function runCliCore(
     agentDefinitionRoots: ROBOTA_AGENT_DEFINITION_ROOTS,
     pluginDirectories: robotaPluginDirectories(cwd, homedir()),
     projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
+    baselinePermissionAllow: ROBOTA_PERMISSION_BASELINE,
     userSettingsSources: createRobotaUserSettingsSources(homedir()),
     contributionSources: workspaceComposition.contributionSources,
     skillRoots: workspaceComposition.skillRoots,
+    taskContext: ROBOTA_TASK_CONTEXT,
     ...toolOptions,
     commandModules,
     commandHostAdapters,
@@ -779,6 +798,7 @@ async function runCliCore(
       reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
       userSettingsPath: robotaUserSettingsPath(),
       settingsSources: createRobotaUserSettingsSources(),
+      formatResumeCommand: (sessionId) => `robota --resume ${sessionId}`,
     }),
     reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
     keybindingsSource,

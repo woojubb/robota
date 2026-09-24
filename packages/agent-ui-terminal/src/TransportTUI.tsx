@@ -19,6 +19,7 @@ import React, { useState, useCallback } from 'react';
 
 import { KeyHintFooter } from './key-hint-footer.js';
 import { useKeybindingActions, useKeybindingHints } from './keybindings/keybindings-context.js';
+import { useProductDisplayName } from './product-display-name-context.js';
 import { Text } from './SafeText.js';
 import { usePalette } from './theme/index.js';
 
@@ -110,6 +111,7 @@ interface IProps {
 
 export default function TransportTUI({ registry, onClose }: IProps): React.ReactElement {
   const palette = usePalette();
+  const productDisplayName = useProductDisplayName();
   const [entries, setEntries] = useState(() => registry.getAll());
   const [cursor, setCursor] = useState(0);
   const [saving, setSaving] = useState(false);
@@ -145,7 +147,9 @@ export default function TransportTUI({ registry, onClose }: IProps): React.React
       </Box>
       <Box marginTop={1} flexDirection="column">
         <KeyHintFooter hints={footerHints} />
-        <Text dimColor>A toggle is saved now and applies the next time Robota starts.</Text>
+        <Text dimColor>
+          A toggle is saved now and applies the next time {productDisplayName} starts.
+        </Text>
       </Box>
       {saving && (
         <Box marginTop={1}>

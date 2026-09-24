@@ -62,6 +62,9 @@ export interface ITuiInteractionChannelOptions {
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
+  baselinePermissionAllow?: readonly string[];
+  /** Host-selected task-context root; absent means no framework task-directory scan. */
+  taskContext?: { readonly enabled?: boolean; readonly dir?: string };
   contributionSources?: ICreateSessionOptions['contributionSources'];
   skillRoots?: ICreateSessionOptions['skillRoots'];
   userSettingsSources?: readonly INodeHostSettingsSource[];

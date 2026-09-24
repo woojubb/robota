@@ -69,6 +69,14 @@ React/Ink UI.
   enablement source and host-selected user/project plugin directories; without either, an interactive
   session admits no bundle plugins. Project plugin directories are admitted only under trusted
   project access. The framework chooses no product plugin location.
+- **Permission baselines are host-selected.** Session assembly adds no product-specific file patterns
+  to a caller's permission configuration. A host may supply baseline allow patterns independently of
+  the active preset; those patterns remain in effect when the preset is changed live, while a later
+  deny rule still takes precedence.
+- **Recovery instructions are host-owned.** Framework errors name the missing provider configuration
+  or invalid settings file without prescribing a product command. A terminal fork-attach refusal
+  carries its resume session id separately so a host can add its own reopen command while neutral
+  consumers still receive an actionable session identifier.
 - **Organization policy is host-located and fail-closed.** The policy loader reads only the path
   selected by its host. An absent or empty path is an error; a missing file at a valid path means no
   deployed policy. A present but unreadable or malformed file raises a typed error rather than
@@ -80,6 +88,10 @@ React/Ink UI.
   contribution sources supplied by the host; either omitted means no filesystem skill discovery.
   Inspection and executable discovery use the same root descriptors, so a host can preview the exact
   roots that a trusted session would load without the framework choosing product directories.
+- **Task-context discovery is host-directed.** The framework reads no ambient task directory. A host
+  must supply a nonempty relative directory; enablement may explicitly disable it. The same
+  selection controls trusted prompt loading and pre-trust candidate inventory. Omission, an empty
+  directory, or explicit disablement yields no task path.
 - **Command modules own product behavior.** SDK core ships no user-visible built-in commands; command
   packages (`agent-command-*`) contribute behavior through `ICommandModule`, consuming SDK command
   contracts and common APIs. The SDK does not know command ids in advance.

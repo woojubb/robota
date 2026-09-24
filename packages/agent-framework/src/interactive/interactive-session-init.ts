@@ -242,6 +242,7 @@ export async function initializeInteractiveSessionAsync(
     ...(options.projectSettingsPaths !== undefined
       ? { projectSettingsPaths: options.projectSettingsPaths }
       : {}),
+    ...(options.taskContext !== undefined ? { taskContext: options.taskContext } : {}),
     ...(options.userSettingsSources !== undefined
       ? { userSettingsSources: options.userSettingsSources }
       : {}),
@@ -250,6 +251,7 @@ export async function initializeInteractiveSessionAsync(
     contributionSources: options.contributionSources,
     skillRoots: options.skillRoots,
     permissionMode: options.permissionMode,
+    baselinePermissionAllow: options.baselinePermissionAllow,
     maxTurns: options.maxTurns,
     permissionHandler: deps.permissionHandler,
     ...(deps.askHandler ? { askHandler: deps.askHandler } : {}),

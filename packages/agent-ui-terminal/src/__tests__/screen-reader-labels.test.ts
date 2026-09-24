@@ -84,8 +84,8 @@ describe('TC-05: RoleLabel in the mode', () => {
     expect(renderLabel('user', true, 'peer:s-1')).toContain('peer:s-1:');
   });
 
-  it('leaves the existing labels untouched when the mode is off', () => {
-    expect(renderLabel('assistant', false)).toContain('Robota:');
+  it('uses neutral visual labels when the mode is off', () => {
+    expect(renderLabel('assistant', false)).toContain('Assistant:');
     expect(renderLabel('user', false)).toContain('You:');
   });
 });

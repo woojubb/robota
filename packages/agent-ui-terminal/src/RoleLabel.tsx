@@ -2,6 +2,7 @@ import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
 import React from 'react';
 
 import { Text } from './SafeText.js';
+import { useProductDisplayName } from './product-display-name-context.js';
 import { useScreenReader } from './screen-reader-context.js';
 import { screenReaderLabelForRole } from './screen-reader-labels.js';
 import { usePalette } from './theme/index.js';
@@ -32,6 +33,7 @@ export function RoleLabel({
 }): React.ReactElement {
   const palette = usePalette();
   const screenReader = useScreenReader();
+  const productDisplayName = useProductDisplayName();
   if (screenReader) {
     // CLI-2004: the label comes from the ROLE, never the vendor — `assistant:` under every
     // agent-provider-*. No colour: in this mode the searchable word is the whole cue.
@@ -51,7 +53,7 @@ export function RoleLabel({
     case 'assistant':
       return (
         <Text color={palette.text.accent} bold>
-          Robota:{' '}
+          {productDisplayName}:{' '}
         </Text>
       );
     case 'system':

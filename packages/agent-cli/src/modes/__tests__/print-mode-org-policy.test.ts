@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { runPrintMode } from '../print-mode.js';
+import { ROBOTA_PERMISSION_BASELINE } from '../../product/robota-permission-baseline.js';
 
 import type { IOrgPolicy } from '@robota-sdk/agent-framework';
 
@@ -73,6 +74,9 @@ describe('print and goal session-capability projection', () => {
           orgPolicy,
         ),
       ).rejects.toBeInstanceOf(ExitSentinel);
+      expect(seen).toHaveBeenCalledWith(expect.objectContaining({
+        baselinePermissionAllow: ROBOTA_PERMISSION_BASELINE,
+      }));
 
       expect(seen).toHaveBeenCalledOnce();
       expect(seen.mock.calls[0]?.[0]).toMatchObject({

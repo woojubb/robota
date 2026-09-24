@@ -24,8 +24,9 @@ describe('project contribution inventory', () => {
   });
 
   it('lists only the host-selected skill roots', () => {
-    expect(listFrameworkProjectContributionPaths('').filter((path) => path.id.startsWith('skill:')))
-      .toEqual([]);
+    expect(
+      listFrameworkProjectContributionPaths('').filter((path) => path.id.startsWith('skill:')),
+    ).toEqual([]);
     expect(
       listFrameworkProjectContributionPaths('', TEST_SKILL_ROOTS).filter((path) =>
         path.id.startsWith('skill:'),
@@ -38,5 +39,33 @@ describe('project contribution inventory', () => {
         expectedKind: 'directory',
       })),
     );
+  });
+
+  it('lists no task directory by default and mirrors the host-selected enabled task root', () => {
+    expect(
+      listFrameworkProjectContributionPaths('').filter((path) => path.id.startsWith('tasks:')),
+    ).toEqual([]);
+    expect(
+      listFrameworkProjectContributionPaths('', [], { enabled: true, dir: 'custom/tasks' }).filter(
+        (path) => path.id.startsWith('tasks:'),
+      ),
+    ).toEqual([
+      {
+        id: 'tasks:custom/tasks',
+        label: 'Active task context',
+        relativePath: 'custom/tasks',
+        expectedKind: 'directory',
+      },
+    ]);
+    expect(
+      listFrameworkProjectContributionPaths('', [], { enabled: false, dir: 'custom/tasks' }).filter(
+        (path) => path.id.startsWith('tasks:'),
+      ),
+    ).toEqual([]);
+    expect(
+      listFrameworkProjectContributionPaths('', [], { enabled: true, dir: '' }).filter((path) =>
+        path.id.startsWith('tasks:'),
+      ),
+    ).toEqual([]);
   });
 });

@@ -42,8 +42,19 @@ a missing mapping is rejected rather than silently dropped.
 Host-selected user settings sources pass through the same render-to-channel-to-session projection;
 the terminal does not choose a settings file for session startup or provider switching. Its CLI
 adapter uses the host-selected write target and read sources for an active-model change.
+The Node keybindings source requires the host to provide both its file path and schema URL; it
+never infers either from the running user's home directory or a product identity.
+Host-selected baseline permission patterns also pass through that projection unchanged; the
+terminal does not choose product path approvals.
+When attaching to a completed fork is refused, the terminal relays the framework's session id and
+adds a resume command only if its host supplied a formatter. The renderer does not name a product
+executable itself.
 The permission prompt labels project-wide approval unavailable when the session cannot persist it,
 and never resolves the disabled choice as an approval.
+The host may supply a product display name to `renderApp` for visible assistant labels, the
+terminal title, and restart copy. Without one, the renderer uses `Assistant`; screen-reader role
+labels remain provider- and product-neutral. Terminal-title composition sanitizes both the
+host-selected name and the session name before emitting the OSC sequence.
 
 When a self-paced loop is waiting, Esc stops that loop through the session's durable stop path.
 If several are waiting, Esc names the explicit stop command instead of choosing one silently.

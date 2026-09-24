@@ -2,7 +2,6 @@ import { isAbsolute, join, sep } from 'node:path';
 
 import { AGENTS_FILENAME, CLAUDE_FILENAME } from '../context/context-loader.js';
 import { PROJECT_DETECTOR_PATHS } from '../context/project-detector.js';
-import { TASKS_DIR } from '../context/task-context.js';
 
 import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 
@@ -45,6 +44,7 @@ function instructionPaths(cwdRelative: string): readonly IProjectContributionPat
 export function listFrameworkProjectContributionPaths(
   cwdRelative: string,
   skillRoots: readonly ISkillRootDescriptor[] = [],
+  taskContext?: { readonly enabled?: boolean; readonly dir?: string },
 ): readonly IProjectContributionPath[] {
   return [
     ...Object.values(PROJECT_DETECTOR_PATHS).map((relativePath) => ({
@@ -60,11 +60,15 @@ export function listFrameworkProjectContributionPaths(
       expectedKind: 'directory' as const,
     })),
     ...instructionPaths(cwdRelative),
-    {
-      id: `tasks:${TASKS_DIR}`,
-      label: 'Active task context',
-      relativePath: TASKS_DIR,
-      expectedKind: 'directory',
-    },
+    ...(taskContext?.enabled === false || !taskContext?.dir
+      ? []
+      : [
+          {
+            id: `tasks:${taskContext.dir}`,
+            label: 'Active task context',
+            relativePath: taskContext.dir,
+            expectedKind: 'directory' as const,
+          },
+        ]),
   ];
 }

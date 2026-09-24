@@ -9,6 +9,7 @@ import React from 'react';
 import { useRenderMarkdown } from './hooks/useRenderMarkdown.js';
 import { humanizeToolArgument, humanizeToolName } from './humanize-tool-name.js';
 import { RenderedText, Text } from './SafeText.js';
+import { useProductDisplayName } from './product-display-name-context.js';
 import { useScreenReader } from './screen-reader-context.js';
 import { SCREEN_READER_LABELS } from './screen-reader-labels.js';
 import { STATUS_SYMBOL, statusGlyphColor, toolStateStatusKind } from './status-glyph.js';
@@ -106,6 +107,7 @@ export default function StreamingIndicator({
   const hasTools = activeTools.length > 0;
   const hasText = text.length > 0;
   const screenReader = useScreenReader();
+  const productDisplayName = useProductDisplayName();
 
   if (screenReader) {
     return renderScreenReaderStatus(text, activeTools, isThinking);
@@ -121,7 +123,7 @@ export default function StreamingIndicator({
       {hasText && (
         <Box flexDirection="column" marginBottom={1}>
           <Text color={palette.text.accent} bold>
-            Robota:
+            {productDisplayName}:
           </Text>
           <Text> </Text>
           <Box marginLeft={2}>

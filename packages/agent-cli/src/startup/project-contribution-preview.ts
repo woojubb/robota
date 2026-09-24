@@ -13,6 +13,7 @@ import { ROBOTA_PROJECT_SETTINGS } from '../product/robota-project-settings.js';
 import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../product/robota-project-state-directories.js';
 import { ROBOTA_PLUGIN_DIRECTORY } from '../product/robota-plugin-paths.js';
 import { ROBOTA_SKILL_ROOTS } from '../product/robota-skill-roots.js';
+import { ROBOTA_TASK_CONTEXT } from '../product/robota-task-context.js';
 
 import type { IProjectContributionPath, IWorkspaceIdentity } from '@robota-sdk/agent-framework';
 
@@ -29,9 +30,12 @@ function currentWorkspaceDirectory(identity: IWorkspaceIdentity, cwd: string): s
 }
 
 /** CLI-owned sources extend the framework owners without copying their path definitions. */
-export function listProjectContributionPaths(cwdRelative: string): readonly IProjectContributionPath[] {
+export function listProjectContributionPaths(
+  cwdRelative: string,
+  taskContext: { readonly enabled?: boolean; readonly dir?: string } = ROBOTA_TASK_CONTEXT,
+): readonly IProjectContributionPath[] {
   return [
-    ...listFrameworkProjectContributionPaths(cwdRelative, ROBOTA_SKILL_ROOTS),
+    ...listFrameworkProjectContributionPaths(cwdRelative, ROBOTA_SKILL_ROOTS, taskContext),
     ...Object.entries(ROBOTA_PROJECT_STATE_DIRECTORIES).map(([namespace, relativePath]) => ({
       id: `state:${namespace}`,
       label: `Project ${namespace}`,
@@ -75,13 +79,14 @@ export function listProjectContributionPaths(cwdRelative: string): readonly IPro
 export function formatProjectContributionPreview(
   identity: IWorkspaceIdentity | undefined,
   cwd: string,
+  taskContext: { readonly enabled?: boolean; readonly dir?: string } = ROBOTA_TASK_CONTEXT,
 ): string {
   if (identity === undefined) return 'Project sources: unavailable (workspace identity unresolved)\n';
   const cwdRelative = currentWorkspaceDirectory(identity, cwd);
   if (cwdRelative === undefined) {
     return 'Project sources: unavailable (working directory is outside the workspace)\n';
   }
-  const descriptors = listProjectContributionPaths(cwdRelative);
+  const descriptors = listProjectContributionPaths(cwdRelative, taskContext);
   const inspected = inspectPreTrustProjectPaths(
     identity,
     descriptors.map((descriptor) => descriptor.relativePath),

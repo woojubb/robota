@@ -167,7 +167,7 @@ describe('createSession — allowedTools option', () => {
     expect(allow).toContain('Read(*)');
   });
 
-  it('permissions.allow includes Bash(*) and Read(*) alongside default allow patterns', async () => {
+  it('permissions.allow includes Bash(*) and Read(*) alongside a host-selected baseline', async () => {
     const { createSession } = await import('../assembly/create-session.js');
 
     await createSession({
@@ -175,13 +175,14 @@ describe('createSession — allowedTools option', () => {
       context: { agentsMd: '', projectNotesMd: '' },
       terminal: MOCK_TERMINAL,
       provider: createMockProvider(),
+      baselinePermissionAllow: ['Read(.agents/**)'],
       allowedTools: ['Bash', 'Read'],
     });
 
     const opts = sessionCtorCalls[0]!;
     const allow = (opts.permissions as { allow: string[] }).allow;
 
-    // Should still include the default config folder allow patterns
+    // A host baseline survives startup preset tool-list composition.
     expect(allow.some((p: string) => p.startsWith('Read(.agents/'))).toBe(true);
     // And the new allowedTools patterns
     expect(allow).toContain('Bash(*)');

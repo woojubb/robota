@@ -1,7 +1,6 @@
 import { watch, type FSWatcher } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
-import { homedir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname } from 'node:path';
 
 import {
   parseKeybindingsDocument,
@@ -9,12 +8,6 @@ import {
   type IKeybindingSnapshot,
 } from './keybinding-registry.js';
 
-export const KEYBINDINGS_SCHEMA_URL = 'https://docs.robota.io/schemas/keybindings.schema.json';
-export const DEFAULT_KEYBINDINGS_DOCUMENT = Object.freeze({
-  $schema: KEYBINDINGS_SCHEMA_URL,
-  version: 1 as const,
-  bindings: Object.freeze({}),
-});
 const RELOAD_DEBOUNCE_MS = 10;
 
 export interface IKeybindingsFilePort {
@@ -31,19 +24,24 @@ export interface IKeybindingsSource extends IKeybindingsFilePort {
 }
 
 export interface INodeKeybindingsSourceOptions {
-  readonly homeDir?: string;
-  readonly filePath?: string;
+  readonly filePath: string;
+  readonly schemaUrl: string;
   readonly onDiagnostic?: (diagnostic: IKeybindingDiagnostic) => void;
 }
 
-function defaultSnapshot(filePath: string): IKeybindingSnapshot {
-  const parsed = parseKeybindingsDocument(JSON.stringify(DEFAULT_KEYBINDINGS_DOCUMENT), filePath);
+function defaultDocument(schemaUrl: string) {
+  return { $schema: schemaUrl, version: 1 as const, bindings: {} };
+}
+
+function defaultSnapshot(filePath: string, schemaUrl: string): IKeybindingSnapshot {
+  const parsed = parseKeybindingsDocument(JSON.stringify(defaultDocument(schemaUrl)), filePath);
   if (!parsed.ok) throw new Error(parsed.diagnostic.message);
   return parsed.snapshot;
 }
 
 class NodeKeybindingsSource implements IKeybindingsSource {
   readonly filePath: string;
+  readonly #schemaUrl: string;
   readonly #onDiagnostic: ((diagnostic: IKeybindingDiagnostic) => void) | undefined;
   readonly #listeners = new Set<(snapshot: IKeybindingSnapshot) => void>();
   #snapshot: IKeybindingSnapshot;
@@ -53,10 +51,12 @@ class NodeKeybindingsSource implements IKeybindingsSource {
   #disposed = false;
 
   constructor(options: INodeKeybindingsSourceOptions) {
-    this.filePath =
-      options.filePath ?? join(options.homeDir ?? homedir(), '.robota', 'keybindings.json');
+    if (options.filePath.trim() === '') throw new Error('Keybindings file path must not be empty.');
+    if (options.schemaUrl.trim() === '') throw new Error('Keybindings schema URL must not be empty.');
+    this.filePath = options.filePath;
+    this.#schemaUrl = options.schemaUrl;
     this.#onDiagnostic = options.onDiagnostic;
-    this.#snapshot = defaultSnapshot(this.filePath);
+    this.#snapshot = defaultSnapshot(this.filePath, this.#schemaUrl);
   }
 
   start(): Promise<void> {
@@ -98,7 +98,7 @@ class NodeKeybindingsSource implements IKeybindingsSource {
   async ensureFile(): Promise<string> {
     await mkdir(dirname(this.filePath), { recursive: true });
     try {
-      await writeFile(this.filePath, `${JSON.stringify(DEFAULT_KEYBINDINGS_DOCUMENT, null, 2)}\n`, {
+      await writeFile(this.filePath, `${JSON.stringify(defaultDocument(this.#schemaUrl), null, 2)}\n`, {
         encoding: 'utf8',
         flag: 'wx',
         mode: 0o600,
@@ -183,7 +183,7 @@ function errorMessage(cause: object): string {
 }
 
 export function createNodeKeybindingsSource(
-  options: INodeKeybindingsSourceOptions = {},
+  options: INodeKeybindingsSourceOptions,
 ): IKeybindingsSource {
   return new NodeKeybindingsSource(options);
 }
