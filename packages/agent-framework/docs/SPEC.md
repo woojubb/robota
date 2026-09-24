@@ -245,9 +245,11 @@ These are behaviors a caller cannot infer from a type signature alone.
   without cancelling the loop; a boundary that is invalid or later than the loop's expiry is refused.
 
 - **Memory capture filters likely-sensitive content, heuristically.** Automatic capture and
-  `/memory add` skip candidates whose text matches secret-like wording (key, secret, token, password,
-  private key) or card/ID number formats; skipped candidates are not written to memory but stay in the
-  pending queue. This is a keyword and format filter, not a secret scanner.
+  `/memory add` skip candidates whose text matches secret-like wording, card/ID number formats, or
+  secret-shaped values (well-known credential prefixes, key blocks, JWTs, long mixed-case random runs).
+  A skipped candidate is never persisted anywhere, including the pending queue. Approval accepts only a
+  `pending` candidate and re-runs the check, so nothing flagged reaches durable memory. This is a
+  heuristic, not a secret scanner: a secret that reads like prose can still pass.
 
 ## Error taxonomy (shape, not enumeration)
 

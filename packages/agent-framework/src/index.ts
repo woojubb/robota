@@ -410,8 +410,10 @@ export {
   createSemanticMemoryStore,
   DEFAULT_MEMORY_EXTRACTOR_POLICY,
   RegexMemoryCandidateExtractor,
+  approvePendingMemoryCandidate,
 } from './memory/index.js';
 export type {
+  IApprovedMemoryCandidate,
   IAppendMemoryInput,
   IAppendMemoryResult,
   IProjectMemorySummary,
