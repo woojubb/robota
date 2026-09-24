@@ -4,6 +4,7 @@ export type { ISupervisedViewRow, ISupervisedSessionViewProps } from './Supervis
 export { TuiInteractionChannel } from './TuiInteractionChannel.js';
 export type { ITuiInteractionChannelOptions } from './TuiInteractionChannel.js';
 export type { IRenderOptions } from './render.js';
+export type { ITerminalCapabilityOverrides } from './terminal-capabilities-context.js';
 export type { TScreenReaderChannel } from './screen-reader-announcement.js';
 export type { IScreenReaderPacingOverrides } from './screen-reader-pacing.js';
 export type { ITuiCliAdapter } from './tui-cli-adapter.js';

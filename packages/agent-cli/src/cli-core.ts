@@ -83,6 +83,7 @@ import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { Writable } from 'node:stream';
 import { resolveMemorySurfaceOptions } from './startup/memory-enablement.js';
 import { resolveFocusReportingOverride } from './startup/focus-reporting-enablement.js';
+import { resolveRobotaTerminalCapabilities } from './startup/terminal-capabilities-projection.js';
 import { resolvePromptHistoryRenderFields } from './startup/prompt-history-enablement.js';
 import { resolveScreenReaderRenderFields } from './startup/screen-reader-enablement.js';
 import { resolveRobotaScreenReaderPacing } from './startup/screen-reader-pacing-projection.js';
@@ -818,6 +819,7 @@ async function runCliCore(
     // CLI-2004: off ⇒ today's byte stream is unchanged.
     ...screenReader,
     screenReaderPacing: resolveRobotaScreenReaderPacing(process.env),
+    terminalCapabilities: resolveRobotaTerminalCapabilities(process.env),
     // SCREEN-1992: the focus-reporting kill switch is the shell's; the TUI's TTY gate decides otherwise.
     focusReporting: resolveFocusReportingOverride(process.env),
     // SCREEN-1993: prompt history is a TUI-only surface (print and serve above receive no writer).

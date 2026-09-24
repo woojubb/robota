@@ -34,6 +34,7 @@ import { RenderedText } from './SafeText.js';
 import { sanitizeTerminalText } from './sanitize-terminal-text.js';
 import { useScreenReaderPacing } from './screen-reader-pacing-context.js';
 import { supportsImeCursorPositioning } from './terminal-capabilities.js';
+import { useTerminalCapabilityOverrides } from './terminal-capabilities-context.js';
 import { foreground, usePalette } from './theme/index.js';
 
 import type { IKeyInput, TKeybindingContext } from './keybindings/keybinding-registry.js';
@@ -123,9 +124,13 @@ export default function CjkTextInput({
   const palette = usePalette();
   const mutedPlaceholder = useMemo(() => foreground(palette.text.muted), [palette.text.muted]);
   const boxRef = useRef<DOMElement | null>(null);
+  const terminalCapabilities = useTerminalCapabilityOverrides();
   const { realCursorActive } = useRealCursorPosition({
     boxRef,
-    enabled: focus && showCursor && supportsImeCursorPositioning(),
+    enabled:
+      focus &&
+      showCursor &&
+      supportsImeCursorPositioning({ override: terminalCapabilities.imeCursorPositioning }),
     value: stateRef.current.value,
     cursor: stateRef.current.cursor,
     ...(availableWidth !== undefined ? { availableWidth } : {}),

@@ -15,6 +15,7 @@ import { useEffect, useMemo, useRef } from 'react';
 import { createAttentionBell } from '../attention-bell.js';
 import { useScreenReaderPacing } from '../screen-reader-pacing-context.js';
 import { supportsTurnMarks } from '../terminal-capabilities.js';
+import { useTerminalCapabilityOverrides } from '../terminal-capabilities-context.js';
 import { createTurnMarkWriter } from '../terminal-marks.js';
 
 import type { IAttentionBell } from '../attention-bell.js';
@@ -57,14 +58,15 @@ export function useScreenReaderTurnSignals(inputs: IUseScreenReaderTurnSignalsIn
   // travel through the owned write path, ordered with the commit they belong to. Outside a provider
   // the port writes to the process's own stdout, which is exactly today's path.
   const pacing = useScreenReaderPacing();
+  const terminalCapabilities = useTerminalCapabilityOverrides();
   const marks = useMemo(
     () =>
       createTurnMarkWriter({
         enabled,
-        supported: supportsTurnMarks,
+        supported: () => supportsTurnMarks({ override: terminalCapabilities.turnMarks }),
         write: (text) => pacing.write(text),
       }),
-    [enabled, pacing],
+    [enabled, pacing, terminalCapabilities.turnMarks],
   );
   const wasThinking = useRef(false);
   const runningTools = useRef<ReadonlySet<string>>(new Set());

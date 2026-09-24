@@ -18,6 +18,8 @@ import { awaitStartupQuietPeriod, resolvePacing } from './screen-reader-pacing.j
 import type { IScreenReaderPacingOverrides } from './screen-reader-pacing.js';
 import { createParkedStdout, toPacingPort } from './screen-reader-stdout.js';
 import { isInteractiveColorTerminal, supportsFocusReporting } from './terminal-capabilities.js';
+import { TerminalCapabilitiesProvider } from './terminal-capabilities-context.js';
+import type { ITerminalCapabilityOverrides } from './terminal-capabilities-context.js';
 import { createFocusReportingWriter } from './terminal-focus-reporting.js';
 import { TerminalHandoffController } from './terminal-handoff-controller.js';
 import { TuiInteractionChannel } from './TuiInteractionChannel.js';
@@ -197,6 +199,8 @@ export interface IRenderOptions {
   screenReader?: boolean | undefined;
   /** Host-selected raw timing overrides; absent values use the renderer's defaults. */
   screenReaderPacing?: IScreenReaderPacingOverrides;
+  /** Host-selected cursor and turn-mark overrides; absent values use terminal detection. */
+  terminalCapabilities?: ITerminalCapabilityOverrides;
   /** CLI-2004: which input turned the mode on — printed in the confirmation line. */
   screenReaderChannel?: TScreenReaderChannel | undefined;
   /** CLI-2004: mode off, but the environment suggests a reader is running ⇒ one advisory line. */
@@ -461,29 +465,31 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
     >
       <KeybindingsProvider source={options.keybindingsSource}>
         <ScreenReaderProvider enabled={screenReader}>
-          <App
-            cwd={options.cwd}
-            createChannel={createChannel}
-            providerOverride={options.providerOverride}
-            providerType={options.providerType}
-            modelId={options.modelId}
-            permissionMode={options.permissionMode}
-            version={options.version}
-            sessionStore={options.sessionStore}
-            resumeSessionId={options.resumeSessionId}
-            showSessionPickerOnStart={options.showSessionPickerOnStart}
-            initialInput={options.initialInput}
-            initialInputOrigin={options.initialInputOrigin}
-            startupUpdateNotice={options.startupUpdateNotice}
-            transportRegistry={options.transportRegistry}
-            pluginAdapter={options.commandHostAdapters?.plugin}
-            cliAdapter={options.cliAdapter}
-            promptHistorySource={options.promptHistorySource}
-            promptHistoryProject={options.promptHistoryProject}
-            themeRegistry={options.themeRegistry}
-            reducedMotion={options.reducedMotion}
-            reducedMotionOverride={options.reducedMotionOverride}
-          />
+          <TerminalCapabilitiesProvider overrides={options.terminalCapabilities}>
+            <App
+              cwd={options.cwd}
+              createChannel={createChannel}
+              providerOverride={options.providerOverride}
+              providerType={options.providerType}
+              modelId={options.modelId}
+              permissionMode={options.permissionMode}
+              version={options.version}
+              sessionStore={options.sessionStore}
+              resumeSessionId={options.resumeSessionId}
+              showSessionPickerOnStart={options.showSessionPickerOnStart}
+              initialInput={options.initialInput}
+              initialInputOrigin={options.initialInputOrigin}
+              startupUpdateNotice={options.startupUpdateNotice}
+              transportRegistry={options.transportRegistry}
+              pluginAdapter={options.commandHostAdapters?.plugin}
+              cliAdapter={options.cliAdapter}
+              promptHistorySource={options.promptHistorySource}
+              promptHistoryProject={options.promptHistoryProject}
+              themeRegistry={options.themeRegistry}
+              reducedMotion={options.reducedMotion}
+              reducedMotionOverride={options.reducedMotionOverride}
+            />
+          </TerminalCapabilitiesProvider>
         </ScreenReaderProvider>
       </KeybindingsProvider>
     </ProductDisplayNameProvider>
