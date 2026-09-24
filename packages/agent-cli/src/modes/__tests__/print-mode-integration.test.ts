@@ -385,6 +385,14 @@ describe('CLI-sourced prompt flags reach the session (issue #1937)', () => {
     expect(options.appendSystemPrompt).toBe('SERVED-ADDITION');
   });
 
+  it('serve mode forwards the host live trace port to its session', () => {
+    const livePromptTrace = { enqueue: vi.fn() };
+    const options = buildServeSessionOptions({
+      cwd, args: makeArgs({}), preset: {}, livePromptTrace,
+    } as never);
+    expect(options.livePromptTrace).toBe(livePromptTrace);
+  });
+
   it('the shared mapper takes the tool lists from the PRESET SURFACE (issue #1934)', () => {
     // The claim the projection test could not make. It asserts the mode surfaces ACCEPT every field
     // — a compile-time property — and both modes accepted `allowedTools` while reading
