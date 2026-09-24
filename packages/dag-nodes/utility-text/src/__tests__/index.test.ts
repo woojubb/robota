@@ -313,6 +313,21 @@ describe('TextUpperNodeDefinition', () => {
     if (r.ok) expect(r.value.text).toBe('HELLO WORLD');
   });
 
+  it('counts Unicode uppercase expansion against a host-tightened UTF-8 ceiling', async () => {
+    const context = ctx('text-upper');
+    context.byteLimits = { maxTextRepeatOutputBytes: 4_194_304, maxTextUpperOutputBytes: 3 };
+    expect(await node.taskHandler.execute({ text: 'և' }, context)).toMatchObject({
+      ok: false, error: { code: 'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED', retryable: false },
+    });
+    context.byteLimits = { maxTextRepeatOutputBytes: 4_194_304, maxTextUpperOutputBytes: 4 };
+    expect(await node.taskHandler.execute({ text: 'և' }, context)).toMatchObject({
+      ok: true, value: { text: 'ԵՒ' },
+    });
+    expect(await node.taskHandler.execute({ text: '😀' }, context)).toMatchObject({
+      ok: true, value: { text: '😀' },
+    });
+  });
+
   it('returns error when text missing', async () => {
     const r = await node.taskHandler.execute({}, ctx('text-upper'));
     expect(r.ok).toBe(false);
