@@ -13,8 +13,8 @@ input or pass through arbitrary data unchanged within DAG execution flows.
 ## Guarantees
 
 - An empty input payload is rejected at validation rather than executed against.
-- When no `text` input is present, all input entries pass through unchanged rather than being
-  dropped.
+- Text transformation obeys the host's output budget before allocating its result; input without
+  text retains its values rather than being dropped.
 
 ## Non-goals
 

@@ -1,6 +1,8 @@
 import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
 import {
+  buildTaskExecutionError,
   buildValidationError,
+  resolveDagExecutionByteLimits,
   type ICostEstimate,
   type IDagError,
   type IDagNodeDefinition,
@@ -13,6 +15,34 @@ import { z } from 'zod';
 const TransformNodeConfigSchema = z.object({
   prefix: z.string().default(''),
 });
+
+function isHighSurrogate(code: number): boolean {
+  return code >= 0xd800 && code <= 0xdbff;
+}
+
+function isLowSurrogate(code: number): boolean {
+  return code >= 0xdc00 && code <= 0xdfff;
+}
+
+/** Measure a virtual concatenation without allocating the output string. */
+function prefixedUtf8Bytes(prefix: string, text: string): number {
+  let bytes = 0;
+  for (const part of [prefix, text]) {
+    for (let index = 0; index < part.length; index++) {
+      const code = part.charCodeAt(index);
+      if (code < 0x80) bytes += 1;
+      else if (code < 0x800) bytes += 2;
+      else if (isHighSurrogate(code) && isLowSurrogate(part.charCodeAt(index + 1))) {
+        bytes += 4;
+        index++;
+      } else bytes += 3;
+    }
+  }
+  if (isHighSurrogate(prefix.charCodeAt(prefix.length - 1)) && isLowSurrogate(text.charCodeAt(0))) {
+    bytes -= 2;
+  }
+  return bytes;
+}
 
 /**
  * DAG node that transforms input data by optionally prepending a configured prefix to text.
@@ -70,6 +100,14 @@ export class TransformNodeDefinition extends AbstractNodeDefinition<
     const io = new NodeIoAccessor(input, context.nodeDefinition.nodeId);
     const textValue = io.getInput('text');
     if (typeof textValue === 'string') {
+      const maxBytes = resolveDagExecutionByteLimits(context.byteLimits).maxTextTransformOutputBytes;
+      if (prefixedUtf8Bytes(config.prefix, textValue) > maxBytes) {
+        return { ok: false, error: buildTaskExecutionError(
+          'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED',
+          'transform output exceeds its UTF-8 byte limit', false,
+          { maxBytes, nodeType: 'transform' },
+        ) };
+      }
       const transformed = `${config.prefix}${textValue}`;
       io.setOutput('text', transformed);
       io.setOutput(

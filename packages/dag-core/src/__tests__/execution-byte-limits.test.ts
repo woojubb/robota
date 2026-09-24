@@ -28,6 +28,11 @@ it.each([NaN, Infinity, -1, 0.5, 4_194_305, null, undefined])('rejects an invali
   expect(() => resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1, maxTextReplaceOutputBytes })).toThrow(RangeError);
 });
 
+it.each([NaN, Infinity, -1, 0.5, 4_194_305, null, undefined])('rejects an invalid transform limit %s', (maxTextTransformOutputBytes) => {
+  // @ts-expect-error intentionally exercise malformed JavaScript host policy
+  expect(() => resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1, maxTextTransformOutputBytes })).toThrow(RangeError);
+});
+
 it('retains the replacement default for older host policies and snapshots a tighter policy', () => {
   expect(resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1 }).maxTextReplaceOutputBytes).toBe(4_194_304);
   const source = { maxTextRepeatOutputBytes: 1, maxTextReplaceOutputBytes: 0 };

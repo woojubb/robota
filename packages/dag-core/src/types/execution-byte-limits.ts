@@ -9,6 +9,8 @@ export interface IDagExecutionByteLimits {
   readonly maxTextJoinOutputBytes?: number;
   /** Text split expansion; omitted by older hosts to retain the built-in ceiling. */
   readonly maxTextSplitOutputBytes?: number;
+  /** Prefixed transform output; omitted by older hosts to retain the built-in ceiling. */
+  readonly maxTextTransformOutputBytes?: number;
 }
 
 /** Keep supported text expansion bounded even when no host policy is supplied. */
@@ -18,6 +20,7 @@ export const DEFAULT_DAG_EXECUTION_BYTE_LIMITS: IDagExecutionByteLimits = Object
   maxTextTemplateOutputBytes: 4 * 1024 * 1024,
   maxTextJoinOutputBytes: 4 * 1024 * 1024,
   maxTextSplitOutputBytes: 4 * 1024 * 1024,
+  maxTextTransformOutputBytes: 4 * 1024 * 1024,
 });
 
 /** Snapshot a trusted host policy; hosts may tighten the built-in ceiling. */
@@ -55,8 +58,14 @@ export function resolveDagExecutionByteLimits(
     || maxTextSplitOutputBytes < 0 || maxTextSplitOutputBytes > 4 * 1024 * 1024) {
     throw new RangeError('maxTextSplitOutputBytes must be a safe integer between 0 and 4194304');
   }
+  const maxTextTransformOutputBytes = limits && 'maxTextTransformOutputBytes' in limits
+    ? limits.maxTextTransformOutputBytes : 4 * 1024 * 1024;
+  if (typeof maxTextTransformOutputBytes !== 'number' || !Number.isSafeInteger(maxTextTransformOutputBytes)
+    || maxTextTransformOutputBytes < 0 || maxTextTransformOutputBytes > 4 * 1024 * 1024) {
+    throw new RangeError('maxTextTransformOutputBytes must be a safe integer between 0 and 4194304');
+  }
   return Object.freeze({
     maxTextRepeatOutputBytes, maxTextReplaceOutputBytes, maxTextTemplateOutputBytes,
-    maxTextJoinOutputBytes, maxTextSplitOutputBytes,
+    maxTextJoinOutputBytes, maxTextSplitOutputBytes, maxTextTransformOutputBytes,
   });
 }
