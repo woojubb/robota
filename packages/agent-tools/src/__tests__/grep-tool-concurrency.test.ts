@@ -1,17 +1,15 @@
 /**
  * CLI-042 — grep-tool bounded-concurrency evidence.
  *
- * Instruments node:fs/promises.readFile with an in-flight counter (plus a small
- * timer delay so overlap is observable) and asserts the directory scan reads
- * files concurrently (maxInFlight >= 2 — fails on the old sequential loop) while
- * staying within the p-limit bound (maxInFlight <= 50).
+ * Instruments the file streams with an in-flight counter (plus a small timer
+ * delay so overlap is observable) and asserts concurrent reads remain bounded.
  */
 import { mkdtempSync, rmSync, writeFileSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
-const GREP_READ_CONCURRENCY_LIMIT = 50;
+const GREP_READ_CONCURRENCY_LIMIT = 8;
 
 const readTracker = vi.hoisted(() => ({
   inFlight: 0,
@@ -19,26 +17,32 @@ const readTracker = vi.hoisted(() => ({
   enabled: false,
 }));
 
-vi.mock('node:fs/promises', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:fs/promises')>();
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  const { Transform } = await import('node:stream');
   return {
     ...actual,
-    readFile: async (...args: Parameters<typeof actual.readFile>) => {
-      if (!readTracker.enabled) return actual.readFile(...args);
+    createReadStream: (...args: Parameters<typeof actual.createReadStream>) => {
+      const source = actual.createReadStream(...args);
+      if (!readTracker.enabled) return source;
       readTracker.inFlight++;
       readTracker.maxInFlight = Math.max(readTracker.maxInFlight, readTracker.inFlight);
-      try {
-        // Hold the read open across a macrotask so concurrent reads overlap observably.
-        await new Promise((resolveDelay) => setTimeout(resolveDelay, 5));
-        return await actual.readFile(...args);
-      } finally {
+      const delayed = new Transform({
+        transform(chunk: Buffer, _encoding, done) {
+          setTimeout(() => done(null, chunk), 5);
+        },
+      });
+      source.on('error', (error) => delayed.destroy(error));
+      delayed.once('close', () => {
+        source.destroy();
         readTracker.inFlight--;
-      }
+      });
+      return source.pipe(delayed);
     },
   };
 });
 
-// Import AFTER the mock so grep-tool binds to the instrumented readFile.
+// Import after the mock so grep-tool binds to the instrumented streams.
 const { createGrepTool } = await import('../builtins/grep-tool.js');
 
 interface IGrepResult {
