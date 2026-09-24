@@ -24,9 +24,10 @@ describe('IChatOptions wire disposition (CORE-044)', () => {
     }
   });
 
-  it('the local callbacks, abort signal, and adapter-bound resolution are the ONLY local members', () => {
+  it('the local callbacks, abort signal, adapter-bound resolution and trusted trace context are the ONLY local members', () => {
     // If a serializable option ever appears here, it is being dropped on the wire again — which is
-    // the defect, restated. A function or an AbortSignal genuinely cannot cross; nothing else.
+    // the defect, restated. A function or an AbortSignal genuinely cannot cross; the trace context
+    // could, but it is trusted only for origins the local host listed, and a server was never one.
     const local = Object.entries(CHAT_OPTION_WIRE_DISPOSITION)
       .filter(([, d]) => d.kind === 'local')
       .map(([field]) => field)
@@ -37,8 +38,17 @@ describe('IChatOptions wire disposition (CORE-044)', () => {
       'onModelEffortOutcome',
       'onProviderNativeRawPayload',
       'onTextDelta',
+      'outboundTraceContext',
       'signal',
     ]);
+    expect(
+      toWireChatOptions({
+        outboundTraceContext: {
+          traceparent: '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01',
+          allowedOrigins: ['https://api.example.com'],
+        },
+      }),
+    ).toBeUndefined();
   });
 
   it('projects the serializable options and drops the ones that cannot cross', () => {

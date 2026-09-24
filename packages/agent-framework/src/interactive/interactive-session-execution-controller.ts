@@ -6,6 +6,7 @@ import {
   createUserMessage,
   createSystemMessage,
   messageToHistoryEntry,
+  providerCallSpanId,
 } from '@robota-sdk/agent-core';
 
 import { InteractiveExecutionClaimOwner } from './interactive-execution-claim.js';
@@ -14,6 +15,7 @@ import {
   LivePromptTraceAccumulator,
   enqueueLivePromptTrace,
   reportLivePromptTraceProjectionFailure,
+  reportTraceContextUnavailable,
 } from './interactive-session-live-prompt-trace.js';
 import {
   projectCompactEvent,
@@ -46,7 +48,7 @@ import type { ICommand, ICommandResult, ISkillExecutionResult } from '../command
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
-import type { IHistoryEntry, TToolArgs } from '@robota-sdk/agent-core';
+import type { IHistoryEntry, IRunTraceContext, TToolArgs } from '@robota-sdk/agent-core';
 import type {
   IProviderCallTraceEntry,
   IToolBodyTraceEntry,
@@ -321,12 +323,14 @@ export class SessionExecutionController {
         traceId: randomOtelId(16),
         spanId: randomOtelId(8),
       };
+      const traceContext = this.promptTraceContext(promptRoot);
       await executePromptTurn(input, displayInput, rawInput, {
         providerErrorGuidance: this.callbacks.providerErrorGuidance,
         promptFileReferenceTag: this.callbacks.promptFileReferenceTag,
         turnSource: turnOptions.turnSource,
         ...promptTurnAttribution(ephemeralSystemContext, turnOptions.driverId),
         ...(turnOptions.signal ? { signal: turnOptions.signal } : {}),
+        ...(traceContext ? { traceContext } : {}),
         getSession: () => this.callbacks.getSessionOrThrow(),
         getCwd: () => this.callbacks.getCwd(),
         getProjectAccess: () => this.callbacks.getProjectAccess(),
@@ -348,13 +352,16 @@ export class SessionExecutionController {
         },
         onProviderCallCompleted: (observation) => {
           if (!promptRoot) return;
-          if (observation.callId) {
-            if (seenProviderCallIds.has(observation.callId)) return;
-            seenProviderCallIds.add(observation.callId);
+          // Core mints the call ID before every call and the span ID is derived from it, so the span
+          // a provider was told is its parent is the span exported here. A call without one has no
+          // span it could have been told about, and is counted as omitted rather than invented.
+          if (!observation.callId) {
+            liveTrace?.omit({ provider: 1, tool: 0 });
+            return;
           }
-          const spanId = observation.callId
-            ? observation.callId.replaceAll('-', '').slice(0, 16)
-            : randomOtelId(8);
+          if (seenProviderCallIds.has(observation.callId)) return;
+          seenProviderCallIds.add(observation.callId);
+          const spanId = providerCallSpanId(observation.callId);
           const entry: IHistoryEntry<IProviderCallTraceEntry> = {
             id: `provider_call_trace_${randomOtelId(8)}`,
             timestamp: new Date(),
@@ -551,6 +558,22 @@ export class SessionExecutionController {
       if (turnOptions.wakeTaskId !== undefined) this.wakeTaskIds.delete(turnOptions.wakeTaskId);
       this.executionClaim.complete(executionClaim, () => this.drainPendingQueue(resumeQueuedTurn));
     }
+  }
+
+  /**
+   * The trace a prompt's provider calls carry, only while that prompt's root exists and only when
+   * the host configured propagation. Built per prompt, so no other run can inherit it.
+   */
+  private promptTraceContext(promptRoot: { traceId: string; spanId: string }): IRunTraceContext | undefined {
+    const port = this.callbacks.livePromptTrace;
+    const allowedOrigins = port?.traceContextPropagation?.allowedOrigins;
+    if (!port || !allowedOrigins || allowedOrigins.length === 0) return undefined;
+    return {
+      traceId: promptRoot.traceId,
+      parentSpanId: promptRoot.spanId,
+      allowedOrigins: [...allowedOrigins],
+      onPropagationUnavailable: (providerId) => reportTraceContextUnavailable(port, providerId),
+    };
   }
 
   async executeForkSkillCommand(

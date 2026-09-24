@@ -39,7 +39,7 @@ const SUPPORTED_SETTINGS = new Set([
   'ENABLED', 'TRACES', 'METRICS', 'LOGS', 'OTLP_PROTOCOL', 'OTLP_ENDPOINT',
   'OTLP_TRACES_ENDPOINT', 'OTLP_METRICS_ENDPOINT', 'OTLP_LOGS_ENDPOINT',
   'OTLP_HEADERS', 'OTLP_TRACES_HEADERS', 'OTLP_METRICS_HEADERS', 'OTLP_LOGS_HEADERS',
-  'METRIC_ATTRIBUTES',
+  'METRIC_ATTRIBUTES', 'PROPAGATE_TO',
 ].map((suffix) => `ROBOTA_TELEMETRY_${suffix}`));
 
 const METRIC_ATTRIBUTES_SETTING = 'ROBOTA_TELEMETRY_METRIC_ATTRIBUTES';
@@ -68,6 +68,58 @@ function resolveMetricAttributesSetting(
     result.add(token as TLiveMetricAttribute);
   });
   return result;
+}
+
+const PROPAGATE_TO_SETTING = 'ROBOTA_TELEMETRY_PROPAGATE_TO';
+const MAX_PROPAGATION_ORIGINS = 16;
+const MAX_PROPAGATION_ORIGIN_LENGTH = 256;
+
+/** The trust a host hands the framework: exact origins that may receive `traceparent`. */
+export interface ILiveTraceContextPropagation {
+  readonly allowedOrigins: readonly string[];
+}
+
+/**
+ * Trace-context propagation discloses the operator's trace identifiers to a third party, so it is
+ * an explicit allowlist of exact origins and exists only while traces are actually exported. Each
+ * entry must already be its own origin — no path, trailing slash, userinfo, wildcard or default
+ * port spelled out — so what the operator wrote is exactly what is compared. Errors name the
+ * setting and a 1-based position only, never the value.
+ */
+function resolvePropagateToSetting(
+  env: Readonly<Record<string, string | undefined>>,
+): ILiveTraceContextPropagation | undefined {
+  const raw = env[PROPAGATE_TO_SETTING];
+  if (raw === undefined) return undefined;
+  const traces = env['ROBOTA_TELEMETRY_TRACES'];
+  if (traces !== 'otlp' && traces !== 'console') {
+    throw new Error(`${PROPAGATE_TO_SETTING} is set but traces are not exported over otlp or console.`);
+  }
+  const entries = raw.split(',');
+  if (entries.length > MAX_PROPAGATION_ORIGINS) throw new Error(`${PROPAGATE_TO_SETTING} lists too many origins.`);
+  const allowedOrigins: string[] = [];
+  entries.forEach((entry, index) => {
+    if (!isExactTrustedOrigin(entry)) {
+      throw new Error(`${PROPAGATE_TO_SETTING} has an invalid origin at position ${index + 1}.`);
+    }
+    if (allowedOrigins.includes(entry)) {
+      throw new Error(`${PROPAGATE_TO_SETTING} has a duplicate origin at position ${index + 1}.`);
+    }
+    allowedOrigins.push(entry);
+  });
+  return Object.freeze({ allowedOrigins: Object.freeze(allowedOrigins) });
+}
+
+function isExactTrustedOrigin(entry: string): boolean {
+  if (entry.length === 0 || entry.length > MAX_PROPAGATION_ORIGIN_LENGTH || entry.includes('*')) return false;
+  try {
+    const url = new URL(entry);
+    if (url.origin !== entry) return false;
+    const loopback = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]';
+    return url.protocol === 'https:' || (url.protocol === 'http:' && loopback);
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -381,10 +433,13 @@ export function createConfiguredNodeOtlpLiveTelemetryPort(
     process.stderr.write(line, (error) => error ? reject(error) : resolve());
   }),
   hostResource?: ILiveTelemetryHostResource,
+  /** Where a content-free propagation diagnostic goes; only attached when propagation is configured. */
+  onDiagnostic?: (message: string) => void,
 ): INodeOtlpLiveTracePort | undefined {
   const { traces, metrics, logs } = resolveNodeOtlpLiveDestinations(env);
   const metricAttributes = env['ROBOTA_TELEMETRY_ENABLED'] === '1'
     ? resolveMetricAttributesSetting(env) : new Set<TLiveMetricAttribute>();
+  const propagation = env['ROBOTA_TELEMETRY_ENABLED'] === '1' ? resolvePropagateToSetting(env) : undefined;
   const hasConsole = env['ROBOTA_TELEMETRY_ENABLED'] === '1' &&
     ['traces', 'metrics', 'logs'].some((signal) => env[`ROBOTA_TELEMETRY_${signal.toUpperCase()}`] === 'console');
   if (!traces && !metrics && !logs && !hasConsole) return undefined;
@@ -402,7 +457,21 @@ export function createConfiguredNodeOtlpLiveTelemetryPort(
       }
     }
   }
-  if (ports.length === 1) return ports[0];
+  const port = ports.length === 1 ? ports[0]! : combinePorts(ports, onFailure);
+  if (!propagation) return port;
+  return {
+    enqueue: (batch) => port.enqueue(batch),
+    ...(port.onFailure ? { onFailure: port.onFailure } : {}),
+    shutdown: () => port.shutdown(),
+    traceContextPropagation: propagation,
+    ...(onDiagnostic ? { onDiagnostic } : {}),
+  };
+}
+
+function combinePorts(
+  ports: readonly INodeOtlpLiveTracePort[],
+  onFailure: INodeOtlpLiveTraceOptions['onFailure'],
+): INodeOtlpLiveTracePort {
   return {
     enqueue(batch) {
       for (const port of ports) {

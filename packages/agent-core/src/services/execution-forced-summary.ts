@@ -4,6 +4,7 @@ import { PROVIDER_CALL_EVENTS } from '../event-service/span-events';
 import { isAbortFailure } from '../utils/abort-classification';
 import { randomId } from '../utils/random-id.js';
 import { verifiedProviderCallUsage } from './provider-call-usage';
+import { resolveProviderCallTraceContext, withOutboundTraceContext } from './execution-trace-context';
 
 import type {
   IExecutionContext,
@@ -130,7 +131,13 @@ export async function forceSummaryCall(
           // The same adapter-invocation boundary as normal rounds; internal retries stay opaque.
           dispatch.invoked = true;
           dispatch.startedAtMs = Date.now();
-          return resolved.provider.chat(messages, options);
+          const outbound = resolveProviderCallTraceContext(
+            fullContext.traceContext,
+            resolved.provider,
+            resolved.currentInfo.provider,
+            callId,
+          );
+          return resolved.provider.chat(messages, withOutboundTraceContext(options, outbound));
         },
         messagesForProvider,
         chatOptions,

@@ -11,6 +11,7 @@ import { createDefaultProviderCapabilities } from './provider-capabilities';
 import type { IProviderCapabilities, IProviderNativeWebToolRequest } from './provider-capabilities';
 import type { IProviderSpecificOptions } from './provider-specific-options';
 import type { IToolSchema } from './tool-schema';
+import type { IOutboundTraceContext } from './trace-context';
 import type { TUniversalValue } from './universal-value';
 
 export type {
@@ -154,6 +155,13 @@ export interface IChatOptions extends IProviderSpecificOptions {
   /** AbortSignal for cancelling the provider call */
   signal?: AbortSignal;
   /**
+   * Trusted trace context for THIS invoked call. Core sets it only on a call it actually hands to the
+   * adapter, and only for a provider that answers `canPropagateTraceContext()` with true. An adapter
+   * adds `traceparent` (via `traceHeadersFor`) to its per-request headers when its effective origin
+   * is listed, after raw-payload capture, and never copies this into any captured payload.
+   */
+  outboundTraceContext?: IOutboundTraceContext;
+  /**
    * Tool-invocation directive for this call. Adapters map it onto their wire format
    * (`tool_choice` / `functionCallingConfig`); omitted = provider default ('auto').
    */
@@ -251,6 +259,13 @@ export interface IAIProvider {
    * that the endpoint is the vendor's.
    */
   endpointIsVendorDefault?(): boolean;
+
+  /**
+   * Whether this instance can put a trusted `traceparent` on its own HTTP requests: it knows its
+   * effective origin and sends through a transport it controls. Optional, and silence means it
+   * cannot — core then sends it no trace context and tells the host which provider could not.
+   */
+  canPropagateTraceContext?(): boolean;
 
   /**
    * Optional generic hook for enabling provider-native hosted web behavior.

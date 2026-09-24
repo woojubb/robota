@@ -611,6 +611,7 @@ async function runCliCore(
       serviceVersion: version,
       surface: resolveLiveTelemetrySurface(args, mcpServe),
     },
+    (message) => process.stderr.write(`${message}\n`),
   );
 
   // GOAL-001: --goal runs an autonomous headless goal even without an explicit -p.

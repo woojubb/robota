@@ -22,7 +22,7 @@ import type {
   TToolChoice,
   TToolArgs,
 } from '@robota-sdk/agent-core';
-import type { IHookTypeExecutor, IResponseFormatConfig } from '@robota-sdk/agent-core';
+import type { IHookTypeExecutor, IResponseFormatConfig, IRunTraceContext } from '@robota-sdk/agent-core';
 import type { ICompactEvent, IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 export type { ICompactEvent, TCompactTrigger } from '@robota-sdk/agent-interface-session';
@@ -203,6 +203,8 @@ export interface ISessionRunOptions {
   driverId?: string;
   /** Run-scoped model tool directive; 'none' remains in force for this turn only. */
   toolChoice?: TToolChoice;
+  /** Host-owned trusted trace context for this turn's provider calls (agent-core `IRunOptions`). */
+  traceContext?: IRunTraceContext;
 }
 
 export interface IProviderCallTraceObservation {

@@ -268,6 +268,33 @@ All enabled signals use the same per-process `service.instance.id` and the CLI's
 presentation mode as resource attributes. Ambient `OTEL_SERVICE_NAME` and other `OTEL_*` values
 cannot replace these fields.
 
+Trace context propagation is a further opt-in. `ROBOTA_TELEMETRY_PROPAGATE_TO` is a comma list of
+exact origins (`https://api.anthropic.com,https://gateway.example.com:8443`) that may receive a
+W3C `traceparent` on provider requests: `00-<prompt trace id>-<provider-call span id>-01`, where the
+span ID is the one the exported `robota.provider_call` span carries. It needs
+`ROBOTA_TELEMETRY_ENABLED=1` and `ROBOTA_TELEMETRY_TRACES=otlp` or `console`, and is inert while
+telemetry is off. Each entry must be exactly its own origin: `https`, or `http` only on loopback, with no
+path, trailing slash, query, credentials, wildcard or spelled-out default port; a scheme, port or
+subdomain difference is a different origin and gets nothing. An internationalized host must be listed
+in its punycode (`xn--`) form, and an origin with a trailing dot never matches; both fail closed
+(refused at startup or sent nothing). Malformed, duplicate or too many entries
+stop startup with an error that names only the setting and entry position. `tracestate` and `baggage`
+are never sent, the collector's origin is never trusted implicitly, and collector headers are never
+reused for provider requests. The Anthropic and OpenAI (Responses and Chat Completions) adapters
+propagate to their client's effective base URL, and Gemini to `https://generativelanguage.googleapis.com`
+only — not with `GOOGLE_GEMINI_BASE_URL`, `GOOGLE_VERTEX_BASE_URL` or Vertex mode. Nothing is sent through a
+provider executor. When propagation is configured but the round's provider cannot propagate (including
+the OpenAI-compatible adapters for now), the CLI writes one stderr line per provider naming only that
+provider. Only a prompt's own provider calls carry it: subagents, workers and background
+tasks do not inherit it.
+
+Listing a vendor's origin lets that vendor link its own request logs to your trace ID. A redirect
+followed by the SDK carries the header to the redirect target. A provider call whose span was omitted or
+dropped from export still sent its `traceparent`, so the vendor's parent span may be missing from your
+trace; `robota.omitted.provider_count` on the prompt span shows when that happened. Ambient
+`TRACEPARENT` and `OTEL_*` values are never adopted, and propagation into subprocesses (hooks, MCP
+servers) is not supported yet; MCP HTTP transports and the OpenAI-compatible adapters are planned later.
+
 ### Doctor
 
 `robota doctor` (aliases: `checkup`, `diagnose`) diagnoses configuration and runtime readiness

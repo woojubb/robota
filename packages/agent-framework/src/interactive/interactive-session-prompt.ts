@@ -29,7 +29,7 @@ import type { IContextReferenceItem } from '../context/context-reference-invento
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 import type { IProviderErrorGuidance } from '../utils/error-humanizer.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
-import type { IHistoryEntry } from '@robota-sdk/agent-core';
+import type { IHistoryEntry, IRunTraceContext } from '@robota-sdk/agent-core';
 import type { Session } from '@robota-sdk/agent-session';
 import type {
   IToolBodyTraceObservation,
@@ -72,6 +72,8 @@ export interface IPromptTurnContext {
    * the stored user message so the transcript attributes it. Display only — never authorization.
    */
   driverId?: string;
+  /** Trusted trace context for this prompt's provider calls; absent unless the host configured it. */
+  traceContext?: IRunTraceContext;
   getSession: () => Session;
   getCwd: () => string;
   getProjectAccess: () => TWorkspaceProjectAccess;
@@ -146,6 +148,7 @@ export async function executePromptTurn(
         ? { ephemeralSystemContext: ctx.ephemeralSystemContext }
         : {}),
       ...(ctx.driverId !== undefined ? { driverId: ctx.driverId } : {}),
+      ...(ctx.traceContext !== undefined ? { traceContext: ctx.traceContext } : {}),
       ...(ctx.turnSource === 'external' ? { toolChoice: 'none' as const } : {}),
     };
     const response =

@@ -7,6 +7,7 @@ import { applyModelToolCapability } from './execution-model-capability-guards.js
 import { callProviderWithIdleTimeout } from './execution-provider-call.js';
 import { assertToolChoiceValid, buildChatResponseFormat } from './execution-service-helpers';
 import { applyStructuredOutputTransport } from './execution-structured-output-guard.js';
+import { withOutboundTraceContext } from './execution-trace-context.js';
 import { randomId } from '../utils/random-id.js';
 
 import type { IStructuredOutputTransportOutcome } from './execution-structured-output-guard';
@@ -15,6 +16,7 @@ import type { IAgentConfig, IAssistantMessage } from '../interfaces/agent';
 import type { IToolCall, TUniversalMessage } from '../interfaces/messages';
 import type { IChatOptions, TToolChoice } from '../interfaces/provider';
 import type { IDeferredToolCatalog } from '../interfaces/tool-search';
+import type { IOutboundTraceContext } from '../interfaces/trace-context';
 import type { ILogger } from '../utils/logger';
 import type { ExecutionCacheService } from './cache/execution-cache-service';
 
@@ -118,6 +120,8 @@ export async function callProviderWithCache(
   onRequestAssembled?: (request: IAssembledProviderRequest) => void,
   awaitProviderSettlement?: boolean,
   onDispatch?: (disposition: 'invoked' | 'cache-hit', model: string) => void,
+  /** Asked only when the adapter is actually invoked, after the request was announced. */
+  resolveOutboundTraceContext?: () => IOutboundTraceContext | undefined,
 ): Promise<TUniversalMessage> {
   if (!config.defaultModel?.model) {
     throw new Error('Model is required in defaultModel configuration. Please specify a model.');
@@ -154,7 +158,7 @@ export async function callProviderWithCache(
   const observedChat: TProviderChat = (messages, options) => {
     // Invocation of the provider SDK adapter, not proof of a network attempt within that adapter.
     onDispatch?.('invoked', options.model ?? model);
-    return providerChat(messages, options);
+    return providerChat(messages, withOutboundTraceContext(options, resolveOutboundTraceContext?.()));
   };
   // API-001: a concrete selection has no persisted cache identity until DATA-007 owns the
   // resolution fingerprint. Do not let a lower-effort response satisfy a later higher-effort call.

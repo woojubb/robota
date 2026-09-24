@@ -88,7 +88,9 @@ collector, never including transcript, tool names, session identity, or provider
 It fails visibly on an incomplete store or collector rejection and never auto-exports. The separate
 live telemetry path needs an explicit Robota enable switch, individually selected signals, and an
 explicit protocol with a validated destination (OTLP or a local console sink). It uses host-owned
-resource identity, never ambient OpenTelemetry identity or credentials, and emits only content-free
+resource and trace identity, never ambient OpenTelemetry identity, trace context or credentials, and
+sends a trace's identifiers to a provider only at origins the operator listed exactly while traces
+are exported — the collector's origin and credentials are never implied by that. It emits only content-free
 spans, logs and metrics correlated by validated IDs. Metrics are low-cardinality by default; a
 higher-cardinality label is added only on the operator's explicit opt-in. Metrics derived from child records are
 emitted only when those records are complete, and omitted children or unknown prices stay visible
@@ -265,6 +267,13 @@ only state and canonical display path — credentials and project-controlled con
 Generic OTLP headers go only to signals that use the generic endpoint, never to a signal with its own
 endpoint, even though OpenTelemetry would apply them there: a per-signal endpoint may be a different
 collector, and generic credentials belong to the generic destination.
+
+### Exact-origin trace propagation
+
+`ROBOTA_TELEMETRY_PROPAGATE_TO` takes exact origins rather than hosts, suffixes or wildcards: a
+`traceparent` lets whoever receives it join their own logs to the operator's trace, so each recipient
+is named on purpose and a subdomain, port or scheme change is a different recipient. An entry must
+already be its own origin, so the value compared is exactly the value written.
 
 ### Opt-in metric attributes
 

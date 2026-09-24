@@ -58,6 +58,7 @@ export type {
   TProviderOptionValueBase,
 } from './provider';
 export { isModelEffort, MODEL_EFFORT_VALUES } from './provider';
+export type { IOutboundTraceContext, IRunTraceContext } from './trace-context';
 export { createModelEffortOutcome, resolveModelEffort } from './model-effort-capability';
 export type {
   IModelEffortCapability,

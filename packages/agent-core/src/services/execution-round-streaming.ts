@@ -4,6 +4,7 @@ import { resolveToolChoiceForRound } from './execution-service-helpers';
 import { isAbortFailure } from '../utils/abort-classification';
 import { randomId } from '../utils/random-id';
 import { verifiedProviderCallUsage } from './provider-call-usage';
+import { resolveProviderCallTraceContext } from './execution-trace-context';
 import { PROVIDER_CALL_EVENTS } from '../event-service/span-events';
 
 import type { IExecutionContext, IResolvedProviderInfo } from './execution-types';
@@ -148,6 +149,12 @@ export async function callRoundProviderWithEvents(
         dispatch.model = model;
         if (actualDisposition === 'invoked') dispatch.startedAtMs = Date.now();
       },
+      () => resolveProviderCallTraceContext(
+        fullContext.traceContext,
+        resolved.provider,
+        resolved.currentInfo.provider,
+        callId,
+      ),
     );
     providerResponse = response;
     // CORE-042: a provider that returned assembled text without streaming any of it still owes the

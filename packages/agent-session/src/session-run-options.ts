@@ -8,5 +8,6 @@ export function perTurnRunOptions(options?: ISessionRunOptions): ISessionRunOpti
     }),
     ...(options?.driverId !== undefined && { driverId: options.driverId }),
     ...(options?.toolChoice !== undefined && { toolChoice: options.toolChoice }),
+    ...(options?.traceContext !== undefined && { traceContext: options.traceContext }),
   };
 }

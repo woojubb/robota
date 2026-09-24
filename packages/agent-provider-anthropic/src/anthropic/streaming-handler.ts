@@ -10,6 +10,16 @@ import type {
   TTextDeltaCallback,
 } from '@robota-sdk/agent-core';
 
+/** SDK request options, or none at all when there is neither a signal nor a header to send. */
+export function anthropicRequestOptions(
+  signal: AbortSignal | undefined,
+  headers: Readonly<Record<string, string>>,
+): Anthropic.RequestOptions | undefined {
+  const hasHeaders = Object.keys(headers).length > 0;
+  if (!signal && !hasHeaders) return undefined;
+  return { ...(signal ? { signal } : {}), ...(hasHeaders ? { headers: { ...headers } } : {}) };
+}
+
 /**
  * Stream the Anthropic API response and assemble a complete TUniversalMessage.
  *
@@ -23,6 +33,8 @@ export async function streamAndAssemble(
   onServerToolUse: ((toolName: string, input: Record<string, string>) => void) | undefined,
   signal: AbortSignal | undefined,
   onProviderNativeRawPayload?: TProviderNativeRawPayloadCallback,
+  /** Per-request headers (trusted `traceparent`), added after the request payload was captured. */
+  requestHeaders: Readonly<Record<string, string>> = {},
 ): Promise<TUniversalMessage> {
   const streamParams: Anthropic.MessageCreateParamsStreaming = {
     ...params,
@@ -36,7 +48,7 @@ export async function streamAndAssemble(
     payload: streamParams,
   });
   const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
-    client.messages.create(streamParams, signal ? { signal } : undefined),
+    client.messages.create(streamParams, anthropicRequestOptions(signal, requestHeaders)),
   );
 
   // Accumulate the full response from stream events
