@@ -273,7 +273,8 @@ content and every queued turn are dropped, so that count is lost too. Queued con
 12 MB in the worst case. Before sending, the CLI masks known credential shapes (vendor API keys, AWS keys, private-key blocks,
 JWTs, GitHub, Stripe, npm and GitLab tokens, bearer tokens, URL and `-u user:pass` credentials,
 `*_KEY`/`*_TOKEN`/`*_SECRET`/`*_PASSWORD=` values, JSON values whose name looks secret, and
-`Authorization`, `Cookie`, `Set-Cookie` and `X-…-Token` header lines), the literal secrets it knows of (settings keys and
+`Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie` and `X-…-Token`/`-Key`/`-Secret`/`-Auth`
+header lines, including indented ones and the `> ` lines `curl -v` prints), the literal secrets it knows of (settings keys and
 `env` values, every resolved provider key including one switched to mid-session, and collector header
 values), your workspace path (`<workspace>`, also inside `file://` URLs) and home directory (`~`),
 control characters, and a partial token left at the size cut. This

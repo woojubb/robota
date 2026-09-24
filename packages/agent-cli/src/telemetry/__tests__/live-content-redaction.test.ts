@@ -169,10 +169,22 @@ describe('live content redaction', () => {
       pair(cat('api', '_key'), 'v5'),
       pair('cookieJar', 'v6'),
       pair('credentials', 'v7'),
+      pair(cat('api', 'Key'), 'v8'),
+      pair(cat('private', 'Key'), 'v9'),
+      pair(cat('api', '-key'), 'w1'),
+      pair(cat('pass', 'wd'), 'w2'),
+      pair('passphrase', 'w3'),
+      pair('requestSignature', 'w4'),
+      pair('bearerValue', 'w5'),
+      pair('jwt', 'w6'),
+      pair(cat('access', '_key'), 'w7'),
       pair('name', 'kept-value'),
     ].join(', ');
     const out = redact(`{${text}}`).text;
-    for (const value of ['plain-value-one', 'escaped', 'v3', 'v4', 'v5', 'v6', 'v7']) expect(out).not.toContain(value);
+    for (const value of ['plain-value-one', 'escaped', 'v3', 'v4', 'v5', 'v6', 'v7', 'v8', 'v9', 'w1', 'w2', 'w3', 'w4', 'w5', 'w6', 'w7']) {
+      expect(out).not.toContain(`"${value}"`);
+    }
+    expect(out).toContain(cat('"api', 'Key": "[redacted]"'));
     expect(out).toContain(cat('"session', '_tok', 'en": "[redacted]"'));
     expect(out).toContain('"name": "kept-value"');
   });
@@ -185,9 +197,22 @@ describe('live content redaction', () => {
       cat('X-Upload-', 'Token: plain-header-value'),
       'Content-Type: text/plain',
       'The cookie: is not a header here',
+      cat('> Coo', 'kie: sid=curlsid1'),
+      cat('> Author', 'ization: Basic ', 'Y3VybHVzZXI6eA=='),
+      cat('    Author', 'ization: indented-value-1'),
+      cat('Proxy-Author', 'ization: Basic ', 'cHJveHk6eA=='),
+      cat('X-Api-', 'Key: api-header-value'),
+      cat('x-client-', 'secret: client-header-value'),
     ].join('\r\n');
     const out = redact(text).text;
-    expect(out).not.toMatch(/dXNlcjpwYXNz|sid=|plain-header-value/u);
+    expect(out).not.toMatch(
+      /dXNlcjpwYXNz|sid=|plain-header-value|curlsid1|Y3VybHVzZXI6eA|indented-value-1|cHJveHk6eA|api-header-value|client-header-value/u,
+    );
+    expect(out).toContain('> Cookie: [redacted]');
+    expect(out).toContain('> Authorization: [redacted]');
+    expect(out).toContain('    Authorization: [redacted]');
+    expect(out).toContain('Proxy-Authorization: [redacted]');
+    expect(out).toContain(cat('X-Api-', 'Key: [redacted]'));
     expect(out).toContain('Authorization: [redacted]');
     expect(out).toContain('Cookie: [redacted]');
     expect(out).toContain('set-cookie: [redacted]');
@@ -203,6 +228,13 @@ describe('live content redaction', () => {
       `${'"secret'.repeat(2400)}`,
       `x-${'-'.repeat(16400)}`,
       `${'"a":"'.repeat(3300)}`,
+      `"${'apikey'.repeat(2800)}`,
+      `"${'a'.repeat(120)}private-key${'b'.repeat(120)}"${' '.repeat(16400)}`,
+      `${'>'.repeat(16400)}`,
+      `${' \t>'.repeat(5500)}authorization`,
+      `x-${'a-'.repeat(8200)}`,
+      `${'> x-'.repeat(4200)}`,
+      `proxy-${'proxy-'.repeat(2800)}`,
     ];
     for (const text of cases) {
       expect(Buffer.byteLength(text)).toBeGreaterThanOrEqual(16 * 1024);

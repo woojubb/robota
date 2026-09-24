@@ -305,6 +305,43 @@ describe('live tool content per-turn text budget', () => {
   });
 });
 
+describe('live tool content argument rendering failures', () => {
+  it('counts arguments whose getter throws as omitted and still captures the output', () => {
+    const accumulator = new LivePromptContentAccumulator(TOOLS);
+    const args = {
+      get command(): string {
+        throw new Error('getter boom');
+      },
+    };
+    expect(() =>
+      accumulator.addToolCall({ callId: 'c1', name: 'Bash', outcome: 'success', args, output: 'kept' }),
+    ).not.toThrow();
+    const batch = accumulator.finish({ traceId: 't', spanId: 's', endedAt: AT });
+    expect(batch!.items.map((item) => [item.kind, item.text])).toEqual([['tool-output', 'kept']]);
+    expect(batch!.omitted).toEqual({ 'tool-arguments': 1 });
+  });
+
+  it('keeps the turn settling when arguments throw during a real turn', async () => {
+    const { session, contents } = build(async (driver) => {
+      const args = Object.defineProperty({}, 'command', {
+        enumerable: true,
+        get: () => {
+          throw new Error('getter boom');
+        },
+      }) as Record<string, unknown>;
+      // The end event alone: the TUI's start projection reads arguments on its own path.
+      driver.emit(`tool.${TOOL_PERMISSION_EVENTS.DECIDED}`, { executionId: 'call_1', decidedAt: AT, decision: 'allowed' });
+      driver.emit(`tool.${TOOL_BODY_EVENTS.COMPLETED}`, { executionId: 'call_1', startedAt: AT, endedAt: AT, outcome: 'success' });
+      driver.end({ toolName: 'Bash', toolArgs: args, success: true, toolResultData: 'kept', executionId: 'call_1' });
+      return 'done';
+    });
+    const handle = await session.submit('go');
+    await expect(handle.completed).resolves.toBeDefined();
+    expect(contents[0]!.items.map((item) => item.kind)).toEqual(['tool-output']);
+    expect(contents[0]!.omitted).toEqual({ 'tool-arguments': 1 });
+  });
+});
+
 describe('collectSpanEntries owner-call observation', () => {
   it('reports every permission and tool-body event with a string id, even malformed ones', () => {
     let listener: TListener | undefined;

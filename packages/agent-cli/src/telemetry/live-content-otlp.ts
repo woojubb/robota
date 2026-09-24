@@ -140,6 +140,11 @@ export function projectLiveContentLogs(
   }
   const total = [...omitted.values()].reduce((sum, count) => sum + count, 0);
   if (total > 0) {
+    // The count never makes a request exceed its record limit: a full last request sends it alone.
+    if (chunk.length >= LIVE_CONTENT_BATCH_MAX_ITEMS) {
+      chunks.push(chunk);
+      chunk = [];
+    }
     chunk.push({
       ...base,
       spanContext: spanContext(undefined),

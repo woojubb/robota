@@ -34,9 +34,13 @@ const SECRET_ASSIGNMENT = /\b([A-Za-z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD))=(?:"[^
  * linear in the input however hostile it is.
  */
 const SECRET_JSON_PAIR =
-  /("[^"\\]{0,128}(?:secret|token|password|cookie|auth|credential|private_key|api_key)[^"\\]{0,128}"\s*:\s*)"(?:[^"\\]|\\.){0,8192}"/giu;
-/** A secret header line (`Authorization: …`, `Cookie: …`, `X-…-Token: …`): the name stays. */
-const SECRET_HEADER_LINE = /^(authorization|cookie|set-cookie|x-[\w-]*token)\s*:[^\r\n]*$/gimu;
+  /("[^"\\]{0,128}(?:secret|token|password|passwd|passphrase|cookie|auth|credential|signature|bearer|jwt|(?:api|private|access|signing)[_-]?key)[^"\\]{0,128}"\s{0,16}:\s{0,16})"(?:[^"\\]|\\.){0,8192}"/giu;
+/**
+ * A secret header line, also indented or quoted as `curl -v` prints it (`> Cookie: …`): the prefix
+ * and name stay, the value goes.
+ */
+const SECRET_HEADER_LINE =
+  /^([ \t>]{0,8}(?:proxy-)?(?:authorization|cookie|set-cookie|x-[\w-]{0,64}(?:token|key|secret|auth)))[ \t]{0,16}:[^\r\n]*$/gimu;
 /** C0 and C1 controls (and DEL), except newline and tab. */
 // eslint-disable-next-line no-control-regex
 const CONTROLS = /[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/gu;

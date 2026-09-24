@@ -159,6 +159,15 @@ describe('live content OTLP projection', () => {
     });
   });
 
+  it('never lets the omission record push a request past 64 records', () => {
+    const chunks = projectLiveContentLogs(
+      { ...contentBatch(Array.from({ length: 64 }, (_, index) => item(`i${index}`))), omitted: { 'tool-output': 1 } },
+      new Date(ENDED_AT), resource, policy, identity);
+    expect(chunks.map((chunk) => chunk.length)).toEqual([64, 1]);
+    expect(chunks[1]![0]!.eventName).toBe('robota.content.omitted');
+    for (const chunk of chunks) expect(chunk.length).toBeLessThanOrEqual(64);
+  });
+
   it('drops only the item whose redaction threw', () => {
     const chunks = projectLiveContentLogs(contentBatch([item('boom'), item('fine')]),
       new Date(ENDED_AT), resource, policy, (text) => {
