@@ -6,6 +6,7 @@ import {
   convertFromGeminiResponse,
   convertToolsToGeminiFormat,
 } from './message-converter';
+import { readGeminiResponseId, withProviderRequestId } from './provider-request-id';
 import { toGeminiFunctionCallingConfig } from './tool-schema-converter';
 
 import type { IGeminiProviderOptions } from './types';
@@ -54,7 +55,7 @@ export async function executeDirect(
       'Gemini response did not include an image part while IMAGE modality was requested.',
     );
   }
-  return convertedResponse;
+  return withProviderRequestId(convertedResponse, readGeminiResponseId(result));
 }
 
 /**
@@ -98,27 +99,35 @@ async function* streamResponseChunks(
   providerName: string,
 ): AsyncIterable<TUniversalMessage> {
   let sequence = 0;
+  // The first non-empty responseId seen across chunks; if chunks disagree, this keeps the first.
+  let providerRequestId: string | undefined;
   for await (const chunk of stream) {
     emitGeminiNativeRawPayload(options, providerName, 'stream_event', chunk, sequence);
     sequence++;
+    if (providerRequestId === undefined) {
+      providerRequestId = readGeminiResponseId(chunk);
+    }
     const convertedChunk = convertStreamChunk(chunk);
     if (convertedChunk) {
       if (typeof convertedChunk.content === 'string') {
         options?.onTextDelta?.(convertedChunk.content);
       }
-      yield convertedChunk;
+      yield withProviderRequestId(convertedChunk, providerRequestId);
       continue;
     }
     const text = extractStreamText(chunk);
     if (text) {
       options?.onTextDelta?.(text);
-      yield {
-        id: randomUUID(),
-        role: 'assistant',
-        content: text,
-        state: 'complete' as const,
-        timestamp: new Date(),
-      };
+      yield withProviderRequestId(
+        {
+          id: randomUUID(),
+          role: 'assistant',
+          content: text,
+          state: 'complete' as const,
+          timestamp: new Date(),
+        },
+        providerRequestId,
+      );
     }
   }
 }
