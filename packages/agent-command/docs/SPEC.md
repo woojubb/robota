@@ -108,6 +108,9 @@ uses the host's bounded maintenance prompt. An explicit interval keeps the fixed
 self-paced mode the model chooses a 1–60 minute delay and short reason through a structured tool,
 or stops; missing decisions permit only one 20-minute fallback. The stable loop id supports listing
 and stopping either mode, and the session record—not the disposable timer—owns resumption.
+Autocomplete exposes `list` and `stop` with `list` first, so selecting `/loop` cannot start the
+host-default loop on the first Enter; directly submitting bare `/loop` retains its documented
+creation behavior.
 
 Fixed requested intervals are positive and at most one day.
 Calendar-aligned steps only divide the minute, hour, or day; a request between supported steps rounds
@@ -152,8 +155,10 @@ declaration.
 for its name, label, description, invocation visibility, argument hint, and any specialized
 subcommands; the executable command is projected from that entry. Execution policy and lifecycle
 remain executable-command behavior. The doctor repair hint is available to palette consumers, and
-context's reference and auto-compact subcommands remain available in both projections. These commands
-remain operator-only; projecting metadata does not grant model invocation or change execution policy.
+context's reference and auto-compact subcommands remain available in both projections. Remote control
+offers `status` and `devices` before pairing or revoking actions, so autocomplete selection defaults
+to a read-only operation rather than enabling pairing. These commands remain operator-only; projecting
+metadata does not grant model invocation or change execution policy.
 
 **Session operator command metadata.** Session commands expose one operator-facing metadata contract
 to the palette and executable registry. In particular, rename advertises its required session name,
