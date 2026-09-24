@@ -122,4 +122,35 @@ describe('TextTemplateNodeDefinition', () => {
       expect(result.value.text).toBe('value has %s placeholder');
     }
   });
+
+  it('rejects expanded UTF-8 output before rendering under the host ceiling', async () => {
+    const node = new TextTemplateNodeDefinition();
+    const context = createContext('%s%s');
+    context.byteLimits = { maxTextRepeatOutputBytes: 4_194_304, maxTextTemplateOutputBytes: 7 };
+    const result = await node.taskHandler.execute({ text: '😀' }, context);
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: 'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED', retryable: false },
+    });
+  });
+
+  it('preserves input placeholders and sentinel-like text literally', async () => {
+    const node = new TextTemplateNodeDefinition();
+    const text = '%s __ROBOTA_TEXT_TEMPLATE_ESCAPED_PERCENT_S__';
+    const result = await node.taskHandler.execute({ text }, createContext('%%s {{text}} %s'));
+    expect(result).toMatchObject({ ok: true, value: { text: `%s ${text} ${text}` } });
+  });
+
+  it('counts UTF-8 pairs joined across placeholder boundaries', async () => {
+    const node = new TextTemplateNodeDefinition();
+    const context = createContext('\ud83d%s');
+    context.byteLimits = { maxTextRepeatOutputBytes: 4_194_304, maxTextTemplateOutputBytes: 4 };
+    expect(await node.taskHandler.execute({ text: '\ude00' }, context)).toMatchObject({
+      ok: true, value: { text: '😀' },
+    });
+    context.byteLimits = { maxTextRepeatOutputBytes: 4_194_304, maxTextTemplateOutputBytes: 3 };
+    expect(await node.taskHandler.execute({ text: '\ude00' }, context)).toMatchObject({
+      ok: false, error: { code: 'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED' },
+    });
+  });
 });

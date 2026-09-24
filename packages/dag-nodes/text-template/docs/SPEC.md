@@ -12,6 +12,8 @@ within DAG execution flows.
 - Input text is validated before execution — a missing or non-string `text` input fails validation
   rather than reaching template substitution.
 - Cost estimate is always zero.
+- Template syntax is interpreted once: substituted input is literal, including placeholder-like
+  text. The host sets the maximum UTF-8 output size; expansion is rejected before rendering.
 
 ## Boundaries
 

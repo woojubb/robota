@@ -172,9 +172,10 @@ establish a root budget owner, propagate to nested runs, or preempt synchronous 
 
 Execution byte limits are immutable host policy, carried separately from definitions, node config,
 queue payloads and snapshots, and snapshotted at construction so a later caller cannot mutate them.
-A trusted host may only tighten the separate built-in `text-repeat` and literal `text-replace`
-UTF-8 output ceilings, never raise them; an older host policy omitting the replacement limit keeps
-its default. An invalid host limit fails at composition rather than silently disabling the bound. Exhaustion returns
+A trusted host may only tighten the separate built-in `text-repeat`, literal `text-replace`, and
+`text-template` UTF-8 output ceilings, never raise them. An older host policy omitting a newer
+operation's limit keeps its default. An invalid host limit fails at composition rather than
+silently disabling the bound. Exhaustion returns
 non-retryable `DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED`. This is a per-operation ceiling, not a root
 aggregate authority — it does not bound other nodes, upstream input, serialized snapshots, memory,
 nested runs, or CPU time.

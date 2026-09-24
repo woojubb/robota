@@ -48,3 +48,23 @@ it('/workflows run rejects literal text-replace amplification before expansion',
   expect(result.success).toBe(false);
   expect(result.message).toContain('text-replace output exceeds its UTF-8 byte limit');
 });
+
+it('/workflows run rejects text-template amplification before expansion', async () => {
+  const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'workflow-template-cap-')));
+  dirs.push(root);
+  vi.stubEnv('HOME', root);
+  writeFileSync(path.join(root, 'template.json'), JSON.stringify({
+    dagId: 'template-limit', version: 1, status: 'draft',
+    nodes: [
+      { nodeId: 'source', nodeType: 'input', dependsOn: [], config: { text: 'x'.repeat(4096) } },
+      { nodeId: 'template', nodeType: 'text-template', dependsOn: ['source'], config: {
+        template: '%s'.repeat(1025),
+        byteLimits: { maxTextTemplateOutputBytes: Number.MAX_SAFE_INTEGER },
+      } },
+    ],
+    edges: [{ from: 'source', to: 'template', bindings: [{ outputKey: 'text', inputKey: 'text' }] }],
+  }));
+  const result = await executeWorkflowsRun('template.json', await createWorkflowProjectFixture(root));
+  expect(result.success).toBe(false);
+  expect(result.message).toContain('text-template output exceeds its UTF-8 byte limit');
+});

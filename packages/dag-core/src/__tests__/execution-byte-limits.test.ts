@@ -35,3 +35,16 @@ it('retains the replacement default for older host policies and snapshots a tigh
   source.maxTextReplaceOutputBytes = 1;
   expect(resolved.maxTextReplaceOutputBytes).toBe(0);
 });
+
+it.each([NaN, Infinity, -1, 0.5, 4_194_305, null, undefined])('rejects an invalid template limit %s', (maxTextTemplateOutputBytes) => {
+  // @ts-expect-error intentionally exercise malformed JavaScript host policy
+  expect(() => resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1, maxTextTemplateOutputBytes })).toThrow(RangeError);
+});
+
+it('retains the template default for older hosts and snapshots a tighter policy', () => {
+  expect(resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1 }).maxTextTemplateOutputBytes).toBe(4_194_304);
+  const source = { maxTextRepeatOutputBytes: 1, maxTextTemplateOutputBytes: 0 };
+  const resolved = resolveDagExecutionByteLimits(source);
+  source.maxTextTemplateOutputBytes = 1;
+  expect(resolved.maxTextTemplateOutputBytes).toBe(0);
+});
