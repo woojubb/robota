@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
+import { createNodeHostContributionSource } from '@robota-sdk/agent-framework';
 import type { EditCheckpointStore, IPromptHistoryOptions } from '@robota-sdk/agent-framework';
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import { toChannelOptions } from '../render.js';
@@ -8,6 +9,24 @@ import { buildTuiSessionOptions } from '../tui-session-options.js';
 import type { IRenderOptions } from '../render.js';
 
 describe('toChannelOptions', () => {
+  it('keeps the host contribution sources and skill roots through render, channel, and session', () => {
+    const sources = [createNodeHostContributionSource('/test-project')];
+    const skillRoots = [{ root: 'custom/skills', kind: 'skills' as const }];
+    const channel = toChannelOptions({
+      cwd: '/test-project',
+      provider: {} as IAIProvider,
+      cliAdapter: {} as ITuiCliAdapter,
+      contributionSources: sources,
+      skillRoots,
+    });
+    const session = buildTuiSessionOptions(channel);
+    if (!('contributionSources' in session) || !('skillRoots' in session)) {
+      throw new Error('TUI standard session options must preserve host skill discovery settings.');
+    }
+    expect(session.contributionSources).toBe(sources);
+    expect(session.skillRoots).toBe(skillRoots);
+  });
+
   it('keeps the host user settings sources through render, channel, and session', () => {
     const sources = [createNodeHostSettingsSource('user', '/test-home/settings.json')];
     const channel = toChannelOptions({

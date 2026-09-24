@@ -6,6 +6,15 @@ import { createProjectPermissionPersistence } from './project-permission-persist
 import type { IInitOptions } from './interactive-session-options.js';
 import type { ICreateSessionOptions } from '../assembly/index.js';
 
+function getCommandSemanticRoles(options: IInitOptions): ICreateSessionOptions['commandSemanticRoles'] {
+  if (options.commandSemanticRoles) return options.commandSemanticRoles;
+  return (options.commandModules?.flatMap((module) => module.systemCommands ?? []) ?? []).reduce(
+    (roles, command) =>
+      command.semanticRole ? { ...roles, [command.semanticRole]: command.name } : roles,
+    {} as NonNullable<ICreateSessionOptions['commandSemanticRoles']>,
+  );
+}
+
 /**
  * The single place `IInitOptions` becomes `ICreateSessionOptions`.
  *
@@ -25,6 +34,7 @@ export interface ICreateSessionProjectionDeps {
   sessionId: ICreateSessionOptions['sessionId'];
   contextCapacityHint: ICreateSessionOptions['contextCapacityHint'];
   contributionSources: ICreateSessionOptions['contributionSources'];
+  skillRoots: ICreateSessionOptions['skillRoots'];
 }
 
 export function buildCreateSessionOptions(
@@ -39,6 +49,7 @@ export function buildCreateSessionOptions(
     sessionId,
     contextCapacityHint,
     contributionSources,
+    skillRoots,
   } = deps;
   const persistProjectPermission = createProjectPermissionPersistence(
     options.projectAccess,
@@ -49,6 +60,7 @@ export function buildCreateSessionOptions(
     cwd,
     context,
     contributionSources,
+    skillRoots,
     projectInfo,
     permissionMode: options.permissionMode,
     maxTurns: options.maxTurns,
@@ -140,7 +152,7 @@ export function buildCreateSessionOptions(
           ],
         }
       : {}),
-    ...(options.commandSemanticRoles ? { commandSemanticRoles: options.commandSemanticRoles } : {}),
+    commandSemanticRoles: getCommandSemanticRoles(options),
     modelCommandExecutor: options.modelCommandExecutor,
     isModelCommandInvocable: options.isModelCommandInvocable,
     editCheckpointRecorder: options.editCheckpointRecorder,

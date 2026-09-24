@@ -10,6 +10,7 @@
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type {
   IContributionSource,
+  ISkillRootDescriptor,
   TSettingsSource,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
@@ -72,6 +73,7 @@ export interface IDoctorInputs {
   /** Environment map (test seam; default `process.env`). */
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly contributionSources: readonly IContributionSource[];
+  readonly skillRoots: readonly ISkillRootDescriptor[];
   /** Plugin scope directories, most specific first — the same list the session loader reads. */
   readonly pluginsDirs: readonly string[];
   /** Host-composed MCP activation adapter; absent means the CLI has no MCP host. */

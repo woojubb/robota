@@ -51,6 +51,8 @@ import type {
   IOrgPolicy,
   IProviderErrorGuidance,
   IProjectSettingsPath,
+  IContributionSource,
+  ISkillRootDescriptor,
   INodeHostSettingsSource,
   IToolCallHandoffPolicy,
 } from '@robota-sdk/agent-framework';
@@ -67,6 +69,8 @@ export interface IRenderOptions {
   providerErrorGuidance?: IProviderErrorGuidance;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
+  contributionSources?: readonly IContributionSource[];
+  skillRoots?: readonly ISkillRootDescriptor[];
   userSettingsSources?: readonly INodeHostSettingsSource[];
   /**
    * CLI-083 (issue #2287) — the org policy, forwarded to the session so `blockedCommands` is
@@ -224,6 +228,10 @@ export function toChannelOptions(
     ...(options.projectSettingsPaths !== undefined
       ? { projectSettingsPaths: options.projectSettingsPaths }
       : {}),
+    ...(options.contributionSources !== undefined
+      ? { contributionSources: options.contributionSources }
+      : {}),
+    ...(options.skillRoots !== undefined ? { skillRoots: options.skillRoots } : {}),
     ...(options.userSettingsSources !== undefined
       ? { userSettingsSources: options.userSettingsSources }
       : {}),

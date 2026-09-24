@@ -6,11 +6,13 @@ import type {
   ICommandModule,
   IContributionSource,
   ISystemCommand,
+  ISkillRootDescriptor,
 } from '@robota-sdk/agent-framework';
 import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-command';
 
 export interface ISkillsCommandModuleOptions {
   readonly contributionSources: readonly IContributionSource[];
+  readonly skillRoots?: readonly ISkillRootDescriptor[];
 }
 
 export function createSkillsCommandEntry(): ICommand {
@@ -53,7 +55,7 @@ export class SkillsCommandSource implements ICommandSource {
 
 export function createSkillsCommandModule(options: ISkillsCommandModuleOptions): ICommandModule {
   const commandSources: ICommandSource[] = [new SkillsCommandSource()];
-  commandSources.push(new SkillCommandSource(options.contributionSources));
+  commandSources.push(new SkillCommandSource(options.contributionSources, options.skillRoots ?? []));
 
   return {
     name: 'agent-command-skills',

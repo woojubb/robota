@@ -74,7 +74,7 @@ function pluginChecks(inspections: readonly IBundlePluginInspection[]): IDoctorC
 }
 
 function skillChecks(inputs: IDoctorInputs): IDoctorCheck[] {
-  const inspection = inspectSkillSources(inputs.contributionSources);
+  const inspection = inspectSkillSources(inputs.contributionSources, inputs.skillRoots);
   const present = inspection.roots.filter((root) => root.present);
   const discovered = present.reduce((n, root) => n + root.discovered.length, 0);
   const checks: IDoctorCheck[] = [

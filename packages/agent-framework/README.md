@@ -362,12 +362,10 @@ const filtered = registry.getCommands('mod'); // matches "mode", "model"
 registry.resolveQualifiedName('audit'); // "my-plugin:audit"
 ```
 
-`SkillCommandSource` is the SDK common API used by the skills command module. It discovers skills from (highest priority first):
-
-- `<cwd>/.claude/skills/*/SKILL.md`
-- `<cwd>/.claude/commands/*.md` (Claude Code compatible)
-- `~/.robota/skills/*/SKILL.md`
-- `<cwd>/.agents/skills/*/SKILL.md`
+`SkillCommandSource` is the SDK common API used by the skills command module. The host supplies both
+the contribution sources and ordered root descriptors; absent sources or roots means no skill file
+discovery. This keeps product directory choices out of the framework and lets inspection use the same
+roots as activation.
 
 Model-invocable skills are exposed to the model as metadata only when the session has a composed
 model-invocable `skills` command descriptor. `@robota-sdk/agent-command` owns `skills` and

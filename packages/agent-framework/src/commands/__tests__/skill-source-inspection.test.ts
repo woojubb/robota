@@ -4,8 +4,12 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { SkillCommandSource, inspectSkillSources } from '../skill-source.js';
+import { inspectSkillSources } from '../skill-source.js';
 import { createNodeHostContributionSource } from '../../contributions/node-host-contribution-source.js';
+import {
+  createTestSkillCommandSource,
+  TEST_SKILL_ROOTS,
+} from '../../testing/contribution-source-fixture.js';
 
 const roots: string[] = [];
 afterEach(() => {
@@ -25,7 +29,10 @@ describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
     mkdirSync(join(skills, 'open-frontmatter'), { recursive: true });
     writeFileSync(join(skills, 'open-frontmatter', 'SKILL.md'), '---\nname: x\nbody\n', 'utf8');
 
-    const inspection = inspectSkillSources([createNodeHostContributionSource(home)]);
+    const inspection = inspectSkillSources(
+      [createNodeHostContributionSource(home)],
+      TEST_SKILL_ROOTS,
+    );
     const robota = inspection.roots.find((root) => root.root === join('.robota', 'skills'));
     expect(robota?.present).toBe(true);
     expect(robota?.discovered).toEqual(['good', 'no-frontmatter']);
@@ -65,9 +72,9 @@ describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
     const sources = [createNodeHostContributionSource(home)];
 
     // The premise: the session's own discovery does not tolerate this file.
-    expect(() => new SkillCommandSource(sources).getCommands()).toThrow(/effort/);
+    expect(() => createTestSkillCommandSource(sources).getCommands()).toThrow(/effort/);
 
-    const robota = inspectSkillSources(sources).roots.find(
+    const robota = inspectSkillSources(sources, TEST_SKILL_ROOTS).roots.find(
       (root) => root.root === join('.robota', 'skills'),
     );
     expect(robota?.discovered).toEqual([]);
@@ -82,6 +89,26 @@ describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
         reason: 'frontmatter-unterminated',
         detail: expect.stringContaining('[unterminated]'),
       },
+    ]);
+  });
+
+  it('inspects host-selected non-default roots without adding framework defaults', () => {
+    const home = mkdtempSync(join(tmpdir(), 'robota-skill-inspection-custom-'));
+    roots.push(home);
+    const customRoot = join('vendor', 'extensions');
+    mkdirSync(join(home, customRoot, 'custom'), { recursive: true });
+    writeFileSync(
+      join(home, customRoot, 'custom', 'SKILL.md'),
+      '---\nname: custom\n---\nbody\n',
+      'utf8',
+    );
+    const descriptors = [{ root: customRoot, kind: 'skills' as const }];
+    const sources = [createNodeHostContributionSource(home)];
+
+    expect(createTestSkillCommandSource(sources, descriptors).getCommands().map((item) => item.name))
+      .toEqual(['custom']);
+    expect(inspectSkillSources(sources, descriptors).roots.map((item) => item.root)).toEqual([
+      customRoot,
     ]);
   });
 });

@@ -171,9 +171,12 @@ describe('createSkillsCommandModule', () => {
       session: parentSession as never,
       cwd,
       projectAccess: await createTrustedProjectAccess(cwd),
+      contributionSources: [createNodeHostContributionSource(cwd)],
+      skillRoots: [{ root: join('.agents', 'skills'), kind: 'skills' }],
       commandModules: [
         createSkillsCommandModule({
           contributionSources: [createNodeHostContributionSource(cwd)],
+          skillRoots: [{ root: join('.agents', 'skills'), kind: 'skills' }],
         }),
       ],
     });

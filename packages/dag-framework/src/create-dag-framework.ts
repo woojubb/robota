@@ -107,7 +107,12 @@ export async function createDagFramework(
   // When `options.nodes` is supplied, `options.providers` is intentionally ignored — a custom node set
   // carries its own provider wiring (ARCH-PROVIDER-003).
   const nodes: readonly IDagNodeDefinition[] =
-    options.nodes ?? (await loadDefaultNodeRegistry(options.providers));
+    options.nodes ??
+    (await loadDefaultNodeRegistry(
+      options.providers,
+      options.skillRoots,
+      options.contributionSources,
+    ));
   const assemblyResult = buildNodeDefinitionAssembly([...nodes]);
   if (!assemblyResult.ok) {
     throw new Error(`Failed to build node definition assembly: ${assemblyResult.error.message}`);

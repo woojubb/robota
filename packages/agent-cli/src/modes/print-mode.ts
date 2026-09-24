@@ -9,6 +9,8 @@ import type {
   IProviderErrorGuidance,
   IProjectSettingsPath,
   INodeHostSettingsSource,
+  IContributionSource,
+  ISkillRootDescriptor,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import type { createProjectSessionStore } from '@robota-sdk/agent-framework';
@@ -72,6 +74,8 @@ export async function runPrintMode(
   pluginDirectories?: { readonly user?: string; readonly project?: string },
   projectSettingsPaths?: readonly IProjectSettingsPath[],
   userSettingsSources?: readonly INodeHostSettingsSource[],
+  contributionSources?: readonly IContributionSource[],
+  skillRoots?: readonly ISkillRootDescriptor[],
 ): Promise<void> {
   const goalObjective = args.goal?.trim();
   let prompt = args.positional.join(' ').trim();
@@ -113,6 +117,8 @@ export async function runPrintMode(
     ...(projectAccess !== undefined ? { projectAccess } : {}),
     ...(projectSettingsPaths !== undefined ? { projectSettingsPaths } : {}),
     ...(userSettingsSources !== undefined ? { userSettingsSources } : {}),
+    ...(contributionSources !== undefined ? { contributionSources } : {}),
+    ...(skillRoots !== undefined ? { skillRoots } : {}),
     outputFormat: args.outputFormat ?? 'text',
     // CLI-076: forward the resolved model so `--model` takes effect (an invalid model then surfaces the
     // provider's error and a non-zero exit, instead of a silent substitution succeeding with exit 0).

@@ -43,6 +43,7 @@ import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type {
   IOrgPolicy,
   IContributionSource,
+  ISkillRootDescriptor,
   ICommandModule,
   IProviderCommandSettingsAdapter,
   IUnknownCommandModuleName,
@@ -53,6 +54,7 @@ export interface IDefaultCommandModulesOptions {
   cwd: string;
   userLocalStorageRoot: string;
   contributionSources?: readonly IContributionSource[];
+  skillRoots?: readonly ISkillRootDescriptor[];
   providerDefinitions: readonly IProviderDefinition[];
   providerSettingsAdapter: IProviderCommandSettingsAdapter;
   /**
@@ -120,6 +122,7 @@ export function createDefaultCommandModules({
   cwd: _cwd,
   userLocalStorageRoot,
   contributionSources,
+  skillRoots,
   providerDefinitions,
   providerSettingsAdapter,
   orgPolicy,
@@ -131,7 +134,7 @@ export function createDefaultCommandModules({
   disabledCommandModules,
 }: IDefaultCommandModulesOptions): IDefaultCommandModulesResult {
   const modules: readonly ICommandModule[] = [
-    createSkillsCommandModule({ contributionSources: contributionSources ?? [] }),
+    createSkillsCommandModule({ contributionSources: contributionSources ?? [], skillRoots }),
     createHelpCommandModule(),
     createAgentCommandModule(),
     createEffortCommandModule(),

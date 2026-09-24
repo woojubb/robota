@@ -17,11 +17,13 @@ import { join } from 'node:path';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { PluginCommandSource } from '../commands/plugin-source.js';
-import { SkillCommandSource } from '../commands/skill-source.js';
 import { loadConfig as loadConfigFromSources } from '../config/config-loader.js';
 import { BundlePluginLoader } from '../plugins/index.js';
 import { createTrustedSettingsSourcesFixture } from '../testing/trusted-project-state-fixture.js';
-import { createNodeHostContributionSourcesFixture } from '../testing/contribution-source-fixture.js';
+import {
+  createNodeHostContributionSourcesFixture,
+  createTestSkillCommandSource,
+} from '../testing/contribution-source-fixture.js';
 import { substituteVariables, preprocessShellCommands } from '../utils/skill-prompt.js';
 
 const testShellExec = (cmd: string) =>
@@ -79,7 +81,7 @@ describe('Filesystem smoke: skill discovery', () => {
       ].join('\n'),
     );
 
-    const source = new SkillCommandSource(
+    const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(tempDir, homeDir),
     );
     const commands = source.getCommands();
@@ -107,7 +109,7 @@ describe('Filesystem smoke: skill discovery', () => {
       'utf-8',
     );
 
-    const source = new SkillCommandSource(
+    const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(tempDir, homeDir),
     );
     const commands = source.getCommands();
@@ -146,7 +148,7 @@ describe('Filesystem smoke: skill discovery', () => {
       ].join('\n'),
     );
 
-    const source = new SkillCommandSource(
+    const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(tempDir, homeDir),
     );
     const commands = source.getCommands();
@@ -180,7 +182,7 @@ describe('Filesystem smoke: skill discovery', () => {
       ].join('\n'),
     );
 
-    const source = new SkillCommandSource(
+    const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(tempDir, homeDir),
     );
     const commands = source.getCommands();
@@ -229,7 +231,7 @@ describe('Filesystem smoke: skill discovery', () => {
       '---\nname: delta\ndescription: Fourth\n---\n',
     );
 
-    const source = new SkillCommandSource(
+    const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(tempDir, homeDir),
     );
     const names = source.getCommands().map((c) => c.name);
@@ -245,7 +247,7 @@ describe('Filesystem smoke: skill discovery', () => {
     const skillsDir = join(tempDir, '.claude', 'skills');
     createSkillDir(skillsDir, 'fallback-name', '# No frontmatter\nJust markdown content.');
 
-    const source = new SkillCommandSource(
+    const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(tempDir, homeDir),
     );
     const cmd = source.getCommands().find((c) => c.name === 'fallback-name');
@@ -288,7 +290,7 @@ describe('Filesystem smoke: variable substitution', () => {
       ].join('\n'),
     );
 
-    const source = new SkillCommandSource(
+    const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(tempDir, homeDir),
     );
     const skill = source.getCommands().find((c) => c.name === 'run-tests');
@@ -312,7 +314,7 @@ describe('Filesystem smoke: variable substitution', () => {
       ].join('\n'),
     );
 
-    const source = new SkillCommandSource(
+    const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(tempDir, homeDir),
     );
     const skill = source.getCommands().find((c) => c.name === 'compare');
@@ -336,7 +338,7 @@ describe('Filesystem smoke: variable substitution', () => {
       ].join('\n'),
     );
 
-    const source = new SkillCommandSource(
+    const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(tempDir, homeDir),
     );
     const skill = source.getCommands().find((c) => c.name === 'version-check');
@@ -362,7 +364,7 @@ describe('Filesystem smoke: variable substitution', () => {
       ].join('\n'),
     );
 
-    const source = new SkillCommandSource(
+    const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(tempDir, homeDir),
     );
     const skill = source.getCommands().find((c) => c.name === 'session-info');

@@ -76,3 +76,23 @@ describe('serve preset capability projection', () => {
     expect(options.responseFormat).toBe(responseFormat);
   });
 });
+
+describe('serve skill discovery projection', () => {
+  it('forwards host-selected contribution sources and root descriptors unchanged', () => {
+    const contributionSources: never[] = [];
+    const skillRoots = [{ root: 'custom/skills', kind: 'skills' as const }];
+    const options = buildServeSessionOptions({
+      cwd: '/work',
+      args: makeArgs(),
+      preset: {},
+      contributionSources,
+      skillRoots,
+    } as never);
+
+    if (!('contributionSources' in options) || !('skillRoots' in options)) {
+      throw new Error('Serve standard session options must preserve host skill discovery settings.');
+    }
+    expect(options.contributionSources).toBe(contributionSources);
+    expect(options.skillRoots).toBe(skillRoots);
+  });
+});

@@ -3,6 +3,7 @@ import { SkillCommandSource } from './skill-source.js';
 import { createDefaultUserContributionSources } from '../contributions/index.js';
 
 import type { IContributionSource } from '../contributions/index.js';
+import type { ISkillRootDescriptor } from './skill-source.js';
 import type {
   ICommand,
   ISkillExecutionPort,
@@ -19,10 +20,13 @@ import type {
  * before resolution), so the empty callbacks passed here strip shell interpolations rather than executing them.
  */
 class AgentFrameworkSkillExecutionPort implements ISkillExecutionPort {
-  public constructor(private readonly contributionSources: readonly IContributionSource[]) {}
+  public constructor(
+    private readonly contributionSources: readonly IContributionSource[],
+    private readonly skillRoots: readonly ISkillRootDescriptor[],
+  ) {}
 
   public loadCommands(): ICommand[] {
-    return new SkillCommandSource(this.contributionSources).getCommands();
+    return new SkillCommandSource(this.contributionSources, this.skillRoots).getCommands();
   }
 
   public async resolveSkill(
@@ -45,6 +49,7 @@ class AgentFrameworkSkillExecutionPort implements ISkillExecutionPort {
 /** Build the agent-framework-backed {@link ISkillExecutionPort} for injection at a composition root. */
 export function createSkillExecutionPort(
   contributionSources: readonly IContributionSource[] = createDefaultUserContributionSources(),
+  skillRoots: readonly ISkillRootDescriptor[] = [],
 ): ISkillExecutionPort {
-  return new AgentFrameworkSkillExecutionPort(contributionSources);
+  return new AgentFrameworkSkillExecutionPort(contributionSources, skillRoots);
 }

@@ -33,6 +33,8 @@ import type {
   IProviderErrorGuidance,
   IProjectSettingsPath,
   INodeHostSettingsSource,
+  IContributionSource,
+  ISkillRootDescriptor,
   IToolCallHandoffPolicy,
   TInteractiveSessionOptions,
   TWorkspaceProjectAccess,
@@ -57,6 +59,8 @@ export interface IServeModeOptions {
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
   userSettingsSources?: readonly INodeHostSettingsSource[];
+  contributionSources?: readonly IContributionSource[];
+  skillRoots?: readonly ISkillRootDescriptor[];
   /**
    * CLI-083 (issue #2287) — the org policy, forwarded so the session's `blockedCommands` and
    * `allowedProviders` enforcement is reachable in a served session. Declared on this projection
@@ -136,6 +140,10 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(opts.userSettingsSources !== undefined
       ? { userSettingsSources: opts.userSettingsSources }
       : {}),
+    ...(opts.contributionSources !== undefined
+      ? { contributionSources: opts.contributionSources }
+      : {}),
+    ...(opts.skillRoots !== undefined ? { skillRoots: opts.skillRoots } : {}),
     ...(opts.orgPolicy !== undefined ? { orgPolicy: opts.orgPolicy } : {}),
     // CLI-076: forward the resolved model so `--model` takes effect in the served runtime session.
     ...(opts.model !== undefined ? { model: opts.model } : {}),

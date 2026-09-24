@@ -117,6 +117,10 @@ export interface IDagFrameworkOptions {
    * — custom node sets carry their own provider wiring.
    */
   readonly providers?: readonly IProviderDefinition[];
+  /** Host-minted bounded filesystem sources used by default skill-node resolution. */
+  readonly contributionSources?: readonly IDagContributionSource[];
+  /** Ordered host-selected directories scanned by the default skill node. */
+  readonly skillRoots?: readonly IDagSkillRootDescriptor[];
   /** Override individual infrastructure ports. */
   readonly ports?: IDagFrameworkPorts;
   /** Override storage and asset paths (overrides env vars). */
@@ -127,4 +131,25 @@ export interface IDagFrameworkOptions {
   readonly autoStart?: boolean;
   /** Optional logger. Defaults to no-op. */
   readonly logger?: IDagFrameworkLogger;
+}
+
+/** Structural host source contract, kept free of an agent-framework dependency in dag-framework. */
+export interface IDagContributionSource {
+  readonly kind: 'host' | 'project';
+  readonly displayName: string;
+  readText(relativePath: string, purpose: string): string | undefined;
+  listDirectory(
+    relativePath: string,
+    purpose: string,
+  ): readonly { readonly name: string; readonly kind: 'file' | 'directory' | 'link' | 'other' }[];
+  inspectKind(
+    relativePath: string,
+    purpose: string,
+  ): 'file' | 'directory' | 'link' | 'other' | undefined;
+}
+
+/** Host-selected skill or legacy-command root, ordered by precedence. */
+export interface IDagSkillRootDescriptor {
+  readonly root: string;
+  readonly kind: 'skills' | 'commands';
 }

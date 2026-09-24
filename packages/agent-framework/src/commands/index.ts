@@ -83,6 +83,7 @@ export {
 export { commandToCapabilityDescriptor } from './capability-descriptors.js';
 export { SkillCommandSource, inspectSkillSources } from './skill-source.js';
 export type {
+  ISkillRootDescriptor,
   ISkillRootInspection,
   ISkillSourceInspection,
   ISkillSourceSkip,

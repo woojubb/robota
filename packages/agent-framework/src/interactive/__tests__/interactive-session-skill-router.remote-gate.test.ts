@@ -32,6 +32,7 @@ function makeRouter(commands: ISystemCommand[], policy?: IRemoteCommandPolicy): 
   return new SessionSkillRouter(
     [module],
     [],
+    [],
     undefined,
     () => stubSession,
     () => 'session-id',

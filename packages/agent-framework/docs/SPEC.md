@@ -70,6 +70,10 @@ React/Ink UI.
 - **Agent definition discovery is host-directed.** The framework searches only the ordered relative
   directories supplied by the host; absent roots mean no file discovery. Discovered definitions keep
   precedence over injected and built-in definitions, without selecting a product's directory names.
+- **Skill discovery is host-directed.** The framework scans only the ordered skill/command roots and
+  contribution sources supplied by the host; either omitted means no filesystem skill discovery.
+  Inspection and executable discovery use the same root descriptors, so a host can preview the exact
+  roots that a trusted session would load without the framework choosing product directories.
 - **Command modules own product behavior.** SDK core ships no user-visible built-in commands; command
   packages (`agent-command-*`) contribute behavior through `ICommandModule`, consuming SDK command
   contracts and common APIs. The SDK does not know command ids in advance.
@@ -251,8 +255,8 @@ These are behaviors a caller cannot infer from a type signature alone.
 
 - **Workspace identity**: linked worktrees stay distinct by worktree root, while a nested working
   directory inside one worktree resolves to the same identity.
-- **Pre-trust source preview**: candidate project sources (settings, skills, agents, detection
-  metadata, context, tasks, state, plugins) are listed from the paths their owners actually load, so
+- **Pre-trust source preview**: candidate project sources (settings, host-selected skills, agents,
+  detection metadata, context, tasks, state, plugins) are listed from the paths their owners actually load, so
   the preview cannot drift from what trust would enable. Inspection reads metadata only under a
   revalidated Git identity, never follows links, never issues a content reader and grants no
   authority; where a stable no-follow walk is unavailable, names are listed with metadata unavailable.

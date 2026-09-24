@@ -31,6 +31,7 @@ import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-sessi
 import { userPaths } from '../product/user-paths.js';
 import { ROBOTA_PROJECT_SETTINGS } from '../product/robota-project-settings.js';
 import { createRobotaUserSettingsSources } from '../product/robota-user-settings.js';
+import { ROBOTA_SKILL_ROOTS } from '../product/robota-skill-roots.js';
 
 export interface ICreateCliWorkspaceCompositionOptions {
   readonly cwd: string;
@@ -42,6 +43,7 @@ export interface ICreateCliWorkspaceCompositionOptions {
 export interface ICliWorkspaceComposition {
   readonly projectAccess: TWorkspaceProjectAccess;
   readonly contributionSources: readonly IContributionSource[];
+  readonly skillRoots: typeof ROBOTA_SKILL_ROOTS;
   readonly settingsSources: readonly TSettingsSource[];
   readonly settingsStores: readonly ISettingsDocumentStore[];
   readonly sessionStore: IInteractiveSessionStore;
@@ -78,6 +80,7 @@ function createTrustedCliWorkspaceComposition(
   return {
     projectAccess,
     contributionSources: createContributionSourcesForProjectAccess(projectAccess, options.userHome),
+    skillRoots: ROBOTA_SKILL_ROOTS,
     settingsSources: [
       ...createRobotaUserSettingsSources(options.userHome),
       ...createWorkspaceProjectSettingsSources(
@@ -142,6 +145,7 @@ export function createCliWorkspaceComposition(
         projectAccess,
         options.userHome,
       ),
+      skillRoots: ROBOTA_SKILL_ROOTS,
       settingsSources: createRobotaUserSettingsSources(options.userHome),
       settingsStores: [userSettingsStore],
       sessionStore: createUserSessionStore(userPaths(options.userHome).sessions),

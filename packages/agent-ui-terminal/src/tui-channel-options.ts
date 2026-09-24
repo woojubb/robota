@@ -62,6 +62,8 @@ export interface ITuiInteractionChannelOptions {
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
+  contributionSources?: ICreateSessionOptions['contributionSources'];
+  skillRoots?: ICreateSessionOptions['skillRoots'];
   userSettingsSources?: readonly INodeHostSettingsSource[];
   /** Explicit authority- and permission-backed edit checkpoint capability. */
   editCheckpointStore?: EditCheckpointStore;

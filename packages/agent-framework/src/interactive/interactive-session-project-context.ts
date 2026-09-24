@@ -4,7 +4,6 @@ import { loadConfigWithHookSources } from '../config/config-loader.js';
 import { createWorkspaceProjectSettingsSources } from '../config/settings-source.js';
 import { loadContext } from '../context/context-loader.js';
 import { detectProject } from '../context/project-detector.js';
-import { createContributionSourcesForProjectAccess } from '../contributions/index.js';
 import {
   createRestrictedWorkspaceProjectAccess,
   getWorkspaceProjectReader,
@@ -106,7 +105,7 @@ export async function loadInteractiveProjectContext(
     config,
     context,
     projectInfo,
-    contributionSources: createContributionSourcesForProjectAccess(projectAccess),
+    contributionSources: options.contributionSources ?? [],
     hookSources,
   };
 }

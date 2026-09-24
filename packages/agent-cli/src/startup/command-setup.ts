@@ -221,6 +221,7 @@ export function buildCommandSetup(
     providerDefinitions,
     providerSettingsAdapter,
     contributionSources: workspaceComposition.contributionSources,
+    skillRoots: workspaceComposition.skillRoots,
     ...(keybindingsFilePort === undefined ? {} : { keybindingsFilePort }),
     ...(themeCataloguePort === undefined ? {} : { themeCataloguePort }),
     doctorInputs,

@@ -789,6 +789,7 @@ export type {
 export type { TSettingsMergeRule } from './config/config-merge.js';
 export type { TSettings } from './config/config-types.js';
 export type {
+  ISkillRootDescriptor,
   ISkillRootInspection,
   ISkillSourceInspection,
   ISkillSourceSkip,

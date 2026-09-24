@@ -16,6 +16,7 @@ function makeRouter(cwd: string, command: ISystemCommand): SessionSkillRouter {
   return new SessionSkillRouter(
     [module],
     createNodeHostContributionSourcesFixture(cwd),
+    [{ root: join('.agents', 'skills'), kind: 'skills' }],
     undefined,
     () => createTestCommandHost(),
     () => 'session-id',

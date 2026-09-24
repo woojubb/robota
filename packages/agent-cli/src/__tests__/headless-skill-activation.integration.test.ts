@@ -298,11 +298,14 @@ describe('headless transport skill activation integration', () => {
       provider: observed.provider,
       projectAccess: await createTrustedProjectAccess(cwd),
       config: createConfig(),
+      contributionSources: [createNodeHostContributionSource(cwd)],
+      skillRoots: [{ root: join('.agents', 'skills'), kind: 'skills' }],
       permissionMode: 'bypassPermissions',
       bare: true,
       commandModules: [
         createSkillsCommandModule({
           contributionSources: [createNodeHostContributionSource(cwd)],
+          skillRoots: [{ root: join('.agents', 'skills'), kind: 'skills' }],
         }),
       ],
     });
@@ -372,11 +375,14 @@ describe('headless transport skill activation integration', () => {
       provider: observed.provider,
       projectAccess: await createTrustedProjectAccess(cwd),
       config: createConfig(),
+      contributionSources: [createNodeHostContributionSource(cwd)],
+      skillRoots: [{ root: join('.agents', 'skills'), kind: 'skills' }],
       permissionMode: 'bypassPermissions',
       bare: true,
       commandModules: [
         createSkillsCommandModule({
           contributionSources: [createNodeHostContributionSource(cwd)],
+          skillRoots: [{ root: join('.agents', 'skills'), kind: 'skills' }],
         }),
       ],
     });

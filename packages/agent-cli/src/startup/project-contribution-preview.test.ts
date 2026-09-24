@@ -6,6 +6,7 @@ import { listFrameworkProjectContributionPaths } from '@robota-sdk/agent-framewo
 
 import { ROBOTA_AGENT_DEFINITION_ROOTS } from '../product/robota-agent-roots.js';
 import { ROBOTA_PROJECT_SETTINGS } from '../product/robota-project-settings.js';
+import { ROBOTA_SKILL_ROOTS } from '../product/robota-skill-roots.js';
 import { listProjectContributionPaths } from './project-contribution-preview.js';
 
 describe('agent definition source preview', () => {
@@ -46,6 +47,21 @@ describe('project settings source preview', () => {
         label: 'Project settings and hooks',
         relativePath,
         expectedKind: 'file',
+      })),
+    );
+  });
+});
+
+describe('skill source preview', () => {
+  it('uses the exact product roots passed to framework discovery', () => {
+    expect(listFrameworkProjectContributionPaths('').filter((path) => path.id.startsWith('skill:')))
+      .toEqual([]);
+    expect(listProjectContributionPaths('').filter((path) => path.id.startsWith('skill:'))).toEqual(
+      ROBOTA_SKILL_ROOTS.map(({ root, kind }) => ({
+        id: `skill:${root}`,
+        label: kind === 'commands' ? 'Project commands' : 'Project skills',
+        relativePath: root,
+        expectedKind: 'directory',
       })),
     );
   });
