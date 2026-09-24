@@ -126,14 +126,14 @@ describe('MessageList rendering', () => {
     expect(output).toContain('hello');
   });
 
-  it('assistant message renders with "Robota:" label', () => {
+  it('assistant message renders with "Assistant:" label', () => {
     const history: IHistoryEntry[] = [
       messageToHistoryEntry(createAssistantMessage('response text')),
     ];
     const { lastFrame } = render(<MessageList history={history} />);
     const output = lastFrame() ?? '';
 
-    expect(output).toContain('Robota:');
+    expect(output).toContain('Assistant:');
     expect(output).toContain('response text');
   });
 
@@ -158,7 +158,7 @@ describe('MessageList rendering', () => {
     const { lastFrame } = render(<MessageList history={history} />);
     const output = lastFrame() ?? '';
 
-    expect(output).toContain('Robota:');
+    expect(output).toContain('Assistant:');
     expect(output).toContain('Patch preview:');
     expect(output).toContain('- const oldValue = true;');
     expect(output).toContain('+ const newValue = true;');
@@ -338,7 +338,7 @@ describe('MessageList rendering', () => {
 
   // ── Display order after abort ─────────────────────────────────
 
-  it('abort display order: You → Tool → Robota → System', () => {
+  it('abort display order: You → Tool → Assistant → System', () => {
     const history: IHistoryEntry[] = [
       messageToHistoryEntry(createUserMessage('/audit')),
       makeToolSummaryEntry(),
@@ -351,19 +351,19 @@ describe('MessageList rendering', () => {
 
     const youIdx = output.indexOf('You:');
     const toolIdx = output.indexOf('Tool:');
-    const robotaIdx = output.indexOf('Robota:');
+    const assistantIdx = output.indexOf('Assistant:');
     const systemIdx = output.indexOf('Interrupted by user.');
 
     // All must be present
     expect(youIdx).toBeGreaterThanOrEqual(0);
     expect(toolIdx).toBeGreaterThanOrEqual(0);
-    expect(robotaIdx).toBeGreaterThanOrEqual(0);
+    expect(assistantIdx).toBeGreaterThanOrEqual(0);
     expect(systemIdx).toBeGreaterThanOrEqual(0);
 
-    // Order: You → Tool → Robota → System
+    // Order: You → Tool → Assistant → System
     expect(youIdx).toBeLessThan(toolIdx);
-    expect(toolIdx).toBeLessThan(robotaIdx);
-    expect(robotaIdx).toBeLessThan(systemIdx);
+    expect(toolIdx).toBeLessThan(assistantIdx);
+    expect(assistantIdx).toBeLessThan(systemIdx);
   });
 
   // ── Mixed history ─────────────────────────────────────────────
@@ -383,7 +383,7 @@ describe('MessageList rendering', () => {
     expect(output).toContain('You:');
     expect(output).toContain('Invoking plugin skill: audit');
     expect(output).toContain('Tool:');
-    expect(output).toContain('Robota:');
+    expect(output).toContain('Assistant:');
   });
 });
 

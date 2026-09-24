@@ -48,6 +48,10 @@ Host-selected baseline permission patterns also pass through that projection unc
 terminal does not choose product path approvals.
 The permission prompt labels project-wide approval unavailable when the session cannot persist it,
 and never resolves the disabled choice as an approval.
+The host may supply a product display name to `renderApp` for visible assistant labels, the
+terminal title, and restart copy. Without one, the renderer uses `Assistant`; screen-reader role
+labels remain provider- and product-neutral. Terminal-title composition sanitizes both the
+host-selected name and the session name before emitting the OSC sequence.
 
 When a self-paced loop is waiting, Esc stops that loop through the session's durable stop path.
 If several are waiting, Esc names the explicit stop command instead of choosing one silently.

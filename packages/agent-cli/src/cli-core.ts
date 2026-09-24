@@ -57,7 +57,10 @@ import { isFirstRun, markOnboarded, printFirstRunWelcome } from './startup/first
 import { warnIfTerminalAppOnMacOS } from './startup/terminal-check.js';
 import type { IStartCliOptions } from './startup/command-setup.js';
 import { buildCommandSetupOrExit } from './startup/command-setup.js';
-import { areSessionLoopsDisabled, createLoopDefaultPromptResolver } from './startup/loop-options.js';
+import {
+  areSessionLoopsDisabled,
+  createLoopDefaultPromptResolver,
+} from './startup/loop-options.js';
 import {
   createInitialCliWorkspaceComposition,
   resolveInitialCliWorkspaceProjectAccess,
@@ -387,9 +390,12 @@ async function runCliCore(
     workspaceComposition.projectAccess.status === 'trusted',
     args.open,
   );
-  const externalEventHost = mcp && args.externalEventAllow?.length
-    ? createMcpExternalEventHost(args.externalEventAllow, mcp, (message) => terminal.writeLine(message))
-    : undefined;
+  const externalEventHost =
+    mcp && args.externalEventAllow?.length
+      ? createMcpExternalEventHost(args.externalEventAllow, mcp, (message) =>
+          terminal.writeLine(message),
+        )
+      : undefined;
   const bindTuiTransports = async (session: IInteractiveSession): Promise<void> => {
     bindTransports(session);
     if (!externalEventHost) return;
@@ -716,6 +722,7 @@ async function runCliCore(
   }
 
   const tuiRun = presentation.renderApp({
+    productDisplayName: 'Robota',
     providerDefinitions,
     ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
     ...(initialInput !== undefined
@@ -740,7 +747,10 @@ async function runCliCore(
     version,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
     disableSessionLoops: areSessionLoopsDisabled(process.env),
-    resolveDefaultLoopPrompt: createLoopDefaultPromptResolver({ projectAccess: workspaceComposition.projectAccess, userHome: homedir() }),
+    resolveDefaultLoopPrompt: createLoopDefaultPromptResolver({
+      projectAccess: workspaceComposition.projectAccess,
+      userHome: homedir(),
+    }),
     resumeSessionId,
     showSessionPickerOnStart,
     forkSession: args.forkSession,
