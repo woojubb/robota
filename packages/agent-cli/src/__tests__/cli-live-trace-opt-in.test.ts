@@ -14,7 +14,7 @@ const telemetryKeys = [
   'ROBOTA_TELEMETRY_METRICS', 'ROBOTA_TELEMETRY_LOGS',
   'ROBOTA_TELEMETRY_OTLP_PROTOCOL', 'ROBOTA_TELEMETRY_OTLP_ENDPOINT',
   'ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT', 'ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT',
-  'ROBOTA_TELEMETRY_OTLP_LOGS_ENDPOINT',
+  'ROBOTA_TELEMETRY_OTLP_LOGS_ENDPOINT', 'ROBOTA_TELEMETRY_OTLP_HEADERS',
 ] as const;
 const originalTelemetry = Object.fromEntries(telemetryKeys.map((key) => [key, process.env[key]]));
 
@@ -65,12 +65,15 @@ describe('CLI live trace opt-in', () => {
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     process.argv = ['node', 'robota', '-p', 'private prompt', '--no-session-persistence'];
 
-    const requests: Array<{ path: string; body: string }> = [];
+    const requests: Array<{ path: string; body: string; authorization?: string }> = [];
     const server = createServer(async (request, response) => {
       expect(request.headers['content-type']).toBe('application/x-protobuf');
       const chunks: Buffer[] = [];
       for await (const chunk of request) chunks.push(Buffer.from(chunk));
-      requests.push({ path: request.url ?? '', body: Buffer.concat(chunks).toString('utf8') });
+      requests.push({
+        path: request.url ?? '', body: Buffer.concat(chunks).toString('utf8'),
+        ...(request.headers.authorization ? { authorization: request.headers.authorization } : {}),
+      });
       response.writeHead(200, { 'content-type': 'application/x-protobuf' });
       response.end();
     });
@@ -79,32 +82,40 @@ describe('CLI live trace opt-in', () => {
       const address = server.address();
       if (!address || typeof address === 'string') throw new Error('Expected TCP listener');
       const endpoint = `http://127.0.0.1:${address.port}`;
-      process.env['ROBOTA_TELEMETRY_ENABLED'] = '0';
-      process.env['ROBOTA_TELEMETRY_TRACES'] = 'otlp';
-      process.env['ROBOTA_TELEMETRY_OTLP_PROTOCOL'] = 'http/protobuf';
-      process.env['ROBOTA_TELEMETRY_OTLP_ENDPOINT'] = endpoint;
+      // Startup removes every Robota telemetry setting from process.env, so each run sets its own.
+      const setTelemetry = (settings: Record<string, string>): void => {
+        for (const [key, value] of Object.entries({
+          ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf', ROBOTA_TELEMETRY_OTLP_ENDPOINT: endpoint, ...settings,
+        })) process.env[key] = value;
+      };
+      setTelemetry({ ROBOTA_TELEMETRY_ENABLED: '0', ROBOTA_TELEMETRY_TRACES: 'otlp' });
       await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requests).toEqual([]);
 
-      process.env['ROBOTA_TELEMETRY_ENABLED'] = '1';
+      expect(Object.keys(process.env).filter((key) => key.startsWith('ROBOTA_TELEMETRY_'))).toEqual([]);
+
+      setTelemetry({
+        ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_TRACES: 'otlp',
+        ROBOTA_TELEMETRY_OTLP_HEADERS: 'Authorization=Bearer%20e2e-token',
+      });
       await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requests.map((request) => request.path)).toEqual(['/v1/traces']);
+      expect(requests[0]!.authorization).toBe('Bearer e2e-token');
+      expect(requests[0]!.body).not.toContain('e2e-token');
+      expect(process.env['ROBOTA_TELEMETRY_OTLP_HEADERS']).toBeUndefined();
       expect(requests[0]!.body).toContain('service.version');
       expect(requests[0]!.body).toContain('robota.surface');
       expect(requests[0]!.body).toContain('print');
 
-      process.env['ROBOTA_TELEMETRY_TRACES'] = 'off';
-      process.env['ROBOTA_TELEMETRY_METRICS'] = 'otlp';
+      setTelemetry({ ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_METRICS: 'otlp' });
       await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requests.map((request) => request.path)).toEqual(['/v1/traces', '/v1/metrics']);
 
-      process.env['ROBOTA_TELEMETRY_METRICS'] = 'off';
-      process.env['ROBOTA_TELEMETRY_LOGS'] = 'otlp';
+      setTelemetry({ ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_LOGS: 'otlp' });
       await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requests.map((request) => request.path)).toEqual(['/v1/traces', '/v1/metrics', '/v1/logs']);
 
-      process.env['ROBOTA_TELEMETRY_LOGS'] = 'off';
-      process.env['ROBOTA_TELEMETRY_TRACES'] = 'otlp';
+      setTelemetry({ ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_TRACES: 'otlp' });
       process.argv = ['node', 'robota', '--serve', '-p', 'private prompt', '--no-session-persistence'];
       await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requests.at(-1)?.path).toBe('/v1/traces');

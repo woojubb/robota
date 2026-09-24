@@ -96,7 +96,14 @@ the same validated call ID and a permission-decision count by decision value, ne
 Omitted children or unknown prices remain visible
 as coverage gaps rather than fabricated totals. It does not replay stored usage, read ambient
 OpenTelemetry credentials, invent other lifecycle events, or let delivery failure change a turn result;
-an unsupported Robota telemetry setting refuses startup instead of being silently ignored.
+an unsupported Robota telemetry setting, or a credential that would be silently unused, refuses
+startup instead of being ignored. Telemetry credentials are scoped to the destination they were
+configured for and are never sent to another destination, printed, or written to console output,
+logs or resource attributes. Robota telemetry settings are not inherited by child processes; the one
+exception is the explicit handover to a supervised runtime launched by a session command. This is a
+guarantee about inheritance, not about hiding the settings from the same OS user. Because the settings
+are removed from `process.env` at startup, an embedding host that calls `startCli` has its own
+`process.env` mutated.
 
 Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`); it accepts
 `commandModules` and registers them generically with the SDK registry.
@@ -255,6 +262,12 @@ authority's frozen workspace root. Print mode, `--goal`, and `--serve` fail clos
 `untrusted`/`revoked`/`stale`/`store-unavailable` decisions before provider construction; interactive
 startup may continue Restricted with project contributions disabled. All trust diagnostics expose
 only state and canonical display path — credentials and project-controlled content are never printed.
+
+### Destination-scoped telemetry headers
+
+Generic OTLP headers go only to signals that use the generic endpoint, never to a signal with its own
+endpoint, even though OpenTelemetry would apply them there: a per-signal endpoint may be a different
+collector, and generic credentials belong to the generic destination.
 
 ### Deep links (`robota open`)
 

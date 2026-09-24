@@ -46,6 +46,7 @@ import {
 import { createRemoteControlController } from './remote-control/index.js';
 import { createCliUsageTransportRegistry } from './usage/usage-transport-registry.js';
 import { createConfiguredNodeOtlpLiveTelemetryPort } from './telemetry/live-trace-otlp.js';
+import { takeRobotaTelemetryEnvironment } from './telemetry/live-telemetry-env.js';
 import { resolveLiveTelemetrySurface } from './telemetry/live-resource.js';
 import {
   createRobotaPackSet,
@@ -112,6 +113,10 @@ export async function startCliCore(
   createBackgroundTaskRunners: (shellExecutable?: string) => IBackgroundTaskRunner[],
   presentation?: ICliPresentation,
 ): Promise<void> {
+  const telemetryEnvironment = takeRobotaTelemetryEnvironment();
+  // Telemetry settings may hold collector credentials: they leave process.env before anything else
+  // runs, so no child process inherits them. Only the supervised session launch hands them over.
+
   // FLOW-2006: `robota open <url>` is decided BEFORE the working directory is read and before the
   // workspace is resolved — it is the one invocation that changes which directory the process is
   // about, and resolving trust for the directory the user happened to start in would be answering
@@ -138,6 +143,7 @@ export async function startCliCore(
       initialInput,
       mcpOutput?.protocol,
       parsedMcpArgs,
+      telemetryEnvironment,
     );
   } finally {
     mcpOutput?.restore();
@@ -151,11 +157,12 @@ async function runCliCore(
   initialInput?: string,
   mcpProtocolStdout?: Writable,
   preParsedArgs?: IParsedCliArgs,
+  telemetryEnvironment: Readonly<Record<string, string>> = {},
 ): Promise<void> {
   const cwd = process.cwd();
   const projectAccess = await resolveInitialCliWorkspaceProjectAccess(cwd, options);
   const startupOptions: IStartCliOptions = { ...options, projectAccess };
-  if (await runPreparsedCliCommand(startupOptions, process.argv, cwd)) return;
+  if (await runPreparsedCliCommand(startupOptions, process.argv, cwd, telemetryEnvironment)) return;
 
   let args: IParsedCliArgs;
   try {
@@ -597,7 +604,7 @@ async function runCliCore(
     process.env,
   );
   const livePromptTracePort = createConfiguredNodeOtlpLiveTelemetryPort(
-    process.env,
+    telemetryEnvironment,
     () => process.stderr.write('Robota telemetry export failed.\n'),
     undefined,
     {

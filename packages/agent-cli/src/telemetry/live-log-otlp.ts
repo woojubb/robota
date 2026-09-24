@@ -8,6 +8,7 @@ import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytic
 import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';
 import { createLiveTelemetryResource, safeLiveProviderRequestId, safeLiveToolCallId } from './live-resource.js';
 import type { ILiveTelemetryResource } from './live-resource.js';
+import { otlpProtobufRequestHeaders } from './live-otlp-headers.js';
 
 const MAX_PENDING_BATCHES = 8;
 
@@ -86,12 +87,14 @@ export function projectLivePromptLogs(
   return logs;
 }
 
-async function sendLogs(batch: ILivePromptTraceBatch, endpoint: string, resource: ILiveTelemetryResource): Promise<void> {
+async function sendLogs(
+  batch: ILivePromptTraceBatch, endpoint: string, resource: ILiveTelemetryResource, headers: Headers | undefined,
+): Promise<void> {
   const body = ProtobufLogsSerializer.serializeRequest(projectLivePromptLogs(batch, new Date(), resource));
   if (!body || body.byteLength > 1_048_576) throw new Error('Invalid OTLP log payload.');
   const response = await fetch(endpoint, {
     method: 'POST',
-    headers: { 'content-type': 'application/x-protobuf' },
+    headers: otlpProtobufRequestHeaders(headers),
     body: Buffer.from(body),
     redirect: 'error',
     signal: AbortSignal.timeout(5000),
@@ -122,6 +125,8 @@ export function createNodeOtlpLiveLogPort(
   endpoint: string,
   onFailure?: (code: 'projection-failed' | 'enqueue-failed' | 'delivery-failed') => void,
   resource: ILiveTelemetryResource = createLiveTelemetryResource(),
+  /** Static headers prebuilt at startup; the sender's own content type always overrides them. */
+  headers?: Headers,
 ): ILivePromptTracePort & { shutdown(): Promise<void> } {
   const pending: ILivePromptTraceBatch[] = [];
   let worker: Promise<void> | undefined;
@@ -132,7 +137,7 @@ export function createNodeOtlpLiveLogPort(
   };
   const drain = async (): Promise<void> => {
     while (pending.length > 0) {
-      try { await sendLogs(pending.shift()!, endpoint, resource); }
+      try { await sendLogs(pending.shift()!, endpoint, resource, headers); }
       catch {
         pending.length = 0;
         reportFailure();

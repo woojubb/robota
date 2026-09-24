@@ -10,9 +10,9 @@ const base = {
 
 describe('Robota live telemetry settings', () => {
   it.each([
-    ['ROBOTA_TELEMETRY_OTLP_HEADERS', /headers are not supported/u],
-    ['ROBOTA_TELEMETRY_OTLP_TRACES_HEADERS', /headers are not supported/u],
     ['ROBOTA_TELEMETRY_OTLP_HEADERS_HELPER', /headers are not supported/u],
+    ['ROBOTA_TELEMETRY_OTLP_HEADERS_REFRESH', /headers are not supported/u],
+    ['ROBOTA_TELEMETRY_HEADERS', /headers are not supported/u],
     ['ROBOTA_TELEMETRY_OTLP_CLIENT_CERTIFICATE', /client certificates and custom CAs are not supported/u],
     ['ROBOTA_TELEMETRY_OTLP_CLIENT_KEY', /client certificates and custom CAs are not supported/u],
     ['ROBOTA_TELEMETRY_OTLP_CERTIFICATE', /client certificates and custom CAs are not supported/u],
@@ -33,7 +33,7 @@ describe('Robota live telemetry settings', () => {
   it('refuses unsupported settings even for console-only telemetry', () => {
     expect(() => createConfiguredNodeOtlpLiveTelemetryPort({
       ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_LOGS: 'console',
-      ROBOTA_TELEMETRY_OTLP_HEADERS: 'x',
+      ROBOTA_TELEMETRY_OTLP_HEADERS_HELPER: 'x',
     }, undefined, () => undefined)).toThrow(/headers are not supported/u);
   });
 
@@ -54,6 +54,7 @@ describe('Robota live telemetry settings', () => {
       ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT: 'http://127.0.0.1:4318/v1/traces',
       ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT: 'http://127.0.0.1:4318/v1/metrics',
       ROBOTA_TELEMETRY_OTLP_LOGS_ENDPOINT: 'http://127.0.0.1:4318/v1/logs',
+      ROBOTA_TELEMETRY_OTLP_TRACES_HEADERS: 'authorization=Bearer%20t',
     }, undefined, () => undefined);
     expect(port).toBeDefined();
     await port?.shutdown();
