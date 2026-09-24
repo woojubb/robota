@@ -29,6 +29,7 @@ export const PRODUCT_PROFILE_FIELD_POLICIES = {
   providerErrorGuidance: 'consumed',
   promptFileReferenceTag: 'consumed',
   modelCommandToolPrefix: 'consumed',
+  subagentHookEnvironmentNames: 'consumed',
   presets: 'consumed',
   presetRegistry: 'consumed-and-surfaced',
   defaultPresetId: 'consumed-and-surfaced',
@@ -46,6 +47,7 @@ interface IOverlayMaterials {
   providerErrorGuidance: IProductProfile['providerErrorGuidance'];
   promptFileReferenceTag: IProductProfile['promptFileReferenceTag'];
   modelCommandToolPrefix: IProductProfile['modelCommandToolPrefix'];
+  subagentHookEnvironmentNames: IProductProfile['subagentHookEnvironmentNames'];
   commandModules: readonly ICommandModule[];
   tools: readonly FunctionTool[];
   subagents: readonly IAgentDefinition[];
@@ -72,6 +74,8 @@ function overlaySessionOptions(
   const providerErrorGuidance = base.providerErrorGuidance ?? materials.providerErrorGuidance;
   const promptFileReferenceTag = base.promptFileReferenceTag ?? materials.promptFileReferenceTag;
   const modelCommandToolPrefix = base.modelCommandToolPrefix ?? materials.modelCommandToolPrefix;
+  const subagentHookEnvironmentNames =
+    base.subagentHookEnvironmentNames ?? materials.subagentHookEnvironmentNames;
   const permissionModeOverlay =
     base.permissionMode === undefined && materials.defaultPermissionMode !== undefined
       ? { permissionMode: materials.defaultPermissionMode }
@@ -98,6 +102,7 @@ function overlaySessionOptions(
       ...(providerErrorGuidance !== undefined ? { providerErrorGuidance } : {}),
       ...(promptFileReferenceTag !== undefined ? { promptFileReferenceTag } : {}),
       ...(modelCommandToolPrefix !== undefined ? { modelCommandToolPrefix } : {}),
+      ...(subagentHookEnvironmentNames !== undefined ? { subagentHookEnvironmentNames } : {}),
       commandModules,
       commandHostAdapters,
       ...permissionModeOverlay,
@@ -116,6 +121,7 @@ function overlaySessionOptions(
     ...(providerErrorGuidance !== undefined ? { providerErrorGuidance } : {}),
     ...(promptFileReferenceTag !== undefined ? { promptFileReferenceTag } : {}),
     ...(modelCommandToolPrefix !== undefined ? { modelCommandToolPrefix } : {}),
+    ...(subagentHookEnvironmentNames !== undefined ? { subagentHookEnvironmentNames } : {}),
     commandModules,
     commandHostAdapters,
     additionalTools: [
@@ -193,6 +199,7 @@ export function assembleProduct(profile: IProductProfile): IAssembledProduct {
       providerErrorGuidance: profile.providerErrorGuidance,
       promptFileReferenceTag: profile.promptFileReferenceTag,
       modelCommandToolPrefix: profile.modelCommandToolPrefix,
+      subagentHookEnvironmentNames: profile.subagentHookEnvironmentNames,
       commandModules: merged.commandModules,
       tools: merged.tools,
       subagents: merged.subagents,

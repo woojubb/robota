@@ -7,8 +7,25 @@ import type {
   THookEvent,
 } from '@robota-sdk/agent-core';
 import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
+import type { ICreateSessionOptions } from './create-session-types.js';
 
 const logger = createLogger('BackgroundTaskHooks');
+const ENVIRONMENT_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+const RESERVED_ENVIRONMENT_NAMES = new Set(['CLAUDE_PROJECT_DIR', 'CLAUDE_SESSION_ID']);
+
+export function validateSubagentHookEnvironmentNames(
+  names: ICreateSessionOptions['subagentHookEnvironmentNames'],
+): void {
+  const aliases = [names?.agentId, names?.agentType].filter((name): name is string => name !== undefined);
+  for (const name of aliases) {
+    if (!ENVIRONMENT_NAME.test(name) || RESERVED_ENVIRONMENT_NAMES.has(name)) {
+      throw new Error(`Invalid subagent hook environment alias: ${name}`);
+    }
+  }
+  if (aliases.length === 2 && aliases[0] === aliases[1]) {
+    throw new Error(`Duplicate subagent hook environment alias: ${aliases[0]}`);
+  }
+}
 
 function getSubagentHookEvent(event: TBackgroundTaskEvent): THookEvent | undefined {
   if (event.type === 'background_task_started' && event.task.kind === 'agent') {
@@ -30,6 +47,7 @@ export function fireSubagentLifecycleHook(
   cwd: string,
   hooks: THooksConfig | undefined,
   hookTypeExecutors: IHookTypeExecutor[] | undefined,
+  environmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'],
 ): void {
   const hookEventName = getSubagentHookEvent(event);
   if (!hookEventName || !('task' in event)) return;
@@ -60,8 +78,10 @@ export function fireSubagentLifecycleHook(
     env: {
       CLAUDE_PROJECT_DIR: cwd,
       CLAUDE_SESSION_ID: event.task.parentSessionId,
-      ROBOTA_AGENT_ID: event.task.id,
-      ROBOTA_AGENT_TYPE: event.task.agentType ?? event.task.label,
+      ...(environmentNames?.agentId === undefined
+        ? {} : { [environmentNames.agentId]: event.task.id }),
+      ...(environmentNames?.agentType === undefined
+        ? {} : { [environmentNames.agentType]: event.task.agentType ?? event.task.label }),
     },
   };
 

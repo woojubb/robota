@@ -158,6 +158,7 @@ export function buildCreateSessionOptions(
     commandSemanticRoles: getCommandSemanticRoles(options),
     modelCommandExecutor: options.modelCommandExecutor,
     modelCommandToolPrefix: options.modelCommandToolPrefix,
+    subagentHookEnvironmentNames: options.subagentHookEnvironmentNames,
     isModelCommandInvocable: options.isModelCommandInvocable,
     editCheckpointRecorder: options.editCheckpointRecorder,
     reversibleExecution: options.reversibleExecution,

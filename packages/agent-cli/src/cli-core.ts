@@ -527,6 +527,7 @@ async function runCliCore(
     providerErrorGuidance,
     promptFileReferenceTag,
     modelCommandToolPrefix,
+    subagentHookEnvironmentNames,
   } = buildRobotaRuntimeOptions({
     product,
     cwd,
@@ -620,6 +621,7 @@ async function runCliCore(
       ROBOTA_TASK_CONTEXT,
       promptFileReferenceTag,
       modelCommandToolPrefix,
+      subagentHookEnvironmentNames,
     );
     try {
       await printRun;
@@ -638,6 +640,7 @@ async function runCliCore(
       providerErrorGuidance,
       promptFileReferenceTag,
       modelCommandToolPrefix,
+      subagentHookEnvironmentNames,
       sessionStore,
       projectAccess: workspaceComposition.projectAccess,
       orgPolicy,
@@ -685,6 +688,7 @@ async function runCliCore(
       providerErrorGuidance,
       promptFileReferenceTag,
       modelCommandToolPrefix,
+      subagentHookEnvironmentNames,
       sessionStore,
       projectAccess: workspaceComposition.projectAccess,
       orgPolicy,
@@ -742,6 +746,7 @@ async function runCliCore(
   const tuiRun = presentation.renderApp({
     productDisplayName: 'Robota',
     modelCommandToolPrefix,
+    subagentHookEnvironmentNames,
     promptFileReferenceTag,
     providerDefinitions,
     ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),

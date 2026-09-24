@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
 import type {
   IAgentDefinition,
+  ICreateSessionOptions,
   ICommandHostAdapters,
   ICommandModule,
   IOrgPolicy,
@@ -81,6 +82,7 @@ export async function runPrintMode(
   taskContext?: { readonly enabled?: boolean; readonly dir?: string },
   promptFileReferenceTag?: string,
   modelCommandToolPrefix?: string,
+  subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'],
 ): Promise<void> {
   const goalObjective = args.goal?.trim();
   let prompt = args.positional.join(' ').trim();
@@ -121,6 +123,7 @@ export async function runPrintMode(
     ...(providerErrorGuidance !== undefined ? { providerErrorGuidance } : {}),
     ...(promptFileReferenceTag !== undefined ? { promptFileReferenceTag } : {}),
     ...(modelCommandToolPrefix !== undefined ? { modelCommandToolPrefix } : {}),
+    ...(subagentHookEnvironmentNames !== undefined ? { subagentHookEnvironmentNames } : {}),
     ...(orgPolicy !== undefined ? { orgPolicy } : {}),
     ...(projectAccess !== undefined ? { projectAccess } : {}),
       ...(projectSettingsPaths !== undefined ? { projectSettingsPaths } : {}),

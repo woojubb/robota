@@ -132,6 +132,7 @@ export interface IInitOptions {
   /** Model command execution bridge. */
   modelCommandExecutor?: (command: string, args: string) => Promise<ICommandResult | null>;
   modelCommandToolPrefix?: string;
+  subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
   /** Predicate for commands allowed through the model command execution bridge. */
   isModelCommandInvocable?: (command: string) => boolean;
   /** Preloaded config to avoid duplicate discovery when caller needs it too. */

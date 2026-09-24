@@ -12,6 +12,7 @@ import type {
 } from '@robota-sdk/agent-core';
 import type {
   IAgentDefinition,
+  ICreateSessionOptions,
   IProviderErrorGuidance,
   IBackgroundTaskRunner,
   ICommandModule,
@@ -76,6 +77,8 @@ export interface IProductProfile {
   promptFileReferenceTag?: string;
   /** Prefix for model command tool names; neutral when omitted. */
   modelCommandToolPrefix?: string;
+  /** Optional product aliases for subagent hook environment variables. */
+  subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
   // (3) behavior axis — external presets to register + the default id
   /**
    * External presets to register into a PER-CALL instance-scoped registry (R8). Ignored when

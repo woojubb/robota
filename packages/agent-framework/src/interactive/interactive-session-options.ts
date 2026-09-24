@@ -58,6 +58,7 @@ export interface IInteractiveSessionStandardOptions {
   promptFileReferenceTag?: string;
   /** Host-selected prefix for projected command tool names. */
   modelCommandToolPrefix?: string;
+  subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
   projectAccess?: TWorkspaceProjectAccess;
   /** Host-selected project settings layers, admitted only through the current project authority. */
@@ -226,6 +227,7 @@ export interface IInteractiveSessionInjectedOptions {
   providerErrorGuidance?: IProviderErrorGuidance;
   promptFileReferenceTag?: string;
   modelCommandToolPrefix?: string;
+  subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
   cwd?: string;
   provider?: IAIProvider;
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
