@@ -28,6 +28,31 @@ export interface INodeOtlpLiveTraceOptions {
 
 type TOtlpSignal = 'traces' | 'metrics' | 'logs';
 
+const SUPPORTED_SETTINGS = new Set([
+  'ENABLED', 'TRACES', 'METRICS', 'LOGS', 'OTLP_PROTOCOL', 'OTLP_ENDPOINT',
+  'OTLP_TRACES_ENDPOINT', 'OTLP_METRICS_ENDPOINT', 'OTLP_LOGS_ENDPOINT',
+].map((suffix) => `ROBOTA_TELEMETRY_${suffix}`));
+
+/**
+ * An enabled exporter never silently drops a setting the user expected to take effect: exporting
+ * without the auth, client certificate, lock or content choice they asked for is worse than not
+ * starting. The error names the setting only, because its value may be a credential.
+ */
+function rejectUnsupportedSettings(env: Readonly<Record<string, string | undefined>>): void {
+  for (const name of Object.keys(env)) {
+    if (!name.startsWith('ROBOTA_TELEMETRY_') || SUPPORTED_SETTINGS.has(name) || env[name] === undefined) continue;
+    if (/HEADERS/u.test(name)) throw new Error(`Robota telemetry headers are not supported (${name}); refusing to export without them.`);
+    if (/CERTIFICATE|CLIENT_KEY|(^|_)CA(_|$)|MTLS/u.test(name)) {
+      throw new Error(`Robota telemetry client certificates and custom CAs are not supported (${name}); refusing to export without them.`);
+    }
+    if (/LOCK|MANAGED/u.test(name)) throw new Error(`A Robota telemetry managed destination lock cannot be enforced (${name}); refusing to start telemetry.`);
+    if (/PROMPT|RESPONSE|CONTENT|BODY|ARGUMENT|OUTPUT/u.test(name)) {
+      throw new Error(`Robota telemetry content capture is not supported (${name}); exports stay content-free.`);
+    }
+    throw new Error(`Unknown Robota telemetry setting ${name}.`);
+  }
+}
+
 /** Product-owned config: every signal is selected independently; ambient OTEL_* is ignored. */
 function resolveNodeOtlpLiveSignalEndpoint(
   env: Readonly<Record<string, string | undefined>>,
@@ -36,6 +61,7 @@ function resolveNodeOtlpLiveSignalEndpoint(
   const enabled = env['ROBOTA_TELEMETRY_ENABLED'];
   if (enabled === undefined || enabled === '0') return undefined;
   if (enabled !== '1') throw new Error('Invalid Robota telemetry enable switch.');
+  rejectUnsupportedSettings(env);
   const label = signal === 'traces' ? 'trace' : signal === 'metrics' ? 'metric' : 'log';
   const selector = env[`ROBOTA_TELEMETRY_${signal.toUpperCase()}`];
   if (selector === undefined || selector === 'off') return undefined;
