@@ -386,7 +386,9 @@ export class SessionBackgroundTaskTracker {
    */
   private recordCompletedTaskUsage(event: TBackgroundTaskEvent): void {
     if (event.type !== 'background_task_completed') return;
-    const usage = event.task.result?.usage;
+    // #2079: `usage` exists only on the agent-kind result member; `event.task.result` is still the
+    // full union (task state is not itself discriminated), so narrow on the result's own `kind`.
+    const usage = event.task.result?.kind === 'agent' ? event.task.result.usage : undefined;
     if (!usage || usage.totalTokens <= 0) return;
     this.appendHistoryEntry?.(
       createSourceUsageSummaryEntry(usage, {

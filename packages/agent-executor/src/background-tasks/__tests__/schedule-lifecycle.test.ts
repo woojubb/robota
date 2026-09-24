@@ -31,7 +31,7 @@ function scheduledRequest(
   };
 }
 
-interface IFakeHandle extends IBackgroundTaskHandle {
+interface IFakeHandle extends IBackgroundTaskHandle<'scheduled'> {
   pause: ReturnType<typeof vi.fn>;
   resume: ReturnType<typeof vi.fn>;
   editSchedule: ReturnType<typeof vi.fn>;
@@ -40,15 +40,15 @@ interface IFakeHandle extends IBackgroundTaskHandle {
 type TEmit = (event: Parameters<NonNullable<IBackgroundTaskStart['emit']>>[0]) => void;
 
 function createFakeScheduledRunner(): {
-  runner: IBackgroundTaskRunner;
+  runner: IBackgroundTaskRunner<'scheduled'>;
   handles: IFakeHandle[];
   emits: TEmit[];
 } {
   const handles: IFakeHandle[] = [];
   const emits: TEmit[] = [];
-  const runner: IBackgroundTaskRunner = {
+  const runner: IBackgroundTaskRunner<'scheduled'> = {
     kind: 'scheduled',
-    start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+    start(task: IBackgroundTaskStart<'scheduled'>): IBackgroundTaskHandle<'scheduled'> {
       const emit = task.emit ?? (() => undefined);
       emits.push(emit);
       // announce the initial sleeping state so the manager status is `sleeping`
@@ -157,7 +157,7 @@ describe('SELFHOST-012 manager schedule lifecycle', () => {
   it('rejects lifecycle verbs on a non-scheduled task', async () => {
     const { runner } = createFakeScheduledRunner();
     // a process runner so the spawned task is not `scheduled`
-    const processRunner: IBackgroundTaskRunner = {
+    const processRunner: IBackgroundTaskRunner<'process'> = {
       kind: 'process',
       start: (task) => ({
         taskId: task.taskId,

@@ -36,10 +36,10 @@ function createSessionStoreStub() {
   };
 }
 
-function createResolvedRunner(output: string): IBackgroundTaskRunner {
+function createResolvedRunner(output: string): IBackgroundTaskRunner<'agent'> {
   return {
     kind: 'agent',
-    start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+    start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle<'agent'> {
       return {
         taskId: task.taskId,
         result: Promise.resolve({ taskId: task.taskId, kind: 'agent', output }),
@@ -78,7 +78,7 @@ describe('InteractiveSession background task integration', () => {
     });
 
     const created = await manager.spawn(createAgentRequest('Find files'));
-    const result: IBackgroundTaskResult = await manager.wait(created.id);
+    const result = await manager.wait(created.id);
 
     expect(result.output).toBe('done');
     expect(events).toEqual([
@@ -133,9 +133,9 @@ describe('InteractiveSession background task integration', () => {
   });
 
   it('reads execution workspace detail from a background task log', async () => {
-    const runner: IBackgroundTaskRunner = {
+    const runner: IBackgroundTaskRunner<'agent'> = {
       kind: 'agent',
-      start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+      start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle<'agent'> {
         return {
           taskId: task.taskId,
           logPath: '/tmp/agent.log',
@@ -168,9 +168,9 @@ describe('InteractiveSession background task integration', () => {
   });
 
   it('persists background task snapshots and streaming deltas into session JSON', async () => {
-    const runner: IBackgroundTaskRunner = {
+    const runner: IBackgroundTaskRunner<'agent'> = {
       kind: 'agent',
-      start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+      start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle<'agent'> {
         task.emit?.({ type: 'background_task_text_delta', delta: 'partial ' });
         return {
           taskId: task.taskId,
@@ -259,12 +259,12 @@ describe('InteractiveSession background task integration', () => {
 
   it('shutdown cancels background tasks through the manager and ends the session once', async () => {
     let cancelReason = '';
-    const runner: IBackgroundTaskRunner = {
+    const runner: IBackgroundTaskRunner<'agent'> = {
       kind: 'agent',
-      start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+      start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle<'agent'> {
         return {
           taskId: task.taskId,
-          result: new Promise<IBackgroundTaskResult>(() => {}),
+          result: new Promise<IBackgroundTaskResult<'agent'>>(() => {}),
           cancel: (reason?: string) => {
             cancelReason = reason ?? '';
             return Promise.resolve();
@@ -344,9 +344,9 @@ describe('InteractiveSession background task integration', () => {
   });
 
   it("attributes a completed background agent task's token usage to its source in the parent log (ANALYTICS-001 P2)", async () => {
-    const runner: IBackgroundTaskRunner = {
+    const runner: IBackgroundTaskRunner<'agent'> = {
       kind: 'agent',
-      start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+      start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle<'agent'> {
         return {
           taskId: task.taskId,
           result: Promise.resolve({

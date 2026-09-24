@@ -104,7 +104,7 @@ describe('execution workspace projection', () => {
           status: 'completed',
           unread: false,
           completedAt: '2026-05-09T00:00:04.000Z',
-          result: { taskId: 'agent_1', kind: 'agent', output: 'done', exitCode: 0 },
+          result: { taskId: 'agent_1', kind: 'agent', output: 'done' },
         }),
       ],
     });

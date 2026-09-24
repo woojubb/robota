@@ -29,11 +29,23 @@ import {
 
 import type { IBackgroundJobGroupState } from './background-job-orchestrator.js';
 import type {
+  IBackgroundTaskResult,
   IBackgroundTaskState,
   TBackgroundPrimitive,
 } from '@robota-sdk/agent-interface-execution';
 
 const SUCCESS_EXIT_CODE = 0;
+
+/**
+ * #2079: `IBackgroundTaskResult` is discriminated by kind now, and `exitCode`/`signalCode` exist
+ * only on the process-kind member. `state.result` is still the full union (`IBackgroundTaskState` is
+ * not itself discriminated), so this narrows on the RESULT's own `kind` before reading them — a
+ * non-process result (or none) is never an unclean exit.
+ */
+function hasCleanProcessExit(result: IBackgroundTaskResult | undefined): boolean {
+  if (result?.kind !== 'process') return true;
+  return (result.exitCode ?? SUCCESS_EXIT_CODE) === SUCCESS_EXIT_CODE && !result.signalCode;
+}
 
 export function createExecutionWorkspaceSnapshot(
   input: ICreateExecutionWorkspaceSnapshotInput,
@@ -219,8 +231,7 @@ function createTaskVisibility(state: IBackgroundTaskState): TExecutionWorkspaceV
     state.status === 'completed' &&
     !state.unread &&
     !state.error &&
-    (state.result?.exitCode ?? SUCCESS_EXIT_CODE) === SUCCESS_EXIT_CODE &&
-    !state.result?.signalCode &&
+    hasCleanProcessExit(state.result) &&
     !state.worktreePath &&
     !state.branchName
   ) {

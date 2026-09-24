@@ -143,12 +143,29 @@ function maximalRecord(): IInteractiveSessionRecord {
           taskId: 't1',
           kind: 'agent',
           output: 'done',
-          exitCode: 0,
-          signalCode: 'SIGTERM',
           metadata: { lines: 12 },
           usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
         },
         error: { category: 'timeout', message: 'too slow', recoverable: true },
+      },
+      {
+        id: 't2',
+        kind: 'process',
+        label: 'a process task',
+        status: 'completed',
+        mode: 'background',
+        parentSessionId: 'session-1',
+        depth: 0,
+        cwd: '/work',
+        updatedAt: '2026-08-01T00:02:00.000Z',
+        unread: false,
+        result: {
+          taskId: 't2',
+          kind: 'process',
+          output: 'exited',
+          exitCode: 1,
+          signalCode: 'SIGTERM',
+        },
       },
     ],
     backgroundTaskEvents: [
@@ -437,6 +454,34 @@ describe('decodeInteractiveSessionRecord — TC-02 a maximal record round-trips'
   });
 });
 
+describe('decodeInteractiveSessionRecord — background task result kind discrimination (#2079)', () => {
+  it('rejects an agent-kind result carrying process-only exitCode', () => {
+    const outcome = decodeInteractiveSessionRecord(
+      persistedWith('backgroundTasks[0].result.exitCode', 0),
+    );
+    expect(outcome.status).toBe('corrupt');
+    expect(issuePaths(outcome)).toContain('backgroundTasks[0].result.exitCode');
+  });
+
+  it('rejects an agent-kind result carrying process-only signalCode', () => {
+    const outcome = decodeInteractiveSessionRecord(
+      persistedWith('backgroundTasks[0].result.signalCode', 'SIGTERM'),
+    );
+    expect(outcome.status).toBe('corrupt');
+    expect(issuePaths(outcome)).toContain('backgroundTasks[0].result.signalCode');
+  });
+
+  it('rejects a process-kind result carrying agent-only usage', () => {
+    const record = persisted() as { backgroundTasks: Array<Record<string, unknown>> };
+    const task = record.backgroundTasks[0]!;
+    task['kind'] = 'process';
+    (task['result'] as Record<string, unknown>)['kind'] = 'process';
+    const outcome = decodeInteractiveSessionRecord(record);
+    expect(outcome.status).toBe('corrupt');
+    expect(issuePaths(outcome)).toContain('backgroundTasks[0].result.usage');
+  });
+});
+
 describe('decodeInteractiveSessionRecord — TC-03 every nested family reports its path', () => {
   const mutations: Array<[string, string, unknown]> = [
     ['root scalar', 'id', 42],
@@ -449,6 +494,7 @@ describe('decodeInteractiveSessionRecord — TC-03 every nested family reports i
     ['parameter schema', 'toolSchemas[0].parameters.properties.path.type', 'stringy'],
     ['background task', 'backgroundTasks[0].depth', 'deep'],
     ['background task result', 'backgroundTasks[0].result.output', 12],
+    ['background task result exitCode', 'backgroundTasks[1].result.exitCode', 'x'],
     ['background task error', 'backgroundTasks[0].error.category', 'nope'],
     ['background task schedule', 'backgroundTasks[0].schedule.cronExpression', 3],
     ['background task event', 'backgroundTaskEvents[3].delta', 9],

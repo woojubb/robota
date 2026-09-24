@@ -190,16 +190,53 @@ export type TBackgroundTaskRequest =
  */
 export type IBackgroundTaskUsage = ITokenUsage;
 
-export interface IBackgroundTaskResult {
+interface IBaseBackgroundTaskResult {
   taskId: string;
-  kind: TBackgroundTaskKind;
   output: string;
-  exitCode?: number;
-  signalCode?: string;
   metadata?: Record<string, TBackgroundPrimitive>;
+}
+
+export interface IAgentBackgroundTaskResult extends IBaseBackgroundTaskResult {
+  kind: 'agent';
   /** ANALYTICS-001 (Phase 2): total token usage of an agent task, attributed to it in the parent log. */
   usage?: IBackgroundTaskUsage;
 }
+
+export interface IProcessBackgroundTaskResult extends IBaseBackgroundTaskResult {
+  kind: 'process';
+  exitCode?: number;
+  signalCode?: string;
+}
+
+export interface IScheduledBackgroundTaskResult extends IBaseBackgroundTaskResult {
+  kind: 'scheduled';
+}
+
+export interface IToolInvocationBackgroundTaskResult extends IBaseBackgroundTaskResult {
+  kind: 'tool-invocation';
+}
+
+/**
+ * #2079: the outcome hop discriminates by kind exactly as the request hop
+ * (`TBackgroundTaskRequest`) does — `exitCode`/`signalCode` are producible only by the process
+ * runner and `usage` only by the agent runner (`ISubagentJobResult` is now
+ * `Omit<IBackgroundTaskResult<'agent'>, 'kind'>`, not a hand-maintained `Omit` off the flat shape).
+ * `IBackgroundTaskResult<K>` narrows to the kind-specific member for a caller that knows `K`
+ * statically (a runner's `start()`, the decoder once it has
+ * checked `kind`); called with no type argument it stays the full union, which is what
+ * `IBackgroundTaskState.result` still holds — that field is not itself correlated with `state.kind`
+ * (untouched by this change; revisit only if `IBackgroundTaskState` is ever discriminated).
+ */
+export type TBackgroundTaskResult =
+  | IAgentBackgroundTaskResult
+  | IProcessBackgroundTaskResult
+  | IScheduledBackgroundTaskResult
+  | IToolInvocationBackgroundTaskResult;
+
+export type IBackgroundTaskResult<K extends TBackgroundTaskKind = TBackgroundTaskKind> = Extract<
+  TBackgroundTaskResult,
+  { kind: K }
+>;
 
 export interface IBackgroundTaskState {
   id: string;

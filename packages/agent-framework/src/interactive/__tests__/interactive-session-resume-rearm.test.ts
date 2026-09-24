@@ -40,15 +40,15 @@ function createSessionStub(): Session {
 }
 
 interface IFakeScheduled {
-  runner: IBackgroundTaskRunner;
+  runner: IBackgroundTaskRunner<'scheduled'>;
   started: string[];
 }
 
 function createFakeScheduledRunner(): IFakeScheduled {
   const started: string[] = [];
-  const runner: IBackgroundTaskRunner = {
+  const runner: IBackgroundTaskRunner<'scheduled'> = {
     kind: 'scheduled',
-    start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+    start(task: IBackgroundTaskStart<'scheduled'>): IBackgroundTaskHandle<'scheduled'> {
       started.push(task.taskId);
       const emit = task.emit ?? (() => undefined);
       emit({ type: 'background_task_sleeping', nextFireAt: '2999-01-01T00:00:00.000Z' });
@@ -94,7 +94,7 @@ function pausedScheduledRecord(): Record<string, unknown> {
 function setupWithRecord(
   record: Record<string, unknown>,
   disableSessionLoops = false,
-  scheduledRunner?: IBackgroundTaskRunner,
+  scheduledRunner?: IBackgroundTaskRunner<'scheduled'>,
 ): {
   started: string[];
   manager: BackgroundTaskManager;
