@@ -140,6 +140,34 @@ describe('BackgroundTaskManager', () => {
     );
   });
 
+  it.each([
+    { mismatch: 'kind', result: { taskId: 'task_1', kind: 'process' as const, output: 'wrong' } },
+    { mismatch: 'task ID', result: { taskId: 'other', kind: 'agent' as const, output: 'wrong' } },
+  ])('fails a task when its runner returns a different $mismatch', async ({ result }) => {
+    const eventSink = vi.fn();
+    const manager = new BackgroundTaskManager({
+      runners: [{
+        kind: 'agent',
+        start: (task) => ({
+          taskId: task.taskId,
+          result: Promise.resolve(result),
+          cancel: () => Promise.resolve(),
+        }),
+      }],
+      eventSink,
+    });
+
+    const task = await manager.spawn(createAgentRequest('Run'));
+    await expect(manager.wait(task.id)).rejects.toThrow('result');
+    expect(manager.get(task.id)).toMatchObject({ status: 'failed', result: undefined });
+    expect(eventSink).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'background_task_failed' }),
+    );
+    expect(eventSink).not.toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'background_task_completed' }),
+    );
+  });
+
   it('projects runner worktree metadata onto completed task state', async () => {
     const runner: IBackgroundTaskRunner = {
       kind: 'agent',
