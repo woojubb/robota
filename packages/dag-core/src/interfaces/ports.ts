@@ -1,3 +1,4 @@
+import type { IRegexReplaceOperation } from '../types/regex-replace-operation.js';
 import type { ITaskSnapshotBudget } from '../services/task-snapshot-budget.js';
 import type { IDagExecutionByteLimits } from '../types/execution-byte-limits.js';
 import type { TExecutionCommit, IExecutionCommitResult } from '../services/execution-commit.js';
@@ -151,6 +152,8 @@ export interface IStoragePort {
 
 /** Input bundle for executing a single task within a DAG run. */
 export interface ITaskExecutionInput {
+  /** Trusted host operation capability; never decoded from workflow data. */
+  regexReplaceOperation?: IRegexReplaceOperation;
   /** Shared live root snapshot authority, never sourced from serialized data. */
   snapshotBudget?: ITaskSnapshotBudget;
   /** Trusted host limits; never deserialized from workflow configuration. */
@@ -192,6 +195,8 @@ export type TTaskExecutionResult = ITaskExecutionSuccess | ITaskExecutionFailure
 
 /** Port for executing a single task given its execution input. */
 export interface ITaskExecutorPort {
+  /** Isolated executors join termination of this exact attempt before timeout/cancel is returned. */
+  stopAndWait?(input: ITaskExecutionInput): Promise<void>;
   execute(input: ITaskExecutionInput): Promise<TTaskExecutionResult>;
 }
 

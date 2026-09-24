@@ -218,3 +218,11 @@ The authority is an in-process capability with no crash recovery or cross-proces
 Input and output values, and their serialized strings, already exist at admission. This is not a
 pre-allocation memory bound, provider-generation limit, CPU limit, queue-size bound, snapshot-read
 limit, or bound on adapter collection encoding. The per-operation text-repeat ceiling is separate.
+
+## Isolated text operation capability
+
+A host may supply a trusted in-process regex replacement capability independently of workflow
+configuration. Only the plain text, pattern, flags and replacement cross its execution boundary;
+signals, storage and root snapshot authority remain in the host. A task executor may additionally
+provide an explicit isolation stop/join capability keyed to the exact attempt. It must settle only
+after its owned execution has exited, or reject shutdown; it is not arbitrary node cleanup.

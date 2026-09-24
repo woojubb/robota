@@ -188,3 +188,12 @@ Budget exhaustion is a non-retryable task failure; rejected stale/cancelled writ
 allowance. Accepted input remains charged if execution subsequently fails. Persistence exceptions
 retain capacity and close the root authority, while preserving the storage failure. Raw storage
 setters and lower-level workers without an injected authority do not provide aggregate accounting.
+
+## Explicit isolation shutdown
+
+An executor with the optional trusted isolation stop/join capability extends timeout and upstream
+cancellation settlement: the winner is claimed before abort listeners run, then owned isolation
+is stopped and joined before the caller resumes. Reentrant or late success cannot replace that
+winner. Shutdown failure preserves the winning error code, disables retry, and records the stop
+failure; it must not be reported as successful termination. Executors without this capability
+retain the cooperative contract above. This does not join arbitrary lifecycle cleanup.

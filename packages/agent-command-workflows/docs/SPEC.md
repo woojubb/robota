@@ -65,3 +65,20 @@ therefore consume the same cumulative allowance; a child cannot reset it by cons
 runtime. Independent `/workflows run` invocations receive independent allowances. Trusted hosts may
 configure snapshot allowances, while saved workflow data cannot. This is persisted task snapshot
 admission after serialization, not generation-time memory protection or CPU preemption.
+
+## Regex CPU interruption boundary
+
+The default sync catalog's text-replace regex executes outside the parent event loop.
+Task timeout or cancellation joins that operation's isolated execution exit before returning its failure,
+preventing its late output from reaching snapshots or downstream nodes. A subsequent independent
+workflow remains executable. Registry overrides retain their own handler semantics. This guarantee
+is limited to the default regex operation, not the entire sync catalog or custom node code.
+
+Bun source and standalone artifacts use a child process running the same fixed pure operation,
+while Node uses a worker thread. Startup failure has no inline fallback. Operation DTOs have a
+4 MiB UTF-8 transport ceiling, separate from text-repeat's pre-expansion ceiling and the root's
+cumulative persisted snapshot admission budget. None is a general process memory limit.
+
+Bun product reliability remains contingent on the host's native filesystem authority: its existing
+macOS native finalizer failure also occurs without regex execution. A standalone operation probe
+does not establish end-to-end product support in the presence of that host failure.

@@ -1,3 +1,4 @@
+export * from './types/regex-replace-operation.js';
 export * from './services/task-snapshot-budget.js';
 export * from './types/execution-byte-limits.js';
 // @robota-sdk/dag-core
