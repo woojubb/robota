@@ -160,7 +160,10 @@ attempt and worker; a prior cancellation cancels that task instead, with no outp
 persistence, completion/failure publication, retry, or downstream admission, and a stale attempt
 can never settle or cancel its replacement. Whichever of task settlement or cancellation commits
 first wins and is not overwritten by the other; finalization and cancellation arbitrate atomically,
-so an awaited read cannot resurrect a cancelled run. A task-free execution frontier is not
+so an awaited read cannot resurrect a cancelled run. For a cost-limited run, a worker reserves its
+estimate against sibling charges and holds before execution; a custom executor must estimate before
+execution or fail without executing. Successful output settlement converts the matching hold to a
+charge, while failure, cancellation and reclaim release it. A task-free execution frontier is not
 sufficient for completion: for runs with a definition snapshot, ready nodes not yet admitted also
 keep the run running, covering a sibling finishing while another task's downstream dispatcher is
 still awaiting storage admission. Eligible failure settlement atomically reserves the next queued

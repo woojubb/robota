@@ -1,10 +1,12 @@
 import {
   TaskRunStateMachine,
+  LifecycleTaskExecutorPort,
   type ITaskSnapshotBudget,
   type IRootCreditBudget,
   resolveDagExecutionByteLimits,
   type IDagExecutionByteLimits,
   buildValidationError,
+  buildTaskExecutionError,
   type IClockPort,
   type IDagDefinition,
   type IDagRun,
@@ -77,12 +79,16 @@ export class WorkerLoopService {
     byteLimits?: IDagExecutionByteLimits,
     private readonly snapshotBudget?: ITaskSnapshotBudget,
     private readonly rootCreditBudget?: IRootCreditBudget,
+    private readonly lifecycleCreditAdmission = false,
   ) {
     this.executionRoot = resolveTrustedExecutionRoot(executionRoot);
     this.byteLimits = resolveDagExecutionByteLimits(byteLimits);
     this.cancellationPollMs = options.cancellationPollMs ?? 250;
-    if (!Number.isSafeInteger(this.cancellationPollMs)
-      || this.cancellationPollMs < 1 || this.cancellationPollMs > 60_000) {
+    if (
+      !Number.isSafeInteger(this.cancellationPollMs) ||
+      this.cancellationPollMs < 1 ||
+      this.cancellationPollMs > 60_000
+    ) {
       throw new RangeError('cancellationPollMs must be an integer between 1 and 60000');
     }
   }
@@ -167,15 +173,21 @@ export class WorkerLoopService {
       return this.settleCancelledRunMessage(message);
     }
 
-    const persistInput = (snapshot: string) => this.storage.commitExecution(claimed.dagRunId, {
-      kind: 'snapshot-input', taskRunId: claimed.taskRunId, attempt: claimed.attempt,
-      leaseOwner: this.options.workerId, inputSnapshot: snapshot,
-    });
+    const persistInput = (snapshot: string) =>
+      this.storage.commitExecution(claimed.dagRunId, {
+        kind: 'snapshot-input',
+        taskRunId: claimed.taskRunId,
+        attempt: claimed.attempt,
+        leaseOwner: this.options.workerId,
+        inputSnapshot: snapshot,
+      });
     const admission = this.snapshotBudget
       ? await this.snapshotBudget.admitValue('input', claimed.payload, persistInput)
       : { ok: true as const, value: await persistInput(JSON.stringify(claimed.payload)) };
-    if (!admission.ok) return this.outcomes.handleFailurePath(claimed, claimed.taskRunId, admission.error);
-    if (!admission.value.applied) return successAfterAck(this.queue, message.messageId, claimed.taskRunId, false);
+    if (!admission.ok)
+      return this.outcomes.handleFailurePath(claimed, claimed.taskRunId, admission.error);
+    if (!admission.value.applied)
+      return successAfterAck(this.queue, message.messageId, claimed.taskRunId, false);
 
     const input = await this.buildExecutionInput(claimed, dagRun, definition, nodeDefinition);
     // Registration precedes the final persisted read, closing its stale-snapshot race.
@@ -188,16 +200,84 @@ export class WorkerLoopService {
     };
     this.activeAttempts.add(active);
     let executionResult: TTaskExecutionResult;
+    let preflightCredits: number | undefined;
+    const executionDeadlineMs = Date.now() + claimDeps.timeoutMs;
     let stopCancellationWatch: (() => void) | undefined;
     try {
       // Input assembly awaits storage. A cancellation during that await must close admission too.
       const cancellationBeforeExecution = await this.cancelIfRunCancelled(message);
       if (cancellationBeforeExecution) return cancellationBeforeExecution;
       stopCancellationWatch = this.watchCommittedCancellation(active);
+      if (
+        definition.costPolicy &&
+        !this.lifecycleCreditAdmission &&
+        !(this.executor instanceof LifecycleTaskExecutorPort)
+      ) {
+        const estimateCost = this.executor.estimateCost;
+        if (!estimateCost) {
+          return this.outcomes.handleFailurePath(
+            claimed,
+            taskRun.taskRunId,
+            buildValidationError(
+              'DAG_VALIDATION_CREDIT_ESTIMATE_REQUIRED',
+              'Cost-limited runs require a custom executor to estimate credits before execution',
+              { taskRunId: claimed.taskRunId },
+            ),
+          );
+        }
+        const estimated = await executeWithTimeout(
+          {
+            execute: async (estimateInput) => {
+              const result = await estimateCost.call(this.executor, estimateInput);
+              return result.ok ? { ok: true, output: {}, estimatedCredits: result.value } : result;
+            },
+            ...(this.executor.stopAndWait
+              ? { stopAndWait: this.executor.stopAndWait.bind(this.executor) }
+              : {}),
+          },
+          { ...input, signal: controller.signal },
+          Math.max(1, executionDeadlineMs - Date.now()),
+          message.taskRunId,
+        );
+        if (!estimated.ok)
+          return this.outcomes.handleFailurePath(claimed, taskRun.taskRunId, estimated.error);
+        if (
+          estimated.estimatedCredits === undefined ||
+          !Number.isFinite(estimated.estimatedCredits) ||
+          estimated.estimatedCredits < 0
+        ) {
+          return this.outcomes.handleFailurePath(
+            claimed,
+            taskRun.taskRunId,
+            buildValidationError(
+              'DAG_VALIDATION_CREDIT_ESTIMATE_INVALID',
+              'Custom executor credit estimate must be a finite nonnegative number',
+              { taskRunId: claimed.taskRunId },
+            ),
+          );
+        }
+        const reserved = await input.reserveCredits!(estimated.estimatedCredits);
+        if (!reserved.ok)
+          return this.outcomes.handleFailurePath(claimed, taskRun.taskRunId, reserved.error);
+        preflightCredits = estimated.estimatedCredits;
+      }
+      const remainingMs = executionDeadlineMs - Date.now();
+      if (remainingMs <= 0) {
+        return this.outcomes.handleFailurePath(
+          claimed,
+          taskRun.taskRunId,
+          buildTaskExecutionError(
+            'DAG_TASK_EXECUTION_TIMEOUT',
+            `Task execution timed out after ${claimDeps.timeoutMs}ms`,
+            true,
+            { taskRunId: message.taskRunId, timeoutMs: claimDeps.timeoutMs },
+          ),
+        );
+      }
       executionResult = await executeWithTimeout(
         this.executor,
         { ...input, signal: controller.signal },
-        claimDeps.timeoutMs,
+        remainingMs,
         message.taskRunId,
       );
     } finally {
@@ -206,13 +286,28 @@ export class WorkerLoopService {
     }
 
     if (executionResult.ok) {
+      if (
+        preflightCredits !== undefined &&
+        executionResult.estimatedCredits !== undefined &&
+        executionResult.estimatedCredits !== preflightCredits
+      ) {
+        return this.outcomes.handleFailurePath(
+          claimed,
+          taskRun.taskRunId,
+          buildValidationError(
+            'DAG_VALIDATION_CREDIT_ESTIMATE_MISMATCH',
+            'Custom executor reported credits different from its preflight estimate',
+            { taskRunId: claimed.taskRunId },
+          ),
+        );
+      }
       return this.outcomes.handleSuccessPath(
         claimed,
         taskRun.taskRunId,
         dagRun,
         definition,
         executionResult.output,
-        executionResult.estimatedCredits,
+        preflightCredits ?? executionResult.estimatedCredits,
         executionResult.totalCredits,
       );
     }
@@ -226,9 +321,10 @@ export class WorkerLoopService {
    * The next read is scheduled only after the previous one settles, and stopping the
    * watcher prevents a late read from aborting an already-finished attempt.
    */
-  private watchCommittedCancellation(
-    active: { dagRunId: string; controller: AbortController },
-  ): () => void {
+  private watchCommittedCancellation(active: {
+    dagRunId: string;
+    controller: AbortController;
+  }): () => void {
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const check = async (): Promise<void> => {
@@ -241,10 +337,14 @@ export class WorkerLoopService {
         if (!stopped) active.controller.abort();
       }
       if (!stopped && !active.controller.signal.aborted) {
-        timer = setTimeout(() => { void check(); }, this.cancellationPollMs);
+        timer = setTimeout(() => {
+          void check();
+        }, this.cancellationPollMs);
       }
     };
-    timer = setTimeout(() => { void check(); }, this.cancellationPollMs);
+    timer = setTimeout(() => {
+      void check();
+    }, this.cancellationPollMs);
     return () => {
       stopped = true;
       clearTimeout(timer);
@@ -285,6 +385,28 @@ export class WorkerLoopService {
       byteLimits: this.byteLimits,
       snapshotBudget: this.snapshotBudget,
       rootCreditBudget: this.rootCreditBudget,
+      reserveCredits: definition.costPolicy
+        ? async (estimatedCredits) => {
+            const committed = await this.storage.commitExecution(message.dagRunId, {
+              kind: 'reserve-credits',
+              taskRunId: message.taskRunId,
+              attempt: message.attempt,
+              leaseOwner: this.options.workerId,
+              estimatedCredits,
+            });
+            if (committed.applied) return { ok: true, value: undefined };
+            return {
+              ok: false,
+              error:
+                committed.error ??
+                buildValidationError(
+                  'DAG_VALIDATION_CREDIT_RESERVATION_REJECTED',
+                  'Task attempt lost credit reservation authority',
+                  { taskRunId: message.taskRunId },
+                ),
+            };
+          }
+        : undefined,
       dagId: dagRun.dagId,
       dagRunId: message.dagRunId,
       taskRunId: message.taskRunId,

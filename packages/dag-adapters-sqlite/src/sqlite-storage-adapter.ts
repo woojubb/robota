@@ -122,12 +122,15 @@ export class SqliteStorageAdapter implements IStoragePort {
             .prepare(
               `INSERT INTO task_runs
           (task_run_id, dag_run_id, node_id, status, attempt, lease_owner, lease_until,
-           input_snapshot, output_snapshot, estimated_credits, total_credits, error_code, error_message)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           input_snapshot, output_snapshot, estimated_credits, total_credits, error_code, error_message,
+           reserved_credits, reservation_attempt, reservation_owner)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(task_run_id) DO UPDATE SET status=excluded.status, attempt=excluded.attempt,
           lease_owner=excluded.lease_owner, lease_until=excluded.lease_until,
           input_snapshot=excluded.input_snapshot, output_snapshot=excluded.output_snapshot, estimated_credits=excluded.estimated_credits,
-          total_credits=excluded.total_credits, error_code=excluded.error_code, error_message=excluded.error_message`,
+          total_credits=excluded.total_credits, error_code=excluded.error_code, error_message=excluded.error_message,
+          reserved_credits=excluded.reserved_credits, reservation_attempt=excluded.reservation_attempt,
+          reservation_owner=excluded.reservation_owner`,
             )
             .run(
               task.taskRunId,
@@ -143,6 +146,9 @@ export class SqliteStorageAdapter implements IStoragePort {
               task.totalCredits ?? null,
               task.errorCode ?? null,
               task.errorMessage ?? null,
+              task.reservedCredits ?? null,
+              task.reservationAttempt ?? null,
+              task.reservationOwner ?? null,
             );
         }
         return decision.result;
@@ -321,9 +327,18 @@ export class SqliteStorageAdapter implements IStoragePort {
   ): Promise<void> {
     this.db
       .prepare(
-        'UPDATE task_runs SET status = ?, error_code = ?, error_message = ? WHERE task_run_id = ?',
+        `UPDATE task_runs SET status = ?, error_code = ?, error_message = ?,
+         reserved_credits = CASE WHEN ? THEN NULL ELSE reserved_credits END,
+         reservation_attempt = CASE WHEN ? THEN NULL ELSE reservation_attempt END,
+         reservation_owner = CASE WHEN ? THEN NULL ELSE reservation_owner END WHERE task_run_id = ?`,
       )
-      .run(status, error?.code ?? null, error?.message ?? null, taskRunId);
+      .run(
+        status,
+        error?.code ?? null,
+        error?.message ?? null,
+        ...Array(3).fill(['failed', 'cancelled', 'queued'].includes(status) ? 1 : 0),
+        taskRunId,
+      );
   }
 
   public async setTaskRunLease(
@@ -365,7 +380,9 @@ export class SqliteStorageAdapter implements IStoragePort {
 
   public async incrementTaskAttempt(taskRunId: string): Promise<void> {
     this.db
-      .prepare('UPDATE task_runs SET attempt = attempt + 1 WHERE task_run_id = ?')
+      .prepare(
+        'UPDATE task_runs SET attempt = attempt + 1, reserved_credits = NULL, reservation_attempt = NULL, reservation_owner = NULL WHERE task_run_id = ?',
+      )
       .run(taskRunId);
   }
 }

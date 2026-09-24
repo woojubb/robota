@@ -32,6 +32,8 @@ export interface INodeExecutionContext {
   snapshotBudget?: ITaskSnapshotBudget;
   /** Shared in-process root credit authority. */
   rootCreditBudget?: IRootCreditBudget;
+  /** Durable per-run admission supplied by the worker for this attempt. */
+  reserveCredits?: (estimatedCredits: number) => Promise<TResult<void, IDagError>>;
   /** Trusted host limits; never deserialized from workflow configuration. */
   byteLimits?: IDagExecutionByteLimits;
   /** Trusted in-process attempt cancellation; never supplied by serialized node or queue data. */
