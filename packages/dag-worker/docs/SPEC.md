@@ -51,8 +51,11 @@ that raced with cancellation may already have published `task.started`; the task
 `cancelled` without invoking the executor. These checks close worker admission at the checked
 points only — they do not make the status read and executor invocation atomic. The worker also
 registers a local attempt signal before its final status read, so a committed cancellation still
-aborts a cooperative attempt that a stale final read would otherwise have let keep running; workers
-in other processes still rely on the persisted admission checks rather than that signal.
+aborts a cooperative attempt that a stale final read would otherwise have let keep running. While
+active, the worker also observes durable run state at a bounded interval, so cancellation committed
+by another owner aborts the attempt when storage reads reflect that owner's commit. An unreadable
+or missing run closes the attempt rather than authorizing continued execution. The file adapter
+remains single-owner and does not provide that cross-process visibility.
 
 ### Crash recovery (DAG-001)
 
@@ -119,8 +122,9 @@ aborts active attempt signals the same way.
 
 This is cooperative interruption, not CPU preemption or a guarantee that executor cleanup has
 finished. An executor ignoring its signal can continue side effects after timeout, including while
-an eligible retry runs, and synchronous work can still block the timer. Cross-process notification
-and root-owned descendant cancellation are separate concerns from this per-attempt signal.
+an eligible retry runs, and synchronous work can still block the timer. Same-process notification
+aborts promptly; durable observation reaches other SQLite-backed workers, but it does not join
+arbitrary executor cleanup or provide root-owned descendant cancellation.
 
 ### Queue-scoped advancement ownership (RUNTIME-003)
 
