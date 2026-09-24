@@ -61,15 +61,11 @@ remains single-owner and does not provide that cross-process visibility.
 
 Before entering the executor, the worker decodes the run's persisted composite lineage rather than
 trusting any in-process default, so a restarted or separate-process worker enforces composite
-depth/recursion limits against a run it did not create and, once that lineage names a parent,
-refuses admission for a run whose persisted root or immediate parent run is committed cancelled,
-even before this run's own cancellation is committed — settling its task and its own run cancelled
-the same way an already-cancelled own run does. A root run's lineage carries no parent and is
-exempt, since its root id anchors descendant depth-capping rather than naming a distinct ancestor.
-Invalid persisted ancestry fails that one task closed without taking down the worker loop; a
-persisted root or parent id that resolves to no run is not treated as a cancellation signal, since
-lineage is not always backed by a persisted ancestor row and the worker cannot tell that apart from
-a corrupted reference.
+depth/recursion limits against a run it did not create and refuses a child run's work once a
+persisted ancestor run is committed cancelled, cancelling that child run through the same committed
+transition. Invalid persisted ancestry fails that one task closed without taking down the worker
+loop; an ancestor reference with no persisted run is not a cancellation signal, because lineage may
+carry a depth cap without a persisted ancestor.
 
 ### Crash recovery (DAG-001)
 
