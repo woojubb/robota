@@ -49,6 +49,9 @@ When a self-paced loop is waiting, Esc stops that loop through the session's dur
 If several are waiting, Esc names the explicit stop command instead of choosing one silently.
 Esc retains its existing overlay and active-turn behavior.
 
+Automatic naming observes the first displayed user message, including an admitted external event.
+Its separate model call is text-only; it must never enable provider-hosted tools.
+
 ### Channel lifecycle and teardown
 
 The interaction channel owns the interactive session and its render state, and its teardown

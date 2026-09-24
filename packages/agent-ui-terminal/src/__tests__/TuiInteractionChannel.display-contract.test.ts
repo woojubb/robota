@@ -95,10 +95,10 @@ function emitSessionEvent(channel: TuiInteractionChannel, event: string, ...args
   getMockSession(channel).emit(event, ...args);
 }
 
-function makeChannel(): TuiInteractionChannel {
+function makeChannel(provider: IAIProvider = {} as IAIProvider): TuiInteractionChannel {
   return new TuiInteractionChannel({
     cwd: '/tmp/test',
-    provider: {} as IAIProvider,
+    provider,
   });
 }
 
@@ -139,6 +139,19 @@ afterEach(() => {
 // ── Group D: display contract (what the user sees) ────────────────────────────
 
 describe('Group D — display contract: history entries and active tools', () => {
+  it('keeps automatic naming text-only when an external event starts the session', async () => {
+    const chat = vi.fn().mockResolvedValue({ role: 'assistant', content: 'Event summary' });
+    const channel = makeChannel({ chat } as unknown as IAIProvider);
+    await channel.start();
+
+    emitSessionEvent(channel, 'turn_source', 'external');
+    emitSessionEvent(channel, 'user_message', 'external event');
+
+    expect(chat).toHaveBeenCalledTimes(1);
+    expect(chat.mock.calls[0]?.[1]?.toolChoice).toBe('none');
+    await channel.stop();
+  });
+
   it('Esc stops the only waiting self-paced loop without aborting the session', async () => {
     const channel = makeChannel();
     const session = getMockSession(channel);

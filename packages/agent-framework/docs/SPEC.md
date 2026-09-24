@@ -149,10 +149,18 @@ These are behaviors a caller cannot infer from a type signature alone.
   conversation may coalesce only its own pending input; an untrusted public submission cannot claim
   that reserved identity. The model receives an escaped, bounded source envelope; file-reference
   shorthand in external text remains literal and never reads operator-selected local context.
+  An admitted external turn is text-only for model-generated actions: it passes a run-scoped
+  `toolChoice: none` to the session, does not expose local tool schemas, and rejects a provider
+  tool call before execution. This does not sandbox trusted hooks/plugins or authenticate a
+  platform sender by itself; the adapter must actually verify that sender. Operator and other
+  non-external turns keep their own tool policy.
   Each accepted event settles from its own turn handle, and an interrupted result never becomes a
   successful reply. External admission and `bypassPermissions` are
   mutually exclusive throughout active and already-admitted work, not only at startup. This SDK
   ingress is not yet an MCP adapter or a remote permission-approval channel.
+- **Automatic session naming is text-only.** Its separate provider call may be triggered by the
+  first external event as well as by an operator message, so it always selects `toolChoice: none`;
+  the provider's configured hosted web tools cannot be used merely to generate a title.
 - **Hook executor registration is replace-vs-extend, and the built-ins are seeded first.** The core
   hook runner resolves `executors ?? createDefaultExecutors()` — an _undefined-only_ fallback, so
   supplying any executor array at all replaces the built-in `command`/`http` executors rather than

@@ -30,6 +30,14 @@ export interface IQwenResponsesChatOptions {
   onTextDelta?: TTextDeltaCallback;
 }
 
+function enabledBuiltInWebTools(
+  input: IQwenResponsesChatOptions,
+): ReturnType<typeof getQwenBuiltInWebToolNames> {
+  return input.chatOptions?.toolChoice === 'none'
+    ? []
+    : getQwenBuiltInWebToolNames(input.builtInWebTools);
+}
+
 export async function chatWithQwenResponsesApi(
   input: IQwenResponsesChatOptions,
 ): Promise<TUniversalMessage> {
@@ -67,7 +75,7 @@ export async function chatWithQwenResponsesApi(
       payload: response,
     });
     return parseQwenResponsesResponse(response, {
-      enabledBuiltInTools: getQwenBuiltInWebToolNames(input.builtInWebTools),
+      enabledBuiltInTools: enabledBuiltInWebTools(input),
     });
   } catch (error) {
     const qwenError = error as IOpenAICompatibleError;
@@ -133,7 +141,7 @@ async function chatWithQwenResponsesStreamingAssembly(
           onProviderNativeRawPayload: input.chatOptions?.onProviderNativeRawPayload,
         },
       ),
-      enabledBuiltInTools: getQwenBuiltInWebToolNames(input.builtInWebTools),
+      enabledBuiltInTools: enabledBuiltInWebTools(input),
       onTextDelta: input.chatOptions?.onTextDelta,
       signal: input.chatOptions?.signal,
     });
@@ -154,7 +162,7 @@ function buildResponsesRequestParams(
     );
   }
 
-  const enabledBuiltInTools = getQwenBuiltInWebToolNames(input.builtInWebTools);
+  const enabledBuiltInTools = enabledBuiltInWebTools(input);
   const tools = buildQwenResponsesTools(enabledBuiltInTools, input.chatOptions?.tools);
 
   return {

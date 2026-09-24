@@ -166,6 +166,14 @@ export async function executeRound(
     currentRound,
     logger,
   );
+  if (
+    assistantToolCalls.length > 0 &&
+    (fullContext.toolChoice ?? config.defaultModel?.toolChoice) === 'none'
+  ) {
+    throw new Error(
+      'Provider returned tool calls despite toolChoice none; no tools were executed.',
+    );
+  }
 
   await callPluginHook(
     plugins,

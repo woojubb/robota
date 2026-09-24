@@ -146,6 +146,8 @@ round trip — a local round trip must be lossless.
 
 A session runs one turn at a time:
 
+- `run()` passes an explicit per-turn `toolChoice` through to the agent. It affects only that run;
+  the session's configured default and later turns are unchanged.
 - `run()` claims the turn synchronously, before its first `await`. A concurrent `run()` is
   **refused** (not queued, not pre-empting) with a recoverable busy error, because a session is a
   single conversation and cancelling the running turn would discard work the caller never asked
@@ -252,6 +254,9 @@ person is never shown "no history" when history could not actually be read.
 
 ### Compaction
 
+- The summarization provider call is text-only (`toolChoice: none`) for manual and automatic
+  compaction, regardless of the next turn's tool policy. Provider-hosted web tools must not run
+  while summarizing session history.
 - The project-context system message is preserved across compaction — it is excluded from the
   summarization input, and re-injected (ahead of the generated summary) after history is
   cleared, so the model does not lose awareness of its working directory, rules, and tools after

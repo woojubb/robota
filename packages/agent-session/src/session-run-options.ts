@@ -7,5 +7,6 @@ export function perTurnRunOptions(options?: ISessionRunOptions): ISessionRunOpti
       ephemeralSystemContext: options.ephemeralSystemContext,
     }),
     ...(options?.driverId !== undefined && { driverId: options.driverId }),
+    ...(options?.toolChoice !== undefined && { toolChoice: options.toolChoice }),
   };
 }

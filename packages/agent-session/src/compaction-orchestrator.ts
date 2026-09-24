@@ -144,7 +144,7 @@ export class CompactionOrchestrator {
           timestamp: new Date(),
         },
       ],
-      { model: this.model, ...(signal !== undefined ? { signal } : {}) },
+      { model: this.model, toolChoice: 'none', ...(signal !== undefined ? { signal } : {}) },
     );
     // RUNTIME-004: the caller REPLACES the whole conversation with what this returns, so returning a
     // summary after a cancel is what destroyed it. Throwing puts an abort on the same path CORE-019

@@ -55,7 +55,7 @@ export async function generateSessionName(
       createSystemMessage(options.systemPrompt ?? DEFAULT_NAMING_SYSTEM_PROMPT),
       createUserMessage(truncated),
     ],
-    { maxTokens: MAX_TITLE_TOKENS },
+    { maxTokens: MAX_TITLE_TOKENS, toolChoice: 'none' },
   );
   const raw = typeof response.content === 'string' ? response.content : '';
   const name = sanitize(raw);

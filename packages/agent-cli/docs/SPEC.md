@@ -181,8 +181,12 @@ explicitly granted MCP server as the platform adapter that attests sender identi
 authenticated connection, then independently checks the exact per-server sender allowlist in the
 session-owned ingress. The notification's sender string alone is not proof of identity: operators
 must grant only servers they trust to verify their platform's sender credentials. Events are one-way,
-bounded, and processed only while this TUI session and its MCP connection are live; no remote
-permission approval or response relay is available. Print, goal, serve, and MCP-serve modes refuse
+bounded, and processed only while this TUI session and its MCP connection are live. An admitted
+external turn can produce model text but cannot invoke model-generated local or hosted web tools;
+trusted hooks/plugins are not isolated by this limit. The grant and sender string do not themselves
+prove platform authentication, so operators without a verified adapter should leave the flag off.
+Automatic platform replies, remote permission approvals, and response relays are unavailable.
+Print, goal, serve, and MCP-serve modes refuse
 the flag rather than silently ignoring it. Repeated connection loss stops after bounded retries;
 the host must restart or explicitly retry rather than assuming delivery from a dead channel.
 
