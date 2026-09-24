@@ -349,9 +349,9 @@ startup naming only the setting and entry position. With `shell`, each foregroun
 command runs with `00-<prompt trace id>-<tool span id>-01`, where the span ID is the one that call's
 exported tool span carries. With `hooks`, command hooks fired during a prompt — `UserPromptSubmit`,
 `PreToolUse`, `PostToolUse`, `PermissionDecision`, the model-call hooks, `Stop`, `StopFailure` and
-the `PreCompact` of an automatic compaction — run with `00-<prompt trace id>-<prompt span id>-01`, so
+the `PreCompact` and `PostCompact` of an automatic compaction — run with `00-<prompt trace id>-<prompt span id>-01`, so
 their spans sit beside the provider and tool spans; a hook fired outside a prompt (`SessionStart`,
-`SessionEnd`, `/compact`, `PostCompact`, background tasks, subagent worktrees) gets nothing. The value
+`SessionEnd`, both hooks of `/compact`, background tasks, subagent worktrees) gets nothing. The value
 is only ever in the child's environment, never in a hook's stdin JSON. A `TRACEPARENT` that a hook
 group's own `env` sets wins, and the child then sees its environment unchanged; otherwise the ambient
 `TRACESTATE` is removed, because it belonged to a different parent. The `!` shell passthrough,

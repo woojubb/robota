@@ -9,6 +9,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { CompactionOrchestrator } from '../compaction-orchestrator.js';
 import { ContextWindowTracker } from '../context-window-tracker.js';
 import { PermissionEnforcer } from '../permission-enforcer.js';
+import { compact as compactHistory } from '../session-history-ops.js';
 import { executeRun } from '../session-run.js';
 
 import type { IRunContext } from '../session-run.js';
@@ -143,6 +144,35 @@ describe('compaction hooks', () => {
     await orchestrator.compact(provider, [createUserMessage('x')], undefined, undefined, 'auto', ROOT);
     await orchestrator.compact(provider, [createUserMessage('x')], undefined, undefined, 'manual');
     expect(calls.map((call) => call.trace)).toEqual([ROOT, undefined]);
+  });
+});
+
+describe('post-compaction hook', () => {
+  async function runCompact(hookTraceEnv?: typeof ROOT): Promise<unknown[]> {
+    const { executor, calls } = recorder();
+    const history = [createUserMessage('x')];
+    await compactHistory(undefined, {
+      sessionId: 's', cwd: '/tmp', systemMessage: 'sys',
+      agent: { getHistory: () => history, clearHistory: vi.fn(), injectMessage: vi.fn() } as unknown as Robota,
+      aiProvider: {} as IAIProvider,
+      compactionOrchestrator: { compact: vi.fn(async () => 'summary') } as never,
+      contextTracker: { getContextState: () => ({}), updateFromHistory: vi.fn() } as never,
+      hooks: hooksFor(['PostCompact']) as never, hookTypeExecutors: [executor],
+      onCompactCallback: undefined, onCompactEventCallback: undefined,
+      trigger: hookTraceEnv ? 'auto' : 'manual',
+      ...(hookTraceEnv ? { hookTraceEnv } : {}),
+      log: vi.fn(),
+    }, undefined);
+    await flush();
+    return calls.filter((call) => call.event === 'PostCompact').map((call) => call.trace);
+  }
+
+  it('hands the root span to PostCompact of a compaction inside a prompt', async () => {
+    expect(await runCompact(ROOT)).toEqual([ROOT]);
+  });
+
+  it('hands PostCompact nothing for a user-requested compaction', async () => {
+    expect(await runCompact()).toEqual([undefined]);
   });
 });
 

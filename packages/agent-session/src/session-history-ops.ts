@@ -42,7 +42,7 @@ export interface ICompactContext {
   onCompactCallback: ((summary: string) => void) | undefined;
   onCompactEventCallback: ((event: ICompactEvent) => void) | undefined;
   trigger: TCompactTrigger;
-  /** The prompt's trace for PreCompact, present only for a compaction inside a prompt. */
+  /** The prompt's trace for both compaction hooks, present only for a compaction inside a prompt. */
   hookTraceEnv?: ISubprocessTraceEnv;
   log: (event: string, data: TSessionLogData) => void;
 }
@@ -140,6 +140,7 @@ export async function compact(
     'PostCompact',
     postHookInput,
     ctx.hookTypeExecutors,
+    ctx.hookTraceEnv,
   ).catch((error) => logger.warn('hook failed', { error }));
 
   // Notify via callback after compaction is fully complete
