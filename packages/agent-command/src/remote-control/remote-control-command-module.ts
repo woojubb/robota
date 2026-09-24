@@ -1,4 +1,5 @@
 import { executeRemoteControlCommand } from './remote-control-command.js';
+import { createSystemCommandFromEntry } from '../command-module-utils.js';
 
 import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
 import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-command';
@@ -11,22 +12,18 @@ export function createRemoteControlCommandEntry(): ICommand {
       'Enable P2P remote control (pair a device to co-drive this session), or check status',
     source: 'remote-control',
     modelInvocable: false,
+    userInvocable: true,
+    argumentHint: '[enable|stop|status|devices|revoke <device-id>]',
   };
 }
 
 function createRemoteControlSystemCommand(): ISystemCommand {
   const entry = createRemoteControlCommandEntry();
-  return {
-    name: entry.name,
-    displayName: entry.displayName,
-    description: entry.description,
-    argumentHint: '[enable|stop|status]',
+  return createSystemCommandFromEntry(entry, {
     requiresPermission: false,
-    userInvocable: true,
-    modelInvocable: false,
     lifecycle: 'inline',
     execute: (context, args) => executeRemoteControlCommand(context, args),
-  };
+  });
 }
 
 export class RemoteControlCommandSource implements ICommandSource {
