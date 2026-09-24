@@ -11,6 +11,7 @@ import {
 } from './doctor-fixture.js';
 
 import type { IDoctorFixture } from './doctor-fixture.js';
+import { CommandRegistry, SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 import type { IUserInteraction, TActionResponse } from '@robota-sdk/agent-core';
@@ -32,6 +33,35 @@ function answering(
 }
 
 describe('/doctor command module (OBSERVABILITY-1991 TC-06)', () => {
+  it('advertises repair arguments consistently in the palette and executable metadata', () => {
+    const fixture = createDoctorFixture({ env: {} });
+    fixtures.push(fixture);
+    const module = createDoctorCommandModule(fixture.inputs, fixture.deps);
+    const registry = new CommandRegistry();
+    registry.addModule(module);
+    const executor = new SystemCommandExecutor([...(module.systemCommands ?? [])]);
+    const entry = registry.getCommands().find((command) => command.name === 'doctor');
+    const command = executor.getCommand('doctor');
+    expect(entry).toMatchObject({ argumentHint: '[repair <check-id>]', modelInvocable: false });
+    expect(command).toMatchObject({
+      argumentHint: '[repair <check-id>]',
+      modelInvocable: false,
+      userInvocable: true,
+      requiresPermission: false,
+      lifecycle: 'inline',
+    });
+    expect(registry.getCapabilityDescriptors()).toContainEqual(
+      expect.objectContaining({
+        name: 'doctor',
+        argumentHint: '[repair <check-id>]',
+        userInvocable: true,
+        modelInvocable: false,
+      }),
+    );
+    expect(command?.description).toBe(entry?.description);
+    expect(executor.isModelInvocable('doctor')).toBe(false);
+  });
+
   it('renders the same check set without constructing a provider or submitting input', async () => {
     const createProvider = vi.fn(() => {
       throw new Error('must not be called');
