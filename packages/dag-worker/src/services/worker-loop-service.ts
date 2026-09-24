@@ -1,5 +1,6 @@
 import {
   TaskRunStateMachine,
+  DagRunStateMachine,
   LifecycleTaskExecutorPort,
   type ITaskSnapshotBudget,
   type IRootCreditBudget,
@@ -190,6 +191,11 @@ export class WorkerLoopService {
       );
     }
 
+    if (lineage) {
+      const ancestorCancellation = await this.cancelIfAncestorCancelled(message, dagRun, lineage);
+      if (ancestorCancellation) return ancestorCancellation;
+    }
+
     const persistInput = (snapshot: string) =>
       this.storage.commitExecution(claimed.dagRunId, {
         kind: 'snapshot-input',
@@ -373,6 +379,62 @@ export class WorkerLoopService {
   ): Promise<TResult<IWorkerLoopResult, IDagError> | undefined> {
     const run = await this.storage.getDagRun(message.dagRunId);
     return run?.status === 'cancelled' ? this.settleCancelledRunMessage(message) : undefined;
+  }
+
+  /**
+   * A composite child's own run status can lag its ancestor's committed cancellation — the
+   * ancestor commits first and this run's own cancellation, if any, follows later (e.g. after a
+   * restart, from another process). Admission that reads only its own status would still hand the
+   * executor a task whose result no root will ever observe. Persisted lineage carries just the
+   * root and immediate parent run ids, never a full ancestor chain, so only those two are checked;
+   * a cancellation further up the chain closes each run down to its own child in turn, whose
+   * lineage then names that now-cancelled run as its parent or root. A depth-0 (root) lineage
+   * carries no parent — its `rootRunId` anchors descendant depth-capping rather than naming a
+   * distinct ancestor run — so this only applies once a parent is present. Lineage is not always
+   * backed by a persisted ancestor row (a depth cap can be supplied without one), and this worker
+   * cannot tell that apart from a corrupted reference, so a lookup that finds nothing is not a
+   * cancellation signal: only a persisted, committed-cancelled ancestor blocks admission.
+   */
+  private async cancelIfAncestorCancelled(
+    message: IQueueMessage,
+    dagRun: IDagRun,
+    lineage: IDagExecutionLineage,
+  ): Promise<TResult<IWorkerLoopResult, IDagError> | undefined> {
+    if (lineage.parentRunId === undefined) return undefined;
+    const ancestorIds = new Set([lineage.rootRunId, lineage.parentRunId]);
+    for (const ancestorId of ancestorIds) {
+      const ancestor = await this.storage.getDagRun(ancestorId);
+      if (ancestor?.status === 'cancelled') {
+        await this.cancelOwnRunForAncestor(dagRun);
+        return this.settleCancelledRunMessage(message);
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Cancels this run through the same committed-state transition RunCancelService uses, so a
+   * descendant of a cancelled ancestor becomes cancelled itself via arbitration rather than an ad
+   * hoc status write. Best-effort: the task is settled as cancelled by the caller either way, so a
+   * run this finds already resolved to a different terminal status is left alone.
+   */
+  private async cancelOwnRunForAncestor(dagRun: IDagRun): Promise<void> {
+    const transition = DagRunStateMachine.transition(dagRun.status, 'CANCEL');
+    if (!transition.ok) return;
+    const committed = await this.storage.commitExecution(dagRun.dagRunId, {
+      kind: 'transition-run',
+      expectedStatus: dagRun.status,
+      event: 'CANCEL',
+      endedAt: this.clock.nowIso(),
+    });
+    if (committed.applied || committed.runStatus === 'cancelled') {
+      this.notifyRunCancelled(dagRun.dagRunId);
+      return;
+    }
+    if (committed.runStatus !== undefined) {
+      const refreshed = await this.storage.getDagRun(dagRun.dagRunId);
+      if (refreshed) await this.cancelOwnRunForAncestor(refreshed);
+    }
   }
 
   private async settleCancelledRunMessage(
