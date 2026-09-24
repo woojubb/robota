@@ -2,7 +2,7 @@ import { renderSupervisedSessionView } from '@robota-sdk/agent-ui-terminal';
 
 import { resolveScreenReaderRenderFields } from '../startup/screen-reader-enablement.js';
 import { readUserSettingsOrExit } from '../startup/user-settings.js';
-import { listSupervisedSessions, resolveSupervisedDirectory } from './supervised-session-control.js';
+import { listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession } from './supervised-session-control.js';
 
 import type { TSettingsData } from '@robota-sdk/agent-framework';
 
@@ -14,6 +14,7 @@ export interface ISessionViewCommandOptions {
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly root?: string;
   readonly render?: typeof renderSupervisedSessionView;
+  readonly stop?: typeof stopSupervisedSession;
 }
 
 /** Run the global supervised view without constructing a foreground interactive session. */
@@ -42,8 +43,10 @@ export async function runSessionViewCommand(
     options.env ?? process.env,
   );
   try {
+    const root = options.root ?? resolveSupervisedDirectory();
     await (options.render ?? renderSupervisedSessionView)({
-      loadRows: (signal) => listSupervisedSessions(options.root ?? resolveSupervisedDirectory(), signal),
+      loadRows: (signal) => listSupervisedSessions(root, signal),
+      onStop: (id) => (options.stop ?? stopSupervisedSession)(id, root),
       screenReader: screenReader.screenReader,
       screenReaderChannel: screenReader.screenReaderChannel,
       screenReaderHint: screenReader.screenReaderHint,

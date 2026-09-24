@@ -65,4 +65,17 @@ describe('session view command', () => {
       stderr.mockRestore();
     }
   });
+
+  it('passes selected stop requests to the guarded owner-control operation', async () => {
+    const id = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
+    const stop = vi.fn(async () => undefined);
+    const render = vi.fn(async (options: Parameters<typeof renderSupervisedSessionView>[0]) => {
+      expect(options).toHaveProperty('onStop');
+      await options.onStop?.(id);
+    });
+    expect(await runSessionViewCommand([], {
+      isTTY: true, settings: {}, env: {}, root: '/tmp/supervised-view-test', render, stop,
+    })).toBe(0);
+    expect(stop).toHaveBeenCalledExactlyOnceWith(id, '/tmp/supervised-view-test');
+  });
 });
