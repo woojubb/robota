@@ -162,6 +162,20 @@ describe('canonical MCP runtime tools', () => {
     ).rejects.toThrow(/reserved/i);
   });
 
+  it.each(['', 'bad name', 'bad,name', '이름', 'x'.repeat(129)])(
+    'rejects an incompatible host-selected submission name %j',
+    async (name) => {
+      await expect(
+        createAgentMcpServer({
+          name: 'test',
+          version: '1',
+          session: sessions(),
+          submitTool: { name, description: 'Host submission' },
+        }),
+      ).rejects.toThrow(/submit tool name/i);
+    },
+  );
+
   it('rejects duplicate names and non-object schemas before accepting a carrier', async () => {
     for (const catalog of [[schema, schema], [{ ...schema, parameters: { type: 'string' } }]]) {
       await expect(

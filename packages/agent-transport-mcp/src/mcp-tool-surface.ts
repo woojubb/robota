@@ -16,6 +16,11 @@ const DEFAULT_SUBMIT_TOOL: IMcpSubmitToolIdentity = {
 };
 
 export function resolveSubmitTool(identity: IMcpSubmitToolIdentity = DEFAULT_SUBMIT_TOOL): Tool {
+  if (typeof identity.name !== 'string' || !/^[A-Za-z0-9._-]{1,128}$/.test(identity.name)) {
+    throw new Error(
+      'MCP submit tool name must contain 1–128 ASCII letters, digits, dots, hyphens, or underscores',
+    );
+  }
   return ToolSchema.parse({
     name: identity.name,
     description: identity.description,
