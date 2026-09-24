@@ -41,11 +41,16 @@ zero external runtime-server process dependencies.
   jobs) have settled.
 - A run may be submitted before the framework is started; a run waiter itself creates the demand
   that starts advancement.
-- The in-process composition connects committed run cancellation to the worker attempts it owns,
-  so active calls receive their abort signal. Local runtime completion joins admitted node
-  lifecycles and their composite child runtimes after cancellation or timeout; providers that
-  ignore abort keep completion pending until their calls settle. This is an ownership guarantee,
-  not preemption of arbitrary code or a guarantee about work detached by a node or provider.
+- Every in-process composition connects committed run cancellation to the worker attempts it owns,
+  so active calls receive their abort signal; a node or provider that ignores that signal is not
+  preempted. How far a timeout or cancel additionally *waits* before settling is composition-
+  specific: `LocalDagRuntimeProvider`'s completion joins admitted node lifecycles and their
+  composite child runtimes, so an abort-ignoring provider there keeps that call's completion
+  pending until it settles on its own. The framework's own composition (`createDagFramework`)
+  hosts arbitrary node types and settles a timeout or cancel without waiting on a node's own
+  cooperative cleanup, so an abort-ignoring node there cannot block other work or `stop()`; only
+  its own isolated regex operation's shutdown is joined. Neither is a guarantee about work
+  detached by a node or provider.
 - Default skill-node discovery reads only host-supplied contribution sources and ordered skill
   roots; when either is omitted, no skill files are discovered, and construction never selects a
   filesystem source from the current process or home directory.
@@ -71,14 +76,21 @@ worker — persisted lineage cannot recreate or authorize a budget on its own.
 
 ### Local regex isolation
 
-The local Node provider runs the default text-replace regex operation in an isolated worker (a
-child process on Bun), keeping lifecycle, storage and the snapshot authority in the parent; only a
-fixed trusted bootstrap and plain string data cross the boundary. A result is accepted only after
+Every default executor this package assembles — the local Node provider and the in-process
+framework composition alike — runs the default text-replace regex operation in an isolated worker
+(a child process on Bun), keeping lifecycle, storage and the snapshot authority in the parent; only
+a fixed trusted bootstrap and plain string data cross the boundary. A result is accepted only after
 normal worker exit, so a late result cannot authorize output persistence or downstream execution,
-and worker startup failure never falls back to inline execution. Request and response strings
-share a bounded UTF-8 transport ceiling. This isolates only the default regex operation — it is
-not a security sandbox and does not cover custom nodes, other transforms, tools, or provider code;
-direct lower-level compositions must supply their own isolation capability.
+and worker startup failure never falls back to inline execution: the text-replace node has no
+inline regex path at all, so without an isolated operation it refuses the request instead of
+running a pattern on the host thread. Request and response strings share a bounded UTF-8 transport
+ceiling. This isolates only the default regex operation — it is not a security sandbox and does
+not cover custom nodes, other transforms, tools, or provider code. The framework composition's
+isolation wrapper joins only that operation's own shutdown on timeout or cancel, never the wrapped
+node's completion, so it cannot be used to wait out an unrelated node's cooperative cleanup. A
+caller-supplied executor on the framework composition, or a direct lower-level composition built
+without going through either factory, must supply this same capability itself, or `text-replace`
+with regex enabled fails closed.
 
 ## Design decisions
 

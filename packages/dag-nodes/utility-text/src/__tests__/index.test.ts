@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { INodeConfigObject, INodeExecutionContext } from '@robota-sdk/dag-core';
+import type {
+  INodeConfigObject,
+  INodeExecutionContext,
+  IRegexReplaceOperation,
+} from '@robota-sdk/dag-core';
 import {
   StringToNumberNodeDefinition,
   NumberToStringNodeDefinition,
@@ -17,7 +21,11 @@ import {
   TextSliceNodeDefinition,
 } from '../index.js';
 
-function ctx(nodeType: string, config: INodeConfigObject = {}): INodeExecutionContext {
+function ctx(
+  nodeType: string,
+  config: INodeConfigObject = {},
+  regexReplaceOperation?: IRegexReplaceOperation,
+): INodeExecutionContext {
   return {
     executionRoot: '/test/execution-root',
     dagId: 'dag-1',
@@ -41,6 +49,33 @@ function ctx(nodeType: string, config: INodeConfigObject = {}): INodeExecutionCo
     attempt: 1,
     executionPath: [],
     currentTotalCredits: 0,
+    regexReplaceOperation,
+  };
+}
+
+/**
+ * Test double for the host-supplied isolated regex capability. Production code runs this in a
+ * worker thread (see dag-framework's IsolatedRegexOperation); this in-process stand-in is only
+ * for exercising `text-replace`'s `useRegex` path without spinning up a real worker per test.
+ */
+function fakeRegexOp(): IRegexReplaceOperation {
+  return {
+    execute: async (request) => {
+      try {
+        const regex = new RegExp(request.search, request.flags);
+        return { ok: true, value: request.text.replace(regex, request.replacement) };
+      } catch {
+        return {
+          ok: false,
+          error: {
+            code: 'DAG_VALIDATION_TEXT_REPLACE_INVALID_REGEX',
+            category: 'validation',
+            message: `Invalid regex: "${request.search}"`,
+            retryable: false,
+          },
+        };
+      }
+    },
   };
 }
 
@@ -246,10 +281,14 @@ describe('TextReplaceNodeDefinition', () => {
     if (r.ok) expect(r.value.text).toBe('baz bar baz');
   });
 
-  it('replaces using regex', async () => {
+  it('replaces using regex via the supplied isolated operation', async () => {
     const r = await node.taskHandler.execute(
       { text: 'Hello World' },
-      ctx('text-replace', { search: '[aeiou]', replacement: '*', useRegex: true, flags: 'gi' }),
+      ctx(
+        'text-replace',
+        { search: '[aeiou]', replacement: '*', useRegex: true, flags: 'gi' },
+        fakeRegexOp(),
+      ),
     );
     expect(r.ok).toBe(true);
     if (r.ok) expect(r.value.text).toBe('H*ll* W*rld');
@@ -258,7 +297,7 @@ describe('TextReplaceNodeDefinition', () => {
   it('returns error for invalid regex', async () => {
     const r = await node.taskHandler.execute(
       { text: 'test' },
-      ctx('text-replace', { search: '[invalid', useRegex: true }),
+      ctx('text-replace', { search: '[invalid', useRegex: true }, fakeRegexOp()),
     );
     expect(r.ok).toBe(false);
   });
@@ -266,6 +305,36 @@ describe('TextReplaceNodeDefinition', () => {
   it('returns error when text missing', async () => {
     const r = await node.taskHandler.execute({}, ctx('text-replace'));
     expect(r.ok).toBe(false);
+  });
+
+  it('fails closed — without an isolated regex operation, useRegex never runs a pattern on this thread', async () => {
+    // A pathological pattern would freeze the event loop if it ran inline. Using it here proves
+    // this path returns without ever attempting to execute the regex.
+    const catastrophic = '^(a+)+$';
+    const spy = { called: false };
+    const OriginalRegExp = RegExp;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (globalThis as any).RegExp = new Proxy(OriginalRegExp, {
+      construct(target, args) {
+        if (args[0] === catastrophic) spy.called = true;
+        return Reflect.construct(target, args);
+      },
+    });
+    try {
+      const r = await node.taskHandler.execute(
+        { text: 'a'.repeat(30) + '!' },
+        ctx('text-replace', { search: catastrophic, useRegex: true }),
+      );
+      expect(r.ok).toBe(false);
+      if (!r.ok) {
+        expect(r.error.code).toBe('DAG_TASK_ISOLATION_UNAVAILABLE');
+        expect(r.error.retryable).toBe(false);
+      }
+      expect(spy.called).toBe(false);
+    } finally {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (globalThis as any).RegExp = OriginalRegExp;
+    }
   });
 });
 

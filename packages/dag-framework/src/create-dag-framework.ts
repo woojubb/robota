@@ -41,6 +41,7 @@ import { ProjectionReadModelService } from '@robota-sdk/dag-projection';
 import type { IWorkerLoopPolicyOptions } from '@robota-sdk/dag-worker';
 
 import { createExecutionComposition } from './composition/create-execution-composition.js';
+import { IsolatedRegexTaskExecutor } from './isolated-regex-task-executor.js';
 import { AssetAwareTaskExecutorPort } from './adapters/asset-aware-executor.js';
 import { LocalFsAssetStore } from './adapters/local-fs-asset-store.js';
 import { DagPromptBackend } from './adapters/prompt-backend.js';
@@ -141,14 +142,25 @@ export async function createDagFramework(
       new LocalFsAssetStore(path.resolve(requireHostPath(options.paths?.assetRoot, 'assetRoot'))),
     ));
 
-  // 5. Task executor (lifecycle-based, wrapped with asset-awareness)
+  // 5. Task executor (lifecycle-based, wrapped with asset-awareness, and — for the
+  // default executor only — isolated regex execution). A caller-supplied `ports.executor`
+  // is trusted as-is: it must populate `regexReplaceOperation` itself, or `text-replace`
+  // with `useRegex` fails closed rather than falling back to inline main-thread execution.
+  const isDefaultExecutor = options.ports?.executor === undefined;
   const baseExecutor: ITaskExecutorPort =
     options.ports?.executor ??
     new LifecycleTaskExecutorPort(
       buildManifestRegistry(assembly.manifests),
       new StaticNodeLifecycleFactory(new StaticNodeTaskHandlerRegistry(assembly.handlersByType)),
     );
-  const executor = new AssetAwareTaskExecutorPort(baseExecutor, assetStore);
+  const assetAwareExecutor = new AssetAwareTaskExecutorPort(baseExecutor, assetStore);
+  // This composition hosts arbitrary node types, not just the regex-isolated one, so its
+  // `stopAndWait` must join only the isolated regex operation's own shutdown — never the
+  // delegate's full node completion, or a node that ignores its abort signal would block every
+  // timeout, cancel, and `framework.stop()` on this composition until that node finally returns.
+  const executor: ITaskExecutorPort = isDefaultExecutor
+    ? new IsolatedRegexTaskExecutor(assetAwareExecutor, false)
+    : assetAwareExecutor;
 
   // 6. Execution composition (run orchestrator + worker loop)
   const workerOptions: IWorkerLoopPolicyOptions = {
@@ -164,7 +176,7 @@ export async function createDagFramework(
       lease,
       executor,
       clock,
-      lifecycleCreditAdmission: options.ports?.executor === undefined,
+      lifecycleCreditAdmission: isDefaultExecutor,
     },
     { worker: workerOptions, logger: options.logger },
   );
