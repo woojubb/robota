@@ -37,7 +37,10 @@ function rowToMessage(row: IQueueRow): IQueueMessage {
 export class SqliteQueueAdapter implements IQueuePort {
   private readonly db: Database.Database;
 
-  public constructor(dbPath = './robota-dag.db') {
+  public constructor(dbPath: string) {
+    if (!dbPath?.trim()) {
+      throw new Error('SqliteQueueAdapter requires a host-selected dbPath');
+    }
     this.db = new DatabaseConstructor(dbPath);
     this.db.pragma('journal_mode = WAL');
     runMigrations(this.db);

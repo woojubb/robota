@@ -3,8 +3,8 @@
 ## Purpose
 
 SQLite-backed implementations of `IStoragePort` and `IQueuePort` from `@robota-sdk/dag-core`. A
-zero-infrastructure production backend — a single file, no server required — with an intended
-upgrade path to PostgreSQL by swapping the adapter.
+zero-infrastructure production backend — a host-selected single file, no server required — with an
+intended upgrade path to PostgreSQL by swapping the adapter.
 
 ## Non-goals
 

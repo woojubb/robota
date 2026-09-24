@@ -79,7 +79,10 @@ function rowToDagRun(row: IDagRunRow): IDagRun {
 export class SqliteStorageAdapter implements IStoragePort {
   private readonly db: Database.Database;
 
-  public constructor(dbPath = './robota-dag.db') {
+  public constructor(dbPath: string) {
+    if (!dbPath?.trim()) {
+      throw new Error('SqliteStorageAdapter requires a host-selected dbPath');
+    }
     this.db = new DatabaseConstructor(dbPath);
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('foreign_keys = ON');
