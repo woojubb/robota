@@ -50,6 +50,12 @@ function createMemoryStore(cwd: string): Promise<IMemoryStore> {
     const service = new WorkspaceTrustService({
       identityResolver: { resolve: () => identity },
       store: new TrustedStore(),
+      projectStateDirectories: {
+        sessions: join('.robota', 'sessions'),
+        'session-logs': join('.robota', 'logs'),
+        memory: join('.robota', 'memory'),
+        checkpoints: join('.robota', 'checkpoints'),
+      },
     });
     const access = await service.inspect(root);
     if (access.status !== 'trusted') throw new Error('Expected trusted project access.');

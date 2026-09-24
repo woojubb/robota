@@ -56,6 +56,7 @@ export type {
   TWorkspaceProjectSettingsWriteDecision,
   TWorkspaceProjectMutationDecision,
   TWorkspaceProjectStateNamespace,
+  TWorkspaceProjectStateDirectories,
   TWorkspaceTrustState,
 } from './types.js';
 export type { IWorkspaceTrustServiceOptions } from './workspace-trust-service.js';

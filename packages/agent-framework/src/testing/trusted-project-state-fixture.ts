@@ -20,6 +20,7 @@ import type {
   IWorkspaceTrustStoreSnapshot,
   IWorkspaceProjectStateStorage,
   TWorkspaceProjectStateNamespace,
+  TWorkspaceProjectStateDirectories,
   TWorkspaceProjectAccess,
 } from '../workspace-trust/index.js';
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
@@ -37,6 +38,14 @@ class TrustedFixtureStore implements IWorkspaceTrustStore {
     return Promise.resolve({ state: 'revoked', generation: 2 });
   }
 }
+
+/** Explicit test-product layout; the neutral trust service has no runtime default. */
+export const TEST_PROJECT_STATE_DIRECTORIES: TWorkspaceProjectStateDirectories = {
+  sessions: join('.robota', 'sessions'),
+  'session-logs': join('.robota', 'logs'),
+  memory: join('.robota', 'memory'),
+  checkpoints: join('.robota', 'checkpoints'),
+};
 
 /** Test-only helper that still exercises the production service mint path. */
 export async function createTrustedProjectStateFixture(
@@ -61,6 +70,7 @@ export async function createTrustedProjectAccessFixture(
   const service = new WorkspaceTrustService({
     identityResolver: { resolve: () => identity },
     store: new TrustedFixtureStore(),
+    projectStateDirectories: TEST_PROJECT_STATE_DIRECTORIES,
   });
   const access = await service.inspect(canonicalRoot);
   return access;

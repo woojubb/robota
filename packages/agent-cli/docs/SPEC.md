@@ -50,6 +50,11 @@ print, serve, and terminal sessions, and lists those same project roots in the p
 The CLI owns its ordered Robota and Claude-compatible project settings layers and passes them to
 trusted session construction and the pre-trust preview from one source; restricted sessions cannot
 gain a project settings reader by naming those paths.
+The CLI owns one Robota project-state layout for sessions, replay logs, memory, and checkpoints. It
+binds that layout when workspace trust issues an authority and lists the same directories in the
+metadata-only pre-trust preview. An externally supplied trusted authority with a different state
+layout is refused rather than reading or writing a path the preview did not name. Restricted
+composition uses user session storage and never obtains a project-state facet.
 When a trusted interactive user approves a project-wide tool permission on a host with guarded
 project mutation support, the session persists it through the CLI-selected project-local settings
 path and its live workspace authority. An unavailable writer rejects that approval explicitly.

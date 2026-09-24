@@ -30,6 +30,7 @@ import type {
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 import { userPaths } from '../product/user-paths.js';
 import { ROBOTA_PROJECT_SETTINGS } from '../product/robota-project-settings.js';
+import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../product/robota-project-state-directories.js';
 import { createRobotaUserSettingsSources } from '../product/robota-user-settings.js';
 import { ROBOTA_SKILL_ROOTS } from '../product/robota-skill-roots.js';
 
@@ -61,7 +62,10 @@ export async function resolveInitialCliWorkspaceProjectAccess(
   options: TCliWorkspaceCompositionOverrides = {},
 ): Promise<TWorkspaceProjectAccess> {
   if (options.projectAccess !== undefined) return options.projectAccess;
-  return createNodeWorkspaceTrustService(userPaths().workspaceTrust).inspect(cwd);
+  return createNodeWorkspaceTrustService(
+    userPaths().workspaceTrust,
+    ROBOTA_PROJECT_STATE_DIRECTORIES,
+  ).inspect(cwd);
 }
 
 function createTrustedCliWorkspaceComposition(
@@ -70,6 +74,16 @@ function createTrustedCliWorkspaceComposition(
   userSettingsStore: ISettingsDocumentStore,
 ): ICliWorkspaceComposition {
   const authority = projectAccess.authority;
+  for (const namespace of ['sessions', 'session-logs', 'memory', 'checkpoints'] as const) {
+    if (
+      getWorkspaceProjectStateStorage(authority, namespace).rootRelativePath !==
+      ROBOTA_PROJECT_STATE_DIRECTORIES[namespace]
+    ) {
+      throw new WorkspaceAuthorityRequiredError(
+        'Trusted project state directories do not match this CLI product.',
+      );
+    }
+  }
   const settingsStores =
     options.projectSettingsWriter === undefined
       ? [userSettingsStore]

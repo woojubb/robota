@@ -6,6 +6,7 @@ import type {
   IWorkspaceIdentityResolver,
   IWorkspaceProjectAuthority,
   IWorkspaceProjectReader,
+  TWorkspaceProjectStateDirectories,
   TWorkspaceProjectAuthorityCandidate,
 } from './types.js';
 
@@ -13,6 +14,7 @@ interface IWorkspaceAuthorityRecord {
   readonly identity: IWorkspaceIdentity;
   readonly identityResolver: IWorkspaceIdentityResolver;
   readonly reader: IWorkspaceProjectReader;
+  readonly projectStateDirectories?: TWorkspaceProjectStateDirectories;
   readonly isLive: () => boolean;
 }
 
@@ -23,6 +25,7 @@ export function mintWorkspaceProjectAuthority(
   identity: IWorkspaceIdentity,
   identityResolver: IWorkspaceIdentityResolver,
   isLive: () => boolean,
+  projectStateDirectories?: TWorkspaceProjectStateDirectories,
 ): IWorkspaceProjectAuthority {
   const identitySnapshot = Object.freeze({
     repositoryKey: identity.repositoryKey,
@@ -36,6 +39,7 @@ export function mintWorkspaceProjectAuthority(
     reader: createWorkspaceProjectReader(identitySnapshot, identityResolver, () => {
       assertWorkspaceProjectAuthority(authority);
     }),
+    ...(projectStateDirectories === undefined ? {} : { projectStateDirectories }),
     isLive,
   });
   return authority;
@@ -86,4 +90,16 @@ export function getWorkspaceProjectIdentityResolver(
   const record = authorityRecords.get(accepted);
   if (record === undefined) throw new WorkspaceAuthorityRequiredError();
   return record.identityResolver;
+}
+
+/** Internal authority-bound host selection; no framework product path is substituted. */
+export function getWorkspaceProjectStateDirectories(
+  authority: IWorkspaceProjectAuthority,
+): TWorkspaceProjectStateDirectories {
+  const accepted = assertWorkspaceProjectAuthority(authority);
+  const directories = authorityRecords.get(accepted)?.projectStateDirectories;
+  if (directories === undefined) {
+    throw new WorkspaceAuthorityRequiredError('Host-selected project state directories are required.');
+  }
+  return directories;
 }

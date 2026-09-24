@@ -106,9 +106,15 @@ export interface IWorkspaceProjectReader {
 export type TWorkspaceProjectStateNamespace =
   'sessions' | 'session-logs' | 'memory' | 'checkpoints';
 
+/** Host-selected, project-root-relative directories bound to an issued authority. */
+export type TWorkspaceProjectStateDirectories = Readonly<
+  Record<TWorkspaceProjectStateNamespace, string>
+>;
+
 export interface IWorkspaceProjectStateStorage {
   readonly [workspaceProjectStateStorageType]: true;
   readonly namespace: TWorkspaceProjectStateNamespace;
+  readonly rootRelativePath: string;
   readText(relativePath: string, purpose: string): string | undefined;
   readBytes(relativePath: string, purpose: string, maxBytes?: number): Uint8Array | undefined;
   writeText(relativePath: string, content: string, purpose: string): void;

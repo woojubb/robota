@@ -2,6 +2,7 @@ import {
   getWorkspaceProjectIdentity,
   mintWorkspaceProjectAuthority,
 } from './workspace-authority.js';
+import { snapshotProjectStateDirectories } from './project-state-directories.js';
 
 import type {
   IRestrictedWorkspaceProjectAccess,
@@ -9,12 +10,14 @@ import type {
   IWorkspaceIdentityResolver,
   IWorkspaceTrustStore,
   IWorkspaceTrustStoreSnapshot,
+  TWorkspaceProjectStateDirectories,
   TWorkspaceProjectAccess,
 } from './types.js';
 
 export interface IWorkspaceTrustServiceOptions {
   readonly identityResolver: IWorkspaceIdentityResolver;
   readonly store: IWorkspaceTrustStore;
+  readonly projectStateDirectories?: TWorkspaceProjectStateDirectories;
 }
 
 export function createRestrictedWorkspaceProjectAccess(
@@ -39,8 +42,11 @@ function sameIdentity(left: IWorkspaceIdentity, right: IWorkspaceIdentity): bool
 
 export class WorkspaceTrustService {
   private readonly issuerGenerations = new Map<string, number>();
+  private readonly projectStateDirectories: TWorkspaceProjectStateDirectories | undefined;
 
-  constructor(private readonly options: IWorkspaceTrustServiceOptions) {}
+  constructor(private readonly options: IWorkspaceTrustServiceOptions) {
+    this.projectStateDirectories = snapshotProjectStateDirectories(options.projectStateDirectories);
+  }
 
   private identityKey(identity: IWorkspaceIdentity): string {
     return `${identity.repositoryKey}\0${identity.worktreeRoot}`;
@@ -127,6 +133,7 @@ export class WorkspaceTrustService {
       currentIdentity,
       this.options.identityResolver,
       () => this.issuerGenerations.get(identityKey) === snapshot.generation,
+      this.projectStateDirectories,
     );
     return {
       status: 'trusted',

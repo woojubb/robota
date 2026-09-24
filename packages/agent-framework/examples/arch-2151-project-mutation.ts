@@ -83,6 +83,12 @@ async function main(): Promise<void> {
   const service = new WorkspaceTrustService({
     identityResolver: resolver,
     store: new MemoryTrustStore(),
+    projectStateDirectories: {
+      sessions: join('.robota', 'sessions'),
+      'session-logs': join('.robota', 'logs'),
+      memory: join('.robota', 'memory'),
+      checkpoints: join('.robota', 'checkpoints'),
+    },
   });
   let revoked = false;
 

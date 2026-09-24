@@ -54,6 +54,12 @@ React/Ink UI.
   those paths in its own pre-trust inventory. Project-wide permission persistence is offered only
   where that guarded mutation is supported; an unavailable writer never downgrades a project-wide
   approval to a session-only grant.
+- **Project state locations belong to the host.** An issuing trust service snapshots and validates
+  the host's project-relative directories for sessions, replay logs, memory, and checkpoints into
+  each authority. State facets require that selection and a live trusted authority; omission never
+  falls back to a framework product path. State reads, writes, replay reports, and checkpoint
+  self-capture exclusion use the same bound directories. The framework advertises no product state
+  paths before trust.
 - **Interactive user settings are explicit.** A session reads only the host-supplied user settings
   sources, and a provider switch reuses those same sources; an absent list never discovers an ambient
   home-directory settings file. SDK runtime, query, and programmatic-agent creators forward the

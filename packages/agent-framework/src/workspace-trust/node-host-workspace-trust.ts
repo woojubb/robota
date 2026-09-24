@@ -12,6 +12,7 @@ import type {
   IWorkspaceIdentityResolver,
   IWorkspaceTrustStore,
   IWorkspaceTrustStoreSnapshot,
+  TWorkspaceProjectStateDirectories,
 } from './types.js';
 
 const TRUST_STORE_VERSION = 1;
@@ -228,9 +229,13 @@ export function createNodeWorkspaceTrustStore(filePath: string): IWorkspaceTrust
 }
 
 /** Compose the default Node resolver, caller-selected persistent store, and authority service. */
-export function createNodeWorkspaceTrustService(filePath: string): WorkspaceTrustService {
+export function createNodeWorkspaceTrustService(
+  filePath: string,
+  projectStateDirectories?: TWorkspaceProjectStateDirectories,
+): WorkspaceTrustService {
   return new WorkspaceTrustService({
     identityResolver: createNodeWorkspaceIdentityResolver(),
     store: createNodeWorkspaceTrustStore(filePath),
+    ...(projectStateDirectories === undefined ? {} : { projectStateDirectories }),
   });
 }
