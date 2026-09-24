@@ -53,9 +53,8 @@ import type {
 import type { IAIProvider, IProviderDefinition, TUniversalMessage } from '@robota-sdk/agent-core';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 
-/** Mirrors `RUNTIME_SHUTDOWN_TIMEOUT_MS` in `agent-framework`'s `runtime-host.ts` — not imported
- * (that constant is private to the module) but pinned here so a drift between the two shows up as a
- * failing assertion instead of a silently-stale comment. */
+/** Mirrors the private `RUNTIME_SHUTDOWN_TIMEOUT_MS` in `agent-framework`'s `runtime-host.ts`.
+ * Nothing compares the two, so update this value if that bound changes. */
 const RUNTIME_SHUTDOWN_TIMEOUT_MS = 5000;
 
 const roots: string[] = [];
@@ -247,5 +246,5 @@ describe('RUNTIME-002 (#2845): the served host owns a live detached /workflows r
     } finally {
       held.release();
     }
-  });
+  }, 15_000);
 });

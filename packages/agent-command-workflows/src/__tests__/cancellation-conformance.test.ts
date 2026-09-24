@@ -23,6 +23,10 @@ import { createWorkflowProjectFixture } from './workflow-project-fixture.js';
  * asked to be pinned down (a committed cancellation outranking a late success/failure, nested
  * cancellation, result/cancel precedence, and DAG-004's total decode).
  *
+ * The precedence cases prove the `/workflows` detached-run contract: `DetachedWorkflowRuns` reports
+ * `cancelled` without a result excerpt once its own signal aborted. They are not evidence of how the
+ * runtime itself ranks a cancellation against a late result; that ranking is covered at `dag-worker` level.
+ *
  * What this file does NOT cover: the worker's own per-message admission check
  * (`cancelIfRunCancelled` in `dag-worker`'s `WorkerLoopService.processAcquiredMessage`), which fires
  * only when a queue message is actually DEQUEUED after its run is already committed cancelled. On
