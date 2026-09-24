@@ -34,9 +34,9 @@ describe('Robota live telemetry settings', () => {
     ['ROBOTA_TELEMETRY_OTLP_CERTIFICATE', /client certificates and custom CAs are not supported/u],
     ['ROBOTA_TELEMETRY_LOCKED_DESTINATION', /managed destination lock cannot be enforced/u],
     ['ROBOTA_TELEMETRY_LOG_RAW_BODIES', /content capture is not supported/u],
-    ['ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS', /tool content capture is not yet supported/u],
-    ['ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT', /tool content capture is not yet supported/u],
     ['ROBOTA_TELEMETRY_TOOL_CONTENT', /content capture is not supported/u],
+    ['ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS_RAW', /content capture is not supported/u],
+    ['ROBOTA_TELEMETRY_LOG_TOOL_BODIES', /content capture is not supported/u],
     ['ROBOTA_TELEMETRY_SAMPLE_RATE', /Unknown Robota telemetry setting ROBOTA_TELEMETRY_SAMPLE_RATE/u],
   ])('refuses to start when %s is supplied, naming it but never echoing its value', (name, message) => {
     const secret = 'Bearer s3cr3t-value';
@@ -85,14 +85,18 @@ describe('Robota live telemetry settings', () => {
       ROBOTA_TELEMETRY_LOG_USER_PROMPTS: '1',
       ROBOTA_TELEMETRY_LOG_ASSISTANT_RESPONSES: '0',
     }, undefined, () => undefined, undefined, undefined, redaction);
-    expect(port?.content?.policy).toEqual({ userPrompts: true, assistantResponses: false, maxBytes: 2048 });
+    expect(port?.content?.policy).toEqual({
+      userPrompts: true, assistantResponses: false, toolArguments: false, toolOutput: false, maxBytes: 2048,
+    });
     await port?.shutdown();
     const bounded = createConfiguredNodeOtlpLiveTelemetryPort({
       ...contentBase,
       ROBOTA_TELEMETRY_LOG_ASSISTANT_RESPONSES: '1',
       ROBOTA_TELEMETRY_LOG_CONTENT_MAX_BYTES: '16384',
     }, undefined, () => undefined, undefined, undefined, redaction);
-    expect(bounded?.content?.policy).toEqual({ userPrompts: false, assistantResponses: true, maxBytes: 16384 });
+    expect(bounded?.content?.policy).toEqual({
+      userPrompts: false, assistantResponses: true, toolArguments: false, toolOutput: false, maxBytes: 16384,
+    });
     await bounded?.shutdown();
   });
 
@@ -135,24 +139,43 @@ describe('Robota live telemetry settings', () => {
     }
   });
 
-  it.each([
-    ['ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS', '1'],
-    ['ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS', '0'],
-    ['ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT', '1'],
-    ['ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT', '0'],
-  ])('refuses %s=%s alongside enabled content gates too', (name, value) => {
-    const error = refusal({
-      ...contentBase, ROBOTA_TELEMETRY_LOG_USER_PROMPTS: '1', ROBOTA_TELEMETRY_LOG_ASSISTANT_RESPONSES: '1',
-      [name]: value,
+  it('accepts opt-in tool argument and output capture, each on its own', async () => {
+    const args = createConfiguredNodeOtlpLiveTelemetryPort({
+      ...contentBase, ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS: '1', ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT: '0',
+    }, undefined, () => undefined, undefined, undefined, redaction);
+    expect(args?.content?.policy).toEqual({
+      userPrompts: false, assistantResponses: false, toolArguments: true, toolOutput: false, maxBytes: 2048,
     });
-    expect(error.message).toMatch(/tool content capture is not yet supported/u);
+    await args?.shutdown();
+    const output = createConfiguredNodeOtlpLiveTelemetryPort({
+      ...contentBase, ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT: '1', ROBOTA_TELEMETRY_LOG_CONTENT_MAX_BYTES: '4096',
+    }, undefined, () => undefined, undefined, undefined, redaction);
+    expect(output?.content?.policy).toEqual({
+      userPrompts: false, assistantResponses: false, toolArguments: false, toolOutput: true, maxBytes: 4096,
+    });
+    await output?.shutdown();
   });
 
-  it('refuses tool content settings with console-only telemetry', () => {
+  it.each([
+    ['a tool gate that is not exactly 0 or 1', { ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS: 'yes-s3cr3t' },
+      /ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS must be exactly 0 or 1/u],
+    ['a tool gate with console logs', { ROBOTA_TELEMETRY_LOGS: 'console', ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT: '1' },
+      /console output never carries content/u],
+    ['a bound with both tool gates 0', {
+      ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS: '0', ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT: '0',
+      ROBOTA_TELEMETRY_LOG_CONTENT_MAX_BYTES: '4096',
+    }, /no content capture setting is 1/u],
+  ])('refuses %s', (_label, extra, message) => {
+    const error = refusal({ ...contentBase, ...extra });
+    expect(error.message).toMatch(message);
+    expect(error.message).not.toContain('s3cr3t');
+  });
+
+  it.each(['print', 'serve', 'mcp-serve'] as const)('refuses tool content gates in %s mode', (surface) => {
     expect(() => createConfiguredNodeOtlpLiveTelemetryPort({
-      ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_LOGS: 'console',
-      ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT: '0',
-    }, undefined, () => undefined)).toThrow(/tool content capture is not yet supported/u);
+      ...contentBase, ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS: '1',
+    }, undefined, () => undefined, { serviceVersion: 'test', surface }, undefined, redaction))
+      .toThrow(/content capture is available only in the interactive terminal/u);
   });
 
   it('refuses content capture when the host supplied no redaction context', () => {

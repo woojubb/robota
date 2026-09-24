@@ -28,6 +28,15 @@ const EXTRA_SHAPES: readonly RegExp[] = [
 const USER_PASS_FLAG = /(^|\s)(-u\s+)(?:"[^"\s]*:[^"]*"|'[^'\s]*:[^']*'|[^\s:]+:\S+)/gu;
 /** `SOMETHING_KEY=value`, `API_TOKEN="…"`, `db_password=…`: the name stays, the value goes. */
 const SECRET_ASSIGNMENT = /\b([A-Za-z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD))=(?:"[^"]*"|'[^']*'|\S+)/giu;
+/**
+ * A JSON pair whose name looks secret (`"session_token": "…"`): the name stays, the value goes.
+ * Every repetition is bounded, so the work per starting position is bounded and the scan stays
+ * linear in the input however hostile it is.
+ */
+const SECRET_JSON_PAIR =
+  /("[^"\\]{0,128}(?:secret|token|password|cookie|auth|credential|private_key|api_key)[^"\\]{0,128}"\s*:\s*)"(?:[^"\\]|\\.){0,8192}"/giu;
+/** A secret header line (`Authorization: …`, `Cookie: …`, `X-…-Token: …`): the name stays. */
+const SECRET_HEADER_LINE = /^(authorization|cookie|set-cookie|x-[\w-]*token)\s*:[^\r\n]*$/gimu;
 /** C0 and C1 controls (and DEL), except newline and tab. */
 // eslint-disable-next-line no-control-regex
 const CONTROLS = /[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/gu;
@@ -121,6 +130,8 @@ export function prepareLiveContentRedactor(context: ILiveContentRedactionContext
     for (const shape of EXTRA_SHAPES) out = out.replace(shape, REDACTED);
     out = out.replace(USER_PASS_FLAG, `$1$2${REDACTED}`);
     out = out.replace(SECRET_ASSIGNMENT, `$1=${REDACTED}`);
+    out = out.replace(SECRET_JSON_PAIR, `$1"${REDACTED}"`);
+    out = out.replace(SECRET_HEADER_LINE, `$1: ${REDACTED}`);
     for (const path of paths) out = maskPath(out, path, '<workspace>');
     for (const home of homes) out = maskPath(out, home, '~');
     out = out.replace(CONTROLS, '\uFFFD');

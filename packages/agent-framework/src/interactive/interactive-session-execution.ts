@@ -217,7 +217,36 @@ export interface IToolPermissionDecisionObservation {
  * so the read-model groups them under the owning turn. Tools publish raw (unbound) local event names,
  * so we match `SPAN_EVENTS.COMPLETED` directly.
  */
-export function collectSpanEntries(eventService: IEventService): ISpanCollector {
+/** How far one of this collector's own tool calls got, as its permission and body events said. */
+export type TToolCallObservedPhase = 'allowed' | 'denied' | 'hook-blocked' | 'body-completed';
+
+export interface ISpanCollectorOptions {
+  /**
+   * Called synchronously for every permission and tool-body event carrying a string call ID,
+   * before any validation or cap: it tells the turn which calls are its own. A throwing observer
+   * never affects collection.
+   */
+  readonly onToolCallObserved?: (toolCallId: string, phase: TToolCallObservedPhase) => void;
+}
+
+function observeToolCall(
+  options: ISpanCollectorOptions,
+  toolCallId: unknown,
+  phase: unknown,
+): void {
+  if (typeof toolCallId !== 'string' || !options.onToolCallObserved) return;
+  if (phase !== 'allowed' && phase !== 'denied' && phase !== 'hook-blocked' && phase !== 'body-completed') return;
+  try {
+    options.onToolCallObserved(toolCallId, phase);
+  } catch {
+    // An ownership observer must never change what the trace collects.
+  }
+}
+
+export function collectSpanEntries(
+  eventService: IEventService,
+  options: ISpanCollectorOptions = {},
+): ISpanCollector {
   const entries: IHistoryEntry<ISpanEntry>[] = [];
   const providerCalls: IProviderCallTraceObservation[] = [];
   const toolBodies: IToolBodyTraceObservation[] = [];
@@ -225,6 +254,7 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
   const omittedCompletions = { provider: 0, tool: 0, permission: 0 };
   const listener: TEventListener = (eventType, data) => {
     if (eventType === `tool.${TOOL_PERMISSION_EVENTS.DECIDED}`) {
+      observeToolCall(options, data['executionId'], data['decision']);
       if (
         typeof data['decidedAt'] === 'string' &&
         (data['decision'] === 'allowed' || data['decision'] === 'denied' || data['decision'] === 'hook-blocked')
@@ -241,6 +271,7 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
       return;
     }
     if (eventType === `tool.${TOOL_BODY_EVENTS.COMPLETED}`) {
+      observeToolCall(options, data['executionId'], 'body-completed');
       if (
         typeof data['startedAt'] === 'string' &&
         typeof data['endedAt'] === 'string' &&

@@ -13,7 +13,7 @@ import { createNodeLiveConsolePort } from './live-console.js';
 import { createNodeOtlpLiveContentPort } from './live-content-otlp.js';
 import type { INodeOtlpLiveContentPort } from './live-content-otlp.js';
 import type { ILiveContentRedactionContext } from './live-content-redaction.js';
-import { LIVE_CONTENT_SETTINGS, TOOL_CONTENT_SETTINGS, resolveLiveContentPolicy } from './live-content-settings.js';
+import { LIVE_CONTENT_SETTINGS, resolveLiveContentPolicy } from './live-content-settings.js';
 import { createLiveTelemetryResource, safeLiveProviderRequestId, safeLiveToolCallId } from './live-resource.js';
 import {
   buildOtlpRequestHeaders, mergeOtlpHeaderMaps, otlpProtobufRequestHeaders, parseOtlpHeaderSetting,
@@ -141,9 +141,6 @@ function rejectUnsupportedSettings(env: Readonly<Record<string, string | undefin
     if (/HEADERS/u.test(name)) throw new Error(`Robota telemetry headers are not supported (${name}); refusing to export without them.`);
     if (/CERTIFICATE|CLIENT_KEY|(^|_)CA(_|$)|MTLS/u.test(name)) {
       throw new Error(`Robota telemetry client certificates and custom CAs are not supported (${name}); refusing to export without them.`);
-    }
-    if (TOOL_CONTENT_SETTINGS.has(name)) {
-      throw new Error(`Robota telemetry tool content capture is not yet supported (${name}); exports stay free of tool content.`);
     }
     if (/LOCK|MANAGED/u.test(name)) throw new Error(`A Robota telemetry managed destination lock cannot be enforced (${name}); refusing to start telemetry.`);
     if (/PROMPT|RESPONSE|CONTENT|BOD(?:Y|IES)|ARGUMENT|OUTPUT/u.test(name)) {

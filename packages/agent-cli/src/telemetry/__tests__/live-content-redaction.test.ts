@@ -158,4 +158,57 @@ describe('live content redaction', () => {
       getSecrets: () => { throw new Error('settings unreadable'); },
     })).toThrow();
   });
+
+  it('masks the value of a JSON pair whose name looks secret, keeping the name', () => {
+    const pair = (name: string, value: string): string => cat('"', name, '": "', value, '"');
+    const text = [
+      pair(cat('session', '_tok', 'en'), 'plain-value-one'),
+      pair(cat('db_pass', 'word'), 'with \\"escaped\\" quote'),
+      pair(cat('x-', 'auth'), 'v3'),
+      pair(cat('private', '_key'), 'v4'),
+      pair(cat('api', '_key'), 'v5'),
+      pair('cookieJar', 'v6'),
+      pair('credentials', 'v7'),
+      pair('name', 'kept-value'),
+    ].join(', ');
+    const out = redact(`{${text}}`).text;
+    for (const value of ['plain-value-one', 'escaped', 'v3', 'v4', 'v5', 'v6', 'v7']) expect(out).not.toContain(value);
+    expect(out).toContain(cat('"session', '_tok', 'en": "[redacted]"'));
+    expect(out).toContain('"name": "kept-value"');
+  });
+
+  it('masks a secret header line whole, keeping the header name', () => {
+    const text = [
+      cat('Author', 'ization: Basic ', 'dXNlcjpwYXNz'),
+      'Cookie: sid=abc; theme=dark',
+      'set-cookie: sid=def; Path=/',
+      cat('X-Upload-', 'Token: plain-header-value'),
+      'Content-Type: text/plain',
+      'The cookie: is not a header here',
+    ].join('\r\n');
+    const out = redact(text).text;
+    expect(out).not.toMatch(/dXNlcjpwYXNz|sid=|plain-header-value/u);
+    expect(out).toContain('Authorization: [redacted]');
+    expect(out).toContain('Cookie: [redacted]');
+    expect(out).toContain('set-cookie: [redacted]');
+    expect(out).toContain(cat('X-Upload-', 'Token: [redacted]'));
+    expect(out).toContain('Content-Type: text/plain');
+    expect(out).toContain('The cookie: is not a header here');
+  });
+
+  it('stays fast on adversarial input for the JSON-pair and header patterns', () => {
+    const cases = [
+      `"${'token'.repeat(3300)}`,
+      `"${'a'.repeat(120)}token${'b'.repeat(120)}" : "${'\\'.repeat(16400)}`,
+      `${'"secret'.repeat(2400)}`,
+      `x-${'-'.repeat(16400)}`,
+      `${'"a":"'.repeat(3300)}`,
+    ];
+    for (const text of cases) {
+      expect(Buffer.byteLength(text)).toBeGreaterThanOrEqual(16 * 1024);
+      const started = performance.now();
+      redact(text, {}, 16384);
+      expect(performance.now() - started).toBeLessThan(200);
+    }
+  });
 });

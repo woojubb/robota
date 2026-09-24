@@ -12,6 +12,7 @@ import {
 import { InteractiveExecutionClaimOwner } from './interactive-execution-claim.js';
 import { checkAndRefreshContextIfStale } from './interactive-session-context-refresh.js';
 import {
+  LiveToolCallOwnership,
   createLivePromptContentAccumulator,
   enqueueLivePromptContent,
 } from './interactive-session-live-prompt-content.js';
@@ -44,6 +45,7 @@ import type {
 } from './interactive-session-execution-contracts.js';
 import type { SessionHistoryTracker } from './interactive-session-history-tracker.js';
 import type { ICreatedInteractiveSession } from './interactive-session-init.js';
+import type { LivePromptContentAccumulator } from './interactive-session-live-prompt-content.js';
 import type { SessionSkillRouter } from './interactive-session-skill-router.js';
 import type { IToolState } from './types.js';
 import type { IExecutionResult } from './types.js';
@@ -82,6 +84,10 @@ function randomOtelId(bytes: number): string {
 
 export class SessionExecutionController {
   private completedToolExecutions: ICompletedToolExecution[] = [];
+  /** The running owner turn's tool content capture, only while that turn runs with a tool gate on. */
+  private liveToolCapture:
+    | { readonly ownership: LiveToolCallOwnership; readonly content: LivePromptContentAccumulator }
+    | undefined;
   readonly executionClaim: InteractiveExecutionClaimOwner;
   streamingText = '';
   flushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -183,6 +189,7 @@ export class SessionExecutionController {
         args: event.toolArgs,
         success: event.success === true && event.denied !== true,
       });
+      this.captureLiveToolContent(event);
     }
     this.activeTools = projectToolExecution(
       this.activeTools,
@@ -191,6 +198,32 @@ export class SessionExecutionController {
       (activeTools) => void (this.activeTools = activeTools),
       event,
     );
+  }
+
+  /** Opt-in content of one of the running turn's own calls; never throws into the tool wrapper. */
+  private captureLiveToolContent(event: {
+    toolName: string;
+    toolArgs?: TToolArgs;
+    success?: boolean;
+    denied?: boolean;
+    toolResultData?: string;
+    executionId?: string;
+  }): void {
+    const capture = this.liveToolCapture;
+    if (!capture || typeof event.executionId !== 'string') return;
+    try {
+      const denied = event.denied === true;
+      if (!capture.ownership.claim(event.executionId, denied)) return;
+      capture.content.addToolCall({
+        callId: event.executionId,
+        name: event.toolName,
+        outcome: denied ? 'denied' : event.success === true ? 'success' : 'failure',
+        ...(event.toolArgs !== undefined ? { args: event.toolArgs } : {}),
+        ...(!denied ? { output: event.toolResultData ?? '' } : {}),
+      });
+    } catch {
+      // Content capture is best effort and must never become a tool failure.
+    }
   }
 
   emitExecutionWorkspaceUpdated(cause: TExecutionWorkspaceUpdateCause, entryId?: string): void {
@@ -282,6 +315,11 @@ export class SessionExecutionController {
       turnSource: turnOptions.turnSource ?? 'user',
       driverId: turnOptions.driverId,
     });
+    // Tool content needs to know which calls are this turn's own; only then is ownership tracked.
+    const toolOwnership = liveContent?.capturesTools ? new LiveToolCallOwnership() : undefined;
+    const toolSpanIds = new Map<string, string>();
+    this.liveToolCapture = toolOwnership && liveContent
+      ? { ownership: toolOwnership, content: liveContent } : undefined;
     const closePromptRoot = (outcome: 'success' | 'failure' | 'interrupted'): void => {
       if (!promptRoot || promptRoot.endedAt) return;
       promptRoot.endedAt = new Date(Math.max(Date.now(), promptRoot.startedAtMs)).toISOString();
@@ -353,6 +391,10 @@ export class SessionExecutionController {
         flushStreaming: () => this.flushStreaming(),
         clearStreaming: () => this.clearStreaming(),
         getStreamingText: () => this.streamingText,
+        ...(toolOwnership
+          ? { onToolCallObserved: (id: string, phase: Parameters<LiveToolCallOwnership['observe']>[1]) =>
+              toolOwnership.observe(id, phase) }
+          : {}),
         onWorkspaceUpdated: () => this.emitExecutionWorkspaceUpdated('main_thread'),
         onComplete: (result: IExecutionResult) => {
           closePromptRoot('success');
@@ -436,7 +478,14 @@ export class SessionExecutionController {
             if (toolCallId !== undefined && typeof toolCallId !== 'string') {
               liveTrace?.omit({ provider: 0, tool: 1 });
             } else {
-              liveTrace?.addTool({ ...entry.data, ...(toolCallId !== undefined ? { toolCallId } : {}) });
+              const accepted = liveTrace?.addTool({
+                ...entry.data,
+                ...(toolCallId !== undefined ? { toolCallId } : {}),
+              });
+              // A tool item joins the span only when the exported trace kept it; else the root.
+              if (accepted && typeof toolCallId === 'string' && !toolSpanIds.has(toolCallId)) {
+                toolSpanIds.set(toolCallId, entry.data.spanId);
+              }
             }
           }
         },
@@ -478,6 +527,7 @@ export class SessionExecutionController {
       turnError = error instanceof Error ? error : new Error(String(error));
       throw error;
     } finally {
+      this.liveToolCapture = undefined;
       if (liveTrace && promptRoot?.endedAt && promptRoot.outcome && this.callbacks.livePromptTrace) {
         try {
           enqueueLivePromptTrace(this.callbacks.livePromptTrace, liveTrace.finish({
@@ -500,7 +550,7 @@ export class SessionExecutionController {
           traceId: promptRoot.traceId,
           spanId: promptRoot.spanId,
           endedAt: promptRoot.endedAt,
-        });
+        }, toolSpanIds);
       }
       try {
         await this.histTracker.finalizeEditCheckpointTurn();

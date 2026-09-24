@@ -171,10 +171,15 @@ export class LivePromptTraceAccumulator {
     else this.children.push({ kind: 'provider', trace });
   }
 
-  addTool(value: IToolBodyTraceEntry): void {
+  /** True when the child was kept, so its span is one the exported trace has. */
+  addTool(value: IToolBodyTraceEntry): boolean {
     const trace = projectTool(value);
-    if (!trace || this.children.length >= MAX_CHILDREN) this.omittedTool += 1;
-    else this.children.push({ kind: 'tool', trace });
+    if (!trace || this.children.length >= MAX_CHILDREN) {
+      this.omittedTool += 1;
+      return false;
+    }
+    this.children.push({ kind: 'tool', trace });
+    return true;
   }
 
   addPermission(value: IToolPermissionDecisionEntry): void {

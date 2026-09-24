@@ -242,31 +242,44 @@ are rejected. Export is bounded, best-effort, and does not delay or fail a turn;
 produce a content-free stderr warning. These switches do not enable content capture,
 additional event kinds, or replay of stored traces. Ambient `OTEL_*` values alone do not enable them.
 
-Prompt and response content is a separate opt-in on top of `ROBOTA_TELEMETRY_LOGS=otlp`.
+Prompt, response and tool content is a separate opt-in on top of `ROBOTA_TELEMETRY_LOGS=otlp`.
 `ROBOTA_TELEMETRY_LOG_USER_PROMPTS=1` sends what you typed (never the expanded model input, such as
 `@file` contents), and `ROBOTA_TELEMETRY_LOG_ASSISTANT_RESPONSES=1` sends the assistant's final answer
-for the turn; each accepts exactly `0` or `1`. `ROBOTA_TELEMETRY_LOG_CONTENT_MAX_BYTES` bounds each
-item (an integer from 256 to 16384, default 2048) and is refused unless one of the two is `1`. Content
-is captured only in the interactive terminal and only for turns you type yourself, the same turns
-prompt history records: goal and loop wakeups, peer and external messages, remote co-drivers,
-subagents and background work are never captured. Print (`-p`, `--goal`), `--serve` and
+for the turn. `ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS=1` sends the arguments of the turn's tool calls,
+allowed or denied, and `ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT=1` sends the output of its allowed calls
+(empty for a tool that crashed). Tool arguments carry whatever the model passed: a `Write` or `Edit`
+call's arguments are the file content it writes. Each setting accepts exactly `0` or `1`.
+`ROBOTA_TELEMETRY_LOG_CONTENT_MAX_BYTES` bounds each item (an integer from 256 to 16384, default 2048)
+and is refused unless one of them is `1`. Content is captured only in the interactive terminal and
+only for turns you type yourself, the same turns prompt history records: goal and loop wakeups, peer
+and external messages, remote co-drivers, subagents and background work are never captured, and
+tool content covers only the calls that turn made itself — never a subagent's, a forked skill's or
+background work's, even through a tool they share. A hook-blocked call, an unknown tool, or a call
+stopped before its tool ran sends nothing. Print (`-p`, `--goal`), `--serve` and
 `robota mcp serve` refuse to start with a content setting at `1` rather than ignore it. It goes only to OTLP log records (`robota.content.captured`, joined to the prompt's trace and
 root span, with `robota.content.kind`, `robota.content.truncated`, `robota.content.original_bytes` and,
 for an interrupted turn's response, `robota.content.partial`) — never to spans, metrics or console
-output, so a content setting with `ROBOTA_TELEMETRY_LOGS=console` is refused. It is sent to the logs
-destination with its headers but in its own request and queue: a content failure never delays or
-drops the content-free logs, and is reported on stderr like any other delivery failure. Items over a
-per-request size budget are dropped and counted in a content-free `robota.content.omitted` record.
-Before sending, the CLI masks known credential shapes (vendor API keys, AWS keys, private-key blocks,
+output, so a content setting with `ROBOTA_TELEMETRY_LOGS=console` is refused. A tool item is joined to
+the call's tool span when the trace kept one (else the root span) and adds `robota.tool.call_id`,
+`robota.tool.name` and `robota.tool.outcome` (`success`, `failure` or `denied`). Arguments are
+rendered with values under secret-looking keys (`password`, `apiKey`, `accessTokens`, …) masked
+whole, and binary or base64 payloads replaced by their size. It is sent to the logs
+destination with its headers but in its own requests and queue: a content failure never delays or
+drops the content-free logs, and is reported on stderr like any other delivery failure. One turn's
+content is bounded in item count and total size, with room kept for the prompt and response, and is
+sent as a few requests of bounded size; what does not fit is dropped and counted by kind in a
+content-free `robota.content.omitted` record, sent last. When a request fails, the rest of that turn's
+content and every queued turn are dropped, so that count is lost too. Queued content can hold about
+12 MB in the worst case. Before sending, the CLI masks known credential shapes (vendor API keys, AWS keys, private-key blocks,
 JWTs, GitHub, Stripe, npm and GitLab tokens, bearer tokens, URL and `-u user:pass` credentials,
-`*_KEY`/`*_TOKEN`/`*_SECRET`/`*_PASSWORD=` values), the literal secrets it knows of (settings keys and
+`*_KEY`/`*_TOKEN`/`*_SECRET`/`*_PASSWORD=` values, JSON values whose name looks secret, and
+`Authorization`, `Cookie`, `Set-Cookie` and `X-…-Token` header lines), the literal secrets it knows of (settings keys and
 `env` values, every resolved provider key including one switched to mid-session, and collector header
 values), your workspace path (`<workspace>`, also inside `file://` URLs) and home directory (`~`),
 control characters, and a partial token left at the size cut. This
-masking is best effort: anything it does not recognise as a secret is sent as written, and a response
-can repeat tool output (file contents, command output) that the model saw. If the secrets cannot be
-read, that request carries no content at all. Tool arguments and tool output are not captured:
-`ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS` and `ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT` stop startup.
+masking is best effort: anything it does not recognise as a secret is sent as written — file
+contents, command output and a response that repeats them included. If the secrets cannot be
+read, that request carries no content at all.
 
 Static collector headers (for example an `Authorization` token) use
 `ROBOTA_TELEMETRY_OTLP_HEADERS` for the generic endpoint and `ROBOTA_TELEMETRY_OTLP_TRACES_HEADERS`,

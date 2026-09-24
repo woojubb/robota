@@ -32,6 +32,7 @@ import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type { IHistoryEntry, IRunTraceContext } from '@robota-sdk/agent-core';
 import type { Session } from '@robota-sdk/agent-session';
 import type {
+  ISpanCollectorOptions,
   IToolBodyTraceObservation,
   IToolPermissionDecisionObservation,
   TRawProviderCallTraceObservation,
@@ -91,6 +92,8 @@ export interface IPromptTurnContext {
   onProviderCallCompleted?: (observation: TRawProviderCallTraceObservation) => void;
   onToolBodyCompleted?: (observation: IToolBodyTraceObservation) => void;
   onToolPermissionDecided?: (observation: IToolPermissionDecisionObservation) => void;
+  /** Synchronous, per event: which tool calls reached this turn's own collector. */
+  onToolCallObserved?: ISpanCollectorOptions['onToolCallObserved'];
   onCompletionsOmitted?: (counts: { readonly provider: number; readonly tool: number; readonly permission: number }) => void;
   onInterrupted: (result: IExecutionResult) => void;
   onError: (err: Error) => void;
@@ -120,7 +123,10 @@ export async function executePromptTurn(
 
   // SELFHOST-004 (P6): collect the per-operation span events tools emit during this turn's run, so
   // they can be projected onto history under the owning turn (drained just before its usage-summary).
-  const spanCollector = collectSpanEntries(ctx.getSession().getEventService());
+  const spanCollector = collectSpanEntries(
+    ctx.getSession().getEventService(),
+    ctx.onToolCallObserved ? { onToolCallObserved: ctx.onToolCallObserved } : {},
+  );
 
   try {
     ctx.signal?.throwIfAborted();
