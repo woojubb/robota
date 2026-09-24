@@ -4,27 +4,37 @@
  * executable path `headless-bin.ts` runs through) — gives `/workflows` a live detached owner.
  *
  * Two things are demonstrated end to end, through the REAL command module `buildCommandSetup`
- * assembles (no mock of `LocalDagRuntimeProvider` or of the DAG runtime):
+ * assembles and the REAL served-host lifecycle (no mock of `LocalDagRuntimeProvider`, the DAG
+ * runtime, or the host's shutdown race):
  *
  *   1. `run --detach` is accepted when the host is served (not print mode, no `--goal`) — the exact
  *      condition `buildCommandSetup` uses to compute `allowDetachedRuns`.
- *   2. Shutting the served host down (`driver.stop()` → `InteractiveSession.shutdown()` → every
- *      command module's `shutdown(host)`) aborts an active detached run's provider AND joins its
- *      cleanup — `stop()` does not resolve until the aborted run has actually settled.
+ *   2. Shutting the served host down goes through the SAME path `robota --serve` uses —
+ *      `startRuntimeHost` → `IRuntimeHostHandle.shutdown()` → `InteractiveSession.shutdown()` → every
+ *      command module's `shutdown(host)` — which races the session shutdown against a hard
+ *      `RUNTIME_SHUTDOWN_TIMEOUT_MS` (5000ms, `agent-framework`'s `runtime-host.ts`) so a wedged
+ *      subsystem cannot block process exit. This test proves the detached run's provider is aborted
+ *      AND joined comfortably inside that race, not merely that `shutdown()` eventually returns
+ *      because the 5s bound fired.
  *
  * Only the LLM/prompt provider is a held test double; everything else — the workflows command
- * module, the DAG runtime, the programmatic driver/session — is the real production wiring.
+ * module, the DAG runtime, `startRuntimeHost`, the session — is the real production wiring.
+ *
+ * `HOME` is stubbed to this test's own temp root before `buildCommandSetup` runs: the composition
+ * root reads `~/.robota` (org policy, user settings, workspace-trust state) via `os.homedir()`
+ * (`node:os` resolves it from `HOME` on POSIX at call time, not at import time), and this test must
+ * not depend on — or perturb — whatever happens to live in the real developer/CI home directory.
  */
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   WorkspaceTrustService,
-  createProgrammaticAgent,
   createWorkspaceProjectMutation,
+  startRuntimeHost,
 } from '@robota-sdk/agent-framework';
 import { createAssistantMessage } from '@robota-sdk/agent-core';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
@@ -34,21 +44,41 @@ import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../product/robota-project-stat
 
 import type {
   ICommandModule,
+  IRuntimeHostHandle,
   IWorkspaceIdentity,
   IWorkspaceProjectMutation,
   IWorkspaceTrustStoreSnapshot,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
 import type { IAIProvider, IProviderDefinition, TUniversalMessage } from '@robota-sdk/agent-core';
-import type { IAgentDriver, InteractionEvent } from '@robota-sdk/agent-interface-session';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 
+/** Mirrors `RUNTIME_SHUTDOWN_TIMEOUT_MS` in `agent-framework`'s `runtime-host.ts` — not imported
+ * (that constant is private to the module) but pinned here so a drift between the two shows up as a
+ * failing assertion instead of a silently-stale comment. */
+const RUNTIME_SHUTDOWN_TIMEOUT_MS = 5000;
+
 const roots: string[] = [];
-let driver: IAgentDriver | undefined;
+let handle: IRuntimeHostHandle | undefined;
+
+beforeEach(() => {
+  const home = mkHomeSentinel();
+  vi.stubEnv('HOME', home);
+  // Canary: os.homedir() must actually honor the stub in this runtime (it reads HOME on POSIX at
+  // call time), or every "reads ~/.robota" assumption below is untested.
+  expect(homedir()).toBe(home);
+});
+
+function mkHomeSentinel(): string {
+  // A distinct, never-created directory is enough to prove HOME is honored; the real fixture root
+  // (trusted, holding the workflow files) is created separately per test via `trustedRoot()`.
+  return join(tmpdir(), `runtime-002-home-sentinel-${process.pid}-${Date.now()}`);
+}
 
 afterEach(async () => {
-  await driver?.stop().catch(() => undefined);
-  driver = undefined;
+  await handle?.shutdown().catch(() => undefined);
+  handle = undefined;
+  vi.unstubAllEnvs();
   for (const root of roots.splice(0)) await rm(root, { recursive: true, force: true });
 });
 
@@ -86,7 +116,7 @@ async function trustedRoot(prefix: string): Promise<{
   return { root, access, mutation };
 }
 
-/** A held provider: `chat()` hangs until `release()` is called. */
+/** A held provider: `chat()` hangs until `release()` is called. Safe to call `release()` more than once. */
 function makeHeldProvider(providerType: string): {
   definitions: IProviderDefinition[];
   entered: Promise<AbortSignal>;
@@ -96,6 +126,7 @@ function makeHeldProvider(providerType: string): {
   const entered = new Promise<AbortSignal>((resolve) => {
     notifyEntered = resolve;
   });
+  let released = false;
   let resolveHeld!: () => void;
   const held = new Promise<TUniversalMessage>((resolve) => {
     resolveHeld = () => resolve(createAssistantMessage('late success'));
@@ -115,23 +146,18 @@ function makeHeldProvider(providerType: string): {
   return {
     definitions: [{ type: providerType, defaults: { model: 'test-model' }, createProvider: () => provider }],
     entered,
-    release: () => resolveHeld(),
+    release: () => {
+      if (released) return;
+      released = true;
+      resolveHeld();
+    },
   };
 }
 
-function commandOutputs(events: readonly InteractionEvent[]): string[] {
-  return events
-    .filter(
-      (e): e is Extract<InteractionEvent, { type: 'command-result' }> =>
-        e.type === 'command-result',
-    )
-    .map((e) => e.output);
-}
-
-const MINIMAL_ARGS = { noUpdateCheck: true } as unknown as IParsedCliArgs;
+const MINIMAL_ARGS = { disableUpdateCheck: true } as unknown as IParsedCliArgs;
 
 describe('RUNTIME-002 (#2845): the served host owns a live detached /workflows run', () => {
-  it('accepts run --detach when served (not print mode, no --goal), and shutdown aborts + joins the active run', async () => {
+  it('accepts run --detach when served (not print mode, no --goal), and shutdown aborts + joins the active run well inside the 5s bound', async () => {
     const { root, access, mutation } = await trustedRoot('runtime-002-');
     await mkdir(join(root, '.workflows', 'nodes'), { recursive: true });
     await writeFile(
@@ -178,37 +204,48 @@ describe('RUNTIME-002 (#2845): the served host owns a live detached /workflows r
     expect(workflowsModule).toBeDefined();
     if (!workflowsModule) return;
 
+    // The real served-host lifecycle: `startRuntimeHost` builds the same `InteractiveSession` that
+    // `robota --serve` runs (via `runServeMode`), and its `shutdown()` is the same bounded race.
     const scripted = createScriptedProvider([{ text: 'unused' }]);
-    driver = createProgrammaticAgent({
-      provider: scripted.provider,
-      cwd: root,
-      projectAccess: access,
-      commandModules: [workflowsModule],
-    });
-    await driver.start();
-
-    await driver.send('/workflows run flow.json --detach');
-    const outputs = commandOutputs(driver.events);
-    expect(outputs).toHaveLength(1);
-    expect(outputs[0]).toMatch(/Run ID: [\w-]+/);
-    expect(outputs[0]).not.toMatch(/unavailable in print mode/);
-
-    const signal = await held.entered;
-    expect(signal.aborted).toBe(false);
-
-    let stopped = false;
-    const stopping = driver.stop().then(() => {
-      stopped = true;
+    handle = await startRuntimeHost({
+      session: {
+        provider: scripted.provider,
+        cwd: root,
+        projectAccess: access,
+        commandModules: [workflowsModule],
+      },
     });
 
-    await vi.waitFor(() => expect(signal.aborted).toBe(true));
-    // Shutdown aborted the live provider call but must still be JOINING its cleanup — deterministic
-    // because `DetachedWorkflowRuns.shutdown()` awaits every active run's `settled` promise, and this
-    // run's provider has not settled yet.
-    expect(stopped).toBe(false);
+    try {
+      const started = await handle.session.executeCommand('workflows', 'run flow.json --detach', 'user');
+      expect(started?.success).toBe(true);
+      expect(started?.message).toMatch(/Run ID: [\w-]+/);
+      expect(started?.message).not.toMatch(/unavailable in print mode/);
 
-    held.release();
-    await stopping;
-    expect(stopped).toBe(true);
+      const signal = await held.entered;
+      expect(signal.aborted).toBe(false);
+
+      const shutdownStartedAt = Date.now();
+      let shutdownSettled = false;
+      const shuttingDown = handle.shutdown().then(() => {
+        shutdownSettled = true;
+      });
+
+      await vi.waitFor(() => expect(signal.aborted).toBe(true));
+      // Shutdown aborted the live provider call but must still be JOINING its cleanup — deterministic
+      // because `DetachedWorkflowRuns.shutdown()` awaits every active run's `settled` promise, and
+      // this run's provider has not settled yet. If this were instead the 5s race bound winning, it
+      // could not possibly have fired yet (elapsed time here is milliseconds).
+      expect(shutdownSettled).toBe(false);
+      expect(Date.now() - shutdownStartedAt).toBeLessThan(RUNTIME_SHUTDOWN_TIMEOUT_MS / 2);
+
+      held.release();
+      await shuttingDown;
+      expect(shutdownSettled).toBe(true);
+      // A real JOIN, not the timeout bound winning the race: comfortably under the 5s cap.
+      expect(Date.now() - shutdownStartedAt).toBeLessThan(RUNTIME_SHUTDOWN_TIMEOUT_MS - 1000);
+    } finally {
+      held.release();
+    }
   });
 });
