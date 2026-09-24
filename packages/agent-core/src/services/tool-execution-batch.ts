@@ -1,6 +1,9 @@
 import { ValidationError } from '../utils/errors';
 
+import { ARGUMENT_DECODE_ERROR_CODE, TOOL_EVENTS } from './tool-execution-constants';
+
 import type { IToolExecutionBatchContext } from './tool-execution-batch-types';
+import type { IToolEventData } from '../interfaces/event-service';
 import type { IToolExecutionRequest } from '../interfaces/service';
 import type {
   IToolExecutionResult,
@@ -96,6 +99,36 @@ function createErrorResult(request: IToolExecutionRequest, error: Error): IToolE
   };
 }
 
+/**
+ * Issue #2875 (follow-up to #2078): a request whose arguments failed to decode is refused HERE,
+ * the same way an unknown tool name is refused inside `ToolExecutionService.executeTool` — as a
+ * normal failed result for this one request, never as a thrown error that would abort the batch.
+ * `executor.executeTool` is never called, so the tool never sees the placeholder `parameters`.
+ *
+ * Emits `TOOL_EVENTS.CALL_ERROR` on the request's own event service, the same way the unknown-tool
+ * path does — a listener watching per-call events must see EVERY call fail or succeed exactly once,
+ * decode failures included, not just the ones that reached the tool.
+ */
+function createArgumentDecodeErrorResult(request: IToolExecutionRequest): IToolExecutionResult {
+  const error = request.argumentDecodeError;
+  if (request.eventService && error !== undefined) {
+    const errorEvent: IToolEventData = {
+      timestamp: new Date(),
+      toolName: request.toolName,
+      error,
+    };
+    request.eventService.emit(TOOL_EVENTS.CALL_ERROR, errorEvent);
+  }
+  return {
+    toolName: request.toolName,
+    result: null,
+    success: false,
+    error,
+    executionId: request.executionId,
+    metadata: { errorCode: ARGUMENT_DECODE_ERROR_CODE, requestedTool: request.toolName },
+  };
+}
+
 function createToolFailureError(result: IToolExecutionResult): Error {
   return new Error(
     `Tool execution failed: toolName=${String(result.toolName)} executionId=${String(result.executionId)} error=${String(result.error || 'Unknown error')}`,
@@ -140,11 +173,13 @@ async function executeParallelRequest(
   try {
     const result = batchContext.signal?.aborted
       ? createInterruptedResult(request)
-      : await executor.executeTool(
-          request.toolName,
-          request.parameters,
-          createExecutionContext(request, batchContext.signal),
-        );
+      : request.argumentDecodeError !== undefined
+        ? createArgumentDecodeErrorResult(request)
+        : await executor.executeTool(
+            request.toolName,
+            request.parameters,
+            createExecutionContext(request, batchContext.signal),
+          );
     state.resultsByIndex[index] = result;
     if (!result.success) {
       state.errorsByIndex[index] = createToolFailureError(result);
@@ -215,11 +250,13 @@ async function executeSequential(
     try {
       const result = batchContext.signal?.aborted
         ? createInterruptedResult(request)
-        : await executor.executeTool(
-            request.toolName,
-            request.parameters,
-            createExecutionContext(request, batchContext.signal),
-          );
+        : request.argumentDecodeError !== undefined
+          ? createArgumentDecodeErrorResult(request)
+          : await executor.executeTool(
+              request.toolName,
+              request.parameters,
+              createExecutionContext(request, batchContext.signal),
+            );
       results.push(result);
       if (!result.success) {
         errors.push(createToolFailureError(result));

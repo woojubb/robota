@@ -178,6 +178,111 @@ describe('convertToGeminiFormat', () => {
     expect(result[0]?.parts?.[0]).toHaveProperty('functionCall');
   });
 
+  // Issue #2875 (follow-up to #2078): agent-core already isolated a malformed tool call as its own
+  // failed batch result — but the NEXT round's assistant message still carries that call's raw,
+  // malformed `function.arguments`, and this converter used to throw on it, crashing the whole
+  // request instead of leaving the (already-reported) call as an empty-object `args`.
+  describe('malformed tool-call arguments (#2875)', () => {
+    function assistantWithToolCall(args: string): IAssistantMessage {
+      return {
+        role: 'assistant',
+        content: null,
+        toolCalls: [{ id: 'call_1', type: 'function' as const, function: { name: 'search', arguments: args } }],
+        timestamp: new Date(),
+      } as IAssistantMessage;
+    }
+
+    it('does not throw on invalid JSON, and sends an empty object args', () => {
+      let result: ReturnType<typeof convertToGeminiFormat> | undefined;
+      expect(() => {
+        result = convertToGeminiFormat([assistantWithToolCall('not json')]);
+      }).not.toThrow();
+
+      expect(result?.[0]?.parts?.[0]).toEqual({
+        functionCall: { id: 'call_1', name: 'search', args: {} },
+      });
+    });
+
+    it('does not throw when the JSON root is an array, and sends an empty object args', () => {
+      let result: ReturnType<typeof convertToGeminiFormat> | undefined;
+      expect(() => {
+        result = convertToGeminiFormat([assistantWithToolCall('[1]')]);
+      }).not.toThrow();
+
+      expect(result?.[0]?.parts?.[0]).toEqual({
+        functionCall: { id: 'call_1', name: 'search', args: {} },
+      });
+    });
+
+    it('still decodes well-formed arguments normally', () => {
+      const result = convertToGeminiFormat([assistantWithToolCall('{"q":"x"}')]);
+
+      expect(result[0]?.parts?.[0]).toEqual({
+        functionCall: { id: 'call_1', name: 'search', args: { q: 'x' } },
+      });
+    });
+
+    // This is the scenario the MUST finding described: agent-core already reported the batch as
+    // isolated per-call results (a decode-error tool message for the malformed call, a real result
+    // for the valid one) and the round continues — so the SECOND provider request has to build from
+    // an assistant message that still carries the original malformed `function.arguments` alongside
+    // both tool result messages. Building that request must not throw.
+    it('builds a full second-round request without throwing, mixing a malformed and a valid call', () => {
+      const messages: TUniversalMessage[] = [
+        {
+          id: 'msg-1',
+          state: 'complete',
+          role: 'user',
+          content: 'search for x',
+          timestamp: new Date(),
+        },
+        {
+          role: 'assistant',
+          content: null,
+          timestamp: new Date(),
+          toolCalls: [
+            { id: 'call_bad', type: 'function' as const, function: { name: 'search', arguments: '[1]' } },
+            {
+              id: 'call_good',
+              type: 'function' as const,
+              function: { name: 'search', arguments: '{"q":"x"}' },
+            },
+          ],
+        } as IAssistantMessage,
+        {
+          id: 'msg-3',
+          state: 'complete',
+          role: 'tool',
+          content:
+            'Error: Failed to parse arguments for tool "search" (call call_bad): expected a JSON object at the root, got an array',
+          toolCallId: 'call_bad',
+          name: 'search',
+          timestamp: new Date(),
+        },
+        {
+          id: 'msg-4',
+          state: 'complete',
+          role: 'tool',
+          content: '{"echoed":"x"}',
+          toolCallId: 'call_good',
+          name: 'search',
+          timestamp: new Date(),
+        },
+      ];
+
+      let result: ReturnType<typeof convertToGeminiFormat> | undefined;
+      expect(() => {
+        result = convertToGeminiFormat(messages);
+      }).not.toThrow();
+
+      expect(result).toHaveLength(4);
+      expect(result?.[1]?.parts).toEqual([
+        { functionCall: { id: 'call_bad', name: 'search', args: {} } },
+        { functionCall: { id: 'call_good', name: 'search', args: { q: 'x' } } },
+      ]);
+    });
+  });
+
   it('converts tool messages to Gemini functionResponse parts', () => {
     const messages: TUniversalMessage[] = [
       {
