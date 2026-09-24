@@ -66,6 +66,7 @@ export interface IServeModeOptions {
   promptFileReferenceTag?: string;
   modelCommandToolPrefix?: string;
   subagentHookEnvironmentNames?: TInteractiveSessionOptions['subagentHookEnvironmentNames'];
+  observerFailureWarningCode?: TInteractiveSessionOptions['observerFailureWarningCode'];
   commandHookShell?: string;
   sessionStore: ReturnType<typeof createProjectSessionStore>;
   projectAccess?: TWorkspaceProjectAccess;
@@ -154,6 +155,9 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
       : {}),
     ...(opts.subagentHookEnvironmentNames !== undefined
       ? { subagentHookEnvironmentNames: opts.subagentHookEnvironmentNames }
+      : {}),
+    ...(opts.observerFailureWarningCode !== undefined
+      ? { observerFailureWarningCode: opts.observerFailureWarningCode }
       : {}),
     ...(opts.commandHookShell !== undefined ? { commandHookShell: opts.commandHookShell } : {}),
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),

@@ -75,6 +75,7 @@ export class SessionBackgroundTaskTracker {
     private readonly appendHistoryEntry?: (entry: IHistoryEntry) => void,
     private readonly sessionLoopsDisabled = false,
     private readonly onSessionLoopRearmed?: (task: IBackgroundTaskState) => void,
+    private readonly observerFailureWarningCode?: string,
   ) {}
 
   subscribe(session: Session): void {
@@ -239,6 +240,7 @@ export class SessionBackgroundTaskTracker {
     this.backgroundJobOrchestrator = new BackgroundJobOrchestrator({
       manager,
       initialGroups: this.backgroundJobGroups,
+      observerFailureWarningCode: this.observerFailureWarningCode,
     });
     this.subscribeGroupEvents(sessionId);
     return this.backgroundJobOrchestrator;

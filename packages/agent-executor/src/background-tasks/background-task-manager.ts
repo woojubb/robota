@@ -79,7 +79,9 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     this.maxConcurrent = options.maxConcurrent ?? DEFAULT_MAX_CONCURRENT;
     this.maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
     this.eventSink = options.eventSink;
-    this.onObserverFailure = options.onObserverFailure ?? reportObserverFailureAsWarning;
+    this.onObserverFailure =
+      options.onObserverFailure ??
+      ((failure) => reportObserverFailureAsWarning(failure, options.observerFailureWarningCode));
     this.now = options.now ?? (() => new Date().toISOString());
     this.watchdogs = createBackgroundTaskWatchdogs(options, (task, reason, message) => {
       void this.failForTimeout(task, reason, message);

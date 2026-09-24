@@ -71,6 +71,7 @@ export interface IRenderOptions {
   productDisplayName?: string;
   modelCommandToolPrefix?: string;
   subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
+  observerFailureWarningCode?: ICreateSessionOptions['observerFailureWarningCode'];
   commandHookShell?: string;
   promptFileReferenceTag?: string;
   provider: IAIProvider;
@@ -243,6 +244,9 @@ export function toChannelOptions(
       : {}),
     ...(options.subagentHookEnvironmentNames !== undefined
       ? { subagentHookEnvironmentNames: options.subagentHookEnvironmentNames }
+      : {}),
+    ...(options.observerFailureWarningCode !== undefined
+      ? { observerFailureWarningCode: options.observerFailureWarningCode }
       : {}),
     ...(options.commandHookShell !== undefined
       ? { commandHookShell: options.commandHookShell }

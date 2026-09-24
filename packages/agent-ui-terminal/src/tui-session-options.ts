@@ -29,6 +29,9 @@ export function buildTuiSessionOptions(
     ...(opts.subagentHookEnvironmentNames !== undefined
       ? { subagentHookEnvironmentNames: opts.subagentHookEnvironmentNames }
       : {}),
+    ...(opts.observerFailureWarningCode !== undefined
+      ? { observerFailureWarningCode: opts.observerFailureWarningCode }
+      : {}),
     ...(opts.commandHookShell !== undefined ? { commandHookShell: opts.commandHookShell } : {}),
     ...(opts.orgPolicy !== undefined ? { orgPolicy: opts.orgPolicy } : {}),
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),

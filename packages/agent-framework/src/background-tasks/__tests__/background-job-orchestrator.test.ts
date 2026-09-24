@@ -1,5 +1,5 @@
 import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   BackgroundJobOrchestrator,
@@ -59,6 +59,27 @@ function createControlledRunner(tasks: IControlledTask[]): IBackgroundTaskRunner
 }
 
 describe('BackgroundJobOrchestrator', () => {
+  it.each([
+    [undefined, 'BACKGROUND_OBSERVER_FAILURE'],
+    ['ACME_BACKGROUND_OBSERVER_FAILURE', 'ACME_BACKGROUND_OBSERVER_FAILURE'],
+  ])('uses warning code %s for a failing group listener', (warningCode, expectedCode) => {
+    const spy = vi.spyOn(process, 'emitWarning').mockImplementation(() => undefined);
+    try {
+      const manager = new BackgroundTaskManager({ runners: [] });
+      const orchestrator = new BackgroundJobOrchestrator({
+        manager,
+        observerFailureWarningCode: warningCode,
+      });
+      orchestrator.subscribe(() => {
+        throw new Error('broken');
+      });
+      orchestrator.createGroup({ parentSessionId: 'parent', waitPolicy: 'manual', taskIds: [] });
+      expect(spy.mock.calls[0]?.[1]).toEqual({ code: expectedCode });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('completes a wait_all group after every task reaches terminal state', async () => {
     const controlled: IControlledTask[] = [];
     const manager = new BackgroundTaskManager({
