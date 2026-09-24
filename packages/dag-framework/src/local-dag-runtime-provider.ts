@@ -374,7 +374,7 @@ function toObjectInfoManifest(def: IDagNodeDefinition): IDagNodeManifest {
     input: { required },
     output: outputs.map((p) => toCatalogType(p.type)),
     output_name: outputs.map((p) => p.key),
-    category: def.category ?? 'robota',
+    category: def.category ?? 'Custom',
     source: 'local',
   };
   if (Object.keys(optional).length > 0) {
