@@ -1,5 +1,6 @@
 import { replaceLiteralWithinByteLimit } from './text-replace.js';
 import { repeatWithinByteLimit } from './text-repeat.js';
+import { joinLinesWithinByteLimit, splitTextWithinByteLimit } from './text-join-split.js';
 import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
 import {
   buildValidationError,
@@ -127,8 +128,11 @@ export class TextJoinNodeDefinition extends AbstractNodeDefinition<typeof TextJo
     const io = new NodeIoAccessor(input, context.nodeDefinition.nodeId);
     const r = io.requireInputString('items');
     if (!r.ok) return r;
-    const lines = r.value.split('\n').filter((l) => l.trim() !== '');
-    io.setOutput('text', lines.join(config.separator));
+    const joined = joinLinesWithinByteLimit(
+      r.value, config.separator, resolveDagExecutionByteLimits(context.byteLimits).maxTextJoinOutputBytes,
+    );
+    if (!joined.ok) return joined;
+    io.setOutput('text', joined.value);
     return { ok: true, value: io.toOutput() };
   }
 }
@@ -166,9 +170,12 @@ export class TextSplitNodeDefinition extends AbstractNodeDefinition<typeof TextS
     const io = new NodeIoAccessor(input, context.nodeDefinition.nodeId);
     const r = io.requireInputString('text');
     if (!r.ok) return r;
-    const parts = r.value.split(config.separator);
-    const result = config.trim ? parts.map((p) => p.trim()).filter((p) => p !== '') : parts;
-    io.setOutput('items', result.join('\n'));
+    const split = splitTextWithinByteLimit(
+      r.value, config.separator, config.trim,
+      resolveDagExecutionByteLimits(context.byteLimits).maxTextSplitOutputBytes,
+    );
+    if (!split.ok) return split;
+    io.setOutput('items', split.value);
     return { ok: true, value: io.toOutput() };
   }
 }

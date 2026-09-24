@@ -5,6 +5,10 @@ export interface IDagExecutionByteLimits {
   readonly maxTextReplaceOutputBytes?: number;
   /** Template expansion; omitted by older hosts to retain the built-in ceiling. */
   readonly maxTextTemplateOutputBytes?: number;
+  /** Text join expansion; omitted by older hosts to retain the built-in ceiling. */
+  readonly maxTextJoinOutputBytes?: number;
+  /** Text split expansion; omitted by older hosts to retain the built-in ceiling. */
+  readonly maxTextSplitOutputBytes?: number;
 }
 
 /** Keep supported text expansion bounded even when no host policy is supplied. */
@@ -12,6 +16,8 @@ export const DEFAULT_DAG_EXECUTION_BYTE_LIMITS: IDagExecutionByteLimits = Object
   maxTextRepeatOutputBytes: 4 * 1024 * 1024,
   maxTextReplaceOutputBytes: 4 * 1024 * 1024,
   maxTextTemplateOutputBytes: 4 * 1024 * 1024,
+  maxTextJoinOutputBytes: 4 * 1024 * 1024,
+  maxTextSplitOutputBytes: 4 * 1024 * 1024,
 });
 
 /** Snapshot a trusted host policy; hosts may tighten the built-in ceiling. */
@@ -37,5 +43,20 @@ export function resolveDagExecutionByteLimits(
     || maxTextTemplateOutputBytes < 0 || maxTextTemplateOutputBytes > 4 * 1024 * 1024) {
     throw new RangeError('maxTextTemplateOutputBytes must be a safe integer between 0 and 4194304');
   }
-  return Object.freeze({ maxTextRepeatOutputBytes, maxTextReplaceOutputBytes, maxTextTemplateOutputBytes });
+  const maxTextJoinOutputBytes = limits && 'maxTextJoinOutputBytes' in limits
+    ? limits.maxTextJoinOutputBytes : 4 * 1024 * 1024;
+  if (typeof maxTextJoinOutputBytes !== 'number' || !Number.isSafeInteger(maxTextJoinOutputBytes)
+    || maxTextJoinOutputBytes < 0 || maxTextJoinOutputBytes > 4 * 1024 * 1024) {
+    throw new RangeError('maxTextJoinOutputBytes must be a safe integer between 0 and 4194304');
+  }
+  const maxTextSplitOutputBytes = limits && 'maxTextSplitOutputBytes' in limits
+    ? limits.maxTextSplitOutputBytes : 4 * 1024 * 1024;
+  if (typeof maxTextSplitOutputBytes !== 'number' || !Number.isSafeInteger(maxTextSplitOutputBytes)
+    || maxTextSplitOutputBytes < 0 || maxTextSplitOutputBytes > 4 * 1024 * 1024) {
+    throw new RangeError('maxTextSplitOutputBytes must be a safe integer between 0 and 4194304');
+  }
+  return Object.freeze({
+    maxTextRepeatOutputBytes, maxTextReplaceOutputBytes, maxTextTemplateOutputBytes,
+    maxTextJoinOutputBytes, maxTextSplitOutputBytes,
+  });
 }
