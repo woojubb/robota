@@ -13,6 +13,7 @@ import { WorkerLoopService, type IWorkerLoopOptions } from '../services/worker-l
 
 /** Port dependencies required to construct a WorkerLoopService. */
 export interface IWorkerLoopDependencies {
+  lifecycleCreditAdmission?: boolean;
   snapshotBudget?: ITaskSnapshotBudget;
   rootCreditBudget?: IRootCreditBudget;
   /** Trusted host ceiling, independent of serialized definitions and queue messages. */
@@ -64,5 +65,6 @@ export function createWorkerLoopService(
     dependencies.byteLimits,
     dependencies.snapshotBudget,
     dependencies.rootCreditBudget,
+    dependencies.lifecycleCreditAdmission,
   );
 }

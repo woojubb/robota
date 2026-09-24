@@ -202,6 +202,10 @@ export type TTaskExecutionResult = ITaskExecutionSuccess | ITaskExecutionFailure
 
 /** Port for executing a single task given its execution input. */
 export interface ITaskExecutorPort {
+  /** Custom executors in cost-limited runs estimate before any execution side effects. */
+  estimateCost?(
+    input: ITaskExecutionInput,
+  ): Promise<import('../types/result.js').TResult<number, IDagError>>;
   /** Isolated executors join termination of this exact attempt before timeout/cancel is returned. */
   stopAndWait?(input: ITaskExecutionInput): Promise<void>;
   execute(input: ITaskExecutionInput): Promise<TTaskExecutionResult>;

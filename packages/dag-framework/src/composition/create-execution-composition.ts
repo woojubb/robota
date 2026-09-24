@@ -20,6 +20,8 @@ import type { IDagExecutionComposition } from '../types.js';
 
 /** Infrastructure dependencies required for DAG execution. */
 export interface IDagExecutionCompositionDependencies {
+  /** Trusted composition fact: the selected executor reserves during its lifecycle estimate. */
+  lifecycleCreditAdmission?: boolean;
   snapshotBudget?: ITaskSnapshotBudget;
   rootCreditBudget?: IRootCreditBudget;
   /** Trusted host ceiling, independent of serialized definitions and queue messages. */
@@ -62,6 +64,7 @@ export function createExecutionComposition(
       byteLimits: dependencies.byteLimits,
       snapshotBudget: dependencies.snapshotBudget,
       rootCreditBudget: dependencies.rootCreditBudget,
+      lifecycleCreditAdmission: dependencies.lifecycleCreditAdmission,
       storage: dependencies.storage,
       queue: dependencies.queue,
       deadLetterQueue: dependencies.deadLetterQueue,

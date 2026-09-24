@@ -69,20 +69,20 @@ export function runMigrations(db: Database.Database): void {
     `CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL)`,
   );
 
-  const getApplied = db.prepare<[], { version: number }>(
-    'SELECT version FROM schema_migrations ORDER BY version',
+  const getApplied = db.prepare<[number], { version: number }>(
+    'SELECT version FROM schema_migrations WHERE version = ?',
   );
-  const appliedVersions = new Set(getApplied.all().map((r) => r.version));
-
   const insertMigration = db.prepare(
     'INSERT INTO schema_migrations (version, applied_at) VALUES (?, ?)',
   );
 
   for (const migration of MIGRATIONS) {
-    if (appliedVersions.has(migration.version)) continue;
     db.transaction(() => {
+      // The version check belongs after the write lock. Another constructor may have
+      // applied this migration while this connection waited for that lock.
+      if (getApplied.get(migration.version)) return;
       db.exec(migration.sql);
       insertMigration.run(migration.version, Date.now());
-    })();
+    }).immediate();
   }
 }

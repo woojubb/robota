@@ -1,10 +1,12 @@
 import {
   TaskRunStateMachine,
+  LifecycleTaskExecutorPort,
   type ITaskSnapshotBudget,
   type IRootCreditBudget,
   resolveDagExecutionByteLimits,
   type IDagExecutionByteLimits,
   buildValidationError,
+  buildTaskExecutionError,
   type IClockPort,
   type IDagDefinition,
   type IDagRun,
@@ -77,6 +79,7 @@ export class WorkerLoopService {
     byteLimits?: IDagExecutionByteLimits,
     private readonly snapshotBudget?: ITaskSnapshotBudget,
     private readonly rootCreditBudget?: IRootCreditBudget,
+    private readonly lifecycleCreditAdmission = false,
   ) {
     this.executionRoot = resolveTrustedExecutionRoot(executionRoot);
     this.byteLimits = resolveDagExecutionByteLimits(byteLimits);
@@ -197,16 +200,84 @@ export class WorkerLoopService {
     };
     this.activeAttempts.add(active);
     let executionResult: TTaskExecutionResult;
+    let preflightCredits: number | undefined;
+    const executionDeadlineMs = Date.now() + claimDeps.timeoutMs;
     let stopCancellationWatch: (() => void) | undefined;
     try {
       // Input assembly awaits storage. A cancellation during that await must close admission too.
       const cancellationBeforeExecution = await this.cancelIfRunCancelled(message);
       if (cancellationBeforeExecution) return cancellationBeforeExecution;
       stopCancellationWatch = this.watchCommittedCancellation(active);
+      if (
+        definition.costPolicy &&
+        !this.lifecycleCreditAdmission &&
+        !(this.executor instanceof LifecycleTaskExecutorPort)
+      ) {
+        const estimateCost = this.executor.estimateCost;
+        if (!estimateCost) {
+          return this.outcomes.handleFailurePath(
+            claimed,
+            taskRun.taskRunId,
+            buildValidationError(
+              'DAG_VALIDATION_CREDIT_ESTIMATE_REQUIRED',
+              'Cost-limited runs require a custom executor to estimate credits before execution',
+              { taskRunId: claimed.taskRunId },
+            ),
+          );
+        }
+        const estimated = await executeWithTimeout(
+          {
+            execute: async (estimateInput) => {
+              const result = await estimateCost.call(this.executor, estimateInput);
+              return result.ok ? { ok: true, output: {}, estimatedCredits: result.value } : result;
+            },
+            ...(this.executor.stopAndWait
+              ? { stopAndWait: this.executor.stopAndWait.bind(this.executor) }
+              : {}),
+          },
+          { ...input, signal: controller.signal },
+          Math.max(1, executionDeadlineMs - Date.now()),
+          message.taskRunId,
+        );
+        if (!estimated.ok)
+          return this.outcomes.handleFailurePath(claimed, taskRun.taskRunId, estimated.error);
+        if (
+          estimated.estimatedCredits === undefined ||
+          !Number.isFinite(estimated.estimatedCredits) ||
+          estimated.estimatedCredits < 0
+        ) {
+          return this.outcomes.handleFailurePath(
+            claimed,
+            taskRun.taskRunId,
+            buildValidationError(
+              'DAG_VALIDATION_CREDIT_ESTIMATE_INVALID',
+              'Custom executor credit estimate must be a finite nonnegative number',
+              { taskRunId: claimed.taskRunId },
+            ),
+          );
+        }
+        const reserved = await input.reserveCredits!(estimated.estimatedCredits);
+        if (!reserved.ok)
+          return this.outcomes.handleFailurePath(claimed, taskRun.taskRunId, reserved.error);
+        preflightCredits = estimated.estimatedCredits;
+      }
+      const remainingMs = executionDeadlineMs - Date.now();
+      if (remainingMs <= 0) {
+        return this.outcomes.handleFailurePath(
+          claimed,
+          taskRun.taskRunId,
+          buildTaskExecutionError(
+            'DAG_TASK_EXECUTION_TIMEOUT',
+            `Task execution timed out after ${claimDeps.timeoutMs}ms`,
+            true,
+            { taskRunId: message.taskRunId, timeoutMs: claimDeps.timeoutMs },
+          ),
+        );
+      }
       executionResult = await executeWithTimeout(
         this.executor,
         { ...input, signal: controller.signal },
-        claimDeps.timeoutMs,
+        remainingMs,
         message.taskRunId,
       );
     } finally {
@@ -215,13 +286,28 @@ export class WorkerLoopService {
     }
 
     if (executionResult.ok) {
+      if (
+        preflightCredits !== undefined &&
+        executionResult.estimatedCredits !== undefined &&
+        executionResult.estimatedCredits !== preflightCredits
+      ) {
+        return this.outcomes.handleFailurePath(
+          claimed,
+          taskRun.taskRunId,
+          buildValidationError(
+            'DAG_VALIDATION_CREDIT_ESTIMATE_MISMATCH',
+            'Custom executor reported credits different from its preflight estimate',
+            { taskRunId: claimed.taskRunId },
+          ),
+        );
+      }
       return this.outcomes.handleSuccessPath(
         claimed,
         taskRun.taskRunId,
         dagRun,
         definition,
         executionResult.output,
-        executionResult.estimatedCredits,
+        preflightCredits ?? executionResult.estimatedCredits,
         executionResult.totalCredits,
       );
     }

@@ -1,5 +1,6 @@
 import {
   TASK_PROGRESS_EVENTS,
+  buildValidationError,
   type ITaskSnapshotBudget,
   type IClockPort,
   type IDagDefinition,
@@ -54,22 +55,45 @@ export class TaskOutcomeHandler {
     estimatedCredits?: number,
     totalCredits?: number,
   ): Promise<TResult<IWorkerLoopResult, IDagError>> {
-    const persist = (snapshot: string) => this.storage.commitExecution(message.dagRunId, {
-      kind: 'settle',
-      taskRunId,
-      attempt: message.attempt,
-      leaseOwner: this.options.workerId,
-      status: 'success',
-      outputSnapshot: snapshot,
-      estimatedCredits,
-      totalCredits,
-    });
+    const persist = (snapshot: string) =>
+      this.storage.commitExecution(message.dagRunId, {
+        kind: 'settle',
+        taskRunId,
+        attempt: message.attempt,
+        leaseOwner: this.options.workerId,
+        status: 'success',
+        outputSnapshot: snapshot,
+        estimatedCredits,
+        totalCredits,
+      });
     const admission = this.snapshotBudget
       ? await this.snapshotBudget.admitValue('output', output, persist)
       : { ok: true as const, value: await persist(JSON.stringify(output)) };
     if (!admission.ok) return this.handleFailurePath(message, taskRunId, admission.error);
     const committed = admission.value;
-    if (!committed.applied) return successAfterAck(this.queue, message.messageId, taskRunId, false);
+    if (!committed.applied) {
+      const [run, task] = await Promise.all([
+        this.storage.getDagRun(message.dagRunId),
+        this.storage.getTaskRun(taskRunId),
+      ]);
+      if (
+        run?.status === 'running' &&
+        task?.status === 'running' &&
+        task.attempt === message.attempt &&
+        task.leaseOwner === this.options.workerId
+      ) {
+        return this.handleFailurePath(
+          message,
+          taskRunId,
+          buildValidationError(
+            'DAG_VALIDATION_EXECUTION_SETTLEMENT_REJECTED',
+            'Current task attempt could not settle its successful output',
+            { taskRunId },
+          ),
+        );
+      }
+      return successAfterAck(this.queue, message.messageId, taskRunId, false);
+    }
     this.runProgressEventReporter?.publish({
       dagRunId: message.dagRunId,
       eventType: TASK_PROGRESS_EVENTS.COMPLETED,

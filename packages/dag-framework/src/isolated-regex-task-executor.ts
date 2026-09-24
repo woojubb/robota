@@ -8,10 +8,13 @@ import { IsolatedRegexOperation } from './isolated-regex-operation.js';
 
 /** Leaves lifecycle, trusted capabilities and persistence in the parent. */
 export class IsolatedRegexTaskExecutor implements ITaskExecutorPort {
-  private readonly active = new Map<string, {
-    operation: IsolatedRegexOperation;
-    completion: Promise<void>;
-  }>();
+  private readonly active = new Map<
+    string,
+    {
+      operation: IsolatedRegexOperation;
+      completion: Promise<void>;
+    }
+  >();
   public constructor(private readonly delegate: ITaskExecutorPort) {}
   private key(input: ITaskExecutionInput): string {
     return JSON.stringify([input.dagRunId, input.taskRunId, input.attempt]);
@@ -19,11 +22,15 @@ export class IsolatedRegexTaskExecutor implements ITaskExecutorPort {
   public async execute(input: ITaskExecutionInput): Promise<TTaskExecutionResult> {
     const key = this.key(input);
     const operation = new IsolatedRegexOperation(
-      input.taskRunId, input.nodeId, undefined,
+      input.taskRunId,
+      input.nodeId,
+      undefined,
       resolveDagExecutionByteLimits(input.byteLimits).maxTextReplaceOutputBytes,
     );
     let complete!: () => void;
-    const completion = new Promise<void>((resolve) => { complete = resolve; });
+    const completion = new Promise<void>((resolve) => {
+      complete = resolve;
+    });
     this.active.set(key, { operation, completion });
     try {
       return await this.delegate.execute({ ...input, regexReplaceOperation: operation });

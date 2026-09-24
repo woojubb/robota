@@ -156,7 +156,16 @@ export async function createDagFramework(
     ...options.worker,
   };
   const execution = createExecutionComposition(
-    { executionRoot, storage, queue, deadLetterQueue, lease, executor, clock },
+    {
+      executionRoot,
+      storage,
+      queue,
+      deadLetterQueue,
+      lease,
+      executor,
+      clock,
+      lifecycleCreditAdmission: options.ports?.executor === undefined,
+    },
     { worker: workerOptions, logger: options.logger },
   );
 

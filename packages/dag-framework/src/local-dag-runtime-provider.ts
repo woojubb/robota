@@ -22,7 +22,13 @@ import type {
   IWorkspaceLayout,
 } from '@robota-sdk/dag-core';
 import { resolveTrustedExecutionRoot } from '@robota-sdk/agent-core/node';
-import { LifecycleTaskExecutorPort, resolveDagExecutionByteLimits, resolveTaskSnapshotBudgetLimits, RootCreditBudget, TaskSnapshotBudget } from '@robota-sdk/dag-core';
+import {
+  LifecycleTaskExecutorPort,
+  resolveDagExecutionByteLimits,
+  resolveTaskSnapshotBudgetLimits,
+  RootCreditBudget,
+  TaskSnapshotBudget,
+} from '@robota-sdk/dag-core';
 import {
   InMemoryLeasePort,
   InMemoryQueuePort,
@@ -126,7 +132,8 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
     const inheritedCreditBudget = this.options.rootCreditBudget;
     let rootCreditBudget: IRootCreditBudget | undefined;
     try {
-      rootCreditBudget = inheritedCreditBudget ?? new RootCreditBudget(dag.costPolicy?.runCreditLimit);
+      rootCreditBudget =
+        inheritedCreditBudget ?? new RootCreditBudget(dag.costPolicy?.runCreditLimit);
       const result = await runDagOnce(
         dag,
         nodeDefinitions,
@@ -177,7 +184,10 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
         error,
       });
       return {
-        ok: false, outputs: {}, durationMs, error,
+        ok: false,
+        outputs: {},
+        durationMs,
+        error,
         ...(err instanceof DagStartError
           ? { errorCode: err.dagError.code, errorRetryable: err.dagError.retryable }
           : {}),
@@ -251,6 +261,7 @@ async function runDagOnce(
       byteLimits,
       snapshotBudget,
       rootCreditBudget,
+      lifecycleCreditAdmission: true,
       storage,
       queue: new InMemoryQueuePort(),
       deadLetterQueue: new InMemoryQueuePort(),
