@@ -37,6 +37,20 @@ function captureHookInput(
 }
 
 describe('subagent hook environment ownership', () => {
+  it.each([
+    { agentId: 'CLAUDE_SESSION_ID' },
+    { agentType: 'CLAUDE_PROJECT_DIR' },
+    { agentId: 'SAME', agentType: 'SAME' },
+    { agentId: 'INVALID=NAME' },
+  ])('rejects an invalid host alias at runtime assembly: %j', (names) => {
+    expect(() => buildAgentRuntime({
+      config: { hooks },
+      subagentHookEnvironmentNames: names,
+    } as unknown as ICreateSessionOptions, 'session-1', '/tmp/project', undefined as never, [], [])).toThrow(
+      /subagent hook environment/i,
+    );
+  });
+
   it('omits product env aliases for a neutral host', async () => {
     const input = await captureHookInput();
     expect(input.agent_id).toBe('agent-1');

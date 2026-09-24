@@ -8,7 +8,10 @@
 
 import { SubagentManager, BackgroundTaskManager } from '@robota-sdk/agent-executor';
 
-import { fireSubagentLifecycleHook } from './background-task-hooks.js';
+import {
+  fireSubagentLifecycleHook,
+  validateSubagentHookEnvironmentNames,
+} from './background-task-hooks.js';
 import { AgentDefinitionLoader } from '../agents/agent-definition-loader.js';
 import { BUILT_IN_AGENTS } from '../agents/built-in-agents.js';
 import { createInProcessSubagentRunner } from '../subagents/in-process-subagent-runner.js';
@@ -35,6 +38,10 @@ export function buildAgentRuntime(
   tools: IToolWithEventService[],
   hookTypeExecutors: IHookTypeExecutor[],
 ): IAgentRuntimeResult {
+  const environmentNames = options.subagentHookEnvironmentNames
+    ? { ...options.subagentHookEnvironmentNames }
+    : undefined;
+  validateSubagentHookEnvironmentNames(environmentNames);
   let agentToolDeps: IAgentToolDeps | undefined;
   let agentDefinitions: IAgentDefinition[] = [];
   let backgroundTaskManager: IBackgroundTaskManager;
@@ -104,7 +111,7 @@ export function buildAgentRuntime(
   }
   backgroundTaskManager.subscribe((event) =>
     fireSubagentLifecycleHook(
-      event, cwd, options.config.hooks, hookTypeExecutors, options.subagentHookEnvironmentNames,
+      event, cwd, options.config.hooks, hookTypeExecutors, environmentNames,
     ),
   );
 
