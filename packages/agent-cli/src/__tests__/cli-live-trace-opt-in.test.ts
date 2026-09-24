@@ -10,9 +10,9 @@ const originalArgv = process.argv;
 const originalHome = process.env.HOME;
 const originalFakeKey = process.env['ROBOTA_LIVE_TRACE_TEST_KEY'];
 const telemetryKeys = [
-  'ROBOTA_TELEMETRY_ENABLED', 'ROBOTA_TELEMETRY_TRACES',
+  'ROBOTA_TELEMETRY_ENABLED', 'ROBOTA_TELEMETRY_TRACES', 'ROBOTA_TELEMETRY_METRICS',
   'ROBOTA_TELEMETRY_OTLP_PROTOCOL', 'ROBOTA_TELEMETRY_OTLP_ENDPOINT',
-  'ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT',
+  'ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT', 'ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT',
 ] as const;
 const originalTelemetry = Object.fromEntries(telemetryKeys.map((key) => [key, process.env[key]]));
 
@@ -46,10 +46,12 @@ describe('CLI live trace opt-in', () => {
     }
   });
 
-  it('sends no trace when off and one live prompt trace when explicitly enabled in print mode', async () => {
+  it('sends no telemetry when off, then independently selected live traces or metrics in print mode', async () => {
     const home = mkdtempSync(join(tmpdir(), 'robota-cli-live-trace-home-'));
     process.env.HOME = home;
     delete process.env['ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT'];
+    delete process.env['ROBOTA_TELEMETRY_METRICS'];
+    delete process.env['ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT'];
     process.env['ROBOTA_LIVE_TRACE_TEST_KEY'] = 'test-only-key';
     vi.spyOn(process, 'cwd').mockReturnValue(home);
     vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
@@ -59,10 +61,9 @@ describe('CLI live trace opt-in', () => {
     vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     process.argv = ['node', 'robota', '-p', 'private prompt', '--no-session-persistence'];
 
-    let requests = 0;
+    const requests: string[] = [];
     const server = createServer(async (request, response) => {
-      requests += 1;
-      expect(request.url).toBe('/v1/traces');
+      requests.push(request.url ?? '');
       expect(request.headers['content-type']).toBe('application/x-protobuf');
       for await (const _chunk of request) { /* consume request */ }
       response.writeHead(200, { 'content-type': 'application/x-protobuf' });
@@ -78,11 +79,16 @@ describe('CLI live trace opt-in', () => {
       process.env['ROBOTA_TELEMETRY_OTLP_PROTOCOL'] = 'http/protobuf';
       process.env['ROBOTA_TELEMETRY_OTLP_ENDPOINT'] = endpoint;
       await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
-      expect(requests).toBe(0);
+      expect(requests).toEqual([]);
 
       process.env['ROBOTA_TELEMETRY_ENABLED'] = '1';
       await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
-      expect(requests).toBe(1);
+      expect(requests).toEqual(['/v1/traces']);
+
+      process.env['ROBOTA_TELEMETRY_TRACES'] = 'off';
+      process.env['ROBOTA_TELEMETRY_METRICS'] = 'otlp';
+      await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
+      expect(requests).toEqual(['/v1/traces', '/v1/metrics']);
     } finally {
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
       rmSync(home, { recursive: true, force: true });
