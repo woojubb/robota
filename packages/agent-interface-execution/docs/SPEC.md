@@ -24,8 +24,8 @@ Not owned here:
 
 - **Layer 0**: depends on no peer `agent-interface-*` package. Composition runs downward into it
   (e.g. `agent-interface-session` names these types); this package never names a session type.
-- A `kind: 'scheduled'` background-task request carries no `permissionPolicy`, by decision (issue
-  #2354): a schedule with `agentInstruction` wakes the host session rather than spawning an agent, and
+- A `kind: 'scheduled'` background-task request carries no `permissionPolicy`, by decision: a
+  schedule with `agentInstruction` wakes the host session rather than spawning an agent, and
   the woken turn runs under that session's own permission configuration. Only `kind: 'agent'` — a
   separate agent — declares a policy. A dedicated test enforces this.
 - `IBackgroundTaskError` describes the shape of a failure that crossed a boundary; this package
@@ -35,7 +35,7 @@ Not owned here:
 
 ## Design decisions
 
-### Forking a conversation into a background task (CLI-1994)
+### Forking a conversation into a background task
 
 `IAgentBackgroundTaskRequest.resumeSessionId?` names a persisted session record the child restores
 before its first turn — how a fork (a copy of a live conversation, written under a fresh id by

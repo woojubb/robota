@@ -13,8 +13,8 @@ Converts a declarative pipeline spec, or a `.dag.json` workflow file, into a ful
   an HTTP host decides how to present that result.
 - Sequential stages wire in order; parallel stages fan out from and back into sequential nodes via
   `defaultOutputPort`/`defaultInputPort` matching, with optional per-stage port overrides.
-- `dagDefinitionFromParsedFile` is where the on-disk workflow-file format should be read. Since
-  DAG-002 the execution contract is the domain model (`IDagRuntimeProvider.execute` takes an
+- `dagDefinitionFromParsedFile` is where the on-disk workflow-file format should be read. The
+  execution contract is the domain model (`IDagRuntimeProvider.execute` takes an
   `IDagDefinition`), so import at the edge is the only job the file format has.
 - Decoding is pure and synchronous: a caller that also reads a `.dag.robota.json` companion off disk
   performs that IO itself and passes the result in. The companion supplies what the file format

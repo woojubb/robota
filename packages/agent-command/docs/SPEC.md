@@ -156,7 +156,7 @@ not grant model invocation or change execution policy, permission requirements, 
 — these commands remain operator-only. Remote control offers `status` and `devices` before pairing or
 revoking actions, so an autocomplete selection defaults to a read-only operation.
 
-**CMD-004 ask seam.** A command that needs input (selection pickers, setup wizards, destructive-action
+**Ask seam.** A command that needs input (selection pickers, setup wizards, destructive-action
 confirmation) asks for it inline at the top of `execute` via the host-supplied
 `context.getUserInteraction()?.ask(...)`. With no interactive renderer attached (headless/automation),
 that accessor is `undefined` and the command takes its explicit no-human path rather than blocking or

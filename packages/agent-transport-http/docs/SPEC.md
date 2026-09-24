@@ -8,7 +8,7 @@ so the `hono` dependency is an isolated unit.
 ## Contract
 
 - Depends on `agent-interface-transport` for transport contracts and on `agent-transport/node` only
-  for the SEC-008 admission seam (`resolveAdmission`, `bearerCredential`, `credentialMatches`); that
+  for the transport admission seam (`resolveAdmission`, `bearerCredential`, `credentialMatches`); that
   admission decision is deliberately not re-made here.
 - Contract-pure otherwise: the one side concern of where a stream-failure detail goes is injected via
   `IAgentRoutesOptions.onStreamFailure`, never imported.
@@ -16,7 +16,7 @@ so the `hono` dependency is an isolated unit.
 
 ## Invariants
 
-- `createHttpTransport` is a frozen `service` lifecycle (ARCH-011): readiness is construction of the
+- `createHttpTransport` is a frozen `service` lifecycle: readiness is construction of the
   Hono app (`getApp()`), not binding a network listener. A repeated active start rejects
   `TransportLifecycleError`; repeated stop is safe and supports a new attach/start generation.
 - `/submit` refuses a second concurrent turn on a session, keyed by `getSession().getSessionId()`
