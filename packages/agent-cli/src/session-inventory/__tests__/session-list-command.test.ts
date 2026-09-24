@@ -7,7 +7,8 @@ import { describe, expect, it, vi } from 'vitest';
 import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 
 import { runPreparsedCliCommand } from '../../startup/preparsed-command-routing.js';
-import { executeSessionListCommand, readLocalPeersForInventory } from '../session-list-command.js';
+import { executeSessionListCommand, readLocalPeersForInventory, runSessionListCommand } from '../session-list-command.js';
+import { resolveSupervisedDirectory, startSupervisedControl } from '../supervised-session-control.js';
 
 import type {
   IInteractiveSessionRecord,
@@ -45,6 +46,39 @@ function valid(id: string): ISessionListEntry {
 }
 
 describe('read-only local session inventory', () => {
+  it('shows verified supervised activity in both list formats without exposing session content', async () => {
+    const home = mkdtempSync(join(tmpdir(), 'rs-'));
+    const previousHome = process.env['HOME'];
+    const previousRuntimeDirectory = process.env['XDG_RUNTIME_DIR'];
+    const output = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const id = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
+    let control: Awaited<ReturnType<typeof startSupervisedControl>> | undefined;
+    try {
+      process.env['HOME'] = home;
+      process.env['XDG_RUNTIME_DIR'] = home;
+      control = await startSupervisedControl(id, () => undefined, resolveSupervisedDirectory(), () => 'needs-input');
+      expect(await runSessionListCommand(['--format', 'text'])).toBe(0);
+      const text = output.mock.calls.map(([value]) => String(value)).join('');
+      expect(text).toContain(`${id}  liveness alive  control available  activity needs-input`);
+      expect(text).not.toMatch(/prompt|token|transcript/i);
+      output.mockClear();
+      expect(await runSessionListCommand(['--format', 'json'])).toBe(0);
+      const json = output.mock.calls.map(([value]) => String(value)).join('');
+      expect(JSON.parse(json).supervised.sessions).toEqual([
+        { id, liveness: 'alive', control: 'available', activity: 'needs-input' },
+      ]);
+      expect(json).not.toMatch(/prompt|token|transcript/i);
+    } finally {
+      await control?.close();
+      output.mockRestore();
+      if (previousHome === undefined) delete process.env['HOME'];
+      else process.env['HOME'] = previousHome;
+      if (previousRuntimeDirectory === undefined) delete process.env['XDG_RUNTIME_DIR'];
+      else process.env['XDG_RUNTIME_DIR'] = previousRuntimeDirectory;
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
   it('keeps live peers separate from saved records and hides transcript content', () => {
     const result = executeSessionListCommand(['--format', 'json'], {
       userSessionStore: store([

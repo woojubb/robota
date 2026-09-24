@@ -15,6 +15,47 @@ const ID = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
 const INCOMPLETE_ID = 'fe2c7f72-ecb3-4a05-9bb1-2563ec80e615';
 
 describe('supervised session control', () => {
+  it('reports only current content-free activity and keeps initialization or shutdown unknown', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-activity-'));
+    const root = join(scratch, 'supervised');
+    let activity: 'working' | 'needs-input' | 'idle' | undefined;
+    const control = await startSupervisedControl(ID, () => undefined, root, () => activity);
+    try {
+      expect(await listSupervisedSessions(root)).toEqual([
+        { id: ID, liveness: 'alive', control: 'available', activity: 'unknown' },
+      ]);
+      for (const current of ['idle', 'working', 'needs-input'] as const) {
+        activity = current;
+        expect(await listSupervisedSessions(root)).toEqual([
+          { id: ID, liveness: 'alive', control: 'available', activity: current },
+        ]);
+      }
+      activity = undefined;
+      expect(await listSupervisedSessions(root)).toEqual([
+        { id: ID, liveness: 'alive', control: 'available', activity: 'unknown' },
+      ]);
+    } finally {
+      await control.close();
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps activity unknown when the live process control reply cannot be verified', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-lost-'));
+    const root = join(scratch, 'supervised');
+    const control = await startSupervisedControl(ID, () => undefined, root, () => 'working');
+    try {
+      const socketName = readdirSync(root).find((name) => name.endsWith('.sock'));
+      rmSync(join(root, socketName!));
+      expect(await listSupervisedSessions(root)).toEqual([
+        { id: ID, liveness: 'alive', control: 'unavailable', activity: 'unknown' },
+      ]);
+    } finally {
+      await control.close();
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
   it('lists and stops only the process that registered its own control socket', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-'));
     const root = join(scratch, 'supervised');
@@ -25,7 +66,7 @@ describe('supervised session control', () => {
     control = await startSupervisedControl(ID, stop, root);
     try {
       expect(await listSupervisedSessions(root)).toEqual([
-        { id: ID, liveness: 'alive', control: 'available' },
+        { id: ID, liveness: 'alive', control: 'available', activity: 'unknown' },
       ]);
       await expect(stopSupervisedSession('../escape', root)).rejects.toThrow(/invalid/i);
       expect(stop).not.toHaveBeenCalled();
@@ -87,13 +128,13 @@ describe('supervised session control', () => {
     try {
       mkdirSync(join(root, `.${INCOMPLETE_ID}.pending`), { mode: 0o700 });
       expect(await listSupervisedSessions(root)).toEqual([
-        { id: ID, liveness: 'alive', control: 'available' },
+        { id: ID, liveness: 'alive', control: 'available', activity: 'unknown' },
       ]);
 
       mkdirSync(join(root, INCOMPLETE_ID), { mode: 0o700 });
       expect(await listSupervisedSessions(root)).toEqual([
-        { id: ID, liveness: 'alive', control: 'available' },
-        { id: INCOMPLETE_ID, liveness: 'unknown', control: 'unavailable', problem: 'invalid-registration' },
+        { id: ID, liveness: 'alive', control: 'available', activity: 'unknown' },
+        { id: INCOMPLETE_ID, liveness: 'unknown', control: 'unavailable', activity: 'unknown', problem: 'invalid-registration' },
       ]);
     } finally {
       await control.close();
@@ -115,7 +156,7 @@ describe('supervised session control', () => {
         client.destroy();
       }));
       expect(await listSupervisedSessions(root)).toEqual([
-        { id: ID, liveness: 'alive', control: 'available' },
+        { id: ID, liveness: 'alive', control: 'available', activity: 'unknown' },
       ]);
     } finally {
       await control.close();
