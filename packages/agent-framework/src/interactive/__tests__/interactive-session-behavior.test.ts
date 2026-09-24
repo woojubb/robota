@@ -214,7 +214,9 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     });
     const at = new Date().toISOString();
     mockSession.run.mockImplementation(async () => {
-      listener?.('tool.tool_body_completed', { startedAt: at, endedAt: at, outcome: 'success' });
+      listener?.('tool.tool_body_completed', {
+        startedAt: at, endedAt: at, outcome: 'success', executionId: 'call-123',
+      });
       listener?.('provider_call_completed', {
         startedAt: at, endedAt: at, outcome: 'success', round: 1,
         callId: '123e4567-e89b-42d3-a456-426614174000', disposition: 'invoked',
@@ -241,9 +243,10 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(batch).toMatchObject({
       schemaVersion: 1, sessionId: 'session.1',
       root: { outcome: 'success' },
-      children: [{ kind: 'tool' }, { kind: 'provider' }],
+      children: [{ kind: 'tool', trace: { toolCallId: 'call-123' } }, { kind: 'provider' }],
       omittedChildren: { provider: 1, tool: 1 },
     });
+    expect(JSON.stringify(session.getFullHistory())).not.toContain('call-123');
     expect(batch).toHaveProperty('turnId');
     expect(JSON.stringify(batch)).not.toMatch(/private prompt|private response|private malformed timestamp/);
   });

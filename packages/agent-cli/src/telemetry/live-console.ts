@@ -2,7 +2,7 @@ import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytic
 import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';
 import { projectLivePromptMetrics } from './live-metric-otlp.js';
 import { projectLivePromptLogs } from './live-log-otlp.js';
-import { createLiveTelemetryResource } from './live-resource.js';
+import { createLiveTelemetryResource, safeLiveToolCallId } from './live-resource.js';
 import type { ILiveTelemetryResource } from './live-resource.js';
 
 type TSignal = 'traces' | 'metrics' | 'logs';
@@ -70,7 +70,7 @@ function projectConsoleRecord(batch: ILivePromptTraceBatch, signal: TSignal, res
             completionTokens: child.trace.completionTokens,
             totalTokens: child.trace.totalTokens,
           } : {}),
-        } : {}),
+        } : { toolCallId: safeLiveToolCallId(child.trace.toolCallId) }),
       })),
     ],
   };

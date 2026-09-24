@@ -21,6 +21,25 @@ function finish(accumulator: LivePromptTraceAccumulator) {
 }
 
 describe('live prompt trace boundary', () => {
+  it('carries safe tool-call correlation and explicitly omits unsafe IDs', () => {
+    const accumulator = makeAccumulator();
+    const base = {
+      traceId: TRACE_ID, parentSpanId: ROOT_SPAN_ID, spanId: 'aaaaaaaaaaaaaaaa',
+      startedAt: AT, endedAt: AT, outcome: 'success' as const,
+    };
+    accumulator.addTool({ ...base, toolCallId: 'call_123' });
+    accumulator.addTool({ ...base, spanId: 'bbbbbbbbbbbbbbbb', toolCallId: 'private\nsecret' });
+    accumulator.addTool({ ...base, spanId: 'cccccccccccccccc', toolCallId: 'x'.repeat(129) });
+    accumulator.addTool({ ...base, spanId: 'dddddddddddddddd' });
+    const batch = finish(accumulator);
+    expect(batch.children).toMatchObject([
+      { kind: 'tool', trace: { toolCallId: 'call_123' } },
+      { kind: 'tool', trace: { spanId: 'dddddddddddddddd' } },
+    ]);
+    expect(batch.omittedChildren.tool).toBe(2);
+    expect(JSON.stringify(batch)).not.toMatch(/private|secret/);
+  });
+
   it('keeps the first 256 accepted child completions in callback order and counts omissions by kind', () => {
     const accumulator = makeAccumulator();
     accumulator.addTool({

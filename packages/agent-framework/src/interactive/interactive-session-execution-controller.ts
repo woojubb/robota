@@ -403,7 +403,10 @@ export class SessionExecutionController {
             },
           };
           toolBodyEntries.push(entry);
-          if (entry.data) liveTrace?.addTool(entry.data);
+          if (entry.data) liveTrace?.addTool({
+            ...entry.data,
+            ...(observation.toolCallId !== undefined ? { toolCallId: observation.toolCallId } : {}),
+          });
         },
         onCompletionsOmitted: (counts) => liveTrace?.omit(counts),
         onInterrupted: (result: IExecutionResult) => {

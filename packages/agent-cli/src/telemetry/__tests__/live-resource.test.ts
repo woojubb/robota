@@ -11,7 +11,12 @@ const batch: ILivePromptTraceBatch = {
     startedAt: '2026-09-24T00:00:00.000Z', endedAt: '2026-09-24T00:00:01.000Z',
     outcome: 'success',
   },
-  children: [], omittedChildren: { provider: 0, tool: 0 },
+  children: [{ kind: 'tool', trace: {
+    toolCallId: 'call-123', traceId: '1234567890abcdef1234567890abcdef',
+    parentSpanId: '1234567890abcdef', spanId: 'abcdef1234567890',
+    startedAt: '2026-09-24T00:00:00.100Z', endedAt: '2026-09-24T00:00:00.900Z',
+    outcome: 'success',
+  } }], omittedChildren: { provider: 0, tool: 0 },
 };
 
 describe('Node live telemetry resource identity', () => {
@@ -50,6 +55,11 @@ describe('Node live telemetry resource identity', () => {
         expect(request.text).toContain('robota.surface');
         expect(request.text).toContain('print');
         expect(request.text).not.toContain('ambient-secret');
+        if (request.path === '/v1/metrics') expect(request.text).not.toContain('call-123');
+        else {
+          expect(request.text).toContain('robota.tool.call_id');
+          expect(request.text).toContain('call-123');
+        }
       }
       const ids = requests.map((request) => request.text.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/u)?.[0]);
       expect(ids[0]).toMatch(/^[0-9a-f-]{36}$/u);

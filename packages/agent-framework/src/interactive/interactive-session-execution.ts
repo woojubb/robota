@@ -185,6 +185,7 @@ export interface ISpanCollector {
 }
 
 export interface IToolBodyTraceObservation {
+  readonly toolCallId?: string;
   readonly startedAt: string;
   readonly endedAt: string;
   readonly outcome: 'success' | 'failure' | 'interrupted';
@@ -213,6 +214,7 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
           data['outcome'] === 'interrupted')
       ) {
         const observation: IToolBodyTraceObservation = {
+          ...(typeof data['executionId'] === 'string' ? { toolCallId: data['executionId'] } : {}),
           startedAt: data['startedAt'],
           endedAt: data['endedAt'],
           outcome: data['outcome'],

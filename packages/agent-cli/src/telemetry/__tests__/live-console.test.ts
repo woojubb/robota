@@ -22,6 +22,40 @@ const batch = {
 } as unknown as ILivePromptTraceBatch;
 
 describe('live console telemetry', () => {
+  it('correlates tool completion in trace and log output without a metric label', async () => {
+    const input = { ...batch, children: [{ kind: 'tool', trace: {
+      traceId: batch.root.traceId, parentSpanId: batch.root.spanId,
+      spanId: 'abcdef1234567890', startedAt: batch.root.startedAt,
+      endedAt: batch.root.endedAt, outcome: 'success', toolCallId: 'call-123',
+      content: 'private tool output',
+    } }] } as unknown as ILivePromptTraceBatch;
+    for (const signal of ['traces', 'logs', 'metrics'] as const) {
+      const lines: string[] = [];
+      const port = createConfiguredNodeOtlpLiveTelemetryPort({
+        ROBOTA_TELEMETRY_ENABLED: '1', [`ROBOTA_TELEMETRY_${signal.toUpperCase()}`]: 'console',
+      }, undefined, (line) => { lines.push(line); })!;
+      port.enqueue(input);
+      await port.shutdown();
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).not.toContain('private tool output');
+      if (signal === 'metrics') expect(lines[0]).not.toContain('call-123');
+      else expect(lines[0]).toContain('call-123');
+    }
+    const unsafe = { ...input, children: [{ ...input.children[0]!, trace: {
+      ...input.children[0]!.trace, toolCallId: 'private\nsecret',
+    } }] } as ILivePromptTraceBatch;
+    for (const signal of ['traces', 'logs'] as const) {
+      const lines: string[] = [];
+      const port = createConfiguredNodeOtlpLiveTelemetryPort({
+        ROBOTA_TELEMETRY_ENABLED: '1', [`ROBOTA_TELEMETRY_${signal.toUpperCase()}`]: 'console',
+      }, undefined, (line) => { lines.push(line); })!;
+      port.enqueue(unsafe);
+      await port.shutdown();
+      expect(lines[0]).not.toContain('private');
+      expect(lines[0]).not.toContain('robota.tool.call_id');
+    }
+  });
+
   it.each(['traces', 'metrics', 'logs'] as const)(
     'emits only the selected %s signal without a network destination or protocol', async (signal) => {
       const lines: string[] = [];
