@@ -95,7 +95,8 @@ and observed completion logs, including a spanless tool-permission-decision log 
 the same validated call ID and a permission-decision count by decision value, never a metric label.
 Omitted children or unknown prices remain visible
 as coverage gaps rather than fabricated totals. It does not replay stored usage, read ambient
-OpenTelemetry credentials, invent other lifecycle events, or let delivery failure change a turn result.
+OpenTelemetry credentials, invent other lifecycle events, or let delivery failure change a turn result;
+an unsupported Robota telemetry setting refuses startup instead of being silently ignored.
 
 Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`); it accepts
 `commandModules` and registers them generically with the SDK registry.
