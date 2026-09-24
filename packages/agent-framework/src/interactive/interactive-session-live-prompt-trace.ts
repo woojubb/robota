@@ -78,8 +78,10 @@ function projectProvider(trace: IProviderCallTraceEntry): IProviderCallTraceEntr
 function projectTool(trace: IToolBodyTraceEntry): IToolBodyTraceEntry | undefined {
   if (!TRACE_ID.test(trace.traceId) || !SPAN_ID.test(trace.parentSpanId) ||
     !SPAN_ID.test(trace.spanId) || !validInterval(trace.startedAt, trace.endedAt) ||
+    (trace.toolCallId !== undefined && (typeof trace.toolCallId !== 'string' || !ID.test(trace.toolCallId))) ||
     (trace.outcome !== 'success' && trace.outcome !== 'failure' && trace.outcome !== 'interrupted')) return undefined;
   return {
+    ...(trace.toolCallId !== undefined ? { toolCallId: trace.toolCallId } : {}),
     traceId: trace.traceId,
     parentSpanId: trace.parentSpanId,
     spanId: trace.spanId,

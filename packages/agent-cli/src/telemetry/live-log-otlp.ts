@@ -6,7 +6,7 @@ import { resourceFromAttributes } from '@opentelemetry/resources';
 import type { ReadableLogRecord } from '@opentelemetry/sdk-logs';
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
 import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';
-import { createLiveTelemetryResource } from './live-resource.js';
+import { createLiveTelemetryResource, safeLiveToolCallId } from './live-resource.js';
 import type { ILiveTelemetryResource } from './live-resource.js';
 
 const MAX_PENDING_BATCHES = 8;
@@ -49,8 +49,12 @@ export function projectLivePromptLogs(
       logs.push(record('robota.provider_call.completed', child.trace.outcome,
         child.trace.endedAt, child.trace.spanId, { 'robota.provider.outcome': child.trace.outcome }));
     } else {
+      const toolCallId = safeLiveToolCallId(child.trace.toolCallId);
       logs.push(record('robota.tool_body.completed', child.trace.outcome,
-        child.trace.endedAt, child.trace.spanId, { 'robota.tool.outcome': child.trace.outcome }));
+        child.trace.endedAt, child.trace.spanId, {
+          'robota.tool.outcome': child.trace.outcome,
+          ...(toolCallId ? { 'robota.tool.call_id': toolCallId } : {}),
+        }));
     }
   }
   logs.push(record('robota.prompt_execution.completed', batch.root.outcome,

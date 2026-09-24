@@ -2,6 +2,11 @@ import { randomUUID } from 'node:crypto';
 
 export type TLiveTelemetrySurface = 'interactive' | 'print' | 'serve' | 'mcp-serve';
 
+/** A direct host caller must not bypass the framework's opaque-ID allowlist. */
+export function safeLiveToolCallId(value: unknown): string | undefined {
+  return typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/u.test(value) ? value : undefined;
+}
+
 export function resolveLiveTelemetrySurface(
   args: { readonly printMode: boolean; readonly goal: string | undefined; readonly serve: boolean },
   mcpServe: boolean,

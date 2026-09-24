@@ -87,7 +87,8 @@ It fails visibly on an incomplete store or collector rejection and never auto-ex
 live Node telemetry path requires a Robota-owned enable switch and independently selected signals,
 with an explicit protocol and validated destination for OTLP or a local console sink; it shares
 bounded host-owned resource identity rather than ambient OpenTelemetry identity across content-free
-prompt/provider/tool spans with session/turn correlation and safe provider/model metadata,
+prompt/provider/tool spans with session/turn correlation, validated tool-call IDs on tool traces
+and logs, and safe provider/model metadata,
 low-cardinality prompt/tool counts and per-call usage/cost metrics only when child records are complete,
 and observed completion logs. Omitted children or unknown prices remain visible
 as coverage gaps rather than fabricated totals. It does not replay stored usage, read ambient

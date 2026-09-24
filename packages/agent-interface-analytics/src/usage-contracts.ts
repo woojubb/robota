@@ -88,6 +88,8 @@ export interface IProviderCallTraceEntry {
 
 /** The awaited body of one permitted tool call under a persisted prompt root. */
 export interface IToolBodyTraceEntry {
+  /** Opaque ID of the actual permitted call in live projection; not written to history. */
+  toolCallId?: string;
   traceId: string;
   parentSpanId: string;
   spanId: string;
@@ -108,7 +110,7 @@ export interface ILivePromptTraceBatch {
     readonly endedAt: string;
     readonly outcome: 'success' | 'failure' | 'interrupted';
   };
-  /** Callback order, not an inferred causal sequence. Tool-call and retry joins are unavailable. */
+  /** Callback order, not an inferred causal sequence. Retry joins are unavailable. */
   readonly children: readonly (
     | { readonly kind: 'provider'; readonly trace: IProviderCallTraceEntry }
     | { readonly kind: 'tool'; readonly trace: IToolBodyTraceEntry }
