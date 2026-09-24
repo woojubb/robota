@@ -336,7 +336,7 @@ function estimateVerifiedCallCost(
     const estimated = call.modelId
       ? calculateModelCost(call.modelId, call.promptTokens!, call.completionTokens!)
       : undefined;
-    if (estimated === undefined) priced = false;
+    if (estimated === undefined || !Number.isFinite(estimated) || estimated < 0) priced = false;
     else cost += estimated;
   }
   const tokensMatch = invoked > 0 && input === promptTokens && output === completionTokens;

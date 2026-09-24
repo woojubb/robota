@@ -60,7 +60,7 @@ const PATTERN_PRICES: Array<{ pattern: RegExp; price: IModelPrice }> = [
 
 /** Resolve a model's price by exact ID, then family pattern. Returns undefined if unknown. */
 export function lookupModelPrice(modelId: string): IModelPrice | undefined {
-  const exact = MODEL_PRICES[modelId];
+  const exact = Object.hasOwn(MODEL_PRICES, modelId) ? MODEL_PRICES[modelId] : undefined;
   if (exact) return exact;
   for (const { pattern, price } of PATTERN_PRICES) {
     if (pattern.test(modelId)) return price;

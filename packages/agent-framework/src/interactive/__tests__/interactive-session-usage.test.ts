@@ -99,6 +99,20 @@ describe('interactive session usage summaries', () => {
     expect(buildResult('done', sessionHistory, [], 0, CONTEXT_STATE, undefined, 'gpt-4o', [calls[0]!]).usage?.costStatus).toBe('unknown');
   });
 
+  it('does not persist a non-finite estimate from an unrecognized model key', () => {
+    const stamp = new Date().toISOString();
+    const result = buildResult('done', [{
+      id: 'a1', role: 'assistant', content: 'done', state: 'complete', timestamp: new Date(),
+      metadata: { inputTokens: 1, outputTokens: 1 },
+    }], [], 0, CONTEXT_STATE, undefined, 'constructor', [{
+      callId: '123e4567-e89b-42d3-a456-426614174000', round: 1,
+      startedAt: stamp, endedAt: stamp, outcome: 'success', disposition: 'invoked',
+      modelId: 'constructor', usageProvenance: 'complete', promptTokens: 1, completionTokens: 1, totalTokens: 2,
+    }]);
+    expect(result.usage?.costStatus).toBe('unknown');
+    expect(result.usage?.costUsd).toBeUndefined();
+  });
+
   it('TC-06: leaves costUsd absent + costStatus unknown for an unpriced model', () => {
     const sessionHistory: TUniversalMessage[] = [
       { id: 'u1', role: 'user', content: 'hi', state: 'complete', timestamp: new Date() },
