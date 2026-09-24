@@ -32,9 +32,12 @@ export function encodeBoundedJsonSnapshot(value: unknown, maxBytes: number): str
     }
     append('"', 1);
   };
+  type Frame =
+    | { kind: 'array'; value: unknown[]; index: number }
+    | { kind: 'object'; value: object; keys: string[]; index: number; first: boolean };
+  const stack: Frame[] = [];
   const active = new Set<object>();
-  const write = (item: unknown, depth: number): void => {
-    if (depth > 256) throw INVALID;
+  const writeValue = (item: unknown): void => {
     if (item === null) return append('null', 4);
     if (typeof item === 'string') return string(item);
     if (typeof item === 'boolean') return append(item ? 'true' : 'false', item ? 4 : 5);
@@ -43,39 +46,54 @@ export function encodeBoundedJsonSnapshot(value: unknown, maxBytes: number): str
       return append(number, number.length);
     }
     if (typeof item !== 'object' || active.has(item)) throw INVALID;
-    if (!Array.isArray(item) && Object.getPrototypeOf(item) !== Object.prototype && Object.getPrototypeOf(item) !== null) throw INVALID;
-    active.add(item);
     if (Array.isArray(item)) {
+      active.add(item);
       append('[', 1);
-      for (let index = 0; index < item.length; index++) {
-        if (index) append(',', 1);
-        const descriptor = Object.getOwnPropertyDescriptor(item, String(index));
+      stack.push({ kind: 'array', value: item, index: 0 });
+    } else {
+      const prototype = Object.getPrototypeOf(item);
+      if (prototype !== Object.prototype && prototype !== null) throw INVALID;
+      active.add(item);
+      append('{', 1);
+      stack.push({ kind: 'object', value: item, keys: Object.keys(item), index: 0, first: true });
+    }
+  };
+  try {
+    writeValue(value);
+    while (stack.length > 0) {
+      const frame = stack[stack.length - 1]!;
+      if (frame.kind === 'array') {
+        if (frame.index === frame.value.length) {
+          append(']', 1);
+          active.delete(frame.value);
+          stack.pop();
+          continue;
+        }
+        if (frame.index) append(',', 1);
+        const descriptor = Object.getOwnPropertyDescriptor(frame.value, String(frame.index++));
         if (descriptor && !('value' in descriptor)) throw INVALID;
         const entry: unknown = descriptor?.value;
         if (entry === undefined || typeof entry === 'function' || typeof entry === 'symbol') append('null', 4);
-        else write(entry, depth + 1);
-      }
-      append(']', 1);
-    } else {
-      append('{', 1);
-      let first = true;
-      for (const key of Object.keys(item)) {
-        const descriptor = Object.getOwnPropertyDescriptor(item, key);
+        else writeValue(entry);
+      } else {
+        if (frame.index === frame.keys.length) {
+          append('}', 1);
+          active.delete(frame.value);
+          stack.pop();
+          continue;
+        }
+        const key = frame.keys[frame.index++]!;
+        const descriptor = Object.getOwnPropertyDescriptor(frame.value, key);
         if (!descriptor || !('value' in descriptor)) throw INVALID;
         const entry: unknown = descriptor.value;
         if (entry === undefined || typeof entry === 'function' || typeof entry === 'symbol') continue;
-        if (!first) append(',', 1);
-        first = false;
+        if (!frame.first) append(',', 1);
+        frame.first = false;
         string(key);
         append(':', 1);
-        write(entry, depth + 1);
+        writeValue(entry);
       }
-      append('}', 1);
     }
-    active.delete(item);
-  };
-  try {
-    write(value, 0);
     if (pending) chunks.push(pending);
     return chunks.join('');
   } catch (error) {

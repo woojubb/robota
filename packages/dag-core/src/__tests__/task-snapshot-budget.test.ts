@@ -99,3 +99,16 @@ it('reserves run definition and input against sibling task admission until persi
   release();
   expect(await first).toMatchObject({ ok: true });
 });
+
+it('admits valid JSON nested beyond 256 levels when its encoded bytes fit', async () => {
+  let value: unknown = 'leaf';
+  for (let depth = 0; depth < 257; depth++) value = { child: value };
+  const snapshot = JSON.stringify(value);
+  const persist = vi.fn(async (encoded: string) => {
+    expect(encoded).toBe(snapshot);
+    return { applied: true };
+  });
+  const budget = new TaskSnapshotBudget({ inputBytes: Buffer.byteLength(snapshot), outputBytes: 0 });
+  expect(await budget.admitValue('input', value, persist)).toMatchObject({ ok: true });
+  expect(persist).toHaveBeenCalledOnce();
+});
