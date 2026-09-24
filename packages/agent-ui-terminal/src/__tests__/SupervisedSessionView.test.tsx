@@ -231,7 +231,7 @@ describe('supervised session view', () => {
     const view = render(<SupervisedSessionView loadRows={async () => [{ ...THIRD, name: 'Morning review' }]} />);
     try {
       await vi.waitFor(() => expect(view.lastFrame()).toContain('Morning review'));
-      expect(view.lastFrame()).toContain(`Selected ${THIRD.id}`);
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${THIRD.id}`));
       expect(view.lastFrame()).toContain('activity idle');
     } finally {
       view.unmount();
