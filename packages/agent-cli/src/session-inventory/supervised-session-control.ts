@@ -3,7 +3,7 @@ import {
   lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync,
 } from 'node:fs';
 import { createConnection, createServer, type Server, type Socket } from 'node:net';
-import { dirname, join } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 
 import { admitLocalPeerDirectory, ensureGuardedDirectory } from '@robota-sdk/agent-remote-pairing/local';
 
@@ -47,6 +47,7 @@ export interface ISupervisedSessionRow {
   readonly activity: TSupervisedActivity;
   readonly nextLoopAt?: string;
   readonly name?: string;
+  readonly cwd?: string;
   readonly problem?: 'invalid-registration';
 }
 
@@ -182,7 +183,7 @@ async function request(
 export async function listSupervisedSessions(
   root = resolveSupervisedDirectory(),
   signal?: AbortSignal,
-  options: { readonly cwd?: string; readonly name?: string; readonly includeName?: boolean } = {},
+  options: { readonly cwd?: string; readonly name?: string; readonly includeName?: boolean; readonly includeCwd?: boolean } = {},
 ): Promise<readonly ISupervisedSessionRow[]> {
   signal?.throwIfAborted();
   try {
@@ -223,11 +224,14 @@ export async function listSupervisedSessions(
         'status' in response && response.status === 'running') {
         if (options.cwd !== undefined && (!('cwd' in response) || response.cwd !== options.cwd)) return null;
         const name = 'name' in response && isSupervisedSessionName(response.name) ? response.name : undefined;
+        const cwd = 'cwd' in response && typeof response.cwd === 'string' && isAbsolute(response.cwd) &&
+          response.cwd.length <= 4_096 ? response.cwd : undefined;
         if (options.name !== undefined && !name?.toLowerCase().includes(options.name.toLowerCase())) return null;
         return {
           id, liveness, control: 'available',
           activity: 'activity' in response && isCurrentActivity(response.activity) ? response.activity : 'unknown',
           ...(options.includeName && name !== undefined ? { name } : {}),
+          ...(options.includeCwd && cwd !== undefined ? { cwd } : {}),
           ...('activity' in response && response.activity === 'idle' &&
             'nextLoopAt' in response && isLoopTime(response.nextLoopAt)
             ? { nextLoopAt: response.nextLoopAt } : {}),

@@ -82,7 +82,7 @@ export async function runSessionViewCommand(
     const root = options.root ?? resolveSupervisedDirectory();
     const start = options.start;
     await (options.render ?? renderSupervisedSessionView)({
-      loadRows: (signal) => listSupervisedSessions(root, signal, { cwd, name: nameFilter, includeName: true }),
+      loadRows: (signal) => listSupervisedSessions(root, signal, { cwd, name: nameFilter, includeName: true, includeCwd: true }),
       onStop: (id) => (options.stop ?? stopSupervisedSession)(id, root),
       ...(start === undefined ? {} : { onStart: () => start(cwd ?? options.launchCwd ?? process.cwd()) }),
       filteredByCwd: cwd !== undefined,

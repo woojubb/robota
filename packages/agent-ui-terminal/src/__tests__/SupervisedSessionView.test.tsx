@@ -19,6 +19,172 @@ const THIRD: ISupervisedViewRow = {
 };
 
 describe('supervised session view', () => {
+  it('toggles verified directory grouping without losing selection or inventing unknown paths', async () => {
+    const rows = [
+      { ...FIRST, cwd: '/projects/alpha' },
+      { ...THIRD, cwd: '/projects/beta' },
+      SECOND,
+    ];
+    const view = render(<SupervisedSessionView loadRows={async () => rows} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      expect(view.lastFrame()).not.toContain('/projects/alpha');
+      view.stdin.write('g');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Dir 1: alpha — /projects/alpha'));
+      expect(view.lastFrame()).toContain('Dir 2: beta — /projects/beta');
+      expect(view.lastFrame()).toContain('Directory: unverified');
+      expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`);
+      view.stdin.write('g');
+      await vi.waitFor(() => expect(view.lastFrame()).not.toContain('/projects/alpha'));
+      expect(view.lastFrame()).toContain('working:');
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('announces directory groups and their selection in screen-reader mode', async () => {
+    const view = render(
+      <ScreenReaderProvider enabled>
+        <SupervisedSessionView loadRows={async () => [{ ...FIRST, cwd: '/projects/alpha' }, SECOND]} />
+      </ScreenReaderProvider>,
+    );
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('g');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Dir 1: alpha — /projects/alpha'));
+      expect(view.lastFrame()).toContain('Directory: unverified');
+      expect(view.lastFrame()).toContain('Enter selection (1-2)');
+      view.stdin.write('?');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('g Group state/dir'));
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('keeps long directory headings within a narrow terminal viewport', async () => {
+    const view = render(<SupervisedSessionView loadRows={async () => [
+      { ...FIRST, cwd: `/projects/${'very-long-directory-name-'.repeat(8)}` },
+    ]} />);
+    try {
+      Object.defineProperty(view.stdout, 'columns', { value: 20 });
+      view.stdout.emit('resize');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id.slice(0, 8)}`));
+      view.stdin.write('g');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Dir 1:'));
+      expect((view.lastFrame() ?? '').split('\n').length).toBeLessThanOrEqual(24);
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('distinguishes directory groups with a shared prefix in a narrow terminal', async () => {
+    const view = render(<SupervisedSessionView loadRows={async () => [
+      { ...FIRST, cwd: '/projects/alpha' },
+      { ...THIRD, cwd: '/projects/beta' },
+    ]} />);
+    try {
+      Object.defineProperty(view.stdout, 'columns', { value: 20 });
+      view.stdout.emit('resize');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('2 supervised'));
+      view.stdin.write('g');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Dir 1: alpha'));
+      expect(view.lastFrame()).toContain('Dir 2: beta');
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('shows differing parent directories when project basenames match at 20 columns', async () => {
+    const view = render(<SupervisedSessionView loadRows={async () => [
+      { ...FIRST, cwd: '/projects/alpha/app' },
+      { ...THIRD, cwd: '/projects/beta/app' },
+    ]} />);
+    try {
+      Object.defineProperty(view.stdout, 'columns', { value: 20 });
+      view.stdout.emit('resize');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('2 supervised'));
+      view.stdin.write('g');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('alpha/app'));
+      expect(view.lastFrame()).toContain('beta/app');
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('keeps the differing path portion visible when long parent names share a prefix', async () => {
+    const view = render(<SupervisedSessionView loadRows={async () => [
+      { ...FIRST, cwd: '/projects/alpha-very-long-parent/app' },
+      { ...THIRD, cwd: '/projects/alpha-very-long-pardon/app' },
+    ]} />);
+    try {
+      Object.defineProperty(view.stdout, 'columns', { value: 20 });
+      view.stdout.emit('resize');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('2 supervised'));
+      view.stdin.write('g');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('ent/app'));
+      expect(view.lastFrame()).toContain('don/app');
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('keeps the distinguishing wide character visible in a 20-column terminal', async () => {
+    const view = render(<SupervisedSessionView loadRows={async () => [
+      { ...FIRST, cwd: '/projects/あいうえおかきくけこ甲' },
+      { ...THIRD, cwd: '/projects/あいうえおかきくけこ乙' },
+    ]} />);
+    try {
+      Object.defineProperty(view.stdout, 'columns', { value: 20 });
+      view.stdout.emit('resize');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('2 supervised'));
+      view.stdin.write('g');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('甲'));
+      expect(view.lastFrame()).toContain('乙');
+      expect((view.lastFrame() ?? '').split('\n').length).toBeLessThanOrEqual(24);
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('escapes layout controls in verified directory headings', async () => {
+    const view = render(<SupervisedSessionView loadRows={async () => [
+      { ...FIRST, cwd: '/projects/line\nbreak/app' },
+    ]} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('g');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Dir 1:'));
+      expect(view.lastFrame()).toContain('line\\u{a}break/app');
+      expect(view.lastFrame()).not.toContain('line\nbreak/app');
+      expect((view.lastFrame() ?? '').split('\n').length).toBeLessThanOrEqual(24);
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('clears a pending screen-reader number before directory regrouping', async () => {
+    const view = render(
+      <ScreenReaderProvider enabled>
+        <SupervisedSessionView loadRows={async () => [
+          { ...FIRST, cwd: '/projects/z' },
+          { ...THIRD, cwd: '/projects/a' },
+        ]} />
+      </ScreenReaderProvider>,
+    );
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('1');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Escape to cancel 1'));
+      view.stdin.write('g');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Dir 1: projects/a'));
+      expect(view.lastFrame()).not.toContain('Escape to cancel 1');
+      view.stdin.write('\r');
+      expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`);
+    } finally {
+      view.unmount();
+    }
+  });
+
   it('filters by an observed group without treating dead or unverified rows as idle', async () => {
     const view = render(<SupervisedSessionView loadRows={async () => [FIRST, SECOND, THIRD]} stateFilter="idle" />);
     try {
@@ -153,7 +319,7 @@ describe('supervised session view', () => {
       await vi.waitFor(() => expect(view.lastFrame()).toContain('18 supervised'));
       view.stdin.write('?');
       await vi.waitFor(() => expect(view.lastFrame()).toContain('Keys:'));
-      for (const key of ['↑/↓ Select', 's Request stop', 'n New session', 'y Confirm stop', 'n/Esc Cancel stop', 'q/Esc/Ctrl+C Close', '? Toggle help']) {
+      for (const key of ['↑/↓ Select', 's Request stop', 'g Group state/dir', 'n New session', 'y Confirm stop', 'n/Esc Cancel stop', 'q/Esc/Ctrl+C Close', '? Toggle help']) {
         expect(view.lastFrame()).toContain(key);
       }
       expect((view.lastFrame() ?? '').split('\n').length).toBeLessThanOrEqual(24);

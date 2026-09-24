@@ -1,5 +1,6 @@
 import { Box, render, useApp, useInput, useStdout } from 'ink';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import stringWidth from 'string-width';
 
 import { useNumberedSelection } from './hooks/useNumberedSelection.js';
 import { formatNumberedSelectionPrompt, numberedRowPrefix } from './numbered-list.js';
@@ -14,6 +15,7 @@ export interface ISupervisedViewRow {
   readonly activity: 'working' | 'needs-input' | 'idle' | 'unknown';
   readonly nextLoopAt?: string;
   readonly name?: string;
+  readonly cwd?: string;
   readonly problem?: 'invalid-registration';
 }
 
@@ -30,7 +32,7 @@ export interface ISupervisedSessionViewProps {
 const GROUP_ORDER = ['needs-input', 'working', 'idle', 'unknown', 'unverified', 'dead'] as const;
 type TGroup = typeof GROUP_ORDER[number];
 type TDisplayLine =
-  | { readonly kind: 'group'; readonly group: TGroup }
+  | { readonly kind: 'group'; readonly label: string }
   | { readonly kind: 'row'; readonly row: ISupervisedViewRow; readonly index: number };
 
 function groupOf(row: ISupervisedViewRow): TGroup {
@@ -44,12 +46,64 @@ function sortedRows(rows: readonly ISupervisedViewRow[]): readonly ISupervisedVi
     GROUP_ORDER.indexOf(groupOf(a)) - GROUP_ORDER.indexOf(groupOf(b)) || a.id.localeCompare(b.id));
 }
 
+function sortedDirectoryRows(rows: readonly ISupervisedViewRow[]): readonly ISupervisedViewRow[] {
+  return [...rows].sort((a, b) =>
+    (a.cwd === undefined ? 1 : 0) - (b.cwd === undefined ? 1 : 0) ||
+    (a.cwd ?? '').localeCompare(b.cwd ?? '') ||
+    GROUP_ORDER.indexOf(groupOf(a)) - GROUP_ORDER.indexOf(groupOf(b)) || a.id.localeCompare(b.id));
+}
+
+function uniqueDirectorySuffix(cwd: string, directories: readonly string[], budget: number): string {
+  if (cwd === '/') return cwd;
+  let longestSharedSuffix = 0;
+  for (const other of directories) {
+    if (other === cwd) continue;
+    let shared = 0;
+    while (shared < cwd.length && shared < other.length &&
+      cwd[cwd.length - shared - 1] === other[other.length - shared - 1]) shared++;
+    longestSharedSuffix = Math.max(longestSharedSuffix, shared);
+  }
+  const basenameLength = cwd.split(/[\\/]/u).filter(Boolean).at(-1)?.length ?? cwd.length;
+  const uniqueLength = Math.min(cwd.length, Math.max(basenameLength, longestSharedSuffix + 3));
+  const suffixStart = cwd.length - uniqueLength;
+  const boundary = Math.max(cwd.lastIndexOf('/', suffixStart - 1), cwd.lastIndexOf('\\', suffixStart - 1));
+  const componentSuffix = cwd.slice(boundary + 1);
+  return stringWidth(displayPath(componentSuffix)) <= budget ? componentSuffix : cwd.slice(suffixStart);
+}
+
+function pathTokens(path: string): readonly string[] {
+  return Array.from(path, (character) => /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(character)
+    ? `\\u{${character.codePointAt(0)!.toString(16)}}` : character);
+}
+
+function displayPath(path: string): string {
+  return pathTokens(path).join('');
+}
+
+function compactPath(path: string, budget: number): string {
+  const safe = pathTokens(path);
+  if (stringWidth(safe.join('')) <= budget) return safe.join('');
+  const headBudget = Math.ceil((budget - 1) / 2);
+  const tailBudget = budget - headBudget - 1;
+  let head = '';
+  for (const token of safe) {
+    if (stringWidth(head) + stringWidth(token) > headBudget) break;
+    head += token;
+  }
+  let tail = '';
+  for (const token of [...safe].reverse()) {
+    if (stringWidth(tail) + stringWidth(token) > tailBudget) break;
+    tail = token + tail;
+  }
+  return `${head}…${tail}`;
+}
+
 function sameRows(a: readonly ISupervisedViewRow[], b: readonly ISupervisedViewRow[]): boolean {
   return a.length === b.length && a.every((row, index) => {
     const other = b[index];
     return other !== undefined && row.id === other.id && row.liveness === other.liveness &&
       row.control === other.control && row.activity === other.activity && row.problem === other.problem &&
-      row.nextLoopAt === other.nextLoopAt && row.name === other.name;
+      row.nextLoopAt === other.nextLoopAt && row.name === other.name && row.cwd === other.cwd;
   });
 }
 
@@ -71,12 +125,14 @@ export default function SupervisedSessionView({
 }: ISupervisedSessionViewProps): React.ReactElement {
   const { exit } = useApp();
   const { stdout } = useStdout();
+  const columns = Math.max(12, stdout.columns ?? 80);
   const screenReader = useScreenReader();
   const [rows, setRows] = useState<readonly ISupervisedViewRow[]>([]);
   const [observedAtMs, setObservedAtMs] = useState(Date.now);
   const [status, setStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [showHelp, setShowHelp] = useState(false);
+  const [groupByDirectory, setGroupByDirectory] = useState(false);
   const [confirmStopId, setConfirmStopId] = useState<string | undefined>();
   const [stopStatus, setStopStatus] = useState<'idle' | 'unavailable' | 'stopping' | 'stopped' | 'failed'>('idle');
   const [lastStoppedId, setLastStoppedId] = useState<string | undefined>();
@@ -85,19 +141,35 @@ export default function SupervisedSessionView({
   const [lastStartedId, setLastStartedId] = useState<string | undefined>();
   const startingRef = useRef(false);
   const mountedRef = useRef(true);
-  const ordered = useMemo(() => sortedRows(rows).filter((row) => stateFilter === undefined || groupOf(row) === stateFilter),
-    [rows, stateFilter]);
+  const ordered = useMemo(() => {
+    const filtered = rows.filter((row) => stateFilter === undefined || groupOf(row) === stateFilter);
+    return groupByDirectory ? sortedDirectoryRows(filtered) : sortedRows(filtered);
+  }, [rows, stateFilter, groupByDirectory]);
   const displayLines = useMemo((): readonly TDisplayLine[] => {
     const lines: TDisplayLine[] = [];
-    let previousGroup: TGroup | undefined;
+    const directories = [...new Set(ordered.map((row) => row.cwd).filter((cwd): cwd is string => cwd !== undefined))];
+    let previousGroup: string | undefined;
+    let directoryNumber = 0;
     ordered.forEach((row, index) => {
-      const group = groupOf(row);
-      if (group !== previousGroup) lines.push({ kind: 'group', group });
+      const group = groupByDirectory ? row.cwd ?? 'unverified' : groupOf(row);
+      if (group !== previousGroup) {
+        const label = groupByDirectory
+          ? row.cwd === undefined ? 'Directory: unverified'
+            : (() => {
+              const prefix = `Dir ${++directoryNumber}: `;
+              const budget = Math.max(4, columns - prefix.length);
+              const suffix = compactPath(uniqueDirectorySuffix(row.cwd, directories, budget), budget);
+              const full = `${prefix}${suffix} — ${displayPath(row.cwd)}`;
+              return screenReader || stringWidth(full) <= columns ? full : `${prefix}${suffix}`;
+            })()
+          : `${group}:`;
+        lines.push({ kind: 'group', label });
+      }
       lines.push({ kind: 'row', row, index });
       previousGroup = group;
     });
     return lines;
-  }, [ordered]);
+  }, [ordered, groupByDirectory, columns, screenReader]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -171,6 +243,11 @@ export default function SupervisedSessionView({
       setShowHelp((value) => !value);
       return;
     }
+    if (input === 'g') {
+      numbered.clear();
+      setGroupByDirectory((value) => !value);
+      return;
+    }
     if (input === 'n' && onStart !== undefined) {
       startingRef.current = true;
       setStartStatus('starting');
@@ -225,6 +302,7 @@ export default function SupervisedSessionView({
     'Keys:',
     screenReader ? 'Number+Enter Select' : '↑/↓ Select',
     's Request stop',
+    'g Group state/dir',
     ...(onStart === undefined ? [] : ['n New session']),
     'y Confirm stop',
     'n/Esc Cancel stop',
@@ -251,8 +329,8 @@ export default function SupervisedSessionView({
   const chromeWrap = screenReader ? {} : { wrap: 'truncate-end' as const };
   const footer = stopStatus === 'stopping' ? 'Stop in progress; wait for result.'
     : confirmStopId !== undefined ? 'Confirm stop or cancel before closing.'
-      : screenReader ? `Type a number and Enter to select; s Stop;${onStart ? ' n New;' : ''} Escape to close; ? Help.`
-        : `↑↓ Navigate  s Stop${onStart ? '  n New' : ''}  ? Help  q/Esc Close`;
+      : screenReader ? `Type a number and Enter to select; s Stop;${onStart ? ' n New;' : ''} g Group; Escape to close; ? Help.`
+        : `↑↓ Navigate  s Stop${onStart ? '  n New' : ''}  g Group  ? Help  q/Esc Close`;
   return (
     <Box flexDirection="column" {...(screenReader ? {} : { height })}>
       <Text {...chromeWrap}>
@@ -266,7 +344,7 @@ export default function SupervisedSessionView({
       {status === 'ready' && ordered.length === 0 && <Text {...chromeWrap}>No supervised sessions.</Text>}
       {start > 0 && !screenReader && <Text>{start} more above</Text>}
       {visible.map((line) => line.kind === 'group'
-        ? <Text key={`group-${line.group}`}>{line.group}:</Text>
+        ? <Text key={`group-${line.label}`} {...chromeWrap}>{line.label}</Text>
         : <Text key={`row-${line.row.id}`} {...(screenReader ? {} : { wrap: 'truncate-end' as const })}>
           {screenReader ? numberedRowPrefix(line.index) : line.row.id === selectedId ? '> ' : '  '}
           {line.row.name && line.row.liveness === 'alive' && line.row.control === 'available'
