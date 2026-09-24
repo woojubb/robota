@@ -225,10 +225,10 @@ export class SubagentManager implements ISubagentManager {
   }
 }
 
-function createSubagentBackgroundRunner(runner: ISubagentRunner): IBackgroundTaskRunner {
+function createSubagentBackgroundRunner(runner: ISubagentRunner): IBackgroundTaskRunner<'agent'> {
   return {
     kind: 'agent',
-    start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+    start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle {
       if (task.request.kind !== 'agent') {
         throw new BackgroundTaskError('runner', `Invalid subagent task kind: ${task.request.kind}`);
       }

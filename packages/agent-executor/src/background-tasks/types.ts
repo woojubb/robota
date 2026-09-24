@@ -85,11 +85,15 @@ export type TBackgroundTaskRunnerEvent =
   | { type: 'background_task_sleeping'; nextFireAt: string }
   | { type: 'background_task_waking'; instruction?: string };
 
-export interface IBackgroundTaskStart {
+interface IBaseBackgroundTaskStart {
   taskId: string;
-  request: TBackgroundTaskRequest;
   emit?: (event: TBackgroundTaskRunnerEvent) => void;
 }
+
+export type IBackgroundTaskStart<K extends TBackgroundTaskKind = TBackgroundTaskKind> =
+  K extends TBackgroundTaskKind
+    ? IBaseBackgroundTaskStart & { request: Extract<TBackgroundTaskRequest, { kind: K }> }
+    : never;
 
 export interface IBackgroundTaskHandle {
   readonly taskId: string;
@@ -118,8 +122,8 @@ export interface IScheduleEditPatch {
   label?: string;
 }
 
-export interface IBackgroundTaskRunner {
-  readonly kind: TBackgroundTaskKind;
+interface IKindedBackgroundTaskRunner<K extends TBackgroundTaskKind> {
+  readonly kind: K;
   /** Optional scheduler calculation using the runner's own timezone and cron semantics. */
   nextScheduledFireOnOrAfter?(cronExpression: string, firstAllowedAt: Date): Date | null;
   /**
@@ -131,8 +135,12 @@ export interface IBackgroundTaskRunner {
    * (`background-task-manager.ts`).
    */
   readonly admission?: 'queued' | 'already-running';
-  start(task: IBackgroundTaskStart): IBackgroundTaskHandle;
+  start(task: IBackgroundTaskStart<K>): IBackgroundTaskHandle;
 }
+
+/** A runner is paired with the request of its declared kind; the default is all supported kinds. */
+export type IBackgroundTaskRunner<K extends TBackgroundTaskKind = TBackgroundTaskKind> =
+  K extends TBackgroundTaskKind ? IKindedBackgroundTaskRunner<K> : never;
 
 /**
  * MCP-004 §S1: the port a `tool-invocation` runner exposes so the wrapper (`agent-framework`, S3)

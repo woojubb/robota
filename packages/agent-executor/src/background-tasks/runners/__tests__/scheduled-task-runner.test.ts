@@ -33,7 +33,7 @@ function makeScheduledTask(
   command: string,
   emit?: (event: TBackgroundTaskRunnerEvent) => void,
   extra?: { timeoutMs?: number },
-): IBackgroundTaskStart {
+): IBackgroundTaskStart<'scheduled'> {
   return {
     taskId: 'sched_1',
     request: {
@@ -71,6 +71,8 @@ describe('createScheduledTaskRunner', () => {
         cwd: process.cwd(),
       },
     };
+    // The compile-time contract rejects this call; keep a runtime guard for untyped JS callers.
+    // @ts-expect-error Deliberately pass a process request through the JS boundary.
     expect(() => runner.start(task)).toThrow('Invalid scheduled task kind');
   });
 
@@ -171,7 +173,7 @@ describe('createScheduledTaskRunner', () => {
       const runner = createScheduledTaskRunner();
       const emitted: TBackgroundTaskRunnerEvent[] = [];
       // Agent-wake-only every-second schedule: each fire emits a `waking` event (no child process).
-      const task: IBackgroundTaskStart = {
+      const task: IBackgroundTaskStart<'scheduled'> = {
         taskId: 'sched_pause_1',
         request: {
           kind: 'scheduled',

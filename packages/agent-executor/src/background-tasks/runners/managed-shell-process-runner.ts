@@ -75,12 +75,12 @@ function sendInput(child: ChildProcessWithoutNullStreams, input: string): Promis
 
 export function createManagedShellProcessRunner(
   options: IManagedShellProcessRunnerOptions = {},
-): IBackgroundTaskRunner {
+): IBackgroundTaskRunner<'process'> {
   const killGraceMs = options.killGraceMs ?? DEFAULT_KILL_GRACE_MS;
 
   return {
     kind: 'process',
-    start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+    start(task: IBackgroundTaskStart<'process'>): IBackgroundTaskHandle {
       if (task.request.kind !== 'process') {
         throw new BackgroundTaskError('runner', `Invalid process task kind: ${task.request.kind}`);
       }
