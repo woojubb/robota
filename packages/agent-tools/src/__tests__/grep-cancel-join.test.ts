@@ -3,21 +3,27 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, it, vi } from 'vitest';
 
-const state = vi.hoisted(() => ({ slowReadStarted: false, slowReadAborted: false }));
+const state = vi.hoisted(() => ({
+  slowReadStarted: false,
+  slowReadAborted: false,
+  slowReadClosed: false,
+}));
 
-vi.mock('node:fs/promises', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:fs/promises')>();
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  const { Readable } = await import('node:stream');
   return {
     ...actual,
-    readFile: (file: string, options?: { signal?: AbortSignal }) => {
-      if (!file.endsWith('slow.txt')) return actual.readFile(file, options);
+    createReadStream: (file: string, options?: { signal?: AbortSignal }) => {
+      if (!file.endsWith('slow.txt')) return actual.createReadStream(file, options);
       state.slowReadStarted = true;
-      return new Promise<Buffer>((_resolve, reject) => {
-        options?.signal?.addEventListener('abort', () => {
-          state.slowReadAborted = true;
-          reject(new Error('read aborted'));
-        }, { once: true });
-      });
+      const stream = new Readable({ read() {} });
+      stream.once('close', () => { state.slowReadClosed = true; });
+      options?.signal?.addEventListener('abort', () => {
+        state.slowReadAborted = true;
+        stream.destroy(new Error('read aborted'));
+      }, { once: true });
+      return stream;
     },
   };
 });
@@ -43,6 +49,7 @@ it('aborts and joins an in-flight read before returning cancellation', async () 
     ]);
     expect(outcome).toContain('Grep search cancelled');
     expect(state.slowReadAborted).toBe(true);
+    expect(state.slowReadClosed).toBe(true);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

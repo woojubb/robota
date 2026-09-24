@@ -13,7 +13,8 @@
  * at least as strictly as `Read`, which it could otherwise stand in for.
  */
 
-import { readFile, stat } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
 
 import { z } from 'zod';
 import { ToolExecutionError } from '@robota-sdk/agent-core';
@@ -68,6 +69,8 @@ type TGrepArgs = z.infer<typeof GrepSchema>;
 
 /** The matcher consumes one file at a time; keep only a few reads outstanding. */
 const READ_CONCURRENCY_LIMIT = 8;
+const MAX_GREP_FILE_BYTES = 4 * 1024 * 1024;
+const READ_CHUNK_BYTES = 64 * 1024;
 
 /** A grep isolation failure is a hard tool failure, distinct from ordinary no-match/invalid-input results. */
 export class GrepIsolationError extends ToolExecutionError {
@@ -140,9 +143,27 @@ async function grepFileTool(args: TGrepArgs, options: IGrepToolOptions): Promise
           let content: string;
           try {
             const fileStat = await stat(filePath);
-            if (fileStat.size > 4 * 1024 * 1024) throw new GrepIsolationError('limit');
-            const buffer = await readFile(filePath, { signal: readAbort.signal });
-            if (buffer.length > 4 * 1024 * 1024) throw new GrepIsolationError('limit');
+            if (fileStat.size > MAX_GREP_FILE_BYTES) throw new GrepIsolationError('limit');
+            // A stream bounds each read and its signal can interrupt a pending read.
+            // FileHandle.read has no AbortSignal, so it would weaken cancellation.
+            const stream = createReadStream(filePath, {
+              highWaterMark: READ_CHUNK_BYTES,
+              signal: readAbort.signal,
+            });
+            const chunks: Buffer[] = [];
+            let bytes = 0;
+            try {
+              for await (const chunk of stream) {
+                if (readAbort.signal.aborted) throw new GrepIsolationError('cancelled');
+                const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+                bytes += buffer.length;
+                if (bytes > MAX_GREP_FILE_BYTES) throw new GrepIsolationError('limit');
+                chunks.push(buffer);
+              }
+            } finally {
+              stream.destroy();
+            }
+            const buffer = Buffer.concat(chunks, bytes);
             // Skip binary files
             const checkLen = Math.min(buffer.length, 8192);
             let hasBinary = false;
