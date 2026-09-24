@@ -285,7 +285,8 @@ export function decodeBackgroundTaskState(
   switch (kind) {
     case 'agent': {
       const correlatedResult = result?.kind === 'agent' ? result : undefined;
-      const task: IAgentBackgroundTaskState = { ...base, kind, result: correlatedResult };
+      const task: IAgentBackgroundTaskState = { ...base, kind };
+      setOptional(task, 'result', correlatedResult);
       setOptional(task, 'agentType', agentType);
       setOptional(task, 'resumeSessionId', resumeSessionId);
       setOptional(task, 'promptPreview', promptPreview);
@@ -300,19 +301,22 @@ export function decodeBackgroundTaskState(
     }
     case 'process': {
       const correlatedResult = result?.kind === 'process' ? result : undefined;
-      const task: IProcessBackgroundTaskState = { ...base, kind, result: correlatedResult };
+      const task: IProcessBackgroundTaskState = { ...base, kind };
+      setOptional(task, 'result', correlatedResult);
       setOptional(task, 'commandPreview', commandPreview);
       return task;
     }
     case 'tool-invocation': {
       const correlatedResult = result?.kind === 'tool-invocation' ? result : undefined;
-      const task: IToolInvocationBackgroundTaskState = { ...base, kind, result: correlatedResult };
+      const task: IToolInvocationBackgroundTaskState = { ...base, kind };
+      setOptional(task, 'result', correlatedResult);
       setOptional(task, 'commandPreview', commandPreview);
       return task;
     }
     case 'scheduled': {
       const correlatedResult = result?.kind === 'scheduled' ? result : undefined;
-      const task: IScheduledBackgroundTaskState = { ...base, kind, result: correlatedResult };
+      const task: IScheduledBackgroundTaskState = { ...base, kind };
+      setOptional(task, 'result', correlatedResult);
       setOptional(task, 'commandPreview', commandPreview);
       setOptional(task, 'schedule', schedule);
       setOptional(task, 'nextFireAt', nextFireAt);

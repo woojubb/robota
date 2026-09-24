@@ -381,7 +381,7 @@ describe('decodeInteractiveSessionRecord — TC-02 a maximal record round-trips'
     if (outcome.status !== 'valid') {
       throw new Error(`expected valid, got ${outcome.status}: ${JSON.stringify(outcome, null, 2)}`);
     }
-    expect(outcome.record).toEqual(maximalRecord());
+    expect(outcome.record).toStrictEqual(maximalRecord());
   });
 
   it('revives the contract-declared Date members as Date instances', () => {
@@ -838,5 +838,17 @@ describe('TC-09 key parity between the contract and the decoder', () => {
 
   it('exports a schema version', () => {
     expect(Number.isInteger(SESSION_RECORD_ENVELOPE_VERSION)).toBe(true);
+  });
+});
+
+describe('decodeInteractiveSessionRecord — a background task without a result keeps its shape', () => {
+  it('does not add a result key that was not persisted', () => {
+    const raw = persisted() as { backgroundTasks: Array<Record<string, unknown>> };
+    for (const task of raw.backgroundTasks) delete task['result'];
+    const outcome = decodeInteractiveSessionRecord(raw);
+    if (outcome.status !== 'valid') throw new Error(`expected valid, got ${outcome.status}`);
+    for (const task of outcome.record.backgroundTasks ?? []) {
+      expect(Object.prototype.hasOwnProperty.call(task, 'result')).toBe(false);
+    }
   });
 });
