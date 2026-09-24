@@ -667,6 +667,7 @@ export class InteractiveSession
     let input = entry.input;
     const liveFixedDefault =
       scheduled?.metadata?.['sessionLoopDefaultPrompt'] === true &&
+      scheduled.kind === 'scheduled' &&
       scheduled.schedule?.agentInstruction === scheduled.metadata['sessionLoopDefaultPromptSeed'];
     if (selfPaced?.useDefaultPrompt || liveFixedDefault) {
       try {

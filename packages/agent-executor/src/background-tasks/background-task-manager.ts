@@ -227,7 +227,9 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     await handle.editSchedule(patch);
     const { label, ...schedulePatch } = patch;
     // Keep the reconstructable schedule (FLOW-003) + list view in sync with the in-place re-arm.
-    if (task.state.schedule) {
+    // `schedule` is scheduled-only on the discriminated state; `editScheduledTask` only ever
+    // reaches a scheduled task (`requireScheduledTask`), but the kind check lets TS narrow the write.
+    if (task.state.kind === 'scheduled' && task.state.schedule) {
       task.state.schedule = { ...task.state.schedule, ...schedulePatch };
     }
     // CMD-009: the label is the list view's rendering of the instruction, so it moves with it.

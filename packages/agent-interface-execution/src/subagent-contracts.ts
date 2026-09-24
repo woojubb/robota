@@ -46,7 +46,7 @@ export type TSubagentJobMode = TBackgroundTaskMode;
  *   `IBackgroundTaskResult`/`IBackgroundTaskError` objects).
  */
 export interface ISubagentJobState extends Pick<
-  IBackgroundTaskState,
+  IBackgroundTaskState<'agent'>,
   | 'id'
   | 'label'
   | 'parentSessionId'
@@ -107,9 +107,10 @@ export type ISubagentSpawnRequest = Omit<IAgentBackgroundTaskRequest, 'kind'>;
  * structurally absent rather than omitted by hand, and `usage` (agent-only) is carried without a
  * separate key list to forget it from.
  *
- * `IBackgroundTaskState.result` stays the full result union: that field is an independent property
- * alongside `state.kind`, and `IBackgroundTaskState` is not itself discriminated, so
- * `state.kind === 'agent'` cannot narrow `state.result` there. This alias narrows at a seam where the
- * kind IS statically known — a subagent job never becomes a process task — not at that one.
+ * `IBackgroundTaskState<'agent'>.result` is `IBackgroundTaskResult<'agent'>` too (#2079 discriminated
+ * the state hop the same way), so `state.kind === 'agent'` now narrows `state.result` there as well.
+ * This alias narrows at a seam where the kind is statically known instead — a subagent job never
+ * becomes a process task — which is why `ISubagentJobResult` exists as its own name rather than just
+ * reading `state.result` after a kind check everywhere a job result is needed.
  */
 export type ISubagentJobResult = Omit<IBackgroundTaskResult<'agent'>, 'kind'>;

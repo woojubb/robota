@@ -30,17 +30,49 @@ import {
 } from './scalars.js';
 
 import type { TDecodeIssues } from './decode-outcome.js';
-import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-execution';
+import type {
+  IAgentBackgroundTaskState,
+  IBackgroundTaskState,
+  IProcessBackgroundTaskState,
+  IScheduledBackgroundTaskState,
+  IToolInvocationBackgroundTaskState,
+} from '@robota-sdk/agent-interface-execution';
 
-const OPTIONAL_STRING_KEYS = [
+/**
+ * #2079: the base members shared by every kind — identical across the four discriminated members,
+ * so `IAgentBackgroundTaskState` (any one member would do) is the source for their shape here.
+ */
+type TBaseBackgroundTaskState = Pick<
+  IAgentBackgroundTaskState,
+  | 'id'
+  | 'label'
+  | 'status'
+  | 'mode'
+  | 'parentSessionId'
+  | 'parentTaskId'
+  | 'depth'
+  | 'cwd'
+  | 'pid'
+  | 'startedAt'
+  | 'updatedAt'
+  | 'lastActivityAt'
+  | 'completedAt'
+  | 'currentAction'
+  | 'unread'
+  | 'error'
+  | 'logPath'
+  | 'transcriptPath'
+  | 'timeoutReason'
+  | 'metadata'
+>;
+
+/** Base string members every kind may carry (#2079: `logPath`/`transcriptPath`/`pid` are shared — see contracts). */
+const BASE_OPTIONAL_STRING_KEYS = ['parentTaskId', 'currentAction', 'logPath', 'transcriptPath'] as const;
+/** #2079: agent-only string members — a value here on a non-agent task is a corrupt cross-kind field. */
+const AGENT_OPTIONAL_STRING_KEYS = [
   'agentType',
-  'parentTaskId',
   'resumeSessionId',
   'promptPreview',
-  'commandPreview',
-  'currentAction',
-  'logPath',
-  'transcriptPath',
   'worktreePath',
   'branchName',
   'worktreeStatus',
@@ -48,13 +80,10 @@ const OPTIONAL_STRING_KEYS = [
   'worktreeBaseRevision',
   'parentWorktreeStatus',
 ] as const;
+/** #2079: produced by every runner except the agent one (a process command, an MCP tool summary, a schedule's shell command / wake instruction). */
+const NON_AGENT_OPTIONAL_STRING_KEYS = ['commandPreview'] as const;
 
-const OPTIONAL_TIMESTAMP_KEYS = [
-  'startedAt',
-  'lastActivityAt',
-  'completedAt',
-  'nextFireAt',
-] as const;
+const OPTIONAL_TIMESTAMP_KEYS = ['startedAt', 'lastActivityAt', 'completedAt'] as const;
 
 const TASK_STATE_KEYS: readonly string[] = [
   'id',
@@ -73,11 +102,25 @@ const TASK_STATE_KEYS: readonly string[] = [
   'error',
   'timeoutReason',
   'schedule',
+  'nextFireAt',
   'metadata',
-  ...OPTIONAL_STRING_KEYS,
+  ...BASE_OPTIONAL_STRING_KEYS,
+  ...AGENT_OPTIONAL_STRING_KEYS,
+  ...NON_AGENT_OPTIONAL_STRING_KEYS,
   ...OPTIONAL_TIMESTAMP_KEYS,
 ];
 
+/**
+ * TRANS-005 (#2081), discriminated by kind (#2079): the persisted state carries base members every
+ * kind may set, plus a set of kind-exclusive members — agent-only (`agentType`, `isolation`,
+ * `resumeSessionId`, `promptPreview`, the worktree-isolation fields), scheduled-only (`schedule`,
+ * `nextFireAt`), or produced by every runner except the agent one (`commandPreview`). A value on a
+ * field outside its own kind is reported as corrupt at that field's own path — exactly how
+ * `decodeBackgroundTaskResult` (#2079) and the pre-existing `result.kind` check just below already
+ * treat a cross-kind field — and the switch below then builds only the fields that belong to the
+ * decoded `kind`, so a foreign field never reaches the returned object even though it was read (and
+ * flagged) above.
+ */
 export function decodeBackgroundTaskState(
   value: unknown,
   path: string,
@@ -114,9 +157,8 @@ export function decodeBackgroundTaskState(
     return undefined;
   }
 
-  const task: IBackgroundTaskState = {
+  const base: TBaseBackgroundTaskState = {
     id,
-    kind,
     label,
     status,
     mode,
@@ -126,26 +168,15 @@ export function decodeBackgroundTaskState(
     updatedAt,
     unread,
   };
-  for (const key of OPTIONAL_STRING_KEYS) {
-    setOptional(task, key, decodeOptional(raw[key], atKey(path, key), issues, decodeString));
+  for (const key of BASE_OPTIONAL_STRING_KEYS) {
+    setOptional(base, key, decodeOptional(raw[key], atKey(path, key), issues, decodeString));
   }
   for (const key of OPTIONAL_TIMESTAMP_KEYS) {
-    setOptional(
-      task,
-      key,
-      decodeOptional(raw[key], atKey(path, key), issues, decodeTimestampString),
-    );
+    setOptional(base, key, decodeOptional(raw[key], atKey(path, key), issues, decodeTimestampString));
   }
-  setOptional(task, 'pid', decodeOptional(raw['pid'], atKey(path, 'pid'), issues, decodeInteger));
+  setOptional(base, 'pid', decodeOptional(raw['pid'], atKey(path, 'pid'), issues, decodeInteger));
   setOptional(
-    task,
-    'isolation',
-    decodeOptional(raw['isolation'], atKey(path, 'isolation'), issues, (member, memberPath, sink) =>
-      decodeLiteral(member, TASK_ISOLATIONS, memberPath, sink),
-    ),
-  );
-  setOptional(
-    task,
+    base,
     'timeoutReason',
     decodeOptional(
       raw['timeoutReason'],
@@ -154,6 +185,17 @@ export function decodeBackgroundTaskState(
       (member, memberPath, sink) => decodeLiteral(member, TASK_TIMEOUT_REASONS, memberPath, sink),
     ),
   );
+  setOptional(
+    base,
+    'metadata',
+    decodeOptional(raw['metadata'], atKey(path, 'metadata'), issues, decodePrimitiveMap),
+  );
+  setOptional(
+    base,
+    'error',
+    decodeOptional(raw['error'], atKey(path, 'error'), issues, decodeBackgroundTaskError),
+  );
+
   const result = decodeOptional(raw['result'], atKey(path, 'result'), issues, decodeBackgroundTaskResult);
   if (result !== undefined) {
     if (result.taskId !== id) {
@@ -162,22 +204,123 @@ export function decodeBackgroundTaskState(
     if (result.kind !== kind) {
       addIssue(issues, atKey(atKey(path, 'result'), 'kind'), 'must match the task kind');
     }
-    task.result = result;
   }
-  setOptional(
-    task,
-    'error',
-    decodeOptional(raw['error'], atKey(path, 'error'), issues, decodeBackgroundTaskError),
+
+  const agentType = decodeOptional(raw['agentType'], atKey(path, 'agentType'), issues, decodeString);
+  const resumeSessionId = decodeOptional(
+    raw['resumeSessionId'],
+    atKey(path, 'resumeSessionId'),
+    issues,
+    decodeString,
   );
-  setOptional(
-    task,
-    'schedule',
-    decodeOptional(raw['schedule'], atKey(path, 'schedule'), issues, decodeBackgroundTaskSchedule),
+  const promptPreview = decodeOptional(
+    raw['promptPreview'],
+    atKey(path, 'promptPreview'),
+    issues,
+    decodeString,
   );
-  setOptional(
-    task,
-    'metadata',
-    decodeOptional(raw['metadata'], atKey(path, 'metadata'), issues, decodePrimitiveMap),
+  const isolation = decodeOptional(
+    raw['isolation'],
+    atKey(path, 'isolation'),
+    issues,
+    (member, memberPath, sink) => decodeLiteral(member, TASK_ISOLATIONS, memberPath, sink),
   );
-  return task;
+  const worktreeFields: Record<string, string | undefined> = {};
+  for (const key of [
+    'worktreePath',
+    'branchName',
+    'worktreeStatus',
+    'worktreeNextAction',
+    'worktreeBaseRevision',
+    'parentWorktreeStatus',
+  ] as const) {
+    worktreeFields[key] = decodeOptional(raw[key], atKey(path, key), issues, decodeString);
+  }
+  for (const key of AGENT_OPTIONAL_STRING_KEYS) {
+    const decodedValue =
+      key === 'agentType'
+        ? agentType
+        : key === 'resumeSessionId'
+          ? resumeSessionId
+          : key === 'promptPreview'
+            ? promptPreview
+            : worktreeFields[key];
+    if (kind !== 'agent' && decodedValue !== undefined) {
+      addIssue(issues, atKey(path, key), `must not be set for a '${kind}' task`);
+    }
+  }
+  if (kind !== 'agent' && isolation !== undefined) {
+    addIssue(issues, atKey(path, 'isolation'), `must not be set for a '${kind}' task`);
+  }
+
+  const commandPreview = decodeOptional(
+    raw['commandPreview'],
+    atKey(path, 'commandPreview'),
+    issues,
+    decodeString,
+  );
+  if (kind === 'agent' && commandPreview !== undefined) {
+    addIssue(issues, atKey(path, 'commandPreview'), `must not be set for a '${kind}' task`);
+  }
+
+  const schedule = decodeOptional(
+    raw['schedule'],
+    atKey(path, 'schedule'),
+    issues,
+    decodeBackgroundTaskSchedule,
+  );
+  const nextFireAt = decodeOptional(
+    raw['nextFireAt'],
+    atKey(path, 'nextFireAt'),
+    issues,
+    decodeTimestampString,
+  );
+  if (kind !== 'scheduled' && schedule !== undefined) {
+    addIssue(issues, atKey(path, 'schedule'), `must not be set for a '${kind}' task`);
+  }
+  if (kind !== 'scheduled' && nextFireAt !== undefined) {
+    addIssue(issues, atKey(path, 'nextFireAt'), `must not be set for a '${kind}' task`);
+  }
+
+  switch (kind) {
+    case 'agent': {
+      const correlatedResult = result?.kind === 'agent' ? result : undefined;
+      const task: IAgentBackgroundTaskState = { ...base, kind };
+      setOptional(task, 'result', correlatedResult);
+      setOptional(task, 'agentType', agentType);
+      setOptional(task, 'resumeSessionId', resumeSessionId);
+      setOptional(task, 'promptPreview', promptPreview);
+      setOptional(task, 'isolation', isolation);
+      setOptional(task, 'worktreePath', worktreeFields['worktreePath']);
+      setOptional(task, 'branchName', worktreeFields['branchName']);
+      setOptional(task, 'worktreeStatus', worktreeFields['worktreeStatus']);
+      setOptional(task, 'worktreeNextAction', worktreeFields['worktreeNextAction']);
+      setOptional(task, 'worktreeBaseRevision', worktreeFields['worktreeBaseRevision']);
+      setOptional(task, 'parentWorktreeStatus', worktreeFields['parentWorktreeStatus']);
+      return task;
+    }
+    case 'process': {
+      const correlatedResult = result?.kind === 'process' ? result : undefined;
+      const task: IProcessBackgroundTaskState = { ...base, kind };
+      setOptional(task, 'result', correlatedResult);
+      setOptional(task, 'commandPreview', commandPreview);
+      return task;
+    }
+    case 'tool-invocation': {
+      const correlatedResult = result?.kind === 'tool-invocation' ? result : undefined;
+      const task: IToolInvocationBackgroundTaskState = { ...base, kind };
+      setOptional(task, 'result', correlatedResult);
+      setOptional(task, 'commandPreview', commandPreview);
+      return task;
+    }
+    case 'scheduled': {
+      const correlatedResult = result?.kind === 'scheduled' ? result : undefined;
+      const task: IScheduledBackgroundTaskState = { ...base, kind };
+      setOptional(task, 'result', correlatedResult);
+      setOptional(task, 'commandPreview', commandPreview);
+      setOptional(task, 'schedule', schedule);
+      setOptional(task, 'nextFireAt', nextFireAt);
+      return task;
+    }
+  }
 }

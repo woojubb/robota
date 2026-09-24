@@ -310,8 +310,12 @@ async function createLoop(
     else pendingCreates.set(host, remaining);
   }
   const rounded = cadence.milliseconds !== parsed.requestedMs ? ' (rounded up)' : '';
+  // `spawnScheduledWake` always spawns a scheduled-kind task; the kind check lets TypeScript
+  // narrow to the member that carries `nextFireAt` (#2079).
   const nextFire =
-    task.nextFireAt && task.nextFireAt >= firstAllowedAt ? ` Next fire: ${task.nextFireAt}.` : '';
+    task.kind === 'scheduled' && task.nextFireAt && task.nextFireAt >= firstAllowedAt
+      ? ` Next fire: ${task.nextFireAt}.`
+      : '';
   return {
     success: true,
     message: `Loop ${loopId} uses a ${cadence.description}${rounded} local-clock step with stable offset +${jitter.jitterSeconds}s; elapsed gaps can change with daylight saving. First eligible at or after ${firstAllowedAt}.${nextFire} Expires: ${expiresAt}. Stop with /loop stop ${loopId}.`,

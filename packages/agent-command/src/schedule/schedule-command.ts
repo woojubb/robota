@@ -25,8 +25,10 @@ function formatScheduleList(schedules: IBackgroundTaskState[]): string {
   if (schedules.length === 0) return 'No schedules.';
   return schedules
     .map((s) => {
-      const cadence = s.schedule?.cronExpression ?? '(unknown)';
-      const when = s.nextFireAt ? `next ${s.nextFireAt}` : '—';
+      // `listSchedules()` only ever returns scheduled-kind tasks; the kind check is what lets
+      // TypeScript narrow to the member that carries `schedule`/`nextFireAt` (#2079).
+      const cadence = s.kind === 'scheduled' ? (s.schedule?.cronExpression ?? '(unknown)') : '(unknown)';
+      const when = s.kind === 'scheduled' && s.nextFireAt ? `next ${s.nextFireAt}` : '—';
       return `- ${s.id} [${s.status}] ${cadence} — ${s.label} (${when})`;
     })
     .join('\n');

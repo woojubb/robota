@@ -215,14 +215,15 @@ describe('BackgroundTaskManager', () => {
     });
     await manager.wait(created.id);
     const completed = manager.get(created.id);
+    if (completed?.kind !== 'agent') throw new Error('expected an agent-kind task');
 
-    expect(completed?.isolation).toBe('worktree');
-    expect(completed?.worktreePath).toBe('/tmp/robota-worktree');
-    expect(completed?.branchName).toBe('robota/agent_1');
-    expect(completed?.worktreeStatus).toBe(' M changed.ts');
-    expect(completed?.worktreeNextAction).toBe('Review /tmp/robota-worktree.');
-    expect(completed?.worktreeBaseRevision).toBe('1234567890abcdef');
-    expect(completed?.parentWorktreeStatus).toBe(' M README.md');
+    expect(completed.isolation).toBe('worktree');
+    expect(completed.worktreePath).toBe('/tmp/robota-worktree');
+    expect(completed.branchName).toBe('robota/agent_1');
+    expect(completed.worktreeStatus).toBe(' M changed.ts');
+    expect(completed.worktreeNextAction).toBe('Review /tmp/robota-worktree.');
+    expect(completed.worktreeBaseRevision).toBe('1234567890abcdef');
+    expect(completed.parentWorktreeStatus).toBe(' M README.md');
   });
 
   it('preserves opaque request metadata in task snapshots', async () => {

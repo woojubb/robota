@@ -1,12 +1,17 @@
 import {
   BackgroundTaskError,
+  type IAgentBackgroundTaskState,
   type IBackgroundTaskError,
   type IBackgroundTaskHandle,
   type IBackgroundTaskListFilter,
   type TBackgroundTaskRequest,
   type IBackgroundTaskResult,
   type IBackgroundTaskState,
+  type IProcessBackgroundTaskState,
+  type IScheduledBackgroundTaskState,
+  type IToolInvocationBackgroundTaskState,
   type TBackgroundPrimitive,
+  type TBackgroundTaskKind,
   type TBackgroundTaskStatus,
   type TBackgroundTaskTimeoutReason,
 } from './types.js';
@@ -75,18 +80,22 @@ export function applyBackgroundTaskResultMetadataToState(
   state: IBackgroundTaskState,
   result: IBackgroundTaskResult,
 ): void {
-  const worktreePath = result.metadata?.['worktreePath'];
-  if (typeof worktreePath === 'string') state.worktreePath = worktreePath;
-  const branchName = result.metadata?.['branchName'];
-  if (typeof branchName === 'string') state.branchName = branchName;
-  const worktreeStatus = result.metadata?.['worktreeStatus'];
-  if (typeof worktreeStatus === 'string') state.worktreeStatus = worktreeStatus;
-  const worktreeNextAction = result.metadata?.['worktreeNextAction'];
-  if (typeof worktreeNextAction === 'string') state.worktreeNextAction = worktreeNextAction;
-  const worktreeBaseRevision = result.metadata?.['worktreeBaseRevision'];
-  if (typeof worktreeBaseRevision === 'string') state.worktreeBaseRevision = worktreeBaseRevision;
-  const parentWorktreeStatus = result.metadata?.['parentWorktreeStatus'];
-  if (typeof parentWorktreeStatus === 'string') state.parentWorktreeStatus = parentWorktreeStatus;
+  // #2079: the worktree-isolation fields are agent-only on the discriminated state — their sole
+  // producer is `worktree-subagent-runner.ts`, which only ever starts an agent-kind task.
+  if (state.kind === 'agent') {
+    const worktreePath = result.metadata?.['worktreePath'];
+    if (typeof worktreePath === 'string') state.worktreePath = worktreePath;
+    const branchName = result.metadata?.['branchName'];
+    if (typeof branchName === 'string') state.branchName = branchName;
+    const worktreeStatus = result.metadata?.['worktreeStatus'];
+    if (typeof worktreeStatus === 'string') state.worktreeStatus = worktreeStatus;
+    const worktreeNextAction = result.metadata?.['worktreeNextAction'];
+    if (typeof worktreeNextAction === 'string') state.worktreeNextAction = worktreeNextAction;
+    const worktreeBaseRevision = result.metadata?.['worktreeBaseRevision'];
+    if (typeof worktreeBaseRevision === 'string') state.worktreeBaseRevision = worktreeBaseRevision;
+    const parentWorktreeStatus = result.metadata?.['parentWorktreeStatus'];
+    if (typeof parentWorktreeStatus === 'string') state.parentWorktreeStatus = parentWorktreeStatus;
+  }
   const logPath = result.metadata?.['logPath'];
   if (typeof logPath === 'string') state.logPath = logPath;
   const transcriptPath = result.metadata?.['transcriptPath'];
@@ -138,26 +147,6 @@ export function hasRepeatedSentence(text: string, threshold: number): boolean {
   return false;
 }
 
-function resolveBackgroundTaskPreview(
-  request: TBackgroundTaskRequest,
-  previewLength: number,
-): { promptPreview: string } | { commandPreview: string } | Record<string, never> {
-  if (request.kind === 'agent') {
-    return { promptPreview: request.prompt.slice(0, previewLength) };
-  }
-  if (request.kind === 'process') {
-    return { commandPreview: request.command.slice(0, previewLength) };
-  }
-  if (request.kind === 'tool-invocation') {
-    return {
-      commandPreview: `${request.toolName} (${request.serverId})`.slice(0, previewLength),
-    };
-  }
-  // scheduled: a shell command, an agent-wake instruction, or both — preview whichever is set.
-  const source = request.command ?? request.agentInstruction;
-  return source !== undefined ? { commandPreview: source.slice(0, previewLength) } : {};
-}
-
 /**
  * MCP-004 §S1: `IToolInvocationBackgroundTaskRequest` keeps its provenance as primitive fields
  * (data only — no nested object). This projects those same fields into `metadata` so `/tasks` and
@@ -195,29 +184,10 @@ export function createQueuedBackgroundTaskState(
    */
   status: TBackgroundTaskStatus = 'queued',
 ): IBackgroundTaskState {
-  const preview = resolveBackgroundTaskPreview(request, previewLength);
   const metadata = resolveBackgroundTaskMetadata(request);
-  // FLOW-003: capture the reconstructable schedule so a resumed session can re-arm the cron job.
-  const schedule =
-    request.kind === 'scheduled'
-      ? {
-          schedule: {
-            cronExpression: request.cronExpression,
-            ...(request.agentInstruction !== undefined
-              ? { agentInstruction: request.agentInstruction }
-              : {}),
-            ...(request.command !== undefined ? { command: request.command } : {}),
-            ...(request.shell !== undefined ? { shell: request.shell } : {}),
-            ...(request.env !== undefined ? { env: { ...request.env } } : {}),
-          },
-        }
-      : {};
-
-  return {
+  const base = {
     id,
-    kind: request.kind,
     label: request.label,
-    agentType: request.kind === 'agent' ? request.agentType : undefined,
     status,
     mode: request.mode,
     parentSessionId: request.parentSessionId,
@@ -226,15 +196,65 @@ export function createQueuedBackgroundTaskState(
     cwd: request.cwd,
     updatedAt: now,
     unread: false,
-    isolation: request.kind === 'agent' ? request.isolation : undefined,
-    // CLI-1994: carried so a surface can offer `attach` on a forked conversation's task.
-    ...(request.kind === 'agent' && request.resumeSessionId !== undefined
-      ? { resumeSessionId: request.resumeSessionId }
-      : {}),
     ...(metadata ? { metadata } : {}),
-    ...schedule,
-    ...preview,
   };
+  // #2079: switch-by-kind construction — the same pattern `decodeBackgroundTaskResult` and
+  // `decodeBackgroundTaskState` use — so a kind-specific field can only ever land on its own
+  // member, with no cast needed to satisfy the discriminated `IBackgroundTaskState`.
+  switch (request.kind) {
+    case 'agent': {
+      const state: IAgentBackgroundTaskState = {
+        ...base,
+        kind: 'agent',
+        agentType: request.agentType,
+        isolation: request.isolation,
+        promptPreview: request.prompt.slice(0, previewLength),
+        // CLI-1994: carried so a surface can offer `attach` on a forked conversation's task.
+        ...(request.resumeSessionId !== undefined
+          ? { resumeSessionId: request.resumeSessionId }
+          : {}),
+      };
+      return state;
+    }
+    case 'process': {
+      const state: IProcessBackgroundTaskState = {
+        ...base,
+        kind: 'process',
+        commandPreview: request.command.slice(0, previewLength),
+      };
+      return state;
+    }
+    case 'tool-invocation': {
+      const state: IToolInvocationBackgroundTaskState = {
+        ...base,
+        kind: 'tool-invocation',
+        commandPreview: `${request.toolName} (${request.serverId})`.slice(0, previewLength),
+      };
+      return state;
+    }
+    case 'scheduled': {
+      // A scheduled task previews a shell command, an agent-wake instruction, or both.
+      const previewSource = request.command ?? request.agentInstruction;
+      const state: IScheduledBackgroundTaskState = {
+        ...base,
+        kind: 'scheduled',
+        ...(previewSource !== undefined
+          ? { commandPreview: previewSource.slice(0, previewLength) }
+          : {}),
+        // FLOW-003: capture the reconstructable schedule so a resumed session can re-arm the cron job.
+        schedule: {
+          cronExpression: request.cronExpression,
+          ...(request.agentInstruction !== undefined
+            ? { agentInstruction: request.agentInstruction }
+            : {}),
+          ...(request.command !== undefined ? { command: request.command } : {}),
+          ...(request.shell !== undefined ? { shell: request.shell } : {}),
+          ...(request.env !== undefined ? { env: { ...request.env } } : {}),
+        },
+      };
+      return state;
+    }
+  }
 }
 
 export function matchesBackgroundTaskFilter(
@@ -248,20 +268,38 @@ export function matchesBackgroundTaskFilter(
   return true;
 }
 
+function cloneBackgroundTaskResult<K extends TBackgroundTaskKind>(
+  result: IBackgroundTaskResult<K> | undefined,
+): IBackgroundTaskResult<K> | undefined {
+  if (!result) return undefined;
+  return { ...result, metadata: result.metadata ? { ...result.metadata } : undefined };
+}
+
+/**
+ * #2079: `state.result` is now `IBackgroundTaskResult<K>` — correlated with `state.kind` — so a
+ * clone built by spreading `state` and then overwriting `result`/`schedule` generically would let
+ * TypeScript re-widen `result` to the full union and lose that correlation. The switch keeps each
+ * branch's `state` (and its `result`) narrowed to its own kind throughout.
+ */
 export function cloneBackgroundTaskState(state: IBackgroundTaskState): IBackgroundTaskState {
-  const result = state.result
-    ? {
-        ...state.result,
-        metadata: state.result.metadata ? { ...state.result.metadata } : undefined,
-      }
-    : undefined;
-  return {
-    ...state,
-    metadata: state.metadata ? { ...state.metadata } : undefined,
-    result,
-    error: state.error ? { ...state.error } : undefined,
-    schedule: state.schedule
-      ? { ...state.schedule, env: state.schedule.env ? { ...state.schedule.env } : undefined }
-      : undefined,
-  };
+  const metadata = state.metadata ? { ...state.metadata } : undefined;
+  const error = state.error ? { ...state.error } : undefined;
+  switch (state.kind) {
+    case 'agent':
+      return { ...state, metadata, error, result: cloneBackgroundTaskResult(state.result) };
+    case 'process':
+      return { ...state, metadata, error, result: cloneBackgroundTaskResult(state.result) };
+    case 'tool-invocation':
+      return { ...state, metadata, error, result: cloneBackgroundTaskResult(state.result) };
+    case 'scheduled':
+      return {
+        ...state,
+        metadata,
+        error,
+        result: cloneBackgroundTaskResult(state.result),
+        schedule: state.schedule
+          ? { ...state.schedule, env: state.schedule.env ? { ...state.schedule.env } : undefined }
+          : undefined,
+      };
+  }
 }

@@ -223,9 +223,9 @@ export interface IToolInvocationBackgroundTaskResult extends IBaseBackgroundTask
  * `Omit<IBackgroundTaskResult<'agent'>, 'kind'>`, not a hand-maintained `Omit` off the flat shape).
  * `IBackgroundTaskResult<K>` narrows to the kind-specific member for a caller that knows `K`
  * statically (a runner's `start()`, the decoder once it has
- * checked `kind`); called with no type argument it stays the full union, which is what
- * `IBackgroundTaskState.result` still holds — that field is not itself correlated with `state.kind`
- * (untouched by this change; revisit only if `IBackgroundTaskState` is ever discriminated).
+ * checked `kind`); called with no type argument it stays the full union. `IBackgroundTaskState<K>`
+ * is discriminated the same way, and its `result` field is `IBackgroundTaskResult<K>` — correlated
+ * with `state.kind`, not the free-standing full union.
  */
 export type TBackgroundTaskResult =
   | IAgentBackgroundTaskResult
@@ -238,11 +238,25 @@ export type IBackgroundTaskResult<K extends TBackgroundTaskKind = TBackgroundTas
   { kind: K }
 >;
 
-export interface IBackgroundTaskState {
+/**
+ * #2079: the persisted/live state hop discriminates by kind exactly as the request and result hops
+ * do. Fields a single runner alone can produce — `agentType`/`isolation`/`resumeSessionId`/
+ * `promptPreview`/the worktree-isolation fields (agent), `schedule`/`nextFireAt` (scheduled) — live
+ * only on that kind's member. `commandPreview` is produced by every runner except the agent one (a
+ * process command, a tool-invocation summary, or a schedule's shell command / wake instruction), so
+ * it stays on the three non-agent members, not the base. `pid`/`logPath`/`transcriptPath` stay on
+ * the shared base: the handle SPI (`IBackgroundTaskHandle`) already reports them generically for
+ * whichever runner's process happens to produce them, and a subagent run as a child process (the
+ * worktree-isolation runner) carries a `pid` exactly as a `process`-kind task does — an audit of
+ * every producer (`background-task-manager-helpers.ts`, `subagent-manager.ts`,
+ * `worktree-subagent-runner.ts`) found no case of an agent/process pid being kind-exclusive.
+ * `timeoutReason` is likewise base: `interactive-session-restore.ts` sets `'stale_worker'` on ANY
+ * non-terminal, non-rearmable task regardless of kind, not only on agent tasks.
+ */
+interface IBaseBackgroundTaskState<K extends TBackgroundTaskKind> {
   id: string;
-  kind: TBackgroundTaskKind;
+  kind: K;
   label: string;
-  agentType?: string;
   status: TBackgroundTaskStatus;
   mode: TBackgroundTaskMode;
   parentSessionId: string;
@@ -254,35 +268,61 @@ export interface IBackgroundTaskState {
   updatedAt: string;
   lastActivityAt?: string;
   completedAt?: string;
+  currentAction?: string;
+  unread: boolean;
+  result?: IBackgroundTaskResult<K>;
+  error?: IBackgroundTaskError;
+  logPath?: string;
+  transcriptPath?: string;
+  timeoutReason?: TBackgroundTaskTimeoutReason;
+  metadata?: Record<string, TBackgroundPrimitive>;
+}
+
+export interface IAgentBackgroundTaskState extends IBaseBackgroundTaskState<'agent'> {
+  agentType?: string;
   promptPreview?: string;
-  commandPreview?: string;
   isolation?: TBackgroundTaskIsolation;
   /**
    * CLI-1994: carried from `IAgentBackgroundTaskRequest.resumeSessionId` so a surface can offer to
    * ATTACH to the forked session — a view switch onto that record, never a merge with the parent.
    */
   resumeSessionId?: string;
-  currentAction?: string;
-  unread: boolean;
-  result?: IBackgroundTaskResult;
-  error?: IBackgroundTaskError;
-  logPath?: string;
-  transcriptPath?: string;
   worktreePath?: string;
   branchName?: string;
   worktreeStatus?: string;
   worktreeNextAction?: string;
   worktreeBaseRevision?: string;
   parentWorktreeStatus?: string;
-  timeoutReason?: TBackgroundTaskTimeoutReason;
+}
+
+export interface IProcessBackgroundTaskState extends IBaseBackgroundTaskState<'process'> {
+  commandPreview?: string;
+}
+
+export interface IScheduledBackgroundTaskState extends IBaseBackgroundTaskState<'scheduled'> {
+  commandPreview?: string;
   nextFireAt?: string;
   /**
    * FLOW-003: for `kind: 'scheduled'` tasks, the reconstructable schedule definition.
    * Persisted with the task so a resumed session can re-arm the croner job.
    */
   schedule?: IBackgroundTaskSchedule;
-  metadata?: Record<string, TBackgroundPrimitive>;
 }
+
+export interface IToolInvocationBackgroundTaskState extends IBaseBackgroundTaskState<'tool-invocation'> {
+  commandPreview?: string;
+}
+
+export type TBackgroundTaskState =
+  | IAgentBackgroundTaskState
+  | IProcessBackgroundTaskState
+  | IScheduledBackgroundTaskState
+  | IToolInvocationBackgroundTaskState;
+
+export type IBackgroundTaskState<K extends TBackgroundTaskKind = TBackgroundTaskKind> = Extract<
+  TBackgroundTaskState,
+  { kind: K }
+>;
 
 /** FLOW-003: the persisted, reconstructable definition of a scheduled wake. */
 export interface IBackgroundTaskSchedule {

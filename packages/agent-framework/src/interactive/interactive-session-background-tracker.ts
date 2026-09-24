@@ -334,8 +334,7 @@ export class SessionBackgroundTaskTracker {
       task.error?.message ??
       task.result?.output ??
       task.currentAction ??
-      task.promptPreview ??
-      task.commandPreview ??
+      (task.kind === 'agent' ? task.promptPreview : task.commandPreview) ??
       task.status;
     return createLineDetailPage({ entryId, lines: [text], cursor, kind: detailKind });
   }
@@ -386,9 +385,11 @@ export class SessionBackgroundTaskTracker {
    */
   private recordCompletedTaskUsage(event: TBackgroundTaskEvent): void {
     if (event.type !== 'background_task_completed') return;
-    // #2079: `usage` exists only on the agent-kind result member; `event.task.result` is still the
-    // full union (task state is not itself discriminated), so narrow on the result's own `kind`.
-    const usage = event.task.result?.kind === 'agent' ? event.task.result.usage : undefined;
+    // #2079: `usage` exists only on the agent-kind state/result member, correlated with
+    // `event.task.kind` now — narrowing on the task's own kind narrows `result` (and unlocks
+    // `agentType` below) in one step, rather than narrowing `result.kind` alone.
+    if (event.task.kind !== 'agent') return;
+    const usage = event.task.result?.usage;
     if (!usage || usage.totalTokens <= 0) return;
     this.appendHistoryEntry?.(
       createSourceUsageSummaryEntry(usage, {

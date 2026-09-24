@@ -110,7 +110,10 @@ export function markBackgroundTaskPaused(
   now: string,
 ): IBackgroundTaskState {
   task.state.status = transitionBackgroundTaskStatus(task.state.status, 'PAUSE');
-  task.state.nextFireAt = undefined; // a paused schedule has no pending fire
+  // #2079: `nextFireAt` is scheduled-only on the discriminated state; pause is only ever called on
+  // a scheduled task (the manager's `requireScheduledTask` guard), but the kind check here is what
+  // lets TypeScript narrow `task.state` to write it.
+  if (task.state.kind === 'scheduled') task.state.nextFireAt = undefined; // no pending fire while paused
   task.state.updatedAt = now;
   return cloneBackgroundTaskState(task.state);
 }
@@ -147,17 +150,20 @@ export function applyBackgroundTaskRunnerStateEvent(
     if (task.state.status !== 'sleeping') {
       task.state.status = transitionBackgroundTaskStatus(task.state.status, 'SLEEP');
     }
-    task.state.nextFireAt = event.nextFireAt;
+    // #2079: `nextFireAt` is scheduled-only on the discriminated state — `background_task_sleeping`
+    // is only emitted by the scheduled runner, but the kind check is what lets TypeScript narrow.
+    if (task.state.kind === 'scheduled') task.state.nextFireAt = event.nextFireAt;
     task.state.updatedAt = now;
     return cloneBackgroundTaskState(task.state);
   }
   if (event.type === 'background_task_waking') {
-    // A scheduled task wakes from 'sleeping' → 'running'. A monitor (FLOW-004) is already
-    // 'running' and fires wakes on output matches without changing status — keep it as-is.
+    // A scheduled task wakes from 'sleeping' → 'running'. A monitor (FLOW-004, `process`-kind) is
+    // already 'running' and fires wakes on output matches without changing status — keep it as-is.
     if (task.state.status === 'sleeping') {
       task.state.status = transitionBackgroundTaskStatus(task.state.status, 'WAKE');
     }
-    task.state.nextFireAt = undefined;
+    // `nextFireAt` is scheduled-only; a monitor's `process`-kind state never carries it.
+    if (task.state.kind === 'scheduled') task.state.nextFireAt = undefined;
     task.state.updatedAt = now;
     return cloneBackgroundTaskState(task.state);
   }
