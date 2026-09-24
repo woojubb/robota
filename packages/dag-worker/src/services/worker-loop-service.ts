@@ -81,8 +81,11 @@ export class WorkerLoopService {
     this.executionRoot = resolveTrustedExecutionRoot(executionRoot);
     this.byteLimits = resolveDagExecutionByteLimits(byteLimits);
     this.cancellationPollMs = options.cancellationPollMs ?? 250;
-    if (!Number.isSafeInteger(this.cancellationPollMs)
-      || this.cancellationPollMs < 1 || this.cancellationPollMs > 60_000) {
+    if (
+      !Number.isSafeInteger(this.cancellationPollMs) ||
+      this.cancellationPollMs < 1 ||
+      this.cancellationPollMs > 60_000
+    ) {
       throw new RangeError('cancellationPollMs must be an integer between 1 and 60000');
     }
   }
@@ -167,15 +170,21 @@ export class WorkerLoopService {
       return this.settleCancelledRunMessage(message);
     }
 
-    const persistInput = (snapshot: string) => this.storage.commitExecution(claimed.dagRunId, {
-      kind: 'snapshot-input', taskRunId: claimed.taskRunId, attempt: claimed.attempt,
-      leaseOwner: this.options.workerId, inputSnapshot: snapshot,
-    });
+    const persistInput = (snapshot: string) =>
+      this.storage.commitExecution(claimed.dagRunId, {
+        kind: 'snapshot-input',
+        taskRunId: claimed.taskRunId,
+        attempt: claimed.attempt,
+        leaseOwner: this.options.workerId,
+        inputSnapshot: snapshot,
+      });
     const admission = this.snapshotBudget
       ? await this.snapshotBudget.admitValue('input', claimed.payload, persistInput)
       : { ok: true as const, value: await persistInput(JSON.stringify(claimed.payload)) };
-    if (!admission.ok) return this.outcomes.handleFailurePath(claimed, claimed.taskRunId, admission.error);
-    if (!admission.value.applied) return successAfterAck(this.queue, message.messageId, claimed.taskRunId, false);
+    if (!admission.ok)
+      return this.outcomes.handleFailurePath(claimed, claimed.taskRunId, admission.error);
+    if (!admission.value.applied)
+      return successAfterAck(this.queue, message.messageId, claimed.taskRunId, false);
 
     const input = await this.buildExecutionInput(claimed, dagRun, definition, nodeDefinition);
     // Registration precedes the final persisted read, closing its stale-snapshot race.
@@ -226,9 +235,10 @@ export class WorkerLoopService {
    * The next read is scheduled only after the previous one settles, and stopping the
    * watcher prevents a late read from aborting an already-finished attempt.
    */
-  private watchCommittedCancellation(
-    active: { dagRunId: string; controller: AbortController },
-  ): () => void {
+  private watchCommittedCancellation(active: {
+    dagRunId: string;
+    controller: AbortController;
+  }): () => void {
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const check = async (): Promise<void> => {
@@ -241,10 +251,14 @@ export class WorkerLoopService {
         if (!stopped) active.controller.abort();
       }
       if (!stopped && !active.controller.signal.aborted) {
-        timer = setTimeout(() => { void check(); }, this.cancellationPollMs);
+        timer = setTimeout(() => {
+          void check();
+        }, this.cancellationPollMs);
       }
     };
-    timer = setTimeout(() => { void check(); }, this.cancellationPollMs);
+    timer = setTimeout(() => {
+      void check();
+    }, this.cancellationPollMs);
     return () => {
       stopped = true;
       clearTimeout(timer);
@@ -285,6 +299,28 @@ export class WorkerLoopService {
       byteLimits: this.byteLimits,
       snapshotBudget: this.snapshotBudget,
       rootCreditBudget: this.rootCreditBudget,
+      reserveCredits: definition.costPolicy
+        ? async (estimatedCredits) => {
+            const committed = await this.storage.commitExecution(message.dagRunId, {
+              kind: 'reserve-credits',
+              taskRunId: message.taskRunId,
+              attempt: message.attempt,
+              leaseOwner: this.options.workerId,
+              estimatedCredits,
+            });
+            if (committed.applied) return { ok: true, value: undefined };
+            return {
+              ok: false,
+              error:
+                committed.error ??
+                buildValidationError(
+                  'DAG_VALIDATION_CREDIT_RESERVATION_REJECTED',
+                  'Task attempt lost credit reservation authority',
+                  { taskRunId: message.taskRunId },
+                ),
+            };
+          }
+        : undefined,
       dagId: dagRun.dagId,
       dagRunId: message.dagRunId,
       taskRunId: message.taskRunId,

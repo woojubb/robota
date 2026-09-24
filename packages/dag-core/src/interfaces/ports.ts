@@ -159,6 +159,10 @@ export interface ITaskExecutionInput {
   snapshotBudget?: ITaskSnapshotBudget;
   /** Shared in-process root credit authority, never sourced from workflow data. */
   rootCreditBudget?: IRootCreditBudget;
+  /** Durable per-run admission supplied by the worker for this attempt. */
+  reserveCredits?: (
+    estimatedCredits: number,
+  ) => Promise<import('../types/result.js').TResult<void, IDagError>>;
   /** Trusted host limits; never deserialized from workflow configuration. */
   byteLimits?: IDagExecutionByteLimits;
   /** Trusted in-process attempt cancellation; never supplied by serialized node or queue data. */

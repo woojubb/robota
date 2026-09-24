@@ -189,6 +189,10 @@ export interface ITaskRun {
   outputSnapshot?: string;
   estimatedCredits?: number;
   totalCredits?: number;
+  /** Credit hold belonging to this exact attempt and lease owner. */
+  reservedCredits?: number;
+  reservationAttempt?: number;
+  reservationOwner?: string;
   errorCode?: string;
   errorMessage?: string;
 }

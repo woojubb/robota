@@ -299,6 +299,13 @@ export class FileStoragePort implements IStoragePort {
         this.taskRuns.set(taskRunKey, {
           ...taskRun,
           status,
+          ...(['failed', 'cancelled', 'queued'].includes(status)
+            ? {
+                reservedCredits: undefined,
+                reservationAttempt: undefined,
+                reservationOwner: undefined,
+              }
+            : {}),
           errorCode: error?.code,
           errorMessage: error?.message,
         });

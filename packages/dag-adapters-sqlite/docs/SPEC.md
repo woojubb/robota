@@ -23,7 +23,7 @@ intended upgrade path to PostgreSQL by swapping the adapter.
 - Long-poll waiting on dequeue is implemented as synchronous poll-with-sleep rather than a blocking
   wait, which bounds wake-up latency to the poll interval rather than being immediate.
 - Execution arbitration reads the current run and tasks and applies its decision, including task
-  outcome status, output snapshot and credits, and stale-attempt/lease/cancellation predicates,
+  outcome status, output snapshot and credits, per-attempt credit reservations, and stale-attempt/lease/cancellation predicates,
   under one immediate SQLite transaction; queue delivery is outside this storage transaction. Task
   input snapshots use that same guarded transaction, rejecting stale-attempt or cancelled-run
   writes, but the adapter does not own or reconstruct the caller's in-process aggregate snapshot

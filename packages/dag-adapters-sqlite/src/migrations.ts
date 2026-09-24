@@ -56,6 +56,12 @@ const MIGRATIONS: Array<{ version: number; sql: string }> = [
       CREATE INDEX IF NOT EXISTS idx_task_runs_dag_run_id ON task_runs(dag_run_id);
     `,
   },
+  {
+    version: 2,
+    sql: `ALTER TABLE task_runs ADD COLUMN reserved_credits REAL;
+          ALTER TABLE task_runs ADD COLUMN reservation_attempt INTEGER;
+          ALTER TABLE task_runs ADD COLUMN reservation_owner TEXT;`,
+  },
 ];
 
 export function runMigrations(db: Database.Database): void {

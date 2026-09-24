@@ -59,8 +59,8 @@ node-state and run-result data that adapters must not write back into a DAG defi
 ## Execution mutation arbitration
 
 Execution preconditions and their state edits are indivisible within one live adapter instance: the
-file adapter hydrates before adjudication and persists the changed collection (including task
-success and its snapshot) in one write, and a storage root has exactly one live file-adapter owner —
+file adapter hydrates before adjudication and persists the changed collection (including credit
+holds, task success and its snapshot) in one write, and a storage root has exactly one live file-adapter owner —
 independent instances do not coordinate cached state, and this is not a cross-process or multi-file
 transaction guarantee. All file run/task reads and writes share one operation queue held through
 persistence completion, so a reader cannot observe cancellation, settlement, or a raw mutation

@@ -13,6 +13,9 @@ export interface ITaskRunRow {
   output_snapshot: string | null;
   estimated_credits: number | null;
   total_credits: number | null;
+  reserved_credits: number | null;
+  reservation_attempt: number | null;
+  reservation_owner: string | null;
   error_code: string | null;
   error_message: string | null;
 }
@@ -30,6 +33,9 @@ export function rowToTaskRun(row: ITaskRunRow): ITaskRun {
     outputSnapshot: row.output_snapshot ?? undefined,
     estimatedCredits: row.estimated_credits ?? undefined,
     totalCredits: row.total_credits ?? undefined,
+    reservedCredits: row.reserved_credits ?? undefined,
+    reservationAttempt: row.reservation_attempt ?? undefined,
+    reservationOwner: row.reservation_owner ?? undefined,
     errorCode: row.error_code ?? undefined,
     errorMessage: row.error_message ?? undefined,
   };

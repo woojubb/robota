@@ -115,6 +115,18 @@ export class NodeLifecycleRunner {
       return budgetCheck;
     }
 
+    if (input.context.reserveCredits) {
+      const admitted = await input.context.reserveCredits(estimated.value.estimatedCredits);
+      if (!admitted.ok) {
+        await lifecycle.value.dispose(input.context);
+        return admitted;
+      }
+      if (input.context.signal?.aborted) {
+        await lifecycle.value.dispose(input.context);
+        return cancellation();
+      }
+    }
+
     const reserved = input.context.rootCreditBudget?.reserve(estimated.value.estimatedCredits);
     if (reserved && !reserved.ok) {
       await lifecycle.value.dispose(input.context);
