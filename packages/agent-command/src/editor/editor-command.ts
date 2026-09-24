@@ -17,10 +17,12 @@ import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 export const EDITOR_COMMAND_DESCRIPTION =
   'Compose a message in $EDITOR (optionally pre-filled with `/editor <text>`), then return it.';
+export const DEFAULT_EDITOR_TEMPORARY_DIRECTORY_PREFIX = 'agent-editor-';
 
 export async function executeEditorCommand(
   context: ICommandHostTerminalHandoff & ICommandHostWorkspace,
   args: string,
+  temporaryDirectoryPrefix: string = DEFAULT_EDITOR_TEMPORARY_DIRECTORY_PREFIX,
 ): Promise<ICommandResult> {
   if (!context.canHandoffTerminal()) {
     return {
@@ -30,7 +32,7 @@ export async function executeEditorCommand(
   }
 
   const editor = resolveEditor();
-  const dir = mkdtempSync(join(tmpdir(), 'robota-editor-'));
+  const dir = mkdtempSync(join(tmpdir(), temporaryDirectoryPrefix));
   const file = join(dir, 'message.md');
   writeFileSync(file, args ?? '', 'utf8');
 

@@ -6,9 +6,17 @@
  * command opens the editor via `runWithTerminal`, captures the saved text, and cleans up — without a
  * real interactive editor (which is a manual gate, TERM-002).
  */
-import { chmodSync, mkdtempSync, writeFileSync, realpathSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+  realpathSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, dirname, join } from 'node:path';
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -33,7 +41,11 @@ function fakeHandoff(canHandoff: boolean): ITerminalHandoff {
 function installFakeEditor(content: string): string {
   const dir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-fake-editor-')));
   const script = join(dir, 'fake-editor.sh');
-  writeFileSync(script, `#!/bin/sh\nprintf '%s' '${content}' > "$1"\n`, 'utf8');
+  writeFileSync(
+    script,
+    `#!/bin/sh\nprintf '%s' '${content}' > "$1"\nif [ -n "$EDITOR_CAPTURE_PATH" ]; then printf '%s' "$1" > "$EDITOR_CAPTURE_PATH"; fi\n`,
+    'utf8',
+  );
   chmodSync(script, 0o755);
   return script;
 }
@@ -62,6 +74,33 @@ describe('/editor command (framework functional)', () => {
       expect(result?.success).toBe(true);
       expect(result?.message).toBe('composed in editor');
       expect((result?.data as { content: string }).content).toBe('composed in editor');
+    },
+    TEST_TIMEOUT,
+  );
+
+  it(
+    'uses a neutral temporary directory and removes it after editing',
+    async () => {
+      const captureDir = mkdtempSync(join(tmpdir(), 'editor-capture-'));
+      const capturePath = join(captureDir, 'opened-path');
+      try {
+        vi.stubEnv('VISUAL', undefined);
+        vi.stubEnv('EDITOR', installFakeEditor('neutral draft'));
+        vi.stubEnv('EDITOR_CAPTURE_PATH', capturePath);
+        h = scriptedSession({
+          turns: [{ text: 'unused' }],
+          terminalHandoff: fakeHandoff(true),
+          commandModules: [createEditorCommandModule()],
+        });
+
+        const result = await h.command('editor', '');
+        const openedPath = readFileSync(capturePath, 'utf8');
+        expect(result?.message).toBe('neutral draft');
+        expect(basename(dirname(openedPath))).toMatch(/^agent-editor-/);
+        expect(existsSync(dirname(openedPath))).toBe(false);
+      } finally {
+        rmSync(captureDir, { recursive: true, force: true });
+      }
     },
     TEST_TIMEOUT,
   );
