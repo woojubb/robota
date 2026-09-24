@@ -14,7 +14,8 @@ import {
   readDefinitionFromFile,
   saveDefinitionAtomically,
 } from './definition-files.js';
-import { FileStoreOwnerLock } from './file-store-owner-lock.js';
+import { FileStoreOwnerConflictError, FileStoreOwnerLock } from './file-store-owner-lock.js';
+import type { IFileStoreOwnerLockOptions } from './file-store-owner-lock.js';
 import { persistCollection } from './json-collection-file.js';
 import { HydrationGate } from './storage-hydration.js';
 
@@ -38,6 +39,15 @@ function buildTaskRunKey(dagRunId: string, taskRunId: string): string {
   return `${dagRunId}:${taskRunId}`;
 }
 
+/**
+ * Tuning for the storage root's heartbeat lease (see {@link FileStoreOwnerLock}). Production callers
+ * do not need this — it exists so tests can drive the lease with fake timers instead of real waits.
+ */
+export type IFileStoragePortOwnerLockOptions = Pick<
+  IFileStoreOwnerLockOptions,
+  'refreshIntervalMs' | 'leaseTimeoutMs' | 'afterRefresh'
+>;
+
 export class FileStoragePort implements IStoragePort {
   private readonly definitionsRootPath: string;
   private readonly runsRootPath: string;
@@ -50,8 +60,15 @@ export class FileStoragePort implements IStoragePort {
   private runStateFailure: { error: unknown } | undefined;
   private ownerLock: FileStoreOwnerLock | undefined;
   private ownerLockAcquisition: Promise<void> | undefined;
+  /** Set when the heartbeat lease discovers this instance no longer owns the root; poisons every
+   *  later operation instead of letting this instance keep writing as an unaccounted-for second
+   *  owner (the same durability posture as `runStateFailure` for a failed persist). */
+  private ownershipLostError: unknown;
 
-  public constructor(private readonly storageRootPath: string) {
+  public constructor(
+    private readonly storageRootPath: string,
+    private readonly ownerLockOptions: IFileStoragePortOwnerLockOptions = {},
+  ) {
     this.definitionsRootPath = path.join(this.storageRootPath, 'definitions');
     this.runsRootPath = path.join(this.storageRootPath, 'runs');
     this.dagRunsFilePath = path.join(this.runsRootPath, 'dag-runs.json');
@@ -80,7 +97,9 @@ export class FileStoragePort implements IStoragePort {
    * `applyTaskRunLease`, the run-key lookup — is unchanged. Only their lifetime moves.
    */
   private async ensureInitialized(): Promise<void> {
+    if (this.ownershipLostError !== undefined) throw this.ownershipLostError;
     await this.acquireOwnerLockOnce();
+    if (this.ownershipLostError !== undefined) throw this.ownershipLostError;
     await this.hydration.ensure();
   }
 
@@ -97,7 +116,17 @@ export class FileStoragePort implements IStoragePort {
     if (this.ownerLock) return;
     this.ownerLockAcquisition ??= (async (): Promise<void> => {
       await mkdir(this.storageRootPath, { recursive: true });
-      this.ownerLock = await FileStoreOwnerLock.acquire(this.storageRootPath);
+      this.ownerLock = await FileStoreOwnerLock.acquire(this.storageRootPath, {
+        ...this.ownerLockOptions,
+        onOwnershipLost: (reason) => {
+          // The lease lapsed and another owner took the root over (e.g. after a long event-loop
+          // stall). This instance must stop writing rather than silently continue as a second
+          // owner — every later operation now rejects, the same posture as a failed persist.
+          this.ownershipLostError = new FileStoreOwnerConflictError(
+            `file store owner lock for ${this.storageRootPath} was lost: ${reason}`,
+          );
+        },
+      });
     })().catch((error: unknown) => {
       this.ownerLockAcquisition = undefined;
       throw error;
@@ -109,7 +138,8 @@ export class FileStoragePort implements IStoragePort {
    * Release this instance's ownership of the storage root. Safe to call more than once, and safe to
    * call on an instance that never successfully acquired the lock. A later operation on this same
    * instance re-acquires it rather than staying closed forever — `close()` releases ownership, it
-   * does not otherwise disable the instance.
+   * does not otherwise disable the instance (unless it had already been poisoned by losing the lease,
+   * which close() does not clear — that instance is done regardless).
    */
   public async close(): Promise<void> {
     await this.ownerLock?.release();

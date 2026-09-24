@@ -63,13 +63,17 @@ file adapter hydrates before adjudication and persists the changed collection (i
 holds, task success and its snapshot) in one write, and a storage root has exactly one live
 file-adapter owner, enforced by an exclusive lock acquired before any hydration or persistence — a
 second instance opened over an already-owned root fails immediately instead of silently losing the
-live owner's writes, and a lock left by a same-host owner that is no longer running is taken over
-rather than wedging the root; a lock recorded by a different host is never taken over automatically,
-since this host cannot verify whether that owner is still alive. Enforcement is per-root exclusivity,
-not a cross-process or multi-file transaction guarantee: independent instances still do not
-coordinate cached state, they simply cannot both be live over the same root at once. All file
-run/task reads and writes share one operation queue held through
-persistence completion, so a reader cannot observe cancellation, settlement, or a raw mutation
+live owner's writes. Ownership is a renewed lease, not a one-shot claim: the live owner keeps its
+lock fresh on an interval, and a lock whose lease has lapsed is taken over regardless of which host
+or process recorded it, since neither can be verified reliably in general (a recreated host or
+container is not the same live owner just because its lock file still says so). A same-host owner
+found to no longer be running is taken over immediately as a fast path, without waiting out the
+lease. An owner that discovers its own lease was taken over — reclaimed out from under it during a
+long stall — stops accepting further reads and writes rather than continuing unaware as a second,
+unaccounted-for owner. Enforcement is per-root exclusivity, not a cross-process or multi-file
+transaction guarantee: independent instances still do not coordinate cached state, they simply cannot
+both be live over the same root at once. All file run/task reads and writes share one operation queue
+held through persistence completion, so a reader cannot observe cancellation, settlement, or a raw mutation
 before its write completes, and a raw setter cannot flush an unfinished execution commit; raw
 persistence setters still lack execution preconditions, so execution owners must use the
 arbitration contract instead. If run/task persistence fails, all subsequent run/task reads and

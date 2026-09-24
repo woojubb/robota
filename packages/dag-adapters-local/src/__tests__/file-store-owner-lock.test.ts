@@ -1,12 +1,16 @@
 import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import os, { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { FileStoragePort } from '../file-storage-port.js';
-import { FileStoreOwnerConflictError } from '../file-store-owner-lock.js';
+import type { IFileStoragePortOwnerLockOptions } from '../file-storage-port.js';
+import {
+  DEFAULT_LOCK_LEASE_TIMEOUT_MS,
+  FileStoreOwnerConflictError,
+} from '../file-store-owner-lock.js';
 
 import type { IDagRun } from '@robota-sdk/dag-core';
 
@@ -29,6 +33,35 @@ function storageRoot(): string {
   const dir = realpathSync(mkdtempSync(path.join(tmpdir(), 'dag-owner-lock-')));
   dirs.push(dir);
   return dir;
+}
+
+/**
+ * A real fake-timer-driven heartbeat still runs its refresh over REAL fs/promises I/O, so advancing
+ * fake time only fires the `setInterval` callback — it does not itself wait for that callback's real
+ * I/O to finish. `afterRefresh` (a deterministic test hook `FileStoragePort` forwards to the lock) is
+ * what lets a test await one full refresh cycle's actual completion instead of guessing how many
+ * event-loop turns real I/O needs.
+ */
+function withRefreshSignal(
+  options: Omit<IFileStoragePortOwnerLockOptions, 'afterRefresh'>,
+): { options: IFileStoragePortOwnerLockOptions; nextRefresh: () => Promise<void> } {
+  let resolveCurrent: () => void = () => {};
+  let current = new Promise<void>((resolve) => {
+    resolveCurrent = resolve;
+  });
+  return {
+    options: {
+      ...options,
+      afterRefresh: () => {
+        const resolve = resolveCurrent;
+        current = new Promise<void>((nextResolve) => {
+          resolveCurrent = nextResolve;
+        });
+        resolve();
+      },
+    },
+    nextRefresh: () => current,
+  };
 }
 
 function dagRun(overrides: Partial<IDagRun> = {}): IDagRun {
@@ -106,11 +139,17 @@ describe('a storage root has exactly one live file-adapter owner (ISSUE-2875)', 
   it('a lock left by a dead process on this host is taken over instead of wedging the root forever', async () => {
     const root = storageRoot();
     // A pid that is (overwhelmingly likely to be) unused: write a lock file claiming ownership by a
-    // process that does not exist, on this host.
-    const os = await import('node:os');
+    // process that does not exist, on this host. Its lease is fresh (just renewed) — the same-host
+    // dead-pid fast path must still take it over without waiting out the lease timeout.
     writeFileSync(
       path.join(root, '.owner.lock'),
-      JSON.stringify({ pid: 999_999, hostname: os.hostname(), acquiredAt: '2020-01-01T00:00:00.000Z' }),
+      JSON.stringify({
+        pid: 999_999,
+        hostname: os.hostname(),
+        token: 'dead-owner',
+        acquiredAt: '2020-01-01T00:00:00.000Z',
+        refreshedAt: Date.now(),
+      }),
     );
 
     const storage = new FileStoragePort(root);
@@ -121,15 +160,21 @@ describe('a storage root has exactly one live file-adapter owner (ISSUE-2875)', 
     await storage.close();
   });
 
-  it('does not take over a lock recorded on a different host', async () => {
+  it('does not take over a lock recorded on a different host while its lease is fresh', async () => {
     const root = storageRoot();
     writeFileSync(
       path.join(root, '.owner.lock'),
-      JSON.stringify({ pid: 1, hostname: 'some-other-host', acquiredAt: '2020-01-01T00:00:00.000Z' }),
+      JSON.stringify({
+        pid: 1,
+        hostname: 'some-other-host',
+        token: 'other-host-owner',
+        acquiredAt: new Date().toISOString(),
+        refreshedAt: Date.now(),
+      }),
     );
 
     const storage = new FileStoragePort(root);
-    // Liveness cannot be checked across hosts, so this must refuse rather than guess.
+    // Liveness cannot be checked across hosts, so a fresh lease must refuse rather than guess.
     await expect(storage.createDagRun(dagRun())).rejects.toBeInstanceOf(FileStoreOwnerConflictError);
   });
 
@@ -139,6 +184,105 @@ describe('a storage root has exactly one live file-adapter owner (ISSUE-2875)', 
 
     const storage = new FileStoragePort(root);
     await expect(storage.createDagRun(dagRun())).rejects.toBeInstanceOf(FileStoreOwnerConflictError);
+  });
+});
+
+/**
+ * ISSUE-2875 follow-up — staleness by same-host pid liveness alone left two gaps: a container
+ * recreated after `docker stop`/a crash gets a new hostname every time and Node never runs `exit`
+ * handlers on SIGTERM/SIGKILL, so the new container saw an "other-host" lock and was refused forever;
+ * and a reused pid on the same host could make a dead owner's lock look live forever. A heartbeat
+ * lease fixes both: staleness is decided by how long ago the lock was last renewed, regardless of
+ * host or pid, with the same-host dead-pid check kept only as a fast path for immediate takeover.
+ *
+ * These use fake timers so the lease timeout is exercised without a real wait.
+ */
+describe('the owner lock is a heartbeat lease, not a one-shot claim (ISSUE-2875 follow-up)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('a stale-by-age lock on a DIFFERENT host is taken over even though liveness cannot be checked', async () => {
+    const root = storageRoot();
+    const now = Date.now();
+    writeFileSync(
+      path.join(root, '.owner.lock'),
+      JSON.stringify({
+        pid: 1,
+        hostname: 'some-other-host',
+        token: 'other-host-owner',
+        acquiredAt: new Date(now - DEFAULT_LOCK_LEASE_TIMEOUT_MS - 1).toISOString(),
+        // Last renewed just past the lease timeout: this host cannot check that pid's liveness at
+        // all, but the lease itself proves the owner stopped renewing.
+        refreshedAt: now - DEFAULT_LOCK_LEASE_TIMEOUT_MS - 1,
+      }),
+    );
+
+    const storage = new FileStoragePort(root);
+    await expect(storage.createDagRun(dagRun())).resolves.toBeUndefined();
+    await storage.close();
+  });
+
+  it('a live owner keeps renewing its lease, so a second opener stays refused across the lease timeout', async () => {
+    vi.useFakeTimers();
+    const root = storageRoot();
+    const refreshIntervalMs = 1_000;
+    const leaseTimeoutMs = 5_000;
+    const signal = withRefreshSignal({ refreshIntervalMs, leaseTimeoutMs });
+    const a = new FileStoragePort(root, signal.options);
+    await a.createDagRun(dagRun());
+
+    // Advance well past the lease timeout, in refresh-sized steps, awaiting each real refresh cycle's
+    // actual completion so the heartbeat has genuinely renewed the lease by the time this returns.
+    for (let elapsed = 0; elapsed < leaseTimeoutMs * 3; elapsed += refreshIntervalMs) {
+      const refreshed = signal.nextRefresh();
+      await vi.advanceTimersByTimeAsync(refreshIntervalMs);
+      await refreshed;
+    }
+
+    const b = new FileStoragePort(root, { refreshIntervalMs, leaseTimeoutMs });
+    // Against a one-shot lock (or a broken heartbeat) this would now succeed — `a`'s lease would look
+    // stale by age even though `a` is still live.
+    await expect(b.getDagRun('run-1')).rejects.toBeInstanceOf(FileStoreOwnerConflictError);
+    await expect(a.getDagRun('run-1')).resolves.toMatchObject({ dagRunId: 'run-1' });
+
+    await a.close();
+  });
+
+  it('an owner whose lease was taken over refuses further writes instead of continuing as a second owner', async () => {
+    vi.useFakeTimers();
+    const root = storageRoot();
+    const refreshIntervalMs = 1_000;
+    const signal = withRefreshSignal({ refreshIntervalMs, leaseTimeoutMs: 5_000 });
+    const a = new FileStoragePort(root, signal.options);
+    await a.createDagRun(dagRun());
+
+    // Simulate another owner taking the root over while `a` is stalled (e.g. a long GC pause) —
+    // written directly, standing in for a real second owner's atomic takeover.
+    writeFileSync(
+      path.join(root, '.owner.lock'),
+      JSON.stringify({
+        pid: process.pid,
+        hostname: os.hostname(),
+        token: 'a-different-acquisition',
+        acquiredAt: new Date().toISOString(),
+        refreshedAt: Date.now(),
+      }),
+    );
+
+    // `a`'s next heartbeat tick must notice the lock no longer names its own acquisition — wait for
+    // that refresh cycle's actual completion, not just for the timer callback to have fired.
+    const refreshed = signal.nextRefresh();
+    await vi.advanceTimersByTimeAsync(refreshIntervalMs);
+    await refreshed;
+
+    await expect(a.getDagRun('run-1')).rejects.toBeInstanceOf(FileStoreOwnerConflictError);
+    await expect(a.createDagRun(dagRun({ dagRunId: 'run-2' }))).rejects.toBeInstanceOf(
+      FileStoreOwnerConflictError,
+    );
+
+    // The lock file itself must be untouched by `a` from here — it belongs to the new owner now.
+    await a.close();
   });
 });
 
