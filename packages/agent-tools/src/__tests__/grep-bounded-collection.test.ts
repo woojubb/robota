@@ -73,14 +73,12 @@ describe('Grep tool surfaces enumeration truncation', () => {
       for (let i = 0; i < 5; i++) {
         writeFileSync(join(root, `f-${i}.txt`), 'nothing to see\n');
       }
-      // Force the tool's real call site to hit a tiny ceiling by stubbing collectFiles's default via
-      // a direct spy on the module export is not possible for a same-module default parameter, so we
-      // instead assert the true default ceiling never fires here (sanity) and rely on the unit test
-      // above for the bound itself; this test only checks the output-shape contract when truncated.
+      // The walk bound itself is covered above; this checks only the truncated output shape.
       const grepSearch = await import('../builtins/grep-search.js');
-      const spy = vi
-        .spyOn(grepSearch, 'collectFiles')
-        .mockResolvedValue({ files: [join(root, 'f-0.txt')], truncated: true });
+      vi.spyOn(grepSearch, 'collectFiles').mockResolvedValue({
+        files: [join(root, 'f-0.txt')],
+        truncated: true,
+      });
 
       const tool = createGrepTool({ cwd: root });
       const wrapper = await tool.execute({ pattern: 'nothing', path: root, outputMode: 'content' });
@@ -91,9 +89,8 @@ describe('Grep tool surfaces enumeration truncation', () => {
       };
       expect(parsed.success).toBe(true);
       expect(parsed.output).toContain('File enumeration stopped early');
-
-      spy.mockRestore();
     } finally {
+      vi.restoreAllMocks();
       rmSync(root, { recursive: true, force: true });
     }
   });
