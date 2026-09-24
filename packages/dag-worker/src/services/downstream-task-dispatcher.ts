@@ -113,10 +113,11 @@ async function dispatchSingleDownstreamNode(
   if (!nextPayloadResult.ok) {
     return nextPayloadResult;
   }
-  const nextPayload: TPortPayload = downstreamNode.timeoutMs
-    ? { ...nextPayloadResult.value, timeoutMs: downstreamNode.timeoutMs }
-    : nextPayloadResult.value;
-
+  // A node's timeoutMs never rides the payload: the worker resolves the attempt timeout from the
+  // claimed node definition (see WorkerLoopService.resolveTimeoutMs), not from message content.
+  // Putting it in the payload would hand it to the node as an ordinary input value — leaking into
+  // an empty-input port list, an `_agentSummary`, or shadowing a real input field named
+  // `timeoutMs`.
   const nextMessage: IQueueMessage = {
     messageId: `${nextTaskRunId}:message:1`,
     dagRunId: dagRun.dagRunId,
@@ -130,7 +131,7 @@ async function dispatchSingleDownstreamNode(
       `taskRunId:${nextTaskRunId}`,
       'attempt:1',
     ],
-    payload: nextPayload,
+    payload: nextPayloadResult.value,
     createdAt: clock.nowIso(),
   };
 
