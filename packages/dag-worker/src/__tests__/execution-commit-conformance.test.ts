@@ -1,3 +1,4 @@
+import { TaskSnapshotBudget } from '@robota-sdk/dag-core';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -68,6 +69,29 @@ async function fixture(
 }
 
 describe.each(['memory', 'file', 'sqlite'])('%s execution arbitration', (kind) => {
+  it('releases rejected cancelled/stale snapshot reservations for a live sibling', async () => {
+    const { storage } = await fixture(kind);
+    const sibling = await fixture(kind);
+    const budget = new TaskSnapshotBudget({ inputBytes: 2, outputBytes: 2 });
+    const mutation: TExecutionCommit = { ...success, outputSnapshot: '{}' };
+    expect(await budget.admit('output', '{}', () => storage.commitExecution('run', { ...mutation, attempt: 2 }))).toMatchObject({ ok: true, value: { applied: false } });
+    await storage.commitExecution('run', cancellation);
+    expect(await budget.admit('output', '{}', () => storage.commitExecution('run', mutation))).toMatchObject({ ok: true, value: { applied: false } });
+    expect(await budget.admit('output', '{}', () => sibling.storage.commitExecution('run', mutation))).toMatchObject({ ok: true, value: { applied: true } });
+    expect((await sibling.reopen().getTaskRun('task'))?.outputSnapshot).toBe('{}');
+  });
+
+  it('admits input snapshots only for the current live attempt and persists them', async () => {
+    const { storage, reopen } = await fixture(kind);
+    const mutation: TExecutionCommit = { kind: 'snapshot-input', taskRunId: 'task', attempt: 1, leaseOwner: 'worker', inputSnapshot: '{"text":"first"}' };
+    expect(await storage.commitExecution('run', mutation)).toMatchObject({ applied: true });
+    expect((await reopen().getTaskRun('task'))?.inputSnapshot).toBe('{"text":"first"}');
+    expect(await storage.commitExecution('run', { ...mutation, attempt: 2, inputSnapshot: 'stale' })).toMatchObject({ applied: false });
+    await storage.commitExecution('run', cancellation);
+    expect(await storage.commitExecution('run', { ...mutation, inputSnapshot: 'late' })).toMatchObject({ applied: false });
+    expect((await reopen().getTaskRun('task'))?.inputSnapshot).toBe('{"text":"first"}');
+  });
+
   it('commits cancellation before a late result, with no output or credits after reopening', async () => {
     const { storage, reopen } = await fixture(kind);
     const [cancelled, settled] = await Promise.all([

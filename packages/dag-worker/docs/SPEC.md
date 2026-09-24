@@ -120,7 +120,7 @@ This is cooperative interruption, not CPU preemption or a guarantee that executo
 finished. An executor ignoring its signal can continue side effects after timeout, including while
 an eligible retry runs. Synchronous work can still block the timer. Same-process run cancellation
 also aborts active attempt signals; cross-process notification, root-owned descendant cancellation,
-and shared budgets remain unfinished work under #2875.
+and generation-time shared budgets remain unfinished work under #2875.
 
 ### Queue-scoped advancement ownership (RUNTIME-003)
 
@@ -160,7 +160,7 @@ later and are handled by the existing cancelled-run admission checks.
 
 Finalization and cancellation arbitrate atomically, so an awaited read cannot resurrect a cancelled
 run. Active local attempts receive a cooperative abort after cancellation commits; executor
-cleanup, nested cancellation and root aggregate budgets remain separate work.
+cleanup, nested execution cancellation and generation-time root budgets remain separate work.
 
 A task-free execution frontier is not sufficient for completion: for runs with a definition
 snapshot, ready nodes not yet admitted also keep the run running. This covers a sibling finishing
@@ -178,3 +178,13 @@ The worker snapshots the host's execution byte limits at construction and passes
 task's lifecycle context. Queue and definition data cannot raise these limits. The initial ceiling
 is enforced by `text-repeat` before expansion; the worker does not count aggregate root bytes or
 claim to bound arbitrary executor allocations.
+
+## Task snapshot admission
+
+When a shared root snapshot authority is supplied, input persistence is admitted before executor
+entry and output persistence before success publication or downstream dispatch. An input snapshot
+uses current run, attempt and lease ownership in the storage commit rather than a raw setter.
+Budget exhaustion is a non-retryable task failure; rejected stale/cancelled writes consume no
+allowance. Accepted input remains charged if execution subsequently fails. Persistence exceptions
+retain capacity and close the root authority, while preserving the storage failure. Raw storage
+setters and lower-level workers without an injected authority do not provide aggregate accounting.

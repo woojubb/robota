@@ -1,3 +1,4 @@
+import { TaskSnapshotBudget } from '@robota-sdk/dag-core';
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -335,4 +336,21 @@ it('retains hydration retry after initialization fails before any state mutation
   await expect(storage.getDagRun('missing')).rejects.toThrow();
   await rm(join(root, 'runs'));
   await expect(storage.getDagRun('missing')).resolves.toBeUndefined();
+});
+
+
+it('closes a shared root snapshot budget when a child storage write fails', async () => {
+  const root = await mkdtemp(join(tmpdir(), 'dag-budget-durability-'));
+  directories.push(root);
+  const storage = new FileStoragePort(root);
+  await storage.createDagRun({ dagRunId: 'child', dagId: 'dag', version: 1, status: 'running', runKey: 'key', logicalDate: '2026-09-24', trigger: 'manual' });
+  await storage.createTaskRun({ taskRunId: 'task', dagRunId: 'child', nodeId: 'n', status: 'running', attempt: 1, leaseOwner: 'worker' });
+  const budget = new TaskSnapshotBudget({ inputBytes: 100, outputBytes: 100 });
+  vi.mocked(writeFile).mockRejectedValueOnce(new Error('durability failure'));
+  await expect(budget.admit('output', '{}', () => storage.commitExecution('child', {
+    kind: 'settle', taskRunId: 'task', attempt: 1, leaseOwner: 'worker', status: 'success', outputSnapshot: '{}',
+  }))).rejects.toThrow('durability failure');
+  const siblingWrite = vi.fn(async () => ({ applied: true }));
+  expect(await budget.admit('input', '{}', siblingWrite)).toMatchObject({ ok: false, error: { code: 'DAG_TASK_SNAPSHOT_BUDGET_CLOSED' } });
+  expect(siblingWrite).not.toHaveBeenCalled();
 });

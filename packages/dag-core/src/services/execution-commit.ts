@@ -11,6 +11,7 @@ import type { IDagError } from '../types/error.js';
 
 /** An execution mutation whose preconditions and writes share one storage transaction. */
 export type TExecutionCommit =
+  | { kind: 'snapshot-input'; taskRunId: string; attempt: number; leaseOwner: string; inputSnapshot: string }
   | {
       kind: 'transition-run';
       expectedStatus: TDagRunStatus;
@@ -130,6 +131,10 @@ export function decideExecutionCommit(
       leaseUntil: undefined,
     };
     return { taskRun, result: { applied: false, runStatus: run.status, taskRun } };
+  }
+  if (mutation.kind === 'snapshot-input') {
+    const taskRun = { ...task, inputSnapshot: mutation.inputSnapshot };
+    return { taskRun, result: { applied: true, runStatus: run.status, taskRun } };
   }
   const transition = TaskRunStateMachine.transition(
     task.status,

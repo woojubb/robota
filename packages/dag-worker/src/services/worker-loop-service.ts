@@ -1,5 +1,6 @@
 import {
   TaskRunStateMachine,
+  type ITaskSnapshotBudget,
   resolveDagExecutionByteLimits,
   type IDagExecutionByteLimits,
   buildValidationError,
@@ -72,6 +73,7 @@ export class WorkerLoopService {
     private readonly options: IWorkerLoopOptions,
     private readonly runProgressEventReporter?: IRunProgressEventReporter,
     byteLimits?: IDagExecutionByteLimits,
+    private readonly snapshotBudget?: ITaskSnapshotBudget,
   ) {
     this.executionRoot = resolveTrustedExecutionRoot(executionRoot);
     this.byteLimits = resolveDagExecutionByteLimits(byteLimits);
@@ -89,6 +91,7 @@ export class WorkerLoopService {
       this.clock,
       this.options,
       this.runProgressEventReporter,
+      this.snapshotBudget,
     );
     return this.outcomesInstance;
   }
@@ -155,6 +158,17 @@ export class WorkerLoopService {
     if (dagRun.status === 'cancelled') {
       return this.settleCancelledRunMessage(message);
     }
+
+    const snapshot = JSON.stringify(claimed.payload);
+    const persistInput = () => this.storage.commitExecution(claimed.dagRunId, {
+      kind: 'snapshot-input', taskRunId: claimed.taskRunId, attempt: claimed.attempt,
+      leaseOwner: this.options.workerId, inputSnapshot: snapshot,
+    });
+    const admission = this.snapshotBudget
+      ? await this.snapshotBudget.admit('input', snapshot, persistInput)
+      : { ok: true as const, value: await persistInput() };
+    if (!admission.ok) return this.outcomes.handleFailurePath(claimed, claimed.taskRunId, admission.error);
+    if (!admission.value.applied) return successAfterAck(this.queue, message.messageId, claimed.taskRunId, false);
 
     const input = await this.buildExecutionInput(claimed, dagRun, definition, nodeDefinition);
     // Registration precedes the final persisted read, closing its stale-snapshot race.
@@ -228,6 +242,7 @@ export class WorkerLoopService {
     return {
       executionRoot: this.executionRoot,
       byteLimits: this.byteLimits,
+      snapshotBudget: this.snapshotBudget,
       dagId: dagRun.dagId,
       dagRunId: message.dagRunId,
       taskRunId: message.taskRunId,

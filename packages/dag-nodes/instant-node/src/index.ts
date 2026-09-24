@@ -242,6 +242,7 @@ export interface ICompositeSubRunner {
     dag: import('@robota-sdk/dag-core').IDagDefinition,
     input: TPortPayload,
     lineage: IDagExecutionLineage,
+    capabilities?: Pick<INodeExecutionContext, 'snapshotBudget' | 'byteLimits'>,
   ): Promise<{
     ok: boolean;
     outputs: Record<string, TPortPayload>;
@@ -428,7 +429,9 @@ export class CompositeInstantNodeDefinition
 
     try {
       // allow-fallback: sub-DAG execution errors are caught and surfaced as structured Result
-      const result = await this.spec.runner.run(this.spec.innerDag, subInput, childLineage);
+      const result = await this.spec.runner.run(this.spec.innerDag, subInput, childLineage, {
+        snapshotBudget: context.snapshotBudget, byteLimits: context.byteLimits,
+      });
       if (!result.ok) {
         return {
           ok: false,

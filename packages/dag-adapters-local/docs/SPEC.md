@@ -75,3 +75,8 @@ The queue orders storage operations, not multi-operation domain transactions. Ra
 setters still lack execution preconditions; execution owners use the arbitration contract. The
 queue coexists with per-path collection writers and does not make separate collection files a
 crash-atomic unit.
+
+Task input snapshot admission also checks current run, attempt and lease ownership in the execution
+commit. A caller's shared live snapshot reservation is settled only after that commit resolves;
+file persistence rejection remains ambiguous to the caller and must not refund capacity. The
+adapter does not persist or reconstruct an aggregate root budget.
