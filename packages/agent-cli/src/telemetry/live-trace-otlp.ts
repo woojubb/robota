@@ -1,4 +1,4 @@
-import { context, trace, SpanKind, SpanStatusCode } from '@opentelemetry/api';
+import { ROOT_CONTEXT, trace, SpanKind, SpanStatusCode } from '@opentelemetry/api';
 import { ExportResultCode } from '@opentelemetry/core';
 import { ProtobufTraceSerializer } from '@opentelemetry/otlp-transformer';
 import { resourceFromAttributes } from '@opentelemetry/resources';
@@ -72,6 +72,9 @@ async function sendBatch(batch: ILivePromptTraceBatch, endpoint: string): Promis
           signal: AbortSignal.timeout(5000),
         });
         if (response.status !== 200) throw new Error('OTLP collector rejected traces.');
+        if (!response.headers.get('content-type')?.startsWith('application/x-protobuf')) {
+          throw new Error('OTLP collector returned the wrong response type.');
+        }
         const chunks: Uint8Array[] = [];
         let length = 0;
         if (response.body) {
@@ -82,11 +85,8 @@ async function sendBatch(batch: ILivePromptTraceBatch, endpoint: string): Promis
           }
         }
         if (length > 0) {
-          if (!response.headers.get('content-type')?.startsWith('application/x-protobuf')) {
-            throw new Error('OTLP collector returned the wrong response type.');
-          }
           const decoded = ProtobufTraceSerializer.deserializeResponse(Buffer.concat(chunks));
-          if ((decoded.partialSuccess?.rejectedSpans ?? 0) > 0 || decoded.partialSuccess?.errorMessage) {
+          if ((decoded.partialSuccess?.rejectedSpans ?? 0) > 0) {
             throw new Error('OTLP collector partially rejected traces.');
           }
         }
@@ -128,8 +128,8 @@ async function sendBatch(batch: ILivePromptTraceBatch, endpoint: string): Promis
         'robota.omitted.provider_count': batch.omittedChildren.provider,
         'robota.omitted.tool_count': batch.omittedChildren.tool,
       },
-    });
-    const parent = trace.setSpan(context.active(), root);
+    }, ROOT_CONTEXT);
+    const parent = trace.setSpan(ROOT_CONTEXT, root);
     for (const child of batch.children) {
       const span = tracer.startSpan(child.kind === 'provider' ? 'robota.provider_call' : 'robota.tool_body', {
         kind: SpanKind.INTERNAL,
@@ -195,4 +195,13 @@ export function createNodeOtlpLiveTracePort(options: INodeOtlpLiveTraceOptions):
       while (worker) await worker;
     },
   };
+}
+
+/** The CLI's explicit config-to-runtime boundary, shared by every Node presentation. */
+export function createConfiguredNodeOtlpLiveTracePort(
+  env: Readonly<Record<string, string | undefined>>,
+  onFailure?: INodeOtlpLiveTraceOptions['onFailure'],
+): INodeOtlpLiveTracePort | undefined {
+  const endpoint = resolveNodeOtlpLiveTraceEndpoint(env);
+  return endpoint ? createNodeOtlpLiveTracePort({ endpoint, ...(onFailure ? { onFailure } : {}) }) : undefined;
 }

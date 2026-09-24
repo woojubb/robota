@@ -45,7 +45,7 @@ import {
 } from './product/robota-plumbing.js';
 import { createRemoteControlController } from './remote-control/index.js';
 import { createCliUsageTransportRegistry } from './usage/usage-transport-registry.js';
-import { createNodeOtlpLiveTracePort, resolveNodeOtlpLiveTraceEndpoint } from './telemetry/live-trace-otlp.js';
+import { createConfiguredNodeOtlpLiveTracePort } from './telemetry/live-trace-otlp.js';
 import {
   createRobotaPackSet,
   createRobotaSubagentRunnerFactory,
@@ -595,11 +595,10 @@ async function runCliCore(
     args.screenReader,
     process.env,
   );
-  const liveTraceEndpoint = resolveNodeOtlpLiveTraceEndpoint(process.env);
-  const livePromptTracePort = liveTraceEndpoint ? createNodeOtlpLiveTracePort({
-    endpoint: liveTraceEndpoint,
-    onFailure: () => process.stderr.write('Robota trace export failed.\n'),
-  }) : undefined;
+  const livePromptTracePort = createConfiguredNodeOtlpLiveTracePort(
+    process.env,
+    () => process.stderr.write('Robota trace export failed.\n'),
+  );
 
   // GOAL-001: --goal runs an autonomous headless goal even without an explicit -p.
   if (args.printMode || args.goal) {

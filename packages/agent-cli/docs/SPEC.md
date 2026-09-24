@@ -79,18 +79,15 @@ and a stop, rename, or PR-association request acts only
 through the live owner's control endpoint, failing explicitly rather than guessing when ownership or
 completion cannot be established. Attach, peek, and automatic restart are not offered, and the
 transport's per-launch authentication token is never exposed through the control endpoint or
-inventory. `usage export` is explicit and local-only: it reads the same authorized user and project session
-stores as local usage reporting and sends aggregate usage data, or — when the
-trace signal is explicitly selected — verified execution records with content-free call/tool-body
-children, exclusively to a caller-named loopback OTLP collector; an explicitly selected logs signal
-sends only content-free completion snapshots and never the session replay log. None of these exports
-transcript, tool names, session identity, or provider/model labels, none auto-exports, and each fails
-visibly rather than silently on an incomplete store or partial collector rejection.
-The separate live trace path is off unless the Robota host explicitly enables it with a selected
-signal, protocol, and validated destination. It may export bounded, content-free prompt/provider/tool
-spans with session/turn correlation and safe provider/model metadata; it never reads ambient OpenTelemetry
-credentials or allows delivery failure to change a turn result. A live trace is not a replay of stored
-usage, and it does not assert live metrics or logs.
+inventory. Observability has two independently gated paths. `usage export` is an explicit,
+local-only action over the same authorized stores as local usage reporting: its aggregate usage,
+verified content-free execution traces, or completion snapshots go only to a caller-named loopback
+collector, never including transcript, tool names, session identity, or provider/model labels.
+It fails visibly on an incomplete store or collector rejection and never auto-exports. The separate
+live Node trace path requires a Robota-owned enable switch, selected signal and protocol, and
+validated destination; it sends bounded, content-free prompt/provider/tool spans with session/turn
+correlation and safe provider/model metadata. It does not replay stored usage, read ambient
+OpenTelemetry credentials, claim live metrics/logs, or let delivery failure change a turn result.
 
 Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`); it accepts
 `commandModules` and registers them generically with the SDK registry.
