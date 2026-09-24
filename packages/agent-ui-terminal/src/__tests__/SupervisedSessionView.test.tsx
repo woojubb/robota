@@ -30,8 +30,8 @@ describe('supervised session view', () => {
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
       expect(view.lastFrame()).not.toContain('/projects/alpha');
       view.stdin.write('g');
-      await vi.waitFor(() => expect(view.lastFrame()).toContain('Directory: /projects/alpha'));
-      expect(view.lastFrame()).toContain('Directory: /projects/beta');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Directory 1: alpha — /projects/alpha'));
+      expect(view.lastFrame()).toContain('Directory 2: beta — /projects/beta');
       expect(view.lastFrame()).toContain('Directory: unverified');
       expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`);
       view.stdin.write('g');
@@ -51,7 +51,7 @@ describe('supervised session view', () => {
     try {
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
       view.stdin.write('g');
-      await vi.waitFor(() => expect(view.lastFrame()).toContain('Directory: /projects/alpha'));
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Directory 1: alpha — /projects/alpha'));
       expect(view.lastFrame()).toContain('Directory: unverified');
       expect(view.lastFrame()).toContain('Enter selection (1-2)');
       view.stdin.write('?');
@@ -70,8 +70,25 @@ describe('supervised session view', () => {
       view.stdout.emit('resize');
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id.slice(0, 8)}`));
       view.stdin.write('g');
-      await vi.waitFor(() => expect(view.lastFrame()).toContain('Directory:'));
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Directory 1:'));
       expect((view.lastFrame() ?? '').split('\n').length).toBeLessThanOrEqual(24);
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('distinguishes directory groups with a shared prefix in a narrow terminal', async () => {
+    const view = render(<SupervisedSessionView loadRows={async () => [
+      { ...FIRST, cwd: '/projects/alpha' },
+      { ...THIRD, cwd: '/projects/beta' },
+    ]} />);
+    try {
+      Object.defineProperty(view.stdout, 'columns', { value: 20 });
+      view.stdout.emit('resize');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('2 supervised'));
+      view.stdin.write('g');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Directory 1: alpha'));
+      expect(view.lastFrame()).toContain('Directory 2: beta');
     } finally {
       view.unmount();
     }

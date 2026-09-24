@@ -52,6 +52,10 @@ function sortedDirectoryRows(rows: readonly ISupervisedViewRow[]): readonly ISup
     GROUP_ORDER.indexOf(groupOf(a)) - GROUP_ORDER.indexOf(groupOf(b)) || a.id.localeCompare(b.id));
 }
 
+function directoryName(cwd: string): string {
+  return cwd.split(/[\\/]/u).filter(Boolean).at(-1) ?? cwd;
+}
+
 function sameRows(a: readonly ISupervisedViewRow[], b: readonly ISupervisedViewRow[]): boolean {
   return a.length === b.length && a.every((row, index) => {
     const other = b[index];
@@ -101,9 +105,16 @@ export default function SupervisedSessionView({
   const displayLines = useMemo((): readonly TDisplayLine[] => {
     const lines: TDisplayLine[] = [];
     let previousGroup: string | undefined;
+    let directoryNumber = 0;
     ordered.forEach((row, index) => {
-      const group = groupByDirectory ? `Directory: ${row.cwd ?? 'unverified'}` : `${groupOf(row)}:`;
-      if (group !== previousGroup) lines.push({ kind: 'group', label: group });
+      const group = groupByDirectory ? row.cwd ?? 'unverified' : groupOf(row);
+      if (group !== previousGroup) {
+        const label = groupByDirectory
+          ? row.cwd === undefined ? 'Directory: unverified'
+            : `Directory ${++directoryNumber}: ${directoryName(row.cwd)} — ${row.cwd}`
+          : `${group}:`;
+        lines.push({ kind: 'group', label });
+      }
       lines.push({ kind: 'row', row, index });
       previousGroup = group;
     });
