@@ -238,7 +238,7 @@ describe('Session compaction', () => {
     ];
 
     // run() should trigger auto-compact at the START (before processing the message)
-    await session.run('next question');
+    await session.run('next question', undefined, { toolChoice: 'none' });
 
     // compact was triggered: history was cleared, system message + summary injected
     expect(mockClearCount).toBeGreaterThanOrEqual(1);
@@ -246,6 +246,7 @@ describe('Session compaction', () => {
     expect(mockInjectCalls[0].role).toBe('system');
     expect(mockInjectCalls[1].role).toBe('assistant');
     expect(mockInjectCalls[1].content).toContain('[Context Summary]');
+    expect(providerChatCalls[0]?.options).toMatchObject({ toolChoice: 'none' });
 
     // The user's message was still processed (robota.run called)
     expect(mockRunCalls).toContain('next question');

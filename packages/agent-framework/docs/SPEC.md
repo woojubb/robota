@@ -158,6 +158,9 @@ These are behaviors a caller cannot infer from a type signature alone.
   successful reply. External admission and `bypassPermissions` are
   mutually exclusive throughout active and already-admitted work, not only at startup. This SDK
   ingress is not yet an MCP adapter or a remote permission-approval channel.
+- **Automatic session naming is text-only.** Its separate provider call may be triggered by the
+  first external event as well as by an operator message, so it always selects `toolChoice: none`;
+  the provider's configured hosted web tools cannot be used merely to generate a title.
 - **Hook executor registration is replace-vs-extend, and the built-ins are seeded first.** The core
   hook runner resolves `executors ?? createDefaultExecutors()` — an _undefined-only_ fallback, so
   supplying any executor array at all replaces the built-in `command`/`http` executors rather than

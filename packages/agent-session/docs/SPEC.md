@@ -254,6 +254,9 @@ person is never shown "no history" when history could not actually be read.
 
 ### Compaction
 
+- The summarization provider call is text-only (`toolChoice: none`) for manual and automatic
+  compaction, regardless of the next turn's tool policy. Provider-hosted web tools must not run
+  while summarizing session history.
 - The project-context system message is preserved across compaction — it is excluded from the
   summarization input, and re-injected (ahead of the generated summary) after history is
   cleared, so the model does not lose awareness of its working directory, rules, and tools after
