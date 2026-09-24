@@ -105,6 +105,7 @@ describe('robota doctor route (OBSERVABILITY-1991 TC-01)', () => {
       expect(code).toBe(0);
       const text = lines.join('\n');
       expect(text).toContain(`robota ${name}`);
+      expect(text).toContain('robota may work');
       outputs.push(text.replace(`robota ${name}`, 'robota <name>'));
     }
     expect(

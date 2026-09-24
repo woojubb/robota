@@ -19,7 +19,9 @@ export function createForkCommandEntry(): ICommand {
   };
 }
 
-function createForkSystemCommand(): ISystemCommand {
+function createForkSystemCommand(
+  formatResumeCommand?: (sessionId: string) => string,
+): ISystemCommand {
   const entry = createForkCommandEntry();
   return {
     name: entry.name,
@@ -32,7 +34,7 @@ function createForkSystemCommand(): ISystemCommand {
     ...(entry.argumentHint !== undefined ? { argumentHint: entry.argumentHint } : {}),
     // `ICommandHostContext` aggregates both role ports `/fork` declares, so the narrowing is the
     // parameter's own type — no assertion, and a role the command stops satisfying is a build error.
-    execute: (context, args) => executeForkCommand(context, args),
+    execute: (context, args) => executeForkCommand(context, args, formatResumeCommand),
   };
 }
 
@@ -44,11 +46,13 @@ export class ForkCommandSource implements ICommandSource {
   }
 }
 
-export function createForkCommandModule(): ICommandModule {
+export function createForkCommandModule(
+  formatResumeCommand?: (sessionId: string) => string,
+): ICommandModule {
   return {
     name: 'agent-command-fork',
     commandSources: [new ForkCommandSource()],
-    systemCommands: [createForkSystemCommand()],
+    systemCommands: [createForkSystemCommand(formatResumeCommand)],
     // A fork is a background agent job resuming a session record; a host with no agent runtime has
     // neither half, so the command is not offered rather than offered and refused.
     sessionRequirements: ['agent-runtime'],

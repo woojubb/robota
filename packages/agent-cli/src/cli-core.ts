@@ -33,6 +33,7 @@ import { resolveOutputStyle, selectOutputStyleId } from './startup/output-style-
 import type { IPreset } from '@robota-sdk/agent-preset';
 import { bindAssembledCollaborators } from './product/assembled-collaborators.js';
 import { createRobotaProfile } from './product/robota-profile.js';
+import { formatRobotaResumeCommand } from './product/robota-command-vocabulary.js';
 import { createRobotaKeybindingsOptions } from './product/robota-keybindings.js';
 import { ROBOTA_TASK_CONTEXT } from './product/robota-task-context.js';
 import {
@@ -798,7 +799,7 @@ async function runCliCore(
       reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
       userSettingsPath: robotaUserSettingsPath(),
       settingsSources: createRobotaUserSettingsSources(),
-      formatResumeCommand: (sessionId) => `robota --resume ${sessionId}`,
+      formatResumeCommand: formatRobotaResumeCommand,
     }),
     reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
     keybindingsSource,
