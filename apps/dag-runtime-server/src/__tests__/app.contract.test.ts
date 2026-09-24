@@ -56,6 +56,47 @@ describe('dag-runtime-server contract', () => {
     expect(input).not.toHaveProperty('defaultInputPort');
   });
 
+  it('cancels a prepared run through the HTTP lifecycle and reports missing runs', async () => {
+    const created = await framework.runs.createRun({
+      definition: {
+        dagId: 'cancel-over-http',
+        version: 1,
+        status: 'published',
+        nodes: [{ nodeId: 'in', nodeType: 'input', dependsOn: [], config: { text: 'hello' } }],
+        edges: [],
+      },
+      input: {},
+    });
+    if (!created.ok) throw new Error('Expected a prepared run');
+
+    const path = `/v1/dag/runs/${created.value.dagRunId}/cancel`;
+    const response = await app.request(path, { method: 'POST' });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      ok: true,
+      status: 200,
+      data: { dagRunId: created.value.dagRunId, status: 'cancelled' },
+    });
+    const stored = await framework.runs.getRun(created.value.dagRunId);
+    expect(stored.ok && stored.value.dagRun.status).toBe('cancelled');
+
+    const repeated = await app.request(path, { method: 'POST' });
+    expect(repeated.status).toBe(400);
+    expect(await repeated.json()).toMatchObject({
+      ok: false,
+      status: 400,
+      errors: [{ code: 'DAG_STATE_TRANSITION_INVALID' }],
+    });
+
+    const missing = await app.request('/v1/dag/runs/absent/cancel', { method: 'POST' });
+    expect(missing.status).toBe(404);
+    expect(await missing.json()).toMatchObject({
+      ok: false,
+      status: 404,
+      errors: [{ code: 'DAG_VALIDATION_DAG_RUN_NOT_FOUND' }],
+    });
+  });
+
   it('GET /v1/dag/definitions returns a successful response', async () => {
     const res = await app.request('/v1/dag/definitions');
     expect(res.status).toBe(200);

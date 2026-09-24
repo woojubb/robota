@@ -18,6 +18,9 @@ mapping and the server entrypoint.
 
 `createDagRuntimeServer(runs, costMeta, runDrafts, build, validation, catalog, definitionReads, definitionMutations, progressSource?, assets?)` returns a Hono app. Route handlers parse path/query/body, call domain capabilities, and map results to the existing HTTP envelopes. Run preparation retains its implicit definition create/publish behavior, while the server chooses the public response for each failure phase. Build validation failures answer 400;
 definition validation findings remain a successful 200 response with `valid: false` and `errors`.
+Run cancellation delegates to the in-process lifecycle's committed-state decision: a winning
+cancel answers 200 with the cancelled run identity, a missing run answers 404, and an invalid
+terminal transition answers a problem response without rewriting the winner.
 The definition-read, definition-mutation, build, validation, and catalog capabilities are required at server construction. Run-draft request JSON is decoded before calling
 `IRunDraftOperationsPort`; an invalid field returns 400, a missing draft 404, a storage failure 500
 without internal details, and create returns 201. The reset route is `POST`.
@@ -54,6 +57,7 @@ the worker loop, and serves the app via `@hono/node-server`.
 | `POST /v1/dag/definitions/:dagId/publish`              | `publishDefinition`                 |
 | `POST /v1/dag/runs`                                    | `createRun`                         |
 | `POST /v1/dag/runs/:id/start`                          | `startRun`                          |
+| `POST /v1/dag/runs/:id/cancel`                         | `cancelRun`                         |
 | `GET /v1/dag/runs/:id`                                 | `getRunStatus`                      |
 | `GET /v1/dag/runs/:id/result`                          | `getRunResult`                      |
 | `POST /v1/dag/definitions/:dagId/start`                | `startPublishedWorkflowRun`         |

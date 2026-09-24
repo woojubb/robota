@@ -249,14 +249,11 @@ export class HttpDagRuntimeProvider implements IDetachableRunProvider {
     return status;
   }
 
-  public cancelRun(_runId: string): Promise<void> {
-    // The orchestration surface exposes no run-cancel endpoint yet; surface that plainly rather than
-    // pretend success.
-    return Promise.reject(
-      new Error(
-        'cancelRun is not supported by the HTTP runtime provider (no server cancel endpoint)',
-      ),
-    );
+  public async cancelRun(runId: string): Promise<void> {
+    const response = await this.client.cancelRun(runId);
+    if (!response.ok) {
+      throw new Error(`cancelRun failed (HTTP ${response.status})`);
+    }
   }
 
   public listRuns(_options?: IListRunsOptions): Promise<IDagRunSummary[]> {

@@ -126,6 +126,10 @@ export class DagOrchestrationHttpClient
     return this.request(`/v1/dag/runs/${encodeURIComponent(preparationId)}/start`, 'POST', {});
   }
 
+  public async cancelRun(dagRunId: string): Promise<IDagOrchestrationHttpResponse> {
+    return this.request(`/v1/dag/runs/${encodeURIComponent(dagRunId)}/cancel`, 'POST', {});
+  }
+
   public async getRunStatus(dagRunId: string): Promise<IDagOrchestrationHttpResponse> {
     return this.request(`/v1/dag/runs/${encodeURIComponent(dagRunId)}`, 'GET');
   }

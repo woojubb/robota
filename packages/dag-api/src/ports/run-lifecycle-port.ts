@@ -1,6 +1,7 @@
 import type { IDagDefinition, IDagError, TPortPayload, TResult } from '@robota-sdk/dag-core';
 import type {
   IRuntimeCreateRunResult,
+  IRuntimeRunCancelResult,
   IRuntimeRunReadResult,
   IRuntimeStartRunResult,
 } from './controller-service-ports.js';
@@ -20,6 +21,7 @@ export interface IDagRunLifecyclePort {
   createRun(input: IPrepareRunInput): Promise<TResult<IRuntimeCreateRunResult, TPrepareRunError>>;
   startRun(preparationId: string): Promise<TResult<IRuntimeStartRunResult, IDagError>>;
   getRun(dagRunId: string): Promise<TResult<IRuntimeRunReadResult, IDagError>>;
+  cancelRun(dagRunId: string): Promise<TResult<IRuntimeRunCancelResult, IDagError>>;
   startPublishedWorkflowRun(
     dagId: string,
     input?: TPortPayload,

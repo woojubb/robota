@@ -8,6 +8,7 @@ import type {
   IDagRunLifecyclePort,
   IPrepareRunInput,
   IRuntimeCreateRunResult,
+  IRuntimeRunCancelResult,
   IRuntimeRunReadResult,
   IRuntimeStartRunResult,
   TPrepareRunError,
@@ -65,6 +66,10 @@ export class DagFrameworkRunLifecycle implements IDagRunLifecyclePort {
 
   getRun(dagRunId: string): Promise<TResult<IRuntimeRunReadResult, IDagError>> {
     return this.execution.runQuery.getRun(dagRunId);
+  }
+
+  cancelRun(dagRunId: string): Promise<TResult<IRuntimeRunCancelResult, IDagError>> {
+    return this.execution.runCancel.cancelRun(dagRunId);
   }
 
   startPublishedWorkflowRun(

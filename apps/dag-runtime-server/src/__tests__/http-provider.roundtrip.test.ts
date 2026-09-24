@@ -87,8 +87,17 @@ describe('HttpDagRuntimeProvider round-trip against the in-process server', () =
     expect(status.result?.ok).toBe(true);
   });
 
-  it('rejects unsupported detachable operations rather than faking success', async () => {
-    await expect(provider.cancelRun('run-x')).rejects.toThrow(/not supported/);
+  it('cancels a prepared run over HTTP and rejects a missing run', async () => {
+    const prepared = await framework.runs.createRun({ definition: SINGLE_INPUT_DEFINITION, input: {} });
+    if (!prepared.ok) throw new Error('Expected a prepared run');
+
+    await provider.cancelRun(prepared.value.dagRunId);
+    const status = await provider.getRunStatus(prepared.value.dagRunId);
+    expect(status.phase).toBe('cancelled');
+    await expect(provider.cancelRun('run-x')).rejects.toThrow(/HTTP 404/);
+  });
+
+  it('rejects unsupported run listing rather than faking an empty result', async () => {
     await expect(provider.listRuns()).rejects.toThrow(/not supported/);
   });
 });
