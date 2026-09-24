@@ -19,6 +19,64 @@ const THIRD: ISupervisedViewRow = {
 };
 
 describe('supervised session view', () => {
+  it('toggles verified directory grouping without losing selection or inventing unknown paths', async () => {
+    const rows = [
+      { ...FIRST, cwd: '/projects/alpha' },
+      { ...THIRD, cwd: '/projects/beta' },
+      SECOND,
+    ];
+    const view = render(<SupervisedSessionView loadRows={async () => rows} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      expect(view.lastFrame()).not.toContain('/projects/alpha');
+      view.stdin.write('g');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Directory: /projects/alpha'));
+      expect(view.lastFrame()).toContain('Directory: /projects/beta');
+      expect(view.lastFrame()).toContain('Directory: unverified');
+      expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`);
+      view.stdin.write('g');
+      await vi.waitFor(() => expect(view.lastFrame()).not.toContain('/projects/alpha'));
+      expect(view.lastFrame()).toContain('working:');
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('announces directory groups and their selection in screen-reader mode', async () => {
+    const view = render(
+      <ScreenReaderProvider enabled>
+        <SupervisedSessionView loadRows={async () => [{ ...FIRST, cwd: '/projects/alpha' }, SECOND]} />
+      </ScreenReaderProvider>,
+    );
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('g');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Directory: /projects/alpha'));
+      expect(view.lastFrame()).toContain('Directory: unverified');
+      expect(view.lastFrame()).toContain('Enter selection (1-2)');
+      view.stdin.write('?');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('g Group state/dir'));
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('keeps long directory headings within a narrow terminal viewport', async () => {
+    const view = render(<SupervisedSessionView loadRows={async () => [
+      { ...FIRST, cwd: `/projects/${'very-long-directory-name-'.repeat(8)}` },
+    ]} />);
+    try {
+      Object.defineProperty(view.stdout, 'columns', { value: 20 });
+      view.stdout.emit('resize');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id.slice(0, 8)}`));
+      view.stdin.write('g');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Directory:'));
+      expect((view.lastFrame() ?? '').split('\n').length).toBeLessThanOrEqual(24);
+    } finally {
+      view.unmount();
+    }
+  });
+
   it('filters by an observed group without treating dead or unverified rows as idle', async () => {
     const view = render(<SupervisedSessionView loadRows={async () => [FIRST, SECOND, THIRD]} stateFilter="idle" />);
     try {
@@ -153,7 +211,7 @@ describe('supervised session view', () => {
       await vi.waitFor(() => expect(view.lastFrame()).toContain('18 supervised'));
       view.stdin.write('?');
       await vi.waitFor(() => expect(view.lastFrame()).toContain('Keys:'));
-      for (const key of ['↑/↓ Select', 's Request stop', 'n New session', 'y Confirm stop', 'n/Esc Cancel stop', 'q/Esc/Ctrl+C Close', '? Toggle help']) {
+      for (const key of ['↑/↓ Select', 's Request stop', 'g Group state/dir', 'n New session', 'y Confirm stop', 'n/Esc Cancel stop', 'q/Esc/Ctrl+C Close', '? Toggle help']) {
         expect(view.lastFrame()).toContain(key);
       }
       expect((view.lastFrame() ?? '').split('\n').length).toBeLessThanOrEqual(24);

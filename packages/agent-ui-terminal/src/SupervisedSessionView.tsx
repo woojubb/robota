@@ -14,6 +14,7 @@ export interface ISupervisedViewRow {
   readonly activity: 'working' | 'needs-input' | 'idle' | 'unknown';
   readonly nextLoopAt?: string;
   readonly name?: string;
+  readonly cwd?: string;
   readonly problem?: 'invalid-registration';
 }
 
@@ -30,7 +31,7 @@ export interface ISupervisedSessionViewProps {
 const GROUP_ORDER = ['needs-input', 'working', 'idle', 'unknown', 'unverified', 'dead'] as const;
 type TGroup = typeof GROUP_ORDER[number];
 type TDisplayLine =
-  | { readonly kind: 'group'; readonly group: TGroup }
+  | { readonly kind: 'group'; readonly label: string }
   | { readonly kind: 'row'; readonly row: ISupervisedViewRow; readonly index: number };
 
 function groupOf(row: ISupervisedViewRow): TGroup {
@@ -44,12 +45,19 @@ function sortedRows(rows: readonly ISupervisedViewRow[]): readonly ISupervisedVi
     GROUP_ORDER.indexOf(groupOf(a)) - GROUP_ORDER.indexOf(groupOf(b)) || a.id.localeCompare(b.id));
 }
 
+function sortedDirectoryRows(rows: readonly ISupervisedViewRow[]): readonly ISupervisedViewRow[] {
+  return [...rows].sort((a, b) =>
+    (a.cwd === undefined ? 1 : 0) - (b.cwd === undefined ? 1 : 0) ||
+    (a.cwd ?? '').localeCompare(b.cwd ?? '') ||
+    GROUP_ORDER.indexOf(groupOf(a)) - GROUP_ORDER.indexOf(groupOf(b)) || a.id.localeCompare(b.id));
+}
+
 function sameRows(a: readonly ISupervisedViewRow[], b: readonly ISupervisedViewRow[]): boolean {
   return a.length === b.length && a.every((row, index) => {
     const other = b[index];
     return other !== undefined && row.id === other.id && row.liveness === other.liveness &&
       row.control === other.control && row.activity === other.activity && row.problem === other.problem &&
-      row.nextLoopAt === other.nextLoopAt && row.name === other.name;
+      row.nextLoopAt === other.nextLoopAt && row.name === other.name && row.cwd === other.cwd;
   });
 }
 
@@ -77,6 +85,7 @@ export default function SupervisedSessionView({
   const [status, setStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [selectedId, setSelectedId] = useState<string | undefined>();
   const [showHelp, setShowHelp] = useState(false);
+  const [groupByDirectory, setGroupByDirectory] = useState(false);
   const [confirmStopId, setConfirmStopId] = useState<string | undefined>();
   const [stopStatus, setStopStatus] = useState<'idle' | 'unavailable' | 'stopping' | 'stopped' | 'failed'>('idle');
   const [lastStoppedId, setLastStoppedId] = useState<string | undefined>();
@@ -85,19 +94,21 @@ export default function SupervisedSessionView({
   const [lastStartedId, setLastStartedId] = useState<string | undefined>();
   const startingRef = useRef(false);
   const mountedRef = useRef(true);
-  const ordered = useMemo(() => sortedRows(rows).filter((row) => stateFilter === undefined || groupOf(row) === stateFilter),
-    [rows, stateFilter]);
+  const ordered = useMemo(() => {
+    const filtered = rows.filter((row) => stateFilter === undefined || groupOf(row) === stateFilter);
+    return groupByDirectory ? sortedDirectoryRows(filtered) : sortedRows(filtered);
+  }, [rows, stateFilter, groupByDirectory]);
   const displayLines = useMemo((): readonly TDisplayLine[] => {
     const lines: TDisplayLine[] = [];
-    let previousGroup: TGroup | undefined;
+    let previousGroup: string | undefined;
     ordered.forEach((row, index) => {
-      const group = groupOf(row);
-      if (group !== previousGroup) lines.push({ kind: 'group', group });
+      const group = groupByDirectory ? `Directory: ${row.cwd ?? 'unverified'}` : `${groupOf(row)}:`;
+      if (group !== previousGroup) lines.push({ kind: 'group', label: group });
       lines.push({ kind: 'row', row, index });
       previousGroup = group;
     });
     return lines;
-  }, [ordered]);
+  }, [ordered, groupByDirectory]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -171,6 +182,10 @@ export default function SupervisedSessionView({
       setShowHelp((value) => !value);
       return;
     }
+    if (input === 'g') {
+      setGroupByDirectory((value) => !value);
+      return;
+    }
     if (input === 'n' && onStart !== undefined) {
       startingRef.current = true;
       setStartStatus('starting');
@@ -225,6 +240,7 @@ export default function SupervisedSessionView({
     'Keys:',
     screenReader ? 'Number+Enter Select' : '↑/↓ Select',
     's Request stop',
+    'g Group state/dir',
     ...(onStart === undefined ? [] : ['n New session']),
     'y Confirm stop',
     'n/Esc Cancel stop',
@@ -251,8 +267,8 @@ export default function SupervisedSessionView({
   const chromeWrap = screenReader ? {} : { wrap: 'truncate-end' as const };
   const footer = stopStatus === 'stopping' ? 'Stop in progress; wait for result.'
     : confirmStopId !== undefined ? 'Confirm stop or cancel before closing.'
-      : screenReader ? `Type a number and Enter to select; s Stop;${onStart ? ' n New;' : ''} Escape to close; ? Help.`
-        : `↑↓ Navigate  s Stop${onStart ? '  n New' : ''}  ? Help  q/Esc Close`;
+      : screenReader ? `Type a number and Enter to select; s Stop;${onStart ? ' n New;' : ''} g Group; Escape to close; ? Help.`
+        : `↑↓ Navigate  s Stop${onStart ? '  n New' : ''}  g Group  ? Help  q/Esc Close`;
   return (
     <Box flexDirection="column" {...(screenReader ? {} : { height })}>
       <Text {...chromeWrap}>
@@ -266,7 +282,7 @@ export default function SupervisedSessionView({
       {status === 'ready' && ordered.length === 0 && <Text {...chromeWrap}>No supervised sessions.</Text>}
       {start > 0 && !screenReader && <Text>{start} more above</Text>}
       {visible.map((line) => line.kind === 'group'
-        ? <Text key={`group-${line.group}`}>{line.group}:</Text>
+        ? <Text key={`group-${line.label}`} {...chromeWrap}>{line.label}</Text>
         : <Text key={`row-${line.row.id}`} {...(screenReader ? {} : { wrap: 'truncate-end' as const })}>
           {screenReader ? numberedRowPrefix(line.index) : line.row.id === selectedId ? '> ' : '  '}
           {line.row.name && line.row.liveness === 'alive' && line.row.control === 'available'

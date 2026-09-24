@@ -166,7 +166,7 @@ describe('session view command', () => {
         isTTY: true, settings: {}, env: {}, root, render,
       })).toBe(0);
       expect(observed[0]).toEqual([
-        { id, liveness: 'alive', control: 'available', activity: 'unknown' },
+        { id, liveness: 'alive', control: 'available', activity: 'unknown', cwd: realpathSync(project) },
       ]);
       expect(await runSessionViewCommand(['--cwd', other, '--no-screen-reader'], {
         isTTY: true, settings: {}, env: {}, root, render,

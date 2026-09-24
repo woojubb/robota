@@ -69,7 +69,8 @@ submit a prompt. A waiting loop's next eligible time is reported separately from
 when observed from the live owner; it does not promise that a future wake will run. The global
 supervised view observes only that guarded inventory and narrows by owner-reported name or
 directory only on a live owner-verified path: it does not join peer or saved-record identities,
-expose conversation content or project paths in rows, or treat an exited
+expose conversation content or project paths in ordinary rows (verified paths appear only when
+the viewer explicitly groups by directory), or treat an exited
 process as completed; starting a session from the view still requires headless workspace trust for
 its target directory, and closing the view never stops a supervised session. A damaged registration is
 shown as unavailable without hiding healthy sessions,

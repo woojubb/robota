@@ -166,6 +166,9 @@ describe('supervised session control', () => {
       expect(await listSupervisedSessions(root)).toEqual([
         { id: ID, liveness: 'alive', control: 'unavailable', activity: 'unknown' },
       ]);
+      expect(await listSupervisedSessions(root, undefined, { includeCwd: true })).toEqual([
+        { id: ID, liveness: 'alive', control: 'unavailable', activity: 'unknown' },
+      ]);
     } finally {
       await control.close();
       rmSync(scratch, { recursive: true, force: true });
@@ -184,6 +187,7 @@ describe('supervised session control', () => {
       const row = { id: ID, liveness: 'alive', control: 'available', activity: 'unknown' };
       expect(await listSupervisedSessions(root)).toEqual([row]);
       expect(await listSupervisedSessions(root, undefined, { cwd: project })).toEqual([row]);
+      expect(await listSupervisedSessions(root, undefined, { includeCwd: true })).toEqual([{ ...row, cwd: project }]);
       expect(await listSupervisedSessions(root, undefined, { cwd: other })).toEqual([]);
       expect(JSON.stringify(await listSupervisedSessions(root))).not.toContain(project);
       const socketName = readdirSync(root).find((name) => name.endsWith('.sock'))!;
