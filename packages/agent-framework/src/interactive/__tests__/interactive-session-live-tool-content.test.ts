@@ -47,6 +47,7 @@ interface IDriver {
 }
 
 const AT = '2026-09-24T00:00:00.000Z';
+const BODY_ID = globalThis.crypto.randomUUID();
 
 function createMockSession(run: (driver: IDriver) => Promise<string>) {
   let listener: TListener | undefined;
@@ -64,6 +65,7 @@ function createMockSession(run: (driver: IDriver) => Promise<string>) {
       }
       execCtrl?.handleToolExecution({ type: 'start', toolName: name, toolArgs: args, executionId: id });
       driver.emit(`tool.${TOOL_BODY_EVENTS.COMPLETED}`, {
+        toolBodyId: globalThis.crypto.randomUUID(),
         executionId: id, startedAt: AT, endedAt: AT, outcome: crash ? 'failure' : 'success',
       });
       if (crash) driver.end({ toolName: name, toolArgs: args, success: false, executionId: id });
@@ -191,7 +193,7 @@ describe('live tool content capture', () => {
       driver.emit(`tool.${TOOL_PERMISSION_EVENTS.DECIDED}`, { executionId: 'call_1', decidedAt: AT, decision: 'allowed' });
       driver.end({ toolName: 'Bash', toolArgs: { command: 'child secret' }, success: true, toolResultData: 'child out', executionId: 'call_1' });
       driver.end({ toolName: 'Bash', toolArgs: { command: 'other' }, success: true, toolResultData: 'x', executionId: 'call_other' });
-      driver.emit(`tool.${TOOL_BODY_EVENTS.COMPLETED}`, { executionId: 'call_1', startedAt: AT, endedAt: AT, outcome: 'success' });
+      driver.emit(`tool.${TOOL_BODY_EVENTS.COMPLETED}`, { executionId: 'call_1', toolBodyId: BODY_ID, startedAt: AT, endedAt: AT, outcome: 'success' });
       driver.end({ toolName: 'Bash', toolArgs: { command: 'mine' }, success: true, toolResultData: 'my out', executionId: 'call_1' });
       // A second end for an id already captured is not captured again.
       driver.end({ toolName: 'Bash', toolArgs: { command: 'late' }, success: true, toolResultData: 'late', executionId: 'call_1' });
@@ -331,7 +333,7 @@ describe('live tool content argument rendering failures', () => {
       }) as Record<string, unknown>;
       // The end event alone: the TUI's start projection reads arguments on its own path.
       driver.emit(`tool.${TOOL_PERMISSION_EVENTS.DECIDED}`, { executionId: 'call_1', decidedAt: AT, decision: 'allowed' });
-      driver.emit(`tool.${TOOL_BODY_EVENTS.COMPLETED}`, { executionId: 'call_1', startedAt: AT, endedAt: AT, outcome: 'success' });
+      driver.emit(`tool.${TOOL_BODY_EVENTS.COMPLETED}`, { executionId: 'call_1', toolBodyId: BODY_ID, startedAt: AT, endedAt: AT, outcome: 'success' });
       driver.end({ toolName: 'Bash', toolArgs: args, success: true, toolResultData: 'kept', executionId: 'call_1' });
       return 'done';
     });

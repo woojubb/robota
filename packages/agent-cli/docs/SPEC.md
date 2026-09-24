@@ -278,7 +278,9 @@ collector, and generic credentials belong to the generic destination.
 
 `ROBOTA_TELEMETRY_PROPAGATE_TO` takes exact origins rather than hosts, suffixes or wildcards: a
 `traceparent` lets whoever receives it join their own logs to the operator's trace, so each recipient
-is named on purpose and a subdomain, port or scheme change is a different recipient. An entry must
+is named on purpose and a subdomain, port or scheme change is a different recipient. One list covers
+providers and MCP HTTP servers alike, because the trust is in the origin, not in the kind of client
+that reaches it. An entry must
 already be its own origin, so the value compared is exactly the value written.
 
 ### Opt-in metric attributes

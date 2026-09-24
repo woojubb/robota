@@ -10,6 +10,7 @@ import type { IToolCall } from './messages';
 import type { IToolSchema, IAIProvider, ITokenUsage } from './provider';
 import type { TToolParameters, TToolMetadata } from './tool';
 import type { IDeferredToolCatalog } from './tool-search';
+import type { IRunTraceContext } from './trace-context';
 
 /**
  * Reusable type definitions for service layer
@@ -63,6 +64,8 @@ export interface IToolExecutionRequest {
    * the others.
    */
   argumentDecodeError?: string;
+  /** The run's trusted trace context; each body's outbound context is derived from it. */
+  traceContext?: IRunTraceContext;
 }
 
 /**

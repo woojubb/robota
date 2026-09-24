@@ -171,6 +171,7 @@ export function wrapToolWithPermission(
             startedAt: new Date(startedAtMs).toISOString(),
             endedAt: new Date(Math.max(Date.now(), startedAtMs)).toISOString(),
             outcome,
+            ...(typeof context.toolBodyId === 'string' ? { toolBodyId: context.toolBodyId } : {}),
           });
         } catch (error) {
           // An observer must never turn a completed tool body into a missing tool_result.

@@ -5,6 +5,8 @@ import {
   buildTraceparent,
   outboundTraceContextFor,
   providerCallSpanId,
+  spanIdFromMintedId,
+  toolTraceContextFor,
   traceHeadersFor,
 } from './trace-context';
 
@@ -18,6 +20,33 @@ describe('providerCallSpanId', () => {
       expect(providerCallSpanId(callId)).toBe(callId.replaceAll('-', '').slice(0, 16));
       expect(providerCallSpanId(callId)).toMatch(/^[0-9a-f]{16}$/);
     }
+  });
+});
+
+describe('spanIdFromMintedId', () => {
+  it('is the same derivation under its general name, so provider and tool spans share it', () => {
+    for (let i = 0; i < 20; i += 1) {
+      const id = randomId();
+      expect(spanIdFromMintedId(id)).toBe(providerCallSpanId(id));
+      expect(spanIdFromMintedId(id)).toMatch(/^[0-9a-f]{16}$/);
+    }
+  });
+});
+
+describe('toolTraceContextFor', () => {
+  const run = { traceId: TRACE_ID, parentSpanId: 'b7ad6b7169203331', allowedOrigins: ['https://mcp.example.com'] };
+
+  it('names the tool body span minted for this body as the parent', () => {
+    const toolBodyId = randomId();
+    expect(toolTraceContextFor(run, toolBodyId)).toEqual({
+      traceparent: `00-${TRACE_ID}-${spanIdFromMintedId(toolBodyId)}-01`,
+      allowedOrigins: ['https://mcp.example.com'],
+    });
+  });
+
+  it('has nothing to send without an allowlist or a valid trace', () => {
+    expect(toolTraceContextFor({ ...run, allowedOrigins: [] }, randomId())).toBeUndefined();
+    expect(toolTraceContextFor({ ...run, traceId: 'bad' }, randomId())).toBeUndefined();
   });
 });
 

@@ -7,6 +7,7 @@ import {
   createSystemMessage,
   messageToHistoryEntry,
   providerCallSpanId,
+  spanIdFromMintedId,
 } from '@robota-sdk/agent-core';
 
 import { InteractiveExecutionClaimOwner } from './interactive-execution-claim.js';
@@ -73,6 +74,8 @@ export type {
   TResumeQueuedTurnFn,
   TSubmitFn,
 } from './interactive-session-execution-contracts.js';
+
+const MINTED_SPAN_ID = /^(?!0{16}$)[0-9a-f]{16}$/;
 
 function randomOtelId(bytes: number): string {
   let id: string;
@@ -458,6 +461,15 @@ export class SessionExecutionController {
         },
         onToolBodyCompleted: (observation) => {
           if (!promptRoot) return;
+          // The span is derived from the body ID core minted, the same derivation the tool used for
+          // any parent it propagated. A body without a usable one is counted, never given an
+          // invented span a server could not have been told about.
+          const spanId =
+            observation.toolBodyId === undefined ? undefined : spanIdFromMintedId(observation.toolBodyId);
+          if (spanId === undefined || !MINTED_SPAN_ID.test(spanId)) {
+            liveTrace?.omit({ provider: 0, tool: 1 });
+            return;
+          }
           const entry: IHistoryEntry<IToolBodyTraceEntry> = {
             id: `tool_body_trace_${randomOtelId(8)}`,
             timestamp: new Date(),
@@ -466,7 +478,7 @@ export class SessionExecutionController {
             data: {
               traceId: promptRoot.traceId,
               parentSpanId: promptRoot.spanId,
-              spanId: randomOtelId(8),
+              spanId,
               startedAt: observation.startedAt,
               endedAt: observation.endedAt,
               outcome: observation.outcome,
