@@ -376,6 +376,32 @@ describe('AnthropicProvider', () => {
       expect(result.metadata?.outputTokens).toBe(20);
     });
 
+    it('carries the server-returned request ID onto metadata when withResponse is available', async () => {
+      const stream = makeStreamEvents(makeTextResponse('Hello there!'));
+      mockClient.messages.create.mockReturnValue({
+        then: (resolve: (value: unknown) => void) => resolve(stream),
+        withResponse: async () => ({ data: stream, request_id: 'req_abc123' }),
+      });
+
+      const messages: TUniversalMessage[] = [
+        { id: 'msg-1', state: 'complete' as const, role: 'user', content: 'Hi', timestamp: new Date() },
+      ];
+      const result = await provider.chat(messages, { model: 'claude-3-opus-20240229' });
+
+      expect(result.metadata?.providerRequestId).toBe('req_abc123');
+    });
+
+    it('never fabricates a request ID when the client has no withResponse (older SDK or test double)', async () => {
+      mockClient.messages.create.mockResolvedValue(makeStreamEvents(makeTextResponse('ok')));
+
+      const messages: TUniversalMessage[] = [
+        { id: 'msg-1', state: 'complete' as const, role: 'user', content: 'Hi', timestamp: new Date() },
+      ];
+      const result = await provider.chat(messages, { model: 'claude-3-opus-20240229' });
+
+      expect(result.metadata?.providerRequestId).toBeUndefined();
+    });
+
     it('API-001: merges a verified effort control with output_config.format and reports it', async () => {
       mockClient.messages.create.mockResolvedValue(makeStreamEvents(makeTextResponse('ok')));
       const outcomes: unknown[] = [];
@@ -1133,6 +1159,47 @@ describe('AnthropicProvider', () => {
 
       expect(chunks).toHaveLength(1);
       expect(chunks[0].content).toBe('Hi');
+    });
+
+    it('carries the server-returned request ID onto every yielded chunk when withResponse is available', async () => {
+      const asyncChunks = (async function* () {
+        yield { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Hi' } };
+        yield { type: 'content_block_delta', delta: { type: 'text_delta', text: ' there' } };
+      })();
+      mockClient.messages.create.mockReturnValue({
+        then: (resolve: (value: unknown) => void) => resolve(asyncChunks),
+        withResponse: async () => ({ data: asyncChunks, request_id: 'req_stream_1' }),
+      });
+
+      const messages: TUniversalMessage[] = [
+        { id: 'msg-1', state: 'complete' as const, role: 'user', content: 'Hi', timestamp: new Date() },
+      ];
+
+      const chunks: TUniversalMessage[] = [];
+      for await (const chunk of provider.chatStream(messages, { model: 'claude-3-opus-20240229' })) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks).toHaveLength(2);
+      expect(chunks.every((chunk) => chunk.metadata?.providerRequestId === 'req_stream_1')).toBe(true);
+    });
+
+    it('never fabricates a request ID when the client has no withResponse (older SDK or test double)', async () => {
+      const asyncChunks = (async function* () {
+        yield { type: 'content_block_delta', delta: { type: 'text_delta', text: 'Hi' } };
+      })();
+      mockClient.messages.create.mockResolvedValue(asyncChunks);
+
+      const messages: TUniversalMessage[] = [
+        { id: 'msg-1', state: 'complete' as const, role: 'user', content: 'Hi', timestamp: new Date() },
+      ];
+
+      const chunks: TUniversalMessage[] = [];
+      for await (const chunk of provider.chatStream(messages, { model: 'claude-3-opus-20240229' })) {
+        chunks.push(chunk);
+      }
+
+      expect(chunks[0]?.metadata?.providerRequestId).toBeUndefined();
     });
 
     it('should include temperature and tools in stream request', async () => {

@@ -155,6 +155,9 @@ export async function forceSummaryCall(
         ...(dispatch.invoked && {
           providerId: resolved.currentInfo.provider,
           modelId: resolved.aiProviderInfo.model,
+          ...(typeof forceResponse?.metadata?.['providerRequestId'] === 'string' && {
+            providerRequestId: forceResponse.metadata['providerRequestId'],
+          }),
         }),
         usageProvenance: usage.provenance,
         ...('promptTokens' in usage && usage.promptTokens !== undefined && {

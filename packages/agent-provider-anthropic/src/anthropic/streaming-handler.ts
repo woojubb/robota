@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { formatWebSearchResults } from './message-converter';
+import { awaitWithProviderRequestId } from './provider-request-id';
 
 import type Anthropic from '@anthropic-ai/sdk';
 import type {
@@ -34,7 +35,9 @@ export async function streamAndAssemble(
     payloadKind: 'request',
     payload: streamParams,
   });
-  const stream = await client.messages.create(streamParams, signal ? { signal } : undefined);
+  const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
+    client.messages.create(streamParams, signal ? { signal } : undefined),
+  );
 
   // Accumulate the full response from stream events
   const textParts: string[] = [];
@@ -135,14 +138,14 @@ export async function streamAndAssemble(
     }
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      return buildPartialResult(textParts, toolCalls, usage, model);
+      return buildPartialResult(textParts, toolCalls, usage, model, providerRequestId);
     }
     throw err;
   }
 
   // If aborted via break (not via catch), return partial response
   if (signal?.aborted) {
-    return buildPartialResult(textParts, toolCalls, usage, model);
+    return buildPartialResult(textParts, toolCalls, usage, model, providerRequestId);
   }
 
   const textContent = textParts.join('') || '';
@@ -163,6 +166,7 @@ export async function streamAndAssemble(
     ...((sawUsageStart || sawUsageEnd) && {
       usageProvenance: sawUsageStart && sawUsageEnd && stopReason ? 'complete' : 'partial',
     }),
+    ...(providerRequestId !== undefined && { providerRequestId }),
   };
   if (stopReason) {
     result.metadata['stopReason'] = stopReason;
@@ -180,6 +184,7 @@ function buildPartialResult(
   }>,
   usage: { input_tokens: number; output_tokens: number },
   model: string,
+  providerRequestId?: string,
 ): TUniversalMessage {
   const partialText = textParts.join('') || '';
   const partialResult: TUniversalMessage = {
@@ -196,6 +201,7 @@ function buildPartialResult(
     model,
     stopReason: 'aborted',
     usageProvenance: 'partial',
+    ...(providerRequestId !== undefined && { providerRequestId }),
   };
   return partialResult;
 }

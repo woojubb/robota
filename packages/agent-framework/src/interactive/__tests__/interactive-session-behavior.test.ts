@@ -254,6 +254,38 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(JSON.stringify(batch)).not.toMatch(/private prompt|private response|private malformed timestamp/);
   });
 
+  it('carries an invoked call\'s providerRequestId onto the live provider child only, never persisted history', async () => {
+    const mockSession = createMockSession({ runResult: 'private response' });
+    mockSession.getSessionId.mockReturnValue('session.1');
+    let listener: ((event: string, data: Record<string, unknown>) => void) | undefined;
+    mockSession.getEventService.mockReturnValue({
+      subscribe: vi.fn((callback: typeof listener) => { listener = callback; }),
+      unsubscribe: vi.fn(),
+    });
+    const at = new Date().toISOString();
+    mockSession.run.mockImplementation(async () => {
+      listener?.('provider_call_completed', {
+        startedAt: at, endedAt: at, outcome: 'success', round: 1,
+        callId: '123e4567-e89b-42d3-a456-426614174000', disposition: 'invoked',
+        providerId: 'openai', modelId: 'gpt-4o', providerRequestId: 'req_live_only_1',
+      });
+      return 'private response';
+    });
+    const enqueue = vi.fn();
+    const session = new InteractiveSession({
+      session: mockSession as never, cwd: '/tmp', livePromptTrace: { enqueue },
+    });
+
+    await session.submit('private prompt');
+
+    expect(enqueue).toHaveBeenCalledOnce();
+    const batch = enqueue.mock.calls[0]![0] as Record<string, unknown>;
+    expect(batch).toMatchObject({
+      children: [{ kind: 'provider', trace: { providerRequestId: 'req_live_only_1' } }],
+    });
+    expect(JSON.stringify(session.getFullHistory())).not.toContain('req_live_only_1');
+  });
+
   it('correlates a permission decision to its tool body by call ID, ahead of the tool child', async () => {
     const mockSession = createMockSession({ runResult: 'private response' });
     mockSession.getSessionId.mockReturnValue('session.1');

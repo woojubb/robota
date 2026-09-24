@@ -266,6 +266,9 @@ export async function callRoundProviderWithEvents(
       ...(dispatch.disposition === 'invoked' && {
         providerId: resolved.currentInfo.provider,
         ...(dispatch.model !== undefined && { modelId: dispatch.model }),
+        ...(typeof providerResponse?.metadata?.['providerRequestId'] === 'string' && {
+          providerRequestId: providerResponse.metadata['providerRequestId'],
+        }),
       }),
       usageProvenance: usage.provenance,
       ...('promptTokens' in usage && usage.promptTokens !== undefined && {

@@ -19,6 +19,7 @@ import {
 import { ANTHROPIC_MODEL_EFFORT_TABLE } from './model-effort-table';
 import { buildOutputConfig } from './output-schema.js';
 import { anthropicProviderCapabilities } from './provider-capabilities';
+import { awaitWithProviderRequestId, withProviderRequestId } from './provider-request-id';
 import { streamAndAssemble, toUniversalStreamChunks } from './streaming-handler';
 
 import type { IAnthropicProviderOptions } from './types';
@@ -254,8 +255,11 @@ export class AnthropicProvider extends AbstractAIProvider {
       payload: requestParams,
     });
     let stream: AsyncIterable<Anthropic.MessageStreamEvent>;
+    let providerRequestId: string | undefined;
     try {
-      stream = await this.client.messages.create(requestParams);
+      const awaited = await awaitWithProviderRequestId(this.client.messages.create(requestParams));
+      stream = awaited.data;
+      providerRequestId = awaited.providerRequestId;
     } catch (streamError) {
       rethrowAnthropicError(streamError);
     }
@@ -270,7 +274,9 @@ export class AnthropicProvider extends AbstractAIProvider {
         payload: chunk,
       });
       sequence++;
-      yield* toUniversalStreamChunks(chunk);
+      for (const universalChunk of toUniversalStreamChunks(chunk)) {
+        yield withProviderRequestId(universalChunk, providerRequestId);
+      }
     }
     this.publishModelEffortOutcome(resolvedOptions);
   }

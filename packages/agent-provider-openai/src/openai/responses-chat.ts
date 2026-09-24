@@ -8,6 +8,11 @@ import {
 import { buildOpenAIResponsesTextConfig } from './openai-request-format';
 import { resolveOpenAIReasoningOptions } from './reasoning-effort';
 import {
+  awaitWithProviderRequestId,
+  readOpenAIRequestId,
+  withProviderRequestId,
+} from './request-id';
+import {
   convertToOpenAIResponsesInput,
   convertToOpenAIResponsesTools,
 } from './responses-converter';
@@ -74,7 +79,7 @@ export async function chatWithOpenAIResponsesApi(
       payloadKind: 'response',
       payload: response,
     });
-    return parseOpenAIResponsesResponse(response);
+    return withProviderRequestId(parseOpenAIResponsesResponse(response), readOpenAIRequestId(response));
   } catch (error) {
     const openaiError = error as IOpenAIError;
     const errorMessage = openaiError.message || 'OpenAI Responses API request failed';
@@ -119,11 +124,13 @@ async function chatWithOpenAIResponsesStreamingAssembly(
       payloadKind: 'request',
       payload: requestParams,
     });
-    const stream = await input.client.responses.create(
-      requestParams as OpenAI.Responses.ResponseCreateParamsStreaming,
-      input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
+    const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
+      input.client.responses.create(
+        requestParams as OpenAI.Responses.ResponseCreateParamsStreaming,
+        input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
+      ),
     );
-    return assembleOpenAIResponsesStream({
+    const assembled = await assembleOpenAIResponsesStream({
       stream: observeProviderNativeRawPayloadStream(
         stream as AsyncIterable<TOpenAIResponsesStreamEvent>,
         {
@@ -135,6 +142,7 @@ async function chatWithOpenAIResponsesStreamingAssembly(
       onTextDelta: input.chatOptions?.onTextDelta,
       signal: input.chatOptions?.signal,
     });
+    return withProviderRequestId(assembled, providerRequestId);
   } catch (error) {
     const openaiError = error as IOpenAIError;
     const errorMessage = openaiError.message || 'OpenAI Responses streaming request failed';

@@ -2,9 +2,17 @@ import { randomUUID } from 'node:crypto';
 
 export type TLiveTelemetrySurface = 'interactive' | 'print' | 'serve' | 'mcp-serve';
 
+/** The same opaque-ID shape the framework's live-prompt-trace boundary allows through. */
+const OPAQUE_ID = /^[A-Za-z0-9_-]{1,128}$/u;
+
 /** A direct host caller must not bypass the framework's opaque-ID allowlist. */
 export function safeLiveToolCallId(value: unknown): string | undefined {
-  return typeof value === 'string' && /^[A-Za-z0-9_-]{1,128}$/u.test(value) ? value : undefined;
+  return typeof value === 'string' && OPAQUE_ID.test(value) ? value : undefined;
+}
+
+/** Same allowlist as `safeLiveToolCallId`, applied to a provider-returned request ID. */
+export function safeLiveProviderRequestId(value: unknown): string | undefined {
+  return typeof value === 'string' && OPAQUE_ID.test(value) ? value : undefined;
 }
 
 export function resolveLiveTelemetrySurface(

@@ -53,6 +53,13 @@ function projectProvider(trace: IProviderCallTraceEntry): IProviderCallTraceEntr
   const providerId = safeLabel(trace.providerId);
   const modelId = safeLabel(trace.modelId);
   const callId = typeof trace.callId === 'string' && ID.test(trace.callId) ? trace.callId : undefined;
+  // A provider-returned request ID is only ever attested for an invoked call. An unsafe value or one
+  // arriving on a non-invoked disposition is dropped like any other unsafe label (`providerId`,
+  // `modelId`) — a gateway ID outside the opaque-ID shape must not withhold usage/cost for the whole
+  // child, unlike the tool-call-ID rule this otherwise mirrors.
+  const providerRequestId = trace.disposition === 'invoked' &&
+    typeof trace.providerRequestId === 'string' && ID.test(trace.providerRequestId)
+    ? trace.providerRequestId : undefined;
   return {
     traceId: trace.traceId,
     parentSpanId: trace.parentSpanId,
@@ -73,6 +80,7 @@ function projectProvider(trace: IProviderCallTraceEntry): IProviderCallTraceEntr
       completionTokens: trace.completionTokens,
       totalTokens: trace.totalTokens,
     } : {}),
+    ...(providerRequestId !== undefined ? { providerRequestId } : {}),
   };
 }
 

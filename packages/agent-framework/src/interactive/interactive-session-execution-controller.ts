@@ -384,7 +384,17 @@ export class SessionExecutionController {
             },
           };
           providerCallEntries.push(entry);
-          if (entry.data) liveTrace?.addProvider(entry.data);
+          if (entry.data) {
+            // A non-string value only drops the field, never the child: unlike an unsafe tool-call
+            // ID, an unsafe provider-request ID (or one from a gateway outside the opaque-ID shape)
+            // must not withhold this call's usage/cost data. `projectProvider` re-validates the
+            // shape before export; this only guards the type.
+            const providerRequestId = observation.providerRequestId;
+            liveTrace?.addProvider({
+              ...entry.data,
+              ...(typeof providerRequestId === 'string' ? { providerRequestId } : {}),
+            });
+          }
         },
         onToolBodyCompleted: (observation) => {
           if (!promptRoot) return;

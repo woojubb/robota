@@ -88,7 +88,8 @@ live Node telemetry path requires a Robota-owned enable switch and independently
 with an explicit protocol and validated destination for OTLP or a local console sink; it shares
 bounded host-owned resource identity rather than ambient OpenTelemetry identity across content-free
 prompt/provider/tool spans with session/turn correlation, validated tool-call IDs on tool traces
-and logs, and safe provider/model metadata,
+and logs, a validated provider-returned request ID on an invoked provider-call span and its
+completion log, and safe provider/model metadata,
 low-cardinality prompt/tool counts and per-call usage/cost metrics only when child records are complete,
 and observed completion logs, including a spanless tool-permission-decision log joined to its tool by
 the same validated call ID and a permission-decision count by decision value, never a metric label.

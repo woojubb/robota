@@ -279,6 +279,9 @@ export async function executeRun(
                   completionTokens: observation['completionTokens'],
                   totalTokens: observation['totalTokens'],
                 }),
+              ...(observation['disposition'] === 'invoked' &&
+                typeof observation['providerRequestId'] === 'string' &&
+                { providerRequestId: observation['providerRequestId'] }),
             });
           }
         }

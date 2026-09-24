@@ -170,6 +170,15 @@ export function createSpanEntry(event: ISpanCompletionEventData): IHistoryEntry<
   };
 }
 
+/**
+ * A provider-call observation as read off the bus, before live-projection validation.
+ * `providerRequestId` is a raw event value — the live projection (`projectProvider`) validates it
+ * before export, the same way `IToolBodyTraceObservation.toolCallId` stays raw here.
+ */
+export type TRawProviderCallTraceObservation = Omit<IProviderCallTraceObservation, 'providerRequestId'> & {
+  readonly providerRequestId?: unknown;
+};
+
 /** A live span collector: buffers span entries seen on the bus until disposed. */
 export interface ISpanCollector {
   /** The span entries observed since subscription, in emit order. */
@@ -177,7 +186,7 @@ export interface ISpanCollector {
   readonly providerCalls: IProviderCallTraceObservation[];
   readonly toolBodies: IToolBodyTraceObservation[];
   readonly completions: (
-    | { readonly kind: 'provider'; readonly observation: IProviderCallTraceObservation }
+    | { readonly kind: 'provider'; readonly observation: TRawProviderCallTraceObservation }
     | { readonly kind: 'tool'; readonly observation: IToolBodyTraceObservation }
     | { readonly kind: 'permission'; readonly observation: IToolPermissionDecisionObservation }
   )[];
@@ -263,7 +272,7 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
           data['outcome'] === 'failure' ||
           data['outcome'] === 'interrupted')
       ) {
-        const observation: IProviderCallTraceObservation = {
+        const observation: TRawProviderCallTraceObservation = {
           round: data['round'],
           startedAt: data['startedAt'],
           endedAt: data['endedAt'],
@@ -280,8 +289,12 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
             completionTokens: data['completionTokens'],
             totalTokens: data['totalTokens'],
           }),
+          ...(data['providerRequestId'] !== undefined && { providerRequestId: data['providerRequestId'] }),
         };
-        providerCalls.push(observation);
+        // `providerCalls` feeds usage/cost extraction only, which never reads providerRequestId — kept
+        // strictly typed rather than widened for a field it does not use.
+        const { providerRequestId: _providerRequestId, ...usageObservation } = observation;
+        providerCalls.push(usageObservation);
         completions.push({ kind: 'provider', observation });
       } else {
         omittedCompletions.provider += 1;

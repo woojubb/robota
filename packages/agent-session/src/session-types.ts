@@ -218,4 +218,6 @@ export interface IProviderCallTraceObservation {
   readonly promptTokens?: number;
   readonly completionTokens?: number;
   readonly totalTokens?: number;
+  /** Present only for an invoked call whose adapter attested one; never fabricated. */
+  readonly providerRequestId?: string;
 }

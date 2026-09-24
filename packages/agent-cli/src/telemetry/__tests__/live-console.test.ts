@@ -57,6 +57,37 @@ describe('live console telemetry', () => {
     }
   });
 
+  it('carries an invoked call\'s provider request ID on trace and log output, never on a metric', async () => {
+    const input = { ...batch, children: [{ kind: 'provider', trace: {
+      ...(batch.children[0] as unknown as { trace: Record<string, unknown> }).trace,
+      providerRequestId: 'req_abc123',
+    } }] } as unknown as ILivePromptTraceBatch;
+    for (const signal of ['traces', 'logs', 'metrics'] as const) {
+      const lines: string[] = [];
+      const port = createConfiguredNodeOtlpLiveTelemetryPort({
+        ROBOTA_TELEMETRY_ENABLED: '1', [`ROBOTA_TELEMETRY_${signal.toUpperCase()}`]: 'console',
+      }, undefined, (line) => { lines.push(line); })!;
+      port.enqueue(input);
+      await port.shutdown();
+      if (signal === 'metrics') expect(lines[0]).not.toContain('req_abc123');
+      else expect(lines[0]).toContain('req_abc123');
+    }
+    const providerChild = input.children[0] as unknown as { kind: 'provider'; trace: Record<string, unknown> };
+    const unsafe = { ...input, children: [{ ...providerChild, trace: {
+      ...providerChild.trace, providerRequestId: 'private\nsecret',
+    } }] } as unknown as ILivePromptTraceBatch;
+    for (const signal of ['traces', 'logs'] as const) {
+      const lines: string[] = [];
+      const port = createConfiguredNodeOtlpLiveTelemetryPort({
+        ROBOTA_TELEMETRY_ENABLED: '1', [`ROBOTA_TELEMETRY_${signal.toUpperCase()}`]: 'console',
+      }, undefined, (line) => { lines.push(line); })!;
+      port.enqueue(unsafe);
+      await port.shutdown();
+      expect(lines[0]).not.toContain('private');
+      expect(lines[0]).not.toContain('robota.provider.request_id');
+    }
+  });
+
   it('projects a tool permission decision as a spanless log and a labeled metric, never a metric call ID', async () => {
     const input = { ...batch, children: [
       { kind: 'tool', trace: {
