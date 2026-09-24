@@ -179,6 +179,7 @@ export interface ISpanCollector {
     | { readonly kind: 'provider'; readonly observation: IProviderCallTraceObservation }
     | { readonly kind: 'tool'; readonly observation: IToolBodyTraceObservation }
   )[];
+  readonly omittedCompletions: { provider: number; tool: number };
   /** Unsubscribe from the bus (idempotent). */
   dispose(): void;
 }
@@ -201,6 +202,7 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
   const providerCalls: IProviderCallTraceObservation[] = [];
   const toolBodies: IToolBodyTraceObservation[] = [];
   const completions: ISpanCollector['completions'] = [];
+  const omittedCompletions = { provider: 0, tool: 0 };
   const listener: TEventListener = (eventType, data) => {
     if (eventType === `tool.${TOOL_BODY_EVENTS.COMPLETED}`) {
       if (
@@ -217,6 +219,8 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
         };
         toolBodies.push(observation);
         completions.push({ kind: 'tool', observation });
+      } else {
+        omittedCompletions.tool += 1;
       }
       return;
     }
@@ -251,6 +255,8 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
         };
         providerCalls.push(observation);
         completions.push({ kind: 'provider', observation });
+      } else {
+        omittedCompletions.provider += 1;
       }
       return;
     }
@@ -263,6 +269,7 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
     providerCalls,
     toolBodies,
     completions,
+    omittedCompletions,
     dispose: () => eventService.unsubscribe(listener),
   };
 }

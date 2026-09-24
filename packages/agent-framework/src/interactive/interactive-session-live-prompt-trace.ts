@@ -3,6 +3,7 @@ import type {
   IProviderCallTraceEntry,
   IToolBodyTraceEntry,
 } from '@robota-sdk/agent-interface-analytics';
+import { isSafeSessionId } from '@robota-sdk/agent-session';
 
 const MAX_CHILDREN = 256;
 const ID = /^[A-Za-z0-9_-]{1,128}$/u;
@@ -106,12 +107,17 @@ export class LivePromptTraceAccumulator {
     else this.children.push({ kind: 'tool', trace });
   }
 
+  omit(counts: { readonly provider: number; readonly tool: number }): void {
+    this.omittedProvider += counts.provider;
+    this.omittedTool += counts.tool;
+  }
+
   finish(input: {
     sessionId: string;
     turnId: string;
     root: ILivePromptTraceBatch['root'];
   }): ILivePromptTraceBatch {
-    if (!ID.test(input.sessionId) || !ID.test(input.turnId) ||
+    if (!isSafeSessionId(input.sessionId) || !ID.test(input.turnId) ||
       !TRACE_ID.test(input.root.traceId) || !SPAN_ID.test(input.root.spanId) ||
       !validInterval(input.root.startedAt, input.root.endedAt) ||
       (input.root.outcome !== 'success' && input.root.outcome !== 'failure' &&

@@ -206,6 +206,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
 
   it('enqueues one content-free live prompt trace in the actual provider/tool completion order', async () => {
     const mockSession = createMockSession({ runResult: 'private response' });
+    mockSession.getSessionId.mockReturnValue('session.1');
     let listener: ((event: string, data: Record<string, unknown>) => void) | undefined;
     mockSession.getEventService.mockReturnValue({
       subscribe: vi.fn((callback: typeof listener) => { listener = callback; }),
@@ -223,6 +224,9 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
       listener?.('tool.tool_body_completed', {
         startedAt: 'private malformed timestamp', endedAt: at, outcome: 'success',
       });
+      listener?.('provider_call_completed', {
+        startedAt: at, endedAt: at, outcome: 'success', round: 0,
+      });
       return 'private response';
     });
     const enqueue = vi.fn();
@@ -235,10 +239,10 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     expect(enqueue).toHaveBeenCalledOnce();
     const batch = enqueue.mock.calls[0]![0] as Record<string, unknown>;
     expect(batch).toMatchObject({
-      schemaVersion: 1, sessionId: 'sess-1',
+      schemaVersion: 1, sessionId: 'session.1',
       root: { outcome: 'success' },
       children: [{ kind: 'tool' }, { kind: 'provider' }],
-      omittedChildren: { provider: 0, tool: 1 },
+      omittedChildren: { provider: 1, tool: 1 },
     });
     expect(batch).toHaveProperty('turnId');
     expect(JSON.stringify(batch)).not.toMatch(/private prompt|private response|private malformed timestamp/);
@@ -257,6 +261,30 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     await vi.waitFor(() => expect(onFailure).toHaveBeenCalled());
     expect(enqueue).toHaveBeenCalledTimes(2);
     expect(session.getFullHistory().filter((entry) => entry.type === 'usage-observation')).toHaveLength(2);
+  });
+
+  it('enqueues a completed prompt before a later memory-capture callback settles', async () => {
+    const mockSession = createMockSession({ runResult: 'response' });
+    const enqueue = vi.fn();
+    const session = new InteractiveSession({
+      session: mockSession as never, cwd: '/tmp', livePromptTrace: { enqueue },
+    });
+    let releaseCapture: () => void = () => undefined;
+    const pendingCapture = new Promise<[]>((resolve) => {
+      releaseCapture = () => resolve([]);
+    });
+    const internal = session as unknown as {
+      execCtrl: { callbacks: { captureMemory?: () => Promise<[]> } };
+    };
+    internal.execCtrl.callbacks.captureMemory = () => pendingCapture;
+    const running = session.submit('prompt');
+    try {
+      await vi.waitFor(() => expect(enqueue).toHaveBeenCalledOnce());
+      expect(session.isExecuting()).toBe(true);
+    } finally {
+      releaseCapture();
+      await running;
+    }
   });
 
   it('persists distinct content-free children for parallel tool bodies under this prompt only', async () => {

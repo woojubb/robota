@@ -405,6 +405,7 @@ export class SessionExecutionController {
           toolBodyEntries.push(entry);
           if (entry.data) liveTrace?.addTool(entry.data);
         },
+        onCompletionsOmitted: (counts) => liveTrace?.omit(counts),
         onInterrupted: (result: IExecutionResult) => {
           closePromptRoot('interrupted');
           // RUNTIME-003: an interrupted turn RAN — resolve, do not reject.
@@ -426,6 +427,23 @@ export class SessionExecutionController {
       turnError = error instanceof Error ? error : new Error(String(error));
       throw error;
     } finally {
+      if (liveTrace && promptRoot?.endedAt && promptRoot.outcome && this.callbacks.livePromptTrace) {
+        try {
+          enqueueLivePromptTrace(this.callbacks.livePromptTrace, liveTrace.finish({
+            sessionId: this.callbacks.getSessionOrThrow().getSessionId(),
+            turnId,
+            root: {
+              traceId: promptRoot.traceId,
+              spanId: promptRoot.spanId,
+              startedAt: promptRoot.startedAt,
+              endedAt: promptRoot.endedAt,
+              outcome: promptRoot.outcome,
+            },
+          }));
+        } catch {
+          reportLivePromptTraceProjectionFailure(this.callbacks.livePromptTrace);
+        }
+      }
       try {
         await this.histTracker.finalizeEditCheckpointTurn();
       } catch (error) {
@@ -472,23 +490,6 @@ export class SessionExecutionController {
           turnError = error instanceof Error ? error : new Error(String(error));
           terminalResult = undefined;
           this.callbacks.emit('error', turnError);
-        }
-      }
-      if (liveTrace && promptRoot?.endedAt && promptRoot.outcome && this.callbacks.livePromptTrace) {
-        try {
-          enqueueLivePromptTrace(this.callbacks.livePromptTrace, liveTrace.finish({
-            sessionId: this.callbacks.getSessionOrThrow().getSessionId(),
-            turnId,
-            root: {
-              traceId: promptRoot.traceId,
-              spanId: promptRoot.spanId,
-              startedAt: promptRoot.startedAt,
-              endedAt: promptRoot.endedAt,
-              outcome: promptRoot.outcome,
-            },
-          }));
-        } catch {
-          reportLivePromptTraceProjectionFailure(this.callbacks.livePromptTrace);
         }
       }
       // Observers (including the TUI) see the completed history only after the durable wake
