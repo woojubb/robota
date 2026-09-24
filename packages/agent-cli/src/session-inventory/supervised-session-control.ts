@@ -27,11 +27,17 @@ function isCurrentActivity(value: unknown): value is Exclude<TSupervisedActivity
   return value === 'working' || value === 'needs-input' || value === 'idle';
 }
 
+function isLoopTime(value: unknown): value is string {
+  return typeof value === 'string' && !Number.isNaN(Date.parse(value)) &&
+    new Date(value).toISOString() === value;
+}
+
 export interface ISupervisedSessionRow {
   readonly id: string;
   readonly liveness: 'alive' | 'dead' | 'unknown';
   readonly control: 'available' | 'unavailable';
   readonly activity: TSupervisedActivity;
+  readonly nextLoopAt?: string;
   readonly problem?: 'invalid-registration';
 }
 
@@ -203,6 +209,9 @@ export async function listSupervisedSessions(
         return {
           id, liveness, control: 'available',
           activity: 'activity' in response && isCurrentActivity(response.activity) ? response.activity : 'unknown',
+          ...('activity' in response && response.activity === 'idle' &&
+            'nextLoopAt' in response && isLoopTime(response.nextLoopAt)
+            ? { nextLoopAt: response.nextLoopAt } : {}),
         };
       }
     } catch {
@@ -256,6 +265,7 @@ export async function startSupervisedControl(
   root = resolveSupervisedDirectory(),
   getActivity?: () => Exclude<TSupervisedActivity, 'unknown'> | undefined,
   getCwd?: () => string | undefined,
+  getNextLoopAt?: () => string | undefined,
 ): Promise<ISupervisedControl> {
   if (!ID_PATTERN.test(id)) throw new Error('Invalid supervised session ID.');
   ensurePrivateDirectory(root);
@@ -284,6 +294,7 @@ export async function startSupervisedControl(
       if (value.command === 'status') {
         let observed: unknown;
         let cwd: string | undefined;
+        let nextLoopAt: unknown;
         try {
           observed = getActivity?.();
         } catch {
@@ -294,8 +305,16 @@ export async function startSupervisedControl(
         } catch {
           // A directory that cannot be verified is omitted, never guessed from registration data.
         }
+        if (observed === 'idle') {
+          try {
+            nextLoopAt = getNextLoopAt?.();
+          } catch {
+            // A failed loop observation cannot turn an idle session into a false wake claim.
+          }
+        }
         socket.end(`${JSON.stringify({ id, status: 'running', activity: isCurrentActivity(observed) ? observed : 'unknown',
-          ...(cwd === undefined ? {} : { cwd }) })}\n`);
+          ...(cwd === undefined ? {} : { cwd }),
+          ...(isLoopTime(nextLoopAt) ? { nextLoopAt } : {}) })}\n`);
       } else if (value.command === 'stop') {
         socket.once('finish', onStop);
         socket.end(`${JSON.stringify({ id, status: 'stopping' })}\n`);

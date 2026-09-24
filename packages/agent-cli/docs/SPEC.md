@@ -65,7 +65,9 @@ launching terminal; the session list reports only content-free activity and live
 never session content, launch environment, or provider credentials. Unverified identity, a missing
 control response, initialization, or shutdown read as `unknown`; `idle` means only that the session
 is initialized with no pending question and is not executing, not that another CLI can attach or
-submit a prompt. The global supervised view observes only that guarded inventory and narrows by
+submit a prompt. A waiting loop's next eligible time is reported separately from activity only
+when observed from the live owner; it does not promise that a future wake will run. The global
+supervised view observes only that guarded inventory and narrows by
 directory only on a live owner-verified path: it does not join peer or saved-record identities,
 expose content or project paths in rows, or treat an exited
 process as completed; closing the view never stops a supervised session. A damaged registration is

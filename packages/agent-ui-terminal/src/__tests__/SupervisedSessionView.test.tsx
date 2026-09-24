@@ -31,6 +31,36 @@ describe('supervised session view', () => {
     }
   });
 
+  it('shows an observed loop eligibility countdown without changing idle into a process state', async () => {
+    const nextLoopAt = new Date(Date.now() + 1_200).toISOString();
+    const view = render(<SupervisedSessionView
+      loadRows={async () => [{ ...THIRD, nextLoopAt }]}
+      stateFilter="idle" refreshMs={100}
+    />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('loop eligible in'));
+      expect(view.lastFrame()).toContain('activity idle');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('loop eligible now'), { timeout: 3_000 });
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('includes the loop eligibility label in screen-reader output', async () => {
+    const nextLoopAt = new Date(Date.now() + 60_000).toISOString();
+    const view = render(
+      <ScreenReaderProvider enabled>
+        <SupervisedSessionView loadRows={async () => [{ ...THIRD, nextLoopAt }]} />
+      </ScreenReaderProvider>,
+    );
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('loop eligible in'));
+      expect(view.lastFrame()).toContain('activity idle');
+    } finally {
+      view.unmount();
+    }
+  });
+
   it('does not stop a row that leaves the selected state while confirmation is open', async () => {
     let finishRefresh: ((rows: readonly ISupervisedViewRow[]) => void) | undefined;
     const refresh = new Promise<readonly ISupervisedViewRow[]>((resolve) => { finishRefresh = resolve; });
