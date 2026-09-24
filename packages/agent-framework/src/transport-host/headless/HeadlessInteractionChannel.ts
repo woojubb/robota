@@ -169,7 +169,7 @@ export class HeadlessInteractionChannel {
 
   private createSession(): InteractiveSession {
     // RUNTIME-001: build through the shared construction seam (agent-framework), not a private
-    // `new InteractiveSession` — one session-construction SSOT across the TUI, print, and --serve.
+    // `buildRuntimeSession` — one recipe kernel across the TUI, print, and --serve.
     return buildRuntimeSession({
       cwd: this.opts.cwd,
       ...(this.opts.livePromptTrace ? { livePromptTrace: this.opts.livePromptTrace } : {}),

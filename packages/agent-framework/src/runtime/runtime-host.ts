@@ -2,8 +2,8 @@
  * RUNTIME-001 (Design C) — the shared, presentation-free runtime host.
  *
  * `buildRuntimeSession` is the single session-construction seam: every presentation — the TUI channel, the
- * print channel, and the headless `robota --serve` entry — builds its `InteractiveSession` here from a resolved
- * `TInteractiveSessionOptions`, instead of each calling `new InteractiveSession`. `startRuntimeHost` adds the
+ * print channel, and the headless `robota --serve` entry — builds its `InteractiveSession` here from a normalized
+ * `SessionRecipe`, instead of each calling the constructor. `startRuntimeHost` adds the
  * transport `startAll/stopAll` lifecycle + a bounded shutdown handle on top; it is used by the headless
  * `--serve` path, which builds and starts atomically. (The TUI channel builds via `buildRuntimeSession` in its
  * constructor and drives `startAll/stopAll` itself in `start()/stop()` — it must wire session events between
@@ -28,14 +28,23 @@ import type {
 /** Upper bound on the graceful session shutdown so a wedged subsystem cannot block process exit. */
 const RUNTIME_SHUTDOWN_TIMEOUT_MS = 5000;
 
-/** Build a runtime `InteractiveSession` from fully-resolved options. The single construction seam. */
-export function buildRuntimeSession(options: TInteractiveSessionOptions): InteractiveSession {
-  return new InteractiveSession(options);
+/** Normalized, explicitly discriminated input for every `InteractiveSession` construction path. */
+export type SessionRecipe = TInteractiveSessionOptions;
+
+/** Build a runtime `InteractiveSession` from a normalized recipe. The single construction seam. */
+export function buildRuntimeSession(recipe: SessionRecipe): InteractiveSession {
+  if ('session' in recipe) {
+    if (!recipe.session) throw new Error('buildRuntimeSession: injected session is required');
+  } else {
+    if (!recipe.provider) throw new Error('buildRuntimeSession: provider is required');
+    if (!recipe.cwd) throw new Error('buildRuntimeSession: cwd is required');
+  }
+  return new InteractiveSession(recipe);
 }
 
 export interface IRuntimeHostOptions {
   /** The resolved session-build options — the consumer resolves settings/preset/args and passes them in. */
-  session: TInteractiveSessionOptions;
+  session: SessionRecipe;
   /** The transport registry (e.g. the loopback WS sidecar); the host owns its start/stop lifecycle. */
   transportRegistry?: ITransportLifecycleRegistryView;
   /** Bind each raw adapter to this newly constructed session before registration/start. */

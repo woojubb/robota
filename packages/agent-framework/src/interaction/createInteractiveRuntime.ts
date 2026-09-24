@@ -1,11 +1,12 @@
 import { parseInput } from './input-parser.js';
-import { InteractiveSession } from '../interactive/index.js';
+import { buildRuntimeSession } from '../runtime/runtime-host.js';
 
 import type { IInteractionChannel } from './IInteractionChannel.js';
 import type { IInteractiveRuntime } from './InteractiveRuntime.js';
 import type { ICommandInfo } from './types.js';
 import type { ICommandModule } from '../command-api/command-module.js';
 import type { IInteractiveSession } from '../interactive/i-interactive-session.js';
+import type { SessionRecipe } from '../runtime/runtime-host.js';
 import type { IInteractiveSessionStore } from '../interactive/session-persistence.js';
 import type { IInteractiveSessionEvents } from '../interactive/types.js';
 import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
@@ -16,9 +17,9 @@ export interface IInteractiveRuntimeOptions {
   channel: IInteractionChannel;
   commandModules: readonly ICommandModule[];
   /** Provider for session creation (production path). */
-  provider?: IAIProvider;
+  provider: IAIProvider;
   /** Working directory for session creation. */
-  cwd?: string;
+  cwd: string;
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
   projectAccess?: TWorkspaceProjectAccess;
   /** Explicit user settings layers for this runtime's session. */
@@ -27,9 +28,10 @@ export interface IInteractiveRuntimeOptions {
   sessionStore?: IInteractiveSessionStore;
   /** Permission mode for tool execution (parity with the TUI/headless channels). */
   permissionMode?: TPermissionMode;
-  /** Test escape hatch — skips session creation when supplied. */
-  _testSession?: IInteractiveSession;
 }
+
+/** Shared channel behavior options used by the package's testing-only session injection seam. */
+export type IInteractiveRuntimeTestOptions = Omit<IInteractiveRuntimeOptions, 'provider' | 'cwd'>;
 
 function commandsToCommandInfo(
   commands: ReturnType<IInteractiveSession['listCommands']>,
@@ -107,7 +109,38 @@ function wireSessionEvents(session: IInteractiveSession, channel: IInteractionCh
 }
 
 export function createInteractiveRuntime(options: IInteractiveRuntimeOptions): IInteractiveRuntime {
-  const { channel, commandModules, _testSession } = options;
+  const {
+    provider,
+    cwd,
+    channel,
+    commandModules,
+    projectAccess,
+    userSettingsSources,
+    sessionStore,
+    permissionMode,
+  } = options;
+  const recipe: SessionRecipe = {
+    provider,
+    cwd,
+    projectAccess,
+    ...(userSettingsSources !== undefined ? { userSettingsSources } : {}),
+    sessionStore,
+    commandModules,
+    permissionMode,
+  };
+
+  return createInteractiveRuntimeWithSessionFactory(
+    { channel, commandModules, projectAccess, userSettingsSources, sessionStore, permissionMode },
+    () => buildRuntimeSession(recipe),
+  );
+}
+
+/** @internal Kept out of the package root; the `/testing` entry uses this to inject a test double. */
+export function createInteractiveRuntimeWithSessionFactory(
+  options: IInteractiveRuntimeTestOptions,
+  createSession: () => IInteractiveSession,
+): IInteractiveRuntime {
+  const { channel } = options;
 
   let session: IInteractiveSession | null = null;
   let unwireEvents: (() => void) | null = null;
@@ -139,26 +172,7 @@ export function createInteractiveRuntime(options: IInteractiveRuntimeOptions): I
 
   return {
     async start(): Promise<void> {
-      if (_testSession) {
-        session = _testSession;
-      } else {
-        const { provider, cwd, projectAccess, sessionStore, permissionMode } = options;
-        if (!provider) throw new Error('createInteractiveRuntime: provider is required');
-        if (!cwd) throw new Error('createInteractiveRuntime: cwd is required');
-        session = new InteractiveSession({
-          provider,
-          cwd,
-          projectAccess,
-          ...(options.userSettingsSources !== undefined
-            ? { userSettingsSources: options.userSettingsSources }
-            : {}),
-          sessionStore,
-          commandModules,
-          permissionMode,
-          // REMOTE-007: no injected askHandler — the runtime subscribes to `ask_request` in
-          // wireSessionEvents and answers via the channel's unified `askUser` + `resolveAsk`.
-        });
-      }
+      session = createSession();
 
       unwireEvents = wireSessionEvents(session, channel);
 

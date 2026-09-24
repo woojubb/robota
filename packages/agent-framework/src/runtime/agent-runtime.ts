@@ -5,7 +5,8 @@ import {
   type IBackgroundTaskRunner,
 } from '@robota-sdk/agent-executor';
 
-import { InteractiveSession } from '../interactive/interactive-session.js';
+import type { InteractiveSession } from '../interactive/interactive-session.js';
+import { buildRuntimeSession } from './runtime-host.js';
 import {
   WorkspaceAuthorityRequiredError,
   createRestrictedWorkspaceProjectAccess,
@@ -126,7 +127,7 @@ export function createAgentRuntime(config: IAgentRuntimeConfig): IAgentRuntime {
     reloadPluginCommandSource: config.reloadPluginCommandSource ?? (() => {}),
     createSession(opts: IHeadlessSessionOptions): InteractiveSession {
       const effectiveSessionStore = 'sessionStore' in opts ? opts.sessionStore : sessionStore;
-      return new InteractiveSession({
+      return buildRuntimeSession({
         cwd: config.cwd,
         provider: config.provider,
         projectAccess,
