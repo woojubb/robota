@@ -221,26 +221,39 @@ describe('live content redaction', () => {
     expect(out).toContain('The cookie: is not a header here');
   });
 
-  it('stays fast on adversarial input for the JSON-pair and header patterns', () => {
-    const cases = [
-      `"${'token'.repeat(3300)}`,
-      `"${'a'.repeat(120)}token${'b'.repeat(120)}" : "${'\\'.repeat(16400)}`,
-      `${'"secret'.repeat(2400)}`,
-      `x-${'-'.repeat(16400)}`,
-      `${'"a":"'.repeat(3300)}`,
-      `"${'apikey'.repeat(2800)}`,
-      `"${'a'.repeat(120)}private-key${'b'.repeat(120)}"${' '.repeat(16400)}`,
-      `${'>'.repeat(16400)}`,
-      `${' \t>'.repeat(5500)}authorization`,
-      `x-${'a-'.repeat(8200)}`,
-      `${'> x-'.repeat(4200)}`,
-      `proxy-${'proxy-'.repeat(2800)}`,
+  it('stays linear on adversarial input for the JSON-pair and header patterns', () => {
+    // A wall-clock limit alone flakes on a loaded CI runner. Growth is what separates a linear
+    // pattern (about 4x for 4x input) from backtracking (16x or worse), so compare sizes instead.
+    const builders: ((n: number) => string)[] = [
+      (n) => `"${'token'.repeat(n / 5)}`,
+      (n) => `"${'a'.repeat(120)}token${'b'.repeat(120)}" : "${'\\'.repeat(n)}`,
+      (n) => '"secret'.repeat(n / 7),
+      (n) => `x-${'-'.repeat(n)}`,
+      (n) => '"a":"'.repeat(n / 5),
+      (n) => `"${'apikey'.repeat(n / 6)}`,
+      (n) => `"${'a'.repeat(120)}private-key${'b'.repeat(120)}"${' '.repeat(n)}`,
+      (n) => '>'.repeat(n),
+      (n) => `${' \t>'.repeat(n / 3)}authorization`,
+      (n) => `x-${'a-'.repeat(n / 2)}`,
+      (n) => '> x-'.repeat(n / 4),
+      (n) => `proxy-${'proxy-'.repeat(n / 6)}`,
     ];
-    for (const text of cases) {
-      expect(Buffer.byteLength(text)).toBeGreaterThanOrEqual(16 * 1024);
-      const started = performance.now();
-      redact(text, {}, 16384);
-      expect(performance.now() - started).toBeLessThan(200);
+    const bestOf3 = (text: string): number => {
+      let best = Number.POSITIVE_INFINITY;
+      for (let i = 0; i < 3; i += 1) {
+        const started = performance.now();
+        redact(text, {}, 16384);
+        best = Math.min(best, performance.now() - started);
+      }
+      return best;
+    };
+    for (const build of builders) {
+      const small = build(16 * 1024);
+      const large = build(64 * 1024);
+      expect(Buffer.byteLength(small)).toBeGreaterThanOrEqual(16 * 1000);
+      const smallMs = bestOf3(small);
+      const largeMs = bestOf3(large);
+      if (largeMs >= 50) expect(largeMs / Math.max(smallMs, 1)).toBeLessThan(10);
     }
   });
 });

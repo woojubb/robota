@@ -14,8 +14,11 @@ import type { TSettings } from '@robota-sdk/agent-framework';
 
 const REDACTED = '[redacted]';
 
-/** `scheme://user:pass@host` → `scheme://[redacted]@host`. */
-const URL_USERINFO = /(\b[a-z][a-z0-9+.-]*:\/\/)([^\s/@]+)@/gi;
+/**
+ * `scheme://user:pass@host` → `scheme://[redacted]@host`. The scheme is bounded: an unbounded run,
+ * retried from every word start, was quadratic on long text that never reaches `://`.
+ */
+const URL_USERINFO = /(\b[a-z][a-z0-9+.-]{0,31}:\/\/)([^\s/@]+)@/gi;
 /** `Bearer <token>` in any casing. */
 const BEARER_TOKEN = /\b(bearer)\s+[A-Za-z0-9._~+/=-]{8,}/gi;
 /** Vendor-key shapes: `sk-…`, `sk-ant-…`, `AIza…`, `ghp_…`, `xox?-…`. */
