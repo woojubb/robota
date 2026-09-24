@@ -2,8 +2,8 @@
  * Where handoff orchestration meets domain authority and wire codecs (HANDOFF-001, issue #1864).
  *
  * `agent-framework` owns the orchestration and declares what it needs as `IHandoffComposition`.
- * `agent-transport` owns the manifest, integrity seal and chunker; session mobility owns the
- * authority transaction. The framework does not depend on the wire package — every consumer of it
+ * Session mobility owns the offer and authority transaction; `agent-transport` seals and verifies
+ * payload bytes and owns chunking. The framework does not depend on the wire package — every consumer of it
  * is a transport package or a composition root. The root supplies that collaborator here.
  *
  * This file is that root. It is the ONLY place the two names appear together, which is what makes
@@ -16,11 +16,13 @@ import {
   beginHandoff,
   commitHandoff,
   sourceStillOwns,
+  assessHandoffReadiness,
+  prepareHandoffOffer,
   type IHandoffTransaction,
   type IHandoffManifest,
 } from '@robota-sdk/agent-interface-session-mobility';
 import { HandoffChunkAssembler, chunkHandoffPayload } from '@robota-sdk/agent-transport';
-import { buildHandoffManifest, verifyHandoffPayload } from '@robota-sdk/agent-transport/node';
+import { sealHandoffRecord, verifyHandoffPayload } from '@robota-sdk/agent-transport/node';
 
 /**
  * Wrap one transaction so the orchestration holds a thing with an identity rather than five loose
@@ -37,10 +39,18 @@ function transactionPort(transaction: IHandoffTransaction): IHandoffTransactionP
   };
 }
 
-/** The wire operations the hand-off orchestration composes. */
+/** Compose mobility decisions and wire effects for handoff orchestration. */
 export function createHandoffComposition(): IHandoffComposition {
   return {
-    buildManifest: (request) => buildHandoffManifest(request),
+    buildManifest: (request) => {
+      const readiness = assessHandoffReadiness(request.runtime);
+      if (!readiness.ready) {
+        return { built: false, refusal: readiness.refusal, detail: readiness.detail };
+      }
+      const { serialized, integrity } = sealHandoffRecord(request.record);
+      const offer = prepareHandoffOffer({ ...request, integrity });
+      return offer.built ? { built: true, manifest: offer.manifest, serialized } : offer;
+    },
     beginTransaction: (manifest: IHandoffManifest) => transactionPort(beginHandoff(manifest)),
     chunk: (handoffId, serialized) => chunkHandoffPayload(handoffId, serialized),
     verifyPayload: (serialized, integrity) => verifyHandoffPayload(serialized, integrity),

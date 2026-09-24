@@ -11,7 +11,7 @@ framing, and Node-only admission/integrity helpers shared by transport implement
 - **Transport admission (SEC-008): none.** This package defines and evaluates admission data but
   binds no listener itself — it is a substrate for admission decisions, not an admission point.
 - Runtime message and frame decoders return explicit result unions rather than throwing.
-- Admission and handoff payload helpers return their declared refusal/result contracts; outbound delivery
+- Admission and handoff integrity helpers return their declared result contracts; outbound delivery
   isolates carrier failures through a supplied error handler. No fallback transport is ever
   selected on behalf of a caller.
 - Carriers supply `TOutboundDeliver` and an `IProtocolSession`; no carrier implementation is
@@ -24,6 +24,6 @@ framing, and Node-only admission/integrity helpers shared by transport implement
   `"browser": null` — a structural guarantee that Node-only crypto never leaks into a browser
   bundle via the root or `./client` entries.
 - Owns no socket, HTTP, WebRTC, terminal, framework-host, registry, or settings lifecycle.
-- Session mobility owns handoff authority transitions; this package only frames, seals, verifies,
-  and assembles the payload that crosses a carrier.
+- Session mobility owns handoff authority, offer refusal, and inventory classification; this package
+  frames, seals, verifies, and assembles the payload that crosses a carrier.
 - Does not forward another workspace package.

@@ -21,7 +21,8 @@
  *                          `peer-message-ledger`, `handoff-chunking`,
  *                          `protocol-session`, `wire-messages` — no builtin on any path.
  *
- * Handoff authority decisions live in `agent-interface-session-mobility`, outside this wire package.
+ * Handoff authority, offer refusal, and inventory decisions live in
+ * `agent-interface-session-mobility`, outside this wire package.
  *
  * The handoff MANIFEST types are omitted along with their functions. Keeping the `export type` lines
  * would be free at runtime, but it would put `node/handoff-manifest.ts` back on this entry's import graph
@@ -95,7 +96,7 @@ export type {
   IPeerMessageVerdict,
 } from './peer-message-ledger.js';
 
-// The handoff MANIFEST (`buildHandoffManifest`, `sealHandoffRecord`, `verifyHandoffPayload`) is NOT
+// The handoff integrity helpers (`sealHandoffRecord`, `verifyHandoffPayload`) are NOT
 // here: it hashes with `node:crypto`. Chunking is, because it never hashes anything.
 export {
   chunkCountFor,
