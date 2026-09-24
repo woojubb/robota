@@ -19,6 +19,59 @@ const THIRD: ISupervisedViewRow = {
 };
 
 describe('supervised session view', () => {
+  it('filters by an observed group without treating dead or unverified rows as idle', async () => {
+    const view = render(<SupervisedSessionView loadRows={async () => [FIRST, SECOND, THIRD]} stateFilter="idle" />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${THIRD.id}`));
+      expect(view.lastFrame()).toContain('State: idle');
+      expect(view.lastFrame()).not.toContain(FIRST.id);
+      expect(view.lastFrame()).not.toContain(SECOND.id);
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('does not stop a row that leaves the selected state while confirmation is open', async () => {
+    let finishRefresh: ((rows: readonly ISupervisedViewRow[]) => void) | undefined;
+    const refresh = new Promise<readonly ISupervisedViewRow[]>((resolve) => { finishRefresh = resolve; });
+    const loadRows = vi.fn().mockResolvedValueOnce([THIRD]).mockImplementation(() => refresh);
+    const stop = vi.fn(async () => undefined);
+    const view = render(<SupervisedSessionView loadRows={loadRows} onStop={stop} stateFilter="idle" refreshMs={100} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${THIRD.id}`));
+      view.stdin.write('s');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('y Yes / n No'));
+      await vi.waitFor(() => expect(loadRows).toHaveBeenCalledTimes(2));
+      finishRefresh?.([{ ...THIRD, activity: 'working' }]);
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('0 supervised session(s)'));
+      view.stdin.write('y');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('cannot be stopped'));
+      expect(stop).not.toHaveBeenCalled();
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('lists every active key in help even in a narrow, crowded terminal', async () => {
+    const rows = Array.from({ length: 18 }, (_, index) => ({
+      ...FIRST, id: `8bf9bc27-d773-4e88-b88f-${String(index).padStart(12, '0')}`,
+    }));
+    const view = render(<SupervisedSessionView loadRows={async () => rows} />);
+    try {
+      Object.defineProperty(view.stdout, 'columns', { value: 20 });
+      view.stdout.emit('resize');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('18 supervised'));
+      view.stdin.write('?');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Keys:'));
+      for (const key of ['↑/↓ Select', 's Request stop', 'y Confirm stop', 'n/Esc Cancel stop', 'q/Esc/Ctrl+C Close', '? Toggle help']) {
+        expect(view.lastFrame()).toContain(key);
+      }
+      expect((view.lastFrame() ?? '').split('\n').length).toBeLessThanOrEqual(24);
+    } finally {
+      view.unmount();
+    }
+  });
+
   it('announces an active directory filter without printing its path', async () => {
     const view = render(<SupervisedSessionView loadRows={async () => [FIRST]} filteredByCwd />);
     try {
@@ -97,6 +150,9 @@ describe('supervised session view', () => {
       expect(view.lastFrame()).toContain('working');
       expect(view.lastFrame()).toContain('dead');
       expect(view.lastFrame()).toContain('Enter selection (1-2)');
+      view.stdin.write('?');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Number+Enter Select'));
+      expect(view.lastFrame()).not.toContain('↑/↓ Select');
       view.stdin.write('2');
       view.stdin.write('\r');
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${SECOND.id}`));

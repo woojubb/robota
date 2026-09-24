@@ -19,6 +19,7 @@ export interface ISupervisedSessionViewProps {
   readonly loadRows: (signal: AbortSignal) => Promise<readonly ISupervisedViewRow[]>;
   readonly onStop?: (id: string) => Promise<void>;
   readonly filteredByCwd?: boolean;
+  readonly stateFilter?: TGroup;
   readonly refreshMs?: number;
 }
 
@@ -51,6 +52,7 @@ export default function SupervisedSessionView({
   loadRows,
   onStop,
   filteredByCwd = false,
+  stateFilter,
   refreshMs = 2_000,
 }: ISupervisedSessionViewProps): React.ReactElement {
   const { exit } = useApp();
@@ -65,7 +67,8 @@ export default function SupervisedSessionView({
   const [lastStoppedId, setLastStoppedId] = useState<string | undefined>();
   const stoppingRef = useRef(false);
   const mountedRef = useRef(true);
-  const ordered = useMemo(() => sortedRows(rows), [rows]);
+  const ordered = useMemo(() => sortedRows(rows).filter((row) => stateFilter === undefined || groupOf(row) === stateFilter),
+    [rows, stateFilter]);
   const displayLines = useMemo((): readonly TDisplayLine[] => {
     const lines: TDisplayLine[] = [];
     let previousGroup: TGroup | undefined;
@@ -120,7 +123,7 @@ export default function SupervisedSessionView({
         return;
       }
       if (input === 'y') {
-        const row = rows.find((candidate) => candidate.id === confirmStopId);
+        const row = ordered.find((candidate) => candidate.id === confirmStopId);
         setConfirmStopId(undefined);
         if (status !== 'ready' || row?.liveness !== 'alive' || row.control !== 'available' || onStop === undefined) {
           setStopStatus('unavailable');
@@ -147,7 +150,7 @@ export default function SupervisedSessionView({
       return;
     }
     if (input === 's' && onStop !== undefined) {
-      const row = rows.find((candidate) => candidate.id === selectedId);
+      const row = ordered.find((candidate) => candidate.id === selectedId);
       if (status !== 'ready' || row?.liveness !== 'alive' || row.control !== 'available') {
         setStopStatus('unavailable');
       } else {
@@ -178,10 +181,12 @@ export default function SupervisedSessionView({
 
   const height = Math.max(8, stdout.rows ?? 24);
   // Reserve all fixed chrome plus both possible overflow indicators before choosing row lines.
-  const fixedLines = 2 + (status === 'loading' || status === 'unavailable' || (status === 'ready' && ordered.length === 0) ? 1 : 0)
+  const helpVisible = showHelp && confirmStopId === undefined && stopStatus !== 'stopping';
+  const fixedLines = 2 + (stateFilter === undefined ? 0 : 1)
+    + (status === 'loading' || status === 'unavailable' || (status === 'ready' && ordered.length === 0) ? 1 : 0)
     + (selectedId === undefined ? 0 : 1)
     + (confirmStopId !== undefined ? (screenReader ? 1 : 2) : stopStatus !== 'idle' ? 1 : 0)
-    + 1 + (showHelp ? 1 : 0) + 2;
+    + 1 + (helpVisible ? 10 : 0) + 2;
   const viewport = Math.max(1, height - fixedLines);
   const selectedLine = Math.max(0, displayLines.findIndex((line) => line.kind === 'row' && line.row.id === selectedId));
   const start = Math.min(Math.max(0, selectedLine - Math.floor(viewport / 2)), Math.max(0, displayLines.length - viewport));
@@ -191,11 +196,24 @@ export default function SupervisedSessionView({
     : confirmStopId !== undefined ? 'Confirm stop or cancel before closing.'
       : screenReader ? 'Type a number and Enter to select; s Stop; Escape to close; ? Help.'
         : '↑↓ Navigate  s Stop  ? Help  q/Esc Close';
+  const helpLines = [
+    'Keys:',
+    screenReader ? 'Number+Enter Select' : '↑/↓ Select',
+    's Request stop',
+    'y Confirm stop',
+    'n/Esc Cancel stop',
+    'q/Esc/Ctrl+C Close',
+    '? Toggle help',
+    'Activity ≠ liveness',
+    'Idle ≠ attach-ready',
+    'Close keeps sessions',
+  ];
 
   return (
     <Box flexDirection="column" {...(screenReader ? {} : { height })}>
       <Text {...chromeWrap}>{filteredByCwd ? 'Background sessions in selected directory' : 'Background sessions across projects'}</Text>
       <Text {...chromeWrap}>{ordered.length} supervised session(s). Foreground peers and saved records are separate.</Text>
+      {stateFilter !== undefined && <Text {...chromeWrap}>State: {stateFilter}</Text>}
       {status === 'loading' && <Text {...chromeWrap}>Loading supervised sessions...</Text>}
       {status === 'unavailable' && <Text {...chromeWrap}>Supervised session discovery unavailable; last verified rows remain below.</Text>}
       {status === 'ready' && ordered.length === 0 && <Text {...chromeWrap}>No supervised sessions.</Text>}
@@ -225,7 +243,7 @@ export default function SupervisedSessionView({
         <Text>{formatNumberedSelectionPrompt(ordered.length, true)}{numbered.buffer ? ` ${numbered.buffer}` : ''}</Text>}
       {screenReader && numbered.invalid && <Text>Selection out of range.</Text>}
       <Text {...chromeWrap}>{footer}</Text>
-      {showHelp && <Text {...chromeWrap}>Activity is not process liveness. Idle does not allow attach. Closing this view does not stop sessions.</Text>}
+      {helpVisible && helpLines.map((line) => <Text key={line} {...chromeWrap}>{line}</Text>)}
     </Box>
   );
 }
@@ -245,7 +263,7 @@ export async function renderSupervisedSessionView(
   const instance = render(
     <ScreenReaderProvider enabled={options.screenReader}>
       <SupervisedSessionView loadRows={options.loadRows} onStop={options.onStop}
-        filteredByCwd={options.filteredByCwd} refreshMs={options.refreshMs} />
+        filteredByCwd={options.filteredByCwd} stateFilter={options.stateFilter} refreshMs={options.refreshMs} />
     </ScreenReaderProvider>,
     { isScreenReaderEnabled: options.screenReader, exitOnCtrlC: false },
   );
