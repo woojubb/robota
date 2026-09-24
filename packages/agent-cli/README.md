@@ -225,6 +225,9 @@ omitted child counts remain visible on the prompt event. Plain HTTP is allowed o
 are rejected. Export is bounded, best-effort, and does not delay or fail a turn; delivery failures
 produce a content-free stderr warning. These switches do not enable content capture, auth headers,
 additional event kinds, or replay of stored traces. Ambient `OTEL_*` values alone do not enable them.
+Each signal also accepts `console` instead of `otlp` to write a content-free JSON diagnostic to stderr;
+console needs neither an endpoint nor a protocol and never includes collector credentials. Signals
+remain independent, and the Robota enable switch is still required.
 
 ### Doctor
 
