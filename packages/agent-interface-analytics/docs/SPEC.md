@@ -33,7 +33,7 @@ response, tool, user, or session content.
 A bounded live prompt-trace projection exposes only this execution evidence, plus correlation IDs
 that are validated or opaque: a tool-call ID that joins tool children to live-only
 permission-decision children, and a provider-returned request ID on an invoked provider-call child.
-This entry's request-ID field is live-projection-only: it is never written to the persisted
+The provider-call child's request-ID field is live-projection-only: it is never written to the persisted
 provider-call trace and never becomes a metric (the same value reaches assistant-message metadata
 and live traces and logs by separate routes). None of
 these entries represents final turn settlement, a cost total, detached-work completion, or collector
