@@ -15,6 +15,7 @@ import { applyDoctorRepair } from './doctor-repair.js';
 import { runDoctor } from './doctor-runner.js';
 
 import type { IDoctorRepairPlan } from './doctor-repair.js';
+import type { IDoctorDisplayVocabulary } from './doctor-render.js';
 import type { IDoctorDeps, IDoctorInputs } from './doctor-types.js';
 import type {
   ICommandHostUserInteraction,
@@ -64,6 +65,7 @@ async function executeRepair(
   inputs: IDoctorInputs,
   deps: IDoctorDeps,
   context: ICommandHostUserInteraction,
+  display: IDoctorDisplayVocabulary,
 ): Promise<ICommandResult> {
   const outcome = await applyDoctorRepair(id, inputs, deps, (plan) =>
     confirmThroughHost(context, plan),
@@ -77,7 +79,7 @@ async function executeRepair(
     success: true,
     message: [
       `Repaired ${id}: ${outcome.plan.description}.`,
-      ...renderDoctorReport(report, 'robota doctor (after repair)'),
+      ...renderDoctorReport(report, `${display.title ?? 'Doctor'} (after repair)`, display),
     ].join('\n'),
     data: { repair: id, applied: true, status: check?.status, exitCode: report.exitCode },
   };
@@ -88,18 +90,19 @@ async function executeDoctorCommand(
   deps: IDoctorDeps,
   context: ICommandHostUserInteraction,
   args: string,
+  display: IDoctorDisplayVocabulary,
 ): Promise<ICommandResult> {
   const [verb, target] = args.trim().split(/\s+/);
   if (verb === 'repair') {
     if (target === undefined || target.length === 0) {
       return { success: false, message: 'Usage: /doctor repair <check-id>' };
     }
-    return executeRepair(target, inputs, deps, context);
+    return executeRepair(target, inputs, deps, context, display);
   }
   const report = await runDoctor(inputs, deps);
   return {
     success: report.failCount === 0,
-    message: renderDoctorReport(report).join('\n'),
+    message: renderDoctorReport(report, display.title, display).join('\n'),
     data: {
       failCount: report.failCount,
       warnCount: report.warnCount,
@@ -112,12 +115,13 @@ async function executeDoctorCommand(
 export function createDoctorCommandModule(
   inputs: IDoctorInputs,
   deps: IDoctorDeps = createNodeDoctorDeps({ ...inputs.env }),
+  display: IDoctorDisplayVocabulary = {},
 ): ICommandModule {
   const entry = createDoctorCommandEntry();
   const command: ISystemCommand = createSystemCommandFromEntry(entry, {
     requiresPermission: false,
     lifecycle: 'inline',
-    execute: (context, args) => executeDoctorCommand(inputs, deps, context, args),
+    execute: (context, args) => executeDoctorCommand(inputs, deps, context, args, display),
   });
   return {
     name: 'agent-command-doctor',

@@ -86,6 +86,24 @@ describe('/doctor command module (OBSERVABILITY-1991 TC-06)', () => {
     expect(createProvider).not.toHaveBeenCalled();
   });
 
+  it('renders host-selected product wording in the interactive command', async () => {
+    const fixture = createDoctorFixture({ env: {} });
+    fixtures.push(fixture);
+    installBrokenHome(fixture);
+    const command = createDoctorCommandModule(fixture.inputs, fixture.deps, {
+      title: 'Atlas doctor',
+      productName: 'Atlas',
+      formatRepairCommand: (id) => `atlas doctor --repair ${id}`,
+      repairOffer: 'run atlas doctor --repair <check-id>',
+    }).systemCommands![0]!;
+
+    const result = await command.execute(contextWith(undefined), '');
+    expect(result.message).toContain('Atlas doctor');
+    expect(result.message).toContain('Atlas');
+    expect(result.message).toContain('atlas doctor --repair settings.user.robota');
+    expect(result.message).toContain('run atlas doctor --repair <check-id>');
+  });
+
   it('repair without an interaction port or with a cancelled answer writes nothing', async () => {
     const fixture = createDoctorFixture({ env: {} });
     fixtures.push(fixture);

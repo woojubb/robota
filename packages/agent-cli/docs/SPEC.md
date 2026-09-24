@@ -86,6 +86,9 @@ For interactive keybindings, the CLI selects the Robota user file and schema URL
 to the terminal source; the terminal package does not infer a product-owned location or schema.
 The CLI also supplies `Robota` as the interactive display name, keeping its transcript labels,
 terminal title, and restart copy while the terminal renderer retains a neutral default.
+The CLI supplies `robota doctor --repair` for shell diagnostics, `/doctor repair` for the interactive
+command, and `robota --resume` for saved-fork recovery. Neutral command modules choose no Robota
+executable or product name on their own.
 
 **Local peer activity (#2726).** The host may publish only fixed, content-free activity states for
 its current interactive session into the same guarded, same-user rendezvous as peer discovery. The

@@ -21,6 +21,11 @@ afterEach(async () => {
 });
 
 describe('user-local command', () => {
+  it('does not advertise a specific product from the neutral command entry', () => {
+    const module = createUserLocalCommandModule('/tmp/selected-storage');
+    expect(module.commandSources?.[0]?.getCommands()[0]?.description).not.toMatch(/Robota/i);
+  });
+
   it('fails closed when a direct caller omits the storage root', async () => {
     const workspace = await createTempRoot('robota-user-local-missing-root-');
     const repo = path.join(workspace, 'repo');

@@ -44,6 +44,7 @@ export {
   planDoctorRepair,
   redactDiagnosticText,
   renderDoctorReport,
+  type IDoctorDisplayVocabulary,
   resolveCommandOnPath,
   runDoctor,
   type IDoctorCheck,

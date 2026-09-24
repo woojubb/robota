@@ -20,6 +20,7 @@ import {
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 
 import { buildDoctorInputs, resolveDoctorProjectAccess } from './doctor-inputs.js';
+import { ROBOTA_DOCTOR_DISPLAY } from '../product/robota-command-vocabulary.js';
 
 import type { IStartCliOptions } from './command-setup.js';
 import type { IDoctorRepairPlan } from '@robota-sdk/agent-command';
@@ -132,7 +133,7 @@ export async function runDoctorRoute(
   }
 
   const report = await runDoctor(inputs, deps);
-  for (const line of renderDoctorReport(report, `robota ${commandName}`))
+  for (const line of renderDoctorReport(report, `robota ${commandName}`, ROBOTA_DOCTOR_DISPLAY))
     ctx.terminal.writeLine(line);
   return report.exitCode;
 }
