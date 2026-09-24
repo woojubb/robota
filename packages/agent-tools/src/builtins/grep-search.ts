@@ -33,8 +33,7 @@ function matchesGlob(filename: string, glob: string | undefined): boolean {
  * Without a cap, enumeration and stat fan-out scale with the whole tree under the search root,
  * not with any result limit — a directory with millions of files makes every `Grep` call walk and
  * stat millions of entries before `headLimit` ever gets a chance to truncate the OUTPUT. This bounds
- * the WALK itself. Exported so a caller with a narrower budget can tighten it; not wired to any
- * tool-facing option because no caller has needed one yet (see docs/SPEC.md).
+ * the WALK itself.
  */
 export const DEFAULT_MAX_COLLECTED_FILES = 50_000;
 

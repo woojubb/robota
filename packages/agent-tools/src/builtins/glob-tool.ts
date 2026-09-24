@@ -37,9 +37,7 @@ const DEFAULT_MAX_RESULTS = 1000;
  * `fg(pattern)` (the promise form) materializes every match into memory and only then stats and
  * slices to `limit` — a pattern like `**\/*` under a huge tree allocates and stats the whole match
  * set no matter how small `limit` is. Streaming lets the walk stop as soon as this many CANDIDATES
- * have been seen, so memory and stat fan-out scale with this ceiling, not with the tree. Exported so
- * a caller with a narrower budget can tighten it; not wired to any tool-facing option because no
- * caller has needed one yet (see docs/SPEC.md).
+ * have been seen, so memory and stat fan-out scale with this ceiling, not with the tree.
  */
 export const DEFAULT_MAX_GLOB_CANDIDATES = 50_000;
 
