@@ -41,7 +41,6 @@ import { ProjectionReadModelService } from '@robota-sdk/dag-projection';
 import type { IWorkerLoopPolicyOptions } from '@robota-sdk/dag-worker';
 
 import { createExecutionComposition } from './composition/create-execution-composition.js';
-import { resolveAssetRoot, resolveStorageRoot } from './config/resolve-storage-root.js';
 import { AssetAwareTaskExecutorPort } from './adapters/asset-aware-executor.js';
 import { LocalFsAssetStore } from './adapters/local-fs-asset-store.js';
 import { DagPromptBackend } from './adapters/prompt-backend.js';
@@ -71,6 +70,13 @@ function buildManifestRegistry(manifests: INodeManifest[]): INodeManifestRegistr
     getManifest: (nodeType) => byType.get(nodeType),
     listManifests: () => manifests,
   };
+}
+
+function requireHostPath(value: string | undefined, name: string): string {
+  if (!value?.trim()) {
+    throw new Error(`createDagFramework requires paths.${name} when its port is not supplied`);
+  }
+  return value;
 }
 
 export class NoopDeadLetterReinject implements IDiagnosticsDeadLetterReinjectPort {
@@ -119,21 +125,21 @@ export async function createDagFramework(
   }
   const assembly = assemblyResult.value;
 
-  // 2. Resolve storage and asset paths
-  const storageRoot = options.paths?.storageRoot ?? resolveStorageRoot();
-  const assetRoot = options.paths?.assetRoot ?? resolveAssetRoot();
-
-  // 3. Infrastructure ports (defaults overridable via options.ports)
-  const storage: IStoragePort = options.ports?.storage ?? new FileStoragePort(storageRoot);
+  // 2. Infrastructure ports (defaults overridable via options.ports)
+  const storage: IStoragePort =
+    options.ports?.storage ??
+    new FileStoragePort(requireHostPath(options.paths?.storageRoot, 'storageRoot'));
   const queue: IQueuePort = options.ports?.queue ?? new InMemoryQueuePort();
   const deadLetterQueue: IQueuePort = options.ports?.deadLetterQueue ?? new InMemoryQueuePort();
   const lease: ILeasePort = options.ports?.lease ?? new InMemoryLeasePort();
   const clock: IClockPort = options.ports?.clock ?? new SystemClockPort();
 
-  // 4. Asset store
+  // 3. Asset store
   const assetStore: IAssetStore =
     options.ports?.assetStore ??
-    (await initializeAssetStore(new LocalFsAssetStore(path.resolve(assetRoot))));
+    (await initializeAssetStore(
+      new LocalFsAssetStore(path.resolve(requireHostPath(options.paths?.assetRoot, 'assetRoot'))),
+    ));
 
   // 5. Task executor (lifecycle-based, wrapped with asset-awareness)
   const baseExecutor: ITaskExecutorPort =

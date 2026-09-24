@@ -1,7 +1,7 @@
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { resolveAssetRoot, resolveStorageRoot } from '../config/resolve-storage-root.js';
+import { resolveAssetRoot, resolveStorageRoot } from '../storage-paths.js';
 
 const ENV_KEYS = ['DAG_STORAGE_ROOT', 'ASSET_STORAGE_ROOT', 'XDG_DATA_HOME'] as const;
 

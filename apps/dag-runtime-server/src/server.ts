@@ -2,6 +2,7 @@ import { serve } from '@hono/node-server';
 import { createDagFramework } from '@robota-sdk/dag-framework';
 
 import { createDagRuntimeServer } from './app.js';
+import { resolveAssetRoot, resolveStorageRoot } from './storage-paths.js';
 
 export interface IStartDagRuntimeServerOptions {
   /** Port to bind. Defaults to 3939, or `DAG_RUNTIME_SERVER_PORT`. */
@@ -24,7 +25,10 @@ export async function startDagRuntimeServer(
   const envPort = process.env['DAG_RUNTIME_SERVER_PORT'];
   const port = options.port ?? (envPort !== undefined ? Number(envPort) : 3939);
 
-  const framework = await createDagFramework({ executionRoot: process.cwd() });
+  const framework = await createDagFramework({
+    executionRoot: process.cwd(),
+    paths: { storageRoot: resolveStorageRoot(), assetRoot: resolveAssetRoot() },
+  });
   await framework.start();
   const app = createDagRuntimeServer(
     framework.runs,

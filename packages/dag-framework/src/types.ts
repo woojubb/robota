@@ -123,7 +123,7 @@ export interface IDagFrameworkOptions {
   readonly skillRoots?: readonly IDagSkillRootDescriptor[];
   /** Override individual infrastructure ports. */
   readonly ports?: IDagFrameworkPorts;
-  /** Override storage and asset paths (overrides env vars). */
+  /** Host-selected storage and asset paths, required unless their ports are supplied. */
   readonly paths?: IDagFrameworkPaths;
   /** Worker loop policy overrides. */
   readonly worker?: Partial<IWorkerLoopPolicyOptions>;

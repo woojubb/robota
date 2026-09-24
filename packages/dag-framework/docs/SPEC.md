@@ -6,7 +6,8 @@
 
 `dag-framework` is the embeddable in-process DAG runtime composition package. It assembles the
 runtime, worker, local adapters, and default node definitions into a single factory call, so
-consumers get a fully wired DAG framework without managing individual infrastructure objects.
+consumers get a fully wired DAG framework after supplying persistence paths or ports instead of
+managing the remaining infrastructure objects individually.
 
 Primary use case: local workflow execution composed by the agent CLI `/workflows` command, with
 zero external runtime-server process dependencies.
