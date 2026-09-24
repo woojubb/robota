@@ -29,8 +29,9 @@ function projectedOptions(
   buildRuntimeSession.mockClear();
   const channel = new HeadlessInteractionChannel({
     cwd: '/tmp',
+    shellExec: () => '',
     ...(effort !== undefined ? { effort } : {}),
-  } as IHeadlessInteractionChannelOptions);
+  } as unknown as IHeadlessInteractionChannelOptions);
   (channel as unknown as { createSession: () => unknown }).createSession();
   return buildRuntimeSession.mock.calls[0]?.[0] as Record<string, unknown>;
 }

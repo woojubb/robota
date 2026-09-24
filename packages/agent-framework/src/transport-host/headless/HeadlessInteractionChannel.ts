@@ -5,8 +5,6 @@
  * not in the caller. print-mode.ts constructs this and calls run().
  */
 
-import { execSync } from 'node:child_process';
-
 import { createHeadlessRunner, type TOutputFormat } from './headless-runner.js';
 import { buildRuntimeSession } from '../../runtime/runtime-host.js';
 
@@ -110,7 +108,8 @@ export interface IHeadlessInteractionChannelOptions {
   defaultTools?: readonly IToolWithEventService[];
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
-  shellExec?: TShellExecFn;
+  /** Host-owned shell adapter used only when a skill explicitly requests shell interpolation. */
+  shellExec: TShellExecFn;
   /**
    * SELFHOST-008 P6: optional durable-memory store injected by the surface (agent-cli). Forwarded into
    * `buildRuntimeSession`; absent ⇒ memory OFF (today's behavior). Enablement/policy is surface-owned.
@@ -127,6 +126,9 @@ export class HeadlessInteractionChannel {
   private exitCode = 0;
 
   constructor(options: IHeadlessInteractionChannelOptions) {
+    if (typeof options.shellExec !== 'function') {
+      throw new Error('Headless shell execution must be provided by the host.');
+    }
     this.opts = options;
   }
 
@@ -161,11 +163,6 @@ export class HeadlessInteractionChannel {
   private createSession(): InteractiveSession {
     // RUNTIME-001: build through the shared construction seam (agent-framework), not a private
     // `new InteractiveSession` — one session-construction SSOT across the TUI, print, and --serve.
-    const shellExec: TShellExecFn =
-      this.opts.shellExec ??
-      ((command: string) =>
-        execSync(command, { timeout: 5000, encoding: 'utf-8', stdio: 'pipe' }).trimEnd());
-
     return buildRuntimeSession({
       cwd: this.opts.cwd,
       provider: this.opts.provider,
@@ -235,7 +232,7 @@ export class HeadlessInteractionChannel {
       ...(this.opts.defaultTools !== undefined ? { defaultTools: this.opts.defaultTools } : {}),
       commandModules: this.opts.commandModules,
       commandHostAdapters: this.opts.commandHostAdapters,
-      shellExec,
+      shellExec: this.opts.shellExec,
       agentName: this.opts.agentName,
       ...(this.opts.activePresetId !== undefined
         ? { activePresetId: this.opts.activePresetId }
