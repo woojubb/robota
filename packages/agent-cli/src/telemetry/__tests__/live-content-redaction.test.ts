@@ -158,4 +158,110 @@ describe('live content redaction', () => {
       getSecrets: () => { throw new Error('settings unreadable'); },
     })).toThrow();
   });
+
+  it('masks the value of a JSON pair whose name looks secret, keeping the name', () => {
+    const pair = (name: string, value: string): string => cat('"', name, '": "', value, '"');
+    const text = [
+      pair(cat('session', '_tok', 'en'), 'plain-value-one'),
+      pair(cat('db_pass', 'word'), 'with \\"escaped\\" quote'),
+      pair(cat('x-', 'auth'), 'v3'),
+      pair(cat('private', '_key'), 'v4'),
+      pair(cat('api', '_key'), 'v5'),
+      pair('cookieJar', 'v6'),
+      pair('credentials', 'v7'),
+      pair(cat('api', 'Key'), 'v8'),
+      pair(cat('private', 'Key'), 'v9'),
+      pair(cat('api', '-key'), 'w1'),
+      pair(cat('pass', 'wd'), 'w2'),
+      pair('passphrase', 'w3'),
+      pair('requestSignature', 'w4'),
+      pair('bearerValue', 'w5'),
+      pair('jwt', 'w6'),
+      pair(cat('access', '_key'), 'w7'),
+      pair('name', 'kept-value'),
+    ].join(', ');
+    const out = redact(`{${text}}`).text;
+    for (const value of ['plain-value-one', 'escaped', 'v3', 'v4', 'v5', 'v6', 'v7', 'v8', 'v9', 'w1', 'w2', 'w3', 'w4', 'w5', 'w6', 'w7']) {
+      expect(out).not.toContain(`"${value}"`);
+    }
+    expect(out).toContain(cat('"api', 'Key": "[redacted]"'));
+    expect(out).toContain(cat('"session', '_tok', 'en": "[redacted]"'));
+    expect(out).toContain('"name": "kept-value"');
+  });
+
+  it('masks a secret header line whole, keeping the header name', () => {
+    const text = [
+      cat('Author', 'ization: Basic ', 'dXNlcjpwYXNz'),
+      'Cookie: sid=abc; theme=dark',
+      'set-cookie: sid=def; Path=/',
+      cat('X-Upload-', 'Token: plain-header-value'),
+      'Content-Type: text/plain',
+      'The cookie: is not a header here',
+      cat('> Coo', 'kie: sid=curlsid1'),
+      cat('> Author', 'ization: Basic ', 'Y3VybHVzZXI6eA=='),
+      cat('    Author', 'ization: indented-value-1'),
+      cat('Proxy-Author', 'ization: Basic ', 'cHJveHk6eA=='),
+      cat('X-Api-', 'Key: api-header-value'),
+      cat('x-client-', 'secret: client-header-value'),
+    ].join('\r\n');
+    const out = redact(text).text;
+    expect(out).not.toMatch(
+      /dXNlcjpwYXNz|sid=|plain-header-value|curlsid1|Y3VybHVzZXI6eA|indented-value-1|cHJveHk6eA|api-header-value|client-header-value/u,
+    );
+    expect(out).toContain('> Cookie: [redacted]');
+    expect(out).toContain('> Authorization: [redacted]');
+    expect(out).toContain('    Authorization: [redacted]');
+    expect(out).toContain('Proxy-Authorization: [redacted]');
+    expect(out).toContain(cat('X-Api-', 'Key: [redacted]'));
+    expect(out).toContain('Authorization: [redacted]');
+    expect(out).toContain('Cookie: [redacted]');
+    expect(out).toContain('set-cookie: [redacted]');
+    expect(out).toContain(cat('X-Upload-', 'Token: [redacted]'));
+    expect(out).toContain('Content-Type: text/plain');
+    expect(out).toContain('The cookie: is not a header here');
+  });
+
+  it('masks a JWT that follows a hyphen and leaves a dotless eyJ run alone', () => {
+    const jwt = cat('eyJhbGciOiJIUzI1NiJ9', '.', 'eyJzdWIiOiIxIn0', '.', 'c2lnbmF0dXJl');
+    expect(redact(`id-${jwt} end`).text).toBe('id-[redacted] end');
+    expect(redact('see eyJ-not-a-token here').text).toBe('see eyJ-not-a-token here');
+  });
+
+  it('stays linear on adversarial input for the JSON-pair and header patterns', () => {
+    // A wall-clock limit alone flakes on a loaded CI runner. Growth is what separates a linear
+    // pattern (about 4x for 4x input) from backtracking (16x or worse), so compare sizes instead.
+    const builders: ((n: number) => string)[] = [
+      (n) => `"${'token'.repeat(n / 5)}`,
+      (n) => `"${'a'.repeat(120)}token${'b'.repeat(120)}" : "${'\\'.repeat(n)}`,
+      (n) => '"secret'.repeat(n / 7),
+      (n) => `x-${'-'.repeat(n)}`,
+      (n) => '"a":"'.repeat(n / 5),
+      (n) => `"${'apikey'.repeat(n / 6)}`,
+      (n) => `"${'a'.repeat(120)}private-key${'b'.repeat(120)}"${' '.repeat(n)}`,
+      (n) => '>'.repeat(n),
+      (n) => `${' \t>'.repeat(n / 3)}authorization`,
+      (n) => `x-${'a-'.repeat(n / 2)}`,
+      (n) => '> x-'.repeat(n / 4),
+      (n) => `proxy-${'proxy-'.repeat(n / 6)}`,
+      (n) => 'eyJ-'.repeat(n / 4),
+      (n) => `${'eyJa-'.repeat(n / 5)}.x`,
+    ];
+    const bestOf3 = (text: string): number => {
+      let best = Number.POSITIVE_INFINITY;
+      for (let i = 0; i < 3; i += 1) {
+        const started = performance.now();
+        redact(text, {}, 16384);
+        best = Math.min(best, performance.now() - started);
+      }
+      return best;
+    };
+    for (const build of builders) {
+      const small = build(16 * 1024);
+      const large = build(64 * 1024);
+      expect(Buffer.byteLength(small)).toBeGreaterThanOrEqual(16 * 1000);
+      const smallMs = bestOf3(small);
+      const largeMs = bestOf3(large);
+      if (largeMs >= 50) expect(largeMs / Math.max(smallMs, 1)).toBeLessThan(10);
+    }
+  });
 });

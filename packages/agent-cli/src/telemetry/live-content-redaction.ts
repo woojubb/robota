@@ -13,11 +13,28 @@ const TRUNCATED = '[truncated]';
 /** A partial token at the cut edge at least this long is masked: it may be the head of a secret. */
 const EDGE_TOKEN_MIN = 8;
 
+/**
+ * JWT-shaped text is found by scanning each run of token characters once. A `\beyJ…\.…\.…` pattern
+ * restarts after every `-` inside a run, which made long runs quadratic. From the first `eyJ` that
+ * starts a word, a run holding two more dots is masked to its end — over-masking is the safe side.
+ */
+const TOKEN_RUN = /(?<![A-Za-z0-9_.-])[A-Za-z0-9_.-]+/gu;
+
+function maskJwtRuns(text: string): string {
+  return text.replace(TOKEN_RUN, (run) => {
+    let start = run.indexOf('eyJ');
+    while (start > 0 && run[start - 1] !== '-' && run[start - 1] !== '.') start = run.indexOf('eyJ', start + 1);
+    if (start < 0) return run;
+    const firstDot = run.indexOf('.', start);
+    if (firstDot < 0 || run.indexOf('.', firstDot + 1) < 0) return run;
+    return `${run.slice(0, start)}${REDACTED}`;
+  });
+}
+
 /** Shapes beyond the doctor's own, each replaced whole. */
 const EXTRA_SHAPES: readonly RegExp[] = [
   /-----BEGIN [A-Z0-9 ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z0-9 ]*PRIVATE KEY-----|$)/gu,
   /\b(?:AKIA|ASIA)[0-9A-Z]{16}\b/gu,
-  /\beyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/gu,
   /\bgithub_pat_[A-Za-z0-9_]{20,}/gu,
   /\bgh[ousr]_[A-Za-z0-9]{20,}/gu,
   /\b(?:sk|rk)_live_[A-Za-z0-9]{10,}/gu,
@@ -28,6 +45,19 @@ const EXTRA_SHAPES: readonly RegExp[] = [
 const USER_PASS_FLAG = /(^|\s)(-u\s+)(?:"[^"\s]*:[^"]*"|'[^'\s]*:[^']*'|[^\s:]+:\S+)/gu;
 /** `SOMETHING_KEY=value`, `API_TOKEN="…"`, `db_password=…`: the name stays, the value goes. */
 const SECRET_ASSIGNMENT = /\b([A-Za-z0-9_]*(?:KEY|TOKEN|SECRET|PASSWORD))=(?:"[^"]*"|'[^']*'|\S+)/giu;
+/**
+ * A JSON pair whose name looks secret (`"session_token": "…"`): the name stays, the value goes.
+ * Every repetition is bounded, so the work per starting position is bounded and the scan stays
+ * linear in the input however hostile it is.
+ */
+const SECRET_JSON_PAIR =
+  /("[^"\\]{0,128}(?:secret|token|password|passwd|passphrase|cookie|auth|credential|signature|bearer|jwt|(?:api|private|access|signing)[_-]?key)[^"\\]{0,128}"\s{0,16}:\s{0,16})"(?:[^"\\]|\\.){0,8192}"/giu;
+/**
+ * A secret header line, also indented or quoted as `curl -v` prints it (`> Cookie: …`): the prefix
+ * and name stay, the value goes.
+ */
+const SECRET_HEADER_LINE =
+  /^([ \t>]{0,8}(?:proxy-)?(?:authorization|cookie|set-cookie|x-[\w-]{0,64}(?:token|key|secret|auth)))[ \t]{0,16}:[^\r\n]*$/gimu;
 /** C0 and C1 controls (and DEL), except newline and tab. */
 // eslint-disable-next-line no-control-regex
 const CONTROLS = /[\u0000-\u0008\u000B-\u001F\u007F-\u009F]/gu;
@@ -119,8 +149,11 @@ export function prepareLiveContentRedactor(context: ILiveContentRedactionContext
   return (text, maxBytes, preTruncated) => {
     let out = redactDiagnosticText(text, secrets);
     for (const shape of EXTRA_SHAPES) out = out.replace(shape, REDACTED);
+    out = maskJwtRuns(out);
     out = out.replace(USER_PASS_FLAG, `$1$2${REDACTED}`);
     out = out.replace(SECRET_ASSIGNMENT, `$1=${REDACTED}`);
+    out = out.replace(SECRET_JSON_PAIR, `$1"${REDACTED}"`);
+    out = out.replace(SECRET_HEADER_LINE, `$1: ${REDACTED}`);
     for (const path of paths) out = maskPath(out, path, '<workspace>');
     for (const home of homes) out = maskPath(out, home, '~');
     out = out.replace(CONTROLS, '\uFFFD');

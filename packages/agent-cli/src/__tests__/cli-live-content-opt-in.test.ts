@@ -86,6 +86,17 @@ describe('CLI live content opt-in', () => {
       expect(reported).toMatch(/content capture is available only in the interactive terminal, not in print mode/u);
       expect(reported).not.toContain(API_KEY);
       expect(bodies).toEqual([]);
+
+      // Tool content gates start only where the owner types, too.
+      for (const key of Object.keys(process.env)) if (key.startsWith('ROBOTA_TELEMETRY_')) delete process.env[key];
+      stderr.mockClear();
+      setTelemetry({ ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS: '1', ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT: '1' });
+      error = undefined;
+      try { await startCli({ providerDefinitions: [providerDefinition] }); } catch (caught) { error = caught; }
+      const toolReported = `${error instanceof Error ? error.message : String(error)} ${stderr.mock.calls.join(' ')}`;
+      expect(toolReported).toMatch(/content capture is available only in the interactive terminal, not in print mode/u);
+      expect(toolReported).not.toMatch(/not yet supported/u);
+      expect(bodies).toEqual([]);
     } finally {
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
       rmSync(home, { recursive: true, force: true });

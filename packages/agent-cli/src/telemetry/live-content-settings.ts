@@ -2,14 +2,13 @@ import type { ILivePromptContentPolicy } from '@robota-sdk/agent-interface-analy
 
 export const LOG_USER_PROMPTS_SETTING = 'ROBOTA_TELEMETRY_LOG_USER_PROMPTS';
 export const LOG_ASSISTANT_RESPONSES_SETTING = 'ROBOTA_TELEMETRY_LOG_ASSISTANT_RESPONSES';
+export const LOG_TOOL_ARGUMENTS_SETTING = 'ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS';
+export const LOG_TOOL_OUTPUT_SETTING = 'ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT';
 export const LOG_CONTENT_MAX_BYTES_SETTING = 'ROBOTA_TELEMETRY_LOG_CONTENT_MAX_BYTES';
 export const LIVE_CONTENT_SETTINGS = [
-  LOG_USER_PROMPTS_SETTING, LOG_ASSISTANT_RESPONSES_SETTING, LOG_CONTENT_MAX_BYTES_SETTING,
+  LOG_USER_PROMPTS_SETTING, LOG_ASSISTANT_RESPONSES_SETTING, LOG_TOOL_ARGUMENTS_SETTING,
+  LOG_TOOL_OUTPUT_SETTING, LOG_CONTENT_MAX_BYTES_SETTING,
 ] as const;
-/** Tool arguments and output are a later, separately designed capture; refused whatever their value. */
-export const TOOL_CONTENT_SETTINGS: ReadonlySet<string> = new Set([
-  'ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS', 'ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT',
-]);
 
 const DEFAULT_MAX_BYTES = 2048;
 const MIN_MAX_BYTES = 256;
@@ -33,8 +32,10 @@ export function resolveLiveContentPolicy(
   if (env['ROBOTA_TELEMETRY_ENABLED'] !== '1') return undefined;
   const userPrompts = gate(env, LOG_USER_PROMPTS_SETTING);
   const assistantResponses = gate(env, LOG_ASSISTANT_RESPONSES_SETTING);
+  const toolArguments = gate(env, LOG_TOOL_ARGUMENTS_SETTING);
+  const toolOutput = gate(env, LOG_TOOL_OUTPUT_SETTING);
   const rawMax = env[LOG_CONTENT_MAX_BYTES_SETTING];
-  if (!userPrompts && !assistantResponses) {
+  if (!userPrompts && !assistantResponses && !toolArguments && !toolOutput) {
     if (rawMax !== undefined) {
       throw new Error(`${LOG_CONTENT_MAX_BYTES_SETTING} is set but no content capture setting is 1.`);
     }
@@ -52,5 +53,5 @@ export function resolveLiveContentPolicy(
       throw new Error(`${LOG_CONTENT_MAX_BYTES_SETTING} must be an integer from ${MIN_MAX_BYTES} to ${MAX_MAX_BYTES}.`);
     }
   }
-  return Object.freeze({ userPrompts, assistantResponses, maxBytes });
+  return Object.freeze({ userPrompts, assistantResponses, toolArguments, toolOutput, maxBytes });
 }
