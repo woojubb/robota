@@ -34,6 +34,8 @@ export interface IHeadlessInteractionChannelOptions {
   cwd: string;
   provider: IAIProvider;
   providerErrorGuidance?: IProviderErrorGuidance;
+  promptFileReferenceTag?: string;
+  modelCommandToolPrefix?: string;
   /** Resolved organization policy enforced by the interactive session. */
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;
@@ -168,6 +170,12 @@ export class HeadlessInteractionChannel {
       provider: this.opts.provider,
       ...(this.opts.providerErrorGuidance !== undefined
         ? { providerErrorGuidance: this.opts.providerErrorGuidance }
+        : {}),
+      ...(this.opts.promptFileReferenceTag !== undefined
+        ? { promptFileReferenceTag: this.opts.promptFileReferenceTag }
+        : {}),
+      ...(this.opts.modelCommandToolPrefix !== undefined
+        ? { modelCommandToolPrefix: this.opts.modelCommandToolPrefix }
         : {}),
       ...(this.opts.orgPolicy !== undefined ? { orgPolicy: this.opts.orgPolicy } : {}),
       ...(this.opts.projectAccess !== undefined ? { projectAccess: this.opts.projectAccess } : {}),

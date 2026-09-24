@@ -20,6 +20,12 @@ export function buildTuiSessionOptions(
     ...(opts.providerErrorGuidance !== undefined
       ? { providerErrorGuidance: opts.providerErrorGuidance }
       : {}),
+    ...(opts.promptFileReferenceTag !== undefined
+      ? { promptFileReferenceTag: opts.promptFileReferenceTag }
+      : {}),
+    ...(opts.modelCommandToolPrefix !== undefined
+      ? { modelCommandToolPrefix: opts.modelCommandToolPrefix }
+      : {}),
     ...(opts.orgPolicy !== undefined ? { orgPolicy: opts.orgPolicy } : {}),
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
     ...(opts.projectSettingsPaths !== undefined

@@ -519,19 +519,26 @@ async function runCliCore(
   // `permissionMode` bind here; the runner collaborators bind to `product` just above (CLI-078). The one
   // surface that does NOT pass through this assembly is `robota eval`, a documented shell exception —
   // see `eval/eval-command.ts` § CLI-078 for its equivalence boundary.
-  const { commandModules, agentDefinitions, toolOptions, permissionMode, providerErrorGuidance } =
-    buildRobotaRuntimeOptions({
+  const {
+    commandModules,
+    agentDefinitions,
+    toolOptions,
+    permissionMode,
+    providerErrorGuidance,
+    promptFileReferenceTag,
+    modelCommandToolPrefix,
+  } = buildRobotaRuntimeOptions({
+    product,
+    cwd,
+    provider,
+    selectedCommandModules: selectProductCommandModules(
       product,
-      cwd,
-      provider,
-      selectedCommandModules: selectProductCommandModules(
-        product,
-        fixedCommandModules,
-        resolvedPreset,
-      ),
-      ...(args.permissionMode !== undefined ? { permissionMode: args.permissionMode } : {}),
-      projectAccess: workspaceComposition.projectAccess,
-    });
+      fixedCommandModules,
+      resolvedPreset,
+    ),
+    ...(args.permissionMode !== undefined ? { permissionMode: args.permissionMode } : {}),
+    projectAccess: workspaceComposition.projectAccess,
+  });
   if (mcp !== undefined) toolOptions.additionalTools.push(...(await mcp.connect()));
   const toolCallHandoff = mcp?.buildToolCallHandoff(permissionMode);
   // A capability the merge refused (a colliding id) is reported, never silently dropped.
@@ -611,6 +618,8 @@ async function runCliCore(
       workspaceComposition.contributionSources,
       workspaceComposition.skillRoots,
       ROBOTA_TASK_CONTEXT,
+      promptFileReferenceTag,
+      modelCommandToolPrefix,
     );
     try {
       await printRun;
@@ -627,6 +636,8 @@ async function runCliCore(
       args,
       provider,
       providerErrorGuidance,
+      promptFileReferenceTag,
+      modelCommandToolPrefix,
       sessionStore,
       projectAccess: workspaceComposition.projectAccess,
       orgPolicy,
@@ -672,6 +683,8 @@ async function runCliCore(
       args,
       provider,
       providerErrorGuidance,
+      promptFileReferenceTag,
+      modelCommandToolPrefix,
       sessionStore,
       projectAccess: workspaceComposition.projectAccess,
       orgPolicy,
@@ -728,6 +741,8 @@ async function runCliCore(
 
   const tuiRun = presentation.renderApp({
     productDisplayName: 'Robota',
+    modelCommandToolPrefix,
+    promptFileReferenceTag,
     providerDefinitions,
     ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
     ...(initialInput !== undefined

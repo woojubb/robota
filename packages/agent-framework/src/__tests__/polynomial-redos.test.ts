@@ -110,10 +110,8 @@ describe('SEC-003 alert 42 — provider-safe model command tool name', () => {
   );
 
   it('keeps the projected tool name for ordinary input', () => {
-    expect(createProviderSafeModelCommandToolName('/schedule')).toBe('robota_command_schedule');
-    expect(createProviderSafeModelCommandToolName('remote-control')).toBe(
-      'robota_command_remote-control',
-    );
+    expect(createProviderSafeModelCommandToolName('/schedule')).toBe('command_schedule');
+    expect(createProviderSafeModelCommandToolName('remote-control')).toBe('command_remote-control');
   });
 });
 

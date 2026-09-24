@@ -11,8 +11,12 @@ import type { IHistoryEntry } from '@robota-sdk/agent-core';
 export function buildPromptWithFileReferences(
   input: string,
   references: readonly IResolvedPromptFileReference[],
+  tag = 'file_references',
 ): string {
   if (references.length === 0) return input;
+  if (!/^[A-Za-z][A-Za-z0-9_-]*$/u.test(tag)) {
+    throw new Error('Prompt file reference tag must use safe tag characters.');
+  }
 
   const blocks = references.map((reference) => {
     const content = reference.content.replaceAll('</file>', '<\\/file>');
@@ -23,7 +27,7 @@ export function buildPromptWithFileReferences(
     ].join('\n');
   });
 
-  return [input, '<robota_file_references>', ...blocks, '</robota_file_references>'].join('\n\n');
+  return [input, `<${tag}>`, ...blocks, `</${tag}>`].join('\n\n');
 }
 
 export function hasBlockingPromptFileReferenceDiagnostics(

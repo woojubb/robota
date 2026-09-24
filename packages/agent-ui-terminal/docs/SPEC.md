@@ -42,9 +42,10 @@ is enabled from a bare `cwd`, or which commands an org policy blocks. Session-ca
 projections declare every field's forwarding, rename, or presentation-only disposition explicitly;
 a missing mapping is rejected rather than silently dropped. The same host-supplied-only principle
 covers user settings sources, the keybindings file and schema, baseline permission patterns, plugin
-directories, and product identity: the terminal renders whatever the host passes and never selects a
-product path, executable name, or settings file itself. Without a supplied display name the renderer
-falls back to a neutral `Assistant` label (screen-reader role labels stay provider- and
+directories, product identity, and projected command-tool prefix: the terminal renders whatever the
+host passes and never selects a product path, executable name, or settings file itself. Without a
+supplied display name the renderer falls back to a neutral `Assistant` label (screen-reader role
+labels stay provider- and
 product-neutral regardless), and terminal-title composition always sanitizes both the host-selected
 name and the session name before emitting the OSC sequence. The permission prompt labels
 project-wide approval unavailable, rather than resolving the disabled choice as granted, when the

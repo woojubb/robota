@@ -9,6 +9,19 @@ import { buildTuiSessionOptions } from '../tui-session-options.js';
 import type { IRenderOptions } from '../render.js';
 
 describe('toChannelOptions', () => {
+  it('keeps host model identifiers through render, channel, and session', () => {
+    const channel = toChannelOptions({
+      cwd: '/tmp/project',
+      provider: {} as IAIProvider,
+      cliAdapter: {} as ITuiCliAdapter,
+      promptFileReferenceTag: 'acme_files',
+      modelCommandToolPrefix: 'acme_command_',
+    });
+    const session = buildTuiSessionOptions(channel);
+    expect(session.promptFileReferenceTag).toBe('acme_files');
+    expect(session.modelCommandToolPrefix).toBe('acme_command_');
+  });
+
   it('preserves host permission baselines through render, channel, and session', () => {
     const baselinePermissionAllow = ['Read(custom/**)'];
     const channel = toChannelOptions({

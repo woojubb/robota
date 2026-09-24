@@ -49,7 +49,11 @@ export function toolSummaryStatusKind(
 }
 
 /** One-line summary label: SSOT glyph + humanized tool name + first argument. */
-export function getToolSummaryLabel(tool: TToolSummaryItem, kind: TUiStatusKind): string {
+export function getToolSummaryLabel(
+  tool: TToolSummaryItem,
+  kind: TUiStatusKind,
+  prefix?: string,
+): string {
   const argument = humanizeToolArgument(tool.firstArg);
-  return `${STATUS_SYMBOL[kind]} ${humanizeToolName(tool.toolName)}${argument ? `(${argument})` : ''}`;
+  return `${STATUS_SYMBOL[kind]} ${humanizeToolName(tool.toolName, prefix)}${argument ? `(${argument})` : ''}`;
 }

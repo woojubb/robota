@@ -6,7 +6,9 @@ import { createProjectPermissionPersistence } from './project-permission-persist
 import type { IInitOptions } from './interactive-session-options.js';
 import type { ICreateSessionOptions } from '../assembly/index.js';
 
-function getCommandSemanticRoles(options: IInitOptions): ICreateSessionOptions['commandSemanticRoles'] {
+function getCommandSemanticRoles(
+  options: IInitOptions,
+): ICreateSessionOptions['commandSemanticRoles'] {
   if (options.commandSemanticRoles) return options.commandSemanticRoles;
   return (options.commandModules?.flatMap((module) => module.systemCommands ?? []) ?? []).reduce(
     (roles, command) =>
@@ -155,6 +157,7 @@ export function buildCreateSessionOptions(
       : {}),
     commandSemanticRoles: getCommandSemanticRoles(options),
     modelCommandExecutor: options.modelCommandExecutor,
+    modelCommandToolPrefix: options.modelCommandToolPrefix,
     isModelCommandInvocable: options.isModelCommandInvocable,
     editCheckpointRecorder: options.editCheckpointRecorder,
     reversibleExecution: options.reversibleExecution,

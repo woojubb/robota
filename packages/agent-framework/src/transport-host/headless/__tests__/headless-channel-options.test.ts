@@ -83,6 +83,22 @@ describe('HeadlessInteractionChannel session options', () => {
     expect(sessionCtorSpy.mock.calls[0]?.[0]).toMatchObject({ providerErrorGuidance });
   });
 
+  it('forwards host model identifiers to the live session', async () => {
+    const channel = new HeadlessInteractionChannel({
+      cwd: process.cwd(),
+      provider: {} as IAIProvider,
+      promptFileReferenceTag: 'acme_files',
+      modelCommandToolPrefix: 'acme_command_',
+      outputFormat: 'text',
+      shellExec: () => '',
+    });
+    await channel.run('hello');
+    expect(sessionCtorSpy.mock.calls[0]?.[0]).toMatchObject({
+      promptFileReferenceTag: 'acme_files',
+      modelCommandToolPrefix: 'acme_command_',
+    });
+  });
+
   it('forwards the host-owned shell adapter to the live session unchanged', async () => {
     const shellExec = vi.fn(() => 'host result');
     const channel = new HeadlessInteractionChannel({

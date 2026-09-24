@@ -79,6 +79,8 @@ export async function runPrintMode(
   contributionSources?: readonly IContributionSource[],
   skillRoots?: readonly ISkillRootDescriptor[],
   taskContext?: { readonly enabled?: boolean; readonly dir?: string },
+  promptFileReferenceTag?: string,
+  modelCommandToolPrefix?: string,
 ): Promise<void> {
   const goalObjective = args.goal?.trim();
   let prompt = args.positional.join(' ').trim();
@@ -117,6 +119,8 @@ export async function runPrintMode(
     provider,
     shellExec: runShellCommand,
     ...(providerErrorGuidance !== undefined ? { providerErrorGuidance } : {}),
+    ...(promptFileReferenceTag !== undefined ? { promptFileReferenceTag } : {}),
+    ...(modelCommandToolPrefix !== undefined ? { modelCommandToolPrefix } : {}),
     ...(orgPolicy !== undefined ? { orgPolicy } : {}),
     ...(projectAccess !== undefined ? { projectAccess } : {}),
       ...(projectSettingsPaths !== undefined ? { projectSettingsPaths } : {}),

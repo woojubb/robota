@@ -118,7 +118,10 @@ export async function createSession(
     options.modelCommandExecutor !== undefined &&
     options.isModelCommandInvocable !== undefined;
   const modelCommandToolProjection = modelCommandToolsEnabled
-    ? createModelCommandToolProjection(modelInvocableCommandDescriptors)
+    ? createModelCommandToolProjection(
+        modelInvocableCommandDescriptors,
+        options.modelCommandToolPrefix,
+      )
     : undefined;
   const modelVisibleSkills = hasModelInvocableCommandDescriptor(
     modelInvocableCommandDescriptors,
@@ -138,6 +141,7 @@ export async function createSession(
         execute: options.modelCommandExecutor,
         isModelInvocable: options.isModelCommandInvocable,
         commandDescriptors: modelInvocableCommandDescriptors,
+        toolNamePrefix: options.modelCommandToolPrefix,
       }),
     );
   }

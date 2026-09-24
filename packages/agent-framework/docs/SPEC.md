@@ -65,9 +65,12 @@ React/Ink UI.
   contribution sources and roots; neutral SDK helpers do not infer the current process home.
 - **Headless shell execution is host-owned.** The host supplies the shell adapter for explicit
   skill interpolation; the framework does not construct a child-process fallback.
-- **Command modules own product behavior.** SDK core ships no user-visible built-in commands; command
-  packages (`agent-command-*`) contribute behavior through `ICommandModule`, consuming SDK command
-  contracts and common APIs. The SDK does not know command ids in advance.
+- **Hosts own model-facing identifiers; command modules own product behavior.** Attached file
+  references and projected command tools use neutral identifiers unless the host supplies its own,
+  and those identifiers remain consistent through prompt execution and child-tool filtering. SDK
+  core ships no user-visible built-in commands; command packages (`agent-command-*`) contribute
+  behavior through `ICommandModule`, consuming SDK command contracts and common APIs. The SDK does
+  not know command ids in advance.
 
 ## Architecture position
 

@@ -139,10 +139,10 @@ describe('in-memory MCP with real session execution', () => {
     cleanup.push(() => harness.dispose());
     const client = await connect(harness.session);
     const names = (await client.listTools()).tools.map((tool) => tool.name);
-    expect(names).toContain('robota_command_echo');
-    expect(names).not.toContain('robota_command_hidden');
-    expect(names).not.toContain('command_echo');
-    const echoed = await client.callTool({ name: 'robota_command_echo', arguments: { args: '' } });
+    expect(names).toContain('command_echo');
+    expect(names).not.toContain('command_hidden');
+    expect(names).not.toContain('robota_command_echo');
+    const echoed = await client.callTool({ name: 'command_echo', arguments: { args: '' } });
     expect(echoed.isError).toBe(false);
     expect(JSON.stringify(echoed)).toContain('echoed');
     expect(

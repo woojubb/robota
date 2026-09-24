@@ -63,6 +63,8 @@ export interface IServeModeOptions {
   args: IParsedCliArgs;
   provider: IAIProvider;
   providerErrorGuidance?: IProviderErrorGuidance;
+  promptFileReferenceTag?: string;
+  modelCommandToolPrefix?: string;
   sessionStore: ReturnType<typeof createProjectSessionStore>;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
@@ -141,6 +143,12 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     provider: opts.provider,
     ...(opts.providerErrorGuidance !== undefined
       ? { providerErrorGuidance: opts.providerErrorGuidance }
+      : {}),
+    ...(opts.promptFileReferenceTag !== undefined
+      ? { promptFileReferenceTag: opts.promptFileReferenceTag }
+      : {}),
+    ...(opts.modelCommandToolPrefix !== undefined
+      ? { modelCommandToolPrefix: opts.modelCommandToolPrefix }
       : {}),
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
     ...(opts.projectSettingsPaths !== undefined

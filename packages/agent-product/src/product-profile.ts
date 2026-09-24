@@ -72,6 +72,10 @@ export interface IProductProfile {
   provider?: IAIProvider;
   /** Product-specific, plain-data remediation text for recognized provider errors. */
   providerErrorGuidance?: IProviderErrorGuidance;
+  /** Model-visible enclosure for workspace file references; neutral when omitted. */
+  promptFileReferenceTag?: string;
+  /** Prefix for model command tool names; neutral when omitted. */
+  modelCommandToolPrefix?: string;
   // (3) behavior axis — external presets to register + the default id
   /**
    * External presets to register into a PER-CALL instance-scoped registry (R8). Ignored when

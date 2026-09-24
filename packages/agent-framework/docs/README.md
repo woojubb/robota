@@ -11,7 +11,8 @@
 - Manual context references are managed by SDK-owned inventory APIs and consumed by command packages through command common APIs.
 - Skills, system commands, memory, checkpointing, and rewind behavior are SDK-level capabilities.
 - Session assembly includes local `WebSearch`/`WebFetch` tools separately from provider-native hosted web capabilities.
-- Model-invocable built-in commands are exposed through SDK-projected `robota_command_*` tools.
+- Model-invocable commands are exposed through SDK-projected `command_*` tools by default;
+  product hosts can choose a prefix in session options. Robota uses `robota_command_*`.
 - Session event hooks expose execution-boundary events used by versioned session logs. Replay-only
   recovery reports malformed and unsupported logs explicitly in load and listing outcomes.
 
