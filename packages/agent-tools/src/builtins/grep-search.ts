@@ -82,6 +82,7 @@ export function searchFile(
   regex: RegExp,
   contextLines: number,
   outputMode: 'files_with_matches' | 'content' | 'count',
+  maxOutputBytes?: number,
 ): string[] {
   const lines = content.split('\n');
   const matchingIndices: number[] = [];
@@ -115,16 +116,22 @@ export function searchFile(
   }
 
   const outputLines: string[] = [];
+  let outputBytes = 0;
   const sortedIndices = Array.from(includedIndices).sort((a, b) => a - b);
 
   let prevIdx: number | undefined;
+  let matchingCursor = 0;
   for (const idx of sortedIndices) {
     if (prevIdx !== undefined && idx > prevIdx + 1) {
       outputLines.push('--');
     }
     const lineNum = idx + 1;
-    const marker = matchingIndices.includes(idx) ? ':' : '-';
-    outputLines.push(`${filePath}:${lineNum}${marker}${lines[idx]}`);
+    while (matchingIndices[matchingCursor] < idx) matchingCursor++;
+    const marker = matchingIndices[matchingCursor] === idx ? ':' : '-';
+    const row = `${filePath}:${lineNum}${marker}${lines[idx]}`;
+    outputBytes += Buffer.byteLength(row, 'utf8') + 1;
+    if (maxOutputBytes !== undefined && outputBytes > maxOutputBytes) throw new Error('byte limit');
+    outputLines.push(row);
     prevIdx = idx;
   }
 

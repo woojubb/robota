@@ -174,4 +174,20 @@ describe('grepTool', () => {
     expect(result.success).toBe(false);
     expect(result.error).toContain('Invalid regex');
   });
+
+  it('refuses an oversized file before sending it to the matcher', async () => {
+    const file = join(fixtureDir, 'oversized.txt');
+    writeFileSync(file, 'x'.repeat(4 * 1024 * 1024 + 1));
+    await expect(runGrep(fixtureDir, { pattern: 'x', path: file })).rejects.toThrow(
+      'Grep search exceeded its byte limit',
+    );
+  });
+
+  it('bounds content output amplified by matching line prefixes', async () => {
+    const file = join(fixtureDir, 'many-lines.txt');
+    writeFileSync(file, 'x\n'.repeat(100_000));
+    await expect(
+      runGrep(fixtureDir, { pattern: 'x', path: file, outputMode: 'content' }),
+    ).rejects.toThrow('Grep search exceeded its byte limit');
+  });
 });

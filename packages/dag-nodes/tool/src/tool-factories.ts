@@ -37,7 +37,7 @@ export type FunctionTool = ITool;
  * layers rather than the only thing enforcing it. The two builtins that reach the network
  * (`web-fetch`, `web-search`) have no filesystem path to contain and ignore it.
  */
-export type ToolFactory = (options: { cwd: string }) => FunctionTool;
+export type ToolFactory = (options: { cwd: string; signal?: AbortSignal }) => FunctionTool;
 
 /** Static allowlist mapping `toolName` → the agent-tools builtin factory. */
 export const TOOL_FACTORIES: Readonly<Record<string, ToolFactory>> = {
