@@ -179,6 +179,8 @@ Provider packages implement this package's provider base class; other layers ext
 ## Event Architecture
 
 Events are named `ownerType.localName` (e.g. an execution-service event, a tool-execution event, an agent-level event) and each event carries an owner-path trace of the execution hierarchy that produced it, so a consumer can reconstruct which agent/tool/execution nesting emitted a given event without a separate correlation mechanism.
+The tool-body completion name identifies only the awaited body of a permitted call. A consumer must
+not interpret pre-execution permission or hook failures as executed tool spans.
 
 ## Conversation History Principles
 

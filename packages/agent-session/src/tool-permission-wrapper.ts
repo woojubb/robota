@@ -1,4 +1,5 @@
 import { PERMISSION_DENIED_RESULT, reportToolCrash } from './permission-types.js';
+import { createLogger, isAbortFailure, TOOL_BODY_EVENTS } from '@robota-sdk/agent-core';
 import { canonicaliseToolArguments } from './tool-argument-canonicalisation.js';
 import {
   buildHookInput,
@@ -17,6 +18,8 @@ import type {
   TToolArgs,
   TToolParameters,
 } from '@robota-sdk/agent-core';
+
+const logger = createLogger('ToolBodyTrace');
 
 /** Exactly what the wrapper reads from the enforcer — no more, and named so it cannot quietly grow. */
 export interface IToolWrapperDeps {
@@ -126,7 +129,34 @@ export function wrapToolWithPermission(
         executionId: context?.executionId,
       });
 
-      const result = await originalExecute(parameters, context as IToolExecutionContext);
+      // The observation covers ONLY the awaited body, never approval, hooks, truncation or a
+      // detached continuation. A pre-start denial/abort therefore has no tool-body span.
+      const startedAtMs = Date.now();
+      let outcome: 'success' | 'failure' | 'interrupted' = 'failure';
+      let result: IToolResult;
+      try {
+        result = await originalExecute(parameters, context as IToolExecutionContext);
+        outcome = context?.signal?.aborted ? 'interrupted' : result.success ? 'success' : 'failure';
+      } catch (error) {
+        outcome = context?.signal?.aborted || isAbortFailure(error) ? 'interrupted' : 'failure';
+        throw error;
+      } finally {
+        try {
+          context?.eventService?.emit(TOOL_BODY_EVENTS.COMPLETED, {
+            timestamp: new Date(),
+            executionId: context.executionId,
+            startedAt: new Date(startedAtMs).toISOString(),
+            endedAt: new Date(Math.max(Date.now(), startedAtMs)).toISOString(),
+            outcome,
+          });
+        } catch (error) {
+          // An observer must never turn a completed tool body into a missing tool_result.
+          logger.warn(
+            'tool body observation failed',
+            error instanceof Error ? error : new Error(String(error)),
+          );
+        }
+      }
 
       // Truncate oversized tool output (matches 30K char limit)
       const truncatedResult = truncateToolResult(result);

@@ -42,7 +42,10 @@ import type { ISkillActivationEvent } from '../commands/skill-activation-events.
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { IHistoryEntry, TToolArgs } from '@robota-sdk/agent-core';
-import type { IProviderCallTraceEntry } from '@robota-sdk/agent-interface-analytics';
+import type {
+  IProviderCallTraceEntry,
+  IToolBodyTraceEntry,
+} from '@robota-sdk/agent-interface-analytics';
 import type { TDriverId, TTurnSource } from '@robota-sdk/agent-interface-session';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
 
@@ -260,6 +263,7 @@ export class SessionExecutionController {
         }
       | undefined;
     const providerCallEntries: IHistoryEntry<IProviderCallTraceEntry>[] = [];
+    const toolBodyEntries: IHistoryEntry<IToolBodyTraceEntry>[] = [];
     const closePromptRoot = (outcome: 'success' | 'failure' | 'interrupted'): void => {
       if (!promptRoot || promptRoot.endedAt) return;
       promptRoot.endedAt = new Date(Math.max(Date.now(), promptRoot.startedAtMs)).toISOString();
@@ -352,6 +356,23 @@ export class SessionExecutionController {
             },
           });
         },
+        onToolBodyCompleted: (observation) => {
+          if (!promptRoot) return;
+          toolBodyEntries.push({
+            id: `tool_body_trace_${randomOtelId(8)}`,
+            timestamp: new Date(),
+            category: 'event',
+            type: 'tool-body-trace',
+            data: {
+              traceId: promptRoot.traceId,
+              parentSpanId: promptRoot.spanId,
+              spanId: randomOtelId(8),
+              startedAt: observation.startedAt,
+              endedAt: observation.endedAt,
+              outcome: observation.outcome,
+            },
+          });
+        },
         onInterrupted: (result: IExecutionResult) => {
           closePromptRoot('interrupted');
           // RUNTIME-003: an interrupted turn RAN — resolve, do not reject.
@@ -390,6 +411,7 @@ export class SessionExecutionController {
         onError: (error) => this.callbacks.emit('error', error),
       });
       for (const entry of providerCallEntries) this.histTracker.getHistory().push(entry);
+      for (const entry of toolBodyEntries) this.histTracker.getHistory().push(entry);
       recordUsageObservation(this.histTracker.getHistory(), this.callbacks.getSessionOrThrow(), {
         turnId,
         outcome: turnOutcome,

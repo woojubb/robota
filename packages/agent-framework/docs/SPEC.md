@@ -98,9 +98,11 @@ These are behaviors a caller cannot infer from a type signature alone.
   at the first terminal prompt callback, recording that callback's outcome independently; later
   context refresh, wake finalization, notification, and handle settlement are outside it. A
   failure before prompt execution begins has no root.
-  Each provider round observed inside the run may add a separately timed, content-free child with
-  an explicit trace ID and parent span ID. It remains a partial trace: no causal tool spans or
-  cross-process propagation are claimed, and neither root nor child proves final turn settlement.
+  Each provider round and each awaited, permitted tool body observed inside the run may add a
+  separately timed, content-free child with explicit trace and parent IDs. Tool permissions and
+  hooks are outside the body interval, and a background handoff closes the foreground body when
+  it returns; later detached work is not parented under that closed span. This remains a partial
+  trace without cross-process propagation or proof of final turn settlement.
 - **Session persistence is explicit, never implicit.** `InteractiveSession`/`createAgentRuntime`
   never construct a project session store from a bare `cwd`. A host wanting persistence supplies an
   explicit store (optionally composed from same-authority `sessions`/`session-logs` state facets); an

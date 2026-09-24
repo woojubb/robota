@@ -114,6 +114,21 @@ describe('explicit OTLP usage snapshot export', () => {
         content: 'secret result',
       },
     });
+    session.history!.push({
+      id: 'tool-child',
+      timestamp: new Date('2026-09-24T00:00:59.900Z'),
+      category: 'event',
+      type: 'tool-body-trace',
+      data: {
+        traceId: '1234567890abcdef1234567890abcdef',
+        parentSpanId: '1234567890abcdef',
+        spanId: 'fedcba0987654321',
+        startedAt: '2026-09-24T00:00:59.100Z',
+        endedAt: '2026-09-24T00:00:59.900Z',
+        outcome: 'failure',
+        content: 'secret tool output',
+      },
+    });
     const fetcher = vi.fn(
       async (_input: Parameters<typeof fetch>[0], _init?: RequestInit) =>
         new Response('{}', {
@@ -137,7 +152,9 @@ describe('explicit OTLP usage snapshot export', () => {
     const body = JSON.stringify(JSON.parse(fetcher.mock.calls[0]![1]?.body as string));
     expect(body).toContain('"parentSpanId":"1234567890abcdef"');
     expect(body).not.toContain('secret result');
+    expect(body).not.toContain('secret tool output');
     expect(result.stdout).toMatch(/1 provider child span/);
+    expect(result.stdout).toMatch(/1 tool child span/);
   });
 
   it('refuses trace export without any valid root before contacting the collector', async () => {
@@ -210,7 +227,9 @@ describe('explicit OTLP usage snapshot export', () => {
       fetcher: vi.fn(
         async () =>
           new Response(
-            JSON.stringify({ partialSuccess: { rejectedDataPoints: '0.0e+20', rejectedSpans: '1' } }),
+            JSON.stringify({
+              partialSuccess: { rejectedDataPoints: '0.0e+20', rejectedSpans: '1' },
+            }),
             { status: 200, headers: { 'content-type': 'application/json' } },
           ),
       ),

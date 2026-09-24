@@ -22,7 +22,7 @@ interface IOtlpSpan {
   readonly traceId: string;
   readonly spanId: string;
   readonly parentSpanId?: string;
-  readonly name: 'robota.prompt_execution' | 'robota.provider_call';
+  readonly name: 'robota.prompt_execution' | 'robota.provider_call' | 'robota.tool_body';
   readonly kind: 1;
   readonly startTimeUnixNano: string;
   readonly endTimeUnixNano: string;
@@ -54,6 +54,12 @@ export interface IPromptRootTraceCoverage {
   readonly invalid: number;
   readonly duplicate: number;
   readonly providerChildren: {
+    readonly exported: number;
+    readonly invalid: number;
+    readonly orphaned: number;
+    readonly duplicate: number;
+  };
+  readonly toolChildren: {
     readonly exported: number;
     readonly invalid: number;
     readonly orphaned: number;
@@ -113,7 +119,7 @@ function rootSpan(data: Record<string, unknown>): IOtlpSpan | undefined {
   };
 }
 
-function providerSpan(data: unknown): IOtlpSpan | undefined {
+function childSpan(data: unknown, kind: 'provider' | 'tool'): IOtlpSpan | undefined {
   if (!isRecord(data)) return undefined;
   const traceId = data['traceId'];
   const parentSpanId = data['parentSpanId'];
@@ -132,8 +138,7 @@ function providerSpan(data: unknown): IOtlpSpan | undefined {
     ended === undefined ||
     started > ended ||
     (outcome !== 'success' && outcome !== 'failure' && outcome !== 'interrupted') ||
-    !Number.isSafeInteger(data['round']) ||
-    (data['round'] as number) < 1
+    (kind === 'provider' && (!Number.isSafeInteger(data['round']) || (data['round'] as number) < 1))
   ) {
     return undefined;
   }
@@ -141,16 +146,21 @@ function providerSpan(data: unknown): IOtlpSpan | undefined {
     traceId,
     parentSpanId,
     spanId,
-    name: 'robota.provider_call',
+    name: kind === 'provider' ? 'robota.provider_call' : 'robota.tool_body',
     kind: 1,
     startTimeUnixNano: String(started),
     endTimeUnixNano: String(ended),
-    attributes: [{ key: 'robota.provider.outcome', value: { stringValue: outcome } }],
+    attributes: [
+      {
+        key: kind === 'provider' ? 'robota.provider.outcome' : 'robota.tool.outcome',
+        value: { stringValue: outcome },
+      },
+    ],
     status: { code: outcome === 'success' ? 1 : outcome === 'failure' ? 2 : 0 },
   };
 }
 
-function providerIdentity(data: unknown): string | undefined {
+function childIdentity(data: unknown): string | undefined {
   if (!isRecord(data)) return undefined;
   const traceId = data['traceId'];
   const spanId = data['spanId'];
@@ -225,45 +235,53 @@ export function createOtlpPromptRootTraces(
     readonly record: IInteractiveSessionRecord;
     readonly span: IOtlpSpan | undefined;
     readonly identity: string | undefined;
+    readonly kind: 'provider' | 'tool';
   }[] = [];
   const childCounts = new Map<string, number>();
   for (const record of records) {
     for (const entry of record.history ?? []) {
-      if (entry.type !== 'provider-call-trace') continue;
-      const identity = providerIdentity(entry.data);
-      const span = providerSpan(entry.data);
+      const kind =
+        entry.type === 'provider-call-trace'
+          ? 'provider'
+          : entry.type === 'tool-body-trace'
+            ? 'tool'
+            : undefined;
+      if (!kind) continue;
+      const identity = childIdentity(entry.data);
+      const span = childSpan(entry.data, kind);
       if (identity) count(childCounts, identity);
-      children.push({ record, span, identity });
+      children.push({ record, span, identity, kind });
     }
   }
-  let childExported = 0;
-  let childInvalid = 0;
-  let childOrphaned = 0;
-  let childDuplicate = 0;
+  const coverageByKind = {
+    provider: { exported: 0, invalid: 0, orphaned: 0, duplicate: 0 },
+    tool: { exported: 0, invalid: 0, orphaned: 0, duplicate: 0 },
+  };
   for (const child of children) {
     const { span } = child;
+    const coverage = coverageByKind[child.kind];
     if (child.identity && (childCounts.get(child.identity) ?? 0) > 1) {
-      childDuplicate += 1;
+      coverage.duplicate += 1;
       continue;
     }
     if (!span) {
-      childInvalid += 1;
+      coverage.invalid += 1;
       continue;
     }
     const root = rootsByRecord.get(child.record)?.get(span.traceId);
     if (!root || span.parentSpanId !== root.spanId || span.spanId === root.spanId) {
-      childOrphaned += 1;
+      coverage.orphaned += 1;
       continue;
     }
     if (
       BigInt(span.startTimeUnixNano) < BigInt(root.startTimeUnixNano) ||
       BigInt(span.endTimeUnixNano) > BigInt(root.endTimeUnixNano)
     ) {
-      childInvalid += 1;
+      coverage.invalid += 1;
       continue;
     }
     spans.push(span);
-    childExported += 1;
+    coverage.exported += 1;
   }
 
   return {
@@ -283,16 +301,12 @@ export function createOtlpPromptRootTraces(
         : [],
     },
     coverage: {
-      exported: spans.length - childExported,
+      exported: spans.length - coverageByKind.provider.exported - coverageByKind.tool.exported,
       missing,
       invalid,
       duplicate,
-      providerChildren: {
-        exported: childExported,
-        invalid: childInvalid,
-        orphaned: childOrphaned,
-        duplicate: childDuplicate,
-      },
+      providerChildren: coverageByKind.provider,
+      toolChildren: coverageByKind.tool,
     },
   };
 }

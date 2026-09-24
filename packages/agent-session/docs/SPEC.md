@@ -118,6 +118,9 @@ round trip — a local round trip must be lossless.
 - The provider-round completion observation is forwarded to the session's existing event bus with
   only time, round, and outcome, under an explicit session owner path. It is scoped to the active run; content-bearing execution events
   do not cross this observability path, and the public `run()` call shape is unchanged.
+- A permitted tool emits a separate, content-free completion observation around its awaited body
+  only. Pre-start denial, hook block, or abort emits no body observation; success, failure, and
+  interruption close once. An observer failure cannot replace the tool result.
 - An omitted turn/round cap means the session run has no core round cap and is instead bounded by
   abort, context-window checks, provider idle timeout, and runtime-level controls.
 - The context-update callback fires twice per turn: once before the provider call (estimated,
