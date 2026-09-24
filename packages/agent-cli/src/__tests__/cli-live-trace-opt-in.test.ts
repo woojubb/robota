@@ -10,9 +10,11 @@ const originalArgv = process.argv;
 const originalHome = process.env.HOME;
 const originalFakeKey = process.env['ROBOTA_LIVE_TRACE_TEST_KEY'];
 const telemetryKeys = [
-  'ROBOTA_TELEMETRY_ENABLED', 'ROBOTA_TELEMETRY_TRACES', 'ROBOTA_TELEMETRY_METRICS',
+  'ROBOTA_TELEMETRY_ENABLED', 'ROBOTA_TELEMETRY_TRACES',
+  'ROBOTA_TELEMETRY_METRICS', 'ROBOTA_TELEMETRY_LOGS',
   'ROBOTA_TELEMETRY_OTLP_PROTOCOL', 'ROBOTA_TELEMETRY_OTLP_ENDPOINT',
   'ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT', 'ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT',
+  'ROBOTA_TELEMETRY_OTLP_LOGS_ENDPOINT',
 ] as const;
 const originalTelemetry = Object.fromEntries(telemetryKeys.map((key) => [key, process.env[key]]));
 
@@ -46,12 +48,14 @@ describe('CLI live trace opt-in', () => {
     }
   });
 
-  it('sends no telemetry when off, then independently selected live traces or metrics in print mode', async () => {
+  it('sends no telemetry when off, then independently selected live traces, metrics or logs in print mode', async () => {
     const home = mkdtempSync(join(tmpdir(), 'robota-cli-live-trace-home-'));
     process.env.HOME = home;
     delete process.env['ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT'];
     delete process.env['ROBOTA_TELEMETRY_METRICS'];
     delete process.env['ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT'];
+    delete process.env['ROBOTA_TELEMETRY_LOGS'];
+    delete process.env['ROBOTA_TELEMETRY_OTLP_LOGS_ENDPOINT'];
     process.env['ROBOTA_LIVE_TRACE_TEST_KEY'] = 'test-only-key';
     vi.spyOn(process, 'cwd').mockReturnValue(home);
     vi.spyOn(process, 'exit').mockImplementation(((code?: number) => {
@@ -89,6 +93,11 @@ describe('CLI live trace opt-in', () => {
       process.env['ROBOTA_TELEMETRY_METRICS'] = 'otlp';
       await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requests).toEqual(['/v1/traces', '/v1/metrics']);
+
+      process.env['ROBOTA_TELEMETRY_METRICS'] = 'off';
+      process.env['ROBOTA_TELEMETRY_LOGS'] = 'otlp';
+      await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
+      expect(requests).toEqual(['/v1/traces', '/v1/metrics', '/v1/logs']);
     } finally {
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
       rmSync(home, { recursive: true, force: true });

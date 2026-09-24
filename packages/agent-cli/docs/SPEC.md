@@ -86,10 +86,11 @@ collector, never including transcript, tool names, session identity, or provider
 It fails visibly on an incomplete store or collector rejection and never auto-exports. The separate
 live Node telemetry path requires a Robota-owned enable switch, independently selected signals and
 explicit protocol, and validated destinations; it sends bounded, content-free prompt/provider/tool
-spans with session/turn correlation and safe provider/model metadata, and separate low-cardinality
-per-call delta usage/cost metrics only when the child record is complete. Omitted children or unknown
-prices remain visible as coverage gaps rather than fabricated totals. It does not replay stored usage,
-read ambient OpenTelemetry credentials, claim live logs, or let delivery failure change a turn result.
+spans with session/turn correlation and safe provider/model metadata, separate low-cardinality
+per-call delta usage/cost metrics only when the child record is complete, and content-free completion
+logs for observed prompt/provider/tool boundaries. Omitted children or unknown prices remain visible
+as coverage gaps rather than fabricated totals. It does not replay stored usage, read ambient
+OpenTelemetry credentials, invent other lifecycle events, or let delivery failure change a turn result.
 
 Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`); it accepts
 `commandModules` and registers them generically with the SDK registry.

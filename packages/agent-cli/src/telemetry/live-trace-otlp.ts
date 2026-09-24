@@ -7,6 +7,7 @@ import type { ReadableSpan, SpanExporter } from '@opentelemetry/sdk-trace';
 import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytics';
 import type { ILivePromptTracePort } from '@robota-sdk/agent-framework';
 import { createNodeOtlpLiveMetricPort } from './live-metric-otlp.js';
+import { createNodeOtlpLiveLogPort } from './live-log-otlp.js';
 
 const MAX_PENDING_BATCHES = 8;
 
@@ -21,66 +22,53 @@ export interface INodeOtlpLiveTraceOptions {
   onFailure?: (code: 'projection-failed' | 'enqueue-failed' | 'delivery-failed') => void;
 }
 
-/** Product-owned configuration: ambient OTEL_* values cannot enable or redirect export. */
-export function resolveNodeOtlpLiveTraceEndpoint(
+type TOtlpSignal = 'traces' | 'metrics' | 'logs';
+
+/** Product-owned config: every signal is selected independently; ambient OTEL_* is ignored. */
+function resolveNodeOtlpLiveSignalEndpoint(
   env: Readonly<Record<string, string | undefined>>,
+  signal: TOtlpSignal,
 ): string | undefined {
   const enabled = env['ROBOTA_TELEMETRY_ENABLED'];
   if (enabled === undefined || enabled === '0') return undefined;
   if (enabled !== '1') throw new Error('Invalid Robota telemetry enable switch.');
-  const selector = env['ROBOTA_TELEMETRY_TRACES'];
+  const label = signal === 'traces' ? 'trace' : signal === 'metrics' ? 'metric' : 'log';
+  const selector = env[`ROBOTA_TELEMETRY_${signal.toUpperCase()}`];
   if (selector === undefined || selector === 'off') return undefined;
-  if (selector !== 'otlp') throw new Error('Unsupported Robota trace exporter.');
+  if (selector !== 'otlp') throw new Error(`Unsupported Robota ${label} exporter.`);
   if (env['ROBOTA_TELEMETRY_OTLP_PROTOCOL'] !== 'http/protobuf') {
-    throw new Error('Robota trace export requires explicit http/protobuf protocol.');
+    throw new Error(`Robota ${label} export requires explicit http/protobuf protocol.`);
   }
-  const exact = env['ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT'];
+  const exact = env[`ROBOTA_TELEMETRY_OTLP_${signal.toUpperCase()}_ENDPOINT`];
   const input = exact ?? env['ROBOTA_TELEMETRY_OTLP_ENDPOINT'];
-  if (!input || input.length > 2048) throw new Error('Invalid Robota trace destination.');
+  if (!input || input.length > 2048) throw new Error(`Invalid Robota ${label} destination.`);
   try {
     const url = new URL(input);
     const loopback = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]';
+    const namedSignalPath = /\/v1\/(traces|metrics|logs)\/?$/u.exec(url.pathname)?.[1];
     if ((url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) ||
-      url.username || url.password || url.search || url.hash) {
+      url.username || url.password || url.search || url.hash ||
+      (namedSignalPath !== undefined && (exact === undefined || namedSignalPath !== signal))) {
       throw new Error('Invalid destination.');
     }
-    if (!exact) url.pathname = `${url.pathname.replace(/\/$/u, '')}/v1/traces`;
+    if (exact === undefined) url.pathname = `${url.pathname.replace(/\/$/u, '')}/v1/${signal}`;
     return url.toString();
   } catch {
-    throw new Error('Invalid Robota trace destination.');
+    throw new Error(`Invalid Robota ${label} destination.`);
   }
 }
 
-/** Metrics are selected independently; the generic endpoint appends its own signal path. */
+export function resolveNodeOtlpLiveTraceEndpoint(
+  env: Readonly<Record<string, string | undefined>>,
+): string | undefined { return resolveNodeOtlpLiveSignalEndpoint(env, 'traces'); }
+
 export function resolveNodeOtlpLiveMetricEndpoint(
   env: Readonly<Record<string, string | undefined>>,
-): string | undefined {
-  const enabled = env['ROBOTA_TELEMETRY_ENABLED'];
-  if (enabled === undefined || enabled === '0') return undefined;
-  if (enabled !== '1') throw new Error('Invalid Robota telemetry enable switch.');
-  const selector = env['ROBOTA_TELEMETRY_METRICS'];
-  if (selector === undefined || selector === 'off') return undefined;
-  if (selector !== 'otlp') throw new Error('Unsupported Robota metric exporter.');
-  if (env['ROBOTA_TELEMETRY_OTLP_PROTOCOL'] !== 'http/protobuf') {
-    throw new Error('Robota metric export requires explicit http/protobuf protocol.');
-  }
-  const exact = env['ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT'];
-  const input = exact ?? env['ROBOTA_TELEMETRY_OTLP_ENDPOINT'];
-  if (!input || input.length > 2048) throw new Error('Invalid Robota metric destination.');
-  try {
-    const url = new URL(input);
-    const loopback = url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.hostname === '[::1]';
-    if ((url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) ||
-      url.username || url.password || url.search || url.hash ||
-      (exact !== undefined && /\/v1\/(?:traces|logs)\/?$/u.test(url.pathname))) {
-      throw new Error('Invalid destination.');
-    }
-    if (!exact) url.pathname = `${url.pathname.replace(/\/$/u, '')}/v1/metrics`;
-    return url.toString();
-  } catch {
-    throw new Error('Invalid Robota metric destination.');
-  }
-}
+): string | undefined { return resolveNodeOtlpLiveSignalEndpoint(env, 'metrics'); }
+
+export function resolveNodeOtlpLiveLogEndpoint(
+  env: Readonly<Record<string, string | undefined>>,
+): string | undefined { return resolveNodeOtlpLiveSignalEndpoint(env, 'logs'); }
 
 function reportFailure(options: INodeOtlpLiveTraceOptions, code: 'delivery-failed'): void {
   try {
@@ -236,11 +224,13 @@ export function createConfiguredNodeOtlpLiveTelemetryPort(
 ): INodeOtlpLiveTracePort | undefined {
   const traceEndpoint = resolveNodeOtlpLiveTraceEndpoint(env);
   const metricEndpoint = resolveNodeOtlpLiveMetricEndpoint(env);
+  const logEndpoint = resolveNodeOtlpLiveLogEndpoint(env);
   const ports: INodeOtlpLiveTracePort[] = [];
   if (traceEndpoint) ports.push(createNodeOtlpLiveTracePort({
     endpoint: traceEndpoint, ...(onFailure ? { onFailure } : {}),
   }));
   if (metricEndpoint) ports.push(createNodeOtlpLiveMetricPort(metricEndpoint, onFailure));
+  if (logEndpoint) ports.push(createNodeOtlpLiveLogPort(logEndpoint, onFailure));
   if (ports.length === 0) return undefined;
   if (ports.length === 1) return ports[0];
   return {

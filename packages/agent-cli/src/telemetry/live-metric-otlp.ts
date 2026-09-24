@@ -117,7 +117,7 @@ async function sendMetrics(batch: ILivePromptTraceBatch, endpoint: string, windo
 /** The host owns delivery and drains it on exit; a failing collector never fails the turn. */
 export function createNodeOtlpLiveMetricPort(
   endpoint: string,
-  onFailure?: (code: 'delivery-failed') => void,
+  onFailure?: (code: 'projection-failed' | 'enqueue-failed' | 'delivery-failed') => void,
 ): ILivePromptTracePort & { shutdown(): Promise<void> } {
   const pending: ILivePromptTraceBatch[] = [];
   let worker: Promise<void> | undefined;
@@ -152,6 +152,7 @@ export function createNodeOtlpLiveMetricPort(
     });
   };
   return {
+    ...(onFailure ? { onFailure } : {}),
     enqueue(batch) {
       if (closed || pending.length >= MAX_PENDING_BATCHES) throw new Error('Live metric queue unavailable.');
       pending.push(batch);

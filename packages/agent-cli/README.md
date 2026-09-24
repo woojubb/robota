@@ -208,7 +208,7 @@ they are not live tracing, and legacy records may lack span/event coverage. No s
 exports prompt or tool bodies, credentials, or a remote destination. An unreadable stored session,
 collector rejection, or network error fails the command without reporting success.
 
-Live prompt telemetry is a separate, opt-in Node CLI feature (interactive, print, and serve). Set
+Live prompt telemetry is a separate, opt-in Node CLI feature (interactive, print, serve, and MCP serve). Set
 `ROBOTA_TELEMETRY_ENABLED=1`, `ROBOTA_TELEMETRY_TRACES=otlp`,
 `ROBOTA_TELEMETRY_OTLP_PROTOCOL=http/protobuf`, and
 `ROBOTA_TELEMETRY_OTLP_ENDPOINT=https://collector.example` to send content-free prompt/provider/tool
@@ -218,10 +218,13 @@ delta counts, complete-usage token totals and price-table-estimated USD cost to 
 `ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT` overrides that destination. Missing usage or prices are
 counted separately, never treated as zero cost. A truncated provider-event batch reports omissions
 and does not claim a complete usage/cost total. Metric datapoints omit session, turn, provider and
-model labels by default. Plain HTTP is allowed only for loopback; URL credentials and query parameters
+model labels by default. Select `ROBOTA_TELEMETRY_LOGS=otlp` independently for content-free
+prompt/provider/tool completion events at `/v1/logs`; `ROBOTA_TELEMETRY_OTLP_LOGS_ENDPOINT`
+overrides that destination. Only confirmed invocations produce provider-completion events;
+omitted child counts remain visible on the prompt event. Plain HTTP is allowed only for loopback; URL credentials and query parameters
 are rejected. Export is bounded, best-effort, and does not delay or fail a turn; delivery failures
-produce a content-free stderr warning. These switches do not enable live logs, content capture,
-auth headers, or replay of stored traces. Ambient `OTEL_*` values alone do not enable them.
+produce a content-free stderr warning. These switches do not enable content capture, auth headers,
+additional event kinds, or replay of stored traces. Ambient `OTEL_*` values alone do not enable them.
 
 ### Doctor
 
