@@ -39,4 +39,26 @@ describe('project contribution inventory', () => {
       })),
     );
   });
+
+  it('lists no task directory by default and mirrors the host-selected enabled task root', () => {
+    expect(listFrameworkProjectContributionPaths('').filter((path) => path.id.startsWith('tasks:')))
+      .toEqual([]);
+    expect(
+      listFrameworkProjectContributionPaths('', [], { enabled: true, dir: 'custom/tasks' }).filter(
+        (path) => path.id.startsWith('tasks:'),
+      ),
+    ).toEqual([
+      {
+        id: 'tasks:custom/tasks',
+        label: 'Active task context',
+        relativePath: 'custom/tasks',
+        expectedKind: 'directory',
+      },
+    ]);
+    expect(
+      listFrameworkProjectContributionPaths('', [], { enabled: false, dir: 'custom/tasks' }).filter(
+        (path) => path.id.startsWith('tasks:'),
+      ),
+    ).toEqual([]);
+  });
 });

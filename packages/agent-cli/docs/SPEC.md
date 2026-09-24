@@ -75,6 +75,11 @@ The CLI owns its ordered skill and legacy-command roots and passes them with the
 contribution sources to command discovery, print, serve, terminal activation, doctor inspection, and
 the pre-trust project-source preview. Restricted composition omits project contribution sources;
 root descriptors alone never grant project access.
+The CLI selects `.agents/tasks` as its task-context directory and forwards that same selection to
+print, serve, and terminal sessions and to the metadata-only pre-trust preview. The framework chooses
+no default task directory; a disabled or custom host selection changes the loaded and inventoried path
+together. Project settings may override the directory after trust, so that project-selected path is
+not read or revealed by the pre-trust preview.
 The CLI selects the Robota organization-policy file and passes its path to the neutral loader,
 preserving policy enforcement across its command and session surfaces.
 For interactive keybindings, the CLI selects the Robota user file and schema URL and passes both

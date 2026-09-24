@@ -50,7 +50,7 @@ describe('task context loading', () => {
     mkdirSync(join(cwd, '.agents', 'tasks', 'completed'), { recursive: true });
     writeFileSync(join(cwd, '.agents', 'tasks', 'completed', 'DONE.md'), '# Done', 'utf8');
 
-    expect(discoverTaskFiles(await projectReader(cwd))).toEqual([
+    expect(discoverTaskFiles(await projectReader(cwd), join('.agents', 'tasks'))).toEqual([
       '.agents/tasks/CLI-BL-001-example.md',
     ]);
   });
@@ -146,7 +146,10 @@ describe('task context loading', () => {
     const cwd = makeProject();
     writeTask(cwd, 'CLI-BL-001-example.md', '# CLI-BL-001\n\n- **Status**: in-progress\n');
 
-    const context = loadTaskContext(await projectReader(cwd), { maxTasks: 3 });
+    const context = loadTaskContext(await projectReader(cwd), {
+      dir: join('.agents', 'tasks'),
+      maxTasks: 3,
+    });
 
     expect(context).toContain('CLI-BL-001');
   });

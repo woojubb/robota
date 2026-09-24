@@ -29,7 +29,6 @@ export interface ITaskSelectionOptions {
   dir?: string;
 }
 
-export const TASKS_DIR = join('.agents', 'tasks');
 const README_FILENAME = 'README.md';
 const MARKDOWN_EXTENSION = '.md';
 const DEFAULT_MAX_TASKS = Number('3');
@@ -154,7 +153,7 @@ export function readCurrentGitBranchFromNodeHost(
 
 export function discoverTaskFiles(
   reader: IWorkspaceProjectReader,
-  dir: string = TASKS_DIR,
+  dir: string,
 ): string[] {
   const accepted = assertWorkspaceProjectReader(reader);
   return accepted
@@ -207,6 +206,7 @@ export function loadTaskContext(
   reader: IWorkspaceProjectReader,
   options: ITaskSelectionOptions = {},
 ): string {
+  if (options.dir === undefined) return '';
   const currentBranch = options.currentBranch;
   const tasks = discoverTaskFiles(reader, options.dir).map((path) => parseTaskFile(path, reader));
   return formatTaskContext(selectRelevantTasks(tasks, { ...options, currentBranch }));

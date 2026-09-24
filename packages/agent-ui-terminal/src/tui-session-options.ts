@@ -28,6 +28,7 @@ export function buildTuiSessionOptions(
     ...(opts.baselinePermissionAllow !== undefined
       ? { baselinePermissionAllow: opts.baselinePermissionAllow }
       : {}),
+    ...(opts.taskContext !== undefined ? { taskContext: opts.taskContext } : {}),
     ...(opts.contributionSources !== undefined
       ? { contributionSources: opts.contributionSources }
       : {}),

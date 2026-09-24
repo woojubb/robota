@@ -23,6 +23,22 @@ describe('toChannelOptions', () => {
     }
     expect(session.baselinePermissionAllow).toBe(baselinePermissionAllow);
   });
+  it('keeps the host task-context selection through render, channel, and session', () => {
+    const taskContext = { enabled: true, dir: 'custom/tasks' };
+    const channel = toChannelOptions({
+      cwd: '/test-project',
+      provider: {} as IAIProvider,
+      cliAdapter: {} as ITuiCliAdapter,
+      taskContext,
+    });
+    expect(channel.taskContext).toBe(taskContext);
+    const session = buildTuiSessionOptions(channel);
+    if (!('taskContext' in session)) {
+      throw new Error('TUI standard session options must preserve the host task-context selection.');
+    }
+    expect(session.taskContext).toBe(taskContext);
+  });
+
   it('keeps the host contribution sources and skill roots through render, channel, and session', () => {
     const sources = [createNodeHostContributionSource('/test-project')];
     const skillRoots = [{ root: 'custom/skills', kind: 'skills' as const }];

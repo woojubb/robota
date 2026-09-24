@@ -88,6 +88,9 @@ React/Ink UI.
   contribution sources supplied by the host; either omitted means no filesystem skill discovery.
   Inspection and executable discovery use the same root descriptors, so a host can preview the exact
   roots that a trusted session would load without the framework choosing product directories.
+- **Task-context discovery is host-directed.** The framework reads no ambient task directory. A host
+  must supply both enablement and the relative directory; the same selection controls trusted prompt
+  loading and pre-trust candidate inventory. Omission or explicit disablement yields no task path.
 - **Command modules own product behavior.** SDK core ships no user-visible built-in commands; command
   packages (`agent-command-*`) contribute behavior through `ICommandModule`, consuming SDK command
   contracts and common APIs. The SDK does not know command ids in advance.

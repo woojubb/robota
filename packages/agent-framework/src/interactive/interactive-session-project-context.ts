@@ -83,6 +83,7 @@ export async function loadInteractiveProjectContext(
         };
   const loadedConfig = await resolveInteractiveProjectConfig(options, projectAccess);
   const { config, hookSources } = loadedConfig;
+  const taskContext = { ...options.taskContext, ...config.taskContext };
   const [context, projectInfo] = await Promise.all([
     options.bare
       ? Promise.resolve({
@@ -94,7 +95,9 @@ export async function loadInteractiveProjectContext(
       : loadContext(
           contextSource,
           options.memoryStore,
-          config.taskContext ? { taskContext: config.taskContext } : {},
+          taskContext.dir !== undefined || taskContext.enabled !== undefined
+            ? { taskContext }
+            : {},
         ),
     options.bare || projectReader === undefined
       ? Promise.resolve({ type: 'unknown' as const, language: 'unknown' as const })

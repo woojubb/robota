@@ -34,6 +34,7 @@ import type { IPreset } from '@robota-sdk/agent-preset';
 import { bindAssembledCollaborators } from './product/assembled-collaborators.js';
 import { createRobotaProfile } from './product/robota-profile.js';
 import { createRobotaKeybindingsOptions } from './product/robota-keybindings.js';
+import { ROBOTA_TASK_CONTEXT } from './product/robota-task-context.js';
 import {
   buildRobotaRuntimeOptions,
   loadReplayProvider,
@@ -608,6 +609,7 @@ async function runCliCore(
       createRobotaUserSettingsSources(homedir()),
       workspaceComposition.contributionSources,
       workspaceComposition.skillRoots,
+      ROBOTA_TASK_CONTEXT,
     );
     try {
       await printRun;
@@ -636,6 +638,7 @@ async function runCliCore(
       userSettingsSources: createRobotaUserSettingsSources(homedir()),
       contributionSources: workspaceComposition.contributionSources,
       skillRoots: workspaceComposition.skillRoots,
+      taskContext: ROBOTA_TASK_CONTEXT,
       ...toolOptions,
       ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
       commandModules,
@@ -680,6 +683,7 @@ async function runCliCore(
       userSettingsSources: createRobotaUserSettingsSources(homedir()),
       contributionSources: workspaceComposition.contributionSources,
       skillRoots: workspaceComposition.skillRoots,
+      taskContext: ROBOTA_TASK_CONTEXT,
       ...toolOptions,
       ...(toolCallHandoff !== undefined ? { toolCallHandoff } : {}),
       commandModules,
@@ -765,6 +769,7 @@ async function runCliCore(
     userSettingsSources: createRobotaUserSettingsSources(homedir()),
     contributionSources: workspaceComposition.contributionSources,
     skillRoots: workspaceComposition.skillRoots,
+    taskContext: ROBOTA_TASK_CONTEXT,
     ...toolOptions,
     commandModules,
     commandHostAdapters,

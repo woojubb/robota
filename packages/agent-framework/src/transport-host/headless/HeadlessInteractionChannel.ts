@@ -13,6 +13,7 @@ import { buildRuntimeSession } from '../../runtime/runtime-host.js';
 import type { IAgentDefinition } from '../../agents/agent-definition-types.js';
 import type { ICreateSessionOptions } from '../../assembly/create-session-types.js';
 import type { IProjectSettingsPath } from '../../config/settings-source.js';
+import type { IResolvedConfig } from '../../config/config-types.js';
 import type { IContributionSource } from '../../contributions/index.js';
 import type { ISkillRootDescriptor } from '../../commands/skill-source.js';
 import type { ICommandModule } from '../../command-api/command-module.js';
@@ -40,6 +41,8 @@ export interface IHeadlessInteractionChannelOptions {
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
   baselinePermissionAllow?: readonly string[];
+  /** Host-selected task-context root; absent means the framework scans no task directory. */
+  taskContext?: IResolvedConfig['taskContext'];
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
   outputFormat: TOutputFormat;
@@ -174,6 +177,7 @@ export class HeadlessInteractionChannel {
       ...(this.opts.projectSettingsPaths !== undefined
         ? { projectSettingsPaths: this.opts.projectSettingsPaths }
         : {}),
+      ...(this.opts.taskContext !== undefined ? { taskContext: this.opts.taskContext } : {}),
       ...(this.opts.contributionSources !== undefined
         ? { contributionSources: this.opts.contributionSources }
         : {}),

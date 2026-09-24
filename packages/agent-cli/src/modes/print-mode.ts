@@ -77,6 +77,7 @@ export async function runPrintMode(
   userSettingsSources?: readonly INodeHostSettingsSource[],
   contributionSources?: readonly IContributionSource[],
   skillRoots?: readonly ISkillRootDescriptor[],
+  taskContext?: { readonly enabled?: boolean; readonly dir?: string },
 ): Promise<void> {
   const goalObjective = args.goal?.trim();
   let prompt = args.positional.join(' ').trim();
@@ -116,10 +117,11 @@ export async function runPrintMode(
     ...(providerErrorGuidance !== undefined ? { providerErrorGuidance } : {}),
     ...(orgPolicy !== undefined ? { orgPolicy } : {}),
     ...(projectAccess !== undefined ? { projectAccess } : {}),
-    ...(projectSettingsPaths !== undefined ? { projectSettingsPaths } : {}),
-    ...(userSettingsSources !== undefined ? { userSettingsSources } : {}),
-    ...(contributionSources !== undefined ? { contributionSources } : {}),
+      ...(projectSettingsPaths !== undefined ? { projectSettingsPaths } : {}),
+      ...(userSettingsSources !== undefined ? { userSettingsSources } : {}),
+      ...(contributionSources !== undefined ? { contributionSources } : {}),
     ...(skillRoots !== undefined ? { skillRoots } : {}),
+    ...(taskContext !== undefined ? { taskContext } : {}),
     outputFormat: args.outputFormat ?? 'text',
     // CLI-076: forward the resolved model so `--model` takes effect (an invalid model then surfaces the
     // provider's error and a non-zero exit, instead of a silent substitution succeeding with exit 0).

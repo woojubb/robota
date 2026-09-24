@@ -57,6 +57,8 @@ export interface IInitOptions {
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
   baselinePermissionAllow?: readonly string[];
+  /** Host-selected default task-context directory; resolved settings may override or disable it. */
+  taskContext?: IResolvedConfig['taskContext'];
   userSettingsSources?: readonly INodeHostSettingsSource[];
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];

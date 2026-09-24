@@ -73,6 +73,8 @@ export interface IRenderOptions {
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
   baselinePermissionAllow?: readonly string[];
+  /** Host-selected task-context root; absent means no framework task-directory scan. */
+  taskContext?: { readonly enabled?: boolean; readonly dir?: string };
   contributionSources?: readonly IContributionSource[];
   skillRoots?: readonly ISkillRootDescriptor[];
   userSettingsSources?: readonly INodeHostSettingsSource[];
@@ -235,6 +237,7 @@ export function toChannelOptions(
     ...(options.baselinePermissionAllow !== undefined
       ? { baselinePermissionAllow: options.baselinePermissionAllow }
       : {}),
+    ...(options.taskContext !== undefined ? { taskContext: options.taskContext } : {}),
     ...(options.contributionSources !== undefined
       ? { contributionSources: options.contributionSources }
       : {}),

@@ -242,6 +242,7 @@ export async function initializeInteractiveSessionAsync(
     ...(options.projectSettingsPaths !== undefined
       ? { projectSettingsPaths: options.projectSettingsPaths }
       : {}),
+    ...(options.taskContext !== undefined ? { taskContext: options.taskContext } : {}),
     ...(options.userSettingsSources !== undefined
       ? { userSettingsSources: options.userSettingsSources }
       : {}),
