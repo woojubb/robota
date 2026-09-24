@@ -7,9 +7,9 @@ import { FileStoragePort, InMemoryStoragePort } from '@robota-sdk/dag-adapters-l
 import { SqliteStorageAdapter } from '@robota-sdk/dag-adapters-sqlite';
 import type { IStoragePort, TExecutionCommit } from '@robota-sdk/dag-core';
 
-const cleanup: (() => void)[] = [];
-afterEach(() => {
-  for (const close of cleanup.splice(0).reverse()) close();
+const cleanup: Array<() => unknown> = [];
+afterEach(async () => {
+  for (const close of cleanup.splice(0).reverse()) await close();
 });
 const cancellation: TExecutionCommit = {
   kind: 'transition-run',
@@ -31,7 +31,7 @@ const success: TExecutionCommit = {
 async function fixture(
   kind: string,
   creditPolicy = false,
-): Promise<{ storage: IStoragePort; reopen: () => IStoragePort }> {
+): Promise<{ storage: IStoragePort; reopen: () => Promise<IStoragePort> }> {
   const root = mkdtempSync(join(tmpdir(), 'dag-arbitration-'));
   cleanup.push(() => rmSync(root, { recursive: true, force: true }));
   const sqlite = (): SqliteStorageAdapter => {
@@ -39,12 +39,17 @@ async function fixture(
     cleanup.push(() => adapter.close());
     return adapter;
   };
+  // A file-backed root now enforces single ownership (packages/dag-adapters-local SPEC), so this
+  // tracks whichever `FileStoragePort` instance currently holds `root`'s lock and closes it before
+  // handing out a new one — `reopen()` below models a process restart, not two concurrent owners.
+  let currentFileStorage: FileStoragePort | undefined;
+  const openFileStorage = (): FileStoragePort => {
+    currentFileStorage = new FileStoragePort(root);
+    return currentFileStorage;
+  };
   const storage =
-    kind === 'sqlite'
-      ? sqlite()
-      : kind === 'file'
-        ? new FileStoragePort(root)
-        : new InMemoryStoragePort();
+    kind === 'sqlite' ? sqlite() : kind === 'file' ? openFileStorage() : new InMemoryStoragePort();
+  if (kind === 'file') cleanup.push(() => currentFileStorage?.close());
   await storage.createDagRun({
     dagRunId: 'run',
     dagId: 'dag',
@@ -76,8 +81,14 @@ async function fixture(
   });
   return {
     storage,
-    reopen: () =>
-      kind === 'sqlite' ? sqlite() : kind === 'file' ? new FileStoragePort(root) : storage,
+    reopen: async () => {
+      if (kind === 'sqlite') return sqlite();
+      if (kind === 'file') {
+        await currentFileStorage?.close();
+        return openFileStorage();
+      }
+      return storage;
+    },
   };
 }
 
@@ -103,8 +114,8 @@ describe.each(['memory', 'file', 'sqlite'])('%s execution arbitration', (kind) =
       applied: false,
       error: { code: 'DAG_VALIDATION_CREDIT_LIMIT_EXCEEDED' },
     });
-    expect((await reopen().getTaskRun('task'))?.reservedCredits).toBeUndefined();
-    expect((await reopen().getTaskRun('legacy'))?.totalCredits).toBe(0.8);
+    expect((await (await reopen()).getTaskRun('task'))?.reservedCredits).toBeUndefined();
+    expect((await (await reopen()).getTaskRun('legacy'))?.totalCredits).toBe(0.8);
   });
   it('carries a legacy cumulative floor into a new successful charge', async () => {
     const { storage, reopen } = await fixture(kind, true);
@@ -140,7 +151,7 @@ describe.each(['memory', 'file', 'sqlite'])('%s execution arbitration', (kind) =
         })
       ).applied,
     ).toBe(true);
-    expect((await reopen().getTaskRun('task'))?.totalCredits).toBe(0.8);
+    expect((await (await reopen()).getTaskRun('task'))?.totalCredits).toBe(0.8);
   });
   it('fails closed when a legacy success has no cost evidence', async () => {
     const { storage } = await fixture(kind, true);
@@ -205,7 +216,7 @@ describe.each(['memory', 'file', 'sqlite'])('%s execution arbitration', (kind) =
       attempt: 1,
       leaseOwner: 'worker-2',
     });
-    const second = kind === 'sqlite' ? reopen() : storage;
+    const second = kind === 'sqlite' ? await reopen() : storage;
     const reserve = (taskRunId: string, leaseOwner: string): TExecutionCommit => ({
       kind: 'reserve-credits',
       taskRunId,
@@ -239,7 +250,7 @@ describe.each(['memory', 'file', 'sqlite'])('%s execution arbitration', (kind) =
         )
       ).applied,
     ).toBe(true);
-    expect((await reopen().getTaskRun(loser))?.reservedCredits).toBe(0.6);
+    expect((await (await reopen()).getTaskRun(loser))?.reservedCredits).toBe(0.6);
   });
 
   it('charges a successful held estimate once and fences mismatched settlement', async () => {
@@ -269,13 +280,16 @@ describe.each(['memory', 'file', 'sqlite'])('%s execution arbitration', (kind) =
       (await storage.commitExecution('run', { ...settle, estimatedCredits: 0.1 })).applied,
     ).toBe(false);
     expect((await storage.commitExecution('run', settle)).applied).toBe(true);
-    expect(await reopen().getTaskRun('task')).toMatchObject({
+    // Duplicate-settle fencing is a property of this live instance, so check it before reopening —
+    // `reopen()` closes `storage`'s ownership of the root to hand it to the reopened instance.
+    expect((await storage.commitExecution('run', settle)).applied).toBe(false);
+    const reopened = await reopen();
+    expect(await reopened.getTaskRun('task')).toMatchObject({
       status: 'success',
       estimatedCredits: 0.6,
       totalCredits: 0.6,
     });
-    expect((await reopen().getTaskRun('task'))?.reservedCredits).toBeUndefined();
-    expect((await storage.commitExecution('run', settle)).applied).toBe(false);
+    expect((await reopened.getTaskRun('task'))?.reservedCredits).toBeUndefined();
   });
   it('releases rejected cancelled/stale snapshot reservations for a live sibling', async () => {
     const { storage } = await fixture(kind);
@@ -294,7 +308,7 @@ describe.each(['memory', 'file', 'sqlite'])('%s execution arbitration', (kind) =
     expect(
       await budget.admit('output', '{}', () => sibling.storage.commitExecution('run', mutation)),
     ).toMatchObject({ ok: true, value: { applied: true } });
-    expect((await sibling.reopen().getTaskRun('task'))?.outputSnapshot).toBe('{}');
+    expect((await (await sibling.reopen()).getTaskRun('task'))?.outputSnapshot).toBe('{}');
   });
 
   it('admits input snapshots only for the current live attempt and persists them', async () => {
@@ -307,15 +321,19 @@ describe.each(['memory', 'file', 'sqlite'])('%s execution arbitration', (kind) =
       inputSnapshot: '{"text":"first"}',
     };
     expect(await storage.commitExecution('run', mutation)).toMatchObject({ applied: true });
-    expect((await reopen().getTaskRun('task'))?.inputSnapshot).toBe('{"text":"first"}');
+    // Reopen once and continue on the reopened instance: for the file adapter, `reopen()` closes
+    // `storage`'s ownership of the root, so a "restarted process" keeps using its own new instance
+    // rather than reaching back through the one it just gave up.
+    const reopened = await reopen();
+    expect((await reopened.getTaskRun('task'))?.inputSnapshot).toBe('{"text":"first"}');
     expect(
-      await storage.commitExecution('run', { ...mutation, attempt: 2, inputSnapshot: 'stale' }),
+      await reopened.commitExecution('run', { ...mutation, attempt: 2, inputSnapshot: 'stale' }),
     ).toMatchObject({ applied: false });
-    await storage.commitExecution('run', cancellation);
+    await reopened.commitExecution('run', cancellation);
     expect(
-      await storage.commitExecution('run', { ...mutation, inputSnapshot: 'late' }),
+      await reopened.commitExecution('run', { ...mutation, inputSnapshot: 'late' }),
     ).toMatchObject({ applied: false });
-    expect((await reopen().getTaskRun('task'))?.inputSnapshot).toBe('{"text":"first"}');
+    expect((await reopened.getTaskRun('task'))?.inputSnapshot).toBe('{"text":"first"}');
   });
 
   it('commits cancellation before a late result, with no output or credits after reopening', async () => {
@@ -326,7 +344,7 @@ describe.each(['memory', 'file', 'sqlite'])('%s execution arbitration', (kind) =
     ]);
     expect(cancelled.applied).toBe(true);
     expect(settled.applied).toBe(false);
-    const read = reopen();
+    const read = await reopen();
     expect((await read.getDagRun('run'))?.status).toBe('cancelled');
     expect(await read.getTaskRun('task')).toMatchObject({ status: 'cancelled', attempt: 1 });
     expect((await read.getTaskRun('task'))?.outputSnapshot).toBeUndefined();
@@ -342,7 +360,7 @@ describe.each(['memory', 'file', 'sqlite'])('%s execution arbitration', (kind) =
     ]);
     expect(finished).toMatchObject({ applied: true, runStatus: 'success' });
     expect(cancelled).toMatchObject({ applied: false, runStatus: 'success' });
-    expect(await reopen().getTaskRun('task')).toMatchObject({
+    expect(await (await reopen()).getTaskRun('task')).toMatchObject({
       status: 'success',
       outputSnapshot: '{"done":true}',
       estimatedCredits: 2,
@@ -414,7 +432,7 @@ describe.each(['memory', 'file', 'sqlite'])('%s execution arbitration', (kind) =
       (await storage.commitExecution('run', { kind: 'finalize', endedAt: '2026-09-24' })).applied,
     ).toBe(false);
     expect((await storage.commitExecution('run', retry)).applied).toBe(false);
-    expect(await reopen().getTaskRun('task')).toMatchObject({ status: 'queued', attempt: 2 });
+    expect(await (await reopen()).getTaskRun('task')).toMatchObject({ status: 'queued', attempt: 2 });
   });
 
   it('admits a ready child once under contention and keeps the run pending', async () => {

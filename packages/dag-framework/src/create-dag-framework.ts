@@ -127,6 +127,9 @@ export async function createDagFramework(
   const assembly = assemblyResult.value;
 
   // 2. Infrastructure ports (defaults overridable via options.ports)
+  // A caller-supplied storage port is theirs to close; only the default `FileStoragePort` this
+  // composition constructs itself is this framework's to release on `stop()`.
+  const ownsStorage = options.ports?.storage === undefined;
   const storage: IStoragePort =
     options.ports?.storage ??
     new FileStoragePort(requireHostPath(options.paths?.storageRoot, 'storageRoot'));
@@ -228,6 +231,14 @@ export async function createDagFramework(
       await promptBackend.closeIngressAndDrainSubmissions();
       await execution.runAdvancement.stop();
       await promptBackend.drainOwnedObservationJobs();
+      // Release this root's owner lock so a later `createDagFramework` call — in this process or
+      // another — can open the same file storage root again (packages/dag-adapters-local SPEC:
+      // exclusive ownership is enforced). Only for the default storage THIS composition constructed —
+      // a caller-supplied `options.ports.storage` is the caller's to close, and `close()` is final, so
+      // closing one out from under a caller still using it would be a hard-to-diagnose regression.
+      if (ownsStorage && storage instanceof FileStoragePort) {
+        await storage.close();
+      }
     },
   };
 

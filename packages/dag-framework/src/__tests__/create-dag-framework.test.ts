@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IDagDefinition } from '@robota-sdk/dag-core';
+import { FileStoragePort } from '@robota-sdk/dag-adapters-local';
 import { createDagFramework } from '../create-dag-framework.js';
 import { createDefaultNodeRegistrySync } from '@robota-sdk/dag-nodes-default';
 import * as defaultRegistryLoader from '../load-default-node-registry.js';
@@ -121,6 +122,20 @@ describe('host-owned persistence paths', () => {
       expect(created.assets).toBe(framework.assets);
     } finally {
       await created.stop();
+    }
+  });
+
+  it('stop() leaves a caller-supplied FileStoragePort open', async () => {
+    const storage = new FileStoragePort(path.join(tmpDir, 'caller-storage'));
+    const created = await createDagFramework({
+      nodes: [],
+      ports: { storage, assetStore: framework.assets },
+    });
+    await created.stop();
+    try {
+      await expect(storage.listDagRuns()).resolves.toEqual([]);
+    } finally {
+      await storage.close();
     }
   });
 

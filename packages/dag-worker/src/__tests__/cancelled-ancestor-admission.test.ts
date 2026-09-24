@@ -122,7 +122,13 @@ describe('WorkerLoopService refuses admission when a persisted ancestor run is c
       makeStorage: async (): Promise<{ storage: IStoragePort; cleanup: () => Promise<void> }> => {
         const dir = await mkdtemp(path.join(tmpdir(), 'dag-cancelled-ancestor-file-'));
         const storage = new FileStoragePort(dir);
-        return { storage, cleanup: async () => rm(dir, { recursive: true, force: true }) };
+        return {
+          storage,
+          cleanup: async () => {
+            await storage.close();
+            await rm(dir, { recursive: true, force: true });
+          },
+        };
       },
     },
   ])('backed by $name storage', ({ makeStorage }) => {
