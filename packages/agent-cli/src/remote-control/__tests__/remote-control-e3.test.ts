@@ -6,7 +6,7 @@ import {
   generateIdentityKeyPair,
 } from '@robota-sdk/agent-remote-pairing';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IProtocolSession } from '@robota-sdk/agent-transport';
 import type { IHostReconnectConfig, ISignalingClient } from '@robota-sdk/agent-transport-webrtc';
 import { TransportRegistry } from '@robota-sdk/agent-framework';
 import { mkdtempSync, realpathSync } from 'node:fs';
@@ -17,6 +17,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { IHostIdentity } from '../host-identity.js';
 import { RemoteControlController } from '../remote-control-controller.js';
+import { createRemoteControlTransportHost } from '../transport-host-adapter.js';
 import type { ITrustedDeviceRecord, ITrustedDeviceStore } from '../trusted-device-store.js';
 
 /**
@@ -67,7 +68,7 @@ function build(
 } {
   const captured: { reconnect?: IHostReconnectConfig } = {};
   const controller = new RemoteControlController({
-    registry: realRegistry(),
+    host: createRemoteControlTransportHost(realRegistry()),
     readRelayUrl: () => 'ws://127.0.0.1:9999',
     readClientUrl: () => 'https://remote.example/',
     getSession: () => stubSession(),
@@ -95,13 +96,13 @@ function build(
         start: vi.fn().mockResolvedValue(undefined),
         stop: vi.fn().mockResolvedValue(undefined),
         validateOptions: () => true,
-      } as unknown as IConfigurableTransport<IInteractiveSession>;
+      } as unknown as IConfigurableTransport<IProtocolSession>;
     },
   });
   return { controller, captured };
 }
 
-function stubSession(): IInteractiveSession {
+function stubSession(): IProtocolSession {
   return Object.assign(createTestInteractiveSession(), {
     on: vi.fn(),
     off: vi.fn(),
@@ -151,7 +152,7 @@ describe('RemoteControlController E3 wiring (REMOTE-012)', () => {
   it('with no store configured, listDevices is empty and reconnect config is absent', async () => {
     const captured: { reconnect?: IHostReconnectConfig } = {};
     const controller = new RemoteControlController({
-      registry: realRegistry(),
+      host: createRemoteControlTransportHost(realRegistry()),
       readRelayUrl: () => 'ws://127.0.0.1:9999',
       readClientUrl: () => 'https://remote.example/',
       getSession: () => stubSession(),
@@ -173,7 +174,7 @@ describe('RemoteControlController E3 wiring (REMOTE-012)', () => {
           start: vi.fn().mockResolvedValue(undefined),
           stop: vi.fn().mockResolvedValue(undefined),
           validateOptions: () => true,
-        } as unknown as IConfigurableTransport<IInteractiveSession>;
+        } as unknown as IConfigurableTransport<IProtocolSession>;
       },
     });
     await controller.enable();
