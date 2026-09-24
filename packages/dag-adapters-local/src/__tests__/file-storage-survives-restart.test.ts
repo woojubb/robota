@@ -69,6 +69,18 @@ describe('FileStoragePort survives a restart (DAG-003)', () => {
     });
   });
 
+  it('preserves child ancestry across adapter reconstruction', async () => {
+    const root = storageRoot();
+    const lineage = {
+      rootRunId: 'root', parentRunId: 'parent', depth: 2, maxDepth: 2,
+      ancestorCompositeNodeTypes: ['first', 'second'],
+    };
+    await new FileStoragePort(root).createDagRun(dagRun({ lineage }));
+    expect((await new FileStoragePort(root).getDagRun('run-1'))?.lineage).toEqual(lineage);
+    await new FileStoragePort(root).createDagRun(dagRun({ dagRunId: 'legacy' }));
+    expect((await new FileStoragePort(root).getDagRun('legacy'))?.lineage).toBeUndefined();
+  });
+
   it('a status update survives too, not just the creation', async () => {
     const root = storageRoot();
     const first = new FileStoragePort(root);

@@ -246,6 +246,90 @@ describe('RunOrchestratorService', () => {
     expect(secondMessage).toBeUndefined();
   });
 
+  it('rejects a duplicate runKey whose requested lineage differs from the existing run', async () => {
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
+
+    await storage.saveDefinition(createPublishedDefinition());
+    const service = new RunOrchestratorService(storage, queue, clock);
+
+    const first = await service.createRun({
+      dagId: 'dag-runtime-test',
+      trigger: 'manual',
+      rerunKey: 'child-1',
+      input: { seed: 'v1' },
+      lineage: {
+        rootRunId: 'root-run', parentRunId: 'parent-run', depth: 1,
+        ancestorCompositeNodeTypes: ['outer'],
+      },
+    });
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+
+    const second = await service.createRun({
+      dagId: 'dag-runtime-test',
+      trigger: 'manual',
+      rerunKey: 'child-1',
+      input: { seed: 'v1' },
+      lineage: {
+        // Same run key, but a different parent — reusing the first run's record would let this
+        // caller inherit the wrong depth/ancestry authority.
+        rootRunId: 'root-run', parentRunId: 'different-parent', depth: 1,
+        ancestorCompositeNodeTypes: ['outer'],
+      },
+    });
+    expect(second.ok).toBe(false);
+    if (second.ok) return;
+    expect(second.error.code).toBe('DAG_VALIDATION_RUN_KEY_LINEAGE_MISMATCH');
+
+    // The existing run is untouched: a second lookup with the ORIGINAL lineage still succeeds.
+    const third = await service.createRun({
+      dagId: 'dag-runtime-test',
+      trigger: 'manual',
+      rerunKey: 'child-1',
+      input: { seed: 'v1' },
+      lineage: {
+        rootRunId: 'root-run', parentRunId: 'parent-run', depth: 1,
+        ancestorCompositeNodeTypes: ['outer'],
+      },
+    });
+    expect(third.ok).toBe(true);
+    if (!third.ok) return;
+    expect(third.value.dagRunId).toBe(first.value.dagRunId);
+  });
+
+  it('rejects a duplicate runKey when the existing run has no lineage but the request does', async () => {
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
+
+    await storage.saveDefinition(createPublishedDefinition());
+    const service = new RunOrchestratorService(storage, queue, clock);
+
+    const first = await service.createRun({
+      dagId: 'dag-runtime-test',
+      trigger: 'manual',
+      rerunKey: 'child-2',
+      input: { seed: 'v1' },
+    });
+    expect(first.ok).toBe(true);
+
+    const second = await service.createRun({
+      dagId: 'dag-runtime-test',
+      trigger: 'manual',
+      rerunKey: 'child-2',
+      input: { seed: 'v1' },
+      lineage: {
+        rootRunId: 'root-run', parentRunId: 'parent-run', depth: 1,
+        ancestorCompositeNodeTypes: ['outer'],
+      },
+    });
+    expect(second.ok).toBe(false);
+    if (second.ok) return;
+    expect(second.error.code).toBe('DAG_VALIDATION_RUN_KEY_LINEAGE_MISMATCH');
+  });
+
   it('does not charge a duplicate run lookup to the root input allowance', async () => {
     const storage = new InMemoryStoragePort();
     const definition = createPublishedDefinition();

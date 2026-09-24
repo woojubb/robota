@@ -33,8 +33,10 @@ run status, cancelling runs, and publishing execution progress events.
   terminal), it returns the existing task run IDs without re-enqueuing or re-transitioning,
   preventing duplicate task creation on retry.
 - **Run key idempotency**: run keys follow `{dagId}:{logicalDate}` or
-  `{dagId}:{logicalDate}:rerun:{rerunKey}`; a storage-level race on concurrent creation is handled
-  by re-querying the existing run rather than failing.
+  `{dagId}:{logicalDate}:rerun:{rerunKey}`, with a storage-level race on concurrent creation handled
+  by re-querying the existing run rather than failing, and reuse requires the request's composite
+  lineage to match that existing run's persisted lineage rather than silently inheriting a different
+  caller's ancestry.
 - All service methods return `TResult<T, IDagError>` — no fallback paths, no silent error
   swallowing.
 - When supplied with a live root snapshot authority, run creation admits its published definition

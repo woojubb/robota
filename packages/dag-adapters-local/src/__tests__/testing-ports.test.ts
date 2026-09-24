@@ -132,6 +132,18 @@ describe('InMemoryStoragePort', () => {
       expect(list[0].dagRunId).toBe('run-1');
     });
 
+    it('round-trips composite child lineage through create and get', async () => {
+      const storage = new InMemoryStoragePort();
+      const lineage = {
+        rootRunId: 'root', parentRunId: 'parent', depth: 2, maxDepth: 3,
+        ancestorCompositeNodeTypes: ['outer', 'inner'],
+      };
+      await storage.createDagRun(makeRun('run-1'));
+      await storage.createDagRun({ ...makeRun('run-2'), lineage });
+      expect((await storage.getDagRun('run-1'))?.lineage).toBeUndefined();
+      expect((await storage.getDagRun('run-2'))?.lineage).toEqual(lineage);
+    });
+
     it('finds dag run by runKey', async () => {
       const storage = new InMemoryStoragePort();
       await storage.createDagRun(makeRun('run-1'));

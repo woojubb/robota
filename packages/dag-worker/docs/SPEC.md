@@ -57,6 +57,13 @@ by another owner aborts the attempt when storage reads reflect that owner's comm
 or missing run closes the attempt rather than authorizing continued execution. The file adapter
 remains single-owner and does not provide that cross-process visibility.
 
+### Composite child lineage authority
+
+Before entering the executor, the worker decodes the run's persisted composite lineage rather than
+trusting any in-process default, so a restarted worker enforces composite depth/recursion limits
+against a run it did not create; invalid persisted ancestry fails that one task closed without
+taking down the worker loop.
+
 ### Crash recovery (DAG-001)
 
 A worker that dies mid-node used to leave its task and run in `running` forever, silently. Two

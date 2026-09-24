@@ -7,7 +7,7 @@ import DatabaseConstructor from 'better-sqlite3';
 import { listStaleRunningTaskRunRows, setTaskRunLeaseRow } from './task-run-recovery-queries.js';
 import { type ITaskRunRow, rowToTaskRun } from './task-run-row.js';
 import type Database from 'better-sqlite3';
-import { decodeDagDefinition, formatDagDecodeIssues } from '@robota-sdk/dag-core';
+import { decodeDagDefinition, decodeDagExecutionLineage, formatDagDecodeIssues } from '@robota-sdk/dag-core';
 import type {
   IDagDefinition,
   IDagError,
@@ -38,6 +38,7 @@ interface IDagRunRow {
   input_snapshot: string | null;
   started_at: string | null;
   ended_at: string | null;
+  lineage_json: string | null;
 }
 
 /**
@@ -55,7 +56,28 @@ function rowToDefinition(row: IDefinitionRow): IDagDefinition {
   return result.value;
 }
 
+/**
+ * A read must never throw over persisted lineage. Unlike `rowToDefinition`, this
+ * value is not decoded here — it is handed to callers exactly as stored, still unvalidated, so
+ * `decodeDagExecutionLineage` at the worker/orchestrator boundary is the sole place that rejects
+ * it. That keeps a corrupt `lineage_json` value a deterministic task failure instead of an
+ * exception thrown out of `getDagRun`, which would otherwise crash the worker loop before it ever
+ * reaches that decode call. Malformed JSON text is returned unparsed: decode requires an object,
+ * so a raw string is rejected the same way a structurally invalid object is.
+ */
+function parsePersistedLineage(rawLineageJson: string): unknown {
+  try {
+    return JSON.parse(rawLineageJson);
+  } catch {
+    return rawLineageJson;
+  }
+}
+
 function rowToDagRun(row: IDagRunRow): IDagRun {
+  const lineage =
+    row.lineage_json === null
+      ? undefined
+      : (parsePersistedLineage(row.lineage_json) as IDagRun['lineage']);
   return {
     dagRunId: row.dag_run_id,
     dagId: row.dag_id,
@@ -68,6 +90,7 @@ function rowToDagRun(row: IDagRunRow): IDagRun {
     inputSnapshot: row.input_snapshot ?? undefined,
     startedAt: row.started_at ?? undefined,
     endedAt: row.ended_at ?? undefined,
+    ...(lineage === undefined ? {} : { lineage }),
   };
 }
 
@@ -220,12 +243,13 @@ export class SqliteStorageAdapter implements IStoragePort {
   }
 
   public async createDagRun(dagRun: IDagRun): Promise<void> {
+    const lineage = decodeDagExecutionLineage(dagRun.lineage);
     this.db
       .prepare(
         `INSERT INTO dag_runs
          (dag_run_id, dag_id, version, status, run_key, logical_date, trigger,
-          definition_snapshot, input_snapshot, started_at, ended_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          definition_snapshot, input_snapshot, started_at, ended_at, lineage_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         dagRun.dagRunId,
@@ -239,6 +263,7 @@ export class SqliteStorageAdapter implements IStoragePort {
         dagRun.inputSnapshot ?? null,
         dagRun.startedAt ?? null,
         dagRun.endedAt ?? null,
+        lineage === undefined ? null : JSON.stringify(lineage),
       );
   }
 

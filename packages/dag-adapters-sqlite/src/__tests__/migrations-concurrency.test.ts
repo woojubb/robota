@@ -64,6 +64,7 @@ it('serializes concurrent constructors across separate SQLite connections', asyn
       expect(db.prepare('SELECT version FROM schema_migrations ORDER BY version').all()).toEqual([
         { version: 1 },
         { version: 2 },
+        { version: 3 },
       ]);
     } finally {
       db.close();

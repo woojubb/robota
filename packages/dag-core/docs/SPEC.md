@@ -200,6 +200,16 @@ These authorities are in-process only, with no crash recovery or cross-process c
 not bound memory, CPU, queue size, or provider-generation output; the per-operation text-repeat
 ceilings above are separate.
 
+## Composite child run lineage
+
+A composite node's child run has its ancestry persisted with the run itself, not reconstructed from
+in-process state — after a restart, that persisted record is the sole authority for depth and
+recursion decisions, never a constructor-captured default. Decoding it is total: a malformed record
+is rejected rather than reset to a fresh root, so corruption or tampering fails the task closed
+instead of silently re-authorizing recursion. An absent value decodes to a root run, not an error. A
+storage adapter's plain read must never throw over a bad record — only this decode step rejects it,
+so ancestry is validated once, at the point something is about to act on it, not on every read.
+
 ## Isolated text operation capability
 
 A host may supply a trusted in-process regex replacement capability independently of workflow

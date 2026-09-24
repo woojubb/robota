@@ -5,23 +5,14 @@ import type { IDagExecutionByteLimits } from './execution-byte-limits.js';
 import type { TPortPayload } from '../interfaces/ports.js';
 import type { IDagError } from './error.js';
 import type { TResult } from './result.js';
-import type { IDagNode, INodeManifest } from './domain.js';
+import type { IDagExecutionLineage, IDagNode, INodeManifest } from './domain.js';
+
+export type { IDagExecutionLineage } from './domain.js';
 
 /** Estimated execution cost for a node, returned by cost estimation lifecycle phase. */
 export interface ICostEstimate {
   estimatedCredits: number;
   details?: Record<string, string | number | boolean>;
-}
-
-/** Immutable ancestry carried from a root run into each in-process nested DAG run. */
-export interface IDagExecutionLineage {
-  readonly rootRunId: string;
-  readonly parentRunId?: string;
-  /** Number of child-DAG boundaries crossed since the root run. */
-  readonly depth: number;
-  /** Effective root-to-child depth ceiling inherited from all enclosing composites. */
-  readonly maxDepth?: number;
-  readonly ancestorCompositeNodeTypes: readonly string[];
 }
 
 /** Runtime context passed to every node lifecycle method during execution. */

@@ -73,7 +73,7 @@ export class LifecycleTaskExecutorPort implements ITaskExecutorPort {
         nodeManifest,
         attempt: input.attempt,
         executionPath: input.executionPath,
-        lineage: this.lineage ?? {
+        lineage: input.lineage ?? this.lineage ?? {
           rootRunId: input.dagRunId,
           depth: 0,
           ancestorCompositeNodeTypes: [],

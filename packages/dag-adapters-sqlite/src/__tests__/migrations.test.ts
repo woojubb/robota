@@ -10,6 +10,7 @@ it('rolls back a credit migration when recording its version fails', () => {
       CREATE TABLE schema_migrations (version INTEGER PRIMARY KEY, applied_at INTEGER NOT NULL);
       INSERT INTO schema_migrations VALUES (1, 0);
       CREATE TABLE task_runs (task_run_id TEXT PRIMARY KEY);
+      CREATE TABLE dag_runs (dag_run_id TEXT PRIMARY KEY);
       CREATE TRIGGER reject_credit_migration BEFORE INSERT ON schema_migrations
       WHEN NEW.version = 2 BEGIN SELECT RAISE(FAIL, 'record unavailable'); END;
     `);

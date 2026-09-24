@@ -28,6 +28,8 @@ intended upgrade path to PostgreSQL by swapping the adapter.
   input snapshots use that same guarded transaction, rejecting stale-attempt or cancelled-run
   writes, but the adapter does not own or reconstruct the caller's in-process aggregate snapshot
   authority.
+- A run's persisted ancestry is read back unvalidated, unlike a DAG definition row: deciding whether
+  it is well-formed is `dag-core`'s job, not this adapter's.
 
 ## Design decisions
 
