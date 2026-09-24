@@ -6,8 +6,16 @@ import type { IRemoteControlTransportHost } from './remote-control-controller.js
 export function createRemoteControlTransportHost(
   registry: Pick<TransportRegistry, 'register' | 'replace'>,
 ): IRemoteControlTransportHost {
+  let admitted = false;
   return {
-    registerInitial: (peer, session) => registry.register(bindTransportAdapter(peer, session)),
+    registerInitial: (peer, session) => {
+      const bound = bindTransportAdapter(peer, session);
+      if (admitted) registry.replace(bound);
+      else {
+        registry.register(bound);
+        admitted = true;
+      }
+    },
     promoteWinner: (peer, session) => registry.replace(bindTransportAdapter(peer, session)),
   };
 }

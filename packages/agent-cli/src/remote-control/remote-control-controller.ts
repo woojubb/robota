@@ -58,6 +58,8 @@ export interface IRemoteControlControllerDeps {
   loadHostIdentity?: () => Promise<IHostIdentity>;
   /** Construction seams (default to the real implementations; overridden in unit tests). */
   createSignaling?: (url: string, rendezvous: string) => ISignalingClient;
+  /** Test seam for the asynchronous reconnect-room derivation. */
+  deriveReconnectRendezvous?: (seed: string, counter: number) => Promise<string>;
   createTransport?: (
     signaling: ISignalingClient,
     secret: string,
@@ -102,6 +104,7 @@ export class RemoteControlController {
   /** Active reconnect transports (the 2-room window) + their timers, torn down on reconnect/ceiling. */
   private reconnectPeers: TRemoteControlPeer[] = [];
   private reconnectSignalings: ISignalingClient[] = [];
+  private reconnectGeneration = 0;
   private cancelReconnectRound?: () => void;
   private cancelReconnectCeiling?: () => void;
 
@@ -308,12 +311,13 @@ export class RemoteControlController {
     void this.safeClose(this.signaling);
     this.signaling = undefined;
 
+    const generation = ++this.reconnectGeneration;
     const counter = record.reconnectCounter ?? 0;
     const schedule = this.deps.schedule ?? defaultSchedule;
     this.cancelReconnectCeiling = schedule(() => this.giveUpReconnect(), RECONNECT_WINDOW_MS);
     // Register the 2-room window so a device that advanced its counter (lost final frame) still meets the host.
-    void this.armReconnectRoom(record.reconnectSeed, counter, session);
-    void this.armReconnectRoom(record.reconnectSeed, counter + 1, session);
+    void this.armReconnectRoom(record.reconnectSeed, counter, session, generation);
+    void this.armReconnectRoom(record.reconnectSeed, counter + 1, session, generation);
   }
 
   /** Register one reconnect transport at `rendezvous(seed, counter)`, sharing the persistent bridge. */
@@ -321,9 +325,14 @@ export class RemoteControlController {
     seed: string,
     counter: number,
     session: IProtocolSession,
+    generation: number,
   ): Promise<void> {
     if (!this.reconnectConfig || !this.relayUrl || !this.bridge) return;
-    const rendezvous = await deriveReconnectRendezvous(seed, counter);
+    const rendezvous = await (this.deps.deriveReconnectRendezvous ?? deriveReconnectRendezvous)(
+      seed,
+      counter,
+    );
+    if (generation !== this.reconnectGeneration || !this.bridge) return;
     const signaling = (this.deps.createSignaling ?? defaultCreateSignaling)(
       this.relayUrl,
       rendezvous,
@@ -334,7 +343,7 @@ export class RemoteControlController {
       signaling,
       dummySecret,
       {
-        onPaired: () => this.onReconnected(counter, peer, signaling, session),
+        onPaired: () => this.onReconnected(counter, peer, signaling, session, generation),
         onPairingFailed: () => undefined, // a wrong/absent device at this room is not fatal; the ceiling governs
         onDropped: () => {
           if (this.transport === peer) this.onDropped();
@@ -358,8 +367,10 @@ export class RemoteControlController {
     winner: TRemoteControlPeer,
     winnerSignaling: ISignalingClient,
     session: IProtocolSession,
+    generation: number,
   ): void {
-    if (this.transport) return; // already promoted a winner (first wins)
+    if (this.transport || generation !== this.reconnectGeneration || !this.bridge) return;
+    this.reconnectGeneration += 1; // invalidate a sibling room still deriving its rendezvous
     this.cancelReconnectCeiling?.();
     this.cancelReconnectCeiling = undefined;
     // Resync-on-success: the next room is the USED room + 1 (erases any ±1 drift).
@@ -399,7 +410,9 @@ export class RemoteControlController {
 
   /** Stop remote control and tear down the transport + signaling. */
   async stop(): Promise<string> {
-    if (!this.transport) return 'Remote control is not running.';
+    if (!this.transport && !this.bridge && !this.signaling && !this.cancelReconnectCeiling) {
+      return 'Remote control is not running.';
+    }
     await this.teardown('off');
     return 'Remote control stopped.';
   }
@@ -410,6 +423,7 @@ export class RemoteControlController {
    * socket and never leaves the status stuck at `awaiting-pairing`). Idempotent — a no-op when already off.
    */
   private async teardown(next: 'off'): Promise<void> {
+    this.reconnectGeneration += 1;
     const transport = this.transport;
     const signaling = this.signaling;
     this.transport = undefined;

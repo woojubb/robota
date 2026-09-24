@@ -36,7 +36,9 @@ Remote control receives only the session capabilities required by its wire proto
 effects for initial transport admission and confirmed reconnect promotion. Reconnect candidates
 remain outside the registry; promoting the confirmed winner replaces the registered peer so host
 shutdown reaches the live connection. Pairing failure and reconnect-window expiry still release
-the transport, signaling, and session-scoped resume bridge.
+the transport, signaling, and session-scoped resume bridge. A later enable replaces this controller's
+retained registry entry rather than attempting a duplicate registration. Expired or stopped
+reconnect windows cannot start a room whose rendezvous derivation finishes afterward.
 It chooses its user-local storage root and passes explicit paths to SDK persistence and trust adapters.
 Direct and slash user-local commands receive that same CLI-owned Robota root; the neutral command
 and framework packages never infer it from the process home.

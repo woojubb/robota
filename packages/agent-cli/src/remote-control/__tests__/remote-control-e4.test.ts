@@ -64,6 +64,14 @@ async function waitForSeed(store: ITrustedDeviceStore, deviceId: string): Promis
   throw new Error('reconnect seed was never persisted');
 }
 
+async function waitForReconnectRooms(created: ICreatedTransport[]): Promise<void> {
+  for (let i = 0; i < 100; i += 1) {
+    if (created.length === 3) return;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+  throw new Error('reconnect rooms were not opened');
+}
+
 function memoryStore(): ITrustedDeviceStore {
   const map = new Map<string, ITrustedDeviceRecord>();
   return {
@@ -99,7 +107,12 @@ async function hostIdentity(): Promise<IHostIdentity> {
   };
 }
 
-function setup(store: ITrustedDeviceStore, identity: IHostIdentity) {
+function setup(
+  store: ITrustedDeviceStore,
+  identity: IHostIdentity,
+  failFirstStart = false,
+  deriveRendezvous?: (seed: string, counter: number) => Promise<string>,
+) {
   const created: ICreatedTransport[] = [];
   const rendezvouses: string[] = [];
   const ceilings: { cb: () => void; delayMs: number }[] = [];
@@ -133,6 +146,7 @@ function setup(store: ITrustedDeviceStore, identity: IHostIdentity) {
         close: vi.fn(),
       } as unknown as ISignalingClient;
     },
+    ...(deriveRendezvous ? { deriveReconnectRendezvous: deriveRendezvous } : {}),
     schedule: (cb, delayMs) => {
       ceilings.push({ cb, delayMs });
       return () => {
@@ -142,6 +156,9 @@ function setup(store: ITrustedDeviceStore, identity: IHostIdentity) {
     },
     createTransport: (_s, _secret, hooks, _ice, reconnect, bridge) => {
       const transport = fakeTransport();
+      if (failFirstStart && created.length === 0) {
+        vi.mocked(transport.start).mockRejectedValueOnce(new Error('start failed'));
+      }
       created.push({
         hooks,
         reconnect,
@@ -156,6 +173,30 @@ function setup(store: ITrustedDeviceStore, identity: IHostIdentity) {
 }
 
 describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
+  it.each(['stop', 'pairing-failure', 'start-failure'] as const)(
+    're-admits a fresh transport after %s without a duplicate registry entry',
+    async (reason) => {
+      const { controller, created, registry } = setup(
+        memoryStore(),
+        await hostIdentity(),
+        reason === 'start-failure',
+      );
+      await controller.enable();
+      if (reason === 'stop') await controller.stop();
+      else if (reason === 'pairing-failure') created[0].hooks.onPairingFailed();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      await controller.enable();
+      expect(created).toHaveLength(2);
+      expect(created[1].transport.attach).toHaveBeenCalled();
+      expect(created[1].transport.start).toHaveBeenCalled();
+      const entries = registry.getAll().filter((entry) => entry.transport.name === 'webrtc');
+      expect(entries).toHaveLength(1);
+      await registry.stopAll();
+      expect(created[1].transport.stop).toHaveBeenCalledOnce();
+    },
+  );
+
   it('first pair persists the reconnect seed+counter; a drop re-arms the counter/counter+1 rooms', async () => {
     const store = memoryStore();
     const { controller, created } = setup(store, await hostIdentity());
@@ -176,7 +217,7 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
 
     // Drop the paired channel → the controller registers the two reconnect rooms (async HKDF derivations).
     created[0].hooks.onDropped?.();
-    await new Promise((r) => setTimeout(r, 25));
+    await waitForReconnectRooms(created);
     const reconnectRooms = created.slice(1).map((c) => c.rendezvous);
     expect(reconnectRooms).toContain(await deriveReconnectRendezvous(seed, 0));
     expect(reconnectRooms).toContain(await deriveReconnectRendezvous(seed, 1));
@@ -195,7 +236,7 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
     await waitForSeed(store, 'dev-1');
 
     created[0].hooks.onDropped?.();
-    await new Promise((r) => setTimeout(r, 25));
+    await waitForReconnectRooms(created);
     const seed = (store.get('dev-1') as ITrustedDeviceRecord).reconnectSeed as string;
     // The device came back in the counter+1 room (it had advanced; host had not).
     const room1 = await deriveReconnectRendezvous(seed, 1);
@@ -220,7 +261,7 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
     await waitForSeed(store, 'dev-1');
 
     created[0].hooks.onDropped?.();
-    await new Promise((r) => setTimeout(r, 25));
+    await waitForReconnectRooms(created);
 
     // A drop opens TWO reconnect rooms while the original entry is still present. Registering each
     // candidate threw `Duplicate transport name: webrtc` out of a callback nothing observed, so the
@@ -252,7 +293,7 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
 
     const original = created[0].transport;
     created[0].hooks.onDropped?.();
-    await new Promise((r) => setTimeout(r, 25));
+    await waitForReconnectRooms(created);
     const seed = (store.get('dev-1') as ITrustedDeviceRecord).reconnectSeed as string;
     const room1 = await deriveReconnectRendezvous(seed, 1);
     const winner = created.slice(1).find((c) => c.rendezvous === room1)!;
@@ -293,4 +334,41 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
       expect(candidate.transport.stop).toHaveBeenCalledOnce();
     }
   });
+
+  it.each(['ceiling', 'stop'] as const)(
+    'does not start late reconnect rooms after immediate %s during rendezvous derivation',
+    async (reason) => {
+      const store = memoryStore();
+      let releaseDerivation: () => void = () => undefined;
+      const derivationHeld = new Promise<void>((resolve) => { releaseDerivation = resolve; });
+      const derivations: Promise<string>[] = [];
+      const { controller, created, ceilings } = setup(
+        store,
+        await hostIdentity(),
+        false,
+        (_seed, counter) => {
+          const derivation = derivationHeld.then(() => `room-${counter}`);
+          derivations.push(derivation);
+          return derivation;
+        },
+      );
+      await controller.enable();
+      (created[0].reconnect as { onEnroll: (id: string, spki: string) => void }).onEnroll(
+        'dev-1', 'spki',
+      );
+      created[0].hooks.onPaired({ sessionKey: generatePairingSecret().secret });
+      await waitForSeed(store, 'dev-1');
+      created[0].hooks.onDropped?.();
+      expect(ceilings).toHaveLength(1);
+      expect(derivations).toHaveLength(2);
+      if (reason === 'ceiling') ceilings[0].cb();
+      else expect(await controller.stop()).toBe('Remote control stopped.');
+      releaseDerivation();
+      await Promise.all(derivations);
+      await Promise.resolve();
+      expect(controller.getStatus()).toEqual({ state: 'off' });
+      expect(created).toHaveLength(1);
+      expect((created[0].bridge as { dispose: ReturnType<typeof vi.fn> }).dispose).toHaveBeenCalledOnce();
+    },
+  );
 });
