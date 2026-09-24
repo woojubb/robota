@@ -2,6 +2,7 @@ import type {
   ILivePromptTraceBatch,
   IProviderCallTraceEntry,
   IToolBodyTraceEntry,
+  IToolPermissionDecisionEntry,
 } from '@robota-sdk/agent-interface-analytics';
 import { isSafeSessionId } from '@robota-sdk/agent-session';
 
@@ -91,11 +92,26 @@ function projectTool(trace: IToolBodyTraceEntry): IToolBodyTraceEntry | undefine
   };
 }
 
+function projectPermission(value: IToolPermissionDecisionEntry): IToolPermissionDecisionEntry | undefined {
+  if (!TRACE_ID.test(value.traceId) || !SPAN_ID.test(value.parentSpanId) ||
+    !canonicalTime(value.decidedAt) ||
+    (value.toolCallId !== undefined && (typeof value.toolCallId !== 'string' || !ID.test(value.toolCallId))) ||
+    (value.decision !== 'allowed' && value.decision !== 'denied' && value.decision !== 'hook-blocked')) return undefined;
+  return {
+    ...(value.toolCallId !== undefined ? { toolCallId: value.toolCallId } : {}),
+    traceId: value.traceId,
+    parentSpanId: value.parentSpanId,
+    decidedAt: value.decidedAt,
+    decision: value.decision,
+  };
+}
+
 /** Maintains the actual callback order while bounding the host-visible projection. */
 export class LivePromptTraceAccumulator {
   private readonly children: ILivePromptTraceBatch['children'][number][] = [];
   private omittedProvider = 0;
   private omittedTool = 0;
+  private omittedPermission = 0;
 
   addProvider(value: IProviderCallTraceEntry): void {
     const trace = projectProvider(value);
@@ -109,9 +125,16 @@ export class LivePromptTraceAccumulator {
     else this.children.push({ kind: 'tool', trace });
   }
 
-  omit(counts: { readonly provider: number; readonly tool: number }): void {
+  addPermission(value: IToolPermissionDecisionEntry): void {
+    const decision = projectPermission(value);
+    if (!decision || this.children.length >= MAX_CHILDREN) this.omittedPermission += 1;
+    else this.children.push({ kind: 'permission', decision });
+  }
+
+  omit(counts: { readonly provider: number; readonly tool: number; readonly permission?: number }): void {
     this.omittedProvider += counts.provider;
     this.omittedTool += counts.tool;
+    this.omittedPermission += counts.permission ?? 0;
   }
 
   finish(input: {
@@ -130,7 +153,11 @@ export class LivePromptTraceAccumulator {
       turnId: input.turnId,
       root: { ...input.root },
       children: [...this.children],
-      omittedChildren: { provider: this.omittedProvider, tool: this.omittedTool },
+      omittedChildren: {
+        provider: this.omittedProvider,
+        tool: this.omittedTool,
+        permission: this.omittedPermission,
+      },
     };
   }
 }

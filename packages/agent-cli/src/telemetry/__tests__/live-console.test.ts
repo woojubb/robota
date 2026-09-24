@@ -41,9 +41,10 @@ describe('live console telemetry', () => {
       if (signal === 'metrics') expect(lines[0]).not.toContain('call-123');
       else expect(lines[0]).toContain('call-123');
     }
-    const unsafe = { ...input, children: [{ ...input.children[0]!, trace: {
-      ...input.children[0]!.trace, toolCallId: 'private\nsecret',
-    } }] } as ILivePromptTraceBatch;
+    const toolChild = input.children[0] as unknown as { kind: 'tool'; trace: Record<string, unknown> };
+    const unsafe = { ...input, children: [{ ...toolChild, trace: {
+      ...toolChild.trace, toolCallId: 'private\nsecret',
+    } }] } as unknown as ILivePromptTraceBatch;
     for (const signal of ['traces', 'logs'] as const) {
       const lines: string[] = [];
       const port = createConfiguredNodeOtlpLiveTelemetryPort({
@@ -53,6 +54,58 @@ describe('live console telemetry', () => {
       await port.shutdown();
       expect(lines[0]).not.toContain('private');
       expect(lines[0]).not.toContain('robota.tool.call_id');
+    }
+  });
+
+  it('projects a tool permission decision as a spanless log and a labeled metric, never a metric call ID', async () => {
+    const input = { ...batch, children: [
+      { kind: 'tool', trace: {
+        traceId: batch.root.traceId, parentSpanId: batch.root.spanId,
+        spanId: 'abcdef1234567890', startedAt: batch.root.startedAt,
+        endedAt: batch.root.endedAt, outcome: 'success', toolCallId: 'call-123',
+      } },
+      { kind: 'permission', decision: {
+        traceId: batch.root.traceId, parentSpanId: batch.root.spanId,
+        decidedAt: batch.root.startedAt, decision: 'allowed', toolCallId: 'call-123',
+      } },
+    ], omittedChildren: { provider: 0, tool: 0, permission: 0 } } as unknown as ILivePromptTraceBatch;
+    for (const signal of ['traces', 'logs', 'metrics'] as const) {
+      const lines: string[] = [];
+      const port = createConfiguredNodeOtlpLiveTelemetryPort({
+        ROBOTA_TELEMETRY_ENABLED: '1', [`ROBOTA_TELEMETRY_${signal.toUpperCase()}`]: 'console',
+      }, undefined, (line) => { lines.push(line); })!;
+      port.enqueue(input);
+      await port.shutdown();
+      const record = JSON.parse(lines[0]!);
+      if (signal === 'traces') {
+        expect((record.spans as Array<{ name: string }>).map((span) => span.name))
+          .not.toContain('robota.tool_permission');
+        expect(record.spans).toHaveLength(2); // root + tool body only, never the permission decision
+      } else if (signal === 'logs') {
+        expect(lines[0]).toContain('robota.tool_permission.decided');
+        expect(lines[0]).toContain('allowed');
+        expect(lines[0]).toContain('call-123');
+      } else {
+        expect(lines[0]).toContain('robota.tool.permission_decisions');
+        expect(lines[0]).not.toContain('call-123');
+      }
+    }
+  });
+
+  it('surfaces an omitted permission count and withholds the per-decision metric while any is truncated', async () => {
+    const input = { ...batch, children: [], omittedChildren: { provider: 0, tool: 0, permission: 3 } } as unknown as ILivePromptTraceBatch;
+    for (const signal of ['logs', 'metrics'] as const) {
+      const lines: string[] = [];
+      const port = createConfiguredNodeOtlpLiveTelemetryPort({
+        ROBOTA_TELEMETRY_ENABLED: '1', [`ROBOTA_TELEMETRY_${signal.toUpperCase()}`]: 'console',
+      }, undefined, (line) => { lines.push(line); })!;
+      port.enqueue(input);
+      await port.shutdown();
+      if (signal === 'logs') expect(lines[0]).toContain('omitted_permission_events');
+      else {
+        expect(lines[0]).toContain('permission_events_omitted');
+        expect(lines[0]).not.toContain('permission_decisions');
+      }
     }
   });
 

@@ -12,6 +12,77 @@ const TRACE_ID = '1234567890abcdef1234567890abcdef';
 const ROOT_ID = '1234567890abcdef';
 const CHILD_ID = 'abcdef1234567890';
 
+/**
+ * A minimal protobuf decoder for asserting span identity — this package has no public deserializer
+ * for an ExportTraceServiceRequest (only for a collector's response), so this reads exactly the wire
+ * types OTLP traces use (varint, length-delimited) to recover span names and integer attributes.
+ */
+function readVarint(buf: Buffer, pos: number): [value: number, next: number] {
+  let result = 0, shift = 0, cursor = pos, byte: number;
+  do {
+    byte = buf[cursor++]!;
+    result |= (byte & 0x7f) << shift;
+    shift += 7;
+  } while (byte & 0x80);
+  return [result >>> 0, cursor];
+}
+
+function decodeFields(buf: Buffer): Map<number, Array<Buffer | number>> {
+  const fields = new Map<number, Array<Buffer | number>>();
+  let pos = 0;
+  while (pos < buf.length) {
+    const [tag, afterTag] = readVarint(buf, pos);
+    const fieldNumber = tag >>> 3;
+    const wireType = tag & 0x7;
+    let value: Buffer | number;
+    if (wireType === 0) { const [v, next] = readVarint(buf, afterTag); value = v; pos = next; }
+    else if (wireType === 2) {
+      const [len, next] = readVarint(buf, afterTag);
+      value = buf.subarray(next, next + len);
+      pos = next + len;
+    } else if (wireType === 1) { value = 0; pos = afterTag + 8; }
+    else if (wireType === 5) { value = 0; pos = afterTag + 4; }
+    else throw new Error(`Unsupported OTLP wire type ${wireType}`);
+    if (!fields.has(fieldNumber)) fields.set(fieldNumber, []);
+    fields.get(fieldNumber)!.push(value);
+  }
+  return fields;
+}
+
+interface IDecodedSpan {
+  name: string;
+  attributes: Map<string, number | string>;
+}
+
+function decodeExportedSpans(body: Buffer): IDecodedSpan[] {
+  const spans: IDecodedSpan[] = [];
+  const request = decodeFields(body);
+  for (const resourceSpans of (request.get(1) ?? []) as Buffer[]) {
+    const rsFields = decodeFields(resourceSpans);
+    for (const scopeSpans of (rsFields.get(2) ?? []) as Buffer[]) {
+      const ssFields = decodeFields(scopeSpans);
+      for (const spanBytes of (ssFields.get(2) ?? []) as Buffer[]) {
+        const spanFields = decodeFields(spanBytes);
+        const name = (spanFields.get(5)?.[0] as Buffer | undefined)?.toString('utf8') ?? '';
+        const attributes = new Map<string, number | string>();
+        for (const kv of (spanFields.get(9) ?? []) as Buffer[]) {
+          const kvFields = decodeFields(kv);
+          const key = (kvFields.get(1)?.[0] as Buffer | undefined)?.toString('utf8');
+          const anyValue = kvFields.get(2)?.[0] as Buffer | undefined;
+          if (!key || !anyValue) continue;
+          const anyFields = decodeFields(anyValue);
+          const intValue = anyFields.get(3)?.[0];
+          const stringValue = anyFields.get(1)?.[0] as Buffer | undefined;
+          if (typeof intValue === 'number') attributes.set(key, intValue);
+          else if (stringValue) attributes.set(key, stringValue.toString('utf8'));
+        }
+        spans.push({ name, attributes });
+      }
+    }
+  }
+  return spans;
+}
+
 function batch(): ILivePromptTraceBatch {
   return {
     schemaVersion: 1,
@@ -27,7 +98,7 @@ function batch(): ILivePromptTraceBatch {
       outcome: 'success', round: 1, disposition: 'invoked', providerId: 'safe-provider',
       usageProvenance: 'complete', promptTokens: 2, completionTokens: 3, totalTokens: 5,
     } }],
-    omittedChildren: { provider: 0, tool: 0 },
+    omittedChildren: { provider: 0, tool: 0, permission: 0 },
   };
 }
 
@@ -51,9 +122,10 @@ describe('Node live OTLP trace export', () => {
         ROBOTA_TELEMETRY_OTLP_ENDPOINT: `http://127.0.0.1:${address.port}`,
       });
       expect(port).toBeDefined();
-      port!.enqueue({ ...batch(), children: [{ ...batch().children[0]!, trace: {
-        ...batch().children[0]!.trace, modelId: 'gpt-4o',
-      } }] } as ILivePromptTraceBatch);
+      const providerChild = batch().children[0] as unknown as { kind: 'provider'; trace: Record<string, unknown> };
+      port!.enqueue({ ...batch(), children: [{ ...providerChild, trace: {
+        ...providerChild.trace, modelId: 'gpt-4o',
+      } }] } as unknown as ILivePromptTraceBatch);
       await port!.shutdown();
       expect(requests).toHaveLength(1);
       expect(requests[0]!.path).toBe('/v1/metrics');
@@ -187,6 +259,52 @@ describe('Node live OTLP trace export', () => {
     } finally {
       activeSpy.mockRestore();
       vi.unstubAllEnvs();
+      await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
+    }
+  });
+
+  it('exports exactly the root and tool spans, never one named after a spanless permission decision', async () => {
+    const requests: Buffer[] = [];
+    const server = createServer(async (request, response) => {
+      const chunks: Buffer[] = [];
+      for await (const chunk of request) chunks.push(Buffer.from(chunk));
+      requests.push(Buffer.concat(chunks));
+      response.writeHead(200, { 'content-type': 'application/x-protobuf' });
+      response.end();
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    try {
+      const address = server.address();
+      if (!address || typeof address === 'string') throw new Error('Expected TCP listener');
+      const onFailure = vi.fn();
+      const port = createNodeOtlpLiveTracePort({
+        endpoint: `http://127.0.0.1:${address.port}/v1/traces`, onFailure,
+      });
+      const input: ILivePromptTraceBatch = {
+        ...batch(),
+        children: [
+          { kind: 'tool', trace: {
+            traceId: TRACE_ID, parentSpanId: ROOT_ID, spanId: CHILD_ID,
+            startedAt: '2026-09-24T00:00:00.500Z', endedAt: '2026-09-24T00:00:01.500Z',
+            outcome: 'success', toolCallId: 'call-123',
+          } },
+          { kind: 'permission', decision: {
+            traceId: TRACE_ID, parentSpanId: ROOT_ID,
+            decidedAt: '2026-09-24T00:00:00.600Z', decision: 'allowed', toolCallId: 'call-123',
+          } },
+        ],
+        omittedChildren: { provider: 0, tool: 0, permission: 1 },
+      };
+      port.enqueue(input);
+      await port.shutdown();
+      expect(onFailure).not.toHaveBeenCalled();
+      expect(requests).toHaveLength(1);
+      const spans = decodeExportedSpans(requests[0]!);
+      expect(spans.map((span) => span.name).sort()).toEqual(['robota.prompt_execution', 'robota.tool_body']);
+      expect(spans.some((span) => span.name.includes('permission'))).toBe(false);
+      const root = spans.find((span) => span.name === 'robota.prompt_execution')!;
+      expect(root.attributes.get('robota.omitted.permission_count')).toBe(1);
+    } finally {
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
     }
   });

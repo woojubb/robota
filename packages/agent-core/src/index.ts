@@ -267,6 +267,7 @@ export { USER_EVENTS, USER_EVENT_PREFIX, type TUserEvent } from './event-service
 export {
   PROVIDER_CALL_EVENTS,
   TOOL_BODY_EVENTS,
+  TOOL_PERMISSION_EVENTS,
   SPAN_EVENTS,
   SPAN_EVENT_PREFIX,
 } from './event-service/span-events';

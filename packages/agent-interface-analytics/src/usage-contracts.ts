@@ -98,6 +98,16 @@ export interface IToolBodyTraceEntry {
   outcome: 'success' | 'failure' | 'interrupted';
 }
 
+/** Live-only decision reached for one tool call before any body runs; never written to history. */
+export interface IToolPermissionDecisionEntry {
+  /** Opaque ID of the tool call; the same value a permitted body's live entry carries. */
+  toolCallId?: string;
+  traceId: string;
+  parentSpanId: string;
+  decidedAt: string;
+  decision: 'allowed' | 'denied' | 'hook-blocked';
+}
+
 /** One bounded, content-free live prompt execution; not a final turn result or delivery receipt. */
 export interface ILivePromptTraceBatch {
   readonly schemaVersion: 1;
@@ -114,9 +124,10 @@ export interface ILivePromptTraceBatch {
   readonly children: readonly (
     | { readonly kind: 'provider'; readonly trace: IProviderCallTraceEntry }
     | { readonly kind: 'tool'; readonly trace: IToolBodyTraceEntry }
+    | { readonly kind: 'permission'; readonly decision: IToolPermissionDecisionEntry }
   )[];
   /** Invalid or over-limit children are never silently represented as a complete trace. */
-  readonly omittedChildren: { readonly provider: number; readonly tool: number };
+  readonly omittedChildren: { readonly provider: number; readonly tool: number; readonly permission: number };
 }
 
 export interface IPersonalUsageRequest {

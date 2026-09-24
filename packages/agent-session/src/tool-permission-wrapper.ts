@@ -1,5 +1,5 @@
 import { PERMISSION_DENIED_RESULT, reportToolCrash } from './permission-types.js';
-import { createLogger, isAbortFailure, TOOL_BODY_EVENTS } from '@robota-sdk/agent-core';
+import { createLogger, isAbortFailure, TOOL_BODY_EVENTS, TOOL_PERMISSION_EVENTS } from '@robota-sdk/agent-core';
 import { canonicaliseToolArguments } from './tool-argument-canonicalisation.js';
 import {
   buildHookInput,
@@ -20,6 +20,26 @@ import type {
 } from '@robota-sdk/agent-core';
 
 const logger = createLogger('ToolBodyTrace');
+
+/** Never let a permission observation break the tool_result it merely watches. */
+function emitPermissionDecision(
+  context: IToolExecutionContext | undefined,
+  decision: 'allowed' | 'denied' | 'hook-blocked',
+): void {
+  try {
+    context?.eventService?.emit(TOOL_PERMISSION_EVENTS.DECIDED, {
+      timestamp: new Date(),
+      executionId: context.executionId,
+      decidedAt: new Date().toISOString(),
+      decision,
+    });
+  } catch (error) {
+    logger.warn(
+      'tool permission observation failed',
+      error instanceof Error ? error : new Error(String(error)),
+    );
+  }
+}
 
 /** Exactly what the wrapper reads from the enforcer — no more, and named so it cannot quietly grow. */
 export interface IToolWrapperDeps {
@@ -98,6 +118,7 @@ export function wrapToolWithPermission(
       );
       if (preResult) {
         enforcer.log('tool_blocked', { tool: toolName, reason: 'hook' });
+        emitPermissionDecision(context, 'hook-blocked');
         return preResult;
       }
 
@@ -110,6 +131,7 @@ export function wrapToolWithPermission(
       );
       if (!allowed) {
         enforcer.log('tool_denied', { tool: toolName, reason: 'permission' });
+        emitPermissionDecision(context, 'denied');
         enforcer.onToolExecution?.({
           type: 'end',
           toolName,
@@ -121,6 +143,7 @@ export function wrapToolWithPermission(
         return PERMISSION_DENIED_RESULT;
       }
 
+      emitPermissionDecision(context, 'allowed');
       context?.signal?.throwIfAborted();
       enforcer.onToolExecution?.({
         type: 'start',
