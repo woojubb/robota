@@ -117,7 +117,8 @@ describe('static OTLP header parsing', () => {
 
   it.each([
     'content-type', 'Content-Length', 'content-encoding', 'transfer-encoding', 'Host', 'connection',
-    'keep-alive', 'upgrade', 'TE', 'trailer', 'expect', 'accept', 'accept-encoding',
+    'keep-alive', 'upgrade', 'TE', 'trailer', 'expect', 'accept', 'accept-encoding', 'Accept-Charset',
+    'accept-language',
     'proxy-authorization', 'Proxy-Anything', 'sec-fetch-mode', 'Sec-Custom', 'traceparent',
     'tracestate', 'baggage',
   ])('rejects the reserved header name %s', (name) => {

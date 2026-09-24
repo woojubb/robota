@@ -19,7 +19,8 @@ const SAFE_VALUE = /^[\x20-\x7E\t]*$/u;
 /** Transport, content negotiation and trace propagation belong to the exporter, never to a setting. */
 const RESERVED_NAMES = new Set([
   'content-type', 'content-length', 'content-encoding', 'transfer-encoding', 'host', 'connection',
-  'keep-alive', 'upgrade', 'te', 'trailer', 'expect', 'accept', 'accept-encoding',
+  'keep-alive', 'upgrade', 'te', 'trailer', 'expect', 'accept', 'accept-encoding', 'accept-charset',
+  'accept-language',
   'traceparent', 'tracestate', 'baggage',
 ]);
 

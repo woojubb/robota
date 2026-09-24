@@ -241,7 +241,7 @@ OpenTelemetry's `name=value,name2=value2` form with percent-encoded values
 same name, while a signal with its own `ROBOTA_TELEMETRY_OTLP_<SIGNAL>_ENDPOINT` sends only its own
 headers. Unlike OpenTelemetry, generic headers are never sent to a per-signal endpoint. Startup is
 refused for malformed entries, empty names or values, duplicate names, reserved transport,
-content-negotiation, proxy, `sec-` or trace-propagation names, control or non-ASCII characters,
+content-negotiation, proxy, `sec-` or trace-propagation names, control characters other than tab, non-ASCII characters,
 oversized settings, headers no OTLP signal would send, and a per-signal endpoint without its own
 headers while another signal sends the generic ones. Header helpers and refresh are not supported.
 Console output, logs and resource attributes never contain headers, and errors name only the setting
