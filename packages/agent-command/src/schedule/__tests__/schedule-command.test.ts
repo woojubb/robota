@@ -16,15 +16,17 @@ import { createTestAgentJobHost } from '@robota-sdk/agent-framework/testing';
 describe('in-session repeat command', () => {
   it('exposes a user-visible loop command through the default schedule module', () => {
     const module = createScheduleCommandModule();
-    expect(module.systemCommands?.map((command) => command.name)).toContain('loop');
-    expect(
-      module.systemCommands?.find((command) => command.name === 'loop')?.requiresPermission,
-    ).toBe(true);
-    expect(
-      module.commandSources?.flatMap((source) =>
-        source.getCommands().map((command) => command.name),
-      ),
-    ).toContain('loop');
+    const executable = module.systemCommands?.find((command) => command.name === 'loop');
+    const palette = module.commandSources?.flatMap((source) => source.getCommands())
+      .find((command) => command.name === 'loop');
+
+    expect(executable).toBeDefined();
+    expect(palette).toBeDefined();
+    expect(executable?.requiresPermission).toBe(true);
+    expect(executable?.modelInvocable).toBe(true);
+    expect(executable?.userInvocable).toBe(true);
+    expect(palette?.subcommands?.map(({ name }) => name)).toEqual(['list', 'stop']);
+    expect(palette?.subcommands).toEqual(executable?.subcommands);
   });
 });
 

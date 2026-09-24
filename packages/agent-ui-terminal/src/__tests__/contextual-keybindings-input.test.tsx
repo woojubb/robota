@@ -2,6 +2,7 @@ import React from 'react';
 import { render } from 'ink-testing-library';
 import { describe, expect, it, vi } from 'vitest';
 
+import { createLoopCommandEntry, createRemoteControlCommandEntry } from '@robota-sdk/agent-command';
 import InputArea from '../InputArea.js';
 import { KeybindingsProvider } from '../keybindings/keybindings-context.js';
 import { parseKeybindingsDocument } from '../keybindings/keybinding-registry.js';
@@ -63,6 +64,55 @@ describe('InputArea contextual keybindings', () => {
     expect(onSubmit).toHaveBeenCalledTimes(1);
     expect(onSubmit).toHaveBeenCalledWith('/help');
   });
+
+  it.each([
+    { name: 'remote-control', firstAction: 'status', entry: createRemoteControlCommandEntry() },
+    { name: 'loop', firstAction: 'list', entry: createLoopCommandEntry() },
+  ])(
+    'resets the selection when autocomplete changes from another parent to /$name',
+    async ({ name, firstAction, entry }) => {
+      const onSubmit = vi.fn();
+      const otherChildren = ['first', 'second', 'third'].map((child) => ({
+        name: child,
+        description: child,
+        source: 'test',
+        execute: async () => {},
+      }));
+      const commandQueryPort: ITuiCommandQueryPort = {
+        getCommands: () => [],
+        getSubcommands: (parent) =>
+          parent === 'other' ? otherChildren : parent === name ? (entry.subcommands ?? []) : [],
+      };
+      const { stdin, lastFrame } = render(
+        <KeybindingsProvider source={source()}>
+          <InputArea
+            initialValue="/other "
+            onSubmit={onSubmit}
+            isDisabled={false}
+            commandQueryPort={commandQueryPort}
+          />
+        </KeybindingsProvider>,
+      );
+      await tick();
+
+      stdin.write('\x1b[B\x1b[B'); // select index 2 under /other
+      await tick();
+      expect(lastFrame()).toContain('> third');
+      stdin.write('\x1b'); // dismiss so the text editor owns the next key
+      await tick();
+      stdin.write('\x15'); // Ctrl+U clears the current line
+      stdin.write(`/${name} `);
+      await tick();
+      expect(lastFrame()).toContain(`> ${firstAction}`);
+
+      stdin.write('\r\n');
+      await tick();
+      expect(onSubmit).not.toHaveBeenCalled();
+      stdin.write('\r\n');
+      await tick(50);
+      expect(onSubmit).toHaveBeenCalledWith(`/${name} ${firstAction}`);
+    },
+  );
 
   // SCREEN-1993 TC-05: the open key and every overlay action are rebindable through the document,
   // and the footer lists the live keys rather than the defaults.

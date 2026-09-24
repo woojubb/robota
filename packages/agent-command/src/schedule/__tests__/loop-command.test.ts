@@ -315,7 +315,9 @@ describe('fixed in-session loop', () => {
         metadata: { sessionLoop: true },
       },
     ]);
-    const host = createTestAgentJobHost({ listSchedules });
+    const createSelfPacedLoop = vi.fn();
+    const spawnScheduledWake = vi.fn();
+    const host = createTestAgentJobHost({ listSchedules, createSelfPacedLoop, spawnScheduledWake });
     const cancel = vi.fn().mockResolvedValue(undefined);
 
     const listed = await executeLoopCommand(host, cancel, 'list');
@@ -323,6 +325,8 @@ describe('fixed in-session loop', () => {
     expect(listed.message).toContain('loop_b');
     expect(listed.message).not.toContain('schedule_c');
     expect(listed.message).not.toContain('loop_old');
+    expect(createSelfPacedLoop).not.toHaveBeenCalled();
+    expect(spawnScheduledWake).not.toHaveBeenCalled();
 
     const stopped = await executeLoopCommand(host, cancel, 'stop loop_a');
     expect(stopped.success).toBe(true);

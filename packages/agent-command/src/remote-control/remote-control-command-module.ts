@@ -14,6 +14,18 @@ export function createRemoteControlCommandEntry(): ICommand {
     modelInvocable: false,
     userInvocable: true,
     argumentHint: '[enable|stop|status|devices|revoke <device-id>]',
+    subcommands: [
+      { name: 'status', description: 'Show remote-control status', source: 'remote-control' },
+      { name: 'devices', description: 'List trusted devices', source: 'remote-control' },
+      { name: 'enable', description: 'Enable remote control and pair a device', source: 'remote-control' },
+      { name: 'stop', description: 'Stop remote control', source: 'remote-control' },
+      {
+        name: 'revoke',
+        description: 'Revoke a trusted device',
+        source: 'remote-control',
+        argumentHint: '<device-id>',
+      },
+    ],
   };
 }
 
