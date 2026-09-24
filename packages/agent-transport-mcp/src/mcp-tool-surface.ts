@@ -5,19 +5,34 @@ import { isTurnNotRunError } from '@robota-sdk/agent-interface-session';
 import type { IMcpTransportSession } from './mcp-session.js';
 import type { CallToolResult, Tool } from '@modelcontextprotocol/sdk/types.js';
 
-export const SUBMIT_TOOL = {
-  name: 'robota_submit',
-  description: 'Robota extension: submit a prompt to the agent and await its own turn',
-  inputSchema: {
-    type: 'object' as const,
-    properties: { prompt: { type: 'string', minLength: 1 } },
-    required: ['prompt'],
-    additionalProperties: false,
-  },
+export interface IMcpSubmitToolIdentity {
+  readonly name: string;
+  readonly description: string;
+}
+
+const DEFAULT_SUBMIT_TOOL: IMcpSubmitToolIdentity = {
+  name: 'agent_submit',
+  description: 'Submit a prompt to the agent and await its turn',
 };
 
-export async function readCatalog(session: IMcpTransportSession): Promise<Tool[]> {
-  const names = new Set([SUBMIT_TOOL.name]);
+export function resolveSubmitTool(identity: IMcpSubmitToolIdentity = DEFAULT_SUBMIT_TOOL): Tool {
+  return ToolSchema.parse({
+    name: identity.name,
+    description: identity.description,
+    inputSchema: {
+      type: 'object' as const,
+      properties: { prompt: { type: 'string', minLength: 1 } },
+      required: ['prompt'],
+      additionalProperties: false,
+    },
+  });
+}
+
+export async function readCatalog(
+  session: IMcpTransportSession,
+  submitToolName: string,
+): Promise<Tool[]> {
+  const names = new Set([submitToolName]);
   return (await session.listRuntimeTools()).map((schema) => {
     if (names.has(schema.name)) {
       throw new Error(`Duplicate or reserved MCP tool name: ${schema.name}`);
@@ -53,21 +68,24 @@ export async function invokeMcpTool(
   toolName: string,
   parameters: Record<string, unknown>,
   signal: AbortSignal,
+  submitToolName: string,
 ): Promise<CallToolResult> {
   let catalog: Tool[];
   try {
     signal.throwIfAborted();
-    catalog = await readCatalog(session);
+    catalog = await readCatalog(session, submitToolName);
   } catch (error) {
     return toolError(error instanceof Error ? error.message : String(error));
   }
-  if (toolName === SUBMIT_TOOL.name) {
+  if (toolName === submitToolName) {
     if (
       typeof parameters.prompt !== 'string' ||
       parameters.prompt.length === 0 ||
       Object.keys(parameters).some((key) => key !== 'prompt')
     ) {
-      return toolError('robota_submit requires a non-empty string prompt and no other arguments');
+      return toolError(
+        `${submitToolName} requires a non-empty string prompt and no other arguments`,
+      );
     }
     try {
       const handle = await session.submit(parameters.prompt, undefined, undefined, { signal });
@@ -80,8 +98,7 @@ export async function invokeMcpTool(
   }
   if (!catalog.some((tool) => tool.name === toolName))
     return toolError(`Unknown tool: ${toolName}`);
-  if (!isRuntimeParameters(parameters))
-    return toolError('Tool arguments must contain JSON values');
+  if (!isRuntimeParameters(parameters)) return toolError('Tool arguments must contain JSON values');
   try {
     const result = await session.invokeRuntimeTool(toolName, parameters, { signal });
     return {

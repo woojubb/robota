@@ -113,8 +113,8 @@ describe('RUNTIME-003: an MCP submit is answered by its own turn', () => {
     const client = await connectedClient(createQueueingSession());
 
     const [first, second] = await Promise.all([
-      client.callTool({ name: 'robota_submit', arguments: { prompt: 'AAAA' } }),
-      client.callTool({ name: 'robota_submit', arguments: { prompt: 'BBBB' } }),
+      client.callTool({ name: 'agent_submit', arguments: { prompt: 'AAAA' } }),
+      client.callTool({ name: 'agent_submit', arguments: { prompt: 'BBBB' } }),
     ]);
 
     // The failure is not that an answer is missing — both calls return. It is that they return the
@@ -163,7 +163,7 @@ describe('what the MCP adapter treats as a tool error', () => {
       createRejectingSession(turnNotRun('dropped', 'dropped: the queue was at capacity')),
     );
 
-    const result = await client.callTool({ name: 'robota_submit', arguments: { prompt: 'CCCC' } });
+    const result = await client.callTool({ name: 'agent_submit', arguments: { prompt: 'CCCC' } });
 
     expect((result as { isError?: boolean }).isError, 'a refusal was not reported as one').toBe(
       true,
@@ -183,7 +183,7 @@ describe('what the MCP adapter treats as a tool error', () => {
     );
 
     await expect(
-      client.callTool({ name: 'robota_submit', arguments: { prompt: 'DDDD' } }),
+      client.callTool({ name: 'agent_submit', arguments: { prompt: 'DDDD' } }),
     ).rejects.toThrow();
   });
 

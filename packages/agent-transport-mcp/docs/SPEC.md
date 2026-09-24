@@ -46,8 +46,9 @@ session permission wrapper without interactive approval prompts.
 
 `createAgentMcpServer` checks the canonical catalog before accepting calls; tools use their canonical
 runtime names, descriptions, and input schemas — `exposeCommands` and `command_*`/`executeCommand`
-have no compatibility route. The reserved `robota_submit` tool submits a prompt; a runtime-tool name
-collision with it fails startup, and a later catalog collision fails listing/calling visibly.
+have no compatibility route. The submission extension uses a host-selected identity or a neutral
+default; a runtime-tool name collision with that identity fails startup, and a later catalog
+collision fails listing/calling visibly.
 Resources and prompts are not advertised. MCP tool calls delegate to `invokeRuntimeTool`; unknown
 names, permission denial, interactive permission requirements, busy state, and cancellation are all
 visible tool errors, and submission cancellation never aborts another caller's active turn.
