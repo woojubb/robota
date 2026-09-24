@@ -25,12 +25,14 @@ interface IGrepWorker {
 const BOOTSTRAP = `
 const { parentPort } = require('node:worker_threads');
 const searchFile = ${searchFile.toString()};
+let outputBytes = 0;
 parentPort.on('message', (request) => {
   try {
     const regex = new RegExp(request.pattern);
     const matches = searchFile(request.content, request.filePath, regex, request.contextLines, request.outputMode, 4 * 1024 * 1024);
     let bytes = 0;
-    for (const match of matches) { bytes += Buffer.byteLength(match, 'utf8'); if (bytes > 4 * 1024 * 1024) throw new Error('byte limit'); }
+    for (const match of matches) { bytes += Buffer.byteLength(match, 'utf8') + 1; if (outputBytes + bytes > 4 * 1024 * 1024) throw new Error('byte limit'); }
+    outputBytes += bytes;
     parentPort.postMessage({ id: request.id, matches });
   } catch (error) { parentPort.postMessage({ id: request.id, error: error?.message === 'byte limit' ? 'Grep search exceeded its byte limit' : 'Invalid grep regex execution' }); }
 });
@@ -45,13 +47,15 @@ class GrepProcessWorker extends EventEmitter implements IGrepWorker {
       `
 const searchFile = ${searchFile.toString()};
 const readline = require('node:readline');
+let outputBytes = 0;
 readline.createInterface({ input: process.stdin }).on('line', line => {
   const request = JSON.parse(line);
   try {
     const regex = new RegExp(request.pattern);
     const matches = searchFile(request.content, request.filePath, regex, request.contextLines, request.outputMode, 4 * 1024 * 1024);
     let bytes = 0;
-    for (const match of matches) { bytes += Buffer.byteLength(match, 'utf8'); if (bytes > 4 * 1024 * 1024) throw new Error('byte limit'); }
+    for (const match of matches) { bytes += Buffer.byteLength(match, 'utf8') + 1; if (outputBytes + bytes > 4 * 1024 * 1024) throw new Error('byte limit'); }
+    outputBytes += bytes;
     process.stdout.write(JSON.stringify({ id: request.id, matches }) + String.fromCharCode(10));
   } catch (error) { process.stdout.write(JSON.stringify({ id: request.id, error: error?.message === 'byte limit' ? 'Grep search exceeded its byte limit' : 'Invalid grep regex execution' }) + String.fromCharCode(10)); }
 });
