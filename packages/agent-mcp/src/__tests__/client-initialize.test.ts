@@ -53,6 +53,10 @@ describe('openMcpSession — initialize (TC-01)', () => {
 
     const session = await openSessionAgainst(server);
     try {
+      const initialize = server.requests.find((request) => request.body?.['method'] === 'initialize');
+      expect(initialize?.body?.['params']).toMatchObject({
+        clientInfo: { name: 'mcp-client', version: '0.0.0' },
+      });
       expect(session.identity).toEqual({
         serverId: 'mock-server',
         serverName: 'demo-server',

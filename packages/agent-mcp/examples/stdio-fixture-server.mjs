@@ -23,7 +23,15 @@ if (mode === 'stall') {
     }
     return {
       content: [
-        { type: 'text', text: mode === 'oversized-stdio' ? 'x'.repeat(9 * 1024 * 1024) : 'pong' },
+        {
+          type: 'text',
+          text:
+            mode === 'oversized-stdio'
+              ? 'x'.repeat(9 * 1024 * 1024)
+              : mode === 'client-info'
+                ? JSON.stringify(server.getClientVersion())
+                : 'pong',
+        },
       ],
     };
   });
