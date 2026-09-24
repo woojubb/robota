@@ -173,7 +173,9 @@ robota trust revoke --yes           # Revoke the current workspace grant
 robota usage                        # Show the last 7 days of personal usage from local session history
 robota usage --period 30d           # Show complete buckets for the last 30 calendar days
 robota usage --timezone UTC --format json # Emit the versioned JSON projection
-robota usage export --endpoint http://127.0.0.1:4318 # Explicitly send aggregate Gauges to a local OTLP collector
+robota usage export --endpoint http://127.0.0.1:4318 # Send stored-usage Gauges to a loopback OTLP collector
+robota usage export --signal traces --endpoint http://127.0.0.1:4318 # Send recorded prompt/provider/tool spans
+robota usage export --signal logs --endpoint http://127.0.0.1:4318 # Send content-free completion events
 robota --reset                      # Delete user settings and exit
 robota --check-update               # Check npm for a newer CLI version and exit
 robota --disable-update-check        # Skip interactive startup update check for this run
@@ -195,13 +197,16 @@ Use `--period 7d` (the default) or `--period 30d`, choose an IANA timezone with 
 report; a supplied store set containing no readable records exits with an error instead of silently
 reporting zero usage.
 
-`robota usage export` is a separate, explicit network action. It sends a current **Gauge snapshot**
-of stored session/turn counts, tokens, known USD cost, and unknown-cost counts via OTLP/HTTP JSON to
-`/v1/metrics` on a loopback collector (`127.0.0.1` or `[::1]`) only. Repeated exports replace the
-snapshot conceptually; do not sum them as new usage. It sends no prompt, tool output, session ID,
-provider/model label, or custom source name. An unreadable stored session, collector rejection, or
-network error fails the command without reporting success. It does not yet export trace spans,
-logs, or to a remote collector.
+`robota usage export` is a separate, explicit, one-shot network action over OTLP/HTTP JSON to a
+loopback collector (`127.0.0.1` or `[::1]`) only. The default `metrics` signal sends a current
+**Gauge snapshot** of stored session/turn counts, tokens, estimated known USD cost, and unknown-cost
+counts to `/v1/metrics`. Repeated exports are snapshots, not new usage to add together. Select
+`--signal traces` to send recorded prompt-root, provider-call, and tool spans to `/v1/traces`, or
+`--signal logs` to send recorded content-free completion events to `/v1/logs`. Repeating a logs export
+can resend the same events; a collector may retain duplicates. These signals use stored records;
+they are not live tracing, and legacy records may lack span/event coverage. No signal
+exports prompt or tool bodies, credentials, or a remote destination. An unreadable stored session,
+collector rejection, or network error fails the command without reporting success.
 
 ### Doctor
 
