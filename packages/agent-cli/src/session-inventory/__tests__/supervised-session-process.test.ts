@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { listSupervisedSessions, stopSupervisedSession } from '../supervised-session-control.js';
 import { launchSupervisedSession } from '../supervised-session-launch.js';
@@ -30,9 +30,17 @@ describe('detached supervised runtime', () => {
       expect(child?.connected).toBe(false);
       expect(child?.exitCode).toBeNull();
       const rows = await listSupervisedSessions(root);
-      expect(rows).toEqual([
-        { id, liveness: 'alive', control: 'available', activity: 'idle' },
-      ]);
+      expect(rows).toEqual([{
+        id, liveness: 'alive', control: 'available',
+        activity: expect.stringMatching(/^(unknown|idle)$/),
+      }]);
+      // The launcher handshake proves the control process is alive, not that async session
+      // initialization has finished. It may legitimately report unknown before becoming idle.
+      await vi.waitFor(async () => {
+        expect(await listSupervisedSessions(root)).toEqual([
+          { id, liveness: 'alive', control: 'available', activity: 'idle' },
+        ]);
+      }, { timeout: 15_000, interval: 100 });
       expect(JSON.stringify(rows)).not.toContain(SECRET_MARKER);
       expect(readFileSync(join(root, id, 'state.json'), 'utf8')).not.toContain(SECRET_MARKER);
       await stopSupervisedSession(id, root);
