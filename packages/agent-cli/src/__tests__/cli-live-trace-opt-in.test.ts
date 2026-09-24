@@ -102,6 +102,14 @@ describe('CLI live trace opt-in', () => {
       process.env['ROBOTA_TELEMETRY_LOGS'] = 'otlp';
       await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requests.map((request) => request.path)).toEqual(['/v1/traces', '/v1/metrics', '/v1/logs']);
+
+      process.env['ROBOTA_TELEMETRY_LOGS'] = 'off';
+      process.env['ROBOTA_TELEMETRY_TRACES'] = 'otlp';
+      process.argv = ['node', 'robota', '--serve', '-p', 'private prompt', '--no-session-persistence'];
+      await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
+      expect(requests.at(-1)?.path).toBe('/v1/traces');
+      expect(requests.at(-1)?.body).toContain('robota.surface');
+      expect(requests.at(-1)?.body).toContain('print');
     } finally {
       await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
       rmSync(home, { recursive: true, force: true });

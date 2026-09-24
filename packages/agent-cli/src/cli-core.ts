@@ -601,8 +601,9 @@ async function runCliCore(
     undefined,
     {
       serviceVersion: version,
-      surface: mcpServe ? 'mcp-serve' : args.serve ? 'serve'
-        : args.printMode || args.goal !== undefined ? 'print' : 'interactive',
+      surface: args.printMode || args.goal !== undefined ? 'print'
+        : mcpServe ? 'mcp-serve'
+          : args.serve ? 'serve' : 'interactive',
     },
   );
 
