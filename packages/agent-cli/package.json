@@ -38,7 +38,7 @@
     "bin"
   ],
   "scripts": {
-    "build": "tsdown && node scripts/copy-web.mjs",
+    "build": "rimraf dist && tsdown && node scripts/copy-web.mjs",
     "build:js": "pnpm run build",
     "build:types": "pnpm run build",
     "dev": "tsx src/bin.ts",

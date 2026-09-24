@@ -6,7 +6,7 @@
 #   pnpm publish:beta                                  # build, check, publish (prompts for OTP)
 #   pnpm publish:beta --otp=123456 --tag-otp=654321    # non-interactive
 #   pnpm publish:beta --skip-build                     # dist is already current (e.g. from CI)
-#   pnpm publish:beta --dry-run                        # build, check and pack; publish nothing
+#   pnpm publish:beta --dry-run                        # build, check, pack and verify; publish nothing
 #
 # Publishing is the standard Changesets flow: `changeset publish` runs `pnpm publish` for each public
 # package whose version is not on npm yet, so a retry only publishes what is still missing. Packages are
@@ -27,7 +27,9 @@ while [ "$#" -gt 0 ]; do
     --skip-build) SKIP_BUILD="true" ;;
     --dry-run) DRY_RUN="true" ;;
     --otp=*) OTP="${1#--otp=}" ;;
+    --otp) OTP="${2:?--otp requires a value}"; shift ;;
     --tag-otp=*) TAG_OTP="${1#--tag-otp=}" ;;
+    --tag-otp) TAG_OTP="${2:?--tag-otp requires a value}"; shift ;;
     *)
       echo "❌ Unknown argument: $1"
       echo "   Usage: pnpm publish:beta [--otp=123456] [--tag-otp=654321] [--skip-build] [--dry-run]"
@@ -77,14 +79,16 @@ if [ "${#PACKAGES[@]}" -eq 0 ]; then
 fi
 echo "📋 ${#PACKAGES[@]} public packages at $VERSION"
 
+# Pack and inspect every tarball before anything reaches the registry.
+echo "📦 Packing and verifying tarballs..."
+PACK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/robota-pack.XXXXXX")
+for DIR in "${PACKAGE_DIRS[@]}"; do
+  (cd "$DIR" && pnpm pack --pack-destination "$PACK_DIR" >/dev/null)
+done
+node scripts/publish/verify-tarballs.mjs "$PACK_DIR"
+
 if [ "$DRY_RUN" = "true" ]; then
-  echo "🔍 Dry run: packing every public package..."
-  PACK_DIR=$(mktemp -d "${TMPDIR:-/tmp}/robota-pack.XXXXXX")
-  for DIR in "${PACKAGE_DIRS[@]}"; do
-    (cd "$DIR" && pnpm pack --pack-destination "$PACK_DIR" >/dev/null)
-  done
-  echo "✓ Tarballs in $PACK_DIR: $(find "$PACK_DIR" -name '*.tgz' | wc -l | tr -d ' ')"
-  echo "Dry run complete; nothing was published."
+  echo "Dry run complete (tarballs in $PACK_DIR); nothing was published."
   exit 0
 fi
 

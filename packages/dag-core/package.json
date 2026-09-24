@@ -28,7 +28,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsdown",
+    "build": "rimraf dist && tsdown",
     "build:js": "pnpm run build",
     "build:types": "pnpm run build",
     "dev": "tsdown --watch",

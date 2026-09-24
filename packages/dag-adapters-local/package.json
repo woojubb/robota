@@ -42,7 +42,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsdown",
+    "build": "rimraf dist && tsdown",
     "build:js": "pnpm run build",
     "build:types": "pnpm run build",
     "test": "vitest run --passWithNoTests",

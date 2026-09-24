@@ -11,6 +11,7 @@ dist-ssr
 *.tgz
 # Left behind by the former custom build in older checkouts; safe to delete.
 .robota-artifacts/
+packages/**/.dist-*
 
 # generated files
 packages/**/*.js

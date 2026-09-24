@@ -24,7 +24,7 @@
     "README.md"
   ],
   "scripts": {
-    "build": "tsdown",
+    "build": "rimraf dist && tsdown",
     "build:js": "pnpm run build",
     "build:types": "pnpm run build",
     "test": "vitest run --passWithNoTests",
@@ -65,6 +65,7 @@
     "access": "public"
   },
   "devDependencies": {
+    "rimraf": "^5.0.10",
     "tsdown": "^0.22.14"
   },
   "volta": {
