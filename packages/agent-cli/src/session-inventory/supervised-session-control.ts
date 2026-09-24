@@ -21,10 +21,17 @@ interface IRegistration {
   readonly startedAt: string;
 }
 
+type TSupervisedActivity = 'working' | 'needs-input' | 'idle' | 'unknown';
+
+function isCurrentActivity(value: unknown): value is Exclude<TSupervisedActivity, 'unknown'> {
+  return value === 'working' || value === 'needs-input' || value === 'idle';
+}
+
 export interface ISupervisedSessionRow {
   readonly id: string;
   readonly liveness: 'alive' | 'dead' | 'unknown';
   readonly control: 'available' | 'unavailable';
+  readonly activity: TSupervisedActivity;
   readonly problem?: 'invalid-registration';
 }
 
@@ -165,23 +172,26 @@ export async function listSupervisedSessions(root = resolveSupervisedDirectory()
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
       }
-      return { id, liveness: 'unknown', control: 'unavailable', problem: 'invalid-registration' };
+      return { id, liveness: 'unknown', control: 'unavailable', activity: 'unknown', problem: 'invalid-registration' };
     }
     const currentStart = readProcessStartTime(record.pid);
     const liveness = currentStart === undefined
       ? probePid(record.pid) === 'absent' ? 'dead' : 'unknown'
       : currentStart === record.startedAt ? 'alive' : 'dead';
-    if (liveness !== 'alive') return { id, liveness, control: 'unavailable' };
+    if (liveness !== 'alive') return { id, liveness, control: 'unavailable', activity: 'unknown' };
     try {
       const response = await request(directory, id, 'status');
       if (typeof response === 'object' && response !== null && 'id' in response && response.id === id &&
         'status' in response && response.status === 'running') {
-        return { id, liveness, control: 'available' };
+        return {
+          id, liveness, control: 'available',
+          activity: 'activity' in response && isCurrentActivity(response.activity) ? response.activity : 'unknown',
+        };
       }
     } catch {
       // A registered process can lose its control endpoint during shutdown.
     }
-    return { id, liveness, control: 'unavailable' };
+    return { id, liveness, control: 'unavailable', activity: 'unknown' };
   }));
   return rows.filter((row): row is ISupervisedSessionRow => row !== null)
     .sort((a, b) => a.id.localeCompare(b.id));
@@ -226,6 +236,7 @@ export async function startSupervisedControl(
   id: string,
   onStop: () => void,
   root = resolveSupervisedDirectory(),
+  getActivity?: () => Exclude<TSupervisedActivity, 'unknown'> | undefined,
 ): Promise<ISupervisedControl> {
   if (!ID_PATTERN.test(id)) throw new Error('Invalid supervised session ID.');
   ensurePrivateDirectory(root);
@@ -252,7 +263,13 @@ export async function startSupervisedControl(
         return;
       }
       if (value.command === 'status') {
-        socket.end(`${JSON.stringify({ id, status: 'running' })}\n`);
+        let observed: unknown;
+        try {
+          observed = getActivity?.();
+        } catch {
+          // A failed observation cannot turn a verified control endpoint into a false activity claim.
+        }
+        socket.end(`${JSON.stringify({ id, status: 'running', activity: isCurrentActivity(observed) ? observed : 'unknown' })}\n`);
       } else if (value.command === 'stop') {
         socket.once('finish', onStop);
         socket.end(`${JSON.stringify({ id, status: 'stopping' })}\n`);

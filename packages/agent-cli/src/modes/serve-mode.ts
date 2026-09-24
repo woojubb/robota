@@ -286,6 +286,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         args.supervisedSessionId,
         () => requestSettle('supervised session stopped'),
         opts.supervisedRoot,
+        () => settling ? undefined : host.session.getLocalActivityStatus(),
       );
       if (settling) throw new Error('Supervised runtime stopped before readiness.');
       await acknowledgeSupervisedStartup(args.supervisedSessionId, readinessAbort.signal);

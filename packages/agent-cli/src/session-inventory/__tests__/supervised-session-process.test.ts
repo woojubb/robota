@@ -31,7 +31,7 @@ describe('detached supervised runtime', () => {
       expect(child?.exitCode).toBeNull();
       const rows = await listSupervisedSessions(root);
       expect(rows).toEqual([
-        { id, liveness: 'alive', control: 'available' },
+        { id, liveness: 'alive', control: 'available', activity: 'idle' },
       ]);
       expect(JSON.stringify(rows)).not.toContain(SECRET_MARKER);
       expect(readFileSync(join(root, id, 'state.json'), 'utf8')).not.toContain(SECRET_MARKER);
@@ -61,7 +61,7 @@ describe('detached supervised runtime', () => {
       child?.kill('SIGKILL');
       await stopped;
       expect(await listSupervisedSessions(root)).toEqual([
-        { id, liveness: 'dead', control: 'unavailable' },
+        { id, liveness: 'dead', control: 'unavailable', activity: 'unknown' },
       ]);
       await expect(stopSupervisedSession(id, root)).rejects.toThrow(/not proven alive/i);
     } finally {

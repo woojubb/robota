@@ -93,6 +93,10 @@ endpoint and reports failure when ownership or completion cannot be established.
 launch environment, or provider credentials appear in the control records or list. Existing GUI and
 ordinary `--serve` processes retain their window/process shutdown behavior. This stage does not
 promise attach, peek, automatic restart after crash or login, or a relationship to a saved record.
+The supervised list reports content-free `activity` separately from process `liveness` and control
+availability. Unverified process identity or control response, and initialization or shutdown,
+yield `unknown`; `idle` means only that an initialized local session has no pending question and
+is not executing, not that another CLI can attach or submit a prompt.
 The default WebSocket retains its transport-owned, per-launch auto-minted authentication token;
 this stage does not expose that token through the session inventory or control endpoint.
 
