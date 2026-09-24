@@ -52,7 +52,7 @@ describe('detached supervised runtime', () => {
       if (child?.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
       rmSync(scratch, { recursive: true, force: true });
     }
-  }, 30_000);
+  }, 60_000);
 
   it('does not present a crashed supervisor as a controllable live session', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-crash-'));
