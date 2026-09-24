@@ -1,9 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-import { createInteractiveRuntime } from '../createInteractiveRuntime.js';
+import { createInteractiveRuntimeForTesting } from '../../testing/index.js';
+import { createInteractiveRuntime as createProductionInteractiveRuntime } from '../createInteractiveRuntime.js';
 import { MockInteractionChannel } from './MockInteractionChannel.js';
 
 import type { IInteractiveSession } from '../../interactive/i-interactive-session.js';
+import type { IInteractiveRuntimeTestOptions } from '../createInteractiveRuntime.js';
+import type { IInteractiveRuntime } from '../InteractiveRuntime.js';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { ICommandModule } from '../../command-api/command-module.js';
 import type { ICommandListEntry } from '../../commands/index.js';
 import type { IInteractiveSessionEvents, TInteractiveEventName } from '../../interactive/types.js';
@@ -103,10 +107,14 @@ function makeCommandModule(name: string): ICommandModule {
   return { name };
 }
 
+let session: ReturnType<typeof createMockSession>;
+
+function createInteractiveRuntime(options: IInteractiveRuntimeTestOptions): IInteractiveRuntime {
+  return createInteractiveRuntimeForTesting(options, session);
+}
+
 describe('createInteractiveRuntime', () => {
   let channel: MockInteractionChannel;
-  let session: ReturnType<typeof createMockSession>;
-
   beforeEach(() => {
     channel = new MockInteractionChannel();
     session = createMockSession();
@@ -116,12 +124,33 @@ describe('createInteractiveRuntime', () => {
     const runtime = createInteractiveRuntime({
       channel,
       commandModules: [],
-      _testSession: session,
     });
 
     await runtime.start();
 
     expect(channel.started).toBe(true);
+  });
+
+  it('rejects a missing provider at production session assembly', async () => {
+    const runtime = createProductionInteractiveRuntime({
+      channel,
+      commandModules: [],
+      cwd: process.cwd(),
+      provider: undefined as never,
+    });
+
+    await expect(runtime.start()).rejects.toThrow('buildRuntimeSession: provider is required');
+  });
+
+  it('rejects an empty cwd at production session assembly', async () => {
+    const runtime = createProductionInteractiveRuntime({
+      channel,
+      commandModules: [],
+      cwd: '',
+      provider: {} as IAIProvider,
+    });
+
+    await expect(runtime.start()).rejects.toThrow('buildRuntimeSession: cwd is required');
   });
 
   it('Given commands registered When started Then channel receives available commands', async () => {
@@ -133,7 +162,6 @@ describe('createInteractiveRuntime', () => {
     const runtime = createInteractiveRuntime({
       channel,
       commandModules: [],
-      _testSession: session,
     });
     await runtime.start();
 
@@ -147,7 +175,6 @@ describe('createInteractiveRuntime', () => {
     const runtime = createInteractiveRuntime({
       channel,
       commandModules: [],
-      _testSession: session,
     });
     await runtime.start();
 
@@ -166,7 +193,6 @@ describe('createInteractiveRuntime', () => {
     const runtime = createInteractiveRuntime({
       channel,
       commandModules: [],
-      _testSession: session,
     });
     await runtime.start();
 
@@ -184,7 +210,6 @@ describe('createInteractiveRuntime', () => {
     const runtime = createInteractiveRuntime({
       channel,
       commandModules: [mod],
-      _testSession: session,
     });
     await runtime.start();
 
@@ -203,7 +228,6 @@ describe('createInteractiveRuntime', () => {
     const runtime = createInteractiveRuntime({
       channel,
       commandModules: [mod],
-      _testSession: session,
     });
     await runtime.start();
 
@@ -218,7 +242,6 @@ describe('createInteractiveRuntime', () => {
     const runtime = createInteractiveRuntime({
       channel,
       commandModules: [],
-      _testSession: session,
     });
     await runtime.start();
 
@@ -231,7 +254,6 @@ describe('createInteractiveRuntime', () => {
     const runtime = createInteractiveRuntime({
       channel,
       commandModules: [],
-      _testSession: session,
     });
     await runtime.start();
 
@@ -246,7 +268,6 @@ describe('createInteractiveRuntime', () => {
     const runtime = createInteractiveRuntime({
       channel,
       commandModules: [],
-      _testSession: session,
     });
     await runtime.start();
     channel.busyState = true;
@@ -267,7 +288,6 @@ describe('createInteractiveRuntime', () => {
     const runtime = createInteractiveRuntime({
       channel,
       commandModules: [],
-      _testSession: session,
     });
     await runtime.start();
     channel.busyState = true;
@@ -283,7 +303,6 @@ describe('createInteractiveRuntime', () => {
     const runtime = createInteractiveRuntime({
       channel,
       commandModules: [],
-      _testSession: session,
     });
     await runtime.start();
     await runtime.stop();
@@ -298,7 +317,6 @@ describe('createInteractiveRuntime', () => {
     const runtime = createInteractiveRuntime({
       channel,
       commandModules: [],
-      _testSession: session,
     });
     await runtime.start();
 
@@ -319,7 +337,6 @@ describe('createInteractiveRuntime', () => {
     const runtime = createInteractiveRuntime({
       channel,
       commandModules: [],
-      _testSession: session,
     });
     await runtime.start();
 
@@ -343,7 +360,6 @@ describe('createInteractiveRuntime', () => {
     const runtime = createInteractiveRuntime({
       channel,
       commandModules: [],
-      _testSession: session,
     });
     await runtime.start();
 
@@ -363,7 +379,6 @@ describe('createInteractiveRuntime', () => {
     const runtime = createInteractiveRuntime({
       channel,
       commandModules: [],
-      _testSession: session,
     });
     await runtime.start();
 
@@ -386,7 +401,6 @@ describe('createInteractiveRuntime', () => {
     const runtime = createInteractiveRuntime({
       channel,
       commandModules: [],
-      _testSession: session,
     });
     await runtime.start();
 

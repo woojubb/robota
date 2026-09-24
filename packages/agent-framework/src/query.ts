@@ -8,7 +8,7 @@
 
 import { realpathSync } from 'node:fs';
 
-import { InteractiveSession } from './interactive/interactive-session.js';
+import { buildRuntimeSession } from './runtime/runtime-host.js';
 import {
   WorkspaceAuthorityRequiredError,
   createRestrictedWorkspaceProjectAccess,
@@ -17,6 +17,7 @@ import {
 import { isWorkspacePathContained } from './workspace-trust/project-reader-path.js';
 
 import type { IExecutionResult, TInteractivePermissionHandler } from './interactive/types.js';
+import type { InteractiveSession } from './interactive/interactive-session.js';
 import type { INodeHostSettingsSource } from './config/node-host-settings-source.js';
 import type { TWorkspaceProjectAccess } from './workspace-trust/index.js';
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
@@ -112,7 +113,7 @@ export function createQuery(options: ICreateQueryOptions): TQueryFunction {
       );
     }
   }
-  const session = new InteractiveSession({
+  const session = buildRuntimeSession({
     cwd,
     provider: options.provider,
     projectAccess,
