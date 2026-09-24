@@ -68,9 +68,9 @@ zero external runtime-server process dependencies.
 ## Text expansion ceiling
 
 The local provider snapshots trusted host byte limits before executing any workflow, so the
-default catalog used by `/workflows` bounds `text-repeat` with no workflow-controlled opt-out; a
-tighter host limit reaches the node context independently of workflow input. This bounds one text
-expansion only, not a root aggregate budget, a snapshot-size limit, or CPU preemption.
+default catalog used by `/workflows` bounds `text-repeat` and literal `text-replace` with no
+workflow-controlled opt-out; tighter host limits reach the node context independently of workflow
+input. These per-operation bounds are not a root aggregate budget, snapshot-size limit, or CPU preemption.
 
 ## Shared local root snapshot authority
 

@@ -13,6 +13,10 @@ string and JSON transformation primitives for use in DAG pipelines.
   over-limit result without expansion, using exact byte arithmetic so an overflow cannot turn
   rejection into admission; this bounds only this operation's produced text, not input, snapshot
   encoding, other transforms, or CPU time, and workflow config cannot raise the ceiling.
+- Literal `text-replace` preserves split/join semantics while checking virtual UTF-8 output before
+  allocating fragments. It rejects an over-limit result without expansion; a host may tighten its
+  separate default ceiling, while workflow configuration cannot raise it. Regex output remains outside
+  this literal-mode limit.
 - Text replacement delegates regex mode to a trusted operation capability supplied by the host,
   which may isolate or reject execution; a direct invocation without that capability runs inline
   with no CPU interruption guarantee. Configuration cannot opt out of host-supplied isolation or choose an executable worker entry.

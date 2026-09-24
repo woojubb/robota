@@ -1,3 +1,4 @@
+import { replaceLiteralWithinByteLimit } from './text-replace.js';
 import { repeatWithinByteLimit } from './text-repeat.js';
 import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
 import {
@@ -232,7 +233,12 @@ export class TextReplaceNodeDefinition extends AbstractNodeDefinition<
         };
       }
     } else {
-      result = r.value.split(config.search).join(config.replacement);
+      const replaced = replaceLiteralWithinByteLimit(
+        r.value, config.search, config.replacement,
+        resolveDagExecutionByteLimits(context.byteLimits).maxTextReplaceOutputBytes,
+      );
+      if (!replaced.ok) return replaced;
+      result = replaced.value;
     }
     io.setOutput('text', result);
     return { ok: true, value: io.toOutput() };

@@ -27,3 +27,24 @@ it('/workflows run rejects text-repeat amplification despite workflow-supplied l
   expect(result.success).toBe(false);
   expect(result.message).toContain('text-repeat output exceeds its UTF-8 byte limit');
 });
+
+
+it('/workflows run rejects literal text-replace amplification before expansion', async () => {
+  const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'workflow-replace-cap-')));
+  dirs.push(root);
+  vi.stubEnv('HOME', root);
+  writeFileSync(path.join(root, 'replace.json'), JSON.stringify({
+    dagId: 'replace-limit', version: 1, status: 'draft',
+    nodes: [
+      { nodeId: 'source', nodeType: 'input', dependsOn: [], config: { text: 'x'.repeat(2049) } },
+      { nodeId: 'replace', nodeType: 'text-replace', dependsOn: ['source'], config: {
+        search: 'x', replacement: 'é'.repeat(1024),
+        byteLimits: { maxTextReplaceOutputBytes: Number.MAX_SAFE_INTEGER },
+      } },
+    ],
+    edges: [{ from: 'source', to: 'replace', bindings: [{ outputKey: 'text', inputKey: 'text' }] }],
+  }));
+  const result = await executeWorkflowsRun('replace.json', await createWorkflowProjectFixture(root));
+  expect(result.success).toBe(false);
+  expect(result.message).toContain('text-replace output exceeds its UTF-8 byte limit');
+});

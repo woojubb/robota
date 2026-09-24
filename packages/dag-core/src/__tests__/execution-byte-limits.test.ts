@@ -22,3 +22,16 @@ it.each([null, undefined])('rejects an explicitly supplied nullish limit %s', (m
 it('uses the default only when the policy is omitted', () => {
   expect(resolveDagExecutionByteLimits().maxTextRepeatOutputBytes).toBe(4_194_304);
 });
+
+it.each([NaN, Infinity, -1, 0.5, 4_194_305, null, undefined])('rejects an invalid literal replacement limit %s', (maxTextReplaceOutputBytes) => {
+  // @ts-expect-error intentionally exercise malformed JavaScript host policy
+  expect(() => resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1, maxTextReplaceOutputBytes })).toThrow(RangeError);
+});
+
+it('retains the replacement default for older host policies and snapshots a tighter policy', () => {
+  expect(resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1 }).maxTextReplaceOutputBytes).toBe(4_194_304);
+  const source = { maxTextRepeatOutputBytes: 1, maxTextReplaceOutputBytes: 0 };
+  const resolved = resolveDagExecutionByteLimits(source);
+  source.maxTextReplaceOutputBytes = 1;
+  expect(resolved.maxTextReplaceOutputBytes).toBe(0);
+});
