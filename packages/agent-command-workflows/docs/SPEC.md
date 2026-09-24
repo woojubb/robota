@@ -26,7 +26,7 @@ rather than discovered — absence of the project is a restriction rather than a
 to `cwd`.
 
 The subcommands are one surface sharing exactly one owner per shared concern (subcommand
-registry, argument grammar, node catalog, authoring pipeline) rather than six independent copies —
+registry, argument grammar, node catalog, authoring pipeline) rather than independent copies —
 this is a design invariant, not an implementation detail: an advertised subcommand cannot be
 unroutable, and a subcommand's usage hint cannot drift from its actual usage text, because both are
 derived from the same registry entry.
