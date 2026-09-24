@@ -29,14 +29,10 @@ export const STARTUP_QUIET_MS_MAX = 600_000;
 /** Boot-to-first-prompt of this binary, doubled. */
 export const DEFAULT_STARTUP_QUIET_MS = 900;
 
-export const STARTUP_QUIET_ENV = 'ROBOTA_SCREEN_READER_STARTUP_QUIET_MS';
-
 /** Sanity bound on the pre-write park (5 seconds), matching the product precedent verdict (i) adopted. */
 export const PREPARK_MS_MAX = 5000;
 /** PROVISIONAL — taken to match the sole product precedent, pending measurement against a reader. */
 export const DEFAULT_PREPARK_MS = 50;
-
-export const PREPARK_ENV = 'ROBOTA_SCREEN_READER_PREPARK_MS';
 
 /** The resolved pacing. `0` whenever the mode is off. */
 export interface IScreenReaderPacing {
@@ -45,11 +41,17 @@ export interface IScreenReaderPacing {
   preparkMs: number;
 }
 
+/** Raw timing choices supplied by the embedding host, with names for visible diagnostics. */
+export interface IScreenReaderPacingOverrides {
+  readonly startupQuiet?: { readonly raw: string | undefined; readonly label: string };
+  readonly prepark?: { readonly raw: string | undefined; readonly label: string };
+}
+
 export interface IResolvePacingInputs {
-  /** Screen-reader mode. Off ⇒ the wait is 0 regardless of the variable. */
+  /** Screen-reader mode. Off ⇒ the wait is 0 regardless of host overrides. */
   enabled: boolean;
-  /** The environment to read. Defaults to the process environment. */
-  env?: Readonly<Record<string, string | undefined>>;
+  /** Absent values use the renderer's numeric defaults; no environment is read here. */
+  overrides?: IScreenReaderPacingOverrides;
   /** Where a clamp or a refusal is reported. Defaults to stderr. */
   warn?: (message: string) => void;
 }
@@ -93,19 +95,18 @@ function resolveDuration(
 /** Resolve the wait once, at startup. */
 export function resolvePacing(inputs: IResolvePacingInputs): IScreenReaderPacing {
   if (!inputs.enabled) return { startupQuietMs: 0, preparkMs: 0 };
-  const env = inputs.env ?? process.env;
   const warn = reportTo(inputs.warn);
   return {
     startupQuietMs: resolveDuration(
-      env[STARTUP_QUIET_ENV],
-      STARTUP_QUIET_ENV,
+      inputs.overrides?.startupQuiet?.raw,
+      inputs.overrides?.startupQuiet?.label ?? 'startup quiet period',
       DEFAULT_STARTUP_QUIET_MS,
       STARTUP_QUIET_MS_MAX,
       warn,
     ),
     preparkMs: resolveDuration(
-      env[PREPARK_ENV],
-      PREPARK_ENV,
+      inputs.overrides?.prepark?.raw,
+      inputs.overrides?.prepark?.label ?? 'pre-write park',
       DEFAULT_PREPARK_MS,
       PREPARK_MS_MAX,
       warn,

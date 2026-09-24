@@ -219,18 +219,41 @@ describe('SCREEN-2670 TC-05: with the mode off, render() is called with no stdou
   });
 
   it('passes no stdout when the mode is on but the park is disabled with 0', async () => {
-    vi.stubEnv('ROBOTA_SCREEN_READER_STARTUP_QUIET_MS', '0');
-    vi.stubEnv('ROBOTA_SCREEN_READER_PREPARK_MS', '0');
     const { renderApp } = await import('../render.js');
-    await renderApp({ ...baseOptions(), screenReader: true });
+    await renderApp({
+      ...baseOptions(),
+      screenReader: true,
+      screenReaderPacing: {
+        startupQuiet: { raw: '0', label: 'ACME_STARTUP_QUIET_MS' },
+        prepark: { raw: '0', label: 'ACME_PREPARK_MS' },
+      },
+    });
     expect(Object.keys(inkRender.mock.calls[0]?.[1] ?? {})).not.toContain('stdout');
   });
 
-  it('hands Ink the owned stdout when the mode is on and the park is enabled', async () => {
-    vi.stubEnv('ROBOTA_SCREEN_READER_STARTUP_QUIET_MS', '0');
-    vi.stubEnv('ROBOTA_SCREEN_READER_PREPARK_MS', '50');
+  it('ignores an ambient Robota park override when the host supplies no park choice', async () => {
+    vi.stubEnv('ROBOTA_SCREEN_READER_PREPARK_MS', '0');
     const { renderApp } = await import('../render.js');
-    await renderApp({ ...baseOptions(), screenReader: true });
+    await renderApp({
+      ...baseOptions(),
+      screenReader: true,
+      screenReaderPacing: {
+        startupQuiet: { raw: '0', label: 'ACME_STARTUP_QUIET_MS' },
+      },
+    });
+    expect(inkRender.mock.calls[0]?.[1]?.stdout).toBeDefined();
+  });
+
+  it('hands Ink the owned stdout when the mode is on and the park is enabled', async () => {
+    const { renderApp } = await import('../render.js');
+    await renderApp({
+      ...baseOptions(),
+      screenReader: true,
+      screenReaderPacing: {
+        startupQuiet: { raw: '0', label: 'ACME_STARTUP_QUIET_MS' },
+        prepark: { raw: '50', label: 'ACME_PREPARK_MS' },
+      },
+    });
     const stdout = inkRender.mock.calls[0]?.[1]?.stdout;
     expect(stdout).toBeDefined();
     expect(stdout).not.toBe(process.stdout);

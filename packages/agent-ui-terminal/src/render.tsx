@@ -15,6 +15,7 @@ import { writeScreenReaderAnnouncement } from './screen-reader-announcement.js';
 import { ScreenReaderProvider } from './screen-reader-context.js';
 import { ScreenReaderPacingProvider } from './screen-reader-pacing-context.js';
 import { awaitStartupQuietPeriod, resolvePacing } from './screen-reader-pacing.js';
+import type { IScreenReaderPacingOverrides } from './screen-reader-pacing.js';
 import { createParkedStdout, toPacingPort } from './screen-reader-stdout.js';
 import { isInteractiveColorTerminal, supportsFocusReporting } from './terminal-capabilities.js';
 import { createFocusReportingWriter } from './terminal-focus-reporting.js';
@@ -194,6 +195,8 @@ export interface IRenderOptions {
    * today's byte stream is unchanged.
    */
   screenReader?: boolean | undefined;
+  /** Host-selected raw timing overrides; absent values use the renderer's defaults. */
+  screenReaderPacing?: IScreenReaderPacingOverrides;
   /** CLI-2004: which input turned the mode on — printed in the confirmation line. */
   screenReaderChannel?: TScreenReaderChannel | undefined;
   /** CLI-2004: mode off, but the environment suggests a reader is running ⇒ one advisory line. */
@@ -377,7 +380,7 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
     channel: options.screenReaderChannel,
     hint: options.screenReaderHint,
   });
-  const pacing = resolvePacing({ enabled: screenReader });
+  const pacing = resolvePacing({ enabled: screenReader, overrides: options.screenReaderPacing });
   // SCREEN-2670: the pre-write park. Constructed only when the mode is on AND the interval is
   // non-zero, so with the mode off `stdout` is not passed at all and Ink defaults to
   // `process.stdout` — the object it keys its instance map by — exactly as today.
