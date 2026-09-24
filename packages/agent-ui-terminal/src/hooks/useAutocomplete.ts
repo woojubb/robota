@@ -3,7 +3,7 @@
  * Extracted from InputArea.tsx for single-responsibility.
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 
 import type { ITuiCommandQueryPort } from '../tui-app-channel-port.js';
 import type { ICommand } from '@robota-sdk/agent-interface-command';
@@ -47,6 +47,13 @@ export function useAutocomplete(
 
   const parsed = parseSlashInput(value);
   const isSubcommandMode = parsed.isSlash && parsed.parentCommand.length > 0;
+
+  const previousParentCommandRef = React.useRef(parsed.parentCommand);
+  useEffect(() => {
+    if (previousParentCommandRef.current === parsed.parentCommand) return;
+    previousParentCommandRef.current = parsed.parentCommand;
+    setSelectedIndex(0);
+  }, [parsed.parentCommand]);
 
   const filteredCommands = useMemo(() => {
     if (!commandQueryPort || !parsed.isSlash || dismissed) return [];
