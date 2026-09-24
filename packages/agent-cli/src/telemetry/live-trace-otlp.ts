@@ -10,6 +10,10 @@ import { createNodeOtlpLiveMetricPort } from './live-metric-otlp.js';
 import type { TLiveMetricAttribute } from './live-metric-otlp.js';
 import { createNodeOtlpLiveLogPort } from './live-log-otlp.js';
 import { createNodeLiveConsolePort } from './live-console.js';
+import { createNodeOtlpLiveContentPort } from './live-content-otlp.js';
+import type { INodeOtlpLiveContentPort } from './live-content-otlp.js';
+import type { ILiveContentRedactionContext } from './live-content-redaction.js';
+import { LIVE_CONTENT_SETTINGS, TOOL_CONTENT_SETTINGS, resolveLiveContentPolicy } from './live-content-settings.js';
 import { createLiveTelemetryResource, safeLiveProviderRequestId, safeLiveToolCallId } from './live-resource.js';
 import {
   buildOtlpRequestHeaders, mergeOtlpHeaderMaps, otlpProtobufRequestHeaders, parseOtlpHeaderSetting,
@@ -29,18 +33,22 @@ export interface INodeOtlpLiveTraceOptions {
   endpoint: string;
   /** Static headers prebuilt at startup; the sender's own content type always overrides them. */
   headers?: Headers;
-  onFailure?: (code: 'projection-failed' | 'enqueue-failed' | 'delivery-failed') => void;
+  onFailure?: (code: TLiveTelemetryFailureCode) => void;
   resource?: ILiveTelemetryResource;
 }
 
 type TOtlpSignal = 'traces' | 'metrics' | 'logs';
+
+/** Content-free diagnostics; `content-delivery-failed` is the separate content channel's own scope. */
+export type TLiveTelemetryFailureCode =
+  | 'projection-failed' | 'enqueue-failed' | 'delivery-failed' | 'content-delivery-failed';
 
 const SUPPORTED_SETTINGS = new Set([
   'ENABLED', 'TRACES', 'METRICS', 'LOGS', 'OTLP_PROTOCOL', 'OTLP_ENDPOINT',
   'OTLP_TRACES_ENDPOINT', 'OTLP_METRICS_ENDPOINT', 'OTLP_LOGS_ENDPOINT',
   'OTLP_HEADERS', 'OTLP_TRACES_HEADERS', 'OTLP_METRICS_HEADERS', 'OTLP_LOGS_HEADERS',
   'METRIC_ATTRIBUTES', 'PROPAGATE_TO',
-].map((suffix) => `ROBOTA_TELEMETRY_${suffix}`));
+].map((suffix) => `ROBOTA_TELEMETRY_${suffix}`).concat(LIVE_CONTENT_SETTINGS));
 
 const METRIC_ATTRIBUTES_SETTING = 'ROBOTA_TELEMETRY_METRIC_ATTRIBUTES';
 const METRIC_ATTRIBUTE_TOKENS: ReadonlySet<TLiveMetricAttribute> = new Set(['session', 'provider', 'model']);
@@ -134,8 +142,11 @@ function rejectUnsupportedSettings(env: Readonly<Record<string, string | undefin
     if (/CERTIFICATE|CLIENT_KEY|(^|_)CA(_|$)|MTLS/u.test(name)) {
       throw new Error(`Robota telemetry client certificates and custom CAs are not supported (${name}); refusing to export without them.`);
     }
+    if (TOOL_CONTENT_SETTINGS.has(name)) {
+      throw new Error(`Robota telemetry tool content capture is not yet supported (${name}); exports stay free of tool content.`);
+    }
     if (/LOCK|MANAGED/u.test(name)) throw new Error(`A Robota telemetry managed destination lock cannot be enforced (${name}); refusing to start telemetry.`);
-    if (/PROMPT|RESPONSE|CONTENT|BODY|ARGUMENT|OUTPUT/u.test(name)) {
+    if (/PROMPT|RESPONSE|CONTENT|BOD(?:Y|IES)|ARGUMENT|OUTPUT/u.test(name)) {
       throw new Error(`Robota telemetry content capture is not supported (${name}); exports stay content-free.`);
     }
     throw new Error(`Unknown Robota telemetry setting ${name}.`);
@@ -435,8 +446,17 @@ export function createConfiguredNodeOtlpLiveTelemetryPort(
   hostResource?: ILiveTelemetryHostResource,
   /** Where a content-free propagation diagnostic goes; only attached when propagation is configured. */
   onDiagnostic?: (message: string) => void,
+  /** What content redaction needs from the host; required only when a content gate is on. */
+  contentRedaction?: ILiveContentRedactionContext,
 ): INodeOtlpLiveTracePort | undefined {
-  const { traces, metrics, logs } = resolveNodeOtlpLiveDestinations(env);
+  const destinations = resolveNodeOtlpLiveDestinations(env);
+  const { traces, metrics, logs } = destinations;
+  const contentPolicy = resolveLiveContentPolicy(env);
+  // Content follows prompt history, which only the interactive terminal records; any other mode
+  // would leave the setting silently unused, so it refuses to start instead.
+  if (contentPolicy && hostResource && hostResource.surface !== 'interactive') {
+    throw new Error(`Robota telemetry content capture is available only in the interactive terminal, not in ${hostResource.surface} mode.`);
+  }
   const metricAttributes = env['ROBOTA_TELEMETRY_ENABLED'] === '1'
     ? resolveMetricAttributesSetting(env) : new Set<TLiveMetricAttribute>();
   const propagation = env['ROBOTA_TELEMETRY_ENABLED'] === '1' ? resolvePropagateToSetting(env) : undefined;
@@ -458,13 +478,34 @@ export function createConfiguredNodeOtlpLiveTelemetryPort(
     }
   }
   const port = ports.length === 1 ? ports[0]! : combinePorts(ports, onFailure);
-  if (!propagation) return port;
+  let content: INodeOtlpLiveContentPort | undefined;
+  if (contentPolicy) {
+    // A gate on implies LOGS=otlp, so the logs destination exists; content reuses it exactly.
+    if (!logs) throw new Error('Robota telemetry content capture requires ROBOTA_TELEMETRY_LOGS=otlp.');
+    if (!contentRedaction) throw new Error('Robota telemetry content capture needs the host redaction context.');
+    // A header value and, for an `Authorization: <scheme> <credential>` form, the credential alone.
+    const headerValues = OTLP_SIGNALS.flatMap((signal) => [...(destinations[signal]?.headers.values() ?? [])])
+      .flatMap((value) => [value, ...(/^[A-Za-z][\w.-]*\s+(\S.*)$/u.exec(value)?.slice(1) ?? [])]);
+    content = createNodeOtlpLiveContentPort({
+      endpoint: logs.endpoint,
+      headers: logs.headers,
+      resource,
+      policy: contentPolicy,
+      redaction: {
+        ...contentRedaction,
+        getSecrets: () => [...contentRedaction.getSecrets(), ...headerValues],
+      },
+      ...(onFailure ? { onFailure } : {}),
+    });
+  }
+  if (!propagation && !content) return port;
   return {
     enqueue: (batch) => port.enqueue(batch),
     ...(port.onFailure ? { onFailure: port.onFailure } : {}),
-    shutdown: () => port.shutdown(),
-    traceContextPropagation: propagation,
-    ...(onDiagnostic ? { onDiagnostic } : {}),
+    shutdown: async () => { await Promise.all([port.shutdown(), content?.shutdown()]); },
+    ...(propagation ? { traceContextPropagation: propagation } : {}),
+    ...(propagation && onDiagnostic ? { onDiagnostic } : {}),
+    ...(content ? { content: { policy: content.policy, enqueue: (batch) => content.enqueue(batch) } } : {}),
   };
 }
 

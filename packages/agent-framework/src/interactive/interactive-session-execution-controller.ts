@@ -12,6 +12,10 @@ import {
 import { InteractiveExecutionClaimOwner } from './interactive-execution-claim.js';
 import { checkAndRefreshContextIfStale } from './interactive-session-context-refresh.js';
 import {
+  createLivePromptContentAccumulator,
+  enqueueLivePromptContent,
+} from './interactive-session-live-prompt-content.js';
+import {
   LivePromptTraceAccumulator,
   enqueueLivePromptTrace,
   reportLivePromptTraceProjectionFailure,
@@ -273,6 +277,11 @@ export class SessionExecutionController {
     const seenProviderCallIds = new Set<string>();
     const toolBodyEntries: IHistoryEntry<IToolBodyTraceEntry>[] = [];
     const liveTrace = this.callbacks.livePromptTrace ? new LivePromptTraceAccumulator() : undefined;
+    // Opt-in content: only with a host content port, a gate on, and an owner-typed turn.
+    const liveContent = createLivePromptContentAccumulator(this.callbacks.livePromptTrace, {
+      turnSource: turnOptions.turnSource ?? 'user',
+      driverId: turnOptions.driverId,
+    });
     const closePromptRoot = (outcome: 'success' | 'failure' | 'interrupted'): void => {
       if (!promptRoot || promptRoot.endedAt) return;
       promptRoot.endedAt = new Date(Math.max(Date.now(), promptRoot.startedAtMs)).toISOString();
@@ -303,6 +312,7 @@ export class SessionExecutionController {
         turnSource: turnOptions.turnSource ?? 'user',
         driverId: turnOptions.driverId,
       });
+      liveContent?.addPrompt(rawInput ?? input);
       this.callbacks.emit('thinking', true);
       this.histTracker.resetUsedMemoryReferences(); // MEM-2055: before recall — old order lost it
       if (this.callbacks.recallMemory) {
@@ -348,6 +358,7 @@ export class SessionExecutionController {
           closePromptRoot('success');
           completedResult = result; // stash for post-turn capture in the `finally`
           terminalResult = result;
+          liveContent?.addResponse(result.response, false);
           turnOutcome = 'success';
         },
         onProviderCallCompleted: (observation) => {
@@ -449,6 +460,7 @@ export class SessionExecutionController {
           closePromptRoot('interrupted');
           // RUNTIME-003: an interrupted turn RAN — resolve, do not reject.
           terminalResult = result;
+          liveContent?.addResponse(result.response, true);
           turnOutcome = 'interrupted';
         },
         onError: (err: Error) => {
@@ -482,6 +494,13 @@ export class SessionExecutionController {
         } catch {
           reportLivePromptTraceProjectionFailure(this.callbacks.livePromptTrace);
         }
+      }
+      if (liveContent && promptRoot?.endedAt && this.callbacks.livePromptTrace) {
+        enqueueLivePromptContent(this.callbacks.livePromptTrace, liveContent, {
+          traceId: promptRoot.traceId,
+          spanId: promptRoot.spanId,
+          endedAt: promptRoot.endedAt,
+        });
       }
       try {
         await this.histTracker.finalizeEditCheckpointTurn();

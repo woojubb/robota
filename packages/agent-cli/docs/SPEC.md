@@ -90,8 +90,12 @@ live telemetry path needs an explicit Robota enable switch, individually selecte
 explicit protocol with a validated destination (OTLP or a local console sink). It uses host-owned
 resource and trace identity, never ambient OpenTelemetry identity, trace context or credentials, and
 sends a trace's identifiers to a provider only at origins the operator listed exactly while traces
-are exported — the collector's origin and credentials are never implied by that. It emits only content-free
-spans, logs and metrics correlated by validated IDs. Metrics are low-cardinality by default; a
+are exported — the collector's origin and credentials are never implied by that. Its spans, metrics
+and console output are always content-free, correlated by validated IDs; the only content it can
+send is the typed prompt and final response of an owner-typed turn in the interactive terminal
+(other modes refuse the opt-in rather than leave it unused), as OTLP log records, after an explicit
+per-kind opt-in, masked on a best-effort basis before it leaves the process and delivered
+apart from the content-free logs so that neither can delay or drop the other. Metrics are low-cardinality by default; a
 higher-cardinality label is added only on the operator's explicit opt-in. Metrics derived from child records are
 emitted only when those records are complete, and omitted children or unknown prices stay visible
 as coverage gaps rather than fabricated totals.

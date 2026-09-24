@@ -23,3 +23,11 @@ export type {
   IPersonalUsageCoverage,
   IPersonalUsageReport,
 } from './usage-contracts.js';
+
+// ── Opt-in live prompt and response content, carried beside the content-free trace ───
+export type {
+  TLivePromptContentKind,
+  ILivePromptContentPolicy,
+  ILivePromptContentItem,
+  ILivePromptContentBatch,
+} from './live-content-contracts.js';

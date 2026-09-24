@@ -48,6 +48,7 @@ import { createCliUsageTransportRegistry } from './usage/usage-transport-registr
 import { createConfiguredNodeOtlpLiveTelemetryPort } from './telemetry/live-trace-otlp.js';
 import { takeRobotaTelemetryEnvironment } from './telemetry/live-telemetry-env.js';
 import { resolveLiveTelemetrySurface } from './telemetry/live-resource.js';
+import { createCliLiveContentRedaction } from './telemetry/live-content-secrets.js';
 import {
   createRobotaPackSet,
   createRobotaSubagentRunnerFactory,
@@ -612,6 +613,18 @@ async function runCliCore(
       surface: resolveLiveTelemetrySurface(args, mcpServe),
     },
     (message) => process.stderr.write(`${message}\n`),
+    createCliLiveContentRedaction({
+      cwd,
+      projectAccess: workspaceComposition.projectAccess,
+      // The startup layers and the user layers a mid-session provider switch reads.
+      settingsSources: [
+        ...workspaceComposition.settingsSources,
+        ...createRobotaUserSettingsSources(homedir()),
+      ],
+      providerDefinitions,
+      env: process.env,
+      startupCredentials: [providerSettings.apiKey],
+    }),
   );
 
   // GOAL-001: --goal runs an autonomous headless goal even without an explicit -p.
