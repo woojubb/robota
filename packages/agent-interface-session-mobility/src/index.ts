@@ -37,3 +37,13 @@ export type {
   THandoffRefusal,
 } from './handoff-contracts.js';
 export { isHandoffCommitted, sourceRetainsAuthority } from './handoff-contracts.js';
+
+// ── handoff-ownership ──
+export type { ICommitResult, IHandoffTransaction, ITransitionResult } from './handoff-ownership.js';
+export {
+  advanceHandoff,
+  beginHandoff,
+  commitHandoff,
+  handoffOutcome,
+  sourceStillOwns,
+} from './handoff-ownership.js';

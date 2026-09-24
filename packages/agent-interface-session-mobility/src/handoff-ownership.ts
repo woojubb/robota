@@ -22,14 +22,15 @@
  * forbid.
  */
 
-import {
-  sourceRetainsAuthority,
-  type IHandoffCommitAck,
-  type IHandoffManifest,
-  type IHandoffOutcome,
-  type THandoffPhase,
-  type THandoffRefusal,
-} from '@robota-sdk/agent-interface-session-mobility';
+import { sourceRetainsAuthority } from './handoff-contracts.js';
+
+import type {
+  IHandoffCommitAck,
+  IHandoffManifest,
+  IHandoffOutcome,
+  THandoffPhase,
+  THandoffRefusal,
+} from './handoff-contracts.js';
 
 /** One transfer's state, as the SOURCE sees it. */
 export interface IHandoffTransaction {
