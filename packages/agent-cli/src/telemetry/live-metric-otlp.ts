@@ -38,6 +38,11 @@ export function projectLivePromptMetrics(batch: ILivePromptTraceBatch, window: I
     });
   };
 
+  addSum('robota.prompt.executions', 1, '1');
+  addSum('robota.telemetry.tool_events_omitted', batch.omittedChildren.tool, '1');
+  if (batch.omittedChildren.tool === 0) {
+    addSum('robota.tool.body_completions', batch.children.filter((child) => child.kind === 'tool').length, '1');
+  }
   addSum('robota.telemetry.provider_events_omitted', batch.omittedChildren.provider, '1');
   // The live trace port bounds its child list. A truncated list cannot prove a complete total.
   if (batch.omittedChildren.provider === 0) {
