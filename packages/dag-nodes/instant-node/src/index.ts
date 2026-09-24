@@ -202,7 +202,7 @@ export class PromptBackedNodeDefinition
 
     try {
       // allow-fallback: catches provider API errors and converts to structured Result
-      const completion = await providerResult.agent.run(renderedPrompt, { signal: context.signal });
+      const completion = await providerResult.agent.run(renderedPrompt, { signal: context.signal, awaitProviderSettlement: true });
       if (context.signal?.aborted) {
         return { ok: false, error: buildTaskCancellationError(context.taskRunId) };
       }

@@ -67,7 +67,7 @@ function observeAbort(signal: AbortSignal, timeoutMs: number): Promise<boolean> 
   });
 }
 
-it('/workflows parent timeout aborts an active saved-composite child provider', async () => {
+it.each(['resolve', 'reject'] as const)('/workflows parent timeout joins child provider cleanup and discards its late %s', async (outcome) => {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'workflow-child-cancel-')));
   roots.push(root);
   vi.stubEnv('HOME', root);
@@ -76,8 +76,10 @@ it('/workflows parent timeout aborts an active saved-composite child provider', 
   let entered!: (signal: AbortSignal) => void;
   const providerEntered = new Promise<AbortSignal>((resolve) => { entered = resolve; });
   let release!: () => void;
-  const held = new Promise<TUniversalMessage>((resolve) => {
-    release = () => resolve(createAssistantMessage('done'));
+  const held = new Promise<TUniversalMessage>((resolve, reject) => {
+    release = () => outcome === 'reject'
+      ? reject(new Error('late provider failure'))
+      : resolve(createAssistantMessage('done'));
   });
   const provider: IAIProvider = {
     name: 'test', version: 'test', supportsTools: () => false,
@@ -96,7 +98,14 @@ it('/workflows parent timeout aborts an active saved-composite child provider', 
   try {
     const project = await createWorkflowProjectFixture(root);
     const run = executeWorkflowsRun('parent.json', project, undefined, definitions);
+    let completed = false;
+    void run.then(() => { completed = true; });
     const signal = await providerEntered;
+    expect(await observeAbort(signal, 3_000)).toBe(true);
+    // The provider has observed cancellation but still owns cleanup until it settles.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(completed).toBe(false);
+    release();
     const result = await run;
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/timeout|timed out/i);

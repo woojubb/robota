@@ -40,8 +40,10 @@ zero external runtime-server process dependencies.
 - A run may be submitted before the framework is started; a run waiter itself creates the demand
   that starts advancement.
 - The in-process composition connects committed run cancellation to the worker attempts it owns,
-  so a cooperating local provider call can settle promptly; this does not notify workers in other
-  processes or wait for abandoned executor cleanup.
+  so active calls receive their abort signal. Local runtime completion joins admitted node
+  lifecycles and their composite child runtimes after cancellation or timeout; providers that
+  ignore abort keep completion pending until their calls settle. This is an ownership guarantee,
+  not preemption of arbitrary code or a guarantee about work detached by a node or provider.
 - Default skill-node discovery reads only host-supplied contribution sources and ordered skill
   roots; when either is omitted, no skill files are discovered, and construction never selects a
   filesystem source from the current process or home directory.

@@ -135,6 +135,7 @@ export async function callRoundProviderWithEvents(
           } as TExecutionEventData);
         }
       },
+      fullContext.awaitProviderSettlement,
     );
     // CORE-042: a provider that returned assembled text without streaming any of it still owes the
     // caller its deltas — `IChatOptions.onTextDelta`'s contract is what such a provider is violating,

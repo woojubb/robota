@@ -10,7 +10,7 @@ describe('local provider active cancellation', () => {
   const roots: string[] = [];
   afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
 
-  it('settles a hung prompt promptly after its run is cancelled', async () => {
+  it('waits for an aborted provider to settle before completing the local run', async () => {
     const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'dag-active-cancel-')));
     roots.push(root);
     let releaseProvider: () => void = () => undefined;
@@ -39,7 +39,7 @@ describe('local provider active cancellation', () => {
       inputs: [], outputs: [{ key: 'text', type: 'string', required: true }],
       configSchemaDefinition: null,
       taskHandler: { async execute(_input, context) {
-        const text = await agent.run('prompt', { signal: context.signal });
+        const text = await agent.run('prompt', { signal: context.signal, awaitProviderSettlement: true });
         return { ok: true, value: { text } };
       } },
     };
@@ -53,6 +53,12 @@ describe('local provider active cancellation', () => {
     try {
       await entered;
       controller.abort();
+      let completed = false;
+      void work.then(() => { completed = true; });
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(providerSignal?.aborted).toBe(true);
+      expect(completed).toBe(false);
+      releaseProvider();
       const result = await Promise.race([
         work,
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('cancellation did not settle promptly')), 500)),

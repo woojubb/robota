@@ -57,7 +57,8 @@ Failure is distinguished by cause: a missing API key, a missing required input p
 call failure are reported as distinct typed errors, with LLM call failure marked retryable so
 callers can distinguish transient from configuration failures without inspecting message text.
 Prompt-backed nodes forward the trusted node-context cancellation signal to the agent run, refusing
-provider entry after abort and discarding a late completion, and report cancellation as
+provider entry after abort and joining the admitted provider call before discarding a late completion,
+so providers which ignore abort keep node completion pending; they report cancellation as
 non-retryable `DAG_TASK_EXECUTION_CANCELLED` rather than a retryable LLM failure; composite runners
 forward the parent's attempt signal into the child execution path the same way.
 
