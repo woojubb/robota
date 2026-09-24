@@ -42,6 +42,12 @@ it('/workflows read refuses formatted output amplification from one large line',
   expect(result.message).toMatch(/read output exceeds its UTF-8 byte limit/i);
 });
 
+it('/workflows read refuses line-number amplification from many short lines', async () => {
+  const result = await runRead('x\n'.repeat(600_000), 600_000);
+  expect(result.success).toBe(false);
+  expect(result.message).toMatch(/read output exceeds its UTF-8 byte limit/i);
+});
+
 it('/workflows read preserves small-file line selection', async () => {
   const result = await runRead('alpha\nbeta\n');
   expect(result.success).toBe(true);
