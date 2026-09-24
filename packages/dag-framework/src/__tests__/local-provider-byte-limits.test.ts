@@ -145,3 +145,21 @@ it('preserves literal text-replace semantics through the product runtime', async
   expect(result.ok).toBe(true);
   expect(result.outputs).toMatchObject({ 'n.text': 'okok' });
 });
+
+it('carries an immutable literal replacement limit into the supported node', async () => {
+  const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'dag-replace-cap-')));
+  roots.push(root);
+  const byteLimits = { maxTextRepeatOutputBytes: 100, maxTextReplaceOutputBytes: 4 };
+  const provider = new LocalDagRuntimeProvider({ executionRoot: root, byteLimits });
+  byteLimits.maxTextReplaceOutputBytes = 1000;
+  const dag: IDagDefinition = {
+    dagId: 'replace-cap', version: 1, status: 'draft', edges: [],
+    nodes: [{ nodeId: 'replace', nodeType: 'text-replace', dependsOn: [], config: {
+      search: 'x', replacement: 'é', maxTextReplaceOutputBytes: 1000,
+    } }],
+  };
+  expect(await provider.execute(dag, { text: 'xx' })).toMatchObject({ ok: true, outputs: { 'replace.text': 'éé' } });
+  expect(await provider.execute(dag, { text: 'xxx' })).toMatchObject({
+    ok: false, errorCode: 'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED', errorRetryable: false, outputs: {},
+  });
+});
