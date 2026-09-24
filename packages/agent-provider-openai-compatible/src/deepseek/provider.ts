@@ -2,6 +2,7 @@ import {
   AbstractAIProvider,
   PERMISSIVE_TOOL_SCHEMA_PROFILE,
   SilentLogger,
+  traceHeadersFor,
 } from '@robota-sdk/agent-core';
 import OpenAI from 'openai';
 
@@ -15,6 +16,7 @@ import {
   OpenAICompatibleResponseParser,
 } from '../shared/openai-compatible/index.js';
 import { awaitWithProviderRequestId, readOpenAICompatibleRequestId, withProviderRequestId } from '../shared/openai-compatible/request-id.js';
+import { openAICompatibleRequestOptions } from '../shared/openai-compatible/request-options.js';
 
 import type {
   IDeepSeekProviderOptions,
@@ -119,9 +121,18 @@ export class DeepSeekProvider extends AbstractAIProvider {
         payloadKind: 'request',
         payload: requestParams,
       });
-      const response = await client.chat.completions.create(
-        requestParams as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming,
+      const chatRequestOptions = openAICompatibleRequestOptions(
+        undefined,
+        this.traceRequestHeaders(options),
       );
+      const response = chatRequestOptions
+        ? await client.chat.completions.create(
+            requestParams as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming,
+            chatRequestOptions,
+          )
+        : await client.chat.completions.create(
+            requestParams as OpenAI.Chat.ChatCompletionCreateParamsNonStreaming,
+          );
       options?.onProviderNativeRawPayload?.({
         provider: 'deepseek',
         apiSurface: 'chat-completions',
@@ -171,10 +182,19 @@ export class DeepSeekProvider extends AbstractAIProvider {
         payloadKind: 'request',
         payload: requestParams,
       });
+      const streamRequestOptions = openAICompatibleRequestOptions(
+        undefined,
+        this.traceRequestHeaders(options),
+      );
       const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
-        client.chat.completions.create(
-          requestParams as OpenAI.Chat.ChatCompletionCreateParamsStreaming,
-        ),
+        streamRequestOptions
+          ? client.chat.completions.create(
+              requestParams as OpenAI.Chat.ChatCompletionCreateParamsStreaming,
+              streamRequestOptions,
+            )
+          : client.chat.completions.create(
+              requestParams as OpenAI.Chat.ChatCompletionCreateParamsStreaming,
+            ),
       );
       const observedStream = observeProviderNativeRawPayloadStream(stream, {
         provider: 'deepseek',
@@ -221,6 +241,26 @@ export class DeepSeekProvider extends AbstractAIProvider {
 
   override getCapabilities(): IProviderCapabilities {
     return DEEPSEEK_PROVIDER_CAPABILITIES;
+  }
+
+  /**
+   * The client's own base URL is the origin every request goes to (the SDK has already applied a
+   * constructor option or `defaults.ts`'s vendor default). An executor sends elsewhere, and an
+   * injected client whose base URL cannot be read gives no origin to compare, so neither can
+   * propagate.
+   */
+  canPropagateTraceContext(): boolean {
+    return !this.executor && this.effectiveBaseUrl() !== undefined;
+  }
+
+  private effectiveBaseUrl(): string | undefined {
+    const baseURL: unknown = (this.client as { baseURL?: unknown } | undefined)?.baseURL;
+    return typeof baseURL === 'string' && baseURL.length > 0 ? baseURL : undefined;
+  }
+
+  private traceRequestHeaders(options: IChatOptions | undefined): Readonly<Record<string, string>> {
+    if (!this.canPropagateTraceContext()) return {};
+    return traceHeadersFor(this.effectiveBaseUrl(), options?.outboundTraceContext);
   }
 
   override validateConfig(): boolean {
@@ -309,7 +349,7 @@ export class DeepSeekProvider extends AbstractAIProvider {
       const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
         client.chat.completions.create(
           requestParams as OpenAI.Chat.ChatCompletionCreateParamsStreaming,
-          options.signal ? { signal: options.signal } : undefined,
+          openAICompatibleRequestOptions(options.signal, this.traceRequestHeaders(options)),
         ),
       );
 

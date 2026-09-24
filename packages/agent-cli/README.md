@@ -321,10 +321,12 @@ in its punycode (`xn--`) form, and an origin with a trailing dot never matches; 
 stop startup with an error that names only the setting and entry position. `tracestate` and `baggage`
 are never sent, the collector's origin is never trusted implicitly, and collector headers are never
 reused for provider requests. The Anthropic and OpenAI (Responses and Chat Completions) adapters
-propagate to their client's effective base URL, and Gemini to `https://generativelanguage.googleapis.com`
-only — not with `GOOGLE_GEMINI_BASE_URL`, `GOOGLE_VERTEX_BASE_URL` or Vertex mode. Nothing is sent through a
-provider executor. When propagation is configured but the round's provider cannot propagate (including
-the OpenAI-compatible adapters for now), the CLI writes one stderr line per provider naming only that
+propagate to their client's effective base URL, as do the OpenAI-compatible DeepSeek, Qwen (both its
+Chat Completions and Responses surfaces), and Gemma adapters, and Gemini propagates to
+`https://generativelanguage.googleapis.com` only — not with `GOOGLE_GEMINI_BASE_URL`,
+`GOOGLE_VERTEX_BASE_URL` or Vertex mode. Nothing is sent through a provider executor. When
+propagation is configured but the round's provider cannot propagate — an executor, or a client
+whose base URL cannot be read — the CLI writes one stderr line per provider naming only that
 provider. Only a prompt's own provider calls carry it: subagents, workers and background
 tasks do not inherit it.
 
@@ -333,7 +335,7 @@ followed by the SDK carries the header to the redirect target. A provider call w
 dropped from export still sent its `traceparent`, so the vendor's parent span may be missing from your
 trace; `robota.omitted.provider_count` on the prompt span shows when that happened. Ambient
 `TRACEPARENT` and `OTEL_*` values are never adopted, and propagation into subprocesses (hooks, MCP
-servers) is not supported yet; MCP HTTP transports and the OpenAI-compatible adapters are planned later.
+servers) is not supported yet; MCP HTTP transports are planned later.
 
 ### Doctor
 
