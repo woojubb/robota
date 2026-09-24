@@ -24,7 +24,7 @@ import type { IExecutionWorkspaceEntry } from './execution-workspace-types.js';
 /** What the surface does next: switch its view, or say why it will not. */
 export type TExecutionAttachOutcome =
   | { readonly type: 'switch-session'; readonly sessionId: string }
-  | { readonly type: 'refused'; readonly reason: string };
+  | { readonly type: 'refused'; readonly reason: string; readonly resumeSessionId?: string };
 
 export interface IResolveExecutionAttachInput {
   /**
@@ -63,7 +63,8 @@ export function resolveExecutionAttach(
       type: 'refused',
       reason:
         `${entry.title} is ${entry.status}; attach follows a fork that is still running. ` +
-        `Its record is still there — open it with: robota --resume ${sessionId}`,
+        `Its record is still there; resume session ${sessionId} through your host.`,
+      resumeSessionId: sessionId,
     };
   }
   if (!input.hasSessionRecord(sessionId)) {

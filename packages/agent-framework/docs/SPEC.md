@@ -73,6 +73,10 @@ React/Ink UI.
   to a caller's permission configuration. A host may supply baseline allow patterns independently of
   the active preset; those patterns remain in effect when the preset is changed live, while a later
   deny rule still takes precedence.
+- **Recovery instructions are host-owned.** Framework errors name the missing provider configuration
+  or invalid settings file without prescribing a product command. A terminal fork-attach refusal
+  carries its resume session id separately so a host can add its own reopen command while neutral
+  consumers still receive an actionable session identifier.
 - **Organization policy is host-located and fail-closed.** The policy loader reads only the path
   selected by its host. An absent or empty path is an error; a missing file at a valid path means no
   deployed policy. A present but unreadable or malformed file raises a typed error rather than

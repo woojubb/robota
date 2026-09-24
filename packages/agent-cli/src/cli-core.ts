@@ -793,6 +793,7 @@ async function runCliCore(
       reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
       userSettingsPath: robotaUserSettingsPath(),
       settingsSources: createRobotaUserSettingsSources(),
+      formatResumeCommand: (sessionId) => `robota --resume ${sessionId}`,
     }),
     reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
     keybindingsSource,

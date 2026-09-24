@@ -58,6 +58,9 @@ composition uses user session storage and never obtains a project-state facet.
 The CLI selects its ordinary context-discovery permission baseline for Robota, Agents, and Claude
 project directories and passes it to print, serve, and terminal sessions. SDK consumers inherit no
 Robota file permissions unless they explicitly choose them.
+The CLI adds its own setup, diagnostics, and resume commands to typed SDK failures: missing provider
+configuration receives Robota setup guidance, invalid user settings point to `robota doctor`, and a
+completed fork can be reopened with `robota --resume <session-id>`.
 When a trusted interactive user approves a project-wide tool permission on a host with guarded
 project mutation support, the session persists it through the CLI-selected project-local settings
 path and its live workspace authority. An unavailable writer rejects that approval explicitly.

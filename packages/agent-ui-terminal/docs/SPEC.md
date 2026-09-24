@@ -46,6 +46,9 @@ The Node keybindings source requires the host to provide both its file path and 
 never infers either from the running user's home directory or a product identity.
 Host-selected baseline permission patterns also pass through that projection unchanged; the
 terminal does not choose product path approvals.
+When attaching to a completed fork is refused, the terminal relays the framework's session id and
+adds a resume command only if its host supplied a formatter. The renderer does not name a product
+executable itself.
 The permission prompt labels project-wide approval unavailable when the session cannot persist it,
 and never resolves the disabled choice as an approval.
 The host may supply a product display name to `renderApp` for visible assistant labels, the
