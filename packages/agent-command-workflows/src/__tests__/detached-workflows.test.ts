@@ -87,6 +87,59 @@ it('returns a stable detached run ID that another operator command can inspect a
   }
 });
 
+it('keeps cancellation as the terminal status when detached runtime cleanup rejects', async () => {
+  const root = await realpath(await mkdtemp(join(tmpdir(), 'workflow-detached-rejection-')));
+  vi.stubEnv('HOME', root);
+  await writeFile(
+    join(root, 'flow.json'),
+    JSON.stringify({ dagId: 'detached-rejection', version: 1, status: 'draft', nodes: [], edges: [] }),
+  );
+  let entered!: (signal: AbortSignal | undefined) => void;
+  const running = new Promise<AbortSignal | undefined>((resolve) => { entered = resolve; });
+  let release!: () => void;
+  const cleanup = new Promise<void>((resolve) => { release = resolve; });
+  const execute = vi
+    .spyOn(LocalDagRuntimeProvider.prototype, 'execute')
+    .mockImplementation(async (_dag, _inputs, options) => {
+      entered(options?.signal);
+      await cleanup;
+      throw new Error('late runtime cleanup failure');
+    });
+  try {
+    const module = createWorkflowsCommandModule({
+      project: await createWorkflowProjectFixture(root),
+    });
+    const command = module.systemCommands?.[0];
+    if (!command) throw new Error('workflows command missing');
+    const context = createTestCommandHost({ cwd: root });
+    const started = await command.execute(context, 'run flow.json --detach');
+    const runId = started.message.match(/Run ID: ([\w-]+)/)?.[1];
+    expect(runId).toBeTruthy();
+    const signal = await running;
+    expect(signal).toBeInstanceOf(AbortSignal);
+
+    let cancelFinished = false;
+    const cancelling = Promise.resolve(command.execute(context, `cancel ${runId}`)).then((result) => {
+      cancelFinished = true;
+      return result;
+    });
+    await vi.waitFor(() => expect(signal?.aborted).toBe(true));
+    expect(cancelFinished).toBe(false);
+    release();
+    expect((await cancelling).success).toBe(true);
+
+    const terminal = await command.execute(context, `status ${runId}`);
+    expect(terminal.message).toContain('cancelled');
+    expect(terminal.message).not.toContain('late runtime cleanup failure');
+    await module.shutdown?.(context);
+  } finally {
+    release();
+    execute.mockRestore();
+    vi.unstubAllEnvs();
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
 it.each(['operator cancel', 'host shutdown'] as const)(
   '%s aborts a live prompt task and joins its cleanup',
   async (stop) => {

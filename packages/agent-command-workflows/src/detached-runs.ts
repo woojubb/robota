@@ -70,10 +70,12 @@ export class DetachedWorkflowRuns {
         this.pruneTerminals();
       })
       .catch((error: unknown) => {
-        entry.result = retainResult({
-          success: false,
-          message: error instanceof Error ? error.message : String(error),
-        });
+        entry.result = controller.signal.aborted
+          ? { success: false, message: 'Workflow cancelled.' }
+          : retainResult({
+              success: false,
+              message: error instanceof Error ? error.message : String(error),
+            });
         entry.phase = controller.signal.aborted ? 'cancelled' : 'failed';
         this.pruneTerminals();
       });
