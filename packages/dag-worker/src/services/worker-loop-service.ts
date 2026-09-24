@@ -1,6 +1,7 @@
 import {
   TaskRunStateMachine,
   type ITaskSnapshotBudget,
+  type IRootCreditBudget,
   resolveDagExecutionByteLimits,
   type IDagExecutionByteLimits,
   buildValidationError,
@@ -75,6 +76,7 @@ export class WorkerLoopService {
     private readonly runProgressEventReporter?: IRunProgressEventReporter,
     byteLimits?: IDagExecutionByteLimits,
     private readonly snapshotBudget?: ITaskSnapshotBudget,
+    private readonly rootCreditBudget?: IRootCreditBudget,
   ) {
     this.executionRoot = resolveTrustedExecutionRoot(executionRoot);
     this.byteLimits = resolveDagExecutionByteLimits(byteLimits);
@@ -282,6 +284,7 @@ export class WorkerLoopService {
       executionRoot: this.executionRoot,
       byteLimits: this.byteLimits,
       snapshotBudget: this.snapshotBudget,
+      rootCreditBudget: this.rootCreditBudget,
       dagId: dagRun.dagId,
       dagRunId: message.dagRunId,
       taskRunId: message.taskRunId,

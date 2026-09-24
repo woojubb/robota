@@ -338,6 +338,7 @@ describe('composite nested-run lineage', () => {
     const node = composite('bounded', ['input'], runner);
     const ctx = context('bounded');
     ctx.snapshotBudget = { admit: vi.fn(), admitValue: vi.fn(), admitRun: vi.fn(), close: vi.fn() };
+    ctx.rootCreditBudget = { reserve: vi.fn(), close: vi.fn() };
     ctx.byteLimits = { maxTextRepeatOutputBytes: 10 };
     const result = await node.taskHandler.execute({ text: 'x' }, ctx);
     expect(result.ok).toBe(true);
@@ -347,7 +348,7 @@ describe('composite nested-run lineage', () => {
       depth: 1,
       maxDepth: 3,
       ancestorCompositeNodeTypes: ['bounded'],
-    }, { snapshotBudget: ctx.snapshotBudget, byteLimits: ctx.byteLimits });
+    }, { snapshotBudget: ctx.snapshotBudget, rootCreditBudget: ctx.rootCreditBudget, byteLimits: ctx.byteLimits });
   });
 
   it('passes the exact parent signal and refuses a pre-aborted child launch', async () => {

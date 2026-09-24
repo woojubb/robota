@@ -1,5 +1,6 @@
 import type { IRegexReplaceOperation } from './regex-replace-operation.js';
 import type { ITaskSnapshotBudget } from '../services/task-snapshot-budget.js';
+import type { IRootCreditBudget } from '../services/root-credit-budget.js';
 import type { IDagExecutionByteLimits } from './execution-byte-limits.js';
 import type { TPortPayload } from '../interfaces/ports.js';
 import type { IDagError } from './error.js';
@@ -29,6 +30,8 @@ export interface INodeExecutionContext {
   regexReplaceOperation?: IRegexReplaceOperation;
   /** Shared live root snapshot authority, never sourced from serialized data. */
   snapshotBudget?: ITaskSnapshotBudget;
+  /** Shared in-process root credit authority. */
+  rootCreditBudget?: IRootCreditBudget;
   /** Trusted host limits; never deserialized from workflow configuration. */
   byteLimits?: IDagExecutionByteLimits;
   /** Trusted in-process attempt cancellation; never supplied by serialized node or queue data. */

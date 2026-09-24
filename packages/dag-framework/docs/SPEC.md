@@ -78,8 +78,11 @@ input. These per-operation bounds are not a root aggregate budget, snapshot-size
 ## Shared local root snapshot authority
 
 Each independent local provider execution creates a fresh snapshot authority from trusted host
-limits; nested executions and concurrent sibling reservations share the same live authority and
-balance, including run definition and input snapshots consumed before dispatch. Encoding stops
+limits and a credit authority from the root run's cost policy; nested executions and concurrent
+sibling reservations share each live authority and balance. Credits are reserved before a node
+executes, committed on successful lifecycle completion, and released when it fails; a child run
+cannot replace the root's limit with its own. Snapshot accounting includes run definition and input
+snapshots consumed before dispatch. Encoding stops
 before building a complete oversized snapshot, returning a structured non-retryable refusal. The
 root owns the authority's lifetime and closes it on completion; committed cancellation closes new
 admissions across its children, though it does not interrupt child execution already admitted

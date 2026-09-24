@@ -115,51 +115,62 @@ export class NodeLifecycleRunner {
       return budgetCheck;
     }
 
-    const executed = await lifecycle.value.execute(input.input, input.context);
-    if (input.context.signal?.aborted) {
+    const reserved = input.context.rootCreditBudget?.reserve(estimated.value.estimatedCredits);
+    if (reserved && !reserved.ok) {
       await lifecycle.value.dispose(input.context);
-      return cancellation();
-    }
-    if (!executed.ok) {
-      await lifecycle.value.dispose(input.context);
-      return executed;
+      return reserved;
     }
 
-    const validatedOutput = await lifecycle.value.validateOutput(executed.value, input.context);
-    if (input.context.signal?.aborted) {
-      await lifecycle.value.dispose(input.context);
-      return cancellation();
-    }
-    if (!validatedOutput.ok) {
-      await lifecycle.value.dispose(input.context);
-      return validatedOutput;
-    }
+    try {
+      const executed = await lifecycle.value.execute(input.input, input.context);
+      if (input.context.signal?.aborted) {
+        await lifecycle.value.dispose(input.context);
+        return cancellation();
+      }
+      if (!executed.ok) {
+        await lifecycle.value.dispose(input.context);
+        return executed;
+      }
 
-    const disposed = await lifecycle.value.dispose(input.context);
-    if (input.context.signal?.aborted) return cancellation();
-    if (!disposed.ok) {
+      const validatedOutput = await lifecycle.value.validateOutput(executed.value, input.context);
+      if (input.context.signal?.aborted) {
+        await lifecycle.value.dispose(input.context);
+        return cancellation();
+      }
+      if (!validatedOutput.ok) {
+        await lifecycle.value.dispose(input.context);
+        return validatedOutput;
+      }
+
+      const disposed = await lifecycle.value.dispose(input.context);
+      if (input.context.signal?.aborted) return cancellation();
+      if (!disposed.ok) {
+        return {
+          ok: false,
+          error: buildTaskExecutionError(
+            'DAG_TASK_EXECUTION_DISPOSE_FAILED',
+            'Node dispose step failed after execution',
+            false,
+            {
+              nodeType: input.context.nodeDefinition.nodeType,
+              taskRunId: input.context.taskRunId,
+            },
+          ),
+        };
+      }
+
+      reserved?.value.commit();
       return {
-        ok: false,
-        error: buildTaskExecutionError(
-          'DAG_TASK_EXECUTION_DISPOSE_FAILED',
-          'Node dispose step failed after execution',
-          false,
-          {
-            nodeType: input.context.nodeDefinition.nodeType,
-            taskRunId: input.context.taskRunId,
-          },
-        ),
+        ok: true,
+        value: {
+          output: executed.value,
+          estimatedCredits: estimated.value.estimatedCredits,
+          totalCredits: budgetCheck.value,
+        },
       };
+    } finally {
+      if (reserved?.ok) reserved.value.release();
     }
-
-    return {
-      ok: true,
-      value: {
-        output: executed.value,
-        estimatedCredits: estimated.value.estimatedCredits,
-        totalCredits: budgetCheck.value,
-      },
-    };
   }
 }
 

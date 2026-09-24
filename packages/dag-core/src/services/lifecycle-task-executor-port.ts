@@ -62,6 +62,7 @@ export class LifecycleTaskExecutorPort implements ITaskExecutorPort {
         executionRoot: input.executionRoot,
         regexReplaceOperation: input.regexReplaceOperation,
         snapshotBudget: input.snapshotBudget,
+        rootCreditBudget: input.rootCreditBudget,
         ...(input.byteLimits === undefined ? {} : { byteLimits: input.byteLimits }),
         ...(input.signal === undefined ? {} : { signal: input.signal }),
         dagId: input.dagId,

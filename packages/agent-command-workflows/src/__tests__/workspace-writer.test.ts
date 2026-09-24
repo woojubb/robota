@@ -1,7 +1,7 @@
 import { mkdtemp, rm, stat, realpath } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createPromptBackedNodeDefinition,
   createCompositeInstantNodeDefinition,
@@ -12,6 +12,7 @@ import type {
   IDagNodeDefinition,
   INodeExecutionContext,
 } from '@robota-sdk/dag-core';
+import { RootCreditBudget } from '@robota-sdk/dag-core';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import { saveInstantNodeFile as saveInstantNodeFileWithProject } from '../persistence/workspace-writer.js';
 import { loadInstantNodes as loadInstantNodesWithProject } from '../persistence/instant-node-loader.js';
@@ -142,11 +143,16 @@ describe('DATA-003 saveInstantNodeFile', () => {
       expect(node, 'composite must survive reload (not be dropped)').toBeDefined();
 
       // 3. The reloaded composite RUNS its inner DAG for real and flows its exposed output out.
+      const context = makeExecContext(node!);
+      const rootCreditBudget = new RootCreditBudget(1);
+      const reserve = vi.spyOn(rootCreditBudget, 'reserve');
+      context.rootCreditBudget = rootCreditBudget;
       const runResult = await node!.taskHandler.execute(
         { text: 'trigger' },
-        makeExecContext(node!),
+        context,
       );
       expect(runResult.ok).toBe(true);
+      expect(reserve).toHaveBeenCalledWith(0);
       if (runResult.ok) {
         expect(runResult.value['result']).toBe('from-inner-dag');
       }
