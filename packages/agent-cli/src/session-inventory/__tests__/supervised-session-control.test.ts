@@ -1,5 +1,5 @@
 import { chmodSync, existsSync, mkdtempSync, mkdirSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
-import { createConnection } from 'node:net';
+import { createConnection, createServer, type Socket } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -15,6 +15,37 @@ const ID = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
 const INCOMPLETE_ID = 'fe2c7f72-ecb3-4a05-9bb1-2563ec80e615';
 
 describe('supervised session control', () => {
+  it('aborts an in-flight listing probe and closes its control socket', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-abrt-'));
+    const root = join(scratch, 'supervised');
+    const control = await startSupervisedControl(ID, () => undefined, root);
+    const socketName = readdirSync(root).find((name) => name.endsWith('.sock'))!;
+    const socketPath = join(root, socketName);
+    rmSync(socketPath);
+    let accepted: Socket | undefined;
+    let sawRequest: () => void = () => undefined;
+    const requestSeen = new Promise<void>((resolve) => { sawRequest = resolve; });
+    const hanging = createServer((socket) => {
+      accepted = socket;
+      socket.once('data', sawRequest);
+    });
+    await new Promise<void>((resolve) => hanging.listen(socketPath, resolve));
+    try {
+      const abort = new AbortController();
+      const listing = listSupervisedSessions(root, abort.signal);
+      await requestSeen;
+      const closed = new Promise<void>((resolve) => accepted!.once('close', () => resolve()));
+      abort.abort();
+      await expect(listing).rejects.toThrow(/abort/i);
+      await closed;
+    } finally {
+      accepted?.destroy();
+      await new Promise<void>((resolve) => hanging.close(() => resolve()));
+      await control.close();
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
   it('reports only current content-free activity and keeps initialization or shutdown unknown', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-activity-'));
     const root = join(scratch, 'supervised');

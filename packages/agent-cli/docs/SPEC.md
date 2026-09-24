@@ -65,7 +65,12 @@ launching terminal; the session list reports only content-free activity and live
 never session content, launch environment, or provider credentials. Unverified identity, a missing
 control response, initialization, or shutdown read as `unknown`; `idle` means only that the session
 is initialized with no pending question and is not executing, not that another CLI can attach or
-submit a prompt. A damaged registration is shown as unavailable without hiding healthy sessions,
+submit a prompt. The terminal-height `session view` navigates and refreshes that same global
+supervised inventory without joining peer or saved-record identities, exposing content or unverified
+project paths, or implying that an exited process completed successfully. Observation ends and
+in-flight probes are cancelled when the view closes, without stopping the supervised sessions;
+screen-reader selection remains usable across repeated choices, and non-interactive callers use the
+finite `session list` instead. A damaged registration is shown as unavailable without hiding healthy sessions,
 and a stop request acts only
 through the live owner's control endpoint, failing explicitly rather than guessing when ownership or
 completion cannot be established. Attach, peek, and automatic restart are not offered, and the
