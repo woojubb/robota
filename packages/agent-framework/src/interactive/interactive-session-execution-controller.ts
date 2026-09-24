@@ -263,6 +263,7 @@ export class SessionExecutionController {
         }
       | undefined;
     const providerCallEntries: IHistoryEntry<IProviderCallTraceEntry>[] = [];
+    const seenProviderCallIds = new Set<string>();
     const toolBodyEntries: IHistoryEntry<IToolBodyTraceEntry>[] = [];
     const closePromptRoot = (outcome: 'success' | 'failure' | 'interrupted'): void => {
       if (!promptRoot || promptRoot.endedAt) return;
@@ -341,6 +342,13 @@ export class SessionExecutionController {
         },
         onProviderCallCompleted: (observation) => {
           if (!promptRoot) return;
+          if (observation.callId) {
+            if (seenProviderCallIds.has(observation.callId)) return;
+            seenProviderCallIds.add(observation.callId);
+          }
+          const spanId = observation.callId
+            ? observation.callId.replaceAll('-', '').slice(0, 16)
+            : randomOtelId(8);
           providerCallEntries.push({
             id: `provider_call_trace_${randomOtelId(8)}`,
             timestamp: new Date(),
@@ -349,11 +357,24 @@ export class SessionExecutionController {
             data: {
               traceId: promptRoot.traceId,
               parentSpanId: promptRoot.spanId,
-              spanId: randomOtelId(8),
+              spanId,
               startedAt: observation.startedAt,
               endedAt: observation.endedAt,
               outcome: observation.outcome,
               round: observation.round,
+              ...(observation.callId && { callId: observation.callId }),
+              ...(observation.disposition && { disposition: observation.disposition }),
+              ...(observation.providerId && { providerId: observation.providerId }),
+              ...(observation.modelId && { modelId: observation.modelId }),
+              ...(observation.usageProvenance && { usageProvenance: observation.usageProvenance }),
+              ...(observation.usageProvenance === 'complete' &&
+                observation.promptTokens !== undefined &&
+                observation.completionTokens !== undefined &&
+                observation.totalTokens !== undefined && {
+                  promptTokens: observation.promptTokens,
+                  completionTokens: observation.completionTokens,
+                  totalTokens: observation.totalTokens,
+                }),
             },
           });
         },

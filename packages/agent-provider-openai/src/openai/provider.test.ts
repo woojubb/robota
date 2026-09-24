@@ -209,6 +209,7 @@ describe('OpenAIProvider', () => {
         completionTokens: 3,
         totalTokens: 7,
       });
+      expect(result.metadata?.['usageProvenance']).toBe('complete');
       expect(client.responses.create).toHaveBeenCalledWith(
         expect.objectContaining({
           model: 'gpt-4o',

@@ -435,6 +435,7 @@ describe('QwenProvider', () => {
     );
     expect(result.content).toBe('Search-backed answer');
     expect(result.metadata?.['providerToolMode']).toBe('qwen_responses');
+    expect(result.metadata?.['usageProvenance']).toBe('complete');
     expect(result.metadata?.['providerBuiltInToolsEnabled']).toEqual(['web_search']);
     expect(result.metadata?.['providerBuiltInToolsUsed']).toEqual(['web_search']);
     expect(result.metadata?.['qwenWebSearchCalls']).toBe(1);

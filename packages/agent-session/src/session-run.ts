@@ -247,6 +247,38 @@ export async function executeRun(
               startedAt: observation['startedAt'],
               endedAt: observation['endedAt'],
               outcome: observation['outcome'],
+              ...(typeof observation['callId'] === 'string' &&
+                /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(observation['callId']) &&
+                { callId: observation['callId'] }),
+              ...((observation['disposition'] === 'invoked' ||
+                observation['disposition'] === 'cache-hit' ||
+                observation['disposition'] === 'preflight-refused') &&
+                { disposition: observation['disposition'] }),
+              ...(typeof observation['providerId'] === 'string' &&
+                observation['providerId'].length > 0 && observation['providerId'].length <= 128 &&
+                [...observation['providerId']].every((char) => char.charCodeAt(0) >= 32) &&
+                { providerId: observation['providerId'] }),
+              ...(typeof observation['modelId'] === 'string' &&
+                observation['modelId'].length > 0 && observation['modelId'].length <= 128 &&
+                [...observation['modelId']].every((char) => char.charCodeAt(0) >= 32) &&
+                { modelId: observation['modelId'] }),
+              ...((observation['usageProvenance'] === 'complete' ||
+                observation['usageProvenance'] === 'partial' ||
+                observation['usageProvenance'] === 'absent') &&
+                { usageProvenance: observation['usageProvenance'] }),
+              ...(observation['usageProvenance'] === 'complete' &&
+                typeof observation['promptTokens'] === 'number' &&
+                Number.isSafeInteger(observation['promptTokens']) && observation['promptTokens'] >= 0 &&
+                typeof observation['completionTokens'] === 'number' &&
+                Number.isSafeInteger(observation['completionTokens']) && observation['completionTokens'] >= 0 &&
+                typeof observation['totalTokens'] === 'number' &&
+                Number.isSafeInteger(observation['totalTokens']) &&
+                observation['totalTokens'] === observation['promptTokens'] + observation['completionTokens'] &&
+                {
+                  promptTokens: observation['promptTokens'],
+                  completionTokens: observation['completionTokens'],
+                  totalTokens: observation['totalTokens'],
+                }),
             });
           }
         }

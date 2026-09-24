@@ -259,6 +259,7 @@ function convertStreamChunk(chunk: GenerateContentResponse): TUniversalMessage |
         promptTokens: usageMetadata.promptTokenCount,
         completionTokens: usageMetadata.candidatesTokenCount,
         totalTokens: usageMetadata.totalTokenCount,
+        usageProvenance: 'complete',
       },
     };
   }

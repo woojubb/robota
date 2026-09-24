@@ -47,6 +47,8 @@ export async function streamAndAssemble(
   let currentToolName = '';
   let currentToolJson = '';
   let usage = { input_tokens: 0, output_tokens: 0 };
+  let sawUsageStart = false;
+  let sawUsageEnd = false;
   let model = '';
   let stopReason: string | null = null;
 
@@ -64,6 +66,7 @@ export async function streamAndAssemble(
       switch (event.type) {
         case 'message_start':
           usage = event.message.usage;
+          sawUsageStart = true;
           model = event.message.model;
           break;
 
@@ -124,6 +127,7 @@ export async function streamAndAssemble(
         case 'message_delta':
           if (event.usage) {
             usage.output_tokens = event.usage.output_tokens;
+            sawUsageEnd = true;
           }
           stopReason = event.delta.stop_reason;
           break;
@@ -156,6 +160,9 @@ export async function streamAndAssemble(
     inputTokens: usage.input_tokens,
     outputTokens: usage.output_tokens,
     model,
+    ...((sawUsageStart || sawUsageEnd) && {
+      usageProvenance: sawUsageStart && sawUsageEnd && stopReason ? 'complete' : 'partial',
+    }),
   };
   if (stopReason) {
     result.metadata['stopReason'] = stopReason;
@@ -188,6 +195,7 @@ function buildPartialResult(
     outputTokens: usage.output_tokens,
     model,
     stopReason: 'aborted',
+    usageProvenance: 'partial',
   };
   return partialResult;
 }

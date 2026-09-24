@@ -109,6 +109,14 @@ describe('executeRun real-time context updates (BEHAVIOR-002)', () => {
           startedAt: '2026-09-24T00:00:59.100Z',
           endedAt: '2026-09-24T00:00:59.900Z',
           outcome: 'failure',
+          callId: '123e4567-e89b-42d3-a456-426614174000',
+          disposition: 'invoked',
+          providerId: 'openai',
+          modelId: 'gpt-4o',
+          usageProvenance: 'complete',
+          promptTokens: 100,
+          completionTokens: 50,
+          totalTokens: 150,
           messages: ['private prompt'],
           response: 'private response',
         });
@@ -126,6 +134,14 @@ describe('executeRun real-time context updates (BEHAVIOR-002)', () => {
       startedAt: '2026-09-24T00:00:59.100Z',
       endedAt: '2026-09-24T00:00:59.900Z',
       outcome: 'failure',
+      callId: '123e4567-e89b-42d3-a456-426614174000',
+      disposition: 'invoked',
+      providerId: 'openai',
+      modelId: 'gpt-4o',
+      usageProvenance: 'complete',
+      promptTokens: 100,
+      completionTokens: 50,
+      totalTokens: 150,
     });
   });
 

@@ -39,7 +39,7 @@ describe('interactive session usage summaries', () => {
     const result = buildResult('done', sessionHistory, [], 0, CONTEXT_STATE);
 
     expect(result.usage).toEqual({
-      kind: 'exact',
+      kind: 'estimated',
       scope: 'turn',
       promptTokens: 100,
       completionTokens: 50,
@@ -51,9 +51,7 @@ describe('interactive session usage summaries', () => {
     });
   });
 
-  // SELFHOST-004 TC-06: extractTurnUsage resolves the turn's model id and populates costUsd via the
-  // model-pricing SSOT (exact input/output split), flipping costStatus 'unknown' → 'exact'.
-  it('TC-06: populates costUsd + flips costStatus to exact for a priced model', () => {
+  it('prices only complete, actual provider calls and labels table-derived cost estimated', () => {
     const sessionHistory: TUniversalMessage[] = [
       { id: 'u1', role: 'user', content: 'hi', state: 'complete', timestamp: new Date() },
       {
@@ -67,10 +65,38 @@ describe('interactive session usage summaries', () => {
     ];
 
     // gpt-4o = $2.5/M input, $10/M output → (100/1e6)*2.5 + (50/1e6)*10 = 0.00075.
-    const result = buildResult('done', sessionHistory, [], 0, CONTEXT_STATE, undefined, 'gpt-4o');
+    const result = buildResult('done', sessionHistory, [], 0, CONTEXT_STATE, undefined, 'gpt-4o', [{
+      callId: '123e4567-e89b-42d3-a456-426614174000',
+      round: 1,
+      startedAt: new Date().toISOString(),
+      endedAt: new Date().toISOString(),
+      outcome: 'success',
+      disposition: 'invoked',
+      modelId: 'gpt-4o',
+      usageProvenance: 'complete',
+      promptTokens: 100,
+      completionTokens: 50,
+      totalTokens: 150,
+    }]);
 
-    expect(result.usage?.costStatus).toBe('exact');
+    expect(result.usage?.costStatus).toBe('estimated');
     expect(result.usage?.costUsd).toBeCloseTo(0.00075, 10);
+  });
+
+  it('sums distinct rounds in one turn and prices each verified model separately', () => {
+    const stamp = new Date().toISOString();
+    const sessionHistory: TUniversalMessage[] = [
+      { id: 'a1', role: 'assistant', content: 'first', state: 'complete', timestamp: new Date(), metadata: { usageObservationId: 'turn-1', round: 1, inputTokens: 100, outputTokens: 50 } },
+      { id: 'a2', role: 'assistant', content: 'second', state: 'complete', timestamp: new Date(), metadata: { usageObservationId: 'turn-1', round: 2, inputTokens: 200, outputTokens: 100 } },
+    ];
+    const calls = [
+      { callId: '123e4567-e89b-42d3-a456-426614174000', round: 1, startedAt: stamp, endedAt: stamp, outcome: 'success' as const, disposition: 'invoked' as const, modelId: 'gpt-4o', usageProvenance: 'complete' as const, promptTokens: 100, completionTokens: 50, totalTokens: 150 },
+      { callId: '223e4567-e89b-42d3-a456-426614174000', round: 2, startedAt: stamp, endedAt: stamp, outcome: 'success' as const, disposition: 'invoked' as const, modelId: 'gpt-4o-mini', usageProvenance: 'complete' as const, promptTokens: 200, completionTokens: 100, totalTokens: 300 },
+    ];
+    const result = buildResult('done', sessionHistory, [], 0, CONTEXT_STATE, undefined, 'gpt-4o', calls);
+    expect(result.usage).toMatchObject({ promptTokens: 300, completionTokens: 150, totalTokens: 450, costStatus: 'estimated' });
+    expect(result.usage?.costUsd).toBeCloseTo(0.00084, 8);
+    expect(buildResult('done', sessionHistory, [], 0, CONTEXT_STATE, undefined, 'gpt-4o', [calls[0]!]).usage?.costStatus).toBe('unknown');
   });
 
   it('TC-06: leaves costUsd absent + costStatus unknown for an unpriced model', () => {

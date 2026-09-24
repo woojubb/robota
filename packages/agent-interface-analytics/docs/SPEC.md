@@ -26,8 +26,9 @@ what counts as a turn, not how cost is derived, not what a report should contain
 A canonical usage observation may also carry an optional prompt-execution root identity, describing
 only the prompt call through its first terminal callback, not final turn settlement — that
 first-callback outcome may later differ from the observation's turn outcome. Related child-span
-entries (provider-call, tool-body) carry the same root linkage and timing but no prompt, response,
-tool, user, or session content, and neither implies that any detached background work completed.
+entries (provider-call, tool-body) carry the same root linkage and timing; a provider-call child may
+also carry only attested usage evidence for a table-derived cost estimate, never prompt, response, tool,
+user, or session content, and neither child implies that detached background work completed.
 Older observations without this identity remain valid.
 
 **Zero dependencies by design.** Every field of every declaration here is a primitive or another
@@ -47,4 +48,5 @@ how it relates to the types here.
 
 This package declares no error type and throws nothing. `IUsageSnapshot.costStatus` distinguishes
 `unknown` / `estimated` / `exact`, which is a statement about **confidence in a measurement**, not a
-failure — an unpriced model yields `unknown` and no `costUsd`, and that is a normal outcome.
+failure — local price-table calculations are estimates even for an exact model ID, while an unpriced
+model yields `unknown` and no `costUsd`.

@@ -160,7 +160,17 @@ function buildAssistantMessage(input: {
     timestamp: new Date(),
     ...(input.toolCalls.length > 0 && { toolCalls: input.toolCalls }),
     ...(input.response?.usage !== undefined && { usage: mapUsage(input.response.usage) }),
-    metadata: buildMetadata(input.response, input.reasoning),
+    metadata: {
+      ...buildMetadata(input.response, input.reasoning),
+      ...(input.response?.usage !== undefined && {
+        usageProvenance:
+          input.response.usage.input_tokens !== undefined &&
+          input.response.usage.output_tokens !== undefined &&
+          input.response.usage.total_tokens !== undefined
+            ? 'complete'
+            : 'partial',
+      }),
+    },
   };
 }
 

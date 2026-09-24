@@ -66,6 +66,10 @@ export function createOtlpPromptEvents(
   }
   const observedTimeUnixNano = observedUnixNano(observedAt);
   const logRecords: IOtlpLogRecord[] = spans.map((span) => {
+    const outcomeAttribute = span.attributes.find((attribute) =>
+      attribute.key === 'robota.prompt.outcome' ||
+      attribute.key === 'robota.provider.outcome' ||
+      attribute.key === 'robota.tool.outcome');
     const eventName: TEventName =
       span.name === 'robota.prompt_execution'
         ? 'robota.prompt_execution.completed'
@@ -82,7 +86,9 @@ export function createOtlpPromptEvents(
       eventName,
       traceId: span.traceId,
       spanId: span.spanId,
-      attributes: span.attributes,
+      attributes: outcomeAttribute && 'stringValue' in outcomeAttribute.value
+        ? [{ key: outcomeAttribute.key, value: { stringValue: outcomeAttribute.value.stringValue } }]
+        : [],
     };
   });
   return {

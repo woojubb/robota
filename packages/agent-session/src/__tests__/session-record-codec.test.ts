@@ -397,6 +397,14 @@ describe('decodeInteractiveSessionRecord — TC-02 a maximal record round-trips'
       endedAt: '2026-08-01T00:00:01.900Z',
       outcome: 'failure',
       round: 1,
+      callId: '123e4567-e89b-42d3-a456-426614174000',
+      disposition: 'invoked',
+      providerId: 'openai',
+      modelId: 'gpt-4o',
+      usageProvenance: 'complete',
+      promptTokens: 100,
+      completionTokens: 50,
+      totalTokens: 150,
     };
     record.history!.push({
       id: 'provider-call-trace-1',

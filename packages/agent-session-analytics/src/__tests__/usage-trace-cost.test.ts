@@ -72,7 +72,7 @@ describe('SELFHOST-004 TC-01 — cost-by-source + span timeline', () => {
     });
 
     expect(report.costUsd).toBeCloseTo(0.035, 6);
-    expect(report.costExact).toBe(true);
+    expect(report.costExact).toBe(false);
     const main = report.bySource.find((s) => s.label === 'main thread');
     const w1 = report.bySource.find((s) => s.label === 'worker 1');
     expect(main?.costUsd).toBeCloseTo(0.03, 6);

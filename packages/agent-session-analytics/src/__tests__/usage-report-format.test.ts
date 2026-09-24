@@ -53,7 +53,7 @@ describe('SELFHOST-004 TC-05 — formatUsageReport renders cost + trace timeline
     });
     const text = formatUsageReport(report);
 
-    expect(text).toContain('cost $0.0300');
+    expect(text).toContain('cost ~$0.0300');
     expect(text).toContain('main thread');
     // per-source cost column present
     expect(text).toMatch(/main thread.*\$0\.0300/);

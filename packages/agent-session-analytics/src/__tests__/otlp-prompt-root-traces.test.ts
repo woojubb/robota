@@ -222,6 +222,31 @@ describe('content-free OTLP prompt root trace projection', () => {
     expect(JSON.stringify(result.payload)).not.toMatch(/secret|providerPayload|response/);
   });
 
+  it('adds only verified numeric usage and estimated cost to an accepted provider span', () => {
+    const session = record('secret-session', [root()]);
+    session.history!.push({
+      id: 'provider', timestamp: new Date('2026-09-24T00:01:00.000Z'), category: 'event',
+      type: 'provider-call-trace', data: {
+        traceId: TRACE_ID, parentSpanId: SPAN_ID, spanId: 'abcdef1234567890',
+        startedAt: '2026-09-24T00:00:59.100Z', endedAt: '2026-09-24T00:00:59.900Z',
+        outcome: 'success', round: 1, disposition: 'invoked', usageProvenance: 'complete',
+        providerId: 'secret-provider', modelId: 'gpt-4o', callId: 'secret-call',
+        promptTokens: 100, completionTokens: 50, totalTokens: 150,
+      },
+    });
+    const result = createOtlpPromptRootTraces([session], 'test-version');
+    expect(result.callMetrics).toMatchObject({ invoked: 1, completeUsage: 1, inputTokens: 100, outputTokens: 50, estimatedCostUsd: 0.00075, exactPriceMatches: 1 });
+    expect(spans(result)[1]?.attributes).toContainEqual({ key: 'robota.provider.usage.input_tokens', value: { intValue: '100' } });
+    expect(spans(result)[1]?.attributes).toContainEqual({ key: 'robota.provider.cost.usd.estimated', value: { doubleValue: 0.00075 } });
+    expect(JSON.stringify(result.payload)).not.toMatch(/secret|gpt-4o|callId|modelId|providerId/);
+
+    (session.history![1]!.data as Record<string, unknown>)['totalTokens'] = 999;
+    const invalid = createOtlpPromptRootTraces([session], 'test-version');
+    expect(invalid.coverage.providerUsage.invalid).toBe(1);
+    expect(invalid.coverage.providerChildren.exported).toBe(1);
+    expect(spans(invalid)[1]?.attributes).toEqual([{ key: 'robota.provider.outcome', value: { stringValue: 'success' } }]);
+  });
+
   it('exports a verified tool body child but no recorded arguments or results', () => {
     const session = record('secret-session', [root()]);
     session.history!.push({
