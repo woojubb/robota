@@ -423,6 +423,13 @@ export function createDagRuntimeServer(
       ? c.json({ ok: true, status: 200, data: result.value }, 200)
       : runFailure(c, result.error, `/v1/dag/runs/${id}/start`);
   });
+  app.post('/v1/dag/runs/:id/cancel', async (c) => {
+    const id = c.req.param('id');
+    const result = await runs.cancelRun(id);
+    return result.ok
+      ? c.json({ ok: true, status: 200, data: result.value }, 200)
+      : runFailure(c, result.error, `/v1/dag/runs/${id}/cancel`);
+  });
   app.get('/v1/dag/runs/:id', async (c) => {
     const id = c.req.param('id');
     const result = await runs.getRun(id);

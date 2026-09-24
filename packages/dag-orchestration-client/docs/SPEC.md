@@ -24,6 +24,9 @@ This package is consumed by command-line and MCP clients that call a DAG orchest
 - Run lifecycle is a domain capability for in-process callers; this package's orchestration port
   remains a transport-only contract for the concrete remote HTTP client. In-process frameworks
   do not implement it or construct HTTP response envelopes.
+- Remote run cancellation uses the same encoded run identity and server-owned success/problem
+  envelope as creation, start, and reads. A transport success is not inferred from aborting a
+  client-side watcher.
 - Asset upload, metadata, and content-download URL methods belong to a transport-specific asset port, not the general orchestration port. In-process consumers use `IAssetStore` from `dag-core` instead.
 - Binary asset content is intentionally not fetched or buffered by this client. Consumers locate the streaming endpoint via the client and own their transport-specific byte handling and output formatting.
 - The fetch implementation is injectable, so tests, CLIs, MCP servers, and alternate runtimes can supply their own fetch-compatible implementation.

@@ -28,6 +28,9 @@ zero external runtime-server process dependencies.
 - The in-process framework does not create HTTP response envelopes. Its run lifecycle owns the
   implicit definition create/publish needed before a manually prepared run; the runtime server
   maps those outcomes to HTTP. Asset storage and byte streaming remain separate capabilities.
+- The run lifecycle delegates cancellation to the same committed-state authority as local execution.
+  The HTTP runtime provider sends a cancel request to the native server and rejects a non-successful
+  response; it does not treat stopping a status watcher as run cancellation.
 - The diagnostics dead-letter-reinject port this composition wires has no queue to drain and
   reports that explicitly; it must never report success in a way that reads as "the queue is
   empty," which would misstate a queue the composition does not have.

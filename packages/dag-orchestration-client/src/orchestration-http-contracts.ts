@@ -190,6 +190,7 @@ export interface IDagOrchestrationPublishedWorkflowRunSuccessPayload extends IDa
 export interface IDagOrchestrationPort {
   createRun(input: IDagOrchestrationCreateRunInput): Promise<IDagOrchestrationHttpResponse>;
   startRun(preparationId: string): Promise<IDagOrchestrationHttpResponse>;
+  cancelRun(dagRunId: string): Promise<IDagOrchestrationHttpResponse>;
   getRunStatus(dagRunId: string): Promise<IDagOrchestrationHttpResponse>;
   getRunResult(dagRunId: string): Promise<IDagOrchestrationHttpResponse>;
   startPublishedWorkflowRun(
