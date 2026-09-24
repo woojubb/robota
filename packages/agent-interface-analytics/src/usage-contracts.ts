@@ -78,6 +78,16 @@ export interface IProviderCallTraceEntry {
   round: number;
 }
 
+/** The awaited body of one permitted tool call under a persisted prompt root. */
+export interface IToolBodyTraceEntry {
+  traceId: string;
+  parentSpanId: string;
+  spanId: string;
+  startedAt: string;
+  endedAt: string;
+  outcome: 'success' | 'failure' | 'interrupted';
+}
+
 export interface IPersonalUsageRequest {
   period: '7d' | '30d';
   /** IANA timezone used to assign observations to local calendar days. */

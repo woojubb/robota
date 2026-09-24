@@ -14,6 +14,11 @@ export const PROVIDER_CALL_EVENTS = {
   COMPLETED: 'provider_call_completed',
 } as const;
 
+/** Content-free completion of the body actually awaited by one permitted tool call. */
+export const TOOL_BODY_EVENTS = {
+  COMPLETED: 'tool_body_completed',
+} as const;
+
 export const SPAN_EVENT_PREFIX = 'span' as const;
 
 export type TSpanEvent = (typeof SPAN_EVENTS)[keyof typeof SPAN_EVENTS];

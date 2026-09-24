@@ -32,5 +32,10 @@ export {
 export { TASK_EVENTS, TASK_EVENT_PREFIX } from './task-events';
 export { USER_EVENTS, USER_EVENT_PREFIX } from './user-events';
 export type { TUserEvent } from './user-events';
-export { PROVIDER_CALL_EVENTS, SPAN_EVENTS, SPAN_EVENT_PREFIX } from './span-events';
+export {
+  PROVIDER_CALL_EVENTS,
+  TOOL_BODY_EVENTS,
+  SPAN_EVENTS,
+  SPAN_EVENT_PREFIX,
+} from './span-events';
 export type { TSpanEvent, ISpanCompletionEventData } from './span-events';

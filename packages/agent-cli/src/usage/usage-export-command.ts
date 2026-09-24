@@ -178,7 +178,7 @@ export async function executeUsageExportCommand(
     signal === 'traces' ? createOtlpPromptRootTraces(snapshot.records, version) : undefined;
   if (traces && traces.coverage.exported === 0) {
     return invalid(
-      `No valid prompt root traces to export (missing ${traces.coverage.missing}, invalid ${traces.coverage.invalid}, duplicate ${traces.coverage.duplicate}; provider children orphaned ${traces.coverage.providerChildren.orphaned}).`,
+      `No valid prompt root traces to export (missing ${traces.coverage.missing}, invalid ${traces.coverage.invalid}, duplicate ${traces.coverage.duplicate}; provider children orphaned ${traces.coverage.providerChildren.orphaned}, tool children orphaned ${traces.coverage.toolChildren.orphaned}).`,
     );
   }
   const payload =
@@ -212,7 +212,7 @@ export async function executeUsageExportCommand(
   return {
     exitCode: 0,
     stdout: traces
-      ? `Exported ${traces.coverage.exported} prompt root trace(s) and ${traces.coverage.providerChildren.exported} provider child span(s) to loopback collector (roots missing ${traces.coverage.missing}, invalid ${traces.coverage.invalid}, duplicate ${traces.coverage.duplicate}; children invalid ${traces.coverage.providerChildren.invalid}, orphaned ${traces.coverage.providerChildren.orphaned}, duplicate ${traces.coverage.providerChildren.duplicate}).\n`
+      ? `Exported ${traces.coverage.exported} prompt root trace(s), ${traces.coverage.providerChildren.exported} provider child span(s), and ${traces.coverage.toolChildren.exported} tool child span(s) to loopback collector (roots missing ${traces.coverage.missing}, invalid ${traces.coverage.invalid}, duplicate ${traces.coverage.duplicate}; provider children invalid ${traces.coverage.providerChildren.invalid}, orphaned ${traces.coverage.providerChildren.orphaned}, duplicate ${traces.coverage.providerChildren.duplicate}; tool children invalid ${traces.coverage.toolChildren.invalid}, orphaned ${traces.coverage.toolChildren.orphaned}, duplicate ${traces.coverage.toolChildren.duplicate}).\n`
       : 'Exported OTLP usage snapshot to loopback collector.\n',
     stderr: '',
   };

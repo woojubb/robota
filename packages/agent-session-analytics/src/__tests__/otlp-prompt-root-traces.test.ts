@@ -222,6 +222,73 @@ describe('content-free OTLP prompt root trace projection', () => {
     expect(JSON.stringify(result.payload)).not.toMatch(/secret|providerPayload|response/);
   });
 
+  it('exports a verified tool body child but no recorded arguments or results', () => {
+    const session = record('secret-session', [root()]);
+    session.history!.push({
+      id: 'tool-event',
+      timestamp: new Date('2026-09-24T00:00:59.900Z'),
+      category: 'event',
+      type: 'tool-body-trace',
+      data: {
+        traceId: TRACE_ID,
+        parentSpanId: SPAN_ID,
+        spanId: 'abcdef1234567890',
+        startedAt: '2026-09-24T00:00:59.100Z',
+        endedAt: '2026-09-24T00:00:59.900Z',
+        outcome: 'failure',
+        toolArgs: 'secret argument',
+        toolResult: 'secret result',
+      },
+    });
+    const result = createOtlpPromptRootTraces([session], 'test-version');
+    expect(result.coverage.toolChildren).toEqual({
+      exported: 1,
+      invalid: 0,
+      orphaned: 0,
+      duplicate: 0,
+    });
+    expect(spans(result)[1]).toMatchObject({
+      traceId: TRACE_ID,
+      parentSpanId: SPAN_ID,
+      spanId: 'abcdef1234567890',
+      name: 'robota.tool_body',
+      status: { code: 2 },
+    });
+    expect(JSON.stringify(result.payload)).not.toMatch(/secret|toolArgs|toolResult/);
+  });
+
+  it('refuses malformed, orphaned, out-of-root and duplicate tool children', () => {
+    const session = record('session', [root()]);
+    const addTool = (spanId: string, overrides: Record<string, unknown> = {}) => {
+      session.history!.push({
+        id: `tool-${session.history!.length}`,
+        timestamp: new Date('2026-09-24T00:00:59.900Z'),
+        category: 'event',
+        type: 'tool-body-trace',
+        data: {
+          traceId: TRACE_ID,
+          parentSpanId: SPAN_ID,
+          spanId,
+          startedAt: '2026-09-24T00:00:59.100Z',
+          endedAt: '2026-09-24T00:00:59.900Z',
+          outcome: 'success',
+          ...overrides,
+        },
+      });
+    };
+    addTool('aaaaaaaaaaaaaaaa', { endedAt: 'bad' });
+    addTool('bbbbbbbbbbbbbbbb', { parentSpanId: 'cccccccccccccccc' });
+    addTool('cccccccccccccccc', { endedAt: '2026-09-24T00:01:00.001Z' });
+    addTool('dddddddddddddddd');
+    addTool('dddddddddddddddd', { endedAt: 'bad' });
+    expect(createOtlpPromptRootTraces([session], 'test-version').coverage.toolChildren).toEqual({
+      exported: 0,
+      invalid: 2,
+      orphaned: 1,
+      duplicate: 2,
+    });
+  });
+
   it('excludes orphaned, duplicate and out-of-root children while keeping a valid failure', () => {
     const session = record('session', [root()]);
     const child = (spanId: string, overrides: Record<string, unknown> = {}) => ({

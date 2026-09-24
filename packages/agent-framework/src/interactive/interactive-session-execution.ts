@@ -12,6 +12,7 @@ import {
   isAbortFailure,
   SPAN_EVENTS,
   PROVIDER_CALL_EVENTS,
+  TOOL_BODY_EVENTS,
 } from '@robota-sdk/agent-core';
 
 import type { IExecutionResult, IToolSummary, IUsageSnapshot } from './types.js';
@@ -171,8 +172,15 @@ export interface ISpanCollector {
   /** The span entries observed since subscription, in emit order. */
   readonly entries: IHistoryEntry<ISpanEntry>[];
   readonly providerCalls: IProviderCallTraceObservation[];
+  readonly toolBodies: IToolBodyTraceObservation[];
   /** Unsubscribe from the bus (idempotent). */
   dispose(): void;
+}
+
+export interface IToolBodyTraceObservation {
+  readonly startedAt: string;
+  readonly endedAt: string;
+  readonly outcome: 'success' | 'failure' | 'interrupted';
 }
 
 /**
@@ -185,7 +193,24 @@ export interface ISpanCollector {
 export function collectSpanEntries(eventService: IEventService): ISpanCollector {
   const entries: IHistoryEntry<ISpanEntry>[] = [];
   const providerCalls: IProviderCallTraceObservation[] = [];
+  const toolBodies: IToolBodyTraceObservation[] = [];
   const listener: TEventListener = (eventType, data) => {
+    if (eventType === `tool.${TOOL_BODY_EVENTS.COMPLETED}`) {
+      if (
+        typeof data['startedAt'] === 'string' &&
+        typeof data['endedAt'] === 'string' &&
+        (data['outcome'] === 'success' ||
+          data['outcome'] === 'failure' ||
+          data['outcome'] === 'interrupted')
+      ) {
+        toolBodies.push({
+          startedAt: data['startedAt'],
+          endedAt: data['endedAt'],
+          outcome: data['outcome'],
+        });
+      }
+      return;
+    }
     if (eventType === PROVIDER_CALL_EVENTS.COMPLETED) {
       if (
         typeof data['round'] === 'number' &&
@@ -213,6 +238,7 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
   return {
     entries,
     providerCalls,
+    toolBodies,
     dispose: () => eventService.unsubscribe(listener),
   };
 }

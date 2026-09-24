@@ -11,6 +11,7 @@ export type {
   IUsageBySourceReport,
   IUsageObservation,
   IProviderCallTraceEntry,
+  IToolBodyTraceEntry,
   TUsageSurface,
   IPersonalUsageRequest,
   IPersonalUsageTotals,

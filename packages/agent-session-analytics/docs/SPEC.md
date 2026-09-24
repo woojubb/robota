@@ -29,9 +29,9 @@ lifecycle/persistence (`agent-session`) and from any CLI shell.
 - Explicit prompt-root trace projection reads only canonical observations carrying a complete,
   valid root identity and first terminal-callback outcome. It cannot infer roots from legacy
   summaries or tool events, and excludes duplicate or contradictory roots instead of choosing
-  one. Explicit provider-call children are included only when their validated trace/parent IDs
+  one. Explicit provider-call and awaited tool-body children are included only when their validated trace/parent IDs
   match an accepted root in the same record and their times fit within it; malformed, orphaned,
-  and duplicate children are counted rather than inferred or repaired. It emits no content or
+  and duplicate children (including cross-kind ID collisions) are counted rather than inferred or repaired. It emits no content or
   session identity; the CLI owns loopback delivery and user-visible coverage. These partial spans
   are not proof of final turn settlement or an end-to-end distributed trace.
 

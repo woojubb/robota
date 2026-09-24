@@ -65,7 +65,7 @@ neither conversation content nor stored-session identity is inferred from the pe
 **Explicit local OTLP export (#2726).** `robota usage export` reads the same authorized user and
 project session stores as local usage reporting. Its default signal sends aggregate, non-additive
 usage Gauges; an explicit trace signal sends verified prompt-execution roots and any causally
-linked, content-free provider-call children. Both go
+linked, content-free provider-call and awaited tool-body children. Both go
 only to a caller-named loopback OTLP/HTTP JSON collector. Neither auto-exports or sends transcript,
 tool names, session identity, or provider/model labels. An incomplete store or collector partial
 rejection fails visibly. Missing or malformed old roots are counted but never synthesized. A trace

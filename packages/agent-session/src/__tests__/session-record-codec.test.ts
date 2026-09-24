@@ -405,11 +405,27 @@ describe('decodeInteractiveSessionRecord — TC-02 a maximal record round-trips'
       type: 'provider-call-trace',
       data: child,
     });
+    const toolChild = {
+      traceId: root.promptExecutionTraceId,
+      parentSpanId: root.promptExecutionSpanId,
+      spanId: 'fedcba0987654321',
+      startedAt: '2026-08-01T00:00:01.200Z',
+      endedAt: '2026-08-01T00:00:01.800Z',
+      outcome: 'success',
+    };
+    record.history!.push({
+      id: 'tool-body-trace-1',
+      timestamp: new Date('2026-08-01T00:00:01.800Z'),
+      category: 'event',
+      type: 'tool-body-trace',
+      data: toolChild,
+    });
 
     const outcome = decodeInteractiveSessionRecord(JSON.parse(JSON.stringify(record)));
     if (outcome.status !== 'valid') throw new Error('expected valid');
-    expect(outcome.record.history?.at(-2)?.data).toEqual(root);
-    expect(outcome.record.history?.at(-1)?.data).toEqual(child);
+    expect(outcome.record.history?.at(-3)?.data).toEqual(root);
+    expect(outcome.record.history?.at(-2)?.data).toEqual(child);
+    expect(outcome.record.history?.at(-1)?.data).toEqual(toolChild);
   });
 });
 
