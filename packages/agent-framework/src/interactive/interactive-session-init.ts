@@ -6,8 +6,6 @@
  * Session restore logic lives in interactive-session-restore.ts.
  */
 
-import { homedir } from 'node:os';
-
 import { createLogger } from '@robota-sdk/agent-core';
 
 import { buildCreateSessionOptions } from './create-session-projection.js';
@@ -30,7 +28,6 @@ import {
   mergePluginHooksWithSources,
   mergeHooksIntoConfig,
 } from '../plugins/plugin-hooks-merger.js';
-import { pluginsDirUnder } from '../plugins/plugin-scope-paths.js';
 
 import type {
   IInteractiveSessionStandardOptions,
@@ -96,8 +93,10 @@ export async function createInteractiveSession(
   // Project plugins may contain executable hooks. Include that scope only after the host has
   // granted workspace trust; a restricted session still sees user-installed plugins.
   const pluginsDirs = [
-    ...(options.projectAccess?.status === 'trusted' ? [pluginsDirUnder(cwd)] : []),
-    pluginsDirUnder(homedir()),
+    ...(options.projectAccess?.status === 'trusted' && options.pluginDirectories?.project !== undefined
+      ? [options.pluginDirectories.project]
+      : []),
+    ...(options.pluginDirectories?.user !== undefined ? [options.pluginDirectories.user] : []),
   ];
   // PLG-021 / issue #2025: built through the composition root so a disabled plugin's hooks do not
   // load. The bare constructor defaults the enablement map to `{}`, which reads as "nothing
@@ -279,6 +278,9 @@ export async function initializeInteractiveSessionAsync(
     ...(options.agentDefinitions ? { agentDefinitions: options.agentDefinitions } : {}),
     ...(options.agentDefinitionRoots !== undefined
       ? { agentDefinitionRoots: options.agentDefinitionRoots }
+      : {}),
+    ...(options.pluginDirectories !== undefined
+      ? { pluginDirectories: options.pluginDirectories }
       : {}),
     ...(options.commandModules ? { commandModules: options.commandModules } : {}),
     ...(checkpointStore !== undefined ? { editCheckpointRecorder: checkpointStore } : {}),

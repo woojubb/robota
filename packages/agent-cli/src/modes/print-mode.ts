@@ -69,6 +69,7 @@ export async function runPrintMode(
   orgPolicy?: IOrgPolicy,
   providerErrorGuidance?: IProviderErrorGuidance,
   agentDefinitionRoots?: readonly string[],
+  pluginDirectories?: { readonly user?: string; readonly project?: string },
   projectSettingsPaths?: readonly IProjectSettingsPath[],
   userSettingsSources?: readonly INodeHostSettingsSource[],
 ): Promise<void> {
@@ -159,6 +160,7 @@ export async function runPrintMode(
     subagentRunnerFactory,
     ...(agentDefinitions.length > 0 ? { agentDefinitions } : {}),
     ...(agentDefinitionRoots !== undefined ? { agentDefinitionRoots } : {}),
+    ...(pluginDirectories !== undefined ? { pluginDirectories } : {}),
     ...(toolOptions.additionalTools !== undefined
       ? { additionalTools: toolOptions.additionalTools }
       : {}),

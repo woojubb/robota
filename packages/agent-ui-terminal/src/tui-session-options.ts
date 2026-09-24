@@ -60,6 +60,9 @@ export function buildTuiSessionOptions(
     ...(opts.agentDefinitionRoots !== undefined
       ? { agentDefinitionRoots: opts.agentDefinitionRoots }
       : {}),
+    ...(opts.pluginDirectories !== undefined
+      ? { pluginDirectories: opts.pluginDirectories }
+      : {}),
     ...(opts.additionalTools !== undefined ? { additionalTools: opts.additionalTools } : {}),
     ...(opts.defaultTools !== undefined ? { defaultTools: opts.defaultTools } : {}),
     commandModules: opts.commandModules,

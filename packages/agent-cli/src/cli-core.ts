@@ -19,6 +19,7 @@ import { loadRobotaExternalPresets, resolveShellPreset } from './startup/preset-
 import type { IShellPresetResolution } from './startup/preset-selection.js';
 import { ROBOTA_DEFAULT_AGENT_NAME } from './product/robota-preset-defaults.js';
 import { ROBOTA_AGENT_DEFINITION_ROOTS } from './product/robota-agent-roots.js';
+import { robotaPluginDirectories } from './product/robota-plugin-paths.js';
 import { ROBOTA_PROJECT_SETTINGS } from './product/robota-project-settings.js';
 import {
   createRobotaUserSettingsSources,
@@ -593,6 +594,7 @@ async function runCliCore(
       orgPolicy,
       providerErrorGuidance,
       ROBOTA_AGENT_DEFINITION_ROOTS,
+      robotaPluginDirectories(cwd, homedir()),
       ROBOTA_PROJECT_SETTINGS,
       createRobotaUserSettingsSources(homedir()),
     );
@@ -618,6 +620,7 @@ async function runCliCore(
       subagentRunnerFactory,
       agentDefinitions,
       agentDefinitionRoots: ROBOTA_AGENT_DEFINITION_ROOTS,
+      pluginDirectories: robotaPluginDirectories(cwd, homedir()),
       projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
       userSettingsSources: createRobotaUserSettingsSources(homedir()),
       ...toolOptions,
@@ -659,6 +662,7 @@ async function runCliCore(
       subagentRunnerFactory,
       agentDefinitions,
       agentDefinitionRoots: ROBOTA_AGENT_DEFINITION_ROOTS,
+      pluginDirectories: robotaPluginDirectories(cwd, homedir()),
       projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
       userSettingsSources: createRobotaUserSettingsSources(homedir()),
       ...toolOptions,
@@ -736,6 +740,7 @@ async function runCliCore(
     subagentRunnerFactory,
     agentDefinitions,
     agentDefinitionRoots: ROBOTA_AGENT_DEFINITION_ROOTS,
+    pluginDirectories: robotaPluginDirectories(cwd, homedir()),
     projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
     userSettingsSources: createRobotaUserSettingsSources(homedir()),
     ...toolOptions,

@@ -6,11 +6,11 @@ import {
   getWorkspaceProjectIdentity,
   loadHostBundlePluginsFromScopes,
   PluginCommandSource,
-  PROJECT_PLUGIN_RELATIVE_DIRECTORY,
 } from '@robota-sdk/agent-framework';
 
 import type { CommandRegistry, TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
+import { ROBOTA_PLUGIN_DIRECTORY } from '../product/robota-plugin-paths.js';
 
 const PLUGIN_SOURCE_NAME = 'plugin';
 
@@ -25,7 +25,7 @@ function getHomeDir(): string {
  * plugin is present in both.
  */
 function pluginsDirUnder(base: string): string {
-  return join(base, PROJECT_PLUGIN_RELATIVE_DIRECTORY);
+  return join(base, ROBOTA_PLUGIN_DIRECTORY);
 }
 
 /**

@@ -92,6 +92,7 @@ export interface IHeadlessInteractionChannelOptions {
   agentDefinitions?: readonly IAgentDefinition[];
   /** Ordered host-owned relative directories for discovered agent definitions. */
   agentDefinitionRoots?: readonly string[];
+  pluginDirectories?: { readonly user?: string; readonly project?: string };
   /**
    * ARCH-006: tools contributed by the composition root (the capability packs `assembleProduct` merged)
    * and, when the profile hands the packs the whole tool surface, the suppressed framework default tier
@@ -210,6 +211,9 @@ export class HeadlessInteractionChannel {
         : {}),
       ...(this.opts.agentDefinitionRoots !== undefined
         ? { agentDefinitionRoots: this.opts.agentDefinitionRoots }
+        : {}),
+      ...(this.opts.pluginDirectories !== undefined
+        ? { pluginDirectories: this.opts.pluginDirectories }
         : {}),
       ...(this.opts.additionalTools !== undefined
         ? { additionalTools: this.opts.additionalTools }
