@@ -19,6 +19,17 @@ const THIRD: ISupervisedViewRow = {
 };
 
 describe('supervised session view', () => {
+  it('announces an active directory filter without printing its path', async () => {
+    const view = render(<SupervisedSessionView loadRows={async () => [FIRST]} filteredByCwd />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(FIRST.id));
+      expect(view.lastFrame()).toContain('Background sessions in selected directory');
+      expect(view.lastFrame()).not.toContain('/private/project');
+    } finally {
+      view.unmount();
+    }
+  });
+
   it('shows a navigable global background list without inventing completion or attach', async () => {
     const view = render(<SupervisedSessionView loadRows={async () => [FIRST, SECOND]} refreshMs={100} />);
     try {

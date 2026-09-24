@@ -28,6 +28,7 @@ import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
 import { areSessionLoopsDisabled, createLoopDefaultPromptResolver } from '../startup/loop-options.js';
 import { homedir } from 'node:os';
+import { realpathSync } from 'node:fs';
 import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
 import type {
   IAgentDefinition,
@@ -286,11 +287,13 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   });
   if (args.supervisedSessionId !== undefined) {
     try {
+      const supervisedCwd = realpathSync(opts.cwd);
       supervisedControl = await startSupervisedControl(
         args.supervisedSessionId,
         () => requestSettle('supervised session stopped'),
         opts.supervisedRoot,
         () => settling ? undefined : host.session.getLocalActivityStatus(),
+        () => settling ? undefined : supervisedCwd,
       );
       if (settling) throw new Error('Supervised runtime stopped before readiness.');
       await acknowledgeSupervisedStartup(args.supervisedSessionId, readinessAbort.signal);
