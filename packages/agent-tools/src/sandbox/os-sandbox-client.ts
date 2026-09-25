@@ -399,7 +399,10 @@ export class OsSandboxClient implements ISandboxClient {
       renameSync(path, destination);
     } catch (error) {
       // The command may have taken away its own write permission (moving a directory needs it)
-      // or the quarantine may be on another filesystem; the owner can always give it back.
+      // or the quarantine may be on another filesystem; the owner can always give it back. Not
+      // while another confined command runs: it could swap a directory for a symlink between the
+      // check and the chmod. The entry is then retried when the last command ends.
+      if (this.inFlight > 0) throw error;
       grantOwnerAccess(path);
       if ((error as NodeJS.ErrnoException).code === 'EXDEV') {
         cpSync(path, destination, { recursive: true, verbatimSymlinks: true });
