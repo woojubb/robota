@@ -22,6 +22,7 @@ import {
 import { TypeUtils } from '@robota-sdk/agent-core';
 import { z } from 'zod/v4';
 
+import { MCPAuthenticationError } from './authentication.js';
 import { discoverAll } from './discovery.js';
 import { MCPStdioError } from './stdio-transport.js';
 import { callTraceRegistryOf, runInCallTraceScope } from './trace-propagation.js';
@@ -31,7 +32,11 @@ import { toUniversalObject } from '../catalog/universal-value.js';
 import type { IMCPDiscovery, IMCPServerIdentity, TMCPCapabilityDomain } from '../catalog/types.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { Implementation, ServerCapabilities } from '@modelcontextprotocol/sdk/types.js';
-import type { IOutboundTraceContext, IUniversalObjectValue, TToolParameters } from '@robota-sdk/agent-core';
+import type {
+  IOutboundTraceContext,
+  IUniversalObjectValue,
+  TToolParameters,
+} from '@robota-sdk/agent-core';
 import type { IMCPDiscoverOptions } from './session-types.js';
 
 /** Protocol versions this legacy-era client accepts. A server answering outside the set is closed, not used. */
@@ -72,13 +77,17 @@ export type TMCPListChangedListener = (domain: TMCPCapabilityDomain) => void;
 export const MCP_EXTERNAL_EVENT_CAPABILITY = 'com.robota.external-event';
 export const MCP_EXTERNAL_EVENT_METHOD = 'notifications/com.robota/external-event';
 
-const externalEventIdentity = z.string().min(1).max(128).refine((value) => {
-  for (const character of value) {
-    const code = character.codePointAt(0)!;
-    if (code < 32 || code === 127 || (code >= 0xd800 && code <= 0xdfff)) return false;
-  }
-  return true;
-});
+const externalEventIdentity = z
+  .string()
+  .min(1)
+  .max(128)
+  .refine((value) => {
+    for (const character of value) {
+      const code = character.codePointAt(0)!;
+      if (code < 32 || code === 127 || (code >= 0xd800 && code <= 0xdfff)) return false;
+    }
+    return true;
+  });
 const ExternalEventNotificationSchema = NotificationSchema.extend({
   method: z.literal(MCP_EXTERNAL_EVENT_METHOD),
   params: z.object({
@@ -217,9 +226,12 @@ function buildDeclaredCapabilities(
 
 function supportsExternalEvents(capabilities: ServerCapabilities | undefined): boolean {
   const declared = capabilities?.experimental?.[MCP_EXTERNAL_EVENT_CAPABILITY];
-  return declared !== null && typeof declared === 'object' &&
+  return (
+    declared !== null &&
+    typeof declared === 'object' &&
     Object.hasOwn(declared, 'version') &&
-    (declared as { version?: unknown }).version === 1;
+    (declared as { version?: unknown }).version === 1
+  );
 }
 
 /** Runs `initialize` within `startupMs`, retaining a typed stdio authority refusal after cleanup. */
@@ -265,6 +277,9 @@ async function connectClient(client: Client, options: IMCPOpenSessionOptions): P
           : 'Stdio session startup failed',
       );
     }
+    // A refused credential stays typed, so the supervisor classifies it `auth` and does not retry
+    // what the server will refuse again.
+    if (error instanceof MCPAuthenticationError) throw error;
     if (isRequestTimeout(error)) {
       throw new MCPSessionError(
         'startup-timeout',
@@ -485,7 +500,9 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
         return () => undefined;
       }
       closeListeners.add(listener);
-      return () => { closeListeners.delete(listener); };
+      return () => {
+        closeListeners.delete(listener);
+      };
     },
     async close(): Promise<void> {
       await closeSession();

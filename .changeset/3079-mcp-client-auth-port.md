@@ -17,6 +17,8 @@ into it without the transport changing.
   - Otherwise the connection is refused with `MCPAuthenticationError`, which is classified as
     `auth`. Neither the credential nor the authenticator's text appears in it.
   - There is never an unauthenticated attempt.
-- **`oauth` and `headersHelper` in a definition** were silently ignored. They are now decoded as
-  `unsupportedAuthentication`: the server stays listed, and admission refuses it by name
-  (`unsupported-authentication`) instead of connecting without the credential.
+- **`oauth` and `headersHelper` in a definition** were silently ignored.
+  - On a remote server they are now decoded as `unsupportedAuthentication`: the server stays
+    listed, and admission refuses it by name (`unsupported-authentication`) instead of connecting
+    without the credential.
+  - On a stdio server they are a definition problem.

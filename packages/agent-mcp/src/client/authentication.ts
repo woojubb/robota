@@ -26,7 +26,11 @@ export interface IMCPAuthorizationRejection {
 }
 
 export interface IMCPClientAuthenticator {
-  /** Headers for one request to this server. They override a static header of the same name. */
+  /**
+   * Headers for one request to this server. They override a static header of the same name — and
+   * could override a protocol header too, which is the host's to avoid: the authenticator is
+   * host-owned, never supplied by a definition.
+   */
   authorize(request: IMCPAuthorizationRequest): Promise<Readonly<Record<string, string>>>;
   /**
    * The server answered 401 or 403. `retry` sends the request once more with fresh authorization;

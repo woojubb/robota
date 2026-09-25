@@ -10,10 +10,10 @@
  * them (TC-09, TC-10, TC-13 … TC-17, TC-22).
  */
 
-import { MCPAuthenticationError } from '../client/authentication.js';
 import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
 
 import { catalogIdentityOf, sameCatalogIdentity } from '../catalog/types.js';
+import { MCPAuthenticationError } from '../client/authentication.js';
 import { MCPSessionError } from '../client/session.js';
 import { MCPStdioError } from '../client/stdio-transport.js';
 import {

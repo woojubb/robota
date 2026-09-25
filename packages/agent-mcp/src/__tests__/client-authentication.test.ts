@@ -6,6 +6,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { MCPAuthenticationError, type IMCPClientAuthenticator } from '../client/authentication.js';
+import { openMcpSession } from '../client/session.js';
 import { createStreamableHttpAdapter } from '../client/transport.js';
 import { decodeEntry } from '../definition/decode.js';
 import { classifyMcpFailure } from '../supervisor/connection.js';
@@ -143,6 +144,45 @@ describe('client authentication port', () => {
     expect(calls).toHaveLength(0);
     expect(error).toBeInstanceOf(MCPAuthenticationError);
     expect(String((error as Error).message)).not.toContain('rt-secret');
+  });
+});
+
+describe('authentication on the connect path', () => {
+  it('reaches the supervisor typed, so a refused credential is classified auth, not retried', async () => {
+    const { fetch: fetchStub } = stubFetch([401, 401]);
+    const adapter = createStreamableHttpAdapter({ fetch: fetchStub, lookup });
+    const admission = await adapter.admit({
+      url: 'https://mcp.example.test/mcp',
+      authentication: {
+        serverId: 'alpha',
+        securityIdentity: 'sid',
+        authenticator: authenticator(),
+      },
+    });
+    if (!admission.ok) throw new Error(admission.message);
+
+    const error = await openMcpSession({
+      serverId: 'alpha',
+      transport: adapter.construct(admission.admitted),
+      timeouts: { startupMs: 2_000, perCallMs: 2_000 },
+    }).then(
+      () => undefined,
+      (caught: unknown) => caught,
+    );
+
+    expect(error).toBeInstanceOf(MCPAuthenticationError);
+    expect(classifyMcpFailure(error)).toBe('auth');
+  });
+
+  it('never quotes a credential the platform refuses as a header value', async () => {
+    const auth = authenticator({
+      authorize: vi.fn(async () => ({ authorization: 'Bearer sec\nret-value' })),
+    });
+    const { calls, error } = await send([202], auth);
+
+    expect(calls).toHaveLength(0);
+    expect(error).toBeInstanceOf(MCPAuthenticationError);
+    expect(String((error as Error).message)).not.toContain('ret-value');
   });
 });
 

@@ -9,8 +9,8 @@
  * Two values, because they answer two questions:
  *
  * - `definitionFingerprint` covers every value that decides what runs or where it connects: the
- *   transport, command, arguments, requested cwd, url, every header and environment entry, and the
- *   timeout. Change any of it — a `NODE_OPTIONS` value included — and a prior approval no longer
+ *   transport, command, arguments, requested cwd, url, every header and environment entry, the
+ *   timeout, and any authentication the definition declares but this version cannot perform. Change any of it — a `NODE_OPTIONS` value included — and a prior approval no longer
  *   describes what would now run.
  * - `securityIdentity` covers where the definition came from — its name, source and origin. Two
  *   entries that run the identical command are still different subjects for approval if one is a
@@ -92,7 +92,10 @@ export function definitionFingerprint(definition: IMCPServerDefinitionResolved):
     ...entryParts('env', definition, definition.env),
     'timeout',
     definition.timeout === undefined ? '' : String(definition.timeout),
-    ...listParts('unsupportedAuthentication', definition.unsupportedAuthentication ?? []),
+    // Only when declared, so every definition without it keeps the fingerprint it had.
+    ...(definition.unsupportedAuthentication === undefined
+      ? []
+      : listParts('unsupportedAuthentication', definition.unsupportedAuthentication)),
   ]);
 }
 

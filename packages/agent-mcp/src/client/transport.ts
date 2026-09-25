@@ -243,22 +243,25 @@ async function authorizedHeaders(
   admitted: IMCPAdmittedHttpEndpoint,
   bound: IMCPBoundAuthenticator,
 ): Promise<Headers> {
-  let credential: Readonly<Record<string, string>>;
   try {
-    credential = await bound.authenticator.authorize({
+    const credential = await bound.authenticator.authorize({
       serverId: bound.serverId,
       securityIdentity: bound.securityIdentity,
       url: admitted.url,
       ...(init?.signal ? { signal: init.signal } : {}),
     });
-  } catch (error) {
-    // A cancelled request stays a cancellation; anything else is reported without its text.
-    if (init?.signal?.aborted === true) throw error;
+    const headers = new Headers(init?.headers);
+    // Inside the try: an invalid header value makes `Headers` throw an error that quotes it.
+    for (const [name, value] of Object.entries(credential)) headers.set(name, value);
+    return headers;
+  } catch {
+    // Reported without the authenticator's or the platform's text, which may quote a credential.
+    // A cancelled request stays a cancellation.
+    if (init?.signal?.aborted === true) {
+      throw new DOMException('The MCP request was cancelled', 'AbortError');
+    }
     throw new MCPAuthenticationError('authorize-failed');
   }
-  const headers = new Headers(init?.headers);
-  for (const [name, value] of Object.entries(credential)) headers.set(name, value);
-  return headers;
 }
 
 /**
@@ -278,6 +281,8 @@ async function fetchAuthenticated(
   const first = await send(await authorizedHeaders(init, admitted, bound));
   if (!refused(first)) return first;
   const wwwAuthenticate = first.headers.get('www-authenticate');
+  // The refusal's body is never read; release the connection now rather than at collection.
+  await first.body?.cancel().catch(() => undefined);
   let answer: 'retry' | 'fail';
   try {
     answer = await bound.authenticator.onRejected({
@@ -291,7 +296,10 @@ async function fetchAuthenticated(
     init?.body === undefined || init.body === null || typeof init.body === 'string';
   if (answer !== 'retry' || !replayable) throw new MCPAuthenticationError('rejected');
   const second = await send(await authorizedHeaders(init, admitted, bound));
-  if (refused(second)) throw new MCPAuthenticationError('rejected');
+  if (refused(second)) {
+    await second.body?.cancel().catch(() => undefined);
+    throw new MCPAuthenticationError('rejected');
+  }
   return second;
 }
 
