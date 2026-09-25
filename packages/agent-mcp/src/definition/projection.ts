@@ -11,7 +11,7 @@
  */
 
 import { isDisabled } from './overlay.js';
-import { withoutSecrets } from './secrecy.js';
+import { displayArgs, displayValue } from './secrecy.js';
 
 import type {
   IMCPOAuthConfig,
@@ -25,8 +25,8 @@ export const REDACTED = '[REDACTED]';
 /**
  * A definition as it may be shown, with `env` and `headers` VALUES redacted.
  *
- * Stdio command, args and cwd are redacted wholesale because templates can expand credentials
- * into any of them. A projection never needs those values to report activation status.
+ * Command, args, cwd and url stay readable with every secret stretch replaced — what a
+ * credential-shaped variable expanded into them, and any literal that has a credential's shape.
  */
 export interface IMCPDefinitionProjection {
   readonly name: string;
@@ -64,9 +64,10 @@ function redactValues(record: Readonly<Record<string, string>>): Record<string, 
 /**
  * Project one resolved entry.
  *
- * `url` stays readable: it is the server's address, which the operator must be able to read to tell
- * two servers apart. Only its secret stretches — what a credential-shaped variable expanded into
- * it — are replaced, by the same rule the fingerprint uses.
+ * `url` and the command line stay readable: they are what the operator tells two servers apart by.
+ * Only their secret stretches are replaced — what a credential-shaped variable expanded into them,
+ * and literals that look like credentials (a URL password, a credential-named query parameter or
+ * flag value, a known token format, a long high-entropy run).
  */
 export function projectEntry(entry: IMCPResolvedEntry): IMCPDefinitionProjection {
   const definition = entry.definition;
@@ -88,26 +89,14 @@ export function projectEntry(entry: IMCPResolvedEntry): IMCPDefinitionProjection
   if (definition !== undefined) {
     projection.transport = definition.transport;
     if (definition.command !== undefined) {
-      projection.command =
-        definition.transport === 'stdio'
-          ? REDACTED
-          : withoutSecrets(definition, 'command', definition.command);
+      projection.command = displayValue(definition, 'command', definition.command);
     }
-    if (definition.args !== undefined) {
-      projection.args =
-        definition.transport === 'stdio'
-          ? definition.args.map(() => REDACTED)
-          : definition.args.map((arg, index) => withoutSecrets(definition, `args[${index}]`, arg));
-    }
-    if (definition.cwd !== undefined) {
-      projection.cwd =
-        definition.transport === 'stdio'
-          ? REDACTED
-          : withoutSecrets(definition, 'cwd', definition.cwd);
-    }
+    if (definition.args !== undefined) projection.args = displayArgs(definition, definition.args);
+    if (definition.cwd !== undefined)
+      projection.cwd = displayValue(definition, 'cwd', definition.cwd);
     if (definition.env !== undefined) projection.env = redactValues(definition.env);
     if (definition.url !== undefined)
-      projection.url = withoutSecrets(definition, 'url', definition.url);
+      projection.url = displayValue(definition, 'url', definition.url);
     if (definition.headers !== undefined) projection.headers = redactValues(definition.headers);
     if (definition.timeout !== undefined) projection.timeout = definition.timeout;
     if (definition.oauth !== undefined) projection.oauth = definition.oauth;

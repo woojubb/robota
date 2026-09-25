@@ -29,7 +29,7 @@
 
 import { createHash } from 'node:crypto';
 
-import { withoutSecrets } from './secrecy.js';
+import { displayArgs, displayValue, maskCredentials, withoutSecrets } from './secrecy.js';
 
 import type { IMCPResolvedEntry, IMCPServerDefinitionResolved } from './types.js';
 
@@ -137,27 +137,25 @@ function displayArgument(part: string): string {
 }
 
 /**
- * The endpoint an activation names: the URL, or for stdio the command line — each with its secret
- * stretches replaced, because it lands in activation requests and audit records. A URL whose
- * headers come from a helper names the helper beside it, so whoever approves sees where the
- * helper's output is sent. One function, so the registry that builds a request and the transport
- * that re-checks it agree.
+ * The endpoint an activation names: the URL, or for stdio the command line — each as a projection
+ * prints it, with secret stretches and credential-shaped literals replaced, because it lands in
+ * activation requests and audit records. A URL whose headers come from a helper names the helper
+ * beside it, so whoever approves sees where the helper's output is sent. One deterministic
+ * function, so the registry that builds a request and the transport that re-checks it agree.
  */
 export function activationEndpoint(definition: IMCPServerDefinitionResolved): string {
   if (definition.url !== undefined) {
-    const url = withoutSecrets(definition, 'url', definition.url);
+    const url = displayValue(definition, 'url', definition.url);
     const helper = definition.headersHelper;
     if (helper === undefined) return url;
-    return `${url} (headers from ${[helper.command, ...helper.args].map(displayArgument).join(' ')})`;
+    const argv = [helper.command, ...helper.args].map((part) =>
+      displayArgument(maskCredentials(part)),
+    );
+    return `${url} (headers from ${argv.join(' ')})`;
   }
   const command =
-    definition.command === undefined
-      ? ''
-      : withoutSecrets(definition, 'command', definition.command);
-  const args = (definition.args ?? []).map((arg, index) =>
-    withoutSecrets(definition, `args[${index}]`, arg),
-  );
-  return [command, ...args].join(' ').trim();
+    definition.command === undefined ? '' : displayValue(definition, 'command', definition.command);
+  return [command, ...displayArgs(definition, definition.args ?? [])].join(' ').trim();
 }
 
 /** Which configured subject this is — name, source, origin. */

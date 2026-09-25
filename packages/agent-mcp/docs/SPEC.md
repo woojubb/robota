@@ -94,11 +94,15 @@ false`; every `DEFAULT_INHERITED_ENV_VARS` key is explicitly shadowed rather tha
   value that decides what runs or where it connects, env and header values included, with each
   secret replaced by a marker naming its source. A changed `NODE_OPTIONS` value or a changed host
   invalidates an approval on every transport; rotating a credential does not.
-- **Nothing printed carries a secret**: the activation endpoint and a projected URL show their
-  secret stretches replaced, and transport errors name origins only. Redacted projections carry
-  `env`/`header` KEYS but never VALUES, because "configured but redacted" and "no header" must
-  remain distinguishable answers; stdio command, argv and cwd are redacted wholesale, because a
-  literal credential there has no variable or key to reveal it.
+- **Nothing printed carries a secret**: the activation endpoint and a projected command line, cwd
+  and URL stay readable, because they are how an operator tells servers apart, with only their
+  secret stretches replaced — what a credential-shaped variable expanded, and any literal a
+  credential's shape gives away. That shape test is a guess, so it serves display only and never
+  the fingerprint: two different literal tokens mask alike, and a fingerprint blind to a changed
+  token would carry an old approval over to it. Transport errors name origins only. Projections
+  carry `env`/`header` KEYS but never VALUES: the key alone tells servers apart, "configured but
+  redacted" and "no header" must remain distinguishable answers, and a value there is too often a
+  credential of no recognisable shape.
 - **A session is stateless about liveness by contract.** The SDK has no cancellation
   acknowledgment, so an abort or timeout of an active stdio request closes the direct child rather
   than pretending the in-flight call can be cancelled cleanly; a failed tool call is never replayed

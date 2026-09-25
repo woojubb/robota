@@ -107,6 +107,7 @@ function mapHttpError(statusCode: number, responseText: string): TProviderMediaR
         code: 'PROVIDER_AUTH_ERROR',
         message: parsedError.message ?? 'Bytedance authentication failed.',
         details: parsedError.details,
+        status: statusCode,
       },
     };
   }
@@ -117,6 +118,7 @@ function mapHttpError(statusCode: number, responseText: string): TProviderMediaR
         code: 'PROVIDER_JOB_NOT_FOUND',
         message: parsedError.message ?? 'Bytedance video job was not found.',
         details: parsedError.details,
+        status: statusCode,
       },
     };
   }
@@ -127,6 +129,7 @@ function mapHttpError(statusCode: number, responseText: string): TProviderMediaR
         code: 'PROVIDER_JOB_NOT_CANCELLABLE',
         message: parsedError.message ?? 'Bytedance video job cannot be cancelled in current state.',
         details: parsedError.details,
+        status: statusCode,
       },
     };
   }
@@ -137,6 +140,7 @@ function mapHttpError(statusCode: number, responseText: string): TProviderMediaR
         code: 'PROVIDER_RATE_LIMITED',
         message: parsedError.message ?? 'Bytedance rate limit exceeded.',
         details: parsedError.details,
+        status: statusCode,
       },
     };
   }
@@ -147,6 +151,7 @@ function mapHttpError(statusCode: number, responseText: string): TProviderMediaR
         code: 'PROVIDER_INVALID_REQUEST',
         message: parsedError.message ?? 'Bytedance rejected request payload.',
         details: parsedError.details,
+        status: statusCode,
       },
     };
   }
@@ -156,6 +161,7 @@ function mapHttpError(statusCode: number, responseText: string): TProviderMediaR
       code: 'PROVIDER_UPSTREAM_ERROR',
       message: parsedError.message ?? 'Bytedance upstream request failed.',
       details: parsedError.details,
+      status: statusCode,
     },
   };
 }

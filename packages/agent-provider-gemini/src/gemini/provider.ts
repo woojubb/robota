@@ -5,6 +5,7 @@ import {
   AbstractAIProvider,
   createModelEffortOutcome,
   PERMISSIVE_TOOL_SCHEMA_PROFILE,
+  toProviderError,
   traceHeadersFor,
 } from '@robota-sdk/agent-core';
 
@@ -131,8 +132,7 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
       this.publishModelEffortOutcome(resolvedOptions);
       return response;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Google API request failed';
-      throw new Error(`Google chat failed: ${errorMessage}`);
+      throw toProviderError(error, 'gemini', 'Google chat failed');
     }
   }
 
@@ -185,8 +185,7 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
       );
       this.publishModelEffortOutcome(resolvedOptions);
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Google API request failed';
-      throw new Error(`Google stream failed: ${errorMessage}`);
+      throw toProviderError(error, 'gemini', 'Google stream failed');
     }
   }
 

@@ -223,7 +223,7 @@ describe('GeminiProvider - chat error paths', () => {
           model: 'gemini-pro',
         },
       ),
-    ).rejects.toThrow('Google chat failed: Google API request failed');
+    ).rejects.toThrow('Google chat failed: string error');
   });
 
   it('passes tools as function declarations', async () => {
@@ -472,7 +472,12 @@ describe('GeminiProvider - chatStream', () => {
     expect((response as IAssistantMessage).toolCalls).toEqual([
       { id: 'call_1', type: 'function', function: { name: 'lookup', arguments: '{"q":"Gemini"}' } },
     ]);
-    expect(response.metadata).toEqual({ promptTokens: 4, completionTokens: 7, totalTokens: 11, usageProvenance: 'complete' });
+    expect(response.metadata).toEqual({
+      promptTokens: 4,
+      completionTokens: 7,
+      totalTokens: 11,
+      usageProvenance: 'complete',
+    });
   });
 
   it('rejects unsupported native web tools in chat and chatStream', async () => {
