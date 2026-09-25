@@ -51,21 +51,35 @@ export function useKeybindingHints<TContext extends TKeybindingContext>(
   return keybindingHints(useKeybindings(), context, actions);
 }
 
-export function useKeybindingActions<TContext extends TKeybindingContext>(
+export function useKeybindingActions<
+  TContext extends TKeybindingContext,
+  TFallback extends TKeybindingContext = TContext,
+>(
   context: TContext,
   handler: (
-    actions: readonly TKeybindingAction<TContext>[],
+    actions: readonly (TKeybindingAction<TContext> | TKeybindingAction<TFallback>)[],
     input: string,
     key: IKeyInput,
     consumed: boolean,
+    resolvedContext: TContext | TFallback,
   ) => void,
-  options: { readonly isActive?: boolean } = {},
+  options: {
+    readonly isActive?: boolean;
+    /**
+     * A key `context` does not bind is resolved again here, so a surface layered over an editor (the
+     * autocomplete menu over the chat input) leaves every key it does not use to the editor's bindings.
+     */
+    readonly fallbackContext?: TFallback;
+  } = {},
 ): void {
   const snapshot = useKeybindings();
   const stateRef = useRef<IChordState>(createEmptyChordState());
+  const fallbackStateRef = useRef<IChordState>(createEmptyChordState());
+  const { fallbackContext } = options;
   useEffect(() => {
     stateRef.current = createEmptyChordState();
-  }, [context, snapshot.generation]);
+    fallbackStateRef.current = createEmptyChordState();
+  }, [context, fallbackContext, snapshot.generation]);
   useInput(
     (input, key) => {
       const result = resolveKeybindingInput({
@@ -77,11 +91,32 @@ export function useKeybindingActions<TContext extends TKeybindingContext>(
         now: Date.now(),
       });
       stateRef.current = result.state;
-      handler(
-        result.actions as readonly TKeybindingAction<TContext>[],
+      if (fallbackContext === undefined || result.consumed) {
+        fallbackStateRef.current = createEmptyChordState();
+        handler(
+          result.actions as readonly TKeybindingAction<TContext>[],
+          input,
+          key,
+          result.consumed,
+          context,
+        );
+        return;
+      }
+      const fallback = resolveKeybindingInput({
+        snapshot,
+        state: fallbackStateRef.current,
+        context: fallbackContext,
         input,
         key,
-        result.consumed,
+        now: Date.now(),
+      });
+      fallbackStateRef.current = fallback.state;
+      handler(
+        fallback.actions as readonly TKeybindingAction<TFallback>[],
+        input,
+        key,
+        fallback.consumed,
+        fallbackContext,
       );
     },
     { isActive: options.isActive ?? true },
