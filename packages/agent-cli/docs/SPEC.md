@@ -180,8 +180,8 @@ the ordinary executable does not auto-approve package-runner commands. An OAuth 
 only from the user's own per-server `robota mcp login`, kept owner-only under the user's Robota
 home. Sign-in is a terminal command only, never a session command, because it needs the terminal a
 session owns for the browser, a pasted redirect or a secret; a command Robota tells the user to run
-quotes the server name for the shell and leaves out a name a terminal cannot show faithfully, since
-a repository chooses that name. The authorization page opens by argv and only for an `https` URL,
+names the server only when its name is safe to paste into any shell, since a repository chooses that
+name and quoting rules differ between shells. The authorization page opens by argv and only for an `https` URL,
 and a client secret or pasted redirect is asked for without echo, never read from an argument or a
 definition.
 

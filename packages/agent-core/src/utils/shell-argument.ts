@@ -1,21 +1,16 @@
 /**
- * One argument of a command the user is told to paste into a POSIX shell, when it comes from text
- * someone else controls — a server name from a repository's settings, say.
+ * One argument of a command the user is told to paste into a shell, when it comes from text someone
+ * else controls — a server name from a repository's settings, say.
  *
- * A plain token is shown as it is; anything else is single-quoted, so no `;`, `$()`, backtick or
- * space in it can start another command. A value with a control or format character is not shown
- * at all: a newline, an escape sequence or a bidirectional override can make what the terminal
- * displays differ from what is pasted, and no quoting fixes that.
+ * It is shown only when it is a plain token that reads the same in every shell and cannot be taken
+ * for an option or an assignment. Nothing is quoted: quoting rules differ between shells (in fish a
+ * backslash escapes inside single quotes), so a quoted name safe in one shell runs a command in
+ * another. Anything else is not shown, and the caller names the argument generically instead.
  */
 
-const PLAIN_ARGUMENT = /^[A-Za-z0-9_@%+=:,./-]+$/;
-/** C0 and C1 controls, DEL, line and paragraph separators, and every format character. */
-// eslint-disable-next-line no-control-regex -- matching control characters is the point
-const UNSHOWABLE = /[\u0000-\u001f\u007f-\u009f\u2028\u2029\p{Cf}]/u;
+const PLAIN_ARGUMENT = /^[A-Za-z0-9_@%+:,./][A-Za-z0-9_@%+=:,./-]*$/;
 
-/** The argument as it is safe to paste, or `undefined` when it cannot be shown faithfully. */
+/** The argument as it is safe to paste, or `undefined` when it is not. */
 export function shellArgumentForDisplay(value: string): string | undefined {
-  if (value === '' || UNSHOWABLE.test(value)) return undefined;
-  if (PLAIN_ARGUMENT.test(value)) return value;
-  return `'${value.replace(/'/g, `'\\''`)}'`;
+  return PLAIN_ARGUMENT.test(value) ? value : undefined;
 }

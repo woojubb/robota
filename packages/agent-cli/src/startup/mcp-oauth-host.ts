@@ -29,19 +29,30 @@ export function mcpCredentialDirectory(home?: string): string {
   return join(userLocalStorageRoot(home), 'mcp-credentials');
 }
 
+/** What JSON leaves unescaped but a terminal would act on or hide: DEL, C1 controls, separators, format characters. */
+const INVISIBLE = /[\u007f-\u009f\u2028\u2029\p{Cf}]/gu;
+
+/** A name a repository chose, quoted, with every control and format character escaped. */
+function quotedName(name: string): string {
+  return JSON.stringify(name).replace(
+    INVISIBLE,
+    (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`,
+  );
+}
+
 /** What the user is told; the server's name and scope tokens only. */
 export function formatMcpOAuthNotice(notice: TMCPOAuthNotice): string {
   if (notice.kind === 'login-required') {
-    // A repository may name the server: quoted for the shell, or left out of the command when it
-    // cannot be shown faithfully.
+    // A repository may name the server: it goes into the command only when it is safe to paste.
     const argument = shellArgumentForDisplay(notice.serverId);
     return argument === undefined
       ? 'An MCP server whose name cannot be shown safely needs you to sign in: run robota mcp login <server>'
       : `MCP server ${argument} needs you to sign in: run robota mcp login ${argument}`;
   }
+  const name = quotedName(notice.serverId);
   return notice.scope === undefined
-    ? `MCP server "${notice.serverId}" refused the request: the signed-in account lacks a required scope.`
-    : `MCP server "${notice.serverId}" refused the request: it requires the scope "${notice.scope}".`;
+    ? `MCP server ${name} refused the request: the signed-in account lacks a required scope.`
+    : `MCP server ${name} refused the request: it requires the scope "${notice.scope}".`;
 }
 
 export function createMcpOAuthHost(options: {

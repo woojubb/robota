@@ -50,7 +50,7 @@ const USAGE = 'Usage: /mcp [status] | /mcp <approve|reject|revoke|logout> <serve
 
 /**
  * The terminal command that signs in to one server. Its name comes from a definition a repository
- * may write: it is quoted for the shell, and a name that cannot be shown faithfully is left out.
+ * may write, so it is shown only when it is safe to paste into any shell; otherwise it is left out.
  */
 function signInHint(serverId: string): string {
   const argument = shellArgumentForDisplay(serverId);

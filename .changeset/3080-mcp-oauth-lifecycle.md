@@ -36,8 +36,10 @@ signing out of it with token revocation, and each server's sign-in state in `/mc
 - **No in-session sign-in:** signing in stays `robota mcp login <server>` in a terminal, since it
   needs the terminal (browser, pasted redirect, hidden secret prompt) a running session owns. `/mcp`
   names that command for a server that needs a sign-in, as does the session's sign-in notice; the
-  server name is shown unquoted only as a plain shell token, single-quoted otherwise, and left out
-  when it holds a control or format character (`shellArgumentForDisplay` in `agent-core`).
+  server name is shown there only when it is safe to paste into any shell — a plain token not
+  starting with `-` or `=` — and is otherwise replaced by `<server>` (`shellArgumentForDisplay` in
+  `agent-core`; nothing is quoted, since quoting rules differ between shells). Server names in OAuth
+  notices have control and format characters escaped.
 - **Refresh hardening:** on `invalid_grant`, the store is read again under the lock; a refresh token
   another holder rotated in meanwhile is kept (and used when still valid) instead of being deleted.
   The expiry skew is capped at half the token's lifetime, so a short-lived token is not refreshed on

