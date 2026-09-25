@@ -94,7 +94,7 @@ describe('the parent rules a subagent inherits (issue #3081)', () => {
       getFullHistory: vi.fn().mockReturnValue([]),
     };
     mocks.createSubagentSession.mockReturnValue(session);
-    let live = { allow: ['Read(*)'], deny: [], ask: [] as string[] };
+    let live: IResolvedConfig['permissions'] = { allow: ['Read(*)'], deny: [], ask: [] };
     const runner = createInProcessSubagentRunner({
       ...deps(),
       config: {
