@@ -227,6 +227,25 @@ export type {
   IAppearanceSettings,
   TAppearanceSettingsPatch,
 } from './commands/index.js';
+export {
+  ADVISOR_OFF,
+  ADVISOR_TOOL_NAME,
+  AdvisorController,
+  createAdvisorTool,
+  formatAdvisorSpec,
+  parseAdvisorSpec,
+  resolveStartupAdvisorSpec,
+} from './advisor/index.js';
+export type {
+  IAdvisorConsentStore,
+  IAdvisorControllerOptions,
+  IAdvisorSetResult,
+  IAdvisorSpec,
+  IAdvisorStatus,
+  IAdvisorTarget,
+  ICommandAdvisorAdapter,
+  TAdvisorTargetResolver,
+} from './advisor/index.js';
 export { parseModelEffort, resolveModelEffort } from './effort/index.js';
 export type {
   IModelEffortInputs,

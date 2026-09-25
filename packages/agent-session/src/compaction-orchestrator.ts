@@ -9,6 +9,8 @@ import { randomUUID } from 'node:crypto';
 
 import { runHooks } from '@robota-sdk/agent-core';
 
+import { formatConversationEntries } from './conversation-transcript.js';
+
 import type { TCompactTrigger } from './session-types.js';
 import type {
   IAIProvider,
@@ -168,12 +170,7 @@ export class CompactionOrchestrator {
     const instructionBlock = instructions ?? this.compactInstructions ?? '';
     const instructionSection = instructionBlock ? `\nAdditional focus:\n${instructionBlock}\n` : '';
 
-    const formattedHistory = history
-      .map((msg) => {
-        const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
-        return `${msg.role}: ${content}`;
-      })
-      .join('\n');
+    const formattedHistory = formatConversationEntries(history).join('\n');
 
     return [
       this.basePrompt ?? DEFAULT_COMPACTION_PROMPT,

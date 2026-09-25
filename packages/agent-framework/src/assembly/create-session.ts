@@ -9,6 +9,7 @@ import { applyPresetToolLists } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
 
 import { sandboxApprovalFor } from './sandbox-approval.js';
+import { labelAdvisorToolStart } from '../advisor/advisor-tool.js';
 import { createModelPermissionClassifier } from './model-permission-classifier.js';
 
 import { assembleSessionTools } from './assemble-session-tools.js';
@@ -133,7 +134,8 @@ export async function createSession(
     ? skillCommandSource.getModelInvocableSkills()
     : [];
 
-  const { tools } = await assembleSessionTools(options, cwd);
+  let assembledSession: Session | undefined;
+  const { tools } = await assembleSessionTools(options, cwd, () => assembledSession);
   if (
     modelCommandToolsEnabled &&
     options.modelCommandExecutor !== undefined &&
@@ -270,7 +272,10 @@ export async function createSession(
     ...(onProjectAllowTool === undefined ? {} : { onProjectAllowTool }),
     onTextDelta: options.onTextDelta,
     onContextUpdate: options.onContextUpdate,
-    onToolExecution: options.onToolExecution,
+    onToolExecution:
+      options.onToolExecution === undefined
+        ? undefined
+        : (event) => options.onToolExecution?.(labelAdvisorToolStart(tools, event)),
     promptForApproval: options.promptForApproval,
     onCompact: options.onCompact,
     onCompactEvent: options.onCompactEvent,
@@ -287,6 +292,7 @@ export async function createSession(
     ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
     ...(options.maxOutputTokens !== undefined ? { maxOutputTokens: options.maxOutputTokens } : {}),
   });
+  assembledSession = session;
   wireSessionDeps(session, agentToolDeps, backgroundProcessToolDeps, backgroundTaskManager);
 
   return { session, rebuildSystemMessage };

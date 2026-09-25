@@ -11,12 +11,14 @@
 import { assertResidentToolRemains } from '@robota-sdk/agent-core';
 import { createToolSearchTool, routesFilesThroughSandbox } from '@robota-sdk/agent-tools';
 
+import { bindAdvisorTools } from '../advisor/advisor-tool.js';
 import { wrapEditCheckpointTools } from '../checkpoints/edit-checkpoint-tools.js';
 import { createGoalStatusTool } from '../goal/index.js';
 import { createSessionLoopDecisionTool } from '../interactive/session-loop-decision-tool.js';
 import { wrapReversibleExecutionTools } from '../reversible-execution/index.js';
 
 import type { ICreateSessionOptions } from './create-session-types.js';
+import type { IAdvisorSessionAccess } from '../advisor/advisor-tool.js';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
 
 /**
@@ -69,6 +71,7 @@ export interface IAssembledSessionTools {
 export async function assembleSessionTools(
   options: ICreateSessionOptions,
   cwd: string,
+  sessionAccess: () => IAdvisorSessionAccess | undefined = () => undefined,
 ): Promise<IAssembledSessionTools> {
   // The default tool tier is INJECTABLE. `options.defaultTools` REPLACES `createDefaultTools()` outright
   // (an empty array suppresses every framework default), mirroring NEUT-003's `builtInAgents` seam for
@@ -101,12 +104,18 @@ export async function assembleSessionTools(
   // CLI-1990: the DECLARED set — every tier the session was configured with, before the framework
   // adds anything of its own. Dedupe keeps the first entry for a name, so the surviving tool carries
   // its own residency marker; nothing here rewrites one.
-  const declaredTools = dedupeToolsByName([
-    ...defaultTools,
-    ...(options.additionalTools ?? []),
-    ...(options.includeGoalTool ? [createGoalStatusTool()] : []),
-    ...(options.includeSessionLoopDecisionTool ? [createSessionLoopDecisionTool()] : []),
-  ]);
+  // The host's Advisor tool is bound to this session here, before any wrapper hides it.
+  const declaredTools = dedupeToolsByName(
+    bindAdvisorTools(
+      [
+        ...defaultTools,
+        ...(options.additionalTools ?? []),
+        ...(options.includeGoalTool ? [createGoalStatusTool()] : []),
+        ...(options.includeSessionLoopDecisionTool ? [createSessionLoopDecisionTool()] : []),
+      ],
+      sessionAccess,
+    ),
+  );
   // Asserted over the DECLARED set, before the search tool is added. Adding a resident tool first
   // would make the invariant unfailable — an all-deferred configuration would silently acquire the
   // one resident tool that satisfies it instead of being reported, which is the misconfiguration

@@ -6,6 +6,7 @@ import { createCompactCommandModule } from '../compact/index.js';
 import { createContextCommandModule } from '../context/index.js';
 import { createDoctorCommandModule } from '../doctor/index.js';
 import { createEditorCommandModule } from '../editor/index.js';
+import { createAdvisorCommandModule } from '../advisor/index.js';
 import { createEffortCommandModule } from '../effort/index.js';
 import { createExitCommandModule } from '../exit/index.js';
 import { createForkCommandModule } from '../fork/index.js';
@@ -148,6 +149,7 @@ export function createDefaultCommandModules({
     createHelpCommandModule(),
     createAgentCommandModule(),
     createEffortCommandModule(),
+    createAdvisorCommandModule(),
     createPermissionsCommandModule(),
     createModeCommandModule(),
     createSandboxCommandModule(),

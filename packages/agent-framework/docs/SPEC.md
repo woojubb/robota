@@ -240,6 +240,13 @@ These are behaviors a caller cannot infer from a type signature alone.
   "no signal", never treated as satisfaction — there is no keyword or prose matching anywhere in the
   loop. Only agent-driven wakeup turns count toward the goal's iteration and no-progress bounds; a
   user's own interjected message never counts as a goal iteration.
+- **The advisor never changes the main model's tool list mid-session.** Whether a session has the
+  Advisor tool is decided once, when it starts; turning the advisor off or pointing it at another
+  model changes only where calls go, because the main model's prompt cache is keyed on its tools.
+  Conversation history reaches another vendor only after the user consented to that vendor, and
+  never reaches a profile outside the organization's allowlist. Its answer is framed as guidance to
+  check against the main model's own evidence, because the advisor sees only what the main model
+  was shown and can verify nothing itself.
 - **Background wake tracking is cleared on every exit path, not just the happy one.** A background
   task's wake-dedup entry is removed both when its turn completes normally and when it is evicted
   before completing (session abort, shutdown, or a pending-queue drop) — omitting the eviction path

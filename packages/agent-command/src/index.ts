@@ -65,6 +65,13 @@ export {
   createEffortCommandModule,
   executeEffortCommand,
 } from './effort/index.js';
+export {
+  ADVISOR_SETTING_KEY,
+  AdvisorCommandSource,
+  createAdvisorCommandEntry,
+  createAdvisorCommandModule,
+  executeAdvisorCommand,
+} from './advisor/index.js';
 export * from './exit/index.js';
 export * from './help/index.js';
 export {
