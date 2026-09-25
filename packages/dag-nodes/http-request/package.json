@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-node-http-request",
-  "version": "3.0.0-beta.60",
+  "version": "3.0.0-beta.61",
   "private": true,
   "description": "DAG node for making HTTP requests",
   "type": "module",

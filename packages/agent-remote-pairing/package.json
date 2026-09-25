@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-remote-pairing",
-  "version": "3.0.0-beta.79",
+  "version": "3.0.0-beta.80",
   "description": "Isomorphic pairing + DTLS-fingerprint channel binding for Robota P2P remote-control (REMOTE-001)",
   "type": "module",
   "main": "dist/node/index.js",

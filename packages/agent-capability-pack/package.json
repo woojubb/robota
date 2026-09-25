@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-capability-pack",
-  "version": "3.0.0-beta.79",
+  "version": "3.0.0-beta.80",
   "description": "Additive capability-bundle contract (ICapabilityPack) and the pure mergeCapabilityPacks merger for the Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",

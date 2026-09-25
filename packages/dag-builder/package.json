@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-builder",
-  "version": "0.1.0-beta.0",
+  "version": "0.1.0-beta.1",
   "private": true,
   "description": "Declarative pipeline-to-DAG-definition builder and validator",
   "type": "module",
