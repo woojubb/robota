@@ -253,14 +253,14 @@ describe('createPermissionsCommandModule', () => {
       argument: 'npm publish',
       reason: 'classifier' as const,
       detail: 'publishes a package',
-      at: 0,
+      at: new Date(2026, 8, 25, 13, 4, 5).getTime(),
     };
     const retryDenial = vi.fn((index: number) => (index === 0 ? denial : undefined));
     const context = createCommandHostContext({ denials: [denial], retryDenial });
 
     const listed = await executor.execute('permissions', context, '');
     expect(listed?.message).toContain(
-      '1. 00:00:00  Bash(npm publish) — blocked by the auto-mode classifier: publishes a package',
+      '1. 13:04:05  Bash(npm publish) — blocked by the auto-mode classifier: publishes a package',
     );
     expect(listed?.message).toContain('/permissions retry <n>');
 
