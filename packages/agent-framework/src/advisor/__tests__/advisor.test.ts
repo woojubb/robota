@@ -18,6 +18,10 @@ import {
   bindAdvisorTools,
   createAdvisorTool,
 } from '../advisor-tool.js';
+import {
+  describeProviderDestination,
+  rememberProviderDestination,
+} from '../provider-destination.js';
 
 import type { IAdvisorControllerOptions, IAdvisorConsultRequest } from '../advisor-controller.js';
 import type { IAdvisorSessionAccess } from '../advisor-tool.js';
@@ -69,7 +73,6 @@ function controller(
     spec: { profile: 'strong' },
     resolveTarget: () => ({ provider: advisor, model: 'strong-model', destination: MAIN }),
     consent: { has: (d) => granted.has(d), grant: (d) => granted.add(d) },
-    mainDestination: (id) => (id === 'vendor-a' ? MAIN : undefined),
     ...overrides,
   });
 }
@@ -78,7 +81,7 @@ function request(overrides: Partial<IAdvisorConsultRequest> = {}): IAdvisorConsu
   return {
     history: [message('user', 'fix the build')],
     systemPrompt: 'You are the main agent.',
-    mainProviderId: 'vendor-a',
+    mainDestination: MAIN,
     sessionId: 'session_main',
     turnId: 'turn-1',
     ...overrides,
@@ -327,20 +330,36 @@ describe('AdvisorController', () => {
     );
   });
 
-  it('does not spend the per-turn limit on calls that failed', async () => {
-    const advisor = failing(new Error('boom'));
+  it('counts a failed request against the limits and returns its decline to a retry', async () => {
+    const advisor = failing(Object.assign(new Error('overloaded'), { status: 529 }));
     const c = controller(advisor);
-    await c.consult(request({ question: 'a' }));
-    await c.consult(request({ question: 'b' }));
-    advisor.chat.mockResolvedValue({
-      id: 'x',
-      role: 'assistant',
-      content: 'fine',
-      state: 'complete',
-      timestamp: new Date(),
+    const first = await c.consult(request({ question: 'a' }));
+    expect(first.text).toContain('declined (request failed)');
+    expect(await c.consult(request({ question: 'a' }))).toEqual({
+      outcome: 'repeated',
+      text: first.text,
     });
-    expect((await c.consult(request({ question: 'c' }))).outcome).toBe('answered');
-    expect(c.status().sessionCalls).toBe(1);
+    await c.consult(request({ question: 'b' }));
+    expect((await c.consult(request({ question: 'c' }))).outcome).toBe('limit');
+    expect(advisor.chat).toHaveBeenCalledTimes(2);
+    expect(c.status().sessionCalls).toBe(2);
+  });
+
+  it('gives the slot back for a decline before anything was sent', async () => {
+    const advisor = provider('vendor-a');
+    const c = controller(advisor, {
+      resolveTarget: () => ({
+        provider: advisor,
+        model: 'tiny',
+        destination: MAIN,
+        contextWindow: 3_000,
+      }),
+    });
+    for (const question of ['a', 'b', 'c']) {
+      const result = await c.consult(request({ question, systemPrompt: 'S'.repeat(40_000) }));
+      expect(result.text).toContain('context too large');
+    }
+    expect(c.status().sessionCalls).toBe(0);
   });
 
   it.each([
@@ -436,7 +455,7 @@ describe('AdvisorController', () => {
   it('keeps a saved advisor when the main model changes', async () => {
     const advisor = provider('vendor-a');
     const c = controller(advisor, { consent: { has: () => true, grant: () => undefined } });
-    await c.consult(request({ mainProviderId: 'vendor-z' }));
+    await c.consult(request({ mainDestination: 'vendor-z@api.z.test' }));
     expect(advisor.chat.mock.calls[0]![1]).toMatchObject({ model: 'strong-model' });
   });
 
@@ -472,6 +491,24 @@ describe('AdvisorController', () => {
     expect(granted.has('vendor-b@api.b.test')).toBe(true);
     await c.consult(request({ ask, question: 'q2' }));
     expect(ask).toHaveBeenCalledTimes(1);
+  });
+
+  it('remembers a refusal for the session: no second prompt, and no slot used', async () => {
+    const advisor = provider('vendor-b');
+    const c = controller(advisor, {
+      resolveTarget: () => ({
+        provider: advisor,
+        model: 'b-model',
+        destination: 'vendor-b@api.b.test',
+      }),
+    });
+    const ask = vi.fn(async () => ({ type: 'answer' as const, values: ['no'] }));
+    for (const question of ['a', 'b', 'c']) {
+      expect((await c.consult(request({ ask, question }))).text).toContain('consent');
+    }
+    expect(ask).toHaveBeenCalledTimes(1);
+    expect(c.status().sessionCalls).toBe(0);
+    expect(advisor.chat).not.toHaveBeenCalled();
   });
 
   it('asks for consent when the provider type matches but the endpoint does not', async () => {
@@ -525,18 +562,48 @@ describe('AdvisorController', () => {
 
   it('records usage under the advisor model', async () => {
     const recorded: IHistoryEntry[] = [];
-    await controller(provider('vendor-a')).consult(
-      request({ recordUsage: (entry) => recorded.push(entry) }),
+    await controller(provider('vendor-b')).consult(
+      request({ recordUsage: (entries) => recorded.push(...entries) }),
     );
-    expect(recorded).toHaveLength(1);
+    const source = { scope: 'tool', id: 'advisor:strong-model', label: 'Advisor (strong-model)' };
+    expect(recorded.map((entry) => entry.type)).toEqual(['usage-observation', 'usage-summary']);
     expect(recorded[0]).toMatchObject({
-      type: 'usage-summary',
-      data: {
-        promptTokens: 1200,
-        completionTokens: 80,
-        source: { scope: 'tool', id: 'advisor:strong-model', label: 'Advisor (strong-model)' },
-      },
+      data: { providerId: 'vendor-b', modelId: 'strong-model', source },
     });
+    expect(recorded[1]).toMatchObject({
+      data: { promptTokens: 1200, completionTokens: 80, source },
+    });
+  });
+});
+
+describe('describeProviderDestination', () => {
+  const definitions = [
+    { type: 'vendor-a', createProvider: () => ({}) as never },
+    {
+      type: 'local',
+      endpoint: { host: 'LocalHost', port: 443 },
+      createProvider: () => ({}) as never,
+    },
+  ];
+
+  it('names one endpoint one way, whatever the spelling or default port', () => {
+    const names = [
+      'https://api.vendor-a.test',
+      'https://API.vendor-a.test:443/v1',
+      'http://api.vendor-a.test:80/',
+      'api.vendor-a.test',
+    ].map((baseURL) => describeProviderDestination({ name: 'vendor-a', baseURL }, definitions));
+    expect(new Set(names)).toEqual(new Set(['vendor-a@api.vendor-a.test']));
+    expect(describeProviderDestination({ name: 'local' }, definitions)).toBe('local@localhost');
+  });
+
+  it('tells two hosts of one type apart', () => {
+    expect(
+      describeProviderDestination(
+        { name: 'vendor-a', baseURL: 'http://localhost:11434' },
+        definitions,
+      ),
+    ).toBe('vendor-a@localhost:11434');
   });
 });
 
@@ -570,6 +637,9 @@ describe('Advisor tool in assembled sessions', () => {
   };
 
   function options(extra: Partial<ICreateSessionOptions> = {}): ICreateSessionOptions {
+    const main = provider('vendor-a');
+    // The host records where the main provider sends requests when it builds it.
+    rememberProviderDestination(main, MAIN);
     return {
       config: {
         defaultTrustLevel: 'safe',
@@ -579,7 +649,7 @@ describe('Advisor tool in assembled sessions', () => {
       },
       context: { agentsMd: '', projectNotesMd: '' },
       terminal,
-      provider: provider('vendor-a'),
+      provider: main,
       defaultTools: [],
       permissionMode: 'bypassPermissions',
       ...extra,
@@ -616,19 +686,40 @@ describe('Advisor tool in assembled sessions', () => {
     expect(promptOf(advisor).split(marker!)).toHaveLength(2);
   });
 
-  it('prices separately the usage of a priced advisor model', async () => {
-    const advisor = provider('vendor-a');
+  it('records usage where the host records turn usage, priced on the advisor model', async () => {
+    const advisor = provider('vendor-b');
     const c = controller(advisor, {
       resolveTarget: () => ({ provider: advisor, model: 'claude-sonnet-4-5', destination: MAIN }),
     });
-    const { session } = await createSession(options({ additionalTools: [createAdvisorTool(c)] }));
+    const recorded: IHistoryEntry[] = [];
+    const { session } = await createSession(
+      options({
+        additionalTools: [createAdvisorTool(c)],
+        onUsageRecorded: (entries) => recorded.push(...entries),
+      }),
+    );
     session.injectMessage('user', 'hello');
     await session.invokeRuntimeTool(ADVISOR_TOOL_NAME, {});
-    expect(session.getSessionTokenUsage()?.separatelyPriced).toMatchObject({
-      inputTokens: 1200,
-      outputTokens: 80,
+    expect(recorded[0]).toMatchObject({
+      type: 'usage-observation',
+      data: { modelId: 'claude-sonnet-4-5', providerId: 'vendor-b' },
     });
-    expect(session.getSessionTokenUsage()?.separatelyPriced?.costUsd).toBeGreaterThan(0);
+    expect((recorded[1]?.data as { costUsd?: number }).costUsd).toBeGreaterThan(0);
+    expect(session.getSessionTokenUsage()).toBeUndefined();
+  });
+
+  it('asks for consent once the main model is switched to another destination', async () => {
+    const advisor = provider('vendor-a');
+    const { session } = await createSession(
+      options({ additionalTools: [createAdvisorTool(controller(advisor))] }),
+    );
+    const switched = provider('vendor-a');
+    rememberProviderDestination(switched, 'vendor-a@localhost:11434');
+    session.swapProvider(switched, 'other-model');
+    session.injectMessage('user', 'hello');
+    const result = await session.invokeRuntimeTool(ADVISOR_TOOL_NAME, {});
+    expect(String(result.result)).toContain('consent');
+    expect(advisor.chat).not.toHaveBeenCalled();
   });
 
   it('is absent when the host added none', async () => {
@@ -642,9 +733,9 @@ describe('Advisor tool in assembled sessions', () => {
     const parent: IAdvisorSessionAccess = {
       getHistory: () => [message('user', 'parent conversation')],
       getSystemMessage: () => 'parent',
-      getProviderId: () => 'vendor-a',
+      getMainDestination: () => MAIN,
       getSessionId: () => 'parent',
-      addHistoryEntry: (entry) => parentUsage.push(entry),
+      recordUsage: (entries) => parentUsage.push(...entries),
     };
     const parentTools = bindAdvisorTools([createAdvisorTool(controller(advisor))], () => parent);
     const base = options();
@@ -662,7 +753,7 @@ describe('Advisor tool in assembled sessions', () => {
     await child.invokeRuntimeTool(ADVISOR_TOOL_NAME, {});
     expect(promptOf(advisor)).toContain('child conversation');
     expect(promptOf(advisor)).not.toContain('parent conversation');
-    expect(parentUsage).toHaveLength(1);
+    expect(parentUsage.map((entry) => entry.type)).toEqual(['usage-observation', 'usage-summary']);
     expect(child.getSessionTokenUsage()).toBeUndefined();
   });
 

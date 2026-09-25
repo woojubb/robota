@@ -232,8 +232,11 @@ export {
   ADVISOR_TOOL_NAME,
   AdvisorController,
   createAdvisorTool,
+  describeProviderDestination,
   formatAdvisorSpec,
   parseAdvisorSpec,
+  providerDestinationOf,
+  rememberProviderDestination,
   resolveStartupAdvisorSpec,
 } from './advisor/index.js';
 export type {
@@ -246,6 +249,7 @@ export type {
   ICommandAdvisorAdapter,
   TAdvisorTargetResolver,
 } from './advisor/index.js';
+export type { ISessionUsageRecord } from './command-api/session/session-usage.js';
 export { parseModelEffort, resolveModelEffort } from './effort/index.js';
 export type {
   IModelEffortInputs,

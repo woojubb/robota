@@ -4,19 +4,24 @@
  * consent is kept.
  */
 
-import { findProviderDefinition } from '@robota-sdk/agent-core';
 import {
   AdvisorController,
   createAdvisorTool,
   createProviderFromSettings,
+  describeProviderDestination,
   formatAdvisorSpec,
   readProviderSettings,
   readSettings,
+  rememberProviderDestination,
   resolveStartupAdvisorSpec,
   writeSettings,
 } from '@robota-sdk/agent-framework';
 
-import type { IToolWithEventService, IProviderDefinition } from '@robota-sdk/agent-core';
+import type {
+  IAIProvider,
+  IToolWithEventService,
+  IProviderDefinition,
+} from '@robota-sdk/agent-core';
 import type {
   IAdvisorConsentStore,
   IAdvisorSpec,
@@ -70,9 +75,12 @@ export interface ICliAdvisorInput {
   readonly settingsSources: readonly TSettingsSource[];
   readonly providerDefinitions: readonly IProviderDefinition[];
   readonly userSettingsPath: string;
-  /** The main provider the session starts with: its id and the settings it was built from. */
+  /**
+   * The main provider the session starts with and the settings it was built from, so the advisor
+   * can tell whether it would send the conversation anywhere new.
+   */
   readonly mainProvider: {
-    readonly id: string;
+    readonly provider: IAIProvider;
     readonly config: { readonly name: string; readonly baseURL?: string };
   };
 }
@@ -82,35 +90,6 @@ export interface ICliAdvisor {
   /** Present only when the session starts with an advisor; the tool list never changes later. */
   readonly tool?: IToolWithEventService;
   readonly notice?: string;
-}
-
-function hostOf(url: string): string {
-  try {
-    return new URL(url).host.toLowerCase();
-  } catch {
-    // allow-fallback: an unparsable base URL is still a distinct destination, named as written
-    return url.trim().toLowerCase();
-  }
-}
-
-/**
- * Where a provider configuration sends requests: its type and the host it talks to — the configured
- * base URL, else the type's default endpoint. Two profiles of one type on different hosts (a local
- * server and the vendor's cloud, say) are different destinations.
- */
-export function describeProviderDestination(
-  config: { readonly name: string; readonly baseURL?: string },
-  providerDefinitions: readonly IProviderDefinition[],
-): string {
-  const definition = findProviderDefinition(providerDefinitions, config.name);
-  const url = config.baseURL ?? definition?.defaults?.baseURL;
-  const host =
-    url !== undefined && url.length > 0
-      ? hostOf(url)
-      : definition?.endpoint !== undefined
-        ? `${definition.endpoint.host}:${definition.endpoint.port}`.toLowerCase()
-        : 'default';
-  return `${definition?.type ?? config.name}@${host}`;
 }
 
 function targetResolver(
@@ -136,19 +115,14 @@ export function composeCliAdvisor(input: ICliAdvisorInput): ICliAdvisor {
     input.safeMode ? undefined : input.userSettings[ADVISOR_MODEL_SETTING_KEY],
   );
   const allowedProfiles = input.orgPolicy?.allowedProviders;
-  const startupDestination = describeProviderDestination(
-    input.mainProvider.config,
-    input.providerDefinitions,
+  rememberProviderDestination(
+    input.mainProvider.provider,
+    describeProviderDestination(input.mainProvider.config, input.providerDefinitions),
   );
   const controller = new AdvisorController({
     ...(spec !== undefined ? { spec } : {}),
     resolveTarget: targetResolver(input.settingsSources, input.providerDefinitions),
     consent: createSettingsAdvisorConsentStore(input.userSettingsPath),
-    // After a `/provider` switch the id changes and the main destination is unknown, so every
-    // advisor destination then needs consent unless the startup destination is the one it names —
-    // this conversation was already sent there.
-    mainDestination: (providerId) =>
-      providerId === input.mainProvider.id ? startupDestination : undefined,
     ...(allowedProfiles !== undefined ? { allowedProfiles } : {}),
     killSwitch: isAdvisorKillSwitchOn(input.env),
   });

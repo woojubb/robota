@@ -2,6 +2,10 @@ import {
   createProviderFromSettings,
   readProviderSettings,
 } from '../command-api/provider/provider-factory.js';
+import {
+  describeProviderDestination,
+  rememberProviderDestination,
+} from '../advisor/provider-destination.js';
 import type { INodeHostSettingsSource } from '../config/node-host-settings-source.js';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
@@ -16,8 +20,9 @@ export function resolveUserSettingsProviderSwitch(
   provider: ReturnType<typeof createProviderFromSettings>;
 } {
   const options = { providerOverride: profileName, providerDefinitions };
-  return {
-    settings: readProviderSettings(sources, options),
-    provider: createProviderFromSettings(sources, undefined, options),
-  };
+  const settings = readProviderSettings(sources, options);
+  const provider = createProviderFromSettings(sources, undefined, options);
+  // The advisor compares where it would send the conversation with where the main model now does.
+  rememberProviderDestination(provider, describeProviderDestination(settings, providerDefinitions));
+  return { settings, provider };
 }

@@ -10,6 +10,8 @@
  * back if it never reached the advisor.
  */
 
+import { randomUUID } from 'node:crypto';
+
 import {
   calculateModelCost,
   confirmAction,
@@ -27,8 +29,10 @@ import {
 } from './advisor-request.js';
 import { formatAdvisorSpec, parseAdvisorSpec } from './advisor-spec.js';
 import { createUsageSummaryEntry } from '../interactive/interactive-session-execution.js';
+import { createUsageObservationEntry } from '../interactive/interactive-session-usage-observation.js';
 
 import type { IAdvisorSetResult, IAdvisorSpec, IAdvisorStatus } from './advisor-spec.js';
+import type { IUsageSnapshot } from '../interactive/types.js';
 import type {
   IAIProvider,
   IHistoryEntry,
@@ -67,11 +71,6 @@ export interface IAdvisorControllerOptions {
   readonly spec?: IAdvisorSpec;
   readonly resolveTarget: TAdvisorTargetResolver;
   readonly consent: IAdvisorConsentStore;
-  /**
-   * The destination of the session's main provider, named by its provider id. `undefined` means the
-   * host cannot tell, and then every advisor destination counts as a different one.
-   */
-  readonly mainDestination?: (mainProviderId: string) => string | undefined;
   /** The organization's provider allowlist (profile names). */
   readonly allowedProfiles?: readonly string[];
   /** The kill switch: no tool, and nothing can turn the advisor on. */
@@ -94,15 +93,18 @@ export interface IAdvisorConsultRequest {
   /** The calling session's conversation, ending in the Advisor call itself. */
   readonly history: readonly TUniversalMessage[];
   readonly systemPrompt: string;
-  /** The main provider's id (`IAIProvider.name`). */
-  readonly mainProviderId: string;
+  /**
+   * Where the main model sends the conversation now (`<type>@<host>`). Unknown means every advisor
+   * destination counts as a different one.
+   */
+  readonly mainDestination?: string;
   readonly sessionId: string;
   /** Identifies the turn the call belongs to; the per-turn limit and answer reuse are per turn. */
   readonly turnId: string;
   readonly ask?: IUserInteraction['ask'];
   readonly signal?: AbortSignal;
-  /** Where the advisor's token usage is recorded. */
-  readonly recordUsage?: (entry: IHistoryEntry) => void;
+  /** Where the advisor's token usage is recorded: the same place the session records turn usage. */
+  readonly recordUsage?: (entries: readonly IHistoryEntry[]) => void;
 }
 
 interface ITurnState {
@@ -196,6 +198,8 @@ export class AdvisorController {
   private cachedTarget: { key: string; target: IAdvisorTarget } | undefined;
   private readonly turns = new Map<string, ITurnState>();
   private readonly pendingConsent = new Map<string, Promise<boolean>>();
+  /** Destinations the user refused this session: not asked again until the next session. */
+  private readonly deniedConsent = new Set<string>();
 
   constructor(private readonly options: IAdvisorControllerOptions) {
     this.killSwitch = options.killSwitch === true;
@@ -364,9 +368,14 @@ export class AdvisorController {
       );
     } catch (error) {
       if (isAbort(error, request.signal)) throw error;
-      return unused(declined(target.model, classifyAdvisorFailure(error)));
+      // The request went out with the whole conversation, so it counts: a failing advisor must
+      // not be retried without limit. The decline stays the answer to this question for the turn.
+      return {
+        consultation: declined(target.model, classifyAdvisorFailure(error)),
+        reachedAdvisor: true,
+      };
     }
-    this.recordUsage(target.model, response, request.recordUsage);
+    this.recordUsage(target, response, request.recordUsage);
     const answer = answerText(response);
     return {
       consultation:
@@ -402,10 +411,9 @@ export class AdvisorController {
 
   private hasConsent(target: IAdvisorTarget, request: IAdvisorConsultRequest): Promise<boolean> {
     const destination = target.destination;
-    if (this.options.mainDestination?.(request.mainProviderId) === destination) {
-      return Promise.resolve(true);
-    }
+    if (request.mainDestination === destination) return Promise.resolve(true);
     if (this.options.consent.has(destination)) return Promise.resolve(true);
+    if (this.deniedConsent.has(destination)) return Promise.resolve(false);
     const ask = request.ask;
     if (ask === undefined) return Promise.resolve(false);
     // One question per destination, however many calls are waiting on the answer.
@@ -421,7 +429,10 @@ export class AdvisorController {
           },
         ),
       );
-      if (!isConfirmed(response)) return false;
+      if (!isConfirmed(response)) {
+        this.deniedConsent.add(destination);
+        return false;
+      }
       this.options.consent.grant(destination);
       return true;
     })().finally(() => this.pendingConsent.delete(destination));
@@ -438,28 +449,39 @@ export class AdvisorController {
   }
 
   private recordUsage(
-    model: string,
+    target: IAdvisorTarget,
     response: TUniversalMessage,
     record: IAdvisorConsultRequest['recordUsage'],
   ): void {
     const usage = readTokenUsageFromMessage(response);
     if (record === undefined || usage === undefined) return;
+    const model = target.model;
     const costUsd = calculateModelCost(model, usage.inputTokens, usage.outputTokens);
-    record(
-      createUsageSummaryEntry({
-        kind: 'exact',
-        scope: 'turn',
-        totalTokens: usage.inputTokens + usage.outputTokens,
-        promptTokens: usage.inputTokens,
-        completionTokens: usage.outputTokens,
-        contextUsedTokens: 0,
-        contextMaxTokens: 0,
-        contextUsedPercentage: 0,
-        ...(costUsd !== undefined
-          ? { costStatus: 'estimated' as const, costUsd }
-          : { costStatus: 'unknown' as const }),
-        source: { scope: 'tool', id: `advisor:${model}`, label: `Advisor (${model})` },
+    const snapshot: IUsageSnapshot = {
+      kind: 'exact',
+      scope: 'turn',
+      totalTokens: usage.inputTokens + usage.outputTokens,
+      promptTokens: usage.inputTokens,
+      completionTokens: usage.outputTokens,
+      contextUsedTokens: 0,
+      contextMaxTokens: 0,
+      contextUsedPercentage: 0,
+      ...(costUsd !== undefined
+        ? { costStatus: 'estimated' as const, costUsd }
+        : { costStatus: 'unknown' as const }),
+      source: { scope: 'tool', id: `advisor:${model}`, label: `Advisor (${model})` },
+    };
+    // The same pair a turn records: the observation names the advisor's own provider and model, so
+    // usage reports price it on that model; the summary counts it in the session totals.
+    record([
+      createUsageObservationEntry({
+        turnId: `advisor_${randomUUID()}`,
+        outcome: 'success',
+        providerId: target.provider.name,
+        modelId: model,
+        usage: snapshot,
       }),
-    );
+      createUsageSummaryEntry(snapshot),
+    ]);
   }
 }

@@ -425,15 +425,18 @@ overridden from inside a session. Safe mode ignores the saved advisor.
   `/advisor off` or `/advisor <model>` later changes only where calls go, never the tool list, so the
   main model's cached prompt is not invalidated mid-session. Setting an advisor in a session that
   started without one takes effect in the next session.
-- **Cost.** Advisor tokens count in the session totals and `/cost` prices them at the advisor
-  model's rate, not the main model's; calls made by in-process subagents are counted there too. Each
-  call is one request with no tools, so a few calls to a strong model cost far less than running that
-  model for every turn, while the cheap model does the reading, editing and tool work. A call that
-  fails (the provider errors, or the conversation does not fit) does not use up a call.
+- **Cost.** Advisor usage is saved with the session like each turn's usage, under the advisor's own
+  model, so `/cost`, `robota usage` and resumed sessions include it; calls made by in-process
+  subagents are counted too. `/cost` prices each part on its own model and says "mixed" when more
+  than one model was priced. Each call is one request with no tools, so a few calls to a strong model
+  cost far less than running that model for every turn, while the cheap model does the reading,
+  editing and tool work. A call declined before anything was sent (no consent, the conversation does
+  not fit) does not use up a call; a request the provider failed does, and asking the same question
+  again in that turn returns the same decline.
 - **Privacy.** Sending the conversation anywhere the main model does not already send it needs your
   consent once per destination — a provider type together with its endpoint, so a local server and
   the vendor's cloud are asked about separately. It is asked the first time and remembered in
-  `~/.robota/settings.json`. The advisor is told that the conversation is data, not instructions, and
+  `~/.robota/settings.json`; if you say no, you are not asked again in that session. The advisor is told that the conversation is data, not instructions, and
   each message reaches it as a single encoded line, so text in a message cannot pose as another. Without an
   interactive prompt (print mode) such a call is declined until consent is given. The organization's
   `allowedProviders` policy applies to the advisor as it does to `/provider`.

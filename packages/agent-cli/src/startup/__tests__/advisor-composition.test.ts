@@ -4,20 +4,24 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
+import {
+  createNodeHostSettingsSource,
+  describeProviderDestination,
+  providerDestinationOf,
+} from '@robota-sdk/agent-framework';
 
 import { parseCliArgs } from '../../utils/cli-args.js';
 import {
   ADVISOR_CONSENT_SETTING_KEY,
   composeCliAdvisor,
   createSettingsAdvisorConsentStore,
-  describeProviderDestination,
 } from '../advisor-composition.js';
 
 import type { ICliAdvisorInput } from '../advisor-composition.js';
 import type { IAIProvider, IProviderDefinitionConfig } from '@robota-sdk/agent-core';
 
 let home: string;
+const mainProvider = { name: 'vendor-a' } as unknown as IAIProvider;
 let settingsPath: string;
 
 beforeEach(() => {
@@ -56,7 +60,7 @@ function input(overrides: Partial<ICliAdvisorInput> = {}): ICliAdvisorInput {
     providerDefinitions,
     userSettingsPath: settingsPath,
     mainProvider: {
-      id: 'vendor-a',
+      provider: mainProvider,
       config: { name: 'vendor-a', baseURL: 'https://api.vendor-a.test/v2' },
     },
     ...overrides,
@@ -131,12 +135,17 @@ describe('advisor destination', () => {
     );
   });
 
+  it('records where the main provider sends requests, by its host', () => {
+    composeCliAdvisor(input());
+    expect(providerDestinationOf(mainProvider)).toBe('vendor-a@api.vendor-a.test');
+  });
+
   it('needs consent for a profile of the main provider type on another endpoint', async () => {
     const advisor = composeCliAdvisor(input({ flag: 'local' }));
     const result = await advisor.controller.consult({
       history: [],
       systemPrompt: 's',
-      mainProviderId: 'vendor-a',
+      mainDestination: providerDestinationOf(mainProvider),
       sessionId: 's',
       turnId: 't',
     });
@@ -162,7 +171,7 @@ describe('advisor destination', () => {
     const result = await advisor.controller.consult({
       history: [],
       systemPrompt: 's',
-      mainProviderId: 'vendor-a',
+      mainDestination: providerDestinationOf(mainProvider),
       sessionId: 's',
       turnId: 't',
     });

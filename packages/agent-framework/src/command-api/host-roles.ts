@@ -4,6 +4,7 @@
  * See `session-roles.ts` for why this is a separate file.
  */
 
+import type { ISessionUsageRecord } from './session/session-usage.js';
 import type { IAgentJobHostContext } from './agent-job-roles.js';
 import type { ICommandResult } from './command-result.js';
 import type { ICommandHostAdapters } from './host-adapters.js';
@@ -64,6 +65,11 @@ export interface ICommandHostSessionAccess {
    * two declared paths with only one live. One owner, one path.
    */
   validateCurrentSessionReplayLog(): ICommandSessionReplayValidationReport;
+  /**
+   * Every usage record the session has persisted — its turns and any other model it consulted —
+   * so a total read from here is the whole session's spend, each part priced on its own model.
+   */
+  getSessionUsage(): readonly ISessionUsageRecord[];
 }
 
 /** Reaching the agent-job capability, when the host has one. */

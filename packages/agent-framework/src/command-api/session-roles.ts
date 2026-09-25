@@ -6,11 +6,7 @@
  * so a reader looking for a session capability is not reading the agent-job ones.
  */
 
-import type {
-  IPermissionDenial,
-  ISessionTokenUsage,
-  TAutoCompactThreshold,
-} from '@robota-sdk/agent-session';
+import type { IPermissionDenial, TAutoCompactThreshold } from '@robota-sdk/agent-session';
 import type { IModelReapplyOptions } from './host-context-types.js';
 import type {
   IContextWindowState,
@@ -83,7 +79,7 @@ export interface ICommandSessionTools {
 /** Who this session is, and what it has spent. */
 export interface ICommandSessionIdentity {
   getSessionId(): string;
-  getSessionTokenUsage(): ISessionTokenUsage | undefined;
+  getSessionTokenUsage(): { inputTokens: number; outputTokens: number } | undefined;
   getModelId(): string | undefined;
 }
 

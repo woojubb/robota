@@ -13,8 +13,11 @@ import { z } from 'zod';
 
 import '../tools/tool-permission-profiles.js';
 
+import { providerDestinationOf } from './provider-destination.js';
+
 import type { AdvisorController } from './advisor-controller.js';
 import type {
+  IAIProvider,
   IHistoryEntry,
   IToolSchema,
   IToolWithEventService,
@@ -42,9 +45,40 @@ const advisorParameters = z.object({
 export interface IAdvisorSessionAccess {
   getHistory(): TUniversalMessage[];
   getSystemMessage(): string;
-  getProviderId(): string;
+  /** Where the session's main model sends the conversation now; unknown when not recorded. */
+  getMainDestination(): string | undefined;
+  getSessionId(): string;
+  /** Record usage where the session records turn usage. */
+  recordUsage(entries: readonly IHistoryEntry[]): void;
+}
+
+/** The session members {@link sessionAdvisorAccess} reads. */
+export interface IAdvisorSessionSource {
+  getHistory(): TUniversalMessage[];
+  getSystemMessage(): string;
+  getProvider(): IAIProvider;
   getSessionId(): string;
   addHistoryEntry(entry: IHistoryEntry): void;
+}
+
+/**
+ * The access a session gives its Advisor tool. Usage goes to `onUsageRecorded` when the host records
+ * turn usage somewhere of its own, else into the session's history.
+ */
+export function sessionAdvisorAccess(
+  session: IAdvisorSessionSource,
+  onUsageRecorded?: (entries: readonly IHistoryEntry[]) => void,
+): IAdvisorSessionAccess {
+  return {
+    getHistory: () => session.getHistory(),
+    getSystemMessage: () => session.getSystemMessage(),
+    getMainDestination: () => providerDestinationOf(session.getProvider()),
+    getSessionId: () => session.getSessionId(),
+    recordUsage: (entries) => {
+      if (onUsageRecorded !== undefined) onUsageRecorded(entries);
+      else for (const entry of entries) session.addHistoryEntry(entry);
+    },
+  };
 }
 
 type TAccess = () => IAdvisorSessionAccess | undefined;
@@ -88,17 +122,18 @@ function buildTool(binding: IBinding, access: TAccess): IToolWithEventService {
         return 'Advisor is not available in this context. Continue on your own judgement.';
       }
       const history = session.getHistory();
+      const mainDestination = session.getMainDestination();
       const usageSession = binding.usage?.() ?? session;
       const consultation = await binding.controller.consult({
         ...(parameters.question !== undefined ? { question: parameters.question } : {}),
         history,
         systemPrompt: session.getSystemMessage(),
-        mainProviderId: session.getProviderId(),
+        ...(mainDestination !== undefined ? { mainDestination } : {}),
         sessionId: session.getSessionId(),
         turnId: advisorTurnId(history),
         ...(context?.ask !== undefined ? { ask: context.ask } : {}),
         ...(context?.signal !== undefined ? { signal: context.signal } : {}),
-        recordUsage: (entry) => usageSession.addHistoryEntry(entry),
+        recordUsage: (entries) => usageSession.recordUsage(entries),
       });
       return consultation.text;
     },

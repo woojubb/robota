@@ -16,18 +16,6 @@ import type {
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
 
-/** A session's token totals; see `getSessionTokenUsage`. */
-export interface ISessionTokenUsage {
-  readonly inputTokens: number;
-  readonly outputTokens: number;
-  /** The part of the totals whose entries carried their own price, and that price. */
-  readonly separatelyPriced?: {
-    readonly inputTokens: number;
-    readonly outputTokens: number;
-    readonly costUsd: number;
-  };
-}
-
 export abstract class SessionBase {
   protected abstract readonly agent: Robota;
   protected abstract readonly permissionEnforcer: PermissionEnforcer;
@@ -296,38 +284,18 @@ export abstract class SessionBase {
     return this.agent.getFullHistory();
   }
 
-  /**
-   * Token totals over the session's usage entries. Entries that carry their own price — usage of a
-   * model other than the session's, such as an advisor's — are also totalled apart, so a reader
-   * prices only the rest at the session model's rate.
-   */
-  getSessionTokenUsage(): ISessionTokenUsage | undefined {
+  getSessionTokenUsage(): { inputTokens: number; outputTokens: number } | undefined {
     let inputTokens = 0;
     let outputTokens = 0;
     let found = false;
-    let priced: { inputTokens: number; outputTokens: number; costUsd: number } | undefined;
     for (const entry of this.getFullHistory()) {
       if (entry.category !== 'event' || entry.type !== 'usage-summary') continue;
-      const snap = entry.data as
-        { promptTokens?: number; completionTokens?: number; costUsd?: number } | undefined;
-      const input = snap?.promptTokens ?? 0;
-      const output = snap?.completionTokens ?? 0;
-      inputTokens += input;
-      outputTokens += output;
+      const snap = entry.data as { promptTokens?: number; completionTokens?: number } | undefined;
+      inputTokens += snap?.promptTokens ?? 0;
+      outputTokens += snap?.completionTokens ?? 0;
       found = true;
-      if (typeof snap?.costUsd === 'number' && Number.isFinite(snap.costUsd)) {
-        priced ??= { inputTokens: 0, outputTokens: 0, costUsd: 0 };
-        priced.inputTokens += input;
-        priced.outputTokens += output;
-        priced.costUsd += snap.costUsd;
-      }
     }
-    if (!found) return undefined;
-    return {
-      inputTokens,
-      outputTokens,
-      ...(priced !== undefined ? { separatelyPriced: priced } : {}),
-    };
+    return found ? { inputTokens, outputTokens } : undefined;
   }
 
   getModelId(): string {
@@ -343,6 +311,11 @@ export abstract class SessionBase {
    */
   getOfferedToolSchemas(): IToolSchema[] {
     return this.agent.getOfferedToolSchemas();
+  }
+
+  /** The provider the session sends its turns to now; a provider switch replaces it. */
+  getProvider(): IAIProvider {
+    return this.aiProvider;
   }
 
   getProviderId(): string {

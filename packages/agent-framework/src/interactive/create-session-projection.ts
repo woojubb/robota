@@ -81,6 +81,7 @@ export function buildCreateSessionOptions(
     onTextDelta: options.onTextDelta,
     onContextUpdate: options.onContextUpdate,
     onCompactEvent: options.onCompactEvent,
+    ...(options.onUsageRecorded !== undefined ? { onUsageRecorded: options.onUsageRecorded } : {}),
     onToolExecution: options.onToolExecution,
     sessionId,
     allowedTools: options.allowedTools,

@@ -38,5 +38,11 @@ export {
   advisorTurnId,
   bindAdvisorTools,
   createAdvisorTool,
+  sessionAdvisorAccess,
 } from './advisor-tool.js';
-export type { IAdvisorSessionAccess } from './advisor-tool.js';
+export type { IAdvisorSessionAccess, IAdvisorSessionSource } from './advisor-tool.js';
+export {
+  describeProviderDestination,
+  providerDestinationOf,
+  rememberProviderDestination,
+} from './provider-destination.js';

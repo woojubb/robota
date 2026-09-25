@@ -9,6 +9,7 @@ import { applyPresetToolLists } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
 
 import { sandboxApprovalFor } from './sandbox-approval.js';
+import { sessionAdvisorAccess } from '../advisor/advisor-tool.js';
 import { createModelPermissionClassifier } from './model-permission-classifier.js';
 
 import { assembleSessionTools } from './assemble-session-tools.js';
@@ -134,7 +135,11 @@ export async function createSession(
     : [];
 
   let assembledSession: Session | undefined;
-  const { tools } = await assembleSessionTools(options, cwd, () => assembledSession);
+  const { tools } = await assembleSessionTools(options, cwd, () =>
+    assembledSession === undefined
+      ? undefined
+      : sessionAdvisorAccess(assembledSession, options.onUsageRecorded),
+  );
   if (
     modelCommandToolsEnabled &&
     options.modelCommandExecutor !== undefined &&

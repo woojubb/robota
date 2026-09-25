@@ -2,7 +2,6 @@
 
 // Session
 export { Session } from './session.js';
-export type { ISessionTokenUsage } from './session-base.js';
 export type { IProviderCallTraceObservation, ISessionRunOptions } from './session-types.js';
 export type {
   ISessionOptions,
