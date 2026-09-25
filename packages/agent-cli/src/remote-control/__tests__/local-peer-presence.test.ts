@@ -6,7 +6,15 @@
  * clean exit removes it, and that a refused rendezvous is not quietly announced anyway.
  */
 
-import { mkdtempSync, readFileSync, readdirSync, rmSync, realpathSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import {
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  realpathSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -293,5 +301,74 @@ describe('withdrawal is bound to the process ending', () => {
       presence.withdraw();
       bus.fire();
     }).not.toThrow();
+  });
+});
+
+describe('the workspace claim (#3101 B2)', () => {
+  function repository(): string {
+    const dir = guardedDirectory();
+    const env = Object.fromEntries(
+      Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
+    );
+    const run = (...args: string[]): void => {
+      execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid', ...args], {
+        cwd: dir,
+        env,
+        stdio: 'ignore',
+      });
+    };
+    run('init', '-q');
+    // The message names the directory: two identical empty commits in one second share a hash.
+    run('-c', 'commit.gpgsign=false', 'commit', '-q', '--allow-empty', '-m', `root ${dir}`);
+    return dir;
+  }
+
+  function announce(dir: string, sessionId: string, workspaceDirectory: string) {
+    const bus = exitBus();
+    return announceLocalPeerPresence({
+      sessionId,
+      guardedDirectory: dir,
+      workspaceDirectory,
+      registry: { readStartTime: ALIVE },
+      on: bus.on,
+      off: bus.off,
+    });
+  }
+
+  it('publishes the claim with the entry and shows the relation the reader verified', () => {
+    const dir = guardedDirectory();
+    const shared = repository();
+    const one = announce(dir, 'session-one', shared);
+    announce(dir, 'session-two', shared);
+    announce(dir, 'session-three', repository());
+    announce(dir, 'session-four', guardedDirectory());
+
+    const relation = (sessionId: string) =>
+      one.list().find((peer) => peer.sessionId === sessionId)?.workspaceRelation;
+    expect(relation('session-two')).toBe('same-worktree');
+    expect(relation('session-three')).toBe('different-repo');
+    expect(relation('session-four')).toBe('unknown');
+
+    const entry = JSON.parse(readFileSync(path.join(dir, 'session-two.peer.json'), 'utf8')) as {
+      workspace?: { worktreePath: string };
+    };
+    expect(entry.workspace?.worktreePath).toBe(shared);
+  });
+
+  it('reports a tampered claim as mismatched and does not believe it', () => {
+    const dir = guardedDirectory();
+    const one = announce(dir, 'session-one', repository());
+    announce(dir, 'session-two', repository());
+    const read = (sessionId: string) =>
+      JSON.parse(readFileSync(path.join(dir, `${sessionId}.peer.json`), 'utf8')) as {
+        workspace: { rootCommits: string[] };
+      };
+    const entry = read('session-two');
+    entry.workspace.rootCommits = read('session-one').workspace.rootCommits;
+    writeFileSync(path.join(dir, 'session-two.peer.json'), JSON.stringify(entry));
+
+    const peer = one.list().find((summary) => summary.sessionId === 'session-two');
+    expect(peer?.workspaceRelation).toBe('unknown');
+    expect(peer?.workspaceClaim).toBe('mismatched');
   });
 });

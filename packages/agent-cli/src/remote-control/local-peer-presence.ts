@@ -24,6 +24,7 @@ import {
   type IRegistryOptions,
 } from './local-peer-registry.js';
 import { ensureRendezvousDirectory } from './local-peer-rendezvous.js';
+import { judgeWorkspaceRelation, readWorkspaceClaim } from './local-peer-workspace.js';
 
 import type { ICommandHostAdapters } from '@robota-sdk/agent-framework';
 
@@ -69,6 +70,8 @@ export interface IPresenceOptions {
   >;
   /** Injected so a case can point at a scratch directory instead of the real rendezvous. */
   readonly guardedDirectory?: string;
+  /** Where this session works, for its workspace claim. Defaults to the process cwd. */
+  readonly workspaceDirectory?: string;
 }
 
 /**
@@ -147,9 +150,11 @@ function scheduleBirthSecondCertification(
 export function announceLocalPeerPresence(options: IPresenceOptions): ILocalPeerPresence {
   const guardedDirectory = options.guardedDirectory ?? resolveGuardedDirectory();
   const registry: IRegistryOptions = { guardedDirectory, ...options.registry };
+  const workspace = readWorkspaceClaim(options.workspaceDirectory ?? process.cwd());
   const announcement = {
     sessionId: options.sessionId,
     ...(options.name !== undefined ? { name: options.name } : {}),
+    ...(workspace !== undefined ? { workspace } : {}),
   };
 
   let withdrawn = false;
@@ -189,12 +194,22 @@ export function announceLocalPeerPresence(options: IPresenceOptions): ILocalPeer
     sessionId: options.sessionId,
     guardedDirectory,
     list: () =>
-      listPeers(registry).map((discovered) => ({
-        sessionId: discovered.entry.sessionId,
-        ...(discovered.entry.name !== undefined ? { name: discovered.entry.name } : {}),
-        liveness: discovered.liveness,
-        status: discovered.status,
-      })),
+      listPeers(registry).map((discovered) => {
+        // Debris is not verified: an entry whose process is gone relates to nothing.
+        const verdict =
+          discovered.liveness === 'dead'
+            ? undefined
+            : judgeWorkspaceRelation(workspace, discovered.entry.workspace);
+        return {
+          sessionId: discovered.entry.sessionId,
+          ...(discovered.entry.name !== undefined ? { name: discovered.entry.name } : {}),
+          liveness: discovered.liveness,
+          status: discovered.status,
+          ...(verdict !== undefined
+            ? { workspaceRelation: verdict.relation, workspaceClaim: verdict.claim }
+            : {}),
+        };
+      }),
     publishStatus: (next) => {
       if (withdrawn) return;
       status = next;

@@ -6,6 +6,7 @@ import type { IInteractiveSessionRecord } from '../interactive/session-persisten
 import type { IModelEffortResolution, TEffortSelection } from '../effort/effort-resolution.js';
 import type { TPermissionMode, TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
 import type { IPermissionDenial } from '@robota-sdk/agent-session';
+import type { TWorkspaceRelation } from '@robota-sdk/agent-interface-session-mobility';
 
 export interface ICommandSettingsDocument {
   [key: string]: TUniversalValue;
@@ -192,6 +193,10 @@ export interface ILocalPeerSummary {
   readonly liveness: 'alive' | 'dead' | 'unknown';
   /** Content-free observed activity; unknown when stale or unverified. */
   readonly status?: 'working' | 'needs-input' | 'idle' | 'unknown';
+  /** How the peer's workspace relates to this one's, as this session verified it. */
+  readonly workspaceRelation?: TWorkspaceRelation;
+  /** `mismatched` when the peer's claim disagreed with what this session read; it is not believed. */
+  readonly workspaceClaim?: 'verified' | 'mismatched' | 'absent';
 }
 
 /**
