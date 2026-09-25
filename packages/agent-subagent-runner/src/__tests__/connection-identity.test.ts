@@ -199,15 +199,53 @@ describe('the projected connection', () => {
   });
 
   it('names a profile only when the connection came from it', () => {
-    const fromSettings = projectProviderConnection(job(), deps(), {}, {}, {});
+    const fromSettings = projectProviderConnection(
+      job(),
+      deps(),
+      { providerDefinitions: [OPENAI_LIKE] },
+      {},
+      {},
+    );
     expect(fromSettings.providerProfile.profileName).toBe('openai');
     const fromRunner = projectProviderConnection(
       job(),
       deps(),
-      { providerConfig: { name: 'openai', model: 'other', apiKey: 'sk-other' } },
+      {
+        providerConfig: { name: 'openai', model: 'other', apiKey: 'sk-other' },
+        providerDefinitions: [OPENAI_LIKE],
+      },
       {},
       {},
     );
     expect(fromRunner.providerProfile.profileName).toBeUndefined();
+  });
+
+  it('sends the definition default credential, as the variable it names, when none is configured', () => {
+    const withDefaultKey: IProviderDefinition = {
+      ...OPENAI_LIKE,
+      defaults: { apiKey: '$ENV:OPENAI_API_KEY' },
+    };
+    const { providerProfile, connectionCheck } = projectProviderConnection(
+      job(),
+      deps({ apiKey: undefined }),
+      { providerDefinitions: [withDefaultKey] },
+      {},
+      {},
+    );
+    expect(providerProfile.apiKeyEnv).toBe('OPENAI_API_KEY');
+    expect(providerProfile.apiKey).toBeUndefined();
+    expect(connectionCheck.names).toContain('OPENAI_API_KEY');
+  });
+
+  it('refuses a provider the runner was given no definition for', () => {
+    expect(() =>
+      projectProviderConnection(
+        job(),
+        deps({ name: 'gemma' }),
+        { providerDefinitions: [OPENAI_LIKE] },
+        {},
+        {},
+      ),
+    ).toThrow(/No provider definition for "gemma"/);
   });
 });

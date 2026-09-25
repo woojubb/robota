@@ -71,8 +71,9 @@ export function findConnectionEnvironmentDivergence(
 
 /**
  * What a child repeats before it builds a provider: the names, a fresh nonce, and a keyed digest of
- * the values the parent checked. The values themselves never travel; a digest keyed by a per-job
- * nonce reveals nothing reusable, even for a low-entropy value.
+ * the values the parent checked. The values themselves never travel. The nonce travels with the
+ * digest, so a reader of the payload could still test guesses for a low-entropy value offline;
+ * the digest only keeps a value from appearing, or matching across jobs, as-is.
  */
 export interface IConnectionEnvironmentCheck {
   readonly names: readonly string[];

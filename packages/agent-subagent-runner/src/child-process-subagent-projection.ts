@@ -77,7 +77,7 @@ async function projectSandbox(
 export interface IStartPayloadOptions {
   readonly providerConfig?: IProviderDefinitionConfig;
   /** The parent's provider registry: its defaults and the environment each provider reads. */
-  readonly providerDefinitions?: readonly IProviderDefinition[];
+  readonly providerDefinitions: readonly IProviderDefinition[];
   readonly logsDir?: string;
   /** The connection the runner already checked; projected here when absent. */
   readonly connection?: IProjectedConnection;
@@ -103,7 +103,17 @@ export function projectProviderConnection(
   parentEnv: NodeJS.ProcessEnv,
   childEnv: NodeJS.ProcessEnv,
 ): IProjectedConnection {
-  const definitions = options.providerDefinitions ?? [];
+  const definitions = options.providerDefinitions;
+  const type = (options.providerConfig ?? deps.config.provider).name;
+  // Fail closed: without the provider's definition the parent can neither complete the connection
+  // nor know which environment its client reads, and the child builds exactly what it is given.
+  if (findProviderDefinition(definitions, type) === undefined) {
+    throw new BackgroundTaskError(
+      'validation',
+      `No provider definition for "${type}" was given to the subagent runner, so the connection a ` +
+        'child would make cannot be checked; the subagent was not started.',
+    );
+  }
   const providerProfile = createProviderProfile(options.providerConfig, deps, job, definitions);
   const names = connectionEnvironmentNames(providerProfile, definitions);
   const diverging = findConnectionEnvironmentDivergence(names, parentEnv, childEnv);
@@ -201,6 +211,24 @@ function applyRequestOverrides(
   };
 }
 
+const ENV_REFERENCE_PREFIX = '$ENV:';
+
+/**
+ * The credential the child resolves: the profile's own, or else its definition's default — sent as
+ * the variable it names, so the child reads the same variable and the check compares it.
+ */
+function projectCredential(
+  provider: IProviderDefinitionConfig,
+  defaultApiKey: string | undefined,
+): Pick<ISerializableProviderProfile, 'apiKey' | 'apiKeyEnv'> {
+  if (provider.apiKeyEnv !== undefined) return { apiKeyEnv: provider.apiKeyEnv };
+  if (provider.apiKey !== undefined) return { apiKey: provider.apiKey };
+  if (defaultApiKey === undefined) return {};
+  return defaultApiKey.startsWith(ENV_REFERENCE_PREFIX)
+    ? { apiKeyEnv: defaultApiKey.slice(ENV_REFERENCE_PREFIX.length) }
+    : { apiKey: defaultApiKey };
+}
+
 function createProviderProfile(
   providerConfig: IProviderDefinitionConfig | undefined,
   deps: IInProcessSubagentRunnerDeps,
@@ -222,9 +250,7 @@ function createProviderProfile(
   // literal is all there is to send.
   // allow-fallback: a profile storing a plaintext credential has no reference to carry; the
   // org policy `requireApiKeyFromEnv` is the documented way to forbid that storage form.
-  const credential = provider.apiKeyEnv
-    ? { apiKeyEnv: provider.apiKeyEnv }
-    : { apiKey: provider.apiKey };
+  const credential = projectCredential(provider, defaults.apiKey);
   return {
     // Named only when it names THIS connection. A runner-supplied config may come from a different
     // profile (`--provider`) than the settings' current one.

@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 import { SUBAGENT_WORKER_MODE_FLAG } from '../index.js';
+import { sealConnectionEnvironment } from '@robota-sdk/agent-executor';
 
 /**
  * ARCH-021 TC-01 — the injected composition is what the worker uses, on the REAL entry point.
@@ -93,6 +94,8 @@ function runWorker(options: {
           parentConfig: {},
           parentContext: { agentsMd: '', projectNotesMd: '' },
           providerProfile: { type: 'arch021-scratch-provider', model: 'scratch-model' },
+          // The environment check the parent seals before spawning; this test compares none.
+          connectionCheck: sealConnectionEnvironment([], {}),
         },
       });
       // The turn itself needs no model to reach `createTools` — give it a moment, then read.

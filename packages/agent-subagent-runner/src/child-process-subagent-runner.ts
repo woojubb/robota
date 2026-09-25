@@ -55,10 +55,10 @@ export interface IChildProcessSubagentRunnerOptions {
   providerConfig?: IProviderDefinitionConfig;
   /**
    * The parent's provider registry. Its defaults complete the connection the child is given, and
-   * each definition names the environment its client reads. Without it only the transport and
-   * credential variables are compared.
+   * each definition names the environment its client reads. Required: a job whose provider has no
+   * definition here is refused, because its connection cannot be checked.
    */
-  providerDefinitions?: readonly IProviderDefinition[];
+  providerDefinitions: readonly IProviderDefinition[];
   killGraceMs?: number;
   /**
    * How long a spawned worker may take to signal `ready` before the runner gives up. Injectable so
@@ -91,7 +91,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   private readonly killGraceMs: number;
   private readonly handshakeBudgetMs?: number;
   private readonly providerConfig?: IProviderDefinitionConfig;
-  private readonly providerDefinitions?: readonly IProviderDefinition[];
+  private readonly providerDefinitions: readonly IProviderDefinition[];
   private readonly env?: NodeJS.ProcessEnv;
   private readonly logsDir?: string;
 
@@ -121,9 +121,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       this.deps,
       {
         ...(this.providerConfig !== undefined ? { providerConfig: this.providerConfig } : {}),
-        ...(this.providerDefinitions !== undefined
-          ? { providerDefinitions: this.providerDefinitions }
-          : {}),
+        providerDefinitions: this.providerDefinitions,
       },
       process.env,
       env,
@@ -202,6 +200,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   ): Promise<ISubagentWorkerStartPayload> {
     return projectStartPayload(job, this.deps, {
       connection,
+      providerDefinitions: this.providerDefinitions,
       ...(this.logsDir !== undefined ? { logsDir: this.logsDir } : {}),
     });
   }

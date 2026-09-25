@@ -31,4 +31,5 @@ endpoint.
     `findConnectionEnvironmentDivergence`, `sealConnectionEnvironment`,
     `verifyConnectionEnvironment` and `TRANSPORT_ENVIRONMENT`.
   - The start payload's `connectionCheck`.
-  - The child-process runner's `providerDefinitions` option.
+  - The child-process runner's `providerDefinitions` option, now required: a provider with no
+    definition there is refused, because its connection cannot be checked.

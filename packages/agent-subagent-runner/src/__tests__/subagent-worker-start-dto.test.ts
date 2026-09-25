@@ -1,3 +1,4 @@
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import { describe, expect, it } from 'vitest';
 
 import { projectStartPayload } from '../child-process-subagent-projection.js';
@@ -14,6 +15,11 @@ import {
 
 import type { ISubagentJobStart } from '@robota-sdk/agent-executor';
 import type { IAgentDefinition, IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
+
+/** The parent's registry: the runner refuses a provider it has no definition for. */
+const TEST_PROVIDER_DEFINITIONS: readonly IProviderDefinition[] = [
+  { type: 'openai', destinationEnvironment: [], createProvider: () => ({}) as never },
+];
 
 type ILoadedContext = IInProcessSubagentRunnerDeps['context'];
 
@@ -163,7 +169,7 @@ describe('child-process effort projection (BEHAVIOR-009)', () => {
         },
       },
       DEPS,
-      {},
+      { providerDefinitions: TEST_PROVIDER_DEFINITIONS },
     );
 
     expect(payload.agentDefinition.effort).toBe('high');
@@ -258,8 +264,12 @@ describe('a fork job adds ONE key to the start payload (CLI-1994 TC-06, ARCH-044
   }
 
   it('the fork payload key set equals the plain one, and its request adds exactly resumeSessionId', async () => {
-    const plain = await projectStartPayload(job(undefined), DEPS, {});
-    const fork = await projectStartPayload(job(FORK_SESSION_ID), DEPS, {});
+    const plain = await projectStartPayload(job(undefined), DEPS, {
+      providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+    });
+    const fork = await projectStartPayload(job(FORK_SESSION_ID), DEPS, {
+      providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+    });
 
     // Nothing new rides beside the request: no seed history, no transcript, no record.
     expect(Object.keys(fork).sort()).toEqual(Object.keys(plain).sort());
@@ -272,7 +282,9 @@ describe('a fork job adds ONE key to the start payload (CLI-1994 TC-06, ARCH-044
   });
 
   it('no message array and no copied-conversation or AGENTS.md/CLAUDE.md text crosses the wire', async () => {
-    const fork = await projectStartPayload(job(FORK_SESSION_ID), DEPS, {});
+    const fork = await projectStartPayload(job(FORK_SESSION_ID), DEPS, {
+      providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+    });
 
     // The wire form is what the child actually receives — structured-clone-equivalent.
     const wire = JSON.stringify(fork);

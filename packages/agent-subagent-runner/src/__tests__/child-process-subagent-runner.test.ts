@@ -1,3 +1,4 @@
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import { describe, expect, it } from 'vitest';
 import { fileURLToPath } from 'node:url';
 import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
@@ -28,6 +29,10 @@ const FORK_PERSISTENCE_WORKER_ENTRY = {
   execArgv: [] as readonly string[],
 };
 const TEST_TIMEOUT_MS = 20_000;
+/** The parent's registry: the runner refuses a provider it has no definition for. */
+const TEST_PROVIDER_DEFINITIONS: readonly IProviderDefinition[] = [
+  { type: 'openai', destinationEnvironment: [], createProvider: () => ({}) as never },
+];
 
 // The direct-constructor path never enables worktree isolation (that wrapping lives in the factory),
 // so a no-op adapter satisfies the now-required option without affecting behavior.
@@ -110,6 +115,7 @@ describe('ChildProcessSubagentRunner', () => {
       const runner = new ChildProcessSubagentRunner(createDeps(), {
         workerEntry: FIXTURE_WORKER_ENTRY,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
       });
 
       const handle = runner.start(createJob());
@@ -154,6 +160,7 @@ describe('ChildProcessSubagentRunner', () => {
         const runner = new ChildProcessSubagentRunner(createDeps(), {
           workerEntry: FORK_PERSISTENCE_WORKER_ENTRY,
           worktreeAdapter: STUB_WORKTREE_ADAPTER,
+          providerDefinitions: TEST_PROVIDER_DEFINITIONS,
         });
         const result = await runner.start({
           ...createJob(),
@@ -194,6 +201,7 @@ describe('ChildProcessSubagentRunner', () => {
           execArgv: [],
         },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
       });
 
       const handle = runner.start(createJob());
@@ -234,6 +242,7 @@ describe('ChildProcessSubagentRunner', () => {
       const runner = new ChildProcessSubagentRunner(createDeps(), {
         workerEntry: { execPath: process.execPath, args: [noisyWorker], execArgv: [] },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
       });
 
       const handle = runner.start(createJob());
@@ -264,6 +273,7 @@ describe('ChildProcessSubagentRunner', () => {
         // branch shipped untested. Injecting the budget is what makes the assertion reach it.
         handshakeBudgetMs: 300,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
       });
 
       // Deliberately NO `request.timeoutMs`: that is the other path, and it would mask this one.
@@ -286,6 +296,7 @@ describe('ChildProcessSubagentRunner', () => {
         workerEntry: FIXTURE_WORKER_ENTRY,
         env: { ROBOTA_FIXTURE_MODE: 'cwd' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
       });
 
       const handle = runner.start({
@@ -307,6 +318,7 @@ describe('ChildProcessSubagentRunner', () => {
         workerEntry: FIXTURE_WORKER_ENTRY,
         env: { ROBOTA_FIXTURE_MODE: 'usage' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
       });
 
       const handle = runner.start(createJob());
@@ -327,6 +339,7 @@ describe('ChildProcessSubagentRunner', () => {
         workerEntry: FIXTURE_WORKER_ENTRY,
         env: { ROBOTA_FIXTURE_MODE: 'progress' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
       });
 
       const handle = runner.start(createJobWithEvents(events));
@@ -358,6 +371,7 @@ describe('ChildProcessSubagentRunner', () => {
         workerEntry: FIXTURE_WORKER_ENTRY,
         logsDir,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
       });
 
       const handle = runner.start(createJob());
@@ -378,6 +392,7 @@ describe('ChildProcessSubagentRunner', () => {
         workerEntry: FIXTURE_WORKER_ENTRY,
         env: { ROBOTA_FIXTURE_MODE: 'wait' },
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
       });
 
       const handle = runner.start(createJob());
@@ -397,6 +412,7 @@ describe('ChildProcessSubagentRunner', () => {
         env: { ROBOTA_FIXTURE_MODE: 'wait' },
         killGraceMs: 1_000,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
       });
 
       const handle = runner.start(createJob());
@@ -455,6 +471,7 @@ describe('ChildProcessSubagentRunner — injected built-in agents (ARCH-036)', (
     const runner = new ChildProcessSubagentRunner(deps, {
       workerEntry: FIXTURE_WORKER_ENTRY,
       worktreeAdapter: STUB_WORKTREE_ADAPTER,
+      providerDefinitions: TEST_PROVIDER_DEFINITIONS,
     });
     return runner.start(jobFor(agentType));
   };
@@ -523,6 +540,7 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
       {
         workerEntry: FIXTURE_WORKER_ENTRY,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
         env: { ROBOTA_FIXTURE_MODE: 'echo-projection' },
       },
     );
@@ -600,7 +618,11 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
           } as unknown as IInProcessSubagentRunnerDeps['sandboxClient'],
           sandboxType: 'e2b',
         },
-        { workerEntry: FIXTURE_WORKER_ENTRY, worktreeAdapter: STUB_WORKTREE_ADAPTER },
+        {
+          workerEntry: FIXTURE_WORKER_ENTRY,
+          worktreeAdapter: STUB_WORKTREE_ADAPTER,
+          providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+        },
       );
       await expect(runner.start(createJob()).result).rejects.toThrow(/snapshot unavailable/);
     },
@@ -627,6 +649,7 @@ describe('ChildProcessSubagentRunner — credential on the wire (SEC-009)', () =
       {
         workerEntry: FIXTURE_WORKER_ENTRY,
         worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
         env: { ROBOTA_FIXTURE_MODE: 'echo-profile' },
       },
     );
