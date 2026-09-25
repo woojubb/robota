@@ -1253,6 +1253,24 @@ describe('Agent tool', () => {
     expect(result['error']).toContain('Parallel subagents are disabled');
   });
 
+  it('issue #3081: refuses to fall back to the process directory without a root', async () => {
+    const subagentManager = makeManagerSpy();
+    const tool = createAgentTool(
+      makeDeps({ cwd: undefined, parentSessionId: 'session_parent', subagentManager }),
+    );
+
+    const single = parseToolResult(
+      await tool.execute({ prompt: 'Root task', subagent_type: 'Explore' }),
+    );
+    const batch = parseToolResult(
+      await tool.execute({ jobs: [{ prompt: 'Root task', subagent_type: 'Explore' }] }),
+    );
+
+    expect(subagentManager.spawn).not.toHaveBeenCalled();
+    expect(JSON.stringify(single)).toContain('no execution root');
+    expect(JSON.stringify(batch)).toContain('no execution root');
+  });
+
   it('TC-03b: gate disabled also refuses batch jobs without dispatching', async () => {
     const subagentManager = makeManagerSpy();
     const tool = createAgentTool(
