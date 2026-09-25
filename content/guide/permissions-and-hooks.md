@@ -75,12 +75,13 @@ Inside the sandbox:
   npm config files stay read-only (isolated worktrees under `.robota/worktrees` stay writable).
   `.git` is read-only as a whole, so git commands that write — `commit`, `checkout`, `fetch` —
   fail inside the sandbox; add `git` to `excludedCommands` to run them on the host through the
-  ordinary prompt. On Linux, one of these entries a command creates where none existed is moved
-  to `~/.robota/sandbox-quarantine`, and a symlink it replaces is restored, when the command exits,
-  with a note in its output. Until that command exits, the entry it created is on disk, so a
-  session started meanwhile could read it. While one of these entries is a symlink into a writable place
-  (the working directory, a temporary directory, `allowWrite`) or points nowhere, commands are
-  confined but never approved automatically;
+  ordinary prompt. On Linux, when a command exits, one of these entries it created where none
+  existed is moved to `.robota/sandbox-quarantine` (or `~/.robota/sandbox-quarantine` when the
+  project has no `.robota` directory), and a symlink it replaced is restored, with a note in its
+  output. Until that command exits the entry is on disk, so a session started meanwhile could read
+  it. If an entry cannot be moved, commands ask until it is gone. While one of these entries is a
+  symlink into a writable place (the working directory, a temporary directory, `allowWrite`) or
+  points nowhere, commands are confined but never approved automatically;
 - everything else in the working directory is the command's to change, just as it is the file
   tools'. A nested repository, a `package.json` script or a `Makefile` it writes is project content:
   review changes before running host tools over them. In `auto-allow` this includes `default`

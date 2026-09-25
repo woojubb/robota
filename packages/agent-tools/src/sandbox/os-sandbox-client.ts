@@ -11,6 +11,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import {
+  chmodSync,
   cpSync,
   existsSync,
   lstatSync,
@@ -164,6 +165,15 @@ type IProtectedEntryState =
   | { readonly path: string; readonly kind: 'missing' | 'present' }
   | { readonly path: string; readonly kind: 'symlink'; readonly target: string };
 
+/** Give the owner read, write and search permission throughout an entry, never following links. */
+function grantOwnerAccess(path: string): void {
+  const stat = lstatSync(path);
+  if (stat.isSymbolicLink()) return;
+  chmodSync(path, stat.mode | 0o700);
+  if (!stat.isDirectory()) return;
+  for (const name of readdirSync(path)) grantOwnerAccess(`${path}/${name}`);
+}
+
 function isSymbolicLink(path: string): boolean {
   try {
     return lstatSync(path).isSymbolicLink();
@@ -185,6 +195,8 @@ export class OsSandboxClient implements ISandboxClient {
   private current: IOsSandboxSettings;
   private inFlight = 0;
   private baseline: IProtectedEntryState[] = [];
+  /** Entries a clean-up could not restore, with the state they must return to. */
+  private readonly unresolved = new Map<string, IProtectedEntryState>();
 
   constructor(options: IOsSandboxClientOptions) {
     this.root = realPathOrSelf(options.root);
@@ -217,6 +229,7 @@ export class OsSandboxClient implements ISandboxClient {
 
   autoApproves(shellCommand: string): boolean {
     if (!this.current.autoAllowBashIfSandboxed || !this.confines(shellCommand)) return false;
+    if (this.unresolved.size > 0) return false;
     // A protected entry that is a symlink is only as read-only as every directory on its target's
     // path: one that dangles, or points back into the writable workspace, can be redirected by the
     // command (create the target, or swap a directory along the way). A person decides instead.
@@ -249,23 +262,30 @@ export class OsSandboxClient implements ISandboxClient {
     // One baseline for every confined command in flight: taken when the first starts, restored
     // against when the last ends. A per-command baseline taken while another command runs would
     // record that command's planted entry as the state to restore.
-    if (this.inFlight === 0) this.baseline = this.protectedEntryStates();
+    const args = bubblewrapArguments({
+      policy,
+      // A protected entry that is a symlink is not mounted: its target outside the workspace is
+      // already read-only, one inside refuses auto-approval, and the link itself is restored
+      // after exit if the command replaced it.
+      exists: (path) => existsSync(path) && !isSymbolicLink(path),
+      listDirectory: (path) => readdirSync(path),
+      cwd: invocation.cwd,
+      command: invocation.command,
+      args: invocation.args,
+      ...(filter !== undefined ? { seccompDescriptor: 3 } : {}),
+    });
+    if (this.inFlight === 0) {
+      // An entry a clean-up could not restore keeps its earlier state, so it is never taken for
+      // a legitimate one.
+      this.baseline = this.protectedEntryStates().map(
+        (state) => this.unresolved.get(state.path) ?? state,
+      );
+    }
     this.inFlight += 1;
     let finished = false;
     return {
       command: executable,
-      args: bubblewrapArguments({
-        policy,
-        // A protected entry that is a symlink is not mounted: its target outside the workspace is
-        // already read-only, one inside refuses auto-approval, and the link itself is restored
-        // after exit if the command replaced it.
-        exists: (path) => existsSync(path) && !isSymbolicLink(path),
-        listDirectory: (path) => readdirSync(path),
-        cwd: invocation.cwd,
-        command: invocation.command,
-        args: invocation.args,
-        ...(filter !== undefined ? { seccompDescriptor: 3 } : {}),
-      }),
+      args,
       cwd: invocation.cwd,
       ...(filter !== undefined ? { inputDescriptors: [filter] } : {}),
       // Restores against the burst's baseline as each command ends, so a planted entry lives no
@@ -323,30 +343,31 @@ export class OsSandboxClient implements ISandboxClient {
    * user's `~/.robota`, where the command cannot reach it; what cannot be moved there is removed.
    */
   private restoreProtectedEntries(before: readonly IProtectedEntryState[]): string | undefined {
-    const quarantine = `${this.homeDirectory}/.robota/sandbox-quarantine/${Date.now()}-${randomUUID()}`;
+    const quarantine = `${this.quarantineRoot(before)}/${Date.now()}-${randomUUID()}`;
     const notes: string[] = [];
     for (const state of before) {
       if (state.kind === 'present') continue;
       try {
         const now = this.protectedEntryStates().find((entry) => entry.path === state.path)!;
-        if (state.kind === 'missing' && now.kind === 'missing') continue;
-        if (state.kind === 'symlink' && now.kind === 'symlink' && now.target === state.target) {
+        if (state.kind === 'missing' && now.kind === 'missing') {
+          this.unresolved.delete(state.path);
           continue;
         }
-        if (now.kind !== 'missing') {
-          try {
-            notes.push(this.setAside(state.path, quarantine));
-          } catch {
-            // allow-fallback: an entry that cannot be moved out is the command's own; it goes
-            rmSync(state.path, { recursive: true, force: true });
-            notes.push(`removed ${state.path}`);
-          }
+        if (state.kind === 'symlink' && now.kind === 'symlink' && now.target === state.target) {
+          this.unresolved.delete(state.path);
+          continue;
         }
+        if (now.kind !== 'missing') notes.push(this.setAside(state.path, quarantine));
         if (state.kind === 'symlink') symlinkSync(state.target, state.path);
+        this.unresolved.delete(state.path);
       } catch (error) {
-        // allow-fallback: reported in the command's output, never thrown into the host
+        // allow-fallback: never thrown into the host. Fail closed instead: the entry keeps its
+        // before-state for the next baseline, so it is retried, and nothing is auto-approved
+        // until it is gone.
+        this.unresolved.set(state.path, state);
         notes.push(
-          `could not restore ${state.path}: ${error instanceof Error ? error.message : String(error)}`,
+          `could not restore ${state.path} (${error instanceof Error ? error.message : String(error)}); ` +
+            'commands will ask until it is removed',
         );
       }
     }
@@ -357,16 +378,35 @@ export class OsSandboxClient implements ISandboxClient {
     );
   }
 
+  /**
+   * Where set-aside entries go: the workspace's own `.robota`, when it was a real directory before
+   * the command — then it was mounted read-only, so the command could not reach it, and a rename
+   * within one filesystem needs no permission inside the entry. Otherwise the user's `~/.robota`.
+   * Decided from the baseline: what is there now may be the command's own replacement.
+   */
+  private quarantineRoot(before: readonly IProtectedEntryState[]): string {
+    const robota = `${this.root}/.robota`;
+    const wasDirectory = before.some((state) => state.path === robota && state.kind === 'present');
+    return wasDirectory
+      ? `${robota}/sandbox-quarantine`
+      : `${this.homeDirectory}/.robota/sandbox-quarantine`;
+  }
+
   private setAside(path: string, quarantine: string): string {
     const destination = `${quarantine}/${basename(path)}`;
     mkdirSync(quarantine, { recursive: true });
     try {
       renameSync(path, destination);
     } catch (error) {
-      // The workspace and the home directory are often on different filesystems.
-      if ((error as NodeJS.ErrnoException).code !== 'EXDEV') throw error;
-      cpSync(path, destination, { recursive: true, verbatimSymlinks: true });
-      rmSync(path, { recursive: true, force: true });
+      // The command may have taken away its own write permission (moving a directory needs it)
+      // or the quarantine may be on another filesystem; the owner can always give it back.
+      grantOwnerAccess(path);
+      if ((error as NodeJS.ErrnoException).code === 'EXDEV') {
+        cpSync(path, destination, { recursive: true, verbatimSymlinks: true });
+        rmSync(path, { recursive: true, force: true });
+      } else {
+        renameSync(path, destination);
+      }
     }
     return `moved ${path} to ${destination}`;
   }

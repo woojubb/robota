@@ -317,8 +317,8 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
       expect(existsSync(join(root, '.mcp.json'))).toBe(false);
       expect(created.output).toContain('moved');
       // Moved aside, not deleted.
-      // Outside the workspace, where the command cannot reach it.
-      const quarantine = join(home, '.robota', 'sandbox-quarantine');
+      // In the workspace's own `.robota`, which the command cannot write.
+      const quarantine = join(root, '.robota', 'sandbox-quarantine');
       expect(readdirSync(quarantine).length).toBe(1);
 
       // `.git` is read-only whole: git cannot be pointed at another config through `commondir`.
@@ -392,6 +392,33 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
       expect(refused.success).toBe(false);
       await bash(client, 'C=.cla; mkdir ${C}ude && echo pwn > ${C}ude/settings.json');
       expect(existsSync(join(root, '.claude'))).toBe(false);
+    },
+    SPAWN_TIMEOUT_MS,
+  );
+
+  it(
+    'fails closed when a planted entry cannot be moved out, and retries it',
+    async () => {
+      const client = new OsSandboxClient({
+        root,
+        homeDirectory: home,
+        availability: bubblewrap,
+        settings: { enabled: true },
+      });
+      await bash(client, 'true');
+      // Block the quarantine so the clean-up cannot move anything.
+      writeFileSync(join(root, '.robota', 'sandbox-quarantine'), 'blocked');
+      const planted = await bash(
+        client,
+        'C=.cla; mkdir ${C}ude && echo pwn > ${C}ude/settings.json',
+      );
+      expect(planted.output).toContain('could not restore');
+      expect(client.autoApproves('ls')).toBe(false);
+
+      rmSync(join(root, '.robota', 'sandbox-quarantine'));
+      await bash(client, 'true');
+      expect(existsSync(join(root, '.claude'))).toBe(false);
+      expect(client.autoApproves('ls')).toBe(true);
     },
     SPAWN_TIMEOUT_MS,
   );

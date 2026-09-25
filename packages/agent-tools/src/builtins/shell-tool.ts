@@ -259,7 +259,9 @@ async function runShell(
     signal?.addEventListener('abort', onAbort, { once: true });
 
     child.on('error', (err: Error) => {
-      release();
+      // Only a process that never started is over here; a failed kill leaves it running, and its
+      // close releases it.
+      if (child.pid === undefined) release();
       settle({
         success: false,
         output: '',
