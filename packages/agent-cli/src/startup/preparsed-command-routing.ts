@@ -10,6 +10,7 @@ import {
   renameSupervisedSession, stopSupervisedSession, unlinkSupervisedPr,
 } from '../session-inventory/supervised-session-control.js';
 import { runSessionViewCommand } from '../session-inventory/session-view-command.js';
+import { validateNodeOtlpLiveTelemetrySettings } from '../telemetry/live-trace-otlp.js';
 import { runUsageCommand } from '../usage/usage-command.js';
 import { runUsageExportCommand } from '../usage/usage-export-command.js';
 import {
@@ -129,6 +130,9 @@ export async function runPreparsedCliCommand(
         if (requiresHeadlessWorkspaceTrust(access)) {
           throw new Error(formatHeadlessWorkspaceTrustError(access, targetCwd));
         }
+        // The child validates the very same settings when it starts; asking here first means a
+        // refusal is reported before a process is even spawned, with the real message.
+        validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, { serviceVersion: readVersion(), surface: 'serve' });
         return launchSupervisedSession(targetCwd, { env: supervisedEnv() });
       },
     });
@@ -184,6 +188,9 @@ export async function runPreparsedCliCommand(
       return true;
     }
     try {
+      // Validated here, before spawning, so a refused telemetry setting is reported with the real
+      // message instead of only the child's generic "exited before it was ready".
+      validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, { serviceVersion: readVersion(), surface: 'serve' });
       const id = await launchSupervisedSession(cwd, {
         env: supervisedEnv(), ...(named ? { name: startArgs[2]! } : {}),
       });

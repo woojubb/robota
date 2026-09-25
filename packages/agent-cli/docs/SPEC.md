@@ -108,7 +108,10 @@ configured for and are never sent elsewhere, printed, or written to console outp
 attributes. Robota telemetry settings are not inherited by child processes, except the explicit
 handover to a supervised runtime launched by a session command; this is a guarantee about
 inheritance, not about hiding them from the same OS user. Because they are removed from
-`process.env` at startup, an embedding host that calls `startCli` has its own `process.env` mutated.
+`process.env` at startup, an embedding host that calls `startCli` has its own `process.env` mutated;
+a later in-process `startCli` call still uses the settings the first call captured, merged under
+whatever that later call has set again itself, without those settings ever being written back to
+`process.env`.
 
 Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`); it accepts
 `commandModules` and registers them generically with the SDK registry.

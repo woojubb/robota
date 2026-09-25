@@ -82,7 +82,9 @@ describe('CLI live trace opt-in', () => {
       const address = server.address();
       if (!address || typeof address === 'string') throw new Error('Expected TCP listener');
       const endpoint = `http://127.0.0.1:${address.port}`;
-      // Startup removes every Robota telemetry setting from process.env, so each run sets its own.
+      // Startup removes every Robota telemetry setting from process.env, but a later in-process run
+      // still falls back to whatever the very first run captured — so a run that wants a signal off
+      // must say so explicitly (`'off'`) rather than merely omitting it.
       const setTelemetry = (settings: Record<string, string>): void => {
         for (const [key, value] of Object.entries({
           ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf', ROBOTA_TELEMETRY_OTLP_ENDPOINT: endpoint, ...settings,
@@ -107,11 +109,11 @@ describe('CLI live trace opt-in', () => {
       expect(requests[0]!.body).toContain('robota.surface');
       expect(requests[0]!.body).toContain('print');
 
-      setTelemetry({ ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_METRICS: 'otlp' });
+      setTelemetry({ ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_TRACES: 'off', ROBOTA_TELEMETRY_METRICS: 'otlp' });
       await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requests.map((request) => request.path)).toEqual(['/v1/traces', '/v1/metrics']);
 
-      setTelemetry({ ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_LOGS: 'otlp' });
+      setTelemetry({ ROBOTA_TELEMETRY_ENABLED: '1', ROBOTA_TELEMETRY_TRACES: 'off', ROBOTA_TELEMETRY_LOGS: 'otlp' });
       await expect(startCli({ providerDefinitions: [providerDefinition] })).rejects.toThrow('process.exit:0');
       expect(requests.map((request) => request.path)).toEqual(['/v1/traces', '/v1/metrics', '/v1/logs']);
 

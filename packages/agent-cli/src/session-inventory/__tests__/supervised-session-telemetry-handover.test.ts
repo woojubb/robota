@@ -16,8 +16,13 @@ vi.mock('../session-view-command.js', () => ({ runSessionViewCommand: vi.fn() })
 vi.mock('../supervised-session-launch.js', () => ({ launchSupervisedSession: vi.fn() }));
 
 const ID = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
+// A validly resolvable configuration: the parent now validates it (without starting an exporter)
+// before spawning the child, the same way the child validates it when it starts.
 const snapshot = Object.freeze({
   ROBOTA_TELEMETRY_ENABLED: '1',
+  ROBOTA_TELEMETRY_TRACES: 'otlp',
+  ROBOTA_TELEMETRY_OTLP_PROTOCOL: 'http/protobuf',
+  ROBOTA_TELEMETRY_OTLP_ENDPOINT: 'https://collector.example',
   ROBOTA_TELEMETRY_OTLP_HEADERS: 'authorization=Bearer%20handover-sentinel',
 });
 
