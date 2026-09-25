@@ -8,6 +8,7 @@
 import {
   CONTEXT_ESTIMATE_CHARS_PER_TOKEN,
   PROVIDER_CALL_EVENTS,
+  PROVIDER_FALLBACK_EVENTS,
   createLogger,
   createUserMessage,
   getProviderCapabilities,
@@ -32,6 +33,7 @@ import type {
 import type {
   IAIProvider,
   IContextWindowState,
+  IModelFallbackNotice,
   THooksConfig,
   IHookTypeExecutor,
   ISubprocessTraceEnv,
@@ -116,7 +118,28 @@ export interface IRunContext {
   onContextUpdate?: (state: IContextWindowState) => void;
   onToolExecution?: ISessionOptions['onToolExecution'];
   emitProviderCallCompleted?: (observation: IProviderCallTraceObservation) => void;
+  /** Tell the session's owner a request moved to another model, so it can say so. */
+  emitProviderFallback?: (notice: IModelFallbackNotice) => void;
   knownToolNames?: readonly string[];
+}
+
+/** The fallback notice carried by a `provider_fallback` execution event, when it is well formed. */
+function readModelFallbackNotice(data: Record<string, unknown>): IModelFallbackNotice | undefined {
+  const { fromProvider, fromModel, toProvider, toModel, reason } = data;
+  if (
+    typeof fromProvider !== 'string' ||
+    typeof fromModel !== 'string' ||
+    typeof toProvider !== 'string' ||
+    typeof toModel !== 'string' ||
+    typeof reason !== 'string'
+  ) {
+    return undefined;
+  }
+  return {
+    from: { provider: fromProvider, model: fromModel },
+    to: { provider: toProvider, model: toModel },
+    reason: reason as IModelFallbackNotice['reason'],
+  };
 }
 
 /**
@@ -241,6 +264,9 @@ export async function executeRun(
           fireModelCallHook(ctx, 'PreModelCall', data as Record<string, unknown>, hookTraceEnv);
         } else if (event === 'provider_response_normalized') {
           fireModelCallHook(ctx, 'PostModelCall', data as Record<string, unknown>, hookTraceEnv);
+        } else if (event === PROVIDER_FALLBACK_EVENTS.SWITCHED && ctx.emitProviderFallback) {
+          const notice = readModelFallbackNotice(data as Record<string, unknown>);
+          if (notice !== undefined) ctx.emitProviderFallback(notice);
         } else if (event === PROVIDER_CALL_EVENTS.COMPLETED && ctx.emitProviderCallCompleted) {
           // Forward an allowlist, not the generic event envelope, across the session boundary.
           const observation = data as Record<string, unknown>;

@@ -82,6 +82,18 @@ export const CHAT_OPTION_WIRE_DISPOSITION: Record<
     kind: 'local',
     note: 'trusted only for origins the local host listed; forwarding it would hand the trace to a server that never was, so an executor sends nothing',
   },
+  executionId: {
+    kind: 'local',
+    note: 'keys a local model-fallback choice for the run; the server answers on the model it was sent, so it has no run to key',
+  },
+  onModelFallback: {
+    kind: 'local',
+    note: 'a function cannot cross a wire; the server never moves a request to another model, so nothing would call it',
+  },
+  preserveContextWindow: {
+    kind: 'local',
+    note: 'constrains a local model-fallback choice; the server answers on the model it was sent',
+  },
 };
 
 /**

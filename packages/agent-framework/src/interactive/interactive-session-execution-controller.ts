@@ -309,6 +309,8 @@ export class SessionExecutionController {
         }
       | undefined;
     const providerCallEntries: IHistoryEntry<IProviderCallTraceEntry>[] = [];
+    // The model that last answered in this turn, which is not the session's when the turn moved on.
+    let answeredBy: { providerId: string; modelId: string } | undefined;
     const seenProviderCallIds = new Set<string>();
     const toolBodyEntries: IHistoryEntry<IToolBodyTraceEntry>[] = [];
     const liveTrace = this.callbacks.livePromptTrace ? new LivePromptTraceAccumulator() : undefined;
@@ -406,6 +408,14 @@ export class SessionExecutionController {
           turnOutcome = 'success';
         },
         onProviderCallCompleted: (observation) => {
+          if (
+            observation.outcome === 'success' &&
+            observation.disposition === 'invoked' &&
+            observation.providerId !== undefined &&
+            observation.modelId !== undefined
+          ) {
+            answeredBy = { providerId: observation.providerId, modelId: observation.modelId };
+          }
           if (!promptRoot) return;
           // Core mints the call ID before every call and the span ID is derived from it, so the span
           // a provider was told is its parent is the span exported here. A call without one has no
@@ -596,6 +606,7 @@ export class SessionExecutionController {
         ...(turnOptions.driverId ? { driverId: turnOptions.driverId } : {}),
         ...(turnOptions.surface ? { surface: turnOptions.surface } : {}),
         ...(terminalResult?.usage ? { usage: terminalResult.usage } : {}),
+        ...(answeredBy !== undefined ? { answeredBy } : {}),
       });
       if (turnOptions.wakeTaskId !== undefined && this.callbacks.onWakeTurnFinalizing) {
         try {

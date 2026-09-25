@@ -856,6 +856,22 @@ export {
   resolveRoleFallbackChain,
   runWithRoleFallback,
 } from './routing/role-model-routing.js';
+export { FallbackProvider } from './routing/fallback-provider.js';
+export type { IFallbackModelTarget, IFallbackProviderOptions } from './routing/fallback-provider.js';
+export {
+  FALLBACK_MODEL_SETTINGS_KEY,
+  MAX_FALLBACK_MODELS,
+  describeModelFallback,
+  parseFallbackModelList,
+  readFallbackModelSetting,
+  resolveModelFallbackChain,
+  selectFallbackModelEntries,
+} from './routing/model-fallback-chain.js';
+export type {
+  IModelFallbackChain,
+  IModelFallbackPrimary,
+  IResolveModelFallbackChainInput,
+} from './routing/model-fallback-chain.js';
 
 // ──────────────────────────────────────────────────────────────
 // INTERNAL (not exported):

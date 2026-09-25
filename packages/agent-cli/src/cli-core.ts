@@ -14,6 +14,7 @@ import {
 import { assembleProduct } from '@robota-sdk/agent-product';
 
 import { createFileCostBudgetAdapter } from './startup/cost-budget-adapter.js';
+import { applyModelFallbackChain } from './startup/model-fallback-startup.js';
 import { checkForCliUpdate, formatCliUpdateCheckMessage } from './update-check/update-check.js';
 import { resolveCliUpdateNotice } from './update-check/resolve-cli-update-notice.js';
 import { parseCliArgs, printHelp, type IParsedCliArgs } from './utils/cli-args.js';
@@ -576,7 +577,21 @@ async function runCliCore(
       transports: transportRegistry,
     }),
   );
-  const provider = product.provider;
+  // A replayed session answers from its log, so there is nothing to fall back from.
+  const provider =
+    product.provider === undefined || args.sessionLog !== undefined
+      ? product.provider
+      : applyModelFallbackChain({
+          provider: product.provider,
+          fallbackFlag: args.fallbackModel,
+          settingsSources: workspaceComposition.settingsSources,
+          primaryConfig: { ...providerSettings, model: modelId },
+          ...(args.provider !== undefined && { providerOverride: args.provider }),
+          providerDefinitions,
+          ...(orgPolicy !== undefined && { orgPolicy }),
+          notice: (message) =>
+            args.printMode ? process.stderr.write(`${message}\n`) : terminal.writeLine(message),
+        });
   // CLI-078 (issue #2443): the collaborators every mode receives are the ones assembly returned.
   const { backgroundTaskRunners: assembledBackgroundTaskRunners, subagentRunnerFactory } =
     bindAssembledCollaborators(product, {

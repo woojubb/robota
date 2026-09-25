@@ -14,6 +14,11 @@ export const PROVIDER_CALL_EVENTS = {
   COMPLETED: 'provider_call_completed',
 } as const;
 
+/** A provider request moved to another model after the one it was on failed. */
+export const PROVIDER_FALLBACK_EVENTS = {
+  SWITCHED: 'provider_fallback',
+} as const;
+
 /** Content-free completion of the body actually awaited by one permitted tool call. */
 export const TOOL_BODY_EVENTS = {
   COMPLETED: 'tool_body_completed',

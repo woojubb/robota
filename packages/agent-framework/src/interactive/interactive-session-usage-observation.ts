@@ -74,13 +74,16 @@ export function recordUsageObservation(
     driverId?: string;
     surface?: IUsageObservation['surface'];
     usage?: IUsageSnapshot;
+    /** The provider and model that answered, when a call reported them; the session's otherwise. */
+    answeredBy?: { providerId: string; modelId: string };
   },
 ): void {
-  const providerId = session.getProviderId?.();
-  const modelId = session.getModelId?.();
+  const { answeredBy, ...observation } = input;
+  const providerId = answeredBy?.providerId ?? session.getProviderId?.();
+  const modelId = answeredBy?.modelId ?? session.getModelId?.();
   history.push(
     createUsageObservationEntry({
-      ...input,
+      ...observation,
       ...(providerId ? { providerId } : {}),
       ...(modelId ? { modelId } : {}),
     }),

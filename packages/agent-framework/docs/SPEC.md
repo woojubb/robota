@@ -214,6 +214,19 @@ These are behaviors a caller cannot infer from a type signature alone.
   resident, only when something in the assembled set is actually deferred, and the system prompt is
   given a roster of exactly what was withheld — a session with nothing deferred is prompt-identical to
   one without the feature at all.
+- **A model fallback chain moves a request only where another model could serve it, and only
+  before anything was shown.** It is a decorator in front of the session's one provider rather than
+  a loop in the round logic, because the core cannot build providers and many readers take "the"
+  provider and model; it receives the provider-neutral messages the shared conversion step already
+  produced and delegates them unchanged, so conversation, tool calls, tool results and tool schemas
+  carry across vendors while the primary's prompt cache, vendor-only reasoning and hosted tools do
+  not. It moves on only for a failure the core classifies as switchable, and never once output has
+  streamed, since text or a partial tool call the user saw cannot be withdrawn. An entry that
+  cannot be built is passed over rather than ending the turn. A run stays on the model that
+  accepted it and the next run starts on the primary, and compaction never moves to a model with a
+  smaller or unknown context window, since its input was sized to the primary. In-process subagents
+  share the decorated provider and so the chain; a child-process subagent does not, because its one
+  bound connection would need a binding per entry.
 - **Subagent tool filtering has a fixed order, and subagents cannot spawn subagents.** Filtering
   first unwraps any tool-call-handoff wrapper (so a child session or fork never inherits one even
   though the parent's own tool list does), then applies the agent definition's denylist, then its

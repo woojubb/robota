@@ -7,6 +7,7 @@ import { parseArgs } from 'node:util';
 
 import {
   OUTPUT_FORMATS,
+  parseFallbackModelList,
   parseModelEffort,
   type TOutputFormat,
   type TEffortSelection,
@@ -71,6 +72,8 @@ export interface IParsedCliArgs {
   allowedTools: string | undefined;
   deniedTools: string | undefined;
   model: string | undefined;
+  /** Models to move a turn to when the primary is overloaded; replaces the settings' chain. */
+  fallbackModel?: string[];
   /** Requested model-effort level; `auto` follows the selected model default. */
   effort?: TEffortSelection;
   preset: string | undefined;
@@ -192,6 +195,7 @@ const PARSE_ARGS_CONFIG = {
     'allowed-tools': { type: 'string' },
     'denied-tools': { type: 'string' },
     model: { type: 'string' },
+    'fallback-model': { type: 'string' },
     effort: { type: 'string' },
     preset: { type: 'string' },
     'output-style': { type: 'string' },
@@ -307,6 +311,9 @@ function mapParsedValues(
     allowedTools: values['allowed-tools'],
     deniedTools: values['denied-tools'],
     model: values['model'],
+    ...(values['fallback-model'] !== undefined && {
+      fallbackModel: parseFallbackModelList(values['fallback-model']),
+    }),
     effort: parseModelEffort(values['effort']),
     preset: values['preset'],
     outputStyle: values['output-style'],

@@ -41,6 +41,11 @@ export const SESSION_LOG_EVENT = {
    * request looked the way it did.
    */
   structuredOutputTransport: 'structured_output_transport',
+  /**
+   * A request moved to another model because the one it was on failed. Diagnostic, not replay
+   * substrate: the `provider_request` announced for the new model is what a replay answers.
+   */
+  providerFallback: 'provider_fallback',
   assistantMessageCommitted: 'assistant_message_committed',
 
   // Tool replay substrate (keyed by executionId + toolCallId).
