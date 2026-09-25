@@ -65,6 +65,11 @@ without implying a background supervisor or an attach/restart capability; it inc
 user-owned and currently authorized project records, never transcript content, and corrupt or
 unsupported records stay visible rather than being hidden.
 
+A conversation between local peers is bounded, so two agents that always answer cannot message each
+other forever: its depth and this session's answers in it are counted from what this session itself
+sent and received, never from a count the peer states, and the reply that would cross a limit is not
+sent and the operator is told.
+
 Supervised background sessions (`session start --background`) run as independent, same-user
 processes behind the same headless trust boundary, each with its own guarded local control endpoint
 that survives the launching terminal. The session list reports only content-free activity and

@@ -38,6 +38,8 @@ export function publicTurnOptions(options: ISubmitOptions): ITurnOptions {
     ...(options.signal !== undefined ? { signal: options.signal } : {}),
     ...(options.driverId !== undefined ? { driverId: options.driverId } : {}),
     ...(options.turnSource !== undefined ? { turnSource: options.turnSource } : {}),
+    // Its reach only narrows what a peer turn may do, and the turn is refused without `'peer'`.
+    ...(options.peer !== undefined ? { peer: options.peer } : {}),
   };
 }
 

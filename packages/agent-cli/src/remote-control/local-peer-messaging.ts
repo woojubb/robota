@@ -23,8 +23,10 @@
  */
 
 import { listenForPeerMessages, sendPeerMessage } from './local-peer-channel.js';
+import { PeerConversationLedger } from './peer-conversation-ledger.js';
 
 import type { IPeerListener } from './local-peer-channel.js';
+import type { IPeerConversationLimits } from './peer-conversation-ledger.js';
 import type {
   IPeerMessage,
   IPeerMessageAck,
@@ -62,11 +64,19 @@ export interface IPeerMessagingOptions {
   readonly report?: (message: string) => void;
   readonly newMessageId?: () => string;
   readonly now?: () => number;
+  /** How far one conversation may run before a reply is refused. Defaults apply when absent. */
+  readonly limits?: IPeerConversationLimits;
+}
+
+/** What a send may say beyond the text. */
+export interface IPeerSendOptions {
+  /** The received message this answers. The reply then counts against that conversation's limits. */
+  readonly inReplyTo?: string;
 }
 
 export interface IPeerMessaging {
   readonly socketPath: string;
-  send(targetSessionId: string, text: string): Promise<IPeerMessageAck>;
+  send(targetSessionId: string, text: string, options?: IPeerSendOptions): Promise<IPeerMessageAck>;
   close(): Promise<void>;
 }
 
@@ -111,6 +121,7 @@ export async function startLocalPeerMessaging(
   options: IPeerMessagingOptions,
 ): Promise<IPeerMessaging> {
   let sequence = 0;
+  const conversations = new PeerConversationLedger(options.limits);
   const now = options.now ?? ((): number => Date.now());
   const newMessageId = options.newMessageId ?? ((): string => `${options.sessionId}-${sequence}`);
 
@@ -118,6 +129,7 @@ export async function startLocalPeerMessaging(
     guardedDirectory: options.guardedDirectory,
     sessionId: options.sessionId,
     onMessage: async (message: IPeerMessage): Promise<IPeerMessageAck> => {
+      conversations.receive(message);
       // The admission is the DIRECTORY's, established when the socket was bound. It is restated
       // here as the ingress's contract requires, not re-derived from anything the peer sent. The
       // workspace relation is likewise this session's own verdict, never the sender's.
@@ -171,7 +183,11 @@ export async function startLocalPeerMessaging(
 
   return {
     socketPath: listener.socketPath,
-    send: async (targetSessionId: string, text: string): Promise<IPeerMessageAck> => {
+    send: async (
+      targetSessionId: string,
+      text: string,
+      sendOptions: IPeerSendOptions = {},
+    ): Promise<IPeerMessageAck> => {
       if (targetSessionId === options.sessionId) {
         return refusal(undefined, 'that is this session; a session does not message itself.');
       }
@@ -189,6 +205,19 @@ export async function startLocalPeerMessaging(
         return refusal(undefined, `session ${targetSessionId} is no longer running.`);
       }
 
+      // A reply is held to its conversation's limits before anything is sent, and a refusal is said
+      // to the operator: the model hearing it is not the operator hearing it.
+      const { inReplyTo } = sendOptions;
+      const admission =
+        inReplyTo === undefined ? undefined : conversations.admitReply(targetSessionId, inReplyTo);
+      if (admission !== undefined && !admission.admitted) {
+        reportQuietly(
+          options.report,
+          `[peers] a reply to ${targetSessionId} was not sent: ${admission.reason}.`,
+        );
+        return refusal(undefined, `the reply was not sent: ${admission.reason}.`);
+      }
+
       sequence += 1;
       const message: IPeerMessage = {
         id: newMessageId(),
@@ -196,7 +225,9 @@ export async function startLocalPeerMessaging(
         origin: { sessionId: options.sessionId },
         text,
         sentAt: now(),
+        ...(inReplyTo !== undefined ? { inReplyTo } : {}),
       };
+      conversations.recordSent(message.id, targetSessionId, admission?.thread);
 
       try {
         return await sendPeerMessage({

@@ -49,6 +49,12 @@ export const FRAMEWORK_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPe
      * session's own rules and trust decision govern what happens there — so it is an inspection.
      */
     Cd: { argument: { key: 'path', kind: 'path' }, riskClass: 'inspect' },
+
+    /**
+     * Answers the peer session that drove the current turn. It has no risk class: the peer-turn
+     * policy decides it — only in a peer turn, asking the operator once the turn used another tool.
+     */
+    peer_reply: { argument: { key: 'text', kind: 'text' }, repliesToPeer: true },
   };
 
 /**

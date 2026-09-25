@@ -11,6 +11,7 @@
  * origin intact, and it can trigger a response. The unit tests cover the ingress's decisions; this
  * covers that the wiring actually carries them into a live agent loop.
  */
+import { registerToolPermissionProfile } from '@robota-sdk/agent-core';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { PeerMessageIngress } from '../../interactive/peer-message-ingress.js';
@@ -21,6 +22,10 @@ import type { IPeerMessageIngress } from '@robota-sdk/agent-interface-session-mo
 
 const TEST_TIMEOUT = 30_000;
 const GATE_TOOL = 'GateTool';
+
+// A peer turn may use only what its origin allows: the gate is declared a workspace-only read, which
+// a same-host peer may use.
+registerToolPermissionProfile(GATE_TOOL, { riskClass: 'inspect', workspacePaths: [] });
 
 /** A tool that holds the turn open until the test releases it, and says when it was entered. */
 function gateTool(): { tool: IToolWithEventService; entered: Promise<void>; release: () => void } {
@@ -172,6 +177,7 @@ describe('peer session-to-session messaging (framework functional)', () => {
             turnSource: 'peer',
             driverId: origin.driverId ?? 'peer:unknown',
             onAccepted,
+            peer: { reach: 'same-host', messageId: 'msg_1', replyTo: origin.sessionId },
           }),
       });
 

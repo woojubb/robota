@@ -36,6 +36,7 @@ export const SETTINGS_MERGE_RULES: Readonly<Record<string, TSettingsMergeRule>> 
   hooks: 'per-event',
   taskContext: 'object-merge',
   sandbox: 'object-merge',
+  peers: 'object-merge',
 });
 
 export interface IHookDefinitionSource {
@@ -136,6 +137,7 @@ function mergeLayer(
     hooks: mergeOptionalHooks(merged.hooks, layer.hooks),
     taskContext: mergeOptionalObject(merged.taskContext, layer.taskContext),
     sandbox: mergeOptionalObject(merged.sandbox, layer.sandbox),
+    peers: mergeOptionalObject(merged.peers, layer.peers),
   };
 }
 

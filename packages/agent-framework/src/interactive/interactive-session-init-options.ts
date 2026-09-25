@@ -13,6 +13,7 @@
 import type { IInteractiveSessionStore } from './session-persistence.js';
 import type { TInteractivePermissionHandler } from './types.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
+import type { IPeerReplyPort } from '../tools/peer-reply-tool.js';
 import type { TSessionResponseFormat } from '../assembly/create-session-types.js';
 import type { ICreateSessionOptions } from '../assembly/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
@@ -178,6 +179,8 @@ export interface IInitOptions {
   selfVerification?: boolean | string;
   /** Additional tools registered alongside the default CLI tools. */
   additionalTools?: IToolWithEventService[];
+  /** The session's answer route to a peer; its tool is offered only in a peer turn. */
+  peerReply?: IPeerReplyPort;
   /**
    * ARCH-006: REPLACES the framework's `createDefaultTools()` tier; `[]` suppresses every framework
    * default so a product's capability packs can own the whole tool surface. Mirrors NEUT-003's

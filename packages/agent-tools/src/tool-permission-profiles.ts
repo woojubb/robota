@@ -26,10 +26,23 @@ import { registerToolPermissionProfile, type IToolPermissionProfile } from '@rob
  * unevaluable and prompts rather than proceeding, which is why the ones that CAN be narrowed say so.
  */
 export const AGENT_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPermissionProfile>> = {
-  // Reads and searches: observe, change nothing.
-  Read: { argument: { key: 'filePath', kind: 'path' }, riskClass: 'inspect' },
-  Glob: { argument: { key: 'pattern', kind: 'text' }, riskClass: 'inspect' },
-  Grep: { argument: { key: 'pattern', kind: 'text' }, riskClass: 'inspect' },
+  // Reads and searches: observe, change nothing. `workspacePaths` names every argument that says
+  // where they look, which is what lets a same-host peer turn use them inside the workspace.
+  Read: {
+    argument: { key: 'filePath', kind: 'path' },
+    riskClass: 'inspect',
+    workspacePaths: ['filePath'],
+  },
+  Glob: {
+    argument: { key: 'pattern', kind: 'text' },
+    riskClass: 'inspect',
+    workspacePaths: ['pattern', 'path'],
+  },
+  Grep: {
+    argument: { key: 'pattern', kind: 'text' },
+    riskClass: 'inspect',
+    workspacePaths: ['path', 'glob'],
+  },
   WebFetch: { argument: { key: 'url', kind: 'url' }, riskClass: 'inspect' },
   WebSearch: { argument: { key: 'query', kind: 'text' }, riskClass: 'inspect' },
   // The tool that had no classification at all until now. It reads the codebase and returns

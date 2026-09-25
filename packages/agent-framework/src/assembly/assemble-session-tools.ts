@@ -15,6 +15,7 @@ import { bindAdvisorTools } from '../advisor/advisor-tool.js';
 import { wrapEditCheckpointTools } from '../checkpoints/edit-checkpoint-tools.js';
 import { createGoalStatusTool } from '../goal/index.js';
 import { createSessionLoopDecisionTool } from '../interactive/session-loop-decision-tool.js';
+import { createPeerReplyTool } from '../tools/peer-reply-tool.js';
 import { wrapReversibleExecutionTools } from '../reversible-execution/index.js';
 
 import type { ICreateSessionOptions } from './create-session-types.js';
@@ -112,6 +113,7 @@ export async function assembleSessionTools(
         ...(options.additionalTools ?? []),
         ...(options.includeGoalTool ? [createGoalStatusTool()] : []),
         ...(options.includeSessionLoopDecisionTool ? [createSessionLoopDecisionTool()] : []),
+        ...(options.peerReply ? [createPeerReplyTool(options.peerReply)] : []),
       ],
       sessionAccess,
     ),

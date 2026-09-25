@@ -6,6 +6,8 @@
  *
  * 1. Deny list match → deny
  * 2. Outside the caller's ceiling → deny, in every mode
+ *    A peer turn: what the peer's reach does not allow → deny; an enabled change → ask; the reply
+ *    to the peer → auto, or ask once the turn used a tool
  * 3. Deny list UNEVALUABLE (CORE-030) → ask
  * 4. Never-auto-approve set → ask, in every mode: an ask rule, a critical-path removal, a
  *    modify-class call on a protected path
@@ -28,11 +30,13 @@
 import { globToRegex, matchCommand, matchPath, matchUrl } from './argument-matchers.js';
 import { RISK_CLASS_POLICY, UNCLASSIFIED_TOOL_FALLBACK } from './permission-mode.js';
 import { isProtectedPath, removesCriticalPath } from './permission-safeguards.js';
+import { decidePeerTurnCall, isAvailableInPeerTurn } from './peer-turn-policy.js';
 import { isReadOnlyCommandLine } from './read-only-commands.js';
 import type { TResolveInWorkspace } from './read-only-commands.js';
 
 import type { TArgumentKind, TMatchDirection, TPatternMatch } from './argument-matchers.js';
 import type { TToolRiskClass } from './permission-mode.js';
+import type { IPeerTurnAuthority } from './peer-turn-policy.js';
 import type { ICriticalPathContext } from './permission-safeguards.js';
 import type { TPermissionMode, TPermissionDecision } from './types.js';
 
@@ -73,6 +77,11 @@ export interface IPermissionEvaluationContext extends ICriticalPathContext {
    * before the mode step, and plan mode's refusal, still hold.
    */
   sandboxAutoApproved?: boolean;
+  /**
+   * This turn was driven by another agent session. Absent for the operator's own turn. It only
+   * narrows: what it lets through is then decided like the operator's call.
+   */
+  peerTurn?: IPeerTurnAuthority;
 }
 
 /**
@@ -146,6 +155,14 @@ export interface IToolPermissionProfile {
    * too, so a deny cannot be sidestepped by calling the alias it did not spell out.
    */
   aliases?: readonly string[];
+  /**
+   * The arguments that name a location, for an inspect-class tool that reads nothing but what they
+   * name. Declaring it — even empty — says the tool never reaches past the workspace, which is what
+   * lets a same-host peer turn use it once every named location resolves inside and is no secret.
+   */
+  workspacePaths?: readonly string[];
+  /** The tool answers the peer that drove the current turn; it exists only in a peer turn. */
+  repliesToPeer?: boolean;
 }
 
 /** Profiles contributed by the packages that own the tools. */
@@ -236,6 +253,14 @@ export function isToolDeniedOutright(toolName: string, deny: readonly string[]):
       parsed.argPattern === undefined || parsed.argPattern === '*' || parsed.argPattern === '**';
     return bare && toolNameMatches(parsed.toolName, toolName);
   });
+}
+
+/** Whether a turn driven by a peer with this authority is shown the tool at all. */
+export function isToolAvailableInPeerTurn(
+  toolName: string,
+  authority: IPeerTurnAuthority,
+): boolean {
+  return isAvailableInPeerTurn(toolProfiles.get(toolName), authority);
 }
 
 /** Which argument a pattern is matched against, or `undefined` when nobody has said. */
@@ -461,6 +486,21 @@ export function evaluatePermission(
   //    subagent under a permissive mode still cannot reach past what it was given (CORE-025).
   if (context.ceiling !== undefined && !matchesAnyPattern(toolName, toolArgs, context.ceiling)) {
     return 'deny';
+  }
+
+  // 2b. A peer turn only narrows, and it is decided before bypass and the allow list so neither can
+  //     widen it. The reply is the one tool that belongs to a peer turn alone: it goes out directly,
+  //     unless the turn used a tool — then what it carries may come from this machine, and a person
+  //     reads it first, in every mode.
+  const profile = toolProfiles.get(toolName);
+  if (profile?.repliesToPeer === true) {
+    if (context.peerTurn === undefined) return 'deny';
+    return context.peerTurn.toolUsed ? 'approve' : 'auto';
+  }
+  if (context.peerTurn !== undefined) {
+    const verdict = decidePeerTurnCall(profile, toolArgs, context.peerTurn, context);
+    if (verdict === 'deny') return 'deny';
+    if (verdict === 'ask') return askDecision;
   }
 
   // 3. CORE-030: a deny the gate could not EVALUATE is not a deny that did not match. Asking is
