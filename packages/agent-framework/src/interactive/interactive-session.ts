@@ -669,7 +669,13 @@ export class InteractiveSession
     if (options.turnSource === 'external' || options.driverId?.startsWith('external:')) {
       throw new Error('external event turns must use an explicitly opened external source');
     }
-    return this.submitNewTurn(input, displayInput, rawInput, publicTurnOptions(options));
+    return this.submitNewTurn(
+      input,
+      displayInput,
+      rawInput,
+      publicTurnOptions(options),
+      options.onAccepted,
+    );
   }
 
   /** Explicit host opt-in for one authenticated external source; MCP configuration alone cannot enable it. */
@@ -690,8 +696,10 @@ export class InteractiveSession
     displayInput?: string,
     rawInput?: string,
     options: ITurnOptions = {},
+    onAccepted?: (handle: ITurnHandle) => void,
   ): Promise<ITurnHandle> {
     return submitNewTurn(input, displayInput, rawInput, options, {
+      onAccepted,
       execCtrl: this.execCtrl,
       ensureInitialized: () => this.ensureInitialized(),
       executeAcceptedTurn: (entry) => this.executeAcceptedTurn(entry),
