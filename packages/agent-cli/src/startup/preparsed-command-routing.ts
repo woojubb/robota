@@ -130,8 +130,10 @@ export async function runPreparsedCliCommand(
         if (requiresHeadlessWorkspaceTrust(access)) {
           throw new Error(formatHeadlessWorkspaceTrustError(access, targetCwd));
         }
-        // The child validates the very same settings when it starts; asking here first means a
-        // refusal is reported before a process is even spawned, with the real message.
+        // The child validates the very same settings when it starts; asking here first avoids
+        // spawning one that will only exit unexplained. The view itself still shows only its
+        // generic "Start failed" text and points the user at `session start`, where this message
+        // (thrown here, not swallowed there) actually surfaces.
         validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, { serviceVersion: readVersion(), surface: 'serve' });
         return launchSupervisedSession(targetCwd, { env: supervisedEnv() });
       },
