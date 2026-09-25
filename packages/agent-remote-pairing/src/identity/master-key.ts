@@ -69,6 +69,16 @@ export function generateRecoveryPhrase(): string {
   }
 }
 
+/**
+ * Whether `word` is one word of the recovery-phrase list, so a phrase typed one word at a time can be
+ * checked word by word. A single word only: it says nothing about any phrase it belongs to.
+ */
+export function isRecoveryPhraseWord(word: string): boolean {
+  if (typeof word !== 'string') return false;
+  const normalized = word.normalize('NFKD').trim().toLowerCase();
+  return !/\s/.test(normalized) && WORDS.has(normalized);
+}
+
 /** Whether `phrase` is a well-formed 24-word English phrase. The verdict never repeats a word. */
 export function validateRecoveryPhrase(phrase: string): TRecoveryPhraseVerdict {
   if (typeof phrase !== 'string') return { ok: false, reason: 'word-count' };

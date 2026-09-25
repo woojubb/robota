@@ -26,6 +26,7 @@ import type { ICliUpdateNotice } from '../update-check/update-check.js';
 import { createDefaultRemoteCommandPolicy } from '@robota-sdk/agent-framework';
 import type { IRemoteCommandPolicy } from '@robota-sdk/agent-framework';
 import { createDefaultCommandModules } from '@robota-sdk/agent-command';
+import { createDevicesCommandPort } from '../devices/index.js';
 import type { IKeybindingsFilePort, IThemeCataloguePort } from '@robota-sdk/agent-command';
 import { createOutputStyleRegistry, loadOutputStylesFromSources } from '@robota-sdk/agent-preset';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
@@ -245,6 +246,9 @@ export function buildCommandSetup(
     skillRoots: workspaceComposition.skillRoots,
     ...(keybindingsFilePort === undefined ? {} : { keybindingsFilePort }),
     ...(themeCataloguePort === undefined ? {} : { themeCataloguePort }),
+    // `/devices`: identity state under ~/.robota/devices, keys in the host credential store, and the
+    // recovery phrase only on this process's own terminal.
+    devicesPort: createDevicesCommandPort(),
     doctorInputs,
     doctorDisplay: ROBOTA_DOCTOR_SLASH_DISPLAY,
     formatForkResumeCommand: formatRobotaResumeCommand,

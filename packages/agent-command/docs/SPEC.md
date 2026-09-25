@@ -165,10 +165,12 @@ mode and the prompt — rather than by consent to the command's name, so being a
 way around a shell rule, and approving one monitored command never approves another. The sandbox's
 auto-approval never applies to it, because that process does not run inside the sandbox.
 
-**`/remote-control`, `/doctor`, `/context`, and session command metadata.** For these commands, the
+**`/remote-control`, `/devices`, `/doctor`, `/context`, and session command metadata.** For these commands, the
 palette entry is the single source of metadata, and the executable command is projected from it;
 execution policy and lifecycle remain executable-command behavior. Projecting shared metadata never
-by itself grants model invocation or changes execution policy or permission requirements. Remote
+by itself grants model invocation or changes execution policy or permission requirements.
+`/devices`, which acts on the user's device identity, also refuses an invocation from a remote
+surface. Remote
 control offers `status` and `devices` before pairing or revoking actions, so an autocomplete
 selection defaults to a read-only operation.
 

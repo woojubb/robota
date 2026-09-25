@@ -6,6 +6,7 @@ import {
   deriveSlip10Ed25519,
   ed25519KeyPairFromSeed,
   generateRecoveryPhrase,
+  isRecoveryPhraseWord,
   recoveryPhraseFromEntropy,
   recoveryPhraseToSeed,
   validateRecoveryPhrase,
@@ -194,6 +195,16 @@ describe('recovery phrase (BIP39, 24 words)', () => {
       ok: false,
       reason: 'word-count',
     });
+  });
+});
+
+describe('recovery phrase words', () => {
+  it('accepts a word of the list in any case and refuses anything else', () => {
+    expect(isRecoveryPhraseWord('abandon')).toBe(true);
+    expect(isRecoveryPhraseWord(' Zoo ')).toBe(true);
+    expect(isRecoveryPhraseWord('zzzzqx')).toBe(false);
+    expect(isRecoveryPhraseWord('')).toBe(false);
+    expect(isRecoveryPhraseWord('abandon art')).toBe(false);
   });
 });
 
