@@ -342,7 +342,11 @@ The available command list is built from the consolidated `@robota-sdk/agent-com
 | `/workflows`              | Author, list, validate, and run DAG workflows       |
 | `/reset`                  | Delete settings and exit                            |
 
-`/permissions` shows a nested submenu for permission mode selection.
+`/permissions` shows a nested submenu for permission mode selection. Run without an argument, it
+shows the allow, deny and ask rules the session enforces, each under the settings file it comes from
+(rules added by a flag, preset or command appear under "this session"), the "allow always" approvals,
+and the calls refused recently with the reason: a rule or the mode, the user declining, or no one
+available to approve.
 
 ### Repeating work with `/loop`
 

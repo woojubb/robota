@@ -143,6 +143,8 @@ export function createTestSessionRuntime(
     getPermissionMode: () => 'default',
     setPermissionMode: () => {},
     getSessionAllowedTools: () => [],
+    getPermissionRules: () => ({ allow: [], deny: [], ask: [] }),
+    getRecentPermissionDenials: () => [],
     // ARCH-040 Group C: recorded rather than ignored, so a case can assert the live re-application
     // happened. A double that silently swallows a permission change would let the seam regress green.
     applyPresetToolLists: (preset) => {

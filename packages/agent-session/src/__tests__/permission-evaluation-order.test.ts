@@ -71,9 +71,7 @@ describe('bypassPermissions no longer proceeds past what must reach a person', (
   it('removing the home directory is not auto-approved', async () => {
     const enforcer = makeEnforcer();
     await expect(enforcer.checkPermission('Bash', { command: 'rm -rf ~' })).resolves.toBe(false);
-    await expect(enforcer.checkPermission('Bash', { command: 'rm -rf build' })).resolves.toBe(
-      true,
-    );
+    await expect(enforcer.checkPermission('Bash', { command: 'rm -rf build' })).resolves.toBe(true);
   });
 
   it('writing a settings file is not auto-approved', async () => {
@@ -117,7 +115,10 @@ describe('a background policy only narrows the shared order', () => {
 describe('a remembered consent never answers a call that must reach a person', () => {
   it('"allow always" for `rm -rf build` does not approve `rm -rf ~`', async () => {
     const handler = vi.fn().mockResolvedValue('allow-session');
-    const enforcer = makeEnforcer({ getPermissionMode: () => 'default', permissionHandler: handler });
+    const enforcer = makeEnforcer({
+      getPermissionMode: () => 'default',
+      permissionHandler: handler,
+    });
     await expect(enforcer.checkPermission('Bash', { command: 'rm -rf build' })).resolves.toBe(true);
     handler.mockResolvedValue(false);
     await expect(enforcer.checkPermission('Bash', { command: 'rm -rf ~' })).resolves.toBe(false);
@@ -223,5 +224,64 @@ describe('parameter rules on tools whose parameters arrive with the schema (issu
     const enforcer = makeEnforcer();
     expect(() => enforcer.applyPresetToolLists({ allowedTools: ['*'] })).toThrow(/allowedTools/);
     expect(enforcer.currentPermissionRules().allow).toEqual([]);
+  });
+});
+
+describe('recent denials (issue #3082)', () => {
+  it('records why each refused call was refused, most recent first', async () => {
+    const enforcer = makeEnforcer({
+      getPermissionMode: () => 'default',
+      config: { permissions: { allow: [], deny: ['Bash(rm *)'], ask: [] } },
+    });
+    await enforcer.checkPermission('Bash', { command: 'rm -rf build' });
+    // No approver attached: the ask fails closed.
+    await enforcer.checkPermission('Write', { filePath: '/w/project/a.txt' });
+    const withHandler = makeEnforcer({
+      getPermissionMode: () => 'default',
+      permissionHandler: vi.fn().mockResolvedValue(false),
+    });
+    await withHandler.checkPermission('Bash', { command: 'git push' });
+
+    expect(
+      enforcer
+        .getRecentDenials()
+        .map(({ toolName, argument, reason }) => ({ toolName, argument, reason })),
+    ).toEqual([
+      { toolName: 'Write', argument: '/w/project/a.txt', reason: 'no-approver' },
+      { toolName: 'Bash', argument: 'rm -rf build', reason: 'policy' },
+    ]);
+    expect(withHandler.getRecentDenials()).toEqual([
+      expect.objectContaining({ toolName: 'Bash', argument: 'git push', reason: 'user' }),
+    ]);
+  });
+
+  it('records nothing for an allowed call and keeps only the latest entries', async () => {
+    const enforcer = makeEnforcer({
+      getPermissionMode: () => 'default',
+      config: { permissions: { allow: ['Bash(ls*)'], deny: ['Bash(rm *)'], ask: [] } },
+    });
+    await enforcer.checkPermission('Bash', { command: 'ls' });
+    expect(enforcer.getRecentDenials()).toEqual([]);
+    for (let i = 0; i < 25; i++) await enforcer.checkPermission('Bash', { command: `rm f${i}` });
+    const denials = enforcer.getRecentDenials();
+    expect(denials).toHaveLength(20);
+    expect(denials[0]?.argument).toBe('rm f24');
+  });
+});
+
+describe('a turn cancelled before anyone is asked (issue #3082)', () => {
+  it('is not recorded as a refusal', async () => {
+    const handler = vi.fn().mockResolvedValue(true);
+    const enforcer = makeEnforcer({
+      getPermissionMode: () => 'default',
+      permissionHandler: handler,
+    });
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      enforcer.checkPermission('Bash', { command: 'git push' }, controller.signal),
+    ).resolves.toBe(false);
+    expect(handler).not.toHaveBeenCalled();
+    expect(enforcer.getRecentDenials()).toEqual([]);
   });
 });

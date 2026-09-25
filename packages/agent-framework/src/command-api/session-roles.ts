@@ -6,7 +6,7 @@
  * so a reader looking for a session capability is not reading the agent-job ones.
  */
 
-import type { TAutoCompactThreshold } from '@robota-sdk/agent-session';
+import type { IPermissionDenial, TAutoCompactThreshold } from '@robota-sdk/agent-session';
 import type { IModelReapplyOptions } from './host-context-types.js';
 import type {
   IContextWindowState,
@@ -38,6 +38,14 @@ export interface ICommandSessionPermissions {
   getPermissionMode(): TPermissionMode;
   setPermissionMode(mode: TPermissionMode): void;
   getSessionAllowedTools(): readonly string[];
+  /** The allow/deny/ask rules the gate reads right now, whatever layer or preset supplied them. */
+  getPermissionRules(): {
+    readonly allow: readonly string[];
+    readonly deny: readonly string[];
+    readonly ask: readonly string[];
+  };
+  /** The calls this session refused, most recent first. */
+  getRecentPermissionDenials(): readonly IPermissionDenial[];
   /**
    * ARCH-040 Group C (issue #1934): re-apply a preset's tool lists to the LIVE enforcer.
    *

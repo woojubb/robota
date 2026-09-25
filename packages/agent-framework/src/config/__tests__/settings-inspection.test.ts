@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { loadConfig } from '../config-loader.js';
+import { readPermissionRuleLayers } from '../permission-rule-layers.js';
 import { inspectSettingsLayers } from '../settings-inspection.js';
 import { SettingsParseError } from '../settings-parse-error.js';
 import {
@@ -176,5 +177,42 @@ describe('inspectSettingsLayers (OBSERVABILITY-1991 TC-02)', () => {
     }
     expect(inspection.layers[0]!.cause?.errno).toBe('EACCES');
     await expect(loadConfig([locked])).rejects.toMatchObject({ code: 'EACCES' });
+  });
+});
+
+describe('permission rules by settings layer (issue #3082)', () => {
+  it("names the layers that declare each ask rule, and reads every layer's rules", () => {
+    const root = tempRoot();
+    const user = source(
+      root,
+      'user.json',
+      JSON.stringify({ permissions: { allow: ['Read'], ask: ['Bash(git push*)'] } }),
+    );
+    const plain = source(root, 'plain.json', JSON.stringify({ language: 'ko' }));
+    const project = source(
+      root,
+      'project.json',
+      JSON.stringify({ permissions: { deny: ['Bash'] } }),
+    );
+
+    const byKey = new Map(
+      inspectSettingsLayers([user, plain, project]).provenance.map((entry) => [entry.key, entry]),
+    );
+    expect(byKey.get('permissions.ask')).toEqual({
+      key: 'permissions.ask',
+      rule: 'union',
+      contributors: [user.displayName],
+    });
+
+    expect(readPermissionRuleLayers([user, plain, project])).toEqual([
+      {
+        source: user.displayName,
+        scope: 'user',
+        allow: ['Read'],
+        deny: [],
+        ask: ['Bash(git push*)'],
+      },
+      { source: project.displayName, scope: 'user', allow: [], deny: ['Bash'], ask: [] },
+    ]);
   });
 });
