@@ -43,6 +43,14 @@ had no discovery, and two client stacks cannot both be authoritative.
   mentioned — a name already resolved from a different, readable managed origin is unaffected. A
   source-level problem in any other tier is informational only — reported beside the servers that
   still resolve normally.
+- **Authentication is bound to one server and never optional once asked for**: a host registers an
+  authenticator for one server identity, and the HTTP transport asks it for headers on every
+  request to that server only, after admission — never across a redirect, which stays refused.
+  Its headers override a static header of the same name and never enter a projection, log, audit
+  record or error. A refused credential is retried at most once, with fresh authorization, and
+  only when the authenticator allows it; a failure is a typed, content-free refusal, and there is
+  never an unauthenticated attempt. A definition that declares authentication this version cannot
+  perform stays listed and is refused at admission by name, rather than connected without it.
 - **Trace context stays on the call it belongs to**: a tool call's trusted `traceparent` goes only on
   that call's own `tools/call` POST and the cancellation of it, and only to an exactly listed origin.
   The decision is made from each request's body, not from the async context, because the SDK runs a

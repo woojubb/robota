@@ -14,6 +14,7 @@
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { rejectDestination } from '@robota-sdk/agent-core/node';
 
+import { MCPAuthenticationError, type IMCPBoundAuthenticator } from './authentication.js';
 import {
   MCPCallTraceRegistry,
   bindCallTraceRegistry,
@@ -49,12 +50,17 @@ export interface IMCPTransportAdapter<TInput, TAdmitted> {
 export interface IMCPHttpEndpoint {
   readonly url: string;
   readonly headers?: Readonly<Record<string, string>>;
+  /** The authenticator the host registered for this server, if any. */
+  readonly authentication?: IMCPBoundAuthenticator;
+  /** Authentication the definition declares that this version cannot perform. */
+  readonly unsupportedAuthentication?: readonly string[];
 }
 
 export interface IMCPAdmittedHttpEndpoint {
   readonly kind: 'streamable-http';
   readonly url: URL;
   readonly headers: Readonly<Record<string, string>>;
+  readonly authentication?: IMCPBoundAuthenticator;
 }
 
 export interface IMCPHttpTransportDeps {
@@ -143,6 +149,20 @@ export async function admitHttpEndpoint(
   endpoint: IMCPHttpEndpoint,
   deps: IMCPHttpTransportDeps = {},
 ): Promise<TMCPTransportAdmission<IMCPAdmittedHttpEndpoint>> {
+  // A server that needs authentication this version cannot perform would only be refused by the
+  // server; refusing here says why, and never connects without the credential it asked for.
+  if (
+    endpoint.unsupportedAuthentication !== undefined &&
+    endpoint.unsupportedAuthentication.length > 0
+  ) {
+    return {
+      ok: false,
+      reason: 'unsupported-authentication',
+      message:
+        `The definition declares ${endpoint.unsupportedAuthentication.join(', ')} authentication, ` +
+        'which this version does not support; the server was not connected.',
+    };
+  }
   if (!URL.canParse(endpoint.url)) {
     // The text is not printed: a template may have expanded a credential into it.
     return { ok: false, reason: 'invalid-url', message: 'The configured URL is not a valid URL' };
@@ -160,7 +180,12 @@ export async function admitHttpEndpoint(
   }
   return {
     ok: true,
-    admitted: { kind: 'streamable-http', url, headers: { ...(endpoint.headers ?? {}) } },
+    admitted: {
+      kind: 'streamable-http',
+      url,
+      headers: { ...(endpoint.headers ?? {}) },
+      ...(endpoint.authentication === undefined ? {} : { authentication: endpoint.authentication }),
+    },
   };
 }
 
@@ -209,6 +234,67 @@ function withTraceHeaders(
   return { ...init, headers };
 }
 
+const HTTP_UNAUTHORIZED = 401;
+const HTTP_FORBIDDEN = 403;
+
+/** The request's headers with the authenticator's merged over them; the authenticator's win. */
+async function authorizedHeaders(
+  init: RequestInit | undefined,
+  admitted: IMCPAdmittedHttpEndpoint,
+  bound: IMCPBoundAuthenticator,
+): Promise<Headers> {
+  let credential: Readonly<Record<string, string>>;
+  try {
+    credential = await bound.authenticator.authorize({
+      serverId: bound.serverId,
+      securityIdentity: bound.securityIdentity,
+      url: admitted.url,
+      ...(init?.signal ? { signal: init.signal } : {}),
+    });
+  } catch (error) {
+    // A cancelled request stays a cancellation; anything else is reported without its text.
+    if (init?.signal?.aborted === true) throw error;
+    throw new MCPAuthenticationError('authorize-failed');
+  }
+  const headers = new Headers(init?.headers);
+  for (const [name, value] of Object.entries(credential)) headers.set(name, value);
+  return headers;
+}
+
+/**
+ * Send one request, authorized when the admitted endpoint has an authenticator. A 401/403 is
+ * retried at most once with fresh authorization, and only when the authenticator allows it and
+ * the body can be sent again; there is never an unauthenticated attempt.
+ */
+async function fetchAuthenticated(
+  send: (headers: Headers | undefined) => Promise<Response>,
+  init: RequestInit | undefined,
+  admitted: IMCPAdmittedHttpEndpoint,
+): Promise<Response> {
+  const bound = admitted.authentication;
+  if (bound === undefined) return send(undefined);
+  const refused = (response: Response): boolean =>
+    response.status === HTTP_UNAUTHORIZED || response.status === HTTP_FORBIDDEN;
+  const first = await send(await authorizedHeaders(init, admitted, bound));
+  if (!refused(first)) return first;
+  const wwwAuthenticate = first.headers.get('www-authenticate');
+  let answer: 'retry' | 'fail';
+  try {
+    answer = await bound.authenticator.onRejected({
+      status: first.status,
+      ...(wwwAuthenticate === null ? {} : { wwwAuthenticate }),
+    });
+  } catch {
+    answer = 'fail';
+  }
+  const replayable =
+    init?.body === undefined || init.body === null || typeof init.body === 'string';
+  if (answer !== 'retry' || !replayable) throw new MCPAuthenticationError('rejected');
+  const second = await send(await authorizedHeaders(init, admitted, bound));
+  if (refused(second)) throw new MCPAuthenticationError('rejected');
+  return second;
+}
+
 export function constructStreamableHttpTransport(
   admitted: IMCPAdmittedHttpEndpoint,
   deps: IMCPHttpTransportDeps = {},
@@ -222,7 +308,12 @@ export function constructStreamableHttpTransport(
   // from the admitted origin is refused rather than chased to a second, un-admitted destination.
   const redirectRefusingFetch: typeof globalThis.fetch = async (input, init) => {
     const traced = withTraceHeaders(init, callTraceHeaders(init, admittedUrl, callTraces));
-    const response = await baseFetch(input, { ...traced, redirect: 'manual' });
+    const response = await fetchAuthenticated(
+      (headers) =>
+        baseFetch(input, { ...traced, ...(headers ? { headers } : {}), redirect: 'manual' }),
+      traced,
+      admitted,
+    );
     if (
       response.status >= HTTP_REDIRECT_STATUS_MIN &&
       response.status < HTTP_REDIRECT_STATUS_MAX_EXCLUSIVE

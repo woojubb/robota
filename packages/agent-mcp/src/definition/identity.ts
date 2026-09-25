@@ -92,6 +92,7 @@ export function definitionFingerprint(definition: IMCPServerDefinitionResolved):
     ...entryParts('env', definition, definition.env),
     'timeout',
     definition.timeout === undefined ? '' : String(definition.timeout),
+    ...listParts('unsupportedAuthentication', definition.unsupportedAuthentication ?? []),
   ]);
 }
 

@@ -10,6 +10,7 @@
  * them (TC-09, TC-10, TC-13 … TC-17, TC-22).
  */
 
+import { MCPAuthenticationError } from '../client/authentication.js';
 import { UnauthorizedError } from '@modelcontextprotocol/sdk/client/auth.js';
 
 import { catalogIdentityOf, sameCatalogIdentity } from '../catalog/types.js';
@@ -26,7 +27,11 @@ import type {
   IMCPServerIdentity,
   TMCPCapabilityDomain,
 } from '../catalog/types.js';
-import type { IMCPSession, IMCPToolCallResult, TMCPExternalEventListener } from '../client/session.js';
+import type {
+  IMCPSession,
+  IMCPToolCallResult,
+  TMCPExternalEventListener,
+} from '../client/session.js';
 import type { IOutboundTraceContext, TToolParameters } from '@robota-sdk/agent-core';
 
 /** Default page bound for a `discover`/`refresh` call that does not override `options.discovery`. */
@@ -272,7 +277,7 @@ export function classifyMcpFailure(error: unknown): TMCPFailureClass {
   ) {
     return 'config';
   }
-  if (error instanceof UnauthorizedError) {
+  if (error instanceof UnauthorizedError || error instanceof MCPAuthenticationError) {
     return 'auth';
   }
   if (error instanceof MCPSessionError && error.kind === 'unsupported-protocol-version') {
@@ -374,7 +379,11 @@ export class MCPConnectionSupervisor {
       if (this.externalEventListeners.size === 0) {
         this.detachExternalEvent();
         if (this.state.kind === 'connected') this.armIdleTimer();
-        if (this.state.kind === 'failed' && this.state.retry === 'pending' && this.externalCloseCount > 0) {
+        if (
+          this.state.kind === 'failed' &&
+          this.state.retry === 'pending' &&
+          this.externalCloseCount > 0
+        ) {
           this.clearRetryTimer();
           this.pendingAttempt = undefined;
           this.setState({ kind: 'idle' });
@@ -756,13 +765,19 @@ export class MCPConnectionSupervisor {
       }
       if (this.externalEventListeners.size > 0 && !session.externalEventsDeclared) {
         await session.close();
-        throw new MCPSupervisorError('config', 'MCP external event capability disappeared on reconnect');
+        throw new MCPSupervisorError(
+          'config',
+          'MCP external event capability disappeared on reconnect',
+        );
       }
       this.onConnected(session);
       if (this.state.kind !== 'connected' || this.liveSession !== session) {
         return {
           ok: false,
-          error: new MCPSupervisorError('transient', 'MCP external event connection closed during subscription'),
+          error: new MCPSupervisorError(
+            'transient',
+            'MCP external event connection closed during subscription',
+          ),
         };
       }
       return { ok: true, session };
@@ -886,7 +901,11 @@ export class MCPConnectionSupervisor {
     this.detachExternalEvent();
     this.liveSession = undefined;
     this.externalCloseCount += 1;
-    this.recordOpenFailure(this.externalCloseCount, 'transient', 'MCP external event connection closed');
+    this.recordOpenFailure(
+      this.externalCloseCount,
+      'transient',
+      'MCP external event connection closed',
+    );
   }
 
   private handleListChanged(domain: TMCPCapabilityDomain): void {

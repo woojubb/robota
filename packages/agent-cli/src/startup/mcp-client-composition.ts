@@ -38,6 +38,7 @@ import { DEFAULT_TOOL_RESULT_HARD_CHARS, FunctionTool } from '@robota-sdk/agent-
 import type {
   IMCPActivationApprovalStore,
   IMCPActivationRequest,
+  IMCPClientAuthenticator,
   IMCPActivationSummary,
   IMCPActivationWorkspace,
   IMCPBackoffPolicy,
@@ -116,6 +117,13 @@ export interface IMcpClientCompositionDeps {
   readonly transport?: IMCPHttpTransportDeps;
   /** Host capabilities, never populated from project or user MCP definitions. */
   readonly stdioAuthorities?: Readonly<Record<string, IMCPStdioAuthority>>;
+  /**
+   * The authenticator a host registers for one remote server, chosen by its admitted identity.
+   * Host-owned like the stdio authorities: a definition never supplies one.
+   */
+  readonly authenticatorFor?: (
+    request: IMCPActivationRequest,
+  ) => IMCPClientAuthenticator | undefined;
   readonly clientInfo?: { readonly name: string; readonly version: string };
   /** Created only for the first overflow and owned through this composition's shutdown. */
   readonly createResultSpillStore?: () => IToolResultSpillStore & {
@@ -324,9 +332,22 @@ async function connectOneServer(
     supervisorOptions = buildSupervisorOptions(request, adapter, result.admitted, timeouts, deps);
   } else {
     const adapter = createStreamableHttpAdapter(deps.transport);
+    const authenticator = deps.authenticatorFor?.(request);
     const result = await adapter.admit({
       url: definition.url ?? '',
       ...(definition.headers === undefined ? {} : { headers: definition.headers }),
+      ...(definition.unsupportedAuthentication === undefined
+        ? {}
+        : { unsupportedAuthentication: definition.unsupportedAuthentication }),
+      ...(authenticator === undefined
+        ? {}
+        : {
+            authentication: {
+              serverId: request.serverId,
+              securityIdentity: request.securityIdentity,
+              authenticator,
+            },
+          }),
     });
     if (!result.ok) {
       deps.reportDiagnostic(
