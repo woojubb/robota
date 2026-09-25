@@ -1,7 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+
+import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
+import { createMCPActivationCommandModule } from '../mcp-activation-command-module.js';
 import { executeMCPActivationCommand } from '../mcp-activation-command.js';
 import {
   mcpUnavailableServersNotice,
@@ -104,12 +107,38 @@ describe('/mcp status as the model sees it', () => {
   });
 
   it('gives a caller that does not say who it is the restricted view', async () => {
-    const result = await executeMCPActivationCommand(
-      { getCommandHostAdapters: () => ({ mcpActivation: adapter }) },
-      'status',
-    );
+    const { getCommandInvocationSource: _unsaid, ...anonymous } = host('user');
+    const result = await executeMCPActivationCommand(anonymous, 'status');
     expect(result.message).toContain('`/mcp approve linear`');
     expect(result.message).not.toContain('SECRET-REASON-TEXT');
+  });
+});
+
+describe('the `/mcp login` the notices suggest', () => {
+  it('is a real verb for the user and is refused for the model before it runs', async () => {
+    // A user-typed `/mcp login` reaches the sign-in path (here: no host adapter), never "Unknown".
+    const userResult = await executeMCPActivationCommand(
+      createTestCommandHost({ overrides: { getCommandInvocationSource: () => 'user' } }),
+      'login github',
+    );
+    expect(userResult.message).not.toContain('Unknown argument');
+    expect(userResult.message).toContain('not available in this environment');
+
+    const [command] = createMCPActivationCommandModule().systemCommands ?? [];
+    expect(command?.subcommands).toContainEqual(
+      expect.objectContaining({ name: 'login', modelInvocable: false }),
+    );
+    const execute = vi.fn();
+    const executor = new SystemCommandExecutor([{ ...command!, execute }]);
+    const modelResult = await executor.executeModelInvocable(
+      'mcp',
+      createTestCommandHost(),
+      'login github',
+    );
+    expect(modelResult?.success).toBe(false);
+    expect(modelResult?.message).toContain('only the user can');
+    expect(execute).not.toHaveBeenCalled();
+    expect(mcpUserActionCommand('github', 'sign-in')).toBe('/mcp login github');
   });
 });
 

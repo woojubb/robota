@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-adapters-sqlite",
-  "version": "3.0.0-beta.60",
+  "version": "3.0.0-beta.61",
   "private": true,
   "description": "SQLite persistent storage adapter for DAG ports",
   "type": "module",

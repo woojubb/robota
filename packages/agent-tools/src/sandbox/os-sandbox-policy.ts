@@ -28,7 +28,10 @@ export interface IOsSandboxPolicy {
 const WRITABLE_INSIDE_PROTECTED = ['.robota/worktrees', '.claude/worktrees'];
 
 function join(root: string, relative: string): string {
-  return `${root.replace(/\/+$/, '')}/${relative}`;
+  // A loop, not `/\/+$/`: that pattern rescans every run of slashes and is quadratic on a long one.
+  let end = root.length;
+  while (end > 0 && root[end - 1] === '/') end -= 1;
+  return `${root.slice(0, end)}/${relative}`;
 }
 
 /**

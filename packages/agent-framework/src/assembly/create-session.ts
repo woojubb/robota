@@ -135,7 +135,7 @@ export async function createSession(
     : [];
 
   let assembledSession: Session | undefined;
-  const { tools } = await assembleSessionTools(options, cwd, () =>
+  const { tools, wrapAdded } = await assembleSessionTools(options, cwd, () =>
     assembledSession === undefined
       ? undefined
       : sessionAdvisorAccess(assembledSession, options.onUsageRecorded),
@@ -239,6 +239,7 @@ export async function createSession(
   const SessionWithAutoCompact = Session as TSessionConstructorWithAutoCompact;
   const session = new SessionWithAutoCompact({
     tools,
+    wrapAddedTools: wrapAdded,
     provider,
     systemMessage: finalSystemMessage,
     terminal: options.terminal,
@@ -262,6 +263,8 @@ export async function createSession(
     ...(options.sandboxClient?.autoApproves !== undefined
       ? { commandSandbox: sandboxApprovalFor(options.sandboxClient) }
       : {}),
+    // A peer turn only reads unless the operator enabled changes; then every change still asks.
+    ...(options.config.peers?.allowChanges === true ? { allowPeerChanges: true } : {}),
     // Issue #3082: `auto` mode asks the session's own model; an organization can turn the mode off.
     ...(options.disableAutoMode === true
       ? {}

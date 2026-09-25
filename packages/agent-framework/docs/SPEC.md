@@ -151,10 +151,13 @@ These are behaviors a caller cannot infer from a type signature alone.
   already-admitted work. Each accepted event settles from its own turn handle, and an interrupted
   result never becomes a successful reply. This does not sandbox trusted hooks/plugins or
   authenticate a platform sender by itself, and it is not a remote permission-approval channel.
-- **A peer turn runs on the external baseline.** A peer session's text is data from outside the
-  operator: it expands no file references, attaches no context reference, exposes no tool schema,
-  and reaches the model marked as a peer's with a per-turn system statement that it carries no
-  authority. Any relaxation is a per-origin policy decision, never a default.
+- **A peer turn is decided by its origin, never by its text.** A peer session's text is data from
+  outside the operator: it expands no file references, attaches no context reference, and reaches
+  the model marked as a peer's with a per-turn system statement that it carries no authority. Which
+  tools it is offered and may use is the permission policy's per-origin decision, taken from
+  admission; a turn with no admitted origin is offered none. The answer goes back only through the
+  reply tool, whose target and thread are the incoming message's own — the model chooses the text,
+  never the recipient.
 - **Automatic session naming is text-only.** The title-generation call — whether triggered by an
   operator message or the first external event — always disables tool use, so hosted web tools can
   never be invoked merely to generate a title.
@@ -210,8 +213,10 @@ These are behaviors a caller cannot infer from a type signature alone.
   swap one in would silently disable a security guarantee. A consumer that wants its own tools to
   fully own the surface passes an empty `defaultTools` and supplies everything through
   `additionalTools` instead — replacement stays fully expressible, just never as a side effect of a
-  naming accident. The same edit-checkpoint wrap is applied to the final assembled set, so a
-  contributed `Write`/`Edit` is checkpointed exactly like a default one.
+  naming accident. The same session-context wraps are applied to the final assembled set and to a
+  tool the session adds mid-session, so a contributed `Write`/`Edit` is checkpointed exactly like a
+  default one and a tool that became usable later is held to the same policy as one present from
+  the start; a late tool whose name the session already has is dropped by the same rule.
 - **Deferred-tool residency has a fixed assembly order.** A tool may declare itself deferred
   (withheld until the model searches for it); deduplication preserves the surviving entry's own
   residency marker rather than the first-seen one's. A configuration where every tool is deferred is
@@ -263,9 +268,12 @@ These are behaviors a caller cannot infer from a type signature alone.
   "no signal", never treated as satisfaction — there is no keyword or prose matching anywhere in the
   loop. Only agent-driven wakeup turns count toward the goal's iteration and no-progress bounds; a
   user's own interjected message never counts as a goal iteration.
-- **The advisor never changes the main model's tool list mid-session.** Whether a session has the
-  Advisor tool is decided once, when it starts; turning the advisor off or pointing it at another
-  model changes only where calls go, because the main model's prompt cache is keyed on its tools.
+- **The main model's tool list changes mid-session only on an explicit user action.** The main
+  model's prompt cache is keyed on its tools, so the list changes only when the user does something
+  that makes a tool usable — signing in to a server — and then only at a turn boundary, accepting
+  one cache miss, never while a turn's rounds are running and never as a side effect of
+  configuration. Whether a session has the Advisor tool is therefore decided once, when it starts;
+  turning the advisor off or pointing it at another model changes only where calls go.
   Conversation history reaches a destination the main model does not already use — a provider type
   and endpoint, since one type can front both a local server and a vendor's cloud — only after the
   user consented to that destination, and never reaches a profile outside the organization's

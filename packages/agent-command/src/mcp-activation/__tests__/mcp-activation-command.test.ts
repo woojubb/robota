@@ -2,12 +2,22 @@ import { describe, expect, it } from 'vitest';
 
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
+import { FunctionTool } from '@robota-sdk/agent-core';
+
 import { executeMCPActivationCommand } from '../mcp-activation-command.js';
+import { createMCPActivationCommandEntry } from '../mcp-activation-command-module.js';
 
 import type {
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
+  ICommandMCPOAuthLoginRequest,
+  ICommandMCPOAuthLoginResult,
 } from '@robota-sdk/agent-framework';
+import type {
+  IActionRequest,
+  IToolWithEventService,
+  TActionResponse,
+} from '@robota-sdk/agent-core';
 
 function summary(
   overrides: Partial<ICommandMCPActivationSummary> = {},
@@ -298,9 +308,11 @@ describe('/mcp and OAuth sign-in', () => {
     };
   }
 
-  it('points a server that needs a sign-in at its terminal command', async () => {
+  it('points a server that needs a sign-in at the session command and the terminal one', async () => {
     const result = await executeMCPActivationCommand(context(withServer('files')), 'status');
-    expect(result.message).toContain('OAuth: sign-in required (run robota mcp login files)');
+    expect(result.message).toContain(
+      'OAuth: sign-in required (run /mcp login files, or robota mcp login files in a terminal)',
+    );
   });
 
   it.each([
@@ -315,16 +327,304 @@ describe('/mcp and OAuth sign-in', () => {
     ['a right-to-left override', 'x‮good'],
   ])('never puts a name with %s into the sign-in command', async (_what, name) => {
     const result = await executeMCPActivationCommand(context(withServer(name)), 'status');
-    const hint = /\(run robota mcp login [^)]*\)/.exec(result.message)?.[0];
-    expect(hint).toBe('(run robota mcp login <server>; its name cannot be shown safely here)');
+    const hint = /\(run \/mcp login [^)]*\)/.exec(result.message)?.[0];
+    expect(hint).toBe(
+      '(run /mcp login <server>, or robota mcp login <server> in a terminal; ' +
+        'its name cannot be shown safely here)',
+    );
   });
 
-  it('has no in-session sign-in, and a sign-out needs a server', async () => {
-    const login = await executeMCPActivationCommand(context(oauthAdapter()), 'login files');
-    expect(login.success).toBe(false);
-    expect(login.message).not.toContain('robota mcp login');
+  it('a sign-out needs a server', async () => {
     const logout = await executeMCPActivationCommand(context(oauthAdapter()), 'logout');
     expect(logout.success).toBe(false);
     expect(logout.message).toBe('Usage: /mcp logout <serverId>');
+  });
+});
+
+describe('/mcp login', () => {
+  interface ILoginHarness {
+    readonly requests: ICommandMCPOAuthLoginRequest[];
+    readonly added: IToolWithEventService[][];
+    readonly asked: IActionRequest[];
+    readonly acknowledged: [string, readonly string[]][];
+    run(args: string): ReturnType<typeof executeMCPActivationCommand>;
+  }
+
+  const forecast = new FunctionTool(
+    { name: 'files__read', description: 'Read', parameters: { type: 'object', properties: {} } },
+    async () => 'ok',
+  );
+
+  function harness(
+    login: (request: ICommandMCPOAuthLoginRequest) => Promise<ICommandMCPOAuthLoginResult>,
+    answer?: TActionResponse | ((request: IActionRequest) => TActionResponse),
+    taken: (names: string[]) => string[] = (names) => names,
+  ): ILoginHarness {
+    const requests: ICommandMCPOAuthLoginRequest[] = [];
+    const added: IToolWithEventService[][] = [];
+    const asked: IActionRequest[] = [];
+    const acknowledged: [string, readonly string[]][] = [];
+    const port: ICommandMCPActivationAdapter = {
+      list: () => [],
+      approve: async () => summary(),
+      reject: async () => summary(),
+      revoke: async () => summary(),
+      oauthLogin: (request) => {
+        requests.push(request);
+        return login(request);
+      },
+      oauthToolsAdded: (serverId, names) => acknowledged.push([serverId, names]),
+    };
+    const host = createTestCommandHost({
+      overrides: {
+        getCommandHostAdapters: () => ({ mcpActivation: port }),
+        getUserInteraction: () =>
+          answer === undefined
+            ? undefined
+            : {
+                ask: async (request) => {
+                  asked.push(request);
+                  return typeof answer === 'function' ? answer(request) : answer;
+                },
+              },
+      },
+    });
+    const session = host.getSession();
+    host.getSession = () => ({
+      ...session,
+      addTools: async (tools) => {
+        added.push([...tools]);
+        return taken(tools.map((tool) => tool.schema.name));
+      },
+    });
+    return {
+      requests,
+      added,
+      asked,
+      acknowledged,
+      run: (args) => executeMCPActivationCommand(host, args),
+    };
+  }
+
+  const signedIn = (
+    serverId: string,
+    extra: Partial<ICommandMCPOAuthLoginResult> = {},
+  ): ICommandMCPOAuthLoginResult => ({
+    serverId,
+    preRegisteredClient: false,
+    connection: 'connected',
+    tools: [forecast],
+    ...extra,
+  });
+
+  it('signs in and adds the connected server tools to this session', async () => {
+    const h = harness(async (request) => signedIn(request.serverId));
+    const result = await h.run('login files');
+    expect(result.success).toBe(true);
+    expect(result.message).toBe(
+      'Signed in to MCP server files; 1 of its tools is available from your next message.',
+    );
+    expect(h.requests[0]).toMatchObject({ serverId: 'files', noBrowser: false });
+    expect(h.added).toEqual([[forecast]]);
+    expect(result.data).toEqual({
+      serverId: 'files',
+      connection: 'connected',
+      tools: ['files__read'],
+    });
+  });
+
+  it('asks for the pasted redirect through the session prompt, masked', async () => {
+    const h = harness(
+      async (request) => {
+        const pasted = await request.readRedirect?.(
+          {
+            authorizationUrl: 'https://auth.example.test/authorize?x=1',
+            redirectUri: 'http://127.0.0.1:1234/callback',
+          },
+          new AbortController().signal,
+        );
+        expect(pasted).toBe('http://127.0.0.1:1234/callback?code=c&state=s');
+        return signedIn(request.serverId);
+      },
+      { type: 'answer', values: [], text: 'http://127.0.0.1:1234/callback?code=c&state=s' },
+    );
+    const result = await h.run('login files --no-browser');
+    expect(result.success).toBe(true);
+    expect(h.requests[0]?.noBrowser).toBe(true);
+    expect(h.asked).toHaveLength(1);
+    expect(h.asked[0]).toMatchObject({ masked: true, allowFreeText: true });
+    expect(h.asked[0]?.description).toContain('https://auth.example.test/authorize?x=1');
+    // The pasted redirect carries a code; it is never part of the result.
+    expect(JSON.stringify(result)).not.toContain('code=c');
+  });
+
+  it('treats a dismissed paste as a cancelled sign-in', async () => {
+    const h = harness(
+      async (request) => {
+        await expect(
+          request.readRedirect?.(
+            { authorizationUrl: 'https://a.test/', redirectUri: 'http://127.0.0.1:1/callback' },
+            new AbortController().signal,
+          ),
+        ).rejects.toThrow();
+        return {
+          serverId: request.serverId,
+          failure: 'cancelled',
+          preRegisteredClient: false,
+          tools: [],
+        };
+      },
+      { type: 'cancelled' },
+    );
+    const result = await h.run('login files --no-browser');
+    expect(result.success).toBe(false);
+    expect(result.message).toBe(
+      'Sign-in to MCP server files failed (cancelled); nothing was changed.',
+    );
+    expect(h.added).toEqual([]);
+  });
+
+  it('never asks for a client secret, and names the terminal command instead', async () => {
+    const h = harness(async (request) => signedIn(request.serverId));
+    const result = await h.run('login files --client-secret');
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('robota mcp login files --client-secret in a terminal');
+    expect(h.requests).toEqual([]);
+  });
+
+  it('suggests the secret sign-in only for a pre-registered client whose exchange failed', async () => {
+    const failing = (preRegisteredClient: boolean) =>
+      harness(async (request) => ({
+        serverId: request.serverId,
+        failure: 'token-exchange-failed',
+        preRegisteredClient,
+        tools: [],
+      })).run('login files');
+    expect((await failing(true)).message).toContain(
+      'run robota mcp login files --client-secret in a terminal',
+    );
+    expect((await failing(false)).message).not.toContain('--client-secret');
+  });
+
+  it('shows a server name in a suggested command only when it is safe to paste', async () => {
+    const h = harness(async (request) => ({
+      serverId: request.serverId,
+      failure: 'browser-failed',
+      preRegisteredClient: false,
+      tools: [],
+    }));
+    expect((await h.run('login files')).message).toContain('/mcp login files --no-browser');
+    expect((await h.run('login x$(id)')).message).toContain('/mcp login <server> --no-browser');
+    expect((await h.run('login =cmd --client-secret')).message).toContain(
+      'robota mcp login <server> --client-secret',
+    );
+  });
+
+  it('says how the server stands when it did not connect', async () => {
+    const run = (connection: ICommandMCPOAuthLoginResult['connection']) =>
+      harness(async (request) => signedIn(request.serverId, { connection, tools: [] })).run(
+        'login files',
+      );
+    expect((await run('recovered')).message).toBe(
+      'Signed in to MCP server files; its tools work again.',
+    );
+    expect((await run('not-admitted')).message).toContain('not approved for this session');
+    expect((await run('not-connected')).message).toContain('could not connect in this session');
+  });
+
+  const PROMPT = {
+    authorizationUrl: 'https://auth.example.test/authorize?x=1',
+    redirectUri: 'http://127.0.0.1:1234/callback',
+  };
+
+  it('shows the authorization URL before the browser opens, and lets the user cancel', async () => {
+    const choices: string[] = [];
+    let signal: AbortSignal | undefined;
+    const h = harness(
+      async (request) => {
+        signal = request.signal;
+        const choice = await request.confirmBrowser!(PROMPT, new AbortController().signal);
+        choices.push(choice);
+        return {
+          serverId: request.serverId,
+          failure: 'cancelled',
+          preRegisteredClient: false,
+          tools: [],
+        };
+      },
+      (request) => ({ type: 'answer', values: [request.options?.at(-1)?.value ?? ''] }),
+    );
+    const result = await h.run('login files');
+    expect(h.asked[0]?.description).toContain(PROMPT.authorizationUrl);
+    expect(h.asked[0]?.options?.map((option) => option.value)).toEqual(['open', 'paste', 'cancel']);
+    expect(choices).toEqual(['cancel']);
+    // The cancel reaches the sign-in itself.
+    expect(signal?.aborted).toBe(true);
+    expect(result.success).toBe(false);
+    expect(h.added).toEqual([]);
+  });
+
+  it('opens the browser, or pastes instead, as the user chooses', async () => {
+    const chosen = async (value: string) => {
+      let choice: string | undefined;
+      const h = harness(
+        async (request) => {
+          choice = await request.confirmBrowser!(PROMPT, new AbortController().signal);
+          return signedIn(request.serverId);
+        },
+        { type: 'answer', values: [value] },
+      );
+      await h.run('login files');
+      return choice;
+    };
+    expect(await chosen('open')).toBe('open');
+    expect(await chosen('paste')).toBe('paste');
+    // With --no-browser there is nothing to confirm: the paste prompt shows the URL.
+    const h = harness(async (request) => signedIn(request.serverId), {
+      type: 'answer',
+      values: ['open'],
+    });
+    await h.run('login files --no-browser');
+    expect(h.requests[0]?.confirmBrowser).toBeUndefined();
+  });
+
+  it('reports tools left out for a name the session already has, and acknowledges the rest', async () => {
+    const other = new FunctionTool(
+      { name: 'files__list', description: 'List', parameters: { type: 'object', properties: {} } },
+      async () => 'ok',
+    );
+    const h = harness(
+      async (request) => signedIn(request.serverId, { tools: [forecast, other] }),
+      undefined,
+      (names) => names.filter((name) => name !== 'files__read'),
+    );
+    const result = await h.run('login files');
+    expect(result.message).toBe(
+      'Signed in to MCP server files; 1 of its tools is available from your next message. ' +
+        '1 of its tools was left out: the session already has a tool by that name.',
+    );
+    expect(h.acknowledged).toEqual([['files', ['files__list']]]);
+  });
+
+  it('needs exactly one server', async () => {
+    const h = harness(async (request) => signedIn(request.serverId));
+    expect((await h.run('login')).message).toBe('Usage: /mcp login <serverId> [--no-browser]');
+    expect((await h.run('login a b')).success).toBe(false);
+    expect(h.requests).toEqual([]);
+  });
+});
+
+describe('/mcp command entry', () => {
+  it('opens only `status` to the model, and describes login for the user', () => {
+    const entry = createMCPActivationCommandEntry();
+    // Model-invocable only through its read-only `status`; every verb that changes trust or a
+    // credential is declared user-only (model-exposure.test.ts pins the refusal).
+    expect(entry.modelInvocable).toBe(true);
+    expect(
+      (entry.subcommands ?? []).filter((sub) => sub.modelInvocable === true).map((s) => s.name),
+    ).toEqual(['status']);
+    expect(entry.description).toMatch(/sign in/);
+    expect(entry.description).toMatch(/Returns/);
+    expect(entry.argumentHint).toContain('login <server> [--no-browser]');
   });
 });

@@ -107,4 +107,18 @@ describe('materializeDefinition', () => {
     expect(resolved.command).toBe('echo $HOME ${} $ {X}');
     expect(resolved.unsetVariables).toEqual([]);
   });
+
+  it('reads a long run of unclosed references in linear time', () => {
+    // A `[^}]*` default rescanned the rest of the value from every `${`: quadratic on this input.
+    const command = '${A:-'.repeat(50_000);
+    const started = performance.now();
+    const resolved = materializeDefinition(stdio({ command }), {});
+    expect(performance.now() - started).toBeLessThan(1_000);
+    expect(resolved.command).toBe(command);
+  });
+
+  it('keeps a reference after an unclosed default-less one, and a closed one after that', () => {
+    const resolved = materializeDefinition(stdio({ command: '${A ${B:-x} ${C}' }), { C: 'c' });
+    expect(resolved.command).toBe('${A x c');
+  });
 });

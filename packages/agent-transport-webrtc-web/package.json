@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-transport-webrtc-web",
-  "version": "3.0.0-beta.79",
+  "version": "3.0.0-beta.80",
   "description": "Browser WebRTC transport peer for a robota session (REMOTE-009 Stage D) — native RTCPeerConnection answerer + fail-closed pairing gate + RemoteClient page + useRtcSession, over the shared GUI core. The browser mirror of the node-side agent-transport-webrtc host transport.",
   "type": "module",
   "main": "dist/node/index.js",

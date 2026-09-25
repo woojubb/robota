@@ -1275,6 +1275,34 @@ describe('AnthropicProvider', () => {
         }),
       );
     });
+
+    it('withholds server web search from a request that asks for it off', async () => {
+      const asyncChunks = (async function* () {
+        yield { type: 'content_block_delta', delta: { type: 'text_delta', text: 'ok' } };
+      })();
+      mockClient.messages.create.mockResolvedValue(asyncChunks);
+      provider.configureNativeWebTools({ webSearch: true });
+
+      const messages: TUniversalMessage[] = [
+        {
+          id: 'msg-1',
+          state: 'complete' as const,
+          role: 'user',
+          content: 'Search current docs',
+          timestamp: new Date(),
+        },
+      ];
+
+      for await (const _chunk of provider.chatStream(messages, {
+        model: 'claude-3-opus-20240229',
+        nativeWebTools: { webSearch: false, webFetch: false },
+      })) {
+        // just consume
+      }
+
+      const request = mockClient.messages.create.mock.calls.at(-1)?.[0] as { tools?: unknown[] };
+      expect(JSON.stringify(request.tools ?? [])).not.toContain('web_search');
+    });
   });
 
   // ── chatStream() — executor delegation ──────────────────────

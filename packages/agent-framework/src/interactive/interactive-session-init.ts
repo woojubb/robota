@@ -209,6 +209,8 @@ export interface IAsyncInitDeps {
   commandDescriptors: readonly ICapabilityDescriptor[];
   commandSemanticRoles: IInitOptions['commandSemanticRoles'];
   setEditCheckpointStore: (store: EditCheckpointStore) => void;
+  /** The session's answer route to a peer (`peer_reply`). */
+  peerReply?: IInitOptions['peerReply'];
 }
 
 /** Result returned from initializeInteractiveSessionAsync. */
@@ -321,6 +323,7 @@ export async function initializeInteractiveSessionAsync(
     // ARCH-013 S3: both extension ports; dropping either here is the defect this stage fixed.
     ...(options.guardrails ? { guardrails: options.guardrails } : {}),
     ...(options.retrievalAdapter ? { retrievalAdapter: options.retrievalAdapter } : {}),
+    ...(deps.peerReply !== undefined ? { peerReply: deps.peerReply } : {}),
     commandDescriptors: deps.commandDescriptors,
     ...(deps.commandSemanticRoles ? { commandSemanticRoles: deps.commandSemanticRoles } : {}),
     ...(deps.commandDescriptors.length > 0

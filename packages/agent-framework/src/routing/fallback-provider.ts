@@ -288,8 +288,10 @@ export class FallbackProvider implements IAIProvider {
 
   /**
    * The request for another model: the same conversation, tools and settings, on that model. What
-   * belongs to the primary's vendor stays behind — its hosted tools, its vendor option blocks and an
-   * effort resolution made against its table — and a trace context goes only where it can be carried.
+   * belongs to the primary's vendor stays behind — a hosted tool it was required to offer, its vendor
+   * option blocks and an effort resolution made against its table — and a trace context goes only
+   * where it can be carried. A hosted tool the request WITHHELD stays withheld: the next model must
+   * not offer what the caller refused.
    */
   private fallbackOptions(
     options: IChatOptions,
@@ -297,7 +299,7 @@ export class FallbackProvider implements IAIProvider {
     provider: IAIProvider,
   ): IChatOptions {
     const {
-      nativeWebTools: _nativeWebTools,
+      nativeWebTools,
       openai: _openai,
       anthropic: _anthropic,
       google: _google,
@@ -305,13 +307,26 @@ export class FallbackProvider implements IAIProvider {
       outboundTraceContext,
       ...neutral
     } = delegatedOptions(options);
+    const withheld = withheldHostedTools(nativeWebTools);
     return {
       ...neutral,
       model: ref.model,
+      ...(withheld !== undefined && { nativeWebTools: withheld }),
       ...(outboundTraceContext !== undefined &&
         provider.canPropagateTraceContext?.() === true && { outboundTraceContext }),
     };
   }
+}
+
+/** Only the `false` entries of a hosted-tool request, or undefined when there are none. */
+function withheldHostedTools(
+  request: IChatOptions['nativeWebTools'],
+): IChatOptions['nativeWebTools'] {
+  const withheld = {
+    ...(request?.webSearch === false && { webSearch: false }),
+    ...(request?.webFetch === false && { webFetch: false }),
+  };
+  return Object.keys(withheld).length > 0 ? withheld : undefined;
 }
 
 /** Options for the provider behind this one: what only this decorator reads stays here. */

@@ -22,6 +22,7 @@ import type {
   TBackgroundPermissionPolicy,
   TModelEffortSelection,
   TToolChoice,
+  TPeerReach,
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type {
@@ -43,6 +44,12 @@ export interface ISessionShutdownOptions {
 export interface ISessionOptions {
   /** Pre-constructed tools to register with the agent */
   tools: IToolWithEventService[];
+  /**
+   * Applies to a tool added after construction (`Session.addTools`) the wrappers the assembler
+   * applied to `tools`, so a late tool is held to the same safety policy as one present from the
+   * start. The permission gate is applied by the session itself either way.
+   */
+  wrapAddedTools?: (tools: IToolWithEventService[]) => IToolWithEventService[];
   /** Pre-constructed AI provider */
   provider: IAIProvider;
   /** Pre-built system message string */
@@ -114,6 +121,8 @@ export interface ISessionOptions {
   permissionHandler?: TPermissionHandler;
   /** The OS sandbox the shell tools run under, which may let a confined command skip the prompt. */
   commandSandbox?: ICommandSandboxApproval;
+  /** The operator enabled write and execute tools for same-host peer turns; each use still asks. */
+  allowPeerChanges?: boolean;
   /** Decides for `auto` mode. Without one the session refuses that mode. */
   permissionClassifier?: IPermissionClassifier;
   /** Called when the user selects "allow for project" — persists the tool pattern to project settings. */
@@ -213,6 +222,11 @@ export interface ISessionRunOptions {
   driverId?: string;
   /** Run-scoped model tool directive; 'none' remains in force for this turn only. */
   toolChoice?: TToolChoice;
+  /**
+   * This turn was driven by another agent session, reaching this host from here (as admission
+   * established it). Its tools are then decided by the peer-turn policy for this turn only.
+   */
+  peerReach?: TPeerReach;
   /** Host-owned trusted trace context for this turn's provider calls (agent-core `IRunOptions`). */
   traceContext?: IRunTraceContext;
 }

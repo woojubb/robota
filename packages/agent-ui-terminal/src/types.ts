@@ -13,5 +13,7 @@ export interface IPendingPermissionRequest {
   toolName: string;
   toolArgs: TToolArgs;
   canPersistProjectPermission?: boolean;
+  /** The peer session whose message this call serves, when a peer turn asked. */
+  requestedByPeer?: string;
   resolve: (result: TPermissionResult) => void;
 }

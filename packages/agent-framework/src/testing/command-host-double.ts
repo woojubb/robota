@@ -159,6 +159,7 @@ export function createTestSessionRuntime(
     // CLI-1990: no tools by default, so a fixture that does not care about the tool surface reports
     // zero schema tokens rather than a made-up figure. A case that does care overrides it.
     getOfferedToolSchemas: () => [],
+    addTools: async () => [],
     applyModelOptions: () => {},
     applyAgentName: () => {},
     getActivePresetId: () => 'default',

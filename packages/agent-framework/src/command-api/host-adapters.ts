@@ -5,7 +5,12 @@ import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IInteractiveSessionRecord } from '../interactive/session-persistence.js';
 import type { IModelEffortResolution, TEffortSelection } from '../effort/effort-resolution.js';
 import type { ICommandAdvisorAdapter } from '../advisor/advisor-spec.js';
-import type { TPermissionMode, TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
+import type {
+  IToolWithEventService,
+  TPermissionMode,
+  TSessionEndReason,
+  TUniversalValue,
+} from '@robota-sdk/agent-core';
 import type { IPermissionDenial } from '@robota-sdk/agent-session';
 import type { TWorkspaceRelation } from '@robota-sdk/agent-interface-session-mobility';
 
@@ -191,6 +196,60 @@ export interface ICommandMCPOAuthLogoutResult {
   }[];
 }
 
+/** Where the user signs in, shown when they paste the redirect back rather than a listener receiving it. */
+export interface ICommandMCPOAuthRedirectPrompt {
+  readonly authorizationUrl: string;
+  /** Where the browser is sent after approval; that page may not load. */
+  readonly redirectUri: string;
+}
+
+/** One in-session sign-in, as the command asks for it. */
+export interface ICommandMCPOAuthLoginRequest {
+  readonly serverId: string;
+  /** Open no browser: the user opens the authorization URL and pastes the redirect back. */
+  readonly noBrowser: boolean;
+  /**
+   * Asks the user, through the session's own prompt, for the redirect URL their browser was sent
+   * to — with `noBrowser`, or when no browser could be opened. Absent: no one can be asked, and a
+   * sign-in that needs a paste is refused before it starts or fails as `browser-failed`.
+   */
+  readonly readRedirect?: (
+    prompt: ICommandMCPOAuthRedirectPrompt,
+    signal: AbortSignal,
+  ) => Promise<string>;
+  /**
+   * Without `noBrowser`: shows the user the authorization URL before the browser is opened, so a
+   * browser that opens silently or not at all never leaves them waiting on nothing. `paste` switches
+   * to reading the pasted redirect; `cancel` ends the sign-in. Absent: the browser opens directly.
+   */
+  readonly confirmBrowser?: (
+    prompt: ICommandMCPOAuthRedirectPrompt,
+    signal: AbortSignal,
+  ) => Promise<'open' | 'paste' | 'cancel'>;
+  /** Cancels the sign-in; it then fails as `cancelled` and changes nothing. */
+  readonly signal?: AbortSignal;
+}
+
+/**
+ * What an in-session sign-in did, by fixed words and reasons only — never a code, token or
+ * authorization-server text.
+ */
+export interface ICommandMCPOAuthLoginResult {
+  readonly serverId: string;
+  /** Present when the sign-in did not complete; the session was then left unchanged. */
+  readonly failure?: string;
+  /** Whether the definition names a pre-registered client, which may need a client secret. */
+  readonly preRegisteredClient: boolean;
+  /**
+   * After a sign-in, the server in this session: `connected` with the tools it now offers,
+   * `recovered` when its tools were already offered and its connection works again,
+   * `not-admitted` when admission refused it, `not-connected` when it still could not connect.
+   */
+  readonly connection?: 'connected' | 'recovered' | 'not-admitted' | 'not-connected';
+  /** The tools a newly connected server offers, for the session to add. */
+  readonly tools: readonly IToolWithEventService[];
+}
+
 /** MCP activation lifecycle port. Implemented by the composition root over the MCP policy service. */
 export interface ICommandMCPActivationAdapter {
   list(): readonly ICommandMCPActivationSummary[];
@@ -207,6 +266,17 @@ export interface ICommandMCPActivationAdapter {
   oauthStatus?(): Promise<readonly ICommandMCPOAuthStatus[]>;
   /** Sign out of one OAuth server. Rejects for a server that does not declare OAuth. */
   oauthLogout?(serverId: string): Promise<ICommandMCPOAuthLogoutResult>;
+  /**
+   * Sign in to one OAuth server, then connect it in this session through the normal admission.
+   * Never rejects for a failed sign-in: it names the failure. Absent: the host offers no in-session
+   * sign-in.
+   */
+  oauthLogin?(request: ICommandMCPOAuthLoginRequest): Promise<ICommandMCPOAuthLoginResult>;
+  /**
+   * Which of the tools `oauthLogin` returned the session actually took; any other was left out for
+   * a name it already had. Called once per sign-in that returned tools.
+   */
+  oauthToolsAdded?(serverId: string, added: readonly string[]): void;
 }
 
 /**
@@ -250,8 +320,15 @@ export interface ICommandLocalPeersAdapter {
    * Returns a delivery state rather than throwing, because "the peer refused it" and "the carrier
    * broke" are both answers the operator needs, and an exception would flatten them into one.
    * Absent on a host that can discover peers but cannot address them.
+   *
+   * `inReplyTo` names the received message this answers, which threads a conversation; the host
+   * refuses a reply that would run a conversation past its limits, and tells the operator.
    */
-  send?(targetSessionId: string, text: string): Promise<ILocalPeerSendResult>;
+  send?(
+    targetSessionId: string,
+    text: string,
+    options?: { readonly inReplyTo?: string },
+  ): Promise<ILocalPeerSendResult>;
 }
 
 /**
