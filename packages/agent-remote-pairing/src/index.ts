@@ -110,4 +110,76 @@ export type {
 // The three-tier identity model (master → signing key → device) with purpose-tagged signatures.
 // It supersedes the single-root `user-identity` certificate above, which stays until the hand-off
 // grant moves onto this chain.
-export * from './identity/index.js';
+export { IDENTITY_CLOCK_SKEW_MS, IDENTITY_PURPOSES } from './identity/encoding.js';
+export type { TIdentityPurpose, TSignatureAlg } from './identity/encoding.js';
+export {
+  MASTER_KEY_DERIVATION_PATH,
+  RECOVERY_PHRASE_WORDS,
+  deriveMasterKey,
+  generateRecoveryPhrase,
+  validateRecoveryPhrase,
+} from './identity/master-key.js';
+export type {
+  IMasterKey,
+  TRecoveryPhraseRejection,
+  TRecoveryPhraseVerdict,
+} from './identity/master-key.js';
+export {
+  DEVICE_CAPABILITIES,
+  DEVICE_CERTIFICATE_VALIDITY_MS,
+  DEVICE_NAME_MAX_CHARS,
+  SIGNING_KEY_CERTIFICATE_VALIDITY_MS,
+  certifyDevice,
+  certifySigningKey,
+  decodeDeviceCertificate,
+  decodeSigningKeyCertificate,
+  generateDeviceKeyAgreementKeyPair,
+  generateDeviceSignKeyPair,
+  generateSigningKeyPair,
+} from './identity/certificates.js';
+export type {
+  ICertifyDeviceOptions,
+  ICertifySigningKeyOptions,
+  IDeviceCertificate,
+  ISigningKey,
+  ISigningKeyCertificate,
+  TDeviceCapability,
+} from './identity/certificates.js';
+export {
+  IDENTITY_STATEMENT_LIMITS,
+  REVOCATION_LIST_VALIDITY_MS,
+  ROSTER_VALIDITY_MS,
+  SESSION_DESCRIPTOR_VALIDITY_MS,
+  decodeDeviceRevocationList,
+  decodeDeviceRoster,
+  decodeSessionDescriptor,
+  decodeSigningKeyRevocation,
+  issueDeviceRevocationList,
+  issueDeviceRoster,
+  issueSigningKeyRevocation,
+  signSessionDescriptor,
+} from './identity/statements.js';
+export type {
+  IDeviceRevocationList,
+  IDeviceRoster,
+  IIssueRevocationListOptions,
+  IIssueRosterOptions,
+  IIssueSigningKeyRevocationOptions,
+  ISessionDescriptor,
+  ISignSessionDescriptorOptions,
+  ISigningKeyRevocation,
+} from './identity/statements.js';
+export { verifyDeviceChain, verifySessionDescriptor } from './identity/verify-chain.js';
+export type {
+  IChainRejection,
+  IDeviceListMarks,
+  IListHighWaterMarks,
+  IRequiredLists,
+  IVerifyDeviceChainInput,
+  IVerifySessionDescriptorOptions,
+  TChainRejection,
+  TChainSubject,
+  TDeviceChainVerdict,
+  TSessionDescriptorVerdict,
+  TSessionRejection,
+} from './identity/verify-chain.js';
