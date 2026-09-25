@@ -10,9 +10,7 @@ import type { ISandboxClient, TSandboxFilesystem } from './types.js';
 
 export type TExecutionContainment = 'host' | `sandbox-${TSandboxFilesystem}`;
 
-export function describeExecutionContainment(
-  client: ISandboxClient | undefined,
-): TExecutionContainment {
+export function describeExecutionContainment(client: ISandboxClient | undefined): TExecutionContainment {
   if (client === undefined) return 'host';
   return `sandbox-${client.filesystem ?? 'separate'}`;
 }

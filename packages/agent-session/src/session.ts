@@ -1,8 +1,4 @@
-import {
-  TRUST_TO_MODE,
-  ObservableEventService,
-  PROVIDER_CALL_EVENTS,
-} from '@robota-sdk/agent-core';
+import { TRUST_TO_MODE, ObservableEventService, PROVIDER_CALL_EVENTS } from '@robota-sdk/agent-core';
 
 import { SessionBase } from './session-base.js';
 import {

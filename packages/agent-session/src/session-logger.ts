@@ -13,7 +13,10 @@ import { SESSION_LOG_SCHEMA_VERSION } from './session-log-events.js';
 import { normalizeLogData } from './session-log-payload.js';
 
 import type { ISessionLogSink } from './session-log-sinks.js';
-import type { IFileSessionLoggerOptions, TSessionLogData } from './session-log-reference-types.js';
+import type {
+  IFileSessionLoggerOptions,
+  TSessionLogData,
+} from './session-log-reference-types.js';
 
 export type {
   IExternalPayloadReference,

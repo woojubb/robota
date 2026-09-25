@@ -1,10 +1,5 @@
 import { PERMISSION_DENIED_RESULT, reportToolCrash } from './permission-types.js';
-import {
-  createLogger,
-  isAbortFailure,
-  TOOL_BODY_EVENTS,
-  TOOL_PERMISSION_EVENTS,
-} from '@robota-sdk/agent-core';
+import { createLogger, isAbortFailure, TOOL_BODY_EVENTS, TOOL_PERMISSION_EVENTS } from '@robota-sdk/agent-core';
 import { canonicaliseToolArguments } from './tool-argument-canonicalisation.js';
 import {
   buildHookInput,
