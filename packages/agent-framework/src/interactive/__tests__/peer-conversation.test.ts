@@ -160,6 +160,8 @@ describe('per-origin authority', () => {
     try {
       await run(h, 'hello', peer('another-host'));
       expect(toolNames(h, 0)).toEqual(['peer_reply']);
+      // A provider's own hosted tools never pass the permission policy, so a peer turn has none.
+      expect(h.chatOptions[0]?.nativeWebTools).toEqual({ webSearch: false, webFetch: false });
       expect(h.permissions).toHaveLength(0);
       expect(h.send).toHaveBeenCalledWith('A', 'hello back', { inReplyTo: 'm-1' });
     } finally {
@@ -172,8 +174,9 @@ describe('per-origin authority', () => {
     try {
       await run(h, 'hello', peer());
       const names = toolNames(h, 0);
-      expect(names).toEqual(expect.arrayContaining(['Read', 'Glob', 'Grep', 'peer_reply']));
-      for (const name of ['Write', 'Edit', 'Bash', 'Shell', 'WebFetch', 'Agent']) {
+      expect(names).toEqual(expect.arrayContaining(['Read', 'Glob', 'peer_reply']));
+      // Grep reads files it was never named, so it cannot be judged by where it was pointed.
+      for (const name of ['Grep', 'Write', 'Edit', 'Bash', 'Shell', 'WebFetch', 'Agent']) {
         expect(names).not.toContain(name);
       }
     } finally {
@@ -258,6 +261,7 @@ describe('operator turns', () => {
       const names = toolNames(h, 0);
       expect(names).toEqual(expect.arrayContaining(['Read', 'Write', 'Edit']));
       expect(names).not.toContain('peer_reply');
+      expect(h.chatOptions[0]?.nativeWebTools).toBeUndefined();
     } finally {
       await h.session.shutdown();
     }

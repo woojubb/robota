@@ -27,7 +27,9 @@ import { registerToolPermissionProfile, type IToolPermissionProfile } from '@rob
  */
 export const AGENT_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPermissionProfile>> = {
   // Reads and searches: observe, change nothing. `workspacePaths` names every argument that says
-  // where they look, which is what lets a same-host peer turn use them inside the workspace.
+  // where they look, which is what lets a same-host peer turn use them inside the workspace. Grep
+  // declares none: it reads the content of files it was never named, so what it reads cannot be
+  // judged from its arguments, and a peer turn does not get it.
   Read: {
     argument: { key: 'filePath', kind: 'path' },
     riskClass: 'inspect',
@@ -38,11 +40,7 @@ export const AGENT_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPermis
     riskClass: 'inspect',
     workspacePaths: ['pattern', 'path'],
   },
-  Grep: {
-    argument: { key: 'pattern', kind: 'text' },
-    riskClass: 'inspect',
-    workspacePaths: ['path', 'glob'],
-  },
+  Grep: { argument: { key: 'pattern', kind: 'text' }, riskClass: 'inspect' },
   WebFetch: { argument: { key: 'url', kind: 'url' }, riskClass: 'inspect' },
   WebSearch: { argument: { key: 'query', kind: 'text' }, riskClass: 'inspect' },
   // The tool that had no classification at all until now. It reads the codebase and returns

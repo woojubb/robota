@@ -47,6 +47,7 @@ function buildRunContext(
     ...(options.maxTokens !== undefined && { maxTokens: options.maxTokens }),
     ...(options.temperature !== undefined && { temperature: options.temperature }),
     ...(options.toolChoice !== undefined && { toolChoice: options.toolChoice }),
+    ...(options.withholdHostedTools === true && { withholdHostedTools: true }),
     ...(options.ephemeralSystemContext !== undefined && {
       ephemeralSystemContext: options.ephemeralSystemContext,
     }),

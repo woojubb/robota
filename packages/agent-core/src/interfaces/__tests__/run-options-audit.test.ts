@@ -19,6 +19,8 @@ const RUN_OPTION_CONSUMERS: Record<keyof Required<IRunOptions>, string> = {
   temperature: 'execution-round-provider.ts chatOptions (CORE-016)',
   maxTokens: 'execution-round-provider.ts chatOptions (CORE-016)',
   toolChoice: 'execution-round-provider.ts chatOptions (CORE-017)',
+  withholdHostedTools:
+    'execution-round-streaming.ts round overrides → chatOptions.nativeWebTools false (peer turns)',
   sessionId: 'robota-execution.ts buildRunContext → IExecutionContext / plugin payload',
   userId: 'robota-execution.ts buildRunContext → IExecutionContext / plugin payload',
   driverId:
