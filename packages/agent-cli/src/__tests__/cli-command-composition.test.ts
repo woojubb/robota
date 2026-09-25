@@ -107,6 +107,7 @@ describe('default CLI command composition', () => {
       'default',
       'acceptEdits',
       'bypassPermissions',
+      'auto',
     ]);
   });
 
