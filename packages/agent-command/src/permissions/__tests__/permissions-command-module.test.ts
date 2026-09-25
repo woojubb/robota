@@ -253,7 +253,7 @@ describe('createPermissionsCommandModule', () => {
       argument: 'npm publish',
       reason: 'classifier' as const,
       detail: 'publishes a package',
-      at: 0,
+      at: new Date(2026, 8, 25, 0, 0, 0).getTime(),
     };
     const retryDenial = vi.fn((index: number) => (index === 0 ? denial : undefined));
     const context = createCommandHostContext({ denials: [denial], retryDenial });
