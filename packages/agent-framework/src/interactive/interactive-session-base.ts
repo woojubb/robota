@@ -6,6 +6,7 @@
  * plus the abstract accessors declared here.
  */
 
+import { MONITOR_SHELL_TOOL, MonitorCommandRefusedError } from '../command-api/agent-job-roles.js';
 import { readSessionUsageRecords } from '../command-api/session/session-usage.js';
 import {
   listAgentDefinitionsFromSession,
@@ -366,7 +367,10 @@ export abstract class InteractiveSessionBase {
               sessionLoop: true,
               ...(input.sessionLoopId ? { sessionLoopId: input.sessionLoopId } : {}),
               ...(input.sessionLoopDefaultPrompt
-                ? { sessionLoopDefaultPrompt: true, sessionLoopDefaultPromptSeed: input.agentInstruction }
+                ? {
+                    sessionLoopDefaultPrompt: true,
+                    sessionLoopDefaultPromptSeed: input.agentInstruction,
+                  }
                 : {}),
               ...(input.sessionLoopFirstAllowedAt
                 ? { sessionLoopFirstAllowedAt: input.sessionLoopFirstAllowedAt }
@@ -387,6 +391,16 @@ export abstract class InteractiveSessionBase {
     agentInstruction: string;
   }): Promise<IBackgroundTaskState> {
     await this.ensureInitialized();
+    // A monitor starts `command` as a process. When the MODEL asks for it, the command is decided
+    // by the shell tool's own gate — its allow/deny/ask rules, the mode and the prompt — so a
+    // monitor is never a way around a `Bash(...)` rule, and consent to monitoring one command is
+    // never consent to another.
+    if (this.getCommandInvocationSource() === 'model') {
+      const allowed = await this.getSessionOrThrow().checkToolPermission(MONITOR_SHELL_TOOL, {
+        command: input.command,
+      });
+      if (!allowed) throw new MonitorCommandRefusedError();
+    }
     return this.bgTracker.getManagerOrThrow().spawn({
       kind: 'process',
       label: input.label,

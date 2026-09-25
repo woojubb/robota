@@ -38,6 +38,7 @@ import {
   workspaceFiles,
 } from './harness-workspace-inspectors.js';
 import { InteractiveSession } from '../interactive/index.js';
+import { createNodeHostSettingsSource } from '../config/node-host-settings-source.js';
 
 import type { IToolCallHandoffPolicy } from '../assembly/index.js';
 import type { ICommandModule } from '../command-api/index.js';
@@ -119,6 +120,11 @@ export interface IScriptedSessionOptions {
   allowedTools?: string[];
   /** Denied tool names (deny wins over allow). */
   deniedTools?: string[];
+  /**
+   * Permission PATTERNS (`Bash(rm *)`), as a user's settings file would carry them — read through a
+   * host settings source, the route the product uses. Tool-name lists are `allowedTools`/`deniedTools`.
+   */
+  permissions?: { allow?: string[]; deny?: string[]; ask?: string[] };
   /** Skip AGENTS.md/CLAUDE.md and plugin discovery for determinism. Defaults to `true`. */
   bare?: boolean;
   /** Cap on agentic rounds per submit. */
@@ -213,15 +219,25 @@ export class ScriptedSessionHarness {
     };
     const persistenceDir = join(this.cwd, '.robota', 'sessions');
     this.sessionStore = options.persistence ? new NodeSessionStore(persistenceDir) : undefined;
+    let userSettingsPath: string | undefined;
+    if (options.permissions !== undefined) {
+      userSettingsPath = join(this.cwd, '.robota-test-user-settings.json');
+      writeFileSync(userSettingsPath, JSON.stringify({ permissions: options.permissions }), 'utf8');
+    }
     this.session = new InteractiveSession({
       cwd: this.cwd,
       provider,
+      ...(userSettingsPath !== undefined
+        ? { userSettingsSources: [createNodeHostSettingsSource('user', userSettingsPath)] }
+        : {}),
       ...(options.projectAccess ? { projectAccess: options.projectAccess } : {}),
       ...(options.contributionSources !== undefined
         ? { contributionSources: options.contributionSources }
         : {}),
       ...(options.skillRoots !== undefined ? { skillRoots: options.skillRoots } : {}),
-      ...(options.resolveDefaultLoopPrompt ? { resolveDefaultLoopPrompt: options.resolveDefaultLoopPrompt } : {}),
+      ...(options.resolveDefaultLoopPrompt
+        ? { resolveDefaultLoopPrompt: options.resolveDefaultLoopPrompt }
+        : {}),
       ...(options.agentDefinitionRoots !== undefined
         ? { agentDefinitionRoots: options.agentDefinitionRoots }
         : {}),

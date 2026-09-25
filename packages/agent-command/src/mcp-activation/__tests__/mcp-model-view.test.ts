@@ -102,6 +102,15 @@ describe('/mcp status as the model sees it', () => {
     const result = await executeMCPActivationCommand(host('user'), 'status');
     expect(result.message).toContain('SECRET-REASON-TEXT');
   });
+
+  it('gives a caller that does not say who it is the restricted view', async () => {
+    const result = await executeMCPActivationCommand(
+      { getCommandHostAdapters: () => ({ mcpActivation: adapter }) },
+      'status',
+    );
+    expect(result.message).toContain('`/mcp approve linear`');
+    expect(result.message).not.toContain('SECRET-REASON-TEXT');
+  });
 });
 
 describe('MCP notices for the model', () => {

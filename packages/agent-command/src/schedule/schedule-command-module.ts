@@ -30,8 +30,8 @@ const MONITOR_DESCRIPTION =
 const MONITOR_ARGUMENT_HINT = '"<command>" "<pattern>" <instruction>';
 
 // Model-invocable, all three: waking itself later, watching a process and repeating a prompt are the
-// model's own pacing. `/monitor` starts a process, so the model's call asks for permission exactly
-// as a shell command would — being a command must not make it a way around the shell's prompt.
+// model's own pacing. `/monitor` starts a process, so the model's command is decided by the shell
+// tool's own gate (see the system command below) — never a way around a Bash/Shell rule.
 const SCHEDULE_MODEL_DESCRIPTION =
   'Wake yourself later with an instruction. Use it when work must wait (a deploy, a long build, a ' +
   'reply) instead of polling: `in <N><s|m|h|d> <instruction>` or `cron "<expr>" <instruction>`; ' +
@@ -40,8 +40,8 @@ const SCHEDULE_MODEL_DESCRIPTION =
 const MONITOR_MODEL_DESCRIPTION =
   'Run a command in the background and wake yourself when a line of its output matches a pattern. ' +
   'Use it to wait for a server to start, a test to fail or a log line to appear instead of polling. ' +
-  'Starting the command asks the user for permission like a shell command. Returns the monitor ' +
-  'task id.';
+  'The command is allowed, refused or asked about by the same permission rules as a shell tool ' +
+  'call. Returns the monitor task id, or a refusal naming what the user must allow.';
 const LOOP_MODEL_DESCRIPTION =
   'Repeat a prompt on a fixed cadence (`<N><s|m|h|d> [prompt]`) or self-paced (bare or prompt ' +
   'only: each iteration chooses its next delay or stops). Use it when the user asks for recurring ' +
@@ -118,8 +118,12 @@ function createMonitorSystemCommand(): ISystemCommand {
     displayName: entry.displayName,
     description: entry.description,
     ...(entry.modelDescription !== undefined ? { modelDescription: entry.modelDescription } : {}),
-    // It starts a process: the model's call is gated like a shell command, never auto-approved.
+    // It starts a process, so it is never treated as read-only (a remote read-only policy refuses
+    // it). The MODEL's call is not asked about by the command's name: the host decides the
+    // monitored command through the shell tool's own gate (its Bash/Shell rules, the mode and the
+    // prompt), so one "always allow" of `/monitor` can never approve every later command.
     requiresPermission: true,
+    modelRequiresPermission: false,
     userInvocable: true,
     modelInvocable: true,
     argumentHint: entry.argumentHint,

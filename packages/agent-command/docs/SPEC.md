@@ -156,8 +156,10 @@ declaration.
 and neither are exits or UI-only preferences: the model may suggest them, the user runs them. A
 command that mixes such actions with read-only views opens only the read-only subset to the model.
 Every model-invocable command carries a description written for the model — what it does, when to
-use it, what it returns — and a command that starts a process asks permission on the model's behalf
-exactly as the shell tool would, so being a command is never a way around the shell's prompt.
+use it, what it returns — and when the model asks a command to start a process, that process is
+decided by the shell tool's own gate (its rules, the mode and the prompt) rather than by consent to
+the command's name, so being a command is never a way around a shell rule, and approving one
+monitored command never approves another.
 
 **`/remote-control`, `/doctor`, `/context`, and session command metadata.** For these commands, the
 palette entry is the single source of metadata, and the executable command is projected from it;

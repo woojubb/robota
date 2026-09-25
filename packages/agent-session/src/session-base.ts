@@ -13,6 +13,7 @@ import type {
   TModelEffort,
   TModelEffortSelection,
   TPermissionMode,
+  TToolArgs,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
 
@@ -223,6 +224,20 @@ export abstract class SessionBase {
 
   getSessionAllowedTools(): string[] {
     return this.permissionEnforcer.getSessionAllowedTools();
+  }
+
+  /**
+   * Decide a call to `toolName` with `toolArgs` exactly as this session's gate would decide the
+   * tool call itself — rules, mode, remembered consent and the prompt. For an action that reaches
+   * a tool's effect by another route (a command that starts a process), so that route cannot be a
+   * way around the tool's own permission.
+   */
+  checkToolPermission(
+    toolName: string,
+    toolArgs: TToolArgs,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    return this.permissionEnforcer.checkPermission(toolName, toolArgs, signal);
   }
 
   /** `auto` mode hands decisions to a classifier, so a session without one cannot enter it. */

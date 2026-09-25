@@ -55,7 +55,11 @@ function createMCPActivationSystemCommand(): ISystemCommand {
     ...(entry.modelDescription !== undefined ? { modelDescription: entry.modelDescription } : {}),
     argumentHint: entry.argumentHint,
     ...(entry.subcommands !== undefined ? { subcommands: entry.subcommands } : {}),
+    // Approve/reject/revoke/logout change trust or credentials, so the command is never read-only
+    // for the user or a remote policy. The model can reach only `status` (its subcommand
+    // allowlist), a read-only view, so its call needs no prompt.
     requiresPermission: true,
+    modelRequiresPermission: false,
     userInvocable: true,
     modelInvocable: true,
     lifecycle: 'inline',

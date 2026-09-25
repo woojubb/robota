@@ -13,6 +13,7 @@ import { mcpUserActionNotice } from '@robota-sdk/agent-command';
 import { describe, expect, it } from 'vitest';
 
 import { createMcpClientComposition } from '../mcp-client-composition.js';
+import { mcpStartupModelNotice } from '../mcp-startup.js';
 import { withAppendedSystemPrompt } from '../preset-surface-options.js';
 
 import type {
@@ -145,6 +146,13 @@ describe('MCP servers the user must act on, as the model learns of them', () => 
     expect(result).toEqual({ success: false, error: mcpUserActionNotice('github', 'sign-in') });
     expect(JSON.stringify(result)).not.toContain('server-secret');
     await composition.shutdown();
+  });
+
+  it('gives the startup notice only where the user can type the command it suggests', () => {
+    const unavailable = new Map([['linear', 'approve' as const]]);
+    expect(mcpStartupModelNotice('interactive', unavailable)).toContain('`/mcp approve linear`');
+    expect(mcpStartupModelNotice('print', unavailable)).toBeUndefined();
+    expect(mcpStartupModelNotice('serve', unavailable)).toBeUndefined();
   });
 
   it('adds the notice to the prompt text every shell receives, after the CLI text', () => {

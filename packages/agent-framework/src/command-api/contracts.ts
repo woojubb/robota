@@ -52,5 +52,13 @@ export interface ISystemCommand {
    * - `undefined` (default): derived from `safety` — `'read-only'` → false, others → true
    */
   requiresPermission?: boolean;
+  /**
+   * Whether the MODEL's call to this command is asked about by name, when that differs from
+   * `requiresPermission`. It may be `false` only when everything the model can reach through the
+   * command (its model subcommand allowlist) is read-only, or when the command decides each
+   * model call through the gate of the tool whose effect it has — never merely to skip a prompt.
+   * Absent → `requiresPermission`'s resolution. It never changes the user or remote path.
+   */
+  modelRequiresPermission?: boolean;
   execute(context: ICommandHostContext, args: string): Promise<ICommandResult> | ICommandResult;
 }

@@ -101,6 +101,20 @@ describe('model subcommand gate', () => {
     expect(descriptor.description).not.toContain('approve');
   });
 
+  it('lets the model tool skip its by-name prompt without making the command read-only', () => {
+    const command: ISystemCommand = { ...mixedCommand(), requiresPermission: true };
+    const executor = new SystemCommandExecutor([
+      { ...command, modelRequiresPermission: false },
+      { ...command, name: 'other' },
+    ]);
+    const byName = Object.fromEntries(
+      executor.listModelInvocableCommands().map((d) => [d.name, d.requiresPermission]),
+    );
+
+    expect(byName).toEqual({ servers: false, other: true });
+    expect(executor.resolveRequiresPermission(executor.getCommand('servers')!)).toBe(true);
+  });
+
   it('does not gate a command whose subcommands declare nothing', async () => {
     const execute = vi.fn(() => ({ success: true, message: 'ran' }));
     const executor = new SystemCommandExecutor([

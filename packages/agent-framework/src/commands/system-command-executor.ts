@@ -118,7 +118,8 @@ export class SystemCommandExecutor {
           modelInvocable: true,
           ...(argumentHint ? { argumentHint } : {}),
           ...(command.safety ? { safety: command.safety } : {}),
-          requiresPermission: this.resolveRequiresPermission(command),
+          requiresPermission:
+            command.modelRequiresPermission ?? this.resolveRequiresPermission(command),
         };
       });
   }

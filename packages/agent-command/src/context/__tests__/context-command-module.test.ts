@@ -1,4 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
+import {
+  createAssistantMessage,
+  createToolMessage,
+  createUserMessage,
+  messageToHistoryEntry,
+} from '@robota-sdk/agent-core';
 import type { IHistoryEntry, IToolSchema } from '@robota-sdk/agent-core';
 import type {
   ICommandHostContext,
@@ -371,6 +377,39 @@ describe('createContextCommandModule', () => {
 
     expect(result?.success).toBe(true);
     expect(result?.message).toContain('References: 2 active, 0 observed');
+  });
+
+  it('lists only the tool results still in context, not turns compaction summarized away', async () => {
+    const call = (id: string, name: string, arg: string) =>
+      createAssistantMessage(null, {
+        toolCalls: [
+          { id, type: 'function', function: { name, arguments: JSON.stringify({ path: arg }) } },
+        ],
+      });
+    const compacted = [
+      createUserMessage('old task'),
+      call('old-1', 'Read', 'compacted-away.ts'),
+      createToolMessage('old result', { toolCallId: 'old-1' }),
+    ];
+    const live = [
+      createUserMessage('new task'),
+      call('new-1', 'Read', 'still-live.ts'),
+      createToolMessage('new result', { toolCallId: 'new-1' }),
+    ];
+    const runtime = createTestSessionRuntime({
+      getContextState: () => CONTEXT_STATE,
+      getFullHistory: () => [...compacted, ...live].map(messageToHistoryEntry),
+      getHistory: () => live,
+    });
+    const context = createTestCommandHost({
+      overrides: { getSession: () => runtime, getContextState: () => CONTEXT_STATE },
+    });
+
+    const result = await createExecutor().execute('context', context, 'list');
+
+    expect(result?.message).toContain('still-live.ts');
+    expect(result?.message).not.toContain('compacted-away.ts');
+    expect(result?.message).toContain('Conversation history — 1 turn |');
   });
 
   it('shows full context breakdown with empty sections when no references', async () => {

@@ -59,7 +59,7 @@ Subcommands you may run (bare \`mcp\` is also allowed):
     "kind": "builtin-command",
     "modelInvocable": true,
     "name": "mcp",
-    "requiresPermission": true,
+    "requiresPermission": false,
     "userInvocable": true,
   },
   "memory": {
@@ -80,11 +80,11 @@ Subcommands you may run (bare \`memory\` is also allowed):
   },
   "monitor": {
     "argumentHint": ""<command>" "<pattern>" <instruction>",
-    "description": "Run a command in the background and wake yourself when a line of its output matches a pattern. Use it to wait for a server to start, a test to fail or a log line to appear instead of polling. Starting the command asks the user for permission like a shell command. Returns the monitor task id.",
+    "description": "Run a command in the background and wake yourself when a line of its output matches a pattern. Use it to wait for a server to start, a test to fail or a log line to appear instead of polling. The command is allowed, refused or asked about by the same permission rules as a shell tool call. Returns the monitor task id, or a refusal naming what the user must allow.",
     "kind": "builtin-command",
     "modelInvocable": true,
     "name": "monitor",
-    "requiresPermission": true,
+    "requiresPermission": false,
     "userInvocable": true,
   },
   "schedule": {

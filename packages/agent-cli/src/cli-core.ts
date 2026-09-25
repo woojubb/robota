@@ -12,7 +12,6 @@ import {
   type IBackgroundTaskRunner,
 } from '@robota-sdk/agent-framework';
 import { assembleProduct } from '@robota-sdk/agent-product';
-import { mcpUnavailableServersNotice } from '@robota-sdk/agent-command';
 
 import { createFileCostBudgetAdapter } from './startup/cost-budget-adapter.js';
 import { applyModelFallbackChain } from './startup/model-fallback-startup.js';
@@ -101,7 +100,7 @@ import { ROBOTA_PERMISSION_BASELINE } from './product/robota-permission-baseline
 import { runMcpServeMode } from './modes/mcp-serve-mode.js';
 import { resolveMcpHttpOptions } from './utils/mcp-http-args.js';
 import { reserveMcpStdout } from './modes/mcp-stdio-output.js';
-import { composeMcpClientForStartup } from './startup/mcp-startup.js';
+import { composeMcpClientForStartup, mcpStartupModelNotice } from './startup/mcp-startup.js';
 import { composeCliAdvisor } from './startup/advisor-composition.js';
 import { createMcpExternalEventHost } from './startup/mcp-external-event-host.js';
 import type { TMcpStartupMode } from './startup/mcp-startup.js';
@@ -662,8 +661,6 @@ async function runCliCore(
   }
 
   const cli = { cwd, args };
-  // A server that could not start for a reason the user can fix is named to the model too, so it
-  // can say which command to run instead of guessing why a tool is missing.
   const presetSurface = withAppendedSystemPrompt(
     buildPresetSurfaceOptions(
       resolvedPreset,
@@ -673,7 +670,7 @@ async function runCliCore(
       outputStyle,
       effortResolution,
     ),
-    mcp === undefined ? undefined : mcpUnavailableServersNotice(mcp.unavailableServers),
+    mcp === undefined ? undefined : mcpStartupModelNotice(mcpStartupMode, mcp.unavailableServers),
   );
 
   const sessionStore = workspaceComposition.sessionStore;

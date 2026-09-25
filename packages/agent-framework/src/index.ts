@@ -944,3 +944,4 @@ export type {
   ICommandSessionPermissions,
   ICommandSessionPreset,
 } from './command-api/host-context.js';
+export { MONITOR_SHELL_TOOL, MonitorCommandRefusedError } from './command-api/agent-job-roles.js';

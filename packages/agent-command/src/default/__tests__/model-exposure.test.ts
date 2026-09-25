@@ -223,11 +223,19 @@ describe('built-in commands offered to the model', () => {
     expect(executed).toHaveBeenCalledTimes(6);
   });
 
-  it('asks before the model starts a process through /monitor', () => {
+  it('skips the by-name prompt only where the model reaches nothing that needs it', () => {
     const { executor } = spiedExecutor();
-    const monitor = executor
-      .listModelInvocableCommands()
-      .find((descriptor) => descriptor.name === 'monitor');
-    expect(monitor?.requiresPermission).toBe(true);
+    const byName = Object.fromEntries(
+      executor.listModelInvocableCommands().map((d) => [d.name, d.requiresPermission]),
+    );
+    // `/mcp`: the model reaches only `status`. `/monitor`: its command is decided by the shell
+    // gate instead (monitor-model-permission-functional.test.ts).
+    expect(byName.mcp).toBe(false);
+    expect(byName.monitor).toBe(false);
+    // Neither becomes read-only for the user or a remote read-only policy.
+    for (const name of ['mcp', 'monitor']) {
+      const command = executor.getCommand(name)!;
+      expect(executor.resolveRequiresPermission(command), name).toBe(true);
+    }
   });
 });
