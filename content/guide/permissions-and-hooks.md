@@ -41,7 +41,12 @@ or `deny` rule to require a prompt for one of these.
 
 A compound command qualifies only when each part does on its own. A command does not qualify when it:
 
-- names a path outside the working directory: an absolute path, `~`, or a `..` that climbs out;
+- names a path outside the working directory: an absolute path, `~`, a `..` that climbs out, a
+  PowerShell drive or provider (`C:x`, `Env:`), a glob that could match `..`, or a symlink whose
+  target is outside;
+- follows symlinks while recursing or reads a file named by an option (`grep -R`, `grep -f`,
+  `find -L`, `ls -L`, `du -L`, `diff -r`), or gives a glob to a command that prints file content;
+- contains a non-ASCII character;
 - writes through a redirect (`>`, `>>`, `&>`, `>&file`), except to `/dev/null` or another
   descriptor (`2>&1`);
 - uses a here-doc, a variable, an escape, or any substitution, grouping, brace expansion or comment
@@ -49,7 +54,8 @@ A compound command qualifies only when each part does on its own. A command does
   PowerShell, so the gate does not guess;
 - starts with a variable assignment (`PAGER=… git log`) or names a program by path (`./ls`);
 - passes an unquoted glob to `find` or `git`;
-- runs `git` with a global option (`-c`, `-C`), with `--output` or `--ext-diff`, or after a `cd`;
+- runs `git` with a global option (`-c`, `-C`), with `--output`, `--ext-diff` or `--no-index`, or
+  after a `cd`;
 - runs in a `workingDirectory` other than the session's.
 
 ### Pattern Syntax

@@ -7,6 +7,13 @@ import {
 } from '../permission-gate.js';
 import { isReadOnlyCommandLine } from '../read-only-commands.js';
 
+import type { TResolveInWorkspace } from '../read-only-commands.js';
+
+/** A workspace where `link` is a symlink out of it and everything else stays inside. */
+const resolveInWorkspace: TResolveInWorkspace = (base, path) =>
+  path === 'link' || path.startsWith('link/') ? undefined : `${base ?? '/w'}/${path}`;
+const inWorkspace = { resolveInWorkspace };
+
 /** Issue #3082 — built-in read-only shell commands run without a prompt. */
 describe('isReadOnlyCommandLine', () => {
   it.each([
@@ -33,8 +40,11 @@ describe('isReadOnlyCommandLine', () => {
     'git log --author=me@example.com',
     'git diff HEAD~1',
     "cat 'file with spaces.txt'",
+    'grep -rn x --include=*.ts src',
+    'ls src/*.ts',
+    'echo done',
   ])('%s qualifies', (line) => {
-    expect(isReadOnlyCommandLine(line)).toBe(true);
+    expect(isReadOnlyCommandLine(line, inWorkspace)).toBe(true);
   });
 
   it.each([
@@ -88,17 +98,45 @@ describe('isReadOnlyCommandLine', () => {
     ['cd .. && ls', 'cd climbs out'],
     ['git branch -a newb', 'a name without a list option creates a branch'],
     ['ls \\; touch x', 'backslash escape'],
+    // Second review: globs that match `..`, symlinks, and PowerShell syntax.
+    ['cat .?/secret', 'a glob matching .. under dash'],
+    ['cat .[.]/secret', 'a bracket glob matching ..'],
+    ['cat sub/.?/.?/secret', 'a glob in a middle segment'],
+    ['cat .*', 'a dot glob'],
+    ['cat link', 'a symlink out of the workspace'],
+    ['cd link && ls', 'cd through a symlink out'],
+    ['cat *', 'a glob could name a symlink out'],
+    ['grep -R x .', 'grep follows symlinks while recursing'],
+    ['grep -rnR x .', 'the same letter inside a cluster'],
+    ['grep -f patterns.txt x', 'grep reads a pattern file'],
+    ['find -L . -name x', 'find follows symlinks'],
+    ['ls -L link2', 'ls dereferences'],
+    ['diff -r a b', 'diff follows symlinks while recursing'],
+    ['git diff --no-index a b', 'git compares arbitrary files'],
+    ['echo "x\u201c; Remove-Item -Recurse sub; \u201cy"', 'PowerShell curly quotes'],
+    ["echo 'x\u2019; Remove-Item sub; \u2018y'", 'PowerShell curly single quotes'],
+    ['ls Env:', 'a PowerShell provider'],
+    ['cat Env:AWS_SECRET_ACCESS_KEY', 'a secret through a provider'],
+    ['cat C:secret', 'another drive'],
+    ['echo /etc/*', 'echo lists another directory'],
+    ['echo %PATH%', 'cmd.exe expansion'],
   ])('%s does not qualify (%s)', (line) => {
-    expect(isReadOnlyCommandLine(line)).toBe(false);
+    expect(isReadOnlyCommandLine(line, inWorkspace)).toBe(false);
+  });
+
+  it('without a resolver, only a command naming no path qualifies', () => {
+    expect(isReadOnlyCommandLine('git status')).toBe(true);
+    expect(isReadOnlyCommandLine('ls')).toBe(true);
+    expect(isReadOnlyCommandLine('cat package.json')).toBe(false);
   });
 
   it('refuses a call that names another directory', () => {
     expect(isReadOnlyCommandLine('git status', { otherDirectory: true })).toBe(false);
-    expect(isReadOnlyCommandLine('ls', { otherDirectory: true })).toBe(false);
+    expect(isReadOnlyCommandLine('ls', { otherDirectory: true, resolveInWorkspace })).toBe(false);
   });
 
   it('does not inspect an oversized line', () => {
-    expect(isReadOnlyCommandLine(`echo ${'a'.repeat(10_001)}`)).toBe(false);
+    expect(isReadOnlyCommandLine(`echo ${'a'.repeat(10_001)}`, inWorkspace)).toBe(false);
   });
 });
 

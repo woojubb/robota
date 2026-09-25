@@ -7,9 +7,11 @@
  * this module cannot fully account for is an ordinary command and takes the ordinary path.
  *
  * Two limits make "looks like a read" mean what `Read` means. The line stays inside the workspace:
- * no absolute, home-relative or climbing path. And it uses only syntax every shell the tool may run
- * (sh, bash, zsh, fish, PowerShell) reads the same way: plain words, quotes, pipes and separators,
- * and redirects — no expansion, substitution, grouping or comment.
+ * no absolute, home-relative, climbing or provider path, no glob that could match `..`, and every
+ * path operand resolves inside once symlinks are followed (by the host's resolver). And it uses only
+ * printable ASCII syntax every shell the tool may run (sh, bash, zsh, fish, PowerShell) reads the
+ * same way: plain words, quotes, pipes and separators, and redirects — no expansion, substitution,
+ * grouping or comment.
  *
  * No Node builtin: `agent-core` ships a browser bundle, and this is pure string work.
  */
@@ -48,6 +50,36 @@ const FIND_ACTIONS = new Set([
   '-fprintf',
   '-fls',
 ]);
+
+/** Commands that print file content: a glob among their operands could name a symlink out. */
+const CONTENT_READERS = new Set(['cat', 'head', 'tail', 'grep', 'wc', 'diff']);
+
+/**
+ * Options that read a file named elsewhere or follow symlinks while recursing, keyed by command.
+ * Short letters are matched inside a cluster (`-rnR`).
+ */
+const SYMLINK_OR_FILE_OPTIONS: Readonly<
+  Record<string, { short: string; long: readonly string[] }>
+> = {
+  grep: { short: 'Rf', long: ['--dereference-recursive', '--file'] },
+  ls: { short: 'L', long: ['--dereference'] },
+  du: { short: 'L', long: ['--dereference'] },
+  diff: { short: 'r', long: ['--recursive', '--from-file', '--to-file'] },
+  find: { short: '', long: [] },
+};
+
+function usesRefusedOption(command: string, args: readonly IWord[]): boolean {
+  if (command === 'find') {
+    return args.some((word) => word.text === '-L' || word.text === '-follow');
+  }
+  const refused = SYMLINK_OR_FILE_OPTIONS[command];
+  if (refused === undefined) return false;
+  return args.some(({ text }) => {
+    if (text.startsWith('--'))
+      return refused.long.some((long) => text === long || text.startsWith(`${long}=`));
+    return /^-[A-Za-z]/.test(text) && [...refused.short].some((letter) => text.includes(letter));
+  });
+}
 
 const GIT_READERS = new Set([
   'status',
@@ -100,7 +132,7 @@ const DISCARD_TARGETS = new Set(['/dev/null']);
  * backslash, backtick — means expansion, substitution, a comment, or a construct that differs
  * between bash, zsh, fish and PowerShell, and a line using one is not inspected further.
  */
-const UNQUOTED_WORD_CHARACTER = /[A-Za-z0-9_./:=@%+,*?[\]~-]/;
+const UNQUOTED_WORD_CHARACTER = /[A-Za-z0-9_./:=@+,*?[\]~-]/;
 /** Inside double quotes these still expand or escape. */
 const DOUBLE_QUOTE_ACTIVE = new Set(['$', '`', '\\', '!']);
 const GLOB_CHARACTERS = new Set(['*', '?', '[']);
@@ -114,8 +146,24 @@ function leavesWorkspace(text: string): boolean {
   return (
     /(^|[=,:])[/~]/.test(text) ||
     /^-[A-Za-z]+[/~]/.test(text) ||
-    /(^|[/=,:]|^-[A-Za-z]+)\.\.(\/|$)/.test(text)
+    /(^|[/=,:]|^-[A-Za-z]+)\.\.(\/|$)/.test(text) ||
+    // A drive or provider prefix (`C:x`, `Env:`, `HKCU:`) names another place in PowerShell.
+    /(^|[=,])[A-Za-z][A-Za-z0-9]*:/.test(text) ||
+    globMayClimb(text)
   );
+}
+
+/**
+ * Whether a glob could match `..`, which some shells (dash, bash before 5.2) do for a pattern
+ * starting with `.`, `?` or `[`. A glob is accepted only in the last path segment, and not there
+ * in those forms.
+ */
+function globMayClimb(text: string): boolean {
+  const segments = text.split('/');
+  const hasGlob = (segment: string): boolean => /[*?[]/.test(segment);
+  if (segments.slice(0, -1).some(hasGlob)) return true;
+  const last = segments[segments.length - 1]!;
+  return hasGlob(last) && /^[.?[]/.test(last);
 }
 
 /**
@@ -267,7 +315,8 @@ function isReadOnlyGit(args: readonly IWord[]): boolean {
   }
   if (subArgs.some((word) => word.expands)) return false;
   // `--output` writes a file and `--ext-diff` runs a configured program.
-  if (subArgs.some((word) => /^--(output|ext-diff|open-files-in-pager)/.test(word.text))) {
+  // `--no-index` compares arbitrary files rather than the repository.
+  if (subArgs.some((word) => /^--(output|ext-diff|open-files-in-pager|no-index)/.test(word.text))) {
     return false;
   }
   if (subcommand.text === 'branch') return isReadOnlyGitBranch(subArgs);
@@ -284,8 +333,16 @@ function isReadOnlySegment(words: readonly IWord[]): boolean {
   if (command.text.includes('=') || command.text.includes('/')) return false;
   // A leading `@` splats a variable in PowerShell and a leading `=` names a path in zsh.
   if (args.some((word) => /^[@=]/.test(word.text))) return false;
-  // `echo` prints its arguments; for everything else an argument may be a path to read.
-  if (command.text !== 'echo' && args.some((word) => leavesWorkspace(word.text))) return false;
+  // `echo` prints its words, but a glob among them lists a directory, wherever it is.
+  if (command.text === 'echo') return args.every((word) => !word.expands);
+  if (args.some((word) => leavesWorkspace(word.text))) return false;
+  if (usesRefusedOption(command.text, args)) return false;
+  if (
+    CONTENT_READERS.has(command.text) &&
+    args.some((word) => word.expands && !word.text.startsWith('-'))
+  ) {
+    return false;
+  }
   // `cd` alone goes home and `cd -` goes back; only a named directory inside the workspace stays.
   if (command.text === 'cd') return args.length === 1 && args[0]!.text !== '-' && !args[0]!.expands;
   if (PLAIN_READERS.has(command.text)) return true;
@@ -294,6 +351,38 @@ function isReadOnlySegment(words: readonly IWord[]): boolean {
   return false;
 }
 
+/** Commands whose operands are not paths the command opens. */
+const NON_PATH_OPERANDS = new Set(['echo', 'which', 'git']);
+
+/**
+ * Resolve every operand that could be a path, following symlinks, and require it to stay inside the
+ * workspace — the check `Read` makes. A `cd` moves the base for the commands after it.
+ */
+function operandsStayInWorkspace(
+  segments: readonly (readonly IWord[])[],
+  resolve: TResolveInWorkspace | undefined,
+): boolean {
+  let base: string | undefined;
+  for (const [command, ...args] of segments) {
+    if (NON_PATH_OPERANDS.has(command!.text)) continue;
+    for (const word of args) {
+      if (word.text.startsWith('-')) continue;
+      if (resolve === undefined) return false;
+      const resolved = resolve(base, word.text);
+      if (resolved === undefined) return false;
+      if (command!.text === 'cd') base = resolved;
+    }
+  }
+  return true;
+}
+
+/**
+ * Resolve `path` against `base` (the working directory when absent), following symlinks, and return
+ * where it really is — or `undefined` when that is outside the workspace. A path that does not
+ * exist resolves through its nearest existing ancestor.
+ */
+export type TResolveInWorkspace = (base: string | undefined, path: string) => string | undefined;
+
 export interface IReadOnlyCommandContext {
   /**
    * The call runs somewhere other than the session's working directory, so its relative paths are
@@ -301,6 +390,11 @@ export interface IReadOnlyCommandContext {
    * programs to run.
    */
   readonly otherDirectory?: boolean;
+  /**
+   * Supplied by a host with a filesystem. Without it a command with a path operand is not
+   * read-only, since a symlink inside the workspace can point anywhere.
+   */
+  readonly resolveInWorkspace?: TResolveInWorkspace;
 }
 
 /**
@@ -313,6 +407,8 @@ export function isReadOnlyCommandLine(
 ): boolean {
   if (context.otherDirectory === true) return false;
   if (line.length > MAX_INSPECTED_LENGTH || hasActiveExpansion(line)) return false;
+  // Other shells read some non-ASCII characters as syntax (PowerShell's curly quotes and dashes).
+  if (/[^\t\n\x20-\x7e]/.test(line)) return false;
   const segments = splitCommandSegments(line);
   if (segments.length === 0) return false;
   const scanned = segments.map(scanSegment);
@@ -321,5 +417,9 @@ export function isReadOnlyCommandLine(
   }
   const commands = scanned.map((segment) => segment.words[0]!.text);
   // `cd` then `git` runs git in another repository, under that repository's configuration.
-  return !(commands.includes('git') && commands.includes('cd'));
+  if (commands.includes('git') && commands.includes('cd')) return false;
+  return operandsStayInWorkspace(
+    scanned.map((segment) => segment.words),
+    context.resolveInWorkspace,
+  );
 }

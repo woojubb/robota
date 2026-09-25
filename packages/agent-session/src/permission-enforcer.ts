@@ -24,6 +24,7 @@ import {
 import { decideApproval } from './abortable-approval.js';
 import { consentScopeFor } from './consent-scope.js';
 import { wrapToolWithPermission } from './tool-permission-wrapper.js';
+import { createWorkspacePathResolver } from './workspace-path-resolver.js';
 
 import type {
   IPermissionEnforcerOptions,
@@ -39,6 +40,7 @@ import type {
   IToolWithEventService,
   TToolArgs,
   THooksConfig,
+  TResolveInWorkspace,
 } from '@robota-sdk/agent-core';
 
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
@@ -87,6 +89,7 @@ export class PermissionEnforcer {
   private readonly permissionPolicy?: IPermissionEnforcerOptions['permissionPolicy'];
   private readonly taskPermissions?: IPermissionEnforcerOptions['taskPermissions'];
   private readonly homeDirectory: string;
+  private readonly resolveInWorkspace: TResolveInWorkspace;
 
   constructor(options: IPermissionEnforcerOptions) {
     this.sessionId = options.sessionId;
@@ -114,6 +117,7 @@ export class PermissionEnforcer {
     this.permissionPolicy = options.permissionPolicy;
     this.taskPermissions = options.taskPermissions;
     this.homeDirectory = options.homeDirectory ?? homedir();
+    this.resolveInWorkspace = createWorkspacePathResolver(options.cwd);
   }
 
   /** Every configured pattern, split by the grammar it is held to. */
@@ -281,6 +285,7 @@ export class PermissionEnforcer {
     const where = { cwd: this.cwd, homeDirectory: this.homeDirectory };
     const decision = evaluatePermission(toolName, toolArgs, this.getPermissionMode(), rules, {
       ...where,
+      resolveInWorkspace: this.resolveInWorkspace,
       ...(policy?.ceiling !== undefined ? { ceiling: policy.ceiling } : {}),
       askAll: policy?.askAll ?? false,
     });

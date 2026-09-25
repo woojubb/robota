@@ -3,6 +3,10 @@
  * never-auto-approve set hold under bypassPermissions, and a background policy only narrows.
  */
 
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { clearRegisteredToolProfiles, registerToolPermissionProfile } from '@robota-sdk/agent-core';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -71,9 +75,7 @@ describe('bypassPermissions no longer proceeds past what must reach a person', (
   it('removing the home directory is not auto-approved', async () => {
     const enforcer = makeEnforcer();
     await expect(enforcer.checkPermission('Bash', { command: 'rm -rf ~' })).resolves.toBe(false);
-    await expect(enforcer.checkPermission('Bash', { command: 'rm -rf build' })).resolves.toBe(
-      true,
-    );
+    await expect(enforcer.checkPermission('Bash', { command: 'rm -rf build' })).resolves.toBe(true);
   });
 
   it('writing a settings file is not auto-approved', async () => {
@@ -117,7 +119,10 @@ describe('a background policy only narrows the shared order', () => {
 describe('a remembered consent never answers a call that must reach a person', () => {
   it('"allow always" for `rm -rf build` does not approve `rm -rf ~`', async () => {
     const handler = vi.fn().mockResolvedValue('allow-session');
-    const enforcer = makeEnforcer({ getPermissionMode: () => 'default', permissionHandler: handler });
+    const enforcer = makeEnforcer({
+      getPermissionMode: () => 'default',
+      permissionHandler: handler,
+    });
     await expect(enforcer.checkPermission('Bash', { command: 'rm -rf build' })).resolves.toBe(true);
     handler.mockResolvedValue(false);
     await expect(enforcer.checkPermission('Bash', { command: 'rm -rf ~' })).resolves.toBe(false);
@@ -223,5 +228,35 @@ describe('parameter rules on tools whose parameters arrive with the schema (issu
     const enforcer = makeEnforcer();
     expect(() => enforcer.applyPresetToolLists({ allowedTools: ['*'] })).toThrow(/allowedTools/);
     expect(enforcer.currentPermissionRules().allow).toEqual([]);
+  });
+});
+
+describe('read-only commands follow symlinks before trusting a path (issue #3082)', () => {
+  let root: string;
+  beforeEach(() => {
+    root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-readonly-')));
+    mkdirSync(join(root, 'ws'));
+    writeFileSync(join(root, 'secret'), 'SECRET');
+    writeFileSync(join(root, 'ws', 'notes.txt'), 'notes');
+    symlinkSync(join(root, 'secret'), join(root, 'ws', 'link'));
+  });
+  afterEach(() => rmSync(root, { recursive: true, force: true }));
+
+  it('reads a workspace file without asking, and asks for a link that leaves the workspace', async () => {
+    const handler = vi.fn().mockResolvedValue(false);
+    const enforcer = makeEnforcer({
+      cwd: join(root, 'ws'),
+      getPermissionMode: () => 'default',
+      permissionHandler: handler,
+    });
+    await expect(enforcer.checkPermission('Bash', { command: 'cat notes.txt' })).resolves.toBe(
+      true,
+    );
+    await expect(enforcer.checkPermission('Bash', { command: 'cat missing.txt' })).resolves.toBe(
+      true,
+    );
+    expect(handler).not.toHaveBeenCalled();
+    await expect(enforcer.checkPermission('Bash', { command: 'cat link' })).resolves.toBe(false);
+    expect(handler).toHaveBeenCalledOnce();
   });
 });
