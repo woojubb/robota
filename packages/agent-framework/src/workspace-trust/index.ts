@@ -52,6 +52,7 @@ export type {
   TWorkspaceContributionKind,
   TWorkspaceProjectAuthorityCandidate,
   TWorkspaceProjectAccess,
+  IWorkspacePolicy,
   TWorkspaceProjectSettingsTarget,
   TWorkspaceProjectSettingsWriteDecision,
   TWorkspaceProjectMutationDecision,
