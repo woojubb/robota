@@ -10,6 +10,7 @@ export type {
   IRunTraceTurn,
   IUsageBySourceReport,
   IUsageObservation,
+  IUsageModelShare,
   IProviderCallTraceEntry,
   IToolBodyTraceEntry,
   IToolPermissionDecisionEntry,

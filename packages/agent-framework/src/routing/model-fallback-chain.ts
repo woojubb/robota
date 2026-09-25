@@ -11,9 +11,12 @@ import { createProviderFromConfig, findProviderDefinition } from '@robota-sdk/ag
 
 import { resolveActiveProvider } from '../command-api/provider/provider-merge.js';
 
-import type { IFallbackModelTarget } from './fallback-provider.js';
+import { FallbackProvider } from './fallback-provider.js';
+
+import type { IFallbackModelTarget, IFallbackProviderOptions } from './fallback-provider.js';
 import type { TProviderSettingsDocument } from '../command-api/provider/provider-settings.js';
 import type {
+  IAIProvider,
   IModelFallbackNotice,
   IProviderDefinition,
   IProviderDefinitionConfig,
@@ -102,7 +105,11 @@ function profileModel(
   };
 }
 
-function readEntry(written: string, input: IResolveModelFallbackChainInput): IChainEntry | string {
+function readEntry(
+  written: string,
+  input: IResolveModelFallbackChainInput,
+  notices: string[],
+): IChainEntry | string {
   const { settings, primary, providerDefinitions } = input;
   const onProfile = (profile: string, model?: string): IChainEntry | string => {
     const found = profileModel(settings, profile, providerDefinitions);
@@ -131,6 +138,9 @@ function readEntry(written: string, input: IResolveModelFallbackChainInput): ICh
     // A model id may itself contain a colon; only a known profile before it makes it a pair.
     if (settings.providers?.[profile] !== undefined && model.length > 0)
       return onProfile(profile, model);
+    notices.push(
+      `Fallback model "${written}": "${profile}" is not a provider profile, so it is read as a model on the primary's provider.`,
+    );
   }
   return {
     written,
@@ -181,7 +191,7 @@ export function resolveModelFallbackChain(
   const kept: IChainEntry[] = [];
   const disallowed: string[] = [];
   for (const written of input.entries) {
-    const entry = readEntry(written, input);
+    const entry = readEntry(written, input, notices);
     if (typeof entry === 'string') {
       notices.push(entry);
       continue;
@@ -213,6 +223,33 @@ export function resolveModelFallbackChain(
     );
   }
   return { targets: kept.map((entry) => buildTarget(entry, input)), notices };
+}
+
+export interface IApplyModelFallbackInput extends IResolveModelFallbackChainInput {
+  /** The primary provider. */
+  provider: IAIProvider;
+  /** How the decorator reports; `entries` is filled in from `entries` above. */
+  providerOptions?: Omit<IFallbackProviderOptions, 'entries'>;
+}
+
+/**
+ * Put the chain in front of `provider`: a {@link FallbackProvider} when any entry survives, the
+ * provider itself otherwise. Either way the notices say what was dropped.
+ */
+export function applyModelFallback(input: IApplyModelFallbackInput): {
+  provider: IAIProvider;
+  notices: string[];
+} {
+  if (input.entries.length === 0) return { provider: input.provider, notices: [] };
+  const chain = resolveModelFallbackChain(input);
+  if (chain.targets.length === 0) return { provider: input.provider, notices: chain.notices };
+  return {
+    provider: new FallbackProvider(input.provider, chain.targets, {
+      ...input.providerOptions,
+      entries: input.entries,
+    }),
+    notices: chain.notices,
+  };
 }
 
 const FAILURE_PHRASES: Partial<Record<IModelFallbackNotice['reason'], string>> = {

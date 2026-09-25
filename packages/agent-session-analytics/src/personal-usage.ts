@@ -107,6 +107,58 @@ function addObservation(target: IMutableTotals, item: INormalizedObservation): v
   if (usage?.costStatus === 'estimated') target.hasEstimatedCost = true;
 }
 
+/**
+ * Group a turn by model or provider. A turn that ran on more than one model is split by its shares,
+ * so each model is charged only what it spent; the turn still counts once in every group it touched.
+ */
+function modelDimensions(
+  items: readonly INormalizedObservation[],
+  keyOf: (share: { providerId?: string; modelId?: string }) => string,
+): IPersonalUsageDimension[] {
+  const parts: INormalizedObservation[] = [];
+  for (const item of items) {
+    const shares = item.observation.modelShares;
+    if (shares === undefined) {
+      parts.push(item);
+      continue;
+    }
+    const byKey = new Map<string, INormalizedObservation>();
+    for (const share of shares) {
+      const key = keyOf(share);
+      const current = byKey.get(key)?.observation.usage;
+      const usage = item.observation.usage;
+      const costStatus =
+        share.costStatus === 'unknown' || current?.costStatus === 'unknown'
+          ? ('unknown' as const)
+          : ('estimated' as const);
+      byKey.set(key, {
+        ...item,
+        observation: {
+          ...item.observation,
+          providerId: share.providerId,
+          modelId: share.modelId,
+          usage: {
+            kind: usage?.kind ?? 'estimated',
+            scope: 'turn',
+            contextUsedTokens: usage?.contextUsedTokens ?? 0,
+            contextMaxTokens: usage?.contextMaxTokens ?? 0,
+            contextUsedPercentage: usage?.contextUsedPercentage ?? 0,
+            promptTokens: (current?.promptTokens ?? 0) + share.promptTokens,
+            completionTokens: (current?.completionTokens ?? 0) + share.completionTokens,
+            totalTokens: (current?.totalTokens ?? 0) + share.totalTokens,
+            costStatus,
+            ...(costStatus === 'estimated' && {
+              costUsd: (current?.costUsd ?? 0) + (share.costUsd ?? 0),
+            }),
+          },
+        },
+      });
+    }
+    parts.push(...byKey.values());
+  }
+  return dimensions(parts, (item) => keyOf(item.observation));
+}
+
 function freezeTotals(totals: IMutableTotals): IPersonalUsageTotals {
   return {
     sessions: totals.sessions.size,
@@ -237,8 +289,8 @@ export function summarizePersonalUsage(input: IPersonalUsageSnapshot): IPersonal
       totals: freezeTotals(byDay.get(date)!),
       sessionIds: [...byDay.get(date)!.sessions].sort(),
     })),
-    byModel: dimensions(selected, (item) => item.observation.modelId ?? 'unknown'),
-    byProvider: dimensions(selected, (item) => item.observation.providerId ?? 'unknown'),
+    byModel: modelDimensions(selected, (share) => share.modelId ?? 'unknown'),
+    byProvider: modelDimensions(selected, (share) => share.providerId ?? 'unknown'),
     bySurface: dimensions(selected, (item) => item.observation.surface ?? 'unknown'),
     bySource: dimensions(selected, (item) => sourceKey(item.observation.source)),
     byActivity: activityDimensions(selection.activities),
@@ -249,8 +301,12 @@ export function summarizePersonalUsage(input: IPersonalUsageSnapshot): IPersonal
       unsupportedSessions: input.unsupportedSessionIds?.length ?? 0,
       duplicateObservations: selection.duplicateObservations,
       legacyObservations: selection.legacyObservations,
-      unknownModelObservations: selected.filter((item) => !item.observation.modelId).length,
-      unknownProviderObservations: selected.filter((item) => !item.observation.providerId).length,
+      unknownModelObservations: selected.filter(
+        (item) => !item.observation.modelId && !item.observation.modelShares,
+      ).length,
+      unknownProviderObservations: selected.filter(
+        (item) => !item.observation.providerId && !item.observation.modelShares,
+      ).length,
       unknownSurfaceObservations: selected.filter(
         (item) => !item.observation.surface || item.observation.surface === 'unknown',
       ).length,

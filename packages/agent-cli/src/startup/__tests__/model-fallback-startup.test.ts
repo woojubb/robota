@@ -45,6 +45,7 @@ function apply(
   document: Record<string, unknown>,
   fallbackFlag: string[] | undefined,
   allowedProviders?: string[],
+  announceMoves?: boolean,
 ): { provider: IAIProvider; notices: string[] } {
   const notices: string[] = [];
   const provider = applyModelFallbackChain({
@@ -55,6 +56,7 @@ function apply(
     providerDefinitions: DEFINITIONS,
     ...(allowedProviders !== undefined && { orgPolicy: { allowedProviders } }),
     notice: (message) => notices.push(message),
+    ...(announceMoves !== undefined && { announceMoves }),
   });
   return { provider, notices };
 }
@@ -102,5 +104,46 @@ describe('applyModelFallbackChain', () => {
     expect(notices).toEqual([
       'Fallback models not allowed by your organization policy were dropped: openai.',
     ]);
+  });
+
+  it('announces each move where print mode can see it', async () => {
+    const primary = {
+      name: 'anthropic',
+      chat: async () => {
+        throw Object.assign(new Error('overloaded'), { status: 529 });
+      },
+    } as unknown as IAIProvider;
+    const notices: string[] = [];
+    const provider = applyModelFallbackChain({
+      provider: primary,
+      fallbackFlag: ['openai'],
+      settingsSources: [settingsSource(PROFILES)],
+      primaryConfig: { name: 'anthropic', model: 'claude-main', apiKey: 'a' },
+      providerDefinitions: [
+        {
+          type: 'openai',
+          createProvider: () =>
+            ({
+              name: 'openai',
+              chat: async () => ({
+                id: 'a',
+                role: 'assistant',
+                content: 'ok',
+                state: 'complete',
+                timestamp: new Date(),
+              }),
+            }) as unknown as IAIProvider,
+        },
+      ],
+      notice: (message) => notices.push(message),
+      announceMoves: true,
+    });
+
+    await provider.chat([], { model: 'claude-main' });
+
+    expect(notices).toEqual([
+      'claude-main was overloaded; this turn continued on gpt-profile (openai).',
+    ]);
+    expect(apply(PROFILES, ['openai'], undefined, false).notices).toEqual([]);
   });
 });

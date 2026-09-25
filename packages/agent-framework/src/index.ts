@@ -862,6 +862,7 @@ export type {
   IFallbackProviderOptions,
 } from './routing/fallback-provider.js';
 export {
+  applyModelFallback,
   FALLBACK_MODEL_SETTINGS_KEY,
   MAX_FALLBACK_MODELS,
   describeModelFallback,
@@ -871,6 +872,7 @@ export {
   selectFallbackModelEntries,
 } from './routing/model-fallback-chain.js';
 export type {
+  IApplyModelFallbackInput,
   IModelFallbackChain,
   IModelFallbackPrimary,
   IResolveModelFallbackChainInput,

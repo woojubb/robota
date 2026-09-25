@@ -267,6 +267,7 @@ export { USER_EVENTS, USER_EVENT_PREFIX, type TUserEvent } from './event-service
 export {
   PROVIDER_CALL_EVENTS,
   PROVIDER_FALLBACK_EVENTS,
+  readModelFallbackNotice,
   TOOL_BODY_EVENTS,
   TOOL_PERMISSION_EVENTS,
   SPAN_EVENTS,

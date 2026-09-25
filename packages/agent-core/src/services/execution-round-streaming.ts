@@ -184,6 +184,7 @@ export async function callRoundProviderWithEvents(
         resolved.currentInfo.provider,
         callId,
       ),
+      route,
     );
     providerResponse = response;
     // CORE-042: a provider that returned assembled text without streaming any of it still owes the

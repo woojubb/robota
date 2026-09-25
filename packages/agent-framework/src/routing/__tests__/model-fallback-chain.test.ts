@@ -85,6 +85,9 @@ describe('resolveModelFallbackChain', () => {
   it('reads a colon that does not follow a profile as part of a model id', () => {
     const chain = resolveModelFallbackChain(input(['llama3:8b']));
     expect(refs(chain)).toEqual(['anthropic/llama3:8b']);
+    expect(chain.notices).toEqual([
+      'Fallback model "llama3:8b": "llama3" is not a provider profile, so it is read as a model on the primary\'s provider.',
+    ]);
   });
 
   it('builds each entry from its own profile, on the entry model', () => {

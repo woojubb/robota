@@ -279,6 +279,18 @@ describe('FallbackProvider', () => {
     expect(primary.calls[0]!.options.nativeWebTools).toEqual({ webSearch: true });
   });
 
+  it('passes a session’s server-tool hook to the primary, the one model given hosted tools', () => {
+    const primary = Object.assign(new ScriptedProvider('anthropic'), {
+      onServerToolUse: undefined as unknown,
+    });
+    const provider = new FallbackProvider(primary, [target(new ScriptedProvider('openai'), 'gpt')]);
+    const hook = (): void => undefined;
+
+    expect('onServerToolUse' in provider).toBe(true);
+    (provider as unknown as { onServerToolUse: unknown }).onServerToolUse = hook;
+    expect(primary.onServerToolUse).toBe(hook);
+  });
+
   describe('when the request must keep its context window (compaction)', () => {
     const windows: Record<string, number> = {
       'claude-primary': 200_000,
@@ -310,6 +322,20 @@ describe('FallbackProvider', () => {
       expect(response.content).toBe('large');
       expect(small.calls).toHaveLength(0);
       expect(unknown.calls).toHaveLength(0);
+    });
+
+    it('does not move at all when the requested model’s window is unknown', async () => {
+      const thrown = overloaded();
+      const primary = new ScriptedProvider('anthropic', fail(thrown));
+      const large = new ScriptedProvider('openai-large', answer('large'));
+      const provider = new FallbackProvider(primary, [target(large, 'large-model')], {
+        contextWindowOf,
+      });
+
+      await expect(
+        provider.chat(MESSAGES, { model: 'unregistered-primary', preserveContextWindow: true }),
+      ).rejects.toBe(thrown);
+      expect(large.calls).toHaveLength(0);
     });
 
     it('a normal turn may still use a smaller window', async () => {

@@ -1,4 +1,5 @@
 import type { IBaseEventData } from './interfaces.js';
+import type { IModelFallbackNotice } from '../interfaces/model-fallback';
 
 /**
  * SELFHOST-004: per-operation span lifecycle event names. Mirrors the `TASK_EVENTS`/`USER_EVENTS`
@@ -18,6 +19,27 @@ export const PROVIDER_CALL_EVENTS = {
 export const PROVIDER_FALLBACK_EVENTS = {
   SWITCHED: 'provider_fallback',
 } as const;
+
+/** The notice a `provider_fallback` event carries, or `undefined` when the payload is malformed. */
+export function readModelFallbackNotice(
+  data: Readonly<Record<string, unknown>>,
+): IModelFallbackNotice | undefined {
+  const { fromProvider, fromModel, toProvider, toModel, reason } = data;
+  if (
+    typeof fromProvider !== 'string' ||
+    typeof fromModel !== 'string' ||
+    typeof toProvider !== 'string' ||
+    typeof toModel !== 'string' ||
+    typeof reason !== 'string'
+  ) {
+    return undefined;
+  }
+  return {
+    from: { provider: fromProvider, model: fromModel },
+    to: { provider: toProvider, model: toModel },
+    reason: reason as IModelFallbackNotice['reason'],
+  };
+}
 
 /** Content-free completion of the body actually awaited by one permitted tool call. */
 export const TOOL_BODY_EVENTS = {

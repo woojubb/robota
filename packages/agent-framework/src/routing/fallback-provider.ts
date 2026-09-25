@@ -17,6 +17,7 @@ import { runWithRoleFallback } from './role-model-routing.js';
 import type {
   IAIProvider,
   IChatOptions,
+  IModelFallbackNotice,
   IModelRef,
   IProviderRequest,
   IRawProviderResponse,
@@ -37,6 +38,13 @@ export interface IFallbackProviderOptions {
   contextWindowOf?: (model: string) => number | undefined;
   /** Told once per entry that could not be built. */
   onUnreachable?: (target: IFallbackModelTarget, error: unknown) => void;
+  /** Told of every move, beside the request's own `onModelFallback`; for a host with no turn view. */
+  onFallback?: (notice: IModelFallbackNotice) => void;
+  /**
+   * The chain as the user wrote it, kept so a host that swaps the primary can read it again for the
+   * new one rather than drop it.
+   */
+  entries?: readonly string[];
 }
 
 /** How many runs remember the model they moved to. Older runs have long finished. */
@@ -95,11 +103,27 @@ export class FallbackProvider implements IAIProvider {
       this.configureNativeWebTools = (request) => primary.configureNativeWebTools!(request);
     }
     if (primary.getCapabilities) this.getCapabilities = () => primary.getCapabilities!();
+    // A session wires its server-tool log onto the provider it holds. Server tools run only on the
+    // primary, the one model that is sent native tools, so the hook belongs there.
+    if ('onServerToolUse' in primary) {
+      Object.defineProperty(this, 'onServerToolUse', {
+        enumerable: true,
+        get: () => (primary as { onServerToolUse?: unknown }).onServerToolUse,
+        set: (hook: unknown) => {
+          (primary as { onServerToolUse?: unknown }).onServerToolUse = hook;
+        },
+      });
+    }
   }
 
   /** The models a request may move to, in order. */
   get chain(): readonly IModelRef[] {
     return this.fallbacks.map((target) => target.ref);
+  }
+
+  /** The options this chain was built with, to build the same chain over another primary. */
+  get chainOptions(): Readonly<IFallbackProviderOptions> {
+    return this.options;
   }
 
   resolveModelRoute(model: string, executionId?: string): IModelRef {
@@ -136,7 +160,9 @@ export class FallbackProvider implements IAIProvider {
       const position = positionOf.get(ref)!;
       const provider = this.providerAt(position);
       if (failed !== undefined) {
-        options.onModelFallback?.({ from: failed.ref, to: ref, reason: failed.reason });
+        const notice = { from: failed.ref, to: ref, reason: failed.reason };
+        options.onModelFallback?.(notice);
+        this.options.onFallback?.(notice);
       }
       try {
         const response = await provider.chat(
@@ -224,11 +250,12 @@ export class FallbackProvider implements IAIProvider {
     return positions;
   }
 
+  /** Only a window known to be at least as large counts; an unknown one on either side proves nothing. */
   private keepsContextWindow(requested: string, candidate: string): boolean {
     const candidateWindow = this.contextWindowOf(candidate);
-    if (candidateWindow === undefined) return false;
     const requestedWindow = this.contextWindowOf(requested);
-    return requestedWindow === undefined || candidateWindow >= requestedWindow;
+    if (candidateWindow === undefined || requestedWindow === undefined) return false;
+    return candidateWindow >= requestedWindow;
   }
 
   private providerAt(position: number): IAIProvider {

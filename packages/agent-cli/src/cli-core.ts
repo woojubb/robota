@@ -589,6 +589,7 @@ async function runCliCore(
           ...(args.provider !== undefined && { providerOverride: args.provider }),
           providerDefinitions,
           ...(orgPolicy !== undefined && { orgPolicy }),
+          announceMoves: args.printMode,
           notice: (message) =>
             args.printMode ? process.stderr.write(`${message}\n`) : terminal.writeLine(message),
         });

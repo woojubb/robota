@@ -8,9 +8,9 @@
 
 import { createLogger } from '@robota-sdk/agent-core';
 import {
-  FallbackProvider,
+  applyModelFallback,
+  describeModelFallback,
   readMergedProviderSettings,
-  resolveModelFallbackChain,
   selectFallbackModelEntries,
 } from '@robota-sdk/agent-framework';
 
@@ -36,18 +36,23 @@ export interface IApplyModelFallbackChainInput {
   orgPolicy?: IOrgPolicy;
   /** Where a dropped entry is announced. */
   notice: (message: string) => void;
+  /**
+   * Also announce each move there. For print mode, which shows no turn history, so the note a
+   * session adds to its history would never be seen.
+   */
+  announceMoves?: boolean;
 }
 
-/** The provider to run sessions on: the one given, or a {@link FallbackProvider} over it. */
+/** The provider to run sessions on: the one given, or a fallback chain over it. */
 export function applyModelFallbackChain(input: IApplyModelFallbackChainInput): IAIProvider {
   const settings = readMergedProviderSettings(input.settingsSources);
   const entries = selectFallbackModelEntries(input.fallbackFlag, settings);
-  if (entries.length === 0) return input.provider;
   const profile =
     input.primaryConfig.source === 'env-default'
       ? undefined
       : (input.providerOverride ?? settings.currentProvider);
-  const chain = resolveModelFallbackChain({
+  const { provider, notices } = applyModelFallback({
+    provider: input.provider,
     entries,
     settings,
     primary: { ...(profile !== undefined && { profile }), config: input.primaryConfig },
@@ -55,15 +60,18 @@ export function applyModelFallbackChain(input: IApplyModelFallbackChainInput): I
     ...(input.orgPolicy?.allowedProviders !== undefined && {
       allowedProviders: input.orgPolicy.allowedProviders,
     }),
+    providerOptions: {
+      ...(input.announceMoves === true && {
+        onFallback: (notice) => input.notice(describeModelFallback(notice)),
+      }),
+      onUnreachable: (target, error) =>
+        logger.warn(
+          `Fallback model ${target.ref.model} (${target.ref.provider}) could not be reached; trying the next one: ${
+            error instanceof Error ? error.message : String(error)
+          }`,
+        ),
+    },
   });
-  for (const message of chain.notices) input.notice(message);
-  if (chain.targets.length === 0) return input.provider;
-  return new FallbackProvider(input.provider, chain.targets, {
-    onUnreachable: (target, error) =>
-      logger.warn(
-        `Fallback model ${target.ref.model} (${target.ref.provider}) could not be reached; trying the next one: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      ),
-  });
+  for (const message of notices) input.notice(message);
+  return provider;
 }
