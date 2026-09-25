@@ -475,6 +475,32 @@ export function createNodeOtlpLiveTracePort(options: INodeOtlpLiveTraceOptions):
   };
 }
 
+/**
+ * The same settings resolution `createConfiguredNodeOtlpLiveTelemetryPort` runs before it builds
+ * anything, exposed on its own so a caller that only needs to know whether the settings are usable —
+ * never mind actually exporting — can ask without starting an exporter. A supervised child validates
+ * its own settings this way when it starts; the parent that is about to spawn it calls the very same
+ * function first, so a refusal is reported with this real, value-free message instead of only "exited
+ * before it was ready".
+ */
+export function validateNodeOtlpLiveTelemetrySettings(
+  env: Readonly<Record<string, string | undefined>>,
+  hostResource?: ILiveTelemetryHostResource,
+): void {
+  const destinations = resolveNodeOtlpLiveDestinations(env);
+  const contentPolicy = resolveLiveContentPolicy(env);
+  if (contentPolicy && hostResource && hostResource.surface !== 'interactive') {
+    throw new Error(`Robota telemetry content capture is available only in the interactive terminal, not in ${hostResource.surface} mode.`);
+  }
+  if (contentPolicy && !destinations.logs) {
+    throw new Error('Robota telemetry content capture requires ROBOTA_TELEMETRY_LOGS=otlp.');
+  }
+  if (env['ROBOTA_TELEMETRY_ENABLED'] === '1') {
+    resolveMetricAttributesSetting(env);
+    resolvePropagation(env);
+  }
+}
+
 /** The CLI's explicit config-to-runtime boundary, shared by every Node presentation. */
 export function createConfiguredNodeOtlpLiveTelemetryPort(
   env: Readonly<Record<string, string | undefined>>,

@@ -160,18 +160,31 @@ export async function callProviderWithCache(
     onDispatch?.('invoked', options.model ?? model);
     return providerChat(messages, withOutboundTraceContext(options, resolveOutboundTraceContext?.()));
   };
-  // API-001: a concrete selection has no persisted cache identity until DATA-007 owns the
-  // resolution fingerprint. Do not let a lower-effort response satisfy a later higher-effort call.
-  // The implicit `auto` fallback is not a caller selection and retains existing cache behavior.
-  const hasExplicitEffortSelection =
-    overrides?.effort !== undefined || config.defaultModel?.effort !== undefined;
+  // DATA-007/API-001: the SESSION's effort selection is the cache identity — never a locally resolved
+  // effective value. An earlier version of this fix resolved the effort against
+  // `resolved.provider.effortTable()` before touching the cache, but that table is only ever
+  // populated for a NATIVE provider verified in-process; a `SimpleRemoteExecutor`-backed provider
+  // never has one (the server resolves against its OWN table and never serializes the resolution
+  // back — see `agent-remote-client/.../wire-chat-options.ts`), and a local table can simply be
+  // missing an entry for this exact model (version skew, a `baseURL`/API-surface variant). Both cases
+  // report the same "not applied" outcome regardless of the actual selection, which would let
+  // different selections collide. Keying on the raw selection sidesteps that entirely: it is known
+  // upfront, is identical across every executor shape, and is exactly what the caller asked for.
+  // `undefined` normalizes to `'auto'`, matching `buildRoundChatOptions`'s own default. This replaces
+  // the former API-001 bypass (which unconditionally skipped the cache for any explicit selection
+  // because the key could not tell efforts apart) — the cache is now always consulted.
+  const effortCacheIdentity = chatOptions.effort ?? 'auto';
 
-  if (cacheService && !hasExplicitEffortSelection) {
+  if (cacheService) {
     const cachedResponse = cacheService.lookup(
       outgoing,
       config.defaultModel.model,
       config.defaultModel.provider,
-      { temperature: config.defaultModel.temperature, maxTokens: config.defaultModel.maxTokens },
+      {
+        temperature: config.defaultModel.temperature,
+        maxTokens: config.defaultModel.maxTokens,
+        effortCacheIdentity,
+      },
     );
     if (cachedResponse) {
       onDispatch?.('cache-hit', chatOptions.model ?? model);
@@ -196,7 +209,11 @@ export async function callProviderWithCache(
         config.defaultModel.model,
         config.defaultModel.provider,
         response.content,
-        { temperature: config.defaultModel.temperature, maxTokens: config.defaultModel.maxTokens },
+        {
+          temperature: config.defaultModel.temperature,
+          maxTokens: config.defaultModel.maxTokens,
+          effortCacheIdentity,
+        },
       );
     }
     return response;

@@ -77,7 +77,7 @@ describe('DeepSeek trusted trace context', () => {
   });
 
   it('sends nothing to the default vendor origin unless it is listed', async () => {
-    const unlisted = wire();
+    const unlisted = wire(DEFAULT_DEEPSEEK_PROVIDER_BASE_URL);
     await everyCallSite(new DeepSeekProvider({ client: unlisted.client }), {
       outboundTraceContext: traceTo('https://gateway.example.com'),
     });
@@ -89,7 +89,7 @@ describe('DeepSeek trusted trace context', () => {
     });
     expect(listed.seen.map((request) => request.traceparent)).toEqual([TRACEPARENT, TRACEPARENT, TRACEPARENT]);
 
-    const none = wire();
+    const none = wire(DEFAULT_DEEPSEEK_PROVIDER_BASE_URL);
     await everyCallSite(new DeepSeekProvider({ client: none.client }), {});
     expect(none.seen.map((request) => request.traceparent)).toEqual([null, null, null]);
   });

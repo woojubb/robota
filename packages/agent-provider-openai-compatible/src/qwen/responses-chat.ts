@@ -11,7 +11,11 @@ import {
   toOpenAIResponsesToolChoice,
   type IOpenAICompatibleError,
 } from '../shared/openai-compatible/index.js';
-import { awaitWithProviderRequestId, readOpenAICompatibleRequestId, withProviderRequestId } from '../shared/openai-compatible/request-id.js';
+import {
+  awaitWithProviderRequestId,
+  readOpenAICompatibleRequestId,
+  withProviderRequestId,
+} from '../shared/openai-compatible/request-id.js';
 import { openAICompatibleRequestOptions } from '../shared/openai-compatible/request-options.js';
 
 import type {
