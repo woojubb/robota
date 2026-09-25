@@ -135,7 +135,7 @@ export async function createSession(
     : [];
 
   let assembledSession: Session | undefined;
-  const { tools } = await assembleSessionTools(options, cwd, () =>
+  const { tools, wrapAdded } = await assembleSessionTools(options, cwd, () =>
     assembledSession === undefined
       ? undefined
       : sessionAdvisorAccess(assembledSession, options.onUsageRecorded),
@@ -239,6 +239,7 @@ export async function createSession(
   const SessionWithAutoCompact = Session as TSessionConstructorWithAutoCompact;
   const session = new SessionWithAutoCompact({
     tools,
+    wrapAddedTools: wrapAdded,
     provider,
     systemMessage: finalSystemMessage,
     terminal: options.terminal,

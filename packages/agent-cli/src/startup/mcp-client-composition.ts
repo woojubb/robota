@@ -27,6 +27,7 @@ import {
   MCPActivationController,
   MCPConnectionSupervisor,
   MCPDefinitionRegistry,
+  MCPOAuthError,
   buildCatalog,
   createDiscoveredTool,
   createHeadersHelperAuthenticator,
@@ -65,6 +66,8 @@ import type {
 import type {
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
+  ICommandMCPOAuthLoginRequest,
+  ICommandMCPOAuthLoginResult,
   ICommandMCPOAuthLogoutResult,
   ICommandMCPOAuthStatus,
   ICommandMCPSourceProblem,
@@ -108,11 +111,28 @@ export interface IMcpHeadersHelperInvocation {
   readonly helper: IMCPHeadersHelper;
 }
 
+/** How an in-session sign-in reaches the user: the browser, or a redirect they paste back. */
+export interface IMcpOAuthSignInOptions {
+  readonly noBrowser: boolean;
+  readonly readRedirect?: ICommandMCPOAuthLoginRequest['readRedirect'];
+  readonly confirmBrowser?: ICommandMCPOAuthLoginRequest['confirmBrowser'];
+  readonly signal?: AbortSignal;
+}
+
 /**
  * The host's OAuth: an authenticator for a server whose definition declares `oauth`, sending the
- * tokens `robota mcp login` stored for it. Absent, every such definition is refused.
+ * tokens a sign-in stored for it. Absent, every such definition is refused.
  */
 export interface IMcpOAuthHost {
+  /**
+   * Sign in to the server and store its credential, as `robota mcp login` does. Rejects with an
+   * `MCPOAuthError`, named by its reason only.
+   */
+  signIn?(
+    request: IMCPActivationRequest,
+    definition: IMCPServerDefinitionResolved,
+    options: IMcpOAuthSignInOptions,
+  ): Promise<void>;
   authenticatorFor(
     request: IMCPActivationRequest,
     definition: IMCPServerDefinitionResolved,
@@ -235,9 +255,10 @@ export interface IMcpClientComposition {
   /** Closes every supervisor opened by `connect`, cancelling their armed timers. */
   shutdown(): Promise<void>;
   /**
-   * Provenance for every tool the most recent `connect()` call returned, keyed by the tool's exposed
-   * canonical name (`getName()`). Empty until `connect()` resolves at least once. `mcp-startup.ts`
-   * reads this to build MCP-004's `toolCallHandoff` policy — never mutated outside `connect()`.
+   * Provenance for every tool the most recent `connect()` call returned, and every tool a later
+   * in-session sign-in connected, keyed by the tool's exposed canonical name (`getName()`). Empty
+   * until `connect()` resolves at least once. `mcp-startup.ts` reads this once, after `connect()`,
+   * to build MCP-004's `toolCallHandoff` policy, so a tool connected later is not handed off.
    */
   readonly connectedToolProvenance: ReadonlyMap<string, IMcpConnectedToolProvenance>;
 }
@@ -257,6 +278,8 @@ export interface IMcpServerConnection {
   ): Promise<IMCPToolCallResult>;
   shutdown(): Promise<void>;
   onExternalEvent?(listener: TMCPExternalEventListener): () => void;
+  /** Open again after a failure that waits for the user — here, a sign-in. */
+  retry?(signal?: AbortSignal): Promise<unknown>;
 }
 
 /**
@@ -400,7 +423,7 @@ async function connectOneServer(
   definition: IMCPServerDefinitionResolved,
   origin: string,
   context: IConnectServerContext,
-): Promise<IConnectedServer | undefined> {
+): Promise<IConnectedServer | 'not-admitted' | undefined> {
   const { admission, createSupervisor, timeouts, deps, signal } = context;
 
   const admissionResult = admission.admit(request);
@@ -408,7 +431,7 @@ async function connectOneServer(
     deps.reportDiagnostic(
       `MCP server "${request.serverId}" was not admitted (${admissionResult.status}): ${admissionResult.reason}`,
     );
-    return undefined;
+    return 'not-admitted';
   }
 
   let supervisorOptions: IMCPConnectionSupervisorOptions;
@@ -586,8 +609,17 @@ function oauthCommandPort(
   resolvedEntries: readonly IMCPResolvedEntry[],
   host: IMcpOAuthHost | undefined,
   authenticators: ReadonlyMap<string, IMcpClosableAuthenticator>,
-): Pick<ICommandMCPActivationAdapter, 'oauthStatus' | 'oauthLogout'> {
+  connectSignedIn: (
+    serverId: string,
+  ) => Promise<Pick<ICommandMCPOAuthLoginResult, 'connection' | 'tools'>>,
+  toolsAdded: (serverId: string, added: readonly string[]) => void,
+): Pick<
+  ICommandMCPActivationAdapter,
+  'oauthStatus' | 'oauthLogout' | 'oauthLogin' | 'oauthToolsAdded'
+> {
   if (host === undefined) return {};
+  /** One sign-in per server at a time: a second would race the first for the same credential. */
+  const signingIn = new Set<string>();
   const oauthServers = (): {
     request: IMCPActivationRequest;
     definition: IMCPServerDefinitionResolved;
@@ -600,8 +632,44 @@ function oauthCommandPort(
         ? [{ request, definition }]
         : [];
     });
-  const { state, signOut } = host;
+  const { state, signOut, signIn } = host;
+  const oauthLogin = async (
+    request: ICommandMCPOAuthLoginRequest,
+  ): Promise<ICommandMCPOAuthLoginResult> => {
+    const { serverId } = request;
+    const server = oauthServers().find((candidate) => candidate.request.serverId === serverId);
+    const preRegisteredClient = server?.definition.oauth?.clientId !== undefined;
+    const refused = (failure: string): ICommandMCPOAuthLoginResult => ({
+      serverId,
+      failure,
+      preRegisteredClient,
+      tools: [],
+    });
+    if (server === undefined || signIn === undefined) return refused('not-oauth');
+    if (server.definition.unsetVariables.some((unset) => unset.field === 'url')) {
+      return refused('url-unset');
+    }
+    if (request.noBrowser && request.readRedirect === undefined)
+      return refused('prompt-unavailable');
+    if (signingIn.has(serverId)) return refused('sign-in-in-progress');
+    signingIn.add(serverId);
+    try {
+      await signIn.call(host, server.request, server.definition, {
+        noBrowser: request.noBrowser,
+        ...(request.readRedirect === undefined ? {} : { readRedirect: request.readRedirect }),
+        ...(request.confirmBrowser === undefined ? {} : { confirmBrowser: request.confirmBrowser }),
+        ...(request.signal === undefined ? {} : { signal: request.signal }),
+      });
+    } catch (error) {
+      // A fixed reason only: the error of a sign-in may carry nothing else to the user.
+      return refused(error instanceof MCPOAuthError ? error.reason : 'unexpected-error');
+    } finally {
+      signingIn.delete(serverId);
+    }
+    return { serverId, preRegisteredClient, ...(await connectSignedIn(serverId)) };
+  };
   return {
+    ...(signIn === undefined ? {} : { oauthLogin, oauthToolsAdded: toolsAdded }),
     ...(state === undefined
       ? {}
       : {
@@ -670,7 +738,14 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   const oauthAuthenticators = new Map<string, IMcpClosableAuthenticator>();
   const activationAdapter: ICommandMCPActivationAdapter = {
     ...buildActivationAdapter(controller, deps.sourceProblems ?? [], deps.resolvedEntries),
-    ...oauthCommandPort(registry, deps.resolvedEntries, deps.oauth, oauthAuthenticators),
+    ...oauthCommandPort(
+      registry,
+      deps.resolvedEntries,
+      deps.oauth,
+      oauthAuthenticators,
+      connectSignedIn,
+      toolsAdded,
+    ),
   };
 
   const openConnections: IMcpServerConnection[] = [];
@@ -681,6 +756,10 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
     deps.createSupervisor ??
     ((options: IMCPConnectionSupervisorOptions) => new MCPConnectionSupervisor(options));
   const connectedToolProvenance = new Map<string, IMcpConnectedToolProvenance>();
+  /** Servers whose connection discovered successfully: connected, with or without tools. */
+  const discovered = new Set<string>();
+  /** A sign-in's tools, by server, until the session says which it took. */
+  const pendingProvenance = new Map<string, Map<string, IMcpConnectedToolProvenance>>();
   let resultSpillStore:
     | (IToolResultSpillStore & {
         read(reference: string): Promise<string>;
@@ -705,20 +784,137 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       ),
   };
 
+  /** Whether the result-reading tool has been handed out; it is offered once, beside the first MCP tool. */
+  let resultReadToolOffered = false;
+  const withResultReadTool = (tools: IToolWithEventService[]): IToolWithEventService[] => {
+    if (tools.length === 0 || !deps.createResultSpillStore || resultReadToolOffered) return tools;
+    resultReadToolOffered = true;
+    return [...tools, createResultReadTool()];
+  };
+  const connectContext = (signal: AbortSignal | undefined): IConnectServerContext => ({
+    admission,
+    createSupervisor,
+    timeouts,
+    deps,
+    signal,
+    helperSlots,
+    oauthAuthenticators,
+  });
+
+  /**
+   * After a sign-in, the server is admitted again first — approval, fingerprint and trust as they
+   * stand now. A server this session already connected (its discovery succeeded, whatever tools it
+   * offered) gets that connection reopened, so its tools and listeners keep working — or, when it
+   * cannot be reopened, is left as it is; any other goes through the same connection as at startup,
+   * and its tools are returned for the session to add.
+   * Never throws: a server that still cannot connect is reported.
+   */
+  async function connectSignedIn(
+    serverId: string,
+  ): Promise<Pick<ICommandMCPOAuthLoginResult, 'connection' | 'tools'>> {
+    // The session's authenticator reads the new credential instead of anything it held.
+    oauthAuthenticators.get(serverId)?.forget?.();
+    const request = registry.list().find((candidate) => candidate.serverId === serverId);
+    const entry = deps.resolvedEntries.find((candidate) => candidate.name === serverId);
+    if (request === undefined || entry?.definition === undefined) {
+      return { connection: 'not-connected', tools: [] };
+    }
+    const admitted = admission.admit(request);
+    if (!admitted.allowed) {
+      deps.reportDiagnostic(
+        `MCP server "${serverId}" was not admitted (${admitted.status}): ${admitted.reason}`,
+      );
+      return { connection: 'not-admitted', tools: [] };
+    }
+    const previous = connectedByServerId.get(serverId);
+    if (previous !== undefined && discovered.has(serverId)) {
+      // A second connection would sit beside the one its offered tools already call.
+      if (previous.retry === undefined) return { connection: 'not-connected', tools: [] };
+      try {
+        await previous.retry();
+        return { connection: 'recovered', tools: [] };
+      } catch (error) {
+        deps.reportDiagnostic(
+          `MCP server "${serverId}" did not reconnect after sign-in: ${describeError(error)}`,
+        );
+        return { connection: 'not-connected', tools: [] };
+      }
+    }
+    const connected = await connectOneServer(
+      request,
+      entry.definition,
+      entry.origin,
+      connectContext(undefined),
+    );
+    if (connected === 'not-admitted') return { connection: 'not-admitted', tools: [] };
+    if (connected?.connection === undefined) return { connection: 'not-connected', tools: [] };
+    openConnections.push(connected.connection);
+    connectedByServerId.set(serverId, connected.connection);
+    if (previous !== undefined) {
+      // The connection that failed for want of a sign-in; nothing of it is offered.
+      openConnections.splice(openConnections.indexOf(previous), 1);
+      await previous.shutdown().catch(() => undefined);
+    }
+    if (connected.catalogInput.discovery === undefined) {
+      return { connection: 'not-connected', tools: [] };
+    }
+    discovered.add(serverId);
+    const catalog = buildServerCatalog([connected.catalogInput]);
+    const provenance = new Map<string, IMcpConnectedToolProvenance>();
+    const tools = collectToolsFromCatalog(
+      catalog,
+      new Map([[serverId, connected.connection]]),
+      new Map([[serverId, request.securityIdentity]]),
+      provenance,
+      resultAdmission,
+    );
+    // Recorded once the session says which of these it took.
+    pendingProvenance.set(serverId, provenance);
+    return { connection: 'connected', tools: withResultReadTool(tools) };
+  }
+
+  /** The session took `added` of the tools a sign-in returned; the rest collided with its own. */
+  function toolsAdded(serverId: string, added: readonly string[]): void {
+    const provenance = pendingProvenance.get(serverId);
+    pendingProvenance.delete(serverId);
+    if (provenance === undefined) return;
+    const taken = new Set(added);
+    for (const [name, entry] of provenance) {
+      if (taken.has(name)) {
+        connectedToolProvenance.set(name, entry);
+      } else {
+        deps.reportDiagnostic(
+          `MCP tool "${name}" from "${serverId}" was not added: the session already has a tool by that name.`,
+        );
+      }
+    }
+  }
+
+  /** The catalog of these servers, with every rejection and unenforceable schema reported. */
+  function buildServerCatalog(catalogInputs: readonly IMCPCatalogInput[]): IMCPCatalog {
+    const catalog = buildCatalog(catalogInputs, {
+      report: (toolName, unenforceablePaths) =>
+        deps.reportDiagnostic(
+          `MCP tool "${toolName}" has an unenforceable schema subtree: ${unenforceablePaths.join(', ')}`,
+        ),
+      reportResultSizeProblem: (reason) =>
+        deps.reportDiagnostic(`MCP result-size metadata ignored (${reason})`),
+    });
+    for (const rejection of catalog.rejected) {
+      deps.reportDiagnostic(
+        `MCP ${rejection.kind} "${rejection.name}" on "${rejection.serverId}" was rejected: ${rejection.reason}`,
+      );
+    }
+    return catalog;
+  }
+
   async function connect(signal?: AbortSignal): Promise<readonly IToolWithEventService[]> {
     connectedByServerId.clear();
+    discovered.clear();
     const catalogInputs: IMCPCatalogInput[] = [];
     const connectionByServerId = new Map<string, IMcpServerConnection>();
     const securityIdentityByServerId = new Map<string, string>();
-    const context: IConnectServerContext = {
-      admission,
-      createSupervisor,
-      timeouts,
-      deps,
-      signal,
-      helperSlots,
-      oauthAuthenticators,
-    };
+    const context = connectContext(signal);
 
     for (const request of registry.list()) {
       const entry = deps.resolvedEntries.find((candidate) => candidate.name === request.serverId);
@@ -728,32 +924,20 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       if (definition.transport !== 'http' && definition.transport !== 'stdio') continue;
 
       const connected = await connectOneServer(request, definition, entry.origin, context);
-      if (connected === undefined) continue;
+      if (connected === undefined || connected === 'not-admitted') continue;
       catalogInputs.push(connected.catalogInput);
       if (connected.connection !== undefined) {
         openConnections.push(connected.connection);
         connectionByServerId.set(request.serverId, connected.connection);
         connectedByServerId.set(request.serverId, connected.connection);
+        if (connected.catalogInput.discovery !== undefined) discovered.add(request.serverId);
         securityIdentityByServerId.set(request.serverId, request.securityIdentity);
       }
     }
 
-    const catalog = buildCatalog(catalogInputs, {
-      report: (toolName, unenforceablePaths) =>
-        deps.reportDiagnostic(
-          `MCP tool "${toolName}" has an unenforceable schema subtree: ${unenforceablePaths.join(', ')}`,
-        ),
-      reportResultSizeProblem: (reason) =>
-        deps.reportDiagnostic(`MCP result-size metadata ignored (${reason})`),
-    });
-
-    for (const rejection of catalog.rejected) {
-      deps.reportDiagnostic(
-        `MCP ${rejection.kind} "${rejection.name}" on "${rejection.serverId}" was rejected: ${rejection.reason}`,
-      );
-    }
-
+    const catalog = buildServerCatalog(catalogInputs);
     connectedToolProvenance.clear();
+    resultReadToolOffered = false;
     const tools = collectToolsFromCatalog(
       catalog,
       connectionByServerId,
@@ -761,68 +945,67 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       connectedToolProvenance,
       resultAdmission,
     );
-    if (tools.length > 0 && deps.createResultSpillStore) {
-      tools.push(
-        new FunctionTool(
-          {
-            name: 'robota_read_mcp_result',
-            description:
-              'Read up to 4,000 characters of a saved MCP tool result using its opaque tool-result reference and a zero-based character offset.',
-            parameters: {
-              type: 'object',
-              properties: {
-                reference: { type: 'string', description: 'The exact tool-result reference' },
-                offset: { type: 'number', description: 'Zero-based character offset, default 0' },
-              },
-              required: ['reference'],
-            },
+    return withResultReadTool(tools);
+  }
+
+  /** Reads a saved oversized MCP result back, a bounded slice at a time. */
+  function createResultReadTool(): IToolWithEventService {
+    return new FunctionTool(
+      {
+        name: 'robota_read_mcp_result',
+        description:
+          'Read up to 4,000 characters of a saved MCP tool result using its opaque tool-result reference and a zero-based character offset.',
+        parameters: {
+          type: 'object',
+          properties: {
+            reference: { type: 'string', description: 'The exact tool-result reference' },
+            offset: { type: 'number', description: 'Zero-based character offset, default 0' },
           },
-          async (parameters) => {
-            const reference = parameters.reference;
-            const offset = parameters.offset ?? 0;
-            if (
-              typeof reference !== 'string' ||
-              typeof offset !== 'number' ||
-              !Number.isSafeInteger(offset) ||
-              offset < 0
-            ) {
-              throw new Error('Tool result read arguments invalid');
-            }
-            if (!resultSpillStore) throw new Error('Tool result reference unavailable');
-            let content: string;
-            try {
-              content = await resultSpillStore.read(reference);
-            } catch {
-              throw new Error('Tool result reference unavailable');
-            }
-            const start = Math.min(offset, content.length);
-            const hardChars =
-              deps.resultAdmissionLimits?.hardChars ?? DEFAULT_TOOL_RESULT_HARD_CHARS;
-            let lower = -1;
-            let upper = Math.min(4_000, content.length - start) + 1;
-            while (upper - lower > 1) {
-              const length = Math.floor((lower + upper) / 2);
-              const candidate = {
-                content: content.slice(start, start + length),
-                totalChars: content.length,
-                nextOffset: start + length,
-              };
-              if (JSON.stringify(candidate).length <= hardChars) lower = length;
-              else upper = length;
-            }
-            if (lower < 0 || (lower === 0 && start < content.length)) {
-              throw new Error('Tool result read limit too small');
-            }
-            return {
-              content: content.slice(start, start + lower),
-              totalChars: content.length,
-              nextOffset: start + lower,
-            };
-          },
-        ),
-      );
-    }
-    return tools;
+          required: ['reference'],
+        },
+      },
+      async (parameters) => {
+        const reference = parameters.reference;
+        const offset = parameters.offset ?? 0;
+        if (
+          typeof reference !== 'string' ||
+          typeof offset !== 'number' ||
+          !Number.isSafeInteger(offset) ||
+          offset < 0
+        ) {
+          throw new Error('Tool result read arguments invalid');
+        }
+        if (!resultSpillStore) throw new Error('Tool result reference unavailable');
+        let content: string;
+        try {
+          content = await resultSpillStore.read(reference);
+        } catch {
+          throw new Error('Tool result reference unavailable');
+        }
+        const start = Math.min(offset, content.length);
+        const hardChars = deps.resultAdmissionLimits?.hardChars ?? DEFAULT_TOOL_RESULT_HARD_CHARS;
+        let lower = -1;
+        let upper = Math.min(4_000, content.length - start) + 1;
+        while (upper - lower > 1) {
+          const length = Math.floor((lower + upper) / 2);
+          const candidate = {
+            content: content.slice(start, start + length),
+            totalChars: content.length,
+            nextOffset: start + length,
+          };
+          if (JSON.stringify(candidate).length <= hardChars) lower = length;
+          else upper = length;
+        }
+        if (lower < 0 || (lower === 0 && start < content.length)) {
+          throw new Error('Tool result read limit too small');
+        }
+        return {
+          content: content.slice(start, start + lower),
+          totalChars: content.length,
+          nextOffset: start + lower,
+        };
+      },
+    );
   }
 
   async function shutdown(): Promise<void> {
