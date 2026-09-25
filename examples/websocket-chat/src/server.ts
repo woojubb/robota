@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { WebSocketServer, WebSocket } from 'ws';
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 import type { InteractiveSession } from '@robota-sdk/agent-framework';
 
 const apiKey = process.env.ANTHROPIC_API_KEY;

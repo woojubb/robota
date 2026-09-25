@@ -66,6 +66,8 @@ export interface IAssembledSessionTools {
   tools: IToolWithEventService[];
   /** Host-side edit checkpointing is active (recorder present, files not in a sandbox) — `checkpointAvailable`. */
   checkpointAvailable: boolean;
+  /** The session-context wrappers `tools` got, for a tool the session adds later. */
+  wrapAdded: (tools: IToolWithEventService[]) => IToolWithEventService[];
 }
 
 /** Assemble the session's tool list from the default tier, the contributed tiers, and the wrappers. */
@@ -126,14 +128,6 @@ export async function assembleSessionTools(
   const dedupedTools = hasDeferrableTool(declaredTools)
     ? dedupeToolsByName([...declaredTools, createToolSearchTool()])
     : declaredTools;
-  // The edit-checkpoint wrap covers the ASSEMBLED set, not just the default tier: once a product can hand
-  // the tool axis to its capability packs (`defaultTools: []` + pack-supplied `additionalTools`), a
-  // contributed `Write`/`Edit` must still be checkpointed. With no contributed Write/Edit this is
-  // byte-identical to wrapping the default tier alone.
-  const assembledTools =
-    checkpointAvailable && options.editCheckpointRecorder
-      ? wrapEditCheckpointTools(dedupedTools, options.editCheckpointRecorder)
-      : dedupedTools;
   const reversibleExecution = options.reversibleExecution
     ? {
         ...options.reversibleExecution,
@@ -142,14 +136,19 @@ export async function assembleSessionTools(
           (filesInSandbox ? ('provider-sandbox' as const) : undefined),
       }
     : undefined;
-
-  return {
-    tools: reversibleExecution
-      ? wrapReversibleExecutionTools(assembledTools, {
-          ...reversibleExecution,
-          checkpointAvailable,
-        })
-      : assembledTools,
-    checkpointAvailable,
+  // The edit-checkpoint wrap covers the ASSEMBLED set, not just the default tier: once a product can hand
+  // the tool axis to its capability packs (`defaultTools: []` + pack-supplied `additionalTools`), a
+  // contributed `Write`/`Edit` must still be checkpointed. With no contributed Write/Edit this is
+  // byte-identical to wrapping the default tier alone. A tool added after assembly gets the same wraps.
+  const wrapAdded = (tools: IToolWithEventService[]): IToolWithEventService[] => {
+    const checkpointed =
+      checkpointAvailable && options.editCheckpointRecorder
+        ? wrapEditCheckpointTools(tools, options.editCheckpointRecorder)
+        : tools;
+    return reversibleExecution
+      ? wrapReversibleExecutionTools(checkpointed, { ...reversibleExecution, checkpointAvailable })
+      : checkpointed;
   };
+
+  return { tools: wrapAdded(dedupedTools), checkpointAvailable, wrapAdded };
 }

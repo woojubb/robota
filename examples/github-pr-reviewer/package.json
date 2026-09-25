@@ -10,7 +10,7 @@
   "dependencies": {
     "@octokit/rest": "^20.1.1",
     "@robota-sdk/agent-framework": "^3.0.0-beta.67",
-    "@robota-sdk/agent-provider": "^3.0.0-beta.67",
+    "@robota-sdk/agent-provider-anthropic": "^3.0.0-beta.67",
     "dotenv": "^16.4.5"
   },
   "devDependencies": {

@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { join } from 'node:path';
 import { Bot } from 'grammy';
 import { createAgentRuntime, createNodeHostSessionStore } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;

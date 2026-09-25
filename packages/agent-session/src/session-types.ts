@@ -44,6 +44,12 @@ export interface ISessionShutdownOptions {
 export interface ISessionOptions {
   /** Pre-constructed tools to register with the agent */
   tools: IToolWithEventService[];
+  /**
+   * Applies to a tool added after construction (`Session.addTools`) the wrappers the assembler
+   * applied to `tools`, so a late tool is held to the same safety policy as one present from the
+   * start. The permission gate is applied by the session itself either way.
+   */
+  wrapAddedTools?: (tools: IToolWithEventService[]) => IToolWithEventService[];
   /** Pre-constructed AI provider */
   provider: IAIProvider;
   /** Pre-built system message string */

@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-ui-terminal",
-  "version": "3.0.0-beta.79",
+  "version": "3.0.0-beta.80",
   "description": "Terminal UI package (React + Ink) for the Robota SDK",
   "type": "module",
   "main": "dist/node/index.js",
