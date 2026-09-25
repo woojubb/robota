@@ -104,6 +104,16 @@ false`; every `DEFAULT_INHERITED_ENV_VARS` key is explicitly shadowed rather tha
 - **The legacy protocol era is a recorded limit**: the pinned SDK generation speaks the
   pre-2026-07-28 protocol; a server that refuses the negotiated version is disconnected, not used.
 
+## Design decision: definition precedence, with plugins last
+
+A server name resolves to one whole entry from the highest source that defines it: `managed`,
+then `local`, `project`, `user` and `plugin`. Entries are never field-merged, and a malformed
+winner still shadows the name rather than handing it down. Plugins rank last because a plugin is
+the least-trusted source and plugin server names are not namespaced: ranking it above `user`
+would let an installed plugin silently replace a server the user configured under the same name,
+while ranking it last still lets a plugin add servers under names of its own. Claude Code ranks
+plugin-provided servers above user scope; Robota deliberately does not.
+
 ## Design decision: narrowing, not refusing, third-party schemas
 
 An MCP tool's `inputSchema` is authored by a third-party server. Handing an expressive-but-partial

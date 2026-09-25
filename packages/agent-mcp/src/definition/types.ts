@@ -1,7 +1,7 @@
 /**
  * MCP server definitions — the raw, validated and resolved forms (MCP-001).
  *
- * `agent-mcp` is the sole owner of these shapes (ADR-005). Nothing here performs I/O: a definition
+ * `agent-mcp` is the sole owner of these shapes (docs/SPEC.md). Nothing here performs I/O: a definition
  * is data about a server, not a connection to one, and the separation is what lets configuration be
  * inspected — listed, diffed, approved — before anything is contacted.
  */
@@ -107,7 +107,7 @@ export interface IMCPDefinitionShadow {
  * One server name's outcome.
  *
  * `unresolved` carries a `problem` and no `definition` — and it still carries its `shadowed` list.
- * A malformed higher-precedence entry does not hand the name to a lower one (ADR-005): a broken
+ * A malformed higher-precedence entry does not hand the name to a lower one (docs/SPEC.md): a broken
  * managed policy must not be silently replaced by a plugin's definition.
  */
 export interface IMCPResolvedEntry {
