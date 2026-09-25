@@ -77,11 +77,11 @@ describe('session consent is scoped to the argument (issue #2351)', () => {
     const handler = vi.fn<TPermissionHandler>().mockResolvedValue('allow-session');
     const enforcer = makeEnforcer({ permissionHandler: handler });
 
-    await enforcer.checkPermission('Bash', { command: 'git status' });
+    await enforcer.checkPermission('Bash', { command: 'git fetch' });
     expect(enforcer.getSessionAllowedTools()).toEqual(['Bash(git *)']);
 
     handler.mockClear();
-    await enforcer.checkPermission('Bash', { command: 'git log' });
+    await enforcer.checkPermission('Bash', { command: 'git pull' });
     expect(handler, 'a same-program command prompted again').not.toHaveBeenCalled();
 
     await enforcer.checkPermission('Bash', { command: 'rm -rf /' });

@@ -41,14 +41,16 @@ or `deny` rule to require a prompt for one of these.
 
 A compound command qualifies only when each part does on its own. A command does not qualify when it:
 
-- writes through a redirect (`>`, `>>`, `&>`), except to `/dev/null` or another descriptor (`2>&1`);
-- uses a here-doc, or command or process substitution (`$(…)`, backticks, `<(…)`);
+- names a path outside the working directory: an absolute path, `~`, or a `..` that climbs out;
+- writes through a redirect (`>`, `>>`, `&>`, `>&file`), except to `/dev/null` or another
+  descriptor (`2>&1`);
+- uses a here-doc, a variable, an escape, or any substitution, grouping, brace expansion or comment
+  (`$`, `` ` ``, `\`, `(`, `{`, `#` and similar). These mean different things in bash, zsh, fish and
+  PowerShell, so the gate does not guess;
 - starts with a variable assignment (`PAGER=… git log`) or names a program by path (`./ls`);
-- passes an unquoted glob or a `$` expansion to `find` or `git`;
-- runs `git` with a global option (`-c`, `-C`), with `--output` or `--ext-diff`, after a `cd`, or in a
-  `workingDirectory` other than the session's.
-
-Permissions and hooks run before tool execution regardless of whether a tool executes locally or through an injected sandbox client. A sandbox changes the execution plane for Bash and file operations; it does not bypass the permission matrix or hook pipeline.
+- passes an unquoted glob to `find` or `git`;
+- runs `git` with a global option (`-c`, `-C`), with `--output` or `--ext-diff`, or after a `cd`;
+- runs in a `workingDirectory` other than the session's.
 
 ### Pattern Syntax
 

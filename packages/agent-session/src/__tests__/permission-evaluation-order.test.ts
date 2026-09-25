@@ -127,14 +127,14 @@ describe('a remembered consent never answers a call that must reach a person', (
     expect(handler).toHaveBeenCalledTimes(2);
   });
 
-  it('"allow always" for `git status` does not answer the `git push` ask rule', async () => {
+  it('"allow always" for `git fetch` does not answer the `git push` ask rule', async () => {
     const handler = vi.fn().mockResolvedValue('allow-session');
     const enforcer = makeEnforcer({
       getPermissionMode: () => 'default',
       config: { permissions: { allow: [], deny: [], ask: ['Bash(git push*)'] } },
       permissionHandler: handler,
     });
-    await enforcer.checkPermission('Bash', { command: 'git status' });
+    await enforcer.checkPermission('Bash', { command: 'git fetch' });
     handler.mockResolvedValue(false);
     await expect(enforcer.checkPermission('Bash', { command: 'git push' })).resolves.toBe(false);
     expect(handler).toHaveBeenCalledTimes(2);

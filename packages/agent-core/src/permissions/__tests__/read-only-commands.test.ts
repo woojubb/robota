@@ -29,7 +29,10 @@ describe('isReadOnlyCommandLine', () => {
     'ls > /dev/null 2>&1',
     'cat < input.txt',
     'echo "a > b; c"',
-    'head -n 5 "$HOME/notes.txt"',
+    "grep -n 'foo$' src/a.ts",
+    'git log --author=me@example.com',
+    'git diff HEAD~1',
+    "cat 'file with spaces.txt'",
   ])('%s qualifies', (line) => {
     expect(isReadOnlyCommandLine(line)).toBe(true);
   });
@@ -62,13 +65,36 @@ describe('isReadOnlyCommandLine', () => {
     ['$CMD', 'expanded command name'],
     ['echo "unterminated', 'unbalanced quote'],
     ['', 'nothing to run'],
+    // Findings from review: each of these ran a command or wrote a file in bash, or read outside.
+    ['echo hi >&out.txt', 'a descriptor duplication naming a file writes it'],
+    ['echo hi 1>&2file', 'same, with a descriptor number'],
+    ["echo x #'\ntouch pwned #'", 'a quote inside a comment hides a second command'],
+    ["echo $'\\'' ; touch pwned #'", 'ANSI-C quoting'],
+    ['find t -maxdepth 0 {-delete,-true}', 'brace expansion reaches find'],
+    ['git log -1 {--output=pwned,--oneline}', 'brace expansion reaches git'],
+    ['cat ~/.ssh/id_rsa', 'home directory'],
+    ['cat /etc/passwd', 'absolute path'],
+    ['grep -r x ..', 'climbs out of the workspace'],
+    ['cat src/../../secret', 'climbs out through a subdirectory'],
+    ['grep -f/etc/passwd x', 'absolute path as an option value'],
+    ['git diff --no-index /etc/passwd /dev/null', 'git reads outside'],
+    ['cat </dev/tcp/example.com/80', 'input redirect from the network'],
+    ['head -n 5 "$HOME/notes.txt"', 'expansion inside double quotes'],
+    ["ls *(e:'touch pwned':)", 'zsh glob qualifier'],
+    ['echo (Remove-Item x)', 'PowerShell subexpression'],
+    ['ls @args', 'PowerShell splatting'],
+    ['cd && cat .ssh/id_rsa', 'bare cd goes home'],
+    ['cd - && ls', 'cd - goes back'],
+    ['cd .. && ls', 'cd climbs out'],
+    ['git branch -a newb', 'a name without a list option creates a branch'],
+    ['ls \\; touch x', 'backslash escape'],
   ])('%s does not qualify (%s)', (line) => {
     expect(isReadOnlyCommandLine(line)).toBe(false);
   });
 
-  it('refuses git when the call names another directory', () => {
+  it('refuses a call that names another directory', () => {
     expect(isReadOnlyCommandLine('git status', { otherDirectory: true })).toBe(false);
-    expect(isReadOnlyCommandLine('ls', { otherDirectory: true })).toBe(true);
+    expect(isReadOnlyCommandLine('ls', { otherDirectory: true })).toBe(false);
   });
 
   it('does not inspect an oversized line', () => {
@@ -102,7 +128,7 @@ describe('the gate decides a read-only command like a read', () => {
     ).toBe('approve');
   });
 
-  it('asks for git run in another directory', () => {
+  it('asks for a command run in another directory', () => {
     expect(
       evaluatePermission(
         'Bash',

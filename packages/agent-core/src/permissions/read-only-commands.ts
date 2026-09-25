@@ -6,6 +6,11 @@
  * `deny` rule, which the gate checks first. Every rule below fails toward "not read-only" — a line
  * this module cannot fully account for is an ordinary command and takes the ordinary path.
  *
+ * Two limits make "looks like a read" mean what `Read` means. The line stays inside the workspace:
+ * no absolute, home-relative or climbing path. And it uses only syntax every shell the tool may run
+ * (sh, bash, zsh, fish, PowerShell) reads the same way: plain words, quotes, pipes and separators,
+ * and redirects — no expansion, substitution, grouping or comment.
+ *
  * No Node builtin: `agent-core` ships a browser bundle, and this is pure string work.
  */
 
@@ -57,12 +62,8 @@ const GIT_READERS = new Set([
   'remote',
 ]);
 
-/** `git branch` options that keep it listing; without one of the list options a name creates a branch. */
+/** `git branch` options that put it in list mode; without one of them a name creates a branch. */
 const GIT_BRANCH_LIST_OPTIONS = new Set([
-  '-a',
-  '--all',
-  '-r',
-  '--remotes',
   '-l',
   '--list',
   '--show-current',
@@ -72,53 +73,83 @@ const GIT_BRANCH_LIST_OPTIONS = new Set([
   '--no-contains',
   '--points-at',
 ]);
-const GIT_BRANCH_DISPLAY_OPTIONS = new Set(['-v', '-vv', '--verbose', '--color', '--no-color']);
+const GIT_BRANCH_DISPLAY_OPTIONS = new Set([
+  '-a',
+  '--all',
+  '-r',
+  '--remotes',
+  '-v',
+  '-vv',
+  '--verbose',
+  '--color',
+  '--no-color',
+]);
 
 interface IWord {
   /** The word as the command receives it, quotes removed. */
   readonly text: string;
-  /** An unquoted glob character or any `$` expansion: what the command receives is not `text`. */
+  /** An unquoted glob character: what the command receives is not `text`. */
   readonly expands: boolean;
 }
 
 /** Output redirection targets that write nothing. */
 const DISCARD_TARGETS = new Set(['/dev/null']);
 
-interface ISegmentScan {
-  readonly words: IWord[];
-  /** Something the scan could not account for as read-only (a writing redirect, a here-doc). */
-  readonly refused: boolean;
+/**
+ * The only characters an unquoted word may carry. Everything else — `$`, `{`, `(`, `#`, `!`, `^`,
+ * backslash, backtick — means expansion, substitution, a comment, or a construct that differs
+ * between bash, zsh, fish and PowerShell, and a line using one is not inspected further.
+ */
+const UNQUOTED_WORD_CHARACTER = /[A-Za-z0-9_./:=@%+,*?[\]~-]/;
+/** Inside double quotes these still expand or escape. */
+const DOUBLE_QUOTE_ACTIVE = new Set(['$', '`', '\\', '!']);
+const GLOB_CHARACTERS = new Set(['*', '?', '[']);
+
+/**
+ * Whether a word names something outside the session's working directory: an absolute or
+ * home-relative path, or a `..` that climbs, also as an option's value (`--file=/x`, `-f/x`).
+ * The shell tool itself is not confined, so looking outside is not treated as a read.
+ */
+function leavesWorkspace(text: string): boolean {
+  return (
+    /(^|[=,:])[/~]/.test(text) ||
+    /^-[A-Za-z]+[/~]/.test(text) ||
+    /(^|[/=,:]|^-[A-Za-z]+)\.\.(\/|$)/.test(text)
+  );
 }
 
-/** Whether the line runs a nested command: `$(…)`, backticks, `<(…)`, `>(…)` outside single quotes. */
-function hasSubstitution(line: string): boolean {
+/**
+ * Whether the line expands or substitutes anything outside single quotes. Checked on the whole
+ * line, before it is cut into segments, because the cut happens at substitution boundaries.
+ */
+function hasActiveExpansion(line: string): boolean {
   let quote: "'" | '"' | undefined;
-  for (let index = 0; index < line.length; index += 1) {
-    const char = line[index]!;
+  for (const char of line) {
     if (quote === "'") {
       if (char === "'") quote = undefined;
       continue;
     }
-    if (char === '\\') {
-      index += 1;
-      continue;
-    }
-    const next = line[index + 1];
-    if (char === '`' || (char === '$' && next === '(')) return true;
+    if (char === '$' || char === '`' || char === '\\') return true;
     if (quote === '"') {
       if (char === '"') quote = undefined;
       continue;
     }
     if (char === "'" || char === '"') quote = char;
-    else if ((char === '<' || char === '>') && next === '(') return true;
+    else if (char === '(' || char === ')' || char === '{' || char === '}') return true;
   }
   return false;
 }
 
+interface ISegmentScan {
+  readonly words: IWord[];
+  /** Something the scan could not account for as read-only. */
+  readonly refused: boolean;
+}
+
 /**
  * Split one segment into words and judge its redirections. An output redirect is allowed only to a
- * target that writes nothing or to another descriptor; an input redirect only reads; a here-doc is
- * refused because its body lines are not segments of their own.
+ * target that writes nothing or to another descriptor; an input redirect only from inside the
+ * workspace; a here-doc is refused because its body lines are not segments of their own.
  */
 function scanSegment(segment: string): ISegmentScan {
   const words: IWord[] = [];
@@ -126,43 +157,38 @@ function scanSegment(segment: string): ISegmentScan {
   let expands = false;
   let inWord = false;
   let quote: "'" | '"' | undefined;
-  let pendingRedirect: 'output' | 'input' | undefined;
+  let pendingRedirect: 'output' | 'input' | 'duplicate' | undefined;
   let refused = false;
 
   const endWord = (): void => {
     if (!inWord) return;
     if (pendingRedirect === 'output') {
       if (!DISCARD_TARGETS.has(text) || expands) refused = true;
-      pendingRedirect = undefined;
+    } else if (pendingRedirect === 'duplicate') {
+      // `2>&1`, `>&-`: another descriptor. Anything else after `>&` is a file (`>&out` = `&>out`).
+      if (!/^(\d+|-)$/.test(text)) refused = true;
     } else if (pendingRedirect === 'input') {
-      pendingRedirect = undefined;
+      if (expands || leavesWorkspace(text)) refused = true;
     } else {
       words.push({ text, expands });
     }
+    pendingRedirect = undefined;
     text = '';
     expands = false;
     inWord = false;
   };
 
-  for (let index = 0; index < segment.length; index += 1) {
+  for (let index = 0; index < segment.length && !refused; index += 1) {
     const char = segment[index]!;
     if (quote === "'") {
       if (char === "'") quote = undefined;
       else text += char;
       continue;
     }
-    if (char === '\\') {
-      inWord = true;
-      text += segment[index + 1] ?? '';
-      index += 1;
-      continue;
-    }
     if (quote === '"') {
       if (char === '"') quote = undefined;
-      else {
-        if (char === '$') expands = true;
-        text += char;
-      }
+      else if (DOUBLE_QUOTE_ACTIVE.has(char)) refused = true;
+      else text += char;
       continue;
     }
     if (char === "'" || char === '"') {
@@ -183,7 +209,7 @@ function scanSegment(segment: string): ISegmentScan {
       if (char === '&') index += 1;
       const operator = char === '&' ? '>' : char;
       let next = segment[index + 1];
-      if (operator === '<' && next === '<') {
+      if (operator === '<' && (next === '<' || next === '>')) {
         refused = true;
         break;
       }
@@ -191,16 +217,20 @@ function scanSegment(segment: string): ISegmentScan {
         index += 1;
         next = segment[index + 1];
       }
-      if (next === '&') {
-        // Duplicating a descriptor (`2>&1`, `>&-`, `<&0`) opens no file.
+      if (next === '&' && char !== '&') {
         index += 1;
-        while (index + 1 < segment.length && /[\d-]/.test(segment[index + 1]!)) index += 1;
+        pendingRedirect = 'duplicate';
         continue;
       }
       pendingRedirect = operator === '>' ? 'output' : 'input';
       continue;
     }
-    if (char === '$' || char === '*' || char === '?' || char === '[') expands = true;
+    if (!UNQUOTED_WORD_CHARACTER.test(char)) {
+      refused = true;
+      break;
+    }
+    // `HEAD~1` is a revision; a leading `~` is the home directory, which `leavesWorkspace` refuses.
+    if (GLOB_CHARACTERS.has(char)) expands = true;
     text += char;
     inWord = true;
   }
@@ -215,6 +245,7 @@ function isReadOnlyFind(args: readonly IWord[]): boolean {
   return args.every((word) => !word.expands && !FIND_ACTIONS.has(word.text));
 }
 
+/** Mirrors git's own rule: only these put `git branch` in list mode, where names are patterns. */
 function isReadOnlyGitBranch(args: readonly IWord[]): boolean {
   const options = args.filter((word) => word.text.startsWith('-'));
   const listing = options.some((word) => GIT_BRANCH_LIST_OPTIONS.has(word.text));
@@ -251,6 +282,12 @@ function isReadOnlySegment(words: readonly IWord[]): boolean {
   if (command === undefined || command.expands) return false;
   // A leading assignment (`PAGER=… git log`) configures what runs; a path is not the built-in.
   if (command.text.includes('=') || command.text.includes('/')) return false;
+  // A leading `@` splats a variable in PowerShell and a leading `=` names a path in zsh.
+  if (args.some((word) => /^[@=]/.test(word.text))) return false;
+  // `echo` prints its arguments; for everything else an argument may be a path to read.
+  if (command.text !== 'echo' && args.some((word) => leavesWorkspace(word.text))) return false;
+  // `cd` alone goes home and `cd -` goes back; only a named directory inside the workspace stays.
+  if (command.text === 'cd') return args.length === 1 && args[0]!.text !== '-' && !args[0]!.expands;
   if (PLAIN_READERS.has(command.text)) return true;
   if (command.text === 'find') return isReadOnlyFind(args);
   if (command.text === 'git') return isReadOnlyGit(args);
@@ -259,9 +296,9 @@ function isReadOnlySegment(words: readonly IWord[]): boolean {
 
 export interface IReadOnlyCommandContext {
   /**
-   * The call runs somewhere other than the session's working directory. Git reads the
-   * configuration of the repository it runs in, and another repository's configuration can name
-   * programs to run, so git is read-only only where the session already works.
+   * The call runs somewhere other than the session's working directory, so its relative paths are
+   * not the workspace's and git would read another repository's configuration, which can name
+   * programs to run.
    */
   readonly otherDirectory?: boolean;
 }
@@ -274,7 +311,8 @@ export function isReadOnlyCommandLine(
   line: string,
   context: IReadOnlyCommandContext = {},
 ): boolean {
-  if (line.length > MAX_INSPECTED_LENGTH || hasSubstitution(line)) return false;
+  if (context.otherDirectory === true) return false;
+  if (line.length > MAX_INSPECTED_LENGTH || hasActiveExpansion(line)) return false;
   const segments = splitCommandSegments(line);
   if (segments.length === 0) return false;
   const scanned = segments.map(scanSegment);
@@ -283,8 +321,5 @@ export function isReadOnlyCommandLine(
   }
   const commands = scanned.map((segment) => segment.words[0]!.text);
   // `cd` then `git` runs git in another repository, under that repository's configuration.
-  if (commands.includes('git') && (context.otherDirectory === true || commands.includes('cd'))) {
-    return false;
-  }
-  return true;
+  return !(commands.includes('git') && commands.includes('cd'));
 }
