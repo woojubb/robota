@@ -71,7 +71,7 @@ import type {
   ICommandMCPOAuthStatus,
   ICommandMCPSourceProblem,
 } from '@robota-sdk/agent-framework';
-import type { TMCPUserAction } from '@robota-sdk/agent-command';
+import type { TMCPUserAction, TMCPUserActionSurface } from '@robota-sdk/agent-command';
 import type {
   IToolResultAdmissionOptions,
   IToolResultSpillStore,
@@ -204,6 +204,11 @@ export interface IMcpClientCompositionDeps {
    * sink (whatever the host uses for user-visible warnings) is the intended target.
    */
   readonly reportDiagnostic: (message: string) => void;
+  /**
+   * Where the user can act on a notice the model relays: `session` (default) when they can type a
+   * `/mcp` command, `terminal` for a run with no such prompt, so sign-in names the terminal command.
+   */
+  readonly userActionSurface?: TMCPUserActionSurface;
 }
 
 /**
@@ -773,7 +778,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
         if (definition.oauth !== undefined) {
           authFailureNoticeByServerId.set(
             request.serverId,
-            mcpUserActionNotice(request.serverId, 'sign-in'),
+            mcpUserActionNotice(request.serverId, 'sign-in', deps.userActionSurface ?? 'session'),
           );
         }
       }

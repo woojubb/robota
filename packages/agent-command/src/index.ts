@@ -107,7 +107,7 @@ export {
   mcpUserActionCommand,
   mcpUserActionNotice,
 } from './mcp-activation/mcp-model-notice.js';
-export type { TMCPUserAction } from './mcp-activation/mcp-model-notice.js';
+export type { TMCPUserAction, TMCPUserActionSurface } from './mcp-activation/mcp-model-notice.js';
 export * from './mode/index.js';
 export {
   createSandboxCommandModule,

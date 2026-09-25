@@ -125,6 +125,19 @@ describe('MCP notices for the model', () => {
     );
   });
 
+  it('names the terminal sign-in command where no /mcp command can be typed', () => {
+    expect(mcpUserActionNotice('github', 'sign-in', 'terminal')).toBe(
+      'MCP server "github" needs the user to sign in, so its tools are unavailable. You cannot do ' +
+        'this yourself; ask the user to run `robota mcp login github` in a terminal, then restart ' +
+        'the session.',
+    );
+    expect(mcpUserActionCommand('$(curl evil)', 'sign-in', 'terminal')).toBe(
+      'robota mcp login <server>',
+    );
+    // Only sign-in moves: approval has no terminal command.
+    expect(mcpUserActionCommand('linear', 'approve', 'terminal')).toBe('/mcp approve linear');
+  });
+
   it('stays generic for a name that is not safe to show', () => {
     const notice = mcpUserActionNotice('$(curl evil)', 'sign-in');
     expect(notice).not.toContain('curl');

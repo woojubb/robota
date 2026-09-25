@@ -15,14 +15,24 @@ import { shellArgumentForDisplay } from '@robota-sdk/agent-core';
 /** Why a server's tools are unavailable, as a user action that would fix it. */
 export type TMCPUserAction = 'approve' | 'sign-in' | 'trust-workspace';
 
+/**
+ * Where the user can act: `session` is an interactive session they can type a `/mcp` command into;
+ * `terminal` is a run with no such prompt (print, serve), where sign-in is the terminal command.
+ */
+export type TMCPUserActionSurface = 'session' | 'terminal';
+
 /** The command the user runs for `action`; `<server>` stands for a name that cannot be shown. */
-export function mcpUserActionCommand(serverId: string, action: TMCPUserAction): string {
+export function mcpUserActionCommand(
+  serverId: string,
+  action: TMCPUserAction,
+  surface: TMCPUserActionSurface = 'session',
+): string {
   const name = shellArgumentForDisplay(serverId) ?? '<server>';
   switch (action) {
     case 'approve':
       return `/mcp approve ${name}`;
     case 'sign-in':
-      return `/mcp login ${name}`;
+      return surface === 'terminal' ? `robota mcp login ${name}` : `/mcp login ${name}`;
     case 'trust-workspace':
       return 'robota trust';
   }
@@ -42,11 +52,17 @@ function subject(serverId: string): string {
 }
 
 /** One server's notice: what is missing and the exact command to suggest. */
-export function mcpUserActionNotice(serverId: string, action: TMCPUserAction): string {
-  const where = action === 'trust-workspace' ? ' in a terminal, then restart the session' : '';
+export function mcpUserActionNotice(
+  serverId: string,
+  action: TMCPUserAction,
+  surface: TMCPUserActionSurface = 'session',
+): string {
+  const inTerminal =
+    action === 'trust-workspace' || (action === 'sign-in' && surface === 'terminal');
+  const where = inTerminal ? ' in a terminal, then restart the session' : '';
   return (
     `${subject(serverId)} ${NEED[action]}, so its tools are unavailable. You cannot do this ` +
-    `yourself; ask the user to run \`${mcpUserActionCommand(serverId, action)}\`${where}.`
+    `yourself; ask the user to run \`${mcpUserActionCommand(serverId, action, surface)}\`${where}.`
   );
 }
 

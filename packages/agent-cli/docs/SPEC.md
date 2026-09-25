@@ -166,7 +166,8 @@ decode refusal is reported as a problem, never silently dropped, and a server wh
 cannot use because the user must approve it, trust the workspace or sign in is also named to the
 model — at the start of an interactive session, the one mode where the user can type the command,
 or when a signed-in server refuses a call — in fixed words carrying the
-command to suggest and nothing the server or its definition sent; zero resolved definitions is a
+command to suggest, as a terminal command where the run offers no session prompt to type it into, and
+nothing the server or its definition sent; zero resolved definitions is a
 normal, silent-diagnostic outcome. A caller-supplied `mcpActivationAdapter` always wins over CLI
 composition and skips it entirely.
 

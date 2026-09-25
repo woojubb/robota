@@ -36,4 +36,5 @@ with a trust, credential or permission-widening action.
 - `agent-cli` — an MCP server that did not start because the user must approve it, trust the
   workspace or sign in is named to the model at the start of an interactive session with the
   command to suggest, and a
-  signed-in OAuth server that refuses a call tells the model to suggest `/mcp login <server>`.
+  signed-in OAuth server that refuses a call tells the model to suggest `/mcp login <server>` — or, in print and serve runs, the terminal
+  `robota mcp login <server>`.

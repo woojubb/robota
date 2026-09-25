@@ -9,4 +9,4 @@ export {
   mcpUserActionCommand,
   mcpUserActionNotice,
 } from './mcp-model-notice.js';
-export type { TMCPUserAction } from './mcp-model-notice.js';
+export type { TMCPUserAction, TMCPUserActionSurface } from './mcp-model-notice.js';

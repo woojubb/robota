@@ -13,7 +13,7 @@ import { mcpUserActionNotice } from '@robota-sdk/agent-command';
 import { describe, expect, it } from 'vitest';
 
 import { createMcpClientComposition } from '../mcp-client-composition.js';
-import { mcpStartupModelNotice } from '../mcp-startup.js';
+import { mcpStartupModelNotice, mcpUserActionSurfaceFor } from '../mcp-startup.js';
 import { withAppendedSystemPrompt } from '../preset-surface-options.js';
 
 import type {
@@ -123,9 +123,9 @@ describe('MCP servers the user must act on, as the model learns of them', () => 
     await composition.shutdown();
   });
 
-  it('tells the model to suggest signing in when a connected OAuth server refuses a call', async () => {
+  function refusingComposition(userActionSurface?: 'session' | 'terminal') {
     const entries = [entry('github', { oauth: {} })];
-    const composition = createMcpClientComposition({
+    return createMcpClientComposition({
       resolvedEntries: entries,
       approvalStore: approve(entries, ['github']),
       oauth: oauthHost,
@@ -138,14 +138,37 @@ describe('MCP servers the user must act on, as the model learns of them', () => 
         shutdown: async () => {},
       }),
       reportDiagnostic: () => undefined,
+      ...(userActionSurface === undefined ? {} : { userActionSurface }),
     });
+  }
+
+  it('tells the model to suggest signing in when a connected OAuth server refuses a call', async () => {
+    const composition = refusingComposition();
 
     const [tool] = await composition.connect();
     const result = await tool!.execute({}, { toolName: tool!.getName(), parameters: {} });
 
     expect(result).toEqual({ success: false, error: mcpUserActionNotice('github', 'sign-in') });
+    expect(JSON.stringify(result)).toContain('`/mcp login github`');
     expect(JSON.stringify(result)).not.toContain('server-secret');
     await composition.shutdown();
+  });
+
+  it('names the terminal sign-in command where no /mcp command can be typed', async () => {
+    const composition = refusingComposition(mcpUserActionSurfaceFor('print'));
+
+    const [tool] = await composition.connect();
+    const result = await tool!.execute({}, { toolName: tool!.getName(), parameters: {} });
+
+    expect(JSON.stringify(result)).toContain('`robota mcp login github` in a terminal');
+    expect(JSON.stringify(result)).not.toContain('/mcp login');
+    await composition.shutdown();
+  });
+
+  it('picks the sign-in surface by mode', () => {
+    expect(mcpUserActionSurfaceFor('interactive')).toBe('session');
+    expect(mcpUserActionSurfaceFor('print')).toBe('terminal');
+    expect(mcpUserActionSurfaceFor('serve')).toBe('terminal');
   });
 
   it('gives the startup notice only where the user can type the command it suggests', () => {

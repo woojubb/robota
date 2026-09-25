@@ -51,7 +51,7 @@ import type {
   IMCPStdioAuthority,
 } from '@robota-sdk/agent-mcp';
 import type { IMcpClientComposition, IMcpHeadersHelperHost } from './mcp-client-composition.js';
-import type { TMCPUserAction } from '@robota-sdk/agent-command';
+import type { TMCPUserAction, TMCPUserActionSurface } from '@robota-sdk/agent-command';
 
 /**
  * The three session runtimes that ever compose MCP tools (spec § Modes). `interactive` is the ink
@@ -250,6 +250,7 @@ export async function composeMcpClientForStartup(
       }),
     ...(input.resultAdmissionLimits ? { resultAdmissionLimits: input.resultAdmissionLimits } : {}),
     reportDiagnostic: input.reportDiagnostic,
+    userActionSurface: mcpUserActionSurfaceFor(input.mode),
   });
 
   function buildToolCallHandoff(
@@ -297,4 +298,12 @@ export function mcpStartupModelNotice(
   unavailable: ReadonlyMap<string, TMCPUserAction>,
 ): string | undefined {
   return mode === 'interactive' ? mcpUnavailableServersNotice(unavailable) : undefined;
+}
+
+/**
+ * Where the user acts on a notice the model relays: only an interactive session has a prompt to
+ * type `/mcp login` into; a print or serve run names the terminal command instead.
+ */
+export function mcpUserActionSurfaceFor(mode: TMcpStartupMode): TMCPUserActionSurface {
+  return mode === 'interactive' ? 'session' : 'terminal';
 }
