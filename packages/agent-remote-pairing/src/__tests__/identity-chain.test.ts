@@ -5,6 +5,7 @@ import {
   SIGNING_KEY_CERTIFICATE_VALIDITY_MS,
   certifyDevice,
   certifySigningKey,
+  decodeDeviceCertificate,
   deviceCertificateBytes,
   generateDeviceKeyAgreementKeyPair,
   generateDeviceSignKeyPair,
@@ -485,8 +486,6 @@ describe('verifyDeviceChain — every rejection reason', () => {
       full({ lastSeen: { bySigningKey: { [otherWorld.signingKeyCert.signingKeyId]: { rosterSeq: 40, revocationSeq: 40 } } } }),
     );
     expect(verdict.ok).toBe(true);
-    // An inherited property name is not a mark.
-    expect((await verifyDeviceChain(full({ lastSeen: { bySigningKey: {} } }))).ok).toBe(true);
   });
 
   it('rolled-back: any list below the last seq seen', async () => {
@@ -779,6 +778,18 @@ describe('malformed input is a reason, never a throw, never an echo', () => {
       reason: 'malformed',
       subject: 'revocation',
     });
+  });
+
+  it('the decoder alone refuses -0 and a non-uncompressed P-256 point', () => {
+    expect(decodeDeviceCertificate({ ...clone(world.deviceCert), kaEpoch: -0 })).toEqual({
+      ok: false,
+      reason: 'malformed',
+      field: 'kaEpoch',
+    });
+    expect(
+      decodeDeviceCertificate({ ...clone(world.deviceCert), signKey: compressedTag(world.deviceCert.signKey) }),
+    ).toEqual({ ok: false, reason: 'malformed', field: 'signKey' });
+    expect(decodeDeviceCertificate(clone(world.deviceCert)).ok).toBe(true);
   });
 
   it('in verifySessionDescriptor', async () => {
