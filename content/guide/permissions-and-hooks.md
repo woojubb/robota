@@ -30,6 +30,24 @@ Print mode (`robota -p`), `createQuery()` and headless sessions default to `defa
 | `acceptEdits`       | auto | auto             | approve (prompt) |
 | `bypassPermissions` | auto | auto             | auto             |
 
+#### Read-only commands
+
+A Bash call whose every command is in the built-in read-only set is decided like a read, so it runs
+without a prompt in every mode, `plan` included. The set is `ls`, `cat`, `echo`, `pwd`, `head`,
+`tail`, `grep`, `wc`, `which`, `diff`, `stat`, `du`, `cd`, `find` without `-exec`/`-delete`/`-fprint*`
+predicates, and `git status`, `log`, `diff`, `show`, `blame`, `rev-parse`, `ls-files`, `describe`,
+plus the listing forms of `git branch` and `git remote`. The set is not configurable; add an `ask`
+or `deny` rule to require a prompt for one of these.
+
+A compound command qualifies only when each part does on its own. A command does not qualify when it:
+
+- writes through a redirect (`>`, `>>`, `&>`), except to `/dev/null` or another descriptor (`2>&1`);
+- uses a here-doc, or command or process substitution (`$(…)`, backticks, `<(…)`);
+- starts with a variable assignment (`PAGER=… git log`) or names a program by path (`./ls`);
+- passes an unquoted glob or a `$` expansion to `find` or `git`;
+- runs `git` with a global option (`-c`, `-C`), with `--output` or `--ext-diff`, after a `cd`, or in a
+  `workingDirectory` other than the session's.
+
 Permissions and hooks run before tool execution regardless of whether a tool executes locally or through an injected sandbox client. A sandbox changes the execution plane for Bash and file operations; it does not bypass the permission matrix or hook pipeline.
 
 ### Pattern Syntax
