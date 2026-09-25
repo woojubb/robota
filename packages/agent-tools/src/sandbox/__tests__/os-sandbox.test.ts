@@ -225,8 +225,10 @@ const canConfine = bubblewrap.executable !== undefined && process.platform === '
 describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
   let root: string;
   let outside: string;
+  let home: string;
 
   beforeEach(() => {
+    home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-os-sandbox-home-')));
     root = realpathSync(mkdtempSync(join(tmpdir(), 'robota-os-sandbox-')));
     mkdirSync(join(root, '.robota'));
     writeFileSync(join(root, '.robota', 'settings.json'), '{}');
@@ -237,6 +239,7 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
   afterEach(() => {
     rmSync(root, { recursive: true, force: true });
     rmSync(outside, { recursive: true, force: true });
+    rmSync(home, { recursive: true, force: true });
   });
 
   async function bash(client: OsSandboxClient, command: string): Promise<IToolInvocationResult> {
@@ -250,6 +253,7 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
     async () => {
       const client = new OsSandboxClient({
         root,
+        homeDirectory: home,
         availability: bubblewrap,
         settings: { enabled: true },
       });
@@ -305,14 +309,16 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
       execFileSync('git', ['init', '-q', root]);
       const client = new OsSandboxClient({
         root,
+        homeDirectory: home,
         availability: bubblewrap,
         settings: { enabled: true },
       });
       const created = await bash(client, 'F=.mc; echo {} > "${F}p.json"; echo done');
       expect(existsSync(join(root, '.mcp.json'))).toBe(false);
-      expect(created.output).toContain('[sandbox] Moved');
+      expect(created.output).toContain('moved');
       // Moved aside, not deleted.
-      const quarantine = join(root, '.robota', 'sandbox-quarantine');
+      // Outside the workspace, where the command cannot reach it.
+      const quarantine = join(home, '.robota', 'sandbox-quarantine');
       expect(readdirSync(quarantine).length).toBe(1);
 
       // `.git` is read-only whole: git cannot be pointed at another config through `commondir`.
@@ -340,6 +346,7 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
       symlinkSync('shared-claude', join(root, '.claude'));
       const client = new OsSandboxClient({
         root,
+        homeDirectory: home,
         availability: bubblewrap,
         settings: { enabled: true },
       });
@@ -348,6 +355,42 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
       await bash(client, 'rm .claude && mkdir .claude && echo pwn > .claude/settings.json');
       expect(readlinkSync(join(root, '.claude'))).toBe('shared-claude');
       expect(readFileSync(join(root, '.claude', 'settings.json'), 'utf8')).toBe('{}');
+    },
+    SPAWN_TIMEOUT_MS,
+  );
+
+  it('does not auto-approve while a protected entry is a symlink into the workspace', () => {
+    mkdirSync(join(root, 'config'));
+    writeFileSync(join(root, 'config', 'mcp.json'), '{}');
+    symlinkSync('config/mcp.json', join(root, '.mcp.json'));
+    const client = new OsSandboxClient({
+      root,
+      homeDirectory: home,
+      availability: bubblewrap,
+      settings: { enabled: true },
+    });
+    expect(client.autoApproves('ls')).toBe(false);
+  });
+
+  it(
+    'restores a replaced robota symlink without crashing, even into itself',
+    async () => {
+      mkdirSync(join(root, 'robota-real'));
+      rmSync(join(root, '.robota'), { recursive: true, force: true });
+      symlinkSync('robota-real', join(root, '.robota'));
+      const client = new OsSandboxClient({
+        root,
+        homeDirectory: home,
+        availability: bubblewrap,
+        settings: { enabled: true },
+      });
+      const result = await bash(
+        client,
+        `rm .robota && mkdir .robota && echo '{"hooks":1}' > .robota/settings.json`,
+      );
+      expect(result.output).toContain('[sandbox]');
+      expect(readlinkSync(join(root, '.robota'))).toBe('robota-real');
+      expect(existsSync(join(root, 'robota-real', 'settings.json'))).toBe(false);
     },
     SPAWN_TIMEOUT_MS,
   );
@@ -368,6 +411,7 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
     async () => {
       const client = new OsSandboxClient({
         root,
+        homeDirectory: home,
         availability: bubblewrap,
         settings: { enabled: true, denyRead: [outside] },
       });

@@ -16,6 +16,7 @@ import {
   readdirSync,
   readlinkSync,
   renameSync,
+  rmSync,
   symlinkSync,
   readFileSync,
   realpathSync,
@@ -204,10 +205,11 @@ export class OsSandboxClient implements ISandboxClient {
 
   autoApproves(shellCommand: string): boolean {
     if (!this.current.autoAllowBashIfSandboxed || !this.confines(shellCommand)) return false;
-    // A protected link whose target does not exist cannot be mounted; the command could create
-    // the target and so write configuration through it. A person decides instead.
+    // A protected entry that is a symlink is only as read-only as every directory on its target's
+    // path: one that dangles, or points back into the writable workspace, can be redirected by the
+    // command (create the target, or swap a directory along the way). A person decides instead.
     return !this.protectedEntryStates().some(
-      (state) => state.kind === 'symlink' && !existsSync(state.path),
+      (state) => state.kind === 'symlink' && !this.resolvesOutsideWritableWorkspace(state.path),
     );
   }
 
@@ -225,7 +227,13 @@ export class OsSandboxClient implements ISandboxClient {
     const filter = policy.network ? undefined : unixSocketSeccompFilter();
     // `.robota` is robota's own state directory: made before the command, so it is mounted
     // read-only and nothing the host writes there is caught up in `restoreProtectedEntries`.
-    mkdirSync(`${this.root}/.robota`, { recursive: true });
+    if (
+      !this.protectedEntryStates().some(
+        (state) => state.path.endsWith('/.robota') && state.kind === 'symlink',
+      )
+    ) {
+      mkdirSync(`${this.root}/.robota`, { recursive: true });
+    }
     const before = this.protectedEntryStates();
     return {
       command: executable,
@@ -270,27 +278,60 @@ export class OsSandboxClient implements ISandboxClient {
    * existed is moved into `.robota/sandbox-quarantine`, and a symlink it replaced is restored. Moved,
    * not deleted, so nothing the host wrote meanwhile is lost.
    */
+  /** Whether a path's real location is outside the workspace (and so under the read-only mounts). */
+  private resolvesOutsideWritableWorkspace(path: string): boolean {
+    let real: string;
+    try {
+      real = realpathSync(path);
+    } catch {
+      return false;
+    }
+    return real !== this.root && !real.startsWith(`${this.root}/`);
+  }
+
+  /**
+   * Never throws: this runs as the command's process closes, and an exception there would take the
+   * host down and leave the entry in place. The quarantine is outside the workspace, under the
+   * user's `~/.robota`, where the command cannot reach it; what cannot be moved there is removed.
+   */
   private restoreProtectedEntries(before: readonly IProtectedEntryState[]): string | undefined {
-    const quarantine = `${this.root}/.robota/sandbox-quarantine/${Date.now()}`;
-    const moved: string[] = [];
+    const quarantine = `${this.homeDirectory}/.robota/sandbox-quarantine/${Date.now()}`;
+    const notes: string[] = [];
     for (const state of before) {
       if (state.kind === 'present') continue;
-      const now = this.protectedEntryStates().find((entry) => entry.path === state.path)!;
-      if (state.kind === 'missing' && now.kind === 'missing') continue;
-      if (state.kind === 'symlink' && now.kind === 'symlink' && now.target === state.target)
-        continue;
-      if (now.kind !== 'missing') {
-        mkdirSync(quarantine, { recursive: true });
-        renameSync(state.path, `${quarantine}/${basename(state.path)}`);
-        moved.push(state.path);
+      try {
+        const now = this.protectedEntryStates().find((entry) => entry.path === state.path)!;
+        if (state.kind === 'missing' && now.kind === 'missing') continue;
+        if (state.kind === 'symlink' && now.kind === 'symlink' && now.target === state.target) {
+          continue;
+        }
+        if (now.kind !== 'missing') notes.push(this.setAside(state.path, quarantine));
+        if (state.kind === 'symlink') symlinkSync(state.target, state.path);
+      } catch (error) {
+        // allow-fallback: reported in the command's output, never thrown into the host
+        notes.push(
+          `could not restore ${state.path}: ${error instanceof Error ? error.message : String(error)}`,
+        );
       }
-      if (state.kind === 'symlink') symlinkSync(state.target, state.path);
     }
-    if (moved.length === 0) return undefined;
+    if (notes.length === 0) return undefined;
     return (
-      `[sandbox] Moved ${moved.join(', ')} to ${quarantine}: a confined command may not create or ` +
-      'replace git, agent, MCP or shell configuration.'
+      `[sandbox] A confined command may not create or replace git, agent, MCP or shell ` +
+      `configuration: ${notes.join('; ')}.`
     );
+  }
+
+  private setAside(path: string, quarantine: string): string {
+    const destination = `${quarantine}/${basename(path)}`;
+    try {
+      mkdirSync(quarantine, { recursive: true });
+      renameSync(path, destination);
+      return `moved ${path} to ${destination}`;
+    } catch {
+      // allow-fallback: another filesystem or a hostile layout; the command's own entry goes
+      rmSync(path, { recursive: true, force: true });
+      return `removed ${path}`;
+    }
   }
 
   /** The policy for the current settings, with every path made absolute and real. */

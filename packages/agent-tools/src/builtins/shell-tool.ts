@@ -235,7 +235,13 @@ async function runShell(
 
     child.on('close', (code: number | null) => {
       // Always, even after a timeout or an abort already settled: the sandbox undoes what it must.
-      const note = invocation.afterExit?.();
+      let note: string | undefined;
+      try {
+        note = invocation.afterExit?.();
+      } catch (error) {
+        // allow-fallback: a sandbox's clean-up must never take the host down; it is reported
+        note = `[sandbox] clean-up failed: ${error instanceof Error ? error.message : String(error)}`;
+      }
       if (timedOut) {
         settle({
           success: false,

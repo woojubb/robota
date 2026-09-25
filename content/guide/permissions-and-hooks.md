@@ -75,9 +75,13 @@ Inside the sandbox:
   npm config files stay read-only (isolated worktrees under `.robota/worktrees` stay writable).
   `.git` is read-only as a whole, so git commands that write — `commit`, `checkout`, `fetch` —
   fail inside the sandbox; add `git` to `excludedCommands` to run them on the host through the
-  ordinary prompt. On Linux, one of these entries a command creates where none existed, or a
-  symlink it replaces, is moved to `.robota/sandbox-quarantine` (or restored) when the command
-  exits, with a note in its output;
+  ordinary prompt. On Linux, one of these entries a command creates where none existed is moved
+  to `~/.robota/sandbox-quarantine`, and a symlink it replaces is restored, when the command exits,
+  with a note in its output. While one of these entries is a symlink into the working directory,
+  commands are confined but never approved automatically;
+- everything else in the working directory is the command's to change, just as it is the file
+  tools'. A nested repository, a `package.json` script or a `Makefile` it writes is project content:
+  review changes before running host tools (git, your build) over them;
 - the network is reachable only when `network.enabled` is `true`, and while it is off Unix
   sockets are closed too, so a daemon on the host (a container engine, the session bus, an ssh
   agent) is out of reach. With the network on, those sockets are reachable, and a container
