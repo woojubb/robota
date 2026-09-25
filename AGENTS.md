@@ -9,6 +9,8 @@ or dates; when the contract changes, rewrite the existing sentence instead of ap
 ## Workflow
 
 - Work starts from a GitHub issue. Branch from a freshly fetched `origin/develop`; one issue per PR.
+- Before filing an issue, search the open ones. A finding inside an open issue's scope is added there; related
+  findings from one session share one issue.
 - Merge only through a PR with CI green. Before merging, review the diff with the `pr-review-reviewer` agent
   and resolve every MUST/SHOULD. Never push to `develop` or `main` directly.
 - A behavior change ships with a test that failed before the change.
@@ -25,9 +27,7 @@ or dates; when the contract changes, rewrite the existing sentence instead of ap
 
 ## Non-obvious facts
 
-- The product DAG path is composed in `agent-command-workflows`; there is no standalone DAG CLI.
-- Running the CLI writes to `~/.robota/`. When exercising the product from a script or test, point `HOME` at a
-  temporary directory.
+- Running the CLI writes to `~/.robota/`; a script or test that runs it points `HOME` at a temporary directory.
 - The owner works on both macOS and Linux; shell commands must be portable or check `uname -s`.
 - `.agents/skills/` in product code is a product feature (Robota loads a user project's skills); it is not this
   repository's own harness.
