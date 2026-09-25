@@ -62,6 +62,9 @@ async function setup(mode: string) {
   return { root, service, request, transport, adapter, admitted: admission.admitted };
 }
 
+/** A startup budget for cases that exercise what happens after startup, not startup itself. */
+const STARTUP_BUDGET_MS = 10_000;
+
 describe('bounded stdio lifecycle with the SDK client', () => {
   it('discovers, calls, captures negotiation, drains stderr, and observes child close', async () => {
     const fixture = await setup('stderr');
@@ -339,12 +342,12 @@ describe('bounded stdio lifecycle with the SDK client', () => {
         return openMcpSession({
           serverId: 'fixture',
           transport,
-          timeouts: { startupMs: 2_000, perCallMs: 2_000 },
+          timeouts: { startupMs: STARTUP_BUDGET_MS, perCallMs: 2_000 },
           signal,
         });
       },
       timeouts: {
-        startupMs: 2_000,
+        startupMs: STARTUP_BUDGET_MS,
         perCallMs: 2_000,
         globalDefaultMs: 100,
         idleMs: 10_000,
@@ -365,7 +368,7 @@ describe('bounded stdio lifecycle with the SDK client', () => {
       for (const transport of transports) await transport.close();
       await rm(fixture.root, { recursive: true, force: true });
     }
-  }, 12_000);
+  }, 30_000);
 
   it.each(['discover', 'call'] as const)(
     'retires a child that exits after initialization during %s',
