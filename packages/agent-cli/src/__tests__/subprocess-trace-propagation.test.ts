@@ -60,7 +60,9 @@ describe.runIf(process.platform !== 'win32')('subprocess trace propagation throu
 
   afterEach(() => {
     vi.unstubAllEnvs();
-    rmSync(home, { recursive: true, force: true });
+    // A fire-and-forget hook from the last tool call can still be writing into `out` as the test
+    // ends; retrying on ENOTEMPTY removes the directory once that write lands.
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
   });
 
   /** Starts a local MCP stdio server process the way the product admits one. */
