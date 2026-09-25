@@ -273,6 +273,7 @@ describe('command-api contracts', () => {
       'default',
       'acceptEdits',
       'bypassPermissions',
+      'auto',
     ]);
     expect(readCommandPermissionMode(context)).toBe('default');
 
