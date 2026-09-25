@@ -1,17 +1,21 @@
 import { createSessionMessageHandler } from '@robota-sdk/agent-transport';
 import { resolveAdmission } from '@robota-sdk/agent-transport/node';
-import { extractDtlsFingerprint } from '@robota-sdk/agent-remote-pairing';
+import { extractDtlsFingerprint, extractDtlsFingerprintAttribute } from '@robota-sdk/agent-remote-pairing';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import type { RTCDataChannel, RTCPeerConnection } from 'werift';
 
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 
 import { createChannelDelivery } from './channel-delivery.js';
+import { whenRemoteCertificateVerified } from './negotiated-certificate.js';
 import { loadWerift } from './werift-loader.js';
 import { PairingGate } from './pairing-gate.js';
 import { createTransportLifecycleError } from './transport-lifecycle-error.js';
 import { WebRtcDeliveryLifecycle } from './webrtc-delivery-lifecycle.js';
 import type { IWebRtcTransportOptions } from './webrtc-transport-options.js';
+
+/** Frames a peer may send before the gate exists; the pairing handshake needs only a few. */
+const MAX_PENDING_FRAMES = 16;
 
 /**
  * WebRTC P2P transport (REMOTE-001/002): carries an `IProtocolSession` over an `RTCDataChannel` using the
@@ -36,6 +40,11 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
   private localFingerprint?: string;
   /** Pairing gate for the current channel. */
   private pairingGate?: PairingGate;
+  /** Whether this start generation has taken its one answer; any later answer is ignored. */
+  private answered = false;
+  /** Pre-gate channel frames, replayed into the gate once it exists. Bounded. */
+  private pendingFrames: string[] = [];
+  private stopAwaitingCertificate?: () => void;
   private readonly deliveryLifecycle: WebRtcDeliveryLifecycle;
 
   public constructor(private readonly options: IWebRtcTransportOptions) {
@@ -106,10 +115,15 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
       signalChain = signalChain.then(async () => {
         if (generation !== this.generation || peer !== this.peer) return;
         if (message.kind === 'answer') {
+          // One answer per start. A later answer would add fingerprints the DTLS layer then also accepts.
+          if (this.answered) return;
+          this.answered = true;
+          const algorithm = this.remoteFingerprintAlgorithm(channel, message.data);
+          if (this.options.secret && algorithm === undefined) return;
           await peer.setRemoteDescription(
             message.data as Parameters<typeof peer.setRemoteDescription>[0],
           );
-          this.startPairingIfConfigured(channel, session, message.data, generation);
+          if (algorithm !== undefined) this.awaitVerifiedCertificate(peer, channel, session, algorithm, generation);
         } else if (message.kind === 'ice') {
           await peer.addIceCandidate(message.data as Parameters<typeof peer.addIceCandidate>[0]);
         }
@@ -129,6 +143,8 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
     if (this.peer) throw createTransportLifecycleError('already-started');
     const generation = ++this.generation;
     this.deliveryLifecycle.reset(generation);
+    this.answered = false;
+    this.pendingFrames = [];
 
     const peer = this.createPeer();
     this.peer = peer;
@@ -148,25 +164,67 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
     signaling.send({ kind: 'offer', data: peer.localDescription });
   }
 
-  /** Build the pairing gate only after the answer supplies the remote DTLS fingerprint. */
-  private startPairingIfConfigured(
+  /**
+   * With a pairing secret, the answer must advertise exactly one DTLS fingerprint; its algorithm is the one the
+   * verified certificate is hashed with. A refused answer fails pairing and closes the channel.
+   */
+  private remoteFingerprintAlgorithm(channel: RTCDataChannel, answer: unknown): string | undefined {
+    if (!this.options.secret) return undefined;
+    const sdp = (answer as { sdp?: unknown }).sdp;
+    try {
+      if (typeof sdp !== 'string') throw new Error('answer carries no SDP');
+      return extractDtlsFingerprintAttribute(sdp).algorithm;
+    } catch {
+      this.failPairing(channel);
+      return undefined;
+    }
+  }
+
+  private failPairing(channel: RTCDataChannel): void {
+    try {
+      void channel.close();
+    } catch {
+      /* already closing */
+    }
+    this.options.onPairingFailed?.();
+  }
+
+  /** Build the pairing gate once the DTLS layer has verified the remote certificate. */
+  private awaitVerifiedCertificate(
+    peer: RTCPeerConnection,
     channel: RTCDataChannel,
     session: IProtocolSession,
-    answer: unknown,
+    algorithm: string,
     generation: number,
   ): void {
-    if (generation !== this.generation) return;
+    this.stopAwaitingCertificate = whenRemoteCertificateVerified(
+      peer,
+      algorithm,
+      (remoteFingerprint) => {
+        if (generation !== this.generation) return;
+        this.startPairing(channel, session, remoteFingerprint, generation);
+      },
+      () => {
+        if (generation === this.generation) this.failPairing(channel);
+      },
+    );
+  }
+
+  private startPairing(
+    channel: RTCDataChannel,
+    session: IProtocolSession,
+    remoteFingerprint: string,
+    generation: number,
+  ): void {
     const secret = this.options.secret;
     if (!secret || !this.localFingerprint) return;
-    const sdp = (answer as { sdp?: unknown }).sdp;
-    if (typeof sdp !== 'string') return;
     this.pairingGate = new PairingGate({
       channel: { send: (d) => channel.send(d), close: () => void channel.close() },
       session,
       secret,
       role: 'initiator',
       localFingerprint: this.localFingerprint,
-      remoteFingerprint: extractDtlsFingerprint(sdp),
+      remoteFingerprint,
       onAccept: (result) => {
         if (generation !== this.generation) return;
         this.deliveryLifecycle.accept(generation);
@@ -187,6 +245,8 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
       onDeliveryError: (error, event) =>
         this.deliveryLifecycle.handleFailure(channel, generation, error, event),
     });
+    const gate = this.pairingGate;
+    for (const frame of this.pendingFrames.splice(0)) gate.onInbound(frame);
   }
 
   private wireChannel(
@@ -199,7 +259,9 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
     if (this.options.secret) {
       channel.onMessage.subscribe((data) => {
         if (generation !== this.generation) return;
-        this.pairingGate?.onInbound(typeof data === 'string' ? data : data.toString());
+        const frame = typeof data === 'string' ? data : data.toString();
+        if (this.pairingGate) this.pairingGate.onInbound(frame);
+        else if (this.pendingFrames.length < MAX_PENDING_FRAMES) this.pendingFrames.push(frame);
       });
       // A post-accept close detaches the resume bridge and starts reconnect without ending the session.
       channel.stateChanged.subscribe((state) => {
@@ -241,6 +303,10 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
     this.unsubscribeSignal = undefined;
     this.pairingGate = undefined;
     this.localFingerprint = undefined;
+    this.answered = false;
+    this.pendingFrames = [];
+    this.stopAwaitingCertificate?.();
+    this.stopAwaitingCertificate = undefined;
     this.deliveryLifecycle.reset(this.generation);
     if (this.peer) {
       await this.peer.close();
