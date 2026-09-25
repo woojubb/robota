@@ -71,7 +71,8 @@ export function readFallbackModelSetting(
 ): string[] | undefined {
   const value = settings[FALLBACK_MODEL_SETTINGS_KEY];
   if (!Array.isArray(value)) return undefined;
-  return value.filter((entry): entry is string => typeof entry === 'string' && entry.trim() !== '')
+  return value
+    .filter((entry): entry is string => typeof entry === 'string' && entry.trim() !== '')
     .map((entry) => entry.trim());
 }
 
@@ -101,22 +102,26 @@ function profileModel(
   };
 }
 
-function readEntry(
-  written: string,
-  input: IResolveModelFallbackChainInput,
-): IChainEntry | string {
+function readEntry(written: string, input: IResolveModelFallbackChainInput): IChainEntry | string {
   const { settings, primary, providerDefinitions } = input;
   const onProfile = (profile: string, model?: string): IChainEntry | string => {
     const found = profileModel(settings, profile, providerDefinitions);
-    if (found === undefined) return `Fallback model "${written}": profile "${profile}" has no provider type.`;
+    if (found === undefined)
+      return `Fallback model "${written}": profile "${profile}" has no provider type.`;
     const chosen = model ?? found.model;
-    if (chosen === undefined) return `Fallback model "${written}": profile "${profile}" names no model.`;
+    if (chosen === undefined)
+      return `Fallback model "${written}": profile "${profile}" names no model.`;
     return { written, profile, providerType: found.providerType, model: chosen };
   };
   if (written === 'default') {
     if (settings.currentProvider !== undefined) return onProfile(settings.currentProvider);
     const model = settings.provider?.model ?? primary.config.model;
-    return { written, ...(primary.profile !== undefined && { profile: primary.profile }), providerType: primary.config.name, model };
+    return {
+      written,
+      ...(primary.profile !== undefined && { profile: primary.profile }),
+      providerType: primary.config.name,
+      model,
+    };
   }
   if (settings.providers?.[written] !== undefined) return onProfile(written);
   const separator = written.indexOf(':');
@@ -124,7 +129,8 @@ function readEntry(
     const profile = written.slice(0, separator);
     const model = written.slice(separator + 1);
     // A model id may itself contain a colon; only a known profile before it makes it a pair.
-    if (settings.providers?.[profile] !== undefined && model.length > 0) return onProfile(profile, model);
+    if (settings.providers?.[profile] !== undefined && model.length > 0)
+      return onProfile(profile, model);
   }
   return {
     written,
@@ -150,7 +156,8 @@ function buildTarget(
         entry.profile !== undefined && entry.profile !== primary.profile
           ? resolveActiveProvider(settings, entry.profile, providerDefinitions)
           : primary.config;
-      if (config === undefined) throw new Error(`Provider profile "${entry.profile}" has no configuration`);
+      if (config === undefined)
+        throw new Error(`Provider profile "${entry.profile}" has no configuration`);
       return createProviderFromConfig({ ...config, model: entry.model }, providerDefinitions);
     },
   };

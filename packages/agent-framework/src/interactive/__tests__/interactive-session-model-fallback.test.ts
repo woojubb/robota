@@ -98,10 +98,11 @@ describe('a turn that moved to another model', () => {
         message.content === 'test-model was overloaded; this turn continued on gpt-next (openai).',
     );
     expect(noteIndex).toBeGreaterThan(-1);
-    expect(messages.findIndex((message) => message.role === 'assistant')).toBeGreaterThan(noteIndex);
-    const observation = session
-      .getFullHistory()
-      .find((entry) => entry.type === 'usage-observation')?.data as IUsageObservation | undefined;
+    expect(messages.findIndex((message) => message.role === 'assistant')).toBeGreaterThan(
+      noteIndex,
+    );
+    const observation = session.getFullHistory().find((entry) => entry.type === 'usage-observation')
+      ?.data as IUsageObservation | undefined;
     expect(observation).toMatchObject({ providerId: 'openai', modelId: 'gpt-next' });
   });
 });

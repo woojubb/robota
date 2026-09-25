@@ -857,7 +857,10 @@ export {
   runWithRoleFallback,
 } from './routing/role-model-routing.js';
 export { FallbackProvider } from './routing/fallback-provider.js';
-export type { IFallbackModelTarget, IFallbackProviderOptions } from './routing/fallback-provider.js';
+export type {
+  IFallbackModelTarget,
+  IFallbackProviderOptions,
+} from './routing/fallback-provider.js';
 export {
   FALLBACK_MODEL_SETTINGS_KEY,
   MAX_FALLBACK_MODELS,

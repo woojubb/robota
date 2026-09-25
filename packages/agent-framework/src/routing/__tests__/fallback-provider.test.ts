@@ -19,7 +19,13 @@ import type {
 type TBehavior = (options: IChatOptions) => Promise<TUniversalMessage>;
 
 function reply(content: string): TUniversalMessage {
-  return { id: `r-${content}`, role: 'assistant', content, timestamp: new Date(), state: 'complete' };
+  return {
+    id: `r-${content}`,
+    role: 'assistant',
+    content,
+    timestamp: new Date(),
+    state: 'complete',
+  };
 }
 
 /** A provider whose answers are scripted one call at a time; the last script repeats. */
@@ -35,7 +41,10 @@ class ScriptedProvider implements IAIProvider {
     this.script = script.length > 0 ? script : [async () => reply(name)];
   }
 
-  async chat(messages: TUniversalMessage[], options: IChatOptions = {}): Promise<TUniversalMessage> {
+  async chat(
+    messages: TUniversalMessage[],
+    options: IChatOptions = {},
+  ): Promise<TUniversalMessage> {
     this.calls.push({ messages, options });
     const behavior = this.script[Math.min(this.calls.length - 1, this.script.length - 1)]!;
     return behavior(options);
@@ -54,10 +63,15 @@ class ScriptedProvider implements IAIProvider {
   }
 }
 
-const fail = (error: unknown): TBehavior => async () => {
-  throw error;
-};
-const answer = (content: string): TBehavior => async () => reply(content);
+const fail =
+  (error: unknown): TBehavior =>
+  async () => {
+    throw error;
+  };
+const answer =
+  (content: string): TBehavior =>
+  async () =>
+    reply(content);
 
 const overloaded = (): ProviderError =>
   new ProviderError('overloaded', 'anthropic', undefined, undefined, {
@@ -102,12 +116,21 @@ describe('FallbackProvider', () => {
   });
 
   it.each([
-    ['authentication (401)', () => new ProviderError('bad key', 'x', undefined, undefined, { status: 401 })],
+    [
+      'authentication (401)',
+      () => new ProviderError('bad key', 'x', undefined, undefined, { status: 401 }),
+    ],
     ['an AuthenticationError', () => new AuthenticationError('bad key', 'x')],
     ['a rate limit (429)', () => new RateLimitError('slow down', undefined, 'x')],
     ['a network failure', () => new NetworkError('socket closed')],
-    ['a bad request (400)', () => new ProviderError('bad', 'x', undefined, undefined, { status: 400 })],
-    ['a payload too large (413)', () => new ProviderError('big', 'x', undefined, undefined, { status: 413 })],
+    [
+      'a bad request (400)',
+      () => new ProviderError('bad', 'x', undefined, undefined, { status: 400 }),
+    ],
+    [
+      'a payload too large (413)',
+      () => new ProviderError('big', 'x', undefined, undefined, { status: 413 }),
+    ],
     ['billing (402)', () => new ProviderError('pay', 'x', undefined, undefined, { status: 402 })],
   ])('does not move on %s', async (_label, error) => {
     const thrown = error();
@@ -216,7 +239,10 @@ describe('FallbackProvider', () => {
       provider: 'anthropic',
       model: 'claude-primary',
     });
-    const nextRun = await provider.chat(MESSAGES, { model: 'claude-primary', executionId: 'run-2' });
+    const nextRun = await provider.chat(MESSAGES, {
+      model: 'claude-primary',
+      executionId: 'run-2',
+    });
     expect(nextRun.content).toBe('primary again');
     expect(primary.calls).toHaveLength(2);
   });
@@ -225,7 +251,13 @@ describe('FallbackProvider', () => {
     const primary = new ScriptedProvider('anthropic', fail(overloaded()));
     const next = new ScriptedProvider('openai');
     const provider = new FallbackProvider(primary, [target(next, 'gpt-next')]);
-    const tools = [{ name: 'Read', description: 'read', parameters: { type: 'object' as const, properties: {} } }];
+    const tools = [
+      {
+        name: 'Read',
+        description: 'read',
+        parameters: { type: 'object' as const, properties: {} },
+      },
+    ];
 
     await provider.chat(MESSAGES, {
       model: 'claude-primary',
@@ -262,7 +294,11 @@ describe('FallbackProvider', () => {
       const large = new ScriptedProvider('openai-large', answer('large'));
       const provider = new FallbackProvider(
         primary,
-        [target(small, 'small-model'), target(unknown, 'mystery-model'), target(large, 'large-model')],
+        [
+          target(small, 'small-model'),
+          target(unknown, 'mystery-model'),
+          target(large, 'large-model'),
+        ],
         { contextWindowOf },
       );
 

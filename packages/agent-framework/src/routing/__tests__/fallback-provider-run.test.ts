@@ -51,7 +51,10 @@ class ScriptedProvider implements IAIProvider {
     private readonly overloadedCalls: ReadonlySet<number> = new Set(),
   ) {}
 
-  async chat(messages: TUniversalMessage[], options: IChatOptions = {}): Promise<TUniversalMessage> {
+  async chat(
+    messages: TUniversalMessage[],
+    options: IChatOptions = {},
+  ): Promise<TUniversalMessage> {
     this.calls.push({ messages, options });
     if (this.overloadedCalls.has(this.calls.length)) {
       throw new ProviderError('overloaded', this.name, undefined, undefined, { status: 529 });
@@ -91,7 +94,8 @@ type TEvent = { event: string; data: Record<string, unknown> };
 
 async function runTurn(agent: Robota, events: TEvent[] = []): Promise<void> {
   await agent.run('find it', {
-    onExecutionEvent: (event, data) => events.push({ event, data: data as Record<string, unknown> }),
+    onExecutionEvent: (event, data) =>
+      events.push({ event, data: data as Record<string, unknown> }),
   });
 }
 

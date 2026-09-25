@@ -20,7 +20,11 @@ function definition(type: string, model?: string): IProviderDefinition {
   };
 }
 
-const DEFINITIONS = [definition('anthropic'), definition('openai', 'gpt-default'), definition('gemini')];
+const DEFINITIONS = [
+  definition('anthropic'),
+  definition('openai', 'gpt-default'),
+  definition('gemini'),
+];
 
 const SETTINGS: TProviderSettingsDocument = {
   currentProvider: 'claude',
@@ -85,7 +89,9 @@ describe('resolveModelFallbackChain', () => {
 
   it('builds each entry from its own profile, on the entry model', () => {
     const chain = resolveModelFallbackChain(input(['openai', 'gemini:gemini-pro']));
-    const built = chain.targets.map((target) => target.create() as unknown as { name: string; model: string });
+    const built = chain.targets.map(
+      (target) => target.create() as unknown as { name: string; model: string },
+    );
     expect(built).toEqual([
       { name: 'openai', model: 'gpt-profile' },
       { name: 'gemini', model: 'gemini-pro' },
@@ -110,7 +116,11 @@ describe('resolveModelFallbackChain', () => {
         'claude-d',
       ]),
     );
-    expect(refs(chain)).toEqual(['openai/gpt-profile', 'gemini/gemini-profile', 'anthropic/claude-b']);
+    expect(refs(chain)).toEqual([
+      'openai/gpt-profile',
+      'gemini/gemini-profile',
+      'anthropic/claude-b',
+    ]);
     expect(chain.notices).toEqual([
       'Only the first 3 fallback models are used; dropped: claude-c, claude-d.',
     ]);
@@ -118,7 +128,9 @@ describe('resolveModelFallbackChain', () => {
 
   it('drops entries the organization does not allow, with a notice', () => {
     const chain = resolveModelFallbackChain(
-      input(['openai', 'gemini:gemini-pro', 'claude-b'], { allowedProviders: ['claude', 'gemini'] }),
+      input(['openai', 'gemini:gemini-pro', 'claude-b'], {
+        allowedProviders: ['claude', 'gemini'],
+      }),
     );
     expect(refs(chain)).toEqual(['gemini/gemini-pro', 'anthropic/claude-b']);
     expect(chain.notices).toEqual([
@@ -131,10 +143,9 @@ describe('selectFallbackModelEntries', () => {
   const settings: TProviderSettingsDocument = { ...SETTINGS, fallbackModel: ['openai', 'gemini'] };
 
   it('uses the flag over the settings', () => {
-    expect(selectFallbackModelEntries(parseFallbackModelList('gemini:x, claude-b'), settings)).toEqual([
-      'gemini:x',
-      'claude-b',
-    ]);
+    expect(
+      selectFallbackModelEntries(parseFallbackModelList('gemini:x, claude-b'), settings),
+    ).toEqual(['gemini:x', 'claude-b']);
   });
 
   it('uses the settings when no flag is given', () => {

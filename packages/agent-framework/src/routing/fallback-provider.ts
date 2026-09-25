@@ -43,7 +43,10 @@ export interface IFallbackProviderOptions {
 const REMEMBERED_RUNS = 64;
 
 class UnreachableFallbackError extends Error {
-  constructor(readonly target: IFallbackModelTarget, cause: unknown) {
+  constructor(
+    readonly target: IFallbackModelTarget,
+    cause: unknown,
+  ) {
     super(`Fallback model ${target.ref.model} (${target.ref.provider}) could not be reached`, {
       cause,
     });
@@ -103,7 +106,10 @@ export class FallbackProvider implements IAIProvider {
     return this.refAt(this.startPosition(executionId), model);
   }
 
-  async chat(messages: TUniversalMessage[], options: IChatOptions = {}): Promise<TUniversalMessage> {
+  async chat(
+    messages: TUniversalMessage[],
+    options: IChatOptions = {},
+  ): Promise<TUniversalMessage> {
     const model = options.model;
     if (model === undefined || this.fallbacks.length === 0) {
       return this.primary.chat(messages, delegatedOptions(options));
@@ -201,7 +207,11 @@ export class FallbackProvider implements IAIProvider {
    */
   private candidatePositions(model: string, options: IChatOptions): number[] {
     const positions: number[] = [];
-    for (let position = this.startPosition(options.executionId); position <= this.fallbacks.length; position++) {
+    for (
+      let position = this.startPosition(options.executionId);
+      position <= this.fallbacks.length;
+      position++
+    ) {
       if (
         position > 0 &&
         options.preserveContextWindow === true &&
