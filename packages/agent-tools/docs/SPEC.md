@@ -116,9 +116,10 @@ never happened.
   a host daemon's socket is a way out; the model cannot ask to leave it. What it guards is outside
   the workspace plus the workspace's own trust inputs — the repository's `.git` whole (the files in
   it that make git run something are too many to list and keep complete) and the agent, MCP and
-  shell configuration at the root: read-only where they exist, moved out of the workspace after the
-  command where they did not (a mount cannot protect a path that does not exist yet, and moving
-  loses nothing the host wrote meanwhile), and never auto-approved while one is a symlink the
+  shell configuration at the root: read-only where they exist, moved out of the workspace when the
+  command that created one ends where they did not (a mount cannot protect a path that does not
+  exist yet, so it is live on the host for that long; moving loses nothing the host wrote
+  meanwhile), and never auto-approved while one is a symlink the
   command could redirect. Everything else in the workspace is the command's to change, as it is the
   file tools'; a nested repository or build script it writes is workspace content, and the sandbox
   does not make running host tools over it safe.

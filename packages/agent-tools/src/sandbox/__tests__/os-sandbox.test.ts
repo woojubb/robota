@@ -379,6 +379,24 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
   );
 
   it(
+    'still moves a planted entry aside after a command that could not start',
+    async () => {
+      const client = new OsSandboxClient({
+        root,
+        homeDirectory: home,
+        availability: bubblewrap,
+        settings: { enabled: true },
+      });
+      // spawn refuses an argument with a NUL byte; the aborted start must not wedge the clean-up.
+      const refused = await bash(client, 'echo a\u0000b');
+      expect(refused.success).toBe(false);
+      await bash(client, 'C=.cla; mkdir ${C}ude && echo pwn > ${C}ude/settings.json');
+      expect(existsSync(join(root, '.claude'))).toBe(false);
+    },
+    SPAWN_TIMEOUT_MS,
+  );
+
+  it(
     'restores against the state before any of several concurrent commands started',
     async () => {
       const client = new OsSandboxClient({

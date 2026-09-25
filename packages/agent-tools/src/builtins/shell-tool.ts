@@ -149,7 +149,22 @@ async function runShell(
   const invocation =
     options.sandboxClient?.wrapCommand?.(hostInvocation, command) ?? hostInvocation;
 
+  // The invocation's clean-up runs exactly once on every path out — the close below, a spawn that
+  // throws, or an abort before start — and never throws into the host.
+  let released = false;
+  const release = (): string | undefined => {
+    if (released) return undefined;
+    released = true;
+    try {
+      return invocation.afterExit?.();
+    } catch (error) {
+      // allow-fallback: a sandbox's clean-up must never take the host down; it is reported
+      return `[sandbox] clean-up failed: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  };
+
   if (signal?.aborted) {
+    release();
     return JSON.stringify({ success: false, output: '', error: 'Aborted before start' });
   }
 
@@ -161,20 +176,35 @@ async function runShell(
     let timedOut = false;
     let settled = false;
 
-    const child = spawn(invocation.command, [...invocation.args], {
-      cwd: invocation.cwd,
-      // A fresh copy carrying this call's trace when the host enabled it; `process.env` itself is
-      // never modified, so no other child can inherit the value.
-      env: traceEnv === undefined ? process.env : subprocessTraceEnvironment(process.env, traceEnv),
-      // Descriptors 3, 4, … carry what the invocation hands the process (a sandbox's seccomp filter).
-      stdio: [
-        'pipe',
-        'pipe',
-        'pipe',
-        ...(invocation.inputDescriptors ?? []).map(() => 'pipe' as const),
-      ],
-      detached: SPAWN_DETACHED,
-    });
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = spawn(invocation.command, [...invocation.args], {
+        cwd: invocation.cwd,
+        // A fresh copy carrying this call's trace when the host enabled it; `process.env` itself is
+        // never modified, so no other child can inherit the value.
+        env:
+          traceEnv === undefined ? process.env : subprocessTraceEnvironment(process.env, traceEnv),
+        // Descriptors 3, 4, … carry what the invocation hands the process (a sandbox's seccomp filter).
+        stdio: [
+          'pipe',
+          'pipe',
+          'pipe',
+          ...(invocation.inputDescriptors ?? []).map(() => 'pipe' as const),
+        ],
+        detached: SPAWN_DETACHED,
+      });
+    } catch (error) {
+      const note = release();
+      const message = error instanceof Error ? error.message : String(error);
+      resolve(
+        JSON.stringify({
+          success: false,
+          output: note ?? '',
+          error: message,
+        } satisfies IToolInvocationResult),
+      );
+      return;
+    }
     (invocation.inputDescriptors ?? []).forEach((data, index) => {
       const stream = child.stdio[index + 3] as NodeJS.WritableStream | null;
       // The wrapper may exit before reading it (bwrap refusing a mount); its exit status and stderr
@@ -187,11 +217,11 @@ async function runShell(
     // so commands that read stdin (e.g. `cat`) terminate instead of hanging until timeout.
     child.stdin?.end();
 
-    child.stdout.on('data', (chunk: Buffer) => {
+    child.stdout?.on('data', (chunk: Buffer) => {
       stdoutOutput.append(chunk);
     });
 
-    child.stderr.on('data', (chunk: Buffer) => {
+    child.stderr?.on('data', (chunk: Buffer) => {
       stderrOutput.append(chunk);
     });
 
@@ -229,6 +259,7 @@ async function runShell(
     signal?.addEventListener('abort', onAbort, { once: true });
 
     child.on('error', (err: Error) => {
+      release();
       settle({
         success: false,
         output: '',
@@ -238,13 +269,7 @@ async function runShell(
 
     child.on('close', (code: number | null) => {
       // Always, even after a timeout or an abort already settled: the sandbox undoes what it must.
-      let note: string | undefined;
-      try {
-        note = invocation.afterExit?.();
-      } catch (error) {
-        // allow-fallback: a sandbox's clean-up must never take the host down; it is reported
-        note = `[sandbox] clean-up failed: ${error instanceof Error ? error.message : String(error)}`;
-      }
+      const note = release();
       if (timedOut) {
         settle({
           success: false,

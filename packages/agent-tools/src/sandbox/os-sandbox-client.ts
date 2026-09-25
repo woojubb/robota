@@ -268,11 +268,13 @@ export class OsSandboxClient implements ISandboxClient {
       }),
       cwd: invocation.cwd,
       ...(filter !== undefined ? { inputDescriptors: [filter] } : {}),
+      // Restores against the burst's baseline as each command ends, so a planted entry lives no
+      // longer than the command that planted it; the baseline itself resets once none is running.
       afterExit: () => {
         if (finished) return undefined;
         finished = true;
         this.inFlight -= 1;
-        return this.inFlight === 0 ? this.restoreProtectedEntries(this.baseline) : undefined;
+        return this.restoreProtectedEntries(this.baseline);
       },
     };
   }
@@ -301,7 +303,6 @@ export class OsSandboxClient implements ISandboxClient {
    * existed is moved into `.robota/sandbox-quarantine`, and a symlink it replaced is restored. Moved,
    * not deleted, so nothing the host wrote meanwhile is lost.
    */
-  /** Whether a path's real location is outside the workspace (and so under the read-only mounts). */
   /** Whether a path's real location is under the read-only mounts: not the workspace, temp or `allowWrite`. */
   private resolvesOutsideWritableWorkspace(path: string): boolean {
     let real: string;
@@ -399,11 +400,18 @@ export class OsSandboxClient implements ISandboxClient {
     );
     return new Promise((resolveRun, reject) => {
       const extra = invocation.inputDescriptors ?? [];
-      const child = spawn(invocation.command, [...invocation.args], {
-        cwd: invocation.cwd,
-        stdio: ['ignore', 'pipe', 'pipe', ...extra.map(() => 'pipe' as const)],
-        ...(options.timeoutMs !== undefined ? { timeout: options.timeoutMs } : {}),
-      });
+      let child: ReturnType<typeof spawn>;
+      try {
+        child = spawn(invocation.command, [...invocation.args], {
+          cwd: invocation.cwd,
+          stdio: ['ignore', 'pipe', 'pipe', ...extra.map(() => 'pipe' as const)],
+          ...(options.timeoutMs !== undefined ? { timeout: options.timeoutMs } : {}),
+        });
+      } catch (error) {
+        invocation.afterExit?.();
+        reject(error instanceof Error ? error : new Error(String(error)));
+        return;
+      }
       extra.forEach((data, index) => {
         const stream = child.stdio[index + 3] as NodeJS.WritableStream | null;
         // bwrap may exit before reading it; that is the command's failure, not the host's.
@@ -414,7 +422,10 @@ export class OsSandboxClient implements ISandboxClient {
       let stderr = '';
       child.stdout?.on('data', (chunk: Buffer) => (stdout += chunk.toString()));
       child.stderr?.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
-      child.on('error', reject);
+      child.on('error', (error) => {
+        invocation.afterExit?.();
+        reject(error);
+      });
       child.on('close', (code) => {
         const note = invocation.afterExit?.();
         const out = note === undefined ? stdout : `${stdout}\n${note}`;

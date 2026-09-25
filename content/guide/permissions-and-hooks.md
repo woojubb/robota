@@ -77,7 +77,8 @@ Inside the sandbox:
   fail inside the sandbox; add `git` to `excludedCommands` to run them on the host through the
   ordinary prompt. On Linux, one of these entries a command creates where none existed is moved
   to `~/.robota/sandbox-quarantine`, and a symlink it replaces is restored, when the command exits,
-  with a note in its output. While one of these entries is a symlink into a writable place
+  with a note in its output. Until that command exits, the entry it created is on disk, so a
+  session started meanwhile could read it. While one of these entries is a symlink into a writable place
   (the working directory, a temporary directory, `allowWrite`) or points nowhere, commands are
   confined but never approved automatically;
 - everything else in the working directory is the command's to change, just as it is the file
