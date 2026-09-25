@@ -129,8 +129,8 @@ These are behaviors a caller cannot infer from a type signature alone.
   adapter for a requested action gets an explicit failure naming the missing capability — never a
   silent no-op. UI-only intents (opening a picker, a settings screen) are fire-and-forget: with no
   surface listening they are a defined no-op, and that never affects the host-action half.
-- **Local peer status is display-only.** Host-observed activity and independently verified process
-  liveness never grant authority over the peer or identify a persisted session record, and a passive
+- **Local peer status is display-only.** Host-observed activity, independently verified process
+  liveness and the verified workspace relation never grant authority over the peer or identify a persisted session record, and a passive
   observer can never keep a request alive after its last answering surface leaves.
 - **Prompt/permission settlement is first-wins and fail-closed.** `InteractiveSession` exposes no
   session-level callback option for permission or ask prompts; it emits transport-neutral request

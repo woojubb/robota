@@ -55,7 +55,12 @@ Robota executable or product on their own.
 Local peer-activity publishing exposes only fixed, content-free activity states for the current
 interactive session into a guarded, same-user rendezvous, kept separate from process-liveness checks
 (stale or unverified observations read as `unknown`) and never carrying conversation content or
-stored-session identity. `session list` shows this presence separately from saved session records
+stored-session identity. The workspace claim published beside it is checked by each reader, which
+reads git at the claimed path itself and relates nothing whose contents do not match; it does not
+establish that the peer works at that path, because the same OS user is the trust boundary and the
+relation grants nothing. Those reads stay local — git in a directory this session did not choose
+must never fetch or run repository-configured commands — and the origin travels only as a hash so a
+credential in a remote URL never reaches the rendezvous. `session list` shows this presence separately from saved session records
 without implying a background supervisor or an attach/restart capability; it includes only
 user-owned and currently authorized project records, never transcript content, and corrupt or
 unsupported records stay visible rather than being hidden.

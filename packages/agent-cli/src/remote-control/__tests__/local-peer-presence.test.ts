@@ -6,7 +6,15 @@
  * clean exit removes it, and that a refused rendezvous is not quietly announced anyway.
  */
 
-import { mkdtempSync, readFileSync, readdirSync, rmSync, realpathSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import {
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  realpathSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -293,5 +301,123 @@ describe('withdrawal is bound to the process ending', () => {
       presence.withdraw();
       bus.fire();
     }).not.toThrow();
+  });
+});
+
+describe('the workspace claim (#3101 B2)', () => {
+  const env = Object.fromEntries(
+    Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')),
+  );
+  const git = (cwd: string, ...args: string[]): void => {
+    execFileSync(
+      'git',
+      [
+        '-c',
+        'user.name=t',
+        '-c',
+        'user.email=t@example.invalid',
+        '-c',
+        'commit.gpgsign=false',
+      ].concat(args),
+      { cwd, env, stdio: 'ignore' },
+    );
+  };
+
+  function repository(commit = true): string {
+    const dir = guardedDirectory();
+    git(dir, 'init', '-q');
+    // The message names the directory: two identical empty commits in one second share a hash.
+    if (commit) git(dir, 'commit', '-q', '--allow-empty', '-m', `root ${dir}`);
+    return dir;
+  }
+
+  async function announce(dir: string, sessionId: string, workspaceDirectory: string) {
+    const bus = exitBus();
+    const presence = announceLocalPeerPresence({
+      sessionId,
+      guardedDirectory: dir,
+      workspaceDirectory,
+      registry: { readStartTime: ALIVE },
+      on: bus.on,
+      off: bus.off,
+    });
+    await presence.refreshWorkspace();
+    return presence;
+  }
+
+  const read = (dir: string, sessionId: string) =>
+    JSON.parse(readFileSync(path.join(dir, `${sessionId}.peer.json`), 'utf8')) as {
+      workspace?: { worktreePath: string; rootCommits: string[] };
+    };
+
+  it('publishes the claim with the entry and shows the relation the reader judged', async () => {
+    const dir = guardedDirectory();
+    const shared = repository();
+    const one = await announce(dir, 'session-one', shared);
+    await announce(dir, 'session-two', shared);
+    await announce(dir, 'session-three', repository());
+    await announce(dir, 'session-four', guardedDirectory());
+
+    const rows = await one.listWithWorkspace();
+    const relation = (sessionId: string) =>
+      rows.find((peer) => peer.sessionId === sessionId)?.workspaceRelation;
+    expect(relation('session-two')).toBe('same-worktree');
+    expect(relation('session-three')).toBe('different-repo');
+    expect(relation('session-four')).toBe('unknown');
+    // This session's own row is not judged against itself.
+    expect(relation('session-one')).toBeUndefined();
+    expect(read(dir, 'session-two').workspace?.worktreePath).toBe(shared);
+  });
+
+  it('keeps the cheap listing free of workspace reads', async () => {
+    const dir = guardedDirectory();
+    const shared = repository();
+    const one = await announce(dir, 'session-one', shared);
+    await announce(dir, 'session-two', shared);
+    expect(one.list().every((row) => row.workspaceRelation === undefined)).toBe(true);
+  });
+
+  it('reports a tampered claim as mismatched and does not believe it', async () => {
+    const dir = guardedDirectory();
+    const one = await announce(dir, 'session-one', repository());
+    await announce(dir, 'session-two', repository());
+    const entry = read(dir, 'session-two');
+    entry.workspace!.rootCommits = read(dir, 'session-one').workspace!.rootCommits;
+    writeFileSync(path.join(dir, 'session-two.peer.json'), JSON.stringify(entry));
+
+    const verdict = await one.relate('session-two');
+    expect(verdict).toEqual({ relation: 'unknown', claim: 'mismatched' });
+  });
+
+  it('re-reads its own claim, so an honest peer is not left looking mismatched', async () => {
+    const dir = guardedDirectory();
+    const shared = repository(false);
+    const one = await announce(dir, 'session-one', shared);
+    const two = await announce(dir, 'session-two', shared);
+    expect(read(dir, 'session-two').workspace?.rootCommits).toEqual([]);
+
+    git(shared, 'commit', '-q', '--allow-empty', '-m', `root ${shared}`);
+    await two.refreshWorkspace();
+    await one.refreshWorkspace();
+
+    expect(read(dir, 'session-two').workspace?.rootCommits).toHaveLength(1);
+    expect(await one.relate('session-two')).toEqual({
+      relation: 'same-worktree',
+      claim: 'verified',
+    });
+  });
+
+  it('judges a peer again once its entry is republished', async () => {
+    const dir = guardedDirectory();
+    const theirs = repository();
+    const one = await announce(dir, 'session-one', repository());
+    const two = await announce(dir, 'session-two', theirs);
+    expect((await one.relate('session-two'))?.claim).toBe('verified');
+
+    // The claimed path stops reading back as claimed; the next announcement is judged afresh.
+    rmSync(path.join(theirs, '.git'), { recursive: true, force: true });
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    two.publishStatus('idle');
+    expect((await one.relate('session-two'))?.claim).toBe('mismatched');
   });
 });

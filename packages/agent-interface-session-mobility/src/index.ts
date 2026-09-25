@@ -21,6 +21,7 @@ export type {
   ISessionPeerMessagingPort,
   TPeerDeliveryState,
   TPeerTrust,
+  TWorkspaceRelation,
 } from './peer-message-contracts.js';
 export { isSameEnvironmentPeer, isTerminalPeerDelivery } from './peer-message-contracts.js';
 

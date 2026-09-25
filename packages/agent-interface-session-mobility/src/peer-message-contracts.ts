@@ -63,7 +63,20 @@ export interface IPeerOrigin {
   readonly sessionId: string;
   /** Display attribution only — never an admission input. */
   readonly driverId?: TDriverId;
+  /**
+   * How the peer's workspace relates to the receiver's, as the RECEIVER judged it from what it read at
+   * the path the peer claimed (not proof the peer works there). A value that arrived on the wire is
+   * discarded. Display and routing only — never an authorization input.
+   */
+  readonly workspaceRelation?: TWorkspaceRelation;
 }
+
+/**
+ * How two sessions' workspaces relate. `unknown` covers a session outside git, one that published no
+ * claim, and a claim whose path did not read back as claimed — a claim is checked, never taken as
+ * written.
+ */
+export type TWorkspaceRelation = 'same-worktree' | 'same-repo' | 'different-repo' | 'unknown';
 
 /** The result a messaging feature receives from an admission port. Never a bare boolean. */
 export interface IPeerAdmission {

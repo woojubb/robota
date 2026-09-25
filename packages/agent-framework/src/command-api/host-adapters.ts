@@ -7,6 +7,7 @@ import type { IModelEffortResolution, TEffortSelection } from '../effort/effort-
 import type { ICommandAdvisorAdapter } from '../advisor/advisor-spec.js';
 import type { TPermissionMode, TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
 import type { IPermissionDenial } from '@robota-sdk/agent-session';
+import type { TWorkspaceRelation } from '@robota-sdk/agent-interface-session-mobility';
 
 export interface ICommandSettingsDocument {
   [key: string]: TUniversalValue;
@@ -193,6 +194,10 @@ export interface ILocalPeerSummary {
   readonly liveness: 'alive' | 'dead' | 'unknown';
   /** Content-free observed activity; unknown when stale or unverified. */
   readonly status?: 'working' | 'needs-input' | 'idle' | 'unknown';
+  /** How the peer's workspace relates to this one's, judged from what this session read at the claimed path. */
+  readonly workspaceRelation?: TWorkspaceRelation;
+  /** `mismatched` when the peer's claim disagreed with what this session read; it is not believed. */
+  readonly workspaceClaim?: 'verified' | 'mismatched' | 'absent';
 }
 
 /**
@@ -203,6 +208,11 @@ export interface ILocalPeerSummary {
 export interface ICommandLocalPeersAdapter {
   /** Every announced session, this one included. Ordering is the adapter's. */
   list(): readonly ILocalPeerSummary[];
+  /**
+   * The same rows with each other peer's workspace relation filled in. Separate and asynchronous
+   * because judging a relation reads git; `list` stays cheap for callers that only need liveness.
+   */
+  listWithWorkspace?(): Promise<readonly ILocalPeerSummary[]>;
   /** This session's own id, so the command can mark which row is the reader. */
   ownSessionId(): string;
   /**

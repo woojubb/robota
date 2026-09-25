@@ -29,6 +29,8 @@ import type {
   IPeerMessage,
   IPeerMessageAck,
   IPeerMessageIngress,
+  IPeerOrigin,
+  TWorkspaceRelation,
 } from '@robota-sdk/agent-interface-session-mobility';
 
 /** What this module needs from `PeerMessageIngress`, and nothing more. */
@@ -51,6 +53,11 @@ export interface IPeerMessagingOptions {
   readonly ingress: IPeerIngressPort;
   /** Discovery, injected: this module must not become a second reader of the rendezvous. */
   readonly list: () => readonly IAddressablePeer[];
+  /**
+   * The sender's workspace relation as this session judges it, carried into the peer-turn origin
+   * for display and routing. Asked for the sender alone, never for every peer.
+   */
+  readonly relate?: (sessionId: string) => Promise<TWorkspaceRelation | undefined>;
   /** Where a settled refusal is reported. Absent means nobody is told, which is a choice. */
   readonly report?: (message: string) => void;
   readonly newMessageId?: () => string;
@@ -112,23 +119,24 @@ export async function startLocalPeerMessaging(
     sessionId: options.sessionId,
     onMessage: async (message: IPeerMessage): Promise<IPeerMessageAck> => {
       // The admission is the DIRECTORY's, established when the socket was bound. It is restated
-      // here as the ingress's contract requires, not re-derived from anything the peer sent.
+      // here as the ingress's contract requires, not re-derived from anything the peer sent. The
+      // workspace relation is likewise this session's own verdict, never the sender's.
+      const relation = await options.relate?.(message.origin.sessionId).catch(() => {
+        // allow-fallback: the relation is display-only; without it the turn simply carries none.
+        return undefined;
+      });
+      const origin: IPeerOrigin = {
+        sessionId: message.origin.sessionId,
+        driverId: peerDriverId(message.origin.sessionId),
+      };
       const result = await options.ingress.receive({
         message: {
           ...message,
-          origin: {
-            sessionId: message.origin.sessionId,
-            driverId: peerDriverId(message.origin.sessionId),
-          },
+          origin: { ...origin, ...(relation !== undefined ? { workspaceRelation: relation } : {}) },
         },
-        admission: {
-          admitted: true,
-          trust: 'same-user-same-host',
-          origin: {
-            sessionId: message.origin.sessionId,
-            driverId: peerDriverId(message.origin.sessionId),
-          },
-        },
+        // The admission carries no relation: it is what authority is decided on, and the relation
+        // must never be one of its inputs.
+        admission: { admitted: true, trust: 'same-user-same-host', origin },
       });
 
       // Consumed, not awaited on the wire. A refusal the operator never hears is the failure mode

@@ -20,10 +20,18 @@ import {
   announcePeer,
   listPeers,
   withdrawPeer,
+  type IDiscoveredPeer,
   type IPeerEntry,
   type IRegistryOptions,
 } from './local-peer-registry.js';
 import { ensureRendezvousDirectory } from './local-peer-rendezvous.js';
+import {
+  judgeWorkspaceRelation,
+  readWorkspaceClaim,
+  sameClaim,
+  type IWorkspaceClaim,
+  type IWorkspaceVerdict,
+} from './local-peer-workspace.js';
 
 import type { ICommandHostAdapters } from '@robota-sdk/agent-framework';
 
@@ -49,8 +57,14 @@ export interface ILocalPeerPresence {
    * and the whole same-user-same-host argument rests on there being one.
    */
   readonly guardedDirectory: string;
-  /** Every announced session, this one included. */
+  /** Every announced session, this one included. Cheap: no workspace is read. */
   list(): readonly TPeerSummary[];
+  /** The same rows, with each other live peer's workspace relation as this session judged it. */
+  listWithWorkspace(): Promise<readonly TPeerSummary[]>;
+  /** One peer's workspace verdict; undefined for this session, a dead entry or an unknown id. */
+  relate(sessionId: string): Promise<IWorkspaceVerdict | undefined>;
+  /** Re-read this session's own workspace claim, republishing when it changed. */
+  refreshWorkspace(): Promise<void>;
   /** Publish fixed activity metadata; undefined clears it during a session switch. */
   publishStatus(status: IPeerEntry['status']): void;
   /** Remove this session's entry and stop listening for the exit. Idempotent. */
@@ -69,6 +83,8 @@ export interface IPresenceOptions {
   >;
   /** Injected so a case can point at a scratch directory instead of the real rendezvous. */
   readonly guardedDirectory?: string;
+  /** Where this session works, for its workspace claim. Defaults to the process cwd. */
+  readonly workspaceDirectory?: string;
 }
 
 /**
@@ -154,9 +170,12 @@ export function announceLocalPeerPresence(options: IPresenceOptions): ILocalPeer
 
   let withdrawn = false;
   let status: IPeerEntry['status'];
+  // Read off the announcing path: git may be slow, and announcing must not wait on it.
+  let workspace: IWorkspaceClaim | undefined;
   const republish = (requireStartTime = false): IPeerEntry =>
     announcePeer(registry, {
       ...announcement,
+      ...(workspace !== undefined ? { workspace } : {}),
       ...(status !== undefined ? { status } : {}),
       ...(requireStartTime ? { requireStartTime: true } : {}),
     });
@@ -166,8 +185,31 @@ export function announceLocalPeerPresence(options: IPresenceOptions): ILocalPeer
     republish(),
     () => withdrawn,
   );
+
+  // The claim is re-read rather than fixed at start: a first commit, a checkout or a new origin
+  // would otherwise leave an honest peer looking mismatched for the rest of its life.
+  let refreshing: Promise<void> | undefined;
+  const refreshWorkspace = (): Promise<void> => {
+    refreshing ??= readWorkspaceClaim(options.workspaceDirectory ?? process.cwd())
+      .then((next) => {
+        if (withdrawn || sameClaim(next, workspace)) return;
+        workspace = next;
+        republish();
+      })
+      .catch((error: unknown) => {
+        process.emitWarning(`Local peer workspace refresh failed: ${String(error)}`);
+      })
+      .finally(() => {
+        refreshing = undefined;
+      });
+    return refreshing;
+  };
+  void refreshWorkspace();
+
   const heartbeat = setInterval(() => {
-    if (withdrawn || status === undefined) return;
+    if (withdrawn) return;
+    void refreshWorkspace();
+    if (status === undefined) return;
     try {
       republish(true);
     } catch (error) {
@@ -185,16 +227,51 @@ export function announceLocalPeerPresence(options: IPresenceOptions): ILocalPeer
   const on = options.on ?? ((event, listener) => process.on(event, listener));
   on('exit', handler);
 
+  const summarize = (discovered: IDiscoveredPeer, verdict?: IWorkspaceVerdict): TPeerSummary => ({
+    sessionId: discovered.entry.sessionId,
+    ...(discovered.entry.name !== undefined ? { name: discovered.entry.name } : {}),
+    liveness: discovered.liveness,
+    status: discovered.status,
+    ...(verdict !== undefined
+      ? { workspaceRelation: verdict.relation, workspaceClaim: verdict.claim }
+      : {}),
+  });
+
+  // Keyed by the entry's own announcement and both claims, so a republish or a change on either
+  // side is judged afresh and nothing else is.
+  const verdicts = new Map<string, { key: string; verdict: Promise<IWorkspaceVerdict> }>();
+  const judge = (discovered: IDiscoveredPeer): Promise<IWorkspaceVerdict> | undefined => {
+    // Neither this session nor debris is judged: an entry whose process is gone relates to nothing.
+    if (discovered.entry.sessionId === options.sessionId || discovered.liveness === 'dead') {
+      return undefined;
+    }
+    const key = JSON.stringify([
+      discovered.entry.announcedAt,
+      discovered.entry.workspace ?? null,
+      workspace ?? null,
+    ]);
+    const cached = verdicts.get(discovered.entry.sessionId);
+    if (cached?.key === key) return cached.verdict;
+    const verdict = judgeWorkspaceRelation(workspace, discovered.entry.workspace);
+    verdicts.set(discovered.entry.sessionId, { key, verdict });
+    return verdict;
+  };
+
   return {
     sessionId: options.sessionId,
     guardedDirectory,
-    list: () =>
-      listPeers(registry).map((discovered) => ({
-        sessionId: discovered.entry.sessionId,
-        ...(discovered.entry.name !== undefined ? { name: discovered.entry.name } : {}),
-        liveness: discovered.liveness,
-        status: discovered.status,
-      })),
+    list: () => listPeers(registry).map((discovered) => summarize(discovered)),
+    listWithWorkspace: () =>
+      Promise.all(
+        listPeers(registry).map(async (discovered) =>
+          summarize(discovered, await judge(discovered)),
+        ),
+      ),
+    relate: async (sessionId) => {
+      const discovered = listPeers(registry).find((peer) => peer.entry.sessionId === sessionId);
+      return discovered === undefined ? undefined : judge(discovered);
+    },
+    refreshWorkspace,
     publishStatus: (next) => {
       if (withdrawn) return;
       status = next;
