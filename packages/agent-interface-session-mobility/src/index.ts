@@ -29,6 +29,9 @@ export {
   peerReachOf,
 } from './peer-message-contracts.js';
 
+// ── mesh-admission-contracts ──
+export type { IMeshAdmission, TMeshCapability } from './mesh-admission-contracts.js';
+
 // ── handoff-contracts ──
 export type {
   IHandoffCommitAck,

@@ -2,9 +2,9 @@
 
 ## Scope
 
-Isomorphic pairing + DTLS-fingerprint **channel binding** for P2P remote-control. Lets a host prove that a
-connecting remote holds a single-use pairing secret AND binds that proof to the **actual** DTLS channel each peer
-observes — defeating a MITM signaling relay. WebCrypto only; the same module runs on the Node host (`agent-cli`)
+Isomorphic pairing + DTLS-fingerprint **channel binding** for P2P remote-control. Lets a peer prove that it holds
+a single-use pairing secret, or that it is another of the same user's devices, AND binds that proof to the
+**actual** DTLS channel each peer observes, defeating a MITM signaling relay. WebCrypto only; the same module runs on the Node host (`agent-cli`)
 and a browser remote client.
 
 ## Boundaries
@@ -55,22 +55,34 @@ So the proof is a chain of three keys, each with one job:
   devices and issues the roster and revocation lists. Adding or retiring a device therefore never needs the
   phrase, and a lost signing key costs one master-signed revocation rather than the user's identity.
 - **Device keys.** A device's certificate binds its signing key (its id is that key's hash) and a separate
-  key-agreement key that never signs, with the capabilities it may be asked for.
+  key-agreement key that never signs, with the capabilities it may be asked for. Two devices' agreement keys give
+  them a secret only that pair can compute, so nothing any device holds is common to all of the user's devices.
 
 A device proves same-user by presenting the chain AND demonstrating possession of its device private key — two
-separate steps, because a certificate is a public document and proves nothing about who is holding it.
+separate steps, because a certificate is a public document and proves nothing about who is holding it. Possession
+is a signature over a transcript naming both negotiated fingerprints, so it cannot be relayed onto another channel.
+Neither side discloses a certificate until the other has proved, with a MAC under their pairwise secret, that it is
+the rostered device expected: a stranger learns nothing and costs key agreements and MACs, never a signature check
+or a disclosure. That proof names its sender by nothing but the MAC itself, because any identifier sent to an
+unauthenticated peer could be linked across connections by whoever answers.
 
 **Every signature names its purpose.** Each signed structure begins with a `robota/<purpose>/v<n>` tag inside one
 canonical encoding, and a verifier refuses any other tag. One key signs several kinds of statement, and without
 the tag a signature made for one could be read as another whose fields line up. The encoding admits one spelling
 of each statement's signed content, and no field travels beside a signature without being covered by it.
 
-**An old list is a refusal.** Roster and revocation lists carry a monotonic sequence number and a reader
-refuses one below the last it accepted, because a captured older list would roll it back to before a revocation.
-A list left out once one has been seen is refused the same way, since omission is the oldest list of all. Device
-lists also expire, because a withheld list and a stale one look the same to the reader. Sequence marks belong to
-the signing key that issued the list, so a second or rotated signing key never makes the first one's lists look
-rolled back. Where the proof cannot be established the answer is a refusal with a closed reason, never a pass.
+**An old list is a refusal.** Roster and revocation lists carry a monotonic sequence number and a reader refuses
+one below the last it accepted, because a captured older list would roll it back to before a revocation. A list
+left out once one has been seen is refused the same way, since omission is the oldest list of all. Device lists
+also expire, because a withheld list and a stale one look the same to the reader; before admitting a peer on
+another machine a device asks for a newer list, and when no signing-key holder answers it admits only for a bounded
+grace past expiry, with a warning, and then refuses. A same-host peer is still admitted, because the OS account it
+shares is already the device's trust boundary. Two peers whose lists differ hand the newer one over, and it is
+adopted only once it verifies, so a peer can bring a revocation but never forge one. A device holds one signing
+key's lists, so the handshake admits only devices certified by that key and refuses the rest; a rotation reaches a
+device when it joins again, not through a peer. Sequence marks belong to the signing key that issued the list, so a
+second or rotated signing key never makes the first one's lists look rolled back. Where the proof cannot be
+established the answer is a refusal with a closed reason, never a pass.
 
 **The grant binds one transfer.** A same-user proof reused for a second transfer is the failure this design
 exists to prevent, so every binding is INSIDE the signature: user, source and destination device ids, hand-off id,
@@ -81,7 +93,8 @@ attacker-editable while still verifying.
 a signaling server that reads every byte still cannot authorize a transfer.
 
 **Trust levels stay distinct.** A cross-host same-user admission must never satisfy a check that wanted
-same-host-same-user, or a local admission could authorize a cross-device transfer.
+same-host-same-user, or a local admission could authorize a cross-device transfer. A device certificate proves the
+user and never the machine, so an admission is same-host only when the carrier's own rendezvous established it.
 
 ## `/local` subpath — local-peer admission (node-only)
 
