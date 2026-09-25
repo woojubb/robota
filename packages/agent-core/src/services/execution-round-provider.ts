@@ -8,6 +8,7 @@ import { callProviderWithIdleTimeout } from './execution-provider-call.js';
 import { assertToolChoiceValid, buildChatResponseFormat } from './execution-service-helpers';
 import { applyStructuredOutputTransport } from './execution-structured-output-guard.js';
 import { randomId } from '../utils/random-id.js';
+import { resolveModelEffort } from '../interfaces/model-effort-capability';
 
 import type { IStructuredOutputTransportOutcome } from './execution-structured-output-guard';
 import type { IResolvedProviderInfo, IExecutionRoundState } from './execution-types';
@@ -150,18 +151,31 @@ export async function callProviderWithCache(
     ...(structuredOutcome !== undefined && { structuredOutput: structuredOutcome }),
   });
   const providerChat = resolved.provider.chat.bind(resolved.provider) as TProviderChat;
-  // API-001: a concrete selection has no persisted cache identity until DATA-007 owns the
-  // resolution fingerprint. Do not let a lower-effort response satisfy a later higher-effort call.
-  // The implicit `auto` fallback is not a caller selection and retains existing cache behavior.
-  const hasExplicitEffortSelection =
-    overrides?.effort !== undefined || config.defaultModel?.effort !== undefined;
+  // DATA-007: resolve the EFFECTIVE effort before touching the cache, from the same adapter-declared
+  // table the provider itself resolves against, so the cache identity reflects what will actually be
+  // sent on the wire rather than the caller's raw selection. Two selections that resolve to the same
+  // effective effort (e.g. an explicit selection vs. `auto` landing on the same model default) share
+  // one identity and can hit each other's entries; two that resolve differently cannot. This also
+  // means the former API-001 bypass — which unconditionally skipped the cache for any explicit
+  // selection because the key could not tell efforts apart — is no longer needed and has been removed.
+  const effortSelection = chatOptions.effort ?? 'auto';
+  const effortResolution = resolveModelEffort(
+    resolved.provider.effortTable?.(),
+    model,
+    effortSelection,
+  );
+  const effectiveEffort = effortResolution.effective;
 
-  if (cacheService && !hasExplicitEffortSelection) {
+  if (cacheService) {
     const cachedResponse = cacheService.lookup(
       outgoing,
       config.defaultModel.model,
       config.defaultModel.provider,
-      { temperature: config.defaultModel.temperature, maxTokens: config.defaultModel.maxTokens },
+      {
+        temperature: config.defaultModel.temperature,
+        maxTokens: config.defaultModel.maxTokens,
+        effectiveEffort,
+      },
     );
     if (cachedResponse) {
       return {
@@ -185,7 +199,11 @@ export async function callProviderWithCache(
         config.defaultModel.model,
         config.defaultModel.provider,
         response.content,
-        { temperature: config.defaultModel.temperature, maxTokens: config.defaultModel.maxTokens },
+        {
+          temperature: config.defaultModel.temperature,
+          maxTokens: config.defaultModel.maxTokens,
+          effectiveEffort,
+        },
       );
     }
     return response;

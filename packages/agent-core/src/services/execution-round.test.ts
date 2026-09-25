@@ -6,6 +6,9 @@ import {
   addToolResultsToHistory,
   getContextCapacityDecision,
 } from './execution-round';
+import { ExecutionCacheService } from './cache/execution-cache-service';
+import { MemoryCacheStorage } from './cache/memory-cache-storage';
+import { CacheKeyBuilder } from './cache/cache-key-builder';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { ILogger } from '../utils/logger';
 import { vi } from 'vitest';
@@ -262,48 +265,118 @@ describe('execution-round helpers', () => {
       );
     });
 
-    it('bypasses cache lookup and storage for each explicit effort selection', async () => {
+    // DATA-007: lookup and store must key off the SAME resolved effective effort, not the raw
+    // selection — this is what lets the former API-001 bypass (skip the cache entirely for any
+    // explicit selection) be removed.
+    it('resolves the effective effort before touching the cache, and passes the identical value to lookup and store', async () => {
+      const effortTable = {
+        verifiedAt: '2026-01-01',
+        sourceUrl: 'https://example.com/effort-table',
+        models: {
+          'gpt-4': {
+            supportedEfforts: ['low', 'high'] as const,
+            defaultEffort: 'low' as const,
+            nativeControlId: 'reasoning_effort',
+          },
+        },
+      };
+      const chat = vi.fn().mockResolvedValue({
+        role: 'assistant',
+        content: 'fresh',
+        state: 'complete' as const,
+        timestamp: new Date(),
+      });
+      const resolved = createResolvedProviderInfo({
+        provider: { chat, effortTable: () => effortTable },
+      });
+      const cacheService = {
+        lookup: vi.fn().mockReturnValue(undefined),
+        store: vi.fn(),
+      };
+      const config = {
+        name: 'test',
+        defaultModel: { provider: 'openai', model: 'gpt-4', effort: 'high' },
+      };
+
+      await callProviderWithCache([], config as any, resolved, cacheService as any);
+
+      expect(cacheService.lookup).toHaveBeenCalledWith(
+        expect.anything(),
+        'gpt-4',
+        'openai',
+        expect.objectContaining({ effectiveEffort: 'high' }),
+      );
+      expect(cacheService.store).toHaveBeenCalledWith(
+        expect.anything(),
+        'gpt-4',
+        'openai',
+        'fresh',
+        expect.objectContaining({ effectiveEffort: 'high' }),
+      );
+    });
+
+    // DATA-007 (residual of API-001): different effective efforts must miss the cache, and
+    // equivalent native outcomes (an explicit selection vs. `auto` landing on the same model
+    // default) must still hit it — with a real cache service, not a mock that ignores its key.
+    it('misses the cache across different effective efforts and hits across equivalent ones', async () => {
+      const effortTable = {
+        verifiedAt: '2026-01-01',
+        sourceUrl: 'https://example.com/effort-table',
+        models: {
+          'gpt-4': {
+            supportedEfforts: ['low', 'high'] as const,
+            defaultEffort: 'low' as const,
+            nativeControlId: 'reasoning_effort',
+          },
+        },
+      };
       const chat = vi
         .fn()
         .mockResolvedValueOnce({
           role: 'assistant',
-          content: 'low response',
+          content: 'low answer',
           state: 'complete' as const,
           timestamp: new Date(),
         })
         .mockResolvedValueOnce({
           role: 'assistant',
-          content: 'high response',
+          content: 'high answer',
           state: 'complete' as const,
           timestamp: new Date(),
         });
-      const resolved = createResolvedProviderInfo({ provider: { chat } });
-      const cacheService = {
-        lookup: vi.fn().mockReturnValue('stale cached response'),
-        store: vi.fn(),
-      };
+      const resolved = createResolvedProviderInfo({
+        provider: { chat, effortTable: () => effortTable },
+      });
+      const cacheService = new ExecutionCacheService(
+        new MemoryCacheStorage({ maxEntries: 100, ttlMs: 60_000 }),
+        new CacheKeyBuilder(),
+      );
       const config = { name: 'test', defaultModel: { provider: 'openai', model: 'gpt-4' } };
+      const messages = [userMessage('hi')];
 
-      await callProviderWithCache([], config as any, resolved, cacheService as any, {
+      // Explicit 'low' selection: cache miss, provider called, response stored.
+      const first = await callProviderWithCache(messages, config as any, resolved, cacheService, {
         effort: 'low',
       });
-      await callProviderWithCache([], config as any, resolved, cacheService as any, {
+      expect(first.content).toBe('low answer');
+      expect(chat).toHaveBeenCalledTimes(1);
+
+      // Explicit 'high' selection resolves to a DIFFERENT effective effort: must miss, not reuse
+      // the 'low' entry.
+      const second = await callProviderWithCache(messages, config as any, resolved, cacheService, {
         effort: 'high',
       });
-
+      expect(second.content).toBe('high answer');
       expect(chat).toHaveBeenCalledTimes(2);
-      expect(chat).toHaveBeenNthCalledWith(
-        1,
-        expect.anything(),
-        expect.objectContaining({ effort: 'low' }),
-      );
-      expect(chat).toHaveBeenNthCalledWith(
-        2,
-        expect.anything(),
-        expect.objectContaining({ effort: 'high' }),
-      );
-      expect(cacheService.lookup).not.toHaveBeenCalled();
-      expect(cacheService.store).not.toHaveBeenCalled();
+
+      // 'auto' resolves via the model default to the same effective effort as the explicit 'low'
+      // call above ('low' is the table's defaultEffort): must HIT the entry stored under 'low'
+      // rather than calling the provider again.
+      const third = await callProviderWithCache(messages, config as any, resolved, cacheService, {
+        effort: 'auto',
+      });
+      expect(third.content).toBe('low answer');
+      expect(chat).toHaveBeenCalledTimes(2);
     });
 
     it('uses cached response when available', async () => {
