@@ -1,7 +1,7 @@
 /**
  * Whole-entry precedence resolution (MCP-001).
  *
- * Three properties carry the weight here, and all three are this package's SPEC:
+ * Three properties carry the weight here, and all three are stated in this package's SPEC:
  *
  * 1. **Entries are never field-merged.** The winning source supplies the whole definition. Merging
  *    would let a lower-trust source contribute a field — an extra header, a different `command` —
@@ -158,7 +158,7 @@ export function resolveByPrecedence(
 
   const sorted = entries.sort((a, b) => a.name.localeCompare(b.name));
 
-  // Fail closed on the managed tier (SPEC, extended by issue #2794): while the highest-precedence
+  // Fail closed on the managed tier (SPEC): while the highest-precedence
   // source could not be read at all, a name that resolved from a LOWER tier must not activate,
   // because the unreadable managed source might have defined that exact name and there is no way to
   // tell. Only `MCP_SOURCE_PRECEDENCE[0]` triggers this; a source problem anywhere else stays

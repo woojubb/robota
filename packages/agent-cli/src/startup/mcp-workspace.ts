@@ -9,8 +9,8 @@ import type { IMCPActivationWorkspace, TMCPWorkspaceTrustState } from '@robota-s
 
 /**
  * `agent-framework`'s `TWorkspaceTrustState` and `agent-mcp`'s `TMCPWorkspaceTrustState` name the
- * same six states. They are two separate declarations (the agent-mcp SPEC's "one declaration cannot diverge
- * from itself" applies one level up, across packages, not within one), so this maps by VALUE
+ * same six states. They are two separate declarations (the rule on `TMCPDefinitionSource`, "one
+ * declaration cannot diverge from itself", applies one level up, across packages), so this maps by VALUE
  * through an exhaustive switch rather than a cast — a member added to one union without the other
  * fails here at compile time instead of silently reading as `undefined`.
  */
