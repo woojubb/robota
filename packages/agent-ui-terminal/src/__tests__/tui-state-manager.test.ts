@@ -174,13 +174,46 @@ describe('TuiStateManager', () => {
 
   it('syncHistory replaces with the authoritative session history — no windowing (SCREEN-010)', () => {
     const mgr = new TuiStateManager();
-    mgr.addEntry({ id: 'old', timestamp: new Date(), category: 'chat', type: 'user' } as never);
+    mgr.addUserEcho({ id: 'old', timestamp: new Date(), category: 'chat', type: 'user' } as never);
     // syncHistory is the SSOT replace: the session's full (growing) history becomes the committed list.
     mgr.syncHistory([
       { id: 'new1', timestamp: new Date(), category: 'chat', type: 'user' } as never,
       { id: 'new2', timestamp: new Date(), category: 'chat', type: 'assistant' } as never,
     ]);
     expect(mgr.history.map((e) => e.id)).toEqual(['new1', 'new2']);
+  });
+
+  it('keeps a local notice in place across a sync so the next answer still commits', () => {
+    const entry = (id: string) =>
+      ({ id, timestamp: new Date(), category: 'chat', type: 'user' }) as never;
+    const mgr = new TuiStateManager();
+    mgr.syncHistory([entry('s1')]);
+    mgr.addEntry(entry('unknown-command-notice'));
+    mgr.addUserEcho(entry('echo'));
+    const committedBeforeSync = mgr.history.length;
+
+    mgr.syncHistory([entry('s1'), entry('user'), entry('assistant'), entry('usage')]);
+
+    expect(mgr.history.map((e) => e.id)).toEqual([
+      's1',
+      'unknown-command-notice',
+      'user',
+      'assistant',
+      'usage',
+    ]);
+    // Ink <Static> prints only indices it has not printed yet: the answer must be among them.
+    expect(mgr.history.slice(committedBeforeSync).map((e) => e.id)).toContain('assistant');
+  });
+
+  it('forgets local notices when the history is cleared', () => {
+    const entry = (id: string) =>
+      ({ id, timestamp: new Date(), category: 'chat', type: 'user' }) as never;
+    const mgr = new TuiStateManager();
+    mgr.addEntry(entry('notice'));
+    mgr.clearHistory();
+    mgr.syncHistory([entry('s1')]);
+
+    expect(mgr.history.map((e) => e.id)).toEqual(['s1']);
   });
 
   it('TC-09: syncHistory keeps the full session history without front-truncation', () => {

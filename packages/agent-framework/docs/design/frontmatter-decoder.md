@@ -16,7 +16,10 @@ diagnostic set with no partial metadata.
 
 The goal is to centralize syntax handling, profile vocabulary, primitive validation, and source
 coordinates. Loader migration retains discovery precedence and no-frontmatter fallback while refusing
-invalid frontmatter before registration. The old `parseFrontmatter` public export is removed because
+invalid frontmatter before registration. A refused file is skipped and reported once; it still claims
+its file or directory name (its own `name:` is unreadable once refused), so a lower-priority
+definition of that name cannot stand in for it, and one broken file shared with
+another host never stops the session. The old `parseFrontmatter` public export is removed because
 its permissive parser no longer owns this boundary.
 
 ## Constraints
@@ -26,9 +29,11 @@ its permissive parser no longer owns this boundary.
 - The caller selects `skill`, `bundle-skill`, or `agent`. A file path never infers a profile.
 - YAML is untrusted input. Duplicate keys, aliases, merge keys, invalid roots, unsupported shapes,
   malformed syntax, and unterminated delimiter blocks fail closed.
-- Profile top-level keys are closed. The skill `metadata` field is the only extensible map and accepts
-  only string keys with string, finite-number, or boolean scalar values; prototype-named keys remain
-  ordinary data and cannot reach object prototypes.
+- A profile validates only the keys it owns and ignores the rest: `.claude` definitions are shared
+  with hosts that define their own fields, and a key robota does not read grants nothing. A malformed
+  value of an owned key still fails closed. The skill `metadata` map keeps string keys with string,
+  finite-number, or boolean values and ignores nested entries; prototype-named keys remain ordinary
+  data and cannot reach object prototypes.
 - Skill metadata accepts `model` only with `context: fork`; otherwise a field-path diagnostic
   rejects the file before registration. A fork model is consumed by the child session and does not
   change the parent model or provider identity.
@@ -80,7 +85,7 @@ semantic owner; a syntactically valid YAML document is not trusted until those c
 
 ### Schema failure
 
-1. Unknown keys and invalid field values produce diagnostics at key or value AST ranges.
+1. Invalid values of owned fields produce diagnostics at value AST ranges; unowned keys are ignored.
 2. Independent top-level failures accumulate in source order.
 3. The failure result contains a statically non-empty diagnostic tuple and no metadata property.
 
@@ -90,7 +95,7 @@ semantic owner; a syntactically valid YAML document is not trusted until those c
 - Minimal and complete success cases cover all three profiles, actual repository keys, both explicit
   list notations, imported effort typing, and exact LF/CRLF/no-header body behavior.
 - Table-driven negative cases cover delimiters, YAML syntax, duplicates, aliases, merge keys, root
-  shapes, unknown keys, wrong scalar/list/map shapes, context, effort, and every invalid `maxTurns`
+  shapes, wrong scalar/list/map shapes, context, effort, and every invalid `maxTurns`
   class.
 - Diagnostics are asserted against exact source, line, column, and field where those coordinates
   exist. The authority-widening boolean typo is explicitly proven to fail rather than become `false`.

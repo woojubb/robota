@@ -1,3 +1,5 @@
+import { isScalar } from 'yaml';
+
 import {
   decodeBoolean,
   decodeContext,
@@ -54,9 +56,15 @@ export const SKILL_FIELD_APPLIERS: Readonly<
   model: applyDecoded(decodeNonEmptyString, (m: IBundleSkillFrontmatter, value) =>
     Object.assign(m, { model: value }),
   ),
-  'argument-hint': applyDecoded(decodeNonEmptyString, (m: IBundleSkillFrontmatter, value) =>
-    Object.assign(m, { argumentHint: value }),
-  ),
+  // An empty hint is a common way to say "no arguments"; it is display text, so it reads as absent.
+  'argument-hint': (context, node, field, metadata) => {
+    if (node === null || (isScalar(node) && (node.value === '' || node.value === null))) {
+      return undefined;
+    }
+    return applyDecoded(decodeNonEmptyString, (m: IBundleSkillFrontmatter, value: string) =>
+      Object.assign(m, { argumentHint: value }),
+    )(context, node, field, metadata);
+  },
   'disable-model-invocation': applyDecoded(decodeBoolean, (m: IBundleSkillFrontmatter, value) =>
     Object.assign(m, { disableModelInvocation: value }),
   ),

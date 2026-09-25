@@ -2,11 +2,11 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { setGlobalLoggerSink, type ILogger } from '@robota-sdk/agent-core';
 import { describe, it, expect, afterEach } from 'vitest';
 
 import { AgentDefinitionLoader as FrameworkAgentDefinitionLoader } from '../agent-definition-loader.js';
 import { BUILT_IN_AGENTS } from '../built-in-agents.js';
-import { FrontmatterDecodeError } from '../../frontmatter/frontmatter-error.js';
 import { createNodeHostContributionSourcesFixture } from '../../testing/contribution-source-fixture.js';
 
 const FIXTURE_AGENT_ROOTS = [
@@ -33,14 +33,24 @@ function writeAgentFile(dir: string, filename: string, content: string): void {
   writeFileSync(join(dir, filename), content, 'utf-8');
 }
 
-function captureDecodeError(action: () => unknown): FrontmatterDecodeError {
+/** Runs a lookup that must find nothing and returns the refusal warning it logged. */
+function captureRefusal(action: () => unknown): string {
+  const warnings: string[] = [];
+  const sink: ILogger = {
+    debug: () => undefined,
+    info: () => undefined,
+    warn: (message, context) => warnings.push(`${String(message)} ${JSON.stringify(context)}`),
+    error: () => undefined,
+    log: () => undefined,
+  };
+  setGlobalLoggerSink(sink);
   try {
-    action();
-  } catch (error) {
-    if (error instanceof FrontmatterDecodeError) return error;
-    throw error;
+    expect(action()).toBeUndefined();
+  } finally {
+    setGlobalLoggerSink(undefined);
   }
-  throw new Error('expected frontmatter decoding to fail');
+  expect(warnings.join('\n')).toContain('agent definition refused');
+  return warnings.join('\n');
 }
 
 describe('AgentDefinitionLoader', () => {
@@ -387,11 +397,7 @@ Prompt.`,
   it('should handle file without frontmatter', () => {
     const cwd = makeTempDir();
     const prompt = '\n  Just a plain system prompt with no frontmatter.  \n';
-    writeAgentFile(
-      join(cwd, '.claude', 'agents'),
-      'bare.md',
-      prompt,
-    );
+    writeAgentFile(join(cwd, '.claude', 'agents'), 'bare.md', prompt);
 
     const loader = new AgentDefinitionLoader(
       createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
@@ -419,7 +425,41 @@ Some body content here.`,
     const loader = new AgentDefinitionLoader(
       createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
     );
-    expect(() => loader.getAgent('broken')).toThrow(/broken\.md.*unterminated/i);
+    expect(captureRefusal(() => loader.getAgent('broken'))).toMatch(/broken\.md.*unterminated/i);
+  });
+
+  it('keeps loading the other agents when one definition is refused', () => {
+    const cwd = makeTempDir();
+    const agentsDir = join(cwd, '.claude', 'agents');
+    writeAgentFile(agentsDir, 'broken.md', '---\nmaxTurns: 0\n---\nPrompt.');
+    writeAgentFile(agentsDir, 'healthy.md', '---\nname: healthy\ncolor: blue\n---\nPrompt.');
+
+    const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(cwd), []);
+    captureRefusal(() => loader.getAgent('broken'));
+    expect(loader.loadAll().map((agent) => agent.name)).toEqual(['healthy']);
+  });
+
+  it('reports a refused agent once however often it is looked up', () => {
+    const cwd = makeTempDir();
+    writeAgentFile(join(cwd, '.claude', 'agents'), 'repeat.md', '---\nmaxTurns: 0\n---\nPrompt.');
+    const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(cwd), []);
+
+    captureRefusal(() => loader.getAgent('repeat'));
+    const warnings: string[] = [];
+    setGlobalLoggerSink({
+      debug: () => undefined,
+      info: () => undefined,
+      warn: (message) => warnings.push(String(message)),
+      error: () => undefined,
+      log: () => undefined,
+    });
+    try {
+      loader.getAgent('repeat');
+      loader.loadAll();
+    } finally {
+      setGlobalLoggerSink(undefined);
+    }
+    expect(warnings).toEqual([]);
   });
 
   it('rejects a non-mapping frontmatter document with a file diagnostic', () => {
@@ -438,11 +478,9 @@ Actual body here.`,
     const loader = new AgentDefinitionLoader(
       createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
     );
-    const error = captureDecodeError(() => loader.getAgent('empty-fm'));
-    expect(error.diagnostics[0]).toMatchObject({
-      source: join(cwd, '.claude/agents/empty-fm.md'),
-      code: 'root-type',
-    });
+    const warning = captureRefusal(() => loader.getAgent('empty-fm'));
+    expect(warning).toContain(join(cwd, '.claude/agents/empty-fm.md'));
+    expect(warning).toContain('[root-type]');
   });
 
   it('rejects NaN maxTurns with a source-field diagnostic', () => {
@@ -462,11 +500,9 @@ Prompt.`,
     const loader = new AgentDefinitionLoader(
       createNodeHostContributionSourcesFixture(cwd, makeTempDir()),
     );
-    const error = captureDecodeError(() => loader.getAgent('nan-turns'));
-    expect(error.diagnostics[0]).toMatchObject({
-      source: join(cwd, '.claude/agents/nan-turns.md'),
-      field: 'maxTurns',
-    });
+    const warning = captureRefusal(() => loader.getAgent('nan-turns'));
+    expect(warning).toContain(join(cwd, '.claude/agents/nan-turns.md'));
+    expect(warning).toContain('maxTurns:');
   });
 
   it.each([
@@ -483,16 +519,9 @@ Prompt.`,
     writeAgentFile(join(root, relative), 'strict.md', '---\nmaxTurns: 20abc\n---\nPrompt.');
 
     const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(cwd, home));
-    const error = captureDecodeError(() => loader.getAgent('strict'));
+    const warning = captureRefusal(() => loader.getAgent('strict'));
     const source = join(root, relative, 'strict.md');
-    expect(error.message).toContain(`${source}:2:11 [invalid-type] maxTurns:`);
-    expect(error.diagnostics[0]).toMatchObject({
-      source,
-      line: 2,
-      column: 11,
-      field: 'maxTurns',
-      code: 'invalid-type',
-    });
+    expect(warning).toContain(`${source}:2:11 [invalid-type] maxTurns:`);
   });
 
   it('does not let a valid lower-priority collision hide invalid higher-priority metadata', () => {
@@ -510,10 +539,9 @@ Prompt.`,
     );
 
     const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(cwd, home));
-    const error = captureDecodeError(() => loader.getAgent('shared'));
+    const warning = captureRefusal(() => loader.getAgent('shared'));
     const source = join(cwd, '.robota/agents/shared.md');
-    expect(error.message).toContain(`${source}:3:11 [invalid-value] maxTurns:`);
-    expect(error.diagnostics[0]?.source).toBe(source);
+    expect(warning).toContain(`${source}:3:11 [invalid-value] maxTurns:`);
   });
 
   it.each([
@@ -532,12 +560,9 @@ Prompt.`,
       `---\nmaxTurns: ${value}\n---\nPrompt.`,
     );
     const loader = new AgentDefinitionLoader(createNodeHostContributionSourcesFixture(cwd));
-    const error = captureDecodeError(() => loader.getAgent('bad-turns'));
-    expect(error.diagnostics[0]).toMatchObject({
-      source: join(cwd, '.claude/agents/bad-turns.md'),
-      field: 'maxTurns',
-      code,
-    });
+    const warning = captureRefusal(() => loader.getAgent('bad-turns'));
+    expect(warning).toContain(join(cwd, '.claude/agents/bad-turns.md'));
+    expect(warning).toContain(`[${code}] maxTurns:`);
   });
 
   it('should decode YAML tool sequences without changing their order', () => {

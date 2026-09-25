@@ -19,13 +19,44 @@ export function installCliDiagnostics(): void {
     log: () => {},
     group: () => {},
     groupEnd: () => {},
-    warn: (...args) => process.stderr.write(`[robota] ${formatDiagnostic(args)}\n`),
-    error: (...args) => process.stderr.write(`[robota] ${formatDiagnostic(args)}\n`),
+    warn: (...args) => writeDiagnostic(args),
+    error: (...args) => writeDiagnostic(args),
   });
+}
+
+/**
+ * `console.error`, not a raw stderr write: while the TUI is mounted, Ink intercepts the console and
+ * prints the line above its frame. A raw write lands inside the live frame and corrupts the prompt.
+ */
+function writeDiagnostic(args: unknown[]): void {
+  // eslint-disable-next-line no-console -- the console is the channel Ink knows how to render around
+  console.error(`[robota] ${formatDiagnostic(args)}`);
 }
 
 function formatDiagnostic(args: unknown[]): string {
   return args
-    .map((arg) => (arg instanceof Error ? (arg.stack ?? arg.message) : String(arg)))
+    .map(formatArg)
+    .filter((text) => text.length > 0)
     .join(' ');
+}
+
+/** The logger passes structured context as a trailing object; `String()` would print `[object Object]`. */
+function formatArg(arg: unknown): string {
+  if (arg instanceof Error) return arg.stack ?? arg.message;
+  if (typeof arg !== 'object' || arg === null) return String(arg);
+  const entries = Object.entries(arg);
+  if (entries.length === 0) return '';
+  return entries.map(([key, value]) => `${key}=${formatValue(value)}`).join(' ');
+}
+
+/** Never throws: a diagnostic that cannot be printed must not become a new failure. */
+function formatValue(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value instanceof Error) return value.stack ?? value.message;
+  try {
+    return JSON.stringify(value) ?? String(value);
+  } catch {
+    // allow-fallback: circular or BigInt values have no JSON form; their string form still says something
+    return String(value);
+  }
 }

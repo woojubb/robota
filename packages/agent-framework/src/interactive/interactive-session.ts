@@ -149,6 +149,8 @@ export class InteractiveSession
   private readonly listeners = new Map<string, Set<(...args: unknown[]) => void>>();
   private initialized = false;
   private initPromise: Promise<void> | null = null;
+  /** Why initialization failed, so a readiness probe reports the cause instead of "not yet". */
+  private initFailure: Error | undefined;
   private sessionStore?: IInteractiveSessionStore;
   private readonly sessionLoopsDisabled: boolean;
   private readonly selfPacedLoops: DurableSessionLoopStore;
@@ -503,6 +505,9 @@ export class InteractiveSession
     if (hasInjectedSession) return;
     const stdOpts = options as IInteractiveSessionStandardOptions;
     this.initPromise = this.initializeAsync(stdOpts);
+    this.initPromise.catch((error: unknown) => {
+      this.initFailure = error instanceof Error ? error : new Error(String(error));
+    });
   }
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
     const canPersistProjectPermission =
@@ -569,8 +574,10 @@ export class InteractiveSession
   }
 
   protected getSessionOrThrow(): Session {
-    if (!this.session)
+    if (!this.session) {
+      if (this.initFailure) throw this.initFailure;
       throw new Error('InteractiveSession not initialized. Call submit() or await initialization.');
+    }
     return this.session;
   }
 

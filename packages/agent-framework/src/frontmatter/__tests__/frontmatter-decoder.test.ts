@@ -206,12 +206,6 @@ describe('decodeFrontmatter', () => {
 
   it.each([
     {
-      name: 'an unknown field',
-      profile: 'skill' as const,
-      line: 'unrecognized: value',
-      expected: { code: 'unknown-field', line: 2, column: 1, field: 'unrecognized' },
-    },
-    {
       name: 'a boolean typo',
       profile: 'skill' as const,
       line: 'disable-model-invocation: treu',
@@ -252,18 +246,6 @@ describe('decodeFrontmatter', () => {
       line: "name: ''",
       expected: { code: 'invalid-value', line: 2, column: 7, field: 'name' },
     },
-    {
-      name: 'bundle-only tags on a skill',
-      profile: 'skill' as const,
-      line: 'tags: [alpha]',
-      expected: { code: 'unknown-field', line: 2, column: 1, field: 'tags' },
-    },
-    {
-      name: 'runtime-only effort on an agent',
-      profile: 'agent' as const,
-      line: 'effort: high',
-      expected: { code: 'unknown-field', line: 2, column: 1, field: 'effort' },
-    },
   ])('rejects $name without returning a partial value', ({ profile, line, expected }) => {
     const diagnostics = decodeFailure(profile, `---\n${line}\n---\n`);
 
@@ -271,20 +253,27 @@ describe('decodeFrontmatter', () => {
     expect(diagnostics[0]).toMatchObject({ source: SOURCE, ...expected });
   });
 
-  it('rejects nested metadata values at the metadata field', () => {
-    const diagnostics = decodeFailure(
-      'skill',
-      '---\nmetadata:\n  author:\n    name: robota\n---\n',
-    );
-
-    expect(diagnostics).toHaveLength(1);
-    expect(diagnostics[0]).toMatchObject({
-      code: 'invalid-type',
+  it('keeps scalar metadata and ignores nested or empty metadata values', () => {
+    const result = decodeFrontmatter({
       source: SOURCE,
-      line: 4,
-      column: 5,
-      field: 'metadata',
+      content:
+        '---\nmetadata:\n  priority: 4\n  empty:\n  docs:\n    - https://example.test\n---\n',
+      profile: 'skill',
     });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect({ ...result.metadata.metadata }).toEqual({ priority: 4 });
+  });
+
+  it.each(['argument-hint: ""', 'argument-hint:'])('reads %s as no hint', (line) => {
+    const result = decodeFrontmatter({
+      source: SOURCE,
+      content: `---\n${line}\n---\n`,
+      profile: 'bundle-skill',
+    });
+
+    expect(result).toEqual(expect.objectContaining({ ok: true, metadata: {} }));
   });
 
   it('preserves __proto__ as an ordinary scalar metadata key', () => {
@@ -393,25 +382,24 @@ describe('decodeFrontmatter', () => {
     },
   );
 
-  // Contained — HARNESS-132. Literal titles keep the enforcing red-proof gate honest until it
-  // recognizes multiline table-driven cases and their runtime-expanded titles.
-  function expectPrototypeFieldRejected(field: string): void {
-    const diagnostics = decodeFailure('skill', `---\n${field}: value\n---\n`);
+  it.each([
+    { profile: 'skill' as const, line: 'unrecognized: value' },
+    { profile: 'skill' as const, line: 'tags: [alpha]' },
+    { profile: 'agent' as const, line: 'effort: high' },
+    { profile: 'skill' as const, line: 'toString: value' },
+    { profile: 'skill' as const, line: 'constructor: value' },
+    { profile: 'skill' as const, line: '__proto__: value' },
+  ])('ignores the field $line that the $profile profile does not own', ({ profile, line }) => {
+    const result = decodeFrontmatter({
+      source: SOURCE,
+      content: `---\nname: kept\n${line}\n---\n`,
+      profile,
+    });
 
-    expect(diagnostics).toHaveLength(1);
-    expect(diagnostics[0]).toMatchObject({ code: 'unknown-field', field });
-  }
-
-  it('rejects the prototype-named top-level field toString as unknown', () => {
-    expectPrototypeFieldRejected('toString');
-  });
-
-  it('rejects the prototype-named top-level field constructor as unknown', () => {
-    expectPrototypeFieldRejected('constructor');
-  });
-
-  it('rejects the prototype-named top-level field __proto__ as unknown', () => {
-    expectPrototypeFieldRejected('__proto__');
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.metadata).toEqual({ name: 'kept' });
+    expect(Object.getPrototypeOf(result.metadata)).toBe(Object.prototype);
   });
 
   it('aggregates independent schema failures in source order', () => {
@@ -421,7 +409,6 @@ describe('decodeFrontmatter', () => {
     );
 
     expect(diagnostics.map(({ field, line }) => ({ field, line }))).toEqual([
-      { field: 'unknown', line: 2 },
       { field: 'context', line: 3 },
       { field: 'effort', line: 4 },
     ]);
