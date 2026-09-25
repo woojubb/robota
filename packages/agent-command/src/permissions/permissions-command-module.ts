@@ -17,6 +17,7 @@ export function createPermissionsCommandEntry(): ICommand {
     source: 'permissions',
     argumentHint: PERMISSION_MODE_ARGUMENT_HINT,
     subcommands: buildPermissionModeSubcommands('permissions'),
+    // User-only: edits permission rules; permission widening is the user's.
     modelInvocable: false,
   };
 }

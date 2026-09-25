@@ -31,6 +31,7 @@ export function createDoctorCommandEntry(): ICommand {
     description:
       'Diagnose configuration and runtime readiness; `repair <check-id>` applies an allowlisted fix',
     source: 'doctor',
+    // User-only: install diagnostics and confirmed repairs that write settings are the user's.
     modelInvocable: false,
     userInvocable: true,
     argumentHint: '[repair <check-id>]',

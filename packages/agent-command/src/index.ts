@@ -102,6 +102,12 @@ export {
   MCPActivationCommandSource,
 } from './mcp-activation/mcp-activation-command-module.js';
 export { executeMCPActivationCommand } from './mcp-activation/mcp-activation-command.js';
+export {
+  mcpUnavailableServersNotice,
+  mcpUserActionCommand,
+  mcpUserActionNotice,
+} from './mcp-activation/mcp-model-notice.js';
+export type { TMCPUserAction, TMCPUserActionSurface } from './mcp-activation/mcp-model-notice.js';
 export * from './mode/index.js';
 export {
   createSandboxCommandModule,

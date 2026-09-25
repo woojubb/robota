@@ -16,6 +16,7 @@ export function createPluginCommandEntry(): ICommand {
     displayName: 'Plugins',
     description: PLUGIN_COMMAND_DESCRIPTION,
     source: 'plugin-manager',
+    // User-only: installs and enables code; a trust decision.
     modelInvocable: false,
     argumentHint: PLUGIN_COMMAND_ARGUMENT_HINT,
     subcommands: buildPluginCommandSubcommands(),
@@ -28,6 +29,7 @@ export function createReloadPluginsCommandEntry(): ICommand {
     displayName: 'Reload Plugins',
     description: RELOAD_PLUGINS_COMMAND_DESCRIPTION,
     source: 'plugin-manager',
+    // User-only: reloading activates whatever plugin code is installed now; a trust decision.
     modelInvocable: false,
   };
 }

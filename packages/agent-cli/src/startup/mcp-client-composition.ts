@@ -29,6 +29,7 @@ import {
   MCPDefinitionRegistry,
   MCPOAuthError,
   buildCatalog,
+  classifyMcpFailure,
   createDiscoveredTool,
   createHeadersHelperAuthenticator,
   createStdioAdapter,
@@ -37,6 +38,7 @@ import {
   openMcpSession,
   refuseHeadersHelper,
 } from '@robota-sdk/agent-mcp';
+import { mcpUserActionNotice } from '@robota-sdk/agent-command';
 import { DEFAULT_TOOL_RESULT_HARD_CHARS, FunctionTool } from '@robota-sdk/agent-core';
 import type {
   IMCPActivationApprovalStore,
@@ -72,6 +74,7 @@ import type {
   ICommandMCPOAuthStatus,
   ICommandMCPSourceProblem,
 } from '@robota-sdk/agent-framework';
+import type { TMCPUserAction, TMCPUserActionSurface } from '@robota-sdk/agent-command';
 import type {
   IToolResultAdmissionOptions,
   IToolResultSpillStore,
@@ -221,6 +224,11 @@ export interface IMcpClientCompositionDeps {
    * sink (whatever the host uses for user-visible warnings) is the intended target.
    */
   readonly reportDiagnostic: (message: string) => void;
+  /**
+   * Where the user can act on a notice the model relays: `session` (default) when they can type a
+   * `/mcp` command, `terminal` for a run with no such prompt, so sign-in names the terminal command.
+   */
+  readonly userActionSurface?: TMCPUserActionSurface;
 }
 
 /**
@@ -261,6 +269,12 @@ export interface IMcpClientComposition {
    * to build MCP-004's `toolCallHandoff` policy, so a tool connected later is not handed off.
    */
   readonly connectedToolProvenance: ReadonlyMap<string, IMcpConnectedToolProvenance>;
+  /**
+   * Every server the most recent `connect()` could not start for a reason the USER can fix —
+   * approval, workspace trust or sign-in — keyed by server id. Read after `connect()` to tell the
+   * model which command to suggest; a server the user rejected or revoked is not listed.
+   */
+  readonly unavailableServers: ReadonlyMap<string, TMCPUserAction>;
 }
 
 /**
@@ -343,6 +357,15 @@ interface IConnectServerContext {
    * connection, and one authenticator is what keeps a refresh single-flight.
    */
   readonly oauthAuthenticators: Map<string, IMcpClosableAuthenticator>;
+  /** Servers that did not start for a reason the user can fix, and which action fixes it. */
+  readonly unavailable: Map<string, TMCPUserAction>;
+}
+
+/** The user action an admission refusal calls for; `undefined` for a decision the user already made. */
+function userActionForAdmission(status: string): TMCPUserAction | undefined {
+  if (status === 'pending' || status === 'stale') return 'approve';
+  if (status === 'untrusted') return 'trust-workspace';
+  return undefined;
 }
 
 /**
@@ -431,6 +454,8 @@ async function connectOneServer(
     deps.reportDiagnostic(
       `MCP server "${request.serverId}" was not admitted (${admissionResult.status}): ${admissionResult.reason}`,
     );
+    const action = userActionForAdmission(admissionResult.status);
+    if (action !== undefined) context.unavailable.set(request.serverId, action);
     return 'not-admitted';
   }
 
@@ -561,6 +586,10 @@ async function connectOneServer(
     deps.reportDiagnostic(
       `MCP server "${request.serverId}" discovery failed: ${transport === 'stdio' ? 'stdio connection failed' : describeError(error)}`,
     );
+    // An OAuth server refusing us is the one discovery failure the user fixes by signing in.
+    if (definition.oauth !== undefined && classifyMcpFailure(error) === 'auth') {
+      context.unavailable.set(request.serverId, 'sign-in');
+    }
     return {
       catalogInput: { serverId: request.serverId, origin, transport },
       connection,
@@ -709,13 +738,18 @@ function collectToolsFromCatalog(
   securityIdentityByServerId: ReadonlyMap<string, string>,
   provenanceByCanonicalName: Map<string, IMcpConnectedToolProvenance>,
   admission: IToolResultAdmissionOptions,
+  authFailureNoticeByServerId: ReadonlyMap<string, string>,
 ): IToolWithEventService[] {
   const tools: IToolWithEventService[] = [];
   for (const entry of [...catalog.adopted, ...catalog.adapted]) {
     if (entry.kind !== 'tool') continue;
     const connection = connectionByServerId.get(entry.provenance.serverId);
     if (connection === undefined) continue;
-    const tool = createDiscoveredTool(entry, connection, { admission });
+    const authFailureNotice = authFailureNoticeByServerId.get(entry.provenance.serverId);
+    const tool = createDiscoveredTool(entry, connection, {
+      admission,
+      ...(authFailureNotice === undefined ? {} : { authFailureNotice }),
+    });
     tools.push(tool);
     const securityIdentity = securityIdentityByServerId.get(entry.provenance.serverId);
     if (securityIdentity !== undefined) {
@@ -746,6 +780,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       connectSignedIn,
       toolsAdded,
     ),
+    ...(deps.userActionSurface === undefined ? {} : { userActionSurface: deps.userActionSurface }),
   };
 
   const openConnections: IMcpServerConnection[] = [];
@@ -756,6 +791,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
     deps.createSupervisor ??
     ((options: IMCPConnectionSupervisorOptions) => new MCPConnectionSupervisor(options));
   const connectedToolProvenance = new Map<string, IMcpConnectedToolProvenance>();
+  const unavailableServers = new Map<string, TMCPUserAction>();
   /** Servers whose connection discovered successfully: connected, with or without tools. */
   const discovered = new Set<string>();
   /** A sign-in's tools, by server, until the session says which it took. */
@@ -799,7 +835,15 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
     signal,
     helperSlots,
     oauthAuthenticators,
+    unavailable: unavailableServers,
   });
+
+  /**
+   * A signed-in OAuth server can still refuse a later call (a revoked or expired grant); the model
+   * is then told to suggest signing in again, not handed the server's error.
+   */
+  const authFailureNotice = (serverId: string): string =>
+    mcpUserActionNotice(serverId, 'sign-in', deps.userActionSurface ?? 'session');
 
   /**
    * After a sign-in, the server is admitted again first — approval, fingerprint and trust as they
@@ -867,6 +911,9 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       new Map([[serverId, request.securityIdentity]]),
       provenance,
       resultAdmission,
+      entry.definition.oauth === undefined
+        ? new Map<string, string>()
+        : new Map([[serverId, authFailureNotice(serverId)]]),
     );
     // Recorded once the session says which of these it took.
     pendingProvenance.set(serverId, provenance);
@@ -910,10 +957,12 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
 
   async function connect(signal?: AbortSignal): Promise<readonly IToolWithEventService[]> {
     connectedByServerId.clear();
+    unavailableServers.clear();
     discovered.clear();
     const catalogInputs: IMCPCatalogInput[] = [];
     const connectionByServerId = new Map<string, IMcpServerConnection>();
     const securityIdentityByServerId = new Map<string, string>();
+    const authFailureNoticeByServerId = new Map<string, string>();
     const context = connectContext(signal);
 
     for (const request of registry.list()) {
@@ -932,6 +981,9 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
         connectedByServerId.set(request.serverId, connected.connection);
         if (connected.catalogInput.discovery !== undefined) discovered.add(request.serverId);
         securityIdentityByServerId.set(request.serverId, request.securityIdentity);
+        if (definition.oauth !== undefined) {
+          authFailureNoticeByServerId.set(request.serverId, authFailureNotice(request.serverId));
+        }
       }
     }
 
@@ -944,6 +996,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       securityIdentityByServerId,
       connectedToolProvenance,
       resultAdmission,
+      authFailureNoticeByServerId,
     );
     return withResultReadTool(tools);
   }
@@ -1039,5 +1092,12 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
     }
   }
 
-  return { activationAdapter, connect, subscribeExternalEvent, shutdown, connectedToolProvenance };
+  return {
+    activationAdapter,
+    connect,
+    subscribeExternalEvent,
+    shutdown,
+    connectedToolProvenance,
+    unavailableServers,
+  };
 }

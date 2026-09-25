@@ -32,13 +32,17 @@ export function createAgentCommandEntry(): ICommand {
   return {
     name: 'agent',
     displayName: 'Agent Jobs',
-    description: [
-      'Subagent jobs command.',
+    description: 'Start and manage background subagent jobs',
+    // Model-invocable: delegating work to subagents is the model's own decision, and each job runs
+    // under the session's permissions, so starting one widens nothing.
+    modelDescription: [
+      'Start and manage background subagent jobs.',
       'Natural-language arguments start one background agent job.',
       'When the user explicitly asks to create, run, spawn, delegate to, or use agents/subagents, start the requested agent command immediately and do not ask a follow-up question unless execution is impossible or unsafe.',
       'If the target item is unspecified, include target selection inside the agent prompt instead of delaying execution.',
       'The parallel form starts multiple background agent jobs as a wait_all group and returns a consolidated group summary unless --detach is present.',
       'list, wait, read, send, stop, close, and open manage existing agent jobs.',
+      'Returns the started job id (or group summary), the job list, or the requested log page.',
     ].join(' '),
     source: 'agent',
     modelInvocable: true,
@@ -59,6 +63,7 @@ export function createAgentSystemCommand(): ISystemCommand {
     requiresPermission: false,
     execute: (context, args) => executeAgentCommand(getAgentHostContext(context), args),
     ...(entry.modelInvocable !== undefined ? { modelInvocable: entry.modelInvocable } : {}),
+    ...(entry.modelDescription !== undefined ? { modelDescription: entry.modelDescription } : {}),
     ...(entry.userInvocable !== undefined ? { userInvocable: entry.userInvocable } : {}),
     ...(entry.argumentHint !== undefined ? { argumentHint: entry.argumentHint } : {}),
     ...(entry.safety !== undefined ? { safety: entry.safety } : {}),

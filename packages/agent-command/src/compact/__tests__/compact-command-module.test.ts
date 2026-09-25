@@ -110,7 +110,7 @@ describe('createCompactCommandModule', () => {
       {
         name: 'compact',
         kind: 'builtin-command',
-        description: 'Compress context window',
+        description: expect.stringContaining('Summarize older conversation turns'),
         userInvocable: true,
         modelInvocable: true,
         argumentHint: '[instructions]',

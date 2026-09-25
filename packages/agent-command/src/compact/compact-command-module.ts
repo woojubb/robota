@@ -8,6 +8,13 @@ export function createCompactCommandEntry(): ICommand {
     name: 'compact',
     displayName: 'Compact Context',
     description: 'Compress context window',
+    // Model-invocable: compaction only summarizes the model's own context, and the model is the one
+    // that notices when it is running out of room.
+    modelDescription:
+      'Summarize older conversation turns to free context-window space. Use it when the context is ' +
+      'nearly full (check with the context command) or before starting a large new task; optional ' +
+      'instructions say what the summary must keep. Returns how many messages were removed and the ' +
+      'context usage before and after.',
     source: 'compact',
     modelInvocable: true,
     argumentHint: '[instructions]',
@@ -23,6 +30,7 @@ function createCompactSystemCommand(): ISystemCommand {
     semanticRole: 'contextReduction',
     displayName: entry.displayName,
     description: entry.description,
+    ...(entry.modelDescription !== undefined ? { modelDescription: entry.modelDescription } : {}),
     example: entry.example,
     requiresPermission: false,
     userInvocable: true,

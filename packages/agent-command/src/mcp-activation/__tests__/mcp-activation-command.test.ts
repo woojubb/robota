@@ -615,9 +615,14 @@ describe('/mcp login', () => {
 });
 
 describe('/mcp command entry', () => {
-  it('is user-only, and describes login for the model reading the catalog', () => {
+  it('opens only `status` to the model, and describes login for the user', () => {
     const entry = createMCPActivationCommandEntry();
-    expect(entry.modelInvocable).toBe(false);
+    // Model-invocable only through its read-only `status`; every verb that changes trust or a
+    // credential is declared user-only (model-exposure.test.ts pins the refusal).
+    expect(entry.modelInvocable).toBe(true);
+    expect(
+      (entry.subcommands ?? []).filter((sub) => sub.modelInvocable === true).map((s) => s.name),
+    ).toEqual(['status']);
     expect(entry.description).toMatch(/sign in/);
     expect(entry.description).toMatch(/Returns/);
     expect(entry.argumentHint).toContain('login <server> [--no-browser]');

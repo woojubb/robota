@@ -35,7 +35,11 @@ import {
 } from './product/robota-user-settings.js';
 import { readUserSettingsOrExit } from './startup/user-settings.js';
 import { runShellCommand } from './startup/shell-exec.js';
-import { buildPresetSurfaceOptions, toSessionOptions } from './startup/preset-surface-options.js';
+import {
+  buildPresetSurfaceOptions,
+  toSessionOptions,
+  withAppendedSystemPrompt,
+} from './startup/preset-surface-options.js';
 import { createCliEffortAdapter, resolveCliModelEffort } from './startup/effort-resolution.js';
 import { resolveOutputStyle, selectOutputStyleId } from './startup/output-style-selection.js';
 import type { IPreset } from '@robota-sdk/agent-preset';
@@ -96,7 +100,7 @@ import { ROBOTA_PERMISSION_BASELINE } from './product/robota-permission-baseline
 import { runMcpServeMode } from './modes/mcp-serve-mode.js';
 import { resolveMcpHttpOptions } from './utils/mcp-http-args.js';
 import { reserveMcpStdout } from './modes/mcp-stdio-output.js';
-import { composeMcpClientForStartup } from './startup/mcp-startup.js';
+import { composeMcpClientForStartup, mcpStartupModelNotice } from './startup/mcp-startup.js';
 import { composeCliAdvisor } from './startup/advisor-composition.js';
 import { createMcpExternalEventHost } from './startup/mcp-external-event-host.js';
 import type { TMcpStartupMode } from './startup/mcp-startup.js';
@@ -657,13 +661,16 @@ async function runCliCore(
   }
 
   const cli = { cwd, args };
-  const presetSurface = buildPresetSurfaceOptions(
-    resolvedPreset,
-    selectedPresetId,
-    permissionMode,
-    cli,
-    outputStyle,
-    effortResolution,
+  const presetSurface = withAppendedSystemPrompt(
+    buildPresetSurfaceOptions(
+      resolvedPreset,
+      selectedPresetId,
+      permissionMode,
+      cli,
+      outputStyle,
+      effortResolution,
+    ),
+    mcp === undefined ? undefined : mcpStartupModelNotice(mcpStartupMode, mcp.unavailableServers),
   );
 
   const sessionStore = workspaceComposition.sessionStore;

@@ -13,6 +13,7 @@ import type {
   TModelEffort,
   TModelEffortSelection,
   TPermissionMode,
+  TToolParameters,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
 
@@ -223,6 +224,20 @@ export abstract class SessionBase {
 
   getSessionAllowedTools(): string[] {
     return this.permissionEnforcer.getSessionAllowedTools();
+  }
+
+  /**
+   * Decide an action that reaches `toolName`'s effect by another route (a command that starts a
+   * process), so that route cannot be a way around the tool's own permission: the PreToolUse hooks
+   * and guardrails, then the rules, mode, remembered consent and the prompt. The command sandbox's
+   * auto-approval never applies, because the action does not run inside that sandbox.
+   */
+  checkToolPermission(
+    toolName: string,
+    toolParameters: TToolParameters,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    return this.permissionEnforcer.checkDelegatedToolCall(toolName, toolParameters, signal);
   }
 
   /** `auto` mode hands decisions to a classifier, so a session without one cannot enter it. */

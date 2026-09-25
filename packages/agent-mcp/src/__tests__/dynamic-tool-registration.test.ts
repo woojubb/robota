@@ -12,6 +12,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { buildCatalog } from '../catalog/build.js';
 import { createDiscoveredTool } from '../catalog/discovered-tool.js';
+import { MCPSupervisorError } from '../supervisor/connection.js';
 
 import type { IMCPCatalogToolEntry, IMCPDiscovery, IMCPServerIdentity } from '../catalog/types.js';
 import type { IMCPToolCallResult } from '../client/session.js';
@@ -199,6 +200,39 @@ describe('a discovered MCP tool satisfies the runtime tool slot', () => {
     } catch (error) {
       expect(String(error)).not.toContain('server-secret');
     }
+  });
+
+  it('answers an auth refusal with the host notice, never the server text', async () => {
+    const notice =
+      'MCP server "probe" needs the user to sign in; ask the user to run `/mcp login probe`.';
+    const tool = createDiscoveredTool(
+      buildToolEntry(),
+      {
+        callTool: async () =>
+          Promise.reject(new MCPSupervisorError('auth', 'www-authenticate: server-secret')),
+      },
+      { authFailureNotice: notice },
+    );
+    const result = await tool.execute({}, { toolName: 'probe__read', parameters: {} });
+    expect(result).toEqual({ success: false, error: notice });
+    expect(JSON.stringify(result)).not.toContain('server-secret');
+  });
+
+  it('keeps the generic failure for a non-auth refusal, or with no host notice', async () => {
+    const transient = createDiscoveredTool(
+      buildToolEntry(),
+      { callTool: async () => Promise.reject(new MCPSupervisorError('transient', 'reset')) },
+      { authFailureNotice: 'sign in' },
+    );
+    await expect(
+      transient.execute({}, { toolName: 'probe__read', parameters: {} }),
+    ).rejects.toThrow('MCP tool call failed');
+    const noNotice = createDiscoveredTool(buildToolEntry(), {
+      callTool: async () => Promise.reject(new MCPSupervisorError('auth', 'denied')),
+    });
+    await expect(noNotice.execute({}, { toolName: 'probe__read', parameters: {} })).rejects.toThrow(
+      'MCP tool call failed',
+    );
   });
 
   it('validateParameters enforces the narrowed schema (required key still enforced)', () => {

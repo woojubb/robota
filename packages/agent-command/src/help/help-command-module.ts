@@ -11,6 +11,7 @@ export function createHelpCommandEntry(): ICommand {
     displayName: 'Help',
     description: HELP_COMMAND_DESCRIPTION,
     source: 'help',
+    // User-only: a listing for the user; the model already sees the commands it may run.
     modelInvocable: false,
   };
 }

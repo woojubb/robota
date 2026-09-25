@@ -270,4 +270,33 @@ describe('PermissionEnforcer in auto mode', () => {
     await expect(pending).resolves.toBe(false);
     expect(handler).toHaveBeenCalledOnce();
   });
+
+  it('keeps a delegated call off the sandbox approval when it decides again after auto mode', async () => {
+    const mode: { current: TPermissionMode } = { current: 'auto' };
+    let answer: (verdict: IClassifierVerdict) => void = () => undefined;
+    const classifier = {
+      classify: vi.fn(
+        () =>
+          new Promise<IClassifierVerdict>((resolve) => {
+            answer = resolve;
+          }),
+      ),
+    };
+    const handler = vi.fn().mockResolvedValue(false);
+    const enforcer = makeEnforcer(
+      {
+        permissionClassifier: classifier,
+        permissionHandler: handler,
+        commandSandbox: { autoApproves: () => true },
+      },
+      mode,
+    );
+    const pending = enforcer.checkDelegatedToolCall('Bash', { command: 'sleep 30' });
+    await vi.waitFor(() => expect(classifier.classify).toHaveBeenCalled());
+    mode.current = 'default';
+    answer(ALLOW);
+    // The sandbox would approve a Bash call, but a delegated one does not run inside it.
+    await expect(pending).resolves.toBe(false);
+    expect(handler).toHaveBeenCalledOnce();
+  });
 });

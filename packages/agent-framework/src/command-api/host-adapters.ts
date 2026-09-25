@@ -259,6 +259,12 @@ export interface ICommandMCPOAuthLoginResult {
 export interface ICommandMCPActivationAdapter {
   list(): readonly ICommandMCPActivationSummary[];
   /**
+   * Where the user acts on a command the model suggests: `session` when they can type a `/mcp`
+   * command, `terminal` for a run with no such prompt (sign-in is then the terminal command).
+   * Absent → `session`.
+   */
+  readonly userActionSurface?: 'session' | 'terminal';
+  /**
    * Every source-level problem from the most recent resolution (issue #2794). Optional so an older
    * or narrower adapter implementation still satisfies this interface; a caller that wants to render
    * source problems treats a missing method the same as an empty list.

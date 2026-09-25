@@ -17,6 +17,7 @@ export function createModeCommandEntry(): ICommand {
     source: 'mode',
     argumentHint: PERMISSION_MODE_ARGUMENT_HINT,
     subcommands: buildPermissionModeSubcommands('mode'),
+    // User-only: changes the permission mode; permission widening is the user's.
     modelInvocable: false,
   };
 }

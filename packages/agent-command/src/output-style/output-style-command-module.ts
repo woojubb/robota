@@ -106,6 +106,7 @@ export function createOutputStyleCommandEntry(): ICommand {
     argumentHint: OUTPUT_STYLE_ARGUMENT_HINT,
     source: 'output-style',
     userInvocable: true,
+    // User-only: the user's presentation preference.
     modelInvocable: false,
   };
 }

@@ -17,6 +17,7 @@ export function createStatusLineCommandEntry(): ICommand {
     source: 'statusline',
     argumentHint: STATUSLINE_COMMAND_ARGUMENT_HINT,
     subcommands: buildStatusLineCommandSubcommands('statusline'),
+    // User-only: UI preference.
     modelInvocable: false,
   };
 }

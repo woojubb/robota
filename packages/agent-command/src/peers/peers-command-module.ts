@@ -11,6 +11,7 @@ export function createPeersCommandEntry(): ICommand {
     source: 'peers',
     // The model does not enumerate the operator's other sessions. Discovery is an operator-facing
     // view of who is at the machine, which is a fact about the person and not about the task.
+    // User-only: sends messages into other sessions; crossing a session boundary is the user's call.
     modelInvocable: false,
   };
 }

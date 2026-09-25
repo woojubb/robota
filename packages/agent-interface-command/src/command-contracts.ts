@@ -31,6 +31,12 @@ export interface ICommand {
   source: string;
   /** Subcommands for hierarchical menus */
   subcommands?: ICommand[];
+  /**
+   * When true, the bare command is a complete action of its own (a default view), so choosing it
+   * from a menu runs it rather than opening its subcommands. Declaring subcommands (for example to
+   * narrow what the model may run) then does not change what the user's Enter does.
+   */
+  runsBare?: boolean;
   /** Execute the command. Args is everything after the command name. */
   execute?: (args: string) => void | Promise<void>;
   /** Full SKILL.md content (only for skill commands) */
@@ -39,8 +45,21 @@ export interface ICommand {
   argumentHint?: string;
   /** When true, models cannot invoke this skill autonomously */
   disableModelInvocation?: boolean;
-  /** When true, models may invoke this command through the SDK-projected command tool */
+  /**
+   * When true, models may invoke this command through the SDK-projected command tool.
+   *
+   * On a SUBCOMMAND entry it narrows what the model may run: once any subcommand of a
+   * model-invocable command declares this flag, the model may run only the bare command and the
+   * subcommands declared `true` — every other first argument, including an alias or a subcommand
+   * added later without the flag, is refused. That is how a command that mixes read-only views with
+   * trust, credential or permission-widening actions offers the model only the safe subset.
+   */
   modelInvocable?: boolean;
+  /**
+   * What the model is told about this command, when it differs from the short `description` shown
+   * in `/help`: what it does, when to use it, and what it returns. Absent → `description`.
+   */
+  modelDescription?: string;
   /** When false, users cannot invoke this skill directly */
   userInvocable?: boolean;
   /** Safety category for model-visible capability descriptors */

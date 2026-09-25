@@ -12,6 +12,7 @@ export function createShellCommandEntry(): ICommand {
     displayName: 'Shell',
     description: SHELL_COMMAND_DESCRIPTION,
     source: 'shell',
+    // User-only: the user's own shell passthrough; the model has its permission-gated shell tool.
     modelInvocable: false,
   };
 }
