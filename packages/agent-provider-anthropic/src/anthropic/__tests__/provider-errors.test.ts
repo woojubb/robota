@@ -16,7 +16,8 @@ import Anthropic from '@anthropic-ai/sdk';
 
 import { AnthropicProvider } from '../provider';
 
-const { APIError } = await vi.importActual<typeof import('@anthropic-ai/sdk')>('@anthropic-ai/sdk');
+const { APIError, APIUserAbortError, APIConnectionError } =
+  await vi.importActual<typeof import('@anthropic-ai/sdk')>('@anthropic-ai/sdk');
 
 const MODEL = 'claude-3-opus-20240229';
 const messages: TUniversalMessage[] = [
@@ -91,6 +92,26 @@ describe('Anthropic provider errors', () => {
     expect(error).toBeInstanceOf(ProviderError);
     expect((error as ProviderError).status).toBe(status);
     expect((error as ProviderError).type).toBe(type);
+  });
+
+  it('passes the SDK abort error through unchanged and classifies it as aborted', async () => {
+    const abort = new APIUserAbortError();
+    create.mockRejectedValue(abort);
+    const error = await failure(() => provider.chat(messages, { model: MODEL }));
+    expect(error).toBe(abort);
+    expect(classifyProviderFailure(error)).toEqual({ switchable: false, reason: 'aborted' });
+  });
+
+  it('classifies an SDK connection failure as network', async () => {
+    create.mockRejectedValue(
+      new APIConnectionError({
+        message: 'Connection error.',
+        cause: new TypeError('fetch failed'),
+      }),
+    );
+    const error = await failure(() => provider.chat(messages, { model: MODEL }));
+    expect(error).toBeInstanceOf(ProviderError);
+    expect(classifyProviderFailure(error)).toEqual({ switchable: false, reason: 'network' });
   });
 
   it('chat maps 429 to RateLimitError', async () => {

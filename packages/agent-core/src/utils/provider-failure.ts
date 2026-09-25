@@ -34,7 +34,7 @@ const HTTP_OVERLOADED = 529;
 const RATE_LIMIT_TYPES: ReadonlySet<string> = new Set(['rate_limit_error']);
 const OVERLOADED_TYPES: ReadonlySet<string> = new Set(['overloaded_error']);
 const AUTH_TYPES: ReadonlySet<string> = new Set(['authentication_error', 'permission_error']);
-const MODEL_UNAVAILABLE_TYPES: ReadonlySet<string> = new Set(['model_not_found']);
+const MODEL_UNAVAILABLE_CODES: ReadonlySet<string> = new Set(['model_not_found']);
 const NETWORK_ERROR_CODES: ReadonlySet<string> = new Set([
   'ECONNRESET',
   'ECONNREFUSED',
@@ -45,7 +45,9 @@ const NETWORK_ERROR_CODES: ReadonlySet<string> = new Set([
   'UND_ERR_SOCKET',
   'UND_ERR_CONNECT_TIMEOUT',
 ]);
-const NETWORK_ERROR_NAMES: ReadonlySet<string> = new Set([
+const SDK_ABORT_CLASS = 'APIUserAbortError';
+const MAX_WRAP_DEPTH = 4;
+const NETWORK_ERROR_CLASSES: ReadonlySet<string> = new Set([
   'APIConnectionError',
   'APIConnectionTimeoutError',
 ]);
@@ -110,6 +112,24 @@ export function readProviderFailureDetails(error: unknown): IProviderFailureDeta
 }
 
 /**
+ * The name of the class that built this value. The Stainless SDKs (OpenAI, Anthropic) never set
+ * `name` on their error classes, so `name` reads `'Error'`; the constructor name is what tells an
+ * `APIUserAbortError` or an `APIConnectionError` apart. Checked by name, not `instanceof`, because
+ * this package depends on no vendor SDK and each provider may load its own copy of one.
+ */
+function className(value: unknown): string | undefined {
+  const ctor = asRecord(value)?.['constructor'];
+  if (typeof ctor !== 'function') return undefined;
+  const name = (ctor as { name?: unknown }).name;
+  return typeof name === 'string' && name.length > 0 ? name : undefined;
+}
+
+/** An abort, including the SDKs' own `APIUserAbortError`, whose `name` is not `'AbortError'`. */
+function isAbort(value: unknown): boolean {
+  return isAbortFailure(value) || className(value) === SDK_ABORT_CLASS;
+}
+
+/**
  * Turn whatever an adapter caught into a typed provider failure.
  *
  * Aborts and errors already in the taxonomy pass through unchanged, a rate limit becomes a
@@ -117,7 +137,7 @@ export function readProviderFailureDetails(error: unknown): IProviderFailureDeta
  * vendor reported, with the original kept as `originalError`.
  */
 export function toProviderError(error: unknown, provider: string, operation: string): Error {
-  if (error instanceof RobotaError || isAbortFailure(error)) return error as Error;
+  if (error instanceof RobotaError || isAbort(error)) return error as Error;
   const originalError =
     error instanceof Error ? error : new Error(typeof error === 'string' ? error : '');
   const details = readProviderFailureDetails(error);
@@ -141,18 +161,33 @@ function isNetworkFailure(error: unknown): boolean {
   if (record === undefined) return false;
   const code = stringField(record, 'code');
   if (code !== undefined && NETWORK_ERROR_CODES.has(code)) return true;
+  const ctorName = className(error);
+  if (ctorName !== undefined && NETWORK_ERROR_CLASSES.has(ctorName)) return true;
   const name = stringField(record, 'name');
-  if (name !== undefined && NETWORK_ERROR_NAMES.has(name)) return true;
+  if (name !== undefined && NETWORK_ERROR_CLASSES.has(name)) return true;
   // undici's fetch rejects a transport failure as `TypeError: fetch failed`.
   return name === 'TypeError' && stringField(record, 'message') === 'fetch failed';
 }
 
-/** The error itself plus what it wraps, one level each way the wrappers here use. */
+/**
+ * The error and everything it wraps, outermost first: `originalError` (the taxonomy's wrappers) and
+ * `cause` (the platform's and the SDKs'), followed to a small depth and never twice.
+ */
 function layersOf(error: unknown): unknown[] {
-  const layers = [error];
-  if (error instanceof ProviderError && error.originalError) layers.push(error.originalError);
-  const cause = asRecord(error)?.['cause'];
-  if (cause !== undefined) layers.push(cause);
+  const layers: unknown[] = [];
+  const seen = new Set<unknown>();
+  let frontier: unknown[] = [error];
+  for (let depth = 0; depth <= MAX_WRAP_DEPTH && frontier.length > 0; depth++) {
+    const next: unknown[] = [];
+    for (const layer of frontier) {
+      if (layer === undefined || layer === null || seen.has(layer)) continue;
+      seen.add(layer);
+      layers.push(layer);
+      const record = asRecord(layer);
+      if (record !== undefined) next.push(record['originalError'], record['cause']);
+    }
+    frontier = next;
+  }
   return layers;
 }
 
@@ -183,13 +218,42 @@ function classifyByDetails(details: IProviderFailureDetails): IProviderFailureCl
     return { switchable: true, reason: 'server-error' };
   }
   // A chat endpoint's only addressable resource is the model, so its 404 means the model.
-  if (status === HTTP_NOT_FOUND || (type !== undefined && MODEL_UNAVAILABLE_TYPES.has(type))) {
+  if (status === HTTP_NOT_FOUND || (type !== undefined && MODEL_UNAVAILABLE_CODES.has(type))) {
     return { switchable: true, reason: 'model-unavailable' };
   }
   if (status === HTTP_BAD_REQUEST || status === HTTP_PAYLOAD_TOO_LARGE) {
     return { switchable: false, reason: 'invalid-request' };
   }
   return { switchable: false, reason: 'unknown' };
+}
+
+function classifyLayer(layer: unknown): IProviderFailureClassification {
+  if (layer instanceof RateLimitError) return { switchable: false, reason: 'rate-limit' };
+  if (layer instanceof AuthenticationError) return { switchable: false, reason: 'authentication' };
+  if (layer instanceof ModelNotAvailableError) {
+    return { switchable: true, reason: 'model-unavailable' };
+  }
+  return classifyByDetails(
+    layer instanceof ProviderError
+      ? {
+          ...(layer.status !== undefined && { status: layer.status }),
+          ...(layer.type !== undefined && { type: layer.type }),
+        }
+      : readProviderFailureDetails(layer),
+  );
+}
+
+/**
+ * Whether any layer names, by its `code`, a model the vendor does not serve. OpenAI-compatible
+ * vendors send `code: 'model_not_found'` beside `type: 'invalid_request_error'` on a 400, so the
+ * code outranks a status and type that would otherwise read as a malformed request.
+ */
+function hasModelUnavailableCode(layers: readonly unknown[]): boolean {
+  return layers.some((layer) => {
+    if (layer instanceof RobotaError) return false;
+    const code = stringField(asRecord(layer), 'code');
+    return code !== undefined && MODEL_UNAVAILABLE_CODES.has(code);
+  });
 }
 
 /**
@@ -199,31 +263,20 @@ function classifyByDetails(details: IProviderFailureDetails): IProviderFailureCl
  * this model or this vendor's capacity. Not switchable: auth, billing, rate limit, a request the
  * vendor rejected as malformed or too large, a transport failure, an abort, and anything
  * unrecognized — another model would fail the same way, the caller asked to stop, or nobody knows.
+ * Every wrapped layer is read, outermost first, so a wrapper that adds no facts of its own does not
+ * hide the ones underneath it.
  */
 export function classifyProviderFailure(
   error: unknown,
   signal?: AbortSignal,
 ): IProviderFailureClassification {
   const layers = layersOf(error);
-  if (signal?.aborted === true || layers.some((layer) => isAbortFailure(layer))) {
+  if (signal?.aborted === true || layers.some((layer) => isAbort(layer))) {
     return { switchable: false, reason: 'aborted' };
   }
-  if (error instanceof RateLimitError) return { switchable: false, reason: 'rate-limit' };
-  if (error instanceof AuthenticationError) {
-    return { switchable: false, reason: 'authentication' };
-  }
-  if (error instanceof ModelNotAvailableError) {
-    return { switchable: true, reason: 'model-unavailable' };
-  }
+  if (hasModelUnavailableCode(layers)) return { switchable: true, reason: 'model-unavailable' };
   for (const layer of layers) {
-    const classification = classifyByDetails(
-      layer instanceof ProviderError
-        ? {
-            ...(layer.status !== undefined && { status: layer.status }),
-            ...(layer.type !== undefined && { type: layer.type }),
-          }
-        : readProviderFailureDetails(layer),
-    );
+    const classification = classifyLayer(layer);
     if (classification.reason !== 'unknown') return classification;
   }
   if (layers.some((layer) => isNetworkFailure(layer))) {

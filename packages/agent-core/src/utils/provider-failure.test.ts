@@ -22,6 +22,19 @@ function httpError(status: number, type?: string): ProviderError {
   });
 }
 
+/**
+ * Shaped like the Stainless SDKs' error classes (OpenAI, Anthropic): the class is named, but
+ * `name` stays `'Error'`. The provider packages test the real classes.
+ */
+class APIUserAbortErrorShape extends Error {}
+Object.defineProperty(APIUserAbortErrorShape, 'name', { value: 'APIUserAbortError' });
+class ApiConnectionErrorShape extends Error {}
+Object.defineProperty(ApiConnectionErrorShape, 'name', { value: 'APIConnectionError' });
+
+function wrapped(inner: Error): ProviderError {
+  return new ProviderError('Conversation failed', 'conversation', inner);
+}
+
 function withCode(message: string, code: string): Error {
   return Object.assign(new Error(message), { code });
 }
@@ -95,6 +108,8 @@ describe('toProviderError', () => {
     expect(toProviderError(abort, 'openai', 'op')).toBe(abort);
     const existing = new NetworkError('down');
     expect(toProviderError(existing, 'openai', 'op')).toBe(existing);
+    const sdkAbort = new APIUserAbortErrorShape('Request was aborted.');
+    expect(toProviderError(sdkAbort, 'anthropic', 'op')).toBe(sdkAbort);
   });
 });
 
@@ -142,10 +157,74 @@ describe('classifyProviderFailure', () => {
     ['plain Error', new Error('something'), false, 'unknown'],
     ['string', 'boom', false, 'unknown'],
     ['408', httpError(408), false, 'unknown'],
+    ['SDK abort class', new APIUserAbortErrorShape('Request was aborted.'), false, 'aborted'],
+    ['SDK connection class', new ApiConnectionErrorShape('Connection error.'), false, 'network'],
+    [
+      '400 with code model_not_found',
+      Object.assign(withCode('The model does not exist', 'model_not_found'), {
+        status: 400,
+        type: 'invalid_request_error',
+      }),
+      true,
+      'model-unavailable',
+    ],
+    [
+      'wrapped 400 with code model_not_found',
+      toProviderError(
+        Object.assign(withCode('The model does not exist', 'model_not_found'), {
+          status: 400,
+          type: 'invalid_request_error',
+        }),
+        'deepseek',
+        'op',
+      ),
+      true,
+      'model-unavailable',
+    ],
+    [
+      'wrapped ModelNotAvailableError',
+      wrapped(new ModelNotAvailableError('m', 'p')),
+      true,
+      'model-unavailable',
+    ],
+    ['wrapped RateLimitError', wrapped(new RateLimitError('slow')), false, 'rate-limit'],
+    [
+      'wrapped AuthenticationError',
+      wrapped(new AuthenticationError('bad key')),
+      false,
+      'authentication',
+    ],
   ];
 
   it.each(table)('%s', (_label, error, switchable, reason) => {
     expect(classifyProviderFailure(error)).toEqual({ switchable, reason });
+  });
+
+  it('reads through every wrapped layer, including a cause under an originalError', () => {
+    const connection = new ApiConnectionErrorShape('Connection error.', {
+      cause: new TypeError('fetch failed'),
+    });
+    expect(classifyProviderFailure(toProviderError(connection, 'openai', 'op'))).toEqual({
+      switchable: false,
+      reason: 'network',
+    });
+    const deep = new ProviderError(
+      'outer',
+      'conversation',
+      new ProviderError(
+        'inner',
+        'openai',
+        new Error('x', { cause: new TypeError('fetch failed') }),
+      ),
+    );
+    expect(classifyProviderFailure(deep)).toEqual({ switchable: false, reason: 'network' });
+  });
+
+  it('stops on a wrap cycle', () => {
+    const a = new Error('a');
+    const b = new Error('b', { cause: a });
+    (a as Error & { cause?: unknown }).cause = b;
+    expect(classifyProviderFailure(a)).toEqual({ switchable: false, reason: 'unknown' });
   });
 
   it('treats any failure after the caller aborted as an abort', () => {
