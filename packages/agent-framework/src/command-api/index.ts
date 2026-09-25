@@ -61,6 +61,8 @@ export type {
   ICommandCostBudget,
   ICommandCostBudgetAdapter,
   ICommandHandoffAdapter,
+  ICommandWorkspaceAdapter,
+  IWorkspaceMoveRequest,
   ICommandPermissionModeAdapter,
   ICommandPickerAdapter,
   ICommandProcessAdapter,

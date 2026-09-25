@@ -323,7 +323,8 @@ export async function initializeInteractiveSessionAsync(
   });
 
   applyForkedSystemPrompt(created.session, {
-    isFork: options.forkSession === true,
+    // A `/cd` target keeps the recorded prompt like a fork does (issue #3081).
+    isFork: options.forkSession === true || options.workspaceMovedFrom !== undefined,
     restoredSystemPrompt: deps.restoredSystemPrompt,
     explicitSystemPrompt: options.systemPrompt,
   });

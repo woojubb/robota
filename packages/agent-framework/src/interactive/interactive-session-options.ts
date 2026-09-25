@@ -95,6 +95,12 @@ export interface IInteractiveSessionStandardOptions {
   sessionName?: string;
   resumeSessionId?: string;
   forkSession?: boolean;
+  /**
+   * Issue #3081: this session is the target of a `/cd` from this directory. The resumed record's
+   * system prompt is kept (so a provider's prompt cache survives) and one message announces the new
+   * directory and the instructions that now apply there.
+   */
+  workspaceMovedFrom?: string;
   /** Skip AGENTS.md/CLAUDE.md loading and plugin discovery. */
   bare?: boolean;
   /** Explicitly omit the built-in command and HTTP hook executors for this session and its children. */

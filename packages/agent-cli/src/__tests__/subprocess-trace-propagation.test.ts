@@ -58,11 +58,20 @@ describe.runIf(process.platform !== 'win32')('subprocess trace propagation throu
     }));
   });
 
-  afterEach(() => {
+  afterEach(async () => {
     vi.unstubAllEnvs();
-    // A fire-and-forget hook from the last tool call can still be writing into `out` as the test
-    // ends; retrying on ENOTEMPTY removes the directory once that write lands.
-    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+    // Hooks run as separate processes and some are not awaited by the session (PostToolUse fires
+    // once per tool call), so on a slow runner a hook can still be writing into `out` as the test
+    // ends. Remove the directory once those writes have landed, for up to ten seconds.
+    for (let attempt = 0; ; attempt += 1) {
+      try {
+        rmSync(home, { recursive: true, force: true });
+        return;
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOTEMPTY' || attempt >= 100) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 100));
+      }
+    }
   });
 
   /** Starts a local MCP stdio server process the way the product admits one. */
@@ -172,6 +181,8 @@ describe.runIf(process.platform !== 'win32')('subprocess trace propagation throu
     for (const name of ['shell', 'prompt-submit', 'pre-tool', 'post-tool', 'session-start']) {
       expect(await waitFor(join(out, name))).toBe(`${AMBIENT}|vendor=ambient`);
     }
+    // The prompt hook writes its stdin copy after its trace line; wait for it before cleanup.
+    await waitFor(join(out, 'prompt-stdin'));
   });
 
   it('gives only the enabled class the value', async () => {

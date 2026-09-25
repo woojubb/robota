@@ -7,6 +7,8 @@ import {
 } from '@robota-sdk/agent-framework';
 
 import {
+  CD_COMMAND_DESCRIPTION,
+  executeCdCommand,
   executeClearCommand,
   executeCostCommand,
   executeRenameCommand,
@@ -36,6 +38,19 @@ export function createRenameCommandEntry(): ICommand {
     description: RENAME_COMMAND_DESCRIPTION,
     argumentHint: '<name>',
     source: 'session',
+    modelInvocable: false,
+    userInvocable: true,
+  };
+}
+
+export function createCdCommandEntry(): ICommand {
+  return {
+    name: 'cd',
+    displayName: 'Change Directory',
+    description: CD_COMMAND_DESCRIPTION,
+    argumentHint: '<directory>',
+    source: 'session',
+    // A move re-roots what every later tool call may touch; only the user decides it.
     modelInvocable: false,
     userInvocable: true,
   };
@@ -93,6 +108,15 @@ function createRenameSystemCommand(): ISystemCommand {
   });
 }
 
+function createCdSystemCommand(): ISystemCommand {
+  const entry = createCdCommandEntry();
+  return createSystemCommandFromEntry(entry, {
+    requiresPermission: false,
+    lifecycle: 'inline',
+    execute: executeCdCommand,
+  });
+}
+
 function createResumeSystemCommand(): ISystemCommand {
   const entry = createResumeCommandEntry();
   return createSystemCommandFromEntry(entry, {
@@ -127,6 +151,7 @@ export class SessionCommandSource implements ICommandSource {
     return [
       createClearCommandEntry(),
       createRenameCommandEntry(),
+      createCdCommandEntry(),
       createResumeCommandEntry(),
       createCostCommandEntry(),
       createValidateSessionCommandEntry(),
@@ -141,6 +166,7 @@ export function createSessionCommandModule(): ICommandModule {
     systemCommands: [
       createClearSystemCommand(),
       createRenameSystemCommand(),
+      createCdSystemCommand(),
       createResumeSystemCommand(),
       createCostSystemCommand(),
       createValidateSessionSystemCommand(),

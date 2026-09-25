@@ -70,12 +70,13 @@ import {
 } from './startup/loop-options.js';
 import {
   createInitialCliWorkspaceComposition,
-  resolveInitialCliWorkspaceProjectAccess,
+  resolveStartupWorkspaceProjectAccess,
 } from './startup/workspace-project-composition.js';
 import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
 import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
+import { createWorkspaceMoveAdapter } from './startup/workspace-move-adapter.js';
 import { runPrintMode } from './modes/print-mode.js';
 import { buildServeSessionOptions, runServeMode } from './modes/serve-mode.js';
 import { ROBOTA_PERMISSION_BASELINE } from './product/robota-permission-baseline.js';
@@ -162,7 +163,7 @@ async function runCliCore(
   telemetryEnvironment: Readonly<Record<string, string>> = {},
 ): Promise<void> {
   const cwd = process.cwd();
-  const projectAccess = await resolveInitialCliWorkspaceProjectAccess(cwd, options);
+  const projectAccess = await resolveStartupWorkspaceProjectAccess(process.argv, cwd, options);
   const startupOptions: IStartCliOptions = { ...options, projectAccess };
   if (await runPreparsedCliCommand(startupOptions, process.argv, cwd, telemetryEnvironment)) return;
 
@@ -794,6 +795,13 @@ async function runCliCore(
   presentation.installTuiProcessGuards();
   // CMD-004 Phase 2 (Stage B): late-bound TUI-mode process adapter (host-executed exit/restart).
   commandHostAdapters.process = createTuiProcessAdapter();
+  // Issue #3081: `/cd` starts robota again in the target directory, resuming this conversation.
+  commandHostAdapters.workspace = createWorkspaceMoveAdapter({
+    userHome: homedir(),
+    argv: process.argv.slice(2),
+    requestExit: () => commandHostAdapters.process?.requestExit('other'),
+    environment: telemetryEnvironment,
+  });
   if (isFirstRun()) {
     printFirstRunWelcome(terminal, screenReader);
     markOnboarded();
@@ -838,6 +846,7 @@ async function runCliCore(
     resumeSessionId,
     showSessionPickerOnStart,
     forkSession: args.forkSession,
+    ...(args.movedFrom !== undefined ? { workspaceMovedFrom: args.movedFrom } : {}),
     sessionName: args.sessionName,
     backgroundTaskRunners,
     subagentRunnerFactory,

@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { basename } from 'node:path';
 
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { isTurnNotRunError, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
@@ -8,6 +9,10 @@ import { InteractiveSessionBase } from './interactive-session-base.js';
 import { SessionExecutionController } from './interactive-session-execution-controller.js';
 import { writeForkedSessionRecord } from './interactive-session-fork-record.js';
 import { runSkillInFork } from './interactive-session-fork.js';
+import {
+  buildWorkspaceMoveNotice,
+  prepareWorkspaceMove,
+} from './interactive-session-workspace-move.js';
 import { SessionHistoryTracker } from './interactive-session-history-tracker.js';
 import {
   applyCommandHostActions,
@@ -125,6 +130,7 @@ import type {
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
+import type { IWorkspaceMoveInstructions } from './interactive-session-workspace-move.js';
 export type { TInteractiveSessionOptions } from './interactive-session-options.js';
 
 export interface IInteractiveSessionShutdownOptions {
@@ -161,6 +167,8 @@ export class InteractiveSession
    * mutation of this one.
    */
   private readonly workspace: IWorkspacePolicy;
+  /** A `/cd` was handed to the host; this session is ending (issue #3081). */
+  private workspaceMovePending = false;
   private pendingRestoreMessages: TUniversalMessage[] | null = null;
   /** CLI-1994: the resumed record's assembled prompt, applied when this session is a fork. */
   private restoredSystemPrompt?: string;
@@ -529,11 +537,31 @@ export class InteractiveSession
       ...result.projectNotesFileEntries,
     ]);
     this.pendingRestoreMessages = null;
+    if (options.workspaceMovedFrom !== undefined && this.resumeSessionId !== undefined) {
+      this.announceWorkspaceMove(options.workspaceMovedFrom, result.agentsFileEntries);
+    }
     this.initialized = true;
     this.bgTracker.subscribe(this.session);
     this.resumeSelfPacedLoops();
     this.persistCurrentSession();
     this.emit('context_update', this.getContextState());
+  }
+
+  /** Issue #3081: tell the model (once) that it now works in this directory, with what it loaded. */
+  private announceWorkspaceMove(
+    fromCwd: string,
+    instructions: readonly IWorkspaceMoveInstructions[],
+  ): void {
+    const notice = buildWorkspaceMoveNotice({
+      fromCwd,
+      toCwd: this.workspace.cwd,
+      restricted: this.workspace.projectAccess.status === 'restricted',
+      instructions,
+    });
+    this.getSessionOrThrow().injectMessage('user', notice);
+    this.histTracker.append(
+      messageToHistoryEntry(createSystemMessage(`Moved from ${fromCwd} to ${this.workspace.cwd}.`)),
+    );
   }
 
   protected async ensureInitialized(): Promise<void> {
@@ -1404,6 +1432,56 @@ export class InteractiveSession
     });
   }
 
+  /**
+   * `/cd` (issue #3081): check the move, copy the conversation for the target, and hand both to the
+   * host, which starts the session there. This session is never re-rooted (ARCH-043).
+   */
+  async moveWorkspace(requestedPath: string): Promise<string> {
+    await this.ensureInitialized();
+    const adapter = this.getCommandHostAdapters().workspace;
+    if (!adapter) {
+      throw new Error('Moving to another directory is not available in this environment.');
+    }
+    if (this.workspaceMovePending) throw new Error('A move to another directory is already under way.');
+    // The move carries the conversation as a saved record; a session that saves nothing has no way
+    // to bring it along, and writing one anyway would break the promise it was started with.
+    if (!this.sessionStore) {
+      throw new Error('This session does not save its conversation, so it cannot move it.');
+    }
+    const session = this.getSessionOrThrow();
+    const liveTasks = (this.getBackgroundTaskManager()?.list() ?? []).filter(
+      (task) => !['completed', 'failed', 'cancelled'].includes(task.status),
+    );
+    const request = prepareWorkspaceMove({
+      requestedPath,
+      workspace: this.workspace,
+      executing: this.execCtrl.executing,
+      liveBackgroundTasks: liveTasks.length,
+      permissionMode: session.getPermissionMode(),
+      rules: session.getPermissionRules(),
+      source: {
+        getHistory: () => session.getHistory(),
+        getSystemMessage: () => session.getSystemMessage(),
+        getToolSchemas: () => session.getToolSchemas(),
+        getFullHistory: () => this.getFullHistory(),
+      },
+      // An unnamed conversation is named after where it goes; the host keeps the name unique.
+      sessionName: this.sessionName ?? '',
+    });
+    const named = request.record.name
+      ? request
+      : { ...request, record: { ...request.record, name: basename(request.targetCwd) } };
+    this.persistCurrentSession();
+    this.workspaceMovePending = true;
+    try {
+      await adapter.move(named);
+    } catch (error) {
+      this.workspaceMovePending = false;
+      throw error;
+    }
+    return `Moving to ${request.targetCwd}${request.restricted ? ' (restricted)' : ''}...`;
+  }
+
   setAutoCompactThreshold(
     threshold: TAutoCompactThreshold,
     source: TAutoCompactThresholdSource = 'session',
@@ -1683,6 +1761,7 @@ export class InteractiveSession
       getAdapters: () => this.getCommandHostAdapters(),
       orgPolicy: this.orgPolicy,
       switchProvider: (profileName) => this.switchProvider(profileName),
+      moveWorkspace: (path) => this.moveWorkspace(path),
       applyOutputStyle: (style) => this.applyOutputStyle(style),
       renameSession: (newName) => {
         this.setName(newName);

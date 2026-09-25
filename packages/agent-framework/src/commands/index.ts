@@ -4,6 +4,8 @@ export type {
   ICommandHostAdapters,
   ICommandEffortAdapter,
   ICommandHandoffAdapter,
+  ICommandWorkspaceAdapter,
+  IWorkspaceMoveRequest,
   ICommandHostContext,
   ICommandListEntry,
   ICommandModule,

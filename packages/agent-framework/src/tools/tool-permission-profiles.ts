@@ -35,6 +35,13 @@ export const FRAMEWORK_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPe
      * check between a spawned agent and the user's machine.
      */
     Agent: { riskClass: 'execute' },
+
+    /**
+     * Not a model tool: the user's `/cd`, judged by the same rules so `deny: ["Cd(/secrets/**)"]` can
+     * keep a session out of a directory (issue #3081). Moving changes nothing by itself — the new
+     * session's own rules and trust decision govern what happens there — so it is an inspection.
+     */
+    Cd: { argument: { key: 'path', kind: 'path' }, riskClass: 'inspect' },
   };
 
 /**

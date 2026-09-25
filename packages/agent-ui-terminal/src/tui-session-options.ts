@@ -74,6 +74,9 @@ export function buildTuiSessionOptions(
     resolveDefaultLoopPrompt: opts.resolveDefaultLoopPrompt,
     resumeSessionId: opts.resumeSessionId,
     forkSession: opts.forkSession,
+    ...(opts.workspaceMovedFrom !== undefined
+      ? { workspaceMovedFrom: opts.workspaceMovedFrom }
+      : {}),
     sessionName: opts.sessionName,
     backgroundTaskRunners: opts.backgroundTaskRunners,
     ...(opts.toolCallHandoff !== undefined ? { toolCallHandoff: opts.toolCallHandoff } : {}),

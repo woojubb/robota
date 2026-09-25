@@ -56,6 +56,25 @@ export type TCliWorkspaceCompositionOverrides = Pick<
   'projectAccess' | 'projectSettingsWriter'
 >;
 
+/** Set only by `/cd` when the session it moves is Restricted (issue #3081). */
+export const RESTRICTED_WORKSPACE_FLAG = '--restricted-workspace';
+
+/**
+ * The startup access decision. A `/cd` from a Restricted session never widens access, whatever the
+ * target's own trust decision (issue #3081) — read from argv because access is decided before the
+ * arguments are parsed.
+ */
+export async function resolveStartupWorkspaceProjectAccess(
+  argv: readonly string[],
+  cwd: string,
+  options: { readonly projectAccess?: TWorkspaceProjectAccess } = {},
+): Promise<TWorkspaceProjectAccess> {
+  if (argv.includes(RESTRICTED_WORKSPACE_FLAG)) {
+    return createRestrictedWorkspaceProjectAccess('untrusted', cwd);
+  }
+  return resolveInitialCliWorkspaceProjectAccess(cwd, options);
+}
+
 /** Resolve one host-owned admission decision before any project source is composed. */
 export async function resolveInitialCliWorkspaceProjectAccess(
   cwd: string,

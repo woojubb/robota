@@ -184,6 +184,8 @@ export type TCommandHostAction =
   | { type: 'session-exit'; reason?: TSessionEndReason; message?: string }
   | { type: 'session-restart'; reason: TSessionEndReason; message: string }
   | { type: 'session-rename'; name: string }
+  /** Move the session to another working directory (`/cd`); `path` is as the user typed it. */
+  | { type: 'workspace-move'; path: string }
   | { type: 'statusline-settings-patch'; patch: TStatusLineCommandSettingsPatch }
   | { type: 'appearance-settings-patch'; patch: TAppearanceSettingsPatch }
   | { type: 'remote-control-enable' }
