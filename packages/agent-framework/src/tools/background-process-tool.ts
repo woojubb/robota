@@ -1,6 +1,8 @@
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
 
+import { requireToolExecutionRoot } from './execution-root.js';
+
 // CORE-030: defining a tool and telling the permission system what it does arrive together.
 import './tool-permission-profiles.js';
 
@@ -63,7 +65,7 @@ async function startBackgroundProcess(
       mode: 'background',
       parentSessionId: deps.parentSessionId ?? 'unknown-session',
       depth: 0,
-      cwd: args.workingDirectory ?? deps.cwd ?? process.cwd(),
+      cwd: args.workingDirectory ?? requireToolExecutionRoot(deps.cwd, 'BackgroundProcess'),
       command: args.command,
       stdin: args.stdin,
       timeoutMs: args.timeout ?? DEFAULT_PROCESS_TIMEOUT_MS,

@@ -102,7 +102,13 @@ never happened.
 - `ISandboxClient` lets a consumer inject a provider-backed execution plane into sandbox-aware
   built-ins; its optional snapshot/restore methods return and hydrate provider-owned resumable
   workspace references. When no sandbox client is supplied, tools fall back to host-local
-  execution.
+  execution. A client declares whether its filesystem is shared with the host (commands confined
+  over the host's files) or separate (a remote or VM filesystem), because that decides where file
+  tools may look: on a separate filesystem every file tool goes through the sandbox and the
+  host-only enumerators are withheld, so a search can never read one filesystem while an edit
+  writes another. Containment sits below the permission gate — deny and ask rules are decided
+  before a tool body chooses the host or the sandbox — and the execution root is the file tools'
+  containment boundary but only the shell's default directory, never a boundary for commands.
 - `IWorkspaceManifest` / its applicator declare fresh-session sandbox contents (inline/local files,
   directories, Git clones) through `ISandboxClient`; provider-specific storage mounts are
   represented in the contract but report an explicit "unsupported" status until an adapter

@@ -30,6 +30,7 @@ import {
   createGrepTool,
   webFetchTool,
   webSearchTool,
+  routesFilesThroughSandbox,
 } from '@robota-sdk/agent-tools';
 
 import type { FunctionTool } from '@robota-sdk/agent-core';
@@ -72,17 +73,24 @@ export interface ICreateDefaultToolsOptions {
  * so session assembly is unaffected and no cast is needed at either end.
  */
 export function createDefaultTools(options: ICreateDefaultToolsOptions): FunctionTool[] {
+  // Issue #3081: the sandbox's filesystem relation decides where file tools read and write. On a
+  // SEPARATE filesystem every file tool goes through the sandbox — and `Glob`/`Grep`, which have no
+  // sandbox path, are withheld, so a search can never read the host while an edit writes the
+  // sandbox. On a SHARED filesystem (commands confined over the host's) file tools stay on the host
+  // under the path guard, and only commands run through the sandbox.
+  const separate = routesFilesThroughSandbox(options.sandboxClient);
+  const { sandboxClient: _commandsOnly, ...hostFileOptions } = options;
+  const fileOptions = separate ? options : hostFileOptions;
   return [
     createShellTool(options),
     createBashTool(options),
-    createReadTool(options),
-    createWriteTool(options),
-    createEditTool(options),
+    createReadTool(fileOptions),
+    createWriteTool(fileOptions),
+    createEditTool(fileOptions),
     // SEC-007: built per call, NOT the module-level singletons. A singleton is context-free by
     // construction, so registering one meant `Glob`/`Grep` could enumerate outside the session's
     // working directory while `Read`/`Write`/`Edit` were contained.
-    createGlobTool(options),
-    createGrepTool(options),
+    ...(separate ? [] : [createGlobTool(options), createGrepTool(options)]),
     webFetchTool,
     webSearchTool,
     createAskUserQuestionTool(),

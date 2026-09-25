@@ -1293,6 +1293,9 @@ importers:
       '@robota-sdk/agent-tool-defaults':
         specifier: workspace:*
         version: link:../agent-tool-defaults
+      '@robota-sdk/agent-tools':
+        specifier: workspace:*
+        version: link:../agent-tools
       '@robota-sdk/agent-transport':
         specifier: workspace:*
         version: link:../agent-transport

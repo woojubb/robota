@@ -141,6 +141,7 @@
     "@robota-sdk/agent-session-analytics": "workspace:*",
     "@robota-sdk/agent-subagent-runner": "workspace:*",
     "@robota-sdk/agent-tool-defaults": "workspace:*",
+    "@robota-sdk/agent-tools": "workspace:*",
     "@robota-sdk/agent-transport": "workspace:*",
     "@robota-sdk/agent-transport-mcp": "workspace:*",
     "@robota-sdk/agent-transport-webrtc": "workspace:*",

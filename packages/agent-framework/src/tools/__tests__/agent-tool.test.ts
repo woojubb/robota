@@ -108,6 +108,7 @@ function makeDeps(overrides?: Partial<IAgentToolDeps>): IAgentToolDeps {
     tools: [makeTool('Read')],
     terminal: makeTerminal(),
     provider: mockProvider,
+    cwd: '/workspace',
     ...overrides,
   };
 }
@@ -172,6 +173,7 @@ describe('Agent tool', () => {
       terminal,
       provider: mockProvider,
       permissionHandler,
+      cwd: '/workspace',
     });
 
     await tool.execute({

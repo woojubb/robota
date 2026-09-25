@@ -20,6 +20,7 @@ import type { IShellPresetResolution } from './startup/preset-selection.js';
 import { ROBOTA_DEFAULT_AGENT_NAME } from './product/robota-preset-defaults.js';
 import { ROBOTA_AGENT_DEFINITION_ROOTS } from './product/robota-agent-roots.js';
 import { robotaPluginDirectories } from './product/robota-plugin-paths.js';
+import { robotaSandboxClient } from './product/robota-execution-containment.js';
 import { ROBOTA_PROJECT_SETTINGS } from './product/robota-project-settings.js';
 import {
   createRobotaUserSettingsSources,
@@ -297,7 +298,12 @@ async function runCliCore(
   const selectedPresetId = preset.presetId;
 
   const shellExecutable = resolveRobotaShellExecutable();
-  const { packContext, packs, packCommandModules } = createRobotaPackSet(cwd, { shellExecutable });
+  // Issue #3081: the containment choice is named, and `robota doctor` reports the same value.
+  const sandboxClient = robotaSandboxClient();
+  const { packContext, packs, packCommandModules } = createRobotaPackSet(cwd, {
+    shellExecutable,
+    ...(sandboxClient !== undefined ? { sandboxClient } : {}),
+  });
   const keybindingsSource =
     args.printMode || args.goal !== undefined || args.serve || mcpServe || !presentation
       ? undefined
