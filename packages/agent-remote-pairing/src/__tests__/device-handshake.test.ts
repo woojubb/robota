@@ -203,6 +203,10 @@ interface IRun {
   readonly sent: Record<TSide, TDeviceHandshakeFrame[]>;
 }
 
+type TControllers = Partial<Record<TSide, { onFrame(frame: unknown): void }>>;
+/** Runs synchronously inside a side's `send`, i.e. while that side is mid-step. */
+type TTap = (from: TSide, frame: TDeviceHandshakeFrame, controllers: TControllers) => void;
+
 function wire(value: unknown): unknown {
   return JSON.parse(JSON.stringify(value)) as unknown;
 }
@@ -212,13 +216,15 @@ function run(
   aOptions: TSideOptions,
   bOptions: TSideOptions,
   relay: TRelay = (_from, frame) => [frame],
+  tap?: TTap,
 ): IRun {
   const sent: Record<TSide, TDeviceHandshakeFrame[]> = { a: [], b: [] };
-  const controllers: Partial<Record<TSide, { onFrame(frame: unknown): void }>> = {};
+  const controllers: TControllers = {};
   // One ordered lane per direction, as a data channel is.
   const lanes: Record<TSide, Promise<void>> = { a: Promise.resolve(), b: Promise.resolve() };
   const deliver = (from: TSide, frame: TDeviceHandshakeFrame): void => {
     sent[from].push(frame);
+    tap?.(from, frame, controllers);
     const to: TSide = from === 'a' ? 'b' : 'a';
     const copy = wire(frame);
     lanes[from] = lanes[from].then(async () => {
@@ -892,6 +898,106 @@ describe('device handshake — freshness (D7)', () => {
       sideB(),
     );
     expect((await a).freshness).toBe('fresh');
+  });
+});
+
+describe('device handshake — nothing happens after the verdict', () => {
+  const junk = { t: 'dh-nonce' };
+
+  it('sends nothing more once a frame refused mid-step has settled the result', async () => {
+    // b is between sending its pre-proof and its hello when a malformed frame settles it.
+    const { b, sent } = run(
+      sideA({ timeoutMs: 500 }),
+      sideB(),
+      undefined,
+      (from, frame, controllers) => {
+        if (from === 'b' && frame.t === 'dh-pre') controllers.b?.onFrame(junk);
+      },
+    );
+    expect((await refusal(b)).reason).toBe('malformed-frame');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(kinds(sent.b)).toEqual(['dh-nonce', 'dh-pre']);
+  });
+
+  it('does not report adopted lists once the result has settled', async () => {
+    const updates: IListUpdate[] = [];
+    let proveDelivered!: () => void;
+    const delivered = new Promise<void>((resolve) => {
+      proveDelivered = resolve;
+    });
+    const controllers: TControllers = {};
+    const { b } = run(
+      sideA(),
+      sideB({
+        fetchLatestLists: async () => {
+          await delivered;
+          // b now awaits this lookup inside its verdict; settle it first.
+          controllers.b?.onFrame(junk);
+          return wire({ revocation: world.revokedC });
+        },
+        onListsAdopted: (update) => updates.push(update),
+      }),
+      (from, frame) => {
+        if (from === 'a' && (frame as { t: string }).t === 'dh-prove')
+          setTimeout(proveDelivered, 0);
+        return [frame];
+      },
+      (_from, _frame, all) => Object.assign(controllers, all),
+    );
+    expect((await refusal(b)).reason).toBe('malformed-frame');
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(updates).toEqual([]);
+  });
+});
+
+describe('device handshake — one signing key', () => {
+  it('refuses a device certified by another of the user’s signing keys, closed', async () => {
+    // Lists and marks speak for the key that issued them, and this handshake holds one key's lists.
+    const signing = await generateSigningKeyPair({ extractable: false });
+    const certificate = await certifySigningKey({
+      masterPrivateKey: world.master.keyPair.privateKey,
+      userId: world.master.userId,
+      signingPublicKey: signing.publicKey,
+      issuedAt: NOW,
+    });
+    const second: ISigningKey = { certificate, privateKey: signing.privateKey };
+    const e = await makeDevice(second, 'e', ['message']);
+    const rosterWithE = await issueDeviceRoster({
+      signingKey: world.signingKey,
+      seq: 5,
+      issuedAt: NOW,
+      devices: [world.devices.a.cert, world.devices.b.cert, e.cert],
+    });
+    const eRoster = await issueDeviceRoster({
+      signingKey: second,
+      seq: 5,
+      issuedAt: NOW,
+      devices: [world.devices.b.cert, e.cert],
+    });
+    const eRevocation = await issueDeviceRevocationList({
+      signingKey: second,
+      seq: 7,
+      issuedAt: NOW,
+      revokedDeviceIds: [],
+    });
+    const { a, b } = run(
+      sideA({
+        identity: {
+          ...identity(world, e),
+          signingKeyCertificate: second.certificate,
+          roster: eRoster,
+          revocation: eRevocation,
+        },
+        sessionDescriptor: e.session,
+      }),
+      sideB({ identity: identity(world, world.devices.b, { roster: rosterWithE }) }),
+    );
+    expect((await refusal(b)).chain).toEqual({
+      ok: false,
+      reason: 'signing-key-mismatch',
+      subject: 'revocation',
+    });
+    expect((await refusal(a)).chain?.reason).toBe('signing-key-mismatch');
   });
 });
 

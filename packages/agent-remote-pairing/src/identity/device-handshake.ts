@@ -6,7 +6,8 @@
  *
  * 1. **Pre-proof.** Both sides exchange nonces, then a MAC under their pairwise secret over both
  *    fingerprints, both nonces and the sender's role. No identity travels and no signature is
- *    checked before it passes, so a stranger learns nothing and costs one MAC. The initiator names
+ *    checked before it passes, so a stranger learns nothing and costs only key agreements and MACs,
+ *    never a signature verification or a disclosure. The initiator names
  *    its expected peer by nothing but the MAC itself: the responder finds the one roster device
  *    whose pairwise secret verifies it, so no identifier a stranger could link is ever sent.
  * 2. **Hello.** Protocol version and the sequence numbers of the lists each side holds.
@@ -26,6 +27,7 @@ import type {
 } from './certificates.js';
 import {
   HOUR_MS,
+  IDENTITY_CLOCK_SKEW_MS,
   IDENTITY_PURPOSES,
   canonicalBytes,
   decodeBase64Url,
@@ -326,6 +328,19 @@ export function startDeviceHandshake(options: IDeviceHandshakeOptions): IDeviceH
     resolve(value);
   }
 
+  /**
+   * Stop an in-flight step once the result has settled: a timeout or a malformed frame can settle it
+   * while a step awaits crypto, and nothing may be sent or reported after the verdict.
+   */
+  function stillOpen(): void {
+    if (settled) throw new DeviceHandshakeError('internal');
+  }
+
+  function emit(frame: TDeviceHandshakeFrame): void {
+    stillOpen();
+    options.send(frame);
+  }
+
   function fingerprints(): { fingerprintInitiator: string; fingerprintResponder: string } {
     return options.role === 'initiator'
       ? {
@@ -395,7 +410,7 @@ export function startDeviceHandshake(options: IDeviceHandshakeOptions): IDeviceH
     const mac = new Uint8Array(
       await webcrypto.subtle.sign('HMAC', key, ab(preBytes(options.role))),
     );
-    options.send({ t: 'dh-pre', mac: toBase64Url(mac) });
+    emit({ t: 'dh-pre', mac: toBase64Url(mac) });
   }
 
   function startLookup(): void {
@@ -422,7 +437,7 @@ export function startDeviceHandshake(options: IDeviceHandshakeOptions): IDeviceH
   }
 
   function afterPreProof(): void {
-    options.send(ownHello);
+    emit(ownHello);
     startLookup();
     expecting = 'dh-hello';
   }
@@ -449,7 +464,7 @@ export function startDeviceHandshake(options: IDeviceHandshakeOptions): IDeviceH
       if (ownHello[SEQ_FIELD[kind]] > hello[SEQ_FIELD[kind]])
         Object.assign(gossip, { [kind]: held[kind] });
     }
-    options.send({
+    emit({
       t: 'dh-prove',
       signingKeyCert: options.identity.signingKeyCertificate,
       deviceCert: self,
@@ -462,7 +477,11 @@ export function startDeviceHandshake(options: IDeviceHandshakeOptions): IDeviceH
   let issuerKey: Promise<CryptoKey | undefined> | undefined;
   let masterKey: Promise<CryptoKey | undefined> | undefined;
 
-  /** A candidate list, verified as issued for this user by the key it names, or undefined. */
+  /**
+   * A candidate list, verified as issued for this user by the key it names and already in force, or
+   * undefined. A list dated in the future is not adopted: stored, it would refuse every handshake
+   * until the clock caught up.
+   */
   async function verifiedList(
     kind: TListKind,
     value: unknown,
@@ -471,6 +490,7 @@ export function startDeviceHandshake(options: IDeviceHandshakeOptions): IDeviceH
     if (kind === 'signingKeyRevocation') {
       const decoded = decodeSigningKeyRevocation(value);
       if (!decoded.ok || decoded.value.userId !== issuer.userId) return undefined;
+      if (decoded.value.issuedAt > now() + IDENTITY_CLOCK_SKEW_MS) return undefined;
       masterKey ??= importVerifyKey('Ed25519', options.identity.masterPublicKey);
       const key = await masterKey;
       const ok =
@@ -482,8 +502,10 @@ export function startDeviceHandshake(options: IDeviceHandshakeOptions): IDeviceH
       kind === 'roster' ? decodeDeviceRoster(value) : decodeDeviceRevocationList(value);
     if (!decoded.ok) return undefined;
     const list = decoded.value;
-    if (list.userId !== issuer.userId || list.signingKeyId !== issuer.signingKeyId)
+    if (list.userId !== issuer.userId || list.signingKeyId !== issuer.signingKeyId) {
       return undefined;
+    }
+    if (list.issuedAt > now() + IDENTITY_CLOCK_SKEW_MS) return undefined;
     issuerKey ??= importVerifyKey(issuer.alg, issuer.publicKey);
     const key = await issuerKey;
     if (key === undefined) return undefined;
@@ -514,9 +536,15 @@ export function startDeviceHandshake(options: IDeviceHandshakeOptions): IDeviceH
     const fetched = await lookup;
     if (typeof fetched === 'object' && fetched !== null) {
       for (const kind of LIST_KINDS) {
-        const raw = Object.prototype.hasOwnProperty.call(fetched, kind)
-          ? (fetched as Record<string, unknown>)[kind]
-          : undefined;
+        let raw: unknown;
+        try {
+          raw = Object.prototype.hasOwnProperty.call(fetched, kind)
+            ? (fetched as Record<string, unknown>)[kind]
+            : undefined;
+        } catch {
+          // allow-fallback: a lookup result that cannot be read is no newer list
+          continue;
+        }
         if (raw === undefined) continue;
         const list = await verifiedList(kind, raw);
         const current = adopted[kind] ?? held[kind];
@@ -537,6 +565,7 @@ export function startDeviceHandshake(options: IDeviceHandshakeOptions): IDeviceH
           ? { signingKeyRevocationSeq: adopted.signingKeyRevocation.seq }
           : {}),
       });
+      stillOpen();
       options.onListsAdopted?.({ ...adopted, marks });
     }
 
