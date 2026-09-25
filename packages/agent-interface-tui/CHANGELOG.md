@@ -1,5 +1,11 @@
 # @robota-sdk/agent-interface-tui
 
+## 3.0.0-beta.80
+
+### Patch Changes
+
+- 4f3c075: Assemble complete, verified package generations before switching build output; preserve the previous generation on build failure and pack only verified regular-file images. Include copied CLI web assets in affected-build ordering and artifact transfer. Preserve the CLI version in managed build paths. Public runtime contracts remain compatible (patch).
+
 ## 3.0.0-beta.79
 
 ## 3.0.0-beta.78

@@ -23,7 +23,15 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { browserCommand, openInBrowser } from '../browser-opener.js';
 import { HiddenPromptTooLongError, promptHiddenLine } from '../hidden-prompt.js';
-import { securityIdentity } from '@robota-sdk/agent-mcp';
+import {
+  InMemoryMCPActivationApprovalStore,
+  MCPDefinitionRegistry,
+  securityIdentity,
+} from '@robota-sdk/agent-mcp';
+import { FunctionTool } from '@robota-sdk/agent-core';
+import { executeMCPActivationCommand } from '@robota-sdk/agent-command';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
+import { Session } from '@robota-sdk/agent-session';
 
 import { createMcpClientComposition } from '../mcp-client-composition.js';
 import { resolveMcpDefinitions } from '../mcp-definition-sources.js';
@@ -35,7 +43,17 @@ import {
 } from '../mcp-oauth-host.js';
 import { createRobotaUserSettingsSources } from '../../product/robota-user-settings.js';
 
-import type { IMCPActivationRequest } from '@robota-sdk/agent-mcp';
+import type {
+  IActionRequest,
+  IToolWithEventService,
+  TActionResponse,
+} from '@robota-sdk/agent-core';
+import type {
+  IMCPActivationRequest,
+  IMCPDiscovery,
+  IMCPResolvedEntry,
+} from '@robota-sdk/agent-mcp';
+import type { IMcpServerConnection } from '../mcp-client-composition.js';
 import type { IMcpLoginCommandDeps } from '../mcp-login-command.js';
 
 const MCP_URL = 'https://mcp.example.test/mcp';
@@ -422,10 +440,374 @@ describe('/mcp sign-in state and sign-out', () => {
   });
 });
 
+describe('/mcp login inside a session', () => {
+  const discovery = (withTools = true): IMCPDiscovery => ({
+    identity: {
+      serverId: 'files',
+      serverName: 'files-server',
+      serverVersion: '1.0.0',
+      protocolVersion: '2025-06-18',
+    },
+    tools: {
+      state: { kind: 'supported', count: withTools ? 1 : 0, listChanged: false },
+      items: withTools
+        ? [{ name: 'read', description: 'Read a file', inputSchema: { type: 'object' } }]
+        : [],
+      pages: 1,
+    },
+    prompts: { state: { kind: 'unsupported' }, items: [], pages: 0 },
+    resources: { state: { kind: 'unsupported' }, items: [], pages: 0 },
+  });
+
+  function approved(entries: readonly IMCPResolvedEntry[]) {
+    const store = new InMemoryMCPActivationApprovalStore();
+    for (const request of new MCPDefinitionRegistry(entries).list()) {
+      store.put({
+        serverId: request.serverId,
+        source: request.source,
+        provenance: request.provenance,
+        definitionFingerprint: request.definitionFingerprint,
+        securityIdentity: request.securityIdentity,
+        approvalAuthority: 'user',
+        decision: 'approved',
+        decidedAt: new Date(0).toISOString(),
+      });
+    }
+    return store;
+  }
+
+  /**
+   * A session whose OAuth server needs a sign-in: its connection discovers only once a usable
+   * credential is stored, as the real one does through its authenticator.
+   */
+  async function sessionWithOAuthServer(
+    options: {
+      browser?: 'works' | 'fails';
+      approve?: boolean;
+      signedIn?: boolean;
+      /** Whether the server offers a tool; a server may connect and offer none. */
+      withTools?: boolean;
+      /** Whether its connection can be reopened in place, as the real supervisor can. */
+      retry?: boolean;
+      sessionTools?: IToolWithEventService[];
+    } = {},
+  ) {
+    const userHome = home({ files: { type: 'http', url: MCP_URL, oauth: {} } });
+    const server = fakeAuthorizationServer();
+    if (options.signedIn === true)
+      expect((await login(['files'], userHome, {}, server)).code).toBe(0);
+    const { entries } = resolveMcpDefinitions(createRobotaUserSettingsSources(userHome), {
+      HOME: userHome,
+    });
+    const diagnostics: string[] = [];
+    const opened: URL[] = [];
+    const host = createMcpOAuthHost({
+      network: { fetch: server.fetch, lookup: server.lookup },
+      reportDiagnostic: (message) => diagnostics.push(message),
+      directory: mcpCredentialDirectory(userHome),
+      callbackTimeoutMs: 5_000,
+      openBrowser: async (url) => {
+        opened.push(url);
+        if (options.browser === 'fails') throw new Error('no browser');
+        await server.browse(url);
+      },
+    });
+    const entry = entries.find((candidate) => candidate.name === 'files')!;
+    const signedIn = async (): Promise<boolean> =>
+      (await host.state!(
+        { serverId: 'files', securityIdentity: securityIdentity(entry) } as IMCPActivationRequest,
+        entry.definition!,
+      )) === 'signed-in';
+    const connections: { shutdown: number; retried: number }[] = [];
+    const approvalStore = options.approve === false ? undefined : approved(entries);
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      ...(approvalStore === undefined ? {} : { approvalStore }),
+      transport: { lookup: server.lookup },
+      oauth: host,
+      createSupervisor: (): IMcpServerConnection => {
+        const record = { shutdown: 0, retried: 0 };
+        connections.push(record);
+        return {
+          discover: async () => {
+            if (!(await signedIn())) throw new Error('MCP OAuth failed (login-required)');
+            return discovery(options.withTools !== false);
+          },
+          callTool: async () => ({
+            content: [{ type: 'text', text: 'file body' }],
+            isError: false,
+          }),
+          ...(options.retry === false
+            ? {}
+            : {
+                retry: async () => {
+                  record.retried += 1;
+                },
+              }),
+          shutdown: async () => {
+            record.shutdown += 1;
+          },
+        };
+      },
+      reportDiagnostic: (message) => diagnostics.push(message),
+    });
+    const session = new Session({
+      cwd: userHome,
+      tools: [...(options.sessionTools ?? []), ...(await composition.connect())],
+      provider: {
+        name: 'test',
+        version: '1',
+        chat: async () => ({
+          id: 'reply',
+          role: 'assistant',
+          content: 'ok',
+          timestamp: new Date(),
+          state: 'complete',
+        }),
+        generateResponse: async () => ({ content: 'ok' }),
+        supportsTools: () => true,
+        validateConfig: () => true,
+      },
+      systemMessage: 'test',
+      terminal: {
+        write: () => undefined,
+        writeLine: () => undefined,
+        writeMarkdown: () => undefined,
+        writeError: () => undefined,
+        prompt: async () => '',
+        select: async () => 0,
+        spinner: () => ({ stop: () => undefined, update: () => undefined }),
+      },
+      permissions: { allow: ['files__read'], deny: [] },
+    });
+    const asked: IActionRequest[] = [];
+    const commandHost = (answer?: (request: IActionRequest) => TActionResponse) => {
+      const context = createTestCommandHost({
+        overrides: {
+          getCommandHostAdapters: () => ({ mcpActivation: composition.activationAdapter }),
+          getUserInteraction: () =>
+            answer === undefined
+              ? undefined
+              : {
+                  ask: async (request) => {
+                    asked.push(request);
+                    return answer(request);
+                  },
+                },
+        },
+      });
+      context.getSession = () => session as unknown as ReturnType<typeof context.getSession>;
+      return context;
+    };
+    const run = (args: string, answer?: (request: IActionRequest) => TActionResponse) =>
+      executeMCPActivationCommand(commandHost(answer), args);
+    const toolNames = () => session.getToolSchemas().map((schema) => schema.name);
+    const cleanup = async () => {
+      await session.shutdown();
+      await composition.shutdown();
+    };
+    return {
+      userHome,
+      server,
+      composition,
+      approvalStore,
+      entries,
+      session,
+      run,
+      toolNames,
+      diagnostics,
+      opened,
+      asked,
+      connections,
+      cleanup,
+    };
+  }
+
+  const LEAKS = /access-token-value|refresh-token-value|the-code|leaked-text/;
+
+  /** Answers the browser prompt with `choice`, and a paste prompt with `paste(authorization URL)`. */
+  const respond =
+    (paste: (authorization: URL) => string, choice = 'open') =>
+    (request: IActionRequest): TActionResponse => {
+      if (request.options !== undefined) return { type: 'answer', values: [choice] };
+      const url = new URL(
+        /https:\/\/auth\.example\.test\/authorize\S+/.exec(request.description!)![0],
+      );
+      return { type: 'answer', values: [], text: paste(url) };
+    };
+
+  it('signs in, connects the server, and offers its tools in the same session', async () => {
+    const s = await sessionWithOAuthServer();
+    expect(s.toolNames()).not.toContain('files__read');
+    expect(s.diagnostics.join('\n')).toContain('discovery failed');
+
+    const result = await s.run('login files');
+    expect(result.message).toBe(
+      'Signed in to MCP server files; 1 of its tools is available from your next message.',
+    );
+    expect(result.success).toBe(true);
+    expect(s.opened).toHaveLength(1);
+    expect(s.toolNames()).toEqual(['files__read']);
+    await expect(s.session.invokeRuntimeTool('files__read', {})).resolves.toMatchObject({
+      success: true,
+    });
+    // The connection refused for want of a sign-in is closed, not kept beside the new one.
+    expect(s.connections.map((connection) => connection.shutdown)).toEqual([1, 0]);
+    expect(credentialFiles(s.userHome)).toHaveLength(1);
+    expect(`${result.message}${JSON.stringify(result.data)}${s.diagnostics.join('')}`).not.toMatch(
+      LEAKS,
+    );
+    await s.cleanup();
+  });
+
+  it('asks for the pasted redirect through the session prompt when no browser opens', async () => {
+    const s = await sessionWithOAuthServer({ browser: 'fails' });
+    const result = await s.run(
+      'login files',
+      respond((url) => s.server.approve(url).href),
+    );
+    expect(result.success).toBe(true);
+    // First the URL, before the browser opens; then, once it failed, the masked paste.
+    expect(s.asked).toHaveLength(2);
+    expect(s.asked[0]?.description).toMatch(/https:\/\/auth\.example\.test\/authorize/);
+    expect(s.asked[1]?.masked).toBe(true);
+    expect(s.toolNames()).toContain('files__read');
+    expect(`${result.message}${s.diagnostics.join('')}`).not.toMatch(LEAKS);
+    await s.cleanup();
+  });
+
+  it('pastes the redirect with --no-browser, and opens nothing', async () => {
+    const s = await sessionWithOAuthServer();
+    const result = await s.run('login files --no-browser', (request) => {
+      const url = new URL(
+        /https:\/\/auth\.example\.test\/authorize\S+/.exec(request.description!)![0],
+      );
+      return { type: 'answer', values: [], text: s.server.approve(url).href };
+    });
+    expect(result.success).toBe(true);
+    expect(s.opened).toEqual([]);
+    expect(s.toolNames()).toContain('files__read');
+    await s.cleanup();
+  });
+
+  it('leaves the session unchanged when the sign-in is refused or cancelled', async () => {
+    const s = await sessionWithOAuthServer({ browser: 'fails' });
+    const forged = await s.run(
+      'login files',
+      respond((url) => {
+        const redirect = s.server.approve(url);
+        redirect.searchParams.set('state', 'forged');
+        return redirect.href;
+      }),
+    );
+    expect(forged.success).toBe(false);
+    expect(forged.message).toBe(
+      'Sign-in to MCP server files failed (callback-invalid); nothing was changed.',
+    );
+    const cancelled = await s.run('login files', () => ({ type: 'cancelled' }));
+    expect(cancelled.message).toBe(
+      'Sign-in to MCP server files failed (cancelled); nothing was changed.',
+    );
+    const openedBefore = s.opened.length;
+    const declined = await s.run(
+      'login files',
+      respond(() => '', 'cancel'),
+    );
+    expect(declined.message).toBe(
+      'Sign-in to MCP server files failed (cancelled); nothing was changed.',
+    );
+    expect(s.opened).toHaveLength(openedBefore);
+    // Nobody to ask: the failed browser is reported with the command that pastes instead.
+    const unattended = await s.run('login files');
+    expect(unattended.message).toContain('failed (browser-failed)');
+    expect(unattended.message).toContain('/mcp login files --no-browser');
+
+    expect(s.toolNames()).toEqual([]);
+    expect(s.connections.map((connection) => connection.shutdown)).toEqual([0]);
+    expect(readdirSync(join(s.userHome, '.robota'))).not.toContain('mcp-credentials');
+    expect(
+      `${forged.message}${cancelled.message}${unattended.message}${s.diagnostics.join('')}`,
+    ).not.toMatch(LEAKS);
+    await s.cleanup();
+  });
+
+  it('reconnects a server whose tools the session already offers', async () => {
+    const s = await sessionWithOAuthServer({ signedIn: true });
+    expect(s.toolNames()).toContain('files__read');
+    const result = await s.run('login files');
+    expect(result.message).toBe('Signed in to MCP server files; its tools work again.');
+    expect(s.connections.map((connection) => connection.retried)).toEqual([1]);
+    expect(s.toolNames().filter((name) => name === 'files__read')).toHaveLength(1);
+    await s.cleanup();
+  });
+
+  it('keeps a connected server that offers no tools, reopening it rather than replacing it', async () => {
+    const s = await sessionWithOAuthServer({ signedIn: true, withTools: false });
+    const result = await s.run('login files');
+    expect(result.message).toBe('Signed in to MCP server files; its tools work again.');
+    expect(s.connections).toEqual([{ shutdown: 0, retried: 1 }]);
+    await s.cleanup();
+  });
+
+  it('never opens a second connection beside a connected one that cannot be reopened', async () => {
+    const s = await sessionWithOAuthServer({ signedIn: true, retry: false });
+    const result = await s.run('login files');
+    expect(result.message).toContain('could not connect in this session');
+    // One connection, still open: the tools the session offers keep calling it.
+    expect(s.connections).toEqual([{ shutdown: 0, retried: 0 }]);
+    expect(s.toolNames().filter((name) => name === 'files__read')).toHaveLength(1);
+    await s.cleanup();
+  });
+
+  it('admits a connected server again before reopening it', async () => {
+    const s = await sessionWithOAuthServer({ signedIn: true });
+    const request = new MCPDefinitionRegistry(s.entries).list()[0]!;
+    s.approvalStore!.put({
+      serverId: request.serverId,
+      source: request.source,
+      provenance: request.provenance,
+      definitionFingerprint: request.definitionFingerprint,
+      securityIdentity: request.securityIdentity,
+      approvalAuthority: 'user',
+      decision: 'revoked',
+      decidedAt: new Date(1).toISOString(),
+    });
+    const result = await s.run('login files');
+    expect(result.message).toContain('not approved for this session');
+    expect(s.connections.map((connection) => connection.retried)).toEqual([0]);
+    await s.cleanup();
+  });
+
+  it('gives provenance only to the tools the session took', async () => {
+    const impostor = new FunctionTool(
+      { name: 'files__read', description: 'x', parameters: { type: 'object', properties: {} } },
+      async () => 'x',
+    );
+    const s = await sessionWithOAuthServer({ sessionTools: [impostor] });
+    const result = await s.run('login files');
+    expect(result.message).toContain(
+      '1 of its tools was left out: the session already has a tool by that name.',
+    );
+    expect(s.composition.connectedToolProvenance.has('files__read')).toBe(false);
+    expect(s.diagnostics.join('\n')).toContain('was not added');
+    await s.cleanup();
+  });
+
+  it('does not connect a server admission refuses', async () => {
+    const s = await sessionWithOAuthServer({ approve: false });
+    const result = await s.run('login files');
+    expect(result.message).toContain('not approved for this session');
+    expect(s.toolNames()).toEqual([]);
+    expect(s.connections).toEqual([]);
+    await s.cleanup();
+  });
+});
+
 describe('MCP OAuth notices and browser', () => {
   it('tells the user how to sign in, and which scope is missing', () => {
-    expect(formatMcpOAuthNotice({ kind: 'login-required', serverId: 'files' })).toContain(
-      'run robota mcp login files',
+    expect(formatMcpOAuthNotice({ kind: 'login-required', serverId: 'files' })).toBe(
+      'MCP server files needs you to sign in: run /mcp login files in this session, ' +
+        'or robota mcp login files in a terminal',
     );
     expect(
       formatMcpOAuthNotice({ kind: 'insufficient-scope', serverId: 'files', scope: 'files:write' }),
@@ -446,7 +828,9 @@ describe('MCP OAuth notices and browser', () => {
       'x\u001b[2Kgood',
       'x‮good',
     ]) {
-      expect(notice(name)).toContain('run robota mcp login <server>');
+      expect(notice(name)).toContain(
+        'run /mcp login <server> in this session, or robota mcp login <server> in a terminal',
+      );
       for (const shown of [name, '\n', '\u001b', '‮', 'good', 'pwned']) {
         expect(notice(name)).not.toContain(shown);
       }

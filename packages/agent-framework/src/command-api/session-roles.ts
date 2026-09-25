@@ -12,6 +12,7 @@ import type {
   IContextWindowState,
   IHistoryEntry,
   IToolSchema,
+  IToolWithEventService,
   TModelEffortSelection,
   TPermissionMode,
   TUniversalMessage,
@@ -74,6 +75,13 @@ export interface ICommandSessionPermissions {
  */
 export interface ICommandSessionTools {
   getOfferedToolSchemas(): IToolSchema[];
+  /**
+   * Offer tools that became usable mid-session — an MCP server connected after its sign-in — from
+   * the next turn on (never within a running turn), under the same wrappers and permission gate as
+   * the session's own. A name the session already has is left out, never replaced. Resolves to the
+   * names that will be offered.
+   */
+  addTools(tools: readonly IToolWithEventService[]): Promise<readonly string[]>;
 }
 
 /** Who this session is, and what it has spent. */

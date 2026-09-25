@@ -191,6 +191,27 @@ describe('OAuth sign-in', () => {
     await expect(login(server).result).resolves.toMatchObject({ issuer: AS_URL });
   });
 
+  it('counts the time limit from when the authorization page was handed over', async () => {
+    const server = createFakeOAuthServer();
+    const directory = temporaryDirectory();
+    const result = runMCPOAuthLogin({
+      securityIdentity: 'identity-1',
+      serverUrl: MCP_URL,
+      config: {},
+      store: createFileOAuthCredentialStore(directory),
+      lock: createFileOAuthRefreshLock(directory),
+      network: { fetch: server.fetch, lookup: server.lookup },
+      callbackTimeoutMs: 150,
+      openBrowser: async (url) => {
+        // The user took longer than the whole limit to answer before the browser opened.
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        const redirect = server.approve(url);
+        setTimeout(() => void rawRequest(redirect.href).catch(() => undefined), 50);
+      },
+    });
+    await expect(result).resolves.toMatchObject({ issuer: AS_URL });
+  });
+
   it('never follows a redirect from the token endpoint', async () => {
     const server = createFakeOAuthServer();
     server.overrides.tokenRedirect = 'https://evil.example.test/steal';
