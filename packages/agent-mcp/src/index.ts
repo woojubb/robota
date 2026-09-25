@@ -52,7 +52,11 @@ export {
   type IMCPActivationIdentity,
 } from './definition/identity.js';
 export {
+  displayArgs,
+  displayValue,
   isCredentialShapedName,
+  looksLikeCredential,
+  maskCredentials,
   SECRET_LITERAL,
   secretMarker,
   withoutSecrets,

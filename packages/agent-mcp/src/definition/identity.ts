@@ -27,7 +27,7 @@
 
 import { createHash } from 'node:crypto';
 
-import { withoutSecrets } from './secrecy.js';
+import { displayArgs, displayValue, withoutSecrets } from './secrecy.js';
 
 import type { IMCPResolvedEntry, IMCPServerDefinitionResolved } from './types.js';
 
@@ -101,20 +101,16 @@ export function definitionFingerprint(definition: IMCPServerDefinitionResolved):
 }
 
 /**
- * The endpoint an activation names: the URL, or for stdio the command line — each with its secret
- * stretches replaced, because it lands in activation requests and audit records. One function, so
- * the registry that builds a request and the transport that re-checks it agree.
+ * The endpoint an activation names: the URL, or for stdio the command line — each as a projection
+ * prints it, with secret stretches and credential-shaped literals replaced, because it lands in
+ * activation requests and audit records. One deterministic function, so the registry that builds a
+ * request and the transport that re-checks it agree.
  */
 export function activationEndpoint(definition: IMCPServerDefinitionResolved): string {
-  if (definition.url !== undefined) return withoutSecrets(definition, 'url', definition.url);
+  if (definition.url !== undefined) return displayValue(definition, 'url', definition.url);
   const command =
-    definition.command === undefined
-      ? ''
-      : withoutSecrets(definition, 'command', definition.command);
-  const args = (definition.args ?? []).map((arg, index) =>
-    withoutSecrets(definition, `args[${index}]`, arg),
-  );
-  return [command, ...args].join(' ').trim();
+    definition.command === undefined ? '' : displayValue(definition, 'command', definition.command);
+  return [command, ...displayArgs(definition, definition.args ?? [])].join(' ').trim();
 }
 
 /** Which configured subject this is — name, source, origin. */
