@@ -37,6 +37,8 @@ export type TMCPOAuthFailure =
   | 'token-exchange-failed'
   | 'token-type-unsupported'
   | 'refresh-failed'
+  /** The authorization server did not confirm a token revocation. */
+  | 'revocation-failed'
   /** No usable credential is stored: a new sign-in is needed. */
   | 'login-required'
   | 'store-failed'

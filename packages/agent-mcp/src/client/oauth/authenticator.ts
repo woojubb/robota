@@ -11,7 +11,11 @@
  *   one that is no longer the stored issuer and token endpoint clears the tokens and asks for a new
  *   sign-in rather than sending the refresh token on.
  * - `invalid_grant`, or an expired token with nothing to refresh it, clears the tokens and asks for
- *   a new sign-in. A 403 `insufficient_scope` fails and names the scope the server wants.
+ *   a new sign-in — unless the store, read again, now holds another refresh token: someone else
+ *   rotated it, and theirs is kept. A 403 `insufficient_scope` fails and names the scope the
+ *   server wants.
+ * - A token is refreshed a little before it expires, but never earlier than half its lifetime, so
+ *   a short-lived token is not refreshed on every request.
  *
  * Notices carry the server's name and, for a scope, the scope tokens — never a token, code or
  * secret, and never an authorization server's error text.
@@ -56,11 +60,13 @@ export interface IMCPOAuthAuthenticatorOptions {
   readonly network: IMCPOAuthNetwork;
   readonly notify: (notice: TMCPOAuthNotice) => void;
   readonly now?: () => number;
-  /** A token this close to expiring is refreshed before it is sent. */
+  /** A token this close to expiring is refreshed before it is sent; at most half its lifetime. */
   readonly expirySkewMs?: number;
 }
 
 export interface IMCPOAuthAuthenticator extends IMCPClientAuthenticator {
+  /** Drop the token held in memory; the next request reads the store again (after a sign-out). */
+  forget(): void;
   close(): void;
 }
 
@@ -126,14 +132,20 @@ export function createOAuthAuthenticator(
     throw new MCPOAuthError('login-required');
   };
 
-  const expired = (credential: IMCPOAuthCredential): boolean =>
-    credential.expiresAt !== undefined && now() >= credential.expiresAt - skew;
+  const expired = (credential: IMCPOAuthCredential): boolean => {
+    if (credential.expiresAt === undefined) return false;
+    const lifetime =
+      credential.issuedAt === undefined ? undefined : credential.expiresAt - credential.issuedAt;
+    const margin = lifetime === undefined ? skew : Math.min(skew, Math.max(0, lifetime / 2));
+    return now() >= credential.expiresAt - margin;
+  };
   const usable = (credential: IMCPOAuthCredential): boolean =>
     credential.accessToken !== refused && !expired(credential);
 
   const refresh = async (
     credential: IMCPOAuthCredential,
     signal: AbortSignal,
+    afterRotation = false,
   ): Promise<IMCPOAuthCredential> => {
     const refreshToken = credential.refreshToken;
     if (refreshToken === undefined) return loginRequired(true);
@@ -164,10 +176,26 @@ export function createOAuthAuthenticator(
         fetchFn: createOAuthFetch(options.network, signal),
       });
     } catch (error) {
-      if (error instanceof InvalidGrantError) return loginRequired(true);
-      throw asOAuthError(error, 'refresh-failed');
+      if (!(error instanceof InvalidGrantError)) throw asOAuthError(error, 'refresh-failed');
+      // Still under the lock. A holder that outlived its lock may have rotated the token meanwhile:
+      // the refresh token refused is then not the stored one, and the stored one is not cleared.
+      const current = await options.store.get(key);
+      if (current === undefined) return loginRequired(false);
+      if (current.refreshToken !== refreshToken) {
+        if (usable(current)) return current;
+        // Theirs is expired too: spend it once, never loop.
+        return afterRotation ? loginRequired(false) : refresh(current, signal, true);
+      }
+      return loginRequired(true);
     }
-    const { accessToken: _a, refreshToken: _r, expiresAt: _e, scope: _s, ...base } = credential;
+    const {
+      accessToken: _a,
+      refreshToken: _r,
+      expiresAt: _e,
+      issuedAt: _i,
+      scope: _s,
+      ...base
+    } = credential;
     const next = credentialFromTokens(tokens, base, now(), refreshToken);
     await options.store.set(key, next);
     return next;
@@ -261,6 +289,7 @@ export function createOAuthAuthenticator(
       cache.invalidate(sent.generation);
       return 'retry';
     },
+    forget: () => cache.invalidate(latestGeneration),
     close: () => cache.close(),
   };
 }

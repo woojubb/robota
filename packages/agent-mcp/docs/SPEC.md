@@ -60,11 +60,15 @@ had no discovery, and two client stacks cannot both be authoritative.
   the one before it — the resource metadata must describe this server, the authorization server's
   metadata must name the issuer it was fetched for, every endpoint is `https` and PKCE `S256` is
   advertised — because the SDK's discovery guesses when a link is missing. A POST never follows a
-  redirect, since its body is a code, a refresh token or a secret, and a sign-in's redirect is
-  accepted only once, with its own `state` and, when present, its issuer's `iss`. Tokens are kept by
-  server identity and canonical URL together, so a shadowing definition cannot use another's
-  sign-in; a refresh goes only to the endpoint the tokens came from and runs once per credential
-  across processes, because a rotating refresh token spent twice signs the user out. Storage is a
+  redirect, since its body is a code, a token or a secret, and a sign-in's redirect — caught on
+  loopback or pasted by the user — is accepted only once, as its own redirect URI with its own
+  `state` and, when present, its issuer's `iss`. Tokens are kept by server identity and canonical
+  URL together, so a shadowing definition cannot use another's sign-in; a refresh goes only to the
+  endpoint the tokens came from and runs once per credential across processes, because a rotating
+  refresh token spent twice signs the user out — and a refused refresh never clears a token someone
+  else rotated in meanwhile. Signing out deletes the credential before asking the stored issuer to
+  revoke it, so an authorization server that is down or refuses cannot keep the user signed in. A
+  sign-in state shown to the user is a fixed word, never derived from a token. Storage is a
   get/set/delete port with that coordination on the caller's side, so a keychain can replace files
   without anything else changing. A client secret never lives in a definition.
 - **Trace context stays on the call it belongs to**: a tool call's trusted `traceparent` goes only on

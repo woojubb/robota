@@ -47,6 +47,8 @@ export interface IMCPOAuthCredential {
   readonly refreshToken?: string;
   /** Epoch milliseconds; absent when the server did not say. */
   readonly expiresAt?: number;
+  /** Epoch milliseconds the access token was issued at; with `expiresAt`, its lifetime. */
+  readonly issuedAt?: number;
   readonly scope?: string;
 }
 
@@ -99,9 +101,10 @@ function readCredential(value: unknown): IMCPOAuthCredential | undefined {
   if (OPTIONAL_STRINGS.some((f) => value[f] !== undefined && typeof value[f] !== 'string')) {
     return undefined;
   }
-  const expiresAt = value['expiresAt'];
-  if (expiresAt !== undefined && (typeof expiresAt !== 'number' || !Number.isFinite(expiresAt))) {
-    return undefined;
+  for (const field of ['expiresAt', 'issuedAt'] as const) {
+    const time = value[field];
+    if (time !== undefined && (typeof time !== 'number' || !Number.isFinite(time)))
+      return undefined;
   }
   const methods = value['tokenEndpointAuthMethods'];
   if (

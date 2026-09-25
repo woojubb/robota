@@ -213,3 +213,66 @@ describe('executeMCPActivationCommand', () => {
     expect(result.message).toContain('server-1');
   });
 });
+
+describe('/mcp and OAuth sign-in', () => {
+  function oauthAdapter(): ICommandMCPActivationAdapter & { loggedOut: string[] } {
+    const loggedOut: string[] = [];
+    return {
+      loggedOut,
+      list: () => [
+        summary({ serverId: 'files', status: 'approved', allowed: true }),
+        summary({ serverId: 'plain', status: 'approved', allowed: true }),
+      ],
+      approve: async () => summary(),
+      reject: async () => summary(),
+      revoke: async () => summary(),
+      oauthStatus: async () => [{ serverId: 'files', state: 'expired-refreshable' }],
+      oauthLogout: async (serverId) => {
+        loggedOut.push(serverId);
+        return {
+          serverId,
+          removed: true,
+          revocation: 'failed',
+          revocationFailure: 'revocation-failed',
+        };
+      },
+    };
+  }
+
+  it('shows each OAuth server sign-in state as a fixed word, and nothing for the rest', async () => {
+    const result = await executeMCPActivationCommand(context(oauthAdapter()), 'status');
+    const lines = result.message.split('\n');
+    expect(lines.find((line) => line.includes('files'))).toMatch(
+      /OAuth: token expired, will refresh$/,
+    );
+    expect(lines.find((line) => line.includes('plain'))).not.toContain('OAuth');
+    const servers = (result.data as { servers: Record<string, unknown>[] }).servers;
+    expect(servers[0]).toMatchObject({ serverId: 'files', oauth: 'expired-refreshable' });
+    expect(servers[1]).not.toHaveProperty('oauth');
+  });
+
+  it('signs out through the port and reports revocation by reason only', async () => {
+    const adapter = oauthAdapter();
+    const result = await executeMCPActivationCommand(context(adapter), 'logout files');
+    expect(adapter.loggedOut).toEqual(['files']);
+    expect(result.success).toBe(true);
+    expect(result.message).toBe(
+      'Signed out of MCP server files; token revocation failed (revocation-failed).',
+    );
+  });
+
+  it('refuses to sign out of a server that does not declare OAuth', async () => {
+    const adapter = oauthAdapter();
+    const result = await executeMCPActivationCommand(context(adapter), 'logout plain');
+    expect(result.success).toBe(false);
+    expect(adapter.loggedOut).toEqual([]);
+  });
+
+  it('names the terminal command for signing in rather than running it', async () => {
+    const result = await executeMCPActivationCommand(context(oauthAdapter()), 'login files');
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('robota mcp login files');
+    const refused = await executeMCPActivationCommand(context(oauthAdapter()), 'login plain');
+    expect(refused.success).toBe(false);
+  });
+});

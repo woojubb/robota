@@ -21,9 +21,20 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { browserCommand, openInBrowser } from '../browser-opener.js';
-import { runMcpLoginCommand } from '../mcp-login-command.js';
-import { formatMcpOAuthNotice, mcpCredentialDirectory } from '../mcp-oauth-host.js';
+import { securityIdentity } from '@robota-sdk/agent-mcp';
+
+import { createMcpClientComposition } from '../mcp-client-composition.js';
+import { resolveMcpDefinitions } from '../mcp-definition-sources.js';
+import { runMcpLoginCommand, runMcpLogoutCommand } from '../mcp-login-command.js';
+import {
+  createMcpOAuthHost,
+  formatMcpOAuthNotice,
+  mcpCredentialDirectory,
+} from '../mcp-oauth-host.js';
 import { createRobotaUserSettingsSources } from '../../product/robota-user-settings.js';
+
+import type { IMCPActivationRequest } from '@robota-sdk/agent-mcp';
+import type { IMcpLoginCommandDeps } from '../mcp-login-command.js';
 
 const MCP_URL = 'https://mcp.example.test/mcp';
 const AS_URL = 'https://auth.example.test/';
@@ -52,9 +63,14 @@ function json(body: unknown, status = 200): Response {
 /** Just enough authorization server for one sign-in; the "browser" approves and follows. */
 function fakeAuthorizationServer() {
   const codes = new Map<string, string>();
+  const revocations: URLSearchParams[] = [];
   const fetch = (async (input: string | URL, init?: RequestInit) => {
     const url = new URL(String(input));
     const body = init?.body === undefined || init.body === null ? '' : String(init.body);
+    if (url.href === 'https://auth.example.test/revoke') {
+      revocations.push(new URLSearchParams(body));
+      return json({ error: 'temporarily_unavailable', error_description: 'leaked-text' }, 503);
+    }
     if (url.href === 'https://mcp.example.test/.well-known/oauth-protected-resource/mcp') {
       return json({ resource: MCP_URL, authorization_servers: [AS_URL] });
     }
@@ -64,6 +80,7 @@ function fakeAuthorizationServer() {
         authorization_endpoint: 'https://auth.example.test/authorize',
         token_endpoint: 'https://auth.example.test/token',
         registration_endpoint: 'https://auth.example.test/register',
+        revocation_endpoint: 'https://auth.example.test/revoke',
         response_types_supported: ['code'],
         code_challenge_methods_supported: ['S256'],
       });
@@ -89,28 +106,32 @@ function fakeAuthorizationServer() {
     }
     return json({}, 404);
   }) as typeof globalThis.fetch;
-  const browse = async (authorization: URL): Promise<void> => {
+  /** Approve as the user would; the redirect the browser is then sent to. */
+  const approve = (authorization: URL): URL => {
     codes.set('the-code', authorization.searchParams.get('code_challenge') ?? '');
     const redirect = new URL(authorization.searchParams.get('redirect_uri') ?? '');
     redirect.searchParams.set('code', 'the-code');
     redirect.searchParams.set('state', authorization.searchParams.get('state') ?? '');
-    const request = httpRequest(redirect, (response) => response.resume());
+    return redirect;
+  };
+  const browse = async (authorization: URL): Promise<void> => {
+    const request = httpRequest(approve(authorization), (response) => response.resume());
     request.on('error', () => undefined);
     request.end();
   };
-  return { fetch, lookup: async () => ['203.0.113.10'], browse };
+  return { fetch, lookup: async () => ['203.0.113.10'], browse, approve, revocations };
 }
 
-async function login(
-  args: readonly string[],
+type TFakeAuthorizationServer = ReturnType<typeof fakeAuthorizationServer>;
+
+function commandDeps(
   userHome: string,
-  extra: { promptSecret?: () => Promise<string> } = {},
-) {
-  const server = fakeAuthorizationServer();
-  const out: string[] = [];
-  const err: string[] = [];
-  const opened: URL[] = [];
-  const code = await runMcpLoginCommand(args, {
+  server: TFakeAuthorizationServer,
+  out: string[],
+  err: string[],
+  opened: URL[],
+): IMcpLoginCommandDeps {
+  return {
     settingsSources: createRobotaUserSettingsSources(userHome),
     env: { HOME: userHome },
     stdout: (text) => out.push(text),
@@ -122,10 +143,40 @@ async function login(
     network: { fetch: server.fetch, lookup: server.lookup },
     credentialDirectory: mcpCredentialDirectory(userHome),
     callbackTimeoutMs: 5_000,
-    ...(extra.promptSecret === undefined ? {} : { promptSecret: extra.promptSecret }),
+  };
+}
+
+async function login(
+  args: readonly string[],
+  userHome: string,
+  extra: Partial<IMcpLoginCommandDeps> = {},
+  server: TFakeAuthorizationServer = fakeAuthorizationServer(),
+) {
+  const out: string[] = [];
+  const err: string[] = [];
+  const opened: URL[] = [];
+  const code = await runMcpLoginCommand(args, {
+    ...commandDeps(userHome, server, out, err, opened),
+    ...extra,
   });
   return { code, out: out.join(''), err: err.join(''), opened };
 }
+
+async function logout(
+  args: readonly string[],
+  userHome: string,
+  server: TFakeAuthorizationServer = fakeAuthorizationServer(),
+) {
+  const out: string[] = [];
+  const err: string[] = [];
+  const code = await runMcpLogoutCommand(args, commandDeps(userHome, server, out, err, []));
+  return { code, out: out.join(''), err: err.join('') };
+}
+
+const credentialFiles = (userHome: string): string[] =>
+  readdirSync(join(userHome, '.robota', 'mcp-credentials')).filter((name) =>
+    name.endsWith('.json'),
+  );
 
 describe('robota mcp login', () => {
   it('signs in and stores the credential owner-only under ~/.robota/mcp-credentials', async () => {
@@ -187,6 +238,143 @@ describe('robota mcp login', () => {
     const result = await login(['files'], userHome);
     expect(result.code).toBe(1);
     expect(result.err).toBe('Sign-in to MCP server "files" failed (discovery-failed).\n');
+  });
+});
+
+describe('robota mcp login --no-browser', () => {
+  const authorizationUrl = (out: string[]): URL =>
+    new URL(/https:\/\/auth\.example\.test\/authorize\S+/.exec(out.join(''))![0]);
+
+  it('prints the URL, opens no browser, and accepts the pasted redirect', async () => {
+    const userHome = home({ files: { type: 'http', url: MCP_URL, oauth: {} } });
+    const server = fakeAuthorizationServer();
+    const out: string[] = [];
+    const result = await login(
+      ['files', '--no-browser'],
+      userHome,
+      {
+        stdout: (text) => out.push(text),
+        promptRedirect: async () => server.approve(authorizationUrl(out)).href,
+      },
+      server,
+    );
+    expect(result.err).toBe('');
+    expect(result.code).toBe(0);
+    expect(result.opened).toEqual([]);
+    expect(out.join('')).toMatch(/open this URL in a browser/);
+    expect(out.join('')).toMatch(/paste it here/);
+    expect(out.join('')).toContain('Signed in to MCP server "files"');
+    expect(out.join('')).not.toMatch(/access-token-value|refresh-token-value|the-code/);
+    expect(credentialFiles(userHome)).toHaveLength(1);
+  });
+
+  it('refuses a pasted redirect that belongs to another sign-in, and stores nothing', async () => {
+    const userHome = home({ files: { type: 'http', url: MCP_URL, oauth: {} } });
+    const server = fakeAuthorizationServer();
+    const out: string[] = [];
+    const result = await login(
+      ['files', '--no-browser'],
+      userHome,
+      {
+        stdout: (text) => out.push(text),
+        promptRedirect: async () => {
+          const redirect = server.approve(authorizationUrl(out));
+          redirect.searchParams.set('state', 'forged');
+          return redirect.href;
+        },
+      },
+      server,
+    );
+    expect(result.code).toBe(1);
+    expect(result.err).toBe('Sign-in to MCP server "files" failed (callback-invalid).\n');
+    expect(readdirSync(join(userHome, '.robota'))).not.toContain('mcp-credentials');
+  });
+});
+
+describe('robota mcp logout', () => {
+  it('deletes the credential even when revocation fails, and says so by reason only', async () => {
+    const userHome = home({ files: { type: 'http', url: MCP_URL, oauth: {} } });
+    expect((await login(['files'], userHome)).code).toBe(0);
+    const server = fakeAuthorizationServer();
+    const result = await logout(['files'], userHome, server);
+    expect(result.err).toBe('');
+    expect(result.code).toBe(0);
+    expect(result.out).toBe(
+      'Signed out of MCP server "files". Token revocation failed (revocation-failed); ' +
+        'the tokens stay valid until they expire.\n',
+    );
+    expect(credentialFiles(userHome)).toEqual([]);
+    expect(server.revocations.map((form) => form.get('token_type_hint'))).toEqual([
+      'refresh_token',
+      'access_token',
+    ]);
+    expect(result.out).not.toMatch(/access-token-value|refresh-token-value|leaked-text/);
+
+    const again = await logout(['files'], userHome);
+    expect(again.out).toContain('Not signed in to MCP server "files"');
+  });
+
+  it('refuses a server that does not declare oauth, and a bad invocation', async () => {
+    const userHome = home({ plain: { type: 'http', url: MCP_URL } });
+    expect((await logout(['plain'], userHome)).err).toContain('does not declare `oauth`');
+    expect((await logout([], userHome)).err).toContain('Usage: robota mcp logout');
+  });
+});
+
+describe('/mcp sign-in state and sign-out', () => {
+  it('shows each state without a token, and signs out through the session', async () => {
+    const userHome = home({ files: { type: 'http', url: MCP_URL, oauth: {} } });
+    const { entries } = resolveMcpDefinitions(createRobotaUserSettingsSources(userHome), {
+      HOME: userHome,
+    });
+    const server = fakeAuthorizationServer();
+    const host = createMcpOAuthHost({
+      network: { fetch: server.fetch, lookup: server.lookup },
+      reportDiagnostic: () => undefined,
+      directory: mcpCredentialDirectory(userHome),
+    });
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      oauth: host,
+      reportDiagnostic: () => undefined,
+    });
+    const port = composition.activationAdapter;
+    await expect(port.oauthStatus?.()).resolves.toEqual([
+      { serverId: 'files', state: 'signed-out' },
+    ]);
+
+    // A session told to sign in says so, rather than just "signed out".
+    const entry = entries.find((candidate) => candidate.name === 'files')!;
+    const request = {
+      serverId: 'files',
+      securityIdentity: securityIdentity(entry),
+    } as IMCPActivationRequest;
+    const authenticator = host.authenticatorFor(request, entry.definition!);
+    await expect(
+      authenticator.authorize({ ...request, url: new URL(MCP_URL) }),
+    ).rejects.toMatchObject({ reason: 'login-required' });
+    authenticator.close();
+    await expect(port.oauthStatus?.()).resolves.toEqual([
+      { serverId: 'files', state: 'sign-in-required' },
+    ]);
+
+    expect((await login(['files'], userHome)).code).toBe(0);
+    const signedIn = await port.oauthStatus?.();
+    expect(signedIn).toEqual([{ serverId: 'files', state: 'signed-in' }]);
+    expect(JSON.stringify(signedIn)).not.toMatch(/token-value/);
+
+    await expect(port.oauthLogout?.('files')).resolves.toEqual({
+      serverId: 'files',
+      removed: true,
+      revocation: 'failed',
+      revocationFailure: 'revocation-failed',
+    });
+    expect(credentialFiles(userHome)).toEqual([]);
+    await expect(port.oauthStatus?.()).resolves.toEqual([
+      { serverId: 'files', state: 'signed-out' },
+    ]);
+    await expect(port.oauthLogout?.('missing')).rejects.toThrow();
+    await composition.shutdown();
   });
 });
 

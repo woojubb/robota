@@ -9,6 +9,9 @@
  *
  * The page it serves is static. An authorization server's `error_description` is never echoed —
  * into the page, an error or a log — because it is attacker-influenced text.
+ *
+ * Without a browser on this machine the user pastes the redirect URL instead, and the same rules
+ * hold: it must be this sign-in's redirect URI, carry its `state`, and is accepted once.
  */
 
 import { timingSafeEqual } from 'node:crypto';
@@ -69,6 +72,72 @@ function stateMatches(received: string | null, expected: string): boolean {
   return a.length === b.length && timingSafeEqual(a, b);
 }
 
+/** What a redirect that carried the right `state` says: a code, or a refusal named by reason. */
+function redirectOutcome(params: URLSearchParams): IMCPOAuthCallbackResult | MCPOAuthError {
+  const code = params.get('code');
+  const iss = params.get('iss');
+  if (params.has('error')) return new MCPOAuthError('authorization-denied');
+  if (code === null || code === '') return new MCPOAuthError('callback-invalid');
+  return { code, ...(iss === null ? {} : { iss }) };
+}
+
+/** The loopback redirect URI for `port`. */
+export function loopbackRedirectUri(port: number): string {
+  return `http://${LOOPBACK}:${port}${CALLBACK_PATH}`;
+}
+
+/** A loopback port free right now, for a redirect URI nothing on this machine listens on. */
+export async function freeLoopbackPort(): Promise<number> {
+  const probe = createServer();
+  try {
+    await new Promise<void>((resolve, reject) => {
+      probe.once('error', reject);
+      probe.listen(0, LOOPBACK, () => resolve());
+    });
+  } catch {
+    throw new MCPOAuthError('callback-unavailable');
+  }
+  const port = (probe.address() as AddressInfo).port;
+  await new Promise<void>((resolve) => probe.close(() => resolve()));
+  return port;
+}
+
+export interface IMCPOAuthPastedRedirect {
+  /**
+   * The code a pasted redirect URL carries. Throws `callback-invalid` for anything that is not this
+   * sign-in's redirect URI with its `state`, or once a redirect has been accepted;
+   * `authorization-denied` for an error redirect.
+   */
+  accept(pasted: string): IMCPOAuthCallbackResult;
+}
+
+/** The pasted counterpart of the loopback listener, for a browser on another machine. */
+export function createPastedRedirectAcceptor(options: {
+  readonly expectedState: string;
+  readonly redirectUri: string;
+}): IMCPOAuthPastedRedirect {
+  let consumed = false;
+  return {
+    accept: (pasted) => {
+      const text = pasted.trim();
+      if (consumed || !URL.canParse(text)) throw new MCPOAuthError('callback-invalid');
+      const url = new URL(text);
+      if (
+        `${url.origin}${url.pathname}` !== options.redirectUri ||
+        url.username !== '' ||
+        url.password !== '' ||
+        !stateMatches(url.searchParams.get('state'), options.expectedState)
+      ) {
+        throw new MCPOAuthError('callback-invalid');
+      }
+      consumed = true;
+      const outcome = redirectOutcome(url.searchParams);
+      if (outcome instanceof MCPOAuthError) throw outcome;
+      return outcome;
+    },
+  };
+}
+
 export async function startOAuthCallbackServer(
   options: IMCPOAuthCallbackOptions,
 ): Promise<IMCPOAuthCallbackServer> {
@@ -93,12 +162,7 @@ export async function startOAuthCallbackServer(
       return refuse(response, 400);
     }
     consumed = true;
-    const code = url.searchParams.get('code');
-    const iss = url.searchParams.get('iss');
-    let result: IMCPOAuthCallbackResult | MCPOAuthError;
-    if (url.searchParams.has('error')) result = new MCPOAuthError('authorization-denied');
-    else if (code === null || code === '') result = new MCPOAuthError('callback-invalid');
-    else result = { code, ...(iss === null ? {} : { iss }) };
+    const result = redirectOutcome(url.searchParams);
     response.writeHead(result instanceof MCPOAuthError ? 400 : 200, PAGE_HEADERS);
     response.end(result instanceof MCPOAuthError ? FAILED_PAGE : SIGNED_IN_PAGE);
     response.once('finish', () => void close());
@@ -140,7 +204,7 @@ export async function startOAuthCallbackServer(
   else options.signal?.addEventListener('abort', onAbort, { once: true });
 
   return {
-    redirectUri: `http://${LOOPBACK}:${port}${CALLBACK_PATH}`,
+    redirectUri: loopbackRedirectUri(port),
     wait: () => outcome,
     close,
   };

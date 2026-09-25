@@ -447,6 +447,31 @@ records a decision for that session but does not connect the server in the runni
 persist it across a restart. An embedding host can preserve approval state across starts by
 supplying the same store; it remains responsible for when to reconnect approved definitions.
 
+A remote server that declares `"oauth": {}` (optionally with `clientId`, `callbackPort`,
+`authServerMetadataUrl` and `scopes`) needs a sign-in before a session can use it:
+
+```bash
+robota mcp login files                 # opens your browser; tokens kept owner-only in ~/.robota/mcp-credentials
+robota mcp login files --no-browser    # prints the URL; paste back the address your browser was sent to
+robota mcp login files --client-secret # a pre-registered confidential client: asks for the secret
+robota mcp logout files                # deletes the stored tokens, then revokes them where the server allows
+```
+
+Use `--no-browser` when the browser runs on another machine (for example over SSH). After you
+approve, the browser is sent to a `http://127.0.0.1:<port>/callback` address that may not load; copy
+that full address and paste it at the prompt (the input is not echoed). It is accepted only if it is
+this sign-in's redirect address and carries its `state`.
+
+`robota mcp logout` always deletes the local credential, even when the authorization server cannot
+be reached or refuses to revoke the tokens; it then says whether revocation succeeded, failed (by a
+short reason) or is not offered by the server. `/mcp` shows each OAuth server's sign-in state —
+`signed in`, `token expired, will refresh`, `sign-in required` or `signed out` — never a token.
+`/mcp logout <serverId>` signs out from inside a session and stops the session sending the token it
+holds. `/mcp login <serverId>` prints the `robota mcp login` command to run in a terminal: signing
+in needs the terminal for the browser, a pasted redirect or a secret, which the running session
+owns. A server that could not connect at startup is connected by the next session after you sign
+in.
+
 ### MCP Background Handoff
 
 A slow MCP tool call can be handed to a background task instead of blocking the turn. Configure it

@@ -65,6 +65,8 @@ import type {
 import type {
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
+  ICommandMCPOAuthLogoutResult,
+  ICommandMCPOAuthStatus,
   ICommandMCPSourceProblem,
 } from '@robota-sdk/agent-framework';
 import type {
@@ -115,10 +117,22 @@ export interface IMcpOAuthHost {
     request: IMCPActivationRequest,
     definition: IMCPServerDefinitionResolved,
   ): IMcpClosableAuthenticator;
+  /** The server's sign-in state for `/mcp`; a fixed word, never anything token-derived. */
+  state?(
+    request: IMCPActivationRequest,
+    definition: IMCPServerDefinitionResolved,
+  ): Promise<ICommandMCPOAuthStatus['state']>;
+  /** Delete the server's stored credential and revoke its tokens where the server allows. */
+  signOut?(
+    request: IMCPActivationRequest,
+    definition: IMCPServerDefinitionResolved,
+  ): Promise<Omit<ICommandMCPOAuthLogoutResult, 'serverId'>>;
 }
 
 /** An authenticator this composition closes at shutdown. */
 export interface IMcpClosableAuthenticator extends IMCPClientAuthenticator {
+  /** Drop a token held in memory, so a sign-out takes effect in this session too. */
+  forget?(): void;
   close(): void;
 }
 
@@ -566,6 +580,56 @@ function buildActivationAdapter(
   };
 }
 
+/** The `/mcp` OAuth operations, over every resolved remote definition that declares `oauth`. */
+function oauthCommandPort(
+  registry: MCPDefinitionRegistry,
+  resolvedEntries: readonly IMCPResolvedEntry[],
+  host: IMcpOAuthHost | undefined,
+  authenticators: ReadonlyMap<string, IMcpClosableAuthenticator>,
+): Pick<ICommandMCPActivationAdapter, 'oauthStatus' | 'oauthLogout'> {
+  if (host === undefined) return {};
+  const oauthServers = (): {
+    request: IMCPActivationRequest;
+    definition: IMCPServerDefinitionResolved;
+  }[] =>
+    registry.list().flatMap((request) => {
+      const definition = resolvedEntries.find(
+        (entry) => entry.name === request.serverId,
+      )?.definition;
+      return definition?.transport === 'http' && definition.oauth !== undefined
+        ? [{ request, definition }]
+        : [];
+    });
+  const { state, signOut } = host;
+  return {
+    ...(state === undefined
+      ? {}
+      : {
+          oauthStatus: () =>
+            Promise.all(
+              oauthServers().map(async ({ request, definition }) => ({
+                serverId: request.serverId,
+                state: await state.call(host, request, definition),
+              })),
+            ),
+        }),
+    ...(signOut === undefined
+      ? {}
+      : {
+          oauthLogout: async (serverId: string) => {
+            const server = oauthServers().find(({ request }) => request.serverId === serverId);
+            if (server === undefined) {
+              throw new Error(`MCP server ${serverId} does not declare OAuth.`);
+            }
+            const result = await signOut.call(host, server.request, server.definition);
+            // This session's authenticator stops sending the token it holds in memory.
+            authenticators.get(serverId)?.forget?.();
+            return { serverId, ...result };
+          },
+        }),
+  };
+}
+
 /**
  * Every adopted/adapted tool entry whose server has a live connection, wrapped as a runtime tool.
  * `provenanceByCanonicalName` is populated as a side effect (MCP-004 S3) — one entry per returned
@@ -603,15 +667,14 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   });
   const admission = new MCPActivationAdmissionService(deps.approvalStore, deps.now);
   const controller = new MCPActivationController(registry, admission, registry.displayNames());
-  const activationAdapter = buildActivationAdapter(
-    controller,
-    deps.sourceProblems ?? [],
-    deps.resolvedEntries,
-  );
+  const oauthAuthenticators = new Map<string, IMcpClosableAuthenticator>();
+  const activationAdapter: ICommandMCPActivationAdapter = {
+    ...buildActivationAdapter(controller, deps.sourceProblems ?? [], deps.resolvedEntries),
+    ...oauthCommandPort(registry, deps.resolvedEntries, deps.oauth, oauthAuthenticators),
+  };
 
   const openConnections: IMcpServerConnection[] = [];
   const helperSlots = new Map<string, IHelperAuthenticatorSlot>();
-  const oauthAuthenticators = new Map<string, IMcpClosableAuthenticator>();
   const connectedByServerId = new Map<string, IMcpServerConnection>();
   const timeouts = deps.timeouts ?? DEFAULT_MCP_CLIENT_TIMEOUTS;
   const createSupervisor =

@@ -7,8 +7,8 @@ export function createMCPActivationCommandEntry(): ICommand {
   return {
     name: 'mcp',
     displayName: 'MCP activation',
-    description: 'Inspect and manage trust approval for MCP server activation',
-    argumentHint: '[status|approve|reject|revoke] [serverId]',
+    description: 'Inspect and manage trust approval and OAuth sign-in for MCP servers',
+    argumentHint: '[status|approve|reject|revoke|login|logout] [serverId]',
     source: 'mcp-activation',
     modelInvocable: false,
   };

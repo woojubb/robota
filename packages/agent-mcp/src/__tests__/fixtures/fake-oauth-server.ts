@@ -42,6 +42,8 @@ export interface IFakeOAuthServer {
     promisesIss?: boolean;
     expiresIn?: number;
     codeChallengeMethods?: string[] | null;
+    /** How the revocation endpoint behaves; `absent` leaves it out of the metadata. */
+    revocation?: 'ok' | 'error' | 'redirect' | 'absent';
   };
   readonly validRefreshTokens: Set<string>;
   tokenCalls(grant?: string): number;
@@ -80,6 +82,9 @@ export function createFakeOAuthServer(): IFakeOAuthServer {
       : { code_challenge_methods_supported: overrides.codeChallengeMethods ?? ['S256'] }),
     token_endpoint_auth_methods_supported: ['none', 'client_secret_basic'],
     authorization_response_iss_parameter_supported: overrides.promisesIss ?? true,
+    ...(overrides.revocation === 'absent'
+      ? {}
+      : { revocation_endpoint: 'https://auth.example.test/revoke' }),
   });
 
   const issue = (): Response => {
@@ -167,6 +172,22 @@ export function createFakeOAuthServer(): IFakeOAuthServer {
       }
       if (url.pathname === '/token' && method === 'POST') {
         return token(new URLSearchParams(body), headers);
+      }
+      if (url.pathname === '/revoke' && method === 'POST') {
+        if (overrides.revocation === 'redirect') {
+          return new Response(null, {
+            status: 307,
+            headers: { location: 'https://evil.example.test/revoke' },
+          });
+        }
+        if (overrides.revocation === 'error') {
+          return json(
+            { error: 'temporarily_unavailable', error_description: SECRET_DESCRIPTION },
+            503,
+          );
+        }
+        validRefreshTokens.delete(new URLSearchParams(body).get('token') ?? '');
+        return new Response(null, { status: 200 });
       }
     }
     return json({ error: 'not found' }, 404);

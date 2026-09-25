@@ -13,6 +13,8 @@ import {
   createFileOAuthCredentialStore,
   createFileOAuthRefreshLock,
   createOAuthAuthenticator,
+  readMCPOAuthCredentialState,
+  runMCPOAuthLogout,
 } from '@robota-sdk/agent-mcp';
 
 import { userLocalStorageRoot } from '../product/user-paths.js';
@@ -43,6 +45,8 @@ export function createMcpOAuthHost(options: {
   const directory = options.directory ?? mcpCredentialDirectory();
   const store = createFileOAuthCredentialStore(directory);
   const lock = createFileOAuthRefreshLock(directory);
+  /** Servers this session was told need a sign-in; nothing stored for them reads as that. */
+  const signInAsked = new Set<string>();
   return {
     authenticatorFor: (request, definition) =>
       createOAuthAuthenticator({
@@ -53,7 +57,31 @@ export function createMcpOAuthHost(options: {
         store,
         lock,
         network: options.network,
-        notify: (notice) => options.reportDiagnostic(formatMcpOAuthNotice(notice)),
+        notify: (notice) => {
+          if (notice.kind === 'login-required') signInAsked.add(request.serverId);
+          options.reportDiagnostic(formatMcpOAuthNotice(notice));
+        },
       }),
+    state: async (request, definition) => {
+      const state = await readMCPOAuthCredentialState({
+        securityIdentity: request.securityIdentity,
+        serverUrl: definition.url ?? '',
+        store,
+      });
+      return state === 'signed-out' && signInAsked.has(request.serverId)
+        ? 'sign-in-required'
+        : state;
+    },
+    signOut: async (request, definition) => {
+      const result = await runMCPOAuthLogout({
+        securityIdentity: request.securityIdentity,
+        serverUrl: definition.url ?? '',
+        store,
+        lock,
+        network: options.network,
+      });
+      signInAsked.delete(request.serverId);
+      return result;
+    },
   };
 }

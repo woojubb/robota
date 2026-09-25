@@ -154,7 +154,9 @@ export {
   type IMCPOAuthServerInfo,
 } from './client/oauth/discovery.js';
 export {
+  createPastedRedirectAcceptor,
   startOAuthCallbackServer,
+  type IMCPOAuthPastedRedirect,
   type IMCPOAuthCallbackOptions,
   type IMCPOAuthCallbackResult,
   type IMCPOAuthCallbackServer,
@@ -176,6 +178,15 @@ export {
   type IMCPOAuthLoginInput,
   type IMCPOAuthLoginResult,
 } from './client/oauth/login.js';
+export {
+  readMCPOAuthCredentialState,
+  runMCPOAuthLogout,
+  type IMCPOAuthCredentialStateInput,
+  type IMCPOAuthLogoutInput,
+  type IMCPOAuthLogoutResult,
+  type TMCPOAuthCredentialState,
+  type TMCPOAuthRevocationOutcome,
+} from './client/oauth/lifecycle.js';
 export {
   createOAuthAuthenticator,
   type IMCPOAuthAuthenticator,
