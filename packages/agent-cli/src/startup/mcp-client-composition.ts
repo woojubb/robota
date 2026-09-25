@@ -804,8 +804,9 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   /**
    * After a sign-in, the server is admitted again first — approval, fingerprint and trust as they
    * stand now. A server this session already connected (its discovery succeeded, whatever tools it
-   * offered) gets that connection back, so its tools and listeners keep working; any other goes
-   * through the same connection as at startup, and its tools are returned for the session to add.
+   * offered) gets that connection reopened, so its tools and listeners keep working — or, when it
+   * cannot be reopened, is left as it is; any other goes through the same connection as at startup,
+   * and its tools are returned for the session to add.
    * Never throws: a server that still cannot connect is reported.
    */
   async function connectSignedIn(
@@ -826,8 +827,9 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       return { connection: 'not-admitted', tools: [] };
     }
     const previous = connectedByServerId.get(serverId);
-    const live = previous !== undefined && discovered.has(serverId);
-    if (live && previous.retry !== undefined) {
+    if (previous !== undefined && discovered.has(serverId)) {
+      // A second connection would sit beside the one its offered tools already call.
+      if (previous.retry === undefined) return { connection: 'not-connected', tools: [] };
       try {
         await previous.retry();
         return { connection: 'recovered', tools: [] };
@@ -848,7 +850,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
     if (connected?.connection === undefined) return { connection: 'not-connected', tools: [] };
     openConnections.push(connected.connection);
     connectedByServerId.set(serverId, connected.connection);
-    if (previous !== undefined && !live) {
+    if (previous !== undefined) {
       // The connection that failed for want of a sign-in; nothing of it is offered.
       openConnections.splice(openConnections.indexOf(previous), 1);
       await previous.shutdown().catch(() => undefined);

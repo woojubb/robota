@@ -30,7 +30,11 @@ export interface IMCPOAuthCallbackResult {
 
 export interface IMCPOAuthCallbackServer {
   readonly redirectUri: string;
-  /** Resolves with the one accepted redirect; rejects on an error redirect, timeout or cancel. */
+  /**
+   * Resolves with the one accepted redirect; rejects on an error redirect, timeout or cancel. The
+   * time limit runs from the first call — once the user has the authorization page — since time
+   * spent before that (a prompt asking whether to open the browser) is not spent waiting for it.
+   */
   wait(): Promise<IMCPOAuthCallbackResult>;
   close(): Promise<void>;
 }
@@ -186,10 +190,7 @@ export async function startOAuthCallbackServer(
     void close();
   };
   const onAbort = (): void => fail('cancelled');
-  const timer = setTimeout(
-    () => fail('callback-timeout'),
-    options.timeoutMs ?? DEFAULT_CALLBACK_TIMEOUT_MS,
-  );
+  let timer: ReturnType<typeof setTimeout> | undefined;
 
   try {
     await new Promise<void>((resolve, reject) => {
@@ -209,7 +210,15 @@ export async function startOAuthCallbackServer(
 
   return {
     redirectUri: loopbackRedirectUri(port),
-    wait: () => outcome,
+    wait: () => {
+      if (timer === undefined && closed === undefined) {
+        timer = setTimeout(
+          () => fail('callback-timeout'),
+          options.timeoutMs ?? DEFAULT_CALLBACK_TIMEOUT_MS,
+        );
+      }
+      return outcome;
+    },
     close,
   };
 }

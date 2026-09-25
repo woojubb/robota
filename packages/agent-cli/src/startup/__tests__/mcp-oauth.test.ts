@@ -749,16 +749,13 @@ describe('/mcp login inside a session', () => {
     await s.cleanup();
   });
 
-  it('connects afresh a connected server that cannot be reopened in place', async () => {
+  it('never opens a second connection beside a connected one that cannot be reopened', async () => {
     const s = await sessionWithOAuthServer({ signedIn: true, retry: false });
     const result = await s.run('login files');
-    expect(result.success).toBe(true);
-    // The live connection its offered tools call is kept, not shut down under them.
-    expect(s.connections.map((connection) => connection.shutdown)).toEqual([0, 0]);
+    expect(result.message).toContain('could not connect in this session');
+    // One connection, still open: the tools the session offers keep calling it.
+    expect(s.connections).toEqual([{ shutdown: 0, retried: 0 }]);
     expect(s.toolNames().filter((name) => name === 'files__read')).toHaveLength(1);
-    expect(s.diagnostics.join('\n')).toContain(
-      'MCP tool "files__read" from "files" was not added: the session already has a tool by that name.',
-    );
     await s.cleanup();
   });
 

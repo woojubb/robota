@@ -25,7 +25,9 @@ Sign in to a remote MCP server from inside a session, and use its tools without 
   provenance. In browser mode the authorization URL is shown in the session prompt before the
   browser opens, where the user can also choose to paste the redirect instead or cancel.
 - **`runMCPOAuthLogin`** takes `readRedirectWhenBrowserFails`: when `openBrowser` rejects, the
-  loopback listener stops and the pasted redirect is read instead, for the same redirect URI.
+  loopback listener stops and the pasted redirect is read instead, for the same redirect URI. The
+  loopback listener's time limit now runs from its first `wait()` — once the authorization page is
+  handed over — so time spent at a prompt before the browser opens does not count against it.
 - **`Session.addTools`** (and `ICommandSessionTools.addTools`) offers tools that became usable
   mid-session, through the same permission gate and — via `ISessionOptions.wrapAddedTools`, which
   `createSession` sets — the same edit-checkpoint and reversible-execution wraps as the assembled

@@ -125,6 +125,40 @@ describe('Session.addTools', () => {
     await target.shutdown();
   });
 
+  it('starts a turn only after a tool change in flight has finished', async () => {
+    const { provider, chatOptions } = createScriptedProvider([{ text: 'hi' }]);
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let registering!: () => void;
+    const registration = new Promise<void>((resolve) => {
+      registering = resolve;
+    });
+    const target = session({ provider });
+    // A slow registration: by the time it runs, the queue of added tools is already empty.
+    const agent = (
+      target as unknown as { agent: { updateTools: (next: never) => Promise<unknown> } }
+    ).agent;
+    const updateTools = agent.updateTools.bind(agent);
+    agent.updateTools = async (next) => {
+      registering();
+      await held;
+      return updateTools(next);
+    };
+    const added = target.addTools([tool('files__list')]);
+    await registration;
+    const turn = target.run('hello');
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    release();
+    await Promise.all([added, turn]);
+    expect((chatOptions[0]?.tools ?? []).map((schema) => schema.name)).toEqual([
+      'Read',
+      'files__list',
+    ]);
+    await target.shutdown();
+  });
+
   it('never replaces a tool the session already has', async () => {
     const target = session();
     await expect(target.addTools([tool('Read', async () => 'impostor')])).resolves.toEqual([]);

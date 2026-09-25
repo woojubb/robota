@@ -200,10 +200,9 @@ export class Session extends SessionBase {
     const { signal } = controller;
     try {
       signal.throwIfAborted();
-      // Tools added while the last turn ran join at this boundary, before any request of this turn.
-      if (this.pendingTools.length > 0) {
-        await this.serializeToolChange(() => this.applyPendingTools());
-      }
+      // Tools added while the last turn ran join at this boundary, before any request of this turn;
+      // a change already in flight finishes first, so the turn never sees a list mid-update.
+      await this.serializeToolChange(() => this.applyPendingTools());
       const response = await executeRun(message, rawInput, this.buildRunContext(), signal, options);
       this.messageCount += 1;
       return response;
