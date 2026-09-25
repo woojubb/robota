@@ -66,8 +66,43 @@ const SYMLINK_OR_FILE_OPTIONS: Readonly<
 /** Any option whose value is a file to read, or a list of files: `--file`, `--exclude-from`, `-files0-from`. */
 const FILE_VALUED_OPTION = /^--?[A-Za-z0-9-]*(file|from|contents)(=|$)/;
 
+/**
+ * Long options refused for any command in the set. GNU `getopt_long` and git both accept any
+ * unambiguous prefix (`--deref`), so a word that could abbreviate one of these is refused too.
+ */
+const REFUSED_LONG_OPTIONS = [
+  '--dereference',
+  '--dereference-recursive',
+  '--dereference-args',
+  '--dereference-command-line',
+  '--file',
+  '--files0-from',
+  '--exclude-from',
+  '--from-file',
+  '--to-file',
+  '--contents',
+  '--ignore-revs-file',
+  '--output',
+  '--output-directory',
+  '--ext-diff',
+  '--no-index',
+  '--open-files-in-pager',
+];
+
+function abbreviatesRefusedOption(text: string): boolean {
+  if (!text.startsWith('--') || text.length <= 2) return false;
+  const name = text.split('=', 1)[0]!;
+  return REFUSED_LONG_OPTIONS.some((option) => option.startsWith(name));
+}
+
 function usesRefusedOption(command: string, args: readonly IWord[]): boolean {
-  if (optionWords(args).some((word) => FILE_VALUED_OPTION.test(word.text))) return true;
+  if (
+    optionWords(args).some(
+      (word) => FILE_VALUED_OPTION.test(word.text) || abbreviatesRefusedOption(word.text),
+    )
+  ) {
+    return true;
+  }
   if (command === 'find') {
     return optionWords(args).some((word) => word.text === '-L' || word.text === '-follow');
   }
@@ -367,9 +402,10 @@ function operandsStayInWorkspace(
   let base: string | undefined;
   for (const [command, ...args] of segments) {
     if (NON_PATH_OPERANDS.has(command!.text)) continue;
-    const options = new Set(optionWords(args));
+    // Options are resolved too: where parsing stops at the first operand (BSD, or
+    // `POSIXLY_CORRECT`), a later `-sl` is a file. A word that names no file resolves inside.
     for (const word of args) {
-      if (options.has(word) || word.text === '--') continue;
+      if (word.text === '--') continue;
       if (resolve === undefined) return false;
       const resolved = resolve(base, word.text);
       if (resolved === undefined) return false;

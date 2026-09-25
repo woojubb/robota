@@ -135,6 +135,13 @@ describe('isReadOnlyCommandLine', () => {
     ['du -D *', 'a glob could expand to option-named files'],
     ['wc --files0-from=names', 'a list of files named elsewhere'],
     ['find . -files0-from=names', 'same, for find'],
+    // Fourth review: abbreviations and operand-first parsing.
+    ['grep -r --deref x src', 'an abbreviated --dereference-recursive'],
+    ['grep --derefer -r x src', 'same, before the pattern'],
+    ['du --files0=names', 'an abbreviated --files0-from'],
+    ['git log --out=x', 'an abbreviated --output'],
+    ['cat t.txt -sl', 'a dash-named file after an operand, under BSD parsing'],
+    ['grep x t.txt -sl', 'same, for grep'],
   ])('%s does not qualify (%s)', (line) => {
     expect(isReadOnlyCommandLine(line, inWorkspace)).toBe(false);
   });
@@ -167,7 +174,7 @@ describe('the gate decides a read-only command like a read', () => {
 
   it('runs without a prompt in default and plan mode', () => {
     expect(evaluatePermission('Bash', { command: 'git status' }, 'default')).toBe('auto');
-    expect(evaluatePermission('Bash', { command: 'ls -la' }, 'plan')).toBe('auto');
+    expect(evaluatePermission('Bash', { command: 'ls' }, 'plan')).toBe('auto');
     expect(evaluatePermission('Bash', { command: 'npm test' }, 'default')).toBe('approve');
     expect(evaluatePermission('Bash', { command: 'npm test' }, 'plan')).toBe('deny');
   });

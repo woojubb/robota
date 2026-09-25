@@ -239,6 +239,8 @@ describe('read-only commands follow symlinks before trusting a path (issue #3082
     writeFileSync(join(root, 'secret'), 'SECRET');
     writeFileSync(join(root, 'ws', 'notes.txt'), 'notes');
     symlinkSync(join(root, 'secret'), join(root, 'ws', 'link'));
+    symlinkSync(join(root, 'secret'), join(root, 'ws', '-sl'));
+    symlinkSync(root, join(root, 'ws', 'out'));
   });
   afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -259,7 +261,13 @@ describe('read-only commands follow symlinks before trusting a path (issue #3082
     await expect(enforcer.checkPermission('Bash', { command: 'cat link' })).resolves.toBe(false);
     await expect(enforcer.checkPermission('Bash', { command: 'cat -- link' })).resolves.toBe(false);
     await expect(enforcer.checkPermission('Bash', { command: 'ls l*' })).resolves.toBe(false);
-    expect(handler).toHaveBeenCalledTimes(3);
+    await expect(enforcer.checkPermission('Bash', { command: 'cat notes.txt -sl' })).resolves.toBe(
+      false,
+    );
+    await expect(
+      enforcer.checkPermission('Bash', { command: 'grep -r --deref SECRET .' }),
+    ).resolves.toBe(false);
+    expect(handler).toHaveBeenCalledTimes(5);
   });
 });
 
