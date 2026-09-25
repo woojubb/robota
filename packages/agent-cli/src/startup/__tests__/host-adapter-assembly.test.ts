@@ -44,6 +44,9 @@ describe('assembling the host adapters', () => {
         sessionId: 'self',
         guardedDirectory: '/tmp/rendezvous',
         list: () => [],
+        listWithWorkspace: async () => [],
+        relate: async () => undefined,
+        refreshWorkspace: async () => {},
         publishStatus: (status: string | undefined) => published.push(status),
         withdraw: () => {},
       };
@@ -80,6 +83,9 @@ describe('assembling the host adapters', () => {
       sessionId: 'session-one',
       guardedDirectory: '/tmp/rendezvous',
       list: () => [{ sessionId: 'session-one', liveness: 'alive' as const }],
+      listWithWorkspace: async () => [],
+      relate: async () => undefined,
+      refreshWorkspace: async () => {},
       publishStatus: () => undefined,
       withdraw: () => undefined,
     };
@@ -102,6 +108,9 @@ describe('assembling the host adapters', () => {
         sessionId: options.sessionId,
         guardedDirectory: '/tmp/rendezvous',
         list: () => [],
+        listWithWorkspace: async () => [],
+        relate: async () => undefined,
+        refreshWorkspace: async () => {},
         publishStatus: () => undefined,
         withdraw: () => undefined,
       };
@@ -140,6 +149,9 @@ describe('PEER-006 — messaging is attached separately from discovery', () => {
     sessionId: 'me',
     guardedDirectory: '/tmp/does-not-matter',
     list: () => [],
+    listWithWorkspace: async () => [],
+    relate: async () => undefined,
+    refreshWorkspace: async () => {},
     publishStatus: () => {},
     withdraw: () => {},
   };
@@ -201,6 +213,9 @@ describe('PEER-006 — a session switch does not leak a listener', () => {
     sessionId: 'me',
     guardedDirectory: '/tmp/does-not-matter',
     list: () => [],
+    listWithWorkspace: async () => [],
+    relate: async () => undefined,
+    refreshWorkspace: async () => {},
     publishStatus: () => {},
     withdraw: () => {},
   };

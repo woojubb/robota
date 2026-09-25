@@ -88,6 +88,7 @@ function buildLocalPeersHostAdapter(
 ): NonNullable<ICommandHostAdapters['localPeers']> {
   return {
     list: () => presence.list(),
+    listWithWorkspace: () => presence.listWithWorkspace(),
     ownSessionId: () => presence.sessionId,
   };
 }
@@ -188,6 +189,7 @@ function startMessaging(
     guardedDirectory: presence.guardedDirectory,
     sessionId: presence.sessionId,
     list: () => presence.list(),
+    relate: async (sessionId) => (await presence.relate(sessionId))?.relation,
     report: (message) => report.writeError(message),
     ingress: new PeerMessageIngress({
       // The driver id is NOT taken from the arriving message: the messaging leaf derives it from the

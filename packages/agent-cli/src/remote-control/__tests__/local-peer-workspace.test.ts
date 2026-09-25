@@ -7,7 +7,15 @@
  */
 
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 
@@ -60,108 +68,162 @@ function repository(origin?: string): string {
 }
 
 describe('the relation the reader computes', () => {
-  it('two sessions in one worktree are same-worktree', () => {
+  it('two sessions in one worktree are same-worktree', async () => {
     const repo = repository();
     const subdirectory = path.join(repo, 'packages');
     mkdirSync(subdirectory);
-    const own = readWorkspaceClaim(repo);
-    const peer = readWorkspaceClaim(subdirectory);
-    expect(judgeWorkspaceRelation(own, peer)).toEqual({
+    const own = await readWorkspaceClaim(repo);
+    const peer = await readWorkspaceClaim(subdirectory);
+    expect(await judgeWorkspaceRelation(own, peer)).toEqual({
       relation: 'same-worktree',
       claim: 'verified',
     });
   });
 
-  it('two worktrees of one repository are same-repo', () => {
+  it('two worktrees of one repository are same-repo', async () => {
     const repo = repository();
     const worktree = path.join(directory(), 'second');
     git(repo, 'worktree', 'add', '-q', worktree);
-    expect(judgeWorkspaceRelation(readWorkspaceClaim(repo), readWorkspaceClaim(worktree))).toEqual({
+    expect(
+      await judgeWorkspaceRelation(
+        await readWorkspaceClaim(repo),
+        await readWorkspaceClaim(worktree),
+      ),
+    ).toEqual({
       relation: 'same-repo',
       claim: 'verified',
     });
   });
 
-  it('two clones of one repository are same-repo', () => {
+  it('two clones of one repository are same-repo', async () => {
     const repo = repository();
     const clone = path.join(directory(), 'clone');
     git(path.dirname(clone), 'clone', '-q', repo, clone);
-    expect(judgeWorkspaceRelation(readWorkspaceClaim(repo), readWorkspaceClaim(clone))).toEqual({
+    expect(
+      await judgeWorkspaceRelation(await readWorkspaceClaim(repo), await readWorkspaceClaim(clone)),
+    ).toEqual({
       relation: 'same-repo',
       claim: 'verified',
     });
   });
 
-  it('different repositories are different-repo', () => {
+  it('different repositories are different-repo', async () => {
     expect(
-      judgeWorkspaceRelation(readWorkspaceClaim(repository()), readWorkspaceClaim(repository())),
+      await judgeWorkspaceRelation(
+        await readWorkspaceClaim(repository()),
+        await readWorkspaceClaim(repository()),
+      ),
     ).toEqual({ relation: 'different-repo', claim: 'verified' });
   });
 
-  it('a non-git directory is unknown, and publishes no claim', () => {
+  it('a non-git directory is unknown, and publishes no claim', async () => {
     const plain = directory();
-    expect(readWorkspaceClaim(plain)).toBeUndefined();
-    expect(judgeWorkspaceRelation(readWorkspaceClaim(repository()), undefined)).toEqual({
-      relation: 'unknown',
-      claim: 'absent',
-    });
+    expect(await readWorkspaceClaim(plain)).toBeUndefined();
+    expect(await judgeWorkspaceRelation(await readWorkspaceClaim(repository()), undefined)).toEqual(
+      {
+        relation: 'unknown',
+        claim: 'absent',
+      },
+    );
     // The reader outside git cannot relate itself to anything either.
-    expect(judgeWorkspaceRelation(undefined, readWorkspaceClaim(repository()))).toEqual({
-      relation: 'unknown',
-      claim: 'verified',
-    });
+    expect(await judgeWorkspaceRelation(undefined, await readWorkspaceClaim(repository()))).toEqual(
+      {
+        relation: 'unknown',
+        claim: 'verified',
+      },
+    );
   });
 });
 
 describe('a claim is verified, not trusted', () => {
-  it('does not believe a claim naming another repository’s root commits', () => {
-    const own = readWorkspaceClaim(repository());
-    const theirs = readWorkspaceClaim(repository());
+  it('does not believe a claim naming another repository’s root commits', async () => {
+    const own = await readWorkspaceClaim(repository());
+    const theirs = await readWorkspaceClaim(repository());
     // A peer that says it sits in an unrelated repository while claiming OUR history.
     const forged = { ...theirs!, rootCommits: own!.rootCommits };
-    expect(judgeWorkspaceRelation(own, forged)).toEqual({
+    expect(await judgeWorkspaceRelation(own, forged)).toEqual({
       relation: 'unknown',
       claim: 'mismatched',
     });
   });
 
-  it('does not believe a claim naming our worktree through a path that does not resolve to it', () => {
+  it('does not believe a claim naming our worktree through a path that does not resolve to it', async () => {
     const repo = repository();
     const link = path.join(directory(), 'link');
     symlinkSync(repo, link);
-    const own = readWorkspaceClaim(repo);
-    expect(judgeWorkspaceRelation(own, { ...own!, worktreePath: link })).toEqual({
+    const own = await readWorkspaceClaim(repo);
+    expect(await judgeWorkspaceRelation(own, { ...own!, worktreePath: link })).toEqual({
       relation: 'unknown',
       claim: 'mismatched',
     });
   });
 
-  it('does not believe a claim whose path is not a git worktree at all', () => {
-    const own = readWorkspaceClaim(repository());
-    expect(judgeWorkspaceRelation(own, { ...own!, worktreePath: directory() })).toEqual({
+  it('does not believe a claim whose path is not a git worktree at all', async () => {
+    const own = await readWorkspaceClaim(repository());
+    expect(await judgeWorkspaceRelation(own, { ...own!, worktreePath: directory() })).toEqual({
       relation: 'unknown',
       claim: 'mismatched',
     });
   });
 
-  it('does not believe a claim whose origin differs from the one the reader reads', () => {
+  it('does not believe a claim whose origin differs from the one the reader reads', async () => {
     const repo = repository('https://example.invalid/a/b.git');
-    const own = readWorkspaceClaim(repo);
+    const own = await readWorkspaceClaim(repo);
     expect(
-      judgeWorkspaceRelation(own, { ...own!, originUrlHash: hashOriginUrl('https://x/y') }),
+      await judgeWorkspaceRelation(own, { ...own!, originUrlHash: hashOriginUrl('https://x/y') }),
     ).toEqual({ relation: 'unknown', claim: 'mismatched' });
   });
 
-  it('treats a malformed claim as mismatched rather than as absent', () => {
-    expect(judgeWorkspaceRelation(undefined, { worktreePath: 42 })).toEqual({
+  it('treats a malformed claim as mismatched rather than as absent', async () => {
+    expect(await judgeWorkspaceRelation(undefined, { worktreePath: 42 })).toEqual({
       relation: 'unknown',
       claim: 'mismatched',
     });
   });
 });
 
+describe('reading a workspace never reaches the network', () => {
+  /** A partial clone whose HEAD object is missing, with a transport that leaves a marker if used. */
+  function promisorRepository(marker: string): string {
+    const dir = directory();
+    git(dir, 'init', '-q');
+    git(dir, 'config', 'core.repositoryformatversion', '1');
+    git(dir, 'config', 'extensions.partialClone', 'origin');
+    git(dir, 'config', 'remote.origin.url', 'ssh://example.invalid/repo');
+    git(dir, 'config', 'remote.origin.promisor', 'true');
+    git(dir, 'config', 'core.sshCommand', `sh -c 'touch "${marker}"' --`);
+    const branch = git(dir, 'symbolic-ref', 'HEAD');
+    writeFileSync(path.join(dir, '.git', branch), `${'1'.repeat(40)}\n`);
+    return dir;
+  }
+
+  it('does not fetch a missing object, and publishes no claim it could not read', async () => {
+    const marker = path.join(directory(), 'fetched');
+    const repo = promisorRepository(marker);
+    const claim = await readWorkspaceClaim(repo);
+    expect(existsSync(marker)).toBe(false);
+    expect(claim).toBeUndefined();
+  });
+});
+
+describe('git that cannot answer is not an empty repository', () => {
+  it('claims an empty root set only for a repository with no commits', async () => {
+    const dir = directory();
+    git(dir, 'init', '-q');
+    expect(await readWorkspaceClaim(dir)).toEqual({ worktreePath: dir, rootCommits: [] });
+  });
+
+  it('publishes no claim when reading history fails', async () => {
+    // HEAD names a commit the object store does not have: git answers, and the answer is an error.
+    const repo = repository();
+    const branch = git(repo, 'symbolic-ref', 'HEAD');
+    writeFileSync(path.join(repo, '.git', branch), `${'2'.repeat(40)}\n`);
+    expect(await readWorkspaceClaim(repo)).toBeUndefined();
+  });
+});
+
 describe('the origin is published only as a hash of its normalized form', () => {
-  it('equates the spellings of one remote and drops credentials', () => {
+  it('equates the spellings of one remote and drops credentials', async () => {
     const canonical = hashOriginUrl('https://github.com/owner/repo');
     expect(hashOriginUrl('https://user:secret@GitHub.com/owner/repo.git/')).toBe(canonical);
     expect(hashOriginUrl('git@github.com:owner/repo.git')).toBe(canonical);
@@ -170,8 +232,8 @@ describe('the origin is published only as a hash of its normalized form', () => 
     expect(canonical).not.toContain('github');
   });
 
-  it('carries the hash in the claim, never the URL', () => {
-    const claim = readWorkspaceClaim(repository('https://token@example.invalid/a/b.git'));
+  it('carries the hash in the claim, never the URL', async () => {
+    const claim = await readWorkspaceClaim(repository('https://token@example.invalid/a/b.git'));
     expect(JSON.stringify(claim)).not.toContain('token');
     expect(claim?.originUrlHash).toBe(hashOriginUrl('https://example.invalid/a/b'));
   });

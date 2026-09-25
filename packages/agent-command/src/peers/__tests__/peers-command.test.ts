@@ -93,6 +93,25 @@ describe('what the operator is told', () => {
     expect(result.message).toMatch(/plain.*workspace unknown/);
   });
 
+  it('reads the workspace-judged listing when the host offers one', async () => {
+    const result = await executePeersCommand({
+      getCommandHostAdapters: () => ({
+        localPeers: {
+          list: () => [
+            { sessionId: OWN, liveness: 'alive' },
+            { sessionId: 'sibling', liveness: 'alive' },
+          ],
+          listWithWorkspace: async () => [
+            { sessionId: OWN, liveness: 'alive' },
+            { sessionId: 'sibling', liveness: 'alive', workspaceRelation: 'same-repo' },
+          ],
+          ownSessionId: () => OWN,
+        },
+      }),
+    } as ICommandHostAdapterAccess);
+    expect(result.message).toMatch(/sibling.*same repo/);
+  });
+
   it('says a mismatched workspace claim was not believed', async () => {
     const result = await executePeersCommand(
       hostWithPeers([

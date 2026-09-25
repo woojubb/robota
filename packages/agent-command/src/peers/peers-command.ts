@@ -119,7 +119,10 @@ export async function executePeersCommand(
   if (sendVerb !== null) return executeSend(adapter, trimmed.slice(sendVerb[0].length));
 
   const own = adapter.ownSessionId();
-  const peers = adapter.list().filter(addressable);
+  // The workspace-judged listing when the host has one; it reads git, so only this view asks for it.
+  const peers = (
+    adapter.listWithWorkspace !== undefined ? await adapter.listWithWorkspace() : adapter.list()
+  ).filter(addressable);
   const others = peers.filter((peer) => peer.sessionId !== own);
 
   if (others.length === 0) {

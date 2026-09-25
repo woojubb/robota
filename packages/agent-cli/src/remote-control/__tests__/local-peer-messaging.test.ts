@@ -104,14 +104,16 @@ describe('PEER-006 — /peers send reaches the other session', () => {
 
   it('carries the workspace relation THIS session verified into the peer-turn origin', async () => {
     const receiver = recordingIngress();
+    const asked: string[] = [];
     const b = await startLocalPeerMessaging({
       guardedDirectory,
       sessionId: 'B',
       ingress: receiver.port,
-      list: () => [
-        { sessionId: 'A', liveness: 'alive', workspaceRelation: 'same-repo' },
-        { sessionId: 'B', liveness: 'alive' },
-      ],
+      list: alive('A', 'B'),
+      relate: async (sessionId) => {
+        asked.push(sessionId);
+        return 'same-repo';
+      },
     });
     // The sender states a relation of its own. It is not the sender's to state.
     await sendPeerMessage({
@@ -127,6 +129,9 @@ describe('PEER-006 — /peers send reaches the other session', () => {
     });
 
     expect(receiver.seen[0]?.message.origin.workspaceRelation).toBe('same-repo');
+    // Only the sender is judged, and the admission — what authority is decided on — carries none.
+    expect(asked).toEqual(['A']);
+    expect(receiver.seen[0]?.admission.origin).not.toHaveProperty('workspaceRelation');
     await b.close();
   });
 
