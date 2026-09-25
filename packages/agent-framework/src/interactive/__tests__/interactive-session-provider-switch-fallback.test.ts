@@ -14,6 +14,8 @@ import { FallbackProvider } from '../../routing/fallback-provider.js';
 import { applyModelFallback } from '../../routing/model-fallback-chain.js';
 import { InteractiveSession } from '../interactive-session.js';
 
+import { ProviderError } from '@robota-sdk/agent-core';
+
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 
 function createMockSession(options?: {
@@ -60,9 +62,26 @@ function createMockSession(options?: {
   };
 }
 
+/** Every provider but anthropic is overloaded, so a working chain is one that reaches anthropic. */
 const DEFINITIONS: IProviderDefinition[] = ['anthropic', 'openai', 'gemini'].map((type) => ({
   type,
-  createProvider: (config) => ({ name: type, model: config.model }) as unknown as IAIProvider,
+  createProvider: (config) =>
+    ({
+      name: type,
+      model: config.model,
+      chat: async () => {
+        if (type !== 'anthropic') {
+          throw new ProviderError('overloaded', type, undefined, undefined, { status: 529 });
+        }
+        return {
+          id: 'a',
+          role: 'assistant',
+          content: `answered by ${config.model}`,
+          state: 'complete',
+          timestamp: new Date(),
+        };
+      },
+    }) as unknown as IAIProvider,
 }));
 
 const SETTINGS = {
@@ -82,13 +101,13 @@ afterEach(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-function startSession(allowedProviders?: string[]) {
+function startSession(allowedProviders?: string[], entries = ['openai', 'gemini']) {
   const path = join(dir, 'settings.json');
   writeFileSync(path, JSON.stringify(SETTINGS));
   const onFallback = vi.fn();
   const { provider } = applyModelFallback({
     provider: { name: 'anthropic' } as unknown as IAIProvider,
-    entries: ['openai', 'gemini'],
+    entries,
     settings: SETTINGS,
     primary: { profile: 'claude', config: { name: 'anthropic', model: 'claude-main' } },
     providerDefinitions: DEFINITIONS,
@@ -130,9 +149,23 @@ describe('/provider switch with a model fallback chain', () => {
     await switchProvider('openai');
 
     const [swapped] = mockSession.swapProvider.mock.calls[0]!;
-    expect(swapped).not.toBeInstanceOf(FallbackProvider);
+    expect((swapped as FallbackProvider).chain).toEqual([]);
     expect(session.getMessages().map((message) => message.content)).toContain(
       'Fallback models not allowed by your organization policy were dropped: gemini.',
     );
+  });
+
+  it('keeps a chain whose every entry was dropped at startup, for the next primary', async () => {
+    // Starting on claude, the only entry is claude itself, so nothing survives the start.
+    const { mockSession, switchProvider } = startSession(undefined, ['claude']);
+
+    await switchProvider('openai');
+
+    const [swapped] = mockSession.swapProvider.mock.calls[0]!;
+    expect((swapped as FallbackProvider).chain).toEqual([
+      { provider: 'anthropic', model: 'claude-main' },
+    ]);
+    const reply = await (swapped as IAIProvider).chat([], { model: 'gpt-profile' });
+    expect(reply.content).toBe('answered by claude-main');
   });
 });

@@ -233,8 +233,9 @@ export interface IApplyModelFallbackInput extends IResolveModelFallbackChainInpu
 }
 
 /**
- * Put the chain in front of `provider`: a {@link FallbackProvider} when any entry survives, the
- * provider itself otherwise. Either way the notices say what was dropped.
+ * Put the chain in front of `provider`: a {@link FallbackProvider} whenever the user wrote a chain,
+ * even one whose every entry was dropped for this primary, because the chain belongs to the session
+ * and a later primary may keep entries this one could not. The notices say what was dropped.
  */
 export function applyModelFallback(input: IApplyModelFallbackInput): {
   provider: IAIProvider;
@@ -242,7 +243,6 @@ export function applyModelFallback(input: IApplyModelFallbackInput): {
 } {
   if (input.entries.length === 0) return { provider: input.provider, notices: [] };
   const chain = resolveModelFallbackChain(input);
-  if (chain.targets.length === 0) return { provider: input.provider, notices: chain.notices };
   return {
     provider: new FallbackProvider(input.provider, chain.targets, {
       ...input.providerOptions,
