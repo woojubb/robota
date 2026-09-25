@@ -8,6 +8,7 @@ export type {
   IMCPDefinitionProblem,
   IMCPDefinitionShadow,
   IMCPHeadersHelper,
+  IMCPOAuthConfig,
   IMCPResolvedEntry,
   IMCPServerDefinition,
   IMCPServerDefinitionRaw,
@@ -139,6 +140,44 @@ export {
   type IMCPSingleFlightEntry,
 } from './client/single-flight.js';
 export { isExecutionEnvironmentName } from './client/stdio-authority.js';
+// OAuth sign-in and the authenticator that sends its tokens; storage and locking are ports.
+export { MCPOAuthError, type TMCPOAuthFailure } from './client/oauth/errors.js';
+export { createOAuthFetch, type IMCPOAuthNetwork } from './client/oauth/network.js';
+export {
+  canonicalServerUrl,
+  discoverMCPOAuthServer,
+  type IMCPOAuthDiscoveryInput,
+  type IMCPOAuthServerInfo,
+} from './client/oauth/discovery.js';
+export {
+  startOAuthCallbackServer,
+  type IMCPOAuthCallbackOptions,
+  type IMCPOAuthCallbackResult,
+  type IMCPOAuthCallbackServer,
+} from './client/oauth/callback.js';
+export {
+  createFileOAuthCredentialStore,
+  oauthCredentialKey,
+  type IMCPOAuthCredential,
+  type IMCPOAuthCredentialKey,
+  type IMCPOAuthCredentialStore,
+} from './client/oauth/store.js';
+export {
+  createFileOAuthRefreshLock,
+  type IFileOAuthRefreshLockOptions,
+  type IMCPOAuthRefreshLock,
+} from './client/oauth/refresh-lock.js';
+export {
+  runMCPOAuthLogin,
+  type IMCPOAuthLoginInput,
+  type IMCPOAuthLoginResult,
+} from './client/oauth/login.js';
+export {
+  createOAuthAuthenticator,
+  type IMCPOAuthAuthenticator,
+  type IMCPOAuthAuthenticatorOptions,
+  type TMCPOAuthNotice,
+} from './client/oauth/authenticator.js';
 export {
   createStdioAdapter,
   type IMCPAdmittedStdioEndpoint,

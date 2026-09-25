@@ -93,6 +93,8 @@ Commands:
   robota session unlink-pr <supervised-id>
                                   Clear a live supervised session PR/MR link
   robota mcp serve [options]       Serve one Robota session over stdio or authenticated loopback HTTP
+  robota mcp login <name> [--client-secret]
+                                  Sign in to a remote MCP server that declares oauth
   robota eval <definition>         Run an evals-as-code definition; exit 1 on a metric breach (CI gate)
 
 Examples:

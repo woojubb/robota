@@ -10,11 +10,11 @@
  *
  * - `definitionFingerprint` covers every value that decides what runs or where it connects: the
  *   transport, command, arguments, requested cwd, url, every header and environment entry, the
- *   timeout, the header helper, and any authentication the definition declares but this version
- *   cannot perform. The helper is covered because its output is sent to the url: approving one
- *   pairing must not approve the helper's output going somewhere else, or another helper's
- *   output going there. Change any of it — a `NODE_OPTIONS` value included — and a prior approval no longer
- *   describes what would now run.
+ *   timeout, the header helper, the OAuth settings, and any authentication the definition declares
+ *   but this version cannot perform. The helper is covered because its output is sent to the url:
+ *   approving one pairing must not approve the helper's output going somewhere else, or another
+ *   helper's output going there. Change any of it — a `NODE_OPTIONS` value included — and a prior
+ *   approval no longer describes what would now run.
  * - `securityIdentity` covers where the definition came from — its name, source and origin. Two
  *   entries that run the identical command are still different subjects for approval if one is a
  *   managed policy and the other is a plugin's.
@@ -102,6 +102,15 @@ export function definitionFingerprint(definition: IMCPServerDefinitionResolved):
           'headersHelper',
           definition.headersHelper.command,
           ...listParts('headersHelperArgs', definition.headersHelper.args),
+        ]),
+    ...(definition.oauth === undefined
+      ? []
+      : [
+          'oauth',
+          definition.oauth.clientId ?? '',
+          definition.oauth.callbackPort === undefined ? '' : String(definition.oauth.callbackPort),
+          definition.oauth.authServerMetadataUrl ?? '',
+          ...listParts('oauthScopes', definition.oauth.scopes ?? []),
         ]),
     ...(definition.unsupportedAuthentication === undefined
       ? []

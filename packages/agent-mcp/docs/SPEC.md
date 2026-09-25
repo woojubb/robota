@@ -50,12 +50,23 @@ had no discovery, and two client stacks cannot both be authoritative.
   record or error. A refused credential is retried at most once, with fresh authorization, and
   only when the authenticator allows it; a failure is a typed, content-free refusal, and there is
   never an unauthenticated attempt. A definition that declares authentication this version cannot
-  perform, or a header helper the host does not allow, stays listed and is refused by name, rather
-  than connected with its static headers alone. A header helper is an exact argv the host runs, never
+  perform, a header helper the host does not allow, or `oauth` the host offers no sign-in for, stays
+  listed and is refused by name, rather than connected with its static headers alone. A header helper is an exact argv the host runs, never
   a shell line or a template, so the host can allow one command line rather than a program; its
   output is parsed strictly, may not set a header the transport or protocol owns, and is obtained
   once per connection and once more after the server refuses them — however many requests
   were refused together.
+- **OAuth trusts only what it has checked**: discovery follows no link it has not checked against
+  the one before it — the resource metadata must describe this server, the authorization server's
+  metadata must name the issuer it was fetched for, and every endpoint is `https` — because the SDK's
+  discovery guesses when a link is missing. A POST never follows a redirect, since its body is a code,
+  a refresh token or a secret, and a sign-in's redirect is accepted only once, with its own `state`
+  and, when present, its issuer's `iss`. Tokens are kept by server identity and canonical URL
+  together, so a shadowing definition cannot use another's sign-in; a refresh goes only to the
+  endpoint the tokens came from and runs once per credential across processes, because a rotating
+  refresh token spent twice signs the user out. Storage is a get/set/delete port with that
+  coordination on the caller's side, so a keychain can replace files without anything else changing.
+  A client secret never lives in a definition.
 - **Trace context stays on the call it belongs to**: a tool call's trusted `traceparent` goes only on
   that call's own `tools/call` POST and the cancellation of it, and only to an exactly listed origin.
   The decision is made from each request's body, not from the async context, because the SDK runs a

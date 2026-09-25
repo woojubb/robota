@@ -34,12 +34,14 @@ export {
   BLOCKED_HOSTNAMES,
   fetchWithEgressPolicy,
   isPrivateAddress,
+  postWithEgressPolicy,
   rejectDestination,
 } from './utils/egress-policy.js';
 export type {
   IEgressDeps,
   IEgressFetchOptions,
   IEgressPolicy,
+  IEgressPostOptions,
   IEgressRejection,
   TEgressFetchResult,
   TEgressLookup,
