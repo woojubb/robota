@@ -101,3 +101,7 @@ export type {
   IVerifyRotationOptions,
   TRotationRejection,
 } from './root-rotation.js';
+// The three-tier identity model (master → signing key → device) with purpose-tagged signatures.
+// It supersedes the single-root `user-identity` certificate above, which stays until the hand-off
+// grant moves onto this chain.
+export * from './identity/index.js';
