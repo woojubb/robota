@@ -10,6 +10,8 @@ export type {
   ICommandListEntry,
   ICommandModule,
   ICommandPermissionModeAdapter,
+  ICommandPermissionRulesAdapter,
+  IPermissionRuleLayer,
   ICommandPickerAdapter,
   ICommandPluginAdapter,
   ICommandProcessAdapter,
@@ -166,7 +168,11 @@ export {
 } from '../command-api/background/background-command-api.js';
 export type {} from '../background-tasks/index.js';
 export type { TRecommendedResponseLanguage } from '../command-api/language/language-command-api.js';
-export type { IPermissionsCommandState } from '../command-api/permissions/permission-mode-command-api.js';
+export type {
+  IPermissionRuleGroup,
+  IPermissionsCommandState,
+  TPermissionRuleKind,
+} from '../command-api/permissions/permission-mode-command-api.js';
 export type {
   IStatusLineCommandSettings,
   TStatusLineCommandSettingsPatch,
@@ -182,6 +188,8 @@ export {
 export {
   buildPermissionModeSubcommands,
   formatCommandPermissionsMessage,
+  groupPermissionRulesBySource,
+  RUNTIME_RULE_SOURCE,
   formatInvalidPermissionModeMessage,
   isPermissionMode,
   listCommandSessionAllowedTools,

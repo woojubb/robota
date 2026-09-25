@@ -5,6 +5,7 @@ import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IInteractiveSessionRecord } from '../interactive/session-persistence.js';
 import type { IModelEffortResolution, TEffortSelection } from '../effort/effort-resolution.js';
 import type { TPermissionMode, TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
+import type { IPermissionDenial } from '@robota-sdk/agent-session';
 
 export interface ICommandSettingsDocument {
   [key: string]: TUniversalValue;
@@ -37,6 +38,29 @@ export interface ICommandPermissionModeAdapter {
   getPermissionMode(): TPermissionMode;
   setPermissionMode(mode: TPermissionMode): void;
   listSessionAllowedTools(): readonly string[];
+  /** The allow/deny/ask rules the gate reads right now. */
+  getPermissionRules(): {
+    readonly allow: readonly string[];
+    readonly deny: readonly string[];
+    readonly ask: readonly string[];
+  };
+  /** The calls the session refused, most recent first. */
+  listRecentDenials(): readonly IPermissionDenial[];
+}
+
+/** The permission rules one settings layer declares, named the way the user would find the file. */
+export interface IPermissionRuleLayer {
+  /** The file as the user would find it, e.g. `~/.robota/settings.json`. */
+  readonly source: string;
+  readonly scope: string;
+  readonly allow: readonly string[];
+  readonly deny: readonly string[];
+  readonly ask: readonly string[];
+}
+
+/** Where each configured permission rule comes from, read fresh on every call. */
+export interface ICommandPermissionRulesAdapter {
+  readLayers(): readonly IPermissionRuleLayer[];
 }
 
 /** Live model-effort state and application seam supplied by the composition root. */
@@ -332,6 +356,8 @@ export interface ICommandHostAdapters {
   costBudget?: ICommandCostBudgetAdapter;
   process?: ICommandProcessAdapter;
   permissionMode?: ICommandPermissionModeAdapter;
+  /** Absent on a host that cannot name its settings layers — `/permissions` then lists rules unattributed. */
+  permissionRules?: ICommandPermissionRulesAdapter;
   plugin?: ICommandPluginAdapter;
   remoteControl?: ICommandRemoteControlAdapter;
   mcpActivation?: ICommandMCPActivationAdapter;

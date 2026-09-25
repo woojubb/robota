@@ -185,6 +185,8 @@ export type {
   TSystemCommandLifecycle,
   TSystemCommandSemanticRole,
   ICommandPermissionModeAdapter,
+  ICommandPermissionRulesAdapter,
+  IPermissionRuleLayer,
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
   ICommandMCPSourceProblem,
@@ -276,6 +278,8 @@ export {
   RECOMMENDED_RESPONSE_LANGUAGES,
   buildPermissionModeSubcommands,
   formatCommandPermissionsMessage,
+  groupPermissionRulesBySource,
+  RUNTIME_RULE_SOURCE,
   formatInvalidPermissionModeMessage,
   isPermissionMode,
   listCommandSessionAllowedTools,
@@ -356,7 +360,9 @@ export type {
   ICompactContextResult,
   ICommandSessionInfo,
   ICommandSessionReplayValidationReport,
+  IPermissionRuleGroup,
   IPermissionsCommandState,
+  TPermissionRuleKind,
   IPresetApplicationOptions,
   IPresetApplicationResult,
   IMemoryCandidate,
@@ -786,6 +792,10 @@ export {
 } from './config/settings-io.js';
 export type { TSettingsData, TSettingsScope } from './config/settings-io.js';
 export { inspectSettingsLayers } from './config/settings-inspection.js';
+export {
+  createSettingsPermissionRulesAdapter,
+  readPermissionRuleLayers,
+} from './config/permission-rule-layers.js';
 export type {
   ISettingsInspection,
   ISettingsKeyProvenance,

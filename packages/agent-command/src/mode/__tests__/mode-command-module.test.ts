@@ -45,6 +45,8 @@ function createCommandHostContext(): ReturnType<typeof createTestCommandHost> & 
             getPermissionMode: () => mode,
             setPermissionMode,
             listSessionAllowedTools: () => [],
+            getPermissionRules: () => ({ allow: [], deny: [], ask: [] }),
+            listRecentDenials: () => [],
           },
         }),
         getContextState: () => ({

@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 import type {
   ICommandHostContext,
   IEditCheckpointRestoreResult,
+  IPermissionRuleLayer,
+  IPermissionsCommandState,
 } from '@robota-sdk/agent-framework';
 import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createPermissionsCommandModule } from '../permissions-command-module.js';
@@ -29,6 +31,9 @@ function createCheckpointResult(): IEditCheckpointRestoreResult {
 function createCommandHostContext(options?: {
   mode?: TPermissionModeName;
   sessionAllowed?: readonly string[];
+  rules?: { allow: string[]; deny: string[]; ask: string[] };
+  denials?: IPermissionsCommandState['recentDenials'];
+  layers?: readonly IPermissionRuleLayer[];
 }): ReturnType<typeof createTestCommandHost> & { setPermissionMode: TSetPermissionModeSpy } {
   let mode = options?.mode ?? 'default';
   const setPermissionMode = vi.fn((nextMode: TPermissionModeName) => {
@@ -46,7 +51,12 @@ function createCommandHostContext(options?: {
             getPermissionMode: () => mode,
             setPermissionMode,
             listSessionAllowedTools: () => options?.sessionAllowed ?? [],
+            getPermissionRules: () => options?.rules ?? { allow: [], deny: [], ask: [] },
+            listRecentDenials: () => options?.denials ?? [],
           },
+          ...(options?.layers !== undefined
+            ? { permissionRules: { readLayers: () => options.layers! } }
+            : {}),
         }),
         getContextState: () => ({
           usedTokens: 0,
@@ -114,7 +124,9 @@ describe('createPermissionsCommandModule', () => {
     const result = await executor.execute('permissions', createCommandHostContext(), '');
 
     expect(result?.success).toBe(true);
-    expect(result?.message).toBe('Permission mode: default\nNo session-approved tools.');
+    expect(result?.message).toBe(
+      'Permission mode: default\n\nRules: none configured.\n\nNo session-approved tools.\n\nRecent denials: none.',
+    );
     expect(result?.data).toEqual({ mode: 'default', sessionAllowed: [] });
   });
 
@@ -130,10 +142,57 @@ describe('createPermissionsCommandModule', () => {
     );
 
     expect(result?.success).toBe(true);
-    expect(result?.message).toBe(
-      'Permission mode: acceptEdits\nSession-approved tools: Bash, Read',
-    );
+    expect(result?.message).toContain('Approved this session ("allow always"): Bash, Read');
     expect(result?.data).toEqual({ mode: 'acceptEdits', sessionAllowed: ['Bash', 'Read'] });
+  });
+
+  it('lists the effective rules under the settings file each comes from, and recent denials (issue #3082)', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createPermissionsCommandModule().systemCommands ?? []),
+    ]);
+    const at = new Date(2026, 8, 25, 9, 5, 7).getTime();
+    const result = await executor.execute(
+      'permissions',
+      createCommandHostContext({
+        rules: { allow: ['Read', 'mcp__docs__*'], deny: ['Bash(rm *)'], ask: ['Bash(git push*)'] },
+        layers: [
+          {
+            source: '~/.robota/settings.json',
+            scope: 'user',
+            allow: ['Read'],
+            deny: ['Bash(rm *)'],
+            ask: [],
+          },
+          {
+            source: '.robota/settings.json',
+            scope: 'project',
+            allow: ['Read', 'Stale'],
+            deny: [],
+            ask: ['Bash(git push*)'],
+          },
+        ],
+        denials: [{ toolName: 'Bash', argument: 'rm -rf ~', reason: 'policy', at }],
+      }),
+      '',
+    );
+    expect(result?.message).toContain(
+      [
+        'Rules (checked deny, then ask, then allow):',
+        '  ~/.robota/settings.json [user]',
+        '    deny: Bash(rm *)',
+        '    allow: Read',
+        '  .robota/settings.json [project]',
+        '    ask: Bash(git push*)',
+        '    allow: Read',
+        '  this session (CLI flags, preset, commands)',
+        '    allow: mcp__docs__*',
+      ].join('\n'),
+    );
+    // A layer's rule the session does not enforce is not listed as if it were.
+    expect(result?.message).not.toContain('Stale');
+    expect(result?.message).toContain(
+      'Recent denials (most recent first):\n  09:05:07  Bash(rm -rf ~) — denied by a rule or the mode',
+    );
   });
 
   it('updates valid permission modes through the SDK command adapter', async () => {
@@ -145,9 +204,7 @@ describe('createPermissionsCommandModule', () => {
     const result = await executor.execute('permissions', context, 'plan');
 
     expect(result?.success).toBe(true);
-    expect(result?.message).toBe(
-      'Permission mode set to: plan\nPermission mode: plan\nNo session-approved tools.',
-    );
+    expect(result?.message).toMatch(/^Permission mode set to: plan\nPermission mode: plan\n/);
     expect(result?.data).toEqual({ mode: 'plan', sessionAllowed: [] });
     expect(context.setPermissionMode).toHaveBeenCalledWith('plan');
   });

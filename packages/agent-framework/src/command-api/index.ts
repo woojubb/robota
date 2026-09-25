@@ -64,6 +64,8 @@ export type {
   ICommandWorkspaceAdapter,
   IWorkspaceMoveRequest,
   ICommandPermissionModeAdapter,
+  ICommandPermissionRulesAdapter,
+  IPermissionRuleLayer,
   ICommandPickerAdapter,
   ICommandProcessAdapter,
   ICommandLocalPeersAdapter,
@@ -187,7 +189,11 @@ export {
 } from './background/background-command-api.js';
 export type {} from '../background-tasks/index.js';
 export type { TRecommendedResponseLanguage } from './language/language-command-api.js';
-export type { IPermissionsCommandState } from './permissions/permission-mode-command-api.js';
+export type {
+  IPermissionRuleGroup,
+  IPermissionsCommandState,
+  TPermissionRuleKind,
+} from './permissions/permission-mode-command-api.js';
 export type {
   IPresetApplicationOptions,
   IPresetApplicationResult,
@@ -219,6 +225,8 @@ export {
 export {
   buildPermissionModeSubcommands,
   formatCommandPermissionsMessage,
+  groupPermissionRulesBySource,
+  RUNTIME_RULE_SOURCE,
   formatInvalidPermissionModeMessage,
   isPermissionMode,
   listCommandSessionAllowedTools,

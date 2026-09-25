@@ -2,6 +2,7 @@ import { homedir } from 'node:os';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import {
+  createSettingsPermissionRulesAdapter,
   deleteSettings,
   loadOrgPolicy,
   OrgPolicyParseError,
@@ -185,6 +186,7 @@ export function buildCommandSetup(
       delete: () => deleteSettings(robotaUserSettingsPath()),
     },
     plugin: createDefaultPluginCommandAdapter(cwd),
+    permissionRules: createSettingsPermissionRulesAdapter(workspaceComposition.settingsSources),
     ...(options.mcpActivationAdapter === undefined
       ? {}
       : { mcpActivation: options.mcpActivationAdapter }),
