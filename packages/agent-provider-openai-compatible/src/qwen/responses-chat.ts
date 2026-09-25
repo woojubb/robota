@@ -42,9 +42,14 @@ export interface IQwenResponsesChatOptions {
 function enabledBuiltInWebTools(
   input: IQwenResponsesChatOptions,
 ): ReturnType<typeof getQwenBuiltInWebToolNames> {
-  return input.chatOptions?.toolChoice === 'none'
-    ? []
-    : getQwenBuiltInWebToolNames(input.builtInWebTools);
+  // A request withholds a hosted tool with an explicit `false`; `web_search` also serves web fetch.
+  const request = input.chatOptions?.nativeWebTools;
+  if (input.chatOptions?.toolChoice === 'none') return [];
+  return getQwenBuiltInWebToolNames(input.builtInWebTools).filter(
+    (name) =>
+      !(name === 'web_search' && request?.webSearch === false && request.webFetch === false) &&
+      !(name === 'web_extractor' && request?.webFetch === false),
+  );
 }
 
 export async function chatWithQwenResponsesApi(

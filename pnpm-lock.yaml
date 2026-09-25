@@ -2192,6 +2192,10 @@ importers:
         version: 3.2.6(@types/node@20.19.43)(jsdom@25.0.1)(tsx@4.23.1)(yaml@2.9.0)
 
   packages/agent-remote-pairing:
+    dependencies:
+      '@scure/bip39':
+        specifier: 1.6.0
+        version: 1.6.0
     devDependencies:
       rimraf:
         specifier: ^5.0.10
@@ -9810,6 +9814,17 @@ packages:
 
   /@schummar/icu-type-parser@1.21.5:
     resolution: {integrity: sha512-bXHSaW5jRTmke9Vd0h5P7BtWZG9Znqb8gSDxZnxaGSJnGwPLDPfS+3g0BKzeWqzgZPsIVZkM7m2tbo18cm5HBw==}
+    dev: false
+
+  /@scure/base@1.2.6:
+    resolution: {integrity: sha512-g/nm5FgUa//MCj1gV09zTJTaM6KBAHqLN907YVQqf7zC49+DcO4B1so4ZX07Ef10Twr6nuqYEH9GEggFXA4Fmg==}
+    dev: false
+
+  /@scure/bip39@1.6.0:
+    resolution: {integrity: sha512-+lF0BbLiJNwVlev4eKelw1WWLaiKXw7sSl8T6FvBlWkdX+94aGJ4o8XjUdlyhTCjd8c+B3KT3JfS8P0bLRNU6A==}
+    dependencies:
+      '@noble/hashes': 1.8.0
+      '@scure/base': 1.2.6
     dev: false
 
   /@sec-ant/readable-stream@0.4.1:

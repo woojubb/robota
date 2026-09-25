@@ -178,6 +178,7 @@ export function buildCreateSessionOptions(
     // --goal can drive autonomous pursuit. It is inert unless a goal is active.
     includeGoalTool: true,
     includeSessionLoopDecisionTool: true,
+    ...(options.peerReply ? { peerReply: options.peerReply } : {}),
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
     ...(contextCapacityHint !== undefined ? { contextCapacityHint } : {}),
   };

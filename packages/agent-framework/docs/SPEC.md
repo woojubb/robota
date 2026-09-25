@@ -148,10 +148,13 @@ These are behaviors a caller cannot infer from a type signature alone.
   already-admitted work. Each accepted event settles from its own turn handle, and an interrupted
   result never becomes a successful reply. This does not sandbox trusted hooks/plugins or
   authenticate a platform sender by itself, and it is not a remote permission-approval channel.
-- **A peer turn runs on the external baseline.** A peer session's text is data from outside the
-  operator: it expands no file references, attaches no context reference, exposes no tool schema,
-  and reaches the model marked as a peer's with a per-turn system statement that it carries no
-  authority. Any relaxation is a per-origin policy decision, never a default.
+- **A peer turn is decided by its origin, never by its text.** A peer session's text is data from
+  outside the operator: it expands no file references, attaches no context reference, and reaches
+  the model marked as a peer's with a per-turn system statement that it carries no authority. Which
+  tools it is offered and may use is the permission policy's per-origin decision, taken from
+  admission; a turn with no admitted origin is offered none. The answer goes back only through the
+  reply tool, whose target and thread are the incoming message's own — the model chooses the text,
+  never the recipient.
 - **Automatic session naming is text-only.** The title-generation call — whether triggered by an
   operator message or the first external event — always disables tool use, so hosted web tools can
   never be invoked merely to generate a title.

@@ -20,6 +20,11 @@ export interface IProviderCapabilities {
   nativeWebTools: IProviderNativeWebToolCapabilities;
 }
 
+/**
+ * Hosted web tools asked of one call: `true` requires the tool (a provider without it throws),
+ * `false` withholds it from this call even when the provider is configured with it, and absent
+ * leaves the provider's own configuration.
+ */
 export interface IProviderNativeWebToolRequest {
   webSearch?: boolean;
   webFetch?: boolean;

@@ -99,9 +99,23 @@ const FORBIDDEN_HEADERS: ReadonlySet<string> = new Set([
 ]);
 
 const WHITESPACE = /[ \t\n\r]*/y;
-// A JSON string literal: its grammar forbids raw control characters, so the class must name them.
-// eslint-disable-next-line no-control-regex
-const JSON_STRING = /"(?:[^"\\\u0000-\u001f]|\\(?:["\\/bfnrt]|u[0-9a-fA-F]{4}))*"/y;
+
+/**
+ * The JSON string literal starting at `at`, decoded, and the index just past it. The scan only finds
+ * the closing quote; `JSON.parse` then applies the literal's grammar (escapes, no raw control
+ * characters).
+ */
+function jsonStringAt(text: string, at: number): { value: string; next: number } | undefined {
+  if (text[at] !== '"') return undefined;
+  let i = at + 1;
+  while (i < text.length && text[i] !== '"') i += text[i] === '\\' ? 2 : 1;
+  if (i >= text.length) return undefined;
+  try {
+    return { value: JSON.parse(text.slice(at, i + 1)) as string, next: i + 1 };
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * Read `{ "name": "value", … }` exactly: one object of string values, nothing after it. Hand-read
@@ -116,11 +130,10 @@ function readFlatObject(text: string): [string, string][] | undefined {
     at = WHITESPACE.lastIndex;
   };
   const literal = (): string | undefined => {
-    JSON_STRING.lastIndex = at;
-    const match = JSON_STRING.exec(text);
-    if (match === null) return undefined;
-    at = JSON_STRING.lastIndex;
-    return JSON.parse(match[0]) as string;
+    const read = jsonStringAt(text, at);
+    if (read === undefined) return undefined;
+    at = read.next;
+    return read.value;
   };
   const entries: [string, string][] = [];
   skip();

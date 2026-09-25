@@ -516,6 +516,28 @@ describe('QwenProvider', () => {
     expect(client.responses.create.mock.calls[1]?.[0]?.tools).toBeUndefined();
   });
 
+  it('omits configured hosted web tools when the request withholds them', async () => {
+    const provider = new QwenProvider({
+      apiKey: 'dashscope-key',
+      builtInWebTools: { webSearch: true, webFetch: true },
+    });
+    const client = getResponsesClient(provider);
+    client.responses.create.mockResolvedValueOnce({
+      id: 'withheld',
+      model: 'qwen3.6-plus',
+      output_text: 'ok',
+      status: 'completed',
+      output: [],
+    });
+
+    await provider.chat([createUserMessage('hello')], {
+      model: 'qwen3.6-plus',
+      nativeWebTools: { webSearch: false, webFetch: false },
+    });
+
+    expect(client.responses.create.mock.calls[0]?.[0]?.tools).toBeUndefined();
+  });
+
   it('emits native Qwen Responses request and response payloads', async () => {
     const provider = new QwenProvider({
       apiKey: 'dashscope-key',

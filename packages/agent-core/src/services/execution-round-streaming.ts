@@ -112,6 +112,9 @@ export async function callRoundProviderWithEvents(
         // CORE-016/017: run-scoped model option overrides win over defaultModel.
         ...(fullContext.maxTokens !== undefined && { maxTokens: fullContext.maxTokens }),
         ...(fullContext.temperature !== undefined && { temperature: fullContext.temperature }),
+        ...(fullContext.withholdHostedTools === true && {
+          nativeWebTools: { webSearch: false, webFetch: false },
+        }),
         executionId,
         // The same request, now sent to another model: it is announced again under that model's
         // name, so the replay channel and every usage record name the model that answered.

@@ -78,7 +78,9 @@
     "clean": "rimraf dist",
     "prepublishOnly": "bash ../../scripts/check-pnpm-publish.sh"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@scure/bip39": "1.6.0"
+  },
   "devDependencies": {
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.14",

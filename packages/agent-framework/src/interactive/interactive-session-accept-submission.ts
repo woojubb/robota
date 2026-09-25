@@ -63,6 +63,10 @@ export function acceptSubmission(
   if (options.turnSource === 'peer' && !options.driverId?.startsWith('peer:')) {
     throw new Error("a peer turn's driver id must start with 'peer:'");
   }
+  // A peer context on any other turn would be silently ignored; refusing it keeps the two in step.
+  if (options.peer !== undefined && options.turnSource !== 'peer') {
+    throw new Error("a peer context belongs to a 'peer' turn only");
+  }
   if (options.turnSource === 'external' && options.driverId === undefined) {
     throw new Error('an external turn must carry its host-assigned driver id');
   }

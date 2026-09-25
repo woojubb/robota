@@ -131,7 +131,11 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
     return (
       <NumberedList
         title={SCREEN_READER_LABELS.permissionRequired}
-        description={`${request.toolName} — ${formatArgs(request.toolArgs)}`}
+        description={`${request.toolName} — ${formatArgs(request.toolArgs)}${
+          request.requestedByPeer !== undefined
+            ? ` (requested by another session: ${request.requestedByPeer})`
+            : ''
+        }`}
         options={options}
         buffer={numbered.buffer}
         invalid={numbered.invalid}
@@ -156,6 +160,11 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
         </Text>
       </Text>
       <Text dimColor> {formatArgs(request.toolArgs)}</Text>
+      {request.requestedByPeer !== undefined ? (
+        <Text color={palette.text.warning}>
+          Requested by another session: {request.requestedByPeer}
+        </Text>
+      ) : null}
       {/* Issue #2351: the "always" options carry the consent scope, so they no longer fit one row
           of the prompt box — a row wrapped `Allow [y]` across two lines. One option per line. */}
       <Box marginTop={1} flexDirection="column">

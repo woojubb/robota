@@ -180,6 +180,7 @@ function toResolvedConfig(merged: TEnvResolvedSettings): IResolvedConfig {
     autoCompactThreshold: merged.autoCompactThreshold,
     taskContext: merged.taskContext ?? undefined,
     ...(merged.sandbox !== undefined ? { sandbox: merged.sandbox } : {}),
+    ...(merged.peers !== undefined ? { peers: merged.peers } : {}),
   };
 }
 

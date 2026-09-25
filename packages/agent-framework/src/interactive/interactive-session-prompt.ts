@@ -39,7 +39,7 @@ import type {
   IToolPermissionDecisionObservation,
   TRawProviderCallTraceObservation,
 } from './interactive-session-execution.js';
-import type { TTurnSource } from '@robota-sdk/agent-interface-session';
+import type { IPeerTurnContext, TTurnSource } from '@robota-sdk/agent-interface-session';
 
 /**
  * The per-turn optional inputs to a prompt turn: the ephemeral recall block (SELFHOST-008 P3) and
@@ -75,6 +75,8 @@ export interface IPromptTurnContext {
    * the stored user message so the transcript attributes it. Display only — never authorization.
    */
   driverId?: string;
+  /** A peer turn's origin and reply route, as the admitting host set it. */
+  peer?: IPeerTurnContext;
   /** Trusted trace context for this prompt's provider calls; absent unless the host configured it. */
   traceContext?: IRunTraceContext;
   getSession: () => Session;
@@ -133,12 +135,17 @@ export async function executePromptTurn(
   });
 
   // Text from outside the operator — an external event or a peer session — is data: it expands no
-  // `@path`, attaches no context reference, and runs no tool.
+  // `@path` and attaches no context reference. An external event runs no tool. A peer turn runs what
+  // its origin allows, decided per call by the permission policy; one with no reply route has
+  // nothing it may use.
   const restrictedTurn = ctx.turnSource === 'external' || ctx.turnSource === 'peer';
+  const peerTurn = ctx.turnSource === 'peer';
+  const noTools = ctx.turnSource === 'external' || (peerTurn && ctx.peer === undefined);
   const ephemeralSystemContext = withPeerTurnStatement(
     ctx.ephemeralSystemContext,
     ctx.turnSource,
     ctx.driverId,
+    ctx.peer?.reach,
   );
   try {
     ctx.signal?.throwIfAborted();
@@ -165,7 +172,9 @@ export async function executePromptTurn(
       ...(ephemeralSystemContext !== undefined ? { ephemeralSystemContext } : {}),
       ...(ctx.driverId !== undefined ? { driverId: ctx.driverId } : {}),
       ...(ctx.traceContext !== undefined ? { traceContext: ctx.traceContext } : {}),
-      ...(restrictedTurn ? { toolChoice: 'none' as const } : {}),
+      ...(noTools ? { toolChoice: 'none' as const } : {}),
+      // Admission's answer, or the narrowest one when the host gave none.
+      ...(peerTurn ? { peerReach: ctx.peer?.reach ?? ('another-host' as const) } : {}),
     };
     const response =
       Object.keys(runOptions).length > 0
