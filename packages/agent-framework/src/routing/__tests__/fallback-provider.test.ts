@@ -279,6 +279,19 @@ describe('FallbackProvider', () => {
     expect(primary.calls[0]!.options.nativeWebTools).toEqual({ webSearch: true });
   });
 
+  it('carries a withheld hosted tool to the next model, and drops only a required one', async () => {
+    const primary = new ScriptedProvider('anthropic', fail(overloaded()));
+    const next = new ScriptedProvider('qwen');
+    const provider = new FallbackProvider(primary, [target(next, 'qwen-next')]);
+
+    // A peer turn withholds hosted tools; the next model must not get them back by default.
+    await provider.chat(MESSAGES, {
+      model: 'claude-primary',
+      nativeWebTools: { webSearch: false, webFetch: false },
+    });
+    expect(next.calls[0]!.options.nativeWebTools).toEqual({ webSearch: false, webFetch: false });
+  });
+
   it('passes a session’s server-tool hook to the primary, the one model given hosted tools', () => {
     const primary = Object.assign(new ScriptedProvider('anthropic'), {
       onServerToolUse: undefined as unknown,
