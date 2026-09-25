@@ -30,12 +30,27 @@ export type {
   TInMemorySandboxRunHandler,
   TSandboxFilesystem,
   TExecutionContainment,
+  ICommandInvocation,
+  IDetectOsSandboxOptions,
+  IOsSandboxAvailability,
+  IOsSandboxClientOptions,
+  IOsSandboxSettings,
+  IOsSandboxStatus,
+  TOsSandboxBackend,
+  IBubblewrapInput,
+  IOsSandboxPolicy,
 } from './sandbox/index';
 export {
   applyWorkspaceManifest,
   validateWorkspaceManifestPath,
   describeExecutionContainment,
   routesFilesThroughSandbox,
+  DEFAULT_OS_SANDBOX_SETTINGS,
+  detectOsSandbox,
+  OsSandboxClient,
+  bubblewrapArguments,
+  protectedWorkspaceEntries,
+  seatbeltProfile,
 } from './sandbox/index';
 
 // SELFHOST-003: codebase retrieval (port + types + neutral repo-map ranking adapter; tool added below)

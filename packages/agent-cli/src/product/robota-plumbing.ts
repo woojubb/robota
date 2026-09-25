@@ -17,6 +17,7 @@ import {
 import { TransportRegistry, bindTransportAdapter } from '@robota-sdk/agent-framework';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
 
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
 import type {
   IAgentDefinition,
@@ -239,6 +240,8 @@ export interface IRobotaRuntimeOptions {
   toolOptions: {
     additionalTools: IToolWithEventService[];
     defaultTools?: readonly IToolWithEventService[];
+    /** The sandbox the shell tools run under, for the session's permission gate. */
+    sandboxClient?: ISandboxClient;
   };
   permissionMode?: TPermissionMode;
   projectAccess: TWorkspaceProjectAccess;

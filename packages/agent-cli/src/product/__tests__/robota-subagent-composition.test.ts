@@ -6,6 +6,7 @@ import {
   createRobotaPackSet,
   createRobotaSubagentComposition,
   nonReproducibleCapabilities,
+  ROBOTA_OS_SANDBOX_TYPE,
   packTools,
   type IRobotaPackContext,
 } from '../robota-subagent-composition.js';
@@ -98,10 +99,15 @@ describe('ARCH-021 — robota composes its own child-process subagents', () => {
   });
 
   it('TC-06: allows child-process subagents for the composition robota actually ships', () => {
-    // Robota supplies no sandbox client today, so the guard must not block the live path — it binds
-    // the moment one is added, which is the reason it exists.
     expect(nonReproducibleCapabilities({ cwd: CWD })).toEqual([]);
     expect(() => assertChildProcessSubagentsCanReproduce({ cwd: CWD })).not.toThrow();
+    // The OS sandbox is rebuilt in the child from the same settings files (issue #3082).
+    const os: IRobotaPackContext = {
+      cwd: CWD,
+      sandboxClient: SANDBOX_CLIENT,
+      sandboxType: ROBOTA_OS_SANDBOX_TYPE,
+    };
+    expect(nonReproducibleCapabilities(os)).toEqual([]);
   });
 
   it('packTools is the one expression both processes read', () => {

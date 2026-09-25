@@ -67,6 +67,12 @@ export interface IPermissionEvaluationContext extends ICriticalPathContext {
    * host with a filesystem; without it a read-only command naming a path is not treated as a read.
    */
   resolveInWorkspace?: TResolveInWorkspace;
+  /**
+   * This call runs inside an OS sandbox whose settings let a confined command proceed without a
+   * prompt. It turns an `execute` ask into `auto` in `default` and `acceptEdits` only; everything
+   * before the mode step, and plan mode's refusal, still hold.
+   */
+  sandboxAutoApproved?: boolean;
 }
 
 /**
@@ -476,7 +482,15 @@ export function evaluatePermission(
     return 'auto';
   }
 
-  // 8. What the mode says about this KIND of action, which is the only thing it decides.
+  // 8. What the mode says about this KIND of action, which is the only thing it decides. A command
+  //    the OS confines is the exception the user opted into: it proceeds where the mode would ask.
+  if (
+    context.sandboxAutoApproved === true &&
+    riskClass === 'execute' &&
+    (mode === 'default' || mode === 'acceptEdits')
+  ) {
+    return 'auto';
+  }
   if (riskClass !== undefined) {
     return RISK_CLASS_POLICY[mode][riskClass];
   }

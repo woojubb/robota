@@ -35,6 +35,8 @@ import {
 } from '@robota-sdk/agent-command-workflows';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import { buildDoctorInputs } from './doctor-inputs.js';
+
+import type { IRobotaSandbox } from '../product/robota-execution-containment.js';
 import {
   areSessionLoopsDisabled,
   createLoopDefaultPromptResolver,
@@ -161,6 +163,7 @@ export function buildCommandSetup(
   packCommandModuleNames: readonly string[] = [],
   keybindingsFilePort?: IKeybindingsFilePort,
   themeCataloguePort?: IThemeCataloguePort,
+  sandbox?: IRobotaSandbox,
 ): ICliSetup {
   const workspaceComposition = createCliWorkspaceComposition({
     cwd,
@@ -225,6 +228,7 @@ export function buildCommandSetup(
   // composed; the shell supplies them, the command package owns the behaviour.
   const doctorInputs = buildDoctorInputs({
     cwd,
+    ...(sandbox !== undefined ? { sandbox } : {}),
     version,
     options,
     projectAccess: workspaceComposition.projectAccess,

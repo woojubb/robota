@@ -179,6 +179,7 @@ function toResolvedConfig(merged: TEnvResolvedSettings): IResolvedConfig {
     extraKnownMarketplaces: merged.extraKnownMarketplaces ?? undefined,
     autoCompactThreshold: merged.autoCompactThreshold,
     taskContext: merged.taskContext ?? undefined,
+    ...(merged.sandbox !== undefined ? { sandbox: merged.sandbox } : {}),
   };
 }
 

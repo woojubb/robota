@@ -828,7 +828,7 @@ Typing `/` in the TUI opens an autocomplete popup. Arrow keys navigate, Tab inse
 | `/effort [level]`         | Show or change model effort (`auto`, `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`) |
 | `/resume`                 | List recent sessions and resume one                                                              |
 | `/rename <name>`          | Rename the current session                                                                       |
-| `/cd <directory>`         | Move this conversation to another directory (see below)                                         |
+| `/cd <directory>`         | Move this conversation to another directory (see below)                                          |
 | `/rewind`                 | List, inspect, restore, or rollback edit checkpoints                                             |
 
 ### Providers & Settings
@@ -838,6 +838,7 @@ Typing `/` in the TUI opens an autocomplete popup. Arrow keys navigate, Tab inse
 | `/provider [subcommand]` | Manage provider profiles: `list`, `switch`, `add`, `test`, `current` |
 | `/mode [mode]` | Show or switch permission mode |
 | `/permissions [mode]` | Show permission rules or change permission mode |
+| `/sandbox [mode]` | Show or change how shell commands are confined |
 | `/settings` | Open transport settings (enable/disable transports) |
 | `/language [lang]` | Set response language (ko, en, ja, zh), saves and restarts |
 | `/statusline [on         | off                                                                  | reset]` | Configure status-line fields (model, context, git) |

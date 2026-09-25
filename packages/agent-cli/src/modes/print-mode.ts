@@ -1,3 +1,4 @@
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
 import { homedir } from 'node:os';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
@@ -37,6 +38,7 @@ import { runShellCommand } from '../startup/shell-exec.js';
 export interface IPrintModeToolOptions {
   additionalTools?: IToolWithEventService[];
   defaultTools?: readonly IToolWithEventService[];
+  sandboxClient?: ISandboxClient;
 }
 
 export interface IPrintModeSessionResolution {
@@ -201,6 +203,9 @@ export async function runPrintMode(
       ? { additionalTools: toolOptions.additionalTools }
       : {}),
     ...(toolOptions.defaultTools !== undefined ? { defaultTools: toolOptions.defaultTools } : {}),
+    ...(toolOptions.sandboxClient !== undefined
+      ? { sandboxClient: toolOptions.sandboxClient }
+      : {}),
     commandModules,
     commandHostAdapters,
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).

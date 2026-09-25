@@ -8,6 +8,8 @@ import { randomUUID } from 'node:crypto';
 import { applyPresetToolLists } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
 
+import { sandboxApprovalFor } from './sandbox-approval.js';
+
 import { assembleSessionTools } from './assemble-session-tools.js';
 import { buildHookTypeExecutors } from './build-hook-type-executors.js';
 import {
@@ -205,7 +207,11 @@ export async function createSession(
   // re-apply a preset live: deriving it later from `mergedPermissions` would already include this
   // preset's patterns, and the first preset's allowlist would then survive every later switch.
   const presetFreePermissions = {
-    allow: [...(options.baselinePermissionAllow ?? []), ...commandAutoAllow, ...(options.config.permissions.allow ?? [])],
+    allow: [
+      ...(options.baselinePermissionAllow ?? []),
+      ...commandAutoAllow,
+      ...(options.config.permissions.allow ?? []),
+    ],
     deny: options.config.permissions.deny ?? [],
   };
   // Issue #3081: ask rules are not a preset's to change; they pass through untouched.
@@ -244,6 +250,11 @@ export async function createSession(
     sessionStore: options.sessionStore,
     sessionId,
     permissionHandler: options.permissionHandler,
+    // Issue #3082: a sandbox that confines commands in place may let a confined one skip the prompt
+    // — for the shell tools it wraps, and no other command-running tool.
+    ...(options.sandboxClient?.autoApproves !== undefined
+      ? { commandSandbox: sandboxApprovalFor(options.sandboxClient) }
+      : {}),
     // CMD-005: model-invoked tools solicit structured answers through this port.
     ...(options.ask ? { ask: options.ask } : {}),
     ...(onProjectAllowTool === undefined ? {} : { onProjectAllowTool }),

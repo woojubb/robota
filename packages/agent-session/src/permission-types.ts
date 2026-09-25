@@ -15,6 +15,15 @@ import type { TPermissionResultValue } from '@robota-sdk/agent-interface-session
 
 export type { ISpinner, ITerminalOutput };
 
+/** The part of a sandbox client the permission gate consults. */
+export interface ICommandSandboxApproval {
+  /**
+   * Whether `toolName` runs `shellCommand` inside the sandbox and the sandbox's settings let it
+   * proceed without a prompt. Only a tool the sandbox actually wraps may answer yes.
+   */
+  autoApproves(toolName: string, shellCommand: string): boolean;
+}
+
 /**
  * Permission handler result (issue #2052: the union is OWNED by `agent-interface-session` as
  * `TPermissionResultValue`; this name is the session-layer alias, not a second declaration):
@@ -46,6 +55,11 @@ export interface IPermissionEnforcerOptions {
     permissions: { allow: string[]; deny: string[]; ask?: string[] };
     hooks?: Record<string, unknown>;
   };
+  /**
+   * The OS sandbox the shell tools run under, when there is one: whether it confines a command and
+   * lets it run without a prompt.
+   */
+  commandSandbox?: ICommandSandboxApproval;
   /** Where `~` and `$HOME` point for critical-path removal checks. Defaults to the OS home directory. */
   homeDirectory?: string;
   /**

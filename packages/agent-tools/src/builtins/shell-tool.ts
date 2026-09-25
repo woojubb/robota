@@ -45,7 +45,7 @@ import { buildShellToolDescription } from './shell-tool-description.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
 import type { ISandboxBuiltinToolOptions } from './tool-options.js';
-import type { ISandboxToolOptions } from '../sandbox/types.js';
+import type { ICommandInvocation, ISandboxToolOptions } from '../sandbox/types.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool, IPlatformShell, ISubprocessTraceEnv } from '@robota-sdk/agent-core';
 
@@ -136,11 +136,35 @@ async function runShell(
         'was started in.',
     });
   }
-  if (options.sandboxClient) {
+  // A client that confines a host process in place (`wrapCommand`) keeps the host path below, so
+  // timeouts, cancellation, output limits and process-group kill stay this tool's.
+  if (options.sandboxClient && options.sandboxClient.wrapCommand === undefined) {
     return runInSandbox(command, timeout, workingDirectory ?? options.cwd, options);
   }
+  const hostInvocation: ICommandInvocation = {
+    command: shell.command,
+    args: shell.commandArgs(command),
+    cwd: effectiveCwd,
+  };
+  const invocation =
+    options.sandboxClient?.wrapCommand?.(hostInvocation, command) ?? hostInvocation;
+
+  // The invocation's clean-up runs exactly once on every path out — the close below, a spawn that
+  // throws, or an abort before start — and never throws into the host.
+  let released = false;
+  const release = (): string | undefined => {
+    if (released) return undefined;
+    released = true;
+    try {
+      return invocation.afterExit?.();
+    } catch (error) {
+      // allow-fallback: a sandbox's clean-up must never take the host down; it is reported
+      return `[sandbox] clean-up failed: ${error instanceof Error ? error.message : String(error)}`;
+    }
+  };
 
   if (signal?.aborted) {
+    release();
     return JSON.stringify({ success: false, output: '', error: 'Aborted before start' });
   }
 
@@ -152,24 +176,52 @@ async function runShell(
     let timedOut = false;
     let settled = false;
 
-    const child = spawn(shell.command, shell.commandArgs(command), {
-      cwd: effectiveCwd,
-      // A fresh copy carrying this call's trace when the host enabled it; `process.env` itself is
-      // never modified, so no other child can inherit the value.
-      env: traceEnv === undefined ? process.env : subprocessTraceEnvironment(process.env, traceEnv),
-      stdio: ['pipe', 'pipe', 'pipe'],
-      detached: SPAWN_DETACHED,
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = spawn(invocation.command, [...invocation.args], {
+        cwd: invocation.cwd,
+        // A fresh copy carrying this call's trace when the host enabled it; `process.env` itself is
+        // never modified, so no other child can inherit the value.
+        env:
+          traceEnv === undefined ? process.env : subprocessTraceEnvironment(process.env, traceEnv),
+        // Descriptors 3, 4, … carry what the invocation hands the process (a sandbox's seccomp filter).
+        stdio: [
+          'pipe',
+          'pipe',
+          'pipe',
+          ...(invocation.inputDescriptors ?? []).map(() => 'pipe' as const),
+        ],
+        detached: SPAWN_DETACHED,
+      });
+    } catch (error) {
+      const note = release();
+      const message = error instanceof Error ? error.message : String(error);
+      resolve(
+        JSON.stringify({
+          success: false,
+          output: note ?? '',
+          error: message,
+        } satisfies IToolInvocationResult),
+      );
+      return;
+    }
+    (invocation.inputDescriptors ?? []).forEach((data, index) => {
+      const stream = child.stdio[index + 3] as NodeJS.WritableStream | null;
+      // The wrapper may exit before reading it (bwrap refusing a mount); its exit status and stderr
+      // report that, and an unhandled pipe error must not take the host down.
+      stream?.on('error', () => undefined);
+      stream?.end(Buffer.from(data));
     });
 
     // RUNTIME-31: the command inherits an open stdin pipe it can block reading on; close it
     // so commands that read stdin (e.g. `cat`) terminate instead of hanging until timeout.
     child.stdin?.end();
 
-    child.stdout.on('data', (chunk: Buffer) => {
+    child.stdout?.on('data', (chunk: Buffer) => {
       stdoutOutput.append(chunk);
     });
 
-    child.stderr.on('data', (chunk: Buffer) => {
+    child.stderr?.on('data', (chunk: Buffer) => {
       stderrOutput.append(chunk);
     });
 
@@ -207,6 +259,9 @@ async function runShell(
     signal?.addEventListener('abort', onAbort, { once: true });
 
     child.on('error', (err: Error) => {
+      // Only a process that never started is over here; a failed kill leaves it running, and its
+      // close releases it.
+      if (child.pid === undefined) release();
       settle({
         success: false,
         output: '',
@@ -215,6 +270,8 @@ async function runShell(
     });
 
     child.on('close', (code: number | null) => {
+      // Always, even after a timeout or an abort already settled: the sandbox undoes what it must.
+      const note = release();
       if (timedOut) {
         settle({
           success: false,
@@ -229,7 +286,8 @@ async function runShell(
       const stderr = stderrOutput.toString();
 
       const exitCode = code ?? 0;
-      const output = stderr ? `${stdout}\nstderr:\n${stderr}` : stdout;
+      const combined = stderr ? `${stdout}\nstderr:\n${stderr}` : stdout;
+      const output = note === undefined ? combined : `${combined}\n${note}`;
 
       settle({
         success: true,

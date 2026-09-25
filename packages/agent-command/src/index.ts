@@ -97,6 +97,13 @@ export {
 export { executeMCPActivationCommand } from './mcp-activation/mcp-activation-command.js';
 export * from './mode/index.js';
 export {
+  createSandboxCommandModule,
+  executeSandboxCommand,
+  formatSandboxStatus,
+  SANDBOX_MODES,
+  SandboxCommandSource,
+} from './sandbox/index.js';
+export {
   OutputStyleCommandSource,
   createOutputStyleCommandEntry,
   createOutputStyleCommandModule,
