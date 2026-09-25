@@ -4,7 +4,17 @@
  * that ask for a new sign-in or name a missing scope — never a token.
  */
 
-import { mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  unlinkSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -169,6 +179,37 @@ describe('OAuth authenticator', () => {
     expect(second.notices).toEqual([]);
   });
 
+  it('replaces a cached token once it expires, without waiting for a 401', async () => {
+    const server = createFakeOAuthServer();
+    server.validRefreshTokens.add('rt-initial');
+    let clock = NOW;
+    const { store, authenticator } = setup(server, temporaryDirectory(), () => clock);
+    await store.set(KEY, credential({ expiresAt: NOW + 120_000 }));
+    expect(await authorize(authenticator)).toEqual({ Authorization: 'Bearer at-initial' });
+    clock = NOW + 120_000;
+    expect(await authorize(authenticator)).toEqual({ Authorization: 'Bearer at-1' });
+    expect(server.tokenCalls('refresh_token')).toBe(1);
+  });
+
+  it('refreshes with the client authentication registration settled on', async () => {
+    const server = createFakeOAuthServer();
+    server.validRefreshTokens.add('rt-initial');
+    const { store, authenticator } = setup(server);
+    await store.set(
+      KEY,
+      credential({
+        expiresAt: NOW - 1,
+        clientSecret: 'cs-value',
+        tokenEndpointAuthMethod: 'client_secret_post',
+      }),
+    );
+    await authorize(authenticator);
+    const refresh = server.requests.find((r) => r.url.endsWith('/token'))!;
+    // Without the stored method a secret would go as HTTP Basic.
+    expect(refresh.headers.get('authorization')).toBeNull();
+    expect(new URLSearchParams(refresh.body).get('client_secret')).toBe('cs-value');
+  });
+
   it('refreshes only at the endpoint stored with the tokens', async () => {
     const server = createFakeOAuthServer();
     server.validRefreshTokens.add('rt-initial');
@@ -280,6 +321,33 @@ describe('OAuth authenticator', () => {
     expect(notices).toEqual([{ kind: 'login-required', serverId: 'files' }]);
   });
 
+  it('keeps a sign-in made after the 401 when the authorization server moved to it', async () => {
+    const server = createFakeOAuthServer();
+    const directory = temporaryDirectory();
+    const fresh = credential({
+      issuer: 'https://other-auth.example.test/',
+      tokenEndpoint: 'https://other-auth.example.test/token',
+      accessToken: 'at-fresh-login',
+    });
+    // The user signs in again, against the new server, while rediscovery is on the network —
+    // after the authenticator's first read of the store, before the one under the lock.
+    const signIn = createFileOAuthCredentialStore(directory);
+    const fetch = (async (input: string | URL, init?: RequestInit) => {
+      if (String(input).startsWith('https://other-auth.example.test/.well-known/')) {
+        await signIn.set(KEY, fresh);
+      }
+      return server.fetch(input, init);
+    }) as typeof globalThis.fetch;
+    const { store, authenticator, notices } = setup({ ...server, fetch }, directory);
+    await store.set(KEY, credential());
+    const authorization = await authorize(authenticator);
+    server.overrides.authorizationServers = ['https://other-auth.example.test/'];
+    expect(await authenticator.onRejected({ status: 401, authorization })).toBe('retry');
+    expect(await authorize(authenticator)).toEqual({ Authorization: 'Bearer at-fresh-login' });
+    await expect(store.get(KEY)).resolves.toMatchObject({ accessToken: 'at-fresh-login' });
+    expect(notices).toEqual([]);
+  });
+
   it('keeps tokens and secrets out of every error and notice', async () => {
     const server = createFakeOAuthServer();
     const { store, authenticator, notices } = setup(server);
@@ -298,3 +366,85 @@ function authorize(
 ): Promise<Readonly<Record<string, string>>> {
   return authenticator.authorize(request);
 }
+
+describe('OAuth refresh lock', () => {
+  const lockPath = (directory: string): string =>
+    join(directory, `${credentialKeyDigest(KEY)}.lock`);
+
+  it('takes over a stale lock, but never a fresh one that replaced it meanwhile', async () => {
+    const directory = temporaryDirectory();
+    const path = lockPath(directory);
+    await createFileOAuthRefreshLock(directory).withLock(KEY, async () => undefined);
+    writeFileSync(path, 'dead-holder');
+    const old = new Date(Date.now() - 600_000);
+    utimesSync(path, old, old);
+
+    // Exactly between judging the lock stale and moving it, another process takes it over and
+    // holds a fresh lock of its own under the same name.
+    let interleaved = false;
+    const lock = createFileOAuthRefreshLock(directory, {
+      staleMs: 60_000,
+      timeoutMs: 150,
+      pollMs: 5,
+      fs: {
+        rename: (from, to) => {
+          if (!interleaved && from === path) {
+            interleaved = true;
+            unlinkSync(path);
+            writeFileSync(path, 'live-holder');
+          }
+          renameSync(from, to);
+        },
+      },
+    });
+    let ran = false;
+    const error = await lock
+      .withLock(KEY, async () => {
+        ran = true;
+      })
+      .catch((caught: unknown) => caught);
+    expect(interleaved).toBe(true);
+    expect(error).toMatchObject({ reason: 'lock-timeout' });
+    expect(ran).toBe(false);
+    expect(readFileSync(path, 'utf8')).toBe('live-holder');
+    expect(readdirSync(directory).filter((name) => name.includes('.aside'))).toEqual([]);
+
+    // Without interference, the same stale lock is taken over.
+    writeFileSync(path, 'dead-holder');
+    utimesSync(path, old, old);
+    await expect(
+      createFileOAuthRefreshLock(directory, { pollMs: 5 }).withLock(KEY, async () => 'ran'),
+    ).resolves.toBe('ran');
+  });
+
+  it('releases only its own lock', async () => {
+    const directory = temporaryDirectory();
+    const path = lockPath(directory);
+    await createFileOAuthRefreshLock(directory).withLock(KEY, async () => {
+      // Taken over while running (it was judged stale) and now held by another process.
+      writeFileSync(path, 'other-holder');
+    });
+    expect(readFileSync(path, 'utf8')).toBe('other-holder');
+
+    // The same, exactly between the holder confirming the lock is its own and removing it.
+    let releasing = false;
+    let interleaved = false;
+    await createFileOAuthRefreshLock(directory, {
+      staleMs: 0,
+      fs: {
+        rename: (from, to) => {
+          if (releasing && !interleaved && from === path) {
+            interleaved = true;
+            unlinkSync(path);
+            writeFileSync(path, 'next-holder');
+          }
+          renameSync(from, to);
+        },
+      },
+    }).withLock(KEY, async () => {
+      releasing = true;
+    });
+    expect(interleaved).toBe(true);
+    expect(readFileSync(path, 'utf8')).toBe('next-holder');
+  });
+});

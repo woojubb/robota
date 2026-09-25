@@ -193,7 +193,7 @@ describe('robota mcp login', () => {
 describe('MCP OAuth notices and browser', () => {
   it('tells the user how to sign in, and which scope is missing', () => {
     expect(formatMcpOAuthNotice({ kind: 'login-required', serverId: 'files' })).toContain(
-      '/mcp login files',
+      'run robota mcp login files',
     );
     expect(
       formatMcpOAuthNotice({ kind: 'insufficient-scope', serverId: 'files', scope: 'files:write' }),

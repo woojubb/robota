@@ -41,6 +41,7 @@ export interface IFakeOAuthServer {
     issParameter?: 'match' | 'other' | 'omit';
     promisesIss?: boolean;
     expiresIn?: number;
+    codeChallengeMethods?: string[] | null;
   };
   readonly validRefreshTokens: Set<string>;
   tokenCalls(grant?: string): number;
@@ -74,7 +75,9 @@ export function createFakeOAuthServer(): IFakeOAuthServer {
     token_endpoint: overrides.tokenEndpoint ?? 'https://auth.example.test/token',
     registration_endpoint: 'https://auth.example.test/register',
     response_types_supported: ['code'],
-    code_challenge_methods_supported: ['S256'],
+    ...(overrides.codeChallengeMethods === null
+      ? {}
+      : { code_challenge_methods_supported: overrides.codeChallengeMethods ?? ['S256'] }),
     token_endpoint_auth_methods_supported: ['none', 'client_secret_basic'],
     authorization_response_iss_parameter_supported: overrides.promisesIss ?? true,
   });

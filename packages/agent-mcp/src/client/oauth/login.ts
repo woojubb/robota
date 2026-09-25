@@ -34,6 +34,7 @@ import type {
 import type { IMCPOAuthConfig } from '../../definition/types.js';
 import type { IMCPOAuthServerInfo } from './discovery.js';
 import type { IMCPOAuthNetwork } from './network.js';
+import type { IMCPOAuthRefreshLock } from './refresh-lock.js';
 import type { IMCPOAuthCredential, IMCPOAuthCredentialStore } from './store.js';
 
 export interface IMCPOAuthLoginInput {
@@ -44,6 +45,8 @@ export interface IMCPOAuthLoginInput {
   /** Only with a pre-registered `clientId`; asked for by the host, never read from a definition. */
   readonly clientSecret?: string;
   readonly store: IMCPOAuthCredentialStore;
+  /** The refresh lock a session uses, so a refresh in flight cannot overwrite this sign-in. */
+  readonly lock: IMCPOAuthRefreshLock;
   readonly network: IMCPOAuthNetwork;
   /** Shows the user the authorization page. Always given an `https:` URL. */
   readonly openBrowser: (url: URL) => Promise<void>;
@@ -194,13 +197,15 @@ export async function runMCPOAuthLogin(input: IMCPOAuthLoginInput): Promise<IMCP
         resource: server.resource,
         clientId: client.client_id,
         ...(client.client_secret === undefined ? {} : { clientSecret: client.client_secret }),
+        ...('token_endpoint_auth_method' in client &&
+        client.token_endpoint_auth_method !== undefined
+          ? { tokenEndpointAuthMethod: client.token_endpoint_auth_method }
+          : {}),
       },
       (input.now ?? Date.now)(),
     );
-    await input.store.set(
-      { securityIdentity: input.securityIdentity, serverUrl: server.resource },
-      credential,
-    );
+    const key = { securityIdentity: input.securityIdentity, serverUrl: server.resource };
+    await input.lock.withLock(key, () => input.store.set(key, credential), input.signal);
     return {
       issuer: server.issuer,
       ...(credential.scope === undefined ? {} : { scope: credential.scope }),

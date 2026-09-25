@@ -20,6 +20,8 @@ export type TMCPOAuthFailure =
   | 'issuer-mismatch'
   /** The server, an authorization server or one of its endpoints is not `https`. */
   | 'insecure-endpoint'
+  /** The authorization server does not advertise PKCE with `S256`. */
+  | 'pkce-unsupported'
   | 'registration-unavailable'
   | 'registration-failed'
   /** A client secret was supplied for a client the definition does not pre-register. */

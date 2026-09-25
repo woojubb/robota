@@ -37,6 +37,8 @@ export interface IMCPOAuthCredential {
   readonly authorizationEndpoint: string;
   readonly tokenEndpoint: string;
   readonly tokenEndpointAuthMethods?: readonly string[];
+  /** The client authentication method dynamic registration returned, if any. */
+  readonly tokenEndpointAuthMethod?: string;
   /** The RFC 8707 resource the tokens were issued for. */
   readonly resource: string;
   readonly clientId: string;
@@ -72,7 +74,12 @@ export function credentialKeyDigest(key: IMCPOAuthCredentialKey): string {
 }
 
 const RECORD_VERSION = 1;
-const OPTIONAL_STRINGS = ['clientSecret', 'refreshToken', 'scope'] as const;
+const OPTIONAL_STRINGS = [
+  'clientSecret',
+  'refreshToken',
+  'scope',
+  'tokenEndpointAuthMethod',
+] as const;
 const REQUIRED_STRINGS = [
   'issuer',
   'authorizationEndpoint',

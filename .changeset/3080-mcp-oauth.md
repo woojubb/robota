@@ -19,8 +19,9 @@ send the stored token.
 - **Signing in** (`runMCPOAuthLogin`; `robota mcp login <name> [--client-secret]`):
   - Discovery is done here, not by the SDK's `discoverOAuthServerInfo`: the protected-resource
     metadata `resource` must be the canonical server URL, the authorization server's `issuer` must
-    be the server it was fetched for, and the server, authorization, token and registration
-    endpoints must be `https`. A 401's `resource_metadata` is never followed to another origin,
+    be the server it was fetched for, the server, authorization, token and registration
+    endpoints must be `https`, and the authorization server must advertise PKCE `S256`
+    (`pkce-unsupported` otherwise). A 401's `resource_metadata` is never followed to another origin,
     and a server without resource metadata is not guessed at.
     `authServerMetadataUrl` skips resource discovery.
   - Dynamic client registration when there is no `clientId`; PKCE, a random `state` and the
@@ -37,15 +38,18 @@ send the stored token.
   of following it; registration, token and refresh requests use it.
 - **Storage:** `IMCPOAuthCredentialStore` (`get`/`set`/`delete`), keyed by the server's security
   identity and canonical URL together. `createFileOAuthCredentialStore` keeps 0600 files in a 0700
-  `~/.robota/mcp-credentials/`. The issuer, token endpoint and client (with its secret, if any) are
-  stored with the tokens.
+  `~/.robota/mcp-credentials/`. The issuer, token endpoint and client (with its secret, if any, and
+  the client authentication method dynamic registration returned) are stored with the tokens. A
+  sign-in stores its credential under the refresh lock, so a refresh in flight cannot overwrite it.
 - **Sessions** (`createOAuthAuthenticator`, wired for every `oauth` definition):
-  - Sends the stored token as `Authorization: Bearer`, refreshing it first when expired — only at
-    the stored token endpoint.
+  - Sends the stored token as `Authorization: Bearer`, refreshing it first when expired — including
+    a token cached earlier in the session — and only at the stored token endpoint.
   - One refresh at a time per credential: in a process through `MCPSingleFlightCache`, across
-    processes under `createFileOAuthRefreshLock`, re-reading the store once the lock is held.
+    processes under `createFileOAuthRefreshLock`, re-reading the store once the lock is held. A
+    stale lock is taken over, and a lock released, only after it is renamed aside and proven to be
+    the one judged — never another process's fresh lock.
   - A 401 rediscovers, then refreshes once and retries; an authorization server that changed clears
-    the tokens. `invalid_grant`, or nothing stored, asks the user to run `/mcp login <name>`. A 403
+    the tokens — compared, under the lock, with what is stored then, so a newer sign-in is kept. `invalid_grant`, or nothing stored, asks the user to run `robota mcp login <name>`. A 403
     `insufficient_scope` fails and names the scope.
   - An `oauth` definition is never connected without the authenticator (`oauth-unavailable`).
 - Failures are `MCPOAuthError` with a fixed reason; no code, verifier, token, secret or

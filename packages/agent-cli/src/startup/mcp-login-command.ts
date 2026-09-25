@@ -13,6 +13,7 @@ import {
   runMCPOAuthLogin,
   securityIdentity,
   createFileOAuthCredentialStore,
+  createFileOAuthRefreshLock,
 } from '@robota-sdk/agent-mcp';
 
 import { openInBrowser } from './browser-opener.js';
@@ -96,13 +97,15 @@ export async function runMcpLoginCommand(
   }
 
   const open = deps.openBrowser ?? ((url: URL) => openInBrowser(url));
+  const directory = deps.credentialDirectory ?? mcpCredentialDirectory();
   try {
     await runMCPOAuthLogin({
       securityIdentity: securityIdentity(entry),
       serverUrl: definition.url ?? '',
       config: definition.oauth,
       ...(clientSecret === undefined ? {} : { clientSecret }),
-      store: createFileOAuthCredentialStore(deps.credentialDirectory ?? mcpCredentialDirectory()),
+      store: createFileOAuthCredentialStore(directory),
+      lock: createFileOAuthRefreshLock(directory),
       network: deps.network ?? {},
       ...(deps.callbackTimeoutMs === undefined
         ? {}

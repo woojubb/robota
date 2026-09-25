@@ -72,6 +72,14 @@ describe('OAuth discovery', () => {
     );
   });
 
+  it('refuses an authorization server that does not advertise PKCE S256', async () => {
+    const server = createFakeOAuthServer();
+    server.overrides.codeChallengeMethods = null;
+    expect(await reasonOf(discover(server))).toBe('pkce-unsupported');
+    server.overrides.codeChallengeMethods = ['plain'];
+    expect(await reasonOf(discover(server))).toBe('pkce-unsupported');
+  });
+
   it('never follows a resource_metadata link to another origin', async () => {
     const server = createFakeOAuthServer();
     const reason = await reasonOf(

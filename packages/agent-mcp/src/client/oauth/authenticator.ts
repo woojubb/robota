@@ -30,7 +30,7 @@ import { credentialFromTokens } from './login.js';
 import { createOAuthFetch } from './network.js';
 import { oauthCredentialKey } from './store.js';
 
-import type { OAuthTokens } from '@modelcontextprotocol/sdk/shared/auth.js';
+import type { OAuthClientInformation, OAuthTokens } from '@modelcontextprotocol/sdk/shared/auth.js';
 import type { IMCPOAuthConfig } from '../../definition/types.js';
 import type {
   IMCPAuthorizationRejection,
@@ -114,7 +114,7 @@ export function createOAuthAuthenticator(
   /** The access token a server refused; the stored one is not usable while it is still that. */
   let refused: string | undefined;
   /** Set by a 401, consumed by the next load: rediscover before refreshing. */
-  let rediscover: { resourceMetadataUrl?: string; scope?: string } | undefined;
+  let rediscover: { resourceMetadataUrl?: string } | undefined;
   let loginNoticeShown = false;
 
   const loginRequired = async (clear: boolean): Promise<never> => {
@@ -126,9 +126,10 @@ export function createOAuthAuthenticator(
     throw new MCPOAuthError('login-required');
   };
 
+  const expired = (credential: IMCPOAuthCredential): boolean =>
+    credential.expiresAt !== undefined && now() >= credential.expiresAt - skew;
   const usable = (credential: IMCPOAuthCredential): boolean =>
-    credential.accessToken !== refused &&
-    (credential.expiresAt === undefined || now() < credential.expiresAt - skew);
+    credential.accessToken !== refused && !expired(credential);
 
   const refresh = async (
     credential: IMCPOAuthCredential,
@@ -136,6 +137,14 @@ export function createOAuthAuthenticator(
   ): Promise<IMCPOAuthCredential> => {
     const refreshToken = credential.refreshToken;
     if (refreshToken === undefined) return loginRequired(true);
+    // The method registration settled on, when there was one; otherwise chosen from the metadata.
+    const client: OAuthClientInformation & { token_endpoint_auth_method?: string } = {
+      client_id: credential.clientId,
+      ...(credential.clientSecret === undefined ? {} : { client_secret: credential.clientSecret }),
+      ...(credential.tokenEndpointAuthMethod === undefined
+        ? {}
+        : { token_endpoint_auth_method: credential.tokenEndpointAuthMethod }),
+    };
     let tokens: OAuthTokens;
     try {
       tokens = await refreshAuthorization(credential.issuer, {
@@ -149,12 +158,7 @@ export function createOAuthAuthenticator(
             ? {}
             : { token_endpoint_auth_methods_supported: [...credential.tokenEndpointAuthMethods] }),
         },
-        clientInformation: {
-          client_id: credential.clientId,
-          ...(credential.clientSecret === undefined
-            ? {}
-            : { client_secret: credential.clientSecret }),
-        },
+        clientInformation: client,
         refreshToken,
         resource: new URL(credential.resource),
         fetchFn: createOAuthFetch(options.network, signal),
@@ -174,29 +178,33 @@ export function createOAuthAuthenticator(
     rediscover = undefined;
     const stored = await options.store.get(key);
     if (stored === undefined) return loginRequired(false);
-    if (challenge !== undefined) {
-      const server = await discoverMCPOAuthServer({
-        serverUrl: options.serverUrl,
-        config: options.config,
-        fetch: createOAuthFetch(options.network, signal),
-        ...(challenge.resourceMetadataUrl === undefined
-          ? {}
-          : { resourceMetadataUrl: challenge.resourceMetadataUrl }),
-      });
-      if (
-        !sameUrl(server.issuer, stored.issuer) ||
-        !sameUrl(server.metadata.token_endpoint, stored.tokenEndpoint)
-      ) {
-        return loginRequired(true);
-      }
-    }
-    if (usable(stored)) return stored;
+    if (challenge === undefined && usable(stored)) return stored;
+    // Rediscovery is network, so it runs before the lock; what it is compared with is read under it.
+    const server =
+      challenge === undefined
+        ? undefined
+        : await discoverMCPOAuthServer({
+            serverUrl: options.serverUrl,
+            config: options.config,
+            fetch: createOAuthFetch(options.network, signal),
+            ...(challenge.resourceMetadataUrl === undefined
+              ? {}
+              : { resourceMetadataUrl: challenge.resourceMetadataUrl }),
+          });
     return options.lock.withLock(
       key,
       async () => {
-        // Read again under the lock: another holder may have refreshed while this one waited.
+        // Read again under the lock: another holder may have refreshed, or the user signed in
+        // again, while this one waited. Only what is stored now is compared, refreshed or cleared.
         const current = await options.store.get(key);
         if (current === undefined) return loginRequired(false);
+        if (
+          server !== undefined &&
+          (!sameUrl(server.issuer, current.issuer) ||
+            !sameUrl(server.metadata.token_endpoint, current.tokenEndpoint))
+        ) {
+          return loginRequired(true);
+        }
         if (usable(current)) return current;
         return refresh(current, signal);
       },
@@ -214,7 +222,12 @@ export function createOAuthAuthenticator(
 
   return {
     authorize: async (request: IMCPAuthorizationRequest) => {
-      const { value, generation } = await cache.getEntry(request.signal);
+      let { value, generation } = await cache.getEntry(request.signal);
+      // A cached token that has since expired is replaced before it is sent, not after a 401.
+      if (expired(value)) {
+        cache.invalidate(generation);
+        ({ value, generation } = await cache.getEntry(request.signal));
+      }
       latestGeneration = Math.max(latestGeneration, generation);
       const headers = Object.freeze({ Authorization: `Bearer ${value.accessToken}` });
       issued.set(headers, { generation, accessToken: value.accessToken });

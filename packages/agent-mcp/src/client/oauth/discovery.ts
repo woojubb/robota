@@ -9,7 +9,7 @@
  * - the authorization server metadata must name, as its `issuer`, the authorization server the
  *   resource pointed to (or that the definition configured);
  * - the server, the authorization server and its authorization, token and registration endpoints
- *   are all `https`.
+ *   are all `https`, and the authorization server advertises PKCE with `S256`.
  * A server that publishes no protected-resource metadata has no authorization server this client
  * will guess at.
  */
@@ -198,6 +198,10 @@ export async function discoverMCPOAuthServer(
     parseHttps(metadata.authorization_endpoint);
     parseHttps(metadata.token_endpoint);
     if (metadata.registration_endpoint !== undefined) parseHttps(metadata.registration_endpoint);
+    // The MCP authorization spec: without advertised S256 there is no PKCE to rely on.
+    if (metadata.code_challenge_methods_supported?.includes('S256') !== true) {
+      throw new MCPOAuthError('pkce-unsupported');
+    }
     const scope =
       input.config.scopes?.join(' ') ??
       input.challengeScope ??

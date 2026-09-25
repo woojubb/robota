@@ -14,6 +14,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { startOAuthCallbackServer } from '../client/oauth/callback.js';
 import { MCPOAuthError } from '../client/oauth/errors.js';
 import { runMCPOAuthLogin } from '../client/oauth/login.js';
+import { createFileOAuthRefreshLock } from '../client/oauth/refresh-lock.js';
 import { createFileOAuthCredentialStore, oauthCredentialKey } from '../client/oauth/store.js';
 import {
   AS_URL,
@@ -76,7 +77,15 @@ function login(
   const directory = options.directory ?? temporaryDirectory();
   const store = createFileOAuthCredentialStore(directory);
   const opened: URL[] = [];
+  const fileLock = createFileOAuthRefreshLock(directory);
+  const locked: string[] = [];
   const result = runMCPOAuthLogin({
+    lock: {
+      withLock: (key, critical, signal) => {
+        locked.push(key.serverUrl);
+        return fileLock.withLock(key, critical, signal);
+      },
+    },
     securityIdentity: 'identity-1',
     serverUrl: MCP_URL,
     config: options.config ?? {},
@@ -91,7 +100,7 @@ function login(
       void rawRequest(redirect.href).catch(() => undefined);
     },
   });
-  return { result, store, opened, directory };
+  return { result, store, opened, directory, locked };
 }
 
 async function failure(promise: Promise<unknown>): Promise<MCPOAuthError> {
@@ -106,8 +115,10 @@ async function failure(promise: Promise<unknown>): Promise<MCPOAuthError> {
 describe('OAuth sign-in', () => {
   it('registers, authorizes with PKCE, state and resource, and stores a bearer credential', async () => {
     const server = createFakeOAuthServer();
-    const { result, store, opened, directory } = login(server);
+    const { result, store, opened, directory, locked } = login(server);
     await expect(result).resolves.toMatchObject({ issuer: AS_URL });
+    // Stored under the refresh lock, so a refresh in flight cannot overwrite the new sign-in.
+    expect(locked).toEqual([MCP_URL]);
 
     const authorization = opened[0]!;
     expect(authorization.protocol).toBe('https:');
@@ -126,6 +137,7 @@ describe('OAuth sign-in', () => {
       issuer: AS_URL,
       tokenEndpoint: 'https://auth.example.test/token',
       clientId: 'dynamic-client',
+      tokenEndpointAuthMethod: 'none',
       accessToken: expect.stringMatching(/^at-/),
       refreshToken: expect.stringMatching(/^rt-/),
       resource: MCP_URL,

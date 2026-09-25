@@ -28,7 +28,7 @@ export function mcpCredentialDirectory(home?: string): string {
 /** What the user is told; the server's name and scope tokens only. */
 export function formatMcpOAuthNotice(notice: TMCPOAuthNotice): string {
   if (notice.kind === 'login-required') {
-    return `MCP server "${notice.serverId}" needs you to sign in: run /mcp login ${notice.serverId}`;
+    return `MCP server "${notice.serverId}" needs you to sign in: run robota mcp login ${notice.serverId}`;
   }
   return notice.scope === undefined
     ? `MCP server "${notice.serverId}" refused the request: the signed-in account lacks a required scope.`
