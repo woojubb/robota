@@ -114,8 +114,10 @@ never happened.
 - The OS sandbox promises only what the OS enforces. Its network boundary is on or off, and off
   closes Unix sockets too, because a per-domain allowlist needs a proxy the OS does not enforce and
   a host daemon's socket is a way out; the model cannot ask to leave it; and the configuration the
-  next session or git command would trust is pinned read-only where it exists and removed after the
-  command where it did not, because a mount cannot protect a path that does not exist yet.
+  next session or git command would trust — `.git` whole, since the files in it that make git run
+  something are too many to list and keep complete — is mounted read-only where it exists and moved
+  aside after the command where it did not, because a mount cannot protect a path that does not
+  exist yet, and moving rather than deleting loses nothing the host wrote meanwhile.
 - `IWorkspaceManifest` / its applicator declare fresh-session sandbox contents (inline/local files,
   directories, Git clones) through `ISandboxClient`; provider-specific storage mounts are
   represented in the contract but report an explicit "unsupported" status until an adapter

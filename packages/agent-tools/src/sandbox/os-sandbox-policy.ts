@@ -27,24 +27,18 @@ export interface IOsSandboxPolicy {
 /** An isolated worktree's files are ordinary workspace files. */
 const WRITABLE_INSIDE_PROTECTED = ['.robota/worktrees', '.claude/worktrees'];
 
-/**
- * Inside `.git`, only what makes git run something is protected — hooks, config, and the same for
- * submodules — so a confined `git commit` still works. `.git` itself is pinned in place, so it
- * cannot be renamed away and replaced by one whose config names other hooks.
- */
-const PROTECTED_GIT_ENTRIES = ['.git/hooks', '.git/config', '.git/modules'];
-
 function join(root: string, relative: string): string {
   return `${root.replace(/\/+$/, '')}/${relative}`;
 }
 
-/** Workspace entries a confined command must not write, relative to the root. */
+/**
+ * Workspace entries a confined command must not write, relative to the root. `.git` is read-only
+ * as a whole: the files that make git run something (config, hooks, `commondir`, per-worktree
+ * config) are too many and too easy to add to for a list inside it to stay complete, so git
+ * commands that write run unconfined, through the ordinary permission path.
+ */
 export function protectedWorkspaceEntries(): readonly string[] {
-  return [
-    ...PROTECTED_DIRECTORY_NAMES.filter((name) => name !== '.git'),
-    ...PROTECTED_GIT_ENTRIES,
-    ...PROTECTED_FILE_NAMES,
-  ];
+  return [...PROTECTED_DIRECTORY_NAMES, ...PROTECTED_FILE_NAMES];
 }
 
 export interface IBubblewrapInput {
@@ -70,10 +64,8 @@ export function bubblewrapArguments(input: IBubblewrapInput): string[] {
   for (const path of [policy.root, ...policy.tempDirectories, ...policy.allowWrite]) {
     args.push('--bind-try', path, path);
   }
-  // A bind over a path that does not exist would create it on the host; only existing ones are
-  // re-mounted. A missing one the command creates is removed after it exits (see the client).
-  const git = join(policy.root, '.git');
-  if (input.exists(git)) args.push('--bind', git, git);
+  // A bind over a path that does not exist would create it on the host, so only existing entries
+  // are mounted read-only; the client moves aside one a command creates (see the client).
   for (const entry of protectedWorkspaceEntries()) {
     const path = join(policy.root, entry);
     if (input.exists(path)) args.push('--ro-bind', path, path);
@@ -123,7 +115,7 @@ export function seatbeltProfile(policy: IOsSandboxPolicy): string {
     .join(' ');
   const protectedEntries = protectedWorkspaceEntries().map((entry) => {
     const path = join(policy.root, entry);
-    return PROTECTED_FILE_NAMES.includes(entry) || entry === '.git/config'
+    return PROTECTED_FILE_NAMES.includes(entry)
       ? `(literal ${quote(path)})`
       : `(subpath ${quote(path)})`;
   });

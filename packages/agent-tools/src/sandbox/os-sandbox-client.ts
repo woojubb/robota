@@ -11,15 +11,19 @@
 import { spawn, spawnSync } from 'node:child_process';
 import {
   existsSync,
+  lstatSync,
+  mkdirSync,
   readdirSync,
+  readlinkSync,
+  renameSync,
+  symlinkSync,
   readFileSync,
   realpathSync,
-  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { isAbsolute, resolve } from 'node:path';
+import { basename, isAbsolute, resolve } from 'node:path';
 
 import { resolvePlatformShell, splitCommandSegments } from '@robota-sdk/agent-core';
 
@@ -153,6 +157,10 @@ function isDirectory(path: string): boolean {
   }
 }
 
+type IProtectedEntryState =
+  | { readonly path: string; readonly kind: 'missing' | 'present' }
+  | { readonly path: string; readonly kind: 'symlink'; readonly target: string };
+
 /** The program a shell line starts first — what `excludedCommands` names. */
 function firstProgram(shellCommand: string): string | undefined {
   return shellCommand.trim().split(/\s+/)[0];
@@ -195,7 +203,12 @@ export class OsSandboxClient implements ISandboxClient {
   }
 
   autoApproves(shellCommand: string): boolean {
-    return this.current.autoAllowBashIfSandboxed && this.confines(shellCommand);
+    if (!this.current.autoAllowBashIfSandboxed || !this.confines(shellCommand)) return false;
+    // A protected link whose target does not exist cannot be mounted; the command could create
+    // the target and so write configuration through it. A person decides instead.
+    return !this.protectedEntryStates().some(
+      (state) => state.kind === 'symlink' && !existsSync(state.path),
+    );
   }
 
   wrapCommand(invocation: ICommandInvocation, shellCommand: string): ICommandInvocation {
@@ -210,11 +223,16 @@ export class OsSandboxClient implements ISandboxClient {
       };
     }
     const filter = policy.network ? undefined : unixSocketSeccompFilter();
-    const missingBefore = this.missingProtectedEntries();
+    // `.robota` is robota's own state directory: made before the command, so it is mounted
+    // read-only and nothing the host writes there is caught up in `restoreProtectedEntries`.
+    mkdirSync(`${this.root}/.robota`, { recursive: true });
+    const before = this.protectedEntryStates();
     return {
       command: executable,
       args: bubblewrapArguments({
         policy,
+        // Follows symlinks: a protected link is mounted through to its target, which is what then
+        // stays read-only; the link itself is restored after exit if the command replaced it.
         exists: existsSync,
         listDirectory: (path) => readdirSync(path),
         cwd: invocation.cwd,
@@ -224,27 +242,54 @@ export class OsSandboxClient implements ISandboxClient {
       }),
       cwd: invocation.cwd,
       ...(filter !== undefined ? { inputDescriptors: [filter] } : {}),
-      afterExit: () => this.removeCreatedProtectedEntries(missingBefore),
+      afterExit: () => this.restoreProtectedEntries(before),
     };
   }
 
   /**
-   * Protected entries bubblewrap cannot mount read-only because they do not exist yet. A command
-   * that creates one has written configuration the next session or git command would trust.
+   * How each protected entry stands before a command: bubblewrap can mount an existing entry
+   * read-only, but not one that does not exist yet, and a symlink it mounts through to its target
+   * while the link itself stays replaceable. Read with `lstat`, so a dangling link is not "missing".
    */
-  private missingProtectedEntries(): string[] {
-    return ['.git', ...protectedWorkspaceEntries()]
-      .map((entry) => `${this.root}/${entry}`)
-      .filter((path) => !existsSync(path));
+  private protectedEntryStates(): IProtectedEntryState[] {
+    return protectedWorkspaceEntries().map((entry) => {
+      const path = `${this.root}/${entry}`;
+      try {
+        const stat = lstatSync(path);
+        return stat.isSymbolicLink()
+          ? { path, kind: 'symlink' as const, target: readlinkSync(path) }
+          : { path, kind: 'present' as const };
+      } catch {
+        return { path, kind: 'missing' as const };
+      }
+    });
   }
 
-  private removeCreatedProtectedEntries(missingBefore: readonly string[]): string | undefined {
-    const created = missingBefore.filter((path) => existsSync(path));
-    if (created.length === 0) return undefined;
-    for (const path of created) rmSync(path, { recursive: true, force: true });
+  /**
+   * Undo what the command did to protected entries it could reach: one it created where none
+   * existed is moved into `.robota/sandbox-quarantine`, and a symlink it replaced is restored. Moved,
+   * not deleted, so nothing the host wrote meanwhile is lost.
+   */
+  private restoreProtectedEntries(before: readonly IProtectedEntryState[]): string | undefined {
+    const quarantine = `${this.root}/.robota/sandbox-quarantine/${Date.now()}`;
+    const moved: string[] = [];
+    for (const state of before) {
+      if (state.kind === 'present') continue;
+      const now = this.protectedEntryStates().find((entry) => entry.path === state.path)!;
+      if (state.kind === 'missing' && now.kind === 'missing') continue;
+      if (state.kind === 'symlink' && now.kind === 'symlink' && now.target === state.target)
+        continue;
+      if (now.kind !== 'missing') {
+        mkdirSync(quarantine, { recursive: true });
+        renameSync(state.path, `${quarantine}/${basename(state.path)}`);
+        moved.push(state.path);
+      }
+      if (state.kind === 'symlink') symlinkSync(state.target, state.path);
+    }
+    if (moved.length === 0) return undefined;
     return (
-      `[sandbox] Removed ${created.join(', ')}: a confined command may not create git, agent, ` +
-      'MCP or shell configuration.'
+      `[sandbox] Moved ${moved.join(', ')} to ${quarantine}: a confined command may not create or ` +
+      'replace git, agent, MCP or shell configuration.'
     );
   }
 

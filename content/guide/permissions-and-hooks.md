@@ -71,13 +71,17 @@ Inside the sandbox:
 - the whole filesystem is readable, except the paths in `filesystem.denyRead`;
 - writes are allowed only in the working directory, the temporary directories and
   `filesystem.allowWrite`;
-- inside the working directory, `.robota`, `.claude`, `.agents`, `.git/hooks`, `.git/config`,
-  `.git/modules`, `.mcp.json` and shell or npm config files stay read-only, and `.git` cannot be
-  renamed (isolated worktrees under `.robota/worktrees` stay writable). On Linux, one of these a
-  command creates where none existed is removed when the command exits, with a note in its output;
+- inside the working directory, `.git`, `.robota`, `.claude`, `.agents`, `.mcp.json` and shell or
+  npm config files stay read-only (isolated worktrees under `.robota/worktrees` stay writable).
+  `.git` is read-only as a whole, so git commands that write — `commit`, `checkout`, `fetch` —
+  fail inside the sandbox; add `git` to `excludedCommands` to run them on the host through the
+  ordinary prompt. On Linux, one of these entries a command creates where none existed, or a
+  symlink it replaces, is moved to `.robota/sandbox-quarantine` (or restored) when the command
+  exits, with a note in its output;
 - the network is reachable only when `network.enabled` is `true`, and while it is off Unix
   sockets are closed too, so a daemon on the host (a container engine, the session bus, an ssh
-  agent) is out of reach. There is no per-domain list;
+  agent) is out of reach. With the network on, those sockets are reachable, and a container
+  engine's socket is as good as running on the host. There is no per-domain list;
 - the command runs in its own process namespace and cannot signal or inspect robota or other host
   processes.
 

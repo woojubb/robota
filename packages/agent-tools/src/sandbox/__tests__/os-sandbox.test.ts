@@ -6,6 +6,9 @@
 
 import {
   existsSync,
+  readdirSync,
+  readlinkSync,
+  symlinkSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -49,7 +52,6 @@ describe('bubblewrap arguments', () => {
       '/w/project/.git',
       '/w/project/.robota/worktrees/feature/.git',
       '/w/project/.robota',
-      '/w/project/.git/hooks',
       '/w/project/.robota/worktrees',
       '/home/me/.ssh',
       '/home/me/.netrc',
@@ -85,9 +87,8 @@ describe('bubblewrap arguments', () => {
       args: [],
     }).join(' ');
     expect(joined).toContain('--ro-bind /w/project/.robota /w/project/.robota');
-    expect(joined).toContain('--ro-bind /w/project/.git/hooks /w/project/.git/hooks');
-    // `.git` is pinned so it cannot be renamed and replaced; a worktree's `.git` file stays put.
-    expect(joined).toContain('--bind /w/project/.git /w/project/.git');
+    // `.git` is read-only as a whole; a worktree's `.git` file stays put too.
+    expect(joined).toContain('--ro-bind /w/project/.git /w/project/.git');
     expect(joined).toContain(
       '--ro-bind /w/project/.robota/worktrees/feature/.git /w/project/.robota/worktrees/feature/.git',
     );
@@ -309,7 +310,14 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
       });
       const created = await bash(client, 'F=.mc; echo {} > "${F}p.json"; echo done');
       expect(existsSync(join(root, '.mcp.json'))).toBe(false);
-      expect(created.output).toContain('[sandbox] Removed');
+      expect(created.output).toContain('[sandbox] Moved');
+      // Moved aside, not deleted.
+      const quarantine = join(root, '.robota', 'sandbox-quarantine');
+      expect(readdirSync(quarantine).length).toBe(1);
+
+      // `.git` is read-only whole: git cannot be pointed at another config through `commondir`.
+      await bash(client, 'echo /tmp/evil > .git/commondir');
+      expect(existsSync(join(root, '.git', 'commondir'))).toBe(false);
 
       await bash(
         client,
@@ -323,6 +331,37 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
     },
     SPAWN_TIMEOUT_MS,
   );
+
+  it(
+    'restores a protected symlink the command replaced, and keeps its target read-only',
+    async () => {
+      mkdirSync(join(root, 'shared-claude'));
+      writeFileSync(join(root, 'shared-claude', 'settings.json'), '{}');
+      symlinkSync('shared-claude', join(root, '.claude'));
+      const client = new OsSandboxClient({
+        root,
+        availability: bubblewrap,
+        settings: { enabled: true },
+      });
+      await bash(client, 'echo pwn > .claude/settings.json');
+      expect(readFileSync(join(root, 'shared-claude', 'settings.json'), 'utf8')).toBe('{}');
+      await bash(client, 'rm .claude && mkdir .claude && echo pwn > .claude/settings.json');
+      expect(readlinkSync(join(root, '.claude'))).toBe('shared-claude');
+      expect(readFileSync(join(root, '.claude', 'settings.json'), 'utf8')).toBe('{}');
+    },
+    SPAWN_TIMEOUT_MS,
+  );
+
+  it('does not auto-approve while a protected entry is a dangling symlink', () => {
+    symlinkSync('missing-target', join(root, '.agents'));
+    const client = new OsSandboxClient({
+      root,
+      availability: bubblewrap,
+      settings: { enabled: true },
+    });
+    expect(client.confines('ls')).toBe(true);
+    expect(client.autoApproves('ls')).toBe(false);
+  });
 
   it(
     'hides denyRead paths and runs excluded commands on the host',
