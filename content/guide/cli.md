@@ -320,15 +320,16 @@ The available command list is built from the consolidated `@robota-sdk/agent-com
 | `/effort [level]`         | Show or change active model effort                  |
 | `/context`                | Context window details                              |
 | `/permissions [mode]`     | Show permission rules or change mode                |
+| `/sandbox [mode]`         | Show or change how shell commands are confined      |
 | `/memory`                 | Inspect and manage project memory                   |
 | `/rewind`                 | List and restore edit checkpoints                   |
 | `/provider`               | Manage provider profiles                            |
 | `/resume`                 | Resume a previous session                           |
 | `/background`             | List and control background tasks                   |
-| `/schedule`               | Schedule a later or recurring session wake         |
-| `/monitor`                | Wake on matching process output                    |
+| `/schedule`               | Schedule a later or recurring session wake          |
+| `/monitor`                | Wake on matching process output                     |
 | `/loop`                   | Repeat a prompt within this session                 |
-| `/goal`                   | Work toward an objective until done or bounded     |
+| `/goal`                   | Work toward an objective until done or bounded      |
 | `/agent`                  | Run and manage background subagent jobs             |
 | `/rename`                 | Rename the current session                          |
 | `/cd <directory>`         | Continue this conversation in another directory     |

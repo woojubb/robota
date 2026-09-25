@@ -329,3 +329,20 @@ describe('a turn cancelled before anyone is asked (issue #3082)', () => {
     expect(enforcer.getRecentDenials()).toEqual([]);
   });
 });
+
+describe('the OS sandbox lets a confined command skip the prompt (issue #3082)', () => {
+  it('asks the sandbox about the command the tool runs', async () => {
+    const handler = vi.fn().mockResolvedValue(false);
+    const autoApproves = vi.fn((command: string) => command.startsWith('npm'));
+    const enforcer = makeEnforcer({
+      getPermissionMode: () => 'default',
+      permissionHandler: handler,
+      commandSandbox: { autoApproves },
+    });
+    await expect(enforcer.checkPermission('Bash', { command: 'npm test' })).resolves.toBe(true);
+    expect(autoApproves).toHaveBeenCalledWith('npm test');
+    expect(handler).not.toHaveBeenCalled();
+    await expect(enforcer.checkPermission('Bash', { command: 'make' })).resolves.toBe(false);
+    expect(handler).toHaveBeenCalledOnce();
+  });
+});

@@ -154,6 +154,23 @@ const TransportSettingsSchema = z.object({
   options: z.record(UniversalValueSchema).optional(),
 });
 
+const SandboxSettingsSchema = z.object({
+  enabled: z.boolean().optional(),
+  /** A confined command runs without a prompt; deny and ask rules still apply first. */
+  autoAllowBashIfSandboxed: z.boolean().optional(),
+  /** Commands (first word) that run unconfined, through the ordinary permission path. */
+  excludedCommands: z.array(z.string()).optional(),
+  /** Refuse to start when sandboxing is enabled but cannot run here, instead of running unconfined. */
+  failIfUnavailable: z.boolean().optional(),
+  filesystem: z
+    .object({
+      allowWrite: z.array(z.string()).optional(),
+      denyRead: z.array(z.string()).optional(),
+    })
+    .optional(),
+  network: z.object({ enabled: z.boolean().optional() }).optional(),
+});
+
 export const SettingsSchema = z.object({
   /** Trust level used when no --permission-mode flag is given */
   defaultTrustLevel: z.enum(['safe', 'moderate', 'full']).optional(),
@@ -184,6 +201,8 @@ export const SettingsSchema = z.object({
   autoCompactThreshold: AutoCompactThresholdSchema,
   /** Transport enable/disable + options: transport name -> config */
   transports: z.record(TransportSettingsSchema).optional(),
+  /** OS-level confinement of shell commands (bubblewrap on Linux, Seatbelt on macOS). */
+  sandbox: SandboxSettingsSchema.optional(),
   /** NEUT-004: host-selected active-task context root and optional enablement. */
   taskContext: z
     .object({
@@ -264,4 +283,7 @@ export interface IResolvedConfig {
    * directories do not fall back to a framework-owned path. `enabled: false` disables it.
    */
   taskContext?: { enabled?: boolean; dir?: string };
+  sandbox?: TSandboxSettings;
 }
+
+export type TSandboxSettings = z.infer<typeof SandboxSettingsSchema>;

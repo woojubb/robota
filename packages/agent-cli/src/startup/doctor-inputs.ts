@@ -18,7 +18,12 @@ import {
   createCliWorkspaceComposition,
   resolveInitialCliWorkspaceProjectAccess,
 } from './workspace-project-composition.js';
-import { checkExecutionContainment } from '../product/robota-execution-containment.js';
+import {
+  checkExecutionContainment,
+  createRobotaSandbox,
+} from '../product/robota-execution-containment.js';
+
+import type { IRobotaSandbox } from '../product/robota-execution-containment.js';
 import { createRobotaUserSettingsSources } from '../product/robota-user-settings.js';
 import { ROBOTA_SKILL_ROOTS } from '../product/robota-skill-roots.js';
 
@@ -78,6 +83,8 @@ export interface IBuildDoctorInputsOptions {
   readonly providerDefinitions: readonly IProviderDefinition[];
   readonly env: Readonly<Record<string, string | undefined>>;
   readonly userHome?: string;
+  /** The sandbox the session was composed with, so `/doctor` reports that value, not a rebuild. */
+  readonly sandbox?: IRobotaSandbox;
 }
 
 export function compositionFailure(error: Error): IDoctorCheck {
@@ -166,7 +173,9 @@ export function buildDoctorInputs(opts: IBuildDoctorInputsOptions): IDoctorInput
       checkNodeVersion(),
       checkCliVersion(opts.version),
       checkTerminal(opts.env),
-      checkExecutionContainment(),
+      checkExecutionContainment(
+        opts.sandbox ?? createRobotaSandbox({ cwd: opts.cwd, settingsSources }),
+      ),
     ],
     ...(failure === undefined ? {} : { compositionFailure: failure }),
   };

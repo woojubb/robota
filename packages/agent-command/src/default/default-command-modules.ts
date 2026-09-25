@@ -18,6 +18,7 @@ import { createLanguageCommandModule } from '../language/index.js';
 import { createMCPActivationCommandModule } from '../mcp-activation/index.js';
 import { createMemoryCommandModule } from '../memory/index.js';
 import { createModeCommandModule } from '../mode/index.js';
+import { createSandboxCommandModule } from '../sandbox/index.js';
 import { createOutputStyleCommandModule } from '../output-style/index.js';
 import { createPeersCommandModule } from '../peers/index.js';
 import { createPermissionsCommandModule } from '../permissions/index.js';
@@ -149,6 +150,7 @@ export function createDefaultCommandModules({
     createEffortCommandModule(),
     createPermissionsCommandModule(),
     createModeCommandModule(),
+    createSandboxCommandModule(),
     createPresetCommandModule(),
     createOutputStyleCommandModule(),
     createLanguageCommandModule(),

@@ -1,0 +1,122 @@
+/**
+ * What an OS-level sandbox lets a command touch, written once per backend (issue #3082).
+ *
+ * The same policy becomes bubblewrap arguments on Linux and a Seatbelt profile on macOS:
+ * - the whole filesystem is readable except the `denyRead` paths;
+ * - writes are allowed only inside the workspace, the temporary directories and `allowWrite`;
+ * - inside the workspace, the files that configure git, the agent, MCP servers and shells stay
+ *   read-only, so a confined command cannot change what the next session trusts;
+ * - the network is either reachable or not. There is no per-domain allowlist: that needs a proxy
+ *   process the OS cannot enforce, and a boundary here is only worth what the OS enforces.
+ */
+
+import { PROTECTED_DIRECTORY_NAMES, PROTECTED_FILE_NAMES } from '@robota-sdk/agent-core';
+
+export interface IOsSandboxPolicy {
+  /** The workspace root, real path. Writable. */
+  readonly root: string;
+  /** Temporary directories, real paths. Writable. */
+  readonly tempDirectories: readonly string[];
+  /** Further writable paths, absolute. */
+  readonly allowWrite: readonly string[];
+  /** Paths hidden from the command, absolute, with whether each is a directory. */
+  readonly denyRead: readonly { readonly path: string; readonly directory: boolean }[];
+  readonly network: boolean;
+}
+
+/** An isolated worktree's files are ordinary workspace files. */
+const WRITABLE_INSIDE_PROTECTED = ['.robota/worktrees', '.claude/worktrees'];
+
+/**
+ * Inside `.git`, only what makes git run something is protected — hooks and config — so a
+ * confined `git commit` still works.
+ */
+const PROTECTED_GIT_ENTRIES = ['.git/hooks', '.git/config'];
+
+function join(root: string, relative: string): string {
+  return `${root.replace(/\/+$/, '')}/${relative}`;
+}
+
+/** Workspace entries a confined command must not write, relative to the root. */
+export function protectedWorkspaceEntries(): readonly string[] {
+  return [
+    ...PROTECTED_DIRECTORY_NAMES.filter((name) => name !== '.git'),
+    ...PROTECTED_GIT_ENTRIES,
+    ...PROTECTED_FILE_NAMES,
+  ];
+}
+
+export interface IBubblewrapInput {
+  readonly policy: IOsSandboxPolicy;
+  /** Which of `protectedWorkspaceEntries()` and the writable worktree folders exist. */
+  readonly exists: (path: string) => boolean;
+  readonly cwd: string;
+  readonly command: string;
+  readonly args: readonly string[];
+}
+
+/** The `bwrap` argument vector that runs `command args` under the policy. */
+export function bubblewrapArguments(input: IBubblewrapInput): string[] {
+  const { policy } = input;
+  const args = ['--ro-bind', '/', '/', '--dev', '/dev', '--proc', '/proc'];
+  for (const path of [policy.root, ...policy.tempDirectories, ...policy.allowWrite]) {
+    args.push('--bind-try', path, path);
+  }
+  // A bind over a path that does not exist would create it on the host; only existing ones are
+  // re-mounted read-only.
+  for (const entry of protectedWorkspaceEntries()) {
+    const path = join(policy.root, entry);
+    if (input.exists(path)) args.push('--ro-bind', path, path);
+  }
+  for (const entry of WRITABLE_INSIDE_PROTECTED) {
+    const path = join(policy.root, entry);
+    if (input.exists(path)) args.push('--bind', path, path);
+  }
+  for (const hidden of policy.denyRead) {
+    if (!input.exists(hidden.path)) continue;
+    if (hidden.directory) args.push('--tmpfs', hidden.path);
+    else args.push('--ro-bind', '/dev/null', hidden.path);
+  }
+  if (!policy.network) args.push('--unshare-net');
+  args.push('--die-with-parent', '--new-session', '--chdir', input.cwd, '--', input.command);
+  return [...args, ...input.args];
+}
+
+function quote(path: string): string {
+  return `"${path.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
+/**
+ * The Seatbelt profile for `sandbox-exec -p`. Later rules win, so the order below is the policy:
+ * deny writes, allow the writable places, deny the protected entries again, reopen worktrees.
+ */
+export function seatbeltProfile(policy: IOsSandboxPolicy): string {
+  const writable = [policy.root, ...policy.tempDirectories, ...policy.allowWrite]
+    .map((path) => `(subpath ${quote(path)})`)
+    .join(' ');
+  const protectedEntries = protectedWorkspaceEntries().map((entry) => {
+    const path = join(policy.root, entry);
+    return PROTECTED_FILE_NAMES.includes(entry) || entry === '.git/config'
+      ? `(literal ${quote(path)})`
+      : `(subpath ${quote(path)})`;
+  });
+  const worktrees = WRITABLE_INSIDE_PROTECTED.map(
+    (entry) => `(subpath ${quote(join(policy.root, entry))})`,
+  );
+  const lines = [
+    '(version 1)',
+    '(allow default)',
+    '(deny file-write*)',
+    `(allow file-write* ${writable} (literal "/dev/null") (regex #"^/dev/tty") (regex #"^/dev/fd/"))`,
+    `(deny file-write* ${protectedEntries.join(' ')})`,
+    `(allow file-write* ${worktrees.join(' ')})`,
+  ];
+  if (policy.denyRead.length > 0) {
+    const hidden = policy.denyRead.map((entry) =>
+      entry.directory ? `(subpath ${quote(entry.path)})` : `(literal ${quote(entry.path)})`,
+    );
+    lines.push(`(deny file-read* ${hidden.join(' ')})`);
+  }
+  if (!policy.network) lines.push('(deny network*)');
+  return lines.join('\n');
+}

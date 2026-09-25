@@ -136,9 +136,18 @@ async function runShell(
         'was started in.',
     });
   }
-  if (options.sandboxClient) {
+  // A client that confines a host process in place (`wrapCommand`) keeps the host path below, so
+  // timeouts, cancellation, output limits and process-group kill stay this tool's.
+  if (options.sandboxClient && options.sandboxClient.wrapCommand === undefined) {
     return runInSandbox(command, timeout, workingDirectory ?? options.cwd, options);
   }
+  const hostInvocation = {
+    command: shell.command,
+    args: shell.commandArgs(command),
+    cwd: effectiveCwd,
+  };
+  const invocation =
+    options.sandboxClient?.wrapCommand?.(hostInvocation, command) ?? hostInvocation;
 
   if (signal?.aborted) {
     return JSON.stringify({ success: false, output: '', error: 'Aborted before start' });
@@ -152,8 +161,8 @@ async function runShell(
     let timedOut = false;
     let settled = false;
 
-    const child = spawn(shell.command, shell.commandArgs(command), {
-      cwd: effectiveCwd,
+    const child = spawn(invocation.command, [...invocation.args], {
+      cwd: invocation.cwd,
       // A fresh copy carrying this call's trace when the host enabled it; `process.env` itself is
       // never modified, so no other child can inherit the value.
       env: traceEnv === undefined ? process.env : subprocessTraceEnvironment(process.env, traceEnv),

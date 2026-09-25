@@ -8,15 +8,9 @@ import {
 
 import { SessionLogPayloadResolutionError } from './external-payload-resolution-contracts.js';
 
-import type {
-  IExternalPayloadSource,
-  ISessionLogSource,
-} from './external-payload-source-types.js';
+import type { IExternalPayloadSource, ISessionLogSource } from './external-payload-source-types.js';
 
-export type {
-  IExternalPayloadSource,
-  ISessionLogSource,
-} from './external-payload-source-types.js';
+export type { IExternalPayloadSource, ISessionLogSource } from './external-payload-source-types.js';
 
 function payloadPathSegments(relativePath: string): readonly string[] {
   if (

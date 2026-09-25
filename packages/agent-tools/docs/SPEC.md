@@ -108,7 +108,14 @@ never happened.
   host-only enumerators are withheld, so a search can never read one filesystem while an edit
   writes another. Containment sits below the permission gate — deny and ask rules are decided
   before a tool body chooses the host or the sandbox — and the execution root is the file tools'
-  containment boundary but only the shell's default directory, never a boundary for commands.
+  containment boundary but only the shell's default directory, never a boundary for commands. A
+  shared client that confines a host process in place (the OS sandbox: bubblewrap, Seatbelt) only
+  rewrites the invocation, so the shell tool keeps its own timeouts, cancellation, output limits and
+  process-group kill. That sandbox is only as strong as what the OS enforces, so its network
+  boundary is on or off (a per-domain allowlist needs a proxy process the OS does not enforce), the
+  model cannot ask to leave it (only the user's excluded commands run unconfined), and the files
+  that configure git hooks, the agent, MCP servers and shells stay read-only inside the workspace so
+  a confined command cannot change what the next session trusts.
 - `IWorkspaceManifest` / its applicator declare fresh-session sandbox contents (inline/local files,
   directories, Git clones) through `ISandboxClient`; provider-specific storage mounts are
   represented in the contract but report an explicit "unsupported" status until an adapter

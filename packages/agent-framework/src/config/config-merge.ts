@@ -35,6 +35,7 @@ export const SETTINGS_MERGE_RULES: Readonly<Record<string, TSettingsMergeRule>> 
   autoCompactThreshold: 'replace',
   hooks: 'per-event',
   taskContext: 'object-merge',
+  sandbox: 'object-merge',
 });
 
 export interface IHookDefinitionSource {
@@ -134,6 +135,7 @@ function mergeLayer(
     autoCompactThreshold: layer.autoCompactThreshold ?? merged.autoCompactThreshold,
     hooks: mergeOptionalHooks(merged.hooks, layer.hooks),
     taskContext: mergeOptionalObject(merged.taskContext, layer.taskContext),
+    sandbox: mergeOptionalObject(merged.sandbox, layer.sandbox),
   };
 }
 

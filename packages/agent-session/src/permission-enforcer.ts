@@ -13,6 +13,7 @@ import {
   evaluatePermission,
   findInvalidPermissionPatterns,
   findPermissionPatternWarnings,
+  getToolPermissionProfile,
   isToolDeniedOutright,
   matchesAnyPattern,
   projectPermissionPolicy,
@@ -92,6 +93,7 @@ export class PermissionEnforcer {
   private readonly taskPermissions?: IPermissionEnforcerOptions['taskPermissions'];
   private readonly homeDirectory: string;
   private readonly resolveInWorkspace: TResolveInWorkspace;
+  private readonly commandSandbox?: IPermissionEnforcerOptions['commandSandbox'];
   private readonly denials = new PermissionDenialLog();
 
   constructor(options: IPermissionEnforcerOptions) {
@@ -121,6 +123,7 @@ export class PermissionEnforcer {
     this.taskPermissions = options.taskPermissions;
     this.homeDirectory = options.homeDirectory ?? homedir();
     this.resolveInWorkspace = createWorkspacePathResolver(options.cwd);
+    this.commandSandbox = options.commandSandbox;
   }
 
   /** Every configured pattern, split by the grammar it is held to. */
@@ -294,6 +297,7 @@ export class PermissionEnforcer {
     const decision = evaluatePermission(toolName, toolArgs, this.getPermissionMode(), rules, {
       ...where,
       resolveInWorkspace: this.resolveInWorkspace,
+      sandboxAutoApproved: this.sandboxAutoApproves(toolName, toolArgs),
       ...(policy?.ceiling !== undefined ? { ceiling: policy.ceiling } : {}),
       askAll: policy?.askAll ?? false,
     });
@@ -393,6 +397,15 @@ export class PermissionEnforcer {
       this.hookTypeExecutors,
       hookTraceEnv,
     ).catch(() => undefined);
+  }
+
+  /** Whether the OS sandbox confines this shell command and lets it run without a prompt. */
+  private sandboxAutoApproves(toolName: string, toolArgs: TToolArgs): boolean {
+    if (this.commandSandbox === undefined) return false;
+    const argument = getToolPermissionProfile(toolName).argument;
+    if (argument?.kind !== 'command') return false;
+    const command = toolArgs[argument.key];
+    return typeof command === 'string' && this.commandSandbox.autoApproves(command);
   }
 
   /** Delegate session event to the injected logger. */

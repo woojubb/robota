@@ -96,6 +96,7 @@ export {
 } from './mcp-activation/mcp-activation-command-module.js';
 export { executeMCPActivationCommand } from './mcp-activation/mcp-activation-command.js';
 export * from './mode/index.js';
+export * from './sandbox/index.js';
 export {
   OutputStyleCommandSource,
   createOutputStyleCommandEntry,

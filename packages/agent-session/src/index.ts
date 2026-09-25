@@ -22,6 +22,7 @@ export { SessionBusyError, TurnClaim } from './turn-claim.js';
 export { PermissionEnforcer } from './permission-enforcer.js';
 export { consentScopeFor } from './consent-scope.js';
 export type { IPermissionDenial, TPermissionDenialReason } from './permission-denial-log.js';
+export type { ICommandSandboxApproval } from './permission-types.js';
 export { AUTO_COMPACT_THRESHOLD, ContextWindowTracker } from './context-window-tracker.js';
 export {
   CompactionError,

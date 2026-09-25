@@ -59,6 +59,59 @@ A compound command qualifies only when each part does on its own. A command does
   after a `cd`;
 - runs in a `workingDirectory` other than the session's.
 
+### OS sandbox
+
+Shell commands (`Bash`, `Shell`) can run inside an OS-level sandbox that confines the command and
+every process it starts. Linux and WSL2 use [bubblewrap](https://github.com/containers/bubblewrap)
+(`bwrap`, installed from the `bubblewrap` package); macOS uses the built-in Seatbelt
+(`sandbox-exec`). Native Windows has no backend; run robota inside WSL2 to use it.
+
+Inside the sandbox:
+
+- the whole filesystem is readable, except the paths in `filesystem.denyRead`;
+- writes are allowed only in the working directory, the temporary directories and
+  `filesystem.allowWrite`;
+- inside the working directory, `.robota`, `.claude`, `.agents`, `.git/hooks`, `.git/config`,
+  `.mcp.json` and shell or npm config files stay read-only (isolated worktrees under
+  `.robota/worktrees` stay writable);
+- the network is reachable only when `network.enabled` is `true`. There is no per-domain list.
+
+```json
+{
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true,
+    "excludedCommands": ["docker"],
+    "failIfUnavailable": false,
+    "filesystem": { "allowWrite": ["~/.cache"], "denyRead": ["~/.ssh"] },
+    "network": { "enabled": false }
+  }
+}
+```
+
+**Modes.** `/sandbox` shows the state and switches mode for the next command; the choice is saved in
+the user settings.
+
+- `auto-allow` (`autoAllowBashIfSandboxed: true`): a confined command runs without a prompt in
+  `default` and `acceptEdits`. Deny rules, ask rules, removal of a critical path and plan mode still
+  apply first. A command line that names a protected file takes the ordinary path too.
+- `regular`: commands are confined and the permission prompts work as usual.
+- `off`: commands run on the host.
+
+`excludedCommands` names programs (the first word of the line) that run unconfined and take the
+ordinary permission path. The model cannot ask to leave the sandbox.
+
+**When it cannot run.** If `bwrap` is missing or cannot create a sandbox (for example where user
+namespaces are disabled), robota prints a warning at startup and runs commands unconfined;
+`robota doctor` and `/sandbox` say what is missing. With `failIfUnavailable: true` robota refuses to
+start instead.
+
+**Containers and VMs.** The sandbox confines what a command can write and reach; it does not
+isolate robota itself, its file tools, or its model traffic. A dev container or VM isolates the
+whole process, including everything the sandbox leaves readable. Use the sandbox to stop a command
+from changing things outside the project, and a container or VM when nothing on the host should be
+visible at all.
+
 ### Pattern Syntax
 
 ```

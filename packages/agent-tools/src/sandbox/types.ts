@@ -113,9 +113,28 @@ export interface IWorkspaceManifestApplyResult {
  */
 export type TSandboxFilesystem = 'shared' | 'separate';
 
+/** A process to start: the executable, its arguments, and where it runs. */
+export interface ICommandInvocation {
+  readonly command: string;
+  readonly args: readonly string[];
+  readonly cwd: string;
+}
+
 export interface ISandboxClient {
   /** Absent means `separate`: every client before this field existed had its own filesystem. */
   readonly filesystem?: TSandboxFilesystem;
+  /**
+   * A `shared` client that confines a host process in place: the shell tool starts the returned
+   * invocation itself, so timeouts, cancellation, output limits and process-group kill stay the
+   * tool's. Returning the invocation unchanged runs the command unconfined.
+   */
+  wrapCommand?(invocation: ICommandInvocation, shellCommand: string): ICommandInvocation;
+  /**
+   * Whether this client confines `shellCommand` and its settings let a confined command run without
+   * a prompt. The permission gate still refuses or asks first for deny rules, ask rules and the
+   * never-auto set.
+   */
+  autoApproves?(shellCommand: string): boolean;
   run(command: string, options?: ISandboxRunOptions): Promise<ISandboxRunResult>;
   readFile(path: string): Promise<string>;
   writeFile(path: string, content: string): Promise<void>;

@@ -244,6 +244,10 @@ export async function createSession(
     sessionStore: options.sessionStore,
     sessionId,
     permissionHandler: options.permissionHandler,
+    // Issue #3082: a sandbox that confines commands in place may let a confined one skip the prompt.
+    ...(options.sandboxClient?.autoApproves !== undefined
+      ? { commandSandbox: { autoApproves: options.sandboxClient.autoApproves.bind(options.sandboxClient) } }
+      : {}),
     // CMD-005: model-invoked tools solicit structured answers through this port.
     ...(options.ask ? { ask: options.ask } : {}),
     ...(onProjectAllowTool === undefined ? {} : { onProjectAllowTool }),

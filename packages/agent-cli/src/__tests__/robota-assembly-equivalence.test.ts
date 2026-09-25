@@ -71,6 +71,7 @@ const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-agent',
   'agent-command-permissions',
   'agent-command-mode',
+  'agent-command-sandbox',
   'agent-command-preset',
   'agent-command-language',
   'agent-command-background',

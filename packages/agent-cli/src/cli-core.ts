@@ -7,6 +7,8 @@ import {
   InteractiveSession,
   readProviderSettings,
   readMergedProviderSettings,
+  readSettings,
+  writeSettings,
   type IBackgroundTaskRunner,
 } from '@robota-sdk/agent-framework';
 import { assembleProduct } from '@robota-sdk/agent-product';
@@ -20,7 +22,11 @@ import type { IShellPresetResolution } from './startup/preset-selection.js';
 import { ROBOTA_DEFAULT_AGENT_NAME } from './product/robota-preset-defaults.js';
 import { ROBOTA_AGENT_DEFINITION_ROOTS } from './product/robota-agent-roots.js';
 import { robotaPluginDirectories } from './product/robota-plugin-paths.js';
-import { robotaSandboxClient } from './product/robota-execution-containment.js';
+import {
+  createRobotaSandbox,
+  createSandboxCommandAdapter,
+  sandboxStartupProblem,
+} from './product/robota-execution-containment.js';
 import { ROBOTA_PROJECT_SETTINGS } from './product/robota-project-settings.js';
 import {
   createRobotaUserSettingsSources,
@@ -299,8 +305,20 @@ async function runCliCore(
   const selectedPresetId = preset.presetId;
 
   const shellExecutable = resolveRobotaShellExecutable();
-  // Issue #3081: the containment choice is named, and `robota doctor` reports the same value.
-  const sandboxClient = robotaSandboxClient();
+  // Issues #3081, #3082: the containment choice is named, and `robota doctor` reports the same value.
+  const sandbox = createRobotaSandbox({
+    cwd,
+    settingsSources: createInitialCliWorkspaceComposition(cwd, startupOptions).settingsSources,
+  });
+  const sandboxProblem = sandboxStartupProblem(sandbox);
+  if (sandboxProblem !== undefined) {
+    process.stderr.write(`${sandboxProblem.message}\n`);
+    if (sandboxProblem.fatal) {
+      process.exitCode = 1;
+      return;
+    }
+  }
+  const sandboxClient = sandbox.client;
   const { packContext, packs, packCommandModules } = createRobotaPackSet(cwd, {
     shellExecutable,
     ...(sandboxClient !== undefined ? { sandboxClient } : {}),
@@ -431,6 +449,10 @@ async function runCliCore(
     createRemoteControlController(transportRegistry, usageReporters);
   // CMD-007: this product stores `/cost budget` in `.robota/budget.json`; commands see only its port.
   commandHostAdapters.costBudget = createFileCostBudgetAdapter(cwd);
+  commandHostAdapters.sandbox = createSandboxCommandAdapter(sandbox, {
+    read: () => readSettings(robotaUserSettingsPath()),
+    write: (settings) => writeSettings(robotaUserSettingsPath(), settings),
+  });
   const startPeers = attachHostAdapters(commandHostAdapters, remoteControlController, terminal);
 
   reportUnknownPresetModules(
@@ -563,6 +585,9 @@ async function runCliCore(
     projectAccess: workspaceComposition.projectAccess,
   });
   if (mcp !== undefined) toolOptions.additionalTools.push(...(await mcp.connect()));
+  // The session consults the same sandbox the shell tools run under, to let a confined command
+  // skip the prompt when the settings say so.
+  if (sandboxClient !== undefined) toolOptions.sandboxClient = sandboxClient;
   const toolCallHandoff = mcp?.buildToolCallHandoff(permissionMode);
   // A capability the merge refused (a colliding id) is reported, never silently dropped.
   for (const { kind, id, reason } of product.rejectedCapabilities) {

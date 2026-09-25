@@ -204,3 +204,56 @@ describe('the gate decides a read-only command like a read', () => {
     ).toBe('approve');
   });
 });
+
+describe('a command the OS sandbox confines (issue #3082)', () => {
+  beforeEach(() => {
+    clearRegisteredToolProfiles();
+    registerToolPermissionProfile('Bash', {
+      argument: { key: 'command', kind: 'command' },
+      riskClass: 'execute',
+    });
+  });
+  afterEach(() => clearRegisteredToolProfiles());
+
+  const confined = { sandboxAutoApproved: true };
+
+  it('runs without a prompt in default and acceptEdits', () => {
+    expect(evaluatePermission('Bash', { command: 'npm test' }, 'default', {}, confined)).toBe(
+      'auto',
+    );
+    expect(evaluatePermission('Bash', { command: 'npm test' }, 'acceptEdits', {}, confined)).toBe(
+      'auto',
+    );
+  });
+
+  it('is still refused in plan mode and still yields to deny, ask and critical removals', () => {
+    expect(evaluatePermission('Bash', { command: 'npm test' }, 'plan', {}, confined)).toBe('deny');
+    expect(
+      evaluatePermission(
+        'Bash',
+        { command: 'npm test' },
+        'default',
+        { deny: ['Bash(npm *)'] },
+        confined,
+      ),
+    ).toBe('deny');
+    expect(
+      evaluatePermission(
+        'Bash',
+        { command: 'git push' },
+        'default',
+        { ask: ['Bash(git push*)'] },
+        confined,
+      ),
+    ).toBe('approve');
+    expect(
+      evaluatePermission(
+        'Bash',
+        { command: 'rm -rf ~' },
+        'default',
+        {},
+        { ...confined, homeDirectory: '/home/me' },
+      ),
+    ).toBe('approve');
+  });
+});
