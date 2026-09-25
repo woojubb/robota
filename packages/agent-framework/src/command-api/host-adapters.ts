@@ -63,6 +63,26 @@ export interface ICommandPermissionRulesAdapter {
   readLayers(): readonly IPermissionRuleLayer[];
 }
 
+/** How shell commands are confined: not at all, confined without prompts, or confined and asked. */
+export type TSandboxCommandMode = 'off' | 'auto-allow' | 'regular';
+
+export interface ICommandSandboxStatus {
+  readonly mode: TSandboxCommandMode;
+  /** `bubblewrap` or `seatbelt`; absent where the platform has none. */
+  readonly backend?: string;
+  /** Why confinement cannot run here, when it cannot: what to install, or the platform. */
+  readonly unavailable?: string;
+  readonly network: boolean;
+  readonly excludedCommands: readonly string[];
+}
+
+/** The OS sandbox, live: `/sandbox` reads it and changes the mode for the next command. */
+export interface ICommandSandboxAdapter {
+  status(): ICommandSandboxStatus;
+  /** Apply the mode now and save it in the user settings. */
+  setMode(mode: TSandboxCommandMode): void;
+}
+
 /** Live model-effort state and application seam supplied by the composition root. */
 export interface ICommandEffortAdapter {
   getResolution(): IModelEffortResolution;
@@ -378,4 +398,6 @@ export interface ICommandHostAdapters {
   handoff?: ICommandHandoffAdapter;
   /** Absent on a host that cannot start a session elsewhere — `/cd` then says so. */
   workspace?: ICommandWorkspaceAdapter;
+  /** Absent on a host with no OS sandbox — `/sandbox` then says so. */
+  sandbox?: ICommandSandboxAdapter;
 }

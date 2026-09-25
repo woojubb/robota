@@ -186,6 +186,9 @@ export type {
   TSystemCommandSemanticRole,
   ICommandPermissionModeAdapter,
   ICommandPermissionRulesAdapter,
+  ICommandSandboxAdapter,
+  ICommandSandboxStatus,
+  TSandboxCommandMode,
   IPermissionRuleLayer,
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
@@ -805,7 +808,7 @@ export type {
   TSettingsLayerState,
 } from './config/settings-inspection.js';
 export type { TSettingsMergeRule } from './config/config-merge.js';
-export type { TSettings } from './config/config-types.js';
+export type { TSandboxSettings, TSettings } from './config/config-types.js';
 export type {
   ISkillRootDescriptor,
   ISkillRootInspection,

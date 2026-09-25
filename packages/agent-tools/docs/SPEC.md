@@ -108,7 +108,21 @@ never happened.
   host-only enumerators are withheld, so a search can never read one filesystem while an edit
   writes another. Containment sits below the permission gate — deny and ask rules are decided
   before a tool body chooses the host or the sandbox — and the execution root is the file tools'
-  containment boundary but only the shell's default directory, never a boundary for commands.
+  containment boundary but only the shell's default directory, never a boundary for commands. A
+  shared client that confines a host process in place only rewrites the invocation, so the shell
+  tool keeps its own timeouts, cancellation, output limits and process-group kill.
+- The OS sandbox promises only what the OS enforces. Its network boundary is on or off, and off
+  closes Unix sockets too, because a per-domain allowlist needs a proxy the OS does not enforce and
+  a host daemon's socket is a way out; the model cannot ask to leave it. What it guards is outside
+  the workspace plus the workspace's own trust inputs — the repository's `.git` whole (the files in
+  it that make git run something are too many to list and keep complete) and the agent, MCP and
+  shell configuration at the root: read-only where they exist, moved out of the workspace when the
+  command that created one ends where they did not (a mount cannot protect a path that does not
+  exist yet, so it is live on the host for that long; moving loses nothing the host wrote
+  meanwhile), and never auto-approved while one is a symlink the
+  command could redirect. Everything else in the workspace is the command's to change, as it is the
+  file tools'; a nested repository or build script it writes is workspace content, and the sandbox
+  does not make running host tools over it safe.
 - `IWorkspaceManifest` / its applicator declare fresh-session sandbox contents (inline/local files,
   directories, Git clones) through `ISandboxClient`; provider-specific storage mounts are
   represented in the contract but report an explicit "unsupported" status until an adapter

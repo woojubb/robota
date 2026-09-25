@@ -1,3 +1,4 @@
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
 import { homedir } from 'node:os';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
@@ -23,7 +24,10 @@ import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
-import { areSessionLoopsDisabled, createLoopDefaultPromptResolver } from '../startup/loop-options.js';
+import {
+  areSessionLoopsDisabled,
+  createLoopDefaultPromptResolver,
+} from '../startup/loop-options.js';
 import { runShellCommand } from '../startup/shell-exec.js';
 
 /**
@@ -34,6 +38,7 @@ import { runShellCommand } from '../startup/shell-exec.js';
 export interface IPrintModeToolOptions {
   additionalTools?: IToolWithEventService[];
   defaultTools?: readonly IToolWithEventService[];
+  sandboxClient?: ISandboxClient;
 }
 
 export interface IPrintModeSessionResolution {
@@ -133,9 +138,9 @@ export async function runPrintMode(
     ...(commandHookShell !== undefined ? { commandHookShell } : {}),
     ...(orgPolicy !== undefined ? { orgPolicy } : {}),
     ...(projectAccess !== undefined ? { projectAccess } : {}),
-      ...(projectSettingsPaths !== undefined ? { projectSettingsPaths } : {}),
-      ...(userSettingsSources !== undefined ? { userSettingsSources } : {}),
-      ...(contributionSources !== undefined ? { contributionSources } : {}),
+    ...(projectSettingsPaths !== undefined ? { projectSettingsPaths } : {}),
+    ...(userSettingsSources !== undefined ? { userSettingsSources } : {}),
+    ...(contributionSources !== undefined ? { contributionSources } : {}),
     ...(skillRoots !== undefined ? { skillRoots } : {}),
     ...(taskContext !== undefined ? { taskContext } : {}),
     outputFormat: args.outputFormat ?? 'text',
@@ -150,7 +155,10 @@ export async function runPrintMode(
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
     disableSessionLoops: areSessionLoopsDisabled(process.env),
-    resolveDefaultLoopPrompt: createLoopDefaultPromptResolver({ projectAccess, userHome: homedir() }),
+    resolveDefaultLoopPrompt: createLoopDefaultPromptResolver({
+      projectAccess,
+      userHome: homedir(),
+    }),
     resumeSessionId: sessionResolution.resumeSessionId,
     forkSession: sessionResolution.forkSession,
     sessionName: args.sessionName,
@@ -193,6 +201,9 @@ export async function runPrintMode(
       ? { additionalTools: toolOptions.additionalTools }
       : {}),
     ...(toolOptions.defaultTools !== undefined ? { defaultTools: toolOptions.defaultTools } : {}),
+    ...(toolOptions.sandboxClient !== undefined
+      ? { sandboxClient: toolOptions.sandboxClient }
+      : {}),
     commandModules,
     commandHostAdapters,
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
