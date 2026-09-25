@@ -14,6 +14,7 @@ export function createUserLocalCommandEntry(): ICommand {
     description: USER_LOCAL_COMMAND_DESCRIPTION,
     source: 'user-local',
     argumentHint: USER_LOCAL_COMMAND_ARGUMENT_HINT,
+    // User-only: the user's private cross-project storage.
     modelInvocable: false,
     safety: 'read-only',
     subcommands: [

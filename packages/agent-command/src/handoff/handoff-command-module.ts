@@ -12,6 +12,7 @@ export function createHandoffCommandEntry(): ICommand {
     // The model does not decide to give this session away. A hand-off moves AUTHORITY over the
     // operator's work to a different computer — it is a decision about where the person is sitting,
     // which is a fact about them and not about the task.
+    // User-only: moves the session to another machine; the user decides where it lives.
     modelInvocable: false,
   };
 }

@@ -18,6 +18,7 @@ export function createSandboxCommandEntry(): ICommand {
       description,
       source: 'sandbox',
     })),
+    // User-only: changes the sandbox boundary; permission widening is the user's.
     modelInvocable: false,
   };
 }

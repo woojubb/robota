@@ -14,6 +14,7 @@ export function createEffortCommandEntry(): ICommand {
     description: 'Show or change the model effort level',
     source: 'effort',
     argumentHint: EFFORT_ARGUMENT_HINT,
+    // User-only: the effort tier is the user's cost/latency preference.
     modelInvocable: false,
   };
 }

@@ -161,7 +161,7 @@ export function resolveEnterCommandSelection(
     const { name } = tokeniseSlashCommand(value);
     return { type: 'submit', value: `/${name} ${command.name}` };
   }
-  if (command.subcommands && command.subcommands.length > 0) {
+  if (command.subcommands && command.subcommands.length > 0 && command.runsBare !== true) {
     return { type: 'insert', value: `/${command.name} `, selectedIndex: 0 };
   }
   return { type: 'submit', value: `/${command.name}` };

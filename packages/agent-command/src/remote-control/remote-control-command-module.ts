@@ -11,13 +11,18 @@ export function createRemoteControlCommandEntry(): ICommand {
     description:
       'Enable P2P remote control (pair a device to co-drive this session), or check status',
     source: 'remote-control',
+    // User-only: pairing and revoking devices are trust decisions.
     modelInvocable: false,
     userInvocable: true,
     argumentHint: '[enable|stop|status|devices|revoke <device-id>]',
     subcommands: [
       { name: 'status', description: 'Show remote-control status', source: 'remote-control' },
       { name: 'devices', description: 'List trusted devices', source: 'remote-control' },
-      { name: 'enable', description: 'Enable remote control and pair a device', source: 'remote-control' },
+      {
+        name: 'enable',
+        description: 'Enable remote control and pair a device',
+        source: 'remote-control',
+      },
       { name: 'stop', description: 'Stop remote control', source: 'remote-control' },
       {
         name: 'revoke',

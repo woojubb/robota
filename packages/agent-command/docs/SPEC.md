@@ -80,9 +80,12 @@ direct git child, not a hook's grandchildren still holding the output pipes open
 
 **`/mcp`.** Reads and requests approve/reject/revoke, sign-in and sign-out through an injected host
 adapter; it never constructs or connects an MCP client itself, and only hands the tools a sign-in
-connected to the session. It stays user-only because every change it makes widens or withdraws
-trust or a credential; a client secret is never asked for in a session, since what is typed there
-becomes part of the conversation.
+connected to the session. Every change it makes widens or withdraws trust or a credential, so those
+stay user-only; a client secret is never asked for in a session, since what is typed there becomes
+part of the conversation. The model may read status only, and its view is rebuilt from fixed words —
+a server name only when it is safe to show, the states, and the command the user should run — never
+a definition's reason text, provenance, fingerprint or endpoint, because those are text a repository
+wrote or can carry a credential.
 
 **`/peers` activity.** The command renders the host's fixed activity observation separately
 from process liveness. An absent, expired, or unverified observation is shown as unknown; the command
@@ -152,13 +155,24 @@ not even the toggles submitted alongside it.
 owner command changes only that command's value, and the framework's projection follows the
 declaration.
 
+**Model invocation.** Trust, credential and permission-widening actions are never model-invocable,
+and neither are exits or UI-only preferences: the model may suggest them, the user runs them. A
+command that mixes such actions with read-only views opens only the read-only subset to the model.
+Every model-invocable command carries a description written for the model — what it does, when to
+use it, what it returns — and when the model asks a command to start a process, that process is
+decided as a shell tool call would be — its PreToolUse hooks and guardrails, then its rules, the
+mode and the prompt — rather than by consent to the command's name, so being a command is never a
+way around a shell rule, and approving one monitored command never approves another. The sandbox's
+auto-approval never applies to it, because that process does not run inside the sandbox.
+
 **`/remote-control`, `/devices`, `/doctor`, `/context`, and session command metadata.** For these commands, the
 palette entry is the single source of metadata, and the executable command is projected from it;
-execution policy and lifecycle remain executable-command behavior. Projecting shared metadata does
-not grant model invocation or change execution policy, permission requirements, or model visibility
-— these commands remain operator-only, and `/devices`, which acts on the user's device identity,
-also refuses an invocation from a remote surface. Remote control offers `status` and `devices` before pairing or
-revoking actions, so an autocomplete selection defaults to a read-only operation.
+execution policy and lifecycle remain executable-command behavior. Projecting shared metadata never
+by itself grants model invocation or changes execution policy or permission requirements.
+`/devices`, which acts on the user's device identity, also refuses an invocation from a remote
+surface. Remote
+control offers `status` and `devices` before pairing or revoking actions, so an autocomplete
+selection defaults to a read-only operation.
 
 **Ask seam.** A command that needs input (selection pickers, setup wizards, destructive-action
 confirmation) asks for it inline at the top of `execute` via the host-supplied

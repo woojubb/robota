@@ -189,7 +189,12 @@ devices must pair again.
 `@robota-sdk/agent-mcp` owns definition decoding, precedence, admission policy, and the
 connection/catalog manager; this package makes that manager reachable from product startup and
 supplies the product's MCP client identity there. Every unreadable/corrupt settings layer and every
-decode refusal is reported as a problem, never silently dropped; zero resolved definitions is a
+decode refusal is reported as a problem, never silently dropped, and a server whose tools the model
+cannot use because the user must approve it, trust the workspace or sign in is also named to the
+model — at the start of an interactive session, the one mode where the user can type the command,
+or when a signed-in server refuses a call — in fixed words carrying the
+command to suggest, as a terminal command where the run offers no session prompt to type it into, and
+nothing the server or its definition sent; zero resolved definitions is a
 normal, silent-diagnostic outcome. A caller-supplied `mcpActivationAdapter` always wins over CLI
 composition and skips it entirely.
 

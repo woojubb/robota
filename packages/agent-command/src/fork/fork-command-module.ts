@@ -14,6 +14,7 @@ export function createForkCommandEntry(): ICommand {
     source: 'fork',
     // The model does not decide to duplicate the operator's conversation. Forking spends a second
     // session's budget and creates a second worktree, both of which are the operator's call.
+    // User-only: starts a separate session the user owns and attaches to.
     modelInvocable: false,
     argumentHint: '[name] [--same-dir]',
   };

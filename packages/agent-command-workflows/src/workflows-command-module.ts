@@ -172,6 +172,12 @@ export function createWorkflowsCommandEntry(): ICommand {
     name: 'workflows',
     displayName: 'Workflows',
     description: WORKFLOWS_DESCRIPTION,
+    modelDescription:
+      'Author a DAG workflow from a natural-language description. Use it when the user asks for a ' +
+      'repeatable multi-step pipeline: `create` authors one and runs it immediately, `build` authors ' +
+      'one and saves it for the user to review without running it. Returns the saved workflow path ' +
+      'and, for `create`, the run result. Running, validating or listing an on-disk workflow is the ' +
+      'user’s: suggest `/workflows run <file.json>`.',
     source: 'workflows',
     argumentHint: WORKFLOWS_ARGUMENT_HINT,
     subcommands: SUBCOMMANDS,
@@ -194,6 +200,7 @@ function createWorkflowsSystemCommand(
     name: entry.name,
     displayName: entry.displayName,
     description: entry.description,
+    ...(entry.modelDescription !== undefined ? { modelDescription: entry.modelDescription } : {}),
     requiresPermission: false,
     userInvocable: true,
     modelInvocable: true,

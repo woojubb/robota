@@ -9,11 +9,27 @@ import { executeMemoryCommand } from './memory-command.js';
 import type { ICommandModule, ISystemCommand } from '@robota-sdk/agent-framework';
 import type { ICommand, ICommandSource } from '@robota-sdk/agent-interface-command';
 
+/**
+ * Model-invocable: remembering and recalling project conventions is the model's own work. The
+ * subcommand flags (in `buildMemoryCommandSubcommands`) keep `approve`/`reject` user-only, because
+ * pending candidates exist so the user reviews what the model proposed to remember.
+ */
+const MEMORY_COMMAND_MODEL_DESCRIPTION =
+  'Read and write this project’s durable memory. Use `list` or `show [topic]` to look up stored ' +
+  'conventions, preferences or references before asking the user again; `add <type> <topic> <text>` ' +
+  'to save a durable preference, project convention, feedback item or reference worth reusing ' +
+  'across sessions (never secrets, credentials or transient facts); `pending` to see candidates ' +
+  'awaiting the user’s review; `used` to report which memory items informed this turn. Bare lists ' +
+  'topics. Returns the requested topics or entries, or a confirmation of what was saved. Approving ' +
+  'or rejecting a pending candidate is the user’s review: suggest `/memory approve <id>` or ' +
+  '`/memory reject <id>`.';
+
 export function createMemoryCommandEntry(): ICommand {
   return {
     name: 'memory',
     displayName: 'Memory',
     description: MEMORY_COMMAND_DESCRIPTION,
+    modelDescription: MEMORY_COMMAND_MODEL_DESCRIPTION,
     source: 'memory',
     argumentHint: MEMORY_COMMAND_ARGUMENT_HINT,
     modelInvocable: true,
@@ -28,6 +44,7 @@ function createMemorySystemCommand(): ISystemCommand {
     name: entry.name,
     displayName: entry.displayName,
     description: entry.description,
+    ...(entry.modelDescription !== undefined ? { modelDescription: entry.modelDescription } : {}),
     requiresPermission: false,
     userInvocable: true,
     modelInvocable: true,

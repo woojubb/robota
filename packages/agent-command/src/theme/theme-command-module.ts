@@ -177,6 +177,7 @@ export function createThemeCommandEntry(): ICommand {
     argumentHint: THEME_ARGUMENT_HINT,
     source: 'theme',
     userInvocable: true,
+    // User-only: UI preference.
     modelInvocable: false,
   };
 }

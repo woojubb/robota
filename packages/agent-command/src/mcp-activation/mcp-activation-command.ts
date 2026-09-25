@@ -1,9 +1,12 @@
 import { shellArgumentForDisplay } from '@robota-sdk/agent-core';
 
+import { mcpModelStatusResult } from './mcp-model-status.js';
+
 import type {
   ICommandHostAdapterAccess,
   ICommandHostSessionAccess,
   ICommandHostUserInteraction,
+  ICommandHostWorkspace,
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
   ICommandMCPOAuthLoginRequest,
@@ -160,7 +163,8 @@ async function listResult(mcp: ICommandMCPActivationAdapter | undefined): Promis
 /** What `/mcp` reaches: its port, and — to sign in — the live session and the user. */
 export type TMCPActivationCommandContext = ICommandHostAdapterAccess &
   Pick<ICommandHostSessionAccess, 'getSession'> &
-  ICommandHostUserInteraction;
+  ICommandHostUserInteraction &
+  Partial<Pick<ICommandHostWorkspace, 'getCommandInvocationSource'>>;
 
 export async function executeMCPActivationCommand(
   context: TMCPActivationCommandContext,
@@ -172,7 +176,11 @@ export async function executeMCPActivationCommand(
   const serverId = spaceAt === -1 ? '' : trimmed.slice(spaceAt + 1).trim();
 
   if (verb === '' || verb === 'status' || verb === 'list') {
-    return listResult(adapter(context));
+    // The full view only for a caller known to be a person; an unknown caller gets the model's view.
+    const source = context.getCommandInvocationSource?.();
+    return source === 'user' || source === 'remote'
+      ? listResult(adapter(context))
+      : mcpModelStatusResult(adapter(context));
   }
   if (verb === 'login') return loginResult(context, serverId);
 

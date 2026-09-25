@@ -15,6 +15,7 @@ import {
   createNodeToolResultSpillStore,
   createNodeWorkspaceTrustStore,
 } from '@robota-sdk/agent-framework';
+import { mcpUnavailableServersNotice } from '@robota-sdk/agent-command';
 import { mkdirSync } from 'node:fs';
 
 import {
@@ -50,6 +51,7 @@ import type {
   IMCPStdioAuthority,
 } from '@robota-sdk/agent-mcp';
 import type { IMcpClientComposition, IMcpHeadersHelperHost } from './mcp-client-composition.js';
+import type { TMCPUserAction, TMCPUserActionSurface } from '@robota-sdk/agent-command';
 
 /**
  * The three session runtimes that ever compose MCP tools (spec § Modes). `interactive` is the ink
@@ -248,6 +250,7 @@ export async function composeMcpClientForStartup(
       }),
     ...(input.resultAdmissionLimits ? { resultAdmissionLimits: input.resultAdmissionLimits } : {}),
     reportDiagnostic: input.reportDiagnostic,
+    userActionSurface: mcpUserActionSurfaceFor(input.mode),
   });
 
   function buildToolCallHandoff(
@@ -283,4 +286,24 @@ export async function composeMcpClientForStartup(
   }
 
   return { ...mcp, buildToolCallHandoff };
+}
+
+/**
+ * The startup notice naming MCP servers the user must act on, for the model — only in the
+ * interactive mode, the one where the user can type the `/mcp` command it suggests. A print or
+ * serve run has no prompt to type it into, and an approval made elsewhere does not reach it.
+ */
+export function mcpStartupModelNotice(
+  mode: TMcpStartupMode,
+  unavailable: ReadonlyMap<string, TMCPUserAction>,
+): string | undefined {
+  return mode === 'interactive' ? mcpUnavailableServersNotice(unavailable) : undefined;
+}
+
+/**
+ * Where the user acts on a notice the model relays: only an interactive session has a prompt to
+ * type `/mcp login` into; a print or serve run names the terminal command instead.
+ */
+export function mcpUserActionSurfaceFor(mode: TMcpStartupMode): TMCPUserActionSurface {
+  return mode === 'interactive' ? 'session' : 'terminal';
 }

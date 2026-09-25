@@ -13,6 +13,7 @@ export function createGoalCommandEntry(): ICommand {
     displayName: 'Autonomous Goal',
     description: GOAL_COMMAND_DESCRIPTION,
     source: 'goal',
+    // User-only: assigning an autonomous goal widens what the agent pursues without asking; the user sets it.
     modelInvocable: false,
   };
 }

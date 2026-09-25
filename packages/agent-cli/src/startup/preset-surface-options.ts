@@ -200,3 +200,20 @@ export function toSessionOptions(surface: IPresetSurfaceOptions): Omit<
     ...(cliAppendSystemPrompt !== undefined ? { appendSystemPrompt: cliAppendSystemPrompt } : {}),
   };
 }
+
+/**
+ * The projection with `notice` added to the CLI-sourced system-prompt addition — for startup facts
+ * the model should know (a server that did not start, and the command to suggest). Kept on the
+ * same member as the CLI text so all three shells receive it by the route they already read.
+ */
+export function withAppendedSystemPrompt(
+  surface: IPresetSurfaceOptions,
+  notice: string | undefined,
+): IPresetSurfaceOptions {
+  if (notice === undefined) return surface;
+  const existing = surface.cliAppendSystemPrompt;
+  return {
+    ...surface,
+    cliAppendSystemPrompt: existing === undefined ? notice : `${existing}\n\n${notice}`,
+  };
+}

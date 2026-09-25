@@ -72,7 +72,10 @@ React/Ink UI.
   and subagent lifecycle hooks add product environment aliases only when the host supplies their names.
   Model-facing identifiers remain consistent through prompt execution and child-tool filtering. SDK
   core ships no user-visible built-in commands; command packages (`agent-command-*`) contribute
-  behavior through `ICommandModule`, consuming SDK command contracts and common APIs. The SDK does
+  behavior through `ICommandModule`, consuming SDK command contracts and common APIs, and what a
+  module opens to the model is all the model is offered or can run — a per-subcommand declaration is
+  an allowlist enforced before the command runs, so an alias or a later subcommand stays user-only
+  until its owner opens it. The SDK does
   not know command ids in advance; on session shutdown it settles every module's host-scoped work
   before closing the session, even when another module's shutdown fails.
 
