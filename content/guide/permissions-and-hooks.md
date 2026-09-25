@@ -29,6 +29,38 @@ Print mode (`robota -p`), `createQuery()` and headless sessions default to `defa
 | `default`           | auto | approve (prompt) | approve (prompt) |
 | `acceptEdits`       | auto | auto             | approve (prompt) |
 | `bypassPermissions` | auto | auto             | auto             |
+| `auto`              | auto | auto             | classifier       |
+
+#### Auto mode
+
+In `auto` mode, a call the mode does not approve goes to a classifier instead of a prompt. The
+classifier is a side call to the session's own model. It sees the call, the working directory and
+the git remotes the repository had, and not the conversation. Text the agent read from a file or a
+web page cannot argue for its own call.
+
+- **What it blocks:**
+  - downloading and running code;
+  - sending data outside the working directory and its remotes;
+  - deploys, releases and migrations;
+  - mass or irreversible deletion;
+  - force pushes and other destructive git operations;
+  - touching credentials;
+  - destroying infrastructure;
+  - weakening tests, hooks or permission settings.
+
+  A block goes back to the model with its reason.
+- **What reaches a person:**
+  - Deny rules still deny.
+  - `ask` rules, critical removals and protected paths still ask a person.
+  - After 3 blocks in a row, or 20 in a session, the mode asks a person until one approves.
+  - With no one to ask, such a call is denied.
+- **Allow rules:** while the mode is on, allow rules that approve any command are set aside.
+  Examples are `Bash(*)`, `Bash(python *)`, `Bash(npm run *)`, `Bash(pnpm *)` and `Agent`. Narrow
+  rules such as `Bash(npm test)` still apply.
+- **Retry:** a blocked call can be let through once with `/permissions retry <n>`, where `<n>` is
+  its number under recent denials.
+- **Turning it off:** an organization turns the mode off with `"disableAutoMode": true` in the org
+  policy file.
 
 #### Read-only commands
 

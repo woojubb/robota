@@ -8,8 +8,10 @@
  * - default: reads auto, writes/bash need approval
  * - acceptEdits: reads + writes auto, bash needs approval
  * - bypassPermissions: all tools auto
+ * - auto: reads and in-workspace edits auto; anything else a model classifier decides, and a person
+ *   when the classifier keeps refusing
  */
-export type TPermissionMode = 'plan' | 'default' | 'acceptEdits' | 'bypassPermissions';
+export type TPermissionMode = 'plan' | 'default' | 'acceptEdits' | 'bypassPermissions' | 'auto';
 
 /**
  * Friendly trust level aliases

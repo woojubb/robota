@@ -46,6 +46,8 @@ export interface ICommandSessionPermissions {
   };
   /** The calls this session refused, most recent first. */
   getRecentPermissionDenials(): readonly IPermissionDenial[];
+  /** Let the call behind a classifier denial (0-based) run once; `undefined` when there is none. */
+  retryPermissionDenial(index: number): IPermissionDenial | undefined;
   /**
    * ARCH-040 Group C (issue #1934): re-apply a preset's tool lists to the LIVE enforcer.
    *

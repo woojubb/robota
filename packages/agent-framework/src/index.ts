@@ -76,7 +76,11 @@ export type {
 } from './workspace-trust/index.js';
 
 // ── InteractiveSession (primary API) ────────────────────────
-export { InteractiveSession, PeerMessageIngress, ExternalEventIngress } from './interactive/index.js';
+export {
+  InteractiveSession,
+  PeerMessageIngress,
+  ExternalEventIngress,
+} from './interactive/index.js';
 export { withUniqueSessionName } from './interactive/interactive-session-fork-record.js';
 export type {
   IAuthenticatedExternalEvent,
@@ -295,6 +299,7 @@ export {
   resolvePermissionModeAdapter,
   VALID_PERMISSION_MODES,
   writeCommandPermissionMode,
+  retryCommandPermissionDenial,
   applyPresetToSession,
   buildStatusLineCommandSubcommands,
   buildPluginCommandSubcommands,

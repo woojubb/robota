@@ -48,3 +48,4 @@ export { applyPresetToolLists, toolNamesToPatterns } from './tool-list-patterns.
 export { splitCommandSegments } from './command-segments.js';
 export { isReadOnlyCommandLine } from './read-only-commands.js';
 export type { IReadOnlyCommandContext, TResolveInWorkspace } from './read-only-commands.js';
+export { allowRulesForAutoMode, isBroadExecutionAllowRule } from './auto-mode-rules.js';

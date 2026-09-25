@@ -39,6 +39,9 @@ export function buildPermissionEnforcer(
     terminal: options.terminal,
     permissionHandler: options.permissionHandler,
     ...(options.commandSandbox !== undefined ? { commandSandbox: options.commandSandbox } : {}),
+    ...(options.permissionClassifier !== undefined
+      ? { permissionClassifier: options.permissionClassifier }
+      : {}),
     promptForApprovalFn: options.promptForApproval,
     sessionLogger: options.sessionLogger,
     onToolExecution: options.onToolExecution,

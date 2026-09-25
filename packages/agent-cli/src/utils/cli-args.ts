@@ -18,7 +18,13 @@ import type { TPermissionMode } from '@robota-sdk/agent-core';
 // existing CLI imports keep working without a second declaration of the same union.
 export type { TOutputFormat };
 
-const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
+const VALID_MODES: TPermissionMode[] = [
+  'plan',
+  'default',
+  'acceptEdits',
+  'bypassPermissions',
+  'auto',
+];
 
 const VALID_OUTPUT_FORMATS = OUTPUT_FORMATS;
 
@@ -334,7 +340,12 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
     throw new Error('--http-port must be an integer in 1..65535');
   }
   if (args.supervisedSessionId !== undefined) {
-    if (!args.serve || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(args.supervisedSessionId)) {
+    if (
+      !args.serve ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(
+        args.supervisedSessionId,
+      )
+    ) {
       throw new Error('--supervised-session-id requires --serve and a valid generated UUID');
     }
   }
@@ -343,8 +354,15 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
     const separator = grant.indexOf(':');
     const serverId = grant.slice(0, separator);
     const senderId = grant.slice(separator + 1);
-    if (separator < 1 || !/^[a-zA-Z0-9_-]{1,64}$/u.test(serverId) || senderId.length === 0 || senderId.length > 128) {
-      throw new Error('--external-event-allow requires serverId:senderId (bounded, non-empty identities)');
+    if (
+      separator < 1 ||
+      !/^[a-zA-Z0-9_-]{1,64}$/u.test(serverId) ||
+      senderId.length === 0 ||
+      senderId.length > 128
+    ) {
+      throw new Error(
+        '--external-event-allow requires serverId:senderId (bounded, non-empty identities)',
+      );
     }
     for (const character of senderId) {
       const code = character.codePointAt(0)!;
@@ -353,12 +371,19 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
       }
     }
   }
-  if (externalEventAllow.length > 0 && (
-    args.printMode || args.goal !== undefined || args.serve || args.reset ||
-    args.configure || args.configureProvider !== undefined || args.version ||
-    args.checkUpdate || args.help ||
-    ['mcp', 'eval', 'session', 'user-local'].includes(args.positional[0] ?? '')
-  )) {
+  if (
+    externalEventAllow.length > 0 &&
+    (args.printMode ||
+      args.goal !== undefined ||
+      args.serve ||
+      args.reset ||
+      args.configure ||
+      args.configureProvider !== undefined ||
+      args.version ||
+      args.checkUpdate ||
+      args.help ||
+      ['mcp', 'eval', 'session', 'user-local'].includes(args.positional[0] ?? ''))
+  ) {
     throw new Error('--external-event-allow is currently available only in interactive TUI mode');
   }
   if (externalEventAllow.length > 0 && args.permissionMode === 'bypassPermissions') {

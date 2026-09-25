@@ -487,7 +487,7 @@ export function evaluatePermission(
   if (
     context.sandboxAutoApproved === true &&
     riskClass === 'execute' &&
-    (mode === 'default' || mode === 'acceptEdits')
+    (mode === 'default' || mode === 'acceptEdits' || mode === 'auto')
   ) {
     return 'auto';
   }

@@ -225,6 +225,22 @@ export abstract class SessionBase {
     return this.permissionEnforcer.getSessionAllowedTools();
   }
 
+  /** `auto` mode hands decisions to a classifier, so a session without one cannot enter it. */
+  protected requireClassifierFor(mode: TPermissionMode): void {
+    if (mode === 'auto' && !this.permissionEnforcer.hasPermissionClassifier()) {
+      throw new Error('Auto mode is unavailable: this session has no permission classifier.');
+    }
+  }
+
+  /**
+   * Let the call behind a classifier denial (by its index in the recent denials) run once when the
+   * model tries it again. Returns the denial, or `undefined` when the index names no classifier
+   * denial.
+   */
+  retryPermissionDenial(index: number): IPermissionDenial | undefined {
+    return this.permissionEnforcer.allowRetryOfDenial(index);
+  }
+
   /** The calls this session refused, most recent first (issue #3082). */
   getRecentPermissionDenials(): readonly IPermissionDenial[] {
     return this.permissionEnforcer.getRecentDenials();

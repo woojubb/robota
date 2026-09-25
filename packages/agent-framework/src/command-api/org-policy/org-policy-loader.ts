@@ -69,11 +69,10 @@ function describeShapeProblem(value: TUniversalValue): string | undefined {
       return `\`${field}\` must be an array of strings`;
     }
   }
-  if (
-    record.requireApiKeyFromEnv !== undefined &&
-    typeof record.requireApiKeyFromEnv !== 'boolean'
-  ) {
-    return '`requireApiKeyFromEnv` must be a boolean';
+  for (const field of ['requireApiKeyFromEnv', 'disableAutoMode'] as const) {
+    if (record[field] !== undefined && typeof record[field] !== 'boolean') {
+      return `\`${field}\` must be a boolean`;
+    }
   }
   if (record.adminContact !== undefined && typeof record.adminContact !== 'string') {
     return '`adminContact` must be a string';

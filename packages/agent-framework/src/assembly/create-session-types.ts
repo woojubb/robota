@@ -273,6 +273,8 @@ export interface ICreateSessionOptions {
   editCheckpointRecorder?: IEditCheckpointRecorder;
   /** Opt-in local-first reversible execution policy for write/shell tools. */
   reversibleExecution?: IReversibleExecutionOptions;
+  /** No `auto` permission mode: the session gets no classifier and refuses the mode. */
+  disableAutoMode?: boolean;
   /** Optional provider sandbox client used by sandbox-aware built-in tools. */
   sandboxClient?: ISandboxClient;
   /**

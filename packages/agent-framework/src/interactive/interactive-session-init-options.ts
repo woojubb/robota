@@ -146,6 +146,8 @@ export interface IInitOptions {
   /** Opt-in local-first reversible execution policy for write/shell tools. */
   reversibleExecution?: IReversibleExecutionOptions;
   /** Optional provider sandbox client used by sandbox-aware built-in tools. */
+  /** No `auto` permission mode (an organization policy turned it off). */
+  disableAutoMode?: boolean;
   sandboxClient?: ISandboxClient;
   /** ARCH-033: the name a child process uses to rebuild a sandbox like this one. */
   sandboxType?: string;

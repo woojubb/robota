@@ -1,4 +1,8 @@
-import { TRUST_TO_MODE, ObservableEventService, PROVIDER_CALL_EVENTS } from '@robota-sdk/agent-core';
+import {
+  TRUST_TO_MODE,
+  ObservableEventService,
+  PROVIDER_CALL_EVENTS,
+} from '@robota-sdk/agent-core';
 
 import { SessionBase } from './session-base.js';
 import {
@@ -145,6 +149,8 @@ export class Session extends SessionBase {
       () => this.permissionMode,
       this.transcriptPath,
     );
+    this.requireClassifierFor(this.permissionMode);
+    this.addPermissionModeGuard((next) => this.requireClassifierFor(next));
     const { contextTracker, compactionOrchestrator } = buildSessionTrackers(
       options,
       this.model,
