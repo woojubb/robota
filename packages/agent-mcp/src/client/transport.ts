@@ -54,6 +54,8 @@ export interface IMCPHttpEndpoint {
   readonly authentication?: IMCPBoundAuthenticator;
   /** Authentication the definition declares that this version cannot perform. */
   readonly unsupportedAuthentication?: readonly string[];
+  /** The definition obtains its credential dynamically, so admission without an authenticator is refused. */
+  readonly authenticationRequired?: boolean;
 }
 
 export interface IMCPAdmittedHttpEndpoint {
@@ -163,6 +165,17 @@ export async function admitHttpEndpoint(
         'which this version does not support; the server was not connected.',
     };
   }
+  // Static headers alone are not the server's credential; connecting with them would be an
+  // unauthenticated attempt with whatever the definition happened to carry.
+  if (endpoint.authenticationRequired === true && endpoint.authentication === undefined) {
+    return {
+      ok: false,
+      reason: 'authentication-unavailable',
+      message:
+        'The definition obtains its headers dynamically and no authenticator was registered; ' +
+        'the server was not connected.',
+    };
+  }
   if (!URL.canParse(endpoint.url)) {
     // The text is not printed: a template may have expanded a credential into it.
     return { ok: false, reason: 'invalid-url', message: 'The configured URL is not a valid URL' };
@@ -242,7 +255,7 @@ async function authorizedHeaders(
   init: RequestInit | undefined,
   admitted: IMCPAdmittedHttpEndpoint,
   bound: IMCPBoundAuthenticator,
-): Promise<Headers> {
+): Promise<{ headers: Headers; credential: Readonly<Record<string, string>> }> {
   try {
     const credential = await bound.authenticator.authorize({
       serverId: bound.serverId,
@@ -253,7 +266,7 @@ async function authorizedHeaders(
     const headers = new Headers(init?.headers);
     // Inside the try: an invalid header value makes `Headers` throw an error that quotes it.
     for (const [name, value] of Object.entries(credential)) headers.set(name, value);
-    return headers;
+    return { headers, credential };
   } catch {
     // Reported without the authenticator's or the platform's text, which may quote a credential.
     // A cancelled request stays a cancellation.
@@ -278,7 +291,8 @@ async function fetchAuthenticated(
   if (bound === undefined) return send(undefined);
   const refused = (response: Response): boolean =>
     response.status === HTTP_UNAUTHORIZED || response.status === HTTP_FORBIDDEN;
-  const first = await send(await authorizedHeaders(init, admitted, bound));
+  const authorized = await authorizedHeaders(init, admitted, bound);
+  const first = await send(authorized.headers);
   if (!refused(first)) return first;
   const wwwAuthenticate = first.headers.get('www-authenticate');
   // The refusal's body is never read; release the connection now rather than at collection.
@@ -288,6 +302,7 @@ async function fetchAuthenticated(
     answer = await bound.authenticator.onRejected({
       status: first.status,
       ...(wwwAuthenticate === null ? {} : { wwwAuthenticate }),
+      authorization: authorized.credential,
     });
   } catch {
     answer = 'fail';
@@ -295,7 +310,7 @@ async function fetchAuthenticated(
   const replayable =
     init?.body === undefined || init.body === null || typeof init.body === 'string';
   if (answer !== 'retry' || !replayable) throw new MCPAuthenticationError('rejected');
-  const second = await send(await authorizedHeaders(init, admitted, bound));
+  const second = await send((await authorizedHeaders(init, admitted, bound)).headers);
   if (refused(second)) {
     await second.body?.cancel().catch(() => undefined);
     throw new MCPAuthenticationError('rejected');

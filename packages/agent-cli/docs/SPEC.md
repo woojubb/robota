@@ -169,10 +169,14 @@ server output is never substituted back into context. `robota_read_mcp_result` r
 characters per read (less under a host-configured hard limit), with the total size and next offset;
 missing or expired references fail with a fixed, payload-free error.
 
-**Stdio client authority.** Definitions and settings cannot grant execution authority on
+**Client execution authority.** Definitions and settings cannot grant execution authority on
 their own: an approved stdio definition without a separately supplied host authority is diagnosed and
-never spawned. Stdio discovery diagnostics never include raw child or SDK errors, and the ordinary
-executable does not auto-approve package-runner commands.
+never spawned, and a header helper runs only when its exact command line is allowed in the user's own
+settings — which a repository cannot write — and, for a repository's definition, the workspace is
+trusted. A repository's helper also runs without the user's credential-shaped environment, because
+the user allowed the program, not handing their credentials to wherever that repository points it.
+Stdio and helper diagnostics never include raw child or SDK errors or anything a helper printed, and
+the ordinary executable does not auto-approve package-runner commands.
 
 **Current limitation.** Approval is in-memory and session-scoped per process: a server approved via
 `/mcp approve` mid-session is not connected by that already-started session. An embedding host can

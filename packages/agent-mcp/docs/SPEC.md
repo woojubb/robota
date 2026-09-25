@@ -50,7 +50,12 @@ had no discovery, and two client stacks cannot both be authoritative.
   record or error. A refused credential is retried at most once, with fresh authorization, and
   only when the authenticator allows it; a failure is a typed, content-free refusal, and there is
   never an unauthenticated attempt. A definition that declares authentication this version cannot
-  perform stays listed and is refused at admission by name, rather than connected without it.
+  perform, or a header helper the host does not allow, stays listed and is refused by name, rather
+  than connected with its static headers alone. A header helper is an exact argv the host runs, never
+  a shell line or a template, so the host can allow one command line rather than a program; its
+  output is parsed strictly, may not set a header the transport or protocol owns, and is obtained
+  once per connection and once more after the server refuses them — however many requests
+  were refused together.
 - **Trace context stays on the call it belongs to**: a tool call's trusted `traceparent` goes only on
   that call's own `tools/call` POST and the cancellation of it, and only to an exactly listed origin.
   The decision is made from each request's body, not from the async context, because the SDK runs a
