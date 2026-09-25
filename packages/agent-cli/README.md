@@ -167,6 +167,9 @@ robota --serve                      # Run as a headless runtime host over a loop
 robota mcp serve                   # Serve one session to a local MCP client over stdio
 robota mcp serve --http-token-file /absolute/private/path/mcp-token --http-port 8765
                                   # Serve Streamable HTTP on 127.0.0.1; the token file must not exist
+robota mcp serve --http-public-url https://agents.example.com/robota/mcp --oauth-issuer https://auth.example.com \
+  --oauth-scopes mcp:use --oauth-allowed-subjects alice@example.com
+                                  # Serve remote HTTP behind a proxy, admitting OAuth access tokens
 robota trust status                 # Inspect canonical workspace trust
 robota trust --yes                  # Grant trust for the current Git workspace
 robota trust revoke --yes           # Revoke the current workspace grant
@@ -432,6 +435,46 @@ independently. An embedding host can supply its own `IMCPActivationApprovalStore
 `startCli({ mcpApprovalStore })` before startup, along with an explicitly approved
 `mcpHttpTransportDeps` egress policy when needed. Neither capability comes from MCP settings or the
 remote caller. The ordinary `robota` executable supplies neither automatically.
+
+#### Serve Robota to a remote MCP client
+
+`--http-token-file` is for clients on the same machine: it binds only `127.0.0.1`, and its bearer
+is never accepted beyond loopback. To serve a client elsewhere, run Robota as an OAuth resource
+server behind an HTTPS reverse proxy. An authorization server you already run issues the access
+tokens; Robota only verifies them.
+
+```sh
+robota mcp serve \
+  --http-public-url https://agents.example.com/robota/mcp \
+  --oauth-issuer https://auth.example.com \
+  --oauth-scopes mcp:use \
+  --oauth-allowed-subjects alice@example.com \
+  --http-host 127.0.0.1 --http-port 8765 \
+  --trusted-proxy 127.0.0.1
+```
+
+- `--http-public-url` is the `https` address clients use. It is also the token audience and the
+  `resource` Robota advertises. Robota serves MCP at its path (`/robota/mcp` above) and the RFC 9728
+  protected-resource metadata at `/.well-known/oauth-protected-resource` followed by that path. The
+  proxy must forward both paths unchanged (do not strip the prefix) and must preserve the client's
+  `Host` header. Robota checks `Host` and `Origin` against the public URL, not the address it binds.
+- `--oauth-issuer`, `--oauth-scopes` and `--oauth-allowed-subjects` are all required. A token must
+  be an RFC 9068 access token from that issuer, addressed to the public URL, carrying every listed
+  scope, and issued to a listed subject. Every admitted client drives the same session, so name only
+  the people you would hand this terminal to.
+- `--http-host` defaults to `127.0.0.1`, which suits a proxy on the same machine. Robota binds any
+  other address only when all the flags above are present.
+- A request without a valid token receives `401` with
+  `WWW-Authenticate: Bearer resource_metadata="…"`, and a token missing a scope receives `403`
+  with `insufficient_scope`. The body is always empty. MCP clients that support authorization
+  use that challenge to discover the authorization server.
+- Failed requests are counted per client address. After too many failures in a minute, that
+  address receives `429`; a valid token is never throttled. The client address is read from
+  `X-Forwarded-For` only when the connection comes from a `--trusted-proxy` address (repeatable).
+- Each refusal is logged on stderr as a reason and an address class (`loopback`, `private`,
+  `public`), never the token or the address itself.
+- The server is stateless: it issues no `Mcp-Session-Id`, so there are no sessions to enumerate or
+  hijack.
 
 The settings described below configure Robota as an MCP **client**.
 

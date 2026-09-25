@@ -226,7 +226,8 @@ service alive.
 ### `robota mcp serve`
 
 A separate headless process mode: one normally assembled session plus one `agent-transport-mcp`
-stdio (or, with `--http-token-file`, loopback HTTP) service. It uses the caller's working directory
+stdio, loopback HTTP (`--http-token-file`) or remote HTTP (`--http-public-url` with the `--oauth-*`
+settings) service. It uses the caller's working directory
 and the same headless project-access/trust decision as `--serve`, and never prompts for trust over
 the protocol stream. From entry until shutdown, all product notices use stderr while stdout is
 reserved for MCP frames. SIGINT, SIGTERM, stdin/client close, startup failure, and carrier failure all
@@ -235,7 +236,10 @@ TUI transport starts in this mode.
 
 The HTTP token-file variant creates the token file exclusively with owner-only permissions, never
 puts the bearer in command arguments or stdout, and removes its own token file during shutdown; it
-refuses a relative token path or an existing file.
+refuses a relative token path or an existing file. That bearer is only as safe as the machine
+boundary, so the process binds a non-loopback address only as a remote resource server, whose
+access tokens are verified against the configured issuer, and never with the token file. Its
+refusal audit goes to stderr as a reason and an address class, never token text.
 
 ### Memory, screen-reader, theme, and prompt-history enablement
 
@@ -365,7 +369,7 @@ robota usage [--period 30d] [--timezone UTC] [--format json]  # Local personal u
 robota eval ./my-eval.mjs            # Run an evals-as-code definition; exit 1 on a metric breach
 robota -p "prompt"                   # Print mode (one-shot, headless)
 robota --serve                       # Headless runtime host
-robota mcp serve [--http-token-file <path> [--http-port <port>]]  # MCP server process
+robota mcp serve [--http-token-file <path> | --http-public-url <https> --oauth-*] [--http-port <port>]  # MCP server process
 robota -c | --continue                       # Continue the most recent session for this cwd
 robota -r <id> | --resume [id]               # Resume a session by id/name, or show a picker
 robota -c --fork-session                     # Fork from the last session (new id, restored context)

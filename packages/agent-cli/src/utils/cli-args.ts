@@ -39,6 +39,13 @@ export interface IParsedCliArgs {
   /** MCP-2533: selecting HTTP also requires an exclusive owner-only token file. */
   mcpHttpTokenFile?: string;
   mcpHttpPort?: number;
+  /** `robota mcp serve` remote resource-server settings; a non-loopback bind requires them. */
+  mcpHttpHost?: string;
+  mcpHttpPublicUrl?: string;
+  mcpOauthIssuer?: string;
+  mcpOauthScopes?: string[];
+  mcpOauthAllowedSubjects?: string[];
+  mcpTrustedProxies?: string[];
   /** Explicit TUI-only MCP source/sender grants; each value is serverId:senderId. */
   externalEventAllow?: string[];
   /** GUI-007: with `--serve --open`, also serve the CLI's web monitor SPA over localhost and open it. */
@@ -176,6 +183,12 @@ const PARSE_ARGS_CONFIG = {
     'supervised-session-id': { type: 'string' },
     'http-token-file': { type: 'string' },
     'http-port': { type: 'string' },
+    'http-host': { type: 'string' },
+    'http-public-url': { type: 'string' },
+    'oauth-issuer': { type: 'string' },
+    'oauth-scopes': { type: 'string' },
+    'oauth-allowed-subjects': { type: 'string' },
+    'trusted-proxy': { type: 'string', multiple: true },
     'external-event-allow': { type: 'string', multiple: true },
     open: { type: 'boolean', default: false },
     name: { type: 'string', short: 'n' },
@@ -281,6 +294,12 @@ function mapParsedValues(
     supervisedSessionId: values['supervised-session-id'],
     mcpHttpTokenFile: values['http-token-file'],
     mcpHttpPort: values['http-port'] === undefined ? undefined : Number(values['http-port']),
+    mcpHttpHost: values['http-host'],
+    mcpHttpPublicUrl: values['http-public-url'],
+    mcpOauthIssuer: values['oauth-issuer'],
+    mcpOauthScopes: parseToolList(values['oauth-scopes']),
+    mcpOauthAllowedSubjects: parseToolList(values['oauth-allowed-subjects']),
+    mcpTrustedProxies: values['trusted-proxy'],
     externalEventAllow: values['external-event-allow'] ?? [],
     open: values['open'] ?? false,
     continueMode: values['continue'] ?? false,

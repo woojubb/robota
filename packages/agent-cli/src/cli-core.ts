@@ -93,6 +93,7 @@ import { runPrintMode } from './modes/print-mode.js';
 import { buildServeSessionOptions, runServeMode } from './modes/serve-mode.js';
 import { ROBOTA_PERMISSION_BASELINE } from './product/robota-permission-baseline.js';
 import { runMcpServeMode } from './modes/mcp-serve-mode.js';
+import { resolveMcpHttpOptions } from './utils/mcp-http-args.js';
 import { reserveMcpStdout } from './modes/mcp-stdio-output.js';
 import { composeMcpClientForStartup } from './startup/mcp-startup.js';
 import { createMcpExternalEventHost } from './startup/mcp-external-event-host.js';
@@ -205,14 +206,7 @@ async function runCliCore(
   if (args.positional[0] === 'mcp' && (!mcpServe || args.positional.length !== 2)) {
     throw new Error('Usage: robota mcp serve [options]');
   }
-  if (
-    (args.mcpHttpTokenFile !== undefined || args.mcpHttpPort !== undefined) &&
-    (!mcpServe || (args.mcpHttpPort !== undefined && args.mcpHttpTokenFile === undefined))
-  ) {
-    throw new Error(
-      '--http-token-file and --http-port are only valid for robota mcp serve HTTP mode',
-    );
-  }
+  const mcpHttp = resolveMcpHttpOptions(args, mcpServe);
   if (
     mcpServe &&
     (args.serve ||
@@ -778,10 +772,7 @@ async function runCliCore(
       memorySessionOptions,
     });
     try {
-      await runMcpServeMode(sessionOptions, version, mcpProtocolStdout, {
-        ...(args.mcpHttpTokenFile !== undefined ? { tokenFile: args.mcpHttpTokenFile } : {}),
-        ...(args.mcpHttpPort !== undefined ? { port: args.mcpHttpPort } : {}),
-      });
+      await runMcpServeMode(sessionOptions, version, mcpProtocolStdout, mcpHttp);
     } finally {
       await livePromptTracePort?.shutdown();
       if (mcp !== undefined) await mcp.shutdown();
