@@ -56,9 +56,7 @@ async function targetAccess(
   return resolveAccess(request.targetCwd);
 }
 
-export function createWorkspaceMoveAdapter(
-  deps: IWorkspaceMoveAdapterDeps,
-): ICommandWorkspaceAdapter {
+export function createWorkspaceMoveAdapter(deps: IWorkspaceMoveAdapterDeps): ICommandWorkspaceAdapter {
   const resolveAccess =
     deps.resolveAccess ?? ((cwd: string) => resolveInitialCliWorkspaceProjectAccess(cwd));
   const onProcessExit =
@@ -83,15 +81,11 @@ export function createWorkspaceMoveAdapter(
       onProcessExit(() => {
         // Synchronous: an `exit` listener may do nothing else. This process waits for the target
         // run and ends with its status, so a shell or supervisor sees one robota session.
-        const result = runSync(
-          entry.execPath,
-          [...(entry.execArgv ?? []), ...entry.args, ...args],
-          {
-            cwd: request.targetCwd,
-            stdio: 'inherit',
-            env: { ...process.env, ...deps.environment },
-          },
-        );
+        const result = runSync(entry.execPath, [...(entry.execArgv ?? []), ...entry.args, ...args], {
+          cwd: request.targetCwd,
+          stdio: 'inherit',
+          env: { ...process.env, ...deps.environment },
+        });
         process.exitCode = result.status ?? 1;
       });
       deps.requestExit();

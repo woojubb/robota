@@ -81,8 +81,7 @@ export function formatProjectContributionPreview(
   cwd: string,
   taskContext: { readonly enabled?: boolean; readonly dir?: string } = ROBOTA_TASK_CONTEXT,
 ): string {
-  if (identity === undefined)
-    return 'Project sources: unavailable (workspace identity unresolved)\n';
+  if (identity === undefined) return 'Project sources: unavailable (workspace identity unresolved)\n';
   const cwdRelative = currentWorkspaceDirectory(identity, cwd);
   if (cwdRelative === undefined) {
     return 'Project sources: unavailable (working directory is outside the workspace)\n';
