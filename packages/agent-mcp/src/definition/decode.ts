@@ -10,6 +10,7 @@
  * which source and origin it came from.
  */
 
+import { UNSUPPORTED_AUTHENTICATION_KEYS } from '../client/authentication.js';
 import type {
   IMCPDefinitionProblem,
   IMCPServerDefinition,
@@ -207,6 +208,17 @@ export function decodeEntry(
 
   if (REMOTE_TRANSPORTS.has(transport) && definition.url === undefined) {
     return problem(`a ${transport} definition needs a \`url\``);
+  }
+
+  // Declared authentication this version cannot perform is kept, not ignored: the server stays
+  // listed, and admission refuses it by name instead of connecting without the credential.
+  const unsupported = UNSUPPORTED_AUTHENTICATION_KEYS.filter((key) => entry[key] !== undefined);
+  if (unsupported.length > 0) {
+    // Only a remote server authenticates this way; on a stdio entry the keys mean nothing.
+    if (transport === 'stdio') {
+      return problem(`a stdio definition must not carry \`${unsupported.join('`, `')}\``);
+    }
+    definition.unsupportedAuthentication = unsupported;
   }
 
   return definition;

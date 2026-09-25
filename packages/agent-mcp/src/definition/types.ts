@@ -51,6 +51,8 @@ export interface IMCPServerDefinition {
   readonly url?: string;
   readonly headers?: Readonly<Record<string, string>>;
   readonly timeout?: number;
+  /** Authentication the entry declares (`oauth`, `headersHelper`) that this version cannot perform. */
+  readonly unsupportedAuthentication?: readonly string[];
 }
 
 /** An environment reference that could not be materialized, reported rather than guessed at. */

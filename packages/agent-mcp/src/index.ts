@@ -109,6 +109,16 @@ export {
   type TMCPTransportAdmission,
   type TMCPTransportKind,
 } from './client/transport.js';
+// The client authentication port: a host-registered authenticator for one server identity.
+export {
+  MCPAuthenticationError,
+  UNSUPPORTED_AUTHENTICATION_KEYS,
+  type IMCPAuthorizationRejection,
+  type IMCPAuthorizationRequest,
+  type IMCPBoundAuthenticator,
+  type IMCPClientAuthenticator,
+  type TMCPAuthenticationFailure,
+} from './client/authentication.js';
 export {
   createStdioAdapter,
   type IMCPAdmittedStdioEndpoint,

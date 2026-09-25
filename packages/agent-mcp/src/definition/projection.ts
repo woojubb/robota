@@ -38,6 +38,8 @@ export interface IMCPDefinitionProjection {
   /** Every value is `[REDACTED]`; the keys are the information. */
   readonly headers?: Readonly<Record<string, string>>;
   readonly timeout?: number;
+  /** Declared authentication this version cannot perform; the server is listed but not connected. */
+  readonly unsupportedAuthentication?: readonly string[];
   readonly disabled: boolean;
   readonly disabledReason?: string;
   /** Names of variables that had no value and no default; their references were left literal. */
@@ -101,6 +103,9 @@ export function projectEntry(entry: IMCPResolvedEntry): IMCPDefinitionProjection
       projection.url = withoutSecrets(definition, 'url', definition.url);
     if (definition.headers !== undefined) projection.headers = redactValues(definition.headers);
     if (definition.timeout !== undefined) projection.timeout = definition.timeout;
+    if (definition.unsupportedAuthentication !== undefined) {
+      projection.unsupportedAuthentication = [...definition.unsupportedAuthentication];
+    }
   }
 
   return projection;
