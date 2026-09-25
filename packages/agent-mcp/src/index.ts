@@ -12,6 +12,8 @@ export type {
   IMCPServerDefinitionRaw,
   IMCPServerDefinitionResolved,
   IMCPUnsetVariable,
+  IMCPValueSpan,
+  TMCPValueProvenance,
   TMCPDefinitionSource,
   TMCPTransport,
 } from './definition/types.js';
@@ -43,11 +45,18 @@ export {
   type IMCPDefinitionProjection,
 } from './definition/projection.js';
 export {
+  activationEndpoint,
   activationIdentity,
   definitionFingerprint,
   securityIdentity,
   type IMCPActivationIdentity,
 } from './definition/identity.js';
+export {
+  isCredentialShapedName,
+  SECRET_LITERAL,
+  secretMarker,
+  withoutSecrets,
+} from './definition/secrecy.js';
 export {
   MCPDefinitionRegistry,
   type IMCPDefinitionRegistryOptions,

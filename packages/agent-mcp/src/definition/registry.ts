@@ -15,7 +15,7 @@
  *   re-enabling it by a different route than the one that disabled it.
  */
 
-import { activationIdentity } from './identity.js';
+import { activationEndpoint, activationIdentity } from './identity.js';
 import { isDisabled } from './overlay.js';
 
 import type { IMCPActivationDefinitionRegistry } from '../mcp-activation-controller.js';
@@ -44,11 +44,7 @@ function provenanceOf(entry: IMCPResolvedEntry, fingerprint: string): IMCPActiva
  * record. Its command line is the thing being admitted, so that is what is named.
  */
 function endpointOf(entry: IMCPResolvedEntry): string {
-  const definition = entry.definition;
-  if (definition === undefined) return '';
-  if (definition.url !== undefined) return definition.url;
-  const args = definition.args ?? [];
-  return [definition.command ?? '', ...args].join(' ').trim();
+  return entry.definition === undefined ? '' : activationEndpoint(entry.definition);
 }
 
 export interface IMCPDefinitionRegistryOptions {

@@ -75,4 +75,15 @@ describe('constructStreamableHttpTransport — redirect refusal', () => {
       expect(classifyMcpFailure(error), `location=${String(location)}`).toBe('config');
     }
   });
+
+  it('names origins only, so a credential in a path or query never reaches the message', () => {
+    const error = new MCPTransportRedirectRefusedError(
+      302,
+      '/login?session=sess-secret',
+      'https://mcp.example.test/mcp?key=tok-secret',
+    );
+    expect(error.message).toContain('https://mcp.example.test');
+    expect(error.message).not.toContain('tok-secret');
+    expect(error.message).not.toContain('sess-secret');
+  });
 });
