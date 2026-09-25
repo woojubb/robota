@@ -27,8 +27,7 @@ afterEach(() => {
 
 function makeTracker(cwd: string, store: EditCheckpointStore | null): SessionHistoryTracker {
   return new SessionHistoryTracker(
-    cwd,
-    createRestrictedWorkspaceProjectAccess('untrusted', cwd),
+    { cwd, projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd) },
     () => 'sess-resume',
     () => false,
     vi.fn(),

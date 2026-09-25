@@ -15,8 +15,10 @@ import type { IContextFileEntry } from '../../context/context-file-tracker.js';
 
 function createTracker(): SessionHistoryTracker {
   return new SessionHistoryTracker(
-    '/workspace',
-    createRestrictedWorkspaceProjectAccess('untrusted', '/workspace'),
+    {
+      cwd: '/workspace',
+      projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', '/workspace'),
+    },
     () => 'test-session',
     () => false,
     vi.fn(),

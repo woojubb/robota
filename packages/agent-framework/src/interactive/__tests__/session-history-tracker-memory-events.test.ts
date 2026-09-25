@@ -13,8 +13,10 @@ function createTracker(): {
   const emitMemoryEvent = vi.fn();
   const persist = vi.fn();
   const tracker = new SessionHistoryTracker(
-    '/workspace',
-    createRestrictedWorkspaceProjectAccess('untrusted', '/workspace'),
+    {
+      cwd: '/workspace',
+      projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', '/workspace'),
+    },
     () => 'test-session',
     () => false,
     persist,

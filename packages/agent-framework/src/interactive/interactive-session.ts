@@ -95,7 +95,7 @@ import type { IGoalStartOptions } from '../goal/index.js';
 import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
 import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
 import type { IProviderErrorGuidance } from '../utils/error-humanizer.js';
-import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
+import type { IWorkspacePolicy, TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type {
   TUniversalMessage,
   TSessionEndReason,
@@ -153,7 +153,14 @@ export class InteractiveSession
   /** Persist a loop stop before cancelling its timer so resume cannot re-arm a stale snapshot. */
   private readonly pendingLoopStops = new Set<string>();
   private sessionName?: string;
-  private cwd?: string;
+  /**
+   * ARCH-043: the working directory and the project-access decision, as ONE value fixed for the life
+   * of this session and handed by reference to everything that needs either. They used to be two
+   * fields copied into collaborators separately, which is how a lazy operation could end up holding a
+   * different answer from the session. A move to another directory is a new session (`/cd`), never a
+   * mutation of this one.
+   */
+  private readonly workspace: IWorkspacePolicy;
   private pendingRestoreMessages: TUniversalMessage[] | null = null;
   /** CLI-1994: the resumed record's assembled prompt, applied when this session is a fork. */
   private restoredSystemPrompt?: string;
@@ -214,7 +221,6 @@ export class InteractiveSession
   private readonly askHandler: IUserInteraction['ask'];
   /** REMOTE-007: transport-neutral pending permission/ask registry (parking + fail-closed + drain). */
   private readonly promptRegistry: SessionPromptRegistry;
-  private readonly projectAccess: TWorkspaceProjectAccess;
   private readonly providerErrorGuidance?: IProviderErrorGuidance;
   private readonly promptFileReferenceTag?: string;
   private readonly resolveDefaultLoopPrompt?: () => string;
@@ -241,8 +247,11 @@ export class InteractiveSession
     this.resolveDefaultLoopPrompt = options.resolveDefaultLoopPrompt;
     this.userSettingsSources = options.userSettingsSources ?? [];
     this.sessionLoopsDisabled = options.disableSessionLoops ?? false;
-    this.projectAccess =
-      options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable');
+    this.workspace = Object.freeze({
+      cwd: ('cwd' in options ? options.cwd : undefined) ?? '',
+      projectAccess:
+        options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable'),
+    });
     this.sessionName = options.sessionName;
     if ('outputStyle' in options && options.outputStyle !== undefined) {
       this.activeOutputStyleId = options.outputStyle.id;
@@ -273,7 +282,6 @@ export class InteractiveSession
     });
     this.askHandler = (request) => this.promptRegistry.requestAsk(request);
 
-    this.cwd = ('cwd' in options ? options.cwd : undefined) ?? '';
     this.resumeSessionId = options.resumeSessionId;
     this.startedAsFork = options.forkSession ?? false;
     this.sandboxClient = 'sandboxClient' in options ? options.sandboxClient : undefined;
@@ -290,7 +298,6 @@ export class InteractiveSession
         this.histTracker.recordUsedMemoryReferences(references),
     });
     this.sandboxSnapshotId = 'sandboxSnapshotId' in options ? options.sandboxSnapshotId : undefined;
-    const cwd = this.cwd;
     const initCheckpointStore = options.editCheckpointStore ?? null;
 
     this.bgTracker = new SessionBackgroundTaskTracker(
@@ -308,8 +315,7 @@ export class InteractiveSession
     );
 
     this.histTracker = new SessionHistoryTracker(
-      cwd,
-      this.projectAccess,
+      this.workspace,
       () => this.getSessionOrThrow().getSessionId(),
       () => this.execCtrl.executing,
       () => this.persistCurrentSession(),
@@ -363,7 +369,7 @@ export class InteractiveSession
       getSession: () => this.session!,
       getSessionOrThrow: () => this.getSessionOrThrow(),
       getCwd: () => this.getCwd(),
-      getProjectAccess: () => this.projectAccess,
+      getProjectAccess: () => this.workspace.projectAccess,
       getContextState: () => this.getContextState(),
       getExecutionWorkspaceSnapshot: () => this.getExecutionWorkspaceSnapshot(),
       emit: (event, ...args) =>
@@ -433,7 +439,7 @@ export class InteractiveSession
   }
 
   getProjectAccess(): TWorkspaceProjectAccess {
-    return this.projectAccess;
+    return this.workspace.projectAccess;
   }
 
   private configureInjectedSession(options: TInteractiveSessionOptions): boolean {
@@ -541,8 +547,8 @@ export class InteractiveSession
   }
 
   getCwd(): string {
-    if (!this.cwd) throw new Error('cwd is not set — provide cwd in session options');
-    return this.cwd;
+    if (!this.workspace.cwd) throw new Error('cwd is not set — provide cwd in session options');
+    return this.workspace.cwd;
   }
 
   /**
@@ -1492,7 +1498,7 @@ export class InteractiveSession
       this.sessionStore,
       this.session,
       this.sessionName,
-      this.cwd ?? '',
+      this.workspace.cwd,
       histState.history,
       {
         tasks: bgState.tasks

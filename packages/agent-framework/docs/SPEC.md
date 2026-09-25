@@ -38,7 +38,9 @@ React/Ink UI.
   fallback to path-based access. Restricted construction instantiates no project reader, store, or
   writer. Trusted access is accepted only when the real working directory is the trusted root or a
   descendant of it — `cwd` and the access decision are independent inputs, so this boundary check keeps the pair
-  fail-closed.
+  fail-closed. Once accepted, the pair is one value fixed for the session's life and handed by
+  reference, never copied field by field, so no lazy operation can hold a different answer from the
+  session; a move to another directory is a new session, not a mutation of this one.
 - **No concrete settings-file I/O for hosts.** Host adapters (`NodeHost*`) exist for callers that
   deliberately own a host path, but never satisfy an authority parameter, and command modules must
   not assemble settings/project paths themselves — they go through host adapters or command-facing
