@@ -22,6 +22,7 @@ import {
 } from './interactive-session-execution.js';
 import { preparePromptInput } from './interactive-session-prepare-prompt.js';
 import { pushToolSummaryToHistory } from './interactive-session-streaming.js';
+import { describeModelFallback } from '../routing/model-fallback-chain.js';
 import { humanizeApiError } from '../utils/error-humanizer.js';
 
 import type { IToolState, IExecutionResult } from './types.js';
@@ -123,10 +124,12 @@ export async function executePromptTurn(
 
   // SELFHOST-004 (P6): collect the per-operation span events tools emit during this turn's run, so
   // they can be projected onto history under the owning turn (drained just before its usage-summary).
-  const spanCollector = collectSpanEntries(
-    ctx.getSession().getEventService(),
-    ctx.onToolCallObserved ? { onToolCallObserved: ctx.onToolCallObserved } : {},
-  );
+  const spanCollector = collectSpanEntries(ctx.getSession().getEventService(), {
+    ...(ctx.onToolCallObserved ? { onToolCallObserved: ctx.onToolCallObserved } : {}),
+    // Said where the user reads the turn, ahead of the answer the other model gives.
+    onProviderFallback: (notice) =>
+      history.push(messageToHistoryEntry(createSystemMessage(describeModelFallback(notice)))),
+  });
 
   try {
     ctx.signal?.throwIfAborted();

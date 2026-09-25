@@ -14,6 +14,7 @@ import {
 import { assembleProduct } from '@robota-sdk/agent-product';
 
 import { createFileCostBudgetAdapter } from './startup/cost-budget-adapter.js';
+import { applyModelFallbackChain } from './startup/model-fallback-startup.js';
 import { checkForCliUpdate, formatCliUpdateCheckMessage } from './update-check/update-check.js';
 import { resolveCliUpdateNotice } from './update-check/resolve-cli-update-notice.js';
 import { parseCliArgs, printHelp, type IParsedCliArgs } from './utils/cli-args.js';
@@ -93,6 +94,7 @@ import { runPrintMode } from './modes/print-mode.js';
 import { buildServeSessionOptions, runServeMode } from './modes/serve-mode.js';
 import { ROBOTA_PERMISSION_BASELINE } from './product/robota-permission-baseline.js';
 import { runMcpServeMode } from './modes/mcp-serve-mode.js';
+import { resolveMcpHttpOptions } from './utils/mcp-http-args.js';
 import { reserveMcpStdout } from './modes/mcp-stdio-output.js';
 import { composeMcpClientForStartup } from './startup/mcp-startup.js';
 import { composeCliAdvisor } from './startup/advisor-composition.js';
@@ -206,14 +208,7 @@ async function runCliCore(
   if (args.positional[0] === 'mcp' && (!mcpServe || args.positional.length !== 2)) {
     throw new Error('Usage: robota mcp serve [options]');
   }
-  if (
-    (args.mcpHttpTokenFile !== undefined || args.mcpHttpPort !== undefined) &&
-    (!mcpServe || (args.mcpHttpPort !== undefined && args.mcpHttpTokenFile === undefined))
-  ) {
-    throw new Error(
-      '--http-token-file and --http-port are only valid for robota mcp serve HTTP mode',
-    );
-  }
+  const mcpHttp = resolveMcpHttpOptions(args, mcpServe);
   if (
     mcpServe &&
     (args.serve ||
@@ -577,7 +572,22 @@ async function runCliCore(
       transports: transportRegistry,
     }),
   );
-  const provider = product.provider;
+  // A replayed session answers from its log, so there is nothing to fall back from.
+  const provider =
+    product.provider === undefined || args.sessionLog !== undefined
+      ? product.provider
+      : applyModelFallbackChain({
+          provider: product.provider,
+          fallbackFlag: args.fallbackModel,
+          settingsSources: workspaceComposition.settingsSources,
+          primaryConfig: { ...providerSettings, model: modelId },
+          ...(args.provider !== undefined && { providerOverride: args.provider }),
+          providerDefinitions,
+          ...(orgPolicy !== undefined && { orgPolicy }),
+          announceMoves: args.printMode,
+          notice: (message) =>
+            args.printMode ? process.stderr.write(`${message}\n`) : terminal.writeLine(message),
+        });
   // CLI-078 (issue #2443): the collaborators every mode receives are the ones assembly returned.
   const { backgroundTaskRunners: assembledBackgroundTaskRunners, subagentRunnerFactory } =
     bindAssembledCollaborators(product, {
@@ -796,10 +806,7 @@ async function runCliCore(
       memorySessionOptions,
     });
     try {
-      await runMcpServeMode(sessionOptions, version, mcpProtocolStdout, {
-        ...(args.mcpHttpTokenFile !== undefined ? { tokenFile: args.mcpHttpTokenFile } : {}),
-        ...(args.mcpHttpPort !== undefined ? { port: args.mcpHttpPort } : {}),
-      });
+      await runMcpServeMode(sessionOptions, version, mcpProtocolStdout, mcpHttp);
     } finally {
       await livePromptTracePort?.shutdown();
       if (mcp !== undefined) await mcp.shutdown();

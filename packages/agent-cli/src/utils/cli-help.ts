@@ -38,6 +38,7 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --allowed-tools <list>     Comma-separated tool auto-approval list
   --denied-tools <list>      Comma-separated tool denylist
   --model <model>            Model override for this run
+  --fallback-model <list>    Comma-separated models to continue a turn on when the model is overloaded
   --effort <level>           Model effort: auto | low | medium | high | xhigh | max
   --advisor <profile[:model]> Model the main model may consult for advice (or "off");
                              overrides settings.json advisorModel. ROBOTA_DISABLE_ADVISOR=1 turns it off
@@ -63,7 +64,18 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --serve --open             Serve the web monitor over localhost and open it in a browser
   --http-token-file <path>   With mcp serve, bind authenticated loopback HTTP and write the
                              bearer to a new owner-only absolute-path file
-  --http-port <port>         With --http-token-file, use this port (default: OS-assigned)
+  --http-port <port>         With mcp serve HTTP, use this port (default: OS-assigned)
+  --http-public-url <https>  With mcp serve, serve remote HTTP as an OAuth resource server at this
+                             public URL (endpoint and metadata paths follow it; the proxy in front
+                             must forward those paths and preserve Host). Requires --oauth-issuer,
+                             --oauth-scopes and --oauth-allowed-subjects; never uses a token file
+  --http-host <ip>           With mcp serve, the address to bind. Anything but 127.0.0.1 requires
+                             --http-public-url and the --oauth-* flags (default: 127.0.0.1)
+  --oauth-issuer <https>     Authorization server whose access tokens are accepted
+  --oauth-scopes <a,b>       Scopes every access token must carry
+  --oauth-allowed-subjects <a,b>
+                             Token subjects admitted to the one shared session
+  --trusted-proxy <ip>       Believe X-Forwarded-For from this proxy address (repeatable)
   --check-update             Check for CLI updates
   --version                  Show version number
   -h, --help                 Show this help message
@@ -94,7 +106,8 @@ Commands:
                                   Link a PR/MR URL to a live supervised session
   robota session unlink-pr <supervised-id>
                                   Clear a live supervised session PR/MR link
-  robota mcp serve [options]       Serve one Robota session over stdio or authenticated loopback HTTP
+  robota mcp serve [options]       Serve one Robota session over stdio, authenticated loopback HTTP,
+                                  or OAuth-authorized remote HTTP
   robota eval <definition>         Run an evals-as-code definition; exit 1 on a metric breach (CI gate)
 
 Examples:

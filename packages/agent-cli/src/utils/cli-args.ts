@@ -7,6 +7,7 @@ import { parseArgs } from 'node:util';
 
 import {
   OUTPUT_FORMATS,
+  parseFallbackModelList,
   parseModelEffort,
   type TOutputFormat,
   type TEffortSelection,
@@ -39,6 +40,13 @@ export interface IParsedCliArgs {
   /** MCP-2533: selecting HTTP also requires an exclusive owner-only token file. */
   mcpHttpTokenFile?: string;
   mcpHttpPort?: number;
+  /** `robota mcp serve` remote resource-server settings; a non-loopback bind requires them. */
+  mcpHttpHost?: string;
+  mcpHttpPublicUrl?: string;
+  mcpOauthIssuer?: string;
+  mcpOauthScopes?: string[];
+  mcpOauthAllowedSubjects?: string[];
+  mcpTrustedProxies?: string[];
   /** Explicit TUI-only MCP source/sender grants; each value is serverId:senderId. */
   externalEventAllow?: string[];
   /** GUI-007: with `--serve --open`, also serve the CLI's web monitor SPA over localhost and open it. */
@@ -71,6 +79,8 @@ export interface IParsedCliArgs {
   allowedTools: string | undefined;
   deniedTools: string | undefined;
   model: string | undefined;
+  /** Models to move a turn to when the primary is overloaded; replaces the settings' chain. */
+  fallbackModel?: string[];
   /** Requested model-effort level; `auto` follows the selected model default. */
   effort?: TEffortSelection;
   /** The advisor for this run (`<profile>`, `<profile>:<model>` or `off`); wins over the saved one. */
@@ -178,6 +188,12 @@ const PARSE_ARGS_CONFIG = {
     'supervised-session-id': { type: 'string' },
     'http-token-file': { type: 'string' },
     'http-port': { type: 'string' },
+    'http-host': { type: 'string' },
+    'http-public-url': { type: 'string' },
+    'oauth-issuer': { type: 'string' },
+    'oauth-scopes': { type: 'string' },
+    'oauth-allowed-subjects': { type: 'string' },
+    'trusted-proxy': { type: 'string', multiple: true },
     'external-event-allow': { type: 'string', multiple: true },
     open: { type: 'boolean', default: false },
     name: { type: 'string', short: 'n' },
@@ -194,6 +210,7 @@ const PARSE_ARGS_CONFIG = {
     'allowed-tools': { type: 'string' },
     'denied-tools': { type: 'string' },
     model: { type: 'string' },
+    'fallback-model': { type: 'string' },
     effort: { type: 'string' },
     advisor: { type: 'string' },
     preset: { type: 'string' },
@@ -284,6 +301,12 @@ function mapParsedValues(
     supervisedSessionId: values['supervised-session-id'],
     mcpHttpTokenFile: values['http-token-file'],
     mcpHttpPort: values['http-port'] === undefined ? undefined : Number(values['http-port']),
+    mcpHttpHost: values['http-host'],
+    mcpHttpPublicUrl: values['http-public-url'],
+    mcpOauthIssuer: values['oauth-issuer'],
+    mcpOauthScopes: parseToolList(values['oauth-scopes']),
+    mcpOauthAllowedSubjects: parseToolList(values['oauth-allowed-subjects']),
+    mcpTrustedProxies: values['trusted-proxy'],
     externalEventAllow: values['external-event-allow'] ?? [],
     open: values['open'] ?? false,
     continueMode: values['continue'] ?? false,
@@ -310,6 +333,9 @@ function mapParsedValues(
     allowedTools: values['allowed-tools'],
     deniedTools: values['denied-tools'],
     model: values['model'],
+    ...(values['fallback-model'] !== undefined && {
+      fallbackModel: parseFallbackModelList(values['fallback-model']),
+    }),
     effort: parseModelEffort(values['effort']),
     advisor: values['advisor'],
     preset: values['preset'],

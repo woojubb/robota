@@ -1,6 +1,7 @@
 import type { IAgentConfig, IAssistantMessage, TExecutionEventCallback } from '../interfaces/agent';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { IProviderCapabilityTable } from '../interfaces/model-capability';
+import type { IModelRef } from '../interfaces/role-model';
 import type {
   IChatOptions,
   IToolSchema,
@@ -64,6 +65,8 @@ export interface IResolvedProviderInfo {
     endpointIsVendorDefault?: () => boolean;
     /** Whether this provider can carry a trusted `traceparent`. See `IAIProvider`. */
     canPropagateTraceContext?: () => boolean;
+    /** Where a request for a model goes first in a run. See `IAIProvider`. */
+    resolveModelRoute?: (model: string, executionId?: string) => IModelRef;
   };
   currentInfo: { provider: string };
   aiProviderInfo: {
