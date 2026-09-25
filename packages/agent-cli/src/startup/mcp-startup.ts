@@ -123,8 +123,12 @@ export async function composeMcpClientForStartup(
     input.env,
   );
   for (const problem of problems) {
+    // A source-level problem (`name === ''`, issue #2794) names no server, so "MCP definition """
+    // reads as a nameless server rather than the source itself; it gets its own wording.
     input.reportDiagnostic(
-      `MCP definition "${problem.name}" from ${problem.source} (${problem.origin}) was refused: ${problem.reason}`,
+      problem.name === ''
+        ? `MCP source ${problem.source} (${problem.origin}) could not be read: ${problem.reason}`
+        : `MCP definition "${problem.name}" from ${problem.source} (${problem.origin}) was refused: ${problem.reason}`,
     );
   }
 

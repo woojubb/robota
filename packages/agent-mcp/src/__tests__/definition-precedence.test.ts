@@ -29,8 +29,8 @@ const noTemplates = (definition: IMCPServerDefinition): IMCPServerDefinitionReso
 function source(
   name: TMCPDefinitionSource,
   servers: Record<string, unknown>,
+  origin: string = `${name}.json`,
 ): IMCPSourceCandidates {
-  const origin = `${name}.json`;
   const decoded = decodeSource({ mcpServers: servers }, name, origin);
   return { source: name, origin, ...decoded };
 }
@@ -125,9 +125,11 @@ describe('resolveByPrecedence', () => {
     ]);
   });
 
-  it('ignores a container-level problem when choosing a winner', () => {
+  it('ignores a container-level problem when choosing a winner (but the managed tier still blocks it after)', () => {
     // A whole file that is not an object produces a nameless problem. It must not shadow a real
-    // entry from a lower source, because it names no server to shadow.
+    // entry from a lower source, because it names no server to shadow — that part of name
+    // resolution is unaffected. The managed tier being the broken one then blocks the result anyway
+    // (see the dedicated fail-closed tests below); this test is only about winner SELECTION.
     const { entries } = resolveByPrecedence(
       [
         source('user', { alpha: http('https://user.example') }),
@@ -143,6 +145,7 @@ describe('resolveByPrecedence', () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]!.source).toBe('user');
     expect(entries[0]!.shadowed).toEqual([]);
+    expect(entries[0]!.status).toBe('unresolved');
   });
 
   // BEHAVIOR-2794 (issue #2794 / #3073): a container-level problem has no name, so it cannot become
@@ -173,7 +176,13 @@ describe('resolveByPrecedence', () => {
     });
   });
 
-  it('still resolves a lower-trust source while a higher-trust source is entirely unreadable', () => {
+  // BEHAVIOR-2794 fail-closed (owner direction, PR #3076 review): a source-level problem in the
+  // MANAGED (highest-trust) tier does not stay purely informational — it blocks every name that
+  // would otherwise resolve from ANY tier, because an unreadable managed policy might have defined
+  // that exact name and there is no way to tell "managed defines nothing" from "managed defines
+  // this and we cannot see it." ADR-005 already refuses to let a broken managed WINNER fall through
+  // to a plugin; this extends the same refusal to a managed source that produced no winner at all.
+  it('blocks a lower-trust entry that would otherwise resolve while the managed source is entirely unreadable', () => {
     const { entries, sourceProblems } = resolveByPrecedence(
       [
         source('user', { alpha: http('https://user.example') }),
@@ -186,9 +195,6 @@ describe('resolveByPrecedence', () => {
       noTemplates,
     );
 
-    expect(entries).toHaveLength(1);
-    expect(entries[0]!.name).toBe('alpha');
-    expect(entries[0]!.source).toBe('user');
     expect(sourceProblems).toEqual([
       {
         name: '',
@@ -197,6 +203,73 @@ describe('resolveByPrecedence', () => {
         reason: '`mcpServers` is not an object',
       },
     ]);
+
+    expect(entries).toHaveLength(1);
+    const alpha = entries[0]!;
+    expect(alpha.name).toBe('alpha');
+    expect(alpha.source).toBe('user');
+    // Blocked, not activated — the user-defined server never becomes usable while managed is broken.
+    expect(alpha.status).toBe('unresolved');
+    expect(alpha.definition).toBeUndefined();
+    // Value-free: names the managed source and its problem, never anything from the blocked entry.
+    expect(alpha.problem?.reason).toContain('managed');
+    expect(alpha.problem?.reason).toContain('policy.json');
+    expect(alpha.problem?.reason).toContain('`mcpServers` is not an object');
+  });
+
+  it('leaves a name already resolved from a different, readable managed origin unaffected', () => {
+    // Two managed-scope sources: `policy.json` resolves `alpha` cleanly; `policy-2.json` is entirely
+    // unreadable. The broken origin contributed zero definitions (it never even reached `alpha`), so
+    // there is no ambiguity left for `alpha` specifically to fail closed over.
+    const { entries, sourceProblems } = resolveByPrecedence(
+      [
+        source('managed', { alpha: http('https://managed.example') }, 'policy.json'),
+        {
+          source: 'managed',
+          origin: 'policy-2.json',
+          ...decodeSource('not an object', 'managed', 'policy-2.json'),
+        },
+        source('user', { beta: http('https://user.example') }),
+      ],
+      noTemplates,
+    );
+
+    expect(sourceProblems).toHaveLength(1);
+    expect(sourceProblems[0]!.origin).toBe('policy-2.json');
+
+    const alpha = entries.find((entry) => entry.name === 'alpha');
+    expect(alpha?.status).toBe('resolved');
+    expect(alpha?.source).toBe('managed');
+    expect(alpha?.definition?.url).toBe('https://managed.example');
+
+    // `beta`, resolved from `user` (a lower tier than the broken managed origin), IS blocked.
+    const beta = entries.find((entry) => entry.name === 'beta');
+    expect(beta?.status).toBe('unresolved');
+  });
+
+  it('only the managed tier triggers the block — a non-managed source problem stays informational', () => {
+    // The BROKEN source here is `project`, not `managed`: a broken lower-trust source can never hide
+    // a higher-trust one, so `user` must resolve exactly as if the broken project source were absent.
+    const { entries, sourceProblems } = resolveByPrecedence(
+      [
+        source('user', { alpha: http('https://user.example') }),
+        {
+          source: 'project',
+          origin: '.mcp.json',
+          ...decodeSource({ mcpServers: 'not an object' }, 'project', '.mcp.json'),
+        },
+      ],
+      noTemplates,
+    );
+
+    expect(sourceProblems).toHaveLength(1);
+    expect(sourceProblems[0]!.source).toBe('project');
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.name).toBe('alpha');
+    expect(entries[0]!.source).toBe('user');
+    expect(entries[0]!.status).toBe('resolved');
+    expect(entries[0]!.definition?.url).toBe('https://user.example');
   });
 
   it('collects every source-scoped problem across sources, none shadowing or being shadowed', () => {

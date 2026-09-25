@@ -12,6 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   WorkspaceTrustService,
+  createNodeHostSettingsSource,
   createRestrictedWorkspaceProjectAccess,
   createWorkspaceProjectSettingsSources,
   getWorkspaceProjectReader,
@@ -198,7 +199,9 @@ describe('composeMcpClientForStartup', () => {
 
   // BEHAVIOR-2794 (issue #2794 / #3073): an unreadable source (here, a user-layer `mcpServers` that
   // is not an object) must still surface through the LIVE `/mcp` port — not only as a one-time
-  // startup diagnostic — while a lower-precedence, well-formed layer still resolves normally.
+  // startup diagnostic. `user` is NOT the managed tier, so this is the purely-informational case: a
+  // higher-precedence, well-formed layer (`project`) still resolves normally. The managed-tier
+  // fail-closed case is exercised separately below.
   it('surfaces an unreadable source through activationAdapter.sourceProblems, beside a resolved server', async () => {
     const cwd = tempRoot('robota-mcp-startup-unreadable-');
     const userHome = tempRoot('robota-mcp-startup-unreadable-user-');
@@ -238,6 +241,54 @@ describe('composeMcpClientForStartup', () => {
     expect(sourceProblems).toHaveLength(1);
     expect(sourceProblems[0]).toMatchObject({
       source: 'user',
+      reason: '`mcpServers` is not an object',
+    });
+  });
+
+  // BEHAVIOR-2794 fail-closed (owner direction, PR #3076 review): when the MANAGED tier specifically
+  // is entirely unreadable, `list()` must NOT show a project-defined server as active — end to end,
+  // through the exact port `/mcp status` reads (`ICommandMCPActivationAdapter`) — while
+  // `sourceProblems()` still names the managed source. `user`-tier unreadability (the test above)
+  // does not have this effect; only the highest-trust tier does.
+  it('blocks a project-source server end to end when the managed tier is entirely unreadable', async () => {
+    const managedRoot = tempRoot('robota-mcp-startup-managed-unreadable-');
+    const projectRoot = tempRoot('robota-mcp-startup-managed-unreadable-project-');
+    const managedPath = join(managedRoot, 'managed-policy.json');
+    writeFileSync(managedPath, JSON.stringify({ mcpServers: 'not an object' }));
+    mkdirSync(join(projectRoot, '.robota'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, '.robota', 'settings.json'),
+      JSON.stringify({
+        mcpServers: { weather: { type: 'http', url: 'https://mcp.example.com/weather' } },
+      }),
+    );
+
+    const { reportDiagnostic } = diagnosticsSink();
+
+    const mcp = await composeMcpClientForStartup({
+      settingsSources: [
+        createNodeHostSettingsSource('managed', managedPath),
+        ...(await trustedProjectSettingsSources(projectRoot)),
+      ],
+      projectAccess: await trustedAccessFor(projectRoot),
+      cwd: projectRoot,
+      env: process.env,
+      mode: 'interactive',
+      reportDiagnostic,
+      inspectTrust: async () => ({ state: 'trusted', generation: 1 }),
+    });
+
+    const list = mcp.activationAdapter.list();
+    const weather = list.find((summary) => summary.serverId === 'weather');
+    // `weather` never became an activation candidate at all: `resolveByPrecedence` marked it
+    // `unresolved` (blocked), so `MCPDefinitionRegistry.list()` — which only offers `resolved`,
+    // enabled entries — never includes it.
+    expect(weather).toBeUndefined();
+
+    const sourceProblems = mcp.activationAdapter.sourceProblems?.() ?? [];
+    expect(sourceProblems).toHaveLength(1);
+    expect(sourceProblems[0]).toMatchObject({
+      source: 'managed',
       reason: '`mcpServers` is not an object',
     });
   });

@@ -8,7 +8,9 @@
 
 import { describe, expect, it } from 'vitest';
 
+import { decodeSource } from '../definition/decode.js';
 import { applyDisableOverlay } from '../definition/overlay.js';
+import { resolveByPrecedence } from '../definition/precedence.js';
 import { MCPDefinitionRegistry } from '../definition/registry.js';
 import { getServer, listServers, statusOf } from '../management/results.js';
 import { MCPActivationController } from '../mcp-activation-controller.js';
@@ -107,6 +109,50 @@ describe('listServers / getServer / statusOf', () => {
     const status = statusOf(entries, sourceProblems);
     expect(status.total).toBe(3);
     expect(status.sourceProblems).toEqual(sourceProblems);
+  });
+
+  // BEHAVIOR-2794 fail-closed, end to end within this package (owner direction, PR #3076 review):
+  // `resolveByPrecedence`'s output fed straight into `statusOf`/`listServers` shows BOTH the managed
+  // source problem AND the resulting blocked entry with its own value-free, referencing reason —
+  // "status/list show both the source problem and the blocked entries".
+  it('shows both the managed source problem and the blocked entry it produces', () => {
+    const { entries: precedenceEntries, sourceProblems } = resolveByPrecedence(
+      [
+        {
+          source: 'user',
+          origin: 'user.json',
+          ...decodeSource(
+            { mcpServers: { alpha: { type: 'http', url: 'https://user.example' } } },
+            'user',
+            'user.json',
+          ),
+        },
+        {
+          source: 'managed',
+          origin: 'policy.json',
+          ...decodeSource('not an object', 'managed', 'policy.json'),
+        },
+      ],
+      (definition) => ({ ...definition, unsetVariables: [] }),
+    );
+
+    expect(sourceProblems).toHaveLength(1);
+    expect(sourceProblems[0]?.source).toBe('managed');
+
+    const status = statusOf(precedenceEntries, sourceProblems);
+    expect(status.sourceProblems).toEqual(sourceProblems);
+    expect(status.unresolved).toBe(1);
+    const alpha = status.servers.find((server) => server.name === 'alpha');
+    expect(alpha?.status).toBe('unresolved');
+    expect(alpha?.problem).toContain('managed');
+    expect(alpha?.problem).toContain('policy.json');
+
+    const { sourceProblems: listedProblems, servers } = listServers(
+      precedenceEntries,
+      sourceProblems,
+    );
+    expect(listedProblems).toEqual(sourceProblems);
+    expect(servers.find((server) => server.name === 'alpha')?.status).toBe('unresolved');
   });
 });
 

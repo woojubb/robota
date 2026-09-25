@@ -1,7 +1,7 @@
 /**
  * Whole-entry precedence resolution (MCP-001).
  *
- * Two properties carry the weight here, and both are ADR-005's:
+ * Three properties carry the weight here, and all three are ADR-005's:
  *
  * 1. **Entries are never field-merged.** The winning source supplies the whole definition. Merging
  *    would let a lower-trust source contribute a field — an extra header, a different `command` —
@@ -10,6 +10,15 @@
  *    decoded, the name resolves to `unresolved`; it does NOT fall through to the next source. Fall-
  *    through would mean a broken managed policy silently hands the name to a plugin — failing open
  *    in exactly the case where the operator most needs it to fail closed.
+ * 3. **A source-level failure in the managed tier blocks every LOWER tier, not just names managed
+ *    also declares.** When the managed source could not be read AT ALL (issue #2794's
+ *    `sourceProblems`), there is no way to tell "managed defines nothing" from "managed defines this
+ *    exact name and we cannot see it" — so a name that would otherwise resolve from local, project,
+ *    user or plugin is blocked instead. A name that already resolved from a DIFFERENT, readable
+ *    managed origin is unaffected (a broken source-level origin contributes zero definitions, so it
+ *    cannot be the thing that actually won). A source-level failure in any OTHER tier carries no
+ *    such ambiguity for a higher-trust source and stays informational: everything else still
+ *    resolves.
  */
 
 import type {
@@ -67,9 +76,14 @@ function rankOf(source: TMCPDefinitionSource): number {
  * server-level entry carries — one type, one scope field distinguishes them — but it cannot become
  * an `IMCPResolvedEntry` because that shape is keyed by server name. `sourceProblems` is that
  * problem's carrier: without it, an entirely unreadable managed policy (config root not an object,
- * no `mcpServers`, `mcpServers` not an object) vanished here with a `continue` and reached
- * `statusOf`/`listServers` as if nothing had gone wrong (issue #2794) — the highest-trust source
- * failing open in exactly the case where the operator most needs it to fail closed.
+ * no `mcpServers`, `mcpServers` not an object) vanished with a `continue` and reached
+ * `statusOf`/`listServers` as if nothing had gone wrong (issue #2794).
+ *
+ * A source problem in the HIGHEST-precedence tier (`MCP_SOURCE_PRECEDENCE[0]`, `managed`) also
+ * changes `entries`, not just `sourceProblems`: every name that would otherwise resolve from a
+ * LOWER-trust source is blocked instead (see `resolveByPrecedence`'s doc). A source problem in any
+ * other tier is purely informational — it sits beside `entries`, and every other source still
+ * resolves exactly as if it were absent.
  */
 export interface IMCPPrecedenceResult {
   readonly entries: readonly IMCPResolvedEntry[];
@@ -145,8 +159,45 @@ export function resolveByPrecedence(
     });
   }
 
-  return {
-    entries: entries.sort((a, b) => a.name.localeCompare(b.name)),
-    sourceProblems,
-  };
+  const sorted = entries.sort((a, b) => a.name.localeCompare(b.name));
+
+  // Fail closed on the managed tier (ADR-005, extended by issue #2794): while the highest-precedence
+  // source could not be read at all, a name that resolved from a LOWER tier must not activate,
+  // because the unreadable managed source might have defined that exact name and there is no way to
+  // tell. Only `MCP_SOURCE_PRECEDENCE[0]` triggers this; a source problem anywhere else stays
+  // informational (`sourceProblems` alone), because a broken LOWER-trust source can never hide a
+  // HIGHER-trust one.
+  //
+  // An entry that ALREADY resolved from the managed tier itself (from a different, READABLE managed
+  // origin than the broken one) is left alone: a source-level problem means that origin contributed
+  // ZERO definitions (`decodeSource`'s contract — the whole container failed, not one entry), so it
+  // cannot be the thing that actually won this name, and there is no ambiguity left to fail closed
+  // over for a name managed already answered.
+  const managedTier = MCP_SOURCE_PRECEDENCE[0];
+  const blockingProblem = sourceProblems.find((problem) => problem.source === managedTier);
+  if (blockingProblem === undefined) {
+    return { entries: sorted, sourceProblems };
+  }
+
+  const blocked = sorted.map((entry): IMCPResolvedEntry => {
+    if (entry.status !== 'resolved' || entry.source === managedTier) return entry;
+    return {
+      name: entry.name,
+      source: entry.source,
+      origin: entry.origin,
+      status: 'unresolved',
+      problem: {
+        name: entry.name,
+        source: entry.source,
+        origin: entry.origin,
+        reason:
+          `blocked: the ${managedTier} source (${blockingProblem.origin}) could not be read ` +
+          `(${blockingProblem.reason}), so a lower-trust definition cannot be trusted to be the ` +
+          'real winner',
+      },
+      shadowed: entry.shadowed,
+    };
+  });
+
+  return { entries: blocked, sourceProblems };
 }
