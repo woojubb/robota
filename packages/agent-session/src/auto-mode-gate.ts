@@ -87,7 +87,8 @@ export class AutoModeGate {
       verdict = undefined;
     }
     if (verdict === undefined) {
-      this.consecutive += 1;
+      // A turn the user cancelled is not the classifier failing to answer.
+      if (signal?.aborted !== true) this.consecutive += 1;
       const pause = this.consecutive >= CONSECUTIVE_BLOCK_LIMIT;
       if (pause) this.paused = true;
       return {

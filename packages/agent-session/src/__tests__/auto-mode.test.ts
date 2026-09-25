@@ -119,6 +119,14 @@ describe('AutoModeGate', () => {
     expect((await gate.judge(call)).kind).toBe('unusable');
     expect(gate.isPaused()).toBe(true);
   });
+  it('a cancelled turn does not count toward a pause', async () => {
+    const controller = new AbortController();
+    controller.abort();
+    const gate = new AutoModeGate({ classify: vi.fn().mockRejectedValue(new Error('aborted')) });
+    const call = { toolName: 'Bash', toolArgs: { command: 'x' }, cwd: '/w' };
+    for (let i = 0; i < CONSECUTIVE_BLOCK_LIMIT; i++) await gate.judge(call, controller.signal);
+    expect(gate.isPaused()).toBe(false);
+  });
 });
 
 describe('PermissionEnforcer in auto mode', () => {
