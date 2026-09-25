@@ -23,7 +23,11 @@ export type {
   TPeerTrust,
   TWorkspaceRelation,
 } from './peer-message-contracts.js';
-export { isSameEnvironmentPeer, isTerminalPeerDelivery } from './peer-message-contracts.js';
+export {
+  isSameEnvironmentPeer,
+  isTerminalPeerDelivery,
+  peerReachOf,
+} from './peer-message-contracts.js';
 
 // ── handoff-contracts ──
 export type {

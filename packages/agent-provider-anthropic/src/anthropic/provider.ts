@@ -144,7 +144,7 @@ export class AnthropicProvider extends AbstractAIProvider {
     const projectedTools = this.projectTools(resolvedOptions?.tools, resolvedOptions.model);
     const functionTools = projectedTools ? convertToolsToAnthropicFormat(projectedTools) : [];
     const serverTools: Anthropic.Messages.ToolUnion[] =
-      this.enableWebTools && resolvedOptions.toolChoice !== 'none'
+      this.includesServerWebSearch(resolvedOptions)
         ? [{ type: 'web_search_20250305' as const, name: 'web_search' }]
         : [];
     const allTools: Anthropic.Messages.ToolUnion[] = [...functionTools, ...serverTools];
@@ -242,7 +242,7 @@ export class AnthropicProvider extends AbstractAIProvider {
     const projectedTools = this.projectTools(resolvedOptions.tools, resolvedOptions.model);
     const functionTools = projectedTools ? convertToolsToAnthropicFormat(projectedTools) : [];
     const serverTools: Anthropic.Messages.ToolUnion[] =
-      this.enableWebTools && resolvedOptions.toolChoice !== 'none'
+      this.includesServerWebSearch(resolvedOptions)
         ? [{ type: 'web_search_20250305' as const, name: 'web_search' }]
         : [];
     const allTools: Anthropic.Messages.ToolUnion[] = [...functionTools, ...serverTools];
@@ -376,6 +376,18 @@ export class AnthropicProvider extends AbstractAIProvider {
 
   override getCapabilities(): IProviderCapabilities {
     return anthropicProviderCapabilities(this.enableWebTools);
+  }
+
+  /**
+   * Server web search rides along on a request that may use tools, unless the request withholds it:
+   * a caller whose tools a policy restricts cannot let a server tool the policy never sees through.
+   */
+  private includesServerWebSearch(options: IChatOptions | undefined): boolean {
+    return (
+      this.enableWebTools &&
+      options?.toolChoice !== 'none' &&
+      options?.nativeWebTools?.webSearch !== false
+    );
   }
 
   configureNativeWebTools(request: IProviderNativeWebToolRequest): IProviderCapabilities {

@@ -61,6 +61,11 @@ export interface IPermissionEnforcerOptions {
    * lets it run without a prompt.
    */
   commandSandbox?: ICommandSandboxApproval;
+  /**
+   * The operator enabled write and execute tools for turns driven by a peer on this host. Every such
+   * use still asks. Absent or false: a peer turn only reads.
+   */
+  allowPeerChanges?: boolean;
   /** Where `~` and `$HOME` point for critical-path removal checks. Defaults to the OS home directory. */
   homeDirectory?: string;
   /**

@@ -191,12 +191,15 @@ export class Session extends SessionBase {
     const controller = this.turnClaim.claim(); // Synchronously, before any await.
     const unlink = linkCancellation(controller, options?.signal);
     const { signal } = controller;
+    // The turn's origin is an input to every permission decision it makes, for this turn only.
+    this.permissionEnforcer.beginTurn(options?.peerReach);
     try {
       signal.throwIfAborted();
       const response = await executeRun(message, rawInput, this.buildRunContext(), signal, options);
       this.messageCount += 1;
       return response;
     } finally {
+      this.permissionEnforcer.endTurn();
       unlink();
       this.turnClaim.release(controller);
     }

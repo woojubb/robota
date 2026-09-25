@@ -262,6 +262,8 @@ export async function createSession(
     ...(options.sandboxClient?.autoApproves !== undefined
       ? { commandSandbox: sandboxApprovalFor(options.sandboxClient) }
       : {}),
+    // A peer turn only reads unless the operator enabled changes; then every change still asks.
+    ...(options.config.peers?.allowChanges === true ? { allowPeerChanges: true } : {}),
     // Issue #3082: `auto` mode asks the session's own model; an organization can turn the mode off.
     ...(options.disableAutoMode === true
       ? {}

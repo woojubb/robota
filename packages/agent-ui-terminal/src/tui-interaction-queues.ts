@@ -12,6 +12,7 @@ interface IPermissionQueueEntry {
   toolName: string;
   toolArgs: TToolArgs;
   canPersistProjectPermission?: boolean;
+  requestedByPeer?: string;
   resolve: (result: TPermissionResultValue) => void;
   id?: string;
 }
@@ -94,6 +95,7 @@ export class TuiPermissionQueue {
     toolArgs: TToolArgs,
     id?: string,
     canPersistProjectPermission?: boolean,
+    requestedByPeer?: string,
   ): Promise<TPermissionResultValue> {
     return new Promise<TPermissionResultValue>((resolve) => {
       this.entries.push({
@@ -102,6 +104,7 @@ export class TuiPermissionQueue {
         resolve,
         ...(id !== undefined ? { id } : {}),
         ...(canPersistProjectPermission !== undefined ? { canPersistProjectPermission } : {}),
+        ...(requestedByPeer !== undefined ? { requestedByPeer } : {}),
       });
       this.processNext();
     });
@@ -145,6 +148,7 @@ export class TuiPermissionQueue {
       ...(next.canPersistProjectPermission !== undefined
         ? { canPersistProjectPermission: next.canPersistProjectPermission }
         : {}),
+      ...(next.requestedByPeer !== undefined ? { requestedByPeer: next.requestedByPeer } : {}),
       resolve: (result) => {
         if (this.entries[0] !== next) return;
         this.entries.shift();

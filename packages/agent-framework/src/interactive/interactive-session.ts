@@ -552,6 +552,15 @@ export class InteractiveSession
       commandDescriptors: this.skillRouter.commandExecutor.listModelInvocableCommands(),
       commandSemanticRoles: this.skillRouter.commandExecutor.getSemanticRoles(),
       setEditCheckpointStore: (store) => this.histTracker.setEditCheckpointStore(store),
+      // The reply answers the turn in progress, over whatever carrier the host attached by then.
+      peerReply: {
+        activeTurn: () => this.execCtrl.activePeerTurn,
+        sender: () => {
+          const peers = this.getCommandHostAdapters().localPeers;
+          const send = peers?.send;
+          return send === undefined ? undefined : (...args) => send.apply(peers, args);
+        },
+      },
     });
     this.session = result.session;
     this.agentsFileEntries = result.agentsFileEntries;

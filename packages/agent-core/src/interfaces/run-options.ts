@@ -33,6 +33,12 @@ export interface IRunOptions {
    * rounds after tool results revert to `'auto'` (see `TToolChoice`).
    */
   toolChoice?: TToolChoice;
+  /**
+   * Leave a provider's own hosted tools (a vendor-run web search) out of this run's requests. They
+   * run at the vendor and never pass the permission gate, so a run whose tools a policy restricts
+   * must not reach them.
+   */
+  withholdHostedTools?: boolean;
   sessionId?: string;
   userId?: string;
   /**

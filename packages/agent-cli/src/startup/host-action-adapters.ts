@@ -11,6 +11,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { PeerMessageIngress } from '@robota-sdk/agent-framework';
+import { peerReachOf } from '@robota-sdk/agent-interface-session-mobility';
 
 import { announceLocalPeerPresence } from '../remote-control/local-peer-presence.js';
 import { bindLocalPeerStatus } from '../remote-control/local-peer-status.js';
@@ -18,7 +19,8 @@ import { startLocalPeerMessaging } from '../remote-control/local-peer-messaging.
 
 import type { ILocalPeerPresence } from '../remote-control/local-peer-presence.js';
 import type { IPeerMessaging } from '../remote-control/local-peer-messaging.js';
-import type { ITurnHandle } from '@robota-sdk/agent-interface-session';
+import type { IPeerTurnContext, ITurnHandle } from '@robota-sdk/agent-interface-session';
+import type { IPeerMessageIngress } from '@robota-sdk/agent-interface-session-mobility';
 
 /** The one session operation peer messaging needs — narrow, so this file cannot grow a second one. */
 interface IPeerIngressSession {
@@ -30,6 +32,7 @@ interface IPeerIngressSession {
       turnSource: 'peer';
       driverId?: string;
       onAccepted?: (handle: ITurnHandle) => void;
+      peer?: IPeerTurnContext;
     },
   ): Promise<ITurnHandle>;
 }
@@ -195,21 +198,31 @@ function startMessaging(
     list: () => presence.list(),
     relate: async (sessionId) => (await presence.relate(sessionId))?.relation,
     report: (message) => report.writeError(message),
-    ingress: new PeerMessageIngress({
-      // The driver id is NOT taken from the arriving message: the messaging leaf derives it from the
-      // sender's session id before this is reached, and issue #1809 fixed that a peer must not pick
-      // the name a transcript's reader trusts.
-      submit: (input, origin, onAccepted) =>
-        getSession().submit(input, undefined, undefined, {
-          turnSource: 'peer',
-          ...(origin.driverId !== undefined ? { driverId: origin.driverId } : {}),
-          onAccepted,
-        }),
-    }),
+    // One ingress per message, so the turn it submits carries THAT message's context: where its
+    // sender runs (from admission, never from the message) and where an answer to it goes.
+    ingress: {
+      receive: (incoming: IPeerMessageIngress) =>
+        new PeerMessageIngress({
+          // The driver id is NOT taken from the arriving message: the messaging leaf derives it from
+          // the sender's session id before this is reached, and issue #1809 fixed that a peer must
+          // not pick the name a transcript's reader trusts.
+          submit: (input, origin, onAccepted) =>
+            getSession().submit(input, undefined, undefined, {
+              turnSource: 'peer',
+              ...(origin.driverId !== undefined ? { driverId: origin.driverId } : {}),
+              onAccepted,
+              peer: {
+                reach: peerReachOf(incoming.admission),
+                messageId: incoming.message.id,
+                replyTo: origin.sessionId,
+              },
+            }),
+        }).receive(incoming),
+    },
   }).then(
     (messaging) => {
-      adapter.send = async (targetSessionId, text) => {
-        const ack = await messaging.send(targetSessionId, text);
+      adapter.send = async (targetSessionId, text, options) => {
+        const ack = await messaging.send(targetSessionId, text, options);
         return { state: ack.state, ...(ack.reason !== undefined ? { reason: ack.reason } : {}) };
       };
       return messaging;
