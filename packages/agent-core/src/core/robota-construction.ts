@@ -34,6 +34,7 @@ export function createConfiguredTools(readConfig: () => IAgentConfig): Tools {
       const config = readConfig();
       return resolveToolSearchMode(config, config.defaultModel.model, tools.getTools());
     },
+    isToolVisible: (toolName) => readConfig().isToolVisible?.(toolName) ?? true,
   });
   return tools;
 }

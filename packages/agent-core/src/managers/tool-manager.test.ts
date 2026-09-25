@@ -255,3 +255,27 @@ describe('Tools (ToolManager)', () => {
     });
   });
 });
+
+describe('Tools visibility (issue #3081)', () => {
+  const schema = (name: string): IToolSchema => ({
+    name,
+    description: `${name} tool`,
+    parameters: { type: 'object', properties: {} },
+  });
+
+  it('withholds a hidden tool from the offered set, read live on every call', async () => {
+    const hidden = new Set(['Bash']);
+    const manager = new Tools({
+      resolveToolSearchMode: () => 'off',
+      isToolVisible: (name) => !hidden.has(name),
+    });
+    await manager.initialize();
+    manager.addTool(schema('Read'), async () => 'ok');
+    manager.addTool(schema('Bash'), async () => 'ok');
+
+    expect(manager.getOfferedTools().map((tool) => tool.name)).toEqual(['Read']);
+    hidden.clear();
+    expect(manager.getOfferedTools().map((tool) => tool.name)).toEqual(['Read', 'Bash']);
+    await manager.dispose();
+  });
+});

@@ -24,6 +24,8 @@ import type { TUniversalValue } from '../interfaces/types';
  */
 export interface IToolManagerOptions {
   resolveToolSearchMode: () => TToolSearchMode;
+  /** Whether a registered tool is shown to the model. Read on every call; absent → all are. */
+  isToolVisible?: (toolName: string) => boolean;
 }
 
 /**
@@ -36,6 +38,7 @@ export class Tools extends AbstractManager implements IToolManager {
   private registry: ToolRegistry;
   private allowedTools?: string[];
   private readonly resolveToolSearchMode: () => TToolSearchMode;
+  private readonly isToolVisible: (toolName: string) => boolean;
   /** Deferred tools loaded so far this session — by the search tool, or by a forcing `toolChoice`. */
   private readonly loadedDeferredTools = new Set<string>();
 
@@ -46,6 +49,7 @@ export class Tools extends AbstractManager implements IToolManager {
     super({ readyOnConstruction: true });
     this.registry = new ToolRegistry();
     this.resolveToolSearchMode = options.resolveToolSearchMode;
+    this.isToolVisible = options.isToolVisible ?? (() => true);
   }
 
   /**
@@ -108,7 +112,9 @@ export class Tools extends AbstractManager implements IToolManager {
   getTools(): IToolSchema[] {
     this.ensureInitialized();
 
-    const schemas = this.registry.getSchemas();
+    const schemas = this.registry
+      .getSchemas()
+      .filter((schema) => this.isToolVisible(schema.name));
 
     // Filter by allowed tools if set
     if (this.allowedTools) {
