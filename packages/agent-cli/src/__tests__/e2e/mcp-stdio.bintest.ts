@@ -239,7 +239,7 @@ describe('robota mcp serve built binary', () => {
         FIXTURE,
         '--no-session-persistence',
         '--denied-tools',
-        'Bash',
+        'Shell',
       ],
       cwd,
       env: { HOME: home, PATH: process.env['PATH'] ?? '' },
@@ -254,17 +254,18 @@ describe('robota mcp serve built binary', () => {
       await client.connect(transport);
       const names = (await client.listTools()).tools.map((tool) => tool.name);
       expect(names).toContain('Read');
-      expect(names).toContain('Bash');
       expect(names).toContain('robota_submit');
+      // A tool denied outright by name is withheld from the catalog, not listed and refused.
+      expect(names).not.toContain('Shell');
       const allowed = await client.callTool({
         name: 'Read',
         arguments: { filePath: join(cwd, 'message.txt') },
       });
       expect(allowed.isError).not.toBe(true);
       expect(JSON.stringify(allowed)).toContain('MCP_STDIO_OK');
-      const denied = await client.callTool({ name: 'Bash', arguments: { command: 'true' } });
+      const denied = await client.callTool({ name: 'Shell', arguments: { command: 'true' } });
       expect(denied.isError).toBe(true);
-      expect(JSON.stringify(denied)).toMatch(/denied|permission/i);
+      expect(JSON.stringify(denied)).toContain('Unknown tool: Shell');
       expect(diagnostics).not.toMatch(/MCP_STDIO_OK/);
     } finally {
       await client.close();
