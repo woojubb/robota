@@ -6,6 +6,7 @@
  * plus the abstract accessors declared here.
  */
 
+import { readSessionUsageRecords } from '../command-api/session/session-usage.js';
 import {
   listAgentDefinitionsFromSession,
   listAgentJobsFromSession,
@@ -23,6 +24,7 @@ import {
 } from './interactive-session-workspace.js';
 import { validateWorkspaceSessionReplayLog as validateReplay } from './workspace-session-replay-validation.js';
 
+import type { ISessionUsageRecord } from '../command-api/session/session-usage.js';
 import type { SessionBackgroundTaskTracker } from './interactive-session-background-tracker.js';
 import type { SessionExecutionController } from './interactive-session-execution-controller.js';
 import type { SessionHistoryTracker } from './interactive-session-history-tracker.js';
@@ -124,6 +126,9 @@ export abstract class InteractiveSessionBase {
   async executeModelCommand(name: string, args: string): Promise<ICommandResult | null> {
     await this.ensureInitialized();
     return this.skillRouter.executeModelCommand(name, args);
+  }
+  getSessionUsage(): readonly ISessionUsageRecord[] {
+    return readSessionUsageRecords(this.histTracker.getHistory());
   }
   /** ARCH-029 TC-08: one replay-validation path with no fallback branch. */
   validateCurrentSessionReplayLog(): ICommandSessionReplayValidationReport {

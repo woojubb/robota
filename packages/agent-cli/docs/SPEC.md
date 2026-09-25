@@ -241,7 +241,7 @@ boundary, so the process binds a non-loopback address only as a remote resource 
 access tokens are verified against the configured issuer, and never with the token file. Its
 refusal audit goes to stderr as a reason and an address class, never token text.
 
-### Memory, screen-reader, theme, and prompt-history enablement
+### Memory, screen-reader, theme, prompt-history, and advisor enablement
 
 Each of these product surfaces is **opt-in and resolved by the CLI**, not the library it configures
 (library neutrality) — precedence order and defaults for each are non-obvious and stated
@@ -264,6 +264,11 @@ here because the reasoning differs between them:
   and this is a shell-history analogue). Precedence: `settings.json` `promptHistory: false` ←
   `ROBOTA_PROMPT_HISTORY` env (**env wins**, same direction as memory — a machine-level policy).
   TUI only; print/serve receive no writer.
+- **Advisor:** default OFF. Precedence: `settings.json` `advisorModel` ← `--advisor` flag (**flag
+  wins**, a per-run choice like the screen-reader flag), and `ROBOTA_DISABLE_ADVISOR` above both as a
+  kill switch nothing inside a session can undo — it is how an operator guarantees that conversation
+  history is not sent to a second model. Per-destination consent lives in the user settings file, so
+  it is asked once per destination rather than once per session.
 - **Theme registry:** one registry is built per run and handed to both the `/theme`
   command and the renderer, so a listing and a switch can never disagree about which themes exist. A
   run that renders no terminal UI gets no registry and reads no theme file at all. Appearance is

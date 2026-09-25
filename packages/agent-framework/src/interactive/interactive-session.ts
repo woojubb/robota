@@ -542,6 +542,9 @@ export class InteractiveSession
       onTextDelta: (delta) => this.execCtrl.handleTextDelta(delta),
       onContextUpdate: (state) => this.emit('context_update', state),
       onCompactEvent: (event) => this.execCtrl.handleCompactEvent(event),
+      onUsageRecorded: (entries) => {
+        for (const entry of entries) this.histTracker.append(entry);
+      },
       onToolExecution: (event) => this.execCtrl.handleToolExecution(event),
       executeModelCommand: (command, args) => this.executeModelCommand(command, args),
       isModelCommandInvocable: (command) =>

@@ -19,6 +19,7 @@ import { formatDeferredToolRoster } from './deferred-tool-roster.js';
 import { createModelPermissionClassifier } from './model-permission-classifier.js';
 import { assembleSubagentPrompt } from './subagent-prompts.js';
 import { unwrapToolCallHandoff } from './tool-call-handoff.js';
+import { bindAdvisorTools, sessionAdvisorAccess } from '../advisor/advisor-tool.js';
 import { resolveRoleFallbackChain } from '../routing/role-model-routing.js';
 import { createProviderSafeModelCommandToolName } from '../tools/model-command-tool-projection.js';
 
@@ -236,11 +237,16 @@ export function createSubagentSession(options: ISubagentOptions): Session {
   const { agentDefinition, parentConfig, parentContext, parentTools, terminal } = options;
 
   // Filter tools based on agent definition constraints
-  const tools = filterTools(
-    parentTools,
-    agentDefinition,
-    options.commandSemanticRoles?.subagentSpawn,
-    options.modelCommandToolPrefix,
+  // An inherited Advisor tool is rebound so it reads this subagent's conversation, not the parent's.
+  let childSession: Session | undefined;
+  const tools = bindAdvisorTools(
+    filterTools(
+      parentTools,
+      agentDefinition,
+      options.commandSemanticRoles?.subagentSpawn,
+      options.modelCommandToolPrefix,
+    ),
+    () => (childSession === undefined ? undefined : sessionAdvisorAccess(childSession)),
   );
 
   carryResidencyContract(tools, parentTools);
@@ -271,7 +277,7 @@ export function createSubagentSession(options: ISubagentOptions): Session {
 
   const provider = options.provider;
 
-  return new Session({
+  childSession = new Session({
     tools,
     provider,
     systemMessage,
@@ -312,4 +318,5 @@ export function createSubagentSession(options: ISubagentOptions): Session {
     onTextDelta: options.onTextDelta,
     onToolExecution: options.onToolExecution,
   });
+  return childSession;
 }

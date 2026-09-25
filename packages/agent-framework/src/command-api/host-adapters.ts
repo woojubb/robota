@@ -4,6 +4,7 @@ import type { ICommandSessionModel } from './session-roles.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IInteractiveSessionRecord } from '../interactive/session-persistence.js';
 import type { IModelEffortResolution, TEffortSelection } from '../effort/effort-resolution.js';
+import type { ICommandAdvisorAdapter } from '../advisor/advisor-spec.js';
 import type { TPermissionMode, TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
 import type { IPermissionDenial } from '@robota-sdk/agent-session';
 
@@ -374,6 +375,8 @@ export interface ICommandCostBudgetAdapter {
 export interface ICommandHostAdapters {
   settings?: ICommandSettingsAdapter;
   effort?: ICommandEffortAdapter;
+  /** The live advisor: `/advisor` changes its target without touching the session's tools. */
+  advisor?: ICommandAdvisorAdapter;
   /** CMD-007 (issue #2058). Absent on a host with no budget storage — `/cost budget` then says so. */
   costBudget?: ICommandCostBudgetAdapter;
   process?: ICommandProcessAdapter;

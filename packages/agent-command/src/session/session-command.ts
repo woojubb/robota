@@ -19,6 +19,7 @@ import type {
   ICommandHostSessionAccess,
   ICommandHostUserInteraction,
   ICommandHostWorkspace,
+  ISessionUsageRecord,
 } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
@@ -104,14 +105,61 @@ function describeBudgetWriteFailure(error: unknown): string {
   return `Could not write the budget: ${error instanceof Error ? error.message : String(error)}`;
 }
 
+interface ICostTotals {
+  inputTokens: number;
+  outputTokens: number;
+  /** Absent when nothing could be priced. */
+  costUsd?: number;
+  /** Some usage could not be priced, so the cost is a lower bound. */
+  partial: boolean;
+  /** The models the cost was priced on. */
+  models: string[];
+}
+
+/**
+ * Total the session's usage records. A record priced on its own model (the advisor's) keeps that
+ * price; a main-thread record without one is priced on the session's model. A consulted model whose
+ * price is unknown is left unpriced rather than priced as the main model.
+ */
+function totalSessionUsage(
+  records: readonly ISessionUsageRecord[],
+  modelId: string | undefined,
+): ICostTotals | undefined {
+  if (records.length === 0) return undefined;
+  const totals: ICostTotals = { inputTokens: 0, outputTokens: 0, partial: false, models: [] };
+  const models = new Set<string>();
+  let cost = 0;
+  let priced = false;
+  for (const record of records) {
+    totals.inputTokens += record.promptTokens;
+    totals.outputTokens += record.completionTokens;
+    const consulted = record.source?.scope === 'tool';
+    const recordCost =
+      record.costUsd ??
+      (!consulted && modelId
+        ? calculateCost(modelId, record.promptTokens, record.completionTokens)
+        : undefined);
+    if (recordCost === undefined) {
+      totals.partial = true;
+      continue;
+    }
+    cost += recordCost;
+    priced = true;
+    models.add(consulted ? (record.source?.label ?? 'another model') : (modelId ?? 'main model'));
+  }
+  if (priced) totals.costUsd = cost;
+  totals.models = [...models];
+  return totals;
+}
+
 function buildCostOutput(context: TCostCommandContext): {
   lines: string[];
   data: Record<string, unknown>;
 } {
   const session = context.getSession();
   const sessionInfo = readCommandSessionInfo(context);
-  const tokenUsage = session.getSessionTokenUsage();
   const modelId = session.getModelId();
+  const totals = totalSessionUsage(context.getSessionUsage(), modelId);
   const lines: string[] = [
     `Session:  ${sessionInfo.sessionId}`,
     `Messages: ${sessionInfo.messageCount}`,
@@ -121,29 +169,32 @@ function buildCostOutput(context: TCostCommandContext): {
     messageCount: sessionInfo.messageCount,
   };
 
-  if (tokenUsage) {
+  if (totals) {
     lines.push(
-      `Tokens:   ${formatTokens(tokenUsage.inputTokens)} input  /  ${formatTokens(tokenUsage.outputTokens)} output`,
+      `Tokens:   ${formatTokens(totals.inputTokens)} input  /  ${formatTokens(totals.outputTokens)} output`,
     );
-    data.inputTokens = tokenUsage.inputTokens;
-    data.outputTokens = tokenUsage.outputTokens;
+    data.inputTokens = totals.inputTokens;
+    data.outputTokens = totals.outputTokens;
 
-    if (modelId) {
-      const cost = calculateCost(modelId, tokenUsage.inputTokens, tokenUsage.outputTokens);
-      if (cost !== undefined) {
-        lines.push(`Cost:     ${formatUsd(cost)}  (${modelId})`);
-        data.estimatedCostUsd = cost;
+    const cost = totals.costUsd;
+    if (cost !== undefined) {
+      const priced =
+        totals.models.length > 1 ? `mixed: ${totals.models.join(', ')}` : (totals.models[0] ?? '');
+      const note = totals.partial ? '; some usage could not be priced' : '';
+      lines.push(`Cost:     ${formatUsd(cost)}  (${priced}${note})`);
+      data.estimatedCostUsd = cost;
+      data.costModels = totals.models;
+      if (totals.partial) data.costPartial = true;
 
-        const budget = costBudgetAdapter(context)?.read();
-        if (budget?.monthly) {
-          const remaining = budget.monthly - cost;
-          const pct = Math.min(100, Math.round((cost / budget.monthly) * 100));
-          lines.push(
-            `Budget:   ${formatUsd(remaining)} remaining of ${formatUsd(budget.monthly)}/mo  (${pct}% used)`,
-          );
-          data.budgetMonthly = budget.monthly;
-          data.budgetRemainingUsd = remaining;
-        }
+      const budget = costBudgetAdapter(context)?.read();
+      if (budget?.monthly) {
+        const remaining = budget.monthly - cost;
+        const pct = Math.min(100, Math.round((cost / budget.monthly) * 100));
+        lines.push(
+          `Budget:   ${formatUsd(remaining)} remaining of ${formatUsd(budget.monthly)}/mo  (${pct}% used)`,
+        );
+        data.budgetMonthly = budget.monthly;
+        data.budgetRemainingUsd = remaining;
       }
     }
   } else {

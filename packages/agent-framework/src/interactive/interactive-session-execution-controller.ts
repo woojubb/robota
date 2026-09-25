@@ -40,6 +40,7 @@ import {
 import type { ITurnModelCall } from './interactive-session-usage-observation.js';
 import { TurnSettlerRegistry } from './turn-settler-registry.js';
 import { humanizeApiError } from '../utils/error-humanizer.js';
+import { advisorToolLineLabel } from '../advisor/advisor-tool.js';
 
 import type { IExecutionClaim } from './interactive-execution-claim.js';
 import type {
@@ -203,6 +204,9 @@ export class SessionExecutionController {
       this.callbacks,
       (activeTools) => void (this.activeTools = activeTools),
       event,
+      event.type === 'start'
+        ? advisorToolLineLabel(event.toolName, this.callbacks.getSession()?.getToolSchemas() ?? [])
+        : undefined,
     );
   }
 

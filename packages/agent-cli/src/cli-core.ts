@@ -97,6 +97,7 @@ import { runMcpServeMode } from './modes/mcp-serve-mode.js';
 import { resolveMcpHttpOptions } from './utils/mcp-http-args.js';
 import { reserveMcpStdout } from './modes/mcp-stdio-output.js';
 import { composeMcpClientForStartup } from './startup/mcp-startup.js';
+import { composeCliAdvisor } from './startup/advisor-composition.js';
 import { createMcpExternalEventHost } from './startup/mcp-external-event-host.js';
 import type { TMcpStartupMode } from './startup/mcp-startup.js';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
@@ -629,6 +630,23 @@ async function runCliCore(
     projectAccess: workspaceComposition.projectAccess,
   });
   if (mcp !== undefined) toolOptions.additionalTools.push(...(await mcp.connect()));
+  const advisor = composeCliAdvisor({
+    flag: args.advisor,
+    userSettings,
+    safeMode,
+    env: process.env,
+    orgPolicy,
+    settingsSources: [
+      ...workspaceComposition.settingsSources,
+      ...createRobotaUserSettingsSources(homedir()),
+    ],
+    providerDefinitions,
+    userSettingsPath: robotaUserSettingsPath(),
+    mainProvider: { provider, config: providerSettings },
+  });
+  commandHostAdapters.advisor = advisor.controller;
+  if (advisor.tool !== undefined) toolOptions.additionalTools.push(advisor.tool);
+  if (advisor.notice !== undefined) terminal.writeError(advisor.notice);
   // The session consults the same sandbox the shell tools run under, to let a confined command
   // skip the prompt when the settings say so.
   if (sandboxClient !== undefined) toolOptions.sandboxClient = sandboxClient;

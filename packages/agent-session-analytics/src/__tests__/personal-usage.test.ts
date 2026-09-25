@@ -40,6 +40,32 @@ describe('summarizePersonalUsage', () => {
     expect(report.totals.costStatus).toBe('estimated');
     expect(report.totals.costUsd).toBe(0.01);
   });
+  it('counts an advisor call as tokens and cost of its turn, not as a turn of its own', () => {
+    const usage = (tokens: number, costUsd: number) => ({
+      kind: 'exact', scope: 'turn', totalTokens: tokens, promptTokens: tokens, completionTokens: 0,
+      contextUsedTokens: 0, contextMaxTokens: 0, contextUsedPercentage: 0,
+      costStatus: 'estimated', costUsd,
+    });
+    const source = { scope: 'tool', id: 'advisor:big-model', label: 'Advisor (big-model)' };
+    const report = summarizePersonalUsage({
+      request: { period: '7d', timezone: 'UTC' },
+      now: new Date('2026-09-06T12:00:00.000Z'),
+      records: [record('s1', [
+        { id: 'e1', at: '2026-09-05T10:00:00.000Z', data: {
+          usageObservationId: 'turn-1', turnId: 'turn-1', outcome: 'success',
+          modelId: 'small-model', providerId: 'vendor-a', usage: usage(100, 0.01),
+        } },
+        { id: 'e2', at: '2026-09-05T10:00:30.000Z', data: {
+          usageObservationId: 'advisor_1', turnId: 'advisor_1', outcome: 'success',
+          modelId: 'big-model', providerId: 'vendor-b', source, usage: { ...usage(300, 0.05), source },
+        } },
+      ])],
+      corruptSessionIds: [], unsupportedSessionIds: [],
+    });
+    expect(report.totals).toMatchObject({ turns: 1, totalTokens: 400 });
+    expect(report.totals.costUsd).toBeCloseTo(0.06, 10);
+  });
+
   it('creates complete 7-day buckets and de-duplicates canonical observations', () => {
     const observation = {
       usageObservationId: 'obs-1',
