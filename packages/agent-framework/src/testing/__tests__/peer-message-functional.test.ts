@@ -165,19 +165,22 @@ describe('peer session-to-session messaging (framework functional)', () => {
           }),
       });
 
-      const received = ingress.receive(peerMessage('take your time'));
-      await gate.entered;
-      const beforeTurnEnds = await Promise.race([
-        received,
-        new Promise<'still waiting'>((resolve) => setTimeout(() => resolve('still waiting'), 50)),
-      ]);
-      gate.release();
+      try {
+        const received = ingress.receive(peerMessage('take your time'));
+        await gate.entered;
+        const beforeTurnEnds = await Promise.race([
+          received,
+          new Promise<'still waiting'>((resolve) => setTimeout(() => resolve('still waiting'), 50)),
+        ]);
+        gate.release();
 
-      expect(beforeTurnEnds).not.toBe('still waiting');
-      const result = await received;
-      expect(result.ack.state).toBe('pending');
-      expect((await result.settled)?.state).toBe('acknowledged');
-      await session.shutdown();
+        expect(beforeTurnEnds).not.toBe('still waiting');
+        const result = await received;
+        expect(result.ack.state).toBe('pending');
+        expect((await result.settled)?.state).toBe('acknowledged');
+      } finally {
+        await session.shutdown();
+      }
     },
     TEST_TIMEOUT,
   );
