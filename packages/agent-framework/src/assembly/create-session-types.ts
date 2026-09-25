@@ -8,6 +8,7 @@ import type { ILoadedContext } from '../context/context-loader.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IProjectInfo } from '../context/project-detector.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
+import type { IPeerReplyPort } from '../tools/peer-reply-tool.js';
 import type { IContributionSource } from '../contributions/index.js';
 import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 import type { TSessionFactory } from '../hooks/agent-executor.js';
@@ -136,6 +137,8 @@ export interface ICreateSessionOptions {
   includeGoalTool?: boolean;
   /** Include the structured self-paced loop decision signal for an interactive session. */
   includeSessionLoopDecisionTool?: boolean;
+  /** Include `peer_reply` over this port. The permission policy offers it only in a peer turn. */
+  peerReply?: IPeerReplyPort;
   /** Additional background task runners composed by the runtime shell. */
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   /** Host-selected code for background observer process warnings. */

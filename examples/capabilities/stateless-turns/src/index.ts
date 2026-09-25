@@ -9,7 +9,7 @@
  * Run: ANTHROPIC_API_KEY=... pnpm dev
  */
 import { Robota } from '@robota-sdk/agent-core';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const apiKey = process.env.ANTHROPIC_API_KEY;
 if (!apiKey) {

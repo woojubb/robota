@@ -87,6 +87,7 @@ export { OWNER_DRIVER_ID, AGENT_DRIVER_ID } from './driver-contracts.js';
 export type {
   TDriverId,
   ISubmitOptions,
+  IPeerTurnContext,
   IUiIntentEvent,
   ISessionRenamedEvent,
 } from './driver-contracts.js';

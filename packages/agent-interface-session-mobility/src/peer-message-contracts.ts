@@ -30,6 +30,7 @@
  * on.
  */
 
+import type { TPeerReach } from '@robota-sdk/agent-core';
 import type { TDriverId } from '@robota-sdk/agent-interface-session';
 
 /**
@@ -114,6 +115,11 @@ export interface IPeerMessage {
   readonly text: string;
   /** Milliseconds since the epoch, stamped by the sender. Ordering uses `sequence`, not this. */
   readonly sentAt: number;
+  /**
+   * The id of the message this one answers, which threads a conversation. The receiver believes it
+   * only when it names a message the receiver itself sent to this sender.
+   */
+  readonly inReplyTo?: string;
 }
 
 /** What the receiver returns for a message it has taken responsibility for. */
@@ -160,6 +166,15 @@ export function isTerminalPeerDelivery(
   state: TPeerDeliveryState,
 ): state is Exclude<TPeerDeliveryState, 'pending'> {
   return state !== 'pending';
+}
+
+/**
+ * Where a peer runs relative to this session, as admission established it — the input that decides
+ * what a turn it drives may do. Only a same-user-same-host admission is `same-host`; everything
+ * else, including a proven same user on another machine, is `another-host`.
+ */
+export function peerReachOf(admission: IPeerAdmission): TPeerReach {
+  return isSameEnvironmentPeer(admission) ? 'same-host' : 'another-host';
 }
 
 /**

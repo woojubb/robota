@@ -320,8 +320,15 @@ export interface ICommandLocalPeersAdapter {
    * Returns a delivery state rather than throwing, because "the peer refused it" and "the carrier
    * broke" are both answers the operator needs, and an exception would flatten them into one.
    * Absent on a host that can discover peers but cannot address them.
+   *
+   * `inReplyTo` names the received message this answers, which threads a conversation; the host
+   * refuses a reply that would run a conversation past its limits, and tells the operator.
    */
-  send?(targetSessionId: string, text: string): Promise<ILocalPeerSendResult>;
+  send?(
+    targetSessionId: string,
+    text: string,
+    options?: { readonly inReplyTo?: string },
+  ): Promise<ILocalPeerSendResult>;
 }
 
 /**

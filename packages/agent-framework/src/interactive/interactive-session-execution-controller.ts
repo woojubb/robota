@@ -66,7 +66,11 @@ import type {
   IProviderCallTraceEntry,
   IToolBodyTraceEntry,
 } from '@robota-sdk/agent-interface-analytics';
-import type { TDriverId, TTurnSource } from '@robota-sdk/agent-interface-session';
+import type {
+  IPeerTurnContext,
+  TDriverId,
+  TTurnSource,
+} from '@robota-sdk/agent-interface-session';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
 
 export type { TTurnSource };
@@ -106,6 +110,8 @@ export class SessionExecutionController {
   });
   /** REMOTE-014 E5: the driver id of the ACTIVE turn (null when idle) — read at event-emit time for attribution. */
   activeDriverId: TDriverId | null = null;
+  /** The ACTIVE peer turn's reply route (undefined outside one) — what `peer_reply` answers. */
+  activePeerTurn: IPeerTurnContext | undefined = undefined;
   shuttingDown = false;
 
   /** FLOW-002: background task ids with an in-flight wake turn (coalesces duplicate wakes). */
@@ -297,6 +303,7 @@ export class SessionExecutionController {
     // RUNTIME-003: which submission this turn belongs to; the handle minted then settles here.
     // REMOTE-014 E5: capture the ACTIVE turn's driver so event/prompt emitters can attribute to it.
     this.activeDriverId = turnOptions.driverId ?? null;
+    this.activePeerTurn = turnOptions.turnSource === 'peer' ? turnOptions.peer : undefined;
     this.completedToolExecutions = [];
     // SELFHOST-008 P2: stash the completed turn's result so post-turn capture can run in the `finally`
     // BEFORE persistSession() (awaiting inside `onComplete` would not order there — it is not awaited).
@@ -388,6 +395,7 @@ export class SessionExecutionController {
         providerErrorGuidance: this.callbacks.providerErrorGuidance,
         promptFileReferenceTag: this.callbacks.promptFileReferenceTag,
         turnSource: turnOptions.turnSource,
+        ...(turnOptions.peer !== undefined ? { peer: turnOptions.peer } : {}),
         ...promptTurnAttribution(ephemeralSystemContext, turnOptions.driverId),
         ...(turnOptions.signal ? { signal: turnOptions.signal } : {}),
         ...(traceContext ? { traceContext } : {}),
@@ -652,6 +660,7 @@ export class SessionExecutionController {
       if (terminalResult !== undefined) this.turns.settle(turnId, terminalResult);
       else this.turns.fail(turnId, turnError ?? new Error('the turn ended without a result'));
       this.activeDriverId = null; // REMOTE-014 E5: turn ended — events after this are not turn-authored
+      this.activePeerTurn = undefined;
       // FLOW-002: the wake for this task id is no longer in flight; allow future wakes to inject.
       if (turnOptions.wakeTaskId !== undefined) this.wakeTaskIds.delete(turnOptions.wakeTaskId);
       this.executionClaim.complete(executionClaim, () => this.drainPendingQueue(resumeQueuedTurn));

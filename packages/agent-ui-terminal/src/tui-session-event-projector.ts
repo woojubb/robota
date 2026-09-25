@@ -1,3 +1,5 @@
+import { printablePeerDriver } from '@robota-sdk/agent-core';
+
 import { attributedUserEcho } from './attributed-user-echo.js';
 import { bindTuiSessionEvent, bindTuiSessionNoticeEvents } from './tui-session-binding.js';
 
@@ -23,6 +25,7 @@ export interface ITuiSessionEventProjectorOptions {
     toolArgs: TToolArgs,
     id: string,
     canPersistProjectPermission?: boolean,
+    requestedByPeer?: string,
   ) => Promise<TPermissionResultValue>;
   askUser: (request: IActionRequest, id: string) => Promise<TActionResponse>;
   dismissPrompt: (id: string) => void;
@@ -84,10 +87,15 @@ export class TuiSessionEventProjector {
       toolName,
       toolArgs,
       canPersistProjectPermission,
+      requesterDriverId,
     }) => {
       attention?.onNeedsInput();
+      // A peer turn's ask names the peer, printed only as a plain identifier.
+      const requestedByPeer = requesterDriverId?.startsWith('peer:')
+        ? printablePeerDriver(requesterDriverId)
+        : undefined;
       void this.options
-        .requestPermission(toolName, toolArgs, id, canPersistProjectPermission)
+        .requestPermission(toolName, toolArgs, id, canPersistProjectPermission, requestedByPeer)
         .then((result) => session.resolvePermission(id, result))
         .catch(() => session.resolvePermission(id, false));
     };

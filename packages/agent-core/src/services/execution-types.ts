@@ -174,6 +174,8 @@ export interface IExecutionContext {
   temperature?: number;
   /** Run-scoped tool-invocation directive — wins over `defaultModel.toolChoice` (CORE-017). */
   toolChoice?: TToolChoice;
+  /** Leave provider-hosted tools out of this run's requests. See `IRunOptions`. */
+  withholdHostedTools?: boolean;
   /**
    * Run-scoped EPHEMERAL system context (SELFHOST-008 P3) — a transient system-role block added to the
    * provider request for this run only, NEVER written to the conversation store. See `IRunOptions`.

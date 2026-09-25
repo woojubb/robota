@@ -6,6 +6,7 @@
  */
 
 import type { ITurnHandle, TTurnSource } from './turn-contracts.js';
+import type { TPeerReach } from '@robota-sdk/agent-core';
 import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
 import type { TCommandUiIntent } from '@robota-sdk/agent-interface-command';
 
@@ -48,6 +49,23 @@ export interface ISubmitOptions {
    * from the returned promise. It must not throw: the turn is already accepted when it runs.
    */
   readonly onAccepted?: (handle: ITurnHandle) => void;
+  /** A `'peer'` turn only: where the message came from and where an answer to it goes. */
+  readonly peer?: IPeerTurnContext;
+}
+
+/**
+ * What a peer turn needs beyond who sent it. Set by the host that admitted the message.
+ *
+ * `reach` decides what the turn may do, so it comes from admission and never from anything the
+ * peer sent. The other two route the answer: a reply goes to `replyTo` and names `messageId`, so the
+ * model can answer only the session that asked, and the asker can thread the answer.
+ */
+export interface IPeerTurnContext {
+  readonly reach: TPeerReach;
+  /** The id of the message this turn answers. */
+  readonly messageId: string;
+  /** The session id a reply goes to: the sender's. */
+  readonly replyTo: string;
 }
 
 /**
