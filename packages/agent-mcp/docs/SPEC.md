@@ -83,9 +83,10 @@ false`; every `DEFAULT_INHERITED_ENV_VARS` key is explicitly shadowed rather tha
   secret stretches replaced — what a credential-shaped variable expanded, and any literal a
   credential's shape gives away. That shape test is a guess, so it serves display only and never
   the fingerprint: two different literal tokens mask alike, and a fingerprint blind to a changed
-  token would carry an old approval over to it. Transport errors name origins only. Projections carry `env`/`header` KEYS but never VALUES:
-  the key alone tells servers apart, "configured but redacted" and "no header" must remain
-  distinguishable answers, and a value there is too often a credential of no recognisable shape.
+  token would carry an old approval over to it. Transport errors name origins only. Projections
+  carry `env`/`header` KEYS but never VALUES: the key alone tells servers apart, "configured but
+  redacted" and "no header" must remain distinguishable answers, and a value there is too often a
+  credential of no recognisable shape.
 - **A session is stateless about liveness by contract.** The SDK has no cancellation
   acknowledgment, so an abort or timeout of an active stdio request closes the direct child rather
   than pretending the in-flight call can be cancelled cleanly; a failed tool call is never replayed

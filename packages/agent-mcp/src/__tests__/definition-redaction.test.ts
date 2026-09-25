@@ -283,6 +283,49 @@ describe('flags whose argument is not a credential', () => {
   });
 });
 
+describe('JSON, quoted and flag-embedded credentials', () => {
+  const uuid = '8f2c1a4e-3b7d-4c9e-a1f0-5d6e7b8c9a0b';
+  const args = (...values: string[]): readonly string[] | undefined =>
+    project(resolve(stdio({ args: values }))).args;
+
+  it('masks a UUID-valued apiKey in a --config JSON argument', () => {
+    const shown = args('--config', `{"apiKey":"${uuid}","region":"eu"}`);
+    expect(shown).toEqual(['--config', '{"apiKey":"secret:literal","region":"eu"}']);
+    expect(JSON.stringify(shown)).not.toContain(uuid);
+  });
+
+  it.each([
+    ['{"token":"abc"}', '{"token":"secret:literal"}'],
+    ['--config={"password":"x"}', '--config={"password":"secret:literal"}'],
+    ['{ "apiKey" : "a\\"b", "n": 1 }', '{ "apiKey" : "secret:literal", "n": 1 }'],
+    ["{'token': 'abc'}", "{'token': 'secret:literal'}"],
+    ['{"auth":{"token":"abc"},"x":1}', '{"auth":{"token":"secret:literal"},"x":1}'],
+    ['{"env":{"apiKey":"abc"}}', '{"env":{"apiKey":"secret:literal"}}'],
+    ['{"password":12345,"port":8080}', '{"password":secret:literal,"port":8080}'],
+    ['{"name":"alpha","port":8080}', '{"name":"alpha","port":8080}'],
+  ])('shows %s as %s', (value, shown) => {
+    expect(maskCredentials(value)).toBe(shown);
+    expect(args(value)).toEqual([shown]);
+  });
+
+  it.each([
+    ['--header=X-API-Key: abc', '--header=X-API-Key: secret:literal'],
+    ['--header=Authorization: Token abc', '--header=Authorization: Token secret:literal'],
+    ['Authorization=Basic abc', 'Authorization=Basic secret:literal'],
+    ['Password = hunter2', 'Password = secret:literal'],
+    ['Server=h;Password="hunter 2";Db=x', 'Server=h;Password="secret:literal";Db=x'],
+    ['-H "X-API-Key: abc" https://h.example', '-H "X-API-Key: secret:literal" https://h.example'],
+  ])('shows %s as %s', (value, shown) => {
+    expect(maskCredentials(value)).toBe(shown);
+  });
+
+  it('does not take a literal secret: prefix as a variable marker', () => {
+    expect(JSON.stringify(args('--password', 'secret:hunter2'))).not.toContain('hunter2');
+    expect(maskCredentials('--password secret:hunter2')).not.toContain('hunter2');
+    expect(args('run secret:hunter2')?.join(' ')).not.toContain('hunter2');
+  });
+});
+
 describe('masking stays linear on long input', () => {
   const huge = 200_000;
   it.each([
@@ -294,6 +337,12 @@ describe('masking stays linear on long input', () => {
     ['an encoded run followed by padding', `${'aB3'.repeat(huge / 3)}===x`],
     ['a dotted token', `eyJ${'a.'.repeat(huge / 2)}`],
     ['repeated flags', '--token '.repeat(huge / 8)],
+    ['repeated JSON names', '{"a":'.repeat(huge / 5)],
+    ['repeated quoted names', '"a" '.repeat(huge / 4)],
+    ['an unclosed credential string', `{"token":"${'\\"'.repeat(huge / 2)}`],
+    ['repeated credential assignments', 'password= '.repeat(huge / 10)],
+    ['repeated empty headers', 'X-Api-Key: \n'.repeat(huge / 12)],
+    ['a long name before a separator run', `${'a'.repeat(huge)}${'='.repeat(huge)}`],
   ])('masks %s within the time bound', (_label, value) => {
     const definition = resolve(stdio({ args: [value] }));
     const started = performance.now();

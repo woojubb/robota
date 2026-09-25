@@ -151,13 +151,16 @@ function secretPieces(
 // endpoint — and never the fingerprint: two different literal tokens mask alike, and a fingerprint
 // blind to a changed token would let a swapped credential ride on an old approval.
 //
-// Every pattern here is either anchored by a lookbehind or starts only after a delimiter, so each
-// position of the input starts at most one bounded scan: an argument of any length stays linear.
+// Every pattern here is either anchored by a lookbehind or starts only after a delimiter, and every
+// hand-written scan moves forward only, so an argument of any length is masked in linear time.
 
-/** Holds a marker's place while the text around it is scanned; no pattern below matches it. */
-const SENTINEL = '\uE000';
-const SENTINELS = /\uE000/g;
-const MARKER_TEXT = /secret:[A-Za-z_][A-Za-z0-9_]*/g;
+/** Holds a variable marker's place while the text around it is scanned; no pattern matches it. */
+const MARKER = '\uE000';
+const MARKERS = /\uE000/g;
+/** Holds a masked value's place, so no later pass reads the mask itself as a name or a token. */
+const MASKED = '\uE001';
+const MASKS = /\uE001/g;
+const PLACEHOLDERS = /[\uE000\uE001]/g;
 
 /** Well-known credential formats. */
 const CREDENTIAL_FORMATS: readonly RegExp[] = [
@@ -178,13 +181,14 @@ const FORMATTED_TOKEN = new RegExp(
 const WHOLE_FORMATTED_TOKEN = new RegExp(`^(?:${FORMAT_SOURCE})$`);
 /** A base64/base64url/hex run; `/` is left out so no path segment chain reads as one. */
 const ENCODED_RUN = /(?<![A-Za-z0-9+_=-])[A-Za-z0-9+_-]{32,}={0,2}(?![A-Za-z0-9+_=-])/g;
-const BEARER = /\b(Bearer\s+)[^\s\uE000]+/gi;
+const BEARER = /\b(Bearer\s+)[^\s\uE000\uE001]+/gi;
 const URL_RUN = /(?<![A-Za-z0-9+.-])[A-Za-z][A-Za-z0-9+.-]*:\/\/\S*/g;
-/** `Name: value` at the start of a word; the value runs to the end of the line. */
-const HEADER_NAME = /(^|[\s;,"'])([A-Za-z][A-Za-z0-9_-]*)[ \t]*:[ \t]*(?=\S)/g;
+/**
+ * A name given a value: `--name=`, `NAME=`, `Name:`, `"name":` or `'name' =`, starting a word or
+ * following a delimiter, a quote or an opening brace.
+ */
+const KEY = /(?<=^|[\s;,&={"'])(-{0,2})(["']?)([A-Za-z_][A-Za-z0-9_.-]*)\2[ \t]*([:=])[ \t]*/g;
 const AUTHORIZATION_HEADER = /^(?:proxy-)?authorization$/i;
-/** `--name=value` or `NAME=value` at the start of a word or after `;`, `&` or `,`. */
-const ASSIGNMENT = /(^|[\s;&,])(-{0,2})([A-Za-z_][A-Za-z0-9_.-]*)=([^\s;&,]+)/g;
 /** `--name value` inside a single string. */
 const SPACED_FLAG = /(^|\s)(-{1,2}[A-Za-z][A-Za-z0-9_.-]*)(\s+)([^\s-]\S*)/g;
 
@@ -232,7 +236,14 @@ function isCredentialFlag(word: string): boolean {
 
 /** A secret value as displayed: its literal text masked, any marker inside it kept. */
 function maskLiteral(value: string): string {
-  return value.replace(/[^\uE000]+/g, SECRET_LITERAL);
+  return value.replace(/[^\uE000]+/g, MASKED);
+}
+
+/** An `Authorization` value keeps its scheme (`Basic`, `Token`, …) and masks the credential. */
+function maskAuthorization(value: string): string {
+  const scheme = /^([A-Za-z][A-Za-z0-9._~+-]*)([ \t]+)(?=\S)/.exec(value);
+  if (scheme === null) return maskLiteral(value);
+  return `${scheme[0]}${maskLiteral(value.slice(scheme[0].length))}`;
 }
 
 function decodedName(name: string): string {
@@ -251,7 +262,7 @@ function maskParams(params: string): string {
       const equals = param.indexOf('=');
       if (equals <= 0 || equals === param.length - 1) return param;
       const name = param.slice(0, equals);
-      return isCredentialShapedName(decodedName(name).replace(SENTINELS, ''))
+      return isCredentialShapedName(decodedName(name).replace(PLACEHOLDERS, ''))
         ? `${name}=${maskLiteral(param.slice(equals + 1))}`
         : param;
     })
@@ -277,54 +288,104 @@ function maskUrl(url: string): string {
   return `${beforeHash.slice(0, query + 1)}${maskParams(beforeHash.slice(query + 1))}${fragment}`;
 }
 
-/** An `Authorization` value keeps its scheme (`Basic`, `Token`, …) and masks the credential. */
-function maskAuthorization(value: string): string {
-  const scheme = /^([A-Za-z][A-Za-z0-9._~+-]*)([ \t]+)(?=\S)/.exec(value);
-  if (scheme === null) return maskLiteral(value);
-  return `${scheme[0]}${maskLiteral(value.slice(scheme[0].length))}`;
+/** The index of the first of `stops` at or after `from`, or the end of the text. */
+function indexOfAny(text: string, from: number, stops: string): number {
+  let index = from;
+  while (index < text.length && !stops.includes(text[index]!)) index += 1;
+  return index;
 }
 
-/** `Name: value` with a credential-shaped name: the value masked to the end of its line. */
-function maskHeaders(text: string): string {
-  HEADER_NAME.lastIndex = 0;
+/** The index of the quote closing a quoted value opened at `open`, past escaped quotes. */
+function closingQuote(text: string, open: number): number {
+  const quote = text[open]!;
+  let index = open + 1;
+  while (index < text.length && text[index] !== quote && text[index] !== '\n') {
+    index += text[index] === '\\' ? 2 : 1;
+  }
+  return Math.min(index, text.length);
+}
+
+interface IValueSpan {
+  readonly start: number;
+  readonly end: number;
+}
+
+/**
+ * Where the value after a name ends. A quoted value runs to its closing quote. Otherwise a value
+ * written inside quotes stops at the closing one; a quoted name's value (`"key": 1`) stops at the
+ * next JSON delimiter; a header or `Authorization` value runs to the end of its line; and an
+ * assignment's value stops at whitespace or a `;`, `&` or `,` — the separators of a connection
+ * string. A nested object or array is not a value: its own names are scanned in turn.
+ */
+function valueSpan(
+  text: string,
+  start: number,
+  context: {
+    readonly separator: string;
+    readonly quotedName: boolean;
+    readonly enclosingQuote: string | undefined;
+    readonly authorization: boolean;
+  },
+): IValueSpan | undefined {
+  const first = text[start];
+  if (first === undefined || first === '{' || first === '[') return undefined;
+  if (first === '"' || first === "'") {
+    return { start: start + 1, end: closingQuote(text, start) };
+  }
+  let stops: string;
+  if (context.enclosingQuote !== undefined) stops = `${context.enclosingQuote}\n`;
+  else if (context.quotedName) stops = ',}]\n \t';
+  else if (context.separator === ':' || context.authorization) stops = '\n';
+  else stops = ';&,\n \t';
+  const end = indexOfAny(text, start, stops);
+  return end === start ? undefined : { start, end };
+}
+
+/** Every credential-named value — header, flag, assignment, JSON or dict entry — masked. */
+function maskKeyValues(text: string): string {
+  KEY.lastIndex = 0;
   let out = '';
   let cursor = 0;
-  for (let match = HEADER_NAME.exec(text); match !== null; match = HEADER_NAME.exec(text)) {
-    const name = match[2]!;
-    if (!isCredentialShapedName(name)) continue;
-    const valueStart = match.index + match[0].length;
-    const newline = text.indexOf('\n', valueStart);
-    const valueEnd = newline === -1 ? text.length : newline;
-    const value = text.slice(valueStart, valueEnd);
-    out += text.slice(cursor, valueStart);
-    out += AUTHORIZATION_HEADER.test(name) ? maskAuthorization(value) : maskLiteral(value);
-    cursor = valueEnd;
-    HEADER_NAME.lastIndex = valueEnd;
+  for (let match = KEY.exec(text); match !== null; match = KEY.exec(text)) {
+    const [whole, dashes, quote, name, separator] = match as unknown as [
+      string,
+      string,
+      string,
+      string,
+      string,
+    ];
+    const credential =
+      dashes.length > 0 ? isCredentialFlag(`${dashes}${name}`) : takesCredential(name);
+    if (!credential) continue;
+    const before = text[match.index - 1];
+    const authorization = AUTHORIZATION_HEADER.test(name);
+    const span = valueSpan(text, match.index + whole.length, {
+      separator,
+      quotedName: quote.length > 0,
+      enclosingQuote: quote.length === 0 && (before === '"' || before === "'") ? before : undefined,
+      authorization,
+    });
+    if (span === undefined) continue;
+    const value = text.slice(span.start, span.end);
+    out += text.slice(cursor, span.start);
+    out += authorization ? maskAuthorization(value) : maskLiteral(value);
+    cursor = span.end;
+    KEY.lastIndex = Math.max(span.end, KEY.lastIndex);
   }
   return out + text.slice(cursor);
 }
 
 function maskScanned(text: string): string {
-  return maskHeaders(text.replace(URL_RUN, maskUrl))
-    .replace(ASSIGNMENT, (whole, lead: string, dashes: string, name: string, value: string) => {
-      const credential =
-        dashes.length > 0 ? isCredentialFlag(`${dashes}${name}`) : takesCredential(name);
-      return credential ? `${lead}${dashes}${name}=${maskLiteral(value)}` : whole;
-    })
+  return maskKeyValues(text.replace(URL_RUN, maskUrl))
     .replace(SPACED_FLAG, (whole, lead: string, flag: string, gap: string, value: string) =>
       isCredentialFlag(flag) ? `${lead}${flag}${gap}${maskLiteral(value)}` : whole,
     )
-    .replace(BEARER, (_whole, bearer: string) => `${bearer}${SECRET_LITERAL}`)
-    .replace(FORMATTED_TOKEN, SECRET_LITERAL)
-    .replace(ENCODED_RUN, (run) => (isHighEntropy(run) ? SECRET_LITERAL : run));
+    .replace(BEARER, (_whole, bearer: string) => `${bearer}${MASKED}`)
+    .replace(FORMATTED_TOKEN, MASKED)
+    .replace(ENCODED_RUN, (run) => (isHighEntropy(run) ? MASKED : run));
 }
 
-function restoreMarkers(text: string, markers: readonly string[]): string {
-  let index = 0;
-  return text.replace(SENTINELS, () => markers[index++] ?? '');
-}
-
-/** Text with each marker swapped for a sentinel, so no marker is read as literal text. */
+/** Text with each marker held aside as a placeholder, so no marker is read as literal text. */
 interface IScanned {
   readonly scanned: string;
   readonly markers: readonly string[];
@@ -334,25 +395,29 @@ function scanPieces(pieces: readonly ISecretPiece[]): IScanned {
   const markers: string[] = [];
   const scanned = pieces
     .map((piece) => {
-      if (!piece.marker) return piece.text.replace(SENTINELS, '\uFFFD');
+      if (!piece.marker) return piece.text.replace(PLACEHOLDERS, '\uFFFD');
       markers.push(piece.text);
-      return SENTINEL;
+      return MARKER;
     })
     .join('');
   return { scanned, markers };
 }
 
+function printed(text: string, markers: readonly string[]): string {
+  let index = 0;
+  return text.replace(MASKS, SECRET_LITERAL).replace(MARKERS, () => markers[index++] ?? '');
+}
+
 /**
  * Free text with every credential-shaped literal replaced by {@link SECRET_LITERAL}: a URL's
- * password and credential-named query or fragment values, a credential-named header, flag or
- * assignment value, an `Authorization` credential after its scheme, and every token
- * {@link looksLikeCredential} would flag. Markers already in the text are kept. Deterministic, so
- * two printings of one value compare equal. For display only.
+ * password and credential-named query or fragment values, a credential-named header, flag,
+ * assignment or JSON value, an `Authorization` credential after its scheme, and every token
+ * {@link looksLikeCredential} would flag. All of `text` is literal — a `secret:` prefix in it
+ * protects nothing. Deterministic, so two printings of one value compare equal. For display only.
  */
 export function maskCredentials(text: string): string {
-  const safe = text.replace(SENTINELS, '\uFFFD');
-  const markers = safe.match(MARKER_TEXT) ?? [];
-  return restoreMarkers(maskScanned(safe.replace(MARKER_TEXT, SENTINEL)), markers);
+  const { scanned, markers } = scanPieces([{ text, marker: false }]);
+  return printed(maskScanned(scanned), markers);
 }
 
 /** A definition value as it may be printed: {@link withoutSecrets}, then {@link maskCredentials}. */
@@ -362,7 +427,7 @@ export function displayValue(
   value: string,
 ): string {
   const { scanned, markers } = scanPieces(secretPieces(definition, field, value));
-  return restoreMarkers(maskScanned(scanned), markers);
+  return printed(maskScanned(scanned), markers);
 }
 
 /**
@@ -378,7 +443,7 @@ export function displayArgs(
     const previous = index > 0 ? args[index - 1] : undefined;
     if (previous !== undefined && isCredentialFlag(previous) && !/^-{1,2}[A-Za-z]/.test(arg)) {
       const { scanned, markers } = scanPieces(secretPieces(definition, field, arg));
-      return restoreMarkers(maskLiteral(scanned), markers);
+      return printed(maskLiteral(scanned), markers);
     }
     return displayValue(definition, field, arg);
   });
