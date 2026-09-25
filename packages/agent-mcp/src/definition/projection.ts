@@ -11,7 +11,7 @@
  */
 
 import { isDisabled } from './overlay.js';
-import { displayArgs, displayValue } from './secrecy.js';
+import { displayArgs, displayValue, maskCredentials } from './secrecy.js';
 
 import type {
   IMCPOAuthConfig,
@@ -99,7 +99,16 @@ export function projectEntry(entry: IMCPResolvedEntry): IMCPDefinitionProjection
       projection.url = displayValue(definition, 'url', definition.url);
     if (definition.headers !== undefined) projection.headers = redactValues(definition.headers);
     if (definition.timeout !== undefined) projection.timeout = definition.timeout;
-    if (definition.oauth !== undefined) projection.oauth = definition.oauth;
+    if (definition.oauth !== undefined) {
+      const { clientId, authServerMetadataUrl } = definition.oauth;
+      projection.oauth = {
+        ...definition.oauth,
+        ...(clientId === undefined ? {} : { clientId: maskCredentials(clientId) }),
+        ...(authServerMetadataUrl === undefined
+          ? {}
+          : { authServerMetadataUrl: maskCredentials(authServerMetadataUrl) }),
+      };
+    }
     if (definition.unsupportedAuthentication !== undefined) {
       projection.unsupportedAuthentication = [...definition.unsupportedAuthentication];
     }

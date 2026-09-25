@@ -52,6 +52,11 @@ describe('oauth definition', () => {
       'https',
     );
     expect(reasonOf(decode({ authServerMetadataUrl: 'not a url' }))).toContain('https');
+    const embedded = reasonOf(
+      decode({ authServerMetadataUrl: 'https://u:pw-value@auth.example.test/' }),
+    );
+    expect(embedded).toContain('without credentials');
+    expect(embedded).not.toContain('pw-value');
   });
 
   it('never accepts a client secret, and names where one goes instead', () => {

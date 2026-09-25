@@ -164,9 +164,11 @@ function decodeOAuth(value: unknown): IMCPOAuthConfig | string {
       typeof authServerMetadataUrl !== 'string' ||
       authServerMetadataUrl.length > MAX_OAUTH_FIELD_LENGTH ||
       !URL.canParse(authServerMetadataUrl) ||
-      new URL(authServerMetadataUrl).protocol !== 'https:'
+      new URL(authServerMetadataUrl).protocol !== 'https:' ||
+      new URL(authServerMetadataUrl).username !== '' ||
+      new URL(authServerMetadataUrl).password !== ''
     ) {
-      return '`oauth.authServerMetadataUrl` must be an https URL';
+      return '`oauth.authServerMetadataUrl` must be an https URL without credentials';
     }
     config.authServerMetadataUrl = authServerMetadataUrl;
   }
