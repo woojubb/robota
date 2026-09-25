@@ -481,6 +481,7 @@ export class PermissionEnforcer {
         signal,
         interaction,
         hookTraceEnv,
+        scope,
       );
     }
     return this.promptForApproval(toolName, toolArgs, signal, interaction, fresh);
@@ -493,6 +494,7 @@ export class PermissionEnforcer {
     signal: AbortSignal | undefined,
     interaction: IToolExecutionContext['permissionInteraction'],
     hookTraceEnv: IToolExecutionContext['hookTraceEnv'],
+    scope: IDecisionScope,
   ): Promise<boolean | IPermissionRefusal> {
     if (gate.takeRetry(toolName, toolArgs)) return true;
     // A consent given this session still answers, unless it is one no auto-mode rule could be.
@@ -510,7 +512,7 @@ export class PermissionEnforcer {
     if (signal?.aborted === true) return false;
     // The user left auto mode while the classifier was deciding: decide again under the new mode.
     if (this.getPermissionMode() !== 'auto') {
-      return this.decidePermission(toolName, toolArgs, signal, interaction, hookTraceEnv);
+      return this.decidePermission(toolName, toolArgs, signal, interaction, hookTraceEnv, scope);
     }
     if (judgement.kind === 'allow') return true;
     this.denials.record(toolName, toolArgs, 'classifier', judgement.reason);
