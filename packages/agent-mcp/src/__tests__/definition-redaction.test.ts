@@ -392,6 +392,9 @@ describe('JSON escaped inside a JSON string', () => {
 
 describe('masking stays linear on long input', () => {
   const huge = 200_000;
+  // A super-linear pattern takes tens of seconds on this input; a linear pass takes well under
+  // a second even on a loaded CI runner. The bound sits between the two, far from both.
+  const boundMs = 2_000;
   it.each([
     ['a scheme-character run', 'a'.repeat(huge)],
     ['a URL', `https://${'a'.repeat(huge)}`],
@@ -424,6 +427,6 @@ describe('masking stays linear on long input', () => {
     const definition = resolve(stdio({ args: [value] }));
     const started = performance.now();
     activationEndpoint(definition);
-    expect(performance.now() - started).toBeLessThan(200);
+    expect(performance.now() - started).toBeLessThan(boundMs);
   });
 });
