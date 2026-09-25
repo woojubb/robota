@@ -27,7 +27,11 @@ const mockProvider = {
   generateResponse: vi.fn(),
 } as unknown as IAIProvider;
 
-import { DEFERRED_WITHOUT_LOADER_MESSAGE, TOOL_SEARCH_TOOL_NAME } from '@robota-sdk/agent-core';
+import {
+  DEFERRED_WITHOUT_LOADER_MESSAGE,
+  TOOL_SEARCH_TOOL_NAME,
+  registerToolPermissionProfile,
+} from '@robota-sdk/agent-core';
 
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
 import { DEFERRED_TOOL_ROSTER_HEADER } from '../assembly/deferred-tool-roster.js';
@@ -119,6 +123,27 @@ describe('createSubagentSession', () => {
     const passedTools = passedOptions['tools'] as IToolWithEventService[];
     const toolNames = passedTools.map((t) => t.getName());
     expect(toolNames).toEqual(['Read', 'Grep']);
+  });
+
+  it('withholds every alias of a disallowed tool', () => {
+    registerToolPermissionProfile('Shell', { aliases: ['Bash'] });
+    registerToolPermissionProfile('Bash', { aliases: ['Shell'] });
+    const tools = [makeTool('Read'), makeTool('Shell'), makeTool('Bash')];
+    const agent = makeAgentDef({ disallowedTools: ['Shell'] });
+
+    createSubagentSession({
+      agentDefinition: agent,
+      parentConfig: makeParentConfig(),
+      parentContext: makeParentContext(),
+      parentTools: tools,
+      provider: mockProvider,
+      terminal: makeTerminal(),
+      cwd: SUBAGENT_ROOT,
+    });
+
+    const passedOptions = mockSessionConstructor.mock.calls[0][0] as Record<string, unknown>;
+    const passedTools = passedOptions['tools'] as IToolWithEventService[];
+    expect(passedTools.map((t) => t.getName())).toEqual(['Read']);
   });
 
   it('should filter to allowlist when tools specified', () => {

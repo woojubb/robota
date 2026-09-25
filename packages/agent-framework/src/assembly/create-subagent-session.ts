@@ -11,6 +11,7 @@ import {
   DEFERRED_WITHOUT_LOADER_MESSAGE,
   TOOL_SEARCH_TOOL_NAME,
   assertResidentToolRemains,
+  isToolDeniedOutright,
 } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
 
@@ -179,10 +180,10 @@ function filterTools(
 ): IToolWithEventService[] {
   let tools = parentTools.map(unwrapToolCallHandoff);
 
-  // Step 1: Remove disallowed tools
-  if (agentDefinition.disallowedTools) {
-    const denySet = new Set(agentDefinition.disallowedTools);
-    tools = tools.filter((t) => !denySet.has(t.getName()));
+  // Step 1: Remove disallowed tools — read as deny rules, so a name also withholds its aliases
+  const disallowed = agentDefinition.disallowedTools;
+  if (disallowed) {
+    tools = tools.filter((t) => !isToolDeniedOutright(t.getName(), disallowed));
   }
 
   // Step 2: Keep only allowed tools (if allowlist specified)
