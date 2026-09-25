@@ -47,6 +47,7 @@ function createCommandHostContext(): ReturnType<typeof createTestCommandHost> & 
             listSessionAllowedTools: () => [],
             getPermissionRules: () => ({ allow: [], deny: [], ask: [] }),
             listRecentDenials: () => [],
+            retryDenial: () => undefined,
           },
         }),
         getContextState: () => ({
@@ -84,7 +85,7 @@ describe('createModeCommandModule', () => {
       expect.objectContaining({
         name: 'mode',
         description: 'Show/change permission mode',
-        argumentHint: 'plan | default | acceptEdits | bypassPermissions',
+        argumentHint: 'plan | default | acceptEdits | bypassPermissions | auto',
         source: 'mode',
         modelInvocable: false,
       }),
@@ -94,12 +95,13 @@ describe('createModeCommandModule', () => {
       'default',
       'acceptEdits',
       'bypassPermissions',
+      'auto',
     ]);
     expect(command).toEqual(
       expect.objectContaining({
         name: 'mode',
         description: 'Show/change permission mode',
-        argumentHint: 'plan | default | acceptEdits | bypassPermissions',
+        argumentHint: 'plan | default | acceptEdits | bypassPermissions | auto',
         lifecycle: 'inline',
         modelInvocable: false,
       }),
@@ -143,7 +145,7 @@ describe('createModeCommandModule', () => {
 
     expect(result?.success).toBe(false);
     expect(result?.message).toBe(
-      'Invalid mode. Valid: plan | default | acceptEdits | bypassPermissions',
+      'Invalid mode. Valid: plan | default | acceptEdits | bypassPermissions | auto',
     );
     expect(context.setPermissionMode).not.toHaveBeenCalled();
   });

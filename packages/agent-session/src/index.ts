@@ -23,6 +23,13 @@ export { PermissionEnforcer } from './permission-enforcer.js';
 export { consentScopeFor } from './consent-scope.js';
 export type { IPermissionDenial, TPermissionDenialReason } from './permission-denial-log.js';
 export type { ICommandSandboxApproval } from './permission-types.js';
+export { AutoModeGate, CONSECUTIVE_BLOCK_LIMIT, TOTAL_BLOCK_LIMIT } from './auto-mode-gate.js';
+export type {
+  IClassifiedCall,
+  IClassifierVerdict,
+  IPermissionClassifier,
+  TAutoModeJudgement,
+} from './auto-mode-gate.js';
 export { AUTO_COMPACT_THRESHOLD, ContextWindowTracker } from './context-window-tracker.js';
 export {
   CompactionError,

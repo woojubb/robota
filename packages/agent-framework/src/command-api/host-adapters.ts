@@ -46,6 +46,8 @@ export interface ICommandPermissionModeAdapter {
   };
   /** The calls the session refused, most recent first. */
   listRecentDenials(): readonly IPermissionDenial[];
+  /** Let the call behind a classifier denial (0-based) run once; `undefined` when there is none. */
+  retryDenial(index: number): IPermissionDenial | undefined;
 }
 
 /** The permission rules one settings layer declares, named the way the user would find the file. */

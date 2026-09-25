@@ -360,8 +360,9 @@ The available command list is built from the consolidated `@robota-sdk/agent-com
 `/permissions` shows a nested submenu for permission mode selection. Run without an argument, it
 shows the allow, deny and ask rules the session enforces, each under the settings file it comes from
 (rules added by a flag, preset or command appear under "this session"), the "allow always" approvals,
-and the calls refused recently with the reason: a rule or the mode, the user declining, or no one
-available to approve.
+and the calls refused recently with the reason: a rule or the mode, the user declining, no one
+available to approve, or the auto-mode classifier. `/permissions retry <n>` lets a call the classifier
+blocked run once when the agent tries it again.
 
 ### Repeating work with `/loop`
 
@@ -584,6 +585,11 @@ When a session has a name, it is displayed in the input area border, the termina
 | `default`           | auto | prompt | prompt |
 | `acceptEdits`       | auto | auto   | prompt |
 | `bypassPermissions` | auto | auto   | auto   |
+| `auto`              | auto | auto   | model  |
+
+In `auto` mode, a model classifier approves or blocks the commands that would otherwise prompt. It
+blocks actions such as a force push, a deploy or piping a download into a shell, and it tells the
+agent why. `ask` rules still ask. See [Permissions and Hooks](permissions-and-hooks.md#auto-mode).
 
 When a tool requires approval, the TUI shows a permission prompt with arrow-key selection.
 

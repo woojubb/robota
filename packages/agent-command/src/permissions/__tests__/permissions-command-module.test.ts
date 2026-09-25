@@ -34,6 +34,7 @@ function createCommandHostContext(options?: {
   rules?: { allow: string[]; deny: string[]; ask: string[] };
   denials?: IPermissionsCommandState['recentDenials'];
   layers?: readonly IPermissionRuleLayer[];
+  retryDenial?: (index: number) => IPermissionsCommandState['recentDenials'][number] | undefined;
 }): ReturnType<typeof createTestCommandHost> & { setPermissionMode: TSetPermissionModeSpy } {
   let mode = options?.mode ?? 'default';
   const setPermissionMode = vi.fn((nextMode: TPermissionModeName) => {
@@ -53,6 +54,7 @@ function createCommandHostContext(options?: {
             listSessionAllowedTools: () => options?.sessionAllowed ?? [],
             getPermissionRules: () => options?.rules ?? { allow: [], deny: [], ask: [] },
             listRecentDenials: () => options?.denials ?? [],
+            retryDenial: (index: number) => options?.retryDenial?.(index),
           },
           ...(options?.layers !== undefined
             ? { permissionRules: { readLayers: () => options.layers! } }
@@ -93,7 +95,7 @@ describe('createPermissionsCommandModule', () => {
       expect.objectContaining({
         name: 'permissions',
         description: 'Show/change permission mode and permission rules',
-        argumentHint: 'plan | default | acceptEdits | bypassPermissions',
+        argumentHint: 'plan | default | acceptEdits | bypassPermissions | auto',
         source: 'permissions',
         modelInvocable: false,
       }),
@@ -103,12 +105,13 @@ describe('createPermissionsCommandModule', () => {
       'default',
       'acceptEdits',
       'bypassPermissions',
+      'auto',
     ]);
     expect(command).toEqual(
       expect.objectContaining({
         name: 'permissions',
         description: 'Show/change permission mode and permission rules',
-        argumentHint: 'plan | default | acceptEdits | bypassPermissions',
+        argumentHint: 'plan | default | acceptEdits | bypassPermissions | auto',
         lifecycle: 'inline',
         modelInvocable: false,
       }),
@@ -191,7 +194,7 @@ describe('createPermissionsCommandModule', () => {
     // A layer's rule the session does not enforce is not listed as if it were.
     expect(result?.message).not.toContain('Stale');
     expect(result?.message).toContain(
-      'Recent denials (most recent first):\n  09:05:07  Bash(rm -rf ~) — denied by a rule or the mode',
+      'Recent denials (most recent first):\n  1. 09:05:07  Bash(rm -rf ~) — denied by a rule or the mode',
     );
   });
 
@@ -219,8 +222,55 @@ describe('createPermissionsCommandModule', () => {
 
     expect(result?.success).toBe(false);
     expect(result?.message).toBe(
-      'Invalid mode. Valid: plan | default | acceptEdits | bypassPermissions',
+      'Invalid mode. Valid: plan | default | acceptEdits | bypassPermissions | auto',
     );
     expect(context.setPermissionMode).not.toHaveBeenCalled();
+  });
+
+  it('reports a mode the session refuses instead of throwing', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createPermissionsCommandModule().systemCommands ?? []),
+    ]);
+    const context = createCommandHostContext();
+    context.setPermissionMode.mockImplementation(() => {
+      throw new Error('Auto mode is unavailable: this session has no permission classifier.');
+    });
+
+    const result = await executor.execute('permissions', context, 'auto');
+
+    expect(result?.success).toBe(false);
+    expect(result?.message).toBe(
+      'Auto mode is unavailable: this session has no permission classifier.',
+    );
+  });
+
+  it('retries a classifier denial by the number /permissions shows (issue #3082)', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createPermissionsCommandModule().systemCommands ?? []),
+    ]);
+    const denial = {
+      toolName: 'Bash',
+      argument: 'npm publish',
+      reason: 'classifier' as const,
+      detail: 'publishes a package',
+      at: 0,
+    };
+    const retryDenial = vi.fn((index: number) => (index === 0 ? denial : undefined));
+    const context = createCommandHostContext({ denials: [denial], retryDenial });
+
+    const listed = await executor.execute('permissions', context, '');
+    expect(listed?.message).toContain(
+      '1. 00:00:00  Bash(npm publish) — blocked by the auto-mode classifier: publishes a package',
+    );
+    expect(listed?.message).toContain('/permissions retry <n>');
+
+    const retried = await executor.execute('permissions', context, 'retry 1');
+    expect(retried?.success).toBe(true);
+    expect(retried?.message).toContain('Bash(npm publish) will run once');
+    expect(retryDenial).toHaveBeenCalledWith(0);
+
+    const missing = await executor.execute('permissions', context, 'retry 2');
+    expect(missing?.success).toBe(false);
+    expect(missing?.message).toMatch(/^Usage: \/permissions retry <n>/);
   });
 });

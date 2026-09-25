@@ -9,6 +9,7 @@
 import { homedir } from 'node:os';
 
 import {
+  allowRulesForAutoMode,
   applyPresetToolLists,
   evaluatePermission,
   findInvalidPermissionPatterns,
@@ -23,6 +24,7 @@ import {
 } from '@robota-sdk/agent-core';
 
 import { decideApproval } from './abortable-approval.js';
+import { AutoModeGate } from './auto-mode-gate.js';
 import { consentScopeFor } from './consent-scope.js';
 import { PermissionDenialLog } from './permission-denial-log.js';
 import { wrapToolWithPermission } from './tool-permission-wrapper.js';
@@ -30,6 +32,7 @@ import { createWorkspacePathResolver } from './workspace-path-resolver.js';
 
 import type {
   IPermissionEnforcerOptions,
+  IPermissionRefusal,
   TPermissionHandler,
   TPermissionResult,
   ITerminalOutput,
@@ -95,6 +98,7 @@ export class PermissionEnforcer {
   private readonly resolveInWorkspace: TResolveInWorkspace;
   private readonly commandSandbox?: IPermissionEnforcerOptions['commandSandbox'];
   private readonly denials = new PermissionDenialLog();
+  private readonly autoMode?: AutoModeGate;
 
   constructor(options: IPermissionEnforcerOptions) {
     this.sessionId = options.sessionId;
@@ -124,6 +128,28 @@ export class PermissionEnforcer {
     this.homeDirectory = options.homeDirectory ?? homedir();
     this.resolveInWorkspace = createWorkspacePathResolver(options.cwd);
     this.commandSandbox = options.commandSandbox;
+    if (options.permissionClassifier !== undefined) {
+      this.autoMode = new AutoModeGate(options.permissionClassifier);
+    }
+  }
+
+  /** Whether `auto` mode can run here: it needs a classifier to decide for it. */
+  hasPermissionClassifier(): boolean {
+    return this.autoMode !== undefined;
+  }
+
+  /**
+   * Let the call behind a classifier denial run once, unjudged, when the model tries it again.
+   * Returns the denial, or `undefined` when `index` names no classifier denial.
+   */
+  allowRetryOfDenial(index: number): IPermissionDenial | undefined {
+    const denial = this.denials.list()[index];
+    const call = this.denials.callAt(index);
+    if (denial?.reason !== 'classifier' || call === undefined || this.autoMode === undefined) {
+      return undefined;
+    }
+    this.autoMode.grantRetry(call.toolName, call.toolArgs);
+    return denial;
   }
 
   /** Every configured pattern, split by the grammar it is held to. */
@@ -192,7 +218,7 @@ export class PermissionEnforcer {
       getPermissionMode: this.getPermissionMode,
       log: (event, detail) => this.log(event, detail),
       checkPermission: (toolName, toolArgs, signal, interaction, hookTraceEnv) =>
-        this.checkPermission(toolName, toolArgs, signal, interaction, hookTraceEnv),
+        this.decidePermission(toolName, toolArgs, signal, interaction, hookTraceEnv),
     };
 
     return tools.map((tool) => wrapToolWithPermission(tool, deps));
@@ -276,6 +302,19 @@ export class PermissionEnforcer {
     interaction: IToolExecutionContext['permissionInteraction'] = 'interactive',
     hookTraceEnv?: IToolExecutionContext['hookTraceEnv'],
   ): Promise<boolean> {
+    return (
+      (await this.decidePermission(toolName, toolArgs, signal, interaction, hookTraceEnv)) === true
+    );
+  }
+
+  /** {@link checkPermission}, keeping the reason a refusal carries for the model. */
+  private async decidePermission(
+    toolName: string,
+    toolArgs: TToolArgs,
+    signal?: AbortSignal,
+    interaction: IToolExecutionContext['permissionInteraction'] = 'interactive',
+    hookTraceEnv?: IToolExecutionContext['hookTraceEnv'],
+  ): Promise<boolean | IPermissionRefusal> {
     // Issue #3081: ONE evaluator for every caller. A background/subagent policy (CORE-025) only
     // adds a ceiling, an ask-everything flag and the task's own lists; the ceiling is checked before
     // bypassPermissions, so a policy still binds under a permissive mode.
@@ -288,13 +327,16 @@ export class PermissionEnforcer {
           })
         : undefined;
 
+    const mode = this.getPermissionMode();
+    const allow = [...this.config.permissions.allow, ...(policy?.allow ?? [])];
     const rules = {
-      allow: [...this.config.permissions.allow, ...(policy?.allow ?? [])],
+      // An allow rule that lets any code run would carry every call past the classifier.
+      allow: mode === 'auto' ? allowRulesForAutoMode(allow) : allow,
       deny: [...this.config.permissions.deny, ...(policy?.deny ?? [])],
       ask: this.config.permissions.ask ?? [],
     };
     const where = { cwd: this.cwd, homeDirectory: this.homeDirectory };
-    const decision = evaluatePermission(toolName, toolArgs, this.getPermissionMode(), rules, {
+    const decision = evaluatePermission(toolName, toolArgs, mode, rules, {
       ...where,
       resolveInWorkspace: this.resolveInWorkspace,
       sandboxAutoApproved: this.sandboxAutoApproves(toolName, toolArgs),
@@ -315,7 +357,50 @@ export class PermissionEnforcer {
     // 'approve' — route to the human-approval path. An ask that must reach a person every time is
     // not answered by a remembered consent, and does not create one (issue #3081).
     const fresh = requiresFreshApproval(toolName, toolArgs, rules, where);
+    // In auto mode the classifier stands in for the person, except where a person is required: an
+    // ask rule, a critical removal or protected path, or a policy that asks about everything.
+    if (mode === 'auto' && this.autoMode !== undefined && !fresh && policy?.askAll !== true) {
+      return this.decideInAutoMode(
+        this.autoMode,
+        toolName,
+        toolArgs,
+        signal,
+        interaction,
+        hookTraceEnv,
+      );
+    }
     return this.promptForApproval(toolName, toolArgs, signal, interaction, fresh);
+  }
+
+  private async decideInAutoMode(
+    gate: AutoModeGate,
+    toolName: string,
+    toolArgs: TToolArgs,
+    signal: AbortSignal | undefined,
+    interaction: IToolExecutionContext['permissionInteraction'],
+    hookTraceEnv: IToolExecutionContext['hookTraceEnv'],
+  ): Promise<boolean | IPermissionRefusal> {
+    if (gate.takeRetry(toolName, toolArgs)) return true;
+    // A consent given this session still answers, unless it is one no auto-mode rule could be.
+    if (
+      matchesAnyPattern(toolName, toolArgs, allowRulesForAutoMode([...this.sessionAllowedTools]))
+    ) {
+      return true;
+    }
+    if (gate.isPaused()) {
+      const allowed = await this.promptForApproval(toolName, toolArgs, signal, interaction, true);
+      if (allowed) gate.resume();
+      return allowed;
+    }
+    const judgement = await gate.judge({ toolName, toolArgs, cwd: this.cwd }, signal);
+    if (signal?.aborted === true) return false;
+    // The user left auto mode while the classifier was deciding: decide again under the new mode.
+    if (this.getPermissionMode() !== 'auto') {
+      return this.decidePermission(toolName, toolArgs, signal, interaction, hookTraceEnv);
+    }
+    if (judgement.kind === 'allow') return true;
+    this.denials.record(toolName, toolArgs, 'classifier', judgement.reason);
+    return { message: judgement.message };
   }
 
   /**

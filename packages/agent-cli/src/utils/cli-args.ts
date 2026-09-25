@@ -18,7 +18,13 @@ import type { TPermissionMode } from '@robota-sdk/agent-core';
 // existing CLI imports keep working without a second declaration of the same union.
 export type { TOutputFormat };
 
-const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
+const VALID_MODES: TPermissionMode[] = [
+  'plan',
+  'default',
+  'acceptEdits',
+  'bypassPermissions',
+  'auto',
+];
 
 const VALID_OUTPUT_FORMATS = OUTPUT_FORMATS;
 

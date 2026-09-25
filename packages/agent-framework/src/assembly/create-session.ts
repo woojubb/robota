@@ -9,6 +9,7 @@ import { applyPresetToolLists } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
 
 import { sandboxApprovalFor } from './sandbox-approval.js';
+import { createModelPermissionClassifier } from './model-permission-classifier.js';
 
 import { assembleSessionTools } from './assemble-session-tools.js';
 import { buildHookTypeExecutors } from './build-hook-type-executors.js';
@@ -255,6 +256,15 @@ export async function createSession(
     ...(options.sandboxClient?.autoApproves !== undefined
       ? { commandSandbox: sandboxApprovalFor(options.sandboxClient) }
       : {}),
+    // Issue #3082: `auto` mode asks the session's own model; an organization can turn the mode off.
+    ...(options.disableAutoMode === true
+      ? {}
+      : {
+          permissionClassifier: createModelPermissionClassifier(provider, {
+            cwd,
+            model: options.model ?? options.config.provider.model,
+          }),
+        }),
     // CMD-005: model-invoked tools solicit structured answers through this port.
     ...(options.ask ? { ask: options.ask } : {}),
     ...(onProjectAllowTool === undefined ? {} : { onProjectAllowTool }),

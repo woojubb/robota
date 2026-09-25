@@ -205,6 +205,7 @@ export {
   resolvePermissionModeAdapter,
   VALID_PERMISSION_MODES,
   writeCommandPermissionMode,
+  retryCommandPermissionDenial,
 } from '../command-api/permissions/permission-mode-command-api.js';
 export { applyPresetToSession } from '../command-api/preset/preset-application.js';
 export type {

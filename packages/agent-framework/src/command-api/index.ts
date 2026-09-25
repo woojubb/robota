@@ -242,6 +242,7 @@ export {
   resolvePermissionModeAdapter,
   VALID_PERMISSION_MODES,
   writeCommandPermissionMode,
+  retryCommandPermissionDenial,
 } from './permissions/permission-mode-command-api.js';
 export {
   buildStatusLineCommandSubcommands,

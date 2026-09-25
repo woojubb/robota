@@ -5,7 +5,8 @@ import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type { IPermissionDenial } from '@robota-sdk/agent-session';
 
 export const PERMISSION_MODE_COMMAND_DESCRIPTION = 'Show/change permission mode';
-export const PERMISSION_MODE_ARGUMENT_HINT = 'plan | default | acceptEdits | bypassPermissions';
+export const PERMISSION_MODE_ARGUMENT_HINT =
+  'plan | default | acceptEdits | bypassPermissions | auto';
 export const PERMISSIONS_COMMAND_DESCRIPTION = 'Show/change permission mode and permission rules';
 
 export type TPermissionRuleKind = 'deny' | 'ask' | 'allow';
@@ -36,6 +37,7 @@ export const VALID_PERMISSION_MODES: readonly TPermissionMode[] = [
   'default',
   'acceptEdits',
   'bypassPermissions',
+  'auto',
 ];
 
 export function buildPermissionModeSubcommands(source = 'mode'): ICommand[] {
@@ -44,6 +46,7 @@ export function buildPermissionModeSubcommands(source = 'mode'): ICommand[] {
     { name: 'default', description: 'Ask before risky actions', source },
     { name: 'acceptEdits', description: 'Auto-approve file edits', source },
     { name: 'bypassPermissions', description: 'Skip all permission checks', source },
+    { name: 'auto', description: 'A model classifier approves or blocks risky actions', source },
   ];
 }
 
@@ -75,6 +78,7 @@ export function resolvePermissionModeAdapter(
     listSessionAllowedTools: () => runtime.getSessionAllowedTools(),
     getPermissionRules: () => runtime.getPermissionRules(),
     listRecentDenials: () => runtime.getRecentPermissionDenials(),
+    retryDenial: (index) => runtime.retryPermissionDenial(index),
   };
 }
 
@@ -89,6 +93,18 @@ export function writeCommandPermissionMode(
   mode: TPermissionMode,
 ): void {
   resolvePermissionModeAdapter(context).setPermissionMode(mode);
+}
+
+/**
+ * Let the call behind a recent classifier denial (1-based, as `/permissions` numbers them) run once
+ * when the model tries it again.
+ */
+export function retryCommandPermissionDenial(
+  context: ICommandHostAdapterAccess & ICommandHostSessionAccess,
+  position: number,
+): IPermissionDenial | undefined {
+  if (!Number.isInteger(position) || position < 1) return undefined;
+  return resolvePermissionModeAdapter(context).retryDenial(position - 1);
 }
 
 export function listCommandSessionAllowedTools(
@@ -151,6 +167,7 @@ const DENIAL_REASON_LABEL: Readonly<Record<IPermissionDenial['reason'], string>>
   policy: 'denied by a rule or the mode',
   user: 'declined when asked',
   'no-approver': 'needed approval, none available',
+  classifier: 'blocked by the auto-mode classifier',
 };
 
 function formatClock(at: number): string {
@@ -184,10 +201,17 @@ export function formatCommandPermissionsMessage(state: IPermissionsCommandState)
     lines.push('Recent denials: none.');
   } else {
     lines.push('Recent denials (most recent first):');
-    for (const denial of state.recentDenials) {
+    state.recentDenials.forEach((denial, index) => {
       const call =
         denial.argument !== undefined ? `${denial.toolName}(${denial.argument})` : denial.toolName;
-      lines.push(`  ${formatClock(denial.at)}  ${call} — ${DENIAL_REASON_LABEL[denial.reason]}`);
+      const why = DENIAL_REASON_LABEL[denial.reason];
+      const detail = denial.detail !== undefined ? `: ${denial.detail}` : '';
+      lines.push(`  ${index + 1}. ${formatClock(denial.at)}  ${call} — ${why}${detail}`);
+    });
+    if (state.recentDenials.some((denial) => denial.reason === 'classifier')) {
+      lines.push(
+        '  To let a blocked call run once when the model retries it: /permissions retry <n>',
+      );
     }
   }
   return lines.join('\n');

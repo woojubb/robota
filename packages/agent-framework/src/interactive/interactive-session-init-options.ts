@@ -150,6 +150,8 @@ export interface IInitOptions {
   editCheckpointRecorder?: IEditCheckpointRecorder;
   /** Opt-in local-first reversible execution policy for write/shell tools. */
   reversibleExecution?: IReversibleExecutionOptions;
+  /** No `auto` permission mode (an organization policy turned it off). */
+  disableAutoMode?: boolean;
   /** Optional provider sandbox client used by sandbox-aware built-in tools. */
   sandboxClient?: ISandboxClient;
   /** ARCH-033: the name a child process uses to rebuild a sandbox like this one. */

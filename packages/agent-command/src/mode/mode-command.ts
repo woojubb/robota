@@ -5,8 +5,9 @@ import {
   isPermissionMode,
   parsePermissionModeArgument,
   readCommandPermissionMode,
-  writeCommandPermissionMode,
 } from '@robota-sdk/agent-framework';
+
+import { tryWritePermissionMode } from '../permissions/permissions-command.js';
 
 import type {
   ICommandHostAdapterAccess,
@@ -56,7 +57,8 @@ export async function executeModeCommand(
     };
   }
 
-  writeCommandPermissionMode(context, arg);
+  const refused = tryWritePermissionMode(context, arg);
+  if (refused !== undefined) return refused;
   return {
     message: `Permission mode set to: ${arg}`,
     success: true,

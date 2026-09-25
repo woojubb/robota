@@ -2,6 +2,7 @@
  * Permission types — interfaces and type aliases for permission enforcement.
  */
 
+import type { IPermissionClassifier } from './auto-mode-gate.js';
 import type { ISessionLogger } from './session-logger.js';
 import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
 import type {
@@ -106,6 +107,11 @@ export interface IPermissionEnforcerOptions {
    * which `inherit-allowlist` inherits). `preapproved` consults these.
    */
   taskPermissions?: { allow?: readonly string[]; deny?: readonly string[] };
+  /**
+   * Judges, in `auto` mode, the calls the mode would otherwise ask a person about. Absent → the
+   * session cannot enter `auto`.
+   */
+  permissionClassifier?: IPermissionClassifier;
 }
 
 /**
@@ -203,6 +209,11 @@ export function reportToolCrash(
     executionId: where.executionId,
   });
   return toolFailure('threw', message);
+}
+
+/** A refusal that tells the model why, so it can take another route. */
+export interface IPermissionRefusal {
+  readonly message: string;
 }
 
 /** Returned when the user denies a permission prompt. */

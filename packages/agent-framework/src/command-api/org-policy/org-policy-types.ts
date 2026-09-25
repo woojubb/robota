@@ -5,6 +5,8 @@ export interface IOrgPolicy {
   blockedCommands?: string[];
   /** If true, API keys must be stored as env references ($ENV:VAR), not plaintext. */
   requireApiKeyFromEnv?: boolean;
+  /** If true, the `auto` permission mode is unavailable. */
+  disableAutoMode?: boolean;
   /** Shown in policy violation messages so users know who to contact. */
   adminContact?: string;
 }

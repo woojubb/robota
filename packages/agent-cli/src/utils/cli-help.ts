@@ -17,7 +17,7 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --append-system-prompt <t> Append text to the system prompt
   --language <lang>          Language preference (e.g. ko, en)
   --no-session-persistence   Disable session persistence for this run
-  --permission-mode <mode>   Permission mode: plan | default | acceptEdits | bypassPermissions
+  --permission-mode <mode>   Permission mode: plan | default | acceptEdits | bypassPermissions | auto
   --external-event-allow <server:sender>
                              TUI only: allow text-only turns via a trusted MCP server
                              that verifies the sender;
