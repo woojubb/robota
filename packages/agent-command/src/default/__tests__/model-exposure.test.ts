@@ -134,7 +134,7 @@ const USER_ONLY_COMMANDS = [
   'validate-session',
 ];
 
-/** User-only subcommands of commands the model IS offered. `login` is refused before it exists. */
+/** User-only subcommands of commands the model IS offered; `list` is an alias `/mcp` accepts for the user. */
 const USER_ONLY_SUBCOMMANDS: Record<string, readonly string[]> = {
   mcp: ['approve', 'reject', 'revoke', 'logout', 'login', 'list'],
   memory: ['approve', 'reject'],

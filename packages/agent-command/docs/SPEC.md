@@ -160,9 +160,10 @@ and neither are exits or UI-only preferences: the model may suggest them, the us
 command that mixes such actions with read-only views opens only the read-only subset to the model.
 Every model-invocable command carries a description written for the model — what it does, when to
 use it, what it returns — and when the model asks a command to start a process, that process is
-decided by the shell tool's own gate (its rules, the mode and the prompt) rather than by consent to
-the command's name, so being a command is never a way around a shell rule, and approving one
-monitored command never approves another.
+decided as a shell tool call would be — its PreToolUse hooks and guardrails, then its rules, the
+mode and the prompt — rather than by consent to the command's name, so being a command is never a
+way around a shell rule, and approving one monitored command never approves another. The sandbox's
+auto-approval never applies to it, because that process does not run inside the sandbox.
 
 **`/remote-control`, `/doctor`, `/context`, and session command metadata.** For these commands, the
 palette entry is the single source of metadata, and the executable command is projected from it;

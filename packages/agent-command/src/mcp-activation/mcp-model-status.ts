@@ -12,7 +12,7 @@ import { shellArgumentForDisplay } from '@robota-sdk/agent-core';
 
 import { mcpUserActionCommand } from './mcp-model-notice.js';
 
-import type { TMCPUserAction } from './mcp-model-notice.js';
+import type { TMCPUserAction, TMCPUserActionSurface } from './mcp-model-notice.js';
 import type {
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
@@ -45,6 +45,7 @@ interface IModelServerView {
 function toModelView(
   summary: ICommandMCPActivationSummary,
   oauth: TOAuthState | undefined,
+  surface: TMCPUserActionSurface,
 ): IModelServerView {
   const name = shellArgumentForDisplay(summary.serverId);
   const action = userActionFor(summary.status, oauth);
@@ -54,7 +55,7 @@ function toModelView(
     ...(oauth === undefined ? {} : { oauth }),
     ...(action === undefined
       ? {}
-      : { suggestCommand: mcpUserActionCommand(summary.serverId, action) }),
+      : { suggestCommand: mcpUserActionCommand(summary.serverId, action, surface) }),
   };
 }
 
@@ -77,7 +78,9 @@ export async function mcpModelStatusResult(
   );
   const servers = mcp
     .list()
-    .map((summary) => toModelView(summary, oauthStates.get(summary.serverId)));
+    .map((summary) =>
+      toModelView(summary, oauthStates.get(summary.serverId), mcp.userActionSurface ?? 'session'),
+    );
   const unreadableSources = (mcp.sourceProblems?.() ?? []).length;
   const lines =
     servers.length === 0

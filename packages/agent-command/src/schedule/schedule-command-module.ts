@@ -120,8 +120,8 @@ function createMonitorSystemCommand(): ISystemCommand {
     ...(entry.modelDescription !== undefined ? { modelDescription: entry.modelDescription } : {}),
     // It starts a process, so it is never treated as read-only (a remote read-only policy refuses
     // it). The MODEL's call is not asked about by the command's name: the host decides the
-    // monitored command through the shell tool's own gate (its Bash/Shell rules, the mode and the
-    // prompt), so one "always allow" of `/monitor` can never approve every later command.
+    // monitored command as a shell tool call (hooks, Bash/Shell rules, the mode and the prompt, never
+    // the sandbox's auto-approval), so one "always allow" of `/monitor` never approves another command.
     requiresPermission: true,
     modelRequiresPermission: false,
     userInvocable: true,

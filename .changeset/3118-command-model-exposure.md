@@ -20,8 +20,12 @@ with a trust, credential or permission-widening action.
   that subset. A model-requested monitor's command is now decided by the shell tool's gate (its
   Bash/Shell rules, the mode and the prompt) and a refusal rejects with the new
   `MonitorCommandRefusedError`. The `scriptedSession` test harness accepts `permissions` patterns.
-- `agent-session` — `Session.checkToolPermission(toolName, toolArgs)` decides a call exactly as the
-  session's gate decides that tool call.
+- `agent-session` — `Session.checkToolPermission(toolName, toolArgs)` decides an action that has a
+  tool's effect by another route: that tool's PreToolUse hooks, then the gate's rules, mode,
+  remembered consent and prompt — never the command sandbox's auto-approval, since the action does
+  not run inside the sandbox.
+- `agent-framework` also: `ICommandMCPActivationAdapter.userActionSurface?` tells `/mcp` whether the
+  user can type a session command, so the model's status names the terminal sign-in otherwise.
 - `agent-command` — `/context` (bare and `list`), `/cost` (the report, not `budget`) and `/mcp`
   (`status` only, without a prompt) are now model-invocable; `/memory approve` and `/memory reject`
   are now user-only; the model's `/monitor` is decided by the shell gate rather than by consent to

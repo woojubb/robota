@@ -83,6 +83,25 @@ describe('/mcp status as the model sees it', () => {
     );
   });
 
+  it('names the terminal sign-in command in a run with no session prompt', async () => {
+    const terminal = { ...adapter, userActionSurface: 'terminal' as const };
+    const result = await executeMCPActivationCommand(
+      createTestCommandHost({
+        overrides: {
+          getCommandHostAdapters: () => ({ mcpActivation: terminal }),
+          getCommandInvocationSource: () => 'model',
+        },
+      }),
+      'status',
+    );
+    expect(result.message).toContain(
+      'github — approved — sign-in: sign-in-required — ask the user to run `robota mcp login github`',
+    );
+    expect(result.message).not.toContain('/mcp login');
+    // Approval has no terminal command; it stays the session command.
+    expect(result.message).toContain('`/mcp approve linear`');
+  });
+
   it('carries no reason text, source path, fingerprint, identity or unsafe name', async () => {
     const result = await executeMCPActivationCommand(host('model'), '');
     const everything = JSON.stringify(result);

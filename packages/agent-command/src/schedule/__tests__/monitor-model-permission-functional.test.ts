@@ -9,7 +9,18 @@ import { scriptedSession, type ScriptedSessionHarness } from '@robota-sdk/agent-
 
 import { createScheduleCommandModule } from '../schedule-command-module.js';
 
-import type { TPermissionMode } from '@robota-sdk/agent-core';
+import type { THooksConfig, TPermissionMode } from '@robota-sdk/agent-core';
+type ISandboxClient = NonNullable<Parameters<typeof scriptedSession>[0]['sandboxClient']>;
+
+/** A sandbox that would let every confined shell command run without a prompt. */
+const autoApprovingSandbox: ISandboxClient = {
+  filesystem: 'shared',
+  wrapCommand: (invocation) => invocation,
+  autoApproves: () => true,
+  run: () => Promise.reject(new Error('not used')),
+  readFile: () => Promise.reject(new Error('not used')),
+  writeFile: () => Promise.reject(new Error('not used')),
+};
 
 let harness: ScriptedSessionHarness | undefined;
 afterEach(async () => {
@@ -19,7 +30,9 @@ afterEach(async () => {
 
 function session(options: {
   permissionMode: TPermissionMode;
-  permissions: { allow?: string[]; deny?: string[] };
+  permissions?: { allow?: string[]; deny?: string[] };
+  hooks?: THooksConfig;
+  sandboxClient?: ISandboxClient;
 }): ScriptedSessionHarness {
   harness = scriptedSession({
     turns: [],
@@ -78,5 +91,36 @@ describe('/monitor from the model is decided by the shell gate', () => {
     const result = await h.command('monitor', MONITOR_ARGS);
 
     expect(result?.success).toBe(true);
+  });
+
+  it('never takes the sandbox auto-approval: the monitor does not run inside the sandbox', async () => {
+    // Default mode would auto-run a sandboxed shell command. The monitor's process is started by the
+    // background-task manager, outside the sandbox, so it falls to the ask path — and with no one
+    // to ask here, it is refused rather than started unconfined.
+    const h = session({ permissionMode: 'default', sandboxClient: autoApprovingSandbox });
+
+    const result = await h.session.executeModelCommand('monitor', MONITOR_ARGS);
+
+    expect(result?.success).toBe(false);
+    expect(monitorTasks(h)).toEqual([]);
+  });
+
+  it('runs the PreToolUse hooks, so a guardrail blocks the monitored command', async () => {
+    const h = session({
+      permissionMode: 'bypassPermissions',
+      hooks: {
+        PreToolUse: [
+          {
+            matcher: 'Shell',
+            hooks: [{ type: 'command', command: 'echo "no sleeping" >&2; exit 2' }],
+          },
+        ],
+      },
+    });
+
+    const result = await h.session.executeModelCommand('monitor', MONITOR_ARGS);
+
+    expect(result?.success).toBe(false);
+    expect(monitorTasks(h)).toEqual([]);
   });
 });

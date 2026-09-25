@@ -780,6 +780,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       connectSignedIn,
       toolsAdded,
     ),
+    ...(deps.userActionSurface === undefined ? {} : { userActionSurface: deps.userActionSurface }),
   };
 
   const openConnections: IMcpServerConnection[] = [];

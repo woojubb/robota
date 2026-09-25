@@ -392,7 +392,8 @@ export abstract class InteractiveSessionBase {
   }): Promise<IBackgroundTaskState> {
     await this.ensureInitialized();
     // A monitor starts `command` as a process. When the MODEL asks for it, the command is decided
-    // by the shell tool's own gate — its allow/deny/ask rules, the mode and the prompt — so a
+    // as a shell tool call would be — PreToolUse hooks, then allow/deny/ask rules, mode and prompt,
+    // but never the sandbox's auto-approval, since this process runs outside the sandbox — so a
     // monitor is never a way around a `Bash(...)` rule, and consent to monitoring one command is
     // never consent to another.
     if (this.getCommandInvocationSource() === 'model') {

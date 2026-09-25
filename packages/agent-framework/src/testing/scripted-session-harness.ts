@@ -47,11 +47,13 @@ import type {
   IAIProvider,
   IToolWithEventService,
   IUserInteraction,
+  THooksConfig,
   TPermissionMode,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
 import type { TScriptedTurn } from '@robota-sdk/agent-core/testing';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 import type {
   IExecutionResult,
@@ -127,6 +129,10 @@ export interface IScriptedSessionOptions {
    * host settings source, the route the product uses. Tool-name lists are `allowedTools`/`deniedTools`.
    */
   permissions?: { allow?: string[]; deny?: string[]; ask?: string[] };
+  /** Hook configuration, written into the same user settings file as `permissions`. */
+  hooks?: THooksConfig;
+  /** A sandbox client, as a product that confines commands supplies one. */
+  sandboxClient?: ISandboxClient;
   /** Skip AGENTS.md/CLAUDE.md and plugin discovery for determinism. Defaults to `true`. */
   bare?: boolean;
   /** Cap on agentic rounds per submit. */
@@ -223,9 +229,13 @@ export class ScriptedSessionHarness {
     const persistenceDir = join(this.cwd, '.robota', 'sessions');
     this.sessionStore = options.persistence ? new NodeSessionStore(persistenceDir) : undefined;
     let userSettingsPath: string | undefined;
-    if (options.permissions !== undefined) {
+    if (options.permissions !== undefined || options.hooks !== undefined) {
       userSettingsPath = join(this.cwd, '.robota-test-user-settings.json');
-      writeFileSync(userSettingsPath, JSON.stringify({ permissions: options.permissions }), 'utf8');
+      const settings = {
+        ...(options.permissions !== undefined ? { permissions: options.permissions } : {}),
+        ...(options.hooks !== undefined ? { hooks: options.hooks } : {}),
+      };
+      writeFileSync(userSettingsPath, JSON.stringify(settings), 'utf8');
     }
     this.session = new InteractiveSession({
       cwd: this.cwd,
@@ -234,6 +244,7 @@ export class ScriptedSessionHarness {
         ? { userSettingsSources: [createNodeHostSettingsSource('user', userSettingsPath)] }
         : {}),
       ...(options.projectAccess ? { projectAccess: options.projectAccess } : {}),
+      ...(options.sandboxClient ? { sandboxClient: options.sandboxClient } : {}),
       ...(options.contributionSources !== undefined
         ? { contributionSources: options.contributionSources }
         : {}),

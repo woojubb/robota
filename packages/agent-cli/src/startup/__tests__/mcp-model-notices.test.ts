@@ -156,6 +156,8 @@ describe('MCP servers the user must act on, as the model learns of them', () => 
 
   it('names the terminal sign-in command where no /mcp command can be typed', async () => {
     const composition = refusingComposition(mcpUserActionSurfaceFor('print'));
+    // The model's `/mcp status` reads the same surface from the command port.
+    expect(composition.activationAdapter.userActionSurface).toBe('terminal');
 
     const [tool] = await composition.connect();
     const result = await tool!.execute({}, { toolName: tool!.getName(), parameters: {} });
