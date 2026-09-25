@@ -175,9 +175,10 @@ instead of degrading to the file, because secrets already in the keychain would 
 found. On Linux only the Secret Service counts as a keychain — the binding's kernel-keyring fallback
 is memory-only, and a host key lost at reboot changes the identity every device pinned. Messages and
 errors name a secret's key, never its value, and carry no cause that could quote it. The recovery
-phrase is never stored anywhere: it is shown and read only on the process's own terminal while the
-session has handed it over, never through the session's input, history, transcript or model, and a
-host without an interactive terminal refuses instead of reading it from anywhere else.
+phrase is never stored anywhere: it is shown and read only on the controlling terminal, opened apart
+from the session's own input while the session has handed the terminal over — a byte read through the
+session's input would reach its composer, history, transcript and model — and a host without an
+interactive terminal refuses instead of reading it from anywhere else.
 
 A key that has ever sat in a plain file backups and dotfile sync copy is never carried into the
 store: it is replaced by a new key, the file is removed, and the operator is told once that trusted

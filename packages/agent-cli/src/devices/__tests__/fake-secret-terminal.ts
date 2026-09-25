@@ -25,6 +25,8 @@ export interface IScriptedOperatorOptions {
   readonly revokeAnswer?: (expected: string) => string;
   /** Throw this from the first read (e.g. a cancellation). */
   readonly failWith?: Error;
+  /** Runs once, at the first prompt: something else happening while the operator is at the terminal. */
+  readonly meanwhile?: () => Promise<void>;
 }
 
 const GRID_ENTRY = /(\d+)\. ([a-z]+)/g;
@@ -34,6 +36,7 @@ export function scriptedOperator(options: IScriptedOperatorOptions = {}): IScrip
   let screen = '';
   let words: string[] = [];
   let runs = 0;
+  let meanwhileRan = false;
   const terminal: ISecretTerminal = {
     write: (text) => {
       everything += text;
@@ -46,6 +49,10 @@ export function scriptedOperator(options: IScriptedOperatorOptions = {}): IScrip
       everything += prompt;
       screen += prompt;
       if (options.failWith) throw options.failWith;
+      if (options.meanwhile !== undefined && !meanwhileRan) {
+        meanwhileRan = true;
+        await options.meanwhile();
+      }
       if (/Press Enter/.test(prompt)) {
         words = [];
         for (const match of screen.matchAll(GRID_ENTRY)) words[Number(match[1]) - 1] = match[2]!;

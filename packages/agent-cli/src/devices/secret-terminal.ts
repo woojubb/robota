@@ -2,19 +2,29 @@
  * The dedicated terminal path for secrets: the recovery phrase is shown and read here and nowhere
  * else.
  *
- * It talks to the process's own TTY directly, never through the session: nothing typed or shown
- * here passes the prompt input, prompt history, conversation, transcript, trace or telemetry. It
- * runs while the session has handed the terminal over, on the alternate screen, so what it shows is
- * not left in the main screen's scrollback; the screen and its scrollback are cleared before it
- * leaves. Input is read in raw mode and echoes nothing unless a prompt asks for echo. Without an
- * interactive input and output it does not open at all — there is no fallback to a pipe or a file.
+ * It opens the controlling terminal (`/dev/tty`) as streams of its own and never reads the
+ * session's stdin. That is the point, not a detail: the session's stdin has readers of its own
+ * (the TUI's input proxy keeps a permanent listener that buffers every byte for the prompt
+ * composer), so a byte read through it would be delivered to the composer — and from there to prompt
+ * history, the conversation and the model — once the session takes the terminal back. The session's
+ * stdin stays paused throughout, and if something is reading it the path does not open at all.
+ *
+ * It runs while the session has handed the terminal over, on the alternate screen, so what it shows
+ * is not left in the main screen's scrollback; after a secret is shown the screen and scrollback are
+ * wiped. Input is read in raw mode and echoes nothing unless a prompt asks for echo. Without an
+ * interactive controlling terminal it does not open — there is no fallback to a pipe or a file.
  */
+import { closeSync, openSync } from 'node:fs';
+import { StringDecoder } from 'node:string_decoder';
+import { ReadStream, WriteStream, isatty } from 'node:tty';
 
 const ENTER_ALT_SCREEN = '\x1b[?1049h';
 const LEAVE_ALT_SCREEN = '\x1b[?1049l';
 const CLEAR_SCREEN = '\x1b[2J';
 const CLEAR_SCROLLBACK = '\x1b[3J';
 const CURSOR_HOME = '\x1b[H';
+const BLANK = `${CLEAR_SCREEN}${CURSOR_HOME}`;
+/** Also drops scrollback, for a terminal that kept the shown secret there despite the alternate screen. */
 const WIPE = `${CLEAR_SCREEN}${CLEAR_SCROLLBACK}${CURSOR_HOME}`;
 
 const CTRL_C = '\x03';
@@ -35,18 +45,18 @@ export class SecretInputCancelled extends Error {
 export interface ISecretTerminal {
   /** Write text as is. Lines end with `\r\n`: raw mode does no newline translation. */
   write(text: string): void;
-  /** Clear the screen and its scrollback — what was shown is gone from the terminal. */
+  /** Wipe the screen and its scrollback — what was shown is gone from the terminal. */
   clearScreen(): void;
   /** Read one line. Nothing typed is echoed unless `echo` is true. Rejects on ctrl-C / ctrl-D. */
   readLine(prompt: string, options?: { readonly echo?: boolean }): Promise<string>;
 }
 
 export interface ISecretTerminalSession {
-  /** Take the terminal, run `work`, and always give it back cleared. */
+  /** Take the terminal, run `work`, and always give it back blank. */
   run<T>(work: (terminal: ISecretTerminal) => Promise<T>): Promise<T>;
 }
 
-/** The slice of `process.stdin` this path uses. */
+/** The input side of the controlling terminal. */
 export interface ISecretTerminalInput {
   readonly isTTY?: boolean;
   readonly isRaw?: boolean;
@@ -58,15 +68,25 @@ export interface ISecretTerminalInput {
   isPaused(): boolean;
 }
 
-/** The slice of `process.stdout` this path uses. */
+/** The output side of the controlling terminal. */
 export interface ISecretTerminalOutput {
   readonly isTTY?: boolean;
   write(chunk: string): unknown;
 }
 
-export interface ISecretTerminalIo {
+/** The controlling terminal, opened for this path alone. */
+export interface ISecretTerminalTty {
   readonly input: ISecretTerminalInput;
   readonly output: ISecretTerminalOutput;
+  /** Release what was opened. */
+  close(): void;
+}
+
+export interface ISecretTerminalOptions {
+  /** The session's stdin. Only inspected — this path never reads, resumes or re-modes it. */
+  readonly sessionInput?: { readonly readableFlowing?: boolean | null };
+  /** Opens the controlling terminal; defaults to `/dev/tty`. */
+  readonly openTty?: () => ISecretTerminalTty | undefined;
 }
 
 interface IPendingRead {
@@ -76,17 +96,21 @@ interface IPendingRead {
   buffer: string;
 }
 
+type TEscapeState = 'none' | 'escape' | 'sequence';
+
 /** Turns raw key bytes into lines; keeps what was typed ahead for the next read. */
 class LineReader {
   private pending: IPendingRead | undefined;
   private queue = '';
-  private inEscape = false;
+  private escape: TEscapeState = 'none';
   private cancelled = false;
+  // A multi-byte character split across two chunks is joined, not mangled.
+  private readonly decoder = new StringDecoder('utf8');
 
   constructor(private readonly output: ISecretTerminalOutput) {}
 
   readonly onData = (chunk: Buffer | string): void => {
-    this.queue += typeof chunk === 'string' ? chunk : chunk.toString('utf8');
+    this.queue += typeof chunk === 'string' ? chunk : this.decoder.write(chunk);
     this.drain();
   };
 
@@ -101,6 +125,7 @@ class LineReader {
   /** Forget anything typed ahead, so a secret never outlives the session in memory we hold. */
   discard(): void {
     this.queue = '';
+    this.decoder.end();
     if (this.pending !== undefined) this.pending.buffer = '';
   }
 
@@ -113,16 +138,31 @@ class LineReader {
     }
   }
 
-  private accept(read: IPendingRead, ch: string): void {
-    if (this.inEscape) {
-      // CSI / SS3 sequences (arrows, function keys) end on a byte in 0x40–0x7e.
-      if (ch !== '[' && ch !== 'O' && ch >= '@' && ch <= '~') this.inEscape = false;
-      return;
+  /** Whether `ch` belongs to an escape sequence and is dropped. Line ends and ctrl-C never do. */
+  private inEscape(ch: string): boolean {
+    if (ch === '\r' || ch === '\n' || ch === CTRL_C || ch === CTRL_D) {
+      this.escape = 'none';
+      return false;
+    }
+    if (this.escape === 'escape') {
+      // CSI (`ESC [`) and SS3 (`ESC O`) continue; anything else was an Alt+key, which ends here.
+      this.escape = ch === '[' || ch === 'O' ? 'sequence' : 'none';
+      return true;
+    }
+    if (this.escape === 'sequence') {
+      // A sequence ends on a final byte in 0x40–0x7e.
+      if (ch >= '@' && ch <= '~') this.escape = 'none';
+      return true;
     }
     if (ch === ESCAPE) {
-      this.inEscape = true;
-      return;
+      this.escape = 'escape';
+      return true;
     }
+    return false;
+  }
+
+  private accept(read: IPendingRead, ch: string): void {
+    if (this.inEscape(ch)) return;
     if (ch === '\r' || ch === '\n') {
       // A CRLF pair is one line end.
       if (ch === '\r' && this.queue.startsWith('\n')) this.queue = this.queue.slice(1);
@@ -161,25 +201,70 @@ class LineReader {
   }
 }
 
-function isInteractive(io: ISecretTerminalIo): boolean {
+function isInteractive(tty: ISecretTerminalTty): boolean {
   return (
-    io.input.isTTY === true &&
-    io.output.isTTY === true &&
-    typeof io.input.setRawMode === 'function'
+    tty.input.isTTY === true &&
+    tty.output.isTTY === true &&
+    typeof tty.input.setRawMode === 'function'
   );
 }
 
+/** `/dev/tty` as a fresh read and write stream, or `undefined` when there is no controlling terminal. */
+function openControllingTty(): ISecretTerminalTty | undefined {
+  if (process.platform === 'win32') return undefined;
+  const fds: number[] = [];
+  try {
+    fds.push(openSync('/dev/tty', 'r'));
+    fds.push(openSync('/dev/tty', 'w'));
+  } catch {
+    // allow-fallback: no controlling terminal — the caller refuses; nothing else is tried.
+    for (const fd of fds) closeSync(fd);
+    return undefined;
+  }
+  const [inFd, outFd] = fds as [number, number];
+  if (!isatty(inFd) || !isatty(outFd)) {
+    closeSync(inFd);
+    closeSync(outFd);
+    return undefined;
+  }
+  const input = new ReadStream(inFd);
+  const output = new WriteStream(outFd);
+  return {
+    input,
+    output,
+    close: () => {
+      input.destroy();
+      output.destroy();
+    },
+  };
+}
+
 /**
- * The secret terminal over the process TTY, or `undefined` when there is no interactive terminal
- * (headless, piped, CI) — the caller refuses rather than reading a secret from anywhere else.
+ * The secret terminal, or `undefined` when there is no interactive controlling terminal (headless,
+ * piped, CI) or the session's stdin is being read — the caller refuses rather than reading a secret
+ * from anywhere else, or from a stream another reader shares.
  */
 export function openSecretTerminal(
-  io: ISecretTerminalIo = { input: process.stdin, output: process.stdout },
+  options: ISecretTerminalOptions = {},
 ): ISecretTerminalSession | undefined {
-  if (!isInteractive(io)) return undefined;
-  const { input, output } = io;
+  const sessionInput = options.sessionInput ?? process.stdin;
+  const openTty = options.openTty ?? openControllingTty;
+  const sessionIsReading = (): boolean => sessionInput.readableFlowing === true;
+  if (sessionIsReading()) return undefined;
+  const probe = openTty();
+  if (probe === undefined) return undefined;
+  const interactive = isInteractive(probe);
+  probe.close();
+  if (!interactive) return undefined;
+
   return {
     async run<T>(work: (terminal: ISecretTerminal) => Promise<T>): Promise<T> {
+      const tty = sessionIsReading() ? undefined : openTty();
+      if (tty === undefined || !isInteractive(tty)) {
+        tty?.close();
+        throw new Error('the controlling terminal is no longer available');
+      }
+      const { input, output } = tty;
       const wasRaw = input.isRaw === true;
       const wasPaused = input.isPaused();
       const reader = new LineReader(output);
@@ -190,23 +275,24 @@ export function openSecretTerminal(
         clearScreen: () => {
           output.write(WIPE);
         },
-        readLine: (prompt, options) => {
+        readLine: (prompt, readOptions) => {
           output.write(prompt);
-          return reader.read(options?.echo === true);
+          return reader.read(readOptions?.echo === true);
         },
       };
-      output.write(`${ENTER_ALT_SCREEN}${WIPE}`);
-      input.setRawMode?.(true);
-      input.on('data', reader.onData);
-      input.resume();
       try {
+        output.write(`${ENTER_ALT_SCREEN}${BLANK}`);
+        input.setRawMode?.(true);
+        input.on('data', reader.onData);
+        input.resume();
         return await work(terminal);
       } finally {
         input.off('data', reader.onData);
         reader.discard();
         input.setRawMode?.(wasRaw);
         if (wasPaused) input.pause();
-        output.write(`${WIPE}${LEAVE_ALT_SCREEN}`);
+        output.write(`${BLANK}${LEAVE_ALT_SCREEN}`);
+        tty.close();
       }
     },
   };

@@ -14,6 +14,7 @@ import {
   verifyDeviceChain,
 } from '@robota-sdk/agent-remote-pairing';
 
+import { CredentialStoreError } from '../../credentials/credential-store-error.js';
 import { createFileCredentialStore } from '../../credentials/file-credential-store.js';
 import { createDeviceIdentityService } from '../device-identity-service.js';
 import { loadSigningKey, signingKeyCredentialKey } from '../identity-keys.js';
@@ -190,6 +191,71 @@ describe('/devices init', () => {
       ok: false,
       reason: 'no-terminal',
     });
+  });
+});
+
+describe('/devices init: nothing is shown that cannot be kept', () => {
+  it('fits a long non-ASCII name to the certificate limit instead of failing after the phrase', async () => {
+    const operator = scriptedOperator();
+    const outcome = await service(operator).init({ name: '🔑'.repeat(40) });
+    expect(outcome.ok).toBe(true);
+    expect(state().deviceCertificate.name.length).toBeLessThanOrEqual(64);
+  });
+
+  it('refuses before showing a phrase when the credential store cannot be used', async () => {
+    store = {
+      get: () => Promise.reject(new CredentialStoreError('keychain locked')),
+      set: () => Promise.reject(new CredentialStoreError('keychain locked')),
+      delete: () => Promise.reject(new CredentialStoreError('keychain locked')),
+    };
+    const operator = scriptedOperator();
+    await expect(service(operator).init({})).rejects.toThrow('keychain locked');
+    expect(operator.runs()).toBe(0);
+  });
+});
+
+describe('another session changing the identity meanwhile', () => {
+  it('init refuses when an identity appeared while the operator was at the terminal', async () => {
+    let otherDeviceId = '';
+    const operator = scriptedOperator({
+      meanwhile: async () => {
+        const other = await service(scriptedOperator()).init({ name: 'other session' });
+        if (other.ok) otherDeviceId = other.value.deviceId;
+      },
+    });
+    expect(await service(operator).init({})).toEqual({ ok: false, reason: 'changed-concurrently' });
+    expect(state().deviceCertificate.deviceId).toBe(otherDeviceId);
+  });
+
+  it('revoke refuses and keeps the other change', async () => {
+    await initialized();
+    const other = await enrolSecondDevice();
+    let changed: IDeviceIdentityState | undefined;
+    const operator = scriptedOperator({
+      meanwhile: async () => {
+        await enrolSecondDevice('laptop 2');
+        changed = state();
+      },
+    });
+    expect(await service(operator).revoke(other.deviceId.slice(0, 8))).toEqual({
+      ok: false,
+      reason: 'changed-concurrently',
+    });
+    expect(state()).toEqual(changed);
+  });
+
+  it('recover refuses and keeps the other change', async () => {
+    const { words } = await initialized();
+    let changed: IDeviceIdentityState | undefined;
+    const operator = scriptedOperator({
+      phrase: () => words,
+      meanwhile: async () => {
+        await enrolSecondDevice();
+        changed = state();
+      },
+    });
+    expect(await service(operator).recover()).toEqual({ ok: false, reason: 'changed-concurrently' });
+    expect(state()).toEqual(changed);
   });
 });
 

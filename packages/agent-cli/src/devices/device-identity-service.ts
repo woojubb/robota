@@ -104,13 +104,20 @@ function nextSeq(previous: number | undefined, now: number): number {
   return Math.max((previous ?? 0) + 1, now);
 }
 
-/** A signed device name: NFC, no control characters, bounded. */
+/**
+ * A signed device name: NFC, no control characters, and within the certificate's limit as the
+ * certificate counts it (UTF-16 units), cut at a whole character — so certifying it cannot fail
+ * after the operator has already written the phrase down.
+ */
 function deviceName(raw: string): string {
-  const cleaned = Array.from(raw.normalize('NFC').replace(/\p{Cc}/gu, ' ').trim())
-    .slice(0, DEVICE_NAME_MAX_CHARS)
-    .join('')
-    .trim();
-  return cleaned.length > 0 ? cleaned : 'device';
+  let name = '';
+  for (const ch of raw.normalize('NFC').replace(/\p{Cc}/gu, ' ').trim()) {
+    if (name.length + ch.length > DEVICE_NAME_MAX_CHARS) break;
+    name += ch;
+  }
+  // A prefix of an NFC string can compose further; composing never lengthens it.
+  name = name.trim().normalize('NFC');
+  return name.length > 0 ? name : 'device';
 }
 
 /** The same identity state, i.e. nothing was issued in between. */
@@ -203,6 +210,9 @@ export function createDeviceIdentityService(options: IDeviceIdentityServiceOptio
   async function init(request: { readonly name?: string }): Promise<TDevicesOutcome<IDevicesInitResult>> {
     if (read() !== undefined) return refuse('already-initialized');
     const name = deviceName(request.name ?? options.defaultDeviceName?.() ?? hostname());
+    // Touch the credential store before the phrase is shown: a store that cannot keep the keys
+    // (a locked keychain, a recorded backend gone missing) must fail now, not after the ceremony.
+    await options.store.get(DEVICE_SIGN_KEY);
     const session = options.openTerminal();
     if (session === undefined) return refuse('no-terminal');
 
