@@ -8,7 +8,6 @@ import { callProviderWithIdleTimeout } from './execution-provider-call.js';
 import { assertToolChoiceValid, buildChatResponseFormat } from './execution-service-helpers';
 import { applyStructuredOutputTransport } from './execution-structured-output-guard.js';
 import { randomId } from '../utils/random-id.js';
-import { resolveModelEffort } from '../interfaces/model-effort-capability';
 
 import type { IStructuredOutputTransportOutcome } from './execution-structured-output-guard';
 import type { IResolvedProviderInfo, IExecutionRoundState } from './execution-types';
@@ -151,40 +150,18 @@ export async function callProviderWithCache(
     ...(structuredOutcome !== undefined && { structuredOutput: structuredOutcome }),
   });
   const providerChat = resolved.provider.chat.bind(resolved.provider) as TProviderChat;
-  // DATA-007: resolve the EFFECTIVE effort before touching the cache, from the same adapter-declared
-  // table the provider itself resolves against, so the cache identity reflects what will actually be
-  // sent on the wire rather than the caller's raw selection. Two selections that resolve to the same
-  // effective effort (e.g. an explicit selection vs. `auto` landing on the same model default) share
-  // one identity and can hit each other's entries; two that resolve differently cannot. This also
-  // means the former API-001 bypass — which unconditionally skipped the cache for any explicit
-  // selection because the key could not tell efforts apart — is no longer needed for a LOCALLY
-  // resolved effort and has been removed for that case.
-  //
-  // But `resolveModelEffort` can only decide anything when `resolved.provider.effortTable()` has an
-  // entry for this exact model. Two situations leave it unable to decide, and in both the request may
-  // still carry effort information this process cannot see:
-  //   - A remote executor (e.g. `SimpleRemoteExecutor`) forwards `effort` on the wire and lets the
-  //     SERVER-side adapter resolve it against ITS table (`agent-remote-client/.../wire-chat-options.ts`
-  //     marks `effortResolution` as adapter-local and never serializes it) — this process never even
-  //     has a table to call.
-  //   - A local provider whose table is missing an entry for this model (version skew, a `baseURL`/
-  //     API-surface variant the shipped table does not cover) is equally blind, even though the
-  //     provider IS native and the request line may still differ by effort underneath.
-  // In either case `disposition === 'not-applied'` and `effective` is always `null` REGARDLESS of the
-  // selection, so keying on `effective` alone would let an unresolved `'low'` and an unresolved
-  // `'high'` collide even though the actual outcome is unknown. When local resolution could not
-  // decide, key on the raw SELECTION instead (each one, including `'auto'`, its own identity) so
-  // different selections never share a cache entry just because this process could not verify them.
-  const effortSelection = chatOptions.effort ?? 'auto';
-  const effortResolution = resolveModelEffort(
-    resolved.provider.effortTable?.(),
-    model,
-    effortSelection,
-  );
-  const effortCacheIdentity: string =
-    effortResolution.disposition === 'not-applied' || effortResolution.effective === null
-      ? `not-applied:${effortSelection}`
-      : effortResolution.effective;
+  // DATA-007/API-001: the SESSION's effort selection is the cache identity — never a locally resolved
+  // effective value. An earlier version of this fix resolved the effort against
+  // `resolved.provider.effortTable()` before touching the cache, but that table is only ever
+  // populated for a NATIVE provider verified in-process; a `SimpleRemoteExecutor`-backed provider
+  // never has one (the server resolves against its OWN table and never serializes the resolution
+  // back — see `agent-remote-client/.../wire-chat-options.ts`), and a local table can simply be
+  // missing an entry for this exact model (version skew, a `baseURL`/API-surface variant). Both cases
+  // report the same "not applied" outcome regardless of the actual selection, which would let
+  // different selections collide. Keying on the raw selection sidesteps that entirely: it is known
+  // upfront, is identical across every executor shape, and is exactly what the caller asked for.
+  // `undefined` normalizes to `'auto'`, matching `buildRoundChatOptions`'s own default.
+  const effortCacheIdentity = chatOptions.effort ?? 'auto';
 
   if (cacheService) {
     const cachedResponse = cacheService.lookup(

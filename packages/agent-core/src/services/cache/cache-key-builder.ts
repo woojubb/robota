@@ -7,21 +7,12 @@ interface ICacheKeyOptions {
   temperature?: number;
   maxTokens?: number;
   /**
-   * DATA-007/API-001: the caller decides what this identifies.
-   *
-   * When the caller could locally resolve the effort against a verified table, this is the
-   * EFFECTIVE (resolved) value actually sent — two requests whose raw selections differ but whose
-   * resolution landed on the same effective effort (e.g. an explicit selection vs. `auto` resolving
-   * to the same model default) then produce the same key, while two that resolve to different
-   * effective efforts do not.
-   *
-   * When the caller could NOT locally resolve it (no verified table entry — e.g. a remote executor
-   * that forwards the raw selection and lets the SERVER-side adapter resolve it, or a local table
-   * missing this exact model), the actual outcome is unknown here, so the caller must pass an
-   * identity derived from the raw SELECTION instead (never a bare "not applied" that erases which
-   * selection was requested) — otherwise two different unresolved selections would collide into one
-   * cache entry despite possibly producing different provider requests. `null`/`undefined` both mean
-   * "nothing distinguishes this request by effort" and hash identically.
+   * DATA-007/API-001: the SESSION's effort selection (e.g. `'low'`, `'high'`, `'auto'`) — never a
+   * locally resolved effective value. The selection is the single source of truth for this key: two
+   * requests with different selections never share an entry, and two with the same selection always
+   * do, independent of what any particular provider or executor would resolve it to. `null`/
+   * `undefined` both mean "no selection was distinguished" and hash identically; the caller normalizes
+   * an absent selection to `'auto'` before passing it in.
    */
   effortCacheIdentity?: string | null;
 }

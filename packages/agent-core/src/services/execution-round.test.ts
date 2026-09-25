@@ -265,30 +265,24 @@ describe('execution-round helpers', () => {
       );
     });
 
-    // DATA-007: lookup and store must key off the SAME resolved effective effort, not the raw
-    // selection — this is what lets the former API-001 bypass (skip the cache entirely for any
-    // explicit selection) be removed.
-    it('resolves the effective effort before touching the cache, and passes the identical value to lookup and store', async () => {
-      const effortTable = {
-        verifiedAt: '2026-01-01',
-        sourceUrl: 'https://example.com/effort-table',
-        models: {
-          'gpt-4': {
-            supportedEfforts: ['low', 'high'] as const,
-            defaultEffort: 'low' as const,
-            nativeControlId: 'reasoning_effort',
-          },
-        },
-      };
+    // DATA-007/API-001 (owner direction, review of #3075): the SESSION's effort SELECTION is the
+    // cache identity — never a locally resolved effective value. Two attempted local-resolution
+    // designs were tried and dropped: keying purely on `resolveModelEffort(...).effective` let an
+    // explicit selection collide with an unrelated `auto` call that happened to resolve to the same
+    // model default, and keying on a "not-applied:<selection>" fallback for an unresolvable effort
+    // still depended on a table lookup that a `SimpleRemoteExecutor`-backed provider never has (the
+    // server resolves its own table and never serializes the resolution back — see
+    // `agent-remote-client/src/client/wire-chat-options.ts`). Keying on the raw selection avoids all
+    // of that: it needs no table, behaves identically for every executor shape, and is exactly what
+    // the caller asked for. `lookup` and `store` receive the identical value either way.
+    it('passes the session effort selection (never a resolved value) as the identical identity to lookup and store', async () => {
       const chat = vi.fn().mockResolvedValue({
         role: 'assistant',
         content: 'fresh',
         state: 'complete' as const,
         timestamp: new Date(),
       });
-      const resolved = createResolvedProviderInfo({
-        provider: { chat, effortTable: () => effortTable },
-      });
+      const resolved = createResolvedProviderInfo({ provider: { chat } });
       const cacheService = {
         lookup: vi.fn().mockReturnValue(undefined),
         store: vi.fn(),
@@ -315,81 +309,35 @@ describe('execution-round helpers', () => {
       );
     });
 
-    // DATA-007 (residual of API-001): different effective efforts must miss the cache, and
-    // equivalent native outcomes (an explicit selection vs. `auto` landing on the same model
-    // default) must still hit it — with a real cache service, not a mock that ignores its key.
-    it('misses the cache across different effective efforts and hits across equivalent ones', async () => {
-      const effortTable = {
-        verifiedAt: '2026-01-01',
-        sourceUrl: 'https://example.com/effort-table',
-        models: {
-          'gpt-4': {
-            supportedEfforts: ['low', 'high'] as const,
-            defaultEffort: 'low' as const,
-            nativeControlId: 'reasoning_effort',
-          },
-        },
+    it('normalizes an unset effort selection to auto for the cache identity', async () => {
+      const chat = vi.fn().mockResolvedValue({
+        role: 'assistant',
+        content: 'fresh',
+        state: 'complete' as const,
+        timestamp: new Date(),
+      });
+      const resolved = createResolvedProviderInfo({ provider: { chat } });
+      const cacheService = {
+        lookup: vi.fn().mockReturnValue(undefined),
+        store: vi.fn(),
       };
-      const chat = vi
-        .fn()
-        .mockResolvedValueOnce({
-          role: 'assistant',
-          content: 'low answer',
-          state: 'complete' as const,
-          timestamp: new Date(),
-        })
-        .mockResolvedValueOnce({
-          role: 'assistant',
-          content: 'high answer',
-          state: 'complete' as const,
-          timestamp: new Date(),
-        });
-      const resolved = createResolvedProviderInfo({
-        provider: { chat, effortTable: () => effortTable },
-      });
-      const cacheService = new ExecutionCacheService(
-        new MemoryCacheStorage({ maxEntries: 100, ttlMs: 60_000 }),
-        new CacheKeyBuilder(),
-      );
       const config = { name: 'test', defaultModel: { provider: 'openai', model: 'gpt-4' } };
-      const messages = [userMessage('hi')];
 
-      // Explicit 'low' selection: cache miss, provider called, response stored.
-      const first = await callProviderWithCache(messages, config as any, resolved, cacheService, {
-        effort: 'low',
-      });
-      expect(first.content).toBe('low answer');
-      expect(chat).toHaveBeenCalledTimes(1);
+      await callProviderWithCache([], config as any, resolved, cacheService as any);
 
-      // Explicit 'high' selection resolves to a DIFFERENT effective effort: must miss, not reuse
-      // the 'low' entry.
-      const second = await callProviderWithCache(messages, config as any, resolved, cacheService, {
-        effort: 'high',
-      });
-      expect(second.content).toBe('high answer');
-      expect(chat).toHaveBeenCalledTimes(2);
-
-      // 'auto' resolves via the model default to the same effective effort as the explicit 'low'
-      // call above ('low' is the table's defaultEffort): must HIT the entry stored under 'low'
-      // rather than calling the provider again.
-      const third = await callProviderWithCache(messages, config as any, resolved, cacheService, {
-        effort: 'auto',
-      });
-      expect(third.content).toBe('low answer');
-      expect(chat).toHaveBeenCalledTimes(2);
+      expect(cacheService.lookup).toHaveBeenCalledWith(
+        expect.anything(),
+        'gpt-4',
+        'openai',
+        expect.objectContaining({ effortCacheIdentity: 'auto' }),
+      );
     });
 
-    // DATA-007 follow-up (review of #3075): when this process cannot resolve the effort locally —
-    // no `effortTable()` at all — `resolveModelEffort` always reports `disposition: 'not-applied'`
-    // and `effective: null`, REGARDLESS of the selection. Keying on `effective` alone would then let
-    // an unresolved 'low' and an unresolved 'high' collide into the same cache entry even though the
-    // actual outcome is unknown here. This is exactly the shape of a `SimpleRemoteExecutor`-backed
-    // provider (`agent-remote-client/src/client/wire-chat-options.ts` forwards the raw `effort`
-    // selection on the wire and marks `effortResolution` as adapter-local, i.e. resolved only by the
-    // SERVER'S table — this process never gets one to call) and of a local provider whose table is
-    // simply missing this exact model (version skew, a `baseURL`/API-surface variant). Both selections
-    // must reach the provider independently; neither may be served from the other's cache entry.
-    it('does not collide different selections when local effort resolution cannot decide (no effortTable)', async () => {
+    // Real cache service (not a mock that ignores its key): different selections never share an
+    // entry, including `'auto'` against an explicit one — the earlier "auto resolves to the same
+    // model default as an explicit low, so it should hit" equivalence is intentionally DROPPED. The
+    // same selection repeated always hits.
+    it('never shares a cache entry across different effort selections, and always hits for a repeated selection', async () => {
       const chat = vi
         .fn()
         .mockResolvedValueOnce({
@@ -403,10 +351,13 @@ describe('execution-round helpers', () => {
           content: 'high answer',
           state: 'complete' as const,
           timestamp: new Date(),
+        })
+        .mockResolvedValueOnce({
+          role: 'assistant',
+          content: 'auto answer',
+          state: 'complete' as const,
+          timestamp: new Date(),
         });
-      // No `effortTable` on the provider at all — exactly what a remote-executor-backed provider
-      // looks like from this process's point of view, and what a local table missing this model id
-      // looks like too.
       const resolved = createResolvedProviderInfo({ provider: { chat } });
       const cacheService = new ExecutionCacheService(
         new MemoryCacheStorage({ maxEntries: 100, ttlMs: 60_000 }),
@@ -421,13 +372,85 @@ describe('execution-round helpers', () => {
       expect(low.content).toBe('low answer');
       expect(chat).toHaveBeenCalledTimes(1);
 
-      // Must NOT be served from the 'low' entry — both resolve locally to the same
-      // `not-applied`/`null` outcome, but the actual (server- or provider-decided) effort may differ.
+      // Different selection: must miss, not reuse the 'low' entry.
       const high = await callProviderWithCache(messages, config as any, resolved, cacheService, {
         effort: 'high',
       });
       expect(high.content).toBe('high answer');
       expect(chat).toHaveBeenCalledTimes(2);
+
+      // 'auto' is its own selection: must ALSO miss, even though a previous fix's local-resolution
+      // design would have had it hit the 'low' entry via a shared model default.
+      const auto = await callProviderWithCache(messages, config as any, resolved, cacheService, {
+        effort: 'auto',
+      });
+      expect(auto.content).toBe('auto answer');
+      expect(chat).toHaveBeenCalledTimes(3);
+
+      // Repeating 'low' must hit its own entry.
+      const lowAgain = await callProviderWithCache(messages, config as any, resolved, cacheService, {
+        effort: 'low',
+      });
+      expect(lowAgain.content).toBe('low answer');
+      expect(chat).toHaveBeenCalledTimes(3);
+    });
+
+    // A provider with no `effortTable()` (the shape a `SimpleRemoteExecutor`-backed provider always
+    // has — the server resolves its own table and never serializes the resolution back, per
+    // `agent-remote-client/src/client/wire-chat-options.ts`) and a native provider that DOES have one
+    // must behave IDENTICALLY, because the table is no longer consulted for the cache key at all:
+    // 'low' and 'high' never cross-hit in either case.
+    it('behaves identically for a table-less (executor-backed) provider and a table-bearing one', async () => {
+      const effortTable = {
+        verifiedAt: '2026-01-01',
+        sourceUrl: 'https://example.com/effort-table',
+        models: {
+          'gpt-4': {
+            supportedEfforts: ['low', 'high'] as const,
+            defaultEffort: 'low' as const,
+            nativeControlId: 'reasoning_effort',
+          },
+        },
+      };
+
+      for (const providerOverrides of [
+        {}, // no effortTable — e.g. a SimpleRemoteExecutor-backed provider
+        { effortTable: () => effortTable }, // a native provider with a verified table
+      ]) {
+        const chat = vi
+          .fn()
+          .mockResolvedValueOnce({
+            role: 'assistant',
+            content: 'low answer',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          })
+          .mockResolvedValueOnce({
+            role: 'assistant',
+            content: 'high answer',
+            state: 'complete' as const,
+            timestamp: new Date(),
+          });
+        const resolved = createResolvedProviderInfo({ provider: { chat, ...providerOverrides } });
+        const cacheService = new ExecutionCacheService(
+          new MemoryCacheStorage({ maxEntries: 100, ttlMs: 60_000 }),
+          new CacheKeyBuilder(),
+        );
+        const config = { name: 'test', defaultModel: { provider: 'openai', model: 'gpt-4' } };
+        const messages = [userMessage('hi')];
+
+        const low = await callProviderWithCache(messages, config as any, resolved, cacheService, {
+          effort: 'low',
+        });
+        expect(low.content).toBe('low answer');
+        expect(chat).toHaveBeenCalledTimes(1);
+
+        const high = await callProviderWithCache(messages, config as any, resolved, cacheService, {
+          effort: 'high',
+        });
+        expect(high.content).toBe('high answer');
+        expect(chat).toHaveBeenCalledTimes(2);
+      }
     });
 
     it('uses cached response when available', async () => {

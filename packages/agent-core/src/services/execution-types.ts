@@ -1,7 +1,6 @@
 import type { IAgentConfig, IAssistantMessage, TExecutionEventCallback } from '../interfaces/agent';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { IProviderCapabilityTable } from '../interfaces/model-capability';
-import type { IProviderModelEffortTable } from '../interfaces/model-effort-capability';
 import type {
   IChatOptions,
   IToolSchema,
@@ -56,12 +55,6 @@ export interface IResolvedProviderInfo {
      * uses rather than depending on the whole provider interface.
      */
     capabilityTable?: () => IProviderCapabilityTable | undefined;
-    /**
-     * DATA-007: source-dated effort data for exact models this adapter can verify, structurally typed
-     * like `capabilityTable` above. Used to resolve the effective effort BEFORE the call, so the
-     * execution cache key can be built from what will actually be sent rather than the raw selection.
-     */
-    effortTable?: () => IProviderModelEffortTable | undefined;
     /**
      * CORE-043: whether this provider is pointed at its vendor's own endpoint. Separate from the
      * table on purpose — a provider with no verified capability table must still be able to say it
