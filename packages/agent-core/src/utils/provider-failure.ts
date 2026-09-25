@@ -303,9 +303,12 @@ export function classifyProviderFailure(
       tentative = verdict.classification;
       continue;
     }
-    // Under a bare 400/404, only a deeper, more precise "no such model" refines it.
-    if (verdict.kind === 'definitive' && verdict.classification.reason === 'model-unavailable') {
-      return verdict.classification;
+    // Under a bare 400/404/413, the first deeper layer that decides settles it: only a precise
+    // "no such model" refines the verdict; any other decision keeps it.
+    if (verdict.kind === 'definitive') {
+      return verdict.classification.reason === 'model-unavailable'
+        ? verdict.classification
+        : tentative;
     }
   }
   return tentative ?? { switchable: false, reason: 'unknown' };

@@ -251,6 +251,54 @@ describe('classifyProviderFailure', () => {
       true,
       'model-unavailable',
     ],
+    [
+      'outer 400 over an AuthenticationError over model_not_found',
+      new ProviderError(
+        'bad',
+        'deepseek',
+        Object.assign(new AuthenticationError('bad key'), { cause: modelNotFound(400) }),
+        undefined,
+        { status: 400 },
+      ),
+      false,
+      'invalid-request',
+    ],
+    [
+      'outer 400 over a RateLimitError over model_not_found',
+      new ProviderError(
+        'bad',
+        'deepseek',
+        Object.assign(new RateLimitError('slow'), { cause: modelNotFound(400) }),
+        undefined,
+        { status: 400 },
+      ),
+      false,
+      'invalid-request',
+    ],
+    [
+      'outer 400 over a NetworkError over model_not_found',
+      new ProviderError(
+        'bad',
+        'deepseek',
+        new NetworkError('down', modelNotFound(400)),
+        undefined,
+        { status: 400 },
+      ),
+      false,
+      'invalid-request',
+    ],
+    [
+      'outer 400 over a 401 over model_not_found',
+      new ProviderError(
+        'bad',
+        'deepseek',
+        new ProviderError('denied', 'deepseek', modelNotFound(400), undefined, { status: 401 }),
+        undefined,
+        { status: 400 },
+      ),
+      false,
+      'invalid-request',
+    ],
   ];
 
   it.each(table)('%s', (_label, error, switchable, reason) => {
