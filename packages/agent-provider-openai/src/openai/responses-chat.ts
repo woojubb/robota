@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
+import { toProviderError } from '@robota-sdk/agent-core';
+
 import {
   observeProviderNativeRawPayloadStream,
   toOpenAIResponsesToolChoice,
@@ -25,7 +27,6 @@ import type {
   TOpenAIResponsesStreamEvent,
 } from './responses-types';
 import type { IOpenAIProviderOptions } from './types';
-import type { IOpenAIError } from './types/api-types';
 import type { IChatOptions, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
 import type OpenAI from 'openai';
 
@@ -82,11 +83,12 @@ export async function chatWithOpenAIResponsesApi(
       payloadKind: 'response',
       payload: response,
     });
-    return withProviderRequestId(parseOpenAIResponsesResponse(response), readOpenAIRequestId(response));
+    return withProviderRequestId(
+      parseOpenAIResponsesResponse(response),
+      readOpenAIRequestId(response),
+    );
   } catch (error) {
-    const openaiError = error as IOpenAIError;
-    const errorMessage = openaiError.message || 'OpenAI Responses API request failed';
-    throw new Error(`OpenAI responses failed: ${errorMessage}`);
+    throw toProviderError(error, 'openai', 'OpenAI responses failed');
   }
 }
 
@@ -147,9 +149,7 @@ async function chatWithOpenAIResponsesStreamingAssembly(
     });
     return withProviderRequestId(assembled, providerRequestId);
   } catch (error) {
-    const openaiError = error as IOpenAIError;
-    const errorMessage = openaiError.message || 'OpenAI Responses streaming request failed';
-    throw new Error(`OpenAI responses stream failed: ${errorMessage}`);
+    throw toProviderError(error, 'openai', 'OpenAI responses stream failed');
   }
 }
 

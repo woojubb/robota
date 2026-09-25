@@ -2,6 +2,7 @@ import {
   AbstractAIProvider,
   PERMISSIVE_TOOL_SCHEMA_PROFILE,
   SilentLogger,
+  toProviderError,
   traceHeadersFor,
 } from '@robota-sdk/agent-core';
 import OpenAI from 'openai';
@@ -27,7 +28,6 @@ import type {
   IDeepSeekThinkingConfig,
   TDeepSeekReasoningEffort,
 } from './types';
-import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';
 import type {
   IChatOptions,
   IProviderCapabilities,
@@ -148,9 +148,7 @@ export class DeepSeekProvider extends AbstractAIProvider {
         readOpenAICompatibleRequestId(response),
       );
     } catch (error) {
-      const deepSeekError = error as IOpenAICompatibleError;
-      const errorMessage = deepSeekError.message || 'DeepSeek API request failed';
-      throw new Error(`DeepSeek chat failed: ${errorMessage}`);
+      throw toProviderError(error, 'deepseek', 'DeepSeek chat failed');
     }
   }
 
@@ -213,9 +211,7 @@ export class DeepSeekProvider extends AbstractAIProvider {
         }
       }
     } catch (error) {
-      const deepSeekError = error as IOpenAICompatibleError;
-      const errorMessage = deepSeekError.message || 'DeepSeek API request failed';
-      throw new Error(`DeepSeek stream failed: ${errorMessage}`);
+      throw toProviderError(error, 'deepseek', 'DeepSeek stream failed');
     }
   }
 
@@ -368,9 +364,7 @@ export class DeepSeekProvider extends AbstractAIProvider {
       });
       return withProviderRequestId(assembled, providerRequestId);
     } catch (error) {
-      const deepSeekError = error as IOpenAICompatibleError;
-      const errorMessage = deepSeekError.message || 'DeepSeek streaming request failed';
-      throw new Error(`DeepSeek stream failed: ${errorMessage}`);
+      throw toProviderError(error, 'deepseek', 'DeepSeek stream failed');
     }
   }
 }
