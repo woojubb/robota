@@ -257,7 +257,9 @@ describe('read-only commands follow symlinks before trusting a path (issue #3082
     );
     expect(handler).not.toHaveBeenCalled();
     await expect(enforcer.checkPermission('Bash', { command: 'cat link' })).resolves.toBe(false);
-    expect(handler).toHaveBeenCalledOnce();
+    await expect(enforcer.checkPermission('Bash', { command: 'cat -- link' })).resolves.toBe(false);
+    await expect(enforcer.checkPermission('Bash', { command: 'ls l*' })).resolves.toBe(false);
+    expect(handler).toHaveBeenCalledTimes(3);
   });
 });
 

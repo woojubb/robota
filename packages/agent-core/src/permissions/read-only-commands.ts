@@ -32,7 +32,6 @@ const PLAIN_READERS = new Set([
   'grep',
   'wc',
   'which',
-  'diff',
   'stat',
   'du',
   'cd',
@@ -51,9 +50,6 @@ const FIND_ACTIONS = new Set([
   '-fls',
 ]);
 
-/** Commands that print file content: a glob among their operands could name a symlink out. */
-const CONTENT_READERS = new Set(['cat', 'head', 'tail', 'grep', 'wc', 'diff']);
-
 /**
  * Options that read a file named elsewhere or follow symlinks while recursing, keyed by command.
  * Short letters are matched inside a cluster (`-rnR`).
@@ -64,17 +60,20 @@ const SYMLINK_OR_FILE_OPTIONS: Readonly<
   grep: { short: 'Rf', long: ['--dereference-recursive', '--file'] },
   ls: { short: 'L', long: ['--dereference'] },
   du: { short: 'L', long: ['--dereference'] },
-  diff: { short: 'r', long: ['--recursive', '--from-file', '--to-file'] },
   find: { short: '', long: [] },
 };
 
+/** Any option whose value is a file to read, or a list of files: `--file`, `--exclude-from`, `-files0-from`. */
+const FILE_VALUED_OPTION = /^--?[A-Za-z0-9-]*(file|from|contents)(=|$)/;
+
 function usesRefusedOption(command: string, args: readonly IWord[]): boolean {
+  if (optionWords(args).some((word) => FILE_VALUED_OPTION.test(word.text))) return true;
   if (command === 'find') {
-    return args.some((word) => word.text === '-L' || word.text === '-follow');
+    return optionWords(args).some((word) => word.text === '-L' || word.text === '-follow');
   }
   const refused = SYMLINK_OR_FILE_OPTIONS[command];
   if (refused === undefined) return false;
-  return args.some(({ text }) => {
+  return optionWords(args).some(({ text }) => {
     if (text.startsWith('--'))
       return refused.long.some((long) => text === long || text.startsWith(`${long}=`));
     return /^-[A-Za-z]/.test(text) && [...refused.short].some((letter) => text.includes(letter));
@@ -86,7 +85,6 @@ const GIT_READERS = new Set([
   'log',
   'diff',
   'show',
-  'blame',
   'rev-parse',
   'ls-files',
   'describe',
@@ -289,6 +287,12 @@ function scanSegment(segment: string): ISegmentScan {
   return { words, refused };
 }
 
+/** The words before `--` that start with `-`; after `--` every word is an operand. */
+function optionWords(args: readonly IWord[]): IWord[] {
+  const end = args.findIndex((word) => word.text === '--');
+  return (end < 0 ? args : args.slice(0, end)).filter((word) => word.text.startsWith('-'));
+}
+
 function isReadOnlyFind(args: readonly IWord[]): boolean {
   return args.every((word) => !word.expands && !FIND_ACTIONS.has(word.text));
 }
@@ -315,6 +319,8 @@ function isReadOnlyGit(args: readonly IWord[]): boolean {
   }
   if (subArgs.some((word) => word.expands)) return false;
   // `--output` writes a file and `--ext-diff` runs a configured program.
+  // `-X` and `-O` read an exclude or order file named anywhere.
+  if (subArgs.some((word) => /^-[XO]/.test(word.text))) return false;
   // `--no-index` compares arbitrary files rather than the repository.
   if (subArgs.some((word) => /^--(output|ext-diff|open-files-in-pager|no-index)/.test(word.text))) {
     return false;
@@ -333,16 +339,12 @@ function isReadOnlySegment(words: readonly IWord[]): boolean {
   if (command.text.includes('=') || command.text.includes('/')) return false;
   // A leading `@` splats a variable in PowerShell and a leading `=` names a path in zsh.
   if (args.some((word) => /^[@=]/.test(word.text))) return false;
-  // `echo` prints its words, but a glob among them lists a directory, wherever it is.
-  if (command.text === 'echo') return args.every((word) => !word.expands);
+  // An unquoted glob expands to names the resolver never sees — a symlink out, or a file named
+  // like an option (`-L`) — and for `echo` it lists a directory wherever it is.
+  if (args.some((word) => word.expands)) return false;
+  if (command.text === 'echo') return true;
   if (args.some((word) => leavesWorkspace(word.text))) return false;
   if (usesRefusedOption(command.text, args)) return false;
-  if (
-    CONTENT_READERS.has(command.text) &&
-    args.some((word) => word.expands && !word.text.startsWith('-'))
-  ) {
-    return false;
-  }
   // `cd` alone goes home and `cd -` goes back; only a named directory inside the workspace stays.
   if (command.text === 'cd') return args.length === 1 && args[0]!.text !== '-' && !args[0]!.expands;
   if (PLAIN_READERS.has(command.text)) return true;
@@ -365,8 +367,9 @@ function operandsStayInWorkspace(
   let base: string | undefined;
   for (const [command, ...args] of segments) {
     if (NON_PATH_OPERANDS.has(command!.text)) continue;
+    const options = new Set(optionWords(args));
     for (const word of args) {
-      if (word.text.startsWith('-')) continue;
+      if (options.has(word) || word.text === '--') continue;
       if (resolve === undefined) return false;
       const resolved = resolve(base, word.text);
       if (resolved === undefined) return false;

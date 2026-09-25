@@ -34,18 +34,19 @@ Print mode (`robota -p`), `createQuery()` and headless sessions default to `defa
 
 A Bash call whose every command is in the built-in read-only set is decided like a read, so it runs
 without a prompt in every mode, `plan` included. The set is `ls`, `cat`, `echo`, `pwd`, `head`,
-`tail`, `grep`, `wc`, `which`, `diff`, `stat`, `du`, `cd`, `find` without `-exec`/`-delete`/`-fprint*`
-predicates, and `git status`, `log`, `diff`, `show`, `blame`, `rev-parse`, `ls-files`, `describe`,
+`tail`, `grep`, `wc`, `which`, `stat`, `du`, `cd`, `find` without `-exec`/`-delete`/`-fprint*`
+predicates, and `git status`, `log`, `diff`, `show`, `rev-parse`, `ls-files`, `describe`,
 plus the listing forms of `git branch` and `git remote`. The set is not configurable; add an `ask`
 or `deny` rule to require a prompt for one of these.
 
 A compound command qualifies only when each part does on its own. A command does not qualify when it:
 
 - names a path outside the working directory: an absolute path, `~`, a `..` that climbs out, a
-  PowerShell drive or provider (`C:x`, `Env:`), a glob that could match `..`, or a symlink whose
-  target is outside;
+  PowerShell drive or provider (`C:x`, `Env:`), or a symlink whose target is outside;
 - follows symlinks while recursing or reads a file named by an option (`grep -R`, `grep -f`,
-  `find -L`, `ls -L`, `du -L`, `diff -r`), or gives a glob to a command that prints file content;
+  `find -L`, `ls -L`, `du -L`), or takes a file or a list of files through an option
+  (`--exclude-from`, `--files0-from`);
+- passes an unquoted glob, since it expands to names the check never sees;
 - contains a non-ASCII character;
 - writes through a redirect (`>`, `>>`, `&>`, `>&file`), except to `/dev/null` or another
   descriptor (`2>&1`);
@@ -53,7 +54,6 @@ A compound command qualifies only when each part does on its own. A command does
   (`$`, `` ` ``, `\`, `(`, `{`, `#` and similar). These mean different things in bash, zsh, fish and
   PowerShell, so the gate does not guess;
 - starts with a variable assignment (`PAGER=… git log`) or names a program by path (`./ls`);
-- passes an unquoted glob to `find` or `git`;
 - runs `git` with a global option (`-c`, `-C`), with `--output`, `--ext-diff` or `--no-index`, or
   after a `cd`;
 - runs in a `workingDirectory` other than the session's.

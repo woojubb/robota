@@ -11,7 +11,9 @@ import type { TResolveInWorkspace } from '../read-only-commands.js';
 
 /** A workspace where `link` is a symlink out of it and everything else stays inside. */
 const resolveInWorkspace: TResolveInWorkspace = (base, path) =>
-  path === 'link' || path.startsWith('link/') ? undefined : `${base ?? '/w'}/${path}`;
+  path === 'link' || path === '-sl' || path.startsWith('link/')
+    ? undefined
+    : `${base ?? '/w'}/${path}`;
 const inWorkspace = { resolveInWorkspace };
 
 /** Issue #3082 — built-in read-only shell commands run without a prompt. */
@@ -40,8 +42,8 @@ describe('isReadOnlyCommandLine', () => {
     'git log --author=me@example.com',
     'git diff HEAD~1',
     "cat 'file with spaces.txt'",
-    'grep -rn x --include=*.ts src',
-    'ls src/*.ts',
+    "grep -rn x --include='*.ts' src",
+    'cat -- notes.txt',
     'echo done',
   ])('%s qualifies', (line) => {
     expect(isReadOnlyCommandLine(line, inWorkspace)).toBe(true);
@@ -120,6 +122,19 @@ describe('isReadOnlyCommandLine', () => {
     ['cat C:secret', 'another drive'],
     ['echo /etc/*', 'echo lists another directory'],
     ['echo %PATH%', 'cmd.exe expansion'],
+    // Third review: operands the resolver never saw.
+    ['diff a b', 'diff reads through symlinks inside directory operands'],
+    ['git blame --contents=a/f t.txt', 'git reads a file option'],
+    ['git blame t.txt', 'blame is not in the set'],
+    ['git log --ignore-revs-file=x', 'a file-valued option'],
+    ['git ls-files -X excludes', 'git reads an exclude file'],
+    ['cat -- -sl', 'an operand after -- is still resolved'],
+    ['head -- -sl', 'same, for head'],
+    ['ls d*', 'a glob the resolver cannot see'],
+    ['ls src/*.ts', 'same, in a subdirectory'],
+    ['du -D *', 'a glob could expand to option-named files'],
+    ['wc --files0-from=names', 'a list of files named elsewhere'],
+    ['find . -files0-from=names', 'same, for find'],
   ])('%s does not qualify (%s)', (line) => {
     expect(isReadOnlyCommandLine(line, inWorkspace)).toBe(false);
   });
