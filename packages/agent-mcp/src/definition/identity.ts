@@ -10,18 +10,19 @@
  *
  * - `definitionFingerprint` covers every value that decides what runs or where it connects: the
  *   transport, command, arguments, requested cwd, url, every header and environment entry, the
- *   timeout, and any authentication the definition declares but this version cannot perform. Change any of it — a `NODE_OPTIONS` value included — and a prior approval no longer
+ *   timeout, and any authentication the definition declares but this version cannot
+ *   perform. Change any of it — a `NODE_OPTIONS` value included — and a prior approval no longer
  *   describes what would now run.
  * - `securityIdentity` covers where the definition came from — its name, source and origin. Two
  *   entries that run the identical command are still different subjects for approval if one is a
  *   managed policy and the other is a plugin's.
  *
  * SECRET VALUES ARE NOT HASHED. What is secret is decided once, by `secrecy.ts`: a stretch a
- * credential-shaped variable produced, or a value under a credential-shaped key. Each is replaced by
- * a marker naming its source before hashing — a fingerprint travels into audit records and approval
- * stores, and a hash of a secret is still derived from it. So rotating a credential does not
- * invalidate an approval, which is correct — the operator approved the server, not the credential —
- * while a changed host around it still does.
+ * credential-shaped variable produced, or a value under a credential-shaped key. Each is replaced
+ * by a marker naming its source before hashing — a fingerprint travels into audit records and
+ * approval stores, and a hash of a secret is still derived from it. So rotating a credential does
+ * not invalidate an approval, which is correct — the operator approved the server, not the
+ * credential — while a changed host around it still does.
  */
 
 import { createHash } from 'node:crypto';

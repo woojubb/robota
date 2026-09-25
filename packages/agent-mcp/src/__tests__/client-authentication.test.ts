@@ -207,4 +207,14 @@ describe('declared but unsupported authentication', () => {
     expect(admission.reason).toBe('unsupported-authentication');
     expect(admission.message).toContain('oauth');
   });
+
+  it('is a definition problem on a stdio server, where it could mean nothing', () => {
+    const decoded = decodeEntry({
+      name: 'delta',
+      source: 'project',
+      origin: '.mcp.json',
+      entry: { type: 'stdio', command: 'server', headersHelper: './token.sh' },
+    });
+    expect('reason' in decoded && decoded.reason).toContain('headersHelper');
+  });
 });
