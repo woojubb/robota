@@ -90,27 +90,40 @@ export function parsePairingUrl(url: string): IPairingSecret {
 
 // ── DTLS fingerprint extraction ─────────────────────────────────────────────────────────────────
 
+/** One DTLS fingerprint attribute: the hash algorithm (lower-case) and the value (upper-case hex pairs). */
+export interface IDtlsFingerprint {
+  readonly algorithm: string;
+  readonly value: string;
+}
+
 /**
- * Extract the `a=fingerprint:<hash> <value>` value from an SDP. Throws if absent (fail closed).
+ * Read THE DTLS fingerprint of an SDP. Throws unless the SDP carries exactly one fingerprint (fail closed).
  *
- * **Anchored to the start of an SDP line (`^…/m`) — deliberately, on two counts.**
+ * **Exactly one, because the binding must name the certificate the DTLS stack verified.** A DTLS stack accepts
+ * the peer's certificate when it matches ANY advertised fingerprint, so an SDP with two different fingerprints
+ * lets the certificate that was verified differ from the value a caller would bind. Repeating the SAME value
+ * (one per m-section) is harmless and accepted; two different values are refused.
  *
- * 1. *Linearity.* Unanchored, the scan retried `\S+` from every offset in a non-space run, so an SDP made of
- *    repeated `a=fingerprint:` text cost O(n²) — 5.2 s at 400 KB. The remote SDP arrives over the (untrusted,
- *    content-blind) signaling relay and is parsed here **before** the pairing confirmation runs, so that was a
- *    pre-authentication remote stall. `^…/m` limits the start offsets to line starts, which makes the total work
- *    linear in the SDP length.
- * 2. *Not binding free text.* An SDP line is `<type>=<value>`; `a=fingerprint:` appearing mid-line is inside some
- *    other field's free text (`s=`, `i=`, an unrelated attribute value) that no DTLS stack reads. The unanchored
- *    form returned such a value, letting a relay smuggle a fingerprint of its choosing into the channel binding.
- *
- * Residual (tracked in SEC-003): this still returns the FIRST fingerprint line rather than the one the DTLS stack
- * actually verified for the negotiated m-section, so a session-level line can still shadow a media-level one.
+ * **Anchored to the start of an SDP line (`^…/gm`).** Only line starts can begin a match, which keeps the scan
+ * linear in the SDP length (the SDP arrives before any authentication), and an `a=fingerprint:` appearing
+ * mid-line — inside another field's free text that no DTLS stack reads — is never an attribute.
  */
+export function extractDtlsFingerprintAttribute(sdp: string): IDtlsFingerprint {
+  let found: IDtlsFingerprint | undefined;
+  for (const match of sdp.matchAll(/^a=fingerprint:(\S+)[ \t]+([0-9A-Fa-f:]+)/gm)) {
+    const attribute = { algorithm: match[1].toLowerCase(), value: match[2].toUpperCase() };
+    if (found && (found.algorithm !== attribute.algorithm || found.value !== attribute.value)) {
+      throw new Error('SDP advertises more than one DTLS fingerprint');
+    }
+    found = attribute;
+  }
+  if (!found) throw new Error('no DTLS fingerprint (a=fingerprint) found in SDP');
+  return found;
+}
+
+/** The value of THE DTLS fingerprint of an SDP — see {@link extractDtlsFingerprintAttribute}. */
 export function extractDtlsFingerprint(sdp: string): string {
-  const match = sdp.match(/^a=fingerprint:\S+\s+([0-9A-Fa-f:]+)/m);
-  if (!match) throw new Error('no DTLS fingerprint (a=fingerprint) found in SDP');
-  return match[1].toUpperCase();
+  return extractDtlsFingerprintAttribute(sdp).value;
 }
 
 // ── key derivation (HKDF; distinct info per purpose) ────────────────────────────────────────────

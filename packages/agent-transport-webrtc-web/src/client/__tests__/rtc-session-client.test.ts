@@ -115,6 +115,70 @@ describe('createRtcSessionClient (REMOTE-009 Step 2)', () => {
     expect(statuses.at(-1)).toBe('disconnected');
   });
 
+  it('takes one offer per connection and ignores any later one', async () => {
+    let onSignal: ((m: ISignalMessage) => void) | null = null;
+    const fakeSignaling: ISignalingClient = {
+      send: vi.fn(),
+      onSignal: (h) => {
+        onSignal = h;
+        return () => {};
+      },
+      close: vi.fn(),
+    };
+    const { peer } = makeFakePeer();
+    const client = createRtcSessionClient(
+      {
+        relayUrl: 'wss://r',
+        rendezvous: 'rv',
+        secret: 's',
+        createSignaling: () => fakeSignaling,
+        createPeer: () => peer as unknown as RTCPeerConnection,
+        startHandshake: makeHandshakeStub().start,
+      },
+      { onMessage: vi.fn(), onStatusChange: vi.fn() },
+    );
+    client.connect();
+    // A later offer would add fingerprints the DTLS layer would also accept.
+    onSignal!({ kind: 'offer', data: { type: 'offer', sdp: OFFER_SDP } });
+    onSignal!({ kind: 'offer', data: { type: 'offer', sdp: OFFER_SDP } });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(peer.setRemoteDescription).toHaveBeenCalledTimes(1);
+    client.disconnect();
+  });
+
+  it('fails closed on an offer that advertises two different fingerprints', async () => {
+    let onSignal: ((m: ISignalMessage) => void) | null = null;
+    const fakeSignaling: ISignalingClient = {
+      send: vi.fn(),
+      onSignal: (h) => {
+        onSignal = h;
+        return () => {};
+      },
+      close: vi.fn(),
+    };
+    const { peer } = makeFakePeer();
+    const statuses: TRtcConnectionStatus[] = [];
+    const client = createRtcSessionClient(
+      {
+        relayUrl: 'wss://r',
+        rendezvous: 'rv',
+        secret: 's',
+        createSignaling: () => fakeSignaling,
+        createPeer: () => peer as unknown as RTCPeerConnection,
+        startHandshake: makeHandshakeStub().start,
+      },
+      { onMessage: vi.fn(), onStatusChange: (s) => statuses.push(s) },
+    );
+    client.connect();
+    onSignal!({
+      kind: 'offer',
+      data: { type: 'offer', sdp: `${OFFER_SDP}a=fingerprint:sha-256 CC:DD\r\n` },
+    });
+    await new Promise((r) => setTimeout(r, 0));
+    expect(peer.setRemoteDescription).not.toHaveBeenCalled();
+    expect(statuses.at(-1)).toBe('failed');
+  });
+
   it('REMOTE-010: threads iceServers + forceTurn (iceTransportPolicy: relay) into the peer config', () => {
     const iceServers = [{ urls: 'turn:turn.example:3478', username: 'u', credential: 'p' }];
     let peerConfig: RTCConfiguration | undefined;
