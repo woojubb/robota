@@ -61,7 +61,18 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --serve --open             Serve the web monitor over localhost and open it in a browser
   --http-token-file <path>   With mcp serve, bind authenticated loopback HTTP and write the
                              bearer to a new owner-only absolute-path file
-  --http-port <port>         With --http-token-file, use this port (default: OS-assigned)
+  --http-port <port>         With mcp serve HTTP, use this port (default: OS-assigned)
+  --http-public-url <https>  With mcp serve, serve remote HTTP as an OAuth resource server at this
+                             public URL (endpoint and metadata paths follow it; the proxy in front
+                             must forward those paths and preserve Host). Requires --oauth-issuer,
+                             --oauth-scopes and --oauth-allowed-subjects; never uses a token file
+  --http-host <ip>           With mcp serve, the address to bind. Anything but 127.0.0.1 requires
+                             --http-public-url and the --oauth-* flags (default: 127.0.0.1)
+  --oauth-issuer <https>     Authorization server whose access tokens are accepted
+  --oauth-scopes <a,b>       Scopes every access token must carry
+  --oauth-allowed-subjects <a,b>
+                             Token subjects admitted to the one shared session
+  --trusted-proxy <ip>       Believe X-Forwarded-For from this proxy address (repeatable)
   --check-update             Check for CLI updates
   --version                  Show version number
   -h, --help                 Show this help message
@@ -92,7 +103,8 @@ Commands:
                                   Link a PR/MR URL to a live supervised session
   robota session unlink-pr <supervised-id>
                                   Clear a live supervised session PR/MR link
-  robota mcp serve [options]       Serve one Robota session over stdio or authenticated loopback HTTP
+  robota mcp serve [options]       Serve one Robota session over stdio, authenticated loopback HTTP,
+                                  or OAuth-authorized remote HTTP
   robota mcp login <name> [--client-secret] [--no-browser]
                                   Sign in to a remote MCP server that declares oauth
                                   (--no-browser: print the URL, paste the redirect back)
