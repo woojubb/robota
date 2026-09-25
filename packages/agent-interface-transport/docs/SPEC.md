@@ -44,8 +44,9 @@ configuration must also name the subjects or clients allowed in.
 
 The functions that produce the decision (minting, comparison, token verification) live in a
 separate Node-dependent package, not here: this package is inert by rule (no runtime dependency
-edges), and those functions need Node builtins for entropy and the network. A transport with no remote peer declares that admission does not
-apply to it in its own SPEC, rather than this package asserting a universal default.
+edges), and those functions need Node builtins for entropy and the network. A transport with no
+remote peer declares that admission does not apply to it in its own SPEC, rather than this package
+asserting a universal default.
 
 ## Interface Contracts
 
