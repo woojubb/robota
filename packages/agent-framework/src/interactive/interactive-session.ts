@@ -24,6 +24,9 @@ import { persistSession } from './interactive-session-persistence.js';
 import { createPromptHistoryRecorder } from './interactive-session-prompt-history.js';
 import { createProjectPermissionPersistence } from './project-permission-persistence.js';
 import { resolveUserSettingsProviderSwitch } from './interactive-session-provider-switch.js';
+import { readMergedProviderSettings } from '../command-api/provider/provider-factory.js';
+import { FallbackProvider } from '../routing/fallback-provider.js';
+import { applyModelFallback } from '../routing/model-fallback-chain.js';
 import { persistSessionRename } from './interactive-session-rename.js';
 import { loadSessionRecord } from './interactive-session-restore.js';
 import { InteractiveSessionRuntimeTools } from './interactive-session-runtime-tools.js';
@@ -84,6 +87,7 @@ import type {
 } from './types.js';
 import type { TLivePromptOverrides } from '../assembly/create-session-runtime.js';
 import type { ICommandHostContext } from '../command-api/index.js';
+import type { IFallbackProviderOptions } from '../routing/fallback-provider.js';
 import type { IOrgPolicy } from '../command-api/org-policy/org-policy-types.js';
 import type {
   IAgentJobHostContext,
@@ -208,6 +212,11 @@ export class InteractiveSession
   private providerDefinitions: readonly IProviderDefinition[] = [];
   private activeOutputStyleId = 'default';
   private orgPolicy: IOrgPolicy | null = null;
+  /** The model fallback chain the session started with, re-read for each primary a switch picks. */
+  private modelFallback?: {
+    entries: readonly string[];
+    options: Readonly<IFallbackProviderOptions>;
+  };
   protected readonly bgTracker: SessionBackgroundTaskTracker;
   protected readonly histTracker: SessionHistoryTracker;
   protected readonly skillRouter: SessionSkillRouter;
@@ -424,6 +433,15 @@ export class InteractiveSession
     }
     if ('orgPolicy' in options) {
       this.orgPolicy = (options as IInteractiveSessionStandardOptions).orgPolicy ?? null;
+    }
+    if ('provider' in options) {
+      const provider = (options as IInteractiveSessionStandardOptions).provider;
+      if (provider instanceof FallbackProvider && provider.chainOptions.entries !== undefined) {
+        this.modelFallback = {
+          entries: provider.chainOptions.entries,
+          options: provider.chainOptions,
+        };
+      }
     }
 
     // GOAL-001: observe turn origin and completion to drive the autonomous goal loop.
@@ -1742,7 +1760,28 @@ export class InteractiveSession
       this.providerDefinitions,
       this.userSettingsSources,
     );
-    session.swapProvider(provider, settings.model);
+    if (this.modelFallback === undefined) {
+      session.swapProvider(provider, settings.model);
+      return;
+    }
+    // The chain belongs to the session, not to the profile it started on: it is read again with the
+    // new profile as primary, under the same policy, so a switch never silently drops it.
+    const { entries, options } = this.modelFallback;
+    const applied = applyModelFallback({
+      provider,
+      entries,
+      settings: readMergedProviderSettings(this.userSettingsSources),
+      primary: { profile: profileName, config: settings },
+      providerDefinitions: this.providerDefinitions,
+      ...(this.orgPolicy?.allowedProviders !== undefined && {
+        allowedProviders: this.orgPolicy.allowedProviders,
+      }),
+      providerOptions: options,
+    });
+    for (const notice of applied.notices) {
+      this.histTracker.append(messageToHistoryEntry(createSystemMessage(notice)));
+    }
+    session.swapProvider(applied.provider, settings.model);
   }
 
   /** CMD-004: after the command runs, the HOST applies its host actions via

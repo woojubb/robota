@@ -5,7 +5,11 @@ import { isAbortFailure } from '../utils/abort-classification';
 import { randomId } from '../utils/random-id';
 import { verifiedProviderCallUsage } from './provider-call-usage';
 import { resolveProviderCallTraceContext } from './execution-trace-context';
-import { PROVIDER_CALL_EVENTS } from '../event-service/span-events';
+import { PROVIDER_CALL_EVENTS, PROVIDER_FALLBACK_EVENTS } from '../event-service/span-events';
+import { moveModelRoute, openModelRoute, routeModel, routeProvider } from './execution-model-route';
+
+import type { IAssembledProviderRequest } from './execution-round-provider';
+import type { IModelRoute } from './execution-model-route';
 
 import type { IExecutionContext, IResolvedProviderInfo } from './execution-types';
 import type { IAgentConfig, TExecutionEventData } from '../interfaces/agent';
@@ -72,6 +76,8 @@ export async function callRoundProviderWithEvents(
   wrappedOnTextDelta: (delta: string) => void,
   wrappedOnProviderNativeRawPayload: TProviderNativeRawPayloadCallback,
   onProviderFailure?: (error: unknown) => void,
+  /** Where the request is actually answered; read by the caller to attribute the committed reply. */
+  route: IModelRoute = openModelRoute(resolved, config.defaultModel.model, executionId),
 ): Promise<TUniversalMessage | null> {
   const startedAtMs = Date.now();
   const callId = randomId();
@@ -80,6 +86,19 @@ export async function callRoundProviderWithEvents(
   };
   let providerResponse: TUniversalMessage | undefined;
   let outcome: 'success' | 'failure' | 'interrupted' = 'failure';
+  let assembled: IAssembledProviderRequest | undefined;
+  const announceRequest = (request: IAssembledProviderRequest): void => {
+    fullContext.onExecutionEvent?.('provider_request', {
+      executionId,
+      conversationId: fullContext.conversationId,
+      round: currentRound,
+      provider: routeProvider(route, resolved),
+      model: routeModel(route, config.defaultModel.model),
+      effort: request.options.effort,
+      messages: request.messages,
+      tools: request.options.tools,
+    } as TExecutionEventData);
+  };
   try {
     const response = await callProviderWithCache(
       conversationMessages,
@@ -93,6 +112,24 @@ export async function callRoundProviderWithEvents(
         // CORE-016/017: run-scoped model option overrides win over defaultModel.
         ...(fullContext.maxTokens !== undefined && { maxTokens: fullContext.maxTokens }),
         ...(fullContext.temperature !== undefined && { temperature: fullContext.temperature }),
+        executionId,
+        // The same request, now sent to another model: it is announced again under that model's
+        // name, so the replay channel and every usage record name the model that answered.
+        onModelFallback: (notice) => {
+          moveModelRoute(route, notice);
+          dispatch.model = notice.to.model;
+          fullContext.onExecutionEvent?.(PROVIDER_FALLBACK_EVENTS.SWITCHED, {
+            executionId,
+            conversationId: fullContext.conversationId,
+            round: currentRound,
+            fromProvider: notice.from.provider,
+            fromModel: notice.from.model,
+            toProvider: notice.to.provider,
+            toModel: notice.to.model,
+            reason: notice.reason,
+          } as TExecutionEventData);
+          if (assembled !== undefined) announceRequest(assembled);
+        },
         // Forcing directives apply to round 1 only — later rounds revert to 'auto' so the
         // model can consume tool results and finish (resolved against run-then-default).
         ...(() => {
@@ -112,16 +149,8 @@ export async function callRoundProviderWithEvents(
       // whatever the model-capability guard removed, so the envelope logs the options as sent, not
       // the registry the round was assembled from.
       (request) => {
-        fullContext.onExecutionEvent?.('provider_request', {
-          executionId,
-          conversationId: fullContext.conversationId,
-          round: currentRound,
-          provider: resolved.currentInfo.provider,
-          model: config.defaultModel.model,
-          effort: request.options.effort,
-          messages: request.messages,
-          tools: request.options.tools,
-        } as TExecutionEventData);
+        assembled = request;
+        announceRequest(request);
         // CORE-043: which transport actually carried the schema. The OUTCOME, not the resolution —
         // "the table declares json_schema" describes a catalog, while "the schema was sent as a
         // parameter, so no prompt statement was needed" explains the result the caller is holding.
@@ -146,7 +175,7 @@ export async function callRoundProviderWithEvents(
       fullContext.awaitProviderSettlement,
       (actualDisposition, model) => {
         dispatch.disposition = actualDisposition;
-        dispatch.model = model;
+        dispatch.model = routeModel(route, model);
         if (actualDisposition === 'invoked') dispatch.startedAtMs = Date.now();
       },
       () => resolveProviderCallTraceContext(
@@ -155,6 +184,7 @@ export async function callRoundProviderWithEvents(
         resolved.currentInfo.provider,
         callId,
       ),
+      route,
     );
     providerResponse = response;
     // CORE-042: a provider that returned assembled text without streaming any of it still owes the
@@ -224,8 +254,8 @@ export async function callRoundProviderWithEvents(
         round: currentRound,
         usageObservationId,
         executionId,
-        providerId: resolved.currentInfo.provider,
-        modelId: resolved.aiProviderInfo.model,
+        providerId: routeProvider(route, resolved),
+        modelId: routeModel(route, resolved.aiProviderInfo.model),
       });
       throw providerError;
     }
@@ -240,8 +270,8 @@ export async function callRoundProviderWithEvents(
       round: currentRound,
       usageObservationId,
       executionId,
-      providerId: resolved.currentInfo.provider,
-      modelId: resolved.aiProviderInfo.model,
+      providerId: routeProvider(route, resolved),
+      modelId: routeModel(route, resolved.aiProviderInfo.model),
       providerError: true,
     });
     // CORE-033: announced like every other append. A failed turn is precisely when a reader goes to
@@ -250,8 +280,8 @@ export async function callRoundProviderWithEvents(
       round: currentRound,
       usageObservationId,
       executionId,
-      providerId: resolved.currentInfo.provider,
-      modelId: resolved.aiProviderInfo.model,
+      providerId: routeProvider(route, resolved),
+      modelId: routeModel(route, resolved.aiProviderInfo.model),
       providerError: true,
     });
     return null;
@@ -271,7 +301,7 @@ export async function callRoundProviderWithEvents(
       callId,
       disposition: dispatch.disposition,
       ...(dispatch.disposition === 'invoked' && {
-        providerId: resolved.currentInfo.provider,
+        providerId: routeProvider(route, resolved),
         ...(dispatch.model !== undefined && { modelId: dispatch.model }),
         ...(typeof providerResponse?.metadata?.['providerRequestId'] === 'string' && {
           providerRequestId: providerResponse.metadata['providerRequestId'],

@@ -8,6 +8,8 @@
 import {
   CONTEXT_ESTIMATE_CHARS_PER_TOKEN,
   PROVIDER_CALL_EVENTS,
+  PROVIDER_FALLBACK_EVENTS,
+  readModelFallbackNotice,
   createLogger,
   createUserMessage,
   getProviderCapabilities,
@@ -32,6 +34,7 @@ import type {
 import type {
   IAIProvider,
   IContextWindowState,
+  IModelFallbackNotice,
   THooksConfig,
   IHookTypeExecutor,
   ISubprocessTraceEnv,
@@ -116,6 +119,8 @@ export interface IRunContext {
   onContextUpdate?: (state: IContextWindowState) => void;
   onToolExecution?: ISessionOptions['onToolExecution'];
   emitProviderCallCompleted?: (observation: IProviderCallTraceObservation) => void;
+  /** Tell the session's owner a request moved to another model, so it can say so. */
+  emitProviderFallback?: (notice: IModelFallbackNotice) => void;
   knownToolNames?: readonly string[];
 }
 
@@ -222,6 +227,7 @@ export async function executeRun(
         }
       : undefined;
 
+    let calledModel: Record<string, unknown> = {};
     response = await ctx.agent.run(enrichedMessage, {
       signal: abortSignal,
       maxExecutionRounds: ctx.maxTurns ?? 0,
@@ -238,9 +244,30 @@ export async function executeRun(
         // canonical source — NOT provider_response_raw, which would double-fire per round). Both are
         // fire-and-forget: this callback is void/un-awaited, so they cannot gate/mutate the call.
         if (event === 'provider_request') {
-          fireModelCallHook(ctx, 'PreModelCall', data as Record<string, unknown>, hookTraceEnv);
+          const request = data as Record<string, unknown>;
+          calledModel = { model: request['model'], provider: request['provider'] };
+          fireModelCallHook(ctx, 'PreModelCall', request, hookTraceEnv);
         } else if (event === 'provider_response_normalized') {
-          fireModelCallHook(ctx, 'PostModelCall', data as Record<string, unknown>, hookTraceEnv);
+          // Named after the model the request was last sent to, which answered it.
+          fireModelCallHook(
+            ctx,
+            'PostModelCall',
+            { ...(data as Record<string, unknown>), ...calledModel },
+            hookTraceEnv,
+          );
+        } else if (event === PROVIDER_FALLBACK_EVENTS.SWITCHED) {
+          const notice = readModelFallbackNotice(data as Record<string, unknown>);
+          if (notice !== undefined) {
+            // The call to the model that failed ends here, so its PreModelCall gets its PostModelCall
+            // before the request is announced again for the next model.
+            fireModelCallHook(
+              ctx,
+              'PostModelCall',
+              { round: data['round'], model: notice.from.model, provider: notice.from.provider },
+              hookTraceEnv,
+            );
+            ctx.emitProviderFallback?.(notice);
+          }
         } else if (event === PROVIDER_CALL_EVENTS.COMPLETED && ctx.emitProviderCallCompleted) {
           // Forward an allowlist, not the generic event envelope, across the session boundary.
           const observation = data as Record<string, unknown>;

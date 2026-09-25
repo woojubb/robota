@@ -2,6 +2,7 @@ import {
   TRUST_TO_MODE,
   ObservableEventService,
   PROVIDER_CALL_EVENTS,
+  PROVIDER_FALLBACK_EVENTS,
 } from '@robota-sdk/agent-core';
 
 import { SessionBase } from './session-base.js';
@@ -351,6 +352,23 @@ export class Session extends SessionBase {
         this.eventService.emit(
           PROVIDER_CALL_EVENTS.COMPLETED,
           { timestamp: new Date(), ...observation },
+          {
+            ownerType: 'session',
+            ownerId: this.sessionId,
+            ownerPath: [{ type: 'session', id: this.sessionId }],
+          },
+        ),
+      emitProviderFallback: (notice) =>
+        this.eventService.emit(
+          PROVIDER_FALLBACK_EVENTS.SWITCHED,
+          {
+            timestamp: new Date(),
+            fromProvider: notice.from.provider,
+            fromModel: notice.from.model,
+            toProvider: notice.to.provider,
+            toModel: notice.to.model,
+            reason: notice.reason,
+          },
           {
             ownerType: 'session',
             ownerId: this.sessionId,

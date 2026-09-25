@@ -12,13 +12,20 @@ import {
   isAbortFailure,
   SPAN_EVENTS,
   PROVIDER_CALL_EVENTS,
+  PROVIDER_FALLBACK_EVENTS,
+  readModelFallbackNotice,
   TOOL_BODY_EVENTS,
   TOOL_PERMISSION_EVENTS,
 } from '@robota-sdk/agent-core';
 
 import type { IExecutionResult, IToolSummary, IUsageSnapshot } from './types.js';
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
-import type { IContextWindowState, ITokenUsage, TUniversalMessage } from '@robota-sdk/agent-core';
+import type {
+  IContextWindowState,
+  IModelFallbackNotice,
+  ITokenUsage,
+  TUniversalMessage,
+} from '@robota-sdk/agent-core';
 import type {
   IHistoryEntry,
   ISpanCompletionEventData,
@@ -229,6 +236,8 @@ export interface ISpanCollectorOptions {
    * never affects collection.
    */
   readonly onToolCallObserved?: (toolCallId: string, phase: TToolCallObservedPhase) => void;
+  /** Called when a request of this turn moved to another model. */
+  readonly onProviderFallback?: (notice: IModelFallbackNotice) => void;
 }
 
 function observeToolCall(
@@ -255,6 +264,11 @@ export function collectSpanEntries(
   const completions: ISpanCollector['completions'] = [];
   const omittedCompletions = { provider: 0, tool: 0, permission: 0 };
   const listener: TEventListener = (eventType, data) => {
+    if (eventType === PROVIDER_FALLBACK_EVENTS.SWITCHED) {
+      const notice = readModelFallbackNotice(data);
+      if (notice !== undefined) options.onProviderFallback?.(notice);
+      return;
+    }
     if (eventType === `tool.${TOOL_PERMISSION_EVENTS.DECIDED}`) {
       observeToolCall(options, data['executionId'], data['decision']);
       if (

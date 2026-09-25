@@ -149,6 +149,48 @@ describe('SELFHOST-009 TC-03 — model-call hook events', () => {
     expect(post).toHaveLength(3);
   });
 
+  it('closes each model call on a round that moved to another model', async () => {
+    const { executor, inputs } = makeRecordingExecutor();
+    const hooks: THooksConfig = {
+      PreModelCall: [{ matcher: '', hooks: [{ type: 'command', command: 'noop' }] }],
+      PostModelCall: [{ matcher: '', hooks: [{ type: 'command', command: 'noop' }] }],
+    };
+    const agent = {
+      getHistory: (): TUniversalMessage[] => [],
+      run: vi.fn(
+        async (
+          _message: string,
+          options?: { onExecutionEvent?: (event: string, data: Record<string, unknown>) => void },
+        ): Promise<string> => {
+          const emit = options?.onExecutionEvent;
+          emit?.('provider_request', { round: 1, provider: 'anthropic', model: 'primary' });
+          emit?.('provider_fallback', {
+            round: 1,
+            fromProvider: 'anthropic',
+            fromModel: 'primary',
+            toProvider: 'openai',
+            toModel: 'fallback',
+            reason: 'overloaded',
+          });
+          emit?.('provider_request', { round: 1, provider: 'openai', model: 'fallback' });
+          emit?.('provider_response_normalized', { round: 1 });
+          return 'final response';
+        },
+      ),
+    } as unknown as Robota;
+    const ctx = createContext(agent, hooks, [executor]);
+
+    await executeRun('hello', undefined, ctx, new AbortController().signal);
+    await flushMicrotasks();
+
+    expect(inputs.map((input) => `${input.hook_event_name}:${input.model}`)).toEqual([
+      'PreModelCall:primary',
+      'PostModelCall:primary',
+      'PreModelCall:fallback',
+      'PostModelCall:fallback',
+    ]);
+  });
+
   it('is informational-only: an exit-code-2 hook does not block or mutate the run', async () => {
     const { executor } = makeRecordingExecutor(2);
     const hooks: THooksConfig = {
