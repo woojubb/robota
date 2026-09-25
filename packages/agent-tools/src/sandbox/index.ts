@@ -26,5 +26,8 @@ export type {
   IWorkspaceManifestS3MountEntry,
   TWorkspaceManifestApplyStatus,
   TWorkspaceManifestEntry,
+  TSandboxFilesystem,
 } from './types.js';
+export { describeExecutionContainment, routesFilesThroughSandbox } from './containment.js';
+export type { TExecutionContainment } from './containment.js';
 export { applyWorkspaceManifest, validateWorkspaceManifestPath } from './workspace-manifest.js';

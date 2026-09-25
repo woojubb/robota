@@ -18,6 +18,7 @@ import {
   createCliWorkspaceComposition,
   resolveInitialCliWorkspaceProjectAccess,
 } from './workspace-project-composition.js';
+import { checkExecutionContainment } from '../product/robota-execution-containment.js';
 import { createRobotaUserSettingsSources } from '../product/robota-user-settings.js';
 import { ROBOTA_SKILL_ROOTS } from '../product/robota-skill-roots.js';
 
@@ -161,7 +162,12 @@ export function buildDoctorInputs(opts: IBuildDoctorInputsOptions): IDoctorInput
     ...(opts.options.mcpActivationAdapter === undefined
       ? {}
       : { mcpActivation: opts.options.mcpActivationAdapter }),
-    hostChecks: [checkNodeVersion(), checkCliVersion(opts.version), checkTerminal(opts.env)],
+    hostChecks: [
+      checkNodeVersion(),
+      checkCliVersion(opts.version),
+      checkTerminal(opts.env),
+      checkExecutionContainment(),
+    ],
     ...(failure === undefined ? {} : { compositionFailure: failure }),
   };
 }

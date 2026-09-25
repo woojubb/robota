@@ -28,7 +28,7 @@ describe('createDefaultTools', () => {
     ]);
   });
 
-  it('accepts a sandbox client while preserving the default tool list', () => {
+  it('accepts a separate-filesystem sandbox client, withholding the host-only search tools', () => {
     const sandboxClient = new InMemorySandboxClient();
 
     expect(
@@ -39,8 +39,6 @@ describe('createDefaultTools', () => {
       'Read',
       'Write',
       'Edit',
-      'Glob',
-      'Grep',
       'WebFetch',
       'WebSearch',
       'AskUserQuestion',
@@ -158,5 +156,32 @@ describe('CLI-1990 TC-11 — default tool residency', () => {
     };
     const withRetrieval = createDefaultTools({ retrievalAdapter, cwd: ASSEMBLY_ROOT });
     expect(withRetrieval.every((tool) => tool.schema.deferLoading === undefined)).toBe(true);
+  });
+});
+
+describe('file tools follow the sandbox filesystem relation (issue #3081)', () => {
+  it('a separate filesystem withholds Glob and Grep, and routes Read through the sandbox', async () => {
+    const sandboxClient = new InMemorySandboxClient();
+    await sandboxClient.writeFile('/sandbox/only.txt', 'inside the sandbox');
+    const tools = createDefaultTools({ cwd: '/sandbox', sandboxClient });
+    const names = tools.map((tool) => tool.getName());
+    expect(names).not.toContain('Glob');
+    expect(names).not.toContain('Grep');
+    const read = tools.find((tool) => tool.getName() === 'Read')!;
+    const result = await read.execute({ filePath: '/sandbox/only.txt' });
+    expect(JSON.stringify(result)).toContain('inside the sandbox');
+  });
+
+  it('a shared filesystem keeps every file tool on the host', async () => {
+    const shared = Object.assign(new InMemorySandboxClient(), { filesystem: 'shared' as const });
+    await shared.writeFile('/sandbox/only.txt', 'inside the sandbox');
+    const tools = createDefaultTools({ cwd: '/sandbox', sandboxClient: shared });
+    const names = tools.map((tool) => tool.getName());
+    expect(names).toContain('Glob');
+    expect(names).toContain('Grep');
+    const read = tools.find((tool) => tool.getName() === 'Read')!;
+    const result = await read.execute({ filePath: '/sandbox/only.txt' });
+    // The host has no /sandbox root, so the host read fails; it never consults the sandbox's files.
+    expect(JSON.stringify(result)).not.toContain('inside the sandbox');
   });
 });

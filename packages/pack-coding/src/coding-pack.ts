@@ -35,8 +35,9 @@ export interface ICodingPackOptions {
    */
   cwd: string;
   /**
-   * Optional provider sandbox client. When present the file/shell tools operate through the sandbox and
-   * the host path guard does not apply — the sandbox is the isolation boundary.
+   * Optional provider sandbox client. Shell commands always run through it; file tools do only when its
+   * filesystem is `separate` (then the sandbox is the isolation boundary and the host-only search tools
+   * are withheld). With a `shared` filesystem, file tools stay on the host under the path guard.
    */
   sandboxClient?: ISandboxClient;
 }

@@ -28,8 +28,15 @@ export type {
   TWorkspaceManifestApplyStatus,
   TWorkspaceManifestEntry,
   TInMemorySandboxRunHandler,
+  TSandboxFilesystem,
+  TExecutionContainment,
 } from './sandbox/index';
-export { applyWorkspaceManifest, validateWorkspaceManifestPath } from './sandbox/index';
+export {
+  applyWorkspaceManifest,
+  validateWorkspaceManifestPath,
+  describeExecutionContainment,
+  routesFilesThroughSandbox,
+} from './sandbox/index';
 
 // SELFHOST-003: codebase retrieval (port + types + neutral repo-map ranking adapter; tool added below)
 export type {

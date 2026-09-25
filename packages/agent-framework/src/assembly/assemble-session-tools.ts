@@ -9,7 +9,7 @@
  */
 
 import { assertResidentToolRemains } from '@robota-sdk/agent-core';
-import { createToolSearchTool } from '@robota-sdk/agent-tools';
+import { createToolSearchTool, routesFilesThroughSandbox } from '@robota-sdk/agent-tools';
 
 import { wrapEditCheckpointTools } from '../checkpoints/edit-checkpoint-tools.js';
 import { createGoalStatusTool } from '../goal/index.js';
@@ -61,7 +61,7 @@ function hasDeferrableTool(tools: readonly IToolWithEventService[]): boolean {
 /** The assembled tool list plus the one flag the reversible-execution policy reads back. */
 export interface IAssembledSessionTools {
   tools: IToolWithEventService[];
-  /** Host-side edit checkpointing is active (recorder present, no sandbox) — `checkpointAvailable`. */
+  /** Host-side edit checkpointing is active (recorder present, files not in a sandbox) — `checkpointAvailable`. */
   checkpointAvailable: boolean;
 }
 
@@ -93,8 +93,11 @@ export async function assembleSessionTools(
     });
   };
   const defaultTools = options.defaultTools ?? (await loadDefaultTools());
-  const checkpointAvailable =
-    options.editCheckpointRecorder !== undefined && options.sandboxClient === undefined;
+  // Issue #3081: what matters is where FILE writes land, not whether a sandbox exists. A shared-
+  // filesystem sandbox confines commands but writes files on the host, so those edits still need
+  // checkpoints and are not contained in any provider snapshot.
+  const filesInSandbox = routesFilesThroughSandbox(options.sandboxClient);
+  const checkpointAvailable = options.editCheckpointRecorder !== undefined && !filesInSandbox;
   // CLI-1990: the DECLARED set — every tier the session was configured with, before the framework
   // adds anything of its own. Dedupe keeps the first entry for a name, so the surviving tool carries
   // its own residency marker; nothing here rewrites one.
@@ -125,7 +128,7 @@ export async function assembleSessionTools(
         ...options.reversibleExecution,
         isolation:
           options.reversibleExecution.isolation ??
-          (options.sandboxClient ? ('provider-sandbox' as const) : undefined),
+          (filesInSandbox ? ('provider-sandbox' as const) : undefined),
       }
     : undefined;
 

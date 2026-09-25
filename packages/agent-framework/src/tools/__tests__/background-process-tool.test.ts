@@ -91,12 +91,22 @@ describe('BackgroundProcess tool', () => {
 
   it('returns a structured error when the process runner is unavailable', async () => {
     const manager = makeManager(vi.fn(async () => Promise.reject(new Error('no process runner'))));
-    const tool = createBackgroundProcessTool({ backgroundTaskManager: manager });
+    const tool = createBackgroundProcessTool({ backgroundTaskManager: manager, cwd: '/workspace' });
 
     const result = parseToolResult(await tool.execute({ command: 'long command' }));
 
     expect(result['success']).toBe(false);
     expect(result['background']).toBe(true);
     expect(result['error']).toBe('Background process error: no process runner');
+  });
+});
+
+describe('BackgroundProcess execution root (issue #3081)', () => {
+  it('refuses to fall back to the process directory when built without a root', async () => {
+    const spawn = vi.fn(async (request: TBackgroundTaskRequest) => makeTaskState(request));
+    const tool = createBackgroundProcessTool({ backgroundTaskManager: makeManager(spawn) });
+    const result = parseToolResult(await tool.execute({ command: 'ls' }));
+    expect(spawn).not.toHaveBeenCalled();
+    expect(JSON.stringify(result)).toContain('no execution root');
   });
 });
