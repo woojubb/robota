@@ -1,0 +1,231 @@
+/**
+ * Span-level redaction of what is printed: a command line and a URL stay readable, and every
+ * stretch of them that is a credential — expanded from a credential-shaped variable, or a literal
+ * with a credential's shape — is replaced. The shape guess is display-only: the fingerprint must
+ * still see a changed literal token.
+ *
+ * Token fixtures are assembled at runtime so no credential-shaped literal sits in the source.
+ */
+
+import { describe, expect, it } from 'vitest';
+
+import { materializeDefinition } from '../definition/env-template.js';
+import { activationEndpoint, definitionFingerprint } from '../definition/identity.js';
+import { projectEntry, REDACTED } from '../definition/projection.js';
+import { looksLikeCredential, maskCredentials } from '../definition/secrecy.js';
+
+import type { IMCPDefinitionProjection } from '../definition/projection.js';
+import type { IMCPServerDefinition, IMCPServerDefinitionResolved } from '../definition/types.js';
+
+const join = (...parts: string[]): string => parts.join('');
+const mixed = (length: number): string =>
+  Array.from({ length }, (_, i) => 'aB3xY7qZ9k'[i % 10]).join('');
+
+const TOKENS: Readonly<Record<string, string>> = {
+  openai: join('sk', '-proj-', mixed(24)),
+  githubClassic: join('gh', 'p_', mixed(36)),
+  githubOauth: join('gh', 'o_', mixed(36)),
+  githubServer: join('gh', 's_', mixed(36)),
+  githubFineGrained: join('github', '_pat_', mixed(40)),
+  gitlab: join('gl', 'pat-', mixed(20)),
+  slackBot: join('xo', 'xb-', '1234-5678-', mixed(12)),
+  slackUser: join('xo', 'xp-', '1234-5678-', mixed(12)),
+  aws: join('AK', 'IA', 'ABCDEFGHIJ234567'),
+  google: join('AI', 'za', mixed(35)),
+  jwt: join('ey', 'JhbGciOiJIUzI1NiJ9', '.', 'eyJzdWIiOiIxIn0', '.', mixed(20)),
+  highEntropy: mixed(40),
+  upperHex: 'ABCDEF0123456789ABCDEF0123456789',
+};
+
+const stdio = (overrides: Partial<IMCPServerDefinition> = {}): IMCPServerDefinition => ({
+  name: 'alpha',
+  source: 'project',
+  origin: '.mcp.json',
+  transport: 'stdio',
+  command: 'npx',
+  ...overrides,
+});
+
+const http = (url: string): IMCPServerDefinition => ({
+  name: 'beta',
+  source: 'project',
+  origin: '.mcp.json',
+  transport: 'http',
+  url,
+});
+
+const resolve = (
+  definition: IMCPServerDefinition,
+  env: Record<string, string> = {},
+): IMCPServerDefinitionResolved => materializeDefinition(definition, env);
+
+const project = (definition: IMCPServerDefinitionResolved): IMCPDefinitionProjection =>
+  projectEntry({
+    name: definition.name,
+    source: definition.source,
+    origin: definition.origin,
+    status: 'resolved',
+    definition,
+    shadowed: [],
+  });
+
+describe('looksLikeCredential', () => {
+  it.each(Object.entries(TOKENS))('%s is credential-shaped', (_label, token) => {
+    expect(looksLikeCredential(token)).toBe(true);
+  });
+
+  it('treats a Bearer value as a credential', () => {
+    expect(looksLikeCredential('Bearer abc123')).toBe(true);
+  });
+
+  it.each([
+    ['a commit SHA', 'a94a8fe5ccb19ba61c4c0873d391e987982fbbd3'],
+    ['a sha256 digest', '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08'],
+    ['a package name', '@modelcontextprotocol/server-filesystem'],
+    ['a long hyphenated name', 'my-very-long-mcp-server-name-for-testing'],
+    ['a path', '/home/user/projects/some/deep/directory/structure'],
+    ['a short flag value', '8080'],
+  ])('%s is not', (_label, value) => {
+    expect(looksLikeCredential(value)).toBe(false);
+  });
+});
+
+describe('a projected command line', () => {
+  it.each(Object.entries(TOKENS))('masks a literal %s argument', (_label, token) => {
+    const projection = project(resolve(stdio({ args: ['-y', 'server', token] })));
+    expect(projection.args).toEqual(['-y', 'server', 'secret:literal']);
+    expect(JSON.stringify(projection)).not.toContain(token);
+  });
+
+  it('masks the value after a credential-named flag, split or joined', () => {
+    const projection = project(
+      resolve(
+        stdio({
+          args: ['--token', 'plain1', '--api-key=plain2', '--password', 'plain3', '--port', '80'],
+        }),
+      ),
+    );
+    expect(projection.args).toEqual([
+      '--token',
+      'secret:literal',
+      '--api-key=secret:literal',
+      '--password',
+      'secret:literal',
+      '--port',
+      '80',
+    ]);
+  });
+
+  it('leaves a single-letter flag and an ordinary argument readable', () => {
+    const projection = project(
+      resolve(stdio({ args: ['-p', '3000', '@modelcontextprotocol/server-filesystem', '/tmp'] })),
+    );
+    expect(projection.command).toBe('npx');
+    expect(projection.args).toEqual([
+      '-p',
+      '3000',
+      '@modelcontextprotocol/server-filesystem',
+      '/tmp',
+    ]);
+  });
+
+  it('keeps a commit SHA and a sha256 digest', () => {
+    const sha = 'a94a8fe5ccb19ba61c4c0873d391e987982fbbd3';
+    const digest = '9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08';
+    const projection = project(resolve(stdio({ args: ['--rev', sha, `sha256:${digest}`] })));
+    expect(projection.args).toEqual(['--rev', sha, `sha256:${digest}`]);
+  });
+
+  it('names the variable a credential came from and keeps a plain one', () => {
+    const projection = project(
+      resolve(stdio({ args: ['--api-key', '${OPENAI_API_KEY}', '--port', '${PORT}'] }), {
+        OPENAI_API_KEY: TOKENS.openai!,
+        PORT: '8080',
+      }),
+    );
+    expect(projection.args).toEqual(['--api-key', 'secret:OPENAI_API_KEY', '--port', '8080']);
+  });
+
+  it('masks a literal token in the command and the cwd', () => {
+    const projection = project(
+      resolve(stdio({ command: `/opt/${TOKENS.highEntropy}/bin`, cwd: `/work/${TOKENS.aws}` })),
+    );
+    expect(projection.command).toBe('/opt/secret:literal/bin');
+    expect(projection.cwd).toBe('/work/secret:literal');
+  });
+
+  it('masks a Bearer value inside an argument', () => {
+    const projection = project(
+      resolve(stdio({ args: ['--header', 'Authorization: Bearer opaque-value'] })),
+    );
+    expect(projection.args).toEqual(['--header', 'Authorization: Bearer secret:literal']);
+  });
+});
+
+describe('a projected url', () => {
+  it('masks the userinfo password and keeps the user and host', () => {
+    expect(project(resolve(http('https://admin:hunter2@db.example.com/mcp'))).url).toBe(
+      'https://admin:secret:literal@db.example.com/mcp',
+    );
+  });
+
+  it('masks a credential-named query parameter and keeps the others', () => {
+    expect(project(resolve(http('https://h.example.com/mcp?api_key=abc&region=eu'))).url).toBe(
+      'https://h.example.com/mcp?api_key=secret:literal&region=eu',
+    );
+  });
+
+  it('keeps a variable marker in a credential-named parameter', () => {
+    const definition = resolve(http('https://h.example.com/?token=${SERVICE_TOKEN}&x=1'), {
+      SERVICE_TOKEN: 'tok-live-123',
+    });
+    expect(project(definition).url).toBe('https://h.example.com/?token=secret:SERVICE_TOKEN&x=1');
+  });
+
+  it('falls back to the shape detector for a value that is not a URL', () => {
+    expect(maskCredentials(`not a url ${TOKENS.githubClassic}`)).toBe('not a url secret:literal');
+  });
+});
+
+describe('env and header values', () => {
+  it('stay fully redacted whatever their shape', () => {
+    const projection = project(
+      resolve({
+        ...http('https://h.example.com/mcp'),
+        headers: { 'X-Region': 'eu' },
+        env: { LOG_LEVEL: 'debug' },
+      }),
+    );
+    expect(projection.headers).toEqual({ 'X-Region': REDACTED });
+    expect(projection.env).toEqual({ LOG_LEVEL: REDACTED });
+  });
+});
+
+describe('the activation endpoint', () => {
+  it('masks literal tokens in a command line', () => {
+    const definition = resolve(stdio({ args: ['server', '--token', 'plain1', TOKENS.jwt!] }));
+    expect(activationEndpoint(definition)).toBe('npx server --token secret:literal secret:literal');
+  });
+
+  it('masks a URL password and a credential-named query parameter', () => {
+    expect(activationEndpoint(resolve(http('https://u:pw@h.example.com/?apikey=abc&v=2')))).toBe(
+      'https://u:secret:literal@h.example.com/?apikey=secret:literal&v=2',
+    );
+  });
+
+  it('is deterministic, so the transport can re-check it', () => {
+    const definition = resolve(stdio({ args: ['--token', 'plain1', TOKENS.aws!] }));
+    expect(activationEndpoint(definition)).toBe(activationEndpoint(definition));
+  });
+});
+
+describe('the fingerprint does not use the shape detector', () => {
+  it('changes when a literal token in args changes', () => {
+    const one = resolve(stdio({ args: ['--token', 'first-literal', TOKENS.githubClassic!] }));
+    const two = resolve(stdio({ args: ['--token', 'second-literal', TOKENS.githubClassic!] }));
+    const three = resolve(stdio({ args: ['--token', 'first-literal', TOKENS.githubOauth!] }));
+    expect(activationEndpoint(one)).toBe(activationEndpoint(two));
+    expect(definitionFingerprint(one)).not.toBe(definitionFingerprint(two));
+    expect(definitionFingerprint(one)).not.toBe(definitionFingerprint(three));
+  });
+});
