@@ -159,7 +159,8 @@ export class Tools extends AbstractManager implements IToolManager {
   loadDeferredTools(names: readonly string[]): IToolSchema[] {
     this.ensureInitialized();
     const schemas = names.map((name) => {
-      const schema = this.registry.get(name)?.schema;
+      // A tool hidden from the model is not loadable by name either (issue #3081).
+      const schema = this.isToolVisible(name) ? this.registry.get(name)?.schema : undefined;
       if (!schema) {
         throw new ToolExecutionError(
           `Tool "${name}" is not registered, so it cannot be loaded`,

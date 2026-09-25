@@ -1,3 +1,5 @@
+import { findInvalidPermissionPatterns, toolNamesToPatterns } from '@robota-sdk/agent-core';
+
 import { writeCommandPermissionMode } from '../permissions/permission-mode-command-api.js';
 
 import type {
@@ -49,6 +51,17 @@ export async function applyPresetToSession(
 ): Promise<IPresetApplicationResult> {
   const applied: string[] = [];
   const skipped: string[] = [];
+
+  // Issue #3081: refuse a preset whose allowlist the gate would refuse, BEFORE anything changes, so a
+  // bad preset leaves the session as it was rather than half-applied.
+  const invalidAllow = findInvalidPermissionPatterns(
+    toolNamesToPatterns(options.allowedTools),
+    'allow',
+  );
+  if (invalidAllow.length > 0) {
+    const listed = invalidAllow.map(({ pattern, reason }) => `"${pattern}" ${reason}`).join('; ');
+    throw new Error(`Preset "${presetId}" has invalid allowedTools: ${listed}.`);
+  }
 
   // PRESET-011 state — required runtime method (ARCH-029 TC-06).
   context.getSession().setActivePresetId(presetId);

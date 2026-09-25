@@ -185,3 +185,43 @@ describe('a bare-name deny hides the tool (issue #3081)', () => {
     await expect(enforcer.checkPermission('Bash', { command: 'sleep 9' })).resolves.toBe(true);
   });
 });
+
+describe('parameter rules on tools whose parameters arrive with the schema (issue #3081)', () => {
+  it('construct, then apply once the tools are wrapped — on argument-less and URL tools too', async () => {
+    clearRegisteredToolProfiles();
+    registerToolPermissionProfile('Agent', { riskClass: 'execute' });
+    registerToolPermissionProfile('WebFetch', {
+      argument: { key: 'url', kind: 'url' },
+      riskClass: 'inspect',
+    });
+    const enforcer = makeEnforcer({
+      config: {
+        permissions: { allow: [], deny: ['Agent(model:opus*)', 'WebFetch(prompt:*secret*)'] },
+      },
+    });
+    const tool = (name: string, properties: Record<string, object>) =>
+      ({
+        schema: { name, description: name, parameters: { type: 'object', properties } },
+        execute: vi.fn(),
+      }) as unknown as Parameters<PermissionEnforcer['wrapTools']>[0][number];
+    enforcer.wrapTools([
+      tool('Agent', { model: { type: 'string' }, prompt: { type: 'string' } }),
+      tool('WebFetch', { url: { type: 'string' }, prompt: { type: 'string' } }),
+    ]);
+    await expect(enforcer.checkPermission('Agent', { model: 'opus-4', prompt: 'x' })).resolves.toBe(
+      false,
+    );
+    await expect(enforcer.checkPermission('Agent', { model: 'haiku', prompt: 'x' })).resolves.toBe(
+      true,
+    );
+    await expect(
+      enforcer.checkPermission('WebFetch', { url: 'https://a.example/', prompt: 'the secret' }),
+    ).resolves.toBe(false);
+  });
+
+  it('a live preset cannot add an unanchored allow glob', () => {
+    const enforcer = makeEnforcer();
+    expect(() => enforcer.applyPresetToolLists({ allowedTools: ['*'] })).toThrow(/allowedTools/);
+    expect(enforcer.currentPermissionRules().allow).toEqual([]);
+  });
+});

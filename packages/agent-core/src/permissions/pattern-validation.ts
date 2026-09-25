@@ -26,6 +26,9 @@ export interface IPermissionPatternProblem {
   readonly reason: string;
 }
 
+/** The shape of a parameter rule's argument: `name:` then anything but `//`, which is a URL scheme. */
+const NAMED_ARGUMENT = /^[A-Za-z_]\w*:(?!\/\/)/;
+
 /** A well-formed URL argument, used to ask the URL matcher whether the PATTERN side is readable. */
 const URL_PROBE = 'https://probe.invalid/';
 
@@ -58,15 +61,30 @@ export function validatePermissionPattern(
   }
   if (argPattern === undefined || argPattern === '*' || argPattern === '**') return undefined;
   if (argPattern === '') return 'has an empty argument pattern; write Tool or Tool(*) instead';
-  const parameterRule = toolName.includes('*') ? undefined : parseParameterRule(toolName, argPattern);
+  if (toolName.includes('*')) {
+    // Judged per tool at the gate — except that an allow rule may never name a parameter.
+    return direction === 'allow' && NAMED_ARGUMENT.test(argPattern)
+      ? 'matches a named parameter, which only deny and ask rules may do'
+      : undefined;
+  }
+  const parameterRule = parseParameterRule(toolName, argPattern);
   if (parameterRule !== undefined && parameterRule !== 'primary') {
     return direction === 'allow'
       ? 'matches a named parameter, which only deny and ask rules may do'
       : undefined;
   }
-  if (toolName.includes('*')) return undefined; // judged per tool at the gate
 
   const profile = getToolPermissionProfile(toolName);
+  // `name:value` against a tool whose parameters are not registered yet: whether it is a parameter
+  // rule depends on the schema, which arrives when the session wraps its tools. It is checked again
+  // then, before any turn runs; judging it now would refuse a valid rule.
+  if (
+    profile.parameters === undefined &&
+    NAMED_ARGUMENT.test(argPattern) &&
+    parseParameterRule(toolName, argPattern) === undefined
+  ) {
+    return undefined;
+  }
   if (profile.argument === undefined) {
     if (profile.riskClass === undefined) return undefined; // nobody has declared this tool yet
     return `tool "${toolName}" declares no argument key, so an argument-scoped pattern can never be evaluated`;
@@ -102,11 +120,26 @@ export function findPermissionPatternWarnings(
   for (const pattern of patterns) {
     const { toolName, argPattern } = parsePattern(pattern.trim());
     if (argPattern === undefined || toolName.includes('*')) continue;
-    if (parseParameterRule(toolName, argPattern) !== 'primary') continue;
+    const profile = getToolPermissionProfile(toolName);
+    const parameterRule = parseParameterRule(toolName, argPattern);
+    if (
+      parameterRule === undefined &&
+      profile.parameters !== undefined &&
+      profile.argument?.kind !== 'url' &&
+      NAMED_ARGUMENT.test(argPattern)
+    ) {
+      // Most likely a misspelt parameter: read as an ordinary argument pattern, it rarely matches.
+      problems.push({
+        pattern,
+        reason: `names no parameter of "${toolName}" (${profile.parameters.join(', ')}), so it is read as an ordinary argument pattern`,
+      });
+      continue;
+    }
+    if (parameterRule !== 'primary') continue;
     const key = getToolPermissionProfile(toolName).argument?.key ?? '';
     problems.push({
       pattern,
-      reason: `names "${toolName}"'s primary field "${key}"; write ${toolName}(${argPattern.slice(key.length + 1)}) instead`,
+      reason: `names "${toolName}"'s primary field "${key}", so it asks on every call; write ${toolName}(${argPattern.slice(key.length + 1)}) instead`,
     });
   }
   return problems;

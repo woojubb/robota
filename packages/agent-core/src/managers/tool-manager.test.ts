@@ -279,3 +279,19 @@ describe('Tools visibility (issue #3081)', () => {
     await manager.dispose();
   });
 });
+
+describe('a hidden tool cannot be loaded by name (issue #3081)', () => {
+  it('loadDeferredTools treats a hidden name as unregistered', async () => {
+    const manager = new Tools({
+      resolveToolSearchMode: () => 'on',
+      isToolVisible: (name) => name !== 'Secret',
+    });
+    await manager.initialize();
+    manager.addTool(
+      { name: 'Secret', description: 'hidden', parameters: { type: 'object', properties: {} }, deferLoading: true },
+      async () => 'ok',
+    );
+    expect(() => manager.loadDeferredTools(['Secret'])).toThrow(/not registered/);
+    await manager.dispose();
+  });
+});

@@ -160,7 +160,7 @@ export class PermissionEnforcer {
     const rules = this.configuredRules();
     assertPermissionPatternsEvaluable(rules);
     for (const { pattern, reason } of findPermissionPatternWarnings(rules.restrictive)) {
-      this.terminal.writeLine(`  ⚠  Permission rule "${pattern}" ${reason}. It asks on every call.`);
+      this.terminal.writeLine(`  ⚠  Permission rule "${pattern}" ${reason}.`);
     }
   }
 

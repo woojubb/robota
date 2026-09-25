@@ -5,6 +5,7 @@
 
 import { Tools } from '../managers/tool-manager';
 import { resolveToolSearchMode } from '../services/tool-search-policy';
+import { TOOL_SEARCH_TOOL_NAME } from '../interfaces/tool-search';
 
 import type { IAgentConfig } from '../interfaces/agent';
 
@@ -32,6 +33,9 @@ export function createConfiguredTools(readConfig: () => IAgentConfig): Tools {
   const tools: Tools = new Tools({
     resolveToolSearchMode: () => {
       const config = readConfig();
+      // Issue #3081: with the loader hidden by a deny rule, nothing could load a withheld schema,
+      // so deferral is off and every visible tool is offered resident.
+      if (config.isToolVisible?.(TOOL_SEARCH_TOOL_NAME) === false) return 'off';
       return resolveToolSearchMode(config, config.defaultModel.model, tools.getTools());
     },
     isToolVisible: (toolName) => readConfig().isToolVisible?.(toolName) ?? true,
