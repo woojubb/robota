@@ -1,6 +1,7 @@
 import jsSHA from 'jssha';
 
 import type { ICacheKey } from '../../interfaces/cache';
+import type { TModelEffortSelection } from '../../interfaces/model-effort-capability';
 import type { TUniversalMessage } from '../../interfaces/messages';
 
 interface ICacheKeyOptions {
@@ -14,7 +15,7 @@ interface ICacheKeyOptions {
    * `undefined` both mean "no selection was distinguished" and hash identically; the caller normalizes
    * an absent selection to `'auto'` before passing it in.
    */
-  effortCacheIdentity?: string | null;
+  effortCacheIdentity?: TModelEffortSelection | null;
 }
 
 export class CacheKeyBuilder {

@@ -48,17 +48,17 @@ describe('ExecutionCacheService', () => {
   });
 
   // DATA-007: lookup and store share the ONE identity function (CacheKeyBuilder.build), so this
-  // exercises that a stored entry keyed by one effective effort is invisible to a lookup keyed by a
+  // exercises that a stored entry keyed by one effort selection is invisible to a lookup keyed by a
   // different one, and visible again to a lookup keyed by the same one.
-  describe('effective-effort identity', () => {
-    it('misses when the effective effort differs from the one it was stored under', () => {
+  describe('effort selection identity', () => {
+    it('misses when the effort selection differs from the one it was stored under', () => {
       service.store(messages, 'gpt-4', 'openai', 'low response', { effortCacheIdentity: 'low' });
 
       const result = service.lookup(messages, 'gpt-4', 'openai', { effortCacheIdentity: 'high' });
       expect(result).toBeUndefined();
     });
 
-    it('hits when the effective effort matches the one it was stored under', () => {
+    it('hits when the effort selection matches the one it was stored under', () => {
       service.store(messages, 'gpt-4', 'openai', 'low response', { effortCacheIdentity: 'low' });
 
       const result = service.lookup(messages, 'gpt-4', 'openai', { effortCacheIdentity: 'low' });

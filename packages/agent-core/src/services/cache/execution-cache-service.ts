@@ -1,5 +1,6 @@
 import type { CacheKeyBuilder } from './cache-key-builder';
 import type { ICacheStorage, ICacheStats } from '../../interfaces/cache';
+import type { TModelEffortSelection } from '../../interfaces/model-effort-capability';
 import type { TUniversalMessage } from '../../interfaces/messages';
 
 /**
@@ -11,7 +12,7 @@ import type { TUniversalMessage } from '../../interfaces/messages';
 interface IExecutionCacheOptions {
   temperature?: number;
   maxTokens?: number;
-  effortCacheIdentity?: string | null;
+  effortCacheIdentity?: TModelEffortSelection | null;
 }
 
 export class ExecutionCacheService {

@@ -453,6 +453,61 @@ describe('execution-round helpers', () => {
       }
     });
 
+    // New path enabled by the API-001 bypass removal: an explicit-effort run that now DOES reach the
+    // cache and gets served from it must still emit a 'cache-hit' dispatch — the develop-side
+    // dispatch-observation contract (`onDispatch`) applies uniformly, not only to the implicit
+    // `auto` path the old bypass carved out.
+    it('emits a cache-hit dispatch when an explicit-effort run is served from cache', async () => {
+      const chat = vi.fn().mockResolvedValue({
+        role: 'assistant',
+        content: 'high answer',
+        state: 'complete' as const,
+        timestamp: new Date(),
+      });
+      const resolved = createResolvedProviderInfo({ provider: { chat } });
+      const cacheService = new ExecutionCacheService(
+        new MemoryCacheStorage({ maxEntries: 100, ttlMs: 60_000 }),
+        new CacheKeyBuilder(),
+      );
+      const config = { name: 'test', defaultModel: { provider: 'openai', model: 'gpt-4' } };
+      const messages = [userMessage('hi')];
+      const onDispatch = vi.fn();
+
+      // First call with an explicit effort selection: cache miss, provider invoked, response stored.
+      await callProviderWithCache(
+        messages,
+        config as any,
+        resolved,
+        cacheService,
+        { effort: 'high' },
+        undefined,
+        undefined,
+        onDispatch,
+      );
+      expect(chat).toHaveBeenCalledTimes(1);
+      expect(onDispatch).toHaveBeenCalledWith('invoked', 'gpt-4');
+
+      onDispatch.mockClear();
+
+      // Second call with the SAME explicit effort selection: must hit the cache (the API-001 bypass
+      // that used to skip the cache for any explicit selection is gone) and emit 'cache-hit', not
+      // 'invoked' — and the provider must not be called again.
+      const second = await callProviderWithCache(
+        messages,
+        config as any,
+        resolved,
+        cacheService,
+        { effort: 'high' },
+        undefined,
+        undefined,
+        onDispatch,
+      );
+      expect(second.content).toBe('high answer');
+      expect(chat).toHaveBeenCalledTimes(1);
+      expect(onDispatch).toHaveBeenCalledWith('cache-hit', 'gpt-4');
+      expect(onDispatch).not.toHaveBeenCalledWith('invoked', expect.anything());
+    });
+
     it('uses cached response when available', async () => {
       const config = { name: 'test', defaultModel: { provider: 'openai', model: 'gpt-4' } };
       const resolved = createResolvedProviderInfo();
