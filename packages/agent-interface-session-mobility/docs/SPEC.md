@@ -53,7 +53,10 @@ boolean:
 
 The resulting trust classification distinguishes "same user, same host" (produced by a
 kernel-enforced rendezvous) from "token only" (a credential was presented and nothing about origin
-was proven); the two are not interchangeable however convenient a single flag would be.
+was proven); the two are not interchangeable however convenient a single flag would be. Between two of
+one user's devices, trust, locality and workspace stay separate fields of the admission: the certificate
+proves the user, the carrier the locality, and the workspace is only the peer's claim. Authority comes
+from trust and the capabilities local policy leaves of the certificate's, never from the other two.
 
 The driver-id attribution on a peer message is **display and attribution only** and must never
 become an authentication or authorization input. It is also what tells the model a message is a

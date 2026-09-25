@@ -451,6 +451,20 @@ describe('verifyDeviceChain — every rejection reason', () => {
     ).toEqual({ ok: false, reason: 'stale', subject: 'roster' });
   });
 
+  it('an expired list inside the caller’s grace is accepted and reported; past it, stale', async () => {
+    const expiry = NOW + REVOCATION_LIST_VALIDITY_MS;
+    const grace = 60 * 60 * 1000;
+    const inside = await verifyDeviceChain(
+      full({ now: expiry + IDENTITY_CLOCK_SKEW_MS + grace - 1, listExpiryGraceMs: grace }),
+    );
+    expect(inside).toMatchObject({ ok: true, listsExpiredAt: expiry });
+    expect(
+      await verifyDeviceChain(full({ now: expiry + IDENTITY_CLOCK_SKEW_MS + grace, listExpiryGraceMs: grace })),
+    ).toEqual({ ok: false, reason: 'stale', subject: 'revocation' });
+    const fresh = await verifyDeviceChain(full({ listExpiryGraceMs: grace }));
+    expect(fresh.ok && 'listsExpiredAt' in fresh).toBe(false);
+  });
+
   it('stale: a list left out although one was seen before, or required', async () => {
     const skId = world.signingKeyCert.signingKeyId;
     expect(
