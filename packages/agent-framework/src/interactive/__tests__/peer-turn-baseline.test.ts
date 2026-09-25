@@ -77,6 +77,19 @@ describe('peer turn baseline', () => {
     }
   });
 
+  it('refuses a peer turn whose driver id is not a peer id', async () => {
+    const { provider, chat } = createProvider();
+    const session = new InteractiveSession({ cwd: process.cwd(), provider, bare: true });
+    try {
+      await expect(
+        session.submit('hi', undefined, undefined, { turnSource: 'peer', driverId: 'owner' }),
+      ).rejects.toThrow(/must start with 'peer:'/);
+      expect(chat).not.toHaveBeenCalled();
+    } finally {
+      await session.shutdown();
+    }
+  });
+
   it('does not expand an @path in peer text', async () => {
     workdir = mkdtempSync(join(tmpdir(), 'peer-baseline-'));
     writeFileSync(join(workdir, 'secret.txt'), 'TOP-SECRET-CONTENT');

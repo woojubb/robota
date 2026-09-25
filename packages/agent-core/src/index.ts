@@ -234,12 +234,7 @@ export type {
   IEventHistorySnapshot,
 } from './interfaces/history-module';
 export { EventHistoryModule } from './services/history-module';
-export {
-  escapeOriginMarkup,
-  peerDriverOf,
-  presentMessageOrigins,
-  printablePeerDriver,
-} from './services/message-origin';
+export { peerDriverOf, printablePeerDriver } from './services/message-origin';
 
 // Event emitter (plugin)
 export { EVENT_EMITTER_EVENTS } from './plugins/event-emitter/types';
