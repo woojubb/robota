@@ -3,6 +3,7 @@ import { TurnClaim } from './turn-claim.js';
 
 import type { ContextWindowTracker, TAutoCompactThreshold } from './context-window-tracker.js';
 import type { PermissionEnforcer } from './permission-enforcer.js';
+import type { IPermissionDenial } from './permission-denial-log.js';
 import type {
   Robota,
   IAIProvider,
@@ -222,6 +223,11 @@ export abstract class SessionBase {
 
   getSessionAllowedTools(): string[] {
     return this.permissionEnforcer.getSessionAllowedTools();
+  }
+
+  /** The calls this session refused, most recent first (issue #3082). */
+  getRecentPermissionDenials(): readonly IPermissionDenial[] {
+    return this.permissionEnforcer.getRecentDenials();
   }
 
   clearSessionAllowedTools(): void {

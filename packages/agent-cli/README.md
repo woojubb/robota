@@ -677,7 +677,7 @@ Every tool call passes through a three-step permission gate:
 Use the `/permissions` slash command:
 
 ```
-> /permissions                    # Show current mode and session-approved tools
+> /permissions                    # Show mode, rules by settings file, approvals, recent denials
 > /permissions plan               # Switch to plan (read-only)
 > /permissions bypassPermissions  # Skip all prompts
 ```

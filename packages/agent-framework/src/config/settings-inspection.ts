@@ -167,7 +167,7 @@ function declaredKeys(settings: TSettings): string[] {
   for (const [key, value] of Object.entries(settings)) {
     if (value === undefined) continue;
     if (key === 'permissions' && typeof value === 'object' && value !== null) {
-      for (const sub of ['allow', 'deny']) {
+      for (const sub of ['allow', 'deny', 'ask']) {
         if ((value as Record<string, readonly string[] | undefined>)[sub] !== undefined) {
           keys.push(`permissions.${sub}`);
         }

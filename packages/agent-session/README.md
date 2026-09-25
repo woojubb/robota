@@ -83,6 +83,7 @@ Unversioned legacy logs are not accepted; persisted session snapshots keep their
 | `getSessionId()`                                  | Returns the stable session identifier                                   |
 | `getMessageCount()`                               | Returns the number of completed `run()` calls                           |
 | `getSessionAllowedTools()`                        | Tools approved for this session                                         |
+| `getRecentPermissionDenials()`                    | Calls this session refused, most recent first, with the reason          |
 | `clearSessionAllowedTools()`                      | Clears all session-scoped allow rules                                   |
 
 ## Public API Surface

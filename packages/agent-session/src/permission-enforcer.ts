@@ -23,6 +23,7 @@ import {
 
 import { decideApproval } from './abortable-approval.js';
 import { consentScopeFor } from './consent-scope.js';
+import { PermissionDenialLog } from './permission-denial-log.js';
 import { wrapToolWithPermission } from './tool-permission-wrapper.js';
 import { createWorkspacePathResolver } from './workspace-path-resolver.js';
 
@@ -33,6 +34,7 @@ import type {
   ITerminalOutput,
   ISpinner,
 } from './permission-types.js';
+import type { IPermissionDenial } from './permission-denial-log.js';
 import type { ISessionLogger, TSessionLogData } from './session-logger.js';
 import type { IToolWrapperDeps } from './tool-permission-wrapper.js';
 import type {
@@ -90,6 +92,7 @@ export class PermissionEnforcer {
   private readonly taskPermissions?: IPermissionEnforcerOptions['taskPermissions'];
   private readonly homeDirectory: string;
   private readonly resolveInWorkspace: TResolveInWorkspace;
+  private readonly denials = new PermissionDenialLog();
 
   constructor(options: IPermissionEnforcerOptions) {
     this.sessionId = options.sessionId;
@@ -197,6 +200,11 @@ export class PermissionEnforcer {
     return [...this.sessionAllowedTools];
   }
 
+  /** The calls this session refused, most recent first (issue #3082). */
+  getRecentDenials(): readonly IPermissionDenial[] {
+    return this.denials.list();
+  }
+
   /** Clear all session-scoped allow rules. */
   clearSessionAllowedTools(): void {
     this.sessionAllowedTools.clear();
@@ -295,7 +303,10 @@ export class PermissionEnforcer {
     this.firePermissionDecisionHook(toolName, toolArgs, decision, hookTraceEnv);
 
     if (decision === 'auto') return true;
-    if (decision === 'deny') return false;
+    if (decision === 'deny') {
+      this.denials.record(toolName, toolArgs, 'policy');
+      return false;
+    }
 
     // 'approve' — route to the human-approval path. An ask that must reach a person every time is
     // not answered by a remembered consent, and does not create one (issue #3081).
@@ -316,6 +327,10 @@ export class PermissionEnforcer {
     fresh = false,
   ): Promise<boolean> {
     const scope = consentScopeFor(toolName, toolArgs);
+    const cancelledBeforeAsking = signal?.aborted === true;
+    const hasApprover =
+      interaction === 'interactive' &&
+      (this.permissionHandler !== undefined || this.promptForApprovalFn !== undefined);
     const outcome = await decideApproval({
       toolName,
       alreadyAllowed:
@@ -329,6 +344,10 @@ export class PermissionEnforcer {
       toolArgs,
       ...(signal ? { signal } : {}),
     });
+    // A turn cancelled before anyone was asked is not a refusal of this call.
+    if (!outcome.allowed && !cancelledBeforeAsking) {
+      this.denials.record(toolName, toolArgs, hasApprover ? 'user' : 'no-approver');
+    }
     // A fresh-approval answer covers this call only: remembering its wide scope would let it answer
     // the next critical removal or protected write too.
     if (fresh) return outcome.allowed;

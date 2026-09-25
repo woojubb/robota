@@ -279,7 +279,7 @@ describe('command-api contracts', () => {
     writeCommandPermissionMode(context, 'plan');
     expect(readCommandPermissionMode(context)).toBe('plan');
     expect(formatCommandPermissionsMessage(readCommandPermissionsState(context))).toBe(
-      'Permission mode: plan\nNo session-approved tools.',
+      'Permission mode: plan\n\nRules: none configured.\n\nNo session-approved tools.\n\nRecent denials: none.',
     );
   });
 

@@ -21,6 +21,7 @@ export { SessionBusyError, TurnClaim } from './turn-claim.js';
 // Sub-components (exported for advanced use cases)
 export { PermissionEnforcer } from './permission-enforcer.js';
 export { consentScopeFor } from './consent-scope.js';
+export type { IPermissionDenial, TPermissionDenialReason } from './permission-denial-log.js';
 export { AUTO_COMPACT_THRESHOLD, ContextWindowTracker } from './context-window-tracker.js';
 export {
   CompactionError,
