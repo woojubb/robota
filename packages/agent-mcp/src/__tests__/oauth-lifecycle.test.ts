@@ -183,6 +183,44 @@ describe('signing in with a pasted redirect', () => {
     expect(server.tokenCalls()).toBe(0);
   });
 
+  it('stops waiting for a paste at the callback time limit, and on cancel', async () => {
+    const server = createFakeOAuthServer();
+    const directory = temporaryDirectory();
+    const waitFor = (
+      options: { callbackTimeoutMs?: number; signal?: AbortSignal },
+      onRead: () => void = () => undefined,
+    ) => {
+      let readSignal: AbortSignal | undefined;
+      const result = runMCPOAuthLogin({
+        securityIdentity: 'identity-1',
+        serverUrl: MCP_URL,
+        config: {},
+        store: createFileOAuthCredentialStore(directory),
+        lock: createFileOAuthRefreshLock(directory),
+        network: { fetch: server.fetch, lookup: server.lookup },
+        openBrowser: async () => undefined,
+        // A user who never pastes.
+        readRedirect: (signal) => {
+          readSignal = signal;
+          onRead();
+          return new Promise<string>(() => undefined);
+        },
+        ...options,
+      });
+      return { result, signal: () => readSignal };
+    };
+    const timedOut = waitFor({ callbackTimeoutMs: 30 });
+    expect((await failure(timedOut.result)).reason).toBe('callback-timeout');
+    expect(timedOut.signal()?.aborted).toBe(true);
+
+    const controller = new AbortController();
+    const cancelled = waitFor({ signal: controller.signal }, () =>
+      setTimeout(() => controller.abort(), 10),
+    );
+    expect((await failure(cancelled.result)).reason).toBe('cancelled');
+    expect(cancelled.signal()?.aborted).toBe(true);
+  });
+
   it('refuses a pasted redirect for another sign-in', async () => {
     const server = createFakeOAuthServer();
     const { result, store } = pastedLogin(server, (redirect) => {
@@ -250,7 +288,14 @@ describe('signing out', () => {
     const store = createFileOAuthCredentialStore(directory);
     await store.set(KEY, credential());
     const { result, locked } = logout(server, directory);
-    await expect(result).resolves.toEqual({ removed: true, revocation: 'revoked' });
+    await expect(result).resolves.toEqual({
+      removed: true,
+      revocation: 'revoked',
+      tokens: [
+        { token: 'refresh_token', revoked: true },
+        { token: 'access_token', revoked: true },
+      ],
+    });
     expect(locked).toEqual([MCP_URL]);
     await expect(store.get(KEY)).resolves.toBeUndefined();
 
@@ -295,6 +340,10 @@ describe('signing out', () => {
       removed: true,
       revocation: 'failed',
       revocationFailure: 'revocation-failed',
+      tokens: [
+        { token: 'refresh_token', revoked: false, failure: 'revocation-failed' },
+        { token: 'access_token', revoked: false, failure: 'revocation-failed' },
+      ],
     });
     expect(JSON.stringify(outcome)).not.toMatch(/rt-initial|at-initial|leaked-secret/);
     await expect(store.get(KEY)).resolves.toBeUndefined();
@@ -310,9 +359,52 @@ describe('signing out', () => {
       removed: true,
       revocation: 'failed',
       revocationFailure: 'egress-refused',
+      tokens: [
+        { token: 'refresh_token', revoked: false, failure: 'egress-refused' },
+        { token: 'access_token', revoked: false, failure: 'egress-refused' },
+      ],
     });
     expect(server.requests.some((request) => request.url.includes('evil'))).toBe(false);
     await expect(store.get(KEY)).resolves.toBeUndefined();
+  });
+
+  it('reports a refresh token revoked and an access token the server does not revoke', async () => {
+    const server = createFakeOAuthServer();
+    server.overrides.revocation = 'refresh-only';
+    const directory = temporaryDirectory();
+    await createFileOAuthCredentialStore(directory).set(KEY, credential());
+    const outcome = await logout(server, directory).result;
+    expect(outcome).toEqual({
+      removed: true,
+      revocation: 'partial',
+      revocationFailure: 'token-type-not-revocable',
+      tokens: [
+        { token: 'refresh_token', revoked: true },
+        { token: 'access_token', revoked: false, failure: 'token-type-not-revocable' },
+      ],
+    });
+    expect(JSON.stringify(outcome)).not.toContain(SECRET_DESCRIPTION);
+  });
+
+  it('authenticates as the revocation endpoint advertises, over the token endpoint', async () => {
+    const server = createFakeOAuthServer();
+    server.overrides.revocationAuthMethods = ['client_secret_post'];
+    const directory = temporaryDirectory();
+    await createFileOAuthCredentialStore(directory).set(
+      KEY,
+      credential({
+        clientId: 'robota-cli',
+        clientSecret: 'cs-value',
+        tokenEndpointAuthMethods: ['client_secret_basic'],
+      }),
+    );
+    await logout(server, directory).result;
+    const sent = revocations(server);
+    expect(sent).toHaveLength(2);
+    for (const request of sent) {
+      expect(request.headers.get('authorization')).toBeNull();
+      expect(new URLSearchParams(request.body).get('client_secret')).toBe('cs-value');
+    }
   });
 
   it('signs out without revoking when the server offers no revocation', async () => {

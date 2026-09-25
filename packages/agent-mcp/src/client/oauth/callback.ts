@@ -45,7 +45,8 @@ export interface IMCPOAuthCallbackOptions {
 
 const LOOPBACK = '127.0.0.1';
 const CALLBACK_PATH = '/callback';
-const DEFAULT_TIMEOUT_MS = 5 * 60 * 1000;
+/** How long a sign-in waits for its redirect. */
+export const DEFAULT_CALLBACK_TIMEOUT_MS = 5 * 60 * 1000;
 
 const PAGE_HEADERS = {
   'Content-Type': 'text/html; charset=utf-8',
@@ -185,7 +186,10 @@ export async function startOAuthCallbackServer(
     void close();
   };
   const onAbort = (): void => fail('cancelled');
-  const timer = setTimeout(() => fail('callback-timeout'), options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+  const timer = setTimeout(
+    () => fail('callback-timeout'),
+    options.timeoutMs ?? DEFAULT_CALLBACK_TIMEOUT_MS,
+  );
 
   try {
     await new Promise<void>((resolve, reject) => {

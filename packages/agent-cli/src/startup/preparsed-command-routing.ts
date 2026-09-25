@@ -6,12 +6,8 @@ import { runSessionAnalyze } from '../session-analyzer/session-analyze-command.j
 import { runSessionListCommand } from '../session-inventory/session-list-command.js';
 import { launchSupervisedSession } from '../session-inventory/supervised-session-launch.js';
 import {
-  isSupervisedSessionName,
-  linkSupervisedPr,
-  parseSupervisedPr,
-  renameSupervisedSession,
-  stopSupervisedSession,
-  unlinkSupervisedPr,
+  isSupervisedSessionName, linkSupervisedPr, parseSupervisedPr,
+  renameSupervisedSession, stopSupervisedSession, unlinkSupervisedPr,
 } from '../session-inventory/supervised-session-control.js';
 import { runSessionViewCommand } from '../session-inventory/session-view-command.js';
 import { validateNodeOtlpLiveTelemetrySettings } from '../telemetry/live-trace-otlp.js';
@@ -71,18 +67,13 @@ export async function runPreparsedCliCommand(
       await stopSupervisedSession(argv[SUBCOMMAND_ARGUMENT_INDEX]!);
       process.stdout.write(`Stopped supervised session ${argv[SUBCOMMAND_ARGUMENT_INDEX]}.\n`);
     } catch (error) {
-      process.stderr.write(
-        `${error instanceof Error ? error.message : 'Unable to stop supervised session.'}\n`,
-      );
+      process.stderr.write(`${error instanceof Error ? error.message : 'Unable to stop supervised session.'}\n`);
       process.exitCode = 1;
     }
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'rename') {
-    if (
-      argv.length !== SUBCOMMAND_ARGUMENT_INDEX + 2 ||
-      !isSupervisedSessionName(argv[SUBCOMMAND_ARGUMENT_INDEX + 1])
-    ) {
+    if (argv.length !== SUBCOMMAND_ARGUMENT_INDEX + 2 || !isSupervisedSessionName(argv[SUBCOMMAND_ARGUMENT_INDEX + 1])) {
       process.stderr.write('Usage: robota session rename <supervised-id> <name>\n');
       process.exitCode = 1;
       return true;
@@ -93,18 +84,13 @@ export async function runPreparsedCliCommand(
       process.stdout.write(`Renamed supervised session ${id}.\n`);
       process.exitCode = 0;
     } catch (error) {
-      process.stderr.write(
-        `${error instanceof Error ? error.message : 'Unable to rename supervised session.'}\n`,
-      );
+      process.stderr.write(`${error instanceof Error ? error.message : 'Unable to rename supervised session.'}\n`);
       process.exitCode = 1;
     }
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'link-pr') {
-    if (
-      argv.length !== SUBCOMMAND_ARGUMENT_INDEX + 2 ||
-      !parseSupervisedPr(argv[SUBCOMMAND_ARGUMENT_INDEX + 1])
-    ) {
+    if (argv.length !== SUBCOMMAND_ARGUMENT_INDEX + 2 || !parseSupervisedPr(argv[SUBCOMMAND_ARGUMENT_INDEX + 1])) {
       process.stderr.write('Usage: robota session link-pr <supervised-id> <https-pr-url>\n');
       process.exitCode = 1;
       return true;
@@ -115,9 +101,7 @@ export async function runPreparsedCliCommand(
       process.stdout.write(`Linked PR to supervised session ${id}.\n`);
       process.exitCode = 0;
     } catch (error) {
-      process.stderr.write(
-        `${error instanceof Error ? error.message : 'Unable to link supervised session PR.'}\n`,
-      );
+      process.stderr.write(`${error instanceof Error ? error.message : 'Unable to link supervised session PR.'}\n`);
       process.exitCode = 1;
     }
     return true;
@@ -134,9 +118,7 @@ export async function runPreparsedCliCommand(
       process.stdout.write(`Unlinked PR from supervised session ${id}.\n`);
       process.exitCode = 0;
     } catch (error) {
-      process.stderr.write(
-        `${error instanceof Error ? error.message : 'Unable to unlink supervised session PR.'}\n`,
-      );
+      process.stderr.write(`${error instanceof Error ? error.message : 'Unable to unlink supervised session PR.'}\n`);
       process.exitCode = 1;
     }
     return true;
@@ -153,10 +135,7 @@ export async function runPreparsedCliCommand(
         // spawning one that will only exit unexplained. The view itself still shows only its
         // generic "Start failed" text and points the user at `session start`, where this message
         // (thrown here, not swallowed there) actually surfaces.
-        validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, {
-          serviceVersion: readVersion(),
-          surface: 'serve',
-        });
+        validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, { serviceVersion: readVersion(), surface: 'serve' });
         return launchSupervisedSession(targetCwd, { env: supervisedEnv() });
       },
     });
@@ -212,36 +191,28 @@ export async function runPreparsedCliCommand(
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'start') {
     const startArgs = argv.slice(SUBCOMMAND_ARGUMENT_INDEX);
     const unnamed = startArgs.length === 1 && startArgs[0] === '--background';
-    const named =
-      startArgs.length === 3 && startArgs[0] === '--background' && startArgs[1] === '--name';
+    const named = startArgs.length === 3 && startArgs[0] === '--background' &&
+      startArgs[1] === '--name';
     if (!unnamed && !named) {
       process.stderr.write('Usage: robota session start --background [--name <name>]\n');
       process.exitCode = 1;
       return true;
     }
     if (requiresHeadlessWorkspaceTrust(composition.projectAccess)) {
-      process.stderr.write(
-        `${formatHeadlessWorkspaceTrustError(composition.projectAccess, cwd)}\n`,
-      );
+      process.stderr.write(`${formatHeadlessWorkspaceTrustError(composition.projectAccess, cwd)}\n`);
       process.exitCode = 1;
       return true;
     }
     try {
       // Validated here, before spawning, so a refused telemetry setting is reported with the real
       // message instead of only the child's generic "exited before it was ready".
-      validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, {
-        serviceVersion: readVersion(),
-        surface: 'serve',
-      });
+      validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, { serviceVersion: readVersion(), surface: 'serve' });
       const id = await launchSupervisedSession(cwd, {
-        env: supervisedEnv(),
-        ...(named ? { name: startArgs[2]! } : {}),
+        env: supervisedEnv(), ...(named ? { name: startArgs[2]! } : {}),
       });
       process.stdout.write(`Supervised session: ${id}\n`);
     } catch (error) {
-      process.stderr.write(
-        `${error instanceof Error ? error.message : 'Supervised session could not start.'}\n`,
-      );
+      process.stderr.write(`${error instanceof Error ? error.message : 'Supervised session could not start.'}\n`);
       process.exitCode = 1;
     }
     return true;

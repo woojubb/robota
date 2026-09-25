@@ -184,6 +184,7 @@ export {
   type IMCPOAuthCredentialStateInput,
   type IMCPOAuthLogoutInput,
   type IMCPOAuthLogoutResult,
+  type IMCPOAuthTokenRevocation,
   type TMCPOAuthCredentialState,
   type TMCPOAuthRevocationOutcome,
 } from './client/oauth/lifecycle.js';

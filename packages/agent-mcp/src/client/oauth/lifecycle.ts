@@ -60,11 +60,20 @@ export async function readMCPOAuthCredentialState(
 
 /**
  * - `revoked`: every stored token was revoked.
+ * - `partial`: some were; `tokens` says which, and why each other one was not.
  * - `unsupported`: the authorization server advertises no revocation endpoint.
- * - `failed`: a revocation was not confirmed; `revocationFailure` names the step.
+ * - `failed`: no token was revoked; `revocationFailure` names the first step that refused.
  * - `not-attempted`: there was no readable credential to revoke.
  */
-export type TMCPOAuthRevocationOutcome = 'revoked' | 'unsupported' | 'failed' | 'not-attempted';
+export type TMCPOAuthRevocationOutcome =
+  'revoked' | 'partial' | 'unsupported' | 'failed' | 'not-attempted';
+
+/** One stored token's revocation, by its kind — never its value. */
+export interface IMCPOAuthTokenRevocation {
+  readonly token: 'refresh_token' | 'access_token';
+  readonly revoked: boolean;
+  readonly failure?: TMCPOAuthFailure;
+}
 
 export interface IMCPOAuthLogoutInput {
   readonly securityIdentity: string;
@@ -80,12 +89,15 @@ export interface IMCPOAuthLogoutResult {
   readonly removed: boolean;
   readonly revocation: TMCPOAuthRevocationOutcome;
   readonly revocationFailure?: TMCPOAuthFailure;
+  /** Each token a revocation was asked for, in the order asked. */
+  readonly tokens?: readonly IMCPOAuthTokenRevocation[];
 }
 
 const HTTP_OK = 200;
 
 function clientAuthentication(
   credential: IMCPOAuthCredential,
+  revocationAuthMethods: readonly string[] | undefined,
   body: URLSearchParams,
 ): Record<string, string> {
   const client = {
@@ -95,8 +107,11 @@ function clientAuthentication(
       ? {}
       : { token_endpoint_auth_method: credential.tokenEndpointAuthMethod }),
   };
-  // The method the refresh uses for the same client, so the server sees one client either way.
-  const method = selectClientAuthMethod(client, [...(credential.tokenEndpointAuthMethods ?? [])]);
+  // The methods the revocation endpoint advertises; without them, those of the token endpoint,
+  // so the server sees the same client authentication as a refresh.
+  const method = selectClientAuthMethod(client, [
+    ...(revocationAuthMethods ?? credential.tokenEndpointAuthMethods ?? []),
+  ]);
   if (method === 'client_secret_basic' && credential.clientSecret !== undefined) {
     const pair = `${credential.clientId}:${credential.clientSecret}`;
     return { Authorization: `Basic ${Buffer.from(pair, 'utf8').toString('base64')}` };
@@ -108,22 +123,65 @@ function clientAuthentication(
   return {};
 }
 
+interface IRevocationEndpoint {
+  readonly url: string;
+  readonly authMethods?: readonly string[];
+}
+
+/** RFC 7009 §2.2.1's `unsupported_token_type`, read as that fixed code and nothing else. */
+async function refusedTokenType(response: Response): Promise<boolean> {
+  try {
+    const body: unknown = await response.json();
+    return (
+      typeof body === 'object' &&
+      body !== null &&
+      (body as Record<string, unknown>)['error'] === 'unsupported_token_type'
+    );
+  } catch {
+    return false;
+  }
+}
+
 async function revokeOne(
-  endpoint: string,
+  endpoint: IRevocationEndpoint,
   credential: IMCPOAuthCredential,
   token: string,
   hint: 'refresh_token' | 'access_token',
   fetchFn: FetchLike,
-): Promise<void> {
+): Promise<IMCPOAuthTokenRevocation> {
   const body = new URLSearchParams({ token, token_type_hint: hint });
-  const headers = {
-    'Content-Type': 'application/x-www-form-urlencoded',
-    Accept: 'application/json',
-    ...clientAuthentication(credential, body),
-  };
-  const response = await fetchFn(endpoint, { method: 'POST', headers, body });
-  // RFC 7009 §2.2: 200 whether or not the token was still valid; the body says nothing we need.
-  if (response.status !== HTTP_OK) throw new MCPOAuthError('revocation-failed');
+  try {
+    const headers = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json',
+      ...clientAuthentication(credential, endpoint.authMethods, body),
+    };
+    const response = await fetchFn(endpoint.url, { method: 'POST', headers, body });
+    // RFC 7009 §2.2: 200 whether or not the token was still valid.
+    if (response.status === HTTP_OK) return { token: hint, revoked: true };
+    const failure = (await refusedTokenType(response))
+      ? 'token-type-not-revocable'
+      : 'revocation-failed';
+    return { token: hint, revoked: false, failure };
+  } catch (error) {
+    return {
+      token: hint,
+      revoked: false,
+      failure: asOAuthError(error, 'revocation-failed').reason,
+    };
+  }
+}
+
+function revocationEndpoint(metadata: Record<string, unknown>): IRevocationEndpoint | undefined {
+  const url = metadata['revocation_endpoint'];
+  if (url === undefined) return undefined;
+  if (typeof url !== 'string' || !URL.canParse(url) || new URL(url).protocol !== 'https:') {
+    throw new MCPOAuthError('insecure-endpoint');
+  }
+  const methods = metadata['revocation_endpoint_auth_methods_supported'];
+  return Array.isArray(methods) && methods.every((method) => typeof method === 'string')
+    ? { url, authMethods: methods as string[] }
+    : { url };
 }
 
 /** Revoke the refresh token, then the access token, at the stored issuer's revocation endpoint. */
@@ -131,44 +189,38 @@ async function revoke(
   credential: IMCPOAuthCredential,
   network: IMCPOAuthNetwork,
   signal: AbortSignal | undefined,
-): Promise<Pick<IMCPOAuthLogoutResult, 'revocation' | 'revocationFailure'>> {
+): Promise<Omit<IMCPOAuthLogoutResult, 'removed'>> {
   const fetchFn = createOAuthFetch(network, signal);
+  let endpoint: IRevocationEndpoint | undefined;
   try {
+    // Either variant of the SDK's metadata type may carry the revocation fields.
     const metadata = await fetchIssuerMetadata(credential.issuer, fetchFn);
-    // Not in the OpenID Connect variant of the SDK's metadata type, though either may carry it.
-    const endpoint = (metadata as Record<string, unknown>)['revocation_endpoint'];
-    if (endpoint === undefined) return { revocation: 'unsupported' };
-    if (
-      typeof endpoint !== 'string' ||
-      !URL.canParse(endpoint) ||
-      new URL(endpoint).protocol !== 'https:'
-    ) {
-      throw new MCPOAuthError('insecure-endpoint');
-    }
-    // Each token is revoked on its own: a refused refresh token still leaves the access token worth
-    // revoking. The first failure is the one reported.
-    const tokens: [string, 'refresh_token' | 'access_token'][] = [
-      ...(credential.refreshToken === undefined
-        ? []
-        : [[credential.refreshToken, 'refresh_token'] as [string, 'refresh_token']]),
-      [credential.accessToken, 'access_token'],
-    ];
-    let failure: unknown;
-    for (const [token, hint] of tokens) {
-      try {
-        await revokeOne(endpoint, credential, token, hint, fetchFn);
-      } catch (error) {
-        failure ??= error;
-      }
-    }
-    if (failure !== undefined) throw failure;
-    return { revocation: 'revoked' };
+    endpoint = revocationEndpoint(metadata as Record<string, unknown>);
   } catch (error) {
     return {
       revocation: 'failed',
       revocationFailure: asOAuthError(error, 'revocation-failed').reason,
     };
   }
+  if (endpoint === undefined) return { revocation: 'unsupported' };
+  // Each token is revoked on its own: a refused refresh token still leaves the access token worth
+  // revoking, and the other way round.
+  const tokens: IMCPOAuthTokenRevocation[] = [];
+  if (credential.refreshToken !== undefined) {
+    tokens.push(
+      await revokeOne(endpoint, credential, credential.refreshToken, 'refresh_token', fetchFn),
+    );
+  }
+  tokens.push(
+    await revokeOne(endpoint, credential, credential.accessToken, 'access_token', fetchFn),
+  );
+  const failure = tokens.find((token) => !token.revoked)?.failure;
+  const revoked = tokens.filter((token) => token.revoked).length;
+  return {
+    revocation: failure === undefined ? 'revoked' : revoked === 0 ? 'failed' : 'partial',
+    ...(failure === undefined ? {} : { revocationFailure: failure }),
+    tokens,
+  };
 }
 
 /**

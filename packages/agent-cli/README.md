@@ -491,7 +491,8 @@ persist it across a restart. An embedding host can preserve approval state acros
 supplying the same store; it remains responsible for when to reconnect approved definitions.
 
 A remote server that declares `"oauth": {}` (optionally with `clientId`, `callbackPort`,
-`authServerMetadataUrl` and `scopes`) needs a sign-in before a session can use it:
+`authServerMetadataUrl` and `scopes`) needs its own sign-in before a session can use it. Sign-in is
+per server, from a terminal, naming the server:
 
 ```bash
 robota mcp login files                 # opens your browser; tokens kept owner-only in ~/.robota/mcp-credentials
@@ -503,17 +504,19 @@ robota mcp logout files                # deletes the stored tokens, then revokes
 Use `--no-browser` when the browser runs on another machine (for example over SSH). After you
 approve, the browser is sent to a `http://127.0.0.1:<port>/callback` address that may not load; copy
 that full address and paste it at the prompt (the input is not echoed). It is accepted only if it is
-this sign-in's redirect address and carries its `state`.
+this sign-in's redirect address and carries its `state`, and only within the same five minutes the
+browser flow allows.
 
-`robota mcp logout` always deletes the local credential, even when the authorization server cannot
-be reached or refuses to revoke the tokens; it then says whether revocation succeeded, failed (by a
-short reason) or is not offered by the server. `/mcp` shows each OAuth server's sign-in state —
-`signed in`, `token expired, will refresh`, `sign-in required` or `signed out` — never a token.
-`/mcp logout <serverId>` signs out from inside a session and stops the session sending the token it
-holds. `/mcp login <serverId>` prints the `robota mcp login` command to run in a terminal: signing
-in needs the terminal for the browser, a pasted redirect or a secret, which the running session
-owns. A server that could not connect at startup is connected by the next session after you sign
-in.
+`robota mcp logout <server>` always deletes that server's local credential, even when the
+authorization server cannot be reached or refuses to revoke the tokens; it then says, per token,
+whether it was revoked, and otherwise why not (by a short reason) or that the server offers no
+revocation. `/mcp` shows each OAuth server's sign-in state — `signed in`, `token expired, will
+refresh`, `sign-in required` or `signed out` — never a token, and for a server that needs a sign-in
+it names the `robota mcp login <server>` command to run (a name with characters a terminal cannot
+show faithfully is left out of it). `/mcp logout <serverId>` signs out of that one server from
+inside a session and stops the session sending the token it holds. There is no sign-in inside a
+session: it needs the terminal for the browser, a pasted redirect or a secret. A server that could
+not connect at startup is connected by the next session after you sign in to it.
 
 ### MCP Background Handoff
 

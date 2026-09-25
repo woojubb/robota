@@ -1,3 +1,5 @@
+import { shellArgumentForDisplay } from '@robota-sdk/agent-core';
+
 import type {
   ICommandHostAdapterAccess,
   ICommandMCPActivationAdapter,
@@ -19,14 +21,43 @@ const OAUTH_STATE_LABEL: Record<ICommandMCPOAuthStatus['state'], string> = {
   'signed-out': 'signed out',
 };
 
-const REVOCATION_LABEL: Record<ICommandMCPOAuthLogoutResult['revocation'], string> = {
-  revoked: 'the tokens were revoked',
-  unsupported: 'the authorization server offers no token revocation',
-  failed: 'token revocation failed',
-  'not-attempted': 'there were no tokens to revoke',
-};
+const TOKEN_LABEL = { refresh_token: 'refresh token', access_token: 'access token' } as const;
 
-const USAGE = 'Usage: /mcp [status|approve|reject|revoke|login|logout] [serverId]';
+/** What revocation did, by fixed words and reasons only. */
+function revocationText(result: ICommandMCPOAuthLogoutResult): string {
+  const failure = result.revocationFailure ?? 'revocation-failed';
+  switch (result.revocation) {
+    case 'revoked':
+      return 'the tokens were revoked';
+    case 'not-attempted':
+      return 'there were no tokens to revoke';
+    case 'unsupported':
+      return 'the authorization server offers no token revocation; the tokens stay valid until they expire';
+    case 'failed':
+      return `token revocation failed (${failure}); the tokens stay valid until they expire`;
+    case 'partial':
+      return (result.tokens ?? [])
+        .map((token) =>
+          token.revoked
+            ? `the ${TOKEN_LABEL[token.token]} was revoked`
+            : `the ${TOKEN_LABEL[token.token]} was not (${token.failure ?? 'revocation-failed'}) and stays valid until it expires`,
+        )
+        .join('; ');
+  }
+}
+
+const USAGE = 'Usage: /mcp [status] | /mcp <approve|reject|revoke|logout> <serverId>';
+
+/**
+ * The terminal command that signs in to one server. Its name comes from a definition a repository
+ * may write: it is quoted for the shell, and a name that cannot be shown faithfully is left out.
+ */
+function signInHint(serverId: string): string {
+  const argument = shellArgumentForDisplay(serverId);
+  return argument === undefined
+    ? ' (run robota mcp login <server>; its name cannot be shown safely here)'
+    : ` (run robota mcp login ${argument})`;
+}
 
 function formatSummary(
   summary: ICommandMCPActivationSummary,
@@ -34,7 +65,10 @@ function formatSummary(
 ): string {
   const label = summary.displayName ? ` (${summary.displayName})` : '';
   // A fixed word per state: nothing token-derived ever reaches this line.
-  const signIn = oauth === undefined ? '' : ` — OAuth: ${OAUTH_STATE_LABEL[oauth]}`;
+  const signIn =
+    oauth === undefined
+      ? ''
+      : ` — OAuth: ${OAUTH_STATE_LABEL[oauth]}${oauth === 'sign-in-required' || oauth === 'signed-out' ? signInHint(summary.serverId) : ''}`;
   return `  ${summary.serverId}${label} — ${summary.status} — ${summary.source} — ${summary.reason}${signIn}`;
 }
 
@@ -124,13 +158,7 @@ export async function executeMCPActivationCommand(
     return listResult(adapter(context));
   }
 
-  if (
-    verb !== 'approve' &&
-    verb !== 'reject' &&
-    verb !== 'revoke' &&
-    verb !== 'login' &&
-    verb !== 'logout'
-  ) {
+  if (verb !== 'approve' && verb !== 'reject' && verb !== 'revoke' && verb !== 'logout') {
     return { message: `Unknown argument. ${USAGE}`, success: false };
   }
   if (!serverId) {
@@ -147,7 +175,6 @@ export async function executeMCPActivationCommand(
       success: true,
     };
   }
-  if (verb === 'login') return loginResult(mcp, serverId);
   if (verb === 'logout') return logoutResult(mcp, serverId);
 
   try {
@@ -174,28 +201,6 @@ export async function executeMCPActivationCommand(
   }
 }
 
-/**
- * Signing in needs the terminal — a browser to open, a redirect to paste, a secret to type — which
- * the running session owns, so `/mcp login` names the command that does it instead of running it.
- */
-async function loginResult(
-  mcp: ICommandMCPActivationAdapter,
-  serverId: string,
-): Promise<ICommandResult> {
-  const state = (await oauthStates(mcp)).get(serverId);
-  if (state === undefined) {
-    return { message: `MCP server ${serverId} does not declare OAuth.`, success: false };
-  }
-  return {
-    message:
-      `To sign in to MCP server ${serverId}, run in a terminal:\n  robota mcp login ${serverId}\n` +
-      'Add --no-browser when the browser is on another machine. A server this session could not ' +
-      'connect to is connected by the next session.',
-    success: true,
-    data: { serverId, oauth: state },
-  };
-}
-
 async function logoutResult(
   mcp: ICommandMCPActivationAdapter,
   serverId: string,
@@ -212,9 +217,8 @@ async function logoutResult(
   const signedOut = result.removed
     ? `Signed out of MCP server ${serverId}`
     : `MCP server ${serverId} was not signed in`;
-  const failure = result.revocationFailure === undefined ? '' : ` (${result.revocationFailure})`;
   return {
-    message: `${signedOut}; ${REVOCATION_LABEL[result.revocation]}${failure}.`,
+    message: `${signedOut}; ${revocationText(result)}.`,
     success: true,
     data: { ...result },
   };

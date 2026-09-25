@@ -178,9 +178,15 @@ export interface ICommandMCPOAuthLogoutResult {
   readonly serverId: string;
   /** Whether a credential was stored before the sign-out. */
   readonly removed: boolean;
-  readonly revocation: 'revoked' | 'unsupported' | 'failed' | 'not-attempted';
-  /** The step that refused, when revocation failed. */
+  readonly revocation: 'revoked' | 'partial' | 'unsupported' | 'failed' | 'not-attempted';
+  /** The first step that refused, when a revocation was not confirmed. */
   readonly revocationFailure?: string;
+  /** Each token a revocation was asked for, by kind — never its value. */
+  readonly tokens?: readonly {
+    readonly token: 'refresh_token' | 'access_token';
+    readonly revoked: boolean;
+    readonly failure?: string;
+  }[];
 }
 
 /** MCP activation lifecycle port. Implemented by the composition root over the MCP policy service. */

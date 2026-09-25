@@ -20,16 +20,16 @@ import {
 } from '@robota-sdk/agent-mcp';
 
 import { openInBrowser } from './browser-opener.js';
-import { promptHiddenLine } from './hidden-prompt.js';
+import { HiddenPromptTooLongError, promptHiddenLine } from './hidden-prompt.js';
 import { resolveMcpDefinitions } from './mcp-definition-sources.js';
 import { mcpCredentialDirectory } from './mcp-oauth-host.js';
 
 import type { TSettingsSource } from '@robota-sdk/agent-framework';
 import type {
+  IMCPOAuthLogoutResult,
   IMCPOAuthNetwork,
   IMCPResolvedEntry,
   IMCPServerDefinitionResolved,
-  TMCPOAuthRevocationOutcome,
 } from '@robota-sdk/agent-mcp';
 
 export interface IMcpLoginCommandDeps {
@@ -41,7 +41,7 @@ export interface IMcpLoginCommandDeps {
   readonly openBrowser?: (url: URL) => Promise<void>;
   readonly promptSecret?: () => Promise<string>;
   /** Reads the redirect URL pasted with `--no-browser`; defaults to a hidden prompt. */
-  readonly promptRedirect?: () => Promise<string>;
+  readonly promptRedirect?: (signal: AbortSignal) => Promise<string>;
   readonly network?: IMCPOAuthNetwork;
   /** Defaults to `~/.robota/mcp-credentials`. */
   readonly credentialDirectory?: string;
@@ -50,15 +50,32 @@ export interface IMcpLoginCommandDeps {
 
 const LOGIN_USAGE = 'Usage: robota mcp login <name> [--client-secret] [--no-browser]\n';
 const LOGOUT_USAGE = 'Usage: robota mcp logout <name>\n';
+/** Room for a long authorization code and state; a paste longer than this is not a redirect. */
+const MAX_REDIRECT_LENGTH = 16_384;
 
-function revocationMessage(outcome: TMCPOAuthRevocationOutcome, failure?: string): string {
-  if (outcome === 'revoked') return 'The tokens were revoked.';
-  if (outcome === 'not-attempted') return 'There were no tokens to revoke.';
-  const why =
-    outcome === 'unsupported'
-      ? 'The authorization server offers no token revocation'
-      : `Token revocation failed (${failure ?? 'revocation-failed'})`;
-  return `${why}; the tokens stay valid until they expire.`;
+const TOKEN_LABEL = { refresh_token: 'refresh token', access_token: 'access token' } as const;
+
+/** What revocation did, by fixed words and reasons only. */
+function revocationMessage(result: IMCPOAuthLogoutResult): string {
+  const failure = result.revocationFailure ?? 'revocation-failed';
+  switch (result.revocation) {
+    case 'revoked':
+      return 'The tokens were revoked.';
+    case 'not-attempted':
+      return 'There were no tokens to revoke.';
+    case 'unsupported':
+      return 'The authorization server offers no token revocation; the tokens stay valid until they expire.';
+    case 'failed':
+      return `Token revocation failed (${failure}); the tokens stay valid until they expire.`;
+    case 'partial':
+      return (result.tokens ?? [])
+        .map((token) =>
+          token.revoked
+            ? `The ${TOKEN_LABEL[token.token]} was revoked.`
+            : `The ${TOKEN_LABEL[token.token]} was not (${token.failure ?? 'revocation-failed'}) and stays valid until it expires.`,
+        )
+        .join(' ');
+  }
 }
 
 interface IOAuthServer {
@@ -144,8 +161,19 @@ export async function runMcpLoginCommand(
   }
 
   const open = deps.openBrowser ?? ((url: URL) => openInBrowser(url));
-  const readRedirect =
-    deps.promptRedirect ?? (() => promptHiddenLine('Redirect URL (not echoed): '));
+  const prompt =
+    deps.promptRedirect ??
+    ((signal: AbortSignal) =>
+      promptHiddenLine('Redirect URL (not echoed): ', undefined, {
+        signal,
+        maxLength: MAX_REDIRECT_LENGTH,
+      }));
+  const readRedirect = (signal: AbortSignal): Promise<string> =>
+    prompt(signal).catch((error: unknown) => {
+      throw error instanceof HiddenPromptTooLongError
+        ? new MCPOAuthError('redirect-too-long')
+        : error;
+    });
   const directory = deps.credentialDirectory ?? mcpCredentialDirectory();
   try {
     await runMCPOAuthLogin({
@@ -195,7 +223,7 @@ export async function runMcpLogoutCommand(
   const server = findOAuthServer(name, deps);
   if (server === undefined) return 1;
   const directory = deps.credentialDirectory ?? mcpCredentialDirectory();
-  let result: Awaited<ReturnType<typeof runMCPOAuthLogout>>;
+  let result: IMCPOAuthLogoutResult;
   try {
     result = await runMCPOAuthLogout({
       securityIdentity: securityIdentity(server.entry),
@@ -211,7 +239,7 @@ export async function runMcpLogoutCommand(
   }
   deps.stdout(
     `${result.removed ? 'Signed out of' : 'Not signed in to'} MCP server "${name}". ` +
-      `${revocationMessage(result.revocation, result.revocationFailure)}\n`,
+      `${revocationMessage(result)}\n`,
   );
   return 0;
 }

@@ -3,7 +3,21 @@
  * otherwise (so a secret can be piped in rather than typed into a command line or a file).
  */
 
-const MAX_SECRET_LENGTH = 4096;
+const DEFAULT_MAX_LENGTH = 4096;
+
+/** The line typed or piped was longer than the prompt accepts. */
+export class HiddenPromptTooLongError extends Error {
+  constructor() {
+    super('The value is too long.');
+    this.name = 'HiddenPromptTooLongError';
+  }
+}
+
+export interface IHiddenPromptOptions {
+  readonly maxLength?: number;
+  /** Stops reading; the prompt rejects as cancelled. */
+  readonly signal?: AbortSignal;
+}
 const CTRL_C = '\u0003';
 const CTRL_D = '\u0004';
 const BACKSPACE = new Set(['\u007f', '\b']);
@@ -16,13 +30,17 @@ export interface IHiddenPromptStreams {
 export function promptHiddenLine(
   prompt: string,
   streams: IHiddenPromptStreams = { input: process.stdin, output: process.stderr },
+  options: IHiddenPromptOptions = {},
 ): Promise<string> {
   const { input, output } = streams;
+  const maxLength = options.maxLength ?? DEFAULT_MAX_LENGTH;
   const raw = input.isTTY === true && typeof input.setRawMode === 'function';
   output.write(prompt);
   return new Promise((resolve, reject) => {
     let value = '';
+    const onAbort = (): void => finish(new Error('Cancelled.'));
     const finish = (error?: Error): void => {
+      options.signal?.removeEventListener('abort', onAbort);
       input.removeListener('data', onData);
       input.removeListener('end', onEnd);
       if (raw) input.setRawMode?.(false);
@@ -41,9 +59,11 @@ export function promptHiddenLine(
           continue;
         }
         value += char;
-        if (value.length > MAX_SECRET_LENGTH) return finish(new Error('The value is too long.'));
+        if (value.length > maxLength) return finish(new HiddenPromptTooLongError());
       }
     };
+    if (options.signal?.aborted === true) return finish(new Error('Cancelled.'));
+    options.signal?.addEventListener('abort', onAbort, { once: true });
     if (raw) input.setRawMode?.(true);
     input.on('data', onData);
     input.on('end', onEnd);

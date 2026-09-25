@@ -9,6 +9,8 @@
 
 import { join } from 'node:path';
 
+import { shellArgumentForDisplay } from '@robota-sdk/agent-core';
+
 import {
   createFileOAuthCredentialStore,
   createFileOAuthRefreshLock,
@@ -30,7 +32,12 @@ export function mcpCredentialDirectory(home?: string): string {
 /** What the user is told; the server's name and scope tokens only. */
 export function formatMcpOAuthNotice(notice: TMCPOAuthNotice): string {
   if (notice.kind === 'login-required') {
-    return `MCP server "${notice.serverId}" needs you to sign in: run robota mcp login ${notice.serverId}`;
+    // A repository may name the server: quoted for the shell, or left out of the command when it
+    // cannot be shown faithfully.
+    const argument = shellArgumentForDisplay(notice.serverId);
+    return argument === undefined
+      ? 'An MCP server whose name cannot be shown safely needs you to sign in: run robota mcp login <server>'
+      : `MCP server ${argument} needs you to sign in: run robota mcp login ${argument}`;
   }
   return notice.scope === undefined
     ? `MCP server "${notice.serverId}" refused the request: the signed-in account lacks a required scope.`

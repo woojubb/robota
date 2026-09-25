@@ -26,6 +26,7 @@ import {
 } from '@modelcontextprotocol/sdk/client/auth.js';
 
 import {
+  DEFAULT_CALLBACK_TIMEOUT_MS,
   createPastedRedirectAcceptor,
   freeLoopbackPort,
   loopbackRedirectUri,
@@ -62,8 +63,11 @@ export interface IMCPOAuthLoginInput {
    * send the browser to. Always given an `https:` URL.
    */
   readonly openBrowser: (url: URL, redirectUri: string) => Promise<void>;
-  /** For a browser on another machine: reads the redirect URL the user pastes. */
-  readonly readRedirect?: () => Promise<string>;
+  /**
+   * For a browser on another machine: reads the redirect URL the user pastes. `signal` aborts when
+   * the sign-in is cancelled or `callbackTimeoutMs` passes; the read should stop then.
+   */
+  readonly readRedirect?: (signal: AbortSignal) => Promise<string>;
   readonly clientName?: string;
   readonly callbackTimeoutMs?: number;
   readonly now?: () => number;
@@ -155,13 +159,23 @@ async function redirectReceiver(
   return {
     redirectUri,
     wait: async () => {
+      // The same limit the loopback listener keeps, so a forgotten prompt does not wait forever.
+      const timeout = AbortSignal.timeout(input.callbackTimeoutMs ?? DEFAULT_CALLBACK_TIMEOUT_MS);
+      const signal =
+        input.signal === undefined ? timeout : AbortSignal.any([input.signal, timeout]);
+      const aborted = new Promise<never>((_resolve, reject) => {
+        const fail = (): void =>
+          reject(new MCPOAuthError(timeout.aborted ? 'callback-timeout' : 'cancelled'));
+        if (signal.aborted) fail();
+        else signal.addEventListener('abort', fail, { once: true });
+      });
+      aborted.catch(() => undefined);
       let pasted: string;
       try {
-        pasted = await read();
+        pasted = await Promise.race([read(signal), aborted]);
       } catch (error) {
         throw asOAuthError(error, 'cancelled');
       }
-      if (input.signal?.aborted === true) throw new MCPOAuthError('cancelled');
       return acceptor.accept(pasted);
     },
     close: async () => undefined,

@@ -43,7 +43,8 @@ export interface IFakeOAuthServer {
     expiresIn?: number;
     codeChallengeMethods?: string[] | null;
     /** How the revocation endpoint behaves; `absent` leaves it out of the metadata. */
-    revocation?: 'ok' | 'error' | 'redirect' | 'absent';
+    revocation?: 'ok' | 'error' | 'redirect' | 'absent' | 'refresh-only';
+    revocationAuthMethods?: string[];
   };
   readonly validRefreshTokens: Set<string>;
   tokenCalls(grant?: string): number;
@@ -85,6 +86,9 @@ export function createFakeOAuthServer(): IFakeOAuthServer {
     ...(overrides.revocation === 'absent'
       ? {}
       : { revocation_endpoint: 'https://auth.example.test/revoke' }),
+    ...(overrides.revocationAuthMethods === undefined
+      ? {}
+      : { revocation_endpoint_auth_methods_supported: overrides.revocationAuthMethods }),
   });
 
   const issue = (): Response => {
@@ -179,6 +183,15 @@ export function createFakeOAuthServer(): IFakeOAuthServer {
             status: 307,
             headers: { location: 'https://evil.example.test/revoke' },
           });
+        }
+        if (
+          overrides.revocation === 'refresh-only' &&
+          new URLSearchParams(body).get('token_type_hint') === 'access_token'
+        ) {
+          return json(
+            { error: 'unsupported_token_type', error_description: SECRET_DESCRIPTION },
+            400,
+          );
         }
         if (overrides.revocation === 'error') {
           return json(
