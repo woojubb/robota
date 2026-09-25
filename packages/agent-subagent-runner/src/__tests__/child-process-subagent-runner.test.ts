@@ -424,6 +424,7 @@ describe('subagent worker IPC guards', () => {
           parentConfig: createDeps().config,
           parentContext: createDeps().context,
           providerProfile: { type: 'openai', model: 'test-model', apiKey: 'test-key' },
+          connectionCheck: { names: [], nonce: 'n', digest: 'd' },
         },
       }),
     ).toBe(true);

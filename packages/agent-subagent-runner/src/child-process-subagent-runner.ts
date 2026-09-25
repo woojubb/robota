@@ -13,7 +13,11 @@ import {
 } from '@robota-sdk/agent-executor';
 import { DEFAULT_KILL_GRACE_MS } from '@robota-sdk/agent-process';
 
-import { projectStartPayload } from './child-process-subagent-projection.js';
+import {
+  projectProviderConnection,
+  projectStartPayload,
+  type IProjectedConnection,
+} from './child-process-subagent-projection.js';
 import {
   createCancellationResult,
   createChildProcessSubagentResult,
@@ -27,7 +31,7 @@ import {
 import { SUBAGENT_WORKER_MODE_FLAG, type ISubagentWorkerEntry } from './worker-entry.js';
 
 import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
-import type { IProviderDefinitionConfig } from '@robota-sdk/agent-core';
+import type { IProviderDefinition, IProviderDefinitionConfig } from '@robota-sdk/agent-core';
 import type {
   IInProcessSubagentRunnerDeps,
   TSubagentRunnerFactory,
@@ -49,6 +53,12 @@ export interface IChildProcessSubagentRunnerOptions {
    */
   workerEntry: ISubagentWorkerEntry;
   providerConfig?: IProviderDefinitionConfig;
+  /**
+   * The parent's provider registry. Its defaults complete the connection the child is given, and
+   * each definition names the environment its client reads. Without it only the transport and
+   * credential variables are compared.
+   */
+  providerDefinitions?: readonly IProviderDefinition[];
   killGraceMs?: number;
   /**
    * How long a spawned worker may take to signal `ready` before the runner gives up. Injectable so
@@ -81,6 +91,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   private readonly killGraceMs: number;
   private readonly handshakeBudgetMs?: number;
   private readonly providerConfig?: IProviderDefinitionConfig;
+  private readonly providerDefinitions?: readonly IProviderDefinition[];
   private readonly env?: NodeJS.ProcessEnv;
   private readonly logsDir?: string;
 
@@ -92,6 +103,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     this.killGraceMs = options.killGraceMs ?? DEFAULT_KILL_GRACE_MS;
     this.handshakeBudgetMs = options.handshakeBudgetMs;
     this.providerConfig = options.providerConfig;
+    this.providerDefinitions = options.providerDefinitions;
     this.env = options.env;
     this.logsDir = options.logsDir;
   }
@@ -101,6 +113,21 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
     // an ipc stdio, and the module is exactly the thing that cannot be named for every artifact.
     // Stating execPath and args outright is the same mechanism without the assumption.
     const entry = this.workerEntry;
+    const env = { ...process.env, ...(this.env ?? {}) };
+    // Checked BEFORE spawning: a child whose environment would point the provider elsewhere never
+    // starts, so the parent's credential is never handed to it.
+    const connection = projectProviderConnection(
+      job,
+      this.deps,
+      {
+        ...(this.providerConfig !== undefined ? { providerConfig: this.providerConfig } : {}),
+        ...(this.providerDefinitions !== undefined
+          ? { providerDefinitions: this.providerDefinitions }
+          : {}),
+      },
+      process.env,
+      env,
+    );
     const child = spawn(
       entry.execPath,
       [...(entry.execArgv ?? []), ...entry.args, SUBAGENT_WORKER_MODE_FLAG],
@@ -110,7 +137,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
         // only ever correct while the worktree runner rewrote that field — this is the second carrier
         // that removal would have left disagreeing with the first.
         cwd: subagentExecutionRoot(job),
-        env: { ...process.env, ...(this.env ?? {}) },
+        env,
         // DIST-006: stderr was `'ignore'`, so a child that died before its first IPC message
         // reported only `exit code 1`. That is why this defect's second occurrence had to be
         // diagnosed by hand — the cause was written to a stream nothing was reading.
@@ -124,7 +151,7 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       child,
       killGraceMs: this.killGraceMs,
     };
-    const payload = this.createStartPayload(job);
+    const payload = this.createStartPayload(job, connection);
     const workerResult = createChildProcessSubagentResult({
       runtime,
       payload,
@@ -169,9 +196,12 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
    * nothing, because this was the only production site that constructs a payload and no test
    * reached it.
    */
-  private createStartPayload(job: ISubagentJobStart): Promise<ISubagentWorkerStartPayload> {
+  private createStartPayload(
+    job: ISubagentJobStart,
+    connection: IProjectedConnection,
+  ): Promise<ISubagentWorkerStartPayload> {
     return projectStartPayload(job, this.deps, {
-      ...(this.providerConfig !== undefined ? { providerConfig: this.providerConfig } : {}),
+      connection,
       ...(this.logsDir !== undefined ? { logsDir: this.logsDir } : {}),
     });
   }

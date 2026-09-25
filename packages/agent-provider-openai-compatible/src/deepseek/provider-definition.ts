@@ -58,6 +58,9 @@ export function createDeepSeekProviderDefinition(): IProviderDefinition {
     ],
     requiresApiKey: true,
     probeProfile: probeOpenAICompatibleProfile,
+    // Built on the OpenAI SDK, which reads its base URL variable only when none is configured; a
+    // default base URL is always configured here, so no variable decides the destination.
+    destinationEnvironment: [],
     createProvider: (config) => {
       const options = parseDeepSeekProviderOptions(config.options);
       return new DeepSeekProvider({

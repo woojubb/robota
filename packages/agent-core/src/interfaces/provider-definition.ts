@@ -160,6 +160,13 @@ export interface IProviderDefinition {
   setupSteps?: readonly IProviderSetupStepDefinition[];
   credentialRequirement?: IProviderCredentialRequirement;
   requiresApiKey?: boolean;
+  /**
+   * The environment variables this provider's client reads to decide where it connects or which
+   * credential it sends, beyond its configuration (for example a base-URL variable the SDK falls
+   * back to). A process that builds this provider from another process's configuration must see
+   * the same values, or the credential goes somewhere its owner did not choose.
+   */
+  destinationEnvironment?: readonly string[];
   createProvider: (config: IProviderDefinitionConfig) => IAIProvider;
   probeProfile?: (profile: IProviderProfileConfig) => Promise<IProviderProbeResult>;
   /** Diagnostic-only reachability declaration; read by no setup, persistence or runtime path. */

@@ -102,6 +102,9 @@ export function createQwenProviderDefinition(): IProviderDefinition {
     ],
     requiresApiKey: true,
     probeProfile: probeOpenAICompatibleProfile,
+    // Built on the OpenAI SDK, which reads its base URL variable only when none is configured; a
+    // default base URL is always configured here, so no variable decides the destination.
+    destinationEnvironment: [],
     createProvider: (config) => {
       const qwenOptions = parseQwenProviderOptions(config.options);
       return new QwenProvider({

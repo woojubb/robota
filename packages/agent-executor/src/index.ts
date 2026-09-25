@@ -39,7 +39,17 @@ export type {
   ICreateLimitedOutputCaptureOptions,
   ILimitedOutputCapture,
 } from './background-tasks/index.js';
-export { createProviderFromProfile, resolveProfileApiKey } from './providers/index.js';
+export {
+  createProviderFromExactProfile,
+  createProviderFromProfile,
+  resolveProfileApiKey,
+  TRANSPORT_ENVIRONMENT,
+  connectionEnvironmentNames,
+  findConnectionEnvironmentDivergence,
+  sealConnectionEnvironment,
+  verifyConnectionEnvironment,
+} from './providers/index.js';
+export type { IConnectionEnvironmentCheck } from './providers/index.js';
 export {
   SubagentManager,
   WorktreeSubagentRunner,

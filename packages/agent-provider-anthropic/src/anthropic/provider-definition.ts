@@ -63,6 +63,9 @@ export function createAnthropicProviderDefinition(): IProviderDefinition {
       },
     ],
     requiresApiKey: true,
+    // The Anthropic SDK falls back to these when no base URL is configured, and adds a bearer
+    // token from the second.
+    destinationEnvironment: ['ANTHROPIC_BASE_URL', 'ANTHROPIC_AUTH_TOKEN'],
     createProvider: (config) =>
       new AnthropicProvider({
         apiKey: requireAnthropicApiKey(config.apiKey),

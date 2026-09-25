@@ -544,6 +544,7 @@ async function runCliCore(
   const subagentRunnerFactoryInput = createRobotaSubagentRunnerFactory({
     packContext,
     providerConfig: { ...providerSettings, model: modelId },
+    providerDefinitions,
     reproduction: {
       callerSuppliedDefinitions: callerSuppliedProviderDefinitions,
       replayProvider: args.sessionLog !== undefined,

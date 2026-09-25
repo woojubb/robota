@@ -15,7 +15,13 @@
  * of THIS projection, and a test can only pin it against the code that actually produces the payload.
  */
 
-import { BackgroundTaskError } from '@robota-sdk/agent-executor';
+import { findProviderDefinition } from '@robota-sdk/agent-core';
+import {
+  BackgroundTaskError,
+  connectionEnvironmentNames,
+  findConnectionEnvironmentDivergence,
+  sealConnectionEnvironment,
+} from '@robota-sdk/agent-executor';
 
 import { projectParentConfig } from './parent-config-projection.js';
 import { projectParentContext } from './parent-context-projection.js';
@@ -23,8 +29,8 @@ import { encodeAgentDefinition, encodeParentContext } from './subagent-worker-st
 
 import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
 import type { ISandboxProjection } from './worker-composition.js';
-import type { IProviderDefinitionConfig } from '@robota-sdk/agent-core';
-import type { ISubagentJobStart } from '@robota-sdk/agent-executor';
+import type { IProviderDefinition, IProviderDefinitionConfig } from '@robota-sdk/agent-core';
+import type { IConnectionEnvironmentCheck, ISubagentJobStart } from '@robota-sdk/agent-executor';
 import type { IAgentDefinition, IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
 import type { ISerializableProviderProfile } from '@robota-sdk/agent-interface-execution';
 
@@ -70,7 +76,45 @@ async function projectSandbox(
 /** The runner-owned inputs the payload carries beside the parent's deps. */
 export interface IStartPayloadOptions {
   readonly providerConfig?: IProviderDefinitionConfig;
+  /** The parent's provider registry: its defaults and the environment each provider reads. */
+  readonly providerDefinitions?: readonly IProviderDefinition[];
   readonly logsDir?: string;
+  /** The connection the runner already checked; projected here when absent. */
+  readonly connection?: IProjectedConnection;
+}
+
+/** The provider connection a child is given, and the check it repeats before using it. */
+export interface IProjectedConnection {
+  readonly providerProfile: ISerializableProviderProfile;
+  readonly connectionCheck: IConnectionEnvironmentCheck;
+}
+
+/**
+ * The parent's provider connection, checked against the environment the child will run in.
+ *
+ * Throws, naming the variable and never its value, when the child's environment would decide the
+ * destination or the credential differently from the parent's — before anything is spawned or sent,
+ * so the credential never reaches a process that would use it elsewhere.
+ */
+export function projectProviderConnection(
+  job: ISubagentJobStart,
+  deps: IInProcessSubagentRunnerDeps,
+  options: Pick<IStartPayloadOptions, 'providerConfig' | 'providerDefinitions'>,
+  parentEnv: NodeJS.ProcessEnv,
+  childEnv: NodeJS.ProcessEnv,
+): IProjectedConnection {
+  const definitions = options.providerDefinitions ?? [];
+  const providerProfile = createProviderProfile(options.providerConfig, deps, job, definitions);
+  const names = connectionEnvironmentNames(providerProfile, definitions);
+  const diverging = findConnectionEnvironmentDivergence(names, parentEnv, childEnv);
+  if (diverging !== undefined) {
+    throw new BackgroundTaskError(
+      'validation',
+      `The subagent's environment sets ${diverging} differently from this session, which would ` +
+        'change where its provider connects or which credential it sends; the subagent was not started.',
+    );
+  }
+  return { providerProfile, connectionCheck: sealConnectionEnvironment(names, childEnv) };
 }
 
 /**
@@ -112,7 +156,8 @@ export function projectStartPayload(
     ),
     // Issue #2317 narrows to the two members the child reads; ARCH-044 (issue #2047) encodes them.
     parentContext: encodeParentContext(projectParentContext(deps.context)),
-    providerProfile: createProviderProfile(options.providerConfig, deps, job),
+    ...(options.connection ??
+      projectProviderConnection(job, deps, options, process.env, process.env)),
     permissionMode: deps.permissionMode,
     ...projectSessionTiers(deps),
     ...(options.logsDir ? { logsDir: options.logsDir } : {}),
@@ -160,8 +205,14 @@ function createProviderProfile(
   providerConfig: IProviderDefinitionConfig | undefined,
   deps: IInProcessSubagentRunnerDeps,
   job: ISubagentJobStart,
+  providerDefinitions: readonly IProviderDefinition[],
 ): ISerializableProviderProfile {
   const provider = providerConfig ?? deps.config.provider;
+  // The EFFECTIVE connection: the child builds it exactly, never filling a gap from its own
+  // registry's defaults, so the parent's defaults are applied here.
+  const defaults = findProviderDefinition(providerDefinitions, provider.name)?.defaults ?? {};
+  const baseURL = provider.baseURL ?? defaults.baseURL;
+  const options = provider.options ?? defaults.options;
   // SEC-009: carry the REFERENCE, not the secret. Config loading resolves a `$ENV:` value into the
   // credential itself, so copying `apiKey` here put plaintext into a structured-clone IPC message —
   // a second copy of the secret, in a second process, reachable by anything observing the channel.
@@ -175,12 +226,16 @@ function createProviderProfile(
     ? { apiKeyEnv: provider.apiKeyEnv }
     : { apiKey: provider.apiKey };
   return {
-    profileName: deps.config.currentProvider,
+    // Named only when it names THIS connection. A runner-supplied config may come from a different
+    // profile (`--provider`) than the settings' current one.
+    ...(providerConfig === undefined && deps.config.currentProvider !== undefined
+      ? { profileName: deps.config.currentProvider }
+      : {}),
     type: provider.name,
     model: job.request.model ?? provider.model,
     ...credential,
-    baseURL: provider.baseURL,
-    timeout: provider.timeout,
-    options: provider.options,
+    ...(baseURL !== undefined ? { baseURL } : {}),
+    ...(provider.timeout !== undefined ? { timeout: provider.timeout } : {}),
+    ...(options !== undefined ? { options } : {}),
   };
 }

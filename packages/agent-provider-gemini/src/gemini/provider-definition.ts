@@ -72,6 +72,15 @@ export function createGeminiProviderDefinition(): IProviderDefinition {
       },
     ],
     requiresApiKey: true,
+    // The Google GenAI SDK reads these on its own: Vertex mode sends the key to a different host.
+    destinationEnvironment: [
+      'GOOGLE_GENAI_USE_VERTEXAI',
+      'GOOGLE_CLOUD_PROJECT',
+      'GOOGLE_CLOUD_LOCATION',
+      'GOOGLE_GEMINI_BASE_URL',
+      'GOOGLE_VERTEX_BASE_URL',
+      'GOOGLE_APPLICATION_CREDENTIALS',
+    ],
     createProvider: (config) =>
       new GeminiProvider({
         apiKey: requireApiKey(config.apiKey),
