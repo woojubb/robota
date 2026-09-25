@@ -1,3 +1,8 @@
+import {
+  modelArgumentHint,
+  modelDescriptionOf,
+  refuseModelSubcommand,
+} from './model-subcommand-gate.js';
 import { createSystemCommands } from './system-command.js';
 import { DuplicateSystemCommandSemanticRoleError } from '../command-api/contracts.js';
 
@@ -96,32 +101,43 @@ export class SystemCommandExecutor {
     return [...this.commands.values()];
   }
 
+  /**
+   * The model-facing view: only commands declared model-invocable, each described by its
+   * model-facing text and offering only the subcommands the model may run.
+   */
   listModelInvocableCommands(): ICapabilityDescriptor[] {
     return this.listCommands()
       .filter((command) => command.modelInvocable === true)
-      .map((command) => ({
-        name: command.name,
-        kind: 'builtin-command',
-        description: command.description,
-        userInvocable: command.userInvocable !== false,
-        modelInvocable: true,
-        ...(command.argumentHint ? { argumentHint: command.argumentHint } : {}),
-        ...(command.safety ? { safety: command.safety } : {}),
-        requiresPermission: this.resolveRequiresPermission(command),
-      }));
+      .map((command) => {
+        const argumentHint = modelArgumentHint(command);
+        return {
+          name: command.name,
+          kind: 'builtin-command',
+          description: modelDescriptionOf(command),
+          userInvocable: command.userInvocable !== false,
+          modelInvocable: true,
+          ...(argumentHint ? { argumentHint } : {}),
+          ...(command.safety ? { safety: command.safety } : {}),
+          requiresPermission: this.resolveRequiresPermission(command),
+        };
+      });
   }
 
   isModelInvocable(name: string): boolean {
     return this.commands.get(name)?.modelInvocable === true;
   }
 
+  /** Runs a command for the model: refused unless model-invocable, and held to its subcommand gate. */
   async executeModelInvocable(
     name: string,
     session: ICommandHostContext,
     args: string,
   ): Promise<ICommandResult | null> {
-    if (!this.isModelInvocable(name)) return null;
-    return this.execute(name, session, args);
+    const command = this.commands.get(name);
+    if (command?.modelInvocable !== true) return null;
+    const refusal = refuseModelSubcommand(command, args);
+    if (refusal !== undefined) return refusal;
+    return this.executeCommand(command, session, args);
   }
 
   /** Check if a command exists. */

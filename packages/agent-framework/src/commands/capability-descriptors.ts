@@ -1,3 +1,5 @@
+import { modelArgumentHint, modelDescriptionOf } from './model-subcommand-gate.js';
+
 import type { ICapabilityDescriptor, TCapabilityKind } from '../capabilities/types.js';
 import type { ICommand } from '../command-api/types.js';
 
@@ -7,17 +9,20 @@ function inferKind(command: ICommand): TCapabilityKind {
   return 'builtin-command';
 }
 
+/** The model-visible descriptor: model-facing text, and only the subcommands the model may run. */
 export function commandToCapabilityDescriptor(command: ICommand): ICapabilityDescriptor {
   const skillLike =
     command.source === 'skill' || (command.source === 'plugin' && Boolean(command.skillContent));
+  const modelInvocable =
+    command.modelInvocable === true || (skillLike && command.disableModelInvocation !== true);
+  const argumentHint = modelInvocable ? modelArgumentHint(command) : command.argumentHint;
   return {
     name: command.name,
     kind: inferKind(command),
-    description: command.description,
+    description: modelInvocable ? modelDescriptionOf(command) : command.description,
     userInvocable: command.userInvocable !== false,
-    modelInvocable:
-      command.modelInvocable === true || (skillLike && command.disableModelInvocation !== true),
-    ...(command.argumentHint ? { argumentHint: command.argumentHint } : {}),
+    modelInvocable,
+    ...(argumentHint ? { argumentHint } : {}),
     ...(command.safety ? { safety: command.safety } : {}),
   };
 }

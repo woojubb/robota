@@ -13,6 +13,7 @@ export function createPlanCommandEntry(): ICommand {
     displayName: 'Plan Mode',
     description: PLAN_COMMAND_DESCRIPTION,
     source: 'plan',
+    // User-only: approving a plan unblocks edits; that permission change is the user's.
     modelInvocable: false,
   };
 }

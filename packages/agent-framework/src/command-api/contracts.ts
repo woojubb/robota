@@ -38,6 +38,8 @@ export interface ISystemCommand {
   /** Optional usage example shown in /help output (e.g., "/compact Summarize the context"). */
   example?: string;
   modelInvocable?: boolean;
+  /** What the model is told about this command; absent → `description`. See `ICommand.modelDescription`. */
+  modelDescription?: string;
   userInvocable?: boolean;
   argumentHint?: string;
   safety?: TCapabilitySafety;

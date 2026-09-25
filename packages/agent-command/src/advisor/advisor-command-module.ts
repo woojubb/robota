@@ -10,6 +10,7 @@ export function createAdvisorCommandEntry(): ICommand {
     description: 'Show, set, or turn off the model the main model can consult for advice',
     source: 'advisor',
     argumentHint: '<profile> | <profile>:<model> | off',
+    // User-only: choosing a second model changes cost and what sees the conversation; the user decides.
     modelInvocable: false,
   };
 }

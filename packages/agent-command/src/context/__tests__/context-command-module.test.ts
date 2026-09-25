@@ -192,13 +192,14 @@ describe('createContextCommandModule', () => {
     ]);
     expect(command?.subcommands).toEqual(registry.getSubcommands('context'));
     expect(command).toMatchObject({
-      modelInvocable: false,
+      modelInvocable: true,
       userInvocable: true,
       requiresPermission: false,
     });
     expect(command?.lifecycle ?? 'inline').toBe('inline');
     expect(command?.description).toBe(entry?.description);
-    expect(executor.isModelInvocable('context')).toBe(false);
+    expect(command?.modelDescription).toBe(entry?.modelDescription);
+    expect(executor.isModelInvocable('context')).toBe(true);
   });
 
   it('provides context metadata and an executable command', () => {
@@ -216,7 +217,7 @@ describe('createContextCommandModule', () => {
     expect(command).toEqual(
       expect.objectContaining({
         name: 'context',
-        modelInvocable: false,
+        modelInvocable: true,
       }),
     );
   });

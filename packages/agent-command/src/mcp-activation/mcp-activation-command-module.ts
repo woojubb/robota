@@ -8,11 +8,43 @@ export function createMCPActivationCommandEntry(): ICommand {
     name: 'mcp',
     displayName: 'MCP activation',
     description: 'Inspect and manage trust approval and per-server OAuth sign-in for MCP servers',
+    // Model-invocable for `status` only: when an MCP server's tools are missing or failing, the
+    // model can see why and name the command the user should run. Approving, rejecting and revoking
+    // a server are trust decisions and signing in or out is a credential action, so those stay
+    // user-only — the model's `status` view also omits everything but names and states.
+    modelDescription:
+      'Show which MCP servers are configured and why any of them is unavailable. Use it when an MCP ' +
+      'server or its tools are missing, a tool call reports that a server needs sign-in or approval, ' +
+      'or the user asks about MCP servers. Returns one line per server: its name, activation state, ' +
+      'sign-in state, and the command to suggest to the user when the server needs their approval, ' +
+      'sign-in or workspace trust. You cannot approve, sign in or sign out yourself.',
     argumentHint: '[status] | <approve|reject|revoke|logout> <serverId>',
     source: 'mcp-activation',
-    modelInvocable: false,
+    modelInvocable: true,
+    subcommands: [
+      {
+        name: 'status',
+        description: 'Show every MCP server’s name, activation state and sign-in state',
+        source: 'mcp-activation',
+        modelInvocable: true,
+      },
+      ...(['approve', 'reject', 'revoke', 'logout'] as const).map((verb) => ({
+        name: verb,
+        description: USER_ONLY_VERB_DESCRIPTION[verb],
+        argumentHint: '<serverId>',
+        source: 'mcp-activation',
+        modelInvocable: false,
+      })),
+    ],
   };
 }
+
+const USER_ONLY_VERB_DESCRIPTION = {
+  approve: 'Trust and activate an MCP server',
+  reject: 'Refuse an MCP server',
+  revoke: 'Withdraw an earlier approval',
+  logout: 'Sign out of an OAuth MCP server and revoke its tokens',
+} as const;
 
 function createMCPActivationSystemCommand(): ISystemCommand {
   const entry = createMCPActivationCommandEntry();
@@ -20,10 +52,12 @@ function createMCPActivationSystemCommand(): ISystemCommand {
     name: entry.name,
     displayName: entry.displayName,
     description: entry.description,
+    ...(entry.modelDescription !== undefined ? { modelDescription: entry.modelDescription } : {}),
     argumentHint: entry.argumentHint,
+    ...(entry.subcommands !== undefined ? { subcommands: entry.subcommands } : {}),
     requiresPermission: true,
     userInvocable: true,
-    modelInvocable: false,
+    modelInvocable: true,
     lifecycle: 'inline',
     execute: executeMCPActivationCommand,
   };

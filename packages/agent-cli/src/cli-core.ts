@@ -12,6 +12,7 @@ import {
   type IBackgroundTaskRunner,
 } from '@robota-sdk/agent-framework';
 import { assembleProduct } from '@robota-sdk/agent-product';
+import { mcpUnavailableServersNotice } from '@robota-sdk/agent-command';
 
 import { createFileCostBudgetAdapter } from './startup/cost-budget-adapter.js';
 import { applyModelFallbackChain } from './startup/model-fallback-startup.js';
@@ -35,7 +36,11 @@ import {
 } from './product/robota-user-settings.js';
 import { readUserSettingsOrExit } from './startup/user-settings.js';
 import { runShellCommand } from './startup/shell-exec.js';
-import { buildPresetSurfaceOptions, toSessionOptions } from './startup/preset-surface-options.js';
+import {
+  buildPresetSurfaceOptions,
+  toSessionOptions,
+  withAppendedSystemPrompt,
+} from './startup/preset-surface-options.js';
 import { createCliEffortAdapter, resolveCliModelEffort } from './startup/effort-resolution.js';
 import { resolveOutputStyle, selectOutputStyleId } from './startup/output-style-selection.js';
 import type { IPreset } from '@robota-sdk/agent-preset';
@@ -657,13 +662,18 @@ async function runCliCore(
   }
 
   const cli = { cwd, args };
-  const presetSurface = buildPresetSurfaceOptions(
-    resolvedPreset,
-    selectedPresetId,
-    permissionMode,
-    cli,
-    outputStyle,
-    effortResolution,
+  // A server that could not start for a reason the user can fix is named to the model too, so it
+  // can say which command to run instead of guessing why a tool is missing.
+  const presetSurface = withAppendedSystemPrompt(
+    buildPresetSurfaceOptions(
+      resolvedPreset,
+      selectedPresetId,
+      permissionMode,
+      cli,
+      outputStyle,
+      effortResolution,
+    ),
+    mcp === undefined ? undefined : mcpUnavailableServersNotice(mcp.unavailableServers),
   );
 
   const sessionStore = workspaceComposition.sessionStore;

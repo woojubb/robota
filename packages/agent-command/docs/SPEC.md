@@ -79,7 +79,10 @@ space cannot be expressed, and the inline subject cannot carry a body; the timeo
 direct git child, not a hook's grandchildren still holding the output pipes open.
 
 **`/mcp`.** Reads and requests approve/reject/revoke decisions through an injected host adapter; it
-never constructs or connects an MCP client itself.
+never constructs or connects an MCP client itself. The model may read status only, and its view is
+rebuilt from fixed words — a server name only when it is safe to show, the states, and the command
+the user should run — never a definition's reason text, provenance, fingerprint or endpoint, because
+those are text a repository wrote or can carry a credential.
 
 **`/peers` activity.** The command renders the host's fixed activity observation separately
 from process liveness. An absent, expired, or unverified observation is shown as unknown; the command
@@ -149,12 +152,19 @@ not even the toggles submitted alongside it.
 owner command changes only that command's value, and the framework's projection follows the
 declaration.
 
+**Model invocation.** Trust, credential and permission-widening actions are never model-invocable,
+and neither are exits or UI-only preferences: the model may suggest them, the user runs them. A
+command that mixes such actions with read-only views opens only the read-only subset to the model.
+Every model-invocable command carries a description written for the model — what it does, when to
+use it, what it returns — and a command that starts a process asks permission on the model's behalf
+exactly as the shell tool would, so being a command is never a way around the shell's prompt.
+
 **`/remote-control`, `/doctor`, `/context`, and session command metadata.** For these commands, the
 palette entry is the single source of metadata, and the executable command is projected from it;
-execution policy and lifecycle remain executable-command behavior. Projecting shared metadata does
-not grant model invocation or change execution policy, permission requirements, or model visibility
-— these commands remain operator-only. Remote control offers `status` and `devices` before pairing or
-revoking actions, so an autocomplete selection defaults to a read-only operation.
+execution policy and lifecycle remain executable-command behavior. Projecting shared metadata never
+by itself grants model invocation or changes execution policy or permission requirements. Remote
+control offers `status` and `devices` before pairing or revoking actions, so an autocomplete
+selection defaults to a read-only operation.
 
 **Ask seam.** A command that needs input (selection pickers, setup wizards, destructive-action
 confirmation) asks for it inline at the top of `execute` via the host-supplied

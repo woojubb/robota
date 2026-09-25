@@ -26,6 +26,7 @@ export function createClearCommandEntry(): ICommand {
     displayName: 'Clear History',
     description: CLEAR_COMMAND_DESCRIPTION,
     source: 'session',
+    // User-only: wiping the conversation is the user's decision.
     modelInvocable: false,
     userInvocable: true,
   };
@@ -38,6 +39,7 @@ export function createRenameCommandEntry(): ICommand {
     description: RENAME_COMMAND_DESCRIPTION,
     argumentHint: '<name>',
     source: 'session',
+    // User-only: the session's name is the user's label; UI-only.
     modelInvocable: false,
     userInvocable: true,
   };
@@ -62,6 +64,7 @@ export function createResumeCommandEntry(): ICommand {
     displayName: 'Resume Session',
     description: RESUME_COMMAND_DESCRIPTION,
     source: 'session',
+    // User-only: switching to another session is the user's decision.
     modelInvocable: false,
     userInvocable: true,
   };
@@ -72,10 +75,26 @@ export function createCostCommandEntry(): ICommand {
     name: 'cost',
     displayName: 'Session Cost',
     description: COST_COMMAND_DESCRIPTION,
+    // Model-invocable for the read-only report only: the model can weigh cost before an expensive
+    // step. The monthly budget is the user's spending decision, so `budget` stays user-only.
+    modelDescription:
+      'Report this session’s token usage and estimated cost. Use it before an expensive step (a ' +
+      'large refactor, many subagents) or when the user asks what the session has cost. Returns ' +
+      'the message count, input/output token totals and the estimated USD cost, with the remaining ' +
+      'monthly budget when one is set. Setting or clearing the budget is the user’s decision: suggest `/cost budget <amount>`.',
     argumentHint: '[budget [<amount>|clear]]',
     source: 'session',
-    modelInvocable: false,
+    modelInvocable: true,
     userInvocable: true,
+    subcommands: [
+      {
+        name: 'budget',
+        description: 'Show, set, or clear the monthly budget',
+        argumentHint: '[<amount>|clear]',
+        source: 'session',
+        modelInvocable: false,
+      },
+    ],
   };
 }
 
@@ -85,6 +104,7 @@ export function createValidateSessionCommandEntry(): ICommand {
     displayName: 'Validate Session',
     description: VALIDATE_SESSION_COMMAND_DESCRIPTION,
     source: 'session',
+    // User-only: a diagnostic of the replay log for the user; nothing the model acts on.
     modelInvocable: false,
     userInvocable: true,
   };

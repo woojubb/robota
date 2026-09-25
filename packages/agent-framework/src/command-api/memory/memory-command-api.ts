@@ -53,18 +53,52 @@ export type {
   IMemoryStore,
 };
 
+/**
+ * `approve` and `reject` are user-only: pending candidates exist so the USER reviews what the model
+ * proposed to remember, and a model approving its own candidate would skip that review.
+ */
 export function buildMemoryCommandSubcommands(source = 'memory'): ICommand[] {
   return [
-    { name: 'list', description: 'List project memory topics', source },
-    { name: 'show', description: 'Show project memory index or a topic', source },
-    { name: 'add', description: 'Save durable project memory', source },
-    { name: 'pending', description: 'List pending memory candidates', source },
-    { name: 'approve', description: 'Approve a pending memory candidate', source },
-    { name: 'reject', description: 'Reject a pending memory candidate', source },
+    { name: 'list', description: 'List project memory topics', source, modelInvocable: true },
+    {
+      name: 'show',
+      description: 'Show project memory index or a topic',
+      argumentHint: '[topic]',
+      source,
+      modelInvocable: true,
+    },
+    {
+      name: 'add',
+      description: 'Save durable project memory',
+      argumentHint: '<user|feedback|project|reference> <topic> <text>',
+      source,
+      modelInvocable: true,
+    },
+    {
+      name: 'pending',
+      description: 'List pending memory candidates',
+      source,
+      modelInvocable: true,
+    },
+    {
+      name: 'approve',
+      description: 'Approve a pending memory candidate',
+      argumentHint: '<id>',
+      source,
+      modelInvocable: false,
+    },
+    {
+      name: 'reject',
+      description: 'Reject a pending memory candidate',
+      argumentHint: '<id>',
+      source,
+      modelInvocable: false,
+    },
     {
       name: 'used',
       description: 'Show memory references used in the current turn',
       source,
+      modelInvocable: true,
     },
   ];
 }

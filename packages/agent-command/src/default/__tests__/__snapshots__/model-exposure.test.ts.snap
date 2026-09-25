@@ -1,0 +1,110 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`built-in commands offered to the model > pins the descriptor each offered command gets 1`] = `
+{
+  "agent": {
+    "argumentHint": "PROMPT | AGENT_NAME PROMPT | list | parallel [--wait|--detach] LABEL:"PROMPT" [LABEL=AGENT_NAME:"PROMPT"] | wait GROUP_ID | read AGENT_ID [OFFSET] | send AGENT_ID PROMPT | stop AGENT_ID | close AGENT_ID",
+    "description": "Start and manage background subagent jobs. Natural-language arguments start one background agent job. When the user explicitly asks to create, run, spawn, delegate to, or use agents/subagents, start the requested agent command immediately and do not ask a follow-up question unless execution is impossible or unsafe. If the target item is unspecified, include target selection inside the agent prompt instead of delaying execution. The parallel form starts multiple background agent jobs as a wait_all group and returns a consolidated group summary unless --detach is present. list, wait, read, send, stop, close, and open manage existing agent jobs. Returns the started job id (or group summary), the job list, or the requested log page.",
+    "kind": "builtin-command",
+    "modelInvocable": true,
+    "name": "agent",
+    "requiresPermission": false,
+    "safety": "background-agent",
+    "userInvocable": true,
+  },
+  "compact": {
+    "argumentHint": "[instructions]",
+    "description": "Summarize older conversation turns to free context-window space. Use it when the context is nearly full (check with the context command) or before starting a large new task; optional instructions say what the summary must keep. Returns how many messages were removed and the context usage before and after.",
+    "kind": "builtin-command",
+    "modelInvocable": true,
+    "name": "compact",
+    "requiresPermission": false,
+    "safety": "write",
+    "userInvocable": true,
+  },
+  "context": {
+    "argumentHint": "[list]",
+    "description": "Inspect the context window. Use it before a large task or before deciding to compact, or to see which files the user pinned into context. Bare returns used/max tokens and percentage, the auto-compact threshold, the pinned-reference summary and the turn count; \`list\` returns the per-category token breakdown and every pinned reference.
+Subcommands you may run (bare \`context\` is also allowed):
+- list: List loaded context references",
+    "kind": "builtin-command",
+    "modelInvocable": true,
+    "name": "context",
+    "requiresPermission": false,
+    "userInvocable": true,
+  },
+  "cost": {
+    "description": "Report this session’s token usage and estimated cost. Use it before an expensive step (a large refactor, many subagents) or when the user asks what the session has cost. Returns the message count, input/output token totals and the estimated USD cost, with the remaining monthly budget when one is set. Setting or clearing the budget is the user’s decision: suggest \`/cost budget <amount>\`.
+Run it with no arguments.",
+    "kind": "builtin-command",
+    "modelInvocable": true,
+    "name": "cost",
+    "requiresPermission": false,
+    "userInvocable": true,
+  },
+  "loop": {
+    "argumentHint": "[prompt] | <N><s|m|h|d> [prompt] | <prompt> every <N> <unit> | list | stop <id>",
+    "description": "Repeat a prompt on a fixed cadence (\`<N><s|m|h|d> [prompt]\`) or self-paced (bare or prompt only: each iteration chooses its next delay or stops). Use it when the user asks for recurring work in this session. \`list\` shows active loops; \`stop <id>\` ends one. Returns the loop id and its next fire time, or the loop list.",
+    "kind": "builtin-command",
+    "modelInvocable": true,
+    "name": "loop",
+    "requiresPermission": true,
+    "userInvocable": true,
+  },
+  "mcp": {
+    "argumentHint": "[status]",
+    "description": "Show which MCP servers are configured and why any of them is unavailable. Use it when an MCP server or its tools are missing, a tool call reports that a server needs sign-in or approval, or the user asks about MCP servers. Returns one line per server: its name, activation state, sign-in state, and the command to suggest to the user when the server needs their approval, sign-in or workspace trust. You cannot approve, sign in or sign out yourself.
+Subcommands you may run (bare \`mcp\` is also allowed):
+- status: Show every MCP server’s name, activation state and sign-in state",
+    "kind": "builtin-command",
+    "modelInvocable": true,
+    "name": "mcp",
+    "requiresPermission": true,
+    "userInvocable": true,
+  },
+  "memory": {
+    "argumentHint": "[list | show [topic] | add <user|feedback|project|reference> <topic> <text> | pending | used]",
+    "description": "Read and write this project’s durable memory. Use \`list\` or \`show [topic]\` to look up stored conventions, preferences or references before asking the user again; \`add <type> <topic> <text>\` to save a durable preference, project convention, feedback item or reference worth reusing across sessions (never secrets, credentials or transient facts); \`pending\` to see candidates awaiting the user’s review; \`used\` to report which memory items informed this turn. Bare lists topics. Returns the requested topics or entries, or a confirmation of what was saved. Approving or rejecting a pending candidate is the user’s review: suggest \`/memory approve <id>\` or \`/memory reject <id>\`.
+Subcommands you may run (bare \`memory\` is also allowed):
+- list: List project memory topics
+- show: Show project memory index or a topic
+- add: Save durable project memory
+- pending: List pending memory candidates
+- used: Show memory references used in the current turn",
+    "kind": "builtin-command",
+    "modelInvocable": true,
+    "name": "memory",
+    "requiresPermission": false,
+    "safety": "write",
+    "userInvocable": true,
+  },
+  "monitor": {
+    "argumentHint": ""<command>" "<pattern>" <instruction>",
+    "description": "Run a command in the background and wake yourself when a line of its output matches a pattern. Use it to wait for a server to start, a test to fail or a log line to appear instead of polling. Starting the command asks the user for permission like a shell command. Returns the monitor task id.",
+    "kind": "builtin-command",
+    "modelInvocable": true,
+    "name": "monitor",
+    "requiresPermission": true,
+    "userInvocable": true,
+  },
+  "schedule": {
+    "argumentHint": "in <N><s|m|h|d> <instruction> | cron "<expr>" <instruction> | list | pause <id> | resume <id> | edit <id> <spec>",
+    "description": "Wake yourself later with an instruction. Use it when work must wait (a deploy, a long build, a reply) instead of polling: \`in <N><s|m|h|d> <instruction>\` or \`cron "<expr>" <instruction>\`; \`list\`, \`pause\`, \`resume\` and \`edit\` manage existing schedules. Returns the schedule id, or the schedule list.",
+    "kind": "builtin-command",
+    "modelInvocable": true,
+    "name": "schedule",
+    "requiresPermission": false,
+    "userInvocable": true,
+  },
+  "skills": {
+    "argumentHint": "[list | <skill-name> [args]]",
+    "description": "Skill command. Before following a matching registered skill from the system prompt Skills section, invoke the projected skills command tool with args "<skill-name> [args]". Without arguments, list registered skills. With a skill name, activate that skill; a skill that declares it is not model-invocable is refused. Returns the skill list with each skill's description, or the activated skill's instructions to follow. Slash syntax is a UI input/display concern; the SDK command identity is "skills".",
+    "kind": "builtin-command",
+    "modelInvocable": true,
+    "name": "skills",
+    "requiresPermission": false,
+    "safety": "read-only",
+    "userInvocable": true,
+  },
+}
+`;

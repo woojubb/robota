@@ -1,7 +1,10 @@
 import { shellArgumentForDisplay } from '@robota-sdk/agent-core';
 
+import { mcpModelStatusResult } from './mcp-model-status.js';
+
 import type {
   ICommandHostAdapterAccess,
+  ICommandHostWorkspace,
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
   ICommandMCPOAuthLogoutResult,
@@ -146,7 +149,8 @@ async function listResult(mcp: ICommandMCPActivationAdapter | undefined): Promis
 }
 
 export async function executeMCPActivationCommand(
-  context: ICommandHostAdapterAccess,
+  context: ICommandHostAdapterAccess &
+    Partial<Pick<ICommandHostWorkspace, 'getCommandInvocationSource'>>,
   args: string,
 ): Promise<ICommandResult> {
   const trimmed = args.trim();
@@ -155,7 +159,9 @@ export async function executeMCPActivationCommand(
   const serverId = spaceAt === -1 ? '' : trimmed.slice(spaceAt + 1).trim();
 
   if (verb === '' || verb === 'status' || verb === 'list') {
-    return listResult(adapter(context));
+    return context.getCommandInvocationSource?.() === 'model'
+      ? mcpModelStatusResult(adapter(context))
+      : listResult(adapter(context));
   }
 
   if (verb !== 'approve' && verb !== 'reject' && verb !== 'revoke' && verb !== 'logout') {

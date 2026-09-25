@@ -11,6 +11,7 @@ export function createResetCommandEntry(): ICommand {
     displayName: 'Reset Settings',
     description: RESET_COMMAND_DESCRIPTION,
     source: 'reset',
+    // User-only: discards the user's settings.
     modelInvocable: false,
   };
 }

@@ -7,7 +7,10 @@ export function createSystemCommandFromEntry(
   behavior: {
     lifecycle: NonNullable<ISystemCommand['lifecycle']>;
     requiresPermission: boolean;
-    execute: (context: ICommandHostContext, args: string) => ICommandResult | Promise<ICommandResult>;
+    execute: (
+      context: ICommandHostContext,
+      args: string,
+    ) => ICommandResult | Promise<ICommandResult>;
     semanticRole?: ISystemCommand['semanticRole'];
   },
 ): ISystemCommand {
@@ -17,6 +20,7 @@ export function createSystemCommandFromEntry(
     description: entry.description,
     ...(entry.example !== undefined ? { example: entry.example } : {}),
     ...(entry.modelInvocable !== undefined ? { modelInvocable: entry.modelInvocable } : {}),
+    ...(entry.modelDescription !== undefined ? { modelDescription: entry.modelDescription } : {}),
     ...(entry.userInvocable !== undefined ? { userInvocable: entry.userInvocable } : {}),
     ...(entry.argumentHint !== undefined ? { argumentHint: entry.argumentHint } : {}),
     ...(entry.safety !== undefined ? { safety: entry.safety } : {}),

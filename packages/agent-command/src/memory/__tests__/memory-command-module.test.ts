@@ -10,6 +10,7 @@ import {
   getWorkspaceProjectStateStorage,
 } from '@robota-sdk/agent-framework';
 import { MemoryCommandSource, createMemoryCommandModule, executeMemoryCommand } from '../index.js';
+import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 import type {
   IMemoryStore,
@@ -177,14 +178,36 @@ describe('createMemoryCommandModule', () => {
         kind: 'builtin-command',
         userInvocable: true,
         modelInvocable: true,
+        // The model is offered only what it may run: `approve`/`reject` are the user's review.
         argumentHint:
-          'list | show [topic] | add <user|feedback|project|reference> <topic> <text> | pending | approve <id> | reject <id> | used',
+          '[list | show [topic] | add <user|feedback|project|reference> <topic> <text> | pending | used]',
         safety: 'write',
       }),
     );
-    expect(descriptor?.description).toContain(
-      'inspect project memory when stored context may help',
-    );
+    expect(descriptor?.description).toContain('look up stored conventions');
+    expect(descriptor?.description).toContain('suggest `/memory approve <id>`');
+  });
+
+  it('refuses a model-issued `memory approve` before the command runs, and allows the user', async () => {
+    const executor = new SystemCommandExecutor([
+      ...(createMemoryCommandModule().systemCommands ?? []),
+    ]);
+    const command = executor.getCommand('memory');
+    const execute = vi.fn();
+    const host = createTestCommandHost();
+    const spied = { ...command!, execute };
+    const gated = new SystemCommandExecutor([spied]);
+
+    for (const args of ['approve cand-1', 'reject cand-1', 'APPROVE cand-1']) {
+      const result = await gated.executeModelInvocable('memory', host, args);
+      expect(result?.success).toBe(false);
+      expect(result?.message).toContain('only the user can');
+    }
+    expect(execute).not.toHaveBeenCalled();
+
+    await gated.executeModelInvocable('memory', host, 'list');
+    await gated.execute('memory', host, 'approve cand-1');
+    expect(execute).toHaveBeenCalledTimes(2);
   });
 });
 
