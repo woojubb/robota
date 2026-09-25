@@ -11,7 +11,7 @@ import {
 
 import { ANTHROPIC_CAPABILITY_TABLE } from './capability-table';
 import { resolveAnthropicMaxTokens } from './claude-models.js';
-import { rethrowAnthropicError } from './errors';
+import { rethrowAnthropicError, withAnthropicStreamErrors } from './errors';
 import {
   convertToAnthropicFormat,
   convertToolsToAnthropicFormat,
@@ -21,7 +21,11 @@ import { ANTHROPIC_MODEL_EFFORT_TABLE } from './model-effort-table';
 import { buildOutputConfig } from './output-schema.js';
 import { anthropicProviderCapabilities } from './provider-capabilities';
 import { awaitWithProviderRequestId, withProviderRequestId } from './provider-request-id';
-import { anthropicRequestOptions, streamAndAssemble, toUniversalStreamChunks } from './streaming-handler';
+import {
+  anthropicRequestOptions,
+  streamAndAssemble,
+  toUniversalStreamChunks,
+} from './streaming-handler';
 
 import type { IAnthropicProviderOptions } from './types';
 import type {
@@ -275,7 +279,7 @@ export class AnthropicProvider extends AbstractAIProvider {
     }
 
     let sequence = 0;
-    for await (const chunk of stream) {
+    for await (const chunk of withAnthropicStreamErrors(stream)) {
       resolvedOptions.onProviderNativeRawPayload?.({
         provider: 'anthropic',
         apiSurface: 'anthropic-messages',

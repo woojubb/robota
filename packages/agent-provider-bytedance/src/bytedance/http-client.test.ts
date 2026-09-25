@@ -128,6 +128,24 @@ describe('requestJson', () => {
   });
 
   describe('HTTP error mapping', () => {
+    it.each([529, 503, 500, 401, 429])('keeps HTTP %i on the error', async (status) => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status,
+        text: async () => JSON.stringify({ message: 'failed' }),
+      });
+
+      const result = await requestJson(BASE_OPTIONS, {
+        path: '/tasks',
+        method: 'GET',
+        decode: passThrough,
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.error.status).toBe(status);
+      }
+    });
+
     it('maps 401 to PROVIDER_AUTH_ERROR', async () => {
       fetchMock.mockResolvedValue({
         ok: false,

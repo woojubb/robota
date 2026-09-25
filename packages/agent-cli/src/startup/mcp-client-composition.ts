@@ -294,8 +294,9 @@ interface IConnectServerContext {
 /**
  * A server's helper authenticator, replaced each time its session is opened: helper headers belong
  * to one connection, so a reconnect runs the helper afresh and the old one's cache is dropped
- * rather than kept alive until shutdown. A request still in flight on the old connection is refused
- * by the old authenticator rather than handed the new connection's headers.
+ * rather than kept alive until shutdown. A request already waiting on the old cache is refused when
+ * it closes; one that authorizes after the renewal gets the new helper run's headers, for the same
+ * server, helper and URL.
  */
 interface IHelperAuthenticatorSlot {
   readonly authenticator: IMCPClientAuthenticator;
