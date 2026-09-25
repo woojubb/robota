@@ -12,6 +12,10 @@ or dates; when the contract changes, rewrite the existing sentence instead of ap
 - Merge only through a PR with CI green. Before merging, review the diff with the `pr-review-reviewer` agent
   and resolve every MUST/SHOULD. Never push to `develop` or `main` directly.
 - A behavior change ships with a test that failed before the change.
+- A product slash command or skill that is added or changed carries a description written for the model (what it
+  does, when to use it, what it returns) and a deliberate, tested choice of model invocation: what the model should
+  run on its own is model-invocable and described so it is picked at the right moment; trust, credential and
+  permission-widening actions stay user-only, and a failure that needs one names the command to suggest.
 - `develop` → `main` promotion, version bumps and npm publish: [.agents/skills/release](.agents/skills/release/SKILL.md).
   Publishing needs the owner's OTP.
 
