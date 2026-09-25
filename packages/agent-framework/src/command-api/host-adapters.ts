@@ -2,6 +2,7 @@ import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command'
 import type { IPresetApplicationOptions } from './preset/preset-application-types.js';
 import type { ICommandSessionModel } from './session-roles.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
+import type { IInteractiveSessionRecord } from '../interactive/session-persistence.js';
 import type { IModelEffortResolution, TEffortSelection } from '../effort/effort-resolution.js';
 import type { TPermissionMode, TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
 
@@ -249,6 +250,30 @@ export interface IHandoffStaysBehind {
   readonly subprocesses: number;
 }
 
+/** A `/cd` the session has already checked and prepared; the host carries it out. */
+export interface IWorkspaceMoveRequest {
+  /** The directory the session runs in now. */
+  readonly fromCwd: string;
+  /** The canonical absolute directory to move to. */
+  readonly targetCwd: string;
+  /** The conversation, copied for the target — its `cwd` is already `targetCwd`. */
+  readonly record: IInteractiveSessionRecord;
+  /**
+   * The session is Restricted. A move never widens access, so the target stays Restricted whatever
+   * its own trust decision; a trusted session takes the target's own decision.
+   */
+  readonly restricted: boolean;
+}
+
+/**
+ * What `/cd` hands the host. A move is a NEW session in the target directory, composed the way the
+ * host composes any session there — its settings, trust decision, tools and instructions — resuming
+ * this conversation. Absent on a host that cannot start one; `/cd` then says so.
+ */
+export interface ICommandWorkspaceAdapter {
+  move(request: IWorkspaceMoveRequest): Promise<void>;
+}
+
 /**
  * What `/handoff` reads. The carrier, the wire composition and the device identity all live in the
  * composition root — a command never constructs a transport.
@@ -325,4 +350,6 @@ export interface ICommandHostAdapters {
    * than offering a transfer it cannot perform.
    */
   handoff?: ICommandHandoffAdapter;
+  /** Absent on a host that cannot start a session elsewhere — `/cd` then says so. */
+  workspace?: ICommandWorkspaceAdapter;
 }

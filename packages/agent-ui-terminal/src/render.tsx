@@ -140,6 +140,8 @@ export interface IRenderOptions {
   /** Where that text came from; `external-link` renders the provenance notice. */
   initialInputOrigin?: 'external-link';
   forkSession?: boolean;
+  /** Issue #3081: the startup session is the target of a `/cd` from this directory. */
+  workspaceMovedFrom?: string;
   sessionName?: string;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   /** MCP-004: the tool-call handoff policy the composition root computed for this runtime. */
@@ -429,9 +431,15 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
   // Concrete framework creation has one composition boundary. React receives only the bounded port;
   // App owns which narrowed channel is active, while each channel owns its own lifecycle.
   let activeChannel: ITuiAppChannelPort | undefined;
+  // Issue #3081: the move is announced by the FIRST session only — a later switch to another
+  // session (a `/fork` attach) did not move anywhere.
+  let pendingWorkspaceMovedFrom = options.workspaceMovedFrom;
   const createChannel = (resumeSessionId?: string): ITuiAppChannelPort => {
+    const workspaceMovedFrom = pendingWorkspaceMovedFrom;
+    pendingWorkspaceMovedFrom = undefined;
     const channel = new TuiInteractionChannel({
       ...toChannelOptions(options, resumeSessionId),
+      ...(workspaceMovedFrom !== undefined ? { workspaceMovedFrom } : {}),
       terminalHandoff: handoffController,
       attention,
     });

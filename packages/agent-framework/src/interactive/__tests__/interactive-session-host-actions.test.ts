@@ -547,3 +547,27 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
     expect(result?.hostActions).toBeUndefined(); // consumed
   });
 });
+
+describe('workspace-move (issue #3081)', () => {
+  const cd = moduleReturning('cd', {
+    success: true,
+    message: '',
+    hostActions: [{ type: 'workspace-move', path: '../elsewhere' }],
+  });
+
+  it('fails explicitly on a host that cannot start a session elsewhere', async () => {
+    const session = createSession({}, [cd]);
+    const result = await session.executeCommand('cd', '../elsewhere');
+    expect(result?.success).toBe(false);
+    expect(result?.message).toContain("Cannot apply 'workspace-move'");
+  });
+
+  it('reports the refusal the session decides, without calling the host', async () => {
+    const move = vi.fn();
+    const session = createSession({ workspace: { move } }, [cd]);
+    const result = await session.executeCommand('cd', '../elsewhere');
+    expect(result?.success).toBe(false);
+    expect(result?.message).toContain("Failed to apply 'workspace-move'");
+    expect(move).not.toHaveBeenCalled();
+  });
+});

@@ -753,6 +753,19 @@ The CLI supports continuing, resuming, forking, and naming sessions.
 | `/resume`        | List recent sessions and resume one |
 | `/rename <name>` | Rename the current session          |
 
+### Moving to another directory (`/cd`)
+
+`/cd <directory>` continues the conversation in another directory. Robota starts again there, as if
+launched in that directory: its settings, trust decision, tools, skills and `AGENTS.md` apply, and the
+conversation resumes. The system prompt is kept as it was, so a provider's prompt cache survives. One
+message tells the model about the new directory and its project instructions.
+
+- `/cd` is refused while a turn is running or a background task is still running.
+- A restricted (untrusted) session stays restricted after a move. A trusted session takes the target
+  directory's own trust decision.
+- A `Cd(...)` deny rule keeps sessions out of a directory, for example
+  `"deny": ["Cd(/secrets/**)"]`.
+
 ### Session Name Display
 
 When a session has a name, it appears in three places:
@@ -813,6 +826,7 @@ Typing `/` in the TUI opens an autocomplete popup. Arrow keys navigate, Tab inse
 | `/effort [level]`         | Show or change model effort (`auto`, `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`) |
 | `/resume`                 | List recent sessions and resume one                                                              |
 | `/rename <name>`          | Rename the current session                                                                       |
+| `/cd <directory>`         | Move this conversation to another directory (see below)                                         |
 | `/rewind`                 | List, inspect, restore, or rollback edit checkpoints                                             |
 
 ### Providers & Settings

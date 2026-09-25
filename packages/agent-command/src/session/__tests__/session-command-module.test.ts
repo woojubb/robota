@@ -92,6 +92,7 @@ describe('createSessionCommandModule', () => {
     expect(module.commandSources?.[0]?.getCommands().map((item) => item.name)).toEqual([
       'clear',
       'rename',
+      'cd',
       'resume',
       'cost',
       'validate-session',
@@ -99,6 +100,7 @@ describe('createSessionCommandModule', () => {
     expect(module.systemCommands?.map((item) => item.name)).toEqual([
       'clear',
       'rename',
+      'cd',
       'resume',
       'cost',
       'validate-session',
@@ -521,5 +523,19 @@ describe('createSessionCommandModule', () => {
       issueCount: 1,
       ok: false,
     });
+  });
+});
+
+describe('/cd (issue #3081)', () => {
+  it('requests the host-executed move with the path as typed, and is user-only', async () => {
+    const module = createSessionCommandModule();
+    const entry = module.commandSources?.[0]?.getCommands().find((item) => item.name === 'cd');
+    const command = module.systemCommands?.find((item) => item.name === 'cd');
+    expect(entry?.modelInvocable).toBe(false);
+    expect(entry?.userInvocable).toBe(true);
+    const result = await command!.execute({} as never, ' ../api ');
+    expect(result.hostActions).toEqual([{ type: 'workspace-move', path: '../api' }]);
+    const usage = await command!.execute({} as never, '   ');
+    expect(usage.success).toBe(false);
   });
 });

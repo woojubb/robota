@@ -164,6 +164,8 @@ export type {
   ICommandHostAdapters,
   ICommandEffortAdapter,
   ICommandHandoffAdapter,
+  ICommandWorkspaceAdapter,
+  IWorkspaceMoveRequest,
   ICommandHostContext,
   IHandoffProgress,
   IHandoffStaysBehind,

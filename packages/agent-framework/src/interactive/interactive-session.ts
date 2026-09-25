@@ -8,6 +8,10 @@ import { InteractiveSessionBase } from './interactive-session-base.js';
 import { SessionExecutionController } from './interactive-session-execution-controller.js';
 import { writeForkedSessionRecord } from './interactive-session-fork-record.js';
 import { runSkillInFork } from './interactive-session-fork.js';
+import {
+  buildWorkspaceMoveNotice,
+  prepareWorkspaceMove,
+} from './interactive-session-workspace-move.js';
 import { SessionHistoryTracker } from './interactive-session-history-tracker.js';
 import {
   applyCommandHostActions,
@@ -125,6 +129,7 @@ import type {
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
+import type { IWorkspaceMoveInstructions } from './interactive-session-workspace-move.js';
 export type { TInteractiveSessionOptions } from './interactive-session-options.js';
 
 export interface IInteractiveSessionShutdownOptions {
@@ -529,11 +534,31 @@ export class InteractiveSession
       ...result.projectNotesFileEntries,
     ]);
     this.pendingRestoreMessages = null;
+    if (options.workspaceMovedFrom !== undefined && this.resumeSessionId !== undefined) {
+      this.announceWorkspaceMove(options.workspaceMovedFrom, result.agentsFileEntries);
+    }
     this.initialized = true;
     this.bgTracker.subscribe(this.session);
     this.resumeSelfPacedLoops();
     this.persistCurrentSession();
     this.emit('context_update', this.getContextState());
+  }
+
+  /** Issue #3081: tell the model (once) that it now works in this directory, with what it loaded. */
+  private announceWorkspaceMove(
+    fromCwd: string,
+    instructions: readonly IWorkspaceMoveInstructions[],
+  ): void {
+    const notice = buildWorkspaceMoveNotice({
+      fromCwd,
+      toCwd: this.workspace.cwd,
+      restricted: this.workspace.projectAccess.status === 'restricted',
+      instructions,
+    });
+    this.getSessionOrThrow().injectMessage('user', notice);
+    this.histTracker.append(
+      messageToHistoryEntry(createSystemMessage(`Moved from ${fromCwd} to ${this.workspace.cwd}.`)),
+    );
   }
 
   protected async ensureInitialized(): Promise<void> {
@@ -1404,6 +1429,40 @@ export class InteractiveSession
     });
   }
 
+  /**
+   * `/cd` (issue #3081): check the move, copy the conversation for the target, and hand both to the
+   * host, which starts the session there. This session is never re-rooted (ARCH-043).
+   */
+  async moveWorkspace(requestedPath: string): Promise<string> {
+    await this.ensureInitialized();
+    const adapter = this.getCommandHostAdapters().workspace;
+    if (!adapter) {
+      throw new Error('Moving to another directory is not available in this environment.');
+    }
+    const session = this.getSessionOrThrow();
+    const liveTasks = (this.getBackgroundTaskManager()?.list() ?? []).filter(
+      (task) => !['completed', 'failed', 'cancelled'].includes(task.status),
+    );
+    const request = prepareWorkspaceMove({
+      requestedPath,
+      workspace: this.workspace,
+      executing: this.execCtrl.executing,
+      liveBackgroundTasks: liveTasks.length,
+      permissionMode: session.getPermissionMode(),
+      rules: session.getPermissionRules(),
+      source: {
+        getHistory: () => session.getHistory(),
+        getSystemMessage: () => session.getSystemMessage(),
+        getToolSchemas: () => session.getToolSchemas(),
+        getFullHistory: () => this.getFullHistory(),
+      },
+      sessionName: this.sessionName ?? session.getSessionId(),
+    });
+    this.persistCurrentSession();
+    await adapter.move(request);
+    return `Moving to ${request.targetCwd}${request.restricted ? ' (restricted)' : ''}...`;
+  }
+
   setAutoCompactThreshold(
     threshold: TAutoCompactThreshold,
     source: TAutoCompactThresholdSource = 'session',
@@ -1683,6 +1742,7 @@ export class InteractiveSession
       getAdapters: () => this.getCommandHostAdapters(),
       orgPolicy: this.orgPolicy,
       switchProvider: (profileName) => this.switchProvider(profileName),
+      moveWorkspace: (path) => this.moveWorkspace(path),
       applyOutputStyle: (style) => this.applyOutputStyle(style),
       renameSession: (newName) => {
         this.setName(newName);

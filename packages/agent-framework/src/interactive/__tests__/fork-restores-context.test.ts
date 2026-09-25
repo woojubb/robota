@@ -194,3 +194,48 @@ describe('a fork inherits the persisted system prompt (CLI-1994 TC-04)', () => {
     TEST_TIMEOUT,
   );
 });
+
+/**
+ * Issue #3081 — the session a `/cd` starts resumes the copied conversation with the RECORDED prompt
+ * (so a provider's prompt cache survives) and one appended message announcing the move.
+ */
+describe('a /cd target keeps the recorded prompt and announces the move', () => {
+  const SENTINEL = 'PROMPT ASSEMBLED IN THE PREVIOUS DIRECTORY';
+  const open: ScriptedSessionHarness[] = [];
+  let cwd: string | undefined;
+
+  afterEach(async () => {
+    for (const harness of open.splice(0)) await harness.dispose();
+    if (cwd) rmSync(cwd, { recursive: true, force: true });
+    cwd = undefined;
+  });
+
+  it('sends the recorded system head, then the conversation, then the move notice', async () => {
+    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'robota-3081-cd-')));
+    const parent = scriptedSession({ turns: [{ text: 'noted: 42' }], persistence: true, cwd });
+    await parent.submit('Remember the number 42');
+    const id = parent.session.getSession().getSessionId();
+    await parent.dispose();
+    const store = new NodeSessionStore(join(cwd, '.robota', 'sessions'));
+    store.save({ ...loadedRecord(store, id), systemPrompt: SENTINEL });
+
+    const moved = scriptedSession({
+      turns: [{ text: 'it was 42' }],
+      persistence: true,
+      cwd,
+      resumeSessionId: id,
+      workspaceMovedFrom: '/previous/dir',
+    });
+    open.push(moved);
+    await moved.submit('What number?');
+
+    const request = moved.requests[0] ?? [];
+    expect(request[0]?.role).toBe('system');
+    expect(request[0]?.content).toBe(SENTINEL);
+    const contents = request.map((message) => String(message.content));
+    const notice = contents.findIndex((content) => content.includes('<workspace-move>'));
+    expect(notice).toBeGreaterThan(contents.indexOf('Remember the number 42'));
+    expect(contents[notice]).toContain(`from /previous/dir to ${cwd}`);
+    expect(request[notice]?.role).toBe('user');
+  }, 20_000);
+});
