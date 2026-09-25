@@ -464,6 +464,15 @@ describe('MCP OAuth notices and browser', () => {
     );
   });
 
+  it('escapes a format character outside the basic plane by its whole code point', () => {
+    const text = formatMcpOAuthNotice({
+      kind: 'insufficient-scope',
+      serverId: 'a\u{e0041}b',
+      scope: 'files:write',
+    });
+    expect(text).toContain('"a\\u{e0041}b"');
+  });
+
   it('opens only https URLs, by argv, with each platform opener', async () => {
     const url = new URL('https://auth.example.test/authorize?a=1&b=2');
     expect(browserCommand(url, 'darwin')).toEqual({ command: 'open', args: [url.href] });

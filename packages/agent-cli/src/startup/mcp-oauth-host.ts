@@ -34,10 +34,10 @@ const INVISIBLE = /[\u007f-\u009f\u2028\u2029\p{Cf}]/gu;
 
 /** A name a repository chose, quoted, with every control and format character escaped. */
 function quotedName(name: string): string {
-  return JSON.stringify(name).replace(
-    INVISIBLE,
-    (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`,
-  );
+  return JSON.stringify(name).replace(INVISIBLE, (char) => {
+    const code = (char.codePointAt(0) ?? 0).toString(16);
+    return code.length > 4 ? `\\u{${code}}` : `\\u${code.padStart(4, '0')}`;
+  });
 }
 
 /** What the user is told; the server's name and scope tokens only. */
