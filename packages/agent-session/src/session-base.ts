@@ -13,7 +13,7 @@ import type {
   TModelEffort,
   TModelEffortSelection,
   TPermissionMode,
-  TToolArgs,
+  TToolParameters,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
 
@@ -234,10 +234,10 @@ export abstract class SessionBase {
    */
   checkToolPermission(
     toolName: string,
-    toolArgs: TToolArgs,
+    toolParameters: TToolParameters,
     signal?: AbortSignal,
   ): Promise<boolean> {
-    return this.permissionEnforcer.checkDelegatedToolCall(toolName, toolArgs, signal);
+    return this.permissionEnforcer.checkDelegatedToolCall(toolName, toolParameters, signal);
   }
 
   /** `auto` mode hands decisions to a classifier, so a session without one cannot enter it. */

@@ -47,6 +47,7 @@ import type {
   IToolExecutionContext,
   IToolWithEventService,
   TToolArgs,
+  TToolParameters,
   THooksConfig,
   TResolveInWorkspace,
   IPeerTurnAuthority,
@@ -355,14 +356,14 @@ export class PermissionEnforcer {
    */
   async checkDelegatedToolCall(
     toolName: string,
-    toolArgs: TToolArgs,
+    toolParameters: TToolParameters,
     signal?: AbortSignal,
   ): Promise<boolean> {
     const hookInput = buildHookInput(
       this.sessionId,
       this.cwd,
       toolName,
-      toolArgs,
+      toolParameters,
       this.getPermissionMode(),
       this.transcriptPath,
     );
@@ -373,7 +374,7 @@ export class PermissionEnforcer {
     }
     const decision = await this.decideAndRecord(
       toolName,
-      toolArgs,
+      toolParameters as TToolArgs,
       signal,
       'interactive',
       undefined,
