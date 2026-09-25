@@ -9,8 +9,8 @@ or dates; when the contract changes, rewrite the existing sentence instead of ap
 ## Workflow
 
 - Work starts from a GitHub issue. Branch from a freshly fetched `origin/develop`; one issue per PR.
-- Before filing an issue, search the open ones. A finding inside an open issue's scope is added there; one
-  session's findings share one issue.
+- Before filing an issue, search the open ones. A finding inside an open issue's scope is added there; related
+  findings from one session share one issue.
 - Merge only through a PR with CI green. Before merging, review the diff with the `pr-review-reviewer` agent
   and resolve every MUST/SHOULD. Never push to `develop` or `main` directly.
 - A behavior change ships with a test that failed before the change.
