@@ -26,7 +26,7 @@
 import { readSettingsSourceText } from '@robota-sdk/agent-framework';
 import { MCP_SOURCE_PRECEDENCE } from '@robota-sdk/agent-mcp';
 
-import { definitionSourceOf } from './mcp-definition-sources.js';
+import { definitionSourceOf, describeJsonParseFailure } from './mcp-definition-sources.js';
 
 import type { TSettingsSource } from '@robota-sdk/agent-framework';
 import type { TMCPDefinitionSource } from '@robota-sdk/agent-mcp';
@@ -92,9 +92,10 @@ function mcpObjectOf(source: TSettingsSource): IParsedMcpSource | IMcpSettingsPr
     parsed = JSON.parse(text);
   } catch (error) {
     // allow-fallback: a corrupt settings file is reported as a named problem, never treated as "no
-    // mcp settings configured" — the parse error is used (`reason`), not dropped.
-    const message = error instanceof Error ? error.message : String(error);
-    return { key: '*', source: definitionSource, origin, reason: `invalid JSON: ${message}` };
+    // mcp settings configured" — a fixed, value-free description is used (`reason`), never
+    // `Error#message` itself, which can echo a fragment of the source text — including a secret
+    // sitting beside a malformed value — verbatim (see `describeJsonParseFailure`'s doc).
+    return { key: '*', source: definitionSource, origin, reason: describeJsonParseFailure(error) };
   }
 
   if (!isPlainObject(parsed) || parsed['mcp'] === undefined) return undefined;

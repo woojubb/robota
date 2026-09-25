@@ -1,7 +1,7 @@
 /**
  * Whole-entry precedence resolution (MCP-001).
  *
- * Two properties carry the weight here, and both are ADR-005's:
+ * Three properties carry the weight here, and all three are ADR-005's:
  *
  * 1. **Entries are never field-merged.** The winning source supplies the whole definition. Merging
  *    would let a lower-trust source contribute a field — an extra header, a different `command` —
@@ -10,6 +10,15 @@
  *    decoded, the name resolves to `unresolved`; it does NOT fall through to the next source. Fall-
  *    through would mean a broken managed policy silently hands the name to a plugin — failing open
  *    in exactly the case where the operator most needs it to fail closed.
+ * 3. **A source-level failure in the managed tier blocks every LOWER tier, not just names managed
+ *    also declares.** When the managed source could not be read AT ALL (issue #2794's
+ *    `sourceProblems`), there is no way to tell "managed defines nothing" from "managed defines this
+ *    exact name and we cannot see it" — so a name that would otherwise resolve from local, project,
+ *    user or plugin is blocked instead. A name that already resolved from a DIFFERENT, readable
+ *    managed origin is unaffected (a broken source-level origin contributes zero definitions, so it
+ *    cannot be the thing that actually won). A source-level failure in any OTHER tier carries no
+ *    such ambiguity for a higher-trust source and stays informational: everything else still
+ *    resolves.
  */
 
 import type {
@@ -60,6 +69,29 @@ function rankOf(source: TMCPDefinitionSource): number {
 }
 
 /**
+ * Everything one call to `resolveByPrecedence` produced: the per-name resolution `IMCPResolvedEntry`
+ * already carried, plus every problem that named no server at all.
+ *
+ * A source-level problem (`IMCPDefinitionProblem` with `name === ''`) is the SAME problem type a
+ * server-level entry carries — one type, one scope field distinguishes them — but it cannot become
+ * an `IMCPResolvedEntry` because that shape is keyed by server name. `sourceProblems` is that
+ * problem's carrier: without it, an entirely unreadable managed policy (config root not an object,
+ * no `mcpServers`, `mcpServers` not an object) vanished with a `continue` and reached
+ * `statusOf`/`listServers` as if nothing had gone wrong (issue #2794).
+ *
+ * A source problem in the HIGHEST-precedence tier (`MCP_SOURCE_PRECEDENCE[0]`, `managed`) also
+ * changes `entries`, not just `sourceProblems`: every name that would otherwise resolve from a
+ * LOWER-trust source is blocked instead (see `resolveByPrecedence`'s doc). A source problem in any
+ * other tier is purely informational — it sits beside `entries`, and every other source still
+ * resolves exactly as if it were absent.
+ */
+export interface IMCPPrecedenceResult {
+  readonly entries: readonly IMCPResolvedEntry[];
+  /** Every problem with `name === ''` across all sources, in source order. Never filtered by rank. */
+  readonly sourceProblems: readonly IMCPDefinitionProblem[];
+}
+
+/**
  * Resolve every server name across the supplied sources.
  *
  * `materialize` is injected rather than imported so this module stays about ORDER. The caller
@@ -69,8 +101,9 @@ function rankOf(source: TMCPDefinitionSource): number {
 export function resolveByPrecedence(
   sources: readonly IMCPSourceCandidates[],
   materialize: (definition: IMCPServerDefinition) => IMCPServerDefinitionResolved,
-): readonly IMCPResolvedEntry[] {
+): IMCPPrecedenceResult {
   const byName = new Map<string, ICandidate[]>();
+  const sourceProblems: IMCPDefinitionProblem[] = [];
 
   const add = (name: string, candidate: ICandidate): void => {
     const list = byName.get(name);
@@ -84,14 +117,13 @@ export function resolveByPrecedence(
     }
     for (const problem of source.problems) {
       // A container-level problem has no name — it cannot shadow or be shadowed by a named entry,
-      // so it is not a candidate for any name. This `continue` is correct.
-      //
-      // Contained — BEHAVIOR-2794 (issue #2794). What is NOT correct is where it leaves the
-      // problem: this function returns `IMCPResolvedEntry[]`, which is keyed by server name and has
-      // no source-level channel, so an entirely unreadable managed policy reaches `statusOf` as
-      // `{total: 0, unresolved: 0}` and says nothing at all. Fixing it here would be wrong; the
-      // output type needs the channel, which BEHAVIOR-2794 owns.
-      if (problem.name === '') continue;
+      // so it is not a candidate for any name. It still needs a carrier, though (issue #2794): it
+      // is collected into `sourceProblems` rather than dropped, so a caller building `statusOf`/
+      // `listServers` from this result can say which source could not be read at all.
+      if (problem.name === '') {
+        sourceProblems.push(problem);
+        continue;
+      }
       add(problem.name, { source: source.source, origin: problem.origin, problem });
     }
   }
@@ -127,5 +159,68 @@ export function resolveByPrecedence(
     });
   }
 
-  return entries.sort((a, b) => a.name.localeCompare(b.name));
+  const sorted = entries.sort((a, b) => a.name.localeCompare(b.name));
+
+  // Fail closed on the managed tier (ADR-005, extended by issue #2794): while the highest-precedence
+  // source could not be read at all, a name that resolved from a LOWER tier must not activate,
+  // because the unreadable managed source might have defined that exact name and there is no way to
+  // tell. Only `MCP_SOURCE_PRECEDENCE[0]` triggers this; a source problem anywhere else stays
+  // informational (`sourceProblems` alone), because a broken LOWER-trust source can never hide a
+  // HIGHER-trust one.
+  //
+  // An entry that ALREADY resolved from the managed tier itself (from a different, READABLE managed
+  // origin than the broken one) is left alone: a source-level problem means that origin contributed
+  // ZERO definitions (`decodeSource`'s contract — the whole container failed, not one entry), so it
+  // cannot be the thing that actually won this name, and there is no ambiguity left to fail closed
+  // over for a name managed already answered.
+  const managedTier = MCP_SOURCE_PRECEDENCE[0];
+  const blockingProblem = sourceProblems.find((problem) => problem.source === managedTier);
+  if (blockingProblem === undefined) {
+    return { entries: sorted, sourceProblems };
+  }
+
+  const blocked = sorted.map((entry): IMCPResolvedEntry => {
+    if (entry.status !== 'resolved' || entry.source === managedTier) return entry;
+    return {
+      name: entry.name,
+      source: entry.source,
+      origin: entry.origin,
+      status: 'unresolved',
+      problem: {
+        name: entry.name,
+        source: entry.source,
+        origin: entry.origin,
+        reason:
+          `${BLOCKED_REASON_PREFIX} the ${managedTier} source (${blockingProblem.origin}) could not ` +
+          `be read (${blockingProblem.reason}), so a lower-trust definition cannot be trusted to be ` +
+          'the real winner',
+      },
+      shadowed: entry.shadowed,
+    };
+  });
+
+  return { entries: blocked, sourceProblems };
+}
+
+/**
+ * The fixed prefix every reason `resolveByPrecedence` synthesizes for a managed-tier block starts
+ * with (never a caller's own string match against the rest of the sentence, which also names the
+ * broken origin and its reason — a caller wanting only the FACT of blocking uses
+ * {@link isBlockedByManagedFailure} instead of restating this prefix itself).
+ */
+const BLOCKED_REASON_PREFIX = 'blocked:';
+
+/**
+ * Whether `entry` is one `resolveByPrecedence` blocked because the managed tier could not be read
+ * (its doc, principle 3) — as opposed to an entry that is `unresolved` for its OWN reason (a
+ * malformed entry, an entry whose only source is broken for a non-managed-tier reason). A caller
+ * reporting "these servers did not activate because managed is broken" (a startup diagnostic, an
+ * `/mcp status` line) uses this rather than re-deriving the same predicate `resolveByPrecedence`
+ * already computed, or restating {@link BLOCKED_REASON_PREFIX} itself.
+ */
+export function isBlockedByManagedFailure(entry: IMCPResolvedEntry): boolean {
+  return (
+    entry.status === 'unresolved' &&
+    (entry.problem?.reason.startsWith(BLOCKED_REASON_PREFIX) ?? false)
+  );
 }

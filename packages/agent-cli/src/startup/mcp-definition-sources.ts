@@ -28,10 +28,20 @@ import type {
 } from '@robota-sdk/agent-mcp';
 
 /** What sourcing produced: the entries `MCPDefinitionRegistry` can resolve, and everything that
- * kept a source or an entry from contributing — reported, never silently dropped. */
+ * kept a source or an entry from contributing — reported, never silently dropped.
+ *
+ * `problems` is every refused entry AND every source-level problem, for the one-line-per-problem
+ * startup diagnostic (`mcp-startup.ts`). `sourceProblems` is the source-scoped subset alone
+ * (`resolveByPrecedence`'s carrier for issue #2794: a config root that is not an object, no
+ * `mcpServers`, `mcpServers` not an object, or invalid JSON) — kept separate so a LIVE view (the
+ * `/mcp` command) can say which source could not be read without re-deriving it from `problems` by
+ * an empty-name convention. When `sourceProblems` names the MANAGED tier, `entries` already reflects
+ * `resolveByPrecedence`'s fail-closed rule: nothing resolves from ANY source while it is broken, not
+ * only the names managed happens to declare — this module does not re-derive or relax that. */
 export interface IMcpDefinitionResolution {
   readonly entries: readonly IMCPResolvedEntry[];
   readonly problems: readonly IMCPDefinitionProblem[];
+  readonly sourceProblems: readonly IMCPDefinitionProblem[];
 }
 
 /**
@@ -41,6 +51,29 @@ export interface IMcpDefinitionResolution {
  */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * A fixed, value-free description of a `JSON.parse` failure — never `Error#message` itself.
+ *
+ * Node's JSON parser echoes a fragment of the SOURCE TEXT into that message for several malformed
+ * inputs — not only the unterminated/unquoted-value cases: `JSON.parse('not json at all')` throws
+ * `Unexpected token 'o', "not json at all" is not valid JSON`. A settings file corrupted mid-secret
+ * (`"API_KEY": sk-live-...` with a missing closing quote) throws a message containing that secret
+ * text verbatim, which this module would otherwise carry, unredacted, into a diagnostic and into
+ * `/mcp status`'s rendered output. Only the position Node's OWN generated suffix names — never any
+ * substring the regex did not anchor to that suffix — survives here; every other input yields the
+ * fixed string with no position at all, rather than risk echoing content that happens to also match.
+ */
+export function describeJsonParseFailure(error: unknown): string {
+  const message = error instanceof Error ? error.message : String(error);
+  const located = /\bat position (\d+)(?: \(line (\d+) column (\d+)\))?$/i.exec(message);
+  if (located === null) return 'invalid JSON';
+  const [, position, line, column] = located;
+  if (line !== undefined && column !== undefined) {
+    return `invalid JSON (line ${line}, column ${column})`;
+  }
+  return `invalid JSON (position ${position})`;
 }
 
 /**
@@ -62,13 +95,24 @@ export function definitionSourceOf(source: TSettingsSource): TMCPDefinitionSourc
 }
 
 /**
- * One settings source's contribution: usable `mcpServers` candidates, a source-level problem (the
- * text failed to parse as JSON), or nothing (an absent source, or a source that parses but declares
- * no `mcpServers` — neither is a problem; there is nothing to report on).
+ * One settings source's contribution: usable `mcpServers` candidates (possibly none, alongside a
+ * source-level problem when the text failed to parse as JSON or the root is unusable), or nothing
+ * (an absent source, or a source that parses to a plain object declaring no `mcpServers` — neither
+ * is a problem; there is nothing to report on).
+ *
+ * A parse failure, and a NON-OBJECT root (`null`, an array, a string, a number, a boolean — anything
+ * `decodeSource`'s own `isPlainObject` guard would refuse), both become an `IMCPSourceCandidates`
+ * with zero definitions and one source-scoped problem (`name: ''`, the same convention `decodeSource`
+ * uses for a container-level problem — issue #2794) rather than being treated as "absent" and
+ * skipped. Skipping was FAIL-OPEN: a managed policy file that happens to parse to `null` or `[]`
+ * (truncated write, wrong file swapped in, `echo null > policy.json`) read as "no managed policy
+ * configured" instead of "managed could not be read", so a lower-trust definition activated exactly
+ * where the highest-trust source most needed to fail closed (PR #3076 review). Only a source that
+ * parses to a genuine plain object with no `mcpServers` key at all is "nothing to report" — every
+ * other non-empty, parseable text reaches `decodeSource`, which is the ONE place that already knows
+ * how to turn a bad root into that problem.
  */
-function candidatesOf(
-  source: TSettingsSource,
-): IMCPSourceCandidates | IMCPDefinitionProblem | undefined {
+function candidatesOf(source: TSettingsSource): IMCPSourceCandidates | undefined {
   const text = readSettingsSourceText(source, 'resolve MCP server definitions');
   if (text === undefined || text.trim() === '') return undefined;
 
@@ -79,18 +123,24 @@ function candidatesOf(
   try {
     parsed = JSON.parse(text);
   } catch (error) {
-    // allow-fallback: a corrupt settings file is reported as a named problem, never treated as "no
-    // MCP servers configured" — the parse error is used (`reason`), not dropped.
-    const message = error instanceof Error ? error.message : String(error);
+    // allow-fallback: a corrupt settings file is reported as a source-scoped problem, never treated
+    // as "no MCP servers configured" — a fixed, value-free description is used (`reason`), never
+    // `Error#message` itself (see `describeJsonParseFailure`'s doc for why).
     return {
-      name: '*',
       source: definitionSource,
       origin,
-      reason: `invalid JSON: ${message}`,
+      definitions: [],
+      problems: [
+        { name: '', source: definitionSource, origin, reason: describeJsonParseFailure(error) },
+      ],
     };
   }
 
-  if (!isPlainObject(parsed) || parsed['mcpServers'] === undefined) return undefined;
+  // A plain object with no `mcpServers` key genuinely declares nothing — not a problem. Every other
+  // shape (including a plain object where `mcpServers` IS present but not itself an object) is
+  // handed to `decodeSource`, which already refuses a non-object root and a non-object `mcpServers`
+  // the same way; this function must not re-decide either case by returning `undefined` first.
+  if (isPlainObject(parsed) && parsed['mcpServers'] === undefined) return undefined;
 
   const decoded = decodeSource(parsed, definitionSource, origin);
   return {
@@ -101,39 +151,28 @@ function candidatesOf(
   } satisfies IMCPSourceCandidates;
 }
 
-function isSourceCandidates(
-  value: IMCPSourceCandidates | IMCPDefinitionProblem,
-): value is IMCPSourceCandidates {
-  return 'definitions' in value;
-}
-
 /**
  * Read every settings source, decode the `mcpServers` object each one declares, and resolve
  * precedence across all of them into the entries `createMcpClientComposition` needs.
  *
  * `env` is used only to materialize `${VAR}` templates in the winning definitions
- * (`agent-mcp`'s `materializeDefinition`) — never to decide which source wins.
+ * (`agent-mcp`'s `materializeDefinition`) — never to decide which source wins. `resolveByPrecedence`
+ * is the SINGLE place that turns per-source problems into both `entries` (fail-closed on the managed
+ * tier) and `sourceProblems`; this function does not re-derive either one.
  */
 export function resolveMcpDefinitions(
   settingsSources: readonly TSettingsSource[],
   env: NodeJS.ProcessEnv,
 ): IMcpDefinitionResolution {
   const candidates: IMCPSourceCandidates[] = [];
-  const problems: IMCPDefinitionProblem[] = [];
-
   for (const source of settingsSources) {
     const result = candidatesOf(source);
-    if (result === undefined) continue;
-    if (isSourceCandidates(result)) {
-      candidates.push(result);
-      problems.push(...result.problems);
-    } else {
-      problems.push(result);
-    }
+    if (result !== undefined) candidates.push(result);
   }
 
-  const entries = resolveByPrecedence(candidates, (definition) =>
+  const problems = candidates.flatMap((candidate) => candidate.problems);
+  const { entries, sourceProblems } = resolveByPrecedence(candidates, (definition) =>
     materializeDefinition(definition, env),
   );
-  return { entries, problems };
+  return { entries, problems, sourceProblems };
 }
