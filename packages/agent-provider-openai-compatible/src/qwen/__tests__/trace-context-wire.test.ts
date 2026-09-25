@@ -3,12 +3,44 @@
  * both API surfaces (Chat Completions, and Responses when built-in web tools select it).
  */
 import OpenAI from 'openai';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_QWEN_PROVIDER_BASE_URL, DEFAULT_QWEN_PROVIDER_RESPONSES_BASE_URL } from '../defaults';
 import { QwenProvider } from '../provider';
 
 import type { IChatOptions, IOutboundTraceContext, TUniversalMessage } from '@robota-sdk/agent-core';
+
+/**
+ * A Qwen provider built from `apiKey` constructs its own `OpenAI` clients (`provider.ts`'s
+ * `apiKey` branch) without a caller-supplied `fetch`, unlike every other test in this file, which
+ * injects `fetch` explicitly via `wire()`. This routes ONLY the clients that did not get an explicit
+ * `fetch` through a per-test stub, so those existing, already-passing tests are unaffected.
+ */
+const routedFetch = vi.hoisted(() => ({ current: undefined as typeof fetch | undefined }));
+
+vi.mock('openai', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('openai')>();
+  class RoutedOpenAI extends actual.default {
+    constructor(config: ConstructorParameters<typeof actual.default>[0]) {
+      super(
+        config && 'fetch' in config && config.fetch
+          ? config
+          : {
+              ...config,
+              fetch: (((...args: Parameters<typeof fetch>) => {
+                if (!routedFetch.current) {
+                  throw new Error(
+                    'trace-context-wire.test.ts: no fetch stub is active for this OpenAI client',
+                  );
+                }
+                return routedFetch.current(...args);
+              }) as typeof fetch),
+            },
+      );
+    }
+  }
+  return { ...actual, default: RoutedOpenAI };
+});
 
 const TRACEPARENT = '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01';
 
@@ -88,7 +120,7 @@ describe('Qwen trusted trace context', () => {
     });
 
     it('sends nothing to the default vendor origin unless it is listed', async () => {
-      const unlisted = wire();
+      const unlisted = wire(DEFAULT_QWEN_PROVIDER_BASE_URL);
       await everyCallSite(new QwenProvider({ client: unlisted.client }), {
         outboundTraceContext: traceTo('https://gateway.example.com'),
       });
@@ -100,7 +132,7 @@ describe('Qwen trusted trace context', () => {
       });
       expect(listed.seen.map((request) => request.traceparent)).toEqual([TRACEPARENT, TRACEPARENT, TRACEPARENT]);
 
-      const none = wire();
+      const none = wire(DEFAULT_QWEN_PROVIDER_BASE_URL);
       await everyCallSite(new QwenProvider({ client: none.client }), {});
       expect(none.seen.map((request) => request.traceparent)).toEqual([null, null, null]);
     });
@@ -133,7 +165,7 @@ describe('Qwen trusted trace context', () => {
     });
 
     it('sends nothing to the default vendor Responses origin unless it is listed', async () => {
-      const unlisted = wire();
+      const unlisted = wire(DEFAULT_QWEN_PROVIDER_RESPONSES_BASE_URL);
       await everyResponsesCallSite(
         new QwenProvider({ client: unlisted.client, builtInWebTools: { webSearch: true } }),
         { outboundTraceContext: traceTo('https://gateway.example.com') },
@@ -147,12 +179,120 @@ describe('Qwen trusted trace context', () => {
       );
       expect(listed.seen.map((request) => request.traceparent)).toEqual([TRACEPARENT, TRACEPARENT, TRACEPARENT]);
 
-      const none = wire();
+      const none = wire(DEFAULT_QWEN_PROVIDER_RESPONSES_BASE_URL);
       await everyResponsesCallSite(
         new QwenProvider({ client: none.client, builtInWebTools: { webSearch: true } }),
         {},
       );
       expect(none.seen.map((request) => request.traceparent)).toEqual([null, null, null]);
+    });
+  });
+
+  describe('apiKey with a separate responsesBaseURL (two client origins)', () => {
+    const chatOrigin = 'https://chat.example.com';
+    const responsesOrigin = 'https://responses.example.com';
+
+    /**
+     * `QwenProvider` built from `apiKey` constructs two independent `OpenAI` clients — one for Chat
+     * Completions (`baseURL`), one for Responses (`responsesBaseURL`) — neither given a caller
+     * `fetch`. Both pick up this stub through the `vi.mock('openai', ...)` above, which routes any
+     * client built without its own `fetch` through `routedFetch.current`.
+     */
+    function wireRoutedFetch(): {
+      seen: Array<{ url: string; traceparent: string | null }>;
+      restore: () => void;
+    } {
+      const seen: Array<{ url: string; traceparent: string | null }> = [];
+      routedFetch.current = (async (url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+        const target = String(url);
+        seen.push({ url: target, traceparent: new Headers(init?.headers as HeadersInit).get('traceparent') });
+        const isResponses = target.includes('/responses');
+        const body = JSON.parse(String(init?.body)) as { stream?: boolean };
+        if (body.stream) {
+          return new Response(sse(isResponses ? responseEvents : completionChunks), {
+            status: 200, headers: { 'content-type': 'text/event-stream', 'x-request-id': 'req_1' },
+          });
+        }
+        return new Response(JSON.stringify(isResponses ? response : completion), {
+          status: 200, headers: { 'content-type': 'application/json', 'x-request-id': 'req_1' },
+        });
+      }) as typeof fetch;
+      return {
+        seen,
+        restore: () => {
+          routedFetch.current = undefined;
+        },
+      };
+    }
+
+    it('sends traceparent only on the surface whose client origin is listed', async () => {
+      const { seen, restore } = wireRoutedFetch();
+      try {
+        const chatCompletionsProvider = new QwenProvider({
+          apiKey: 'test-key',
+          baseURL: `${chatOrigin}/v1`,
+          responsesBaseURL: `${responsesOrigin}/v1`,
+        });
+        const responsesProvider = new QwenProvider({
+          apiKey: 'test-key',
+          baseURL: `${chatOrigin}/v1`,
+          responsesBaseURL: `${responsesOrigin}/v1`,
+          builtInWebTools: { webSearch: true },
+        });
+
+        // Only the Chat Completions client's origin is allowlisted.
+        await chatCompletionsProvider.chat(messages, {
+          model: 'qwen-test',
+          outboundTraceContext: traceTo(chatOrigin),
+        });
+        await responsesProvider.chat(messages, {
+          model: 'qwen-test',
+          outboundTraceContext: traceTo(chatOrigin),
+        });
+
+        expect(seen).toHaveLength(2);
+        expect(seen[0]?.url).toContain(chatOrigin);
+        expect(seen[0]?.traceparent).toBe(TRACEPARENT);
+        expect(seen[1]?.url).toContain(responsesOrigin);
+        expect(seen[1]?.traceparent).toBeNull();
+      } finally {
+        restore();
+      }
+    });
+
+    it('sends traceparent only on the Responses surface when only its origin is listed', async () => {
+      const { seen, restore } = wireRoutedFetch();
+      try {
+        const chatCompletionsProvider = new QwenProvider({
+          apiKey: 'test-key',
+          baseURL: `${chatOrigin}/v1`,
+          responsesBaseURL: `${responsesOrigin}/v1`,
+        });
+        const responsesProvider = new QwenProvider({
+          apiKey: 'test-key',
+          baseURL: `${chatOrigin}/v1`,
+          responsesBaseURL: `${responsesOrigin}/v1`,
+          builtInWebTools: { webSearch: true },
+        });
+
+        // Only the Responses client's origin is allowlisted this time.
+        await chatCompletionsProvider.chat(messages, {
+          model: 'qwen-test',
+          outboundTraceContext: traceTo(responsesOrigin),
+        });
+        await responsesProvider.chat(messages, {
+          model: 'qwen-test',
+          outboundTraceContext: traceTo(responsesOrigin),
+        });
+
+        expect(seen).toHaveLength(2);
+        expect(seen[0]?.url).toContain(chatOrigin);
+        expect(seen[0]?.traceparent).toBeNull();
+        expect(seen[1]?.url).toContain(responsesOrigin);
+        expect(seen[1]?.traceparent).toBe(TRACEPARENT);
+      } finally {
+        restore();
+      }
     });
   });
 

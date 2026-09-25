@@ -24,6 +24,11 @@ export function spanIdFromMintedId(mintedId: string): string {
 /** The provider-call name for {@link spanIdFromMintedId}, kept so existing callers keep working. */
 export const providerCallSpanId: (callId: string) => string = spanIdFromMintedId;
 
+/** Whether `spanId` is a well-formed minted span ID: 16 lowercase hex characters, not all zero. */
+export function isMintedSpanId(spanId: string): boolean {
+  return SPAN_ID.test(spanId);
+}
+
 /** A sampled version-00 `traceparent`, or undefined when either identifier is invalid. */
 export function buildTraceparent(traceId: string, spanId: string): string | undefined {
   if (!TRACE_ID.test(traceId) || !SPAN_ID.test(spanId)) return undefined;
