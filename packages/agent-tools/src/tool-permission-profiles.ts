@@ -53,9 +53,10 @@ export const AGENT_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPermis
   Edit: { argument: { key: 'filePath', kind: 'path' }, riskClass: 'modify' },
 
   // Arbitrary execution, where the blast radius is not bounded by a path.
-  Shell: { argument: { key: 'command', kind: 'command' }, riskClass: 'execute' },
-  // TERM-008: a model-familiar alias of the same implementation, so the same classification.
-  Bash: { argument: { key: 'command', kind: 'command' }, riskClass: 'execute' },
+  Shell: { argument: { key: 'command', kind: 'command' }, riskClass: 'execute', aliases: ['Bash'] },
+  // TERM-008: a model-familiar alias of the same implementation, so the same classification — and
+  // a rule naming either name governs both.
+  Bash: { argument: { key: 'command', kind: 'command' }, riskClass: 'execute', aliases: ['Shell'] },
   // SELFHOST-010: a GUI mutation is not a file edit, so `acceptEdits` must not cover it — which is
   // exactly what classifying it as execution rather than modification says.
   Computer: { riskClass: 'execute' },
