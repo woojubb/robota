@@ -35,6 +35,14 @@ function wrapped(inner: Error): ProviderError {
   return new ProviderError('Conversation failed', 'conversation', inner);
 }
 
+/** An OpenAI-compatible vendor's "no such model", with the given HTTP status. */
+function modelNotFound(status: number): Error {
+  return Object.assign(withCode('The model does not exist', 'model_not_found'), {
+    status,
+    type: 'invalid_request_error',
+  });
+}
+
 function withCode(message: string, code: string): Error {
   return Object.assign(new Error(message), { code });
 }
@@ -193,6 +201,55 @@ describe('classifyProviderFailure', () => {
       wrapped(new AuthenticationError('bad key')),
       false,
       'authentication',
+    ],
+    [
+      'outer 401 over inner model_not_found',
+      new ProviderError('denied', 'deepseek', modelNotFound(401), undefined, { status: 401 }),
+      false,
+      'authentication',
+    ],
+    [
+      'outer 429 over inner model_not_found',
+      new ProviderError('slow', 'deepseek', modelNotFound(429), undefined, { status: 429 }),
+      false,
+      'rate-limit',
+    ],
+    [
+      'RateLimitError over a model_not_found cause',
+      Object.assign(new RateLimitError('slow'), { cause: modelNotFound(400) }),
+      false,
+      'rate-limit',
+    ],
+    [
+      'AuthenticationError over a model_not_found cause',
+      Object.assign(new AuthenticationError('bad key'), { cause: modelNotFound(400) }),
+      false,
+      'authentication',
+    ],
+    ['single 401 with code model_not_found', modelNotFound(401), false, 'authentication'],
+    ['single 429 with code model_not_found', modelNotFound(429), false, 'rate-limit'],
+    ['NetworkError over an inner 503', new NetworkError('down', httpError(503)), false, 'network'],
+    [
+      'ECONNRESET over a 503 cause',
+      Object.assign(withCode('socket hang up', 'ECONNRESET'), { cause: httpError(503) }),
+      false,
+      'network',
+    ],
+    [
+      'SDK connection class over a 503 cause, wrapped',
+      toProviderError(
+        new ApiConnectionErrorShape('Connection error.', { cause: httpError(503) }),
+        'openai',
+        'op',
+      ),
+      false,
+      'network',
+    ],
+    [
+      'outer 400 refined by an inner model_not_found code',
+      new ProviderError('bad', 'deepseek', modelNotFound(400), undefined, { status: 400 }),
+      true,
+      'model-unavailable',
     ],
   ];
 

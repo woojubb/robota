@@ -46,7 +46,7 @@ const NETWORK_ERROR_CODES: ReadonlySet<string> = new Set([
   'UND_ERR_CONNECT_TIMEOUT',
 ]);
 const SDK_ABORT_CLASS = 'APIUserAbortError';
-const MAX_WRAP_DEPTH = 4;
+const MAX_WRAP_DEPTH = 8;
 const NETWORK_ERROR_CLASSES: ReadonlySet<string> = new Set([
   'APIConnectionError',
   'APIConnectionTimeoutError',
@@ -191,69 +191,86 @@ function layersOf(error: unknown): unknown[] {
   return layers;
 }
 
-function classifyByDetails(details: IProviderFailureDetails): IProviderFailureClassification {
-  const { status, type } = details;
-  if (status === HTTP_OVERLOADED || (type !== undefined && OVERLOADED_TYPES.has(type))) {
-    return { switchable: true, reason: 'overloaded' };
-  }
+type TLayerVerdict =
+  | { kind: 'definitive'; classification: IProviderFailureClassification }
+  /** A bare 400/404: a deeper `model_not_found` code may still say more precisely what failed. */
+  | { kind: 'tentative'; classification: IProviderFailureClassification }
+  | { kind: 'none' };
+
+const definitive = (switchable: boolean, reason: TProviderFailureReason): TLayerVerdict => ({
+  kind: 'definitive',
+  classification: { switchable, reason },
+});
+
+function detailsOf(layer: unknown): IProviderFailureDetails {
+  if (!(layer instanceof ProviderError)) return readProviderFailureDetails(layer);
+  return {
+    ...(layer.status !== undefined && { status: layer.status }),
+    ...(layer.type !== undefined && { type: layer.type }),
+  };
+}
+
+function hasModelUnavailableCode(layer: unknown): boolean {
+  if (layer instanceof RobotaError) return false;
+  const code = stringField(asRecord(layer), 'code');
+  return code !== undefined && MODEL_UNAVAILABLE_CODES.has(code);
+}
+
+/**
+ * What one layer says on its own. The order is the precedence: what the error IS, then the
+ * failures no other model fixes (auth, rate limit, billing), then a model the vendor names as
+ * unknown, then a transport failure, then the remaining statuses.
+ */
+function classifyLayer(layer: unknown): TLayerVerdict {
+  if (layer instanceof RateLimitError) return definitive(false, 'rate-limit');
+  if (layer instanceof AuthenticationError) return definitive(false, 'authentication');
+  if (layer instanceof ModelNotAvailableError) return definitive(true, 'model-unavailable');
+
+  const { status, type } = detailsOf(layer);
   if (status === HTTP_TOO_MANY_REQUESTS || (type !== undefined && RATE_LIMIT_TYPES.has(type))) {
-    return { switchable: false, reason: 'rate-limit' };
+    return definitive(false, 'rate-limit');
   }
   if (
     status === HTTP_UNAUTHORIZED ||
     status === HTTP_FORBIDDEN ||
     (type !== undefined && AUTH_TYPES.has(type))
   ) {
-    return { switchable: false, reason: 'authentication' };
+    return definitive(false, 'authentication');
   }
-  if (status === HTTP_PAYMENT_REQUIRED) return { switchable: false, reason: 'billing' };
-  if (status === HTTP_SERVICE_UNAVAILABLE) {
-    return { switchable: true, reason: 'service-unavailable' };
+  if (status === HTTP_PAYMENT_REQUIRED) return definitive(false, 'billing');
+
+  // OpenAI-compatible vendors send `code: 'model_not_found'` beside `type: 'invalid_request_error'`
+  // on a 400, so the code outranks a bare 400/404 — and nothing else.
+  const bareStatus =
+    status === undefined || status === HTTP_BAD_REQUEST || status === HTTP_NOT_FOUND;
+  if (
+    bareStatus &&
+    (hasModelUnavailableCode(layer) || (type !== undefined && MODEL_UNAVAILABLE_CODES.has(type)))
+  ) {
+    return definitive(true, 'model-unavailable');
   }
+
+  if (isNetworkFailure(layer)) return definitive(false, 'network');
+
+  if (status === HTTP_OVERLOADED || (type !== undefined && OVERLOADED_TYPES.has(type))) {
+    return definitive(true, 'overloaded');
+  }
+  if (status === HTTP_SERVICE_UNAVAILABLE) return definitive(true, 'service-unavailable');
   if (
     status === HTTP_INTERNAL_SERVER_ERROR ||
     status === HTTP_BAD_GATEWAY ||
     status === HTTP_GATEWAY_TIMEOUT
   ) {
-    return { switchable: true, reason: 'server-error' };
+    return definitive(true, 'server-error');
   }
   // A chat endpoint's only addressable resource is the model, so its 404 means the model.
-  if (status === HTTP_NOT_FOUND || (type !== undefined && MODEL_UNAVAILABLE_CODES.has(type))) {
-    return { switchable: true, reason: 'model-unavailable' };
+  if (status === HTTP_NOT_FOUND) {
+    return { kind: 'tentative', classification: { switchable: true, reason: 'model-unavailable' } };
   }
   if (status === HTTP_BAD_REQUEST || status === HTTP_PAYLOAD_TOO_LARGE) {
-    return { switchable: false, reason: 'invalid-request' };
+    return { kind: 'tentative', classification: { switchable: false, reason: 'invalid-request' } };
   }
-  return { switchable: false, reason: 'unknown' };
-}
-
-function classifyLayer(layer: unknown): IProviderFailureClassification {
-  if (layer instanceof RateLimitError) return { switchable: false, reason: 'rate-limit' };
-  if (layer instanceof AuthenticationError) return { switchable: false, reason: 'authentication' };
-  if (layer instanceof ModelNotAvailableError) {
-    return { switchable: true, reason: 'model-unavailable' };
-  }
-  return classifyByDetails(
-    layer instanceof ProviderError
-      ? {
-          ...(layer.status !== undefined && { status: layer.status }),
-          ...(layer.type !== undefined && { type: layer.type }),
-        }
-      : readProviderFailureDetails(layer),
-  );
-}
-
-/**
- * Whether any layer names, by its `code`, a model the vendor does not serve. OpenAI-compatible
- * vendors send `code: 'model_not_found'` beside `type: 'invalid_request_error'` on a 400, so the
- * code outranks a status and type that would otherwise read as a malformed request.
- */
-function hasModelUnavailableCode(layers: readonly unknown[]): boolean {
-  return layers.some((layer) => {
-    if (layer instanceof RobotaError) return false;
-    const code = stringField(asRecord(layer), 'code');
-    return code !== undefined && MODEL_UNAVAILABLE_CODES.has(code);
-  });
+  return { kind: 'none' };
 }
 
 /**
@@ -263,8 +280,11 @@ function hasModelUnavailableCode(layers: readonly unknown[]): boolean {
  * this model or this vendor's capacity. Not switchable: auth, billing, rate limit, a request the
  * vendor rejected as malformed or too large, a transport failure, an abort, and anything
  * unrecognized — another model would fail the same way, the caller asked to stop, or nobody knows.
- * Every wrapped layer is read, outermost first, so a wrapper that adds no facts of its own does not
- * hide the ones underneath it.
+ *
+ * An abort anywhere wins, because the caller asked to stop. Otherwise the outermost layer that says
+ * something decides, so a wrapper's own verdict (a rate limit, a dropped connection) is never
+ * overridden by a switchable status buried underneath it; a wrapper that says nothing lets the
+ * layers underneath speak.
  */
 export function classifyProviderFailure(
   error: unknown,
@@ -274,13 +294,19 @@ export function classifyProviderFailure(
   if (signal?.aborted === true || layers.some((layer) => isAbort(layer))) {
     return { switchable: false, reason: 'aborted' };
   }
-  if (hasModelUnavailableCode(layers)) return { switchable: true, reason: 'model-unavailable' };
+  let tentative: IProviderFailureClassification | undefined;
   for (const layer of layers) {
-    const classification = classifyLayer(layer);
-    if (classification.reason !== 'unknown') return classification;
+    const verdict = classifyLayer(layer);
+    if (verdict.kind === 'none') continue;
+    if (tentative === undefined && verdict.kind === 'definitive') return verdict.classification;
+    if (tentative === undefined) {
+      tentative = verdict.classification;
+      continue;
+    }
+    // Under a bare 400/404, only a deeper, more precise "no such model" refines it.
+    if (verdict.kind === 'definitive' && verdict.classification.reason === 'model-unavailable') {
+      return verdict.classification;
+    }
   }
-  if (layers.some((layer) => isNetworkFailure(layer))) {
-    return { switchable: false, reason: 'network' };
-  }
-  return { switchable: false, reason: 'unknown' };
+  return tentative ?? { switchable: false, reason: 'unknown' };
 }
