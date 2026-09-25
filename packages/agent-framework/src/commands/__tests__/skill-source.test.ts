@@ -2,6 +2,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, realpathSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
+import { setGlobalLoggerSink, type ILogger } from '@robota-sdk/agent-core';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import {
@@ -18,6 +19,24 @@ function createSkillDir(base: string, dirName: string, content: string): void {
 function createMdFile(base: string, fileName: string, content: string): void {
   mkdirSync(base, { recursive: true });
   writeFileSync(join(base, fileName), content, 'utf-8');
+}
+
+/** Runs discovery with a capturing logger and returns the refusal warnings it logged. */
+function captureWarnings<T>(action: () => T): { result: T; warnings: string } {
+  const lines: string[] = [];
+  const sink: ILogger = {
+    debug: () => undefined,
+    info: () => undefined,
+    warn: (message, context) => lines.push(`${String(message)} ${JSON.stringify(context)}`),
+    error: () => undefined,
+    log: () => undefined,
+  };
+  setGlobalLoggerSink(sink);
+  try {
+    return { result: action(), warnings: lines.join('\n') };
+  } finally {
+    setGlobalLoggerSink(undefined);
+  }
 }
 
 describe('SkillCommandSource multi-path', () => {
@@ -177,7 +196,9 @@ describe('SkillCommandSource multi-path', () => {
       createNodeHostContributionSourcesFixture(projectDir, homeDir),
     );
 
-    expect(() => source.getCommands()).toThrow(/effort.*invalid|invalid.*effort/i);
+    const { result, warnings } = captureWarnings(() => source.getCommands());
+    expect(result.map((c) => c.name)).not.toContain('invalid-effort');
+    expect(warnings).toMatch(/\[invalid-value\] effort/);
   });
 
   it('should filter model-invocable skills', () => {
@@ -312,8 +333,52 @@ describe('SkillCommandSource multi-path', () => {
     const source = createTestSkillCommandSource(
       createNodeHostContributionSourcesFixture(projectDir, homeDir),
     );
-    expect(() => source.getModelInvocableSkills()).toThrow(file);
-    expect(() => source.getCommands()).toThrow(/disable-model-invocation/);
+    const { result, warnings } = captureWarnings(() => source.getCommands());
+    expect(result.map((c) => c.name)).not.toContain('denied');
+    expect(warnings).toContain(file);
+    expect(warnings).toContain('disable-model-invocation');
+  });
+
+  it('ignores fields robota does not own and keeps loading beside a refused skill', () => {
+    const claudeSkills = join(projectDir, '.claude', 'skills');
+    createSkillDir(
+      claudeSkills,
+      'foreign-fields',
+      '---\nname: foreign-fields\ndescription: d\nversion: 1.0.0\ntriggers:\n  - go\n---\nBody',
+    );
+    createSkillDir(claudeSkills, 'broken', '---\ndescription: "a", "b"\n---\nBody');
+
+    const source = createTestSkillCommandSource(
+      createNodeHostContributionSourcesFixture(projectDir, homeDir),
+    );
+    const { result, warnings } = captureWarnings(() => source.getCommands());
+
+    expect(result.map((c) => c.name)).toEqual(['foreign-fields']);
+    expect(warnings).toContain('[yaml-syntax]');
+  });
+
+  it('reports a refused skill once even when several sources rediscover it', () => {
+    createSkillDir(join(projectDir, '.claude', 'skills'), 'broken', '---\neffort: extreme\n---\n');
+    const sources = createNodeHostContributionSourcesFixture(projectDir, homeDir);
+
+    const { warnings } = captureWarnings(() => {
+      createTestSkillCommandSource(sources).getCommands();
+      createTestSkillCommandSource(sources).getCommands();
+    });
+
+    expect(warnings.split('skill definition refused')).toHaveLength(2);
+  });
+
+  it('does not let a lower-priority skill stand in for a refused one of the same name', () => {
+    createSkillDir(join(projectDir, '.robota', 'skills'), 'shared', '---\neffort: extreme\n---\n');
+    createSkillDir(join(homeDir, '.robota', 'skills'), 'shared', '---\nname: shared\n---\nHome');
+
+    const source = createTestSkillCommandSource(
+      createNodeHostContributionSourcesFixture(projectDir, homeDir),
+    );
+    const { result } = captureWarnings(() => source.getCommands());
+
+    expect(result.map((c) => c.name)).not.toContain('shared');
   });
 
   it('should use directory name as fallback when no frontmatter name', () => {

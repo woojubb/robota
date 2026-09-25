@@ -250,13 +250,16 @@ function EventEntry({ entry }: { entry: IHistoryEntry }): React.ReactElement {
   // may come from a plugin, a memory topic the model chose — and interpolated into a sentence. The
   // formatter cannot sanitize for a terminal (the same string reaches the GUI, where escapes are not
   // the threat and stripping them would be arbitrary), so this render site is the boundary.
-  const eventMessage = sanitizeTerminalText(
+  const text =
     typeof eventData?.message === 'string'
       ? eventData.message
       : typeof eventData?.content === 'string'
         ? eventData.content
-        : entry.type,
-  );
+        : undefined;
+  // An event without a message is a record kept for persistence or telemetry (a provider-call trace,
+  // a usage observation), not a notice; printing its type name only adds noise to the transcript.
+  if (text === undefined) return <></>;
+  const eventMessage = sanitizeTerminalText(text);
 
   return (
     <Box flexDirection="column" marginBottom={1}>

@@ -43,7 +43,7 @@ export class TuiSessionEventProjector {
 
     const onUserMessage = (content: string): void => {
       this.options.onUserMessage(content);
-      manager.addEntry(attributedUserEcho(content, session));
+      manager.addUserEcho(attributedUserEcho(content, session));
     };
     const syncHistory = (): void => manager.syncHistory(session.getFullHistory());
     const onComplete = (result: IExecutionResult): void => {

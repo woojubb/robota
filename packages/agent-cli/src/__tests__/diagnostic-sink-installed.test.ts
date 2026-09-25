@@ -36,11 +36,10 @@ describe('the CLI installs a destination for runtime diagnostics', () => {
     expect(after.getGlobalLoggerSink()).toBeDefined();
   });
 
-  it('routes a runtime warning to stderr, where it does not corrupt the TUI', async () => {
+  it('routes a runtime warning to console.error, which Ink prints above its frame', async () => {
     const written: string[] = [];
-    vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
-      written.push(String(chunk));
-      return true;
+    vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      written.push(args.map(String).join(' '));
     });
 
     vi.resetModules();
@@ -55,11 +54,38 @@ describe('the CLI installs a destination for runtime diagnostics', () => {
     expect(written.some((line) => line.includes('[robota]'))).toBe(true);
   });
 
+  it("prints a warning's structured context instead of [object Object]", async () => {
+    const written: string[] = [];
+    vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      written.push(args.map(String).join(' '));
+    });
+
+    vi.resetModules();
+    vi.doMock('../cli.js', () => ({ startCli: () => Promise.resolve() }));
+    await import('../bin.js');
+    const core = await import('@robota-sdk/agent-core');
+
+    const circular: Record<string, unknown> = {};
+    circular['self'] = circular;
+    core.createLogger('probe').warn('plugin skipped', {
+      plugin: 'demo@market',
+      attempts: 2,
+      error: new Error('manifest unreadable'),
+      circular,
+    } as never);
+
+    const line = written.find((text) => text.includes('plugin skipped')) ?? '';
+    expect(line).toContain('plugin=demo@market');
+    expect(line).toContain('attempts=2');
+    expect(line).toContain('error=Error: manifest unreadable');
+    // A circular value has no JSON form; printing it must not throw out of the logger.
+    expect(line).toContain('circular=');
+  });
+
   it('stays quiet below the warn level, so ordinary output is not buried', async () => {
     const written: string[] = [];
-    vi.spyOn(process.stderr, 'write').mockImplementation((chunk: string | Uint8Array) => {
-      written.push(String(chunk));
-      return true;
+    vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      written.push(args.map(String).join(' '));
     });
 
     vi.resetModules();

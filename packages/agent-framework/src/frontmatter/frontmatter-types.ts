@@ -9,7 +9,6 @@ export type TFrontmatterDiagnosticCode =
   | 'duplicate-key'
   | 'alias-or-merge-forbidden'
   | 'root-type'
-  | 'unknown-field'
   | 'invalid-type'
   | 'invalid-value';
 

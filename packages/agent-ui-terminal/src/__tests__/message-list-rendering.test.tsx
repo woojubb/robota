@@ -117,6 +117,22 @@ describe('MessageList rendering', () => {
 
   // ── Chat message rendering ────────────────────────────────────
 
+  it('renders nothing for a recorded event that carries no message', () => {
+    const history: IHistoryEntry[] = ['provider-call-trace', 'usage-observation'].map((type) => ({
+      id: type,
+      timestamp: new Date(),
+      category: 'event',
+      type,
+      data: { traceId: 'trace-1', outcome: 'success' },
+    }));
+    const { lastFrame } = render(<MessageList history={history} />);
+    const output = chalk.reset(lastFrame() ?? '');
+
+    expect(output).not.toContain('System:');
+    expect(output).not.toContain('provider-call-trace');
+    expect(output).not.toContain('usage-observation');
+  });
+
   it('user message renders with "You:" label', () => {
     const history: IHistoryEntry[] = [messageToHistoryEntry(createUserMessage('hello'))];
     const { lastFrame } = render(<MessageList history={history} />);

@@ -2,17 +2,26 @@ import { join, basename } from 'node:path';
 
 import { BUILT_IN_AGENTS } from './built-in-agents.js';
 import { decodeFrontmatter } from '../frontmatter/frontmatter-decoder.js';
-import { FrontmatterDecodeError } from '../frontmatter/frontmatter-error.js';
+import { reportRefusedDefinition } from '../frontmatter/frontmatter-refusal-report.js';
 
 import type { IAgentDefinition } from './agent-definition-types.js';
 import type { IContributionSource } from '../contributions/contribution-source.js';
 import type { IWorkspaceDirectoryEntry } from '../workspace-trust/index.js';
 
+/**
+ * One discovered file. A refused definition keeps its filename as `name` and no `agent`: it still
+ * claims that name, so a lower-priority definition cannot silently stand in for it.
+ */
+interface IDiscoveredAgent {
+  readonly name: string;
+  readonly agent?: IAgentDefinition;
+}
+
 /** Scan a directory for .md files and return parsed agent definitions. */
-function scanAgentsDir(dir: string, source: IContributionSource): IAgentDefinition[] {
+function scanAgentsDir(dir: string, source: IContributionSource): IDiscoveredAgent[] {
   if (source.inspectKind(dir, 'discover agent directory') !== 'directory') return [];
 
-  const agents: IAgentDefinition[] = [];
+  const agents: IDiscoveredAgent[] = [];
   let entries: readonly IWorkspaceDirectoryEntry[];
 
   try {
@@ -33,9 +42,14 @@ function scanAgentsDir(dir: string, source: IContributionSource): IAgentDefiniti
       content,
       profile: 'agent',
     });
-    if (!decoded.ok) throw new FrontmatterDecodeError(decoded.diagnostics);
-    const { metadata: frontmatter, body } = decoded;
     const fallbackName = basename(entry.name, '.md');
+    if (!decoded.ok) {
+      // A refused definition is skipped by path; the other agents still load.
+      reportRefusedDefinition('agent', decoded.diagnostics);
+      agents.push({ name: fallbackName });
+      continue;
+    }
+    const { metadata: frontmatter, body } = decoded;
 
     const agent: IAgentDefinition = {
       name: frontmatter.name ?? fallbackName,
@@ -49,7 +63,7 @@ function scanAgentsDir(dir: string, source: IContributionSource): IAgentDefiniti
     if (frontmatter.disallowedTools !== undefined)
       agent.disallowedTools = frontmatter.disallowedTools;
 
-    agents.push(agent);
+    agents.push({ name: agent.name, agent });
   }
 
   return agents;
@@ -88,10 +102,10 @@ export class AgentDefinitionLoader {
     const customAgents: IAgentDefinition[] = [];
 
     for (const agents of discovered) {
-      for (const agent of agents) {
-        if (!seen.has(agent.name)) {
-          seen.add(agent.name);
-          customAgents.push(agent);
+      for (const { name, agent } of agents) {
+        if (!seen.has(name)) {
+          seen.add(name);
+          if (agent !== undefined) customAgents.push(agent);
         }
       }
     }
