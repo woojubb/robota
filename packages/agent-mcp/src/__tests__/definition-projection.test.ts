@@ -34,7 +34,7 @@ const remote: IMCPResolvedEntry = {
 };
 
 describe('projectEntry', () => {
-  it('never projects expanded stdio command, arguments, or cwd', () => {
+  it('projects stdio command, arguments and cwd readable, with the credential masked', () => {
     const projection = projectEntry({
       name: 'stdio',
       source: 'project',
@@ -52,9 +52,9 @@ describe('projectEntry', () => {
         unsetVariables: [],
       },
     });
-    expect(projection.command).toBe(REDACTED);
-    expect(projection.args).toEqual([REDACTED, REDACTED]);
-    expect(projection.cwd).toBe(REDACTED);
+    expect(projection.command).toBe('/secret/bin');
+    expect(projection.args).toEqual(['--token', 'secret:literal']);
+    expect(projection.cwd).toBe('/secret/work');
     expect(JSON.stringify(projection)).not.toContain('secret-value');
   });
   it('redacts every env and header value while keeping their keys', () => {

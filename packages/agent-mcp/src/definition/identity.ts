@@ -10,8 +10,10 @@
  *
  * - `definitionFingerprint` covers every value that decides what runs or where it connects: the
  *   transport, command, arguments, requested cwd, url, every header and environment entry, the
- *   timeout, and any authentication the definition declares but this version cannot
- *   perform. Change any of it — a `NODE_OPTIONS` value included — and a prior approval no longer
+ *   timeout, the header helper, and any authentication the definition declares but this version
+ *   cannot perform. The helper is covered because its output is sent to the url: approving one
+ *   pairing must not approve the helper's output going somewhere else, or another helper's
+ *   output going there. Change any of it — a `NODE_OPTIONS` value included — and a prior approval no longer
  *   describes what would now run.
  * - `securityIdentity` covers where the definition came from — its name, source and origin. Two
  *   entries that run the identical command are still different subjects for approval if one is a
@@ -27,7 +29,7 @@
 
 import { createHash } from 'node:crypto';
 
-import { withoutSecrets } from './secrecy.js';
+import { displayArgs, displayValue, maskCredentials, withoutSecrets } from './secrecy.js';
 
 import type { IMCPResolvedEntry, IMCPServerDefinitionResolved } from './types.js';
 
@@ -93,28 +95,58 @@ export function definitionFingerprint(definition: IMCPServerDefinitionResolved):
     ...entryParts('env', definition, definition.env),
     'timeout',
     definition.timeout === undefined ? '' : String(definition.timeout),
-    // Only when declared, so every definition without it keeps the fingerprint it had.
+    // Only when declared, so every definition without them keeps the fingerprint it had.
+    ...(definition.headersHelper === undefined
+      ? []
+      : [
+          'headersHelper',
+          definition.headersHelper.command,
+          ...listParts('headersHelperArgs', definition.headersHelper.args),
+        ]),
     ...(definition.unsupportedAuthentication === undefined
       ? []
       : listParts('unsupportedAuthentication', definition.unsupportedAuthentication)),
   ]);
 }
 
+/** Characters an argument may show unquoted: nothing that could hide a boundary or a character. */
+const PLAIN_ARGUMENT = /^[A-Za-z0-9_@%+=:,./-]+$/;
+/** What JSON leaves unescaped but a terminal would act on or hide: C1 controls, format characters. */
+const INVISIBLE = /[\u007f-\u009f\u2028\u2029\p{Cf}]/gu;
+
 /**
- * The endpoint an activation names: the URL, or for stdio the command line — each with its secret
- * stretches replaced, because it lands in activation requests and audit records. One function, so
- * the registry that builds a request and the transport that re-checks it agree.
+ * One argv element as an approver reads it. An element needing quotes is shown as a JSON string
+ * with every control and format character escaped, so `["a b"]` and `["a", "b"]` read differently
+ * and nothing in an argument can rewrite the text around it.
+ */
+function displayArgument(part: string): string {
+  if (PLAIN_ARGUMENT.test(part)) return part;
+  return JSON.stringify(part).replace(
+    INVISIBLE,
+    (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`,
+  );
+}
+
+/**
+ * The endpoint an activation names: the URL, or for stdio the command line — each as a projection
+ * prints it, with secret stretches and credential-shaped literals replaced, because it lands in
+ * activation requests and audit records. A URL whose headers come from a helper names the helper
+ * beside it, so whoever approves sees where the helper's output is sent. One deterministic
+ * function, so the registry that builds a request and the transport that re-checks it agree.
  */
 export function activationEndpoint(definition: IMCPServerDefinitionResolved): string {
-  if (definition.url !== undefined) return withoutSecrets(definition, 'url', definition.url);
+  if (definition.url !== undefined) {
+    const url = displayValue(definition, 'url', definition.url);
+    const helper = definition.headersHelper;
+    if (helper === undefined) return url;
+    const argv = [helper.command, ...helper.args].map((part) =>
+      displayArgument(maskCredentials(part)),
+    );
+    return `${url} (headers from ${argv.join(' ')})`;
+  }
   const command =
-    definition.command === undefined
-      ? ''
-      : withoutSecrets(definition, 'command', definition.command);
-  const args = (definition.args ?? []).map((arg, index) =>
-    withoutSecrets(definition, `args[${index}]`, arg),
-  );
-  return [command, ...args].join(' ').trim();
+    definition.command === undefined ? '' : displayValue(definition, 'command', definition.command);
+  return [command, ...displayArgs(definition, definition.args ?? [])].join(' ').trim();
 }
 
 /** Which configured subject this is — name, source, origin. */

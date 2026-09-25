@@ -1,3 +1,5 @@
+import { toProviderError } from '@robota-sdk/agent-core';
+
 import {
   assembleOpenAICompatibleStream,
   observeProviderNativeRawPayloadStream,
@@ -8,7 +10,6 @@ import {
 } from '../shared/openai-compatible/request-id.js';
 import { openAICompatibleRequestOptions } from '../shared/openai-compatible/request-options.js';
 
-import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';
 import type { IChatOptions, TUniversalMessage } from '@robota-sdk/agent-core';
 import type OpenAI from 'openai';
 
@@ -43,8 +44,6 @@ export async function qwenChatWithStreamingAssembly(
     });
     return withProviderRequestId(assembled, providerRequestId);
   } catch (error) {
-    const qwenError = error as IOpenAICompatibleError;
-    const errorMessage = qwenError.message || 'Qwen streaming request failed';
-    throw new Error(`Qwen stream failed: ${errorMessage}`);
+    throw toProviderError(error, 'qwen', 'Qwen stream failed');
   }
 }

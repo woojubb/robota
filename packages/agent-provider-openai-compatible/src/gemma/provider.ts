@@ -2,6 +2,7 @@ import {
   AbstractAIProvider,
   PERMISSIVE_TOOL_SCHEMA_PROFILE,
   SilentLogger,
+  toProviderError,
   traceHeadersFor,
 } from '@robota-sdk/agent-core';
 import OpenAI from 'openai';
@@ -27,7 +28,6 @@ import {
 import { openAICompatibleRequestOptions } from '../shared/openai-compatible/request-options.js';
 
 import type { IGemmaProviderOptions } from './types';
-import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';
 import type {
   IAssistantMessage,
   IChatOptions,
@@ -134,9 +134,7 @@ export class GemmaProvider extends AbstractAIProvider {
         readOpenAICompatibleRequestId(response),
       );
     } catch (error) {
-      const gemmaError = error as IOpenAICompatibleError;
-      const errorMessage = gemmaError.message || 'Gemma API request failed';
-      throw new Error(`Gemma chat failed: ${errorMessage}`);
+      throw toProviderError(error, 'gemma', 'Gemma chat failed');
     }
   }
 
@@ -203,9 +201,7 @@ export class GemmaProvider extends AbstractAIProvider {
         yield withProviderRequestId(message, providerRequestId);
       }
     } catch (error) {
-      const gemmaError = error as IOpenAICompatibleError;
-      const errorMessage = gemmaError.message || 'Gemma API request failed';
-      throw new Error(`Gemma stream failed: ${errorMessage}`);
+      throw toProviderError(error, 'gemma', 'Gemma stream failed');
     }
   }
 
@@ -367,9 +363,7 @@ export class GemmaProvider extends AbstractAIProvider {
         providerRequestId,
       );
     } catch (error) {
-      const gemmaError = error as IOpenAICompatibleError;
-      const errorMessage = gemmaError.message || 'Gemma streaming request failed';
-      throw new Error(`Gemma stream failed: ${errorMessage}`);
+      throw toProviderError(error, 'gemma', 'Gemma stream failed');
     }
   }
 }
