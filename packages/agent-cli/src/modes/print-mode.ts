@@ -162,7 +162,9 @@ export async function runPrintMode(
     resumeSessionId: sessionResolution.resumeSessionId,
     forkSession: sessionResolution.forkSession,
     sessionName: args.sessionName,
-    bare: args.bare || undefined,
+    bare: args.bare || args.safeMode || undefined,
+    // `--safe-mode`: no hook from any settings layer either (issue #3082).
+    ...(args.safeMode ? { skipConfiguredHooks: true } : {}),
     ...presetSessionFields(presetOptions),
     ...(presetOptions.persona !== undefined ? { persona: presetOptions.persona } : {}),
     ...(presetOptions.agentName !== undefined ? { agentName: presetOptions.agentName } : {}),

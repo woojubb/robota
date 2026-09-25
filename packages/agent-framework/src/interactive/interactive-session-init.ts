@@ -88,7 +88,8 @@ export async function createInteractiveSession(
   let mergedConfig: IResolvedConfig = options.language
     ? { ...config, language: options.language }
     : config;
-  const effectiveHookSources = [...hookSources];
+  if (options.skipConfiguredHooks === true) mergedConfig = { ...mergedConfig, hooks: undefined };
+  const effectiveHookSources = options.skipConfiguredHooks === true ? [] : [...hookSources];
 
   // Project plugins may contain executable hooks. Include that scope only after the host has
   // granted workspace trust; a restricted session still sees user-installed plugins.
@@ -268,6 +269,7 @@ export async function initializeInteractiveSessionAsync(
     onToolExecution: deps.onToolExecution,
     bare: options.bare,
     ...(options.orgPolicy?.disableAutoMode === true ? { disableAutoMode: true } : {}),
+    ...(options.skipConfiguredHooks === true ? { skipConfiguredHooks: true } : {}),
     disableBuiltInHookExecutors: options.disableBuiltInHookExecutors,
     commandHookShell: options.commandHookShell,
     allowedTools: options.allowedTools,

@@ -66,6 +66,8 @@ export interface IParsedCliArgs {
   version: boolean;
   reset: boolean;
   bare: boolean;
+  /** Start with every customization off: instructions, skills, commands, agents, plugins, hooks, MCP. */
+  safeMode: boolean;
   allowedTools: string | undefined;
   deniedTools: string | undefined;
   model: string | undefined;
@@ -169,6 +171,7 @@ const PARSE_ARGS_CONFIG = {
     // Issue #3081: set only by `/cd` when it starts the session in the target directory; not in help.
     'moved-from': { type: 'string' },
     'restricted-workspace': { type: 'boolean', default: false },
+    'safe-mode': { type: 'boolean', default: false },
     serve: { type: 'boolean', default: false },
     'supervised-session-id': { type: 'string' },
     'http-token-file': { type: 'string' },
@@ -300,6 +303,7 @@ function mapParsedValues(
     version: values['version'] ?? false,
     reset: values['reset'] ?? false,
     bare: values['bare'] ?? false,
+    safeMode: values['safe-mode'] ?? false,
     allowedTools: values['allowed-tools'],
     deniedTools: values['denied-tools'],
     model: values['model'],

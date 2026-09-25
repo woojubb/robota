@@ -82,6 +82,8 @@ export interface IHeadlessInteractionChannelOptions {
   forkSession?: boolean;
   sessionName?: string;
   bare?: boolean;
+  /** See `IInteractiveSessionOptions.skipConfiguredHooks`. */
+  skipConfiguredHooks?: boolean;
   allowedTools?: readonly string[];
   deniedTools?: readonly string[];
   appendSystemPrompt?: string;
@@ -234,6 +236,7 @@ export class HeadlessInteractionChannel {
       forkSession: this.opts.forkSession,
       sessionName: this.opts.sessionName,
       bare: this.opts.bare || undefined,
+      ...(this.opts.skipConfiguredHooks === true ? { skipConfiguredHooks: true } : {}),
       allowedTools: this.opts.allowedTools,
       deniedTools: this.opts.deniedTools,
       appendSystemPrompt: this.opts.appendSystemPrompt,

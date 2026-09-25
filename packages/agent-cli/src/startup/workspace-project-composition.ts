@@ -39,6 +39,8 @@ export interface ICreateCliWorkspaceCompositionOptions {
   readonly userHome: string;
   readonly projectAccess?: TWorkspaceProjectAccess;
   readonly projectSettingsWriter?: IWorkspaceProjectSettingsWriter;
+  /** `--safe-mode`: no skills, commands or agents from any scope, the user's included. */
+  readonly safeMode?: boolean;
 }
 
 export interface ICliWorkspaceComposition {
@@ -53,11 +55,19 @@ export interface ICliWorkspaceComposition {
 
 export type TCliWorkspaceCompositionOverrides = Pick<
   ICreateCliWorkspaceCompositionOptions,
-  'projectAccess' | 'projectSettingsWriter'
+  'projectAccess' | 'projectSettingsWriter' | 'safeMode'
 >;
 
 /** Set only by `/cd` when the session it moves is Restricted (issue #3081). */
 export const RESTRICTED_WORKSPACE_FLAG = '--restricted-workspace';
+
+/** Starts with every customization off, to rule one out (issue #3082). */
+export const SAFE_MODE_FLAG = '--safe-mode';
+
+export const SAFE_MODE_NOTICE =
+  'Safe mode: project and user instruction files, skills, commands, agents, output styles, ' +
+  'plugins, hooks and MCP servers are off. Provider, model, built-in tools and permissions work as ' +
+  'usual.';
 
 /**
  * The startup access decision. A `/cd` from a Restricted session never widens access, whatever the
@@ -69,7 +79,8 @@ export async function resolveStartupWorkspaceProjectAccess(
   cwd: string,
   options: { readonly projectAccess?: TWorkspaceProjectAccess } = {},
 ): Promise<TWorkspaceProjectAccess> {
-  if (argv.includes(RESTRICTED_WORKSPACE_FLAG)) {
+  // Safe mode loads nothing from the project, so it starts Restricted whatever the trust store says.
+  if (argv.includes(RESTRICTED_WORKSPACE_FLAG) || argv.includes(SAFE_MODE_FLAG)) {
     return createRestrictedWorkspaceProjectAccess('untrusted', cwd);
   }
   return resolveInitialCliWorkspaceProjectAccess(cwd, options);
@@ -174,10 +185,10 @@ export function createCliWorkspaceComposition(
     }
     return {
       projectAccess,
-      contributionSources: createContributionSourcesForProjectAccess(
-        projectAccess,
-        options.userHome,
-      ),
+      contributionSources:
+        options.safeMode === true
+          ? []
+          : createContributionSourcesForProjectAccess(projectAccess, options.userHome),
       skillRoots: ROBOTA_SKILL_ROOTS,
       settingsSources: createRobotaUserSettingsSources(options.userHome),
       settingsStores: [userSettingsStore],

@@ -20,4 +20,16 @@ describe('served session user settings sources', () => {
     }
     expect(options.baselinePermissionAllow).toBe(ROBOTA_PERMISSION_BASELINE);
   });
+
+  it('keeps safe mode in the runtime session (issue #3082)', () => {
+    const options = buildServeSessionOptions({
+      cwd: '/work',
+      args: { noSessionPersistence: true } as never,
+      preset: {},
+      bare: true,
+      skipConfiguredHooks: true,
+    } as never);
+    expect('bare' in options && options.bare).toBe(true);
+    expect('skipConfiguredHooks' in options && options.skipConfiguredHooks).toBe(true);
+  });
 });

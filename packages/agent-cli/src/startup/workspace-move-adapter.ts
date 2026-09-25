@@ -20,6 +20,7 @@ import { buildWorkspaceMoveArgv } from '../utils/cli-args.js';
 import {
   createCliWorkspaceComposition,
   resolveInitialCliWorkspaceProjectAccess,
+  SAFE_MODE_FLAG,
 } from './workspace-project-composition.js';
 
 import type {
@@ -27,6 +28,14 @@ import type {
   IWorkspaceMoveRequest,
   TWorkspaceProjectAccess,
 } from '@robota-sdk/agent-framework';
+
+/**
+ * The arguments a `/cd` target starts with keep safe mode on however it was turned on — by the flag,
+ * or by an embedder's `startCli({ safeMode: true })`, which leaves no flag in argv.
+ */
+export function argvCarryingSafeMode(argv: readonly string[], safeMode: boolean): string[] {
+  return safeMode && !argv.includes(SAFE_MODE_FLAG) ? [...argv, SAFE_MODE_FLAG] : [...argv];
+}
 
 export interface IWorkspaceMoveAdapterDeps {
   readonly userHome: string;

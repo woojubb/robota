@@ -34,11 +34,25 @@ robota --serve                      # Run as a headless runtime host over a loop
 robota usage                        # Show the last 7 days of personal usage from local session history
 robota usage --period 30d           # Show the last 30 complete calendar-day buckets
 robota usage --timezone UTC --format json # Emit the versioned JSON projection
+robota --safe-mode                  # Start with every customization off (see below)
 robota --reset                      # Delete user settings and exit
 robota --check-update               # Check npm for a newer CLI version and exit
 robota --disable-update-check        # Skip startup update check for this run
 robota --version                    # Show version
 ```
+
+### When something misbehaves: `--safe-mode`
+
+Start with `robota --safe-mode` first. It runs a session with every customization off: project and
+user instruction files (`AGENTS.md`, `CLAUDE.md`), skills, custom commands, agent definitions,
+output styles, external presets, plugins, hooks from every settings layer, and MCP servers. Themes
+and keybindings still apply. Your provider, model,
+built-in tools and permission rules work as usual, and nothing on disk changes. If the problem goes
+away, one of those customizations is the cause; turn them back on one at a time to find it.
+
+Safe mode starts the project Restricted whatever its trust decision, so it also runs in print and
+serve mode without `robota trust`. `robota doctor` checks your configuration without starting a
+session.
 
 ## Personal Usage
 
