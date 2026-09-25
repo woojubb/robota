@@ -23,6 +23,12 @@ export interface IMCPAuthorizationRequest {
 export interface IMCPAuthorizationRejection {
   readonly status: number;
   readonly wwwAuthenticate?: string;
+  /**
+   * The very object `authorize` returned for the refused request, so an authenticator serving
+   * concurrent requests can tell a refusal of its current credential from one of a credential it
+   * has already replaced.
+   */
+  readonly authorization: Readonly<Record<string, string>>;
 }
 
 export interface IMCPClientAuthenticator {
@@ -66,4 +72,4 @@ export class MCPAuthenticationError extends Error {
 }
 
 /** Authentication keys a definition may declare that this version does not implement yet. */
-export const UNSUPPORTED_AUTHENTICATION_KEYS = ['oauth', 'headersHelper'] as const;
+export const UNSUPPORTED_AUTHENTICATION_KEYS = ['oauth'] as const;

@@ -112,6 +112,8 @@ describe('client authentication port', () => {
     expect(auth.onRejected).toHaveBeenCalledWith({
       status: 401,
       wwwAuthenticate: 'Bearer realm="mcp"',
+      // The refused request's own credential, so the authenticator knows which one was refused.
+      authorization: { authorization: 'Bearer token-1' },
     });
   });
 
@@ -187,7 +189,7 @@ describe('authentication on the connect path', () => {
 });
 
 describe('declared but unsupported authentication', () => {
-  it('decodes `oauth` and `headersHelper` so the server stays listed, and refuses to admit it', async () => {
+  it('decodes `oauth` so the server stays listed, and refuses to admit it', async () => {
     const decoded = decodeEntry({
       name: 'gamma',
       source: 'project',

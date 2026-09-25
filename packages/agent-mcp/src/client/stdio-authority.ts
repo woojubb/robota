@@ -20,6 +20,11 @@ const ENV_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
 const TEMPLATE = /\$\{[^}]*\}/;
 const EXECUTION_ENV =
   /^(?:NODE_OPTIONS|NODE_PATH|NODE_EXTRA_CA_CERTS|LD_.*|DYLD_.*|PYTHONPATH|PYTHONHOME|RUBYOPT|PERL5OPT|BASH_ENV|ENV)$/i;
+
+/** Whether a variable changes what a runtime loads or executes, so no child MCP program inherits it. */
+export function isExecutionEnvironmentName(name: string): boolean {
+  return EXECUTION_ENV.test(name);
+}
 const SHELL_NAMES = new Set([
   'sh',
   'bash',

@@ -7,6 +7,7 @@
 export type {
   IMCPDefinitionProblem,
   IMCPDefinitionShadow,
+  IMCPHeadersHelper,
   IMCPResolvedEntry,
   IMCPServerDefinition,
   IMCPServerDefinitionRaw,
@@ -59,6 +60,7 @@ export {
   maskCredentials,
   SECRET_LITERAL,
   secretMarker,
+  withoutExpansions,
   withoutSecrets,
 } from './definition/secrecy.js';
 export {
@@ -123,6 +125,24 @@ export {
   type IMCPClientAuthenticator,
   type TMCPAuthenticationFailure,
 } from './client/authentication.js';
+// The dynamic header helper: host-run, host-allowlisted, output parsed strictly here.
+export {
+  MCPHeadersHelperError,
+  createHeadersHelperAuthenticator,
+  isWorkspaceHelperSource,
+  parseHeadersHelperOutput,
+  refuseHeadersHelper,
+  type IMCPHeadersHelperAuthenticator,
+  type TMCPHeadersHelperFailure,
+  type TMCPHeadersHelperRefusal,
+  type TMCPHeadersHelperRun,
+} from './client/headers-helper.js';
+export {
+  MCPSingleFlightCache,
+  MCPSingleFlightClosedError,
+  type IMCPSingleFlightEntry,
+} from './client/single-flight.js';
+export { isExecutionEnvironmentName } from './client/stdio-authority.js';
 export {
   createStdioAdapter,
   type IMCPAdmittedStdioEndpoint,

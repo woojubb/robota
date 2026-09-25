@@ -38,6 +38,15 @@ export interface IMCPServerDefinitionRaw {
   readonly entry: Readonly<Record<string, unknown>>;
 }
 
+/**
+ * A program the host runs to obtain request headers for a remote server: an exact executable and
+ * argv, never a shell string, and never templated — the host allowlists it by these exact values.
+ */
+export interface IMCPHeadersHelper {
+  readonly command: string;
+  readonly args: readonly string[];
+}
+
 /** A raw entry that decoded cleanly. Environment templates are NOT yet materialized. */
 export interface IMCPServerDefinition {
   readonly name: string;
@@ -51,7 +60,9 @@ export interface IMCPServerDefinition {
   readonly url?: string;
   readonly headers?: Readonly<Record<string, string>>;
   readonly timeout?: number;
-  /** Authentication the entry declares (`oauth`, `headersHelper`) that this version cannot perform. */
+  /** A remote server's dynamic header helper; it runs only under host authority. */
+  readonly headersHelper?: IMCPHeadersHelper;
+  /** Authentication the entry declares (`oauth`) that this version cannot perform. */
   readonly unsupportedAuthentication?: readonly string[];
 }
 

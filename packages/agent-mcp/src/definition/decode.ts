@@ -10,9 +10,12 @@
  * which source and origin it came from.
  */
 
+import { isAbsolute } from 'node:path';
+
 import { UNSUPPORTED_AUTHENTICATION_KEYS } from '../client/authentication.js';
 import type {
   IMCPDefinitionProblem,
+  IMCPHeadersHelper,
   IMCPServerDefinition,
   IMCPServerDefinitionRaw,
   TMCPDefinitionSource,
@@ -27,6 +30,10 @@ export interface IMCPDecodeResult {
 
 const REMOTE_TRANSPORTS: ReadonlySet<TMCPTransport> = new Set(['http', 'sse', 'ws']);
 const MAX_STDIO_CWD_LENGTH = 16_384;
+const MAX_HELPER_FIELD_LENGTH = 16_384;
+const MAX_HELPER_ARGS = 128;
+const TEMPLATE = /\$\{[^}]*\}/;
+const HELPER_ARGV_EXAMPLE = '{"command": "/absolute/path/to/helper", "args": ["--flag"]}';
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -52,6 +59,48 @@ function stringRecord(value: unknown, field: string): Record<string, string> | s
     out[key] = entry;
   }
   return out;
+}
+
+function helperField(value: unknown): value is string {
+  return (
+    typeof value === 'string' && value.length <= MAX_HELPER_FIELD_LENGTH && !value.includes('\0')
+  );
+}
+
+/**
+ * A header helper as an exact argv. The shell-string form other clients accept is refused with the
+ * argv form spelled out, because the host allowlists the exact executable and arguments — a shell
+ * line cannot be matched that way. Templates are refused for the same reason, as they are for stdio.
+ * Neither refusal quotes the configured text.
+ */
+function decodeHeadersHelper(value: unknown): IMCPHeadersHelper | string {
+  if (typeof value === 'string') {
+    return `\`headersHelper\` must be an argv object, not a shell command; write ${HELPER_ARGV_EXAMPLE}`;
+  }
+  if (!isPlainObject(value)) {
+    return `\`headersHelper\` must be an object such as ${HELPER_ARGV_EXAMPLE}`;
+  }
+  const unknown = Object.keys(value).filter((key) => key !== 'command' && key !== 'args');
+  if (unknown.length > 0) return '`headersHelper` accepts only `command` and `args`';
+  const command = value['command'];
+  if (!helperField(command) || command.trim() === '') {
+    return '`headersHelper.command` must be an absolute path to an executable';
+  }
+  const args = value['args'] ?? [];
+  if (
+    !Array.isArray(args) ||
+    args.length > MAX_HELPER_ARGS ||
+    args.some((arg) => !helperField(arg))
+  ) {
+    return '`headersHelper.args` must be an array of strings';
+  }
+  if ([command, ...(args as string[])].some((part) => TEMPLATE.test(part))) {
+    return '`headersHelper` must not contain `${}` templates; the host allows its exact command and arguments';
+  }
+  if (!isAbsolute(command)) {
+    return '`headersHelper.command` must be an absolute path to an executable';
+  }
+  return { command, args: [...(args as string[])] };
 }
 
 /**
@@ -154,6 +203,9 @@ export function decodeEntry(
       definition.cwd = cwd;
     }
     if (entry['url'] !== undefined) return problem('a stdio definition must not carry a `url`');
+    if (entry['headersHelper'] !== undefined) {
+      return problem('a stdio definition must not carry `headersHelper`');
+    }
   } else {
     const url = entry['url'];
     if (typeof url !== 'string' || url.trim() === '') {
@@ -184,6 +236,12 @@ export function decodeEntry(
       const decoded = stringRecord(headers, 'headers');
       if (typeof decoded === 'string') return problem(decoded);
       definition.headers = decoded;
+    }
+    const helper = entry['headersHelper'];
+    if (helper !== undefined) {
+      const decoded = decodeHeadersHelper(helper);
+      if (typeof decoded === 'string') return problem(decoded);
+      definition.headersHelper = decoded;
     }
   }
 
