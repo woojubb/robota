@@ -15,6 +15,7 @@ import {
 import { Session } from '@robota-sdk/agent-session';
 
 import { formatDeferredToolRoster } from './deferred-tool-roster.js';
+import { createModelPermissionClassifier } from './model-permission-classifier.js';
 import { assembleSubagentPrompt } from './subagent-prompts.js';
 import { unwrapToolCallHandoff } from './tool-call-handoff.js';
 import { resolveRoleFallbackChain } from '../routing/role-model-routing.js';
@@ -283,6 +284,16 @@ export function createSubagentSession(options: ISubagentOptions): Session {
     maxTurns: agentDefinition.maxTurns,
     permissions: parentConfig.permissions,
     permissionMode: options.permissionMode,
+    // A child started in `auto` mode judges its own calls the way the parent does: with a
+    // classifier on its own provider. Without one the session would refuse the mode.
+    ...(options.permissionMode === 'auto'
+      ? {
+          permissionClassifier: createModelPermissionClassifier(provider, {
+            cwd: options.cwd,
+            model,
+          }),
+        }
+      : {}),
     // CORE-025: the task policy pre-empts the session-mode gate (deny/preapproved/inherit override even
     // bypassPermissions); `preapproved` reads the task's own lists, `inherit-allowlist` reads
     // `parentConfig.permissions` (passed above as `permissions`).

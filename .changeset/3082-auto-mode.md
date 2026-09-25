@@ -17,11 +17,13 @@ A new permission mode, `auto`, lets a model classifier approve or block what wou
 - **What still reaches a person, or is refused:**
   - Deny rules and background ceilings apply first.
   - `ask` rules, critical removals and protected paths ask a person.
-  - After 3 blocks in a row, or 20 in the session, the mode asks a person until one approves.
+  - After 3 refusals in a row (blocks, or no usable verdict), or 20 blocks in the session, the
+    mode asks a person until one approves.
     With no one to ask, the call is denied.
 - **Allow rules:** in `auto` mode, allow rules that approve any command are set aside while the
   mode is on. Examples are `Bash(*)`, an interpreter (`Bash(python *)`), a package runner
-  (`Bash(npm run *)`) or `Agent`. Narrow rules still apply.
+  (`Bash(npm run *)`, `Bash(pnpm exec *)`), `Agent`, `ExecuteCommand` or `Computer`. Narrow
+  rules still apply.
 - **Retry:** `/permissions` lists classifier blocks. `/permissions retry <n>` lets that exact call
   run once, unjudged, when the model tries it again.
 - **Turning it on and off:**

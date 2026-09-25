@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { createSession } from '../create-session.js';
+import { createSubagentSession } from '../create-subagent-session.js';
 import {
   createModelPermissionClassifier,
   parseClassifierVerdict,
@@ -122,5 +123,20 @@ describe('createSession and auto mode', () => {
     await expect(
       createSession(options({ disableAutoMode: true, permissionMode: 'auto' })),
     ).rejects.toThrow(/Auto mode is unavailable/);
+  });
+
+  it('a subagent or forked skill of an auto-mode session runs in auto mode too', () => {
+    const base = options();
+    const child = createSubagentSession({
+      agentDefinition: { name: 'worker', description: 'w', systemPrompt: 'Work.' },
+      parentConfig: base.config,
+      parentContext: base.context,
+      parentTools: [],
+      provider: base.provider!,
+      terminal: base.terminal,
+      cwd: process.cwd(),
+      permissionMode: 'auto',
+    });
+    expect(child.getPermissionMode()).toBe('auto');
   });
 });

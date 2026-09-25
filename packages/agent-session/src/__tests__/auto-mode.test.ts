@@ -107,15 +107,17 @@ describe('AutoModeGate', () => {
     expect(gate.isPaused()).toBe(true);
   });
 
-  it('a classifier that throws or answers nothing is unusable, not a block', async () => {
+  it('a classifier that throws or answers nothing is unusable, and a run of them pauses', async () => {
     const gate = new AutoModeGate({
       classify: vi.fn().mockRejectedValueOnce(new Error('down')).mockResolvedValue(undefined),
     });
     const call = { toolName: 'Bash', toolArgs: { command: 'x' }, cwd: '/w' };
-    for (let i = 0; i < CONSECUTIVE_BLOCK_LIMIT + 1; i++) {
+    for (let i = 1; i < CONSECUTIVE_BLOCK_LIMIT; i++) {
       expect((await gate.judge(call)).kind).toBe('unusable');
+      expect(gate.isPaused()).toBe(false);
     }
-    expect(gate.isPaused()).toBe(false);
+    expect((await gate.judge(call)).kind).toBe('unusable');
+    expect(gate.isPaused()).toBe(true);
   });
 });
 

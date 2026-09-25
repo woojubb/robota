@@ -27,13 +27,14 @@ export interface IClassifierVerdict {
 
 /**
  * Judges one call. `undefined` means no usable verdict (an error, a refusal, output that does not
- * parse) — the call is not run, and it does not count toward pausing.
+ * parse): the call is not run. It counts toward a run of refusals, so a classifier that cannot
+ * answer hands the decision to a person instead of refusing every call.
  */
 export interface IPermissionClassifier {
   classify(call: IClassifiedCall, signal?: AbortSignal): Promise<IClassifierVerdict | undefined>;
 }
 
-/** Blocks in a row, and blocks in the session, after which the mode pauses. */
+/** Refusals in a row (blocks or unusable verdicts), and blocks in the session, that pause the mode. */
 export const CONSECUTIVE_BLOCK_LIMIT = 3;
 export const TOTAL_BLOCK_LIMIT = 20;
 
@@ -86,12 +87,16 @@ export class AutoModeGate {
       verdict = undefined;
     }
     if (verdict === undefined) {
+      this.consecutive += 1;
+      const pause = this.consecutive >= CONSECUTIVE_BLOCK_LIMIT;
+      if (pause) this.paused = true;
       return {
         kind: 'unusable',
         reason: 'no usable verdict',
         message:
           'The auto-mode classifier gave no usable verdict, so the call was not run. Try again, ' +
-          'or ask the user to approve it.',
+          'or ask the user to approve it.' +
+          (pause ? ' Auto mode is paused: the next calls ask the user.' : ''),
       };
     }
     if (verdict.decision === 'allow') {

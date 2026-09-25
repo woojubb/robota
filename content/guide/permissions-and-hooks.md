@@ -49,10 +49,12 @@ web page cannot argue for its own call.
   - weakening tests, hooks or permission settings.
 
   A block goes back to the model with its reason.
+
 - **What reaches a person:**
   - Deny rules still deny.
   - `ask` rules, critical removals and protected paths still ask a person.
-  - After 3 blocks in a row, or 20 in a session, the mode asks a person until one approves.
+  - After 3 refusals in a row (blocks, or no usable verdict), or 20 blocks in a session, the mode
+    asks a person until one approves.
   - With no one to ask, such a call is denied.
 - **Allow rules:** while the mode is on, allow rules that approve any command are set aside.
   Examples are `Bash(*)`, `Bash(python *)`, `Bash(npm run *)`, `Bash(pnpm *)` and `Agent`. Narrow
