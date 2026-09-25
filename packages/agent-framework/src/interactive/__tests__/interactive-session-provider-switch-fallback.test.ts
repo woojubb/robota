@@ -18,23 +18,11 @@ import { ProviderError } from '@robota-sdk/agent-core';
 
 import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
 
-function createMockSession(options?: {
-  runResult?: string;
-  runError?: Error;
-  runDelay?: number;
-  history?: Array<{ role: string; content?: string; state?: string; toolCalls?: unknown[] }>;
-}) {
-  const history = options?.history ?? [];
+function createMockSession() {
   return {
-    run: vi.fn().mockImplementation(async (_prompt: string) => {
-      if (options?.runDelay) {
-        await new Promise((r) => setTimeout(r, options.runDelay));
-      }
-      if (options?.runError) throw options.runError;
-      return options?.runResult ?? 'mock response';
-    }),
+    run: vi.fn().mockResolvedValue('mock response'),
     abort: vi.fn(),
-    getHistory: vi.fn().mockReturnValue(history),
+    getHistory: vi.fn().mockReturnValue([]),
     getContextState: vi.fn().mockReturnValue({
       usedPercentage: 10,
       usedTokens: 1000,
