@@ -177,6 +177,9 @@ async function runShell(
     });
     (invocation.inputDescriptors ?? []).forEach((data, index) => {
       const stream = child.stdio[index + 3] as NodeJS.WritableStream | null;
+      // The wrapper may exit before reading it (bwrap refusing a mount); its exit status and stderr
+      // report that, and an unhandled pipe error must not take the host down.
+      stream?.on('error', () => undefined);
       stream?.end(Buffer.from(data));
     });
 

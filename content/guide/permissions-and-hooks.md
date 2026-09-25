@@ -77,11 +77,14 @@ Inside the sandbox:
   fail inside the sandbox; add `git` to `excludedCommands` to run them on the host through the
   ordinary prompt. On Linux, one of these entries a command creates where none existed is moved
   to `~/.robota/sandbox-quarantine`, and a symlink it replaces is restored, when the command exits,
-  with a note in its output. While one of these entries is a symlink into the working directory,
-  commands are confined but never approved automatically;
+  with a note in its output. While one of these entries is a symlink into a writable place
+  (the working directory, a temporary directory, `allowWrite`) or points nowhere, commands are
+  confined but never approved automatically;
 - everything else in the working directory is the command's to change, just as it is the file
   tools'. A nested repository, a `package.json` script or a `Makefile` it writes is project content:
-  review changes before running host tools (git, your build) over them;
+  review changes before running host tools over them. In `auto-allow` this includes `default`
+  mode, where the file tools would still have asked, and a git directory planted in the project runs
+  its configured programs on the next `git status` — including one a git-aware shell prompt runs;
 - the network is reachable only when `network.enabled` is `true`, and while it is off Unix
   sockets are closed too, so a daemon on the host (a container engine, the session bus, an ssh
   agent) is out of reach. With the network on, those sockets are reachable, and a container

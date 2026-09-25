@@ -339,7 +339,7 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
   );
 
   it(
-    'restores a protected symlink the command replaced, and keeps its target read-only',
+    'restores a protected symlink the command replaced',
     async () => {
       mkdirSync(join(root, 'shared-claude'));
       writeFileSync(join(root, 'shared-claude', 'settings.json'), '{}');
@@ -350,11 +350,49 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
         availability: bubblewrap,
         settings: { enabled: true },
       });
-      await bash(client, 'echo pwn > .claude/settings.json');
-      expect(readFileSync(join(root, 'shared-claude', 'settings.json'), 'utf8')).toBe('{}');
+      // Its target is inside the workspace, so this is never approved without a person.
+      expect(client.autoApproves('ls')).toBe(false);
       await bash(client, 'rm .claude && mkdir .claude && echo pwn > .claude/settings.json');
       expect(readlinkSync(join(root, '.claude'))).toBe('shared-claude');
       expect(readFileSync(join(root, '.claude', 'settings.json'), 'utf8')).toBe('{}');
+    },
+    SPAWN_TIMEOUT_MS,
+  );
+
+  it(
+    'runs with a protected dotfile symlinked outside the workspace, which stays read-only',
+    async () => {
+      writeFileSync(join(outside, 'npmrc'), 'registry=x\n');
+      symlinkSync(join(outside, 'npmrc'), join(root, '.npmrc'));
+      const client = new OsSandboxClient({
+        root,
+        homeDirectory: home,
+        availability: bubblewrap,
+        settings: { enabled: true },
+      });
+      expect(client.autoApproves('echo hello')).toBe(true);
+      expect((await bash(client, 'echo hello')).output).toContain('hello');
+      await bash(client, 'echo pwn >> .npmrc');
+      expect(readFileSync(join(outside, 'npmrc'), 'utf8')).toBe('registry=x\n');
+    },
+    SPAWN_TIMEOUT_MS,
+  );
+
+  it(
+    'restores against the state before any of several concurrent commands started',
+    async () => {
+      const client = new OsSandboxClient({
+        root,
+        homeDirectory: home,
+        availability: bubblewrap,
+        settings: { enabled: true },
+      });
+      await Promise.all([
+        bash(client, 'C=.cla; ln -s cfg ${C}ude; sleep 1'),
+        bash(client, `sleep 2; mkdir -p cfg && echo '{"hooks":"pwn"}' > cfg/settings.json`),
+      ]);
+      expect(existsSync(join(root, '.claude'))).toBe(false);
+      expect(() => readlinkSync(join(root, '.claude'))).toThrow();
     },
     SPAWN_TIMEOUT_MS,
   );

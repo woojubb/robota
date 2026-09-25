@@ -9,7 +9,9 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import {
+  cpSync,
   existsSync,
   lstatSync,
   mkdirSync,
@@ -162,6 +164,14 @@ type IProtectedEntryState =
   | { readonly path: string; readonly kind: 'missing' | 'present' }
   | { readonly path: string; readonly kind: 'symlink'; readonly target: string };
 
+function isSymbolicLink(path: string): boolean {
+  try {
+    return lstatSync(path).isSymbolicLink();
+  } catch {
+    return false;
+  }
+}
+
 /** The program a shell line starts first — what `excludedCommands` names. */
 function firstProgram(shellCommand: string): string | undefined {
   return shellCommand.trim().split(/\s+/)[0];
@@ -173,6 +183,8 @@ export class OsSandboxClient implements ISandboxClient {
   private readonly availability: IOsSandboxAvailability;
   private readonly homeDirectory: string;
   private current: IOsSandboxSettings;
+  private inFlight = 0;
+  private baseline: IProtectedEntryState[] = [];
 
   constructor(options: IOsSandboxClientOptions) {
     this.root = realPathOrSelf(options.root);
@@ -234,14 +246,20 @@ export class OsSandboxClient implements ISandboxClient {
     ) {
       mkdirSync(`${this.root}/.robota`, { recursive: true });
     }
-    const before = this.protectedEntryStates();
+    // One baseline for every confined command in flight: taken when the first starts, restored
+    // against when the last ends. A per-command baseline taken while another command runs would
+    // record that command's planted entry as the state to restore.
+    if (this.inFlight === 0) this.baseline = this.protectedEntryStates();
+    this.inFlight += 1;
+    let finished = false;
     return {
       command: executable,
       args: bubblewrapArguments({
         policy,
-        // Follows symlinks: a protected link is mounted through to its target, which is what then
-        // stays read-only; the link itself is restored after exit if the command replaced it.
-        exists: existsSync,
+        // A protected entry that is a symlink is not mounted: its target outside the workspace is
+        // already read-only, one inside refuses auto-approval, and the link itself is restored
+        // after exit if the command replaced it.
+        exists: (path) => existsSync(path) && !isSymbolicLink(path),
         listDirectory: (path) => readdirSync(path),
         cwd: invocation.cwd,
         command: invocation.command,
@@ -250,7 +268,12 @@ export class OsSandboxClient implements ISandboxClient {
       }),
       cwd: invocation.cwd,
       ...(filter !== undefined ? { inputDescriptors: [filter] } : {}),
-      afterExit: () => this.restoreProtectedEntries(before),
+      afterExit: () => {
+        if (finished) return undefined;
+        finished = true;
+        this.inFlight -= 1;
+        return this.inFlight === 0 ? this.restoreProtectedEntries(this.baseline) : undefined;
+      },
     };
   }
 
@@ -279,6 +302,7 @@ export class OsSandboxClient implements ISandboxClient {
    * not deleted, so nothing the host wrote meanwhile is lost.
    */
   /** Whether a path's real location is outside the workspace (and so under the read-only mounts). */
+  /** Whether a path's real location is under the read-only mounts: not the workspace, temp or `allowWrite`. */
   private resolvesOutsideWritableWorkspace(path: string): boolean {
     let real: string;
     try {
@@ -286,7 +310,10 @@ export class OsSandboxClient implements ISandboxClient {
     } catch {
       return false;
     }
-    return real !== this.root && !real.startsWith(`${this.root}/`);
+    const policy = this.policy();
+    return ![policy.root, ...policy.tempDirectories, ...policy.allowWrite].some(
+      (area) => real === area || real.startsWith(`${area}/`),
+    );
   }
 
   /**
@@ -295,7 +322,7 @@ export class OsSandboxClient implements ISandboxClient {
    * user's `~/.robota`, where the command cannot reach it; what cannot be moved there is removed.
    */
   private restoreProtectedEntries(before: readonly IProtectedEntryState[]): string | undefined {
-    const quarantine = `${this.homeDirectory}/.robota/sandbox-quarantine/${Date.now()}`;
+    const quarantine = `${this.homeDirectory}/.robota/sandbox-quarantine/${Date.now()}-${randomUUID()}`;
     const notes: string[] = [];
     for (const state of before) {
       if (state.kind === 'present') continue;
@@ -305,7 +332,15 @@ export class OsSandboxClient implements ISandboxClient {
         if (state.kind === 'symlink' && now.kind === 'symlink' && now.target === state.target) {
           continue;
         }
-        if (now.kind !== 'missing') notes.push(this.setAside(state.path, quarantine));
+        if (now.kind !== 'missing') {
+          try {
+            notes.push(this.setAside(state.path, quarantine));
+          } catch {
+            // allow-fallback: an entry that cannot be moved out is the command's own; it goes
+            rmSync(state.path, { recursive: true, force: true });
+            notes.push(`removed ${state.path}`);
+          }
+        }
         if (state.kind === 'symlink') symlinkSync(state.target, state.path);
       } catch (error) {
         // allow-fallback: reported in the command's output, never thrown into the host
@@ -323,15 +358,16 @@ export class OsSandboxClient implements ISandboxClient {
 
   private setAside(path: string, quarantine: string): string {
     const destination = `${quarantine}/${basename(path)}`;
+    mkdirSync(quarantine, { recursive: true });
     try {
-      mkdirSync(quarantine, { recursive: true });
       renameSync(path, destination);
-      return `moved ${path} to ${destination}`;
-    } catch {
-      // allow-fallback: another filesystem or a hostile layout; the command's own entry goes
+    } catch (error) {
+      // The workspace and the home directory are often on different filesystems.
+      if ((error as NodeJS.ErrnoException).code !== 'EXDEV') throw error;
+      cpSync(path, destination, { recursive: true, verbatimSymlinks: true });
       rmSync(path, { recursive: true, force: true });
-      return `removed ${path}`;
     }
+    return `moved ${path} to ${destination}`;
   }
 
   /** The policy for the current settings, with every path made absolute and real. */
@@ -369,7 +405,10 @@ export class OsSandboxClient implements ISandboxClient {
         ...(options.timeoutMs !== undefined ? { timeout: options.timeoutMs } : {}),
       });
       extra.forEach((data, index) => {
-        (child.stdio[index + 3] as NodeJS.WritableStream | null)?.end(Buffer.from(data));
+        const stream = child.stdio[index + 3] as NodeJS.WritableStream | null;
+        // bwrap may exit before reading it; that is the command's failure, not the host's.
+        stream?.on('error', () => undefined);
+        stream?.end(Buffer.from(data));
       });
       let stdout = '';
       let stderr = '';
