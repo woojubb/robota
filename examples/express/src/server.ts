@@ -2,7 +2,7 @@ import express from 'express';
 import { z } from 'zod';
 import { createQuery } from '@robota-sdk/agent-framework';
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const app = express();
 app.use(express.json());

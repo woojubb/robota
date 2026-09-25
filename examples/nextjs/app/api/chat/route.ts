@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server';
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 export const runtime = 'nodejs';
 
