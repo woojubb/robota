@@ -32,18 +32,19 @@ there is one place to read and one place to change it — including the access-t
 remote resource server makes, whose verdict is a closed set of refusal reasons that never carries
 token text or claim values, so logging a verdict cannot leak a credential or an identity.
 
-The resolved decision is SECURE BY DEFAULT: an explicit token wins, otherwise one is minted. An
-access-token admission is single-tenant by contract: issuer, audience and scope alone admit anyone
-the issuer serves, while the host hands one shared session to every admitted peer, so the
-configuration must also name the subjects or clients allowed in. A
+The resolved decision is SECURE BY DEFAULT: an explicit token wins, otherwise one is minted. A
 transport may still run open, but only by saying so explicitly, with a required written reason —
 "no credential" and "nobody thought about it" must not be indistinguishable. Failing to mint a
 token throws rather than silently returning an open admission, so a transport that cannot get
 entropy fails to construct instead of binding without a gate.
 
+Access-token admission is single-tenant by design: issuer, audience and scope alone admit anyone
+the issuer serves, while the host hands one shared session to every admitted peer, so the
+configuration must also name the subjects or clients allowed in.
+
 The functions that produce the decision (minting, comparison, token verification) live in a
-separate Node-dependent package, not here: this package is inert by rule (no runtime dependency edges), and those functions
-need a Node builtin for entropy. A transport with no remote peer declares that admission does not
+separate Node-dependent package, not here: this package is inert by rule (no runtime dependency
+edges), and those functions need Node builtins for entropy and the network. A transport with no remote peer declares that admission does not
 apply to it in its own SPEC, rather than this package asserting a universal default.
 
 ## Interface Contracts

@@ -12,10 +12,10 @@ transport implementations.
 - **Transport admission: none.** This package defines and evaluates admission data but
   binds no listener itself — it is a substrate for admission decisions, not an admission point.
 - Runtime message and frame decoders return explicit result unions rather than throwing.
-- Admission, access-token and handoff integrity helpers return their declared result contracts;
-  the access-token verifier refuses whenever it cannot establish a key, so an issuer outage never
-  admits. Outbound delivery isolates carrier failures through a supplied error handler. No fallback transport is ever
-  selected on behalf of a caller.
+- Admission, access-token and handoff integrity helpers return their declared result contracts.
+  The access-token verifier trusts only keys no older than a bounded age; beyond that an issuer
+  outage refuses rather than admits. Outbound delivery isolates carrier failures through a supplied
+  error handler. No fallback transport is ever selected on behalf of a caller.
 - Carriers supply `TOutboundDeliver` and an `IProtocolSession`; no carrier implementation is
   registered inside this package.
 

@@ -18,7 +18,8 @@ host is single-tenant, so a configuration without an allowlist is refused at con
 
 Keys are discovered through the issuer's metadata (RFC 8414, then OpenID discovery, with an issuer
 equality check) and fetched over `https` through agent-core's egress boundary, byte-bounded, with
-private-address reach granted to the issuer's host only. The key set is cached and refetched only
-for an unknown `kid`, at a bounded rate; an outage refuses rather than admits.
+private-address reach granted to the issuer's host only. The key set is cached and refetched, at a
+bounded rate, for an unknown `kid` or once it reaches a maximum age, so a key the issuer withdraws
+stops admitting; keys are trusted only up to a bounded age, and beyond that an outage refuses.
 
 Nothing is wired to a listener yet.

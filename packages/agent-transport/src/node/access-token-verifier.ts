@@ -12,10 +12,13 @@
  * internal address. Every fetch is `https`, byte-bounded, and refuses redirects: a key set is the
  * root of trust for every admission after it, and a redirect is a second origin nobody configured.
  *
- * The key set is cached and refetched only when a token names a `kid` the cache does not hold, at
- * most once per interval, so a stream of tokens with invented `kid`s cannot turn this into a
- * request amplifier against the issuer. When keys cannot be obtained the verifier refuses: an
- * outage is not a reason to admit.
+ * The key set is cached, and refetched — metadata included — when a token names a `kid` the cache
+ * does not hold or when the cache has outlived its maximum age, at most once per interval, so a
+ * stream of tokens with invented `kid`s cannot turn this into a request amplifier against the
+ * issuer. The age bound is what makes a key the issuer withdrew (rotation after a compromise) stop
+ * admitting without anyone presenting a new `kid`. An outage is tolerated only while the cached keys
+ * are younger than a hard limit; past it they are dropped and every token is refused, because an
+ * outage is not a reason to keep trusting keys nobody has confirmed for an hour.
  */
 
 import { decodeProtectedHeader, importJWK, jwtVerify } from 'jose';
@@ -41,6 +44,10 @@ const MAX_KEYS = 32;
 const FETCH_TIMEOUT_MS = 10_000;
 /** Minimum gap between two key-set fetches, whatever triggered them. */
 const MIN_REFETCH_INTERVAL_MS = 30_000;
+/** Age after which the key set and metadata are refetched before the next verification. */
+const MAX_KEY_AGE_MS = 10 * 60_000;
+/** Age past which cached keys are dropped if they could not be refreshed. */
+const HARD_KEY_AGE_MS = 60 * 60_000;
 /** Clock skew tolerated on `exp` and `nbf`, in seconds. */
 const CLOCK_SKEW_SECONDS = 60;
 const ACCESS_TOKEN_TYP = 'at+jwt';
@@ -58,14 +65,19 @@ const KEY_SHAPE: Readonly<Record<TAccessTokenAlgorithm, { kty: string; crv?: str
 export interface IAccessTokenVerifierDeps {
   readonly fetch?: IEgressDeps['fetch'];
   readonly lookup?: IEgressDeps['lookup'];
-  /** Milliseconds since the epoch. */
+  /** Wall-clock milliseconds since the epoch, for `exp`/`nbf`. Defaults to `Date.now`. */
   readonly now?: () => number;
+  /** Monotonic milliseconds, for cache age and refetch intervals. Defaults to `performance.now`. */
+  readonly monotonicNow?: () => number;
 }
 
 interface IKeyCache {
   keys: readonly JWK[] | undefined;
   jwksUri: string | undefined;
-  lastFetchAt: number | undefined;
+  /** Monotonic time of the last successful key-set fetch. */
+  fetchedAt: number | undefined;
+  /** Monotonic time of the last attempt, successful or not; the rate bound runs from here. */
+  lastAttemptAt: number | undefined;
   inflight: Promise<void> | undefined;
 }
 
@@ -86,12 +98,14 @@ export function createAccessTokenVerifier(
 ): IAccessTokenVerifier {
   const issuerUrl = validateConfig(config);
   const now = deps.now ?? Date.now;
+  const monotonicNow = deps.monotonicNow ?? (() => performance.now());
   const egressDeps: IEgressDeps = { fetch: deps.fetch, lookup: deps.lookup };
   const issuerHost = issuerUrl.hostname.replace(/^\[|\]$/g, '').toLowerCase();
   const cache: IKeyCache = {
     keys: undefined,
     jwksUri: undefined,
-    lastFetchAt: undefined,
+    fetchedAt: undefined,
+    lastAttemptAt: undefined,
     inflight: undefined,
   };
   const allowedSubjects = new Set(config.allowedSubjects ?? []);
@@ -127,23 +141,35 @@ export function createAccessTokenVerifier(
     return undefined;
   }
 
+  function keyAge(): number {
+    return cache.fetchedAt === undefined ? Infinity : monotonicNow() - cache.fetchedAt;
+  }
+
   async function fetchKeys(): Promise<void> {
-    cache.lastFetchAt = now();
+    cache.lastAttemptAt = monotonicNow();
     try {
+      // Metadata is rediscovered with the key set once the cache is old: a `jwks_uri` is part of
+      // what the issuer can rotate.
+      if (keyAge() >= MAX_KEY_AGE_MS) cache.jwksUri = undefined;
       cache.jwksUri ??= await discoverJwksUri();
       if (cache.jwksUri === undefined) return;
       const keys = parseKeySet(await fetchJson(cache.jwksUri));
-      if (keys !== undefined) cache.keys = keys;
+      if (keys === undefined) return;
+      cache.keys = keys;
+      cache.fetchedAt = monotonicNow();
     } catch {
-      // allow-fallback: a failed fetch leaves the cache as it was. A verifier with no keys refuses
-      // every token (`keys-unavailable`), which is the fail-closed direction.
+      // allow-fallback: a failed fetch leaves the cache as it was, and `currentKeys` drops it once
+      // it passes the hard age limit — the fail-closed direction.
     }
   }
 
-  /** Refetch unless one ran within the interval. Concurrent callers share one fetch. */
+  /** Refetch unless one was attempted within the interval. Concurrent callers share one fetch. */
   async function refreshKeys(): Promise<void> {
     if (cache.inflight !== undefined) return cache.inflight;
-    if (cache.lastFetchAt !== undefined && now() - cache.lastFetchAt < MIN_REFETCH_INTERVAL_MS) {
+    if (
+      cache.lastAttemptAt !== undefined &&
+      monotonicNow() - cache.lastAttemptAt < MIN_REFETCH_INTERVAL_MS
+    ) {
       return;
     }
     cache.inflight = fetchKeys().finally(() => {
@@ -152,22 +178,38 @@ export function createAccessTokenVerifier(
     return cache.inflight;
   }
 
-  async function selectKey(kid: string | undefined): Promise<JWK> {
-    if (cache.keys === undefined) await refreshKeys();
-    if (cache.keys === undefined) throw new Refused('keys-unavailable');
+  /** The cached keys, refreshed first when old; `undefined` when none may be trusted. */
+  async function currentKeys(): Promise<readonly JWK[] | undefined> {
+    if (keyAge() >= MAX_KEY_AGE_MS) await refreshKeys();
+    if (keyAge() >= HARD_KEY_AGE_MS) {
+      cache.keys = undefined;
+      cache.jwksUri = undefined;
+      cache.fetchedAt = undefined;
+    }
+    return cache.keys;
+  }
+
+  async function selectKey(kid: string | undefined, alg: TAccessTokenAlgorithm): Promise<JWK> {
+    let keys = await currentKeys();
+    if (keys === undefined) throw new Refused('keys-unavailable');
     if (kid === undefined) {
-      if (cache.keys.length > 1) throw new Refused('ambiguous-key');
-      const only = cache.keys[0];
+      if (keys.length > 1) throw new Refused('ambiguous-key');
+      const only = keys[0];
       if (only === undefined) throw new Refused('unknown-key');
+      if (!keyAgrees(only, alg)) throw new Refused('key-mismatch');
       return only;
     }
-    let found = cache.keys.find((key) => key.kid === kid);
-    if (found === undefined) {
+    let named = keys.filter((key) => key.kid === kid);
+    if (named.length === 0) {
       await refreshKeys();
-      found = cache.keys.find((key) => key.kid === kid);
+      keys = cache.keys ?? [];
+      named = keys.filter((key) => key.kid === kid);
     }
-    if (found === undefined) throw new Refused('unknown-key');
-    return found;
+    if (named.length === 0) throw new Refused('unknown-key');
+    // Two keys may share a `kid` across algorithms; the one checked is the one that fits the token.
+    const fitting = named.find((key) => keyAgrees(key, alg));
+    if (fitting === undefined) throw new Refused('key-mismatch');
+    return fitting;
   }
 
   async function check(token: string): Promise<TAccessTokenAdmission> {
@@ -187,8 +229,7 @@ export function createAccessTokenVerifier(
     if (alg === undefined) throw new Refused('unsupported-algorithm');
     if (header.kid !== undefined && typeof header.kid !== 'string') throw new Refused('malformed');
 
-    const jwk = await selectKey(header.kid);
-    if (!keyAgrees(jwk, alg)) throw new Refused('key-mismatch');
+    const jwk = await selectKey(header.kid, alg);
     let key: Awaited<ReturnType<typeof importJWK>>;
     try {
       key = await importJWK(jwk, alg);

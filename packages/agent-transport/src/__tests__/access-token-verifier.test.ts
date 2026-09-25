@@ -127,12 +127,11 @@ function harness(
         return [addresses[hostname] ?? PUBLIC_ADDRESS];
       },
       now: () => clock.ms,
+      monotonicNow: () => clock.ms,
     },
   );
   return { verifier, calls, clock, lookups };
 }
-
-const seenRefusals: Array<{ token: string; result: TAccessTokenAdmission }> = [];
 
 async function expectRefused(
   verifier: IAccessTokenVerifier,
@@ -140,7 +139,6 @@ async function expectRefused(
   refusal: TAccessTokenRefusal,
 ): Promise<void> {
   const result = await verifier.verify(token);
-  seenRefusals.push({ token, result });
   // Exact equality: a refusal carries the reason word and nothing else.
   expect(result).toStrictEqual({ admitted: false, refusal });
 }
@@ -204,6 +202,12 @@ describe('createAccessTokenVerifier', () => {
         h.verifier,
         await mint(key, h.clock, { header: { typ: 'application/at+jwt' } }),
       );
+    });
+
+    it('an upper-case AT+JWT typ (media types are case-insensitive)', async () => {
+      const key = await signer('ES256', 'k1');
+      const h = harness(standardRoutes(() => [key.jwk]));
+      await expectAdmitted(h.verifier, await mint(key, h.clock, { header: { typ: 'AT+JWT' } }));
     });
 
     it('a token without kid when the key set holds exactly one key', async () => {
@@ -519,6 +523,72 @@ describe('createAccessTokenVerifier', () => {
       await expectAdmitted(h.verifier, await mint(k1, h.clock));
     });
 
+    it('stops admitting a key the issuer withdrew once the cache reaches its maximum age', async () => {
+      const k1 = await signer('ES256', 'k1');
+      const k2 = await signer('ES256', 'k2');
+      let published: JWK[] = [k1.jwk];
+      const h = harness(standardRoutes(() => published));
+      await expectAdmitted(h.verifier, await mint(k1, h.clock));
+
+      // The issuer rotates k1 out. Before the maximum age the cache still holds it.
+      published = [k2.jwk];
+      h.clock.ms += 9 * 60_000;
+      await expectAdmitted(h.verifier, await mint(k1, h.clock));
+
+      // At the maximum age the key set — and the metadata — is refetched before verifying.
+      h.clock.ms += 60_000;
+      await expectRefused(h.verifier, await mint(k1, h.clock), 'unknown-key');
+      await expectAdmitted(h.verifier, await mint(k2, h.clock));
+      expect(h.calls.filter((url) => url === METADATA_URL)).toHaveLength(2);
+    });
+
+    it('admits with cached keys through an outage within the hard age limit', async () => {
+      const k1 = await signer('ES256', 'k1');
+      let down = false;
+      const h = harness({
+        [METADATA_URL]: () => json({ issuer: ISSUER, jwks_uri: JWKS_URL }),
+        [JWKS_URL]: () => {
+          if (down) throw new TypeError('fetch failed');
+          return json({ keys: [k1.jwk] });
+        },
+      });
+      await expectAdmitted(h.verifier, await mint(k1, h.clock));
+      down = true;
+      h.clock.ms += 59 * 60_000;
+      await expectAdmitted(h.verifier, await mint(k1, h.clock));
+    });
+
+    it('refuses once an outage outlasts the hard age limit, and recovers after it', async () => {
+      const k1 = await signer('ES256', 'k1');
+      let down = false;
+      const h = harness({
+        [METADATA_URL]: () => json({ issuer: ISSUER, jwks_uri: JWKS_URL }),
+        [JWKS_URL]: () => {
+          if (down) return new Response('down', { status: 503 });
+          return json({ keys: [k1.jwk] });
+        },
+      });
+      await expectAdmitted(h.verifier, await mint(k1, h.clock));
+      down = true;
+      h.clock.ms += 60 * 60_000;
+      await expectRefused(h.verifier, await mint(k1, h.clock), 'keys-unavailable');
+      // Still refused inside the retry interval: the dropped keys do not come back on their own.
+      h.clock.ms += 1_000;
+      await expectRefused(h.verifier, await mint(k1, h.clock), 'keys-unavailable');
+
+      down = false;
+      h.clock.ms += 30_000;
+      await expectAdmitted(h.verifier, await mint(k1, h.clock));
+    });
+
+    it('checks the key whose kid AND shape fit when two keys share a kid', async () => {
+      const rsa = await signer('RS256', 'shared');
+      const ec = await signer('ES256', 'shared');
+      const h = harness(standardRoutes(() => [rsa.jwk, ec.jwk]));
+      await expectAdmitted(h.verifier, await mint(ec, h.clock));
+      await expectAdmitted(h.verifier, await mint(rsa, h.clock));
+    });
+
     it('treats a non-200 key-set response as an outage', async () => {
       const k1 = await signer('ES256', 'k1');
       const h = harness({
@@ -562,16 +632,41 @@ describe('createAccessTokenVerifier', () => {
     });
   });
 
-  it('never puts token text, a claim value or an error message in a refusal', () => {
-    expect(seenRefusals.length).toBeGreaterThan(20);
-    for (const { token, result } of seenRefusals) {
-      const serialized = JSON.stringify(result);
+  it('never puts token text, a claim value or an error message in a refusal', async () => {
+    const key = await signer('ES256', 'k1');
+    const forger = await signer('ES256', 'k1');
+    const h = harness(
+      standardRoutes(() => [key.jwk]),
+      { allowedSubjects: ['bob'] },
+    );
+    const down = harness({});
+    const cases: Array<[IAccessTokenVerifier, string]> = [
+      [h.verifier, await mint(key, h.clock, { header: { typ: 'JWT' } })],
+      [h.verifier, await mint(key, h.clock, { issuer: 'https://other.example.com' })],
+      [h.verifier, await mint(key, h.clock, { audience: 'https://other.example.com/mcp' })],
+      [h.verifier, await mint(key, h.clock, { claims: { scope: 'agent:read' } })],
+      [h.verifier, await mint(key, h.clock, { expOffset: -3600 })],
+      [h.verifier, await mint(key, h.clock)],
+      [h.verifier, await mint(forger, h.clock)],
+      [h.verifier, `${await mint(key, h.clock)}${'x'.repeat(9000)}`],
+      [h.verifier, 'garbage.alice.cli-1'],
+      [down.verifier, await mint(key, down.clock)],
+    ];
+    const refusals = new Set<string>();
+    for (const [verifier, token] of cases) {
+      const result: TAccessTokenAdmission = await verifier.verify(token);
+      expect(result.admitted).toBe(false);
       expect(Object.keys(result).sort()).toEqual(['admitted', 'refusal']);
+      if (!result.admitted) refusals.add(result.refusal);
+      const serialized = JSON.stringify(result);
       for (const segment of token.split('.').filter((part) => part.length > 8)) {
         expect(serialized).not.toContain(segment);
       }
       expect(serialized).not.toContain('alice');
       expect(serialized).not.toContain('cli-1');
+      expect(serialized).not.toContain('example.com');
     }
+    // Every case reached a different refusal, so the check above covered each reason's path.
+    expect(refusals.size).toBe(cases.length);
   });
 });

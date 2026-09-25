@@ -28,7 +28,7 @@ export type TAccessTokenAlgorithm = 'RS256' | 'ES256' | 'EdDSA';
  * Why a token was refused. Stable words, so a caller can count and route refusals without parsing
  * a message.
  *
- * - `oversize` — longer than the configured bound; nothing was parsed.
+ * - `oversize` — longer than the verifier's fixed length bound; nothing was parsed.
  * - `malformed` — not a compact JWS carrying a JSON claim set, or a required claim is absent.
  * - `wrong-type` — the header `typ` is not `at+jwt` (an ID token, or an untyped JWT).
  * - `unsupported-algorithm` — the header `alg` is not one the verifier was configured with.
@@ -41,8 +41,8 @@ export type TAccessTokenAlgorithm = 'RS256' | 'ES256' | 'EdDSA';
  * - `expired` / `not-yet-valid` — outside `exp` / `nbf`, after the allowed clock skew.
  * - `missing-scope` — a required scope is not granted.
  * - `principal-not-allowed` — neither the subject nor the client is on the allowlist.
- * - `keys-unavailable` — the issuer's metadata or key set could not be obtained; the verifier fails
- *   closed.
+ * - `keys-unavailable` — no key set younger than the verifier's age limit could be obtained; the
+ *   verifier fails closed.
  */
 export type TAccessTokenRefusal =
   | 'oversize'
