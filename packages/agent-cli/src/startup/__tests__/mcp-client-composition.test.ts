@@ -125,13 +125,16 @@ describe('createMcpClientComposition', () => {
   it('only exposes external notifications from an admitted connected server', async () => {
     const entries = [resolvedEntry()];
     const received: unknown[] = [];
-    let emit: ((event: { senderId: string; conversationId: string; content: string }) => void) | undefined;
+    let emit:
+      ((event: { senderId: string; conversationId: string; content: string }) => void) | undefined;
     const connection: IMcpServerConnection = {
       discover: async () => discoveryWithOneTool(),
       callTool: async () => ({ content: [], isError: false }),
       onExternalEvent: (listener) => {
         emit = listener;
-        return () => { emit = undefined; };
+        return () => {
+          emit = undefined;
+        };
       },
       shutdown: async () => undefined,
     };
@@ -142,10 +145,14 @@ describe('createMcpClientComposition', () => {
       createSupervisor: () => connection,
       reportDiagnostic: () => undefined,
     });
-    expect(composition.subscribeExternalEvent('weather', (event) => received.push(event)).ok).toBe(false);
+    expect(composition.subscribeExternalEvent('weather', (event) => received.push(event)).ok).toBe(
+      false,
+    );
     await composition.connect();
     expect(composition.subscribeExternalEvent('unlisted', () => undefined).ok).toBe(false);
-    const subscription = composition.subscribeExternalEvent('weather', (event) => received.push(event));
+    const subscription = composition.subscribeExternalEvent('weather', (event) =>
+      received.push(event),
+    );
     expect(subscription.ok).toBe(true);
     emit?.({ senderId: 'alice', conversationId: 'chat', content: 'hello' });
     expect(received).toEqual([{ senderId: 'alice', conversationId: 'chat', content: 'hello' }]);
@@ -242,7 +249,10 @@ describe('createMcpClientComposition', () => {
       transport: { lookup: async () => ['93.184.216.34'] },
       createSupervisor: () => ({
         discover: async () => discoveryWithOneTool(),
-        callTool: async () => ({ content: [{ type: 'text', text: 'x'.repeat(6_000) }], isError: false }),
+        callTool: async () => ({
+          content: [{ type: 'text', text: 'x'.repeat(6_000) }],
+          isError: false,
+        }),
         shutdown: async () => undefined,
       }),
       createResultSpillStore: () => ({
@@ -405,6 +415,155 @@ describe('buildMcpClientTimeouts (TC-18)', () => {
       toolCallMs: 900_000,
     });
 
+    await composition.shutdown();
+  });
+});
+
+describe('remote server authentication', () => {
+  it('asks the host for the authenticator of exactly the admitted server', async () => {
+    const entries = [resolvedEntry()];
+    const approvalStore = approvedApprovalStore(entries);
+    const { connection } = fakeConnection(discoveryWithOneTool());
+    const authenticatorFor = vi.fn(() => ({
+      authorize: async () => ({ authorization: 'Bearer t' }),
+      onRejected: async () => 'fail' as const,
+    }));
+
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore,
+      authenticatorFor,
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: () => connection,
+      reportDiagnostic: diagnosticsSink().reportDiagnostic,
+    });
+    await composition.connect();
+
+    expect(authenticatorFor).toHaveBeenCalledOnce();
+    expect(authenticatorFor).toHaveBeenCalledWith(
+      expect.objectContaining({ serverId: 'weather', securityIdentity: expect.any(String) }),
+    );
+    await composition.shutdown();
+  });
+
+  it('refuses a server that declares authentication this version cannot perform', async () => {
+    const entries = [
+      resolvedEntry({ definition: definition({ unsupportedAuthentication: ['oauth'] }) }),
+    ];
+    const approvalStore = approvedApprovalStore(entries);
+    const diagnostics = diagnosticsSink();
+    let supervisorConstructed = false;
+
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore,
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: () => {
+        supervisorConstructed = true;
+        throw new Error('unreachable');
+      },
+      reportDiagnostic: diagnostics.reportDiagnostic,
+    });
+
+    expect(await composition.connect()).toEqual([]);
+    expect(supervisorConstructed).toBe(false);
+    expect(diagnostics.messages.join('\n')).toContain('unsupported-authentication');
+    await composition.shutdown();
+  });
+});
+
+describe('OAuth remote servers', () => {
+  const oauthEntries = () => [resolvedEntry({ definition: definition({ oauth: {} }) })];
+
+  it('refuses an oauth server when the host offers no OAuth, never connecting without it', async () => {
+    const entries = oauthEntries();
+    const diagnostics = diagnosticsSink();
+    let supervisorConstructed = false;
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore: approvedApprovalStore(entries),
+      authenticatorFor: () => ({
+        authorize: async () => ({ authorization: 'Bearer static' }),
+        onRejected: async () => 'fail' as const,
+      }),
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: () => {
+        supervisorConstructed = true;
+        throw new Error('unreachable');
+      },
+      reportDiagnostic: diagnostics.reportDiagnostic,
+    });
+    expect(await composition.connect()).toEqual([]);
+    expect(supervisorConstructed).toBe(false);
+    expect(diagnostics.messages.join('\n')).toContain('oauth-unavailable');
+    await composition.shutdown();
+  });
+
+  it('builds one OAuth authenticator per server for the composition, closed at shutdown', async () => {
+    const entries = oauthEntries();
+    const { connection } = fakeConnection(discoveryWithOneTool());
+    const close = vi.fn();
+    const authenticatorFor = vi.fn(() => ({
+      authorize: async () => ({ Authorization: 'Bearer t' }),
+      onRejected: async () => 'fail' as const,
+      close,
+    }));
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore: approvedApprovalStore(entries),
+      oauth: { authenticatorFor },
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: () => connection,
+      reportDiagnostic: diagnosticsSink().reportDiagnostic,
+    });
+    await composition.connect();
+    await composition.connect();
+    expect(authenticatorFor).toHaveBeenCalledOnce();
+    expect(authenticatorFor).toHaveBeenCalledWith(
+      expect.objectContaining({ serverId: 'weather' }),
+      expect.objectContaining({ oauth: {} }),
+    );
+    expect(close).not.toHaveBeenCalled();
+    await composition.shutdown();
+    expect(close).toHaveBeenCalledOnce();
+  });
+
+  it('a /mcp sign-out makes the live authenticator drop the token it holds', async () => {
+    const entries = oauthEntries();
+    const { connection } = fakeConnection(discoveryWithOneTool());
+    const forget = vi.fn();
+    const signOut = vi.fn(async () => ({ removed: true, revocation: 'revoked' as const }));
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore: approvedApprovalStore(entries),
+      oauth: {
+        authenticatorFor: () => ({
+          authorize: async () => ({ Authorization: 'Bearer t' }),
+          onRejected: async () => 'fail' as const,
+          forget,
+          close: () => undefined,
+        }),
+        state: async () => 'signed-in',
+        signOut,
+      },
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: () => connection,
+      reportDiagnostic: diagnosticsSink().reportDiagnostic,
+    });
+    await composition.connect();
+    await expect(composition.activationAdapter.oauthStatus?.()).resolves.toEqual([
+      { serverId: 'weather', state: 'signed-in' },
+    ]);
+    await expect(composition.activationAdapter.oauthLogout?.('weather')).resolves.toEqual({
+      serverId: 'weather',
+      removed: true,
+      revocation: 'revoked',
+    });
+    expect(signOut).toHaveBeenCalledWith(
+      expect.objectContaining({ serverId: 'weather' }),
+      expect.objectContaining({ oauth: {} }),
+    );
+    expect(forget).toHaveBeenCalledOnce();
     await composition.shutdown();
   });
 });

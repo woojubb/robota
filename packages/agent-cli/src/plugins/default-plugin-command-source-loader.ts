@@ -58,7 +58,13 @@ export function reloadPluginCommandSource(
   registry: CommandRegistry,
   cwd?: string,
   projectAccess?: TWorkspaceProjectAccess,
+  /** `false` under `--safe-mode`: no plugin's commands, from any scope. */
+  pluginsEnabled = true,
 ): number {
+  if (!pluginsEnabled) {
+    registry.replaceSource(PLUGIN_SOURCE_NAME);
+    return 0;
+  }
   try {
     // PLG-021 / issue #2025: the reload path reported plugins as reloaded while a disabled plugin's
     // commands came back with them, because the bare loader defaults its enablement map to `{}`.

@@ -42,17 +42,19 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
     const names = moduleNames(baseOptions);
     // No-regression: the default set length is the documented 32 modules (SELFHOST-002 added
     // `/plan`; PEER-004 added `/peers`; CLI-1994 added `/fork`; MCP-2520 added `/mcp`; CLI-1988 added
-    // `/output-style`; FLOW-008 added `/effort`). The list below is the assertion
-    // that matters — a length on its own can be restored by any substitution, and the count exists
-    // only to catch an addition that also removed something.
-    expect(names).toHaveLength(33);
+    // `/output-style`; FLOW-008 added `/effort`; `/advisor` joined beside it). The list below is the
+    // assertion that matters — a length on its own can be restored by any substitution, and the count
+    // exists only to catch an addition that also removed something.
+    expect(names).toHaveLength(35);
     expect(names).toEqual([
       'agent-command-skills',
       'agent-command-help',
       'agent-command-agent',
       'agent-command-effort',
+      'agent-command-advisor',
       'agent-command-permissions',
       'agent-command-mode',
+      'agent-command-sandbox',
       'agent-command-preset',
       'agent-command-output-style',
       'agent-command-language',

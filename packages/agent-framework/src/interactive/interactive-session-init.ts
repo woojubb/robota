@@ -38,7 +38,12 @@ import type { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.j
 import type { ICommandResult } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IContextFileEntry } from '../context/context-loader.js';
-import type { IContextWindowState, TToolArgs, TUniversalMessage } from '@robota-sdk/agent-core';
+import type {
+  IContextWindowState,
+  IHistoryEntry,
+  TToolArgs,
+  TUniversalMessage,
+} from '@robota-sdk/agent-core';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
 import type { Session } from '@robota-sdk/agent-session';
 
@@ -88,7 +93,8 @@ export async function createInteractiveSession(
   let mergedConfig: IResolvedConfig = options.language
     ? { ...config, language: options.language }
     : config;
-  const effectiveHookSources = [...hookSources];
+  if (options.skipConfiguredHooks === true) mergedConfig = { ...mergedConfig, hooks: undefined };
+  const effectiveHookSources = options.skipConfiguredHooks === true ? [] : [...hookSources];
 
   // Project plugins may contain executable hooks. Include that scope only after the host has
   // granted workspace trust; a restricted session still sees user-installed plugins.
@@ -189,6 +195,7 @@ export interface IAsyncInitDeps {
   onTextDelta: (delta: string) => void;
   onContextUpdate: (state: IContextWindowState) => void;
   onCompactEvent: (event: ICompactEvent) => void;
+  onUsageRecorded: (entries: readonly IHistoryEntry[]) => void;
   onToolExecution: (event: {
     type: 'start' | 'end';
     toolName: string;
@@ -265,8 +272,11 @@ export async function initializeInteractiveSessionAsync(
     onTextDelta: deps.onTextDelta,
     onContextUpdate: deps.onContextUpdate,
     onCompactEvent: deps.onCompactEvent,
+    onUsageRecorded: deps.onUsageRecorded,
     onToolExecution: deps.onToolExecution,
     bare: options.bare,
+    ...(options.orgPolicy?.disableAutoMode === true ? { disableAutoMode: true } : {}),
+    ...(options.skipConfiguredHooks === true ? { skipConfiguredHooks: true } : {}),
     disableBuiltInHookExecutors: options.disableBuiltInHookExecutors,
     commandHookShell: options.commandHookShell,
     allowedTools: options.allowedTools,

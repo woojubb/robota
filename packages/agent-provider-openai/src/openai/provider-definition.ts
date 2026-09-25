@@ -55,6 +55,9 @@ export function createOpenAIProviderDefinition(): IProviderDefinition {
     ],
     requiresApiKey: true,
     probeProfile: probeOpenAICompatibleProfile,
+    // The OpenAI SDK falls back to the base URL variable when none is configured, and sends the
+    // organization and project the others name.
+    destinationEnvironment: ['OPENAI_BASE_URL', 'OPENAI_ORG_ID', 'OPENAI_PROJECT_ID'],
     createProvider: (config) => {
       const apiSurface = readApiSurface(config.options);
       const nativeWebTools = readNativeWebTools(config.options);

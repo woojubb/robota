@@ -33,9 +33,14 @@ import { PendingInputQueue } from './interactive-session-pending-queue.js';
 import { capturePostTurnMemory } from './interactive-session-post-turn-memory.js';
 import { executePromptTurn, promptTurnAttribution } from './interactive-session-prompt.js';
 import { STREAMING_FLUSH_INTERVAL_MS } from './interactive-session-streaming.js';
-import { recordUsageObservation } from './interactive-session-usage-observation.js';
+import {
+  attributeTurnModels,
+  recordUsageObservation,
+} from './interactive-session-usage-observation.js';
+import type { ITurnModelCall } from './interactive-session-usage-observation.js';
 import { TurnSettlerRegistry } from './turn-settler-registry.js';
 import { humanizeApiError } from '../utils/error-humanizer.js';
+import { advisorToolLineLabel } from '../advisor/advisor-tool.js';
 
 import type { IExecutionClaim } from './interactive-execution-claim.js';
 import type {
@@ -199,6 +204,9 @@ export class SessionExecutionController {
       this.callbacks,
       (activeTools) => void (this.activeTools = activeTools),
       event,
+      event.type === 'start'
+        ? advisorToolLineLabel(event.toolName, this.callbacks.getSession()?.getToolSchemas() ?? [])
+        : undefined,
     );
   }
 
@@ -309,6 +317,8 @@ export class SessionExecutionController {
         }
       | undefined;
     const providerCallEntries: IHistoryEntry<IProviderCallTraceEntry>[] = [];
+    // Every call of the turn, so its usage is charged to the models that actually answered.
+    const turnCalls: Array<ITurnModelCall & { callId?: string }> = [];
     const seenProviderCallIds = new Set<string>();
     const toolBodyEntries: IHistoryEntry<IToolBodyTraceEntry>[] = [];
     const liveTrace = this.callbacks.livePromptTrace ? new LivePromptTraceAccumulator() : undefined;
@@ -406,6 +416,13 @@ export class SessionExecutionController {
           turnOutcome = 'success';
         },
         onProviderCallCompleted: (observation) => {
+          // A call reported twice is still one call.
+          if (
+            observation.callId === undefined ||
+            !turnCalls.some((call) => call.callId === observation.callId)
+          ) {
+            turnCalls.push(observation);
+          }
           if (!promptRoot) return;
           // Core mints the call ID before every call and the span ID is derived from it, so the span
           // a provider was told is its parent is the span exported here. A call without one has no
@@ -596,6 +613,7 @@ export class SessionExecutionController {
         ...(turnOptions.driverId ? { driverId: turnOptions.driverId } : {}),
         ...(turnOptions.surface ? { surface: turnOptions.surface } : {}),
         ...(terminalResult?.usage ? { usage: terminalResult.usage } : {}),
+        attribution: attributeTurnModels(turnCalls),
       });
       if (turnOptions.wakeTaskId !== undefined && this.callbacks.onWakeTurnFinalizing) {
         try {

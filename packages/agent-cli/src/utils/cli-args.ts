@@ -7,6 +7,7 @@ import { parseArgs } from 'node:util';
 
 import {
   OUTPUT_FORMATS,
+  parseFallbackModelList,
   parseModelEffort,
   type TOutputFormat,
   type TEffortSelection,
@@ -18,7 +19,13 @@ import type { TPermissionMode } from '@robota-sdk/agent-core';
 // existing CLI imports keep working without a second declaration of the same union.
 export type { TOutputFormat };
 
-const VALID_MODES: TPermissionMode[] = ['plan', 'default', 'acceptEdits', 'bypassPermissions'];
+const VALID_MODES: TPermissionMode[] = [
+  'plan',
+  'default',
+  'acceptEdits',
+  'bypassPermissions',
+  'auto',
+];
 
 const VALID_OUTPUT_FORMATS = OUTPUT_FORMATS;
 
@@ -33,6 +40,13 @@ export interface IParsedCliArgs {
   /** MCP-2533: selecting HTTP also requires an exclusive owner-only token file. */
   mcpHttpTokenFile?: string;
   mcpHttpPort?: number;
+  /** `robota mcp serve` remote resource-server settings; a non-loopback bind requires them. */
+  mcpHttpHost?: string;
+  mcpHttpPublicUrl?: string;
+  mcpOauthIssuer?: string;
+  mcpOauthScopes?: string[];
+  mcpOauthAllowedSubjects?: string[];
+  mcpTrustedProxies?: string[];
   /** Explicit TUI-only MCP source/sender grants; each value is serverId:senderId. */
   externalEventAllow?: string[];
   /** GUI-007: with `--serve --open`, also serve the CLI's web monitor SPA over localhost and open it. */
@@ -60,11 +74,17 @@ export interface IParsedCliArgs {
   version: boolean;
   reset: boolean;
   bare: boolean;
+  /** Start with every customization off: instructions, skills, commands, agents, plugins, hooks, MCP. */
+  safeMode: boolean;
   allowedTools: string | undefined;
   deniedTools: string | undefined;
   model: string | undefined;
+  /** Models to move a turn to when the primary is overloaded; replaces the settings' chain. */
+  fallbackModel?: string[];
   /** Requested model-effort level; `auto` follows the selected model default. */
   effort?: TEffortSelection;
+  /** The advisor for this run (`<profile>`, `<profile>:<model>` or `off`); wins over the saved one. */
+  advisor?: string;
   preset: string | undefined;
   /** CLI-1988: provider-neutral output-style id; resolved against the startup style registry. */
   outputStyle?: string;
@@ -163,10 +183,17 @@ const PARSE_ARGS_CONFIG = {
     // Issue #3081: set only by `/cd` when it starts the session in the target directory; not in help.
     'moved-from': { type: 'string' },
     'restricted-workspace': { type: 'boolean', default: false },
+    'safe-mode': { type: 'boolean', default: false },
     serve: { type: 'boolean', default: false },
     'supervised-session-id': { type: 'string' },
     'http-token-file': { type: 'string' },
     'http-port': { type: 'string' },
+    'http-host': { type: 'string' },
+    'http-public-url': { type: 'string' },
+    'oauth-issuer': { type: 'string' },
+    'oauth-scopes': { type: 'string' },
+    'oauth-allowed-subjects': { type: 'string' },
+    'trusted-proxy': { type: 'string', multiple: true },
     'external-event-allow': { type: 'string', multiple: true },
     open: { type: 'boolean', default: false },
     name: { type: 'string', short: 'n' },
@@ -183,7 +210,9 @@ const PARSE_ARGS_CONFIG = {
     'allowed-tools': { type: 'string' },
     'denied-tools': { type: 'string' },
     model: { type: 'string' },
+    'fallback-model': { type: 'string' },
     effort: { type: 'string' },
+    advisor: { type: 'string' },
     preset: { type: 'string' },
     'output-style': { type: 'string' },
     'no-session-persistence': { type: 'boolean', default: false },
@@ -272,6 +301,12 @@ function mapParsedValues(
     supervisedSessionId: values['supervised-session-id'],
     mcpHttpTokenFile: values['http-token-file'],
     mcpHttpPort: values['http-port'] === undefined ? undefined : Number(values['http-port']),
+    mcpHttpHost: values['http-host'],
+    mcpHttpPublicUrl: values['http-public-url'],
+    mcpOauthIssuer: values['oauth-issuer'],
+    mcpOauthScopes: parseToolList(values['oauth-scopes']),
+    mcpOauthAllowedSubjects: parseToolList(values['oauth-allowed-subjects']),
+    mcpTrustedProxies: values['trusted-proxy'],
     externalEventAllow: values['external-event-allow'] ?? [],
     open: values['open'] ?? false,
     continueMode: values['continue'] ?? false,
@@ -294,10 +329,15 @@ function mapParsedValues(
     version: values['version'] ?? false,
     reset: values['reset'] ?? false,
     bare: values['bare'] ?? false,
+    safeMode: values['safe-mode'] ?? false,
     allowedTools: values['allowed-tools'],
     deniedTools: values['denied-tools'],
     model: values['model'],
+    ...(values['fallback-model'] !== undefined && {
+      fallbackModel: parseFallbackModelList(values['fallback-model']),
+    }),
     effort: parseModelEffort(values['effort']),
+    advisor: values['advisor'],
     preset: values['preset'],
     outputStyle: values['output-style'],
     noSessionPersistence: values['no-session-persistence'] ?? false,
@@ -334,7 +374,12 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
     throw new Error('--http-port must be an integer in 1..65535');
   }
   if (args.supervisedSessionId !== undefined) {
-    if (!args.serve || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(args.supervisedSessionId)) {
+    if (
+      !args.serve ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(
+        args.supervisedSessionId,
+      )
+    ) {
       throw new Error('--supervised-session-id requires --serve and a valid generated UUID');
     }
   }
@@ -343,8 +388,15 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
     const separator = grant.indexOf(':');
     const serverId = grant.slice(0, separator);
     const senderId = grant.slice(separator + 1);
-    if (separator < 1 || !/^[a-zA-Z0-9_-]{1,64}$/u.test(serverId) || senderId.length === 0 || senderId.length > 128) {
-      throw new Error('--external-event-allow requires serverId:senderId (bounded, non-empty identities)');
+    if (
+      separator < 1 ||
+      !/^[a-zA-Z0-9_-]{1,64}$/u.test(serverId) ||
+      senderId.length === 0 ||
+      senderId.length > 128
+    ) {
+      throw new Error(
+        '--external-event-allow requires serverId:senderId (bounded, non-empty identities)',
+      );
     }
     for (const character of senderId) {
       const code = character.codePointAt(0)!;
@@ -353,12 +405,19 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
       }
     }
   }
-  if (externalEventAllow.length > 0 && (
-    args.printMode || args.goal !== undefined || args.serve || args.reset ||
-    args.configure || args.configureProvider !== undefined || args.version ||
-    args.checkUpdate || args.help ||
-    ['mcp', 'eval', 'session', 'user-local'].includes(args.positional[0] ?? '')
-  )) {
+  if (
+    externalEventAllow.length > 0 &&
+    (args.printMode ||
+      args.goal !== undefined ||
+      args.serve ||
+      args.reset ||
+      args.configure ||
+      args.configureProvider !== undefined ||
+      args.version ||
+      args.checkUpdate ||
+      args.help ||
+      ['mcp', 'eval', 'session', 'user-local'].includes(args.positional[0] ?? ''))
+  ) {
     throw new Error('--external-event-allow is currently available only in interactive TUI mode');
   }
   if (externalEventAllow.length > 0 && args.permissionMode === 'bypassPermissions') {

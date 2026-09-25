@@ -2,12 +2,14 @@
  * Session types — interfaces and type aliases for Session construction.
  */
 
+import type { IPermissionClassifier } from './auto-mode-gate.js';
 import type { TAutoCompactThreshold } from './context-window-tracker.js';
 import type {
   TPermissionHandler,
   TPermissionResult,
   ITerminalOutput,
   ISpinner,
+  ICommandSandboxApproval,
 } from './permission-types.js';
 import type { ISessionLogger } from './session-logger.js';
 import type {
@@ -22,7 +24,11 @@ import type {
   TToolChoice,
   TToolArgs,
 } from '@robota-sdk/agent-core';
-import type { IHookTypeExecutor, IResponseFormatConfig, IRunTraceContext } from '@robota-sdk/agent-core';
+import type {
+  IHookTypeExecutor,
+  IResponseFormatConfig,
+  IRunTraceContext,
+} from '@robota-sdk/agent-core';
 import type { ICompactEvent, IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 export type { ICompactEvent, TCompactTrigger } from '@robota-sdk/agent-interface-session';
@@ -106,6 +112,10 @@ export interface ISessionOptions {
   sessionId?: string;
   /** Custom permission handler (overrides terminal-based prompts, used by Ink UI) */
   permissionHandler?: TPermissionHandler;
+  /** The OS sandbox the shell tools run under, which may let a confined command skip the prompt. */
+  commandSandbox?: ICommandSandboxApproval;
+  /** Decides for `auto` mode. Without one the session refuses that mode. */
+  permissionClassifier?: IPermissionClassifier;
   /** Called when the user selects "allow for project" — persists the tool pattern to project settings. */
   onProjectAllowTool?: (toolName: string) => void;
   /** Callback for text deltas — enables streaming text to the UI in real-time */

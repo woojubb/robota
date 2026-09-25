@@ -76,7 +76,11 @@ export type {
 } from './workspace-trust/index.js';
 
 // ── InteractiveSession (primary API) ────────────────────────
-export { InteractiveSession, PeerMessageIngress, ExternalEventIngress } from './interactive/index.js';
+export {
+  InteractiveSession,
+  PeerMessageIngress,
+  ExternalEventIngress,
+} from './interactive/index.js';
 export { withUniqueSessionName } from './interactive/interactive-session-fork-record.js';
 export type {
   IAuthenticatedExternalEvent,
@@ -185,9 +189,16 @@ export type {
   TSystemCommandLifecycle,
   TSystemCommandSemanticRole,
   ICommandPermissionModeAdapter,
+  ICommandPermissionRulesAdapter,
+  ICommandSandboxAdapter,
+  ICommandSandboxStatus,
+  TSandboxCommandMode,
+  IPermissionRuleLayer,
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
   ICommandMCPSourceProblem,
+  ICommandMCPOAuthStatus,
+  ICommandMCPOAuthLogoutResult,
   ICommandOutputStyleRegistryAdapter,
   ICommandOutputStyleSummary,
   ICommandRemoteControlAdapter,
@@ -218,6 +229,29 @@ export type {
   IAppearanceSettings,
   TAppearanceSettingsPatch,
 } from './commands/index.js';
+export {
+  ADVISOR_OFF,
+  ADVISOR_TOOL_NAME,
+  AdvisorController,
+  createAdvisorTool,
+  describeProviderDestination,
+  formatAdvisorSpec,
+  parseAdvisorSpec,
+  providerDestinationOf,
+  rememberProviderDestination,
+  resolveStartupAdvisorSpec,
+} from './advisor/index.js';
+export type {
+  IAdvisorConsentStore,
+  IAdvisorControllerOptions,
+  IAdvisorSetResult,
+  IAdvisorSpec,
+  IAdvisorStatus,
+  IAdvisorTarget,
+  ICommandAdvisorAdapter,
+  TAdvisorTargetResolver,
+} from './advisor/index.js';
+export type { ISessionUsageRecord } from './command-api/session/session-usage.js';
 export { parseModelEffort, resolveModelEffort } from './effort/index.js';
 export type {
   IModelEffortInputs,
@@ -276,6 +310,8 @@ export {
   RECOMMENDED_RESPONSE_LANGUAGES,
   buildPermissionModeSubcommands,
   formatCommandPermissionsMessage,
+  groupPermissionRulesBySource,
+  RUNTIME_RULE_SOURCE,
   formatInvalidPermissionModeMessage,
   isPermissionMode,
   listCommandSessionAllowedTools,
@@ -288,6 +324,7 @@ export {
   resolvePermissionModeAdapter,
   VALID_PERMISSION_MODES,
   writeCommandPermissionMode,
+  retryCommandPermissionDenial,
   applyPresetToSession,
   buildStatusLineCommandSubcommands,
   buildPluginCommandSubcommands,
@@ -356,7 +393,9 @@ export type {
   ICompactContextResult,
   ICommandSessionInfo,
   ICommandSessionReplayValidationReport,
+  IPermissionRuleGroup,
   IPermissionsCommandState,
+  TPermissionRuleKind,
   IPresetApplicationOptions,
   IPresetApplicationResult,
   IMemoryCandidate,
@@ -786,6 +825,10 @@ export {
 } from './config/settings-io.js';
 export type { TSettingsData, TSettingsScope } from './config/settings-io.js';
 export { inspectSettingsLayers } from './config/settings-inspection.js';
+export {
+  createSettingsPermissionRulesAdapter,
+  readPermissionRuleLayers,
+} from './config/permission-rule-layers.js';
 export type {
   ISettingsInspection,
   ISettingsKeyProvenance,
@@ -795,7 +838,7 @@ export type {
   TSettingsLayerState,
 } from './config/settings-inspection.js';
 export type { TSettingsMergeRule } from './config/config-merge.js';
-export type { TSettings } from './config/config-types.js';
+export type { TSandboxSettings, TSettings } from './config/config-types.js';
 export type {
   ISkillRootDescriptor,
   ISkillRootInspection,
@@ -838,6 +881,27 @@ export {
   resolveRoleFallbackChain,
   runWithRoleFallback,
 } from './routing/role-model-routing.js';
+export { FallbackProvider } from './routing/fallback-provider.js';
+export type {
+  IFallbackModelTarget,
+  IFallbackProviderOptions,
+} from './routing/fallback-provider.js';
+export {
+  applyModelFallback,
+  FALLBACK_MODEL_SETTINGS_KEY,
+  MAX_FALLBACK_MODELS,
+  describeModelFallback,
+  parseFallbackModelList,
+  readFallbackModelSetting,
+  resolveModelFallbackChain,
+  selectFallbackModelEntries,
+} from './routing/model-fallback-chain.js';
+export type {
+  IApplyModelFallbackInput,
+  IModelFallbackChain,
+  IModelFallbackPrimary,
+  IResolveModelFallbackChainInput,
+} from './routing/model-fallback-chain.js';
 
 // ──────────────────────────────────────────────────────────────
 // INTERNAL (not exported):

@@ -43,6 +43,34 @@ had no discovery, and two client stacks cannot both be authoritative.
   mentioned — a name already resolved from a different, readable managed origin is unaffected. A
   source-level problem in any other tier is informational only — reported beside the servers that
   still resolve normally.
+- **Authentication is bound to one server and never optional once asked for**: a host registers an
+  authenticator for one server identity, and the HTTP transport asks it for headers on every request
+  to that server only, after admission — never across a redirect, which stays refused. Its headers
+  override a static header of the same name and never enter a projection, log, audit record or
+  error. A refused credential is retried at most once, with fresh authorization, and only when the
+  authenticator allows it; a failure is a typed, content-free refusal, and there is never an
+  unauthenticated attempt. A definition that declares authentication this version cannot perform, a
+  header helper the host does not allow, or `oauth` the host offers no sign-in for, stays listed and
+  is refused by name, rather than connected with its static headers alone. A header helper is an
+  exact argv the host runs, never a shell line or a template, so the host can allow one command line
+  rather than a program; its output is parsed strictly, may not set a header the transport or
+  protocol owns, and is obtained once per connection and once more after the server refuses them —
+  however many requests were refused together.
+- **OAuth trusts only what it has checked**: discovery follows no link it has not checked against
+  the one before it — the resource metadata must describe this server, the authorization server's
+  metadata must name the issuer it was fetched for, every endpoint is `https` and PKCE `S256` is
+  advertised — because the SDK's discovery guesses when a link is missing. A POST never follows a
+  redirect, since its body is a code, a token or a secret, and a sign-in's redirect — caught on
+  loopback or pasted by the user — is accepted only once, as its own redirect URI with its own
+  `state` and, when present, its issuer's `iss`. Tokens are kept by server identity and canonical
+  URL together, so a shadowing definition cannot use another's sign-in; a refresh goes only to the
+  endpoint the tokens came from and runs once per credential across processes, because a rotating
+  refresh token spent twice signs the user out — and a refused refresh never clears a token someone
+  else rotated in meanwhile. Signing out deletes the credential before asking the stored issuer to
+  revoke it, so an authorization server that is down or refuses cannot keep the user signed in. A
+  sign-in state shown to the user is a fixed word, never derived from a token. Storage is a
+  get/set/delete port with that coordination on the caller's side, so a keychain can replace files
+  without anything else changing. A client secret never lives in a definition.
 - **Trace context stays on the call it belongs to**: a tool call's trusted `traceparent` goes only on
   that call's own `tools/call` POST and the cancellation of it, and only to an exactly listed origin.
   The decision is made from each request's body, not from the async context, because the SDK runs a
@@ -62,11 +90,23 @@ false`; every `DEFAULT_INHERITED_ENV_VARS` key is explicitly shadowed rather tha
   identity and (for every source outside `managed`/`user`) repository identity and workspace
   generation must all match an approval; project/plugin sources cannot self-approve, and
   `requiresTrustedWorkspace` is deny-by-default.
-- **Secrets are never hashed** in identity computation, so rotating a token does not invalidate an
-  approval — fingerprints cover only what will run or where it came from, not secret values.
-  Redacted projections carry `env`/`header` KEYS but never VALUES, because "configured but
-  redacted" and "no header" must remain distinguishable answers; stdio command, argv and cwd are
-  redacted wholesale.
+- **One principle decides what is secret**: a value is secret because of what it is — a stretch a
+  credential-shaped variable produced (its default included), or a value under a credential-shaped
+  env or header key — not because of which field carries it. Materialization records which
+  stretches came from which variable, and every consumer reads that record.
+- **Secrets are never hashed, and everything else is**: the definition fingerprint covers every
+  value that decides what runs or where it connects, env and header values included, with each
+  secret replaced by a marker naming its source. A changed `NODE_OPTIONS` value or a changed host
+  invalidates an approval on every transport; rotating a credential does not.
+- **Nothing printed carries a secret**: the activation endpoint and a projected command line, cwd
+  and URL stay readable, because they are how an operator tells servers apart, with only their
+  secret stretches replaced — what a credential-shaped variable expanded, and any literal a
+  credential's shape gives away. That shape test is a guess, so it serves display only and never
+  the fingerprint: two different literal tokens mask alike, and a fingerprint blind to a changed
+  token would carry an old approval over to it. Transport errors name origins only. Projections
+  carry `env`/`header` KEYS but never VALUES: the key alone tells servers apart, "configured but
+  redacted" and "no header" must remain distinguishable answers, and a value there is too often a
+  credential of no recognisable shape.
 - **A session is stateless about liveness by contract.** The SDK has no cancellation
   acknowledgment, so an abort or timeout of an active stdio request closes the direct child rather
   than pretending the in-flight call can be cancelled cleanly; a failed tool call is never replayed
@@ -95,6 +135,16 @@ false`; every `DEFAULT_INHERITED_ENV_VARS` key is explicitly shadowed rather tha
   version, server version); a reconnect whose identity differs invalidates it.
 - **The legacy protocol era is a recorded limit**: the pinned SDK generation speaks the
   pre-2026-07-28 protocol; a server that refuses the negotiated version is disconnected, not used.
+
+## Design decision: definition precedence, with plugins last
+
+A server name resolves to one whole entry from the highest source that defines it: `managed`,
+then `local`, `project`, `user` and `plugin`. Entries are never field-merged, and a malformed
+winner still shadows the name rather than handing it down. Plugins rank last because a plugin is
+the least-trusted source and plugin server names are not namespaced: ranking it above `user`
+would let an installed plugin silently replace a server the user configured under the same name,
+while ranking it last still lets a plugin add servers under names of its own. Claude Code ranks
+plugin-provided servers above user scope; Robota deliberately does not.
 
 ## Design decision: narrowing, not refusing, third-party schemas
 

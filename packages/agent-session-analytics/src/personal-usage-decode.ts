@@ -1,6 +1,7 @@
 import type { IHistoryEntry, IUniversalObjectValue, TUniversalValue } from '@robota-sdk/agent-core';
 import type {
   IPersonalUsageActivity,
+  IUsageModelShare,
   IUsageObservation,
   IUsageSnapshot,
   IUsageSource,
@@ -129,6 +130,40 @@ function usageSnapshot(value: TUniversalValue): IUsageSnapshot | undefined {
   };
 }
 
+function modelShare(value: TUniversalValue): IUsageModelShare | undefined {
+  if (!isRecord(value)) return undefined;
+  const providerId = optionalString(value['providerId']);
+  const modelId = optionalString(value['modelId']);
+  const { promptTokens, completionTokens, totalTokens, costStatus, costUsd } = value;
+  if (
+    !providerId ||
+    !modelId ||
+    !isMetric(promptTokens) ||
+    !isMetric(completionTokens) ||
+    !isMetric(totalTokens) ||
+    (costStatus !== 'unknown' && costStatus !== 'estimated') ||
+    (costStatus === 'estimated' ? !isMetric(costUsd) : costUsd !== undefined)
+  ) {
+    return undefined;
+  }
+  return {
+    providerId,
+    modelId,
+    promptTokens,
+    completionTokens,
+    totalTokens,
+    costStatus,
+    ...(costStatus === 'estimated' && isMetric(costUsd) ? { costUsd } : {}),
+  };
+}
+
+/** Every share, or none: a partly readable split would misstate what each model spent. */
+function modelShares(value: TUniversalValue): IUsageModelShare[] | undefined {
+  if (!Array.isArray(value) || value.length === 0) return undefined;
+  const shares = value.map(modelShare);
+  return shares.every((share) => share !== undefined) ? (shares as IUsageModelShare[]) : undefined;
+}
+
 function decodeObservation(value: TUniversalValue): IUsageObservation | undefined {
   if (!isRecord(value)) return undefined;
   const usageObservationId = optionalString(value['usageObservationId']);
@@ -144,6 +179,7 @@ function decodeObservation(value: TUniversalValue): IUsageObservation | undefine
   const surface = value['surface'];
   const source = usageSource(value['source']);
   const usage = usageSnapshot(value['usage']);
+  const shares = modelShares(value['modelShares']);
   return {
     usageObservationId,
     turnId,
@@ -152,6 +188,7 @@ function decodeObservation(value: TUniversalValue): IUsageObservation | undefine
     ...(optionalString(value['providerId'])
       ? { providerId: optionalString(value['providerId']) }
       : {}),
+    ...(shares ? { modelShares: shares } : {}),
     ...(isUsageSurface(surface) ? { surface } : {}),
     ...(source ? { source } : {}),
     ...(usage ? { usage } : {}),

@@ -55,7 +55,12 @@ Robota executable or product on their own.
 Local peer-activity publishing exposes only fixed, content-free activity states for the current
 interactive session into a guarded, same-user rendezvous, kept separate from process-liveness checks
 (stale or unverified observations read as `unknown`) and never carrying conversation content or
-stored-session identity. `session list` shows this presence separately from saved session records
+stored-session identity. The workspace claim published beside it is checked by each reader, which
+reads git at the claimed path itself and relates nothing whose contents do not match; it does not
+establish that the peer works at that path, because the same OS user is the trust boundary and the
+relation grants nothing. Those reads stay local — git in a directory this session did not choose
+must never fetch or run repository-configured commands — and the origin travels only as a hash so a
+credential in a remote URL never reaches the rendezvous. `session list` shows this presence separately from saved session records
 without implying a background supervisor or an attach/restart capability; it includes only
 user-owned and currently authorized project records, never transcript content, and corrupt or
 unsupported records stay visible rather than being hidden.
@@ -169,10 +174,21 @@ server output is never substituted back into context. `robota_read_mcp_result` r
 characters per read (less under a host-configured hard limit), with the total size and next offset;
 missing or expired references fail with a fixed, payload-free error.
 
-**Stdio client authority.** Definitions and settings cannot grant execution authority on
+**Client execution authority.** Definitions and settings cannot grant execution authority on
 their own: an approved stdio definition without a separately supplied host authority is diagnosed and
-never spawned. Stdio discovery diagnostics never include raw child or SDK errors, and the ordinary
-executable does not auto-approve package-runner commands.
+never spawned, and a header helper runs only when its exact command line is allowed in the user's own
+settings — which a repository cannot write — and, for a repository's definition, the workspace is
+trusted. A repository's helper also runs without the user's credential-shaped environment, because
+the user allowed the program, not handing their credentials to wherever that repository points it.
+Stdio and helper diagnostics never include raw child or SDK errors or anything a helper printed, and
+the ordinary executable does not auto-approve package-runner commands. An OAuth server's tokens come
+only from the user's own per-server `robota mcp login`, kept owner-only under the user's Robota
+home. Sign-in is a terminal command only, never a session command, because it needs the terminal a
+session owns for the browser, a pasted redirect or a secret; a command Robota tells the user to run
+names the server only when its name is safe to paste into any shell, since a repository chooses that
+name and quoting rules differ between shells. The authorization page opens by argv and only for an `https` URL,
+and a client secret or pasted redirect is asked for without echo, never read from an argument or a
+definition.
 
 **Current limitation.** Approval is in-memory and session-scoped per process: a server approved via
 `/mcp approve` mid-session is not connected by that already-started session. An embedding host can
@@ -219,7 +235,8 @@ service alive.
 ### `robota mcp serve`
 
 A separate headless process mode: one normally assembled session plus one `agent-transport-mcp`
-stdio (or, with `--http-token-file`, loopback HTTP) service. It uses the caller's working directory
+stdio, loopback HTTP (`--http-token-file`) or remote HTTP (`--http-public-url` with the `--oauth-*`
+settings) service. It uses the caller's working directory
 and the same headless project-access/trust decision as `--serve`, and never prompts for trust over
 the protocol stream. From entry until shutdown, all product notices use stderr while stdout is
 reserved for MCP frames. SIGINT, SIGTERM, stdin/client close, startup failure, and carrier failure all
@@ -228,9 +245,12 @@ TUI transport starts in this mode.
 
 The HTTP token-file variant creates the token file exclusively with owner-only permissions, never
 puts the bearer in command arguments or stdout, and removes its own token file during shutdown; it
-refuses a relative token path or an existing file.
+refuses a relative token path or an existing file. That bearer is only as safe as the machine
+boundary, so the process binds a non-loopback address only as a remote resource server, whose
+access tokens are verified against the configured issuer, and never with the token file. Its
+refusal audit goes to stderr as a reason and an address class, never token text.
 
-### Memory, screen-reader, theme, and prompt-history enablement
+### Memory, screen-reader, theme, prompt-history, and advisor enablement
 
 Each of these product surfaces is **opt-in and resolved by the CLI**, not the library it configures
 (library neutrality) — precedence order and defaults for each are non-obvious and stated
@@ -253,6 +273,11 @@ here because the reasoning differs between them:
   and this is a shell-history analogue). Precedence: `settings.json` `promptHistory: false` ←
   `ROBOTA_PROMPT_HISTORY` env (**env wins**, same direction as memory — a machine-level policy).
   TUI only; print/serve receive no writer.
+- **Advisor:** default OFF. Precedence: `settings.json` `advisorModel` ← `--advisor` flag (**flag
+  wins**, a per-run choice like the screen-reader flag), and `ROBOTA_DISABLE_ADVISOR` above both as a
+  kill switch nothing inside a session can undo — it is how an operator guarantees that conversation
+  history is not sent to a second model. Per-destination consent lives in the user settings file, so
+  it is asked once per destination rather than once per session.
 - **Theme registry:** one registry is built per run and handed to both the `/theme`
   command and the renderer, so a listing and a switch can never disagree about which themes exist. A
   run that renders no terminal UI gets no registry and reads no theme file at all. Appearance is
@@ -358,7 +383,7 @@ robota usage [--period 30d] [--timezone UTC] [--format json]  # Local personal u
 robota eval ./my-eval.mjs            # Run an evals-as-code definition; exit 1 on a metric breach
 robota -p "prompt"                   # Print mode (one-shot, headless)
 robota --serve                       # Headless runtime host
-robota mcp serve [--http-token-file <path> [--http-port <port>]]  # MCP server process
+robota mcp serve [--http-token-file <path> | --http-public-url <https> --oauth-*] [--http-port <port>]  # MCP server process
 robota -c | --continue                       # Continue the most recent session for this cwd
 robota -r <id> | --resume [id]               # Resume a session by id/name, or show a picker
 robota -c --fork-session                     # Fork from the last session (new id, restored context)

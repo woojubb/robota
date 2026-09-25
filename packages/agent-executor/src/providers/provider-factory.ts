@@ -64,3 +64,38 @@ export function createProviderFromProfile(
     providerDefinitions,
   );
 }
+
+/**
+ * Build a provider from a profile another process resolved, taking it EXACTLY as given.
+ *
+ * The profile already carries the sender's effective connection: its base URL and options with the
+ * definition's defaults applied. Filling a gap here from this process's own definition defaults
+ * would let the two processes disagree about where the credential goes, and a credential reference
+ * that resolves to nothing would silently be replaced by a different default credential. So nothing
+ * is filled in, and an empty reference is refused.
+ */
+export function createProviderFromExactProfile(
+  profile: ISerializableProviderProfile,
+  modelOverride: string | undefined,
+  providerDefinitions: readonly IProviderDefinition[],
+  resolve: TEnvResolver = processEnvResolver,
+): IAIProvider {
+  const namesCredential = profile.apiKey !== undefined || profile.apiKeyEnv !== undefined;
+  const apiKey = resolveProfileApiKey(profile, resolve);
+  if (namesCredential && (apiKey === undefined || apiKey === '')) {
+    throw new Error(
+      `The ${profile.type} provider's credential reference resolved to nothing in this process.`,
+    );
+  }
+  return createProviderFromConfig(
+    {
+      name: profile.type,
+      model: modelOverride ?? profile.model,
+      ...(apiKey !== undefined ? { apiKey } : {}),
+      ...(profile.baseURL !== undefined ? { baseURL: profile.baseURL } : {}),
+      ...(profile.timeout !== undefined ? { timeout: profile.timeout } : {}),
+      ...(profile.options !== undefined ? { options: profile.options } : {}),
+    },
+    providerDefinitions,
+  );
+}

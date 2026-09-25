@@ -193,6 +193,10 @@ that session actually uses instead of re-deriving one that could disagree.
 - A relative `path`-kind argument is canonicalised against the session's working directory before
   the permission gate, the hooks, the log, and the tool itself see it, so an absolute allow/deny
   pattern judges the argument correctly instead of being reported unevaluable.
+- In `auto` mode the classifier stands in for a person only where the gate would have asked
+  one and nothing requires a person: an `ask` rule, a critical removal, a protected path and an
+  ask-everything policy still reach a person. A classifier that keeps refusing hands the decision
+  back to a person rather than denying indefinitely. A session with no classifier refuses the mode.
 
 ### Hook lifecycle
 
@@ -281,6 +285,11 @@ person is never shown "no history" when history could not actually be read.
   actually be compacted (system messages excluded), not the full history, since a fresh session
   holds only a system message before its first turn and that must not be replaced with an empty
   summary. No hook fires and no compaction event is recorded for a no-op.
+- A conversation handed to a model as text keeps its tool calls and results, marks a user message
+  a peer session sent as coming from that peer, and holds each message to its own encoded line — a
+  peer's words must never read as the operator's own, and no content can pose as another message.
+  Compaction and every other such consumer use the one rendering, so what a summary keeps and what
+  another reader sees cannot drift apart.
 - Auto-compaction triggers at the _start_ of a run (before the new user message is processed), so
   it cannot interfere with an in-flight response stream.
 
@@ -317,6 +326,10 @@ does not disclose the host product's name.
   permission-checking proxy before registration; `Session` composes (rather than reimplements)
   permission enforcement, context tracking, and compaction as separate collaborators, so each can
   be reasoned about and tested independently.
+- **The auto-mode classifier judges the call, not the conversation.** Anything the agent read —
+  a file, a web page, a tool result — could otherwise argue for its own call, which is the
+  injection route the mode most needs to close. It cannot know what the user asked for, so a user
+  who wants a blocked call lets it through once or writes a narrow allow rule.
 - **Null Object for persistence.** Without a configured store, persistence is silently skipped
   rather than requiring every call site to branch on whether one exists.
 - **Decoder lives beside its consumers, not beside the type.** The record type is owned by the

@@ -1,7 +1,7 @@
 /**
  * TC-05 — parse, import, resolve, list, get and status open no socket and spawn no process.
  *
- * ADR-005 states this as a property of the control plane, and a property nothing checks is a
+ * The SPEC states this as a property of the control plane, and a property nothing checks is a
  * comment. Two checks, because either alone passes for the wrong reason:
  *
  * 1. A STATIC assertion over the pure directories' imports. A behavioural test only proves the

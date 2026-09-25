@@ -2,6 +2,7 @@ import {
   AbstractAIProvider,
   PERMISSIVE_TOOL_SCHEMA_PROFILE,
   SilentLogger,
+  toProviderError,
   traceHeadersFor,
 } from '@robota-sdk/agent-core';
 import OpenAI from 'openai';
@@ -28,7 +29,6 @@ import {
 import { openAICompatibleRequestOptions } from '../shared/openai-compatible/request-options.js';
 
 import type { IQwenProviderOptions } from './types';
-import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';
 import type {
   IProviderCapabilityTable,
   IChatOptions,
@@ -171,9 +171,7 @@ export class QwenProvider extends AbstractAIProvider {
         readOpenAICompatibleRequestId(response),
       );
     } catch (error) {
-      const qwenError = error as IOpenAICompatibleError;
-      const errorMessage = qwenError.message || 'Qwen API request failed';
-      throw new Error(`Qwen chat failed: ${errorMessage}`);
+      throw toProviderError(error, 'qwen', 'Qwen chat failed');
     }
   }
 
@@ -250,9 +248,7 @@ export class QwenProvider extends AbstractAIProvider {
         }
       }
     } catch (error) {
-      const qwenError = error as IOpenAICompatibleError;
-      const errorMessage = qwenError.message || 'Qwen API request failed';
-      throw new Error(`Qwen stream failed: ${errorMessage}`);
+      throw toProviderError(error, 'qwen', 'Qwen stream failed');
     }
   }
 

@@ -1,3 +1,4 @@
+import { createRobotaSandbox } from './robota-execution-containment.js';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -54,6 +55,9 @@ export interface IRobotaPackContext extends ICodingPackOptions {
   readonly sandboxType?: string;
 }
 
+/** The pack-context `sandboxType` for the OS sandbox, which every process rebuilds from settings. */
+export const ROBOTA_OS_SANDBOX_TYPE = 'os';
+
 /**
  * Capability a recipe cannot reproduce in the child, because it is a live, unrepeatable handle
  * rather than a pure function of (execution root, serialized payload, ambient durable state).
@@ -75,6 +79,9 @@ export function nonReproducibleCapabilities(context: IRobotaPackContext): readon
   // client that cannot produce a reference is unprojectable however many factories are registered,
   // and a registered factory is useless without a reference to hand it.
   if (!context.sandboxClient) return [];
+  // The OS sandbox is a pure function of (execution root, settings): the child composes its own from
+  // the same settings files in `createTools`, so nothing has to cross the boundary.
+  if (context.sandboxType === ROBOTA_OS_SANDBOX_TYPE) return [];
   const projectable =
     typeof context.sandboxClient.snapshot === 'function' && context.sandboxType !== undefined;
   return projectable ? [] : ['sandboxClient'];
@@ -146,7 +153,22 @@ export function createRobotaSubagentComposition(
       readonly cwd: string;
       readonly sessionTiers?: { readonly includeGoalTool?: boolean };
     }): IToolWithEventService[] => {
-      const tools = packTools({ cwd: context.cwd, shellExecutable }, createPacks);
+      // The child confines its commands exactly as the parent does, from the same settings files.
+      const sandbox = createRobotaSandbox({
+        cwd: context.cwd,
+        settingsSources: createCliWorkspaceComposition({ cwd: context.cwd, userHome: homedir() })
+          .settingsSources,
+      });
+      const tools = packTools(
+        {
+          cwd: context.cwd,
+          shellExecutable,
+          ...(sandbox.client !== undefined
+            ? { sandboxClient: sandbox.client, sandboxType: ROBOTA_OS_SANDBOX_TYPE }
+            : {}),
+        },
+        createPacks,
+      );
       // ARCH-034: the goal tool is added by session assembly, not by any pack, so rebuilding the
       // pack set alone gave a child-process subagent a strictly smaller surface than an in-process
       // one. Choosing a runner is a packaging decision; this is what stops it being a capability one.
@@ -184,6 +206,7 @@ export function packTools(
 function createRobotaChildProcessSubagentRunner(options: {
   readonly packContext: IRobotaPackContext;
   readonly providerConfig: IProviderDefinitionConfig;
+  readonly providerDefinitions: readonly IProviderDefinition[];
   readonly logsDir: string;
   readonly workerEntry: Parameters<
     typeof createChildProcessSubagentRunnerFactory
@@ -198,6 +221,7 @@ function createRobotaChildProcessSubagentRunner(options: {
   return createChildProcessSubagentRunnerFactory({
     workerEntry: options.workerEntry,
     providerConfig: options.providerConfig,
+    providerDefinitions: options.providerDefinitions,
     logsDir: options.logsDir,
     worktreeAdapter: options.worktreeAdapter,
   });
@@ -261,6 +285,8 @@ export function createRobotaPackSet(
 export function createRobotaSubagentRunnerFactory(options: {
   readonly packContext: IRobotaPackContext;
   readonly providerConfig: IProviderDefinitionConfig;
+  /** The registry the parent's provider came from: the child is checked against what it declares. */
+  readonly providerDefinitions: readonly IProviderDefinition[];
   readonly reproduction: IProviderReproduction;
   readonly notice: (message: string) => void;
 }): TSubagentRunnerFactory {
@@ -271,6 +297,7 @@ export function createRobotaSubagentRunnerFactory(options: {
       createRobotaChildProcessSubagentRunner({
         packContext: options.packContext,
         providerConfig: options.providerConfig,
+        providerDefinitions: options.providerDefinitions,
         logsDir: join(homedir(), '.robota', 'logs'),
         workerEntry: resolveSelfForkWorkerEntry(),
         worktreeAdapter: createGitWorktreeIsolationAdapter(),

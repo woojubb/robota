@@ -71,6 +71,12 @@ describe('loadOrgPolicy (issue #2023)', () => {
     expect(() => loadOrgPolicy(policyPath())).toThrow(/must be an array of strings/);
   });
 
+  it('refuses a disableAutoMode that is not a boolean, which would read as enabled', () => {
+    withPolicyFile(JSON.stringify({ disableAutoMode: 'yes' }));
+
+    expect(() => loadOrgPolicy(policyPath())).toThrow(/`disableAutoMode` must be a boolean/);
+  });
+
   it('refuses an array, which `typeof === object` alone would admit', () => {
     withPolicyFile('[]');
 
@@ -79,11 +85,18 @@ describe('loadOrgPolicy (issue #2023)', () => {
 
   it('accepts a well-formed policy unchanged', () => {
     // The companion the refusals need: without it, a loader that threw on everything would pass.
-    withPolicyFile(JSON.stringify({ allowedProviders: ['anthropic'], requireApiKeyFromEnv: true }));
+    withPolicyFile(
+      JSON.stringify({
+        allowedProviders: ['anthropic'],
+        requireApiKeyFromEnv: true,
+        disableAutoMode: true,
+      }),
+    );
 
     expect(loadOrgPolicy(policyPath())).toEqual({
       allowedProviders: ['anthropic'],
       requireApiKeyFromEnv: true,
+      disableAutoMode: true,
     });
   });
 

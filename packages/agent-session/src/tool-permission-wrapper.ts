@@ -1,5 +1,10 @@
-import { PERMISSION_DENIED_RESULT, reportToolCrash } from './permission-types.js';
-import { createLogger, isAbortFailure, TOOL_BODY_EVENTS, TOOL_PERMISSION_EVENTS } from '@robota-sdk/agent-core';
+import { PERMISSION_DENIED_RESULT, reportToolCrash, toolFailure } from './permission-types.js';
+import {
+  createLogger,
+  isAbortFailure,
+  TOOL_BODY_EVENTS,
+  TOOL_PERMISSION_EVENTS,
+} from '@robota-sdk/agent-core';
 import { canonicaliseToolArguments } from './tool-argument-canonicalisation.js';
 import {
   buildHookInput,
@@ -8,7 +13,7 @@ import {
   truncateToolResult,
 } from './tool-hook-helpers.js';
 
-import type { IPermissionEnforcerOptions } from './permission-types.js';
+import type { IPermissionEnforcerOptions, IPermissionRefusal } from './permission-types.js';
 import type { TSessionLogData } from './session-logger.js';
 import type {
   IToolExecutionContext,
@@ -58,7 +63,7 @@ export interface IToolWrapperDeps {
     signal?: AbortSignal,
     interaction?: IToolExecutionContext['permissionInteraction'],
     hookTraceEnv?: IToolExecutionContext['hookTraceEnv'],
-  ): Promise<boolean>;
+  ): Promise<boolean | IPermissionRefusal>;
 }
 
 /**
@@ -125,14 +130,14 @@ export function wrapToolWithPermission(
       }
 
       // RUNTIME-005: the turn's signal reaches this wrapper (CORE-018) and stopped here.
-      const allowed = await enforcer.checkPermission(
+      const verdict = await enforcer.checkPermission(
         toolName,
         parameters as TToolArgs,
         context?.signal,
         context?.permissionInteraction,
         context?.hookTraceEnv,
       );
-      if (!allowed) {
+      if (verdict !== true) {
         enforcer.log('tool_denied', { tool: toolName, reason: 'permission' });
         emitPermissionDecision(context, 'denied');
         enforcer.onToolExecution?.({
@@ -143,7 +148,10 @@ export function wrapToolWithPermission(
           denied: true,
           executionId: context?.executionId,
         });
-        return PERMISSION_DENIED_RESULT;
+        // A refusal that carries its reason (the auto-mode classifier) hands it to the model.
+        return typeof verdict === 'object'
+          ? toolFailure('denied', verdict.message)
+          : PERMISSION_DENIED_RESULT;
       }
 
       emitPermissionDecision(context, 'allowed');

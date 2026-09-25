@@ -167,6 +167,9 @@ robota --serve                      # Run as a headless runtime host over a loop
 robota mcp serve                   # Serve one session to a local MCP client over stdio
 robota mcp serve --http-token-file /absolute/private/path/mcp-token --http-port 8765
                                   # Serve Streamable HTTP on 127.0.0.1; the token file must not exist
+robota mcp serve --http-public-url https://agents.example.com/robota/mcp --oauth-issuer https://auth.example.com \
+  --oauth-scopes mcp:use --oauth-allowed-subjects alice@example.com
+                                  # Serve remote HTTP behind a proxy, admitting OAuth access tokens
 robota trust status                 # Inspect canonical workspace trust
 robota trust --yes                  # Grant trust for the current Git workspace
 robota trust revoke --yes           # Revoke the current workspace grant
@@ -176,6 +179,7 @@ robota usage --timezone UTC --format json # Emit the versioned JSON projection
 robota usage export --endpoint http://127.0.0.1:4318 # Send stored-usage Gauges to a loopback OTLP collector
 robota usage export --signal traces --endpoint http://127.0.0.1:4318 # Send recorded prompt/provider/tool spans
 robota usage export --signal logs --endpoint http://127.0.0.1:4318 # Send content-free completion events
+robota --safe-mode                  # Every customization off, to rule one out
 robota --reset                      # Delete user settings and exit
 robota --check-update               # Check npm for a newer CLI version and exit
 robota --disable-update-check        # Skip interactive startup update check for this run
@@ -432,6 +436,46 @@ independently. An embedding host can supply its own `IMCPActivationApprovalStore
 `mcpHttpTransportDeps` egress policy when needed. Neither capability comes from MCP settings or the
 remote caller. The ordinary `robota` executable supplies neither automatically.
 
+#### Serve Robota to a remote MCP client
+
+`--http-token-file` is for clients on the same machine: it binds only `127.0.0.1`, and its bearer
+is never accepted beyond loopback. To serve a client elsewhere, run Robota as an OAuth resource
+server behind an HTTPS reverse proxy. An authorization server you already run issues the access
+tokens; Robota only verifies them.
+
+```sh
+robota mcp serve \
+  --http-public-url https://agents.example.com/robota/mcp \
+  --oauth-issuer https://auth.example.com \
+  --oauth-scopes mcp:use \
+  --oauth-allowed-subjects alice@example.com \
+  --http-host 127.0.0.1 --http-port 8765 \
+  --trusted-proxy 127.0.0.1
+```
+
+- `--http-public-url` is the `https` address clients use. It is also the token audience and the
+  `resource` Robota advertises. Robota serves MCP at its path (`/robota/mcp` above) and the RFC 9728
+  protected-resource metadata at `/.well-known/oauth-protected-resource` followed by that path. The
+  proxy must forward both paths unchanged (do not strip the prefix) and must preserve the client's
+  `Host` header. Robota checks `Host` and `Origin` against the public URL, not the address it binds.
+- `--oauth-issuer`, `--oauth-scopes` and `--oauth-allowed-subjects` are all required. A token must
+  be an RFC 9068 access token from that issuer, addressed to the public URL, carrying every listed
+  scope, and issued to a listed subject. Every admitted client drives the same session, so name only
+  the people you would hand this terminal to.
+- `--http-host` defaults to `127.0.0.1`, which suits a proxy on the same machine. Robota binds any
+  other address only when all the flags above are present.
+- A request without a valid token receives `401` with
+  `WWW-Authenticate: Bearer resource_metadata="…"`, and a token missing a scope receives `403`
+  with `insufficient_scope`. The body is always empty. MCP clients that support authorization
+  use that challenge to discover the authorization server.
+- Failed requests are counted per client address. After too many failures in a minute, that
+  address receives `429`; a valid token is never throttled. The client address is read from
+  `X-Forwarded-For` only when the connection comes from a `--trusted-proxy` address (repeatable).
+- Each refusal is logged on stderr as a reason and an address class (`loopback`, `private`,
+  `public`), never the token or the address itself.
+- The server is stateless: it issues no `Mcp-Session-Id`, so there are no sessions to enumerate or
+  hijack.
+
 The settings described below configure Robota as an MCP **client**.
 
 Declare remote MCP servers under an `mcpServers` key in any layered settings file (managed, user, or
@@ -445,6 +489,34 @@ are connected. Approval is in-memory for the ordinary executable, so `/mcp appro
 records a decision for that session but does not connect the server in the running session or
 persist it across a restart. An embedding host can preserve approval state across starts by
 supplying the same store; it remains responsible for when to reconnect approved definitions.
+
+A remote server that declares `"oauth": {}` (optionally with `clientId`, `callbackPort`,
+`authServerMetadataUrl` and `scopes`) needs its own sign-in before a session can use it. Sign-in is
+per server, from a terminal, naming the server:
+
+```bash
+robota mcp login files                 # opens your browser; tokens kept owner-only in ~/.robota/mcp-credentials
+robota mcp login files --no-browser    # prints the URL; paste back the address your browser was sent to
+robota mcp login files --client-secret # a pre-registered confidential client: asks for the secret
+robota mcp logout files                # deletes the stored tokens, then revokes them where the server allows
+```
+
+Use `--no-browser` when the browser runs on another machine (for example over SSH). After you
+approve, the browser is sent to a `http://127.0.0.1:<port>/callback` address that may not load; copy
+that full address and paste it at the prompt (the input is not echoed). It is accepted only if it is
+this sign-in's redirect address and carries its `state`, and only within the same five minutes the
+browser flow allows.
+
+`robota mcp logout <server>` always deletes that server's local credential, even when the
+authorization server cannot be reached or refuses to revoke the tokens; it then says, per token,
+whether it was revoked, and otherwise why not (by a short reason) or that the server offers no
+revocation. `/mcp` shows each OAuth server's sign-in state — `signed in`, `token expired, will
+refresh`, `sign-in required` or `signed out` — never a token, and for a server that needs a sign-in
+it names the `robota mcp login <server>` command to run (the server's name appears in it only when
+it is a plain name that is safe to paste into any shell). `/mcp logout <serverId>` signs out of that one server from
+inside a session and stops the session sending the token it holds. There is no sign-in inside a
+session: it needs the terminal for the browser, a pasted redirect or a secret. A server that could
+not connect at startup is connected by the next session after you sign in to it.
 
 ### MCP Background Handoff
 
@@ -677,7 +749,7 @@ Every tool call passes through a three-step permission gate:
 Use the `/permissions` slash command:
 
 ```
-> /permissions                    # Show current mode and session-approved tools
+> /permissions                    # Show mode, rules by settings file, approvals, recent denials
 > /permissions plan               # Switch to plan (read-only)
 > /permissions bypassPermissions  # Skip all prompts
 ```
@@ -827,7 +899,7 @@ Typing `/` in the TUI opens an autocomplete popup. Arrow keys navigate, Tab inse
 | `/effort [level]`         | Show or change model effort (`auto`, `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`) |
 | `/resume`                 | List recent sessions and resume one                                                              |
 | `/rename <name>`          | Rename the current session                                                                       |
-| `/cd <directory>`         | Move this conversation to another directory (see below)                                         |
+| `/cd <directory>`         | Move this conversation to another directory (see below)                                          |
 | `/rewind`                 | List, inspect, restore, or rollback edit checkpoints                                             |
 
 ### Providers & Settings
@@ -837,6 +909,7 @@ Typing `/` in the TUI opens an autocomplete popup. Arrow keys navigate, Tab inse
 | `/provider [subcommand]` | Manage provider profiles: `list`, `switch`, `add`, `test`, `current` |
 | `/mode [mode]` | Show or switch permission mode |
 | `/permissions [mode]` | Show permission rules or change permission mode |
+| `/sandbox [mode]` | Show or change how shell commands are confined |
 | `/settings` | Open transport settings (enable/disable transports) |
 | `/language [lang]` | Set response language (ko, en, ja, zh), saves and restarts |
 | `/statusline [on         | off                                                                  | reset]` | Configure status-line fields (model, context, git) |

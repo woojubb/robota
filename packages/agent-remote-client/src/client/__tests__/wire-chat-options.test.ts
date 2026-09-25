@@ -24,10 +24,12 @@ describe('IChatOptions wire disposition (CORE-044)', () => {
     }
   });
 
-  it('the local callbacks, abort signal, adapter-bound resolution and trusted trace context are the ONLY local members', () => {
+  it('the local callbacks, abort signal, adapter-bound resolution, trusted trace context and local model-fallback controls are the ONLY local members', () => {
     // If a serializable option ever appears here, it is being dropped on the wire again — which is
     // the defect, restated. A function or an AbortSignal genuinely cannot cross; the trace context
     // could, but it is trusted only for origins the local host listed, and a server was never one.
+    // The run id and the context-window constraint steer a model-fallback choice made locally; the
+    // server answers on the model it is sent, so there is nothing for them to steer there.
     const local = Object.entries(CHAT_OPTION_WIRE_DISPOSITION)
       .filter(([, d]) => d.kind === 'local')
       .map(([field]) => field)
@@ -35,10 +37,13 @@ describe('IChatOptions wire disposition (CORE-044)', () => {
 
     expect(local).toEqual([
       'effortResolution',
+      'executionId',
       'onModelEffortOutcome',
+      'onModelFallback',
       'onProviderNativeRawPayload',
       'onTextDelta',
       'outboundTraceContext',
+      'preserveContextWindow',
       'signal',
     ]);
     expect(

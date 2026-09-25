@@ -143,6 +143,9 @@ export function createTestSessionRuntime(
     getPermissionMode: () => 'default',
     setPermissionMode: () => {},
     getSessionAllowedTools: () => [],
+    getPermissionRules: () => ({ allow: [], deny: [], ask: [] }),
+    getRecentPermissionDenials: () => [],
+    retryPermissionDenial: () => undefined,
     // ARCH-040 Group C: recorded rather than ignored, so a case can assert the live re-application
     // happened. A double that silently swallows a permission change would let the seam regress green.
     applyPresetToolLists: (preset) => {
@@ -194,6 +197,7 @@ export function createTestCommandHost(
     getCwd: () => cwd,
     getCommandInvocationSource: () => 'user',
     clearConversationHistory: () => {},
+    getSessionUsage: () => [],
     // CLI-1994: "this host wrote a copy" — a stable id and the default fork name, nothing on disk.
     forkSession: (input) =>
       Promise.resolve({

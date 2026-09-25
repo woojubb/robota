@@ -1,7 +1,7 @@
 /**
  * MCP server definitions — the raw, validated and resolved forms (MCP-001).
  *
- * `agent-mcp` is the sole owner of these shapes (ADR-005). Nothing here performs I/O: a definition
+ * `agent-mcp` is the sole owner of these shapes (docs/SPEC.md). Nothing here performs I/O: a definition
  * is data about a server, not a connection to one, and the separation is what lets configuration be
  * inspected — listed, diffed, approved — before anything is contacted.
  */
@@ -38,6 +38,29 @@ export interface IMCPServerDefinitionRaw {
   readonly entry: Readonly<Record<string, unknown>>;
 }
 
+/**
+ * A program the host runs to obtain request headers for a remote server: an exact executable and
+ * argv, never a shell string, and never templated — the host allowlists it by these exact values.
+ */
+export interface IMCPHeadersHelper {
+  readonly command: string;
+  readonly args: readonly string[];
+}
+
+/**
+ * How a remote server's OAuth sign-in is configured. Every field is optional: a server that
+ * publishes its metadata and accepts dynamic client registration needs none of them.
+ */
+export interface IMCPOAuthConfig {
+  /** A pre-registered client; its redirect URI is fixed, so `callbackPort` is then required. */
+  readonly clientId?: string;
+  readonly callbackPort?: number;
+  /** An `https` authorization server metadata URL, used instead of discovering it. */
+  readonly authServerMetadataUrl?: string;
+  /** Requested instead of whatever the server's metadata advertises. */
+  readonly scopes?: readonly string[];
+}
+
 /** A raw entry that decoded cleanly. Environment templates are NOT yet materialized. */
 export interface IMCPServerDefinition {
   readonly name: string;
@@ -51,6 +74,12 @@ export interface IMCPServerDefinition {
   readonly url?: string;
   readonly headers?: Readonly<Record<string, string>>;
   readonly timeout?: number;
+  /** A remote server's dynamic header helper; it runs only under host authority. */
+  readonly headersHelper?: IMCPHeadersHelper;
+  /** A remote server whose credential is obtained by OAuth sign-in. */
+  readonly oauth?: IMCPOAuthConfig;
+  /** Authentication the entry declares that this version cannot perform. */
+  readonly unsupportedAuthentication?: readonly string[];
 }
 
 /** An environment reference that could not be materialized, reported rather than guessed at. */
@@ -63,10 +92,29 @@ export interface IMCPUnsetVariable {
   readonly literal: string;
 }
 
+/** One stretch of a materialized string that an environment reference produced. */
+export interface IMCPValueSpan {
+  /** Offsets into the materialized string, `end` exclusive. */
+  readonly start: number;
+  readonly end: number;
+  readonly variable: string;
+  /** The variable is credential-shaped, so this stretch is a secret whether its value or default. */
+  readonly secret: boolean;
+}
+
+/**
+ * Where each materialized value came from, keyed by the same field paths as
+ * {@link IMCPUnsetVariable.field} (`url`, `args[1]`, `env.API_KEY`, …). A field with no entry holds
+ * only literal text.
+ */
+export type TMCPValueProvenance = Readonly<Record<string, readonly IMCPValueSpan[]>>;
+
 /** A definition whose templates were materialized. Still no connection has been made. */
 export interface IMCPServerDefinitionResolved extends IMCPServerDefinition {
   /** Empty when every reference had a value or a default. */
   readonly unsetVariables: readonly IMCPUnsetVariable[];
+  /** Absent means nothing was expanded: every value is the literal the definition holds. */
+  readonly provenance?: TMCPValueProvenance;
 }
 
 /** Why a name could not produce a usable definition. The name is always known; the rest may not be. */
@@ -88,7 +136,7 @@ export interface IMCPDefinitionShadow {
  * One server name's outcome.
  *
  * `unresolved` carries a `problem` and no `definition` — and it still carries its `shadowed` list.
- * A malformed higher-precedence entry does not hand the name to a lower one (ADR-005): a broken
+ * A malformed higher-precedence entry does not hand the name to a lower one (docs/SPEC.md): a broken
  * managed policy must not be silently replaced by a plugin's definition.
  */
 export interface IMCPResolvedEntry {

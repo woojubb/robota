@@ -1,5 +1,9 @@
 import { sumHistoryUsage } from '@robota-sdk/agent-core';
-import { createProviderFromProfile, subagentExecutionRoot } from '@robota-sdk/agent-executor';
+import {
+  createProviderFromExactProfile,
+  subagentExecutionRoot,
+  verifyConnectionEnvironment,
+} from '@robota-sdk/agent-executor';
 import { createSubagentLogger, createSubagentSession } from '@robota-sdk/agent-framework';
 
 import {
@@ -88,13 +92,21 @@ async function runInitialPrompt(
   composition: ISubagentWorkerComposition,
 ): Promise<void> {
   try {
+    // The parent compared this environment before spawning; repeat it before anything is built, so
+    // a change between spawn and start cannot send the parent's credential elsewhere.
+    if (!verifyConnectionEnvironment(payload.connectionCheck, process.env)) {
+      throw new Error(
+        'The provider connection environment changed after the parent checked it; the subagent was not started.',
+      );
+    }
     // ARCH-021: the PRODUCT's registry, not an imported six-vendor default. A custom provider type
     // used to throw `Unknown provider` here while the parent ran on it perfectly well.
     const restoredSandbox = await restoreProjectedSandbox(
       payload.sandboxProjection,
       composition.sandboxFactories,
     );
-    const provider = createProviderFromProfile(
+    // Exactly as the parent resolved it: no defaults from this process's own registry.
+    const provider = createProviderFromExactProfile(
       payload.providerProfile,
       payload.request.model,
       composition.providerDefinitions,

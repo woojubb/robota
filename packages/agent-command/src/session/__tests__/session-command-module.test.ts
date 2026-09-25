@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
+import { calculateModelCost } from '@robota-sdk/agent-core';
 import type {
   ICommandCostBudget,
   ICommandCostBudgetAdapter,
   ICommandHostContext,
   ICommandSessionRuntime,
+  ISessionUsageRecord,
 } from '@robota-sdk/agent-framework';
 import { InteractiveSession, SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createSessionCommandModule } from '../session-command-module.js';
@@ -368,18 +370,27 @@ describe('createSessionCommandModule', () => {
     expect(result?.message).toContain('not yet available');
   });
 
-  it('shows token counts and estimated cost when session has usage data', async () => {
-    const runtime = {
-      ...createRuntime(),
-      getSessionTokenUsage: () => ({ inputTokens: 45_000, outputTokens: 12_000 }),
-      getModelId: () => 'claude-sonnet-4-5',
-    };
-    const context = { ...createCommandContext(), getSession: () => runtime };
+  function costContext(records: readonly ISessionUsageRecord[], modelId = 'claude-sonnet-4-5') {
+    const runtime = { ...createRuntime(), getModelId: () => modelId };
+    return { ...createCommandContext(), getSession: () => runtime, getSessionUsage: () => records };
+  }
+
+  async function cost(records: readonly ISessionUsageRecord[], modelId?: string) {
     const executor = new SystemCommandExecutor([
       ...(createSessionCommandModule().systemCommands ?? []),
     ]);
+    return executor.execute('cost', costContext(records, modelId), '');
+  }
 
-    const result = await executor.execute('cost', context, '');
+  const advisorRecord: ISessionUsageRecord = {
+    promptTokens: 5_000,
+    completionTokens: 2_000,
+    costUsd: 1.5,
+    source: { scope: 'tool', id: 'advisor:big-model', label: 'Advisor (big-model)' },
+  };
+
+  it('shows token counts and estimated cost when session has usage data', async () => {
+    const result = await cost([{ promptTokens: 45_000, completionTokens: 12_000 }]);
 
     expect(result?.success).toBe(true);
     expect(result?.message).toContain('45,000');
@@ -388,6 +399,40 @@ describe('createSessionCommandModule', () => {
     expect((result?.data as Record<string, unknown>)?.inputTokens).toBe(45_000);
     expect((result?.data as Record<string, unknown>)?.outputTokens).toBe(12_000);
     expect((result?.data as Record<string, unknown>)?.estimatedCostUsd).toBeDefined();
+  });
+
+  it('totals main and advisor usage, pricing the advisor on its own model', async () => {
+    const own = calculateModelCost('claude-sonnet-4-5', 40_000, 10_000)!;
+    const result = await cost([{ promptTokens: 40_000, completionTokens: 10_000 }, advisorRecord]);
+    const data = result?.data as Record<string, unknown>;
+
+    expect(data.inputTokens).toBe(45_000);
+    expect(data.outputTokens).toBe(12_000);
+    expect(data.estimatedCostUsd).toBeCloseTo(own + 1.5, 10);
+    expect(result?.message).toContain('mixed: claude-sonnet-4-5, Advisor (big-model)');
+  });
+
+  it('keeps the advisor price when the main model has none, and says the total is partial', async () => {
+    const result = await cost(
+      [{ promptTokens: 40_000, completionTokens: 10_000 }, advisorRecord],
+      'unpriced-model',
+    );
+    const data = result?.data as Record<string, unknown>;
+    expect(data.estimatedCostUsd).toBe(1.5);
+    expect(data.costPartial).toBe(true);
+    expect(result?.message).toContain('some usage could not be priced');
+  });
+
+  it('does not price an unpriced advisor model at the main model rate', async () => {
+    const own = calculateModelCost('claude-sonnet-4-5', 40_000, 10_000)!;
+    const { costUsd: _price, ...unpricedAdvisor } = advisorRecord;
+    const result = await cost([
+      { promptTokens: 40_000, completionTokens: 10_000 },
+      unpricedAdvisor,
+    ]);
+    const data = result?.data as Record<string, unknown>;
+    expect(data.estimatedCostUsd).toBeCloseTo(own, 10);
+    expect(data.costPartial).toBe(true);
   });
 
   /**

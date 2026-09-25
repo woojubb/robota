@@ -23,6 +23,8 @@ export interface IProviderMediaError {
     | 'PROVIDER_JOB_NOT_CANCELLABLE';
   message: string;
   details?: Record<string, TUniversalValue>;
+  /** The vendor's HTTP status, when the failure was an HTTP response. */
+  status?: number;
 }
 
 export type TProviderMediaResult<TValue> =

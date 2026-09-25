@@ -34,6 +34,8 @@ import { execFileSync } from 'node:child_process';
 import { readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import type { IWorkspaceClaim } from './local-peer-workspace.js';
+
 /** What a session publishes about itself. */
 export interface IPeerEntry {
   readonly sessionId: string;
@@ -49,6 +51,8 @@ export interface IPeerEntry {
   /** macOS `ps` reports whole seconds; only a later reannouncement certifies this birth second. */
   readonly startTimePrecision?: 'seconds';
   readonly startSecondMs?: number;
+  /** The session's workspace claim. A reader verifies it and never trusts it as written. */
+  readonly workspace?: IWorkspaceClaim;
 }
 
 /** Whether the process behind an entry is still running. */
@@ -167,6 +171,7 @@ export function announcePeer(
     pid?: number;
     requireStartTime?: boolean;
     status?: 'working' | 'needs-input' | 'idle';
+    workspace?: IWorkspaceClaim;
   },
 ): IPeerEntry {
   const pid = input.pid ?? process.pid;
@@ -179,6 +184,7 @@ export function announcePeer(
     ...start,
     announcedAt,
     ...(input.status !== undefined ? { status: input.status, statusObservedAt: announcedAt } : {}),
+    ...(input.workspace !== undefined ? { workspace: input.workspace } : {}),
   };
   const target = join(options.guardedDirectory, `${input.sessionId}${ENTRY_SUFFIX}`);
   const temporary = `${target}.${pid}.tmp`;

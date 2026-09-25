@@ -8,6 +8,10 @@ import { randomUUID } from 'node:crypto';
 import { applyPresetToolLists } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
 
+import { sandboxApprovalFor } from './sandbox-approval.js';
+import { sessionAdvisorAccess } from '../advisor/advisor-tool.js';
+import { createModelPermissionClassifier } from './model-permission-classifier.js';
+
 import { assembleSessionTools } from './assemble-session-tools.js';
 import { buildHookTypeExecutors } from './build-hook-type-executors.js';
 import {
@@ -130,7 +134,12 @@ export async function createSession(
     ? skillCommandSource.getModelInvocableSkills()
     : [];
 
-  const { tools } = await assembleSessionTools(options, cwd);
+  let assembledSession: Session | undefined;
+  const { tools } = await assembleSessionTools(options, cwd, () =>
+    assembledSession === undefined
+      ? undefined
+      : sessionAdvisorAccess(assembledSession, options.onUsageRecorded),
+  );
   if (
     modelCommandToolsEnabled &&
     options.modelCommandExecutor !== undefined &&
@@ -205,7 +214,11 @@ export async function createSession(
   // re-apply a preset live: deriving it later from `mergedPermissions` would already include this
   // preset's patterns, and the first preset's allowlist would then survive every later switch.
   const presetFreePermissions = {
-    allow: [...(options.baselinePermissionAllow ?? []), ...commandAutoAllow, ...(options.config.permissions.allow ?? [])],
+    allow: [
+      ...(options.baselinePermissionAllow ?? []),
+      ...commandAutoAllow,
+      ...(options.config.permissions.allow ?? []),
+    ],
     deny: options.config.permissions.deny ?? [],
   };
   // Issue #3081: ask rules are not a preset's to change; they pass through untouched.
@@ -244,6 +257,20 @@ export async function createSession(
     sessionStore: options.sessionStore,
     sessionId,
     permissionHandler: options.permissionHandler,
+    // Issue #3082: a sandbox that confines commands in place may let a confined one skip the prompt
+    // — for the shell tools it wraps, and no other command-running tool.
+    ...(options.sandboxClient?.autoApproves !== undefined
+      ? { commandSandbox: sandboxApprovalFor(options.sandboxClient) }
+      : {}),
+    // Issue #3082: `auto` mode asks the session's own model; an organization can turn the mode off.
+    ...(options.disableAutoMode === true
+      ? {}
+      : {
+          permissionClassifier: createModelPermissionClassifier(provider, {
+            cwd,
+            model: options.model ?? options.config.provider.model,
+          }),
+        }),
     // CMD-005: model-invoked tools solicit structured answers through this port.
     ...(options.ask ? { ask: options.ask } : {}),
     ...(onProjectAllowTool === undefined ? {} : { onProjectAllowTool }),
@@ -266,6 +293,7 @@ export async function createSession(
     ...(options.temperature !== undefined ? { temperature: options.temperature } : {}),
     ...(options.maxOutputTokens !== undefined ? { maxOutputTokens: options.maxOutputTokens } : {}),
   });
+  assembledSession = session;
   wireSessionDeps(session, agentToolDeps, backgroundProcessToolDeps, backgroundTaskManager);
 
   return { session, rebuildSystemMessage };

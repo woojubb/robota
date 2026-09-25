@@ -24,6 +24,14 @@ describe('CORE-030 — this package classifies every tool it defines', () => {
     }
   });
 
+  it('a rule naming Shell or Bash governs both — one shell tool under two names', () => {
+    expect(AGENT_TOOL_PERMISSION_PROFILES['Shell']?.aliases).toContain('Bash');
+    expect(AGENT_TOOL_PERMISSION_PROFILES['Bash']?.aliases).toContain('Shell');
+    expect(
+      evaluatePermission('Bash', { command: 'rm -rf x' }, 'default', { deny: ['Shell'] }),
+    ).toBe('deny');
+  });
+
   it('CodebaseRetrieval specifically — the tool the old matrix had never heard of', () => {
     // Named on its own because it is the concrete cost of the drift: read-only, and it used to be
     // refused in the one mode where reading is all you can do.

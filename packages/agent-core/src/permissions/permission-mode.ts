@@ -76,6 +76,13 @@ export const RISK_CLASS_POLICY: Record<
     modify: 'auto',
     execute: 'auto',
   },
+  // `approve` here means "not decided by the mode": the session routes it to the classifier, not
+  // straight to a person. Edits are contained to the workspace by the file tools themselves.
+  auto: {
+    inspect: 'auto',
+    modify: 'auto',
+    execute: 'approve',
+  },
 };
 
 /**
@@ -90,4 +97,5 @@ export const UNCLASSIFIED_TOOL_FALLBACK: Record<TPermissionMode, TPermissionDeci
   default: 'approve',
   acceptEdits: 'approve',
   bypassPermissions: 'auto',
+  auto: 'approve',
 };

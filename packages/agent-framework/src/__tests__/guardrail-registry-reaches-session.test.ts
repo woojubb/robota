@@ -506,3 +506,38 @@ describe('ARCH-013 stage 3 — the ports are pinned to the PUBLISHED constructio
     expect(options.retrievalAdapter).toBeDefined();
   });
 });
+
+describe('issue #3082: an organization policy turns auto mode off', () => {
+  beforeEach(() => {
+    sessionCtorCalls.length = 0;
+  });
+
+  it('gives the session no classifier when the policy disables auto mode', async () => {
+    const { initializeInteractiveSessionAsync } =
+      await import('../interactive/interactive-session-init.js');
+
+    await initializeInteractiveSessionAsync(
+      {
+        cwd: '/org-policy-auto-mode',
+        provider: createMockProvider(),
+        bare: true,
+        config: baseConfig(),
+        orgPolicy: { disableAutoMode: true },
+      },
+      asyncInitDeps(),
+    );
+    await initializeInteractiveSessionAsync(
+      {
+        cwd: '/org-policy-auto-mode',
+        provider: createMockProvider(),
+        bare: true,
+        config: baseConfig(),
+      },
+      asyncInitDeps(),
+    );
+
+    expect(sessionCtorCalls).toHaveLength(2);
+    expect(sessionCtorCalls[0]!.permissionClassifier).toBeUndefined();
+    expect(sessionCtorCalls[1]!.permissionClassifier).toBeDefined();
+  });
+});

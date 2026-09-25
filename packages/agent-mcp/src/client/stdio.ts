@@ -1,7 +1,11 @@
 /** Host-owned admission for the official SDK stdio transport. */
 import { snapshotFor, revalidateSnapshot } from './stdio-authority.js';
 import { MCPStdioTransport } from './stdio-transport.js';
-import { definitionFingerprint, securityIdentity } from '../definition/identity.js';
+import {
+  activationEndpoint,
+  definitionFingerprint,
+  securityIdentity,
+} from '../definition/identity.js';
 
 import type { IMCPTransportAdapter, TMCPTransportAdmission } from './transport.js';
 import type { IMCPActivationRequest } from '../mcp-activation.js';
@@ -42,7 +46,7 @@ function identityMatches({ definition, activation }: IMCPStdioInput): boolean {
     activation.provenance.version === fingerprint &&
     activation.definitionFingerprint === fingerprint &&
     activation.securityIdentity === identity &&
-    activation.endpoint === [definition.command ?? '', ...(definition.args ?? [])].join(' ').trim()
+    activation.endpoint === activationEndpoint(definition)
   );
 }
 

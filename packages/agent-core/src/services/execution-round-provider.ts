@@ -7,9 +7,11 @@ import { applyModelToolCapability } from './execution-model-capability-guards.js
 import { callProviderWithIdleTimeout } from './execution-provider-call.js';
 import { assertToolChoiceValid, buildChatResponseFormat } from './execution-service-helpers';
 import { applyStructuredOutputTransport } from './execution-structured-output-guard.js';
+import { routeModel } from './execution-model-route.js';
 import { withOutboundTraceContext } from './execution-trace-context.js';
 import { randomId } from '../utils/random-id.js';
 
+import type { IModelRoute } from './execution-model-route';
 import type { IStructuredOutputTransportOutcome } from './execution-structured-output-guard';
 import type { IResolvedProviderInfo, IExecutionRoundState } from './execution-types';
 import type { IAgentConfig, IAssistantMessage } from '../interfaces/agent';
@@ -122,6 +124,12 @@ export async function callProviderWithCache(
   onDispatch?: (disposition: 'invoked' | 'cache-hit', model: string) => void,
   /** Asked only when the adapter is actually invoked, after the request was announced. */
   resolveOutboundTraceContext?: () => IOutboundTraceContext | undefined,
+  /**
+   * Where the request actually goes. The cache is keyed on the model that is asked, and a reply is
+   * stored under the model that gave it, so a substitute model's answer is never served as the
+   * requested model's, nor the other way round.
+   */
+  route: IModelRoute = {},
 ): Promise<TUniversalMessage> {
   if (!config.defaultModel?.model) {
     throw new Error('Model is required in defaultModel configuration. Please specify a model.');
@@ -178,8 +186,8 @@ export async function callProviderWithCache(
   if (cacheService) {
     const cachedResponse = cacheService.lookup(
       outgoing,
-      config.defaultModel.model,
-      config.defaultModel.provider,
+      routeModel(route, config.defaultModel.model),
+      route.current?.provider ?? config.defaultModel.provider,
       {
         temperature: config.defaultModel.temperature,
         maxTokens: config.defaultModel.maxTokens,
@@ -206,8 +214,8 @@ export async function callProviderWithCache(
     if (typeof response.content === 'string') {
       cacheService.store(
         outgoing,
-        config.defaultModel.model,
-        config.defaultModel.provider,
+        routeModel(route, config.defaultModel.model),
+        route.current?.provider ?? config.defaultModel.provider,
         response.content,
         {
           temperature: config.defaultModel.temperature,

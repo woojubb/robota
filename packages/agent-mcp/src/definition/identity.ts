@@ -8,26 +8,33 @@
  *
  * Two values, because they answer two questions:
  *
- * - `definitionFingerprint` covers the transport, command, arguments, url, header and environment
- *   KEYS, requested cwd, and the timeout. Change any of it and a prior approval no longer describes what would now
- *   run.
- *   Contained — SECURITY-2793 (issue #2793): it does NOT cover env/header VALUES, so an approved
- *   server whose `NODE_OPTIONS` value changes keeps its fingerprint while what it loads changes.
- *   An earlier version of this comment claimed the fingerprint covered "everything that decides
- *   what will be executed", which was false in exactly that case.
+ * - `definitionFingerprint` covers every value that decides what runs or where it connects: the
+ *   transport, command, arguments, requested cwd, url, every header and environment entry, the
+ *   timeout, the header helper, the OAuth settings, and any authentication the definition declares
+ *   but this version cannot perform. The helper is covered because its output is sent to the url:
+ *   approving one pairing must not approve the helper's output going somewhere else, or another
+ *   helper's output going there. Change any of it — a `NODE_OPTIONS` value included — and a prior
+ *   approval no longer describes what would now run.
  * - `securityIdentity` covers where the definition came from — its name, source and origin. Two
  *   entries that run the identical command are still different subjects for approval if one is a
  *   managed policy and the other is a plugin's.
  *
- * SECRET VALUES ARE NOT HASHED. `env` and `headers` contribute their keys, never their values: a
- * fingerprint travels into audit records and approval stores, and a hash of a secret is still
- * derived from it. The cost is that rotating a token's VALUE does not invalidate an approval, which
- * is correct — the operator approved the server, not the credential.
+ * SECRET VALUES ARE NOT HASHED. What is secret is decided once, by `secrecy.ts`: a stretch a
+ * credential-shaped variable produced, or a value under a credential-shaped key. Each is replaced
+ * by a marker naming its source before hashing — a fingerprint travels into audit records and
+ * approval stores, and a hash of a secret is still derived from it. So rotating a credential does
+ * not invalidate an approval, which is correct — the operator approved the server, not the
+ * credential — while a changed host around it still does.
  */
 
 import { createHash } from 'node:crypto';
 
+import { displayArgs, displayValue, maskCredentials, withoutSecrets } from './secrecy.js';
+
 import type { IMCPResolvedEntry, IMCPServerDefinitionResolved } from './types.js';
+
+/** Bumped when what the fingerprint covers changes, so no old value can match a new one. */
+const FINGERPRINT_VERSION = 'v2';
 
 function digest(parts: readonly string[]): string {
   const hash = createHash('sha256');
@@ -53,23 +60,102 @@ function listParts(label: string, values: readonly string[]): readonly string[] 
   return [label, String(values.length), ...values];
 }
 
+/** A record's entries as `key, value` parts in key order, each value with its secrets replaced. */
+function entryParts(
+  label: string,
+  definition: IMCPServerDefinitionResolved,
+  values: Readonly<Record<string, string>> | undefined,
+): readonly string[] {
+  const keys = Object.keys(values ?? {}).sort();
+  return listParts(
+    label,
+    keys.flatMap((key) => [key, withoutSecrets(definition, `${label}.${key}`, values![key]!)]),
+  );
+}
+
 /** What will run or be contacted, with no secret value in it. */
 export function definitionFingerprint(definition: IMCPServerDefinitionResolved): string {
+  const clean = (field: string, value: string | undefined): string =>
+    value === undefined ? '' : withoutSecrets(definition, field, value);
   return digest([
+    FINGERPRINT_VERSION,
     'transport',
     definition.transport,
     'command',
-    definition.command ?? '',
-    ...listParts('args', definition.args ?? []),
+    clean('command', definition.command),
+    ...listParts(
+      'args',
+      (definition.args ?? []).map((arg, index) => clean(`args[${index}]`, arg)),
+    ),
     'cwd',
-    definition.cwd ?? '',
+    clean('cwd', definition.cwd),
     'url',
-    definition.url ?? '',
-    ...listParts('headerKeys', Object.keys(definition.headers ?? {}).sort()),
-    ...listParts('envKeys', Object.keys(definition.env ?? {}).sort()),
+    clean('url', definition.url),
+    ...entryParts('headers', definition, definition.headers),
+    ...entryParts('env', definition, definition.env),
     'timeout',
     definition.timeout === undefined ? '' : String(definition.timeout),
+    // Only when declared, so every definition without them keeps the fingerprint it had.
+    ...(definition.headersHelper === undefined
+      ? []
+      : [
+          'headersHelper',
+          definition.headersHelper.command,
+          ...listParts('headersHelperArgs', definition.headersHelper.args),
+        ]),
+    ...(definition.oauth === undefined
+      ? []
+      : [
+          'oauth',
+          definition.oauth.clientId ?? '',
+          definition.oauth.callbackPort === undefined ? '' : String(definition.oauth.callbackPort),
+          definition.oauth.authServerMetadataUrl ?? '',
+          ...listParts('oauthScopes', definition.oauth.scopes ?? []),
+        ]),
+    ...(definition.unsupportedAuthentication === undefined
+      ? []
+      : listParts('unsupportedAuthentication', definition.unsupportedAuthentication)),
   ]);
+}
+
+/** Characters an argument may show unquoted: nothing that could hide a boundary or a character. */
+const PLAIN_ARGUMENT = /^[A-Za-z0-9_@%+=:,./-]+$/;
+/** What JSON leaves unescaped but a terminal would act on or hide: C1 controls, format characters. */
+const INVISIBLE = /[\u007f-\u009f\u2028\u2029\p{Cf}]/gu;
+
+/**
+ * One argv element as an approver reads it. An element needing quotes is shown as a JSON string
+ * with every control and format character escaped, so `["a b"]` and `["a", "b"]` read differently
+ * and nothing in an argument can rewrite the text around it.
+ */
+function displayArgument(part: string): string {
+  if (PLAIN_ARGUMENT.test(part)) return part;
+  return JSON.stringify(part).replace(
+    INVISIBLE,
+    (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`,
+  );
+}
+
+/**
+ * The endpoint an activation names: the URL, or for stdio the command line — each as a projection
+ * prints it, with secret stretches and credential-shaped literals replaced, because it lands in
+ * activation requests and audit records. A URL whose headers come from a helper names the helper
+ * beside it, so whoever approves sees where the helper's output is sent. One deterministic
+ * function, so the registry that builds a request and the transport that re-checks it agree.
+ */
+export function activationEndpoint(definition: IMCPServerDefinitionResolved): string {
+  if (definition.url !== undefined) {
+    const url = displayValue(definition, 'url', definition.url);
+    const helper = definition.headersHelper;
+    if (helper === undefined) return url;
+    const argv = [helper.command, ...helper.args].map((part) =>
+      displayArgument(maskCredentials(part)),
+    );
+    return `${url} (headers from ${argv.join(' ')})`;
+  }
+  const command =
+    definition.command === undefined ? '' : displayValue(definition, 'command', definition.command);
+  return [command, ...displayArgs(definition, definition.args ?? [])].join(' ').trim();
 }
 
 /** Which configured subject this is — name, source, origin. */

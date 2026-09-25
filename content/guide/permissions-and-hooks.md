@@ -29,8 +29,146 @@ Print mode (`robota -p`), `createQuery()` and headless sessions default to `defa
 | `default`           | auto | approve (prompt) | approve (prompt) |
 | `acceptEdits`       | auto | auto             | approve (prompt) |
 | `bypassPermissions` | auto | auto             | auto             |
+| `auto`              | auto | auto             | classifier       |
 
-Permissions and hooks run before tool execution regardless of whether a tool executes locally or through an injected sandbox client. A sandbox changes the execution plane for Bash and file operations; it does not bypass the permission matrix or hook pipeline.
+#### Auto mode
+
+In `auto` mode, a call the mode does not approve goes to a classifier instead of a prompt. The
+classifier is a side call to the session's own model. It sees the call, the working directory and
+the git remotes the repository had, and not the conversation. Text the agent read from a file or a
+web page cannot argue for its own call.
+
+- **What it blocks:**
+  - downloading and running code;
+  - sending data outside the working directory and its remotes;
+  - deploys, releases and migrations;
+  - mass or irreversible deletion;
+  - force pushes and other destructive git operations;
+  - touching credentials;
+  - destroying infrastructure;
+  - weakening tests, hooks or permission settings.
+
+  A block goes back to the model with its reason.
+
+- **What reaches a person:**
+  - Deny rules still deny.
+  - `ask` rules, critical removals and protected paths still ask a person.
+  - After 3 refusals in a row (blocks, or no usable verdict), or 20 blocks in a session, the mode
+    asks a person until one approves.
+  - With no one to ask, such a call is denied.
+- **Allow rules:** while the mode is on, allow rules that approve any command are set aside.
+  Examples are `Bash(*)`, `Bash(python *)`, `Bash(npm run *)`, `Bash(pnpm *)` and `Agent`. Narrow
+  rules such as `Bash(npm test)` still apply.
+- **Retry:** a blocked call can be let through once with `/permissions retry <n>`, where `<n>` is
+  its number under recent denials.
+- **Turning it off:** an organization turns the mode off with `"disableAutoMode": true` in the org
+  policy file.
+
+#### Read-only commands
+
+A Bash call whose every command is in the built-in read-only set is decided like a read, so it runs
+without a prompt in every mode, `plan` included. The set is `ls`, `cat`, `echo`, `pwd`, `head`,
+`tail`, `grep`, `wc`, `which`, `stat`, `du`, `cd`, `find` without `-exec`/`-delete`/`-fprint*`
+predicates, and `git status`, `log`, `diff`, `show`, `rev-parse`, `ls-files`, `describe`,
+plus the listing forms of `git branch` and `git remote`. The set is not configurable; add an `ask`
+or `deny` rule to require a prompt for one of these.
+
+A compound command qualifies only when each part does on its own. A command does not qualify when it:
+
+- names a path outside the working directory: an absolute path, `~`, a `..` that climbs out, a
+  PowerShell drive or provider (`C:x`, `Env:`), or a symlink whose target is outside;
+- uses a short option outside each command's known-safe letters, which leaves out the ones that
+  follow symlinks or read a named file (`grep -R`/`-S`/`-f`, `ls -L`, `du -L`, `find -L`), or a
+  long option that takes a file or a list of files, abbreviated or not (`--exclude-from`,
+  `--files0`, `--deref`);
+- passes an unquoted glob, since it expands to names the check never sees;
+- contains a non-ASCII character;
+- writes through a redirect (`>`, `>>`, `&>`, `>&file`), except to `/dev/null` or another
+  descriptor (`2>&1`);
+- uses a here-doc, a variable, an escape, or any substitution, grouping, brace expansion or comment
+  (`$`, `` ` ``, `\`, `(`, `{`, `#` and similar). These mean different things in bash, zsh, fish and
+  PowerShell, so the gate does not guess;
+- starts with a variable assignment (`PAGER=… git log`) or names a program by path (`./ls`);
+- runs `git` with a global option (`-c`, `-C`), with `--output`, `--ext-diff` or `--no-index`, or
+  after a `cd`;
+- runs in a `workingDirectory` other than the session's.
+
+### OS sandbox
+
+Shell commands (`Bash`, `Shell`) can run inside an OS-level sandbox that confines the command and
+every process it starts. Linux and WSL2 use [bubblewrap](https://github.com/containers/bubblewrap)
+(`bwrap`, installed from the `bubblewrap` package); macOS uses the built-in Seatbelt
+(`sandbox-exec`). Native Windows has no backend; run robota inside WSL2 to use it.
+
+Inside the sandbox:
+
+- the whole filesystem is readable, except the paths in `filesystem.denyRead`;
+- writes are allowed only in the working directory, the temporary directories and
+  `filesystem.allowWrite`;
+- inside the working directory, `.git`, `.robota`, `.claude`, `.agents`, `.mcp.json` and shell or
+  npm config files stay read-only (isolated worktrees under `.robota/worktrees` stay writable).
+  `.git` is read-only as a whole, so git commands that write — `commit`, `checkout`, `fetch` —
+  fail inside the sandbox; add `git` to `excludedCommands` to run them on the host through the
+  ordinary prompt. On Linux, when a command exits, one of these entries it created where none
+  existed is moved to `.robota/sandbox-quarantine` (or `~/.robota/sandbox-quarantine` when the
+  project has no `.robota` directory), and a symlink it replaced is restored, with a note in its
+  output. Until that command exits the entry is on disk, so a session started meanwhile could read
+  it. If an entry cannot be moved, commands ask until it is gone. While one of these entries is a
+  symlink into a writable place (the working directory, a temporary directory, `allowWrite`) or
+  points nowhere, commands are confined but never approved automatically;
+- everything else in the working directory is the command's to change, just as it is the file
+  tools'. A nested repository, a `package.json` script or a `Makefile` it writes is project content:
+  review changes before running host tools over them. In `auto-allow` this includes `default`
+  mode, where the file tools would still have asked, and a git directory planted in the project runs
+  its configured programs on the next `git status` — including one a git-aware shell prompt runs;
+- the network is reachable only when `network.enabled` is `true`, and while it is off Unix
+  sockets are closed too, so a daemon on the host (a container engine, the session bus, an ssh
+  agent) is out of reach. With the network on, those sockets are reachable, and a container
+  engine's socket is as good as running on the host. There is no per-domain list;
+- the command runs in its own process namespace and cannot signal or inspect robota or other host
+  processes.
+
+```json
+{
+  "sandbox": {
+    "enabled": true,
+    "autoAllowBashIfSandboxed": true,
+    "excludedCommands": ["docker"],
+    "failIfUnavailable": false,
+    "filesystem": { "allowWrite": ["~/.cache"], "denyRead": ["~/.ssh"] },
+    "network": { "enabled": false }
+  }
+}
+```
+
+The keys merge like other settings, so a trusted project's settings can change them — including
+widening `allowWrite` or turning the network on — just as they can add allow rules.
+
+**Modes.** `/sandbox` shows the state and switches mode for the next command; the choice is saved in
+the user settings, where a project or local setting that sets the same key still wins at the next
+start.
+
+- `auto-allow` (`autoAllowBashIfSandboxed: true`): a confined command runs without a prompt in
+  `default` and `acceptEdits`. Deny rules, ask rules, removal of a critical path and plan mode still
+  apply first. Only `Bash` and `Shell` calls are confined; a background process or a
+  model-invoked command still asks.
+- `regular`: commands are confined and the permission prompts work as usual.
+- `off`: commands run on the host.
+
+`excludedCommands` names programs that run unconfined and take the ordinary permission path; it
+applies to a line that runs only that program, so `docker ps; rm -rf build` stays confined. The model
+cannot ask to leave the sandbox.
+
+**When it cannot run.** If `bwrap` is missing or cannot create a sandbox (for example where user
+namespaces are disabled), robota prints a warning at startup and runs commands unconfined;
+`robota doctor` and `/sandbox` say what is missing. With `failIfUnavailable: true` robota refuses to
+start instead.
+
+**Containers and VMs.** The sandbox confines what a command can write and reach; it does not
+isolate robota itself, its file tools, or its model traffic. A dev container or VM isolates the
+whole process, including everything the sandbox leaves readable. Use the sandbox to stop a command
+from changing things outside the project, and a container or VM when nothing on the host should be
+visible at all.
 
 ### Pattern Syntax
 

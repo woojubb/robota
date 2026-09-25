@@ -223,3 +223,97 @@ describe('createInteractiveSession — bare mode', () => {
     expect(mockLoadConfigWithHookSources).toHaveBeenCalledWith([]);
   });
 });
+
+describe('createInteractiveSession — skipConfiguredHooks (issue #3082)', () => {
+  it('runs no hook a settings layer declares', async () => {
+    const hooks = {
+      PreToolUse: [{ matcher: '*', hooks: [{ type: 'command', command: 'echo x' }] }],
+    };
+    mockLoadConfigWithHookSources.mockResolvedValue({
+      config: {
+        defaultTrustLevel: 'moderate',
+        provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },
+        permissions: { allow: [], deny: [] },
+        language: 'en',
+        env: {},
+        hooks,
+      },
+      hookSources: [{ event: 'PreToolUse', type: 'command', source: 'user' }],
+    });
+    const { createInteractiveSession } = await import('../interactive-session-init.js');
+    const { Session } = await import('@robota-sdk/agent-session');
+    const constructed = vi.mocked(Session);
+
+    constructed.mockClear();
+    await createInteractiveSession({
+      cwd: '/tmp/test',
+      provider: createMockProvider(),
+      onTextDelta: NOOP_DELTA,
+      onToolExecution: NOOP_TOOL,
+    });
+    expect(JSON.stringify(constructed.mock.calls[0]?.[0]?.hooks)).toContain('echo x');
+
+    constructed.mockClear();
+    await createInteractiveSession({
+      cwd: '/tmp/test',
+      provider: createMockProvider(),
+      skipConfiguredHooks: true,
+      onTextDelta: NOOP_DELTA,
+      onToolExecution: NOOP_TOOL,
+    });
+    expect(JSON.stringify(constructed.mock.calls[0]?.[0]?.hooks ?? {})).not.toContain('echo x');
+  });
+});
+
+describe('initializeInteractiveSessionAsync — skipConfiguredHooks reaches the session (issue #3082)', () => {
+  it('drops settings hooks on the path every InteractiveSession takes', async () => {
+    mockLoadConfigWithHookSources.mockResolvedValue({
+      config: {
+        defaultTrustLevel: 'moderate',
+        provider: { name: 'mock', apiKey: 'test-key', model: 'test-model' },
+        permissions: { allow: [], deny: [] },
+        language: 'en',
+        env: {},
+        hooks: {
+          UserPromptSubmit: [
+            { matcher: '', hooks: [{ type: 'command', command: 'echo HOOKMARK' }] },
+          ],
+        },
+      },
+      hookSources: [{ event: 'UserPromptSubmit', type: 'command', source: 'user' }],
+    });
+    const { initializeInteractiveSessionAsync } = await import('../interactive-session-init.js');
+    const { Session } = await import('@robota-sdk/agent-session');
+    const constructed = vi.mocked(Session);
+    const deps = {
+      sandboxSnapshotId: undefined,
+      resumeSessionId: undefined,
+      pendingRestoreMessages: null,
+      permissionHandler: undefined,
+      askHandler: undefined,
+      onTextDelta: () => {},
+      onContextUpdate: () => {},
+      onCompactEvent: () => {},
+      onToolExecution: () => {},
+      executeModelCommand: () => Promise.resolve(null),
+      isModelCommandInvocable: () => false,
+      commandDescriptors: [],
+      commandSemanticRoles: undefined,
+      setEditCheckpointStore: () => {},
+    } as never;
+
+    constructed.mockClear();
+    await initializeInteractiveSessionAsync(
+      { cwd: '/tmp/test', provider: createMockProvider(), skipConfiguredHooks: true },
+      deps,
+    );
+    expect(JSON.stringify(constructed.mock.calls[0]?.[0]?.hooks ?? {})).not.toContain('HOOKMARK');
+
+    constructed.mockClear();
+    await initializeInteractiveSessionAsync(
+      { cwd: '/tmp/test', provider: createMockProvider() },
+      deps,
+    );
+    expect(JSON.stringify(constructed.mock.calls[0]?.[0]?.hooks)).toContain('HOOKMARK');
+  });
+});

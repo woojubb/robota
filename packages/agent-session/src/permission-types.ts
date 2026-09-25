@@ -2,6 +2,7 @@
  * Permission types — interfaces and type aliases for permission enforcement.
  */
 
+import type { IPermissionClassifier } from './auto-mode-gate.js';
 import type { ISessionLogger } from './session-logger.js';
 import type { TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
 import type {
@@ -14,6 +15,15 @@ import type {
 import type { TPermissionResultValue } from '@robota-sdk/agent-interface-session';
 
 export type { ISpinner, ITerminalOutput };
+
+/** The part of a sandbox client the permission gate consults. */
+export interface ICommandSandboxApproval {
+  /**
+   * Whether `toolName` runs `shellCommand` inside the sandbox and the sandbox's settings let it
+   * proceed without a prompt. Only a tool the sandbox actually wraps may answer yes.
+   */
+  autoApproves(toolName: string, shellCommand: string): boolean;
+}
 
 /**
  * Permission handler result (issue #2052: the union is OWNED by `agent-interface-session` as
@@ -46,6 +56,11 @@ export interface IPermissionEnforcerOptions {
     permissions: { allow: string[]; deny: string[]; ask?: string[] };
     hooks?: Record<string, unknown>;
   };
+  /**
+   * The OS sandbox the shell tools run under, when there is one: whether it confines a command and
+   * lets it run without a prompt.
+   */
+  commandSandbox?: ICommandSandboxApproval;
   /** Where `~` and `$HOME` point for critical-path removal checks. Defaults to the OS home directory. */
   homeDirectory?: string;
   /**
@@ -92,6 +107,11 @@ export interface IPermissionEnforcerOptions {
    * which `inherit-allowlist` inherits). `preapproved` consults these.
    */
   taskPermissions?: { allow?: readonly string[]; deny?: readonly string[] };
+  /**
+   * Judges, in `auto` mode, the calls the mode would otherwise ask a person about. Absent → the
+   * session cannot enter `auto`.
+   */
+  permissionClassifier?: IPermissionClassifier;
 }
 
 /**
@@ -189,6 +209,11 @@ export function reportToolCrash(
     executionId: where.executionId,
   });
   return toolFailure('threw', message);
+}
+
+/** A refusal that tells the model why, so it can take another route. */
+export interface IPermissionRefusal {
+  readonly message: string;
 }
 
 /** Returned when the user denies a permission prompt. */

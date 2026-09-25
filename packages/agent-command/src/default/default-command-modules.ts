@@ -6,6 +6,7 @@ import { createCompactCommandModule } from '../compact/index.js';
 import { createContextCommandModule } from '../context/index.js';
 import { createDoctorCommandModule } from '../doctor/index.js';
 import { createEditorCommandModule } from '../editor/index.js';
+import { createAdvisorCommandModule } from '../advisor/index.js';
 import { createEffortCommandModule } from '../effort/index.js';
 import { createExitCommandModule } from '../exit/index.js';
 import { createForkCommandModule } from '../fork/index.js';
@@ -18,6 +19,7 @@ import { createLanguageCommandModule } from '../language/index.js';
 import { createMCPActivationCommandModule } from '../mcp-activation/index.js';
 import { createMemoryCommandModule } from '../memory/index.js';
 import { createModeCommandModule } from '../mode/index.js';
+import { createSandboxCommandModule } from '../sandbox/index.js';
 import { createOutputStyleCommandModule } from '../output-style/index.js';
 import { createPeersCommandModule } from '../peers/index.js';
 import { createPermissionsCommandModule } from '../permissions/index.js';
@@ -147,8 +149,10 @@ export function createDefaultCommandModules({
     createHelpCommandModule(),
     createAgentCommandModule(),
     createEffortCommandModule(),
+    createAdvisorCommandModule(),
     createPermissionsCommandModule(),
     createModeCommandModule(),
+    createSandboxCommandModule(),
     createPresetCommandModule(),
     createOutputStyleCommandModule(),
     createLanguageCommandModule(),

@@ -2,6 +2,7 @@ import { homedir } from 'node:os';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import {
+  createSettingsPermissionRulesAdapter,
   deleteSettings,
   loadOrgPolicy,
   OrgPolicyParseError,
@@ -34,6 +35,8 @@ import {
 } from '@robota-sdk/agent-command-workflows';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import { buildDoctorInputs } from './doctor-inputs.js';
+
+import type { IRobotaSandbox } from '../product/robota-execution-containment.js';
 import {
   areSessionLoopsDisabled,
   createLoopDefaultPromptResolver,
@@ -160,6 +163,7 @@ export function buildCommandSetup(
   packCommandModuleNames: readonly string[] = [],
   keybindingsFilePort?: IKeybindingsFilePort,
   themeCataloguePort?: IThemeCataloguePort,
+  sandbox?: IRobotaSandbox,
 ): ICliSetup {
   const workspaceComposition = createCliWorkspaceComposition({
     cwd,
@@ -168,8 +172,10 @@ export function buildCommandSetup(
     ...(options.projectSettingsWriter !== undefined
       ? { projectSettingsWriter: options.projectSettingsWriter }
       : {}),
+    ...(options.safeMode === true ? { safeMode: true } : {}),
   });
   const outputStyleSources = buildOutputStyleSources({
+    ...(options.safeMode === true ? { safeMode: true } : {}),
     cwd,
     userHome: homedir(),
     projectAccess: workspaceComposition.projectAccess,
@@ -185,6 +191,7 @@ export function buildCommandSetup(
       delete: () => deleteSettings(robotaUserSettingsPath()),
     },
     plugin: createDefaultPluginCommandAdapter(cwd),
+    permissionRules: createSettingsPermissionRulesAdapter(workspaceComposition.settingsSources),
     ...(options.mcpActivationAdapter === undefined
       ? {}
       : { mcpActivation: options.mcpActivationAdapter }),
@@ -221,6 +228,7 @@ export function buildCommandSetup(
   // composed; the shell supplies them, the command package owns the behaviour.
   const doctorInputs = buildDoctorInputs({
     cwd,
+    ...(sandbox !== undefined ? { sandbox } : {}),
     version,
     options,
     projectAccess: workspaceComposition.projectAccess,

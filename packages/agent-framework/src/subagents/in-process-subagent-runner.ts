@@ -1,6 +1,7 @@
 import { sumHistoryUsage } from '@robota-sdk/agent-core';
 import { subagentExecutionRoot } from '@robota-sdk/agent-executor';
 
+import { advisorToolLineLabel } from '../advisor/advisor-tool.js';
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
 import { restoreSessionRecordIntoSession } from '../interactive/interactive-session-restore.js';
@@ -198,12 +199,20 @@ function resumeRequestedRecord(
   restoreSessionRecordIntoSession(resumeSessionStore, resumeSessionId, session);
 }
 
-function emitToolExecutionEvent(job: ISubagentJobStart, event: TSubagentToolExecutionEvent): void {
+function emitToolExecutionEvent(
+  job: ISubagentJobStart,
+  event: TSubagentToolExecutionEvent,
+  tools: readonly IToolWithEventService[],
+): void {
   if (event.type === 'start') {
+    const label = advisorToolLineLabel(
+      event.toolName,
+      tools.map((tool) => tool.schema),
+    );
     job.emit?.({
       type: 'background_task_tool_start',
       toolName: event.toolName,
-      firstArg: extractFirstArg(event.toolArgs),
+      firstArg: label ?? extractFirstArg(event.toolArgs),
     });
     return;
   }
@@ -279,7 +288,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
           deps.onTextDelta?.(delta);
         },
         onToolExecution: (event) => {
-          emitToolExecutionEvent(job, event);
+          emitToolExecutionEvent(job, event, deps.tools);
           deps.onToolExecution?.(event);
         },
       });

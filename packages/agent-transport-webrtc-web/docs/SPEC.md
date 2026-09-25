@@ -37,6 +37,9 @@ This package sits in the **transport** layer, browser-only. It reuses the isomor
   warm-reconnect loop all fail closed: status becomes `failed` and no session is exposed.
 - The pairing secret is read only from the URL fragment (never the query string) and never leaves
   the browser.
+- A connection takes one offer, and the offer must advertise exactly one DTLS fingerprint: the
+  browser's DTLS layer accepts a certificate matching any advertised fingerprint, so a single value
+  is what makes the bound fingerprint the verified one.
 
 ## Design decisions
 

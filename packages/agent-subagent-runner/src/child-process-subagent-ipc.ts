@@ -7,6 +7,7 @@ import {
 
 import type { ISandboxProjection } from './worker-composition.js';
 import type { ISessionUsageTotals, TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
+import type { IConnectionEnvironmentCheck } from '@robota-sdk/agent-executor';
 import type { IResolvedConfig } from '@robota-sdk/agent-framework';
 import type {
   ISerializableProviderProfile,
@@ -59,6 +60,11 @@ export interface ISubagentWorkerStartPayload {
    */
   parentContext: ISubagentWorkerParentContextDto;
   providerProfile: ISerializableProviderProfile;
+  /**
+   * The destination-deciding environment the parent checked before spawning, sealed so the child can
+   * repeat the check before it builds a provider. Values never travel; only a keyed digest does.
+   */
+  connectionCheck: IConnectionEnvironmentCheck;
   /**
    * ARCH-033: how the child rebuilds the parent's sandbox, as `(type, snapshotId)`.
    *
@@ -160,6 +166,14 @@ function isRecord(value: TSubagentWorkerWireValue): value is TSubagentWorkerWire
   return typeof value === 'object' && value !== null;
 }
 
+/** A sealed connection check: names, a nonce and a digest, all strings. */
+function isConnectionCheck(value: TSubagentWorkerWireValue): boolean {
+  if (!isRecord(value)) return false;
+  if (!hasString(value, 'nonce') || !hasString(value, 'digest')) return false;
+  const names = value.names;
+  return Array.isArray(names) && names.every((name) => typeof name === 'string');
+}
+
 /**
  * ARCH-031: `key` is `string`, so a renamed contract field compiles clean here and then rejects every
  * payload at runtime — which is exactly what a `type` → `agentType` rename would have done, silently.
@@ -253,7 +267,8 @@ function isStartPayload(value: TSubagentWorkerWireValue): value is ISubagentWork
   if (!decodeParentContextDto(value.parentContext).ok) return false;
   if (!isRecord(value.providerProfile)) return false;
   if (!hasString(value.providerProfile, 'type')) return false;
-  return hasString(value.providerProfile, 'model');
+  if (!hasString(value.providerProfile, 'model')) return false;
+  return isConnectionCheck(value.connectionCheck);
 }
 
 export function isSubagentWorkerParentMessage(

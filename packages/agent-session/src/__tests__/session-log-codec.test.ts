@@ -77,6 +77,14 @@ const fixtures = {
     sent: true,
     schemaInPrompt: false,
   },
+  provider_fallback: {
+    ...execution,
+    fromProvider: 'anthropic',
+    fromModel: 'primary-model',
+    toProvider: 'openai',
+    toModel: 'fallback-model',
+    reason: 'overloaded',
+  },
   assistant_message_committed: { ...execution, message },
   tool_execution_request: {
     ...execution,
@@ -150,6 +158,7 @@ const malformedField = {
   provider_response_raw: 'response',
   provider_response_normalized: 'response',
   structured_output_transport: 'mechanism',
+  provider_fallback: 'toModel',
   assistant_message_committed: 'message',
   tool_execution_request: 'parameters',
   tool_execution_result: 'success',
@@ -188,10 +197,10 @@ describe('session-log codec', () => {
     const decoded = decodeSessionLogEntries(
       Object.entries(fixtures).map(([event, payload]) => ({ ...envelope, event, ...payload })),
     );
-    expect(decoded).toHaveLength(30);
+    expect(decoded).toHaveLength(31);
     const response = decoded.find((entry) => entry.event === 'provider_response_normalized');
     expect(response?.response.timestamp).toBeInstanceOf(Date);
-    expect(decodeSessionLogEntries(decoded)).toHaveLength(30);
+    expect(decodeSessionLogEntries(decoded)).toHaveLength(31);
   });
 
   it.each(Object.entries(malformedField))('rejects malformed %s payload field', (event, field) => {

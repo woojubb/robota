@@ -17,7 +17,7 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --append-system-prompt <t> Append text to the system prompt
   --language <lang>          Language preference (e.g. ko, en)
   --no-session-persistence   Disable session persistence for this run
-  --permission-mode <mode>   Permission mode: plan | default | acceptEdits | bypassPermissions
+  --permission-mode <mode>   Permission mode: plan | default | acceptEdits | bypassPermissions | auto
   --external-event-allow <server:sender>
                              TUI only: allow text-only turns via a trusted MCP server
                              that verifies the sender;
@@ -29,12 +29,19 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --fork-session             Fork the current session into a new independent session
   --task-file <path>         Read a task prompt from file and append it to the system prompt
   --bare                     Print mode: output raw text only, no formatting wrapper
+  --safe-mode                Start with every customization off: instruction files, skills,
+                             commands, agents, output styles, plugins, hooks and MCP servers.
+                             Use it first when something misbehaves; if the problem goes away,
+                             one of them is the cause
   --configure                Run interactive provider configuration
   --configure-provider <n>   Configure a specific provider
   --allowed-tools <list>     Comma-separated tool auto-approval list
   --denied-tools <list>      Comma-separated tool denylist
   --model <model>            Model override for this run
+  --fallback-model <list>    Comma-separated models to continue a turn on when the model is overloaded
   --effort <level>           Model effort: auto | low | medium | high | xhigh | max
+  --advisor <profile[:model]> Model the main model may consult for advice (or "off");
+                             overrides settings.json advisorModel. ROBOTA_DISABLE_ADVISOR=1 turns it off
   --preset <id>              Preset id to apply (default: settings.preset or "default")
   --output-style <id>        Response style: default | concise | proactive | explanatory | learning
   --memory / --no-memory     Enable/disable durable memory for this run (default: off; opt-in).
@@ -57,7 +64,18 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --serve --open             Serve the web monitor over localhost and open it in a browser
   --http-token-file <path>   With mcp serve, bind authenticated loopback HTTP and write the
                              bearer to a new owner-only absolute-path file
-  --http-port <port>         With --http-token-file, use this port (default: OS-assigned)
+  --http-port <port>         With mcp serve HTTP, use this port (default: OS-assigned)
+  --http-public-url <https>  With mcp serve, serve remote HTTP as an OAuth resource server at this
+                             public URL (endpoint and metadata paths follow it; the proxy in front
+                             must forward those paths and preserve Host). Requires --oauth-issuer,
+                             --oauth-scopes and --oauth-allowed-subjects; never uses a token file
+  --http-host <ip>           With mcp serve, the address to bind. Anything but 127.0.0.1 requires
+                             --http-public-url and the --oauth-* flags (default: 127.0.0.1)
+  --oauth-issuer <https>     Authorization server whose access tokens are accepted
+  --oauth-scopes <a,b>       Scopes every access token must carry
+  --oauth-allowed-subjects <a,b>
+                             Token subjects admitted to the one shared session
+  --trusted-proxy <ip>       Believe X-Forwarded-For from this proxy address (repeatable)
   --check-update             Check for CLI updates
   --version                  Show version number
   -h, --help                 Show this help message
@@ -88,7 +106,12 @@ Commands:
                                   Link a PR/MR URL to a live supervised session
   robota session unlink-pr <supervised-id>
                                   Clear a live supervised session PR/MR link
-  robota mcp serve [options]       Serve one Robota session over stdio or authenticated loopback HTTP
+  robota mcp serve [options]       Serve one Robota session over stdio, authenticated loopback HTTP,
+                                  or OAuth-authorized remote HTTP
+  robota mcp login <name> [--client-secret] [--no-browser]
+                                  Sign in to a remote MCP server that declares oauth
+                                  (--no-browser: print the URL, paste the redirect back)
+  robota mcp logout <name>         Sign out of an OAuth MCP server and revoke its tokens
   robota eval <definition>         Run an evals-as-code definition; exit 1 on a metric breach (CI gate)
 
 Examples:

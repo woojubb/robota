@@ -1,5 +1,6 @@
 import type { TUniversalMessage, IToolCall } from './messages';
 import type { IProviderCapabilityTable } from './model-capability';
+import type { TModelFallbackCallback } from './model-fallback';
 import type {
   IModelEffortResolution,
   IModelEffortOutcome,
@@ -11,6 +12,7 @@ import { createDefaultProviderCapabilities } from './provider-capabilities';
 import type { IProviderCapabilities, IProviderNativeWebToolRequest } from './provider-capabilities';
 import type { IProviderSpecificOptions } from './provider-specific-options';
 import type { IToolSchema } from './tool-schema';
+import type { IModelRef } from './role-model';
 import type { IOutboundTraceContext } from './trace-context';
 import type { TUniversalValue } from './universal-value';
 
@@ -172,6 +174,20 @@ export interface IChatOptions extends IProviderSpecificOptions {
   responseFormat?:
     | { type: 'text' | 'json_object' }
     | { type: 'json_schema'; name?: string; schema: Record<string, TUniversalValue> };
+  /**
+   * The run this call belongs to: the same for every call of one run and different for the next.
+   * A provider that can answer on another model keys its per-run choice on it; a call without one
+   * belongs to no run and starts from the requested model.
+   */
+  executionId?: string;
+  /** Told when this request moved to another model, so the caller can attribute the answer. */
+  onModelFallback?: TModelFallbackCallback;
+  /**
+   * Any other model this request moves to must offer at least the requested model's context
+   * window; a model whose window is unknown counts as smaller. Set by compaction, whose input was
+   * sized to the requested model.
+   */
+  preserveContextWindow?: boolean;
 }
 
 /**
@@ -266,6 +282,12 @@ export interface IAIProvider {
    * cannot — core then sends it no trace context and tells the host which provider could not.
    */
   canPropagateTraceContext?(): boolean;
+
+  /**
+   * Where a request for `model` in the run `executionId` will go first. Only a provider that can
+   * answer on another model implements it; absent, the request goes to this provider and `model`.
+   */
+  resolveModelRoute?(model: string, executionId?: string): IModelRef;
 
   /**
    * Optional generic hook for enabling provider-native hosted web behavior.

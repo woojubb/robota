@@ -37,6 +37,13 @@ export const FRAMEWORK_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPe
     Agent: { riskClass: 'execute' },
 
     /**
+     * Asks a second model for advice. It changes nothing on this machine, so it is an inspection;
+     * where the conversation may be sent is governed by the organization's provider allowlist and
+     * the user's per-vendor consent, which the advisor checks itself.
+     */
+    Advisor: { riskClass: 'inspect' },
+
+    /**
      * Not a model tool: the user's `/cd`, judged by the same rules so `deny: ["Cd(/secrets/**)"]` can
      * keep a session out of a directory (issue #3081). Moving changes nothing by itself — the new
      * session's own rules and trust decision govern what happens there — so it is an inspection.

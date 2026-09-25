@@ -131,7 +131,7 @@ Invariants the order keeps:
 - **An ask resolves to a person where an approver is attached and to a denial where none is**, so a detached caller and an attended one share the order and differ only in who answers.
 - **Plan mode does not ask about changes.** An ask about anything but an inspect-class call is a denial there, and a tool with no declared risk class is refused; only an explicit allow rule lets a change proceed in plan mode.
 
-The mode itself decides only by the tool's declared risk class (`inspect`/`modify`/`execute`), and the matrix intentionally names no concrete product tool: this vendor-neutral foundation cannot know a product's tool inventory, so classification is declared by the package that defines each tool — a hardcoded matrix previously drifted from the actual tool set. A tool with no declared class prompts rather than defaulting to permissive, so an unclassified tool is at least as cautious as a hand-classified risky one.
+The mode itself decides only by the tool's risk class (`inspect`/`modify`/`execute`) — the declared one, except that a command tool whose call runs only built-in read-only commands, naming nothing outside the workspace once symlinks are followed, is decided as `inspect`, so looking around never prompts while a user's ask or deny rule, checked first, still can — and the matrix intentionally names no concrete product tool: this vendor-neutral foundation cannot know a product's tool inventory, so classification is declared by the package that defines each tool — a hardcoded matrix previously drifted from the actual tool set. A tool with no declared class prompts rather than defaulting to permissive, so an unclassified tool is at least as cautious as a hand-classified risky one.
 
 ## Hook System
 
@@ -171,7 +171,7 @@ The prompt/completion/total token-usage shape is owned once in this package; no 
 
 ## Provider Capabilities
 
-Generic layers must query a provider's capabilities through one function rather than branching on provider identity. Provider-native "web tools" (server-side search/fetch) are a distinct concept from this package's own local function tools of the same name: a provider can _support_ a native web capability without that capability being _enabled_ for a given instance, and requesting a native web tool for one call must be checked and rejected before transport execution when the provider doesn't support or hasn't enabled it — failing before any network activity starts, not partway through a stream.
+Generic layers must query a provider's capabilities through one function rather than branching on provider identity. The loop never chooses a substitute model, since it cannot build providers; a provider that can answer on another model says where a run's request goes and when it moved, and every record of the call — the request announcement, the call observation, the committed reply and the response cache key — names the model that actually answered, so usage and cost are never charged to, nor a cached answer served as, a model that did not run. Provider-native "web tools" (server-side search/fetch) are a distinct concept from this package's own local function tools of the same name: a provider can _support_ a native web capability without that capability being _enabled_ for a given instance, and requesting a native web tool for one call must be checked and rejected before transport execution when the provider doesn't support or hasn't enabled it — failing before any network activity starts, not partway through a stream.
 
 For model-level (rather than provider-level) capabilities, a model's capability table is asked before falling back to the vendor's stated default, and a capability the catalog has said nothing about is reported as genuinely unknown rather than coerced into `false` — silence about a capability is not a denial of it, and callers that need to act on silence must state their own assumption explicitly rather than have one assumed for them.
 
@@ -251,7 +251,7 @@ Provider, tool, plugin, module, executor, and storage integrations each extend a
 
 ## Error Taxonomy
 
-Most errors this package raises extend one base error class carrying a machine-readable `code`, a `category` (user / provider / system), and a `recoverable` flag, so a caller can branch on failure kind without parsing message text. Some classes extend `Error` directly (tool-result admission refusals, owner-only-store mode errors), and some internal failures are thrown as plain `Error` with no code or category.
+Most errors this package raises extend one base error class carrying a machine-readable `code`, a `category` (user / provider / system), and a `recoverable` flag, so a caller can branch on failure kind without parsing message text; a provider failure also keeps the vendor's HTTP status and error type, because whether another model could serve the same request is decided from those facts, and a failure it cannot place is treated as not worth switching models for, since switching on an unknown cause can repeat a request that was never going to succeed or mask a bug. Some classes extend `Error` directly (tool-result admission refusals, owner-only-store mode errors), and some internal failures are thrown as plain `Error` with no code or category.
 
 ## Canonical Direct Runtime Tool Invocation
 

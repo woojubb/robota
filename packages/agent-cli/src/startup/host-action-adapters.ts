@@ -26,7 +26,11 @@ interface IPeerIngressSession {
     input: string,
     displayInput: string | undefined,
     rawInput: string | undefined,
-    options: { turnSource: 'peer'; driverId?: string },
+    options: {
+      turnSource: 'peer';
+      driverId?: string;
+      onAccepted?: (handle: ITurnHandle) => void;
+    },
   ): Promise<ITurnHandle>;
 }
 
@@ -88,6 +92,7 @@ function buildLocalPeersHostAdapter(
 ): NonNullable<ICommandHostAdapters['localPeers']> {
   return {
     list: () => presence.list(),
+    listWithWorkspace: () => presence.listWithWorkspace(),
     ownSessionId: () => presence.sessionId,
   };
 }
@@ -188,15 +193,17 @@ function startMessaging(
     guardedDirectory: presence.guardedDirectory,
     sessionId: presence.sessionId,
     list: () => presence.list(),
+    relate: async (sessionId) => (await presence.relate(sessionId))?.relation,
     report: (message) => report.writeError(message),
     ingress: new PeerMessageIngress({
       // The driver id is NOT taken from the arriving message: the messaging leaf derives it from the
       // sender's session id before this is reached, and issue #1809 fixed that a peer must not pick
       // the name a transcript's reader trusts.
-      submit: (input, origin) =>
+      submit: (input, origin, onAccepted) =>
         getSession().submit(input, undefined, undefined, {
           turnSource: 'peer',
           ...(origin.driverId !== undefined ? { driverId: origin.driverId } : {}),
+          onAccepted,
         }),
     }),
   }).then(

@@ -107,6 +107,7 @@ describe('default CLI command composition', () => {
       'default',
       'acceptEdits',
       'bypassPermissions',
+      'auto',
     ]);
   });
 
@@ -257,11 +258,10 @@ describe('default CLI command composition', () => {
 
       expect(transport.getExitCode()).toBe(0);
       expect(session.getSession().getPermissionMode()).toBe('plan');
-      expect(parseJsonObject(writes.join('').trim())).toMatchObject({
-        type: 'result',
-        result: 'Permission mode set to: plan\nPermission mode: plan\nNo session-approved tools.',
-        subtype: 'success',
-      });
+      const output = parseJsonObject(writes.join('').trim());
+      expect(output).toMatchObject({ type: 'result', subtype: 'success' });
+      expect(output['result']).toMatch(/^Permission mode set to: plan\nPermission mode: plan\n/);
+      expect(output['result']).toContain('Recent denials: none.');
     } finally {
       process.stdout.write = originalWrite;
       await session.shutdown({ reason: 'prompt_input_exit' });

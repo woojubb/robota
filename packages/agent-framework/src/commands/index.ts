@@ -10,6 +10,11 @@ export type {
   ICommandListEntry,
   ICommandModule,
   ICommandPermissionModeAdapter,
+  ICommandPermissionRulesAdapter,
+  ICommandSandboxAdapter,
+  ICommandSandboxStatus,
+  TSandboxCommandMode,
+  IPermissionRuleLayer,
   ICommandPickerAdapter,
   ICommandPluginAdapter,
   ICommandProcessAdapter,
@@ -17,6 +22,8 @@ export type {
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
   ICommandMCPSourceProblem,
+  ICommandMCPOAuthStatus,
+  ICommandMCPOAuthLogoutResult,
   ICommandPresetRegistryAdapter,
   ICommandOutputStyleRegistryAdapter,
   ICommandOutputStyleSummary,
@@ -166,7 +173,11 @@ export {
 } from '../command-api/background/background-command-api.js';
 export type {} from '../background-tasks/index.js';
 export type { TRecommendedResponseLanguage } from '../command-api/language/language-command-api.js';
-export type { IPermissionsCommandState } from '../command-api/permissions/permission-mode-command-api.js';
+export type {
+  IPermissionRuleGroup,
+  IPermissionsCommandState,
+  TPermissionRuleKind,
+} from '../command-api/permissions/permission-mode-command-api.js';
 export type {
   IStatusLineCommandSettings,
   TStatusLineCommandSettingsPatch,
@@ -182,6 +193,8 @@ export {
 export {
   buildPermissionModeSubcommands,
   formatCommandPermissionsMessage,
+  groupPermissionRulesBySource,
+  RUNTIME_RULE_SOURCE,
   formatInvalidPermissionModeMessage,
   isPermissionMode,
   listCommandSessionAllowedTools,
@@ -194,6 +207,7 @@ export {
   resolvePermissionModeAdapter,
   VALID_PERMISSION_MODES,
   writeCommandPermissionMode,
+  retryCommandPermissionDenial,
 } from '../command-api/permissions/permission-mode-command-api.js';
 export { applyPresetToSession } from '../command-api/preset/preset-application.js';
 export type {

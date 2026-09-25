@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
+import { toProviderError } from '@robota-sdk/agent-core';
+
 import {
   buildQwenResponsesTools,
   convertToQwenResponsesInput,
@@ -9,7 +11,6 @@ import { assembleQwenResponsesStream, parseQwenResponsesResponse } from './respo
 import {
   observeProviderNativeRawPayloadStream,
   toOpenAIResponsesToolChoice,
-  type IOpenAICompatibleError,
 } from '../shared/openai-compatible/index.js';
 import {
   awaitWithProviderRequestId,
@@ -89,9 +90,7 @@ export async function chatWithQwenResponsesApi(
       readOpenAICompatibleRequestId(response),
     );
   } catch (error) {
-    const qwenError = error as IOpenAICompatibleError;
-    const errorMessage = qwenError.message || 'Qwen Responses API request failed';
-    throw new Error(`Qwen responses failed: ${errorMessage}`);
+    throw toProviderError(error, 'qwen', 'Qwen responses failed');
   }
 }
 
@@ -160,9 +159,7 @@ async function chatWithQwenResponsesStreamingAssembly(
     });
     return withProviderRequestId(assembled, providerRequestId);
   } catch (error) {
-    const qwenError = error as IOpenAICompatibleError;
-    const errorMessage = qwenError.message || 'Qwen Responses streaming request failed';
-    throw new Error(`Qwen responses stream failed: ${errorMessage}`);
+    throw toProviderError(error, 'qwen', 'Qwen responses stream failed');
   }
 }
 

@@ -3,15 +3,19 @@
 // MCP-001: the definition control plane. `agent-mcp` is the sole owner of MCP server definitions
 // and their raw/validated/resolved forms, provenance and shadow metadata, strict foreign decoding,
 // environment templates, whole-entry precedence, reversible disable overlays, redacted management
-// projections, activation identity, and pure management results (ADR-005).
+// projections, activation identity, and pure management results (docs/SPEC.md).
 export type {
   IMCPDefinitionProblem,
   IMCPDefinitionShadow,
+  IMCPHeadersHelper,
+  IMCPOAuthConfig,
   IMCPResolvedEntry,
   IMCPServerDefinition,
   IMCPServerDefinitionRaw,
   IMCPServerDefinitionResolved,
   IMCPUnsetVariable,
+  IMCPValueSpan,
+  TMCPValueProvenance,
   TMCPDefinitionSource,
   TMCPTransport,
 } from './definition/types.js';
@@ -43,11 +47,23 @@ export {
   type IMCPDefinitionProjection,
 } from './definition/projection.js';
 export {
+  activationEndpoint,
   activationIdentity,
   definitionFingerprint,
   securityIdentity,
   type IMCPActivationIdentity,
 } from './definition/identity.js';
+export {
+  displayArgs,
+  displayValue,
+  isCredentialShapedName,
+  looksLikeCredential,
+  maskCredentials,
+  SECRET_LITERAL,
+  secretMarker,
+  withoutExpansions,
+  withoutSecrets,
+} from './definition/secrecy.js';
 export {
   MCPDefinitionRegistry,
   type IMCPDefinitionRegistryOptions,
@@ -100,6 +116,84 @@ export {
   type TMCPTransportAdmission,
   type TMCPTransportKind,
 } from './client/transport.js';
+// The client authentication port: a host-registered authenticator for one server identity.
+export {
+  MCPAuthenticationError,
+  UNSUPPORTED_AUTHENTICATION_KEYS,
+  type IMCPAuthorizationRejection,
+  type IMCPAuthorizationRequest,
+  type IMCPBoundAuthenticator,
+  type IMCPClientAuthenticator,
+  type TMCPAuthenticationFailure,
+} from './client/authentication.js';
+// The dynamic header helper: host-run, host-allowlisted, output parsed strictly here.
+export {
+  MCPHeadersHelperError,
+  createHeadersHelperAuthenticator,
+  isWorkspaceHelperSource,
+  parseHeadersHelperOutput,
+  refuseHeadersHelper,
+  type IMCPHeadersHelperAuthenticator,
+  type TMCPHeadersHelperFailure,
+  type TMCPHeadersHelperRefusal,
+  type TMCPHeadersHelperRun,
+} from './client/headers-helper.js';
+export {
+  MCPSingleFlightCache,
+  MCPSingleFlightClosedError,
+  type IMCPSingleFlightEntry,
+} from './client/single-flight.js';
+export { isExecutionEnvironmentName } from './client/stdio-authority.js';
+// OAuth sign-in and the authenticator that sends its tokens; storage and locking are ports.
+export { MCPOAuthError, type TMCPOAuthFailure } from './client/oauth/errors.js';
+export { createOAuthFetch, type IMCPOAuthNetwork } from './client/oauth/network.js';
+export {
+  canonicalServerUrl,
+  discoverMCPOAuthServer,
+  type IMCPOAuthDiscoveryInput,
+  type IMCPOAuthServerInfo,
+} from './client/oauth/discovery.js';
+export {
+  createPastedRedirectAcceptor,
+  startOAuthCallbackServer,
+  type IMCPOAuthPastedRedirect,
+  type IMCPOAuthCallbackOptions,
+  type IMCPOAuthCallbackResult,
+  type IMCPOAuthCallbackServer,
+} from './client/oauth/callback.js';
+export {
+  createFileOAuthCredentialStore,
+  oauthCredentialKey,
+  type IMCPOAuthCredential,
+  type IMCPOAuthCredentialKey,
+  type IMCPOAuthCredentialStore,
+} from './client/oauth/store.js';
+export {
+  createFileOAuthRefreshLock,
+  type IFileOAuthRefreshLockOptions,
+  type IMCPOAuthRefreshLock,
+} from './client/oauth/refresh-lock.js';
+export {
+  runMCPOAuthLogin,
+  type IMCPOAuthLoginInput,
+  type IMCPOAuthLoginResult,
+} from './client/oauth/login.js';
+export {
+  readMCPOAuthCredentialState,
+  runMCPOAuthLogout,
+  type IMCPOAuthCredentialStateInput,
+  type IMCPOAuthLogoutInput,
+  type IMCPOAuthLogoutResult,
+  type IMCPOAuthTokenRevocation,
+  type TMCPOAuthCredentialState,
+  type TMCPOAuthRevocationOutcome,
+} from './client/oauth/lifecycle.js';
+export {
+  createOAuthAuthenticator,
+  type IMCPOAuthAuthenticator,
+  type IMCPOAuthAuthenticatorOptions,
+  type TMCPOAuthNotice,
+} from './client/oauth/authenticator.js';
 export {
   createStdioAdapter,
   type IMCPAdmittedStdioEndpoint,

@@ -1,9 +1,11 @@
 import { announceAppend } from './execution-event-helpers';
 import { callProviderWithIdleTimeout } from './execution-round-provider';
-import { PROVIDER_CALL_EVENTS } from '../event-service/span-events';
+import { PROVIDER_CALL_EVENTS, PROVIDER_FALLBACK_EVENTS } from '../event-service/span-events';
+import { moveModelRoute, openModelRoute, routeModel, routeProvider } from './execution-model-route';
 import { isAbortFailure } from '../utils/abort-classification';
 import { randomId } from '../utils/random-id.js';
 import { verifiedProviderCallUsage } from './provider-call-usage';
+import { presentMessageOrigins } from './message-origin';
 import { resolveProviderCallTraceContext, withOutboundTraceContext } from './execution-trace-context';
 
 import type {
@@ -56,7 +58,7 @@ export async function forceSummaryCall(
     // OUTGOING array, the same shape `applyStructuredOutputTransport` uses for the schema
     // instruction (CORE-043). Nothing is added, so nothing has to be removed.
     const summaryMessages = [
-      ...conversationStore.getMessages(),
+      ...presentMessageOrigins(conversationStore.getMessages()),
       {
         id: randomId(),
         role: 'user' as const,
@@ -90,6 +92,7 @@ export async function forceSummaryCall(
     // away, an unabortable call here is a hang on the public streaming API. It goes through the same
     // helper every round call goes through, so there is one implementation of "call the provider".
     // Tools stay deliberately absent: this call exists to END the tool loop, not to extend it.
+    const route = openModelRoute(resolved, resolved.aiProviderInfo.model, executionId);
     const chatOptions: IChatOptions = {
       model: resolved.aiProviderInfo.model,
       effort: config.defaultModel?.effort ?? 'auto',
@@ -104,21 +107,39 @@ export async function forceSummaryCall(
       }),
       ...(fullContext.signal && { signal: fullContext.signal }),
       ...(fullContext.onTextDelta && { onTextDelta: fullContext.onTextDelta }),
+      executionId,
+      onModelFallback: (notice) => {
+        moveModelRoute(route, notice);
+        fullContext.onExecutionEvent?.(PROVIDER_FALLBACK_EVENTS.SWITCHED, {
+          executionId,
+          conversationId,
+          round: roundState.currentRound,
+          fromProvider: notice.from.provider,
+          fromModel: notice.from.model,
+          toProvider: notice.to.provider,
+          toModel: notice.to.model,
+          reason: notice.reason,
+        } as TExecutionEventData);
+        announceRequest();
+      },
     };
 
     // CORE-033: this is a provider call like any other, so it announces itself like one. The SPEC
     // declares `provider_request` REQUIRED, and a replay that cannot see the call the summary came
     // from cannot explain the summary. Emitted with the ASSEMBLED array, for the reason
     // `execution-round-streaming` gives: the request the model received, not the caller's history.
-    fullContext.onExecutionEvent?.('provider_request', {
-      executionId,
-      conversationId,
-      round: roundState.currentRound,
-      provider: resolved.currentInfo.provider,
-      model: resolved.aiProviderInfo.model,
-      messages: messagesForProvider,
-      forcedSummary: true,
-    } as TExecutionEventData);
+    const announceRequest = (): void => {
+      fullContext.onExecutionEvent?.('provider_request', {
+        executionId,
+        conversationId,
+        round: roundState.currentRound,
+        provider: routeProvider(route, resolved),
+        model: routeModel(route, resolved.aiProviderInfo.model),
+        messages: messagesForProvider,
+        forcedSummary: true,
+      } as TExecutionEventData);
+    };
+    announceRequest();
 
     const startedAtMs = Date.now();
     const callId = randomId();
@@ -160,8 +181,8 @@ export async function forceSummaryCall(
         callId,
         disposition: dispatch.invoked ? 'invoked' : 'preflight-refused',
         ...(dispatch.invoked && {
-          providerId: resolved.currentInfo.provider,
-          modelId: resolved.aiProviderInfo.model,
+          providerId: routeProvider(route, resolved),
+          modelId: routeModel(route, resolved.aiProviderInfo.model),
           ...(typeof forceResponse?.metadata?.['providerRequestId'] === 'string' && {
             providerRequestId: forceResponse.metadata['providerRequestId'],
           }),
@@ -184,8 +205,8 @@ export async function forceSummaryCall(
     const summaryMetadata = {
       ...(forceResponse.metadata ?? {}),
       round: roundState.currentRound,
-      providerId: resolved.currentInfo.provider,
-      modelId: resolved.aiProviderInfo.model,
+      providerId: routeProvider(route, resolved),
+      modelId: routeModel(route, resolved.aiProviderInfo.model),
       usageProvenance: verifiedUsage.provenance,
       ...(verifiedUsage.provenance === 'complete' && {
         inputTokens: verifiedUsage.promptTokens,

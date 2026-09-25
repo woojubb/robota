@@ -103,6 +103,11 @@ export interface IInteractiveSessionStandardOptions {
   workspaceMovedFrom?: string;
   /** Skip AGENTS.md/CLAUDE.md loading and plugin discovery. */
   bare?: boolean;
+  /**
+   * Run no hook the settings layers declare. With `bare` and empty contribution sources this is how
+   * a host starts a session with every customization off, to rule one out.
+   */
+  skipConfiguredHooks?: boolean;
   /** Explicitly omit the built-in command and HTTP hook executors for this session and its children. */
   disableBuiltInHookExecutors?: boolean;
   /** Host-selected executable for command hooks. */

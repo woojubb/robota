@@ -79,12 +79,15 @@ export function buildOutputStyleSources(options: {
   readonly userHome: string;
   readonly projectAccess: TWorkspaceProjectAccess;
   readonly managedOutputStyleSources?: readonly IOutputStyleSource[];
+  /** `--safe-mode`: only the built-in and managed styles. */
+  readonly safeMode?: boolean;
 }): readonly IOutputStyleSource[] {
   const managed = (options.managedOutputStyleSources ?? []).map((source, index) => ({
     ...source,
     scope: 'managed' as const,
     precedence: MANAGED_OUTPUT_STYLE_PRECEDENCE + index,
   }));
+  if (options.safeMode === true) return managed;
   return [
     userOutputStyleSource(options.userHome),
     ...projectOutputStyleSources(options.cwd, options.projectAccess),

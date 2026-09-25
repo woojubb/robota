@@ -81,6 +81,7 @@ export function buildCreateSessionOptions(
     onTextDelta: options.onTextDelta,
     onContextUpdate: options.onContextUpdate,
     onCompactEvent: options.onCompactEvent,
+    ...(options.onUsageRecorded !== undefined ? { onUsageRecorded: options.onUsageRecorded } : {}),
     onToolExecution: options.onToolExecution,
     sessionId,
     allowedTools: options.allowedTools,
@@ -165,6 +166,7 @@ export function buildCreateSessionOptions(
     editCheckpointRecorder: options.editCheckpointRecorder,
     reversibleExecution: options.reversibleExecution,
     sandboxClient: options.sandboxClient,
+    ...(options.disableAutoMode === true ? { disableAutoMode: true } : {}),
     // ARCH-033: projected beside the client, never derived from it — a client's class name is not a
     // registry key, and guessing one is how a child ends up looking sandboxed while sharing nothing.
     sandboxType: options.sandboxType,

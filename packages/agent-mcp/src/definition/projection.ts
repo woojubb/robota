@@ -11,16 +11,22 @@
  */
 
 import { isDisabled } from './overlay.js';
+import { displayArgs, displayValue, maskCredentials } from './secrecy.js';
 
-import type { IMCPResolvedEntry, TMCPDefinitionSource, TMCPTransport } from './types.js';
+import type {
+  IMCPOAuthConfig,
+  IMCPResolvedEntry,
+  TMCPDefinitionSource,
+  TMCPTransport,
+} from './types.js';
 
 export const REDACTED = '[REDACTED]';
 
 /**
  * A definition as it may be shown, with `env` and `headers` VALUES redacted.
  *
- * Stdio command, args and cwd are redacted wholesale because templates can expand credentials
- * into any of them. A projection never needs those values to report activation status.
+ * Command, args, cwd and url stay readable with every secret stretch replaced — what a
+ * credential-shaped variable expanded into them, and any literal that has a credential's shape.
  */
 export interface IMCPDefinitionProjection {
   readonly name: string;
@@ -37,6 +43,10 @@ export interface IMCPDefinitionProjection {
   /** Every value is `[REDACTED]`; the keys are the information. */
   readonly headers?: Readonly<Record<string, string>>;
   readonly timeout?: number;
+  /** OAuth sign-in settings; none of them is a secret. */
+  readonly oauth?: IMCPOAuthConfig;
+  /** Declared authentication this version cannot perform; the server is listed but not connected. */
+  readonly unsupportedAuthentication?: readonly string[];
   readonly disabled: boolean;
   readonly disabledReason?: string;
   /** Names of variables that had no value and no default; their references were left literal. */
@@ -54,11 +64,10 @@ function redactValues(record: Readonly<Record<string, string>>): Record<string, 
 /**
  * Project one resolved entry.
  *
- * `url` is carried through unredacted: it is the server's address, which the operator must be able
- * to read to tell two servers apart. A credential embedded in a URL is a separate, real hazard —
- * it is issue #2791, which refuses to expand credential-shaped variables into `url` and `headers`
- * in the first place, rather than redacting the whole address afterwards and hiding which server an
- * entry names.
+ * `url` and the command line stay readable: they are what the operator tells two servers apart by.
+ * Only their secret stretches are replaced — what a credential-shaped variable expanded into them,
+ * and literals that look like credentials (a URL password, a credential-named query parameter or
+ * flag value, a known token format, a long high-entropy run).
  */
 export function projectEntry(entry: IMCPResolvedEntry): IMCPDefinitionProjection {
   const definition = entry.definition;
@@ -80,21 +89,29 @@ export function projectEntry(entry: IMCPResolvedEntry): IMCPDefinitionProjection
   if (definition !== undefined) {
     projection.transport = definition.transport;
     if (definition.command !== undefined) {
-      projection.command = definition.transport === 'stdio' ? REDACTED : definition.command;
+      projection.command = displayValue(definition, 'command', definition.command);
     }
-    if (definition.args !== undefined) {
-      projection.args =
-        definition.transport === 'stdio'
-          ? definition.args.map(() => REDACTED)
-          : [...definition.args];
-    }
-    if (definition.cwd !== undefined) {
-      projection.cwd = definition.transport === 'stdio' ? REDACTED : definition.cwd;
-    }
+    if (definition.args !== undefined) projection.args = displayArgs(definition, definition.args);
+    if (definition.cwd !== undefined)
+      projection.cwd = displayValue(definition, 'cwd', definition.cwd);
     if (definition.env !== undefined) projection.env = redactValues(definition.env);
-    if (definition.url !== undefined) projection.url = definition.url;
+    if (definition.url !== undefined)
+      projection.url = displayValue(definition, 'url', definition.url);
     if (definition.headers !== undefined) projection.headers = redactValues(definition.headers);
     if (definition.timeout !== undefined) projection.timeout = definition.timeout;
+    if (definition.oauth !== undefined) {
+      const { clientId, authServerMetadataUrl } = definition.oauth;
+      projection.oauth = {
+        ...definition.oauth,
+        ...(clientId === undefined ? {} : { clientId: maskCredentials(clientId) }),
+        ...(authServerMetadataUrl === undefined
+          ? {}
+          : { authServerMetadataUrl: maskCredentials(authServerMetadataUrl) }),
+      };
+    }
+    if (definition.unsupportedAuthentication !== undefined) {
+      projection.unsupportedAuthentication = [...definition.unsupportedAuthentication];
+    }
   }
 
   return projection;

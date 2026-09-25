@@ -11,12 +11,15 @@ import {
   DEFERRED_WITHOUT_LOADER_MESSAGE,
   TOOL_SEARCH_TOOL_NAME,
   assertResidentToolRemains,
+  isToolDeniedOutright,
 } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
 
 import { formatDeferredToolRoster } from './deferred-tool-roster.js';
+import { createModelPermissionClassifier } from './model-permission-classifier.js';
 import { assembleSubagentPrompt } from './subagent-prompts.js';
 import { unwrapToolCallHandoff } from './tool-call-handoff.js';
+import { bindAdvisorTools, sessionAdvisorAccess } from '../advisor/advisor-tool.js';
 import { resolveRoleFallbackChain } from '../routing/role-model-routing.js';
 import { createProviderSafeModelCommandToolName } from '../tools/model-command-tool-projection.js';
 
@@ -178,10 +181,10 @@ function filterTools(
 ): IToolWithEventService[] {
   let tools = parentTools.map(unwrapToolCallHandoff);
 
-  // Step 1: Remove disallowed tools
-  if (agentDefinition.disallowedTools) {
-    const denySet = new Set(agentDefinition.disallowedTools);
-    tools = tools.filter((t) => !denySet.has(t.getName()));
+  // Step 1: Remove disallowed tools — read as deny rules, so a name also withholds its aliases
+  const disallowed = agentDefinition.disallowedTools;
+  if (disallowed) {
+    tools = tools.filter((t) => !isToolDeniedOutright(t.getName(), disallowed));
   }
 
   // Step 2: Keep only allowed tools (if allowlist specified)
@@ -234,11 +237,16 @@ export function createSubagentSession(options: ISubagentOptions): Session {
   const { agentDefinition, parentConfig, parentContext, parentTools, terminal } = options;
 
   // Filter tools based on agent definition constraints
-  const tools = filterTools(
-    parentTools,
-    agentDefinition,
-    options.commandSemanticRoles?.subagentSpawn,
-    options.modelCommandToolPrefix,
+  // An inherited Advisor tool is rebound so it reads this subagent's conversation, not the parent's.
+  let childSession: Session | undefined;
+  const tools = bindAdvisorTools(
+    filterTools(
+      parentTools,
+      agentDefinition,
+      options.commandSemanticRoles?.subagentSpawn,
+      options.modelCommandToolPrefix,
+    ),
+    () => (childSession === undefined ? undefined : sessionAdvisorAccess(childSession)),
   );
 
   carryResidencyContract(tools, parentTools);
@@ -269,7 +277,7 @@ export function createSubagentSession(options: ISubagentOptions): Session {
 
   const provider = options.provider;
 
-  return new Session({
+  childSession = new Session({
     tools,
     provider,
     systemMessage,
@@ -283,6 +291,16 @@ export function createSubagentSession(options: ISubagentOptions): Session {
     maxTurns: agentDefinition.maxTurns,
     permissions: parentConfig.permissions,
     permissionMode: options.permissionMode,
+    // A child started in `auto` mode judges its own calls the way the parent does: with a
+    // classifier on its own provider. Without one the session would refuse the mode.
+    ...(options.permissionMode === 'auto'
+      ? {
+          permissionClassifier: createModelPermissionClassifier(provider, {
+            cwd: options.cwd,
+            model,
+          }),
+        }
+      : {}),
     // CORE-025: the task policy pre-empts the session-mode gate (deny/preapproved/inherit override even
     // bypassPermissions); `preapproved` reads the task's own lists, `inherit-allowlist` reads
     // `parentConfig.permissions` (passed above as `permissions`).
@@ -300,4 +318,5 @@ export function createSubagentSession(options: ISubagentOptions): Session {
     onTextDelta: options.onTextDelta,
     onToolExecution: options.onToolExecution,
   });
+  return childSession;
 }

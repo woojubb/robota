@@ -7,11 +7,14 @@ import {
   InteractiveSession,
   readProviderSettings,
   readMergedProviderSettings,
+  readSettings,
+  writeSettings,
   type IBackgroundTaskRunner,
 } from '@robota-sdk/agent-framework';
 import { assembleProduct } from '@robota-sdk/agent-product';
 
 import { createFileCostBudgetAdapter } from './startup/cost-budget-adapter.js';
+import { applyModelFallbackChain } from './startup/model-fallback-startup.js';
 import { checkForCliUpdate, formatCliUpdateCheckMessage } from './update-check/update-check.js';
 import { resolveCliUpdateNotice } from './update-check/resolve-cli-update-notice.js';
 import { parseCliArgs, printHelp, type IParsedCliArgs } from './utils/cli-args.js';
@@ -20,7 +23,11 @@ import type { IShellPresetResolution } from './startup/preset-selection.js';
 import { ROBOTA_DEFAULT_AGENT_NAME } from './product/robota-preset-defaults.js';
 import { ROBOTA_AGENT_DEFINITION_ROOTS } from './product/robota-agent-roots.js';
 import { robotaPluginDirectories } from './product/robota-plugin-paths.js';
-import { robotaSandboxClient } from './product/robota-execution-containment.js';
+import {
+  createRobotaSandbox,
+  createSandboxCommandAdapter,
+  sandboxStartupProblem,
+} from './product/robota-execution-containment.js';
 import { ROBOTA_PROJECT_SETTINGS } from './product/robota-project-settings.js';
 import {
   createRobotaUserSettingsSources,
@@ -52,6 +59,7 @@ import { resolveLiveTelemetrySurface } from './telemetry/live-resource.js';
 import { createCliLiveContentRedaction } from './telemetry/live-content-secrets.js';
 import {
   createRobotaPackSet,
+  ROBOTA_OS_SANDBOX_TYPE,
   createRobotaSubagentRunnerFactory,
 } from './product/robota-subagent-composition.js';
 import { reloadPluginCommandSource } from './plugins/default-plugin-command-source-loader.js';
@@ -71,18 +79,25 @@ import {
 import {
   createInitialCliWorkspaceComposition,
   resolveStartupWorkspaceProjectAccess,
+  SAFE_MODE_FLAG,
+  SAFE_MODE_NOTICE,
 } from './startup/workspace-project-composition.js';
 import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
 import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
-import { createWorkspaceMoveAdapter } from './startup/workspace-move-adapter.js';
+import {
+  argvCarryingSafeMode,
+  createWorkspaceMoveAdapter,
+} from './startup/workspace-move-adapter.js';
 import { runPrintMode } from './modes/print-mode.js';
 import { buildServeSessionOptions, runServeMode } from './modes/serve-mode.js';
 import { ROBOTA_PERMISSION_BASELINE } from './product/robota-permission-baseline.js';
 import { runMcpServeMode } from './modes/mcp-serve-mode.js';
+import { resolveMcpHttpOptions } from './utils/mcp-http-args.js';
 import { reserveMcpStdout } from './modes/mcp-stdio-output.js';
 import { composeMcpClientForStartup } from './startup/mcp-startup.js';
+import { composeCliAdvisor } from './startup/advisor-composition.js';
 import { createMcpExternalEventHost } from './startup/mcp-external-event-host.js';
 import type { TMcpStartupMode } from './startup/mcp-startup.js';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
@@ -163,13 +178,26 @@ async function runCliCore(
   telemetryEnvironment: Readonly<Record<string, string>> = {},
 ): Promise<void> {
   const cwd = process.cwd();
-  const projectAccess = await resolveStartupWorkspaceProjectAccess(process.argv, cwd, options);
-  const startupOptions: IStartCliOptions = { ...options, projectAccess };
+  // Issue #3082: read from argv (or the embedder's option) before anything is composed, like the
+  // access decision it forces to Restricted.
+  const safeMode = process.argv.includes(SAFE_MODE_FLAG) || options.safeMode === true;
+  const projectAccess = await resolveStartupWorkspaceProjectAccess(
+    safeMode ? [...process.argv, SAFE_MODE_FLAG] : process.argv,
+    cwd,
+    options,
+  );
+  const startupOptions: IStartCliOptions = {
+    ...options,
+    projectAccess,
+    ...(safeMode ? { safeMode: true } : {}),
+  };
   if (await runPreparsedCliCommand(startupOptions, process.argv, cwd, telemetryEnvironment)) return;
 
   let args: IParsedCliArgs;
   try {
     args = preParsedArgs ?? parseCliArgs();
+    // One decision: the modes below read `args.safeMode`, the composition above read `safeMode`.
+    args = { ...args, safeMode };
   } catch (error) {
     // allow-fallback: argument validation errors are terminal — exit is the correct response
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
@@ -180,14 +208,7 @@ async function runCliCore(
   if (args.positional[0] === 'mcp' && (!mcpServe || args.positional.length !== 2)) {
     throw new Error('Usage: robota mcp serve [options]');
   }
-  if (
-    (args.mcpHttpTokenFile !== undefined || args.mcpHttpPort !== undefined) &&
-    (!mcpServe || (args.mcpHttpPort !== undefined && args.mcpHttpTokenFile === undefined))
-  ) {
-    throw new Error(
-      '--http-token-file and --http-port are only valid for robota mcp serve HTTP mode',
-    );
-  }
+  const mcpHttp = resolveMcpHttpOptions(args, mcpServe);
   if (
     mcpServe &&
     (args.serve ||
@@ -225,9 +246,13 @@ async function runCliCore(
   }
 
   // Plugin reloads include the project scope only after the host's trust decision admits it.
+  // Safe mode: no instruction files or plugins (`bare`) and no hook from any settings layer.
+  const safeModeSessionOptions = safeMode
+    ? ({ bare: true, skipConfiguredHooks: true } as const)
+    : {};
   const reloadPluginCommandSourceInCwd = (
     registry: Parameters<typeof reloadPluginCommandSource>[0],
-  ): number => reloadPluginCommandSource(registry, cwd, projectAccess);
+  ): number => reloadPluginCommandSource(registry, cwd, projectAccess, !safeMode);
   const terminal = new PrintTerminal();
 
   if (args.reset) {
@@ -241,6 +266,9 @@ async function runCliCore(
 
   if (
     (args.printMode || args.goal !== undefined || args.serve || mcpServe) &&
+    // Safe mode asks for a Restricted start; the refusal exists so an untrusted project is never
+    // silently run without its sources, which is exactly what safe mode requests.
+    !safeMode &&
     requiresHeadlessWorkspaceTrust(projectAccess)
   ) {
     process.stderr.write(`${formatHeadlessWorkspaceTrustError(projectAccess, cwd)}\n`);
@@ -282,7 +310,7 @@ async function runCliCore(
   // command setup so the preset's module-selection delta can reach `createDefaultCommandModules`.
   const userSettings = readUserSettingsOrExit();
   const settingsPreset = typeof userSettings.preset === 'string' ? userSettings.preset : undefined;
-  const externalPresetLoad = loadRobotaExternalPresets();
+  const externalPresetLoad = safeMode ? { presets: [], errors: [] } : loadRobotaExternalPresets();
   for (const { file, error } of externalPresetLoad.errors) {
     terminal.writeError(`Skipped external preset "${file}": ${error}`);
   }
@@ -299,11 +327,23 @@ async function runCliCore(
   const selectedPresetId = preset.presetId;
 
   const shellExecutable = resolveRobotaShellExecutable();
-  // Issue #3081: the containment choice is named, and `robota doctor` reports the same value.
-  const sandboxClient = robotaSandboxClient();
+  // Issues #3081, #3082: the containment choice is named, and `robota doctor` reports the same value.
+  const sandbox = createRobotaSandbox({
+    cwd,
+    settingsSources: createInitialCliWorkspaceComposition(cwd, startupOptions).settingsSources,
+  });
+  const sandboxProblem = sandboxStartupProblem(sandbox);
+  if (sandboxProblem !== undefined) {
+    process.stderr.write(`${sandboxProblem.message}\n`);
+    if (sandboxProblem.fatal) {
+      process.exitCode = 1;
+      return;
+    }
+  }
+  const sandboxClient = sandbox.client;
   const { packContext, packs, packCommandModules } = createRobotaPackSet(cwd, {
     shellExecutable,
-    ...(sandboxClient !== undefined ? { sandboxClient } : {}),
+    ...(sandboxClient !== undefined ? { sandboxClient, sandboxType: ROBOTA_OS_SANDBOX_TYPE } : {}),
   });
   const keybindingsSource =
     args.printMode || args.goal !== undefined || args.serve || mcpServe || !presentation
@@ -328,7 +368,7 @@ async function runCliCore(
   const mcpStartupMode: TMcpStartupMode =
     args.printMode || args.goal ? 'print' : args.serve || mcpServe ? 'serve' : 'interactive';
   const mcp =
-    options.mcpActivationAdapter === undefined
+    options.mcpActivationAdapter === undefined && !safeMode
       ? await composeMcpClientForStartup({
           settingsSources: createInitialCliWorkspaceComposition(cwd, startupOptions)
             .settingsSources,
@@ -375,6 +415,7 @@ async function runCliCore(
     packCommandModules,
     keybindingsSource,
     theme?.cataloguePort,
+    sandbox,
   );
   for (const { file, error } of outputStyleLoadErrors) {
     terminal.writeError(`Skipped output style "${file}": ${error}`);
@@ -384,7 +425,8 @@ async function runCliCore(
   for (const { fileName, reason } of theme?.skipped ?? []) {
     terminal.writeError(`Skipped theme "${fileName}": ${reason}`);
   }
-  const outputStyleId = selectOutputStyleId(args, userSettings.outputStyle);
+  // Safe mode loads no user or project output style, so a saved selection of one is not applied.
+  const outputStyleId = selectOutputStyleId(args, safeMode ? undefined : userSettings.outputStyle);
   let outputStyle;
   try {
     outputStyle = resolveOutputStyle(outputStyleRegistry, outputStyleId);
@@ -393,7 +435,7 @@ async function runCliCore(
     process.exit(1);
   }
   const outputStyleWasSelected =
-    args.outputStyle !== undefined || userSettings.outputStyle !== undefined;
+    args.outputStyle !== undefined || (!safeMode && userSettings.outputStyle !== undefined);
   if (outputStyleWasSelected) {
     const outputStyleNotice = `Output style: ${outputStyle.name} (${outputStyle.id}; input cost ${outputStyle.tokenCost})`;
     if (args.printMode) {
@@ -431,6 +473,10 @@ async function runCliCore(
     createRemoteControlController(transportRegistry, usageReporters);
   // CMD-007: this product stores `/cost budget` in `.robota/budget.json`; commands see only its port.
   commandHostAdapters.costBudget = createFileCostBudgetAdapter(cwd);
+  commandHostAdapters.sandbox = createSandboxCommandAdapter(sandbox, {
+    read: () => readSettings(robotaUserSettingsPath()),
+    write: (settings) => writeSettings(robotaUserSettingsPath(), settings),
+  });
   const startPeers = attachHostAdapters(commandHostAdapters, remoteControlController, terminal);
 
   reportUnknownPresetModules(
@@ -474,6 +520,11 @@ async function runCliCore(
     process.exit(1);
   }
   commandHostAdapters.effort = createCliEffortAdapter(effortResolution);
+  if (safeMode) {
+    const notice = `${SAFE_MODE_NOTICE}\n`;
+    if (args.printMode) process.stderr.write(notice);
+    else terminal.writeLine(notice.trimEnd());
+  }
   if (providerSettings.source === 'env-default' && providerSettings.sourceEnvVar !== undefined) {
     const notice = `Using ${providerSettings.name} (${modelId}) via ${providerSettings.sourceEnvVar} — run \`robota --configure\` to persist a profile.\n`;
     if (args.printMode) {
@@ -489,6 +540,7 @@ async function runCliCore(
   const subagentRunnerFactoryInput = createRobotaSubagentRunnerFactory({
     packContext,
     providerConfig: { ...providerSettings, model: modelId },
+    providerDefinitions,
     reproduction: {
       callerSuppliedDefinitions: callerSuppliedProviderDefinitions,
       replayProvider: args.sessionLog !== undefined,
@@ -520,7 +572,22 @@ async function runCliCore(
       transports: transportRegistry,
     }),
   );
-  const provider = product.provider;
+  // A replayed session answers from its log, so there is nothing to fall back from.
+  const provider =
+    product.provider === undefined || args.sessionLog !== undefined
+      ? product.provider
+      : applyModelFallbackChain({
+          provider: product.provider,
+          fallbackFlag: args.fallbackModel,
+          settingsSources: workspaceComposition.settingsSources,
+          primaryConfig: { ...providerSettings, model: modelId },
+          ...(args.provider !== undefined && { providerOverride: args.provider }),
+          providerDefinitions,
+          ...(orgPolicy !== undefined && { orgPolicy }),
+          announceMoves: args.printMode,
+          notice: (message) =>
+            args.printMode ? process.stderr.write(`${message}\n`) : terminal.writeLine(message),
+        });
   // CLI-078 (issue #2443): the collaborators every mode receives are the ones assembly returned.
   const { backgroundTaskRunners: assembledBackgroundTaskRunners, subagentRunnerFactory } =
     bindAssembledCollaborators(product, {
@@ -563,6 +630,26 @@ async function runCliCore(
     projectAccess: workspaceComposition.projectAccess,
   });
   if (mcp !== undefined) toolOptions.additionalTools.push(...(await mcp.connect()));
+  const advisor = composeCliAdvisor({
+    flag: args.advisor,
+    userSettings,
+    safeMode,
+    env: process.env,
+    orgPolicy,
+    settingsSources: [
+      ...workspaceComposition.settingsSources,
+      ...createRobotaUserSettingsSources(homedir()),
+    ],
+    providerDefinitions,
+    userSettingsPath: robotaUserSettingsPath(),
+    mainProvider: { provider, config: providerSettings },
+  });
+  commandHostAdapters.advisor = advisor.controller;
+  if (advisor.tool !== undefined) toolOptions.additionalTools.push(advisor.tool);
+  if (advisor.notice !== undefined) terminal.writeError(advisor.notice);
+  // The session consults the same sandbox the shell tools run under, to let a confined command
+  // skip the prompt when the settings say so.
+  if (sandboxClient !== undefined) toolOptions.sandboxClient = sandboxClient;
   const toolCallHandoff = mcp?.buildToolCallHandoff(permissionMode);
   // A capability the merge refused (a colliding id) is reported, never silently dropped.
   for (const { kind, id, reason } of product.rejectedCapabilities) {
@@ -657,7 +744,7 @@ async function runCliCore(
       },
       orgPolicy,
       providerErrorGuidance,
-      ROBOTA_AGENT_DEFINITION_ROOTS,
+      safeMode ? [] : ROBOTA_AGENT_DEFINITION_ROOTS,
       robotaPluginDirectories(cwd, homedir()),
       ROBOTA_PROJECT_SETTINGS,
       createRobotaUserSettingsSources(homedir()),
@@ -699,7 +786,8 @@ async function runCliCore(
       backgroundTaskRunners,
       subagentRunnerFactory,
       agentDefinitions,
-      agentDefinitionRoots: ROBOTA_AGENT_DEFINITION_ROOTS,
+      agentDefinitionRoots: safeMode ? [] : ROBOTA_AGENT_DEFINITION_ROOTS,
+      ...safeModeSessionOptions,
       pluginDirectories: robotaPluginDirectories(cwd, homedir()),
       projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
       userSettingsSources: createRobotaUserSettingsSources(homedir()),
@@ -718,10 +806,7 @@ async function runCliCore(
       memorySessionOptions,
     });
     try {
-      await runMcpServeMode(sessionOptions, version, mcpProtocolStdout, {
-        ...(args.mcpHttpTokenFile !== undefined ? { tokenFile: args.mcpHttpTokenFile } : {}),
-        ...(args.mcpHttpPort !== undefined ? { port: args.mcpHttpPort } : {}),
-      });
+      await runMcpServeMode(sessionOptions, version, mcpProtocolStdout, mcpHttp);
     } finally {
       await livePromptTracePort?.shutdown();
       if (mcp !== undefined) await mcp.shutdown();
@@ -751,7 +836,8 @@ async function runCliCore(
       backgroundTaskRunners,
       subagentRunnerFactory,
       agentDefinitions,
-      agentDefinitionRoots: ROBOTA_AGENT_DEFINITION_ROOTS,
+      agentDefinitionRoots: safeMode ? [] : ROBOTA_AGENT_DEFINITION_ROOTS,
+      ...safeModeSessionOptions,
       pluginDirectories: robotaPluginDirectories(cwd, homedir()),
       projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
       userSettingsSources: createRobotaUserSettingsSources(homedir()),
@@ -798,7 +884,7 @@ async function runCliCore(
   // Issue #3081: `/cd` starts robota again in the target directory, resuming this conversation.
   commandHostAdapters.workspace = createWorkspaceMoveAdapter({
     userHome: homedir(),
-    argv: process.argv.slice(2),
+    argv: argvCarryingSafeMode(process.argv.slice(2), safeMode),
     requestExit: () => commandHostAdapters.process?.requestExit('other'),
     environment: telemetryEnvironment,
   });
@@ -851,7 +937,8 @@ async function runCliCore(
     backgroundTaskRunners,
     subagentRunnerFactory,
     agentDefinitions,
-    agentDefinitionRoots: ROBOTA_AGENT_DEFINITION_ROOTS,
+    agentDefinitionRoots: safeMode ? [] : ROBOTA_AGENT_DEFINITION_ROOTS,
+    ...safeModeSessionOptions,
     pluginDirectories: robotaPluginDirectories(cwd, homedir()),
     projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
     baselinePermissionAllow: ROBOTA_PERMISSION_BASELINE,

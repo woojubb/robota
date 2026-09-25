@@ -4,7 +4,10 @@ import type { ICommandSessionModel } from './session-roles.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IInteractiveSessionRecord } from '../interactive/session-persistence.js';
 import type { IModelEffortResolution, TEffortSelection } from '../effort/effort-resolution.js';
+import type { ICommandAdvisorAdapter } from '../advisor/advisor-spec.js';
 import type { TPermissionMode, TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
+import type { IPermissionDenial } from '@robota-sdk/agent-session';
+import type { TWorkspaceRelation } from '@robota-sdk/agent-interface-session-mobility';
 
 export interface ICommandSettingsDocument {
   [key: string]: TUniversalValue;
@@ -37,6 +40,51 @@ export interface ICommandPermissionModeAdapter {
   getPermissionMode(): TPermissionMode;
   setPermissionMode(mode: TPermissionMode): void;
   listSessionAllowedTools(): readonly string[];
+  /** The allow/deny/ask rules the gate reads right now. */
+  getPermissionRules(): {
+    readonly allow: readonly string[];
+    readonly deny: readonly string[];
+    readonly ask: readonly string[];
+  };
+  /** The calls the session refused, most recent first. */
+  listRecentDenials(): readonly IPermissionDenial[];
+  /** Let the call behind a classifier denial (0-based) run once; `undefined` when there is none. */
+  retryDenial(index: number): IPermissionDenial | undefined;
+}
+
+/** The permission rules one settings layer declares, named the way the user would find the file. */
+export interface IPermissionRuleLayer {
+  /** The file as the user would find it, e.g. `~/.robota/settings.json`. */
+  readonly source: string;
+  readonly scope: string;
+  readonly allow: readonly string[];
+  readonly deny: readonly string[];
+  readonly ask: readonly string[];
+}
+
+/** Where each configured permission rule comes from, read fresh on every call. */
+export interface ICommandPermissionRulesAdapter {
+  readLayers(): readonly IPermissionRuleLayer[];
+}
+
+/** How shell commands are confined: not at all, confined without prompts, or confined and asked. */
+export type TSandboxCommandMode = 'off' | 'auto-allow' | 'regular';
+
+export interface ICommandSandboxStatus {
+  readonly mode: TSandboxCommandMode;
+  /** `bubblewrap` or `seatbelt`; absent where the platform has none. */
+  readonly backend?: string;
+  /** Why confinement cannot run here, when it cannot: what to install, or the platform. */
+  readonly unavailable?: string;
+  readonly network: boolean;
+  readonly excludedCommands: readonly string[];
+}
+
+/** The OS sandbox, live: `/sandbox` reads it and changes the mode for the next command. */
+export interface ICommandSandboxAdapter {
+  status(): ICommandSandboxStatus;
+  /** Apply the mode now and save it in the user settings. */
+  setMode(mode: TSandboxCommandMode): void;
 }
 
 /** Live model-effort state and application seam supplied by the composition root. */
@@ -118,6 +166,31 @@ export interface ICommandMCPSourceProblem {
   readonly blockedServerNames?: readonly string[];
 }
 
+/**
+ * One OAuth server's sign-in state as `/mcp` may show it: a fixed word, never a token, scope, expiry
+ * time or anything else derived from a credential.
+ */
+export interface ICommandMCPOAuthStatus {
+  readonly serverId: string;
+  readonly state: 'signed-in' | 'expired-refreshable' | 'sign-in-required' | 'signed-out';
+}
+
+/** What signing out did, by fixed reasons only. */
+export interface ICommandMCPOAuthLogoutResult {
+  readonly serverId: string;
+  /** Whether a credential was stored before the sign-out. */
+  readonly removed: boolean;
+  readonly revocation: 'revoked' | 'partial' | 'unsupported' | 'failed' | 'not-attempted';
+  /** The first step that refused, when a revocation was not confirmed. */
+  readonly revocationFailure?: string;
+  /** Each token a revocation was asked for, by kind — never its value. */
+  readonly tokens?: readonly {
+    readonly token: 'refresh_token' | 'access_token';
+    readonly revoked: boolean;
+    readonly failure?: string;
+  }[];
+}
+
 /** MCP activation lifecycle port. Implemented by the composition root over the MCP policy service. */
 export interface ICommandMCPActivationAdapter {
   list(): readonly ICommandMCPActivationSummary[];
@@ -130,6 +203,10 @@ export interface ICommandMCPActivationAdapter {
   approve(serverId: string): ICommandMCPActivationSummary | Promise<ICommandMCPActivationSummary>;
   reject(serverId: string): ICommandMCPActivationSummary | Promise<ICommandMCPActivationSummary>;
   revoke(serverId: string): ICommandMCPActivationSummary | Promise<ICommandMCPActivationSummary>;
+  /** Sign-in state of every server that declares OAuth. Absent: the host offers no OAuth. */
+  oauthStatus?(): Promise<readonly ICommandMCPOAuthStatus[]>;
+  /** Sign out of one OAuth server. Rejects for a server that does not declare OAuth. */
+  oauthLogout?(serverId: string): Promise<ICommandMCPOAuthLogoutResult>;
 }
 
 /**
@@ -146,6 +223,10 @@ export interface ILocalPeerSummary {
   readonly liveness: 'alive' | 'dead' | 'unknown';
   /** Content-free observed activity; unknown when stale or unverified. */
   readonly status?: 'working' | 'needs-input' | 'idle' | 'unknown';
+  /** How the peer's workspace relates to this one's, judged from what this session read at the claimed path. */
+  readonly workspaceRelation?: TWorkspaceRelation;
+  /** `mismatched` when the peer's claim disagreed with what this session read; it is not believed. */
+  readonly workspaceClaim?: 'verified' | 'mismatched' | 'absent';
 }
 
 /**
@@ -156,6 +237,11 @@ export interface ILocalPeerSummary {
 export interface ICommandLocalPeersAdapter {
   /** Every announced session, this one included. Ordering is the adapter's. */
   list(): readonly ILocalPeerSummary[];
+  /**
+   * The same rows with each other peer's workspace relation filled in. Separate and asynchronous
+   * because judging a relation reads git; `list` stays cheap for callers that only need liveness.
+   */
+  listWithWorkspace?(): Promise<readonly ILocalPeerSummary[]>;
   /** This session's own id, so the command can mark which row is the reader. */
   ownSessionId(): string;
   /**
@@ -328,10 +414,14 @@ export interface ICommandCostBudgetAdapter {
 export interface ICommandHostAdapters {
   settings?: ICommandSettingsAdapter;
   effort?: ICommandEffortAdapter;
+  /** The live advisor: `/advisor` changes its target without touching the session's tools. */
+  advisor?: ICommandAdvisorAdapter;
   /** CMD-007 (issue #2058). Absent on a host with no budget storage — `/cost budget` then says so. */
   costBudget?: ICommandCostBudgetAdapter;
   process?: ICommandProcessAdapter;
   permissionMode?: ICommandPermissionModeAdapter;
+  /** Absent on a host that cannot name its settings layers — `/permissions` then lists rules unattributed. */
+  permissionRules?: ICommandPermissionRulesAdapter;
   plugin?: ICommandPluginAdapter;
   remoteControl?: ICommandRemoteControlAdapter;
   mcpActivation?: ICommandMCPActivationAdapter;
@@ -352,4 +442,6 @@ export interface ICommandHostAdapters {
   handoff?: ICommandHandoffAdapter;
   /** Absent on a host that cannot start a session elsewhere — `/cd` then says so. */
   workspace?: ICommandWorkspaceAdapter;
+  /** Absent on a host with no OS sandbox — `/sandbox` then says so. */
+  sandbox?: ICommandSandboxAdapter;
 }

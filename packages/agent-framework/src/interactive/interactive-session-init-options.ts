@@ -33,7 +33,7 @@ import type { IMemoryStore } from '../memory/types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
-import type { TGuardrail } from '@robota-sdk/agent-core';
+import type { IHistoryEntry, TGuardrail } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
   IContextWindowState,
@@ -78,6 +78,7 @@ export interface IInitOptions {
   onTextDelta: (delta: string) => void;
   onContextUpdate?: (state: IContextWindowState) => void;
   onCompactEvent?: (event: ICompactEvent) => void;
+  onUsageRecorded?: (entries: readonly IHistoryEntry[]) => void;
   onToolExecution: (event: {
     type: 'start' | 'end';
     toolName: string;
@@ -88,6 +89,11 @@ export interface IInitOptions {
   }) => void;
   /** Skip AGENTS.md/CLAUDE.md loading and plugin discovery. */
   bare?: boolean;
+  /**
+   * Run no hook the settings layers declare. With `bare` and empty contribution sources this is how
+   * a host starts a session with every customization off, to rule one out.
+   */
+  skipConfiguredHooks?: boolean;
   /** Omit the built-in command and HTTP hook executors. */
   disableBuiltInHookExecutors?: boolean;
   commandHookShell?: string;
@@ -145,6 +151,8 @@ export interface IInitOptions {
   editCheckpointRecorder?: IEditCheckpointRecorder;
   /** Opt-in local-first reversible execution policy for write/shell tools. */
   reversibleExecution?: IReversibleExecutionOptions;
+  /** No `auto` permission mode (an organization policy turned it off). */
+  disableAutoMode?: boolean;
   /** Optional provider sandbox client used by sandbox-aware built-in tools. */
   sandboxClient?: ISandboxClient;
   /** ARCH-033: the name a child process uses to rebuild a sandbox like this one. */

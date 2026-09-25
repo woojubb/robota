@@ -47,6 +47,21 @@ export interface IUsageSnapshot {
 /** DATA-2577: one persisted, content-free observation for a started interactive turn. */
 export type TUsageSurface = 'cli' | 'desktop-app' | 'browser' | 'remote' | 'unknown';
 
+/**
+ * One model's part of a turn that ran on more than one model, so tokens and cost stay with the
+ * model that spent them instead of all going to one.
+ */
+export interface IUsageModelShare {
+  providerId: string;
+  modelId: string;
+  promptTokens: number;
+  completionTokens: number;
+  totalTokens: number;
+  costStatus: 'unknown' | 'estimated';
+  /** Present iff `costStatus === 'estimated'`. */
+  costUsd?: number;
+}
+
 export interface IUsageObservation {
   usageObservationId: string;
   turnId: string;
@@ -60,8 +75,11 @@ export interface IUsageObservation {
   /** Fresh, content-free OpenTelemetry-compatible root identity for this prompt execution. */
   promptExecutionTraceId?: string;
   promptExecutionSpanId?: string;
+  /** The model that answered; absent when the turn ran on more than one (see `modelShares`). */
   modelId?: string;
   providerId?: string;
+  /** Per-model parts of a turn that ran on more than one model; absent otherwise. */
+  modelShares?: readonly IUsageModelShare[];
   surface?: TUsageSurface;
   source?: IUsageSource;
   usage?: IUsageSnapshot;
@@ -134,7 +152,11 @@ export interface ILivePromptTraceBatch {
     | { readonly kind: 'permission'; readonly decision: IToolPermissionDecisionEntry }
   )[];
   /** Invalid or over-limit children are never silently represented as a complete trace. */
-  readonly omittedChildren: { readonly provider: number; readonly tool: number; readonly permission: number };
+  readonly omittedChildren: {
+    readonly provider: number;
+    readonly tool: number;
+    readonly permission: number;
+  };
 }
 
 export interface IPersonalUsageRequest {

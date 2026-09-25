@@ -30,7 +30,20 @@ function describe(peer: TPeerSummary, ownSessionId: string): string {
   // a live session.
   const liveness = peer.liveness === 'unknown' ? '  liveness unknown' : '';
   const status = peer.status === 'needs-input' ? 'needs input' : (peer.status ?? 'unknown');
-  return `  ${peer.sessionId}${peer.name ? `  ${peer.name}` : ''}  status ${status}${liveness}${self}`;
+  return `  ${peer.sessionId}${peer.name ? `  ${peer.name}` : ''}  status ${status}${self ? '' : workspace(peer)}${liveness}${self}`;
+}
+
+/** The relation this session verified. A claim it could not confirm is named as such, not shown. */
+function workspace(peer: TPeerSummary): string {
+  if (peer.workspaceClaim === 'mismatched') return '  workspace claim mismatched, not believed';
+  switch (peer.workspaceRelation) {
+    case undefined:
+      return '';
+    case 'unknown':
+      return '  workspace unknown';
+    default:
+      return `  ${peer.workspaceRelation.replace('-', ' ')}`;
+  }
 }
 
 /**
@@ -106,7 +119,10 @@ export async function executePeersCommand(
   if (sendVerb !== null) return executeSend(adapter, trimmed.slice(sendVerb[0].length));
 
   const own = adapter.ownSessionId();
-  const peers = adapter.list().filter(addressable);
+  // The workspace-judged listing when the host has one; it reads git, so only this view asks for it.
+  const peers = (
+    adapter.listWithWorkspace !== undefined ? await adapter.listWithWorkspace() : adapter.list()
+  ).filter(addressable);
   const others = peers.filter((peer) => peer.sessionId !== own);
 
   if (others.length === 0) {

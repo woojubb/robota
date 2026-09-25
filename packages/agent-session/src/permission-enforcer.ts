@@ -9,10 +9,12 @@
 import { homedir } from 'node:os';
 
 import {
+  allowRulesForAutoMode,
   applyPresetToolLists,
   evaluatePermission,
   findInvalidPermissionPatterns,
   findPermissionPatternWarnings,
+  getToolPermissionProfile,
   isToolDeniedOutright,
   matchesAnyPattern,
   projectPermissionPolicy,
@@ -22,16 +24,21 @@ import {
 } from '@robota-sdk/agent-core';
 
 import { decideApproval } from './abortable-approval.js';
+import { AutoModeGate } from './auto-mode-gate.js';
 import { consentScopeFor } from './consent-scope.js';
+import { PermissionDenialLog } from './permission-denial-log.js';
 import { wrapToolWithPermission } from './tool-permission-wrapper.js';
+import { createWorkspacePathResolver } from './workspace-path-resolver.js';
 
 import type {
   IPermissionEnforcerOptions,
+  IPermissionRefusal,
   TPermissionHandler,
   TPermissionResult,
   ITerminalOutput,
   ISpinner,
 } from './permission-types.js';
+import type { IPermissionDenial } from './permission-denial-log.js';
 import type { ISessionLogger, TSessionLogData } from './session-logger.js';
 import type { IToolWrapperDeps } from './tool-permission-wrapper.js';
 import type {
@@ -39,6 +46,7 @@ import type {
   IToolWithEventService,
   TToolArgs,
   THooksConfig,
+  TResolveInWorkspace,
 } from '@robota-sdk/agent-core';
 
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
@@ -87,6 +95,10 @@ export class PermissionEnforcer {
   private readonly permissionPolicy?: IPermissionEnforcerOptions['permissionPolicy'];
   private readonly taskPermissions?: IPermissionEnforcerOptions['taskPermissions'];
   private readonly homeDirectory: string;
+  private readonly resolveInWorkspace: TResolveInWorkspace;
+  private readonly commandSandbox?: IPermissionEnforcerOptions['commandSandbox'];
+  private readonly denials = new PermissionDenialLog();
+  private readonly autoMode?: AutoModeGate;
 
   constructor(options: IPermissionEnforcerOptions) {
     this.sessionId = options.sessionId;
@@ -114,6 +126,30 @@ export class PermissionEnforcer {
     this.permissionPolicy = options.permissionPolicy;
     this.taskPermissions = options.taskPermissions;
     this.homeDirectory = options.homeDirectory ?? homedir();
+    this.resolveInWorkspace = createWorkspacePathResolver(options.cwd);
+    this.commandSandbox = options.commandSandbox;
+    if (options.permissionClassifier !== undefined) {
+      this.autoMode = new AutoModeGate(options.permissionClassifier);
+    }
+  }
+
+  /** Whether `auto` mode can run here: it needs a classifier to decide for it. */
+  hasPermissionClassifier(): boolean {
+    return this.autoMode !== undefined;
+  }
+
+  /**
+   * Let the call behind a classifier denial run once, unjudged, when the model tries it again.
+   * Returns the denial, or `undefined` when `index` names no classifier denial.
+   */
+  allowRetryOfDenial(index: number): IPermissionDenial | undefined {
+    const denial = this.denials.list()[index];
+    const call = this.denials.callAt(index);
+    if (denial?.reason !== 'classifier' || call === undefined || this.autoMode === undefined) {
+      return undefined;
+    }
+    this.autoMode.grantRetry(call.toolName, call.toolArgs);
+    return denial;
   }
 
   /** Every configured pattern, split by the grammar it is held to. */
@@ -182,7 +218,7 @@ export class PermissionEnforcer {
       getPermissionMode: this.getPermissionMode,
       log: (event, detail) => this.log(event, detail),
       checkPermission: (toolName, toolArgs, signal, interaction, hookTraceEnv) =>
-        this.checkPermission(toolName, toolArgs, signal, interaction, hookTraceEnv),
+        this.decidePermission(toolName, toolArgs, signal, interaction, hookTraceEnv),
     };
 
     return tools.map((tool) => wrapToolWithPermission(tool, deps));
@@ -191,6 +227,11 @@ export class PermissionEnforcer {
   /** The consent patterns granted this session via "Allow always" — e.g. `Bash(git *)` (issue #2351). */
   getSessionAllowedTools(): string[] {
     return [...this.sessionAllowedTools];
+  }
+
+  /** The calls this session refused, most recent first (issue #3082). */
+  getRecentDenials(): readonly IPermissionDenial[] {
+    return this.denials.list();
   }
 
   /** Clear all session-scoped allow rules. */
@@ -261,6 +302,19 @@ export class PermissionEnforcer {
     interaction: IToolExecutionContext['permissionInteraction'] = 'interactive',
     hookTraceEnv?: IToolExecutionContext['hookTraceEnv'],
   ): Promise<boolean> {
+    return (
+      (await this.decidePermission(toolName, toolArgs, signal, interaction, hookTraceEnv)) === true
+    );
+  }
+
+  /** {@link checkPermission}, keeping the reason a refusal carries for the model. */
+  private async decidePermission(
+    toolName: string,
+    toolArgs: TToolArgs,
+    signal?: AbortSignal,
+    interaction: IToolExecutionContext['permissionInteraction'] = 'interactive',
+    hookTraceEnv?: IToolExecutionContext['hookTraceEnv'],
+  ): Promise<boolean | IPermissionRefusal> {
     // Issue #3081: ONE evaluator for every caller. A background/subagent policy (CORE-025) only
     // adds a ceiling, an ask-everything flag and the task's own lists; the ceiling is checked before
     // bypassPermissions, so a policy still binds under a permissive mode.
@@ -273,14 +327,19 @@ export class PermissionEnforcer {
           })
         : undefined;
 
+    const mode = this.getPermissionMode();
+    const allow = [...this.config.permissions.allow, ...(policy?.allow ?? [])];
     const rules = {
-      allow: [...this.config.permissions.allow, ...(policy?.allow ?? [])],
+      // An allow rule that lets any code run would carry every call past the classifier.
+      allow: mode === 'auto' ? allowRulesForAutoMode(allow) : allow,
       deny: [...this.config.permissions.deny, ...(policy?.deny ?? [])],
       ask: this.config.permissions.ask ?? [],
     };
     const where = { cwd: this.cwd, homeDirectory: this.homeDirectory };
-    const decision = evaluatePermission(toolName, toolArgs, this.getPermissionMode(), rules, {
+    const decision = evaluatePermission(toolName, toolArgs, mode, rules, {
       ...where,
+      resolveInWorkspace: this.resolveInWorkspace,
+      sandboxAutoApproved: this.sandboxAutoApproves(toolName, toolArgs),
       ...(policy?.ceiling !== undefined ? { ceiling: policy.ceiling } : {}),
       askAll: policy?.askAll ?? false,
     });
@@ -290,12 +349,58 @@ export class PermissionEnforcer {
     this.firePermissionDecisionHook(toolName, toolArgs, decision, hookTraceEnv);
 
     if (decision === 'auto') return true;
-    if (decision === 'deny') return false;
+    if (decision === 'deny') {
+      this.denials.record(toolName, toolArgs, 'policy');
+      return false;
+    }
 
     // 'approve' — route to the human-approval path. An ask that must reach a person every time is
     // not answered by a remembered consent, and does not create one (issue #3081).
     const fresh = requiresFreshApproval(toolName, toolArgs, rules, where);
+    // In auto mode the classifier stands in for the person, except where a person is required: an
+    // ask rule, a critical removal or protected path, or a policy that asks about everything.
+    if (mode === 'auto' && this.autoMode !== undefined && !fresh && policy?.askAll !== true) {
+      return this.decideInAutoMode(
+        this.autoMode,
+        toolName,
+        toolArgs,
+        signal,
+        interaction,
+        hookTraceEnv,
+      );
+    }
     return this.promptForApproval(toolName, toolArgs, signal, interaction, fresh);
+  }
+
+  private async decideInAutoMode(
+    gate: AutoModeGate,
+    toolName: string,
+    toolArgs: TToolArgs,
+    signal: AbortSignal | undefined,
+    interaction: IToolExecutionContext['permissionInteraction'],
+    hookTraceEnv: IToolExecutionContext['hookTraceEnv'],
+  ): Promise<boolean | IPermissionRefusal> {
+    if (gate.takeRetry(toolName, toolArgs)) return true;
+    // A consent given this session still answers, unless it is one no auto-mode rule could be.
+    if (
+      matchesAnyPattern(toolName, toolArgs, allowRulesForAutoMode([...this.sessionAllowedTools]))
+    ) {
+      return true;
+    }
+    if (gate.isPaused()) {
+      const allowed = await this.promptForApproval(toolName, toolArgs, signal, interaction, true);
+      if (allowed) gate.resume();
+      return allowed;
+    }
+    const judgement = await gate.judge({ toolName, toolArgs, cwd: this.cwd }, signal);
+    if (signal?.aborted === true) return false;
+    // The user left auto mode while the classifier was deciding: decide again under the new mode.
+    if (this.getPermissionMode() !== 'auto') {
+      return this.decidePermission(toolName, toolArgs, signal, interaction, hookTraceEnv);
+    }
+    if (judgement.kind === 'allow') return true;
+    this.denials.record(toolName, toolArgs, 'classifier', judgement.reason);
+    return { message: judgement.message };
   }
 
   /**
@@ -311,6 +416,10 @@ export class PermissionEnforcer {
     fresh = false,
   ): Promise<boolean> {
     const scope = consentScopeFor(toolName, toolArgs);
+    const cancelledBeforeAsking = signal?.aborted === true;
+    const hasApprover =
+      interaction === 'interactive' &&
+      (this.permissionHandler !== undefined || this.promptForApprovalFn !== undefined);
     const outcome = await decideApproval({
       toolName,
       alreadyAllowed:
@@ -324,6 +433,10 @@ export class PermissionEnforcer {
       toolArgs,
       ...(signal ? { signal } : {}),
     });
+    // A turn cancelled before anyone was asked is not a refusal of this call.
+    if (!outcome.allowed && !cancelledBeforeAsking) {
+      this.denials.record(toolName, toolArgs, hasApprover ? 'user' : 'no-approver');
+    }
     // A fresh-approval answer covers this call only: remembering its wide scope would let it answer
     // the next critical removal or protected write too.
     if (fresh) return outcome.allowed;
@@ -369,6 +482,15 @@ export class PermissionEnforcer {
       this.hookTypeExecutors,
       hookTraceEnv,
     ).catch(() => undefined);
+  }
+
+  /** Whether the OS sandbox confines this shell command and lets it run without a prompt. */
+  private sandboxAutoApproves(toolName: string, toolArgs: TToolArgs): boolean {
+    if (this.commandSandbox === undefined) return false;
+    const argument = getToolPermissionProfile(toolName).argument;
+    if (argument?.kind !== 'command') return false;
+    const command = toolArgs[argument.key];
+    return typeof command === 'string' && this.commandSandbox.autoApproves(toolName, command);
   }
 
   /** Delegate session event to the injected logger. */

@@ -65,6 +65,13 @@ export {
   createEffortCommandModule,
   executeEffortCommand,
 } from './effort/index.js';
+export {
+  ADVISOR_SETTING_KEY,
+  AdvisorCommandSource,
+  createAdvisorCommandEntry,
+  createAdvisorCommandModule,
+  executeAdvisorCommand,
+} from './advisor/index.js';
 export * from './exit/index.js';
 export * from './help/index.js';
 export {
@@ -96,6 +103,13 @@ export {
 } from './mcp-activation/mcp-activation-command-module.js';
 export { executeMCPActivationCommand } from './mcp-activation/mcp-activation-command.js';
 export * from './mode/index.js';
+export {
+  createSandboxCommandModule,
+  executeSandboxCommand,
+  formatSandboxStatus,
+  SANDBOX_MODES,
+  SandboxCommandSource,
+} from './sandbox/index.js';
 export {
   OutputStyleCommandSource,
   createOutputStyleCommandEntry,

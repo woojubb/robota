@@ -155,6 +155,7 @@ export {
 } from './utils/env-ref.js';
 export { createRecordEnvResolver, processEnvResolver } from './utils/env-resolver.js';
 export { createBoundedOutput } from './utils/bounded-output.js';
+export { shellArgumentForDisplay } from './utils/shell-argument.js';
 export type {
   IBoundedOutput,
   IBoundedOutputOptions,
@@ -234,6 +235,7 @@ export type {
   IEventHistorySnapshot,
 } from './interfaces/history-module';
 export { EventHistoryModule } from './services/history-module';
+export { peerDriverOf, printablePeerDriver } from './services/message-origin';
 
 // Event emitter (plugin)
 export { EVENT_EMITTER_EVENTS } from './plugins/event-emitter/types';
@@ -266,6 +268,8 @@ export { TASK_EVENTS, TASK_EVENT_PREFIX } from './event-service/task-events';
 export { USER_EVENTS, USER_EVENT_PREFIX, type TUserEvent } from './event-service/user-events';
 export {
   PROVIDER_CALL_EVENTS,
+  PROVIDER_FALLBACK_EVENTS,
+  readModelFallbackNotice,
   TOOL_BODY_EVENTS,
   TOOL_PERMISSION_EVENTS,
   SPAN_EVENTS,
@@ -321,6 +325,7 @@ export {
   estimateContextTokensFromMessages,
   estimateSerializedContextTokens,
   estimateToolSchemaTokens,
+  findModelDefinition,
   getModelContextWindow,
   getModelMaxOutput,
   getModelName,

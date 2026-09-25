@@ -42,6 +42,14 @@ extra dependency.
   record there, and persist new turns back under the same id — the forked conversation's content
   never travels through the IPC channel. A composition with no registered session store fails such
   a job outright rather than starting it with an empty history.
+- **One provider connection across the boundary.** The child builds its provider from the
+  parent's effective connection exactly, and never fills a gap from its own registry. Before a
+  child is spawned, every environment variable that decides where that provider connects or which
+  credential it sends is compared between the parent and the environment the child will get; a
+  difference refuses the job, so the parent's credential never reaches a process that would send
+  it elsewhere. The child repeats the check before it builds the provider. This defends against
+  misconfiguration and drift, not against a hostile child, which is why the primary check runs in
+  the parent.
 - **Malformed IPC messages are never silently dropped** on either side of the channel; each
   direction has an explicit rejection/error path.
 

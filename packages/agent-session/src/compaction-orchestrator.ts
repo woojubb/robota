@@ -9,6 +9,8 @@ import { randomUUID } from 'node:crypto';
 
 import { runHooks } from '@robota-sdk/agent-core';
 
+import { formatConversationEntries } from './conversation-transcript.js';
+
 import type { TCompactTrigger } from './session-types.js';
 import type {
   IAIProvider,
@@ -148,7 +150,13 @@ export class CompactionOrchestrator {
           timestamp: new Date(),
         },
       ],
-      { model: this.model, toolChoice: 'none', ...(signal !== undefined ? { signal } : {}) },
+      {
+        model: this.model,
+        toolChoice: 'none',
+        // The history was sized to this model's window; a smaller one could not read it all.
+        preserveContextWindow: true,
+        ...(signal !== undefined ? { signal } : {}),
+      },
     );
     // RUNTIME-004: the caller REPLACES the whole conversation with what this returns, so returning a
     // summary after a cancel is what destroyed it. Throwing puts an abort on the same path CORE-019
@@ -168,12 +176,7 @@ export class CompactionOrchestrator {
     const instructionBlock = instructions ?? this.compactInstructions ?? '';
     const instructionSection = instructionBlock ? `\nAdditional focus:\n${instructionBlock}\n` : '';
 
-    const formattedHistory = history
-      .map((msg) => {
-        const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
-        return `${msg.role}: ${content}`;
-      })
-      .join('\n');
+    const formattedHistory = formatConversationEntries(history).join('\n');
 
     return [
       this.basePrompt ?? DEFAULT_COMPACTION_PROMPT,

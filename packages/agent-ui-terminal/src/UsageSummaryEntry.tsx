@@ -18,20 +18,26 @@ export default function UsageSummaryEntry({ entry }: { entry: IHistoryEntry }): 
   const completion =
     usage.completionTokens !== undefined ? formatUsageTokenCount(usage.completionTokens) : '?';
   const total = formatUsageTokenCount(usage.totalTokens);
-  const context = `${Math.round(usage.contextUsedPercentage)}% (${formatTokenCount(
-    usage.contextUsedTokens,
-  )}/${formatTokenCount(usage.contextMaxTokens)})`;
+  // Usage another unit spent (the advisor, a background task) is named, and has no context window
+  // of the main thread to report.
+  const source =
+    usage.source !== undefined && usage.source.scope !== 'main' ? usage.source : undefined;
+  const sourceLabel = source ? (source.label ?? source.id ?? source.scope) : undefined;
+  const context = source
+    ? ''
+    : ` · Context ${Math.round(usage.contextUsedPercentage)}% (${formatTokenCount(
+        usage.contextUsedTokens,
+      )}/${formatTokenCount(usage.contextMaxTokens)})`;
   const costLabel = usage.costStatus === 'unknown' ? 'cost unknown' : `cost ${usage.costStatus}`;
 
   return (
     <Box flexDirection="column" marginBottom={1}>
       <Box>
         <Text color={palette.text.emphasis} bold>
-          Usage:{' '}
+          {sourceLabel ? `Usage (${sourceLabel}):` : 'Usage:'}{' '}
         </Text>
         <Text dimColor>
-          {usage.kind} {total} tokens (in {prompt} / out {completion}) · Context {context} ·{' '}
-          {costLabel}
+          {usage.kind} {total} tokens (in {prompt} / out {completion}){context} · {costLabel}
         </Text>
       </Box>
     </Box>

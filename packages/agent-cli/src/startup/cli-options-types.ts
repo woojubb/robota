@@ -23,6 +23,8 @@ export interface IStartCliOptions {
   providerDefinitions?: readonly IProviderDefinition[];
   /** Initial trusted-or-restricted workspace decision. Absence is Restricted. */
   projectAccess?: TWorkspaceProjectAccess;
+  /** `--safe-mode`: every customization off — see `SAFE_MODE_FLAG`. */
+  safeMode?: boolean;
   /** Separately approved project-settings write capability. */
   projectSettingsWriter?: IWorkspaceProjectSettingsWriter;
   /** Separately approved bounded project mutation capability. */

@@ -47,8 +47,8 @@ const http = (url: string, headers?: Record<string, string>): Record<string, unk
 
 describe('resolveByPrecedence', () => {
   it('declares the approved order', () => {
-    // ARCH-1985 pins this literal order; issue #2790 records the divergence from the current
-    // Claude Code documentation rather than editing it here.
+    // The SPEC's precedence decision: plugin last, so a plugin cannot shadow a server the user
+    // configured under the same name.
     expect([...MCP_SOURCE_PRECEDENCE]).toEqual(['managed', 'local', 'project', 'user', 'plugin']);
   });
 
@@ -184,7 +184,7 @@ describe('resolveByPrecedence', () => {
   // MANAGED (highest-trust) tier does not stay purely informational — it blocks every name that
   // would otherwise resolve from ANY tier, because an unreadable managed policy might have defined
   // that exact name and there is no way to tell "managed defines nothing" from "managed defines
-  // this and we cannot see it." ADR-005 already refuses to let a broken managed WINNER fall through
+  // this and we cannot see it." The SPEC already refuses to let a broken managed WINNER fall through
   // to a plugin; this extends the same refusal to a managed source that produced no winner at all.
   it('blocks a lower-trust entry that would otherwise resolve while the managed source is entirely unreadable', () => {
     const { entries, sourceProblems } = resolveByPrecedence(

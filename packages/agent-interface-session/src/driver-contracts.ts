@@ -5,7 +5,7 @@
  * `session-contracts.ts` (which re-consumes these for the session surface and event map).
  */
 
-import type { TTurnSource } from './turn-contracts.js';
+import type { ITurnHandle, TTurnSource } from './turn-contracts.js';
 import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
 import type { TCommandUiIntent } from '@robota-sdk/agent-interface-command';
 
@@ -39,6 +39,15 @@ export interface ISubmitOptions {
    * origin cannot be claimed without also being attributed.
    */
   readonly turnSource?: TTurnSource;
+  /**
+   * Called once, synchronously, the moment the submission is accepted — queued behind a running
+   * turn or about to run — with the handle `submit` will later resolve to.
+   *
+   * `submit` on an idle session resolves only after the turn it started has finished, so a caller
+   * that must answer as soon as the input is taken (a peer's delivery ack) cannot learn acceptance
+   * from the returned promise. It must not throw: the turn is already accepted when it runs.
+   */
+  readonly onAccepted?: (handle: ITurnHandle) => void;
 }
 
 /**

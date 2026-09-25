@@ -22,7 +22,11 @@ function runProviderCall() {
     callRoundProviderWithEvents(
       [],
       { defaultModel: { model: 'private-model' } } as never,
-      { currentInfo: { provider: 'private-provider' }, aiProviderInfo: { model: 'private-model' } } as never,
+      {
+        provider: {},
+        currentInfo: { provider: 'private-provider' },
+        aiProviderInfo: { model: 'private-model' },
+      } as never,
       undefined,
       context as never,
       store as never,

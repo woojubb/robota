@@ -56,7 +56,9 @@ kernel-enforced rendezvous) from "token only" (a credential was presented and no
 was proven); the two are not interchangeable however convenient a single flag would be.
 
 The driver-id attribution on a peer message is **display and attribution only** and must never
-become an authentication or authorization input.
+become an authentication or authorization input. It is also what tells the model a message is a
+peer's: the request marks it from the stored attribution, never from message text, because a model
+that cannot tell a peer from its operator hands the peer the operator's authority.
 
 ## Non-goals
 

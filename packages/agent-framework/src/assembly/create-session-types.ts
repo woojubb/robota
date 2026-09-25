@@ -26,7 +26,7 @@ import type {
   TToolArgs,
   IUserInteraction,
 } from '@robota-sdk/agent-core';
-import type { IResponseFormatConfig } from '@robota-sdk/agent-core';
+import type { IHistoryEntry, IResponseFormatConfig } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
 import type {
@@ -191,6 +191,11 @@ export interface ICreateSessionOptions {
   onCompact?: (summary: string) => void;
   /** Callback with structured compaction metadata */
   onCompactEvent?: (event: ICompactEvent) => void;
+  /**
+   * Usage of a model the session consulted besides its own (the advisor), to record where the
+   * host records turn usage. Absent: recorded in the session's own history.
+   */
+  onUsageRecorded?: (entries: readonly IHistoryEntry[]) => void;
   /** Instructions to include in the compaction prompt (e.g. from CLAUDE.md) */
   compactInstructions?: string;
   /**
@@ -273,6 +278,8 @@ export interface ICreateSessionOptions {
   editCheckpointRecorder?: IEditCheckpointRecorder;
   /** Opt-in local-first reversible execution policy for write/shell tools. */
   reversibleExecution?: IReversibleExecutionOptions;
+  /** No `auto` permission mode: the session gets no classifier and refuses the mode. */
+  disableAutoMode?: boolean;
   /** Optional provider sandbox client used by sandbox-aware built-in tools. */
   sandboxClient?: ISandboxClient;
   /**

@@ -21,12 +21,22 @@ export { SessionBusyError, TurnClaim } from './turn-claim.js';
 // Sub-components (exported for advanced use cases)
 export { PermissionEnforcer } from './permission-enforcer.js';
 export { consentScopeFor } from './consent-scope.js';
+export type { IPermissionDenial, TPermissionDenialReason } from './permission-denial-log.js';
+export type { ICommandSandboxApproval } from './permission-types.js';
+export { AutoModeGate, CONSECUTIVE_BLOCK_LIMIT, TOTAL_BLOCK_LIMIT } from './auto-mode-gate.js';
+export type {
+  IClassifiedCall,
+  IClassifierVerdict,
+  IPermissionClassifier,
+  TAutoModeJudgement,
+} from './auto-mode-gate.js';
 export { AUTO_COMPACT_THRESHOLD, ContextWindowTracker } from './context-window-tracker.js';
 export {
   CompactionError,
   CompactionOrchestrator,
   DEFAULT_COMPACTION_PROMPT,
 } from './compaction-orchestrator.js';
+export { formatConversationEntries } from './conversation-transcript.js';
 
 // SELFHOST-014: shareable/resumable session artifact envelope + the opt-in sensitive-key scrub (SSOT).
 export { serializeSessionArtifact, deserializeSessionArtifact } from './session-artifact.js';

@@ -273,13 +273,14 @@ describe('command-api contracts', () => {
       'default',
       'acceptEdits',
       'bypassPermissions',
+      'auto',
     ]);
     expect(readCommandPermissionMode(context)).toBe('default');
 
     writeCommandPermissionMode(context, 'plan');
     expect(readCommandPermissionMode(context)).toBe('plan');
     expect(formatCommandPermissionsMessage(readCommandPermissionsState(context))).toBe(
-      'Permission mode: plan\nNo session-approved tools.',
+      'Permission mode: plan\n\nRules: none configured.\n\nNo session-approved tools.\n\nRecent denials: none.',
     );
   });
 

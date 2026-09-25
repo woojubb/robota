@@ -91,6 +91,14 @@ export class StructuredOutputError extends RobotaError {
   }
 }
 
+/** What the vendor said about a failed call, as far as it said anything. */
+export interface IProviderFailureDetails {
+  /** The HTTP status of the failed response; absent for a failure with no response (e.g. an SSE error event). */
+  status?: number;
+  /** The vendor's own error type, e.g. Anthropic's `overloaded_error`. */
+  type?: string;
+}
+
 /**
  * Provider related errors
  */
@@ -98,14 +106,19 @@ export class ProviderError extends RobotaError {
   readonly code = 'PROVIDER_ERROR';
   readonly category = 'provider' as const;
   readonly recoverable = true;
+  readonly status?: number;
+  readonly type?: string;
 
   constructor(
     message: string,
     public readonly provider: string,
     public readonly originalError?: Error,
     context?: TErrorContextData,
+    details?: IProviderFailureDetails,
   ) {
     super(`Provider Error (${provider}): ${message}`, context);
+    if (details?.status !== undefined) this.status = details.status;
+    if (details?.type !== undefined) this.type = details.type;
   }
 }
 

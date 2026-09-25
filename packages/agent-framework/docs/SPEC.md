@@ -129,8 +129,8 @@ These are behaviors a caller cannot infer from a type signature alone.
   adapter for a requested action gets an explicit failure naming the missing capability — never a
   silent no-op. UI-only intents (opening a picker, a settings screen) are fire-and-forget: with no
   surface listening they are a defined no-op, and that never affects the host-action half.
-- **Local peer status is display-only.** Host-observed activity and independently verified process
-  liveness never grant authority over the peer or identify a persisted session record, and a passive
+- **Local peer status is display-only.** Host-observed activity, independently verified process
+  liveness and the verified workspace relation never grant authority over the peer or identify a persisted session record, and a passive
   observer can never keep a request alive after its last answering surface leaves.
 - **Prompt/permission settlement is first-wins and fail-closed.** `InteractiveSession` exposes no
   session-level callback option for permission or ask prompts; it emits transport-neutral request
@@ -148,6 +148,10 @@ These are behaviors a caller cannot infer from a type signature alone.
   already-admitted work. Each accepted event settles from its own turn handle, and an interrupted
   result never becomes a successful reply. This does not sandbox trusted hooks/plugins or
   authenticate a platform sender by itself, and it is not a remote permission-approval channel.
+- **A peer turn runs on the external baseline.** A peer session's text is data from outside the
+  operator: it expands no file references, attaches no context reference, exposes no tool schema,
+  and reaches the model marked as a peer's with a per-turn system statement that it carries no
+  authority. Any relaxation is a per-origin policy decision, never a default.
 - **Automatic session naming is text-only.** The title-generation call — whether triggered by an
   operator message or the first external event — always disables tool use, so hosted web tools can
   never be invoked merely to generate a title.
@@ -214,6 +218,22 @@ These are behaviors a caller cannot infer from a type signature alone.
   resident, only when something in the assembled set is actually deferred, and the system prompt is
   given a roster of exactly what was withheld — a session with nothing deferred is prompt-identical to
   one without the feature at all.
+- **A model fallback chain moves a request only where another model could serve it, and only
+  before anything was shown.** It is a decorator in front of the session's one provider rather than
+  a loop in the round logic, because the core cannot build providers and many readers take "the"
+  provider and model; it receives the provider-neutral messages the shared conversion step already
+  produced and delegates them unchanged, so conversation, tool calls, tool results and tool schemas
+  carry across vendors while the primary's prompt cache, vendor-only reasoning and hosted tools do
+  not. It moves on only for a failure the core classifies as switchable, and never once text has
+  streamed, since text the user saw cannot be withdrawn; text is the only output a provider streams,
+  tool calls arriving whole with the reply. An entry that cannot be built is passed over rather than
+  ending the turn. A run stays on the model that accepted it and the next run starts on the primary,
+  and compaction moves only to a model whose context window is known to be at least the primary's,
+  since its input was sized to the primary and an unknown window on either side proves nothing. The
+  chain belongs to the session, so switching the provider reads it again for the new primary under
+  the same policy, and a turn that ran on more than one model is charged to each model for its own
+  calls. In-process subagents share the decorated provider and so the chain; a child-process
+  subagent does not, because its one bound connection would need a binding per entry.
 - **Subagent tool filtering has a fixed order, and subagents cannot spawn subagents.** Filtering
   first unwraps any tool-call-handoff wrapper (so a child session or fork never inherits one even
   though the parent's own tool list does), then applies the agent definition's denylist, then its
@@ -240,6 +260,17 @@ These are behaviors a caller cannot infer from a type signature alone.
   "no signal", never treated as satisfaction — there is no keyword or prose matching anywhere in the
   loop. Only agent-driven wakeup turns count toward the goal's iteration and no-progress bounds; a
   user's own interjected message never counts as a goal iteration.
+- **The advisor never changes the main model's tool list mid-session.** Whether a session has the
+  Advisor tool is decided once, when it starts; turning the advisor off or pointing it at another
+  model changes only where calls go, because the main model's prompt cache is keyed on its tools.
+  Conversation history reaches a destination the main model does not already use — a provider type
+  and endpoint, since one type can front both a local server and a vendor's cloud — only after the
+  user consented to that destination, and never reaches a profile outside the organization's
+  allowlist. The call limits hold for calls issued in parallel, and a request that was sent always
+  counts, since it carried the conversation. Advisor usage is recorded with the session's turn usage,
+  on the advisor's own model. Its answer is framed as guidance to
+  check against the main model's own evidence, because the advisor sees only what the main model
+  was shown and can verify nothing itself.
 - **Background wake tracking is cleared on every exit path, not just the happy one.** A background
   task's wake-dedup entry is removed both when its turn completes normally and when it is evicted
   before completing (session abort, shutdown, or a pending-queue drop) — omitting the eviction path
