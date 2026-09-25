@@ -27,7 +27,46 @@ import type {
  * The default part is everything up to the closing brace, so `${A:-}` yields an empty default
  * (declared, unlike an unset variable) and `${A:-x:y}` keeps the colon in the default.
  */
-const REFERENCE = /\$\{([A-Za-z_][A-Za-z0-9_]*)(?::-([^}]*))?\}/g;
+const NAME = /[A-Za-z_][A-Za-z0-9_]*/y;
+
+interface IReference {
+  readonly index: number;
+  readonly literal: string;
+  readonly variable: string;
+  readonly fallback: string | undefined;
+}
+
+/**
+ * Scanned rather than matched with one global pattern: a `[^}]*` default rescans to the end of the
+ * value from every `${` that never closes, which is quadratic on a value an attacker can shape.
+ */
+function* references(value: string): Generator<IReference> {
+  let from = 0;
+  for (;;) {
+    const index = value.indexOf('${', from);
+    if (index === -1) return;
+    NAME.lastIndex = index + 2;
+    const name = NAME.exec(value);
+    if (name === null) {
+      from = index + 1;
+      continue;
+    }
+    let end = NAME.lastIndex;
+    let fallback: string | undefined;
+    if (value.startsWith(':-', end)) {
+      const close = value.indexOf('}', end + 2);
+      // No closing brace from here on means no later reference can close either.
+      if (close === -1) return;
+      fallback = value.slice(end + 2, close);
+      end = close;
+    } else if (value[end] !== '}') {
+      from = index + 1;
+      continue;
+    }
+    yield { index, literal: value.slice(index, end + 1), variable: name[0], fallback };
+    from = end + 1;
+  }
+}
 
 export interface IMCPEnvironment {
   readonly [key: string]: string | undefined;
@@ -48,9 +87,7 @@ function materializeString(
   const spans: IMCPValueSpan[] = [];
   let out = '';
   let consumed = 0;
-  for (const match of value.matchAll(REFERENCE)) {
-    const [literal, variable, fallback] = match as unknown as [string, string, string | undefined];
-    const index = match.index ?? 0;
+  for (const { index, literal, variable, fallback } of references(value)) {
     out += value.slice(consumed, index);
     consumed = index + literal.length;
     const replacement = env[variable] ?? fallback;

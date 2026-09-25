@@ -145,6 +145,17 @@ describe('Seatbelt profile', () => {
     expect(seatbeltProfile({ ...policy, network: true })).not.toContain('network');
   });
 
+  it('trims trailing slashes from the root in linear time', () => {
+    // `/\/+$/` rescanned every run of slashes from each of its positions: quadratic on this root.
+    const root = `/w${'/'.repeat(20_000)}x`;
+    const started = performance.now();
+    seatbeltProfile({ ...policy, root });
+    expect(performance.now() - started).toBeLessThan(1_000);
+    expect(seatbeltProfile({ ...policy, root: '/w/project//' })).toContain(
+      '(subpath "/w/project/.robota")',
+    );
+  });
+
   it('escapes quotes in paths', () => {
     expect(seatbeltProfile({ ...policy, root: '/w/a"b' })).toContain('(subpath "/w/a\\"b")');
   });
