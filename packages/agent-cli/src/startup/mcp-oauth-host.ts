@@ -79,7 +79,7 @@ export function createMcpOAuthHost(options: {
   /** Servers this session was told need a sign-in; nothing stored for them reads as that. */
   const signInAsked = new Set<string>();
   return {
-    signIn: async (request, definition, { noBrowser, readRedirect }) => {
+    signIn: async (request, definition, { noBrowser, readRedirect, confirmBrowser, signal }) => {
       let prompt: ICommandMCPOAuthRedirectPrompt | undefined;
       const paste =
         readRedirect === undefined
@@ -108,9 +108,18 @@ export function createMcpOAuthHost(options: {
           : noBrowser
             ? { readRedirect: paste }
             : { readRedirectWhenBrowserFails: paste }),
+        ...(signal === undefined ? {} : { signal }),
         openBrowser: async (url, redirectUri) => {
           prompt = { authorizationUrl: url.href, redirectUri };
-          if (!noBrowser) await open(url);
+          if (noBrowser) return;
+          const choice =
+            confirmBrowser === undefined
+              ? 'open'
+              : await confirmBrowser(prompt, signal ?? new AbortController().signal);
+          if (choice === 'cancel') throw new MCPOAuthError('cancelled');
+          // Rejecting hands the sign-in to the pasted redirect, as a browser that failed does.
+          if (choice === 'paste') throw new MCPOAuthError('browser-failed');
+          await open(url);
         },
       });
       signInAsked.delete(request.serverId);

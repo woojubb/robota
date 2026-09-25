@@ -262,9 +262,12 @@ These are behaviors a caller cannot infer from a type signature alone.
   "no signal", never treated as satisfaction — there is no keyword or prose matching anywhere in the
   loop. Only agent-driven wakeup turns count toward the goal's iteration and no-progress bounds; a
   user's own interjected message never counts as a goal iteration.
-- **The advisor never changes the main model's tool list mid-session.** Whether a session has the
-  Advisor tool is decided once, when it starts; turning the advisor off or pointing it at another
-  model changes only where calls go, because the main model's prompt cache is keyed on its tools.
+- **The main model's tool list changes mid-session only on an explicit user action.** The main
+  model's prompt cache is keyed on its tools, so the list changes only when the user does something
+  that makes a tool usable — signing in to a server — and then only at a turn boundary, accepting
+  one cache miss, never while a turn's rounds are running and never as a side effect of
+  configuration. Whether a session has the Advisor tool is therefore decided once, when it starts;
+  turning the advisor off or pointing it at another model changes only where calls go.
   Conversation history reaches a destination the main model does not already use — a provider type
   and endpoint, since one type can front both a local server and a vendor's cloud — only after the
   user consented to that destination, and never reaches a profile outside the organization's

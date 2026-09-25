@@ -28,6 +28,7 @@ import {
   MCPDefinitionRegistry,
   securityIdentity,
 } from '@robota-sdk/agent-mcp';
+import { FunctionTool } from '@robota-sdk/agent-core';
 import { executeMCPActivationCommand } from '@robota-sdk/agent-command';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 import { Session } from '@robota-sdk/agent-session';
@@ -42,7 +43,11 @@ import {
 } from '../mcp-oauth-host.js';
 import { createRobotaUserSettingsSources } from '../../product/robota-user-settings.js';
 
-import type { IActionRequest, TActionResponse } from '@robota-sdk/agent-core';
+import type {
+  IActionRequest,
+  IToolWithEventService,
+  TActionResponse,
+} from '@robota-sdk/agent-core';
 import type {
   IMCPActivationRequest,
   IMCPDiscovery,
@@ -436,7 +441,7 @@ describe('/mcp sign-in state and sign-out', () => {
 });
 
 describe('/mcp login inside a session', () => {
-  const discovery = (): IMCPDiscovery => ({
+  const discovery = (withTools = true): IMCPDiscovery => ({
     identity: {
       serverId: 'files',
       serverName: 'files-server',
@@ -444,8 +449,10 @@ describe('/mcp login inside a session', () => {
       protocolVersion: '2025-06-18',
     },
     tools: {
-      state: { kind: 'supported', count: 1, listChanged: false },
-      items: [{ name: 'read', description: 'Read a file', inputSchema: { type: 'object' } }],
+      state: { kind: 'supported', count: withTools ? 1 : 0, listChanged: false },
+      items: withTools
+        ? [{ name: 'read', description: 'Read a file', inputSchema: { type: 'object' } }]
+        : [],
       pages: 1,
     },
     prompts: { state: { kind: 'unsupported' }, items: [], pages: 0 },
@@ -474,7 +481,16 @@ describe('/mcp login inside a session', () => {
    * credential is stored, as the real one does through its authenticator.
    */
   async function sessionWithOAuthServer(
-    options: { browser?: 'works' | 'fails'; approve?: boolean; signedIn?: boolean } = {},
+    options: {
+      browser?: 'works' | 'fails';
+      approve?: boolean;
+      signedIn?: boolean;
+      /** Whether the server offers a tool; a server may connect and offer none. */
+      withTools?: boolean;
+      /** Whether its connection can be reopened in place, as the real supervisor can. */
+      retry?: boolean;
+      sessionTools?: IToolWithEventService[];
+    } = {},
   ) {
     const userHome = home({ files: { type: 'http', url: MCP_URL, oauth: {} } });
     const server = fakeAuthorizationServer();
@@ -503,9 +519,10 @@ describe('/mcp login inside a session', () => {
         entry.definition!,
       )) === 'signed-in';
     const connections: { shutdown: number; retried: number }[] = [];
+    const approvalStore = options.approve === false ? undefined : approved(entries);
     const composition = createMcpClientComposition({
       resolvedEntries: entries,
-      ...(options.approve === false ? {} : { approvalStore: approved(entries) }),
+      ...(approvalStore === undefined ? {} : { approvalStore }),
       transport: { lookup: server.lookup },
       oauth: host,
       createSupervisor: (): IMcpServerConnection => {
@@ -514,15 +531,19 @@ describe('/mcp login inside a session', () => {
         return {
           discover: async () => {
             if (!(await signedIn())) throw new Error('MCP OAuth failed (login-required)');
-            return discovery();
+            return discovery(options.withTools !== false);
           },
           callTool: async () => ({
             content: [{ type: 'text', text: 'file body' }],
             isError: false,
           }),
-          retry: async () => {
-            record.retried += 1;
-          },
+          ...(options.retry === false
+            ? {}
+            : {
+                retry: async () => {
+                  record.retried += 1;
+                },
+              }),
           shutdown: async () => {
             record.shutdown += 1;
           },
@@ -532,7 +553,7 @@ describe('/mcp login inside a session', () => {
     });
     const session = new Session({
       cwd: userHome,
-      tools: [...(await composition.connect())],
+      tools: [...(options.sessionTools ?? []), ...(await composition.connect())],
       provider: {
         name: 'test',
         version: '1',
@@ -588,6 +609,9 @@ describe('/mcp login inside a session', () => {
     return {
       userHome,
       server,
+      composition,
+      approvalStore,
+      entries,
       session,
       run,
       toolNames,
@@ -601,13 +625,26 @@ describe('/mcp login inside a session', () => {
 
   const LEAKS = /access-token-value|refresh-token-value|the-code|leaked-text/;
 
+  /** Answers the browser prompt with `choice`, and a paste prompt with `paste(authorization URL)`. */
+  const respond =
+    (paste: (authorization: URL) => string, choice = 'open') =>
+    (request: IActionRequest): TActionResponse => {
+      if (request.options !== undefined) return { type: 'answer', values: [choice] };
+      const url = new URL(
+        /https:\/\/auth\.example\.test\/authorize\S+/.exec(request.description!)![0],
+      );
+      return { type: 'answer', values: [], text: paste(url) };
+    };
+
   it('signs in, connects the server, and offers its tools in the same session', async () => {
     const s = await sessionWithOAuthServer();
     expect(s.toolNames()).not.toContain('files__read');
     expect(s.diagnostics.join('\n')).toContain('discovery failed');
 
     const result = await s.run('login files');
-    expect(result.message).toBe('Signed in to MCP server files; 1 of its tools is now available.');
+    expect(result.message).toBe(
+      'Signed in to MCP server files; 1 of its tools is available from your next message.',
+    );
     expect(result.success).toBe(true);
     expect(s.opened).toHaveLength(1);
     expect(s.toolNames()).toEqual(['files__read']);
@@ -625,15 +662,15 @@ describe('/mcp login inside a session', () => {
 
   it('asks for the pasted redirect through the session prompt when no browser opens', async () => {
     const s = await sessionWithOAuthServer({ browser: 'fails' });
-    const result = await s.run('login files', (request) => {
-      const url = new URL(
-        /https:\/\/auth\.example\.test\/authorize\S+/.exec(request.description!)![0],
-      );
-      return { type: 'answer', values: [], text: s.server.approve(url).href };
-    });
+    const result = await s.run(
+      'login files',
+      respond((url) => s.server.approve(url).href),
+    );
     expect(result.success).toBe(true);
-    expect(s.asked).toHaveLength(1);
-    expect(s.asked[0]?.masked).toBe(true);
+    // First the URL, before the browser opens; then, once it failed, the masked paste.
+    expect(s.asked).toHaveLength(2);
+    expect(s.asked[0]?.description).toMatch(/https:\/\/auth\.example\.test\/authorize/);
+    expect(s.asked[1]?.masked).toBe(true);
     expect(s.toolNames()).toContain('files__read');
     expect(`${result.message}${s.diagnostics.join('')}`).not.toMatch(LEAKS);
     await s.cleanup();
@@ -655,14 +692,14 @@ describe('/mcp login inside a session', () => {
 
   it('leaves the session unchanged when the sign-in is refused or cancelled', async () => {
     const s = await sessionWithOAuthServer({ browser: 'fails' });
-    const forged = await s.run('login files', (request) => {
-      const url = new URL(
-        /https:\/\/auth\.example\.test\/authorize\S+/.exec(request.description!)![0],
-      );
-      const redirect = s.server.approve(url);
-      redirect.searchParams.set('state', 'forged');
-      return { type: 'answer', values: [], text: redirect.href };
-    });
+    const forged = await s.run(
+      'login files',
+      respond((url) => {
+        const redirect = s.server.approve(url);
+        redirect.searchParams.set('state', 'forged');
+        return redirect.href;
+      }),
+    );
     expect(forged.success).toBe(false);
     expect(forged.message).toBe(
       'Sign-in to MCP server files failed (callback-invalid); nothing was changed.',
@@ -671,6 +708,15 @@ describe('/mcp login inside a session', () => {
     expect(cancelled.message).toBe(
       'Sign-in to MCP server files failed (cancelled); nothing was changed.',
     );
+    const openedBefore = s.opened.length;
+    const declined = await s.run(
+      'login files',
+      respond(() => '', 'cancel'),
+    );
+    expect(declined.message).toBe(
+      'Sign-in to MCP server files failed (cancelled); nothing was changed.',
+    );
+    expect(s.opened).toHaveLength(openedBefore);
     // Nobody to ask: the failed browser is reported with the command that pastes instead.
     const unattended = await s.run('login files');
     expect(unattended.message).toContain('failed (browser-failed)');
@@ -692,6 +738,61 @@ describe('/mcp login inside a session', () => {
     expect(result.message).toBe('Signed in to MCP server files; its tools work again.');
     expect(s.connections.map((connection) => connection.retried)).toEqual([1]);
     expect(s.toolNames().filter((name) => name === 'files__read')).toHaveLength(1);
+    await s.cleanup();
+  });
+
+  it('keeps a connected server that offers no tools, reopening it rather than replacing it', async () => {
+    const s = await sessionWithOAuthServer({ signedIn: true, withTools: false });
+    const result = await s.run('login files');
+    expect(result.message).toBe('Signed in to MCP server files; its tools work again.');
+    expect(s.connections).toEqual([{ shutdown: 0, retried: 1 }]);
+    await s.cleanup();
+  });
+
+  it('connects afresh a connected server that cannot be reopened in place', async () => {
+    const s = await sessionWithOAuthServer({ signedIn: true, retry: false });
+    const result = await s.run('login files');
+    expect(result.success).toBe(true);
+    // The live connection its offered tools call is kept, not shut down under them.
+    expect(s.connections.map((connection) => connection.shutdown)).toEqual([0, 0]);
+    expect(s.toolNames().filter((name) => name === 'files__read')).toHaveLength(1);
+    expect(s.diagnostics.join('\n')).toContain(
+      'MCP tool "files__read" from "files" was not added: the session already has a tool by that name.',
+    );
+    await s.cleanup();
+  });
+
+  it('admits a connected server again before reopening it', async () => {
+    const s = await sessionWithOAuthServer({ signedIn: true });
+    const request = new MCPDefinitionRegistry(s.entries).list()[0]!;
+    s.approvalStore!.put({
+      serverId: request.serverId,
+      source: request.source,
+      provenance: request.provenance,
+      definitionFingerprint: request.definitionFingerprint,
+      securityIdentity: request.securityIdentity,
+      approvalAuthority: 'user',
+      decision: 'revoked',
+      decidedAt: new Date(1).toISOString(),
+    });
+    const result = await s.run('login files');
+    expect(result.message).toContain('not approved for this session');
+    expect(s.connections.map((connection) => connection.retried)).toEqual([0]);
+    await s.cleanup();
+  });
+
+  it('gives provenance only to the tools the session took', async () => {
+    const impostor = new FunctionTool(
+      { name: 'files__read', description: 'x', parameters: { type: 'object', properties: {} } },
+      async () => 'x',
+    );
+    const s = await sessionWithOAuthServer({ sessionTools: [impostor] });
+    const result = await s.run('login files');
+    expect(result.message).toContain(
+      '1 of its tools was left out: the session already has a tool by that name.',
+    );
+    expect(s.composition.connectedToolProvenance.has('files__read')).toBe(false);
+    expect(s.diagnostics.join('\n')).toContain('was not added');
     await s.cleanup();
   });
 

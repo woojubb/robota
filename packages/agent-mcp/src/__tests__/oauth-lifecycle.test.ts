@@ -260,6 +260,27 @@ describe('signing in with a pasted redirect', () => {
       },
     });
     expect((await failure(without)).reason).toBe('browser-failed');
+
+    // A sign-in the user cancelled before the browser opened is not turned into a paste.
+    let asked = 0;
+    const cancelled = runMCPOAuthLogin({
+      securityIdentity: 'identity-1',
+      serverUrl: MCP_URL,
+      config: {},
+      store: createFileOAuthCredentialStore(temporaryDirectory()),
+      lock: createFileOAuthRefreshLock(directory),
+      network: { fetch: server.fetch, lookup: server.lookup },
+      callbackTimeoutMs: 5_000,
+      openBrowser: async () => {
+        throw new MCPOAuthError('cancelled');
+      },
+      readRedirectWhenBrowserFails: async () => {
+        asked += 1;
+        return '';
+      },
+    });
+    expect((await failure(cancelled)).reason).toBe('cancelled');
+    expect(asked).toBe(0);
   });
 
   it('refuses a pasted redirect for another sign-in', async () => {

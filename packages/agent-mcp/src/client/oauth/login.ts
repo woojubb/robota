@@ -72,8 +72,8 @@ export interface IMCPOAuthLoginInput {
   readonly readRedirect?: (signal: AbortSignal) => Promise<string>;
   /**
    * Without `readRedirect`: when `openBrowser` rejects, the redirect URL is read from this instead
-   * of failing with `browser-failed`. The browser showed the user nothing then, so this is where
-   * the authorization URL is shown.
+   * of failing with `browser-failed` — unless it rejected with `cancelled`, which ends the sign-in.
+   * The browser showed the user nothing then, so this is where the authorization URL is shown.
    */
   readonly readRedirectWhenBrowserFails?: (signal: AbortSignal) => Promise<string>;
   readonly clientName?: string;
@@ -233,7 +233,8 @@ export async function runMCPOAuthLogin(input: IMCPOAuthLoginInput): Promise<IMCP
       await input.openBrowser(authorization.authorizationUrl, callback.redirectUri);
     } catch (error) {
       const fallback = input.readRedirectWhenBrowserFails;
-      if (fallback === undefined || input.readRedirect !== undefined) {
+      const cancelled = error instanceof MCPOAuthError && error.reason === 'cancelled';
+      if (fallback === undefined || input.readRedirect !== undefined || cancelled) {
         throw asOAuthError(error, 'browser-failed');
       }
       // The redirect URI stays the one registered and authorized; only who receives it changes.

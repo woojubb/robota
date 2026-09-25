@@ -516,9 +516,10 @@ it names `/mcp login <server>` and `robota mcp login <server>` (the server's nam
 only when it is a plain name that is safe to paste into any shell). `/mcp logout <serverId>` signs
 out of that one server from inside a session and stops the session sending the token it holds.
 
-`/mcp login <server>` signs in without leaving the session: it opens your browser, and when no
-browser can be opened — or with `/mcp login <server> --no-browser` — it shows the authorization URL
-and asks for the redirect address in the session's own prompt (the input is not shown). Once signed
+`/mcp login <server>` signs in without leaving the session: it first shows the authorization URL,
+where you can choose to open your browser, paste the redirect instead, or cancel. When no browser
+can be opened — or with `/mcp login <server> --no-browser` — it asks for the redirect address in the
+session's own prompt (the input is not shown). Once signed
 in, a server that could not connect at startup is admitted as usual (it must be approved) and
 connected, and its tools are available from your next message; a server whose sign-in lapsed
 mid-session works again. A failed or cancelled sign-in changes nothing. A client secret is never

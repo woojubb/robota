@@ -346,6 +346,7 @@ describe('/mcp login', () => {
     readonly requests: ICommandMCPOAuthLoginRequest[];
     readonly added: IToolWithEventService[][];
     readonly asked: IActionRequest[];
+    readonly acknowledged: [string, readonly string[]][];
     run(args: string): ReturnType<typeof executeMCPActivationCommand>;
   }
 
@@ -356,11 +357,13 @@ describe('/mcp login', () => {
 
   function harness(
     login: (request: ICommandMCPOAuthLoginRequest) => Promise<ICommandMCPOAuthLoginResult>,
-    answer?: TActionResponse,
+    answer?: TActionResponse | ((request: IActionRequest) => TActionResponse),
+    taken: (names: string[]) => string[] = (names) => names,
   ): ILoginHarness {
     const requests: ICommandMCPOAuthLoginRequest[] = [];
     const added: IToolWithEventService[][] = [];
     const asked: IActionRequest[] = [];
+    const acknowledged: [string, readonly string[]][] = [];
     const port: ICommandMCPActivationAdapter = {
       list: () => [],
       approve: async () => summary(),
@@ -370,6 +373,7 @@ describe('/mcp login', () => {
         requests.push(request);
         return login(request);
       },
+      oauthToolsAdded: (serverId, names) => acknowledged.push([serverId, names]),
     };
     const host = createTestCommandHost({
       overrides: {
@@ -380,7 +384,7 @@ describe('/mcp login', () => {
             : {
                 ask: async (request) => {
                   asked.push(request);
-                  return answer;
+                  return typeof answer === 'function' ? answer(request) : answer;
                 },
               },
       },
@@ -390,10 +394,16 @@ describe('/mcp login', () => {
       ...session,
       addTools: async (tools) => {
         added.push([...tools]);
-        return tools.map((tool) => tool.schema.name);
+        return taken(tools.map((tool) => tool.schema.name));
       },
     });
-    return { requests, added, asked, run: (args) => executeMCPActivationCommand(host, args) };
+    return {
+      requests,
+      added,
+      asked,
+      acknowledged,
+      run: (args) => executeMCPActivationCommand(host, args),
+    };
   }
 
   const signedIn = (
@@ -411,7 +421,9 @@ describe('/mcp login', () => {
     const h = harness(async (request) => signedIn(request.serverId));
     const result = await h.run('login files');
     expect(result.success).toBe(true);
-    expect(result.message).toBe('Signed in to MCP server files; 1 of its tools is now available.');
+    expect(result.message).toBe(
+      'Signed in to MCP server files; 1 of its tools is available from your next message.',
+    );
     expect(h.requests[0]).toMatchObject({ serverId: 'files', noBrowser: false });
     expect(h.added).toEqual([[forecast]]);
     expect(result.data).toEqual({
@@ -518,6 +530,80 @@ describe('/mcp login', () => {
     );
     expect((await run('not-admitted')).message).toContain('not approved for this session');
     expect((await run('not-connected')).message).toContain('could not connect in this session');
+  });
+
+  const PROMPT = {
+    authorizationUrl: 'https://auth.example.test/authorize?x=1',
+    redirectUri: 'http://127.0.0.1:1234/callback',
+  };
+
+  it('shows the authorization URL before the browser opens, and lets the user cancel', async () => {
+    const choices: string[] = [];
+    let signal: AbortSignal | undefined;
+    const h = harness(
+      async (request) => {
+        signal = request.signal;
+        const choice = await request.confirmBrowser!(PROMPT, new AbortController().signal);
+        choices.push(choice);
+        return {
+          serverId: request.serverId,
+          failure: 'cancelled',
+          preRegisteredClient: false,
+          tools: [],
+        };
+      },
+      (request) => ({ type: 'answer', values: [request.options?.at(-1)?.value ?? ''] }),
+    );
+    const result = await h.run('login files');
+    expect(h.asked[0]?.description).toContain(PROMPT.authorizationUrl);
+    expect(h.asked[0]?.options?.map((option) => option.value)).toEqual(['open', 'paste', 'cancel']);
+    expect(choices).toEqual(['cancel']);
+    // The cancel reaches the sign-in itself.
+    expect(signal?.aborted).toBe(true);
+    expect(result.success).toBe(false);
+    expect(h.added).toEqual([]);
+  });
+
+  it('opens the browser, or pastes instead, as the user chooses', async () => {
+    const chosen = async (value: string) => {
+      let choice: string | undefined;
+      const h = harness(
+        async (request) => {
+          choice = await request.confirmBrowser!(PROMPT, new AbortController().signal);
+          return signedIn(request.serverId);
+        },
+        { type: 'answer', values: [value] },
+      );
+      await h.run('login files');
+      return choice;
+    };
+    expect(await chosen('open')).toBe('open');
+    expect(await chosen('paste')).toBe('paste');
+    // With --no-browser there is nothing to confirm: the paste prompt shows the URL.
+    const h = harness(async (request) => signedIn(request.serverId), {
+      type: 'answer',
+      values: ['open'],
+    });
+    await h.run('login files --no-browser');
+    expect(h.requests[0]?.confirmBrowser).toBeUndefined();
+  });
+
+  it('reports tools left out for a name the session already has, and acknowledges the rest', async () => {
+    const other = new FunctionTool(
+      { name: 'files__list', description: 'List', parameters: { type: 'object', properties: {} } },
+      async () => 'ok',
+    );
+    const h = harness(
+      async (request) => signedIn(request.serverId, { tools: [forecast, other] }),
+      undefined,
+      (names) => names.filter((name) => name !== 'files__read'),
+    );
+    const result = await h.run('login files');
+    expect(result.message).toBe(
+      'Signed in to MCP server files; 1 of its tools is available from your next message. ' +
+        '1 of its tools was left out: the session already has a tool by that name.',
+    );
+    expect(h.acknowledged).toEqual([['files', ['files__list']]]);
   });
 
   it('needs exactly one server', async () => {

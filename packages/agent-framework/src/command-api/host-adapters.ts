@@ -217,6 +217,17 @@ export interface ICommandMCPOAuthLoginRequest {
     prompt: ICommandMCPOAuthRedirectPrompt,
     signal: AbortSignal,
   ) => Promise<string>;
+  /**
+   * Without `noBrowser`: shows the user the authorization URL before the browser is opened, so a
+   * browser that opens silently or not at all never leaves them waiting on nothing. `paste` switches
+   * to reading the pasted redirect; `cancel` ends the sign-in. Absent: the browser opens directly.
+   */
+  readonly confirmBrowser?: (
+    prompt: ICommandMCPOAuthRedirectPrompt,
+    signal: AbortSignal,
+  ) => Promise<'open' | 'paste' | 'cancel'>;
+  /** Cancels the sign-in; it then fails as `cancelled` and changes nothing. */
+  readonly signal?: AbortSignal;
 }
 
 /**
@@ -261,6 +272,11 @@ export interface ICommandMCPActivationAdapter {
    * sign-in.
    */
   oauthLogin?(request: ICommandMCPOAuthLoginRequest): Promise<ICommandMCPOAuthLoginResult>;
+  /**
+   * Which of the tools `oauthLogin` returned the session actually took; any other was left out for
+   * a name it already had. Called once per sign-in that returned tools.
+   */
+  oauthToolsAdded?(serverId: string, added: readonly string[]): void;
 }
 
 /**

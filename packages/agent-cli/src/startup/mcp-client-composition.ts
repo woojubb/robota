@@ -115,6 +115,8 @@ export interface IMcpHeadersHelperInvocation {
 export interface IMcpOAuthSignInOptions {
   readonly noBrowser: boolean;
   readonly readRedirect?: ICommandMCPOAuthLoginRequest['readRedirect'];
+  readonly confirmBrowser?: ICommandMCPOAuthLoginRequest['confirmBrowser'];
+  readonly signal?: AbortSignal;
 }
 
 /**
@@ -421,7 +423,7 @@ async function connectOneServer(
   definition: IMCPServerDefinitionResolved,
   origin: string,
   context: IConnectServerContext,
-): Promise<IConnectedServer | undefined> {
+): Promise<IConnectedServer | 'not-admitted' | undefined> {
   const { admission, createSupervisor, timeouts, deps, signal } = context;
 
   const admissionResult = admission.admit(request);
@@ -429,7 +431,7 @@ async function connectOneServer(
     deps.reportDiagnostic(
       `MCP server "${request.serverId}" was not admitted (${admissionResult.status}): ${admissionResult.reason}`,
     );
-    return undefined;
+    return 'not-admitted';
   }
 
   let supervisorOptions: IMCPConnectionSupervisorOptions;
@@ -610,7 +612,11 @@ function oauthCommandPort(
   connectSignedIn: (
     serverId: string,
   ) => Promise<Pick<ICommandMCPOAuthLoginResult, 'connection' | 'tools'>>,
-): Pick<ICommandMCPActivationAdapter, 'oauthStatus' | 'oauthLogout' | 'oauthLogin'> {
+  toolsAdded: (serverId: string, added: readonly string[]) => void,
+): Pick<
+  ICommandMCPActivationAdapter,
+  'oauthStatus' | 'oauthLogout' | 'oauthLogin' | 'oauthToolsAdded'
+> {
   if (host === undefined) return {};
   /** One sign-in per server at a time: a second would race the first for the same credential. */
   const signingIn = new Set<string>();
@@ -651,6 +657,8 @@ function oauthCommandPort(
       await signIn.call(host, server.request, server.definition, {
         noBrowser: request.noBrowser,
         ...(request.readRedirect === undefined ? {} : { readRedirect: request.readRedirect }),
+        ...(request.confirmBrowser === undefined ? {} : { confirmBrowser: request.confirmBrowser }),
+        ...(request.signal === undefined ? {} : { signal: request.signal }),
       });
     } catch (error) {
       // A fixed reason only: the error of a sign-in may carry nothing else to the user.
@@ -661,7 +669,7 @@ function oauthCommandPort(
     return { serverId, preRegisteredClient, ...(await connectSignedIn(serverId)) };
   };
   return {
-    ...(signIn === undefined ? {} : { oauthLogin }),
+    ...(signIn === undefined ? {} : { oauthLogin, oauthToolsAdded: toolsAdded }),
     ...(state === undefined
       ? {}
       : {
@@ -736,6 +744,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       deps.oauth,
       oauthAuthenticators,
       connectSignedIn,
+      toolsAdded,
     ),
   };
 
@@ -747,6 +756,10 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
     deps.createSupervisor ??
     ((options: IMCPConnectionSupervisorOptions) => new MCPConnectionSupervisor(options));
   const connectedToolProvenance = new Map<string, IMcpConnectedToolProvenance>();
+  /** Servers whose connection discovered successfully: connected, with or without tools. */
+  const discovered = new Set<string>();
+  /** A sign-in's tools, by server, until the session says which it took. */
+  const pendingProvenance = new Map<string, Map<string, IMcpConnectedToolProvenance>>();
   let resultSpillStore:
     | (IToolResultSpillStore & {
         read(reference: string): Promise<string>;
@@ -789,9 +802,11 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   });
 
   /**
-   * After a sign-in: a server whose tools this session already offers gets its connection back; any
-   * other goes through the same admission and connection as at startup, and its tools are returned
-   * for the session to add. Never throws: a server that still cannot connect is reported.
+   * After a sign-in, the server is admitted again first — approval, fingerprint and trust as they
+   * stand now. A server this session already connected (its discovery succeeded, whatever tools it
+   * offered) gets that connection back, so its tools and listeners keep working; any other goes
+   * through the same connection as at startup, and its tools are returned for the session to add.
+   * Never throws: a server that still cannot connect is reported.
    */
   async function connectSignedIn(
     serverId: string,
@@ -803,13 +818,18 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
     if (request === undefined || entry?.definition === undefined) {
       return { connection: 'not-connected', tools: [] };
     }
+    const admitted = admission.admit(request);
+    if (!admitted.allowed) {
+      deps.reportDiagnostic(
+        `MCP server "${serverId}" was not admitted (${admitted.status}): ${admitted.reason}`,
+      );
+      return { connection: 'not-admitted', tools: [] };
+    }
     const previous = connectedByServerId.get(serverId);
-    const offered = [...connectedToolProvenance.values()].some(
-      (provenance) => provenance.serverId === serverId,
-    );
-    if (previous !== undefined && offered) {
+    const live = previous !== undefined && discovered.has(serverId);
+    if (live && previous.retry !== undefined) {
       try {
-        await previous.retry?.();
+        await previous.retry();
         return { connection: 'recovered', tools: [] };
       } catch (error) {
         deps.reportDiagnostic(
@@ -818,19 +838,17 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
         return { connection: 'not-connected', tools: [] };
       }
     }
-    if (controller.list().find((summary) => summary.serverId === serverId)?.allowed !== true) {
-      return { connection: 'not-admitted', tools: [] };
-    }
     const connected = await connectOneServer(
       request,
       entry.definition,
       entry.origin,
       connectContext(undefined),
     );
+    if (connected === 'not-admitted') return { connection: 'not-admitted', tools: [] };
     if (connected?.connection === undefined) return { connection: 'not-connected', tools: [] };
     openConnections.push(connected.connection);
     connectedByServerId.set(serverId, connected.connection);
-    if (previous !== undefined) {
+    if (previous !== undefined && !live) {
       // The connection that failed for want of a sign-in; nothing of it is offered.
       openConnections.splice(openConnections.indexOf(previous), 1);
       await previous.shutdown().catch(() => undefined);
@@ -838,15 +856,36 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
     if (connected.catalogInput.discovery === undefined) {
       return { connection: 'not-connected', tools: [] };
     }
+    discovered.add(serverId);
     const catalog = buildServerCatalog([connected.catalogInput]);
+    const provenance = new Map<string, IMcpConnectedToolProvenance>();
     const tools = collectToolsFromCatalog(
       catalog,
       new Map([[serverId, connected.connection]]),
       new Map([[serverId, request.securityIdentity]]),
-      connectedToolProvenance,
+      provenance,
       resultAdmission,
     );
+    // Recorded once the session says which of these it took.
+    pendingProvenance.set(serverId, provenance);
     return { connection: 'connected', tools: withResultReadTool(tools) };
+  }
+
+  /** The session took `added` of the tools a sign-in returned; the rest collided with its own. */
+  function toolsAdded(serverId: string, added: readonly string[]): void {
+    const provenance = pendingProvenance.get(serverId);
+    pendingProvenance.delete(serverId);
+    if (provenance === undefined) return;
+    const taken = new Set(added);
+    for (const [name, entry] of provenance) {
+      if (taken.has(name)) {
+        connectedToolProvenance.set(name, entry);
+      } else {
+        deps.reportDiagnostic(
+          `MCP tool "${name}" from "${serverId}" was not added: the session already has a tool by that name.`,
+        );
+      }
+    }
   }
 
   /** The catalog of these servers, with every rejection and unenforceable schema reported. */
@@ -869,6 +908,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
 
   async function connect(signal?: AbortSignal): Promise<readonly IToolWithEventService[]> {
     connectedByServerId.clear();
+    discovered.clear();
     const catalogInputs: IMCPCatalogInput[] = [];
     const connectionByServerId = new Map<string, IMcpServerConnection>();
     const securityIdentityByServerId = new Map<string, string>();
@@ -882,12 +922,13 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       if (definition.transport !== 'http' && definition.transport !== 'stdio') continue;
 
       const connected = await connectOneServer(request, definition, entry.origin, context);
-      if (connected === undefined) continue;
+      if (connected === undefined || connected === 'not-admitted') continue;
       catalogInputs.push(connected.catalogInput);
       if (connected.connection !== undefined) {
         openConnections.push(connected.connection);
         connectionByServerId.set(request.serverId, connected.connection);
         connectedByServerId.set(request.serverId, connected.connection);
+        if (connected.catalogInput.discovery !== undefined) discovered.add(request.serverId);
         securityIdentityByServerId.set(request.serverId, request.securityIdentity);
       }
     }

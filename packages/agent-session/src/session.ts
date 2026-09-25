@@ -100,6 +100,10 @@ export class Session extends SessionBase {
   private readonly compactionOrchestrator: CompactionOrchestrator;
   private readonly runtimeTools: SessionRuntimeTools;
   private readonly wrapAddedTools: ISessionOptions['wrapAddedTools'];
+  /** Tools added while a turn ran, applied when the next one starts. */
+  private readonly pendingTools: IToolWithEventService[] = [];
+  /** The last tool change; the next one waits for it. */
+  private toolChange: Promise<void> = Promise.resolve();
   private shuttingDown = false;
   private shutdownPromise: Promise<void> | null = null;
   /** Stdout collected from SessionStart hooks, injected on first run(). */
@@ -196,6 +200,10 @@ export class Session extends SessionBase {
     const { signal } = controller;
     try {
       signal.throwIfAborted();
+      // Tools added while the last turn ran join at this boundary, before any request of this turn.
+      if (this.pendingTools.length > 0) {
+        await this.serializeToolChange(() => this.applyPendingTools());
+      }
       const response = await executeRun(message, rawInput, this.buildRunContext(), signal, options);
       this.messageCount += 1;
       return response;
@@ -206,26 +214,56 @@ export class Session extends SessionBase {
   }
 
   /**
-   * Make tools available from the next model request on — for a capability that became usable
-   * mid-session, such as an MCP server connected after its sign-in. Each goes through the same
-   * wrappers and permission gate as a tool present from the start. A tool whose name the session
-   * already has is left out rather than replacing the one the conversation has been using.
-   * Returns the names added.
+   * Make tools available from the next turn on — for a capability that became usable mid-session,
+   * such as an MCP server connected after its sign-in. Each goes through the same wrappers and
+   * permission gate as a tool present from the start. A tool whose name the session already has, or
+   * has queued, is left out rather than replacing the one the conversation has been using.
+   *
+   * The tool list is part of what a provider caches a prompt by, and a turn's rounds must all see
+   * the same list: while a turn runs, the tools wait and are applied when the next turn starts;
+   * otherwise they are applied now. Calls are serialized, so two concurrent ones both land.
+   * Resolves to the names that will be offered.
    */
-  async addTools(tools: readonly IToolWithEventService[]): Promise<readonly string[]> {
-    if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
-    const known = new Set(this.toolSchemas.map((schema) => schema.name));
-    const fresh: IToolWithEventService[] = [];
-    for (const tool of tools) {
-      if (known.has(tool.schema.name)) continue;
-      known.add(tool.schema.name);
-      fresh.push(tool);
+  addTools(tools: readonly IToolWithEventService[]): Promise<readonly string[]> {
+    if (this.shuttingDown) {
+      return Promise.reject(new Error('[LIFECYCLE] Session is shutting down'));
     }
-    if (fresh.length === 0) return [];
+    return this.serializeToolChange(async () => {
+      const known = new Set([
+        ...this.toolSchemas.map((schema) => schema.name),
+        ...this.pendingTools.map((tool) => tool.schema.name),
+      ]);
+      const fresh: IToolWithEventService[] = [];
+      for (const tool of tools) {
+        if (known.has(tool.schema.name)) continue;
+        known.add(tool.schema.name);
+        fresh.push(tool);
+      }
+      if (fresh.length === 0) return [];
+      this.pendingTools.push(...fresh);
+      if (!this.turnClaim.isRunning()) await this.applyPendingTools();
+      return fresh.map((tool) => tool.schema.name);
+    });
+  }
+
+  /** Runs `change` after every tool change before it, so each reads the list the last one wrote. */
+  private serializeToolChange<T>(change: () => Promise<T>): Promise<T> {
+    const result = this.toolChange.then(change);
+    this.toolChange = result.then(
+      () => undefined,
+      () => undefined,
+    );
+    return result;
+  }
+
+  /** Registers the queued tools with the agent. Only ever called inside `serializeToolChange`. */
+  private async applyPendingTools(): Promise<void> {
+    if (this.pendingTools.length === 0) return;
+    const fresh = this.pendingTools.splice(0);
+    await this.agent.ensureReady();
     const wrapped = this.permissionEnforcer.wrapTools(this.wrapAddedTools?.(fresh) ?? fresh);
     await this.agent.updateTools([...(this.agent.getConfig().tools ?? []), ...wrapped]);
     this.toolSchemas.push(...wrapped.map((tool) => tool.schema));
-    return wrapped.map((tool) => tool.schema.name);
   }
 
   async listRuntimeTools(): Promise<IToolSchema[]> {

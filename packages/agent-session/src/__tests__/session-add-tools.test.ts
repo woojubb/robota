@@ -7,6 +7,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import { FunctionTool } from '@robota-sdk/agent-core';
+import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 
 import { Session } from '../session.js';
 
@@ -42,7 +43,7 @@ function session(overrides: Partial<ISessionOptions> = {}): Session {
       select: vi.fn(async () => 0),
       spinner: vi.fn(() => ({ stop: vi.fn(), update: vi.fn() })),
     },
-    permissions: { allow: ['Read', 'files__list'], deny: ['files__delete'] },
+    permissions: { allow: ['Read', 'files__list', 'files__read'], deny: ['files__delete'] },
     ...overrides,
   });
 }
@@ -76,6 +77,51 @@ describe('Session.addTools', () => {
     expect(wrapped).toEqual(['files__delete']);
     // Denied by name: withheld from the model, like a denied tool present from the start.
     expect(offered(target)).toEqual(['Read']);
+    await target.shutdown();
+  });
+
+  it('keeps every tool when two additions run at once', async () => {
+    const target = session();
+    const [first, second] = await Promise.all([
+      target.addTools([tool('files__list')]),
+      target.addTools([tool('files__read'), tool('files__list')]),
+    ]);
+    expect(first).toEqual(['files__list']);
+    expect(second).toEqual(['files__read']);
+    expect(offered(target)).toEqual(['Read', 'files__list', 'files__read']);
+    await expect(target.invokeRuntimeTool('files__list', {})).resolves.toMatchObject({
+      success: true,
+    });
+    await expect(target.invokeRuntimeTool('files__read', {})).resolves.toMatchObject({
+      success: true,
+    });
+    await target.shutdown();
+  });
+
+  it('holds a tool added during a turn until the next turn starts', async () => {
+    const { provider, chatOptions } = createScriptedProvider([
+      { toolCalls: [{ name: 'Read', args: {} }] },
+      { text: 'read it' },
+      { text: 'next turn' },
+    ]);
+    let added: Promise<readonly string[]> | undefined;
+    let target!: Session;
+    const read = tool('Read', async () => {
+      added = target.addTools([tool('files__list')]);
+      await added;
+      return 'contents';
+    });
+    target = session({ tools: [read], provider });
+    await target.run('read something');
+    await expect(added).resolves.toEqual(['files__list']);
+    const names = (call: number): string[] =>
+      (chatOptions[call]?.tools ?? []).map((schema) => schema.name);
+    // Both rounds of the running turn saw the same list.
+    expect(names(0)).toEqual(['Read']);
+    expect(names(1)).toEqual(['Read']);
+    expect(offered(target)).toEqual(['Read']);
+    await target.run('again');
+    expect(names(2)).toEqual(['Read', 'files__list']);
     await target.shutdown();
   });
 
