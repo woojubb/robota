@@ -63,10 +63,29 @@ export interface IMCPUnsetVariable {
   readonly literal: string;
 }
 
+/** One stretch of a materialized string that an environment reference produced. */
+export interface IMCPValueSpan {
+  /** Offsets into the materialized string, `end` exclusive. */
+  readonly start: number;
+  readonly end: number;
+  readonly variable: string;
+  /** The variable is credential-shaped, so this stretch is a secret whether its value or default. */
+  readonly secret: boolean;
+}
+
+/**
+ * Where each materialized value came from, keyed by the same field paths as
+ * {@link IMCPUnsetVariable.field} (`url`, `args[1]`, `env.API_KEY`, …). A field with no entry holds
+ * only literal text.
+ */
+export type TMCPValueProvenance = Readonly<Record<string, readonly IMCPValueSpan[]>>;
+
 /** A definition whose templates were materialized. Still no connection has been made. */
 export interface IMCPServerDefinitionResolved extends IMCPServerDefinition {
   /** Empty when every reference had a value or a default. */
   readonly unsetVariables: readonly IMCPUnsetVariable[];
+  /** Absent means nothing was expanded: every value is the literal the definition holds. */
+  readonly provenance?: TMCPValueProvenance;
 }
 
 /** Why a name could not produce a usable definition. The name is always known; the rest may not be. */

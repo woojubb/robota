@@ -62,11 +62,19 @@ false`; every `DEFAULT_INHERITED_ENV_VARS` key is explicitly shadowed rather tha
   identity and (for every source outside `managed`/`user`) repository identity and workspace
   generation must all match an approval; project/plugin sources cannot self-approve, and
   `requiresTrustedWorkspace` is deny-by-default.
-- **Secrets are never hashed** in identity computation, so rotating a token does not invalidate an
-  approval — fingerprints cover only what will run or where it came from, not secret values.
-  Redacted projections carry `env`/`header` KEYS but never VALUES, because "configured but
-  redacted" and "no header" must remain distinguishable answers; stdio command, argv and cwd are
-  redacted wholesale.
+- **One principle decides what is secret**: a value is secret because of what it is — a stretch a
+  credential-shaped variable produced (its default included), or a value under a credential-shaped
+  env or header key — not because of which field carries it. Materialization records which
+  stretches came from which variable, and every consumer reads that record.
+- **Secrets are never hashed, and everything else is**: the definition fingerprint covers every
+  value that decides what runs or where it connects, env and header values included, with each
+  secret replaced by a marker naming its source. A changed `NODE_OPTIONS` value or a changed host
+  invalidates an approval on every transport; rotating a credential does not.
+- **Nothing printed carries a secret**: the activation endpoint and a projected URL show their
+  secret stretches replaced, and transport errors name origins only. Redacted projections carry
+  `env`/`header` KEYS but never VALUES, because "configured but redacted" and "no header" must
+  remain distinguishable answers; stdio command, argv and cwd are redacted wholesale, because a
+  literal credential there has no variable or key to reveal it.
 - **A session is stateless about liveness by contract.** The SDK has no cancellation
   acknowledgment, so an abort or timeout of an active stdio request closes the direct child rather
   than pretending the in-flight call can be cancelled cleanly; a failed tool call is never replayed

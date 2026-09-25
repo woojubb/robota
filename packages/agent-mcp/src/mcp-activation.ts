@@ -30,7 +30,8 @@ export interface IMCPActivationWorkspace {
 
 /**
  * Exact, secret-free identity of one resolved MCP definition.
- * `endpoint` is used only by the live client and must not be copied into approval/audit records.
+ * `endpoint` names what is admitted — the URL or command line — with its secret stretches replaced,
+ * for display and for the transport's re-check.
  */
 export interface IMCPActivationRequest {
   readonly serverId: string;

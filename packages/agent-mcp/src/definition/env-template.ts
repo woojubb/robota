@@ -12,10 +12,13 @@
  * Pure: reads the environment map it is handed, never `process.env` directly, and contacts nothing.
  */
 
+import { isCredentialShapedName } from './secrecy.js';
+
 import type {
   IMCPServerDefinition,
   IMCPServerDefinitionResolved,
   IMCPUnsetVariable,
+  IMCPValueSpan,
 } from './types.js';
 
 /**
@@ -30,30 +33,55 @@ export interface IMCPEnvironment {
   readonly [key: string]: string | undefined;
 }
 
+/** What materializing records beside the values: unset references and where each value came from. */
+interface IMaterialization {
+  readonly unset: IMCPUnsetVariable[];
+  readonly provenance: Record<string, IMCPValueSpan[]>;
+}
+
 function materializeString(
   value: string,
   env: IMCPEnvironment,
   field: string,
-  unset: IMCPUnsetVariable[],
+  record: IMaterialization,
 ): string {
-  return value.replace(REFERENCE, (literal, variable: string, fallback?: string) => {
-    const current = env[variable];
-    if (current !== undefined) return current;
-    if (fallback !== undefined) return fallback;
-    unset.push({ variable, field, literal });
-    return literal;
-  });
+  const spans: IMCPValueSpan[] = [];
+  let out = '';
+  let consumed = 0;
+  for (const match of value.matchAll(REFERENCE)) {
+    const [literal, variable, fallback] = match as unknown as [string, string, string | undefined];
+    const index = match.index ?? 0;
+    out += value.slice(consumed, index);
+    consumed = index + literal.length;
+    const replacement = env[variable] ?? fallback;
+    if (replacement === undefined) {
+      record.unset.push({ variable, field, literal });
+      out += literal;
+      continue;
+    }
+    // A default stands in for the variable, so it is as secret as the variable's name says.
+    spans.push({
+      start: out.length,
+      end: out.length + replacement.length,
+      variable,
+      secret: isCredentialShapedName(variable),
+    });
+    out += replacement;
+  }
+  out += value.slice(consumed);
+  if (spans.length > 0) record.provenance[field] = spans;
+  return out;
 }
 
 function materializeRecord(
-  record: Readonly<Record<string, string>>,
+  values: Readonly<Record<string, string>>,
   env: IMCPEnvironment,
   prefix: string,
-  unset: IMCPUnsetVariable[],
+  record: IMaterialization,
 ): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const [key, value] of Object.entries(record)) {
-    out[key] = materializeString(value, env, `${prefix}.${key}`, unset);
+  for (const [key, value] of Object.entries(values)) {
+    out[key] = materializeString(value, env, `${prefix}.${key}`, record);
   }
   return out;
 }
@@ -68,32 +96,33 @@ export function materializeDefinition(
   definition: IMCPServerDefinition,
   env: IMCPEnvironment,
 ): IMCPServerDefinitionResolved {
-  const unset: IMCPUnsetVariable[] = [];
+  const record: IMaterialization = { unset: [], provenance: {} };
   const resolved: {
     -readonly [K in keyof IMCPServerDefinitionResolved]: IMCPServerDefinitionResolved[K];
   } = { ...definition, unsetVariables: [] };
 
   if (definition.command !== undefined) {
-    resolved.command = materializeString(definition.command, env, 'command', unset);
+    resolved.command = materializeString(definition.command, env, 'command', record);
   }
   if (definition.args !== undefined) {
     resolved.args = definition.args.map((arg, index) =>
-      materializeString(arg, env, `args[${index}]`, unset),
+      materializeString(arg, env, `args[${index}]`, record),
     );
   }
   if (definition.cwd !== undefined) {
-    resolved.cwd = materializeString(definition.cwd, env, 'cwd', unset);
+    resolved.cwd = materializeString(definition.cwd, env, 'cwd', record);
   }
   if (definition.env !== undefined) {
-    resolved.env = materializeRecord(definition.env, env, 'env', unset);
+    resolved.env = materializeRecord(definition.env, env, 'env', record);
   }
   if (definition.url !== undefined) {
-    resolved.url = materializeString(definition.url, env, 'url', unset);
+    resolved.url = materializeString(definition.url, env, 'url', record);
   }
   if (definition.headers !== undefined) {
-    resolved.headers = materializeRecord(definition.headers, env, 'headers', unset);
+    resolved.headers = materializeRecord(definition.headers, env, 'headers', record);
   }
 
-  resolved.unsetVariables = unset;
+  resolved.unsetVariables = record.unset;
+  if (Object.keys(record.provenance).length > 0) resolved.provenance = record.provenance;
   return resolved;
 }

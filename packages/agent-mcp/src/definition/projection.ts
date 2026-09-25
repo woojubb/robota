@@ -11,6 +11,7 @@
  */
 
 import { isDisabled } from './overlay.js';
+import { withoutSecrets } from './secrecy.js';
 
 import type { IMCPResolvedEntry, TMCPDefinitionSource, TMCPTransport } from './types.js';
 
@@ -54,11 +55,9 @@ function redactValues(record: Readonly<Record<string, string>>): Record<string, 
 /**
  * Project one resolved entry.
  *
- * `url` is carried through unredacted: it is the server's address, which the operator must be able
- * to read to tell two servers apart. A credential embedded in a URL is a separate, real hazard —
- * it is issue #2791, which refuses to expand credential-shaped variables into `url` and `headers`
- * in the first place, rather than redacting the whole address afterwards and hiding which server an
- * entry names.
+ * `url` stays readable: it is the server's address, which the operator must be able to read to tell
+ * two servers apart. Only its secret stretches — what a credential-shaped variable expanded into
+ * it — are replaced, by the same rule the fingerprint uses.
  */
 export function projectEntry(entry: IMCPResolvedEntry): IMCPDefinitionProjection {
   const definition = entry.definition;
@@ -80,19 +79,26 @@ export function projectEntry(entry: IMCPResolvedEntry): IMCPDefinitionProjection
   if (definition !== undefined) {
     projection.transport = definition.transport;
     if (definition.command !== undefined) {
-      projection.command = definition.transport === 'stdio' ? REDACTED : definition.command;
+      projection.command =
+        definition.transport === 'stdio'
+          ? REDACTED
+          : withoutSecrets(definition, 'command', definition.command);
     }
     if (definition.args !== undefined) {
       projection.args =
         definition.transport === 'stdio'
           ? definition.args.map(() => REDACTED)
-          : [...definition.args];
+          : definition.args.map((arg, index) => withoutSecrets(definition, `args[${index}]`, arg));
     }
     if (definition.cwd !== undefined) {
-      projection.cwd = definition.transport === 'stdio' ? REDACTED : definition.cwd;
+      projection.cwd =
+        definition.transport === 'stdio'
+          ? REDACTED
+          : withoutSecrets(definition, 'cwd', definition.cwd);
     }
     if (definition.env !== undefined) projection.env = redactValues(definition.env);
-    if (definition.url !== undefined) projection.url = definition.url;
+    if (definition.url !== undefined)
+      projection.url = withoutSecrets(definition, 'url', definition.url);
     if (definition.headers !== undefined) projection.headers = redactValues(definition.headers);
     if (definition.timeout !== undefined) projection.timeout = definition.timeout;
   }

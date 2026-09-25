@@ -24,7 +24,10 @@ import {
   toolsCallRequestId,
 } from './trace-propagation.js';
 
-import type { Transport, TransportSendOptions } from '@modelcontextprotocol/sdk/shared/transport.js';
+import type {
+  Transport,
+  TransportSendOptions,
+} from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 import type { IEgressPolicy, TEgressLookup } from '@robota-sdk/agent-core/node';
 
@@ -106,15 +109,27 @@ function boundResponseBody(response: Response): Response {
  * any 3xx: following it would hand the request's headers (set by the caller as trusted for the
  * admitted origin) to a second, un-admitted destination, defeating the whole point of admission.
  */
+function originOf(url: string, base?: string): string {
+  try {
+    return new URL(url, base).origin;
+  } catch {
+    // allow-fallback: an unparseable location is named without its text
+    return 'an unparseable location';
+  }
+}
+
 export class MCPTransportRedirectRefusedError extends Error {
   constructor(
     readonly status: number,
     readonly location: string | undefined,
     admittedUrl: string,
   ) {
+    // Origins only: a path or query can carry a credential a template expanded, and an error
+    // message is printed and logged.
     super(
-      `Streamable HTTP transport refused a redirect (${status}) from ${admittedUrl} to ` +
-        `${location ?? 'an undisclosed location'}: the admitted URL is the only URL spoken to`,
+      `Streamable HTTP transport refused a redirect (${status}) from ${originOf(admittedUrl)} to ` +
+        `${location === undefined ? 'an undisclosed location' : originOf(location, admittedUrl)}: ` +
+        'the admitted URL is the only URL spoken to',
     );
     this.name = 'MCPTransportRedirectRefusedError';
   }
@@ -129,7 +144,8 @@ export async function admitHttpEndpoint(
   deps: IMCPHttpTransportDeps = {},
 ): Promise<TMCPTransportAdmission<IMCPAdmittedHttpEndpoint>> {
   if (!URL.canParse(endpoint.url)) {
-    return { ok: false, reason: 'invalid-url', message: `Not a URL: ${endpoint.url}` };
+    // The text is not printed: a template may have expanded a credential into it.
+    return { ok: false, reason: 'invalid-url', message: 'The configured URL is not a valid URL' };
   }
   const url = new URL(endpoint.url);
   const rejection = deps.lookup
@@ -163,7 +179,10 @@ class TracingStreamableHTTPClientTransport extends StreamableHTTPClientTransport
     super(url, options);
   }
 
-  override send(message: JSONRPCMessage | JSONRPCMessage[], options?: TransportSendOptions): Promise<void> {
+  override send(
+    message: JSONRPCMessage | JSONRPCMessage[],
+    options?: TransportSendOptions,
+  ): Promise<void> {
     const running = currentCallTraceScope();
     const callId = toolsCallRequestId(message);
     if (running !== undefined && callId !== undefined) {
