@@ -1,4 +1,11 @@
-import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import { mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -88,6 +95,17 @@ describe('selectCredentialStore', () => {
     expect(selected.description).toMatch(/recorded/);
   });
 
+  it('two processes choosing at once agree on the keychain instead of one probe spoiling the other', async () => {
+    const { module } = createFakeKeyring();
+    const [first, second] = await Promise.all([
+      selectCredentialStore({ root, loadKeyring: () => module }),
+      selectCredentialStore({ root, loadKeyring: () => module }),
+    ]);
+    expect(first.backend).toBe('os-keychain');
+    expect(second.backend).toBe('os-keychain');
+    expect(recorded()).toBe('os-keychain');
+  });
+
   it('fails fast on a record it cannot read', async () => {
     mkdirSync(join(root, 'credentials'), { recursive: true });
     writeFileSync(markerPath(), '{ nope');
@@ -140,6 +158,7 @@ describe('createHostCredentialStore', () => {
       notify: () => undefined,
     });
     await expect(host.store.get({ service: 'robota.test', account: 'a' })).rejects.toThrow();
+    expect(host.describe()).toMatch(/^unavailable \(.*OS keychain/);
     available = true;
     await expect(host.store.get({ service: 'robota.test', account: 'a' })).resolves.toBeUndefined();
   });

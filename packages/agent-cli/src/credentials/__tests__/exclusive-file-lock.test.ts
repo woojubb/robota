@@ -42,6 +42,26 @@ describe('withExclusiveFileLock', () => {
     await expect(withExclusiveFileLock(lockPath, async () => 'ran')).resolves.toBe('ran');
   });
 
+  it('a live holder slower than the stale window keeps its lock', async () => {
+    const order: string[] = [];
+    const slow = withExclusiveFileLock(
+      lockPath,
+      async () => {
+        order.push('slow:in');
+        await new Promise((resolve) => setTimeout(resolve, 400));
+        order.push('slow:out');
+      },
+      { staleMs: 150, pollMs: 10 },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    const next = withExclusiveFileLock(lockPath, async () => void order.push('next:in'), {
+      staleMs: 150,
+      pollMs: 10,
+    });
+    await Promise.all([slow, next]);
+    expect(order).toEqual(['slow:in', 'slow:out', 'next:in']);
+  });
+
   it('gives up on a live lock after the timeout instead of waiting forever', async () => {
     writeFileSync(lockPath, 'live-holder');
     await expect(

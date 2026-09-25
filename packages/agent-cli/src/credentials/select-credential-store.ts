@@ -18,6 +18,7 @@ import {
 } from '@robota-sdk/agent-core/node';
 
 import { CredentialStoreError, redactedReason } from './credential-store-error.js';
+import { withExclusiveFileLock } from './exclusive-file-lock.js';
 import { createFileCredentialStore } from './file-credential-store.js';
 import { createKeychainCredentialStore, loadKeyringModule } from './keychain-credential-store.js';
 
@@ -43,7 +44,7 @@ export interface ISelectCredentialStoreOptions {
 }
 
 const MARKER_VERSION = 1;
-const PROBE_KEY: ICredentialKey = { service: 'robota.credential-store', account: 'probe' };
+const PROBE_SERVICE = 'robota.credential-store';
 
 const KEYCHAIN_NAMES: Readonly<Record<string, string>> = {
   darwin: 'macOS Keychain',
@@ -92,9 +93,12 @@ async function openKeychain(
   try {
     const store = createKeychainCredentialStore(loadKeyring(), { platform });
     const probe = randomBytes(16).toString('hex');
-    await store.set(PROBE_KEY, probe);
-    const readBack = await store.get(PROBE_KEY);
-    await store.delete(PROBE_KEY);
+    // A probe account of its own, so another process probing at the same moment cannot overwrite or
+    // delete this one's value and make a working keychain look broken.
+    const probeKey: ICredentialKey = { service: PROBE_SERVICE, account: `probe-${probe}` };
+    await store.set(probeKey, probe);
+    const readBack = await store.get(probeKey);
+    await store.delete(probeKey);
     if (readBack !== probe) return { reason: 'it accepted a value and did not keep it' };
     return { store };
   } catch (error) {
@@ -102,7 +106,19 @@ async function openKeychain(
   }
 }
 
+/**
+ * Choose the backend. The whole choice runs under a lock beside the record, so two processes choosing
+ * at once cannot record different backends and each keep a secret where the other never looks.
+ */
 export async function selectCredentialStore(
+  options: ISelectCredentialStoreOptions,
+): Promise<ISelectedCredentialStore> {
+  const directory = credentialDirectory(options.root);
+  ensureOwnerOnlyDirectory(directory, { withinRoot: options.root });
+  return withExclusiveFileLock(join(directory, 'backend.lock'), () => chooseBackend(options));
+}
+
+async function chooseBackend(
   options: ISelectCredentialStoreOptions,
 ): Promise<ISelectedCredentialStore> {
   const platform = options.platform ?? process.platform;
@@ -149,7 +165,10 @@ export async function selectCredentialStore(
 export interface IHostCredentialStore {
   /** The store, choosing its backend on first use. */
   readonly store: ICredentialStore;
-  /** The chosen backend's description, or `undefined` while nothing has needed a secret yet. */
+  /**
+   * The chosen backend's description, why the last choice failed, or `undefined` while nothing has
+   * needed a secret yet.
+   */
   describe(): string | undefined;
 }
 
@@ -162,6 +181,7 @@ export function createHostCredentialStore(
   options: ISelectCredentialStoreOptions & { readonly notify: (message: string) => void },
 ): IHostCredentialStore {
   let selected: ISelectedCredentialStore | undefined;
+  let lastFailure: string | undefined;
   let pending: Promise<ISelectedCredentialStore> | undefined;
   const resolve = (): Promise<ISelectedCredentialStore> => {
     if (selected) return Promise.resolve(selected);
@@ -175,6 +195,7 @@ export function createHostCredentialStore(
       },
       (error: unknown) => {
         pending = undefined;
+        lastFailure = redactedReason(error);
         throw error;
       },
     );
@@ -186,6 +207,8 @@ export function createHostCredentialStore(
       set: async (key, secret) => (await resolve()).store.set(key, secret),
       delete: async (key) => (await resolve()).store.delete(key),
     },
-    describe: () => selected?.description,
+    describe: () =>
+      selected?.description ??
+      (lastFailure === undefined ? undefined : `unavailable (${lastFailure})`),
   };
 }

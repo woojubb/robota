@@ -3,12 +3,21 @@
  * a keychain has no create-if-absent, so "generate a key unless one exists" needs a lock around it.
  *
  * The lock is a file created exclusively (`O_EXCL`) holding a random token that names its holder. A
- * lock older than `staleMs` was left by a process that died holding it and is taken over. Nothing is
+ * lock not refreshed for `staleMs` was left by a process that died holding it and is taken over — a live
+ * holder refreshes its lock's time while it waits on a slow keychain, so it is never mistaken for one. Nothing is
  * removed by path alone: a lock is first renamed aside, and deleted only if the file set aside is the
  * very one that was judged; anything else is put back without replacing a lock created meanwhile.
  */
 import { randomBytes } from 'node:crypto';
-import { linkSync, readFileSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
+import {
+  linkSync,
+  readFileSync,
+  renameSync,
+  statSync,
+  unlinkSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { dirname } from 'node:path';
 
 import { ensureOwnerOnlyDirectory } from '@robota-sdk/agent-core/node';
@@ -96,9 +105,22 @@ export async function withExclusiveFileLock<T>(
     }
     await new Promise((resolve) => setTimeout(resolve, pollMs));
   }
+  const heartbeat = setInterval(
+    () => {
+      try {
+        const now = new Date();
+        utimesSync(path, now, now);
+      } catch {
+        // allow-fallback: a missed refresh only matters once the lock goes stale; the next one retries.
+      }
+    },
+    Math.max(1, Math.floor(staleMs / 3)),
+  );
+  heartbeat.unref();
   try {
     return await critical();
   } finally {
+    clearInterval(heartbeat);
     removeIf(path, (aside) => readFileSync(aside, 'utf8') === token);
   }
 }

@@ -53,8 +53,7 @@ export function executeRemoteControlCommand(
     const adapter = context.getCommandHostAdapters?.().remoteControl;
     const result = formatStatus(adapter?.getStatus());
     if (!adapter?.describeKeyStorage) return result;
-    const storage =
-      adapter.describeKeyStorage() ?? 'chosen when remote control is first enabled';
+    const storage = adapter.describeKeyStorage() ?? 'chosen when remote control is first enabled';
     return { ...result, message: `${result.message}\nHost key storage: ${storage}` };
   }
 

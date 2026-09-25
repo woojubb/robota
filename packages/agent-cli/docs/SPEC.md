@@ -175,9 +175,9 @@ found. On Linux only the Secret Service counts as a keychain — the binding's k
 is memory-only, and a host key lost at reboot changes the identity every device pinned. Messages and
 errors name a secret's key, never its value, and carry no cause that could quote it.
 
-The host identity key used to sit in a plain file that backups and dotfile sync copy, so it is not
-carried into the store: a new key replaces it, the file is removed, and the operator is told once
-that trusted devices must pair again.
+A key that has ever sat in a plain file backups and dotfile sync copy is never carried into the
+store: it is replaced by a new key, the file is removed, and the operator is told once that trusted
+devices must pair again.
 
 ### MCP client composition
 
