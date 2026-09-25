@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildWorkspaceMoveArgv, parseCliArgs } from '../../utils/cli-args.js';
 import { resolveStartupWorkspaceProjectAccess } from '../workspace-project-composition.js';
-import { createWorkspaceMoveAdapter } from '../workspace-move-adapter.js';
+import { argvCarryingSafeMode, createWorkspaceMoveAdapter } from '../workspace-move-adapter.js';
 
 import type { IWorkspaceMoveRequest } from '@robota-sdk/agent-framework';
 
@@ -57,6 +57,18 @@ describe('buildWorkspaceMoveArgv', () => {
         restricted: true,
       }),
     ).toEqual(['--resume', 's3', '--moved-from', '/w/a', '--restricted-workspace']);
+  });
+});
+
+describe('a /cd target keeps safe mode (issue #3082)', () => {
+  it('adds the flag when safe mode came from the embedder, and carries it into the target argv', () => {
+    const argv = argvCarryingSafeMode(['--model', 'm1'], true);
+    expect(argv).toEqual(['--model', 'm1', '--safe-mode']);
+    expect(argvCarryingSafeMode(['--safe-mode'], true)).toEqual(['--safe-mode']);
+    expect(argvCarryingSafeMode(['--model', 'm1'], false)).toEqual(['--model', 'm1']);
+    expect(
+      buildWorkspaceMoveArgv(argv, { resumeId: 's2', movedFrom: '/w/a', restricted: true }),
+    ).toContain('--safe-mode');
   });
 });
 

@@ -78,7 +78,10 @@ import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
 import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
-import { createWorkspaceMoveAdapter } from './startup/workspace-move-adapter.js';
+import {
+  argvCarryingSafeMode,
+  createWorkspaceMoveAdapter,
+} from './startup/workspace-move-adapter.js';
 import { runPrintMode } from './modes/print-mode.js';
 import { buildServeSessionOptions, runServeMode } from './modes/serve-mode.js';
 import { ROBOTA_PERMISSION_BASELINE } from './product/robota-permission-baseline.js';
@@ -828,7 +831,7 @@ async function runCliCore(
   // Issue #3081: `/cd` starts robota again in the target directory, resuming this conversation.
   commandHostAdapters.workspace = createWorkspaceMoveAdapter({
     userHome: homedir(),
-    argv: process.argv.slice(2),
+    argv: argvCarryingSafeMode(process.argv.slice(2), safeMode),
     requestExit: () => commandHostAdapters.process?.requestExit('other'),
     environment: telemetryEnvironment,
   });
