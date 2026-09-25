@@ -3,6 +3,8 @@
 '@robota-sdk/agent-framework': major
 '@robota-sdk/agent-command': minor
 '@robota-sdk/agent-cli': minor
+'@robota-sdk/agent-ui-terminal': patch
+'@robota-sdk/agent-session-analytics': patch
 ---
 
 Advisor escalation: the main model can consult a second model at the decision points it chooses.
@@ -47,3 +49,7 @@ implementation of that role port stops compiling until it adds the method. The r
 - `agent-command` — the `/advisor` command module; `/cost` reads the session's persisted usage.
 - `agent-cli` — the `--advisor` flag, `advisorModel` setting, per-destination consent store and kill
   switch.
+- `agent-ui-terminal` — a usage line from another source (the advisor, a background task) names that
+  source and leaves out the context window it does not have.
+- `agent-session-analytics` — personal usage counts an advisor call's tokens and cost toward its
+  turn without counting it as a turn.

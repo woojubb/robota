@@ -262,11 +262,9 @@ These are behaviors a caller cannot infer from a type signature alone.
   Conversation history reaches a destination the main model does not already use — a provider type
   and endpoint, since one type can front both a local server and a vendor's cloud — only after the
   user consented to that destination, and never reaches a profile outside the organization's
-  allowlist. The call limits hold for calls a round issues in parallel; a request that was sent
-  counts against them even when the provider failed, because it carried the whole conversation, and
-  only a call declined before anything was sent gives its slot back. Advisor usage is recorded where
-  the session records its turns' usage, on the advisor's own model, so the session's totals and
-  usage reports include it. Its answer is framed as guidance to
+  allowlist. The call limits hold for calls issued in parallel, and a request that was sent always
+  counts, since it carried the conversation. Advisor usage is recorded with the session's turn usage,
+  on the advisor's own model. Its answer is framed as guidance to
   check against the main model's own evidence, because the advisor sees only what the main model
   was shown and can verify nothing itself.
 - **Background wake tracking is cleared on every exit path, not just the happy one.** A background
