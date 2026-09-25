@@ -28,10 +28,11 @@ export interface IOsSandboxPolicy {
 const WRITABLE_INSIDE_PROTECTED = ['.robota/worktrees', '.claude/worktrees'];
 
 /**
- * Inside `.git`, only what makes git run something is protected — hooks and config — so a
- * confined `git commit` still works.
+ * Inside `.git`, only what makes git run something is protected — hooks, config, and the same for
+ * submodules — so a confined `git commit` still works. `.git` itself is pinned in place, so it
+ * cannot be renamed away and replaced by one whose config names other hooks.
  */
-const PROTECTED_GIT_ENTRIES = ['.git/hooks', '.git/config'];
+const PROTECTED_GIT_ENTRIES = ['.git/hooks', '.git/config', '.git/modules'];
 
 function join(root: string, relative: string): string {
   return `${root.replace(/\/+$/, '')}/${relative}`;
@@ -50,9 +51,16 @@ export interface IBubblewrapInput {
   readonly policy: IOsSandboxPolicy;
   /** Which of `protectedWorkspaceEntries()` and the writable worktree folders exist. */
   readonly exists: (path: string) => boolean;
+  /** Entry names in a directory, for the worktrees whose `.git` file must stay put. */
+  readonly listDirectory: (path: string) => readonly string[];
   readonly cwd: string;
   readonly command: string;
   readonly args: readonly string[];
+  /**
+   * The descriptor `bwrap --seccomp` reads the Unix-socket filter from. Required when the network
+   * is off: without it a daemon's socket is still reachable.
+   */
+  readonly seccompDescriptor?: number;
 }
 
 /** The `bwrap` argument vector that runs `command args` under the policy. */
@@ -63,23 +71,42 @@ export function bubblewrapArguments(input: IBubblewrapInput): string[] {
     args.push('--bind-try', path, path);
   }
   // A bind over a path that does not exist would create it on the host; only existing ones are
-  // re-mounted read-only.
+  // re-mounted. A missing one the command creates is removed after it exits (see the client).
+  const git = join(policy.root, '.git');
+  if (input.exists(git)) args.push('--bind', git, git);
   for (const entry of protectedWorkspaceEntries()) {
     const path = join(policy.root, entry);
     if (input.exists(path)) args.push('--ro-bind', path, path);
   }
   for (const entry of WRITABLE_INSIDE_PROTECTED) {
     const path = join(policy.root, entry);
-    if (input.exists(path)) args.push('--bind', path, path);
+    if (!input.exists(path)) continue;
+    args.push('--bind', path, path);
+    // A worktree's `.git` file says where its repository is; it stays read-only too.
+    for (const name of input.listDirectory(path)) {
+      const gitFile = join(path, `${name}/.git`);
+      if (input.exists(gitFile)) args.push('--ro-bind', gitFile, gitFile);
+    }
   }
   for (const hidden of policy.denyRead) {
     if (!input.exists(hidden.path)) continue;
     if (hidden.directory) args.push('--tmpfs', hidden.path);
     else args.push('--ro-bind', '/dev/null', hidden.path);
   }
-  if (!policy.network) args.push('--unshare-net');
-  args.push('--die-with-parent', '--new-session', '--chdir', input.cwd, '--', input.command);
+  if (!policy.network) {
+    if (input.seccompDescriptor === undefined) {
+      throw new Error('A sandbox without network needs the Unix-socket seccomp filter.');
+    }
+    args.push('--unshare-net', '--seccomp', String(input.seccompDescriptor));
+  }
+  // Its own process namespace: a confined command cannot signal or trace the host's processes.
+  args.push('--unshare-pid', '--die-with-parent', '--new-session', '--chdir', input.cwd);
+  args.push('--', input.command);
   return [...args, ...input.args];
+}
+
+function regexEscape(path: string): string {
+  return path.replace(/[\\^$.*+?()[\]{}|"]/g, (char) => `\\${char}`);
 }
 
 function quote(path: string): string {
@@ -103,6 +130,13 @@ export function seatbeltProfile(policy: IOsSandboxPolicy): string {
   const worktrees = WRITABLE_INSIDE_PROTECTED.map(
     (entry) => `(subpath ${quote(join(policy.root, entry))})`,
   );
+  // `.git` itself cannot be renamed or replaced, and neither can a worktree's `.git` file.
+  const pinned = [
+    `(literal ${quote(join(policy.root, '.git'))})`,
+    ...WRITABLE_INSIDE_PROTECTED.map(
+      (entry) => `(regex #"^${regexEscape(join(policy.root, entry))}/[^/]+/\\.git$")`,
+    ),
+  ];
   const lines = [
     '(version 1)',
     '(allow default)',
@@ -110,6 +144,7 @@ export function seatbeltProfile(policy: IOsSandboxPolicy): string {
     `(allow file-write* ${writable} (literal "/dev/null") (regex #"^/dev/tty") (regex #"^/dev/fd/"))`,
     `(deny file-write* ${protectedEntries.join(' ')})`,
     `(allow file-write* ${worktrees.join(' ')})`,
+    `(deny file-write* ${pinned.join(' ')})`,
   ];
   if (policy.denyRead.length > 0) {
     const hidden = policy.denyRead.map((entry) =>

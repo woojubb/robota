@@ -9,17 +9,26 @@
  */
 
 import { spawn, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { isAbsolute, resolve } from 'node:path';
 
-import {
-  isProtectedPath,
-  resolvePlatformShell,
-  splitCommandSegments,
-} from '@robota-sdk/agent-core';
+import { resolvePlatformShell, splitCommandSegments } from '@robota-sdk/agent-core';
 
-import { bubblewrapArguments, seatbeltProfile } from './os-sandbox-policy.js';
+import {
+  bubblewrapArguments,
+  protectedWorkspaceEntries,
+  seatbeltProfile,
+} from './os-sandbox-policy.js';
+import { unixSocketSeccompFilter } from './os-sandbox-seccomp.js';
 
 import type { IOsSandboxPolicy } from './os-sandbox-policy.js';
 import type {
@@ -68,6 +77,7 @@ export interface IOsSandboxAvailability {
 
 export interface IDetectOsSandboxOptions {
   readonly platform?: NodeJS.Platform;
+  readonly arch?: string;
   /** Test seam; production runs the probe with `spawnSync`. */
   readonly probe?: (command: string, args: readonly string[]) => { ok: boolean; detail?: string };
 }
@@ -86,7 +96,15 @@ export function detectOsSandbox(options: IDetectOsSandboxOptions = {}): IOsSandb
   const platform = options.platform ?? process.platform;
   const probe = options.probe ?? defaultProbe;
   if (platform === 'linux') {
-    const check = probe('bwrap', ['--ro-bind', '/', '/', '--dev', '/dev', 'true']);
+    if (unixSocketSeccompFilter(options.arch ?? process.arch) === undefined) {
+      return {
+        backend: 'bubblewrap',
+        missing: [
+          `a seccomp filter for ${options.arch ?? process.arch} (x64 and arm64 are supported)`,
+        ],
+      };
+    }
+    const check = probe('bwrap', ['--ro-bind', '/', '/', '--dev', '/dev', '--unshare-pid', 'true']);
     if (check.ok) return { backend: 'bubblewrap', executable: 'bwrap', missing: [] };
     const reason = check.detail?.includes('ENOENT')
       ? 'bubblewrap (install the `bubblewrap` package)'
@@ -170,17 +188,14 @@ export class OsSandboxClient implements ISandboxClient {
   /** Whether `shellCommand` would run confined. */
   confines(shellCommand: string): boolean {
     if (!this.status().active) return false;
+    // An exclusion names one program; a line that runs anything else with it stays confined.
+    if (splitCommandSegments(shellCommand).length !== 1) return true;
     const program = firstProgram(shellCommand);
     return program === undefined || !this.current.excludedCommands.includes(program);
   }
 
   autoApproves(shellCommand: string): boolean {
-    if (!this.current.autoAllowBashIfSandboxed || !this.confines(shellCommand)) return false;
-    // A protected file that does not exist yet cannot be mounted read-only by bubblewrap; a line
-    // naming one takes the ordinary path, so a person sees it.
-    return !splitCommandSegments(shellCommand).some((segment) =>
-      segment.split(/[\s<>|;&=]+/).some((word) => word !== '' && isProtectedPath(word)),
-    );
+    return this.current.autoAllowBashIfSandboxed && this.confines(shellCommand);
   }
 
   wrapCommand(invocation: ICommandInvocation, shellCommand: string): ICommandInvocation {
@@ -194,17 +209,43 @@ export class OsSandboxClient implements ISandboxClient {
         cwd: invocation.cwd,
       };
     }
+    const filter = policy.network ? undefined : unixSocketSeccompFilter();
+    const missingBefore = this.missingProtectedEntries();
     return {
       command: executable,
       args: bubblewrapArguments({
         policy,
         exists: existsSync,
+        listDirectory: (path) => readdirSync(path),
         cwd: invocation.cwd,
         command: invocation.command,
         args: invocation.args,
+        ...(filter !== undefined ? { seccompDescriptor: 3 } : {}),
       }),
       cwd: invocation.cwd,
+      ...(filter !== undefined ? { inputDescriptors: [filter] } : {}),
+      afterExit: () => this.removeCreatedProtectedEntries(missingBefore),
     };
+  }
+
+  /**
+   * Protected entries bubblewrap cannot mount read-only because they do not exist yet. A command
+   * that creates one has written configuration the next session or git command would trust.
+   */
+  private missingProtectedEntries(): string[] {
+    return ['.git', ...protectedWorkspaceEntries()]
+      .map((entry) => `${this.root}/${entry}`)
+      .filter((path) => !existsSync(path));
+  }
+
+  private removeCreatedProtectedEntries(missingBefore: readonly string[]): string | undefined {
+    const created = missingBefore.filter((path) => existsSync(path));
+    if (created.length === 0) return undefined;
+    for (const path of created) rmSync(path, { recursive: true, force: true });
+    return (
+      `[sandbox] Removed ${created.join(', ')}: a confined command may not create git, agent, ` +
+      'MCP or shell configuration.'
+    );
   }
 
   /** The policy for the current settings, with every path made absolute and real. */
@@ -235,19 +276,25 @@ export class OsSandboxClient implements ISandboxClient {
       command,
     );
     return new Promise((resolveRun, reject) => {
+      const extra = invocation.inputDescriptors ?? [];
       const child = spawn(invocation.command, [...invocation.args], {
         cwd: invocation.cwd,
-        stdio: ['ignore', 'pipe', 'pipe'],
+        stdio: ['ignore', 'pipe', 'pipe', ...extra.map(() => 'pipe' as const)],
         ...(options.timeoutMs !== undefined ? { timeout: options.timeoutMs } : {}),
+      });
+      extra.forEach((data, index) => {
+        (child.stdio[index + 3] as NodeJS.WritableStream | null)?.end(Buffer.from(data));
       });
       let stdout = '';
       let stderr = '';
-      child.stdout.on('data', (chunk: Buffer) => (stdout += chunk.toString()));
-      child.stderr.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
+      child.stdout?.on('data', (chunk: Buffer) => (stdout += chunk.toString()));
+      child.stderr?.on('data', (chunk: Buffer) => (stderr += chunk.toString()));
       child.on('error', reject);
-      child.on('close', (code) =>
-        resolveRun({ stdout, ...(stderr ? { stderr } : {}), exitCode: code ?? 1 }),
-      );
+      child.on('close', (code) => {
+        const note = invocation.afterExit?.();
+        const out = note === undefined ? stdout : `${stdout}\n${note}`;
+        resolveRun({ stdout: out, ...(stderr ? { stderr } : {}), exitCode: code ?? 1 });
+      });
     });
   }
 

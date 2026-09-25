@@ -118,6 +118,10 @@ export interface ICommandInvocation {
   readonly command: string;
   readonly args: readonly string[];
   readonly cwd: string;
+  /** Data handed to the process on descriptors 3, 4, …, each written whole and then closed. */
+  readonly inputDescriptors?: readonly Uint8Array[];
+  /** Runs once the process has exited; a returned note is appended to the command's output. */
+  readonly afterExit?: () => string | undefined;
 }
 
 export interface ISandboxClient {

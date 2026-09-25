@@ -13,6 +13,8 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -21,6 +23,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createBashTool } from '../../builtins/shell-tool.js';
 import { detectOsSandbox, OsSandboxClient } from '../os-sandbox-client.js';
 import { bubblewrapArguments, seatbeltProfile } from '../os-sandbox-policy.js';
+import { unixSocketSeccompFilter } from '../os-sandbox-seccomp.js';
 
 import type { IToolInvocationResult } from '../../types/tool-result.js';
 import type { IOsSandboxPolicy } from '../os-sandbox-policy.js';
@@ -39,8 +42,12 @@ const policy: IOsSandboxPolicy = {
 };
 
 describe('bubblewrap arguments', () => {
+  const listDirectory = (path: string): string[] =>
+    path === '/w/project/.robota/worktrees' ? ['feature'] : [];
   const exists = (path: string): boolean =>
     [
+      '/w/project/.git',
+      '/w/project/.robota/worktrees/feature/.git',
       '/w/project/.robota',
       '/w/project/.git/hooks',
       '/w/project/.robota/worktrees',
@@ -52,6 +59,8 @@ describe('bubblewrap arguments', () => {
     const args = bubblewrapArguments({
       policy,
       exists,
+      listDirectory,
+      seccompDescriptor: 3,
       cwd: '/w/project/src',
       command: '/bin/sh',
       args: ['-c', 'ls'],
@@ -60,7 +69,8 @@ describe('bubblewrap arguments', () => {
     expect(args.join(' ')).toContain('--bind-try /w/project /w/project');
     expect(args.join(' ')).toContain('--bind-try /tmp /tmp');
     expect(args.join(' ')).toContain('--bind-try /home/me/.cache /home/me/.cache');
-    expect(args).toContain('--unshare-net');
+    expect(args.join(' ')).toContain('--unshare-net --seccomp 3');
+    expect(args).toContain('--unshare-pid');
     expect(args.slice(-6)).toEqual(['--chdir', '/w/project/src', '--', '/bin/sh', '-c', 'ls']);
   });
 
@@ -68,12 +78,19 @@ describe('bubblewrap arguments', () => {
     const joined = bubblewrapArguments({
       policy,
       exists,
+      listDirectory,
+      seccompDescriptor: 3,
       cwd: '/w/project',
       command: 'sh',
       args: [],
     }).join(' ');
     expect(joined).toContain('--ro-bind /w/project/.robota /w/project/.robota');
     expect(joined).toContain('--ro-bind /w/project/.git/hooks /w/project/.git/hooks');
+    // `.git` is pinned so it cannot be renamed and replaced; a worktree's `.git` file stays put.
+    expect(joined).toContain('--bind /w/project/.git /w/project/.git');
+    expect(joined).toContain(
+      '--ro-bind /w/project/.robota/worktrees/feature/.git /w/project/.robota/worktrees/feature/.git',
+    );
     expect(joined).toContain('--bind /w/project/.robota/worktrees /w/project/.robota/worktrees');
     // A missing entry is not bound: the bind would create it on the host.
     expect(joined).not.toContain('/w/project/.mcp.json');
@@ -85,11 +102,27 @@ describe('bubblewrap arguments', () => {
     const args = bubblewrapArguments({
       policy: { ...policy, network: true },
       exists,
+      listDirectory,
       cwd: '/w',
       command: 'sh',
       args: [],
     });
     expect(args).not.toContain('--unshare-net');
+    expect(args).not.toContain('--seccomp');
+  });
+
+  it('refuses to cut the network without the socket filter', () => {
+    expect(() =>
+      bubblewrapArguments({ policy, exists, listDirectory, cwd: '/w', command: 'sh', args: [] }),
+    ).toThrow(/seccomp/);
+  });
+});
+
+describe('the Unix-socket seccomp filter', () => {
+  it('is a filter for x64 and arm64 and nothing else', () => {
+    expect(unixSocketSeccompFilter('x64')?.length).toBe(13 * 8);
+    expect(unixSocketSeccompFilter('arm64')?.length).toBe(13 * 8);
+    expect(unixSocketSeccompFilter('ia32')).toBeUndefined();
   });
 });
 
@@ -102,6 +135,8 @@ describe('Seatbelt profile', () => {
     expect(lines[4]).toContain('(subpath "/w/project/.robota")');
     expect(lines[4]).toContain('(literal "/w/project/.mcp.json")');
     expect(lines[5]).toContain('(subpath "/w/project/.robota/worktrees")');
+    expect(lines[6]).toContain('(literal "/w/project/.git")');
+    expect(lines[6]).toContain('/w/project/\\.robota/worktrees/[^/]+/\\.git$');
     expect(profile).toContain(
       '(deny file-read* (subpath "/home/me/.ssh") (literal "/home/me/.netrc"))',
     );
@@ -127,17 +162,25 @@ describe('OsSandboxClient', () => {
     expect(client.wrapCommand(invocation, 'docker ps')).toBe(invocation);
   });
 
-  it('auto-approves a confined command unless auto-allow is off or it names a protected file', () => {
+  it('auto-approves a confined command unless auto-allow is off', () => {
     const client = new OsSandboxClient({
       root: '/w',
       availability: available,
       settings: { enabled: true },
     });
     expect(client.autoApproves('npm test')).toBe(true);
-    expect(client.autoApproves('echo {} > .mcp.json')).toBe(false);
-    expect(client.autoApproves('cp x .robota/settings.json')).toBe(false);
     client.configure({ autoAllowBashIfSandboxed: false });
     expect(client.autoApproves('npm test')).toBe(false);
+  });
+
+  it('keeps a line that runs more than an excluded program confined', () => {
+    const client = new OsSandboxClient({
+      root: '/w',
+      availability: available,
+      settings: { enabled: true, excludedCommands: ['docker'] },
+    });
+    expect(client.confines('docker ps')).toBe(false);
+    expect(client.confines('docker ps; rm -rf ~')).toBe(true);
   });
 
   it('is inactive where the backend cannot run, and says what is missing', () => {
@@ -221,6 +264,62 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
       // The command's own network namespace holds only the loopback device.
       const net = await bash(client, "tail -n +3 /proc/net/dev | cut -d: -f1 | tr -d ' '");
       expect(net.output.trim()).toBe('lo');
+    },
+    SPAWN_TIMEOUT_MS,
+  );
+
+  it(
+    'cannot reach a host daemon over a Unix socket or see host processes when the network is off',
+    async () => {
+      const socketPath = join(outside, 'daemon.sock');
+      const received: string[] = [];
+      const server = createServer((connection) => {
+        connection.on('data', (chunk) => received.push(chunk.toString()));
+      });
+      await new Promise<void>((resolveListen) => server.listen(socketPath, resolveListen));
+      try {
+        const client = new OsSandboxClient({
+          root,
+          availability: bubblewrap,
+          settings: { enabled: true },
+        });
+        const script = `require('net').connect(${JSON.stringify(socketPath)}).on('connect', function () { this.end('escaped') }).on('error', (e) => console.log(e.code))`;
+        const result = await bash(client, `${process.execPath} -e ${JSON.stringify(script)}`);
+        await new Promise((resolveWait) => setTimeout(resolveWait, 200));
+        expect(received).toEqual([]);
+        expect(result.output).toContain('EAFNOSUPPORT');
+
+        const kill = await bash(client, `kill -0 ${process.pid} && echo visible || echo hidden`);
+        expect(kill.output).toContain('hidden');
+      } finally {
+        server.close();
+      }
+    },
+    SPAWN_TIMEOUT_MS,
+  );
+
+  it(
+    'removes protected configuration a command creates, and cannot rename .git away',
+    async () => {
+      execFileSync('git', ['init', '-q', root]);
+      const client = new OsSandboxClient({
+        root,
+        availability: bubblewrap,
+        settings: { enabled: true },
+      });
+      const created = await bash(client, 'F=.mc; echo {} > "${F}p.json"; echo done');
+      expect(existsSync(join(root, '.mcp.json'))).toBe(false);
+      expect(created.output).toContain('[sandbox] Removed');
+
+      await bash(
+        client,
+        'D=.g; mv ${D}it ${D}old; git init -q . && git config core.hooksPath /tmp/evil',
+      );
+      expect(existsSync(join(root, '.gold'))).toBe(false);
+      // Unset: `git config --get` exits non-zero.
+      expect(() =>
+        execFileSync('git', ['-C', root, 'config', '--get', 'core.hooksPath'], { stdio: 'pipe' }),
+      ).toThrow();
     },
     SPAWN_TIMEOUT_MS,
   );

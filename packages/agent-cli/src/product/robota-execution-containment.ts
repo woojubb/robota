@@ -65,6 +65,11 @@ export function createRobotaSandbox(options: ICreateRobotaSandboxOptions): IRobo
   };
 }
 
+/** The settings in force now: the live client's, which `/sandbox` changes, else the composed ones. */
+function currentSettings(sandbox: IRobotaSandbox): IOsSandboxSettings {
+  return sandbox.client?.status().settings ?? sandbox.settings;
+}
+
 /** Why confinement the settings ask for is not happening. */
 export function describeUnavailableSandbox(availability: IOsSandboxAvailability): string {
   if (availability.unsupportedPlatform !== undefined) {
@@ -80,7 +85,9 @@ export function describeUnavailableSandbox(availability: IOsSandboxAvailability)
 export function sandboxStartupProblem(
   sandbox: IRobotaSandbox,
 ): { readonly message: string; readonly fatal: boolean } | undefined {
-  if (!sandbox.settings.enabled || sandbox.availability.executable !== undefined) return undefined;
+  if (!currentSettings(sandbox).enabled || sandbox.availability.executable !== undefined) {
+    return undefined;
+  }
   const reason = describeUnavailableSandbox(sandbox.availability);
   return sandbox.failIfUnavailable
     ? {
@@ -94,7 +101,8 @@ export function sandboxStartupProblem(
 }
 
 function describeSandboxState(sandbox: IRobotaSandbox): string[] {
-  const { settings, availability } = sandbox;
+  const settings = currentSettings(sandbox);
+  const { availability } = sandbox;
   if (!settings.enabled) {
     return [
       `Sandboxing is off; ${availability.backend ?? 'no backend'} is ${availability.executable !== undefined ? 'available' : 'not available'}.`,
@@ -120,7 +128,7 @@ function describeSandboxState(sandbox: IRobotaSandbox): string[] {
 
 export function checkExecutionContainment(sandbox: IRobotaSandbox): IDoctorCheck {
   const problem = sandboxStartupProblem(sandbox);
-  const active = sandbox.settings.enabled && sandbox.availability.executable !== undefined;
+  const active = currentSettings(sandbox).enabled && sandbox.availability.executable !== undefined;
   return {
     id: 'execution.containment',
     label: 'Command containment',

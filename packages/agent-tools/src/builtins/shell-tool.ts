@@ -45,7 +45,7 @@ import { buildShellToolDescription } from './shell-tool-description.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
 import type { ISandboxBuiltinToolOptions } from './tool-options.js';
-import type { ISandboxToolOptions } from '../sandbox/types.js';
+import type { ICommandInvocation, ISandboxToolOptions } from '../sandbox/types.js';
 import type { IToolInvocationResult } from '../types/tool-result.js';
 import type { FunctionTool, IPlatformShell, ISubprocessTraceEnv } from '@robota-sdk/agent-core';
 
@@ -141,7 +141,7 @@ async function runShell(
   if (options.sandboxClient && options.sandboxClient.wrapCommand === undefined) {
     return runInSandbox(command, timeout, workingDirectory ?? options.cwd, options);
   }
-  const hostInvocation = {
+  const hostInvocation: ICommandInvocation = {
     command: shell.command,
     args: shell.commandArgs(command),
     cwd: effectiveCwd,
@@ -166,8 +166,18 @@ async function runShell(
       // A fresh copy carrying this call's trace when the host enabled it; `process.env` itself is
       // never modified, so no other child can inherit the value.
       env: traceEnv === undefined ? process.env : subprocessTraceEnvironment(process.env, traceEnv),
-      stdio: ['pipe', 'pipe', 'pipe'],
+      // Descriptors 3, 4, … carry what the invocation hands the process (a sandbox's seccomp filter).
+      stdio: [
+        'pipe',
+        'pipe',
+        'pipe',
+        ...(invocation.inputDescriptors ?? []).map(() => 'pipe' as const),
+      ],
       detached: SPAWN_DETACHED,
+    });
+    (invocation.inputDescriptors ?? []).forEach((data, index) => {
+      const stream = child.stdio[index + 3] as NodeJS.WritableStream | null;
+      stream?.end(Buffer.from(data));
     });
 
     // RUNTIME-31: the command inherits an open stdin pipe it can block reading on; close it
@@ -224,6 +234,8 @@ async function runShell(
     });
 
     child.on('close', (code: number | null) => {
+      // Always, even after a timeout or an abort already settled: the sandbox undoes what it must.
+      const note = invocation.afterExit?.();
       if (timedOut) {
         settle({
           success: false,
@@ -238,7 +250,8 @@ async function runShell(
       const stderr = stderrOutput.toString();
 
       const exitCode = code ?? 0;
-      const output = stderr ? `${stdout}\nstderr:\n${stderr}` : stdout;
+      const combined = stderr ? `${stdout}\nstderr:\n${stderr}` : stdout;
+      const output = note === undefined ? combined : `${combined}\n${note}`;
 
       settle({
         success: true,

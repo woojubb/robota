@@ -109,13 +109,13 @@ never happened.
   writes another. Containment sits below the permission gate — deny and ask rules are decided
   before a tool body chooses the host or the sandbox — and the execution root is the file tools'
   containment boundary but only the shell's default directory, never a boundary for commands. A
-  shared client that confines a host process in place (the OS sandbox: bubblewrap, Seatbelt) only
-  rewrites the invocation, so the shell tool keeps its own timeouts, cancellation, output limits and
-  process-group kill. That sandbox is only as strong as what the OS enforces, so its network
-  boundary is on or off (a per-domain allowlist needs a proxy process the OS does not enforce), the
-  model cannot ask to leave it (only the user's excluded commands run unconfined), and the files
-  that configure git hooks, the agent, MCP servers and shells stay read-only inside the workspace so
-  a confined command cannot change what the next session trusts.
+  shared client that confines a host process in place only rewrites the invocation, so the shell
+  tool keeps its own timeouts, cancellation, output limits and process-group kill.
+- The OS sandbox promises only what the OS enforces. Its network boundary is on or off, and off
+  closes Unix sockets too, because a per-domain allowlist needs a proxy the OS does not enforce and
+  a host daemon's socket is a way out; the model cannot ask to leave it; and the configuration the
+  next session or git command would trust is pinned read-only where it exists and removed after the
+  command where it did not, because a mount cannot protect a path that does not exist yet.
 - `IWorkspaceManifest` / its applicator declare fresh-session sandbox contents (inline/local files,
   directories, Git clones) through `ISandboxClient`; provider-specific storage mounts are
   represented in the contract but report an explicit "unsupported" status until an adapter

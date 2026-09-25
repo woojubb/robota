@@ -17,7 +17,11 @@ export type { ISpinner, ITerminalOutput };
 
 /** The part of a sandbox client the permission gate consults. */
 export interface ICommandSandboxApproval {
-  autoApproves(shellCommand: string): boolean;
+  /**
+   * Whether `toolName` runs `shellCommand` inside the sandbox and the sandbox's settings let it
+   * proceed without a prompt. Only a tool the sandbox actually wraps may answer yes.
+   */
+  autoApproves(toolName: string, shellCommand: string): boolean;
 }
 
 /**

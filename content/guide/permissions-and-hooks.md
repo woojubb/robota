@@ -72,9 +72,14 @@ Inside the sandbox:
 - writes are allowed only in the working directory, the temporary directories and
   `filesystem.allowWrite`;
 - inside the working directory, `.robota`, `.claude`, `.agents`, `.git/hooks`, `.git/config`,
-  `.mcp.json` and shell or npm config files stay read-only (isolated worktrees under
-  `.robota/worktrees` stay writable);
-- the network is reachable only when `network.enabled` is `true`. There is no per-domain list.
+  `.git/modules`, `.mcp.json` and shell or npm config files stay read-only, and `.git` cannot be
+  renamed (isolated worktrees under `.robota/worktrees` stay writable). On Linux, one of these a
+  command creates where none existed is removed when the command exits, with a note in its output;
+- the network is reachable only when `network.enabled` is `true`, and while it is off Unix
+  sockets are closed too, so a daemon on the host (a container engine, the session bus, an ssh
+  agent) is out of reach. There is no per-domain list;
+- the command runs in its own process namespace and cannot signal or inspect robota or other host
+  processes.
 
 ```json
 {
@@ -89,17 +94,23 @@ Inside the sandbox:
 }
 ```
 
+The keys merge like other settings, so a trusted project's settings can change them — including
+widening `allowWrite` or turning the network on — just as they can add allow rules.
+
 **Modes.** `/sandbox` shows the state and switches mode for the next command; the choice is saved in
-the user settings.
+the user settings, where a project or local setting that sets the same key still wins at the next
+start.
 
 - `auto-allow` (`autoAllowBashIfSandboxed: true`): a confined command runs without a prompt in
   `default` and `acceptEdits`. Deny rules, ask rules, removal of a critical path and plan mode still
-  apply first. A command line that names a protected file takes the ordinary path too.
+  apply first. Only `Bash` and `Shell` calls are confined; a background process or a
+  model-invoked command still asks.
 - `regular`: commands are confined and the permission prompts work as usual.
 - `off`: commands run on the host.
 
-`excludedCommands` names programs (the first word of the line) that run unconfined and take the
-ordinary permission path. The model cannot ask to leave the sandbox.
+`excludedCommands` names programs that run unconfined and take the ordinary permission path; it
+applies to a line that runs only that program, so `docker ps; rm -rf build` stays confined. The model
+cannot ask to leave the sandbox.
 
 **When it cannot run.** If `bwrap` is missing or cannot create a sandbox (for example where user
 namespaces are disabled), robota prints a warning at startup and runs commands unconfined;

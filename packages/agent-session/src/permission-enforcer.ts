@@ -405,7 +405,7 @@ export class PermissionEnforcer {
     const argument = getToolPermissionProfile(toolName).argument;
     if (argument?.kind !== 'command') return false;
     const command = toolArgs[argument.key];
-    return typeof command === 'string' && this.commandSandbox.autoApproves(command);
+    return typeof command === 'string' && this.commandSandbox.autoApproves(toolName, command);
   }
 
   /** Delegate session event to the injected logger. */

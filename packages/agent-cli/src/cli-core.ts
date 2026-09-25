@@ -58,6 +58,7 @@ import { resolveLiveTelemetrySurface } from './telemetry/live-resource.js';
 import { createCliLiveContentRedaction } from './telemetry/live-content-secrets.js';
 import {
   createRobotaPackSet,
+  ROBOTA_OS_SANDBOX_TYPE,
   createRobotaSubagentRunnerFactory,
 } from './product/robota-subagent-composition.js';
 import { reloadPluginCommandSource } from './plugins/default-plugin-command-source-loader.js';
@@ -321,7 +322,7 @@ async function runCliCore(
   const sandboxClient = sandbox.client;
   const { packContext, packs, packCommandModules } = createRobotaPackSet(cwd, {
     shellExecutable,
-    ...(sandboxClient !== undefined ? { sandboxClient } : {}),
+    ...(sandboxClient !== undefined ? { sandboxClient, sandboxType: ROBOTA_OS_SANDBOX_TYPE } : {}),
   });
   const keybindingsSource =
     args.printMode || args.goal !== undefined || args.serve || mcpServe || !presentation
@@ -393,6 +394,7 @@ async function runCliCore(
     packCommandModules,
     keybindingsSource,
     theme?.cataloguePort,
+    sandbox,
   );
   for (const { file, error } of outputStyleLoadErrors) {
     terminal.writeError(`Skipped output style "${file}": ${error}`);

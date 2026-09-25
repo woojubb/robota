@@ -149,6 +149,7 @@ export function buildDoctorInputs(opts: IBuildDoctorInputsOptions): IDoctorInput
     projectAccess.status === 'trusted'
       ? join(getWorkspaceProjectIdentity(projectAccess.authority).worktreeRoot, '.robota')
       : undefined;
+  const sandbox = opts.sandbox ?? createRobotaSandbox({ cwd: opts.cwd, settingsSources });
   return {
     cwd: opts.cwd,
     userHome,
@@ -169,14 +170,15 @@ export function buildDoctorInputs(opts: IBuildDoctorInputsOptions): IDoctorInput
     ...(opts.options.mcpActivationAdapter === undefined
       ? {}
       : { mcpActivation: opts.options.mcpActivationAdapter }),
-    hostChecks: [
-      checkNodeVersion(),
-      checkCliVersion(opts.version),
-      checkTerminal(opts.env),
-      checkExecutionContainment(
-        opts.sandbox ?? createRobotaSandbox({ cwd: opts.cwd, settingsSources }),
-      ),
-    ],
+    // A getter, so `/doctor` reports the sandbox as it is now — `/sandbox` changes it live.
+    get hostChecks() {
+      return [
+        checkNodeVersion(),
+        checkCliVersion(opts.version),
+        checkTerminal(opts.env),
+        checkExecutionContainment(sandbox),
+      ];
+    },
     ...(failure === undefined ? {} : { compositionFailure: failure }),
   };
 }
