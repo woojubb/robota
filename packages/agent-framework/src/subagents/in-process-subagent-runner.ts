@@ -228,7 +228,7 @@ function readSubagentUsage(
 }
 
 /** The parent's config with the rules its gate actually enforces in place of the settings file's. */
-function parentConfigWithEffectiveRules(
+export function parentConfigWithEffectiveRules(
   deps: Pick<IInProcessSubagentRunnerDeps, 'config' | 'getParentPermissionRules'>,
 ): IResolvedConfig {
   const rules = deps.getParentPermissionRules?.();

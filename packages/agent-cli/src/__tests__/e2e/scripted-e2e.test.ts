@@ -181,7 +181,13 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
     writeFileSync(target, 'Hello, world\n', 'utf8');
     const scripted = createScriptedProvider(editScript(target));
 
-    const result = await runScripted(project, ['-p', 'change the greeting'], scripted);
+    // Print mode defaults to `default` with no approver (issue #3081); this run states the mode it
+    // needs to edit and run a command unattended.
+    const result = await runScripted(
+      project,
+      ['-p', 'change the greeting', '--permission-mode', 'bypassPermissions'],
+      scripted,
+    );
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('edit verified');
@@ -376,7 +382,13 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
 
     const result = await runScripted(
       project,
-      ['--goal', 'create GOAL.txt containing the date, then stop', '--no-session-persistence'],
+      [
+        '--goal',
+        'create GOAL.txt containing the date, then stop',
+        '--no-session-persistence',
+        '--permission-mode',
+        'acceptEdits',
+      ],
       scripted,
     );
 

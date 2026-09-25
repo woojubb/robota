@@ -5,6 +5,7 @@ import {
   evaluatePermission,
   registerToolPermissionProfile,
 } from '../permission-gate.js';
+import { requiresFreshApproval } from '../permission-gate.js';
 import { isProtectedPath, removesCriticalPath } from '../permission-safeguards.js';
 
 /**
@@ -91,6 +92,12 @@ describe('critical-path removal is never auto-approved', () => {
     'sudo rm -r /etc',
     'rmdir ..',
     'rm -rf -- /',
+    'sudo -u root rm -rf /',
+    'nice -n 5 rm -rf ~',
+    'env -i rm -rf /',
+    'rm -rf $HOME/',
+    'rm -rf "$HOME/"',
+    'rm -rf ${HOME}/',
   ])('%s asks under bypassPermissions', (command) => {
     expect(evaluatePermission('Bash', { command }, 'bypassPermissions', {}, where)).toBe(
       'approve',
@@ -142,6 +149,14 @@ describe('protected paths', () => {
         'acceptEdits',
       ),
     ).toBe('approve');
+  });
+
+  it.each([
+    '/w/p/.robota/worktrees/../settings.json',
+    '.claude/worktrees/x/../../settings.json',
+    '/w/p/src/../.git/config',
+  ])('cannot be reached around the worktree exemption with .. (%s)', (filePath) => {
+    expect(evaluatePermission('Write', { filePath }, 'bypassPermissions')).toBe('approve');
   });
 
   it('do not stop reading', () => {
@@ -218,5 +233,16 @@ describe('safeguard predicates', () => {
     expect(removesCriticalPath('rm -rf ~', {})).toBe(true);
     expect(removesCriticalPath('rm -rf ..', {})).toBe(false);
     expect(removesCriticalPath('echo rm -rf /', {})).toBe(false);
+  });
+});
+
+describe('requiresFreshApproval', () => {
+  it('is true for the never-auto set and ask rules, false for a mode-derived ask', () => {
+    expect(requiresFreshApproval('Bash', { command: 'rm -rf ~' }, {}, where)).toBe(true);
+    expect(
+      requiresFreshApproval('Bash', { command: 'git push' }, { ask: ['Bash(git push*)'] }),
+    ).toBe(true);
+    expect(requiresFreshApproval('Write', { filePath: '/w/project/.git/config' })).toBe(true);
+    expect(requiresFreshApproval('Bash', { command: 'rm -rf build' }, {}, where)).toBe(false);
   });
 });

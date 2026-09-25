@@ -45,9 +45,23 @@ function pathSegments(path: string): string[] {
     .filter((segment) => segment !== '' && segment !== '.');
 }
 
+/**
+ * Collapse `.` and `..` lexically, keeping a leading `..` of a relative path. Without this a path
+ * like `.robota/worktrees/../settings.json` reads as a worktree file while naming the settings file.
+ */
+function resolvedSegments(path: string): string[] {
+  const out: string[] = [];
+  for (const segment of pathSegments(path)) {
+    if (segment !== '..') out.push(segment);
+    else if (out.length > 0 && out[out.length - 1] !== '..') out.pop();
+    else out.push(segment);
+  }
+  return out;
+}
+
 /** Whether a path names a protected directory, something inside one, or a protected file. */
 export function isProtectedPath(path: string): boolean {
-  const segments = pathSegments(path);
+  const segments = resolvedSegments(path);
   const last = segments[segments.length - 1];
   if (last !== undefined && PROTECTED_FILE_NAMES.includes(last)) return true;
   for (let index = 0; index < segments.length; index += 1) {
@@ -87,16 +101,19 @@ function unquoteWord(word: string): string {
   return word.replace(/^(['"])(.*)\1$/, '$2');
 }
 
-const HOME_WORDS = new Set(['~', '~/', '$HOME', '${HOME}', '"$HOME"', '"${HOME}"']);
+/** `~`, `$HOME` or `${HOME}`, then the rest of the path (possibly empty). */
+const HOME_PREFIX = /^(?:~|\$HOME|\$\{HOME\})(?=\/|$)(.*)$/;
 
 function isCriticalTarget(word: string, context: ICriticalPathContext): boolean {
-  if (HOME_WORDS.has(word)) return true;
   const text = unquoteWord(word);
-  if (text === '' || text.startsWith('$')) return false;
+  const home = HOME_PREFIX.exec(text);
   let absolute: string;
-  if (text.startsWith('~/')) {
-    if (context.homeDirectory === undefined) return false;
-    absolute = normaliseAbsolute(`${context.homeDirectory}/${text.slice(2)}`);
+  if (home !== null) {
+    const rest = home[1] ?? '';
+    if (context.homeDirectory === undefined) return rest.replace(/\/+/g, '') === '';
+    absolute = normaliseAbsolute(`${context.homeDirectory}/${rest}`);
+  } else if (text === '' || text.startsWith('$')) {
+    return false;
   } else if (text.startsWith('/')) {
     absolute = normaliseAbsolute(text);
   } else {
@@ -120,8 +137,44 @@ function isCriticalTarget(word: string, context: ICriticalPathContext): boolean 
 }
 
 const REMOVAL_COMMANDS = new Set(['rm', 'rmdir']);
-/** Wrappers that run the command after them unchanged. */
-const TRANSPARENT_WRAPPERS = new Set(['sudo', 'command', 'builtin', 'nice', 'nohup', 'time', 'env']);
+/**
+ * Wrappers that run the command after them unchanged, and which of their options take a value
+ * (so the value is not mistaken for the program).
+ */
+const TRANSPARENT_WRAPPERS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+  ['sudo', new Set(['-u', '-g', '-h', '-p', '-C', '-D', '-r', '-t', '-U', '-T'])],
+  ['nice', new Set(['-n'])],
+  ['env', new Set(['-u', '-C', '-S'])],
+  ['command', new Set<string>()],
+  ['builtin', new Set<string>()],
+  ['nohup', new Set<string>()],
+  ['time', new Set<string>()],
+]);
+
+/** Index of the program a segment runs, past assignments, wrappers and the wrappers' options. */
+function programIndex(words: readonly string[]): number {
+  let index = 0;
+  let valueOptions: ReadonlySet<string> | undefined;
+  while (index < words.length) {
+    const word = words[index]!;
+    if (/^[A-Za-z_]\w*=/.test(word)) {
+      index += 1;
+      continue;
+    }
+    const wrapper = TRANSPARENT_WRAPPERS.get(word);
+    if (wrapper !== undefined) {
+      valueOptions = wrapper;
+      index += 1;
+      continue;
+    }
+    if (valueOptions !== undefined && word.startsWith('-')) {
+      index += valueOptions.has(word) ? 2 : 1;
+      continue;
+    }
+    return index;
+  }
+  return index;
+}
 
 /**
  * Whether a shell line removes a critical path in any of the commands it runs. The line is cut the
@@ -130,13 +183,7 @@ const TRANSPARENT_WRAPPERS = new Set(['sudo', 'command', 'builtin', 'nice', 'noh
 export function removesCriticalPath(command: string, context: ICriticalPathContext): boolean {
   return splitCommandSegments(command).some((segment) => {
     const words = segment.split(/\s+/).filter((word) => word !== '');
-    let index = 0;
-    while (
-      index < words.length &&
-      (TRANSPARENT_WRAPPERS.has(words[index]!) || /^[A-Za-z_]\w*=/.test(words[index]!))
-    ) {
-      index += 1;
-    }
+    const index = programIndex(words);
     const program = words[index];
     if (program === undefined) return false;
     const name = program.slice(program.lastIndexOf('/') + 1);

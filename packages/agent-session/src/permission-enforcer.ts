@@ -14,6 +14,7 @@ import {
   findInvalidPermissionPatterns,
   matchesAnyPattern,
   projectPermissionPolicy,
+  requiresFreshApproval,
   runHooks,
 } from '@robota-sdk/agent-core';
 
@@ -217,22 +218,17 @@ export class PermissionEnforcer {
           })
         : undefined;
 
-    const decision = evaluatePermission(
-      toolName,
-      toolArgs,
-      this.getPermissionMode(),
-      {
-        allow: [...this.config.permissions.allow, ...(policy?.allow ?? [])],
-        deny: [...this.config.permissions.deny, ...(policy?.deny ?? [])],
-        ask: this.config.permissions.ask ?? [],
-      },
-      {
-        cwd: this.cwd,
-        homeDirectory: this.homeDirectory,
-        ...(policy?.ceiling !== undefined ? { ceiling: policy.ceiling } : {}),
-        askAll: policy?.askAll ?? false,
-      },
-    );
+    const rules = {
+      allow: [...this.config.permissions.allow, ...(policy?.allow ?? [])],
+      deny: [...this.config.permissions.deny, ...(policy?.deny ?? [])],
+      ask: this.config.permissions.ask ?? [],
+    };
+    const where = { cwd: this.cwd, homeDirectory: this.homeDirectory };
+    const decision = evaluatePermission(toolName, toolArgs, this.getPermissionMode(), rules, {
+      ...where,
+      ...(policy?.ceiling !== undefined ? { ceiling: policy.ceiling } : {}),
+      askAll: policy?.askAll ?? false,
+    });
 
     // SELFHOST-009: fire PermissionDecision (INFORMATIONAL-ONLY, non-blocking) right after the
     // decision is made. Fire-and-forget — the hook cannot change the outcome that follows.
@@ -241,8 +237,10 @@ export class PermissionEnforcer {
     if (decision === 'auto') return true;
     if (decision === 'deny') return false;
 
-    // 'approve' — route to the human-approval path.
-    return this.promptForApproval(toolName, toolArgs, signal, interaction);
+    // 'approve' — route to the human-approval path. An ask that must reach a person every time is
+    // not answered by a remembered consent, and does not create one (issue #3081).
+    const fresh = requiresFreshApproval(toolName, toolArgs, rules, where);
+    return this.promptForApproval(toolName, toolArgs, signal, interaction, fresh);
   }
 
   /**
@@ -255,11 +253,13 @@ export class PermissionEnforcer {
     toolArgs: TToolArgs,
     signal?: AbortSignal,
     interaction: IToolExecutionContext['permissionInteraction'] = 'interactive',
+    fresh = false,
   ): Promise<boolean> {
     const scope = consentScopeFor(toolName, toolArgs);
     const outcome = await decideApproval({
       toolName,
-      alreadyAllowed: matchesAnyPattern(toolName, toolArgs, [...this.sessionAllowedTools]),
+      alreadyAllowed:
+        !fresh && matchesAnyPattern(toolName, toolArgs, [...this.sessionAllowedTools]),
       ...(interaction === 'interactive' && this.permissionHandler
         ? { handler: this.permissionHandler }
         : {}),
@@ -269,6 +269,9 @@ export class PermissionEnforcer {
       toolArgs,
       ...(signal ? { signal } : {}),
     });
+    // A fresh-approval answer covers this call only: remembering its wide scope would let it answer
+    // the next critical removal or protected write too.
+    if (fresh) return outcome.allowed;
     if (outcome.rememberForProject) {
       if (this.onProjectAllowTool === undefined) {
         throw new Error('Project-wide permission persistence is unavailable for this session.');

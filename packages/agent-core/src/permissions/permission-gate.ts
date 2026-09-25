@@ -276,6 +276,38 @@ function isNeverAutoApproved(
   return false;
 }
 
+/** An ask rule matches the call, or cannot be evaluated for it, or the call is in the never-auto set. */
+function isMandatoryAsk(
+  toolName: string,
+  toolArgs: TToolArgs,
+  ask: readonly string[],
+  context: ICriticalPathContext,
+): boolean {
+  return (
+    matchesAnyPattern(toolName, toolArgs, ask, 'deny') ||
+    hasUnevaluableArgumentPattern(toolName, toolArgs, ask) ||
+    isNeverAutoApproved(toolName, toolArgs, context)
+  );
+}
+
+/**
+ * Whether an ask about this call must reach a person EVERY time — never answered by a consent the
+ * session or project remembered from an earlier call. A remembered scope is wide (`Bash(rm *)`
+ * from one `rm -rf build`); honouring it here would let one approval stand in for every later
+ * critical-path removal, protected write or ask-rule call (issue #3081).
+ */
+export function requiresFreshApproval(
+  toolName: string,
+  toolArgs: TToolArgs,
+  permissions: IPermissionLists = {},
+  context: ICriticalPathContext = {},
+): boolean {
+  return (
+    hasUnevaluableArgumentPattern(toolName, toolArgs, permissions.deny ?? []) ||
+    isMandatoryAsk(toolName, toolArgs, permissions.ask ?? [], context)
+  );
+}
+
 /**
  * Evaluate whether a tool invocation should be auto-approved, require user approval, or be denied.
  *
@@ -319,11 +351,7 @@ export function evaluatePermission(
 
   // 4. The never-auto-approve set holds in every mode, bypass included. An ask rule is read in
   //    the deny direction, and one it cannot evaluate asks too: both are "stop and ask".
-  if (
-    matchesAnyPattern(toolName, toolArgs, ask, 'deny') ||
-    hasUnevaluableArgumentPattern(toolName, toolArgs, ask) ||
-    isNeverAutoApproved(toolName, toolArgs, context)
-  ) {
+  if (isMandatoryAsk(toolName, toolArgs, ask, context)) {
     return askDecision;
   }
 

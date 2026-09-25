@@ -113,3 +113,40 @@ describe('a background policy only narrows the shared order', () => {
     expect(handler).not.toHaveBeenCalled();
   });
 });
+
+describe('a remembered consent never answers a call that must reach a person', () => {
+  it('"allow always" for `rm -rf build` does not approve `rm -rf ~`', async () => {
+    const handler = vi.fn().mockResolvedValue('allow-session');
+    const enforcer = makeEnforcer({ getPermissionMode: () => 'default', permissionHandler: handler });
+    await expect(enforcer.checkPermission('Bash', { command: 'rm -rf build' })).resolves.toBe(true);
+    handler.mockResolvedValue(false);
+    await expect(enforcer.checkPermission('Bash', { command: 'rm -rf ~' })).resolves.toBe(false);
+    expect(handler).toHaveBeenCalledTimes(2);
+    // The ordinary remembered scope still answers an ordinary call.
+    await expect(enforcer.checkPermission('Bash', { command: 'rm -rf dist' })).resolves.toBe(true);
+    expect(handler).toHaveBeenCalledTimes(2);
+  });
+
+  it('"allow always" for `git status` does not answer the `git push` ask rule', async () => {
+    const handler = vi.fn().mockResolvedValue('allow-session');
+    const enforcer = makeEnforcer({
+      getPermissionMode: () => 'default',
+      config: { permissions: { allow: [], deny: [], ask: ['Bash(git push*)'] } },
+      permissionHandler: handler,
+    });
+    await enforcer.checkPermission('Bash', { command: 'git status' });
+    handler.mockResolvedValue(false);
+    await expect(enforcer.checkPermission('Bash', { command: 'git push' })).resolves.toBe(false);
+    expect(handler).toHaveBeenCalledTimes(2);
+  });
+
+  it('an "allow always" answer to a protected write is not remembered', async () => {
+    const handler = vi.fn().mockResolvedValue('allow-session');
+    const enforcer = makeEnforcer({ permissionHandler: handler });
+    const filePath = '/w/project/.robota/settings.json';
+    await expect(enforcer.checkPermission('Write', { filePath })).resolves.toBe(true);
+    expect(enforcer.getSessionAllowedTools()).toEqual([]);
+    handler.mockResolvedValue(false);
+    await expect(enforcer.checkPermission('Write', { filePath })).resolves.toBe(false);
+  });
+});
