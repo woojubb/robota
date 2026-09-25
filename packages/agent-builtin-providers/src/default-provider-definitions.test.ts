@@ -31,4 +31,18 @@ describe('createDefaultProviderDefinitions (ARCH-PROVIDER-002 golden)', () => {
     expect(costByType.deepseek).toBe(0.0001);
     expect(costByType.qwen).toBe(0.0002);
   });
+
+  it('declares, for every built-in provider, the environment its client reads to pick a destination', () => {
+    // A child process builds the provider from the parent's configuration; only a declared variable
+    // is compared before the parent's credential is handed over. An undeclared one is a gap.
+    for (const definition of createDefaultProviderDefinitions()) {
+      expect(definition.destinationEnvironment, definition.type).toBeDefined();
+    }
+    const byType = Object.fromEntries(
+      createDefaultProviderDefinitions().map((d) => [d.type, d.destinationEnvironment]),
+    );
+    expect(byType.anthropic).toContain('ANTHROPIC_BASE_URL');
+    expect(byType.openai).toContain('OPENAI_BASE_URL');
+    expect(byType.gemini).toContain('GOOGLE_GENAI_USE_VERTEXAI');
+  });
 });

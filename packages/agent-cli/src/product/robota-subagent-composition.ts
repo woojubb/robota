@@ -206,6 +206,7 @@ export function packTools(
 function createRobotaChildProcessSubagentRunner(options: {
   readonly packContext: IRobotaPackContext;
   readonly providerConfig: IProviderDefinitionConfig;
+  readonly providerDefinitions: readonly IProviderDefinition[];
   readonly logsDir: string;
   readonly workerEntry: Parameters<
     typeof createChildProcessSubagentRunnerFactory
@@ -220,6 +221,7 @@ function createRobotaChildProcessSubagentRunner(options: {
   return createChildProcessSubagentRunnerFactory({
     workerEntry: options.workerEntry,
     providerConfig: options.providerConfig,
+    providerDefinitions: options.providerDefinitions,
     logsDir: options.logsDir,
     worktreeAdapter: options.worktreeAdapter,
   });
@@ -283,6 +285,8 @@ export function createRobotaPackSet(
 export function createRobotaSubagentRunnerFactory(options: {
   readonly packContext: IRobotaPackContext;
   readonly providerConfig: IProviderDefinitionConfig;
+  /** The registry the parent's provider came from: the child is checked against what it declares. */
+  readonly providerDefinitions: readonly IProviderDefinition[];
   readonly reproduction: IProviderReproduction;
   readonly notice: (message: string) => void;
 }): TSubagentRunnerFactory {
@@ -293,6 +297,7 @@ export function createRobotaSubagentRunnerFactory(options: {
       createRobotaChildProcessSubagentRunner({
         packContext: options.packContext,
         providerConfig: options.providerConfig,
+        providerDefinitions: options.providerDefinitions,
         logsDir: join(homedir(), '.robota', 'logs'),
         workerEntry: resolveSelfForkWorkerEntry(),
         worktreeAdapter: createGitWorktreeIsolationAdapter(),

@@ -25,6 +25,7 @@ function validStartPayload(): ISubagentWorkerStartPayload {
     parentConfig: {},
     parentContext: { agentsMd: '', projectNotesMd: '' },
     providerProfile: { type: 'openai', model: 'test-model' },
+    connectionCheck: { names: ['HTTPS_PROXY'], nonce: 'n', digest: 'd' },
   } as unknown as ISubagentWorkerStartPayload;
 }
 
@@ -80,6 +81,15 @@ describe('isSubagentWorkerParentMessage', () => {
     expect(isSubagentWorkerParentMessage({ type: 'start', payload: worktreeNotAnObject })).toBe(
       false,
     );
+  });
+
+  it('rejects a start payload without the connection check the child must repeat', () => {
+    const payload = validStartPayload() as unknown as Record<string, unknown>;
+    delete payload.connectionCheck;
+    expect(isSubagentWorkerParentMessage({ type: 'start', payload })).toBe(false);
+    const badNames = validStartPayload() as unknown as Record<string, unknown>;
+    badNames.connectionCheck = { names: [1], nonce: 'n', digest: 'd' };
+    expect(isSubagentWorkerParentMessage({ type: 'start', payload: badNames })).toBe(false);
   });
 
   it('accepts a start payload carrying a well-formed worktree', () => {
