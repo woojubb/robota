@@ -61,7 +61,14 @@ export async function submitNewTurn(
       acceptSubmission(options, deps.execCtrl);
     // Before either branch: an idle submission returns only after its turn, and a caller that
     // answers on acceptance must not be held for the whole turn.
-    deps.onAccepted?.({ turnId, completed });
+    try {
+      deps.onAccepted?.({ turnId, completed });
+    } catch (error) {
+      // The turn is already registered; fail it so its handle settles like every accepted turn's.
+      const failure = error instanceof Error ? error : new Error(String(error));
+      deps.execCtrl.turns.fail(turnId, failure);
+      throw failure;
+    }
     if (options.signal?.aborted) {
       deps.execCtrl.turns.refuse(turnId, 'cancelled');
       return { turnId, completed };

@@ -20,6 +20,7 @@ import { createSessionStub } from './helpers/session-stub.js';
 import { acceptSubmission } from '../interactive-session-accept-submission.js';
 import { InteractiveSession } from '../interactive-session.js';
 import { SessionExecutionController } from '../interactive-session-execution-controller.js';
+import { submitNewTurn } from '../interactive-session-turn-submission.js';
 import type { IQueuedInput } from '../interactive-session-execution-controller.js';
 import type { ICommandResult } from '../../commands/index.js';
 import { TurnNotRunError } from '../turn-not-run-error.js';
@@ -132,6 +133,37 @@ describe('RUNTIME-003: a submission that never runs still answers its caller', (
     controller.clearPendingQueue();
 
     expect(await reasonOf(waiting.completed)).toBe('cancelled');
+  });
+});
+
+describe('RUNTIME-003: an acceptance callback cannot strand the turn it was told about', () => {
+  it('fails the accepted turn when onAccepted throws', async () => {
+    const controller = createController();
+    let accepted: Promise<unknown> | undefined;
+    const executeAcceptedTurn = vi.fn(async () => {});
+
+    await expect(
+      submitNewTurn(
+        'hello',
+        undefined,
+        undefined,
+        {},
+        {
+          execCtrl: controller,
+          ensureInitialized: async () => {},
+          executeAcceptedTurn,
+          emitDropped: vi.fn(),
+          isWakeStopped: () => false,
+          onAccepted: (handle) => {
+            accepted = handle.completed;
+            throw new Error('callback broke');
+          },
+        },
+      ),
+    ).rejects.toThrow('callback broke');
+
+    expect(executeAcceptedTurn).not.toHaveBeenCalled();
+    await expect(accepted).rejects.toThrow('callback broke');
   });
 });
 
