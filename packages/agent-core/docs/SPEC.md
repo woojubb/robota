@@ -49,6 +49,15 @@ The SSOT for "create this directory or file so only its owner can read it," for 
 
 Create, set the mode, then **verify** — the verification is load-bearing, not a belt-and-braces extra: it is what catches a filesystem that accepts `chmod` and silently ignores it. Windows cannot express owner-only through `chmod`; the module reports which guarantee (`posix-mode` or `windows-acl`) is actually in force rather than claiming POSIX semantics everywhere, and a project-local `.robota` inside a world-writable directory on Windows is **not** protected by this module. Exported from `@robota-sdk/agent-core/node` for the same reason as path containment: it reads and writes the filesystem.
 
+## Credential Store Port
+
+The contract for keeping a host's secrets — a string by a service-and-account key, read, written and
+removed, and nothing more — so a package that needs a secret kept takes the port without depending on
+the host that implements it, and an OS keychain and an owner-only file are interchangeable behind it.
+A store that cannot be read throws rather than reporting the secret absent. Coordination between
+readers (one refresh or one creator at a time) is the caller's, because a keychain offers no atomic
+create and the same lock must serve every backend.
+
 ## Permission Argument Registry
 
 Which argument a tool's permission patterns are scoped to is declared by the tool's own package, not resolved from a hardcoded table of product tool names in this vendor-neutral foundation — a hardcoded table could never know a product's full tool inventory, so an argument-scoped deny for an unknown tool could never match, and a `false` read from a deny list reads as "not denied," meaning the deny silently lost to any broader allow beside it and the invocation was auto-approved.

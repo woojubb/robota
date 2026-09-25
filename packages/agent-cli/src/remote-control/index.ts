@@ -1,7 +1,11 @@
+import { join } from 'node:path';
+
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { readSettings } from '@robota-sdk/agent-framework';
 import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
 
+import { createHostCredentialStore } from '../credentials/select-credential-store.js';
+import { userLocalStorageRoot } from '../product/user-paths.js';
 import { loadOrCreateHostIdentity } from './host-identity.js';
 import { parseIceServers } from './ice-config.js';
 import { renderQrToTerminal } from './render-qr.js';
@@ -66,6 +70,12 @@ export function createRemoteControlController(
   setChannel: (channel: ILiveChannel | undefined) => void;
 } {
   let channel: ILiveChannel | undefined;
+  const report = (message: string): void =>
+    channel?.stateManager.addEntry(messageToHistoryEntry(createSystemMessage(message)));
+  // The host identity key lives in the credential store: the OS keychain, or an owner-only file under
+  // ~/.robota where no keychain works. The backend is chosen at first use and named in the status.
+  const root = userLocalStorageRoot();
+  const credentials = createHostCredentialStore({ root, notify: report });
   const controller = new RemoteControlController({
     host: createRemoteControlTransportHost(registry),
     ...(usageReporters ? { usageReporters } : {}),
@@ -75,13 +85,19 @@ export function createRemoteControlController(
     readForceTurn: () => readWebrtcRawOption('forceTurn') === true,
     getSession: () => channel?.getSession(),
     renderQr: renderQrToTerminal,
-    reportError: (message) =>
-      channel?.stateManager.addEntry(messageToHistoryEntry(createSystemMessage(message))),
+    reportError: report,
     // REMOTE-012 E3: TOFU trusted-device reconnect is on by default — the host identity + device store live
     // under ~/.robota (like an SSH host key + known_hosts). A returning device reconnects without re-pairing;
     // a new device enrolls on first pair after the explicit accept.
     trustedDeviceStore: createTrustedDeviceStore(),
-    loadHostIdentity: () => loadOrCreateHostIdentity(),
+    loadHostIdentity: () =>
+      loadOrCreateHostIdentity({
+        store: credentials.store,
+        lockPath: join(root, 'remote-host-identity.lock'),
+        legacyFilePath: join(root, 'remote-host-identity.json'),
+        notify: report,
+      }),
+    describeKeyStorage: () => credentials.describe(),
   });
   return {
     controller,

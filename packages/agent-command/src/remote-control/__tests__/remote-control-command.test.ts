@@ -132,4 +132,25 @@ describe('executeRemoteControlCommand (REMOTE-008)', () => {
     expect(result.success).toBe(false);
     expect(result.message).toMatch(/usage/i);
   });
+
+  it('`status` names where the host key is kept', () => {
+    const result = executeRemoteControlCommand(
+      e3ctx({
+        describeKeyStorage: () =>
+          'owner-only file in /h/.robota/credentials (OS keychain unavailable: absent)',
+      }),
+      'status',
+    );
+    expect(result.message).toContain(
+      'Host key storage: owner-only file in /h/.robota/credentials (OS keychain unavailable: absent)',
+    );
+  });
+
+  it('`status` says the key storage is still to be chosen before any key was needed', () => {
+    const result = executeRemoteControlCommand(
+      e3ctx({ describeKeyStorage: () => undefined }),
+      'status',
+    );
+    expect(result.message).toMatch(/Host key storage: chosen when remote control is first enabled/);
+  });
 });

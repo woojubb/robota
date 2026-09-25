@@ -56,6 +56,8 @@ export interface IRemoteControlControllerDeps {
   trustedDeviceStore?: ITrustedDeviceStore;
   /** REMOTE-012 E3: load-or-create the host identity keypair (async). Absent → first-pair only, no TOFU reconnect. */
   loadHostIdentity?: () => Promise<IHostIdentity>;
+  /** Where the host identity key is kept, for `/remote-control status`; `undefined` until first chosen. */
+  describeKeyStorage?: () => string | undefined;
   /** Construction seams (default to the real implementations; overridden in unit tests). */
   createSignaling?: (url: string, rendezvous: string) => ISignalingClient;
   /** Test seam for the asynchronous reconnect-room derivation. */
@@ -112,6 +114,11 @@ export class RemoteControlController {
 
   getStatus(): TRemoteControlStatus {
     return this.status;
+  }
+
+  /** Where the host identity key is kept, or `undefined` while no backend has been chosen yet. */
+  describeKeyStorage(): string | undefined {
+    return this.deps.describeKeyStorage?.();
   }
 
   /** Enable remote control and return a shareable QR + link (or a fail-closed notice). Idempotent-ish: a
