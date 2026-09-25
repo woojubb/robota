@@ -57,7 +57,7 @@ The argument key is declared together with its **kind** (`path | url | command |
 
 The `command` kind is the only one whose answer differs between the allow and the deny direction. On the allow side, a wildcarded pattern refuses to match across shell separators or substitutions outside quotes (`Bash(git *)` matches `git status` but not `git status; rm -rf /`) — allow is permissive by construction, so it must not accidentally bless a compound line. On the deny side, the same glob is tried against the whole line AND against each command the line runs, because "cannot judge" on a deny must read as "not denied," and a lenient deny match would let a forbidden command hide behind an unrelated one earlier in the line. Both directions honor shell quoting.
 
-A pattern or argument that cannot be evaluated in its declared kind is a distinct outcome from "did not match," and `evaluatePermission` routes an unevaluable **deny** to a prompt (or an outright deny in `plan` mode) rather than falling through to the allow list — the same fail-closed principle as the command-kind asymmetry above, generalized to every kind.
+A pattern or argument that cannot be evaluated in its declared kind is a distinct outcome from "did not match," and `evaluatePermission` routes an unevaluable **deny** or **ask** pattern to an ask rather than falling through to the allow list — the same fail-closed principle as the command-kind asymmetry above, generalized to every kind. Ask patterns are read in the deny direction for the same reason: both mean stop and check.
 
 ## Model Metadata Registry
 
@@ -121,14 +121,17 @@ Plugin resource cleanup follows the same single entry point (`dispose()`, not an
 
 ## Permission System
 
-Deterministic, four-step policy evaluation, consumed by the session layer to gate tool execution before delegating to the actual tool:
+One evaluation order serves every caller. The interactive session, background tasks and subagents differ only in the context they pass, never in the order, because two orders let the same call be decided differently depending on who made it; a background policy therefore contributes a ceiling, an ask-everything flag and the task's own lists, not a resolver of its own.
 
-1. **Deny list match** — any matching deny pattern returns `deny` immediately.
-2. **Deny list unevaluable** — if a deny pattern is argument-scoped and either no owner has declared which argument this tool's patterns are about, or the argument/pattern cannot be interpreted in its declared kind, the deny cannot be evaluated and the gate prompts (or denies outright in `plan` mode) rather than continuing to the allow list. This is the fail-closed complement to step 3: an unevaluable deny must never be treated as "no deny applies."
-3. **Allow list match** — any matching allow pattern returns `auto` (proceed without prompting).
-4. **Mode policy lookup** — falls back to the tool's declared risk class (`inspect`/`modify`/`execute`) crossed with the current permission mode. A tool whose owner declared no risk class prompts and is refused outright in `plan` mode, rather than defaulting to permissive — an unclassified tool must be at least as cautious as a hand-classified risky one.
+Invariants the order keeps:
 
-The risk-class-to-decision matrix intentionally names no concrete product tool: read-only tools auto-proceed in every mode including `plan`; write and shell-execution tools are denied in `plan`, prompt in `default`, and only shell/execute-class actions still prompt in `acceptEdits` (write actions become automatic there); everything is automatic only under the most permissive mode. This vendor-neutral foundation cannot know a product's full tool inventory, so classification is declared by the package that defines each tool, not read from a hardcoded name table here — a hardcoded matrix previously drifted from the actual tool set and left newly produced tools prompting (or refused in `plan`) by default until their owner declared a class.
+- **Nothing later softens a denial.** A matching deny rule and a caller's ceiling outrank every ask, every allow and every mode, bypass included. A call outside the ceiling is refused rather than offered to a person.
+- **Some calls always reach a person.** A deny or ask rule that cannot be evaluated, an explicit ask rule, the removal of a critical path (the filesystem root, a top-level directory, home, the working directory or a parent), and a modify-class write into a location that configures the repository, the agent, git, npm, MCP or the user's shell all ask in every mode. Bypass is not exempt, unlike Claude Code: here bypass also reaches unattended subagents and SDK runs, where a silent write to configuration would widen trust for later turns and child sessions. Only what a tool's declared argument shows can be judged this way; a shell command writing into those locations is the containment seam's concern, not the gate's.
+- **Bypass and allow rules only answer what is left.** They turn a remaining question into proceeding and never override one of the answers above.
+- **An ask resolves to a person where an approver is attached and to a denial where none is**, so a detached caller and an attended one share the order and differ only in who answers.
+- **Plan mode changes nothing.** An ask about anything but an inspect-class call is a denial there, and a tool with no declared risk class is refused.
+
+The mode itself decides only by the tool's declared risk class (`inspect`/`modify`/`execute`), and the matrix intentionally names no concrete product tool: this vendor-neutral foundation cannot know a product's tool inventory, so classification is declared by the package that defines each tool — a hardcoded matrix previously drifted from the actual tool set. A tool with no declared class prompts rather than defaulting to permissive, so an unclassified tool is at least as cautious as a hand-classified risky one.
 
 ## Hook System
 

@@ -58,7 +58,7 @@ export interface ISessionOptions {
    */
   cwd: string;
   /** Permission and hook configuration */
-  permissions?: { allow: string[]; deny: string[] };
+  permissions?: { allow: string[]; deny: string[]; ask?: string[] };
   /**
    * ARCH-040 Group C (issue #1934): the permission rules BEFORE any preset contributed.
    *

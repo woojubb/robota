@@ -70,7 +70,8 @@ import { createQuery } from '@robota-sdk/agent-framework';
 import { createAnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 // createQuery returns a prompt-only function. cwd defaults to process.cwd();
-// permissionMode defaults to 'bypassPermissions' for programmatic use.
+// permissionMode defaults to 'default': with no permissionHandler, a tool call that
+// would ask is denied. Pass permissionMode: 'bypassPermissions' for unattended runs.
 const query = createQuery({
   provider: createAnthropicProvider({
     apiKey: process.env.ANTHROPIC_API_KEY,

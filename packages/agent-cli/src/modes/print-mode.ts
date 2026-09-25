@@ -143,7 +143,9 @@ export async function runPrintMode(
     // provider's error and a non-zero exit, instead of a silent substitution succeeding with exit 0).
     ...(presetOptions.model !== undefined ? { model: presetOptions.model } : {}),
     ...(presetOptions.outputStyle !== undefined ? { outputStyle: presetOptions.outputStyle } : {}),
-    permissionMode: args.permissionMode ?? presetOptions.permissionMode ?? 'bypassPermissions',
+    // Issue #3081: `default`, not bypass. Print mode has no approver, so anything that would ask is
+    // denied; `--permission-mode` (or a preset) states a wider mode where one is wanted.
+    permissionMode: args.permissionMode ?? presetOptions.permissionMode ?? 'default',
     baselinePermissionAllow: ROBOTA_PERMISSION_BASELINE,
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,

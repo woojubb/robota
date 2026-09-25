@@ -5,7 +5,7 @@ import {
   matchesAnyPattern,
   registerToolPermissionProfile,
 } from '../permission-gate.js';
-import { resolvePermissionByPolicy } from '../permission-policy.js';
+import { decideByPolicy } from './policy-decision.js';
 
 /**
  * Issue #2427's fix made the `command` matcher answer `no-match` for any argument carrying an
@@ -102,7 +102,7 @@ describe('issue #2427 regression — the separator rule is an ALLOW-side rule on
 
   it('the background/subagent policy resolver denies a chained command too (CORE-025)', () => {
     expect(
-      resolvePermissionByPolicy(
+      decideByPolicy(
         'preapproved',
         'Bash',
         { command: 'rm -rf / ; echo done' },
@@ -110,7 +110,7 @@ describe('issue #2427 regression — the separator rule is an ALLOW-side rule on
       ),
     ).toBe('deny');
     expect(
-      resolvePermissionByPolicy(
+      decideByPolicy(
         'inherit-allowlist',
         'Bash',
         { command: 'git status && rm -rf /' },

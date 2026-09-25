@@ -99,7 +99,9 @@ const MATRIX_CASES: IMatrixCase[] = [
     args: { filePath: '/src/foo.ts', oldString: 'a', newString: 'b' },
     expected: 'auto',
   },
-  { mode: 'bypassPermissions', toolName: 'Bash', args: { command: 'rm -rf /' }, expected: 'auto' },
+  { mode: 'bypassPermissions', toolName: 'Bash', args: { command: 'rm -rf build' }, expected: 'auto' },
+  // Issue #3081: removing a critical path is never auto-approved, bypass included.
+  { mode: 'bypassPermissions', toolName: 'Bash', args: { command: 'rm -rf /' }, expected: 'approve' },
   { mode: 'bypassPermissions', toolName: 'Glob', args: { pattern: '**' }, expected: 'auto' },
   { mode: 'bypassPermissions', toolName: 'Grep', args: { pattern: 'x' }, expected: 'auto' },
 ];

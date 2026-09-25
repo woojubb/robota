@@ -85,3 +85,39 @@ describe('in-process subagent effort projection (BEHAVIOR-009)', () => {
     );
   });
 });
+
+describe('the parent rules a subagent inherits (issue #3081)', () => {
+  it('are the rules the parent gate enforces now, read at each spawn', () => {
+    const session = {
+      run: vi.fn().mockResolvedValue('done'),
+      abort: vi.fn(),
+      getFullHistory: vi.fn().mockReturnValue([]),
+    };
+    mocks.createSubagentSession.mockReturnValue(session);
+    let live = { allow: ['Read(*)'], deny: [], ask: [] as string[] };
+    const runner = createInProcessSubagentRunner({
+      ...deps(),
+      config: {
+        provider: {},
+        hooks: undefined,
+        permissions: { allow: [], deny: [] },
+      } as unknown as IResolvedConfig,
+      getParentPermissionRules: () => live,
+    });
+
+    runner.start(job());
+    expect(mocks.createSubagentSession).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        parentConfig: expect.objectContaining({ permissions: live }),
+      }),
+    );
+
+    live = { allow: ['Read(*)', 'Grep(*)'], deny: ['Bash'], ask: [] };
+    runner.start(job());
+    expect(mocks.createSubagentSession).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        parentConfig: expect.objectContaining({ permissions: live }),
+      }),
+    );
+  });
+});

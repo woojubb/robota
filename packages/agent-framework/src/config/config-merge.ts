@@ -25,8 +25,9 @@ export const SETTINGS_MERGE_RULES: Readonly<Record<string, TSettingsMergeRule>> 
   defaultTrustLevel: 'most-restrictive',
   disabledHooks: 'accumulate',
   provider: 'object-merge',
-  'permissions.allow': 'replace',
+  'permissions.allow': 'union',
   'permissions.deny': 'union',
+  'permissions.ask': 'union',
   env: 'object-merge',
   providers: 'object-merge',
   enabledPlugins: 'object-merge',
@@ -146,11 +147,13 @@ function mergePermissions(
 ): TEnvResolvedSettings['permissions'] {
   if (base === undefined && override === undefined) return undefined;
   return {
-    // `allow` REPLACES: an allowlist states the complete permitted set, so a later, more specific
-    // layer supersedes the earlier answer. Unchanged — this already conformed.
-    allow: override?.allow ?? base?.allow,
-    // `deny` UNIONS: a denial is not weakened by a later layer that forgot to repeat it.
-    deny: unionDeny(base?.deny, override?.deny),
+    // Every list UNIONS (issue #3081). An allow list is no longer "the complete permitted set" —
+    // deny and ask rules, the never-auto-approve set and a caller's ceiling all outrank it — and
+    // replacing let a checked-in project file silently discard the user's own rules.
+    allow: unionPatterns(base?.allow, override?.allow),
+    // A denial is not weakened by a later layer that forgot to repeat it; nor is an ask.
+    deny: unionPatterns(base?.deny, override?.deny),
+    ask: unionPatterns(base?.ask, override?.ask),
   };
 }
 
@@ -209,7 +212,7 @@ function mergeHooks(
 }
 
 /**
- * Combine two denylists.
+ * Combine two pattern lists from successive layers.
  *
  * **This is not a new rule — it is the repository's rule, applied at the one site that disagreed.**
  * `agent-core`'s `applyPresetToolLists` states and implements it for the preset layer:
@@ -229,7 +232,7 @@ function mergeHooks(
  *
  * Deduplicated and order-preserving, matching `applyPresetToolLists`.
  */
-function unionDeny(
+function unionPatterns(
   base: readonly string[] | undefined,
   layer: readonly string[] | undefined,
 ): string[] | undefined {

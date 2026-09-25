@@ -31,7 +31,10 @@ export interface ICreateQueryOptions {
   projectAccess?: TWorkspaceProjectAccess;
   /** Explicit user settings layers for this query's session. */
   userSettingsSources?: readonly INodeHostSettingsSource[];
-  /** Permission mode. Defaults to 'bypassPermissions' for programmatic use. */
+  /**
+   * Permission mode. Defaults to `'default'`: with no `permissionHandler`, anything that would ask is
+   * denied (issue #3081). Pass `'bypassPermissions'` explicitly for unattended driving.
+   */
   permissionMode?: TPermissionMode;
   /** Maximum agentic turns per query. */
   maxTurns?: number;
@@ -120,7 +123,7 @@ export function createQuery(options: ICreateQueryOptions): TQueryFunction {
     ...(options.userSettingsSources !== undefined
       ? { userSettingsSources: options.userSettingsSources }
       : {}),
-    permissionMode: options.permissionMode ?? 'bypassPermissions',
+    permissionMode: options.permissionMode ?? 'default',
     maxTurns: options.maxTurns,
     additionalTools: options.additionalTools,
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),

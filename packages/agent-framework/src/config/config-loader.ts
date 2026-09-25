@@ -29,6 +29,7 @@ const DEFAULTS: IResolvedConfig = {
   permissions: {
     allow: [],
     deny: [],
+    ask: [],
   },
   env: {},
 };
@@ -170,6 +171,7 @@ function toResolvedConfig(merged: TEnvResolvedSettings): IResolvedConfig {
     permissions: {
       allow: merged.permissions?.allow ?? DEFAULTS.permissions.allow,
       deny: merged.permissions?.deny ?? DEFAULTS.permissions.deny,
+      ask: merged.permissions?.ask ?? DEFAULTS.permissions.ask,
     },
     env: merged.env ?? DEFAULTS.env,
     hooks: merged.hooks ?? undefined,

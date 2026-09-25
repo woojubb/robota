@@ -2,13 +2,24 @@
 
 ## Permission System
 
-Defined in `agent-core`, consumed by `agent-session`. Provides deterministic 3-step policy evaluation for tool calls.
+Defined in `agent-core`, consumed by `agent-session`. One deterministic evaluation order serves every caller — the interactive session, background tasks and subagents.
 
 ### Evaluation Algorithm
 
-1. **Deny list** — If any deny pattern matches, return `deny`
-2. **Allow list** — If any allow pattern matches, return `auto` (no prompt)
-3. **Mode policy** — Look up the tool in the mode matrix
+1. **Deny list**: if any deny pattern matches, return `deny`.
+2. **Ceiling**: a background task or subagent carries one (its policy's allow list). A call outside it is `deny` in every mode.
+3. **Unevaluable deny**: a deny pattern the gate cannot evaluate returns `approve` (ask).
+4. **Never auto-approved**: return `approve` in every mode, `bypassPermissions` included, for:
+   - an `ask` pattern match;
+   - removing a critical path with `rm`/`rmdir` (the root, a top-level directory, home, the working directory or a parent);
+   - a write into `.git`, `.robota`, `.claude`, `.agents`, `.mcp.json`, `.gitconfig`, `.npmrc` or a shell rc file.
+5. **bypassPermissions**: return `auto`.
+6. **Allow list**: if any allow pattern matches, return `auto` (no prompt).
+7. **Mode policy**: look up the tool's risk class in the mode matrix.
+
+`approve` goes to the attached approver, and with no approver it is a denial. In `plan` mode, `approve` for anything but a read-only tool is a denial.
+
+Print mode (`robota -p`), `createQuery()` and headless sessions default to `default` mode and have no approver, so a call that would ask is denied. Pass `--permission-mode` / `permissionMode` to choose another mode.
 
 ### Permission Modes
 
@@ -36,10 +47,13 @@ ToolName             # Match any invocation (no arg constraint)
 {
   "permissions": {
     "allow": ["Read(*)", "Glob(*)", "Grep(*)", "Bash(pnpm *)"],
-    "deny": ["Bash(rm -rf *)"]
+    "deny": ["Bash(rm -rf *)"],
+    "ask": ["Bash(git push *)"]
   }
 }
 ```
+
+Each list is the union of every settings layer that sets it: a project file adds to the user's rules and never replaces them.
 
 ## Hook System
 

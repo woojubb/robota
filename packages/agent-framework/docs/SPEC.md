@@ -161,8 +161,10 @@ These are behaviors a caller cannot infer from a type signature alone.
   naming the type and the missing option, rather than being silently discarded at every tool call.
 - **Settings layers merge per key, and the rule is chosen for safety, not uniformity.** Layers are
   read user-first, project-later; the later (lower-trust) layer overrides by default, except:
-  `defaultTrustLevel` keeps the most restrictive value; `permissions.deny` is unioned while
-  `permissions.allow` is replaced; `disabledHooks` accumulates; provider/env/plugin/task-context objects
+  `defaultTrustLevel` keeps the most restrictive value; every `permissions` list (allow, deny, ask)
+  is unioned, because an allow list is not the complete permitted set once deny, ask and ceiling
+  rules outrank it, and replacing let a checked-in project file silently drop the user's rules;
+  `disabledHooks` accumulates; provider/env/plugin/task-context objects
   merge field by field; and `hooks` merge per lifecycle event, appending each layer's groups, so a later
   project layer can only _add_ hooks and can never remove a user's guard by declaring an unrelated one.
   A hook group may carry an `id`; a layer may disable only ids declared by later layers, so a user can

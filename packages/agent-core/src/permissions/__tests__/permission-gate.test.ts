@@ -6,7 +6,7 @@ import {
   matchesAnyPattern,
   registerToolPermissionProfile,
 } from '../permission-gate.js';
-import { resolvePermissionByPolicy } from '../permission-policy.js';
+import { decideByPolicy } from './policy-decision.js';
 
 /**
  * CORE-030: the argument key a pattern like `Bash(pnpm *)` is matched against is declared by the
@@ -222,7 +222,7 @@ describe('CORE-049 — url kind: a host pattern means a host', () => {
       expect(evaluatePermission('WebFetch', { url }, 'acceptEdits', deny), url).toBe('approve');
       expect(evaluatePermission('WebFetch', { url }, 'plan', deny), url).toBe('deny');
       expect(
-        resolvePermissionByPolicy(
+        decideByPolicy(
           'inherit-allowlist',
           'WebFetch',
           { url },
@@ -250,7 +250,7 @@ describe('CORE-049 — url kind: a host pattern means a host', () => {
         'deny',
       );
       expect(
-        resolvePermissionByPolicy(
+        decideByPolicy(
           'inherit-allowlist',
           'WebFetch',
           { url: 'https://x/' },
@@ -416,7 +416,7 @@ describe("CORE-049 — command and text kinds keep today's glob; the declaration
     expect(evaluatePermission('Keyless', {}, 'default', { allow: ['Keyless(*)'] })).toBe('auto');
     expect(evaluatePermission('Keyless', {}, 'plan', { allow: ['Keyless(*)'] })).toBe('auto');
     expect(
-      resolvePermissionByPolicy('preapproved', 'Keyless', {}, { taskAllow: ['Keyless(*)'] }),
+      decideByPolicy('preapproved', 'Keyless', {}, { taskAllow: ['Keyless(*)'] }),
     ).toBe('allow');
   });
 
