@@ -3,8 +3,9 @@
  *
  * The host adds one unbound instance to the session's tools. Session assembly binds it to the session
  * that holds it — and a subagent assembled in process binds its own copy to the subagent's session —
- * so each consultation reads the conversation of the model that asked. Every bound copy shares the
- * template's schema object, which is also how a copy is recognised behind a wrapper.
+ * so each consultation reads the conversation of the model that asked. A subagent's copy still records
+ * the advisor's usage where its parent's does, so the session's totals include it. Every bound copy
+ * shares the template's schema object, which is also how a copy is recognised behind a wrapper.
  */
 
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
@@ -17,7 +18,6 @@ import type {
   IHistoryEntry,
   IToolSchema,
   IToolWithEventService,
-  TToolArgs,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
 
@@ -47,12 +47,37 @@ export interface IAdvisorSessionAccess {
   addHistoryEntry(entry: IHistoryEntry): void;
 }
 
-const controllers = new WeakMap<IToolSchema, AdvisorController>();
+type TAccess = () => IAdvisorSessionAccess | undefined;
 
-function buildTool(
-  controller: AdvisorController,
-  access: () => IAdvisorSessionAccess | undefined,
-): IToolWithEventService {
+interface IBinding {
+  readonly controller: AdvisorController;
+  /** Where usage is recorded: the first session the tool was bound to. */
+  readonly usage?: TAccess;
+}
+
+const bindings = new WeakMap<IToolSchema, AdvisorController>();
+const usageSinks = new WeakMap<IToolWithEventService, TAccess>();
+
+/**
+ * The turn a call belongs to: the execution id the current turn's user message carries. Unlike a
+ * count of user messages it does not move when compaction shortens the history, and two turns never
+ * share it.
+ */
+export function advisorTurnId(history: readonly TUniversalMessage[]): string {
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const message = history[index]!;
+    if (message.role !== 'user') continue;
+    const executionId = message.metadata?.['executionId'];
+    if (typeof executionId === 'string' && executionId.length > 0) return executionId;
+  }
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const message = history[index]!;
+    if (message.role === 'user') return message.id;
+  }
+  return 'no-turn';
+}
+
+function buildTool(binding: IBinding, access: TAccess): IToolWithEventService {
   return createZodFunctionTool(
     ADVISOR_TOOL_NAME,
     ADVISOR_TOOL_DESCRIPTION,
@@ -62,15 +87,18 @@ function buildTool(
       if (session === undefined) {
         return 'Advisor is not available in this context. Continue on your own judgement.';
       }
-      const consultation = await controller.consult({
+      const history = session.getHistory();
+      const usageSession = binding.usage?.() ?? session;
+      const consultation = await binding.controller.consult({
         ...(parameters.question !== undefined ? { question: parameters.question } : {}),
-        history: session.getHistory(),
+        history,
         systemPrompt: session.getSystemMessage(),
-        mainVendor: session.getProviderId(),
+        mainProviderId: session.getProviderId(),
         sessionId: session.getSessionId(),
+        turnId: advisorTurnId(history),
         ...(context?.ask !== undefined ? { ask: context.ask } : {}),
         ...(context?.signal !== undefined ? { signal: context.signal } : {}),
-        recordUsage: (entry) => session.addHistoryEntry(entry),
+        recordUsage: (entry) => usageSession.addHistoryEntry(entry),
       });
       return consultation.text;
     },
@@ -79,44 +107,56 @@ function buildTool(
 
 /** The unbound tool a host adds to a session's tools when the advisor is configured at start. */
 export function createAdvisorTool(controller: AdvisorController): IToolWithEventService {
-  const tool = buildTool(controller, () => undefined);
-  controllers.set(tool.schema, controller);
+  const tool = buildTool({ controller }, () => undefined);
+  bindings.set(tool.schema, controller);
   return tool;
 }
 
 /** The controller behind an Advisor tool, bound or not, wrapped or not. */
 export function advisorControllerOf(tool: IToolWithEventService): AdvisorController | undefined {
-  return controllers.get(tool.schema);
+  return bindings.get(tool.schema);
+}
+
+function findUsageSink(tool: IToolWithEventService): TAccess | undefined {
+  const direct = usageSinks.get(tool);
+  if (direct !== undefined) return direct;
+  // A wrapper keeps the bound tool as its delegate.
+  const delegate = (tool as unknown as { delegate?: IToolWithEventService }).delegate;
+  return delegate !== undefined ? findUsageSink(delegate) : undefined;
 }
 
 /**
  * Replace every Advisor tool in `tools` with a copy bound to `access`. The copy keeps the template's
- * schema object, so the schema the provider sees is identical before and after.
+ * schema object, so the schema the provider sees is identical before and after. A tool already bound
+ * to a session keeps recording usage there.
  */
 export function bindAdvisorTools(
   tools: readonly IToolWithEventService[],
-  access: () => IAdvisorSessionAccess | undefined,
+  access: TAccess,
 ): IToolWithEventService[] {
   return tools.map((tool) => {
-    const controller = controllers.get(tool.schema);
+    const controller = bindings.get(tool.schema);
     if (controller === undefined) return tool;
-    const bound = buildTool(controller, access);
+    const usage = findUsageSink(tool) ?? access;
+    const bound = buildTool({ controller, usage }, access);
     (bound as { schema: IToolSchema }).schema = tool.schema;
+    usageSinks.set(bound, usage);
     return bound;
   });
 }
 
 /**
- * Show the advisor's model on the Advisor tool line: the start event's first argument is what the
- * transcript prints beside the tool name.
+ * What the transcript shows beside the Advisor tool's name: the advisor's model. `undefined` for any
+ * other tool, or when `schemas` hold no Advisor tool.
  */
-export function labelAdvisorToolStart<
-  TEvent extends { type: 'start' | 'end'; toolName: string; toolArgs?: TToolArgs },
->(tools: readonly IToolWithEventService[], event: TEvent): TEvent {
-  if (event.type !== 'start' || event.toolName !== ADVISOR_TOOL_NAME) return event;
-  const controller = tools
-    .map((tool) => controllers.get(tool.schema))
-    .find((candidate) => candidate !== undefined);
-  if (controller === undefined) return event;
-  return { ...event, toolArgs: { advisor: controller.displayLabel(), ...(event.toolArgs ?? {}) } };
+export function advisorToolLineLabel(
+  toolName: string,
+  schemas: readonly IToolSchema[],
+): string | undefined {
+  if (toolName !== ADVISOR_TOOL_NAME) return undefined;
+  for (const schema of schemas) {
+    const controller = bindings.get(schema);
+    if (controller !== undefined) return controller.displayLabel();
+  }
+  return undefined;
 }

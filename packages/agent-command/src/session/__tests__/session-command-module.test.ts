@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { calculateModelCost } from '@robota-sdk/agent-core';
 import type {
   ICommandCostBudget,
   ICommandCostBudgetAdapter,
@@ -388,6 +389,27 @@ describe('createSessionCommandModule', () => {
     expect((result?.data as Record<string, unknown>)?.inputTokens).toBe(45_000);
     expect((result?.data as Record<string, unknown>)?.outputTokens).toBe(12_000);
     expect((result?.data as Record<string, unknown>)?.estimatedCostUsd).toBeDefined();
+  });
+
+  it('adds separately priced usage (an advisor model) at its own price, not the session model rate', async () => {
+    const own = calculateModelCost('claude-sonnet-4-5', 40_000, 10_000)!;
+    const runtime = {
+      ...createRuntime(),
+      getSessionTokenUsage: () => ({
+        inputTokens: 45_000,
+        outputTokens: 12_000,
+        separatelyPriced: { inputTokens: 5_000, outputTokens: 2_000, costUsd: 1.5 },
+      }),
+      getModelId: () => 'claude-sonnet-4-5',
+    };
+    const context = { ...createCommandContext(), getSession: () => runtime };
+    const executor = new SystemCommandExecutor([
+      ...(createSessionCommandModule().systemCommands ?? []),
+    ]);
+
+    const result = await executor.execute('cost', context, '');
+
+    expect((result?.data as Record<string, unknown>)?.estimatedCostUsd).toBeCloseTo(own + 1.5, 10);
   });
 
   /**

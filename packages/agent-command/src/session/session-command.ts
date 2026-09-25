@@ -129,7 +129,15 @@ function buildCostOutput(context: TCostCommandContext): {
     data.outputTokens = tokenUsage.outputTokens;
 
     if (modelId) {
-      const cost = calculateCost(modelId, tokenUsage.inputTokens, tokenUsage.outputTokens);
+      // Usage that carried its own price (another model's, such as the advisor's) is added at that
+      // price; only the rest is priced at this session's model.
+      const priced = tokenUsage.separatelyPriced;
+      const ownCost = calculateCost(
+        modelId,
+        tokenUsage.inputTokens - (priced?.inputTokens ?? 0),
+        tokenUsage.outputTokens - (priced?.outputTokens ?? 0),
+      );
+      const cost = ownCost === undefined ? undefined : ownCost + (priced?.costUsd ?? 0);
       if (cost !== undefined) {
         lines.push(`Cost:     ${formatUsd(cost)}  (${modelId})`);
         data.estimatedCostUsd = cost;

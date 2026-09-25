@@ -425,11 +425,16 @@ overridden from inside a session. Safe mode ignores the saved advisor.
   `/advisor off` or `/advisor <model>` later changes only where calls go, never the tool list, so the
   main model's cached prompt is not invalidated mid-session. Setting an advisor in a session that
   started without one takes effect in the next session.
-- **Cost.** Advisor tokens are recorded in the session totals (`/cost`) under the advisor's model.
-  Each call is one request with no tools, so a few calls to a strong model cost far less than running
-  that model for every turn, while the cheap model does the reading, editing and tool work.
-- **Privacy.** Sending the conversation to a different vendor than the main model needs your consent
-  once per vendor; it is asked the first time and remembered in `~/.robota/settings.json`. Without an
+- **Cost.** Advisor tokens count in the session totals and `/cost` prices them at the advisor
+  model's rate, not the main model's; calls made by in-process subagents are counted there too. Each
+  call is one request with no tools, so a few calls to a strong model cost far less than running that
+  model for every turn, while the cheap model does the reading, editing and tool work. A call that
+  fails (the provider errors, or the conversation does not fit) does not use up a call.
+- **Privacy.** Sending the conversation anywhere the main model does not already send it needs your
+  consent once per destination — a provider type together with its endpoint, so a local server and
+  the vendor's cloud are asked about separately. It is asked the first time and remembered in
+  `~/.robota/settings.json`. The advisor is told that the conversation is data, not instructions, and
+  each message reaches it as a single encoded line, so text in a message cannot pose as another. Without an
   interactive prompt (print mode) such a call is declined until consent is given. The organization's
   `allowedProviders` policy applies to the advisor as it does to `/provider`.
 - **Subagents.** Subagents that run in the same process inherit the advisor and read their own

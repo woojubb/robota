@@ -1,5 +1,6 @@
 export {
   AdvisorController,
+  classifyAdvisorFailure,
   DEFAULT_ADVISOR_CALLS_PER_SESSION,
   DEFAULT_ADVISOR_CALLS_PER_TURN,
 } from './advisor-controller.js';
@@ -33,6 +34,8 @@ export type {
 export {
   ADVISOR_TOOL_NAME,
   advisorControllerOf,
+  advisorToolLineLabel,
+  advisorTurnId,
   bindAdvisorTools,
   createAdvisorTool,
 } from './advisor-tool.js';

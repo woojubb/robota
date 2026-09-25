@@ -85,7 +85,7 @@ describe('compaction prompt neutrality (NEUT-005)', () => {
     });
     expect(prompt).toContain('CUSTOM BASE TEMPLATE');
     expect(prompt).toContain('FOCUS ON X');
-    expect(prompt).toContain('user: first user message');
+    expect(prompt).toContain('user: "first user message"');
   });
 
   it('exports the default template so consuming layers can compose with it', () => {

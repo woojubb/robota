@@ -16,7 +16,11 @@ function advisorController(options: {
     ...(options.registered ? { spec: { profile: 'strong' } } : {}),
     resolveTarget: (spec) => {
       if (spec.profile === 'missing') throw new Error('Provider profile "missing" not found.');
-      return { provider: {} as IAIProvider, model: `${spec.profile}-model`, vendor: 'vendor-a' };
+      return {
+        provider: {} as IAIProvider,
+        model: `${spec.profile}-model`,
+        destination: 'vendor-a@default',
+      };
     },
     consent: { has: () => true, grant: () => undefined },
     ...(options.allowed ? { allowedProfiles: options.allowed } : {}),

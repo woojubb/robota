@@ -285,9 +285,9 @@ person is never shown "no history" when history could not actually be read.
   actually be compacted (system messages excluded), not the full history, since a fresh session
   holds only a system message before its first turn and that must not be replaced with an empty
   summary. No hook fires and no compaction event is recorded for a no-op.
-- A conversation handed to a model as text keeps its tool calls and results, and marks a user
-  message a peer session sent as coming from that peer — a peer's words must never read as the
-  operator's own. Compaction and every other such consumer use the one rendering, so what a summary
+- A conversation handed to a model as text keeps its tool calls and results, marks a user message
+  a peer session sent as coming from that peer, and holds each message to its own encoded line — a
+  peer's words must never read as the operator's own, and no content can pose as another message. Compaction and every other such consumer use the one rendering, so what a summary
   keeps and what another reader sees cannot drift apart.
 - Auto-compaction triggers at the _start_ of a run (before the new user message is processed), so
   it cannot interfere with an in-flight response stream.

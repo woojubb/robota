@@ -243,8 +243,11 @@ These are behaviors a caller cannot infer from a type signature alone.
 - **The advisor never changes the main model's tool list mid-session.** Whether a session has the
   Advisor tool is decided once, when it starts; turning the advisor off or pointing it at another
   model changes only where calls go, because the main model's prompt cache is keyed on its tools.
-  Conversation history reaches another vendor only after the user consented to that vendor, and
-  never reaches a profile outside the organization's allowlist. Its answer is framed as guidance to
+  Conversation history reaches a destination the main model does not already use — a provider type
+  and endpoint, since one type can front both a local server and a vendor's cloud — only after the
+  user consented to that destination, and never reaches a profile outside the organization's
+  allowlist. The call limits hold for calls a round issues in parallel, and a call that never
+  reached the advisor does not count against them. Its answer is framed as guidance to
   check against the main model's own evidence, because the advisor sees only what the main model
   was shown and can verify nothing itself.
 - **Background wake tracking is cleared on every exit path, not just the happy one.** A background

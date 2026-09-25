@@ -2,7 +2,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
 
@@ -11,6 +11,7 @@ import {
   ADVISOR_CONSENT_SETTING_KEY,
   composeCliAdvisor,
   createSettingsAdvisorConsentStore,
+  describeProviderDestination,
 } from '../advisor-composition.js';
 
 import type { ICliAdvisorInput } from '../advisor-composition.js';
@@ -29,6 +30,8 @@ beforeEach(() => {
       providers: {
         main: { type: 'vendor-a', model: 'main-model', apiKey: 'k' },
         strong: { type: 'vendor-b', model: 'strong-model', apiKey: 'k' },
+        local: { type: 'vendor-a', model: 'local-model', baseURL: 'http://localhost:11434/v1' },
+        cloud: { type: 'vendor-a', model: 'cloud-model', baseURL: 'https://API.vendor-a.test/v1' },
       },
     }),
   );
@@ -52,6 +55,10 @@ function input(overrides: Partial<ICliAdvisorInput> = {}): ICliAdvisorInput {
     settingsSources: [createNodeHostSettingsSource('user', settingsPath)],
     providerDefinitions,
     userSettingsPath: settingsPath,
+    mainProvider: {
+      id: 'vendor-a',
+      config: { name: 'vendor-a', baseURL: 'https://api.vendor-a.test/v2' },
+    },
     ...overrides,
   };
 }
@@ -108,6 +115,58 @@ describe('composeCliAdvisor', () => {
     expect(advisor.controller.set('strong').success).toBe(true);
     expect(advisor.controller.displayLabel()).toBe('strong-model');
     expect(advisor.controller.set('nope').success).toBe(false);
+  });
+});
+
+describe('advisor destination', () => {
+  it('is the provider type with the host it talks to', () => {
+    expect(
+      describeProviderDestination(
+        { name: 'vendor-a', baseURL: 'https://API.Vendor-A.test/v1' },
+        providerDefinitions,
+      ),
+    ).toBe('vendor-a@api.vendor-a.test');
+    expect(describeProviderDestination({ name: 'vendor-a' }, providerDefinitions)).toBe(
+      'vendor-a@default',
+    );
+  });
+
+  it('needs consent for a profile of the main provider type on another endpoint', async () => {
+    const advisor = composeCliAdvisor(input({ flag: 'local' }));
+    const result = await advisor.controller.consult({
+      history: [],
+      systemPrompt: 's',
+      mainProviderId: 'vendor-a',
+      sessionId: 's',
+      turnId: 't',
+    });
+    expect(result.outcome).toBe('declined');
+    expect(result.text).toContain('vendor-a@localhost:11434');
+    expect(result.text).toContain('consent');
+  });
+
+  it('needs no consent for a profile on the host the main provider already uses', async () => {
+    const chat = vi.fn(async () => ({
+      id: 'a',
+      role: 'assistant' as const,
+      content: 'advice',
+      state: 'complete' as const,
+      timestamp: new Date(),
+    }));
+    const definitions = providerDefinitions.map((definition) => ({
+      ...definition,
+      createProvider: (config: IProviderDefinitionConfig) =>
+        ({ name: config.name, chat }) as unknown as IAIProvider,
+    }));
+    const advisor = composeCliAdvisor(input({ flag: 'cloud', providerDefinitions: definitions }));
+    const result = await advisor.controller.consult({
+      history: [],
+      systemPrompt: 's',
+      mainProviderId: 'vendor-a',
+      sessionId: 's',
+      turnId: 't',
+    });
+    expect(result.outcome).toBe('answered');
   });
 });
 

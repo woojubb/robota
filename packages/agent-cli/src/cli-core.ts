@@ -632,6 +632,7 @@ async function runCliCore(
     ],
     providerDefinitions,
     userSettingsPath: robotaUserSettingsPath(),
+    mainProvider: { id: provider.name, config: providerSettings },
   });
   commandHostAdapters.advisor = advisor.controller;
   if (advisor.tool !== undefined) toolOptions.additionalTools.push(advisor.tool);

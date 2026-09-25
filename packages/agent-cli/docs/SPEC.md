@@ -260,8 +260,8 @@ here because the reasoning differs between them:
 - **Advisor:** default OFF. Precedence: `settings.json` `advisorModel` ← `--advisor` flag (**flag
   wins**, a per-run choice like the screen-reader flag), and `ROBOTA_DISABLE_ADVISOR` above both as a
   kill switch nothing inside a session can undo — it is how an operator guarantees that conversation
-  history is not sent to a second model. Per-vendor consent lives in the user settings file, so it is
-  asked once per vendor rather than once per session.
+  history is not sent to a second model. Per-destination consent lives in the user settings file, so
+  it is asked once per destination rather than once per session.
 - **Theme registry:** one registry is built per run and handed to both the `/theme`
   command and the renderer, so a listing and a switch can never disagree about which themes exist. A
   run that renders no terminal UI gets no registry and reads no theme file at all. Appearance is

@@ -9,7 +9,6 @@ import { applyPresetToolLists } from '@robota-sdk/agent-core';
 import { Session } from '@robota-sdk/agent-session';
 
 import { sandboxApprovalFor } from './sandbox-approval.js';
-import { labelAdvisorToolStart } from '../advisor/advisor-tool.js';
 import { createModelPermissionClassifier } from './model-permission-classifier.js';
 
 import { assembleSessionTools } from './assemble-session-tools.js';
@@ -272,10 +271,7 @@ export async function createSession(
     ...(onProjectAllowTool === undefined ? {} : { onProjectAllowTool }),
     onTextDelta: options.onTextDelta,
     onContextUpdate: options.onContextUpdate,
-    onToolExecution:
-      options.onToolExecution === undefined
-        ? undefined
-        : (event) => options.onToolExecution?.(labelAdvisorToolStart(tools, event)),
+    onToolExecution: options.onToolExecution,
     promptForApproval: options.promptForApproval,
     onCompact: options.onCompact,
     onCompactEvent: options.onCompactEvent,
