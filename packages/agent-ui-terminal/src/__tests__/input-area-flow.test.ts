@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createCostCommandEntry,
   createLoopCommandEntry,
+  createMCPActivationCommandEntry,
   createRemoteControlCommandEntry,
 } from '@robota-sdk/agent-command';
 import {
@@ -82,6 +83,13 @@ describe('input area flow', () => {
 
     expect(resolveEnterCommandSelection('/co', cost)).toEqual({ type: 'submit', value: '/cost' });
     expect(resolveEnterCommandSelection('/cost', cost)).toEqual({ type: 'submit', value: '/cost' });
+  });
+
+  it('runs a command whose bare form is complete even though it declares subcommands', () => {
+    const mcp = createMCPActivationCommandEntry();
+
+    expect(mcp.subcommands?.length).toBeGreaterThan(0);
+    expect(resolveEnterCommandSelection('/mc', mcp)).toEqual({ type: 'submit', value: '/mcp' });
   });
 
   it.each([

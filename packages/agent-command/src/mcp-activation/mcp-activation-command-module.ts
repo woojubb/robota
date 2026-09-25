@@ -26,6 +26,8 @@ export function createMCPActivationCommandEntry(): ICommand {
       '[status] | <approve|reject|revoke|logout> <server> | login <server> [--no-browser]',
     source: 'mcp-activation',
     modelInvocable: true,
+    // The bare `/mcp` shows the status view, so choosing it from a menu runs it.
+    runsBare: true,
     subcommands: [
       {
         name: 'status',

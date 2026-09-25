@@ -6,6 +6,7 @@
 '@robota-sdk/agent-command-workflows': patch
 '@robota-sdk/agent-mcp': minor
 '@robota-sdk/agent-cli': minor
+'@robota-sdk/agent-ui-terminal': patch
 ---
 
 Built-in commands are offered to the model deliberately, each described for the model, and never
@@ -42,3 +43,6 @@ with a trust, credential or permission-widening action.
   command to suggest, and a
   signed-in OAuth server that refuses a call tells the model to suggest `/mcp login <server>` — or, in print and serve runs, the terminal
   `robota mcp login <server>`.
+
+A command whose bare form is a complete action declares `runsBare`, so choosing `/cost` or `/mcp`
+from the autocomplete menu still runs it even though they now declare subcommands.

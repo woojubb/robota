@@ -31,6 +31,12 @@ export interface ICommand {
   source: string;
   /** Subcommands for hierarchical menus */
   subcommands?: ICommand[];
+  /**
+   * When true, the bare command is a complete action of its own (a default view), so choosing it
+   * from a menu runs it rather than opening its subcommands. Declaring subcommands (for example to
+   * narrow what the model may run) then does not change what the user's Enter does.
+   */
+  runsBare?: boolean;
   /** Execute the command. Args is everything after the command name. */
   execute?: (args: string) => void | Promise<void>;
   /** Full SKILL.md content (only for skill commands) */

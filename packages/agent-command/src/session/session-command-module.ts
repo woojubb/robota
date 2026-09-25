@@ -83,6 +83,8 @@ export function createCostCommandEntry(): ICommand {
       'the message count, input/output token totals and the estimated USD cost, with the remaining ' +
       'monthly budget when one is set. Setting or clearing the budget is the user’s decision: suggest `/cost budget <amount>`.',
     argumentHint: '[budget [<amount>|clear]]',
+    // The bare `/cost` is the report, so choosing it from a menu runs it.
+    runsBare: true,
     source: 'session',
     modelInvocable: true,
     userInvocable: true,
