@@ -1,7 +1,7 @@
 /**
  * Whole-entry precedence resolution (MCP-001).
  *
- * Three properties carry the weight here, and all three are ADR-005's:
+ * Three properties carry the weight here, and all three are this package's SPEC:
  *
  * 1. **Entries are never field-merged.** The winning source supplies the whole definition. Merging
  *    would let a lower-trust source contribute a field — an extra header, a different `command` —
@@ -31,11 +31,8 @@ import type {
 } from './types.js';
 
 /**
- * Highest first.
- *
- * This order is ARCH-1985's and ADR-005's, pinned there by a mechanical assertion. The current
- * official Claude Code documentation places plugin-provided servers above user scope instead; that
- * divergence is recorded as issue #2790 and is deliberately NOT resolved by editing this array.
+ * Highest first. Plugin is last on purpose: the SPEC's design decision on precedence says why, and
+ * why this differs from ranking plugins above user scope.
  */
 export const MCP_SOURCE_PRECEDENCE: readonly TMCPDefinitionSource[] = [
   'managed',
@@ -161,7 +158,7 @@ export function resolveByPrecedence(
 
   const sorted = entries.sort((a, b) => a.name.localeCompare(b.name));
 
-  // Fail closed on the managed tier (ADR-005, extended by issue #2794): while the highest-precedence
+  // Fail closed on the managed tier (SPEC, extended by issue #2794): while the highest-precedence
   // source could not be read at all, a name that resolved from a LOWER tier must not activate,
   // because the unreadable managed source might have defined that exact name and there is no way to
   // tell. Only `MCP_SOURCE_PRECEDENCE[0]` triggers this; a source problem anywhere else stays

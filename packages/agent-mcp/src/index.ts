@@ -3,7 +3,7 @@
 // MCP-001: the definition control plane. `agent-mcp` is the sole owner of MCP server definitions
 // and their raw/validated/resolved forms, provenance and shadow metadata, strict foreign decoding,
 // environment templates, whole-entry precedence, reversible disable overlays, redacted management
-// projections, activation identity, and pure management results (ADR-005).
+// projections, activation identity, and pure management results (docs/SPEC.md).
 export type {
   IMCPDefinitionProblem,
   IMCPDefinitionShadow,
