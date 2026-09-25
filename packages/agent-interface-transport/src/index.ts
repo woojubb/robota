@@ -82,3 +82,13 @@ export type {
 // SEC-008: the SHAPE of an admission decision. The machinery that produces it lives in
 // @robota-sdk/agent-transport — an interface package carries no runtime dependency edge.
 export type { ITransportAdmission, ITransportAdmissionConfig } from './admission.js';
+
+// Remote resource-server authorization: the shape of an access-token admission decision. The
+// verifier that produces it lives in @robota-sdk/agent-transport/node.
+export type {
+  IAccessTokenVerifier,
+  IAccessTokenVerifierConfig,
+  TAccessTokenAdmission,
+  TAccessTokenAlgorithm,
+  TAccessTokenRefusal,
+} from './access-token.js';
