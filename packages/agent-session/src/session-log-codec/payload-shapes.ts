@@ -121,6 +121,16 @@ export const PAYLOADS = {
     schemaInPrompt: required(decodeBoolean),
     reason: optional(decodeString),
   },
+  provider_fallback: {
+    executionId: required(decodeString),
+    conversationId: optional(decodeString),
+    round: required(nonNegativeInteger),
+    fromProvider: required(decodeString),
+    fromModel: required(decodeString),
+    toProvider: required(decodeString),
+    toModel: required(decodeString),
+    reason: required(decodeString),
+  },
   assistant_message_committed: {
     executionId: required(decodeString),
     conversationId: optional(decodeString),

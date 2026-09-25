@@ -266,6 +266,8 @@ export { TASK_EVENTS, TASK_EVENT_PREFIX } from './event-service/task-events';
 export { USER_EVENTS, USER_EVENT_PREFIX, type TUserEvent } from './event-service/user-events';
 export {
   PROVIDER_CALL_EVENTS,
+  PROVIDER_FALLBACK_EVENTS,
+  readModelFallbackNotice,
   TOOL_BODY_EVENTS,
   TOOL_PERMISSION_EVENTS,
   SPAN_EVENTS,
@@ -321,6 +323,7 @@ export {
   estimateContextTokensFromMessages,
   estimateSerializedContextTokens,
   estimateToolSchemaTokens,
+  findModelDefinition,
   getModelContextWindow,
   getModelMaxOutput,
   getModelName,

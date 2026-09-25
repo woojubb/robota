@@ -38,6 +38,7 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --allowed-tools <list>     Comma-separated tool auto-approval list
   --denied-tools <list>      Comma-separated tool denylist
   --model <model>            Model override for this run
+  --fallback-model <list>    Comma-separated models to continue a turn on when the model is overloaded
   --effort <level>           Model effort: auto | low | medium | high | xhigh | max
   --preset <id>              Preset id to apply (default: settings.preset or "default")
   --output-style <id>        Response style: default | concise | proactive | explanatory | learning

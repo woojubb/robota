@@ -9,6 +9,7 @@ import {
   callRoundProviderWithEvents,
 } from './execution-round-streaming';
 import { executeAndRecordToolCalls } from './execution-round-tools';
+import { openModelRoute, routeModel, routeProvider } from './execution-model-route';
 import {
   type IResolvedProviderInfo,
   type IExecutionRoundState,
@@ -142,6 +143,7 @@ export async function executeRound(
     currentRound,
   );
 
+  const route = openModelRoute(resolved, config.defaultModel.model, executionId);
   const response = await callRoundProviderWithEvents(
     providerMessages,
     config,
@@ -156,6 +158,7 @@ export async function executeRound(
     wrappedOnTextDelta,
     wrappedOnProviderNativeRawPayload,
     (error) => void (roundState.providerFailure = error),
+    route,
   );
   if (response === null) return true;
 
@@ -212,8 +215,8 @@ export async function executeRound(
     round: currentRound,
     usageObservationId,
     executionId,
-    providerId: resolved.currentInfo.provider,
-    modelId: resolved.aiProviderInfo.model,
+    providerId: routeProvider(route, resolved),
+    modelId: routeModel(route, resolved.aiProviderInfo.model),
     ...(usageMetadata ?? {}),
   });
   const committedAssistantMessage = conversationStore.getMessages().at(-1);
