@@ -28,7 +28,9 @@ entry point declares — nothing broader is implied by its history as a former o
 Admission (which peers may reach a session) was not a member of any contract, so each transport
 package re-decided it independently and disagreed: two transports chose opposite defaults for
 whether to require a credential, and a third had no gate at all. This package owns the decision so
-there is one place to read and one place to change it.
+there is one place to read and one place to change it — including the access-token admission a
+remote resource server makes, whose verdict is a closed set of refusal reasons that never carries
+token text or claim values, so logging a verdict cannot leak a credential or an identity.
 
 The resolved decision is SECURE BY DEFAULT: an explicit token wins, otherwise one is minted. A
 transport may still run open, but only by saying so explicitly, with a required written reason —
@@ -36,10 +38,15 @@ transport may still run open, but only by saying so explicitly, with a required 
 token throws rather than silently returning an open admission, so a transport that cannot get
 entropy fails to construct instead of binding without a gate.
 
-The functions that produce the decision (minting, comparison) live in a separate Node-dependent
-package, not here: this package is inert by rule (no runtime dependency edges), and those functions
-need a Node builtin for entropy. A transport with no remote peer declares that admission does not
-apply to it in its own SPEC, rather than this package asserting a universal default.
+Access-token admission is single-tenant by design: issuer, audience and scope alone admit anyone
+the issuer serves, while the host hands one shared session to every admitted peer, so the
+configuration must also name the subjects or clients allowed in.
+
+The functions that produce the decision (minting, comparison, token verification) live in a
+separate Node-dependent package, not here: this package is inert by rule (no runtime dependency
+edges), and those functions need Node builtins for entropy and the network. A transport with no
+remote peer declares that admission does not apply to it in its own SPEC, rather than this package
+asserting a universal default.
 
 ## Interface Contracts
 
