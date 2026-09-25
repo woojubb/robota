@@ -355,6 +355,41 @@ describe('object, array and oddly delimited credential values', () => {
   });
 });
 
+describe('JSON escaped inside a JSON string', () => {
+  const uuid = '8f2c1a4e-3b7d-4c9e-a1f0-5d6e7b8c9a0b';
+
+  it('masks the apiKey of a double-encoded config argument', () => {
+    const arg = String.raw`"{\"apiKey\":\"${uuid}\"}"`;
+    const shown = project(resolve(stdio({ args: ['--config', arg] }))).args;
+    expect(shown).toEqual(['--config', String.raw`"{\"apiKey\":\"secret:literal\"}"`]);
+    expect(JSON.stringify(shown)).not.toContain(uuid);
+  });
+
+  it.each([
+    [String.raw`{\"password\":\"hunter2\"}`, String.raw`{\"password\":\"secret:literal\"}`],
+    [
+      String.raw`{\"password\":\"hun\\\"ter2\",\"region\":\"eu\"}`,
+      String.raw`{\"password\":\"secret:literal\",\"region\":\"eu\"}`,
+    ],
+    [
+      String.raw`{\\\"apiKey\\\":\\\"abc\\\",\\\"n\\\":1}`,
+      String.raw`{\\\"apiKey\\\":\\\"secret:literal\\\",\\\"n\\\":1}`,
+    ],
+    [
+      String.raw`{\"apiKey\":[\"abc\",\"x]\"],\"region\":\"eu\"}`,
+      String.raw`{\"apiKey\":[secret:literal],\"region\":\"eu\"}`,
+    ],
+    [
+      String.raw`{\"auth\":{\"value\":\"abc\"},\"n\":1}`,
+      String.raw`{\"auth\":{secret:literal},\"n\":1}`,
+    ],
+    [String.raw`{\"password\":\"unclosed`, String.raw`{\"password\":\"secret:literal`],
+    [String.raw`{\"name\":\"alpha\"}`, String.raw`{\"name\":\"alpha\"}`],
+  ])('shows %s as %s', (value, shown) => {
+    expect(maskCredentials(value)).toBe(shown);
+  });
+});
+
 describe('masking stays linear on long input', () => {
   const huge = 200_000;
   it.each([
@@ -378,6 +413,13 @@ describe('masking stays linear on long input', () => {
     ['deep nesting under a plain name', `{"a":${'[{'.repeat(huge / 2)}`],
     ['a spaced separator run', `token${' ='.repeat(huge / 2)}`],
     ['repeated backtick names', '`a`: '.repeat(huge / 5)],
+    ['a long backslash run', `{${'\\'.repeat(huge)}"token":1`],
+    ['repeated escaped credential names', String.raw`{\"token\":\"a`.repeat(huge / 14)],
+    [
+      'an escaped credential value of backslash runs',
+      `{\\"token\\":\\"${'\\\\\\x'.repeat(huge / 4)}`,
+    ],
+    ['an escaped credential array of backslash runs', `{\\"token\\":[${'\\'.repeat(huge)}`],
   ])('masks %s within the time bound', (_label, value) => {
     const definition = resolve(stdio({ args: [value] }));
     const started = performance.now();

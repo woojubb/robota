@@ -186,10 +186,11 @@ const URL_RUN = /(?<![A-Za-z0-9+.-])[A-Za-z][A-Za-z0-9+.-]*:\/\/\S*/g;
 /**
  * A name given a value: `--name=`, `NAME=`, `Name:`, `"name":` or `'name' =`, starting a word or
  * following a delimiter, a quote or an opening brace. A doubled separator (`name = = value`) is
- * one separator, so the value after it is still the value.
+ * one separator, so the value after it is still the value. A quote may carry a run of backslashes
+ * (`\"name\":`), which is how JSON encoded inside a JSON string reads, at any depth.
  */
 const KEY =
-  /(?<=^|[\s;,&=:{"'`])(-{0,2})(["'`]?)([A-Za-z_][A-Za-z0-9_.-]*)\2[ \t]*([:=])(?:[ \t]*[:=])*[ \t]*/g;
+  /(?<=^|[\s;,&=:{"'`])(-{0,2})(\\*["'`]|)([A-Za-z_][A-Za-z0-9_.-]*)\2[ \t]*([:=])(?:[ \t]*[:=])*[ \t]*/g;
 const QUOTES = `"'\``;
 const AUTHORIZATION_HEADER = /^(?:proxy-)?authorization$/i;
 /** `--name value` inside a single string. */
@@ -298,30 +299,61 @@ function indexOfAny(text: string, from: number, stops: string): number {
   return index;
 }
 
+/** A quote opened at `at`, possibly escaped by a run of backslashes: the run length and quote. */
+interface IOpenQuote {
+  readonly escapes: number;
+  readonly quote: string;
+}
+
+function openQuote(text: string, at: number): IOpenQuote | undefined {
+  let index = at;
+  while (text[index] === '\\') index += 1;
+  const quote = text[index];
+  return quote !== undefined && QUOTES.includes(quote) ? { escapes: index - at, quote } : undefined;
+}
+
 /**
- * The index of the quote closing a quoted value opened at `open`, past escaped quotes and across
- * lines; the end of the text when it never closes.
+ * Where the closing sequence of a quoted value starts, scanning from `from`, the first character
+ * inside it; the end of the text when it never closes. It runs across lines. A plain quote closes at
+ * the next quote not escaped by a backslash. A quote opened by a run of backslashes — JSON encoded
+ * inside a JSON string — closes only at the same quote after a run of exactly that length, so a
+ * quote escaped one level deeper does not end it.
  */
-function closingQuote(text: string, open: number): number {
-  const quote = text[open]!;
-  let index = open + 1;
-  while (index < text.length && text[index] !== quote) {
-    index += text[index] === '\\' ? 2 : 1;
+function closingQuote(text: string, from: number, open: IOpenQuote): number {
+  if (open.escapes === 0) {
+    let index = from;
+    while (index < text.length && text[index] !== open.quote) {
+      index += text[index] === '\\' ? 2 : 1;
+    }
+    return Math.min(index, text.length);
   }
-  return Math.min(index, text.length);
+  let run = 0;
+  for (let index = from; index < text.length; index += 1) {
+    const char = text[index];
+    if (char === open.quote && run === open.escapes) return index - run;
+    run = char === '\\' ? run + 1 : 0;
+  }
+  return text.length;
 }
 
 /**
  * The index of the bracket closing an object or array opened at `open`, in one forward pass that
- * steps over quoted strings; the end of the text when the brackets never balance.
+ * steps over quoted strings, escaped ones included; the end of the text when the brackets never
+ * balance.
  */
 function closingBracket(text: string, open: number): number {
   let depth = 0;
   let index = open;
   while (index < text.length) {
     const char = text[index]!;
-    if (QUOTES.includes(char)) {
-      index = closingQuote(text, index) + 1;
+    if (char === '\\' || QUOTES.includes(char)) {
+      const quoted = openQuote(text, index);
+      if (quoted === undefined) {
+        while (text[index] === '\\') index += 1;
+        continue;
+      }
+      const inside = index + quoted.escapes + 1;
+      index = closingQuote(text, inside, quoted) + quoted.escapes + 1;
       continue;
     }
     if (char === '{' || char === '[') depth += 1;
@@ -340,7 +372,7 @@ interface IValueSpan {
 }
 
 /**
- * Where the value after a name ends. A quoted value runs to its closing quote. Otherwise a value
+ * Where the value after a name ends. A quoted value, escaped or not, runs to its closing quote. Otherwise a value
  * written inside quotes stops at the closing one; a quoted name's value (`"key": 1`) stops at the
  * next JSON delimiter; a header or `Authorization` value runs to the end of its line; and an
  * assignment's value stops at whitespace or a `;`, `&` or `,` — the separators of a connection
@@ -363,9 +395,11 @@ function valueSpan(
     const close = closingBracket(text, start);
     return close === start + 1 ? undefined : { start: start + 1, end: close };
   }
-  if (QUOTES.includes(first)) {
-    const close = closingQuote(text, start);
-    return close === start + 1 ? undefined : { start: start + 1, end: close };
+  const quoted = openQuote(text, start);
+  if (quoted !== undefined) {
+    const inside = start + quoted.escapes + 1;
+    const close = closingQuote(text, inside, quoted);
+    return close === inside ? undefined : { start: inside, end: close };
   }
   let stops: string;
   if (context.enclosingQuote !== undefined) stops = `${context.enclosingQuote}\n`;
