@@ -84,6 +84,8 @@ export interface IScriptedSessionOptions {
    * `toCassette` for later deterministic replay. Used in a one-off keyed record run, not in CI.
    */
   record?: { provider: IAIProvider; toCassette: string };
+  /** Awaited before every provider call, so a test can hold a turn open while it observes. */
+  beforeProviderCall?: () => Promise<void>;
   /** Seed files written into the workspace before the session starts (workspace-relative paths). */
   files?: Record<string, string>;
   /** Persist sessions to a real store in the workspace (enables resume/record assertions). */
@@ -206,8 +208,9 @@ export class ScriptedSessionHarness {
     this.requests = [];
     const provider: IAIProvider = {
       ...base,
-      chat: (messages, chatOptions) => {
+      chat: async (messages, chatOptions) => {
         this.requests.push([...messages]);
+        await options.beforeProviderCall?.();
         return base.chat(messages, chatOptions);
       },
     };

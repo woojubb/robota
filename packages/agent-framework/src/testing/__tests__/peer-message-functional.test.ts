@@ -11,24 +11,20 @@
  * origin intact, and it can trigger a response. The unit tests cover the ingress's decisions; this
  * covers that the wiring actually carries them into a live agent loop.
  */
-import { registerToolPermissionProfile } from '@robota-sdk/agent-core';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { PeerMessageIngress } from '../../interactive/peer-message-ingress.js';
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
 
-import type { IToolSchema, IToolWithEventService } from '@robota-sdk/agent-core';
 import type { IPeerMessageIngress } from '@robota-sdk/agent-interface-session-mobility';
 
 const TEST_TIMEOUT = 30_000;
-const GATE_TOOL = 'GateTool';
-
-// A peer turn may use only what its origin allows: the gate is declared a workspace-only read, which
-// a same-host peer may use.
-registerToolPermissionProfile(GATE_TOOL, { riskClass: 'inspect', workspacePaths: [] });
-
-/** A tool that holds the turn open until the test releases it, and says when it was entered. */
-function gateTool(): { tool: IToolWithEventService; entered: Promise<void>; release: () => void } {
+/** Holds the turn at its provider call until the test releases it, and says when it got there. */
+function providerGate(): {
+  hold: () => Promise<void>;
+  entered: Promise<void>;
+  release: () => void;
+} {
   let enter!: () => void;
   let release!: () => void;
   const entered = new Promise<void>((resolve) => {
@@ -37,25 +33,14 @@ function gateTool(): { tool: IToolWithEventService; entered: Promise<void>; rele
   const released = new Promise<void>((resolve) => {
     release = resolve;
   });
-  const schema: IToolSchema = {
-    name: GATE_TOOL,
-    description: 'Holds the turn open for the peer-ack test.',
-    parameters: { type: 'object', properties: {} },
-  };
-  const tool: IToolWithEventService = {
-    schema,
-    getName: () => schema.name,
-    getDescription: () => schema.description,
-    validate: () => true,
-    validateParameters: () => ({ isValid: true, errors: [] }),
-    setEventService: () => {},
-    execute: async () => {
+  return {
+    hold: async () => {
       enter();
       await released;
-      return { success: true, data: 'released' };
     },
+    entered,
+    release,
   };
-  return { tool, entered, release };
 }
 
 function peerMessage(text: string): IPeerMessageIngress {
@@ -165,11 +150,9 @@ describe('peer session-to-session messaging (framework functional)', () => {
       // The sender's wire waits for the immediate ack under a line timeout. On an idle session
       // `submit` resolves only after the turn, so an ack taken from it arrived after any turn
       // longer than that timeout, and the sender reported the message undelivered.
-      const gate = gateTool();
-      bob = scriptedSession({
-        turns: [{ toolCalls: [{ name: GATE_TOOL, args: {} }] }, { text: 'done' }],
-        additionalTools: [gate.tool],
-      });
+      // Held at the provider, not through a tool: a peer turn runs without tools.
+      const gate = providerGate();
+      bob = scriptedSession({ turns: [{ text: 'done' }], beforeProviderCall: gate.hold });
       const session = bob.session;
       const ingress = new PeerMessageIngress({
         submit: (input, origin, onAccepted) =>
@@ -177,7 +160,6 @@ describe('peer session-to-session messaging (framework functional)', () => {
             turnSource: 'peer',
             driverId: origin.driverId ?? 'peer:unknown',
             onAccepted,
-            peer: { reach: 'same-host', messageId: 'msg_1', replyTo: origin.sessionId },
           }),
       });
 

@@ -67,7 +67,8 @@ High-level system architecture for the Robota AI Agent SDK monorepo.
 > (the leaves from issue #2108 through issue #2113) land.
 
 > **DAG / workflow subsystem.** The `dag-*` and `agent-command-workflows` packages are private and
-> not published on their own. The code used by the CLI's `/workflows` path is bundled into
+> not published on their own. The product `/workflows` path is composed in `agent-command-workflows`;
+> there is no standalone DAG CLI. The code used by the CLI's `/workflows` path is bundled into
 > `@robota-sdk/agent-cli` (INFRA-028): its local runtime exposes the 23-node synchronous base
 > catalog plus saved instant nodes. The private async workspace catalog can reach 29 nodes when
 > all optional loaders succeed; it is not a CLI capability. The diagram above stays
