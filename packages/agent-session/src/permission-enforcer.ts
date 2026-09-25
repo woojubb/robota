@@ -322,6 +322,7 @@ export class PermissionEnforcer {
     fresh = false,
   ): Promise<boolean> {
     const scope = consentScopeFor(toolName, toolArgs);
+    const cancelledBeforeAsking = signal?.aborted === true;
     const hasApprover =
       interaction === 'interactive' &&
       (this.permissionHandler !== undefined || this.promptForApprovalFn !== undefined);
@@ -338,7 +339,8 @@ export class PermissionEnforcer {
       toolArgs,
       ...(signal ? { signal } : {}),
     });
-    if (!outcome.allowed) {
+    // A turn cancelled before anyone was asked is not a refusal of this call.
+    if (!outcome.allowed && !cancelledBeforeAsking) {
       this.denials.record(toolName, toolArgs, hasApprover ? 'user' : 'no-approver');
     }
     // A fresh-approval answer covers this call only: remembering its wide scope would let it answer

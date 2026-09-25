@@ -268,3 +268,20 @@ describe('recent denials (issue #3082)', () => {
     expect(denials[0]?.argument).toBe('rm f24');
   });
 });
+
+describe('a turn cancelled before anyone is asked (issue #3082)', () => {
+  it('is not recorded as a refusal', async () => {
+    const handler = vi.fn().mockResolvedValue(true);
+    const enforcer = makeEnforcer({
+      getPermissionMode: () => 'default',
+      permissionHandler: handler,
+    });
+    const controller = new AbortController();
+    controller.abort();
+    await expect(
+      enforcer.checkPermission('Bash', { command: 'git push' }, controller.signal),
+    ).resolves.toBe(false);
+    expect(handler).not.toHaveBeenCalled();
+    expect(enforcer.getRecentDenials()).toEqual([]);
+  });
+});
