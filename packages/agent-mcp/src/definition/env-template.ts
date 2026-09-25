@@ -21,12 +21,6 @@ import type {
   IMCPValueSpan,
 } from './types.js';
 
-/**
- * `${NAME}` or `${NAME:-default}`.
- *
- * The default part is everything up to the closing brace, so `${A:-}` yields an empty default
- * (declared, unlike an unset variable) and `${A:-x:y}` keeps the colon in the default.
- */
 const NAME = /[A-Za-z_][A-Za-z0-9_]*/y;
 
 interface IReference {
@@ -37,6 +31,11 @@ interface IReference {
 }
 
 /**
+ * `${NAME}` or `${NAME:-default}`.
+ *
+ * The default part is everything up to the closing brace, so `${A:-}` yields an empty default
+ * (declared, unlike an unset variable) and `${A:-x:y}` keeps the colon in the default.
+ *
  * Scanned rather than matched with one global pattern: a `[^}]*` default rescans to the end of the
  * value from every `${` that never closes, which is quadratic on a value an attacker can shape.
  */
