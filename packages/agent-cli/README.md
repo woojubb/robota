@@ -760,7 +760,8 @@ launched in that directory: its settings, trust decision, tools, skills and `AGE
 conversation resumes. The system prompt is kept as it was, so a provider's prompt cache survives. One
 message tells the model about the new directory and its project instructions.
 
-- `/cd` is refused while a turn is running or a background task is still running.
+- `/cd` is refused while a turn is running or a background task is still running, and in a session
+  started with `--no-session-persistence`, which has no saved conversation to carry.
 - A restricted (untrusted) session stays restricted after a move. A trusted session takes the target
   directory's own trust decision.
 - A `Cd(...)` deny rule keeps sessions out of a directory, for example

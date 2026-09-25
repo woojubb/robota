@@ -10,7 +10,10 @@
  */
 import { spawnSync } from 'node:child_process';
 
-import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
+import {
+  createRestrictedWorkspaceProjectAccess,
+  withUniqueSessionName,
+} from '@robota-sdk/agent-framework';
 
 import { resolveSelfForkWorkerEntry } from '../subagents/self-fork-worker-entry.js';
 import { buildWorkspaceMoveArgv } from '../utils/cli-args.js';
@@ -31,6 +34,11 @@ export interface IWorkspaceMoveAdapterDeps {
   readonly argv: readonly string[];
   /** End the TUI through its normal end-of-life flow. */
   readonly requestExit: () => void;
+  /**
+   * Variables startup took out of `process.env` (telemetry) and hands back to a robota it starts,
+   * so the target run is configured exactly as this one was.
+   */
+  readonly environment?: Readonly<Record<string, string>>;
   /** Test seams; production uses the trust store, `process.once('exit')` and `spawnSync`. */
   readonly resolveAccess?: (cwd: string) => Promise<TWorkspaceProjectAccess>;
   readonly onProcessExit?: (listener: () => void) => void;
@@ -62,9 +70,10 @@ export function createWorkspaceMoveAdapter(deps: IWorkspaceMoveAdapterDeps): ICo
         userHome: deps.userHome,
         projectAccess,
       });
-      target.sessionStore.save(request.record);
+      const record = withUniqueSessionName(request.record, target.sessionStore);
+      target.sessionStore.save(record);
       const args = buildWorkspaceMoveArgv(deps.argv, {
-        resumeId: request.record.id,
+        resumeId: record.id,
         movedFrom: request.fromCwd,
         restricted: projectAccess.status === 'restricted',
       });
@@ -75,7 +84,7 @@ export function createWorkspaceMoveAdapter(deps: IWorkspaceMoveAdapterDeps): ICo
         const result = runSync(entry.execPath, [...(entry.execArgv ?? []), ...entry.args, ...args], {
           cwd: request.targetCwd,
           stdio: 'inherit',
-          env: process.env,
+          env: { ...process.env, ...deps.environment },
         });
         process.exitCode = result.status ?? 1;
       });

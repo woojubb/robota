@@ -11,6 +11,9 @@ import { isAbsolute, resolve } from 'node:path';
 
 import { evaluatePermission } from '@robota-sdk/agent-core';
 
+// The `Cd` rule is judged by the profile this package registers; import it where it is used.
+import '../tools/tool-permission-profiles.js';
+
 import { buildForkedSessionRecord } from './interactive-session-fork-record.js';
 
 import type { TForkSourceSession } from './interactive-session-fork-record.js';

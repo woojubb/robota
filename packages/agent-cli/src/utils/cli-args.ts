@@ -49,8 +49,6 @@ export interface IParsedCliArgs {
   forkSession: boolean;
   /** Issue #3081: this run is the target of a `/cd` from this directory (internal flag). */
   movedFrom?: string;
-  /** Issue #3081: a `/cd` from a Restricted session keeps the target Restricted (internal flag). */
-  restrictedWorkspace?: boolean;
   sessionName: string | undefined;
   outputFormat: TOutputFormat | undefined;
   format: string | undefined;
@@ -285,7 +283,6 @@ function mapParsedValues(
     goalMaxIterations: parseMaxTurns(values['goal-max-iterations']),
     forkSession: values['fork-session'] ?? false,
     movedFrom: values['moved-from'],
-    restrictedWorkspace: values['restricted-workspace'] ?? false,
     sessionName: values['name'],
     outputFormat: parseOutputFormat(values['output-format']),
     format: values['format'],
@@ -397,6 +394,11 @@ const WORKSPACE_MOVE_DROPPED_OPTIONS = new Set([
   'fork-session',
   'moved-from',
   'restricted-workspace',
+  // What this run was asked to do, not how: a move carries no prompt, task or replay input — and a
+  // path value would be re-read against the target directory. `--name` would rename the copy.
+  'name',
+  'task-file',
+  'session-log',
   'p',
   'goal',
   'goal-max-iterations',
@@ -417,8 +419,8 @@ export function buildWorkspaceMoveArgv(
   for (const token of tokens) {
     if (token.kind === 'positional' || token.kind === 'option-terminator') continue;
     if (WORKSPACE_MOVE_DROPPED_OPTIONS.has(token.name)) continue;
-    kept.push(`--${token.name}`);
-    if (token.value !== undefined) kept.push(token.value);
+    // Inline form: a value that begins with `-` would otherwise read as a flag in the target run.
+    kept.push(token.value === undefined ? `--${token.name}` : `--${token.name}=${token.value}`);
   }
   return [
     ...kept,

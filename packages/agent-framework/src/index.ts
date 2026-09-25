@@ -77,6 +77,7 @@ export type {
 
 // ── InteractiveSession (primary API) ────────────────────────
 export { InteractiveSession, PeerMessageIngress, ExternalEventIngress } from './interactive/index.js';
+export { withUniqueSessionName } from './interactive/interactive-session-fork-record.js';
 export type {
   IAuthenticatedExternalEvent,
   IExternalEventSourceOptions,

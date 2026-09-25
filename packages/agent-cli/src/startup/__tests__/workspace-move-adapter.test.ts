@@ -4,7 +4,8 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { buildWorkspaceMoveArgv } from '../../utils/cli-args.js';
+import { buildWorkspaceMoveArgv, parseCliArgs } from '../../utils/cli-args.js';
+import { resolveStartupWorkspaceProjectAccess } from '../workspace-project-composition.js';
 import { createWorkspaceMoveAdapter } from '../workspace-move-adapter.js';
 
 import type { IWorkspaceMoveRequest } from '@robota-sdk/agent-framework';
@@ -18,15 +19,34 @@ describe('buildWorkspaceMoveArgv', () => {
         { resumeId: 's2', movedFrom: '/w/a', restricted: false },
       ),
     ).toEqual([
-      '--model',
-      'm1',
-      '--permission-mode',
-      'acceptEdits',
+      '--model=m1',
+      '--permission-mode=acceptEdits',
       '--resume',
       's2',
       '--moved-from',
       '/w/a',
     ]);
+  });
+
+  it('keeps a value that begins with - attached to its flag', () => {
+    const argv = buildWorkspaceMoveArgv(['--append-system-prompt=-be terse'], {
+      resumeId: 's2',
+      movedFrom: '/w/a',
+      restricted: false,
+    });
+    expect(argv[0]).toBe('--append-system-prompt=-be terse');
+    // The target run parses what the move produced.
+    expect(() => parseCliArgs(argv)).not.toThrow();
+  });
+
+  it('drops the name, task file and replay log of this run', () => {
+    expect(
+      buildWorkspaceMoveArgv(['--name', 'x', '--task-file', './t.md', '--session-log', './l'], {
+        resumeId: 's2',
+        movedFrom: '/w/a',
+        restricted: false,
+      }),
+    ).toEqual(['--resume', 's2', '--moved-from', '/w/a']);
   });
 
   it('replaces an earlier move and resume, and carries a restriction', () => {
@@ -84,6 +104,7 @@ describe('createWorkspaceMoveAdapter', () => {
       userHome: home,
       argv: ['--model', 'm1'],
       requestExit,
+      environment: { ROBOTA_TELEMETRY_ENDPOINT: 'http://collector' },
       resolveAccess,
       onProcessExit: (listener) => {
         exitListener = listener;
@@ -104,10 +125,14 @@ describe('createWorkspaceMoveAdapter', () => {
     exitListener!();
     const [, args, options] = runSync.mock.calls[0]!;
     expect(args).toEqual(
-      expect.arrayContaining(['--model', 'm1', '--resume', 'moved-1', '--moved-from', '/w/a']),
+      expect.arrayContaining(['--model=m1', '--resume', 'moved-1', '--moved-from', '/w/a']),
     );
     expect(args).toContain('--restricted-workspace');
     expect(options).toEqual(expect.objectContaining({ cwd: target, stdio: 'inherit' }));
+    // Telemetry startup took out of process.env is handed to the target run.
+    expect((options as { env: Record<string, string> }).env['ROBOTA_TELEMETRY_ENDPOINT']).toBe(
+      'http://collector',
+    );
     expect(process.exitCode).toBe(7);
     process.exitCode = previousExitCode;
   });
@@ -129,5 +154,21 @@ describe('createWorkspaceMoveAdapter', () => {
     await adapter.move(request(false));
     expect(resolveAccess).toHaveBeenCalledWith(target);
     expect(existsSync(target)).toBe(true);
+  });
+});
+
+describe('a /cd target never widens access (issue #3081)', () => {
+  it('starts restricted under the flag, whatever access the directory would get', async () => {
+    const trusted = { status: 'trusted' } as never;
+    const access = await resolveStartupWorkspaceProjectAccess(
+      ['node', 'robota', '--restricted-workspace'],
+      '/w/b',
+      { projectAccess: trusted },
+    );
+    expect(access.status).toBe('restricted');
+    const without = await resolveStartupWorkspaceProjectAccess(['node', 'robota'], '/w/b', {
+      projectAccess: trusted,
+    });
+    expect(without).toBe(trusted);
   });
 });

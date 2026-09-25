@@ -6,6 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import '../../tools/tool-permission-profiles.js';
 import { createRestrictedWorkspaceProjectAccess } from '../../workspace-trust/index.js';
+import { withUniqueSessionName } from '../interactive-session-fork-record.js';
 import {
   buildWorkspaceMoveNotice,
   prepareWorkspaceMove,
@@ -105,3 +106,19 @@ describe('buildWorkspaceMoveNotice', () => {
     expect(notice).toContain('not trusted');
   });
 });
+
+describe('withUniqueSessionName', () => {
+  it('suffixes a name another record in the target store already holds', () => {
+    const store = {
+      list: () => [
+        { outcome: { status: 'valid', record: { name: 'work' } } },
+        { outcome: { status: 'valid', record: { name: 'work (moved)' } } },
+      ],
+    } as never;
+    const record = prepareWorkspaceMove(input()).record;
+    expect(withUniqueSessionName(record, store).name).toBe('work (moved 2)');
+    const empty = { list: () => [] } as never;
+    expect(withUniqueSessionName(record, empty).name).toBe('work');
+  });
+});
+

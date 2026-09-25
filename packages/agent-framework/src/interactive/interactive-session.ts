@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { basename } from 'node:path';
 
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { isTurnNotRunError, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
@@ -166,6 +167,8 @@ export class InteractiveSession
    * mutation of this one.
    */
   private readonly workspace: IWorkspacePolicy;
+  /** A `/cd` was handed to the host; this session is ending (issue #3081). */
+  private workspaceMovePending = false;
   private pendingRestoreMessages: TUniversalMessage[] | null = null;
   /** CLI-1994: the resumed record's assembled prompt, applied when this session is a fork. */
   private restoredSystemPrompt?: string;
@@ -1439,6 +1442,12 @@ export class InteractiveSession
     if (!adapter) {
       throw new Error('Moving to another directory is not available in this environment.');
     }
+    if (this.workspaceMovePending) throw new Error('A move to another directory is already under way.');
+    // The move carries the conversation as a saved record; a session that saves nothing has no way
+    // to bring it along, and writing one anyway would break the promise it was started with.
+    if (!this.sessionStore) {
+      throw new Error('This session does not save its conversation, so it cannot move it.');
+    }
     const session = this.getSessionOrThrow();
     const liveTasks = (this.getBackgroundTaskManager()?.list() ?? []).filter(
       (task) => !['completed', 'failed', 'cancelled'].includes(task.status),
@@ -1456,10 +1465,11 @@ export class InteractiveSession
         getToolSchemas: () => session.getToolSchemas(),
         getFullHistory: () => this.getFullHistory(),
       },
-      sessionName: this.sessionName ?? session.getSessionId(),
+      sessionName: this.sessionName ?? basename(requestedPath.trim()),
     });
     this.persistCurrentSession();
     await adapter.move(request);
+    this.workspaceMovePending = true;
     return `Moving to ${request.targetCwd}${request.restricted ? ' (restricted)' : ''}...`;
   }
 

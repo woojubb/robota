@@ -171,3 +171,22 @@ export function writeForkedSessionRecord(input: IWriteForkedSessionRecordInput):
   input.sessionStore.save(record);
   return { sessionId: record.id, name };
 }
+
+/**
+ * A moved conversation's copy under a name no other record in `sessionStore` holds (issue #3081).
+ * The copy often lands in the same store as its source — every Restricted move, and a move within
+ * one worktree — and a name lookup matches the first record, so a shared name would make
+ * `--resume <name>` pick either one.
+ */
+export function withUniqueSessionName(
+  record: IInteractiveSessionRecord,
+  sessionStore: IInteractiveSessionStore,
+): IInteractiveSessionRecord {
+  const base = record.name ?? record.id;
+  const taken = takenNames(sessionStore);
+  let name = base;
+  for (let attempt = 1; taken.has(name); attempt += 1) {
+    name = attempt === 1 ? `${base} (moved)` : `${base} (moved ${attempt})`;
+  }
+  return { ...record, name };
+}

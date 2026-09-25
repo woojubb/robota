@@ -2,7 +2,6 @@ import { homedir } from 'node:os';
 
 import { PrintTerminal } from './print-terminal.js';
 import {
-  createRestrictedWorkspaceProjectAccess,
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
   InteractiveSession,
@@ -71,7 +70,7 @@ import {
 } from './startup/loop-options.js';
 import {
   createInitialCliWorkspaceComposition,
-  resolveInitialCliWorkspaceProjectAccess,
+  resolveStartupWorkspaceProjectAccess,
 } from './startup/workspace-project-composition.js';
 import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
@@ -164,11 +163,7 @@ async function runCliCore(
   telemetryEnvironment: Readonly<Record<string, string>> = {},
 ): Promise<void> {
   const cwd = process.cwd();
-  // Issue #3081: a `/cd` from a Restricted session never widens access, whatever this directory's
-  // own trust decision. Read from argv here because access is decided before arguments are parsed.
-  const projectAccess = process.argv.includes('--restricted-workspace')
-    ? createRestrictedWorkspaceProjectAccess('untrusted', cwd)
-    : await resolveInitialCliWorkspaceProjectAccess(cwd, options);
+  const projectAccess = await resolveStartupWorkspaceProjectAccess(process.argv, cwd, options);
   const startupOptions: IStartCliOptions = { ...options, projectAccess };
   if (await runPreparsedCliCommand(startupOptions, process.argv, cwd, telemetryEnvironment)) return;
 
@@ -805,6 +800,7 @@ async function runCliCore(
     userHome: homedir(),
     argv: process.argv.slice(2),
     requestExit: () => commandHostAdapters.process?.requestExit('other'),
+    environment: telemetryEnvironment,
   });
   if (isFirstRun()) {
     printFirstRunWelcome(terminal, screenReader);
