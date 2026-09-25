@@ -34,7 +34,8 @@
  *
  * ## Concurrency semantics, which the issue requires documented rather than discovered
  *
- * - **Idle session** → the message runs as a turn and the ack settles `acknowledged`.
+ * - **Idle session** → the message runs as a turn and the ack settles `acknowledged`. The immediate
+ *   `pending` ack is returned on acceptance, not after the turn: the sender's wire waits for it.
  * - **Busy session** → the existing pending queue holds it; the ack is `pending` until it settles.
  * - **Superseded** → the pending queue coalesces a same-driver tail (last-wins per driver), so a
  *   second message from one peer arriving mid-turn replaces the first. The replaced one is NOT lost
@@ -83,7 +84,16 @@ export interface IIngressResult {
  * that knows how sessions work — which is the mistake this file already made once.
  */
 export interface IPeerIngressHost {
-  submit(input: string, origin: IPeerOrigin): Promise<ITurnHandle>;
+  /**
+   * `onAccepted` is `ISubmitOptions.onAccepted`: the session's submit resolves only after the turn
+   * on an idle session, and the immediate ack must not wait for that. A host that never calls it
+   * still works; the ack then waits for `submit` to resolve.
+   */
+  submit(
+    input: string,
+    origin: IPeerOrigin,
+    onAccepted: (handle: ITurnHandle) => void,
+  ): Promise<ITurnHandle>;
 }
 
 export interface IPeerIngressOptions {
@@ -135,7 +145,13 @@ export class PeerMessageIngress {
 
     let handle: ITurnHandle;
     try {
-      handle = await this.host.submit(ingress.message.text, ingress.message.origin);
+      // Whichever comes first: acceptance, or `submit` settling. A rejection after acceptance is
+      // the turn's own failure, which `completed` already reports as the settled ack.
+      handle = await new Promise<ITurnHandle>((resolve, reject) => {
+        this.host
+          .submit(ingress.message.text, ingress.message.origin, resolve)
+          .then(resolve, reject);
+      });
     } catch (error) {
       // A session that is shutting down rejects the submission outright. That is a refusal the
       // sender must hear rather than a crash in whatever is pumping the channel.

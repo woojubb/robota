@@ -271,9 +271,13 @@ describe('RUNTIME-006: turn identity is required only on internal accepted-turn 
       { driverId: 'owner', resumeTurnId: 'forged' },
     ]);
 
-    expect(internalSubmit).toHaveBeenCalledWith('hello', undefined, undefined, {
-      driverId: 'owner',
-    });
+    expect(internalSubmit).toHaveBeenCalledWith(
+      'hello',
+      undefined,
+      undefined,
+      { driverId: 'owner' },
+      undefined,
+    );
   });
 
   it('mints identity even when an untyped caller forges the removed resume option', () => {

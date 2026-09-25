@@ -14,6 +14,8 @@ export interface INewTurnSubmissionDeps {
   readonly executeAcceptedTurn: (entry: IQueuedInput) => Promise<void>;
   readonly emitDropped: (driverId: TDriverId, maxDepth: number) => void;
   readonly isWakeStopped: (wakeTaskId: string) => boolean;
+  /** See `ISubmitOptions.onAccepted`. */
+  readonly onAccepted?: ((handle: ITurnHandle) => void) | undefined;
 }
 
 export class StoppedWakeSubmissionError extends Error {
@@ -57,6 +59,9 @@ export async function submitNewTurn(
     }
     const { driverId, turnId, completed, resolvedOptions, queueBehindRunningTurn } =
       acceptSubmission(options, deps.execCtrl);
+    // Before either branch: an idle submission returns only after its turn, and a caller that
+    // answers on acceptance must not be held for the whole turn.
+    deps.onAccepted?.({ turnId, completed });
     if (options.signal?.aborted) {
       deps.execCtrl.turns.refuse(turnId, 'cancelled');
       return { turnId, completed };
