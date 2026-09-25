@@ -9,6 +9,7 @@ export * from './logger';
 export * from './validation';
 export * from './error-utils';
 export * from './errors';
+export * from './provider-failure';
 export * from './periodic-task';
 export * from './platform-shell';
 export {

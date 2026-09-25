@@ -1,4 +1,4 @@
-import { RateLimitError } from '@robota-sdk/agent-core';
+import { toProviderError } from '@robota-sdk/agent-core';
 import {
   observeProviderNativeRawPayloadStream,
   toOpenAICompatibleToolChoice,
@@ -17,7 +17,7 @@ import { assembleOpenAIStream } from './streaming/stream-assembler';
 import type { IPayloadLogger } from './interfaces/payload-logger';
 import type { OpenAIResponseParser } from './parsers/response-parser';
 import type { IOpenAIProviderOptions } from './types';
-import type { IOpenAIError, IOpenAILogData } from './types/api-types';
+import type { IOpenAILogData } from './types/api-types';
 import type { IChatOptions, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
 import type OpenAI from 'openai';
 
@@ -71,17 +71,7 @@ export async function chatWithOpenAIChatCompletions(
       readOpenAIRequestId(response),
     );
   } catch (error) {
-    // allow-fallback: maps 429 to RateLimitError, wraps others in Error
-    const openaiError = error as IOpenAIError;
-    if (openaiError.status === 429) {
-      throw new RateLimitError(
-        openaiError.message ?? 'OpenAI rate limit exceeded.',
-        undefined,
-        'openai',
-      );
-    }
-    const errorMessage = openaiError.message || 'OpenAI API request failed';
-    throw new Error(`OpenAI chat failed: ${errorMessage}`);
+    throw toProviderError(error, 'openai', 'OpenAI chat failed');
   }
 }
 
@@ -122,17 +112,7 @@ export async function* chatStreamWithOpenAIChatCompletions(
       }
     }
   } catch (error) {
-    // allow-fallback: maps 429 to RateLimitError, wraps others in Error
-    const openaiError = error as IOpenAIError;
-    if (openaiError.status === 429) {
-      throw new RateLimitError(
-        openaiError.message ?? 'OpenAI rate limit exceeded.',
-        undefined,
-        'openai',
-      );
-    }
-    const errorMessage = openaiError.message || 'OpenAI API request failed';
-    throw new Error(`OpenAI stream failed: ${errorMessage}`);
+    throw toProviderError(error, 'openai', 'OpenAI stream failed');
   }
 }
 
@@ -209,17 +189,7 @@ async function chatWithStreamingAssembly(
     });
     return withProviderRequestId(assembled, providerRequestId);
   } catch (error) {
-    // allow-fallback: maps 429 to RateLimitError, wraps others in Error
-    const openaiError = error as IOpenAIError;
-    if (openaiError.status === 429) {
-      throw new RateLimitError(
-        openaiError.message ?? 'OpenAI rate limit exceeded.',
-        undefined,
-        'openai',
-      );
-    }
-    const errorMessage = openaiError.message || 'OpenAI streaming request failed';
-    throw new Error(`OpenAI stream failed: ${errorMessage}`);
+    throw toProviderError(error, 'openai', 'OpenAI stream failed');
   }
 }
 
