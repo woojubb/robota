@@ -69,6 +69,14 @@ export class OpenAICompatibleResponseParser {
       ...(usage && { usage: this.parseUsage(usage) }),
       metadata: {
         finishReason: choice.finish_reason || undefined,
+        ...(usage && {
+          usageProvenance:
+            usage.prompt_tokens !== undefined &&
+            usage.completion_tokens !== undefined &&
+            usage.total_tokens !== undefined
+              ? 'complete'
+              : 'partial',
+        }),
         ...this.buildToolTextMetadata(toolTextProjection, toolTextFlush),
       },
     };

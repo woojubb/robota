@@ -46,6 +46,20 @@ function job(effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max'): ISubagentJob
   } as ISubagentJobStart;
 }
 
+describe('in-process subagent trace context', () => {
+  it('runs the child with the prompt only, so it never inherits the parent prompt trace', () => {
+    const session = {
+      run: vi.fn().mockResolvedValue('done'),
+      abort: vi.fn(),
+      getFullHistory: vi.fn().mockReturnValue([]),
+    };
+    mocks.createSubagentSession.mockReturnValue(session);
+    createInProcessSubagentRunner(deps()).start(job());
+    expect(session.run).toHaveBeenCalledWith('Do work');
+    expect(session.run.mock.calls[0]).toHaveLength(1);
+  });
+});
+
 describe('in-process subagent effort projection (BEHAVIOR-009)', () => {
   it('uses the request effort when present and the definition effort otherwise', () => {
     const session = {

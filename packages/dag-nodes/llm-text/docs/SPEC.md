@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The collapsed `llm-text` DAG node (ARCH-PROVIDER-003): AI-powered text generation for **any**
+The collapsed `llm-text` DAG node: AI-powered text generation for **any**
 provider in an injected provider-definition registry — superseding the previous per-vendor
 `llm-text-<vendor>` nodes and the `llm-text-router`.
 

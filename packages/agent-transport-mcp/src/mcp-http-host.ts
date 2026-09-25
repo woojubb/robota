@@ -9,9 +9,10 @@ import {
   mintTransportToken,
 } from '@robota-sdk/agent-transport/node';
 
-import { invokeMcpTool, readCatalog, SUBMIT_TOOL } from './mcp-tool-surface.js';
+import { invokeMcpTool, readCatalog, resolveSubmitTool } from './mcp-tool-surface.js';
 
 import type { IMcpTransportSession } from './mcp-session.js';
+import type { IMcpSubmitToolIdentity } from './mcp-tool-surface.js';
 import type { Tool as ModernTool } from '@modelcontextprotocol/server';
 import type { AddressInfo } from 'node:net';
 
@@ -31,6 +32,8 @@ export interface IMcpHttpHostOptions {
   port?: number;
   /** Accepted only for numeric IPv4 loopback; provided for explicit bind-refusal checks. */
   host?: string;
+  /** Host-owned identity for the submission extension. */
+  submitTool?: IMcpSubmitToolIdentity;
 }
 
 export interface IMcpHttpHost {
@@ -40,6 +43,7 @@ export interface IMcpHttpHost {
 }
 
 export function createMcpHttpHost(options: IMcpHttpHostOptions): IMcpHttpHost {
+  const submitTool = resolveSubmitTool(options.submitTool);
   if (options.host !== undefined && options.host !== LOOPBACK) {
     throw new Error('MCP HTTP host must bind numeric IPv4 loopback');
   }
@@ -69,31 +73,37 @@ export function createMcpHttpHost(options: IMcpHttpHostOptions): IMcpHttpHost {
     async start() {
       if (startCalled || stopPromise) throw new Error('MCP HTTP host already started');
       startCalled = true;
-      await readCatalog(options.session);
+      await readCatalog(options.session, submitTool.name);
       if (stoppingRequested) throw new Error('MCP HTTP host stopped during startup');
-      handler = createMcpHandler(() => {
-        const server = new Server(
-          { name: options.name, version: options.version },
-          { capabilities: { tools: {} } },
-        );
-        server.setRequestHandler('tools/list', async () => ({
-          // The v1 catalog validator returns a wider schema type than SDK v2's JSON-only Tool.
-          // Normalize at this SDK boundary while keeping one canonical runtime catalog owner.
-          tools: JSON.parse(JSON.stringify([
-            ...(await readCatalog(options.session)),
-            SUBMIT_TOOL,
-          ])) as ModernTool[],
-        }));
-        server.setRequestHandler('tools/call', async (request, ctx) =>
-          invokeMcpTool(
-            options.session,
-            request.params.name,
-            request.params.arguments ?? {},
-            ctx.mcpReq.signal,
-          ),
-        );
-        return server;
-      }, { maxSubscriptions: 0 });
+      handler = createMcpHandler(
+        () => {
+          const server = new Server(
+            { name: options.name, version: options.version },
+            { capabilities: { tools: {} } },
+          );
+          server.setRequestHandler('tools/list', async () => ({
+            // The v1 catalog validator returns a wider schema type than SDK v2's JSON-only Tool.
+            // Normalize at this SDK boundary while keeping one canonical runtime catalog owner.
+            tools: JSON.parse(
+              JSON.stringify([
+                ...(await readCatalog(options.session, submitTool.name)),
+                submitTool,
+              ]),
+            ) as ModernTool[],
+          }));
+          server.setRequestHandler('tools/call', async (request, ctx) =>
+            invokeMcpTool(
+              options.session,
+              request.params.name,
+              request.params.arguments ?? {},
+              ctx.mcpReq.signal,
+              submitTool.name,
+            ),
+          );
+          return server;
+        },
+        { maxSubscriptions: 0 },
+      );
       const nodeHandler = toNodeHandler(handler);
       const server = createServer({ maxHeaderSize: 16 * 1024 }, (req, res) => {
         const address = server.address();
@@ -199,7 +209,7 @@ export function createMcpHttpHost(options: IMcpHttpHostOptions): IMcpHttpHost {
           return;
         }
         const close = new Promise<void>((resolve, reject) => {
-          currentListener.close((error) => error ? reject(error) : resolve());
+          currentListener.close((error) => (error ? reject(error) : resolve()));
           currentListener.closeAllConnections();
         });
         let timer: ReturnType<typeof setTimeout> | undefined;
@@ -207,7 +217,10 @@ export function createMcpHttpHost(options: IMcpHttpHostOptions): IMcpHttpHost {
           await Promise.race([
             Promise.all([currentHandler?.close(), close]).then(() => undefined),
             new Promise<never>((_resolve, reject) => {
-              timer = setTimeout(() => reject(new Error('MCP HTTP close timed out')), CLOSE_TIMEOUT_MS);
+              timer = setTimeout(
+                () => reject(new Error('MCP HTTP close timed out')),
+                CLOSE_TIMEOUT_MS,
+              );
             }),
           ]);
         } finally {

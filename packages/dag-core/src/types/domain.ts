@@ -161,6 +161,17 @@ export interface IDagDefinition {
   outputSchema?: string;
 }
 
+/** Immutable ancestry carried from a root run into each in-process nested DAG run. */
+export interface IDagExecutionLineage {
+  readonly rootRunId: string;
+  readonly parentRunId?: string;
+  /** Number of child-DAG boundaries crossed since the root run. */
+  readonly depth: number;
+  /** Effective root-to-child depth ceiling inherited from all enclosing composites. */
+  readonly maxDepth?: number;
+  readonly ancestorCompositeNodeTypes: readonly string[];
+}
+
 /** Runtime record of a single DAG execution instance. */
 export interface IDagRun {
   dagRunId: string;
@@ -172,6 +183,8 @@ export interface IDagRun {
   runKey: string;
   logicalDate: string;
   trigger: TDagTriggerType;
+  /** Trusted ancestry of a composite child; absent for independent or legacy root runs. */
+  lineage?: IDagExecutionLineage;
   startedAt?: string;
   endedAt?: string;
 }
@@ -189,6 +202,10 @@ export interface ITaskRun {
   outputSnapshot?: string;
   estimatedCredits?: number;
   totalCredits?: number;
+  /** Credit hold belonging to this exact attempt and lease owner. */
+  reservedCredits?: number;
+  reservationAttempt?: number;
+  reservationOwner?: string;
   errorCode?: string;
   errorMessage?: string;
 }

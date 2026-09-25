@@ -88,6 +88,21 @@ describe('SELFHOST-004 P6 — collectSpanEntries over a live bus', () => {
     expect(collector.toolBodies).toHaveLength(1);
   });
 
+  it('retains the executed tool-call identity without collecting arguments or results', () => {
+    const bus = new ObservableEventService();
+    const collector = collectSpanEntries(bus);
+    const at = new Date().toISOString();
+    bus.emit(`tool.${TOOL_BODY_EVENTS.COMPLETED}`, {
+      timestamp: new Date(), executionId: 'call-123',
+      startedAt: at, endedAt: at, outcome: 'success',
+      parameters: 'private argument', result: 'private result',
+    });
+    expect(collector.toolBodies).toEqual([{
+      toolCallId: 'call-123', startedAt: at, endedAt: at, outcome: 'success',
+    }]);
+    collector.dispose();
+  });
+
   it('ignores non-span events on the bus', () => {
     const bus = new ObservableEventService();
     const collector = collectSpanEntries(bus);

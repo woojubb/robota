@@ -17,6 +17,7 @@ import { settleOnServeTransportFailure } from './serve-transport-failure.js';
 import {
   startSupervisedControl,
   type ISupervisedControl,
+  type ISupervisedPr,
 } from '../session-inventory/supervised-session-control.js';
 import { startRuntimeHost } from '@robota-sdk/agent-framework';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
@@ -44,6 +45,7 @@ import type {
   IToolCallHandoffPolicy,
   TInteractiveSessionOptions,
   TWorkspaceProjectAccess,
+  ILivePromptTracePort,
   createProjectSessionStore,
 } from '@robota-sdk/agent-framework';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
@@ -58,6 +60,7 @@ export type IServeModePresetOptions = Partial<IPresetSurfaceOptions>;
 
 export interface IServeModeOptions {
   cwd: string;
+  livePromptTrace?: ILivePromptTracePort;
   /** Explicit host-owned control root for isolated embedded runtimes and tests. */
   supervisedRoot?: string;
   args: IParsedCliArgs;
@@ -66,6 +69,7 @@ export interface IServeModeOptions {
   promptFileReferenceTag?: string;
   modelCommandToolPrefix?: string;
   subagentHookEnvironmentNames?: TInteractiveSessionOptions['subagentHookEnvironmentNames'];
+  observerFailureWarningCode?: TInteractiveSessionOptions['observerFailureWarningCode'];
   commandHookShell?: string;
   sessionStore: ReturnType<typeof createProjectSessionStore>;
   projectAccess?: TWorkspaceProjectAccess;
@@ -142,6 +146,7 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
   const { args, preset } = opts;
   return {
     cwd: opts.cwd,
+    ...(opts.livePromptTrace ? { livePromptTrace: opts.livePromptTrace } : {}),
     provider: opts.provider,
     ...(opts.providerErrorGuidance !== undefined
       ? { providerErrorGuidance: opts.providerErrorGuidance }
@@ -154,6 +159,9 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
       : {}),
     ...(opts.subagentHookEnvironmentNames !== undefined
       ? { subagentHookEnvironmentNames: opts.subagentHookEnvironmentNames }
+      : {}),
+    ...(opts.observerFailureWarningCode !== undefined
+      ? { observerFailureWarningCode: opts.observerFailureWarningCode }
       : {}),
     ...(opts.commandHookShell !== undefined ? { commandHookShell: opts.commandHookShell } : {}),
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
@@ -316,6 +324,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   if (args.supervisedSessionId !== undefined) {
     try {
       const supervisedCwd = realpathSync(opts.cwd);
+      let linkedPr: ISupervisedPr | undefined;
       supervisedControl = await startSupervisedControl(
         args.supervisedSessionId,
         () => requestSettle('supervised session stopped'),
@@ -325,6 +334,17 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         () => settling || sessionOptions.disableSessionLoops
           ? undefined : nextWaitingLoopAt(host.session.listSelfPacedLoops(), Date.now()),
         () => settling ? undefined : host.session.getName(),
+        (name) => {
+          if (settling) throw new Error('Supervised runtime is stopping.');
+          host.session.setName(name);
+        },
+        {
+          get: () => settling ? undefined : linkedPr,
+          set: (value) => {
+            if (settling) throw new Error('Supervised runtime is stopping.');
+            linkedPr = value;
+          },
+        },
       );
       if (settling) throw new Error('Supervised runtime stopped before readiness.');
       await acknowledgeSupervisedStartup(args.supervisedSessionId, readinessAbort.signal);

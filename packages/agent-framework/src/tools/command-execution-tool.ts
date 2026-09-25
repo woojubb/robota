@@ -63,7 +63,7 @@ function formatCommandDescriptor(descriptor: TModelCommandDescriptor): string {
 
 function createToolDescription(commandDescriptors?: readonly TModelCommandDescriptor[]): string {
   const base =
-    'Executes a registered model-invocable Robota command through the command registry. Accepted command names and argument grammar come from registered command descriptors.';
+    'Executes a registered model-invocable command through the command registry. Accepted command names and argument grammar come from registered command descriptors.';
   if (commandDescriptors === undefined || commandDescriptors.length === 0) return base;
   return [
     base,

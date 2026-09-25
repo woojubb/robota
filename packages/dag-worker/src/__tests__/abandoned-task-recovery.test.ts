@@ -27,7 +27,7 @@ import type { IDagDefinition, IDagRun, IQueueMessage, ITaskRun } from '@robota-s
  * acquire fails and the message is nacked. Acquiring means the previous owner released it or its
  * lease expired — which is exactly the definition of abandoned.
  */
-function createRunFixture() {
+function createRunFixture(nodeTimeoutMs?: number) {
   const dagRun: IDagRun = {
     dagRunId: 'dag-run-1',
     dagId: 'dag-1',
@@ -76,6 +76,7 @@ function createRunFixture() {
         inputs: [],
         outputs: [{ key: 'done', type: 'boolean', required: false }],
         config: {},
+        ...(nodeTimeoutMs === undefined ? {} : { timeoutMs: nodeTimeoutMs }),
       },
     ],
     edges: [],
@@ -95,8 +96,9 @@ async function harness(
   executor: ScriptedTaskExecutorPort,
   workerId = 'worker-2',
   retryEnabled = false,
+  nodeTimeoutMs?: number,
 ): Promise<IHarness & ReturnType<typeof createRunFixture>> {
-  const fixture = createRunFixture();
+  const fixture = createRunFixture(nodeTimeoutMs);
   const storage = new InMemoryStoragePort();
   const queue = new InMemoryQueuePort();
   const lease = new InMemoryLeasePort();
@@ -200,14 +202,18 @@ describe('an abandoned task is recovered, not trapped (DAG-001)', () => {
     // a timeout longer than the lease reclaimable while still legitimately running — re-queued and
     // executed TWICE, which is worse than the trap DAG-001 set out to fix.
     let observed: ITaskRun | undefined;
+    // The node's own timeoutMs, allowed to run far longer than the 30s lease — resolved from its
+    // definition, never from the message payload (see WorkerLoopService.resolveTimeoutMs).
     const h = await harness(
       new ScriptedTaskExecutorPort(async () => {
         observed = await h.storage.getTaskRun('task-run-1');
         return { ok: true, output: { done: true } };
       }),
+      'worker-2',
+      false,
+      600_000,
     );
-    // A task allowed to run far longer than the 30s lease.
-    await h.queue.enqueue({ ...h.message, payload: { timeoutMs: 600_000 } });
+    await h.queue.enqueue(h.message);
 
     await h.service.processOnce();
 
@@ -275,13 +281,19 @@ describe('an abandoned task is recovered, not trapped (DAG-001)', () => {
     // lock duration let the lease expire mid-execution, and the queue's visibility timeout then
     // redelivered the message to a worker that could acquire — reclaiming a task still running.
     const acquired: number[] = [];
-    const h = await harness(new ScriptedTaskExecutorPort(async () => ({ ok: true, output: {} })));
+    // Resolved from the node's own definition, never from the message payload.
+    const h = await harness(
+      new ScriptedTaskExecutorPort(async () => ({ ok: true, output: {} })),
+      'worker-2',
+      false,
+      600_000,
+    );
     const realAcquire = h.lease.acquire.bind(h.lease);
     h.lease.acquire = async (key: string, owner: string, ms: number) => {
       acquired.push(ms);
       return realAcquire(key, owner, ms);
     };
-    await h.queue.enqueue({ ...h.message, payload: { timeoutMs: 600_000 } });
+    await h.queue.enqueue(h.message);
 
     await h.service.processOnce();
 

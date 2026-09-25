@@ -34,7 +34,7 @@ function createSessionRuntime() {
   });
 }
 
-function createTask(overrides?: Partial<IBackgroundTaskState>): IBackgroundTaskState {
+function createTask(overrides?: Partial<IBackgroundTaskState<'agent'>>): IBackgroundTaskState {
   return {
     id: 'agent_1',
     kind: 'agent',

@@ -182,6 +182,13 @@ export class InMemoryStoragePort implements IStoragePort {
       const next: ITaskRun = {
         ...taskRun,
         status,
+        ...(['failed', 'cancelled', 'queued'].includes(status)
+          ? {
+              reservedCredits: undefined,
+              reservationAttempt: undefined,
+              reservationOwner: undefined,
+            }
+          : {}),
         errorCode: error?.code,
         errorMessage: error?.message,
       };
@@ -239,6 +246,9 @@ export class InMemoryStoragePort implements IStoragePort {
       const next: ITaskRun = {
         ...taskRun,
         attempt: taskRun.attempt + 1,
+        reservedCredits: undefined,
+        reservationAttempt: undefined,
+        reservationOwner: undefined,
       };
 
       this.taskRuns.set(taskRunKey, next);

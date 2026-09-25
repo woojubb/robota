@@ -7,7 +7,9 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { listSupervisedSessions, stopSupervisedSession } from '../supervised-session-control.js';
+import {
+  linkSupervisedPr, listSupervisedSessions, renameSupervisedSession, stopSupervisedSession, unlinkSupervisedPr,
+} from '../supervised-session-control.js';
 import { launchSupervisedSession } from '../supervised-session-launch.js';
 
 const fixture = fileURLToPath(new URL('./fixtures/supervised-serve-fixture.ts', import.meta.url));
@@ -29,7 +31,23 @@ describe('detached supervised runtime', () => {
       await vi.waitFor(async () => expect(await listSupervisedSessions(root, undefined, { includeName: true })).toEqual([{
         id, liveness: 'alive', control: 'available', activity: 'idle', name: 'Morning review',
       }]), { timeout: 15_000, interval: 100 });
+      await renameSupervisedSession(id, 'Evening review', root);
+      expect(await listSupervisedSessions(root, undefined, { includeName: true })).toEqual([{
+        id, liveness: 'alive', control: 'available', activity: 'idle', name: 'Evening review',
+      }]);
+      expect(JSON.stringify(await listSupervisedSessions(root))).not.toContain('Evening review');
       expect(readFileSync(join(root, id, 'state.json'), 'utf8')).not.toContain('Morning review');
+      expect(readFileSync(join(root, id, 'state.json'), 'utf8')).not.toContain('Evening review');
+      const url = 'https://github.com/team/repo/pull/123';
+      await linkSupervisedPr(id, url, root);
+      expect(await listSupervisedSessions(root, undefined, { includePr: true, pr: 123 })).toEqual([{
+        id, liveness: 'alive', control: 'available', activity: 'idle',
+        pr: { url, host: 'github.com', number: 123, kind: 'pull' },
+      }]);
+      expect(JSON.stringify(await listSupervisedSessions(root))).not.toContain(url);
+      expect(readFileSync(join(root, id, 'state.json'), 'utf8')).not.toContain(url);
+      await unlinkSupervisedPr(id, root);
+      expect(await listSupervisedSessions(root, undefined, { includePr: true, pr: 123 })).toEqual([]);
       await stopSupervisedSession(id, root);
     } finally {
       if (id) {

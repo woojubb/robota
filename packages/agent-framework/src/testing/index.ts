@@ -32,3 +32,5 @@ export {
 } from './command-host-double.js';
 
 export { createTestAgentJobHost } from './agent-job-host-double.js';
+
+export { createInteractiveRuntimeForTesting } from './interactive-runtime.js';

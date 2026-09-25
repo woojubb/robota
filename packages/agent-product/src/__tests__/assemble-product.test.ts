@@ -54,6 +54,7 @@ describe('assembleProduct — capability fold', () => {
       promptFileReferenceTag: 'consumed',
       modelCommandToolPrefix: 'consumed',
       subagentHookEnvironmentNames: 'consumed',
+      observerFailureWarningCode: 'consumed',
       presets: 'consumed',
       presetRegistry: 'consumed-and-surfaced',
       defaultPresetId: 'consumed-and-surfaced',
@@ -101,6 +102,7 @@ describe('assembleProduct — capability fold', () => {
       provider: testProvider(),
       promptFileReferenceTag: 'acme_file_references',
       modelCommandToolPrefix: 'acme_command_',
+      observerFailureWarningCode: 'ACME_BACKGROUND_OBSERVER_FAILURE',
       subagentHookEnvironmentNames: {
         agentId: 'ACME_AGENT_ID', agentType: 'ACME_AGENT_TYPE',
       },
@@ -110,6 +112,7 @@ describe('assembleProduct — capability fold', () => {
     });
     expect(options.promptFileReferenceTag).toBe('acme_file_references');
     expect(options.modelCommandToolPrefix).toBe('acme_command_');
+    expect(options.observerFailureWarningCode).toBe('ACME_BACKGROUND_OBSERVER_FAILURE');
     expect(options.subagentHookEnvironmentNames).toEqual({
       agentId: 'ACME_AGENT_ID', agentType: 'ACME_AGENT_TYPE',
     });
@@ -121,11 +124,13 @@ describe('assembleProduct — capability fold', () => {
         bare: true,
         promptFileReferenceTag: 'shell_files',
         modelCommandToolPrefix: 'shell_command_',
+        observerFailureWarningCode: 'SHELL_BACKGROUND_OBSERVER_FAILURE',
         subagentHookEnvironmentNames: { agentId: 'SHELL_AGENT_ID' },
       },
     });
     expect(shellOverride.promptFileReferenceTag).toBe('shell_files');
     expect(shellOverride.modelCommandToolPrefix).toBe('shell_command_');
+    expect(shellOverride.observerFailureWarningCode).toBe('SHELL_BACKGROUND_OBSERVER_FAILURE');
     expect(shellOverride.subagentHookEnvironmentNames).toEqual({ agentId: 'SHELL_AGENT_ID' });
   });
 

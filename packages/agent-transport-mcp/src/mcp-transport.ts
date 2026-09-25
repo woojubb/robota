@@ -12,6 +12,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { createAgentMcpServer } from './mcp-server.js';
 
 import type { IMcpTransportSession } from './mcp-session.js';
+import type { IMcpSubmitToolIdentity } from './mcp-tool-surface.js';
 import type { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import type {
   ITransportAdapter,
@@ -29,6 +30,8 @@ export interface IMcpTransportOptions {
   /** Process-owned streams; defaults to the current process stdio. */
   stdin?: Readable;
   stdout?: Writable;
+  /** Host-owned identity for the submission extension. */
+  submitTool?: IMcpSubmitToolIdentity;
 }
 
 export interface IMcpTransport extends ITransportAdapter<IMcpTransportSession> {
@@ -124,6 +127,7 @@ export function createMcpTransport(options: IMcpTransportOptions): IMcpTransport
               name: options.name,
               version: options.version,
               session: attachedSession,
+              ...(options.submitTool !== undefined ? { submitTool: options.submitTool } : {}),
             }),
             cancelled,
           ]);

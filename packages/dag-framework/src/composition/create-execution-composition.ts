@@ -1,6 +1,7 @@
 import type {
   IClockPort,
   ITaskSnapshotBudget,
+  IRootCreditBudget,
   IDagExecutionByteLimits,
   ILeasePort,
   IQueuePort,
@@ -19,7 +20,10 @@ import type { IDagExecutionComposition } from '../types.js';
 
 /** Infrastructure dependencies required for DAG execution. */
 export interface IDagExecutionCompositionDependencies {
+  /** Trusted composition fact: the selected executor reserves during its lifecycle estimate. */
+  lifecycleCreditAdmission?: boolean;
   snapshotBudget?: ITaskSnapshotBudget;
+  rootCreditBudget?: IRootCreditBudget;
   /** Trusted host ceiling, independent of serialized definitions and queue messages. */
   byteLimits?: IDagExecutionByteLimits;
   executionRoot: string;
@@ -59,6 +63,8 @@ export function createExecutionComposition(
       executionRoot: dependencies.executionRoot,
       byteLimits: dependencies.byteLimits,
       snapshotBudget: dependencies.snapshotBudget,
+      rootCreditBudget: dependencies.rootCreditBudget,
+      lifecycleCreditAdmission: dependencies.lifecycleCreditAdmission,
       storage: dependencies.storage,
       queue: dependencies.queue,
       deadLetterQueue: dependencies.deadLetterQueue,
@@ -75,6 +81,7 @@ export function createExecutionComposition(
   const runCancel = new RunCancelService(dependencies.storage, dependencies.clock, {
     notifyRunCancelled(dagRunId) {
       dependencies.snapshotBudget?.close();
+      dependencies.rootCreditBudget?.close();
       workerLoop.notifyRunCancelled(dagRunId);
     },
   });

@@ -13,12 +13,32 @@ import {
   type TPortPayload,
   type TResult,
   type ITaskSnapshotBudget,
+  type IDagExecutionLineage,
+  decodeDagExecutionLineage,
 } from '@robota-sdk/dag-core';
 import { parsePortPayload, parseDefinitionSnapshot } from './snapshot-parser.js';
 import { dispatchEntryTasks } from './entry-task-dispatcher.js';
 
+/** Structural equality for decoded lineage; field order in the persisted record is not significant. */
+function lineagesEqual(
+  a: IDagExecutionLineage | undefined,
+  b: IDagExecutionLineage | undefined,
+): boolean {
+  if (a === undefined || b === undefined) return a === b;
+  return (
+    a.rootRunId === b.rootRunId &&
+    a.parentRunId === b.parentRunId &&
+    a.depth === b.depth &&
+    a.maxDepth === b.maxDepth &&
+    a.ancestorCompositeNodeTypes.length === b.ancestorCompositeNodeTypes.length &&
+    a.ancestorCompositeNodeTypes.every((type, index) => type === b.ancestorCompositeNodeTypes[index])
+  );
+}
+
 /** Input parameters for initiating a DAG run. */
 export interface IStartRunInput {
+  /** Trusted host-provided ancestry for a composite child run. */
+  lineage?: IDagExecutionLineage;
   dagId: string;
   version?: number;
   trigger: TDagTriggerType;
@@ -101,11 +121,42 @@ export class RunOrchestratorService {
       return resolvedTime;
     }
 
+    let lineage: IDagExecutionLineage | undefined;
+    try {
+      lineage = decodeDagExecutionLineage(input.lineage);
+    } catch {
+      return { ok: false, error: buildValidationError(
+        'DAG_VALIDATION_RUN_LINEAGE_INVALID',
+        'Composite child run lineage is invalid',
+        { dagId: definition.dagId },
+      ) };
+    }
+
     const runKey = input.rerunKey
       ? `${definition.dagId}:${resolvedTime.value.logicalDate}:rerun:${input.rerunKey}`
       : `${definition.dagId}:${resolvedTime.value.logicalDate}`;
     const existingRun = await this.storage.getDagRunByRunKey(runKey);
     if (existingRun) {
+      let existingLineage: IDagExecutionLineage | undefined;
+      try {
+        existingLineage = decodeDagExecutionLineage(existingRun.lineage);
+      } catch {
+        return { ok: false, error: buildValidationError(
+          'DAG_VALIDATION_RUN_LINEAGE_INVALID',
+          'Existing run for this run key has invalid persisted lineage',
+          { dagId: definition.dagId, runKey },
+        ) };
+      }
+      // A run key is meant to dedupe retries of the SAME logical trigger, not to let a differently
+      // ancestored composite child reuse another child's run record. Silently returning the
+      // existing run here would let that second caller inherit the wrong depth/ancestry authority.
+      if (!lineagesEqual(existingLineage, lineage)) {
+        return { ok: false, error: buildValidationError(
+          'DAG_VALIDATION_RUN_KEY_LINEAGE_MISMATCH',
+          'An existing run for this run key has different composite lineage',
+          { dagId: definition.dagId, runKey, existingDagRunId: existingRun.dagRunId },
+        ) };
+      }
       return {
         ok: true,
         value: {
@@ -134,6 +185,7 @@ export class RunOrchestratorService {
         runKey,
         logicalDate: resolvedTime.value.logicalDate,
         trigger: input.trigger,
+        ...(lineage === undefined ? {} : { lineage }),
         startedAt: this.clock.nowIso(),
       });
       if (this.snapshotBudget) {

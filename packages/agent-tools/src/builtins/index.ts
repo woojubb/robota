@@ -1,7 +1,7 @@
 // Built-in CLI tools
 export { createShellTool, createBashTool } from './shell-tool.js';
 export type { IShellToolOptions } from './shell-tool.js';
-export { createReadTool } from './read-tool.js';
+export { createReadTool, ReadByteLimitError, ReadCancelledError } from './read-tool.js';
 export { createWriteTool } from './write-tool.js';
 export { createEditTool } from './edit-tool.js';
 export { createGlobTool } from './glob-tool.js';

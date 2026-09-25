@@ -20,6 +20,7 @@ import type { IOrgPolicy } from '../../command-api/org-policy/org-policy-types.j
 import type { IOutputStylePrompt } from '../../context/output-style-prompt.js';
 import type { IModelEffortResolution } from '../../effort/effort-resolution.js';
 import type { InteractiveSession } from '../../interactive/interactive-session.js';
+import type { ILivePromptTracePort } from '../../interactive/interactive-session-live-prompt-trace.js';
 import type { IAutomaticMemoryConfig } from '../../memory/automatic-memory-types.js';
 import type { IMemoryStore, IPerTurnRecallConfig } from '../../memory/types.js';
 import type { TSubagentRunnerFactory } from '../../subagents/in-process-subagent-runner.js';
@@ -32,11 +33,13 @@ import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-sessi
 
 export interface IHeadlessInteractionChannelOptions {
   cwd: string;
+  livePromptTrace?: ILivePromptTracePort;
   provider: IAIProvider;
   providerErrorGuidance?: IProviderErrorGuidance;
   promptFileReferenceTag?: string;
   modelCommandToolPrefix?: string;
   subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
+  observerFailureWarningCode?: ICreateSessionOptions['observerFailureWarningCode'];
   commandHookShell?: string;
   /** Resolved organization policy enforced by the interactive session. */
   orgPolicy?: IOrgPolicy;
@@ -166,9 +169,10 @@ export class HeadlessInteractionChannel {
 
   private createSession(): InteractiveSession {
     // RUNTIME-001: build through the shared construction seam (agent-framework), not a private
-    // `new InteractiveSession` — one session-construction SSOT across the TUI, print, and --serve.
+    // `buildRuntimeSession` — one recipe kernel across the TUI, print, and --serve.
     return buildRuntimeSession({
       cwd: this.opts.cwd,
+      ...(this.opts.livePromptTrace ? { livePromptTrace: this.opts.livePromptTrace } : {}),
       provider: this.opts.provider,
       ...(this.opts.providerErrorGuidance !== undefined
         ? { providerErrorGuidance: this.opts.providerErrorGuidance }
@@ -181,6 +185,9 @@ export class HeadlessInteractionChannel {
         : {}),
       ...(this.opts.subagentHookEnvironmentNames !== undefined
         ? { subagentHookEnvironmentNames: this.opts.subagentHookEnvironmentNames }
+        : {}),
+      ...(this.opts.observerFailureWarningCode !== undefined
+        ? { observerFailureWarningCode: this.opts.observerFailureWarningCode }
         : {}),
       ...(this.opts.commandHookShell !== undefined
         ? { commandHookShell: this.opts.commandHookShell }

@@ -13,12 +13,14 @@
  * at least as strictly as `Read`, which it could otherwise stand in for.
  */
 
-import { readFile, stat } from 'node:fs/promises';
+import { createReadStream } from 'node:fs';
+import { stat } from 'node:fs/promises';
 
-import pLimit from 'p-limit';
 import { z } from 'zod';
+import { ToolExecutionError } from '@robota-sdk/agent-core';
 
-import { collectFiles, searchFile } from './grep-search.js';
+import { collectFiles } from './grep-search.js';
+import { IsolatedGrepSearch } from './isolated-grep-search.js';
 import { resolveSearchRoot } from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
@@ -65,13 +67,22 @@ const GrepSchema = z.object({
 
 type TGrepArgs = z.infer<typeof GrepSchema>;
 
-/** Cap on concurrent file reads during the content scan (CLI-042). */
-const READ_CONCURRENCY_LIMIT = 50;
+/** The matcher consumes one file at a time; keep only a few reads outstanding. */
+const READ_CONCURRENCY_LIMIT = 8;
+const MAX_GREP_FILE_BYTES = 4 * 1024 * 1024;
+const READ_CHUNK_BYTES = 64 * 1024;
 
-async function grepFileTool(
-  args: TGrepArgs,
-  options: IContainedBuiltinToolOptions,
-): Promise<string> {
+/** A grep isolation failure is a hard tool failure, distinct from ordinary no-match/invalid-input results. */
+export class GrepIsolationError extends ToolExecutionError {
+  public constructor(public readonly reason: 'timeout' | 'cancelled' | 'limit' | 'failed') {
+    super(
+      `Grep search ${reason === 'timeout' ? 'timed out' : reason === 'cancelled' ? 'cancelled' : reason === 'limit' ? 'exceeded its byte limit' : 'worker failed'}`,
+      'Grep',
+    );
+  }
+}
+
+async function grepFileTool(args: TGrepArgs, options: IGrepToolOptions): Promise<string> {
   const {
     pattern,
     path: searchPath,
@@ -84,9 +95,8 @@ async function grepFileTool(
   const { root: targetPath, error: rootError } = resolveSearchRoot(searchPath, containmentRoot);
   if (rootError) return rootError;
 
-  let regex: RegExp;
   try {
-    regex = new RegExp(pattern);
+    new RegExp(pattern);
   } catch (err) {
     const result: IToolInvocationResult = {
       success: false,
@@ -110,44 +120,115 @@ async function grepFileTool(
   }
 
   let files: string[];
+  let filesTruncated = false;
   if (targetStat.isFile()) {
     files = [targetPath];
   } else {
-    files = await collectFiles(targetPath, glob, containmentRoot);
+    const collected = await collectFiles(targetPath, glob, containmentRoot);
+    files = collected.files;
+    filesTruncated = collected.truncated;
   }
 
-  // Read/scan files in parallel with bounded concurrency, but collect results
-  // in file-enumeration order so output stays byte-identical to the previous
-  // sequential implementation (CLI-042).
-  const limit = pLimit(READ_CONCURRENCY_LIMIT);
-  const perFileMatches: string[][] = await Promise.all(
-    files.map((filePath) =>
-      limit(async (): Promise<string[]> => {
-        let content: string;
-        try {
-          const buffer = await readFile(filePath);
-          // Skip binary files
-          const checkLen = Math.min(buffer.length, 8192);
-          let hasBinary = false;
-          for (let i = 0; i < checkLen; i++) {
-            if (buffer[i] === 0) {
-              hasBinary = true;
-              break;
+  // A fixed number of readers prevents a directory's file count from creating
+  // one promise per file. Result slots retain file-enumeration order (CLI-042).
+  const search = new IsolatedGrepSearch(pattern, options.signal);
+  const readAbort = new AbortController();
+  const abortReads = (): void => readAbort.abort();
+  options.signal?.addEventListener('abort', abortReads, { once: true });
+  if (options.signal?.aborted) abortReads();
+  let perFileMatches: string[][];
+  try {
+    if (readAbort.signal.aborted) throw new GrepIsolationError('cancelled');
+    const orderedMatches = new Array<string[]>(files.length);
+    let nextFile = 0;
+    let failure: unknown;
+    const readAndSearch = async (filePath: string): Promise<string[]> => {
+          let content: string;
+          try {
+            const fileStat = await stat(filePath);
+            if (fileStat.size > MAX_GREP_FILE_BYTES) throw new GrepIsolationError('limit');
+            // A stream bounds each read and its signal can interrupt a pending read.
+            // FileHandle.read has no AbortSignal, so it would weaken cancellation.
+            const stream = createReadStream(filePath, {
+              highWaterMark: READ_CHUNK_BYTES,
+              signal: readAbort.signal,
+            });
+            const chunks: Buffer[] = [];
+            let bytes = 0;
+            try {
+              for await (const chunk of stream) {
+                if (readAbort.signal.aborted) throw new GrepIsolationError('cancelled');
+                const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+                bytes += buffer.length;
+                if (bytes > MAX_GREP_FILE_BYTES) throw new GrepIsolationError('limit');
+                chunks.push(buffer);
+              }
+            } finally {
+              stream.destroy();
             }
+            const buffer = Buffer.concat(chunks, bytes);
+            // Skip binary files
+            const checkLen = Math.min(buffer.length, 8192);
+            let hasBinary = false;
+            for (let i = 0; i < checkLen; i++) {
+              if (buffer[i] === 0) {
+                hasBinary = true;
+                break;
+              }
+            }
+            if (hasBinary) return [];
+            content = buffer.toString('utf8');
+          } catch (error) {
+            if (error instanceof GrepIsolationError) throw error;
+            if (readAbort.signal.aborted) throw new GrepIsolationError('cancelled');
+            // allow-fallback: an unreadable file is skipped (pre-existing sequential
+            // semantics — same as the old `continue`), not a logic fallback
+            return [];
           }
-          if (hasBinary) return [];
-          content = buffer.toString('utf8');
-        } catch {
-          // allow-fallback: an unreadable file is skipped (pre-existing sequential
-          // semantics — same as the old `continue`), not a logic fallback
-          return [];
+
+          return search.search(content, filePath, contextLines, outputMode);
+    };
+    const worker = async (): Promise<void> => {
+      while (failure === undefined && nextFile < files.length) {
+        const index = nextFile++;
+        try {
+          orderedMatches[index] = await readAndSearch(files[index]);
+        } catch (error) {
+          if (failure === undefined) {
+            failure = error;
+            readAbort.abort();
+            void search.stop(error instanceof Error ? error : new Error('Grep search failed'));
+          }
         }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(READ_CONCURRENCY_LIMIT, files.length) }, worker));
+    if (failure !== undefined) throw failure;
+    perFileMatches = orderedMatches;
+  } catch (error) {
+    const message = error instanceof Error ? error.message : '';
+    throw error instanceof GrepIsolationError
+      ? error
+      : new GrepIsolationError(
+          message.includes('timed out')
+            ? 'timeout'
+            : message.includes('cancelled')
+              ? 'cancelled'
+              : message.includes('byte limit')
+                ? 'limit'
+                : 'failed',
+        );
+  } finally {
+    options.signal?.removeEventListener('abort', abortReads);
+    await search.stop();
+  }
 
-        return searchFile(content, filePath, regex, contextLines, outputMode);
-      }),
-    ),
-  );
-
+  let outputBytes = 0;
+  for (const matches of perFileMatches)
+    for (const match of matches) {
+      outputBytes += Buffer.byteLength(match, 'utf8') + 1;
+      if (outputBytes > 4 * 1024 * 1024) throw new GrepIsolationError('limit');
+    }
   const allOutputLines: string[] = perFileMatches.flat();
 
   let outputLines = allOutputLines;
@@ -156,6 +237,12 @@ async function grepFileTool(
     outputLines = [
       ...outputLines.slice(0, headLimit),
       `(+${truncatedCount} more results truncated by headLimit)`,
+    ];
+  }
+  if (filesTruncated) {
+    outputLines = [
+      ...outputLines,
+      `[File enumeration stopped early; the search tree has more files than this tool scans in one call. Results may be incomplete — narrow the path or glob.]`,
     ];
   }
 
@@ -171,6 +258,8 @@ const DEFAULT_SHELL_TOOL_NAME = 'Shell';
 
 /** Options for the grep tool factory: containment root + description seam + shell-tool reference. */
 export interface IGrepToolOptions extends IContainedBuiltinToolOptions {
+  /** Cancels the isolated regex search and waits for its worker to exit. */
+  signal?: AbortSignal;
   /**
    * Registered name of the shell tool the default description references (default: `Shell`).
    * Ignored when `description` overrides the text.

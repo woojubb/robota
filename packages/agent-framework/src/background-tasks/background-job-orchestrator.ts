@@ -41,6 +41,8 @@ export interface IBackgroundJobOrchestratorOptions {
   initialGroups?: readonly IBackgroundJobGroupState[];
   /** ARCH-053: observer-failure reporter; see `IBackgroundTaskManagerOptions.onObserverFailure`. */
   onObserverFailure?: TObserverFailureReporter<TBackgroundJobGroupEvent>;
+  /** Host-selected process-warning identity used when no custom reporter is supplied. */
+  observerFailureWarningCode?: string;
 }
 
 interface IBackgroundJobGroupRecord {
@@ -63,7 +65,9 @@ export class BackgroundJobOrchestrator {
     this.manager = options.manager;
     this.now = options.now ?? (() => new Date().toISOString());
     this.idFactory = options.idFactory ?? (() => this.nextGroupId());
-    this.onObserverFailure = options.onObserverFailure ?? reportObserverFailureAsWarning;
+    this.onObserverFailure =
+      options.onObserverFailure ??
+      ((failure) => reportObserverFailureAsWarning(failure, options.observerFailureWarningCode));
     this.sequence = options.initialGroups?.length ?? 0;
     for (const group of options.initialGroups ?? []) this.restoreGroup(group);
     this.unsubscribeManager = this.manager.subscribe((event) => this.handleTaskEvent(event));

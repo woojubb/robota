@@ -32,6 +32,14 @@ could produce a file tool with no path boundary (e.g. a `Read` that could return
 The `cwd` each factory takes is required, so this cannot recur by omission, and construction
 refuses rather than silently allows if it somehow does.
 
+### Shell trace context
+
+The foreground shell tool hands its child the call's `TRACEPARENT` only when the call's context
+carries one, in a fresh copy of the environment with the ambient `TRACESTATE` removed; the process's
+own environment is never modified, so no other child can pick the value up. Without it the child
+sees exactly the ambient environment. A sandboxed run receives nothing, since the value would leave
+the host.
+
 ### Path resolution
 
 `Read`, `Write`, and `Edit` declare `filePath` as absolute, but a relative path from the model is
@@ -105,6 +113,12 @@ never happened.
 
 ## Error handling
 
-This package defines no custom error hierarchy. Built-in tools return errors through the tool
-result's error field rather than throwing; network and path-traversal failures are likewise
-returned as structured result errors, not thrown exceptions.
+Built-in tools report ordinary input, network, and path failures through their result envelope.
+Grep executes pattern matching outside the caller's event loop; exhaustion, worker failure, and
+cancellation are hard execution errors surfaced only after the isolated operation has stopped.
+Read admits host file bytes independent of the requested line slice and bounds formatted output;
+budget exhaustion and cancellation are hard errors, while missing and binary files remain ordinary
+tool results. Edit admits file content under the same per-operation ceiling as Read/Grep before
+running its string operations, and rejects a replacement whose output would exceed it, but reports
+either as an ordinary failed tool result rather than a thrown error, consistent with the rest of
+Edit's error handling.

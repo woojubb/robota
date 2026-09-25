@@ -1,6 +1,7 @@
 import type { IEventService, IOwnerPathSegment } from './event-service';
 import type { IUserInteraction } from './interaction';
 import type { IToolSchema } from './provider';
+import type { IOutboundTraceContext, ISubprocessTraceEnv } from './trace-context';
 import type { IDeferredToolCatalog } from './tool-search';
 import type { TContextData, TLoggerData, TToolParameters, TUniversalValue } from './types';
 
@@ -150,6 +151,32 @@ export interface IToolExecutionContext {
    * call the execution loop issues; a tool other than the search tool has no reason to read it.
    */
   deferredTools?: IDeferredToolCatalog;
+
+  /**
+   * The ID core mints for this one tool body, unique even when a vendor reuses its tool call ID.
+   * The body's exported span is derived from it, so it is also what a propagated parent names.
+   */
+  toolBodyId?: string;
+
+  /**
+   * Present only when the run carries trusted trace context: the `traceparent` naming this body's
+   * span and the exact origins it may be sent to. A tool that makes outbound requests sends it only
+   * to a listed origin.
+   */
+  outboundTraceContext?: IOutboundTraceContext;
+
+  /**
+   * Present only when the host lets shell children inherit the trace: the environment naming this
+   * body's span. Only the foreground shell tool applies it, to its own child.
+   */
+  shellTraceEnv?: ISubprocessTraceEnv;
+
+  /**
+   * Present only when the host lets command hooks inherit the trace: the environment naming the
+   * prompt root, for the hooks fired around this body. Separate from {@link shellTraceEnv}, whose
+   * span is the body's own.
+   */
+  hookTraceEnv?: ISubprocessTraceEnv;
 }
 
 /**

@@ -24,7 +24,7 @@ export function buildBackgroundCommandSubcommands(): ICommand[] {
 }
 
 export function formatCommandBackgroundTask(task: IBackgroundTaskState): string {
-  const preview = task.promptPreview ?? task.commandPreview ?? '';
+  const preview = (task.kind === 'agent' ? task.promptPreview : task.commandPreview) ?? '';
   const unread = task.unread ? ' unread' : '';
   const action = task.currentAction ? ` (${task.currentAction})` : '';
   const timeout = task.timeoutReason ? ` timeout=${task.timeoutReason}` : '';
@@ -51,6 +51,7 @@ export function parseCommandBackgroundLogCursor(
 }
 
 function formatWorktreeMetadata(task: IBackgroundTaskState): string {
+  if (task.kind !== 'agent') return '';
   const segments: string[] = [];
   if (task.worktreePath) segments.push(`worktree=${task.worktreePath}`);
   if (task.branchName) segments.push(`branch=${task.branchName}`);

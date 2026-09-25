@@ -5,7 +5,10 @@ import { readVersion } from './version.js';
 import { runSessionAnalyze } from '../session-analyzer/session-analyze-command.js';
 import { runSessionListCommand } from '../session-inventory/session-list-command.js';
 import { launchSupervisedSession } from '../session-inventory/supervised-session-launch.js';
-import { stopSupervisedSession } from '../session-inventory/supervised-session-control.js';
+import {
+  isSupervisedSessionName, linkSupervisedPr, parseSupervisedPr,
+  renameSupervisedSession, stopSupervisedSession, unlinkSupervisedPr,
+} from '../session-inventory/supervised-session-control.js';
 import { runSessionViewCommand } from '../session-inventory/session-view-command.js';
 import { runUsageCommand } from '../usage/usage-command.js';
 import { runUsageExportCommand } from '../usage/usage-export-command.js';
@@ -30,7 +33,11 @@ export async function runPreparsedCliCommand(
   options: IStartCliOptions,
   argv: readonly string[] = process.argv,
   cwd: string = process.cwd(),
+  telemetryEnvironment: Readonly<Record<string, string>> = {},
 ): Promise<boolean> {
+  // The Robota telemetry settings were removed from process.env at startup; the supervised runtime is
+  // the one child that receives them, through its explicit spawn environment.
+  const supervisedEnv = (): NodeJS.ProcessEnv => ({ ...process.env, ...telemetryEnvironment });
   // OBSERVABILITY-1991: the doctor is matched BEFORE the shared composition below, and composes its
   // own inside a failure boundary — a configuration broken enough to throw here must still be
   // diagnosable, and `--repair <id>` / `--yes` must never reach the strict global parser.
@@ -63,8 +70,68 @@ export async function runPreparsedCliCommand(
     }
     return true;
   }
+  if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'rename') {
+    if (argv.length !== SUBCOMMAND_ARGUMENT_INDEX + 2 || !isSupervisedSessionName(argv[SUBCOMMAND_ARGUMENT_INDEX + 1])) {
+      process.stderr.write('Usage: robota session rename <supervised-id> <name>\n');
+      process.exitCode = 1;
+      return true;
+    }
+    try {
+      const id = argv[SUBCOMMAND_ARGUMENT_INDEX]!;
+      await renameSupervisedSession(id, argv[SUBCOMMAND_ARGUMENT_INDEX + 1]!);
+      process.stdout.write(`Renamed supervised session ${id}.\n`);
+      process.exitCode = 0;
+    } catch (error) {
+      process.stderr.write(`${error instanceof Error ? error.message : 'Unable to rename supervised session.'}\n`);
+      process.exitCode = 1;
+    }
+    return true;
+  }
+  if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'link-pr') {
+    if (argv.length !== SUBCOMMAND_ARGUMENT_INDEX + 2 || !parseSupervisedPr(argv[SUBCOMMAND_ARGUMENT_INDEX + 1])) {
+      process.stderr.write('Usage: robota session link-pr <supervised-id> <https-pr-url>\n');
+      process.exitCode = 1;
+      return true;
+    }
+    try {
+      const id = argv[SUBCOMMAND_ARGUMENT_INDEX]!;
+      await linkSupervisedPr(id, argv[SUBCOMMAND_ARGUMENT_INDEX + 1]!);
+      process.stdout.write(`Linked PR to supervised session ${id}.\n`);
+      process.exitCode = 0;
+    } catch (error) {
+      process.stderr.write(`${error instanceof Error ? error.message : 'Unable to link supervised session PR.'}\n`);
+      process.exitCode = 1;
+    }
+    return true;
+  }
+  if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'unlink-pr') {
+    if (argv.length !== SUBCOMMAND_ARGUMENT_INDEX + 1) {
+      process.stderr.write('Usage: robota session unlink-pr <supervised-id>\n');
+      process.exitCode = 1;
+      return true;
+    }
+    try {
+      const id = argv[SUBCOMMAND_ARGUMENT_INDEX]!;
+      await unlinkSupervisedPr(id);
+      process.stdout.write(`Unlinked PR from supervised session ${id}.\n`);
+      process.exitCode = 0;
+    } catch (error) {
+      process.stderr.write(`${error instanceof Error ? error.message : 'Unable to unlink supervised session PR.'}\n`);
+      process.exitCode = 1;
+    }
+    return true;
+  }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'view') {
-    process.exitCode = await runSessionViewCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX));
+    process.exitCode = await runSessionViewCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), {
+      launchCwd: cwd,
+      start: async (targetCwd) => {
+        const access = await resolveInitialCliWorkspaceProjectAccess(targetCwd);
+        if (requiresHeadlessWorkspaceTrust(access)) {
+          throw new Error(formatHeadlessWorkspaceTrustError(access, targetCwd));
+        }
+        return launchSupervisedSession(targetCwd, { env: supervisedEnv() });
+      },
+    });
     return true;
   }
   const projectAccess = await resolveInitialCliWorkspaceProjectAccess(cwd, options);
@@ -117,7 +184,9 @@ export async function runPreparsedCliCommand(
       return true;
     }
     try {
-      const id = await launchSupervisedSession(cwd, named ? { name: startArgs[2]! } : {});
+      const id = await launchSupervisedSession(cwd, {
+        env: supervisedEnv(), ...(named ? { name: startArgs[2]! } : {}),
+      });
       process.stdout.write(`Supervised session: ${id}\n`);
     } catch (error) {
       process.stderr.write(`${error instanceof Error ? error.message : 'Supervised session could not start.'}\n`);

@@ -55,10 +55,10 @@ function createProcessRequest(): IProcessBackgroundTaskRequest {
 }
 
 /** A `process` runner that starts and never settles — used only to occupy a concurrency slot. */
-function createNeverSettlingProcessRunner(): IBackgroundTaskRunner {
+function createNeverSettlingProcessRunner(): IBackgroundTaskRunner<'process'> {
   return {
     kind: 'process',
-    start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+    start(task: IBackgroundTaskStart<'process'>): IBackgroundTaskHandle<'process'> {
       return {
         taskId: task.taskId,
         result: new Promise(() => undefined),

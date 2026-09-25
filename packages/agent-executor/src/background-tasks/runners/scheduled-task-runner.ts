@@ -61,19 +61,19 @@ interface IScheduledTaskState {
   fired: boolean;
   job: Cron;
   emit: (event: TBackgroundTaskRunnerEvent) => void;
-  resolve: (result: IBackgroundTaskResult) => void;
+  resolve: (result: IBackgroundTaskResult<'scheduled'>) => void;
   /** CORE-023: the in-flight fired child, tracked so cancel can kill it instead of orphaning it. */
   currentChild?: ChildProcess;
 }
 
 export function createScheduledTaskRunner(
   options: IScheduledTaskRunnerOptions = {},
-): IBackgroundTaskRunner {
+): IBackgroundTaskRunner<'scheduled'> {
   return {
     kind: 'scheduled',
     nextScheduledFireOnOrAfter: (cronExpression, firstAllowedAt) =>
       nextScheduledFireOnOrAfter(cronExpression, firstAllowedAt, options),
-    start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+    start(task: IBackgroundTaskStart<'scheduled'>): IBackgroundTaskHandle<'scheduled'> {
       if (task.request.kind !== 'scheduled') {
         throw new BackgroundTaskError(
           'runner',
@@ -90,7 +90,7 @@ function startScheduledTask(
   request: IScheduledBackgroundTaskRequest,
   emit: (event: TBackgroundTaskRunnerEvent) => void,
   options: IScheduledTaskRunnerOptions,
-): IBackgroundTaskHandle {
+): IBackgroundTaskHandle<'scheduled'> {
   // Fail closed synchronously before registering a schedule whose explicit executable is unsupported.
   if (request.command !== undefined) {
     resolveBackgroundTaskShellCommand(
@@ -99,8 +99,8 @@ function startScheduledTask(
     );
   }
 
-  let resolveResult!: (result: IBackgroundTaskResult) => void;
-  const resultPromise = new Promise<IBackgroundTaskResult>((resolve) => {
+  let resolveResult!: (result: IBackgroundTaskResult<'scheduled'>) => void;
+  const resultPromise = new Promise<IBackgroundTaskResult<'scheduled'>>((resolve) => {
     resolveResult = resolve;
   });
 

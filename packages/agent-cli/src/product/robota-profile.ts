@@ -14,6 +14,7 @@
  */
 
 import { createCodingPack } from '@robota-sdk/pack-coding';
+import { ROBOTA_EDITOR_TEMPORARY_DIRECTORY_PREFIX } from './robota-command-vocabulary.js';
 
 import type {
   IAIProvider,
@@ -44,6 +45,7 @@ export const ROBOTA_SUBAGENT_HOOK_ENVIRONMENT_NAMES = {
   agentId: 'ROBOTA_AGENT_ID',
   agentType: 'ROBOTA_AGENT_TYPE',
 } as const;
+export const ROBOTA_OBSERVER_FAILURE_WARNING_CODE = 'ROBOTA_BACKGROUND_OBSERVER_FAILURE';
 
 /**
  * The capability packs `robota` composes. Removing one genuinely removes its capability from the product —
@@ -54,7 +56,12 @@ export const ROBOTA_SUBAGENT_HOOK_ENVIRONMENT_NAMES = {
  * they are built with, and a context-free pack would carry a disarmed working-directory path guard.
  */
 export function createRobotaPacks(context: ICodingPackOptions): readonly TCapabilityPack[] {
-  return [createCodingPack(context)];
+  return [
+    createCodingPack({
+      ...context,
+      editorTemporaryDirectoryPrefix: ROBOTA_EDITOR_TEMPORARY_DIRECTORY_PREFIX,
+    }),
+  ];
 }
 
 /**
@@ -111,6 +118,7 @@ export function createRobotaProfile(input: IRobotaProfileInput): IProductProfile
     promptFileReferenceTag: ROBOTA_PROMPT_FILE_REFERENCE_TAG,
     modelCommandToolPrefix: ROBOTA_MODEL_COMMAND_TOOL_PREFIX,
     subagentHookEnvironmentNames: ROBOTA_SUBAGENT_HOOK_ENVIRONMENT_NAMES,
+    observerFailureWarningCode: ROBOTA_OBSERVER_FAILURE_WARNING_CODE,
     providerErrorGuidance: {
       authentication:
         'Run `/provider` to reconfigure, or check your settings file (~/.robota/settings.json).',

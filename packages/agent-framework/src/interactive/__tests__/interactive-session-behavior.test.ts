@@ -158,6 +158,21 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
         endedAt: observedAt,
         outcome: 'success',
         round: 1,
+        callId: '123e4567-e89b-42d3-a456-426614174000',
+        disposition: 'invoked',
+        providerId: 'openai',
+        modelId: 'gpt-4o',
+        usageProvenance: 'complete',
+        promptTokens: 100,
+        completionTokens: 50,
+        totalTokens: 150,
+      });
+      listener?.('provider_call_completed', {
+        startedAt: observedAt,
+        endedAt: observedAt,
+        outcome: 'success',
+        round: 1,
+        callId: '123e4567-e89b-42d3-a456-426614174000',
       });
       return 'private response';
     });
@@ -177,8 +192,182 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
       endedAt: observedAt,
       outcome: 'success',
       round: 1,
+      callId: '123e4567-e89b-42d3-a456-426614174000',
+      disposition: 'invoked',
+      providerId: 'openai',
+      modelId: 'gpt-4o',
+      usageProvenance: 'complete',
+      promptTokens: 100,
+      completionTokens: 50,
+      totalTokens: 150,
     });
     expect(JSON.stringify(children)).not.toMatch(/private prompt|private response/);
+  });
+
+  it('enqueues one content-free live prompt trace in the actual provider/tool completion order', async () => {
+    const mockSession = createMockSession({ runResult: 'private response' });
+    mockSession.getSessionId.mockReturnValue('session.1');
+    let listener: ((event: string, data: Record<string, unknown>) => void) | undefined;
+    mockSession.getEventService.mockReturnValue({
+      subscribe: vi.fn((callback: typeof listener) => { listener = callback; }),
+      unsubscribe: vi.fn(),
+    });
+    const at = new Date().toISOString();
+    mockSession.run.mockImplementation(async () => {
+      listener?.('tool.tool_body_completed', {
+        toolBodyId: globalThis.crypto.randomUUID(),
+        startedAt: at, endedAt: at, outcome: 'success', executionId: 'call-123',
+      });
+      listener?.('provider_call_completed', {
+        startedAt: at, endedAt: at, outcome: 'success', round: 1,
+        callId: '123e4567-e89b-42d3-a456-426614174000', disposition: 'invoked',
+        providerId: 'openai', modelId: 'gpt-4o', usageProvenance: 'complete',
+        promptTokens: 100, completionTokens: 50, totalTokens: 150,
+      });
+      listener?.('tool.tool_body_completed', {
+        toolBodyId: globalThis.crypto.randomUUID(),
+        startedAt: 'private malformed timestamp', endedAt: at, outcome: 'success',
+      });
+      listener?.('tool.tool_body_completed', {
+        toolBodyId: globalThis.crypto.randomUUID(),
+        startedAt: at, endedAt: at, outcome: 'success', executionId: 42,
+      });
+      listener?.('provider_call_completed', {
+        startedAt: at, endedAt: at, outcome: 'success', round: 0,
+      });
+      return 'private response';
+    });
+    const enqueue = vi.fn();
+    const session = new InteractiveSession({
+      session: mockSession as never, cwd: '/tmp', livePromptTrace: { enqueue },
+    });
+
+    await session.submit('private prompt');
+
+    expect(enqueue).toHaveBeenCalledOnce();
+    const batch = enqueue.mock.calls[0]![0] as Record<string, unknown>;
+    expect(batch).toMatchObject({
+      schemaVersion: 1, sessionId: 'session.1',
+      root: { outcome: 'success' },
+      children: [{ kind: 'tool', trace: { toolCallId: 'call-123' } }, { kind: 'provider' }],
+      omittedChildren: { provider: 1, tool: 2 },
+    });
+    expect(JSON.stringify(session.getFullHistory())).not.toContain('call-123');
+    expect(batch).toHaveProperty('turnId');
+    expect(JSON.stringify(batch)).not.toMatch(/private prompt|private response|private malformed timestamp/);
+  });
+
+  it('carries an invoked call\'s providerRequestId onto the live provider child only, never persisted history', async () => {
+    const mockSession = createMockSession({ runResult: 'private response' });
+    mockSession.getSessionId.mockReturnValue('session.1');
+    let listener: ((event: string, data: Record<string, unknown>) => void) | undefined;
+    mockSession.getEventService.mockReturnValue({
+      subscribe: vi.fn((callback: typeof listener) => { listener = callback; }),
+      unsubscribe: vi.fn(),
+    });
+    const at = new Date().toISOString();
+    mockSession.run.mockImplementation(async () => {
+      listener?.('provider_call_completed', {
+        startedAt: at, endedAt: at, outcome: 'success', round: 1,
+        callId: '123e4567-e89b-42d3-a456-426614174000', disposition: 'invoked',
+        providerId: 'openai', modelId: 'gpt-4o', providerRequestId: 'req_live_only_1',
+      });
+      return 'private response';
+    });
+    const enqueue = vi.fn();
+    const session = new InteractiveSession({
+      session: mockSession as never, cwd: '/tmp', livePromptTrace: { enqueue },
+    });
+
+    await session.submit('private prompt');
+
+    expect(enqueue).toHaveBeenCalledOnce();
+    const batch = enqueue.mock.calls[0]![0] as Record<string, unknown>;
+    expect(batch).toMatchObject({
+      children: [{ kind: 'provider', trace: { providerRequestId: 'req_live_only_1' } }],
+    });
+    expect(JSON.stringify(session.getFullHistory())).not.toContain('req_live_only_1');
+  });
+
+  it('correlates a permission decision to its tool body by call ID, ahead of the tool child', async () => {
+    const mockSession = createMockSession({ runResult: 'private response' });
+    mockSession.getSessionId.mockReturnValue('session.1');
+    let listener: ((event: string, data: Record<string, unknown>) => void) | undefined;
+    mockSession.getEventService.mockReturnValue({
+      subscribe: vi.fn((callback: typeof listener) => { listener = callback; }),
+      unsubscribe: vi.fn(),
+    });
+    const at = new Date().toISOString();
+    mockSession.run.mockImplementation(async () => {
+      listener?.('tool.tool_permission_decided', {
+        decidedAt: at, decision: 'allowed', executionId: 'call-123',
+      });
+      listener?.('tool.tool_body_completed', {
+        toolBodyId: globalThis.crypto.randomUUID(),
+        startedAt: at, endedAt: at, outcome: 'success', executionId: 'call-123',
+      });
+      listener?.('tool.tool_permission_decided', {
+        decidedAt: at, decision: 'denied', executionId: 42,
+      });
+      return 'private response';
+    });
+    const enqueue = vi.fn();
+    const session = new InteractiveSession({
+      session: mockSession as never, cwd: '/tmp', livePromptTrace: { enqueue },
+    });
+
+    await session.submit('private prompt');
+
+    expect(enqueue).toHaveBeenCalledOnce();
+    const batch = enqueue.mock.calls[0]![0] as Record<string, unknown>;
+    expect(batch).toMatchObject({
+      children: [
+        { kind: 'permission', decision: { decision: 'allowed', toolCallId: 'call-123' } },
+        { kind: 'tool', trace: { toolCallId: 'call-123' } },
+      ],
+      omittedChildren: { permission: 1 },
+    });
+    expect(JSON.stringify(session.getFullHistory())).not.toContain('call-123');
+    expect(JSON.stringify(session.getFullHistory())).not.toContain('permission');
+  });
+
+  it('isolates rejected live trace enqueue and diagnostic callbacks from turn settlement', async () => {
+    const mockSession = createMockSession({ runResult: 'response' });
+    const enqueue = vi.fn(async () => { throw new Error('private exporter credential'); });
+    const onFailure = vi.fn(async () => { throw new Error('private diagnostic'); });
+    const session = new InteractiveSession({
+      session: mockSession as never, cwd: '/tmp', livePromptTrace: { enqueue, onFailure },
+    });
+
+    await session.submit('first');
+    await session.submit('second');
+    await vi.waitFor(() => expect(onFailure).toHaveBeenCalled());
+    expect(enqueue).toHaveBeenCalledTimes(2);
+    expect(session.getFullHistory().filter((entry) => entry.type === 'usage-observation')).toHaveLength(2);
+  });
+
+  it('enqueues a completed prompt before a later memory-capture callback settles', async () => {
+    const mockSession = createMockSession({ runResult: 'response' });
+    const enqueue = vi.fn();
+    const session = new InteractiveSession({
+      session: mockSession as never, cwd: '/tmp', livePromptTrace: { enqueue },
+    });
+    let releaseCapture: () => void = () => undefined;
+    const pendingCapture = new Promise<[]>((resolve) => {
+      releaseCapture = () => resolve([]);
+    });
+    const internal = session as unknown as {
+      execCtrl: { callbacks: { captureMemory?: () => Promise<[]> } };
+    };
+    internal.execCtrl.callbacks.captureMemory = () => pendingCapture;
+    const running = session.submit('prompt');
+    try {
+      await vi.waitFor(() => expect(enqueue).toHaveBeenCalledOnce());
+      expect(session.isExecuting()).toBe(true);
+    } finally {
+      releaseCapture();
+      await running;
+    }
   });
 
   it('persists distinct content-free children for parallel tool bodies under this prompt only', async () => {
@@ -195,6 +384,7 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
       observedAt = new Date().toISOString();
       for (const executionId of ['call-a', 'call-b']) {
         listener?.('tool.tool_body_completed', {
+        toolBodyId: globalThis.crypto.randomUUID(),
           timestamp: new Date(),
           startedAt: observedAt,
           endedAt: observedAt,
@@ -1076,6 +1266,28 @@ describe('InteractiveSession — User Behavior Scenarios', () => {
     session.setName('renamed');
     expect(session.getName()).toBe('renamed');
     expect(mockSessionStore.save).toHaveBeenCalled();
+  });
+
+  it('keeps the live name unchanged when a persisted rename is refused', () => {
+    const mockSessionStore = {
+      save: vi.fn(() => { throw new Error('storage refused'); }),
+      load: vi.fn().mockReturnValue({
+        status: 'valid',
+        record: { id: 'sess-1', cwd: '/tmp', createdAt: '2026-09-24T00:00:00.000Z',
+          updatedAt: '2026-09-24T00:00:00.000Z', messages: [] },
+      }),
+      list: vi.fn().mockReturnValue([]),
+      delete: vi.fn(),
+    };
+    const session = new InteractiveSession({
+      session: createMockSession() as never,
+      cwd: '/tmp',
+      sessionName: 'before',
+      sessionStore: mockSessionStore,
+    } as never);
+
+    expect(() => session.setName('after')).toThrow('storage refused');
+    expect(session.getName()).toBe('before');
   });
 
   // ── Scenario: Transport attachment ──────────────────────────

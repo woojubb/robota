@@ -23,6 +23,7 @@ import type { IMCPCatalogToolEntry } from './types.js';
 import type {
   IEventService,
   IObjectParameterSchema,
+  IOutboundTraceContext,
   IParameterSchema,
   IParameterValidationResult,
   IToolExecutionContext,
@@ -39,7 +40,10 @@ export interface IMCPToolInvoker {
   callTool(
     name: string,
     args: TToolParameters,
-    options?: { readonly signal?: AbortSignal },
+    options?: {
+      readonly signal?: AbortSignal;
+      readonly outboundTraceContext?: IOutboundTraceContext;
+    },
   ): Promise<IMCPToolCallResult>;
 }
 
@@ -140,6 +144,9 @@ class DiscoveredMCPTool implements IToolWithEventService {
     try {
       result = await this.invoker.callTool(this.entry.sourceName, parameters, {
         signal: context?.signal,
+        ...(context?.outboundTraceContext
+          ? { outboundTraceContext: context.outboundTraceContext }
+          : {}),
       });
     } catch {
       // SDK and remote errors can contain response bodies or request metadata. Neither is safe to

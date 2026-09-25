@@ -20,8 +20,8 @@ had no discovery, and two client stacks cannot both be authoritative.
 - Allowed dependencies: `@robota-sdk/agent-core` (sole workspace peer; shared egress policy comes
   from its `./node` subpath) and `@modelcontextprotocol/sdk`. Must not import `agent-framework`,
   `agent-session`, `agent-cli`, or any other `agent-*` package.
-- Does not own a tool registry or factory — the consumer (composition root or CLI) selects and
-  wires tools at construction time.
+- Does not own a tool registry, factory, or product client identity — the consumer (composition
+  root or CLI) selects its protocol identity and wires tools at construction time.
 - Transport set is Streamable HTTP and stdio only, behind an admit-then-construct seam. Deprecated
   HTTP+SSE and custom WebSocket are refusals surfaced in the catalog's rejected bucket, never
   adapters and never silent.
@@ -35,6 +35,11 @@ had no discovery, and two client stacks cannot both be authoritative.
   loopback, private ranges and cloud-metadata addresses are refused, and a redirect is refused
   rather than followed. There is no second admission path, so definition headers never reach a
   host the policy did not admit.
+- **Trace context stays on the call it belongs to**: a tool call's trusted `traceparent` goes only on
+  that call's own `tools/call` POST and the cancellation of it, and only to an exactly listed origin.
+  The decision is made from each request's body, not from the async context, because the SDK runs a
+  call's response stream — and any `list_changed` refresh or reply it triggers — inside that context;
+  the admitted headers are never modified, so nothing carries over to another request.
 - **Stdio authority**: definitions cannot grant execution authority — only a host-owned authority
   can, and it is consulted before reading environment values, constructing the transport, or
   spawning. Absent `cwd` means the authority's allowed root, never the ambient process cwd; lexical
@@ -83,7 +88,7 @@ false`; every `DEFAULT_INHERITED_ENV_VARS` key is explicitly shadowed rather tha
 - **The legacy protocol era is a recorded limit**: the pinned SDK generation speaks the
   pre-2026-07-28 protocol; a server that refuses the negotiated version is disconnected, not used.
 
-## Design decision: narrowing, not refusing, third-party schemas (CORE-040)
+## Design decision: narrowing, not refusing, third-party schemas
 
 An MCP tool's `inputSchema` is authored by a third-party server. Handing an expressive-but-partial
 schema to a strict validator unchanged would refuse _every_ payload for that tool once the schema

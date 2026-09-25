@@ -11,7 +11,20 @@ import type { IDagError } from '../types/error.js';
 
 /** An execution mutation whose preconditions and writes share one storage transaction. */
 export type TExecutionCommit =
-  | { kind: 'snapshot-input'; taskRunId: string; attempt: number; leaseOwner: string; inputSnapshot: string }
+  | {
+      kind: 'reserve-credits';
+      taskRunId: string;
+      attempt: number;
+      leaseOwner: string;
+      estimatedCredits: number;
+    }
+  | {
+      kind: 'snapshot-input';
+      taskRunId: string;
+      attempt: number;
+      leaseOwner: string;
+      inputSnapshot: string;
+    }
   | {
       kind: 'transition-run';
       expectedStatus: TDagRunStatus;
@@ -109,6 +122,9 @@ export function decideExecutionCommit(
       status: transition.value.nextStatus,
       leaseOwner: undefined,
       leaseUntil: undefined,
+      reservedCredits: undefined,
+      reservationAttempt: undefined,
+      reservationOwner: undefined,
       errorCode: mutation.error?.code,
       errorMessage: mutation.error?.message,
     };
@@ -129,6 +145,9 @@ export function decideExecutionCommit(
       status: 'cancelled',
       leaseOwner: undefined,
       leaseUntil: undefined,
+      reservedCredits: undefined,
+      reservationAttempt: undefined,
+      reservationOwner: undefined,
     };
     return { taskRun, result: { applied: false, runStatus: run.status, taskRun } };
   }
@@ -136,11 +155,94 @@ export function decideExecutionCommit(
     const taskRun = { ...task, inputSnapshot: mutation.inputSnapshot };
     return { taskRun, result: { applied: true, runStatus: run.status, taskRun } };
   }
+  if (mutation.kind === 'reserve-credits') {
+    const credits = mutation.estimatedCredits;
+    if (!Number.isFinite(credits) || credits < 0 || run.definitionSnapshot === undefined)
+      return rejected;
+    let snapshot: unknown;
+    try {
+      snapshot = JSON.parse(run.definitionSnapshot);
+    } catch {
+      return rejected;
+    }
+    const decoded = decodeDagDefinitionAsDagError(
+      snapshot,
+      'DAG_VALIDATION_DEFINITION_SNAPSHOT_INVALID',
+      'DagRun definition snapshot has invalid shape',
+      { dagRunId: run.dagRunId },
+    );
+    if (!decoded.ok || decoded.value.costPolicy === undefined) return rejected;
+    const runCreditLimit = decoded.value.costPolicy.runCreditLimit;
+    if (task.reservedCredits !== undefined) {
+      return {
+        result: {
+          ...rejected.result,
+          applied:
+            task.reservationAttempt === mutation.attempt &&
+            task.reservationOwner === mutation.leaseOwner &&
+            task.reservedCredits === credits,
+        },
+      };
+    }
+    const charged = committedCreditTotal(tasks);
+    if (!charged.ok) return { result: { ...rejected.result, error: charged.error } };
+    const occupied =
+      charged.value + tasks.reduce((sum, sibling) => sum + (sibling.reservedCredits ?? 0), 0);
+    if (occupied + credits > runCreditLimit) {
+      return {
+        result: {
+          ...rejected.result,
+          error: buildValidationError(
+            'DAG_VALIDATION_CREDIT_LIMIT_EXCEEDED',
+            'Estimated run credits exceeds runCreditLimit',
+            { nextTotalCredits: occupied + credits, runCreditLimit },
+          ),
+        },
+      };
+    }
+    const taskRun = {
+      ...task,
+      reservedCredits: credits,
+      reservationAttempt: mutation.attempt,
+      reservationOwner: mutation.leaseOwner,
+    };
+    return { taskRun, result: { applied: true, runStatus: run.status, taskRun } };
+  }
   const transition = TaskRunStateMachine.transition(
     task.status,
     mutation.status === 'success' ? 'COMPLETE_SUCCESS' : 'COMPLETE_FAILURE',
   );
   if (!transition.ok) return rejected;
+  if (mutation.status === 'success' && run.definitionSnapshot !== undefined) {
+    let snapshot: unknown;
+    try {
+      snapshot = JSON.parse(run.definitionSnapshot);
+    } catch {
+      return rejected;
+    }
+    const decoded = decodeDagDefinitionAsDagError(
+      snapshot,
+      'DAG_VALIDATION_DEFINITION_SNAPSHOT_INVALID',
+      'DagRun definition snapshot has invalid shape',
+      { dagRunId: run.dagRunId },
+    );
+    if (!decoded.ok) return rejected;
+    if (decoded.value.costPolicy !== undefined && task.reservedCredits === undefined)
+      return rejected;
+  }
+  if (
+    mutation.status === 'success' &&
+    task.reservedCredits !== undefined &&
+    (task.reservationAttempt !== mutation.attempt ||
+      task.reservationOwner !== mutation.leaseOwner ||
+      mutation.estimatedCredits !== task.reservedCredits)
+  )
+    return rejected;
+  const charged =
+    mutation.status === 'success' && task.reservedCredits !== undefined
+      ? committedCreditTotal(tasks)
+      : undefined;
+  if (charged && !charged.ok) return { result: { ...rejected.result, error: charged.error } };
   const retry = mutation.status === 'failed' && mutation.reserveRetry === true;
   const retryTransition = retry
     ? TaskRunStateMachine.transition(transition.value.nextStatus, 'RETRY')
@@ -150,15 +252,55 @@ export function decideExecutionCommit(
     ...task,
     status: retryTransition?.ok ? retryTransition.value.nextStatus : transition.value.nextStatus,
     attempt: retry ? task.attempt + 1 : task.attempt,
+    reservedCredits: undefined,
+    reservationAttempt: undefined,
+    reservationOwner: undefined,
     errorCode: retry ? undefined : mutation.error?.code,
     errorMessage: retry ? undefined : mutation.error?.message,
     ...(mutation.outputSnapshot === undefined ? {} : { outputSnapshot: mutation.outputSnapshot }),
     ...(mutation.estimatedCredits === undefined
       ? {}
       : { estimatedCredits: mutation.estimatedCredits }),
-    ...(mutation.totalCredits === undefined ? {} : { totalCredits: mutation.totalCredits }),
+    ...(mutation.status !== 'success' || task.reservedCredits === undefined
+      ? mutation.totalCredits === undefined
+        ? {}
+        : { totalCredits: mutation.totalCredits }
+      : { totalCredits: charged!.value + task.reservedCredits }),
   };
   return { taskRun, result: { applied: true, runStatus: run.status, taskRun } };
+}
+
+/** Use the larger of known charges and persisted cumulative totals as the historic floor. */
+function committedCreditTotal(tasks: readonly ITaskRun[]): TResult<number, IDagError> {
+  let estimatedTotal = 0;
+  let cumulativeFloor = 0;
+  for (const task of tasks) {
+    if (task.status !== 'success') continue;
+    if (task.totalCredits !== undefined) {
+      if (!Number.isFinite(task.totalCredits) || task.totalCredits < 0)
+        return ambiguousCreditHistory(task);
+      cumulativeFloor = Math.max(cumulativeFloor, task.totalCredits);
+    }
+    if (task.estimatedCredits === undefined && task.totalCredits === undefined)
+      return ambiguousCreditHistory(task);
+    if (task.estimatedCredits !== undefined) {
+      if (!Number.isFinite(task.estimatedCredits) || task.estimatedCredits < 0)
+        return ambiguousCreditHistory(task);
+      estimatedTotal += task.estimatedCredits;
+    }
+  }
+  return { ok: true, value: Math.max(estimatedTotal, cumulativeFloor) };
+}
+
+function ambiguousCreditHistory(task: ITaskRun): TResult<never, IDagError> {
+  return {
+    ok: false,
+    error: buildValidationError(
+      'DAG_VALIDATION_CREDIT_HISTORY_AMBIGUOUS',
+      'Prior task credits cannot be accounted for safely',
+      { taskRunId: task.taskRunId },
+    ),
+  };
 }
 
 /** A completed frontier can still have runnable nodes that a concurrent dispatcher has not admitted. */

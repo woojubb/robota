@@ -6,15 +6,93 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  getVerifiedSupervisedPr,
+  linkSupervisedPr,
   listSupervisedSessions,
+  parseSupervisedPr,
+  renameSupervisedSession,
   startSupervisedControl,
   stopSupervisedSession,
+  unlinkSupervisedPr,
 } from '../supervised-session-control.js';
 
 const ID = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
 const INCOMPLETE_ID = 'fe2c7f72-ecb3-4a05-9bb1-2563ec80e615';
 
 describe('supervised session control', () => {
+  it('accepts only bounded canonical HTTPS pull or merge-request URLs', () => {
+    expect(parseSupervisedPr('https://github.com/team/repo/pull/123')).toEqual({
+      url: 'https://github.com/team/repo/pull/123', host: 'github.com', number: 123, kind: 'pull',
+    });
+    expect(parseSupervisedPr('https://git.example.org/team/sub/repo/-/merge_requests/24')).toEqual({
+      url: 'https://git.example.org/team/sub/repo/-/merge_requests/24',
+      host: 'git.example.org', number: 24, kind: 'merge-request',
+    });
+    for (const url of [
+      'http://github.com/team/repo/pull/1', 'https://user@github.com/team/repo/pull/1',
+      'https://github.com:8443/team/repo/pull/1', 'https://github.com/team/repo/pull/1?token=x',
+      'https://github.com/team/repo/pull/1#note', 'https://github.com/team/repo/pull/0',
+      'https://github.com/team/repo/pull/9007199254740992',
+      'https://github.com/team/repo/pull/1\n', `https://github.com/team/repo/pull/${'1'.repeat(2100)}`,
+      'https://github.com/team/repo/issues/1',
+    ]) expect(parseSupervisedPr(url)).toBeUndefined();
+  });
+
+  it('links, replaces and clears PRs only through a proven live owner; default rows stay PR-free', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-pr-'));
+    const root = join(scratch, 'supervised');
+    let association: ReturnType<typeof parseSupervisedPr>;
+    const control = await startSupervisedControl(
+      ID, () => undefined, root, () => 'idle', undefined, undefined, undefined, undefined,
+      { get: () => association, set: (value) => { association = value; } },
+    );
+    const first = 'https://github.com/team/repo/pull/123';
+    const second = 'https://git.example.org/team/repo/-/merge_requests/24';
+    try {
+      await linkSupervisedPr(ID, first, root);
+      expect(await getVerifiedSupervisedPr(ID, root)).toEqual(parseSupervisedPr(first));
+      expect(JSON.stringify(await listSupervisedSessions(root))).not.toContain('github.com');
+      expect(await listSupervisedSessions(root, undefined, { includePr: true, pr: 123 })).toEqual([{
+        id: ID, liveness: 'alive', control: 'available', activity: 'idle', pr: parseSupervisedPr(first),
+      }]);
+      expect(await listSupervisedSessions(root, undefined, { pr: 24 })).toEqual([]);
+      await linkSupervisedPr(ID, second, root);
+      expect(await getVerifiedSupervisedPr(ID, root)).toEqual(parseSupervisedPr(second));
+      expect(await listSupervisedSessions(root, undefined, { pr: 123 })).toEqual([]);
+      await unlinkSupervisedPr(ID, root);
+      expect(await getVerifiedSupervisedPr(ID, root)).toBeUndefined();
+      expect(await listSupervisedSessions(root, undefined, { pr: 24 })).toEqual([]);
+      await expect(linkSupervisedPr(ID, 'https://github.com/team/repo/issues/1', root)).rejects.toThrow(/PR/i);
+    } finally {
+      await control.close();
+      rmSync(scratch, { recursive: true, force: true });
+    }
+    await expect(linkSupervisedPr(ID, first, root)).rejects.toThrow();
+    await expect(getVerifiedSupervisedPr(ID, root)).rejects.toThrow();
+  });
+
+  it('keeps a verified status readable when bounded PR, cwd, and name are all long', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-pr-frame-'));
+    const root = join(scratch, 'supervised');
+    const url = `https://git.example.org/${'g'.repeat(1900)}/repo/-/merge_requests/24`;
+    const pr = parseSupervisedPr(url)!;
+    const cwd = `/projects/${'x'.repeat(1900)}`;
+    const name = 'N'.repeat(80);
+    const control = await startSupervisedControl(
+      ID, () => undefined, root, () => 'idle', () => cwd, undefined, () => name, undefined,
+      { get: () => pr, set: () => undefined },
+    );
+    try {
+      expect(await listSupervisedSessions(root, undefined, {
+        includePr: true, includeCwd: true, includeName: true, pr: 24,
+      })).toEqual([{
+        id: ID, liveness: 'alive', control: 'available', activity: 'idle', cwd, name, pr,
+      }]);
+    } finally {
+      await control.close();
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
   it('aborts an in-flight listing probe and closes its control socket', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-abrt-'));
     const root = join(scratch, 'supervised');
@@ -124,6 +202,37 @@ describe('supervised session control', () => {
     }
   });
 
+  it('renames only a live owner through the guarded control endpoint', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-rename-'));
+    const root = join(scratch, 'supervised');
+    let name = 'Morning review';
+    let refuse = false;
+    const onRename = vi.fn((next: string) => {
+      if (refuse) throw new Error('private storage failure');
+      name = next;
+    });
+    const control = await startSupervisedControl(
+      ID, () => undefined, root, () => 'idle', undefined, undefined, () => name, onRename,
+    );
+    try {
+      await renameSupervisedSession(ID, 'Evening review', root);
+      expect(onRename).toHaveBeenCalledExactlyOnceWith('Evening review');
+      expect(await listSupervisedSessions(root, undefined, { includeName: true })).toEqual([{
+        id: ID, liveness: 'alive', control: 'available', activity: 'idle', name: 'Evening review',
+      }]);
+      await expect(renameSupervisedSession(ID, 'bad\nname', root)).rejects.toThrow(/name/i);
+      expect(onRename).toHaveBeenCalledTimes(1);
+      refuse = true;
+      await expect(renameSupervisedSession(ID, 'Refused name', root)).rejects.toThrow(/confirm rename/i);
+      expect(name).toBe('Evening review');
+      await expect(renameSupervisedSession('../escape', 'Safe name', root)).rejects.toThrow(/ID/i);
+    } finally {
+      await control.close();
+      rmSync(scratch, { recursive: true, force: true });
+    }
+    await expect(renameSupervisedSession(ID, 'After stop', root)).rejects.toThrow();
+  });
+
   it('keeps activity unknown when the live process control reply cannot be verified', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-lost-'));
     const root = join(scratch, 'supervised');
@@ -132,6 +241,9 @@ describe('supervised session control', () => {
       const socketName = readdirSync(root).find((name) => name.endsWith('.sock'));
       rmSync(join(root, socketName!));
       expect(await listSupervisedSessions(root)).toEqual([
+        { id: ID, liveness: 'alive', control: 'unavailable', activity: 'unknown' },
+      ]);
+      expect(await listSupervisedSessions(root, undefined, { includeCwd: true })).toEqual([
         { id: ID, liveness: 'alive', control: 'unavailable', activity: 'unknown' },
       ]);
     } finally {
@@ -152,6 +264,7 @@ describe('supervised session control', () => {
       const row = { id: ID, liveness: 'alive', control: 'available', activity: 'unknown' };
       expect(await listSupervisedSessions(root)).toEqual([row]);
       expect(await listSupervisedSessions(root, undefined, { cwd: project })).toEqual([row]);
+      expect(await listSupervisedSessions(root, undefined, { includeCwd: true })).toEqual([{ ...row, cwd: project }]);
       expect(await listSupervisedSessions(root, undefined, { cwd: other })).toEqual([]);
       expect(JSON.stringify(await listSupervisedSessions(root))).not.toContain(project);
       const socketName = readdirSync(root).find((name) => name.endsWith('.sock'))!;

@@ -46,6 +46,11 @@ export type {
   IBackgroundTaskUsage,
   IBackgroundTaskResult,
   IBackgroundTaskState,
+  IAgentBackgroundTaskState,
+  IProcessBackgroundTaskState,
+  IScheduledBackgroundTaskState,
+  IToolInvocationBackgroundTaskState,
+  TBackgroundTaskState,
   IBackgroundTaskSchedule,
   IBackgroundTaskInput,
   IBackgroundTaskLogCursor,
@@ -85,18 +90,21 @@ export type TBackgroundTaskRunnerEvent =
   | { type: 'background_task_sleeping'; nextFireAt: string }
   | { type: 'background_task_waking'; instruction?: string };
 
-export interface IBackgroundTaskStart {
+interface IBaseBackgroundTaskStart {
   taskId: string;
-  request: TBackgroundTaskRequest;
   emit?: (event: TBackgroundTaskRunnerEvent) => void;
 }
 
-export interface IBackgroundTaskHandle {
+export type IBackgroundTaskStart<K extends TBackgroundTaskKind = TBackgroundTaskKind> =
+  K extends TBackgroundTaskKind
+    ? IBaseBackgroundTaskStart & { request: Extract<TBackgroundTaskRequest, { kind: K }> }
+    : never;
+
+interface IBaseBackgroundTaskHandle {
   readonly taskId: string;
   readonly pid?: number;
   readonly logPath?: string;
   readonly transcriptPath?: string;
-  result: Promise<IBackgroundTaskResult>;
   cancel(reason?: string): Promise<void>;
   send?(input: IBackgroundTaskInput): Promise<void>;
   readLog?(cursor?: IBackgroundTaskLogCursor): Promise<IBackgroundTaskLogPage>;
@@ -109,6 +117,19 @@ export interface IBackgroundTaskHandle {
   editSchedule?(patch: IScheduleEditPatch): Promise<void>;
 }
 
+/**
+ * #2079: parameterized like {@link IBackgroundTaskStart} — a runner that declares kind `K` resolves
+ * its handle's `result` to the `K`-specific member of `IBackgroundTaskResult`, so a caller that
+ * starts a known-kind runner gets a correctly-narrowed result without a cast, and accessing a
+ * cross-kind field on it is a compile error. The manager's dynamic dispatch (a heterogeneous
+ * registry of runners looked up by kind at runtime) uses the default `K` and keeps the handle typed
+ * to the full result union, exactly as before.
+ */
+export type IBackgroundTaskHandle<K extends TBackgroundTaskKind = TBackgroundTaskKind> =
+  K extends TBackgroundTaskKind
+    ? IBaseBackgroundTaskHandle & { result: Promise<IBackgroundTaskResult<K>> }
+    : never;
+
 /** SELFHOST-012: an in-place schedule edit — any provided field replaces the current value; identity is kept. */
 export interface IScheduleEditPatch {
   cronExpression?: string;
@@ -118,8 +139,8 @@ export interface IScheduleEditPatch {
   label?: string;
 }
 
-export interface IBackgroundTaskRunner {
-  readonly kind: TBackgroundTaskKind;
+interface IKindedBackgroundTaskRunner<K extends TBackgroundTaskKind> {
+  readonly kind: K;
   /** Optional scheduler calculation using the runner's own timezone and cron semantics. */
   nextScheduledFireOnOrAfter?(cronExpression: string, firstAllowedAt: Date): Date | null;
   /**
@@ -131,8 +152,12 @@ export interface IBackgroundTaskRunner {
    * (`background-task-manager.ts`).
    */
   readonly admission?: 'queued' | 'already-running';
-  start(task: IBackgroundTaskStart): IBackgroundTaskHandle;
+  start(task: IBackgroundTaskStart<K>): IBackgroundTaskHandle<K>;
 }
+
+/** A runner is paired with the request of its declared kind; the default is all supported kinds. */
+export type IBackgroundTaskRunner<K extends TBackgroundTaskKind = TBackgroundTaskKind> =
+  K extends TBackgroundTaskKind ? IKindedBackgroundTaskRunner<K> : never;
 
 /**
  * MCP-004 §S1: the port a `tool-invocation` runner exposes so the wrapper (`agent-framework`, S3)
@@ -186,6 +211,8 @@ export interface IBackgroundTaskManagerOptions {
    * never invoked from inside the failing observer's own delivery, never allowed to be silent.
    */
   onObserverFailure?: TObserverFailureReporter<TBackgroundTaskEvent>;
+  /** Host-selected process-warning identity used when no custom reporter is supplied. */
+  observerFailureWarningCode?: string;
   agentIdleTimeoutMs?: number;
   agentMaxRuntimeMs?: number;
   agentOutputLimitBytes?: number;

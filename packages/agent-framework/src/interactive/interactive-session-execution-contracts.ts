@@ -12,6 +12,7 @@
  */
 
 import type { TPromptHistoryRecorder } from './interactive-session-prompt-history.js';
+import type { ILivePromptTracePort } from './interactive-session-live-prompt-trace.js';
 import type { IExecutionResult } from './types.js';
 import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
 import type { IProviderErrorGuidance } from '../utils/error-humanizer.js';
@@ -32,6 +33,7 @@ export interface IExecutionControllerCallbacks {
   getExecutionWorkspaceSnapshot: () => IExecutionWorkspaceSnapshot;
   emit: <E extends string>(event: E, ...args: unknown[]) => void;
   persistSession: () => void;
+  livePromptTrace?: ILivePromptTracePort;
   /**
    * SELFHOST-008 P2: optional post-turn auto-capture. When set (surface supplied `automaticMemory`), it is
    * `await`ed in the executePrompt `finally` immediately BEFORE `persistSession()` on the completed-turn path,

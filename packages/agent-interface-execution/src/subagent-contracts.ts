@@ -46,7 +46,7 @@ export type TSubagentJobMode = TBackgroundTaskMode;
  *   `IBackgroundTaskResult`/`IBackgroundTaskError` objects).
  */
 export interface ISubagentJobState extends Pick<
-  IBackgroundTaskState,
+  IBackgroundTaskState<'agent'>,
   | 'id'
   | 'label'
   | 'parentSessionId'
@@ -95,17 +95,22 @@ export interface ISubagentJobState extends Pick<
 export type ISubagentSpawnRequest = Omit<IAgentBackgroundTaskRequest, 'kind'>;
 
 /**
- * A subagent job result IS a background-task result (ARCH-031).
+ * A subagent job result IS a background-task result, for the `'agent'` kind, minus the discriminant
+ * (ARCH-031, #2079). `kind` is fixed by the seam the same way `ISubagentSpawnRequest` fixes it on the
+ * request side — a subagent job is never a process/scheduled/tool-invocation task, so a caller of
+ * `ISubagentManager.wait` has no use for a field that can only ever read `'agent'` — so `wait()`
+ * strips it (`subagent-manager.ts`) rather than this alias ever carrying it.
  *
- * `exitCode`/`signalCode` are process-only — their sole producer is the shell runner
- * (`agent-executor/src/background-tasks/runners/managed-shell-process-runner.ts`) and no agent-kind
- * result sets them — so carrying them here would declare two fields that are structurally
- * unreachable, which is the defect class this derivation exists to remove.
+ * `IBackgroundTaskResult` is now discriminated by kind, so `IBackgroundTaskResult<'agent'>` is the
+ * exact agent-kind member: `exitCode`/`signalCode` (process-only; their sole producer is the shell
+ * runner, `agent-executor/src/background-tasks/runners/managed-shell-process-runner.ts`) are
+ * structurally absent rather than omitted by hand, and `usage` (agent-only) is carried without a
+ * separate key list to forget it from.
  *
- * Deliberately an `Omit` rather than a per-kind split of `IBackgroundTaskResult`:
- * `IBackgroundTaskState.result` is an independent property alongside `state.kind`, and
- * `IBackgroundTaskState` is not itself a discriminated union, so `state.kind === 'agent'` cannot
- * narrow `state.result`. A split would hand every result consumer a bare union with no correlated
- * narrowing and buy no type safety. Revisit only if `IBackgroundTaskState` is ever discriminated.
+ * `IBackgroundTaskState<'agent'>.result` is `IBackgroundTaskResult<'agent'>` too (#2079 discriminated
+ * the state hop the same way), so `state.kind === 'agent'` now narrows `state.result` there as well.
+ * This alias narrows at a seam where the kind is statically known instead — a subagent job never
+ * becomes a process task — which is why `ISubagentJobResult` exists as its own name rather than just
+ * reading `state.result` after a kind check everywhere a job result is needed.
  */
-export type ISubagentJobResult = Omit<IBackgroundTaskResult, 'kind' | 'exitCode' | 'signalCode'>;
+export type ISubagentJobResult = Omit<IBackgroundTaskResult<'agent'>, 'kind'>;

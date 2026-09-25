@@ -1,5 +1,7 @@
 export * from './types/regex-replace-operation.js';
 export * from './services/task-snapshot-budget.js';
+export * from './services/root-credit-budget.js';
+export * from './services/dag-execution-lineage.js';
 export * from './types/execution-byte-limits.js';
 // @robota-sdk/dag-core
 // Core DAG contracts and state rules.

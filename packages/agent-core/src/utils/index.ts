@@ -11,4 +11,15 @@ export * from './error-utils';
 export * from './errors';
 export * from './periodic-task';
 export * from './platform-shell';
+export {
+  buildTraceparent,
+  isMintedSpanId,
+  outboundTraceContextFor,
+  providerCallSpanId,
+  spanIdFromMintedId,
+  subprocessTraceEnvironment,
+  toolTraceContextFor,
+  traceEnvFor,
+  traceHeadersFor,
+} from './trace-context';
 export type { TTimerId } from './timer-types';

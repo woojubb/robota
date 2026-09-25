@@ -25,6 +25,21 @@ function record(
 }
 
 describe('summarizePersonalUsage', () => {
+  it('relabels legacy table-derived exact cost as an estimate', () => {
+    const report = summarizePersonalUsage({
+      request: { period: '7d', timezone: 'UTC' },
+      now: new Date('2026-09-06T12:00:00.000Z'),
+      records: [record('s1', [{
+        id: 'e1', at: '2026-09-05T10:00:00.000Z', data: {
+          usageObservationId: 'obs-1', turnId: 'obs-1', outcome: 'success',
+          usage: { kind: 'exact', scope: 'turn', totalTokens: 100, promptTokens: 60, completionTokens: 40, contextUsedTokens: 100, contextMaxTokens: 1000, contextUsedPercentage: 10, costStatus: 'exact', costUsd: 0.01 },
+        },
+      }])],
+      corruptSessionIds: [], unsupportedSessionIds: [],
+    });
+    expect(report.totals.costStatus).toBe('estimated');
+    expect(report.totals.costUsd).toBe(0.01);
+  });
   it('creates complete 7-day buckets and de-duplicates canonical observations', () => {
     const observation = {
       usageObservationId: 'obs-1',

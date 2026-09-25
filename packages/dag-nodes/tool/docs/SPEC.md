@@ -2,11 +2,12 @@
 
 ## Purpose
 
-Owns the `tool` DAG node, which wraps a single **in-process** `@robota-sdk/agent-tools` builtin (Read,
+Owns the `tool` DAG node, which wraps a single `@robota-sdk/agent-tools` builtin (Read,
 Write, Edit, Shell, Bash, Glob, Grep, WebFetch, WebSearch) as one DAG step, emitting its text output.
 
 Distinct from the `mcp-tool` node: `mcp-tool` calls an **external** MCP server over HTTP/stdio; this
-node runs an agent builtin in the current process — no network transport, no MCP client.
+node runs an agent builtin without an MCP transport; CPU-bound grep matching is isolated from the
+workflow event loop.
 
 ## Contract
 
@@ -19,8 +20,11 @@ node runs an agent builtin in the current process — no network transport, no M
   `IToolInvocationResult` with `success: false` (a soft, tool-reported failure, e.g. a binary file)
   becomes `ok: true` with `isError: true` and the error text as output; otherwise `ok: true` with the
   tool's text output and `isError: false`.
+- Grep isolation and Read budget or cancellation failures are nonretryable node failures. The node
+  passes its cancellation signal to these tools and waits for active work to stop before reporting
+  failure.
 
-## Invariants — containment (SEC-007)
+## Invariants — containment
 
 - Every builtin is constructed per invocation and bound to a containment root; none is taken from
   `agent-tools`' module-level singletons, which are context-free by construction and therefore

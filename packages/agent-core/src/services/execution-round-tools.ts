@@ -1,6 +1,7 @@
 import {
   type IToolResultsOutcome,
   addToolResultsToHistory,
+  isArgumentDecodeErrorResult,
   isUnknownToolExecutionResult,
 } from './execution-round-tool-results';
 import { type IExecutionRoundState } from './execution-types';
@@ -15,6 +16,7 @@ import type {
   TExecutionEventData,
 } from '../interfaces/agent';
 import type { IToolCall } from '../interfaces/messages';
+import type { IRunTraceContext } from '../interfaces/trace-context';
 import type { ConversationStore } from '../managers/conversation-history-manager';
 
 export type { IToolResultsOutcome } from './execution-round-tool-results';
@@ -57,6 +59,7 @@ export async function executeAndRecordToolCalls(
   signal?: AbortSignal,
   onExecutionEvent?: TExecutionEventCallback,
   maxSameToolInputs?: number,
+  traceContext?: IRunTraceContext,
 ): Promise<IToolResultsOutcome> {
   const { toolExecutionService, logger, eventEmitter } = deps;
 
@@ -101,6 +104,7 @@ export async function executeAndRecordToolCalls(
       ...request,
       eventService: eventEmitter.ensureToolEventService(request.ownerId, request.ownerPath),
       baseEventService: eventEmitter.getBaseEventService(),
+      ...(traceContext ? { traceContext } : {}),
     };
   });
   const toolContext: IToolExecutionBatchContext = {
@@ -130,7 +134,13 @@ export async function executeAndRecordToolCalls(
       index,
       toolName: request.toolName,
       toolCallId: request.executionId,
-      parameters: request.parameters,
+      // Issue #2875: `request.parameters` is a placeholder ({}) when the call's arguments failed to
+      // decode — reporting it unchanged would misrepresent a malformed call as one that ran with no
+      // arguments. Report the decode error instead; the field stays a record either way.
+      parameters:
+        request.argumentDecodeError !== undefined
+          ? { argumentDecodeError: request.argumentDecodeError }
+          : request.parameters,
       ownerPath: request.ownerPath,
     } as TExecutionEventData);
   });
@@ -159,7 +169,7 @@ export async function executeAndRecordToolCalls(
 
   roundState.toolsExecuted.push(
     ...toolSummary.results
-      .filter((result) => !isUnknownToolExecutionResult(result))
+      .filter((result) => !isUnknownToolExecutionResult(result) && !isArgumentDecodeErrorResult(result))
       .map((r) => {
         if (!r.toolName || r.toolName.length === 0) {
           throw new Error('[EXECUTION] Tool result missing toolName');

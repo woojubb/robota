@@ -45,6 +45,10 @@ import {
 } from './product/robota-plumbing.js';
 import { createRemoteControlController } from './remote-control/index.js';
 import { createCliUsageTransportRegistry } from './usage/usage-transport-registry.js';
+import { createConfiguredNodeOtlpLiveTelemetryPort } from './telemetry/live-trace-otlp.js';
+import { takeRobotaTelemetryEnvironment } from './telemetry/live-telemetry-env.js';
+import { resolveLiveTelemetrySurface } from './telemetry/live-resource.js';
+import { createCliLiveContentRedaction } from './telemetry/live-content-secrets.js';
 import {
   createRobotaPackSet,
   createRobotaSubagentRunnerFactory,
@@ -83,8 +87,10 @@ import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { Writable } from 'node:stream';
 import { resolveMemorySurfaceOptions } from './startup/memory-enablement.js';
 import { resolveFocusReportingOverride } from './startup/focus-reporting-enablement.js';
+import { resolveRobotaTerminalCapabilities } from './startup/terminal-capabilities-projection.js';
 import { resolvePromptHistoryRenderFields } from './startup/prompt-history-enablement.js';
 import { resolveScreenReaderRenderFields } from './startup/screen-reader-enablement.js';
+import { resolveRobotaScreenReaderPacing } from './startup/screen-reader-pacing-projection.js';
 import { resolveRobotaShellExecutable } from './product/robota-shell.js';
 import {
   formatHeadlessWorkspaceTrustError,
@@ -108,6 +114,10 @@ export async function startCliCore(
   createBackgroundTaskRunners: (shellExecutable?: string) => IBackgroundTaskRunner[],
   presentation?: ICliPresentation,
 ): Promise<void> {
+  const telemetryEnvironment = takeRobotaTelemetryEnvironment();
+  // Telemetry settings may hold collector credentials: they leave process.env before anything else
+  // runs, so no child process inherits them. Only the supervised session launch hands them over.
+
   // FLOW-2006: `robota open <url>` is decided BEFORE the working directory is read and before the
   // workspace is resolved — it is the one invocation that changes which directory the process is
   // about, and resolving trust for the directory the user happened to start in would be answering
@@ -134,6 +144,7 @@ export async function startCliCore(
       initialInput,
       mcpOutput?.protocol,
       parsedMcpArgs,
+      telemetryEnvironment,
     );
   } finally {
     mcpOutput?.restore();
@@ -147,11 +158,12 @@ async function runCliCore(
   initialInput?: string,
   mcpProtocolStdout?: Writable,
   preParsedArgs?: IParsedCliArgs,
+  telemetryEnvironment: Readonly<Record<string, string>> = {},
 ): Promise<void> {
   const cwd = process.cwd();
   const projectAccess = await resolveInitialCliWorkspaceProjectAccess(cwd, options);
   const startupOptions: IStartCliOptions = { ...options, projectAccess };
-  if (await runPreparsedCliCommand(startupOptions, process.argv, cwd)) return;
+  if (await runPreparsedCliCommand(startupOptions, process.argv, cwd, telemetryEnvironment)) return;
 
   let args: IParsedCliArgs;
   try {
@@ -530,6 +542,7 @@ async function runCliCore(
     promptFileReferenceTag,
     modelCommandToolPrefix,
     subagentHookEnvironmentNames,
+    observerFailureWarningCode,
   } = buildRobotaRuntimeOptions({
     product,
     cwd,
@@ -591,6 +604,28 @@ async function runCliCore(
     args.screenReader,
     process.env,
   );
+  const livePromptTracePort = createConfiguredNodeOtlpLiveTelemetryPort(
+    telemetryEnvironment,
+    () => process.stderr.write('Robota telemetry export failed.\n'),
+    undefined,
+    {
+      serviceVersion: version,
+      surface: resolveLiveTelemetrySurface(args, mcpServe),
+    },
+    (message) => process.stderr.write(`${message}\n`),
+    createCliLiveContentRedaction({
+      cwd,
+      projectAccess: workspaceComposition.projectAccess,
+      // The startup layers and the user layers a mid-session provider switch reads.
+      settingsSources: [
+        ...workspaceComposition.settingsSources,
+        ...createRobotaUserSettingsSources(homedir()),
+      ],
+      providerDefinitions,
+      env: process.env,
+      startupCredentials: [providerSettings.apiKey],
+    }),
+  );
 
   // GOAL-001: --goal runs an autonomous headless goal even without an explicit -p.
   if (args.printMode || args.goal) {
@@ -610,6 +645,7 @@ async function runCliCore(
       memorySessionOptions,
       workspaceComposition.projectAccess,
       async () => {
+        await livePromptTracePort?.shutdown();
         if (mcp !== undefined) await mcp.shutdown();
       },
       orgPolicy,
@@ -624,11 +660,14 @@ async function runCliCore(
       promptFileReferenceTag,
       modelCommandToolPrefix,
       subagentHookEnvironmentNames,
+      observerFailureWarningCode,
       shellExecutable,
+      livePromptTracePort,
     );
     try {
       await printRun;
     } finally {
+      await livePromptTracePort?.shutdown();
       if (mcp !== undefined) await mcp.shutdown();
     }
     return;
@@ -638,12 +677,14 @@ async function runCliCore(
     if (mcpProtocolStdout === undefined) throw new Error('MCP protocol stdout was not reserved');
     const sessionOptions = buildServeSessionOptions({
       cwd,
+      ...(livePromptTracePort ? { livePromptTrace: livePromptTracePort } : {}),
       args,
       provider,
       providerErrorGuidance,
       promptFileReferenceTag,
       modelCommandToolPrefix,
       subagentHookEnvironmentNames,
+      observerFailureWarningCode,
       commandHookShell: shellExecutable,
       sessionStore,
       projectAccess: workspaceComposition.projectAccess,
@@ -675,6 +716,7 @@ async function runCliCore(
         ...(args.mcpHttpPort !== undefined ? { port: args.mcpHttpPort } : {}),
       });
     } finally {
+      await livePromptTracePort?.shutdown();
       if (mcp !== undefined) await mcp.shutdown();
     }
     return;
@@ -687,12 +729,14 @@ async function runCliCore(
   if (args.serve) {
     const serveRun = runServeMode({
       cwd,
+      ...(livePromptTracePort ? { livePromptTrace: livePromptTracePort } : {}),
       args,
       provider,
       providerErrorGuidance,
       promptFileReferenceTag,
       modelCommandToolPrefix,
       subagentHookEnvironmentNames,
+      observerFailureWarningCode,
       commandHookShell: shellExecutable,
       sessionStore,
       projectAccess: workspaceComposition.projectAccess,
@@ -731,6 +775,7 @@ async function runCliCore(
     try {
       await serveRun;
     } finally {
+      await livePromptTracePort?.shutdown();
       if (mcp !== undefined) await mcp.shutdown();
     }
     return;
@@ -750,8 +795,10 @@ async function runCliCore(
 
   const tuiRun = presentation.renderApp({
     productDisplayName: 'Robota',
+    ...(livePromptTracePort ? { livePromptTrace: livePromptTracePort } : {}),
     modelCommandToolPrefix,
     subagentHookEnvironmentNames,
+    observerFailureWarningCode,
     commandHookShell: shellExecutable,
     promptFileReferenceTag,
     providerDefinitions,
@@ -811,6 +858,8 @@ async function runCliCore(
     ...memorySessionOptions,
     // CLI-2004: off ⇒ today's byte stream is unchanged.
     ...screenReader,
+    screenReaderPacing: resolveRobotaScreenReaderPacing(process.env),
+    terminalCapabilities: resolveRobotaTerminalCapabilities(process.env),
     // SCREEN-1992: the focus-reporting kill switch is the shell's; the TUI's TTY gate decides otherwise.
     focusReporting: resolveFocusReportingOverride(process.env),
     // SCREEN-1993: prompt history is a TUI-only surface (print and serve above receive no writer).
@@ -840,6 +889,7 @@ async function runCliCore(
     await tuiRun;
   } finally {
     externalEventHost?.close();
+    await livePromptTracePort?.shutdown();
     if (mcp !== undefined) await mcp.shutdown();
   }
   process.exit(0);

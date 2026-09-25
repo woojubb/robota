@@ -117,6 +117,7 @@ describe('CLI-2004 the same fixture with the mode off', () => {
         projectDir,
         homeDir: join(projectDir, 'home'),
         args: ['--session-log', REPLAY_FIXTURE],
+        env: { ROBOTA_TURN_MARKS: '1' },
       });
 
       await session.waitFor(/Type a message or \/help/, WAIT_MS);
@@ -129,9 +130,46 @@ describe('CLI-2004 the same fixture with the mode off', () => {
       expect(snapshot).toMatch(BOX_DRAWING);
       expect(snapshot).toContain('You:');
       expect(snapshot).not.toContain('[Screen reader mode:');
+      expect(session.raw()).not.toContain(OSC_133_PROMPT_START);
     },
     CASE_TIMEOUT_MS,
   );
+});
+
+describe('Robota turn-mark override through the real binary', () => {
+  let projectDir: string;
+  let session: IPtySession | undefined;
+
+  beforeEach(() => {
+    projectDir = realpathSync(mkdtempSync(join(tmpdir(), 'robota-turn-marks-pty-')));
+    writeTuiProviderSettings(projectDir);
+  });
+
+  afterEach(async () => {
+    await session?.disposeAsync();
+    rmSync(projectDir, { recursive: true, force: true });
+  });
+
+  for (const [label, env, expected] of [
+    ['WezTerm default', { TERM_PROGRAM: 'WezTerm' }, false],
+    ['WezTerm opt-in', { TERM_PROGRAM: 'WezTerm', ROBOTA_TURN_MARKS: '1' }, true],
+    ['TTY kill switch', { ROBOTA_TURN_MARKS: '0' }, false],
+  ] as const) {
+    it(
+      `${label} ${expected ? 'emits' : 'withholds'} OSC 133`,
+      async () => {
+        session = spawnTui({
+          projectDir,
+          homeDir: join(projectDir, 'home'),
+          args: ['--screen-reader'],
+          env: { ...env, ROBOTA_SCREEN_READER_STARTUP_QUIET_MS: '0' },
+        });
+        await session.waitFor(/Type a message or \/help/, WAIT_MS);
+        expect(session.raw().includes(OSC_133_PROMPT_START)).toBe(expected);
+      },
+      CASE_TIMEOUT_MS,
+    );
+  }
 });
 
 describe('CLI-2004 the channel the mode was enabled through', () => {

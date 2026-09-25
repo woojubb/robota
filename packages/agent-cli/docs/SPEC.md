@@ -9,7 +9,7 @@ The CLI resolves inputs (args, settings, env), assembles a product via `assemble
 one of several presentations: interactive TUI (default), print/headless (`-p`/`--goal`), the
 headless runtime host (`--serve`), or an MCP server process (`robota mcp serve`).
 
-**Product shell, not a composition root (ARCH-005 S2).** `robota`'s product identity — branding,
+**Product shell, not a composition root.** `robota`'s product identity — branding,
 provider surface, presets, capability packs, base command modules, and injected
 transports/runners/subagent factory — is declared as DATA in `src/product/robota-profile.ts` and
 folded by the product-neutral `assembleProduct` (`@robota-sdk/agent-product`). The CLI parses args,
@@ -32,7 +32,7 @@ the CLI is owned below it first unless it is listed as CLI-owned below.
 The CLI owns: argument parsing and process lifecycle assembly, `TransportRegistry`, provider
 composition (selecting an injected `IProviderDefinition`, not implementing providers), concrete local
 host adapters (background runner, child-process subagent, Git worktree, settings I/O), package-version
-update checks, and the per-mode host-action adapters (`/remote-control`, process exit) CMD-004 wires.
+update checks, and the per-mode host-action adapters (`/remote-control`, process exit) through which the session executes a command's host actions.
 Remote control is host-owned: it receives only the session capabilities its wire protocol needs, and
 promoting a confirmed reconnect winner replaces the registered peer so host shutdown always reaches
 the live connection; pairing failure or reconnect-window expiry releases the transport, signaling,
@@ -55,34 +55,60 @@ Robota executable or product on their own.
 Local peer-activity publishing exposes only fixed, content-free activity states for the current
 interactive session into a guarded, same-user rendezvous, kept separate from process-liveness checks
 (stale or unverified observations read as `unknown`) and never carrying conversation content or
-stored-session identity; `session list` surfaces this presence data separately from saved session
-records without implying a background supervisor or an attach/restart capability. The list includes
-only user-owned and currently authorized project records, never transcript content; corrupt and
-unsupported records stay visible rather than being hidden. Supervised
-background sessions (`session start --background`) run as independent, same-user processes behind the
-same headless trust boundary, each with its own guarded local control endpoint that survives the
-launching terminal; the session list reports only content-free activity and liveness for these —
-never session content, launch environment, or provider credentials. Unverified identity, a missing
-control response, initialization, or shutdown read as `unknown`; `idle` means only that the session
-is initialized with no pending question and is not executing, not that another CLI can attach or
-submit a prompt. A waiting loop's next eligible time is reported separately from activity only
-when observed from the live owner; it does not promise that a future wake will run. The global
-supervised view observes only that guarded inventory and narrows by owner-reported name or
-directory only on a live owner-verified path: it does not join peer or saved-record identities,
-expose conversation content or project paths in rows, or treat an exited
-process as completed; closing the view never stops a supervised session. A damaged registration is
-shown as unavailable without hiding healthy sessions,
-and a stop request acts only
-through the live owner's control endpoint, failing explicitly rather than guessing when ownership or
-completion cannot be established. Attach, peek, and automatic restart are not offered, and the
-transport's per-launch authentication token is never exposed through the control endpoint or
-inventory. `usage export` is explicit and local-only: it reads the same authorized user and project session
-stores as local usage reporting and sends aggregate usage data, or — when the
-trace signal is explicitly selected — verified execution records with content-free call/tool-body
-children, exclusively to a caller-named loopback OTLP collector; an explicitly selected logs signal
-sends only content-free completion snapshots and never the session replay log. None of these exports
-transcript, tool names, session identity, or provider/model labels, none auto-exports, and each fails
-visibly rather than silently on an incomplete store or partial collector rejection.
+stored-session identity. `session list` shows this presence separately from saved session records
+without implying a background supervisor or an attach/restart capability; it includes only
+user-owned and currently authorized project records, never transcript content, and corrupt or
+unsupported records stay visible rather than being hidden.
+
+Supervised background sessions (`session start --background`) run as independent, same-user
+processes behind the same headless trust boundary, each with its own guarded local control endpoint
+that survives the launching terminal. The session list reports only content-free activity and
+liveness for them — never session content, launch environment, or provider credentials. Unverified
+identity, a missing control response, initialization, or shutdown read as `unknown`; `idle` means
+only that the session is initialized with no pending question and is not executing, not that
+another CLI can attach or submit a prompt. A waiting loop's next eligible time is reported only when
+observed from the live owner, and does not promise that a future wake will run.
+
+The global supervised view observes only that guarded inventory, and narrows by owner-reported name,
+directory, or linked PR only on a live owner-verified path. It does not join peer or saved-record
+identities, show conversation content or project paths in ordinary rows (verified paths appear only
+when the viewer groups by directory), treat an exited process as completed, or show stale PR links;
+PR URLs never enter ordinary listings or registration records. Starting a session from the view
+still requires headless workspace trust for its target directory, and closing the view never stops
+a supervised session. A damaged registration is shown as unavailable without hiding healthy
+sessions. A stop, rename, or PR-association request acts only through the live owner's control
+endpoint and fails explicitly when ownership or completion cannot be established. Attach, peek, and
+automatic restart are not offered, and the transport's per-launch authentication token is never
+exposed through the control endpoint or inventory.
+
+Observability has two independently gated paths. `usage export` is an explicit,
+local-only action over the same authorized stores as local usage reporting: its aggregate usage,
+verified content-free execution traces, or completion snapshots go only to a caller-named loopback
+collector, never including transcript, tool names, session identity, or provider/model labels.
+It fails visibly on an incomplete store or collector rejection and never auto-exports. The separate
+live telemetry path needs an explicit Robota enable switch, individually selected signals, and an
+explicit protocol with a validated destination (OTLP or a local console sink). It uses host-owned
+resource and trace identity, never ambient OpenTelemetry identity, trace context or credentials, and
+sends a trace's identifiers to a provider only at origins the operator listed exactly, and to a
+child process only of a class the operator listed, while traces are exported — the collector's origin and credentials are never implied by that. Its spans, metrics
+and console output are always content-free, correlated by validated IDs; the only content it can
+send is the typed prompt, the final response and the arguments and output of the turn's own tool
+calls, of an owner-typed turn in the interactive terminal (other modes refuse the opt-in rather than
+leave it unused), as OTLP log records, after an explicit per-kind opt-in, bounded per turn so a turn
+full of tool content can never displace its prompt or response, masked on a best-effort basis before
+it leaves the process and delivered apart from the content-free logs so that neither can delay or
+drop the other. Metrics are low-cardinality by default; a
+higher-cardinality label is added only on the operator's explicit opt-in. Metrics derived from child records are
+emitted only when those records are complete, and omitted children or unknown prices stay visible
+as coverage gaps rather than fabricated totals.
+It does not replay stored usage or invent lifecycle events, delivery failure never changes a turn
+result, and an unsupported telemetry setting, or a credential that would be silently unused, refuses
+startup instead of being ignored. Telemetry credentials are scoped to the destination they were
+configured for and are never sent elsewhere, printed, or written to console output, logs or resource
+attributes. Robota telemetry settings are not inherited by child processes, except the explicit
+handover to a supervised runtime launched by a session command; this is a guarantee about
+inheritance, not about hiding them from the same OS user. Because they are removed from
+`process.env` at startup, an embedding host that calls `startCli` has its own `process.env` mutated.
 
 Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`); it accepts
 `commandModules` and registers them generically with the SDK registry.
@@ -102,7 +128,7 @@ Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`)
 
 ## Design decisions
 
-### Self-contained bundle (INFRA-028)
+### Self-contained bundle
 
 `@robota-sdk/agent-cli` publishes a self-contained bundle for its supported CLI entry points,
 independent of sibling packages' publish state: workspace modules those paths need (including
@@ -115,22 +141,22 @@ nodes, not the larger async catalog available only inside this workspace.
 The invariant "agent-cli runtime `dependencies` have zero `@robota-sdk`" is enforced by
 `scripts/harness/check-publish-safety.mjs`.
 
-**What a `--session-log` replay executes (issue #2302).** The replay substitutes the MODEL, never the
+**What a `--session-log` replay executes.** The replay substitutes the MODEL, never the
 tools: a recorded `toolCalls` entry is dispatched against the session's live tool set and the real
 result is appended to the conversation — a call naming a tool the session does not have produces an
-error tool result and the run advances. This dev-only feature (`agent-provider-replay`, INFRA-017) is
+error tool result and the run advances. This dev-only feature (`agent-provider-replay`) is
 not bundled in published installs.
 
-### MCP client composition (MCP-002)
+### MCP client composition
 
 `@robota-sdk/agent-mcp` owns definition decoding, precedence, admission policy, and the
-connection/catalog manager; this package's one job is making that manager reachable from the
-product's own startup rather than only from tests. Every unreadable/corrupt settings layer and every
+connection/catalog manager; this package makes that manager reachable from product startup and
+supplies the product's MCP client identity there. Every unreadable/corrupt settings layer and every
 decode refusal is reported as a problem, never silently dropped; zero resolved definitions is a
 normal, silent-diagnostic outcome. A caller-supplied `mcpActivationAdapter` always wins over CLI
 composition and skips it entirely.
 
-**Bounded MCP results (MCP-2525).** Every discovered tool's result passes a core result-admission
+**Bounded MCP results.** Every discovered tool's result passes a core result-admission
 policy before reaching the session's permission, callback, log, or provider path. The default
 warning/hard/repository ceiling is 10,000/25,000/500,000 UTF-16 code units; embedding hosts may
 configure limits within the repository ceiling. A failed spill produces a secret-free refusal — raw
@@ -138,7 +164,7 @@ server output is never substituted back into context. `robota_read_mcp_result` r
 characters per read (less under a host-configured hard limit), with the total size and next offset;
 missing or expired references fail with a fixed, payload-free error.
 
-**Stdio client authority (MCP-2522).** Definitions and settings cannot grant execution authority on
+**Stdio client authority.** Definitions and settings cannot grant execution authority on
 their own: an approved stdio definition without a separately supplied host authority is diagnosed and
 never spawned. Stdio discovery diagnostics never include raw child or SDK errors, and the ordinary
 executable does not auto-approve package-runner commands.
@@ -158,7 +184,7 @@ external turn can produce model text but cannot invoke model-generated local or 
 other modes (print, goal, serve, MCP-serve) refuse the flag outright. Repeated connection loss stops
 after bounded retries rather than assuming delivery from a dead channel.
 
-### MCP background handoff settings (MCP-004)
+### MCP background handoff settings
 
 A long-running MCP tool call blocks the turn unless the host opts a session into handing it to a
 background task. Settings (`mcp.autoBackgroundMs` default 120000, `mcp.callTimeoutMs` default 600000)
@@ -172,7 +198,7 @@ continues as if no `mcp` object had been declared — the default is never silen
 invalid value. Print mode never adopts the handoff policy (a one-shot run has no drain) and reports a
 diagnostic when the setting would otherwise apply.
 
-### `--serve` runtime host (RUNTIME-001)
+### `--serve` runtime host
 
 `--serve` runs `startRuntimeHost` over the resolved runtime options and the loopback `WsTransport`,
 rendering no UI, until SIGTERM. This is the backend the desktop GUI spawns: TUI and GUI are sibling
@@ -180,12 +206,12 @@ presentations over the same runtime host, and the GUI never controls the CLI. Th
 assigns trusted WS driver identities (`app`, `browser`, `remote:ws`) so a turn's persisted usage
 surface reflects the launch path rather than a client-provided claim.
 
-ARCH-011 runner propagation is explicit in serve mode: `waitForFailure()` returns the first named
+Runner failure propagation is explicit in serve mode: `waitForFailure()` returns the first named
 nonzero runner outcome without waiting for unrelated runners, and serve mode assigns that exact exit
 code. A rejected runner wait assigns exit 1; no runners, all-success, or stop-abandonment leave the
 service alive.
 
-### `robota mcp serve` (MCP-007)
+### `robota mcp serve`
 
 A separate headless process mode: one normally assembled session plus one `agent-transport-mcp`
 stdio (or, with `--http-token-file`, loopback HTTP) service. It uses the caller's working directory
@@ -202,15 +228,15 @@ refuses a relative token path or an existing file.
 ### Memory, screen-reader, theme, and prompt-history enablement
 
 Each of these product surfaces is **opt-in and resolved by the CLI**, not the library it configures
-(HARNESS-029 library neutrality) — precedence order and defaults for each are non-obvious and stated
+(library neutrality) — precedence order and defaults for each are non-obvious and stated
 here because the reasoning differs between them:
 
-- **Durable memory (SELFHOST-008 P6):** default OFF. Precedence lowest→highest: `settings.json`
+- **Durable memory:** default OFF. Precedence lowest→highest: `settings.json`
   `memory.enabled` → `--memory`/`--no-memory` flag → `ROBOTA_MEMORY` env (**env wins** — a
   machine-level policy a CI runner sets once). Capture + recall are enabled together by one switch;
   scope is repo/project (`<cwd>/.robota/memory/`). A one-time enable notice is printed to stderr on
   first enable; no blocking prompt.
-- **Screen-reader mode (CLI-2004):** default OFF. Precedence lowest→highest: `settings.json`
+- **Screen-reader mode:** default OFF. Precedence lowest→highest: `settings.json`
   `screenReader` → `ROBOTA_SCREEN_READER`/`INK_SCREEN_READER` env → `--screen-reader`/
   `--no-screen-reader` flag (**flag wins**). This is a deliberate divergence from memory's
   precedence: accessibility must let a per-invocation flag turn the mode ON for one run on a machine
@@ -218,11 +244,11 @@ here because the reasoning differs between them:
   Auto-detection only ever prints one advisory line; it never enables the mode itself — a false
   positive on this feature costs a line of text, while auto-enabling on one would reshape a sighted
   user's interface with no telemetry to ever catch it.
-- **Prompt history (SCREEN-1993):** default ON (prompts are already persisted verbatim per session,
+- **Prompt history:** default ON (prompts are already persisted verbatim per session,
   and this is a shell-history analogue). Precedence: `settings.json` `promptHistory: false` ←
   `ROBOTA_PROMPT_HISTORY` env (**env wins**, same direction as memory — a machine-level policy).
   TUI only; print/serve receive no writer.
-- **Theme registry (SCREEN-2002):** one registry is built per run and handed to both the `/theme`
+- **Theme registry:** one registry is built per run and handed to both the `/theme`
   command and the renderer, so a listing and a switch can never disagree about which themes exist. A
   run that renders no terminal UI gets no registry and reads no theme file at all. Appearance is
   re-read per call, never captured at startup, so a `/theme list` after an `appearance-settings-patch`
@@ -230,7 +256,7 @@ here because the reasoning differs between them:
   characters per segment so a composite id fits the 60-character name bound; a file or plugin outside
   that is skipped with a reason rather than loaded, and the first file to claim an id keeps it.
 
-### Workspace trust and project access (ARCH-042, SECURITY-2465)
+### Workspace trust and project access
 
 The CLI resolves one host-owned `TWorkspaceProjectAccess`/`WorkspaceTrustService` decision before
 composition. Absence is deterministically **Restricted**: only user contribution/settings sources and
@@ -241,6 +267,34 @@ authority's frozen workspace root. Print mode, `--goal`, and `--serve` fail clos
 `untrusted`/`revoked`/`stale`/`store-unavailable` decisions before provider construction; interactive
 startup may continue Restricted with project contributions disabled. All trust diagnostics expose
 only state and canonical display path — credentials and project-controlled content are never printed.
+
+### Destination-scoped telemetry headers
+
+Generic OTLP headers go only to signals that use the generic endpoint, never to a signal with its own
+endpoint, even though OpenTelemetry would apply them there: a per-signal endpoint may be a different
+collector, and generic credentials belong to the generic destination.
+
+### Exact-origin trace propagation
+
+`ROBOTA_TELEMETRY_PROPAGATE_TO` takes exact origins rather than hosts, suffixes or wildcards: a
+`traceparent` lets whoever receives it join their own logs to the operator's trace, so each recipient
+is named on purpose and a subdomain, port or scheme change is a different recipient. One list covers
+providers and MCP HTTP servers alike, because the trust is in the origin, not in the kind of client
+that reaches it. An entry must
+already be its own origin, so the value compared is exactly the value written.
+`ROBOTA_TELEMETRY_PROPAGATE_TO_SUBPROCESSES` is a closed list of classes rather than a pattern,
+because each class is a place Robota knows how to hand the trace to — the foreground shell and
+command hooks — and every other child (the `!` passthrough, background, managed and scheduled
+shells, stdio MCP servers, HTTP, prompt and agent hooks) must never receive it. It is independent of
+the origin list, since a child process is not an origin.
+
+### Opt-in metric attributes
+
+`ROBOTA_TELEMETRY_METRIC_ATTRIBUTES` keys its labels `robota.session.id`, `robota.provider.id` and
+`robota.model.id` — matching the live trace spans — rather than `session.id` or `gen_ai.*`: a
+metric/trace join needs the same key on both sides, the provider id is whatever the host configured
+rather than a well-known system, and which model actually answered a request cannot be verified
+against which model the request named.
 
 ### Deep links (`robota open`)
 
@@ -271,7 +325,7 @@ as an API key, and setup validation fails first with a clear error. First-run/no
 generates a profile key from the provider/model, with a numeric suffix on collision, and that
 generated key must never include credential fragments or account identifiers.
 
-### Distribution — Bun single binary (DIST-001)
+### Distribution — Bun single binary
 
 Alongside the npm/Node package, `agent-cli` can be compiled to a standalone executable via Bun.
 **Bun is used for build/packaging only — never at runtime**, and no Bun-specific APIs are used; the
@@ -279,11 +333,8 @@ Node entry path is retained unconditionally. A literal build target must exactly
 host tuple; every unsupported host is refused before compilation, leaving the previously selected
 binary generation unchanged.
 
-**Constraint removed by DIST-006:** a subagent turn used to spawn a child `node` process against a
-worker file, which required `node` on `PATH` and did not work at all in a compiled binary (the worker
-file was never emitted into the artifact). The binary now re-executes itself
-(`process.execPath`) instead, so no external `node` is named anywhere on this path; non-subagent CLI
-use needs no Node install regardless.
+A subagent turn re-executes the running binary (`process.execPath`) rather than spawning an external
+`node` against a worker file, so the compiled binary needs no Node install for any path.
 
 ## User-facing contract
 
@@ -301,8 +352,8 @@ robota doctor [--repair <id> -y]     # Diagnose configuration/runtime readiness 
 robota usage [--period 30d] [--timezone UTC] [--format json]  # Local personal usage summary
 robota eval ./my-eval.mjs            # Run an evals-as-code definition; exit 1 on a metric breach
 robota -p "prompt"                   # Print mode (one-shot, headless)
-robota --serve                       # Headless runtime host (RUNTIME-001)
-robota mcp serve [--http-token-file <path> [--http-port <port>]]  # MCP server process (MCP-007)
+robota --serve                       # Headless runtime host
+robota mcp serve [--http-token-file <path> [--http-port <port>]]  # MCP server process
 robota -c | --continue                       # Continue the most recent session for this cwd
 robota -r <id> | --resume [id]               # Resume a session by id/name, or show a picker
 robota -c --fork-session                     # Fork from the last session (new id, restored context)

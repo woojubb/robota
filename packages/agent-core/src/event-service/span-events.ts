@@ -19,6 +19,11 @@ export const TOOL_BODY_EVENTS = {
   COMPLETED: 'tool_body_completed',
 } as const;
 
+/** Content-free decision reached for one tool call before any body runs. */
+export const TOOL_PERMISSION_EVENTS = {
+  DECIDED: 'tool_permission_decided',
+} as const;
+
 export const SPAN_EVENT_PREFIX = 'span' as const;
 
 export type TSpanEvent = (typeof SPAN_EVENTS)[keyof typeof SPAN_EVENTS];

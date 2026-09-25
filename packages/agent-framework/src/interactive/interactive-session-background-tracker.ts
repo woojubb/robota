@@ -75,6 +75,7 @@ export class SessionBackgroundTaskTracker {
     private readonly appendHistoryEntry?: (entry: IHistoryEntry) => void,
     private readonly sessionLoopsDisabled = false,
     private readonly onSessionLoopRearmed?: (task: IBackgroundTaskState) => void,
+    private readonly observerFailureWarningCode?: string,
   ) {}
 
   subscribe(session: Session): void {
@@ -239,6 +240,7 @@ export class SessionBackgroundTaskTracker {
     this.backgroundJobOrchestrator = new BackgroundJobOrchestrator({
       manager,
       initialGroups: this.backgroundJobGroups,
+      observerFailureWarningCode: this.observerFailureWarningCode,
     });
     this.subscribeGroupEvents(sessionId);
     return this.backgroundJobOrchestrator;
@@ -332,8 +334,7 @@ export class SessionBackgroundTaskTracker {
       task.error?.message ??
       task.result?.output ??
       task.currentAction ??
-      task.promptPreview ??
-      task.commandPreview ??
+      (task.kind === 'agent' ? task.promptPreview : task.commandPreview) ??
       task.status;
     return createLineDetailPage({ entryId, lines: [text], cursor, kind: detailKind });
   }
@@ -384,6 +385,10 @@ export class SessionBackgroundTaskTracker {
    */
   private recordCompletedTaskUsage(event: TBackgroundTaskEvent): void {
     if (event.type !== 'background_task_completed') return;
+    // #2079: `usage` exists only on the agent-kind state/result member, correlated with
+    // `event.task.kind` now — narrowing on the task's own kind narrows `result` (and unlocks
+    // `agentType` below) in one step, rather than narrowing `result.kind` alone.
+    if (event.task.kind !== 'agent') return;
     const usage = event.task.result?.usage;
     if (!usage || usage.totalTokens <= 0) return;
     this.appendHistoryEntry?.(

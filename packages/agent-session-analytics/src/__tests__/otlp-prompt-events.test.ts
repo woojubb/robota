@@ -46,6 +46,8 @@ function record(): IInteractiveSessionRecord {
           endedAt: '2026-09-24T00:00:59.900Z',
           outcome: 'failure',
           round: 1,
+          disposition: 'invoked', usageProvenance: 'complete', modelId: 'gpt-4o',
+          promptTokens: 100, completionTokens: 50, totalTokens: 150,
           response: 'secret response',
         },
       },
@@ -86,6 +88,7 @@ describe('content-free OTLP completion events', () => {
       observedTimeUnixNano: '1790208300000000000',
       attributes: [{ key: 'robota.prompt.outcome', value: { stringValue: 'success' } }],
     });
+    expect(logRecords[1]?.attributes).toEqual([{ key: 'robota.provider.outcome', value: { stringValue: 'failure' } }]);
     expect(JSON.stringify(result.payload)).not.toMatch(
       /secret|private|turn-private|response|toolResult|prompt:/,
     );

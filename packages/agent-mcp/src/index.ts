@@ -118,6 +118,7 @@ export {
   type IMCPSession,
   type IMCPSessionTimeouts,
   type IMCPExternalEvent,
+  type IMCPToolCallOptions,
   type IMCPToolCallResult,
   type TMCPListChangedListener,
   type TMCPExternalEventListener,

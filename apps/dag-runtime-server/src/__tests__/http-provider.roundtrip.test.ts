@@ -1,3 +1,6 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createDagFramework, HttpDagRuntimeProvider } from '@robota-sdk/dag-framework';
@@ -21,9 +24,13 @@ const SINGLE_INPUT_DEFINITION: IDagDefinition = {
 describe('HttpDagRuntimeProvider round-trip against the in-process server', () => {
   let framework: IDagFramework;
   let provider: HttpDagRuntimeProvider;
+  let tmpDir: string;
 
   beforeEach(async () => {
-    framework = await createDagFramework();
+    tmpDir = await mkdtemp(path.join(os.tmpdir(), 'dag-http-provider-'));
+    framework = await createDagFramework({
+      paths: { storageRoot: path.join(tmpDir, 'storage'), assetRoot: path.join(tmpDir, 'assets') },
+    });
     await framework.start();
     const app = createDagRuntimeServer(
       framework.runs,
@@ -44,6 +51,7 @@ describe('HttpDagRuntimeProvider round-trip against the in-process server', () =
 
   afterEach(async () => {
     await framework.stop();
+    await rm(tmpDir, { recursive: true, force: true });
   });
 
   it('lists the node catalog over the native route', async () => {

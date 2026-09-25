@@ -21,13 +21,17 @@ export interface IObserverFailure<TEvent> {
 
 export type TObserverFailureReporter<TEvent> = (failure: IObserverFailure<TEvent>) => void;
 
-export const OBSERVER_FAILURE_WARNING_CODE = 'ROBOTA_BACKGROUND_OBSERVER_FAILURE';
+/** Default identity for hosts that do not supply their own warning code. */
+export const OBSERVER_FAILURE_WARNING_CODE = 'BACKGROUND_OBSERVER_FAILURE';
 
 /**
  * Default reporter: surface the failure as a process warning. It is visible (stderr, `warning`
  * event) without crashing the host, and it runs outside the emitter's call stack.
  */
-export function reportObserverFailureAsWarning<TEvent>(failure: IObserverFailure<TEvent>): void {
+export function reportObserverFailureAsWarning<TEvent>(
+  failure: IObserverFailure<TEvent>,
+  code: string = OBSERVER_FAILURE_WARNING_CODE,
+): void {
   const message =
     failure.error instanceof Error ? failure.error.message : String(failure.error ?? 'unknown');
   const eventType =
@@ -36,7 +40,7 @@ export function reportObserverFailureAsWarning<TEvent>(failure: IObserverFailure
       : 'unknown';
   process.emitWarning(
     `Background lifecycle observer #${failure.observerIndex} threw on '${eventType}': ${message}`,
-    { code: OBSERVER_FAILURE_WARNING_CODE },
+    { code },
   );
 }
 

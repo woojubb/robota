@@ -37,8 +37,8 @@ React/Ink UI.
   facets minted from its opaque authority; omission is an explicit Restricted decision, not a silent
   fallback to path-based access. Restricted construction instantiates no project reader, store, or
   writer. Trusted access is accepted only when the real working directory is the trusted root or a
-  descendant of it — `cwd` and the access decision are independent inputs today, so this boundary
-  check exists specifically to keep that pair fail-closed until they are unified into one binding.
+  descendant of it — `cwd` and the access decision are independent inputs, so this boundary check keeps the pair
+  fail-closed.
 - **No concrete settings-file I/O for hosts.** Host adapters (`NodeHost*`) exist for callers that
   deliberately own a host path, but never satisfy an authority parameter, and command modules must
   not assemble settings/project paths themselves — they go through host adapters or command-facing
@@ -94,8 +94,20 @@ These are behaviors a caller cannot infer from a type signature alone.
 
 - **Prompt trace identity has a narrow execution boundary.** Every started prompt records a fresh,
   content-free trace root and its actual outcome even when it has no token usage or ends in failure
-  or interruption; a failure before execution begins has no root. This remains a partial trace
-  only — it does not cross process boundaries or prove final turn settlement.
+  or interruption; a failure before execution begins has no root. This remains a partial trace: it
+  leaves the process only as a `traceparent` on that prompt's own provider calls and tool bodies to
+  origins the host trusts, or in the environment of the child-process classes the host enabled —
+  either grant alone is enough, and subagent, worker and background runs never inherit it — and it does not
+  prove final turn settlement. A provider-call child's span ID is derived from core's call ID and a
+  tool child's from core's minted body ID, never invented, so the propagated parent and the exported
+  span are the same span; a tool body reported without that ID is counted as omitted.
+  Prompt, response and tool text travels only through the host's separate content channel, only
+  when the host provides one, and only for the owner-typed turns prompt history records — one shared
+  predicate decides both; otherwise the framework copies no text. Tool content is limited to the
+  turn's own calls: ownership comes from the permission and body events on the turn's own bus, never
+  from the shared tool callback, which subagent and background runs also report through. The
+  framework only pre-truncates, renders arguments without walking past the bound, and bounds what one
+  turn holds with room kept for the prompt and response; redaction is the host's.
 - **Session persistence is explicit, never implicit.** `InteractiveSession`/`createAgentRuntime`
   never construct a project session store from a bare `cwd`. A host wanting persistence supplies an
   explicit store (optionally composed from same-authority `sessions`/`session-logs` state facets); an

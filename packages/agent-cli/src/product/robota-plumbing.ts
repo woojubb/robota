@@ -232,6 +232,7 @@ export interface IRobotaRuntimeOptions {
   promptFileReferenceTag?: string;
   modelCommandToolPrefix?: string;
   subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
+  observerFailureWarningCode?: ICreateSessionOptions['observerFailureWarningCode'];
   commandModules: readonly ICommandModule[];
   agentDefinitions: readonly IAgentDefinition[];
   /** The tool surface, grouped so every presentation channel is handed the SAME pair. */

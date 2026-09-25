@@ -32,32 +32,33 @@ vi.mock('croner', () => ({
   },
 }));
 
-function task(kind: 'process' | 'scheduled', shell: string): IBackgroundTaskStart {
+function baseRequest(shell: string) {
   return {
-    taskId: `${kind}_1`,
-    request:
-      kind === 'process'
-        ? {
-            kind,
-            command: 'sentinel',
-            shell,
-            label: kind,
-            mode: 'background',
-            parentSessionId: 'session_1',
-            depth: 0,
-            cwd: process.cwd(),
-          }
-        : {
-            kind,
-            cronExpression: '* * * * *',
-            command: 'sentinel',
-            shell,
-            label: kind,
-            mode: 'background',
-            parentSessionId: 'session_1',
-            depth: 0,
-            cwd: process.cwd(),
-          },
+    command: 'sentinel',
+    shell,
+    mode: 'background' as const,
+    parentSessionId: 'session_1',
+    depth: 0,
+    cwd: process.cwd(),
+  };
+}
+
+function processTask(shell: string): IBackgroundTaskStart<'process'> {
+  return {
+    taskId: 'process_1',
+    request: { ...baseRequest(shell), kind: 'process', label: 'process' },
+  };
+}
+
+function scheduledTask(shell: string): IBackgroundTaskStart<'scheduled'> {
+  return {
+    taskId: 'scheduled_1',
+    request: {
+      ...baseRequest(shell),
+      kind: 'scheduled',
+      label: 'scheduled',
+      cronExpression: '* * * * *',
+    },
   };
 }
 
@@ -68,7 +69,7 @@ describe('executor runner shell contract', () => {
   });
 
   it('passes the same explicit PowerShell executable/args pair through the managed runner', () => {
-    createManagedShellProcessRunner().start(task('process', '/opt/pwsh'));
+    createManagedShellProcessRunner().start(processTask('/opt/pwsh'));
     expect(vi.mocked(spawnMock).mock.calls[0]?.slice(0, 2)).toEqual([
       '/opt/pwsh',
       ['-NoProfile', '-Command', 'sentinel'],
@@ -76,7 +77,7 @@ describe('executor runner shell contract', () => {
   });
 
   it('passes the same explicit cmd executable/args pair through the scheduled runner', () => {
-    createScheduledTaskRunner().start(task('scheduled', 'C:\\Windows\\System32\\cmd.exe'));
+    createScheduledTaskRunner().start(scheduledTask('C:\\Windows\\System32\\cmd.exe'));
     cronState.fire?.();
     expect(vi.mocked(spawnMock).mock.calls[0]?.slice(0, 2)).toEqual([
       'C:\\Windows\\System32\\cmd.exe',
@@ -87,9 +88,11 @@ describe('executor runner shell contract', () => {
   it.each(['process', 'scheduled'] as const)(
     'rejects an unknown explicit shell before the %s runner spawns',
     (kind) => {
-      const runner =
-        kind === 'process' ? createManagedShellProcessRunner() : createScheduledTaskRunner();
-      expect(() => runner.start(task(kind, '/opt/fish'))).toThrowError(
+      const start = () =>
+        kind === 'process'
+          ? createManagedShellProcessRunner().start(processTask('/opt/fish'))
+          : createScheduledTaskRunner().start(scheduledTask('/opt/fish'));
+      expect(start).toThrowError(
         expect.objectContaining({ code: 'UNSUPPORTED_SHELL', executable: '/opt/fish' }),
       );
       expect(spawnMock).not.toHaveBeenCalled();

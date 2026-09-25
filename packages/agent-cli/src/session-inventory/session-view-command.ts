@@ -1,18 +1,21 @@
 import { realpathSync, statSync } from 'node:fs';
 
+import open from 'open';
+
 import { renderSupervisedSessionView } from '@robota-sdk/agent-ui-terminal';
 
 import { resolveScreenReaderRenderFields } from '../startup/screen-reader-enablement.js';
 import { readUserSettingsOrExit } from '../startup/user-settings.js';
 import {
-  isSupervisedSessionName, listSupervisedSessions, resolveSupervisedDirectory, stopSupervisedSession,
+  getVerifiedSupervisedPr, isSupervisedSessionName, listSupervisedSessions,
+  resolveSupervisedDirectory, stopSupervisedSession,
 } from './supervised-session-control.js';
 
 import type { TSettingsData } from '@robota-sdk/agent-framework';
 
 const VIEW_STATES = ['needs-input', 'working', 'idle', 'unknown', 'unverified', 'dead'] as const;
 type TViewState = typeof VIEW_STATES[number];
-const HELP = 'Usage: robota session view [--cwd <directory>] [--name <text>] [--state <state>] [--screen-reader|--no-screen-reader]\n'
+const HELP = 'Usage: robota session view [--cwd <directory>] [--name <text>] [--pr <number>] [--state <state>] [--screen-reader|--no-screen-reader]\n'
   + `States: ${VIEW_STATES.join(', ')}\n`;
 
 function isViewState(value: string | undefined): value is TViewState {
@@ -26,6 +29,9 @@ export interface ISessionViewCommandOptions {
   readonly root?: string;
   readonly render?: typeof renderSupervisedSessionView;
   readonly stop?: typeof stopSupervisedSession;
+  readonly start?: (cwd: string) => Promise<string>;
+  readonly launchCwd?: string;
+  readonly openUrl?: (url: string) => Promise<unknown>;
 }
 
 /** Run the global supervised view without constructing a foreground interactive session. */
@@ -40,6 +46,7 @@ export async function runSessionViewCommand(
   let flag: boolean | undefined;
   let cwdArg: string | undefined;
   let nameFilter: string | undefined;
+  let prFilter: number | undefined;
   let stateFilter: TViewState | undefined;
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
@@ -50,6 +57,9 @@ export async function runSessionViewCommand(
       cwdArg = argv[++index];
     } else if (arg === '--name' && nameFilter === undefined && isSupervisedSessionName(argv[index + 1])) {
       nameFilter = argv[++index];
+    } else if (arg === '--pr' && prFilter === undefined && /^[1-9][0-9]*$/u.test(argv[index + 1] ?? '') &&
+      Number.isSafeInteger(Number(argv[index + 1]))) {
+      prFilter = Number(argv[++index]);
     } else if (arg === '--state' && stateFilter === undefined && isViewState(argv[index + 1])) {
       stateFilter = argv[++index] as TViewState;
     } else {
@@ -78,11 +88,21 @@ export async function runSessionViewCommand(
   }
   try {
     const root = options.root ?? resolveSupervisedDirectory();
+    const start = options.start;
     await (options.render ?? renderSupervisedSessionView)({
-      loadRows: (signal) => listSupervisedSessions(root, signal, { cwd, name: nameFilter, includeName: true }),
+      loadRows: (signal) => listSupervisedSessions(root, signal, {
+        cwd, name: nameFilter, pr: prFilter, includeName: true, includeCwd: true, includePr: true,
+      }),
       onStop: (id) => (options.stop ?? stopSupervisedSession)(id, root),
+      onOpenPr: async (id, url) => {
+        const verified = await getVerifiedSupervisedPr(id, root);
+        if (verified?.url !== url) throw new Error('Supervised session PR link changed or is stale.');
+        await (options.openUrl ?? open)(url);
+      },
+      ...(start === undefined ? {} : { onStart: () => start(cwd ?? options.launchCwd ?? process.cwd()) }),
       filteredByCwd: cwd !== undefined,
       filteredByName: nameFilter !== undefined,
+      filteredByPr: prFilter !== undefined,
       stateFilter,
       screenReader: screenReader.screenReader,
       screenReaderChannel: screenReader.screenReaderChannel,

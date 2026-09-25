@@ -62,6 +62,8 @@ export class LifecycleTaskExecutorPort implements ITaskExecutorPort {
         executionRoot: input.executionRoot,
         regexReplaceOperation: input.regexReplaceOperation,
         snapshotBudget: input.snapshotBudget,
+        rootCreditBudget: input.rootCreditBudget,
+        reserveCredits: input.reserveCredits,
         ...(input.byteLimits === undefined ? {} : { byteLimits: input.byteLimits }),
         ...(input.signal === undefined ? {} : { signal: input.signal }),
         dagId: input.dagId,
@@ -71,7 +73,7 @@ export class LifecycleTaskExecutorPort implements ITaskExecutorPort {
         nodeManifest,
         attempt: input.attempt,
         executionPath: input.executionPath,
-        lineage: this.lineage ?? {
+        lineage: input.lineage ?? this.lineage ?? {
           rootRunId: input.dagRunId,
           depth: 0,
           ancestorCompositeNodeTypes: [],

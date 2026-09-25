@@ -1,4 +1,5 @@
 import type { TTextDeltaCallback, TToolChoice } from './provider';
+import type { IRunTraceContext } from './trace-context';
 import type { TMetadata } from './types';
 import type { TStructuredOutputSchema } from '../schema/structured-output';
 
@@ -47,6 +48,12 @@ export interface IRunOptions {
    * caller decides what to put here (e.g. per-turn recalled memory). Absent ⇒ no change.
    */
   ephemeralSystemContext?: string;
+  /**
+   * Host-owned trace context for this run's provider calls. Each invoked call — forced summary
+   * included, cache hits excluded — gets a `traceparent` whose parent is that call's own span, and
+   * only an adapter whose origin is listed sends it. Never recorded in execution events.
+   */
+  traceContext?: IRunTraceContext;
   /** AbortSignal for cancelling execution */
   signal?: AbortSignal;
   /** Join an aborted/timed-out provider call before completing; an uncooperative call may remain pending. */

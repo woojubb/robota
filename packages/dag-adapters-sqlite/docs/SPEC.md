@@ -3,8 +3,8 @@
 ## Purpose
 
 SQLite-backed implementations of `IStoragePort` and `IQueuePort` from `@robota-sdk/dag-core`. A
-zero-infrastructure production backend — a single file, no server required — with an intended
-upgrade path to PostgreSQL by swapping the adapter.
+zero-infrastructure production backend — a host-selected single file, no server required — with an
+intended upgrade path to PostgreSQL by swapping the adapter.
 
 ## Non-goals
 
@@ -23,11 +23,13 @@ upgrade path to PostgreSQL by swapping the adapter.
 - Long-poll waiting on dequeue is implemented as synchronous poll-with-sleep rather than a blocking
   wait, which bounds wake-up latency to the poll interval rather than being immediate.
 - Execution arbitration reads the current run and tasks and applies its decision, including task
-  outcome status, output snapshot and credits, and stale-attempt/lease/cancellation predicates,
+  outcome status, output snapshot and credits, per-attempt credit reservations, and stale-attempt/lease/cancellation predicates,
   under one immediate SQLite transaction; queue delivery is outside this storage transaction. Task
   input snapshots use that same guarded transaction, rejecting stale-attempt or cancelled-run
   writes, but the adapter does not own or reconstruct the caller's in-process aggregate snapshot
   authority.
+- A run's persisted ancestry is read back unvalidated, unlike a DAG definition row: deciding whether
+  it is well-formed is `dag-core`'s job, not this adapter's.
 
 ## Design decisions
 

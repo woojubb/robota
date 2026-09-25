@@ -45,7 +45,7 @@ function deriveOutputText(data: unknown): string {
 }
 
 function requireToolInvocationRequest(
-  task: IBackgroundTaskStart,
+  task: IBackgroundTaskStart<'tool-invocation'>,
 ): IToolInvocationBackgroundTaskRequest {
   if (task.request.kind !== 'tool-invocation') {
     throw new BackgroundTaskError(
@@ -60,8 +60,8 @@ function startAdoptedTask(
   taskId: string,
   toolName: string,
   work: IAdoptedToolInvocation,
-): IBackgroundTaskHandle {
-  const result: Promise<IBackgroundTaskResult> = work.settled.then(
+): IBackgroundTaskHandle<'tool-invocation'> {
+  const result: Promise<IBackgroundTaskResult<'tool-invocation'>> = work.settled.then(
     (toolResult) => ({
       taskId,
       kind: 'tool-invocation',
@@ -91,7 +91,7 @@ function startAdoptedTask(
  * wrapper narrows to by `'adopt' in runner`, the sibling of `buildBackgroundProcessTool`'s
  * `hasProcessRunner` check).
  */
-export function createToolInvocationBackgroundTaskRunner(): IBackgroundTaskRunner &
+export function createToolInvocationBackgroundTaskRunner(): IBackgroundTaskRunner<'tool-invocation'> &
   IToolInvocationAdopter {
   const registry = new Map<string, IAdoptedToolInvocation>();
 
@@ -106,7 +106,7 @@ export function createToolInvocationBackgroundTaskRunner(): IBackgroundTaskRunne
       };
     },
 
-    start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+    start(task: IBackgroundTaskStart<'tool-invocation'>): IBackgroundTaskHandle<'tool-invocation'> {
       const request = requireToolInvocationRequest(task);
       const work = registry.get(request.adoptionToken);
       if (!work) {

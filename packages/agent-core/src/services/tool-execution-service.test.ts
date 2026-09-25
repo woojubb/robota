@@ -292,16 +292,19 @@ describe('ToolExecutionService', () => {
       expect(requests[0]?.metadata).toEqual({ toolCallId: 'call_1' });
     });
 
-    it('rejects malformed JSON with a ValidationError naming the tool and call (#2078)', () => {
+    // Issue #2875 (follow-up to #2078): a decode failure no longer aborts request construction for
+    // the whole batch — it marks THIS request so the batch executor can turn it into a per-call
+    // failure, while sibling calls in the same array still get real, executable requests.
+    it('marks malformed JSON as a per-call decode failure instead of throwing (#2078)', () => {
       const service = new ToolExecutionService(createMockToolManager());
       const toolCalls = [{ id: 'call_bad', function: { name: 'tool_a', arguments: '{not json' } }];
 
-      expect(() =>
-        service.createExecutionRequestsWithContext(toolCalls, { ownerPathBase: [] }),
-      ).toThrow(ValidationError);
-      expect(() =>
-        service.createExecutionRequestsWithContext(toolCalls, { ownerPathBase: [] }),
-      ).toThrow(/tool "tool_a" \(call call_bad\): invalid JSON/);
+      const requests = service.createExecutionRequestsWithContext(toolCalls, { ownerPathBase: [] });
+
+      expect(requests).toHaveLength(1);
+      expect(requests[0]?.argumentDecodeError).toMatch(/tool "tool_a" \(call call_bad\): invalid JSON/);
+      expect(requests[0]?.toolName).toBe('tool_a');
+      expect(requests[0]?.executionId).toBe('call_bad');
     });
 
     // Issue #2078: JSON syntax is not the contract — the root must be a non-null, non-array object.
@@ -311,16 +314,36 @@ describe('ToolExecutionService', () => {
       ['a string', '"text"'],
       ['a boolean', 'true'],
       ['an array', '[{"x": 1}]'],
-    ])('rejects a JSON body whose root is %s, naming the tool and call (#2078)', (_label, args) => {
-      const service = new ToolExecutionService(createMockToolManager());
-      const toolCalls = [{ id: 'call_bad', function: { name: 'tool_a', arguments: args } }];
+    ])(
+      'marks a JSON body whose root is %s as a per-call decode failure, naming the tool and call (#2078)',
+      (_label, args) => {
+        const service = new ToolExecutionService(createMockToolManager());
+        const toolCalls = [{ id: 'call_bad', function: { name: 'tool_a', arguments: args } }];
 
-      expect(() =>
-        service.createExecutionRequestsWithContext(toolCalls, { ownerPathBase: [] }),
-      ).toThrow(ValidationError);
-      expect(() =>
-        service.createExecutionRequestsWithContext(toolCalls, { ownerPathBase: [] }),
-      ).toThrow(/tool "tool_a" \(call call_bad\): expected a JSON object at the root/);
+        const requests = service.createExecutionRequestsWithContext(toolCalls, {
+          ownerPathBase: [],
+        });
+
+        expect(requests).toHaveLength(1);
+        expect(requests[0]?.argumentDecodeError).toMatch(
+          /tool "tool_a" \(call call_bad\): expected a JSON object at the root/,
+        );
+      },
+    );
+
+    it('isolates a malformed call from a valid call in the same batch (#2875)', () => {
+      const service = new ToolExecutionService(createMockToolManager());
+      const toolCalls = [
+        { id: 'call_bad', function: { name: 'search', arguments: '[1]' } },
+        { id: 'call_good', function: { name: 'search', arguments: '{"q":"x"}' } },
+      ];
+
+      const requests = service.createExecutionRequestsWithContext(toolCalls, { ownerPathBase: [] });
+
+      expect(requests).toHaveLength(2);
+      expect(requests[0]?.argumentDecodeError).toBeDefined();
+      expect(requests[1]?.argumentDecodeError).toBeUndefined();
+      expect(requests[1]?.parameters).toEqual({ q: 'x' });
     });
   });
 
@@ -525,6 +548,97 @@ describe('ToolExecutionService', () => {
         expect(results).toHaveLength(1);
         expect(results[0]?.success).toBe(false);
         expect(errors).toHaveLength(1);
+      });
+
+      // Issue #2875 (follow-up to #2078): a decode-error request is a normal failed result to the
+      // batch executor — it follows the SAME continueOnError policy as any other failed result,
+      // never calling `executor.executeTool` for it.
+      it('treats a malformed-argument request like any other failed result: stops the batch when continueOnError is false', async () => {
+        const executeTool = vi.fn().mockResolvedValue('second ok');
+        const tools = createMockToolManager({ executeTool });
+        const service = new ToolExecutionService(tools, createMockLogger());
+
+        const { results, errors } = await service.executeTools({
+          requests: [
+            createRequest({
+              executionId: 's1',
+              ownerId: 's1',
+              argumentDecodeError: 'Failed to parse arguments for tool "batch-tool" (call s1): invalid JSON',
+            }),
+            createRequest({ executionId: 's2', ownerId: 's2' }),
+          ],
+          mode: 'sequential',
+          continueOnError: false,
+        });
+
+        expect(results).toHaveLength(1);
+        expect(results[0]?.success).toBe(false);
+        expect(results[0]?.error).toContain('invalid JSON');
+        expect(errors).toHaveLength(1);
+        expect(executeTool).not.toHaveBeenCalled();
+      });
+
+      it('continues the batch past a malformed-argument request when continueOnError is true', async () => {
+        const executeTool = vi.fn().mockResolvedValue('second ok');
+        const tools = createMockToolManager({ executeTool });
+        const service = new ToolExecutionService(tools, createMockLogger());
+
+        const { results, errors } = await service.executeTools({
+          requests: [
+            createRequest({
+              executionId: 's1',
+              ownerId: 's1',
+              argumentDecodeError: 'Failed to parse arguments for tool "batch-tool" (call s1): invalid JSON',
+            }),
+            createRequest({ executionId: 's2', ownerId: 's2' }),
+          ],
+          mode: 'sequential',
+          continueOnError: true,
+        });
+
+        expect(results).toHaveLength(2);
+        expect(results[0]?.success).toBe(false);
+        expect(results[0]?.metadata?.errorCode).toBe('argument_decode_error');
+        expect(results[1]?.success).toBe(true);
+        expect(errors).toHaveLength(1);
+        expect(executeTool).toHaveBeenCalledTimes(1);
+        expect(executeTool).toHaveBeenCalledWith(
+          'batch-tool',
+          {},
+          expect.objectContaining({ executionId: 's2' }),
+        );
+      });
+
+      // Consistency with the unknown-tool path (tool-execution-service.ts: CALL_ERROR is emitted
+      // there too), so a listener watching per-call events sees every call fail or succeed exactly
+      // once — decode failures included, not only the ones that reached the tool.
+      it('emits TOOL_EVENTS.CALL_ERROR on the request event service for a decode failure', async () => {
+        const executeTool = vi.fn().mockResolvedValue('ok');
+        const tools = createMockToolManager({ executeTool });
+        const service = new ToolExecutionService(tools, createMockLogger());
+        const eventService = createMockEventService();
+
+        await service.executeTools({
+          requests: [
+            createRequest({
+              executionId: 's1',
+              ownerId: 's1',
+              eventService,
+              argumentDecodeError: 'Failed to parse arguments for tool "batch-tool" (call s1): invalid JSON',
+            }),
+          ],
+          mode: 'sequential',
+          continueOnError: true,
+        });
+
+        expect(eventService.emit).toHaveBeenCalledWith(
+          TOOL_EVENTS.CALL_ERROR,
+          expect.objectContaining({
+            toolName: 'batch-tool',
+            error: 'Failed to parse arguments for tool "batch-tool" (call s1): invalid JSON',
+          }),
+        );
+        expect(executeTool).not.toHaveBeenCalled();
       });
 
       it('should continue on error when continueOnError is true', async () => {

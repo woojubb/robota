@@ -11,7 +11,7 @@ import { createExecutionWorkspaceSnapshot } from '../index.js';
 import type { IExecutionWorkspaceEntry } from '../index.js';
 import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-execution';
 
-function scheduledTask(overrides: Partial<IBackgroundTaskState>): IBackgroundTaskState {
+function scheduledTask(overrides: Partial<IBackgroundTaskState<'scheduled'>>): IBackgroundTaskState {
   return {
     id: 'sched_1',
     kind: 'scheduled',

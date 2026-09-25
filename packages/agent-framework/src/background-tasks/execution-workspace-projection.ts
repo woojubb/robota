@@ -29,11 +29,23 @@ import {
 
 import type { IBackgroundJobGroupState } from './background-job-orchestrator.js';
 import type {
+  IBackgroundTaskResult,
   IBackgroundTaskState,
   TBackgroundPrimitive,
 } from '@robota-sdk/agent-interface-execution';
 
 const SUCCESS_EXIT_CODE = 0;
+
+/**
+ * #2079: `IBackgroundTaskResult` is discriminated by kind now, and `exitCode`/`signalCode` exist
+ * only on the process-kind member. `state.result` is still the full union (`IBackgroundTaskState` is
+ * not itself discriminated), so this narrows on the RESULT's own `kind` before reading them — a
+ * non-process result (or none) is never an unclean exit.
+ */
+function hasCleanProcessExit(result: IBackgroundTaskResult | undefined): boolean {
+  if (result?.kind !== 'process') return true;
+  return (result.exitCode ?? SUCCESS_EXIT_CODE) === SUCCESS_EXIT_CODE && !result.signalCode;
+}
 
 export function createExecutionWorkspaceSnapshot(
   input: ICreateExecutionWorkspaceSnapshotInput,
@@ -105,11 +117,13 @@ function createBackgroundTaskEntry(
     updatedAt: state.lastActivityAt ?? state.updatedAt,
     controls: createTaskControls(state),
     // CLI-1994: the forked session record an `attach` control switches the view onto.
-    ...(state.resumeSessionId !== undefined ? { resumeSessionId: state.resumeSessionId } : {}),
+    ...(state.kind === 'agent' && state.resumeSessionId !== undefined
+      ? { resumeSessionId: state.resumeSessionId }
+      : {}),
     state: taskState(state),
     ...withHeadline(taskHeadline(state)),
     // SCREEN-1992: the timestamp, so a surface can tick its own countdown (never baked text).
-    ...(state.status === 'sleeping' && state.nextFireAt !== undefined
+    ...(state.kind === 'scheduled' && state.status === 'sleeping' && state.nextFireAt !== undefined
       ? { nextFireAt: state.nextFireAt }
       : {}),
   };
@@ -182,7 +196,7 @@ function createTaskSubtitle(state: IBackgroundTaskState): string | undefined {
   // FLOW-006: distinguish an agent-wake schedule (carries an instruction) from a shell-only
   // schedule with a `↻ wake` marker + a truncated instruction preview. SCREEN-1992: the next fire
   // is no longer baked here as text — the entry carries `nextFireAt` for a live countdown.
-  const wakeInstruction = state.schedule?.agentInstruction;
+  const wakeInstruction = state.kind === 'scheduled' ? state.schedule?.agentInstruction : undefined;
   if (state.status === 'sleeping' && wakeInstruction !== undefined) {
     return `↻ wake "${truncateWakePreview(wakeInstruction)}"`;
   }
@@ -203,7 +217,7 @@ function truncateWakePreview(instruction: string): string {
 function createTaskPreview(state: IBackgroundTaskState): string | undefined {
   if (state.status === 'failed') return trimPreview(state.error?.message);
   if (state.status === 'completed') return trimPreview(state.result?.output);
-  return trimPreview(state.promptPreview ?? state.commandPreview);
+  return trimPreview(state.kind === 'agent' ? state.promptPreview : state.commandPreview);
 }
 
 function createTaskAttention(state: IBackgroundTaskState): TExecutionAttention {
@@ -219,10 +233,9 @@ function createTaskVisibility(state: IBackgroundTaskState): TExecutionWorkspaceV
     state.status === 'completed' &&
     !state.unread &&
     !state.error &&
-    (state.result?.exitCode ?? SUCCESS_EXIT_CODE) === SUCCESS_EXIT_CODE &&
-    !state.result?.signalCode &&
-    !state.worktreePath &&
-    !state.branchName
+    hasCleanProcessExit(state.result) &&
+    !(state.kind === 'agent' && state.worktreePath) &&
+    !(state.kind === 'agent' && state.branchName)
   ) {
     return 'collapsed';
   }

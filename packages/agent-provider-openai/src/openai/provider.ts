@@ -3,6 +3,7 @@ import { createModelEffortOutcome } from '@robota-sdk/agent-core';
 import { PERMISSIVE_TOOL_SCHEMA_PROFILE, STRICT_TOOL_SCHEMA_PROFILE } from '@robota-sdk/agent-core';
 import { resolveModelEffort } from '@robota-sdk/agent-core';
 import { SilentLogger } from '@robota-sdk/agent-core';
+import { traceHeadersFor } from '@robota-sdk/agent-core';
 import OpenAI from 'openai';
 
 import {
@@ -111,6 +112,7 @@ export class OpenAIProvider extends AbstractAIProvider {
         chatOptions: this.projectChatOptions(resolvedOptions),
         providerOptions: this.options,
         onTextDelta: this.onTextDelta,
+        requestHeaders: this.traceRequestHeaders(resolvedOptions),
       });
       this.publishModelEffortOutcome(resolvedOptions);
       return response;
@@ -124,6 +126,7 @@ export class OpenAIProvider extends AbstractAIProvider {
       payloadLogger: this.payloadLogger,
       responseParser: this.responseParser,
       onTextDelta: this.onTextDelta,
+      requestHeaders: this.traceRequestHeaders(resolvedOptions),
     });
     this.publishModelEffortOutcome(resolvedOptions);
     return response;
@@ -176,6 +179,7 @@ export class OpenAIProvider extends AbstractAIProvider {
         chatOptions: this.projectChatOptions(resolvedOptions),
         providerOptions: this.options,
         onTextDelta: this.onTextDelta,
+        requestHeaders: this.traceRequestHeaders(resolvedOptions),
       });
       this.publishModelEffortOutcome(resolvedOptions);
       return;
@@ -189,6 +193,7 @@ export class OpenAIProvider extends AbstractAIProvider {
       payloadLogger: this.payloadLogger,
       responseParser: this.responseParser,
       onTextDelta: this.onTextDelta,
+      requestHeaders: this.traceRequestHeaders(resolvedOptions),
     });
     this.publishModelEffortOutcome(resolvedOptions);
   }
@@ -204,6 +209,25 @@ export class OpenAIProvider extends AbstractAIProvider {
    */
   endpointIsVendorDefault(): boolean {
     return this.options.baseURL === undefined;
+  }
+
+  /**
+   * The client's own base URL is the origin every request goes to (the SDK has already applied a
+   * constructor option or `OPENAI_BASE_URL`). An executor sends elsewhere, and an injected client
+   * whose base URL cannot be read gives no origin to compare, so neither can propagate.
+   */
+  canPropagateTraceContext(): boolean {
+    return !this.executor && this.effectiveBaseUrl() !== undefined;
+  }
+
+  private effectiveBaseUrl(): string | undefined {
+    const baseURL: unknown = (this.client as { baseURL?: unknown } | undefined)?.baseURL;
+    return typeof baseURL === 'string' && baseURL.length > 0 ? baseURL : undefined;
+  }
+
+  private traceRequestHeaders(options: IChatOptions | undefined): Readonly<Record<string, string>> {
+    if (!this.canPropagateTraceContext()) return {};
+    return traceHeadersFor(this.effectiveBaseUrl(), options?.outboundTraceContext);
   }
 
   override effortTable(): IProviderModelEffortTable | undefined {

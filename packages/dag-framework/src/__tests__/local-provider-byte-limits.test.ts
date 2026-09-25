@@ -163,3 +163,22 @@ it('carries an immutable literal replacement limit into the supported node', asy
     ok: false, errorCode: 'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED', errorRetryable: false, outputs: {},
   });
 });
+
+it('enforces the trusted replacement limit for an isolated regex before committing its output', async () => {
+  const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'dag-regex-cap-')));
+  roots.push(root);
+  const byteLimits = { maxTextRepeatOutputBytes: 100, maxTextReplaceOutputBytes: 3 };
+  const provider = new LocalDagRuntimeProvider({ executionRoot: root, byteLimits });
+  byteLimits.maxTextReplaceOutputBytes = 1000;
+  const dag: IDagDefinition = {
+    dagId: 'regex-cap', version: 1, status: 'draft', edges: [],
+    nodes: [{ nodeId: 'replace', nodeType: 'text-replace', dependsOn: [], config: {
+      useRegex: true, search: 'x', flags: 'g', replacement: 'é',
+      byteLimits: { maxTextReplaceOutputBytes: 1000 },
+    } }],
+  };
+  expect(await provider.execute(dag, { text: 'xx' })).toMatchObject({
+    ok: false, errorCode: 'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED',
+    errorRetryable: false, outputs: {},
+  });
+});

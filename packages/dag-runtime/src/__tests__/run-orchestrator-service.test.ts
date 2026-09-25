@@ -166,6 +166,69 @@ describe('RunOrchestratorService', () => {
     expect(message?.nodeId).toBe('entry');
   });
 
+  it("never lets an entry node's configured timeoutMs leak onto its dispatched message payload", async () => {
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
+
+    const definition = createPublishedDefinitionWithTwoEntries();
+    definition.nodes[0] = { ...definition.nodes[0], timeoutMs: 200 };
+    await storage.saveDefinition(definition);
+    const service = new RunOrchestratorService(storage, queue, clock);
+
+    const started = await service.startRun({
+      dagId: definition.dagId,
+      trigger: 'manual',
+      input: { seed: 'v1' },
+    });
+
+    expect(started.ok).toBe(true);
+    if (!started.ok) {
+      return;
+    }
+
+    const firstMessage = await queue.dequeue('worker-1', 1_000);
+    const secondMessage = await queue.dequeue('worker-1', 1_000);
+    const messages = [firstMessage, secondMessage];
+
+    const entryAMessage = messages.find((message) => message?.nodeId === 'entry-a');
+    const entryBMessage = messages.find((message) => message?.nodeId === 'entry-b');
+
+    // The node's own timeoutMs is a worker-side execution concern, resolved from the claimed node
+    // definition at execution time — it must never appear as an ordinary payload field, since a
+    // payload field becomes a node input. Both the node that configures a timeout and its sibling
+    // must see only the run's actual input.
+    expect(entryAMessage?.payload).toEqual({ seed: 'v1' });
+    expect(entryBMessage?.payload).toEqual({ seed: 'v1' });
+  });
+
+  it("passes a run input field literally named 'timeoutMs' through to the node unchanged", async () => {
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
+
+    const definition = createPublishedDefinition();
+    definition.nodes[0] = { ...definition.nodes[0], timeoutMs: 200 };
+    await storage.saveDefinition(definition);
+    const service = new RunOrchestratorService(storage, queue, clock);
+
+    const started = await service.startRun({
+      dagId: definition.dagId,
+      trigger: 'manual',
+      // A user-supplied input field that happens to share the reserved name.
+      input: { timeoutMs: 'user-value' },
+    });
+
+    expect(started.ok).toBe(true);
+    if (!started.ok) return;
+
+    const message = await queue.dequeue('worker-1', 1_000);
+    expect(message?.nodeId).toBe('entry');
+    // The worker resolves ITS OWN attempt timeout separately from the node definition; the user's
+    // input value must reach the node exactly as given, not be overwritten by the number 200.
+    expect(message?.payload).toEqual({ timeoutMs: 'user-value' });
+  });
+
   it('fails when published definition is missing', async () => {
     const storage = new InMemoryStoragePort();
     const queue = new InMemoryQueuePort();
@@ -244,6 +307,90 @@ describe('RunOrchestratorService', () => {
 
     const secondMessage = await queue.dequeue('worker-1', 1_000);
     expect(secondMessage).toBeUndefined();
+  });
+
+  it('rejects a duplicate runKey whose requested lineage differs from the existing run', async () => {
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
+
+    await storage.saveDefinition(createPublishedDefinition());
+    const service = new RunOrchestratorService(storage, queue, clock);
+
+    const first = await service.createRun({
+      dagId: 'dag-runtime-test',
+      trigger: 'manual',
+      rerunKey: 'child-1',
+      input: { seed: 'v1' },
+      lineage: {
+        rootRunId: 'root-run', parentRunId: 'parent-run', depth: 1,
+        ancestorCompositeNodeTypes: ['outer'],
+      },
+    });
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+
+    const second = await service.createRun({
+      dagId: 'dag-runtime-test',
+      trigger: 'manual',
+      rerunKey: 'child-1',
+      input: { seed: 'v1' },
+      lineage: {
+        // Same run key, but a different parent — reusing the first run's record would let this
+        // caller inherit the wrong depth/ancestry authority.
+        rootRunId: 'root-run', parentRunId: 'different-parent', depth: 1,
+        ancestorCompositeNodeTypes: ['outer'],
+      },
+    });
+    expect(second.ok).toBe(false);
+    if (second.ok) return;
+    expect(second.error.code).toBe('DAG_VALIDATION_RUN_KEY_LINEAGE_MISMATCH');
+
+    // The existing run is untouched: a second lookup with the ORIGINAL lineage still succeeds.
+    const third = await service.createRun({
+      dagId: 'dag-runtime-test',
+      trigger: 'manual',
+      rerunKey: 'child-1',
+      input: { seed: 'v1' },
+      lineage: {
+        rootRunId: 'root-run', parentRunId: 'parent-run', depth: 1,
+        ancestorCompositeNodeTypes: ['outer'],
+      },
+    });
+    expect(third.ok).toBe(true);
+    if (!third.ok) return;
+    expect(third.value.dagRunId).toBe(first.value.dagRunId);
+  });
+
+  it('rejects a duplicate runKey when the existing run has no lineage but the request does', async () => {
+    const storage = new InMemoryStoragePort();
+    const queue = new InMemoryQueuePort();
+    const clock = new ManualClockPort(Date.UTC(2026, 1, 14, 2, 0, 0));
+
+    await storage.saveDefinition(createPublishedDefinition());
+    const service = new RunOrchestratorService(storage, queue, clock);
+
+    const first = await service.createRun({
+      dagId: 'dag-runtime-test',
+      trigger: 'manual',
+      rerunKey: 'child-2',
+      input: { seed: 'v1' },
+    });
+    expect(first.ok).toBe(true);
+
+    const second = await service.createRun({
+      dagId: 'dag-runtime-test',
+      trigger: 'manual',
+      rerunKey: 'child-2',
+      input: { seed: 'v1' },
+      lineage: {
+        rootRunId: 'root-run', parentRunId: 'parent-run', depth: 1,
+        ancestorCompositeNodeTypes: ['outer'],
+      },
+    });
+    expect(second.ok).toBe(false);
+    if (second.ok) return;
+    expect(second.error.code).toBe('DAG_VALIDATION_RUN_KEY_LINEAGE_MISMATCH');
   });
 
   it('does not charge a duplicate run lookup to the root input allowance', async () => {

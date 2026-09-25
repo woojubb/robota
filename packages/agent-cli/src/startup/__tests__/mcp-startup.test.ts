@@ -74,13 +74,13 @@ async function trustedProjectSettingsSources(root: string): Promise<readonly TSe
 }
 
 describe('composeMcpClientForStartup', () => {
-  it('connects a settings-defined stdio server through startup and invokes its runtime tool', async () => {
+  it('connects a settings-defined stdio server with Robota client identity', async () => {
     const cwd = tempRoot('robota-mcp-startup-live-');
     const userHome = tempRoot('robota-mcp-startup-live-home-');
     const fixture = fileURLToPath(
       new URL('../../../../agent-mcp/examples/stdio-fixture-server.mjs', import.meta.url),
     );
-    const args = [fixture, 'normal'];
+    const args = [fixture, 'client-info'];
     mkdirSync(join(userHome, '.robota'), { recursive: true });
     writeFileSync(
       join(userHome, '.robota', 'settings.json'),
@@ -118,7 +118,7 @@ describe('composeMcpClientForStartup', () => {
       if (tool === undefined) throw new Error('Expected admitted stdio tool');
       const result = await tool.execute({}, { toolName: 'local__ping', parameters: {} });
       expect(result.success).toBe(true);
-      expect(JSON.stringify(result)).toContain('pong');
+      expect(JSON.stringify(result)).toContain('robota-agent-mcp');
       expect(mcp.connectedToolProvenance.get('local__ping')?.sourceName).toBe('ping');
     } finally {
       await mcp.shutdown();

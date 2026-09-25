@@ -160,6 +160,7 @@ export function buildCreateSessionOptions(
     modelCommandExecutor: options.modelCommandExecutor,
     modelCommandToolPrefix: options.modelCommandToolPrefix,
     subagentHookEnvironmentNames: options.subagentHookEnvironmentNames,
+    observerFailureWarningCode: options.observerFailureWarningCode,
     isModelCommandInvocable: options.isModelCommandInvocable,
     editCheckpointRecorder: options.editCheckpointRecorder,
     reversibleExecution: options.reversibleExecution,

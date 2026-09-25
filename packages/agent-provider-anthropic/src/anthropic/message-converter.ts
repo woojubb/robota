@@ -7,6 +7,27 @@ import type {
   IUserMessage,
 } from '@robota-sdk/agent-core';
 
+/**
+ * Issue #2875 (follow-up to #2078): `tc.function.arguments` is untrusted text a provider emitted —
+ * a bare `JSON.parse` here threw a raw `SyntaxError` out of message conversion for malformed JSON,
+ * and passed an array root straight to the Anthropic API for a call like `[1]` (the API requires an
+ * object `input`), UNCAUGHT — worse than agent-core's decode-time refusal, since it happened on the
+ * NEXT round, after the batch had already been reported back to the model as isolated per-call
+ * failures. `{}` on failure keeps the round from crashing a second time on the same malformed call.
+ */
+function parseAnthropicToolCallInput(serializedArguments: string): Record<string, unknown> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(serializedArguments);
+  } catch {
+    return {};
+  }
+  if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return {};
+  }
+  return parsed as Record<string, unknown>;
+}
+
 /** Convert IUserMessage parts to Anthropic content blocks (text + images). */
 function convertUserParts(
   msg: IUserMessage,
@@ -76,7 +97,7 @@ export function convertToAnthropicFormat(messages: TUniversalMessage[]): Anthrop
             type: 'tool_use' as const,
             id: tc.id,
             name: tc.function.name,
-            input: JSON.parse(tc.function.arguments),
+            input: parseAnthropicToolCallInput(tc.function.arguments),
           });
         }
 

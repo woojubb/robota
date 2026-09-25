@@ -33,6 +33,32 @@ it.each([NaN, Infinity, -1, 0.5, 4_194_305, null, undefined])('rejects an invali
   expect(() => resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1, maxTextTransformOutputBytes })).toThrow(RangeError);
 });
 
+it.each([NaN, Infinity, -1, 0.5, 4_194_305, null, undefined])('rejects an invalid uppercase limit %s', (maxTextUpperOutputBytes) => {
+  // @ts-expect-error intentionally exercise malformed JavaScript host policy
+  expect(() => resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1, maxTextUpperOutputBytes })).toThrow(RangeError);
+});
+
+it('retains the uppercase default for older hosts and snapshots a tighter policy', () => {
+  expect(resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1 }).maxTextUpperOutputBytes).toBe(4_194_304);
+  const source = { maxTextRepeatOutputBytes: 1, maxTextUpperOutputBytes: 0 };
+  const resolved = resolveDagExecutionByteLimits(source);
+  source.maxTextUpperOutputBytes = 1;
+  expect(resolved.maxTextUpperOutputBytes).toBe(0);
+});
+
+it.each([NaN, Infinity, -1, 0.5, 4_194_305, null, undefined])('rejects an invalid lowercase limit %s', (maxTextLowerOutputBytes) => {
+  // @ts-expect-error intentionally exercise malformed JavaScript host policy
+  expect(() => resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1, maxTextLowerOutputBytes })).toThrow(RangeError);
+});
+
+it('retains the lowercase default for older hosts and snapshots a tighter policy', () => {
+  expect(resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1 }).maxTextLowerOutputBytes).toBe(4_194_304);
+  const source = { maxTextRepeatOutputBytes: 1, maxTextLowerOutputBytes: 0 };
+  const resolved = resolveDagExecutionByteLimits(source);
+  source.maxTextLowerOutputBytes = 1;
+  expect(resolved.maxTextLowerOutputBytes).toBe(0);
+});
+
 it('retains the replacement default for older host policies and snapshots a tighter policy', () => {
   expect(resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1 }).maxTextReplaceOutputBytes).toBe(4_194_304);
   const source = { maxTextRepeatOutputBytes: 1, maxTextReplaceOutputBytes: 0 };
@@ -63,4 +89,16 @@ it.each(['maxTextJoinOutputBytes', 'maxTextSplitOutputBytes'] as const)('rejects
   const resolved = resolveDagExecutionByteLimits(source);
   source[name] = 1;
   expect(resolved[name]).toBe(0);
+});
+
+it('keeps the HTTP response ceiling for older hosts and rejects malformed tightening', () => {
+  expect(resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1 }).maxHttpResponseBodyBytes).toBe(4_194_304);
+  for (const value of [NaN, Infinity, -1, 0.5, 4_194_305, null, undefined]) {
+    // @ts-expect-error intentionally exercise malformed JavaScript host policy
+    expect(() => resolveDagExecutionByteLimits({ maxTextRepeatOutputBytes: 1, maxHttpResponseBodyBytes: value })).toThrow(RangeError);
+  }
+  const source = { maxTextRepeatOutputBytes: 1, maxHttpResponseBodyBytes: 0 };
+  const resolved = resolveDagExecutionByteLimits(source);
+  source.maxHttpResponseBodyBytes = 1;
+  expect(resolved.maxHttpResponseBodyBytes).toBe(0);
 });

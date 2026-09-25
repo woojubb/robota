@@ -14,7 +14,18 @@
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { rejectDestination } from '@robota-sdk/agent-core/node';
 
-import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
+import {
+  MCPCallTraceRegistry,
+  bindCallTraceRegistry,
+  callTraceHeaders,
+  cancelledRequestId,
+  currentCallTraceScope,
+  runInCallTraceScope,
+  toolsCallRequestId,
+} from './trace-propagation.js';
+
+import type { Transport, TransportSendOptions } from '@modelcontextprotocol/sdk/shared/transport.js';
+import type { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 import type { IEgressPolicy, TEgressLookup } from '@robota-sdk/agent-core/node';
 
 export type TMCPTransportKind = 'streamable-http' | 'stdio';
@@ -137,18 +148,62 @@ export async function admitHttpEndpoint(
   };
 }
 
+/**
+ * Records each traced `tools/call` against its JSON-RPC id when the SDK hands it over, and sends a
+ * cancellation inside the context of the call it cancels. Both happen synchronously in `send`: the
+ * SDK issues a cancellation from wherever the abort or timeout fired and settles the call right
+ * after, so a lookup deferred to the fetch could miss a call already released.
+ */
+class TracingStreamableHTTPClientTransport extends StreamableHTTPClientTransport {
+  constructor(
+    url: URL,
+    options: ConstructorParameters<typeof StreamableHTTPClientTransport>[1],
+    private readonly callTraces: MCPCallTraceRegistry,
+  ) {
+    super(url, options);
+  }
+
+  override send(message: JSONRPCMessage | JSONRPCMessage[], options?: TransportSendOptions): Promise<void> {
+    const running = currentCallTraceScope();
+    const callId = toolsCallRequestId(message);
+    if (running !== undefined && callId !== undefined) {
+      this.callTraces.record(callId, running);
+    }
+    const cancelledId = cancelledRequestId(message);
+    const cancelled = cancelledId === undefined ? undefined : this.callTraces.lookup(cancelledId);
+    if (cancelled !== undefined) {
+      return runInCallTraceScope(cancelled, () => super.send(message, options));
+    }
+    return super.send(message, options);
+  }
+}
+
+/** The request init with `traceparent` added to a copy of its headers; the original is never touched. */
+function withTraceHeaders(
+  init: RequestInit | undefined,
+  traceHeaders: Readonly<Record<string, string>>,
+): RequestInit | undefined {
+  const entries = Object.entries(traceHeaders);
+  if (entries.length === 0) return init;
+  const headers = new Headers(init?.headers);
+  for (const [name, value] of entries) headers.set(name, value);
+  return { ...init, headers };
+}
+
 export function constructStreamableHttpTransport(
   admitted: IMCPAdmittedHttpEndpoint,
   deps: IMCPHttpTransportDeps = {},
 ): StreamableHTTPClientTransport {
   const baseFetch = deps.fetch ?? globalThis.fetch;
   const admittedUrl = admitted.url.toString();
+  const callTraces = new MCPCallTraceRegistry();
 
   // The admitted URL is the only URL spoken to: every call this transport makes is forced to
   // `redirect: 'manual'` (never trusting the SDK's default of following one), and any 3xx response
   // from the admitted origin is refused rather than chased to a second, un-admitted destination.
   const redirectRefusingFetch: typeof globalThis.fetch = async (input, init) => {
-    const response = await baseFetch(input, { ...init, redirect: 'manual' });
+    const traced = withTraceHeaders(init, callTraceHeaders(init, admittedUrl, callTraces));
+    const response = await baseFetch(input, { ...traced, redirect: 'manual' });
     if (
       response.status >= HTTP_REDIRECT_STATUS_MIN &&
       response.status < HTTP_REDIRECT_STATUS_MAX_EXCLUSIVE
@@ -162,13 +217,19 @@ export function constructStreamableHttpTransport(
     return boundResponseBody(response);
   };
 
-  return new StreamableHTTPClientTransport(admitted.url, {
-    requestInit: {
-      redirect: 'manual',
-      ...(Object.keys(admitted.headers).length > 0 ? { headers: admitted.headers } : {}),
+  const transport = new TracingStreamableHTTPClientTransport(
+    admitted.url,
+    {
+      requestInit: {
+        redirect: 'manual',
+        ...(Object.keys(admitted.headers).length > 0 ? { headers: admitted.headers } : {}),
+      },
+      fetch: redirectRefusingFetch,
     },
-    fetch: redirectRefusingFetch,
-  });
+    callTraces,
+  );
+  bindCallTraceRegistry(transport, callTraces);
+  return transport;
 }
 
 /** The HTTP adapter; `createStdioAdapter` is a second value of the same type. */

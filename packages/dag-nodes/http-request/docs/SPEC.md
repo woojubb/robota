@@ -10,10 +10,11 @@ body, success flag, and response headers.
 - URL, headers, and body can each be set via config or overridden by the matching input port at
   runtime; headers are merged (config as base, input port on top) rather than replaced.
 - A request that resolves to no URL fails validation rather than being sent.
-- Timeouts and network failures are returned as structured task-execution failures — never thrown
-  exceptions — and are distinguished from each other using the node's own abort signal, not by
-  pattern-matching the error message (a prior bug misclassified network errors whose message
-  happened to contain "abort").
+- The request timeout covers both response headers and body consumption. Timeouts and network
+  failures are returned as structured task-execution failures — never thrown exceptions — and are
+  distinguished using the node's own abort signal, not error prose. The response body is admitted
+  under a trusted byte ceiling while streaming, before text output is materialized; exhaustion is
+  non-retryable.
 - Cost estimate is always zero.
 
 ## Boundaries

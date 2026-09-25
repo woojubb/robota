@@ -37,10 +37,13 @@ function parseAssetIdFromUri(uri: string): string | undefined {
 }
 
 export class AssetAwareTaskExecutorPort implements ITaskExecutorPort {
+  public readonly estimateCost?: ITaskExecutorPort['estimateCost'];
   public constructor(
     private readonly delegate: ITaskExecutorPort,
     private readonly assetStore: IAssetStore,
-  ) {}
+  ) {
+    if (delegate.estimateCost) this.estimateCost = (input) => delegate.estimateCost!(input);
+  }
 
   public async execute(input: ITaskExecutionInput): Promise<TTaskExecutionResult> {
     const result = await this.delegate.execute(input);

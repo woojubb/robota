@@ -13,6 +13,7 @@ import type {
   THooksConfig,
   IHookInput,
   IHookTypeExecutor,
+  ISubprocessTraceEnv,
 } from '@robota-sdk/agent-core';
 
 const logger = createLogger('ToolHookHelpers');
@@ -55,17 +56,22 @@ export function buildHookInput(
   };
 }
 
-/** Run PreToolUse hooks; returns a denial IToolResult if blocked, or null to proceed */
+/**
+ * Run PreToolUse hooks; returns a denial IToolResult if blocked, or null to proceed. `hookTraceEnv`
+ * names the prompt root, never the tool body's span.
+ */
 export async function runPreToolHook(
   hooks: Record<string, unknown> | undefined,
   hookInput: IHookInput,
   hookTypeExecutors: IHookTypeExecutor[] | undefined,
+  hookTraceEnv?: ISubprocessTraceEnv,
 ): Promise<IToolResult | null> {
   const hookResult = await runHooks(
     hooks as THooksConfig | undefined,
     'PreToolUse',
     hookInput,
     hookTypeExecutors,
+    hookTraceEnv,
   );
   if (hookResult.blocked) {
     // CORE-027, the third of the three outcomes the failure type names. This path was left behind by
@@ -158,6 +164,7 @@ export function firePostToolHook(
   hookInput: IHookInput,
   result: IToolResult,
   hookTypeExecutors: IHookTypeExecutor[] | undefined,
+  hookTraceEnv?: ISubprocessTraceEnv,
 ): void {
   const postHookInput: IHookInput = {
     ...hookInput,
@@ -169,5 +176,6 @@ export function firePostToolHook(
     'PostToolUse',
     postHookInput,
     hookTypeExecutors,
+    hookTraceEnv,
   ).catch((error) => logger.warn('hook failed', { error }));
 }

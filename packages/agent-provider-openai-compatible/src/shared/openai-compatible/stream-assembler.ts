@@ -29,6 +29,7 @@ interface IAssemblyState {
   model: string;
   finishReason: string | null;
   usage?: IStreamUsage;
+  usageProvenance?: 'complete' | 'partial';
 }
 
 export async function assembleOpenAICompatibleStream(
@@ -47,6 +48,7 @@ export async function assembleOpenAICompatibleStream(
   for await (const chunk of streamWithAbort(options.stream, options.signal)) {
     applyChunk(state, chunk, options);
   }
+  if (options.signal?.aborted) state.usageProvenance = 'partial';
   applyProjectedTextFlush(state, options);
 
   return buildMessage(state, options.metadata);
@@ -64,6 +66,12 @@ function applyChunk(
   // Usage arrives on the final chunk (choices: []) when stream_options.include_usage is set.
   // Capture it before the empty-choices early return; non-final chunks carry usage: null.
   if (chunk.usage) {
+    state.usageProvenance =
+      chunk.usage.prompt_tokens !== undefined &&
+      chunk.usage.completion_tokens !== undefined &&
+      chunk.usage.total_tokens !== undefined
+        ? 'complete'
+        : 'partial';
     state.usage = {
       promptTokens: chunk.usage.prompt_tokens,
       completionTokens: chunk.usage.completion_tokens,
@@ -177,6 +185,7 @@ function buildMessage(
   metadata: Record<string, string | number | boolean> = {},
 ): TUniversalMessage {
   const resultMetadata: NonNullable<TUniversalMessage['metadata']> = { ...metadata };
+  if (state.usageProvenance) resultMetadata['usageProvenance'] = state.usageProvenance;
   if (state.model) {
     resultMetadata['model'] = state.model;
   }

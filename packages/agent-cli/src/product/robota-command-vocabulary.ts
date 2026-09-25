@@ -1,5 +1,7 @@
 import type { IDoctorDisplayVocabulary } from '@robota-sdk/agent-command';
 
+export const ROBOTA_EDITOR_TEMPORARY_DIRECTORY_PREFIX = 'robota-editor-';
+
 /** The CLI owns the product words shown by neutral diagnostic and session commands. */
 export const ROBOTA_DOCTOR_DISPLAY: IDoctorDisplayVocabulary = {
   title: 'robota doctor',

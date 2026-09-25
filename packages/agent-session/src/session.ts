@@ -43,6 +43,7 @@ import type {
   TToolParameters,
   TPermissionMode,
   IHookTypeExecutor,
+  ISubprocessTraceEnv,
 } from '@robota-sdk/agent-core';
 import type { Robota } from '@robota-sdk/agent-core';
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
@@ -296,12 +297,23 @@ export class Session extends SessionBase {
     trigger: TCompactTrigger = 'manual',
     signal?: AbortSignal,
   ): Promise<void> {
+    await this.compactWith(instructions, trigger, signal);
+  }
+
+  /** `hookTraceEnv` reaches PreCompact only for a compaction inside a prompt (see `executeRun`). */
+  private async compactWith(
+    instructions: string | undefined,
+    trigger: TCompactTrigger,
+    signal?: AbortSignal,
+    hookTraceEnv?: ISubprocessTraceEnv,
+  ): Promise<void> {
     const extras = {
       systemMessage: this.systemMessage,
       compactionOrchestrator: this.compactionOrchestrator,
       onCompactCallback: this.onCompactCallback,
       onCompactEventCallback: this.onCompactEventCallback,
       trigger,
+      ...(hookTraceEnv ? { hookTraceEnv } : {}),
     };
     await compact(instructions, buildCompactContext(this.buildRunContext(), extras), signal);
   }
@@ -319,7 +331,7 @@ export class Session extends SessionBase {
       hookTypeExecutors: this.hookTypeExecutors,
       sessionStartStdout: this.sessionStartStdout,
       log: (event: string, data: TSessionLogData) => this.log(event, data),
-      compact: (signal?: AbortSignal) => this.compact(undefined, 'auto', signal),
+      compact: (signal, hookTraceEnv) => this.compactWith(undefined, 'auto', signal, hookTraceEnv),
       persistSession: () => this.persistSessionInternal(),
       getSessionStore: () => !!this.sessionStore,
       clearSessionStartStdout: () => void (this.sessionStartStdout = ''),

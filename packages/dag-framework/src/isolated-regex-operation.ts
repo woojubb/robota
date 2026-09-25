@@ -1,4 +1,5 @@
 import { Worker } from 'node:worker_threads';
+import { boundedRegexReplace } from './bounded-regex-replace.js';
 import { RegexProcessWorker } from './regex-process-worker.js';
 import {
   buildTaskCancellationError,
@@ -11,16 +12,16 @@ import {
 } from '@robota-sdk/dag-core';
 
 const MAX_MESSAGE_BYTES = 4 * 1024 * 1024;
+type TWorkerRequest = IRegexReplaceRequest & { maxOutputBytes: number };
 // Trusted, fixed bootstrap: no file lookup, user module import or user-supplied executable source.
 // No runtime sidecar or package-resolution dependency is required by the Node artifact.
 const BOOTSTRAP = `
 const { parentPort } = require('node:worker_threads');
+const boundedRegexReplace = ${boundedRegexReplace.toString()};
 parentPort.once('message', (request) => {
   parentPort.postMessage({ type: 'entered' });
   try {
-    const value = request.text.replace(new RegExp(request.search, request.flags), request.replacement);
-    parentPort.postMessage(Buffer.byteLength(value, 'utf8') > ${MAX_MESSAGE_BYTES}
-      ? { type: 'oversized' } : { type: 'result', value });
+    parentPort.postMessage(boundedRegexReplace(request, request.maxOutputBytes));
   } catch {
     parentPort.postMessage({ type: 'invalid-regex' });
   }
@@ -34,7 +35,7 @@ interface IRegexWorker {
   on(event: 'message', listener: (message: unknown) => void): this;
   on(event: 'error', listener: () => void): this;
   once(event: 'exit', listener: (code: number) => void): this;
-  postMessage(request: IRegexReplaceRequest): void;
+  postMessage(request: TWorkerRequest): void;
   terminate(): Promise<number>;
 }
 type TWorkerFactory = (source: string) => IRegexWorker;
@@ -54,7 +55,11 @@ export class IsolatedRegexOperation implements IRegexReplaceOperation {
     private readonly taskRunId: string,
     private readonly nodeId: string,
     private readonly factory: TWorkerFactory = createWorker,
-  ) {}
+    private readonly maxOutputBytes: number = MAX_MESSAGE_BYTES,
+  ) {
+    if (!Number.isSafeInteger(maxOutputBytes) || maxOutputBytes < 0 || maxOutputBytes > MAX_MESSAGE_BYTES)
+      throw new RangeError('Regex output limit must be a safe integer from 0 to 4194304');
+  }
 
   public async execute(
     request: IRegexReplaceRequest,
@@ -105,7 +110,7 @@ export class IsolatedRegexOperation implements IRegexReplaceOperation {
         }
         if (message.type === 'ready') {
           try {
-            worker.postMessage(request);
+            worker.postMessage({ ...request, maxOutputBytes: this.maxOutputBytes });
           } catch {
             received = this.failure('DAG_TASK_ISOLATION_PROTOCOL', 'Could not send regex request');
             abort();
@@ -116,12 +121,9 @@ export class IsolatedRegexOperation implements IRegexReplaceOperation {
           typeof message.value === 'string'
         ) {
           received =
-            Buffer.byteLength(message.value, 'utf8') <= MAX_MESSAGE_BYTES
+            Buffer.byteLength(message.value, 'utf8') <= this.maxOutputBytes
               ? { ok: true, value: message.value }
-              : this.failure(
-                  'DAG_TASK_ISOLATION_MESSAGE_LIMIT',
-                  'Regex operation output exceeds its byte limit',
-                );
+              : this.outputLimitFailure();
         } else if (message.type === 'invalid-regex')
           received = {
             ok: false,
@@ -132,10 +134,7 @@ export class IsolatedRegexOperation implements IRegexReplaceOperation {
             ),
           };
         else if (message.type === 'oversized')
-          received = this.failure(
-            'DAG_TASK_ISOLATION_MESSAGE_LIMIT',
-            'Regex operation output exceeds its byte limit',
-          );
+          received = this.outputLimitFailure();
         else if (message.type !== 'entered') {
           received = this.failure('DAG_TASK_ISOLATION_PROTOCOL', 'Invalid isolated regex response');
           abort();
@@ -186,5 +185,18 @@ export class IsolatedRegexOperation implements IRegexReplaceOperation {
       ok: false,
       error: buildTaskExecutionError(code, message, false, { taskRunId: this.taskRunId }),
     };
+  }
+
+  private outputLimitFailure(): TOperationResult {
+    return this.maxOutputBytes < MAX_MESSAGE_BYTES
+      ? {
+          ok: false,
+          error: buildTaskExecutionError(
+            'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED',
+            'text-replace output exceeds its UTF-8 byte limit', false,
+            { taskRunId: this.taskRunId, maxBytes: this.maxOutputBytes, nodeType: 'text-replace' },
+          ),
+        }
+      : this.failure('DAG_TASK_ISOLATION_MESSAGE_LIMIT', 'Regex operation output exceeds its byte limit');
   }
 }

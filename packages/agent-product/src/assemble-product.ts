@@ -30,6 +30,7 @@ export const PRODUCT_PROFILE_FIELD_POLICIES = {
   promptFileReferenceTag: 'consumed',
   modelCommandToolPrefix: 'consumed',
   subagentHookEnvironmentNames: 'consumed',
+  observerFailureWarningCode: 'consumed',
   presets: 'consumed',
   presetRegistry: 'consumed-and-surfaced',
   defaultPresetId: 'consumed-and-surfaced',
@@ -48,6 +49,7 @@ interface IOverlayMaterials {
   promptFileReferenceTag: IProductProfile['promptFileReferenceTag'];
   modelCommandToolPrefix: IProductProfile['modelCommandToolPrefix'];
   subagentHookEnvironmentNames: IProductProfile['subagentHookEnvironmentNames'];
+  observerFailureWarningCode: IProductProfile['observerFailureWarningCode'];
   commandModules: readonly ICommandModule[];
   tools: readonly FunctionTool[];
   subagents: readonly IAgentDefinition[];
@@ -76,6 +78,8 @@ function overlaySessionOptions(
   const modelCommandToolPrefix = base.modelCommandToolPrefix ?? materials.modelCommandToolPrefix;
   const subagentHookEnvironmentNames =
     base.subagentHookEnvironmentNames ?? materials.subagentHookEnvironmentNames;
+  const observerFailureWarningCode =
+    base.observerFailureWarningCode ?? materials.observerFailureWarningCode;
   const permissionModeOverlay =
     base.permissionMode === undefined && materials.defaultPermissionMode !== undefined
       ? { permissionMode: materials.defaultPermissionMode }
@@ -103,6 +107,7 @@ function overlaySessionOptions(
       ...(promptFileReferenceTag !== undefined ? { promptFileReferenceTag } : {}),
       ...(modelCommandToolPrefix !== undefined ? { modelCommandToolPrefix } : {}),
       ...(subagentHookEnvironmentNames !== undefined ? { subagentHookEnvironmentNames } : {}),
+      ...(observerFailureWarningCode !== undefined ? { observerFailureWarningCode } : {}),
       commandModules,
       commandHostAdapters,
       ...permissionModeOverlay,
@@ -122,6 +127,7 @@ function overlaySessionOptions(
     ...(promptFileReferenceTag !== undefined ? { promptFileReferenceTag } : {}),
     ...(modelCommandToolPrefix !== undefined ? { modelCommandToolPrefix } : {}),
     ...(subagentHookEnvironmentNames !== undefined ? { subagentHookEnvironmentNames } : {}),
+    ...(observerFailureWarningCode !== undefined ? { observerFailureWarningCode } : {}),
     commandModules,
     commandHostAdapters,
     additionalTools: [
@@ -200,6 +206,7 @@ export function assembleProduct(profile: IProductProfile): IAssembledProduct {
       promptFileReferenceTag: profile.promptFileReferenceTag,
       modelCommandToolPrefix: profile.modelCommandToolPrefix,
       subagentHookEnvironmentNames: profile.subagentHookEnvironmentNames,
+      observerFailureWarningCode: profile.observerFailureWarningCode,
       commandModules: merged.commandModules,
       tools: merged.tools,
       subagents: merged.subagents,

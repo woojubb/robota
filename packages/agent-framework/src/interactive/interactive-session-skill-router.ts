@@ -4,6 +4,8 @@
  * and all command/skill invocation logic.
  */
 
+import { AsyncLocalStorage } from 'node:async_hooks';
+
 import { toCommandListEntry, toSkillListEntry } from './interactive-session-command-projections.js';
 import {
   executeSkill,
@@ -53,9 +55,15 @@ export class SessionSkillRouter {
   private readonly allCommandModules: readonly ICommandModule[];
   private readonly skillCommandSource: SkillCommandSource;
   private readonly commandHostAdapters?: ICommandHostAdapters;
-  private commandInvocationSource: TCommandInvocationSource = 'user';
-  /** CMD-004: the in-flight command's origin driver id (REMOTE-014 E5 server-assigned). */
-  private commandOriginDriverId: TDriverId | undefined;
+  /**
+   * The in-flight command's source and, for CMD-004, its origin driver id (REMOTE-014 E5
+   * server-assigned). Scoped to that command's own async chain, not shared fields: two commands in
+   * flight at once each see their own, and neither can overwrite or strand the other's.
+   */
+  private readonly commandScope = new AsyncLocalStorage<{
+    readonly source: TCommandInvocationSource;
+    readonly originDriverId: TDriverId | undefined;
+  }>();
   constructor(
     commandModules: readonly ICommandModule[],
     contributionSources: readonly IContributionSource[],
@@ -122,11 +130,11 @@ export class SessionSkillRouter {
   }
 
   getCommandInvocationSource(): TCommandInvocationSource {
-    return this.commandInvocationSource;
+    return this.commandScope.getStore()?.source ?? 'user';
   }
 
   getCommandOriginDriverId(): TDriverId | undefined {
-    return this.commandOriginDriverId;
+    return this.commandScope.getStore()?.originDriverId;
   }
 
   getCommandHostAdapters(): ICommandHostAdapters {
@@ -186,11 +194,7 @@ export class SessionSkillRouter {
     args: string,
     originDriverId?: TDriverId,
   ): Promise<ICommandResult> {
-    const previousSource = this.commandInvocationSource;
-    const previousOriginDriverId = this.commandOriginDriverId;
-    this.commandInvocationSource = source;
-    this.commandOriginDriverId = originDriverId;
-    try {
+    return this.commandScope.run({ source, originDriverId }, async () => {
       // REMOTE-006: local == remote — a transport-origin command runs exactly as a locally-typed one (pairing is
       // the trust boundary; the universal permission system governs anything dangerous). This is **allow-by-
       // default**: with no injected policy it always allows; an OPTIONAL `remoteCommandPolicy` may restrict for a
@@ -208,20 +212,12 @@ export class SessionSkillRouter {
         return this.onBlockingCommand(() => this.executeForegroundCommand(command, args));
       }
       return await this.commandExecutor.executeCommand(command, this.getSession(), args);
-    } finally {
-      this.commandInvocationSource = previousSource;
-      this.commandOriginDriverId = previousOriginDriverId;
-    }
+    });
   }
 
   async executeModelCommand(name: string, args: string): Promise<ICommandResult | null> {
-    const previousSource = this.commandInvocationSource;
-    this.commandInvocationSource = 'model';
-    try {
-      return await this.commandExecutor.executeModelInvocable(name, this.getSession(), args);
-    } finally {
-      this.commandInvocationSource = previousSource;
-    }
+    return this.commandScope.run({ source: 'model', originDriverId: undefined }, () =>
+      this.commandExecutor.executeModelInvocable(name, this.getSession(), args));
   }
 
   async executeSkillCommandByName(
@@ -229,6 +225,8 @@ export class SessionSkillRouter {
     args: string,
     request: ICommandSkillActivationRequest,
   ): Promise<ICommandResult | null> {
+    // Read before the first await: the turn this skill submits belongs to the command that ran it.
+    const originDriverId = this.getCommandOriginDriverId();
     const skill = this.findSkillCommand(name);
     if (!skill) return null;
 
@@ -255,6 +253,7 @@ export class SessionSkillRouter {
       request.displayInput,
       request.rawInput,
       'user-slash',
+      originDriverId,
     );
     // CMD-004 Stage E: `data.sessionExecution` — the requester-local "session turn started" hint.
     return {
@@ -270,6 +269,8 @@ export class SessionSkillRouter {
     displayInput: string | undefined,
     rawInput: string | undefined,
     invocation: ISkillActivationEvent['invocation'],
+    /** Who ran the command; its submitted turn is theirs. Absent means the owner. */
+    originDriverId?: TDriverId,
   ): Promise<ISkillExecutionResult> {
     if (skill.userInvocable === false) {
       throw new Error(`Skill is not user-invocable: ${skill.name}`);
@@ -282,7 +283,16 @@ export class SessionSkillRouter {
 
     const result = await this.executeSkillWithActivation(skill, args, invocation, qualifiedName);
     if (result.mode === 'inject') {
-      if (result.prompt) await this.onSubmit(result.prompt, displayInput, rawInput);
+      // The turn belongs to whoever issued the command: a remote co-driver's skill is its turn, attributed
+      // exactly as its direct prompts are, never the owner's.
+      if (result.prompt) {
+        await this.onSubmit(
+          result.prompt,
+          displayInput,
+          rawInput,
+          originDriverId !== undefined ? { driverId: originDriverId } : undefined,
+        );
+      }
       return result;
     }
     await this.onApplyResult(result.result ?? '(empty response)');

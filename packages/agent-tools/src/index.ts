@@ -104,11 +104,11 @@ export type {
 // Built-in CLI tools
 export { createShellTool, createBashTool } from './builtins/shell-tool';
 export type { IShellToolOptions } from './builtins/shell-tool';
-export { createReadTool } from './builtins/read-tool';
+export { createReadTool, ReadByteLimitError, ReadCancelledError } from './builtins/read-tool';
 export { createWriteTool } from './builtins/write-tool';
 export { createEditTool } from './builtins/edit-tool';
 export { createGlobTool } from './builtins/glob-tool';
-export { createGrepTool } from './builtins/grep-tool';
+export { createGrepTool, GrepIsolationError } from './builtins/grep-tool';
 export type { IGrepToolOptions } from './builtins/grep-tool';
 export { webFetchTool, createWebFetchTool } from './builtins/web-fetch-tool';
 export type { IWebFetchToolOptions } from './builtins/web-fetch-tool';

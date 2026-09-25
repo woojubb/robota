@@ -304,6 +304,7 @@ export class InteractiveSession
       (entry) => this.histTracker.append(entry),
       this.sessionLoopsDisabled,
       (task) => this.armSessionLoopExpiry(task),
+      options.observerFailureWarningCode,
     );
 
     this.histTracker = new SessionHistoryTracker(
@@ -336,7 +337,8 @@ export class InteractiveSession
       // ARCH-029 S1: no cast — `implements ICommandHostContext` above makes this compiler-checked.
       () => this,
       () => this.session?.getSessionId() ?? '',
-      (prompt, displayInput, rawInput) => this.submit(prompt, displayInput, rawInput),
+      (prompt, displayInput, rawInput, submitOptions) =>
+        this.submit(prompt, displayInput, rawInput, submitOptions),
       (result) => this.execCtrl.applyForkSkillResult(result),
       (event, appendHistory) => this.histTracker.recordSkillActivationEvent(event, appendHistory),
       (content, forkOptions) => runSkillInFork(content, forkOptions, this.getSessionOrThrow()),
@@ -370,6 +372,7 @@ export class InteractiveSession
           ...(args as Parameters<IInteractiveSessionEvents[TInteractiveEventName]>),
         ),
       persistSession: () => this.persistCurrentSession(),
+      ...(options.livePromptTrace ? { livePromptTrace: options.livePromptTrace } : {}),
       onWakeTurnFinalizing: (wakeTaskId, result, outcome, toolExecutions) =>
         this.finalizeSelfPacedIteration(wakeTaskId, result, outcome, toolExecutions),
       // SELFHOST-008 P2: adapter-gated — only wire capture when the surface supplied an `automaticMemory`
@@ -665,6 +668,7 @@ export class InteractiveSession
     let input = entry.input;
     const liveFixedDefault =
       scheduled?.metadata?.['sessionLoopDefaultPrompt'] === true &&
+      scheduled.kind === 'scheduled' &&
       scheduled.schedule?.agentInstruction === scheduled.metadata['sessionLoopDefaultPromptSeed'];
     if (selfPaced?.useDefaultPrompt || liveFixedDefault) {
       try {
@@ -1421,18 +1425,19 @@ export class InteractiveSession
   }
 
   setName(name: string): void {
-    this.sessionName = name;
     if (this.sessionStore && this.session) {
       let id: string;
       try {
         id = this.getSessionOrThrow().getSessionId();
       } catch {
-        return; // Session not initialized yet — nothing on disk to rename.
+        this.sessionName = name; // Session not initialized yet — nothing on disk to rename.
+        return;
       }
       // TRANS-007: the store outcome is NOT swallowed. It used to sit inside the catch above, so a
       // record this build cannot read made the rename a silent no-op.
       persistSessionRename(this.sessionStore, id, name);
     }
+    this.sessionName = name;
   }
 
   private getBackgroundTaskManager(): IBackgroundTaskManager | undefined {

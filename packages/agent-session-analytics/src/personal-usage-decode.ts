@@ -120,7 +120,8 @@ function usageSnapshot(value: TUniversalValue): IUsageSnapshot | undefined {
     contextUsedTokens: value['contextUsedTokens'],
     contextMaxTokens: value['contextMaxTokens'],
     contextUsedPercentage: value['contextUsedPercentage'],
-    costStatus: value['costStatus'],
+    // Historical `exact` meant a local price-table calculation, not an invoice.
+    costStatus: value['costStatus'] === 'exact' ? 'estimated' : value['costStatus'],
     ...(isMetric(value['promptTokens']) ? { promptTokens: value['promptTokens'] } : {}),
     ...(isMetric(value['completionTokens']) ? { completionTokens: value['completionTokens'] } : {}),
     ...(isMetric(value['costUsd']) ? { costUsd: value['costUsd'] } : {}),

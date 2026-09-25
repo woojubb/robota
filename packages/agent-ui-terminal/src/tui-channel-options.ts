@@ -18,6 +18,7 @@ import type {
   INodeHostSettingsSource,
   ICommandModule,
   ICreateSessionOptions,
+  ILivePromptTracePort,
   EditCheckpointStore,
   IMemoryStore,
   IPromptHistoryOptions,
@@ -46,6 +47,7 @@ import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transpo
  * interactive surface at all, and a surface nobody can find is a surface people forget.
  */
 export interface ITuiInteractionChannelOptions {
+  livePromptTrace?: ILivePromptTracePort;
   /**
    * Provider definitions, forwarded to the session so `/provider switch` can construct the provider
    * it switches TO.
@@ -61,6 +63,7 @@ export interface ITuiInteractionChannelOptions {
   promptFileReferenceTag?: string;
   modelCommandToolPrefix?: string;
   subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
+  observerFailureWarningCode?: ICreateSessionOptions['observerFailureWarningCode'];
   commandHookShell?: string;
   /** Resolved organization policy forwarded to the interactive session. */
   orgPolicy?: IOrgPolicy;

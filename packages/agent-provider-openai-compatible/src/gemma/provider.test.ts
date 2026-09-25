@@ -657,4 +657,125 @@ describe('GemmaProvider', () => {
       },
     ]);
   });
+
+  it('carries the server-returned request ID (response._request_id) onto metadata', async () => {
+    const provider = new GemmaProvider({ apiKey: 'lm-studio' });
+    const client = (
+      provider as unknown as {
+        client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+      }
+    ).client;
+    client.chat.completions.create.mockResolvedValue({
+      id: 'gemma-req-id',
+      _request_id: 'req_gemma_123',
+      object: 'chat.completion',
+      created: 1,
+      model: 'supergemma4',
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: 'hi', refusal: null },
+          finish_reason: 'stop',
+          logprobs: null,
+        },
+      ],
+    });
+
+    const result = await provider.chat([createUserMessage('Hello')], { model: 'supergemma4' });
+
+    expect(result.metadata?.['providerRequestId']).toBe('req_gemma_123');
+  });
+
+  it('never fabricates a request ID when the response has no _request_id', async () => {
+    const provider = new GemmaProvider({ apiKey: 'lm-studio' });
+    const client = (
+      provider as unknown as {
+        client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+      }
+    ).client;
+    client.chat.completions.create.mockResolvedValue({
+      id: 'gemma-no-req-id',
+      object: 'chat.completion',
+      created: 1,
+      model: 'supergemma4',
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: 'hi', refusal: null },
+          finish_reason: 'stop',
+          logprobs: null,
+        },
+      ],
+    });
+
+    const result = await provider.chat([createUserMessage('Hello')], { model: 'supergemma4' });
+
+    expect(result.metadata?.['providerRequestId']).toBeUndefined();
+  });
+
+  it('carries the server-returned request ID onto every yielded chunk when withResponse is available', async () => {
+    const provider = new GemmaProvider({ apiKey: 'lm-studio' });
+    const client = (
+      provider as unknown as {
+        client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+      }
+    ).client;
+    const stream = asyncIterableFrom([createChunk('Part one'), createChunk(' done', 'stop')]);
+    client.chat.completions.create.mockReturnValue({
+      then: (resolve: (value: unknown) => void) => resolve(stream),
+      withResponse: async () => ({ data: stream, request_id: 'req_gemma_stream' }),
+    });
+
+    const chunks: TUniversalMessage[] = [];
+    for await (const chunk of provider.chatStream?.([createUserMessage('Stream')], {
+      model: 'supergemma4',
+    }) ?? []) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks.length).toBeGreaterThan(0);
+    expect(chunks.every((chunk) => chunk.metadata?.['providerRequestId'] === 'req_gemma_stream')).toBe(
+      true,
+    );
+  });
+
+  it('carries the server-returned request ID onto the assembled streaming message when withResponse is available', async () => {
+    const provider = new GemmaProvider({ apiKey: 'lm-studio' });
+    const client = (
+      provider as unknown as {
+        client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+      }
+    ).client;
+    const stream = asyncIterableFrom([createChunk('Hello'), createChunk(' from Gemma', 'stop')]);
+    client.chat.completions.create.mockReturnValue({
+      then: (resolve: (value: unknown) => void) => resolve(stream),
+      withResponse: async () => ({ data: stream, request_id: 'req_gemma_assembly' }),
+    });
+
+    const result = await provider.chat([createUserMessage('Hello')], {
+      model: 'supergemma4',
+      onTextDelta: () => {},
+    });
+
+    expect(result.metadata?.['providerRequestId']).toBe('req_gemma_assembly');
+  });
+
+  it('leaves the assembled streaming message unchanged when withResponse is unavailable', async () => {
+    const provider = new GemmaProvider({ apiKey: 'lm-studio' });
+    const client = (
+      provider as unknown as {
+        client: { chat: { completions: { create: ReturnType<typeof vi.fn> } } };
+      }
+    ).client;
+    client.chat.completions.create.mockResolvedValue(
+      asyncIterableFrom([createChunk('Hello'), createChunk(' there', 'stop')]),
+    );
+
+    const result = await provider.chat([createUserMessage('Hello')], {
+      model: 'supergemma4',
+      onTextDelta: () => {},
+    });
+
+    expect(result.metadata?.['providerRequestId']).toBeUndefined();
+  });
 });

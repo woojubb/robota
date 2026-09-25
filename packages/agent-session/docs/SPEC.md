@@ -201,6 +201,15 @@ successful response; `StopFailure` on a model-turn error; `SessionEnd` exactly o
 `shutdown()`, after local persistence and before the wrapped agent is destroyed (so no
 session-owned timers or listeners survive shutdown). Each shutdown step is best-effort.
 
+When a turn's trace context enables hooks, only a hook fired on that turn's own path hands its
+command children the prompt root's `TRACEPARENT`, so their spans sit beside the turn's provider and
+tool spans. That path is the turn from prompt submission to its stop or failure: the tool-use and
+permission hooks of its tool calls, its model-call hooks, and both compaction hooks of a
+compaction the turn itself triggers. A hook fired with no prompt in flight — session start and end,
+either hook of a user-requested compaction — receives nothing, because there is no root for it to
+name. The tool-use hooks take the root from the tool call's context, apart from the body's
+own span, which belongs to the tool alone.
+
 `PreToolUse` is the **one enforcing** hook event: a hook that reaches no verdict there denies the
 tool call. Every other event is advisory — a failure is reported, and the turn proceeds. This
 package is responsible for two of the documented deny causes: a hook execution error (timeout,

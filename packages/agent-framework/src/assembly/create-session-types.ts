@@ -138,6 +138,8 @@ export interface ICreateSessionOptions {
   includeSessionLoopDecisionTool?: boolean;
   /** Additional background task runners composed by the runtime shell. */
   backgroundTaskRunners?: IBackgroundTaskRunner[];
+  /** Host-selected code for background observer process warnings. */
+  observerFailureWarningCode?: string;
   /** Host-selected environment aliases for subagent lifecycle hooks. */
   subagentHookEnvironmentNames?: {
     readonly agentId?: string;

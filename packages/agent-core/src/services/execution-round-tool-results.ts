@@ -1,5 +1,5 @@
 import { isExecutionError, PREVIEW_LENGTH } from './execution-types';
-import { UNKNOWN_TOOL_ERROR_CODE } from './tool-execution-service';
+import { ARGUMENT_DECODE_ERROR_CODE, UNKNOWN_TOOL_ERROR_CODE } from './tool-execution-service';
 import { estimateContextTokensFromMessages } from '../context/estimation';
 
 import type { IToolCall, TUniversalMessageMetadata } from '../interfaces/messages';
@@ -24,6 +24,14 @@ export function isUnknownToolExecutionResult(result: {
   metadata?: { errorCode?: string };
 }): boolean {
   return !result.success && result.metadata?.errorCode === UNKNOWN_TOOL_ERROR_CODE;
+}
+
+/** Issue #2875 (follow-up to #2078): a call whose arguments failed to decode never reached the tool. */
+export function isArgumentDecodeErrorResult(result: {
+  success: boolean;
+  metadata?: { errorCode?: string };
+}): boolean {
+  return !result.success && result.metadata?.errorCode === ARGUMENT_DECODE_ERROR_CODE;
 }
 
 /** Add tool execution results to conversation history in call order */
@@ -107,6 +115,12 @@ export function addToolResultsToHistory(
           metadata['availableTools'] = result.metadata.availableTools.filter(
             (toolName): toolName is string => typeof toolName === 'string',
           );
+        }
+      }
+      if (result.metadata?.errorCode === ARGUMENT_DECODE_ERROR_CODE) {
+        metadata['errorCode'] = ARGUMENT_DECODE_ERROR_CODE;
+        if (typeof result.metadata.requestedTool === 'string') {
+          metadata['requestedTool'] = result.metadata.requestedTool;
         }
       }
     } else if (error) {

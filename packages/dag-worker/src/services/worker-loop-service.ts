@@ -1,9 +1,15 @@
 import {
   TaskRunStateMachine,
+  DagRunStateMachine,
+  LifecycleTaskExecutorPort,
   type ITaskSnapshotBudget,
+  type IRootCreditBudget,
   resolveDagExecutionByteLimits,
   type IDagExecutionByteLimits,
   buildValidationError,
+  decodeDagExecutionLineage,
+  type IDagExecutionLineage,
+  buildTaskExecutionError,
   type IClockPort,
   type IDagDefinition,
   type IDagRun,
@@ -75,12 +81,17 @@ export class WorkerLoopService {
     private readonly runProgressEventReporter?: IRunProgressEventReporter,
     byteLimits?: IDagExecutionByteLimits,
     private readonly snapshotBudget?: ITaskSnapshotBudget,
+    private readonly rootCreditBudget?: IRootCreditBudget,
+    private readonly lifecycleCreditAdmission = false,
   ) {
     this.executionRoot = resolveTrustedExecutionRoot(executionRoot);
     this.byteLimits = resolveDagExecutionByteLimits(byteLimits);
     this.cancellationPollMs = options.cancellationPollMs ?? 250;
-    if (!Number.isSafeInteger(this.cancellationPollMs)
-      || this.cancellationPollMs < 1 || this.cancellationPollMs > 60_000) {
+    if (
+      !Number.isSafeInteger(this.cancellationPollMs) ||
+      this.cancellationPollMs < 1 ||
+      this.cancellationPollMs > 60_000
+    ) {
       throw new RangeError('cancellationPollMs must be an integer between 1 and 60000');
     }
   }
@@ -118,12 +129,17 @@ export class WorkerLoopService {
         : { ok: true, value: { processed: false } };
     }
 
+    // Resolved once, from the claimed node's own definition, and reused both for the lease bound
+    // below and for the claim itself — a node's timeoutMs is never carried on the message payload
+    // (see resolveTimeoutMs), so this is the one place the worker looks it up before execution.
+    const timeoutMs = await this.resolveTimeoutMs(message);
+
     return withTaskLease(
       this.lease,
       message.taskRunId,
       this.options.workerId,
-      taskOwnershipMs(this.resolveTimeoutMs(message), this.options.leaseDurationMs),
-      async () => this.processAcquiredMessage(message),
+      taskOwnershipMs(timeoutMs, this.options.leaseDurationMs),
+      async () => this.processAcquiredMessage(message, timeoutMs),
       async () => {
         await this.queue.nack(message.messageId);
         return { ok: true, value: { processed: false } };
@@ -133,6 +149,7 @@ export class WorkerLoopService {
 
   private async processAcquiredMessage(
     message: IQueueMessage,
+    timeoutMs: number,
   ): Promise<TResult<IWorkerLoopResult, IDagError>> {
     const taskRun = await this.storage.getTaskRun(message.taskRunId);
     if (!taskRun) {
@@ -148,7 +165,7 @@ export class WorkerLoopService {
     if (cancellationBeforeClaim) return cancellationBeforeClaim;
 
     // Built once and passed to both: claiming and handling a failed claim need the same context.
-    const claimDeps = this.claimDepsFor(message, taskRun);
+    const claimDeps = this.claimDepsFor(message, taskRun, timeoutMs);
     const startResult = await claimTaskForExecution(claimDeps);
     if (!startResult.ok) {
       return handleFailedClaim(startResult.error, claimDeps);
@@ -165,17 +182,43 @@ export class WorkerLoopService {
       return this.settleCancelledRunMessage(message);
     }
 
-    const persistInput = (snapshot: string) => this.storage.commitExecution(claimed.dagRunId, {
-      kind: 'snapshot-input', taskRunId: claimed.taskRunId, attempt: claimed.attempt,
-      leaseOwner: this.options.workerId, inputSnapshot: snapshot,
-    });
+    let lineage: IDagExecutionLineage | undefined;
+    try {
+      lineage = decodeDagExecutionLineage(dagRun.lineage);
+    } catch {
+      return this.outcomes.handleFailurePath(
+        claimed,
+        claimed.taskRunId,
+        buildValidationError(
+          'DAG_VALIDATION_RUN_LINEAGE_INVALID',
+          'Persisted composite child run lineage is invalid',
+          { dagRunId: claimed.dagRunId },
+        ),
+      );
+    }
+
+    if (lineage) {
+      const ancestorCancellation = await this.cancelIfAncestorCancelled(message, dagRun, lineage);
+      if (ancestorCancellation) return ancestorCancellation;
+    }
+
+    const persistInput = (snapshot: string) =>
+      this.storage.commitExecution(claimed.dagRunId, {
+        kind: 'snapshot-input',
+        taskRunId: claimed.taskRunId,
+        attempt: claimed.attempt,
+        leaseOwner: this.options.workerId,
+        inputSnapshot: snapshot,
+      });
     const admission = this.snapshotBudget
       ? await this.snapshotBudget.admitValue('input', claimed.payload, persistInput)
       : { ok: true as const, value: await persistInput(JSON.stringify(claimed.payload)) };
-    if (!admission.ok) return this.outcomes.handleFailurePath(claimed, claimed.taskRunId, admission.error);
-    if (!admission.value.applied) return successAfterAck(this.queue, message.messageId, claimed.taskRunId, false);
+    if (!admission.ok)
+      return this.outcomes.handleFailurePath(claimed, claimed.taskRunId, admission.error);
+    if (!admission.value.applied)
+      return successAfterAck(this.queue, message.messageId, claimed.taskRunId, false);
 
-    const input = await this.buildExecutionInput(claimed, dagRun, definition, nodeDefinition);
+    const input = await this.buildExecutionInput(claimed, dagRun, definition, nodeDefinition, lineage);
     // Registration precedes the final persisted read, closing its stale-snapshot race.
     const controller = new AbortController();
     const active = {
@@ -186,16 +229,84 @@ export class WorkerLoopService {
     };
     this.activeAttempts.add(active);
     let executionResult: TTaskExecutionResult;
+    let preflightCredits: number | undefined;
+    const executionDeadlineMs = Date.now() + claimDeps.timeoutMs;
     let stopCancellationWatch: (() => void) | undefined;
     try {
       // Input assembly awaits storage. A cancellation during that await must close admission too.
       const cancellationBeforeExecution = await this.cancelIfRunCancelled(message);
       if (cancellationBeforeExecution) return cancellationBeforeExecution;
       stopCancellationWatch = this.watchCommittedCancellation(active);
+      if (
+        definition.costPolicy &&
+        !this.lifecycleCreditAdmission &&
+        !(this.executor instanceof LifecycleTaskExecutorPort)
+      ) {
+        const estimateCost = this.executor.estimateCost;
+        if (!estimateCost) {
+          return this.outcomes.handleFailurePath(
+            claimed,
+            taskRun.taskRunId,
+            buildValidationError(
+              'DAG_VALIDATION_CREDIT_ESTIMATE_REQUIRED',
+              'Cost-limited runs require a custom executor to estimate credits before execution',
+              { taskRunId: claimed.taskRunId },
+            ),
+          );
+        }
+        const estimated = await executeWithTimeout(
+          {
+            execute: async (estimateInput) => {
+              const result = await estimateCost.call(this.executor, estimateInput);
+              return result.ok ? { ok: true, output: {}, estimatedCredits: result.value } : result;
+            },
+            ...(this.executor.stopAndWait
+              ? { stopAndWait: this.executor.stopAndWait.bind(this.executor) }
+              : {}),
+          },
+          { ...input, signal: controller.signal },
+          Math.max(1, executionDeadlineMs - Date.now()),
+          message.taskRunId,
+        );
+        if (!estimated.ok)
+          return this.outcomes.handleFailurePath(claimed, taskRun.taskRunId, estimated.error);
+        if (
+          estimated.estimatedCredits === undefined ||
+          !Number.isFinite(estimated.estimatedCredits) ||
+          estimated.estimatedCredits < 0
+        ) {
+          return this.outcomes.handleFailurePath(
+            claimed,
+            taskRun.taskRunId,
+            buildValidationError(
+              'DAG_VALIDATION_CREDIT_ESTIMATE_INVALID',
+              'Custom executor credit estimate must be a finite nonnegative number',
+              { taskRunId: claimed.taskRunId },
+            ),
+          );
+        }
+        const reserved = await input.reserveCredits!(estimated.estimatedCredits);
+        if (!reserved.ok)
+          return this.outcomes.handleFailurePath(claimed, taskRun.taskRunId, reserved.error);
+        preflightCredits = estimated.estimatedCredits;
+      }
+      const remainingMs = executionDeadlineMs - Date.now();
+      if (remainingMs <= 0) {
+        return this.outcomes.handleFailurePath(
+          claimed,
+          taskRun.taskRunId,
+          buildTaskExecutionError(
+            'DAG_TASK_EXECUTION_TIMEOUT',
+            `Task execution timed out after ${claimDeps.timeoutMs}ms`,
+            true,
+            { taskRunId: message.taskRunId, timeoutMs: claimDeps.timeoutMs },
+          ),
+        );
+      }
       executionResult = await executeWithTimeout(
         this.executor,
         { ...input, signal: controller.signal },
-        claimDeps.timeoutMs,
+        remainingMs,
         message.taskRunId,
       );
     } finally {
@@ -204,13 +315,28 @@ export class WorkerLoopService {
     }
 
     if (executionResult.ok) {
+      if (
+        preflightCredits !== undefined &&
+        executionResult.estimatedCredits !== undefined &&
+        executionResult.estimatedCredits !== preflightCredits
+      ) {
+        return this.outcomes.handleFailurePath(
+          claimed,
+          taskRun.taskRunId,
+          buildValidationError(
+            'DAG_VALIDATION_CREDIT_ESTIMATE_MISMATCH',
+            'Custom executor reported credits different from its preflight estimate',
+            { taskRunId: claimed.taskRunId },
+          ),
+        );
+      }
       return this.outcomes.handleSuccessPath(
         claimed,
         taskRun.taskRunId,
         dagRun,
         definition,
         executionResult.output,
-        executionResult.estimatedCredits,
+        preflightCredits ?? executionResult.estimatedCredits,
         executionResult.totalCredits,
       );
     }
@@ -224,9 +350,10 @@ export class WorkerLoopService {
    * The next read is scheduled only after the previous one settles, and stopping the
    * watcher prevents a late read from aborting an already-finished attempt.
    */
-  private watchCommittedCancellation(
-    active: { dagRunId: string; controller: AbortController },
-  ): () => void {
+  private watchCommittedCancellation(active: {
+    dagRunId: string;
+    controller: AbortController;
+  }): () => void {
     let stopped = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
     const check = async (): Promise<void> => {
@@ -239,10 +366,14 @@ export class WorkerLoopService {
         if (!stopped) active.controller.abort();
       }
       if (!stopped && !active.controller.signal.aborted) {
-        timer = setTimeout(() => { void check(); }, this.cancellationPollMs);
+        timer = setTimeout(() => {
+          void check();
+        }, this.cancellationPollMs);
       }
     };
-    timer = setTimeout(() => { void check(); }, this.cancellationPollMs);
+    timer = setTimeout(() => {
+      void check();
+    }, this.cancellationPollMs);
     return () => {
       stopped = true;
       clearTimeout(timer);
@@ -254,6 +385,62 @@ export class WorkerLoopService {
   ): Promise<TResult<IWorkerLoopResult, IDagError> | undefined> {
     const run = await this.storage.getDagRun(message.dagRunId);
     return run?.status === 'cancelled' ? this.settleCancelledRunMessage(message) : undefined;
+  }
+
+  /**
+   * A composite child's own run status can lag its ancestor's committed cancellation — the
+   * ancestor commits first and this run's own cancellation, if any, follows later (e.g. after a
+   * restart, from another process). Admission that reads only its own status would still hand the
+   * executor a task whose result no root will ever observe. Persisted lineage carries just the
+   * root and immediate parent run ids, never a full ancestor chain, so only those two are checked.
+   * Every descendant carries the root id, so a cancelled root is caught at any depth; a cancelled
+   * intermediate ancestor reaches grandchildren only once its own child run is cancelled. A depth-0 (root) lineage
+   * carries no parent — its `rootRunId` anchors descendant depth-capping rather than naming a
+   * distinct ancestor run — so this only applies once a parent is present. Lineage is not always
+   * backed by a persisted ancestor row (a depth cap can be supplied without one), and this worker
+   * cannot tell that apart from a corrupted reference, so a lookup that finds nothing is not a
+   * cancellation signal: only a persisted, committed-cancelled ancestor blocks admission.
+   */
+  private async cancelIfAncestorCancelled(
+    message: IQueueMessage,
+    dagRun: IDagRun,
+    lineage: IDagExecutionLineage,
+  ): Promise<TResult<IWorkerLoopResult, IDagError> | undefined> {
+    if (lineage.parentRunId === undefined) return undefined;
+    const ancestorIds = new Set([lineage.rootRunId, lineage.parentRunId]);
+    for (const ancestorId of ancestorIds) {
+      const ancestor = await this.storage.getDagRun(ancestorId);
+      if (ancestor?.status === 'cancelled') {
+        await this.cancelOwnRunForAncestor(dagRun);
+        return this.settleCancelledRunMessage(message);
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Cancels this run through the same committed-state transition RunCancelService uses, so a
+   * descendant of a cancelled ancestor becomes cancelled itself via arbitration rather than an ad
+   * hoc status write. Best-effort: the task is settled as cancelled by the caller either way, so a
+   * run this finds already resolved to a different terminal status is left alone.
+   */
+  private async cancelOwnRunForAncestor(dagRun: IDagRun): Promise<void> {
+    const transition = DagRunStateMachine.transition(dagRun.status, 'CANCEL');
+    if (!transition.ok) return;
+    const committed = await this.storage.commitExecution(dagRun.dagRunId, {
+      kind: 'transition-run',
+      expectedStatus: dagRun.status,
+      event: 'CANCEL',
+      endedAt: this.clock.nowIso(),
+    });
+    if (committed.applied || committed.runStatus === 'cancelled') {
+      this.notifyRunCancelled(dagRun.dagRunId);
+      return;
+    }
+    if (committed.runStatus !== undefined) {
+      const refreshed = await this.storage.getDagRun(dagRun.dagRunId);
+      if (refreshed) await this.cancelOwnRunForAncestor(refreshed);
+    }
   }
 
   private async settleCancelledRunMessage(
@@ -275,13 +462,38 @@ export class WorkerLoopService {
     dagRun: IDagRun,
     definition: IDagDefinition,
     nodeDefinition: IDagDefinition['nodes'][number],
+    lineage: IDagExecutionLineage | undefined,
   ): Promise<ITaskExecutionInput> {
     const allTaskRunsForCost = await this.storage.listTaskRunsByDagRunId(message.dagRunId);
     const currentTotalCredits = resolveCurrentTotalCredits(allTaskRunsForCost);
     return {
       executionRoot: this.executionRoot,
+      ...(lineage === undefined ? {} : { lineage }),
       byteLimits: this.byteLimits,
       snapshotBudget: this.snapshotBudget,
+      rootCreditBudget: this.rootCreditBudget,
+      reserveCredits: definition.costPolicy
+        ? async (estimatedCredits) => {
+            const committed = await this.storage.commitExecution(message.dagRunId, {
+              kind: 'reserve-credits',
+              taskRunId: message.taskRunId,
+              attempt: message.attempt,
+              leaseOwner: this.options.workerId,
+              estimatedCredits,
+            });
+            if (committed.applied) return { ok: true, value: undefined };
+            return {
+              ok: false,
+              error:
+                committed.error ??
+                buildValidationError(
+                  'DAG_VALIDATION_CREDIT_RESERVATION_REJECTED',
+                  'Task attempt lost credit reservation authority',
+                  { taskRunId: message.taskRunId },
+                ),
+            };
+          }
+        : undefined,
       dagId: dagRun.dagId,
       dagRunId: message.dagRunId,
       taskRunId: message.taskRunId,
@@ -295,24 +507,41 @@ export class WorkerLoopService {
     };
   }
 
-  private claimDepsFor(message: IQueueMessage, taskRun: ITaskRun): IClaimTaskDeps {
+  private claimDepsFor(
+    message: IQueueMessage,
+    taskRun: ITaskRun,
+    timeoutMs: number,
+  ): IClaimTaskDeps {
     return {
       storage: this.storage,
       queue: this.queue,
       clock: this.clock,
       reporter: this.runProgressEventReporter,
       options: this.options,
-      timeoutMs: this.resolveTimeoutMs(message),
+      timeoutMs,
       message,
       taskRun,
     };
   }
 
-  private resolveTimeoutMs(message: IQueueMessage): number {
-    const timeoutFromPayload = message.payload.timeoutMs;
-    if (typeof timeoutFromPayload === 'number' && timeoutFromPayload > 0) {
-      return timeoutFromPayload;
+  /**
+   * The attempt timeout for this message's node, read from its own definition rather than the
+   * message payload — a payload field is an ordinary input value as far as node execution is
+   * concerned, so putting the timeout there would leak it onto every node as a spurious input
+   * (an empty-input node would gain a `timeoutMs` port, and a real input field of that name would
+   * be silently overwritten). A lookup failure here (run or node definition missing) is not
+   * treated as fatal: `processAcquiredMessage` performs the authoritative load moments later and
+   * surfaces any such error there, so this falls back to the worker default rather than failing
+   * twice for the same cause.
+   */
+  private async resolveTimeoutMs(message: IQueueMessage): Promise<number> {
+    const contextResult = await loadWorkerExecutionContext(this.storage, message);
+    if (!contextResult.ok) {
+      return this.options.defaultTimeoutMs;
     }
-    return this.options.defaultTimeoutMs;
+    const configuredTimeoutMs = contextResult.value.nodeDefinition.timeoutMs;
+    return typeof configuredTimeoutMs === 'number' && configuredTimeoutMs > 0
+      ? configuredTimeoutMs
+      : this.options.defaultTimeoutMs;
   }
 }

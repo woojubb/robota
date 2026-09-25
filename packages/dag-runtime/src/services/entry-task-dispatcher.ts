@@ -99,6 +99,11 @@ export async function dispatchEntryTasks(
     if (!admitted.applied) continue;
     taskRunIds.push(taskRunId);
 
+    // A node's timeoutMs never rides the payload: the worker resolves the attempt timeout from
+    // the claimed node definition (see WorkerLoopService.resolveTimeoutMs), not from message
+    // content. Putting it in the payload would hand it to the node as an ordinary input value —
+    // leaking into an empty-input port list, an `_agentSummary`, or shadowing a real input field
+    // named `timeoutMs`.
     messages.push({
       messageId: `${taskRunId}:message`,
       dagRunId,

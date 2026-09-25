@@ -50,6 +50,7 @@ function buildRunContext(
     ...(options.ephemeralSystemContext !== undefined && {
       ephemeralSystemContext: options.ephemeralSystemContext,
     }),
+    ...(options.traceContext !== undefined && { traceContext: options.traceContext }),
   };
 }
 

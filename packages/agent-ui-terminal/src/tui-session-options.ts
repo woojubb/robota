@@ -16,6 +16,7 @@ export function buildTuiSessionOptions(
 ): TInteractiveSessionOptions {
   return {
     cwd: opts.cwd,
+    ...(opts.livePromptTrace ? { livePromptTrace: opts.livePromptTrace } : {}),
     provider: opts.provider,
     ...(opts.providerErrorGuidance !== undefined
       ? { providerErrorGuidance: opts.providerErrorGuidance }
@@ -28,6 +29,9 @@ export function buildTuiSessionOptions(
       : {}),
     ...(opts.subagentHookEnvironmentNames !== undefined
       ? { subagentHookEnvironmentNames: opts.subagentHookEnvironmentNames }
+      : {}),
+    ...(opts.observerFailureWarningCode !== undefined
+      ? { observerFailureWarningCode: opts.observerFailureWarningCode }
       : {}),
     ...(opts.commandHookShell !== undefined ? { commandHookShell: opts.commandHookShell } : {}),
     ...(opts.orgPolicy !== undefined ? { orgPolicy: opts.orgPolicy } : {}),

@@ -83,6 +83,16 @@ describe('HeadlessInteractionChannel session options', () => {
     expect(sessionCtorSpy.mock.calls[0]?.[0]).toMatchObject({ providerErrorGuidance });
   });
 
+  it('forwards the Node host live trace port to a print session', async () => {
+    const livePromptTrace = { enqueue: vi.fn() };
+    const channel = new HeadlessInteractionChannel({
+      cwd: process.cwd(), provider: {} as IAIProvider, outputFormat: 'text',
+      shellExec: () => '', livePromptTrace,
+    });
+    await channel.run('hello');
+    expect(sessionCtorSpy.mock.calls[0]?.[0]).toMatchObject({ livePromptTrace });
+  });
+
   it('forwards host model identifiers to the live session', async () => {
     const channel = new HeadlessInteractionChannel({
       cwd: process.cwd(),
@@ -90,6 +100,7 @@ describe('HeadlessInteractionChannel session options', () => {
       promptFileReferenceTag: 'acme_files',
       modelCommandToolPrefix: 'acme_command_',
       subagentHookEnvironmentNames: { agentId: 'ACME_AGENT_ID' },
+      observerFailureWarningCode: 'ACME_BACKGROUND_OBSERVER_FAILURE',
       commandHookShell: '/bin/bash',
       outputFormat: 'text',
       shellExec: () => '',
@@ -99,6 +110,7 @@ describe('HeadlessInteractionChannel session options', () => {
       promptFileReferenceTag: 'acme_files',
       modelCommandToolPrefix: 'acme_command_',
       subagentHookEnvironmentNames: { agentId: 'ACME_AGENT_ID' },
+      observerFailureWarningCode: 'ACME_BACKGROUND_OBSERVER_FAILURE',
       commandHookShell: '/bin/bash',
     });
   });

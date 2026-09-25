@@ -8,9 +8,15 @@ import {
 import { buildOpenAIResponsesTextConfig } from './openai-request-format';
 import { resolveOpenAIReasoningOptions } from './reasoning-effort';
 import {
+  awaitWithProviderRequestId,
+  readOpenAIRequestId,
+  withProviderRequestId,
+} from './request-id';
+import {
   convertToOpenAIResponsesInput,
   convertToOpenAIResponsesTools,
 } from './responses-converter';
+import { openAIRequestOptions } from './request-options';
 import { assembleOpenAIResponsesStream, parseOpenAIResponsesResponse } from './responses-parser';
 
 import type {
@@ -29,6 +35,8 @@ export interface IOpenAIResponsesChatOptions {
   chatOptions?: IChatOptions;
   providerOptions: IOpenAIProviderOptions;
   onTextDelta?: TTextDeltaCallback;
+  /** Per-request headers (trusted `traceparent`), sent after the raw request payload is captured. */
+  requestHeaders?: Readonly<Record<string, string>>;
 }
 
 interface IResponsesStreamMessageQueue {
@@ -66,7 +74,7 @@ export async function chatWithOpenAIResponsesApi(
     });
     const response = await input.client.responses.create(
       requestParams as OpenAI.Responses.ResponseCreateParamsNonStreaming,
-      input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
+      openAIRequestOptions(input.chatOptions?.signal, input.requestHeaders),
     );
     input.chatOptions?.onProviderNativeRawPayload?.({
       provider: 'openai',
@@ -74,7 +82,7 @@ export async function chatWithOpenAIResponsesApi(
       payloadKind: 'response',
       payload: response,
     });
-    return parseOpenAIResponsesResponse(response);
+    return withProviderRequestId(parseOpenAIResponsesResponse(response), readOpenAIRequestId(response));
   } catch (error) {
     const openaiError = error as IOpenAIError;
     const errorMessage = openaiError.message || 'OpenAI Responses API request failed';
@@ -119,11 +127,13 @@ async function chatWithOpenAIResponsesStreamingAssembly(
       payloadKind: 'request',
       payload: requestParams,
     });
-    const stream = await input.client.responses.create(
-      requestParams as OpenAI.Responses.ResponseCreateParamsStreaming,
-      input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
+    const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
+      input.client.responses.create(
+        requestParams as OpenAI.Responses.ResponseCreateParamsStreaming,
+        openAIRequestOptions(input.chatOptions?.signal, input.requestHeaders),
+      ),
     );
-    return assembleOpenAIResponsesStream({
+    const assembled = await assembleOpenAIResponsesStream({
       stream: observeProviderNativeRawPayloadStream(
         stream as AsyncIterable<TOpenAIResponsesStreamEvent>,
         {
@@ -135,6 +145,7 @@ async function chatWithOpenAIResponsesStreamingAssembly(
       onTextDelta: input.chatOptions?.onTextDelta,
       signal: input.chatOptions?.signal,
     });
+    return withProviderRequestId(assembled, providerRequestId);
   } catch (error) {
     const openaiError = error as IOpenAIError;
     const errorMessage = openaiError.message || 'OpenAI Responses streaming request failed';

@@ -24,7 +24,8 @@ the server entrypoint.
 - Storage failures on cost, asset, and run-draft routes are redacted as a generic 500, never exposing internal
   paths or storage errors.
 - `startDagRuntimeServer()` captures the server process's own working directory as the trusted DAG
-  execution root and passes it explicitly to the framework, rather than trusting a caller-supplied path.
+  execution root and selects its product storage and asset paths before passing all paths explicitly
+  to the framework, rather than trusting a caller-supplied execution root or neutral storage default.
 - Asset HTTP request, envelope, error, and binary response schemas are specified in
   [`openapi-assets.yaml`](./openapi-assets.yaml).
 

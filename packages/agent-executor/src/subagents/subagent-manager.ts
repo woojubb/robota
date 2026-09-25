@@ -25,7 +25,10 @@ import type {
  * neither transformed by that hop nor deliberately withheld from a subagent job.
  */
 type TCarriedSubagentStateKey = Exclude<
-  keyof IBackgroundTaskState,
+  // #2079: a subagent job is always an agent-kind task (the seam ARCH-031 fixed) — the agent-kind
+  // member of the now-discriminated `IBackgroundTaskState`, not the bare union, is the source of
+  // truth for which keys a subagent state can carry.
+  keyof IBackgroundTaskState<'agent'>,
   // Transformed by the hop.
   | 'agentType'
   | 'status'
@@ -34,13 +37,12 @@ type TCarriedSubagentStateKey = Exclude<
   | 'result'
   | 'error'
   // Withheld — task-only, with no subagent-job meaning.
+  // #2079: `commandPreview`/`nextFireAt`/`schedule` no longer need excluding by name — they are
+  // structurally absent from `IBackgroundTaskState<'agent'>` now (process/scheduled-only members).
   | 'kind'
   | 'parentTaskId'
   | 'lastActivityAt'
-  | 'commandPreview'
   | 'unread'
-  | 'nextFireAt'
-  | 'schedule'
 >;
 
 /** The keys `toSubagentState` writes itself, rather than passing through. */
@@ -80,6 +82,15 @@ export class SubagentManager implements ISubagentManager {
 
   async spawn(request: ISubagentSpawnRequest): Promise<ISubagentJobState> {
     const state = await this.backgroundTaskManager.spawn(this.toBackgroundRequest(request));
+    // #2079: `spawn`'s generic manager port returns the full `IBackgroundTaskState` union — this
+    // narrows it the same way `get()` below does, rather than casting: `toBackgroundRequest` always
+    // builds an agent-kind request, so the runner it dispatches to always returns an agent-kind state.
+    if (state.kind !== 'agent') {
+      throw new BackgroundTaskError(
+        'runner',
+        `Expected an agent-kind task from a subagent spawn, got: ${state.kind}`,
+      );
+    }
     return this.toSubagentState(state);
   }
 
@@ -96,6 +107,7 @@ export class SubagentManager implements ISubagentManager {
   list(): ISubagentJobState[] {
     return this.backgroundTaskManager
       .list({ kind: 'agent' })
+      .filter((state): state is IBackgroundTaskState<'agent'> => state.kind === 'agent')
       .map((state) => this.toSubagentState(state));
   }
 
@@ -147,6 +159,7 @@ export class SubagentManager implements ISubagentManager {
       agentMaxTextDeltas: options.agentMaxTextDeltas,
       repetitionWindow: options.repetitionWindow,
       repetitionThreshold: options.repetitionThreshold,
+      observerFailureWarningCode: options.observerFailureWarningCode,
     });
   }
 
@@ -183,7 +196,7 @@ export class SubagentManager implements ISubagentManager {
    * excess-property-check spreads. `TCarriedSubagentStateKey` is a compile error the moment the two
    * sets disagree, in either direction.
    */
-  private toSubagentState(state: IBackgroundTaskState): ISubagentJobState {
+  private toSubagentState(state: IBackgroundTaskState<'agent'>): ISubagentJobState {
     const {
       // Transformed by this hop.
       agentType,
@@ -196,10 +209,7 @@ export class SubagentManager implements ISubagentManager {
       kind: _kind,
       parentTaskId: _parentTaskId,
       lastActivityAt: _lastActivityAt,
-      commandPreview: _commandPreview,
       unread: _unread,
-      nextFireAt: _nextFireAt,
-      schedule: _schedule,
       ...carried
     } = state;
     // The destructuring above and `TCarriedSubagentStateKey` are two statements of the same
@@ -224,10 +234,10 @@ export class SubagentManager implements ISubagentManager {
   }
 }
 
-function createSubagentBackgroundRunner(runner: ISubagentRunner): IBackgroundTaskRunner {
+function createSubagentBackgroundRunner(runner: ISubagentRunner): IBackgroundTaskRunner<'agent'> {
   return {
     kind: 'agent',
-    start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+    start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle<'agent'> {
       if (task.request.kind !== 'agent') {
         throw new BackgroundTaskError('runner', `Invalid subagent task kind: ${task.request.kind}`);
       }
@@ -237,7 +247,7 @@ function createSubagentBackgroundRunner(runner: ISubagentRunner): IBackgroundTas
         request: toSubagentStartRequest(task.request),
         emit: task.emit,
       });
-      const handle: IBackgroundTaskHandle = {
+      const handle: IBackgroundTaskHandle<'agent'> = {
         taskId: task.taskId,
         pid: subagentHandle.pid,
         logPath: subagentHandle.logPath,
@@ -273,10 +283,10 @@ function toSubagentStartRequest(request: IAgentBackgroundTaskRequest): ISubagent
 
 /**
  * ARCH-031: a spread. `ISubagentJobResult` IS
- * `Omit<IBackgroundTaskResult, 'kind' | 'exitCode' | 'signalCode'>`, so the only addition is the
- * discriminant. `usage` cannot be dropped here any more — there is no key list to forget it from,
- * which is what the ARCH-025 repair had to add back by hand.
+ * `Omit<IBackgroundTaskResult<'agent'>, 'kind'>`, so the only addition is the discriminant. `usage`
+ * cannot be dropped here any more — there is no key list to forget it from, which is what the
+ * ARCH-025 repair had to add back by hand.
  */
-function toBackgroundResult(result: ISubagentJobResult): IBackgroundTaskResult {
+function toBackgroundResult(result: ISubagentJobResult): IBackgroundTaskResult<'agent'> {
   return { kind: 'agent', ...result };
 }

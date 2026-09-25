@@ -16,12 +16,16 @@ describe('toChannelOptions', () => {
       cliAdapter: {} as ITuiCliAdapter,
       promptFileReferenceTag: 'acme_files',
       modelCommandToolPrefix: 'acme_command_',
+      observerFailureWarningCode: 'ACME_BACKGROUND_OBSERVER_FAILURE',
       subagentHookEnvironmentNames: { agentId: 'ACME_AGENT_ID', agentType: 'ACME_AGENT_TYPE' },
       commandHookShell: '/bin/bash',
     });
     const session = buildTuiSessionOptions(channel);
     expect(session.promptFileReferenceTag).toBe('acme_files');
     expect(session.modelCommandToolPrefix).toBe('acme_command_');
+    expect(session.observerFailureWarningCode).toBe(
+      'ACME_BACKGROUND_OBSERVER_FAILURE',
+    );
     expect(session.subagentHookEnvironmentNames).toEqual({
       agentId: 'ACME_AGENT_ID',
       agentType: 'ACME_AGENT_TYPE',

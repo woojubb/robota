@@ -5,6 +5,34 @@ import { createOtlpUsageSnapshot } from '../otlp-usage-snapshot.js';
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
 
 describe('OTLP usage snapshot projection', () => {
+  it('exports separate accepted-call gauges without adding call tokens to turn totals', () => {
+    const record: IInteractiveSessionRecord = {
+      id: 'private-session', cwd: '/private/path', createdAt: '2026-09-24T00:00:00.000Z', updatedAt: '2026-09-24T00:01:00.000Z', messages: [],
+      history: [
+        { id: 'root', timestamp: new Date('2026-09-24T00:01:00.000Z'), category: 'event', type: 'usage-observation', data: {
+          usageObservationId: 'turn-1', turnId: 'turn-1', outcome: 'success',
+          promptExecutionStartedAt: '2026-09-24T00:00:59.000Z', promptExecutionEndedAt: '2026-09-24T00:01:00.000Z', promptExecutionOutcome: 'success',
+          promptExecutionTraceId: '1234567890abcdef1234567890abcdef', promptExecutionSpanId: '1234567890abcdef',
+          usage: { kind: 'exact', scope: 'turn', totalTokens: 150, promptTokens: 100, completionTokens: 50, contextUsedTokens: 150, contextMaxTokens: 1000, contextUsedPercentage: 15, costStatus: 'estimated', costUsd: 0.00075 },
+        } },
+        { id: 'call', timestamp: new Date('2026-09-24T00:00:59.900Z'), category: 'event', type: 'provider-call-trace', data: {
+          traceId: '1234567890abcdef1234567890abcdef', parentSpanId: '1234567890abcdef', spanId: 'abcdef1234567890',
+          startedAt: '2026-09-24T00:00:59.100Z', endedAt: '2026-09-24T00:00:59.900Z', outcome: 'success', round: 1,
+          disposition: 'invoked', usageProvenance: 'complete', modelId: 'gpt-4o', promptTokens: 100, completionTokens: 50, totalTokens: 150,
+        } },
+      ],
+    };
+    const at = new Date('2026-09-24T02:00:00.000Z');
+    const metrics = (createOtlpUsageSnapshot([record], at, 'test').resourceMetrics[0] as { scopeMetrics: [{ metrics: Array<{ name: string; gauge: { dataPoints: [{ asDouble: number }] } }> }] }).scopeMetrics[0].metrics;
+    const value = (name: string) => metrics.find((metric) => metric.name === name)?.gauge.dataPoints[0].asDouble;
+    expect(value('robota.token.total')).toBe(150);
+    expect(value('robota.provider_call.count')).toBe(1);
+    expect(value('robota.provider_call.token.input.known')).toBe(100);
+    expect(value('robota.provider_call.cost.usd.estimated')).toBeCloseTo(0.00075);
+    record.history!.push({ ...record.history![1]!, id: 'duplicate' });
+    const duplicateMetrics = (createOtlpUsageSnapshot([record], at, 'test').resourceMetrics[0] as { scopeMetrics: [{ metrics: Array<{ name: string; gauge: { dataPoints: [{ asDouble: number }] } }> }] }).scopeMetrics[0].metrics;
+    expect(duplicateMetrics.find((metric) => metric.name === 'robota.provider_call.count')?.gauge.dataPoints[0].asDouble).toBe(0);
+  });
   it('keeps missing cost and token split visibly unknown', () => {
     const record: IInteractiveSessionRecord = {
       id: 'private-session',
