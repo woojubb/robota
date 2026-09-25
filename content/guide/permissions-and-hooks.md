@@ -30,7 +30,34 @@ Print mode (`robota -p`), `createQuery()` and headless sessions default to `defa
 | `acceptEdits`       | auto | auto             | approve (prompt) |
 | `bypassPermissions` | auto | auto             | auto             |
 
-Permissions and hooks run before tool execution regardless of whether a tool executes locally or through an injected sandbox client. A sandbox changes the execution plane for Bash and file operations; it does not bypass the permission matrix or hook pipeline.
+#### Read-only commands
+
+A Bash call whose every command is in the built-in read-only set is decided like a read, so it runs
+without a prompt in every mode, `plan` included. The set is `ls`, `cat`, `echo`, `pwd`, `head`,
+`tail`, `grep`, `wc`, `which`, `stat`, `du`, `cd`, `find` without `-exec`/`-delete`/`-fprint*`
+predicates, and `git status`, `log`, `diff`, `show`, `rev-parse`, `ls-files`, `describe`,
+plus the listing forms of `git branch` and `git remote`. The set is not configurable; add an `ask`
+or `deny` rule to require a prompt for one of these.
+
+A compound command qualifies only when each part does on its own. A command does not qualify when it:
+
+- names a path outside the working directory: an absolute path, `~`, a `..` that climbs out, a
+  PowerShell drive or provider (`C:x`, `Env:`), or a symlink whose target is outside;
+- uses a short option outside each command's known-safe letters, which leaves out the ones that
+  follow symlinks or read a named file (`grep -R`/`-S`/`-f`, `ls -L`, `du -L`, `find -L`), or a
+  long option that takes a file or a list of files, abbreviated or not (`--exclude-from`,
+  `--files0`, `--deref`);
+- passes an unquoted glob, since it expands to names the check never sees;
+- contains a non-ASCII character;
+- writes through a redirect (`>`, `>>`, `&>`, `>&file`), except to `/dev/null` or another
+  descriptor (`2>&1`);
+- uses a here-doc, a variable, an escape, or any substitution, grouping, brace expansion or comment
+  (`$`, `` ` ``, `\`, `(`, `{`, `#` and similar). These mean different things in bash, zsh, fish and
+  PowerShell, so the gate does not guess;
+- starts with a variable assignment (`PAGER=… git log`) or names a program by path (`./ls`);
+- runs `git` with a global option (`-c`, `-C`), with `--output`, `--ext-diff` or `--no-index`, or
+  after a `cd`;
+- runs in a `workingDirectory` other than the session's.
 
 ### Pattern Syntax
 

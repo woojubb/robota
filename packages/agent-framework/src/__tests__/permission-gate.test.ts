@@ -42,7 +42,7 @@ const MATRIX_CASES: IMatrixCase[] = [
     args: { filePath: '/src/foo.ts', oldString: 'a', newString: 'b' },
     expected: 'deny',
   },
-  { mode: 'plan', toolName: 'Bash', args: { command: 'ls' }, expected: 'deny' },
+  { mode: 'plan', toolName: 'Bash', args: { command: 'make' }, expected: 'deny' },
 
   // default mode — reads auto, writes/bash need approval
   { mode: 'default', toolName: 'Read', args: { filePath: '/src/foo.ts' }, expected: 'auto' },
@@ -60,7 +60,7 @@ const MATRIX_CASES: IMatrixCase[] = [
     args: { filePath: '/src/foo.ts', oldString: 'a', newString: 'b' },
     expected: 'approve',
   },
-  { mode: 'default', toolName: 'Bash', args: { command: 'ls' }, expected: 'approve' },
+  { mode: 'default', toolName: 'Bash', args: { command: 'make' }, expected: 'approve' },
 
   // acceptEdits mode — reads + writes auto, bash needs approval
   { mode: 'acceptEdits', toolName: 'Read', args: { filePath: '/src/foo.ts' }, expected: 'auto' },
@@ -78,7 +78,7 @@ const MATRIX_CASES: IMatrixCase[] = [
     args: { filePath: '/src/foo.ts', oldString: 'a', newString: 'b' },
     expected: 'auto',
   },
-  { mode: 'acceptEdits', toolName: 'Bash', args: { command: 'ls' }, expected: 'approve' },
+  { mode: 'acceptEdits', toolName: 'Bash', args: { command: 'make' }, expected: 'approve' },
 
   // bypassPermissions — everything auto
   {

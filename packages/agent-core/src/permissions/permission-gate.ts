@@ -28,6 +28,8 @@
 import { globToRegex, matchCommand, matchPath, matchUrl } from './argument-matchers.js';
 import { RISK_CLASS_POLICY, UNCLASSIFIED_TOOL_FALLBACK } from './permission-mode.js';
 import { isProtectedPath, removesCriticalPath } from './permission-safeguards.js';
+import { isReadOnlyCommandLine } from './read-only-commands.js';
+import type { TResolveInWorkspace } from './read-only-commands.js';
 
 import type { TArgumentKind, TMatchDirection, TPatternMatch } from './argument-matchers.js';
 import type { TToolRiskClass } from './permission-mode.js';
@@ -60,6 +62,11 @@ export interface IPermissionEvaluationContext extends ICriticalPathContext {
   ceiling?: readonly string[];
   /** Every call that is not denied asks, whatever the mode or allow list says. */
   askAll?: boolean;
+  /**
+   * Where a path really is, symlinks followed, or `undefined` outside the workspace. Supplied by a
+   * host with a filesystem; without it a read-only command naming a path is not treated as a read.
+   */
+  resolveInWorkspace?: TResolveInWorkspace;
 }
 
 /**
@@ -163,7 +170,9 @@ export function getToolPermissionProfile(toolName: string): IToolPermissionProfi
 
 /** Whether a pattern's tool-name part names this tool: exact, or a `*` glob over the name. */
 export function toolNameMatches(patternName: string, toolName: string): boolean {
-  return patternName.includes('*') ? globToRegex(patternName).test(toolName) : patternName === toolName;
+  return patternName.includes('*')
+    ? globToRegex(patternName).test(toolName)
+    : patternName === toolName;
 }
 
 /** A `name:value` argument pattern that names one of the tool's parameters. */
@@ -377,6 +386,34 @@ export function requiresFreshApproval(
   );
 }
 
+/** Arguments that move a command out of the session's working directory. */
+const DIRECTORY_ARGUMENT_KEYS = ['workingDirectory', 'cwd'] as const;
+
+/**
+ * The tool's declared risk class, narrowed for this one call: a command tool running only built-in
+ * read-only commands is decided like a read.
+ */
+function effectiveRiskClass(
+  toolName: string,
+  toolArgs: TToolArgs,
+  context: IPermissionEvaluationContext,
+): TToolRiskClass | undefined {
+  const profile = toolProfiles.get(toolName);
+  if (profile?.riskClass !== 'execute' || profile.argument?.kind !== 'command') {
+    return profile?.riskClass;
+  }
+  const command = toolArgs[profile.argument.key];
+  if (typeof command !== 'string') return profile.riskClass;
+  const otherDirectory = DIRECTORY_ARGUMENT_KEYS.some((key) => toolArgs[key] !== undefined);
+  const readOnly = isReadOnlyCommandLine(command, {
+    otherDirectory,
+    ...(context.resolveInWorkspace !== undefined
+      ? { resolveInWorkspace: context.resolveInWorkspace }
+      : {}),
+  });
+  return readOnly ? 'inspect' : profile.riskClass;
+}
+
 /**
  * Evaluate whether a tool invocation should be auto-approved, require user approval, or be denied.
  *
@@ -394,7 +431,7 @@ export function evaluatePermission(
   context: IPermissionEvaluationContext = {},
 ): TPermissionDecision {
   const { allow = [], deny = [], ask = [] } = permissions;
-  const riskClass = toolProfiles.get(toolName)?.riskClass;
+  const riskClass = effectiveRiskClass(toolName, toolArgs, context);
   // Plan mode's promise is "change nothing": an ask about anything that could change something is
   // a refusal there, and only an inspect-class call may still reach a person.
   const askDecision: TPermissionDecision =

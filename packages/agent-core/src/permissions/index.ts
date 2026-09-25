@@ -45,3 +45,5 @@ export type { IPermissionPolicyContext, IPermissionPolicyProjection } from './pe
 export { RISK_CLASS_POLICY, UNCLASSIFIED_TOOL_FALLBACK } from './permission-mode.js';
 export type { TToolRiskClass } from './permission-mode.js';
 export { applyPresetToolLists, toolNamesToPatterns } from './tool-list-patterns.js';
+export { isReadOnlyCommandLine } from './read-only-commands.js';
+export type { IReadOnlyCommandContext, TResolveInWorkspace } from './read-only-commands.js';
