@@ -290,7 +290,50 @@ describe('composeMcpClientForStartup', () => {
     expect(sourceProblems[0]).toMatchObject({
       source: 'managed',
       reason: '`mcpServers` is not an object',
+      // PR #3076 re-review: `weather` never appears in `list()` at all, so `blockedServerNames` is
+      // the ONLY place this port says it exists and why it is not active.
+      blockedServerNames: ['weather'],
     });
+  });
+
+  // PR #3076 re-review: a blocked entry's reason lives only on the `IMCPResolvedEntry` itself
+  // (`resolveByPrecedence` synthesizes it) — it never appears in `resolveMcpDefinitions`'s flat
+  // `problems` list, so the ORIGINAL startup diagnostic loop (which only walks `problems`) silently
+  // dropped it. `composeMcpClientForStartup` must separately walk `entries` for blocked ones.
+  it('reports a blocked server on the diagnostics sink, naming it and that managed blocked it', async () => {
+    const managedRoot = tempRoot('robota-mcp-startup-managed-diagnostic-');
+    const projectRoot = tempRoot('robota-mcp-startup-managed-diagnostic-project-');
+    const managedPath = join(managedRoot, 'managed-policy.json');
+    writeFileSync(managedPath, JSON.stringify({ mcpServers: 'not an object' }));
+    mkdirSync(join(projectRoot, '.robota'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, '.robota', 'settings.json'),
+      JSON.stringify({
+        mcpServers: { weather: { type: 'http', url: 'https://mcp.example.com/weather' } },
+      }),
+    );
+
+    const { messages, reportDiagnostic } = diagnosticsSink();
+
+    await composeMcpClientForStartup({
+      settingsSources: [
+        createNodeHostSettingsSource('managed', managedPath),
+        ...(await trustedProjectSettingsSources(projectRoot)),
+      ],
+      projectAccess: await trustedAccessFor(projectRoot),
+      cwd: projectRoot,
+      env: process.env,
+      mode: 'interactive',
+      reportDiagnostic,
+      inspectTrust: async () => ({ state: 'trusted', generation: 1 }),
+    });
+
+    const blockedMessage = messages.find((message) => message.includes('weather'));
+    expect(blockedMessage).toBeDefined();
+    expect(blockedMessage).toMatch(/managed/);
+    expect(blockedMessage).toMatch(/not activated|blocked/i);
+    // Value-free: never the managed file's path or the `mcpServers` value that broke it.
+    expect(blockedMessage).not.toContain(managedPath);
   });
 
   it('refuses a project-source definition under restricted (untrusted) workspace access', async () => {

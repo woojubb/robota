@@ -103,11 +103,18 @@ export interface ICommandMCPActivationSummary {
  * `mcpServers` key, `mcpServers` not an object, or a source that could not be parsed at all. It
  * names no server, so it cannot be an `ICommandMCPActivationSummary`; this is its own carrier so
  * `/mcp status` can say which source could not be read, beside the servers that did resolve.
+ *
+ * `blockedServerNames` (PR #3076 review): when this problem is in the MANAGED tier, `agent-mcp`'s
+ * `resolveByPrecedence` fails closed and blocks every name that would otherwise have resolved from a
+ * lower tier — those names would otherwise vanish from `/mcp status` with no explanation, since a
+ * blocked entry is `unresolved` and `ICommandMCPActivationAdapter.list()` only ever offers resolved
+ * candidates. Optional and empty for a non-managed-tier problem, which blocks nothing.
  */
 export interface ICommandMCPSourceProblem {
   readonly source: 'managed' | 'user' | 'project' | 'plugin' | 'local';
   readonly origin: string;
   readonly reason: string;
+  readonly blockedServerNames?: readonly string[];
 }
 
 /** MCP activation lifecycle port. Implemented by the composition root over the MCP policy service. */

@@ -247,6 +247,71 @@ describe('resolveMcpDefinitions', () => {
     expect(problems[0]?.reason).toMatch(/^invalid JSON/);
   });
 
+  // PR #3076 re-review: a managed file that parses CLEANLY to something other than a plain object
+  // (`null`, `[]`, a bare string, ...) previously read as "absent" (`!isPlainObject(parsed) ||
+  // parsed['mcpServers'] === undefined` short-circuited on the FIRST branch and returned `undefined`)
+  // — fail-open, because a truncated write or the wrong file swapped in for the managed policy still
+  // "successfully" produced no source problem at all, and a lower-trust definition activated exactly
+  // where the highest-trust source most needed to fail closed. It must instead reach `decodeSource`
+  // and become the same "the configuration root is not an object" source problem an unparseable file
+  // gets, blocking lower tiers the same way.
+  for (const [label, root] of [
+    ['null', 'null'],
+    ['an array', '[]'],
+  ] as const) {
+    it(`fails closed when the managed root parses cleanly to ${label}`, async () => {
+      const managedRoot = tempRoot('robota-mcp-defs-managed-non-object-');
+      const projectRoot = tempRoot('robota-mcp-defs-managed-non-object-project-');
+      const managedPath = join(managedRoot, 'managed-policy.json');
+      writeFileSync(managedPath, root);
+      mkdirSync(join(projectRoot, '.robota'), { recursive: true });
+      writeFileSync(
+        join(projectRoot, '.robota', 'settings.json'),
+        JSON.stringify({
+          mcpServers: { weather: { type: 'http', url: 'https://project.example/weather' } },
+        }),
+      );
+
+      const settingsSources = [
+        createNodeHostSettingsSource('managed', managedPath),
+        ...(await trustedProjectSettingsSources(projectRoot)),
+      ];
+
+      const { entries, sourceProblems } = resolveMcpDefinitions(settingsSources, process.env);
+
+      expect(sourceProblems).toHaveLength(1);
+      expect(sourceProblems[0]).toMatchObject({
+        name: '',
+        source: 'managed',
+        reason: 'the configuration root is not an object',
+      });
+
+      // Fails closed: the project-tier server is blocked, not silently activated.
+      expect(entries).toHaveLength(1);
+      expect(entries[0]?.name).toBe('weather');
+      expect(entries[0]?.status).toBe('unresolved');
+    });
+  }
+
+  it('still treats a plain object with no mcpServers key as absent, never a problem', () => {
+    const userHome = tempRoot('robota-mcp-defs-plain-object-absent-');
+    mkdirSync(join(userHome, '.robota'), { recursive: true });
+    writeFileSync(
+      join(userHome, '.robota', 'settings.json'),
+      JSON.stringify({ language: 'en', theme: 'dark' }),
+    );
+
+    const settingsSources = createRobotaUserSettingsSources(userHome);
+    const { entries, problems, sourceProblems } = resolveMcpDefinitions(
+      settingsSources,
+      process.env,
+    );
+
+    expect(entries).toEqual([]);
+    expect(problems).toEqual([]);
+    expect(sourceProblems).toEqual([]);
+  });
+
   it('describeJsonParseFailure extracts only a position, never the raw message', () => {
     // Assembled from fragments, never a literal secret-shaped token in source control.
     const secretLookingFragment = ['sk', 'live', 'se'].join('-');

@@ -23,6 +23,7 @@ export {
 } from './definition/decode.js';
 export { materializeDefinition, type IMCPEnvironment } from './definition/env-template.js';
 export {
+  isBlockedByManagedFailure,
   MCP_SOURCE_PRECEDENCE,
   resolveByPrecedence,
   type IMCPPrecedenceResult,

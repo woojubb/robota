@@ -15,6 +15,7 @@ import {
   createNodeToolResultSpillStore,
   createNodeWorkspaceTrustStore,
 } from '@robota-sdk/agent-framework';
+import { isBlockedByManagedFailure } from '@robota-sdk/agent-mcp';
 import { userPaths } from '../product/user-paths.js';
 
 import { buildMcpClientTimeouts, createMcpClientComposition } from './mcp-client-composition.js';
@@ -129,6 +130,18 @@ export async function composeMcpClientForStartup(
       problem.name === ''
         ? `MCP source ${problem.source} (${problem.origin}) could not be read: ${problem.reason}`
         : `MCP definition "${problem.name}" from ${problem.source} (${problem.origin}) was refused: ${problem.reason}`,
+    );
+  }
+  // A blocked entry (PR #3076 review) never appears in `problems` above — its reason is synthesized
+  // by `resolveByPrecedence` itself, not by a source's own decode — so it would otherwise vanish with
+  // no diagnostic at all, exactly the same silent disappearance issue #2794 was about. Value-free:
+  // names the server and that the managed source is why it did not activate, never the managed
+  // source's file content.
+  for (const entry of entries) {
+    if (!isBlockedByManagedFailure(entry)) continue;
+    input.reportDiagnostic(
+      `MCP server "${entry.name}" was not activated: the managed source could not be read, so a ` +
+        `lower-trust definition cannot be trusted to be the real winner.`,
     );
   }
 

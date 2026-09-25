@@ -11,7 +11,11 @@
 import { describe, expect, it } from 'vitest';
 
 import { decodeSource } from '../definition/decode.js';
-import { MCP_SOURCE_PRECEDENCE, resolveByPrecedence } from '../definition/precedence.js';
+import {
+  MCP_SOURCE_PRECEDENCE,
+  isBlockedByManagedFailure,
+  resolveByPrecedence,
+} from '../definition/precedence.js';
 
 import type { IMCPSourceCandidates } from '../definition/precedence.js';
 import type {
@@ -270,6 +274,32 @@ describe('resolveByPrecedence', () => {
     expect(entries[0]!.source).toBe('user');
     expect(entries[0]!.status).toBe('resolved');
     expect(entries[0]!.definition?.url).toBe('https://user.example');
+  });
+
+  // PR #3076 re-review: `isBlockedByManagedFailure` is the exported predicate a caller (the CLI
+  // startup diagnostic, the `/mcp status` renderer) uses to identify a blocked entry rather than
+  // re-deriving the block condition or restating the reason's prefix itself.
+  it('isBlockedByManagedFailure identifies exactly the entries the managed tier blocked', () => {
+    const { entries } = resolveByPrecedence(
+      [
+        source('user', { alpha: http('https://user.example') }),
+        source('local', { beta: { url: 'https://local.example' } }), // malformed, own problem
+        {
+          source: 'managed',
+          origin: 'policy.json',
+          ...decodeSource({ mcpServers: 'not an object' }, 'managed', 'policy.json'),
+        },
+      ],
+      noTemplates,
+    );
+
+    const alpha = entries.find((entry) => entry.name === 'alpha')!;
+    const beta = entries.find((entry) => entry.name === 'beta')!;
+    expect(isBlockedByManagedFailure(alpha)).toBe(true);
+    // `beta` is unresolved for its OWN reason (malformed, no `type`) — it was never a `resolved`
+    // entry the managed tier had to block, so it must not be misreported as one.
+    expect(beta.status).toBe('unresolved');
+    expect(isBlockedByManagedFailure(beta)).toBe(false);
   });
 
   it('collects every source-scoped problem across sources, none shadowing or being shadowed', () => {

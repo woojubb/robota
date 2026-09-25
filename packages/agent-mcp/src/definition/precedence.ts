@@ -191,13 +191,36 @@ export function resolveByPrecedence(
         source: entry.source,
         origin: entry.origin,
         reason:
-          `blocked: the ${managedTier} source (${blockingProblem.origin}) could not be read ` +
-          `(${blockingProblem.reason}), so a lower-trust definition cannot be trusted to be the ` +
-          'real winner',
+          `${BLOCKED_REASON_PREFIX} the ${managedTier} source (${blockingProblem.origin}) could not ` +
+          `be read (${blockingProblem.reason}), so a lower-trust definition cannot be trusted to be ` +
+          'the real winner',
       },
       shadowed: entry.shadowed,
     };
   });
 
   return { entries: blocked, sourceProblems };
+}
+
+/**
+ * The fixed prefix every reason `resolveByPrecedence` synthesizes for a managed-tier block starts
+ * with (never a caller's own string match against the rest of the sentence, which also names the
+ * broken origin and its reason — a caller wanting only the FACT of blocking uses
+ * {@link isBlockedByManagedFailure} instead of restating this prefix itself).
+ */
+const BLOCKED_REASON_PREFIX = 'blocked:';
+
+/**
+ * Whether `entry` is one `resolveByPrecedence` blocked because the managed tier could not be read
+ * (its doc, principle 3) — as opposed to an entry that is `unresolved` for its OWN reason (a
+ * malformed entry, an entry whose only source is broken for a non-managed-tier reason). A caller
+ * reporting "these servers did not activate because managed is broken" (a startup diagnostic, an
+ * `/mcp status` line) uses this rather than re-deriving the same predicate `resolveByPrecedence`
+ * already computed, or restating {@link BLOCKED_REASON_PREFIX} itself.
+ */
+export function isBlockedByManagedFailure(entry: IMCPResolvedEntry): boolean {
+  return (
+    entry.status === 'unresolved' &&
+    (entry.problem?.reason.startsWith(BLOCKED_REASON_PREFIX) ?? false)
+  );
 }

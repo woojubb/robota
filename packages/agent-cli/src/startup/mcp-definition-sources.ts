@@ -67,8 +67,8 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
  */
 export function describeJsonParseFailure(error: unknown): string {
   const message = error instanceof Error ? error.message : String(error);
-  const located = /\bat position (\d+)(?: \(line (\d+) column (\d+)\))?/i.exec(message);
-  if (located === undefined || located === null) return 'invalid JSON';
+  const located = /\bat position (\d+)(?: \(line (\d+) column (\d+)\))?$/i.exec(message);
+  if (located === null) return 'invalid JSON';
   const [, position, line, column] = located;
   if (line !== undefined && column !== undefined) {
     return `invalid JSON (line ${line}, column ${column})`;
@@ -96,15 +96,21 @@ export function definitionSourceOf(source: TSettingsSource): TMCPDefinitionSourc
 
 /**
  * One settings source's contribution: usable `mcpServers` candidates (possibly none, alongside a
- * source-level problem when the text failed to parse as JSON), or nothing (an absent source, or a
- * source that parses but declares no `mcpServers` — neither is a problem; there is nothing to report
- * on).
+ * source-level problem when the text failed to parse as JSON or the root is unusable), or nothing
+ * (an absent source, or a source that parses to a plain object declaring no `mcpServers` — neither
+ * is a problem; there is nothing to report on).
  *
- * A parse failure becomes an `IMCPSourceCandidates` with zero definitions and one source-scoped
- * problem (`name: ''`, the same convention `decodeSource` uses for a container-level problem — issue
- * #2794) rather than being reported out-of-band: it must reach `resolveByPrecedence` exactly like
- * every other source-level problem so a parse failure in the MANAGED tier fails closed the same way
- * an unreadable-but-parseable managed policy does, instead of silently skipping that rule.
+ * A parse failure, and a NON-OBJECT root (`null`, an array, a string, a number, a boolean — anything
+ * `decodeSource`'s own `isPlainObject` guard would refuse), both become an `IMCPSourceCandidates`
+ * with zero definitions and one source-scoped problem (`name: ''`, the same convention `decodeSource`
+ * uses for a container-level problem — issue #2794) rather than being treated as "absent" and
+ * skipped. Skipping was FAIL-OPEN: a managed policy file that happens to parse to `null` or `[]`
+ * (truncated write, wrong file swapped in, `echo null > policy.json`) read as "no managed policy
+ * configured" instead of "managed could not be read", so a lower-trust definition activated exactly
+ * where the highest-trust source most needed to fail closed (PR #3076 review). Only a source that
+ * parses to a genuine plain object with no `mcpServers` key at all is "nothing to report" — every
+ * other non-empty, parseable text reaches `decodeSource`, which is the ONE place that already knows
+ * how to turn a bad root into that problem.
  */
 function candidatesOf(source: TSettingsSource): IMCPSourceCandidates | undefined {
   const text = readSettingsSourceText(source, 'resolve MCP server definitions');
@@ -130,7 +136,11 @@ function candidatesOf(source: TSettingsSource): IMCPSourceCandidates | undefined
     };
   }
 
-  if (!isPlainObject(parsed) || parsed['mcpServers'] === undefined) return undefined;
+  // A plain object with no `mcpServers` key genuinely declares nothing — not a problem. Every other
+  // shape (including a plain object where `mcpServers` IS present but not itself an object) is
+  // handed to `decodeSource`, which already refuses a non-object root and a non-object `mcpServers`
+  // the same way; this function must not re-decide either case by returning `undefined` first.
+  if (isPlainObject(parsed) && parsed['mcpServers'] === undefined) return undefined;
 
   const decoded = decodeSource(parsed, definitionSource, origin);
   return {

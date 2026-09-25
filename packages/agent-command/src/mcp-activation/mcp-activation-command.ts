@@ -15,9 +15,18 @@ function formatSummary(summary: ICommandMCPActivationSummary): string {
   return `  ${summary.serverId}${label} — ${summary.status} — ${summary.source} — ${summary.reason}`;
 }
 
-/** Issue #2794: a source that produced no server names at all — "which file could not be read". */
+/**
+ * Issue #2794: a source that produced no server names at all — "which file could not be read".
+ *
+ * `blockedServerNames` (PR #3076 review): a managed-tier problem also blocked every lower-tier
+ * server that would otherwise have resolved — those names never appear in `list()` above (an
+ * `unresolved` entry is never an activation candidate), so this line is the ONLY place `/mcp status`
+ * says they exist at all and why they are not active.
+ */
 function formatSourceProblem(problem: ICommandMCPSourceProblem): string {
-  return `  ${problem.source} (${problem.origin}) could not be read: ${problem.reason}`;
+  const blocked = problem.blockedServerNames ?? [];
+  const blockedNote = blocked.length === 0 ? '' : ` Blocked until fixed: ${blocked.join(', ')}.`;
+  return `  ${problem.source} (${problem.origin}) could not be read: ${problem.reason}.${blockedNote}`;
 }
 
 function listResult(mcp: ICommandMCPActivationAdapter | undefined): ICommandResult {
@@ -48,9 +57,10 @@ function listResult(mcp: ICommandMCPActivationAdapter | undefined): ICommandResu
     };
   }
   return {
-    message: [`MCP activation status:\n${entries.map(formatSummary).join('\n')}`, ...sourceProblemLines].join(
-      '\n\n',
-    ),
+    message: [
+      `MCP activation status:\n${entries.map(formatSummary).join('\n')}`,
+      ...sourceProblemLines,
+    ].join('\n\n'),
     success: true,
     data: {
       servers: entries.map((entry) => ({

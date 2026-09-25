@@ -22,6 +22,7 @@
  */
 
 import {
+  MCP_SOURCE_PRECEDENCE,
   MCPActivationAdmissionService,
   MCPActivationController,
   MCPConnectionSupervisor,
@@ -30,6 +31,7 @@ import {
   createDiscoveredTool,
   createStdioAdapter,
   createStreamableHttpAdapter,
+  isBlockedByManagedFailure,
   openMcpSession,
 } from '@robota-sdk/agent-mcp';
 import { DEFAULT_TOOL_RESULT_HARD_CHARS, FunctionTool } from '@robota-sdk/agent-core';
@@ -52,6 +54,7 @@ import type {
   IMCPTimeouts,
   IMCPToolCallResult,
   IMCPTransportAdapter,
+  TMCPDefinitionSource,
   TMCPExternalEventListener,
 } from '@robota-sdk/agent-mcp';
 import type {
@@ -164,8 +167,9 @@ export interface IMcpClientComposition {
   subscribeExternalEvent(
     serverId: string,
     listener: TMCPExternalEventListener,
-  ): { readonly ok: true; readonly unsubscribe: () => void } |
-    { readonly ok: false; readonly reason: string };
+  ):
+    | { readonly ok: true; readonly unsubscribe: () => void }
+    | { readonly ok: false; readonly reason: string };
   /** Closes every supervisor opened by `connect`, cancelling their armed timers. */
   shutdown(): Promise<void>;
   /**
@@ -193,9 +197,27 @@ export interface IMcpServerConnection {
   onExternalEvent?(listener: TMCPExternalEventListener): () => void;
 }
 
-/** Narrows a source-scoped `IMCPDefinitionProblem` (`name === ''`) to the command layer's port shape. */
-function toCommandSourceProblem(problem: IMCPDefinitionProblem): ICommandMCPSourceProblem {
-  return { source: problem.source, origin: problem.origin, reason: problem.reason };
+/**
+ * Narrows a source-scoped `IMCPDefinitionProblem` (`name === ''`) to the command layer's port shape.
+ *
+ * `blockedServerNames` (PR #3076 review): a MANAGED-tier problem is the one case where
+ * `resolveByPrecedence` also blocked lower-tier entries — those names would otherwise vanish from
+ * `/mcp status` with no explanation, since `MCPActivationController.list()` only ever offers resolved
+ * candidates. `managedTier` is a parameter (not re-imported from `@robota-sdk/agent-mcp` here) so the
+ * caller passes the SAME `MCP_SOURCE_PRECEDENCE[0]` it already resolved once, rather than this
+ * function re-deriving the tier name from a second import.
+ */
+function toCommandSourceProblem(
+  problem: IMCPDefinitionProblem,
+  managedTier: TMCPDefinitionSource,
+  blockedServerNames: readonly string[],
+): ICommandMCPSourceProblem {
+  return {
+    source: problem.source,
+    origin: problem.origin,
+    reason: problem.reason,
+    blockedServerNames: problem.source === managedTier ? blockedServerNames : [],
+  };
 }
 
 /** Narrows `agent-mcp`'s internal activation summary to the command layer's secret-free port shape. */
@@ -351,10 +373,23 @@ async function connectOneServer(
 function buildActivationAdapter(
   controller: MCPActivationController,
   sourceProblems: readonly IMCPDefinitionProblem[],
+  resolvedEntries: readonly IMCPResolvedEntry[],
 ): ICommandMCPActivationAdapter {
+  const managedTier = MCP_SOURCE_PRECEDENCE[0];
   return {
     list: () => controller.list().map(toCommandSummary),
-    sourceProblems: () => sourceProblems.map(toCommandSourceProblem),
+    sourceProblems: () => {
+      // Recomputed on each call rather than captured once: `resolvedEntries` is this composition's
+      // input for its whole lifetime (MCP-002 does not mutate it), so this is only ever the same
+      // list — but reading it lazily here, beside `controller.list()` above, keeps both projections
+      // built the same way (on read) rather than one eager and one lazy for no reason.
+      const blockedServerNames = resolvedEntries
+        .filter(isBlockedByManagedFailure)
+        .map((entry) => entry.name);
+      return sourceProblems.map((problem) =>
+        toCommandSourceProblem(problem, managedTier, blockedServerNames),
+      );
+    },
     approve: (serverId) => toCommandSummary(controller.approve(serverId)),
     reject: (serverId) => toCommandSummary(controller.reject(serverId)),
     revoke: (serverId) => toCommandSummary(controller.revoke(serverId)),
@@ -398,7 +433,11 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   });
   const admission = new MCPActivationAdmissionService(deps.approvalStore, deps.now);
   const controller = new MCPActivationController(registry, admission, registry.displayNames());
-  const activationAdapter = buildActivationAdapter(controller, deps.sourceProblems ?? []);
+  const activationAdapter = buildActivationAdapter(
+    controller,
+    deps.sourceProblems ?? [],
+    deps.resolvedEntries,
+  );
 
   const openConnections: IMcpServerConnection[] = [];
   const connectedByServerId = new Map<string, IMcpServerConnection>();

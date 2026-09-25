@@ -101,7 +101,11 @@ describe('executeMCPActivationCommand', () => {
     const adapter: ICommandMCPActivationAdapter = {
       list: () => [entry],
       sourceProblems: () => [
-        { source: 'managed', origin: 'policy.json', reason: 'the configuration root is not an object' },
+        {
+          source: 'managed',
+          origin: 'policy.json',
+          reason: 'the configuration root is not an object',
+        },
       ],
       approve: async () => entry,
       reject: async () => entry,
@@ -119,9 +123,60 @@ describe('executeMCPActivationCommand', () => {
     expect(result.message).toContain('the configuration root is not an object');
     expect(result.data).toMatchObject({
       sourceProblems: [
-        { source: 'managed', origin: 'policy.json', reason: 'the configuration root is not an object' },
+        {
+          source: 'managed',
+          origin: 'policy.json',
+          reason: 'the configuration root is not an object',
+        },
       ],
     });
+  });
+
+  // PR #3076 re-review: a managed-tier source problem also blocks every lower-tier server that would
+  // otherwise have resolved (`agent-mcp`'s `resolveByPrecedence`) — those names never appear in
+  // `list()` (an `unresolved` entry is never an activation candidate), so this line is the ONLY place
+  // `/mcp status` can say a lower-tier server exists at all and why it is not active.
+  it('states that lower-tier servers are blocked, listing their names, for a managed source problem', async () => {
+    const adapter: ICommandMCPActivationAdapter = {
+      list: () => [],
+      sourceProblems: () => [
+        {
+          source: 'managed',
+          origin: 'policy.json',
+          reason: 'the configuration root is not an object',
+          blockedServerNames: ['weather', 'search'],
+        },
+      ],
+      approve: async () => summary(),
+      reject: async () => summary(),
+      revoke: async () => summary(),
+    };
+
+    const result = await executeMCPActivationCommand(context(adapter), 'status');
+
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('managed');
+    expect(result.message).toContain('policy.json');
+    expect(result.message).toMatch(/blocked/i);
+    expect(result.message).toContain('weather');
+    expect(result.message).toContain('search');
+  });
+
+  it('says nothing extra about blocking for a source problem with no blocked servers', async () => {
+    const adapter: ICommandMCPActivationAdapter = {
+      list: () => [],
+      sourceProblems: () => [
+        { source: 'user', origin: 'settings.json', reason: '`mcpServers` is not an object' },
+      ],
+      approve: async () => summary(),
+      reject: async () => summary(),
+      revoke: async () => summary(),
+    };
+
+    const result = await executeMCPActivationCommand(context(adapter), 'status');
+
+    expect(result.success).toBe(true);
+    expect(result.message).not.toMatch(/blocked/i);
   });
 
   it('reports a source problem even when nothing resolved at all', async () => {
