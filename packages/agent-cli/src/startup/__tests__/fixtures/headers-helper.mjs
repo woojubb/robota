@@ -1,12 +1,17 @@
 // A header helper for tests. The first argument picks the behaviour.
 import { spawn } from 'node:child_process';
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 
 const mode = process.argv[2] ?? 'ok';
 
 if (mode === 'ok') {
   // Counts its runs in its cwd, so a test can tell a cached header from a fresh one.
-  const count = existsSync('runs') ? Number(readFileSync('runs', 'utf8')) + 1 : 1;
+  let count = 1;
+  try {
+    count = Number(readFileSync('runs', 'utf8')) + 1;
+  } catch (error) {
+    if (error.code !== 'ENOENT') throw error;
+  }
   writeFileSync('runs', String(count));
   process.stderr.write('stderr-secret-text\n');
   process.stdout.write(
