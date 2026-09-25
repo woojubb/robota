@@ -67,6 +67,7 @@ export type {
   ICommandLocalPeersAdapter,
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
+  ICommandMCPSourceProblem,
   ICommandPresetRegistryAdapter,
   ICommandOutputStyleRegistryAdapter,
   ICommandOutputStyleSummary,

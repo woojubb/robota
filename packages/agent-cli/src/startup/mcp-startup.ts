@@ -118,7 +118,10 @@ async function inspectRealWorkspaceTrust(
 export async function composeMcpClientForStartup(
   input: IComposeMcpClientForStartupInput,
 ): Promise<IMcpStartupComposition> {
-  const { entries, problems } = resolveMcpDefinitions(input.settingsSources, input.env);
+  const { entries, problems, sourceProblems } = resolveMcpDefinitions(
+    input.settingsSources,
+    input.env,
+  );
   for (const problem of problems) {
     input.reportDiagnostic(
       `MCP definition "${problem.name}" from ${problem.source} (${problem.origin}) was refused: ${problem.reason}`,
@@ -157,6 +160,7 @@ export async function composeMcpClientForStartup(
 
   const mcp = createMcpClientComposition({
     resolvedEntries: entries,
+    sourceProblems,
     workspace,
     clientInfo: { name: 'robota-agent-mcp', version: '0.0.0' },
     ...(input.stdioAuthorities === undefined ? {} : { stdioAuthorities: input.stdioAuthorities }),

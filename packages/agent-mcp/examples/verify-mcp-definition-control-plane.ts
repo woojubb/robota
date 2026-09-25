@@ -41,6 +41,8 @@ function source(
  * - `beta`'s highest-precedence entry (local) is MALFORMED — it carries a `url` with no `type`.
  *   It must resolve `unresolved` and still shadow the user entry rather than falling through.
  * - `alpha`'s managed entry references `${MISSING_TOKEN}`, which is unset and has no default.
+ * - A second managed source (`policy-2.json`) is entirely unreadable (`mcpServers` is not an
+ *   object) — a source-level problem (issue #2794) that names no server and must not vanish.
  */
 const SOURCES: readonly IMCPSourceCandidates[] = [
   source('plugin', 'plugin-a', { alpha: { type: 'http', url: 'https://plugin.example/mcp' } }),
@@ -61,6 +63,11 @@ const SOURCES: readonly IMCPSourceCandidates[] = [
       env: { API_KEY: 'sk-live-do-not-print' },
     },
   }),
+  {
+    source: 'managed',
+    origin: 'policy-2.json',
+    ...decodeSource({ mcpServers: 'not an object' }, 'managed', 'policy-2.json'),
+  },
 ];
 
 function run(): void {
@@ -77,7 +84,7 @@ function run(): void {
     throw new Error(`the control plane called fetch(${String(args[0])})`);
   }) as unknown as typeof globalThis.fetch;
 
-  const entries = resolveByPrecedence(SOURCES, (definition: IMCPServerDefinition) =>
+  const { entries, sourceProblems } = resolveByPrecedence(SOURCES, (definition: IMCPServerDefinition) =>
     materializeDefinition(definition, { HOME: process.env['HOME'] ?? '' }),
   );
   const overlaid = applyDisableOverlay(entries, {});
@@ -110,7 +117,14 @@ function run(): void {
     'the unset reference was not preserved literally',
   );
 
-  const listed = listServers(overlaid);
+  assertCondition(
+    sourceProblems.length === 1 &&
+      sourceProblems[0]?.source === 'managed' &&
+      sourceProblems[0]?.origin === 'policy-2.json',
+    'the unreadable second managed source did not surface as a source problem',
+  );
+
+  const listed = listServers(overlaid, sourceProblems);
   const rendered = JSON.stringify(listed);
   assertCondition(!rendered.includes('sk-live-do-not-print'), 'a secret survived the projection');
   assertCondition(
@@ -128,8 +142,12 @@ function run(): void {
 
   const got = getServer(overlaid, 'nope');
   assertCondition(got.found === false, 'an unknown server was reported as found');
-  const status = statusOf(overlaid);
+  const status = statusOf(overlaid, sourceProblems);
   assertCondition(status.total === 2 && status.unresolved === 1, 'the status counts are wrong');
+  assertCondition(
+    status.sourceProblems.length === 1 && listed.sourceProblems.length === 1,
+    'the unreadable managed source did not reach statusOf/listServers',
+  );
 
   // The registry the activation controller enumerates: only resolved, enabled entries.
   const requests = new MCPDefinitionRegistry(overlaid).list();

@@ -60,6 +60,24 @@ function rankOf(source: TMCPDefinitionSource): number {
 }
 
 /**
+ * Everything one call to `resolveByPrecedence` produced: the per-name resolution `IMCPResolvedEntry`
+ * already carried, plus every problem that named no server at all.
+ *
+ * A source-level problem (`IMCPDefinitionProblem` with `name === ''`) is the SAME problem type a
+ * server-level entry carries — one type, one scope field distinguishes them — but it cannot become
+ * an `IMCPResolvedEntry` because that shape is keyed by server name. `sourceProblems` is that
+ * problem's carrier: without it, an entirely unreadable managed policy (config root not an object,
+ * no `mcpServers`, `mcpServers` not an object) vanished here with a `continue` and reached
+ * `statusOf`/`listServers` as if nothing had gone wrong (issue #2794) — the highest-trust source
+ * failing open in exactly the case where the operator most needs it to fail closed.
+ */
+export interface IMCPPrecedenceResult {
+  readonly entries: readonly IMCPResolvedEntry[];
+  /** Every problem with `name === ''` across all sources, in source order. Never filtered by rank. */
+  readonly sourceProblems: readonly IMCPDefinitionProblem[];
+}
+
+/**
  * Resolve every server name across the supplied sources.
  *
  * `materialize` is injected rather than imported so this module stays about ORDER. The caller
@@ -69,8 +87,9 @@ function rankOf(source: TMCPDefinitionSource): number {
 export function resolveByPrecedence(
   sources: readonly IMCPSourceCandidates[],
   materialize: (definition: IMCPServerDefinition) => IMCPServerDefinitionResolved,
-): readonly IMCPResolvedEntry[] {
+): IMCPPrecedenceResult {
   const byName = new Map<string, ICandidate[]>();
+  const sourceProblems: IMCPDefinitionProblem[] = [];
 
   const add = (name: string, candidate: ICandidate): void => {
     const list = byName.get(name);
@@ -84,14 +103,13 @@ export function resolveByPrecedence(
     }
     for (const problem of source.problems) {
       // A container-level problem has no name — it cannot shadow or be shadowed by a named entry,
-      // so it is not a candidate for any name. This `continue` is correct.
-      //
-      // Contained — BEHAVIOR-2794 (issue #2794). What is NOT correct is where it leaves the
-      // problem: this function returns `IMCPResolvedEntry[]`, which is keyed by server name and has
-      // no source-level channel, so an entirely unreadable managed policy reaches `statusOf` as
-      // `{total: 0, unresolved: 0}` and says nothing at all. Fixing it here would be wrong; the
-      // output type needs the channel, which BEHAVIOR-2794 owns.
-      if (problem.name === '') continue;
+      // so it is not a candidate for any name. It still needs a carrier, though (issue #2794): it
+      // is collected into `sourceProblems` rather than dropped, so a caller building `statusOf`/
+      // `listServers` from this result can say which source could not be read at all.
+      if (problem.name === '') {
+        sourceProblems.push(problem);
+        continue;
+      }
       add(problem.name, { source: source.source, origin: problem.origin, problem });
     }
   }
@@ -127,5 +145,8 @@ export function resolveByPrecedence(
     });
   }
 
-  return entries.sort((a, b) => a.name.localeCompare(b.name));
+  return {
+    entries: entries.sort((a, b) => a.name.localeCompare(b.name)),
+    sourceProblems,
+  };
 }

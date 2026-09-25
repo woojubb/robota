@@ -85,6 +85,29 @@ describe('listServers / getServer / statusOf', () => {
     });
     expect(status.servers).toHaveLength(3);
   });
+
+  // BEHAVIOR-2794 (issue #2794 / #3073): a source-level problem names no server, so it cannot live
+  // inside `entries` — `listServers`/`statusOf` take it as a second, optional argument and carry it
+  // through unfiltered rather than dropping it because there is nowhere in `IMCPResolvedEntry[]` to
+  // put it.
+  it('defaults to no source problems when none are given', () => {
+    expect(listServers(entries).sourceProblems).toEqual([]);
+    expect(statusOf(entries).sourceProblems).toEqual([]);
+  });
+
+  it('carries source-level problems through listServers and statusOf beside resolved servers', () => {
+    const sourceProblems = [
+      { name: '', source: 'managed' as const, origin: 'policy.json', reason: 'unreadable' },
+    ];
+
+    const { servers, sourceProblems: listed } = listServers(entries, sourceProblems);
+    expect(servers).toHaveLength(3); // lower-trust sources still resolve
+    expect(listed).toEqual(sourceProblems);
+
+    const status = statusOf(entries, sourceProblems);
+    expect(status.total).toBe(3);
+    expect(status.sourceProblems).toEqual(sourceProblems);
+  });
 });
 
 describe('MCPDefinitionRegistry', () => {

@@ -42,6 +42,7 @@ import type {
   IMCPCatalog,
   IMCPCatalogInput,
   IMCPConnectionSupervisorOptions,
+  IMCPDefinitionProblem,
   IMCPDiscovery,
   IMCPHttpTransportDeps,
   IMCPResolvedEntry,
@@ -56,6 +57,7 @@ import type {
 import type {
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
+  ICommandMCPSourceProblem,
 } from '@robota-sdk/agent-framework';
 import type {
   IToolResultAdmissionOptions,
@@ -92,6 +94,13 @@ export function buildMcpClientTimeouts(callTimeoutMs: number): IMCPTimeouts {
 export interface IMcpClientCompositionDeps {
   /** MCP-001's resolved definitions — see the module doc for why this is injected, not sourced. */
   readonly resolvedEntries: readonly IMCPResolvedEntry[];
+  /**
+   * Every problem that named no server at all (issue #2794): a config root that is not an object,
+   * no `mcpServers`, `mcpServers` not an object, or a layer that failed to parse. Surfaced through
+   * `activationAdapter.sourceProblems()` so `/mcp status` can say which source could not be read,
+   * beside the servers that did resolve — not only as a one-time startup diagnostic.
+   */
+  readonly sourceProblems?: readonly IMCPDefinitionProblem[];
   /** Repository identity/trust snapshot, passed through to admission unchanged. */
   readonly workspace?: IMCPActivationWorkspace;
   /** Durable approval/audit persistence; defaults to an in-memory store (session-scoped trust). */
@@ -182,6 +191,11 @@ export interface IMcpServerConnection {
   ): Promise<IMCPToolCallResult>;
   shutdown(): Promise<void>;
   onExternalEvent?(listener: TMCPExternalEventListener): () => void;
+}
+
+/** Narrows a source-scoped `IMCPDefinitionProblem` (`name === ''`) to the command layer's port shape. */
+function toCommandSourceProblem(problem: IMCPDefinitionProblem): ICommandMCPSourceProblem {
+  return { source: problem.source, origin: problem.origin, reason: problem.reason };
 }
 
 /** Narrows `agent-mcp`'s internal activation summary to the command layer's secret-free port shape. */
@@ -329,10 +343,18 @@ async function connectOneServer(
  * Composes `@robota-sdk/agent-mcp`'s definition registry, activation controller and per-server
  * connection supervisors into the two things this product needs from MCP-002.
  */
-/** The `/mcp` command port: a thin projection over `MCPActivationController`. */
-function buildActivationAdapter(controller: MCPActivationController): ICommandMCPActivationAdapter {
+/**
+ * The `/mcp` command port: a thin projection over `MCPActivationController`, plus the source-scoped
+ * problems (issue #2794) `MCPActivationController.list()` structurally cannot carry — it is keyed by
+ * server id, and a source-level problem names no server.
+ */
+function buildActivationAdapter(
+  controller: MCPActivationController,
+  sourceProblems: readonly IMCPDefinitionProblem[],
+): ICommandMCPActivationAdapter {
   return {
     list: () => controller.list().map(toCommandSummary),
+    sourceProblems: () => sourceProblems.map(toCommandSourceProblem),
     approve: (serverId) => toCommandSummary(controller.approve(serverId)),
     reject: (serverId) => toCommandSummary(controller.reject(serverId)),
     revoke: (serverId) => toCommandSummary(controller.revoke(serverId)),
@@ -376,7 +398,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   });
   const admission = new MCPActivationAdmissionService(deps.approvalStore, deps.now);
   const controller = new MCPActivationController(registry, admission, registry.displayNames());
-  const activationAdapter = buildActivationAdapter(controller);
+  const activationAdapter = buildActivationAdapter(controller, deps.sourceProblems ?? []);
 
   const openConnections: IMcpServerConnection[] = [];
   const connectedByServerId = new Map<string, IMcpServerConnection>();

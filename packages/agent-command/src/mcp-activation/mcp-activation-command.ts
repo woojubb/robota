@@ -2,6 +2,7 @@ import type {
   ICommandHostAdapterAccess,
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
+  ICommandMCPSourceProblem,
 } from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
@@ -14,6 +15,11 @@ function formatSummary(summary: ICommandMCPActivationSummary): string {
   return `  ${summary.serverId}${label} — ${summary.status} — ${summary.source} — ${summary.reason}`;
 }
 
+/** Issue #2794: a source that produced no server names at all — "which file could not be read". */
+function formatSourceProblem(problem: ICommandMCPSourceProblem): string {
+  return `  ${problem.source} (${problem.origin}) could not be read: ${problem.reason}`;
+}
+
 function listResult(mcp: ICommandMCPActivationAdapter | undefined): ICommandResult {
   if (!mcp) {
     return {
@@ -22,11 +28,29 @@ function listResult(mcp: ICommandMCPActivationAdapter | undefined): ICommandResu
     };
   }
   const entries = mcp.list();
+  // A source-scoped problem (issue #2794) names no server, so it never appears in `entries` — it is
+  // reported beside them rather than folded into the "no servers" branch, which would otherwise say
+  // nothing while a managed policy sits unreadable.
+  const sourceProblems = mcp.sourceProblems?.() ?? [];
+  const sourceProblemLines =
+    sourceProblems.length === 0
+      ? []
+      : [`MCP source problems:\n${sourceProblems.map(formatSourceProblem).join('\n')}`];
+
   if (entries.length === 0) {
-    return { message: 'No MCP definitions are registered.', success: true, data: { servers: [] } };
+    return {
+      message:
+        sourceProblemLines.length === 0
+          ? 'No MCP definitions are registered.'
+          : sourceProblemLines[0]!,
+      success: true,
+      data: { servers: [], sourceProblems },
+    };
   }
   return {
-    message: `MCP activation status:\n${entries.map(formatSummary).join('\n')}`,
+    message: [`MCP activation status:\n${entries.map(formatSummary).join('\n')}`, ...sourceProblemLines].join(
+      '\n\n',
+    ),
     success: true,
     data: {
       servers: entries.map((entry) => ({
@@ -38,6 +62,7 @@ function listResult(mcp: ICommandMCPActivationAdapter | undefined): ICommandResu
         definitionFingerprint: entry.definitionFingerprint,
         securityIdentity: entry.securityIdentity,
       })),
+      sourceProblems,
     },
   };
 }

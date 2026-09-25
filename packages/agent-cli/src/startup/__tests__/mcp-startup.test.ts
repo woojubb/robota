@@ -196,6 +196,52 @@ describe('composeMcpClientForStartup', () => {
     expect(messages).toEqual([]);
   });
 
+  // BEHAVIOR-2794 (issue #2794 / #3073): an unreadable source (here, a user-layer `mcpServers` that
+  // is not an object) must still surface through the LIVE `/mcp` port — not only as a one-time
+  // startup diagnostic — while a lower-precedence, well-formed layer still resolves normally.
+  it('surfaces an unreadable source through activationAdapter.sourceProblems, beside a resolved server', async () => {
+    const cwd = tempRoot('robota-mcp-startup-unreadable-');
+    const userHome = tempRoot('robota-mcp-startup-unreadable-user-');
+    const projectRoot = tempRoot('robota-mcp-startup-unreadable-project-');
+    mkdirSync(join(userHome, '.robota'), { recursive: true });
+    writeFileSync(
+      join(userHome, '.robota', 'settings.json'),
+      JSON.stringify({ mcpServers: 'not an object' }),
+    );
+    mkdirSync(join(projectRoot, '.robota'), { recursive: true });
+    writeFileSync(
+      join(projectRoot, '.robota', 'settings.json'),
+      JSON.stringify({
+        mcpServers: { weather: { type: 'http', url: 'https://mcp.example.com/weather' } },
+      }),
+    );
+
+    const { reportDiagnostic } = diagnosticsSink();
+
+    const mcp = await composeMcpClientForStartup({
+      settingsSources: [
+        ...createRobotaUserSettingsSources(userHome),
+        ...(await trustedProjectSettingsSources(projectRoot)),
+      ],
+      projectAccess: await trustedAccessFor(projectRoot),
+      cwd: projectRoot,
+      env: process.env,
+      mode: 'interactive',
+      reportDiagnostic,
+      inspectTrust: async () => ({ state: 'trusted', generation: 1 }),
+    });
+
+    const list = mcp.activationAdapter.list();
+    expect(list.map((summary) => summary.serverId)).toContain('weather');
+
+    const sourceProblems = mcp.activationAdapter.sourceProblems?.() ?? [];
+    expect(sourceProblems).toHaveLength(1);
+    expect(sourceProblems[0]).toMatchObject({
+      source: 'user',
+      reason: '`mcpServers` is not an object',
+    });
+  });
+
   it('refuses a project-source definition under restricted (untrusted) workspace access', async () => {
     const projectRoot = tempRoot('robota-mcp-startup-project-');
     mkdirSync(join(projectRoot, '.robota'), { recursive: true });

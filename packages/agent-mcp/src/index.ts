@@ -25,6 +25,7 @@ export { materializeDefinition, type IMCPEnvironment } from './definition/env-te
 export {
   MCP_SOURCE_PRECEDENCE,
   resolveByPrecedence,
+  type IMCPPrecedenceResult,
   type IMCPSourceCandidates,
 } from './definition/precedence.js';
 export {

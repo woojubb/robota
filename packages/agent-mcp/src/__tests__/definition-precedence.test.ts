@@ -49,7 +49,7 @@ describe('resolveByPrecedence', () => {
   });
 
   it('takes the highest-precedence entry whole and records every entry it shadowed', () => {
-    const entries = resolveByPrecedence(
+    const { entries } = resolveByPrecedence(
       [
         source('plugin', { alpha: http('https://plugin.example') }),
         source('user', { alpha: http('https://user.example') }),
@@ -76,7 +76,7 @@ describe('resolveByPrecedence', () => {
     // The managed entry has no headers. If anything merged, the user entry's header would appear
     // on the winner — which is how a lower-trust source gets to add an Authorization header to a
     // definition the operator believes is managed.
-    const entries = resolveByPrecedence(
+    const { entries } = resolveByPrecedence(
       [
         source('user', { alpha: http('https://user.example', { Authorization: 'Bearer user' }) }),
         source('managed', { alpha: http('https://managed.example') }),
@@ -91,7 +91,7 @@ describe('resolveByPrecedence', () => {
   it('keeps a malformed higher-precedence winner unresolved AND still shadowing', () => {
     // The managed entry names no transport, so it cannot be decoded. The lower entry must NOT
     // take over: a broken managed policy replaced by a plugin definition is failing open.
-    const entries = resolveByPrecedence(
+    const { entries } = resolveByPrecedence(
       [
         source('plugin', { beta: http('https://plugin.example') }),
         source('managed', { beta: { url: 'https://managed.example' } }),
@@ -108,7 +108,7 @@ describe('resolveByPrecedence', () => {
   });
 
   it('resolves each name independently', () => {
-    const entries = resolveByPrecedence(
+    const { entries } = resolveByPrecedence(
       [
         source('plugin', {
           alpha: http('https://plugin.example'),
@@ -128,7 +128,7 @@ describe('resolveByPrecedence', () => {
   it('ignores a container-level problem when choosing a winner', () => {
     // A whole file that is not an object produces a nameless problem. It must not shadow a real
     // entry from a lower source, because it names no server to shadow.
-    const entries = resolveByPrecedence(
+    const { entries } = resolveByPrecedence(
       [
         source('user', { alpha: http('https://user.example') }),
         {
@@ -143,5 +143,83 @@ describe('resolveByPrecedence', () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]!.source).toBe('user');
     expect(entries[0]!.shadowed).toEqual([]);
+  });
+
+  // BEHAVIOR-2794 (issue #2794 / #3073): a container-level problem has no name, so it cannot become
+  // an `IMCPResolvedEntry` — but it must not simply vanish either. Before this carrier existed,
+  // `resolveByPrecedence` returned only `IMCPResolvedEntry[]` and `continue`d past these problems,
+  // so an entirely unreadable managed policy reached `statusOf` as `{total: 0, unresolved: 0}` while
+  // lower-trust sources resolved normally — the highest-trust source failing open exactly where the
+  // operator most needs it to fail closed.
+  it('surfaces an unreadable managed source as a source-level problem, never silently', () => {
+    const { entries, sourceProblems } = resolveByPrecedence(
+      [
+        {
+          source: 'managed',
+          origin: 'policy.json',
+          ...decodeSource('not an object', 'managed', 'policy.json'),
+        },
+      ],
+      noTemplates,
+    );
+
+    expect(entries).toEqual([]);
+    expect(sourceProblems).toHaveLength(1);
+    expect(sourceProblems[0]).toMatchObject({
+      name: '',
+      source: 'managed',
+      origin: 'policy.json',
+      reason: 'the configuration root is not an object',
+    });
+  });
+
+  it('still resolves a lower-trust source while a higher-trust source is entirely unreadable', () => {
+    const { entries, sourceProblems } = resolveByPrecedence(
+      [
+        source('user', { alpha: http('https://user.example') }),
+        {
+          source: 'managed',
+          origin: 'policy.json',
+          ...decodeSource({ mcpServers: 'not an object' }, 'managed', 'policy.json'),
+        },
+      ],
+      noTemplates,
+    );
+
+    expect(entries).toHaveLength(1);
+    expect(entries[0]!.name).toBe('alpha');
+    expect(entries[0]!.source).toBe('user');
+    expect(sourceProblems).toEqual([
+      {
+        name: '',
+        source: 'managed',
+        origin: 'policy.json',
+        reason: '`mcpServers` is not an object',
+      },
+    ]);
+  });
+
+  it('collects every source-scoped problem across sources, none shadowing or being shadowed', () => {
+    const { sourceProblems } = resolveByPrecedence(
+      [
+        {
+          source: 'managed',
+          origin: 'policy.json',
+          ...decodeSource('not an object', 'managed', 'policy.json'),
+        },
+        {
+          source: 'project',
+          origin: '.mcp.json',
+          ...decodeSource({}, 'project', '.mcp.json'),
+        },
+      ],
+      noTemplates,
+    );
+
+    expect(sourceProblems.map((problem) => problem.origin)).toEqual(['policy.json', '.mcp.json']);
+    expect(sourceProblems.map((problem) => problem.reason)).toEqual([
+      'the configuration root is not an object',
+      'no `mcpServers` key',
+    ]);
   });
 });

@@ -28,10 +28,18 @@ import type {
 } from '@robota-sdk/agent-mcp';
 
 /** What sourcing produced: the entries `MCPDefinitionRegistry` can resolve, and everything that
- * kept a source or an entry from contributing — reported, never silently dropped. */
+ * kept a source or an entry from contributing — reported, never silently dropped.
+ *
+ * `problems` is every refused entry AND every source-level problem, for the one-line-per-problem
+ * startup diagnostic (`mcp-startup.ts`). `sourceProblems` is the source-scoped subset alone
+ * (`resolveByPrecedence`'s carrier for issue #2794: a config root that is not an object, no
+ * `mcpServers`, `mcpServers` not an object, or invalid JSON) — kept separate so a LIVE view (the
+ * `/mcp` command) can say which source could not be read without re-deriving it from `problems` by
+ * an empty-name convention. */
 export interface IMcpDefinitionResolution {
   readonly entries: readonly IMCPResolvedEntry[];
   readonly problems: readonly IMCPDefinitionProblem[];
+  readonly sourceProblems: readonly IMCPDefinitionProblem[];
 }
 
 /**
@@ -79,11 +87,12 @@ function candidatesOf(
   try {
     parsed = JSON.parse(text);
   } catch (error) {
-    // allow-fallback: a corrupt settings file is reported as a named problem, never treated as "no
-    // MCP servers configured" — the parse error is used (`reason`), not dropped.
+    // allow-fallback: a corrupt settings file is reported as a source-scoped problem (`name: ''`,
+    // the same convention `decodeSource` uses for a container-level problem — issue #2794), never
+    // treated as "no MCP servers configured" — the parse error is used (`reason`), not dropped.
     const message = error instanceof Error ? error.message : String(error);
     return {
-      name: '*',
+      name: '',
       source: definitionSource,
       origin,
       reason: `invalid JSON: ${message}`,
@@ -120,6 +129,10 @@ export function resolveMcpDefinitions(
 ): IMcpDefinitionResolution {
   const candidates: IMCPSourceCandidates[] = [];
   const problems: IMCPDefinitionProblem[] = [];
+  // A source whose text failed to parse as JSON never becomes an `IMCPSourceCandidates` (there is
+  // no container to decode), so it never reaches `resolveByPrecedence` and must be collected here
+  // directly rather than read back out of its `sourceProblems`.
+  const parseFailures: IMCPDefinitionProblem[] = [];
 
   for (const source of settingsSources) {
     const result = candidatesOf(source);
@@ -129,11 +142,12 @@ export function resolveMcpDefinitions(
       problems.push(...result.problems);
     } else {
       problems.push(result);
+      parseFailures.push(result);
     }
   }
 
-  const entries = resolveByPrecedence(candidates, (definition) =>
+  const { entries, sourceProblems } = resolveByPrecedence(candidates, (definition) =>
     materializeDefinition(definition, env),
   );
-  return { entries, problems };
+  return { entries, problems, sourceProblems: [...parseFailures, ...sourceProblems] };
 }

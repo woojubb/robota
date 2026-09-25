@@ -91,4 +91,70 @@ describe('executeMCPActivationCommand', () => {
       /not available/i,
     );
   });
+
+  // BEHAVIOR-2794 (issue #2794 / #3073): a source-level problem (an unreadable managed policy, a
+  // config root that is not an object, no `mcpServers`) names no server, so it never appears in
+  // `list()`. Before `sourceProblems()` existed on the adapter, `/mcp status` had no way to say an
+  // entire source could not be read — it just said nothing beyond whatever DID resolve.
+  it('states which source could not be read, beside the servers that did resolve', async () => {
+    const entry = summary();
+    const adapter: ICommandMCPActivationAdapter = {
+      list: () => [entry],
+      sourceProblems: () => [
+        { source: 'managed', origin: 'policy.json', reason: 'the configuration root is not an object' },
+      ],
+      approve: async () => entry,
+      reject: async () => entry,
+      revoke: async () => entry,
+    };
+
+    const result = await executeMCPActivationCommand(context(adapter), 'status');
+
+    expect(result.success).toBe(true);
+    // The resolved server is still reported...
+    expect(result.message).toContain('server-1');
+    // ...beside the source that could not be read at all.
+    expect(result.message).toContain('managed');
+    expect(result.message).toContain('policy.json');
+    expect(result.message).toContain('the configuration root is not an object');
+    expect(result.data).toMatchObject({
+      sourceProblems: [
+        { source: 'managed', origin: 'policy.json', reason: 'the configuration root is not an object' },
+      ],
+    });
+  });
+
+  it('reports a source problem even when nothing resolved at all', async () => {
+    const adapter: ICommandMCPActivationAdapter = {
+      list: () => [],
+      sourceProblems: () => [
+        { source: 'managed', origin: 'policy.json', reason: 'no `mcpServers` key' },
+      ],
+      approve: async () => summary(),
+      reject: async () => summary(),
+      revoke: async () => summary(),
+    };
+
+    const result = await executeMCPActivationCommand(context(adapter), 'status');
+
+    expect(result.success).toBe(true);
+    expect(result.message).not.toMatch(/no mcp definitions are registered/i);
+    expect(result.message).toContain('managed');
+    expect(result.message).toContain('policy.json');
+  });
+
+  it('treats a missing sourceProblems() the same as none, for an older adapter', async () => {
+    const entry = summary();
+    const adapter: ICommandMCPActivationAdapter = {
+      list: () => [entry],
+      approve: async () => entry,
+      reject: async () => entry,
+      revoke: async () => entry,
+    };
+
+    const result = await executeMCPActivationCommand(context(adapter), 'status');
+
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('server-1');
+  });
 });

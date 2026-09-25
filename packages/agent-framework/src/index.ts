@@ -184,6 +184,7 @@ export type {
   ICommandPermissionModeAdapter,
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
+  ICommandMCPSourceProblem,
   ICommandOutputStyleRegistryAdapter,
   ICommandOutputStyleSummary,
   ICommandRemoteControlAdapter,
