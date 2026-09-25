@@ -29,6 +29,7 @@ import { buildMcpClientTimeouts, createMcpClientComposition } from './mcp-client
 import { resolveMcpDefinitions } from './mcp-definition-sources.js';
 import { resolveMcpHeaderHelperAllowlist } from './mcp-header-helper-allowlist.js';
 import { headersHelperEnvironment, runHeadersHelper } from './mcp-headers-helper-runner.js';
+import { createMcpOAuthHost } from './mcp-oauth-host.js';
 import { resolveMcpSettings } from './mcp-settings.js';
 import { toMcpActivationWorkspace } from './mcp-workspace.js';
 
@@ -225,6 +226,20 @@ export async function composeMcpClientForStartup(
     ...(input.approvalStore === undefined ? {} : { approvalStore: input.approvalStore }),
     ...(input.httpTransportDeps === undefined ? {} : { transport: input.httpTransportDeps }),
     headersHelpers,
+    oauth: createMcpOAuthHost({
+      network: {
+        ...(input.httpTransportDeps?.policy === undefined
+          ? {}
+          : { policy: input.httpTransportDeps.policy }),
+        ...(input.httpTransportDeps?.lookup === undefined
+          ? {}
+          : { lookup: input.httpTransportDeps.lookup }),
+        ...(input.httpTransportDeps?.fetch === undefined
+          ? {}
+          : { fetch: input.httpTransportDeps.fetch }),
+      },
+      reportDiagnostic: input.reportDiagnostic,
+    }),
     timeouts: buildMcpClientTimeouts(settings.callTimeoutMs),
     createResultSpillStore: () =>
       createNodeToolResultSpillStore({

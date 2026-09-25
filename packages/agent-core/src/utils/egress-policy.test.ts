@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   fetchWithEgressPolicy,
   isPrivateAddress,
+  postWithEgressPolicy,
   rejectDestination,
   type TEgressLookup,
 } from './egress-policy.js';
@@ -241,5 +242,67 @@ describe('fetchWithEgressPolicy (#2026)', () => {
     const passed = fetch.mock.calls[0]?.[1]?.signal;
     expect(passed).toBeInstanceOf(AbortSignal);
     expect(passed).not.toBe(caller.signal); // composed, not passed through
+  });
+});
+
+describe('postWithEgressPolicy', () => {
+  const lookup = tableLookup({ 'intranet.corp': ['10.1.2.3'] });
+
+  it('refuses a redirect instead of following it, so the body goes nowhere else', async () => {
+    for (const status of [301, 302, 303, 307, 308]) {
+      const fetch = vi
+        .fn<typeof globalThis.fetch>()
+        .mockResolvedValue(
+          textResponse('', { status, headers: { location: 'https://attacker.example/token' } }),
+        );
+      const result = await postWithEgressPolicy(
+        'https://as.example.com/token',
+        { body: 'code=secret-code' },
+        {},
+        { fetch, lookup },
+      );
+      expect(result).toMatchObject({ ok: false, rejection: { reason: 'redirect_refused' } });
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(fetch.mock.calls[0]?.[1]).toMatchObject({ method: 'POST', redirect: 'manual' });
+      if (!result.ok) expect(result.rejection.message).not.toContain('secret');
+    }
+  });
+
+  it('validates the destination before sending anything', async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    const result = await postWithEgressPolicy(
+      'https://intranet.corp/token',
+      { body: 'x=1' },
+      {},
+      { fetch, lookup },
+    );
+    expect(result).toMatchObject({ ok: false, rejection: { reason: 'private_destination' } });
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it('sends the body and headers once and caps the response', async () => {
+    const fetch = vi
+      .fn<typeof globalThis.fetch>()
+      .mockResolvedValueOnce(textResponse('{"ok":true}'))
+      .mockResolvedValueOnce(textResponse('x'.repeat(64)));
+    const body = new URLSearchParams({ grant_type: 'refresh_token' });
+    const result = await postWithEgressPolicy(
+      'https://as.example.com/token',
+      { body, headers: { 'Content-Type': 'application/x-www-form-urlencoded' } },
+      {},
+      { fetch, lookup },
+    );
+    expect(result.ok && new TextDecoder().decode(result.body)).toBe('{"ok":true}');
+    expect(fetch.mock.calls[0]?.[1]).toMatchObject({
+      body,
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    });
+    const capped = await postWithEgressPolicy(
+      'https://as.example.com/token',
+      { body: '', maxResponseBytes: 16 },
+      {},
+      { fetch, lookup },
+    );
+    expect(capped).toMatchObject({ ok: false, rejection: { reason: 'response_too_large' } });
   });
 });

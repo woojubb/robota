@@ -472,6 +472,63 @@ describe('remote server authentication', () => {
   });
 });
 
+describe('OAuth remote servers', () => {
+  const oauthEntries = () => [resolvedEntry({ definition: definition({ oauth: {} }) })];
+
+  it('refuses an oauth server when the host offers no OAuth, never connecting without it', async () => {
+    const entries = oauthEntries();
+    const diagnostics = diagnosticsSink();
+    let supervisorConstructed = false;
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore: approvedApprovalStore(entries),
+      authenticatorFor: () => ({
+        authorize: async () => ({ authorization: 'Bearer static' }),
+        onRejected: async () => 'fail' as const,
+      }),
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: () => {
+        supervisorConstructed = true;
+        throw new Error('unreachable');
+      },
+      reportDiagnostic: diagnostics.reportDiagnostic,
+    });
+    expect(await composition.connect()).toEqual([]);
+    expect(supervisorConstructed).toBe(false);
+    expect(diagnostics.messages.join('\n')).toContain('oauth-unavailable');
+    await composition.shutdown();
+  });
+
+  it('builds one OAuth authenticator per server for the composition, closed at shutdown', async () => {
+    const entries = oauthEntries();
+    const { connection } = fakeConnection(discoveryWithOneTool());
+    const close = vi.fn();
+    const authenticatorFor = vi.fn(() => ({
+      authorize: async () => ({ Authorization: 'Bearer t' }),
+      onRejected: async () => 'fail' as const,
+      close,
+    }));
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore: approvedApprovalStore(entries),
+      oauth: { authenticatorFor },
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: () => connection,
+      reportDiagnostic: diagnosticsSink().reportDiagnostic,
+    });
+    await composition.connect();
+    await composition.connect();
+    expect(authenticatorFor).toHaveBeenCalledOnce();
+    expect(authenticatorFor).toHaveBeenCalledWith(
+      expect.objectContaining({ serverId: 'weather' }),
+      expect.objectContaining({ oauth: {} }),
+    );
+    expect(close).not.toHaveBeenCalled();
+    await composition.shutdown();
+    expect(close).toHaveBeenCalledOnce();
+  });
+});
+
 describe('stdio client host authority (MCP-2522)', () => {
   const roots: string[] = [];
   afterEach(() => {

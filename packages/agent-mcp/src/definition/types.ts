@@ -47,6 +47,20 @@ export interface IMCPHeadersHelper {
   readonly args: readonly string[];
 }
 
+/**
+ * How a remote server's OAuth sign-in is configured. Every field is optional: a server that
+ * publishes its metadata and accepts dynamic client registration needs none of them.
+ */
+export interface IMCPOAuthConfig {
+  /** A pre-registered client; its redirect URI is fixed, so `callbackPort` is then required. */
+  readonly clientId?: string;
+  readonly callbackPort?: number;
+  /** An `https` authorization server metadata URL, used instead of discovering it. */
+  readonly authServerMetadataUrl?: string;
+  /** Requested instead of whatever the server's metadata advertises. */
+  readonly scopes?: readonly string[];
+}
+
 /** A raw entry that decoded cleanly. Environment templates are NOT yet materialized. */
 export interface IMCPServerDefinition {
   readonly name: string;
@@ -62,7 +76,9 @@ export interface IMCPServerDefinition {
   readonly timeout?: number;
   /** A remote server's dynamic header helper; it runs only under host authority. */
   readonly headersHelper?: IMCPHeadersHelper;
-  /** Authentication the entry declares (`oauth`) that this version cannot perform. */
+  /** A remote server whose credential is obtained by OAuth sign-in. */
+  readonly oauth?: IMCPOAuthConfig;
+  /** Authentication the entry declares that this version cannot perform. */
   readonly unsupportedAuthentication?: readonly string[];
 }
 

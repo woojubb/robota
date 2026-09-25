@@ -189,25 +189,32 @@ describe('authentication on the connect path', () => {
 });
 
 describe('declared but unsupported authentication', () => {
-  it('decodes `oauth` so the server stays listed, and refuses to admit it', async () => {
+  it('decodes `oauth` as supported authentication, not as an unsupported one', () => {
     const decoded = decodeEntry({
       name: 'gamma',
       source: 'project',
       origin: '.mcp.json',
-      entry: { type: 'http', url: 'https://mcp.example.test/mcp', oauth: { clientId: 'x' } },
+      entry: {
+        type: 'http',
+        url: 'https://mcp.example.test/mcp',
+        oauth: { clientId: 'x', callbackPort: 8765 },
+      },
     });
     if ('reason' in decoded) throw new Error(decoded.reason);
-    expect(decoded.unsupportedAuthentication).toEqual(['oauth']);
+    expect(decoded.unsupportedAuthentication).toBeUndefined();
+    expect(decoded.oauth).toEqual({ clientId: 'x', callbackPort: 8765 });
+  });
 
+  it('refuses to admit a server whose declared authentication is unsupported', async () => {
     const adapter = createStreamableHttpAdapter({ lookup });
     const admission = await adapter.admit({
       url: 'https://mcp.example.test/mcp',
-      unsupportedAuthentication: ['oauth'],
+      unsupportedAuthentication: ['future-scheme'],
     });
     expect(admission.ok).toBe(false);
     if (admission.ok) return;
     expect(admission.reason).toBe('unsupported-authentication');
-    expect(admission.message).toContain('oauth');
+    expect(admission.message).toContain('future-scheme');
   });
 
   it('is a definition problem on a stdio server, where it could mean nothing', () => {

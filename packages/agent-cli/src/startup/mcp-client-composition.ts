@@ -106,6 +106,22 @@ export interface IMcpHeadersHelperInvocation {
   readonly helper: IMCPHeadersHelper;
 }
 
+/**
+ * The host's OAuth: an authenticator for a server whose definition declares `oauth`, sending the
+ * tokens `robota mcp login` stored for it. Absent, every such definition is refused.
+ */
+export interface IMcpOAuthHost {
+  authenticatorFor(
+    request: IMCPActivationRequest,
+    definition: IMCPServerDefinitionResolved,
+  ): IMcpClosableAuthenticator;
+}
+
+/** An authenticator this composition closes at shutdown. */
+export interface IMcpClosableAuthenticator extends IMCPClientAuthenticator {
+  close(): void;
+}
+
 /** The host's authority over header helpers: which exact command lines it allows, and how it runs one. */
 export interface IMcpHeadersHelperHost {
   readonly allowed: readonly IMCPHeadersHelper[];
@@ -146,6 +162,8 @@ export interface IMcpClientCompositionDeps {
    * a helper is refused; a helper is never replaced by the definition's static headers alone.
    */
   readonly headersHelpers?: IMcpHeadersHelperHost;
+  /** OAuth, host-owned; a definition's `oauth` only asks for it. */
+  readonly oauth?: IMcpOAuthHost;
   readonly clientInfo?: { readonly name: string; readonly version: string };
   /** Created only for the first overflow and owned through this composition's shutdown. */
   readonly createResultSpillStore?: () => IToolResultSpillStore & {
@@ -281,9 +299,13 @@ interface IConnectServerContext {
   readonly timeouts: IMCPTimeouts;
   readonly deps: IMcpClientCompositionDeps;
   readonly signal: AbortSignal | undefined;
-  /** Every helper authenticator created, closed at shutdown so no helper outlives the client. */
   /** One helper slot per server, closed when the server is connected again or at shutdown. */
   readonly helperSlots: Map<string, IHelperAuthenticatorSlot>;
+  /**
+   * One OAuth authenticator per server for the composition's life: its tokens outlive a
+   * connection, and one authenticator is what keeps a refresh single-flight.
+   */
+  readonly oauthAuthenticators: Map<string, IMcpClosableAuthenticator>;
 }
 
 /**
@@ -402,7 +424,29 @@ async function connectOneServer(
     const helper = definition.headersHelper;
     let authenticator: IMCPClientAuthenticator | undefined;
     let helperSlot: IHelperAuthenticatorSlot | undefined;
-    if (helper === undefined) {
+    if (definition.oauth !== undefined) {
+      const host = deps.oauth;
+      if (host === undefined) {
+        deps.reportDiagnostic(
+          `MCP server "${request.serverId}" endpoint was refused (oauth-unavailable).`,
+        );
+        return undefined;
+      }
+      let oauthAuthenticator = context.oauthAuthenticators.get(request.serverId);
+      if (oauthAuthenticator === undefined) {
+        try {
+          oauthAuthenticator = host.authenticatorFor(request, definition);
+        } catch {
+          // The URL cannot carry an OAuth credential (it is not https); named without its text.
+          deps.reportDiagnostic(
+            `MCP server "${request.serverId}" endpoint was refused (oauth-unavailable).`,
+          );
+          return undefined;
+        }
+        context.oauthAuthenticators.set(request.serverId, oauthAuthenticator);
+      }
+      authenticator = oauthAuthenticator;
+    } else if (helper === undefined) {
       authenticator = deps.authenticatorFor?.(request);
     } else {
       const host = deps.headersHelpers;
@@ -430,7 +474,9 @@ async function connectOneServer(
     }
     const result = await adapter.admit({
       url: definition.url ?? '',
-      ...(helper === undefined ? {} : { authenticationRequired: true }),
+      ...(helper === undefined && definition.oauth === undefined
+        ? {}
+        : { authenticationRequired: true }),
       ...(definition.headers === undefined ? {} : { headers: definition.headers }),
       ...(definition.unsupportedAuthentication === undefined
         ? {}
@@ -565,6 +611,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
 
   const openConnections: IMcpServerConnection[] = [];
   const helperSlots = new Map<string, IHelperAuthenticatorSlot>();
+  const oauthAuthenticators = new Map<string, IMcpClosableAuthenticator>();
   const connectedByServerId = new Map<string, IMcpServerConnection>();
   const timeouts = deps.timeouts ?? DEFAULT_MCP_CLIENT_TIMEOUTS;
   const createSupervisor =
@@ -607,6 +654,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       deps,
       signal,
       helperSlots,
+      oauthAuthenticators,
     };
 
     for (const request of registry.list()) {
@@ -725,6 +773,8 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       // After the connections: closing a session may still send one authorized request.
       for (const slot of helperSlots.values()) slot.close();
       helperSlots.clear();
+      for (const authenticator of oauthAuthenticators.values()) authenticator.close();
+      oauthAuthenticators.clear();
     }
   }
 

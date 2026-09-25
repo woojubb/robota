@@ -227,22 +227,32 @@ describe('robota mcp serve built binary', () => {
       }),
     );
     writeFileSync(join(cwd, 'message.txt'), 'MCP_STDIO_OK');
+    const serveArgs = [
+      ROBOTA_BIN,
+      '--allowed-tools',
+      'Read',
+      'mcp',
+      'serve',
+      '--session-log',
+      FIXTURE,
+      '--no-session-persistence',
+    ];
+    const env = { HOME: home, PATH: process.env['PATH'] ?? '' };
+    // Control: without the deny, the same server lists `Shell`, so its absence below is the deny's doing.
+    const control = new Client({ name: 'binary-test-control', version: '1' });
+    await control.connect(
+      new StdioClientTransport({ command: process.execPath, args: serveArgs, cwd, env }),
+    );
+    try {
+      expect((await control.listTools()).tools.map((tool) => tool.name)).toContain('Shell');
+    } finally {
+      await control.close();
+    }
     const transport = new StdioClientTransport({
       command: process.execPath,
-      args: [
-        ROBOTA_BIN,
-        '--allowed-tools',
-        'Read',
-        'mcp',
-        'serve',
-        '--session-log',
-        FIXTURE,
-        '--no-session-persistence',
-        '--denied-tools',
-        'Bash',
-      ],
+      args: [...serveArgs, '--denied-tools', 'Shell'],
       cwd,
-      env: { HOME: home, PATH: process.env['PATH'] ?? '' },
+      env,
       stderr: 'pipe',
     });
     const client = new Client({ name: 'binary-test', version: '1' });
@@ -254,17 +264,18 @@ describe('robota mcp serve built binary', () => {
       await client.connect(transport);
       const names = (await client.listTools()).tools.map((tool) => tool.name);
       expect(names).toContain('Read');
-      expect(names).toContain('Bash');
       expect(names).toContain('robota_submit');
+      // A tool denied outright by name is withheld from the catalog rather than listed and then refused.
+      expect(names).not.toContain('Shell');
       const allowed = await client.callTool({
         name: 'Read',
         arguments: { filePath: join(cwd, 'message.txt') },
       });
       expect(allowed.isError).not.toBe(true);
       expect(JSON.stringify(allowed)).toContain('MCP_STDIO_OK');
-      const denied = await client.callTool({ name: 'Bash', arguments: { command: 'true' } });
+      const denied = await client.callTool({ name: 'Shell', arguments: { command: 'true' } });
       expect(denied.isError).toBe(true);
-      expect(JSON.stringify(denied)).toMatch(/denied|permission/i);
+      expect(JSON.stringify(denied)).toContain('Unknown tool: Shell');
       expect(diagnostics).not.toMatch(/MCP_STDIO_OK/);
     } finally {
       await client.close();
