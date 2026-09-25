@@ -81,11 +81,9 @@ false`; every `DEFAULT_INHERITED_ENV_VARS` key is explicitly shadowed rather tha
 - **Nothing printed carries a secret**: the activation endpoint and a projected command line, cwd
   and URL stay readable, because they are how an operator tells servers apart, with only their
   secret stretches replaced — what a credential-shaped variable expanded, and any literal a
-  credential's shape gives away (a URL password or credential-named query value, the value of a
-  credential-named flag, a known token format, a long high-entropy run). That shape test is a
-  guess, so it serves display only and never the fingerprint: two different literal tokens mask
-  alike, and a fingerprint blind to a changed token would carry an old approval over to it.
-  Transport errors name origins only. Projections carry `env`/`header` KEYS but never VALUES:
+  credential's shape gives away. That shape test is a guess, so it serves display only and never
+  the fingerprint: two different literal tokens mask alike, and a fingerprint blind to a changed
+  token would carry an old approval over to it. Transport errors name origins only. Projections carry `env`/`header` KEYS but never VALUES:
   the key alone tells servers apart, "configured but redacted" and "no header" must remain
   distinguishable answers, and a value there is too often a credential of no recognisable shape.
 - **A session is stateless about liveness by contract.** The SDK has no cancellation

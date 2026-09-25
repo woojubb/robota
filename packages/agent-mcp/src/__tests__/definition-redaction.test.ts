@@ -229,3 +229,75 @@ describe('the fingerprint does not use the shape detector', () => {
     expect(definitionFingerprint(one)).not.toBe(definitionFingerprint(three));
   });
 });
+
+describe('header-form, connection-string and fragment credentials', () => {
+  it.each([
+    ['X-API-Key: abc123def', 'X-API-Key: secret:literal'],
+    ['X-API-Key:abc123def', 'X-API-Key:secret:literal'],
+    ['Authorization: Basic dXNlcjpwYXNz', 'Authorization: Basic secret:literal'],
+    ['Authorization: Token abc123', 'Authorization: Token secret:literal'],
+    ['Authorization: opaque-without-scheme', 'Authorization: secret:literal'],
+    [
+      'Proxy-Authorization: Digest username="u", response="r"',
+      'Proxy-Authorization: Digest secret:literal',
+    ],
+    ['X-Region: eu', 'X-Region: eu'],
+  ])('shows %s as %s', (header, shown) => {
+    expect(project(resolve(stdio({ args: ['--header', header] }))).args).toEqual([
+      '--header',
+      shown,
+    ]);
+  });
+
+  it('masks a credential-named value inside a connection string', () => {
+    expect(maskCredentials('Server=h;User Id=sa;Password=abc;')).toBe(
+      'Server=h;User Id=sa;Password=secret:literal;',
+    );
+    expect(maskCredentials('host=h&password=abc&db=x')).toBe('host=h&password=secret:literal&db=x');
+  });
+
+  it('splits URL userinfo at the last @, so no piece of the password leaks', () => {
+    const url = project(resolve(http('https://u:p@ss@host.example/x'))).url;
+    expect(url).toBe('https://u:secret:literal@host.example/x');
+    expect(url).not.toContain('ss@');
+  });
+
+  it('masks a credential-named fragment parameter', () => {
+    expect(project(resolve(http('https://h.example/cb#access_token=abc&state=xyz'))).url).toBe(
+      'https://h.example/cb#access_token=secret:literal&state=xyz',
+    );
+  });
+});
+
+describe('flags whose argument is not a credential', () => {
+  it('keeps the argument of a negated flag', () => {
+    expect(project(resolve(stdio({ args: ['--no-auth', '/srv/data'] }))).args).toEqual([
+      '--no-auth',
+      '/srv/data',
+    ]);
+  });
+
+  it('keeps the path after a --*-file or --*-path flag', () => {
+    const args = ['--key-file', '/etc/k.pem', '--password-file=/run/pw', '--token-path', '/t'];
+    expect(project(resolve(stdio({ args }))).args).toEqual(args);
+  });
+});
+
+describe('masking stays linear on long input', () => {
+  const huge = 200_000;
+  it.each([
+    ['a scheme-character run', 'a'.repeat(huge)],
+    ['a URL', `https://${'a'.repeat(huge)}`],
+    ['a URL with a long query', `https://h/?${'k=v&'.repeat(huge / 8)}`],
+    ['spaced words', 'ab '.repeat(huge / 3)],
+    ['a header name before a space run', `${'a'.repeat(huge)}${' '.repeat(huge)}`],
+    ['an encoded run followed by padding', `${'aB3'.repeat(huge / 3)}===x`],
+    ['a dotted token', `eyJ${'a.'.repeat(huge / 2)}`],
+    ['repeated flags', '--token '.repeat(huge / 8)],
+  ])('masks %s within the time bound', (_label, value) => {
+    const definition = resolve(stdio({ args: [value] }));
+    const started = performance.now();
+    activationEndpoint(definition);
+    expect(performance.now() - started).toBeLessThan(200);
+  });
+});
