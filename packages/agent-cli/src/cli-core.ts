@@ -78,12 +78,17 @@ import {
 import {
   createInitialCliWorkspaceComposition,
   resolveStartupWorkspaceProjectAccess,
+  SAFE_MODE_FLAG,
+  SAFE_MODE_NOTICE,
 } from './startup/workspace-project-composition.js';
 import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
 import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
-import { createWorkspaceMoveAdapter } from './startup/workspace-move-adapter.js';
+import {
+  argvCarryingSafeMode,
+  createWorkspaceMoveAdapter,
+} from './startup/workspace-move-adapter.js';
 import { runPrintMode } from './modes/print-mode.js';
 import { buildServeSessionOptions, runServeMode } from './modes/serve-mode.js';
 import { ROBOTA_PERMISSION_BASELINE } from './product/robota-permission-baseline.js';
@@ -170,13 +175,26 @@ async function runCliCore(
   telemetryEnvironment: Readonly<Record<string, string>> = {},
 ): Promise<void> {
   const cwd = process.cwd();
-  const projectAccess = await resolveStartupWorkspaceProjectAccess(process.argv, cwd, options);
-  const startupOptions: IStartCliOptions = { ...options, projectAccess };
+  // Issue #3082: read from argv (or the embedder's option) before anything is composed, like the
+  // access decision it forces to Restricted.
+  const safeMode = process.argv.includes(SAFE_MODE_FLAG) || options.safeMode === true;
+  const projectAccess = await resolveStartupWorkspaceProjectAccess(
+    safeMode ? [...process.argv, SAFE_MODE_FLAG] : process.argv,
+    cwd,
+    options,
+  );
+  const startupOptions: IStartCliOptions = {
+    ...options,
+    projectAccess,
+    ...(safeMode ? { safeMode: true } : {}),
+  };
   if (await runPreparsedCliCommand(startupOptions, process.argv, cwd, telemetryEnvironment)) return;
 
   let args: IParsedCliArgs;
   try {
     args = preParsedArgs ?? parseCliArgs();
+    // One decision: the modes below read `args.safeMode`, the composition above read `safeMode`.
+    args = { ...args, safeMode };
   } catch (error) {
     // allow-fallback: argument validation errors are terminal — exit is the correct response
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
@@ -232,9 +250,13 @@ async function runCliCore(
   }
 
   // Plugin reloads include the project scope only after the host's trust decision admits it.
+  // Safe mode: no instruction files or plugins (`bare`) and no hook from any settings layer.
+  const safeModeSessionOptions = safeMode
+    ? ({ bare: true, skipConfiguredHooks: true } as const)
+    : {};
   const reloadPluginCommandSourceInCwd = (
     registry: Parameters<typeof reloadPluginCommandSource>[0],
-  ): number => reloadPluginCommandSource(registry, cwd, projectAccess);
+  ): number => reloadPluginCommandSource(registry, cwd, projectAccess, !safeMode);
   const terminal = new PrintTerminal();
 
   if (args.reset) {
@@ -248,6 +270,9 @@ async function runCliCore(
 
   if (
     (args.printMode || args.goal !== undefined || args.serve || mcpServe) &&
+    // Safe mode asks for a Restricted start; the refusal exists so an untrusted project is never
+    // silently run without its sources, which is exactly what safe mode requests.
+    !safeMode &&
     requiresHeadlessWorkspaceTrust(projectAccess)
   ) {
     process.stderr.write(`${formatHeadlessWorkspaceTrustError(projectAccess, cwd)}\n`);
@@ -289,7 +314,7 @@ async function runCliCore(
   // command setup so the preset's module-selection delta can reach `createDefaultCommandModules`.
   const userSettings = readUserSettingsOrExit();
   const settingsPreset = typeof userSettings.preset === 'string' ? userSettings.preset : undefined;
-  const externalPresetLoad = loadRobotaExternalPresets();
+  const externalPresetLoad = safeMode ? { presets: [], errors: [] } : loadRobotaExternalPresets();
   for (const { file, error } of externalPresetLoad.errors) {
     terminal.writeError(`Skipped external preset "${file}": ${error}`);
   }
@@ -347,7 +372,7 @@ async function runCliCore(
   const mcpStartupMode: TMcpStartupMode =
     args.printMode || args.goal ? 'print' : args.serve || mcpServe ? 'serve' : 'interactive';
   const mcp =
-    options.mcpActivationAdapter === undefined
+    options.mcpActivationAdapter === undefined && !safeMode
       ? await composeMcpClientForStartup({
           settingsSources: createInitialCliWorkspaceComposition(cwd, startupOptions)
             .settingsSources,
@@ -404,7 +429,8 @@ async function runCliCore(
   for (const { fileName, reason } of theme?.skipped ?? []) {
     terminal.writeError(`Skipped theme "${fileName}": ${reason}`);
   }
-  const outputStyleId = selectOutputStyleId(args, userSettings.outputStyle);
+  // Safe mode loads no user or project output style, so a saved selection of one is not applied.
+  const outputStyleId = selectOutputStyleId(args, safeMode ? undefined : userSettings.outputStyle);
   let outputStyle;
   try {
     outputStyle = resolveOutputStyle(outputStyleRegistry, outputStyleId);
@@ -413,7 +439,7 @@ async function runCliCore(
     process.exit(1);
   }
   const outputStyleWasSelected =
-    args.outputStyle !== undefined || userSettings.outputStyle !== undefined;
+    args.outputStyle !== undefined || (!safeMode && userSettings.outputStyle !== undefined);
   if (outputStyleWasSelected) {
     const outputStyleNotice = `Output style: ${outputStyle.name} (${outputStyle.id}; input cost ${outputStyle.tokenCost})`;
     if (args.printMode) {
@@ -498,6 +524,11 @@ async function runCliCore(
     process.exit(1);
   }
   commandHostAdapters.effort = createCliEffortAdapter(effortResolution);
+  if (safeMode) {
+    const notice = `${SAFE_MODE_NOTICE}\n`;
+    if (args.printMode) process.stderr.write(notice);
+    else terminal.writeLine(notice.trimEnd());
+  }
   if (providerSettings.source === 'env-default' && providerSettings.sourceEnvVar !== undefined) {
     const notice = `Using ${providerSettings.name} (${modelId}) via ${providerSettings.sourceEnvVar} — run \`robota --configure\` to persist a profile.\n`;
     if (args.printMode) {
@@ -684,7 +715,7 @@ async function runCliCore(
       },
       orgPolicy,
       providerErrorGuidance,
-      ROBOTA_AGENT_DEFINITION_ROOTS,
+      safeMode ? [] : ROBOTA_AGENT_DEFINITION_ROOTS,
       robotaPluginDirectories(cwd, homedir()),
       ROBOTA_PROJECT_SETTINGS,
       createRobotaUserSettingsSources(homedir()),
@@ -726,7 +757,8 @@ async function runCliCore(
       backgroundTaskRunners,
       subagentRunnerFactory,
       agentDefinitions,
-      agentDefinitionRoots: ROBOTA_AGENT_DEFINITION_ROOTS,
+      agentDefinitionRoots: safeMode ? [] : ROBOTA_AGENT_DEFINITION_ROOTS,
+      ...safeModeSessionOptions,
       pluginDirectories: robotaPluginDirectories(cwd, homedir()),
       projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
       userSettingsSources: createRobotaUserSettingsSources(homedir()),
@@ -778,7 +810,8 @@ async function runCliCore(
       backgroundTaskRunners,
       subagentRunnerFactory,
       agentDefinitions,
-      agentDefinitionRoots: ROBOTA_AGENT_DEFINITION_ROOTS,
+      agentDefinitionRoots: safeMode ? [] : ROBOTA_AGENT_DEFINITION_ROOTS,
+      ...safeModeSessionOptions,
       pluginDirectories: robotaPluginDirectories(cwd, homedir()),
       projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
       userSettingsSources: createRobotaUserSettingsSources(homedir()),
@@ -825,7 +858,7 @@ async function runCliCore(
   // Issue #3081: `/cd` starts robota again in the target directory, resuming this conversation.
   commandHostAdapters.workspace = createWorkspaceMoveAdapter({
     userHome: homedir(),
-    argv: process.argv.slice(2),
+    argv: argvCarryingSafeMode(process.argv.slice(2), safeMode),
     requestExit: () => commandHostAdapters.process?.requestExit('other'),
     environment: telemetryEnvironment,
   });
@@ -878,7 +911,8 @@ async function runCliCore(
     backgroundTaskRunners,
     subagentRunnerFactory,
     agentDefinitions,
-    agentDefinitionRoots: ROBOTA_AGENT_DEFINITION_ROOTS,
+    agentDefinitionRoots: safeMode ? [] : ROBOTA_AGENT_DEFINITION_ROOTS,
+    ...safeModeSessionOptions,
     pluginDirectories: robotaPluginDirectories(cwd, homedir()),
     projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
     baselinePermissionAllow: ROBOTA_PERMISSION_BASELINE,

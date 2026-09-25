@@ -71,6 +71,10 @@ export interface IServeModeOptions {
   subagentHookEnvironmentNames?: TInteractiveSessionOptions['subagentHookEnvironmentNames'];
   observerFailureWarningCode?: TInteractiveSessionOptions['observerFailureWarningCode'];
   commandHookShell?: string;
+  /** Skip instruction files and plugin discovery (`--safe-mode`). */
+  bare?: boolean;
+  /** Run no hook the settings layers declare (`--safe-mode`). */
+  skipConfiguredHooks?: boolean;
   sessionStore: ReturnType<typeof createProjectSessionStore>;
   projectAccess?: TWorkspaceProjectAccess;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
@@ -164,6 +168,8 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
       ? { observerFailureWarningCode: opts.observerFailureWarningCode }
       : {}),
     ...(opts.commandHookShell !== undefined ? { commandHookShell: opts.commandHookShell } : {}),
+    ...(opts.bare === true ? { bare: true } : {}),
+    ...(opts.skipConfiguredHooks === true ? { skipConfiguredHooks: true } : {}),
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
     ...(opts.projectSettingsPaths !== undefined
       ? { projectSettingsPaths: opts.projectSettingsPaths }

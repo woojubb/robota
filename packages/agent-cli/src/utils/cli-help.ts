@@ -29,6 +29,10 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --fork-session             Fork the current session into a new independent session
   --task-file <path>         Read a task prompt from file and append it to the system prompt
   --bare                     Print mode: output raw text only, no formatting wrapper
+  --safe-mode                Start with every customization off: instruction files, skills,
+                             commands, agents, output styles, plugins, hooks and MCP servers.
+                             Use it first when something misbehaves; if the problem goes away,
+                             one of them is the cause
   --configure                Run interactive provider configuration
   --configure-provider <n>   Configure a specific provider
   --allowed-tools <list>     Comma-separated tool auto-approval list
