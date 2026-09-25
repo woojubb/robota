@@ -58,6 +58,11 @@ export function acceptSubmission(
         "session's message to the operator.",
     );
   }
+  // The model sees a message as a peer's from its `peer:` driver id; a peer turn under any other id
+  // would run restricted yet reach the model unmarked.
+  if (options.turnSource === 'peer' && !options.driverId?.startsWith('peer:')) {
+    throw new Error("a peer turn's driver id must start with 'peer:'");
+  }
   if (options.turnSource === 'external' && options.driverId === undefined) {
     throw new Error('an external turn must carry its host-assigned driver id');
   }

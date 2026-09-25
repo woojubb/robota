@@ -22,6 +22,7 @@ import {
 } from './interactive-session-execution.js';
 import { preparePromptInput } from './interactive-session-prepare-prompt.js';
 import { pushToolSummaryToHistory } from './interactive-session-streaming.js';
+import { withPeerTurnStatement } from './peer-turn-statement.js';
 import { describeModelFallback } from '../routing/model-fallback-chain.js';
 import { humanizeApiError } from '../utils/error-humanizer.js';
 
@@ -131,6 +132,14 @@ export async function executePromptTurn(
       history.push(messageToHistoryEntry(createSystemMessage(describeModelFallback(notice)))),
   });
 
+  // Text from outside the operator — an external event or a peer session — is data: it expands no
+  // `@path`, attaches no context reference, and runs no tool.
+  const restrictedTurn = ctx.turnSource === 'external' || ctx.turnSource === 'peer';
+  const ephemeralSystemContext = withPeerTurnStatement(
+    ctx.ephemeralSystemContext,
+    ctx.turnSource,
+    ctx.driverId,
+  );
   try {
     ctx.signal?.throwIfAborted();
     const preparedPrompt = await preparePromptInput(
@@ -139,7 +148,7 @@ export async function executePromptTurn(
       ctx.getCwd(),
       rawInput,
       ctx.getContextReferences(),
-      ctx.turnSource !== 'external',
+      !restrictedTurn,
       ctx.promptFileReferenceTag,
     );
     if (preparedPrompt.promptFileReferenceEntry) {
@@ -153,12 +162,10 @@ export async function executePromptTurn(
     // shape for the (dominant) plain path so existing run() call contracts are unchanged.
     const runOptions = {
       ...(ctx.signal ? { signal: ctx.signal } : {}),
-      ...(ctx.ephemeralSystemContext !== undefined
-        ? { ephemeralSystemContext: ctx.ephemeralSystemContext }
-        : {}),
+      ...(ephemeralSystemContext !== undefined ? { ephemeralSystemContext } : {}),
       ...(ctx.driverId !== undefined ? { driverId: ctx.driverId } : {}),
       ...(ctx.traceContext !== undefined ? { traceContext: ctx.traceContext } : {}),
-      ...(ctx.turnSource === 'external' ? { toolChoice: 'none' as const } : {}),
+      ...(restrictedTurn ? { toolChoice: 'none' as const } : {}),
     };
     const response =
       Object.keys(runOptions).length > 0
