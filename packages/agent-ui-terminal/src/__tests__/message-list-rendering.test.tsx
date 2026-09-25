@@ -341,6 +341,36 @@ describe('MessageList rendering', () => {
     expect(output).toContain('cost unknown');
   });
 
+  it('usage-summary from another source names it and omits the context window', () => {
+    const history: IHistoryEntry[] = [
+      {
+        id: 'usage_advisor',
+        timestamp: new Date(),
+        category: 'event',
+        type: 'usage-summary',
+        data: {
+          kind: 'exact',
+          scope: 'turn',
+          promptTokens: 3000,
+          completionTokens: 400,
+          totalTokens: 3400,
+          contextUsedTokens: 0,
+          contextMaxTokens: 0,
+          contextUsedPercentage: 0,
+          costStatus: 'estimated',
+          costUsd: 0.05,
+          source: { scope: 'tool', id: 'advisor:big-model', label: 'Advisor (big-model)' },
+        },
+      },
+    ];
+
+    const output = render(<MessageList history={history} />).lastFrame() ?? '';
+
+    expect(output).toContain('Usage (Advisor (big-model)):');
+    expect(output).toContain('out 400');
+    expect(output).not.toContain('Context');
+  });
+
   it('system message renders with "System:" label', () => {
     const history: IHistoryEntry[] = [
       messageToHistoryEntry(createSystemMessage('Interrupted by user.')),

@@ -244,7 +244,9 @@ describe('robota mcp serve built binary', () => {
       new StdioClientTransport({ command: process.execPath, args: serveArgs, cwd, env }),
     );
     try {
-      expect((await control.listTools()).tools.map((tool) => tool.name)).toContain('Shell');
+      const controlNames = (await control.listTools()).tools.map((tool) => tool.name);
+      expect(controlNames).toContain('Shell');
+      expect(controlNames).toContain('Bash');
     } finally {
       await control.close();
     }
@@ -267,6 +269,8 @@ describe('robota mcp serve built binary', () => {
       expect(names).toContain('robota_submit');
       // A tool denied outright by name is withheld from the catalog rather than listed and then refused.
       expect(names).not.toContain('Shell');
+      // `Bash` is an alias of the same shell tool, so denying `Shell` withholds it too.
+      expect(names).not.toContain('Bash');
       const allowed = await client.callTool({
         name: 'Read',
         arguments: { filePath: join(cwd, 'message.txt') },

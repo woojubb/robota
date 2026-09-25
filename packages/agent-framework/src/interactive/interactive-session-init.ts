@@ -38,7 +38,12 @@ import type { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.j
 import type { ICommandResult } from '../commands/index.js';
 import type { IResolvedConfig } from '../config/config-types.js';
 import type { IContextFileEntry } from '../context/context-loader.js';
-import type { IContextWindowState, TToolArgs, TUniversalMessage } from '@robota-sdk/agent-core';
+import type {
+  IContextWindowState,
+  IHistoryEntry,
+  TToolArgs,
+  TUniversalMessage,
+} from '@robota-sdk/agent-core';
 import type { ICompactEvent } from '@robota-sdk/agent-interface-session';
 import type { Session } from '@robota-sdk/agent-session';
 
@@ -190,6 +195,7 @@ export interface IAsyncInitDeps {
   onTextDelta: (delta: string) => void;
   onContextUpdate: (state: IContextWindowState) => void;
   onCompactEvent: (event: ICompactEvent) => void;
+  onUsageRecorded: (entries: readonly IHistoryEntry[]) => void;
   onToolExecution: (event: {
     type: 'start' | 'end';
     toolName: string;
@@ -266,6 +272,7 @@ export async function initializeInteractiveSessionAsync(
     onTextDelta: deps.onTextDelta,
     onContextUpdate: deps.onContextUpdate,
     onCompactEvent: deps.onCompactEvent,
+    onUsageRecorded: deps.onUsageRecorded,
     onToolExecution: deps.onToolExecution,
     bare: options.bare,
     ...(options.orgPolicy?.disableAutoMode === true ? { disableAutoMode: true } : {}),

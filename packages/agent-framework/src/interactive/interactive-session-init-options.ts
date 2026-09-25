@@ -33,7 +33,7 @@ import type { IMemoryStore } from '../memory/types.js';
 import type { IReversibleExecutionOptions } from '../reversible-execution/index.js';
 import type { TSubagentRunnerFactory } from '../subagents/index.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
-import type { TGuardrail } from '@robota-sdk/agent-core';
+import type { IHistoryEntry, TGuardrail } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
   IContextWindowState,
@@ -78,6 +78,7 @@ export interface IInitOptions {
   onTextDelta: (delta: string) => void;
   onContextUpdate?: (state: IContextWindowState) => void;
   onCompactEvent?: (event: ICompactEvent) => void;
+  onUsageRecorded?: (entries: readonly IHistoryEntry[]) => void;
   onToolExecution: (event: {
     type: 'start' | 'end';
     toolName: string;

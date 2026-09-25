@@ -141,6 +141,11 @@ export interface IToolPermissionProfile {
    * wraps, MCP tools included).
    */
   parameters?: readonly string[];
+  /**
+   * Other registered names for the same implementation. A rule naming any of them names this tool
+   * too, so a deny cannot be sidestepped by calling the alias it did not spell out.
+   */
+  aliases?: readonly string[];
 }
 
 /** Profiles contributed by the packages that own the tools. */
@@ -174,11 +179,15 @@ export function getToolPermissionProfile(toolName: string): IToolPermissionProfi
   return toolProfiles.get(toolName) ?? {};
 }
 
-/** Whether a pattern's tool-name part names this tool: exact, or a `*` glob over the name. */
+/**
+ * Whether a pattern's tool-name part names this tool: exact, or a `*` glob over the name — the
+ * tool's own name or any alias it declared.
+ */
 export function toolNameMatches(patternName: string, toolName: string): boolean {
-  return patternName.includes('*')
-    ? globToRegex(patternName).test(toolName)
-    : patternName === toolName;
+  const names = [toolName, ...(toolProfiles.get(toolName)?.aliases ?? [])];
+  if (!patternName.includes('*')) return names.includes(patternName);
+  const glob = globToRegex(patternName);
+  return names.some((name) => glob.test(name));
 }
 
 /** A `name:value` argument pattern that names one of the tool's parameters. */

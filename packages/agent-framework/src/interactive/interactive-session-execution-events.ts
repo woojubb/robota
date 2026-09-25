@@ -48,10 +48,11 @@ export function projectToolExecution(
     toolResultData?: string;
     executionId?: string;
   },
+  startLabel?: string,
 ): IToolState[] {
   const streamingState = { activeTools, history };
   if (event.type === 'start') {
-    const toolState = applyToolStart(streamingState, event);
+    const toolState = applyToolStart(streamingState, event, startLabel);
     commitActiveTools(streamingState.activeTools);
     callbacks.emit('tool_start', toolState);
   } else {

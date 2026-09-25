@@ -40,6 +40,8 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --model <model>            Model override for this run
   --fallback-model <list>    Comma-separated models to continue a turn on when the model is overloaded
   --effort <level>           Model effort: auto | low | medium | high | xhigh | max
+  --advisor <profile[:model]> Model the main model may consult for advice (or "off");
+                             overrides settings.json advisorModel. ROBOTA_DISABLE_ADVISOR=1 turns it off
   --preset <id>              Preset id to apply (default: settings.preset or "default")
   --output-style <id>        Response style: default | concise | proactive | explanatory | learning
   --memory / --no-memory     Enable/disable durable memory for this run (default: off; opt-in).

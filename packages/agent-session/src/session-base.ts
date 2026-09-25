@@ -313,6 +313,11 @@ export abstract class SessionBase {
     return this.agent.getOfferedToolSchemas();
   }
 
+  /** The provider the session sends its turns to now; a provider switch replaces it. */
+  getProvider(): IAIProvider {
+    return this.aiProvider;
+  }
+
   getProviderId(): string {
     return this.aiProvider.name;
   }

@@ -36,6 +36,7 @@ export {
   CompactionOrchestrator,
   DEFAULT_COMPACTION_PROMPT,
 } from './compaction-orchestrator.js';
+export { formatConversationEntries } from './conversation-transcript.js';
 
 // SELFHOST-014: shareable/resumable session artifact envelope + the opt-in sensitive-key scrub (SSOT).
 export { serializeSessionArtifact, deserializeSessionArtifact } from './session-artifact.js';

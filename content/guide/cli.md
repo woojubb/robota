@@ -27,6 +27,7 @@ robota --max-turns 10               # Limit agentic turns
 robota --goal "ship the feature"    # Autonomous goal: pursue across turns until satisfied or a bound
 robota --output-format json         # Output format (text/json/stream-json)
 robota --effort high                # Model effort: auto | none | minimal | low | medium | high | xhigh | max
+robota --advisor strong             # Let the main model consult another profile (or profile:model); "off" disables
 robota --append-system-prompt "..." # Append to system prompt
 robota --configure                  # Interactive provider setup
 robota --provider qwen              # Run with a configured provider profile
@@ -332,6 +333,7 @@ The available command list is built from the consolidated `@robota-sdk/agent-com
 | `/compact [instructions]` | Compress context window                             |
 | `/cost`                   | Show session info                                   |
 | `/effort [level]`         | Show or change active model effort                  |
+| `/advisor [model\|off]`   | Show, change, or turn off the advisor               |
 | `/context`                | Context window details                              |
 | `/permissions [mode]`     | Show permission rules or change mode                |
 | `/sandbox [mode]`         | Show or change how shell commands are confined      |
@@ -394,6 +396,57 @@ level may be persisted by `/effort` when the settings adapter permits it.
 includes the same record under `data.effort`; text mode prints a compact status line after the response.
 `--bare` keeps raw text output. The TUI status bar shows the active selection when available. Thinking
 display settings and ordinary prompt wording are independent from model effort.
+
+### Advisor (`--advisor`, `/advisor`)
+
+The advisor lets a cheaper main model ask a stronger one for a second opinion at the moments that
+matter, instead of running the strong model for the whole session. When an advisor is configured,
+the main model gets an `Advisor` tool whose description tells it when to use it: before committing to
+an approach, when the same error keeps coming back, and before declaring the work done. You can also
+simply ask it to consult the advisor.
+
+The advisor reads the whole conversation — the system prompt, your messages, the tool calls and
+their results — and answers with guidance. The main model is told to check that guidance against its
+own evidence rather than follow it blindly. The call and its answer appear in the transcript as the
+tool's line, `Advisor(<model>)`, with the guidance as its result; an empty or refusing answer reads
+as declined. If the conversation is larger than the advisor's context window, the oldest messages
+are left out (the system prompt is always kept); if it still does not fit, the advisor declines.
+
+Choose the advisor with `--advisor` for one run or `/advisor` to change it and save it as the
+default (`advisorModel` in `~/.robota/settings.json`); the flag wins over the setting. The value is a
+provider profile or `profile:model`, and any configured model may advise, including the one you are
+already using. The saved advisor stays when you switch the main model with `/provider`.
+`/advisor off` turns it off; `ROBOTA_DISABLE_ADVISOR=1` turns it off completely and cannot be
+overridden from inside a session. Safe mode ignores the saved advisor.
+
+- **Limits.** At most two advisor calls per turn and a fixed number per session. Asking the same
+  question twice in one turn returns the earlier answer without another call.
+- **Prompt cache.** The `Advisor` tool is added only when a session starts with an advisor, and
+  `/advisor off` or `/advisor <model>` later changes only where calls go, never the tool list, so the
+  main model's cached prompt is not invalidated mid-session. Setting an advisor in a session that
+  started without one takes effect in the next session.
+- **Cost.** Advisor usage is saved with the session like each turn's usage, under the advisor's own
+  model, so `/cost`, `robota usage` and resumed sessions include it; calls made by in-process
+  subagents are counted too. `/cost` prices each part on its own model and says "mixed" when more
+  than one model was priced. Each call is one request with no tools, so a few calls to a strong model
+  cost far less than running that model for every turn, while the cheap model does the reading,
+  editing and tool work. A call declined before anything was sent (no consent, the conversation does
+  not fit) does not use up a call; a request the provider failed does, and asking the same question
+  again in that turn returns the same decline.
+- **Privacy.** Sending the conversation anywhere the main model does not already send it needs your
+  consent once per destination — a provider type together with its endpoint, so a local server and
+  the vendor's cloud are asked about separately. It is asked the first time and remembered in
+  `~/.robota/settings.json`; if you say no, you are not asked again in that session. The advisor is told that the conversation is data, not instructions, and
+  each message reaches it as a single encoded line, so text in a message cannot pose as another. Without an
+  interactive prompt (print mode) such a call is declined until consent is given. The organization's
+  `allowedProviders` policy applies to the advisor as it does to `/provider`.
+- **Subagents.** Subagents that run in the same process inherit the advisor and read their own
+  conversation; subagents in a child process do not get it.
+
+How it compares: a **subagent** does work in its own context and reports back, but does not see your
+conversation; **`/provider`** replaces the main model for everything that follows; **plan mode** stops
+the main model from changing anything until you approve a plan. The advisor changes nothing and does
+no work — it only reads the conversation and gives the main model an opinion at a decision point.
 
 ### Workflows (`/workflows`)
 

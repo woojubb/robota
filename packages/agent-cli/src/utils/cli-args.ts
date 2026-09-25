@@ -83,6 +83,8 @@ export interface IParsedCliArgs {
   fallbackModel?: string[];
   /** Requested model-effort level; `auto` follows the selected model default. */
   effort?: TEffortSelection;
+  /** The advisor for this run (`<profile>`, `<profile>:<model>` or `off`); wins over the saved one. */
+  advisor?: string;
   preset: string | undefined;
   /** CLI-1988: provider-neutral output-style id; resolved against the startup style registry. */
   outputStyle?: string;
@@ -210,6 +212,7 @@ const PARSE_ARGS_CONFIG = {
     model: { type: 'string' },
     'fallback-model': { type: 'string' },
     effort: { type: 'string' },
+    advisor: { type: 'string' },
     preset: { type: 'string' },
     'output-style': { type: 'string' },
     'no-session-persistence': { type: 'boolean', default: false },
@@ -334,6 +337,7 @@ function mapParsedValues(
       fallbackModel: parseFallbackModelList(values['fallback-model']),
     }),
     effort: parseModelEffort(values['effort']),
+    advisor: values['advisor'],
     preset: values['preset'],
     outputStyle: values['output-style'],
     noSessionPersistence: values['no-session-persistence'] ?? false,

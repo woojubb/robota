@@ -98,7 +98,9 @@ function addObservation(target: IMutableTotals, item: INormalizedObservation): v
   const usage = item.observation.usage;
   target.sessions.add(item.sessionId);
   target.observations += 1;
-  if (!item.legacy) target.turns += 1;
+  // A consulted model's usage (the advisor, a tool source) belongs to the turn that consulted it;
+  // it adds tokens and cost, not a turn.
+  if (!item.legacy && item.observation.source?.scope !== 'tool') target.turns += 1;
   target.promptTokens += usage?.promptTokens ?? 0;
   target.completionTokens += usage?.completionTokens ?? 0;
   target.totalTokens += usage?.totalTokens ?? 0;

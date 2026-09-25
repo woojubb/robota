@@ -64,6 +64,7 @@ import type { IPreset } from '@robota-sdk/agent-preset';
  * selection through the same command host used by interactive and headless surfaces.
  * `agent-command-effort` was added by FLOW-008 to expose active model-effort selection through the
  * same command host used by interactive and headless surfaces.
+ * `agent-command-advisor` exposes `/advisor`, which chooses the model the main model may consult.
  */
 const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-skills',
@@ -86,6 +87,7 @@ const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-mcp-activation',
   'agent-command-output-style',
   'agent-command-effort',
+  'agent-command-advisor',
   'agent-command-user-local',
   'agent-command-compact',
   'agent-command-context',

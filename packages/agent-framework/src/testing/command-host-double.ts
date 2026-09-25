@@ -197,6 +197,7 @@ export function createTestCommandHost(
     getCwd: () => cwd,
     getCommandInvocationSource: () => 'user',
     clearConversationHistory: () => {},
+    getSessionUsage: () => [],
     // CLI-1994: "this host wrote a copy" — a stable id and the default fork name, nothing on disk.
     forkSession: (input) =>
       Promise.resolve({

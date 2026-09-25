@@ -207,8 +207,10 @@ function trimCompletedTools(activeTools: IToolState[]): IToolState[] {
 export function applyToolStart(
   state: IStreamingState,
   event: { toolName: string; toolArgs?: TToolArgs; executionId?: string },
+  /** Shown beside the tool name instead of its first argument (the Advisor's model). */
+  label?: string,
 ): IToolState {
-  const firstArg = extractFirstArg(event.toolArgs);
+  const firstArg = label ?? extractFirstArg(event.toolArgs);
   const toolState: IToolState = {
     toolName: event.toolName,
     firstArg,
