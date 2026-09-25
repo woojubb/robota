@@ -63,6 +63,10 @@ export function whenRemoteCertificateVerified(
     settle();
     return () => undefined;
   }
+  if (dtlsTransport.state === 'failed' || dtlsTransport.state === 'closed') {
+    onFailed(`the DTLS handshake ended ${dtlsTransport.state}`);
+    return () => undefined;
+  }
   const subscription = dtlsTransport.onStateChange.subscribe((state) => {
     if (state === 'connected') settle();
     else if (state === 'failed' || state === 'closed') {
