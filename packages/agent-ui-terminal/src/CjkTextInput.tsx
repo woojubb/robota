@@ -188,14 +188,8 @@ function useCjkTextInputHandlers(options: IInputHandlerOptions): void {
 
   useKeybindingActions(
     options.keybindingContext,
-    (actions, input, key, consumed) => {
-      const translated = translateCjkInput(
-        options.keybindingContext,
-        actions,
-        input,
-        key,
-        consumed,
-      );
+    (actions, input, key, consumed, resolvedContext) => {
+      const translated = translateCjkInput(resolvedContext, actions, input, key, consumed);
       if (translated === undefined) return;
       if (mutatesComposerText(actions[0], translated)) pacing.armEchoRelease();
       applyCjkFlowSafely(options, () =>
@@ -207,7 +201,13 @@ function useCjkTextInputHandlers(options: IInputHandlerOptions): void {
         ),
       );
     },
-    { isActive: options.focus },
+    {
+      isActive: options.focus,
+      // #3125: the menu owns only its own keys; editing keys keep the chat input's bindings.
+      ...(options.keybindingContext === 'autocomplete-menu'
+        ? { fallbackContext: 'chat-input' as const }
+        : {}),
+    },
   );
 }
 

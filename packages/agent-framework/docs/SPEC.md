@@ -129,8 +129,8 @@ These are behaviors a caller cannot infer from a type signature alone.
   adapter for a requested action gets an explicit failure naming the missing capability — never a
   silent no-op. UI-only intents (opening a picker, a settings screen) are fire-and-forget: with no
   surface listening they are a defined no-op, and that never affects the host-action half.
-- **Local peer status is display-only.** Host-observed activity and independently verified process
-  liveness never grant authority over the peer or identify a persisted session record, and a passive
+- **Local peer status is display-only.** Host-observed activity, independently verified process
+  liveness and the verified workspace relation never grant authority over the peer or identify a persisted session record, and a passive
   observer can never keep a request alive after its last answering surface leaves.
 - **Prompt/permission settlement is first-wins and fail-closed.** `InteractiveSession` exposes no
   session-level callback option for permission or ask prompts; it emits transport-neutral request
@@ -148,6 +148,10 @@ These are behaviors a caller cannot infer from a type signature alone.
   already-admitted work. Each accepted event settles from its own turn handle, and an interrupted
   result never becomes a successful reply. This does not sandbox trusted hooks/plugins or
   authenticate a platform sender by itself, and it is not a remote permission-approval channel.
+- **A peer turn runs on the external baseline.** A peer session's text is data from outside the
+  operator: it expands no file references, attaches no context reference, exposes no tool schema,
+  and reaches the model marked as a peer's with a per-turn system statement that it carries no
+  authority. Any relaxation is a per-origin policy decision, never a default.
 - **Automatic session naming is text-only.** The title-generation call — whether triggered by an
   operator message or the first external event — always disables tool use, so hosted web tools can
   never be invoked merely to generate a title.

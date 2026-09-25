@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
-import { extractDtlsFingerprint } from '../pairing.js';
+import { extractDtlsFingerprint, extractDtlsFingerprintAttribute } from '../pairing.js';
 
 const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures');
 
@@ -33,7 +33,8 @@ describe('extractDtlsFingerprint — linearity', () => {
     () => {
       const sdp = 'a=fingerprint:'.repeat(Math.floor(PUMP_CHARS / 14));
       const ms = elapsedMs(() => {
-        expect(() => extractDtlsFingerprint(sdp)).toThrow(/no DTLS fingerprint/);
+        // The line starts like an attribute, so it is refused as a malformed one.
+        expect(() => extractDtlsFingerprint(sdp)).toThrow(/malformed DTLS fingerprint/);
       });
       expect(ms).toBeLessThan(BUDGET_MS);
     },
@@ -91,5 +92,35 @@ describe('extractDtlsFingerprint — free text is not an attribute', () => {
     expect(() => extractDtlsFingerprint('s=room a=fingerprint:sha-256 DE:AD\r\n')).toThrow(
       /no DTLS fingerprint/,
     );
+  });
+});
+
+describe('extractDtlsFingerprint — exactly one fingerprint', () => {
+  it('refuses an SDP that advertises two different fingerprints', () => {
+    // A DTLS stack accepts a certificate matching ANY advertised fingerprint, so a second value would let the
+    // verified certificate differ from the bound one.
+    const sdp =
+      'v=0\r\na=fingerprint:sha-256 AB:CD:EF\r\na=fingerprint:sha-256 12:34:56\r\nm=application 9\r\n';
+    expect(() => extractDtlsFingerprint(sdp)).toThrow(/more than one DTLS fingerprint/);
+  });
+
+  it('refuses the same value under a different algorithm', () => {
+    const sdp = 'a=fingerprint:sha-256 AB:CD:EF\r\na=fingerprint:sha-1 AB:CD:EF\r\n';
+    expect(() => extractDtlsFingerprint(sdp)).toThrow(/more than one DTLS fingerprint/);
+  });
+
+  it('refuses a line a looser parser would read as a second fingerprint', () => {
+    const upper = 'a=fingerprint:sha-256 AB:CD:EF\r\na=FINGERPRINT:sha-256 12:34:56\r\n';
+    const indented = 'a=fingerprint:sha-256 AB:CD:EF\r\n a=fingerprint:sha-256 12:34:56\r\n';
+    const spaced = 'a=fingerprint:sha-256 AB:CD:EF\r\na = fingerprint:sha-256 12:34:56\r\n';
+    for (const sdp of [upper, indented, spaced]) {
+      expect(() => extractDtlsFingerprint(sdp)).toThrow(/malformed DTLS fingerprint/);
+    }
+  });
+
+  it('accepts one value repeated per m-section, in any case', () => {
+    const sdp =
+      'a=fingerprint:sha-256 ab:cd:ef\r\nm=application 9\r\na=fingerprint:SHA-256 AB:CD:EF\r\n';
+    expect(extractDtlsFingerprintAttribute(sdp)).toEqual({ algorithm: 'sha-256', value: 'AB:CD:EF' });
   });
 });

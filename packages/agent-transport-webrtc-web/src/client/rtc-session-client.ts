@@ -326,10 +326,14 @@ export function createRtcSessionClient(
       onError: reconnecting ? () => undefined : fail, // during reconnect, a room miss is not fatal (loop retries)
     });
     let chain: Promise<void> = Promise.resolve();
+    // One offer per connection: a later offer would add fingerprints the DTLS layer would also accept.
+    let offerTaken = false;
     signaling.onSignal((message) => {
       chain = chain
         .then(async () => {
           if (message.kind === 'offer') {
+            if (offerTaken) return;
+            offerTaken = true;
             await handleOffer(message.data as RTCSessionDescriptionInit);
           } else if (message.kind === 'ice' && peer) {
             await peer.addIceCandidate(message.data as RTCIceCandidateInit);

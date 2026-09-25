@@ -9,11 +9,17 @@ export {
   toPairingUrl,
   parsePairingUrl,
   extractDtlsFingerprint,
+  extractDtlsFingerprintAttribute,
   deriveSessionKey,
   computeConfirmations,
   verifyPeerConfirmation,
 } from './pairing.js';
-export type { IPairingSecret, IConfirmationInput, TPairingRole } from './pairing.js';
+export type {
+  IDtlsFingerprint,
+  IPairingSecret,
+  IConfirmationInput,
+  TPairingRole,
+} from './pairing.js';
 export { startPairingHandshake } from './handshake.js';
 export type { IPairingHandshakeOptions, IPairingResult, TPairingFrame } from './handshake.js';
 // Issue #2046: the pre-auth frame vocabulary is decoded HERE, totally, and both carriers import it.

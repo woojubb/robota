@@ -13,9 +13,52 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { PeerMessageIngress } from '../../interactive/peer-message-ingress.js';
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
 
+import type { IPeerMessageIngress } from '@robota-sdk/agent-interface-session-mobility';
+
 const TEST_TIMEOUT = 30_000;
+/** Holds the turn at its provider call until the test releases it, and says when it got there. */
+function providerGate(): {
+  hold: () => Promise<void>;
+  entered: Promise<void>;
+  release: () => void;
+} {
+  let enter!: () => void;
+  let release!: () => void;
+  const entered = new Promise<void>((resolve) => {
+    enter = resolve;
+  });
+  const released = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return {
+    hold: async () => {
+      enter();
+      await released;
+    },
+    entered,
+    release,
+  };
+}
+
+function peerMessage(text: string): IPeerMessageIngress {
+  return {
+    message: {
+      id: 'msg_1',
+      sequence: 1,
+      origin: { sessionId: 'session_alice', driverId: 'peer:session_alice' },
+      text,
+      sentAt: 1,
+    },
+    admission: {
+      admitted: true,
+      trust: 'same-user-same-host',
+      origin: { sessionId: 'session_alice' },
+    },
+  } as IPeerMessageIngress;
+}
 
 let alice: ScriptedSessionHarness | undefined;
 let bob: ScriptedSessionHarness | undefined;
@@ -97,6 +140,41 @@ describe('peer session-to-session messaging (framework functional)', () => {
       expect(alice.requests).toHaveLength(1);
       expect(bob.emittedEvents('turn_source').map(([s]) => s)).toContain('peer');
       expect(alice.emittedEvents('turn_source').map(([s]) => s)).toContain('peer');
+    },
+    TEST_TIMEOUT,
+  );
+
+  it(
+    'an idle receiver acks a peer message while its turn is still running',
+    async () => {
+      // The sender's wire waits for the immediate ack under a line timeout. On an idle session
+      // `submit` resolves only after the turn, so an ack taken from it arrived after any turn
+      // longer than that timeout, and the sender reported the message undelivered.
+      // Held at the provider, not through a tool: a peer turn runs without tools.
+      const gate = providerGate();
+      bob = scriptedSession({ turns: [{ text: 'done' }], beforeProviderCall: gate.hold });
+      const session = bob.session;
+      const ingress = new PeerMessageIngress({
+        submit: (input, origin, onAccepted) =>
+          session.submit(input, undefined, undefined, {
+            turnSource: 'peer',
+            driverId: origin.driverId ?? 'peer:unknown',
+            onAccepted,
+          }),
+      });
+
+      const received = ingress.receive(peerMessage('take your time'));
+      await gate.entered;
+      const beforeTurnEnds = await Promise.race([
+        received,
+        new Promise<'still waiting'>((resolve) => setTimeout(() => resolve('still waiting'), 50)),
+      ]);
+      gate.release();
+
+      expect(beforeTurnEnds).not.toBe('still waiting');
+      const result = await received;
+      expect(result.ack.state).toBe('pending');
+      expect((await result.settled)?.state).toBe('acknowledged');
     },
     TEST_TIMEOUT,
   );

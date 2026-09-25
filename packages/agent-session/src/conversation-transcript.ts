@@ -11,20 +11,21 @@
  * reader was told to trust.
  */
 
-import type { TUniversalMessage } from '@robota-sdk/agent-core';
+import { peerDriverOf, printablePeerDriver } from '@robota-sdk/agent-core';
 
-/** Driver ids of this prefix mark a user message sent by another session, not the operator. */
-const PEER_DRIVER_PREFIX = 'peer:';
+import type { TUniversalMessage } from '@robota-sdk/agent-core';
 
 function encode(content: unknown): string {
   return JSON.stringify(typeof content === 'string' ? content : (content ?? ''));
 }
 
+/**
+ * The same peer attribution the model request carries (agent-core `peerDriverOf`), and the same
+ * printable form of the id, which arrives from the sending side.
+ */
 function userLabel(message: TUniversalMessage): string {
-  const driverId = message.metadata?.['driverId'];
-  return typeof driverId === 'string' && driverId.startsWith(PEER_DRIVER_PREFIX)
-    ? `user [from ${JSON.stringify(driverId)}]`
-    : 'user';
+  const peer = peerDriverOf(message);
+  return peer ? `user [from ${JSON.stringify(printablePeerDriver(peer))}]` : 'user';
 }
 
 function formatMessage(message: TUniversalMessage): string[] {

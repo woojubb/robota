@@ -85,6 +85,27 @@ describe('PEER-002 — the message reaches the runtime, still saying where it ca
     expect(result.ack.state).toBe('pending');
   });
 
+  it('acks on acceptance, not when an idle session finishes the turn', async () => {
+    // An idle session's submit resolves only after the turn; the sender's wire waits for this ack.
+    let finishTurn: (() => void) | undefined;
+    const handle = { turnId: 'turn_1', completed: Promise.resolve({}) } as unknown as ITurnHandle;
+    const idle: IPeerIngressHost = {
+      submit: (_input, _origin, onAccepted) => {
+        onAccepted(handle);
+        return new Promise((resolve) => {
+          finishTurn = () => resolve(handle);
+        });
+      },
+    };
+
+    const result = await new PeerMessageIngress(idle).receive(ingress());
+
+    expect(finishTurn).toBeDefined();
+    expect(result.ack.state).toBe('pending');
+    expect((await result.settled)?.state).toBe('acknowledged');
+    finishTurn?.();
+  });
+
   it('refuses a message whose peer was not admitted, before it reaches the runtime', async () => {
     const h = host();
 

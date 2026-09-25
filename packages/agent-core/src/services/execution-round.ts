@@ -20,6 +20,7 @@ import {
 } from './execution-types';
 import * as executionUsage from './execution-usage';
 import { callPluginHook } from './plugin-hook-dispatcher';
+import { presentMessageOrigins } from './message-origin';
 import { bindWithOwnerPath } from '../event-service/index';
 import { createSystemMessage } from '../managers/conversation-message-factory';
 
@@ -64,14 +65,16 @@ export async function executeRound(
     maxRounds,
   });
   const conversationMessages = conversationStore.getMessages();
+  // The request marks each peer-driven message as a peer's; the stored history is left as sent.
+  const requestMessages = presentMessageOrigins(conversationMessages);
   // SELFHOST-008 P3: an EPHEMERAL per-run system block (e.g. per-turn recalled memory) is appended to a
   // DERIVED provider-message array only — it is sent to the model for this call but never written to the
   // conversation store, so it does not persist to history nor rebuild the cached static system prompt.
   const ephemeralSystemContext = fullContext.ephemeralSystemContext;
   const providerMessages =
     ephemeralSystemContext && ephemeralSystemContext.trim().length > 0
-      ? [...conversationMessages, createSystemMessage(ephemeralSystemContext)]
-      : conversationMessages;
+      ? [...requestMessages, createSystemMessage(ephemeralSystemContext)]
+      : requestMessages;
   const { thinkingNodeId, previousThinkingNodeId } = computeRoundThinkingContext(
     conversationId,
     roundState,

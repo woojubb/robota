@@ -5,6 +5,7 @@ import { moveModelRoute, openModelRoute, routeModel, routeProvider } from './exe
 import { isAbortFailure } from '../utils/abort-classification';
 import { randomId } from '../utils/random-id.js';
 import { verifiedProviderCallUsage } from './provider-call-usage';
+import { presentMessageOrigins } from './message-origin';
 import { resolveProviderCallTraceContext, withOutboundTraceContext } from './execution-trace-context';
 
 import type {
@@ -57,7 +58,7 @@ export async function forceSummaryCall(
     // OUTGOING array, the same shape `applyStructuredOutputTransport` uses for the schema
     // instruction (CORE-043). Nothing is added, so nothing has to be removed.
     const summaryMessages = [
-      ...conversationStore.getMessages(),
+      ...presentMessageOrigins(conversationStore.getMessages()),
       {
         id: randomId(),
         role: 'user' as const,

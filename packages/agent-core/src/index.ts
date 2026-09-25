@@ -155,6 +155,7 @@ export {
 } from './utils/env-ref.js';
 export { createRecordEnvResolver, processEnvResolver } from './utils/env-resolver.js';
 export { createBoundedOutput } from './utils/bounded-output.js';
+export { shellArgumentForDisplay } from './utils/shell-argument.js';
 export type {
   IBoundedOutput,
   IBoundedOutputOptions,
@@ -234,6 +235,7 @@ export type {
   IEventHistorySnapshot,
 } from './interfaces/history-module';
 export { EventHistoryModule } from './services/history-module';
+export { peerDriverOf, printablePeerDriver } from './services/message-origin';
 
 // Event emitter (plugin)
 export { EVENT_EMITTER_EVENTS } from './plugins/event-emitter/types';

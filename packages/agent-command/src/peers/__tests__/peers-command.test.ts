@@ -77,6 +77,57 @@ describe('what the operator is told', () => {
     expect(result.message).toMatch(/unobserved.*status unknown/);
   });
 
+  it('shows how each peer is related by workspace (#3101 B2)', async () => {
+    const result = await executePeersCommand(
+      hostWithPeers([
+        { sessionId: OWN, liveness: 'alive', workspaceRelation: 'same-worktree' },
+        { sessionId: 'here', liveness: 'alive', workspaceRelation: 'same-worktree' },
+        { sessionId: 'sibling', liveness: 'alive', workspaceRelation: 'same-repo' },
+        { sessionId: 'elsewhere', liveness: 'alive', workspaceRelation: 'different-repo' },
+        { sessionId: 'plain', liveness: 'alive', workspaceRelation: 'unknown' },
+      ]),
+    );
+    expect(result.message).toMatch(/here.*same worktree/);
+    expect(result.message).toMatch(/sibling.*same repo/);
+    expect(result.message).toMatch(/elsewhere.*different repo/);
+    expect(result.message).toMatch(/plain.*workspace unknown/);
+  });
+
+  it('reads the workspace-judged listing when the host offers one', async () => {
+    const result = await executePeersCommand({
+      getCommandHostAdapters: () => ({
+        localPeers: {
+          list: () => [
+            { sessionId: OWN, liveness: 'alive' },
+            { sessionId: 'sibling', liveness: 'alive' },
+          ],
+          listWithWorkspace: async () => [
+            { sessionId: OWN, liveness: 'alive' },
+            { sessionId: 'sibling', liveness: 'alive', workspaceRelation: 'same-repo' },
+          ],
+          ownSessionId: () => OWN,
+        },
+      }),
+    } as ICommandHostAdapterAccess);
+    expect(result.message).toMatch(/sibling.*same repo/);
+  });
+
+  it('says a mismatched workspace claim was not believed', async () => {
+    const result = await executePeersCommand(
+      hostWithPeers([
+        { sessionId: OWN, liveness: 'alive' },
+        {
+          sessionId: 'liar',
+          liveness: 'alive',
+          workspaceRelation: 'unknown',
+          workspaceClaim: 'mismatched',
+        },
+      ]),
+    );
+    expect(result.message).toMatch(/liar.*workspace claim mismatched, not believed/);
+    expect(result.message).not.toMatch(/liar.*same (worktree|repo)/);
+  });
+
   it('does not show a dead entry', async () => {
     // A crashed session leaves its file behind. That is debris, not a peer, and offering it as one
     // would make the operator address something that cannot answer.

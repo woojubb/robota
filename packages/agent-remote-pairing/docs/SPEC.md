@@ -9,8 +9,9 @@ and a browser remote client.
 
 ## Boundaries
 
-- Does NOT open or own the WebRTC connection or signaling — it consumes DTLS fingerprints (from SDP) + a data
-  channel `send`, supplied by the caller (`agent-transport-webrtc` on the host; the browser client elsewhere).
+- Does NOT open or own the WebRTC connection or signaling — it consumes the DTLS fingerprints of the negotiated
+  channel + a data channel `send`, supplied by the caller (`agent-transport-webrtc` on the host; the browser client
+  elsewhere).
 - Does NOT wire an enable path — no command, no session exposure. That belongs to the transport.
 - **Zero workspace dependencies; no `node:` imports; no WebRTC implementation dependency** in the main entry point.
   Uses only `globalThis.crypto`, standard web APIs and pure-JS isomorphic code so it is reusable unchanged in a
@@ -28,9 +29,10 @@ both DTLS fingerprints:
 - **Reflection-safe:** what a peer sends differs from what it expects, so a secretless relay cannot echo a peer its
   own confirmation.
 - **Replay-safe:** fresh nonces are folded into every transcript.
-- **MITM-detecting:** the WebRTC layer forces a relay's advertised fingerprint to match its own certificate, so the
-  two honest peers observe different fingerprint pairs when a relay sits between them → the confirmation fails →
-  abort.
+- **MITM-detecting:** the binding names the certificate the DTLS layer verified, so the two honest peers observe
+  different fingerprint pairs when a relay sits between them → the confirmation fails → abort. A DTLS stack
+  accepts a certificate matching ANY advertised fingerprint, so an SDP must carry exactly one; a carrier that can
+  read the verified certificate binds that instead of SDP text.
 
 ## Same user, across two computers
 

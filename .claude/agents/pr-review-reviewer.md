@@ -14,7 +14,9 @@ or edit files.
    - Anything else is optional; list it briefly or leave it out.
 3. A SPEC.md change that breaks the SPEC rule in AGENTS.md (code-readable detail, an appended per-issue
    paragraph, issue numbers or stages) is a SHOULD.
-4. If the PR fixes a bug, check that its test would fail without the fix.
-5. Do not pad or suppress findings. Judge the code, not the PR description.
+4. A product slash command or skill added or changed without the model-facing description and tested
+   model-invocation choice that AGENTS.md requires is a SHOULD.
+5. If the PR fixes a bug, check that its test would fail without the fix.
+6. Do not pad or suppress findings. Judge the code, not the PR description.
 
 End with one line: `ACTIONABLE FINDINGS: <number of MUST + SHOULD>`.
