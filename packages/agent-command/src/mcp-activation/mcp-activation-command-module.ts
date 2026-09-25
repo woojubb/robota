@@ -7,9 +7,15 @@ export function createMCPActivationCommandEntry(): ICommand {
   return {
     name: 'mcp',
     displayName: 'MCP activation',
-    description: 'Inspect and manage trust approval and per-server OAuth sign-in for MCP servers',
-    argumentHint: '[status] | <approve|reject|revoke|logout> <serverId>',
+    description:
+      "Show each MCP server's trust approval and OAuth sign-in state, or change one server: " +
+      'approve, reject or revoke its trust; sign in to it (login, which connects it in this ' +
+      'session) or out of it (logout). Use when an MCP server is not approved, needs a sign-in, or ' +
+      'should stop being used. Returns the status list, or what the one action did.',
+    argumentHint:
+      '[status] | <approve|reject|revoke|logout> <server> | login <server> [--no-browser]',
     source: 'mcp-activation',
+    // User-only: approve, revoke, login and logout change trust or credentials.
     modelInvocable: false,
   };
 }

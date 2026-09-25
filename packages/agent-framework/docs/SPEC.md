@@ -207,8 +207,10 @@ These are behaviors a caller cannot infer from a type signature alone.
   swap one in would silently disable a security guarantee. A consumer that wants its own tools to
   fully own the surface passes an empty `defaultTools` and supplies everything through
   `additionalTools` instead — replacement stays fully expressible, just never as a side effect of a
-  naming accident. The same edit-checkpoint wrap is applied to the final assembled set, so a
-  contributed `Write`/`Edit` is checkpointed exactly like a default one.
+  naming accident. The same session-context wraps are applied to the final assembled set and to a
+  tool the session adds mid-session, so a contributed `Write`/`Edit` is checkpointed exactly like a
+  default one and a tool that became usable later is held to the same policy as one present from
+  the start; a late tool whose name the session already has is dropped by the same rule.
 - **Deferred-tool residency has a fixed assembly order.** A tool may declare itself deferred
   (withheld until the model searches for it); deduplication preserves the surviving entry's own
   residency marker rather than the first-seen one's. A configuration where every tool is deferred is

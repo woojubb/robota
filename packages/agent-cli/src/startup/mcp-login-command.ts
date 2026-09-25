@@ -22,7 +22,7 @@ import {
 import { openInBrowser } from './browser-opener.js';
 import { HiddenPromptTooLongError, promptHiddenLine } from './hidden-prompt.js';
 import { resolveMcpDefinitions } from './mcp-definition-sources.js';
-import { mcpCredentialDirectory } from './mcp-oauth-host.js';
+import { MAX_PASTED_REDIRECT_LENGTH, mcpCredentialDirectory } from './mcp-oauth-host.js';
 
 import type { TSettingsSource } from '@robota-sdk/agent-framework';
 import type {
@@ -50,8 +50,6 @@ export interface IMcpLoginCommandDeps {
 
 const LOGIN_USAGE = 'Usage: robota mcp login <name> [--client-secret] [--no-browser]\n';
 const LOGOUT_USAGE = 'Usage: robota mcp logout <name>\n';
-/** Room for a long authorization code and state; a paste longer than this is not a redirect. */
-const MAX_REDIRECT_LENGTH = 16_384;
 
 const TOKEN_LABEL = { refresh_token: 'refresh token', access_token: 'access token' } as const;
 
@@ -166,7 +164,7 @@ export async function runMcpLoginCommand(
     ((signal: AbortSignal) =>
       promptHiddenLine('Redirect URL (not echoed): ', undefined, {
         signal,
-        maxLength: MAX_REDIRECT_LENGTH,
+        maxLength: MAX_PASTED_REDIRECT_LENGTH,
       }));
   const readRedirect = (signal: AbortSignal): Promise<string> =>
     prompt(signal).catch((error: unknown) => {

@@ -10,7 +10,9 @@
  *   (`callback.ts`) and, when it carries an RFC 9207 `iss`, only from the discovered issuer.
  * - With `readRedirect`, nothing listens: the user pastes the redirect URL their browser was sent
  *   to, and it is held to the same rules. The code alone is worthless without this process's PKCE
- *   verifier, so a redirect URI nothing listens on leaks nothing usable.
+ *   verifier, so a redirect URI nothing listens on leaks nothing usable. With
+ *   `readRedirectWhenBrowserFails`, the listener is used unless the browser cannot be opened; the
+ *   listener then stops and the pasted redirect is read instead, under the same rules.
  * - The code is exchanged by a POST that never follows a redirect (`network.ts`).
  *
  * The host opens the browser. Nothing here prints, logs or throws a code, verifier, token or
@@ -68,6 +70,12 @@ export interface IMCPOAuthLoginInput {
    * the sign-in is cancelled or `callbackTimeoutMs` passes; the read should stop then.
    */
   readonly readRedirect?: (signal: AbortSignal) => Promise<string>;
+  /**
+   * Without `readRedirect`: when `openBrowser` rejects, the redirect URL is read from this instead
+   * of failing with `browser-failed`. The browser showed the user nothing then, so this is where
+   * the authorization URL is shown.
+   */
+  readonly readRedirectWhenBrowserFails?: (signal: AbortSignal) => Promise<string>;
   readonly clientName?: string;
   readonly callbackTimeoutMs?: number;
   readonly now?: () => number;
@@ -155,6 +163,16 @@ async function redirectReceiver(
     });
   }
   const redirectUri = loopbackRedirectUri(input.config.callbackPort ?? (await freeLoopbackPort()));
+  return pastedRedirectReceiver(input, read, state, redirectUri);
+}
+
+/** Reads the redirect URL the user pastes, held to the loopback listener's rules. */
+function pastedRedirectReceiver(
+  input: IMCPOAuthLoginInput,
+  read: (signal: AbortSignal) => Promise<string>,
+  state: string,
+  redirectUri: string,
+): IMCPOAuthCallbackServer {
   const acceptor = createPastedRedirectAcceptor({ expectedState: state, redirectUri });
   return {
     redirectUri,
@@ -191,7 +209,7 @@ export async function runMCPOAuthLogin(input: IMCPOAuthLoginInput): Promise<IMCP
     fetch: fetchFn,
   });
   const state = randomBytes(32).toString('base64url');
-  const callback = await redirectReceiver(input, state);
+  let callback = await redirectReceiver(input, state);
   try {
     const client = await clientFor(input, server, callback.redirectUri, fetchFn);
     const resource = new URL(server.resource);
@@ -214,7 +232,14 @@ export async function runMCPOAuthLogin(input: IMCPOAuthLoginInput): Promise<IMCP
     try {
       await input.openBrowser(authorization.authorizationUrl, callback.redirectUri);
     } catch (error) {
-      throw asOAuthError(error, 'browser-failed');
+      const fallback = input.readRedirectWhenBrowserFails;
+      if (fallback === undefined || input.readRedirect !== undefined) {
+        throw asOAuthError(error, 'browser-failed');
+      }
+      // The redirect URI stays the one registered and authorized; only who receives it changes.
+      const listener = callback;
+      callback = pastedRedirectReceiver(input, fallback, state, listener.redirectUri);
+      await listener.close();
     }
     const redirect = await callback.wait();
     // RFC 9207: an `iss` must be this issuer's, and one the server promised must be present.

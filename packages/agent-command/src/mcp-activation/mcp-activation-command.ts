@@ -2,8 +2,12 @@ import { shellArgumentForDisplay } from '@robota-sdk/agent-core';
 
 import type {
   ICommandHostAdapterAccess,
+  ICommandHostSessionAccess,
+  ICommandHostUserInteraction,
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
+  ICommandMCPOAuthLoginRequest,
+  ICommandMCPOAuthLoginResult,
   ICommandMCPOAuthLogoutResult,
   ICommandMCPOAuthStatus,
   ICommandMCPSourceProblem,
@@ -46,17 +50,25 @@ function revocationText(result: ICommandMCPOAuthLogoutResult): string {
   }
 }
 
-const USAGE = 'Usage: /mcp [status] | /mcp <approve|reject|revoke|logout> <serverId>';
+const USAGE =
+  'Usage: /mcp [status] | /mcp <approve|reject|revoke|logout> <serverId> | /mcp login <serverId> [--no-browser]';
+const LOGIN_USAGE = 'Usage: /mcp login <serverId> [--no-browser]';
 
 /**
- * The terminal command that signs in to one server. Its name comes from a definition a repository
- * may write, so it is shown only when it is safe to paste into any shell; otherwise it is left out.
+ * A server's name as a command argument. It comes from a definition a repository may write, so it
+ * is shown only when it is safe to paste into any shell; otherwise `<server>` stands in for it.
  */
+function serverArgument(serverId: string): string {
+  return shellArgumentForDisplay(serverId) ?? '<server>';
+}
+
+/** How to sign in to one server: in this session, or from a terminal. */
 function signInHint(serverId: string): string {
-  const argument = shellArgumentForDisplay(serverId);
-  return argument === undefined
-    ? ' (run robota mcp login <server>; its name cannot be shown safely here)'
-    : ` (run robota mcp login ${argument})`;
+  const argument = serverArgument(serverId);
+  const how = `run /mcp login ${argument}, or robota mcp login ${argument} in a terminal`;
+  return shellArgumentForDisplay(serverId) === undefined
+    ? ` (${how}; its name cannot be shown safely here)`
+    : ` (${how})`;
 }
 
 function formatSummary(
@@ -145,8 +157,13 @@ async function listResult(mcp: ICommandMCPActivationAdapter | undefined): Promis
   };
 }
 
+/** What `/mcp` reaches: its port, and — to sign in — the live session and the user. */
+export type TMCPActivationCommandContext = ICommandHostAdapterAccess &
+  Pick<ICommandHostSessionAccess, 'getSession'> &
+  ICommandHostUserInteraction;
+
 export async function executeMCPActivationCommand(
-  context: ICommandHostAdapterAccess,
+  context: TMCPActivationCommandContext,
   args: string,
 ): Promise<ICommandResult> {
   const trimmed = args.trim();
@@ -157,6 +174,7 @@ export async function executeMCPActivationCommand(
   if (verb === '' || verb === 'status' || verb === 'list') {
     return listResult(adapter(context));
   }
+  if (verb === 'login') return loginResult(context, serverId);
 
   if (verb !== 'approve' && verb !== 'reject' && verb !== 'revoke' && verb !== 'logout') {
     return { message: `Unknown argument. ${USAGE}`, success: false };
@@ -221,5 +239,141 @@ async function logoutResult(
     message: `${signedOut}; ${revocationText(result)}.`,
     success: true,
     data: { ...result },
+  };
+}
+
+let redirectPrompts = 0;
+
+/** Asks, through the session's own prompt, for the redirect URL the user's browser was sent to. */
+function redirectReader(
+  context: ICommandHostUserInteraction,
+  serverId: string,
+): ICommandMCPOAuthLoginRequest['readRedirect'] {
+  const ui = context.getUserInteraction();
+  if (ui === undefined) return undefined;
+  return async (prompt) => {
+    redirectPrompts += 1;
+    const answer = await ui.ask({
+      id: `mcp-login-redirect-${redirectPrompts}`,
+      title: `Sign in to MCP server ${serverArgument(serverId)}`,
+      description:
+        `Open this URL in a browser:\n${prompt.authorizationUrl}\n\n` +
+        `After you approve, the browser is sent to ${prompt.redirectUri}, which may not load. ` +
+        'Copy the full address from its address bar and paste it here.',
+      allowFreeText: true,
+      masked: true,
+      placeholder: 'Redirect URL (not shown)',
+    });
+    if (answer.type !== 'answer' || answer.text === undefined || answer.text.trim() === '') {
+      throw new Error('No redirect URL was pasted.');
+    }
+    return answer.text;
+  };
+}
+
+/** Why a sign-in did not complete, and what to run instead, by fixed words only. */
+function loginFailureText(result: ICommandMCPOAuthLoginResult): string {
+  const { serverId, failure } = result;
+  const argument = serverArgument(serverId);
+  switch (failure) {
+    case 'not-oauth':
+      return `MCP server ${serverId} does not declare OAuth; there is nothing to sign in to.`;
+    case 'url-unset':
+      return `MCP server ${serverId} has an unset variable in its url.`;
+    case 'sign-in-in-progress':
+      return `A sign-in to MCP server ${serverId} is already in progress.`;
+    case 'prompt-unavailable':
+      return (
+        'Signing in without a browser needs the redirect URL pasted here, and nothing here can ask ' +
+        `for it; run robota mcp login ${argument} --no-browser in a terminal.`
+      );
+    case 'browser-failed':
+      return (
+        `Sign-in to MCP server ${serverId} failed (browser-failed): no browser could be opened. ` +
+        `Run /mcp login ${argument} --no-browser to paste the redirect instead.`
+      );
+    default: {
+      const secret =
+        failure === 'token-exchange-failed' && result.preRegisteredClient
+          ? ` If its pre-registered client needs a secret, run robota mcp login ${argument} --client-secret in a terminal.`
+          : '';
+      return `Sign-in to MCP server ${serverId} failed (${failure ?? 'unexpected-error'}); nothing was changed.${secret}`;
+    }
+  }
+}
+
+/** What a completed sign-in did to this session. */
+function loginSuccessText(
+  serverId: string,
+  connection: ICommandMCPOAuthLoginResult['connection'],
+  added: number,
+): string {
+  switch (connection) {
+    case 'connected':
+      return added === 0
+        ? `Signed in to MCP server ${serverId}; it is connected and offers no new tools.`
+        : `Signed in to MCP server ${serverId}; ${added} of its tools ${added === 1 ? 'is' : 'are'} now available.`;
+    case 'recovered':
+      return `Signed in to MCP server ${serverId}; its tools work again.`;
+    case 'not-admitted':
+      return `Signed in to MCP server ${serverId}, but it is not approved for this session (see /mcp status).`;
+    default:
+      return `Signed in to MCP server ${serverId}, but it could not connect in this session; the next session connects it.`;
+  }
+}
+
+async function loginResult(
+  context: TMCPActivationCommandContext,
+  rest: string,
+): Promise<ICommandResult> {
+  const words = rest.split(/\s+/).filter((word) => word !== '');
+  const noBrowser = words.includes('--no-browser');
+  const withSecret = words.includes('--client-secret');
+  const positional = words.filter((word) => word !== '--no-browser' && word !== '--client-secret');
+  const serverId = positional[0];
+  if (positional.length !== 1 || serverId === undefined || serverId.startsWith('-')) {
+    return { message: LOGIN_USAGE, success: false };
+  }
+  const argument = serverArgument(serverId);
+  if (withSecret) {
+    // A secret typed here would become part of the conversation; it is asked for only in a terminal.
+    return {
+      message:
+        'A client secret is never typed into a session. Run robota mcp login ' +
+        `${argument} --client-secret in a terminal.`,
+      success: false,
+    };
+  }
+  const mcp = adapter(context);
+  if (!mcp) {
+    return {
+      message: 'MCP activation management is not available in this environment.',
+      success: true,
+    };
+  }
+  if (mcp.oauthLogin === undefined) {
+    return {
+      message: `Signing in is not available in this session; run robota mcp login ${argument} in a terminal.`,
+      success: false,
+    };
+  }
+  const readRedirect = redirectReader(context, serverId);
+  const result = await mcp.oauthLogin({
+    serverId,
+    noBrowser,
+    ...(readRedirect === undefined ? {} : { readRedirect }),
+  });
+  if (result.failure !== undefined) {
+    return {
+      message: loginFailureText(result),
+      success: false,
+      data: { serverId, failure: result.failure },
+    };
+  }
+  const added = result.tools.length === 0 ? [] : await context.getSession().addTools(result.tools);
+  return {
+    message: loginSuccessText(serverId, result.connection, added.length),
+    success: true,
+    data: { serverId, connection: result.connection ?? 'not-connected', tools: [...added] },
   };
 }

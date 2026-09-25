@@ -221,6 +221,47 @@ describe('signing in with a pasted redirect', () => {
     expect(cancelled.signal()?.aborted).toBe(true);
   });
 
+  it('reads a pasted redirect when the browser cannot be opened, and stops listening', async () => {
+    const server = createFakeOAuthServer();
+    const directory = temporaryDirectory();
+    const store = createFileOAuthCredentialStore(directory);
+    const shown: { url: URL; redirectUri: string }[] = [];
+    const result = runMCPOAuthLogin({
+      securityIdentity: 'identity-1',
+      serverUrl: MCP_URL,
+      config: {},
+      store,
+      lock: createFileOAuthRefreshLock(directory),
+      network: { fetch: server.fetch, lookup: server.lookup },
+      callbackTimeoutMs: 5_000,
+      openBrowser: async (url, redirectUri) => {
+        shown.push({ url, redirectUri });
+        throw new Error('no browser here');
+      },
+      readRedirectWhenBrowserFails: async () => {
+        expect(await reachable(shown[0]!.redirectUri)).toBe(false);
+        return server.approve(shown[0]!.url).href;
+      },
+    });
+    await expect(result).resolves.toMatchObject({ issuer: AS_URL });
+    await expect(store.get(KEY)).resolves.toMatchObject({ accessToken: expect.any(String) });
+
+    // Without the fallback, the same failure still ends the sign-in.
+    const without = runMCPOAuthLogin({
+      securityIdentity: 'identity-1',
+      serverUrl: MCP_URL,
+      config: {},
+      store: createFileOAuthCredentialStore(temporaryDirectory()),
+      lock: createFileOAuthRefreshLock(directory),
+      network: { fetch: server.fetch, lookup: server.lookup },
+      callbackTimeoutMs: 5_000,
+      openBrowser: async () => {
+        throw new Error('no browser here');
+      },
+    });
+    expect((await failure(without)).reason).toBe('browser-failed');
+  });
+
   it('refuses a pasted redirect for another sign-in', async () => {
     const server = createFakeOAuthServer();
     const { result, store } = pastedLogin(server, (redirect) => {

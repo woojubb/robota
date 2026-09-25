@@ -12,15 +12,19 @@ import { join } from 'node:path';
 import { shellArgumentForDisplay } from '@robota-sdk/agent-core';
 
 import {
+  MCPOAuthError,
   createFileOAuthCredentialStore,
   createFileOAuthRefreshLock,
   createOAuthAuthenticator,
   readMCPOAuthCredentialState,
+  runMCPOAuthLogin,
   runMCPOAuthLogout,
 } from '@robota-sdk/agent-mcp';
 
 import { userLocalStorageRoot } from '../product/user-paths.js';
+import { openInBrowser } from './browser-opener.js';
 
+import type { ICommandMCPOAuthRedirectPrompt } from '@robota-sdk/agent-framework';
 import type { IMCPOAuthNetwork, TMCPOAuthNotice } from '@robota-sdk/agent-mcp';
 import type { IMcpOAuthHost } from './mcp-client-composition.js';
 
@@ -45,9 +49,11 @@ export function formatMcpOAuthNotice(notice: TMCPOAuthNotice): string {
   if (notice.kind === 'login-required') {
     // A repository may name the server: it goes into the command only when it is safe to paste.
     const argument = shellArgumentForDisplay(notice.serverId);
+    const shown = argument ?? '<server>';
+    const how = `run /mcp login ${shown} in this session, or robota mcp login ${shown} in a terminal`;
     return argument === undefined
-      ? 'An MCP server whose name cannot be shown safely needs you to sign in: run robota mcp login <server>'
-      : `MCP server ${argument} needs you to sign in: run robota mcp login ${argument}`;
+      ? `An MCP server whose name cannot be shown safely needs you to sign in: ${how}`
+      : `MCP server ${argument} needs you to sign in: ${how}`;
   }
   const name = quotedName(notice.serverId);
   return notice.scope === undefined
@@ -55,17 +61,60 @@ export function formatMcpOAuthNotice(notice: TMCPOAuthNotice): string {
     : `MCP server ${name} refused the request: it requires the scope "${notice.scope}".`;
 }
 
+/** Room for a long authorization code and state; a paste longer than this is not a redirect. */
+export const MAX_PASTED_REDIRECT_LENGTH = 16_384;
+
 export function createMcpOAuthHost(options: {
   readonly network: IMCPOAuthNetwork;
   readonly reportDiagnostic: (message: string) => void;
   readonly directory?: string;
+  /** Defaults to the platform browser; tests inject one. */
+  readonly openBrowser?: (url: URL) => Promise<void>;
+  readonly callbackTimeoutMs?: number;
 }): IMcpOAuthHost {
   const directory = options.directory ?? mcpCredentialDirectory();
   const store = createFileOAuthCredentialStore(directory);
   const lock = createFileOAuthRefreshLock(directory);
+  const open = options.openBrowser ?? ((url: URL) => openInBrowser(url));
   /** Servers this session was told need a sign-in; nothing stored for them reads as that. */
   const signInAsked = new Set<string>();
   return {
+    signIn: async (request, definition, { noBrowser, readRedirect }) => {
+      let prompt: ICommandMCPOAuthRedirectPrompt | undefined;
+      const paste =
+        readRedirect === undefined
+          ? undefined
+          : async (signal: AbortSignal): Promise<string> => {
+              // Asked for only after the authorization URL is known, so it is always shown.
+              if (prompt === undefined) throw new MCPOAuthError('cancelled');
+              const pasted = await readRedirect(prompt, signal);
+              if (pasted.length > MAX_PASTED_REDIRECT_LENGTH) {
+                throw new MCPOAuthError('redirect-too-long');
+              }
+              return pasted;
+            };
+      await runMCPOAuthLogin({
+        securityIdentity: request.securityIdentity,
+        serverUrl: definition.url ?? '',
+        config: definition.oauth ?? {},
+        store,
+        lock,
+        network: options.network,
+        ...(options.callbackTimeoutMs === undefined
+          ? {}
+          : { callbackTimeoutMs: options.callbackTimeoutMs }),
+        ...(paste === undefined
+          ? {}
+          : noBrowser
+            ? { readRedirect: paste }
+            : { readRedirectWhenBrowserFails: paste }),
+        openBrowser: async (url, redirectUri) => {
+          prompt = { authorizationUrl: url.href, redirectUri };
+          if (!noBrowser) await open(url);
+        },
+      });
+      signInAsked.delete(request.serverId);
+    },
     authenticatorFor: (request, definition) =>
       createOAuthAuthenticator({
         serverId: request.serverId,

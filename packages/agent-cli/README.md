@@ -492,7 +492,7 @@ supplying the same store; it remains responsible for when to reconnect approved 
 
 A remote server that declares `"oauth": {}` (optionally with `clientId`, `callbackPort`,
 `authServerMetadataUrl` and `scopes`) needs its own sign-in before a session can use it. Sign-in is
-per server, from a terminal, naming the server:
+per server, naming the server — inside a session with `/mcp login <server>`, or from a terminal:
 
 ```bash
 robota mcp login files                 # opens your browser; tokens kept owner-only in ~/.robota/mcp-credentials
@@ -512,11 +512,18 @@ authorization server cannot be reached or refuses to revoke the tokens; it then 
 whether it was revoked, and otherwise why not (by a short reason) or that the server offers no
 revocation. `/mcp` shows each OAuth server's sign-in state — `signed in`, `token expired, will
 refresh`, `sign-in required` or `signed out` — never a token, and for a server that needs a sign-in
-it names the `robota mcp login <server>` command to run (the server's name appears in it only when
-it is a plain name that is safe to paste into any shell). `/mcp logout <serverId>` signs out of that one server from
-inside a session and stops the session sending the token it holds. There is no sign-in inside a
-session: it needs the terminal for the browser, a pasted redirect or a secret. A server that could
-not connect at startup is connected by the next session after you sign in to it.
+it names `/mcp login <server>` and `robota mcp login <server>` (the server's name appears in them
+only when it is a plain name that is safe to paste into any shell). `/mcp logout <serverId>` signs
+out of that one server from inside a session and stops the session sending the token it holds.
+
+`/mcp login <server>` signs in without leaving the session: it opens your browser, and when no
+browser can be opened — or with `/mcp login <server> --no-browser` — it shows the authorization URL
+and asks for the redirect address in the session's own prompt (the input is not shown). Once signed
+in, a server that could not connect at startup is admitted as usual (it must be approved) and
+connected, and its tools are available from your next message; a server whose sign-in lapsed
+mid-session works again. A failed or cancelled sign-in changes nothing. A client secret is never
+typed into a session: for a pre-registered client that needs one, run
+`robota mcp login <server> --client-secret` in a terminal.
 
 ### MCP Background Handoff
 

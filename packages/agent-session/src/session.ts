@@ -45,6 +45,7 @@ import type {
   IEventService,
   IToolSchema,
   IToolExecutionResult,
+  IToolWithEventService,
   TToolParameters,
   TPermissionMode,
   IHookTypeExecutor,
@@ -98,6 +99,7 @@ export class Session extends SessionBase {
   private readonly maxTurns?: number;
   private readonly compactionOrchestrator: CompactionOrchestrator;
   private readonly runtimeTools: SessionRuntimeTools;
+  private readonly wrapAddedTools: ISessionOptions['wrapAddedTools'];
   private shuttingDown = false;
   private shutdownPromise: Promise<void> | null = null;
   /** Stdout collected from SessionStart hooks, injected on first run(). */
@@ -113,6 +115,7 @@ export class Session extends SessionBase {
     this.sessionStore = options.sessionStore;
     this.systemMessage = systemMessage;
     this.toolSchemas = tools.map((tool) => tool.schema);
+    this.wrapAddedTools = options.wrapAddedTools;
     this.sessionLogger = options.sessionLogger;
     this.hooks = options.hooks;
     this.hookTypeExecutors = options.hookTypeExecutors;
@@ -200,6 +203,29 @@ export class Session extends SessionBase {
       unlink();
       this.turnClaim.release(controller);
     }
+  }
+
+  /**
+   * Make tools available from the next model request on — for a capability that became usable
+   * mid-session, such as an MCP server connected after its sign-in. Each goes through the same
+   * wrappers and permission gate as a tool present from the start. A tool whose name the session
+   * already has is left out rather than replacing the one the conversation has been using.
+   * Returns the names added.
+   */
+  async addTools(tools: readonly IToolWithEventService[]): Promise<readonly string[]> {
+    if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
+    const known = new Set(this.toolSchemas.map((schema) => schema.name));
+    const fresh: IToolWithEventService[] = [];
+    for (const tool of tools) {
+      if (known.has(tool.schema.name)) continue;
+      known.add(tool.schema.name);
+      fresh.push(tool);
+    }
+    if (fresh.length === 0) return [];
+    const wrapped = this.permissionEnforcer.wrapTools(this.wrapAddedTools?.(fresh) ?? fresh);
+    await this.agent.updateTools([...(this.agent.getConfig().tools ?? []), ...wrapped]);
+    this.toolSchemas.push(...wrapped.map((tool) => tool.schema));
+    return wrapped.map((tool) => tool.schema.name);
   }
 
   async listRuntimeTools(): Promise<IToolSchema[]> {

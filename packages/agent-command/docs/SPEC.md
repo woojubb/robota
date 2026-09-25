@@ -78,8 +78,11 @@ never a silent guess. Known limit: the slash-command tokenizer has no quoting, s
 space cannot be expressed, and the inline subject cannot carry a body; the timeout only bounds the
 direct git child, not a hook's grandchildren still holding the output pipes open.
 
-**`/mcp`.** Reads and requests approve/reject/revoke decisions through an injected host adapter; it
-never constructs or connects an MCP client itself.
+**`/mcp`.** Reads and requests approve/reject/revoke, sign-in and sign-out through an injected host
+adapter; it never constructs or connects an MCP client itself, and only hands the tools a sign-in
+connected to the session. It stays user-only because every change it makes widens or withdraws
+trust or a credential; a client secret is never asked for in a session, since what is typed there
+becomes part of the conversation.
 
 **`/peers` activity.** The command renders the host's fixed activity observation separately
 from process liveness. An absent, expired, or unverified observation is shown as unknown; the command
