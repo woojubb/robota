@@ -169,6 +169,21 @@ async function authorizationServerMetadata(
   return metadata;
 }
 
+/**
+ * The metadata of an authorization server already known by its issuer — one tokens were stored
+ * from — checked to name that issuer. Every failure is an {@link MCPOAuthError}.
+ */
+export async function fetchIssuerMetadata(
+  issuer: string,
+  fetch: FetchLike,
+): Promise<AuthorizationServerMetadata> {
+  try {
+    return await authorizationServerMetadata(parseHttps(issuer), fetch);
+  } catch (error) {
+    throw asOAuthError(error, 'discovery-failed');
+  }
+}
+
 /** Discover and check a server's authorization server. Every failure is an {@link MCPOAuthError}. */
 export async function discoverMCPOAuthServer(
   input: IMCPOAuthDiscoveryInput,

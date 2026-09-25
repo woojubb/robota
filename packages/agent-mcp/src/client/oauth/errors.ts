@@ -29,6 +29,8 @@ export type TMCPOAuthFailure =
   | 'callback-unavailable'
   | 'callback-timeout'
   | 'callback-invalid'
+  /** A pasted redirect URL longer than the prompt accepts. */
+  | 'redirect-too-long'
   /** The authorization server redirected back with an error instead of a code. */
   | 'authorization-denied'
   /** RFC 9207: the redirect's `iss` is missing where promised, or names another issuer. */
@@ -37,6 +39,10 @@ export type TMCPOAuthFailure =
   | 'token-exchange-failed'
   | 'token-type-unsupported'
   | 'refresh-failed'
+  /** The authorization server did not confirm a token revocation. */
+  | 'revocation-failed'
+  /** RFC 7009 `unsupported_token_type`: the server does not revoke this kind of token. */
+  | 'token-type-not-revocable'
   /** No usable credential is stored: a new sign-in is needed. */
   | 'login-required'
   | 'store-failed'

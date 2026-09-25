@@ -17,7 +17,7 @@ import {
   createInitialCliWorkspaceComposition,
   resolveInitialCliWorkspaceProjectAccess,
 } from './workspace-project-composition.js';
-import { runMcpLoginCommand } from './mcp-login-command.js';
+import { runMcpLoginCommand, runMcpLogoutCommand } from './mcp-login-command.js';
 import { runWorkspaceTrustCommand } from './workspace-trust-command.js';
 import {
   formatHeadlessWorkspaceTrustError,
@@ -146,8 +146,12 @@ export async function runPreparsedCliCommand(
     ...options,
     projectAccess,
   });
-  if (argv[SUBCOMMAND_INDEX] === 'mcp' && argv[ACTION_INDEX] === 'login') {
-    process.exitCode = await runMcpLoginCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), {
+  if (
+    argv[SUBCOMMAND_INDEX] === 'mcp' &&
+    (argv[ACTION_INDEX] === 'login' || argv[ACTION_INDEX] === 'logout')
+  ) {
+    const run = argv[ACTION_INDEX] === 'login' ? runMcpLoginCommand : runMcpLogoutCommand;
+    process.exitCode = await run(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), {
       settingsSources: composition.settingsSources,
       env: process.env,
       stdout: (text) => process.stdout.write(text),

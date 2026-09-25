@@ -182,9 +182,13 @@ trusted. A repository's helper also runs without the user's credential-shaped en
 the user allowed the program, not handing their credentials to wherever that repository points it.
 Stdio and helper diagnostics never include raw child or SDK errors or anything a helper printed, and
 the ordinary executable does not auto-approve package-runner commands. An OAuth server's tokens come
-only from the user's own `robota mcp login`, kept owner-only under the user's Robota home; the
-authorization page opens by argv and only for an `https` URL, and a client secret is asked for,
-never read from an argument or a definition.
+only from the user's own per-server `robota mcp login`, kept owner-only under the user's Robota
+home. Sign-in is a terminal command only, never a session command, because it needs the terminal a
+session owns for the browser, a pasted redirect or a secret; a command Robota tells the user to run
+names the server only when its name is safe to paste into any shell, since a repository chooses that
+name and quoting rules differ between shells. The authorization page opens by argv and only for an `https` URL,
+and a client secret or pasted redirect is asked for without echo, never read from an argument or a
+definition.
 
 **Current limitation.** Approval is in-memory and session-scoped per process: a server approved via
 `/mcp approve` mid-session is not connected by that already-started session. An embedding host can

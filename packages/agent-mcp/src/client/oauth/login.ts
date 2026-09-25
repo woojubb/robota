@@ -8,6 +8,9 @@
  * - The authorization request carries PKCE, a random `state` and the canonical server URL as the
  *   RFC 8707 resource indicator; the redirect is accepted only with that `state`
  *   (`callback.ts`) and, when it carries an RFC 9207 `iss`, only from the discovered issuer.
+ * - With `readRedirect`, nothing listens: the user pastes the redirect URL their browser was sent
+ *   to, and it is held to the same rules. The code alone is worthless without this process's PKCE
+ *   verifier, so a redirect URI nothing listens on leaks nothing usable.
  * - The code is exchanged by a POST that never follows a redirect (`network.ts`).
  *
  * The host opens the browser. Nothing here prints, logs or throws a code, verifier, token or
@@ -22,7 +25,13 @@ import {
   startAuthorization,
 } from '@modelcontextprotocol/sdk/client/auth.js';
 
-import { startOAuthCallbackServer } from './callback.js';
+import {
+  DEFAULT_CALLBACK_TIMEOUT_MS,
+  createPastedRedirectAcceptor,
+  freeLoopbackPort,
+  loopbackRedirectUri,
+  startOAuthCallbackServer,
+} from './callback.js';
 import { discoverMCPOAuthServer } from './discovery.js';
 import { MCPOAuthError, asOAuthError } from './errors.js';
 import { createOAuthFetch } from './network.js';
@@ -32,6 +41,7 @@ import type {
   OAuthTokens,
 } from '@modelcontextprotocol/sdk/shared/auth.js';
 import type { IMCPOAuthConfig } from '../../definition/types.js';
+import type { IMCPOAuthCallbackServer } from './callback.js';
 import type { IMCPOAuthServerInfo } from './discovery.js';
 import type { IMCPOAuthNetwork } from './network.js';
 import type { IMCPOAuthRefreshLock } from './refresh-lock.js';
@@ -48,8 +58,16 @@ export interface IMCPOAuthLoginInput {
   /** The refresh lock a session uses, so a refresh in flight cannot overwrite this sign-in. */
   readonly lock: IMCPOAuthRefreshLock;
   readonly network: IMCPOAuthNetwork;
-  /** Shows the user the authorization page. Always given an `https:` URL. */
-  readonly openBrowser: (url: URL) => Promise<void>;
+  /**
+   * Shows the user the authorization page, and — with `readRedirect` — the redirect URI it will
+   * send the browser to. Always given an `https:` URL.
+   */
+  readonly openBrowser: (url: URL, redirectUri: string) => Promise<void>;
+  /**
+   * For a browser on another machine: reads the redirect URL the user pastes. `signal` aborts when
+   * the sign-in is cancelled or `callbackTimeoutMs` passes; the read should stop then.
+   */
+  readonly readRedirect?: (signal: AbortSignal) => Promise<string>;
   readonly clientName?: string;
   readonly callbackTimeoutMs?: number;
   readonly now?: () => number;
@@ -66,7 +84,10 @@ const MS_PER_SECOND = 1000;
 /** Only bearer tokens are sent; anything else would be sent as something it is not. */
 export function credentialFromTokens(
   tokens: OAuthTokens,
-  base: Omit<IMCPOAuthCredential, 'accessToken' | 'refreshToken' | 'expiresAt' | 'scope'>,
+  base: Omit<
+    IMCPOAuthCredential,
+    'accessToken' | 'refreshToken' | 'expiresAt' | 'issuedAt' | 'scope'
+  >,
   now: number,
   previousRefreshToken?: string,
 ): IMCPOAuthCredential {
@@ -81,7 +102,7 @@ export function credentialFromTokens(
     ...(refreshToken === undefined ? {} : { refreshToken }),
     ...(expiresIn === undefined || !Number.isFinite(expiresIn)
       ? {}
-      : { expiresAt: now + expiresIn * MS_PER_SECOND }),
+      : { expiresAt: now + expiresIn * MS_PER_SECOND, issuedAt: now }),
     ...(tokens.scope === undefined ? {} : { scope: tokens.scope }),
   };
 }
@@ -120,6 +141,47 @@ async function clientFor(
   }
 }
 
+async function redirectReceiver(
+  input: IMCPOAuthLoginInput,
+  state: string,
+): Promise<IMCPOAuthCallbackServer> {
+  const read = input.readRedirect;
+  if (read === undefined) {
+    return startOAuthCallbackServer({
+      expectedState: state,
+      ...(input.config.callbackPort === undefined ? {} : { port: input.config.callbackPort }),
+      ...(input.callbackTimeoutMs === undefined ? {} : { timeoutMs: input.callbackTimeoutMs }),
+      ...(input.signal === undefined ? {} : { signal: input.signal }),
+    });
+  }
+  const redirectUri = loopbackRedirectUri(input.config.callbackPort ?? (await freeLoopbackPort()));
+  const acceptor = createPastedRedirectAcceptor({ expectedState: state, redirectUri });
+  return {
+    redirectUri,
+    wait: async () => {
+      // The same limit the loopback listener keeps, so a forgotten prompt does not wait forever.
+      const timeout = AbortSignal.timeout(input.callbackTimeoutMs ?? DEFAULT_CALLBACK_TIMEOUT_MS);
+      const signal =
+        input.signal === undefined ? timeout : AbortSignal.any([input.signal, timeout]);
+      const aborted = new Promise<never>((_resolve, reject) => {
+        const fail = (): void =>
+          reject(new MCPOAuthError(timeout.aborted ? 'callback-timeout' : 'cancelled'));
+        if (signal.aborted) fail();
+        else signal.addEventListener('abort', fail, { once: true });
+      });
+      aborted.catch(() => undefined);
+      let pasted: string;
+      try {
+        pasted = await Promise.race([read(signal), aborted]);
+      } catch (error) {
+        throw asOAuthError(error, 'cancelled');
+      }
+      return acceptor.accept(pasted);
+    },
+    close: async () => undefined,
+  };
+}
+
 /** Run the whole sign-in and store its credential. Every failure is an {@link MCPOAuthError}. */
 export async function runMCPOAuthLogin(input: IMCPOAuthLoginInput): Promise<IMCPOAuthLoginResult> {
   const fetchFn = createOAuthFetch(input.network, input.signal);
@@ -129,12 +191,7 @@ export async function runMCPOAuthLogin(input: IMCPOAuthLoginInput): Promise<IMCP
     fetch: fetchFn,
   });
   const state = randomBytes(32).toString('base64url');
-  const callback = await startOAuthCallbackServer({
-    expectedState: state,
-    ...(input.config.callbackPort === undefined ? {} : { port: input.config.callbackPort }),
-    ...(input.callbackTimeoutMs === undefined ? {} : { timeoutMs: input.callbackTimeoutMs }),
-    ...(input.signal === undefined ? {} : { signal: input.signal }),
-  });
+  const callback = await redirectReceiver(input, state);
   try {
     const client = await clientFor(input, server, callback.redirectUri, fetchFn);
     const resource = new URL(server.resource);
@@ -155,7 +212,7 @@ export async function runMCPOAuthLogin(input: IMCPOAuthLoginInput): Promise<IMCP
       throw new MCPOAuthError('insecure-endpoint');
     }
     try {
-      await input.openBrowser(authorization.authorizationUrl);
+      await input.openBrowser(authorization.authorizationUrl, callback.redirectUri);
     } catch (error) {
       throw asOAuthError(error, 'browser-failed');
     }

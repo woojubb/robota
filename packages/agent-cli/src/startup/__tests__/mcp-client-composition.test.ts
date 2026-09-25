@@ -527,6 +527,45 @@ describe('OAuth remote servers', () => {
     await composition.shutdown();
     expect(close).toHaveBeenCalledOnce();
   });
+
+  it('a /mcp sign-out makes the live authenticator drop the token it holds', async () => {
+    const entries = oauthEntries();
+    const { connection } = fakeConnection(discoveryWithOneTool());
+    const forget = vi.fn();
+    const signOut = vi.fn(async () => ({ removed: true, revocation: 'revoked' as const }));
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore: approvedApprovalStore(entries),
+      oauth: {
+        authenticatorFor: () => ({
+          authorize: async () => ({ Authorization: 'Bearer t' }),
+          onRejected: async () => 'fail' as const,
+          forget,
+          close: () => undefined,
+        }),
+        state: async () => 'signed-in',
+        signOut,
+      },
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: () => connection,
+      reportDiagnostic: diagnosticsSink().reportDiagnostic,
+    });
+    await composition.connect();
+    await expect(composition.activationAdapter.oauthStatus?.()).resolves.toEqual([
+      { serverId: 'weather', state: 'signed-in' },
+    ]);
+    await expect(composition.activationAdapter.oauthLogout?.('weather')).resolves.toEqual({
+      serverId: 'weather',
+      removed: true,
+      revocation: 'revoked',
+    });
+    expect(signOut).toHaveBeenCalledWith(
+      expect.objectContaining({ serverId: 'weather' }),
+      expect.objectContaining({ oauth: {} }),
+    );
+    expect(forget).toHaveBeenCalledOnce();
+    await composition.shutdown();
+  });
 });
 
 describe('stdio client host authority (MCP-2522)', () => {

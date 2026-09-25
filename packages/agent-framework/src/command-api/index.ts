@@ -75,6 +75,8 @@ export type {
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
   ICommandMCPSourceProblem,
+  ICommandMCPOAuthStatus,
+  ICommandMCPOAuthLogoutResult,
   ICommandPresetRegistryAdapter,
   ICommandOutputStyleRegistryAdapter,
   ICommandOutputStyleSummary,

@@ -166,6 +166,31 @@ export interface ICommandMCPSourceProblem {
   readonly blockedServerNames?: readonly string[];
 }
 
+/**
+ * One OAuth server's sign-in state as `/mcp` may show it: a fixed word, never a token, scope, expiry
+ * time or anything else derived from a credential.
+ */
+export interface ICommandMCPOAuthStatus {
+  readonly serverId: string;
+  readonly state: 'signed-in' | 'expired-refreshable' | 'sign-in-required' | 'signed-out';
+}
+
+/** What signing out did, by fixed reasons only. */
+export interface ICommandMCPOAuthLogoutResult {
+  readonly serverId: string;
+  /** Whether a credential was stored before the sign-out. */
+  readonly removed: boolean;
+  readonly revocation: 'revoked' | 'partial' | 'unsupported' | 'failed' | 'not-attempted';
+  /** The first step that refused, when a revocation was not confirmed. */
+  readonly revocationFailure?: string;
+  /** Each token a revocation was asked for, by kind — never its value. */
+  readonly tokens?: readonly {
+    readonly token: 'refresh_token' | 'access_token';
+    readonly revoked: boolean;
+    readonly failure?: string;
+  }[];
+}
+
 /** MCP activation lifecycle port. Implemented by the composition root over the MCP policy service. */
 export interface ICommandMCPActivationAdapter {
   list(): readonly ICommandMCPActivationSummary[];
@@ -178,6 +203,10 @@ export interface ICommandMCPActivationAdapter {
   approve(serverId: string): ICommandMCPActivationSummary | Promise<ICommandMCPActivationSummary>;
   reject(serverId: string): ICommandMCPActivationSummary | Promise<ICommandMCPActivationSummary>;
   revoke(serverId: string): ICommandMCPActivationSummary | Promise<ICommandMCPActivationSummary>;
+  /** Sign-in state of every server that declares OAuth. Absent: the host offers no OAuth. */
+  oauthStatus?(): Promise<readonly ICommandMCPOAuthStatus[]>;
+  /** Sign out of one OAuth server. Rejects for a server that does not declare OAuth. */
+  oauthLogout?(serverId: string): Promise<ICommandMCPOAuthLogoutResult>;
 }
 
 /**
