@@ -1,3 +1,5 @@
+import { findInvalidPermissionPatterns } from './pattern-validation.js';
+
 /**
  * A preset's tool LISTS as permission PATTERNS.
  *
@@ -27,8 +29,16 @@ export function applyPresetToolLists(
   base: { allow: readonly string[]; deny: readonly string[] },
   preset: { allowedTools?: readonly string[]; deniedTools?: readonly string[] },
 ): { allow: string[]; deny: string[] } {
+  const allowed = toolNamesToPatterns(preset.allowedTools);
+  // Issue #3081: tool names are globbed now, so a preset naming `*` or `Read*` would grant tools
+  // nobody listed. Held to the allow grammar on every path — startup and a live `/preset` alike.
+  const problems = findInvalidPermissionPatterns(allowed, 'allow');
+  if (problems.length > 0) {
+    const listed = problems.map(({ pattern, reason }) => `"${pattern}" ${reason}`).join('; ');
+    throw new Error(`Invalid preset allowedTools: ${listed}.`);
+  }
   return {
-    allow: [...base.allow, ...toolNamesToPatterns(preset.allowedTools)],
+    allow: [...base.allow, ...allowed],
     deny: [...new Set([...base.deny, ...toolNamesToPatterns(preset.deniedTools)])],
   };
 }

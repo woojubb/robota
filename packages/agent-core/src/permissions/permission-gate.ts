@@ -21,6 +21,8 @@
  * - `Read(/src/**)` — Read tool whose filePath is under /src/
  * - `Write(*)`      — Write tool with any argument
  * - `ToolName`      — match any invocation of that tool
+ * - `Bash(run_in_background:true)` — deny/ask only: a named top-level parameter's value
+ * - `github__*`     — a glob in the tool-name position (allow only after a literal `<server>__`)
  */
 
 import { globToRegex, matchCommand, matchPath, matchUrl } from './argument-matchers.js';
@@ -119,6 +121,13 @@ export interface IToolPermissionProfile {
    * call and is refused in plan mode.
    */
   riskClass?: TToolRiskClass;
+  /**
+   * The tool's top-level input parameter names. `Tool(name:value)` is a parameter rule only when
+   * `name` is one of these — keyed on the schema, not the text's shape, so `WebFetch(https://…)`
+   * stays a URL pattern. Declared by whoever holds the schema (the session registers every tool it
+   * wraps, MCP tools included).
+   */
+  parameters?: readonly string[];
 }
 
 /** Profiles contributed by the packages that own the tools. */
@@ -150,6 +159,59 @@ export function clearRegisteredToolProfiles(): void {
 /** What has been declared about a tool, or an empty profile when nobody has said anything. */
 export function getToolPermissionProfile(toolName: string): IToolPermissionProfile {
   return toolProfiles.get(toolName) ?? {};
+}
+
+/** Whether a pattern's tool-name part names this tool: exact, or a `*` glob over the name. */
+export function toolNameMatches(patternName: string, toolName: string): boolean {
+  return patternName.includes('*') ? globToRegex(patternName).test(toolName) : patternName === toolName;
+}
+
+/** A `name:value` argument pattern that names one of the tool's parameters. */
+export interface IParameterRule {
+  name: string;
+  value: string;
+}
+
+/**
+ * Read an argument pattern as a parameter rule. `'primary'` when it names the tool's primary field
+ * — that field is matched by the ordinary `Tool(pattern)` form, and a rule written against it is
+ * refused rather than silently ignored. `undefined` when it is an ordinary argument pattern.
+ */
+export function parseParameterRule(
+  toolName: string,
+  argPattern: string,
+): IParameterRule | 'primary' | undefined {
+  const match = /^([A-Za-z_]\w*):([\s\S]*)$/.exec(argPattern);
+  if (match === null) return undefined;
+  const name = match[1]!;
+  const profile = toolProfiles.get(toolName);
+  if (profile?.argument?.key === name) return 'primary';
+  if (profile?.parameters?.includes(name) !== true) return undefined;
+  return { name, value: match[2]! };
+}
+
+/** A parameter's value against the rule's glob, compared as the model sent it (issue #3081). */
+function matchParameter(rule: IParameterRule, args: TToolArgs): TPatternMatch {
+  if (!Object.prototype.hasOwnProperty.call(args, rule.name)) return 'no-match';
+  const value: unknown = args[rule.name];
+  if (value === undefined) return 'no-match';
+  if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') {
+    return 'unevaluable';
+  }
+  return globToRegex(rule.value).test(String(value)) ? 'match' : 'no-match';
+}
+
+/**
+ * Whether a deny list removes this tool outright — a bare name, `Tool(*)` or `Tool(**)`, glob names
+ * included. Such a tool is withheld from the model entirely rather than offered and then refused.
+ */
+export function isToolDeniedOutright(toolName: string, deny: readonly string[]): boolean {
+  return deny.some((pattern) => {
+    const parsed = parsePattern(pattern);
+    const bare =
+      parsed.argPattern === undefined || parsed.argPattern === '*' || parsed.argPattern === '**';
+    return bare && toolNameMatches(parsed.toolName, toolName);
+  });
 }
 
 /** Which argument a pattern is matched against, or `undefined` when nobody has said. */
@@ -220,8 +282,8 @@ function evaluateArgumentPattern(
 ): TPatternMatch {
   const parsed = parsePattern(pattern);
 
-  // Tool name must match (case-sensitive)
-  if (parsed.toolName !== toolName) {
+  // Tool name must match (case-sensitive), exactly or by a name glob.
+  if (!toolNameMatches(parsed.toolName, toolName)) {
     return 'no-match';
   }
 
@@ -229,6 +291,13 @@ function evaluateArgumentPattern(
   // and whether or not it declared an argument: `Tool(*)` names none.
   if (parsed.argPattern === undefined || parsed.argPattern === '*' || parsed.argPattern === '**') {
     return 'match';
+  }
+
+  // A named parameter (issue #3081). Deny and ask only: in an allow list it never widens anything.
+  const parameterRule = parseParameterRule(toolName, parsed.argPattern);
+  if (parameterRule === 'primary') return 'unevaluable';
+  if (parameterRule !== undefined) {
+    return direction === 'deny' ? matchParameter(parameterRule, args) : 'no-match';
   }
 
   // Nobody declared which argument this pattern is about (CORE-030)

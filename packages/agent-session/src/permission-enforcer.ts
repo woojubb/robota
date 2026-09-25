@@ -12,8 +12,11 @@ import {
   applyPresetToolLists,
   evaluatePermission,
   findInvalidPermissionPatterns,
+  findPermissionPatternWarnings,
+  isToolDeniedOutright,
   matchesAnyPattern,
   projectPermissionPolicy,
+  registerToolPermissionProfile,
   requiresFreshApproval,
   runHooks,
 } from '@robota-sdk/agent-core';
@@ -41,9 +44,18 @@ import type {
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
 export type { IPermissionEnforcerOptions };
 
-/** Throw naming every malformed permission pattern and why (issue #2428). */
-function assertPermissionPatternsEvaluable(patterns: readonly string[]): void {
-  const problems = findInvalidPermissionPatterns(patterns);
+/**
+ * Throw naming every malformed permission pattern and why (issue #2428). Allow rules are held to
+ * the narrower allow grammar (issue #3081).
+ */
+function assertPermissionPatternsEvaluable(rules: {
+  allow: readonly string[];
+  restrictive: readonly string[];
+}): void {
+  const problems = [
+    ...findInvalidPermissionPatterns(rules.allow, 'allow'),
+    ...findInvalidPermissionPatterns(rules.restrictive, 'deny'),
+  ];
   if (problems.length === 0) return;
   const listed = problems.map(({ pattern, reason }) => `"${pattern}" ${reason}`).join('; ');
   throw new Error(
@@ -90,13 +102,7 @@ export class PermissionEnforcer {
     };
     // Issue #2428: a pattern the gate could never evaluate is refused HERE, with the pattern and
     // the reason, before any turn — not discovered one unevaluable prompt at a time at the gate.
-    assertPermissionPatternsEvaluable([
-      ...options.config.permissions.allow,
-      ...options.config.permissions.deny,
-      ...(options.config.permissions.ask ?? []),
-      ...(options.taskPermissions?.allow ?? []),
-      ...(options.taskPermissions?.deny ?? []),
-    ]);
+    assertPermissionPatternsEvaluable(this.configuredRules(options));
     this.terminal = options.terminal;
     this.permissionHandler = options.permissionHandler;
     this.promptForApprovalFn = options.promptForApprovalFn;
@@ -110,8 +116,57 @@ export class PermissionEnforcer {
     this.homeDirectory = options.homeDirectory ?? homedir();
   }
 
+  /** Every configured pattern, split by the grammar it is held to. */
+  private configuredRules(
+    options: Pick<IPermissionEnforcerOptions, 'config' | 'taskPermissions'> = {
+      config: this.config,
+      ...(this.taskPermissions !== undefined ? { taskPermissions: this.taskPermissions } : {}),
+    },
+  ): { allow: string[]; restrictive: string[] } {
+    return {
+      allow: [...options.config.permissions.allow, ...(options.taskPermissions?.allow ?? [])],
+      restrictive: [
+        ...options.config.permissions.deny,
+        ...(options.config.permissions.ask ?? []),
+        ...(options.taskPermissions?.deny ?? []),
+      ],
+    };
+  }
+
+  /**
+   * Whether the model is shown this tool at all. A bare-name deny (`Tool`, `Tool(*)`, a name glob)
+   * removes it rather than offering it and refusing every call (issue #3081). Read live, so a
+   * `/preset` that denies a tool hides it from the next round.
+   */
+  isToolVisible(toolName: string): boolean {
+    return !isToolDeniedOutright(toolName, [
+      ...this.config.permissions.deny,
+      ...(this.taskPermissions?.deny ?? []),
+    ]);
+  }
+
+  /**
+   * Tell the gate each tool's parameter names — the schema is what makes `Tool(name:value)` a
+   * parameter rule — then re-check the rules against them, before any turn runs.
+   */
+  private registerToolParameters(tools: readonly IToolWithEventService[]): void {
+    for (const tool of tools) {
+      // Read defensively: a tool without a schema has no parameters to name.
+      const schema = (tool as Partial<Pick<IToolWithEventService, 'schema'>>).schema;
+      if (schema === undefined) continue;
+      const properties = schema.parameters?.properties ?? {};
+      registerToolPermissionProfile(schema.name, { parameters: Object.keys(properties) });
+    }
+    const rules = this.configuredRules();
+    assertPermissionPatternsEvaluable(rules);
+    for (const { pattern, reason } of findPermissionPatternWarnings(rules.restrictive)) {
+      this.terminal.writeLine(`  ⚠  Permission rule "${pattern}" ${reason}.`);
+    }
+  }
+
   /** Wrap all tools with permission checking */
   wrapTools(tools: IToolWithEventService[]): IToolWithEventService[] {
+    this.registerToolParameters(tools);
     // Built explicitly rather than cast. A blind assertion here would compile only by silencing the
     // private-member mismatch, and this repository counts and ratchets those. Naming the ten members
     // is what makes the extraction a boundary: if the wrapper starts reading an eleventh, this stops

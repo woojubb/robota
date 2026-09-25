@@ -39,7 +39,13 @@ Bash(pnpm *)        # Bash with command starting "pnpm "
 Read(/src/**)        # Read for files under /src/
 Write(*)             # Write with any argument
 ToolName             # Match any invocation (no arg constraint)
+Bash(run_in_background:true)  # deny/ask only: a named top-level parameter
+github__*            # a tool-name glob: every tool of one MCP server
 ```
+
+- A parameter rule (`Tool(name:value)`) applies to deny and ask lists only. A parameter the call omits never matches. A rule on the tool's primary field, such as `Bash(command:rm *)`, is reported at startup and asks on every call; write `Bash(rm *)` instead.
+- An allow rule may glob the tool name only after a literal `<server>__` prefix.
+- A deny that names a tool outright (`Bash`, `Bash(*)`, `github__*`) removes the tool from the model's tool list.
 
 ### Configuration
 

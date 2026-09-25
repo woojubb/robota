@@ -43,7 +43,7 @@ function shortHash(input: string): string {
  * produces the same output, and a short stable hash of the FULL (pre-truncation) name is folded
  * in so two distinct long names that happen to share a head and tail still diverge.
  */
-function truncateDeterministically(name: string, budget: number): string {
+function truncateDeterministically(name: string, budget: number, keepPrefix = ''): string {
   const hash = shortHash(name);
   const fixedLength = hash.length + TRUNCATION_JOINER.length * 2;
 
@@ -54,7 +54,9 @@ function truncateDeterministically(name: string, budget: number): string {
   }
 
   const remaining = budget - fixedLength;
-  const headLength = Math.ceil(remaining / 2);
+  // The `<server>__` prefix survives whole whenever it fits, so a permission rule written as a
+  // server glob (`github__*`) still names every tool of that server after truncation.
+  const headLength = Math.min(remaining, Math.max(Math.ceil(remaining / 2), keepPrefix.length));
   const tailLength = remaining - headLength;
   const head = name.slice(0, headLength);
   const tail = tailLength > 0 ? name.slice(name.length - tailLength) : '';
@@ -85,7 +87,7 @@ export function canonicalName(
   }
 
   return {
-    name: truncateDeterministically(sanitisedNatural, budget),
+    name: truncateDeterministically(sanitisedNatural, budget, `${sanitise(serverId)}__`),
     changed: true,
     reason: wasSanitised ? 'renamed, truncated' : 'truncated',
   };
