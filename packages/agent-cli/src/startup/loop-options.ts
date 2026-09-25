@@ -1,4 +1,7 @@
-import { createNodeHostContributionSource, getWorkspaceProjectReader } from '@robota-sdk/agent-framework';
+import {
+  createNodeHostContributionSource,
+  getWorkspaceProjectReader,
+} from '@robota-sdk/agent-framework';
 
 import type { TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 
@@ -15,15 +18,23 @@ export function createLoopDefaultPromptResolver(options: {
   projectAccess?: TWorkspaceProjectAccess;
   userHome: string;
 }): () => string {
-  const projectReader = options.projectAccess?.status === 'trusted'
-    ? getWorkspaceProjectReader(options.projectAccess.authority)
-    : undefined;
+  const projectReader =
+    options.projectAccess?.status === 'trusted'
+      ? getWorkspaceProjectReader(options.projectAccess.authority)
+      : undefined;
   const userSource = createNodeHostContributionSource(options.userHome);
 
   return () => {
-    const projectBytes = projectReader?.readBytes(LOOP_PROMPT_FILE, 'load default loop prompt', MAX_LOOP_PROMPT_BYTES);
+    const projectBytes = projectReader?.readBytes(
+      LOOP_PROMPT_FILE,
+      'load default loop prompt',
+      MAX_LOOP_PROMPT_BYTES,
+    );
     if (projectBytes !== undefined) {
-      return validatePrompt(new TextDecoder('utf-8', { fatal: true }).decode(projectBytes), 'Project');
+      return validatePrompt(
+        new TextDecoder('utf-8', { fatal: true }).decode(projectBytes),
+        'Project',
+      );
     }
     const userText = userSource.readText(LOOP_PROMPT_FILE, 'load default loop prompt');
     if (userText !== undefined) return validatePrompt(userText, 'User');

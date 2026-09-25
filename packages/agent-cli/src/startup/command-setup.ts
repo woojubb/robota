@@ -169,6 +169,7 @@ export function buildCommandSetup(
     ...(options.projectSettingsWriter !== undefined
       ? { projectSettingsWriter: options.projectSettingsWriter }
       : {}),
+    ...(options.safeMode === true ? { safeMode: true } : {}),
   });
   const outputStyleSources = buildOutputStyleSources({
     cwd,

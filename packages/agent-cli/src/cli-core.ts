@@ -71,6 +71,8 @@ import {
 import {
   createInitialCliWorkspaceComposition,
   resolveStartupWorkspaceProjectAccess,
+  SAFE_MODE_FLAG,
+  SAFE_MODE_NOTICE,
 } from './startup/workspace-project-composition.js';
 import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
@@ -164,7 +166,13 @@ async function runCliCore(
 ): Promise<void> {
   const cwd = process.cwd();
   const projectAccess = await resolveStartupWorkspaceProjectAccess(process.argv, cwd, options);
-  const startupOptions: IStartCliOptions = { ...options, projectAccess };
+  // Issue #3082: read from argv like the access decision above, which it forces to Restricted.
+  const safeMode = process.argv.includes(SAFE_MODE_FLAG);
+  const startupOptions: IStartCliOptions = {
+    ...options,
+    projectAccess,
+    ...(safeMode ? { safeMode: true } : {}),
+  };
   if (await runPreparsedCliCommand(startupOptions, process.argv, cwd, telemetryEnvironment)) return;
 
   let args: IParsedCliArgs;
@@ -225,9 +233,13 @@ async function runCliCore(
   }
 
   // Plugin reloads include the project scope only after the host's trust decision admits it.
+  // Safe mode: no instruction files or plugins (`bare`) and no hook from any settings layer.
+  const safeModeSessionOptions = safeMode
+    ? ({ bare: true, skipConfiguredHooks: true } as const)
+    : {};
   const reloadPluginCommandSourceInCwd = (
     registry: Parameters<typeof reloadPluginCommandSource>[0],
-  ): number => reloadPluginCommandSource(registry, cwd, projectAccess);
+  ): number => reloadPluginCommandSource(registry, cwd, projectAccess, !safeMode);
   const terminal = new PrintTerminal();
 
   if (args.reset) {
@@ -241,6 +253,9 @@ async function runCliCore(
 
   if (
     (args.printMode || args.goal !== undefined || args.serve || mcpServe) &&
+    // Safe mode asks for a Restricted start; the refusal exists so an untrusted project is never
+    // silently run without its sources, which is exactly what safe mode requests.
+    !safeMode &&
     requiresHeadlessWorkspaceTrust(projectAccess)
   ) {
     process.stderr.write(`${formatHeadlessWorkspaceTrustError(projectAccess, cwd)}\n`);
@@ -282,7 +297,7 @@ async function runCliCore(
   // command setup so the preset's module-selection delta can reach `createDefaultCommandModules`.
   const userSettings = readUserSettingsOrExit();
   const settingsPreset = typeof userSettings.preset === 'string' ? userSettings.preset : undefined;
-  const externalPresetLoad = loadRobotaExternalPresets();
+  const externalPresetLoad = safeMode ? { presets: [], errors: [] } : loadRobotaExternalPresets();
   for (const { file, error } of externalPresetLoad.errors) {
     terminal.writeError(`Skipped external preset "${file}": ${error}`);
   }
@@ -328,7 +343,7 @@ async function runCliCore(
   const mcpStartupMode: TMcpStartupMode =
     args.printMode || args.goal ? 'print' : args.serve || mcpServe ? 'serve' : 'interactive';
   const mcp =
-    options.mcpActivationAdapter === undefined
+    options.mcpActivationAdapter === undefined && !safeMode
       ? await composeMcpClientForStartup({
           settingsSources: createInitialCliWorkspaceComposition(cwd, startupOptions)
             .settingsSources,
@@ -474,6 +489,11 @@ async function runCliCore(
     process.exit(1);
   }
   commandHostAdapters.effort = createCliEffortAdapter(effortResolution);
+  if (safeMode) {
+    const notice = `${SAFE_MODE_NOTICE}\n`;
+    if (args.printMode) process.stderr.write(notice);
+    else terminal.writeLine(notice.trimEnd());
+  }
   if (providerSettings.source === 'env-default' && providerSettings.sourceEnvVar !== undefined) {
     const notice = `Using ${providerSettings.name} (${modelId}) via ${providerSettings.sourceEnvVar} — run \`robota --configure\` to persist a profile.\n`;
     if (args.printMode) {
@@ -657,7 +677,7 @@ async function runCliCore(
       },
       orgPolicy,
       providerErrorGuidance,
-      ROBOTA_AGENT_DEFINITION_ROOTS,
+      safeMode ? [] : ROBOTA_AGENT_DEFINITION_ROOTS,
       robotaPluginDirectories(cwd, homedir()),
       ROBOTA_PROJECT_SETTINGS,
       createRobotaUserSettingsSources(homedir()),
@@ -699,7 +719,8 @@ async function runCliCore(
       backgroundTaskRunners,
       subagentRunnerFactory,
       agentDefinitions,
-      agentDefinitionRoots: ROBOTA_AGENT_DEFINITION_ROOTS,
+      agentDefinitionRoots: safeMode ? [] : ROBOTA_AGENT_DEFINITION_ROOTS,
+      ...safeModeSessionOptions,
       pluginDirectories: robotaPluginDirectories(cwd, homedir()),
       projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
       userSettingsSources: createRobotaUserSettingsSources(homedir()),
@@ -751,7 +772,8 @@ async function runCliCore(
       backgroundTaskRunners,
       subagentRunnerFactory,
       agentDefinitions,
-      agentDefinitionRoots: ROBOTA_AGENT_DEFINITION_ROOTS,
+      agentDefinitionRoots: safeMode ? [] : ROBOTA_AGENT_DEFINITION_ROOTS,
+      ...safeModeSessionOptions,
       pluginDirectories: robotaPluginDirectories(cwd, homedir()),
       projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
       userSettingsSources: createRobotaUserSettingsSources(homedir()),
@@ -851,7 +873,8 @@ async function runCliCore(
     backgroundTaskRunners,
     subagentRunnerFactory,
     agentDefinitions,
-    agentDefinitionRoots: ROBOTA_AGENT_DEFINITION_ROOTS,
+    agentDefinitionRoots: safeMode ? [] : ROBOTA_AGENT_DEFINITION_ROOTS,
+    ...safeModeSessionOptions,
     pluginDirectories: robotaPluginDirectories(cwd, homedir()),
     projectSettingsPaths: ROBOTA_PROJECT_SETTINGS,
     baselinePermissionAllow: ROBOTA_PERMISSION_BASELINE,

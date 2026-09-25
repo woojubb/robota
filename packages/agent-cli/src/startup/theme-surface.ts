@@ -94,7 +94,8 @@ export function createThemeSurface(options: IThemeSurfaceOptions): IThemeSurface
     // applies an `appearance-settings-patch`, so a captured value would make `/theme list` report
     // the change the user just made as not having happened.
     readAppearance: () =>
-      resolveAppearanceRenderFields(readSettings(robotaUserSettingsPath()), undefined, {}).appearance,
+      resolveAppearanceRenderFields(readSettings(robotaUserSettingsPath()), undefined, {})
+        .appearance,
     ...(resolved.reducedMotionOverride === undefined
       ? {}
       : {

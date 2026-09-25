@@ -88,6 +88,11 @@ export interface IInitOptions {
   }) => void;
   /** Skip AGENTS.md/CLAUDE.md loading and plugin discovery. */
   bare?: boolean;
+  /**
+   * Run no hook the settings layers declare. With `bare` and empty contribution sources this is how
+   * a host starts a session with every customization off, to rule one out.
+   */
+  skipConfiguredHooks?: boolean;
   /** Omit the built-in command and HTTP hook executors. */
   disableBuiltInHookExecutors?: boolean;
   commandHookShell?: string;

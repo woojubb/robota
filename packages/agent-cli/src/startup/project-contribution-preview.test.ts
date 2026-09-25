@@ -18,8 +18,9 @@ describe('agent definition source preview', () => {
       join('.claude', 'agents'),
     ];
     expect(ROBOTA_AGENT_DEFINITION_ROOTS).toEqual(expectedRoots);
-    expect(listFrameworkProjectContributionPaths('').filter((path) => path.id.startsWith('agent:')))
-      .toEqual([]);
+    expect(
+      listFrameworkProjectContributionPaths('').filter((path) => path.id.startsWith('agent:')),
+    ).toEqual([]);
     expect(listProjectContributionPaths('').filter((path) => path.id.startsWith('agent:'))).toEqual(
       expectedRoots.map((relativePath) => ({
         id: `agent:${relativePath}`,
@@ -40,9 +41,12 @@ describe('project settings source preview', () => {
       join('.claude', 'settings.local.json'),
     ];
     expect(ROBOTA_PROJECT_SETTINGS.map((path) => path.relativePath)).toEqual(expectedPaths);
-    expect(listFrameworkProjectContributionPaths('').filter((path) => path.id.startsWith('settings:')))
-      .toEqual([]);
-    expect(listProjectContributionPaths('').filter((path) => path.id.startsWith('settings:'))).toEqual(
+    expect(
+      listFrameworkProjectContributionPaths('').filter((path) => path.id.startsWith('settings:')),
+    ).toEqual([]);
+    expect(
+      listProjectContributionPaths('').filter((path) => path.id.startsWith('settings:')),
+    ).toEqual(
       expectedPaths.map((relativePath) => ({
         id: `settings:${relativePath}`,
         label: 'Project settings and hooks',
@@ -55,8 +59,9 @@ describe('project settings source preview', () => {
 
 describe('project state source preview', () => {
   it('uses the CLI state roots while neutral framework inventory has no product state paths', () => {
-    expect(listFrameworkProjectContributionPaths('').filter((path) => path.id.startsWith('state:')))
-      .toEqual([]);
+    expect(
+      listFrameworkProjectContributionPaths('').filter((path) => path.id.startsWith('state:')),
+    ).toEqual([]);
     expect(listProjectContributionPaths('').filter((path) => path.id.startsWith('state:'))).toEqual(
       Object.entries(ROBOTA_PROJECT_STATE_DIRECTORIES).map(([namespace, relativePath]) => ({
         id: `state:${namespace}`,
@@ -70,8 +75,9 @@ describe('project state source preview', () => {
 
 describe('skill source preview', () => {
   it('uses the exact product roots passed to framework discovery', () => {
-    expect(listFrameworkProjectContributionPaths('').filter((path) => path.id.startsWith('skill:')))
-      .toEqual([]);
+    expect(
+      listFrameworkProjectContributionPaths('').filter((path) => path.id.startsWith('skill:')),
+    ).toEqual([]);
     expect(listProjectContributionPaths('').filter((path) => path.id.startsWith('skill:'))).toEqual(
       ROBOTA_SKILL_ROOTS.map(({ root, kind }) => ({
         id: `skill:${root}`,

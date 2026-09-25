@@ -176,6 +176,7 @@ robota usage --timezone UTC --format json # Emit the versioned JSON projection
 robota usage export --endpoint http://127.0.0.1:4318 # Send stored-usage Gauges to a loopback OTLP collector
 robota usage export --signal traces --endpoint http://127.0.0.1:4318 # Send recorded prompt/provider/tool spans
 robota usage export --signal logs --endpoint http://127.0.0.1:4318 # Send content-free completion events
+robota --safe-mode                  # Every customization off, to rule one out
 robota --reset                      # Delete user settings and exit
 robota --check-update               # Check npm for a newer CLI version and exit
 robota --disable-update-check        # Skip interactive startup update check for this run

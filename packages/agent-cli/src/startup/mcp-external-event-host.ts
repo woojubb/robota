@@ -1,4 +1,7 @@
-import type { IExternalEventSource, IExternalEventSourceOptions } from '@robota-sdk/agent-framework';
+import type {
+  IExternalEventSource,
+  IExternalEventSourceOptions,
+} from '@robota-sdk/agent-framework';
 import type { TMCPExternalEventListener } from '@robota-sdk/agent-mcp';
 
 export interface IMcpExternalEventSession {
@@ -9,8 +12,9 @@ export interface IMcpExternalEventSubscriptionPort {
   subscribeExternalEvent(
     serverId: string,
     listener: TMCPExternalEventListener,
-  ): { readonly ok: true; readonly unsubscribe: () => void } |
-    { readonly ok: false; readonly reason: string };
+  ):
+    | { readonly ok: true; readonly unsubscribe: () => void }
+    | { readonly ok: false; readonly reason: string };
 }
 
 export interface IMcpExternalEventHost {
@@ -41,10 +45,13 @@ export function createMcpExternalEventHost(
 ): IMcpExternalEventHost {
   const byServer = groupGrants(grants);
   let generation = 0;
-  const active = new Map<string, {
-    target?: { source: IExternalEventSource; proof: symbol };
-    unsubscribe: () => void;
-  }>();
+  const active = new Map<
+    string,
+    {
+      target?: { source: IExternalEventSource; proof: symbol };
+      unsubscribe: () => void;
+    }
+  >();
 
   const close = (): void => {
     generation += 1;
@@ -71,14 +78,23 @@ export function createMcpExternalEventHost(
           id: serverId,
           allowedSenders,
           authenticate: (raw) => {
-            if (typeof raw !== 'object' || raw === null || !('proof' in raw) || raw.proof !== proof) {
+            if (
+              typeof raw !== 'object' ||
+              raw === null ||
+              !('proof' in raw) ||
+              raw.proof !== proof
+            ) {
               return null;
             }
-            if (!('event' in raw) || typeof raw.event !== 'object' || raw.event === null) return null;
+            if (!('event' in raw) || typeof raw.event !== 'object' || raw.event === null)
+              return null;
             const event = raw.event as Record<string, unknown>;
-            if (typeof event['senderId'] !== 'string' ||
+            if (
+              typeof event['senderId'] !== 'string' ||
               typeof event['conversationId'] !== 'string' ||
-              typeof event['content'] !== 'string') return null;
+              typeof event['content'] !== 'string'
+            )
+              return null;
             return {
               senderId: event['senderId'],
               conversationId: event['conversationId'],
@@ -101,24 +117,38 @@ export function createMcpExternalEventHost(
       }
       let binding = active.get(serverId);
       if (!binding) {
-        const next: { target?: { source: IExternalEventSource; proof: symbol }; unsubscribe: () => void } = {
+        const next: {
+          target?: { source: IExternalEventSource; proof: symbol };
+          unsubscribe: () => void;
+        } = {
           unsubscribe: () => undefined,
         };
         const subscription = mcp.subscribeExternalEvent(serverId, (event) => {
           const target = next.target;
           if (!target) return;
-          void target.source.receive({ proof: target.proof, event }).then((receipt) => {
-          if (receipt.outcome === 'refused') {
-            report(`External event source "${serverId}" refused an event: ${receipt.reason ?? 'unknown reason'}`);
-          }
-          if (receipt.settled) {
-            void receipt.settled.then((settlement) => {
-              if (settlement.outcome !== 'completed') {
-                report(`External event source "${serverId}" turn ${settlement.outcome}.`);
+          void target.source
+            .receive({ proof: target.proof, event })
+            .then((receipt) => {
+              if (receipt.outcome === 'refused') {
+                report(
+                  `External event source "${serverId}" refused an event: ${receipt.reason ?? 'unknown reason'}`,
+                );
               }
-            }).catch(() => report(`External event source "${serverId}" settlement failed unexpectedly.`));
-          }
-          }).catch(() => report(`External event source "${serverId}" delivery failed unexpectedly.`));
+              if (receipt.settled) {
+                void receipt.settled
+                  .then((settlement) => {
+                    if (settlement.outcome !== 'completed') {
+                      report(`External event source "${serverId}" turn ${settlement.outcome}.`);
+                    }
+                  })
+                  .catch(() =>
+                    report(`External event source "${serverId}" settlement failed unexpectedly.`),
+                  );
+              }
+            })
+            .catch(() =>
+              report(`External event source "${serverId}" delivery failed unexpectedly.`),
+            );
         });
         if (!subscription.ok) {
           source.close();

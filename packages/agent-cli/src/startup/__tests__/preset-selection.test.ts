@@ -45,6 +45,7 @@ function makeArgs(overrides: Partial<IParsedCliArgs> = {}): IParsedCliArgs {
     version: false,
     reset: false,
     bare: false,
+    safeMode: false,
     allowedTools: undefined,
     deniedTools: undefined,
     model: undefined,

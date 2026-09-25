@@ -60,6 +60,8 @@ export interface IParsedCliArgs {
   version: boolean;
   reset: boolean;
   bare: boolean;
+  /** Start with every customization off: instructions, skills, commands, agents, plugins, hooks, MCP. */
+  safeMode: boolean;
   allowedTools: string | undefined;
   deniedTools: string | undefined;
   model: string | undefined;
@@ -163,6 +165,7 @@ const PARSE_ARGS_CONFIG = {
     // Issue #3081: set only by `/cd` when it starts the session in the target directory; not in help.
     'moved-from': { type: 'string' },
     'restricted-workspace': { type: 'boolean', default: false },
+    'safe-mode': { type: 'boolean', default: false },
     serve: { type: 'boolean', default: false },
     'supervised-session-id': { type: 'string' },
     'http-token-file': { type: 'string' },
@@ -294,6 +297,7 @@ function mapParsedValues(
     version: values['version'] ?? false,
     reset: values['reset'] ?? false,
     bare: values['bare'] ?? false,
+    safeMode: values['safe-mode'] ?? false,
     allowedTools: values['allowed-tools'],
     deniedTools: values['denied-tools'],
     model: values['model'],
@@ -334,7 +338,12 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
     throw new Error('--http-port must be an integer in 1..65535');
   }
   if (args.supervisedSessionId !== undefined) {
-    if (!args.serve || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(args.supervisedSessionId)) {
+    if (
+      !args.serve ||
+      !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u.test(
+        args.supervisedSessionId,
+      )
+    ) {
       throw new Error('--supervised-session-id requires --serve and a valid generated UUID');
     }
   }
@@ -343,8 +352,15 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
     const separator = grant.indexOf(':');
     const serverId = grant.slice(0, separator);
     const senderId = grant.slice(separator + 1);
-    if (separator < 1 || !/^[a-zA-Z0-9_-]{1,64}$/u.test(serverId) || senderId.length === 0 || senderId.length > 128) {
-      throw new Error('--external-event-allow requires serverId:senderId (bounded, non-empty identities)');
+    if (
+      separator < 1 ||
+      !/^[a-zA-Z0-9_-]{1,64}$/u.test(serverId) ||
+      senderId.length === 0 ||
+      senderId.length > 128
+    ) {
+      throw new Error(
+        '--external-event-allow requires serverId:senderId (bounded, non-empty identities)',
+      );
     }
     for (const character of senderId) {
       const code = character.codePointAt(0)!;
@@ -353,12 +369,19 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
       }
     }
   }
-  if (externalEventAllow.length > 0 && (
-    args.printMode || args.goal !== undefined || args.serve || args.reset ||
-    args.configure || args.configureProvider !== undefined || args.version ||
-    args.checkUpdate || args.help ||
-    ['mcp', 'eval', 'session', 'user-local'].includes(args.positional[0] ?? '')
-  )) {
+  if (
+    externalEventAllow.length > 0 &&
+    (args.printMode ||
+      args.goal !== undefined ||
+      args.serve ||
+      args.reset ||
+      args.configure ||
+      args.configureProvider !== undefined ||
+      args.version ||
+      args.checkUpdate ||
+      args.help ||
+      ['mcp', 'eval', 'session', 'user-local'].includes(args.positional[0] ?? ''))
+  ) {
     throw new Error('--external-event-allow is currently available only in interactive TUI mode');
   }
   if (externalEventAllow.length > 0 && args.permissionMode === 'bypassPermissions') {

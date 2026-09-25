@@ -23,7 +23,10 @@ import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
-import { areSessionLoopsDisabled, createLoopDefaultPromptResolver } from '../startup/loop-options.js';
+import {
+  areSessionLoopsDisabled,
+  createLoopDefaultPromptResolver,
+} from '../startup/loop-options.js';
 import { runShellCommand } from '../startup/shell-exec.js';
 
 /**
@@ -133,9 +136,9 @@ export async function runPrintMode(
     ...(commandHookShell !== undefined ? { commandHookShell } : {}),
     ...(orgPolicy !== undefined ? { orgPolicy } : {}),
     ...(projectAccess !== undefined ? { projectAccess } : {}),
-      ...(projectSettingsPaths !== undefined ? { projectSettingsPaths } : {}),
-      ...(userSettingsSources !== undefined ? { userSettingsSources } : {}),
-      ...(contributionSources !== undefined ? { contributionSources } : {}),
+    ...(projectSettingsPaths !== undefined ? { projectSettingsPaths } : {}),
+    ...(userSettingsSources !== undefined ? { userSettingsSources } : {}),
+    ...(contributionSources !== undefined ? { contributionSources } : {}),
     ...(skillRoots !== undefined ? { skillRoots } : {}),
     ...(taskContext !== undefined ? { taskContext } : {}),
     outputFormat: args.outputFormat ?? 'text',
@@ -150,11 +153,16 @@ export async function runPrintMode(
     maxTurns: args.maxTurns,
     sessionStore: args.noSessionPersistence ? undefined : sessionStore,
     disableSessionLoops: areSessionLoopsDisabled(process.env),
-    resolveDefaultLoopPrompt: createLoopDefaultPromptResolver({ projectAccess, userHome: homedir() }),
+    resolveDefaultLoopPrompt: createLoopDefaultPromptResolver({
+      projectAccess,
+      userHome: homedir(),
+    }),
     resumeSessionId: sessionResolution.resumeSessionId,
     forkSession: sessionResolution.forkSession,
     sessionName: args.sessionName,
-    bare: args.bare || undefined,
+    bare: args.bare || args.safeMode || undefined,
+    // `--safe-mode`: no hook from any settings layer either (issue #3082).
+    ...(args.safeMode ? { skipConfiguredHooks: true } : {}),
     ...presetSessionFields(presetOptions),
     ...(presetOptions.persona !== undefined ? { persona: presetOptions.persona } : {}),
     ...(presetOptions.agentName !== undefined ? { agentName: presetOptions.agentName } : {}),
