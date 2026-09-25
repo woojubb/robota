@@ -27,7 +27,8 @@ export function certificateFingerprint(der: Uint8Array, algorithm: string): stri
 
 /**
  * Call `onVerified` with the remote certificate's fingerprint once the DTLS handshake — including its own
- * fingerprint check — has completed, or `onFailed` if it cannot be read. Returns an unsubscribe function.
+ * fingerprint check — has completed, or `onFailed` if the handshake fails or closes first, or the certificate
+ * cannot be read. Returns an unsubscribe function.
  *
  * werift moves the DTLS transport to `connected` only after `verifyRemoteCertificateFingerprint` succeeds, and
  * the data channel runs over that DTLS session, so no channel frame can precede this callback.
@@ -64,6 +65,12 @@ export function whenRemoteCertificateVerified(
   }
   const subscription = dtlsTransport.onStateChange.subscribe((state) => {
     if (state === 'connected') settle();
+    else if (state === 'failed' || state === 'closed') {
+      if (done) return;
+      done = true;
+      onFailed(`the DTLS handshake ended ${state}`);
+    } else return;
+    subscription.unSubscribe();
   });
   return () => subscription.unSubscribe();
 }

@@ -83,8 +83,8 @@ dependency.
   remote fingerprint is read from the certificate the DTLS layer verified, not from the answer's text, because
   the DTLS layer accepts a certificate matching ANY fingerprint an SDP advertises. The answer must advertise
   exactly one fingerprint, and a start takes one answer only — a later answer would add fingerprints the DTLS
-  layer also accepts. The gate is constructed once the DTLS handshake completes; the data channel runs over that
-  session, and any frame seen before the gate exists is held in a small bounded buffer and replayed into it. Pre-accept, the gate routes pairing frames to the
+  layer also accepts. The gate is constructed once the DTLS handshake completes, before the data channel it
+  carries can deliver a frame; a handshake that fails or closes first fails pairing. Pre-accept, the gate routes pairing frames to the
   handshake and drops everything else; on accept it builds the session handler and switches routing to the
   session; on reject or timeout it closes the channel and exposes nothing. Optional callbacks fire on gate
   accept/reject so the host can drive its own lifecycle, including tearing down the peer/signaling on failure so

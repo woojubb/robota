@@ -33,7 +33,8 @@ describe('extractDtlsFingerprint — linearity', () => {
     () => {
       const sdp = 'a=fingerprint:'.repeat(Math.floor(PUMP_CHARS / 14));
       const ms = elapsedMs(() => {
-        expect(() => extractDtlsFingerprint(sdp)).toThrow(/no DTLS fingerprint/);
+        // The line starts like an attribute, so it is refused as a malformed one.
+        expect(() => extractDtlsFingerprint(sdp)).toThrow(/malformed DTLS fingerprint/);
       });
       expect(ms).toBeLessThan(BUDGET_MS);
     },
@@ -106,6 +107,15 @@ describe('extractDtlsFingerprint — exactly one fingerprint', () => {
   it('refuses the same value under a different algorithm', () => {
     const sdp = 'a=fingerprint:sha-256 AB:CD:EF\r\na=fingerprint:sha-1 AB:CD:EF\r\n';
     expect(() => extractDtlsFingerprint(sdp)).toThrow(/more than one DTLS fingerprint/);
+  });
+
+  it('refuses a line a looser parser would read as a second fingerprint', () => {
+    const upper = 'a=fingerprint:sha-256 AB:CD:EF\r\na=FINGERPRINT:sha-256 12:34:56\r\n';
+    const indented = 'a=fingerprint:sha-256 AB:CD:EF\r\n a=fingerprint:sha-256 12:34:56\r\n';
+    const spaced = 'a=fingerprint:sha-256 AB:CD:EF\r\na = fingerprint:sha-256 12:34:56\r\n';
+    for (const sdp of [upper, indented, spaced]) {
+      expect(() => extractDtlsFingerprint(sdp)).toThrow(/malformed DTLS fingerprint/);
+    }
   });
 
   it('accepts one value repeated per m-section, in any case', () => {

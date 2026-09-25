@@ -97,21 +97,32 @@ export interface IDtlsFingerprint {
 }
 
 /**
+ * Anything an SDP parser might read as a fingerprint attribute: leading blanks, blanks around `=` and `:`, any
+ * case. Every such line must also be a strict attribute, so a looser parser than ours cannot see a fingerprint
+ * this function did not.
+ */
+const LOOSE_FINGERPRINT_LINE = /^[ \t]*a[ \t]*=[ \t]*fingerprint[ \t]*:([^\r\n]*)/gim;
+const STRICT_FINGERPRINT_VALUE = /^(\S+)[ \t]+([0-9A-Fa-f:]+)[ \t]*$/;
+
+/**
  * Read THE DTLS fingerprint of an SDP. Throws unless the SDP carries exactly one fingerprint (fail closed).
  *
  * **Exactly one, because the binding must name the certificate the DTLS stack verified.** A DTLS stack accepts
  * the peer's certificate when it matches ANY advertised fingerprint, so an SDP with two different fingerprints
  * lets the certificate that was verified differ from the value a caller would bind. Repeating the SAME value
- * (one per m-section) is harmless and accepted; two different values are refused.
+ * (one per m-section) is harmless and accepted; two different values are refused, and so is a line that some
+ * parser could read as a fingerprint but that is not exactly `a=fingerprint:<hash> <value>`.
  *
- * **Anchored to the start of an SDP line (`^…/gm`).** Only line starts can begin a match, which keeps the scan
- * linear in the SDP length (the SDP arrives before any authentication), and an `a=fingerprint:` appearing
- * mid-line — inside another field's free text that no DTLS stack reads — is never an attribute.
+ * **Anchored to the start of an SDP line, never crossing one.** Only line starts can begin a match, which keeps
+ * the scan linear in the SDP length (the SDP arrives before any authentication), and an `a=fingerprint:`
+ * appearing mid-line — inside another field's free text that no DTLS stack reads — is never an attribute.
  */
 export function extractDtlsFingerprintAttribute(sdp: string): IDtlsFingerprint {
   let found: IDtlsFingerprint | undefined;
-  for (const match of sdp.matchAll(/^a=fingerprint:(\S+)[ \t]+([0-9A-Fa-f:]+)/gm)) {
-    const attribute = { algorithm: match[1].toLowerCase(), value: match[2].toUpperCase() };
+  for (const match of sdp.matchAll(LOOSE_FINGERPRINT_LINE)) {
+    const strict = match[0].startsWith('a=fingerprint:') ? STRICT_FINGERPRINT_VALUE.exec(match[1]) : null;
+    if (!strict) throw new Error('SDP carries a malformed DTLS fingerprint attribute');
+    const attribute = { algorithm: strict[1].toLowerCase(), value: strict[2].toUpperCase() };
     if (found && (found.algorithm !== attribute.algorithm || found.value !== attribute.value)) {
       throw new Error('SDP advertises more than one DTLS fingerprint');
     }
