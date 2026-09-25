@@ -114,6 +114,9 @@
     "zod": "^3.25.76",
     "zod-to-json-schema": "^3.24.6"
   },
+  "optionalDependencies": {
+    "@napi-rs/keyring": "^2.1.0"
+  },
   "devDependencies": {
     "@homebridge/node-pty-prebuilt-multiarch": "^0.14.1",
     "@robota-sdk/agent-builtin-providers": "workspace:*",

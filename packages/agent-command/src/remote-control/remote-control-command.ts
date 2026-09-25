@@ -50,7 +50,12 @@ export function executeRemoteControlCommand(
   const rest = spaceAt === -1 ? '' : trimmed.slice(spaceAt + 1).trim();
 
   if (verb === 'status') {
-    return formatStatus(context.getCommandHostAdapters?.().remoteControl?.getStatus());
+    const adapter = context.getCommandHostAdapters?.().remoteControl;
+    const result = formatStatus(adapter?.getStatus());
+    if (!adapter?.describeKeyStorage) return result;
+    const storage =
+      adapter.describeKeyStorage() ?? 'chosen when remote control is first enabled';
+    return { ...result, message: `${result.message}\nHost key storage: ${storage}` };
   }
 
   if (verb === 'devices') {

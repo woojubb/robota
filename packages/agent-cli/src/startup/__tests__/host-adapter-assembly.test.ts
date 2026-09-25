@@ -24,6 +24,7 @@ import type { ICommandHostAdapters } from '@robota-sdk/agent-framework';
 
 const CONTROLLER = {
   getStatus: () => ({ state: 'off' as const }),
+  describeKeyStorage: () => 'OS keychain (macOS Keychain)',
   listDevices: () => [],
   revokeDevice: () => false,
   enable: () => 'on',
@@ -133,6 +134,7 @@ describe('assembling the host adapters', () => {
     expect(report.said.join(' ')).toContain('not admitted');
     // The rest of the assembly still happened: one capability failing must not take another with it.
     expect(adapters.remoteControl?.getStatus()).toEqual({ state: 'off' });
+    expect(adapters.remoteControl?.describeKeyStorage?.()).toBe('OS keychain (macOS Keychain)');
   });
 
   it('does not let a refusal stop the session', () => {

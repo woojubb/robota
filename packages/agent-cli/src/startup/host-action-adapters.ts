@@ -70,6 +70,7 @@ function buildRemoteControlHostAdapter(
 ): NonNullable<ICommandHostAdapters['remoteControl']> {
   return {
     getStatus: () => controller.getStatus(),
+    describeKeyStorage: () => controller.describeKeyStorage(),
     listDevices: () =>
       controller.listDevices().map((d) => ({
         deviceId: d.deviceId,

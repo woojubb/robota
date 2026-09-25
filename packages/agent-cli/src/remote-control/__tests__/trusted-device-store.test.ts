@@ -1,5 +1,4 @@
 import {
-  existsSync,
   mkdtempSync,
   readFileSync,
   rmSync,
@@ -11,12 +10,11 @@ import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { loadOrCreateHostIdentity } from '../host-identity.js';
 import { createTrustedDeviceStore, type ITrustedDeviceRecord } from '../trusted-device-store.js';
 
 /**
- * REMOTE-012 E3 TC-04 — the host-side persistence: the trusted-device store (public keys only, fail-fast on
- * corrupt) and the host identity keypair (load-or-create, reload across "restarts").
+ * REMOTE-012 E3 TC-04 — the host-side persistence of the trusted-device store (public keys only, fail-fast
+ * on corrupt). The host identity keypair is covered by `host-identity.test.ts`.
  */
 
 let dir: string;
@@ -69,27 +67,5 @@ describe('trusted-device store (REMOTE-012 TC-04)', () => {
     const file = join(dir, 'devices.json');
     writeFileSync(file, '{ not valid json');
     expect(() => createTrustedDeviceStore(file).list()).toThrow(/corrupt/i);
-  });
-});
-
-describe('host identity keypair (REMOTE-012 TC-04)', () => {
-  it('creates a 0600 identity on first run and reloads the SAME key across restarts', async () => {
-    const file = join(dir, 'host-identity.json');
-    expect(existsSync(file)).toBe(false);
-
-    const first = await loadOrCreateHostIdentity(file);
-    expect(existsSync(file)).toBe(true);
-    expect(first.hostIdentityId).toBeTruthy();
-
-    const reloaded = await loadOrCreateHostIdentity(file);
-    // Same persisted key → identical public SPKI + id across "restarts".
-    expect(reloaded.publicKeySpki).toBe(first.publicKeySpki);
-    expect(reloaded.hostIdentityId).toBe(first.hostIdentityId);
-  });
-
-  it('fail-closed: a corrupt identity file throws (does not silently mint a new identity)', async () => {
-    const file = join(dir, 'host-identity.json');
-    writeFileSync(file, 'not json at all');
-    await expect(loadOrCreateHostIdentity(file)).rejects.toThrow(/corrupt/i);
   });
 });

@@ -36,7 +36,9 @@ update checks, and the per-mode host-action adapters (`/remote-control`, process
 Remote control is host-owned: it receives only the session capabilities its wire protocol needs, and
 promoting a confirmed reconnect winner replaces the registered peer so host shutdown always reaches
 the live connection; pairing failure or reconnect-window expiry releases the transport, signaling,
-and resume bridge, and an expired or stopped window cannot start a room after the fact.
+and resume bridge, and an expired or stopped window cannot start a room after the fact. The host
+identity key devices pin is kept in the host credential store, never in a plain file; a malformed
+stored key fails closed rather than being replaced.
 The CLI selects every user- and project-scoped path and identity a session needs — storage root,
 presets, agent-definition roots, project settings layers, project-state layout, context-discovery
 permissions, plugin/skill/command roots, task-context directory, organization policy, keybindings,
@@ -161,6 +163,21 @@ tools: a recorded `toolCalls` entry is dispatched against the session's live too
 result is appended to the conversation — a call naming a tool the session does not have produces an
 error tool result and the run advances. This dev-only feature (`agent-provider-replay`) is
 not bundled in published installs.
+
+### Host credential store
+
+The CLI implements `agent-core`'s credential store port for its own secrets: the OS keychain through
+the optional `@napi-rs/keyring` binding when it loads and keeps a probe value, else an owner-only file
+under `~/.robota`. The choice is made at first use, told to the operator when it is the file, named
+by `/remote-control status`, and recorded: a recorded keychain that stops working fails closed
+instead of degrading to the file, because secrets already in the keychain would silently stop being
+found. On Linux only the Secret Service counts as a keychain — the binding's kernel-keyring fallback
+is memory-only, and a host key lost at reboot changes the identity every device pinned. Messages and
+errors name a secret's key, never its value, and carry no cause that could quote it.
+
+The host identity key used to sit in a plain file that backups and dotfile sync copy, so it is not
+carried into the store: a new key replaces it, the file is removed, and the operator is told once
+that trusted devices must pair again.
 
 ### MCP client composition
 
