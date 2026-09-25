@@ -75,6 +75,17 @@ export {
 export * from './exit/index.js';
 export * from './help/index.js';
 export {
+  createDevicesCommandModule,
+  type IDeviceListEntry,
+  type IDevicesCommandPort,
+  type IDevicesInitResult,
+  type IDevicesRecoverResult,
+  type IDevicesRevokeResult,
+  type IDevicesView,
+  type TDevicesOutcome,
+  type TDevicesRefusal,
+} from './devices/index.js';
+export {
   createKeybindingsCommandEntry,
   createKeybindingsCommandModule,
   KeybindingsCommandSource,

@@ -117,6 +117,7 @@ export {
   RECOVERY_PHRASE_WORDS,
   deriveMasterKey,
   generateRecoveryPhrase,
+  isRecoveryPhraseWord,
   validateRecoveryPhrase,
 } from './identity/master-key.js';
 export type {

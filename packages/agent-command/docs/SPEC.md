@@ -152,11 +152,12 @@ not even the toggles submitted alongside it.
 owner command changes only that command's value, and the framework's projection follows the
 declaration.
 
-**`/remote-control`, `/doctor`, `/context`, and session command metadata.** For these commands, the
+**`/remote-control`, `/devices`, `/doctor`, `/context`, and session command metadata.** For these commands, the
 palette entry is the single source of metadata, and the executable command is projected from it;
 execution policy and lifecycle remain executable-command behavior. Projecting shared metadata does
 not grant model invocation or change execution policy, permission requirements, or model visibility
-— these commands remain operator-only. Remote control offers `status` and `devices` before pairing or
+— these commands remain operator-only, and `/devices`, which acts on the user's device identity,
+also refuses an invocation from a remote surface. Remote control offers `status` and `devices` before pairing or
 revoking actions, so an autocomplete selection defaults to a read-only operation.
 
 **Ask seam.** A command that needs input (selection pickers, setup wizards, destructive-action

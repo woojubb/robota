@@ -166,14 +166,18 @@ not bundled in published installs.
 
 ### Host credential store
 
-The CLI implements `agent-core`'s credential store port for its own secrets: the OS keychain through
+The CLI implements `agent-core`'s credential store port for its own secrets — the remote-control host
+key and this device's identity keys: the OS keychain through
 the optional `@napi-rs/keyring` binding when it loads and keeps a probe value, else an owner-only file
 under `~/.robota`. The choice is made at first use, told to the operator when it is the file, named
 by `/remote-control status`, and recorded: a recorded keychain that stops working fails closed
 instead of degrading to the file, because secrets already in the keychain would silently stop being
 found. On Linux only the Secret Service counts as a keychain — the binding's kernel-keyring fallback
 is memory-only, and a host key lost at reboot changes the identity every device pinned. Messages and
-errors name a secret's key, never its value, and carry no cause that could quote it.
+errors name a secret's key, never its value, and carry no cause that could quote it. The recovery
+phrase is never stored anywhere: it is shown and read only on the process's own terminal while the
+session has handed it over, never through the session's input, history, transcript or model, and a
+host without an interactive terminal refuses instead of reading it from anywhere else.
 
 A key that has ever sat in a plain file backups and dotfile sync copy is never carried into the
 store: it is replaced by a new key, the file is removed, and the operator is told once that trusted
