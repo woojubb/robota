@@ -29,10 +29,12 @@ import {
   MCPDefinitionRegistry,
   buildCatalog,
   createDiscoveredTool,
+  createHeadersHelperAuthenticator,
   createStdioAdapter,
   createStreamableHttpAdapter,
   isBlockedByManagedFailure,
   openMcpSession,
+  refuseHeadersHelper,
 } from '@robota-sdk/agent-mcp';
 import { DEFAULT_TOOL_RESULT_HARD_CHARS, FunctionTool } from '@robota-sdk/agent-core';
 import type {
@@ -47,6 +49,8 @@ import type {
   IMCPConnectionSupervisorOptions,
   IMCPDefinitionProblem,
   IMCPDiscovery,
+  IMCPHeadersHelper,
+  IMCPHeadersHelperAuthenticator,
   IMCPHttpTransportDeps,
   IMCPResolvedEntry,
   IMCPServerDefinitionResolved,
@@ -95,6 +99,19 @@ export function buildMcpClientTimeouts(callTimeoutMs: number): IMCPTimeouts {
   return { ...DEFAULT_MCP_CLIENT_TIMEOUTS, toolCallMs: callTimeoutMs };
 }
 
+/** One helper run the host is asked to perform, for an allowed helper of an admitted server. */
+export interface IMcpHeadersHelperInvocation {
+  readonly request: IMCPActivationRequest;
+  readonly definition: IMCPServerDefinitionResolved;
+  readonly helper: IMCPHeadersHelper;
+}
+
+/** The host's authority over header helpers: which exact command lines it allows, and how it runs one. */
+export interface IMcpHeadersHelperHost {
+  readonly allowed: readonly IMCPHeadersHelper[];
+  run(invocation: IMcpHeadersHelperInvocation, signal: AbortSignal): Promise<string>;
+}
+
 export interface IMcpClientCompositionDeps {
   /** MCP-001's resolved definitions — see the module doc for why this is injected, not sourced. */
   readonly resolvedEntries: readonly IMCPResolvedEntry[];
@@ -124,6 +141,11 @@ export interface IMcpClientCompositionDeps {
   readonly authenticatorFor?: (
     request: IMCPActivationRequest,
   ) => IMCPClientAuthenticator | undefined;
+  /**
+   * Header helpers, host-owned like the stdio authorities. Absent, every definition that declares
+   * a helper is refused; a helper is never replaced by the definition's static headers alone.
+   */
+  readonly headersHelpers?: IMcpHeadersHelperHost;
   readonly clientInfo?: { readonly name: string; readonly version: string };
   /** Created only for the first overflow and owned through this composition's shutdown. */
   readonly createResultSpillStore?: () => IToolResultSpillStore & {
@@ -259,6 +281,8 @@ interface IConnectServerContext {
   readonly timeouts: IMCPTimeouts;
   readonly deps: IMcpClientCompositionDeps;
   readonly signal: AbortSignal | undefined;
+  /** Every helper authenticator created, closed at shutdown so no helper outlives the client. */
+  readonly helperAuthenticators: IMCPHeadersHelperAuthenticator[];
 }
 
 /**
@@ -332,9 +356,33 @@ async function connectOneServer(
     supervisorOptions = buildSupervisorOptions(request, adapter, result.admitted, timeouts, deps);
   } else {
     const adapter = createStreamableHttpAdapter(deps.transport);
-    const authenticator = deps.authenticatorFor?.(request);
+    const helper = definition.headersHelper;
+    let authenticator: IMCPClientAuthenticator | undefined;
+    if (helper === undefined) {
+      authenticator = deps.authenticatorFor?.(request);
+    } else {
+      const host = deps.headersHelpers;
+      const refusal = refuseHeadersHelper(
+        helper,
+        request.source,
+        request.workspace,
+        host?.allowed ?? [],
+      );
+      if (host === undefined || refusal !== undefined) {
+        deps.reportDiagnostic(
+          `MCP server "${request.serverId}" endpoint was refused (${refusal ?? 'headers-helper-not-allowed'}).`,
+        );
+        return undefined;
+      }
+      const helperAuthenticator = createHeadersHelperAuthenticator((runSignal) =>
+        host.run({ request, definition, helper }, runSignal),
+      );
+      context.helperAuthenticators.push(helperAuthenticator);
+      authenticator = helperAuthenticator;
+    }
     const result = await adapter.admit({
       url: definition.url ?? '',
+      ...(helper === undefined ? {} : { authenticationRequired: true }),
       ...(definition.headers === undefined ? {} : { headers: definition.headers }),
       ...(definition.unsupportedAuthentication === undefined
         ? {}
@@ -461,6 +509,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   );
 
   const openConnections: IMcpServerConnection[] = [];
+  const helperAuthenticators: IMCPHeadersHelperAuthenticator[] = [];
   const connectedByServerId = new Map<string, IMcpServerConnection>();
   const timeouts = deps.timeouts ?? DEFAULT_MCP_CLIENT_TIMEOUTS;
   const createSupervisor =
@@ -496,7 +545,14 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
     const catalogInputs: IMCPCatalogInput[] = [];
     const connectionByServerId = new Map<string, IMcpServerConnection>();
     const securityIdentityByServerId = new Map<string, string>();
-    const context: IConnectServerContext = { admission, createSupervisor, timeouts, deps, signal };
+    const context: IConnectServerContext = {
+      admission,
+      createSupervisor,
+      timeouts,
+      deps,
+      signal,
+      helperAuthenticators,
+    };
 
     for (const request of registry.list()) {
       const entry = deps.resolvedEntries.find((candidate) => candidate.name === request.serverId);
@@ -605,10 +661,15 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
 
   async function shutdown(): Promise<void> {
     connectedByServerId.clear();
-    await Promise.all([
-      ...openConnections.map((connection) => connection.shutdown()),
-      ...(resultSpillStore ? [resultSpillStore.shutdown()] : []),
-    ]);
+    try {
+      await Promise.all([
+        ...openConnections.map((connection) => connection.shutdown()),
+        ...(resultSpillStore ? [resultSpillStore.shutdown()] : []),
+      ]);
+    } finally {
+      // After the connections: closing a session may still send one authorized request.
+      for (const authenticator of helperAuthenticators.splice(0)) authenticator.close();
+    }
   }
 
   function subscribeExternalEvent(

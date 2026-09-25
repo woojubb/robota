@@ -10,8 +10,10 @@
  *
  * - `definitionFingerprint` covers every value that decides what runs or where it connects: the
  *   transport, command, arguments, requested cwd, url, every header and environment entry, the
- *   timeout, and any authentication the definition declares but this version cannot
- *   perform. Change any of it — a `NODE_OPTIONS` value included — and a prior approval no longer
+ *   timeout, the header helper, and any authentication the definition declares but this version
+ *   cannot perform. The helper is covered because its output is sent to the url: approving one
+ *   pairing must not approve the helper's output going somewhere else, or another helper's
+ *   output going there. Change any of it — a `NODE_OPTIONS` value included — and a prior approval no longer
  *   describes what would now run.
  * - `securityIdentity` covers where the definition came from — its name, source and origin. Two
  *   entries that run the identical command are still different subjects for approval if one is a
@@ -93,7 +95,14 @@ export function definitionFingerprint(definition: IMCPServerDefinitionResolved):
     ...entryParts('env', definition, definition.env),
     'timeout',
     definition.timeout === undefined ? '' : String(definition.timeout),
-    // Only when declared, so every definition without it keeps the fingerprint it had.
+    // Only when declared, so every definition without them keeps the fingerprint it had.
+    ...(definition.headersHelper === undefined
+      ? []
+      : [
+          'headersHelper',
+          definition.headersHelper.command,
+          ...listParts('headersHelperArgs', definition.headersHelper.args),
+        ]),
     ...(definition.unsupportedAuthentication === undefined
       ? []
       : listParts('unsupportedAuthentication', definition.unsupportedAuthentication)),
@@ -102,11 +111,18 @@ export function definitionFingerprint(definition: IMCPServerDefinitionResolved):
 
 /**
  * The endpoint an activation names: the URL, or for stdio the command line — each with its secret
- * stretches replaced, because it lands in activation requests and audit records. One function, so
- * the registry that builds a request and the transport that re-checks it agree.
+ * stretches replaced, because it lands in activation requests and audit records. A URL whose
+ * headers come from a helper names the helper beside it, so whoever approves sees where the
+ * helper's output is sent. One function, so the registry that builds a request and the transport
+ * that re-checks it agree.
  */
 export function activationEndpoint(definition: IMCPServerDefinitionResolved): string {
-  if (definition.url !== undefined) return withoutSecrets(definition, 'url', definition.url);
+  if (definition.url !== undefined) {
+    const url = withoutSecrets(definition, 'url', definition.url);
+    const helper = definition.headersHelper;
+    if (helper === undefined) return url;
+    return `${url} (headers from ${[helper.command, ...helper.args].join(' ')})`;
+  }
   const command =
     definition.command === undefined
       ? ''

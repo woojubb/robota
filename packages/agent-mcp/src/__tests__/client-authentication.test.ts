@@ -187,7 +187,7 @@ describe('authentication on the connect path', () => {
 });
 
 describe('declared but unsupported authentication', () => {
-  it('decodes `oauth` and `headersHelper` so the server stays listed, and refuses to admit it', async () => {
+  it('decodes `oauth` so the server stays listed, and refuses to admit it', async () => {
     const decoded = decodeEntry({
       name: 'gamma',
       source: 'project',

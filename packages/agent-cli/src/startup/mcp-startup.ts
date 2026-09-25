@@ -15,11 +15,19 @@ import {
   createNodeToolResultSpillStore,
   createNodeWorkspaceTrustStore,
 } from '@robota-sdk/agent-framework';
-import { isBlockedByManagedFailure } from '@robota-sdk/agent-mcp';
-import { userPaths } from '../product/user-paths.js';
+import { mkdirSync } from 'node:fs';
+
+import {
+  MCPHeadersHelperError,
+  isBlockedByManagedFailure,
+  isWorkspaceHelperSource,
+} from '@robota-sdk/agent-mcp';
+import { userLocalStorageRoot, userPaths } from '../product/user-paths.js';
 
 import { buildMcpClientTimeouts, createMcpClientComposition } from './mcp-client-composition.js';
 import { resolveMcpDefinitions } from './mcp-definition-sources.js';
+import { resolveMcpHeaderHelperAllowlist } from './mcp-header-helper-allowlist.js';
+import { headersHelperEnvironment, runHeadersHelper } from './mcp-headers-helper-runner.js';
 import { resolveMcpSettings } from './mcp-settings.js';
 import { toMcpActivationWorkspace } from './mcp-workspace.js';
 
@@ -39,7 +47,7 @@ import type {
   IMCPHttpTransportDeps,
   IMCPStdioAuthority,
 } from '@robota-sdk/agent-mcp';
-import type { IMcpClientComposition } from './mcp-client-composition.js';
+import type { IMcpClientComposition, IMcpHeadersHelperHost } from './mcp-client-composition.js';
 
 /**
  * The three session runtimes that ever compose MCP tools (spec § Modes). `interactive` is the ink
@@ -175,6 +183,35 @@ export async function composeMcpClientForStartup(
 
   const workspace = toMcpActivationWorkspace(input.projectAccess, trust);
 
+  const helperAllowlist = resolveMcpHeaderHelperAllowlist(input.settingsSources);
+  for (const diagnostic of helperAllowlist.diagnostics) input.reportDiagnostic(diagnostic);
+  const headersHelpers: IMcpHeadersHelperHost = {
+    allowed: helperAllowlist.allowed,
+    run: async ({ request, definition, helper }, signal) => {
+      // A repository's helper runs in that repository; any other runs in the user's Robota home,
+      // never in whatever directory the CLI happened to start from.
+      let cwd: string;
+      if (isWorkspaceHelperSource(request.source)) {
+        if (identity === undefined) throw new MCPHeadersHelperError('spawn-failed');
+        cwd = identity.worktreeRoot;
+      } else {
+        cwd = userLocalStorageRoot();
+        mkdirSync(cwd, { recursive: true });
+      }
+      return runHeadersHelper({
+        helper,
+        cwd,
+        env: headersHelperEnvironment(
+          input.env,
+          request.source,
+          request.serverId,
+          definition.url ?? '',
+        ),
+        signal,
+      });
+    },
+  };
+
   const mcp = createMcpClientComposition({
     resolvedEntries: entries,
     sourceProblems,
@@ -183,6 +220,7 @@ export async function composeMcpClientForStartup(
     ...(input.stdioAuthorities === undefined ? {} : { stdioAuthorities: input.stdioAuthorities }),
     ...(input.approvalStore === undefined ? {} : { approvalStore: input.approvalStore }),
     ...(input.httpTransportDeps === undefined ? {} : { transport: input.httpTransportDeps }),
+    headersHelpers,
     timeouts: buildMcpClientTimeouts(settings.callTimeoutMs),
     createResultSpillStore: () =>
       createNodeToolResultSpillStore({

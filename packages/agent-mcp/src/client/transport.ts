@@ -54,6 +54,8 @@ export interface IMCPHttpEndpoint {
   readonly authentication?: IMCPBoundAuthenticator;
   /** Authentication the definition declares that this version cannot perform. */
   readonly unsupportedAuthentication?: readonly string[];
+  /** The definition obtains its credential dynamically, so admission without an authenticator is refused. */
+  readonly authenticationRequired?: boolean;
 }
 
 export interface IMCPAdmittedHttpEndpoint {
@@ -161,6 +163,17 @@ export async function admitHttpEndpoint(
       message:
         `The definition declares ${endpoint.unsupportedAuthentication.join(', ')} authentication, ` +
         'which this version does not support; the server was not connected.',
+    };
+  }
+  // Static headers alone are not the server's credential; connecting with them would be an
+  // unauthenticated attempt with whatever the definition happened to carry.
+  if (endpoint.authenticationRequired === true && endpoint.authentication === undefined) {
+    return {
+      ok: false,
+      reason: 'authentication-unavailable',
+      message:
+        'The definition obtains its headers dynamically and no authenticator was registered; ' +
+        'the server was not connected.',
     };
   }
   if (!URL.canParse(endpoint.url)) {
