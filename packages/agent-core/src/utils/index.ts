@@ -13,6 +13,7 @@ export * from './periodic-task';
 export * from './platform-shell';
 export {
   buildTraceparent,
+  isMintedSpanId,
   outboundTraceContextFor,
   providerCallSpanId,
   spanIdFromMintedId,

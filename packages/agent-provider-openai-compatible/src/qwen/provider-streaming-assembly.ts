@@ -2,7 +2,10 @@ import {
   assembleOpenAICompatibleStream,
   observeProviderNativeRawPayloadStream,
 } from '../shared/openai-compatible/index.js';
-import { awaitWithProviderRequestId, withProviderRequestId } from '../shared/openai-compatible/request-id.js';
+import {
+  awaitWithProviderRequestId,
+  withProviderRequestId,
+} from '../shared/openai-compatible/request-id.js';
 import { openAICompatibleRequestOptions } from '../shared/openai-compatible/request-options.js';
 
 import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';

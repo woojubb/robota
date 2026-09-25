@@ -5,6 +5,7 @@ import { randomBytes } from 'node:crypto';
 import {
   createUserMessage,
   createSystemMessage,
+  isMintedSpanId,
   messageToHistoryEntry,
   providerCallSpanId,
   spanIdFromMintedId,
@@ -74,8 +75,6 @@ export type {
   TResumeQueuedTurnFn,
   TSubmitFn,
 } from './interactive-session-execution-contracts.js';
-
-const MINTED_SPAN_ID = /^(?!0{16}$)[0-9a-f]{16}$/;
 
 function randomOtelId(bytes: number): string {
   let id: string;
@@ -466,7 +465,7 @@ export class SessionExecutionController {
           // invented span a server could not have been told about.
           const spanId =
             observation.toolBodyId === undefined ? undefined : spanIdFromMintedId(observation.toolBodyId);
-          if (spanId === undefined || !MINTED_SPAN_ID.test(spanId)) {
+          if (spanId === undefined || !isMintedSpanId(spanId)) {
             liveTrace?.omit({ provider: 0, tool: 1 });
             return;
           }
