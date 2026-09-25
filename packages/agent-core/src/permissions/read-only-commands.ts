@@ -51,16 +51,23 @@ const FIND_ACTIONS = new Set([
 ]);
 
 /**
- * Options that read a file named elsewhere or follow symlinks while recursing, keyed by command.
- * Short letters are matched inside a cluster (`-rnR`).
+ * The short option letters each command may carry, matched inside a cluster (`-rn`) and with a
+ * numeric value attached (`-n5`). An allowlist, not a denylist: the flags that follow symlinks or
+ * read a file named elsewhere differ between GNU and BSD (`grep -S`, `grep -R`, `ls -L`), so a
+ * letter not listed here fails closed. `find` predicates are words, judged separately.
  */
-const SYMLINK_OR_FILE_OPTIONS: Readonly<
-  Record<string, { short: string; long: readonly string[] }>
-> = {
-  grep: { short: 'Rf', long: ['--dereference-recursive', '--file'] },
-  ls: { short: 'L', long: ['--dereference'] },
-  du: { short: 'L', long: ['--dereference'] },
-  find: { short: '', long: [] },
+const ALLOWED_SHORT_OPTIONS: Readonly<Record<string, string>> = {
+  ls: 'aAlhtrSR1dFGinpsucCgmoQvx',
+  cat: 'nbsvetAE',
+  head: 'nqvc',
+  tail: 'nqvcfF',
+  grep: 'rinlLvcwxEFGPHhoqsABCmz',
+  wc: 'lwcmL',
+  stat: 'cftx',
+  du: 'hsacdkmx',
+  which: 'a',
+  pwd: 'LP',
+  cd: 'LP',
 };
 
 /** Any option whose value is a file to read, or a list of files: `--file`, `--exclude-from`, `-files0-from`. */
@@ -106,12 +113,11 @@ function usesRefusedOption(command: string, args: readonly IWord[]): boolean {
   if (command === 'find') {
     return optionWords(args).some((word) => word.text === '-L' || word.text === '-follow');
   }
-  const refused = SYMLINK_OR_FILE_OPTIONS[command];
-  if (refused === undefined) return false;
+  const allowed = ALLOWED_SHORT_OPTIONS[command];
+  if (allowed === undefined) return false;
   return optionWords(args).some(({ text }) => {
-    if (text.startsWith('--'))
-      return refused.long.some((long) => text === long || text.startsWith(`${long}=`));
-    return /^-[A-Za-z]/.test(text) && [...refused.short].some((letter) => text.includes(letter));
+    if (text.startsWith('--') || !/^-[A-Za-z]/.test(text)) return false;
+    return [...text.slice(1)].some((letter) => !/\d/.test(letter) && !allowed.includes(letter));
   });
 }
 

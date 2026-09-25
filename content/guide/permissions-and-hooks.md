@@ -43,9 +43,10 @@ A compound command qualifies only when each part does on its own. A command does
 
 - names a path outside the working directory: an absolute path, `~`, a `..` that climbs out, a
   PowerShell drive or provider (`C:x`, `Env:`), or a symlink whose target is outside;
-- follows symlinks while recursing or reads a file named by an option (`grep -R`, `grep -f`,
-  `find -L`, `ls -L`, `du -L`), or takes a file or a list of files through an option
-  (`--exclude-from`, `--files0-from`);
+- uses a short option outside each command's known-safe letters, which leaves out the ones that
+  follow symlinks or read a named file (`grep -R`/`-S`/`-f`, `ls -L`, `du -L`, `find -L`), or a
+  long option that takes a file or a list of files, abbreviated or not (`--exclude-from`,
+  `--files0`, `--deref`);
 - passes an unquoted glob, since it expands to names the check never sees;
 - contains a non-ASCII character;
 - writes through a redirect (`>`, `>>`, `&>`, `>&file`), except to `/dev/null` or another

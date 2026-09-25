@@ -42,6 +42,8 @@ describe('isReadOnlyCommandLine', () => {
     'git log --author=me@example.com',
     'git diff HEAD~1',
     "cat 'file with spaces.txt'",
+    'head -n5 notes.txt',
+    'grep -rn -A3 x src',
     "grep -rn x --include='*.ts' src",
     'cat -- notes.txt',
     'echo done',
@@ -142,6 +144,10 @@ describe('isReadOnlyCommandLine', () => {
     ['git log --out=x', 'an abbreviated --output'],
     ['cat t.txt -sl', 'a dash-named file after an operand, under BSD parsing'],
     ['grep x t.txt -sl', 'same, for grep'],
+    // Fifth review: BSD grep's -S follows every symlink with -r.
+    ['grep -rS x src', 'BSD grep follows symlinks'],
+    ['grep -r -S x src', 'same, as its own word'],
+    ['ls -H src', 'a letter not on the allowlist'],
   ])('%s does not qualify (%s)', (line) => {
     expect(isReadOnlyCommandLine(line, inWorkspace)).toBe(false);
   });
