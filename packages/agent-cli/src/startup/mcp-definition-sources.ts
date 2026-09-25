@@ -4,7 +4,7 @@
  * `createMcpClientComposition`) need.
  *
  * `agent-mcp` owns decoding one `mcpServers` object and resolving precedence across sources
- * (MCP-001, ADR-005); this module owns exactly one thing neither of those does: reading the
+ * (MCP-001, the agent-mcp SPEC); this module owns exactly one thing neither of those does: reading the
  * product's OWN settings sources (`@robota-sdk/agent-framework`'s `readSettingsSourceText`) and
  * mapping each one to the source/origin pair `agent-mcp`'s decoder expects.
  *

@@ -7,7 +7,7 @@
 Both were exported with no producer and no consumer. `IToolFactory` had no implementation anywhere in
 this repository — `grep -rn 'IToolFactory' packages/*/src apps/*/src` returned only the declaration
 and its export line — and nothing constructed an `IMCPToolConfig`. An MCP server definition is now
-owned by `@robota-sdk/agent-mcp` (MCP-001, ADR-005), which also absorbs the raw/validated/resolved
+owned by `@robota-sdk/agent-mcp` (MCP-001), which also absorbs the raw/validated/resolved
 forms, source provenance and shadow metadata, strict foreign `mcpServers` decoding, environment
 templates, whole-entry precedence, reversible disable overlays, redacted management projections and
 activation identity.

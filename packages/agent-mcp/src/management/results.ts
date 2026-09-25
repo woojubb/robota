@@ -4,7 +4,7 @@
  * These are RESULTS, not effects. Every function here takes an already-resolved set and returns a
  * value; none reads a file, opens a socket, or spawns a process. That is what lets `/mcp status`
  * answer "what is configured and from where" without deciding to contact anything, which is the
- * separation ADR-005 requires between definition inspection and activation.
+ * separation the SPEC requires between definition inspection and activation.
  *
  * `get` on an unknown name returns a typed not-found rather than throwing. A caller rendering a
  * command result wants to print "no such server, here are the names" — an exception makes that the

@@ -7,8 +7,8 @@
  * itself via `readSettingsSourceText` + `JSON.parse`, exactly mirroring `mcp-definition-sources.ts`.
  * `SettingsSchema` is NOT touched by this unit.
  *
- * Layering is PER KEY, not whole-object like `mcpServers` (MCP-001/ADR-005's "never field-merge an
- * entry" is about one server DEFINITION; `autoBackgroundMs` and `callTimeoutMs` are two independent
+ * Layering is PER KEY, not whole-object like `mcpServers` (the agent-mcp SPEC's rule that entries
+ * are never field-merged is about one server DEFINITION; `autoBackgroundMs` and `callTimeoutMs` are two independent
  * scalars, and a host commonly sets one in a managed policy and leaves the other to the user layer).
  * Sources are folded from LOWEST to HIGHEST precedence (`MCP_SOURCE_PRECEDENCE`, reversed) so a
  * higher-precedence document overrides a lower one key by key.
