@@ -2,7 +2,7 @@ import 'dotenv/config';
 import { join } from 'node:path';
 import { App } from '@slack/bolt';
 import { createAgentRuntime, createNodeHostSessionStore } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const SLACK_BOT_TOKEN = process.env.SLACK_BOT_TOKEN;
 const SLACK_APP_TOKEN = process.env.SLACK_APP_TOKEN;

@@ -13,7 +13,7 @@
 
 import { createInterface } from 'node:readline';
 import { createQuery } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider/anthropic';
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 function resolveProvider() {
   if (process.env.ANTHROPIC_API_KEY) {

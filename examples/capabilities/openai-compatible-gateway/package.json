@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@robota-sdk/agent-core": "^3.0.0-beta.67",
-    "@robota-sdk/agent-provider": "^3.0.0-beta.67"
+    "@robota-sdk/agent-provider-openai": "^3.0.0-beta.67"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
