@@ -13,17 +13,19 @@
  */
 import { afterEach, describe, expect, it } from 'vitest';
 
+import { InteractiveSession } from '../../interactive/interactive-session.js';
 import { PeerMessageIngress } from '../../interactive/peer-message-ingress.js';
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
 
-import type { IToolSchema, IToolWithEventService } from '@robota-sdk/agent-core';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { IPeerMessageIngress } from '@robota-sdk/agent-interface-session-mobility';
 
 const TEST_TIMEOUT = 30_000;
-const GATE_TOOL = 'GateTool';
-
-/** A tool that holds the turn open until the test releases it, and says when it was entered. */
-function gateTool(): { tool: IToolWithEventService; entered: Promise<void>; release: () => void } {
+/**
+ * A provider whose reply is held until the test releases it, and which says when it was called.
+ * The hold is on the model call, not on a tool, because a peer turn runs without tools.
+ */
+function gatedProvider(): { provider: IAIProvider; entered: Promise<void>; release: () => void } {
   let enter!: () => void;
   let release!: () => void;
   const entered = new Promise<void>((resolve) => {
@@ -32,25 +34,17 @@ function gateTool(): { tool: IToolWithEventService; entered: Promise<void>; rele
   const released = new Promise<void>((resolve) => {
     release = resolve;
   });
-  const schema: IToolSchema = {
-    name: GATE_TOOL,
-    description: 'Holds the turn open for the peer-ack test.',
-    parameters: { type: 'object', properties: {} },
-  };
-  const tool: IToolWithEventService = {
-    schema,
-    getName: () => schema.name,
-    getDescription: () => schema.description,
-    validate: () => true,
-    validateParameters: () => ({ isValid: true, errors: [] }),
-    setEventService: () => {},
-    execute: async () => {
+  const provider = {
+    name: 'gated',
+    version: '1',
+    generateResponse: async () => ({ content: '' }),
+    chat: async () => {
       enter();
       await released;
-      return { success: true, data: 'released' };
+      return { role: 'assistant', content: 'done', timestamp: new Date() };
     },
-  };
-  return { tool, entered, release };
+  } as unknown as IAIProvider;
+  return { provider, entered, release };
 }
 
 function peerMessage(text: string): IPeerMessageIngress {
@@ -160,12 +154,8 @@ describe('peer session-to-session messaging (framework functional)', () => {
       // The sender's wire waits for the immediate ack under a line timeout. On an idle session
       // `submit` resolves only after the turn, so an ack taken from it arrived after any turn
       // longer than that timeout, and the sender reported the message undelivered.
-      const gate = gateTool();
-      bob = scriptedSession({
-        turns: [{ toolCalls: [{ name: GATE_TOOL, args: {} }] }, { text: 'done' }],
-        additionalTools: [gate.tool],
-      });
-      const session = bob.session;
+      const gate = gatedProvider();
+      const session = new InteractiveSession({ cwd: process.cwd(), provider: gate.provider, bare: true });
       const ingress = new PeerMessageIngress({
         submit: (input, origin, onAccepted) =>
           session.submit(input, undefined, undefined, {
@@ -187,6 +177,7 @@ describe('peer session-to-session messaging (framework functional)', () => {
       const result = await received;
       expect(result.ack.state).toBe('pending');
       expect((await result.settled)?.state).toBe('acknowledged');
+      await session.shutdown();
     },
     TEST_TIMEOUT,
   );
