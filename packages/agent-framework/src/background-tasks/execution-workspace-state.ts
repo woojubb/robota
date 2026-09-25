@@ -75,13 +75,24 @@ export function taskHeadline(state: IBackgroundTaskState): IExecutionHeadline | 
     case 'waiting_permission':
       return headline('question', state.currentAction ?? 'waiting for permission');
     default:
-      return headline(
-        'activity',
-        state.currentAction ??
-          state.schedule?.agentInstruction ??
-          state.promptPreview ??
-          state.commandPreview,
-      );
+      return headline('activity', state.currentAction ?? taskActivityPreview(state));
+  }
+}
+
+/**
+ * #2079: the kind-specific preview fields the discriminated `IBackgroundTaskState` now carries —
+ * a scheduled task's own wake instruction (fuller than its truncated `commandPreview`), an agent's
+ * prompt preview, or the process/tool-invocation/scheduled command preview.
+ */
+function taskActivityPreview(state: IBackgroundTaskState): string | undefined {
+  switch (state.kind) {
+    case 'agent':
+      return state.promptPreview;
+    case 'scheduled':
+      return state.schedule?.agentInstruction ?? state.commandPreview;
+    case 'process':
+    case 'tool-invocation':
+      return state.commandPreview;
   }
 }
 

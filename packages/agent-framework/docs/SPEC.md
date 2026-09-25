@@ -37,8 +37,10 @@ React/Ink UI.
   facets minted from its opaque authority; omission is an explicit Restricted decision, not a silent
   fallback to path-based access. Restricted construction instantiates no project reader, store, or
   writer. Trusted access is accepted only when the real working directory is the trusted root or a
-  descendant of it — `cwd` and the access decision are independent inputs today, so this boundary
-  check exists specifically to keep that pair fail-closed until they are unified into one binding.
+  descendant of it — `cwd` and the access decision are independent inputs, so this boundary check keeps the pair
+  fail-closed. Once accepted, the pair is one value fixed for the session's life and handed by
+  reference, never copied field by field, so no lazy operation can hold a different answer from the
+  session; a move to another directory is a new session, not a mutation of this one.
 - **No concrete settings-file I/O for hosts.** Host adapters (`NodeHost*`) exist for callers that
   deliberately own a host path, but never satisfy an authority parameter, and command modules must
   not assemble settings/project paths themselves — they go through host adapters or command-facing
@@ -94,8 +96,20 @@ These are behaviors a caller cannot infer from a type signature alone.
 
 - **Prompt trace identity has a narrow execution boundary.** Every started prompt records a fresh,
   content-free trace root and its actual outcome even when it has no token usage or ends in failure
-  or interruption; a failure before execution begins has no root. This remains a partial trace
-  only — it does not cross process boundaries or prove final turn settlement.
+  or interruption; a failure before execution begins has no root. This remains a partial trace: it
+  leaves the process only as a `traceparent` on that prompt's own provider calls and tool bodies to
+  origins the host trusts, or in the environment of the child-process classes the host enabled —
+  either grant alone is enough, and subagent, worker and background runs never inherit it — and it does not
+  prove final turn settlement. A provider-call child's span ID is derived from core's call ID and a
+  tool child's from core's minted body ID, never invented, so the propagated parent and the exported
+  span are the same span; a tool body reported without that ID is counted as omitted.
+  Prompt, response and tool text travels only through the host's separate content channel, only
+  when the host provides one, and only for the owner-typed turns prompt history records — one shared
+  predicate decides both; otherwise the framework copies no text. Tool content is limited to the
+  turn's own calls: ownership comes from the permission and body events on the turn's own bus, never
+  from the shared tool callback, which subagent and background runs also report through. The
+  framework only pre-truncates, renders arguments without walking past the bound, and bounds what one
+  turn holds with room kept for the prompt and response; redaction is the host's.
 - **Session persistence is explicit, never implicit.** `InteractiveSession`/`createAgentRuntime`
   never construct a project session store from a bare `cwd`. A host wanting persistence supplies an
   explicit store (optionally composed from same-authority `sessions`/`session-logs` state facets); an
@@ -149,8 +163,10 @@ These are behaviors a caller cannot infer from a type signature alone.
   naming the type and the missing option, rather than being silently discarded at every tool call.
 - **Settings layers merge per key, and the rule is chosen for safety, not uniformity.** Layers are
   read user-first, project-later; the later (lower-trust) layer overrides by default, except:
-  `defaultTrustLevel` keeps the most restrictive value; `permissions.deny` is unioned while
-  `permissions.allow` is replaced; `disabledHooks` accumulates; provider/env/plugin/task-context objects
+  `defaultTrustLevel` keeps the most restrictive value; every `permissions` list (allow, deny, ask)
+  is unioned, because an allow list is not the complete permitted set once deny, ask and ceiling
+  rules outrank it, and replacing let a checked-in project file silently drop the user's rules;
+  `disabledHooks` accumulates; provider/env/plugin/task-context objects
   merge field by field; and `hooks` merge per lifecycle event, appending each layer's groups, so a later
   project layer can only _add_ hooks and can never remove a user's guard by declaring an unrelated one.
   A hook group may carry an `id`; a layer may disable only ids declared by later layers, so a user can

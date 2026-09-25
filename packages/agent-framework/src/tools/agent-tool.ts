@@ -19,6 +19,7 @@ import { z } from 'zod';
 // CORE-030: defining a tool and telling the permission system what it does arrive together.
 import './tool-permission-profiles.js';
 import { runManagedAgentBatch } from './agent-tool-batch.js';
+import { requireToolExecutionRoot } from './execution-root.js';
 import {
   stringifyAgentError,
   stringifyAgentSuccess,
@@ -199,7 +200,7 @@ function createSpawnRequest(
     parentSessionId: deps.parentSessionId ?? 'unknown-session',
     mode: 'background',
     depth: deps.subagentDepth ?? 1,
-    cwd: deps.cwd ?? process.cwd(),
+    cwd: requireToolExecutionRoot(deps.cwd, 'Agent'),
     prompt: args.prompt,
     model: args.model,
     effort: args.effort ?? agentDef.effort ?? deps.getParentModelEffort?.(),

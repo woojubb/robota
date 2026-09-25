@@ -78,7 +78,8 @@ function roundPercentage(part: number, whole: number): number {
  *
  * Token/cost: usage snapshots with no `source` are attributed to the main thread; sources are grouped
  * by `<scope>:<id>` and sorted by total tokens descending with the top consumer surfaced. Cost sums
- * each turn's exact `IUsageSnapshot.costUsd` (unpriced turns contribute 0 and clear `costExact`).
+ * each turn's known `IUsageSnapshot.costUsd` (unpriced turns contribute 0). Historical `exact`
+ * snapshots were local price-table estimates, so they cannot certify billed cost.
  *
  * Timeline: history is a chronological timeline where each turn ends with its `usage-summary` entry,
  * so the `span` entries that appear before a given usage-summary are the sub-turn spans of THAT turn.
@@ -125,10 +126,10 @@ export function summarizeUsageBySource(input: TUsageAnalysisInput): IUsageBySour
     const prompt = snapshot.promptTokens ?? 0;
     const completion = snapshot.completionTokens ?? 0;
     const total = snapshot.totalTokens;
-    // Exact cost only: a priced turn carries costUsd (costStatus !== 'unknown'); unpriced turns
-    // contribute 0 and mark the aggregate inexact. Never re-derives cost (single SSOT path, TC-04).
+    // Historical `exact` labels were local price-table estimates, not billed values. Preserve the
+    // amount while keeping the aggregate's exactness claim false.
     const turnCost = snapshot.costUsd ?? 0;
-    const turnPriced = snapshot.costUsd !== undefined;
+    const turnPriced = false;
 
     sessionPrompt += prompt;
     sessionCompletion += completion;

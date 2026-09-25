@@ -18,7 +18,9 @@ import { spawn } from 'node:child_process';
 
 import { createBoundedOutput, type IBoundedOutput } from '../../utils/bounded-output.js';
 import { resolvePlatformShell } from '../../utils/platform-shell.js';
+import { subprocessTraceEnvironment } from '../../utils/trace-context.js';
 
+import type { ISubprocessTraceEnv } from '../../interfaces/trace-context.js';
 import type {
   ICommandHookDefinition,
   IHookInput,
@@ -91,7 +93,16 @@ export class CommandExecutor implements IHookTypeExecutor {
 
   constructor(private readonly shellExecutable?: string) {}
 
-  execute(definition: ICommandHookDefinition, input: IHookInput): Promise<THookOutcome> {
+  /**
+   * `traceEnv` is the prompt's trace for this child, handed separately so it never reaches the
+   * stdin JSON. The child sees `process.env`, then Robota's value, then the hook's own `env`; a hook
+   * that sets its own `TRACEPARENT` wins and gets the ambient environment unchanged.
+   */
+  execute(
+    definition: ICommandHookDefinition,
+    input: IHookInput,
+    traceEnv?: ISubprocessTraceEnv,
+  ): Promise<THookOutcome> {
     const timeoutSeconds = definition.timeout ?? DEFAULT_TIMEOUT_SECONDS;
     const timeoutMs = timeoutSeconds * 1000;
     const inputJson = JSON.stringify(input);
@@ -101,7 +112,7 @@ export class CommandExecutor implements IHookTypeExecutor {
       const shell = resolvePlatformShell({ executable: this.shellExecutable });
       const child = spawn(shell.command, shell.commandArgs(definition.command), {
         cwd: input.cwd,
-        env: { ...process.env, ...input.env },
+        env: subprocessTraceEnvironment(process.env, traceEnv, input.env),
       });
       const { stdoutOutput, stderrOutput } = wireChildIo(child, inputJson);
 

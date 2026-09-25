@@ -1,7 +1,9 @@
 import { AbstractNodeDefinition, NodeIoAccessor } from '@robota-sdk/dag-node';
 import {
   buildTaskExecutionError,
+  buildTaskCancellationError,
   buildValidationError,
+  resolveDagExecutionByteLimits,
   type ICostEstimate,
   type IDagError,
   type IDagNodeDefinition,
@@ -12,6 +14,61 @@ import {
 import { z } from 'zod';
 
 const DEFAULT_TIMEOUT_MS = 10_000;
+
+class BodyByteLimitError extends Error {}
+
+/** Read only admitted bytes; a stalled stream must also observe the request's abort signal. */
+async function readBody(response: Response, maxBytes: number, signal: AbortSignal): Promise<string> {
+  if (response.body === null) return '';
+
+  const reader = response.body.getReader();
+  const bytes = new Uint8Array(maxBytes);
+  let length = 0;
+  let complete = false;
+  try {
+    for (;;) {
+      if (signal.aborted) throw new DOMException('HTTP request aborted', 'AbortError');
+      let onAbort: (() => void) | undefined;
+      const aborted = new Promise<never>((_resolve, reject) => {
+        onAbort = () => reject(new DOMException('HTTP request aborted', 'AbortError'));
+        signal.addEventListener('abort', onAbort, { once: true });
+      });
+      let part: ReadableStreamReadResult<Uint8Array>;
+      try {
+        part = await Promise.race([reader.read(), aborted]);
+      } finally {
+        if (onAbort) signal.removeEventListener('abort', onAbort);
+      }
+      if (part.done) {
+        complete = true;
+        break;
+      }
+      if (part.value.byteLength > maxBytes - length) {
+        throw new BodyByteLimitError('HTTP response body exceeds its UTF-8 byte limit');
+      }
+      bytes.set(part.value, length);
+      length += part.value.byteLength;
+    }
+  } finally {
+    if (!complete) void reader.cancel().catch(() => undefined);
+  }
+
+  const decoder = new TextDecoder();
+  const encoder = new TextEncoder();
+  const pieces: string[] = [];
+  let outputBytes = 0;
+  for (let offset = 0; offset < length; offset += 64 * 1024) {
+    const piece = decoder.decode(bytes.subarray(offset, Math.min(offset + 64 * 1024, length)), { stream: true });
+    outputBytes += encoder.encode(piece).byteLength;
+    if (outputBytes > maxBytes) throw new BodyByteLimitError('HTTP response body exceeds its UTF-8 byte limit');
+    pieces.push(piece);
+  }
+  const tail = decoder.decode();
+  outputBytes += encoder.encode(tail).byteLength;
+  if (outputBytes > maxBytes) throw new BodyByteLimitError('HTTP response body exceeds its UTF-8 byte limit');
+  pieces.push(tail);
+  return pieces.join('');
+}
 
 const HttpRequestConfigSchema = z.object({
   method: z.enum(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']).default('GET'),
@@ -87,8 +144,12 @@ export class HttpRequestNodeDefinition extends AbstractNodeDefinition<
       typeof bodyFromInput === 'string' ? bodyFromInput : config.body;
 
     const { timeoutMs } = config;
+    const maxBytes = resolveDagExecutionByteLimits(context.byteLimits).maxHttpResponseBodyBytes;
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    const onCancel = () => controller.abort();
+    context.signal?.addEventListener('abort', onCancel, { once: true });
+    if (context.signal?.aborted) controller.abort();
 
     // allow-fallback: network/fetch errors are caught and converted to structured Result
     try {
@@ -99,9 +160,8 @@ export class HttpRequestNodeDefinition extends AbstractNodeDefinition<
         signal: controller.signal,
       });
 
-      clearTimeout(timeoutId);
-
-      const responseBody = await response.text();
+      const responseBody = await readBody(response, maxBytes, controller.signal);
+      if (controller.signal.aborted) throw new DOMException('HTTP request aborted', 'AbortError');
       const responseHeaders: Record<string, string> = {};
       response.headers.forEach((value, key) => {
         responseHeaders[key] = value;
@@ -114,7 +174,19 @@ export class HttpRequestNodeDefinition extends AbstractNodeDefinition<
       return { ok: true, value: io.toOutput() };
     } catch (error) {
       // allow-fallback: network errors converted to structured Result
-      clearTimeout(timeoutId);
+      if (context.signal?.aborted) {
+        return { ok: false, error: buildTaskCancellationError(context.taskRunId) };
+      }
+      if (error instanceof BodyByteLimitError) {
+        controller.abort();
+        return {
+          ok: false,
+          error: buildTaskExecutionError(
+            'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED', error.message, false,
+            { maxBytes, nodeType: 'http-request' },
+          ),
+        };
+      }
 
       // CORE-027: classified from the node's OWN timeout signal and the platform's abort name,
       // never from the error's prose. The substring test that stood here read any failure whose
@@ -136,6 +208,9 @@ export class HttpRequestNodeDefinition extends AbstractNodeDefinition<
           },
         ),
       };
+    } finally {
+      clearTimeout(timeoutId);
+      context.signal?.removeEventListener('abort', onCancel);
     }
   }
 }

@@ -66,7 +66,8 @@ describe('deliverToObservers (ARCH-053)', () => {
       });
       expect(spy).toHaveBeenCalledTimes(1);
       expect(spy.mock.calls[0]?.[0]).toContain('background_task_created');
-      expect(spy.mock.calls[0]?.[1]).toEqual({ code: OBSERVER_FAILURE_WARNING_CODE });
+      expect(OBSERVER_FAILURE_WARNING_CODE).toBe('BACKGROUND_OBSERVER_FAILURE');
+      expect(spy.mock.calls[0]?.[1]).toEqual({ code: 'BACKGROUND_OBSERVER_FAILURE' });
     } finally {
       spy.mockRestore();
     }
@@ -74,6 +75,48 @@ describe('deliverToObservers (ARCH-053)', () => {
 });
 
 describe('BackgroundTaskManager observer isolation (ARCH-053)', () => {
+  it('uses the host warning code when no custom failure reporter is supplied', async () => {
+    const spy = vi.spyOn(process, 'emitWarning').mockImplementation(() => undefined);
+    try {
+      const manager = new BackgroundTaskManager({
+        runners: [createResolvedRunner()],
+        observerFailureWarningCode: 'ACME_BACKGROUND_OBSERVER_FAILURE',
+      });
+      manager.subscribe(() => {
+        throw new Error('broken');
+      });
+      const state = await manager.spawn(request);
+      await manager.wait(state.id);
+      expect(spy).toHaveBeenCalled();
+      expect(
+        spy.mock.calls.every(
+          (call) => (call[1] as { code?: string }).code === 'ACME_BACKGROUND_OBSERVER_FAILURE',
+        ),
+      ).toBe(true);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('keeps an explicit reporter ahead of the host warning code', async () => {
+    const spy = vi.spyOn(process, 'emitWarning').mockImplementation(() => undefined);
+    try {
+      const failures: IObserverFailure<TBackgroundTaskEvent>[] = [];
+      const manager = new BackgroundTaskManager({
+        runners: [createResolvedRunner()],
+        observerFailureWarningCode: 'ACME_BACKGROUND_OBSERVER_FAILURE',
+        onObserverFailure: (failure) => failures.push(failure),
+      });
+      manager.subscribe(() => { throw new Error('broken'); });
+      const state = await manager.spawn(request);
+      await manager.wait(state.id);
+      expect(failures).toHaveLength(3);
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('a throwing eventSink neither rejects admission nor stops listener delivery', async () => {
     const failures: IObserverFailure<TBackgroundTaskEvent>[] = [];
     const listenerEvents: string[] = [];

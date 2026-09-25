@@ -43,7 +43,14 @@ function typedText(input: IPromptRecordInput): string {
   return (input.rawInput ?? input.input).trim();
 }
 
-function isOwnerTurn(input: IPromptRecordInput): boolean {
+/**
+ * A turn the owner typed on the owner's own surface. Prompt history and opt-in telemetry content
+ * capture both decide by this one predicate, so neither can record a turn the other would not.
+ */
+export function isOwnerPromptTurn(input: {
+  readonly turnSource: TTurnSource;
+  readonly driverId: TDriverId | undefined;
+}): boolean {
   return (
     input.turnSource === 'user' &&
     (input.driverId === undefined || input.driverId === OWNER_DRIVER_ID)
@@ -57,7 +64,7 @@ export function createPromptHistoryRecorder(
   let last: string | undefined;
   let failureReported = false;
   return (input) => {
-    if (!isOwnerTurn(input)) return;
+    if (!isOwnerPromptTurn(input)) return;
     const text = typedText(input);
     if (text.length === 0 || text === last) return;
     last = text;

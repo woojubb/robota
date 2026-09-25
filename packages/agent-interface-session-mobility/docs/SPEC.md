@@ -7,8 +7,9 @@ and moving authority over a session to another machine (handoff). They are one a
 message and a handoff differ in what travels, data versus control — and both answer the same
 question: what happens when a session is not confined to one process.
 
-This package declares how authority moves, whether a settled session may be offered, and how its
-resources are classified in the handoff inventory. The source retains
+This package orchestrates source and destination handoff around host-supplied delivery, record
+decoding, and durable persistence. It declares how authority moves, whether a settled session may
+be offered, and how its resources are classified in the handoff inventory. The source retains
 authority until it holds a matching acknowledgement of durable destination persistence. Illegal
 phase transitions are refused without changing state; repeated acknowledgements for a committed
 handoff are idempotent. Authorization of a proposed move remains a host decision.
@@ -59,6 +60,6 @@ become an authentication or authorization input.
 
 ## Non-goals
 
-- No extension points by design.
-- Declares no error type and throws nothing; a failed delivery is a delivery outcome the caller
-  discriminates and decides how to handle.
+- No handoff policy extension points; hosts supply effects, not authority decisions.
+- Declares no transport failure taxonomy; protocol refusals are explicit outcomes, while failures
+  of host-supplied effects propagate without transferring source authority absent a durable ack.

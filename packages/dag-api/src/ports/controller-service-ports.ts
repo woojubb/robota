@@ -1,5 +1,6 @@
 import type {
   IDagError,
+  IDagExecutionLineage,
   IDagRun,
   ITaskRun,
   TDagRunStatus,
@@ -13,6 +14,8 @@ import type { TRunProgressEventListener } from '../composition/run-progress-even
 
 /** Input required by API controllers to start a runtime DAG run. */
 export interface IRuntimeStartRunInput {
+  /** Internal trusted child-run ancestry; HTTP controllers do not accept this from requests. */
+  lineage?: IDagExecutionLineage;
   dagId: string;
   version?: number;
   trigger: TDagTriggerType;

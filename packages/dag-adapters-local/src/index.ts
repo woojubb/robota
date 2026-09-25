@@ -6,6 +6,8 @@ export { SystemClockPort } from './clock-ports.js';
 // dedicated `@robota-sdk/dag-adapters-local/testing` entry (was FakeClockPort / MockTaskExecutorPort /
 // createStubPromptBackend on this main export).
 export { FileCostMetaStorage } from './file-cost-meta-storage.js';
-export { FileStoragePort } from './file-storage-port.js';
+export { FileStoragePort, FileStoragePortClosedError } from './file-storage-port.js';
+export type { IFileStoragePortOwnerLockOptions } from './file-storage-port.js';
+export { FileStoreOwnerConflictError } from './file-store-owner-lock.js';
 export { InMemoryRunDraftStore } from './in-memory-run-draft-store.js';
 export { FileRunDraftStore } from './file-run-draft-store.js';

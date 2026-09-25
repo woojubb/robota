@@ -69,6 +69,7 @@ export interface IUsageObservation {
 
 /** An explicitly linked, content-free provider round under one persisted prompt root. */
 export interface IProviderCallTraceEntry {
+  callId?: string;
   traceId: string;
   parentSpanId: string;
   spanId: string;
@@ -76,16 +77,64 @@ export interface IProviderCallTraceEntry {
   endedAt: string;
   outcome: 'success' | 'failure' | 'interrupted';
   round: number;
+  disposition?: 'invoked' | 'cache-hit' | 'preflight-refused';
+  providerId?: string;
+  modelId?: string;
+  usageProvenance?: 'complete' | 'partial' | 'absent';
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+  /**
+   * Opaque ID the provider returned for this invoked call. On THIS entry it is live-projection
+   * only — never written to the persisted `provider-call-trace` history entry. The adapter also
+   * leaves it on the assistant message's own metadata, so it does reach session history and logs by
+   * that separate route; among telemetry signals, only live traces and logs export it, never metrics.
+   */
+  providerRequestId?: string;
 }
 
 /** The awaited body of one permitted tool call under a persisted prompt root. */
 export interface IToolBodyTraceEntry {
+  /** Opaque ID of the actual permitted call in live projection; not written to history. */
+  toolCallId?: string;
   traceId: string;
   parentSpanId: string;
   spanId: string;
   startedAt: string;
   endedAt: string;
   outcome: 'success' | 'failure' | 'interrupted';
+}
+
+/** Live-only decision reached for one tool call before any body runs; never written to history. */
+export interface IToolPermissionDecisionEntry {
+  /** Opaque ID of the tool call; the same value a permitted body's live entry carries. */
+  toolCallId?: string;
+  traceId: string;
+  parentSpanId: string;
+  decidedAt: string;
+  decision: 'allowed' | 'denied' | 'hook-blocked';
+}
+
+/** One bounded, content-free live prompt execution; not a final turn result or delivery receipt. */
+export interface ILivePromptTraceBatch {
+  readonly schemaVersion: 1;
+  readonly sessionId: string;
+  readonly turnId: string;
+  readonly root: {
+    readonly traceId: string;
+    readonly spanId: string;
+    readonly startedAt: string;
+    readonly endedAt: string;
+    readonly outcome: 'success' | 'failure' | 'interrupted';
+  };
+  /** Callback order, not an inferred causal sequence. Retry joins are unavailable. */
+  readonly children: readonly (
+    | { readonly kind: 'provider'; readonly trace: IProviderCallTraceEntry }
+    | { readonly kind: 'tool'; readonly trace: IToolBodyTraceEntry }
+    | { readonly kind: 'permission'; readonly decision: IToolPermissionDecisionEntry }
+  )[];
+  /** Invalid or over-limit children are never silently represented as a complete trace. */
+  readonly omittedChildren: { readonly provider: number; readonly tool: number; readonly permission: number };
 }
 
 export interface IPersonalUsageRequest {
@@ -193,7 +242,7 @@ export interface IUsageSourceTotals {
   percentage: number;
   /** Exact cost (USD) summed from each turn's `IUsageSnapshot.costUsd` (unpriced turns contribute 0). */
   costUsd: number;
-  /** Whether every turn attributed to this source carried an exact `costUsd`. */
+  /** Whether every turn has independently proven billed cost; table estimates do not qualify. */
   costExact: boolean;
 }
 

@@ -15,10 +15,17 @@
 import { projectEntries, projectEntry } from '../definition/projection.js';
 
 import type { IMCPDefinitionProjection } from '../definition/projection.js';
-import type { IMCPResolvedEntry } from '../definition/types.js';
+import type { IMCPDefinitionProblem, IMCPResolvedEntry } from '../definition/types.js';
 
+/**
+ * A problem that named no server at all — `resolveByPrecedence`'s `sourceProblems` (issue #2794):
+ * the configuration root was not an object, declared no `mcpServers`, `mcpServers` was not an
+ * object, or the source itself could not be read. Reported beside `servers` rather than folded into
+ * one of them, because it belongs to no server name.
+ */
 export interface IMCPListResult {
   readonly servers: readonly IMCPDefinitionProjection[];
+  readonly sourceProblems: readonly IMCPDefinitionProblem[];
 }
 
 export type TMCPGetResult =
@@ -33,11 +40,17 @@ export interface IMCPStatusResult {
   /** Server names with at least one unset environment reference, for the warning line. */
   readonly withUnsetVariables: readonly string[];
   readonly servers: readonly IMCPDefinitionProjection[];
+  /** See {@link IMCPListResult.sourceProblems}. A managed source failing to read at all lands here,
+   * never as a silent drop to `{total: 0}`. */
+  readonly sourceProblems: readonly IMCPDefinitionProblem[];
 }
 
-/** Every configured server, projected. */
-export function listServers(entries: readonly IMCPResolvedEntry[]): IMCPListResult {
-  return { servers: projectEntries(entries) };
+/** Every configured server, projected, plus any problem that could not name one. */
+export function listServers(
+  entries: readonly IMCPResolvedEntry[],
+  sourceProblems: readonly IMCPDefinitionProblem[] = [],
+): IMCPListResult {
+  return { servers: projectEntries(entries), sourceProblems };
 }
 
 /** One server by name, or a typed not-found carrying the names that do exist. */
@@ -50,7 +63,10 @@ export function getServer(entries: readonly IMCPResolvedEntry[], name: string): 
 }
 
 /** Counts plus the projected set — what a status view needs in one pass. */
-export function statusOf(entries: readonly IMCPResolvedEntry[]): IMCPStatusResult {
+export function statusOf(
+  entries: readonly IMCPResolvedEntry[],
+  sourceProblems: readonly IMCPDefinitionProblem[] = [],
+): IMCPStatusResult {
   const servers = projectEntries(entries);
   return {
     total: servers.length,
@@ -61,5 +77,6 @@ export function statusOf(entries: readonly IMCPResolvedEntry[]): IMCPStatusResul
       .filter((server) => server.unsetVariables.length > 0)
       .map((server) => server.name),
     servers,
+    sourceProblems,
   };
 }

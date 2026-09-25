@@ -46,6 +46,20 @@ function job(effort?: 'low' | 'medium' | 'high' | 'xhigh' | 'max'): ISubagentJob
   } as ISubagentJobStart;
 }
 
+describe('in-process subagent trace context', () => {
+  it('runs the child with the prompt only, so it never inherits the parent prompt trace', () => {
+    const session = {
+      run: vi.fn().mockResolvedValue('done'),
+      abort: vi.fn(),
+      getFullHistory: vi.fn().mockReturnValue([]),
+    };
+    mocks.createSubagentSession.mockReturnValue(session);
+    createInProcessSubagentRunner(deps()).start(job());
+    expect(session.run).toHaveBeenCalledWith('Do work');
+    expect(session.run.mock.calls[0]).toHaveLength(1);
+  });
+});
+
 describe('in-process subagent effort projection (BEHAVIOR-009)', () => {
   it('uses the request effort when present and the definition effort otherwise', () => {
     const session = {
@@ -67,6 +81,42 @@ describe('in-process subagent effort projection (BEHAVIOR-009)', () => {
     expect(mocks.createSubagentSession).toHaveBeenLastCalledWith(
       expect.objectContaining({
         agentDefinition: expect.objectContaining({ effort: 'medium' }),
+      }),
+    );
+  });
+});
+
+describe('the parent rules a subagent inherits (issue #3081)', () => {
+  it('are the rules the parent gate enforces now, read at each spawn', () => {
+    const session = {
+      run: vi.fn().mockResolvedValue('done'),
+      abort: vi.fn(),
+      getFullHistory: vi.fn().mockReturnValue([]),
+    };
+    mocks.createSubagentSession.mockReturnValue(session);
+    let live: IResolvedConfig['permissions'] = { allow: ['Read(*)'], deny: [], ask: [] };
+    const runner = createInProcessSubagentRunner({
+      ...deps(),
+      config: {
+        provider: {},
+        hooks: undefined,
+        permissions: { allow: [], deny: [] },
+      } as unknown as IResolvedConfig,
+      getParentPermissionRules: () => live,
+    });
+
+    runner.start(job());
+    expect(mocks.createSubagentSession).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        parentConfig: expect.objectContaining({ permissions: live }),
+      }),
+    );
+
+    live = { allow: ['Read(*)', 'Grep(*)'], deny: ['Bash'], ask: [] };
+    runner.start(job());
+    expect(mocks.createSubagentSession).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        parentConfig: expect.objectContaining({ permissions: live }),
       }),
     );
   });

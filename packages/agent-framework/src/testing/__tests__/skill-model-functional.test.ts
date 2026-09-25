@@ -165,7 +165,7 @@ describe('fork skill model through a real scripted child Session', () => {
     expect(definition?.model).toBe('agent-model');
   }, 20_000);
 
-  it('refuses an inject skill carrying a model before a provider request', async () => {
+  it('starts the session without an inject skill carrying a model', async () => {
     workspace = realpathSync(mkdtempSync(join(tmpdir(), 'robota-invalid-skill-model-')));
     const directory = join(workspace, '.agents', 'skills', 'invalid');
     mkdirSync(directory, { recursive: true });
@@ -186,11 +186,11 @@ describe('fork skill model through a real scripted child Session', () => {
       skillRoots: [{ root: join('.agents', 'skills'), kind: 'skills' }],
       projectAccess: await createTrustedProjectAccessFixture(workspace),
       commandModules: [skillActivationModule],
-      turns: [{ text: 'must not run' }],
+      turns: [{ text: 'Started without the invalid skill.' }],
     });
-    await expect(harness.session.submit('Start.')).rejects.toThrow(/model/);
-    expect(harness.requests).toHaveLength(0);
-    await expect(harness.dispose()).rejects.toThrow(/model/);
-    harness = undefined;
+    await harness.submit('Start.');
+    const initialSystem = harness.requests[0]?.filter((message) => message.role === 'system');
+    expect(JSON.stringify(initialSystem)).not.toContain('Invalid inject model');
+    expect(JSON.stringify(harness.requests)).not.toContain('This cannot be registered.');
   }, 20_000);
 });

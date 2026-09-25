@@ -107,6 +107,8 @@ export interface IScriptedSessionOptions {
   resumeSessionId?: string;
   /** Fork the resumed session into a new id while restoring its context (multi-session). */
   forkSession?: boolean;
+  /** Issue #3081: the session is the target of a `/cd` from this directory. */
+  workspaceMovedFrom?: string;
   /** Command modules composed into the session (e.g. the `/goal` module). */
   commandModules?: readonly ICommandModule[];
   /** Enable the real background-task runners for schedule/monitor functional tests. */
@@ -231,6 +233,9 @@ export class ScriptedSessionHarness {
       sessionLogSink: new NodeSessionLogSink(join(this.cwd, '.robota', 'logs')),
       ...(options.resumeSessionId ? { resumeSessionId: options.resumeSessionId } : {}),
       ...(options.forkSession ? { forkSession: options.forkSession } : {}),
+      ...(options.workspaceMovedFrom !== undefined
+        ? { workspaceMovedFrom: options.workspaceMovedFrom }
+        : {}),
       ...(options.commandModules ? { commandModules: options.commandModules } : {}),
       ...(options.backgroundTasks
         ? { backgroundTaskRunners: createDefaultBackgroundTaskRunners() }

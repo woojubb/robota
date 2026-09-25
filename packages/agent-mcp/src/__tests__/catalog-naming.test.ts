@@ -141,3 +141,12 @@ describe('resolveNameCollisions', () => {
     expect(losers).toHaveLength(2);
   });
 });
+
+describe('truncation keeps the server prefix (issue #3081)', () => {
+  it('a long server id stays whole, so `<server>__*` still names the tool', () => {
+    const serverId = 'a-rather-long-internal-server-identifier';
+    const { name } = canonicalName(serverId, 'an_equally_long_tool_name_that_forces_truncation');
+    expect(name.length).toBeLessThanOrEqual(64);
+    expect(name.startsWith(`${serverId}__`)).toBe(true);
+  });
+});

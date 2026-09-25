@@ -7,7 +7,7 @@ import DatabaseConstructor from 'better-sqlite3';
 import { listStaleRunningTaskRunRows, setTaskRunLeaseRow } from './task-run-recovery-queries.js';
 import { type ITaskRunRow, rowToTaskRun } from './task-run-row.js';
 import type Database from 'better-sqlite3';
-import { decodeDagDefinition, formatDagDecodeIssues } from '@robota-sdk/dag-core';
+import { decodeDagDefinition, decodeDagExecutionLineage, formatDagDecodeIssues } from '@robota-sdk/dag-core';
 import type {
   IDagDefinition,
   IDagError,
@@ -38,6 +38,7 @@ interface IDagRunRow {
   input_snapshot: string | null;
   started_at: string | null;
   ended_at: string | null;
+  lineage_json: string | null;
 }
 
 /**
@@ -55,7 +56,28 @@ function rowToDefinition(row: IDefinitionRow): IDagDefinition {
   return result.value;
 }
 
+/**
+ * A read must never throw over persisted lineage. Unlike `rowToDefinition`, this
+ * value is not decoded here — it is handed to callers exactly as stored, still unvalidated, so
+ * `decodeDagExecutionLineage` at the worker/orchestrator boundary is the sole place that rejects
+ * it. That keeps a corrupt `lineage_json` value a deterministic task failure instead of an
+ * exception thrown out of `getDagRun`, which would otherwise crash the worker loop before it ever
+ * reaches that decode call. Malformed JSON text is returned unparsed: decode requires an object,
+ * so a raw string is rejected the same way a structurally invalid object is.
+ */
+function parsePersistedLineage(rawLineageJson: string): unknown {
+  try {
+    return JSON.parse(rawLineageJson);
+  } catch {
+    return rawLineageJson;
+  }
+}
+
 function rowToDagRun(row: IDagRunRow): IDagRun {
+  const lineage =
+    row.lineage_json === null
+      ? undefined
+      : (parsePersistedLineage(row.lineage_json) as IDagRun['lineage']);
   return {
     dagRunId: row.dag_run_id,
     dagId: row.dag_id,
@@ -68,6 +90,7 @@ function rowToDagRun(row: IDagRunRow): IDagRun {
     inputSnapshot: row.input_snapshot ?? undefined,
     startedAt: row.started_at ?? undefined,
     endedAt: row.ended_at ?? undefined,
+    ...(lineage === undefined ? {} : { lineage }),
   };
 }
 
@@ -79,7 +102,10 @@ function rowToDagRun(row: IDagRunRow): IDagRun {
 export class SqliteStorageAdapter implements IStoragePort {
   private readonly db: Database.Database;
 
-  public constructor(dbPath = './robota-dag.db') {
+  public constructor(dbPath: string) {
+    if (!dbPath?.trim()) {
+      throw new Error('SqliteStorageAdapter requires a host-selected dbPath');
+    }
     this.db = new DatabaseConstructor(dbPath);
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('foreign_keys = ON');
@@ -119,12 +145,15 @@ export class SqliteStorageAdapter implements IStoragePort {
             .prepare(
               `INSERT INTO task_runs
           (task_run_id, dag_run_id, node_id, status, attempt, lease_owner, lease_until,
-           input_snapshot, output_snapshot, estimated_credits, total_credits, error_code, error_message)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           input_snapshot, output_snapshot, estimated_credits, total_credits, error_code, error_message,
+           reserved_credits, reservation_attempt, reservation_owner)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(task_run_id) DO UPDATE SET status=excluded.status, attempt=excluded.attempt,
           lease_owner=excluded.lease_owner, lease_until=excluded.lease_until,
           input_snapshot=excluded.input_snapshot, output_snapshot=excluded.output_snapshot, estimated_credits=excluded.estimated_credits,
-          total_credits=excluded.total_credits, error_code=excluded.error_code, error_message=excluded.error_message`,
+          total_credits=excluded.total_credits, error_code=excluded.error_code, error_message=excluded.error_message,
+          reserved_credits=excluded.reserved_credits, reservation_attempt=excluded.reservation_attempt,
+          reservation_owner=excluded.reservation_owner`,
             )
             .run(
               task.taskRunId,
@@ -140,6 +169,9 @@ export class SqliteStorageAdapter implements IStoragePort {
               task.totalCredits ?? null,
               task.errorCode ?? null,
               task.errorMessage ?? null,
+              task.reservedCredits ?? null,
+              task.reservationAttempt ?? null,
+              task.reservationOwner ?? null,
             );
         }
         return decision.result;
@@ -211,12 +243,13 @@ export class SqliteStorageAdapter implements IStoragePort {
   }
 
   public async createDagRun(dagRun: IDagRun): Promise<void> {
+    const lineage = decodeDagExecutionLineage(dagRun.lineage);
     this.db
       .prepare(
         `INSERT INTO dag_runs
          (dag_run_id, dag_id, version, status, run_key, logical_date, trigger,
-          definition_snapshot, input_snapshot, started_at, ended_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          definition_snapshot, input_snapshot, started_at, ended_at, lineage_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       )
       .run(
         dagRun.dagRunId,
@@ -230,6 +263,7 @@ export class SqliteStorageAdapter implements IStoragePort {
         dagRun.inputSnapshot ?? null,
         dagRun.startedAt ?? null,
         dagRun.endedAt ?? null,
+        lineage === undefined ? null : JSON.stringify(lineage),
       );
   }
 
@@ -318,9 +352,18 @@ export class SqliteStorageAdapter implements IStoragePort {
   ): Promise<void> {
     this.db
       .prepare(
-        'UPDATE task_runs SET status = ?, error_code = ?, error_message = ? WHERE task_run_id = ?',
+        `UPDATE task_runs SET status = ?, error_code = ?, error_message = ?,
+         reserved_credits = CASE WHEN ? THEN NULL ELSE reserved_credits END,
+         reservation_attempt = CASE WHEN ? THEN NULL ELSE reservation_attempt END,
+         reservation_owner = CASE WHEN ? THEN NULL ELSE reservation_owner END WHERE task_run_id = ?`,
       )
-      .run(status, error?.code ?? null, error?.message ?? null, taskRunId);
+      .run(
+        status,
+        error?.code ?? null,
+        error?.message ?? null,
+        ...Array(3).fill(['failed', 'cancelled', 'queued'].includes(status) ? 1 : 0),
+        taskRunId,
+      );
   }
 
   public async setTaskRunLease(
@@ -362,7 +405,9 @@ export class SqliteStorageAdapter implements IStoragePort {
 
   public async incrementTaskAttempt(taskRunId: string): Promise<void> {
     this.db
-      .prepare('UPDATE task_runs SET attempt = attempt + 1 WHERE task_run_id = ?')
+      .prepare(
+        'UPDATE task_runs SET attempt = attempt + 1, reserved_credits = NULL, reservation_attempt = NULL, reservation_owner = NULL WHERE task_run_id = ?',
+      )
       .run(taskRunId);
   }
 }

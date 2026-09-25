@@ -92,7 +92,13 @@ export function applyTaskAttemptIncrement(
 ): boolean {
   for (const [key, taskRun] of taskRuns.entries()) {
     if (taskRun.taskRunId !== taskRunId) continue;
-    taskRuns.set(key, { ...taskRun, attempt: taskRun.attempt + 1 });
+    taskRuns.set(key, {
+      ...taskRun,
+      attempt: taskRun.attempt + 1,
+      reservedCredits: undefined,
+      reservationAttempt: undefined,
+      reservationOwner: undefined,
+    });
     return true;
   }
   return false;

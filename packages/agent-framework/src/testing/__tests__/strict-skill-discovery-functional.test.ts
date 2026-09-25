@@ -92,24 +92,34 @@ describe('strict skill discovery through a real session', () => {
   );
 
   it(
-    'refuses malformed authority metadata before making any provider request',
+    'starts the session without a skill whose authority metadata is malformed',
     async () => {
       workspace = realpathSync(mkdtempSync(join(tmpdir(), 'robota-strict-skills-')));
       seedSkill(workspace, 'malformed-strict-skill', 'treu', PRIVATE_BODY);
+      seedSkill(workspace, 'visible-strict-skill', 'false', 'Visible skill body.');
       harness = scriptedSession({
         cwd: workspace,
         contributionSources: createNodeHostContributionSourcesFixture(workspace),
         skillRoots: [{ root: join('.robota', 'skills'), kind: 'skills' }],
         projectAccess: await createTrustedProjectAccessFixture(workspace),
         commandModules: [skillActivationModule],
-        turns: [{ text: 'This must never be requested.' }],
+        turns: [
+          {
+            toolCalls: [{ name: 'command_skills', args: { args: 'malformed-strict-skill' } }],
+          },
+          { text: 'The malformed skill was not activated.' },
+        ],
       });
 
-      await expect(harness.session.submit('Start.')).rejects.toThrow(/disable-model-invocation/);
-      expect(harness.requests).toHaveLength(0);
-      // Shutdown observes the same rejected initialization promise; assert it explicitly.
-      await expect(harness.dispose()).rejects.toThrow(/disable-model-invocation/);
-      harness = undefined;
+      await harness.submit('Start.');
+
+      const initialSystem = harness.requests[0]?.filter((message) => message.role === 'system');
+      expect(JSON.stringify(initialSystem)).toContain('visible-strict-skill');
+      expect(JSON.stringify(initialSystem)).not.toContain('malformed-strict-skill');
+      expect(JSON.stringify(harness.requests[1])).toContain(
+        'Unknown skill: malformed-strict-skill',
+      );
+      expect(JSON.stringify(harness.requests)).not.toContain(PRIVATE_BODY);
     },
     TEST_TIMEOUT,
   );

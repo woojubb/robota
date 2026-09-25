@@ -188,3 +188,13 @@ export interface IRestrictedWorkspaceProjectAccess {
 
 export type TWorkspaceProjectAccess =
   ITrustedWorkspaceProjectAccess | IRestrictedWorkspaceProjectAccess;
+
+/**
+ * ARCH-043: where a session runs and what it may read of that project, as one immutable value.
+ * Collaborators receive this value, never copies of its parts, so no lazy operation can hold an
+ * answer that differs from the session's.
+ */
+export interface IWorkspacePolicy {
+  readonly cwd: string;
+  readonly projectAccess: TWorkspaceProjectAccess;
+}

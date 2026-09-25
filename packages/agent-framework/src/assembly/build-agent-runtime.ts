@@ -93,6 +93,7 @@ export function buildAgentRuntime(
     const subagentManager = new SubagentManager({
       runner: (options.subagentRunnerFactory ?? createInProcessSubagentRunner)(agentToolDeps),
       backgroundTaskRunners: options.backgroundTaskRunners,
+      observerFailureWarningCode: options.observerFailureWarningCode,
     });
     agentToolDeps.subagentManager = subagentManager;
     backgroundTaskManager = subagentManager.getBackgroundTaskManager();
@@ -100,6 +101,7 @@ export function buildAgentRuntime(
   } else {
     backgroundTaskManager = new BackgroundTaskManager({
       runners: options.backgroundTaskRunners ?? [],
+      observerFailureWarningCode: options.observerFailureWarningCode,
     });
   }
 

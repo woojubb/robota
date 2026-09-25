@@ -131,8 +131,14 @@ describe('supportsTurnMarks — the documented negatives', () => {
   it('honours the explicit opt-in and the kill switch over everything else', () => {
     vi.stubEnv('TERM_PROGRAM', 'WezTerm');
     vi.stubEnv('ROBOTA_TURN_MARKS', '1');
-    expect(supportsTurnMarks()).toBe(true);
+    expect(supportsTurnMarks({ override: true })).toBe(true);
     vi.stubEnv('ROBOTA_TURN_MARKS', '0');
+    expect(supportsTurnMarks({ override: false })).toBe(false);
+  });
+
+  it('ignores an ambient Robota override without a host choice', () => {
+    vi.stubEnv('TERM_PROGRAM', 'WezTerm');
+    vi.stubEnv('ROBOTA_TURN_MARKS', '1');
     expect(supportsTurnMarks()).toBe(false);
   });
 });

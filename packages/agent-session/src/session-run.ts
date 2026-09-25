@@ -13,6 +13,7 @@ import {
   getProviderCapabilities,
   isModelEffort,
   runHooks,
+  traceEnvFor,
 } from '@robota-sdk/agent-core';
 
 import { perTurnRunOptions } from './session-run-options.js';
@@ -33,6 +34,7 @@ import type {
   IContextWindowState,
   THooksConfig,
   IHookTypeExecutor,
+  ISubprocessTraceEnv,
   TTextDeltaCallback,
   TModelEffortSelection,
 } from '@robota-sdk/agent-core';
@@ -50,6 +52,7 @@ function fireModelCallHook(
   ctx: IRunContext,
   hookEvent: 'PreModelCall' | 'PostModelCall',
   data: Record<string, unknown>,
+  hookTraceEnv: ISubprocessTraceEnv | undefined,
 ): void {
   const model = typeof data['model'] === 'string' ? (data['model'] as string) : ctx.model;
   const provider =
@@ -81,6 +84,7 @@ function fireModelCallHook(
       },
     },
     ctx.hookTypeExecutors,
+    hookTraceEnv,
   ).catch((error) => logger.warn('hook failed', { error }));
 }
 
@@ -102,7 +106,8 @@ export interface IRunContext {
   hookTypeExecutors: IHookTypeExecutor[] | undefined;
   sessionStartStdout: string;
   log: (event: string, data: TSessionLogData) => void;
-  compact: (signal?: AbortSignal) => Promise<void>; // RUNTIME-004: abort must not rewrite history
+  /** RUNTIME-004: abort must not rewrite history. `hookTraceEnv` is the prompt's, for PreCompact. */
+  compact: (signal?: AbortSignal, hookTraceEnv?: ISubprocessTraceEnv) => Promise<void>;
   persistSession: () => void;
   getSessionStore: () => boolean;
   clearSessionStartStdout: () => void;
@@ -129,6 +134,11 @@ export async function executeRun(
   abortSignal: AbortSignal,
   runOptions?: ISessionRunOptions,
 ): Promise<string> {
+  // Command hooks fired on this prompt's path name its root span; hooks elsewhere get nothing.
+  const traceContext = runOptions?.traceContext;
+  const hookTraceEnv = traceContext
+    ? traceEnvFor('hooks', traceContext, traceContext.parentSpanId)
+    : undefined;
   // Auto-compact BEFORE processing the new message (not after).
   // This prevents compaction from interfering with the current response stream.
   ctx.contextTracker.updateFromHistory(ctx.agent.getHistory());
@@ -142,7 +152,7 @@ export async function executeRun(
     const savedDelta = provider.onTextDelta;
     provider.onTextDelta = undefined;
     try {
-      await ctx.compact(abortSignal);
+      await (hookTraceEnv ? ctx.compact(abortSignal, hookTraceEnv) : ctx.compact(abortSignal));
     } finally {
       provider.onTextDelta = savedDelta;
     }
@@ -168,6 +178,7 @@ export async function executeRun(
       },
     },
     ctx.hookTypeExecutors,
+    hookTraceEnv,
   );
 
   // Inject hook stdout into user message (e.g., plugin path info)
@@ -227,9 +238,9 @@ export async function executeRun(
         // canonical source — NOT provider_response_raw, which would double-fire per round). Both are
         // fire-and-forget: this callback is void/un-awaited, so they cannot gate/mutate the call.
         if (event === 'provider_request') {
-          fireModelCallHook(ctx, 'PreModelCall', data as Record<string, unknown>);
+          fireModelCallHook(ctx, 'PreModelCall', data as Record<string, unknown>, hookTraceEnv);
         } else if (event === 'provider_response_normalized') {
-          fireModelCallHook(ctx, 'PostModelCall', data as Record<string, unknown>);
+          fireModelCallHook(ctx, 'PostModelCall', data as Record<string, unknown>, hookTraceEnv);
         } else if (event === PROVIDER_CALL_EVENTS.COMPLETED && ctx.emitProviderCallCompleted) {
           // Forward an allowlist, not the generic event envelope, across the session boundary.
           const observation = data as Record<string, unknown>;
@@ -247,6 +258,41 @@ export async function executeRun(
               startedAt: observation['startedAt'],
               endedAt: observation['endedAt'],
               outcome: observation['outcome'],
+              ...(typeof observation['callId'] === 'string' &&
+                /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(observation['callId']) &&
+                { callId: observation['callId'] }),
+              ...((observation['disposition'] === 'invoked' ||
+                observation['disposition'] === 'cache-hit' ||
+                observation['disposition'] === 'preflight-refused') &&
+                { disposition: observation['disposition'] }),
+              ...(typeof observation['providerId'] === 'string' &&
+                observation['providerId'].length > 0 && observation['providerId'].length <= 128 &&
+                [...observation['providerId']].every((char) => char.charCodeAt(0) >= 32) &&
+                { providerId: observation['providerId'] }),
+              ...(typeof observation['modelId'] === 'string' &&
+                observation['modelId'].length > 0 && observation['modelId'].length <= 128 &&
+                [...observation['modelId']].every((char) => char.charCodeAt(0) >= 32) &&
+                { modelId: observation['modelId'] }),
+              ...((observation['usageProvenance'] === 'complete' ||
+                observation['usageProvenance'] === 'partial' ||
+                observation['usageProvenance'] === 'absent') &&
+                { usageProvenance: observation['usageProvenance'] }),
+              ...(observation['usageProvenance'] === 'complete' &&
+                typeof observation['promptTokens'] === 'number' &&
+                Number.isSafeInteger(observation['promptTokens']) && observation['promptTokens'] >= 0 &&
+                typeof observation['completionTokens'] === 'number' &&
+                Number.isSafeInteger(observation['completionTokens']) && observation['completionTokens'] >= 0 &&
+                typeof observation['totalTokens'] === 'number' &&
+                Number.isSafeInteger(observation['totalTokens']) &&
+                observation['totalTokens'] === observation['promptTokens'] + observation['completionTokens'] &&
+                {
+                  promptTokens: observation['promptTokens'],
+                  completionTokens: observation['completionTokens'],
+                  totalTokens: observation['totalTokens'],
+                }),
+              ...(observation['disposition'] === 'invoked' &&
+                typeof observation['providerRequestId'] === 'string' &&
+                { providerRequestId: observation['providerRequestId'] }),
             });
           }
         }
@@ -291,6 +337,7 @@ export async function executeRun(
         },
       },
       ctx.hookTypeExecutors,
+      hookTraceEnv,
     ).catch((error) => logger.warn('hook failed', { error }));
     throw error;
   }
@@ -350,6 +397,7 @@ export async function executeRun(
       },
     },
     ctx.hookTypeExecutors,
+    hookTraceEnv,
   ).catch((error) => logger.warn('hook failed', { error }));
 
   if (ctx.getSessionStore()) {

@@ -102,6 +102,7 @@ describe('assembleOpenAICompatibleStream', () => {
     });
 
     expect(result.content).toBe('Hi');
+    expect(result.metadata?.['usageProvenance']).toBe('complete');
     expect(readUsage(result)).toEqual({
       promptTokens: 123,
       completionTokens: 45,
@@ -115,6 +116,7 @@ describe('assembleOpenAICompatibleStream', () => {
     });
 
     expect(readUsage(result)).toBeUndefined();
+    expect(result.metadata?.['usageProvenance']).toBeUndefined();
   });
 
   it('ignores null usage on non-final chunks', async () => {
@@ -320,5 +322,6 @@ describe('assembleOpenAICompatibleStream', () => {
 
     expect(result.content).toBe('');
     expect(returned).toBe(true);
+    expect(result.metadata?.['usageProvenance']).toBe('partial');
   });
 });

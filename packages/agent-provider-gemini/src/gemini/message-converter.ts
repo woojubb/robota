@@ -128,6 +128,7 @@ function mapUsageMetadata(response: GenerateContentResponse): TUniversalMessage[
     promptTokens: response.usageMetadata.promptTokenCount,
     completionTokens: response.usageMetadata.candidatesTokenCount,
     totalTokens: response.usageMetadata.totalTokenCount,
+    usageProvenance: 'complete',
   };
 }
 

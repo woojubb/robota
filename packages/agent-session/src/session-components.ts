@@ -98,6 +98,8 @@ export function buildRobota(
     // Single source of truth for the system prompt (agent-level, not model config).
     systemMessage,
     tools: wrappedTools,
+    // Issue #3081: a tool denied outright by name is withheld from the model, not offered and refused.
+    isToolVisible: (toolName) => permissionEnforcer.isToolVisible(toolName),
     logging: { enabled: false },
     // SELFHOST-004: the session-owned observable event bus. Tools (incl. the FunctionTool span
     // emit) are wired to it via the agent, so the interactive turn can subscribe to span-completion

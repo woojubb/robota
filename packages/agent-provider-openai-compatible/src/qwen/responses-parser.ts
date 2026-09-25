@@ -193,6 +193,14 @@ function buildProviderToolMetadata(
     }),
     ...(response?.id !== undefined && { responseId: response.id }),
     ...(response?.model !== undefined && { model: response.model }),
+    ...(response?.usage !== undefined && {
+      usageProvenance:
+        response.usage.input_tokens !== undefined &&
+        response.usage.output_tokens !== undefined &&
+        response.usage.total_tokens !== undefined
+          ? 'complete'
+          : 'partial',
+    }),
     ...(response?.status !== undefined && { finishReason: response.status }),
   };
 }

@@ -331,6 +331,7 @@ The available command list is built from the consolidated `@robota-sdk/agent-com
 | `/goal`                   | Work toward an objective until done or bounded     |
 | `/agent`                  | Run and manage background subagent jobs             |
 | `/rename`                 | Rename the current session                          |
+| `/cd <directory>`         | Continue this conversation in another directory     |
 | `/validate-session`       | Validate replay-grade session log data              |
 | `/exit`                   | Exit CLI                                            |
 | `/plugin`                 | Plugin management                                   |

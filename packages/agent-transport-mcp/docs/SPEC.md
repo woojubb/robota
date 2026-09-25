@@ -4,9 +4,9 @@
 
 Model Context Protocol (MCP) server transport for the Robota SDK — stdio and authenticated loopback
 Streamable HTTP, both served from the same exact runtime session port. Split out of the consolidated
-`agent-transport` package (DQ-AUDIT-005) so MCP SDK dependencies remain isolated.
+`agent-transport` package so MCP SDK dependencies remain isolated.
 
-## Transport Admission (SEC-008)
+## Transport Admission
 
 Stdio transport-admission is `none`: a peer that can write to this stdin already runs as the user.
 The loopback HTTP carrier is different: it binds only `127.0.0.1`, mints a fresh 256-bit bearer with
@@ -25,7 +25,7 @@ session permission wrapper without interactive approval prompts.
   implements `ITransportAdapter<IMcpTransportSession>` directly, with no broader inherited signature
   or overload — a full session remains assignable structurally because it implements those roles.
 
-## Lifecycle guarantees (ARCH-011)
+## Lifecycle guarantees
 
 - `createMcpTransport` is a frozen `service` lifecycle: `start()` validates the canonical catalog,
   connects the carrier, and resolves only when it can serve requests; a pending start is cancellable
@@ -42,12 +42,13 @@ session permission wrapper without interactive approval prompts.
   URLs, and world-readable files. Non-loopback binding is refused.
 - The external wire schema and protocol errors are MCP-SDK owned, not a Robota REST envelope.
 
-## Canonical catalog and invocation (MCP-006)
+## Canonical catalog and invocation
 
 `createAgentMcpServer` checks the canonical catalog before accepting calls; tools use their canonical
 runtime names, descriptions, and input schemas — `exposeCommands` and `command_*`/`executeCommand`
-have no compatibility route. The reserved `robota_submit` tool submits a prompt; a runtime-tool name
-collision with it fails startup, and a later catalog collision fails listing/calling visibly.
+have no compatibility route. The submission extension uses a host-selected identity or a neutral
+default; a runtime-tool name collision with that identity fails startup, and a later catalog
+collision fails listing/calling visibly.
 Resources and prompts are not advertised. MCP tool calls delegate to `invokeRuntimeTool`; unknown
 names, permission denial, interactive permission requirements, busy state, and cancellation are all
 visible tool errors, and submission cancellation never aborts another caller's active turn.

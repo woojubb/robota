@@ -51,6 +51,9 @@ export function fireSubagentLifecycleHook(
 ): void {
   const hookEventName = getSubagentHookEvent(event);
   if (!hookEventName || !('task' in event)) return;
+  // #2079: `getSubagentHookEvent` only returns a hook name for an agent-kind task; this check is
+  // what lets TypeScript narrow `event.task` to the agent-kind member (for `agentType`) below.
+  if (event.task.kind !== 'agent') return;
 
   const input: IHookInput = {
     session_id: event.task.parentSessionId,

@@ -42,6 +42,8 @@ const PermissionsSchema = z.object({
   allow: z.array(z.string()).optional(),
   /** Patterns that are always denied */
   deny: z.array(z.string()).optional(),
+  /** Patterns that always ask, in every mode including bypassPermissions */
+  ask: z.array(z.string()).optional(),
 });
 
 const EnvSchema = z.record(z.string()).optional();
@@ -241,6 +243,8 @@ export interface IResolvedConfig {
   permissions: {
     allow: string[];
     deny: string[];
+    /** Patterns that always ask, in every mode including bypassPermissions (issue #3081). */
+    ask?: string[];
   };
   env: Record<string, string>;
   hooks?: THooksConfig;

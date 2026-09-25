@@ -10,6 +10,7 @@ import type { IToolCall } from './messages';
 import type { IToolSchema, IAIProvider, ITokenUsage } from './provider';
 import type { TToolParameters, TToolMetadata } from './tool';
 import type { IDeferredToolCatalog } from './tool-search';
+import type { IRunTraceContext } from './trace-context';
 
 /**
  * Reusable type definitions for service layer
@@ -56,6 +57,15 @@ export interface IToolExecutionRequest {
   ask?: IUserInteraction['ask'];
   /** The deferred-tool catalog propagated into the tool's execution context (CLI-1990). */
   deferredTools?: IDeferredToolCatalog;
+  /**
+   * Set when the originating tool call's arguments failed to decode to a JSON object. `parameters`
+   * is a placeholder in this case; the batch executor must return a failed result carrying this
+   * message instead of invoking the tool, so one malformed call in a batch cannot block or abort
+   * the others.
+   */
+  argumentDecodeError?: string;
+  /** The run's trusted trace context; each body's outbound context is derived from it. */
+  traceContext?: IRunTraceContext;
 }
 
 /**

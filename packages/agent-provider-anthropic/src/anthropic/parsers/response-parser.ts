@@ -56,6 +56,7 @@ export class AnthropicResponseParser {
         metadata: {
           model: response.model,
           finishReason: response.stop_reason || 'unknown',
+          ...(response.usage && { usageProvenance: 'complete' }),
         },
       };
 

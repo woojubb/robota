@@ -78,6 +78,10 @@ export const CHAT_OPTION_WIRE_DISPOSITION: Record<
     kind: 'local',
     note: 'a function cannot cross a wire; SimpleRemoteExecutor invokes it once from the server-adapter terminal outcome envelope',
   },
+  outboundTraceContext: {
+    kind: 'local',
+    note: 'trusted only for origins the local host listed; forwarding it would hand the trace to a server that never was, so an executor sends nothing',
+  },
 };
 
 /**

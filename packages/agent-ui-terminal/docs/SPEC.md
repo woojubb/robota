@@ -15,8 +15,9 @@ authenticate; the OS user who started the process is the boundary.
 
 - Owns the Ink/React rendering pipeline, the TUI interaction channel, the default TUI CLI adapter,
   and a presentation-only supervised-session view of host-verified, content-free observations. That
-  view does not construct a session or infer ownership from matching IDs; a requested stop is delegated
-  to the host's owner-verifying control path, never decided by the displayed row alone.
+  view does not construct a session or infer ownership from matching IDs; requested control and
+  linked-PR opening are delegated to the host's owner-verifying path, never decided by a displayed
+  or stale row alone.
 - Depends on the TUI interaction contracts and the framework's interactive-session runtime; does
   not depend on any other transport implementation package, and no other transport package depends
   on this one.
@@ -42,9 +43,11 @@ is enabled from a bare `cwd`, or which commands an org policy blocks. Session-ca
 projections declare every field's forwarding, rename, or presentation-only disposition explicitly;
 a missing mapping is rejected rather than silently dropped. The same host-supplied-only principle
 covers user settings sources, the keybindings file and schema, baseline permission patterns, plugin
-directories, product identity, and projected command-tool prefix: the terminal renders whatever the
-host passes and never selects a product path, executable name, or settings file itself. Without a
-supplied display name the renderer falls back to a neutral `Assistant` label (screen-reader role
+directories, product identity, projected command-tool prefix, screen-reader pacing overrides, and
+terminal capability overrides:
+the terminal renders whatever the host passes and never selects a product path, executable name,
+settings file, or product-named environment variable itself. Without a supplied display name the
+renderer falls back to a neutral `Assistant` label (screen-reader role
 labels stay provider- and
 product-neutral regardless), and terminal-title composition always sanitizes both the host-selected
 name and the session name before emitting the OSC sequence. The permission prompt labels
@@ -126,8 +129,8 @@ committed output is handed to the terminal's own scrollback and this package nev
 
 ### Screen reader mode
 
-An explicit, opt-in plain-text mode. With it off, no output differs from today's default — a
-regression the PTY test suite pins. Enablement policy is owned by the CLI shell; this package only
+An explicit, opt-in plain-text mode. With it off, output is identical to the default
+rendering. Enablement policy is owned by the CLI shell; this package only
 receives the resolved on/off decision and never turns the mode on by detection alone. When on, the
 package trades layout-heavy chrome (boxes, colored motion, arrow-key menus, box-drawn tables) for
 line-oriented output (numbered menus, one label-per-line prompts, one-shot text instead of animated

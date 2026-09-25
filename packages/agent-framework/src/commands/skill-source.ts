@@ -2,23 +2,29 @@ import { join, basename } from 'node:path';
 
 import { decodeFrontmatter } from '../frontmatter/frontmatter-decoder.js';
 import { FrontmatterDecodeError } from '../frontmatter/frontmatter-error.js';
+import { reportRefusedDefinition } from '../frontmatter/frontmatter-refusal-report.js';
 
 import type { ICommandSource, ICommand } from '../command-api/types.js';
 import type { IContributionSource } from '../contributions/contribution-source.js';
 import type { ISkillFrontmatter } from '../frontmatter/frontmatter-types.js';
 
+/**
+ * A file whose frontmatter the decoder refuses is not registered and is reported by path; the other
+ * skills still load. Refusing the whole session over one shared `.claude` file left nothing usable.
+ */
 function decodeSkill(
   content: string,
   file: string,
   source: IContributionSource,
-): ISkillFrontmatter {
+): ISkillFrontmatter | undefined {
   const result = decodeFrontmatter({
     source: join(source.displayName, file),
     content,
     profile: 'skill',
   });
-  if (!result.ok) throw new FrontmatterDecodeError(result.diagnostics);
-  return result.metadata;
+  if (result.ok) return result.metadata;
+  reportRefusedDefinition('skill', result.diagnostics);
+  return undefined;
 }
 
 /** Build a command from frontmatter, content, and a fallback name */
@@ -47,11 +53,30 @@ function buildCommand(
   return cmd;
 }
 
+/**
+ * One discovered file. A refused file keeps its fallback name and no `command`: it still claims that
+ * name, so a lower-priority skill cannot silently stand in for it.
+ */
+interface IDiscoveredCommand {
+  readonly name: string;
+  readonly command?: ICommand;
+}
+
+function discovered(
+  frontmatter: ISkillFrontmatter | undefined,
+  content: string,
+  fallbackName: string,
+): IDiscoveredCommand {
+  if (frontmatter === undefined) return { name: fallbackName };
+  const command = buildCommand(frontmatter, content, fallbackName);
+  return { name: command.name, command };
+}
+
 /** Scan a skills directory for subdirectories containing SKILL.md */
-function scanSkillsDir(skillsDir: string, source: IContributionSource): ICommand[] {
+function scanSkillsDir(skillsDir: string, source: IContributionSource): IDiscoveredCommand[] {
   if (source.inspectKind(skillsDir, 'discover skill directory') !== 'directory') return [];
 
-  const commands: ICommand[] = [];
+  const commands: IDiscoveredCommand[] = [];
   const entries = source.listDirectory(skillsDir, 'discover skills');
 
   for (const entry of entries) {
@@ -62,17 +87,17 @@ function scanSkillsDir(skillsDir: string, source: IContributionSource): ICommand
     const content = source.readText(skillFile, 'load skill definition');
     if (content === undefined) continue;
     const frontmatter = decodeSkill(content, skillFile, source);
-    commands.push(buildCommand(frontmatter, content, entry.name));
+    commands.push(discovered(frontmatter, content, entry.name));
   }
 
   return commands;
 }
 
 /** Scan a commands directory for .md files (Claude Code legacy format) */
-function scanCommandsDir(commandsDir: string, source: IContributionSource): ICommand[] {
+function scanCommandsDir(commandsDir: string, source: IContributionSource): IDiscoveredCommand[] {
   if (source.inspectKind(commandsDir, 'discover command directory') !== 'directory') return [];
 
-  const commands: ICommand[] = [];
+  const commands: IDiscoveredCommand[] = [];
   const entries = source.listDirectory(commandsDir, 'discover commands');
 
   for (const entry of entries) {
@@ -82,7 +107,7 @@ function scanCommandsDir(commandsDir: string, source: IContributionSource): ICom
     if (content === undefined) continue;
     const frontmatter = decodeSkill(content, filePath, source);
     const fallbackName = basename(entry.name, '.md');
-    commands.push(buildCommand(frontmatter, content, fallbackName));
+    commands.push(discovered(frontmatter, content, fallbackName));
   }
 
   return commands;
@@ -107,7 +132,7 @@ export class SkillCommandSource implements ICommandSource {
   getCommands(): ICommand[] {
     if (this.cachedCommands) return this.cachedCommands;
 
-    const discovered = this.sources.flatMap((source) =>
+    const found = this.sources.flatMap((source) =>
       this.roots.map(({ root, kind }) =>
         kind === 'skills' ? scanSkillsDir(root, source) : scanCommandsDir(root, source),
       ),
@@ -116,11 +141,11 @@ export class SkillCommandSource implements ICommandSource {
     const seen = new Set<string>();
     const merged: ICommand[] = [];
 
-    for (const commands of discovered) {
-      for (const cmd of commands) {
-        if (!seen.has(cmd.name)) {
-          seen.add(cmd.name);
-          merged.push(cmd);
+    for (const commands of found) {
+      for (const { name, command } of commands) {
+        if (!seen.has(name)) {
+          seen.add(name);
+          if (command !== undefined) merged.push(command);
         }
       }
     }

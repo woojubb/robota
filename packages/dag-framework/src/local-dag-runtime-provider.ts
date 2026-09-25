@@ -3,6 +3,7 @@ import type {
   IDagDefinition,
   IDagError,
   ITaskSnapshotBudget,
+  IRootCreditBudget,
   ITaskSnapshotBudgetLimits,
   IDagExecutionByteLimits,
   IDagExecutionLineage,
@@ -21,7 +22,13 @@ import type {
   IWorkspaceLayout,
 } from '@robota-sdk/dag-core';
 import { resolveTrustedExecutionRoot } from '@robota-sdk/agent-core/node';
-import { LifecycleTaskExecutorPort, resolveDagExecutionByteLimits, resolveTaskSnapshotBudgetLimits, TaskSnapshotBudget } from '@robota-sdk/dag-core';
+import {
+  LifecycleTaskExecutorPort,
+  resolveDagExecutionByteLimits,
+  resolveTaskSnapshotBudgetLimits,
+  RootCreditBudget,
+  TaskSnapshotBudget,
+} from '@robota-sdk/dag-core';
 import {
   InMemoryLeasePort,
   InMemoryQueuePort,
@@ -61,6 +68,8 @@ export interface ILocalDagRuntimeProviderOptions {
   snapshotBudgetLimits?: ITaskSnapshotBudgetLimits;
   /** Inherited live root authority for a nested invocation. */
   snapshotBudget?: ITaskSnapshotBudget;
+  /** Inherited live root credit authority for nested executions. */
+  rootCreditBudget?: IRootCreditBudget;
   /** Trusted host policy; workflow data cannot change this ceiling. */
   byteLimits?: IDagExecutionByteLimits;
   /** Trusted absolute filesystem root propagated to every node. */
@@ -120,7 +129,11 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
     const startMs = Date.now();
     const inheritedBudget = this.options.snapshotBudget;
     const snapshotBudget = inheritedBudget ?? new TaskSnapshotBudget(this.snapshotBudgetLimits);
+    const inheritedCreditBudget = this.options.rootCreditBudget;
+    let rootCreditBudget: IRootCreditBudget | undefined;
     try {
+      rootCreditBudget =
+        inheritedCreditBudget ?? new RootCreditBudget(dag.costPolicy?.runCreditLimit);
       const result = await runDagOnce(
         dag,
         nodeDefinitions,
@@ -131,6 +144,7 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
         this.options.lineage,
         this.byteLimits,
         snapshotBudget,
+        rootCreditBudget,
       );
 
       const durationMs = Date.now() - startMs;
@@ -170,13 +184,17 @@ export class LocalDagRuntimeProvider implements IDagRuntimeProvider {
         error,
       });
       return {
-        ok: false, outputs: {}, durationMs, error,
+        ok: false,
+        outputs: {},
+        durationMs,
+        error,
         ...(err instanceof DagStartError
           ? { errorCode: err.dagError.code, errorRetryable: err.dagError.retryable }
           : {}),
       };
     } finally {
       if (inheritedBudget === undefined) snapshotBudget.close();
+      if (inheritedCreditBudget === undefined) rootCreditBudget?.close();
     }
   }
 
@@ -221,6 +239,7 @@ async function runDagOnce(
   lineage: IDagExecutionLineage | undefined,
   byteLimits: IDagExecutionByteLimits,
   snapshotBudget: ITaskSnapshotBudget,
+  rootCreditBudget: IRootCreditBudget,
 ): Promise<IDagRunOutcome> {
   const assemblyResult = buildNodeDefinitionAssembly(nodeDefinitions);
   if (!assemblyResult.ok) {
@@ -241,6 +260,8 @@ async function runDagOnce(
       executionRoot,
       byteLimits,
       snapshotBudget,
+      rootCreditBudget,
+      lifecycleCreditAdmission: true,
       storage,
       queue: new InMemoryQueuePort(),
       deadLetterQueue: new InMemoryQueuePort(),
@@ -302,6 +323,7 @@ async function runDagOnce(
       dagId: dagDefinition.dagId,
       version: dagDefinition.version,
       trigger: 'manual',
+      ...(lineage === undefined ? {} : { lineage }),
       input: inputs,
     });
     if (!startResult.ok) {
@@ -364,7 +386,7 @@ function toObjectInfoManifest(def: IDagNodeDefinition): IDagNodeManifest {
     input: { required },
     output: outputs.map((p) => toCatalogType(p.type)),
     output_name: outputs.map((p) => p.key),
-    category: def.category ?? 'robota',
+    category: def.category ?? 'Custom',
     source: 'local',
   };
   if (Object.keys(optional).length > 0) {

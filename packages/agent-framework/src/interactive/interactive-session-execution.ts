@@ -13,6 +13,7 @@ import {
   SPAN_EVENTS,
   PROVIDER_CALL_EVENTS,
   TOOL_BODY_EVENTS,
+  TOOL_PERMISSION_EVENTS,
 } from '@robota-sdk/agent-core';
 
 import type { IExecutionResult, IToolSummary, IUsageSnapshot } from './types.js';
@@ -67,9 +68,10 @@ export function buildResult(
   contextState: IContextWindowState,
   promptFileReferences?: readonly IPromptFileReferenceRecord[],
   modelId?: string,
+  providerCalls: readonly IProviderCallTraceObservation[] = [],
 ): IExecutionResult {
   const toolSummaries = extractToolSummaries(sessionHistory, historyBefore);
-  const usage = extractTurnUsage(sessionHistory, historyBefore, contextState, modelId);
+  const usage = extractTurnUsage(sessionHistory, historyBefore, contextState, providerCalls);
   return {
     response,
     history: interactiveHistory,
@@ -92,6 +94,7 @@ export function buildInterruptedResult(
   historyBefore: number,
   contextState: IContextWindowState,
   modelId?: string,
+  providerCalls: readonly IProviderCallTraceObservation[] = [],
 ): IExecutionResult {
   const toolSummaries = extractToolSummaries(sessionHistory, historyBefore);
   const parts: string[] = [];
@@ -99,7 +102,7 @@ export function buildInterruptedResult(
     const msg = sessionHistory[i];
     if (msg?.role === 'assistant' && msg.content) parts.push(msg.content);
   }
-  const usage = extractTurnUsage(sessionHistory, historyBefore, contextState, modelId);
+  const usage = extractTurnUsage(sessionHistory, historyBefore, contextState, providerCalls);
   return {
     response: parts.join('\n\n'),
     interrupted: true,
@@ -167,20 +170,46 @@ export function createSpanEntry(event: ISpanCompletionEventData): IHistoryEntry<
   };
 }
 
+/**
+ * A provider-call observation as read off the bus, before live-projection validation.
+ * `providerRequestId` is a raw event value — the live projection (`projectProvider`) validates it
+ * before export, the same way `IToolBodyTraceObservation.toolCallId` stays raw here.
+ */
+export type TRawProviderCallTraceObservation = Omit<IProviderCallTraceObservation, 'providerRequestId'> & {
+  readonly providerRequestId?: unknown;
+};
+
 /** A live span collector: buffers span entries seen on the bus until disposed. */
 export interface ISpanCollector {
   /** The span entries observed since subscription, in emit order. */
   readonly entries: IHistoryEntry<ISpanEntry>[];
   readonly providerCalls: IProviderCallTraceObservation[];
   readonly toolBodies: IToolBodyTraceObservation[];
+  readonly completions: (
+    | { readonly kind: 'provider'; readonly observation: TRawProviderCallTraceObservation }
+    | { readonly kind: 'tool'; readonly observation: IToolBodyTraceObservation }
+    | { readonly kind: 'permission'; readonly observation: IToolPermissionDecisionObservation }
+  )[];
+  readonly omittedCompletions: { provider: number; tool: number; permission: number };
   /** Unsubscribe from the bus (idempotent). */
   dispose(): void;
 }
 
 export interface IToolBodyTraceObservation {
+  /** Raw event value; live projection validates before export. */
+  readonly toolCallId?: unknown;
+  /** The body ID core minted; the body's span is derived from it. Absent means no span to export. */
+  readonly toolBodyId?: string;
   readonly startedAt: string;
   readonly endedAt: string;
   readonly outcome: 'success' | 'failure' | 'interrupted';
+}
+
+export interface IToolPermissionDecisionObservation {
+  /** Raw event value; live projection validates before export. */
+  readonly toolCallId?: unknown;
+  readonly decidedAt: string;
+  readonly decision: 'allowed' | 'denied' | 'hook-blocked';
 }
 
 /**
@@ -190,12 +219,61 @@ export interface IToolBodyTraceObservation {
  * so the read-model groups them under the owning turn. Tools publish raw (unbound) local event names,
  * so we match `SPAN_EVENTS.COMPLETED` directly.
  */
-export function collectSpanEntries(eventService: IEventService): ISpanCollector {
+/** How far one of this collector's own tool calls got, as its permission and body events said. */
+export type TToolCallObservedPhase = 'allowed' | 'denied' | 'hook-blocked' | 'body-completed';
+
+export interface ISpanCollectorOptions {
+  /**
+   * Called synchronously for every permission and tool-body event carrying a string call ID,
+   * before any validation or cap: it tells the turn which calls are its own. A throwing observer
+   * never affects collection.
+   */
+  readonly onToolCallObserved?: (toolCallId: string, phase: TToolCallObservedPhase) => void;
+}
+
+function observeToolCall(
+  options: ISpanCollectorOptions,
+  toolCallId: unknown,
+  phase: unknown,
+): void {
+  if (typeof toolCallId !== 'string' || !options.onToolCallObserved) return;
+  if (phase !== 'allowed' && phase !== 'denied' && phase !== 'hook-blocked' && phase !== 'body-completed') return;
+  try {
+    options.onToolCallObserved(toolCallId, phase);
+  } catch {
+    // An ownership observer must never change what the trace collects.
+  }
+}
+
+export function collectSpanEntries(
+  eventService: IEventService,
+  options: ISpanCollectorOptions = {},
+): ISpanCollector {
   const entries: IHistoryEntry<ISpanEntry>[] = [];
   const providerCalls: IProviderCallTraceObservation[] = [];
   const toolBodies: IToolBodyTraceObservation[] = [];
+  const completions: ISpanCollector['completions'] = [];
+  const omittedCompletions = { provider: 0, tool: 0, permission: 0 };
   const listener: TEventListener = (eventType, data) => {
+    if (eventType === `tool.${TOOL_PERMISSION_EVENTS.DECIDED}`) {
+      observeToolCall(options, data['executionId'], data['decision']);
+      if (
+        typeof data['decidedAt'] === 'string' &&
+        (data['decision'] === 'allowed' || data['decision'] === 'denied' || data['decision'] === 'hook-blocked')
+      ) {
+        const observation: IToolPermissionDecisionObservation = {
+          ...(data['executionId'] !== undefined ? { toolCallId: data['executionId'] } : {}),
+          decidedAt: data['decidedAt'],
+          decision: data['decision'],
+        };
+        completions.push({ kind: 'permission', observation });
+      } else {
+        omittedCompletions.permission += 1;
+      }
+      return;
+    }
     if (eventType === `tool.${TOOL_BODY_EVENTS.COMPLETED}`) {
+      observeToolCall(options, data['executionId'], 'body-completed');
       if (
         typeof data['startedAt'] === 'string' &&
         typeof data['endedAt'] === 'string' &&
@@ -203,11 +281,17 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
           data['outcome'] === 'failure' ||
           data['outcome'] === 'interrupted')
       ) {
-        toolBodies.push({
+        const observation: IToolBodyTraceObservation = {
+          ...(data['executionId'] !== undefined ? { toolCallId: data['executionId'] } : {}),
+          ...(typeof data['toolBodyId'] === 'string' ? { toolBodyId: data['toolBodyId'] } : {}),
           startedAt: data['startedAt'],
           endedAt: data['endedAt'],
           outcome: data['outcome'],
-        });
+        };
+        toolBodies.push(observation);
+        completions.push({ kind: 'tool', observation });
+      } else {
+        omittedCompletions.tool += 1;
       }
       return;
     }
@@ -222,12 +306,32 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
           data['outcome'] === 'failure' ||
           data['outcome'] === 'interrupted')
       ) {
-        providerCalls.push({
+        const observation: TRawProviderCallTraceObservation = {
           round: data['round'],
           startedAt: data['startedAt'],
           endedAt: data['endedAt'],
           outcome: data['outcome'],
-        });
+          ...(typeof data['callId'] === 'string' && { callId: data['callId'] }),
+          ...((data['disposition'] === 'invoked' || data['disposition'] === 'cache-hit' || data['disposition'] === 'preflight-refused') &&
+            { disposition: data['disposition'] }),
+          ...(typeof data['providerId'] === 'string' && { providerId: data['providerId'] }),
+          ...(typeof data['modelId'] === 'string' && { modelId: data['modelId'] }),
+          ...((data['usageProvenance'] === 'complete' || data['usageProvenance'] === 'partial' || data['usageProvenance'] === 'absent') &&
+            { usageProvenance: data['usageProvenance'] }),
+          ...(typeof data['promptTokens'] === 'number' && typeof data['completionTokens'] === 'number' && typeof data['totalTokens'] === 'number' && {
+            promptTokens: data['promptTokens'],
+            completionTokens: data['completionTokens'],
+            totalTokens: data['totalTokens'],
+          }),
+          ...(data['providerRequestId'] !== undefined && { providerRequestId: data['providerRequestId'] }),
+        };
+        // `providerCalls` feeds usage/cost extraction only, which never reads providerRequestId — kept
+        // strictly typed rather than widened for a field it does not use.
+        const { providerRequestId: _providerRequestId, ...usageObservation } = observation;
+        providerCalls.push(usageObservation);
+        completions.push({ kind: 'provider', observation });
+      } else {
+        omittedCompletions.provider += 1;
       }
       return;
     }
@@ -239,6 +343,8 @@ export function collectSpanEntries(eventService: IEventService): ISpanCollector 
     entries,
     providerCalls,
     toolBodies,
+    completions,
+    omittedCompletions,
     dispose: () => eventService.unsubscribe(listener),
   };
 }
@@ -247,23 +353,25 @@ function extractTurnUsage(
   sessionHistory: TUniversalMessage[],
   historyBefore: number,
   contextState: IContextWindowState,
-  modelId?: string,
+  providerCalls: readonly IProviderCallTraceObservation[] = [],
 ): IUsageSnapshot | undefined {
   const turnMessages = sessionHistory.slice(historyBefore);
   let promptTokens = 0;
   let completionTokens = 0;
   let foundUsage = false;
-  const seenUsageObservations = new Set<string>();
+  const seenUsageFragments = new Set<string>();
 
   for (const message of turnMessages) {
     if (message.role !== 'assistant') continue;
-    const usageObservationId = message.metadata?.['usageObservationId'];
-    if (typeof usageObservationId === 'string' && seenUsageObservations.has(usageObservationId)) {
-      continue;
-    }
+    const observationId = message.metadata?.['usageObservationId'];
+    const round = message.metadata?.['round'];
+    const usageKey = typeof observationId === 'string'
+      ? `${observationId}:${Number.isSafeInteger(round) ? round : 'legacy'}`
+      : message.id;
+    if (seenUsageFragments.has(usageKey)) continue;
     const usage = collectAssistantUsageMetadata(message);
     if (!usage) continue;
-    if (typeof usageObservationId === 'string') seenUsageObservations.add(usageObservationId);
+    seenUsageFragments.add(usageKey);
     foundUsage = true;
     promptTokens += usage.inputTokens;
     completionTokens += usage.outputTokens;
@@ -271,12 +379,11 @@ function extractTurnUsage(
 
   if (!foundUsage) return undefined;
 
-  // SELFHOST-004: derive the turn's exact cost from the model-pricing SSOT (input/output split).
-  // `undefined` when no model id is in scope or the model is unpriced → costStatus stays 'unknown'.
-  const costUsd = modelId ? calculateModelCost(modelId, promptTokens, completionTokens) : undefined;
+  const verified = estimateVerifiedCallCost(providerCalls, promptTokens, completionTokens);
+  const costUsd = verified.costUsd;
 
   return {
-    kind: 'exact',
+    kind: verified.tokensMatch ? 'exact' : 'estimated',
     scope: 'turn',
     promptTokens,
     completionTokens,
@@ -284,9 +391,48 @@ function extractTurnUsage(
     contextUsedTokens: contextState.usedTokens,
     contextMaxTokens: contextState.maxTokens,
     contextUsedPercentage: contextState.usedPercentage,
-    costStatus: costUsd !== undefined ? 'exact' : 'unknown',
+    costStatus: costUsd !== undefined ? 'estimated' : 'unknown',
     ...(costUsd !== undefined ? { costUsd } : {}),
   };
+}
+
+function estimateVerifiedCallCost(
+  calls: readonly IProviderCallTraceObservation[],
+  promptTokens: number,
+  completionTokens: number,
+): { tokensMatch: boolean; costUsd?: number } {
+  const seen = new Map<string, IProviderCallTraceObservation>();
+  let input = 0;
+  let output = 0;
+  let cost = 0;
+  let priced = true;
+  let invoked = 0;
+  for (const call of calls) {
+    if (call.disposition !== 'invoked') continue;
+    if (!call.callId) return { tokensMatch: false };
+    const duplicate = seen.get(call.callId);
+    if (duplicate) {
+      if (JSON.stringify(duplicate) !== JSON.stringify(call)) return { tokensMatch: false };
+      continue;
+    }
+    seen.set(call.callId, call);
+    invoked += 1;
+    if (
+      call.usageProvenance !== 'complete' ||
+      !Number.isSafeInteger(call.promptTokens) || (call.promptTokens ?? -1) < 0 ||
+      !Number.isSafeInteger(call.completionTokens) || (call.completionTokens ?? -1) < 0 ||
+      call.totalTokens !== (call.promptTokens ?? 0) + (call.completionTokens ?? 0)
+    ) return { tokensMatch: false };
+    input += call.promptTokens!;
+    output += call.completionTokens!;
+    const estimated = call.modelId
+      ? calculateModelCost(call.modelId, call.promptTokens!, call.completionTokens!)
+      : undefined;
+    if (estimated === undefined || !Number.isFinite(estimated) || estimated < 0) priced = false;
+    else cost += estimated;
+  }
+  const tokensMatch = invoked > 0 && input === promptTokens && output === completionTokens;
+  return { tokensMatch, ...(tokensMatch && priced && { costUsd: cost }) };
 }
 
 /** No-op terminal implementation used during async initialization. */

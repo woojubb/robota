@@ -6,6 +6,12 @@ import {
 
 import { convertToOpenAIMessages, convertToOpenAITools } from './message-converter';
 import { buildOpenAIChatResponseFormat, mergeChatResponseFormat } from './openai-request-format';
+import {
+  awaitWithProviderRequestId,
+  readOpenAIRequestId,
+  withProviderRequestId,
+} from './request-id';
+import { openAIRequestOptions } from './request-options';
 import { assembleOpenAIStream } from './streaming/stream-assembler';
 
 import type { IPayloadLogger } from './interfaces/payload-logger';
@@ -23,6 +29,8 @@ export interface IOpenAIChatCompletionsOptions {
   payloadLogger?: IPayloadLogger;
   responseParser: OpenAIResponseParser;
   onTextDelta?: TTextDeltaCallback;
+  /** Per-request headers (trusted `traceparent`), sent after the raw request payload is captured. */
+  requestHeaders?: Readonly<Record<string, string>>;
 }
 
 export async function chatWithOpenAIChatCompletions(
@@ -48,14 +56,20 @@ export async function chatWithOpenAIChatCompletions(
       payloadKind: 'request',
       payload: requestParams,
     });
-    const response = await client.chat.completions.create(requestParams);
+    const requestOptions = openAIRequestOptions(undefined, input.requestHeaders);
+    const response = requestOptions
+      ? await client.chat.completions.create(requestParams, requestOptions)
+      : await client.chat.completions.create(requestParams);
     input.chatOptions?.onProviderNativeRawPayload?.({
       provider: 'openai',
       apiSurface: 'chat-completions',
       payloadKind: 'response',
       payload: response,
     });
-    return input.responseParser.parseResponse(response);
+    return withProviderRequestId(
+      input.responseParser.parseResponse(response),
+      readOpenAIRequestId(response),
+    );
   } catch (error) {
     // allow-fallback: maps 429 to RateLimitError, wraps others in Error
     const openaiError = error as IOpenAIError;
@@ -90,9 +104,11 @@ export async function* chatStreamWithOpenAIChatCompletions(
       payloadKind: 'request',
       payload: requestParams,
     });
-    const stream = await client.chat.completions.create(
-      requestParams,
-      input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
+    const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
+      client.chat.completions.create(
+        requestParams,
+        openAIRequestOptions(input.chatOptions?.signal, input.requestHeaders),
+      ),
     );
 
     for await (const chunk of observeProviderNativeRawPayloadStream(stream, {
@@ -102,7 +118,7 @@ export async function* chatStreamWithOpenAIChatCompletions(
     })) {
       const universalMessage = input.responseParser.parseStreamingChunk(chunk);
       if (universalMessage) {
-        yield universalMessage;
+        yield withProviderRequestId(universalMessage, providerRequestId);
       }
     }
   } catch (error) {
@@ -175,12 +191,14 @@ async function chatWithStreamingAssembly(
       payloadKind: 'request',
       payload: requestParams,
     });
-    const stream = await client.chat.completions.create(
-      requestParams,
-      input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
+    const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
+      client.chat.completions.create(
+        requestParams,
+        openAIRequestOptions(input.chatOptions?.signal, input.requestHeaders),
+      ),
     );
 
-    return assembleOpenAIStream({
+    const assembled = await assembleOpenAIStream({
       stream: observeProviderNativeRawPayloadStream(stream, {
         provider: 'openai',
         apiSurface: 'chat-completions',
@@ -189,6 +207,7 @@ async function chatWithStreamingAssembly(
       onTextDelta: input.chatOptions?.onTextDelta ?? input.onTextDelta,
       signal: input.chatOptions?.signal,
     });
+    return withProviderRequestId(assembled, providerRequestId);
   } catch (error) {
     // allow-fallback: maps 429 to RateLimitError, wraps others in Error
     const openaiError = error as IOpenAIError;

@@ -2,6 +2,7 @@ import {
   AbstractAIProvider,
   PERMISSIVE_TOOL_SCHEMA_PROFILE,
   SilentLogger,
+  traceHeadersFor,
 } from '@robota-sdk/agent-core';
 import OpenAI from 'openai';
 
@@ -18,6 +19,12 @@ import {
   buildOpenAICompatibleRequestParams,
   observeProviderNativeRawPayloadStream,
 } from '../shared/openai-compatible/index.js';
+import {
+  awaitWithProviderRequestId,
+  readOpenAICompatibleRequestId,
+  withProviderRequestId,
+} from '../shared/openai-compatible/request-id.js';
+import { openAICompatibleRequestOptions } from '../shared/openai-compatible/request-options.js';
 
 import type { IGemmaProviderOptions } from './types';
 import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';
@@ -109,14 +116,23 @@ export class GemmaProvider extends AbstractAIProvider {
         payloadKind: 'request',
         payload: requestParams,
       });
-      const response = await this.client.chat.completions.create(requestParams);
+      const chatRequestOptions = openAICompatibleRequestOptions(
+        undefined,
+        this.traceRequestHeaders(options),
+      );
+      const response = chatRequestOptions
+        ? await this.client.chat.completions.create(requestParams, chatRequestOptions)
+        : await this.client.chat.completions.create(requestParams);
       options?.onProviderNativeRawPayload?.({
         provider: 'gemma',
         apiSurface: 'chat-completions',
         payloadKind: 'response',
         payload: response,
       });
-      return parseGemmaChatCompletion(response, this.logger, options);
+      return withProviderRequestId(
+        parseGemmaChatCompletion(response, this.logger, options),
+        readOpenAICompatibleRequestId(response),
+      );
     } catch (error) {
       const gemmaError = error as IOpenAICompatibleError;
       const errorMessage = gemmaError.message || 'Gemma API request failed';
@@ -160,7 +176,15 @@ export class GemmaProvider extends AbstractAIProvider {
         payloadKind: 'request',
         payload: requestParams,
       });
-      const stream = await this.client.chat.completions.create(requestParams);
+      const streamRequestOptions = openAICompatibleRequestOptions(
+        undefined,
+        this.traceRequestHeaders(options),
+      );
+      const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
+        streamRequestOptions
+          ? this.client.chat.completions.create(requestParams, streamRequestOptions)
+          : this.client.chat.completions.create(requestParams),
+      );
       const projectionState = createGemmaStreamProjectionState(this.logger, options?.tools);
 
       const observedStream = observeProviderNativeRawPayloadStream(stream, {
@@ -171,12 +195,12 @@ export class GemmaProvider extends AbstractAIProvider {
 
       for await (const chunk of this.streamWithAbort(observedStream, options?.signal)) {
         for (const message of projectGemmaStreamChunk(chunk, projectionState)) {
-          yield message;
+          yield withProviderRequestId(message, providerRequestId);
         }
       }
 
       for (const message of flushGemmaStreamProjection(projectionState)) {
-        yield message;
+        yield withProviderRequestId(message, providerRequestId);
       }
     } catch (error) {
       const gemmaError = error as IOpenAICompatibleError;
@@ -213,6 +237,26 @@ export class GemmaProvider extends AbstractAIProvider {
 
   override validateConfig(): boolean {
     return !!this.client && !!this.options;
+  }
+
+  /**
+   * The client's own base URL is the origin every request goes to (the SDK has already applied a
+   * constructor option or the local-endpoint default). An executor sends elsewhere, and an
+   * injected client whose base URL cannot be read gives no origin to compare, so neither can
+   * propagate.
+   */
+  canPropagateTraceContext(): boolean {
+    return !this.executor && this.effectiveBaseUrl() !== undefined;
+  }
+
+  private effectiveBaseUrl(): string | undefined {
+    const baseURL: unknown = (this.client as { baseURL?: unknown } | undefined)?.baseURL;
+    return typeof baseURL === 'string' && baseURL.length > 0 ? baseURL : undefined;
+  }
+
+  private traceRequestHeaders(options: IChatOptions | undefined): Readonly<Record<string, string>> {
+    if (!this.canPropagateTraceContext()) return {};
+    return traceHeadersFor(this.effectiveBaseUrl(), options?.outboundTraceContext);
   }
 
   override async dispose(): Promise<void> {
@@ -298,9 +342,11 @@ export class GemmaProvider extends AbstractAIProvider {
         payloadKind: 'request',
         payload: requestParams,
       });
-      const stream = await this.client.chat.completions.create(
-        requestParams,
-        options.signal ? { signal: options.signal } : undefined,
+      const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
+        this.client.chat.completions.create(
+          requestParams,
+          openAICompatibleRequestOptions(options.signal, this.traceRequestHeaders(options)),
+        ),
       );
       const projector = new GemmaReasoningProjector();
       const result = await assembleOpenAICompatibleStream({
@@ -316,7 +362,10 @@ export class GemmaProvider extends AbstractAIProvider {
         toolCallTextProjector: createGemmaToolCallProjector(options.tools),
       });
 
-      return withGemmaProjectionMetadata(result, projector.rawText, projector.removedReasoning);
+      return withProviderRequestId(
+        withGemmaProjectionMetadata(result, projector.rawText, projector.removedReasoning),
+        providerRequestId,
+      );
     } catch (error) {
       const gemmaError = error as IOpenAICompatibleError;
       const errorMessage = gemmaError.message || 'Gemma streaming request failed';

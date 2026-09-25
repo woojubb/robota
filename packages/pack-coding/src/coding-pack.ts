@@ -27,14 +27,17 @@ import type { ISandboxClient } from '@robota-sdk/agent-tools';
 export interface ICodingPackOptions {
   /** Product-host shell choice for tools and the interactive /shell command. */
   shellExecutable?: string;
+  /** Product-owned prefix for the interactive editor's temporary directory. */
+  editorTemporaryDirectoryPrefix?: string;
   /**
    * Working-directory root the host file tools (`Read`/`Write`/`Edit`) are restricted to. Required: see
    * the interface note above. Pass the same value the session is assembled with.
    */
   cwd: string;
   /**
-   * Optional provider sandbox client. When present the file/shell tools operate through the sandbox and
-   * the host path guard does not apply — the sandbox is the isolation boundary.
+   * Optional provider sandbox client. Shell commands always run through it; file tools do only when its
+   * filesystem is `separate` (then the sandbox is the isolation boundary and the host-only search tools
+   * are withheld). With a `shared` filesystem, file tools stay on the host under the path guard.
    */
   sandboxClient?: ISandboxClient;
 }
@@ -94,7 +97,7 @@ export function createCodingPack(options: ICodingPackOptions): ICapabilityPack {
     tools: createDefaultTools(toolOptions),
     commandModules: [
       createShellCommandModule(options.shellExecutable),
-      createEditorCommandModule(),
+      createEditorCommandModule(options.editorTemporaryDirectoryPrefix),
       createGitCommandModule(),
     ],
     subagents: BUILT_IN_AGENTS,

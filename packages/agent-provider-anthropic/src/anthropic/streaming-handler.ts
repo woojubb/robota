@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 
 import { formatWebSearchResults } from './message-converter';
+import { awaitWithProviderRequestId } from './provider-request-id';
 
 import type Anthropic from '@anthropic-ai/sdk';
 import type {
@@ -8,6 +9,16 @@ import type {
   TUniversalMessage,
   TTextDeltaCallback,
 } from '@robota-sdk/agent-core';
+
+/** SDK request options, or none at all when there is neither a signal nor a header to send. */
+export function anthropicRequestOptions(
+  signal: AbortSignal | undefined,
+  headers: Readonly<Record<string, string>>,
+): Anthropic.RequestOptions | undefined {
+  const hasHeaders = Object.keys(headers).length > 0;
+  if (!signal && !hasHeaders) return undefined;
+  return { ...(signal ? { signal } : {}), ...(hasHeaders ? { headers: { ...headers } } : {}) };
+}
 
 /**
  * Stream the Anthropic API response and assemble a complete TUniversalMessage.
@@ -22,6 +33,8 @@ export async function streamAndAssemble(
   onServerToolUse: ((toolName: string, input: Record<string, string>) => void) | undefined,
   signal: AbortSignal | undefined,
   onProviderNativeRawPayload?: TProviderNativeRawPayloadCallback,
+  /** Per-request headers (trusted `traceparent`), added after the request payload was captured. */
+  requestHeaders: Readonly<Record<string, string>> = {},
 ): Promise<TUniversalMessage> {
   const streamParams: Anthropic.MessageCreateParamsStreaming = {
     ...params,
@@ -34,7 +47,9 @@ export async function streamAndAssemble(
     payloadKind: 'request',
     payload: streamParams,
   });
-  const stream = await client.messages.create(streamParams, signal ? { signal } : undefined);
+  const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
+    client.messages.create(streamParams, anthropicRequestOptions(signal, requestHeaders)),
+  );
 
   // Accumulate the full response from stream events
   const textParts: string[] = [];
@@ -47,6 +62,8 @@ export async function streamAndAssemble(
   let currentToolName = '';
   let currentToolJson = '';
   let usage = { input_tokens: 0, output_tokens: 0 };
+  let sawUsageStart = false;
+  let sawUsageEnd = false;
   let model = '';
   let stopReason: string | null = null;
 
@@ -64,6 +81,7 @@ export async function streamAndAssemble(
       switch (event.type) {
         case 'message_start':
           usage = event.message.usage;
+          sawUsageStart = true;
           model = event.message.model;
           break;
 
@@ -124,6 +142,7 @@ export async function streamAndAssemble(
         case 'message_delta':
           if (event.usage) {
             usage.output_tokens = event.usage.output_tokens;
+            sawUsageEnd = true;
           }
           stopReason = event.delta.stop_reason;
           break;
@@ -131,14 +150,14 @@ export async function streamAndAssemble(
     }
   } catch (err) {
     if (err instanceof Error && err.name === 'AbortError') {
-      return buildPartialResult(textParts, toolCalls, usage, model);
+      return buildPartialResult(textParts, toolCalls, usage, model, providerRequestId);
     }
     throw err;
   }
 
   // If aborted via break (not via catch), return partial response
   if (signal?.aborted) {
-    return buildPartialResult(textParts, toolCalls, usage, model);
+    return buildPartialResult(textParts, toolCalls, usage, model, providerRequestId);
   }
 
   const textContent = textParts.join('') || '';
@@ -156,6 +175,10 @@ export async function streamAndAssemble(
     inputTokens: usage.input_tokens,
     outputTokens: usage.output_tokens,
     model,
+    ...((sawUsageStart || sawUsageEnd) && {
+      usageProvenance: sawUsageStart && sawUsageEnd && stopReason ? 'complete' : 'partial',
+    }),
+    ...(providerRequestId !== undefined && { providerRequestId }),
   };
   if (stopReason) {
     result.metadata['stopReason'] = stopReason;
@@ -173,6 +196,7 @@ function buildPartialResult(
   }>,
   usage: { input_tokens: number; output_tokens: number },
   model: string,
+  providerRequestId?: string,
 ): TUniversalMessage {
   const partialText = textParts.join('') || '';
   const partialResult: TUniversalMessage = {
@@ -188,6 +212,8 @@ function buildPartialResult(
     outputTokens: usage.output_tokens,
     model,
     stopReason: 'aborted',
+    usageProvenance: 'partial',
+    ...(providerRequestId !== undefined && { providerRequestId }),
   };
   return partialResult;
 }

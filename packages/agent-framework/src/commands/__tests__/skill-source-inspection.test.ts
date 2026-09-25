@@ -54,7 +54,7 @@ describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
     );
   });
 
-  it('reports the frontmatter value session discovery throws on, as a skip and not a discovery', () => {
+  it('reports the frontmatter value session discovery refuses, as a skip and not a discovery', () => {
     const home = mkdtempSync(join(tmpdir(), 'robota-skill-inspection-'));
     roots.push(home);
     const skills = join(home, '.robota', 'skills');
@@ -71,8 +71,8 @@ describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
     );
     const sources = [createNodeHostContributionSource(home)];
 
-    // The premise: the session's own discovery does not tolerate this file.
-    expect(() => createTestSkillCommandSource(sources).getCommands()).toThrow(/effort/);
+    // The premise: the session's own discovery does not register this file.
+    expect(createTestSkillCommandSource(sources).getCommands()).toEqual([]);
 
     const robota = inspectSkillSources(sources, TEST_SKILL_ROOTS).roots.find(
       (root) => root.root === join('.robota', 'skills'),
@@ -105,8 +105,11 @@ describe('inspectSkillSources (OBSERVABILITY-1991 TC-05)', () => {
     const descriptors = [{ root: customRoot, kind: 'skills' as const }];
     const sources = [createNodeHostContributionSource(home)];
 
-    expect(createTestSkillCommandSource(sources, descriptors).getCommands().map((item) => item.name))
-      .toEqual(['custom']);
+    expect(
+      createTestSkillCommandSource(sources, descriptors)
+        .getCommands()
+        .map((item) => item.name),
+    ).toEqual(['custom']);
     expect(inspectSkillSources(sources, descriptors).roots.map((item) => item.root)).toEqual([
       customRoot,
     ]);

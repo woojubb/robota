@@ -1,3 +1,4 @@
+import { createOtlpPromptRootTraces } from './otlp-prompt-root-traces.js';
 import { normalizeRecord } from './personal-usage-decode.js';
 
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
@@ -43,6 +44,10 @@ export function createOtlpUsageSnapshot(
       }
     }
   }
+  // The trace projection is the single accepted-call selector: parent/time/duplicate checks must
+  // agree between traces and metrics. These are separate non-additive Gauges, never turn totals.
+  const acceptedCalls = createOtlpPromptRootTraces(records, version);
+  const calls = acceptedCalls.callMetrics;
 
   const timeUnixNano = String(BigInt(at.getTime()) * 1_000_000n);
   const gauge = (name: string, unit: string, value: number) => ({
@@ -81,6 +86,17 @@ export function createOtlpUsageSnapshot(
                 '{observation}',
                 estimatedCostObservations,
               ),
+              gauge('robota.provider_call.count', '{call}', calls.invoked),
+              gauge('robota.provider_call.usage.complete_count', '{call}', calls.completeUsage),
+              gauge('robota.provider_call.token.input.known', '{token}', calls.inputTokens),
+              gauge('robota.provider_call.token.output.known', '{token}', calls.outputTokens),
+              gauge('robota.provider_call.cost.usd.estimated', 'USD', calls.estimatedCostUsd),
+              gauge('robota.provider_call.cost.unknown_count', '{call}', calls.unknownCost),
+              gauge('robota.provider_call.usage.partial_count', '{call}', acceptedCalls.coverage.providerUsage.partial),
+              gauge('robota.provider_call.usage.invalid_count', '{call}', acceptedCalls.coverage.providerUsage.invalid),
+              gauge('robota.provider_call.usage.legacy_count', '{call}', acceptedCalls.coverage.providerUsage.legacy),
+              gauge('robota.provider_call.price.exact_id_count', '{call}', calls.exactPriceMatches),
+              gauge('robota.provider_call.price.family_fallback_count', '{call}', calls.familyPriceMatches),
             ],
           },
         ],

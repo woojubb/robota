@@ -105,6 +105,12 @@ export interface IAgentConfig {
    * never deferred; `'on'` and `'off'` force the answer. Read on every round, never snapshotted.
    */
   toolSearch?: TToolSearchSetting;
+  /**
+   * Whether a registered tool is shown to the model at all. Read on every projection, so a live
+   * rule change is reflected by the next round; a hidden tool is absent from the offered set and
+   * from the deferred-tool catalogue alike (issue #3081: a bare-name deny removes the tool).
+   */
+  isToolVisible?: (toolName: string) => boolean;
   plugins?: Array<IPluginContract<IPluginOptions, IPluginStats>>;
 
   // Modules for extended functionality

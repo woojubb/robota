@@ -7,6 +7,7 @@ import { applyModelToolCapability } from './execution-model-capability-guards.js
 import { callProviderWithIdleTimeout } from './execution-provider-call.js';
 import { assertToolChoiceValid, buildChatResponseFormat } from './execution-service-helpers';
 import { applyStructuredOutputTransport } from './execution-structured-output-guard.js';
+import { withOutboundTraceContext } from './execution-trace-context.js';
 import { randomId } from '../utils/random-id.js';
 
 import type { IStructuredOutputTransportOutcome } from './execution-structured-output-guard';
@@ -15,6 +16,7 @@ import type { IAgentConfig, IAssistantMessage } from '../interfaces/agent';
 import type { IToolCall, TUniversalMessage } from '../interfaces/messages';
 import type { IChatOptions, TToolChoice } from '../interfaces/provider';
 import type { IDeferredToolCatalog } from '../interfaces/tool-search';
+import type { IOutboundTraceContext } from '../interfaces/trace-context';
 import type { ILogger } from '../utils/logger';
 import type { ExecutionCacheService } from './cache/execution-cache-service';
 
@@ -117,6 +119,9 @@ export async function callProviderWithCache(
    */
   onRequestAssembled?: (request: IAssembledProviderRequest) => void,
   awaitProviderSettlement?: boolean,
+  onDispatch?: (disposition: 'invoked' | 'cache-hit', model: string) => void,
+  /** Asked only when the adapter is actually invoked, after the request was announced. */
+  resolveOutboundTraceContext?: () => IOutboundTraceContext | undefined,
 ): Promise<TUniversalMessage> {
   if (!config.defaultModel?.model) {
     throw new Error('Model is required in defaultModel configuration. Please specify a model.');
@@ -150,20 +155,39 @@ export async function callProviderWithCache(
     ...(structuredOutcome !== undefined && { structuredOutput: structuredOutcome }),
   });
   const providerChat = resolved.provider.chat.bind(resolved.provider) as TProviderChat;
-  // API-001: a concrete selection has no persisted cache identity until DATA-007 owns the
-  // resolution fingerprint. Do not let a lower-effort response satisfy a later higher-effort call.
-  // The implicit `auto` fallback is not a caller selection and retains existing cache behavior.
-  const hasExplicitEffortSelection =
-    overrides?.effort !== undefined || config.defaultModel?.effort !== undefined;
+  const observedChat: TProviderChat = (messages, options) => {
+    // Invocation of the provider SDK adapter, not proof of a network attempt within that adapter.
+    onDispatch?.('invoked', options.model ?? model);
+    return providerChat(messages, withOutboundTraceContext(options, resolveOutboundTraceContext?.()));
+  };
+  // DATA-007/API-001: the SESSION's effort selection is the cache identity — never a locally resolved
+  // effective value. An earlier version of this fix resolved the effort against
+  // `resolved.provider.effortTable()` before touching the cache, but that table is only ever
+  // populated for a NATIVE provider verified in-process; a `SimpleRemoteExecutor`-backed provider
+  // never has one (the server resolves against its OWN table and never serializes the resolution
+  // back — see `agent-remote-client/.../wire-chat-options.ts`), and a local table can simply be
+  // missing an entry for this exact model (version skew, a `baseURL`/API-surface variant). Both cases
+  // report the same "not applied" outcome regardless of the actual selection, which would let
+  // different selections collide. Keying on the raw selection sidesteps that entirely: it is known
+  // upfront, is identical across every executor shape, and is exactly what the caller asked for.
+  // `undefined` normalizes to `'auto'`, matching `buildRoundChatOptions`'s own default. This replaces
+  // the former API-001 bypass (which unconditionally skipped the cache for any explicit selection
+  // because the key could not tell efforts apart) — the cache is now always consulted.
+  const effortCacheIdentity = chatOptions.effort ?? 'auto';
 
-  if (cacheService && !hasExplicitEffortSelection) {
+  if (cacheService) {
     const cachedResponse = cacheService.lookup(
       outgoing,
       config.defaultModel.model,
       config.defaultModel.provider,
-      { temperature: config.defaultModel.temperature, maxTokens: config.defaultModel.maxTokens },
+      {
+        temperature: config.defaultModel.temperature,
+        maxTokens: config.defaultModel.maxTokens,
+        effortCacheIdentity,
+      },
     );
     if (cachedResponse) {
+      onDispatch?.('cache-hit', chatOptions.model ?? model);
       return {
         role: 'assistant',
         content: cachedResponse,
@@ -173,7 +197,7 @@ export async function callProviderWithCache(
       };
     }
     const response = await callProviderWithIdleTimeout(
-      providerChat,
+      observedChat,
       outgoing,
       chatOptions,
       config.timeout,
@@ -185,13 +209,17 @@ export async function callProviderWithCache(
         config.defaultModel.model,
         config.defaultModel.provider,
         response.content,
-        { temperature: config.defaultModel.temperature, maxTokens: config.defaultModel.maxTokens },
+        {
+          temperature: config.defaultModel.temperature,
+          maxTokens: config.defaultModel.maxTokens,
+          effortCacheIdentity,
+        },
       );
     }
     return response;
   }
 
-  return callProviderWithIdleTimeout(providerChat, outgoing, chatOptions, config.timeout, awaitProviderSettlement);
+  return callProviderWithIdleTimeout(observedChat, outgoing, chatOptions, config.timeout, awaitProviderSettlement);
 }
 
 /** Validate and normalize the provider response */

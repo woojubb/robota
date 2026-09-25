@@ -119,6 +119,9 @@ describe('ARCH-007 — the kernel overlay is robota’s single assembly path', (
     const options = robotaRuntimeOptions();
     expect(options.promptFileReferenceTag).toBe('robota_file_references');
     expect(options.modelCommandToolPrefix).toBe('robota_command_');
+    expect(options.observerFailureWarningCode).toBe(
+      'ROBOTA_BACKGROUND_OBSERVER_FAILURE',
+    );
     expect(options.subagentHookEnvironmentNames).toEqual({
       agentId: 'ROBOTA_AGENT_ID', agentType: 'ROBOTA_AGENT_TYPE',
     });

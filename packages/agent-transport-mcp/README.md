@@ -15,33 +15,35 @@ pnpm add @robota-sdk/agent-transport-mcp
 ## Usage
 
 `createAgentMcpServer` asynchronously validates and exposes the session runtime catalog.
-`createMcpTransport` wraps it for the SDK transport registry. Canonical command tools retain their
-`robota_command_*` names; the old `command_*` catalog and `exposeCommands` option are removed.
-The reserved `robota_submit` extension accepts `{ prompt: string }` and returns its own turn response.
+`createMcpTransport` wraps it for the SDK transport registry. Runtime tools retain the canonical
+names supplied by the session. The built-in `agent_submit` extension accepts `{ prompt: string }`
+and returns its own turn response. Pass `submitTool: { name: 'robota_submit', description: '...' }`
+to any of the three server/transport constructors when preserving an existing Robota MCP client.
 Runtime tool results are serialized execution envelopes; failures set `isError`. Request cancellation
 reaches only the corresponding invocation. Prompts and resources are unsupported.
 
 ```typescript
 import { createAgentMcpServer } from '@robota-sdk/agent-transport-mcp';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IMcpTransportSession } from '@robota-sdk/agent-transport-mcp';
 
-declare const session: IInteractiveSession;
+declare const session: IMcpTransportSession;
 const server = await createAgentMcpServer({
-  name: 'robota-agent',
+  name: 'my-agent',
   version: '1.0.0',
-  session, // an IInteractiveSession
+  session,
 });
 
-// Connect `server` to your MCP stdio/SSE transport of choice.
+// Connect `server` to your MCP carrier of choice.
 ```
 
 ## Exports
 
-| Symbol                 | Kind      | Description                                               |
-| ---------------------- | --------- | --------------------------------------------------------- |
-| `createAgentMcpServer` | function  | `(options: IAgentMcpOptions)` — MCP server for a session  |
-| `createMcpTransport`   | function  | `(options: IMcpTransportOptions)` — SDK transport wrapper |
-| `IAgentMcpOptions`     | interface | `{ name, version, session }`                              |
-| `IMcpTransportOptions` | interface | Transport-registry options                                |
+| Symbol                   | Kind      | Description                                               |
+| ------------------------ | --------- | --------------------------------------------------------- |
+| `createAgentMcpServer`   | function  | `(options: IAgentMcpOptions)` — MCP server for a session  |
+| `createMcpTransport`     | function  | `(options: IMcpTransportOptions)` — SDK transport wrapper |
+| `IAgentMcpOptions`       | interface | `{ name, version, session, submitTool? }`                 |
+| `IMcpSubmitToolIdentity` | interface | Optional host-selected submission name and description    |
+| `IMcpTransportOptions`   | interface | Transport-registry options                                |
 
 See [docs/SPEC.md](./docs/SPEC.md) for the full contract.

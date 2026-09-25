@@ -41,7 +41,7 @@ import { ProjectionReadModelService } from '@robota-sdk/dag-projection';
 import type { IWorkerLoopPolicyOptions } from '@robota-sdk/dag-worker';
 
 import { createExecutionComposition } from './composition/create-execution-composition.js';
-import { resolveAssetRoot, resolveStorageRoot } from './config/resolve-storage-root.js';
+import { IsolatedRegexTaskExecutor } from './isolated-regex-task-executor.js';
 import { AssetAwareTaskExecutorPort } from './adapters/asset-aware-executor.js';
 import { LocalFsAssetStore } from './adapters/local-fs-asset-store.js';
 import { DagPromptBackend } from './adapters/prompt-backend.js';
@@ -71,6 +71,13 @@ function buildManifestRegistry(manifests: INodeManifest[]): INodeManifestRegistr
     getManifest: (nodeType) => byType.get(nodeType),
     listManifests: () => manifests,
   };
+}
+
+function requireHostPath(value: string | undefined, name: string): string {
+  if (!value?.trim()) {
+    throw new Error(`createDagFramework requires paths.${name} when its port is not supplied`);
+  }
+  return value;
 }
 
 export class NoopDeadLetterReinject implements IDiagnosticsDeadLetterReinjectPort {
@@ -119,30 +126,44 @@ export async function createDagFramework(
   }
   const assembly = assemblyResult.value;
 
-  // 2. Resolve storage and asset paths
-  const storageRoot = options.paths?.storageRoot ?? resolveStorageRoot();
-  const assetRoot = options.paths?.assetRoot ?? resolveAssetRoot();
-
-  // 3. Infrastructure ports (defaults overridable via options.ports)
-  const storage: IStoragePort = options.ports?.storage ?? new FileStoragePort(storageRoot);
+  // 2. Infrastructure ports (defaults overridable via options.ports)
+  // A caller-supplied storage port is theirs to close; only the default `FileStoragePort` this
+  // composition constructs itself is this framework's to release on `stop()`.
+  const ownsStorage = options.ports?.storage === undefined;
+  const storage: IStoragePort =
+    options.ports?.storage ??
+    new FileStoragePort(requireHostPath(options.paths?.storageRoot, 'storageRoot'));
   const queue: IQueuePort = options.ports?.queue ?? new InMemoryQueuePort();
   const deadLetterQueue: IQueuePort = options.ports?.deadLetterQueue ?? new InMemoryQueuePort();
   const lease: ILeasePort = options.ports?.lease ?? new InMemoryLeasePort();
   const clock: IClockPort = options.ports?.clock ?? new SystemClockPort();
 
-  // 4. Asset store
+  // 3. Asset store
   const assetStore: IAssetStore =
     options.ports?.assetStore ??
-    (await initializeAssetStore(new LocalFsAssetStore(path.resolve(assetRoot))));
+    (await initializeAssetStore(
+      new LocalFsAssetStore(path.resolve(requireHostPath(options.paths?.assetRoot, 'assetRoot'))),
+    ));
 
-  // 5. Task executor (lifecycle-based, wrapped with asset-awareness)
+  // 5. Task executor (lifecycle-based, wrapped with asset-awareness, and — for the
+  // default executor only — isolated regex execution). A caller-supplied `ports.executor`
+  // is trusted as-is: it must populate `regexReplaceOperation` itself, or `text-replace`
+  // with `useRegex` fails closed rather than falling back to inline main-thread execution.
+  const isDefaultExecutor = options.ports?.executor === undefined;
   const baseExecutor: ITaskExecutorPort =
     options.ports?.executor ??
     new LifecycleTaskExecutorPort(
       buildManifestRegistry(assembly.manifests),
       new StaticNodeLifecycleFactory(new StaticNodeTaskHandlerRegistry(assembly.handlersByType)),
     );
-  const executor = new AssetAwareTaskExecutorPort(baseExecutor, assetStore);
+  const assetAwareExecutor = new AssetAwareTaskExecutorPort(baseExecutor, assetStore);
+  // This composition hosts arbitrary node types, not just the regex-isolated one, so its
+  // `stopAndWait` must join only the isolated regex operation's own shutdown — never the
+  // delegate's full node completion, or a node that ignores its abort signal would block every
+  // timeout, cancel, and `framework.stop()` on this composition until that node finally returns.
+  const executor: ITaskExecutorPort = isDefaultExecutor
+    ? new IsolatedRegexTaskExecutor(assetAwareExecutor, false)
+    : assetAwareExecutor;
 
   // 6. Execution composition (run orchestrator + worker loop)
   const workerOptions: IWorkerLoopPolicyOptions = {
@@ -150,7 +171,16 @@ export async function createDagFramework(
     ...options.worker,
   };
   const execution = createExecutionComposition(
-    { executionRoot, storage, queue, deadLetterQueue, lease, executor, clock },
+    {
+      executionRoot,
+      storage,
+      queue,
+      deadLetterQueue,
+      lease,
+      executor,
+      clock,
+      lifecycleCreditAdmission: isDefaultExecutor,
+    },
     { worker: workerOptions, logger: options.logger },
   );
 
@@ -201,6 +231,14 @@ export async function createDagFramework(
       await promptBackend.closeIngressAndDrainSubmissions();
       await execution.runAdvancement.stop();
       await promptBackend.drainOwnedObservationJobs();
+      // Release this root's owner lock so a later `createDagFramework` call — in this process or
+      // another — can open the same file storage root again (packages/dag-adapters-local SPEC:
+      // exclusive ownership is enforced). Only for the default storage THIS composition constructed —
+      // a caller-supplied `options.ports.storage` is the caller's to close, and `close()` is final, so
+      // closing one out from under a caller still using it would be a hard-to-diagnose regression.
+      if (ownsStorage && storage instanceof FileStoragePort) {
+        await storage.close();
+      }
     },
   };
 

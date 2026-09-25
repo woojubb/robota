@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { AbstractAIProvider, Robota, type IChatOptions, type TUniversalMessage } from '@robota-sdk/agent-core';
+import { RootCreditBudget } from '@robota-sdk/dag-core';
 import type { IDagDefinition, IDagNodeDefinition } from '@robota-sdk/dag-core';
 import { LocalDagRuntimeProvider } from '../local-dag-runtime-provider.js';
 
@@ -10,7 +11,7 @@ describe('local provider active cancellation', () => {
   const roots: string[] = [];
   afterEach(() => { for (const root of roots.splice(0)) rmSync(root, { recursive: true, force: true }); });
 
-  it('waits for an aborted provider to settle before completing the local run', async () => {
+  it('seals inherited root credits while waiting for an aborted provider to settle', async () => {
     const root = realpathSync(mkdtempSync(path.join(tmpdir(), 'dag-active-cancel-')));
     roots.push(root);
     let releaseProvider: () => void = () => undefined;
@@ -48,7 +49,12 @@ describe('local provider active cancellation', () => {
       nodes: [{ nodeId: 'prompt', nodeType: 'test/prompt', dependsOn: [], config: {} }], edges: [],
     };
     const controller = new AbortController();
-    const provider = new LocalDagRuntimeProvider({ executionRoot: root, nodeRegistry: [node] });
+    const rootCredits = new RootCreditBudget(1);
+    const provider = new LocalDagRuntimeProvider({
+      executionRoot: root,
+      nodeRegistry: [node],
+      rootCreditBudget: rootCredits,
+    });
     const work = provider.execute(definition, {}, { signal: controller.signal });
     try {
       await entered;
@@ -58,6 +64,12 @@ describe('local provider active cancellation', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
       expect(providerSignal?.aborted).toBe(true);
       expect(completed).toBe(false);
+      // An inherited root authority must stop admitting sibling work as soon as
+      // this child run's cancellation commits, before its provider finishes cleanup.
+      expect(rootCredits.reserve(0.1)).toMatchObject({
+        ok: false,
+        error: { code: 'DAG_VALIDATION_CREDIT_LIMIT_EXCEEDED' },
+      });
       releaseProvider();
       const result = await Promise.race([
         work,

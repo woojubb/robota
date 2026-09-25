@@ -72,6 +72,18 @@ describe('print and goal session-capability projection', () => {
           undefined,
           undefined,
           orgPolicy,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          undefined,
+          'ROBOTA_BACKGROUND_OBSERVER_FAILURE',
         ),
       ).rejects.toBeInstanceOf(ExitSentinel);
       expect(seen).toHaveBeenCalledWith(expect.objectContaining({
@@ -86,6 +98,7 @@ describe('print and goal session-capability projection', () => {
         language: 'ko',
         presetSystemPrompt: 'Preset seed',
         responseFormat,
+        observerFailureWarningCode: 'ROBOTA_BACKGROUND_OBSERVER_FAILURE',
       });
     },
   );

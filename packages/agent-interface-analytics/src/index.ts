@@ -12,6 +12,8 @@ export type {
   IUsageObservation,
   IProviderCallTraceEntry,
   IToolBodyTraceEntry,
+  IToolPermissionDecisionEntry,
+  ILivePromptTraceBatch,
   TUsageSurface,
   IPersonalUsageRequest,
   IPersonalUsageTotals,
@@ -21,3 +23,13 @@ export type {
   IPersonalUsageCoverage,
   IPersonalUsageReport,
 } from './usage-contracts.js';
+
+// ── Opt-in live prompt, response and tool content, carried beside the content-free trace ───
+export type {
+  TLivePromptContentKind,
+  ILivePromptContentPolicy,
+  ILivePromptContentItem,
+  ILivePromptContentBatch,
+  ILivePromptContentToolRef,
+  TLivePromptContentOmitted,
+} from './live-content-contracts.js';

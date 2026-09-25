@@ -2,6 +2,11 @@ import {
   assembleOpenAICompatibleStream,
   observeProviderNativeRawPayloadStream,
 } from '../shared/openai-compatible/index.js';
+import {
+  awaitWithProviderRequestId,
+  withProviderRequestId,
+} from '../shared/openai-compatible/request-id.js';
+import { openAICompatibleRequestOptions } from '../shared/openai-compatible/request-options.js';
 
 import type { IOpenAICompatibleError } from '../shared/openai-compatible/index.js';
 import type { IChatOptions, TUniversalMessage } from '@robota-sdk/agent-core';
@@ -11,6 +16,7 @@ export async function qwenChatWithStreamingAssembly(
   client: OpenAI,
   requestParams: OpenAI.Chat.ChatCompletionCreateParamsStreaming,
   options: IChatOptions,
+  requestHeaders?: Readonly<Record<string, string>>,
 ): Promise<TUniversalMessage> {
   try {
     options.onProviderNativeRawPayload?.({
@@ -19,12 +25,14 @@ export async function qwenChatWithStreamingAssembly(
       payloadKind: 'request',
       payload: requestParams,
     });
-    const stream = await client.chat.completions.create(
-      requestParams,
-      options.signal ? { signal: options.signal } : undefined,
+    const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
+      client.chat.completions.create(
+        requestParams,
+        openAICompatibleRequestOptions(options.signal, requestHeaders),
+      ),
     );
 
-    return assembleOpenAICompatibleStream({
+    const assembled = await assembleOpenAICompatibleStream({
       stream: observeProviderNativeRawPayloadStream(stream, {
         provider: 'qwen',
         apiSurface: 'chat-completions',
@@ -33,6 +41,7 @@ export async function qwenChatWithStreamingAssembly(
       onTextDelta: options.onTextDelta,
       signal: options.signal,
     });
+    return withProviderRequestId(assembled, providerRequestId);
   } catch (error) {
     const qwenError = error as IOpenAICompatibleError;
     const errorMessage = qwenError.message || 'Qwen streaming request failed';

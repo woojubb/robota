@@ -18,7 +18,7 @@ function nodeCommand(script: string): string {
   return `${JSON.stringify(process.execPath)} -e ${JSON.stringify(script)}`;
 }
 
-function makeTask(command: string, env?: Record<string, string>): IBackgroundTaskStart {
+function makeTask(command: string, env?: Record<string, string>): IBackgroundTaskStart<'process'> {
   return {
     taskId: 'process_1',
     request: {
@@ -147,14 +147,18 @@ describe.skipIf(process.platform === 'win32')(
       VITEST_PROCESS_TEST_TIMEOUT_MS,
     );
 
-    it('uses a host-selected default below a request shell', async () => {
-      vi.stubEnv('SHELL', '/bin/false');
-      const runner = createManagedShellProcessRunner({ shellExecutable: '/bin/bash' });
-      const handle = runner.start(makeTask(nodeCommand("process.stdout.write('ok');")));
-      const result = await handle.result;
-      expect(vi.mocked(spawnMock).mock.calls[0]?.[0]).toBe('/bin/bash');
-      expect(result.output).toContain('ok');
-    }, VITEST_PROCESS_TEST_TIMEOUT_MS);
+    it(
+      'uses a host-selected default below a request shell',
+      async () => {
+        vi.stubEnv('SHELL', '/bin/false');
+        const runner = createManagedShellProcessRunner({ shellExecutable: '/bin/bash' });
+        const handle = runner.start(makeTask(nodeCommand("process.stdout.write('ok');")));
+        const result = await handle.result;
+        expect(vi.mocked(spawnMock).mock.calls[0]?.[0]).toBe('/bin/bash');
+        expect(result.output).toContain('ok');
+      },
+      VITEST_PROCESS_TEST_TIMEOUT_MS,
+    );
 
     it(
       'a caller-supplied PATH cannot redirect which shell binary runs',

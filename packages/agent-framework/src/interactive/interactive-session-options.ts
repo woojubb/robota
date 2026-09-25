@@ -7,6 +7,7 @@
  */
 
 import type { IPromptHistoryOptions } from './interactive-session-prompt-history.js';
+import type { ILivePromptTracePort } from './interactive-session-live-prompt-trace.js';
 import type { IInteractiveSessionStore } from './session-persistence.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { TSessionResponseFormat } from '../assembly/create-session-types.js';
@@ -59,6 +60,7 @@ export interface IInteractiveSessionStandardOptions {
   /** Host-selected prefix for projected command tool names. */
   modelCommandToolPrefix?: string;
   subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
+  observerFailureWarningCode?: ICreateSessionOptions['observerFailureWarningCode'];
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
   projectAccess?: TWorkspaceProjectAccess;
   /** Host-selected project settings layers, admitted only through the current project authority. */
@@ -84,6 +86,8 @@ export interface IInteractiveSessionStandardOptions {
   resolveDefaultLoopPrompt?: () => string;
   /** Explicit session-log sink; absence disables diagnostic project logging. */
   sessionLogSink?: ISessionLogSink;
+  /** Optional host-owned, enqueue-only live prompt trace port; absent means no live projection. */
+  livePromptTrace?: ILivePromptTracePort;
   /** Trusted host-only path projection for hook compatibility. */
   transcriptPath?: string;
   /** Explicit authority- and permission-backed edit checkpoint capability. */
@@ -91,6 +95,12 @@ export interface IInteractiveSessionStandardOptions {
   sessionName?: string;
   resumeSessionId?: string;
   forkSession?: boolean;
+  /**
+   * Issue #3081: this session is the target of a `/cd` from this directory. The resumed record's
+   * system prompt is kept (so a provider's prompt cache survives) and one message announces the new
+   * directory and the instructions that now apply there.
+   */
+  workspaceMovedFrom?: string;
   /** Skip AGENTS.md/CLAUDE.md loading and plugin discovery. */
   bare?: boolean;
   /** Explicitly omit the built-in command and HTTP hook executors for this session and its children. */
@@ -230,6 +240,7 @@ export interface IInteractiveSessionInjectedOptions {
   promptFileReferenceTag?: string;
   modelCommandToolPrefix?: string;
   subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
+  observerFailureWarningCode?: ICreateSessionOptions['observerFailureWarningCode'];
   cwd?: string;
   provider?: IAIProvider;
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
@@ -243,6 +254,8 @@ export interface IInteractiveSessionInjectedOptions {
   resolveDefaultLoopPrompt?: () => string;
   /** Explicit session-log sink; absence disables diagnostic project logging. */
   sessionLogSink?: ISessionLogSink;
+  /** Optional host-owned, enqueue-only live prompt trace port; absent means no live projection. */
+  livePromptTrace?: ILivePromptTracePort;
   /** Trusted host-only path projection for hook compatibility. */
   transcriptPath?: string;
   /** Explicit authority- and permission-backed edit checkpoint capability. */

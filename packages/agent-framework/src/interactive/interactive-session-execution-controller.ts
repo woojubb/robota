@@ -5,11 +5,25 @@ import { randomBytes } from 'node:crypto';
 import {
   createUserMessage,
   createSystemMessage,
+  isMintedSpanId,
   messageToHistoryEntry,
+  providerCallSpanId,
+  spanIdFromMintedId,
 } from '@robota-sdk/agent-core';
 
 import { InteractiveExecutionClaimOwner } from './interactive-execution-claim.js';
 import { checkAndRefreshContextIfStale } from './interactive-session-context-refresh.js';
+import {
+  LiveToolCallOwnership,
+  createLivePromptContentAccumulator,
+  enqueueLivePromptContent,
+} from './interactive-session-live-prompt-content.js';
+import {
+  LivePromptTraceAccumulator,
+  enqueueLivePromptTrace,
+  reportLivePromptTraceProjectionFailure,
+  reportTraceContextUnavailable,
+} from './interactive-session-live-prompt-trace.js';
 import {
   projectCompactEvent,
   projectForkSkillResult,
@@ -33,6 +47,7 @@ import type {
 } from './interactive-session-execution-contracts.js';
 import type { SessionHistoryTracker } from './interactive-session-history-tracker.js';
 import type { ICreatedInteractiveSession } from './interactive-session-init.js';
+import type { LivePromptContentAccumulator } from './interactive-session-live-prompt-content.js';
 import type { SessionSkillRouter } from './interactive-session-skill-router.js';
 import type { IToolState } from './types.js';
 import type { IExecutionResult } from './types.js';
@@ -41,7 +56,7 @@ import type { ICommand, ICommandResult, ISkillExecutionResult } from '../command
 import type { ISkillActivationEvent } from '../commands/skill-activation-events.js';
 import type { IContextFileEntry } from '../context/context-file-tracker.js';
 import type { IMemoryEvent } from '../memory/automatic-memory-types.js';
-import type { IHistoryEntry, TToolArgs } from '@robota-sdk/agent-core';
+import type { IHistoryEntry, IRunTraceContext, TToolArgs } from '@robota-sdk/agent-core';
 import type {
   IProviderCallTraceEntry,
   IToolBodyTraceEntry,
@@ -71,6 +86,10 @@ function randomOtelId(bytes: number): string {
 
 export class SessionExecutionController {
   private completedToolExecutions: ICompletedToolExecution[] = [];
+  /** The running owner turn's tool content capture, only while that turn runs with a tool gate on. */
+  private liveToolCapture:
+    | { readonly ownership: LiveToolCallOwnership; readonly content: LivePromptContentAccumulator }
+    | undefined;
   readonly executionClaim: InteractiveExecutionClaimOwner;
   streamingText = '';
   flushTimer: ReturnType<typeof setTimeout> | null = null;
@@ -172,6 +191,7 @@ export class SessionExecutionController {
         args: event.toolArgs,
         success: event.success === true && event.denied !== true,
       });
+      this.captureLiveToolContent(event);
     }
     this.activeTools = projectToolExecution(
       this.activeTools,
@@ -180,6 +200,32 @@ export class SessionExecutionController {
       (activeTools) => void (this.activeTools = activeTools),
       event,
     );
+  }
+
+  /** Opt-in content of one of the running turn's own calls; never throws into the tool wrapper. */
+  private captureLiveToolContent(event: {
+    toolName: string;
+    toolArgs?: TToolArgs;
+    success?: boolean;
+    denied?: boolean;
+    toolResultData?: string;
+    executionId?: string;
+  }): void {
+    const capture = this.liveToolCapture;
+    if (!capture || typeof event.executionId !== 'string') return;
+    try {
+      const denied = event.denied === true;
+      if (!capture.ownership.claim(event.executionId, denied)) return;
+      capture.content.addToolCall({
+        callId: event.executionId,
+        name: event.toolName,
+        outcome: denied ? 'denied' : event.success === true ? 'success' : 'failure',
+        ...(event.toolArgs !== undefined ? { args: event.toolArgs } : {}),
+        ...(!denied ? { output: event.toolResultData ?? '' } : {}),
+      });
+    } catch {
+      // Content capture is best effort and must never become a tool failure.
+    }
   }
 
   emitExecutionWorkspaceUpdated(cause: TExecutionWorkspaceUpdateCause, entryId?: string): void {
@@ -263,7 +309,19 @@ export class SessionExecutionController {
         }
       | undefined;
     const providerCallEntries: IHistoryEntry<IProviderCallTraceEntry>[] = [];
+    const seenProviderCallIds = new Set<string>();
     const toolBodyEntries: IHistoryEntry<IToolBodyTraceEntry>[] = [];
+    const liveTrace = this.callbacks.livePromptTrace ? new LivePromptTraceAccumulator() : undefined;
+    // Opt-in content: only with a host content port, a gate on, and an owner-typed turn.
+    const liveContent = createLivePromptContentAccumulator(this.callbacks.livePromptTrace, {
+      turnSource: turnOptions.turnSource ?? 'user',
+      driverId: turnOptions.driverId,
+    });
+    // Tool content needs to know which calls are this turn's own; only then is ownership tracked.
+    const toolOwnership = liveContent?.capturesTools ? new LiveToolCallOwnership() : undefined;
+    const toolSpanIds = new Map<string, string>();
+    this.liveToolCapture = toolOwnership && liveContent
+      ? { ownership: toolOwnership, content: liveContent } : undefined;
     const closePromptRoot = (outcome: 'success' | 'failure' | 'interrupted'): void => {
       if (!promptRoot || promptRoot.endedAt) return;
       promptRoot.endedAt = new Date(Math.max(Date.now(), promptRoot.startedAtMs)).toISOString();
@@ -294,6 +352,7 @@ export class SessionExecutionController {
         turnSource: turnOptions.turnSource ?? 'user',
         driverId: turnOptions.driverId,
       });
+      liveContent?.addPrompt(rawInput ?? input);
       this.callbacks.emit('thinking', true);
       this.histTracker.resetUsedMemoryReferences(); // MEM-2055: before recall — old order lost it
       if (this.callbacks.recallMemory) {
@@ -314,12 +373,14 @@ export class SessionExecutionController {
         traceId: randomOtelId(16),
         spanId: randomOtelId(8),
       };
+      const traceContext = this.promptTraceContext(promptRoot);
       await executePromptTurn(input, displayInput, rawInput, {
         providerErrorGuidance: this.callbacks.providerErrorGuidance,
         promptFileReferenceTag: this.callbacks.promptFileReferenceTag,
         turnSource: turnOptions.turnSource,
         ...promptTurnAttribution(ephemeralSystemContext, turnOptions.driverId),
         ...(turnOptions.signal ? { signal: turnOptions.signal } : {}),
+        ...(traceContext ? { traceContext } : {}),
         getSession: () => this.callbacks.getSessionOrThrow(),
         getCwd: () => this.callbacks.getCwd(),
         getProjectAccess: () => this.callbacks.getProjectAccess(),
@@ -332,16 +393,31 @@ export class SessionExecutionController {
         flushStreaming: () => this.flushStreaming(),
         clearStreaming: () => this.clearStreaming(),
         getStreamingText: () => this.streamingText,
+        ...(toolOwnership
+          ? { onToolCallObserved: (id: string, phase: Parameters<LiveToolCallOwnership['observe']>[1]) =>
+              toolOwnership.observe(id, phase) }
+          : {}),
         onWorkspaceUpdated: () => this.emitExecutionWorkspaceUpdated('main_thread'),
         onComplete: (result: IExecutionResult) => {
           closePromptRoot('success');
           completedResult = result; // stash for post-turn capture in the `finally`
           terminalResult = result;
+          liveContent?.addResponse(result.response, false);
           turnOutcome = 'success';
         },
         onProviderCallCompleted: (observation) => {
           if (!promptRoot) return;
-          providerCallEntries.push({
+          // Core mints the call ID before every call and the span ID is derived from it, so the span
+          // a provider was told is its parent is the span exported here. A call without one has no
+          // span it could have been told about, and is counted as omitted rather than invented.
+          if (!observation.callId) {
+            liveTrace?.omit({ provider: 1, tool: 0 });
+            return;
+          }
+          if (seenProviderCallIds.has(observation.callId)) return;
+          seenProviderCallIds.add(observation.callId);
+          const spanId = providerCallSpanId(observation.callId);
+          const entry: IHistoryEntry<IProviderCallTraceEntry> = {
             id: `provider_call_trace_${randomOtelId(8)}`,
             timestamp: new Date(),
             category: 'event',
@@ -349,17 +425,51 @@ export class SessionExecutionController {
             data: {
               traceId: promptRoot.traceId,
               parentSpanId: promptRoot.spanId,
-              spanId: randomOtelId(8),
+              spanId,
               startedAt: observation.startedAt,
               endedAt: observation.endedAt,
               outcome: observation.outcome,
               round: observation.round,
+              ...(observation.callId && { callId: observation.callId }),
+              ...(observation.disposition && { disposition: observation.disposition }),
+              ...(observation.providerId && { providerId: observation.providerId }),
+              ...(observation.modelId && { modelId: observation.modelId }),
+              ...(observation.usageProvenance && { usageProvenance: observation.usageProvenance }),
+              ...(observation.usageProvenance === 'complete' &&
+                observation.promptTokens !== undefined &&
+                observation.completionTokens !== undefined &&
+                observation.totalTokens !== undefined && {
+                  promptTokens: observation.promptTokens,
+                  completionTokens: observation.completionTokens,
+                  totalTokens: observation.totalTokens,
+                }),
             },
-          });
+          };
+          providerCallEntries.push(entry);
+          if (entry.data) {
+            // A non-string value only drops the field, never the child: unlike an unsafe tool-call
+            // ID, an unsafe provider-request ID (or one from a gateway outside the opaque-ID shape)
+            // must not withhold this call's usage/cost data. `projectProvider` re-validates the
+            // shape before export; this only guards the type.
+            const providerRequestId = observation.providerRequestId;
+            liveTrace?.addProvider({
+              ...entry.data,
+              ...(typeof providerRequestId === 'string' ? { providerRequestId } : {}),
+            });
+          }
         },
         onToolBodyCompleted: (observation) => {
           if (!promptRoot) return;
-          toolBodyEntries.push({
+          // The span is derived from the body ID core minted, the same derivation the tool used for
+          // any parent it propagated. A body without a usable one is counted, never given an
+          // invented span a server could not have been told about.
+          const spanId =
+            observation.toolBodyId === undefined ? undefined : spanIdFromMintedId(observation.toolBodyId);
+          if (spanId === undefined || !isMintedSpanId(spanId)) {
+            liveTrace?.omit({ provider: 0, tool: 1 });
+            return;
+          }
+          const entry: IHistoryEntry<IToolBodyTraceEntry> = {
             id: `tool_body_trace_${randomOtelId(8)}`,
             timestamp: new Date(),
             category: 'event',
@@ -367,17 +477,50 @@ export class SessionExecutionController {
             data: {
               traceId: promptRoot.traceId,
               parentSpanId: promptRoot.spanId,
-              spanId: randomOtelId(8),
+              spanId,
               startedAt: observation.startedAt,
               endedAt: observation.endedAt,
               outcome: observation.outcome,
             },
-          });
+          };
+          toolBodyEntries.push(entry);
+          if (entry.data) {
+            const toolCallId = observation.toolCallId;
+            if (toolCallId !== undefined && typeof toolCallId !== 'string') {
+              liveTrace?.omit({ provider: 0, tool: 1 });
+            } else {
+              const accepted = liveTrace?.addTool({
+                ...entry.data,
+                ...(toolCallId !== undefined ? { toolCallId } : {}),
+              });
+              // A tool item joins the span only when the exported trace kept it; else the root.
+              if (accepted && typeof toolCallId === 'string' && !toolSpanIds.has(toolCallId)) {
+                toolSpanIds.set(toolCallId, entry.data.spanId);
+              }
+            }
+          }
         },
+        onToolPermissionDecided: (observation) => {
+          if (!promptRoot) return;
+          const toolCallId = observation.toolCallId;
+          if (toolCallId !== undefined && typeof toolCallId !== 'string') {
+            liveTrace?.omit({ provider: 0, tool: 0, permission: 1 });
+          } else {
+            liveTrace?.addPermission({
+              traceId: promptRoot.traceId,
+              parentSpanId: promptRoot.spanId,
+              decidedAt: observation.decidedAt,
+              decision: observation.decision,
+              ...(toolCallId !== undefined ? { toolCallId } : {}),
+            });
+          }
+        },
+        onCompletionsOmitted: (counts) => liveTrace?.omit(counts),
         onInterrupted: (result: IExecutionResult) => {
           closePromptRoot('interrupted');
           // RUNTIME-003: an interrupted turn RAN — resolve, do not reject.
           terminalResult = result;
+          liveContent?.addResponse(result.response, true);
           turnOutcome = 'interrupted';
         },
         onError: (err: Error) => {
@@ -395,6 +538,31 @@ export class SessionExecutionController {
       turnError = error instanceof Error ? error : new Error(String(error));
       throw error;
     } finally {
+      this.liveToolCapture = undefined;
+      if (liveTrace && promptRoot?.endedAt && promptRoot.outcome && this.callbacks.livePromptTrace) {
+        try {
+          enqueueLivePromptTrace(this.callbacks.livePromptTrace, liveTrace.finish({
+            sessionId: this.callbacks.getSessionOrThrow().getSessionId(),
+            turnId,
+            root: {
+              traceId: promptRoot.traceId,
+              spanId: promptRoot.spanId,
+              startedAt: promptRoot.startedAt,
+              endedAt: promptRoot.endedAt,
+              outcome: promptRoot.outcome,
+            },
+          }));
+        } catch {
+          reportLivePromptTraceProjectionFailure(this.callbacks.livePromptTrace);
+        }
+      }
+      if (liveContent && promptRoot?.endedAt && this.callbacks.livePromptTrace) {
+        enqueueLivePromptContent(this.callbacks.livePromptTrace, liveContent, {
+          traceId: promptRoot.traceId,
+          spanId: promptRoot.spanId,
+          endedAt: promptRoot.endedAt,
+        }, toolSpanIds);
+      }
       try {
         await this.histTracker.finalizeEditCheckpointTurn();
       } catch (error) {
@@ -470,6 +638,27 @@ export class SessionExecutionController {
       if (turnOptions.wakeTaskId !== undefined) this.wakeTaskIds.delete(turnOptions.wakeTaskId);
       this.executionClaim.complete(executionClaim, () => this.drainPendingQueue(resumeQueuedTurn));
     }
+  }
+
+  /**
+   * The trace a prompt's provider calls and child processes carry, only while that prompt's root
+   * exists and only when the host configured origins or subprocess classes. Built per prompt, so no
+   * other run can inherit it.
+   */
+  private promptTraceContext(promptRoot: { traceId: string; spanId: string }): IRunTraceContext | undefined {
+    const port = this.callbacks.livePromptTrace;
+    const allowedOrigins = port?.traceContextPropagation?.allowedOrigins ?? [];
+    const subprocessClasses = port?.traceContextPropagation?.subprocesses ?? [];
+    if (!port || (allowedOrigins.length === 0 && subprocessClasses.length === 0)) return undefined;
+    return {
+      traceId: promptRoot.traceId,
+      parentSpanId: promptRoot.spanId,
+      allowedOrigins: [...allowedOrigins],
+      ...(subprocessClasses.length > 0 ? { subprocessClasses: [...subprocessClasses] } : {}),
+      ...(allowedOrigins.length > 0
+        ? { onPropagationUnavailable: (providerId: string) => reportTraceContextUnavailable(port, providerId) }
+        : {}),
+    };
   }
 
   async executeForkSkillCommand(

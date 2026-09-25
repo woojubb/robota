@@ -18,20 +18,7 @@ import type {
   TFrontmatterProfile,
   TMetadataDecodeResult,
 } from './frontmatter-types.js';
-import type { Pair, ParsedNode } from 'yaml';
-
-function unknownFieldDiagnostic(
-  context: IDecodeContext,
-  pair: Pair<ParsedNode, ParsedNode | null>,
-  field: string,
-  allowedFields: readonly string[],
-): IFrontmatterDiagnostic {
-  return diagnosticAtNode(context, pair.key, {
-    code: 'unknown-field',
-    field,
-    expected: `one of ${allowedFields.join(', ')}`,
-  });
-}
+import type { ParsedNode } from 'yaml';
 
 function decodeProfileMap<M>(
   context: IDecodeContext,
@@ -47,7 +34,6 @@ function decodeProfileMap<M>(
 
   const metadata = empty();
   const diagnostics: IFrontmatterDiagnostic[] = [];
-  const allowedFields = Object.keys(appliers);
   for (const pair of contents.items) {
     const field = scalarString(pair.key);
     if (field === undefined) {
@@ -60,10 +46,9 @@ function decodeProfileMap<M>(
       continue;
     }
     const apply = Object.hasOwn(appliers, field) ? appliers[field] : undefined;
-    if (apply === undefined) {
-      diagnostics.push(unknownFieldDiagnostic(context, pair, field, allowedFields));
-      continue;
-    }
+    // Fields this profile does not own grant nothing, so they are ignored rather than refused:
+    // `.claude` skills and agents are shared with other hosts that define their own fields.
+    if (apply === undefined) continue;
     const diagnostic = apply(context, pair.value, field, metadata);
     if (diagnostic !== undefined) diagnostics.push(diagnostic);
   }

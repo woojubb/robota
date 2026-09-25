@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IDagDefinition } from '@robota-sdk/dag-core';
+import { FileStoragePort } from '@robota-sdk/dag-adapters-local';
 import { createDagFramework } from '../create-dag-framework.js';
 import { createDefaultNodeRegistrySync } from '@robota-sdk/dag-nodes-default';
 import * as defaultRegistryLoader from '../load-default-node-registry.js';
@@ -95,7 +96,10 @@ describe('default skill discovery boundary', () => {
       providers: [],
       contributionSources,
       skillRoots,
-      paths: { storageRoot: path.join(tmpDir, 'host-skill-storage') },
+      paths: {
+        storageRoot: path.join(tmpDir, 'host-skill-storage'),
+        assetRoot: path.join(tmpDir, 'host-skill-assets'),
+      },
     });
 
     try {
@@ -103,6 +107,57 @@ describe('default skill discovery boundary', () => {
     } finally {
       loader.mockRestore();
       await created.stop();
+    }
+  });
+});
+
+describe('host-owned persistence paths', () => {
+  it('accepts host-supplied storage and asset ports without paths', async () => {
+    const created = await createDagFramework({
+      nodes: [],
+      ports: { storage: framework.internals.storage, assetStore: framework.assets },
+    });
+    try {
+      expect(created.internals.storage).toBe(framework.internals.storage);
+      expect(created.assets).toBe(framework.assets);
+    } finally {
+      await created.stop();
+    }
+  });
+
+  it('stop() leaves a caller-supplied FileStoragePort open', async () => {
+    const storage = new FileStoragePort(path.join(tmpDir, 'caller-storage'));
+    const created = await createDagFramework({
+      nodes: [],
+      ports: { storage, assetStore: framework.assets },
+    });
+    await created.stop();
+    try {
+      await expect(storage.listDagRuns()).resolves.toEqual([]);
+    } finally {
+      await storage.close();
+    }
+  });
+
+  it('refuses to compose storage from the process environment when the host omits its path', async () => {
+    vi.stubEnv('DAG_STORAGE_ROOT', path.join(tmpDir, 'ambient-storage'));
+    try {
+      await expect(
+        createDagFramework({ nodes: [], paths: { assetRoot: path.join(tmpDir, 'assets') } }),
+      ).rejects.toThrow('storageRoot');
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('refuses to compose assets from the process environment when the host omits its path', async () => {
+    vi.stubEnv('ASSET_STORAGE_ROOT', path.join(tmpDir, 'ambient-assets'));
+    try {
+      await expect(
+        createDagFramework({ nodes: [], paths: { storageRoot: path.join(tmpDir, 'storage') } }),
+      ).rejects.toThrow('assetRoot');
+    } finally {
+      vi.unstubAllEnvs();
     }
   });
 });

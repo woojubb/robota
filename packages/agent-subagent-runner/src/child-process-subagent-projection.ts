@@ -104,7 +104,12 @@ export function projectStartPayload(
     request: job.request,
     ...(job.worktree ? { worktree: job.worktree } : {}),
     agentDefinition: encodeAgentDefinition(applyRequestOverrides(definition, job)),
-    parentConfig: projectParentConfig(deps.config),
+    // Issue #3081: the rules the parent's gate enforces now, not its settings file's.
+    parentConfig: projectParentConfig(
+      deps.getParentPermissionRules === undefined
+        ? deps.config
+        : { ...deps.config, permissions: deps.getParentPermissionRules() },
+    ),
     // Issue #2317 narrows to the two members the child reads; ARCH-044 (issue #2047) encodes them.
     parentContext: encodeParentContext(projectParentContext(deps.context)),
     providerProfile: createProviderProfile(options.providerConfig, deps, job),

@@ -22,7 +22,7 @@ import type {
   TToolChoice,
   TToolArgs,
 } from '@robota-sdk/agent-core';
-import type { IHookTypeExecutor, IResponseFormatConfig } from '@robota-sdk/agent-core';
+import type { IHookTypeExecutor, IResponseFormatConfig, IRunTraceContext } from '@robota-sdk/agent-core';
 import type { ICompactEvent, IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
 
 export type { ICompactEvent, TCompactTrigger } from '@robota-sdk/agent-interface-session';
@@ -58,7 +58,7 @@ export interface ISessionOptions {
    */
   cwd: string;
   /** Permission and hook configuration */
-  permissions?: { allow: string[]; deny: string[] };
+  permissions?: { allow: string[]; deny: string[]; ask?: string[] };
   /**
    * ARCH-040 Group C (issue #1934): the permission rules BEFORE any preset contributed.
    *
@@ -203,11 +203,23 @@ export interface ISessionRunOptions {
   driverId?: string;
   /** Run-scoped model tool directive; 'none' remains in force for this turn only. */
   toolChoice?: TToolChoice;
+  /** Host-owned trusted trace context for this turn's provider calls (agent-core `IRunOptions`). */
+  traceContext?: IRunTraceContext;
 }
 
 export interface IProviderCallTraceObservation {
+  readonly callId?: string;
   readonly round: number;
   readonly startedAt: string;
   readonly endedAt: string;
   readonly outcome: 'success' | 'failure' | 'interrupted';
+  readonly disposition?: 'invoked' | 'cache-hit' | 'preflight-refused';
+  readonly providerId?: string;
+  readonly modelId?: string;
+  readonly usageProvenance?: 'complete' | 'partial' | 'absent';
+  readonly promptTokens?: number;
+  readonly completionTokens?: number;
+  readonly totalTokens?: number;
+  /** Present only for an invoked call whose adapter attested one; never fabricated. */
+  readonly providerRequestId?: string;
 }

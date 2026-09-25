@@ -35,6 +35,7 @@ export type { TUserEvent } from './user-events';
 export {
   PROVIDER_CALL_EVENTS,
   TOOL_BODY_EVENTS,
+  TOOL_PERMISSION_EVENTS,
   SPAN_EVENTS,
   SPAN_EVENT_PREFIX,
 } from './span-events';

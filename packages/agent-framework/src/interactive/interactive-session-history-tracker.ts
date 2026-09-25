@@ -36,7 +36,7 @@ import type {
 } from '../context/context-reference-inventory.js';
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 import type { IMemoryEvent, IMemoryReference } from '../memory/automatic-memory-types.js';
-import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
+import type { IWorkspacePolicy } from '../workspace-trust/index.js';
 import type { IHistoryEntry, TUniversalValue } from '@robota-sdk/agent-core';
 import type { IActiveBranchPointer, IBranchEvent } from '@robota-sdk/agent-interface-session';
 export { BRANCH_OPERATION_EVENT_MATRIX } from './session-branch-events.js';
@@ -59,8 +59,7 @@ export class SessionHistoryTracker {
   private skillActivationEvents: ISkillActivationEvent[] = [];
 
   constructor(
-    private readonly cwd: string,
-    private readonly projectAccess: TWorkspaceProjectAccess,
+    private readonly workspace: IWorkspacePolicy,
     private readonly getSessionId: () => string,
     private readonly getExecuting: () => boolean,
     private readonly persistSession: () => void,
@@ -291,7 +290,7 @@ export class SessionHistoryTracker {
   }
 
   recordSystemContextFiles(entries: readonly IContextFileEntry[]): void {
-    this.systemContextReferences = createSystemContextReferenceItems(entries, this.cwd);
+    this.systemContextReferences = createSystemContextReferenceItems(entries, this.workspace.cwd);
   }
 
   listContextReferences(): IContextReferenceItem[] {
@@ -306,8 +305,8 @@ export class SessionHistoryTracker {
     const { references, result } = await addInteractiveContextReference(
       this.contextReferences,
       path,
-      this.projectAccess,
-      this.cwd,
+      this.workspace.projectAccess,
+      this.workspace.cwd,
     );
     this.contextReferences = references;
     this.persistSession();

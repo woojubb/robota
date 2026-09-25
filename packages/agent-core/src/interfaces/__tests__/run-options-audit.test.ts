@@ -33,6 +33,8 @@ const RUN_OPTION_CONSUMERS: Record<keyof Required<IRunOptions>, string> = {
   allowToolOnlyCompletion: 'execution round completion policy (CORE-011)',
   ephemeralSystemContext:
     'execution-round.ts derived providerMessages — transient system block, not persisted (SELFHOST-008 P3)',
+  traceContext:
+    'execution-trace-context.ts resolveProviderCallTraceContext at the round and forced-summary invocation',
   output: 'robota-execution-structured.ts robotaRunStructured (CORE-015)',
   outputRetries: 'robota-execution-structured.ts structured-output retry budget (CORE-015)',
 };

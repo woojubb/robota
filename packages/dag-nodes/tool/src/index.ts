@@ -14,6 +14,7 @@ import { z } from 'zod';
 
 import { resolveContainmentRoot } from './containment.js';
 import { TOOL_FACTORIES, TOOL_NODE_ALLOWED_TOOLS, type FunctionTool } from './tool-factories.js';
+import { GrepIsolationError, ReadByteLimitError, ReadCancelledError } from '@robota-sdk/agent-tools';
 
 export { TOOL_NODE_ALLOWED_TOOLS } from './tool-factories.js';
 
@@ -142,6 +143,41 @@ async function runBuiltin(
     );
     return { ok: true, value: out.toOutput() };
   } catch (err) {
+    if (err instanceof GrepIsolationError) {
+      return {
+        ok: false,
+        error: buildTaskExecutionError(
+          err.reason === 'limit'
+            ? 'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED'
+            : 'DAG_TASK_EXECUTION_GREP_ISOLATION_FAILED',
+          err.message,
+          false,
+          { toolName, reason: err.reason },
+        ),
+      };
+    }
+    if (err instanceof ReadByteLimitError) {
+      return {
+        ok: false,
+        error: buildTaskExecutionError(
+          'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED',
+          err.message,
+          false,
+          { toolName, boundary: err.boundary },
+        ),
+      };
+    }
+    if (err instanceof ReadCancelledError) {
+      return {
+        ok: false,
+        error: buildTaskExecutionError(
+          'DAG_TASK_EXECUTION_CANCELLED',
+          err.message,
+          false,
+          { toolName },
+        ),
+      };
+    }
     // allow-fallback: a thrown ValidationError/ToolExecutionError is a hard node failure
     const message = err instanceof Error ? err.message : String(err);
     return {
@@ -212,7 +248,7 @@ export class ToolNodeDefinition extends AbstractNodeDefinition<typeof ToolNodeCo
     if (!rootResult.ok) return rootResult;
 
     const merged = { ...config.params, ...paramsResult.value };
-    const tool = factory({ cwd: rootResult.value });
+    const tool = factory({ cwd: rootResult.value, signal: context.signal });
     return runBuiltin(tool, merged, config.toolName, context.nodeDefinition.nodeId);
   }
 }

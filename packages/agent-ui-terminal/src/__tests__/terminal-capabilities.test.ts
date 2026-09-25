@@ -77,14 +77,21 @@ describe('supportsImeCursorPositioning (CLI-062)', () => {
     setTty(true);
     vi.stubEnv('TERM_PROGRAM', 'Apple_Terminal');
     vi.stubEnv('ROBOTA_IME_CURSOR', '1');
-    expect(supportsImeCursorPositioning()).toBe(true);
+    expect(supportsImeCursorPositioning({ override: true })).toBe(true);
+  });
+
+  it('ignores an ambient Robota override without a host choice', () => {
+    setTty(true);
+    vi.stubEnv('TERM_PROGRAM', 'Apple_Terminal');
+    vi.stubEnv('ROBOTA_IME_CURSOR', '1');
+    expect(supportsImeCursorPositioning()).toBe(false);
   });
 
   it('ROBOTA_IME_CURSOR=0 is a kill switch even on a capable terminal', () => {
     setTty(true);
     vi.stubEnv('TERM_PROGRAM', undefined);
     vi.stubEnv('ROBOTA_IME_CURSOR', '0');
-    expect(supportsImeCursorPositioning()).toBe(false);
+    expect(supportsImeCursorPositioning({ override: false })).toBe(false);
   });
 });
 
@@ -117,7 +124,11 @@ describe('CLI-062 terminal matrix — supportsImeCursorPositioning per terminal'
         for (const [key, value] of Object.entries(profile.env)) vi.stubEnv(key, value);
         vi.stubEnv('ROBOTA_IME_CURSOR', override);
 
-        expect(supportsImeCursorPositioning()).toBe(expected);
+        expect(
+          supportsImeCursorPositioning({
+            override: override === '1' ? true : override === '0' ? false : undefined,
+          }),
+        ).toBe(expected);
       });
     }
   }

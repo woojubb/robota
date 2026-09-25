@@ -15,8 +15,11 @@ import { writeScreenReaderAnnouncement } from './screen-reader-announcement.js';
 import { ScreenReaderProvider } from './screen-reader-context.js';
 import { ScreenReaderPacingProvider } from './screen-reader-pacing-context.js';
 import { awaitStartupQuietPeriod, resolvePacing } from './screen-reader-pacing.js';
+import type { IScreenReaderPacingOverrides } from './screen-reader-pacing.js';
 import { createParkedStdout, toPacingPort } from './screen-reader-stdout.js';
 import { isInteractiveColorTerminal, supportsFocusReporting } from './terminal-capabilities.js';
+import { TerminalCapabilitiesProvider } from './terminal-capabilities-context.js';
+import type { ITerminalCapabilityOverrides } from './terminal-capabilities-context.js';
 import { createFocusReportingWriter } from './terminal-focus-reporting.js';
 import { TerminalHandoffController } from './terminal-handoff-controller.js';
 import { TuiInteractionChannel } from './TuiInteractionChannel.js';
@@ -57,6 +60,7 @@ import type {
   INodeHostSettingsSource,
   IToolCallHandoffPolicy,
   ICreateSessionOptions,
+  ILivePromptTracePort,
 } from '@robota-sdk/agent-framework';
 import type { TReducedMotionOverride } from '@robota-sdk/agent-interface-command';
 import type {
@@ -67,10 +71,12 @@ import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transpo
 
 export interface IRenderOptions {
   cwd: string;
+  livePromptTrace?: ILivePromptTracePort;
   /** Product identity for terminal labels, title, and host-facing copy. */
   productDisplayName?: string;
   modelCommandToolPrefix?: string;
   subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
+  observerFailureWarningCode?: ICreateSessionOptions['observerFailureWarningCode'];
   commandHookShell?: string;
   promptFileReferenceTag?: string;
   provider: IAIProvider;
@@ -134,6 +140,8 @@ export interface IRenderOptions {
   /** Where that text came from; `external-link` renders the provenance notice. */
   initialInputOrigin?: 'external-link';
   forkSession?: boolean;
+  /** Issue #3081: the startup session is the target of a `/cd` from this directory. */
+  workspaceMovedFrom?: string;
   sessionName?: string;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   /** MCP-004: the tool-call handoff policy the composition root computed for this runtime. */
@@ -193,6 +201,10 @@ export interface IRenderOptions {
    * today's byte stream is unchanged.
    */
   screenReader?: boolean | undefined;
+  /** Host-selected raw timing overrides; absent values use the renderer's defaults. */
+  screenReaderPacing?: IScreenReaderPacingOverrides;
+  /** Host-selected cursor and turn-mark overrides; absent values use terminal detection. */
+  terminalCapabilities?: ITerminalCapabilityOverrides;
   /** CLI-2004: which input turned the mode on — printed in the confirmation line. */
   screenReaderChannel?: TScreenReaderChannel | undefined;
   /** CLI-2004: mode off, but the environment suggests a reader is running ⇒ one advisory line. */
@@ -231,6 +243,7 @@ export function toChannelOptions(
 ): ConstructorParameters<typeof TuiInteractionChannel>[0] {
   return {
     cwd: options.cwd,
+    ...(options.livePromptTrace ? { livePromptTrace: options.livePromptTrace } : {}),
     provider: options.provider,
     ...(options.providerErrorGuidance !== undefined
       ? { providerErrorGuidance: options.providerErrorGuidance }
@@ -243,6 +256,9 @@ export function toChannelOptions(
       : {}),
     ...(options.subagentHookEnvironmentNames !== undefined
       ? { subagentHookEnvironmentNames: options.subagentHookEnvironmentNames }
+      : {}),
+    ...(options.observerFailureWarningCode !== undefined
+      ? { observerFailureWarningCode: options.observerFailureWarningCode }
       : {}),
     ...(options.commandHookShell !== undefined
       ? { commandHookShell: options.commandHookShell }
@@ -373,7 +389,7 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
     channel: options.screenReaderChannel,
     hint: options.screenReaderHint,
   });
-  const pacing = resolvePacing({ enabled: screenReader });
+  const pacing = resolvePacing({ enabled: screenReader, overrides: options.screenReaderPacing });
   // SCREEN-2670: the pre-write park. Constructed only when the mode is on AND the interval is
   // non-zero, so with the mode off `stdout` is not passed at all and Ink defaults to
   // `process.stdout` — the object it keys its instance map by — exactly as today.
@@ -415,9 +431,15 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
   // Concrete framework creation has one composition boundary. React receives only the bounded port;
   // App owns which narrowed channel is active, while each channel owns its own lifecycle.
   let activeChannel: ITuiAppChannelPort | undefined;
+  // Issue #3081: the move is announced by the FIRST session only — a later switch to another
+  // session (a `/fork` attach) did not move anywhere.
+  let pendingWorkspaceMovedFrom = options.workspaceMovedFrom;
   const createChannel = (resumeSessionId?: string): ITuiAppChannelPort => {
+    const workspaceMovedFrom = pendingWorkspaceMovedFrom;
+    pendingWorkspaceMovedFrom = undefined;
     const channel = new TuiInteractionChannel({
       ...toChannelOptions(options, resumeSessionId),
+      ...(workspaceMovedFrom !== undefined ? { workspaceMovedFrom } : {}),
       terminalHandoff: handoffController,
       attention,
     });
@@ -454,29 +476,31 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
     >
       <KeybindingsProvider source={options.keybindingsSource}>
         <ScreenReaderProvider enabled={screenReader}>
-          <App
-            cwd={options.cwd}
-            createChannel={createChannel}
-            providerOverride={options.providerOverride}
-            providerType={options.providerType}
-            modelId={options.modelId}
-            permissionMode={options.permissionMode}
-            version={options.version}
-            sessionStore={options.sessionStore}
-            resumeSessionId={options.resumeSessionId}
-            showSessionPickerOnStart={options.showSessionPickerOnStart}
-            initialInput={options.initialInput}
-            initialInputOrigin={options.initialInputOrigin}
-            startupUpdateNotice={options.startupUpdateNotice}
-            transportRegistry={options.transportRegistry}
-            pluginAdapter={options.commandHostAdapters?.plugin}
-            cliAdapter={options.cliAdapter}
-            promptHistorySource={options.promptHistorySource}
-            promptHistoryProject={options.promptHistoryProject}
-            themeRegistry={options.themeRegistry}
-            reducedMotion={options.reducedMotion}
-            reducedMotionOverride={options.reducedMotionOverride}
-          />
+          <TerminalCapabilitiesProvider overrides={options.terminalCapabilities}>
+            <App
+              cwd={options.cwd}
+              createChannel={createChannel}
+              providerOverride={options.providerOverride}
+              providerType={options.providerType}
+              modelId={options.modelId}
+              permissionMode={options.permissionMode}
+              version={options.version}
+              sessionStore={options.sessionStore}
+              resumeSessionId={options.resumeSessionId}
+              showSessionPickerOnStart={options.showSessionPickerOnStart}
+              initialInput={options.initialInput}
+              initialInputOrigin={options.initialInputOrigin}
+              startupUpdateNotice={options.startupUpdateNotice}
+              transportRegistry={options.transportRegistry}
+              pluginAdapter={options.commandHostAdapters?.plugin}
+              cliAdapter={options.cliAdapter}
+              promptHistorySource={options.promptHistorySource}
+              promptHistoryProject={options.promptHistoryProject}
+              themeRegistry={options.themeRegistry}
+              reducedMotion={options.reducedMotion}
+              reducedMotionOverride={options.reducedMotionOverride}
+            />
+          </TerminalCapabilitiesProvider>
         </ScreenReaderProvider>
       </KeybindingsProvider>
     </ProductDisplayNameProvider>

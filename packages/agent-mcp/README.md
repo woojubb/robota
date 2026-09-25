@@ -21,6 +21,9 @@ See [`docs/SPEC.md`](docs/SPEC.md) for the package contract.
 Admit a transport, open a session inside a connection supervisor, discover the server, build the
 catalog, and expose a discovered tool to the runtime:
 
+`openMcpSession()` identifies itself as `mcp-client` unless the host supplies `clientInfo`. Hosts
+that previously relied on the implicit `robota-agent-mcp` name can pass that name explicitly.
+
 ```ts
 import {
   createStreamableHttpAdapter,

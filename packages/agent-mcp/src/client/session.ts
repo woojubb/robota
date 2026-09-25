@@ -24,13 +24,14 @@ import { z } from 'zod/v4';
 
 import { discoverAll } from './discovery.js';
 import { MCPStdioError } from './stdio-transport.js';
+import { callTraceRegistryOf, runInCallTraceScope } from './trace-propagation.js';
 import { MCPDiscoveryError } from '../catalog/types.js';
 import { toUniversalObject } from '../catalog/universal-value.js';
 
 import type { IMCPDiscovery, IMCPServerIdentity, TMCPCapabilityDomain } from '../catalog/types.js';
 import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import type { Implementation, ServerCapabilities } from '@modelcontextprotocol/sdk/types.js';
-import type { IUniversalObjectValue, TToolParameters } from '@robota-sdk/agent-core';
+import type { IOutboundTraceContext, IUniversalObjectValue, TToolParameters } from '@robota-sdk/agent-core';
 import type { IMCPDiscoverOptions } from './session-types.js';
 
 /** Protocol versions this legacy-era client accepts. A server answering outside the set is closed, not used. */
@@ -46,6 +47,16 @@ export interface IMCPSessionTimeouts {
   readonly startupMs: number;
   /** Budget for each list / call request. */
   readonly perCallMs: number;
+}
+
+export interface IMCPToolCallOptions {
+  readonly signal?: AbortSignal;
+  readonly timeoutMs?: number;
+  /**
+   * The calling tool body's trusted trace context. Sent as `traceparent` only on this call's own
+   * `tools/call` request and its cancellation, only over HTTP, and only to an exactly listed origin.
+   */
+  readonly outboundTraceContext?: IOutboundTraceContext;
 }
 
 export interface IMCPToolCallResult {
@@ -99,7 +110,7 @@ export interface IMCPSession {
   callTool(
     name: string,
     args: TToolParameters,
-    options?: { readonly signal?: AbortSignal; readonly timeoutMs?: number },
+    options?: IMCPToolCallOptions,
   ): Promise<IMCPToolCallResult>;
   /** Subscribe to `list_changed`; returns an unsubscribe. */
   onListChanged(listener: TMCPListChangedListener): () => void;
@@ -133,7 +144,7 @@ export class MCPSessionError extends Error {
   }
 }
 
-const DEFAULT_CLIENT_INFO = { name: 'robota-agent-mcp', version: '0.0.0' } as const;
+const DEFAULT_CLIENT_INFO = { name: 'mcp-client', version: '0.0.0' } as const;
 
 /** Feature-detects the negotiated protocol version the SDK stamped onto the transport at connect(). */
 function readNegotiatedProtocolVersion(transport: Transport): string | undefined {
@@ -337,6 +348,7 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
   const declaredCapabilities = buildDeclaredCapabilities(client.getServerCapabilities());
   const externalEventsDeclared = supportsExternalEvents(client.getServerCapabilities());
 
+  const callTraces = callTraceRegistryOf(options.transport);
   const listeners = new Set<TMCPListChangedListener>();
   const externalEventListeners = new Set<TMCPExternalEventListener>();
   const closeListeners = new Set<() => void>();
@@ -416,13 +428,20 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
     async callTool(
       name: string,
       args: TToolParameters,
-      callOptions?: { readonly signal?: AbortSignal; readonly timeoutMs?: number },
+      callOptions?: IMCPToolCallOptions,
     ): Promise<IMCPToolCallResult> {
-      try {
-        const raw = await client.callTool({ name, arguments: args }, undefined, {
+      const call = () =>
+        client.callTool({ name, arguments: args }, undefined, {
           timeout: callOptions?.timeoutMs,
           signal: callOptions?.signal,
         });
+      const outboundTraceContext = callOptions?.outboundTraceContext;
+      const traceScope =
+        callTraces !== undefined && outboundTraceContext !== undefined
+          ? { outbound: outboundTraceContext }
+          : undefined;
+      try {
+        const raw = traceScope ? await runInCallTraceScope(traceScope, call) : await call();
         return toToolCallResult(raw);
       } catch (error) {
         if (sensitiveTransport(options.transport)) {
@@ -434,6 +453,8 @@ export async function openMcpSession(options: IMCPOpenSessionOptions): Promise<I
           throw new MCPStdioError('send');
         }
         throw error;
+      } finally {
+        if (traceScope) callTraces?.release(traceScope);
       }
     },
     onListChanged(listener: TMCPListChangedListener): () => void {

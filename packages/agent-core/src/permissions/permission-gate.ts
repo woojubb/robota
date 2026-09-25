@@ -1,24 +1,37 @@
 /**
  * Permission gate — evaluates whether a tool call is auto-approved, needs user approval, or denied.
  *
- * Deterministic policy, in order of precedence:
+ * ONE ordered policy for every caller class (issue #3081): the interactive session, background
+ * tasks and subagents differ only in the context they pass, never in the order.
+ *
  * 1. Deny list match → deny
- * 2. Deny list UNEVALUABLE (CORE-030) → approve (prompt), or deny in plan mode
- * 3. Allow list match → auto
- * 4. Mode policy lookup
+ * 2. Outside the caller's ceiling → deny, in every mode
+ * 3. Deny list UNEVALUABLE (CORE-030) → ask
+ * 4. Never-auto-approve set → ask, in every mode: an ask rule, a critical-path removal, a
+ *    modify-class call on a protected path
+ * 5. The caller asks about everything → ask
+ * 6. bypassPermissions → auto
+ * 7. Allow list match → auto
+ * 8. Mode policy lookup
+ *
+ * In plan mode an ask about anything but an inspect-class call is a deny.
  *
  * Pattern syntax (same as Claude Code):
  * - `Bash(pnpm *)` — Bash tool whose command starts with "pnpm "
  * - `Read(/src/**)` — Read tool whose filePath is under /src/
  * - `Write(*)`      — Write tool with any argument
  * - `ToolName`      — match any invocation of that tool
+ * - `Bash(run_in_background:true)` — deny/ask only: a named top-level parameter's value
+ * - `github__*`     — a glob in the tool-name position (allow only after a literal `<server>__`)
  */
 
 import { globToRegex, matchCommand, matchPath, matchUrl } from './argument-matchers.js';
 import { RISK_CLASS_POLICY, UNCLASSIFIED_TOOL_FALLBACK } from './permission-mode.js';
+import { isProtectedPath, removesCriticalPath } from './permission-safeguards.js';
 
 import type { TArgumentKind, TMatchDirection, TPatternMatch } from './argument-matchers.js';
 import type { TToolRiskClass } from './permission-mode.js';
+import type { ICriticalPathContext } from './permission-safeguards.js';
 import type { TPermissionMode, TPermissionDecision } from './types.js';
 
 /**
@@ -28,12 +41,25 @@ import type { TPermissionMode, TPermissionDecision } from './types.js';
 export type TToolArgs = Record<string, string | number | boolean | object>;
 
 /**
- * Permission list entries (allow / deny).
+ * Permission list entries (allow / deny / ask).
  * Each entry is a pattern string such as "Bash(pnpm *)" or "Read(/src/**)".
  */
 export interface IPermissionLists {
-  allow?: string[];
-  deny?: string[];
+  allow?: readonly string[];
+  deny?: readonly string[];
+  /** Calls that always ask, in every mode including bypassPermissions. */
+  ask?: readonly string[];
+}
+
+/** What the caller adds to the rules: where it runs, and how far it may go. */
+export interface IPermissionEvaluationContext extends ICriticalPathContext {
+  /**
+   * The most this caller may do. A call no pattern here matches is denied in every mode, bypass
+   * included. Absent means no ceiling; an empty list denies everything.
+   */
+  ceiling?: readonly string[];
+  /** Every call that is not denied asks, whatever the mode or allow list says. */
+  askAll?: boolean;
 }
 
 /**
@@ -95,6 +121,13 @@ export interface IToolPermissionProfile {
    * call and is refused in plan mode.
    */
   riskClass?: TToolRiskClass;
+  /**
+   * The tool's top-level input parameter names. `Tool(name:value)` is a parameter rule only when
+   * `name` is one of these — keyed on the schema, not the text's shape, so `WebFetch(https://…)`
+   * stays a URL pattern. Declared by whoever holds the schema (the session registers every tool it
+   * wraps, MCP tools included).
+   */
+  parameters?: readonly string[];
 }
 
 /** Profiles contributed by the packages that own the tools. */
@@ -126,6 +159,59 @@ export function clearRegisteredToolProfiles(): void {
 /** What has been declared about a tool, or an empty profile when nobody has said anything. */
 export function getToolPermissionProfile(toolName: string): IToolPermissionProfile {
   return toolProfiles.get(toolName) ?? {};
+}
+
+/** Whether a pattern's tool-name part names this tool: exact, or a `*` glob over the name. */
+export function toolNameMatches(patternName: string, toolName: string): boolean {
+  return patternName.includes('*') ? globToRegex(patternName).test(toolName) : patternName === toolName;
+}
+
+/** A `name:value` argument pattern that names one of the tool's parameters. */
+export interface IParameterRule {
+  name: string;
+  value: string;
+}
+
+/**
+ * Read an argument pattern as a parameter rule. `'primary'` when it names the tool's primary field
+ * — that field is matched by the ordinary `Tool(pattern)` form, and a rule written against it is
+ * refused rather than silently ignored. `undefined` when it is an ordinary argument pattern.
+ */
+export function parseParameterRule(
+  toolName: string,
+  argPattern: string,
+): IParameterRule | 'primary' | undefined {
+  const match = /^([A-Za-z_]\w*):([\s\S]*)$/.exec(argPattern);
+  if (match === null) return undefined;
+  const name = match[1]!;
+  const profile = toolProfiles.get(toolName);
+  if (profile?.argument?.key === name) return 'primary';
+  if (profile?.parameters?.includes(name) !== true) return undefined;
+  return { name, value: match[2]! };
+}
+
+/** A parameter's value against the rule's glob, compared as the model sent it (issue #3081). */
+function matchParameter(rule: IParameterRule, args: TToolArgs): TPatternMatch {
+  if (!Object.prototype.hasOwnProperty.call(args, rule.name)) return 'no-match';
+  const value: unknown = args[rule.name];
+  if (value === undefined) return 'no-match';
+  if (typeof value !== 'string' && typeof value !== 'number' && typeof value !== 'boolean') {
+    return 'unevaluable';
+  }
+  return globToRegex(rule.value).test(String(value)) ? 'match' : 'no-match';
+}
+
+/**
+ * Whether a deny list removes this tool outright — a bare name, `Tool(*)` or `Tool(**)`, glob names
+ * included. Such a tool is withheld from the model entirely rather than offered and then refused.
+ */
+export function isToolDeniedOutright(toolName: string, deny: readonly string[]): boolean {
+  return deny.some((pattern) => {
+    const parsed = parsePattern(pattern);
+    const bare =
+      parsed.argPattern === undefined || parsed.argPattern === '*' || parsed.argPattern === '**';
+    return bare && toolNameMatches(parsed.toolName, toolName);
+  });
 }
 
 /** Which argument a pattern is matched against, or `undefined` when nobody has said. */
@@ -196,8 +282,8 @@ function evaluateArgumentPattern(
 ): TPatternMatch {
   const parsed = parsePattern(pattern);
 
-  // Tool name must match (case-sensitive)
-  if (parsed.toolName !== toolName) {
+  // Tool name must match (case-sensitive), exactly or by a name glob.
+  if (!toolNameMatches(parsed.toolName, toolName)) {
     return 'no-match';
   }
 
@@ -205,6 +291,13 @@ function evaluateArgumentPattern(
   // and whether or not it declared an argument: `Tool(*)` names none.
   if (parsed.argPattern === undefined || parsed.argPattern === '*' || parsed.argPattern === '**') {
     return 'match';
+  }
+
+  // A named parameter (issue #3081). Deny and ask only: in an allow list it never widens anything.
+  const parameterRule = parseParameterRule(toolName, parsed.argPattern);
+  if (parameterRule === 'primary') return 'unevaluable';
+  if (parameterRule !== undefined) {
+    return direction === 'deny' ? matchParameter(parameterRule, args) : 'no-match';
   }
 
   // Nobody declared which argument this pattern is about (CORE-030)
@@ -236,46 +329,117 @@ function evaluateArgumentPattern(
   }
 }
 
+/** Whether a call belongs to the never-auto-approve set beyond explicit ask rules. */
+function isNeverAutoApproved(
+  toolName: string,
+  toolArgs: TToolArgs,
+  context: ICriticalPathContext,
+): boolean {
+  const profile = toolProfiles.get(toolName);
+  const argument = profile?.argument;
+  if (argument === undefined) return false;
+  const value = toolArgs[argument.key];
+  if (typeof value !== 'string') return false;
+  if (argument.kind === 'command') return removesCriticalPath(value, context);
+  if (argument.kind === 'path' && profile?.riskClass === 'modify') return isProtectedPath(value);
+  return false;
+}
+
+/** An ask rule matches the call, or cannot be evaluated for it, or the call is in the never-auto set. */
+function isMandatoryAsk(
+  toolName: string,
+  toolArgs: TToolArgs,
+  ask: readonly string[],
+  context: ICriticalPathContext,
+): boolean {
+  return (
+    matchesAnyPattern(toolName, toolArgs, ask, 'deny') ||
+    hasUnevaluableArgumentPattern(toolName, toolArgs, ask) ||
+    isNeverAutoApproved(toolName, toolArgs, context)
+  );
+}
+
+/**
+ * Whether an ask about this call must reach a person EVERY time — never answered by a consent the
+ * session or project remembered from an earlier call. A remembered scope is wide (`Bash(rm *)`
+ * from one `rm -rf build`); honouring it here would let one approval stand in for every later
+ * critical-path removal, protected write or ask-rule call (issue #3081).
+ */
+export function requiresFreshApproval(
+  toolName: string,
+  toolArgs: TToolArgs,
+  permissions: IPermissionLists = {},
+  context: ICriticalPathContext = {},
+): boolean {
+  return (
+    hasUnevaluableArgumentPattern(toolName, toolArgs, permissions.deny ?? []) ||
+    isMandatoryAsk(toolName, toolArgs, permissions.ask ?? [], context)
+  );
+}
+
 /**
  * Evaluate whether a tool invocation should be auto-approved, require user approval, or be denied.
  *
- * @param toolName   Name of the tool being invoked (e.g. "Bash", "Write")
- * @param toolArgs   Arguments provided by the LLM
- * @param mode       Active permission mode
- * @param permissions Optional allow/deny lists from config
+ * @param toolName    Name of the tool being invoked (e.g. "Bash", "Write")
+ * @param toolArgs    Arguments provided by the LLM
+ * @param mode        Active permission mode
+ * @param permissions Allow/deny/ask lists from config
+ * @param context     The caller's execution root, home directory, ceiling and ask-everything flag
  */
 export function evaluatePermission(
   toolName: string,
   toolArgs: TToolArgs,
   mode: TPermissionMode,
   permissions: IPermissionLists = {},
+  context: IPermissionEvaluationContext = {},
 ): TPermissionDecision {
-  const { allow = [], deny = [] } = permissions;
+  const { allow = [], deny = [], ask = [] } = permissions;
+  const riskClass = toolProfiles.get(toolName)?.riskClass;
+  // Plan mode's promise is "change nothing": an ask about anything that could change something is
+  // a refusal there, and only an inspect-class call may still reach a person.
+  const askDecision: TPermissionDecision =
+    mode === 'plan' && riskClass !== 'inspect' ? 'deny' : 'approve';
 
-  // Step 1: deny list — if any deny pattern matches, block immediately
+  // 1. A matching deny blocks immediately.
   if (matchesAnyPattern(toolName, toolArgs, deny, 'deny')) {
     return 'deny';
   }
 
-  // CORE-030: a deny the gate could not EVALUATE is not a deny that did not match. When the
-  // argument a pattern is scoped to is unknowable for this tool, the previous code answered "not
-  // denied" and — in `default` and `acceptEdits` — went on to AUTO-approve. The operator wrote a
-  // deny and got an approval.
-  //
-  // `'approve'` in this vocabulary means "ask the user", which is the right answer here: refusing
-  // outright would break a legitimate invocation the pattern was never about, and auto-approving is
-  // what this exists to stop. `plan` mode still denies, matching its fallback.
+  // 2. The caller's ceiling only narrows. It is checked before bypass, so a background task or
+  //    subagent under a permissive mode still cannot reach past what it was given (CORE-025).
+  if (context.ceiling !== undefined && !matchesAnyPattern(toolName, toolArgs, context.ceiling)) {
+    return 'deny';
+  }
+
+  // 3. CORE-030: a deny the gate could not EVALUATE is not a deny that did not match. Asking is
+  //    the answer: refusing outright would break a call the pattern was never about, and
+  //    auto-approving is what this exists to stop. Plan mode refuses.
   if (hasUnevaluableArgumentPattern(toolName, toolArgs, deny)) {
     return mode === 'plan' ? 'deny' : 'approve';
   }
 
-  // Step 2: allow list — if any allow pattern matches, auto-approve
+  // 4. The never-auto-approve set holds in every mode, bypass included. An ask rule is read in
+  //    the deny direction, and one it cannot evaluate asks too: both are "stop and ask".
+  if (isMandatoryAsk(toolName, toolArgs, ask, context)) {
+    return askDecision;
+  }
+
+  // 5. The caller routes every remaining call to a person.
+  if (context.askAll === true) {
+    return askDecision;
+  }
+
+  // 6. Bypass proceeds with everything the steps above let through; allow rules add nothing.
+  if (mode === 'bypassPermissions') {
+    return 'auto';
+  }
+
+  // 7. Allow list.
   if (matchesAnyPattern(toolName, toolArgs, allow)) {
     return 'auto';
   }
 
-  // Step 3: what the mode says about this KIND of action, which is the only thing it decides.
-  const riskClass = toolProfiles.get(toolName)?.riskClass;
+  // 8. What the mode says about this KIND of action, which is the only thing it decides.
   if (riskClass !== undefined) {
     return RISK_CLASS_POLICY[mode][riskClass];
   }

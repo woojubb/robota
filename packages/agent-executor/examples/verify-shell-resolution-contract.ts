@@ -50,7 +50,11 @@ const matrix = [
   },
 ] as const;
 
-function unknownTask(kind: 'process' | 'scheduled'): IBackgroundTaskStart {
+function unknownTask(kind: 'process'): IBackgroundTaskStart<'process'>;
+function unknownTask(kind: 'scheduled'): IBackgroundTaskStart<'scheduled'>;
+function unknownTask(
+  kind: 'process' | 'scheduled',
+): IBackgroundTaskStart<'process'> | IBackgroundTaskStart<'scheduled'> {
   const common = {
     label: `unknown-${kind}`,
     mode: 'background' as const,
@@ -60,10 +64,10 @@ function unknownTask(kind: 'process' | 'scheduled'): IBackgroundTaskStart {
     command: 'must-not-spawn',
     shell: '/opt/unknown-shell',
   };
+  if (kind === 'process') return { taskId: `unknown-${kind}`, request: { ...common, kind } };
   return {
     taskId: `unknown-${kind}`,
-    request:
-      kind === 'process' ? { ...common, kind } : { ...common, kind, cronExpression: '* * * * *' },
+    request: { ...common, kind, cronExpression: '* * * * *' },
   };
 }
 
@@ -80,7 +84,10 @@ async function assertUnknownShellZeroSpawns(): Promise<number> {
       let error: unknown;
       let handle: IBackgroundTaskHandle | undefined;
       try {
-        handle = runner.start(unknownTask(runner.kind === 'process' ? 'process' : 'scheduled'));
+        handle =
+          runner.kind === 'process'
+            ? runner.start(unknownTask('process'))
+            : runner.start(unknownTask('scheduled'));
       } catch (caught) {
         error = caught;
       } finally {

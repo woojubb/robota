@@ -29,9 +29,14 @@ import type { IContextReferenceItem } from '../context/context-reference-invento
 import type { IPromptFileReferenceRecord } from '../context/prompt-file-references.js';
 import type { IProviderErrorGuidance } from '../utils/error-humanizer.js';
 import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
-import type { IHistoryEntry } from '@robota-sdk/agent-core';
-import type { IProviderCallTraceObservation, Session } from '@robota-sdk/agent-session';
-import type { IToolBodyTraceObservation } from './interactive-session-execution.js';
+import type { IHistoryEntry, IRunTraceContext } from '@robota-sdk/agent-core';
+import type { Session } from '@robota-sdk/agent-session';
+import type {
+  ISpanCollectorOptions,
+  IToolBodyTraceObservation,
+  IToolPermissionDecisionObservation,
+  TRawProviderCallTraceObservation,
+} from './interactive-session-execution.js';
 import type { TTurnSource } from '@robota-sdk/agent-interface-session';
 
 /**
@@ -68,6 +73,8 @@ export interface IPromptTurnContext {
    * the stored user message so the transcript attributes it. Display only — never authorization.
    */
   driverId?: string;
+  /** Trusted trace context for this prompt's provider calls; absent unless the host configured it. */
+  traceContext?: IRunTraceContext;
   getSession: () => Session;
   getCwd: () => string;
   getProjectAccess: () => TWorkspaceProjectAccess;
@@ -82,8 +89,12 @@ export interface IPromptTurnContext {
   /** Accumulated streamed text of the in-flight turn (ERR-001: preserved on error). */
   getStreamingText: () => string;
   onComplete: (result: IExecutionResult) => void;
-  onProviderCallCompleted?: (observation: IProviderCallTraceObservation) => void;
+  onProviderCallCompleted?: (observation: TRawProviderCallTraceObservation) => void;
   onToolBodyCompleted?: (observation: IToolBodyTraceObservation) => void;
+  onToolPermissionDecided?: (observation: IToolPermissionDecisionObservation) => void;
+  /** Synchronous, per event: which tool calls reached this turn's own collector. */
+  onToolCallObserved?: ISpanCollectorOptions['onToolCallObserved'];
+  onCompletionsOmitted?: (counts: { readonly provider: number; readonly tool: number; readonly permission: number }) => void;
   onInterrupted: (result: IExecutionResult) => void;
   onError: (err: Error) => void;
   onContextUpdate: () => void;
@@ -112,7 +123,10 @@ export async function executePromptTurn(
 
   // SELFHOST-004 (P6): collect the per-operation span events tools emit during this turn's run, so
   // they can be projected onto history under the owning turn (drained just before its usage-summary).
-  const spanCollector = collectSpanEntries(ctx.getSession().getEventService());
+  const spanCollector = collectSpanEntries(
+    ctx.getSession().getEventService(),
+    ctx.onToolCallObserved ? { onToolCallObserved: ctx.onToolCallObserved } : {},
+  );
 
   try {
     ctx.signal?.throwIfAborted();
@@ -140,6 +154,7 @@ export async function executePromptTurn(
         ? { ephemeralSystemContext: ctx.ephemeralSystemContext }
         : {}),
       ...(ctx.driverId !== undefined ? { driverId: ctx.driverId } : {}),
+      ...(ctx.traceContext !== undefined ? { traceContext: ctx.traceContext } : {}),
       ...(ctx.turnSource === 'external' ? { toolChoice: 'none' as const } : {}),
     };
     const response =
@@ -159,6 +174,7 @@ export async function executePromptTurn(
       ctx.getSession().getContextState(),
       preparedPrompt.promptFileReferenceRecords,
       ctx.getSession().getModelId(),
+      spanCollector.providerCalls,
     );
     history.push(messageToHistoryEntry(createAssistantMessage(result.response)));
     // SELFHOST-004: drain the turn's spans immediately BEFORE its usage-summary — the usage-summary is
@@ -180,6 +196,7 @@ export async function executePromptTurn(
         historyBefore,
         ctx.getSession().getContextState(),
         ctx.getSession().getModelId(),
+        spanCollector.providerCalls,
       );
       pushToolSummaryToHistory({ activeTools: ctx.getActiveTools(), history });
       ctx.clearStreaming();
@@ -215,12 +232,12 @@ export async function executePromptTurn(
       ctx.onError(errObj);
     }
   } finally {
-    for (const observation of spanCollector.providerCalls) {
-      ctx.onProviderCallCompleted?.(observation);
+    for (const completion of spanCollector.completions) {
+      if (completion.kind === 'provider') ctx.onProviderCallCompleted?.(completion.observation);
+      else if (completion.kind === 'tool') ctx.onToolBodyCompleted?.(completion.observation);
+      else ctx.onToolPermissionDecided?.(completion.observation);
     }
-    for (const observation of spanCollector.toolBodies) {
-      ctx.onToolBodyCompleted?.(observation);
-    }
+    ctx.onCompletionsOmitted?.(spanCollector.omittedCompletions);
     // SELFHOST-004: always unsubscribe the span collector so a completed turn leaves no listener.
     spanCollector.dispose();
   }

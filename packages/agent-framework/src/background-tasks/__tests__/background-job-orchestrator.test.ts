@@ -1,5 +1,5 @@
 import { BackgroundTaskManager } from '@robota-sdk/agent-executor';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   BackgroundJobOrchestrator,
@@ -19,7 +19,7 @@ import type {
 
 interface IControlledTask {
   taskId: string;
-  resolve: (result: IBackgroundTaskResult) => void;
+  resolve: (result: IBackgroundTaskResult<'agent'>) => void;
   reject: (error: Error) => void;
 }
 
@@ -37,13 +37,13 @@ function createAgentRequest(label: string): TBackgroundTaskRequest {
   };
 }
 
-function createControlledRunner(tasks: IControlledTask[]): IBackgroundTaskRunner {
+function createControlledRunner(tasks: IControlledTask[]): IBackgroundTaskRunner<'agent'> {
   return {
     kind: 'agent',
-    start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
-      let resolveResult: (result: IBackgroundTaskResult) => void = () => {};
+    start(task: IBackgroundTaskStart<'agent'>): IBackgroundTaskHandle<'agent'> {
+      let resolveResult: (result: IBackgroundTaskResult<'agent'>) => void = () => {};
       let rejectResult: (error: Error) => void = () => {};
-      const tracked = new Promise<IBackgroundTaskResult>((resolve, reject) => {
+      const tracked = new Promise<IBackgroundTaskResult<'agent'>>((resolve, reject) => {
         resolveResult = resolve;
         rejectResult = reject;
       });
@@ -59,6 +59,27 @@ function createControlledRunner(tasks: IControlledTask[]): IBackgroundTaskRunner
 }
 
 describe('BackgroundJobOrchestrator', () => {
+  it.each([
+    [undefined, 'BACKGROUND_OBSERVER_FAILURE'],
+    ['ACME_BACKGROUND_OBSERVER_FAILURE', 'ACME_BACKGROUND_OBSERVER_FAILURE'],
+  ])('uses warning code %s for a failing group listener', (warningCode, expectedCode) => {
+    const spy = vi.spyOn(process, 'emitWarning').mockImplementation(() => undefined);
+    try {
+      const manager = new BackgroundTaskManager({ runners: [] });
+      const orchestrator = new BackgroundJobOrchestrator({
+        manager,
+        observerFailureWarningCode: warningCode,
+      });
+      orchestrator.subscribe(() => {
+        throw new Error('broken');
+      });
+      orchestrator.createGroup({ parentSessionId: 'parent', waitPolicy: 'manual', taskIds: [] });
+      expect(spy.mock.calls[0]?.[1]).toEqual({ code: expectedCode });
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
   it('completes a wait_all group after every task reaches terminal state', async () => {
     const controlled: IControlledTask[] = [];
     const manager = new BackgroundTaskManager({

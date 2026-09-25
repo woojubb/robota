@@ -159,7 +159,7 @@ describe('/loop command in a real interactive session', () => {
     const timer = harness.session.listSchedules().find(
       (task) => task.metadata?.['sessionLoopId'] === loopId && task.metadata?.['sessionLoopSelfPaced'],
     );
-    expect(timer?.schedule?.cronExpression).toBe(
+    expect(timer?.kind === 'scheduled' ? timer.schedule?.cronExpression : undefined).toBe(
       harness.session.listSelfPacedLoops().find((loop) => loop.loopId === loopId)?.nextAllowedAt,
     );
     const listed = await harness.command('loop', 'list');
@@ -309,7 +309,9 @@ describe('/loop command in a real interactive session', () => {
       firstAllowedAt: string;
     };
     const scheduled = harness.session.listSchedules().find((task) => task.id === taskId);
-    expect(scheduled?.schedule?.agentInstruction).toBe(maintenancePrompt);
+    expect(scheduled?.kind === 'scheduled' ? scheduled.schedule?.agentInstruction : undefined).toBe(
+      maintenancePrompt,
+    );
     expect(scheduled?.metadata?.['sessionLoopExpiresAt']).toBe(expiresAt);
     expect(scheduled?.metadata?.['sessionLoopFirstAllowedAt']).toBe(firstAllowedAt);
 

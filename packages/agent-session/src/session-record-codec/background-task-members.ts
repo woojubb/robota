@@ -6,7 +6,7 @@
  * same members, and one decoder per contract is the property this codec exists to establish.
  */
 
-import { atKey, setOptional } from './decode-outcome.js';
+import { addIssue, atKey, setOptional } from './decode-outcome.js';
 import {
   decodeBackgroundPrimitive,
   decodeBoolean,
@@ -21,9 +21,13 @@ import {
 import type { TDecodeIssues } from './decode-outcome.js';
 import type { ITokenUsage } from '@robota-sdk/agent-core';
 import type {
+  IAgentBackgroundTaskResult,
   IBackgroundTaskError,
   IBackgroundTaskResult,
   IBackgroundTaskSchedule,
+  IProcessBackgroundTaskResult,
+  IScheduledBackgroundTaskResult,
+  IToolInvocationBackgroundTaskResult,
   TBackgroundPrimitive,
   TBackgroundTaskErrorCategory,
   TBackgroundTaskIsolation,
@@ -155,28 +159,59 @@ export function decodeBackgroundTaskResult(
   const kind = decodeLiteral(raw['kind'], TASK_KINDS, atKey(path, 'kind'), issues);
   const output = decodeString(raw['output'], atKey(path, 'output'), issues);
   if (taskId === undefined || kind === undefined || output === undefined) return undefined;
-  const result: IBackgroundTaskResult = { taskId, kind, output };
-  setOptional(
-    result,
-    'exitCode',
-    decodeOptional(raw['exitCode'], atKey(path, 'exitCode'), issues, decodeInteger),
+  const exitCode = decodeOptional(raw['exitCode'], atKey(path, 'exitCode'), issues, decodeInteger);
+  const signalCode = decodeOptional(
+    raw['signalCode'],
+    atKey(path, 'signalCode'),
+    issues,
+    decodeString,
   );
-  setOptional(
-    result,
-    'signalCode',
-    decodeOptional(raw['signalCode'], atKey(path, 'signalCode'), issues, decodeString),
+  const metadata = decodeOptional(
+    raw['metadata'],
+    atKey(path, 'metadata'),
+    issues,
+    decodePrimitiveMap,
   );
-  setOptional(
-    result,
-    'metadata',
-    decodeOptional(raw['metadata'], atKey(path, 'metadata'), issues, decodePrimitiveMap),
-  );
-  setOptional(
-    result,
-    'usage',
-    decodeOptional(raw['usage'], atKey(path, 'usage'), issues, decodeTokenUsage),
-  );
-  return result;
+  const usage = decodeOptional(raw['usage'], atKey(path, 'usage'), issues, decodeTokenUsage);
+  // #2079: `exitCode`/`signalCode` are process-only and `usage` is agent-only — a persisted result
+  // carrying a field outside its own kind is corrupt, reported the same way the #3041 taskId/kind
+  // identity check is: an issue at the offending field's own path, not a thrown error. The switch
+  // below then builds only the fields that belong to the decoded `kind`, so a foreign field never
+  // reaches the returned object even though it was read (and flagged) above.
+  if (kind !== 'process' && exitCode !== undefined) {
+    addIssue(issues, atKey(path, 'exitCode'), `must not be set for a '${kind}' result`);
+  }
+  if (kind !== 'process' && signalCode !== undefined) {
+    addIssue(issues, atKey(path, 'signalCode'), `must not be set for a '${kind}' result`);
+  }
+  if (kind !== 'agent' && usage !== undefined) {
+    addIssue(issues, atKey(path, 'usage'), `must not be set for a '${kind}' result`);
+  }
+  switch (kind) {
+    case 'process': {
+      const result: IProcessBackgroundTaskResult = { taskId, kind, output };
+      setOptional(result, 'exitCode', exitCode);
+      setOptional(result, 'signalCode', signalCode);
+      setOptional(result, 'metadata', metadata);
+      return result;
+    }
+    case 'agent': {
+      const result: IAgentBackgroundTaskResult = { taskId, kind, output };
+      setOptional(result, 'metadata', metadata);
+      setOptional(result, 'usage', usage);
+      return result;
+    }
+    case 'scheduled': {
+      const result: IScheduledBackgroundTaskResult = { taskId, kind, output };
+      setOptional(result, 'metadata', metadata);
+      return result;
+    }
+    case 'tool-invocation': {
+      const result: IToolInvocationBackgroundTaskResult = { taskId, kind, output };
+      setOptional(result, 'metadata', metadata);
+      return result;
+    }
+  }
 }
 
 export function decodeBackgroundTaskSchedule(

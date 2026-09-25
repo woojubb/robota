@@ -9,25 +9,120 @@ import {
 } from '../index.js';
 
 import type { IBackgroundJobGroupState } from '../background-job-orchestrator.js';
-import type { IBackgroundTaskState } from '@robota-sdk/agent-interface-execution';
+import type {
+  IAgentBackgroundTaskState,
+  IBackgroundTaskError,
+  IBackgroundTaskResult,
+  IBackgroundTaskSchedule,
+  IBackgroundTaskState,
+  IProcessBackgroundTaskState,
+  IScheduledBackgroundTaskState,
+  IToolInvocationBackgroundTaskState,
+  TBackgroundPrimitive,
+  TBackgroundTaskKind,
+  TBackgroundTaskMode,
+  TBackgroundTaskStatus,
+} from '@robota-sdk/agent-interface-execution';
 
-function createTask(overrides: Partial<IBackgroundTaskState> = {}): IBackgroundTaskState {
-  return {
-    id: 'agent_1',
-    kind: 'agent',
-    label: 'Review',
-    agentType: 'reviewer',
-    status: 'running',
-    mode: 'background',
-    parentSessionId: 'session_parent',
-    depth: 1,
-    cwd: '/workspace',
-    updatedAt: '2026-05-09T00:00:01.000Z',
-    lastActivityAt: '2026-05-09T00:00:02.000Z',
-    unread: false,
-    promptPreview: 'Review the auth module',
-    ...overrides,
+/**
+ * #2079: a plain (non-discriminated) overrides bag for this fixture builder, deliberately looser
+ * than `Partial<IBackgroundTaskState>` — that type distributes over the four kind members, so
+ * merging one instance of it into a single concrete kind (below) does not type-check. Every field a
+ * test in this file overrides is listed; the switch then places each only on the kind it belongs to.
+ */
+interface ITaskOverrides {
+  id?: string;
+  kind?: TBackgroundTaskKind;
+  label?: string;
+  status?: TBackgroundTaskStatus;
+  mode?: TBackgroundTaskMode;
+  parentSessionId?: string;
+  depth?: number;
+  cwd?: string;
+  updatedAt?: string;
+  startedAt?: string;
+  lastActivityAt?: string;
+  completedAt?: string;
+  currentAction?: string;
+  unread?: boolean;
+  logPath?: string;
+  metadata?: Record<string, TBackgroundPrimitive>;
+  error?: IBackgroundTaskError;
+  result?: IBackgroundTaskResult;
+  agentType?: string;
+  promptPreview?: string;
+  commandPreview?: string;
+  nextFireAt?: string;
+  schedule?: IBackgroundTaskSchedule;
+}
+
+function createTask(overrides: ITaskOverrides = {}): IBackgroundTaskState {
+  const base = {
+    id: overrides.id ?? 'agent_1',
+    label: overrides.label ?? 'Review',
+    status: overrides.status ?? 'running',
+    mode: overrides.mode ?? 'background',
+    parentSessionId: overrides.parentSessionId ?? 'session_parent',
+    depth: overrides.depth ?? 1,
+    cwd: overrides.cwd ?? '/workspace',
+    updatedAt: overrides.updatedAt ?? '2026-05-09T00:00:01.000Z',
+    lastActivityAt: overrides.lastActivityAt ?? '2026-05-09T00:00:02.000Z',
+    unread: overrides.unread ?? false,
+    ...(overrides.startedAt !== undefined ? { startedAt: overrides.startedAt } : {}),
+    ...(overrides.completedAt !== undefined ? { completedAt: overrides.completedAt } : {}),
+    ...(overrides.currentAction !== undefined ? { currentAction: overrides.currentAction } : {}),
+    ...(overrides.logPath !== undefined ? { logPath: overrides.logPath } : {}),
+    ...(overrides.metadata !== undefined ? { metadata: overrides.metadata } : {}),
+    ...(overrides.error !== undefined ? { error: overrides.error } : {}),
   };
+  const kind = overrides.kind ?? 'agent';
+  switch (kind) {
+    case 'agent': {
+      const state: IAgentBackgroundTaskState = {
+        ...base,
+        kind: 'agent',
+        agentType: overrides.agentType ?? 'reviewer',
+        promptPreview: overrides.promptPreview ?? 'Review the auth module',
+        ...(overrides.result?.kind === 'agent' ? { result: overrides.result } : {}),
+      };
+      return state;
+    }
+    case 'process': {
+      const state: IProcessBackgroundTaskState = {
+        ...base,
+        kind: 'process',
+        ...(overrides.commandPreview !== undefined
+          ? { commandPreview: overrides.commandPreview }
+          : {}),
+        ...(overrides.result?.kind === 'process' ? { result: overrides.result } : {}),
+      };
+      return state;
+    }
+    case 'scheduled': {
+      const state: IScheduledBackgroundTaskState = {
+        ...base,
+        kind: 'scheduled',
+        ...(overrides.commandPreview !== undefined
+          ? { commandPreview: overrides.commandPreview }
+          : {}),
+        ...(overrides.nextFireAt !== undefined ? { nextFireAt: overrides.nextFireAt } : {}),
+        ...(overrides.schedule !== undefined ? { schedule: overrides.schedule } : {}),
+        ...(overrides.result?.kind === 'scheduled' ? { result: overrides.result } : {}),
+      };
+      return state;
+    }
+    case 'tool-invocation': {
+      const state: IToolInvocationBackgroundTaskState = {
+        ...base,
+        kind: 'tool-invocation',
+        ...(overrides.commandPreview !== undefined
+          ? { commandPreview: overrides.commandPreview }
+          : {}),
+        ...(overrides.result?.kind === 'tool-invocation' ? { result: overrides.result } : {}),
+      };
+      return state;
+    }
+  }
 }
 
 function createGroup(overrides: Partial<IBackgroundJobGroupState> = {}): IBackgroundJobGroupState {
@@ -104,7 +199,7 @@ describe('execution workspace projection', () => {
           status: 'completed',
           unread: false,
           completedAt: '2026-05-09T00:00:04.000Z',
-          result: { taskId: 'agent_1', kind: 'agent', output: 'done', exitCode: 0 },
+          result: { taskId: 'agent_1', kind: 'agent', output: 'done' },
         }),
       ],
     });

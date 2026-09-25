@@ -255,3 +255,43 @@ describe('Tools (ToolManager)', () => {
     });
   });
 });
+
+describe('Tools visibility (issue #3081)', () => {
+  const schema = (name: string): IToolSchema => ({
+    name,
+    description: `${name} tool`,
+    parameters: { type: 'object', properties: {} },
+  });
+
+  it('withholds a hidden tool from the offered set, read live on every call', async () => {
+    const hidden = new Set(['Bash']);
+    const manager = new Tools({
+      resolveToolSearchMode: () => 'off',
+      isToolVisible: (name) => !hidden.has(name),
+    });
+    await manager.initialize();
+    manager.addTool(schema('Read'), async () => 'ok');
+    manager.addTool(schema('Bash'), async () => 'ok');
+
+    expect(manager.getOfferedTools().map((tool) => tool.name)).toEqual(['Read']);
+    hidden.clear();
+    expect(manager.getOfferedTools().map((tool) => tool.name)).toEqual(['Read', 'Bash']);
+    await manager.dispose();
+  });
+});
+
+describe('a hidden tool cannot be loaded by name (issue #3081)', () => {
+  it('loadDeferredTools treats a hidden name as unregistered', async () => {
+    const manager = new Tools({
+      resolveToolSearchMode: () => 'on',
+      isToolVisible: (name) => name !== 'Secret',
+    });
+    await manager.initialize();
+    manager.addTool(
+      { name: 'Secret', description: 'hidden', parameters: { type: 'object', properties: {} }, deferLoading: true },
+      async () => 'ok',
+    );
+    expect(() => manager.loadDeferredTools(['Secret'])).toThrow(/not registered/);
+    await manager.dispose();
+  });
+});

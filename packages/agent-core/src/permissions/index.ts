@@ -8,6 +8,10 @@ export type {
 export { TRUST_TO_MODE, DEFAULT_BACKGROUND_PERMISSION_POLICY } from './types.js';
 export {
   evaluatePermission,
+  requiresFreshApproval,
+  isToolDeniedOutright,
+  toolNameMatches,
+  parseParameterRule,
   matchesAnyPattern,
   registerToolPermissionProfile,
   clearRegisteredToolProfiles,
@@ -20,11 +24,24 @@ export type {
   IToolPermissionArgument,
   TArgumentKind,
   TMatchDirection,
+  IPermissionEvaluationContext,
+  IParameterRule,
 } from './permission-gate.js';
-export { resolvePermissionByPolicy } from './permission-policy.js';
-export { validatePermissionPattern, findInvalidPermissionPatterns } from './pattern-validation.js';
+export { projectPermissionPolicy } from './permission-policy.js';
+export {
+  isProtectedPath,
+  removesCriticalPath,
+  PROTECTED_DIRECTORY_NAMES,
+  PROTECTED_FILE_NAMES,
+} from './permission-safeguards.js';
+export type { ICriticalPathContext } from './permission-safeguards.js';
+export {
+  validatePermissionPattern,
+  findInvalidPermissionPatterns,
+  findPermissionPatternWarnings,
+} from './pattern-validation.js';
 export type { IPermissionPatternProblem } from './pattern-validation.js';
-export type { TPermissionPolicyDecision, IPermissionPolicyContext } from './permission-policy.js';
+export type { IPermissionPolicyContext, IPermissionPolicyProjection } from './permission-policy.js';
 export { RISK_CLASS_POLICY, UNCLASSIFIED_TOOL_FALLBACK } from './permission-mode.js';
 export type { TToolRiskClass } from './permission-mode.js';
 export { applyPresetToolLists, toolNamesToPatterns } from './tool-list-patterns.js';

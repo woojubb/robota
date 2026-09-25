@@ -47,6 +47,8 @@ export interface IParsedCliArgs {
   /** GOAL-001: per-goal turn budget (--goal-max-iterations). */
   goalMaxIterations: number | undefined;
   forkSession: boolean;
+  /** Issue #3081: this run is the target of a `/cd` from this directory (internal flag). */
+  movedFrom?: string;
   sessionName: string | undefined;
   outputFormat: TOutputFormat | undefined;
   format: string | undefined;
@@ -158,6 +160,9 @@ const PARSE_ARGS_CONFIG = {
     goal: { type: 'string' },
     'goal-max-iterations': { type: 'string' },
     'fork-session': { type: 'boolean', default: false },
+    // Issue #3081: set only by `/cd` when it starts the session in the target directory; not in help.
+    'moved-from': { type: 'string' },
+    'restricted-workspace': { type: 'boolean', default: false },
     serve: { type: 'boolean', default: false },
     'supervised-session-id': { type: 'string' },
     'http-token-file': { type: 'string' },
@@ -277,6 +282,7 @@ function mapParsedValues(
     goal: values['goal'],
     goalMaxIterations: parseMaxTurns(values['goal-max-iterations']),
     forkSession: values['fork-session'] ?? false,
+    movedFrom: values['moved-from'],
     sessionName: values['name'],
     outputFormat: parseOutputFormat(values['output-format']),
     format: values['format'],
@@ -379,4 +385,49 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
     return { ...args, permissionMode: 'plan' };
   }
   return args;
+}
+
+/** Flags a `/cd` never carries into the target session: what to resume, and what to run. */
+const WORKSPACE_MOVE_DROPPED_OPTIONS = new Set([
+  'continue',
+  'resume',
+  'fork-session',
+  'moved-from',
+  'restricted-workspace',
+  // What this run was asked to do, not how: a move carries no prompt, task or replay input — and a
+  // path value would be re-read against the target directory. `--name` would rename the copy.
+  'name',
+  'task-file',
+  'session-log',
+  'p',
+  'goal',
+  'goal-max-iterations',
+]);
+
+/**
+ * The argv for the session a `/cd` starts (issue #3081): this run's own flags — provider, model,
+ * permission mode, preset… — minus resume/prompt selection and positional input, plus the resume of
+ * the copied conversation. Tokenised with the same parser config, so a flag's value is never
+ * mistaken for a positional or dropped with it.
+ */
+export function buildWorkspaceMoveArgv(
+  argv: readonly string[],
+  move: { readonly resumeId: string; readonly movedFrom: string; readonly restricted: boolean },
+): string[] {
+  const { tokens } = parseArgs({ ...PARSE_ARGS_CONFIG, args: [...argv], tokens: true });
+  const kept: string[] = [];
+  for (const token of tokens) {
+    if (token.kind === 'positional' || token.kind === 'option-terminator') continue;
+    if (WORKSPACE_MOVE_DROPPED_OPTIONS.has(token.name)) continue;
+    // Inline form: a value that begins with `-` would otherwise read as a flag in the target run.
+    kept.push(token.value === undefined ? `--${token.name}` : `--${token.name}=${token.value}`);
+  }
+  return [
+    ...kept,
+    '--resume',
+    move.resumeId,
+    '--moved-from',
+    move.movedFrom,
+    ...(move.restricted ? ['--restricted-workspace'] : []),
+  ];
 }

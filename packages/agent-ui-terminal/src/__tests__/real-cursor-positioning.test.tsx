@@ -9,8 +9,8 @@
  * input is unfocused (I4), propagate `undefined` on unmount (I4), and the production code must
  * write NOTHING to the real process streams (the PoC row-accounting lesson, I3).
  *
- * `ROBOTA_IME_CURSOR=1` opts the capability gate in explicitly — the vitest process has no TTY,
- * so the default gate would (correctly) refuse; the opt-in is the supported override.
+ * The host override opts the capability gate in explicitly — the vitest process has no TTY,
+ * so the default gate would (correctly) refuse.
  */
 
 import { EventEmitter } from 'node:events';
@@ -22,6 +22,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 
 import { interpretVtStream } from './helpers/vt-cursor-interpreter.js';
 import CjkTextInput from '../CjkTextInput.js';
+import { TerminalCapabilitiesProvider } from '../terminal-capabilities-context.js';
 
 const COLS = 60;
 const ROWS = 24;
@@ -96,10 +97,12 @@ function renderScenario(focus?: boolean, bannerLines?: number): IScenario {
   const stdout = new FakeTtyStdout();
   const stdin = new FakeStdin();
   const instance = render(
-    <Harness
-      {...(focus === undefined ? {} : { focus })}
-      {...(bannerLines === undefined ? {} : { bannerLines })}
-    />,
+    <TerminalCapabilitiesProvider overrides={{ imeCursorPositioning: true }}>
+      <Harness
+        {...(focus === undefined ? {} : { focus })}
+        {...(bannerLines === undefined ? {} : { bannerLines })}
+      />
+    </TerminalCapabilitiesProvider>,
     {
       // Cast: ink wants real process streams; the fakes implement the parts its render loop uses.
       stdout: stdout as unknown as NodeJS.WriteStream,
@@ -121,7 +124,6 @@ describe('CLI-062 — real cursor positioning (interactive ink render)', () => {
   const ORIGINAL_CHALK_LEVEL = chalk.level;
 
   beforeAll(() => {
-    vi.stubEnv('ROBOTA_IME_CURSOR', '1');
     chalk.level = 3; // make the drawn inverse cursor observable in bytes, so suppression is provable
   });
 
@@ -219,13 +221,18 @@ describe('CLI-062 — real cursor positioning (interactive ink render)', () => {
   it('I4: blur withdraws the position (no shows after focus loss) and unmount leaves the cursor visible', async () => {
     const stdout = new FakeTtyStdout();
     const stdin = new FakeStdin();
-    const instance = render(<Harness />, {
-      stdout: stdout as unknown as NodeJS.WriteStream,
-      stdin: stdin as unknown as NodeJS.ReadStream,
-      interactive: true,
-      exitOnCtrlC: false,
-      patchConsole: false,
-    });
+    const instance = render(
+      <TerminalCapabilitiesProvider overrides={{ imeCursorPositioning: true }}>
+        <Harness />
+      </TerminalCapabilitiesProvider>,
+      {
+        stdout: stdout as unknown as NodeJS.WriteStream,
+        stdin: stdin as unknown as NodeJS.ReadStream,
+        interactive: true,
+        exitOnCtrlC: false,
+        patchConsole: false,
+      },
+    );
     await settle();
     stdin.send('안');
     await settle();
@@ -233,7 +240,11 @@ describe('CLI-062 — real cursor positioning (interactive ink render)', () => {
 
     // Blur: the guard fails → setCursorPosition(undefined) → ink hides the hardware cursor and
     // emits NO further positioned shows (the I4 fallback path).
-    instance.rerender(<Harness focus={false} />);
+    instance.rerender(
+      <TerminalCapabilitiesProvider overrides={{ imeCursorPositioning: true }}>
+        <Harness focus={false} />
+      </TerminalCapabilitiesProvider>,
+    );
     await settle();
     const afterBlurMark = stdout.stream().length;
     stdin.send('x'); // ignored — not focused; also must not resurrect the cursor

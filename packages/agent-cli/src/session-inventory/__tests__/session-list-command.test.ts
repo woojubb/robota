@@ -8,7 +8,9 @@ import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framew
 
 import { runPreparsedCliCommand } from '../../startup/preparsed-command-routing.js';
 import { executeSessionListCommand, readLocalPeersForInventory, runSessionListCommand } from '../session-list-command.js';
-import { resolveSupervisedDirectory, startSupervisedControl } from '../supervised-session-control.js';
+import {
+  linkSupervisedPr, parseSupervisedPr, resolveSupervisedDirectory, startSupervisedControl,
+} from '../supervised-session-control.js';
 
 import type {
   IInteractiveSessionRecord,
@@ -52,6 +54,7 @@ describe('read-only local session inventory', () => {
     const previousRuntimeDirectory = process.env['XDG_RUNTIME_DIR'];
     const output = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const id = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
+    let pr = parseSupervisedPr('https://github.com/team/repo/pull/123');
     let control: Awaited<ReturnType<typeof startSupervisedControl>> | undefined;
     try {
       process.env['HOME'] = home;
@@ -59,11 +62,14 @@ describe('read-only local session inventory', () => {
       control = await startSupervisedControl(
         id, () => undefined, resolveSupervisedDirectory(), () => 'needs-input',
         undefined, undefined, () => 'Private session name',
+        undefined, { get: () => pr, set: (value) => { pr = value; } },
       );
+      await linkSupervisedPr(id, 'https://github.com/team/repo/pull/456');
       expect(await runSessionListCommand(['--format', 'text'])).toBe(0);
       const text = output.mock.calls.map(([value]) => String(value)).join('');
       expect(text).toContain(`${id}  liveness alive  control available  activity needs-input`);
       expect(text).not.toContain('Private session name');
+      expect(text).not.toContain('github.com');
       expect(text).not.toMatch(/prompt|token|transcript/i);
       output.mockClear();
       expect(await runSessionListCommand(['--format', 'json'])).toBe(0);
@@ -72,6 +78,7 @@ describe('read-only local session inventory', () => {
         { id, liveness: 'alive', control: 'available', activity: 'needs-input' },
       ]);
       expect(json).not.toContain('Private session name');
+      expect(json).not.toContain('github.com');
       expect(json).not.toMatch(/prompt|token|transcript/i);
     } finally {
       await control?.close();

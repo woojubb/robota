@@ -173,7 +173,9 @@ robota trust revoke --yes           # Revoke the current workspace grant
 robota usage                        # Show the last 7 days of personal usage from local session history
 robota usage --period 30d           # Show complete buckets for the last 30 calendar days
 robota usage --timezone UTC --format json # Emit the versioned JSON projection
-robota usage export --endpoint http://127.0.0.1:4318 # Explicitly send aggregate Gauges to a local OTLP collector
+robota usage export --endpoint http://127.0.0.1:4318 # Send stored-usage Gauges to a loopback OTLP collector
+robota usage export --signal traces --endpoint http://127.0.0.1:4318 # Send recorded prompt/provider/tool spans
+robota usage export --signal logs --endpoint http://127.0.0.1:4318 # Send content-free completion events
 robota --reset                      # Delete user settings and exit
 robota --check-update               # Check npm for a newer CLI version and exit
 robota --disable-update-check        # Skip interactive startup update check for this run
@@ -195,13 +197,172 @@ Use `--period 7d` (the default) or `--period 30d`, choose an IANA timezone with 
 report; a supplied store set containing no readable records exits with an error instead of silently
 reporting zero usage.
 
-`robota usage export` is a separate, explicit network action. It sends a current **Gauge snapshot**
-of stored session/turn counts, tokens, known USD cost, and unknown-cost counts via OTLP/HTTP JSON to
-`/v1/metrics` on a loopback collector (`127.0.0.1` or `[::1]`) only. Repeated exports replace the
-snapshot conceptually; do not sum them as new usage. It sends no prompt, tool output, session ID,
-provider/model label, or custom source name. An unreadable stored session, collector rejection, or
-network error fails the command without reporting success. It does not yet export trace spans,
-logs, or to a remote collector.
+`robota usage export` is a separate, explicit, one-shot network action over OTLP/HTTP JSON to a
+loopback collector (`127.0.0.1` or `[::1]`) only. The default `metrics` signal sends a current
+**Gauge snapshot** of stored session/turn counts, tokens, estimated known USD cost, and unknown-cost
+counts to `/v1/metrics`. Repeated exports are snapshots, not new usage to add together. Select
+`--signal traces` to send recorded prompt-root, provider-call, and tool spans to `/v1/traces`, or
+`--signal logs` to send recorded content-free completion events to `/v1/logs`. Repeating a logs export
+can resend the same events; a collector may retain duplicates. These signals use stored records;
+they are not live tracing, and legacy records may lack span/event coverage. No signal
+exports prompt or tool bodies, credentials, or a remote destination. An unreadable stored session,
+collector rejection, or network error fails the command without reporting success.
+
+Live prompt telemetry is a separate, opt-in Node CLI feature (interactive, print, serve, and MCP serve). Set
+`ROBOTA_TELEMETRY_ENABLED=1`, `ROBOTA_TELEMETRY_TRACES=otlp`,
+`ROBOTA_TELEMETRY_OTLP_PROTOCOL=http/protobuf`, and
+`ROBOTA_TELEMETRY_OTLP_ENDPOINT=https://collector.example` to send content-free prompt/provider/tool
+spans to the base URL's `/v1/traces`. `ROBOTA_TELEMETRY_OTLP_TRACES_ENDPOINT` overrides the base with
+an exact traces URL. Select `ROBOTA_TELEMETRY_METRICS=otlp` independently to send per-invoked-call
+delta counts, complete-usage token totals and price-table-estimated USD cost, plus observed prompt and
+tool-completion counts, to `/v1/metrics`;
+`ROBOTA_TELEMETRY_OTLP_METRICS_ENDPOINT` overrides that destination. Missing usage or prices are
+counted separately, never treated as zero cost. A truncated provider-event batch reports omissions
+and does not claim a complete usage/cost total. Metric datapoints omit session, turn, provider and
+model labels by default; set `ROBOTA_TELEMETRY_METRIC_ATTRIBUTES` to a comma list drawn from
+`session`, `provider` and `model` (canonical lower case, no duplicates) to add them, and only when
+metrics export over `otlp` or `console` — the setting is refused otherwise, and startup is refused
+for any token that is not exactly one of the three. `session` adds `robota.session.id` (the same key
+the trace spans use) to every metric datapoint of the batch. `provider`/`model` add
+`robota.provider.id`/`robota.model.id` only to provider-derived metrics (calls, tokens, cost, and the
+unpriced/usage-unavailable counts), splitting them into one datapoint per distinct id (or pair); a
+call with no id gets its own datapoint without that attribute. In `--serve`/`robota mcp serve`, how
+many distinct session ids appear is set by the connecting clients, not by the CLI; provider and model
+values come from whatever the host's provider configuration reports, not from a fixed catalog. Select
+`ROBOTA_TELEMETRY_LOGS=otlp` independently for content-free
+prompt/provider/tool completion events, plus a tool's own permission decision (allowed, denied, or
+hook-blocked), at `/v1/logs`; `ROBOTA_TELEMETRY_OTLP_LOGS_ENDPOINT`
+overrides that destination. Tool spans and logs carry a validated opaque call ID when available, and an
+invoked provider-call span and its completion log carry the provider's own request ID the same way when
+the adapter attested one; metric datapoints never use either as a label, though a permission-decision
+count by decision value is still reported on `/v1/metrics`. A permission decision has no duration of
+its own and never produces a trace span. Only confirmed invocations produce provider-completion events;
+omitted child counts remain visible on the prompt event. Plain HTTP is allowed only for loopback; URL credentials and query parameters
+are rejected. Export is bounded, best-effort, and does not delay or fail a turn; delivery failures
+produce a content-free stderr warning. These switches do not enable content capture,
+additional event kinds, or replay of stored traces. Ambient `OTEL_*` values alone do not enable them.
+
+Prompt, response and tool content is a separate opt-in on top of `ROBOTA_TELEMETRY_LOGS=otlp`.
+`ROBOTA_TELEMETRY_LOG_USER_PROMPTS=1` sends what you typed (never the expanded model input, such as
+`@file` contents), and `ROBOTA_TELEMETRY_LOG_ASSISTANT_RESPONSES=1` sends the assistant's final answer
+for the turn. `ROBOTA_TELEMETRY_LOG_TOOL_ARGUMENTS=1` sends the arguments of the turn's tool calls,
+allowed or denied, and `ROBOTA_TELEMETRY_LOG_TOOL_OUTPUT=1` sends the output of its allowed calls
+(empty for a tool that crashed). Tool arguments carry whatever the model passed: a `Write` or `Edit`
+call's arguments are the file content it writes. Each setting accepts exactly `0` or `1`.
+`ROBOTA_TELEMETRY_LOG_CONTENT_MAX_BYTES` bounds each item (an integer from 256 to 16384, default 2048)
+and is refused unless one of them is `1`. Content is captured only in the interactive terminal and
+only for turns you type yourself, the same turns prompt history records: goal and loop wakeups, peer
+and external messages, remote co-drivers, subagents and background work are never captured, and
+tool content covers only the calls that turn made itself — never a subagent's, a forked skill's or
+background work's, even through a tool they share. A hook-blocked call, an unknown tool, or a call
+stopped before its tool ran sends nothing. Print (`-p`, `--goal`), `--serve` and
+`robota mcp serve` refuse to start with a content setting at `1` rather than ignore it. It goes only to OTLP log records (`robota.content.captured`, joined to the prompt's trace and
+root span, with `robota.content.kind`, `robota.content.truncated`, `robota.content.original_bytes` and,
+for an interrupted turn's response, `robota.content.partial`) — never to spans, metrics or console
+output, so a content setting with `ROBOTA_TELEMETRY_LOGS=console` is refused. A tool item is joined to
+the call's tool span when the trace kept one (else the root span) and adds `robota.tool.call_id`,
+`robota.tool.name` and `robota.tool.outcome` (`success`, `failure` or `denied`). Arguments are
+rendered with values under secret-looking keys (`password`, `apiKey`, `accessTokens`, …) masked
+whole, and binary or base64 payloads replaced by their size. It is sent to the logs
+destination with its headers but in its own requests and queue: a content failure never delays or
+drops the content-free logs, and is reported on stderr like any other delivery failure. One turn's
+content is bounded in item count and total size, with room kept for the prompt and response, and is
+sent as a few requests of bounded size; what does not fit is dropped and counted by kind in a
+content-free `robota.content.omitted` record, sent last. When a request fails, the rest of that turn's
+content and every queued turn are dropped, so that count is lost too. Queued content can hold about
+12 MB in the worst case. Before sending, the CLI masks known credential shapes (vendor API keys, AWS keys, private-key blocks,
+JWTs, GitHub, Stripe, npm and GitLab tokens, bearer tokens, URL and `-u user:pass` credentials,
+`*_KEY`/`*_TOKEN`/`*_SECRET`/`*_PASSWORD=` values, JSON values whose name looks secret, and
+`Authorization`, `Proxy-Authorization`, `Cookie`, `Set-Cookie` and `X-…-Token`/`-Key`/`-Secret`/`-Auth`
+header lines, including indented ones and the `> ` lines `curl -v` prints), the literal secrets it knows of (settings keys and
+`env` values, every resolved provider key including one switched to mid-session, and collector header
+values), your workspace path (`<workspace>`, also inside `file://` URLs) and home directory (`~`),
+control characters, and a partial token left at the size cut. This
+masking is best effort: anything it does not recognise as a secret is sent as written — file
+contents, command output and a response that repeats them included. If the secrets cannot be
+read, that request carries no content at all.
+
+Static collector headers (for example an `Authorization` token) use
+`ROBOTA_TELEMETRY_OTLP_HEADERS` for the generic endpoint and `ROBOTA_TELEMETRY_OTLP_TRACES_HEADERS`,
+`ROBOTA_TELEMETRY_OTLP_METRICS_HEADERS` or `ROBOTA_TELEMETRY_OTLP_LOGS_HEADERS` for one signal, in
+OpenTelemetry's `name=value,name2=value2` form with percent-encoded values
+(`Authorization=Bearer%20abc123`). Headers are scoped to their destination: a signal that uses
+`ROBOTA_TELEMETRY_OTLP_ENDPOINT` sends the generic headers merged with its own, its own winning on the
+same name, while a signal with its own `ROBOTA_TELEMETRY_OTLP_<SIGNAL>_ENDPOINT` sends only its own
+headers. Unlike OpenTelemetry, generic headers are never sent to a per-signal endpoint. Startup is
+refused for malformed entries, empty names or values, duplicate names, reserved transport,
+content-negotiation, proxy, `sec-` or trace-propagation names, control characters other than tab, non-ASCII characters,
+oversized settings, headers no OTLP signal would send, and a per-signal endpoint without its own
+headers while another signal sends the generic ones. Header helpers and refresh are not supported.
+Console output, logs and resource attributes never contain headers, and errors name only the setting
+and entry position. The CLI removes every `ROBOTA_TELEMETRY_*` setting from its environment at
+startup, so shells, hooks, subagents and other child processes do not inherit them; the only
+handover is the supervised runtime that `session start` or `session view` launches, which receives
+them in its spawn environment. While telemetry is enabled, any other `ROBOTA_TELEMETRY_*` setting
+(for example client certificates, a locked destination or other content capture) stops startup with an
+error that names the setting but never prints its value, rather than exporting without it.
+Each signal also accepts `console` instead of `otlp` to write a content-free JSON diagnostic to stderr;
+console needs neither an endpoint nor a protocol and never includes collector credentials. Signals
+remain independent, and the Robota enable switch is still required.
+All enabled signals use the same per-process `service.instance.id` and the CLI's version and
+presentation mode as resource attributes. Ambient `OTEL_SERVICE_NAME` and other `OTEL_*` values
+cannot replace these fields.
+
+Trace context propagation is a further opt-in. `ROBOTA_TELEMETRY_PROPAGATE_TO` is a comma list of
+exact origins (`https://api.anthropic.com,https://gateway.example.com:8443`) that may receive a
+W3C `traceparent` on provider requests: `00-<prompt trace id>-<provider-call span id>-01`, where the
+span ID is the one the exported `robota.provider_call` span carries. The same list covers MCP servers
+reached over Streamable HTTP: a tool call to a server whose URL has a listed origin carries
+`00-<prompt trace id>-<tool span id>-01`, where the span ID is the one the exported tool span
+carries. Only the `tools/call` request and its cancellation carry it — never initialization,
+listing, list refreshes, notifications or the server's event stream — and stdio MCP servers receive
+nothing. It needs
+`ROBOTA_TELEMETRY_ENABLED=1` and `ROBOTA_TELEMETRY_TRACES=otlp` or `console`, and is inert while
+telemetry is off. Each entry must be exactly its own origin: `https`, or `http` only on loopback, with no
+path, trailing slash, query, credentials, wildcard or spelled-out default port; a scheme, port or
+subdomain difference is a different origin and gets nothing. An internationalized host must be listed
+in its punycode (`xn--`) form, and an origin with a trailing dot never matches; both fail closed
+(refused at startup or sent nothing). Malformed, duplicate or too many entries
+stop startup with an error that names only the setting and entry position. `tracestate` and `baggage`
+are never sent, the collector's origin is never trusted implicitly, and collector headers are never
+reused for provider requests. The Anthropic and OpenAI (Responses and Chat Completions) adapters
+propagate to their client's effective base URL, as do the OpenAI-compatible DeepSeek, Qwen (both its
+Chat Completions and Responses surfaces), and Gemma adapters, and Gemini propagates to
+`https://generativelanguage.googleapis.com` only — not with `GOOGLE_GEMINI_BASE_URL`,
+`GOOGLE_VERTEX_BASE_URL` or Vertex mode. Nothing is sent through a provider executor. When
+propagation is configured but the round's provider cannot propagate — an executor, or a client
+whose base URL cannot be read — the CLI writes one stderr line per provider naming only that
+provider. Only a prompt's own provider calls carry it: subagents, workers and background
+tasks do not inherit it.
+
+Listing a vendor's origin lets that vendor link its own request logs to your trace ID. A redirect
+followed by the SDK carries the header to the redirect target. A provider call whose span was omitted or
+dropped from export still sent its `traceparent`, so the vendor's parent span may be missing from your
+trace; `robota.omitted.provider_count` on the prompt span shows when that happened. Ambient
+`TRACEPARENT` and `OTEL_*` values are never adopted.
+
+`ROBOTA_TELEMETRY_PROPAGATE_TO_SUBPROCESSES` hands the prompt's trace to child processes through the
+`TRACEPARENT` environment variable. It is a comma list drawn from exactly `shell` and `hooks`, each at
+most once; it needs the same `ROBOTA_TELEMETRY_ENABLED=1` and exported traces, is inert while
+telemetry is off, works with or without `ROBOTA_TELEMETRY_PROPAGATE_TO`, and a malformed entry stops
+startup naming only the setting and entry position. With `shell`, each foreground `Bash`/`Shell`
+command runs with `00-<prompt trace id>-<tool span id>-01`, where the span ID is the one that call's
+exported tool span carries. With `hooks`, command hooks fired during a prompt — `UserPromptSubmit`,
+`PreToolUse`, `PostToolUse`, `PermissionDecision`, the model-call hooks, `Stop`, `StopFailure` and
+the `PreCompact` and `PostCompact` of an automatic compaction — run with `00-<prompt trace id>-<prompt span id>-01`, so
+their spans sit beside the provider and tool spans; a hook fired outside a prompt (`SessionStart`,
+`SessionEnd`, both hooks of `/compact`, background tasks, subagent worktrees) gets nothing. The value
+is only ever in the child's environment, never in a hook's stdin JSON. A `TRACEPARENT` that a hook
+group's own `env` sets wins, and the child then sees its environment unchanged; otherwise the ambient
+`TRACESTATE` is removed, because it belonged to a different parent. The `!` shell passthrough,
+background, managed and scheduled shells, the monitor UI launcher, a sandboxed shell, stdio MCP
+servers, and HTTP, prompt and agent hooks never receive it. Robota never modifies its own process
+environment, so while the setting is off every child sees exactly the ambient `TRACEPARENT` and
+`TRACESTATE` it would have seen anyway.
+
+Upgrading: an origin already listed for a provider now also sends `traceparent` to an MCP HTTP server
+at that exact origin. Remove the origin, or move the MCP server to a different origin, if that server
+should not link its logs to your trace.
 
 ### Doctor
 
@@ -592,6 +753,20 @@ The CLI supports continuing, resuming, forking, and naming sessions.
 | `/resume`        | List recent sessions and resume one |
 | `/rename <name>` | Rename the current session          |
 
+### Moving to another directory (`/cd`)
+
+`/cd <directory>` continues the conversation in another directory. Robota starts again there, as if
+launched in that directory: its settings, trust decision, tools, skills and `AGENTS.md` apply, and the
+conversation resumes. The system prompt is kept as it was, so a provider's prompt cache survives. One
+message tells the model about the new directory and its project instructions.
+
+- `/cd` is refused while a turn is running or a background task is still running, and in a session
+  started with `--no-session-persistence`, which has no saved conversation to carry.
+- A restricted (untrusted) session stays restricted after a move. A trusted session takes the target
+  directory's own trust decision.
+- A `Cd(...)` deny rule keeps sessions out of a directory, for example
+  `"deny": ["Cd(/secrets/**)"]`.
+
 ### Session Name Display
 
 When a session has a name, it appears in three places:
@@ -652,6 +827,7 @@ Typing `/` in the TUI opens an autocomplete popup. Arrow keys navigate, Tab inse
 | `/effort [level]`         | Show or change model effort (`auto`, `none`, `minimal`, `low`, `medium`, `high`, `xhigh`, `max`) |
 | `/resume`                 | List recent sessions and resume one                                                              |
 | `/rename <name>`          | Rename the current session                                                                       |
+| `/cd <directory>`         | Move this conversation to another directory (see below)                                         |
 | `/rewind`                 | List, inspect, restore, or rollback edit checkpoints                                             |
 
 ### Providers & Settings

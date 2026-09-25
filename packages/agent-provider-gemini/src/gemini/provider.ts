@@ -5,6 +5,7 @@ import {
   AbstractAIProvider,
   createModelEffortOutcome,
   PERMISSIVE_TOOL_SCHEMA_PROFILE,
+  traceHeadersFor,
 } from '@robota-sdk/agent-core';
 
 import { GEMINI_CAPABILITY_TABLE } from './capability-table';
@@ -33,6 +34,27 @@ import type {
   IToolSchemaProjectionProfile,
   TProviderMediaResult,
 } from '@robota-sdk/agent-core';
+
+const GEMINI_API_ORIGIN = 'https://generativelanguage.googleapis.com';
+
+/** The SDK's resolved base URL when it exposes one; undefined when it does not. */
+function readGeminiClientBaseUrl(client: GoogleGenAI): string | undefined {
+  const apiClient = (client as unknown as { apiClient?: { getBaseUrl?: () => unknown } }).apiClient;
+  try {
+    const value = apiClient?.getBaseUrl?.();
+    return typeof value === 'string' && value.length > 0 ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function originOf(url: string): string | undefined {
+  try {
+    return new URL(url).origin;
+  } catch {
+    return undefined;
+  }
+}
 
 /**
  * Gemini provider implementation for Robota
@@ -104,6 +126,7 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
         messages,
         withGeminiTextDeltaCallback(this.projectChatOptions(resolvedOptions), this.onTextDelta),
         this.name,
+        this.traceRequestHeaders(resolvedOptions),
       );
       this.publishModelEffortOutcome(resolvedOptions);
       return response;
@@ -158,12 +181,34 @@ export class GeminiProvider extends AbstractAIProvider implements IImageGenerati
         messages,
         withGeminiTextDeltaCallback(this.projectChatOptions(resolvedOptions), this.onTextDelta),
         this.name,
+        this.traceRequestHeaders(resolvedOptions),
       );
       this.publishModelEffortOutcome(resolvedOptions);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Google API request failed';
       throw new Error(`Google stream failed: ${errorMessage}`);
     }
+  }
+
+  /**
+   * Only the Gemini API's own endpoint, reached through the client this provider built, can carry
+   * trace context: an executor sends elsewhere, and a base-URL environment override or Vertex mode
+   * sends to an origin this provider does not know, and a base URL the SDK does not let it read
+   * cannot be compared. Each of those answers false.
+   */
+  canPropagateTraceContext(): boolean {
+    if (this.executor || !this.client) return false;
+    if ((this.client as { vertexai?: unknown }).vertexai === true) return false;
+    const env = typeof process === 'undefined' ? {} : process.env;
+    if (env['GOOGLE_GEMINI_BASE_URL'] || env['GOOGLE_VERTEX_BASE_URL']) return false;
+    const effective = readGeminiClientBaseUrl(this.client);
+    if (effective === undefined || originOf(effective) !== GEMINI_API_ORIGIN) return false;
+    return true;
+  }
+
+  private traceRequestHeaders(options: IChatOptions | undefined): Readonly<Record<string, string>> {
+    if (!this.canPropagateTraceContext()) return {};
+    return traceHeadersFor(GEMINI_API_ORIGIN, options?.outboundTraceContext);
   }
 
   /** MCP-005: Gemini's fixed `Schema` subset can't carry `additionalProperties` — strip + record it. */

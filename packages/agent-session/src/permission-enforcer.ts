@@ -6,12 +6,18 @@
  * conversation management.
  */
 
+import { homedir } from 'node:os';
+
 import {
   applyPresetToolLists,
   evaluatePermission,
   findInvalidPermissionPatterns,
+  findPermissionPatternWarnings,
+  isToolDeniedOutright,
   matchesAnyPattern,
-  resolvePermissionByPolicy,
+  projectPermissionPolicy,
+  registerToolPermissionProfile,
+  requiresFreshApproval,
   runHooks,
 } from '@robota-sdk/agent-core';
 
@@ -38,13 +44,22 @@ import type {
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
 export type { IPermissionEnforcerOptions };
 
-/** Throw naming every malformed permission pattern and why (issue #2428). */
-function assertPermissionPatternsEvaluable(patterns: readonly string[]): void {
-  const problems = findInvalidPermissionPatterns(patterns);
+/**
+ * Throw naming every malformed permission pattern and why (issue #2428). Allow rules are held to
+ * the narrower allow grammar (issue #3081).
+ */
+function assertPermissionPatternsEvaluable(rules: {
+  allow: readonly string[];
+  restrictive: readonly string[];
+}): void {
+  const problems = [
+    ...findInvalidPermissionPatterns(rules.allow, 'allow'),
+    ...findInvalidPermissionPatterns(rules.restrictive, 'deny'),
+  ];
   if (problems.length === 0) return;
   const listed = problems.map(({ pattern, reason }) => `"${pattern}" ${reason}`).join('; ');
   throw new Error(
-    `Invalid permission pattern(s) in permissions.allow/deny: ${listed}. ` +
+    `Invalid permission pattern(s) in permissions.allow/deny/ask: ${listed}. ` +
       'Fix the pattern where it is configured (issue #2428).',
   );
 }
@@ -71,6 +86,7 @@ export class PermissionEnforcer {
   private readonly onProjectAllowTool?: (toolName: string) => void;
   private readonly permissionPolicy?: IPermissionEnforcerOptions['permissionPolicy'];
   private readonly taskPermissions?: IPermissionEnforcerOptions['taskPermissions'];
+  private readonly homeDirectory: string;
 
   constructor(options: IPermissionEnforcerOptions) {
     this.sessionId = options.sessionId;
@@ -86,10 +102,7 @@ export class PermissionEnforcer {
     };
     // Issue #2428: a pattern the gate could never evaluate is refused HERE, with the pattern and
     // the reason, before any turn — not discovered one unevaluable prompt at a time at the gate.
-    assertPermissionPatternsEvaluable([
-      ...options.config.permissions.allow,
-      ...options.config.permissions.deny,
-    ]);
+    assertPermissionPatternsEvaluable(this.configuredRules(options));
     this.terminal = options.terminal;
     this.permissionHandler = options.permissionHandler;
     this.promptForApprovalFn = options.promptForApprovalFn;
@@ -100,10 +113,60 @@ export class PermissionEnforcer {
     this.onProjectAllowTool = options.onProjectAllowTool;
     this.permissionPolicy = options.permissionPolicy;
     this.taskPermissions = options.taskPermissions;
+    this.homeDirectory = options.homeDirectory ?? homedir();
+  }
+
+  /** Every configured pattern, split by the grammar it is held to. */
+  private configuredRules(
+    options: Pick<IPermissionEnforcerOptions, 'config' | 'taskPermissions'> = {
+      config: this.config,
+      ...(this.taskPermissions !== undefined ? { taskPermissions: this.taskPermissions } : {}),
+    },
+  ): { allow: string[]; restrictive: string[] } {
+    return {
+      allow: [...options.config.permissions.allow, ...(options.taskPermissions?.allow ?? [])],
+      restrictive: [
+        ...options.config.permissions.deny,
+        ...(options.config.permissions.ask ?? []),
+        ...(options.taskPermissions?.deny ?? []),
+      ],
+    };
+  }
+
+  /**
+   * Whether the model is shown this tool at all. A bare-name deny (`Tool`, `Tool(*)`, a name glob)
+   * removes it rather than offering it and refusing every call (issue #3081). Read live, so a
+   * `/preset` that denies a tool hides it from the next round.
+   */
+  isToolVisible(toolName: string): boolean {
+    return !isToolDeniedOutright(toolName, [
+      ...this.config.permissions.deny,
+      ...(this.taskPermissions?.deny ?? []),
+    ]);
+  }
+
+  /**
+   * Tell the gate each tool's parameter names — the schema is what makes `Tool(name:value)` a
+   * parameter rule — then re-check the rules against them, before any turn runs.
+   */
+  private registerToolParameters(tools: readonly IToolWithEventService[]): void {
+    for (const tool of tools) {
+      // Read defensively: a tool without a schema has no parameters to name.
+      const schema = (tool as Partial<Pick<IToolWithEventService, 'schema'>>).schema;
+      if (schema === undefined) continue;
+      const properties = schema.parameters?.properties ?? {};
+      registerToolPermissionProfile(schema.name, { parameters: Object.keys(properties) });
+    }
+    const rules = this.configuredRules();
+    assertPermissionPatternsEvaluable(rules);
+    for (const { pattern, reason } of findPermissionPatternWarnings(rules.restrictive)) {
+      this.terminal.writeLine(`  ⚠  Permission rule "${pattern}" ${reason}.`);
+    }
   }
 
   /** Wrap all tools with permission checking */
   wrapTools(tools: IToolWithEventService[]): IToolWithEventService[] {
+    this.registerToolParameters(tools);
     // Built explicitly rather than cast. A blind assertion here would compile only by silencing the
     // private-member mismatch, and this repository counts and ratchets those. Naming the ten members
     // is what makes the extraction a boundary: if the wrapper starts reading an eleventh, this stops
@@ -118,8 +181,8 @@ export class PermissionEnforcer {
       hookTypeExecutors: this.hookTypeExecutors,
       getPermissionMode: this.getPermissionMode,
       log: (event, detail) => this.log(event, detail),
-      checkPermission: (toolName, toolArgs, signal, interaction) =>
-        this.checkPermission(toolName, toolArgs, signal, interaction),
+      checkPermission: (toolName, toolArgs, signal, interaction, hookTraceEnv) =>
+        this.checkPermission(toolName, toolArgs, signal, interaction, hookTraceEnv),
     };
 
     return tools.map((tool) => wrapToolWithPermission(tool, deps));
@@ -162,8 +225,16 @@ export class PermissionEnforcer {
    * exists. Review found the first cut composing onto a contaminated base and no test could see it,
    * because nothing could look at the rules.
    */
-  currentPermissionRules(): { allow: readonly string[]; deny: readonly string[] } {
-    return { allow: [...this.config.permissions.allow], deny: [...this.config.permissions.deny] };
+  currentPermissionRules(): {
+    allow: readonly string[];
+    deny: readonly string[];
+    ask: readonly string[];
+  } {
+    return {
+      allow: [...this.config.permissions.allow],
+      deny: [...this.config.permissions.deny],
+      ask: [...(this.config.permissions.ask ?? [])],
+    };
   }
 
   applyPresetToolLists(preset: {
@@ -188,55 +259,62 @@ export class PermissionEnforcer {
     toolArgs: TToolArgs,
     signal?: AbortSignal,
     interaction: IToolExecutionContext['permissionInteraction'] = 'interactive',
+    hookTraceEnv?: IToolExecutionContext['hookTraceEnv'],
   ): Promise<boolean> {
-    // CORE-025: a background/subagent task permission policy is resolved BEFORE the session-mode gate, so
-    // `deny`/`preapproved`/`inherit-allowlist` override even a permissive mode (e.g. bypassPermissions).
-    // `evaluatePermission`'s `auto` branch never runs for a policy-gated call — that was the bypass hole.
-    if (this.permissionPolicy) {
-      const policyDecision = resolvePermissionByPolicy(this.permissionPolicy, toolName, toolArgs, {
-        taskAllow: this.taskPermissions?.allow,
-        taskDeny: this.taskPermissions?.deny,
-        parentAllow: this.config.permissions.allow,
-        parentDeny: this.config.permissions.deny,
-      });
-      this.firePermissionDecisionHook(toolName, toolArgs, policyDecision);
-      if (policyDecision === 'allow') return true;
-      if (policyDecision === 'deny') return false;
-      // 'prompt' → route to the human-approval path (fail-closed to deny with no approver).
-      return this.promptForApproval(toolName, toolArgs, signal, interaction);
-    }
+    // Issue #3081: ONE evaluator for every caller. A background/subagent policy (CORE-025) only
+    // adds a ceiling, an ask-everything flag and the task's own lists; the ceiling is checked before
+    // bypassPermissions, so a policy still binds under a permissive mode.
+    const policy =
+      this.permissionPolicy !== undefined
+        ? projectPermissionPolicy(this.permissionPolicy, {
+            taskAllow: this.taskPermissions?.allow,
+            taskDeny: this.taskPermissions?.deny,
+            parentAllow: this.config.permissions.allow,
+          })
+        : undefined;
 
-    const decision = evaluatePermission(toolName, toolArgs, this.getPermissionMode(), {
-      allow: this.config.permissions.allow,
-      deny: this.config.permissions.deny,
+    const rules = {
+      allow: [...this.config.permissions.allow, ...(policy?.allow ?? [])],
+      deny: [...this.config.permissions.deny, ...(policy?.deny ?? [])],
+      ask: this.config.permissions.ask ?? [],
+    };
+    const where = { cwd: this.cwd, homeDirectory: this.homeDirectory };
+    const decision = evaluatePermission(toolName, toolArgs, this.getPermissionMode(), rules, {
+      ...where,
+      ...(policy?.ceiling !== undefined ? { ceiling: policy.ceiling } : {}),
+      askAll: policy?.askAll ?? false,
     });
 
     // SELFHOST-009: fire PermissionDecision (INFORMATIONAL-ONLY, non-blocking) right after the
     // decision is made. Fire-and-forget — the hook cannot change the outcome that follows.
-    this.firePermissionDecisionHook(toolName, toolArgs, decision);
+    this.firePermissionDecisionHook(toolName, toolArgs, decision, hookTraceEnv);
 
     if (decision === 'auto') return true;
     if (decision === 'deny') return false;
 
-    // 'approve' — route to the human-approval path.
-    return this.promptForApproval(toolName, toolArgs, signal, interaction);
+    // 'approve' — route to the human-approval path. An ask that must reach a person every time is
+    // not answered by a remembered consent, and does not create one (issue #3081).
+    const fresh = requiresFreshApproval(toolName, toolArgs, rules, where);
+    return this.promptForApproval(toolName, toolArgs, signal, interaction, fresh);
   }
 
   /**
    * The human-approval path: session-scoped allow list → custom handler → injected approval fn → fail-closed
-   * deny. Shared by the session-mode `approve` decision and the CORE-025 `prompt` policy so both fail closed
-   * identically when no approver is attached (e.g. a detached background task).
+   * deny. Every `approve` decision comes here, whoever the caller, so every ask fails closed identically
+   * when no approver is attached (e.g. a detached background task).
    */
   private async promptForApproval(
     toolName: string,
     toolArgs: TToolArgs,
     signal?: AbortSignal,
     interaction: IToolExecutionContext['permissionInteraction'] = 'interactive',
+    fresh = false,
   ): Promise<boolean> {
     const scope = consentScopeFor(toolName, toolArgs);
     const outcome = await decideApproval({
       toolName,
-      alreadyAllowed: matchesAnyPattern(toolName, toolArgs, [...this.sessionAllowedTools]),
+      alreadyAllowed:
+        !fresh && matchesAnyPattern(toolName, toolArgs, [...this.sessionAllowedTools]),
       ...(interaction === 'interactive' && this.permissionHandler
         ? { handler: this.permissionHandler }
         : {}),
@@ -246,6 +324,9 @@ export class PermissionEnforcer {
       toolArgs,
       ...(signal ? { signal } : {}),
     });
+    // A fresh-approval answer covers this call only: remembering its wide scope would let it answer
+    // the next critical removal or protected write too.
+    if (fresh) return outcome.allowed;
     if (outcome.rememberForProject) {
       if (this.onProjectAllowTool === undefined) {
         throw new Error('Project-wide permission persistence is unavailable for this session.');
@@ -265,6 +346,7 @@ export class PermissionEnforcer {
     toolName: string,
     toolArgs: TToolArgs,
     decision: string,
+    hookTraceEnv: IToolExecutionContext['hookTraceEnv'],
   ): void {
     const permissionMode = this.getPermissionMode();
     void runHooks(
@@ -285,6 +367,7 @@ export class PermissionEnforcer {
         },
       },
       this.hookTypeExecutors,
+      hookTraceEnv,
     ).catch(() => undefined);
   }
 

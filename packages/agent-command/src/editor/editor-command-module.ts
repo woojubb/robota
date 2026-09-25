@@ -16,7 +16,7 @@ export function createEditorCommandEntry(): ICommand {
   };
 }
 
-function createEditorSystemCommand(): ISystemCommand {
+function createEditorSystemCommand(temporaryDirectoryPrefix?: string): ISystemCommand {
   const entry = createEditorCommandEntry();
   return {
     name: entry.name,
@@ -26,7 +26,7 @@ function createEditorSystemCommand(): ISystemCommand {
     userInvocable: true,
     modelInvocable: false,
     lifecycle: 'inline',
-    execute: executeEditorCommand,
+    execute: (context, args) => executeEditorCommand(context, args, temporaryDirectoryPrefix),
   };
 }
 
@@ -38,10 +38,10 @@ export class EditorCommandSource implements ICommandSource {
   }
 }
 
-export function createEditorCommandModule(): ICommandModule {
+export function createEditorCommandModule(temporaryDirectoryPrefix?: string): ICommandModule {
   return {
     name: 'agent-command-editor',
     commandSources: [new EditorCommandSource()],
-    systemCommands: [createEditorSystemCommand()],
+    systemCommands: [createEditorSystemCommand(temporaryDirectoryPrefix)],
   };
 }

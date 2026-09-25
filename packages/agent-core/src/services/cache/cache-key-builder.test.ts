@@ -88,6 +88,22 @@ describe('CacheKeyBuilder', () => {
     expect(key1.hash).not.toBe(key2.hash);
   });
 
+  it('should produce different hashes for different effort selections', () => {
+    const key1 = builder.build(messages, 'gpt-4', 'openai', { effortCacheIdentity: 'low' });
+    const key2 = builder.build(messages, 'gpt-4', 'openai', { effortCacheIdentity: 'high' });
+
+    expect(key1.hash).not.toBe(key2.hash);
+  });
+
+  it('should produce the same hash for a null/undefined effort selection and for an omitted one', () => {
+    const key1 = builder.build(messages, 'gpt-4', 'openai');
+    const key2 = builder.build(messages, 'gpt-4', 'openai', { effortCacheIdentity: undefined });
+    const key3 = builder.build(messages, 'gpt-4', 'openai', { effortCacheIdentity: null });
+
+    expect(key1.hash).toBe(key2.hash);
+    expect(key1.hash).toBe(key3.hash);
+  });
+
   it('should compute integrity hash for response content', () => {
     const hash = builder.computeIntegrityHash('Hello world');
 

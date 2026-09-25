@@ -33,6 +33,12 @@ type TSubagentToolExecutionEvent = Parameters<
 
 export interface IInProcessSubagentRunnerDeps {
   config: IResolvedConfig;
+  /**
+   * The parent's EFFECTIVE rules, read live at spawn (issue #3081): settings plus preset lists plus
+   * command auto-allows. A subagent's `inherit-allowlist` ceiling is this allow list; the raw
+   * `config.permissions` left out everything the parent's composition added. Absent → `config`.
+   */
+  getParentPermissionRules?: () => IResolvedConfig['permissions'];
   context: ILoadedContext;
   tools: IToolWithEventService[];
   terminal: ITerminalOutput;
@@ -221,6 +227,14 @@ function readSubagentUsage(
   }
 }
 
+/** The parent's config with the rules its gate actually enforces in place of the settings file's. */
+export function parentConfigWithEffectiveRules(
+  deps: Pick<IInProcessSubagentRunnerDeps, 'config' | 'getParentPermissionRules'>,
+): IResolvedConfig {
+  const rules = deps.getParentPermissionRules?.();
+  return rules === undefined ? deps.config : { ...deps.config, permissions: rules };
+}
+
 export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps): ISubagentRunner {
   return {
     start(job: ISubagentJobStart): ISubagentJobHandle {
@@ -229,7 +243,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
       const resumeSessionId = job.request.resumeSessionId;
       const session = createSubagentSession({
         agentDefinition: applyRequestOverrides(definition, job),
-        parentConfig: deps.config,
+        parentConfig: parentConfigWithEffectiveRules(deps),
         parentContext: deps.context,
         parentTools: deps.tools,
         provider: deps.provider,

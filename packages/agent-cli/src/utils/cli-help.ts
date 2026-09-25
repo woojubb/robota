@@ -75,13 +75,19 @@ Commands:
   robota usage [options]           Show 7/30-day cross-session personal usage (text or JSON)
   robota session list [--format text|json]
                                   List live processes, saved records and supervised sessions separately
-  robota session view [--cwd <directory>] [--name <text>] [--state <state>]
+  robota session view [--cwd <directory>] [--name <text>] [--pr <number>] [--state <state>]
                       [--screen-reader|--no-screen-reader]
                                   Live supervised sessions across projects, or filtered (TTY only)
   robota session start --background [--name <name>]
                                   Start a supervised session that outlives this terminal (no attach yet)
   robota session stop <supervised-id>
                                   Stop a supervised session owned by this user
+  robota session rename <supervised-id> <name>
+                                  Rename a live supervised session owned by this user
+  robota session link-pr <supervised-id> <https-pr-url>
+                                  Link a PR/MR URL to a live supervised session
+  robota session unlink-pr <supervised-id>
+                                  Clear a live supervised session PR/MR link
   robota mcp serve [options]       Serve one Robota session over stdio or authenticated loopback HTTP
   robota eval <definition>         Run an evals-as-code definition; exit 1 on a metric breach (CI gate)
 

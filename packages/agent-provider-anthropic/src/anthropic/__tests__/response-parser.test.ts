@@ -57,6 +57,7 @@ describe('AnthropicResponseParser', () => {
       expect(result.timestamp).toBeInstanceOf(Date);
       expect(result.metadata?.model).toBe('claude-3-opus-20240229');
       expect(result.metadata?.finishReason).toBe('end_turn');
+      expect(result.metadata?.usageProvenance).toBe('complete');
     });
 
     it('should extract token usage', () => {

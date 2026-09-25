@@ -2,6 +2,9 @@ import { announceAppend } from './execution-event-helpers';
 import { callProviderWithCache } from './execution-round-provider';
 import { resolveToolChoiceForRound } from './execution-service-helpers';
 import { isAbortFailure } from '../utils/abort-classification';
+import { randomId } from '../utils/random-id';
+import { verifiedProviderCallUsage } from './provider-call-usage';
+import { resolveProviderCallTraceContext } from './execution-trace-context';
 import { PROVIDER_CALL_EVENTS } from '../event-service/span-events';
 
 import type { IExecutionContext, IResolvedProviderInfo } from './execution-types';
@@ -71,6 +74,11 @@ export async function callRoundProviderWithEvents(
   onProviderFailure?: (error: unknown) => void,
 ): Promise<TUniversalMessage | null> {
   const startedAtMs = Date.now();
+  const callId = randomId();
+  const dispatch: { disposition: 'invoked' | 'cache-hit' | 'preflight-refused'; model?: string; startedAtMs?: number } = {
+    disposition: 'preflight-refused',
+  };
+  let providerResponse: TUniversalMessage | undefined;
   let outcome: 'success' | 'failure' | 'interrupted' = 'failure';
   try {
     const response = await callProviderWithCache(
@@ -136,7 +144,19 @@ export async function callRoundProviderWithEvents(
         }
       },
       fullContext.awaitProviderSettlement,
+      (actualDisposition, model) => {
+        dispatch.disposition = actualDisposition;
+        dispatch.model = model;
+        if (actualDisposition === 'invoked') dispatch.startedAtMs = Date.now();
+      },
+      () => resolveProviderCallTraceContext(
+        fullContext.traceContext,
+        resolved.provider,
+        resolved.currentInfo.provider,
+        callId,
+      ),
     );
+    providerResponse = response;
     // CORE-042: a provider that returned assembled text without streaming any of it still owes the
     // caller its deltas — `IChatOptions.onTextDelta`'s contract is what such a provider is violating,
     // and `run(onTextDelta)` against one emitted nothing at all before this. Routing the assembled
@@ -236,15 +256,33 @@ export async function callRoundProviderWithEvents(
     });
     return null;
   } finally {
+    const usage = dispatch.disposition === 'invoked'
+      ? verifiedProviderCallUsage(providerResponse)
+      : { provenance: 'absent' as const };
     // A single content-free lifecycle observation per attempted provider round. This is emitted
     // even when the provider fails or the turn is interrupted; it contains no request/response.
     fullContext.onExecutionEvent?.(PROVIDER_CALL_EVENTS.COMPLETED, {
       executionId,
       conversationId: fullContext.conversationId,
       round: currentRound,
-      startedAt: new Date(startedAtMs).toISOString(),
-      endedAt: new Date(Math.max(Date.now(), startedAtMs)).toISOString(),
+      startedAt: new Date(dispatch.startedAtMs ?? startedAtMs).toISOString(),
+      endedAt: new Date(Math.max(Date.now(), dispatch.startedAtMs ?? startedAtMs)).toISOString(),
       outcome,
+      callId,
+      disposition: dispatch.disposition,
+      ...(dispatch.disposition === 'invoked' && {
+        providerId: resolved.currentInfo.provider,
+        ...(dispatch.model !== undefined && { modelId: dispatch.model }),
+        ...(typeof providerResponse?.metadata?.['providerRequestId'] === 'string' && {
+          providerRequestId: providerResponse.metadata['providerRequestId'],
+        }),
+      }),
+      usageProvenance: usage.provenance,
+      ...('promptTokens' in usage && usage.promptTokens !== undefined && {
+        promptTokens: usage.promptTokens,
+        completionTokens: usage.completionTokens,
+        totalTokens: usage.totalTokens,
+      }),
     } as TExecutionEventData);
   }
 }

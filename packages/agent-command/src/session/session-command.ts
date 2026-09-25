@@ -24,6 +24,20 @@ import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 export const CLEAR_COMMAND_MESSAGE = 'Conversation cleared.';
 
+export const CD_COMMAND_DESCRIPTION = 'Move this session to another working directory';
+export const CD_COMMAND_USAGE = 'Usage: /cd <directory>';
+
+/**
+ * `/cd <directory>` (issue #3081) requests the host-executed move. The checks — no turn running, no
+ * live background task, the target exists, no `Cd(...)` deny rule — run where the session state is,
+ * when the host applies the action.
+ */
+export function executeCdCommand(_context: ICommandHostNoCapability, args: string): ICommandResult {
+  const path = args.trim();
+  if (path === '') return { success: false, message: CD_COMMAND_USAGE };
+  return { success: true, message: '', hostActions: [{ type: 'workspace-move', path }] };
+}
+
 export async function executeClearCommand(
   context: ICommandHostSessionAccess & ICommandHostUserInteraction,
   _args: string,

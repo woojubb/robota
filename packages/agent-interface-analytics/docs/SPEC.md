@@ -26,9 +26,21 @@ what counts as a turn, not how cost is derived, not what a report should contain
 A canonical usage observation may also carry an optional prompt-execution root identity, describing
 only the prompt call through its first terminal callback, not final turn settlement — that
 first-callback outcome may later differ from the observation's turn outcome. Related child-span
-entries (provider-call, tool-body) carry the same root linkage and timing but no prompt, response,
-tool, user, or session content, and neither implies that any detached background work completed.
-Older observations without this identity remain valid.
+entries (provider-call, tool-body) carry the same root linkage and timing. A provider-call child may
+also carry only attested usage evidence for a table-derived cost estimate. No entry ever carries prompt,
+response, tool, user, or session content.
+
+A bounded live prompt-trace projection exposes only this execution evidence, plus correlation IDs
+that are validated or opaque: a tool-call ID that joins tool children to live-only
+permission-decision children, and a provider-returned request ID on an invoked provider-call child.
+The provider-call child's request-ID field is live-projection-only: it is never written to the persisted
+provider-call trace and never becomes a metric (the same value reaches assistant-message metadata
+and live traces and logs by separate routes). None of
+these entries represents final turn settlement, a cost total, detached-work completion, or collector
+receipt. Older observations without the root identity remain valid. Opt-in prompt, response and tool
+text never joins that projection: it has its own content batch, linked only by the prompt's trace
+and root span IDs (and a tool item by its call's tool span when the trace kept one), so a consumer
+that never asks for content never holds any.
 
 **Zero dependencies by design.** Every field of every declaration here is a primitive or another
 declaration in this package, so it depends on nothing at all — not even `agent-core`. It is the only
@@ -47,4 +59,5 @@ how it relates to the types here.
 
 This package declares no error type and throws nothing. `IUsageSnapshot.costStatus` distinguishes
 `unknown` / `estimated` / `exact`, which is a statement about **confidence in a measurement**, not a
-failure — an unpriced model yields `unknown` and no `costUsd`, and that is a normal outcome.
+failure — local price-table calculations are estimates even for an exact model ID, while an unpriced
+model yields `unknown` and no `costUsd`.

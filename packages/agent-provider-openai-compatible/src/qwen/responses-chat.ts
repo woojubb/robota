@@ -11,6 +11,12 @@ import {
   toOpenAIResponsesToolChoice,
   type IOpenAICompatibleError,
 } from '../shared/openai-compatible/index.js';
+import {
+  awaitWithProviderRequestId,
+  readOpenAICompatibleRequestId,
+  withProviderRequestId,
+} from '../shared/openai-compatible/request-id.js';
+import { openAICompatibleRequestOptions } from '../shared/openai-compatible/request-options.js';
 
 import type {
   IQwenBuiltInWebToolsOptions,
@@ -28,6 +34,8 @@ export interface IQwenResponsesChatOptions {
   defaultModel?: string;
   builtInWebTools?: IQwenBuiltInWebToolsOptions;
   onTextDelta?: TTextDeltaCallback;
+  /** Per-request headers (trusted `traceparent`), sent after the raw request payload is captured. */
+  requestHeaders?: Readonly<Record<string, string>>;
 }
 
 function enabledBuiltInWebTools(
@@ -66,7 +74,7 @@ export async function chatWithQwenResponsesApi(
     });
     const response = await input.client.responses.create(
       requestParams as OpenAI.Responses.ResponseCreateParamsNonStreaming,
-      input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
+      openAICompatibleRequestOptions(input.chatOptions?.signal, input.requestHeaders),
     );
     input.chatOptions?.onProviderNativeRawPayload?.({
       provider: 'qwen',
@@ -74,9 +82,12 @@ export async function chatWithQwenResponsesApi(
       payloadKind: 'response',
       payload: response,
     });
-    return parseQwenResponsesResponse(response, {
-      enabledBuiltInTools: enabledBuiltInWebTools(input),
-    });
+    return withProviderRequestId(
+      parseQwenResponsesResponse(response, {
+        enabledBuiltInTools: enabledBuiltInWebTools(input),
+      }),
+      readOpenAICompatibleRequestId(response),
+    );
   } catch (error) {
     const qwenError = error as IOpenAICompatibleError;
     const errorMessage = qwenError.message || 'Qwen Responses API request failed';
@@ -128,11 +139,13 @@ async function chatWithQwenResponsesStreamingAssembly(
       payloadKind: 'request',
       payload: requestParams,
     });
-    const stream = await input.client.responses.create(
-      requestParams as OpenAI.Responses.ResponseCreateParamsStreaming,
-      input.chatOptions?.signal ? { signal: input.chatOptions.signal } : undefined,
+    const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
+      input.client.responses.create(
+        requestParams as OpenAI.Responses.ResponseCreateParamsStreaming,
+        openAICompatibleRequestOptions(input.chatOptions?.signal, input.requestHeaders),
+      ),
     );
-    return assembleQwenResponsesStream({
+    const assembled = await assembleQwenResponsesStream({
       stream: observeProviderNativeRawPayloadStream(
         stream as AsyncIterable<TQwenResponsesStreamEvent>,
         {
@@ -145,6 +158,7 @@ async function chatWithQwenResponsesStreamingAssembly(
       onTextDelta: input.chatOptions?.onTextDelta,
       signal: input.chatOptions?.signal,
     });
+    return withProviderRequestId(assembled, providerRequestId);
   } catch (error) {
     const qwenError = error as IOpenAICompatibleError;
     const errorMessage = qwenError.message || 'Qwen Responses streaming request failed';

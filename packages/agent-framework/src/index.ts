@@ -77,6 +77,7 @@ export type {
 
 // ── InteractiveSession (primary API) ────────────────────────
 export { InteractiveSession, PeerMessageIngress, ExternalEventIngress } from './interactive/index.js';
+export { withUniqueSessionName } from './interactive/interactive-session-fork-record.js';
 export type {
   IAuthenticatedExternalEvent,
   IExternalEventSourceOptions,
@@ -124,6 +125,7 @@ export type {
 } from './interactive/index.js';
 export type {
   TInteractiveSessionOptions,
+  ILivePromptTracePort,
   IInteractiveSessionShutdownOptions,
   IGenerateSessionNameOptions,
 } from './interactive/index.js';
@@ -163,6 +165,8 @@ export type {
   ICommandHostAdapters,
   ICommandEffortAdapter,
   ICommandHandoffAdapter,
+  ICommandWorkspaceAdapter,
+  IWorkspaceMoveRequest,
   ICommandHostContext,
   IHandoffProgress,
   IHandoffStaysBehind,
@@ -183,6 +187,7 @@ export type {
   ICommandPermissionModeAdapter,
   ICommandMCPActivationAdapter,
   ICommandMCPActivationSummary,
+  ICommandMCPSourceProblem,
   ICommandOutputStyleRegistryAdapter,
   ICommandOutputStyleSummary,
   ICommandRemoteControlAdapter,
@@ -875,29 +880,3 @@ export type {
   ICommandSessionPermissions,
   ICommandSessionPreset,
 } from './command-api/host-context.js';
-
-// HANDOFF-001 (issue #1864): the two ends of a cross-device session hand-off, and the contract the
-// composition root fills in with the wire package's operations.
-export { HandoffDestination, HandoffSource } from './handoff/index.js';
-export type {
-  IAssembleOutcome,
-  ICommitOutcome,
-  IDestinationReport,
-  IHandoffAssemblerPort,
-  IHandoffCarrier,
-  IHandoffChunkFrame,
-  IHandoffComposition,
-  IHandoffDestinationOptions,
-  IHandoffManifestRequest,
-  IHandoffRuntimeState,
-  IHandoffSourceOptions,
-  IHandoffTransactionPort,
-  IHandoffTransactionState,
-  IIntegrityOutcome,
-  ITransitionOutcome,
-  TCredentialResolver,
-  TDestinationState,
-  TManifestOutcome,
-  TOfferOutcome,
-  TRecordPersister,
-} from './handoff/index.js';

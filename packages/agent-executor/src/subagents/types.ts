@@ -78,6 +78,8 @@ export interface ISubagentManagerOptions {
   runner?: ISubagentRunner;
   backgroundTaskManager?: IBackgroundTaskManager;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
+  /** Host-selected warning identity for the owned background task manager. */
+  observerFailureWarningCode?: string;
   maxConcurrent?: number;
   maxDepth?: number;
   now?: () => string;

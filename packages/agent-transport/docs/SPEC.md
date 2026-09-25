@@ -8,7 +8,7 @@ framing, and Node-only admission/integrity helpers shared by transport implement
 
 ## Contract
 
-- **Transport admission (SEC-008): none.** This package defines and evaluates admission data but
+- **Transport admission: none.** This package defines and evaluates admission data but
   binds no listener itself — it is a substrate for admission decisions, not an admission point.
 - Runtime message and frame decoders return explicit result unions rather than throwing.
 - Admission and handoff integrity helpers return their declared result contracts; outbound delivery

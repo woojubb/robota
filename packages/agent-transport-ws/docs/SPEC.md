@@ -19,7 +19,7 @@ without pulling in `ws`, React, Ink, or Hono.
 - Consumers import execution-workspace contract types directly from `agent-interface-transport`
   rather than through a pass-through re-export from this package.
 
-## Design decision: transport admission default (SEC-008)
+## Design decision: transport admission default
 
 A prior state had two transports independently answering the same "auto-mint a credential, or stay
 open?" question differently. The admission decision now has exactly one owner

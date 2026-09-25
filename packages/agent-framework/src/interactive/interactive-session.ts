@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { basename } from 'node:path';
 
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { isTurnNotRunError, OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
@@ -8,6 +9,10 @@ import { InteractiveSessionBase } from './interactive-session-base.js';
 import { SessionExecutionController } from './interactive-session-execution-controller.js';
 import { writeForkedSessionRecord } from './interactive-session-fork-record.js';
 import { runSkillInFork } from './interactive-session-fork.js';
+import {
+  buildWorkspaceMoveNotice,
+  prepareWorkspaceMove,
+} from './interactive-session-workspace-move.js';
 import { SessionHistoryTracker } from './interactive-session-history-tracker.js';
 import {
   applyCommandHostActions,
@@ -95,7 +100,7 @@ import type { IGoalStartOptions } from '../goal/index.js';
 import type { IAutomaticMemoryConfig } from '../memory/automatic-memory-types.js';
 import type { IMemoryStore, IPerTurnRecallConfig } from '../memory/types.js';
 import type { IProviderErrorGuidance } from '../utils/error-humanizer.js';
-import type { TWorkspaceProjectAccess } from '../workspace-trust/index.js';
+import type { IWorkspacePolicy, TWorkspaceProjectAccess } from '../workspace-trust/index.js';
 import type {
   TUniversalMessage,
   TSessionEndReason,
@@ -125,6 +130,7 @@ import type {
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
+import type { IWorkspaceMoveInstructions } from './interactive-session-workspace-move.js';
 export type { TInteractiveSessionOptions } from './interactive-session-options.js';
 
 export interface IInteractiveSessionShutdownOptions {
@@ -143,6 +149,8 @@ export class InteractiveSession
   private readonly listeners = new Map<string, Set<(...args: unknown[]) => void>>();
   private initialized = false;
   private initPromise: Promise<void> | null = null;
+  /** Why initialization failed, so a readiness probe reports the cause instead of "not yet". */
+  private initFailure: Error | undefined;
   private sessionStore?: IInteractiveSessionStore;
   private readonly sessionLoopsDisabled: boolean;
   private readonly selfPacedLoops: DurableSessionLoopStore;
@@ -153,7 +161,16 @@ export class InteractiveSession
   /** Persist a loop stop before cancelling its timer so resume cannot re-arm a stale snapshot. */
   private readonly pendingLoopStops = new Set<string>();
   private sessionName?: string;
-  private cwd?: string;
+  /**
+   * ARCH-043: the working directory and the project-access decision, as ONE value fixed for the life
+   * of this session and handed by reference to everything that needs either. They used to be two
+   * fields copied into collaborators separately, which is how a lazy operation could end up holding a
+   * different answer from the session. A move to another directory is a new session (`/cd`), never a
+   * mutation of this one.
+   */
+  private readonly workspace: IWorkspacePolicy;
+  /** A `/cd` was handed to the host; this session is ending (issue #3081). */
+  private workspaceMovePending = false;
   private pendingRestoreMessages: TUniversalMessage[] | null = null;
   /** CLI-1994: the resumed record's assembled prompt, applied when this session is a fork. */
   private restoredSystemPrompt?: string;
@@ -214,7 +231,6 @@ export class InteractiveSession
   private readonly askHandler: IUserInteraction['ask'];
   /** REMOTE-007: transport-neutral pending permission/ask registry (parking + fail-closed + drain). */
   private readonly promptRegistry: SessionPromptRegistry;
-  private readonly projectAccess: TWorkspaceProjectAccess;
   private readonly providerErrorGuidance?: IProviderErrorGuidance;
   private readonly promptFileReferenceTag?: string;
   private readonly resolveDefaultLoopPrompt?: () => string;
@@ -241,8 +257,11 @@ export class InteractiveSession
     this.resolveDefaultLoopPrompt = options.resolveDefaultLoopPrompt;
     this.userSettingsSources = options.userSettingsSources ?? [];
     this.sessionLoopsDisabled = options.disableSessionLoops ?? false;
-    this.projectAccess =
-      options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable');
+    this.workspace = Object.freeze({
+      cwd: ('cwd' in options ? options.cwd : undefined) ?? '',
+      projectAccess:
+        options.projectAccess ?? createRestrictedWorkspaceProjectAccess('identity-unavailable'),
+    });
     this.sessionName = options.sessionName;
     if ('outputStyle' in options && options.outputStyle !== undefined) {
       this.activeOutputStyleId = options.outputStyle.id;
@@ -273,7 +292,6 @@ export class InteractiveSession
     });
     this.askHandler = (request) => this.promptRegistry.requestAsk(request);
 
-    this.cwd = ('cwd' in options ? options.cwd : undefined) ?? '';
     this.resumeSessionId = options.resumeSessionId;
     this.startedAsFork = options.forkSession ?? false;
     this.sandboxClient = 'sandboxClient' in options ? options.sandboxClient : undefined;
@@ -290,7 +308,6 @@ export class InteractiveSession
         this.histTracker.recordUsedMemoryReferences(references),
     });
     this.sandboxSnapshotId = 'sandboxSnapshotId' in options ? options.sandboxSnapshotId : undefined;
-    const cwd = this.cwd;
     const initCheckpointStore = options.editCheckpointStore ?? null;
 
     this.bgTracker = new SessionBackgroundTaskTracker(
@@ -304,11 +321,11 @@ export class InteractiveSession
       (entry) => this.histTracker.append(entry),
       this.sessionLoopsDisabled,
       (task) => this.armSessionLoopExpiry(task),
+      options.observerFailureWarningCode,
     );
 
     this.histTracker = new SessionHistoryTracker(
-      cwd,
-      this.projectAccess,
+      this.workspace,
       () => this.getSessionOrThrow().getSessionId(),
       () => this.execCtrl.executing,
       () => this.persistCurrentSession(),
@@ -336,7 +353,8 @@ export class InteractiveSession
       // ARCH-029 S1: no cast — `implements ICommandHostContext` above makes this compiler-checked.
       () => this,
       () => this.session?.getSessionId() ?? '',
-      (prompt, displayInput, rawInput) => this.submit(prompt, displayInput, rawInput),
+      (prompt, displayInput, rawInput, submitOptions) =>
+        this.submit(prompt, displayInput, rawInput, submitOptions),
       (result) => this.execCtrl.applyForkSkillResult(result),
       (event, appendHistory) => this.histTracker.recordSkillActivationEvent(event, appendHistory),
       (content, forkOptions) => runSkillInFork(content, forkOptions, this.getSessionOrThrow()),
@@ -361,7 +379,7 @@ export class InteractiveSession
       getSession: () => this.session!,
       getSessionOrThrow: () => this.getSessionOrThrow(),
       getCwd: () => this.getCwd(),
-      getProjectAccess: () => this.projectAccess,
+      getProjectAccess: () => this.workspace.projectAccess,
       getContextState: () => this.getContextState(),
       getExecutionWorkspaceSnapshot: () => this.getExecutionWorkspaceSnapshot(),
       emit: (event, ...args) =>
@@ -370,6 +388,7 @@ export class InteractiveSession
           ...(args as Parameters<IInteractiveSessionEvents[TInteractiveEventName]>),
         ),
       persistSession: () => this.persistCurrentSession(),
+      ...(options.livePromptTrace ? { livePromptTrace: options.livePromptTrace } : {}),
       onWakeTurnFinalizing: (wakeTaskId, result, outcome, toolExecutions) =>
         this.finalizeSelfPacedIteration(wakeTaskId, result, outcome, toolExecutions),
       // SELFHOST-008 P2: adapter-gated — only wire capture when the surface supplied an `automaticMemory`
@@ -430,7 +449,7 @@ export class InteractiveSession
   }
 
   getProjectAccess(): TWorkspaceProjectAccess {
-    return this.projectAccess;
+    return this.workspace.projectAccess;
   }
 
   private configureInjectedSession(options: TInteractiveSessionOptions): boolean {
@@ -486,6 +505,9 @@ export class InteractiveSession
     if (hasInjectedSession) return;
     const stdOpts = options as IInteractiveSessionStandardOptions;
     this.initPromise = this.initializeAsync(stdOpts);
+    this.initPromise.catch((error: unknown) => {
+      this.initFailure = error instanceof Error ? error : new Error(String(error));
+    });
   }
   private async initializeAsync(options: IInteractiveSessionStandardOptions): Promise<void> {
     const canPersistProjectPermission =
@@ -520,6 +542,9 @@ export class InteractiveSession
       ...result.projectNotesFileEntries,
     ]);
     this.pendingRestoreMessages = null;
+    if (options.workspaceMovedFrom !== undefined && this.resumeSessionId !== undefined) {
+      this.announceWorkspaceMove(options.workspaceMovedFrom, result.agentsFileEntries);
+    }
     this.initialized = true;
     this.bgTracker.subscribe(this.session);
     this.resumeSelfPacedLoops();
@@ -527,19 +552,38 @@ export class InteractiveSession
     this.emit('context_update', this.getContextState());
   }
 
+  /** Issue #3081: tell the model (once) that it now works in this directory, with what it loaded. */
+  private announceWorkspaceMove(
+    fromCwd: string,
+    instructions: readonly IWorkspaceMoveInstructions[],
+  ): void {
+    const notice = buildWorkspaceMoveNotice({
+      fromCwd,
+      toCwd: this.workspace.cwd,
+      restricted: this.workspace.projectAccess.status === 'restricted',
+      instructions,
+    });
+    this.getSessionOrThrow().injectMessage('user', notice);
+    this.histTracker.append(
+      messageToHistoryEntry(createSystemMessage(`Moved from ${fromCwd} to ${this.workspace.cwd}.`)),
+    );
+  }
+
   protected async ensureInitialized(): Promise<void> {
     if (!this.initialized && this.initPromise) await this.initPromise;
   }
 
   protected getSessionOrThrow(): Session {
-    if (!this.session)
+    if (!this.session) {
+      if (this.initFailure) throw this.initFailure;
       throw new Error('InteractiveSession not initialized. Call submit() or await initialization.');
+    }
     return this.session;
   }
 
   getCwd(): string {
-    if (!this.cwd) throw new Error('cwd is not set — provide cwd in session options');
-    return this.cwd;
+    if (!this.workspace.cwd) throw new Error('cwd is not set — provide cwd in session options');
+    return this.workspace.cwd;
   }
 
   /**
@@ -665,6 +709,7 @@ export class InteractiveSession
     let input = entry.input;
     const liveFixedDefault =
       scheduled?.metadata?.['sessionLoopDefaultPrompt'] === true &&
+      scheduled.kind === 'scheduled' &&
       scheduled.schedule?.agentInstruction === scheduled.metadata['sessionLoopDefaultPromptSeed'];
     if (selfPaced?.useDefaultPrompt || liveFixedDefault) {
       try {
@@ -1394,6 +1439,56 @@ export class InteractiveSession
     });
   }
 
+  /**
+   * `/cd` (issue #3081): check the move, copy the conversation for the target, and hand both to the
+   * host, which starts the session there. This session is never re-rooted (ARCH-043).
+   */
+  async moveWorkspace(requestedPath: string): Promise<string> {
+    await this.ensureInitialized();
+    const adapter = this.getCommandHostAdapters().workspace;
+    if (!adapter) {
+      throw new Error('Moving to another directory is not available in this environment.');
+    }
+    if (this.workspaceMovePending) throw new Error('A move to another directory is already under way.');
+    // The move carries the conversation as a saved record; a session that saves nothing has no way
+    // to bring it along, and writing one anyway would break the promise it was started with.
+    if (!this.sessionStore) {
+      throw new Error('This session does not save its conversation, so it cannot move it.');
+    }
+    const session = this.getSessionOrThrow();
+    const liveTasks = (this.getBackgroundTaskManager()?.list() ?? []).filter(
+      (task) => !['completed', 'failed', 'cancelled'].includes(task.status),
+    );
+    const request = prepareWorkspaceMove({
+      requestedPath,
+      workspace: this.workspace,
+      executing: this.execCtrl.executing,
+      liveBackgroundTasks: liveTasks.length,
+      permissionMode: session.getPermissionMode(),
+      rules: session.getPermissionRules(),
+      source: {
+        getHistory: () => session.getHistory(),
+        getSystemMessage: () => session.getSystemMessage(),
+        getToolSchemas: () => session.getToolSchemas(),
+        getFullHistory: () => this.getFullHistory(),
+      },
+      // An unnamed conversation is named after where it goes; the host keeps the name unique.
+      sessionName: this.sessionName ?? '',
+    });
+    const named = request.record.name
+      ? request
+      : { ...request, record: { ...request.record, name: basename(request.targetCwd) } };
+    this.persistCurrentSession();
+    this.workspaceMovePending = true;
+    try {
+      await adapter.move(named);
+    } catch (error) {
+      this.workspaceMovePending = false;
+      throw error;
+    }
+    return `Moving to ${request.targetCwd}${request.restricted ? ' (restricted)' : ''}...`;
+  }
+
   setAutoCompactThreshold(
     threshold: TAutoCompactThreshold,
     source: TAutoCompactThresholdSource = 'session',
@@ -1421,18 +1516,19 @@ export class InteractiveSession
   }
 
   setName(name: string): void {
-    this.sessionName = name;
     if (this.sessionStore && this.session) {
       let id: string;
       try {
         id = this.getSessionOrThrow().getSessionId();
       } catch {
-        return; // Session not initialized yet — nothing on disk to rename.
+        this.sessionName = name; // Session not initialized yet — nothing on disk to rename.
+        return;
       }
       // TRANS-007: the store outcome is NOT swallowed. It used to sit inside the catch above, so a
       // record this build cannot read made the rename a silent no-op.
       persistSessionRename(this.sessionStore, id, name);
     }
+    this.sessionName = name;
   }
 
   private getBackgroundTaskManager(): IBackgroundTaskManager | undefined {
@@ -1487,7 +1583,7 @@ export class InteractiveSession
       this.sessionStore,
       this.session,
       this.sessionName,
-      this.cwd ?? '',
+      this.workspace.cwd,
       histState.history,
       {
         tasks: bgState.tasks
@@ -1672,6 +1768,7 @@ export class InteractiveSession
       getAdapters: () => this.getCommandHostAdapters(),
       orgPolicy: this.orgPolicy,
       switchProvider: (profileName) => this.switchProvider(profileName),
+      moveWorkspace: (path) => this.moveWorkspace(path),
       applyOutputStyle: (style) => this.applyOutputStyle(style),
       renameSession: (newName) => {
         this.setName(newName);

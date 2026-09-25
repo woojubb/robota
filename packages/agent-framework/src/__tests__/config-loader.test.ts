@@ -204,7 +204,7 @@ describe('loadConfig', () => {
     expect(config.defaultTrustLevel).toBe('safe');
   });
 
-  it('merges permissions arrays (local overrides project overrides user)', async () => {
+  it('merges permissions arrays (every layer contributes, issue #3081)', async () => {
     writeJson(join(userDir, 'settings.json'), {
       permissions: { allow: ['Bash(git *)'] },
     });
@@ -212,8 +212,7 @@ describe('loadConfig', () => {
       permissions: { allow: ['Read(**)', 'Glob(**)'] },
     });
     const config = await loadConfig(cwd);
-    // project overrides user permissions entirely
-    expect(config.permissions.allow).toEqual(['Read(**)', 'Glob(**)']);
+    expect(config.permissions.allow).toEqual(['Bash(git *)', 'Read(**)', 'Glob(**)']);
   });
 
   it('CONFIG-003: a project deny rule does not remove a user-global deny rule', async () => {
@@ -245,15 +244,25 @@ describe('loadConfig', () => {
     expect(config.permissions.deny).toEqual(['Bash(rm -rf *)', 'Read(.env)']);
   });
 
-  it('CONFIG-003: allow still REPLACES — the asymmetry is the rule, not an oversight', async () => {
-    // Deliberately NOT changed. An allowlist states the complete permitted set, so a later, more
-    // specific layer supersedes it; unioning a GRANT would let a project widen what the user
-    // permitted, which is the same inverted trust direction the deny fix closes.
+  it('issue #3081: a project allow list no longer discards the user allow list', async () => {
+    // Replacing never stopped a project from widening — it could state any list it liked — but it
+    // did let a checked-in file silently drop the user's own rules. With deny, ask and ceiling
+    // rules outranking every allow, an allow list is not the complete permitted set any more.
     writeJson(join(userDir, 'settings.json'), { permissions: { allow: ['Bash(git *)'] } });
     writeJson(join(projectDir, 'settings.json'), { permissions: { allow: ['Read(**)'] } });
     const config = await loadConfig(cwd);
 
-    expect(config.permissions.allow).toEqual(['Read(**)']);
+    expect(config.permissions.allow).toEqual(['Bash(git *)', 'Read(**)']);
+  });
+
+  it('issue #3081: ask rules load and union across layers', async () => {
+    writeJson(join(userDir, 'settings.json'), { permissions: { ask: ['Bash(git push *)'] } });
+    writeJson(join(projectDir, 'settings.json'), {
+      permissions: { ask: ['Bash(git push *)', 'Bash(npm publish*)'] },
+    });
+    const config = await loadConfig(cwd);
+
+    expect(config.permissions.ask).toEqual(['Bash(git push *)', 'Bash(npm publish*)']);
   });
 
   it('throws on invalid settings (Zod validation)', async () => {

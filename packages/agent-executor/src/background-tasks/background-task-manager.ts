@@ -79,7 +79,9 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     this.maxConcurrent = options.maxConcurrent ?? DEFAULT_MAX_CONCURRENT;
     this.maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
     this.eventSink = options.eventSink;
-    this.onObserverFailure = options.onObserverFailure ?? reportObserverFailureAsWarning;
+    this.onObserverFailure =
+      options.onObserverFailure ??
+      ((failure) => reportObserverFailureAsWarning(failure, options.observerFailureWarningCode));
     this.now = options.now ?? (() => new Date().toISOString());
     this.watchdogs = createBackgroundTaskWatchdogs(options, (task, reason, message) => {
       void this.failForTimeout(task, reason, message);
@@ -225,7 +227,9 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
     await handle.editSchedule(patch);
     const { label, ...schedulePatch } = patch;
     // Keep the reconstructable schedule (FLOW-003) + list view in sync with the in-place re-arm.
-    if (task.state.schedule) {
+    // `schedule` is scheduled-only on the discriminated state; `editScheduledTask` only ever
+    // reaches a scheduled task (`requireScheduledTask`), but the kind check lets TS narrow the write.
+    if (task.state.kind === 'scheduled' && task.state.schedule) {
       task.state.schedule = { ...task.state.schedule, ...schedulePatch };
     }
     // CMD-009: the label is the list view's rendering of the instruction, so it moves with it.
@@ -359,6 +363,15 @@ export class BackgroundTaskManager implements IBackgroundTaskManager {
 
   private completeTask(task: ITrackedBackgroundTask, result: IBackgroundTaskResult): void {
     if (isTerminalBackgroundTaskStatus(task.state.status)) return;
+    if (result.taskId !== task.state.id || result.kind !== task.state.kind) {
+      this.failTask(
+        task,
+        createRunnerError(
+          `Background task result identity mismatch: expected ${task.state.id} (${task.state.kind}), received ${result.taskId} (${result.kind})`,
+        ),
+      );
+      return;
+    }
     this.watchdogs.clear(task);
     const completed = markBackgroundTaskCompleted(task, result, this.now());
     this.releaseSlot(task.state.id);

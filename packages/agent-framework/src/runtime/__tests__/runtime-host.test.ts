@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { InteractiveSession } from '../../interactive/interactive-session.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { startRuntimeHost } from '../runtime-host.js';
+import { buildRuntimeSession, startRuntimeHost } from '../runtime-host.js';
 import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transport';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
@@ -226,5 +226,25 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     });
 
     await host.shutdown();
+  });
+});
+
+describe('buildRuntimeSession recipe invariants', () => {
+  it('rejects a missing provider before constructing a session', () => {
+    expect(() => buildRuntimeSession({ cwd: process.cwd(), provider: undefined } as never)).toThrow(
+      'buildRuntimeSession: provider is required',
+    );
+  });
+
+  it('rejects an empty working directory before constructing a session', () => {
+    expect(() => buildRuntimeSession({ cwd: '', provider: stubProvider() })).toThrow(
+      'buildRuntimeSession: cwd is required',
+    );
+  });
+
+  it('rejects an empty injected-session branch before construction', () => {
+    expect(() => buildRuntimeSession({ session: undefined } as never)).toThrow(
+      'buildRuntimeSession: injected session is required',
+    );
   });
 });

@@ -119,3 +119,29 @@ it.each(['thread', 'process'])('bounds the returned DTO in the %s transport', as
     error: { code: 'DAG_TASK_ISOLATION_MESSAGE_LIMIT', retryable: false },
   });
 });
+
+it.each(['thread', 'process'])('enforces a trusted smaller output cap in the %s transport', async (transport) => {
+  const factory = transport === 'process' ? () => new RegexProcessWorker() : undefined;
+  const create = () => new IsolatedRegexOperation('task', 'node', factory, 3);
+  expect(await create().execute({ text: 'xx', search: 'x', flags: 'g', replacement: 'é' })).toMatchObject({
+    ok: false, error: { code: 'DAG_TASK_EXECUTION_BYTE_LIMIT_EXCEEDED', retryable: false },
+  });
+  expect(await create().execute({ text: 'x', search: 'x', flags: 'g', replacement: 'é' }))
+    .toEqual({ ok: true, value: 'é' });
+});
+
+it.each(['thread', 'process'])('preserves substitution and zero-length semantics in the %s transport', async (transport) => {
+  const factory = transport === 'process' ? () => new RegexProcessWorker() : undefined;
+  for (const sample of [
+    { text: 'abc', search: 'b', flags: '', replacement: "$$:$&:$`:$'" },
+    { text: 'ab', search: '(a)(b)', flags: '', replacement: '$1/$10/$2' },
+    { text: 'abc', search: '(?<part>b)', flags: '', replacement: '$<part>/$<missing>' },
+    { text: '😀', search: '(?:)', flags: 'g', replacement: '-' },
+    { text: '😀', search: '(?:)', flags: 'gu', replacement: '-' },
+    { text: '\ud800x\udc00', search: 'x', flags: '', replacement: '' },
+  ]) {
+    const expected = sample.text.replace(new RegExp(sample.search, sample.flags), sample.replacement);
+    expect(await new IsolatedRegexOperation('task', 'node', factory).execute(sample))
+      .toEqual({ ok: true, value: expected });
+  }
+});

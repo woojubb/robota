@@ -103,7 +103,19 @@ export interface IWorkspaceManifestApplyResult {
   entries: IWorkspaceManifestAppliedEntry[];
 }
 
+/**
+ * How a sandbox's filesystem relates to the host's (issue #3081).
+ *
+ * - `shared` — OS-level confinement of commands over the host filesystem (Seatbelt, bubblewrap).
+ *   File tools stay on the host, bounded by the path guard and the permission rules.
+ * - `separate` — a remote or VM filesystem (E2B, in-memory). EVERY file tool must route through the
+ *   sandbox, or a search would read one filesystem while an edit writes another.
+ */
+export type TSandboxFilesystem = 'shared' | 'separate';
+
 export interface ISandboxClient {
+  /** Absent means `separate`: every client before this field existed had its own filesystem. */
+  readonly filesystem?: TSandboxFilesystem;
   run(command: string, options?: ISandboxRunOptions): Promise<ISandboxRunResult>;
   readFile(path: string): Promise<string>;
   writeFile(path: string, content: string): Promise<void>;
@@ -119,6 +131,8 @@ export interface ISandboxClient {
 
 export interface ISandboxToolOptions {
   sandboxClient?: ISandboxClient;
+  /** Abort a host file read between bounded chunks. */
+  signal?: AbortSignal;
   /**
    * The tool's working-directory root on the host (non-sandbox) path. REQUIRED — ARCH-010.
    *

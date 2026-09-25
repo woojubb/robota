@@ -1,3 +1,5 @@
+import { createServer } from 'node:http';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import { executeUsageExportCommand } from '../usage-export-command.js';
@@ -67,6 +69,49 @@ function store(): IInteractiveSessionStore {
 }
 
 describe('explicit OTLP usage snapshot export', () => {
+  it('sends accepted provider-call payloads to a real loopback collector and reports partial rejection', async () => {
+    const session = record();
+    session.history!.push({
+      id: 'provider', timestamp: new Date('2026-09-24T00:00:59.900Z'), category: 'event', type: 'provider-call-trace',
+      data: {
+        traceId: '1234567890abcdef1234567890abcdef', parentSpanId: '1234567890abcdef', spanId: 'abcdef1234567890',
+        startedAt: '2026-09-24T00:00:59.100Z', endedAt: '2026-09-24T00:00:59.900Z', outcome: 'success', round: 1,
+        disposition: 'invoked', usageProvenance: 'complete', providerId: 'secret-provider', modelId: 'gpt-4o',
+        promptTokens: 7, completionTokens: 2, totalTokens: 9,
+      },
+    });
+    const userSessionStore: IInteractiveSessionStore = {
+      ...store(), list: () => [{ id: session.id, outcome: { status: 'valid', record: session } }],
+    };
+    const requests: Array<{ path: string; body: string }> = [];
+    const collector = createServer(async (request, response) => {
+      const chunks: Buffer[] = [];
+      for await (const chunk of request) chunks.push(Buffer.from(chunk));
+      requests.push({ path: request.url ?? '', body: Buffer.concat(chunks).toString('utf8') });
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(request.url === '/v1/metrics'
+        ? JSON.stringify({ partialSuccess: { rejectedDataPoints: '1' } }) : '{}');
+    });
+    await new Promise<void>((resolve) => collector.listen(0, '127.0.0.1', resolve));
+    try {
+      const address = collector.address();
+      if (!address || typeof address === 'string') throw new Error('Expected TCP collector');
+      const endpoint = `http://127.0.0.1:${address.port}`;
+      const traces = await executeUsageExportCommand(['--signal', 'traces', '--endpoint', endpoint], { userSessionStore, version: 'test' });
+      const metrics = await executeUsageExportCommand(['--signal', 'metrics', '--endpoint', endpoint], { userSessionStore, version: 'test' });
+      expect(traces.exitCode).toBe(0);
+      expect(metrics.exitCode).toBe(1);
+      expect(metrics.stderr).toMatch(/rejected/);
+      expect(requests.map((request) => request.path)).toEqual(['/v1/traces', '/v1/metrics']);
+      const traceBody = JSON.parse(requests[0]!.body);
+      expect(traceBody.resourceSpans[0].scopeSpans[0].spans[1].attributes).toContainEqual({ key: 'robota.provider.usage.input_tokens', value: { intValue: '7' } });
+      expect(requests[0]!.body).not.toMatch(/secret|gpt-4o|turn-1/);
+      const metricBody = JSON.parse(requests[1]!.body);
+      expect(metricBody.resourceMetrics[0].scopeMetrics[0].metrics).toContainEqual(expect.objectContaining({ name: 'robota.provider_call.count' }));
+    } finally {
+      await new Promise<void>((resolve, reject) => collector.close((error) => error ? reject(error) : resolve()));
+    }
+  });
   it('sends only a content-free prompt root span when traces are explicitly selected', async () => {
     const fetcher = vi.fn(
       async (_input: Parameters<typeof fetch>[0], _init?: RequestInit) =>

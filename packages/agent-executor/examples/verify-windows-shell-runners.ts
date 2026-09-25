@@ -51,7 +51,12 @@ function installedExecutable(name: string): string {
   return executable;
 }
 
-function requestFor(shellCase: IShellCase, kind: 'process' | 'scheduled'): IBackgroundTaskStart {
+function requestFor(shellCase: IShellCase, kind: 'process'): IBackgroundTaskStart<'process'>;
+function requestFor(shellCase: IShellCase, kind: 'scheduled'): IBackgroundTaskStart<'scheduled'>;
+function requestFor(
+  shellCase: IShellCase,
+  kind: 'process' | 'scheduled',
+): IBackgroundTaskStart<'process'> | IBackgroundTaskStart<'scheduled'> {
   const common = {
     label: `arch-026-${shellCase.name}-${kind}`,
     mode: 'background' as const,
@@ -61,12 +66,12 @@ function requestFor(shellCase: IShellCase, kind: 'process' | 'scheduled'): IBack
     command: shellCase.command,
     ...(shellCase.executable !== undefined ? { shell: shellCase.executable } : {}),
   };
+  if (kind === 'process') {
+    return { taskId: `${kind}-${shellCase.name}`, request: { ...common, kind, timeoutMs: 15_000 } };
+  }
   return {
     taskId: `${kind}-${shellCase.name}`,
-    request:
-      kind === 'process'
-        ? { ...common, kind, timeoutMs: 15_000 }
-        : { ...common, kind, cronExpression: '* * * * * *', timeoutMs: 15_000 },
+    request: { ...common, kind, cronExpression: '* * * * * *', timeoutMs: 15_000 },
   };
 }
 
@@ -150,12 +155,13 @@ async function assertUnknownShellRejected(): Promise<number> {
   hook.enable();
   try {
     for (const kind of ['process', 'scheduled'] as const) {
-      const runner =
-        kind === 'process' ? createManagedShellProcessRunner() : createScheduledTaskRunner();
       let error: unknown;
       let handle: IBackgroundTaskHandle | undefined;
       try {
-        handle = runner.start(requestFor(unknown, kind));
+        handle =
+          kind === 'process'
+            ? createManagedShellProcessRunner().start(requestFor(unknown, 'process'))
+            : createScheduledTaskRunner().start(requestFor(unknown, 'scheduled'));
       } catch (caught) {
         error = caught;
       } finally {

@@ -378,6 +378,115 @@ describe('DeepSeekProvider', () => {
     expect(chunks[1]?.metadata?.['isComplete']).toBe(true);
   });
 
+  it('carries the server-returned request ID (response._request_id) onto metadata', async () => {
+    const provider = new DeepSeekProvider({ apiKey: 'deepseek-key' });
+    const client = getClient(provider);
+    client.chat.completions.create.mockResolvedValue({
+      id: 'deepseek-req-id',
+      _request_id: 'req_deepseek_123',
+      object: 'chat.completion',
+      created: 1,
+      model: 'deepseek-v4-flash',
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: 'hi', refusal: null },
+          finish_reason: 'stop',
+          logprobs: null,
+        },
+      ],
+    } satisfies OpenAI.Chat.ChatCompletion & { _request_id: string });
+
+    const result = await provider.chat([createUserMessage('Hello')], {
+      model: 'deepseek-v4-flash',
+    });
+
+    expect(result.metadata?.['providerRequestId']).toBe('req_deepseek_123');
+  });
+
+  it('never fabricates a request ID when the response has no _request_id', async () => {
+    const provider = new DeepSeekProvider({ apiKey: 'deepseek-key' });
+    const client = getClient(provider);
+    client.chat.completions.create.mockResolvedValue({
+      id: 'deepseek-no-req-id',
+      object: 'chat.completion',
+      created: 1,
+      model: 'deepseek-v4-flash',
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: 'hi', refusal: null },
+          finish_reason: 'stop',
+          logprobs: null,
+        },
+      ],
+    } satisfies OpenAI.Chat.ChatCompletion);
+
+    const result = await provider.chat([createUserMessage('Hello')], {
+      model: 'deepseek-v4-flash',
+    });
+
+    expect(result.metadata?.['providerRequestId']).toBeUndefined();
+  });
+
+  it('carries the server-returned request ID onto every yielded chunk when withResponse is available', async () => {
+    const provider = new DeepSeekProvider({ apiKey: 'deepseek-key' });
+    const client = getClient(provider);
+    const stream = asyncIterableFrom([createChunk('Part one'), createChunk(' done', 'stop')]);
+    client.chat.completions.create.mockReturnValue({
+      then: (resolve: (value: unknown) => void) => resolve(stream),
+      withResponse: async () => ({ data: stream, request_id: 'req_deepseek_stream' }),
+    });
+
+    const chunks: TUniversalMessage[] = [];
+    for await (const chunk of provider.chatStream?.([createUserMessage('Stream')], {
+      model: 'deepseek-v4-flash',
+    }) ?? []) {
+      chunks.push(chunk);
+    }
+
+    expect(chunks.length).toBeGreaterThan(0);
+    expect(
+      chunks.every((chunk) => chunk.metadata?.['providerRequestId'] === 'req_deepseek_stream'),
+    ).toBe(true);
+  });
+
+  it('carries the server-returned request ID onto the assembled streaming message when withResponse is available', async () => {
+    const provider = new DeepSeekProvider({ apiKey: 'deepseek-key' });
+    const client = getClient(provider);
+    const stream = asyncIterableFrom([
+      createChunk('Hello'),
+      createChunk(' from DeepSeek', 'stop'),
+    ]);
+    client.chat.completions.create.mockReturnValue({
+      then: (resolve: (value: unknown) => void) => resolve(stream),
+      withResponse: async () => ({ data: stream, request_id: 'req_deepseek_assembly' }),
+    });
+
+    const result = await provider.chat([createUserMessage('Hello')], {
+      model: 'deepseek-v4-flash',
+      onTextDelta: () => {},
+    });
+
+    expect(result.metadata?.['providerRequestId']).toBe('req_deepseek_assembly');
+  });
+
+  it('leaves the assembled streaming message unchanged when withResponse is unavailable', async () => {
+    const provider = new DeepSeekProvider({ apiKey: 'deepseek-key' });
+    const client = getClient(provider);
+    client.chat.completions.create.mockResolvedValue(
+      asyncIterableFrom([createChunk('Hello'), createChunk(' there', 'stop')]),
+    );
+
+    const result = await provider.chat([createUserMessage('Hello')], {
+      model: 'deepseek-v4-flash',
+      onTextDelta: () => {},
+    });
+
+    expect(result.metadata?.['providerRequestId']).toBeUndefined();
+    expect(result.content).toBe('Hello there');
+  });
+
   it('wraps upstream chat failures with DeepSeek context', async () => {
     const provider = new DeepSeekProvider({ apiKey: 'deepseek-key' });
     const client = getClient(provider);

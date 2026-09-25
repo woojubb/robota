@@ -13,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useScreenReaderTurnSignals } from '../hooks/useScreenReaderTurnSignals.js';
 import { ScreenReaderPacingProvider } from '../screen-reader-pacing-context.js';
+import { TerminalCapabilitiesProvider } from '../terminal-capabilities-context.js';
 import { turnMarkSequence } from '../terminal-marks.js';
 
 import type { IScreenReaderPacingPort } from '../screen-reader-pacing-context.js';
@@ -25,7 +26,6 @@ function Probe({ isThinking }: { isThinking: boolean }): React.ReactElement {
 let port: IScreenReaderPacingPort & { writes: string[] };
 
 beforeEach(() => {
-  vi.stubEnv('ROBOTA_TURN_MARKS', '1');
   const writes: string[] = [];
   port = {
     writes,
@@ -44,14 +44,18 @@ describe('TC-07: the turn marks go through the port, ordered with the turn they 
   it('emits prompt-start on mount and the B/C pair when a turn starts, all through the port', () => {
     const { rerender } = render(
       <ScreenReaderPacingProvider port={port}>
-        <Probe isThinking={false} />
+        <TerminalCapabilitiesProvider overrides={{ turnMarks: true }}>
+          <Probe isThinking={false} />
+        </TerminalCapabilitiesProvider>
       </ScreenReaderPacingProvider>,
     );
     expect(port.writes).toEqual([turnMarkSequence('promptStart')]);
 
     rerender(
       <ScreenReaderPacingProvider port={port}>
-        <Probe isThinking />
+        <TerminalCapabilitiesProvider overrides={{ turnMarks: true }}>
+          <Probe isThinking />
+        </TerminalCapabilitiesProvider>
       </ScreenReaderPacingProvider>,
     );
     expect(port.writes).toEqual([
@@ -66,7 +70,9 @@ describe('TC-07: the turn marks go through the port, ordered with the turn they 
     try {
       render(
         <ScreenReaderPacingProvider port={port}>
-          <Probe isThinking={false} />
+          <TerminalCapabilitiesProvider overrides={{ turnMarks: true }}>
+            <Probe isThinking={false} />
+          </TerminalCapabilitiesProvider>
         </ScreenReaderPacingProvider>,
       );
       const direct = spy.mock.calls.filter((call) => String(call[0]).includes('\x1b]133;'));

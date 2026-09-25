@@ -217,9 +217,10 @@ export interface ISweepOutcome {
  * `buildExecutionInput` reads `input: message.payload` straight off the message. Every task recovered
  * through the sweep would have re-executed with an empty input.
  *
- * The per-node `timeoutMs` rides the same payload, so losing it also dropped a custom timeout back to
- * the default — which, when the real timeout was the longer of the two, reopened the very
- * double-execution race the ownership bound closes.
+ * The per-node `timeoutMs` does NOT need restoring here: the worker resolves the attempt timeout
+ * from the claimed node's own definition (`WorkerLoopService.resolveTimeoutMs`), never from the
+ * message payload, so a redelivered message gets the same timeout as any other delivery of the
+ * same node without this function carrying it.
  *
  * The `messageId` is keyed on the ATTEMPT so it cannot collide with the message the dead worker was
  * holding, nor with another sweep's — a queue that deduplicates by id would otherwise drop the

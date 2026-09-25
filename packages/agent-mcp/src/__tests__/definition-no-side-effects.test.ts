@@ -147,7 +147,7 @@ describe('driving the whole pipeline contacts nothing', () => {
         'project',
         '.mcp.json',
       );
-      const entries = resolveByPrecedence(
+      const { entries } = resolveByPrecedence(
         [{ source: 'project', origin: '.mcp.json', ...decoded }],
         (definition: IMCPServerDefinition) =>
           materializeDefinition(definition, { HOST: 'api.example' }),

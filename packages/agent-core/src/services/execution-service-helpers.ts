@@ -291,6 +291,7 @@ export function buildFullExecutionContext(
     ...(context?.ephemeralSystemContext !== undefined && {
       ephemeralSystemContext: context.ephemeralSystemContext,
     }),
+    ...(context?.traceContext !== undefined && { traceContext: context.traceContext }),
   };
 }
 

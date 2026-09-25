@@ -1,7 +1,7 @@
 /**
  * CLI-2004 TC-20 — the startup quiet period.
  *
- * The bound matters more than the default: a mistyped `ROBOTA_SCREEN_READER_STARTUP_QUIET_MS` is
+ * The bound matters more than the default: a mistyped host timing override is
  * how a session appears to hang forever, and a silently-swallowed value is how it appears to have no
  * effect at all. Every rejection and every clamp is REPORTED, and this asserts the report.
  *
@@ -17,12 +17,21 @@ import {
   awaitStartupQuietPeriod,
   DEFAULT_PREPARK_MS,
   DEFAULT_STARTUP_QUIET_MS,
-  PREPARK_ENV,
   PREPARK_MS_MAX,
   resolvePacing,
-  STARTUP_QUIET_ENV,
   STARTUP_QUIET_MS_MAX,
 } from '../screen-reader-pacing.js';
+
+const STARTUP_LABEL = 'ACME_SCREEN_READER_STARTUP_QUIET_MS';
+const PREPARK_LABEL = 'ACME_SCREEN_READER_PREPARK_MS';
+
+function startup(raw: string) {
+  return { startupQuiet: { raw, label: STARTUP_LABEL } };
+}
+
+function prepark(raw: string) {
+  return { prepark: { raw, label: PREPARK_LABEL } };
+}
 
 function collectWarnings(): { notes: string[]; warn: (message: string) => void } {
   const notes: string[] = [];
@@ -30,15 +39,28 @@ function collectWarnings(): { notes: string[]; warn: (message: string) => void }
 }
 
 describe('TC-20: resolvePacing', () => {
-  it('returns the documented default when the variable is not set', () => {
-    expect(resolvePacing({ enabled: true, env: {} })).toEqual({
+  it('ignores ambient Robota pacing variables without a host choice', () => {
+    vi.stubEnv('ROBOTA_SCREEN_READER_STARTUP_QUIET_MS', '0');
+    vi.stubEnv('ROBOTA_SCREEN_READER_PREPARK_MS', '0');
+    try {
+      expect(resolvePacing({ enabled: true })).toEqual({
+        startupQuietMs: DEFAULT_STARTUP_QUIET_MS,
+        preparkMs: DEFAULT_PREPARK_MS,
+      });
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('returns the documented default when the host supplies no override', () => {
+    expect(resolvePacing({ enabled: true })).toEqual({
       startupQuietMs: DEFAULT_STARTUP_QUIET_MS,
       preparkMs: DEFAULT_PREPARK_MS,
     });
   });
 
   it('honours an explicit 0 exactly — the documented way to ask for no wait', () => {
-    expect(resolvePacing({ enabled: true, env: { [STARTUP_QUIET_ENV]: '0' } })).toEqual({
+    expect(resolvePacing({ enabled: true, overrides: startup('0') })).toEqual({
       startupQuietMs: 0,
       preparkMs: DEFAULT_PREPARK_MS,
     });
@@ -48,7 +70,7 @@ describe('TC-20: resolvePacing', () => {
     const sink = collectWarnings();
     const pacing = resolvePacing({
       enabled: true,
-      env: { [STARTUP_QUIET_ENV]: '999999' },
+      overrides: startup('999999'),
       warn: sink.warn,
     });
 
@@ -61,7 +83,7 @@ describe('TC-20: resolvePacing', () => {
     const sink = collectWarnings();
     const pacing = resolvePacing({
       enabled: true,
-      env: { [STARTUP_QUIET_ENV]: 'soon' },
+      overrides: startup('soon'),
       warn: sink.warn,
     });
 
@@ -70,11 +92,17 @@ describe('TC-20: resolvePacing', () => {
     expect(sink.notes[0]).toContain('ignoring "soon"');
   });
 
-  it('resolves the wait to 0 when the mode is off, whatever the variable says', () => {
-    expect(resolvePacing({ enabled: false, env: { [STARTUP_QUIET_ENV]: '5000' } })).toEqual({
+  it('resolves the wait to 0 without warnings when the mode is off', () => {
+    const sink = collectWarnings();
+    expect(resolvePacing({
+      enabled: false,
+      overrides: startup('invalid'),
+      warn: sink.warn,
+    })).toEqual({
       startupQuietMs: 0,
       preparkMs: 0,
     });
+    expect(sink.notes).toEqual([]);
   });
 });
 
@@ -166,18 +194,18 @@ describe('TC-20: the startup quiet period', () => {
 
 describe('SCREEN-2670 TC-01: resolvePacing returns preparkMs by the same discipline', () => {
   it('defaults to the provisional 50 and honours an explicit 0 exactly', () => {
-    expect(resolvePacing({ enabled: true, env: {} }).preparkMs).toBe(50);
-    expect(resolvePacing({ enabled: true, env: { [PREPARK_ENV]: '0' } }).preparkMs).toBe(0);
-    expect(resolvePacing({ enabled: true, env: { [PREPARK_ENV]: '250' } }).preparkMs).toBe(250);
+    expect(resolvePacing({ enabled: true }).preparkMs).toBe(50);
+    expect(resolvePacing({ enabled: true, overrides: prepark('0') }).preparkMs).toBe(0);
+    expect(resolvePacing({ enabled: true, overrides: prepark('250') }).preparkMs).toBe(250);
   });
 
   it('refuses a non-numeric or negative value WITH a note naming the variable', () => {
     for (const raw of ['soon', '-5', '1.5']) {
       const sink = collectWarnings();
-      const pacing = resolvePacing({ enabled: true, env: { [PREPARK_ENV]: raw }, warn: sink.warn });
+      const pacing = resolvePacing({ enabled: true, overrides: prepark(raw), warn: sink.warn });
       expect(pacing.preparkMs).toBe(DEFAULT_PREPARK_MS);
       expect(sink.notes).toHaveLength(1);
-      expect(sink.notes[0]).toContain(PREPARK_ENV);
+      expect(sink.notes[0]).toContain(PREPARK_LABEL);
       expect(sink.notes[0]).toContain(`"${raw}"`);
     }
   });
@@ -186,7 +214,7 @@ describe('SCREEN-2670 TC-01: resolvePacing returns preparkMs by the same discipl
     const sink = collectWarnings();
     const pacing = resolvePacing({
       enabled: true,
-      env: { [PREPARK_ENV]: '99999' },
+      overrides: prepark('99999'),
       warn: sink.warn,
     });
     expect(pacing.preparkMs).toBe(PREPARK_MS_MAX);
@@ -194,7 +222,7 @@ describe('SCREEN-2670 TC-01: resolvePacing returns preparkMs by the same discipl
   });
 
   it('is 0 whenever the mode is off, regardless of the variable', () => {
-    expect(resolvePacing({ enabled: false, env: { [PREPARK_ENV]: '250' } })).toEqual({
+    expect(resolvePacing({ enabled: false, overrides: prepark('250') })).toEqual({
       startupQuietMs: 0,
       preparkMs: 0,
     });

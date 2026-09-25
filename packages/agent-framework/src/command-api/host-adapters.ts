@@ -2,6 +2,7 @@ import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command'
 import type { IPresetApplicationOptions } from './preset/preset-application-types.js';
 import type { ICommandSessionModel } from './session-roles.js';
 import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
+import type { IInteractiveSessionRecord } from '../interactive/session-persistence.js';
 import type { IModelEffortResolution, TEffortSelection } from '../effort/effort-resolution.js';
 import type { TPermissionMode, TSessionEndReason, TUniversalValue } from '@robota-sdk/agent-core';
 
@@ -98,9 +99,34 @@ export interface ICommandMCPActivationSummary {
   readonly securityIdentity: string;
 }
 
+/**
+ * A definition-source-level problem — issue #2794: a configuration root that is not an object, no
+ * `mcpServers` key, `mcpServers` not an object, or a source that could not be parsed at all. It
+ * names no server, so it cannot be an `ICommandMCPActivationSummary`; this is its own carrier so
+ * `/mcp status` can say which source could not be read, beside the servers that did resolve.
+ *
+ * `blockedServerNames` (PR #3076 review): when this problem is in the MANAGED tier, `agent-mcp`'s
+ * `resolveByPrecedence` fails closed and blocks every name that would otherwise have resolved from a
+ * lower tier — those names would otherwise vanish from `/mcp status` with no explanation, since a
+ * blocked entry is `unresolved` and `ICommandMCPActivationAdapter.list()` only ever offers resolved
+ * candidates. Optional and empty for a non-managed-tier problem, which blocks nothing.
+ */
+export interface ICommandMCPSourceProblem {
+  readonly source: 'managed' | 'user' | 'project' | 'plugin' | 'local';
+  readonly origin: string;
+  readonly reason: string;
+  readonly blockedServerNames?: readonly string[];
+}
+
 /** MCP activation lifecycle port. Implemented by the composition root over the MCP policy service. */
 export interface ICommandMCPActivationAdapter {
   list(): readonly ICommandMCPActivationSummary[];
+  /**
+   * Every source-level problem from the most recent resolution (issue #2794). Optional so an older
+   * or narrower adapter implementation still satisfies this interface; a caller that wants to render
+   * source problems treats a missing method the same as an empty list.
+   */
+  sourceProblems?(): readonly ICommandMCPSourceProblem[];
   approve(serverId: string): ICommandMCPActivationSummary | Promise<ICommandMCPActivationSummary>;
   reject(serverId: string): ICommandMCPActivationSummary | Promise<ICommandMCPActivationSummary>;
   revoke(serverId: string): ICommandMCPActivationSummary | Promise<ICommandMCPActivationSummary>;
@@ -224,6 +250,30 @@ export interface IHandoffStaysBehind {
   readonly subprocesses: number;
 }
 
+/** A `/cd` the session has already checked and prepared; the host carries it out. */
+export interface IWorkspaceMoveRequest {
+  /** The directory the session runs in now. */
+  readonly fromCwd: string;
+  /** The canonical absolute directory to move to. */
+  readonly targetCwd: string;
+  /** The conversation, copied for the target — its `cwd` is already `targetCwd`. */
+  readonly record: IInteractiveSessionRecord;
+  /**
+   * The session is Restricted. A move never widens access, so the target stays Restricted whatever
+   * its own trust decision; a trusted session takes the target's own decision.
+   */
+  readonly restricted: boolean;
+}
+
+/**
+ * What `/cd` hands the host. A move is a NEW session in the target directory, composed the way the
+ * host composes any session there — its settings, trust decision, tools and instructions — resuming
+ * this conversation. Absent on a host that cannot start one; `/cd` then says so.
+ */
+export interface ICommandWorkspaceAdapter {
+  move(request: IWorkspaceMoveRequest): Promise<void>;
+}
+
 /**
  * What `/handoff` reads. The carrier, the wire composition and the device identity all live in the
  * composition root — a command never constructs a transport.
@@ -300,4 +350,6 @@ export interface ICommandHostAdapters {
    * than offering a transfer it cannot perform.
    */
   handoff?: ICommandHandoffAdapter;
+  /** Absent on a host that cannot start a session elsewhere — `/cd` then says so. */
+  workspace?: ICommandWorkspaceAdapter;
 }

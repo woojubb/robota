@@ -42,6 +42,8 @@ export interface IHostActionExecutionDeps {
   orgPolicy: IOrgPolicy | null;
   /** Perform the live provider switch (session-owned). */
   switchProvider(profileName: string): Promise<void>;
+  /** `/cd`: check and hand a move to the host; resolves to the notice to show. */
+  moveWorkspace(path: string): Promise<string>;
   /** Execute the session rename directly on the session (the session owns its own name) and broadcast it. */
   renameSession(name: string): void;
   /** Apply a resolved output style to the live prompt and runtime state. */
@@ -190,6 +192,13 @@ async function applyOneHostAction(
       case 'session-rename':
         deps.renameSession(action.name);
         return null;
+      case 'workspace-move': {
+        if (!adapters.workspace) {
+          return missingCapabilityFailure(action.type, 'a host that can start a session elsewhere');
+        }
+        appendedMessages.push(await deps.moveWorkspace(action.path));
+        return null;
+      }
       case 'statusline-settings-patch': {
         const settings = adapters.settings;
         if (!settings) return missingCapabilityFailure(action.type, 'a settings adapter');

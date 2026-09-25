@@ -58,6 +58,12 @@ function createDebouncedNotify(
 export class TuiStateManager {
   // ── Rendering state ───────────────────────────────────────────
   history: IHistoryEntry[] = [];
+  /**
+   * Notices this terminal added itself (command results, init errors). They are not in the session's
+   * history, so each remembers how many session entries preceded it and is re-inserted there on sync.
+   */
+  private localNotices: { readonly entry: IHistoryEntry; readonly afterSessionEntries: number }[] =
+    [];
   streamingText = '';
   activeTools: IToolState[] = [];
   isThinking = false;
@@ -209,18 +215,39 @@ export class TuiStateManager {
    */
   syncHistory(entries: IHistoryEntry[]): void {
     if (entries.length === 0) return;
-    this.history = [...entries];
+    // `<Static>` counts what it already printed, so a local notice dropped here would shift every
+    // later index by one and the next committed entry (the assistant's answer) would never print.
+    const merged: IHistoryEntry[] = [];
+    let next = 0;
+    for (const notice of this.localNotices) {
+      const upTo = Math.min(notice.afterSessionEntries, entries.length);
+      while (next < upTo) merged.push(entries[next++]!);
+      merged.push(notice.entry);
+    }
+    while (next < entries.length) merged.push(entries[next++]!);
+    this.history = merged;
     this.notify();
   }
 
-  /** Add a single history entry (append; e.g. the immediate user-message echo before the sync). */
+  /** Add a notice this terminal owns; it survives the next session-history sync in place. */
   addEntry(entry: IHistoryEntry): void {
+    this.localNotices.push({
+      entry,
+      afterSessionEntries: this.history.length - this.localNotices.length,
+    });
+    this.history = [...this.history, entry];
+    this.notify();
+  }
+
+  /** Echo the user's prompt at once; the session's own user entry replaces it on the next sync. */
+  addUserEcho(entry: IHistoryEntry): void {
     this.history = [...this.history, entry];
     this.notify();
   }
 
   clearHistory(): void {
     this.history = [];
+    this.localNotices = [];
     this.debouncedStreamNotify.flush();
     this.streamBuf = '';
     this.streamingText = '';

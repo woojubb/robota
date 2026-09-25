@@ -11,9 +11,18 @@ import type {
   IBackgroundTaskHandle,
   IBackgroundTaskRunner,
   IBackgroundTaskStart,
+  IBackgroundTaskState,
   IScheduledBackgroundTaskRequest,
   IScheduleEditPatch,
 } from '../types.js';
+
+/** #2079: narrows a manager snapshot to the scheduled-kind member for these schedule-only assertions. */
+function asScheduled(
+  state: IBackgroundTaskState | undefined,
+): IBackgroundTaskState<'scheduled'> {
+  if (state?.kind !== 'scheduled') throw new Error('expected a scheduled-kind task');
+  return state;
+}
 
 function scheduledRequest(
   overrides: Partial<IScheduledBackgroundTaskRequest> = {},
@@ -31,7 +40,7 @@ function scheduledRequest(
   };
 }
 
-interface IFakeHandle extends IBackgroundTaskHandle {
+interface IFakeHandle extends IBackgroundTaskHandle<'scheduled'> {
   pause: ReturnType<typeof vi.fn>;
   resume: ReturnType<typeof vi.fn>;
   editSchedule: ReturnType<typeof vi.fn>;
@@ -40,15 +49,15 @@ interface IFakeHandle extends IBackgroundTaskHandle {
 type TEmit = (event: Parameters<NonNullable<IBackgroundTaskStart['emit']>>[0]) => void;
 
 function createFakeScheduledRunner(): {
-  runner: IBackgroundTaskRunner;
+  runner: IBackgroundTaskRunner<'scheduled'>;
   handles: IFakeHandle[];
   emits: TEmit[];
 } {
   const handles: IFakeHandle[] = [];
   const emits: TEmit[] = [];
-  const runner: IBackgroundTaskRunner = {
+  const runner: IBackgroundTaskRunner<'scheduled'> = {
     kind: 'scheduled',
-    start(task: IBackgroundTaskStart): IBackgroundTaskHandle {
+    start(task: IBackgroundTaskStart<'scheduled'>): IBackgroundTaskHandle<'scheduled'> {
       const emit = task.emit ?? (() => undefined);
       emits.push(emit);
       // announce the initial sleeping state so the manager status is `sleeping`
@@ -94,7 +103,7 @@ describe('SELFHOST-012 manager schedule lifecycle', () => {
 
     expect(handles[0]?.pause).toHaveBeenCalledOnce();
     expect(manager.get(id)?.status).toBe('paused');
-    expect(manager.get(id)?.nextFireAt).toBeUndefined();
+    expect(asScheduled(manager.get(id)).nextFireAt).toBeUndefined();
     // list surfaces the paused entry with its status
     const listed = manager.list().find((t) => t.id === id);
     expect(listed?.status).toBe('paused');
@@ -107,7 +116,7 @@ describe('SELFHOST-012 manager schedule lifecycle', () => {
 
     expect(handles[0]?.resume).toHaveBeenCalledOnce();
     expect(manager.get(id)?.status).toBe('sleeping');
-    expect(manager.get(id)?.nextFireAt).toBe('2030-01-02T00:00:00.000Z');
+    expect(asScheduled(manager.get(id)).nextFireAt).toBe('2030-01-02T00:00:00.000Z');
   });
 
   it('editScheduledTask calls handle.editSchedule and updates the persisted schedule (TC-03)', async () => {
@@ -115,7 +124,7 @@ describe('SELFHOST-012 manager schedule lifecycle', () => {
     await manager.editScheduledTask(id, { cronExpression: '*/5 * * * *' });
 
     expect(handles[0]?.editSchedule).toHaveBeenCalledWith({ cronExpression: '*/5 * * * *' });
-    expect(manager.get(id)?.schedule?.cronExpression).toBe('*/5 * * * *');
+    expect(asScheduled(manager.get(id)).schedule?.cronExpression).toBe('*/5 * * * *');
     expect(manager.get(id)?.id).toBe(id); // same identity
   });
 
@@ -125,8 +134,8 @@ describe('SELFHOST-012 manager schedule lifecycle', () => {
 
     const listed = manager.list().find((t) => t.id === id);
     expect(listed?.label).toBe('Scheduled: ping');
-    expect(listed?.schedule?.agentInstruction).toBe('ping');
-    expect(listed?.schedule).not.toHaveProperty('label');
+    expect(asScheduled(listed).schedule?.agentInstruction).toBe('ping');
+    expect(asScheduled(listed).schedule).not.toHaveProperty('label');
   });
 
   it('pause is idempotent and resume is a no-op on a non-paused task', async () => {
@@ -157,7 +166,7 @@ describe('SELFHOST-012 manager schedule lifecycle', () => {
   it('rejects lifecycle verbs on a non-scheduled task', async () => {
     const { runner } = createFakeScheduledRunner();
     // a process runner so the spawned task is not `scheduled`
-    const processRunner: IBackgroundTaskRunner = {
+    const processRunner: IBackgroundTaskRunner<'process'> = {
       kind: 'process',
       start: (task) => ({
         taskId: task.taskId,

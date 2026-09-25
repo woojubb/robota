@@ -1,3 +1,6 @@
+import { mkdtemp, rm } from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createDagFramework } from '@robota-sdk/dag-framework';
@@ -14,9 +17,13 @@ import type { Hono } from 'hono';
 describe('dag-runtime-server contract', () => {
   let framework: IDagFramework;
   let app: Hono;
+  let tmpDir: string;
 
   beforeEach(async () => {
-    framework = await createDagFramework();
+    tmpDir = await mkdtemp(path.join(os.tmpdir(), 'dag-runtime-server-contract-'));
+    framework = await createDagFramework({
+      paths: { storageRoot: path.join(tmpDir, 'storage'), assetRoot: path.join(tmpDir, 'assets') },
+    });
     await framework.start();
     app = createDagRuntimeServer(
       framework.runs,
@@ -34,6 +41,7 @@ describe('dag-runtime-server contract', () => {
 
   afterEach(async () => {
     await framework.stop();
+    await rm(tmpDir, { recursive: true, force: true });
   });
 
   it('GET /v1/dag/nodes returns the node catalog over the native route', async () => {

@@ -6,6 +6,7 @@ import {
   convertFromGeminiResponse,
   convertToolsToGeminiFormat,
 } from './message-converter';
+import { readGeminiResponseId, withProviderRequestId } from './provider-request-id';
 import { toGeminiFunctionCallingConfig } from './tool-schema-converter';
 
 import type { IGeminiProviderOptions } from './types';
@@ -22,6 +23,7 @@ export async function executeDirect(
   messages: TUniversalMessage[],
   options?: IChatOptions,
   providerName = 'gemini',
+  requestHeaders: Readonly<Record<string, string>> = {},
 ): Promise<TUniversalMessage> {
   const model = resolveGeminiModel(providerOptions, options);
   const responseModalities = buildResponseModalities(
@@ -31,7 +33,14 @@ export async function executeDirect(
   );
 
   if (options?.onTextDelta && !responseModalities.includes('IMAGE')) {
-    return assembleStreamingChatResponse(client, providerOptions, messages, options, providerName);
+    return assembleStreamingChatResponse(
+      client,
+      providerOptions,
+      messages,
+      options,
+      providerName,
+      requestHeaders,
+    );
   }
 
   const requestFormat = convertToGeminiRequestFormat(messages);
@@ -45,7 +54,7 @@ export async function executeDirect(
   );
 
   emitGeminiNativeRawPayload(options, providerName, 'request', request);
-  const result = await client.models.generateContent(request);
+  const result = await client.models.generateContent(withRequestHeaders(request, requestHeaders));
   emitGeminiNativeRawPayload(options, providerName, 'response', result);
 
   const convertedResponse = convertFromGeminiResponse(result);
@@ -54,7 +63,7 @@ export async function executeDirect(
       'Gemini response did not include an image part while IMAGE modality was requested.',
     );
   }
-  return convertedResponse;
+  return withProviderRequestId(convertedResponse, readGeminiResponseId(result));
 }
 
 /**
@@ -66,6 +75,7 @@ export async function* executeDirectStream(
   messages: TUniversalMessage[],
   options?: IChatOptions,
   providerName = 'gemini',
+  requestHeaders: Readonly<Record<string, string>> = {},
 ): AsyncIterable<TUniversalMessage> {
   const model = resolveGeminiModel(providerOptions, options);
   const responseModalities = buildResponseModalities(
@@ -88,7 +98,9 @@ export async function* executeDirectStream(
   );
 
   emitGeminiNativeRawPayload(options, providerName, 'request', request);
-  const stream = await client.models.generateContentStream(request);
+  const stream = await client.models.generateContentStream(
+    withRequestHeaders(request, requestHeaders),
+  );
   yield* streamResponseChunks(stream, options, providerName);
 }
 
@@ -98,27 +110,35 @@ async function* streamResponseChunks(
   providerName: string,
 ): AsyncIterable<TUniversalMessage> {
   let sequence = 0;
+  // The first non-empty responseId seen across chunks; if chunks disagree, this keeps the first.
+  let providerRequestId: string | undefined;
   for await (const chunk of stream) {
     emitGeminiNativeRawPayload(options, providerName, 'stream_event', chunk, sequence);
     sequence++;
+    if (providerRequestId === undefined) {
+      providerRequestId = readGeminiResponseId(chunk);
+    }
     const convertedChunk = convertStreamChunk(chunk);
     if (convertedChunk) {
       if (typeof convertedChunk.content === 'string') {
         options?.onTextDelta?.(convertedChunk.content);
       }
-      yield convertedChunk;
+      yield withProviderRequestId(convertedChunk, providerRequestId);
       continue;
     }
     const text = extractStreamText(chunk);
     if (text) {
       options?.onTextDelta?.(text);
-      yield {
-        id: randomUUID(),
-        role: 'assistant',
-        content: text,
-        state: 'complete' as const,
-        timestamp: new Date(),
-      };
+      yield withProviderRequestId(
+        {
+          id: randomUUID(),
+          role: 'assistant',
+          content: text,
+          state: 'complete' as const,
+          timestamp: new Date(),
+        },
+        providerRequestId,
+      );
     }
   }
 }
@@ -175,16 +195,21 @@ async function assembleStreamingChatResponse(
   messages: TUniversalMessage[],
   options: IChatOptions,
   providerName = 'gemini',
+  requestHeaders: Readonly<Record<string, string>> = {},
 ): Promise<TUniversalMessage> {
   const textParts: string[] = [];
   const toolCalls: NonNullable<IAssistantMessage['toolCalls']> = [];
   let metadata: TUniversalMessage['metadata'];
+  // The first non-empty providerRequestId seen; tracked separately so a later chunk that only
+  // carries the ID (and no other metadata) doesn't blank out an earlier chunk's usage totals.
+  let providerRequestId: string | undefined;
   for await (const chunk of executeDirectStream(
     client,
     providerOptions,
     messages,
     options,
     providerName,
+    requestHeaders,
   )) {
     if (typeof chunk.content === 'string') {
       textParts.push(chunk.content);
@@ -198,11 +223,21 @@ async function assembleStreamingChatResponse(
       }
     }
     if (chunk.metadata) {
-      metadata = chunk.metadata;
+      const { providerRequestId: chunkProviderRequestId, ...rest } = chunk.metadata;
+      if (
+        providerRequestId === undefined &&
+        typeof chunkProviderRequestId === 'string' &&
+        chunkProviderRequestId.length > 0
+      ) {
+        providerRequestId = chunkProviderRequestId;
+      }
+      if (Object.keys(rest).length > 0) {
+        metadata = rest as TUniversalMessage['metadata'];
+      }
     }
   }
   const content = textParts.join('');
-  return {
+  const message: TUniversalMessage = {
     id: randomUUID(),
     role: 'assistant',
     content,
@@ -211,6 +246,26 @@ async function assembleStreamingChatResponse(
     ...(metadata && { metadata }),
     state: 'complete',
     timestamp: new Date(),
+  };
+  return withProviderRequestId(message, providerRequestId);
+}
+
+/**
+ * The request as sent: per-call `httpOptions.headers` added to a COPY, so the object already handed
+ * to raw-payload capture never carries them. Without headers the captured object is sent as is.
+ */
+function withRequestHeaders(
+  request: GenerateContentParameters,
+  headers: Readonly<Record<string, string>>,
+): GenerateContentParameters {
+  if (Object.keys(headers).length === 0) return request;
+  const config = request.config ?? {};
+  return {
+    ...request,
+    config: {
+      ...config,
+      httpOptions: { ...config.httpOptions, headers: { ...config.httpOptions?.headers, ...headers } },
+    },
   };
 }
 
@@ -259,6 +314,7 @@ function convertStreamChunk(chunk: GenerateContentResponse): TUniversalMessage |
         promptTokens: usageMetadata.promptTokenCount,
         completionTokens: usageMetadata.candidatesTokenCount,
         totalTokens: usageMetadata.totalTokenCount,
+        usageProvenance: 'complete',
       },
     };
   }
