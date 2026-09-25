@@ -58,6 +58,14 @@ dependency.
   Absent local-peer configuration, behaviour is exactly as before — a remote peer has no rendezvous to have
   reached, and demanding one unconditionally would refuse every legitimate remote session.
 
+- **Owns where operator approval sits, not who approves.** When a connection approval is configured, the
+  session is exposed only after the injected approver says yes, asked once every proof has bound the channel so
+  the operator is asked only about a peer that is who it claims. What the peer sends while the operator decides
+  is held, bounded, and reaches the session only after a yes, because the peer's side has already accepted and
+  starts talking. A no, a failure to ask, too much held input, or an answer arriving after teardown closes the
+  channel. A first-pairing device is pinned for reconnect only once it is admitted, so a
+  device the operator refused is not remembered.
+
 ## Design decisions
 
 - **Host is the offerer.** Inbound answer/ICE signals are serialized so `setRemoteDescription` always precedes any

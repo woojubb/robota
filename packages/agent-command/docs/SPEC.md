@@ -170,7 +170,8 @@ palette entry is the single source of metadata, and the executable command is pr
 execution policy and lifecycle remain executable-command behavior. Projecting shared metadata never
 by itself grants model invocation or changes execution policy or permission requirements.
 `/devices`, which acts on the user's device identity, also refuses an invocation from a remote
-surface. Remote
+surface, and `/remote-control` refuses pairing and revoking from one and never shows it the pairing
+link: a connected surface that could admit a device would let each device admit the next. Remote
 control offers `status` and `devices` before pairing or revoking actions, so an autocomplete
 selection defaults to a read-only operation.
 

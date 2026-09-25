@@ -143,4 +143,56 @@ describe('WebRtc pairing end-to-end (REMOTE-008)', () => {
     expect(session.getMessages as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
     await transport.stop();
   }, 20000);
+
+  it('a driving connection the host operator does not approve never reaches the session', async () => {
+    const secret = 'shared-secret-256bit-base64url-xyz';
+    const [hostSig, remoteSig] = createInMemorySignalingPair();
+    const session = createStubSession();
+    const approve = vi.fn(async () => false);
+    const onPaired = vi.fn();
+    const transport = new WebRtcTransport({
+      signaling: hostSig,
+      secret,
+      connectionApproval: { approve },
+      onPaired,
+    });
+    transport.attach(session);
+
+    const remote = connectRemotePaired(remoteSig, secret);
+    await transport.start();
+
+    // The handshake itself succeeds — the device is who it says — and the operator still decides.
+    await expect(remote.paired).resolves.toBe(true);
+    await vi.waitFor(() => expect(approve).toHaveBeenCalledTimes(1));
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(session.getMessages as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
+    expect(onPaired).not.toHaveBeenCalled();
+    await transport.stop();
+  }, 20000);
+
+  it('a driving connection the host operator approves reaches the session', async () => {
+    const secret = 'shared-secret-256bit-base64url-xyz';
+    const [hostSig, remoteSig] = createInMemorySignalingPair();
+    // The operator takes a moment: the device, already paired on its side, asks for the history
+    // meanwhile, and gets its answer once the operator says yes.
+    const approve = vi.fn(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      return true;
+    });
+    const transport = new WebRtcTransport({
+      signaling: hostSig,
+      secret,
+      connectionApproval: { approve },
+    });
+    transport.attach(createStubSession());
+
+    const remote = connectRemotePaired(remoteSig, secret);
+    await transport.start();
+
+    await expect(remote.paired).resolves.toBe(true);
+    const reply = await remote.session;
+    expect(reply.type).toBe('messages');
+    expect(approve).toHaveBeenCalledTimes(1);
+    await transport.stop();
+  }, 20000);
 });

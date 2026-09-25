@@ -130,7 +130,9 @@ These are behaviors a caller cannot infer from a type signature alone.
   exit/restart/rename, …) are executed by the session through injected host adapters, so headless and
   programmatic embeddings get the same command semantics as an attached UI. An embedding with no
   adapter for a requested action gets an explicit failure naming the missing capability — never a
-  silent no-op. UI-only intents (opening a picker, a settings screen) are fire-and-forget: with no
+  silent no-op. Parity does not extend to enabling remote control: that mints a pairing link, so it
+  runs only for the operator's own command, never for a connected surface or the model, whichever
+  command asked. UI-only intents (opening a picker, a settings screen) are fire-and-forget: with no
   surface listening they are a defined no-op, and that never affects the host-action half.
 - **Local peer status is display-only.** Host-observed activity, independently verified process
   liveness and the verified workspace relation never grant authority over the peer or identify a persisted session record, and a passive

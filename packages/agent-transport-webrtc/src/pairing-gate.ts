@@ -28,6 +28,8 @@ import {
 
 import { nextAdmissionStep } from './admission-steps.js';
 import type {
+  IConnectionApproval,
+  IConnectionApprovalContext,
   IHostReconnectConfig,
   IPairingChannel,
   IPairingGateOptions,
@@ -35,7 +37,13 @@ import type {
 
 // Re-exported so every existing import of these names keeps working: the split moved where they are
 // DECLARED, and moving where they are imported from would be a migration this change is not.
-export type { IHostReconnectConfig, IPairingChannel, IPairingGateOptions };
+export type {
+  IConnectionApproval,
+  IConnectionApprovalContext,
+  IHostReconnectConfig,
+  IPairingChannel,
+  IPairingGateOptions,
+};
 import { judgeHandoffGrant } from './handoff-grant-gate.js';
 import { judgeLocalProof } from './local-peer-proof.js';
 import { pairingChannel } from './pairing-channel-lifecycle.js';
@@ -45,6 +53,10 @@ import { attachSession } from './session-attachment.js';
 
 import type { IEnrollFrame } from './pairing-frames.js';
 
+/** How much a peer may say while the operator decides: a client's opening requests, not a stream. */
+const HELD_FRAMES_MAX = 32;
+const HELD_CHARS_MAX = 256 * 1024;
+
 type TGateState =
   | 'awaiting-mode'
   | 'pairing'
@@ -52,6 +64,7 @@ type TGateState =
   | 'reconnecting'
   | 'local-proof'
   | 'handoff-grant'
+  | 'operator-approval'
   | 'accepted'
   | 'closed';
 
@@ -66,6 +79,18 @@ export class PairingGate {
   private pendingResult?: IPairingResult;
   /** Held across the local-proof step so the reconnect ordering rule survives the detour. */
   private pendingViaReconnect = false;
+  /** The device the handshake proved, for the operator's question. */
+  private pendingDeviceId?: string;
+  /** A first-pair device key, pinned only once every step has admitted the channel. */
+  private pendingEnrollment?: { readonly deviceId: string; readonly spki: string };
+  /**
+   * Session frames the peer sent while the operator was deciding. The peer's own handshake has
+   * already accepted, so it starts talking (a resume, a history request) at once; dropping those
+   * would leave an approved device waiting on answers to questions the host never saw. They reach
+   * the session only after a yes, and a peer that sends more than a bounded amount is refused.
+   */
+  private heldFrames: string[] = [];
+  private heldChars = 0;
 
   constructor(private readonly options: IPairingGateOptions) {
     if (options.reconnect) {
@@ -86,6 +111,10 @@ export class PairingGate {
     if (this.state === 'closed') return;
     if (this.state === 'accepted') {
       this.onSessionMessage?.(data);
+      return;
+    }
+    if (this.state === 'operator-approval') {
+      this.holdForApproval(data);
       return;
     }
 
@@ -149,6 +178,8 @@ export class PairingGate {
   /** Tear down: cleanup the session bridge (if built) and mark closed. Idempotent. */
   cleanup(): void {
     this.state = 'closed';
+    this.heldFrames = [];
+    this.heldChars = 0;
     this.handlerCleanup?.();
     this.handlerCleanup = undefined;
     this.onSessionMessage = undefined;
@@ -177,7 +208,10 @@ export class PairingGate {
       this.options,
       cfg,
       // reconnect → hold live forwarding until the client's resume replays
-      () => this.accept(undefined, true),
+      (result) => {
+        this.pendingDeviceId = result.deviceId;
+        this.accept(undefined, true);
+      },
       () => this.rejectAndClose(),
     );
   }
@@ -212,7 +246,8 @@ export class PairingGate {
         await importPublicKey(deviceSpki);
         const deviceId = await deriveIdentityId(deviceSpki);
         if (this.state !== 'enrolling') return;
-        cfg.onEnroll(deviceId, deviceSpki);
+        this.pendingDeviceId = deviceId;
+        this.pendingEnrollment = { deviceId, spki: deviceSpki };
         this.accept(this.pendingResult);
       } catch {
         this.rejectAndClose();
@@ -230,7 +265,19 @@ export class PairingGate {
       this.pendingResult = result ?? this.pendingResult;
       this.pendingViaReconnect = viaReconnect;
       this.state = owed;
+      if (owed === 'operator-approval') void this.askOperator();
       return;
+    }
+    // Pin a first-pair device only now: a device a later step refused is not remembered.
+    const enrollment = this.pendingEnrollment;
+    this.pendingEnrollment = undefined;
+    if (enrollment !== undefined) {
+      try {
+        this.options.reconnect?.onEnroll(enrollment.deviceId, enrollment.spki);
+      } catch {
+        this.rejectAndClose();
+        return;
+      }
     }
     const attached = attachSession(this.options, viaReconnect, (error, event) =>
       this.handleSessionDeliveryError(error, event),
@@ -239,6 +286,41 @@ export class PairingGate {
     this.handlerCleanup = attached.cleanup;
     this.state = 'accepted';
     this.options.onAccept?.(result);
+    const held = this.heldFrames;
+    this.heldFrames = [];
+    this.heldChars = 0;
+    for (const frame of held) {
+      if (this.state !== 'accepted') return;
+      this.onSessionMessage?.(frame);
+    }
+  }
+
+  private holdForApproval(data: string): void {
+    this.heldChars += data.length;
+    this.heldFrames.push(data);
+    if (this.heldFrames.length > HELD_FRAMES_MAX || this.heldChars > HELD_CHARS_MAX) {
+      this.rejectAndClose();
+    }
+  }
+
+  /**
+   * The `operator-approval` state: ask, then admit only on an explicit yes. A failure to ask is a no,
+   * and an answer that arrives after the channel was torn down admits nothing.
+   */
+  private async askOperator(): Promise<void> {
+    const context: IConnectionApprovalContext = {
+      ...(this.pendingDeviceId !== undefined ? { deviceId: this.pendingDeviceId } : {}),
+      viaReconnect: this.pendingViaReconnect,
+    };
+    let allowed = false;
+    try {
+      allowed = (await this.options.connectionApproval?.approve(context)) === true;
+    } catch {
+      allowed = false;
+    }
+    if (this.state !== 'operator-approval') return;
+    if (allowed) this.accept(this.pendingResult, this.pendingViaReconnect);
+    else this.rejectAndClose();
   }
 
   /** The async half of the `handoff-grant` state, kept off the synchronous message path. */
@@ -255,6 +337,8 @@ export class PairingGate {
   private rejectAndClose(): void {
     if (this.state === 'closed') return;
     this.state = 'closed';
+    this.heldFrames = [];
+    this.heldChars = 0;
     pairingChannel.close(this.options.channel);
     this.options.onReject?.();
   }

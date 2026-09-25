@@ -52,6 +52,22 @@ export interface IHostReconnectConfig {
   readonly onEnroll: (deviceId: string, deviceSpki: string) => void;
 }
 
+/** What the receiving operator is told about a connection that would drive the session. */
+export interface IConnectionApprovalContext {
+  /** The device the handshake proved, when the carrier has a stable id for it. */
+  readonly deviceId?: string;
+  /** A trusted device coming back, rather than one pairing now. */
+  readonly viaReconnect: boolean;
+}
+
+/**
+ * The receiving operator's say over one connection. `approve` resolves `true` only on the operator's
+ * explicit yes; `false` or a rejection refuses the connection.
+ */
+export interface IConnectionApproval {
+  approve(context: IConnectionApprovalContext): Promise<boolean>;
+}
+
 export interface IPairingGateOptions {
   readonly channel: IPairingChannel;
   readonly session: IProtocolSession;
@@ -99,6 +115,12 @@ export interface IPairingGateOptions {
    * both is strictly more restrictive than requiring either, which is the safe direction.
    */
   readonly handoffGrant?: IHandoffGrantProof;
+  /**
+   * Ask the receiving operator before exposing the session, after every proof above has run. Absent →
+   * unchanged behavior. A device first pairing is not pinned for reconnect until the operator allows
+   * it, so a refused device is not remembered.
+   */
+  readonly connectionApproval?: IConnectionApproval;
   /** Injection seams (default to the real implementations). */
   readonly startHandshake?: typeof startPairingHandshake;
   readonly createHandler?: typeof createSessionMessageHandler;

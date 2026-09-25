@@ -9,9 +9,10 @@ export function createRemoteControlCommandEntry(): ICommand {
     name: 'remote-control',
     displayName: 'Remote control',
     description:
-      'Enable P2P remote control (pair a device to co-drive this session), or check status',
+      'Enable P2P remote control (pair a device to co-drive this session), or check status. Pairing and revoking run only for the operator at the host terminal; a connected surface can stop remote control and read its status, without the pairing link.',
     source: 'remote-control',
-    // User-only: pairing and revoking devices are trust decisions.
+    // User-only: pairing and revoking devices are trust decisions. The command also refuses them when
+    // they come from a connected surface rather than the operator at this terminal.
     modelInvocable: false,
     userInvocable: true,
     argumentHint: '[enable|stop|status|devices|revoke <device-id>]',
