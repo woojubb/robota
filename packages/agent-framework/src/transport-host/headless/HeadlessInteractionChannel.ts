@@ -202,7 +202,8 @@ export class HeadlessInteractionChannel {
         ? { contributionSources: this.opts.contributionSources }
         : {}),
       ...(this.opts.skillRoots !== undefined ? { skillRoots: this.opts.skillRoots } : {}),
-      permissionMode: this.opts.permissionMode ?? 'bypassPermissions',
+      // Issue #3081: `default`, not bypass — a wider mode is the caller's explicit choice.
+      permissionMode: this.opts.permissionMode ?? 'default',
       baselinePermissionAllow: this.opts.baselinePermissionAllow,
       // CMD-004 / REMOTE-007 D4a: headless subscribes to none of the session's `ask_request` surface,
       // so getUserInteraction() is gated to undefined (the framework's event-emitting ask default is

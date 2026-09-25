@@ -5,7 +5,7 @@ import {
   evaluatePermission,
   registerToolPermissionProfile,
 } from '../permission-gate.js';
-import { resolvePermissionByPolicy } from '../permission-policy.js';
+import { decideByPolicy } from './policy-decision.js';
 
 /**
  * CORE-030 — a deny the gate could not EVALUATE was overridden by a broader allow.
@@ -156,8 +156,9 @@ describe('an unevaluable deny is not overridden by a broader allow (CORE-030)', 
  * session mode, and it has no prompt at its allow step: an unevaluable deny beside a broader allow
  * resolved to `'allow'` outright.
  *
- * It denies rather than prompting, because a detached task has no human attached by definition —
- * the same reasoning the allow step already applies with "unmatched → deny (never prompt)".
+ * Issue #3081: both callers now share one evaluator, so it ASKS here as it does in a session. A
+ * detached task has no approver attached, and the approval path resolves an ask with no approver to
+ * a deny — the outcome for a detached task is unchanged, but the order is one order.
  */
 describe('the background/subagent gate has the same rule (CORE-030)', () => {
   beforeEach(() => {
@@ -179,13 +180,13 @@ describe('the background/subagent gate has the same rule (CORE-030)', () => {
   it('THE DEFECT: an unevaluable deny no longer resolves to allow', () => {
     // Previously `'allow'` — the deny could not match, and the allowlist decided.
     expect(
-      resolvePermissionByPolicy('preapproved', 'MyTool', { path: 'secrets/key.pem' }, context),
-    ).toBe('deny');
+      decideByPolicy('preapproved', 'MyTool', { path: 'secrets/key.pem' }, context),
+    ).toBe('prompt');
   });
 
   it('the same on the inherited path', () => {
     expect(
-      resolvePermissionByPolicy(
+      decideByPolicy(
         'inherit-allowlist',
         'MyTool',
         { path: 'secrets/key.pem' },
@@ -194,22 +195,22 @@ describe('the background/subagent gate has the same rule (CORE-030)', () => {
           parentAllow: ['MyTool'],
         },
       ),
-    ).toBe('deny');
+    ).toBe('prompt');
   });
 
   it('ALLOWS once the owner declares the key and the argument does not match the deny', () => {
     registerToolPermissionProfile('MyTool', { argument: { key: 'path', kind: 'text' } });
     expect(
-      resolvePermissionByPolicy('preapproved', 'MyTool', { path: 'public/readme.md' }, context),
+      decideByPolicy('preapproved', 'MyTool', { path: 'public/readme.md' }, context),
     ).toBe('allow');
     expect(
-      resolvePermissionByPolicy('preapproved', 'MyTool', { path: 'secrets/key.pem' }, context),
+      decideByPolicy('preapproved', 'MyTool', { path: 'secrets/key.pem' }, context),
     ).toBe('deny');
   });
 
   it('leaves a known tool alone', () => {
     expect(
-      resolvePermissionByPolicy(
+      decideByPolicy(
         'preapproved',
         'Shell',
         { command: 'ls' },

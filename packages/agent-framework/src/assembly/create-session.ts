@@ -208,7 +208,11 @@ export async function createSession(
     allow: [...(options.baselinePermissionAllow ?? []), ...commandAutoAllow, ...(options.config.permissions.allow ?? [])],
     deny: options.config.permissions.deny ?? [],
   };
-  const mergedPermissions = applyPresetToolLists(presetFreePermissions, options);
+  // Issue #3081: ask rules are not a preset's to change; they pass through untouched.
+  const mergedPermissions = {
+    ...applyPresetToolLists(presetFreePermissions, options),
+    ask: [...(options.config.permissions.ask ?? [])],
+  };
 
   // Issue #2351: the enforcer hands over the CONSENT SCOPE pattern (`Bash(git *)`,
   // `Read(/w/src/**)`), which is persisted as-is; a bare tool name still widens to `Tool(*)`.

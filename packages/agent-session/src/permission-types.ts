@@ -42,9 +42,12 @@ export interface IPermissionEnforcerOptions {
   cwd: string;
   getPermissionMode: () => TPermissionMode;
   config: {
-    permissions: { allow: string[]; deny: string[] };
+    /** `ask` patterns always ask, in every mode including bypassPermissions (issue #3081). */
+    permissions: { allow: string[]; deny: string[]; ask?: string[] };
     hooks?: Record<string, unknown>;
   };
+  /** Where `~` and `$HOME` point for critical-path removal checks. Defaults to the OS home directory. */
+  homeDirectory?: string;
   /**
    * ARCH-040 Group C (issue #1934): the rules BEFORE any preset contributed.
    *
@@ -79,9 +82,9 @@ export interface IPermissionEnforcerOptions {
   /** Called when the user selects "allow for project" — persists the tool pattern to project settings. */
   onProjectAllowTool?: (toolName: string) => void;
   /**
-   * CORE-025: a background/subagent task permission policy. When set, it is resolved BEFORE the session-mode
-   * gate, so `deny`/`preapproved`/`inherit-allowlist` override even a permissive session mode (e.g.
-   * `bypassPermissions`). `prompt` routes to the human-approval path; absent → the session-mode gate alone.
+   * CORE-025: a background/subagent task permission policy. It adds a ceiling (checked before bypass),
+   * an ask-everything flag and the task's own lists to the one evaluator, so `deny`/`preapproved`/
+   * `inherit-allowlist` still bind under a permissive mode. Absent → no policy constraints.
    */
   permissionPolicy?: TBackgroundPermissionPolicy;
   /**

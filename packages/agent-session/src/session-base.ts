@@ -210,6 +210,16 @@ export abstract class SessionBase {
     this.permissionEnforcer.applyPresetToolLists(preset);
   }
 
+  /**
+   * The rules this session's gate reads right now — settings, preset lists and command auto-allows
+   * together — so a subagent inherits what the parent actually enforces (issue #3081). Session-scoped
+   * "allow always" consent is not included: it was given for this session's context.
+   */
+  getPermissionRules(): { allow: string[]; deny: string[]; ask: string[] } {
+    const rules = this.permissionEnforcer.currentPermissionRules();
+    return { allow: [...rules.allow], deny: [...rules.deny], ask: [...rules.ask] };
+  }
+
   getSessionAllowedTools(): string[] {
     return this.permissionEnforcer.getSessionAllowedTools();
   }

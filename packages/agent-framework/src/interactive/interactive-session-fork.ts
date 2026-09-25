@@ -7,6 +7,7 @@
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
+import { parentConfigWithEffectiveRules } from '../subagents/in-process-subagent-runner.js';
 
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IForkExecutionOptions } from '../commands/index.js';
@@ -49,7 +50,8 @@ export async function runSkillInFork(
   const agentDefinition = resolveForkAgentDefinition(agentType, options, parentSession);
   const forkSession = createSubagentSession({
     agentDefinition,
-    parentConfig: deps.config,
+    // Issue #3081: the rules the parent's gate enforces now (presets included), not the settings file.
+    parentConfig: parentConfigWithEffectiveRules(deps),
     parentContext: deps.context,
     parentTools: deps.tools,
     provider: deps.provider,

@@ -6,12 +6,15 @@
  * conversation management.
  */
 
+import { homedir } from 'node:os';
+
 import {
   applyPresetToolLists,
   evaluatePermission,
   findInvalidPermissionPatterns,
   matchesAnyPattern,
-  resolvePermissionByPolicy,
+  projectPermissionPolicy,
+  requiresFreshApproval,
   runHooks,
 } from '@robota-sdk/agent-core';
 
@@ -44,7 +47,7 @@ function assertPermissionPatternsEvaluable(patterns: readonly string[]): void {
   if (problems.length === 0) return;
   const listed = problems.map(({ pattern, reason }) => `"${pattern}" ${reason}`).join('; ');
   throw new Error(
-    `Invalid permission pattern(s) in permissions.allow/deny: ${listed}. ` +
+    `Invalid permission pattern(s) in permissions.allow/deny/ask: ${listed}. ` +
       'Fix the pattern where it is configured (issue #2428).',
   );
 }
@@ -71,6 +74,7 @@ export class PermissionEnforcer {
   private readonly onProjectAllowTool?: (toolName: string) => void;
   private readonly permissionPolicy?: IPermissionEnforcerOptions['permissionPolicy'];
   private readonly taskPermissions?: IPermissionEnforcerOptions['taskPermissions'];
+  private readonly homeDirectory: string;
 
   constructor(options: IPermissionEnforcerOptions) {
     this.sessionId = options.sessionId;
@@ -89,6 +93,9 @@ export class PermissionEnforcer {
     assertPermissionPatternsEvaluable([
       ...options.config.permissions.allow,
       ...options.config.permissions.deny,
+      ...(options.config.permissions.ask ?? []),
+      ...(options.taskPermissions?.allow ?? []),
+      ...(options.taskPermissions?.deny ?? []),
     ]);
     this.terminal = options.terminal;
     this.permissionHandler = options.permissionHandler;
@@ -100,6 +107,7 @@ export class PermissionEnforcer {
     this.onProjectAllowTool = options.onProjectAllowTool;
     this.permissionPolicy = options.permissionPolicy;
     this.taskPermissions = options.taskPermissions;
+    this.homeDirectory = options.homeDirectory ?? homedir();
   }
 
   /** Wrap all tools with permission checking */
@@ -162,8 +170,16 @@ export class PermissionEnforcer {
    * exists. Review found the first cut composing onto a contaminated base and no test could see it,
    * because nothing could look at the rules.
    */
-  currentPermissionRules(): { allow: readonly string[]; deny: readonly string[] } {
-    return { allow: [...this.config.permissions.allow], deny: [...this.config.permissions.deny] };
+  currentPermissionRules(): {
+    allow: readonly string[];
+    deny: readonly string[];
+    ask: readonly string[];
+  } {
+    return {
+      allow: [...this.config.permissions.allow],
+      deny: [...this.config.permissions.deny],
+      ask: [...(this.config.permissions.ask ?? [])],
+    };
   }
 
   applyPresetToolLists(preset: {
@@ -190,26 +206,28 @@ export class PermissionEnforcer {
     interaction: IToolExecutionContext['permissionInteraction'] = 'interactive',
     hookTraceEnv?: IToolExecutionContext['hookTraceEnv'],
   ): Promise<boolean> {
-    // CORE-025: a background/subagent task permission policy is resolved BEFORE the session-mode gate, so
-    // `deny`/`preapproved`/`inherit-allowlist` override even a permissive mode (e.g. bypassPermissions).
-    // `evaluatePermission`'s `auto` branch never runs for a policy-gated call — that was the bypass hole.
-    if (this.permissionPolicy) {
-      const policyDecision = resolvePermissionByPolicy(this.permissionPolicy, toolName, toolArgs, {
-        taskAllow: this.taskPermissions?.allow,
-        taskDeny: this.taskPermissions?.deny,
-        parentAllow: this.config.permissions.allow,
-        parentDeny: this.config.permissions.deny,
-      });
-      this.firePermissionDecisionHook(toolName, toolArgs, policyDecision, hookTraceEnv);
-      if (policyDecision === 'allow') return true;
-      if (policyDecision === 'deny') return false;
-      // 'prompt' → route to the human-approval path (fail-closed to deny with no approver).
-      return this.promptForApproval(toolName, toolArgs, signal, interaction);
-    }
+    // Issue #3081: ONE evaluator for every caller. A background/subagent policy (CORE-025) only
+    // adds a ceiling, an ask-everything flag and the task's own lists; the ceiling is checked before
+    // bypassPermissions, so a policy still binds under a permissive mode.
+    const policy =
+      this.permissionPolicy !== undefined
+        ? projectPermissionPolicy(this.permissionPolicy, {
+            taskAllow: this.taskPermissions?.allow,
+            taskDeny: this.taskPermissions?.deny,
+            parentAllow: this.config.permissions.allow,
+          })
+        : undefined;
 
-    const decision = evaluatePermission(toolName, toolArgs, this.getPermissionMode(), {
-      allow: this.config.permissions.allow,
-      deny: this.config.permissions.deny,
+    const rules = {
+      allow: [...this.config.permissions.allow, ...(policy?.allow ?? [])],
+      deny: [...this.config.permissions.deny, ...(policy?.deny ?? [])],
+      ask: this.config.permissions.ask ?? [],
+    };
+    const where = { cwd: this.cwd, homeDirectory: this.homeDirectory };
+    const decision = evaluatePermission(toolName, toolArgs, this.getPermissionMode(), rules, {
+      ...where,
+      ...(policy?.ceiling !== undefined ? { ceiling: policy.ceiling } : {}),
+      askAll: policy?.askAll ?? false,
     });
 
     // SELFHOST-009: fire PermissionDecision (INFORMATIONAL-ONLY, non-blocking) right after the
@@ -219,25 +237,29 @@ export class PermissionEnforcer {
     if (decision === 'auto') return true;
     if (decision === 'deny') return false;
 
-    // 'approve' — route to the human-approval path.
-    return this.promptForApproval(toolName, toolArgs, signal, interaction);
+    // 'approve' — route to the human-approval path. An ask that must reach a person every time is
+    // not answered by a remembered consent, and does not create one (issue #3081).
+    const fresh = requiresFreshApproval(toolName, toolArgs, rules, where);
+    return this.promptForApproval(toolName, toolArgs, signal, interaction, fresh);
   }
 
   /**
    * The human-approval path: session-scoped allow list → custom handler → injected approval fn → fail-closed
-   * deny. Shared by the session-mode `approve` decision and the CORE-025 `prompt` policy so both fail closed
-   * identically when no approver is attached (e.g. a detached background task).
+   * deny. Every `approve` decision comes here, whoever the caller, so every ask fails closed identically
+   * when no approver is attached (e.g. a detached background task).
    */
   private async promptForApproval(
     toolName: string,
     toolArgs: TToolArgs,
     signal?: AbortSignal,
     interaction: IToolExecutionContext['permissionInteraction'] = 'interactive',
+    fresh = false,
   ): Promise<boolean> {
     const scope = consentScopeFor(toolName, toolArgs);
     const outcome = await decideApproval({
       toolName,
-      alreadyAllowed: matchesAnyPattern(toolName, toolArgs, [...this.sessionAllowedTools]),
+      alreadyAllowed:
+        !fresh && matchesAnyPattern(toolName, toolArgs, [...this.sessionAllowedTools]),
       ...(interaction === 'interactive' && this.permissionHandler
         ? { handler: this.permissionHandler }
         : {}),
@@ -247,6 +269,9 @@ export class PermissionEnforcer {
       toolArgs,
       ...(signal ? { signal } : {}),
     });
+    // A fresh-approval answer covers this call only: remembering its wide scope would let it answer
+    // the next critical removal or protected write too.
+    if (fresh) return outcome.allowed;
     if (outcome.rememberForProject) {
       if (this.onProjectAllowTool === undefined) {
         throw new Error('Project-wide permission persistence is unavailable for this session.');

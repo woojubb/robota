@@ -122,7 +122,7 @@ const host: IRuntimeHostHandle = await startRuntimeHost(options);
 - **Sandbox Execution** — Optional `sandboxClient` injection routes Bash and core file tools through a provider-backed execution plane; `workspaceManifest` can prepare a fresh sandbox workspace before session creation
 - **Sandbox Hydration** — Snapshot-capable sandbox clients persist `sandboxSnapshotId` on shutdown and restore it before saved message replay on non-fork resume
 - **Agent Tool** — Sub-agent session creation for multi-agent workflows
-- **Permissions** — 3-step evaluation (deny list, allow list, mode policy) with four modes: `plan`, `default`, `acceptEdits`, `bypassPermissions`
+- **Permissions** — one evaluation order for every caller (deny, ask and allow lists, never-auto-approved calls, mode policy) with four modes: `plan`, `default`, `acceptEdits`, `bypassPermissions`
 - **Hooks** — `PreToolUse`, `PostToolUse`, `PreCompact`, `PostCompact`, `SessionStart`, `UserPromptSubmit`, `Stop` events with shell command execution
 - **Streaming** — Real-time text delta callbacks via `onTextDelta`
 - **Context Loading** — AGENTS.md / CLAUDE.md walk-up discovery and system prompt assembly
