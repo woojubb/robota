@@ -16,6 +16,7 @@ import { MCPSingleFlightCache, MCPSingleFlightClosedError } from '../client/sing
 import { createStreamableHttpAdapter } from '../client/transport.js';
 import { decodeEntry } from '../definition/decode.js';
 import { activationEndpoint, definitionFingerprint } from '../definition/identity.js';
+import { withoutExpansions } from '../definition/secrecy.js';
 
 import type { IMCPServerDefinitionResolved } from '../definition/types.js';
 import type { TEgressLookup } from '@robota-sdk/agent-core/node';
@@ -117,6 +118,38 @@ describe('the helper in the activation identity', () => {
       'https://mcp.example.test/mcp (headers from /usr/local/bin/mcp-token --audience mcp)',
     );
     expect(activationEndpoint(resolved())).toBe('https://mcp.example.test/mcp');
+  });
+
+  it('quotes arguments so their boundaries and control characters stay visible', () => {
+    const shown = (args: string[]) =>
+      activationEndpoint(resolved({ headersHelper: { command: HELPER.command, args } }));
+    expect(shown(['a b'])).not.toBe(shown(['a', 'b']));
+    expect(shown(['a b'])).toContain('"a b"');
+    const hostile = shown(['x\n\u001b[2Kok', '\u202eevil']);
+    // eslint-disable-next-line no-control-regex -- asserting no control character survives
+    expect(hostile).not.toMatch(/[\u0000-\u001f\u007f-\u009f\u202e]/);
+    expect(hostile).toContain('\\u202e');
+    // Only the display changes; what is approved is still the exact argv.
+    expect(
+      definitionFingerprint(resolved({ headersHelper: { ...HELPER, args: ['a b'] } })),
+    ).not.toBe(definitionFingerprint(resolved({ headersHelper: { ...HELPER, args: ['a', 'b'] } })));
+  });
+});
+
+describe('a URL shown to a program the definition chose', () => {
+  it('puts every expanded stretch back as its reference', () => {
+    const definition = {
+      provenance: {
+        url: [
+          { start: 8, end: 24, variable: 'MCP_HOST', secret: false },
+          { start: 31, end: 37, variable: 'API_TOKEN', secret: true },
+        ],
+      },
+    };
+    expect(withoutExpansions(definition, 'url', 'https://mcp.example.test/mcp?t=abc123')).toBe(
+      'https://${MCP_HOST}/mcp?t=${API_TOKEN}',
+    );
+    expect(withoutExpansions({}, 'url', 'https://plain.test/mcp')).toBe('https://plain.test/mcp');
   });
 });
 
@@ -243,18 +276,35 @@ describe('the single-flight cache', () => {
     expect(load).toHaveBeenCalledTimes(2);
   });
 
-  it('loads again after invalidation, and never stores a load started before it', async () => {
-    const gates = [deferred<string>(), deferred<string>()];
+  it('loads again only when the current generation is refused', async () => {
+    let calls = 0;
+    const cache = new MCPSingleFlightCache(async () => `value-${++calls}`);
+    const first = await cache.getEntry();
+    expect(first.value).toBe('value-1');
+    cache.invalidate(first.generation);
+    const second = await cache.getEntry();
+    expect(second.value).toBe('value-2');
+    // A late refusal of the replaced value keeps the newer one.
+    cache.invalidate(first.generation);
+    expect(await cache.get()).toBe('value-2');
+    expect(calls).toBe(2);
+  });
+
+  it('turns concurrent refusals of one value into a single new load', async () => {
+    const gates = [deferred<string>(), deferred<string>(), deferred<string>()];
     let calls = 0;
     const cache = new MCPSingleFlightCache(() => gates[calls++]!.promise);
-    const stale = cache.get();
-    cache.invalidate();
-    const fresh = cache.get();
+    const loading = cache.getEntry();
     gates[0]!.resolve('old');
+    const refused = await loading;
+    // Two requests sent with `old` are both refused; each invalidates and asks again.
+    cache.invalidate(refused.generation);
+    const a = cache.get();
+    cache.invalidate(refused.generation);
+    const b = cache.get();
     gates[1]!.resolve('new');
-    expect(await stale).toBe('old');
-    expect(await fresh).toBe('new');
-    expect(await cache.get()).toBe('new');
+    expect(await Promise.all([a, b])).toEqual(['new', 'new']);
+    expect(calls).toBe(2);
   });
 
   it('cancels the load only when every waiting caller gave up', async () => {
@@ -365,5 +415,76 @@ describe('a helper behind the authentication port', () => {
     expect(admission.ok).toBe(false);
     if (admission.ok) return;
     expect(admission.reason).toBe('authentication-unavailable');
+  });
+});
+
+describe('concurrent refusals and shutdown', () => {
+  it('runs the helper once more for two requests refused together', async () => {
+    let runs = 0;
+    const gate = deferred<void>();
+    const run = vi.fn(async () => {
+      runs += 1;
+      if (runs === 1) await gate.promise;
+      return JSON.stringify({ Authorization: `Bearer run-${runs}` });
+    });
+    const sent: (string | null)[] = [];
+    // The second refusal arrives only after the first request already retried with fresh headers,
+    // so it refuses a credential that has been replaced.
+    const refreshed = deferred<void>();
+    let refusals = 0;
+    const fetchStub = (async (_input: unknown, init?: RequestInit) => {
+      const authorization = new Headers(init?.headers).get('authorization');
+      sent.push(authorization);
+      if (authorization !== 'Bearer run-1') {
+        refreshed.resolve();
+        return new Response(null, { status: 202 });
+      }
+      refusals += 1;
+      if (refusals === 2) await refreshed.promise;
+      return new Response(null, { status: 401 });
+    }) as typeof globalThis.fetch;
+    const adapter = createStreamableHttpAdapter({ fetch: fetchStub, lookup });
+    const admission = await adapter.admit({
+      url: 'https://mcp.example.test/mcp',
+      authenticationRequired: true,
+      authentication: {
+        serverId: 'remote',
+        securityIdentity: 'sid',
+        authenticator: createHeadersHelperAuthenticator(run),
+      },
+    });
+    if (!admission.ok) throw new Error(admission.message);
+    const transport = adapter.construct(admission.admitted);
+    const notification = { jsonrpc: '2.0' as const, method: 'notifications/initialized' };
+    const both = Promise.all([transport.send(notification), transport.send(notification)]);
+    gate.resolve();
+    await both;
+    expect(run).toHaveBeenCalledTimes(2);
+    expect(sent.filter((value) => value === 'Bearer run-1')).toHaveLength(2);
+    expect(sent.filter((value) => value === 'Bearer run-2').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('refuses a rejection of headers it did not issue', async () => {
+    const auth = createHeadersHelperAuthenticator(async () => '{"Authorization": "Bearer a"}');
+    expect(
+      await auth.onRejected({ status: 401, authorization: { Authorization: 'Bearer a' } }),
+    ).toBe('fail');
+  });
+
+  it('cancels a running helper when closed', async () => {
+    let runSignal: AbortSignal | undefined;
+    const auth = createHeadersHelperAuthenticator((signal) => {
+      runSignal = signal;
+      return new Promise<string>(() => {});
+    });
+    const pending = auth.authorize({
+      serverId: 'remote',
+      securityIdentity: 'sid',
+      url: new URL('https://mcp.example.test/mcp'),
+    });
+    pending.catch(() => undefined);
+    await vi.waitFor(() => expect(runSignal).toBeDefined());
+    auth.close();
+    expect(runSignal?.aborted).toBe(true);
   });
 });

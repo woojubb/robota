@@ -21,6 +21,7 @@ import {
   MCPHeadersHelperError,
   isBlockedByManagedFailure,
   isWorkspaceHelperSource,
+  withoutExpansions,
 } from '@robota-sdk/agent-mcp';
 import { userLocalStorageRoot, userPaths } from '../product/user-paths.js';
 
@@ -190,8 +191,11 @@ export async function composeMcpClientForStartup(
     run: async ({ request, definition, helper }, signal) => {
       // A repository's helper runs in that repository; any other runs in the user's Robota home,
       // never in whatever directory the CLI happened to start from.
+      // A repository's helper is not told what the user's environment expanded into the URL.
+      const workspaceHelper = isWorkspaceHelperSource(request.source);
+      const url = definition.url ?? '';
       let cwd: string;
-      if (isWorkspaceHelperSource(request.source)) {
+      if (workspaceHelper) {
         if (identity === undefined) throw new MCPHeadersHelperError('spawn-failed');
         cwd = identity.worktreeRoot;
       } else {
@@ -205,7 +209,7 @@ export async function composeMcpClientForStartup(
           input.env,
           request.source,
           request.serverId,
-          definition.url ?? '',
+          workspaceHelper ? withoutExpansions(definition, 'url', url) : url,
         ),
         signal,
       });

@@ -61,11 +61,23 @@ export function headersHelperEnvironment(
 
 const isWindows = process.platform === 'win32';
 
-/** Kill the helper and everything it started. */
-function killTree(child: ChildProcess): void {
+/**
+ * Kill the helper and everything it started. On Windows `taskkill` does the tree; it runs
+ * asynchronously except while the process is exiting, when nothing asynchronous runs any more.
+ */
+function killTree(child: ChildProcess, exiting = false): void {
   if (typeof child.pid !== 'number') return;
   if (isWindows) {
-    spawnSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { stdio: 'ignore' });
+    const taskkill = ['/pid', String(child.pid), '/T', '/F'];
+    const options = { stdio: 'ignore', windowsHide: true } as const;
+    if (exiting) {
+      spawnSync('taskkill', taskkill, options);
+      return;
+    }
+    const killer = spawn('taskkill', taskkill, options);
+    // allow-fallback: a failed taskkill leaves nothing further to try; the helper is already refused.
+    killer.on('error', () => undefined);
+    killer.unref();
     return;
   }
   try {
@@ -79,6 +91,23 @@ function killTree(child: ChildProcess): void {
       // allow-fallback: an already-exited child cannot be signalled, which is the goal.
     }
   }
+}
+
+/**
+ * Helpers still running. Each leads its own process group, so it would outlive this process; an
+ * exit hook kills them rather than leaving them orphaned.
+ */
+const live = new Set<ChildProcess>();
+let exitHookInstalled = false;
+
+function track(child: ChildProcess): void {
+  live.add(child);
+  if (exitHookInstalled) return;
+  exitHookInstalled = true;
+  process.once('exit', () => {
+    for (const running of live) killTree(running, true);
+    live.clear();
+  });
 }
 
 /** Run the helper once and resolve with its stdout. */
@@ -106,11 +135,13 @@ export function runHeadersHelper(run: IHeadersHelperRun): Promise<string> {
       return;
     }
 
+    track(child);
     const chunks: Buffer[] = [];
     let received = 0;
     let settled = false;
     const cleanup = (): void => {
       settled = true;
+      live.delete(child);
       clearTimeout(timer);
       run.signal.removeEventListener('abort', onAbort);
     };
@@ -136,6 +167,7 @@ export function runHeadersHelper(run: IHeadersHelperRun): Promise<string> {
     child.stdout?.on('error', () => fail('spawn-failed'));
     child.on('error', () => fail('spawn-failed'));
     child.on('close', (code) => {
+      live.delete(child);
       if (settled) return;
       if (code !== 0) {
         fail('exit-status', false);

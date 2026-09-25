@@ -23,6 +23,12 @@ export interface IMCPAuthorizationRequest {
 export interface IMCPAuthorizationRejection {
   readonly status: number;
   readonly wwwAuthenticate?: string;
+  /**
+   * The very object `authorize` returned for the refused request, so an authenticator serving
+   * concurrent requests can tell a refusal of its current credential from one of a credential it
+   * has already replaced.
+   */
+  readonly authorization: Readonly<Record<string, string>>;
 }
 
 export interface IMCPClientAuthenticator {

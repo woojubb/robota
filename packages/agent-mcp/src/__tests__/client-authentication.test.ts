@@ -112,6 +112,8 @@ describe('client authentication port', () => {
     expect(auth.onRejected).toHaveBeenCalledWith({
       status: 401,
       wwwAuthenticate: 'Bearer realm="mcp"',
+      // The refused request's own credential, so the authenticator knows which one was refused.
+      authorization: { authorization: 'Bearer token-1' },
     });
   });
 

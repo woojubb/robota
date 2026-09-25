@@ -17,7 +17,11 @@ if (mode === 'ok') {
   );
 } else if (mode === 'env') {
   process.stdout.write(
-    JSON.stringify({ 'X-Env': Object.keys(process.env).sort().join(','), 'X-Cwd': process.cwd() }),
+    JSON.stringify({
+      'X-Env': Object.keys(process.env).sort().join(','),
+      'X-Cwd': process.cwd(),
+      'X-Url': process.env.ROBOTA_MCP_SERVER_URL ?? '',
+    }),
   );
 } else if (mode === 'fail') {
   process.stderr.write('stderr-secret-text\n');

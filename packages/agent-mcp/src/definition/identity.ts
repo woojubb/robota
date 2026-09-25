@@ -109,6 +109,24 @@ export function definitionFingerprint(definition: IMCPServerDefinitionResolved):
   ]);
 }
 
+/** Characters an argument may show unquoted: nothing that could hide a boundary or a character. */
+const PLAIN_ARGUMENT = /^[A-Za-z0-9_@%+=:,./-]+$/;
+/** What JSON leaves unescaped but a terminal would act on or hide: C1 controls, format characters. */
+const INVISIBLE = /[\u007f-\u009f\u2028\u2029\p{Cf}]/gu;
+
+/**
+ * One argv element as an approver reads it. An element needing quotes is shown as a JSON string
+ * with every control and format character escaped, so `["a b"]` and `["a", "b"]` read differently
+ * and nothing in an argument can rewrite the text around it.
+ */
+function displayArgument(part: string): string {
+  if (PLAIN_ARGUMENT.test(part)) return part;
+  return JSON.stringify(part).replace(
+    INVISIBLE,
+    (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`,
+  );
+}
+
 /**
  * The endpoint an activation names: the URL, or for stdio the command line — each with its secret
  * stretches replaced, because it lands in activation requests and audit records. A URL whose
@@ -121,7 +139,7 @@ export function activationEndpoint(definition: IMCPServerDefinitionResolved): st
     const url = withoutSecrets(definition, 'url', definition.url);
     const helper = definition.headersHelper;
     if (helper === undefined) return url;
-    return `${url} (headers from ${[helper.command, ...helper.args].join(' ')})`;
+    return `${url} (headers from ${[helper.command, ...helper.args].map(displayArgument).join(' ')})`;
   }
   const command =
     definition.command === undefined

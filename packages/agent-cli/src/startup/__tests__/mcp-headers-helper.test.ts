@@ -12,20 +12,33 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
-import { MCPHeadersHelperError } from '@robota-sdk/agent-mcp';
+import {
+  WorkspaceTrustService,
+  createNodeHostSettingsSource,
+  createWorkspaceProjectSettingsSources,
+  getWorkspaceProjectReader,
+} from '@robota-sdk/agent-framework';
+import {
+  InMemoryMCPActivationApprovalStore,
+  MCPDefinitionRegistry,
+  MCPHeadersHelperError,
+} from '@robota-sdk/agent-mcp';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { resolveMcpHeaderHelperAllowlist } from '../mcp-header-helper-allowlist.js';
 import { headersHelperEnvironment, runHeadersHelper } from '../mcp-headers-helper-runner.js';
+import { createMcpClientComposition } from '../mcp-client-composition.js';
 import { composeMcpClientForStartup } from '../mcp-startup.js';
+import { ROBOTA_PROJECT_SETTINGS } from '../../product/robota-project-settings.js';
 import { createRobotaUserSettingsSources } from '../../product/robota-user-settings.js';
 
 import type { TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
+import type { IMCPConnectionSupervisorOptions, IMCPResolvedEntry } from '@robota-sdk/agent-mcp';
 
 const FIXTURE = fileURLToPath(new URL('./fixtures/headers-helper.mjs', import.meta.url));
 const helperFor = (...args: string[]) => ({ command: process.execPath, args: [FIXTURE, ...args] });
@@ -232,6 +245,42 @@ describe('running a helper', () => {
     },
     15_000,
   );
+
+  it.skipIf(process.platform === 'win32')(
+    'kills a running helper tree when the host process exits',
+    async () => {
+      const pidFile = join(home, 'grandchild.pid');
+      const runner = fileURLToPath(new URL('../mcp-headers-helper-runner.ts', import.meta.url));
+      const host = `
+        const { runHeadersHelper } = await import(${JSON.stringify(runner)});
+        const { existsSync, readFileSync } = await import('node:fs');
+        void runHeadersHelper({
+          helper: { command: process.execPath, args: [${JSON.stringify(FIXTURE)}, 'hang', ${JSON.stringify(pidFile)}] },
+          cwd: ${JSON.stringify(home)},
+          env: {},
+          signal: new AbortController().signal,
+        }).catch(() => undefined);
+        const wait = setInterval(() => {
+          if (existsSync(${JSON.stringify(pidFile)}) && readFileSync(${JSON.stringify(pidFile)}, 'utf8') !== '') {
+            clearInterval(wait);
+            process.exit(0);
+          }
+        }, 20);
+      `;
+      const exited = spawnSync(
+        process.execPath,
+        ['--import', 'tsx', '--input-type=module', '-e', host],
+        {
+          cwd: fileURLToPath(new URL('../../..', import.meta.url)),
+          timeout: 10_000,
+        },
+      );
+      expect(exited.status).toBe(0);
+      const grandchild = Number(readFileSync(pidFile, 'utf8'));
+      await vi.waitFor(() => expect(alive(grandchild)).toBe(false), { timeout: 5_000 });
+    },
+    20_000,
+  );
 });
 
 const restrictedAccess: TWorkspaceProjectAccess = {
@@ -347,5 +396,169 @@ describe('a header helper at startup', () => {
     }
     expect(stub.authorizations).toEqual([]);
     expect(existsSync(join(home, '.robota', 'runs'))).toBe(false);
+  });
+});
+
+/** Trusted access for one root, minted through the real trust-service path. */
+async function trustedAccessFor(root: string): Promise<TWorkspaceProjectAccess> {
+  const identity = { repositoryKey: `fixture:${root}`, displayPath: root, worktreeRoot: root };
+  const service = new WorkspaceTrustService({
+    identityResolver: { resolve: () => identity },
+    store: {
+      inspect: async () => ({ state: 'trusted', generation: 1 }),
+      grant: async () => ({ state: 'trusted', generation: 1 }),
+      revoke: async () => ({ state: 'revoked', generation: 2 }),
+    },
+  });
+  return service.inspect(root);
+}
+
+describe('a repository header helper in a trusted workspace', () => {
+  it.each([
+    ['project', 'settings.json'],
+    ['local', 'settings.local.json'],
+  ])(
+    'runs a %s helper in the worktree, without credentials or the expanded URL',
+    async (_source, file) => {
+      const projectRoot = tempRoot('robota-headers-helper-project-');
+      mkdirSync(join(projectRoot, '.robota'), { recursive: true });
+      writeFileSync(
+        join(projectRoot, '.robota', file),
+        JSON.stringify({
+          mcpServers: {
+            remote: {
+              type: 'http',
+              url: 'https://${MCP_HOST}/mcp',
+              headersHelper: helperFor('env'),
+            },
+          },
+        }),
+      );
+      mkdirSync(join(home, '.robota'), { recursive: true });
+      writeFileSync(
+        join(home, '.robota', 'settings.json'),
+        JSON.stringify({ mcpHeaderHelpers: [helperFor('env')] }),
+      );
+      const access = await trustedAccessFor(projectRoot);
+      if (access.status !== 'trusted') throw new Error('expected trusted access');
+      const seen: Headers[] = [];
+      const fetchStub = (async (_input: unknown, init?: RequestInit) => {
+        seen.push(new Headers(init?.headers));
+        return new Response(null, { status: 401 });
+      }) as typeof globalThis.fetch;
+      const messages: string[] = [];
+      const mcp = await composeMcpClientForStartup({
+        settingsSources: [
+          ...createRobotaUserSettingsSources(home),
+          ...createWorkspaceProjectSettingsSources(
+            getWorkspaceProjectReader(access.authority),
+            ROBOTA_PROJECT_SETTINGS,
+          ),
+        ],
+        projectAccess: access,
+        cwd: home,
+        env: {
+          PATH: process.env.PATH ?? '',
+          HOME: home,
+          MCP_HOST: 'mcp.example.test',
+          GITHUB_TOKEN: 'ghp-secret',
+          NODE_OPTIONS: '--require nothing',
+        },
+        mode: 'print',
+        inspectTrust: async () => ({ state: 'trusted', generation: 1 }),
+        reportDiagnostic: (message) => messages.push(message),
+        httpTransportDeps: { fetch: fetchStub, lookup: async () => ['203.0.113.9'] },
+      });
+      const summary = await mcp.activationAdapter.approve('remote');
+      expect(summary.allowed).toBe(true);
+      try {
+        await mcp.connect();
+      } finally {
+        await mcp.shutdown();
+      }
+      expect(seen.length).toBeGreaterThan(0);
+      const headers = seen[0]!;
+      expect(headers.get('x-cwd')).toBe(projectRoot);
+      const env = headers.get('x-env')?.split(',') ?? [];
+      expect(env).toEqual(expect.arrayContaining(['PATH', 'MCP_HOST', 'ROBOTA_MCP_SERVER_NAME']));
+      expect(env).not.toContain('GITHUB_TOKEN');
+      expect(env).not.toContain('NODE_OPTIONS');
+      expect(headers.get('x-url')).toBe('https://${MCP_HOST}/mcp');
+      expect(messages.join('\n')).not.toContain('ghp-secret');
+    },
+    15_000,
+  );
+});
+
+describe('helper headers belong to one connection', () => {
+  it('runs the helper afresh when the server session is opened again', async () => {
+    const entry: IMCPResolvedEntry = {
+      name: 'remote',
+      source: 'user',
+      origin: 'settings.json',
+      status: 'resolved',
+      shadowed: [],
+      definition: {
+        name: 'remote',
+        source: 'user',
+        origin: 'settings.json',
+        transport: 'http',
+        url: 'https://mcp.example.test/mcp',
+        headersHelper: { command: '/opt/token', args: [] },
+        unsetVariables: [],
+      },
+    };
+    const approvalStore = new InMemoryMCPActivationApprovalStore();
+    for (const request of new MCPDefinitionRegistry([entry]).list()) {
+      approvalStore.put({
+        serverId: request.serverId,
+        source: request.source,
+        provenance: request.provenance,
+        definitionFingerprint: request.definitionFingerprint,
+        securityIdentity: request.securityIdentity,
+        approvalAuthority: 'user',
+        decision: 'approved',
+        decidedAt: new Date(0).toISOString(),
+      });
+    }
+    let runs = 0;
+    const sent: (string | null)[] = [];
+    const fetchStub = (async (_input: unknown, init?: RequestInit) => {
+      sent.push(new Headers(init?.headers).get('authorization'));
+      return new Response(null, { status: 401 });
+    }) as typeof globalThis.fetch;
+    let options: IMCPConnectionSupervisorOptions | undefined;
+    const composition = createMcpClientComposition({
+      resolvedEntries: [entry],
+      approvalStore,
+      transport: { fetch: fetchStub, lookup: async () => ['203.0.113.9'] },
+      headersHelpers: {
+        allowed: [{ command: '/opt/token', args: [] }],
+        run: async () => JSON.stringify({ Authorization: `Bearer run-${++runs}` }),
+      },
+      createSupervisor: (supervisorOptions) => {
+        options = supervisorOptions;
+        return {
+          discover: async () => {
+            throw new Error('not discovered');
+          },
+          callTool: async () => ({ content: [], isError: false }),
+          shutdown: async () => undefined,
+        };
+      },
+      reportDiagnostic: () => undefined,
+    });
+    await composition.connect();
+    const open = async () =>
+      options!.openSession(new AbortController().signal).then(
+        () => undefined,
+        () => undefined,
+      );
+    await open();
+    await open();
+    await composition.shutdown();
+    // Each open: the helper's headers, refused, then one fresh run. The second open never reuses
+    // the first connection's cached headers.
+    expect(sent).toEqual(['Bearer run-1', 'Bearer run-2', 'Bearer run-3', 'Bearer run-4']);
   });
 });

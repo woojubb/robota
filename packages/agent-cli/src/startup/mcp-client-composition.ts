@@ -282,7 +282,8 @@ interface IConnectServerContext {
   readonly deps: IMcpClientCompositionDeps;
   readonly signal: AbortSignal | undefined;
   /** Every helper authenticator created, closed at shutdown so no helper outlives the client. */
-  readonly helperAuthenticators: IMCPHeadersHelperAuthenticator[];
+  /** One helper slot per server, closed when the server is connected again or at shutdown. */
+  readonly helperSlots: Map<string, IHelperAuthenticatorSlot>;
 }
 
 /**
@@ -290,6 +291,44 @@ interface IConnectServerContext {
  * or failure is reported via `deps.reportDiagnostic` and answered with `undefined` — the caller
  * excludes that server and moves on, never aborting the others (per-server isolation).
  */
+/**
+ * A server's helper authenticator, replaced each time its session is opened: helper headers belong
+ * to one connection, so a reconnect runs the helper afresh and the old one's cache is dropped
+ * rather than kept alive until shutdown. A request still in flight on the old connection is refused
+ * by the old authenticator rather than handed the new connection's headers.
+ */
+interface IHelperAuthenticatorSlot {
+  readonly authenticator: IMCPClientAuthenticator;
+  renew(): void;
+  close(): void;
+}
+
+function helperAuthenticatorSlot(
+  create: () => IMCPHeadersHelperAuthenticator,
+): IHelperAuthenticatorSlot {
+  let current: IMCPHeadersHelperAuthenticator | undefined;
+  let closed = false;
+  const active = (): IMCPHeadersHelperAuthenticator => {
+    current ??= create();
+    if (closed) current.close();
+    return current;
+  };
+  return {
+    authenticator: {
+      authorize: (request) => active().authorize(request),
+      onRejected: (rejection) => active().onRejected(rejection),
+    },
+    renew: () => {
+      current?.close();
+      current = undefined;
+    },
+    close: () => {
+      closed = true;
+      current?.close();
+    },
+  };
+}
+
 /** The per-server options a real `MCPConnectionSupervisor` (or the test fake standing in for it) needs. */
 function buildSupervisorOptions<TInput, TAdmitted>(
   request: IMCPActivationRequest,
@@ -297,18 +336,21 @@ function buildSupervisorOptions<TInput, TAdmitted>(
   admittedEndpoint: TAdmitted,
   timeouts: IMCPTimeouts,
   deps: IMcpClientCompositionDeps,
+  onOpen?: () => void,
 ): IMCPConnectionSupervisorOptions {
   return {
     serverId: request.serverId,
     awaitOpenCleanupOnTimeout: transportAdapter.kind === 'stdio',
-    openSession: (openSignal) =>
-      openMcpSession({
+    openSession: (openSignal) => {
+      onOpen?.();
+      return openMcpSession({
         serverId: request.serverId,
         transport: transportAdapter.construct(admittedEndpoint),
         timeouts: { startupMs: timeouts.startupMs, perCallMs: timeouts.perCallMs },
         ...(deps.clientInfo === undefined ? {} : { clientInfo: deps.clientInfo }),
         signal: openSignal,
-      }),
+      });
+    },
     timeouts,
     ...(deps.backoff === undefined ? {} : { backoff: deps.backoff }),
     ...(deps.clock === undefined ? {} : { clock: deps.clock }),
@@ -358,6 +400,7 @@ async function connectOneServer(
     const adapter = createStreamableHttpAdapter(deps.transport);
     const helper = definition.headersHelper;
     let authenticator: IMCPClientAuthenticator | undefined;
+    let helperSlot: IHelperAuthenticatorSlot | undefined;
     if (helper === undefined) {
       authenticator = deps.authenticatorFor?.(request);
     } else {
@@ -374,11 +417,15 @@ async function connectOneServer(
         );
         return undefined;
       }
-      const helperAuthenticator = createHeadersHelperAuthenticator((runSignal) =>
-        host.run({ request, definition, helper }, runSignal),
+      const slot = helperAuthenticatorSlot(() =>
+        createHeadersHelperAuthenticator((runSignal) =>
+          host.run({ request, definition, helper }, runSignal),
+        ),
       );
-      context.helperAuthenticators.push(helperAuthenticator);
-      authenticator = helperAuthenticator;
+      context.helperSlots.get(request.serverId)?.close();
+      context.helperSlots.set(request.serverId, slot);
+      helperSlot = slot;
+      authenticator = slot.authenticator;
     }
     const result = await adapter.admit({
       url: definition.url ?? '',
@@ -403,7 +450,14 @@ async function connectOneServer(
       );
       return undefined;
     }
-    supervisorOptions = buildSupervisorOptions(request, adapter, result.admitted, timeouts, deps);
+    supervisorOptions = buildSupervisorOptions(
+      request,
+      adapter,
+      result.admitted,
+      timeouts,
+      deps,
+      helperSlot === undefined ? undefined : () => helperSlot.renew(),
+    );
   }
   const connection = createSupervisor(supervisorOptions);
 
@@ -509,7 +563,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
   );
 
   const openConnections: IMcpServerConnection[] = [];
-  const helperAuthenticators: IMCPHeadersHelperAuthenticator[] = [];
+  const helperSlots = new Map<string, IHelperAuthenticatorSlot>();
   const connectedByServerId = new Map<string, IMcpServerConnection>();
   const timeouts = deps.timeouts ?? DEFAULT_MCP_CLIENT_TIMEOUTS;
   const createSupervisor =
@@ -551,7 +605,7 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       timeouts,
       deps,
       signal,
-      helperAuthenticators,
+      helperSlots,
     };
 
     for (const request of registry.list()) {
@@ -668,7 +722,8 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       ]);
     } finally {
       // After the connections: closing a session may still send one authorized request.
-      for (const authenticator of helperAuthenticators.splice(0)) authenticator.close();
+      for (const slot of helperSlots.values()) slot.close();
+      helperSlots.clear();
     }
   }
 

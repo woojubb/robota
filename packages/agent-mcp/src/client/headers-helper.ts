@@ -15,7 +15,11 @@ import { MCPSingleFlightCache } from './single-flight.js';
 
 import type { IMCPActivationWorkspace, TMCPActivationSource } from '../mcp-activation.js';
 import type { IMCPHeadersHelper } from '../definition/types.js';
-import type { IMCPAuthorizationRequest, IMCPClientAuthenticator } from './authentication.js';
+import type {
+  IMCPAuthorizationRejection,
+  IMCPAuthorizationRequest,
+  IMCPClientAuthenticator,
+} from './authentication.js';
 
 /**
  * Why a declared helper may not run, so the server is not connected:
@@ -188,10 +192,20 @@ export function createHeadersHelperAuthenticator(
   const cache = new MCPSingleFlightCache(async (signal) =>
     parseHeadersHelperOutput(await run(signal)),
   );
+  // Each request gets its own copy, so a refusal names exactly the generation that request sent.
+  const issued = new WeakMap<object, number>();
   return {
-    authorize: (request: IMCPAuthorizationRequest) => cache.get(request.signal),
-    onRejected: async () => {
-      cache.invalidate();
+    authorize: async (request: IMCPAuthorizationRequest) => {
+      const { value, generation } = await cache.getEntry(request.signal);
+      const copy = Object.freeze({ ...value });
+      issued.set(copy, generation);
+      return copy;
+    },
+    onRejected: async (rejection: IMCPAuthorizationRejection) => {
+      const generation = issued.get(rejection.authorization);
+      // Headers this authenticator did not issue: there is nothing of its own to refresh.
+      if (generation === undefined) return 'fail';
+      cache.invalidate(generation);
       return 'retry';
     },
     close: () => cache.close(),

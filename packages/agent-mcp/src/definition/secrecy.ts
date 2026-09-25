@@ -120,3 +120,25 @@ export function withoutSecrets(
   out += literal(value.slice(cursor));
   return wholeValueSecret && out.length === 0 ? SECRET_LITERAL : out;
 }
+
+/**
+ * `value` with every stretch an environment reference produced put back as that reference, so
+ * nothing the environment supplied appears in it — for handing a value to a program the definition's
+ * author, not the user, chose.
+ */
+export function withoutExpansions(
+  definition: Pick<IMCPServerDefinitionResolved, 'provenance'>,
+  field: string,
+  value: string,
+): string {
+  const spans = [...(definition.provenance?.[field] ?? [])].sort(
+    (a, b) => a.start - b.start || a.end - b.end,
+  );
+  let out = '';
+  let cursor = 0;
+  for (const span of spans) {
+    out += value.slice(cursor, span.start) + '${' + span.variable + '}';
+    cursor = span.end;
+  }
+  return out + value.slice(cursor);
+}

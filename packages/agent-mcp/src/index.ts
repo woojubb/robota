@@ -56,6 +56,7 @@ export {
   isCredentialShapedName,
   SECRET_LITERAL,
   secretMarker,
+  withoutExpansions,
   withoutSecrets,
 } from './definition/secrecy.js';
 export {
@@ -132,7 +133,11 @@ export {
   type TMCPHeadersHelperRefusal,
   type TMCPHeadersHelperRun,
 } from './client/headers-helper.js';
-export { MCPSingleFlightCache, MCPSingleFlightClosedError } from './client/single-flight.js';
+export {
+  MCPSingleFlightCache,
+  MCPSingleFlightClosedError,
+  type IMCPSingleFlightEntry,
+} from './client/single-flight.js';
 export { isExecutionEnvironmentName } from './client/stdio-authority.js';
 export {
   createStdioAdapter,
