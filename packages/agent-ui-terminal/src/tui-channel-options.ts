@@ -65,6 +65,10 @@ export interface ITuiInteractionChannelOptions {
   subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
   observerFailureWarningCode?: ICreateSessionOptions['observerFailureWarningCode'];
   commandHookShell?: string;
+  /** Skip instruction files and plugin discovery (`--safe-mode`). */
+  bare?: boolean;
+  /** Run no hook the settings layers declare (`--safe-mode`). */
+  skipConfiguredHooks?: boolean;
   /** Resolved organization policy forwarded to the interactive session. */
   orgPolicy?: IOrgPolicy;
   projectAccess?: TWorkspaceProjectAccess;

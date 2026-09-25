@@ -45,7 +45,8 @@ robota --version                    # Show version
 
 Start with `robota --safe-mode` first. It runs a session with every customization off: project and
 user instruction files (`AGENTS.md`, `CLAUDE.md`), skills, custom commands, agent definitions,
-external presets, plugins, hooks from every settings layer, and MCP servers. Your provider, model,
+output styles, external presets, plugins, hooks from every settings layer, and MCP servers. Themes
+and keybindings still apply. Your provider, model,
 built-in tools and permission rules work as usual, and nothing on disk changes. If the problem goes
 away, one of those customizations is the cause; turn them back on one at a time to find it.
 

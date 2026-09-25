@@ -268,6 +268,7 @@ export async function initializeInteractiveSessionAsync(
     onCompactEvent: deps.onCompactEvent,
     onToolExecution: deps.onToolExecution,
     bare: options.bare,
+    ...(options.skipConfiguredHooks === true ? { skipConfiguredHooks: true } : {}),
     disableBuiltInHookExecutors: options.disableBuiltInHookExecutors,
     commandHookShell: options.commandHookShell,
     allowedTools: options.allowedTools,

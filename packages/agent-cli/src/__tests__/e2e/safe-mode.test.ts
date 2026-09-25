@@ -68,6 +68,7 @@ function scriptedDefinition(scripted: IScriptedProvider): IProviderDefinition {
 async function run(
   prompt: string,
   extra: readonly string[],
+  startOptions: { readonly safeMode?: boolean } = {},
 ): Promise<{ stdout: string; stderr: string; scripted: IScriptedProvider }> {
   const scripted = createScriptedProvider([{ text: 'ok' }, { text: 'ok' }]);
   process.argv = [
@@ -94,6 +95,7 @@ async function run(
     await startCli({
       providerDefinitions: [scriptedDefinition(scripted)],
       projectAccess: await createTrustedWorkspaceProjectAccess(project),
+      ...startOptions,
     });
   } catch (error) {
     if (!/^process\.exit:\d+$/.test(error instanceof Error ? error.message : String(error))) {
@@ -122,5 +124,11 @@ describe('--safe-mode', () => {
     expect(safe.stderr).toContain('Safe mode:');
     const safeSkills = await run('/skills', ['--safe-mode']);
     expect(safeSkills.stdout).not.toContain('user-skill');
+  }, 60_000);
+
+  it('does the same when an embedder asks for it through startCli', async () => {
+    const safe = await run('hello', [], { safeMode: true });
+    expect(systemPrompt(safe.scripted)).not.toContain('PROJECT-INSTRUCTION-MARKER');
+    expect(safe.stderr).toContain('Safe mode:');
   }, 60_000);
 });

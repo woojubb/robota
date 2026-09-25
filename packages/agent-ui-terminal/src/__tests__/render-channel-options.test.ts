@@ -23,14 +23,25 @@ describe('toChannelOptions', () => {
     const session = buildTuiSessionOptions(channel);
     expect(session.promptFileReferenceTag).toBe('acme_files');
     expect(session.modelCommandToolPrefix).toBe('acme_command_');
-    expect(session.observerFailureWarningCode).toBe(
-      'ACME_BACKGROUND_OBSERVER_FAILURE',
-    );
+    expect(session.observerFailureWarningCode).toBe('ACME_BACKGROUND_OBSERVER_FAILURE');
     expect(session.subagentHookEnvironmentNames).toEqual({
       agentId: 'ACME_AGENT_ID',
       agentType: 'ACME_AGENT_TYPE',
     });
     expect('commandHookShell' in session && session.commandHookShell).toBe('/bin/bash');
+  });
+
+  it('keeps safe mode (no instructions, plugins or settings hooks) through render, channel, and session', () => {
+    const channel = toChannelOptions({
+      cwd: '/tmp/project',
+      provider: {} as IAIProvider,
+      cliAdapter: {} as ITuiCliAdapter,
+      bare: true,
+      skipConfiguredHooks: true,
+    });
+    const session = buildTuiSessionOptions(channel);
+    expect('bare' in session && session.bare).toBe(true);
+    expect('skipConfiguredHooks' in session && session.skipConfiguredHooks).toBe(true);
   });
 
   it('preserves host permission baselines through render, channel, and session', () => {

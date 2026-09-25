@@ -165,9 +165,14 @@ async function runCliCore(
   telemetryEnvironment: Readonly<Record<string, string>> = {},
 ): Promise<void> {
   const cwd = process.cwd();
-  const projectAccess = await resolveStartupWorkspaceProjectAccess(process.argv, cwd, options);
-  // Issue #3082: read from argv like the access decision above, which it forces to Restricted.
-  const safeMode = process.argv.includes(SAFE_MODE_FLAG);
+  // Issue #3082: read from argv (or the embedder's option) before anything is composed, like the
+  // access decision it forces to Restricted.
+  const safeMode = process.argv.includes(SAFE_MODE_FLAG) || options.safeMode === true;
+  const projectAccess = await resolveStartupWorkspaceProjectAccess(
+    safeMode ? [...process.argv, SAFE_MODE_FLAG] : process.argv,
+    cwd,
+    options,
+  );
   const startupOptions: IStartCliOptions = {
     ...options,
     projectAccess,
@@ -178,6 +183,8 @@ async function runCliCore(
   let args: IParsedCliArgs;
   try {
     args = preParsedArgs ?? parseCliArgs();
+    // One decision: the modes below read `args.safeMode`, the composition above read `safeMode`.
+    args = { ...args, safeMode };
   } catch (error) {
     // allow-fallback: argument validation errors are terminal — exit is the correct response
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
@@ -399,7 +406,8 @@ async function runCliCore(
   for (const { fileName, reason } of theme?.skipped ?? []) {
     terminal.writeError(`Skipped theme "${fileName}": ${reason}`);
   }
-  const outputStyleId = selectOutputStyleId(args, userSettings.outputStyle);
+  // Safe mode loads no user or project output style, so a saved selection of one is not applied.
+  const outputStyleId = selectOutputStyleId(args, safeMode ? undefined : userSettings.outputStyle);
   let outputStyle;
   try {
     outputStyle = resolveOutputStyle(outputStyleRegistry, outputStyleId);
@@ -408,7 +416,7 @@ async function runCliCore(
     process.exit(1);
   }
   const outputStyleWasSelected =
-    args.outputStyle !== undefined || userSettings.outputStyle !== undefined;
+    args.outputStyle !== undefined || (!safeMode && userSettings.outputStyle !== undefined);
   if (outputStyleWasSelected) {
     const outputStyleNotice = `Output style: ${outputStyle.name} (${outputStyle.id}; input cost ${outputStyle.tokenCost})`;
     if (args.printMode) {

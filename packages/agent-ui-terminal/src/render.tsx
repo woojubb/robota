@@ -78,6 +78,10 @@ export interface IRenderOptions {
   subagentHookEnvironmentNames?: ICreateSessionOptions['subagentHookEnvironmentNames'];
   observerFailureWarningCode?: ICreateSessionOptions['observerFailureWarningCode'];
   commandHookShell?: string;
+  /** Skip instruction files and plugin discovery (`--safe-mode`). */
+  bare?: boolean;
+  /** Run no hook the settings layers declare (`--safe-mode`). */
+  skipConfiguredHooks?: boolean;
   promptFileReferenceTag?: string;
   provider: IAIProvider;
   providerErrorGuidance?: IProviderErrorGuidance;
@@ -263,6 +267,8 @@ export function toChannelOptions(
     ...(options.commandHookShell !== undefined
       ? { commandHookShell: options.commandHookShell }
       : {}),
+    ...(options.bare === true ? { bare: true } : {}),
+    ...(options.skipConfiguredHooks === true ? { skipConfiguredHooks: true } : {}),
     ...(options.projectAccess !== undefined ? { projectAccess: options.projectAccess } : {}),
     ...(options.projectSettingsPaths !== undefined
       ? { projectSettingsPaths: options.projectSettingsPaths }

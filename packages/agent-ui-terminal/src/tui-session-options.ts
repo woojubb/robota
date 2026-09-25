@@ -34,6 +34,8 @@ export function buildTuiSessionOptions(
       ? { observerFailureWarningCode: opts.observerFailureWarningCode }
       : {}),
     ...(opts.commandHookShell !== undefined ? { commandHookShell: opts.commandHookShell } : {}),
+    ...(opts.bare === true ? { bare: true } : {}),
+    ...(opts.skipConfiguredHooks === true ? { skipConfiguredHooks: true } : {}),
     ...(opts.orgPolicy !== undefined ? { orgPolicy: opts.orgPolicy } : {}),
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
     ...(opts.projectSettingsPaths !== undefined

@@ -65,8 +65,9 @@ export const RESTRICTED_WORKSPACE_FLAG = '--restricted-workspace';
 export const SAFE_MODE_FLAG = '--safe-mode';
 
 export const SAFE_MODE_NOTICE =
-  'Safe mode: project and user instruction files, skills, commands, agents, plugins, hooks and ' +
-  'MCP servers are off. Provider, model, built-in tools and permissions work as usual.';
+  'Safe mode: project and user instruction files, skills, commands, agents, output styles, ' +
+  'plugins, hooks and MCP servers are off. Provider, model, built-in tools and permissions work as ' +
+  'usual.';
 
 /**
  * The startup access decision. A `/cd` from a Restricted session never widens access, whatever the
