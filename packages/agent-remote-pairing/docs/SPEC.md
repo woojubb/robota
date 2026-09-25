@@ -46,9 +46,9 @@ That is an authorization list wearing an authentication's clothes.
 So the proof is a chain of three keys, each with one job:
 
 - **Master key — never stored.** It is recomputed from the user's recovery phrase through the standard BIP39 and
-  SLIP-0010 derivations, so the phrase alone recovers it with any conforming implementation and no file on any
-  device can leak it. Its only acts are certifying, rotating and revoking signing keys; its public key is the
-  anchor every device pins, and the user id is derived from it.
+  SLIP-0010 derivations, so the phrase (with its optional passphrase) recovers it with any conforming
+  implementation and no file on any device can leak it. Its only acts are certifying, rotating and revoking
+  signing keys; its public key is the anchor every device pins, and the user id is derived from it.
 - **Signing key — the day-to-day issuer.** Kept on one or two trusted devices and short-lived, it certifies
   devices and issues the roster and revocation lists. Adding or retiring a device therefore never needs the
   phrase, and a lost signing key costs one master-signed revocation rather than the user's identity.
@@ -60,13 +60,15 @@ separate steps, because a certificate is a public document and proves nothing ab
 
 **Every signature names its purpose.** Each signed structure begins with a `robota/<purpose>/v<n>` tag inside one
 canonical encoding, and a verifier refuses any other tag. One key signs several kinds of statement, and without
-the tag a signature made for one could be read as another whose fields line up. The encoding admits exactly one
-spelling of each statement, and no field travels beside a signature without being covered by it.
+the tag a signature made for one could be read as another whose fields line up. The encoding admits one spelling
+of each statement's signed content, and no field travels beside a signature without being covered by it.
 
 **An old list is a refusal.** Roster and revocation lists carry a monotonic sequence number and a reader
 refuses one below the last it accepted, because a captured older list would roll it back to before a revocation.
-Device lists also expire, because a withheld list and a stale one look the same to the reader. Where the proof
-cannot be established the answer is a refusal with a closed reason, never a pass.
+A list left out once one has been seen is refused the same way, since omission is the oldest list of all. Device
+lists also expire, because a withheld list and a stale one look the same to the reader. Sequence marks belong to
+the signing key that issued the list, so a second or rotated signing key never makes the first one's lists look
+rolled back. Where the proof cannot be established the answer is a refusal with a closed reason, never a pass.
 
 **The grant binds one transfer.** A same-user proof reused for a second transfer is the failure this design
 exists to prevent, so every binding is INSIDE the signature: user, source and destination device ids, hand-off id,

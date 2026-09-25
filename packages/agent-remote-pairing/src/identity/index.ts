@@ -65,7 +65,9 @@ export type {
 export { verifyDeviceChain, verifySessionDescriptor } from './verify-chain.js';
 export type {
   IChainRejection,
+  IDeviceListMarks,
   IListHighWaterMarks,
+  IRequiredLists,
   IVerifyDeviceChainInput,
   IVerifySessionDescriptorOptions,
   TChainRejection,

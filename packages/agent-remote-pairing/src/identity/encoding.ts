@@ -202,7 +202,10 @@ export function isSignature(value: unknown): value is string {
 
 /** A millisecond timestamp or a sequence number: a non-negative safe integer. */
 export function isCount(value: unknown): value is number {
-  return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
+  // -0 is refused: it serialises as 0, which would give one signature two spellings.
+  return (
+    typeof value === 'number' && Number.isSafeInteger(value) && value >= 0 && !Object.is(value, -0)
+  );
 }
 
 /** The DER prefix of each SPKI shape accepted, and the key bytes that follow it. */
@@ -215,6 +218,8 @@ const SPKI_SHAPES = {
 
 export type TSpkiShape = keyof typeof SPKI_SHAPES;
 
+const UNCOMPRESSED_POINT = 0x04;
+
 function hexOf(bytes: Uint8Array): string {
   return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }
@@ -224,7 +229,8 @@ export function isSpki(value: unknown, shape: TSpkiShape): value is string {
   const { prefix, keyBytes } = SPKI_SHAPES[shape];
   const bytes = canonicalBase64Url(value, prefix.length / 2 + keyBytes);
   if (bytes === undefined) return false;
-  return hexOf(bytes.subarray(0, prefix.length / 2)) === prefix;
+  if (hexOf(bytes.subarray(0, prefix.length / 2)) !== prefix) return false;
+  return shape !== 'P256' || bytes[prefix.length / 2] === UNCOMPRESSED_POINT;
 }
 
 /** Strictly ascending (so sorted and duplicate-free) ids, at most `max` of them. */

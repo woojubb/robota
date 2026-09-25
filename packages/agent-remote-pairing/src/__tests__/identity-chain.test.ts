@@ -134,6 +134,13 @@ function full(overrides: Partial<IVerifyDeviceChainInput> = {}): IVerifyDeviceCh
   };
 }
 
+/** A P-256 SPKI whose point tag claims compressed form — same DER prefix, not an uncompressed point. */
+function compressedTag(spki: string): string {
+  const bytes = Uint8Array.from(atob(spki.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0));
+  bytes[26] = 0x02;
+  return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
 /** Replace one character of a base64url value with another valid one, keeping it canonical. */
 function flip(value: string, at = 5): string {
   const c = value[at] === 'A' ? 'B' : 'A';
@@ -177,7 +184,12 @@ describe('verifyDeviceChain — acceptance', () => {
 
   it('accepts a list whose seq equals the last one seen', async () => {
     const verdict = await verifyDeviceChain(
-      full({ lastSeen: { rosterSeq: 5, revocationSeq: 7, signingKeyRevocationSeq: 2 } }),
+      full({
+        lastSeen: {
+          signingKeyRevocationSeq: 2,
+          bySigningKey: { [world.signingKeyCert.signingKeyId]: { rosterSeq: 5, revocationSeq: 7 } },
+        },
+      }),
     );
     expect(verdict.ok).toBe(true);
   });
@@ -438,13 +450,57 @@ describe('verifyDeviceChain — every rejection reason', () => {
     ).toEqual({ ok: false, reason: 'stale', subject: 'roster' });
   });
 
+  it('stale: a list left out although one was seen before, or required', async () => {
+    const skId = world.signingKeyCert.signingKeyId;
+    expect(
+      await verifyDeviceChain(
+        full({ revocation: undefined, lastSeen: { bySigningKey: { [skId]: { revocationSeq: 7 } } } }),
+      ),
+    ).toEqual({ ok: false, reason: 'stale', subject: 'revocation' });
+    expect(
+      await verifyDeviceChain(
+        full({ roster: undefined, lastSeen: { bySigningKey: { [skId]: { rosterSeq: 5 } } } }),
+      ),
+    ).toEqual({ ok: false, reason: 'stale', subject: 'roster' });
+    expect(
+      await verifyDeviceChain(
+        full({ signingKeyRevocation: undefined, lastSeen: { signingKeyRevocationSeq: 2 } }),
+      ),
+    ).toEqual({ ok: false, reason: 'stale', subject: 'signing-key-revocation' });
+    for (const [slot, subject] of [
+      ['roster', 'roster'],
+      ['revocation', 'revocation'],
+      ['signingKeyRevocation', 'signing-key-revocation'],
+    ] as const) {
+      expect(
+        await verifyDeviceChain(full({ [slot]: undefined, required: { [slot]: true } })),
+      ).toEqual({ ok: false, reason: 'stale', subject });
+    }
+    expect((await verifyDeviceChain(full({ required: { roster: true, revocation: true, signingKeyRevocation: true } }))).ok).toBe(true);
+  });
+
+  it('device-list marks belong to the signing key that issued the list', async () => {
+    // Another signing key's high seq does not make this key's lists look rolled back.
+    const verdict = await verifyDeviceChain(
+      full({ lastSeen: { bySigningKey: { [otherWorld.signingKeyCert.signingKeyId]: { rosterSeq: 40, revocationSeq: 40 } } } }),
+    );
+    expect(verdict.ok).toBe(true);
+    // An inherited property name is not a mark.
+    expect((await verifyDeviceChain(full({ lastSeen: { bySigningKey: {} } }))).ok).toBe(true);
+  });
+
   it('rolled-back: any list below the last seq seen', async () => {
-    expect(await verifyDeviceChain(full({ lastSeen: { rosterSeq: 6 } }))).toEqual({
+    const skId = world.signingKeyCert.signingKeyId;
+    expect(
+      await verifyDeviceChain(full({ lastSeen: { bySigningKey: { [skId]: { rosterSeq: 6 } } } })),
+    ).toEqual({
       ok: false,
       reason: 'rolled-back',
       subject: 'roster',
     });
-    expect(await verifyDeviceChain(full({ lastSeen: { revocationSeq: 8 } }))).toEqual({
+    expect(
+      await verifyDeviceChain(full({ lastSeen: { bySigningKey: { [skId]: { revocationSeq: 8 } } } })),
+    ).toEqual({
       ok: false,
       reason: 'rolled-back',
       subject: 'revocation',
@@ -622,6 +678,17 @@ describe('verifySessionDescriptor', () => {
     ).toEqual({ ok: false, reason: 'expired', subject: 'session-desc' });
   });
 
+  it('refuses to sign a descriptor its own decoder would reject', async () => {
+    await expect(
+      signSessionDescriptor({
+        signPrivateKey: world.deviceSign.privateKey,
+        deviceId: world.deviceCert.deviceId,
+        sessionId: 'not base64url!',
+        startedAt: NOW,
+      }),
+    ).rejects.toThrow(/sessionId/);
+  });
+
   it('accepts a descriptor without a workspace claim', async () => {
     const session = await signSessionDescriptor({
       signPrivateKey: world.deviceSign.privateKey,
@@ -663,6 +730,8 @@ describe('malformed input is a reason, never a throw, never an echo', () => {
     { ...clone(world.deviceCert), issuedAt: 1.5 },
     { ...clone(world.deviceCert), expiresAt: world.deviceCert.issuedAt },
     { ...clone(world.deviceCert), issuedAt: Number.MAX_SAFE_INTEGER + 2 },
+    { ...clone(world.deviceCert), kaEpoch: -0 },
+    { ...clone(world.deviceCert), signKey: compressedTag(world.deviceCert.signKey) },
     JSON.parse(`{"__proto__": {"${MARKER}": 1}, "ctx": "robota/device-cert/v1"}`),
     Object.assign(Object.create({ inherited: MARKER }), clone(world.deviceCert)),
   ];

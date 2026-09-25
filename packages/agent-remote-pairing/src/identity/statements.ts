@@ -130,6 +130,10 @@ export function decodeDeviceRoster(value: unknown): TDecoded<IDeviceRoster> {
 
 export interface IIssueRosterOptions {
   readonly signingKey: ISigningKey;
+  /**
+   * Must rise with every roster this signing key issues. Readers accept an equal `seq`, so reusing
+   * one for different contents would let the older roster be replayed.
+   */
   readonly seq: number;
   readonly issuedAt: number;
   /** Defaults to `issuedAt + ROSTER_VALIDITY_MS`. */
@@ -221,6 +225,7 @@ export function decodeDeviceRevocationList(value: unknown): TDecoded<IDeviceRevo
 
 export interface IIssueRevocationListOptions {
   readonly signingKey: ISigningKey;
+  /** Must rise with every list this signing key issues; see `IIssueRosterOptions.seq`. */
   readonly seq: number;
   readonly issuedAt: number;
   /** Defaults to `issuedAt + REVOCATION_LIST_VALIDITY_MS`. */
@@ -310,6 +315,7 @@ export function decodeSigningKeyRevocation(value: unknown): TDecoded<ISigningKey
 export interface IIssueSigningKeyRevocationOptions {
   readonly masterPrivateKey: CryptoKey;
   readonly userId: string;
+  /** Must rise with every signing-key revocation; see `IIssueRosterOptions.seq`. */
   readonly seq: number;
   readonly issuedAt: number;
   readonly revokedSigningKeyIds: readonly string[];
@@ -407,6 +413,15 @@ export interface ISignSessionDescriptorOptions {
 export async function signSessionDescriptor(
   options: ISignSessionDescriptorOptions,
 ): Promise<ISessionDescriptor> {
+  if (!isOpaque(options.sessionId, IDENTITY_STATEMENT_LIMITS.sessionIdChars)) {
+    throw new Error('session descriptor: invalid sessionId');
+  }
+  if (
+    options.workspaceClaim !== undefined &&
+    !isOpaque(options.workspaceClaim, IDENTITY_STATEMENT_LIMITS.workspaceClaimChars)
+  ) {
+    throw new Error('session descriptor: invalid workspaceClaim');
+  }
   const unsigned = {
     sessionId: options.sessionId,
     deviceId: options.deviceId,

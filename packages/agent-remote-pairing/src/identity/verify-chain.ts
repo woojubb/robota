@@ -67,11 +67,28 @@ export interface IChainRejection<TReason extends string = TChainRejection> {
   readonly subject: TChainSubject;
 }
 
-/** The highest `seq` this verifier has already accepted for each list. */
-export interface IListHighWaterMarks {
+/** The highest `seq` accepted for one signing key's device lists. */
+export interface IDeviceListMarks {
   readonly rosterSeq?: number;
   readonly revocationSeq?: number;
+}
+
+/**
+ * The highest `seq` this verifier has already accepted for each list. Roster and revocation marks
+ * are kept per signing key, because each of those lists speaks only for the key that issued it: a
+ * second or rotated signing key numbers its own lists.
+ */
+export interface IListHighWaterMarks {
   readonly signingKeyRevocationSeq?: number;
+  /** Keyed by `signingKeyId`. */
+  readonly bySigningKey?: Readonly<Record<string, IDeviceListMarks>>;
+}
+
+/** Lists the caller insists on even when it holds no mark for them yet. */
+export interface IRequiredLists {
+  readonly roster?: boolean;
+  readonly revocation?: boolean;
+  readonly signingKeyRevocation?: boolean;
 }
 
 export interface IVerifyDeviceChainInput {
@@ -88,6 +105,12 @@ export interface IVerifyDeviceChainInput {
    * fresh device; a caller that drops its marks is choosing to accept a rollback.
    */
   readonly lastSeen?: IListHighWaterMarks;
+  /**
+   * A list left out is refused as `stale` when it is required here or when `lastSeen` holds a mark
+   * for it: an omitted list is the oldest list there is, and a peer must not be able to skip the
+   * one that names it.
+   */
+  readonly required?: IRequiredLists;
 }
 
 export type TDeviceChainVerdict =
@@ -99,8 +122,11 @@ export type TDeviceChainVerdict =
       readonly capabilities: readonly TDeviceCapability[];
       /** The decoded, verified certificate — use this, not the input object. */
       readonly deviceCertificate: IDeviceCertificate;
-      /** The `seq` of each list accepted here, for the caller to record as its new marks. */
-      readonly accepted: IListHighWaterMarks;
+      /**
+       * The `seq` of each list accepted here, for the caller to record as its new marks (the
+       * roster and revocation marks under `signingKeyId`).
+       */
+      readonly accepted: IDeviceListMarks & { readonly signingKeyRevocationSeq?: number };
     }
   | IChainRejection;
 
@@ -129,6 +155,13 @@ function windowCheck(
 
 function rolledBack(seq: number, mark: number | undefined): boolean {
   return mark !== undefined && seq < mark;
+}
+
+/** This signing key's marks. Own properties only, so an inherited name is never a mark. */
+function marksFor(lastSeen: IListHighWaterMarks, signingKeyId: string): IDeviceListMarks {
+  const table = lastSeen.bySigningKey;
+  if (table === undefined || !Object.prototype.hasOwnProperty.call(table, signingKeyId)) return {};
+  return table[signingKeyId] ?? {};
 }
 
 /** Verify that `deviceCert` belongs to the user anchored by `masterPublicKey`, right now. */
@@ -162,10 +195,16 @@ export async function verifyDeviceChain(
     if (signingWindow !== undefined) return reject(signingWindow, subject);
     const signingKey = await importVerifyKey(signingCert.alg, signingCert.publicKey);
     if (signingKey === undefined) return reject('signature-invalid', subject);
+    const required = input.required ?? {};
+    const deviceMarks = marksFor(lastSeen, signingCert.signingKeyId);
 
     // ── Signing-key revocation (master-signed) ─────────────────────────────────────────────────
-    if (input.signingKeyRevocation !== undefined) {
-      subject = 'signing-key-revocation';
+    subject = 'signing-key-revocation';
+    if (input.signingKeyRevocation === undefined) {
+      if (required.signingKeyRevocation === true || lastSeen.signingKeyRevocationSeq !== undefined) {
+        return reject('stale', subject);
+      }
+    } else {
       const decoded = decodeSigningKeyRevocation(input.signingKeyRevocation);
       if (!decoded.ok) return fromDecode(decoded, subject);
       const list = decoded.value;
@@ -201,8 +240,12 @@ export async function verifyDeviceChain(
     if (deviceWindow !== undefined) return reject(deviceWindow, subject);
 
     // ── Device revocation list (signing-key-signed) ────────────────────────────────────────────
-    if (input.revocation !== undefined) {
-      subject = 'revocation';
+    subject = 'revocation';
+    if (input.revocation === undefined) {
+      if (required.revocation === true || deviceMarks.revocationSeq !== undefined) {
+        return reject('stale', subject);
+      }
+    } else {
       const decoded = decodeDeviceRevocationList(input.revocation);
       if (!decoded.ok) return fromDecode(decoded, subject);
       const list = decoded.value;
@@ -215,14 +258,18 @@ export async function verifyDeviceChain(
       if (list.userId !== userId) return reject('user-mismatch', subject);
       const window = windowCheck(input.now, list.issuedAt, list.expiresAt, 'stale');
       if (window !== undefined) return reject(window, subject);
-      if (rolledBack(list.seq, lastSeen.revocationSeq)) return reject('rolled-back', subject);
+      if (rolledBack(list.seq, deviceMarks.revocationSeq)) return reject('rolled-back', subject);
       if (list.revokedDeviceIds.includes(device.deviceId)) return reject('revoked', subject);
       accepted.revocationSeq = list.seq;
     }
 
     // ── Roster (signing-key-signed) ────────────────────────────────────────────────────────────
-    if (input.roster !== undefined) {
-      subject = 'roster';
+    subject = 'roster';
+    if (input.roster === undefined) {
+      if (required.roster === true || deviceMarks.rosterSeq !== undefined) {
+        return reject('stale', subject);
+      }
+    } else {
       const decoded = decodeDeviceRoster(input.roster);
       if (!decoded.ok) return fromDecode(decoded, subject);
       const roster = decoded.value;
@@ -235,7 +282,7 @@ export async function verifyDeviceChain(
       if (roster.userId !== userId) return reject('user-mismatch', subject);
       const window = windowCheck(input.now, roster.issuedAt, roster.expiresAt, 'stale');
       if (window !== undefined) return reject(window, subject);
-      if (rolledBack(roster.seq, lastSeen.rosterSeq)) return reject('rolled-back', subject);
+      if (rolledBack(roster.seq, deviceMarks.rosterSeq)) return reject('rolled-back', subject);
       if (!roster.devices.some((entry) => sameDeviceCertificate(entry, device))) {
         return reject('not-in-roster', subject);
       }
