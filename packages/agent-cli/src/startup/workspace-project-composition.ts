@@ -56,7 +56,6 @@ export type TCliWorkspaceCompositionOverrides = Pick<
   'projectAccess' | 'projectSettingsWriter'
 >;
 
-/** Resolve one host-owned admission decision before any project source is composed. */
 /** Set only by `/cd` when the session it moves is Restricted (issue #3081). */
 export const RESTRICTED_WORKSPACE_FLAG = '--restricted-workspace';
 
@@ -76,6 +75,7 @@ export async function resolveStartupWorkspaceProjectAccess(
   return resolveInitialCliWorkspaceProjectAccess(cwd, options);
 }
 
+/** Resolve one host-owned admission decision before any project source is composed. */
 export async function resolveInitialCliWorkspaceProjectAccess(
   cwd: string,
   options: TCliWorkspaceCompositionOverrides = {},

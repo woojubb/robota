@@ -1465,11 +1465,20 @@ export class InteractiveSession
         getToolSchemas: () => session.getToolSchemas(),
         getFullHistory: () => this.getFullHistory(),
       },
-      sessionName: this.sessionName ?? basename(requestedPath.trim()),
+      // An unnamed conversation is named after where it goes; the host keeps the name unique.
+      sessionName: this.sessionName ?? '',
     });
+    const named = request.record.name
+      ? request
+      : { ...request, record: { ...request.record, name: basename(request.targetCwd) } };
     this.persistCurrentSession();
-    await adapter.move(request);
     this.workspaceMovePending = true;
+    try {
+      await adapter.move(named);
+    } catch (error) {
+      this.workspaceMovePending = false;
+      throw error;
+    }
     return `Moving to ${request.targetCwd}${request.restricted ? ' (restricted)' : ''}...`;
   }
 
