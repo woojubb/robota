@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { classifyMcpFailure } from '../supervisor/connection.js';
 import {
+  admitHttpEndpoint,
   MCPTransportRedirectRefusedError,
   createStreamableHttpAdapter,
 } from '../client/transport.js';
@@ -85,5 +86,11 @@ describe('constructStreamableHttpTransport — redirect refusal', () => {
     expect(error.message).toContain('https://mcp.example.test');
     expect(error.message).not.toContain('tok-secret');
     expect(error.message).not.toContain('sess-secret');
+  });
+
+  it('does not print a URL it cannot parse, which may hold an expanded credential', async () => {
+    const admission = await admitHttpEndpoint({ url: 'https://${HOST}/mcp?key=tok-secret' });
+    expect(admission.ok).toBe(false);
+    expect(JSON.stringify(admission)).not.toContain('tok-secret');
   });
 });

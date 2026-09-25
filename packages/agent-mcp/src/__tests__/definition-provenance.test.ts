@@ -74,6 +74,20 @@ describe('the fingerprint follows value provenance', () => {
   });
 });
 
+describe('a credential-shaped key', () => {
+  it('still tells apart which credential it is pointed at', () => {
+    const bearer = (variable: string): IMCPServerDefinition =>
+      http({ headers: { Authorization: `Bearer \${${variable}}` } });
+    expect(fingerprint(bearer('GITHUB_TOKEN'), { GITHUB_TOKEN: 'a', OTHER_TOKEN: 'a' })).not.toBe(
+      fingerprint(bearer('OTHER_TOKEN'), { GITHUB_TOKEN: 'a', OTHER_TOKEN: 'a' }),
+    );
+    const key = (value: string): IMCPServerDefinition => stdio({ env: { API_KEY: value } });
+    expect(fingerprint(key('${AWS_SECRET_ACCESS_KEY}'), { AWS_SECRET_ACCESS_KEY: 'x' })).not.toBe(
+      fingerprint(key('dummy'), {}),
+    );
+  });
+});
+
 describe('printed endpoints never carry a secret', () => {
   it('replaces the secret spans of a URL and keeps the rest', () => {
     const endpoint = activationEndpoint(
@@ -95,6 +109,19 @@ describe('printed endpoints never carry a secret', () => {
     );
     expect(endpoint).not.toContain('sk-live');
     expect(endpoint).toContain('8080');
+  });
+
+  it('hides every secret when an empty one starts where another does', () => {
+    const endpoint = activationEndpoint(
+      materializeDefinition(
+        http({ url: 'https://h.example.com/?t=${PREFIX_TOKEN:-}${API_TOKEN}' }),
+        {
+          API_TOKEN: 'xyz-secret',
+        },
+      ),
+    );
+    expect(endpoint).not.toContain('xyz-secret');
+    expect(endpoint).toBe('https://h.example.com/?t=secret:PREFIX_TOKENsecret:API_TOKEN');
   });
 
   it('treats a default value of a credential-shaped variable as secret too', () => {
@@ -136,14 +163,30 @@ describe('isCredentialShapedName', () => {
     'GH_PAT',
     'DATABASE_URL',
     'SENTRY_DSN',
+    'PGPASSWORD',
+    'MYSQL_PWD',
+    'ACCESSTOKEN',
+    'accessToken',
+    'APITOKEN',
+    'AUTHTOKEN',
+    'REDIS_URL',
+    'MONGODB_URI',
+    'SQL_CONNECTION_STRING',
+    'AZURE_STORAGE_CONNECTIONSTRING',
   ])('%s is credential-shaped', (name) => {
     expect(isCredentialShapedName(name)).toBe(true);
   });
 
-  it.each(['KEYBOARD_LAYOUT', 'AUTHOR', 'NODE_OPTIONS', 'REGION', 'Content-Type', 'PATH'])(
-    '%s is not',
-    (name) => {
-      expect(isCredentialShapedName(name)).toBe(false);
-    },
-  );
+  it.each([
+    'KEYBOARD_LAYOUT',
+    'AUTHOR',
+    'NODE_OPTIONS',
+    'REGION',
+    'Content-Type',
+    'PATH',
+    'PWD',
+    'OLDPWD',
+  ])('%s is not', (name) => {
+    expect(isCredentialShapedName(name)).toBe(false);
+  });
 });

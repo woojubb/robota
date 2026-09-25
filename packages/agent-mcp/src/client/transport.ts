@@ -144,7 +144,8 @@ export async function admitHttpEndpoint(
   deps: IMCPHttpTransportDeps = {},
 ): Promise<TMCPTransportAdmission<IMCPAdmittedHttpEndpoint>> {
   if (!URL.canParse(endpoint.url)) {
-    return { ok: false, reason: 'invalid-url', message: `Not a URL: ${endpoint.url}` };
+    // The text is not printed: a template may have expanded a credential into it.
+    return { ok: false, reason: 'invalid-url', message: 'The configured URL is not a valid URL' };
   }
   const url = new URL(endpoint.url);
   const rejection = deps.lookup
