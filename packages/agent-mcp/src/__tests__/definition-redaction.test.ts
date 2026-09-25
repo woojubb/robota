@@ -299,7 +299,8 @@ describe('JSON, quoted and flag-embedded credentials', () => {
     ['--config={"password":"x"}', '--config={"password":"secret:literal"}'],
     ['{ "apiKey" : "a\\"b", "n": 1 }', '{ "apiKey" : "secret:literal", "n": 1 }'],
     ["{'token': 'abc'}", "{'token': 'secret:literal'}"],
-    ['{"auth":{"token":"abc"},"x":1}', '{"auth":{"token":"secret:literal"},"x":1}'],
+    ['{"auth":{"token":"abc"},"x":1}', '{"auth":{secret:literal},"x":1}'],
+    ['{"server":{"token":"abc"},"x":1}', '{"server":{"token":"secret:literal"},"x":1}'],
     ['{"env":{"apiKey":"abc"}}', '{"env":{"apiKey":"secret:literal"}}'],
     ['{"password":12345,"port":8080}', '{"password":secret:literal,"port":8080}'],
     ['{"name":"alpha","port":8080}', '{"name":"alpha","port":8080}'],
@@ -326,6 +327,34 @@ describe('JSON, quoted and flag-embedded credentials', () => {
   });
 });
 
+describe('object, array and oddly delimited credential values', () => {
+  const uuid = '8f2c1a4e-3b7d-4c9e-a1f0-5d6e7b8c9a0b';
+
+  it.each([
+    [`{"apiKey":["${uuid}"]}`, '{"apiKey":[secret:literal]}'],
+    ['--config={"secret":["hunter2"]}', '--config={"secret":[secret:literal]}'],
+    ['{"password":{"value":"hunter2"}}', '{"password":{secret:literal}}'],
+    ['{"apiKey":{"$value":"abc"},"region":"eu"}', '{"apiKey":{secret:literal},"region":"eu"}'],
+    ['{"token":{"a":["x]","y}"]},"n":1}', '{"token":{secret:literal},"n":1}'],
+    ['token=[abc] next', 'token=[secret:literal] next'],
+    ['token={abc}', 'token={secret:literal}'],
+    ['{"token":["abc", ["def"', '{"token":[secret:literal'],
+    ['token=[abc\ndef', 'token=[secret:literal'],
+    ['env:PASSWORD=abc', 'env:PASSWORD=secret:literal'],
+    ['`token`: abc', '`token`: secret:literal'],
+    ["token='abc\ndef' next", "token='secret:literal' next"],
+    ['token = = abc', 'token = = secret:literal'],
+    ['{"auth":[],"x":1}', '{"auth":[],"x":1}'],
+  ])('shows %j as %j', (value, shown) => {
+    expect(maskCredentials(value)).toBe(shown);
+  });
+
+  it('prints no scalar of a credential-named array in a projected argument', () => {
+    const shown = project(resolve(stdio({ args: ['--config', `{"apiKey":["${uuid}"]}`] }))).args;
+    expect(JSON.stringify(shown)).not.toContain(uuid);
+  });
+});
+
 describe('masking stays linear on long input', () => {
   const huge = 200_000;
   it.each([
@@ -343,6 +372,12 @@ describe('masking stays linear on long input', () => {
     ['repeated credential assignments', 'password= '.repeat(huge / 10)],
     ['repeated empty headers', 'X-Api-Key: \n'.repeat(huge / 12)],
     ['a long name before a separator run', `${'a'.repeat(huge)}${'='.repeat(huge)}`],
+    ['a deeply nested credential value', `{"token":${'['.repeat(huge)}`],
+    ['repeated unbalanced credential arrays', '{"token":['.repeat(huge / 10)],
+    ['a credential array of unclosed strings', `token=[${'"a\\'.repeat(huge / 3)}`],
+    ['deep nesting under a plain name', `{"a":${'[{'.repeat(huge / 2)}`],
+    ['a spaced separator run', `token${' ='.repeat(huge / 2)}`],
+    ['repeated backtick names', '`a`: '.repeat(huge / 5)],
   ])('masks %s within the time bound', (_label, value) => {
     const definition = resolve(stdio({ args: [value] }));
     const started = performance.now();

@@ -185,9 +185,12 @@ const BEARER = /\b(Bearer\s+)[^\s\uE000\uE001]+/gi;
 const URL_RUN = /(?<![A-Za-z0-9+.-])[A-Za-z][A-Za-z0-9+.-]*:\/\/\S*/g;
 /**
  * A name given a value: `--name=`, `NAME=`, `Name:`, `"name":` or `'name' =`, starting a word or
- * following a delimiter, a quote or an opening brace.
+ * following a delimiter, a quote or an opening brace. A doubled separator (`name = = value`) is
+ * one separator, so the value after it is still the value.
  */
-const KEY = /(?<=^|[\s;,&={"'])(-{0,2})(["']?)([A-Za-z_][A-Za-z0-9_.-]*)\2[ \t]*([:=])[ \t]*/g;
+const KEY =
+  /(?<=^|[\s;,&=:{"'`])(-{0,2})(["'`]?)([A-Za-z_][A-Za-z0-9_.-]*)\2[ \t]*([:=])(?:[ \t]*[:=])*[ \t]*/g;
+const QUOTES = `"'\``;
 const AUTHORIZATION_HEADER = /^(?:proxy-)?authorization$/i;
 /** `--name value` inside a single string. */
 const SPACED_FLAG = /(^|\s)(-{1,2}[A-Za-z][A-Za-z0-9_.-]*)(\s+)([^\s-]\S*)/g;
@@ -295,14 +298,40 @@ function indexOfAny(text: string, from: number, stops: string): number {
   return index;
 }
 
-/** The index of the quote closing a quoted value opened at `open`, past escaped quotes. */
+/**
+ * The index of the quote closing a quoted value opened at `open`, past escaped quotes and across
+ * lines; the end of the text when it never closes.
+ */
 function closingQuote(text: string, open: number): number {
   const quote = text[open]!;
   let index = open + 1;
-  while (index < text.length && text[index] !== quote && text[index] !== '\n') {
+  while (index < text.length && text[index] !== quote) {
     index += text[index] === '\\' ? 2 : 1;
   }
   return Math.min(index, text.length);
+}
+
+/**
+ * The index of the bracket closing an object or array opened at `open`, in one forward pass that
+ * steps over quoted strings; the end of the text when the brackets never balance.
+ */
+function closingBracket(text: string, open: number): number {
+  let depth = 0;
+  let index = open;
+  while (index < text.length) {
+    const char = text[index]!;
+    if (QUOTES.includes(char)) {
+      index = closingQuote(text, index) + 1;
+      continue;
+    }
+    if (char === '{' || char === '[') depth += 1;
+    else if (char === '}' || char === ']') {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+    index += 1;
+  }
+  return text.length;
 }
 
 interface IValueSpan {
@@ -315,7 +344,8 @@ interface IValueSpan {
  * written inside quotes stops at the closing one; a quoted name's value (`"key": 1`) stops at the
  * next JSON delimiter; a header or `Authorization` value runs to the end of its line; and an
  * assignment's value stops at whitespace or a `;`, `&` or `,` — the separators of a connection
- * string. A nested object or array is not a value: its own names are scanned in turn.
+ * string. An object or array value is masked whole between its brackets, so no scalar inside a
+ * credential prints; the brackets stay, showing the value's shape.
  */
 function valueSpan(
   text: string,
@@ -328,9 +358,14 @@ function valueSpan(
   },
 ): IValueSpan | undefined {
   const first = text[start];
-  if (first === undefined || first === '{' || first === '[') return undefined;
-  if (first === '"' || first === "'") {
-    return { start: start + 1, end: closingQuote(text, start) };
+  if (first === undefined) return undefined;
+  if (first === '{' || first === '[') {
+    const close = closingBracket(text, start);
+    return close === start + 1 ? undefined : { start: start + 1, end: close };
+  }
+  if (QUOTES.includes(first)) {
+    const close = closingQuote(text, start);
+    return close === start + 1 ? undefined : { start: start + 1, end: close };
   }
   let stops: string;
   if (context.enclosingQuote !== undefined) stops = `${context.enclosingQuote}\n`;
@@ -362,7 +397,8 @@ function maskKeyValues(text: string): string {
     const span = valueSpan(text, match.index + whole.length, {
       separator,
       quotedName: quote.length > 0,
-      enclosingQuote: quote.length === 0 && (before === '"' || before === "'") ? before : undefined,
+      enclosingQuote:
+        quote.length === 0 && before !== undefined && QUOTES.includes(before) ? before : undefined,
       authorization,
     });
     if (span === undefined) continue;
