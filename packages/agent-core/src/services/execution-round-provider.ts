@@ -157,14 +157,34 @@ export async function callProviderWithCache(
   // effective effort (e.g. an explicit selection vs. `auto` landing on the same model default) share
   // one identity and can hit each other's entries; two that resolve differently cannot. This also
   // means the former API-001 bypass — which unconditionally skipped the cache for any explicit
-  // selection because the key could not tell efforts apart — is no longer needed and has been removed.
+  // selection because the key could not tell efforts apart — is no longer needed for a LOCALLY
+  // resolved effort and has been removed for that case.
+  //
+  // But `resolveModelEffort` can only decide anything when `resolved.provider.effortTable()` has an
+  // entry for this exact model. Two situations leave it unable to decide, and in both the request may
+  // still carry effort information this process cannot see:
+  //   - A remote executor (e.g. `SimpleRemoteExecutor`) forwards `effort` on the wire and lets the
+  //     SERVER-side adapter resolve it against ITS table (`agent-remote-client/.../wire-chat-options.ts`
+  //     marks `effortResolution` as adapter-local and never serializes it) — this process never even
+  //     has a table to call.
+  //   - A local provider whose table is missing an entry for this model (version skew, a `baseURL`/
+  //     API-surface variant the shipped table does not cover) is equally blind, even though the
+  //     provider IS native and the request line may still differ by effort underneath.
+  // In either case `disposition === 'not-applied'` and `effective` is always `null` REGARDLESS of the
+  // selection, so keying on `effective` alone would let an unresolved `'low'` and an unresolved
+  // `'high'` collide even though the actual outcome is unknown. When local resolution could not
+  // decide, key on the raw SELECTION instead (each one, including `'auto'`, its own identity) so
+  // different selections never share a cache entry just because this process could not verify them.
   const effortSelection = chatOptions.effort ?? 'auto';
   const effortResolution = resolveModelEffort(
     resolved.provider.effortTable?.(),
     model,
     effortSelection,
   );
-  const effectiveEffort = effortResolution.effective;
+  const effortCacheIdentity: string =
+    effortResolution.disposition === 'not-applied' || effortResolution.effective === null
+      ? `not-applied:${effortSelection}`
+      : effortResolution.effective;
 
   if (cacheService) {
     const cachedResponse = cacheService.lookup(
@@ -174,7 +194,7 @@ export async function callProviderWithCache(
       {
         temperature: config.defaultModel.temperature,
         maxTokens: config.defaultModel.maxTokens,
-        effectiveEffort,
+        effortCacheIdentity,
       },
     );
     if (cachedResponse) {
@@ -202,7 +222,7 @@ export async function callProviderWithCache(
         {
           temperature: config.defaultModel.temperature,
           maxTokens: config.defaultModel.maxTokens,
-          effectiveEffort,
+          effortCacheIdentity,
         },
       );
     }

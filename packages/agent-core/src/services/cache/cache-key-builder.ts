@@ -1,20 +1,29 @@
 import jsSHA from 'jssha';
 
 import type { ICacheKey } from '../../interfaces/cache';
-import type { TModelEffort } from '../../interfaces/model-effort-capability';
 import type { TUniversalMessage } from '../../interfaces/messages';
 
 interface ICacheKeyOptions {
   temperature?: number;
   maxTokens?: number;
   /**
-   * DATA-007: the EFFECTIVE (resolved) model effort actually sent to the provider, never the raw
-   * requested selection — two requests whose selections differ but whose resolution landed on the
-   * same effective effort (e.g. an explicit selection vs. `auto` resolving to the same model default)
-   * must produce the same key, while two requests that resolve to different effective efforts must
-   * not. `null`/`undefined` both mean "no effort was applied" and hash identically.
+   * DATA-007/API-001: the caller decides what this identifies.
+   *
+   * When the caller could locally resolve the effort against a verified table, this is the
+   * EFFECTIVE (resolved) value actually sent — two requests whose raw selections differ but whose
+   * resolution landed on the same effective effort (e.g. an explicit selection vs. `auto` resolving
+   * to the same model default) then produce the same key, while two that resolve to different
+   * effective efforts do not.
+   *
+   * When the caller could NOT locally resolve it (no verified table entry — e.g. a remote executor
+   * that forwards the raw selection and lets the SERVER-side adapter resolve it, or a local table
+   * missing this exact model), the actual outcome is unknown here, so the caller must pass an
+   * identity derived from the raw SELECTION instead (never a bare "not applied" that erases which
+   * selection was requested) — otherwise two different unresolved selections would collide into one
+   * cache entry despite possibly producing different provider requests. `null`/`undefined` both mean
+   * "nothing distinguishes this request by effort" and hash identically.
    */
-  effectiveEffort?: TModelEffort | null;
+  effortCacheIdentity?: string | null;
 }
 
 export class CacheKeyBuilder {
@@ -35,7 +44,7 @@ export class CacheKeyBuilder {
       provider,
       temperature: options?.temperature,
       maxTokens: options?.maxTokens,
-      effectiveEffort: options?.effectiveEffort ?? null,
+      effortCacheIdentity: options?.effortCacheIdentity ?? null,
     });
 
     return {

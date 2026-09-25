@@ -1,17 +1,18 @@
 import type { CacheKeyBuilder } from './cache-key-builder';
 import type { ICacheStorage, ICacheStats } from '../../interfaces/cache';
-import type { TModelEffort } from '../../interfaces/model-effort-capability';
 import type { TUniversalMessage } from '../../interfaces/messages';
 
 /**
- * DATA-007: `effectiveEffort` is the resolved effort actually sent, never the raw requested
- * selection. `lookup` and `store` both funnel through the SAME `keyBuilder.build` call below, so
- * they can never drift into separate identity rules for the same request.
+ * DATA-007/API-001: `effortCacheIdentity` is the caller-decided effort identity — the resolved
+ * effective effort when the caller could verify it locally, or an identity derived from the raw
+ * selection when it could not (see `CacheKeyBuilder`'s own doc for why the latter matters). `lookup`
+ * and `store` both funnel through the SAME `keyBuilder.build` call below, so they can never drift
+ * into separate identity rules for the same request.
  */
 interface IExecutionCacheOptions {
   temperature?: number;
   maxTokens?: number;
-  effectiveEffort?: TModelEffort | null;
+  effortCacheIdentity?: string | null;
 }
 
 export class ExecutionCacheService {

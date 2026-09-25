@@ -89,16 +89,16 @@ describe('CacheKeyBuilder', () => {
   });
 
   it('should produce different hashes for different effective efforts', () => {
-    const key1 = builder.build(messages, 'gpt-4', 'openai', { effectiveEffort: 'low' });
-    const key2 = builder.build(messages, 'gpt-4', 'openai', { effectiveEffort: 'high' });
+    const key1 = builder.build(messages, 'gpt-4', 'openai', { effortCacheIdentity: 'low' });
+    const key2 = builder.build(messages, 'gpt-4', 'openai', { effortCacheIdentity: 'high' });
 
     expect(key1.hash).not.toBe(key2.hash);
   });
 
   it('should produce the same hash for a null/undefined effective effort and for an omitted one', () => {
     const key1 = builder.build(messages, 'gpt-4', 'openai');
-    const key2 = builder.build(messages, 'gpt-4', 'openai', { effectiveEffort: undefined });
-    const key3 = builder.build(messages, 'gpt-4', 'openai', { effectiveEffort: null });
+    const key2 = builder.build(messages, 'gpt-4', 'openai', { effortCacheIdentity: undefined });
+    const key3 = builder.build(messages, 'gpt-4', 'openai', { effortCacheIdentity: null });
 
     expect(key1.hash).toBe(key2.hash);
     expect(key1.hash).toBe(key3.hash);

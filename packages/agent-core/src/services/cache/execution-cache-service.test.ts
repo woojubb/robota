@@ -52,16 +52,16 @@ describe('ExecutionCacheService', () => {
   // different one, and visible again to a lookup keyed by the same one.
   describe('effective-effort identity', () => {
     it('misses when the effective effort differs from the one it was stored under', () => {
-      service.store(messages, 'gpt-4', 'openai', 'low response', { effectiveEffort: 'low' });
+      service.store(messages, 'gpt-4', 'openai', 'low response', { effortCacheIdentity: 'low' });
 
-      const result = service.lookup(messages, 'gpt-4', 'openai', { effectiveEffort: 'high' });
+      const result = service.lookup(messages, 'gpt-4', 'openai', { effortCacheIdentity: 'high' });
       expect(result).toBeUndefined();
     });
 
     it('hits when the effective effort matches the one it was stored under', () => {
-      service.store(messages, 'gpt-4', 'openai', 'low response', { effectiveEffort: 'low' });
+      service.store(messages, 'gpt-4', 'openai', 'low response', { effortCacheIdentity: 'low' });
 
-      const result = service.lookup(messages, 'gpt-4', 'openai', { effectiveEffort: 'low' });
+      const result = service.lookup(messages, 'gpt-4', 'openai', { effortCacheIdentity: 'low' });
       expect(result).toBe('low response');
     });
   });

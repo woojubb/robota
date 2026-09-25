@@ -304,14 +304,14 @@ describe('execution-round helpers', () => {
         expect.anything(),
         'gpt-4',
         'openai',
-        expect.objectContaining({ effectiveEffort: 'high' }),
+        expect.objectContaining({ effortCacheIdentity: 'high' }),
       );
       expect(cacheService.store).toHaveBeenCalledWith(
         expect.anything(),
         'gpt-4',
         'openai',
         'fresh',
-        expect.objectContaining({ effectiveEffort: 'high' }),
+        expect.objectContaining({ effortCacheIdentity: 'high' }),
       );
     });
 
@@ -376,6 +376,57 @@ describe('execution-round helpers', () => {
         effort: 'auto',
       });
       expect(third.content).toBe('low answer');
+      expect(chat).toHaveBeenCalledTimes(2);
+    });
+
+    // DATA-007 follow-up (review of #3075): when this process cannot resolve the effort locally —
+    // no `effortTable()` at all — `resolveModelEffort` always reports `disposition: 'not-applied'`
+    // and `effective: null`, REGARDLESS of the selection. Keying on `effective` alone would then let
+    // an unresolved 'low' and an unresolved 'high' collide into the same cache entry even though the
+    // actual outcome is unknown here. This is exactly the shape of a `SimpleRemoteExecutor`-backed
+    // provider (`agent-remote-client/src/client/wire-chat-options.ts` forwards the raw `effort`
+    // selection on the wire and marks `effortResolution` as adapter-local, i.e. resolved only by the
+    // SERVER'S table — this process never gets one to call) and of a local provider whose table is
+    // simply missing this exact model (version skew, a `baseURL`/API-surface variant). Both selections
+    // must reach the provider independently; neither may be served from the other's cache entry.
+    it('does not collide different selections when local effort resolution cannot decide (no effortTable)', async () => {
+      const chat = vi
+        .fn()
+        .mockResolvedValueOnce({
+          role: 'assistant',
+          content: 'low answer',
+          state: 'complete' as const,
+          timestamp: new Date(),
+        })
+        .mockResolvedValueOnce({
+          role: 'assistant',
+          content: 'high answer',
+          state: 'complete' as const,
+          timestamp: new Date(),
+        });
+      // No `effortTable` on the provider at all — exactly what a remote-executor-backed provider
+      // looks like from this process's point of view, and what a local table missing this model id
+      // looks like too.
+      const resolved = createResolvedProviderInfo({ provider: { chat } });
+      const cacheService = new ExecutionCacheService(
+        new MemoryCacheStorage({ maxEntries: 100, ttlMs: 60_000 }),
+        new CacheKeyBuilder(),
+      );
+      const config = { name: 'test', defaultModel: { provider: 'openai', model: 'gpt-4' } };
+      const messages = [userMessage('hi')];
+
+      const low = await callProviderWithCache(messages, config as any, resolved, cacheService, {
+        effort: 'low',
+      });
+      expect(low.content).toBe('low answer');
+      expect(chat).toHaveBeenCalledTimes(1);
+
+      // Must NOT be served from the 'low' entry — both resolve locally to the same
+      // `not-applied`/`null` outcome, but the actual (server- or provider-decided) effort may differ.
+      const high = await callProviderWithCache(messages, config as any, resolved, cacheService, {
+        effort: 'high',
+      });
+      expect(high.content).toBe('high answer');
       expect(chat).toHaveBeenCalledTimes(2);
     });
 
