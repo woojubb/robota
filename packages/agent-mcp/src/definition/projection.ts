@@ -11,9 +11,14 @@
  */
 
 import { isDisabled } from './overlay.js';
-import { displayArgs, displayValue } from './secrecy.js';
+import { displayArgs, displayValue, maskCredentials } from './secrecy.js';
 
-import type { IMCPResolvedEntry, TMCPDefinitionSource, TMCPTransport } from './types.js';
+import type {
+  IMCPOAuthConfig,
+  IMCPResolvedEntry,
+  TMCPDefinitionSource,
+  TMCPTransport,
+} from './types.js';
 
 export const REDACTED = '[REDACTED]';
 
@@ -38,6 +43,8 @@ export interface IMCPDefinitionProjection {
   /** Every value is `[REDACTED]`; the keys are the information. */
   readonly headers?: Readonly<Record<string, string>>;
   readonly timeout?: number;
+  /** OAuth sign-in settings; none of them is a secret. */
+  readonly oauth?: IMCPOAuthConfig;
   /** Declared authentication this version cannot perform; the server is listed but not connected. */
   readonly unsupportedAuthentication?: readonly string[];
   readonly disabled: boolean;
@@ -92,6 +99,16 @@ export function projectEntry(entry: IMCPResolvedEntry): IMCPDefinitionProjection
       projection.url = displayValue(definition, 'url', definition.url);
     if (definition.headers !== undefined) projection.headers = redactValues(definition.headers);
     if (definition.timeout !== undefined) projection.timeout = definition.timeout;
+    if (definition.oauth !== undefined) {
+      const { clientId, authServerMetadataUrl } = definition.oauth;
+      projection.oauth = {
+        ...definition.oauth,
+        ...(clientId === undefined ? {} : { clientId: maskCredentials(clientId) }),
+        ...(authServerMetadataUrl === undefined
+          ? {}
+          : { authServerMetadataUrl: maskCredentials(authServerMetadataUrl) }),
+      };
+    }
     if (definition.unsupportedAuthentication !== undefined) {
       projection.unsupportedAuthentication = [...definition.unsupportedAuthentication];
     }

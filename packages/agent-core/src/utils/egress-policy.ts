@@ -12,7 +12,9 @@
  *   IPv4 arrives from `dns.lookup` in the dotted spelling `inet_ntop` prints (`::ffff:127.0.0.1`), so
  *   the classifier accepts both spellings rather than trusting `URL` to have canonicalised anything.
  * - REDIRECTS: followed manually, every hop re-validated, and caller-supplied plus credential-bearing
- *   headers dropped on a cross-origin hop.
+ *   headers dropped on a cross-origin hop. A POST ({@link postWithEgressPolicy}) never follows one:
+ *   its body can carry a credential — an authorization code, a client secret, a refresh token — and
+ *   a redirect would hand it to a destination the caller never chose.
  * - RESOURCE policy: the caller's `AbortSignal` composed with an explicit deadline, and the response
  *   byte cap enforced WHILE STREAMING (and from `Content-Length` first), never after a whole-body
  *   allocation.
@@ -63,6 +65,7 @@ export type TEgressRejectionReason =
   | 'unresolvable'
   | 'redirect_limit'
   | 'redirect_without_location'
+  | 'redirect_refused'
   | 'response_too_large';
 
 export interface IEgressRejection {
@@ -212,6 +215,49 @@ export async function fetchWithEgressPolicy(
     if (next.origin !== current.origin) headers = stripSensitiveHeaders(headers);
     current = next;
   }
+}
+
+export interface IEgressPostOptions extends IEgressFetchOptions {
+  /** Sent as-is; a `URLSearchParams` or JSON string, never a stream, so it is never re-sent. */
+  readonly body: string | URLSearchParams;
+}
+
+/**
+ * POST `url` under the egress policy. The destination is validated as for a GET, but a redirect is
+ * REFUSED (`redirect_refused`), never followed: the body is the caller's to send to this URL alone.
+ */
+export async function postWithEgressPolicy(
+  url: string,
+  options: IEgressPostOptions,
+  policy: IEgressPolicy = {},
+  deps: IEgressDeps = {},
+): Promise<TEgressFetchResult> {
+  const doFetch = deps.fetch ?? ((input, init) => globalThis.fetch(input, init));
+  const maxBytes = options.maxResponseBytes ?? DEFAULT_MAX_RESPONSE_BYTES;
+  const deadline = AbortSignal.timeout(options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
+  const signal = options.signal ? AbortSignal.any([deadline, options.signal]) : deadline;
+  const target = new URL(url);
+  const rejection = await rejectDestination(target, policy, deps.lookup ?? defaultLookup);
+  if (rejection !== undefined) return { ok: false, rejection };
+  const response = await doFetch(target.href, {
+    method: 'POST',
+    headers: { ...(options.headers ?? {}) },
+    body: options.body,
+    signal,
+    redirect: 'manual',
+  });
+  if (response.status >= 300 && response.status < 400) {
+    await response.body?.cancel().catch(() => undefined);
+    return {
+      ok: false,
+      rejection: {
+        reason: 'redirect_refused',
+        url: target.href,
+        message: `HTTP ${response.status}: a POST is never redirected.`,
+      },
+    };
+  }
+  return readUnderCap(response, target.href, maxBytes, signal);
 }
 
 /** On a cross-origin hop nothing the caller supplied travels on — only the identifying User-Agent. */

@@ -16,6 +16,7 @@ import { UNSUPPORTED_AUTHENTICATION_KEYS } from '../client/authentication.js';
 import type {
   IMCPDefinitionProblem,
   IMCPHeadersHelper,
+  IMCPOAuthConfig,
   IMCPServerDefinition,
   IMCPServerDefinitionRaw,
   TMCPDefinitionSource,
@@ -101,6 +102,97 @@ function decodeHeadersHelper(value: unknown): IMCPHeadersHelper | string {
     return '`headersHelper.command` must be an absolute path to an executable';
   }
   return { command, args: [...(args as string[])] };
+}
+
+const MAX_OAUTH_FIELD_LENGTH = 2_048;
+const MAX_OAUTH_SCOPES = 64;
+const MAX_PORT = 65_535;
+/** RFC 6749 §3.3 scope-token: printable ASCII except space, `"` and `\`. */
+const SCOPE_TOKEN = /^[\x21\x23-\x5b\x5d-\x7e]+$/;
+/** RFC 6749 §2.2 client identifier: printable ASCII, including space. */
+const CLIENT_ID = /^[\x20-\x7e]+$/;
+const OAUTH_KEYS: ReadonlySet<string> = new Set([
+  'clientId',
+  'callbackPort',
+  'authServerMetadataUrl',
+  'scopes',
+]);
+
+/**
+ * OAuth sign-in settings. None is a secret and none is templated: they say which client signs in
+ * where, so they are compared, stored beside the tokens and fingerprinted as written. A client
+ * secret is never accepted here — `robota mcp login --client-secret` asks for it and stores it.
+ */
+function decodeOAuth(value: unknown): IMCPOAuthConfig | string {
+  if (!isPlainObject(value)) return '`oauth` must be an object';
+  if (Object.hasOwn(value, 'clientSecret')) {
+    return '`oauth.clientSecret` is not accepted in a definition; `robota mcp login <name> --client-secret` asks for it and stores it';
+  }
+  const unknown = Object.keys(value).filter((key) => !OAUTH_KEYS.has(key));
+  if (unknown.length > 0) {
+    return '`oauth` accepts only `clientId`, `callbackPort`, `authServerMetadataUrl` and `scopes`';
+  }
+  const config: { -readonly [K in keyof IMCPOAuthConfig]: IMCPOAuthConfig[K] } = {};
+  const { clientId, callbackPort, authServerMetadataUrl, scopes } = value;
+  if (clientId !== undefined) {
+    if (
+      typeof clientId !== 'string' ||
+      clientId.length > MAX_OAUTH_FIELD_LENGTH ||
+      !CLIENT_ID.test(clientId)
+    ) {
+      return '`oauth.clientId` must be a non-empty string of printable characters';
+    }
+    config.clientId = clientId;
+  }
+  if (callbackPort !== undefined) {
+    if (
+      typeof callbackPort !== 'number' ||
+      !Number.isInteger(callbackPort) ||
+      callbackPort < 1 ||
+      callbackPort > MAX_PORT
+    ) {
+      return '`oauth.callbackPort` must be an integer port between 1 and 65535';
+    }
+    config.callbackPort = callbackPort;
+  }
+  // A random port would not match the redirect URI the client was registered with.
+  if (config.clientId !== undefined && config.callbackPort === undefined) {
+    return '`oauth.clientId` needs `oauth.callbackPort`: a pre-registered client redirects to a fixed port';
+  }
+  if (authServerMetadataUrl !== undefined) {
+    if (
+      typeof authServerMetadataUrl !== 'string' ||
+      authServerMetadataUrl.length > MAX_OAUTH_FIELD_LENGTH ||
+      !URL.canParse(authServerMetadataUrl) ||
+      new URL(authServerMetadataUrl).protocol !== 'https:' ||
+      new URL(authServerMetadataUrl).username !== '' ||
+      new URL(authServerMetadataUrl).password !== ''
+    ) {
+      return '`oauth.authServerMetadataUrl` must be an https URL without credentials';
+    }
+    config.authServerMetadataUrl = authServerMetadataUrl;
+  }
+  if (scopes !== undefined) {
+    if (
+      !Array.isArray(scopes) ||
+      scopes.length === 0 ||
+      scopes.length > MAX_OAUTH_SCOPES ||
+      scopes.some(
+        (scope) =>
+          typeof scope !== 'string' ||
+          scope.length > MAX_OAUTH_FIELD_LENGTH ||
+          !SCOPE_TOKEN.test(scope),
+      )
+    ) {
+      return '`oauth.scopes` must be a non-empty array of scope tokens (no spaces or quotes)';
+    }
+    config.scopes = [...(scopes as string[])];
+  }
+  const fields = [config.clientId, config.authServerMetadataUrl, ...(config.scopes ?? [])];
+  if (fields.some((field) => field !== undefined && TEMPLATE.test(field))) {
+    return '`oauth` must not contain `${}` templates';
+  }
+  return config;
 }
 
 /**
@@ -206,6 +298,7 @@ export function decodeEntry(
     if (entry['headersHelper'] !== undefined) {
       return problem('a stdio definition must not carry `headersHelper`');
     }
+    if (entry['oauth'] !== undefined) return problem('a stdio definition must not carry `oauth`');
   } else {
     const url = entry['url'];
     if (typeof url !== 'string' || url.trim() === '') {
@@ -242,6 +335,15 @@ export function decodeEntry(
       const decoded = decodeHeadersHelper(helper);
       if (typeof decoded === 'string') return problem(decoded);
       definition.headersHelper = decoded;
+    }
+    const oauth = entry['oauth'];
+    if (oauth !== undefined) {
+      // Two sources for one Authorization header: whichever won, the other would be silently unused.
+      if (helper !== undefined)
+        return problem('a definition must not carry both `oauth` and `headersHelper`');
+      const decoded = decodeOAuth(oauth);
+      if (typeof decoded === 'string') return problem(decoded);
+      definition.oauth = decoded;
     }
   }
 

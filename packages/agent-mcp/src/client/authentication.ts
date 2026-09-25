@@ -72,4 +72,4 @@ export class MCPAuthenticationError extends Error {
 }
 
 /** Authentication keys a definition may declare that this version does not implement yet. */
-export const UNSUPPORTED_AUTHENTICATION_KEYS = ['oauth'] as const;
+export const UNSUPPORTED_AUTHENTICATION_KEYS: readonly string[] = [];
