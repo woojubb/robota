@@ -259,15 +259,19 @@ export async function forceSummaryCall(
     roundState.providerFailure = forceErr;
     const errMsg = forceErr instanceof Error ? forceErr.message : String(forceErr);
     logger.error('Forced summary call failed', { error: errMsg, round: roundState.currentRound });
-    const failureMetadata = {
+    // The same event fields a failed round announces — the session-log codec decodes exactly those.
+    const failureEvent = {
       round: roundState.currentRound,
       executionId,
       providerId: routeProvider(route, resolved),
       modelId: routeModel(route, resolved.aiProviderInfo.model),
-      forcedSummary: true,
       providerError: true,
     };
-    conversationStore.addAssistantMessage(`Request failed: ${errMsg}`, [], failureMetadata);
-    announceAppend(conversationStore, fullContext, executionId, conversationId, failureMetadata);
+    // On the message only, so a reader can tell a failed summary from a failed tool round.
+    conversationStore.addAssistantMessage(`Request failed: ${errMsg}`, [], {
+      ...failureEvent,
+      forcedSummary: true,
+    });
+    announceAppend(conversationStore, fullContext, executionId, conversationId, failureEvent);
   }
 }

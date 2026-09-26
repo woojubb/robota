@@ -136,11 +136,12 @@ describe.each(ENTRY_POINTS)('forced summary failure — %s()', (entry) => {
     }).catch(() => undefined);
 
     const last = appended.at(-1);
+    const message = last?.['message'] as TUniversalMessage | undefined;
     expect(last?.['providerError']).toBe(true);
-    expect(last?.['forcedSummary']).toBe(true);
-    expect((last?.['message'] as TUniversalMessage | undefined)?.content).toBe(
-      'Request failed: request rejected with 503',
-    );
+    // The marker rides on the message; the event keeps the fields the session-log codec decodes.
+    expect(last).not.toHaveProperty('forcedSummary');
+    expect(message?.metadata?.['forcedSummary']).toBe(true);
+    expect(message?.content).toBe('Request failed: request rejected with 503');
   });
 
   it.each([
