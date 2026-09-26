@@ -115,9 +115,24 @@ function relayUrlOf(transports: unknown): string | undefined {
   return typeof url === 'string' && url.length > 0 ? url : undefined;
 }
 
+/**
+ * Whether the mesh reaches beyond the local network: public discovery, or a TURN relay — this
+ * device's own for its other devices, the user's TURN servers, or relayed connections only.
+ */
 function hasInternet(settings: IMeshSettings): boolean {
-  const { dht, pkarrRelays, nostrRelays } = settings.internet;
-  return dht || pkarrRelays.length > 0 || nostrRelays.length > 0;
+  const { dht, pkarrRelays, nostrRelays, relay, turnServers, relayOnly } = settings.internet;
+  return (
+    dht ||
+    pkarrRelays.length > 0 ||
+    nostrRelays.length > 0 ||
+    relay.serve ||
+    turnServers.length > 0 ||
+    relayOnly
+  );
+}
+
+function servers(count: number): string {
+  return `${count} TURN server${count === 1 ? '' : 's'} of yours`;
 }
 
 /** How this device finds the others, in the operator's words. */
@@ -126,13 +141,20 @@ function describeSources(
   lan: boolean,
   ownRelay: boolean,
 ): readonly string[] {
-  const { dht, pkarrRelays, nostrRelays } = settings.internet;
+  const { dht, pkarrRelays, nostrRelays, relay, turnServers, relayOnly } = settings.internet;
+  const turn = turnServers.length > 0 ? `, then ${servers(turnServers.length)}` : '';
   return [
     ...(lan ? ['the local network (mDNS, remembered addresses)'] : []),
     ...(dht ? ['the Mainline DHT'] : []),
     ...(!dht && pkarrRelays.length > 0 ? [`${pkarrRelays.length} pkarr relays`] : []),
     ...(nostrRelays.length > 0 ? [`${nostrRelays.length} Nostr relays`] : []),
     ...(ownRelay ? ['your own relay'] : []),
+    ...(relayOnly
+      ? [`relays only: the relays your devices run${turn}`]
+      : turnServers.length > 0
+        ? [`${servers(turnServers.length)} when no direct path works`]
+        : []),
+    ...(relay.serve ? [`your relay for your other devices, on port ${relay.port}`] : []),
   ];
 }
 

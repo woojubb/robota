@@ -214,6 +214,43 @@ describe('opening the mesh at startup', () => {
     expect(third.open).toHaveBeenCalledTimes(1);
   });
 
+  it('passes the relay settings to the mesh it opens, even with no public discovery', async () => {
+    await withIdentity();
+    const { open } = fakeOpen();
+    const relay = { serve: true, port: 3479, relayPorts: { min: 49160, max: 49170 } };
+    const turnServers = [{ urls: 'turn:turn.example.org:3478', username: 'u', credential: 'c' }];
+    const mesh = host(
+      { mesh: { enabled: true, options: { ...NO_INTERNET, relay, turnServers, relayOnly: true } } },
+      open,
+    );
+    await mesh.start({ operatorApprover: APPROVER });
+
+    expect(open).toHaveBeenCalledTimes(1);
+    const settings = open.mock.calls[0]![0].internet?.settings;
+    expect(settings?.relay).toMatchObject({ serve: true, port: 3479, allowPrivatePeers: true });
+    expect(settings?.turnServers).toEqual(turnServers);
+    expect(settings?.relayOnly).toBe(true);
+    expect(mesh.status().sources).toEqual([
+      'relays only: the relays your devices run, then 1 TURN server of yours',
+      'your relay for your other devices, on port 3479',
+    ]);
+  });
+
+  it('refuses a malformed relay setting at startup, naming it', async () => {
+    await withIdentity();
+    const { open } = fakeOpen();
+    const said: string[] = [];
+    const mesh = host(
+      { mesh: { enabled: true, options: { ...NO_INTERNET, relay: { host: '::' } } } },
+      open,
+      said,
+    );
+    await mesh.start({ operatorApprover: APPROVER });
+    expect(open).not.toHaveBeenCalled();
+    expect(mesh.status()).toMatchObject({ state: 'failed' });
+    expect(said.join('\n')).toMatch(/relay\.host/);
+  });
+
   it('names how it finds devices', async () => {
     await withIdentity();
     const { open } = fakeOpen();
