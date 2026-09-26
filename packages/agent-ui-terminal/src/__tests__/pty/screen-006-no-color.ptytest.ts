@@ -108,6 +108,8 @@ describe('SCREEN-006 color/motion through the real binary', () => {
 
     // The replayed Shell call needs approval in default permission mode → allow it.
     await session.waitFor(/Permission Required/, 20_000);
+    // Its keys answer once it is armed, which the selection cursor shows.
+    await session.waitFor(/> Allow \[y\]/, 10_000);
     await session.sendKeys('y');
 
     // The turn continues: the second replayed response carries the markdown diff block,

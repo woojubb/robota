@@ -55,6 +55,7 @@ import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
   ICommandModule,
+  ICommandProcessAdapter,
   IRemoteCommandPolicy,
   IProviderErrorGuidance,
   IProjectSettingsPath,
@@ -280,6 +281,50 @@ export function nextWaitingLoopAt(loops: readonly ISessionLoopState[], nowMs: nu
   return earliest?.at;
 }
 
+/**
+ * A supervised session, a daemon included, is stopped by its own stop command, never by a client's
+ * command: it serves every client attached to it, and nothing starts it again. Refusing here turns
+ * the command's result into the refusal, so the client that ran it shows why. A command asks for a
+ * restart only after saving its change (a language, a provider profile, a settings reset), so the
+ * next start applies it.
+ */
+const DAEMON_COMMAND_PROCESS: ICommandProcessAdapter = {
+  requestExit: () => {
+    throw new Error(
+      'A command does not stop the workspace daemon, which serves every client attached to it. ' +
+        'Detach this client to leave. To stop the daemon, run robota daemon stop; anything this ' +
+        'command changed applies when you next run robota daemon start.',
+    );
+  },
+  requestRestart: () => {
+    throw new Error(
+      'A command does not restart the workspace daemon, which serves every client attached to it. ' +
+        'The change is saved and applies once you restart the daemon: run robota daemon stop, ' +
+        'then robota daemon start.',
+    );
+  },
+};
+
+/** The same refusal for a supervised session that is not a daemon, naming the commands that stop and start one. */
+function supervisedSessionCommandProcess(id: string): ICommandProcessAdapter {
+  return {
+    requestExit: () => {
+      throw new Error(
+        'A command does not stop this supervised session, which serves every client attached to it. ' +
+          `Detach this client to leave. To stop the session, run robota session stop ${id}; anything ` +
+          'this command changed applies to the next session you start with robota session start --background.',
+      );
+    },
+    requestRestart: () => {
+      throw new Error(
+        'A command does not restart this supervised session, which serves every client attached to it. ' +
+          'The change is saved and applies to a new session started with robota session start --background; ' +
+          `to end this one, run robota session stop ${id}.`,
+      );
+    },
+  };
+}
+
 export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   const { args } = opts;
   const sessionOptions = buildServeSessionOptions(opts);
@@ -380,16 +425,23 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     // local == remote decision (REMOTE-006): a remote driver is a full driver; a surface that only
     // wants to detach disconnects. The teardown is deferred one flush window so the in-flight
     // `command_result` reaches the requesting surface before the transports close. Restart ==
-    // graceful exit here (the supervisor — e.g. the GUI sidecar — owns relaunching).
+    // graceful exit here (the supervisor — e.g. the GUI sidecar — owns relaunching). A supervised
+    // session, a daemon included, is the exception: nothing relaunches it, and it serves every
+    // client attached to it.
     const COMMAND_TEARDOWN_FLUSH_MS = 500;
     const scheduleSettle = (reason: string): void => {
       const timer = setTimeout(() => settle(reason), COMMAND_TEARDOWN_FLUSH_MS);
       timer.unref?.();
     };
-    opts.commandHostAdapters.process = {
-      requestExit: (reason) => scheduleSettle(`command exit${reason ? ` (${reason})` : ''}`),
-      requestRestart: (_reason, message) => scheduleSettle(`command restart: ${message}`),
-    };
+    opts.commandHostAdapters.process =
+      args.daemon === true
+        ? DAEMON_COMMAND_PROCESS
+        : args.supervisedSessionId !== undefined
+          ? supervisedSessionCommandProcess(args.supervisedSessionId)
+          : {
+              requestExit: (reason) => scheduleSettle(`command exit${reason ? ` (${reason})` : ''}`),
+              requestRestart: (_reason, message) => scheduleSettle(`command restart: ${message}`),
+            };
   });
   if (args.supervisedSessionId !== undefined) {
     try {

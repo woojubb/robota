@@ -133,7 +133,8 @@ try {
 
   await scenario('a permission prompt docks above the composer; 1 allows it', async () => {
     await send('please ask permission');
-    await page.getByRole('dialog', { name: 'pending question' }).waitFor();
+    // Its keys answer only once it is armed, so a key typed for the composer as it appears cannot.
+    await page.locator('[role="dialog"][data-armed="true"]').waitFor();
     await page.keyboard.press('1');
     await page.getByText('Wrote the file.').waitFor();
   });

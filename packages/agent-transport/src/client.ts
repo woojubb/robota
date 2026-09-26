@@ -11,4 +11,5 @@ export type {
   TClientMessage,
   TServerMessage,
   TSeqServerMessage,
+  TWireExecutionResult,
 } from './wire-messages.js';

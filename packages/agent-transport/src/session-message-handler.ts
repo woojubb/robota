@@ -18,7 +18,11 @@ import {
   isSessionDirectoryMessage,
 } from './session-directory-messages.js';
 import { subscribeSessionEvents } from './session-events.js';
-import { handleSessionQueryMessage, isSessionQueryMessage } from './session-query-messages.js';
+import {
+  handleSessionQueryMessage,
+  isSessionQueryMessage,
+  pendingFrame,
+} from './session-query-messages.js';
 import { handleUsageQueryMessage } from './usage-messages.js';
 
 import type { TOutboundDeliver } from './outbound-delivery.js';
@@ -43,7 +47,8 @@ export type TSessionSurfaceRole = 'drive' | 'observe';
 
 /**
  * The only inbound messages an observer may send: reads of this session. An allowlist, so a message
- * type added later is refused to observers until someone decides it is a read.
+ * type added later is refused to observers until someone decides it is a read. `get-prompts` is left
+ * out: an observer never receives prompts, open ones included.
  */
 const OBSERVER_MESSAGES: ReadonlySet<TClientMessage['type']> = new Set<TClientMessage['type']>([
   'get-messages',
@@ -303,12 +308,16 @@ function handleSessionControlMessage(
         undefined,
         Object.keys(submitOptions).length > 0 ? submitOptions : undefined,
       )
-      .catch((error: Error) => {
-        deliver({ type: 'protocol_error', message: error.message });
-      });
+      .then(
+        // #3189: a prompt submitted during a turn resolves once it is queued. A `get-pending` sent
+        // beside the `submit` would be answered before that, so the queue is reported from here.
+        () => deliver(pendingFrame(session)),
+        (error: Error) => deliver({ type: 'protocol_error', message: error.message }),
+      );
   } else if (msg.type === 'command') {
+    const request = msg.requestId !== undefined ? { requestId: msg.requestId } : {};
     if (!msg.name) {
-      deliver({ type: 'protocol_error', message: 'name is required' });
+      deliver({ type: 'protocol_error', message: 'name is required', ...request });
       return;
     }
     // REMOTE-003: a transport-origin command is tagged `'remote'` (optional policy, allow-by-default;
@@ -321,10 +330,11 @@ function handleSessionControlMessage(
           message: result?.message ?? `Unknown command: ${msg.name}`,
           success: result?.success ?? false,
           data: result?.data,
+          ...request,
         });
       },
       (error: Error) => {
-        deliver({ type: 'protocol_error', message: error.message });
+        deliver({ type: 'protocol_error', message: error.message, ...request });
       },
     );
   } else if (msg.type === 'abort') {

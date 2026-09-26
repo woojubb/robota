@@ -63,6 +63,12 @@ export interface ITuiChannelSnapshot {
    * daemon). Absent ⇒ the picker lists this terminal's own session store.
    */
   hostSessions?: readonly IResumableSessionSummary[];
+  /**
+   * Changes when the transcript starts over for another session while the App keeps this channel.
+   * The terminal prints the transcript once and counts what it printed, so a new transcript is
+   * printed from its start. Absent ⇒ the transcript never starts over under this channel.
+   */
+  transcriptGeneration?: number;
 }
 
 /**

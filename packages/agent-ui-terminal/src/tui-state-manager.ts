@@ -163,7 +163,7 @@ export class TuiStateManager {
     this.notify();
   };
 
-  onComplete = (result: IExecutionResult): void => {
+  onComplete = (result: Pick<IExecutionResult, 'contextState'>): void => {
     this.clearStallTimer();
     this.debouncedStreamNotify.flush();
     this.streamBuf = '';
@@ -215,6 +215,21 @@ export class TuiStateManager {
    */
   syncHistory(entries: IHistoryEntry[]): void {
     if (entries.length === 0) return;
+    this.history = this.withLocalNotices(entries);
+    this.notify();
+  }
+
+  /**
+   * A host's history as a terminal attached to it last read it, then the echoes of prompts the host
+   * has not recorded yet. Unlike `syncHistory`, an empty history is an answer: the host's session
+   * has no entries.
+   */
+  syncHostHistory(entries: readonly IHistoryEntry[], echoes: readonly IHistoryEntry[]): void {
+    this.history = [...this.withLocalNotices(entries), ...echoes];
+    this.notify();
+  }
+
+  private withLocalNotices(entries: readonly IHistoryEntry[]): IHistoryEntry[] {
     // `<Static>` counts what it already printed, so a local notice dropped here would shift every
     // later index by one and the next committed entry (the assistant's answer) would never print.
     const merged: IHistoryEntry[] = [];
@@ -225,8 +240,7 @@ export class TuiStateManager {
       merged.push(notice.entry);
     }
     while (next < entries.length) merged.push(entries[next++]!);
-    this.history = merged;
-    this.notify();
+    return merged;
   }
 
   /** Add a notice this terminal owns; it survives the next session-history sync in place. */

@@ -7,9 +7,9 @@
  * one and raw mode is a no-op. Nothing is typed: the daemon ends the app.
  */
 
-import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
 import {
@@ -113,7 +113,13 @@ describe('robota --attach with the real renderer', () => {
       confirm: async () => true,
       open: async () => daemon.connection,
       render: createAttachedAppRender(
-        { renderAttachedApp, createThemeSurface, createNodeKeybindingsSource, createDefaultTuiCliAdapter },
+        {
+          renderAttachedApp,
+          createThemeSurface,
+          createNodeKeybindingsSource,
+          createDefaultTuiCliAdapter,
+          installTuiProcessGuards: vi.fn(),
+        },
         {
           cwd: scratch,
           projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', scratch),
@@ -132,4 +138,116 @@ describe('robota --attach with the real renderer', () => {
       'The daemon closed the connection (it stopped, or cut this terminal off).\n',
     );
   }, 20_000);
+
+  it("installs the plain TUI's process guards before it renders", async () => {
+    // Without them, an error the plain TUI survives (the macOS IME error, a stray rejection) is
+    // rethrown by bin.ts and ends the attached terminal.
+    const order: string[] = [];
+    const render = createAttachedAppRender(
+      {
+        renderAttachedApp: vi.fn(async () => {
+          order.push('render');
+          return 'user' as const;
+        }),
+        createThemeSurface,
+        createNodeKeybindingsSource,
+        createDefaultTuiCliAdapter,
+        installTuiProcessGuards: vi.fn(() => {
+          order.push('guards');
+        }),
+      },
+      {
+        cwd: scratch,
+        projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', scratch),
+        providerDefinitions: [],
+      },
+    );
+    const { connection } = closingConnection();
+    const options = { connection, driverId: connection.driverId, sessionLabel: 'Main daemon' };
+    expect(await render({ ...options, screenReaderFlag: undefined })).toBe('user');
+    expect(order).toEqual(['guards', 'render']);
+  });
+
+  it("runs the terminal's own commands here, and writes their appearance to this user's settings", async () => {
+    // The daemon's process has no terminal to hand over or theme to repaint: the attached terminal
+    // runs these commands, so it must be given all of them, and a theme it picks lands in the same
+    // user settings file the plain TUI writes.
+    const settingsPath = join(scratch, '.robota', 'settings.json');
+    mkdirSync(dirname(settingsPath), { recursive: true });
+    writeFileSync(settingsPath, JSON.stringify({ language: 'ko', syntaxHighlighting: false }));
+    const renderStub = vi.fn<typeof renderAttachedApp>(async () => 'user');
+    const render = createAttachedAppRender(
+      {
+        renderAttachedApp: renderStub,
+        createThemeSurface,
+        createNodeKeybindingsSource,
+        createDefaultTuiCliAdapter,
+        installTuiProcessGuards: vi.fn(),
+      },
+      {
+        cwd: scratch,
+        projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', scratch),
+        providerDefinitions: [],
+      },
+    );
+    const { connection } = closingConnection();
+    const options = { connection, driverId: connection.driverId, sessionLabel: 'Main daemon' };
+    await render({ ...options, screenReaderFlag: undefined });
+
+    const clientCommands = renderStub.mock.calls[0]?.[0].clientCommands;
+    expect(clientCommands?.commands.map(({ name }) => name).sort()).toEqual([
+      'editor',
+      'keybindings',
+      'shell',
+      'theme',
+    ]);
+    await clientCommands?.writeAppearanceSettings({ theme: 'light' });
+    expect(JSON.parse(readFileSync(settingsPath, 'utf8'))).toEqual({
+      language: 'ko',
+      theme: 'light',
+      syntaxHighlighting: false,
+      reducedMotion: false,
+    });
+  });
+});
+
+describe("robota --attach's own commands follow the plain TUI's module selection", () => {
+  it('leaves out a client command whose module the selected preset disables', async () => {
+    // The attached terminal routes by this set: a module the preset turns off must not come back
+    // as a command this terminal runs, because a plain TUI with the same settings would not offer it.
+    const presetsDirectory = join(scratch, '.robota', 'presets');
+    mkdirSync(presetsDirectory, { recursive: true });
+    writeFileSync(
+      join(presetsDirectory, 'no-shell.json'),
+      JSON.stringify({
+        id: 'no-shell',
+        title: 'No shell',
+        description: 'Every command but /shell',
+        disabledCommandModules: ['agent-command-shell'],
+      }),
+    );
+    const settingsPath = join(scratch, '.robota', 'settings.json');
+    writeFileSync(settingsPath, JSON.stringify({ preset: 'no-shell' }));
+    const renderStub = vi.fn<typeof renderAttachedApp>(async () => 'user');
+    const render = createAttachedAppRender(
+      {
+        renderAttachedApp: renderStub,
+        createThemeSurface,
+        createNodeKeybindingsSource,
+        createDefaultTuiCliAdapter,
+        installTuiProcessGuards: vi.fn(),
+      },
+      {
+        cwd: scratch,
+        projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', scratch),
+        providerDefinitions: [],
+      },
+    );
+    const { connection } = closingConnection();
+    const options = { connection, driverId: connection.driverId, sessionLabel: 'Main daemon' };
+    await render({ ...options, screenReaderFlag: undefined });
+
+    const names = renderStub.mock.calls[0]?.[0].clientCommands?.commands.map(({ name }) => name);
+    expect(names?.sort()).toEqual(['editor', 'keybindings', 'theme']);
+  });
 });

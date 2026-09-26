@@ -103,6 +103,46 @@ describe('createTerminalClientCommands (#3189)', () => {
     ).toEqual(clientRun);
   });
 
+  it('leaves out a client command whose module the selection disables, as the default assembly does', () => {
+    const selection = { disabledCommandModules: ['agent-command-shell'] };
+    const { modules } = createDefaultCommandModules({
+      cwd: '/tmp',
+      userLocalStorageRoot: '/tmp/robota-test',
+      providerDefinitions,
+      providerSettingsAdapter,
+      ...selection,
+    });
+    const clientRun = modules
+      .flatMap((module) => module.systemCommands ?? [])
+      .filter((command) => command.runner === 'client')
+      .map((command) => command.name)
+      .sort();
+
+    const names = createTerminalClientCommands({ themeCatalogue, ...selection })
+      .map((command) => command.name)
+      .sort();
+
+    expect(names).not.toContain('shell');
+    expect(names).toEqual(clientRun);
+  });
+
+  it('keeps only the enabled client modules, and a disabled name wins over an enabled one', () => {
+    const names = createTerminalClientCommands({
+      enabledCommandModules: ['agent-command-theme', 'agent-command-editor', 'agent-command-help'],
+      disabledCommandModules: ['agent-command-editor'],
+    }).map((command) => command.name);
+
+    expect(names).toEqual(['theme']);
+  });
+
+  it('with no selection, offers all four client commands', () => {
+    expect(
+      createTerminalClientCommands({})
+        .map((command) => command.name)
+        .sort(),
+    ).toEqual(['editor', 'keybindings', 'shell', 'theme']);
+  });
+
   it('/shell refuses a host that cannot hand off the terminal exactly as the in-process command does', async () => {
     const host = hostWithoutTerminal();
 

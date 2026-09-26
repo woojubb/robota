@@ -9,11 +9,11 @@ import React from 'react';
 import { SELECTION_INDICATOR, SELECTION_INDICATOR_NONE } from './key-hint-footer.js';
 import ListPicker from './ListPicker.js';
 import { Text } from './SafeText.js';
+import { shortSessionId } from './short-session-id.js';
 import { usePalette } from './theme/index.js';
 
 import type { IResumableSessionSummary } from '@robota-sdk/agent-interface-session';
 
-const SESSION_ID_DISPLAY_LENGTH = 8;
 const SESSION_PREVIEW_DISPLAY_LENGTH = 60;
 
 interface IProps {
@@ -43,7 +43,7 @@ export default function SessionPicker({
           return (
             <Text>
               {isSelected ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
-              <Text bold>{session.name ?? session.id.slice(0, SESSION_ID_DISPLAY_LENGTH)}</Text>
+              <Text bold>{session.name ?? shortSessionId(session.id)}</Text>
               {'  '}
               <Text dimColor>
                 {new Date(session.updatedAt).toLocaleString(undefined, {

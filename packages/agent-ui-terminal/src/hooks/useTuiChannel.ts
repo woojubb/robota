@@ -51,6 +51,8 @@ export interface ITuiChannelState {
   contextState: { percentage: number; usedTokens: number; maxTokens: number };
   /** The host's sessions for the picker, when the channel's host keeps them. */
   hostSessions: readonly IResumableSessionSummary[] | undefined;
+  /** Changes when the transcript starts over for another session under this channel. */
+  transcriptGeneration: number;
   handleSubmit: (input: string) => Promise<void>;
   handleAbort: () => void;
   handleCancelQueue: () => void;
@@ -118,6 +120,7 @@ export function useTuiChannel(channel: ITuiAppChannelPort): ITuiChannelState {
     pendingUserAction: snapshot.pendingUserAction,
     contextState: snapshot.contextState,
     hostSessions: snapshot.hostSessions,
+    transcriptGeneration: snapshot.transcriptGeneration ?? 0,
     handleSubmit: (input) => channel.handleInput(input),
     handleAbort: () => channel.abort(),
     handleCancelQueue: () => channel.cancelQueue(),

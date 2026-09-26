@@ -45,6 +45,7 @@ export {
   getWorkspaceProjectIdentity,
   getWorkspaceProjectReader,
   getWorkspaceProjectStateStorage,
+  supportsWorkspaceProjectMutation,
 } from './workspace-trust/index.js';
 export type {
   IRestrictedWorkspaceProjectAccess,

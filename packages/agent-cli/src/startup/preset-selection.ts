@@ -25,7 +25,23 @@ import type {
 
 import { parseToolList } from '../utils/cli-args.js';
 
+import type { TSettingsData } from '@robota-sdk/agent-framework';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
+
+/** The flags a preset resolution reads; a surface that takes none of them passes `{}`. */
+export type TShellPresetArgs = Partial<
+  Pick<
+    IParsedCliArgs,
+    | 'preset'
+    | 'model'
+    | 'systemPrompt'
+    | 'appendSystemPrompt'
+    | 'language'
+    | 'permissionMode'
+    | 'allowedTools'
+    | 'deniedTools'
+  >
+>;
 
 /** Robota's user-local preset directory is a shell choice, not a preset-package default. */
 export function loadRobotaExternalPresets(homeDirectory = homedir()): IExternalPresetLoadResult {
@@ -34,14 +50,14 @@ export function loadRobotaExternalPresets(homeDirectory = homedir()): IExternalP
 
 /** Pick the preset id: --preset flag > settings.preset > 'default'. Pure selection glue (shell). */
 export function selectPresetId(
-  args: Pick<IParsedCliArgs, 'preset'>,
+  args: Pick<TShellPresetArgs, 'preset'>,
   settingsPreset: string | undefined,
 ): string {
   return args.preset ?? settingsPreset ?? 'default';
 }
 
 /** Build the CLI-flag override set (highest-but-explicit tier) handed to the resolver. */
-function buildPresetCliOverrides(args: IParsedCliArgs): IResolvedPresetOptions {
+function buildPresetCliOverrides(args: TShellPresetArgs): IResolvedPresetOptions {
   return {
     ...(args.model !== undefined ? { model: args.model } : {}),
     ...(args.systemPrompt !== undefined ? { systemPrompt: args.systemPrompt } : {}),
@@ -107,11 +123,40 @@ export interface IShellPresetResolution {
  */
 export function resolveShellPreset(
   externalPresets: readonly IPreset[],
-  args: IParsedCliArgs,
+  args: TShellPresetArgs,
   settingsPreset: string | undefined,
 ): IShellPresetResolution {
   const registry = createPresetRegistry(externalPresets);
   const presetId = selectPresetId(args, settingsPreset);
   const context: IResolvePresetContext = { cliOverrides: buildPresetCliOverrides(args) };
   return { registry, presetId, context, options: registry.resolvePreset(presetId, context) };
+}
+
+/**
+ * {@link resolveShellPreset} over what the user configured: `settings.preset` and the external
+ * presets, none of which safe mode loads. A preset file that does not load is reported and skipped;
+ * an unknown preset id ends the process with the resolver's message, which lists the known ones.
+ *
+ * One function for every surface that needs the preset, so an attached terminal selects the same
+ * command modules as the plain TUI started with the same settings.
+ */
+export function resolveShellPresetOrExit(input: {
+  readonly args: TShellPresetArgs;
+  readonly settings: TSettingsData;
+  readonly safeMode: boolean;
+  readonly writeError: (message: string) => void;
+}): IShellPresetResolution {
+  const { args, settings, safeMode, writeError } = input;
+  const settingsPreset = typeof settings.preset === 'string' ? settings.preset : undefined;
+  const externalPresetLoad = safeMode ? { presets: [], errors: [] } : loadRobotaExternalPresets();
+  for (const { file, error } of externalPresetLoad.errors) {
+    writeError(`Skipped external preset "${file}": ${error}`);
+  }
+  try {
+    return resolveShellPreset(externalPresetLoad.presets, args, settingsPreset);
+  } catch (error) {
+    // allow-fallback: unknown preset id is terminal — surface available list, exit
+    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+    process.exit(1);
+  }
 }

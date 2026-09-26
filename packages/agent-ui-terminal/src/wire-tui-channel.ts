@@ -7,6 +7,9 @@
  * goes back as a client message. Leaving — stop, shutdown, `/exit`, a closed connection — only
  * detaches: nothing sent from here ends the host's session, and a question left open stays open for
  * the other clients.
+ *
+ * The commands that belong to this terminal (`/shell`, `/editor`, `/theme`, `/keybindings`) never
+ * reach the host: they run here, on this terminal and in its working directory.
  */
 
 import {
@@ -18,10 +21,17 @@ import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
 
 import { AttentionCoordinator } from './attention/attention-coordinator.js';
 import { attributedUserEcho } from './attributed-user-echo.js';
+import { shortSessionId } from './short-session-id.js';
 import { parseSlashCommandInput } from './slash-command-input.js';
 import { TuiChannelLifecycleCoordinator } from './tui-channel-lifecycle-coordinator.js';
 import { TuiPermissionQueue, TuiUserActionQueue } from './tui-interaction-queues.js';
 import { TuiStateManager } from './tui-state-manager.js';
+import { WireHistorySync } from './wire-history-sync.js';
+import {
+  createTuiClientCommandHost,
+  findTuiClientCommand,
+  runTuiClientCommand,
+} from './wire-tui-client-commands.js';
 import {
   displayDriverId,
   filterCommandCatalog,
@@ -35,6 +45,12 @@ import type {
 } from './attached-session-connection.js';
 import type { IAttentionSource } from './attention/attention-tracker.js';
 import type { TerminalHandoffController } from './terminal-handoff-controller.js';
+import type {
+  ITuiClientCommand,
+  ITuiClientCommands,
+  TTuiClientCommandHost,
+} from './wire-tui-client-commands.js';
+import type { IOwnDriver } from './wire-tui-projection.js';
 import type {
   ITuiAppChannelPort,
   ITuiChannelSnapshot,
@@ -61,13 +77,9 @@ import type {
   ISessionStatusSnapshot,
   IUiIntentEvent,
 } from '@robota-sdk/agent-interface-session';
-import type {
-  IWireHistoryEntry,
-  TClientMessage,
-  TServerMessage,
-} from '@robota-sdk/agent-transport/client';
+import type { TClientMessage, TServerMessage } from '@robota-sdk/agent-transport/client';
 
-export interface IWireTuiChannelOptions {
+interface IWireTuiChannelBaseOptions {
   readonly connection: IAttachedSessionConnection;
   /** The driver id the host gave this connection; the transcript shows its prompts as the user's. */
   readonly driverId?: string;
@@ -78,6 +90,17 @@ export interface IWireTuiChannelOptions {
   readonly onEnd?: (reason: TAttachedSessionEnd) => void;
 }
 
+export type TWireTuiChannelOptions = IWireTuiChannelBaseOptions &
+  (
+    | {
+        /** The commands this terminal runs itself instead of sending them to the host. */
+        readonly clientCommands: ITuiClientCommands;
+        /** This terminal's working directory, where its own commands run. */
+        readonly cwd: string;
+      }
+    | { readonly clientCommands?: undefined }
+  );
+
 /** Everything a view of the session reads beside its history, asked again after a session switch. */
 const SNAPSHOT_REQUESTS = [
   'get-context',
@@ -86,6 +109,8 @@ const SNAPSHOT_REQUESTS = [
   'get-executing',
   'get-pending',
   'get-execution-workspace',
+  // A question asked before this terminal attached is not sent to it again unless it asks.
+  'get-prompts',
 ] as const;
 /** After a command the host may have changed the status, the context window or the catalog. */
 const COMMAND_REFRESH_REQUESTS = ['get-context', 'get-status', 'get-commands'] as const;
@@ -134,6 +159,9 @@ export class WireTuiChannel implements ITuiAppChannelPort {
   private readonly attention: AttentionCoordinator | undefined;
   private readonly lifecycle: TuiChannelLifecycleCoordinator;
   private readonly uiEvents = new WireSessionUiEvents();
+  /** One host for every client command, so one terminal handoff at a time spans all of them. */
+  private readonly clientCommands:
+    { readonly set: ITuiClientCommands; readonly host: TTuiClientCommandHost } | undefined;
   private readonly commandQueryPort: ITuiCommandQueryPort = {
     getCommands: (filter) => filterCommandCatalog(this.commandCatalog, filter),
     // Subcommands do not cross the wire yet.
@@ -141,6 +169,8 @@ export class WireTuiChannel implements ITuiAppChannelPort {
   };
   private commandCatalog: ICommand[] = [];
   private status: ISessionStatusSnapshot | undefined;
+  /** How many prompts wait in the host's queue, the one `pendingPrompt` shows first among them. */
+  private pendingCount = 0;
   private hostSessions: readonly IResumableSessionSummary[] | undefined;
   private sessionListSequence = 0;
   /** Only the answer to the latest listing is shown: an earlier one may predate a switch. */
@@ -150,28 +180,51 @@ export class WireTuiChannel implements ITuiAppChannelPort {
    * attached may be stale or missing, and an empty picker would only block the prompt.
    */
   private pendingPicker: IUiIntentEvent | undefined;
-  /** One `get-history` in flight and at most one behind it: history events can come in bursts. */
-  private historyRequest = { inFlight: false, queued: false };
-  /** Commands sent and not yet answered; `handleInput` settles when the host's result is shown. */
-  private readonly pendingCommands: { readonly name: string; readonly settle: () => void }[] = [];
+  private readonly hostHistory: WireHistorySync;
+  /** Set when the channel attaches: history entries older than that are not this terminal's. */
+  private own: IOwnDriver | undefined;
+  /**
+   * Commands sent and not yet answered, by request id; `handleInput` settles when the host's answer
+   * is shown. The host echoes the id, so an answer settles only the command it answers.
+   */
+  private readonly pendingCommands = new Map<string, () => void>();
+  private commandSequence = 0;
   /** Bumped on a session switch: a question from a session no longer shown is never answered. */
   private promptGeneration = 0;
+  /** Questions on screen or waiting for it: the host may send one again (`get-prompts`). */
+  private readonly shownPromptIds = new Set<string>();
   /** Questions another client settled: dismissing them here answers nothing. */
   private readonly settledPromptIds = new Set<string>();
+  /**
+   * Bumped when the transcript starts over for another session. The terminal prints its transcript
+   * once, counting what it printed, so a new one is printed from its start rather than past that count.
+   */
+  private transcriptGeneration = 0;
   private readonly unsubscribers: (() => void)[] = [];
   /** From here on nothing is sent: the terminal left, and the session is not this terminal's to end. */
   private detached = false;
   private ended = false;
-  /**
-   * Shown with the next session's history, not with the reset: the transcript is committed once
-   * (Ink `<Static>`), and a line added in the same render that empties it would never be printed.
-   */
-  private switchNotice: string | undefined;
   private onChange: (() => void) | null = null;
 
-  constructor(private readonly options: IWireTuiChannelOptions) {
+  constructor(private readonly options: TWireTuiChannelOptions) {
     this.sessionName = options.sessionName;
     this.manager = this.createManager();
+    this.clientCommands =
+      options.clientCommands !== undefined
+        ? {
+            set: options.clientCommands,
+            host: createTuiClientCommandHost({
+              terminalHandoff: options.terminalHandoff,
+              cwd: options.cwd,
+            }),
+          }
+        : undefined;
+    this.hostHistory = new WireHistorySync({
+      request: (fromIndex) =>
+        this.send(fromIndex === 0 ? { type: 'get-history' } : { type: 'get-history', fromIndex }),
+      show: (entries, echoes) => this.manager.syncHostHistory(entries, echoes),
+      revive: (entries) => toHistoryEntries(entries, this.own),
+    });
     this.userActions = new TuiUserActionQueue(() => this.notify());
     this.permissions = new TuiPermissionQueue(() => this.notify());
     this.attention = options.attention
@@ -237,8 +290,7 @@ export class WireTuiChannel implements ITuiAppChannelPort {
       sessionEventNotices: manager.sessionEventNotices,
       isShuttingDown: this.lifecycle.isShuttingDown,
       pendingPrompt: manager.pendingPrompt,
-      // The host reports the next queued prompt, not how many wait behind it.
-      pendingCount: manager.pendingPrompt === null ? 0 : 1,
+      pendingCount: manager.pendingPrompt === null ? 0 : Math.max(this.pendingCount, 1),
       executionWorkspaceSnapshot: manager.executionWorkspaceSnapshot,
       ...(manager.selectedExecutionEntryId !== undefined
         ? { selectedExecutionEntryId: manager.selectedExecutionEntryId }
@@ -247,6 +299,7 @@ export class WireTuiChannel implements ITuiAppChannelPort {
       pendingUserAction: this.userActions.current,
       contextState: manager.contextState,
       ...(this.hostSessions !== undefined ? { hostSessions: this.hostSessions } : {}),
+      transcriptGeneration: this.transcriptGeneration,
     };
   }
 
@@ -275,8 +328,8 @@ export class WireTuiChannel implements ITuiAppChannelPort {
 
   async handleInput(input: string): Promise<void> {
     if (!input.startsWith('/')) {
+      // The host answers with its queue once it has taken the prompt.
       this.send({ type: 'submit', prompt: input });
-      this.send({ type: 'get-pending' });
       return;
     }
     const { name, args } = parseSlashCommandInput(input);
@@ -284,12 +337,42 @@ export class WireTuiChannel implements ITuiAppChannelPort {
       this.end('user');
       return;
     }
-    // Settles when the host's result is on screen, so what reads the settings after a command
+    const clientCommand = findTuiClientCommand(this.clientCommands?.set, name);
+    if (clientCommand !== undefined) {
+      await this.runClientCommand(clientCommand, args);
+      return;
+    }
+    // Settles when the host's answer is on screen, so what reads the settings after a command
     // (the status line, the theme) reads them after the host changed them.
+    this.commandSequence += 1;
+    const requestId = `wire-tui-command-${this.commandSequence}`;
     await new Promise<void>((settle) => {
-      this.pendingCommands.push({ name, settle });
-      if (!this.send({ type: 'command', name, args })) this.settleCommand(name);
+      this.pendingCommands.set(requestId, settle);
+      if (!this.send({ type: 'command', name, args, requestId })) this.settleCommand(requestId);
     });
+  }
+
+  /**
+   * Runs a terminal-owned command here and shows its answer as the in-process session would. It
+   * settles once what the command wrote is written: the App reads the appearance again after it.
+   */
+  private async runClientCommand(command: ITuiClientCommand, args: string): Promise<void> {
+    const commands = this.clientCommands;
+    if (commands === undefined) return;
+    try {
+      const { result, uiIntents } = await runTuiClientCommand(
+        command,
+        args,
+        commands.host,
+        commands.set,
+      );
+      for (const intent of uiIntents) {
+        this.uiEvents.emitUiIntent({ intent, requesterDriverId: OWNER_DRIVER_ID });
+      }
+      this.notice(result.message);
+    } catch (error) {
+      this.notice(`/${command.name} failed: ${errorMessage(error)}`);
+    }
   }
 
   abort(): void {
@@ -303,6 +386,7 @@ export class WireTuiChannel implements ITuiAppChannelPort {
     this.send({ type: 'cancel-queue' });
     this.userActions.cancelAll();
     this.permissions.cancelAll();
+    this.pendingCount = 0;
     this.manager.setPendingPrompt(null);
   }
 
@@ -336,6 +420,9 @@ export class WireTuiChannel implements ITuiAppChannelPort {
 
   private attach(): void {
     const { connection } = this.options;
+    if (this.options.driverId !== undefined) {
+      this.own = { driverId: this.options.driverId, since: Date.now() };
+    }
     this.unsubscribers.push(
       connection.subscribe((frame) => this.onFrame(frame)),
       connection.onClose(() => this.end('closed')),
@@ -359,8 +446,9 @@ export class WireTuiChannel implements ITuiAppChannelPort {
     switch (frame.type) {
       case 'user_message': {
         const driverId = displayDriverId(frame.driverId, this.options.driverId) ?? null;
-        manager.addUserEcho(
+        this.hostHistory.echo(
           attributedUserEcho(frame.content, { getActiveDriverId: () => driverId }),
+          frame.content,
         );
         return;
       }
@@ -384,24 +472,29 @@ export class WireTuiChannel implements ITuiAppChannelPort {
       case 'complete':
         manager.onComplete(frame.result);
         this.attention?.onComplete();
-        this.requestHistory();
+        // The answer is in the host's history now; only what came after the known entries is read.
+        this.hostHistory.readTail();
         return;
       case 'interrupted':
         manager.onInterrupted();
+        // The host kept the partial answer; the next turn's prompt must not take its place.
+        this.hostHistory.readTail();
         return;
       case 'error':
         manager.onError(new Error(frame.message));
         this.attention?.onError();
-        this.requestHistory();
+        this.hostHistory.readTail();
         return;
       case 'history':
-        this.syncHistory(frame.entries);
+        this.hostHistory.onPage(frame);
         return;
       case 'history_changed':
-        this.requestHistory();
+        this.hostHistory.reload();
         return;
       case 'history_cleared':
         manager.clearHistory();
+        this.hostHistory.reset();
+        this.hostHistory.reload();
         return;
       case 'context':
         manager.onContextUpdate(frame.state);
@@ -410,6 +503,7 @@ export class WireTuiChannel implements ITuiAppChannelPort {
         this.attention?.onTurnSource(frame.source);
         return;
       case 'pending':
+        this.pendingCount = frame.pendingCount ?? (frame.pending === null ? 0 : 1);
         manager.setPendingPrompt(frame.pending);
         return;
       case 'execution_workspace_event':
@@ -476,12 +570,14 @@ export class WireTuiChannel implements ITuiAppChannelPort {
         this.followSessionSwitch(frame.event.sessionId);
         return;
       case 'protocol_error':
-        // A command the host could not run answers with this instead of a result.
-        this.pendingCommands.shift()?.settle();
+        // A command the host could not run answers with this, naming the command's request.
+        if (frame.requestId !== undefined) this.settleCommand(frame.requestId);
         this.notice(frame.message);
         return;
       case 'resume_gap':
-        this.requestSnapshot();
+        // Frames were lost, perhaps the page a history read waits for: read everything again.
+        this.hostHistory.restart();
+        this.requestState();
         return;
       default:
         // Background-task and usage frames: the full TUI reads background work from the workspace.
@@ -489,20 +585,15 @@ export class WireTuiChannel implements ITuiAppChannelPort {
     }
   }
 
-  private syncHistory(entries: readonly IWireHistoryEntry[]): void {
-    if (this.switchNotice !== undefined) {
-      this.notice(this.switchNotice);
-      this.switchNotice = undefined;
-    }
-    this.manager.syncHistory(toHistoryEntries(entries, this.options.driverId));
-    this.historyRequest.inFlight = false;
-    if (this.historyRequest.queued) {
-      this.historyRequest.queued = false;
-      this.requestHistory();
-    }
+  /** A question this terminal shows already is not shown twice (`get-prompts` sends it again). */
+  private showsPrompt(id: string): boolean {
+    if (this.shownPromptIds.has(id)) return true;
+    this.shownPromptIds.add(id);
+    return false;
   }
 
   private askPermission(event: IPermissionRequestEvent): void {
+    if (this.showsPrompt(event.id)) return;
     this.attention?.onNeedsInput();
     // A peer turn's ask names the peer, printed only as a plain identifier.
     const requestedByPeer = event.requesterDriverId?.startsWith('peer:')
@@ -523,6 +614,7 @@ export class WireTuiChannel implements ITuiAppChannelPort {
   }
 
   private askUser(event: IAskRequestEvent): void {
+    if (this.showsPrompt(event.id)) return;
     this.attention?.onNeedsInput();
     const generation = this.promptGeneration;
     void this.userActions
@@ -533,7 +625,9 @@ export class WireTuiChannel implements ITuiAppChannelPort {
   }
 
   private answer(generation: number, id: string, message: TClientMessage): void {
-    if (this.settledPromptIds.delete(id) || generation !== this.promptGeneration) return;
+    if (generation !== this.promptGeneration) return;
+    this.shownPromptIds.delete(id);
+    if (this.settledPromptIds.delete(id)) return;
     this.send(message);
   }
 
@@ -578,12 +672,14 @@ export class WireTuiChannel implements ITuiAppChannelPort {
     this.notify();
   }
 
+  /** The session is labelled by its name, or by its id until it has one: never by the host's label. */
   private applyStatus(status: ISessionStatusSnapshot): void {
     this.status = status;
     this.manager.onContextUpdate(status.context);
-    if (status.sessionName !== undefined && status.sessionName !== this.sessionName) {
-      this.rename(status.sessionName);
-    }
+    const label =
+      status.sessionName ??
+      (status.sessionId !== '' ? shortSessionId(status.sessionId) : undefined);
+    if (label !== undefined && label !== this.sessionName) this.rename(label);
   }
 
   private showCommandResult(frame: Extract<TServerMessage, { type: 'command_result' }>): void {
@@ -594,13 +690,13 @@ export class WireTuiChannel implements ITuiAppChannelPort {
     } else {
       this.notice(frame.message);
     }
-    this.settleCommand(frame.name);
+    if (frame.requestId !== undefined) this.settleCommand(frame.requestId);
   }
 
-  private settleCommand(name: string): void {
-    const index = this.pendingCommands.findIndex((pending) => pending.name === name);
-    if (index === -1) return;
-    this.pendingCommands.splice(index, 1)[0]?.settle();
+  private settleCommand(requestId: string): void {
+    const settle = this.pendingCommands.get(requestId);
+    this.pendingCommands.delete(requestId);
+    settle?.();
   }
 
   /** The host now serves another session: nothing shown belongs to it, so start over from it. */
@@ -608,29 +704,32 @@ export class WireTuiChannel implements ITuiAppChannelPort {
     this.promptGeneration += 1;
     this.userActions.cancelAll();
     this.permissions.cancelAll();
+    this.shownPromptIds.clear();
     this.settledPromptIds.clear();
     this.status = undefined;
-    this.historyRequest = { inFlight: false, queued: false };
+    this.pendingCount = 0;
+    this.hostHistory.reset();
     this.manager.dispose();
     this.manager = this.createManager();
-    this.switchNotice = `Switched to session ${sessionId}.`;
+    // A new transcript, printed from its start whatever this render also brings.
+    this.transcriptGeneration += 1;
+    this.notice(`Switched to session ${sessionId}.`);
+    // Until the new session's status names it.
+    this.rename(shortSessionId(sessionId));
     this.requestSnapshot();
   }
 
   // ── Requests ──────────────────────────────────────────────────
 
   private requestSnapshot(): void {
-    this.requestHistory();
-    for (const type of SNAPSHOT_REQUESTS) this.send({ type });
-    this.requestSessionList();
+    this.hostHistory.reload();
+    this.requestState();
   }
 
-  private requestHistory(): void {
-    if (this.historyRequest.inFlight) {
-      this.historyRequest.queued = true;
-      return;
-    }
-    this.historyRequest.inFlight = this.send({ type: 'get-history' });
+  /** Everything shown beside the history. */
+  private requestState(): void {
+    for (const type of SNAPSHOT_REQUESTS) this.send({ type });
+    this.requestSessionList();
   }
 
   private requestSessionList(): boolean {
@@ -673,7 +772,9 @@ export class WireTuiChannel implements ITuiAppChannelPort {
     for (const unsubscribe of this.unsubscribers.splice(0)) unsubscribe();
     this.userActions.cancelAll();
     this.permissions.cancelAll();
-    for (const pending of this.pendingCommands.splice(0)) pending.settle();
+    const pending = [...this.pendingCommands.values()];
+    this.pendingCommands.clear();
+    for (const settle of pending) settle();
   }
 
   // ── Render state ──────────────────────────────────────────────

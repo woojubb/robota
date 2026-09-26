@@ -266,7 +266,7 @@ describe('attached session view', () => {
       await tick();
       link.push({ type: 'messages', messages: [{ role: 'user', content: 'old question' }] as never });
       link.push({ type: 'text_delta', delta: 'old stream' });
-      link.push({ type: 'pending', pending: 'old queued prompt' });
+      link.push({ type: 'pending', pending: 'old queued prompt', pendingCount: 1 });
       link.push({ type: 'executing', executing: true });
       link.push({ type: 'permission_request', event: { id: 'p1', toolName: 'Bash', toolArgs: {} } });
       await tick();

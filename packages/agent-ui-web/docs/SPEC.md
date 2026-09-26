@@ -37,7 +37,8 @@ does not own session lifecycle, conversation history, or agent runtime state.
   not read is shown disabled. A switch replaces everything the surface shows with what the new
   session holds; a refused switch shows the host's reason.
 - A pending permission or ask prompt is visible whatever view is open, because a gated turn waits
-  on it.
+  on it. Its keys answer it only after a short pause, so a key typed for the composer as it appears
+  stays in the composer; a click answers at once.
 - A session-rename or history-clear broadcast from any other surface is folded into this reducer's
   state, so co-driving surfaces stay in sync.
 - The personal usage dashboard is opt-in per surface (browser/remote consumers stay opted out by

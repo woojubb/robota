@@ -29,10 +29,22 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * Who this terminal is on the wire: the driver id the host gave it, and when it attached. The host
+ * numbers the terminals attached to it from one each time it starts, and a prompt keeps its driver id
+ * in the stored history, so an entry from before this terminal attached may carry the same id for
+ * another terminal. Only what this terminal could have sent is shown as the user's.
+ */
+export interface IOwnDriver {
+  readonly driverId: string;
+  /** Milliseconds since the epoch. */
+  readonly since: number;
+}
+
+/**
  * A chat entry's `data` is the message itself, whose own `timestamp` also crossed as a string. Any
  * ISO string is accepted: a resumed session sends strings for what was a `Date` in memory.
  */
-function reviveEntryData(data: unknown, ownDriverId: string | undefined): unknown {
+function reviveChatMessage(data: unknown, ownDriverId: string | undefined): unknown {
   if (!isRecord(data)) return data;
   let revived = data;
   if (typeof data['timestamp'] === 'string') {
@@ -45,16 +57,21 @@ function reviveEntryData(data: unknown, ownDriverId: string | undefined): unknow
   return revived;
 }
 
-/** The session's full history as the TUI holds it: timestamps back to `Date`s. */
+/**
+ * The session's history as the TUI holds it: timestamps back to `Date`s. Only a chat entry's `data`
+ * is a message; an event entry's is the event as recorded, and is left as it came.
+ */
 export function toHistoryEntries(
   entries: readonly IWireHistoryEntry[],
-  ownDriverId: string | undefined,
+  own: IOwnDriver | undefined,
 ): IHistoryEntry[] {
-  return entries.map((entry) => ({
-    ...entry,
-    timestamp: new Date(entry.timestamp),
-    ...(entry.data !== undefined ? { data: reviveEntryData(entry.data, ownDriverId) } : {}),
-  }));
+  return entries.map((entry) => {
+    const timestamp = new Date(entry.timestamp);
+    if (entry.category !== 'chat' || entry.data === undefined) return { ...entry, timestamp };
+    const ownDriverId =
+      own !== undefined && timestamp.getTime() >= own.since ? own.driverId : undefined;
+    return { ...entry, timestamp, data: reviveChatMessage(entry.data, ownDriverId) };
+  });
 }
 
 /** What the `/` menu offers: the host's commands, then the skills a user may invoke. */

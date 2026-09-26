@@ -28,6 +28,8 @@ import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transpo
 
 export interface IAppViewModel {
   readonly staticItems: TStaticItem[];
+  /** Printing starts over from the first item when this changes (see `transcriptGeneration`). */
+  readonly transcriptKey: number;
   readonly handoffSuspended: boolean;
   readonly updateNotice: string | undefined;
   readonly coordinationError: string | undefined;

@@ -32,6 +32,7 @@ const isString = (v: unknown): v is string => typeof v === 'string';
 const isNonEmptyString = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
 const isBoolean = (v: unknown): v is boolean => typeof v === 'boolean';
 const isFiniteNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const isCount = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 0;
 const isOptional =
   (check: (v: unknown) => boolean) =>
   (v: unknown): boolean =>
@@ -95,11 +96,16 @@ const isActionResponse: TFieldCheck = (v) =>
 /** One entry per `TClientMessage` variant — a variant added to the union without one fails the test. */
 export const CLIENT_MESSAGE_SHAPES: Readonly<Record<TClientMessage['type'], TVariantShape>> = {
   submit: { prompt: isNonEmptyString },
-  command: { name: isNonEmptyString, args: isOptional(isString) },
+  command: {
+    name: isNonEmptyString,
+    args: isOptional(isString),
+    requestId: isOptional(isNonEmptyString),
+  },
   abort: {},
   'cancel-queue': {},
   'get-messages': {},
-  'get-history': {},
+  'get-history': { fromIndex: isOptional(isCount) },
+  'get-prompts': {},
   'get-context': {},
   'get-commands': {},
   'get-status': {},
@@ -149,9 +155,14 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
   complete: { result: isRecord, ...authored },
   interrupted: { result: isRecord, ...authored },
   error: { message: isString, ...authored },
-  command_result: { name: isString, message: isString, success: isBoolean },
+  command_result: {
+    name: isString,
+    message: isString,
+    success: isBoolean,
+    requestId: isOptional(isString),
+  },
   messages: { messages: isRecordArray },
-  history: { entries: isWireHistoryEntries },
+  history: { startIndex: isCount, total: isCount, entries: isWireHistoryEntries },
   context: { state: isRecord },
   history_changed: {},
   turn_source: { source: oneOf(Object.keys(TURN_SOURCES)) },
@@ -183,7 +194,8 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
     message: isString,
   },
   executing: { executing: isBoolean },
-  pending: { pending: (v) => v === null || isString(v) },
+  // An older host sends no count; a client then counts the one prompt it can see.
+  pending: { pending: (v) => v === null || isString(v), pendingCount: isOptional(isCount) },
   execution_workspace_event: { snapshot: isRecord },
   background_task_event: { event: isRecord },
   background_job_group_event: { event: isRecord },
@@ -207,7 +219,7 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
     success: isBoolean,
     message: isOptional(isString),
   },
-  protocol_error: { message: isString },
+  protocol_error: { message: isString, requestId: isOptional(isString) },
   resume_gap: {},
 };
 

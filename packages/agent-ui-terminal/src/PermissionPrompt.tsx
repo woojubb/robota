@@ -27,7 +27,17 @@ import type { TToolArgs } from '@robota-sdk/agent-core';
 
 interface IProps {
   request: IPendingPermissionRequest;
+  /** How long a new request ignores its answer keys; tests pass their own. */
+  armDelayMs?: number;
 }
+
+/**
+ * The prompt replaces the composer while the user may still be typing, and its keys are ordinary
+ * letters and digits (`a` allows for the session). For this long after a request appears its keys
+ * answer nothing, so a keystroke meant for the composer cannot grant a permission. The prompt shows
+ * no selection cursor until it is armed.
+ */
+export const PERMISSION_PROMPT_ARM_DELAY_MS = 450;
 
 /**
  * Footer for the permission prompt — identical to the confirm prompt's (same horizontal row, same
@@ -47,7 +57,10 @@ function formatArgs(args: TToolArgs): string {
     .join(', ');
 }
 
-export default function PermissionPrompt({ request }: IProps): React.ReactElement {
+export default function PermissionPrompt({
+  request,
+  armDelayMs = PERMISSION_PROMPT_ARM_DELAY_MS,
+}: IProps): React.ReactElement {
   const palette = usePalette();
   const canPersistProjectPermission = request.canPersistProjectPermission !== false;
   const [state, setState] = React.useState<ISelectionFlowState>(() => createSelectionFlowState());
@@ -60,6 +73,14 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
     stateRef.current = nextState;
     setState(nextState);
   }
+
+  const [armedRequest, setArmedRequest] = React.useState<IPendingPermissionRequest | undefined>();
+  React.useEffect(() => {
+    if (armDelayMs <= 0) return undefined;
+    const timer = setTimeout(() => setArmedRequest(request), armDelayMs);
+    return () => clearTimeout(timer);
+  }, [request, armDelayMs]);
+  const armed = armDelayMs <= 0 || armedRequest === request;
 
   const applyAction = React.useCallback(
     (action: TPermissionPromptInputAction): void => {
@@ -83,7 +104,8 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
     canPersistProjectPermission,
   );
   const numbered = useNumberedSelection({
-    enabled: screenReader,
+    // Off while arming, so a digit typed then is not buffered for a later Enter to commit.
+    enabled: screenReader && armed,
     itemCount: options.length,
     onSelect: (index) => {
       const result = applyPermissionPromptInput(
@@ -99,10 +121,14 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
       if (result.effect.type === 'resolve') request.resolve(result.effect.decision);
     },
   });
+  // Digits typed for one request are not an answer to the next.
+  const clearNumbered = numbered.clear;
+  React.useEffect(() => clearNumbered(), [request, clearNumbered]);
 
   useKeybindingActions(
     'permission-prompt',
     (actions) => {
+      if (!armed) return;
       const shortcutIndex = {
         'allow-once': 0,
         'allow-session': 1,
@@ -147,12 +173,15 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
     <Box
       flexDirection="column"
       borderStyle="round"
-      borderColor={palette.border.attention}
+      borderColor={armed ? palette.border.attention : palette.border.muted}
       paddingX={1}
     >
-      <Text color={palette.text.warning} bold>
-        [Permission Required]
-      </Text>
+      <Box>
+        <Text color={palette.text.warning} bold>
+          [Permission Required]
+        </Text>
+        {armed ? null : <Text dimColor> keys answer in a moment</Text>}
+      </Box>
       <Text>
         Tool:{' '}
         <Text color={palette.text.accent} bold>
@@ -168,17 +197,21 @@ export default function PermissionPrompt({ request }: IProps): React.ReactElemen
       {/* Issue #2351: the "always" options carry the consent scope, so they no longer fit one row
           of the prompt box — a row wrapped `Allow [y]` across two lines. One option per line. */}
       <Box marginTop={1} flexDirection="column">
-        {options.map((opt, i) => (
-          <Box key={opt}>
-            <Text
-              color={i === state.selectedIndex ? palette.text.accent : undefined}
-              bold={i === state.selectedIndex}
-            >
-              {i === state.selectedIndex ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
-              {opt}
-            </Text>
-          </Box>
-        ))}
+        {options.map((opt, i) => {
+          const selected = armed && i === state.selectedIndex;
+          return (
+            <Box key={opt}>
+              <Text
+                color={selected ? palette.text.accent : undefined}
+                bold={selected}
+                dimColor={!armed}
+              >
+                {selected ? SELECTION_INDICATOR : SELECTION_INDICATOR_NONE}
+                {opt}
+              </Text>
+            </Box>
+          );
+        })}
       </Box>
       <KeyHintFooter hints={footerHints} />
     </Box>

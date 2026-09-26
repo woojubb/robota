@@ -34,6 +34,17 @@ export interface IWorkspaceProjectMutationBoundary {
   delete(relativePath: string): boolean;
 }
 
+/**
+ * Whether a project write on `platform` can be proven to stay under the trusted root. The proof
+ * walks descriptor-relative paths through `/proc/self/fd`, which only Linux provides; elsewhere every
+ * project mutation is refused, so a host keeps state it must write somewhere other than the project.
+ */
+export function supportsWorkspaceProjectMutation(
+  platform: NodeJS.Platform = process.platform,
+): boolean {
+  return platform === 'linux';
+}
+
 function descriptorPath(descriptor: number, segment?: string): string {
   const root = `/proc/self/fd/${descriptor}`;
   return segment === undefined ? root : `${root}/${segment}`;
@@ -54,7 +65,7 @@ function withAnchoredParent<T>(
   segments: readonly string[],
   operation: (parentDescriptor: number, filename: string) => T,
 ): T {
-  if (process.platform !== 'linux') {
+  if (!supportsWorkspaceProjectMutation()) {
     // Contained — ARCH-047. Portable project mutation fails closed until a stable root-anchored
     // primitive owns equivalent semantics on every supported platform.
     refuseProjectRead('Project mutation requires stable root-anchored host support.');

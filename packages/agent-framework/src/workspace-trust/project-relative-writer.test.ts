@@ -43,7 +43,8 @@ vi.mock('node:fs', async (importOriginal) => {
 });
 
 const fs = await vi.importActual<typeof import('node:fs')>('node:fs');
-const { createWorkspaceProjectMutationBoundary } = await import('./project-relative-writer.js');
+const { createWorkspaceProjectMutationBoundary, supportsWorkspaceProjectMutation } =
+  await import('./project-relative-writer.js');
 
 describe('project-relative writer containment', () => {
   const roots: string[] = [];
@@ -209,8 +210,17 @@ describe('project-relative writer containment', () => {
         /stable root-anchored host support/i,
       );
       expect(fs.existsSync(join(root, 'entry.txt'))).toBe(false);
+      expect(supportsWorkspaceProjectMutation()).toBe(false);
     } finally {
       platform.mockRestore();
     }
+  });
+
+  it('tells a host in advance which platforms can write project state', () => {
+    expect(supportsWorkspaceProjectMutation('linux')).toBe(true);
+    for (const platform of ['darwin', 'win32', 'freebsd'] as const) {
+      expect(supportsWorkspaceProjectMutation(platform)).toBe(false);
+    }
+    expect(supportsWorkspaceProjectMutation()).toBe(process.platform === 'linux');
   });
 });

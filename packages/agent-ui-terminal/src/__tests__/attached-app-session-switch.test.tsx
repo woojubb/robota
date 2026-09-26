@@ -200,6 +200,58 @@ describe('the full App attached to a host over the wire', () => {
     expect(frame).toContain('Type a message');
   });
 
+  it("prints the new session's transcript when the switch and its history arrive together", async () => {
+    const link = scriptedConnection();
+    const channel = new WireTuiChannel({ connection: link, driverId: 'attach:1' });
+    const view = render(
+      <App
+        cwd={cwd}
+        createChannel={() => channel}
+        requestSessionSwitch={(sessionId) => channel.requestSessionSwitch(sessionId)}
+        cliAdapter={cliAdapter(join(cwd, 'settings.json'))}
+      />,
+    );
+    const entry = (id: string, content: string) => ({
+      id,
+      timestamp: '2026-09-26T10:00:00.000Z',
+      category: 'chat',
+      type: 'user',
+      data: { id: `m-${id}`, role: 'user', content, state: 'complete' },
+    });
+    try {
+      await waitFor(
+        () => link.sent.some((message) => message.type === 'get-history'),
+        () => JSON.stringify(link.sent),
+      );
+      link.push({
+        type: 'history',
+        startIndex: 0,
+        total: 3,
+        entries: [entry('o1', 'old one'), entry('o2', 'old two'), entry('o3', 'old three')],
+      });
+      await waitFor(
+        () => (view.lastFrame() ?? '').includes('old three'),
+        () => view.lastFrame() ?? '<none>',
+      );
+      // One chunk from the host: the switch and the new session's history, handled in one pass.
+      link.push({ type: 'session_switched', event: { sessionId: 'session-2' } });
+      link.push({
+        type: 'history',
+        startIndex: 0,
+        total: 1,
+        entries: [entry('n1', 'new session prompt')],
+      });
+      await waitFor(
+        () => (view.lastFrame() ?? '').includes('new session prompt'),
+        () => view.lastFrame() ?? '<none>',
+      );
+      expect(view.lastFrame()).toContain('Switched to session session-2.');
+    } finally {
+      view.unmount();
+      await channel.stop();
+    }
+  });
+
   it('opens no empty picker when the host has no sessions to resume', async () => {
     const frame = await resumeAgainst(
       (requestId) => ({

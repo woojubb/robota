@@ -359,7 +359,7 @@ export async function runPreparsedCliCommand(
   if (argv[SUBCOMMAND_INDEX] === 'usage') {
     const usageArgs = argv.slice(ACTION_INDEX);
     const projectSessionStore =
-      composition.projectAccess.status === 'trusted' ? composition.sessionStore : undefined;
+      composition.sessionStoreScope === 'project' ? composition.sessionStore : undefined;
     process.exitCode =
       usageArgs[0] === 'export'
         ? await runUsageExportCommand(usageArgs.slice(1), projectSessionStore)
@@ -370,14 +370,14 @@ export async function runPreparsedCliCommand(
     await runSessionAnalyze(
       argv.slice(SUBCOMMAND_ARGUMENT_INDEX),
       cwd,
-      composition.projectAccess.status === 'trusted' ? composition.sessionStore : undefined,
+      composition.sessionStoreScope === 'project' ? composition.sessionStore : undefined,
     );
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'list') {
     process.exitCode = await runSessionListCommand(
       argv.slice(SUBCOMMAND_ARGUMENT_INDEX),
-      composition.projectAccess.status === 'trusted' ? composition.sessionStore : undefined,
+      composition.sessionStoreScope === 'project' ? composition.sessionStore : undefined,
     );
     return true;
   }

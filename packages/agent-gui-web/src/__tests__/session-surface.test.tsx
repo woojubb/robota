@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
+import { act, render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { afterEach, describe, it, expect, vi } from 'vitest';
 
 import { SessionSurface } from '@robota-sdk/agent-ui-web/client';
@@ -14,7 +14,10 @@ import type { IWsSessionState } from '@robota-sdk/agent-ui-web/client';
 
 // jsdom has no layout; the conversation's auto-scroll calls this.
 Element.prototype.scrollIntoView = () => undefined;
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 function stubState(over: Partial<IWsSessionState> = {}): IWsSessionState {
   return {
@@ -268,7 +271,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     render(<SessionSurface state={state} personalUsageEnabled />);
     fireEvent.click(screen.getByRole('button', { name: 'Usage' }));
     expect(screen.getByText(/permission request/i)).toBeTruthy();
-    fireEvent.click(screen.getByText('Allow'));
+    fireEvent.click(screen.getByText('Allow'), { detail: 1 });
     expect(state.answerPermission).toHaveBeenCalledWith('p1', true);
   });
 
@@ -280,11 +283,12 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     });
     render(<SessionSurface state={state} />);
     expect(screen.getByText(/permission request/i)).toBeTruthy();
-    fireEvent.click(screen.getByText('Allow'));
+    fireEvent.click(screen.getByText('Allow'), { detail: 1 });
     expect(state.answerPermission).toHaveBeenCalledWith('p1', true);
   });
 
-  it('#3186: a docked question takes focus, answers by number key, and Esc cancels it', () => {
+  it('#3186: a docked question takes focus once armed, answers by number key, and Esc cancels it', () => {
+    vi.useFakeTimers();
     const state = stubState({
       pendingPrompts: [
         {
@@ -302,6 +306,11 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     });
     const { unmount } = render(<SessionSurface state={state} />);
     const dialog = screen.getByRole('dialog', { name: 'pending question' });
+    // #3189: its keys are not live as it appears, so a key typed for the composer cannot answer it.
+    expect(document.activeElement).not.toBe(dialog);
+    act(() => {
+      vi.runOnlyPendingTimers();
+    });
     expect(document.activeElement).toBe(dialog);
     fireEvent.keyDown(dialog, { key: '2' });
     expect(state.answerAsk).toHaveBeenCalledWith('a1', { type: 'answer', values: ['en'] });

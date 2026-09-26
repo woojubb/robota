@@ -36,6 +36,7 @@ import type { IThemeRegistry } from './theme/theme-registry.js';
 import type { ITuiAppChannelPort } from './tui-app-channel-port.js';
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { ITuiInteractionChannelOptions } from './TuiInteractionChannel.js';
+import type { ITuiClientCommands } from './wire-tui-client-commands.js';
 import type {
   IAIProvider,
   IToolWithEventService,
@@ -437,6 +438,8 @@ export interface IRenderAttachedAppOptions extends Pick<
   readonly sessionLabel: string;
   /** This terminal's driver id, from the attach handshake. */
   readonly driverId: string;
+  /** Commands this terminal runs itself (`/shell`, `/theme`, ...); the host never sees them. */
+  readonly clientCommands?: ITuiClientCommands;
 }
 
 /**
@@ -465,6 +468,9 @@ export async function renderAttachedApp(
             sessionName: options.sessionLabel,
             terminalHandoff: services.terminalHandoff,
             attention: services.attention,
+            ...(options.clientCommands !== undefined
+              ? { clientCommands: options.clientCommands, cwd: options.cwd }
+              : { clientCommands: undefined }),
             onEnd: (reason) => {
               end = reason;
               endApp();
