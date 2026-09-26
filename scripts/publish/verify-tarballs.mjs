@@ -4,6 +4,7 @@
  * - every file a package declares (main, module, types, exports, bin) is inside its tarball, and no
  *   `workspace:` specifier remains — catches a build that left `dist` empty or unpacked (for example a
  *   symlinked `dist`, which `pnpm pack` skips);
+ * - the manifest declares `engines.node`, so a consumer on an unsupported Node is warned at install;
  * - `publint --strict` finds no errors or warnings in the package layout;
  * - `attw` (Are The Types Wrong) finds no type-resolution problem for Node 16+ ESM/CJS and bundlers.
  *   Subpaths that declare no `require` condition are ESM-only by design and are left out of attw;
@@ -116,6 +117,7 @@ export function verifyTarball(tarball) {
     ...runTool('attw', tarball, esmOnly.length ? ['--exclude-entrypoints', ...esmOnly] : []),
   );
   problems.push(...browserBuiltinProblems(tarball, manifest, files));
+  if (!manifest.engines?.node) problems.push('declares no engines.node');
   return { name: manifest.name, problems };
 }
 

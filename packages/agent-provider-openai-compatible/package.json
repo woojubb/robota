@@ -57,6 +57,9 @@
     },
     "./package.json": "./package.json"
   },
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "files": [
     "dist",
     "src",
