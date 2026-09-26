@@ -35,8 +35,8 @@ peer policy is gone.
 - `agent-framework`: the per-turn statement tells the model the message is an opinion from an
   untrusted third party, not its owner's instruction, and that it decides for itself whether and how
   to act. A message still expands no `@path` and attaches no context reference, and its requests
-  still carry no provider-hosted tool, since no permission step can decide one. Each sender's
-  messages may start at most 6 turns a minute and 30 an hour; a message over the limit is refused
-  with a reason the sender receives. A prompt answer given in the name of a `peer:` or `external:`
+  still carry no provider-hosted tool, since no permission step can decide one. The session takes
+  at most 6 messages a minute and 30 an hour from each sender for a turn; a message over the limit
+  is refused with a reason the sender receives. A prompt answer given in the name of a `peer:` or `external:`
   driver is ignored. External-event turns keep their tool-less baseline.
 - `agent-cli`: incoming peer turns carry only their reply route.

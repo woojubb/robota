@@ -24,7 +24,10 @@ export const DEFAULT_PEER_TURN_RATE_WINDOWS: readonly IPeerTurnRateWindow[] = [
 /** Senders remembered before those with nothing inside any window are forgotten. */
 const MAX_SENDERS = 1000;
 
-/** Counts the turns each sender's messages started, and refuses those over a window's limit. */
+/**
+ * Counts each sender's messages the session took for a turn — one later coalesced or dropped by the
+ * queue included, so a flood cannot slip past by being replaced — and refuses those over a limit.
+ */
 export class PeerTurnRateLimiter {
   private readonly started = new Map<string, number[]>();
   private readonly longestWindowMs: number;
@@ -37,7 +40,7 @@ export class PeerTurnRateLimiter {
   }
 
   /**
-   * Admit one more turn from `sender` and count it, or say why not. A refused message is not
+   * Admit one more message from `sender` and count it, or say why not. A message refused here is not
    * counted, so a sender that keeps sending is not locked out beyond the window.
    */
   admit(sender: string): string | undefined {
