@@ -49,7 +49,8 @@ High-level system architecture for the Robota AI Agent SDK monorepo.
 │                  presentation: agent-ui-terminal             │
 │  Type contracts  agent-interface-transport /                │
 │                  agent-interface-tui                         │
-│  Providers       agent-provider                             │
+│  Providers       agent-provider-* (per vendor);             │
+│                  agent-builtin-providers (defaults)         │
 │  Plugins         agent-plugin                               │
 │  Playground      agent-playground                           │
 │  GUI/Web         agent-ui-web (GUI core);            │

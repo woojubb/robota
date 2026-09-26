@@ -1,7 +1,7 @@
 /**
- * @robota-sdk/agent-provider-google compatibility package.
+ * @robota-sdk/agent-provider-gemini/google compatibility entry point.
  *
- * New code should import from @robota-sdk/agent-provider/gemini.
+ * New code should import from @robota-sdk/agent-provider-gemini.
  */
 
 export { GeminiProvider } from '../gemini/index.js';

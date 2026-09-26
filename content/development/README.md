@@ -46,7 +46,12 @@ packages/
 ├── agent-executor/             ← Background task and subagent lifecycle
 ├── agent-framework/            ← Assembly layer (InteractiveSession, createQuery)
 ├── agent-command/              ← All slash command modules in one package
-├── agent-provider/             ← Consolidated AI provider (sub-paths: /anthropic, /openai, /gemini, /google, /gemma, /qwen, /deepseek, /bytedance)
+├── agent-provider-anthropic/   ← Anthropic provider client
+├── agent-provider-openai/      ← OpenAI provider client
+├── agent-provider-openai-compatible/ ← OpenAI-compatible clients (DeepSeek, Qwen, Gemma)
+├── agent-provider-gemini/      ← Gemini / Google provider client
+├── agent-provider-bytedance/   ← ByteDance video generation provider client
+├── agent-builtin-providers/    ← Built-in provider definitions + default role-to-model mapping
 ├── agent-plugin/               ← Consolidated plugin package
 ├── agent-transport/            ← Browser-safe protocol/delivery substrate (sub-paths: /client, /node)
 ├── agent-ui-terminal/        ← Terminal UI (Ink/React) — standalone
@@ -90,18 +95,28 @@ Robota publishes every non-private package together with one coordinated version
 package set publishes approved `@robota-sdk/*` packages; private app, plugin, and internal packages
 are not published by the beta script.
 
+Releases publish from GitHub Actions: run the **Publish to npm** workflow (`.github/workflows/publish.yml`) on
+`main` and approve the `npm-publish` environment. It uses npm trusted publishing (OIDC), so no npm token is
+stored anywhere and every package carries a provenance attestation. Packages are published under `latest`
+only.
+
+A package's first publish cannot use trusted publishing, so the workflow refuses a release that contains a
+package npm has never seen. The owner publishes that release locally instead (every package of the release,
+without provenance) and then registers the workflow as the new package's trusted publisher, so later releases
+use the workflow again:
+
 ```bash
-pnpm harness:verify:release
+pnpm publish:beta --dry-run
 pnpm publish:beta
+bash scripts/publish/configure-trusted-publishers.sh @robota-sdk/<new-package>
 ```
 
-`pnpm harness:verify:release` uses the root monorepo build instead of rebuilding each package independently. `pnpm publish:beta` runs the npm authentication preflight first, performs one recursive dry-run, prompts for OTP only after the dry-run succeeds, publishes all non-private packages with `pnpm publish -r`, syncs the `beta` dist-tag to the same version, and verifies both `latest` and `beta` dist-tags. If npm authentication fails, run:
+`pnpm publish:beta` builds, runs the release checks, packs and verifies every tarball, and then publishes
+each public package whose version is not on npm yet (it prompts for the npm OTP). If npm authentication
+fails, run `npm login --registry https://registry.npmjs.org/`.
 
-```bash
-npm login --registry https://registry.npmjs.org/
-```
-
-Never publish individual packages with `--filter`. Always use `pnpm publish:beta`; it resolves `workspace:*` dependencies correctly, avoids sequential per-package publishes, and keeps the monorepo package set on one version.
+Never publish individual packages with `--filter`. The scripts resolve `workspace:*` dependencies correctly
+and keep the monorepo package set on one version.
 
 ## Documentation Sync
 

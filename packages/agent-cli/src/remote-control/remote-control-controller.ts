@@ -54,7 +54,7 @@ export interface IRemoteControlControllerDeps {
   getSession: () => IProtocolSession | undefined;
   /** Render a scannable QR for the given text (async). */
   renderQr: (text: string) => Promise<string>;
-  /** Surface an async failure (e.g. a `werift`-absent `start()` failure) to the operator. */
+  /** Surface an async failure (e.g. a `start()` failure because the WebRTC implementation is unavailable) to the operator. */
   reportError?: (message: string) => void;
   /** REMOTE-012 E3: the host trusted-device store (device public keys). Absent → first-pair only, no TOFU reconnect. */
   trustedDeviceStore?: ITrustedDeviceStore;
@@ -136,6 +136,11 @@ export class RemoteControlController {
    * session, and `drive` needs the operator's yes for each connection. One authority per connection,
    * so an earlier yes never carries over.
    */
+  /** The operator of this session, as asked on this machine's terminal; undefined when nobody can be. */
+  get operatorApprover(): IOperatorApprover | undefined {
+    return this.deps.operatorApprover;
+  }
+
   private readonly connectionApproval: IConnectionApproval = {
     approve: async ({ deviceId, signal }) => {
       const authority = new ConnectionAuthority(
@@ -258,7 +263,7 @@ export class RemoteControlController {
     this.deps.host.registerInitial(transport, session);
     transport.attach(session);
     // Start out-of-band: the registry's startAll won't pick up a defaultEnabled:false transport, and there is
-    // no start-one method. A werift-absent / start failure fails closed: reset to off + report to the operator.
+    // no start-one method. A start failure (WebRTC implementation unavailable, …) fails closed: reset to off + report to the operator.
     void transport.start().catch((error: unknown) => {
       if (this.transport === transport) void this.teardown('off');
       this.deps.reportError?.(

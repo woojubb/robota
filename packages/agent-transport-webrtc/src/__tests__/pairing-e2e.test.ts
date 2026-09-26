@@ -2,16 +2,16 @@ import { createTestInteractiveSession } from '@robota-sdk/agent-interface-sessio
 
 import { extractDtlsFingerprint, startPairingHandshake } from '@robota-sdk/agent-remote-pairing';
 import { describe, expect, it, vi } from 'vitest';
-import { RTCPeerConnection } from 'werift';
 
 import { WebRtcTransport } from '../webrtc-transport.js';
+import { RtcPeer } from '../rtc-peer.js';
 import { createInMemorySignalingPair, type ISignalingClient } from '../signaling.js';
 
 import type { TPairingFrame } from '@robota-sdk/agent-remote-pairing';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 /**
- * REMOTE-008 Step 1/5 — end-to-end PAIRED handshake over a REAL werift data channel. The host is a
+ * REMOTE-008 Step 1/5 — end-to-end PAIRED handshake over a REAL data channel. The host is a
  * `WebRtcTransport` with a `secret` (initiator ≡ offerer); the "remote device" here runs the RESPONDER
  * side of the same pairing handshake, then speaks the session protocol only after its own accept. Proves
  * the gate's routing switch works over a real channel: matching secrets → session exposed + round-trips;
@@ -49,38 +49,36 @@ function connectRemotePaired(signaling: ISignalingClient, secret: string): IRemo
   const session = new Promise<Record<string, unknown>>((res) => (resolveSession = res));
   const paired = new Promise<boolean>((res) => (resolvePaired = res));
 
-  const peer = new RTCPeerConnection();
-  peer.onIceCandidate.subscribe((c) => {
-    if (c) signaling.send({ kind: 'ice', data: c.toJSON() });
-  });
+  const peer = new RtcPeer();
+  peer.onLocalCandidate((c) =>
+    signaling.send({ kind: 'ice', data: { candidate: c.candidate, sdpMid: c.mid } }),
+  );
 
   let hostFingerprint: string | undefined;
+  let localFingerprint: string | undefined;
   let chain: Promise<void> = Promise.resolve();
   signaling.onSignal((message) => {
     chain = chain.then(async () => {
+      const data = message.data as { sdp?: string; candidate?: string; sdpMid?: string };
       if (message.kind === 'offer') {
-        const offer = message.data as { sdp: string } & Parameters<
-          typeof peer.setRemoteDescription
-        >[0];
-        hostFingerprint = extractDtlsFingerprint(offer.sdp);
-        await peer.setRemoteDescription(offer);
-        const answer = await peer.createAnswer();
-        await peer.setLocalDescription(answer);
-        signaling.send({ kind: 'answer', data: peer.localDescription });
+        hostFingerprint = extractDtlsFingerprint(data.sdp!);
+        const answer = await peer.acceptOffer(data.sdp!);
+        localFingerprint = extractDtlsFingerprint(answer);
+        signaling.send({ kind: 'answer', data: { type: 'answer', sdp: answer } });
       } else if (message.kind === 'ice') {
-        await peer.addIceCandidate(message.data as Parameters<typeof peer.addIceCandidate>[0]);
+        peer.addRemoteCandidate({ candidate: data.candidate!, mid: data.sdpMid ?? '0' });
       }
     });
   });
 
   let remoteChannel: { close(): void } | undefined;
-  peer.onDataChannel.subscribe((channel) => {
+  peer.onDataChannel((channel) => {
     remoteChannel = channel;
     let accepted = false;
     const controller = startPairingHandshake({
       secret,
       role: 'responder',
-      localFingerprint: extractDtlsFingerprint(peer.localDescription!.sdp),
+      localFingerprint: localFingerprint!,
       remoteFingerprint: hostFingerprint!,
       send: (frame: TPairingFrame) => {
         try {
@@ -99,8 +97,7 @@ function connectRemotePaired(signaling: ISignalingClient, secret: string): IRemo
       },
       () => resolvePaired(false),
     );
-    channel.onMessage.subscribe((data) => {
-      const text = typeof data === 'string' ? data : data.toString();
+    channel.onMessage((text) => {
       if (!accepted) {
         // Pre-accept only pairing frames arrive; route them to the handshake.
         try {

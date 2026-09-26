@@ -43,6 +43,9 @@ export type {
 } from './connection-authority.js';
 export { ConnectionAuthority, capabilityApproval } from './connection-authority.js';
 
+// ── file-transfer-contracts ──
+export type { IFileFrameChannel, IFileOffer } from './file-transfer-contracts.js';
+
 // ── handoff-contracts ──
 export type {
   IHandoffCommitAck,
@@ -91,7 +94,12 @@ export type {
   THandoffRecordDecodeOutcome,
 } from './handoff-composition.js';
 export { HandoffSource } from './handoff-source.js';
-export type { IHandoffCarrier, IHandoffSourceOptions, TOfferOutcome } from './handoff-source.js';
+export type {
+  IHandoffCarrier,
+  IHandoffSourceOptions,
+  TOfferOutcome,
+  TSourceAbandonReason,
+} from './handoff-source.js';
 export { HandoffDestination } from './handoff-destination.js';
 export type {
   IDestinationReport,

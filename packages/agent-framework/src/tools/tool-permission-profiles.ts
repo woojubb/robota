@@ -1,7 +1,7 @@
 /**
  * What the permission system is told about the tools THIS package defines. CORE-030.
  *
- * These three were the sharpest evidence that the old arrangement could not work: they are produced
+ * The first three were the sharpest evidence that the old arrangement could not work: they are produced
  * here, the classification lived in `@robota-sdk/agent-core`'s hardcoded matrix, and that matrix had
  * never heard of any of them. Two of them run commands.
  *
@@ -57,6 +57,19 @@ export const FRAMEWORK_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPe
      * consent decide it as they would any call.
      */
     peer_reply: { argument: { key: 'text', kind: 'text' }, repliesToPeer: true },
+
+    /**
+     * Sends a copy of a workspace file to another of the operator's sessions. The tool asks the
+     * operator itself on every call, showing the file and where it goes, and no mode, rule or
+     * remembered consent answers that question; so the gate treats the call as the read it is here
+     * rather than asking twice. A deny rule still removes it, and a turn a peer's message started
+     * never reaches it.
+     */
+    peer_send_file: {
+      argument: { key: 'path', kind: 'path' },
+      riskClass: 'inspect',
+      notInPeerTurn: true,
+    },
   };
 
 /**

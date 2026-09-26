@@ -2,14 +2,14 @@ import { createTestInteractiveSession } from '@robota-sdk/agent-interface-sessio
 
 import { extractDtlsFingerprint, startPairingHandshake } from '@robota-sdk/agent-remote-pairing';
 import { describe, expect, it, vi } from 'vitest';
-import { RTCPeerConnection } from 'werift';
 
 import { WebRtcTransport } from '../webrtc-transport.js';
+import { RtcPeer, type RtcChannel } from '../rtc-peer.js';
 import { createInMemorySignalingPair, type ISignalingClient } from '../signaling.js';
+import { fakeDataChannel } from './fake-datachannel.js';
 
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { TPairingFrame } from '@robota-sdk/agent-remote-pairing';
-import type { RTCDataChannel } from 'werift';
 
 /**
  * The pairing confirmation must bind to the certificate the DTLS layer actually verified. A relay that
@@ -32,15 +32,26 @@ function prependFingerprint(sdp: string, value: string): string {
 }
 
 type TDescription = { type: 'offer' | 'answer'; sdp: string };
+type TCandidate = { candidate: string; sdpMid?: string };
+
+function sendCandidates(peer: RtcPeer, signaling: ISignalingClient): void {
+  peer.onLocalCandidate((c) =>
+    signaling.send({ kind: 'ice', data: { candidate: c.candidate, sdpMid: c.mid } }),
+  );
+}
+
+function addCandidate(peer: RtcPeer, data: unknown): void {
+  const c = data as TCandidate;
+  peer.addRemoteCandidate({ candidate: c.candidate, mid: c.sdpMid ?? '0' });
+}
 
 /** Pairing responder on the far side. Resolves true only if its own handshake accepts. */
 function connectResponder(signaling: ISignalingClient, secret: string): Promise<boolean> {
   return new Promise<boolean>((resolvePaired) => {
-    const peer = new RTCPeerConnection();
-    peer.onIceCandidate.subscribe((c) => {
-      if (c) signaling.send({ kind: 'ice', data: c.toJSON() });
-    });
+    const peer = new RtcPeer();
+    sendCandidates(peer, signaling);
     let hostFingerprint: string | undefined;
+    let localFingerprint: string | undefined;
     let chain: Promise<void> = Promise.resolve();
     signaling.onSignal((message) => {
       chain = chain
@@ -48,20 +59,20 @@ function connectResponder(signaling: ISignalingClient, secret: string): Promise<
           if (message.kind === 'offer') {
             const offer = message.data as TDescription;
             hostFingerprint = extractDtlsFingerprint(offer.sdp);
-            await peer.setRemoteDescription(offer);
-            await peer.setLocalDescription(await peer.createAnswer());
-            signaling.send({ kind: 'answer', data: peer.localDescription });
+            const answer = await peer.acceptOffer(offer.sdp);
+            localFingerprint = extractDtlsFingerprint(answer);
+            signaling.send({ kind: 'answer', data: { type: 'answer', sdp: answer } });
           } else if (message.kind === 'ice') {
-            await peer.addIceCandidate(message.data as Parameters<typeof peer.addIceCandidate>[0]);
+            addCandidate(peer, message.data);
           }
         })
         .catch(() => resolvePaired(false));
     });
-    peer.onDataChannel.subscribe((channel) => {
+    peer.onDataChannel((channel) => {
       const controller = startPairingHandshake({
         secret,
         role: 'responder',
-        localFingerprint: extractDtlsFingerprint(peer.localDescription!.sdp),
+        localFingerprint: localFingerprint!,
         remoteFingerprint: hostFingerprint!,
         send: (frame: TPairingFrame) => {
           try {
@@ -76,9 +87,9 @@ function connectResponder(signaling: ISignalingClient, secret: string): Promise<
         () => resolvePaired(true),
         () => resolvePaired(false),
       );
-      channel.onMessage.subscribe((data) => {
+      channel.onMessage((text) => {
         try {
-          controller.onFrame(JSON.parse(data.toString()) as TPairingFrame);
+          controller.onFrame(JSON.parse(text) as TPairingFrame);
         } catch {
           /* ignore */
         }
@@ -92,78 +103,70 @@ function connectResponder(signaling: ISignalingClient, secret: string): Promise<
  * channel between them, and advertises the honest peer's fingerprint FIRST next to its own.
  */
 function startRelay(toHost: ISignalingClient, toRemote: ISignalingClient): void {
-  const facingHost = new RTCPeerConnection();
-  const facingRemote = new RTCPeerConnection();
-  let hostChannel: RTCDataChannel | undefined;
+  const facingHost = new RtcPeer();
+  const facingRemote = new RtcPeer();
+  let hostChannel: RtcChannel | undefined;
   const remoteChannel = facingRemote.createDataChannel('robota-session');
   const toRemoteQueue: string[] = [];
   const toHostQueue: string[] = [];
-  let hostFingerprint = '';
   let pendingHostOffer: TDescription | undefined;
 
-  facingHost.onIceCandidate.subscribe((c) => {
-    if (c) toHost.send({ kind: 'ice', data: c.toJSON() });
-  });
-  facingRemote.onIceCandidate.subscribe((c) => {
-    if (c) toRemote.send({ kind: 'ice', data: c.toJSON() });
-  });
+  sendCandidates(facingHost, toHost);
+  sendCandidates(facingRemote, toRemote);
 
-  facingHost.onDataChannel.subscribe((channel) => {
+  facingHost.onDataChannel((channel) => {
     hostChannel = channel;
     for (const m of toHostQueue.splice(0)) channel.send(m);
-    channel.onMessage.subscribe((data) => {
-      const text = data.toString();
+    channel.onMessage((text) => {
       if (remoteChannel.readyState === 'open') remoteChannel.send(text);
       else toRemoteQueue.push(text);
     });
   });
-  remoteChannel.stateChanged.subscribe((state) => {
+  remoteChannel.onStateChange((state) => {
     if (state === 'open') for (const m of toRemoteQueue.splice(0)) remoteChannel.send(m);
   });
-  remoteChannel.onMessage.subscribe((data) => {
-    const text = data.toString();
+  remoteChannel.onMessage((text) => {
     if (hostChannel) hostChannel.send(text);
     else toHostQueue.push(text);
   });
 
   let hostChain: Promise<void> = Promise.resolve();
   toHost.onSignal((message) => {
-    hostChain = hostChain.then(async () => {
-      if (message.kind === 'offer') {
-        pendingHostOffer = message.data as TDescription;
-        hostFingerprint = extractDtlsFingerprint(pendingHostOffer.sdp);
-        await facingRemote.setLocalDescription(await facingRemote.createOffer());
-        const own = facingRemote.localDescription!;
-        toRemote.send({
-          kind: 'offer',
-          data: { type: 'offer', sdp: prependFingerprint(own.sdp, hostFingerprint) },
-        });
-      } else if (message.kind === 'ice') {
-        await facingHost.addIceCandidate(message.data as Parameters<typeof facingHost.addIceCandidate>[0]);
-      }
-    });
+    hostChain = hostChain
+      .then(async () => {
+        if (message.kind === 'offer') {
+          pendingHostOffer = message.data as TDescription;
+          const hostFingerprint = extractDtlsFingerprint(pendingHostOffer.sdp);
+          const own = await facingRemote.createOffer();
+          toRemote.send({
+            kind: 'offer',
+            data: { type: 'offer', sdp: prependFingerprint(own, hostFingerprint) },
+          });
+        } else if (message.kind === 'ice') {
+          addCandidate(facingHost, message.data);
+        }
+      })
+      .catch(() => undefined);
   });
 
   let remoteChain: Promise<void> = Promise.resolve();
   toRemote.onSignal((message) => {
-    remoteChain = remoteChain.then(async () => {
-      if (message.kind === 'answer') {
-        const answer = message.data as TDescription;
-        const remoteFingerprint = extractDtlsFingerprint(answer.sdp);
-        await facingRemote.setRemoteDescription(answer);
-        await facingHost.setRemoteDescription(pendingHostOffer!);
-        await facingHost.setLocalDescription(await facingHost.createAnswer());
-        const own = facingHost.localDescription!;
-        toHost.send({
-          kind: 'answer',
-          data: { type: 'answer', sdp: prependFingerprint(own.sdp, remoteFingerprint) },
-        });
-      } else if (message.kind === 'ice') {
-        await facingRemote.addIceCandidate(
-          message.data as Parameters<typeof facingRemote.addIceCandidate>[0],
-        );
-      }
-    });
+    remoteChain = remoteChain
+      .then(async () => {
+        if (message.kind === 'answer') {
+          const answer = message.data as TDescription;
+          const remoteFingerprint = extractDtlsFingerprint(answer.sdp);
+          facingRemote.acceptAnswer(answer.sdp);
+          const own = await facingHost.acceptOffer(pendingHostOffer!.sdp);
+          toHost.send({
+            kind: 'answer',
+            data: { type: 'answer', sdp: prependFingerprint(own, remoteFingerprint) },
+          });
+        } else if (message.kind === 'ice') {
+          addCandidate(facingRemote, message.data);
+        }
+      })
+      .catch(() => undefined);
   });
 }
 
@@ -189,41 +192,32 @@ describe('WebRTC pairing with a relay in the middle', () => {
 
 describe('WebRTC transport answer handling', () => {
   it('takes one answer per start and ignores any later one', async () => {
-    let remoteDescriptions = 0;
-    class CountingPeer extends RTCPeerConnection {
-      override async setRemoteDescription(
-        ...args: Parameters<RTCPeerConnection['setRemoteDescription']>
-      ): ReturnType<RTCPeerConnection['setRemoteDescription']> {
-        remoteDescriptions += 1;
-        return super.setRemoteDescription(...args);
-      }
-    }
+    const remoteDescriptions: string[] = [];
+    const fake = fakeDataChannel({
+      offerSdp: 'a=fingerprint:sha-256 AA:AA',
+      setRemoteDescription: (_sdp, type) => remoteDescriptions.push(type),
+    });
     const [hostSig, remoteSig] = createInMemorySignalingPair();
     const transport = new WebRtcTransport({
       signaling: hostSig,
       secret: 'shared-secret-256bit-base64url-answers',
-      loadWerift: () => ({ RTCPeerConnection: CountingPeer }) as never,
+      loadDataChannel: () => fake.module,
     });
     transport.attach(createStubSession());
 
-    const remote = new RTCPeerConnection();
+    const answer = { type: 'answer', sdp: 'a=fingerprint:sha-256 BB:BB' };
     const answered = new Promise<void>((resolve) => {
       remoteSig.onSignal((message) => {
         if (message.kind !== 'offer') return;
-        void (async () => {
-          await remote.setRemoteDescription(message.data as TDescription);
-          await remote.setLocalDescription(await remote.createAnswer());
-          remoteSig.send({ kind: 'answer', data: remote.localDescription });
-          remoteSig.send({ kind: 'answer', data: remote.localDescription });
-          setTimeout(resolve, 200);
-        })();
+        remoteSig.send({ kind: 'answer', data: answer });
+        remoteSig.send({ kind: 'answer', data: answer });
+        setTimeout(resolve, 200);
       });
     });
     await transport.start();
     await answered;
 
-    expect(remoteDescriptions).toBe(1);
+    expect(remoteDescriptions).toEqual(['answer']);
     await transport.stop();
-    await remote.close();
   }, 15000);
 });

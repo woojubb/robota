@@ -1,5 +1,5 @@
 /**
- * @robota-sdk/agent-provider (gemini)
+ * @robota-sdk/agent-provider-gemini
  *
  * Provides a Gemini API provider implementation with provider-agnostic TUniversalMessage.
  */

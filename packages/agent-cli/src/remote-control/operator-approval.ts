@@ -30,6 +30,7 @@ export interface ITerminalOperatorApproverOptions {
 }
 
 const SUMMARY_MAX_CHARS = 200;
+const FILE_SUMMARY_MAX_CHARS = 400;
 const SHORT_ID_CHARS = 16;
 
 /**
@@ -49,6 +50,7 @@ const WHAT: Readonly<Record<ICapabilityApprovalRequest['capability'], string>> =
   drive: 'drive this session (send prompts and commands, answer its questions)',
   observe: 'observe this session (read its conversation as it happens)',
   delegate: 'have this session run a task',
+  file: 'send this session a file (kept aside unopened; nothing runs it)',
   handoff: 'hand a session over to this machine',
   message: 'message this session',
   presence: 'see that this session is running',
@@ -61,7 +63,14 @@ function describe(request: ICapabilityApprovalRequest): string {
   const where = request.locality === 'same-host' ? 'on this machine' : 'on another machine';
   const lines = [`${who} (${where}) wants to ${WHAT[request.capability]}.`];
   if (request.summary !== undefined) {
-    lines.push(`Task: ${printable(request.summary, SUMMARY_MAX_CHARS)}`);
+    // A file's line carries its whole hash, and a session's what taking it means; both get the room.
+    const [label, max] =
+      request.capability === 'file'
+        ? ['File', FILE_SUMMARY_MAX_CHARS]
+        : request.capability === 'handoff'
+          ? ['Session', FILE_SUMMARY_MAX_CHARS]
+          : ['Task', SUMMARY_MAX_CHARS];
+    lines.push(`${label}: ${printable(request.summary, max)}`);
   }
   lines.push(
     request.scope === 'connection'

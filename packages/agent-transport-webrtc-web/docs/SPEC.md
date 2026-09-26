@@ -16,7 +16,7 @@ session over an `RTCDataChannel` — swapping WebSocket for the data channel whi
 shared session reducer from `@robota-sdk/agent-ui-web`.
 
 This package sits in the **transport** layer, browser-only. It reuses the isomorphic zero-dep
-`@robota-sdk/agent-remote-pairing` leaf and takes no `agent-transport-webrtc`/`werift` dependency
+`@robota-sdk/agent-remote-pairing` leaf and takes no `agent-transport-webrtc` or node WebRTC dependency
 (that is node-only).
 
 ## Boundaries
@@ -27,7 +27,7 @@ This package sits in the **transport** layer, browser-only. It reuses the isomor
 - Does NOT own the WS/RTC wire protocol framing — that is `@robota-sdk/agent-transport`.
 - Does NOT own the pairing CRYPTO — the directional-HMAC handshake + DTLS-fingerprint channel
   binding is the isomorphic zero-dep `@robota-sdk/agent-remote-pairing` leaf.
-- Does NOT own the node host transport (offerer, werift) — that is `@robota-sdk/agent-transport-webrtc`.
+- Does NOT own the node host transport (offerer, node WebRTC implementation) — that is `@robota-sdk/agent-transport-webrtc`.
 
 ## Contract
 

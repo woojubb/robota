@@ -2,8 +2,8 @@
 
 ## Purpose
 
-This package owns **session mobility**: moving messages between live sessions (peer messaging),
-and moving authority over a session to another machine (handoff). They are one axis — a peer
+This package owns **session mobility**: moving messages and files between live sessions (peer
+messaging), and moving authority over a session to another machine (handoff). They are one axis — a peer
 message and a handoff differ in what travels, data versus control — and both answer the same
 question: what happens when a session is not confined to one process.
 
@@ -12,7 +12,8 @@ decoding, and durable persistence. It declares how authority moves, whether a se
 be offered, and how its resources are classified in the handoff inventory. The source retains
 authority until it holds a matching acknowledgement of durable destination persistence. Illegal
 phase transitions are refused without changing state; repeated acknowledgements for a committed
-handoff are idempotent. Authorization of a proposed move is the receiving operator's, asked by the host.
+handoff are idempotent. A move is only ever pushed by the side that holds the session, never pulled
+by another, and its authorization is the receiving operator's, asked by the host.
 
 ## Boundaries
 
@@ -58,11 +59,12 @@ one user's devices, trust, locality and workspace stay separate fields of the ad
 proves the user, the carrier the locality, and the workspace is only the peer's claim. Authority comes
 from trust and the capabilities local policy leaves of the certificate's, never from the other two.
 Some capabilities also need the receiving operator's yes: observing and driving for every connection,
-because an earlier connection's yes says nothing about who holds this one, and delegating and
-hand-off for every request. Without an operator to ask they are refused. The operator must be someone
-no connected surface can speak for, or one device could approve the next. A delegated task, like a message,
-carries no authority: the turn it starts is decided by the receiver's ordinary permissions, and
-nothing the sender attaches to the request travels with it.
+because an earlier connection's yes says nothing about who holds this one, and delegating, hand-off
+and sending a file for every request. Without an operator to ask they are refused. The operator must be someone
+no connected surface can speak for, or one device could approve the next. A delegated task or a file, like a
+message, carries no authority: the turn a task starts is decided by the receiver's ordinary
+permissions, nothing the sender attaches to the request travels with it, and a file is kept aside
+as data — never run, and never placed in the model's context by arriving.
 
 The driver-id attribution on a peer message is **display and attribution only** and must never
 become an authentication or authorization input. It is also what tells the model a message is a

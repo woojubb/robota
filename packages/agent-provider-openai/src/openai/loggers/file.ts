@@ -3,7 +3,7 @@
  *
  * @example
  * ```typescript
- * import { FilePayloadLogger } from '@robota-sdk/agent-provider/openai/loggers';
+ * import { FilePayloadLogger } from '@robota-sdk/agent-provider-openai/loggers';
  * ```
  */
 export { FilePayloadLogger } from './file-payload-logger';

@@ -1,8 +1,7 @@
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { describe, expect, it, vi } from 'vitest';
-import { RTCPeerConnection } from 'werift';
-import { WebRtcTransport, WsSignalingClient } from '@robota-sdk/agent-transport-webrtc';
+import { RtcPeer, WebRtcTransport, WsSignalingClient } from '@robota-sdk/agent-transport-webrtc';
 
 import { startSignalingServer } from '../server.js';
 
@@ -10,7 +9,7 @@ import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 
 /**
  * REMOTE-004 B2 TC-01 — full end-to-end over the REAL relay (no in-memory pair): a `WebRtcTransport` (offerer)
- * and a werift answerer each reach the running `startSignalingServer()` via a production `WsSignalingClient`,
+ * and a real answerer each reach the running `startSignalingServer()` via a production `WsSignalingClient`,
  * establish a real `RTCDataChannel`, and round-trip a `TClientMessage`→session→`TServerMessage` through the
  * reused `createWsHandler`. A strict superset of Stage A's in-memory TC-03.
  */
@@ -36,7 +35,7 @@ function connectRemoteAnswerer(
   let markReady!: () => void;
   const ready = new Promise<void>((r) => (markReady = r));
   const reply = new Promise<Record<string, unknown>>((resolve, reject) => {
-    const peer = new RTCPeerConnection();
+    const peer = new RtcPeer();
     const signaling = new WsSignalingClient({
       url,
       rendezvous,
@@ -44,35 +43,30 @@ function connectRemoteAnswerer(
       onReady: markReady,
     });
 
-    peer.onIceCandidate.subscribe((candidate) => {
-      if (candidate) signaling.send({ kind: 'ice', data: candidate.toJSON() });
-    });
+    peer.onLocalCandidate((c) =>
+      signaling.send({ kind: 'ice', data: { candidate: c.candidate, sdpMid: c.mid } }),
+    );
 
     let chain: Promise<void> = Promise.resolve();
     signaling.onSignal((message) => {
       chain = chain
         .then(async () => {
+          const data = message.data as { sdp?: string; candidate?: string; sdpMid?: string };
           if (message.kind === 'offer') {
-            await peer.setRemoteDescription(
-              message.data as Parameters<typeof peer.setRemoteDescription>[0],
-            );
-            const answer = await peer.createAnswer();
-            await peer.setLocalDescription(answer);
-            signaling.send({ kind: 'answer', data: peer.localDescription });
+            const sdp = await peer.acceptOffer(data.sdp!);
+            signaling.send({ kind: 'answer', data: { type: 'answer', sdp } });
           } else if (message.kind === 'ice') {
-            await peer.addIceCandidate(message.data as Parameters<typeof peer.addIceCandidate>[0]);
+            peer.addRemoteCandidate({ candidate: data.candidate!, mid: data.sdpMid ?? '0' });
           }
         })
         .catch(reject);
     });
 
-    peer.onDataChannel.subscribe((channel) => {
-      channel.stateChanged.subscribe((state) => {
-        if (state === 'open') channel.send(JSON.stringify({ type: 'get-messages' }));
-      });
-      channel.onMessage.subscribe((data) => {
-        resolve(JSON.parse(typeof data === 'string' ? data : data.toString()));
-      });
+    peer.onDataChannel((channel) => {
+      const ask = (): void => channel.send(JSON.stringify({ type: 'get-messages' }));
+      if (channel.readyState === 'open') ask();
+      else channel.onStateChange((state) => state === 'open' && ask());
+      channel.onMessage((text) => resolve(JSON.parse(text) as Record<string, unknown>));
     });
   });
   return { ready, reply };

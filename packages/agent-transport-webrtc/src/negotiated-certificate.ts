@@ -1,80 +1,72 @@
 /**
- * The remote fingerprint the pairing confirmation binds to, read from the certificate the DTLS layer verified.
+ * The remote fingerprint a channel binding names: the one of the certificate the DTLS layer accepted,
+ * never SDP text.
  *
- * The SDP is delivered by an untrusted signaling path, and a DTLS stack accepts the remote certificate when it
- * matches ANY fingerprint the SDP advertises. Binding a value read from SDP text would therefore let the bound
- * fingerprint and the verified certificate differ. Reading the certificate itself, after the DTLS layer has
- * verified it, makes the binding and the connection share one source of truth.
+ * The SDP arrives over an untrusted signaling path. The DTLS layer (OpenSSL, through libdatachannel)
+ * accepts the remote certificate only after the peer has signed its handshake with that certificate's
+ * key and the certificate matches the fingerprint of the remote description. Callers additionally
+ * require the description to advertise exactly one fingerprint, so the accepted certificate and the
+ * bound value cannot differ: binding it names the one party that holds the key.
  */
 
-import { createHash } from 'node:crypto';
+import type { RtcPeer } from './rtc-peer.js';
 
-import type { RTCPeerConnection } from 'werift';
-
-const HASHES: Readonly<Record<string, string>> = {
-  'sha-256': 'sha256',
-  'sha-384': 'sha384',
-  'sha-512': 'sha512',
-};
-
-/** SDP-form fingerprint (`AB:CD:…`, upper case) of a DER certificate. Throws on an unsupported algorithm. */
-export function certificateFingerprint(der: Uint8Array, algorithm: string): string {
-  const hash = HASHES[algorithm.toLowerCase()];
-  if (!hash) throw new Error(`unsupported DTLS fingerprint algorithm: ${algorithm}`);
-  const hex = createHash(hash).update(der).digest('hex').toUpperCase();
-  return hex.match(/../g)?.join(':') ?? '';
-}
+const FINGERPRINT_VALUE = /^[0-9A-F]{2}(?::[0-9A-F]{2})+$/;
 
 /**
- * Call `onVerified` with the remote certificate's fingerprint once the DTLS handshake — including its own
- * fingerprint check — has completed, or `onFailed` if the handshake fails or closes first, or the certificate
- * cannot be read. Returns an unsubscribe function.
+ * Call `onVerified` with the remote certificate's fingerprint once the connection is established, or
+ * `onFailed` if it fails or closes first, or the fingerprint is missing or of another algorithm than
+ * `algorithm`. Returns an unsubscribe function.
  *
- * werift moves the DTLS transport to `connected` only after `verifyRemoteCertificateFingerprint` succeeds, and
- * the data channel runs over that DTLS session, so no channel frame can precede this callback.
+ * The connection reports `connected` only after DTLS has completed, and the data channel runs over that
+ * DTLS session.
  */
 export function whenRemoteCertificateVerified(
-  peer: RTCPeerConnection,
+  peer: RtcPeer,
   algorithm: string,
   onVerified: (fingerprint: string) => void,
   onFailed: (reason: string) => void,
 ): () => void {
-  const dtlsTransport = peer.sctpTransport?.dtlsTransport;
-  if (!dtlsTransport) {
-    onFailed('no DTLS transport for the data channel');
-    return () => undefined;
-  }
   let done = false;
   const settle = (): void => {
     if (done) return;
-    const der = dtlsTransport.dtls?.remoteCertificate;
     done = true;
-    if (!der) {
+    const fingerprint = peer.remoteFingerprint();
+    if (fingerprint === undefined) {
       onFailed('the DTLS layer exposed no remote certificate');
       return;
     }
-    try {
-      onVerified(certificateFingerprint(der, algorithm));
-    } catch (error) {
-      onFailed(error instanceof Error ? error.message : String(error));
+    const value = fingerprint.value.toUpperCase();
+    if (fingerprint.algorithm.toLowerCase() !== algorithm.toLowerCase()) {
+      onFailed(
+        `the remote certificate was checked with ${fingerprint.algorithm}, not ${algorithm}`,
+      );
+      return;
     }
+    if (!FINGERPRINT_VALUE.test(value)) {
+      onFailed('the remote certificate fingerprint is malformed');
+      return;
+    }
+    onVerified(value);
   };
-  if (dtlsTransport.state === 'connected') {
+  const fail = (state: string): void => {
+    if (done) return;
+    done = true;
+    onFailed(`the connection ended ${state} before DTLS completed`);
+  };
+  if (peer.state === 'connected') {
     settle();
     return () => undefined;
   }
-  if (dtlsTransport.state === 'failed' || dtlsTransport.state === 'closed') {
-    onFailed(`the DTLS handshake ended ${dtlsTransport.state}`);
+  if (peer.state === 'failed' || peer.state === 'closed') {
+    fail(peer.state);
     return () => undefined;
   }
-  const subscription = dtlsTransport.onStateChange.subscribe((state) => {
+  const unsubscribe = peer.onStateChange((state) => {
     if (state === 'connected') settle();
-    else if (state === 'failed' || state === 'closed') {
-      if (done) return;
-      done = true;
-      onFailed(`the DTLS handshake ended ${state}`);
-    } else return;
-    subscription.unSubscribe();
+    else if (state === 'failed' || state === 'closed') fail(state);
+    else return;
+    unsubscribe();
   });
-  return () => subscription.unSubscribe();
+  return unsubscribe;
 }

@@ -5,7 +5,7 @@ import { Check, Copy, Code } from 'lucide-react';
 import type { IPlaygroundAgentConfig } from '../../../lib/playground/robota-executor';
 import type { IPlaygroundToolMeta } from '../../../tools/catalog';
 import type { IPlaygroundSkillMeta } from '../../../skills/catalog';
-import { generateAgentCode } from '../../../lib/code-generator';
+import { generateAgentCode, isExportableProvider } from '../../../lib/code-generator';
 import { SyntaxHighlighter } from './syntax-highlighter';
 import { InstallGuide } from './install-guide';
 
@@ -53,10 +53,12 @@ export function CodeExportPanel({
 
   const debouncedState = useDebounced(assemblyState, DEBOUNCE_MS);
 
-  const code = useMemo(
-    () => (debouncedState ? generateAgentCode(debouncedState) : null),
-    [debouncedState],
-  );
+  // The rendered code, install guide and support check all follow the debounced provider, so a
+  // provider switch never pairs a supported view with an unsupported provider.
+  const exportState =
+    debouncedState && isExportableProvider(debouncedState.agent.provider) ? debouncedState : null;
+
+  const code = useMemo(() => (exportState ? generateAgentCode(exportState) : null), [exportState]);
 
   const handleCopy = useCallback(async () => {
     if (!code) return;
@@ -96,6 +98,17 @@ export function CodeExportPanel({
     );
   }
 
+  if (debouncedState && !exportState) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-muted-foreground">
+        <Code className="h-10 w-10 opacity-30" />
+        <p className="text-sm">
+          Code export does not support the "{debouncedState.agent.provider}" provider
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="w-full h-full flex flex-col overflow-hidden">
       <div className="flex items-center justify-between px-4 py-2 border-b border-border shrink-0">
@@ -121,7 +134,7 @@ export function CodeExportPanel({
       </div>
       <div className="flex-1 overflow-auto p-4 bg-zinc-950/50">
         <div data-code-export-pre>{code && <SyntaxHighlighter code={code} />}</div>
-        <InstallGuide />
+        {exportState && <InstallGuide provider={exportState.agent.provider} />}
       </div>
     </div>
   );

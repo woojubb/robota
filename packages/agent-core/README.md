@@ -192,7 +192,7 @@ agent-core (this package — zero workspace dependencies)
   ↑
 agent-session     ← Session lifecycle
 agent-tools       ← Tool implementations
-agent-provider    ← AI provider implementations (consolidated, multi-vendor sub-paths)
+agent-provider-* ← AI provider implementations (one package per vendor)
 agent-plugin      ← Plugin implementations (8 plugins, consolidated)
   ↑
 agent-framework   ← Assembly layer

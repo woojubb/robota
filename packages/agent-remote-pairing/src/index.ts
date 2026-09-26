@@ -189,6 +189,20 @@ export type {
 export { PAIRWISE_SECRET_LABEL, derivePairwiseSecret } from './identity/pairwise-secret.js';
 export type { IDerivePairwiseSecretInput } from './identity/pairwise-secret.js';
 export {
+  RENDEZVOUS_EPOCH_MS,
+  derivePairRendezvous,
+  rendezvousEpoch,
+} from './identity/rendezvous.js';
+export type {
+  IDerivePairRendezvousInput,
+  IPairRendezvous,
+  IRelayInboxTopics,
+  IRendezvousLists,
+  TRendezvousDirection,
+  TRendezvousRecordPurpose,
+  TRendezvousTagPurpose,
+} from './identity/rendezvous.js';
+export {
   DEVICE_HANDSHAKE_PROTOCOL,
   decodeDeviceHandshakeFrame,
 } from './identity/device-handshake-frames.js';

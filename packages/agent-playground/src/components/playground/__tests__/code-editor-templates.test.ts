@@ -24,3 +24,15 @@ describe('code editor templates', () => {
     }
   });
 });
+
+describe('code editor template imports', () => {
+  it.each(Object.entries(exampleTemplates))(
+    '%s imports providers from per-vendor packages',
+    (_key, template) => {
+      expect(template.code).not.toMatch(/@robota-sdk\/agent-provider['/]/);
+      for (const [, name] of template.code.matchAll(/import \{ (\w+Provider) \}/g)) {
+        expect(template.code).toContain(`import { ${name} } from '@robota-sdk/agent-provider-`);
+      }
+    },
+  );
+});

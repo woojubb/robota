@@ -4,7 +4,8 @@
 
 WebRTC P2P transport. Carries the protocol-owned `IProtocolSession` capability over an `RTCDataChannel` so an
 external remote client can co-drive a live `agent-cli` session directly, peer-to-peer, without routing session
-content through any server. Reuses the transport-neutral session bridge + wire protocol from
+content through any server; and connects two of one user's devices to each other (the device mesh), admitted by
+the device handshake. Reuses the transport-neutral session bridge + wire protocol from
 `@robota-sdk/agent-transport` (the same handler the WebSocket transport uses) so the protocol is shared, not
 duplicated. The public attach contract accepts that protocol role set directly: a full interactive
 session is a valid host input, but unrelated session capabilities are outside the carrier's
@@ -20,13 +21,15 @@ dependency.
   reason for the `webrtc → agent-remote-pairing` edge.
 - Does NOT own signaling — SDP/ICE rendezvous is an injected signaling port. The transport never inspects
   signaling internals.
-- Does NOT bundle the WebRTC implementation. `werift` (pure-TS) is an **optional peer dependency** loaded lazily;
-  its absence surfaces an explicit "WebRTC transport unavailable" throw at point-of-use — never a silent no-op or
-  degraded path (no-fallback rule).
+- Does NOT bundle the WebRTC implementation. `node-datachannel` (libdatachannel, DTLS by OpenSSL) is an
+  **optional peer dependency** loaded lazily, because it ships a native binary per platform; where it cannot load
+  the transport is unavailable with an explicit "WebRTC transport unavailable" throw at point-of-use — never a
+  silent no-op, and never another implementation (no-fallback rule).
 - **No enable path here.** The transport defaults to disabled, is not registered in `agent-cli`, and exposes no
   command to turn it on; wiring an enable path is out of scope for this package.
 - **Admission is decided at construction, and there is no unstated default.** With a pairing secret, the data
-  channel is phase-separated: pre-accept it carries only pairing frames (non-pairing frames dropped), and only
+  channel is phase-separated: pre-accept it carries only pairing frames (anything else is held, bounded, until
+  this side's verdict and discarded if pairing fails, since the peer may finish first and speak at once), and only
   after the handshake accepts (channel-bound to the DTLS fingerprints) is the session bridge built — fail closed on
   mismatch/timeout (channel closed, session never exposed).
 
@@ -68,9 +71,56 @@ dependency.
 
 ## Design decisions
 
-- **Host is the offerer.** Inbound answer/ICE signals are serialized so `setRemoteDescription` always precedes any
-  `addIceCandidate`, because the WebRTC implementation in use does not buffer trickle candidates that precede the
-  remote description.
+- **The session host is the offerer; in the device mesh the pair decides.** Inbound description/ICE signals are
+  applied in arrival order, and a candidate that arrives before the remote description waits for it, so trickled
+  candidates are never lost to ordering. Between two devices the one with
+  the lower device id offers and the other only answers, so two devices reaching for each other at once make one
+  connection by rule rather than by whichever message arrives first; a repeated announcement from the peer run
+  already being served is ignored, and a new run of the peer replaces the connection.
+- **Device mesh admission.** A mesh connection binds the device handshake the way the session gate binds pairing,
+  in both roles: the remote fingerprint comes from the certificate the DTLS layer verified, the remote description
+  must advertise exactly one fingerprint, and one is taken per connection. Until admission only handshake frames
+  cross; anything else ends the connection. A side counts the connection admitted only after the peer says it
+  admitted it too, so a refused peer never believes it is connected. Each connection has a DTLS certificate of its
+  own: a per-process certificate would be a stable identifier the relay could link across connections, and one two
+  endpoints in a process would share. No ICE server is contacted unless one is configured. Every way signals travel — the relay, or a peer's
+  direct endpoint on the local network — is reached only through opaque, pairwise topics and is never trusted for
+  anything but delivery: nothing it says is authenticated, so a new attempt runs beside the admitted connection
+  and replaces it only once admitted itself, and attempts per pair are paced — forged announcements can neither
+  cut a working connection nor open connections without bound.
+  Lists adopted in a handshake or handed over later apply from the next handshake, and a device they revoke loses
+  its connection at once. Admission says who the peer is; what it may do on the connection is its connection
+  authority's answer, so even a message is delivered only when that authority allows it. A file travels on a
+  channel of its own, opened only on an admitted connection, so a transfer never shares the message channel.
+- **Discovery yields candidates, never trust.** Whatever a discovery path answers only carries signals, so a stale
+  or planted address can delay a connection but not admit one; a device list found on the way is only a candidate
+  too, verified by the handshake before it counts. A pair tries what reveals least first: an address that already
+  carried an admitted connection needs no broadcast, the local network needs no third party, public records and
+  public signaling relays involve strangers, and the user's own relay is the last resort. A signaling carrier that
+  carries no admission in time is set aside for the next one, as a direct endpoint is, since a public relay may
+  drop what it cannot read. An endpoint carries a pair's signals only once it proves it holds the pair's topic,
+  and is set aside when no admission follows, so no endpoint can hold a pair off the relay; an address is
+  remembered only after an admission it carried. The mDNS announcement is built record by record rather than by
+  a service-publishing library, because those publish the machine's host name: the service type names no
+  product, every instance name is a pairwise tag that rotates by epoch, the host name is random, and the
+  instance count is padded with names that hold for the epoch, so it does not tell how many devices there are.
+  On the local network, topics travel only as hashes and rotate by epoch, so what an observer there sees does
+  not carry the stable relay inbox topics.
+- **Public infrastructure sees only signed ciphertext, and nothing that names a device, a user or the product.**
+  Records on the Mainline DHT (or pkarr relays in front of it) and events on Nostr relays are signed by one-time
+  keys of a pair, a direction, an epoch and a purpose; salts and Nostr kinds rotate the same way, values are the
+  pair's own AEAD ciphertext padded to a fixed size, and a device's records are published at jittered times so they
+  do not appear together. What stays visible is what the network already shows: a relay or DHT node sees the
+  publisher's address and timing, and a relay can group one device's traffic by its connection. The relays span
+  several operators and are replaceable in settings; none is trusted with anything but delivery, and every record
+  or event is checked against the key it must carry before it is opened. Device lists found there are returned as
+  candidates, every one, because any paired device can publish one: the handshake keeps the newest that verifies,
+  so a forged "newer" list cannot hide a real revocation. The draft WebRTC-signaling NIP is not used because its
+  events would name the connection's parties; the event format is ours. pkarr relays carry no salt and only DNS
+  packets, so a record's pkarr form is the salt-less item under the same one-time key, its value wrapped in one TXT
+  record. The DHT and Nostr clients are maintained, pure JavaScript and permissively licensed, so they are ordinary
+  dependencies; the DHT client is loaded only when a device turns the DHT on, so importing this package opens no
+  socket.
 - **The data channel is wired eagerly at creation, not on open.** The session message handler is built and its
   message subscription attached immediately, because the underlying implementation does not buffer inbound frames
   that arrive before a subscription, and the remote can send its first client message before the host's channel
@@ -104,14 +154,17 @@ dependency.
 - **Reporter forwarding.** Usage reporters are forwarded only after admission, on both direct and paired handlers.
   A reconnecting session retains the same reporters for its full lifetime, so resumption changes delivery state
   but not admitted-owner query authority.
-- **WebRTC implementation swap is a design decision, not a fallback.** The implementation is isolated behind a
-  lazy loader so that moving to a different WebRTC implementation is a recorded choice, never a silent runtime
-  degrade.
+- **The WebRTC implementation is `node-datachannel`, chosen, not fallen back to.** Channel binding means something
+  only if the DTLS layer proves the peer holds the key of the certificate it presents, i.e. verifies the handshake
+  signatures, which OpenSSL's DTLS does. It also connects quickly, notices a dead peer, and contacts no ICE server
+  it was not given. The cost is a native binary per platform, which is why it is optional and why a platform
+  without one has no WebRTC transport at all. The implementation sits behind one lazy loader and one peer
+  wrapper, so a later change is again a recorded choice.
 
 ## Error Taxonomy
 
-- The optional WebRTC peer dependency absent → the lazy loader throws an explicit "WebRTC transport unavailable"
-  error at point-of-use (never a silent degrade).
+- The optional WebRTC dependency absent, or without a binary for this platform → the lazy loader throws an
+  explicit "WebRTC transport unavailable" error at point-of-use (never a silent degrade).
 - Starting before attaching → throws a lifecycle error naming the required order.
 - An outbound send failure on a closing/closed channel — whether a session event or a reply that resolved after
   the drop — closes and detaches that carrier, reports the delivery-error observer exactly once, and leaves the

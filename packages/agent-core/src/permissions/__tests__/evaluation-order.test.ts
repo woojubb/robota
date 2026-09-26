@@ -68,9 +68,9 @@ describe('ask rules', () => {
   });
 
   it('refuse in plan mode unless the call only inspects', () => {
-    expect(
-      evaluatePermission('Bash', { command: 'git push' }, 'plan', { ask: ['Bash'] }),
-    ).toBe('deny');
+    expect(evaluatePermission('Bash', { command: 'git push' }, 'plan', { ask: ['Bash'] })).toBe(
+      'deny',
+    );
     expect(
       evaluatePermission('Read', { filePath: '/w/project/a.ts' }, 'plan', { ask: ['Read'] }),
     ).toBe('approve');
@@ -99,17 +99,17 @@ describe('critical-path removal is never auto-approved', () => {
     'rm -rf "$HOME/"',
     'rm -rf ${HOME}/',
   ])('%s asks under bypassPermissions', (command) => {
-    expect(evaluatePermission('Bash', { command }, 'bypassPermissions', {}, where)).toBe(
-      'approve',
-    );
+    expect(evaluatePermission('Bash', { command }, 'bypassPermissions', {}, where)).toBe('approve');
   });
 
-  it.each(['rm -rf build', 'rm -rf ./dist node_modules', 'rm -rf /w/project/tmp', 'rm ~/scratch.txt'])(
-    '%s stays automatic under bypassPermissions',
-    (command) => {
-      expect(evaluatePermission('Bash', { command }, 'bypassPermissions', {}, where)).toBe('auto');
-    },
-  );
+  it.each([
+    'rm -rf build',
+    'rm -rf ./dist node_modules',
+    'rm -rf /w/project/tmp',
+    'rm ~/scratch.txt',
+  ])('%s stays automatic under bypassPermissions', (command) => {
+    expect(evaluatePermission('Bash', { command }, 'bypassPermissions', {}, where)).toBe('auto');
+  });
 
   it('is not rescued by an allow rule', () => {
     expect(
@@ -160,43 +160,67 @@ describe('protected paths', () => {
   });
 
   it('do not stop reading', () => {
-    expect(
-      evaluatePermission('Read', { filePath: '/w/project/.git/HEAD' }, 'default'),
-    ).toBe('auto');
+    expect(evaluatePermission('Read', { filePath: '/w/project/.git/HEAD' }, 'default')).toBe(
+      'auto',
+    );
   });
 });
 
 describe('the caller ceiling', () => {
   it('denies outside it even under bypassPermissions', () => {
     expect(
-      evaluatePermission('Write', { filePath: '/w/project/a.ts' }, 'bypassPermissions', {}, {
-        ceiling: ['Read'],
-      }),
+      evaluatePermission(
+        'Write',
+        { filePath: '/w/project/a.ts' },
+        'bypassPermissions',
+        {},
+        {
+          ceiling: ['Read'],
+        },
+      ),
     ).toBe('deny');
   });
 
   it('denies rather than asks when the call is outside it and also never-auto', () => {
     expect(
-      evaluatePermission('Bash', { command: 'rm -rf ~' }, 'bypassPermissions', {}, {
-        ...where,
-        ceiling: ['Read'],
-      }),
+      evaluatePermission(
+        'Bash',
+        { command: 'rm -rf ~' },
+        'bypassPermissions',
+        {},
+        {
+          ...where,
+          ceiling: ['Read'],
+        },
+      ),
     ).toBe('deny');
   });
 
   it('an empty ceiling denies everything', () => {
     expect(
-      evaluatePermission('Read', { filePath: '/w/project/a.ts' }, 'bypassPermissions', {}, {
-        ceiling: [],
-      }),
+      evaluatePermission(
+        'Read',
+        { filePath: '/w/project/a.ts' },
+        'bypassPermissions',
+        {},
+        {
+          ceiling: [],
+        },
+      ),
     ).toBe('deny');
   });
 
   it('lets calls inside it continue to the rest of the order', () => {
     expect(
-      evaluatePermission('Read', { filePath: '/w/project/a.ts' }, 'bypassPermissions', {}, {
-        ceiling: ['Read'],
-      }),
+      evaluatePermission(
+        'Read',
+        { filePath: '/w/project/a.ts' },
+        'bypassPermissions',
+        {},
+        {
+          ceiling: ['Read'],
+        },
+      ),
     ).toBe('auto');
   });
 });
@@ -204,9 +228,15 @@ describe('the caller ceiling', () => {
 describe('ask-everything callers', () => {
   it('ask under bypassPermissions, and still lose to a deny', () => {
     expect(
-      evaluatePermission('Read', { filePath: '/w/project/a.ts' }, 'bypassPermissions', {}, {
-        askAll: true,
-      }),
+      evaluatePermission(
+        'Read',
+        { filePath: '/w/project/a.ts' },
+        'bypassPermissions',
+        {},
+        {
+          askAll: true,
+        },
+      ),
     ).toBe('approve');
     expect(
       evaluatePermission(
@@ -282,5 +312,27 @@ describe('a turn a peer’s message started', () => {
     expect(
       evaluatePermission('peer_reply', { text: 'hi' }, 'default', {}, { ...where, peerTurn: true }),
     ).toBe('approve');
+  });
+
+  it('refuses a tool a peer turn must not reach, in every mode and whatever the rules allow', () => {
+    registerToolPermissionProfile('peer_send_file', {
+      argument: { key: 'path', kind: 'path' },
+      riskClass: 'inspect',
+      notInPeerTurn: true,
+    });
+    for (const mode of MODES) {
+      expect(
+        evaluatePermission(
+          'peer_send_file',
+          { path: 'a.txt' },
+          mode,
+          { allow: ['peer_send_file'] },
+          { ...where, peerTurn: true },
+        ),
+      ).toBe('deny');
+    }
+    expect(evaluatePermission('peer_send_file', { path: 'a.txt' }, 'default', {}, where)).toBe(
+      'auto',
+    );
   });
 });

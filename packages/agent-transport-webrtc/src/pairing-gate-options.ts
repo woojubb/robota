@@ -24,7 +24,7 @@ import type {
 import type { IHandoffGrantProof } from './handoff-grant-gate.js';
 import type { ILocalPeerProof } from './local-peer-proof.js';
 
-/** The minimal data-channel surface the gate drives (a werift `RTCDataChannel` satisfies it). */
+/** The minimal data-channel surface the gate drives (the transport's data channel satisfies it). */
 export interface IPairingChannel {
   send(data: string): void;
   close(): void;

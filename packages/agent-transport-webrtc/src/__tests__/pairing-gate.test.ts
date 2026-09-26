@@ -8,7 +8,6 @@ import { WebRtcDeliveryLifecycle } from '../webrtc-delivery-lifecycle.js';
 import type { startPairingHandshake, TPairingFrame } from '@robota-sdk/agent-remote-pairing';
 import type { createSessionMessageHandler } from '@robota-sdk/agent-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
-import type { RTCDataChannel } from 'werift';
 
 /**
  * REMOTE-008 Step 1 (SECURITY milestone) — the pairing gate's fail-closed routing switch, driven with a stub
@@ -81,7 +80,7 @@ describe('PairingGate (REMOTE-008 Step 1 — fail-closed routing switch)', () =>
     expect(channelSends).toContain(JSON.stringify({ t: 'pair-nonce', nonce: 'stub' }));
   });
 
-  it('pre-accept: routes a pairing frame to the handshake and DROPS a non-pairing frame', () => {
+  it('pre-accept: routes a pairing frame to the handshake and keeps a non-pairing frame from the session', () => {
     const { gate, hs, sessionOnMessage } = makeGate();
     gate.onInbound(JSON.stringify({ t: 'pair-confirm', mac: 'm' }));
     expect(hs.received).toEqual([{ t: 'pair-confirm', mac: 'm' }]);
@@ -113,6 +112,26 @@ describe('PairingGate (REMOTE-008 Step 1 — fail-closed routing switch)', () =>
     await Promise.resolve(); // let the result.then microtask run
     gate.onInbound(JSON.stringify({ type: 'submit', prompt: 'hi' }));
     expect(sessionOnMessage).toHaveBeenCalledWith(JSON.stringify({ type: 'submit', prompt: 'hi' }));
+  });
+
+  it('a session frame the peer sends before this side accepts is held, then delivered after acceptance', async () => {
+    // The peer finishes its half of the handshake first and asks for the history at once.
+    const { gate, hs, sessionOnMessage } = makeGate();
+    const early = JSON.stringify({ type: 'get-messages' });
+    gate.onInbound(early);
+    expect(sessionOnMessage).not.toHaveBeenCalled();
+    hs.accept();
+    await Promise.resolve();
+    expect(sessionOnMessage).toHaveBeenCalledWith(early);
+  });
+
+  it('frames held before a rejection are discarded, never delivered', async () => {
+    const { gate, hs, sessionOnMessage } = makeGate();
+    gate.onInbound(JSON.stringify({ type: 'get-messages' }));
+    hs.reject();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(sessionOnMessage).not.toHaveBeenCalled();
   });
 
   it('on REJECT: closes the channel and NEVER exposes the session', async () => {
@@ -251,8 +270,7 @@ describe('PairingGate (REMOTE-008 Step 1 — fail-closed routing switch)', () =>
       remoteFingerprint: 'BB',
       startHandshake: hs.start,
       onAccept: () => lifecycle.accept(1),
-      onDeliveryError: (error, event) =>
-        lifecycle.handleFailure(channel as unknown as RTCDataChannel, 1, error, event),
+      onDeliveryError: (error, event) => lifecycle.handleFailure(channel, 1, error, event),
     });
     hs.accept();
     await Promise.resolve();

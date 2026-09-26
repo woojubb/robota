@@ -25,13 +25,13 @@ describe('parseIceServers (REMOTE-010 host validator)', () => {
     expect(parseIceServers(cfg)).toEqual(cfg);
   });
 
-  it('fail-closed: array urls — werift silently drops them, so reject (do not fail open)', () => {
+  it('fail-closed: array urls — one url per server, so reject (do not fail open)', () => {
     expect(() => parseIceServers([{ urls: ['turn:a:3478', 'turn:b:3478'] }])).toThrow(
       /single url string/,
     );
   });
 
-  it('fail-closed: turns:/stuns: scheme — werift drops them, so reject', () => {
+  it('fail-closed: turns:/stuns: scheme — not a shape the host configuration takes, so reject', () => {
     expect(() => parseIceServers([{ urls: 'turns:turn.example:5349' }])).toThrow(/turns:\/stuns:/);
     expect(() => parseIceServers([{ urls: 'stuns:x' }])).toThrow(/scheme/);
   });

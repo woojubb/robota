@@ -164,7 +164,9 @@ These are behaviors a caller cannot infer from a type signature alone.
   may start only a bounded number of turns over time, because a message still runs this owner's
   model. The answer goes back only through the reply tool, whose target is the sender admission
   bound to the incoming message and whose thread is that message's own — the model chooses the text,
-  never the recipient, and a message naming a sender other than the admitted one is refused.
+  never the recipient, and a message naming a sender other than the admitted one is refused. Such a
+  turn cannot send files; outside one, the model sends a file only through a tool that asks the owner
+  about every file, a question no mode, rule or remembered consent answers.
 - **Automatic session naming is text-only.** The title-generation call — whether triggered by an
   operator message or the first external event — always disables tool use, so hosted web tools can
   never be invoked merely to generate a title.

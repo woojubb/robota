@@ -1,0 +1,40 @@
+name: Publish to npm
+
+# Publishes every public @robota-sdk package at the release version through npm trusted publishing (OIDC):
+# no npm token is stored anywhere; each run gets a short-lived, run-scoped credential and provenance is
+# attached automatically. npm accepts it only for this workflow file running in the `npm-publish`
+# environment, which requires the owner's approval and allows `main` only. A package's first publish
+# still needs the owner's OTP (a trusted publisher can only be configured for an existing package).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: npm-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: publish
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: npm-publish
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 8.15.4
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      # Trusted publishing needs npm >= 11.5.1; pnpm 8 hands the packed tarball to this npm. Pinned so a
+      # release run is reproducible.
+      - run: npm install -g npm@11.20.0
+      - run: pnpm install --frozen-lockfile
+      - run: bash scripts/publish/publish-packages.sh --trusted

@@ -36,6 +36,7 @@ export const DEVICE_CERTIFICATE_VALIDITY_MS = 90 * DAY_MS;
 export const DEVICE_CAPABILITIES = [
   'delegate',
   'drive',
+  'file',
   'handoff',
   'message',
   'observe',

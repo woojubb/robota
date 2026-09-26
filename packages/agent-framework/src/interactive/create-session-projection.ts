@@ -179,6 +179,7 @@ export function buildCreateSessionOptions(
     includeGoalTool: true,
     includeSessionLoopDecisionTool: true,
     ...(options.peerReply ? { peerReply: options.peerReply } : {}),
+    ...(options.peerSendFile ? { peerSendFile: options.peerSendFile } : {}),
     ...(options.responseFormat ? { responseFormat: options.responseFormat } : {}),
     ...(contextCapacityHint !== undefined ? { contextCapacityHint } : {}),
   };

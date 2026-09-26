@@ -61,23 +61,26 @@
     "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/agent-remote-pairing": "workspace:*",
     "@robota-sdk/agent-transport": "workspace:*",
+    "bittorrent-dht": "^11.0.12",
+    "multicast-dns": "^7.2.5",
+    "nostr-tools": "^2.25.2",
     "ws": "^8.21.1"
   },
   "peerDependencies": {
-    "werift": "^0.24.0"
+    "node-datachannel": "^0.33.4"
   },
   "peerDependenciesMeta": {
-    "werift": {
+    "node-datachannel": {
       "optional": true
     }
   },
   "devDependencies": {
     "@types/ws": "^8.18.1",
+    "node-datachannel": "^0.33.4",
     "rimraf": "^5.0.10",
     "tsdown": "^0.22.14",
     "typescript": "^6.0.3",
-    "vitest": "^3.2.6",
-    "werift": "^0.24.0"
+    "vitest": "^3.2.6"
   },
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "publishConfig": {

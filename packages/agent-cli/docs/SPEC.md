@@ -67,11 +67,25 @@ without implying a background supervisor or an attach/restart capability; it inc
 user-owned and currently authorized project records, never transcript content, and corrupt or
 unsupported records stay visible rather than being hidden.
 
-A local peer message is taken as coming from the session it names only when that session, asked at
-its own socket, confirms it is sending exactly that message to this receiver; anything else is
-refused. The same user can reach every socket in the rendezvous, so the name a message states is a
+A local peer message or file is taken as coming from the session it names only when that session,
+asked at its own socket, confirms it is sending exactly that message or file to this receiver;
+anything else is refused. The same user can reach every socket in the rendezvous, so the name a message states is a
 claim, and it decides where an answer goes and whom the turn is attributed to — never what the turn
 may do, which the session's ordinary permissions decide as for its own work.
+
+A file from another session or device is kept only with the operator's yes to that file, as an inert
+copy in a directory of the sender's under this user's `~/.robota`, under a name that cannot leave it,
+replace anything or follow a link; the conversation is told its name, size and hash, never its
+content. Sending is the operator's command for any readable file, and the model's only within the
+workspace and away from anything that looks like a secret, because a model steered by what it read
+must not reach the credentials beside a project.
+
+A session moves to another session or device only when its holder's operator pushes it; nothing
+answers a request for a session. The receiving side takes it only on a grant for that one transfer over
+that channel, signed by a device it already knows, and with its own operator's yes; it keeps the
+payload aside until it matches the manifest, and saves it without starting it. The holder lets go, and
+ends, only on the acknowledgement that the session is saved there, so two processes never run one
+conversation.
 
 A conversation between local peers is bounded, so two agents that always answer cannot message each
 other forever: its depth and this session's answers in it are counted from what this session itself
@@ -138,16 +152,16 @@ Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`)
 
 ### Import Rules
 
-| Source                  | Allowed                                                                                                      |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `agent-framework`       | SDK-owned APIs and facades                                                                                   |
-| `agent-core`            | Public types + utilities only; internal engine (`Robota`, `ExecutionService`, `ConversationStore`) forbidden |
-| `agent-session`         | Forbidden — the SDK provides its own session/permission types                                                |
-| `agent-tools`           | Forbidden — the SDK assembles tools internally                                                               |
-| `agent-command`         | Slash-command modules only                                                                                   |
-| `agent-subagent-runner` | Subagent/background runner only                                                                              |
-| `agent-provider`        | Provider definition assembly only                                                                            |
-| `agent-preset`          | Preset id selection + resolution only — `resolvePreset` owns the precedence merge                            |
+| Source                    | Allowed                                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `agent-framework`         | SDK-owned APIs and facades                                                                                   |
+| `agent-core`              | Public types + utilities only; internal engine (`Robota`, `ExecutionService`, `ConversationStore`) forbidden |
+| `agent-session`           | Forbidden — the SDK provides its own session/permission types                                                |
+| `agent-tools`             | Forbidden — the SDK assembles tools internally                                                               |
+| `agent-command`           | Slash-command modules only                                                                                   |
+| `agent-subagent-runner`   | Subagent/background runner only                                                                              |
+| `agent-builtin-providers` | Provider definition assembly only                                                                            |
+| `agent-preset`            | Preset id selection + resolution only — `resolvePreset` owns the precedence merge                            |
 
 ## Design decisions
 
@@ -194,6 +208,12 @@ refused.
 A key that has ever sat in a plain file backups and dotfile sync copy is never carried into the
 store: it is replaced by a new key, the file is removed, and the operator is told once that trusted
 devices must pair again.
+
+A device that keeps the device-signing key reissues the roster and revocation list before they lapse
+while an interactive session runs. The lists expire quickly so that a withheld list cannot pass for a
+current one for long, which only holds if their issuer keeps renewing them without waiting for an
+operator; the signing key exists for exactly this, and the recovery phrase is never involved. Print,
+serve and test runs do not reissue, so running the CLI for a single task never rewrites identity state.
 
 ### MCP client composition
 

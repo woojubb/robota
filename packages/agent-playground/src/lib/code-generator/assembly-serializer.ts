@@ -1,5 +1,5 @@
 import type { IAssemblyState } from './assembly-state';
-import { getProviderTemplate } from './provider-templates';
+import { requireProviderTemplate } from './provider-templates';
 import { getSkillById } from '../../skills/catalog';
 
 function escapeTemplateLiteral(str: string): string {
@@ -14,7 +14,7 @@ function buildProviderParts(state: IAssemblyState): {
   importLine: string;
   providerLine: string;
 } {
-  const providerTmpl = getProviderTemplate(state.agent.provider);
+  const providerTmpl = requireProviderTemplate(state.agent.provider);
   return {
     importLine: `import { ${providerTmpl.className} } from '${providerTmpl.importPath}';`,
     providerLine: `  provider: new ${providerTmpl.className}({ apiKey: process.env.${providerTmpl.envKey} }),`,

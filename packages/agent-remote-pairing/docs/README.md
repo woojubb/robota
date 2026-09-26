@@ -35,7 +35,7 @@ const handshake = startPairingHandshake({
   secret: pairing.secret,
   role: 'initiator',
   localFingerprint: extractDtlsFingerprint(localSdp),
-  remoteFingerprint: extractDtlsFingerprint(remoteSdp), // the SDP werift verified
+  remoteFingerprint: extractDtlsFingerprint(remoteSdp), // the certificate the DTLS layer verified
   send: (frame) => channel.send(JSON.stringify(frame)),
 });
 channel.onMessage((raw) => handshake.onFrame(JSON.parse(raw)));

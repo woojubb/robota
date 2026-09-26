@@ -90,7 +90,14 @@ session id, nonce, channel fingerprint, and expiry. A signature over a subset wo
 attacker-editable while still verifying.
 
 **Signaling stays a rendezvous.** The grant is minted by the source and verified by the destination end to end, so
-a signaling server that reads every byte still cannot authorize a transfer.
+a signaling server that reads every byte still cannot authorize a transfer. Every place two devices meet — a relay
+inbox, a local-network announcement, a published record, a live signal — is derived from their pairwise secret and
+separated by direction and purpose, so whoever carries it can neither link it to a device nor let a third party
+address the pair, the two directions never overwrite each other, and a record of one purpose never opens as
+another. Every value that anyone but the user's own relay can see rotates by epoch, and a lookup also tries the
+adjacent epochs so clocks that disagree a little still meet. Derivation takes
+the lists in force and refuses a device they do not name with the same key-agreement key, so a rotated or revoked
+key stops meeting anyone. A rendezvous only says where a peer might be; admission is still the device handshake.
 
 **Trust levels stay distinct.** A cross-host same-user admission must never satisfy a check that wanted
 same-host-same-user, or a local admission could authorize a cross-device transfer. A device certificate proves the

@@ -7,9 +7,9 @@
  *
  * - `presence` and `message` need nothing more. A message carries no authority: the turn it starts is
  *   decided by this session's ordinary permissions, like the session's own work.
- * - `delegate` and `handoff` ask the operator for every request. A delegated task runs as a peer
- *   turn under this session's ordinary permissions; nothing the sender attaches to the request
- *   travels with it.
+ * - `delegate`, `handoff` and `file` ask the operator for every request. A delegated task runs as a
+ *   peer turn under this session's ordinary permissions; nothing the sender attaches to the request
+ *   travels with it. A received file is data kept aside, never run and never handed to the model.
  * - `observe` and `drive` ask the operator once for every connection. A new connection asks again,
  *   however recently the same device was allowed.
  *
@@ -18,6 +18,7 @@
  * admit the next device itself.
  */
 
+import type { IFileOffer } from './file-transfer-contracts.js';
 import type { TMeshCapability, TPeerReach } from './mesh-admission-contracts.js';
 import type { IPeerTurnContext } from '@robota-sdk/agent-interface-session';
 
@@ -28,6 +29,7 @@ const APPROVAL: Readonly<Record<TMeshCapability, TCapabilityApproval>> = {
   presence: 'never',
   message: 'never',
   delegate: 'every-request',
+  file: 'every-request',
   handoff: 'every-request',
   observe: 'every-connection',
   drive: 'every-connection',
@@ -171,6 +173,20 @@ export class ConnectionAuthority {
         },
       },
     };
+  }
+
+  /**
+   * Ask the operator about one incoming file. The question names it as offered — name, size and
+   * hash — so the yes is for exactly the content the receiver then verifies.
+   */
+  authorizeFile(
+    offer: Pick<IFileOffer, 'name' | 'size' | 'sha256'>,
+    signal?: AbortSignal,
+  ): Promise<TCapabilityDecision> {
+    return this.authorize('file', {
+      summary: `${offer.name} (${offer.size} bytes, sha256 ${offer.sha256})`,
+      ...(signal ? { signal } : {}),
+    });
   }
 
   private async ask(

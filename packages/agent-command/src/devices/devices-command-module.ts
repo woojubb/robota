@@ -195,7 +195,7 @@ export async function executeDevicesCommand(
     case 'join':
       return {
         success: false,
-        message: `\`/devices ${verb}\` is not available yet: enrolling another device needs the device connection, which is not built yet.`,
+        message: `\`/devices ${verb}\` is not available yet: enrolling another device over the device connection is not built yet.`,
       };
     default:
       return { success: false, message: `Unknown argument "${verb}". ${USAGE}` };

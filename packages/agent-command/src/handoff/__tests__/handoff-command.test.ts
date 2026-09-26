@@ -138,8 +138,8 @@ describe('every outcome says where the session is now', () => {
     const result = await executeHandoffCommand(context, 'laptop');
 
     expect(result.success).toBe(true);
-    expect(result.message).toContain('laptop is running this session now');
-    expect(result.message).toContain('read-only');
+    expect(result.message).toContain('laptop saved this session and has not started it');
+    expect(result.message).toContain('this one ends');
   });
 
   it('says the session is still here when the transfer stops, and why', async () => {
@@ -155,7 +155,7 @@ describe('every outcome says where the session is now', () => {
     expect(result.success).toBe(false);
     expect(result.message).toContain('no provider credential');
     expect(result.message).toContain('still on this machine');
-    expect(result.message).not.toContain('read-only');
+    expect(result.message).not.toContain('this one ends');
   });
 
   it('names the waiting phase as safe to leave, since that is when it looks stuck', async () => {

@@ -7,11 +7,13 @@ export function createPeersCommandEntry(): ICommand {
   return {
     name: 'peers',
     displayName: 'Peers',
-    description: 'List the other live sessions on this host, or send one a message',
+    description:
+      'List the other live sessions on this host, send one a message, or send one a copy of a file',
     source: 'peers',
     // The model does not enumerate the operator's other sessions. Discovery is an operator-facing
     // view of who is at the machine, which is a fact about the person and not about the task.
-    // User-only: sends messages into other sessions; crossing a session boundary is the user's call.
+    // User-only: sends messages and files into other sessions; crossing a session boundary is the
+    // user's call. The model sends a file only through `peer_send_file`, which asks every time.
     modelInvocable: false,
   };
 }

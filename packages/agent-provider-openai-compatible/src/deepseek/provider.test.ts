@@ -268,7 +268,7 @@ describe('DeepSeekProvider', () => {
 
   // TC-03 (runtime half): DeepSeek has no native per-call reasoning-effort param.
   // A populated `effort` must complete without throwing AND must not appear on the
-  // built Chat Completions request. (The no-op is documented in agent-provider SPEC.md.)
+  // built Chat Completions request.
   it('TC-03: ignores per-call effort without error and emits no effort param', async () => {
     const provider = new DeepSeekProvider({ apiKey: 'deepseek-key' });
     const client = getClient(provider);

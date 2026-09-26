@@ -38,7 +38,7 @@ function realRegistry(): TransportRegistry {
 }
 
 /**
- * REMOTE-013 E4 TC-04/05 (host) — the controller reconnect orchestration with fakes (no werift): first-pair
+ * REMOTE-013 E4 TC-04/05 (host) — the controller reconnect orchestration with fakes (no real WebRTC): first-pair
  * persists the reconnect seed+counter; a drop re-arms the `{counter, counter+1}` rooms at the rotating
  * rendezvous; a confirmed reconnect advances the counter (resync-on-success); the ceiling frees the session.
  */

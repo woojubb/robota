@@ -9,16 +9,40 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { homedir } from 'node:os';
 
 import { PeerMessageIngress } from '@robota-sdk/agent-framework';
+import { DEFAULT_MAX_FILE_BYTES } from '@robota-sdk/agent-transport/node';
+
+import { createHostCredentialStore } from '../credentials/select-credential-store.js';
+import { createHandoffComposition } from '../handoff/handoff-composition-root.js';
+import {
+  createHandoffHostAdapter,
+  describeHandoffArrival,
+  localHandoffArrival,
+  readHandoffIdentity,
+  type IHandoffSourceSession,
+} from '../handoff/handoff-host-adapter.js';
+import { createHandoffReceiver } from '../handoff/handoff-receiving.js';
+import { prepareOutgoingFile } from '../peer-files/outgoing-file.js';
+import { formatRobotaResumeCommand } from '../product/robota-command-vocabulary.js';
+import { userLocalStorageRoot } from '../product/user-paths.js';
 
 import { announceLocalPeerPresence } from '../remote-control/local-peer-presence.js';
 import { bindLocalPeerStatus } from '../remote-control/local-peer-status.js';
 import { startLocalPeerMessaging } from '../remote-control/local-peer-messaging.js';
 
 import type { ILocalPeerPresence } from '../remote-control/local-peer-presence.js';
-import type { IPeerMessaging } from '../remote-control/local-peer-messaging.js';
-import type { IPeerTurnContext, ITurnHandle } from '@robota-sdk/agent-interface-session';
+import type {
+  IPeerFileReceiving,
+  IPeerMessaging,
+  IPeerMessagingOptions,
+} from '../remote-control/local-peer-messaging.js';
+import type {
+  IInteractiveSessionStore,
+  IPeerTurnContext,
+  ITurnHandle,
+} from '@robota-sdk/agent-interface-session';
 import type { IPeerMessageIngress } from '@robota-sdk/agent-interface-session-mobility';
 
 /** The one session operation peer messaging needs — narrow, so this file cannot grow a second one. */
@@ -152,6 +176,8 @@ export function attachLocalPeerMessaging(
   report: IAdapterReporter,
   start: typeof startLocalPeerMessaging = startLocalPeerMessaging,
   previous?: Promise<IPeerMessaging | undefined>,
+  files?: IPeerFileReceiving,
+  onHandoff?: IPeerMessagingOptions['onHandoff'],
 ): Promise<IPeerMessaging | undefined> {
   const adapter = adapters.localPeers;
   if (presence === undefined || adapter === undefined) return Promise.resolve(undefined);
@@ -162,7 +188,7 @@ export function attachLocalPeerMessaging(
   // second bind SUCCEEDS and the first server is simply orphaned: a listener and its fd per switch,
   // leaking silently because nothing errors.
   return closeQuietly(previous, report).then(() =>
-    startMessaging(adapter, presence, getSession, report, start),
+    startMessaging(adapter, presence, getSession, report, start, files, onHandoff),
   );
 }
 
@@ -191,8 +217,12 @@ function startMessaging(
   getSession: () => IPeerIngressSession,
   report: IAdapterReporter,
   start: typeof startLocalPeerMessaging,
+  files: IPeerFileReceiving | undefined,
+  onHandoff: IPeerMessagingOptions['onHandoff'],
 ): Promise<IPeerMessaging | undefined> {
   return start({
+    ...(files !== undefined ? { files } : {}),
+    ...(onHandoff !== undefined ? { onHandoff } : {}),
     guardedDirectory: presence.guardedDirectory,
     sessionId: presence.sessionId,
     list: () => presence.list(),
@@ -221,6 +251,28 @@ function startMessaging(
         const ack = await messaging.send(targetSessionId, text, options);
         return { state: ack.state, ...(ack.reason !== undefined ? { reason: ack.reason } : {}) };
       };
+      // Checked and measured here, sent only when the caller says so: the model's tool asks the
+      // operator in between, and nothing is read from the peer until then.
+      adapter.prepareFile = async (targetSessionId, path, { origin, cwd }) => {
+        const prepared = await prepareOutgoingFile({
+          path,
+          cwd,
+          home: homedir(),
+          origin,
+          maxBytes: DEFAULT_MAX_FILE_BYTES,
+        });
+        if (!prepared.ok) return prepared;
+        const { file } = prepared;
+        return {
+          ok: true,
+          file: {
+            path: file.path,
+            size: file.size,
+            sha256: file.sha256,
+            send: () => messaging.sendFile(targetSessionId, file),
+          },
+        };
+      };
       return messaging;
     },
     (error: unknown) => {
@@ -247,12 +299,18 @@ export function attachHostAdapters(
   controller: RemoteControlController,
   report: IAdapterReporter,
   announce?: (options: { sessionId: string }) => ILocalPeerPresence,
+  handoff?: IHandoffWiring,
 ): (channel: {
   getSession(): IPeerIngressSession;
   readonly isActiveForPeerStatus?: boolean;
 }) => void {
   adapters.remoteControl = buildRemoteControlHostAdapter(controller);
   const presence = attachLocalPeerDiscovery(adapters, report, announce);
+  let live: { session?: IPeerIngressSession; messaging?: IPeerMessaging } = {};
+  const onHandoff =
+    presence !== undefined && handoff !== undefined
+      ? attachHandoff(adapters, presence, controller, report, handoff, () => live)
+      : undefined;
   // Returns the ACTIVATOR rather than the presence, so the composition root names one thing and
   // never learns what messaging needs from it.
   //
@@ -279,6 +337,8 @@ export function attachHostAdapters(
         );
       }
     }
+    live = { session: channel.getSession() };
+    const current = live;
     running = attachLocalPeerMessaging(
       adapters,
       presence,
@@ -286,6 +346,104 @@ export function attachHostAdapters(
       report,
       startLocalPeerMessaging,
       running,
+      // Files are kept under this HOME, and each one is put to the operator at this terminal.
+      {
+        root: userLocalStorageRoot(),
+        ...(controller.operatorApprover !== undefined
+          ? { approver: controller.operatorApprover }
+          : {}),
+      },
+      onHandoff,
+    );
+    void running.then((messaging) => {
+      if (live === current && messaging !== undefined) live = { ...current, messaging };
+    });
+  };
+}
+
+/** What `/handoff` needs from the composition root beyond the peer channel. */
+export interface IHandoffWiring {
+  /** This session's project store: what is handed off is read from it, what arrives is saved to it. */
+  readonly sessionStore: IInteractiveSessionStore;
+  /** Whether this machine built its provider from its own configuration; credentials never travel. */
+  readonly hasOwnProvider: () => boolean;
+  /** The session has moved: end this process. */
+  readonly onHandedOff: () => void;
+}
+
+/** A session, as `/handoff` reads it, when the live one offers what it needs. */
+function handoffSession(
+  session: IPeerIngressSession | undefined,
+): IHandoffSourceSession | undefined {
+  const candidate = session as Partial<IHandoffSourceSession> | undefined;
+  return candidate !== undefined &&
+    typeof candidate.getSessionId === 'function' &&
+    typeof candidate.getCwd === 'function' &&
+    typeof candidate.isExecuting === 'function'
+    ? (candidate as IHandoffSourceSession)
+    : undefined;
+}
+
+/**
+ * `/handoff` over the same-host peer channel: the adapter that pushes this session, and the receiver
+ * for a session pushed here. Returns what the listener hands each hand-off channel to.
+ */
+function attachHandoff(
+  adapters: ICommandHostAdapters,
+  presence: ILocalPeerPresence,
+  controller: RemoteControlController,
+  report: IAdapterReporter,
+  wiring: IHandoffWiring,
+  live: () => { session?: IPeerIngressSession; messaging?: IPeerMessaging },
+): NonNullable<IPeerMessagingOptions['onHandoff']> {
+  const root = userLocalStorageRoot();
+  const credentials = createHostCredentialStore({ root, notify: () => {} });
+  const composition = createHandoffComposition();
+  adapters.handoff = createHandoffHostAdapter({
+    root,
+    store: credentials.store,
+    composition,
+    sessionStore: wiring.sessionStore,
+    getSession: () => handoffSession(live().session),
+    peers: { list: () => presence.list(), ownSessionId: () => presence.sessionId },
+    openChannel: () => {
+      const messaging = live().messaging;
+      return messaging === undefined
+        ? undefined
+        : (target: string) => messaging.openHandoffChannel(target);
+    },
+    onHandedOff: wiring.onHandedOff,
+  });
+  const receive = createHandoffReceiver({
+    root,
+    composition,
+    identity: () => readHandoffIdentity(root),
+    resolveCredential: wiring.hasOwnProvider,
+    // Saved into this session's project, where the operator resumes it; the source's path means
+    // nothing here. Nothing starts it.
+    persist: (record) => {
+      const cwd = handoffSession(live().session)?.getCwd() ?? record.cwd;
+      wiring.sessionStore.save({ ...record, cwd });
+      return true;
+    },
+    deviceLabel: 'this session',
+  });
+  return (sender, channel) => {
+    const arrival = localHandoffArrival(
+      {
+        sessionId: presence.sessionId,
+        root,
+        ...(controller.operatorApprover !== undefined
+          ? { approver: controller.operatorApprover }
+          : {}),
+      },
+      sender,
+      channel,
+    );
+    void receive(arrival).then((outcome) =>
+      report.writeError(
+        describeHandoffArrival(sender.sessionId, outcome, formatRobotaResumeCommand),
+      ),
     );
   };
 }
