@@ -1,12 +1,21 @@
 import { announceAppend } from './execution-event-helpers';
 import { callProviderWithIdleTimeout } from './execution-round-provider';
 import { PROVIDER_CALL_EVENTS, PROVIDER_FALLBACK_EVENTS } from '../event-service/span-events';
-import { moveModelRoute, openModelRoute, routeModel, routeProvider } from './execution-model-route';
+import {
+  moveModelRoute,
+  openModelRoute,
+  routeModel,
+  routeProvider,
+  type IModelRoute,
+} from './execution-model-route';
 import { isAbortFailure } from '../utils/abort-classification';
 import { randomId } from '../utils/random-id.js';
 import { verifiedProviderCallUsage } from './provider-call-usage';
 import { presentMessageOrigins } from './message-origin';
-import { resolveProviderCallTraceContext, withOutboundTraceContext } from './execution-trace-context';
+import {
+  resolveProviderCallTraceContext,
+  withOutboundTraceContext,
+} from './execution-trace-context';
 
 import type {
   IExecutionContext,
@@ -47,6 +56,8 @@ export async function forceSummaryCall(
     currentRound: roundState.currentRound,
     conversationId,
   });
+  let route: IModelRoute = {};
+  let committed = false;
   try {
     const syntheticMsg =
       roundState.forcedSummaryInstruction ??
@@ -92,7 +103,7 @@ export async function forceSummaryCall(
     // away, an unabortable call here is a hang on the public streaming API. It goes through the same
     // helper every round call goes through, so there is one implementation of "call the provider".
     // Tools stay deliberately absent: this call exists to END the tool loop, not to extend it.
-    const route = openModelRoute(resolved, resolved.aiProviderInfo.model, executionId);
+    route = openModelRoute(resolved, resolved.aiProviderInfo.model, executionId);
     const chatOptions: IChatOptions = {
       model: resolved.aiProviderInfo.model,
       effort: config.defaultModel?.effort ?? 'auto',
@@ -170,7 +181,9 @@ export async function forceSummaryCall(
       if (isAbortFailure(error, fullContext.signal)) providerOutcome = 'interrupted';
       throw error;
     } finally {
-      const usage = dispatch.invoked ? verifiedProviderCallUsage(forceResponse) : { provenance: 'absent' as const };
+      const usage = dispatch.invoked
+        ? verifiedProviderCallUsage(forceResponse)
+        : { provenance: 'absent' as const };
       fullContext.onExecutionEvent?.(PROVIDER_CALL_EVENTS.COMPLETED, {
         executionId,
         conversationId,
@@ -188,11 +201,12 @@ export async function forceSummaryCall(
           }),
         }),
         usageProvenance: usage.provenance,
-        ...('promptTokens' in usage && usage.promptTokens !== undefined && {
-          promptTokens: usage.promptTokens,
-          completionTokens: usage.completionTokens,
-          totalTokens: usage.totalTokens,
-        }),
+        ...('promptTokens' in usage &&
+          usage.promptTokens !== undefined && {
+            promptTokens: usage.promptTokens,
+            completionTokens: usage.completionTokens,
+            totalTokens: usage.totalTokens,
+          }),
       } as TExecutionEventData);
     }
 
@@ -215,6 +229,7 @@ export async function forceSummaryCall(
       }),
     };
     conversationStore.addAssistantMessage(committedText, [], summaryMetadata);
+    committed = true;
     // CORE-033: the summary is the turn's answer; committing it silently left the last thing the
     // user reads absent from every replay of the conversation.
     fullContext.onExecutionEvent?.('assistant_message_committed', {
@@ -227,8 +242,29 @@ export async function forceSummaryCall(
       round: roundState.currentRound,
     });
   } catch (forceErr) {
-    logger.warn('Forced summary call failed', {
-      error: forceErr instanceof Error ? forceErr.message : String(forceErr),
-    });
+    // The summary is already the turn's answer; only announcing it failed.
+    if (committed) {
+      logger.warn('Forced summary announcement failed', {
+        error: forceErr instanceof Error ? forceErr.message : String(forceErr),
+      });
+      return;
+    }
+    // An aborted summary leaves the turn to resolve as interrupted, like an aborted round.
+    if (isAbortFailure(forceErr, fullContext.signal)) return;
+    // CORE-027: a failed summary call fails the turn the way a failed round does. It was logged and
+    // dropped, which left a result with `success: false` and no error, so the caller received the
+    // generic `[STRICT-POLICY]` error instead of the provider's own (status, code, category).
+    roundState.providerFailure = forceErr;
+    const errMsg = forceErr instanceof Error ? forceErr.message : String(forceErr);
+    logger.error('Forced summary call failed', { error: errMsg, round: roundState.currentRound });
+    const failureMetadata = {
+      round: roundState.currentRound,
+      executionId,
+      providerId: routeProvider(route, resolved),
+      modelId: routeModel(route, resolved.aiProviderInfo.model),
+      providerError: true,
+    };
+    conversationStore.addAssistantMessage(`Request failed: ${errMsg}`, [], failureMetadata);
+    announceAppend(conversationStore, fullContext, executionId, conversationId, failureMetadata);
   }
 }

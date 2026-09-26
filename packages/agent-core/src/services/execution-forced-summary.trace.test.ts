@@ -9,15 +9,41 @@ describe('forced-summary provider lifecycle', () => {
     const addAssistantMessage = vi.fn();
     await forceSummaryCall(
       { getMessages: () => [], addAssistantMessage } as never,
-      { provider: { chat: async () => ({ role: 'assistant', content: 'private summary', metadata: { usageProvenance: 'complete' }, usage: { promptTokens: 20, completionTokens: 5, totalTokens: 25 } }) }, currentInfo: { provider: 'anthropic' }, aiProviderInfo: { model: 'claude-sonnet-4-6' } } as never,
+      {
+        provider: {
+          chat: async () => ({
+            role: 'assistant',
+            content: 'private summary',
+            metadata: { usageProvenance: 'complete' },
+            usage: { promptTokens: 20, completionTokens: 5, totalTokens: 25 },
+          }),
+        },
+        currentInfo: { provider: 'anthropic' },
+        aiProviderInfo: { model: 'claude-sonnet-4-6' },
+      } as never,
       { defaultModel: { model: 'claude-sonnet-4-6' } } as never,
-      'execution', { currentRound: 3 } as never, 'conversation',
-      { onExecutionEvent: (name: string, data: Record<string, unknown>) => events.push({ name, data }) } as never,
+      'execution',
+      { currentRound: 3 } as never,
+      'conversation',
+      {
+        onExecutionEvent: (name: string, data: Record<string, unknown>) =>
+          events.push({ name, data }),
+      } as never,
       { warn: vi.fn() } as never,
     );
     const completion = events.find((event) => event.name === PROVIDER_CALL_EVENTS.COMPLETED)!.data;
-    expect(completion).toMatchObject({ disposition: 'invoked', usageProvenance: 'complete', promptTokens: 20, completionTokens: 5, totalTokens: 25 });
-    expect(addAssistantMessage).toHaveBeenCalledWith('private summary', [], expect.objectContaining({ inputTokens: 20, outputTokens: 5, totalTokens: 25 }));
+    expect(completion).toMatchObject({
+      disposition: 'invoked',
+      usageProvenance: 'complete',
+      promptTokens: 20,
+      completionTokens: 5,
+      totalTokens: 25,
+    });
+    expect(addAssistantMessage).toHaveBeenCalledWith(
+      'private summary',
+      [],
+      expect.objectContaining({ inputTokens: 20, outputTokens: 5, totalTokens: 25 }),
+    );
     expect(JSON.stringify(completion)).not.toContain('private summary');
   });
   it('carries an adapter-attested providerRequestId for the forced-summary call', async () => {
@@ -58,6 +84,7 @@ describe('forced-summary provider lifecycle', () => {
         return { role: 'assistant', content: 'private summary', metadata: {} };
       };
       const addAssistantMessage = vi.fn();
+      const roundState: { currentRound: number; providerFailure?: unknown } = { currentRound: 3 };
 
       await forceSummaryCall(
         { getMessages: () => [], addAssistantMessage } as never,
@@ -68,13 +95,13 @@ describe('forced-summary provider lifecycle', () => {
         } as never,
         { defaultModel: { model: 'private-model' } } as never,
         'private-execution',
-        { currentRound: 3 } as never,
+        roundState as never,
         'private-conversation',
         {
           onExecutionEvent: (name: string, data: Record<string, unknown>) =>
             events.push({ name, data }),
         } as never,
-        { warn: vi.fn() } as never,
+        { warn: vi.fn(), error: vi.fn() } as never,
         2,
       );
 
@@ -88,8 +115,22 @@ describe('forced-summary provider lifecycle', () => {
         modelId: 'private-model',
       });
       expect(typeof completions[0]!.data['callId']).toBe('string');
-      expect(JSON.stringify(completions[0]!.data)).not.toMatch(/private summary|private provider failure/);
-      expect(addAssistantMessage).toHaveBeenCalledTimes(outcome === 'success' ? 1 : 0);
+      expect(JSON.stringify(completions[0]!.data)).not.toMatch(
+        /private summary|private provider failure/,
+      );
+      // A failed summary is recorded like a failed round (display text + the thrown value carried
+      // out on the round state); an interrupted one leaves the turn to resolve as interrupted.
+      expect(addAssistantMessage).toHaveBeenCalledTimes(outcome === 'interrupted' ? 0 : 1);
+      if (outcome === 'failure') {
+        expect(addAssistantMessage).toHaveBeenCalledWith(
+          'Request failed: private provider failure',
+          [],
+          expect.objectContaining({ providerError: true, round: 3 }),
+        );
+        expect((roundState.providerFailure as Error).message).toBe('private provider failure');
+      } else {
+        expect(roundState.providerFailure).toBeUndefined();
+      }
     },
   );
 });
