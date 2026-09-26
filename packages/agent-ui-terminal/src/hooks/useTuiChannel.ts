@@ -23,7 +23,7 @@ import type {
   IExecutionDetailPage,
   IExecutionWorkspaceSnapshot,
 } from '@robota-sdk/agent-interface-execution';
-import type { IResumableSessionSummary, IToolState } from '@robota-sdk/agent-interface-session';
+import type { ISessionListingEntry, IToolState } from '@robota-sdk/agent-interface-session';
 
 export interface ITuiChannelState {
   uiEventPort: ITuiSessionUiEventPort;
@@ -50,7 +50,7 @@ export interface ITuiChannelState {
   pendingUserAction: IActionRequest | null;
   contextState: { percentage: number; usedTokens: number; maxTokens: number };
   /** The host's sessions for the picker, when the channel's host keeps them. */
-  hostSessions: readonly IResumableSessionSummary[] | undefined;
+  hostSessions: readonly ISessionListingEntry[] | undefined;
   /** Changes when the transcript starts over for another session under this channel. */
   transcriptGeneration: number;
   handleSubmit: (input: string) => Promise<void>;

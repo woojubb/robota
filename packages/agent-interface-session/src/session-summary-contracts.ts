@@ -9,13 +9,24 @@ export interface IResumableSessionSummary {
 }
 
 /**
+ * A row of a session listing on a host that keeps sessions live. Both fields are optional so a
+ * client reading an older host, which sends neither, sees a plain summary.
+ */
+export interface ISessionListingEntry extends IResumableSessionSummary {
+  /** The session is running in the host now, not only stored. */
+  live?: boolean;
+  /** How many clients are bound to it. */
+  clients?: number;
+}
+
+/**
  * The sessions a client can switch to, as a host lists them: this workspace's readable sessions,
  * newest first, which one is current, and the ids of records that could not be read — listed, not
  * dropped, so an unreadable session never looks deleted.
  */
 export interface ISessionListing {
   readonly currentSessionId: string;
-  readonly sessions: readonly IResumableSessionSummary[];
+  readonly sessions: readonly ISessionListingEntry[];
   readonly unreadableSessionIds: readonly string[];
 }
 

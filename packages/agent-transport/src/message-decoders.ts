@@ -14,6 +14,8 @@
  * owner and is tracked there, not duplicated in a transport package.
  */
 
+import { SESSION_CHANGE_REFUSAL_CODES } from '@robota-sdk/agent-interface-session';
+
 import type { TBackgroundControlAction, TClientMessage, TServerMessage } from './wire-messages.js';
 
 export type TMessageDecodeResult<TMessage> =
@@ -110,8 +112,8 @@ export const CLIENT_MESSAGE_SHAPES: Readonly<Record<TClientMessage['type'], TVar
   'get-commands': {},
   'get-status': {},
   'list-sessions': { requestId: isNonEmptyString },
-  'new-session': {},
-  'switch-session': { sessionId: isNonEmptyString },
+  'new-session': { requestId: isOptional(isNonEmptyString) },
+  'switch-session': { sessionId: isNonEmptyString, requestId: isOptional(isNonEmptyString) },
   'get-usage-report': {},
   'get-personal-usage-report': {
     requestId: isNonEmptyString,
@@ -175,6 +177,11 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
     message: isString,
   },
   session_switched: { event: isRecord },
+  session_change_failed: {
+    code: oneOf(SESSION_CHANGE_REFUSAL_CODES),
+    message: isString,
+    requestId: isOptional(isString),
+  },
   usage_report: { report: isRecord },
   personal_usage_report: { requestId: isNonEmptyString, report: isRecord },
   personal_usage_report_error: {

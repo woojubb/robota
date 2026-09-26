@@ -1,6 +1,6 @@
 /**
  * #3189: clients list the host's sessions, start a new one and switch to another over the wire. The
- * host owns the directory; the protocol correlates the listing and carries a refusal's reason.
+ * host owns the directory; the protocol correlates the listing and carries a refusal's code and reason.
  */
 
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
@@ -10,7 +10,11 @@ import { createOutboundDelivery } from '../outbound-delivery.js';
 import { createSessionMessageHandler } from '../session-message-handler.js';
 
 import type { TClientMessage, TServerMessage } from '../wire-messages.js';
-import type { ISessionDirectory, ISessionListing } from '@robota-sdk/agent-interface-session';
+import type {
+  ISessionDirectory,
+  ISessionListing,
+  TSessionChangeRefusalCode,
+} from '@robota-sdk/agent-interface-session';
 
 const listing: ISessionListing = {
   currentSessionId: 'session-1',
@@ -47,6 +51,11 @@ function attach(options: { directory?: ISessionDirectory; role?: 'drive' | 'obse
     ...(options.role ? { role: options.role } : {}),
   });
   return { sent, send: (message) => onMessage(JSON.stringify(message)) };
+}
+
+/** The shape `SessionChangeRefusal` (agent-framework) has; this package cannot import the class. */
+function refusal(code: TSessionChangeRefusalCode, message: string): Error {
+  return Object.assign(new Error(message), { name: 'SessionChangeRefusal', code });
 }
 
 const flush = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
@@ -89,26 +98,45 @@ describe('session directory messages (#3189)', () => {
     ]);
   });
 
-  it('switches by id and answers nothing itself — the session_switched broadcast is the signal', async () => {
+  it('switches by id and answers nothing itself — session_switched from its session is the signal', async () => {
     const directory = createDirectory();
     const client = attach({ directory });
-    client.send({ type: 'switch-session', sessionId: 'session-2' });
+    client.send({ type: 'switch-session', sessionId: 'session-2', requestId: 'r2' });
     await flush();
     expect(directory.switchSession).toHaveBeenCalledExactlyOnceWith('session-2');
     expect(client.sent).toEqual([]);
   });
 
-  it('delivers a refused switch as protocol_error carrying the host reason', async () => {
+  it('delivers a declared refusal as session_change_failed with its code and the requestId', async () => {
     const directory = createDirectory({
       switchSession: vi.fn(async () => {
-        throw new Error('Stop the running turn first.');
+        throw refusal('prompt_pending', 'Answer the pending prompt first.');
+      }),
+    });
+    const client = attach({ directory });
+    client.send({ type: 'switch-session', sessionId: 'session-2', requestId: 'r2' });
+    await flush();
+    expect(client.sent).toEqual([
+      {
+        type: 'session_change_failed',
+        code: 'prompt_pending',
+        message: 'Answer the pending prompt first.',
+        requestId: 'r2',
+      },
+    ]);
+  });
+
+  it('delivers any other error as code failed with its message, and omits an absent requestId', async () => {
+    const directory = createDirectory({
+      switchSession: vi.fn(async () => {
+        throw new Error('disk full');
       }),
     });
     const client = attach({ directory });
     client.send({ type: 'switch-session', sessionId: 'session-2' });
     await flush();
     expect(client.sent).toEqual([
-      { type: 'protocol_error', message: 'Stop the running turn first.' },
+      { type: 'session_change_failed', code: 'failed', message: 'disk full' },
     ]);
   });
 
@@ -121,24 +149,29 @@ describe('session directory messages (#3189)', () => {
     expect(client.sent).toEqual([]);
 
     vi.mocked(directory.newSession).mockRejectedValueOnce(
-      new Error('Answer the pending prompt first.'),
+      refusal('limit', 'Four sessions are live already.'),
     );
-    client.send({ type: 'new-session' });
+    client.send({ type: 'new-session', requestId: 'r3' });
     await flush();
     expect(client.sent).toEqual([
-      { type: 'protocol_error', message: 'Answer the pending prompt first.' },
+      {
+        type: 'session_change_failed',
+        code: 'limit',
+        message: 'Four sessions are live already.',
+        requestId: 'r3',
+      },
     ]);
   });
 
-  it('refuses a switch or new session on a host without a directory', () => {
+  it('answers not_available to a switch or new session on a host without a directory', () => {
     const client = attach({});
-    client.send({ type: 'switch-session', sessionId: 'session-2' });
+    client.send({ type: 'switch-session', sessionId: 'session-2', requestId: 'r4' });
     client.send({ type: 'new-session' });
-    const refusal = {
-      type: 'protocol_error',
-      message: 'Sessions cannot be switched on this host.',
-    };
-    expect(client.sent).toEqual([refusal, refusal]);
+    const message = 'Sessions cannot be switched on this host.';
+    expect(client.sent).toEqual([
+      { type: 'session_change_failed', code: 'not_available', message, requestId: 'r4' },
+      { type: 'session_change_failed', code: 'not_available', message },
+    ]);
   });
 
   it('lets an observer list sessions but never start or switch one', async () => {

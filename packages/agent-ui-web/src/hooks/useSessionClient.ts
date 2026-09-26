@@ -115,15 +115,24 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   const commandsInFlightRef = useRef(0);
   // Session changes this surface asked for; a refusal answers one of them, not a command.
   const sessionChangesInFlightRef = useRef(0);
+  // Their request ids, for this connection: a refusal names the request it answers. A switch
+  // answers with no id, so an id that succeeded stays here until the connection is replaced.
+  const sessionChangeRequestIdsRef = useRef(new Set<string>());
   const send = useCallback((msg: TClientMessage): void => {
     if (msg.type === 'command') commandsInFlightRef.current += 1;
     if (msg.type === 'switch-session' || msg.type === 'new-session') {
       sessionChangesInFlightRef.current += 1;
+      if (msg.requestId !== undefined) sessionChangeRequestIdsRef.current.add(msg.requestId);
     }
     clientRef.current?.send(msg);
   }, []);
+  /** One session change this surface asked for has been answered. */
+  const settleSessionChange = useCallback((requestId?: string): void => {
+    sessionChangesInFlightRef.current = Math.max(0, sessionChangesInFlightRef.current - 1);
+    if (requestId !== undefined) sessionChangeRequestIdsRef.current.delete(requestId);
+  }, []);
   const { handleUsageMessage, ...personalUsageState } = usePersonalUsageState(send);
-  const { handleSessionsMessage, canListSessions, markCurrent, ...sessionDirectoryState } =
+  const { handleSessionsMessage, canListSessions, markCurrent, armRestore, ...sessionDirectoryState } =
     useSessionDirectoryState(send);
   const { requestSessions, setSessionSidebarOpen } = sessionDirectoryState;
 
@@ -233,7 +242,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         }
         // #3189: the host made another session current — drop what this one showed, re-read it all.
         case 'session_switched': {
-          sessionChangesInFlightRef.current = Math.max(0, sessionChangesInFlightRef.current - 1);
+          settleSessionChange();
           // Nothing of the old session stays on screen until the new one's answers arrive.
           setSessionStatus(null);
           streamingTextRef.current = '';
@@ -269,10 +278,26 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           ]);
           break;
         }
+        // #3189: a new or switch this surface asked for was refused; the reason is the toast, and
+        // commands in flight are untouched. Only the client that asked is told.
+        case 'session_change_failed': {
+          if (
+            msg.requestId !== undefined &&
+            !sessionChangeRequestIdsRef.current.has(msg.requestId)
+          ) {
+            break;
+          }
+          settleSessionChange(msg.requestId);
+          setSessionNotices((previous) => [
+            ...previous,
+            { id: nextId(), kind: 'session-change-refused', message: msg.message },
+          ]);
+          break;
+        }
         case 'protocol_error': {
           if (sessionChangesInFlightRef.current > 0) {
-            // A refused session change (#3189): its reason is the toast, and commands are untouched.
-            sessionChangesInFlightRef.current -= 1;
+            // A host older than `session_change_failed` refuses a session change with this.
+            settleSessionChange();
             setSessionNotices((previous) => [
               ...previous,
               { id: nextId(), kind: 'protocol-error', message: msg.message },
@@ -345,6 +370,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       requestSessions,
       send,
       setSessionSidebarOpen,
+      settleSessionChange,
       updateActiveTools,
     ],
   );
@@ -371,9 +397,12 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         // A reply lost with the old connection never arrives; stop waiting for it.
         commandsInFlightRef.current = 0;
         sessionChangesInFlightRef.current = 0;
+        sessionChangeRequestIdsRef.current.clear();
         pendingIntentRef.current = null;
         client.send({ type: 'get-commands' });
         client.send({ type: 'get-status' });
+        // A host that keeps sessions live puts a new connection on its primary session.
+        armRestore();
         requestSessions();
       }
     };
@@ -384,7 +413,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       client.disconnect();
       clientRef.current = null;
     };
-  }, [makeClient, handleMessage, requestSessions]);
+  }, [makeClient, handleMessage, requestSessions, armRestore]);
 
   return {
     status,

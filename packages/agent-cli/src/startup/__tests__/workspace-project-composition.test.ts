@@ -220,6 +220,55 @@ describe('CLI workspace project composition', () => {
     });
   });
 
+  describe('project memory', () => {
+    it.each(['darwin', 'win32'] as const)(
+      'is not composed for a trusted workspace on %s, and nothing is written for it',
+      async (platform) => {
+        const cwd = tempRoot(`robota-cli-trusted-${platform}-memory-`);
+        const userHome = tempRoot(`robota-cli-trusted-${platform}-memory-user-`);
+
+        const composition = createCliWorkspaceComposition({
+          cwd,
+          userHome,
+          projectAccess: await trustedAccess(cwd),
+          platform,
+        });
+
+        expect(composition.projectAccess.status).toBe('trusted');
+        expect(composition.memoryStore).toBeUndefined();
+        expect(readdirSync(cwd)).toEqual([]);
+        expect(existsSync(join(userHome, '.robota'))).toBe(false);
+      },
+    );
+
+    // ARCH-047: project mutation is Linux-only, so the project store can only be exercised there.
+    it.runIf(process.platform === 'linux')(
+      "stays in each trusted project on Linux, and one project's memory is not another's",
+      async () => {
+        const cwd = tempRoot('robota-cli-trusted-linux-memory-');
+        const otherCwd = tempRoot('robota-cli-trusted-linux-memory-other-');
+        const userHome = tempRoot('robota-cli-trusted-linux-memory-user-');
+        const compose = async (root: string) =>
+          createCliWorkspaceComposition({
+            cwd: root,
+            userHome,
+            projectAccess: await trustedAccess(root),
+            platform: 'linux',
+          }).memoryStore;
+        const own = await compose(cwd);
+        const other = await compose(otherCwd);
+
+        await own?.append({ type: 'project', topic: 'own-canary', text: 'own canary' });
+
+        expect((await own?.list())?.topics.map((topic) => topic.name)).toEqual(['own-canary']);
+        expect((await other?.list())?.topics).toEqual([]);
+        expect(existsSync(join(cwd, ROBOTA_PROJECT_STATE_DIRECTORIES.memory))).toBe(true);
+        expect(existsSync(join(otherCwd, ROBOTA_PROJECT_STATE_DIRECTORIES.memory))).toBe(false);
+        expect(existsSync(join(userHome, '.robota', 'memory'))).toBe(false);
+      },
+    );
+  });
+
   it('refuses trusted project access minted for a different CLI workspace root', async () => {
     const trustedRoot = tempRoot('robota-cli-trusted-root-');
     const cwd = tempRoot('robota-cli-other-root-');

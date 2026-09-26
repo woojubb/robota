@@ -179,9 +179,11 @@ export function subscribeSessionEvents(
   const onSessionRenamed = (event: ISessionRenamedEvent): void =>
     deliver({ type: 'session_renamed', event });
   const onHistoryCleared = (): void => deliver({ type: 'history_cleared' });
-  // #3189: BROADCAST — the host made another session current; every attached surface re-reads.
+  // #3189: this surface's session is now another one; it re-reads what it shows. Only surfaces
+  // subscribed to the session that moved hear it: a host that binds each connection to its own session
+  // sends it to the connection that switched, never to the others.
   const onSessionSwitched = (event: ISessionSwitchedEvent): void => {
-    // The previous session's prompts were settled as it was replaced.
+    // This connection no longer answers the previous session's prompts; it reads the new session's anew.
     openPrompts?.clear();
     deliver({ type: 'session_switched', event });
   };

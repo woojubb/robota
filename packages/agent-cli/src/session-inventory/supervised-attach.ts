@@ -22,7 +22,7 @@ import {
 } from '@robota-sdk/agent-transport';
 
 import type { Socket } from 'node:net';
-import type { ISessionDirectory } from '@robota-sdk/agent-interface-session';
+import type { ISessionBinder } from '@robota-sdk/agent-interface-session';
 import type {
   ICapabilityApprovalRequest,
   IOperatorApprover,
@@ -71,18 +71,16 @@ export interface ISupervisedAttachCarrier {
   admit(socket: Socket, request: object, rest: string, respond: ISupervisedAttachResponder): Promise<void>;
 }
 
-export interface ISupervisedAttachCarrierOptions {
-  /**
-   * The host's sessions, the same directory its WebSocket clients reach: an attached terminal lists,
-   * starts and switches them, and a switch moves every client. Absent, listing is not available.
-   */
-  readonly sessionDirectory?: ISessionDirectory;
-}
+/**
+ * What an attached terminal reaches. With a binder, each connection binds to the host's sessions as
+ * its WebSocket clients do: it lists, starts and switches them, and a switch moves that terminal
+ * alone. With a plain session, the terminal is on that session and listing is not available.
+ */
+export type TSupervisedAttachTarget =
+  | { readonly binder: ISessionBinder<IProtocolSession> }
+  | { readonly session: IProtocolSession };
 
-export function createSupervisedAttachCarrier(
-  session: IProtocolSession,
-  options: ISupervisedAttachCarrierOptions = {},
-): ISupervisedAttachCarrier {
+export function createSupervisedAttachCarrier(target: TSupervisedAttachTarget): ISupervisedAttachCarrier {
   const attached = new Set<Socket>();
   let admitted = 0;
   return {
@@ -115,6 +113,11 @@ export function createSupervisedAttachCarrier(
         return;
       }
       const driverId = `attach:${(admitted += 1)}`;
+      // Bound for the life of this connection, in the role it asked for, and released when it ends.
+      const { session, directory, release } = 'binder' in target
+        ? target.binder.bind(mode)
+        : { session: target.session, directory: undefined, release: () => undefined };
+      socket.once('close', release);
       respond.accept(driverId);
       const deliver = createOutboundDelivery(
         (message) => {
@@ -132,7 +135,7 @@ export function createSupervisedAttachCarrier(
         driverId,
         surface: 'attach',
         role: mode,
-        ...(options.sessionDirectory !== undefined ? { sessionDirectory: options.sessionDirectory } : {}),
+        ...(directory !== undefined ? { sessionDirectory: directory } : {}),
       });
       // Detaching, a crash of the attacher, and the session closing its control all end here. The
       // session is never told to abort: an unsubscribed surface is simply gone, and a prompt only it

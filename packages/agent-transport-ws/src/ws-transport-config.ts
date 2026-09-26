@@ -8,9 +8,9 @@
  */
 
 import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
-import type { TDriverId } from '@robota-sdk/agent-interface-session';
+import type { ISessionBinder, TDriverId } from '@robota-sdk/agent-interface-session';
 import type { ITransportLifecycleError } from '@robota-sdk/agent-interface-transport';
-import type { ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
+import type { IProtocolSession, ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
 
 export const DEFAULT_PORT = 7070;
 export const DEFAULT_MAX_RETRIES = 20;
@@ -28,6 +28,13 @@ export interface IWsTransportConfig {
   storedSessionUsageReporter?: ISessionMessageHandlerOptions['storedSessionUsageReporter'];
   /** Host-owned session directory (#3189): lets every connection list, start and switch sessions. */
   sessionDirectory?: ISessionMessageHandlerOptions['sessionDirectory'];
+  /**
+   * #3189: gives each connection a binding of its own — its own session and its own directory view —
+   * so one connection's switch moves only that connection. Released when the connection closes. When
+   * set, a connection uses its binding's session and directory instead of the attached session and
+   * `sessionDirectory`; without it every connection shares the attached session.
+   */
+  sessionBinder?: ISessionBinder<IProtocolSession>;
   port?: number;
   maxRetries?: number;
   /**

@@ -1,3 +1,5 @@
+import { isSessionChangeRefusal } from '@robota-sdk/agent-interface-session';
+
 import type { TOutboundDeliver } from './outbound-delivery.js';
 import type { TClientMessage } from './wire-messages.js';
 import type { ISessionDirectory } from '@robota-sdk/agent-interface-session';
@@ -14,9 +16,10 @@ export function isSessionDirectoryMessage(msg: TClientMessage): msg is TSessionD
 }
 
 /**
- * #3189: the host's sessions. Listing answers on its own correlated reply; a new session or a switch
- * answers nothing on success (the host's `session_switched` broadcast is the shared signal) and a
- * `protocol_error` carrying the host's reason when it refuses.
+ * #3189: the host's sessions. Listing answers on its own correlated reply. A new session or a switch
+ * answers nothing on success: `session_switched` from the connection's own session is the signal. A
+ * refusal answers `session_change_failed`, carrying the host's code (or `failed` for an error that is
+ * not a declared refusal) and the request's `requestId`.
  */
 export function handleSessionDirectoryMessage(
   deliver: TOutboundDeliver,
@@ -27,8 +30,14 @@ export function handleSessionDirectoryMessage(
     listSessions(deliver, msg.requestId, directory);
     return;
   }
+  const request = msg.requestId !== undefined ? { requestId: msg.requestId } : {};
   if (!directory) {
-    deliver({ type: 'protocol_error', message: 'Sessions cannot be switched on this host.' });
+    deliver({
+      type: 'session_change_failed',
+      code: 'not_available',
+      message: 'Sessions cannot be switched on this host.',
+      ...request,
+    });
     return;
   }
   const change = (): Promise<void> =>
@@ -36,7 +45,12 @@ export function handleSessionDirectoryMessage(
   void Promise.resolve()
     .then(change)
     .catch((error: Error | string) =>
-      deliver({ type: 'protocol_error', message: failureMessage(error) }),
+      deliver({
+        type: 'session_change_failed',
+        code: isSessionChangeRefusal(error) ? error.code : 'failed',
+        message: failureMessage(error),
+        ...request,
+      }),
     );
 }
 

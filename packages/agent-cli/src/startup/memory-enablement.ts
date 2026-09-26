@@ -13,7 +13,10 @@
 
 import { join } from 'node:path';
 
-import { WorkspaceAuthorityRequiredError } from '@robota-sdk/agent-framework';
+import {
+  WorkspaceAuthorityRequiredError,
+  supportsWorkspaceProjectMutation,
+} from '@robota-sdk/agent-framework';
 
 import type {
   IMemoryBudget,
@@ -134,12 +137,17 @@ export function buildMemorySessionOptions(
  * session fields, print the one-time enable notice. Extracted (CLI-2004) so `cli.ts` reads as one
  * line per surface concern instead of a resolver expanded inline — the same shape
  * `resolveScreenReaderRenderFields` uses, so the two surface switches are read side by side.
+ *
+ * On a host that cannot write project memory safely the workspace composes no memory store; turning
+ * memory on there prints why it stays off instead of refusing the whole run.
  */
 export function resolveMemorySurfaceOptions(inputs: {
   settings: Record<string, unknown> | undefined;
   args: { memory: boolean | undefined; memoryAutoSave: boolean };
   memoryStore: IMemoryStore | undefined;
   cwd: string;
+  platform?: NodeJS.Platform;
+  write?: (message: string) => void;
 }): IMemorySessionOptions {
   const enablement = resolveMemoryEnablement({
     settings: readMemorySettings(inputs.settings),
@@ -147,12 +155,25 @@ export function resolveMemorySurfaceOptions(inputs: {
     flagAutoSave: inputs.args.memoryAutoSave,
     env: process.env['ROBOTA_MEMORY'],
   });
+  const platform = inputs.platform ?? process.platform;
+  if (
+    enablement.enabled &&
+    inputs.memoryStore === undefined &&
+    !supportsWorkspaceProjectMutation(platform)
+  ) {
+    printMemoryUnavailableNoticeOnce(platform, inputs.write);
+    return {};
+  }
   const options = buildMemorySessionOptions(enablement, inputs.memoryStore);
-  if (enablement.enabled) printMemoryEnableNoticeOnce(inputs.cwd);
+  if (enablement.enabled) printMemoryEnableNoticeOnce(inputs.cwd, inputs.write);
   return options;
 }
 
 let enableNoticePrinted = false;
+
+function writeToStderr(message: string): void {
+  process.stderr.write(message);
+}
 
 /**
  * Print a concise, one-time (per process) enable notice to stderr: what is captured, where it is stored,
@@ -160,9 +181,7 @@ let enableNoticePrinted = false;
  */
 export function printMemoryEnableNoticeOnce(
   cwd: string,
-  write: (message: string) => void = (message) => {
-    process.stderr.write(message);
-  },
+  write: (message: string) => void = writeToStderr,
 ): void {
   if (enableNoticePrinted) return;
   enableNoticePrinted = true;
@@ -170,6 +189,20 @@ export function printMemoryEnableNoticeOnce(
   write(
     `Memory is ON (opt-in): capturing and recalling durable memory in ${storePath}. ` +
       `Inspect with /memory; disable with --no-memory or "memory": { "enabled": false } in settings.json.\n`,
+  );
+}
+
+/** Say once why memory that was turned on stays off on this host. */
+function printMemoryUnavailableNoticeOnce(
+  platform: NodeJS.Platform,
+  write: (message: string) => void = writeToStderr,
+): void {
+  if (enableNoticePrinted) return;
+  enableNoticePrinted = true;
+  write(
+    `Memory is OFF: project memory is kept in the project's .robota/memory, and on this host ` +
+      `(${platform}) Robota cannot prove a write stays inside the project, so nothing is captured ` +
+      `or recalled.\n`,
   );
 }
 

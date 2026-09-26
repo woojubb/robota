@@ -237,6 +237,37 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
     await host.shutdown();
   });
 
+  it('shutdown() drains every pooled session, the primary included (#3189)', async () => {
+    const registry = stubRegistry();
+    const host = await startRuntimeHost({
+      session: { cwd, provider: stubProvider() },
+      transportRegistry: registry,
+      pool: {},
+    });
+    const pool = host.pool!;
+    const primary = host.session.current;
+    const lease = await pool.acquire();
+    const binding = pool.bind('drive');
+    binding.moveTo(lease);
+    const pooled = lease.session;
+    expect(pooled).not.toBe(primary);
+    const primaryShutdown = vi.spyOn(primary, 'shutdown');
+    const pooledShutdown = vi.spyOn(pooled, 'shutdown');
+
+    await host.shutdown('bye');
+
+    expect(registry.stopAll).toHaveBeenCalledTimes(1);
+    expect(primaryShutdown).toHaveBeenCalledTimes(1);
+    expect(pooledShutdown).toHaveBeenCalledTimes(1);
+    await expect(pool.acquire()).rejects.toMatchObject({ code: 'stopping' });
+  });
+
+  it('holds one session and no pool unless asked for one (#3189)', async () => {
+    const host = await startRuntimeHost({ session: { cwd, provider: stubProvider() } });
+    expect(host.pool).toBeUndefined();
+    await host.shutdown();
+  });
+
   it('exposes ordered completion and prompt failure waits from the lifecycle registry', async () => {
     const registry = stubRegistry();
     const failed = createTransportFailedOutcome(2);

@@ -1,165 +1,209 @@
 /**
- * #3189 — the sessions a served runtime can switch between.
+ * #3189 — the sessions a served runtime keeps, one view of them per client.
  *
- * `robota --serve` holds one current session in its host's slot. This directory lists the
- * workspace's stored sessions and makes another one current — or a fresh one — without the process
- * or any client connection restarting. A change that would lose work in progress is refused with the
- * reason, never carried out halfway.
+ * `robota --serve` keeps several sessions live in a pool. Each client connection binds to it and
+ * gets a view of its own: its directory lists the workspace's stored sessions, says which one THIS
+ * client is on and which are live, and a switch or a new session moves this client alone. Leaving a
+ * session that is working does not stop that work: the pool keeps the session running. A change is
+ * refused only where carrying it out would leave something no one can finish — a prompt that only
+ * this client could answer — and a refusal says why with a code the client can branch on.
  */
 
-import { isTerminalBackgroundTaskStatus } from '@robota-sdk/agent-executor';
-import { listResumableSessionSummaries, listUnreadableSessions } from '@robota-sdk/agent-framework';
+import {
+  SessionChangeRefusal,
+  listResumableSessionSummaries,
+  listUnreadableSessions,
+} from '@robota-sdk/agent-framework';
 
 import type {
   IInteractiveSession,
   IInteractiveSessionStore,
+  ISessionBinder,
+  ISessionBinding,
   ISessionDirectory,
   ISessionListing,
+  ISessionListingEntry,
+  TSessionBindingRole,
 } from '@robota-sdk/agent-interface-session';
 
-/** The members of a session the directory reads to decide whether leaving it would lose work. */
-export type TServeDirectorySession = Pick<
-  IInteractiveSession,
-  | 'isExecuting'
-  | 'getPendingPrompt'
-  | 'getPendingCount'
-  | 'listBackgroundTasks'
-  | 'getSession'
-  | 'shutdown'
-> & {
+/** The members of a session the directory reads: its id, and whether a prompt waits on it. */
+export type TServeDirectorySession = Pick<IInteractiveSession, 'getSession'> & {
   /** `needs-input` while a permission or ask prompt waits for an answer. */
   getLocalActivityStatus(): 'working' | 'needs-input' | 'idle' | undefined;
-  /** Resolves once the session is initialized and saved; rejects if it could not start. */
-  whenInitialized(): Promise<void>;
 };
 
-/** What the served runtime lends the directory once its host has started. */
-export interface IServeSessionDirectoryHost<TSession extends TServeDirectorySession> {
-  readonly slot: { readonly current: TSession; replace(next: TSession): Promise<void> };
-  readonly store: IInteractiveSessionStore;
-  readonly cwd: string;
-  /** Build a session with the runtime's options, resuming `resumeSessionId` when given. */
-  buildSession(resumeSessionId: string | undefined): TSession;
-  /** Why this runtime cannot change its session at all right now, if it cannot. */
-  switchBlockedReason?(): string | undefined;
-  /**
-   * Hand what belongs to the run — not to a session — over to `next` before it becomes current
-   * (external-event grants). A rejection keeps the current session, and the host keeps its state on it.
-   */
-  adopt?(next: TSession): Promise<void>;
+/** A session the pool holds for one client until the client moves onto it or lets it go. */
+export interface IServeSessionLease<TSession> {
+  readonly session: TSession;
+  cancel(): void;
 }
 
-/** An {@link ISessionDirectory} whose host is attached after the transports that carry it exist. */
+/** One client's place in the pool, as the directory uses it. */
+export interface IServeSessionPoolBinding<TSession, TSlot extends { readonly current: TSession }> {
+  /** The client's session, following this binding's moves only. */
+  readonly slot: TSlot;
+  moveTo(lease: IServeSessionLease<TSession>): void;
+  /** This binding drives, and no other driver is on its session. */
+  isLastDriver(): boolean;
+  release(): void;
+}
+
+/** The pool the directory binds clients to; `SessionPool` from the framework is one. */
+export interface IServeSessionPool<TSession, TSlot extends { readonly current: TSession }> {
+  bind(role: TSessionBindingRole): IServeSessionPoolBinding<TSession, TSlot>;
+  acquire(sessionId?: string): Promise<IServeSessionLease<TSession>>;
+  listLive(): readonly { readonly sessionId: string; readonly clients: number }[];
+}
+
+/** What the served runtime lends the directory once its host has started. */
+export interface IServeSessionDirectoryHost<
+  TSession extends TServeDirectorySession,
+  TSlot extends { readonly current: TSession } = { readonly current: TSession },
+> {
+  readonly pool: IServeSessionPool<TSession, TSlot>;
+  /** The session the runtime started with; a caller that has no binding is on it. */
+  readonly primary: TSession;
+  readonly store: IInteractiveSessionStore;
+  readonly cwd: string;
+  /** The runtime is shutting down, so no client changes its session any more. */
+  isStopping?(): boolean;
+}
+
+/**
+ * Binds each client connection to the served runtime's sessions. Its own `listSessions` is for a
+ * caller that has no binding and reports the primary session as current.
+ */
 export interface IServeSessionDirectory<
   TSession extends TServeDirectorySession,
-> extends ISessionDirectory {
-  attach(host: IServeSessionDirectoryHost<TSession>): void;
+  TSlot extends { readonly current: TSession } = { readonly current: TSession },
+> extends ISessionBinder<TSlot> {
+  attach(host: IServeSessionDirectoryHost<TSession, TSlot>): void;
+  listSessions(): ISessionListing;
 }
+
+const STOPPING_MESSAGE = 'This runtime is stopping.';
 
 export function createServeSessionDirectory<
   TSession extends TServeDirectorySession,
->(): IServeSessionDirectory<TSession> {
-  let host: IServeSessionDirectoryHost<TSession> | undefined;
-  let switching = false;
+  TSlot extends { readonly current: TSession } = { readonly current: TSession },
+>(): IServeSessionDirectory<TSession, TSlot> {
+  let host: IServeSessionDirectoryHost<TSession, TSlot> | undefined;
 
-  const attached = (): IServeSessionDirectoryHost<TSession> => {
+  const attached = (): IServeSessionDirectoryHost<TSession, TSlot> => {
     if (host === undefined) throw new Error('Sessions are not available yet.');
     return host;
   };
 
-  const refusalToLeave = (
-    target: IServeSessionDirectoryHost<TSession>,
-    ownChange = false,
-  ): string | undefined => {
-    const blocked = target.switchBlockedReason?.();
-    if (blocked !== undefined) return blocked;
-    if (switching && !ownChange) return 'Another session change is already under way.';
-    const session = target.slot.current;
-    if (session.isExecuting()) return 'Stop the running turn first.';
-    if (session.getLocalActivityStatus() === 'needs-input') {
-      return 'Answer or dismiss the pending prompt first.';
-    }
-    if (session.getPendingPrompt() !== null || session.getPendingCount() > 0) {
-      return 'Wait for the queued messages to run, or cancel them first.';
-    }
-    const live = session
-      .listBackgroundTasks()
-      .filter((task) => !isTerminalBackgroundTaskStatus(task.status)).length;
-    if (live > 0) {
-      return `${live} background task(s) are still running in this session. Wait for them or cancel them first.`;
-    }
-    return undefined;
+  const listFor = (
+    target: IServeSessionDirectoryHost<TSession, TSlot>,
+    current: TSession,
+  ): ISessionListing => {
+    const live = new Map(target.pool.listLive().map((row) => [row.sessionId, row.clients]));
+    const sessions: ISessionListingEntry[] = listResumableSessionSummaries(
+      target.store,
+      target.cwd,
+    ).map((summary) => {
+      const clients = live.get(summary.id);
+      return { ...summary, live: clients !== undefined, clients: clients ?? 0 };
+    });
+    return {
+      currentSessionId: current.getSession().getSessionId(),
+      sessions,
+      unreadableSessionIds: listUnreadableSessions(target.store).map((entry) => entry.id),
+    };
   };
 
-  const changeTo = async (resumeSessionId: string | undefined): Promise<void> => {
-    const target = attached();
-    const refusal = refusalToLeave(target);
-    if (refusal !== undefined) throw new Error(refusal);
-    switching = true;
-    try {
-      const next = target.buildSession(resumeSessionId);
+  const bindTo = (
+    target: IServeSessionDirectoryHost<TSession, TSlot>,
+    role: TSessionBindingRole,
+  ): ISessionBinding<TSlot> => {
+    const binding = target.pool.bind(role);
+    let changing = false;
+
+    /** Why this client cannot leave its session now, if it cannot. */
+    const refusalToLeave = (): SessionChangeRefusal | undefined => {
+      if (target.isStopping?.() === true) {
+        return new SessionChangeRefusal('stopping', STOPPING_MESSAGE);
+      }
+      // A running turn, queued messages or background work go on in the pool without this client.
+      // A prompt does not: with no driver left on the session, nobody could answer it.
+      if (
+        binding.isLastDriver() &&
+        binding.slot.current.getLocalActivityStatus() === 'needs-input'
+      ) {
+        return new SessionChangeRefusal(
+          'prompt_pending',
+          'Answer or dismiss the pending prompt first: no other client driving this session could answer it.',
+        );
+      }
+      return undefined;
+    };
+
+    const changeTo = async (resumeSessionId: string | undefined): Promise<void> => {
+      if (target.isStopping?.() === true) {
+        throw new SessionChangeRefusal('stopping', STOPPING_MESSAGE);
+      }
+      if (changing) {
+        throw new SessionChangeRefusal('in_progress', 'Another session change is already under way.');
+      }
+      const refusal = refusalToLeave();
+      if (refusal !== undefined) throw refusal;
+      changing = true;
       try {
         // Initialized means saved: a new session is listed from here on.
-        await next.whenInitialized();
-      } catch (error) {
-        // allow-fallback: the session that failed to start is discarded; its failure is the answer.
-        await next
-          .shutdown({ reason: 'other', message: 'session failed to start' })
-          .catch(() => undefined);
-        const reason = error instanceof Error ? error.message : String(error);
-        throw new Error(`The session could not be started: ${reason}`);
+        const lease = await target.pool.acquire(resumeSessionId);
+        // Starting the next session takes time, and this client still reaches its session meanwhile:
+        // a prompt that opened since the first check is one only it may be left to answer.
+        const lateRefusal = refusalToLeave();
+        if (lateRefusal !== undefined) {
+          lease.cancel();
+          throw lateRefusal;
+        }
+        binding.moveTo(lease);
+      } finally {
+        changing = false;
       }
-      // Starting the next session takes time, and clients still reach the current one meanwhile: a
-      // turn, a prompt or a task that began since the first check is work a switch now would lose.
-      const lateRefusal = refusalToLeave(target, true);
-      if (lateRefusal !== undefined) {
-        await next
-          .shutdown({ reason: 'other', message: 'switch refused' })
-          .catch(() => undefined);
-        throw new Error(lateRefusal);
-      }
-      try {
-        await target.adopt?.(next);
-      } catch (error) {
-        // allow-fallback: the run stays with the current session; the next one is discarded.
-        await next
-          .shutdown({ reason: 'other', message: 'session could not take over the run' })
-          .catch(() => undefined);
-        const reason = error instanceof Error ? error.message : String(error);
-        throw new Error(`The session could not take over this runtime: ${reason}`);
-      }
-      await target.slot.replace(next);
-    } finally {
-      switching = false;
-    }
+    };
+
+    const directory: ISessionDirectory = {
+      listSessions: () => listFor(target, binding.slot.current),
+      async switchSession(sessionId) {
+        if (sessionId === binding.slot.current.getSession().getSessionId()) return;
+        if (listUnreadableSessions(target.store).some((entry) => entry.id === sessionId)) {
+          throw new SessionChangeRefusal(
+            'unreadable',
+            `Session ${sessionId} was saved in a form this version cannot read.`,
+          );
+        }
+        const known = listResumableSessionSummaries(target.store, target.cwd).some(
+          (summary) => summary.id === sessionId,
+        );
+        if (!known) {
+          throw new SessionChangeRefusal(
+            'unknown_session',
+            `No session ${sessionId} in this workspace.`,
+          );
+        }
+        await changeTo(sessionId);
+      },
+      async newSession() {
+        await changeTo(undefined);
+      },
+    };
+
+    return { session: binding.slot, directory, release: () => binding.release() };
   };
 
   return {
     attach(next) {
       host = next;
     },
+    bind(role) {
+      return bindTo(attached(), role);
+    },
     listSessions(): ISessionListing {
       const target = attached();
-      return {
-        currentSessionId: target.slot.current.getSession().getSessionId(),
-        sessions: listResumableSessionSummaries(target.store, target.cwd),
-        unreadableSessionIds: listUnreadableSessions(target.store).map((entry) => entry.id),
-      };
-    },
-    async switchSession(sessionId) {
-      const target = attached();
-      if (sessionId === target.slot.current.getSession().getSessionId()) return;
-      if (listUnreadableSessions(target.store).some((entry) => entry.id === sessionId)) {
-        throw new Error(`Session ${sessionId} was saved in a form this version cannot read.`);
-      }
-      const known = listResumableSessionSummaries(target.store, target.cwd).some(
-        (summary) => summary.id === sessionId,
-      );
-      if (!known) throw new Error(`No session ${sessionId} in this workspace.`);
-      await changeTo(sessionId);
-    },
-    async newSession() {
-      await changeTo(undefined);
+      return listFor(target, target.primary);
     },
   };
 }

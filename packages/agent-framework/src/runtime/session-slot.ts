@@ -56,9 +56,10 @@ export interface ISessionSlotOptions {
 }
 
 /**
- * A stable {@link IInteractiveSession} that forwards every member to the current session. `replace`
- * makes another session current: listeners move to it, the old one is shut down, and the slot's
- * listeners receive `session_switched`.
+ * A stable {@link IInteractiveSession} that forwards every member to the current session. `moveTo`
+ * makes another session current and leaves the previous one running, for a host that keeps several
+ * sessions live; `replace` does the same and shuts the previous one down. Either way listeners move
+ * to the next session and only this slot's listeners receive `session_switched`.
  */
 export class SessionSlot<
   TSession extends IInteractiveSession = InteractiveSession,
@@ -72,19 +73,38 @@ export class SessionSlot<
     this.shutdownTimeoutMs = options.shutdownTimeoutMs ?? RUNTIME_SHUTDOWN_TIMEOUT_MS;
   }
 
-  /** The session every call reaches now. Read it at call time; it changes on `replace`. */
+  /** The session every call reaches now. Read it at call time; it changes on `moveTo` and `replace`. */
   get current(): TSession {
     return this.currentSession;
   }
 
   /**
-   * Make `next` the current session. Listeners registered on the slot move to it before the old
-   * session shuts down (bounded), so no event of the new session is missed; `session_switched`
-   * follows once the old one is gone.
+   * Make `next` the current session and leave the previous one running: another slot, or nobody,
+   * may still be on it. Listeners registered on this slot move to `next`, then this slot's listeners
+   * — and no one else's — receive `session_switched`.
+   */
+  moveTo(next: TSession): void {
+    const moved = this.swap(next);
+    if (moved === undefined) return;
+    this.emitSwitched(moved.sessionId);
+  }
+
+  /**
+   * Make `next` the current session and shut the previous one down. Listeners registered on the slot
+   * move to it before the old session shuts down (bounded), so no event of the new session is
+   * missed; `session_switched` follows once the old one is gone.
    */
   async replace(next: TSession, message = 'session switched'): Promise<void> {
+    const moved = this.swap(next);
+    if (moved === undefined) return;
+    await shutdownSessionBounded(moved.previous, message, this.shutdownTimeoutMs);
+    this.emitSwitched(moved.sessionId);
+  }
+
+  /** Move the listeners onto `next` and make it current; `undefined` when it already is. */
+  private swap(next: TSession): { previous: TSession; sessionId: string } | undefined {
     const previous = this.currentSession;
-    if (next === previous) return;
+    if (next === previous) return undefined;
     // Read before anything moves: a session that cannot name itself must not half-replace the slot.
     const sessionId = next.getSession().getSessionId();
     for (const [event, handlers] of this.listeners) {
@@ -94,7 +114,10 @@ export class SessionSlot<
       }
     }
     this.currentSession = next;
-    await shutdownSessionBounded(previous, message, this.shutdownTimeoutMs);
+    return { previous, sessionId };
+  }
+
+  private emitSwitched(sessionId: string): void {
     for (const handler of [...(this.listeners.get('session_switched') ?? [])]) {
       (handler as IInteractiveSessionEvents['session_switched'])({ sessionId });
     }

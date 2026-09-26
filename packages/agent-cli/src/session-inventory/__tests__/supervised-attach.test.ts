@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createRemoteControlCommandModule } from '@robota-sdk/agent-command';
-import { InteractiveSession } from '@robota-sdk/agent-framework';
+import { InteractiveSession, SessionChangeRefusal } from '@robota-sdk/agent-framework';
 import { MAX_INBOUND_FRAME_BYTES } from '@robota-sdk/agent-transport';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -26,7 +26,8 @@ import {
   type ISupervisedExternalEvents,
 } from '../supervised-session-control.js';
 
-import type { ISessionDirectory } from '@robota-sdk/agent-interface-session';
+import type { ISessionBinder, ISessionDirectory } from '@robota-sdk/agent-interface-session';
+import type { IProtocolSession } from '@robota-sdk/agent-transport';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 const ID = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
@@ -113,6 +114,17 @@ function generationOf(root: string): string {
   return String((JSON.parse(readFileSync(join(root, ID, 'state.json'), 'utf8')) as { generation?: unknown }).generation);
 }
 
+function binderOf(
+  session: IProtocolSession,
+  directory: ISessionDirectory,
+): ISessionBinder<IProtocolSession> & { bind: ReturnType<typeof vi.fn>; released: ReturnType<typeof vi.fn> } {
+  const released = vi.fn();
+  return {
+    released,
+    bind: vi.fn(() => ({ session, directory, release: released })),
+  };
+}
+
 async function withTarget(
   prefix: string,
   run: (context: {
@@ -128,6 +140,7 @@ async function withTarget(
     withRemoteControl?: boolean;
     attachable?: boolean;
     externalEvents?: ISupervisedExternalEvents;
+    /** Each connection binds onto the target session with this directory. */
     sessionDirectory?: ISessionDirectory;
   } = {},
 ): Promise<void> {
@@ -151,7 +164,9 @@ async function withTarget(
       undefined, undefined, undefined, options.externalEvents,
       options.attachable === false
         ? undefined
-        : { session, ...(options.sessionDirectory !== undefined ? { sessionDirectory: options.sessionDirectory } : {}) },
+        : options.sessionDirectory !== undefined
+          ? { binder: binderOf(session, options.sessionDirectory) }
+          : { session },
     );
     const attach = (mode: 'drive' | 'observe', extra: Record<string, unknown> = {}, pipelined = '') =>
       handshake(
@@ -373,7 +388,9 @@ describe('supervised attach carrier', () => {
     const sessionDirectory: ISessionDirectory = {
       listSessions: vi.fn(() => listing),
       switchSession: vi.fn(async () => undefined),
-      newSession: vi.fn(async () => { throw new Error('Stop the running turn first.'); }),
+      newSession: vi.fn(async () => {
+        throw new SessionChangeRefusal('prompt_pending', 'Answer or dismiss the pending prompt first.');
+      }),
     };
     await withTarget('rs-b6-', async ({ attach }) => {
       const { client } = await attach('drive');
@@ -382,7 +399,10 @@ describe('supervised attach carrier', () => {
       client.send({ type: 'switch-session', sessionId: 'stored' });
       await vi.waitFor(() => expect(sessionDirectory.switchSession).toHaveBeenCalledWith('stored'));
       client.send({ type: 'new-session' });
-      expect((await client.waitFor('protocol_error')).message).toBe('Stop the running turn first.');
+      expect(await client.waitFor('session_change_failed')).toMatchObject({
+        code: 'prompt_pending',
+        message: 'Answer or dismiss the pending prompt first.',
+      });
       client.socket.destroy();
     }, { sessionDirectory });
   });
@@ -422,9 +442,48 @@ describe('attach handshake approval', () => {
   });
 });
 
+describe('attach bindings (#3189)', () => {
+  it('binds each admitted connection in its own role and releases it when that connection closes', async () => {
+    const directory: ISessionDirectory = {
+      listSessions: vi.fn(),
+      switchSession: vi.fn(async () => undefined),
+      newSession: vi.fn(async () => undefined),
+    };
+    const binder = binderOf(createTestInteractiveSession(), directory);
+    const carrier = createSupervisedAttachCarrier({ binder });
+    const driver = new PassThrough();
+    const observer = new PassThrough();
+    const accept = vi.fn();
+    await carrier.admit(driver as never, { mode: 'drive', protocol: 1 }, '', { refuse: vi.fn(), accept });
+    await carrier.admit(observer as never, { mode: 'observe', protocol: 1 }, '', { refuse: vi.fn(), accept });
+
+    expect(binder.bind.mock.calls).toEqual([['drive'], ['observe']]);
+    expect(binder.released).not.toHaveBeenCalled();
+    driver.destroy();
+    await once(driver, 'close');
+    expect(binder.released).toHaveBeenCalledTimes(1);
+    observer.destroy();
+    await once(observer, 'close');
+    expect(binder.released).toHaveBeenCalledTimes(2);
+  });
+
+  it('binds nothing for a handshake it refuses', async () => {
+    const binder = binderOf(createTestInteractiveSession(), {
+      listSessions: vi.fn(),
+      switchSession: vi.fn(async () => undefined),
+      newSession: vi.fn(async () => undefined),
+    });
+    const carrier = createSupervisedAttachCarrier({ binder });
+    const refuse = vi.fn();
+    await carrier.admit(new PassThrough() as never, { mode: 'steer', protocol: 1 }, '', { refuse, accept: vi.fn() });
+    expect(refuse).toHaveBeenCalledWith('unsupported-attach');
+    expect(binder.bind).not.toHaveBeenCalled();
+  });
+});
+
 describe('attach slot reservation', () => {
   it('never holds a slot for a connection that closed before its handshake was admitted', async () => {
-    const carrier = createSupervisedAttachCarrier(createTestInteractiveSession());
+    const carrier = createSupervisedAttachCarrier({ session: createTestInteractiveSession() });
     const request = { mode: 'observe', protocol: 1 };
     for (let index = 0; index < MAX_ATTACHED_SURFACES; index++) {
       const gone = new PassThrough();

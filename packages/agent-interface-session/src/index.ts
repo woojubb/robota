@@ -13,8 +13,17 @@ export type {
   IResumableSessionSummary,
   ISessionDirectory,
   ISessionListing,
+  ISessionListingEntry,
   ISessionSwitchedEvent,
 } from './session-summary-contracts.js';
+export type {
+  ISessionBinder,
+  ISessionBinding,
+  ISessionChangeRefusal,
+  TSessionBindingRole,
+  TSessionChangeRefusalCode,
+} from './session-binding-contracts.js';
+export { isSessionChangeRefusal, SESSION_CHANGE_REFUSAL_CODES } from './session-binding-contracts.js';
 export type { ISessionLoopState, TSessionLoopPhase } from './session-loop-contracts.js';
 // ── Interactive-session contracts ────────────────────────────
 export type {

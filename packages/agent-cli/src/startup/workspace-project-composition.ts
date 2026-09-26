@@ -42,7 +42,7 @@ export interface ICreateCliWorkspaceCompositionOptions {
   readonly projectSettingsWriter?: IWorkspaceProjectSettingsWriter;
   /** `--safe-mode`: no skills, commands or agents from any scope, the user's included. */
   readonly safeMode?: boolean;
-  /** The host platform, which decides whether a trusted workspace's sessions can live in it. */
+  /** The host platform, which decides whether a trusted workspace's state can live in it. */
   readonly platform?: NodeJS.Platform;
 }
 
@@ -55,6 +55,7 @@ export interface ICliWorkspaceComposition {
   readonly sessionStore: IInteractiveSessionStore;
   /** Where `sessionStore` keeps records: the trusted project, or the user's own store. */
   readonly sessionStoreScope: 'project' | 'user';
+  /** Absent when the workspace is Restricted, or its host cannot write project memory safely. */
   readonly memoryStore?: IMemoryStore;
 }
 
@@ -139,6 +140,21 @@ function createTrustedCliWorkspaceComposition(
     ],
     settingsStores,
     ...trustedSessionStore(authority, options),
+    ...trustedMemoryStore(authority, options),
+  };
+}
+
+/**
+ * Project memory is shared through the repository, so moving it to the user's own store would split
+ * it from what the project keeps; where a host cannot prove a project write stays under the trusted
+ * root, the workspace gets no memory store and memory reports itself off.
+ */
+function trustedMemoryStore(
+  authority: ITrustedWorkspaceProjectAccess['authority'],
+  options: ICreateCliWorkspaceCompositionOptions,
+): Pick<ICliWorkspaceComposition, 'memoryStore'> {
+  if (!supportsWorkspaceProjectMutation(options.platform)) return {};
+  return {
     memoryStore: createWorkspaceMemoryStore(getWorkspaceProjectStateStorage(authority, 'memory')),
   };
 }

@@ -112,6 +112,43 @@ describe('SessionSlot (#3189)', () => {
     expect(onSwitched).toHaveBeenCalledWith({ sessionId: 's-2' });
   });
 
+  it('moveTo leaves the previous session running for whoever else is on it', () => {
+    const shared = emittingSession('s-1');
+    const next = emittingSession('s-2');
+    const moving = new SessionSlot<IEmittingSession>(shared);
+    const staying = new SessionSlot<IEmittingSession>(shared);
+    const movingText = vi.fn();
+    const stayingText = vi.fn();
+    moving.on('text_delta', movingText);
+    staying.on('text_delta', stayingText);
+
+    moving.moveTo(next);
+
+    expect(shared.shutdown).not.toHaveBeenCalled();
+    expect(moving.current).toBe(next);
+    expect(staying.current).toBe(shared);
+    shared.emit('text_delta', 'on-shared');
+    next.emit('text_delta', 'on-next');
+    expect(movingText.mock.calls).toEqual([['on-next']]);
+    expect(stayingText.mock.calls).toEqual([['on-shared']]);
+  });
+
+  it('moveTo tells only its own slot that the session switched', () => {
+    const shared = emittingSession('s-1');
+    const moving = new SessionSlot<IEmittingSession>(shared);
+    const staying = new SessionSlot<IEmittingSession>(shared);
+    const movingSwitched = vi.fn<IInteractiveSessionEvents['session_switched']>();
+    const stayingSwitched = vi.fn<IInteractiveSessionEvents['session_switched']>();
+    moving.on('session_switched', movingSwitched);
+    staying.on('session_switched', stayingSwitched);
+
+    moving.moveTo(emittingSession('s-2'));
+    moving.moveTo(moving.current);
+
+    expect(movingSwitched.mock.calls).toEqual([[{ sessionId: 's-2' }]]);
+    expect(stayingSwitched).not.toHaveBeenCalled();
+  });
+
   it('forwards every contract member to the current session', async () => {
     const first = emittingSession('s-1');
     const second = emittingSession('s-2');

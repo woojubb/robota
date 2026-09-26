@@ -493,8 +493,13 @@ describe('WireTuiChannel', () => {
     });
     expect(channel.getSnapshot().hostSessions?.map((session) => session.id)).toEqual(['s2']);
     link.sent.length = 0;
-    await channel.requestSessionSwitch('s2');
-    expect(link.sent).toEqual([{ type: 'switch-session', sessionId: 's2' }]);
+    const switched = channel.requestSessionSwitch('s2');
+    expect(link.sent).toEqual([
+      { type: 'switch-session', sessionId: 's2', requestId: expect.any(String) },
+    ]);
+    // The picker's switch settles on the host's answer.
+    link.push({ type: 'session_switched', event: { sessionId: 's2' } });
+    await switched;
     await channel.stop();
   });
 
@@ -1147,5 +1152,87 @@ describe('WireTuiChannel terminal-owned commands (#3189)', () => {
     });
     await command;
     await channel.stop();
+  });
+});
+
+function lastSwitchRequestId(sent: readonly TClientMessage[]): string {
+  const switches = sent.filter(
+    (message): message is Extract<TClientMessage, { type: 'switch-session' }> =>
+      message.type === 'switch-session',
+  );
+  return switches.at(-1)?.requestId ?? '';
+}
+
+describe('WireTuiChannel refused session changes (#3189 step 5)', () => {
+  it('shows why a switch was refused and settles the switch, but no command', async () => {
+    const { channel, link } = await attached();
+    link.sent.length = 0;
+    const settled: string[] = [];
+    const command = channel.handleInput('/compact').then(() => settled.push('compact'));
+    const commandId = lastCommandRequestId(link.sent);
+    const switched = channel.requestSessionSwitch('s2').then(() => settled.push('switch'));
+    const switchId = lastSwitchRequestId(link.sent);
+    expect(switchId).not.toBe('');
+    expect(switchId).not.toBe(commandId);
+
+    link.push({
+      type: 'session_change_failed',
+      code: 'prompt_pending',
+      message: 'Answer the open question first.',
+      requestId: switchId,
+    });
+    await switched;
+    expect(settled).toEqual(['switch']);
+    expect(channel.getSnapshot().history.at(-1)?.data).toMatchObject({
+      content: 'Answer the open question first.',
+    });
+
+    // Even one naming the command's request answers no command.
+    link.push({
+      type: 'session_change_failed',
+      code: 'failed',
+      message: 'not a command answer',
+      requestId: commandId,
+    });
+    await flush();
+    expect(settled).toEqual(['switch']);
+
+    link.push({
+      type: 'command_result',
+      name: 'compact',
+      message: 'Compacted.',
+      success: true,
+      requestId: commandId,
+    });
+    await command;
+    expect(settled).toEqual(['switch', 'compact']);
+    await channel.stop();
+  });
+
+  it("settles a switch an older host refuses with a protocol error that names no request", async () => {
+    const { channel, link } = await attached();
+    const switched = channel.requestSessionSwitch('s2');
+    link.push({ type: 'protocol_error', message: 'Stop the running turn first.' });
+    await switched;
+    expect(channel.getSnapshot().history.at(-1)?.data).toMatchObject({
+      content: 'Stop the running turn first.',
+    });
+    await channel.stop();
+  });
+
+  it('does not wait on a switch to the session it already shows', async () => {
+    const { channel, link } = await attached();
+    link.push({ type: 'session_status', status: status({ sessionId: 's1' }) });
+    link.sent.length = 0;
+    await channel.requestSessionSwitch('s1');
+    expect(link.sent.some((message) => message.type === 'switch-session')).toBe(false);
+    await channel.stop();
+  });
+
+  it('settles a pending switch when this terminal leaves', async () => {
+    const { channel } = await attached();
+    const switched = channel.requestSessionSwitch('s2');
+    await channel.stop();
+    await switched;
   });
 });

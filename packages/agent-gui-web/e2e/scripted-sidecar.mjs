@@ -9,7 +9,9 @@
  * exercised for real against the token the GUI presents) and attaches a **scripted** EventEmitter session
  * that replies deterministically, so the headless e2e can assert connect → render → submit → permission.
  * A fake session directory lists a few stored sessions and switches between them; a switch while a
- * scripted turn is still running ("stay busy" until "all done") is refused with the host's reason.
+ * scripted turn is still running ("stay busy" until "all done") is refused with the host's reason,
+ * which the transport answers as `session_change_failed`. Its rows say which sessions are live and
+ * how many clients are on each, as a daemon that keeps several sessions live does.
  *
  * Run as `daemon start --json` (how the desktop app attaches) it plays the CLI's daemon starter instead: it
  * reuses the daemon recorded in `$ROBOTA_E2E_DAEMON_STATE` while that process lives, or starts itself
@@ -318,6 +320,18 @@ class ScriptedSession extends EventEmitter {
 
 const session = new ScriptedSession();
 
+/**
+ * A refusal the transport recognises, so it answers `session_change_failed` with this code (the shape
+ * `isSessionChangeRefusal` in agent-interface-session checks).
+ */
+const refusal = (code, message) => Object.assign(new Error(message), { name: 'SessionChangeRefusal', code });
+
+/**
+ * Sessions live in the fake host besides the current one, with the clients on them: another terminal
+ * is on the oldest session, so its row shows one other client.
+ */
+const liveElsewhere = new Map([['oldest-session', 1]]);
+
 /** The fake host's session directory: lists, starts and switches the stored sessions above. */
 let newSessionCount = 0;
 const sessionDirectory = {
@@ -326,25 +340,31 @@ const sessionDirectory = {
       currentSessionId: session.currentId,
       sessions: [...storedSessions]
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-        .map(({ id, name, updatedAt, messages }) => ({
-          id,
-          ...(name ? { name } : {}),
-          cwd: '/scripted/workspace',
-          updatedAt,
-          messageCount: messages.length,
-          preview: messages[0]?.content ?? '',
-        })),
+        .map(({ id, name, updatedAt, messages }) => {
+          // The e2e page is the one client on the current session.
+          const clients = id === session.currentId ? 1 : (liveElsewhere.get(id) ?? 0);
+          return {
+            id,
+            ...(name ? { name } : {}),
+            cwd: '/scripted/workspace',
+            updatedAt,
+            messageCount: messages.length,
+            preview: messages[0]?.content ?? '',
+            live: clients > 0,
+            clients,
+          };
+        }),
       unreadableSessionIds,
     };
   },
   async switchSession(sessionId) {
-    if (session.isBusy()) throw new Error('Stop the running turn first.');
+    if (session.isBusy()) throw refusal('failed', 'Stop the running turn first.');
     const stored = storedSessions.find((candidate) => candidate.id === sessionId);
-    if (!stored) throw new Error(`Session ${sessionId} could not be read.`);
+    if (!stored) throw refusal('unknown_session', `Session ${sessionId} could not be read.`);
     session.becomeSession(stored);
   },
   async newSession() {
-    if (session.isBusy()) throw new Error('Stop the running turn first.');
+    if (session.isBusy()) throw refusal('failed', 'Stop the running turn first.');
     newSessionCount += 1;
     const stored = { id: `new-session-${newSessionCount}`, updatedAt: new Date().toISOString(), messages: [] };
     storedSessions.push(stored);

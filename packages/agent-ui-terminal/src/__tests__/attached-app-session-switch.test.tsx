@@ -139,9 +139,27 @@ describe('the full App attached to a host over the wire', () => {
         () => link.sent.some((message) => message.type === 'switch-session'),
         () => JSON.stringify(link.sent),
       );
-      expect(link.sent).toContainEqual({ type: 'switch-session', sessionId: 'host-other-session' });
+      expect(link.sent).toContainEqual({
+        type: 'switch-session',
+        sessionId: 'host-other-session',
+        requestId: expect.any(String),
+      });
       // The App keeps its channel; the host's `session_switched` is what moves it.
       expect(createChannel).toHaveBeenCalledTimes(1);
+      // A refusal is shown where the terminal shows what happened, and the switch is over.
+      const request = link.sent.find((message) => message.type === 'switch-session');
+      link.push({
+        type: 'session_change_failed',
+        code: 'limit',
+        message: 'Four sessions are live; none can be closed.',
+        ...(request?.type === 'switch-session' && request.requestId !== undefined
+          ? { requestId: request.requestId }
+          : {}),
+      });
+      await waitFor(
+        () => (view.lastFrame() ?? '').includes('Four sessions are live; none can be closed.'),
+        () => view.lastFrame() ?? '<none>',
+      );
     } finally {
       view.unmount();
       await channel.stop();

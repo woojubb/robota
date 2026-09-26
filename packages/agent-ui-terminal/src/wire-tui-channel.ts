@@ -72,7 +72,7 @@ import type {
   IAskRequestEvent,
   IInteractiveSessionEvents,
   IPermissionRequestEvent,
-  IResumableSessionSummary,
+  ISessionListingEntry,
   ISessionRenamedEvent,
   ISessionStatusSnapshot,
   IUiIntentEvent,
@@ -171,7 +171,7 @@ export class WireTuiChannel implements ITuiAppChannelPort {
   private status: ISessionStatusSnapshot | undefined;
   /** How many prompts wait in the host's queue, the one `pendingPrompt` shows first among them. */
   private pendingCount = 0;
-  private hostSessions: readonly IResumableSessionSummary[] | undefined;
+  private hostSessions: readonly ISessionListingEntry[] | undefined;
   private sessionListSequence = 0;
   /** Only the answer to the latest listing is shown: an earlier one may predate a switch. */
   private sessionListRequestId: string | undefined;
@@ -189,6 +189,13 @@ export class WireTuiChannel implements ITuiAppChannelPort {
    */
   private readonly pendingCommands = new Map<string, () => void>();
   private commandSequence = 0;
+  /**
+   * The switch the picker asked for, settled by the host's answer: `session_switched`, or a refusal
+   * that names its request (or, from an older host, a protocol error that names none). A refusal
+   * never settles a command.
+   */
+  private pendingSessionChange: { readonly requestId: string; readonly settle: () => void } | undefined;
+  private sessionChangeSequence = 0;
   /** Bumped on a session switch: a question from a session no longer shown is never answered. */
   private promptGeneration = 0;
   /** Questions on screen or waiting for it: the host may send one again (`get-prompts`). */
@@ -411,9 +418,21 @@ export class WireTuiChannel implements ITuiAppChannelPort {
     this.userActions.resolveCurrent(request, response);
   }
 
-  /** Ask the host to show another session; its `session_switched` resets this channel. */
+  /**
+   * Ask the host to show another session; its `session_switched` resets this channel. Settles on the
+   * host's answer, so the picker's switch is pending until the session changed or was refused.
+   */
   async requestSessionSwitch(sessionId: string): Promise<void> {
-    this.send({ type: 'switch-session', sessionId });
+    // The host answers a switch to the session already shown with nothing: there is nothing to wait for.
+    if (sessionId === this.status?.sessionId) return;
+    // An earlier switch still waiting is overtaken by this one.
+    this.settleSessionChange();
+    this.sessionChangeSequence += 1;
+    const requestId = `wire-tui-session-change-${this.sessionChangeSequence}`;
+    await new Promise<void>((settle) => {
+      this.pendingSessionChange = { requestId, settle };
+      if (!this.send({ type: 'switch-session', sessionId, requestId })) this.settleSessionChange();
+    });
   }
 
   // ── Frames → render state ─────────────────────────────────────
@@ -567,11 +586,21 @@ export class WireTuiChannel implements ITuiAppChannelPort {
         }
         return;
       case 'session_switched':
+        this.settleSessionChange();
         this.followSessionSwitch(frame.event.sessionId);
         return;
+      case 'session_change_failed':
+        // Only the client that asked is told. It answers the switch, never a command.
+        if (frame.requestId === undefined || frame.requestId === this.pendingSessionChange?.requestId) {
+          this.settleSessionChange();
+        }
+        this.notice(frame.message);
+        return;
       case 'protocol_error':
-        // A command the host could not run answers with this, naming the command's request.
+        // A command the host could not run answers with this, naming the command's request. A host
+        // older than `session_change_failed` refuses a switch with one that names no request.
         if (frame.requestId !== undefined) this.settleCommand(frame.requestId);
+        else this.settleSessionChange();
         this.notice(frame.message);
         return;
       case 'resume_gap':
@@ -699,6 +728,12 @@ export class WireTuiChannel implements ITuiAppChannelPort {
     settle?.();
   }
 
+  private settleSessionChange(): void {
+    const pending = this.pendingSessionChange;
+    this.pendingSessionChange = undefined;
+    pending?.settle();
+  }
+
   /** The host now serves another session: nothing shown belongs to it, so start over from it. */
   private followSessionSwitch(sessionId: string): void {
     this.promptGeneration += 1;
@@ -775,6 +810,7 @@ export class WireTuiChannel implements ITuiAppChannelPort {
     const pending = [...this.pendingCommands.values()];
     this.pendingCommands.clear();
     for (const settle of pending) settle();
+    this.settleSessionChange();
   }
 
   // ── Render state ──────────────────────────────────────────────

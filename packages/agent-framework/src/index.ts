@@ -885,7 +885,22 @@ export type {
 export { buildRuntimeSession, startRuntimeHost } from './runtime/index.js';
 export type { IRuntimeHostOptions, IRuntimeHostHandle } from './runtime/index.js';
 export { SessionSlot } from './runtime/index.js';
-export type { ISessionSlotOptions } from './runtime/index.js';
+export type { ISessionSlotOptions, IRuntimeHostPoolOptions } from './runtime/index.js';
+export {
+  SessionPool,
+  isSessionBusy,
+  SESSION_POOL_MAX_LIVE,
+  SESSION_POOL_IDLE_GRACE_MS,
+  SessionChangeRefusal,
+} from './runtime/index.js';
+export type {
+  ISessionPoolOptions,
+  ISessionPoolBinding,
+  ISessionPoolEntry,
+  ISessionLease,
+  TPoolBusySession,
+  TSessionPoolRole,
+} from './runtime/index.js';
 export type { IResolvedConfig } from './config/config-types.js';
 export type { IOutputStylePrompt } from './context/output-style-prompt.js';
 

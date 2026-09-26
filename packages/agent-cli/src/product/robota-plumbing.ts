@@ -38,7 +38,7 @@ import type {
   IPersonalUsageRequest,
   IUsageBySourceReport,
 } from '@robota-sdk/agent-session-analytics';
-import type { ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
+import type { IProtocolSession, ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
 import { reportCurrentSessionUsage } from '../usage/session-usage-reporter.js';
 
 /**
@@ -72,7 +72,8 @@ export function createDefaultTransportRegistry(
   storedSessionUsageReporter?: (sessionId: string) => IUsageBySourceReport,
   driverId?: import('@robota-sdk/agent-interface-session').TDriverId,
   surface?: import('@robota-sdk/agent-interface-analytics').TUsageSurface,
-  sessionDirectory?: import('@robota-sdk/agent-interface-session').ISessionDirectory,
+  /** #3189: binds each connection to the runtime's sessions, so a switch moves that connection alone. */
+  sessionBinder?: import('@robota-sdk/agent-interface-session').ISessionBinder<IProtocolSession>,
 ): {
   registry: TransportRegistry;
   wsTransport: WsTransport;
@@ -102,7 +103,7 @@ export function createDefaultTransportRegistry(
     ...(storedSessionUsageReporter ? { storedSessionUsageReporter } : {}),
     ...(driverId ? { driverId } : {}),
     ...(surface ? { surface } : {}),
-    ...(sessionDirectory ? { sessionDirectory } : {}),
+    ...(sessionBinder ? { sessionBinder } : {}),
     usageReporter,
   });
   let registered = false;

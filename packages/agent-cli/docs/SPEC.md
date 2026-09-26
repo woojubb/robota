@@ -98,9 +98,11 @@ processes behind the same headless trust boundary, each with its own guarded loc
 that survives the launching terminal. The session list reports only content-free activity and
 liveness for them — never session content, launch environment, or provider credentials. Unverified
 identity, a missing control response, initialization, or shutdown read as `unknown`; `idle` means
-only that the session is initialized with no pending question and is not executing, not that
-another CLI can attach or submit a prompt. A waiting loop's next eligible time is reported only when
-observed from the live owner, and does not promise that a future wake will run.
+only that every session the runtime keeps live is initialized with no pending question and is not
+executing, not that another CLI can attach or submit a prompt, so a session no client is on that
+still works never lets its runtime read idle. A waiting loop's next eligible time is the earliest
+among those sessions, is reported only when observed from the live owner, and does not promise that
+a future wake will run.
 
 The global supervised view observes only that guarded inventory, and narrows by owner-reported name,
 directory, or linked PR only on a live owner-verified path. It does not join peer or saved-record
@@ -331,6 +333,16 @@ presentations over the same runtime host, and the GUI never controls the CLI. Th
 assigns trusted WS driver identities (`app`, `browser`, `remote:ws`) so a turn's persisted usage
 surface reflects the launch path rather than a client-provided claim.
 
+A served runtime that saves its sessions keeps several of them live, and each client connection, an
+attached terminal included, is bound to its own: switching or starting a session moves that client
+alone, and only that client is told. Leaving a session does not stop its work — a running turn,
+queued messages or background tasks go on without the client — but a question it raises while no
+driver is on it fails closed: a permission is denied and an ask is cancelled. A change is therefore
+refused only when the runtime is stopping, the client's own previous change is still under way, the
+session cannot be opened or no room is left for it, or the client is the last driver of a session with
+a pending prompt that nobody else could then answer. What belongs to the run rather than to a session — external-event grants and
+the supervised name — stays on the session the runtime started with, whichever session a client is on.
+
 Runner failure propagation is explicit in serve mode: `waitForFailure()` returns the first named
 nonzero runner outcome without waiting for unrelated runners, and serve mode assigns that exact exit
 code. A rejected runner wait assigns exit 1; no runners, all-success, or stop-abandonment leave the
@@ -363,8 +375,10 @@ here because the reasoning differs between them:
 - **Durable memory:** default OFF. Precedence lowest→highest: `settings.json`
   `memory.enabled` → `--memory`/`--no-memory` flag → `ROBOTA_MEMORY` env (**env wins** — a
   machine-level policy a CI runner sets once). Capture + recall are enabled together by one switch;
-  scope is repo/project (`<cwd>/.robota/memory/`). A one-time enable notice is printed to stderr on
-  first enable; no blocking prompt.
+  scope is repo/project (`<cwd>/.robota/memory/`), because project memory is shared through the
+  repository, so it never moves to a per-user store: on a host that cannot write under the project
+  safely, memory stays off and says why once. A one-time enable notice is printed to stderr on first
+  enable; no blocking prompt.
 - **Screen-reader mode:** default OFF. Precedence lowest→highest: `settings.json`
   `screenReader` → `ROBOTA_SCREEN_READER`/`INK_SCREEN_READER` env → `--screen-reader`/
   `--no-screen-reader` flag (**flag wins**). This is a deliberate divergence from memory's
@@ -398,10 +412,11 @@ the user session store are available, no project memory, and `cwd` alone cannot 
 capability. **Trusted** composition derives project sources plus named state facets from the exact
 runtime-accepted authority, and is refused when the real CLI working directory is outside the
 authority's frozen workspace root. On a host that cannot prove a project write stays under that root,
-the workspace's sessions are kept in the user session store and found there by their working
-directory, so they are still saved and resumable while nothing is written under the project without
-that proof. Print mode, `--goal`, and `--serve` fail closed for
-`untrusted`/`revoked`/`stale`/`store-unavailable` decisions before provider construction; interactive
+nothing is written under the project: the workspace's sessions, which are the user's own, are kept in
+the user session store and found there by their working directory, so they are still saved and
+resumable, while project memory, which belongs to the repository, is not composed. Print mode,
+`--goal`, and `--serve` fail closed for `untrusted`/`revoked`/`stale`/`store-unavailable` decisions
+before provider construction; interactive
 startup may continue Restricted with project contributions disabled. All trust diagnostics expose
 only state and canonical display path — credentials and project-controlled content are never printed.
 

@@ -63,6 +63,14 @@ const browser = await chromium.launch(
   process.env.PLAYWRIGHT_CHANNEL ? { channel: process.env.PLAYWRIGHT_CHANNEL } : {},
 );
 const page = await browser.newPage({ viewport: { width: 1100, height: 780 } });
+// The server frames the page receives, by type: a refusal must arrive as its own frame.
+const receivedFrameTypes = [];
+page.on('websocket', (socket) => {
+  socket.on('framereceived', ({ payload }) => {
+    const type = /"type":"([a-z_]+)"/.exec(String(payload))?.[1];
+    if (type) receivedFrameTypes.push(type);
+  });
+});
 const send = async (text) => {
   await page.getByLabel('message').fill(text);
   await page.getByLabel('message').press('Enter');
@@ -174,6 +182,18 @@ try {
     }
   });
 
+  await scenario('rows mark live sessions and count the clients other than this one', async () => {
+    await row(/Scripted e2e session/).getByTitle('Live in the host').waitFor();
+    // This page is the only client on its own session: no "others" there.
+    if (/other/.test(await row(/Scripted e2e session/).innerText())) {
+      throw new Error('the current row counts this page among the others');
+    }
+    await row(/Set up the release checklist/).getByText('1 other', { exact: true }).waitFor();
+    if ((await row(/What did we decide/).getByTitle('Live in the host').count()) !== 0) {
+      throw new Error('a stored-only session is marked live');
+    }
+  });
+
   await scenario('a switch refused while a turn runs shows the host\'s reason', async () => {
     await send('stay busy');
     await page.getByText('Working on it...').waitFor();
@@ -181,6 +201,9 @@ try {
     await page.getByRole('alert').getByText('Stop the running turn first.').waitFor();
     if ((await page.getByText('We kept the recursive-descent parser.').count()) !== 0) {
       throw new Error('the refused switch changed the transcript');
+    }
+    if (!receivedFrameTypes.includes('session_change_failed')) {
+      throw new Error('the refusal did not arrive as session_change_failed');
     }
     await page.getByRole('button', { name: 'Dismiss notice' }).click();
     await send('all done');
