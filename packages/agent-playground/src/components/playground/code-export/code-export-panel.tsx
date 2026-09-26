@@ -5,7 +5,7 @@ import { Check, Copy, Code } from 'lucide-react';
 import type { IPlaygroundAgentConfig } from '../../../lib/playground/robota-executor';
 import type { IPlaygroundToolMeta } from '../../../tools/catalog';
 import type { IPlaygroundSkillMeta } from '../../../skills/catalog';
-import { generateAgentCode } from '../../../lib/code-generator';
+import { generateAgentCode, isExportableProvider } from '../../../lib/code-generator';
 import { SyntaxHighlighter } from './syntax-highlighter';
 import { InstallGuide } from './install-guide';
 
@@ -54,7 +54,10 @@ export function CodeExportPanel({
   const debouncedState = useDebounced(assemblyState, DEBOUNCE_MS);
 
   const code = useMemo(
-    () => (debouncedState ? generateAgentCode(debouncedState) : null),
+    () =>
+      debouncedState && isExportableProvider(debouncedState.agent.provider)
+        ? generateAgentCode(debouncedState)
+        : null,
     [debouncedState],
   );
 
@@ -92,6 +95,16 @@ export function CodeExportPanel({
         <p className="text-xs opacity-60">
           Configure an agent and tools to see the TypeScript code
         </p>
+      </div>
+    );
+  }
+
+  const provider = agentConfig.defaultModel.provider;
+  if (!isExportableProvider(provider)) {
+    return (
+      <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-muted-foreground">
+        <Code className="h-10 w-10 opacity-30" />
+        <p className="text-sm">Code export does not support the "{provider}" provider</p>
       </div>
     );
   }

@@ -34,12 +34,19 @@ const PROVIDER_TEMPLATES: Record<string, IProviderTemplate> = {
   },
 };
 
-export function getProviderTemplate(provider: string): IProviderTemplate {
-  return (
-    PROVIDER_TEMPLATES[provider.toLowerCase()] ?? {
-      importPath: `@robota-sdk/agent-provider-${provider.toLowerCase()}`,
-      className: `${provider.charAt(0).toUpperCase()}${provider.slice(1)}Provider`,
-      envKey: `${provider.toUpperCase()}_API_KEY`,
-    }
-  );
+/** The code template for a provider, or `undefined` when code export does not support it. */
+export function getProviderTemplate(provider: string): IProviderTemplate | undefined {
+  return PROVIDER_TEMPLATES[provider.toLowerCase()];
+}
+
+export function isExportableProvider(provider: string): boolean {
+  return getProviderTemplate(provider) !== undefined;
+}
+
+export function requireProviderTemplate(provider: string): IProviderTemplate {
+  const template = getProviderTemplate(provider);
+  if (!template) {
+    throw new Error(`Code export does not support the "${provider}" provider`);
+  }
+  return template;
 }
