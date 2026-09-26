@@ -37,4 +37,8 @@ export {
   type ISubagentWorkerEntry,
 } from './worker-entry.js';
 export { runSubagentWorkerMain } from './child-process-subagent-worker.js';
-export type { ISubagentWorkerComposition, TResumeSessionStore } from './worker-composition.js';
+export type {
+  ISubagentComposedSandbox,
+  ISubagentWorkerComposition,
+  TResumeSessionStore,
+} from './worker-composition.js';
