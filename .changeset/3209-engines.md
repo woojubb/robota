@@ -39,17 +39,14 @@
 '@robota-sdk/pack-coding': patch
 ---
 
-Every published package now declares `"engines": { "node": ">=22.0.0" }`, the floor
-`@robota-sdk/agent-process`, `agent-cli`, `agent-ui-terminal`, `agent-remote-pairing` and the
-`agent-transport*` packages already declared.
-Before, 27 of the 38 packages declared no floor (`agent-core`, `agent-tools` and every provider among
-them) and `agent-session` and `agent-file-authority` declared `>=20.19.0`, so a consumer on Node 20
-saw at most a warning from a transitive dependency. `agent-session` and `agent-file-authority` move from
-`>=20.19.0` to `>=22.0.0`.
+Every published package now declares `"engines": { "node": ">=22.12.0" }`. Before, 27 of the 38
+packages declared no floor (`agent-core`, `agent-tools` and every provider among them),
+`agent-session` and `agent-file-authority` declared `>=20.19.0`, and the other nine declared
+`>=22.0.0`, so a consumer on Node 20 saw at most a warning from a transitive dependency.
 
-The whole set is released in lockstep and tested only on Node 22 (`.nvmrc`); `agent-cli` and
-`agent-ui-terminal` need Node 22 through `ink` 7 (`engines.node >=22`). `engines` is advisory unless
-the consumer enables `engine-strict`.
+Why 22.12: `agent-cli` and `agent-ui-terminal` need Node 22 through `ink` 7, and the CommonJS entries
+of `agent-tools` and its dependents, `agent-transport`/`node` and its dependents, and
+`agent-ui-terminal` `require()` ESM-only dependencies (`p-limit`, `jose`, `chalk`), which Node 22
+supports unflagged only from 22.12. `engines` is advisory unless the consumer enables `engine-strict`.
 
-No code changes: `tsdown` now reads `node22.0.0` as its build target from the new field, and every
-package's built `dist` is byte-identical to before.
+No code changes: `tsdown` now reads `node22.12.0` as its build target from the field.
