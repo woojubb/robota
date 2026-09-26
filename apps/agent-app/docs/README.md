@@ -7,7 +7,7 @@ the graphical mirror of the terminal TUI (`agent-ui-terminal`).
 runtime daemon (**not** the terminal TUI) or reuses the live one, and loads the GUI web app
 (`packages/agent-gui-web`), handing it the daemon's loopback address through the preload bridge. The daemon
 outlives the window: closing the app leaves it running, and the next launch reattaches to it. The page is the same one the CLI serves on
-`robota --serve --open`; design work and the user scenarios run in a browser there (`dev:web`, `test:e2e`). The GUI drives a
+`robota --serve --open`; design work and the user scenarios run in a browser there (`pnpm gui:dev`, `test:e2e`). The GUI drives a
 shared runtime and does not control the CLI's terminal UI. All session, command, and permission logic lives in
 the daemon (reached over the wire), so the GUI holds no agent runtime and depends on neither `agent-framework`
 nor `agent-core` (the OWNER PRINCIPLE: the GUI is "just another surface").
@@ -20,13 +20,13 @@ loopback port against a co-resident browser page.
 ## Run (dev)
 
 ```bash
-pnpm --filter @robota-sdk/agent-gui-web build # the page
-pnpm --filter @robota-sdk/agent-app build     # copies the page in + electron main/preload (tsc)
-pnpm --filter @robota-sdk/agent-app start      # launch Electron (needs a display + a `robota` on PATH)
+pnpm app:dev   # from the repo root: builds the page and the shell, opens the window on the CLI from source
 ```
 
-Set `ROBOTA_GUI_SIDECAR_CMD` to override the command **binary** (default `robota`); the shell always runs it as
-`daemon start --json`.
+`app:dev` sets `ROBOTA_GUI_SIDECAR_CMD` to `scripts/dev/robota`; outside it, an unpackaged shell runs PATH
+`robota`. Set the variable yourself to use another command **binary** (the e2e uses the scripted sidecar); the
+shell always runs it as `daemon start --json`. The other ways to run from source are in the
+[development guide](../../../content/development/README.md#run-from-source).
 
 ## Status (Stage 1 — GUI-002)
 

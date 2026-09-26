@@ -2,7 +2,7 @@
  * The GUI's user scenarios in a plain browser (Playwright Chromium) — no Electron, no display server.
  *
  * Serves the built app (`vite preview`), starts the deterministic scripted sidecar on a free loopback
- * port, and opens the page with the sidecar address in `?ws=`, as `dev:web` does. The desktop app's
+ * port, and opens the page with the sidecar address in `?ws=`, as `gui:dev` does. The desktop app's
  * own concerns (sidecar spawn, launch nonce, fatal state) stay in apps/agent-app's smoke test.
  *
  * Run: `pnpm --filter @robota-sdk/agent-gui-web build && pnpm --filter @robota-sdk/agent-gui-web test:e2e`

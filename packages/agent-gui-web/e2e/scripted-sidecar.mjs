@@ -2,7 +2,7 @@
 /**
  * GUI-002 e2e fixture — a deterministic "robota" sidecar (no LLM / API key).
  *
- * The web e2e and `dev:web --scripted` start it directly; the desktop app's smoke test has Electron
+ * The web e2e and `gui:dev --scripted` start it directly; the desktop app's smoke test has Electron
  * spawn it via `ROBOTA_GUI_SIDECAR_CMD`. Either way it gets `ROBOTA_WS_TOKEN` + `ROBOTA_WS_PORT` in the
  * env exactly as the real CLI would. It stands up the **REAL**
  * `WsTransport` (so the GUI-002 T5 loopback-auth — reject-before-emit on a bad/missing token — is
