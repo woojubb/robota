@@ -131,6 +131,7 @@ import type {
   TDriverId,
   TPermissionResultValue,
   ISessionLoopState,
+  ISessionStatusSnapshot,
 } from '@robota-sdk/agent-interface-session';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
@@ -1580,6 +1581,19 @@ export class InteractiveSession
 
   getName(): string | undefined {
     return this.sessionName;
+  }
+
+  /** The one status read every client renders beside the conversation (#3186). */
+  getStatusSnapshot(): ISessionStatusSnapshot {
+    const session = this.getSessionOrThrow();
+    return {
+      sessionId: session.getSessionId(),
+      ...(this.sessionName !== undefined ? { sessionName: this.sessionName } : {}),
+      model: session.getModelId(),
+      permissionMode: session.getPermissionMode(),
+      effort: session.getModelEffort(),
+      context: session.getContextState(),
+    };
   }
 
   attachTransport(transport: ITransportAdapter<IInteractiveSession>): void {

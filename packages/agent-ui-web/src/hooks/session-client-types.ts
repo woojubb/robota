@@ -13,6 +13,11 @@ export type TStoredSessionUsageReport = Extract<
   TServerMessage,
   { type: 'stored_session_usage_report' }
 >['report'];
+/** The commands and skills the session offers — what a `/` menu lists. */
+export type TCommandCatalog = Omit<Extract<TServerMessage, { type: 'commands' }>, 'type'>;
+/** The session's status beside the conversation: model, permission mode, effort, context. */
+export type TSessionStatus = Extract<TServerMessage, { type: 'session_status' }>['status'];
+
 export type TCurrentSessionUsageReport = Extract<
   TServerMessage,
   { type: 'usage_report' }
@@ -81,6 +86,10 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   isThinking: boolean;
   executionWorkspace: IExecutionWorkspaceSnapshot | null;
   sessionName: string | null;
+  /** Null until the session has answered; refreshed after every command. */
+  commandCatalog: TCommandCatalog | null;
+  /** Null until the session has answered; refreshed after every command and turn. */
+  sessionStatus: TSessionStatus | null;
   send: (msg: TClientMessage) => void;
   pendingPrompts: readonly TPendingPrompt[];
   answerPermission: (id: string, result: TPermissionResultValue) => void;

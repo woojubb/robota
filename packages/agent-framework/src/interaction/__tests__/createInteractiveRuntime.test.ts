@@ -46,6 +46,14 @@ function createMockSession(overrides: Partial<IInteractiveSession> = {}): IInter
     getCwd: vi.fn().mockReturnValue('/tmp'),
     executeCommand: vi.fn().mockResolvedValue(null),
     listCommands: vi.fn().mockReturnValue([] as ICommandListEntry[]),
+    listSkills: vi.fn().mockReturnValue([]),
+    getStatusSnapshot: vi.fn().mockReturnValue({
+      sessionId: 'test-session',
+      model: 'test-model',
+      permissionMode: 'default',
+      effort: 'auto',
+      context: { usedPercentage: 0, usedTokens: 0, maxTokens: 0, remainingPercentage: 100 },
+    }),
     on: vi.fn((event: TInteractiveEventName, handler: Handler) => {
       if (!listeners[event]) listeners[event] = [];
       listeners[event]!.push(handler);

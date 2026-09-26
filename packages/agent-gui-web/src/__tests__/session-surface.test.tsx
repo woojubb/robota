@@ -152,6 +152,49 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(screen.getByText('Build')).toBeTruthy();
   });
 
+  it('#3186: typing / opens the command menu; Enter completes, Enter again runs it', () => {
+    const state = stubState({
+      commandCatalog: {
+        commands: [
+          { name: 'help', description: 'Show commands', modelInvocable: false },
+          { name: 'mode', description: 'Change the permission mode', modelInvocable: false },
+        ],
+        skills: [
+          { name: 'parity-demo', description: 'Demo skill', source: 'project', modelInvocable: true, userInvocable: true },
+        ],
+      },
+    } as Partial<IWsSessionState>);
+    render(<SessionSurface state={state} />);
+    const input = screen.getByLabelText('message') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: '/' } });
+    const menu = screen.getByRole('listbox', { name: 'commands' });
+    expect(menu.textContent).toContain('/parity-demo');
+    fireEvent.change(input, { target: { value: '/mo' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(input.value).toBe('/mode ');
+    expect(state.send).not.toHaveBeenCalled();
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'mode' });
+  });
+
+  it('#3186: the status row shows the session status and opens its pickers', () => {
+    const state = stubState({
+      sessionStatus: {
+        sessionId: 's',
+        model: 'claude-sonnet-5',
+        permissionMode: 'acceptEdits',
+        effort: 'high',
+        context: { usedPercentage: 42, usedTokens: 42, maxTokens: 100, remainingPercentage: 58 },
+      },
+    } as Partial<IWsSessionState>);
+    render(<SessionSurface state={state} />);
+    expect(screen.getByLabelText('context 42% used')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'mode: acceptEdits' }));
+    expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'mode' });
+    fireEvent.click(screen.getByRole('button', { name: 'model: claude-sonnet-5' }));
+    expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'provider' });
+  });
+
   it('TC-02: a pending permission prompt renders and Allow answers it via answerPermission', () => {
     const state = stubState({
       pendingPrompts: [

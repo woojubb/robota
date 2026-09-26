@@ -77,6 +77,25 @@ try {
     await page.getByText('Hello from the scripted agent.').waitFor({ timeout: 10_000 });
   });
 
+  await scenario('/ opens the command menu with skills; Enter completes, Enter runs', async () => {
+    await page.getByLabel('message').fill('/');
+    const menu = page.getByRole('listbox', { name: 'commands' });
+    await menu.getByText('/parity-demo').waitFor();
+    await page.getByLabel('message').fill('/mo');
+    await page.getByLabel('message').press('Enter');
+    if ((await page.getByLabel('message').inputValue()) !== '/mode ') {
+      throw new Error('Enter did not complete the highlighted command');
+    }
+    await page.getByLabel('message').press('Enter');
+    await page.getByText('Permission mode: acceptEdits').waitFor();
+  });
+
+  await scenario('the status row shows the session status and follows a change', async () => {
+    await page.getByRole('button', { name: 'model: scripted-model' }).waitFor();
+    await page.getByRole('button', { name: 'mode: acceptEdits' }).waitFor();
+    await page.getByLabel('context 12% used').waitFor();
+  });
+
   await scenario('a long command result is a folded card and the composer stays usable', async () => {
     await send('/help');
     const card = page.getByTestId('command-output').last();

@@ -24,8 +24,10 @@ import type {
   ISessionClientHandle,
   ISessionNotice,
   IWsSessionState,
+  TCommandCatalog,
   TConversationEntry,
   TMakeSessionClient,
+  TSessionStatus,
 } from './session-client-types.js';
 import type { TConnectionStatus, TClientMessage } from '../client/ws-session-client.js';
 import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
@@ -64,6 +66,8 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   const [pendingPrompts, setPendingPrompts] = useState<readonly TPendingPrompt[]>([]);
   const [sessionName, setSessionName] = useState<string | null>(null);
   const [sessionNotices, setSessionNotices] = useState<readonly ISessionNotice[]>([]);
+  const [commandCatalog, setCommandCatalog] = useState<TCommandCatalog | null>(null);
+  const [sessionStatus, setSessionStatus] = useState<TSessionStatus | null>(null);
 
   const clientRef = useRef<ISessionClientHandle | null>(null);
   const streamingIdRef = useRef<string | null>(null);
@@ -198,6 +202,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           break;
         }
         case 'error': {
+          send({ type: 'get-status' });
           finishTurn((tool) => (tool.status === 'running' ? 'error' : tool.status));
           setSessionNotices((previous) => [
             ...previous,
@@ -212,7 +217,18 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           ]);
           break;
         }
+        case 'commands': {
+          setCommandCatalog({ commands: msg.commands, skills: msg.skills });
+          break;
+        }
+        case 'session_status': {
+          setSessionStatus(msg.status);
+          break;
+        }
         case 'command_result': {
+          // A command may change the status (mode, effort, model) or the catalog (plugins, skills).
+          send({ type: 'get-status' });
+          send({ type: 'get-commands' });
           const unavailable = pendingIntentRef.current;
           pendingIntentRef.current = null;
           if (unavailable !== null && msg.success) {
@@ -232,12 +248,13 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         }
         case 'complete':
         case 'interrupted': {
+          send({ type: 'get-status' });
           finishTurn((tool) => (tool.status === 'running' ? 'done' : tool.status));
           break;
         }
       }
     },
-    [appendEntry, finishTurn, handleUsageMessage, updateActiveTools],
+    [appendEntry, finishTurn, handleUsageMessage, send, updateActiveTools],
   );
 
   const answerPermission = useCallback((id: string, result: TPermissionResultValue): void => {
@@ -255,7 +272,15 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   }, []);
 
   useEffect(() => {
-    const client = makeClient({ onMessage: handleMessage, onStatusChange: setStatus });
+    const onStatusChange = (next: TStatus): void => {
+      setStatus(next);
+      // Every client learns what it can offer and what is in effect as soon as it is attached.
+      if (next === 'connected') {
+        client.send({ type: 'get-commands' });
+        client.send({ type: 'get-status' });
+      }
+    };
+    const client = makeClient({ onMessage: handleMessage, onStatusChange });
     clientRef.current = client;
     client.connect();
     return () => {
@@ -272,6 +297,8 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     isThinking,
     executionWorkspace,
     sessionName,
+    commandCatalog,
+    sessionStatus,
     send,
     pendingPrompts,
     answerPermission,

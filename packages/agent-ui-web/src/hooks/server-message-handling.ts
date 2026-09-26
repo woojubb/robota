@@ -21,6 +21,8 @@ export const SERVER_MESSAGE_HANDLING = {
   command_result: 'visible-notice',
   messages: 'reducer-state',
   context: 'intentionally-not-rendered',
+  commands: 'reducer-state',
+  session_status: 'reducer-state',
   usage_report: 'reducer-state',
   personal_usage_report: 'reducer-state',
   personal_usage_report_error: 'visible-notice',

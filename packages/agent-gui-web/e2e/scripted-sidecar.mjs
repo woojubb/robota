@@ -33,6 +33,7 @@ const tick = (ms = 20) => new Promise((r) => setTimeout(r, ms));
 /** A scripted IInteractiveSession: EventEmitter for on/off/emit, deterministic submit + permission. */
 class ScriptedSession extends EventEmitter {
   #pendingPermission = null;
+  #mode = 'default';
 
   getMessages() {
     return [];
@@ -117,6 +118,10 @@ class ScriptedSession extends EventEmitter {
       const lines = Array.from({ length: 30 }, (_, i) => `Command ${i + 1} (/c${i + 1}) — does thing ${i + 1}`);
       return Promise.resolve({ message: ['Available commands:', ...lines].join('\n'), success: true });
     }
+    if (name === 'mode') {
+      this.#mode = 'acceptEdits';
+      return Promise.resolve({ message: 'Permission mode: acceptEdits', success: true });
+    }
     if (name === 'settings') {
       this.emit('ui_intent', { intent: { type: 'show-settings' } });
       return Promise.resolve({ message: 'Opening settings...', success: true });
@@ -124,7 +129,25 @@ class ScriptedSession extends EventEmitter {
     return Promise.resolve({ message: 'ok', success: true });
   }
   listCommands() {
-    return [];
+    return [
+      { name: 'help', description: 'Show available commands', modelInvocable: false },
+      { name: 'mode', description: 'Show or change the permission mode', modelInvocable: false },
+      { name: 'settings', description: 'Open settings', modelInvocable: false },
+    ];
+  }
+  listSkills() {
+    return [
+      { name: 'parity-demo', description: 'Replies with a fixed phrase', source: 'project', modelInvocable: true, userInvocable: true },
+    ];
+  }
+  getStatusSnapshot() {
+    return {
+      sessionId: 'scripted-session',
+      model: 'scripted-model',
+      permissionMode: this.#mode,
+      effort: 'auto',
+      context: { usedPercentage: 12, usedTokens: 24000, maxTokens: 200000, remainingPercentage: 88 },
+    };
   }
   abort() {}
   cancelQueue() {}

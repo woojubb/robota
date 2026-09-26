@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { AgentActivityPanel } from './AgentActivityPanel.js';
+import { Composer } from './Composer.js';
 import { ConversationView } from './ConversationView.js';
 import { PermissionPrompt } from './PermissionPrompt.js';
 import { PersonalUsageDashboard } from './PersonalUsageDashboard.js';
@@ -28,55 +29,6 @@ function EmptyState(): React.ReactElement {
           Session connected. Send a message to start — the agent runs in the sidecar; permissions
           surface here as prompts.
         </p>
-      </div>
-    </div>
-  );
-}
-
-/** The composer: multiline textarea (Enter sends, ⇧Enter newline) + Send, with a key-hint strip. */
-function Composer({ onSubmit }: { onSubmit: (prompt: string) => void }): React.ReactElement {
-  const [draft, setDraft] = useState('');
-  const submit = (): void => {
-    const prompt = draft.trim();
-    if (!prompt) return;
-    onSubmit(prompt);
-    setDraft('');
-  };
-  return (
-    <div className="flex-shrink-0 border-t border-border/70 bg-card/25 px-3 pb-2 pt-2.5">
-      <form
-        className="flex items-end gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit();
-        }}
-      >
-        <textarea
-          aria-label="message"
-          rows={1}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              submit();
-            }
-          }}
-          placeholder="Message the agent…"
-          className="max-h-[140px] min-h-[38px] flex-1 resize-none rounded-xl border border-border/70 bg-background/60 px-3.5 py-2.5 text-sm leading-relaxed text-foreground transition-all placeholder:text-muted-foreground/40 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20"
-        />
-        <button
-          type="submit"
-          disabled={!draft.trim()}
-          className="h-[38px] rounded-xl border border-border/70 px-4 font-mono text-[11px] uppercase tracking-wider text-muted-foreground transition-all hover:border-primary/50 hover:bg-primary/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
-        >
-          Send
-        </button>
-      </form>
-      <div className="mt-1.5 px-1 font-mono text-[10px] tracking-wide text-muted-foreground/45">
-        <span className="text-muted-foreground/70">Enter</span> send
-        <span className="mx-1.5 text-border">·</span>
-        <span className="text-muted-foreground/70">⇧ Enter</span> newline
       </div>
     </div>
   );
@@ -144,6 +96,9 @@ export function SessionSurface({
               onAnswerAsk={state.answerAsk}
             />
             <Composer
+              catalog={state.commandCatalog ?? null}
+              status={state.sessionStatus ?? null}
+              onCommand={(name) => state.send({ type: 'command', name })}
               onSubmit={(prompt) => {
                 if (!prompt.startsWith('/')) {
                   state.send({ type: 'submit', prompt });

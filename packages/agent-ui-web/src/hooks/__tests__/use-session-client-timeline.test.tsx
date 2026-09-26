@@ -82,3 +82,62 @@ describe('#3186 — the GUI conversation timeline', () => {
     expect(result.current.activeTools).toEqual([]);
   });
 });
+
+describe('#3186 — commands and status for the composer', () => {
+  function connectedSetup(): {
+    result: { current: ReturnType<typeof useSessionClient> };
+    deliver: (msg: TServerMessage) => void;
+    wire: unknown[];
+    connect: () => void;
+  } {
+    let onMessage: ((msg: TServerMessage) => void) | null = null;
+    let onStatus: ((status: 'connected') => void) | null = null;
+    const wire: unknown[] = [];
+    const makeClient: TMakeSessionClient = (callbacks) => {
+      onMessage = callbacks.onMessage;
+      onStatus = callbacks.onStatusChange as (status: 'connected') => void;
+      return { connect: () => {}, disconnect: () => {}, send: (m) => wire.push(m) };
+    };
+    const { result } = renderHook(() => useSessionClient(makeClient));
+    return {
+      result,
+      wire,
+      deliver: (msg) => act(() => onMessage?.(msg)),
+      connect: () => act(() => onStatus?.('connected')),
+    };
+  }
+
+  it('asks for the commands and the status once connected, and holds what arrives', () => {
+    const { result, wire, deliver, connect } = connectedSetup();
+    connect();
+    expect(wire).toEqual(
+      expect.arrayContaining([{ type: 'get-commands' }, { type: 'get-status' }]),
+    );
+    deliver({
+      type: 'commands',
+      commands: [{ name: 'help', description: 'Show commands', modelInvocable: false }],
+      skills: [
+        { name: 'demo', description: 'Demo', source: 'project', modelInvocable: true, userInvocable: true },
+      ],
+    });
+    const status = {
+      sessionId: 's',
+      model: 'm',
+      permissionMode: 'default',
+      effort: 'auto',
+      context: { usedPercentage: 3, usedTokens: 3, maxTokens: 100, remainingPercentage: 97 },
+    } as const;
+    deliver({ type: 'session_status', status });
+    expect(result.current.commandCatalog?.commands.map((c) => c.name)).toEqual(['help']);
+    expect(result.current.commandCatalog?.skills.map((s) => s.name)).toEqual(['demo']);
+    expect(result.current.sessionStatus).toEqual(status);
+  });
+
+  it('refreshes the status after a command or a turn changes it', () => {
+    const { wire, deliver } = connectedSetup();
+    deliver({ type: 'command_result', name: 'mode', message: 'Mode set.', success: true });
+    deliver({ type: 'complete', result: { response: '' } } as TServerMessage);
+    expect(wire.filter((m) => (m as { type: string }).type === 'get-status')).toHaveLength(2);
+    expect(wire).toContainEqual({ type: 'get-commands' });
+  });
+});
