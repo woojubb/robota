@@ -31,7 +31,9 @@ import type {
   IPlanApprovalEvent,
   ISessionRenamedEvent,
   IToolState,
+  ISessionListing,
   ISessionStatusSnapshot,
+  ISessionSwitchedEvent,
   IUiIntentEvent,
   TPermissionResultValue,
 } from '@robota-sdk/agent-interface-session';
@@ -52,6 +54,11 @@ export type TClientMessage =
   // (a `/` menu), and the session's status (model, permission mode, effort, context).
   | { type: 'get-commands' }
   | { type: 'get-status' }
+  // #3189: the host's sessions — list them, start a new one, make another current. A switch that
+  // would lose work in progress is refused with a protocol_error that says why.
+  | { type: 'list-sessions'; requestId: string }
+  | { type: 'new-session' }
+  | { type: 'switch-session'; sessionId: string }
   // SELFHOST-004: request the assembled trace/cost read-model (spans + cost-by-source) for the run.
   | { type: 'get-usage-report' }
   | {
@@ -105,6 +112,15 @@ export type TServerMessage =
   | { type: 'context'; state: ReturnType<ISessionConversationRead['getContextState']> }
   | { type: 'commands'; commands: ICommandListEntry[]; skills: ICommandSkillListEntry[] }
   | { type: 'session_status'; status: ISessionStatusSnapshot }
+  | { type: 'sessions'; requestId: string; listing: ISessionListing }
+  | {
+      type: 'sessions_error';
+      requestId: string;
+      code: 'not_available' | 'list_failed';
+      message: string;
+    }
+  // Broadcast: the host made another session current; every client re-reads what it shows.
+  | { type: 'session_switched'; event: ISessionSwitchedEvent }
   // SELFHOST-004 (P5, TC-08): carry the assembled trace/cost read-model (per-op span timeline +
   // cost-by-source) across the sidecar boundary — no existing variant carries per-op `durationMs` or
   // per-source `costUsd`. The GUI renders it renderer-side.

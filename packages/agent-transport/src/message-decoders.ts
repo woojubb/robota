@@ -89,6 +89,9 @@ export const CLIENT_MESSAGE_SHAPES: Readonly<Record<TClientMessage['type'], TVar
   'get-context': {},
   'get-commands': {},
   'get-status': {},
+  'list-sessions': { requestId: isNonEmptyString },
+  'new-session': {},
+  'switch-session': { sessionId: isNonEmptyString },
   'get-usage-report': {},
   'get-personal-usage-report': {
     requestId: isNonEmptyString,
@@ -137,6 +140,13 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
   context: { state: isRecord },
   commands: { commands: isRecordArray, skills: isRecordArray },
   session_status: { status: isRecord },
+  sessions: { requestId: isNonEmptyString, listing: isRecord },
+  sessions_error: {
+    requestId: isNonEmptyString,
+    code: oneOf(['not_available', 'list_failed']),
+    message: isString,
+  },
+  session_switched: { event: isRecord },
   usage_report: { report: isRecord },
   personal_usage_report: { requestId: isNonEmptyString, report: isRecord },
   personal_usage_report_error: {
