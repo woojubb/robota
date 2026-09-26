@@ -65,8 +65,8 @@ flowchart TB
 | **agent-remote-client**        | HTTP client for calling a remote Robota agent exposed via `agent-transport-http`                                                                                                                                 | Client       |
 | **agent-ui-web**               | Shared GUI core — session reducer (`useSessionClient`/`useWsSession`) + view components (`ConversationView`, `AgentActivityPanel`, `PermissionPrompt`) + `SessionSurface` shell + `theme.css`                    | Browser UI   |
 | **agent-transport-webrtc-web** | Browser WebRTC peer (`RemoteClient`, `useRtcSession`) rendered over the GUI core                                                                                                                                 | Browser UI   |
-| **packages/agent-cli-web**     | CLI-served Vite SPA (localhost session monitor), built + served by agent-cli over localhost HTTP (GUI-007)                                                                                                       | Browser UI   |
-| **apps/agent-app**             | Electron desktop app; drives a `robota --serve` sidecar over loopback WS and renders the shared GUI core `agent-ui-web`                                                                                          | Desktop UI   |
+| **packages/agent-gui-web**     | The GUI web app (Vite): the desktop app loads its build, agent-cli serves it over localhost HTTP on `robota --serve --open`, `dev:web` runs it in a browser                                                   | Browser UI   |
+| **apps/agent-app**             | Electron shell: spawns a `robota --serve` sidecar, hands its loopback address to the page, and loads `agent-gui-web`                                                                                             | Desktop UI   |
 | **agent-interface-transport**  | Transport contract interfaces only (no implementation): `ITransportAdapter`, `IConfigurableTransport`, `ITransportConfig`                                                                                        | Contracts    |
 | **agent-interface-tui**        | TUI interaction type contracts only: `ITuiCommandInteraction`, `ITuiCliAdapter`, `ITerminalOutput` — no runtime deps                                                                                             | Contracts    |
 
@@ -80,8 +80,8 @@ agent-command          ─→ agent-core, agent-framework
 agent-remote-client                    (HTTP client, no agent-framework dependency)
 agent-ui-web        ─→ agent-interface-{command,execution,session,transport}, agent-transport
 agent-transport-webrtc-web ─→ agent-ui-web, agent-remote-pairing, agent-transport
-packages/agent-cli-web     ─→ agent-ui-web
-apps/agent-app             ─→ agent-ui-web (spawns robota --serve over loopback WS; no agent-framework/agent-core dep)
+packages/agent-gui-web     ─→ agent-ui-web
+apps/agent-app             ─→ agent-gui-web (build output only; spawns robota --serve over loopback WS; no agent-framework/agent-core dep)
 ```
 
 > **Runtime host (RUNTIME-001).** `startRuntimeHost()`/`buildRuntimeSession()` live in `agent-framework`: they build and serve one headless `InteractiveSession` over a loopback WS. The TUI (`agent-cli`) and the desktop GUI (`apps/agent-app`, which spawns `robota --serve`) are sibling presentations over that one shared runtime host.
@@ -91,7 +91,7 @@ apps/agent-app             ─→ agent-ui-web (spawns robota --serve over loopb
 | Category          | Packages allowed                                                                                             | Rule                                        |
 | ----------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------- |
 | React + Ink (TUI) | `agent-ui-terminal` only                                                                                     | Never in protocol transport or SDK packages |
-| React (browser)   | `agent-playground`, `agent-ui-web`, `agent-transport-webrtc-web`, `packages/agent-cli-web`, `apps/agent-app` | Browser app packages only                   |
+| React (browser)   | `agent-playground`, `agent-ui-web`, `agent-transport-webrtc-web`, `packages/agent-gui-web`                   | Browser app packages only                   |
 | Pure TypeScript   | Everything else (core, framework, transport, CLI)                                                            | No React or Ink dependencies                |
 
 ## Data Flow: IHistoryEntry[]

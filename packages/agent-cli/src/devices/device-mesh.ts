@@ -165,6 +165,20 @@ async function recordStores(internet: IDeviceMeshInternetOptions): Promise<IRend
     : [];
 }
 
+/** What to change when this device's relay cannot listen, by why it cannot. */
+function relayBindRemedy(error: unknown): string {
+  const cause = error instanceof Error ? error.cause : undefined;
+  const code = cause instanceof Error ? (cause as NodeJS.ErrnoException).code : undefined;
+  const off = 'or set `relay.serve` to false.';
+  if (code === 'EADDRNOTAVAIL') {
+    return `Set \`transports.mesh.options.relay.host\` to an address of this machine, or remove it, ${off}`;
+  }
+  if (code === 'EACCES') {
+    return `Choose a \`transports.mesh.options.relay.port\` from 1024, ${off}`;
+  }
+  return `Choose another \`transports.mesh.options.relay.port\`, ${off}`;
+}
+
 async function startInternet(
   internet: IDeviceMeshInternetOptions,
   directory: string,
@@ -184,8 +198,7 @@ async function startInternet(
       });
     } catch (error) {
       throw new Error(
-        `${error instanceof Error ? error.message : String(error)}. Choose another ` +
-          '`transports.mesh.options.relay.port`, or set `relay.serve` to false.',
+        `${error instanceof Error ? error.message : String(error)}. ${relayBindRemedy(error)}`,
         { cause: error },
       );
     }

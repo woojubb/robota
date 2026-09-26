@@ -56,8 +56,12 @@ function allBuiltInCommands(): ISystemCommand[] {
     providerDefinitions,
     providerSettingsAdapter,
   });
+  // /keybindings and /theme are in the default set; built here with their capabilities instead.
+  const withoutPortless = modules.filter(
+    (module) => module.name !== 'agent-command-keybindings' && module.name !== 'agent-command-theme',
+  );
   return [
-    ...modules,
+    ...withoutPortless,
     createKeybindingsCommandModule({ ensureFile: async () => '/tmp/keybindings.json' }),
     createThemeCommandModule(themeCataloguePort),
     createDoctorCommandModule(fixture.inputs, fixture.deps),

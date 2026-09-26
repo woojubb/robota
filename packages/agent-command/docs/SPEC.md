@@ -60,8 +60,9 @@ same report data and repair decisions are used by slash and shell routes.
 
 **`/keybindings`.** The command knows nothing about the keybindings schema, defaults, contexts,
 watcher, or TUI implementation — it only asks an injected capability port to ensure the user document
-and hands back the returned path. Without that port injected, the default assembly does not register
-the command at all.
+and hands back the returned path. The default assembly registers it even without that port — then it
+answers that key bindings belong to the robota terminal — so a host without a terminal never
+replies "Unknown command".
 
 **`/git` (host-only, blocking).** Every verb runs through an injected process port whose production
 implementation is argv-only (`execFile`, `shell: false`, so no token is ever parsed as shell syntax),
@@ -149,8 +150,9 @@ the setup patch is built; and a configured `adminContact` is appended to every v
 stores supplied by its host; it cannot select a user home or product settings path when those inputs
 are absent.
 
-**`/theme`.** Behind an injected theme-catalogue port only — with no port, there is no command. It
-emits at most one appearance-settings patch per invocation, and an unknown theme id writes nothing,
+**`/theme`.** Works through an injected theme-catalogue port; without one it is still registered and
+answers that themes belong to the robota terminal, for the same reason as `/keybindings`. It emits at
+most one appearance-settings patch per invocation, and an unknown theme id writes nothing,
 not even the toggles submitted alongside it.
 
 **Semantic command roles.** `skills`, `compact`, and `agent` declare framework-owned semantic roles

@@ -12,24 +12,16 @@
 import type { TModelEffortSelection } from '@robota-sdk/agent-core';
 import type {
   ICommandListEntry,
+  ICommandSkillListEntry,
   TCommandInvocationSource,
 } from '@robota-sdk/agent-interface-command';
 import type { ISessionReplayValidationResult } from '@robota-sdk/agent-session';
 
 // ICommandListEntry SSOT relocated to @robota-sdk/agent-interface-command (DATA-001).
 // TCommandInvocationSource SSOT relocated to @robota-sdk/agent-interface-command (REMOTE-003).
-export type { ICommandListEntry, TCommandInvocationSource };
-
-export interface ICommandSkillListEntry {
-  readonly name: string;
-  readonly description: string;
-  readonly source: string;
-  readonly modelInvocable: boolean;
-  readonly userInvocable: boolean;
-  readonly argumentHint?: string;
-  readonly context?: string;
-  readonly agent?: string;
-}
+// ICommandSkillListEntry SSOT relocated to @robota-sdk/agent-interface-command: the session contract
+// lists skills to every client.
+export type { ICommandListEntry, ICommandSkillListEntry, TCommandInvocationSource };
 
 export interface ICommandSkillActivationRequest {
   readonly invocationSource: TCommandInvocationSource;

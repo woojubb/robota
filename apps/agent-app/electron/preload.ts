@@ -1,6 +1,6 @@
 /**
  * GUI-002 — Electron preload (runs in an isolated context). Exposes ONLY the loopback endpoint + lifecycle
- * signals to the renderer via `contextBridge` — no Node APIs leak into the agent-ui-web renderer, and the endpoint
+ * signals to the renderer via `contextBridge` — no Node APIs leak into the GUI web app (agent-gui-web), and the endpoint
  * (which carries the auth nonce) is never placed on `window` as a plain value that page script could read
  * off a global before the bridge is set up.
  */
@@ -15,13 +15,16 @@ const api = {
   /** Tell the main process the session is live (drives the supervisor's `ready`). */
   signalReady: (): void => ipcRenderer.send('agent-gui:ready'),
   /** Subscribe to sidecar lifecycle state (`starting`/`ready`/`fatal`). Returns an unsubscribe fn. */
-  onState: (cb: (state: TSidecarState) => void): (() => void) => {
-    const listener = (_e: IpcRendererEvent, state: TSidecarState): void => cb(state);
+  /** `detail` accompanies `fatal`: the tail of what the sidecar said before it stopped. */
+  onState: (cb: (state: TSidecarState, detail?: string) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, state: TSidecarState, detail?: string): void =>
+      cb(state, detail);
     ipcRenderer.on('agent-gui:state', listener);
     return () => ipcRenderer.removeListener('agent-gui:state', listener);
   },
 };
 
+// The page reads this as `IDesktopBridge` (packages/agent-gui-web/src/gui-host.ts); keep the two in step.
 export type TAgentGuiBridge = typeof api;
 
 contextBridge.exposeInMainWorld('agentGui', api);

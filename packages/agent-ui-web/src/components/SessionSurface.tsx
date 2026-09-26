@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { AgentActivityPanel } from './AgentActivityPanel.js';
+import { Composer, GoalBar } from './Composer.js';
 import { ConversationView } from './ConversationView.js';
 import { PermissionPrompt } from './PermissionPrompt.js';
 import { PersonalUsageDashboard } from './PersonalUsageDashboard.js';
@@ -13,7 +14,7 @@ import type { IWsSessionState } from '../hooks/useSessionClient.js';
  * presentation over an `IWsSessionState`: no hooks, no transport, no session/command/permission logic — it
  * renders the reconstructed session and forwards user intent through the reducer's `send`/`answer*`. The
  * elements mirror the TUI: title bar + status strip, scrollable conversation column, background-activity
- * rail, composer with key hints, and the permission/ask modal.
+ * rail, composer with key hints, and the permission/ask prompt docked above the composer.
  */
 
 /** Designed empty state shown before the first turn. */
@@ -33,58 +34,9 @@ function EmptyState(): React.ReactElement {
   );
 }
 
-/** The composer: multiline textarea (Enter sends, ⇧Enter newline) + Send, with a key-hint strip. */
-function Composer({ onSubmit }: { onSubmit: (prompt: string) => void }): React.ReactElement {
-  const [draft, setDraft] = useState('');
-  const submit = (): void => {
-    const prompt = draft.trim();
-    if (!prompt) return;
-    onSubmit(prompt);
-    setDraft('');
-  };
-  return (
-    <div className="flex-shrink-0 border-t border-border/70 bg-card/25 px-3 pb-2 pt-2.5">
-      <form
-        className="flex items-end gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit();
-        }}
-      >
-        <textarea
-          aria-label="message"
-          rows={1}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              submit();
-            }
-          }}
-          placeholder="Message the agent…"
-          className="max-h-[140px] min-h-[38px] flex-1 resize-none rounded-xl border border-border/70 bg-background/60 px-3.5 py-2.5 text-sm leading-relaxed text-foreground transition-all placeholder:text-muted-foreground/40 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20"
-        />
-        <button
-          type="submit"
-          disabled={!draft.trim()}
-          className="h-[38px] rounded-xl border border-border/70 px-4 font-mono text-[11px] uppercase tracking-wider text-muted-foreground transition-all hover:border-primary/50 hover:bg-primary/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
-        >
-          Send
-        </button>
-      </form>
-      <div className="mt-1.5 px-1 font-mono text-[10px] tracking-wide text-muted-foreground/45">
-        <span className="text-muted-foreground/70">Enter</span> send
-        <span className="mx-1.5 text-border">·</span>
-        <span className="text-muted-foreground/70">⇧ Enter</span> newline
-      </div>
-    </div>
-  );
-}
-
 /**
  * The full desktop layout over an `IWsSessionState`: title bar · conversation column + composer · activity
- * rail · permission modal. `surface` is an optional label shown next to the mark (e.g. "app").
+ * rail · the pending question docked above the composer. `surface` is an optional label shown next to the mark (e.g. "app").
  */
 export function SessionSurface({
   state,
@@ -98,20 +50,16 @@ export function SessionSurface({
 }): React.ReactElement {
   const [view, setView] = useState<'chat' | 'usage'>('chat');
   const tasks = state.executionWorkspace?.entries ?? [];
-  const hasTasks = tasks.length > 0;
+  // The main thread alone is this conversation; the rail earns its width only for work beside it.
+  const hasTasks = tasks.some((entry) => entry.kind !== 'main_thread');
   const isEmpty =
     state.messages.length === 0 &&
     !state.streamingText &&
     !state.isThinking &&
     state.activeTools.length === 0;
 
-  // CMD-004 Stage D: `ui_intent` notices — a command issued from THIS surface requested a screen
-  // the GUI cannot render; the reducer folds it into an explicit dismissible notice (TC-05, never a
-  // silent drop). Tolerates a partial state stub (older embedders) via the nullish default.
-  const uiIntentNotices = state.uiIntentNotices ?? [];
-
   return (
-    <div className="flex h-full flex-col bg-background text-foreground">
+    <div className="relative flex h-full flex-col bg-background text-foreground">
       <SessionTitleBar
         status={state.status}
         surface={surface}
@@ -120,34 +68,18 @@ export function SessionSurface({
         personalUsageEnabled={personalUsageEnabled}
       />
 
-      {uiIntentNotices.length > 0 && (
-        <div className="flex flex-col gap-1 border-b border-border/50 bg-card/40 px-4 py-2">
-          {uiIntentNotices.map((n) => (
-            <div
-              key={n.id}
-              data-testid="ui-intent-notice"
-              data-intent={n.intentType}
-              className="flex items-center gap-3 font-mono text-[12px] text-amber-300/90"
-            >
-              <span className="flex-1">{n.notice}</span>
-              <button
-                type="button"
-                aria-label={`dismiss ${n.intentType} notice`}
-                className="rounded border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground"
-                onClick={() => state.dismissUiIntentNotice?.(n.id)}
-              >
-                Dismiss
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
       <SessionNotices state={state} />
 
       {personalUsageEnabled && view === 'usage' ? (
         <div className="min-h-0 flex-1">
           <PersonalUsageDashboard state={state} />
+          {/* A gated turn waits on this answer, so it shows over whatever view is open. */}
+          <PermissionPrompt
+            layout="modal"
+            prompts={state.pendingPrompts}
+            onAnswerPermission={state.answerPermission}
+            onAnswerAsk={state.answerAsk}
+          />
         </div>
       ) : (
         <div className="flex flex-1 overflow-hidden">
@@ -164,7 +96,20 @@ export function SessionSurface({
                 />
               )}
             </div>
+            <GoalBar
+              status={state.sessionStatus ?? null}
+              onStop={() => state.send({ type: 'command', name: 'goal', args: 'cancel' })}
+            />
+            <PermissionPrompt
+              layout="dock"
+              prompts={state.pendingPrompts}
+              onAnswerPermission={state.answerPermission}
+              onAnswerAsk={state.answerAsk}
+            />
             <Composer
+              catalog={state.commandCatalog ?? null}
+              status={state.sessionStatus ?? null}
+              onCommand={(name) => state.send({ type: 'command', name })}
               onSubmit={(prompt) => {
                 if (!prompt.startsWith('/')) {
                   state.send({ type: 'submit', prompt });
@@ -185,12 +130,6 @@ export function SessionSurface({
           )}
         </div>
       )}
-
-      <PermissionPrompt
-        prompts={state.pendingPrompts}
-        onAnswerPermission={state.answerPermission}
-        onAnswerAsk={state.answerAsk}
-      />
     </div>
   );
 }
@@ -214,13 +153,13 @@ export function CenteredChrome({
         </span>
       </header>
       <div className="flex flex-1 items-center justify-center">
-        <p
-          className={`max-w-[300px] px-8 text-center font-mono text-xs leading-relaxed ${
+        <div
+          className={`max-w-[560px] px-8 text-center font-mono text-xs leading-relaxed ${
             tone === 'fatal' ? 'text-rose-300/80' : 'text-muted-foreground'
           }`}
         >
           {children}
-        </p>
+        </div>
       </div>
     </div>
   );

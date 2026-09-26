@@ -174,10 +174,8 @@ export function createDefaultCommandModules({
     createShellCommandModule(),
     createEditorCommandModule(editorTemporaryDirectoryPrefix),
     createGitCommandModule(),
-    ...(keybindingsFilePort === undefined
-      ? []
-      : [createKeybindingsCommandModule(keybindingsFilePort)]),
-    ...(themeCataloguePort === undefined ? [] : [createThemeCommandModule(themeCataloguePort)]),
+    createKeybindingsCommandModule(keybindingsFilePort),
+    createThemeCommandModule(themeCataloguePort),
     ...(doctorInputs === undefined
       ? []
       : [createDoctorCommandModule(doctorInputs, undefined, doctorDisplay)]),

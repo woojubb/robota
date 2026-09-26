@@ -1,13 +1,17 @@
 'use client';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useLayoutEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-import type { IConversationMessage, IActiveTool } from '../hooks/useSessionClient.js';
+import type {
+  IActiveTool,
+  ICommandOutputEntry,
+  TConversationEntry,
+} from '../hooks/useSessionClient.js';
 
 interface IConversationViewProps {
-  messages: IConversationMessage[];
+  messages: readonly TConversationEntry[];
   activeTools: IActiveTool[];
   streamingText: string;
   isThinking: boolean;
@@ -140,25 +144,125 @@ function AgentBlock({
 
 function ToolCard({ tool }: { tool: IActiveTool }): React.ReactElement {
   const running = tool.status === 'running';
+  const failed = tool.status === 'error';
   return (
     <div
       className={`flex items-center gap-2.5 rounded-lg border px-3.5 py-2 text-[11px] font-mono transition-colors ${
         running
           ? 'bg-amber-500/5 border-amber-500/20 text-amber-300/80'
-          : 'bg-emerald-500/5 border-emerald-500/20 text-emerald-300/80'
+          : failed
+            ? 'bg-rose-500/5 border-rose-500/20 text-rose-300/80'
+            : 'bg-emerald-500/5 border-emerald-500/20 text-emerald-300/80'
       }`}
     >
       <span
         className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${
-          running ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'
+          running ? 'bg-amber-400 animate-pulse' : failed ? 'bg-rose-400' : 'bg-emerald-400'
         }`}
       />
-      <span className="opacity-50">{running ? '▶' : '✓'}</span>
+      <span className="opacity-50">{running ? '▶' : failed ? '✕' : '✓'}</span>
       <span className="font-medium tracking-wide">{tool.name}</span>
       {typeof tool.input === 'string' && tool.input && (
         <span className="opacity-35 truncate max-w-[200px] text-[10px]">{tool.input}</span>
       )}
-      <span className="ml-auto opacity-35 text-[10px]">{running ? 'running…' : 'done'}</span>
+      <span className="ml-auto opacity-35 text-[10px]">
+        {running ? 'running…' : failed ? 'failed' : 'done'}
+      </span>
+    </div>
+  );
+}
+
+/**
+ * Command output taller than this starts folded, so one reply never buries the conversation. Lines
+ * count where layout cannot be measured; a rendered card also folds on its measured height, because
+ * a few long wrapped lines are as tall as many short ones.
+ */
+const COMMAND_FOLD_LINES = 12;
+const COMMAND_FOLD_HEIGHT_PX = 280;
+
+const COMMAND_TONE: Record<ICommandOutputEntry['tone'], { dot: string; text: string }> = {
+  success: { dot: 'bg-primary/70', text: 'text-foreground/85' },
+  error: { dot: 'bg-rose-400', text: 'text-rose-200/90' },
+  info: { dot: 'bg-sky-400/80', text: 'text-muted-foreground' },
+};
+
+/** A slash command's outcome, where it was typed: monospace, line breaks kept, long output folded. */
+function CommandCard({ entry }: { entry: ICommandOutputEntry }): React.ReactElement {
+  const lines = entry.content.split('\n');
+  const bodyRef = useRef<HTMLPreElement>(null);
+  const [tall, setTall] = useState(false);
+  const [open, setOpen] = useState(false);
+  useLayoutEffect(() => {
+    const body = bodyRef.current;
+    if (body) setTall(body.scrollHeight > COMMAND_FOLD_HEIGHT_PX);
+  }, [entry.content]);
+  const byLines = lines.length > COMMAND_FOLD_LINES;
+  const foldable = byLines || tall;
+  const folded = foldable && !open;
+  const shown = folded && byLines ? lines.slice(0, COMMAND_FOLD_LINES).join('\n') : entry.content;
+  const tone = COMMAND_TONE[entry.tone];
+  return (
+    <div
+      data-testid="command-output"
+      data-tone={entry.tone}
+      className="rounded-lg border border-border/50 bg-black/20 font-mono text-[12px]"
+    >
+      <div className="flex items-center gap-2 border-b border-border/40 px-3 py-1.5 text-[11px] text-muted-foreground">
+        <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
+        <span className="text-foreground/80">/{entry.name}</span>
+      </div>
+      <div className="relative">
+        <pre
+          ref={bodyRef}
+          style={folded ? { maxHeight: COMMAND_FOLD_HEIGHT_PX } : undefined}
+          className={`overflow-hidden whitespace-pre-wrap break-words px-3 py-2 leading-relaxed ${tone.text}`}
+        >
+          {shown}
+        </pre>
+        {folded && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background/90 to-transparent" />
+        )}
+      </div>
+      {foldable && (
+        <button
+          type="button"
+          onClick={() => setOpen((value) => !value)}
+          className="w-full border-t border-border/40 px-3 py-1.5 text-left text-[11px] text-muted-foreground hover:text-foreground"
+        >
+          {open ? 'Show less' : `Show all ${lines.length} lines`}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/** One line per finished turn's tool calls; the calls themselves open on demand. */
+function ToolGroup({ tools }: { tools: readonly IActiveTool[] }): React.ReactElement {
+  const [open, setOpen] = useState(false);
+  const failed = tools.filter((tool) => tool.status === 'error').length;
+  const names = [...new Set(tools.map((tool) => tool.name))].join(', ');
+  return (
+    <div className="font-mono text-[11px]">
+      <button
+        type="button"
+        aria-expanded={open}
+        onClick={() => setOpen((value) => !value)}
+        className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-muted-foreground hover:bg-card/60 hover:text-foreground"
+      >
+        <span className="w-3 opacity-60">{open ? '▾' : '▸'}</span>
+        <span>
+          {tools.length} tool {tools.length === 1 ? 'call' : 'calls'}
+        </span>
+        <span className="truncate opacity-60">{names}</span>
+        {failed > 0 && <span className="ml-auto text-rose-300/80">{failed} failed</span>}
+      </button>
+      {open && (
+        <div className="ml-5 mt-1 flex flex-col gap-1">
+          {tools.map((tool) => (
+            <ToolCard key={tool.id} tool={tool} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -207,13 +311,18 @@ export function ConversationView({
         </div>
       )}
 
-      {messages.map((msg) =>
-        msg.role === 'user' ? (
-          <UserBlock key={msg.id} content={msg.content} author={msg.author} />
-        ) : (
-          <AgentBlock key={msg.id} content={msg.content} />
-        ),
-      )}
+      {messages.map((entry) => {
+        switch (entry.role) {
+          case 'user':
+            return <UserBlock key={entry.id} content={entry.content} author={entry.author} />;
+          case 'assistant':
+            return <AgentBlock key={entry.id} content={entry.content} />;
+          case 'command':
+            return <CommandCard key={entry.id} entry={entry} />;
+          case 'tools':
+            return <ToolGroup key={entry.id} tools={entry.tools} />;
+        }
+      })}
 
       {isThinking && !streamingText && <ThinkingIndicator />}
 

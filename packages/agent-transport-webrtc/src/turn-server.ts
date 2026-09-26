@@ -232,8 +232,8 @@ function defaultAllowPeer(
   };
 }
 
-/** A UDP socket bound to `port` on `host`; `undefined` when the port is taken. */
-async function bindUdp(port: number, host: string): Promise<Socket | undefined> {
+/** A UDP socket bound to `port` on `host`; rejects with the bind error. */
+async function bindUdp(port: number, host: string): Promise<Socket> {
   const socket = createSocket('udp4');
   try {
     await new Promise<void>((resolve, reject) => {
@@ -244,15 +244,40 @@ async function bindUdp(port: number, host: string): Promise<Socket | undefined> 
       });
     });
     return socket;
-  } catch {
-    // allow-fallback: the port is taken; the caller tries another or refuses the request
+  } catch (error) {
     try {
       socket.close();
     } catch {
       /* never bound */
     }
+    throw error;
+  }
+}
+
+/** A UDP socket bound to `port` on `host`; `undefined` when it cannot be. */
+async function tryBindUdp(port: number, host: string): Promise<Socket | undefined> {
+  try {
+    return await bindUdp(port, host);
+  } catch {
+    // allow-fallback: a relayed port that cannot be bound; the caller tries another or refuses the request
     return undefined;
   }
+}
+
+/** Why the server's own socket could not be bound, in words that say what to change. */
+function bindFailure(error: unknown, host: string, port: number): Error {
+  const code = error instanceof Error ? (error as NodeJS.ErrnoException).code : undefined;
+  const why =
+    code === 'EADDRINUSE'
+      ? 'the port is taken'
+      : code === 'EADDRNOTAVAIL'
+        ? `${host} is not an address of this machine`
+        : code === 'EACCES'
+          ? `port ${port} needs privileges this process does not have`
+          : asError(error).message;
+  return new Error(`the TURN relay cannot listen on UDP ${host}:${port}: ${why}`, {
+    cause: error,
+  });
 }
 
 function localAddresses(): Set<string> {
@@ -322,9 +347,11 @@ export class TurnServer {
     }
     const host = options.host ?? '0.0.0.0';
     const port = options.port ?? 3478;
-    const socket = await bindUdp(port, host);
-    if (socket === undefined) {
-      throw new Error(`the TURN relay cannot listen on UDP ${host}:${port}: the port is taken`);
+    let socket: Socket;
+    try {
+      socket = await bindUdp(port, host);
+    } catch (error) {
+      throw bindFailure(error, host, port);
     }
     const relayAddress = options.relayAddress ?? (host === '0.0.0.0' ? firstExternalIpv4() : host);
     return new TurnServer(socket, options, host, relayAddress);
@@ -747,17 +774,17 @@ export class TurnServer {
   /** A socket for a relayed address: any free port, or a free one of the configured range. */
   private async relayedSocket(): Promise<Socket | undefined> {
     const range = this.options.relayPorts;
-    if (range === undefined) return bindUdp(0, this.bindHost);
+    if (range === undefined) return tryBindUdp(0, this.bindHost);
     const size = range.max - range.min + 1;
     for (let i = 0; i < Math.min(size, RELAY_PORT_TRIES); i += 1) {
-      const socket = await bindUdp(randomInt(range.min, range.max + 1), this.bindHost);
+      const socket = await tryBindUdp(randomInt(range.min, range.max + 1), this.bindHost);
       if (socket !== undefined) return socket;
     }
     // Random picks can miss the last free ports of a small range: take them in order.
     const taken = new Set(this.allocationPorts());
     for (let port = range.min; port <= range.max; port += 1) {
       if (taken.has(port)) continue;
-      const socket = await bindUdp(port, this.bindHost);
+      const socket = await tryBindUdp(port, this.bindHost);
       if (socket !== undefined) return socket;
     }
     return undefined;

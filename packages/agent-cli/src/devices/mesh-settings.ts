@@ -8,7 +8,8 @@
  * - `options.dht` / `pkarrRelays` / `nostrRelays` / `relay` / `turnServers` / `relayOnly`: see
  *   `parseMeshInternetSettings`.
  *
- * A malformed value fails closed with an error naming the setting.
+ * A malformed value fails closed with an error naming the setting; `options` is checked only when
+ * the mesh is enabled.
  */
 import { DEVICE_CAPABILITIES, type TDeviceCapability } from '@robota-sdk/agent-remote-pairing';
 
@@ -53,8 +54,12 @@ export function parseMeshSettings(transports: unknown): IMeshSettings {
     throw new Error('Invalid mesh setting: `transports.mesh.enabled` must be true or false.');
   }
   const options = mesh['options'];
+  // The options are read only by a mesh that opens: while it is off, a mistake in them stops nothing.
+  if (enabled !== true) {
+    return { enabled: false, policy: DEFAULT_MESH_POLICY, internet: parseMeshInternetSettings({}) };
+  }
   return {
-    enabled: enabled ?? false,
+    enabled: true,
     policy: capabilities(record(options, 'transports.mesh.options')['capabilities']),
     internet: parseMeshInternetSettings(options),
   };

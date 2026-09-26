@@ -1,7 +1,7 @@
 /**
- * GUI-007 — serve the CLI's built-in web monitor SPA (`packages/agent-cli-web`, copied to this package's
+ * GUI-007 — serve the GUI web app (`packages/agent-gui-web`, copied to this package's
  * `dist/web`) over a localhost-only HTTP server, injecting the live `ws-url` into `index.html`. This is the
- * CLI OWNING and SERVING its own monitor (a localhost-origin surface) — the secure replacement for a deployed
+ * CLI OWNING and SERVING its own GUI (a localhost-origin surface) — the secure replacement for a deployed
  * page reaching into `localhost`. Kept SEPARATE from the WS transport (a neutral library must not serve a UI).
  *
  * SEC-001 hook: the injected `ws-url` is where the auth token rides (`?token=…`) once SEC-001 lands — the

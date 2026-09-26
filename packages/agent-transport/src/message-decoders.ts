@@ -87,6 +87,8 @@ export const CLIENT_MESSAGE_SHAPES: Readonly<Record<TClientMessage['type'], TVar
   'cancel-queue': {},
   'get-messages': {},
   'get-context': {},
+  'get-commands': {},
+  'get-status': {},
   'get-usage-report': {},
   'get-personal-usage-report': {
     requestId: isNonEmptyString,
@@ -133,6 +135,8 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
   command_result: { name: isString, message: isString, success: isBoolean },
   messages: { messages: isRecordArray },
   context: { state: isRecord },
+  commands: { commands: isRecordArray, skills: isRecordArray },
+  session_status: { status: isRecord },
   usage_report: { report: isRecord },
   personal_usage_report: { requestId: isNonEmptyString, report: isRecord },
   personal_usage_report_error: {

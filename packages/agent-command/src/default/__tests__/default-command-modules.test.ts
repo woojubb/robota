@@ -45,7 +45,7 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
     // `/output-style`; FLOW-008 added `/effort`; `/advisor` joined beside it). The list below is the
     // assertion that matters — a length on its own can be restored by any substitution, and the count
     // exists only to catch an addition that also removed something.
-    expect(names).toHaveLength(36);
+    expect(names).toHaveLength(38);
     expect(names).toEqual([
       'agent-command-skills',
       'agent-command-help',
@@ -66,6 +66,8 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
       'agent-command-shell',
       'agent-command-editor',
       'agent-command-git',
+      'agent-command-keybindings',
+      'agent-command-theme',
       'agent-command-memory',
       'agent-command-mcp-activation',
       'agent-command-user-local',
@@ -93,14 +95,16 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
     expect(names).toHaveLength(2);
   });
 
-  it('BEHAVIOR-2003: registers /keybindings only when the file capability is injected', () => {
-    expect(moduleNames(baseOptions)).not.toContain('agent-command-keybindings');
-    expect(
-      moduleNames({
-        ...baseOptions,
-        keybindingsFilePort: { ensureFile: async () => '/tmp/keybindings.json' },
-      }),
-    ).toContain('agent-command-keybindings');
+  it('#3186: /keybindings and /theme exist on a host without a terminal, and say where they work', async () => {
+    const { modules } = createDefaultCommandModules(baseOptions);
+    const commands = modules.flatMap((module) => module.systemCommands ?? []);
+    for (const name of ['keybindings', 'theme']) {
+      const command = commands.find((candidate) => candidate.name === name);
+      expect(command, name).toBeDefined();
+      const result = await command!.execute({} as never, '');
+      expect(result).toMatchObject({ success: false });
+      expect(result.message).toMatch(/robota terminal/);
+    }
   });
 
   it('TC-02: disabledCommandModules blacklist removes the named module', () => {
