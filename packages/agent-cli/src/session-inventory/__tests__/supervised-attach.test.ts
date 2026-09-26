@@ -8,7 +8,16 @@ import { InteractiveSession } from '@robota-sdk/agent-framework';
 import { MAX_INBOUND_FRAME_BYTES } from '@robota-sdk/agent-transport';
 import { describe, expect, it, vi } from 'vitest';
 
-import { createHandshakeApprover, MAX_ATTACHED_SURFACES } from '../supervised-attach.js';
+import { once } from 'node:events';
+import { PassThrough } from 'node:stream';
+
+import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
+
+import {
+  createHandshakeApprover,
+  createSupervisedAttachCarrier,
+  MAX_ATTACHED_SURFACES,
+} from '../supervised-attach.js';
 import {
   listSupervisedExternalEvents,
   revokeSupervisedExternalEventGrant,
@@ -374,5 +383,25 @@ describe('attach handshake approval', () => {
     expect(await approver.approve({ capability: 'observe', scope: 'request', locality: 'same-host' })).toBe(false);
     expect(await approver.approve({ capability: 'observe', scope: 'connection', locality: 'same-host' })).toBe(true);
     expect(await approver.approve({ capability: 'observe', scope: 'connection', locality: 'same-host' })).toBe(false);
+  });
+});
+
+describe('attach slot reservation', () => {
+  it('never holds a slot for a connection that closed before its handshake was admitted', async () => {
+    const carrier = createSupervisedAttachCarrier(createTestInteractiveSession());
+    const request = { mode: 'observe', protocol: 1 };
+    for (let index = 0; index < MAX_ATTACHED_SURFACES; index++) {
+      const gone = new PassThrough();
+      gone.destroy();
+      await once(gone, 'close');
+      await carrier.admit(gone as never, request, '', { refuse: vi.fn(), accept: vi.fn() });
+    }
+    const accept = vi.fn();
+    const refuse = vi.fn();
+    const live = Array.from({ length: MAX_ATTACHED_SURFACES }, () => new PassThrough());
+    for (const socket of live) await carrier.admit(socket as never, request, '', { refuse, accept });
+    expect(refuse).not.toHaveBeenCalled();
+    expect(accept).toHaveBeenCalledTimes(MAX_ATTACHED_SURFACES);
+    for (const socket of live) socket.destroy();
   });
 });

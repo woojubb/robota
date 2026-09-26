@@ -26,7 +26,9 @@ export const HINTS_PADDED_BYTES = 640;
 export const LIST_CHUNK_BYTES = 864;
 /** Chunks the device lists may take; a larger list is not published. */
 export const MAX_LIST_CHUNKS = 8;
-const LIST_CHUNK_HEADER = 2;
+/** Bytes of the version every chunk of one list carries. */
+const LIST_VERSION_BYTES = 8;
+const LIST_CHUNK_HEADER = 2 + LIST_VERSION_BYTES;
 /** Addresses one hints record carries. */
 export const MAX_HINT_CANDIDATES = 8;
 /** Relay endpoints one hints record carries. */
@@ -216,11 +218,13 @@ export async function itemAddress(
 }
 
 /**
- * `value` as fixed-size chunks, each `[count, index, …JSON]` padded with spaces. Throws when it needs
- * more than {@link MAX_LIST_CHUNKS}.
+ * `value` as fixed-size chunks, each `[count, index, version, …JSON]` padded with spaces. Every chunk
+ * of one value carries the same version, derived from the value, so chunks of two values are never
+ * joined. Throws when it needs more than {@link MAX_LIST_CHUNKS}.
  */
-export function chunkJson(value: unknown): Uint8Array[] {
+export async function chunkJson(value: unknown): Promise<Uint8Array[]> {
   const bytes = encoder.encode(JSON.stringify(value));
+  const version = (await sha256([bytes])).subarray(0, LIST_VERSION_BYTES);
   const room = LIST_CHUNK_BYTES - LIST_CHUNK_HEADER;
   const count = Math.max(1, Math.ceil(bytes.length / room));
   if (count > MAX_LIST_CHUNKS) throw new Error('device lists too large to publish as records');
@@ -228,6 +232,7 @@ export function chunkJson(value: unknown): Uint8Array[] {
     const out = new Uint8Array(LIST_CHUNK_BYTES).fill(0x20);
     out[0] = count;
     out[1] = index;
+    out.set(version, 2);
     out.set(bytes.subarray(index * room, (index + 1) * room), LIST_CHUNK_HEADER);
     return out;
   });
@@ -240,17 +245,26 @@ export function chunkCount(first: Uint8Array): number | undefined {
   return count !== undefined && count >= 1 && count <= MAX_LIST_CHUNKS ? count : undefined;
 }
 
-/** The value of `chunks` in order; `undefined` when they are not one value's chunks. */
+/**
+ * The value of `chunks` in order; `undefined` when they are not all chunks of one value, as when a
+ * read finds some chunks already replaced by a newer value's.
+ */
 export function joinChunks(chunks: readonly Uint8Array[]): unknown {
   const count = chunks.length;
+  const version = chunks[0]?.subarray(2, LIST_CHUNK_HEADER);
   const parts: Uint8Array[] = [];
   for (const [index, chunk] of chunks.entries()) {
     if (chunk.length !== LIST_CHUNK_BYTES || chunk[0] !== count || chunk[1] !== index) {
       return undefined;
     }
+    if (!sameBytes(chunk.subarray(2, LIST_CHUNK_HEADER), version)) return undefined;
     parts.push(chunk.subarray(LIST_CHUNK_HEADER));
   }
   return unpadJson(concatBytes(parts));
+}
+
+function sameBytes(a: Uint8Array, b: Uint8Array | undefined): boolean {
+  return b !== undefined && a.length === b.length && a.every((byte, i) => byte === b[i]);
 }
 
 /** `data` padded with trailing spaces to exactly `size` bytes; throws when it does not fit. */

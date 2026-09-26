@@ -184,6 +184,42 @@ describe('linked devices of the device mesh', () => {
   });
 });
 
+describe('when local discovery is off but the device mesh is not', () => {
+  const DEVICE = 'D'.repeat(43);
+
+  function hostWithoutDiscovery(
+    devices: readonly { deviceId: string; name?: string; locality: 'same-host' | 'another-host' }[],
+  ): ICommandHostAdapterAccess {
+    return {
+      getCommandHostAdapters: () => ({
+        localPeers: {
+          list: () => [],
+          ownSessionId: () => OWN,
+          listDevices: () => devices,
+          localDiscoveryOff: 'the rendezvous directory was not admitted',
+        },
+      }),
+    } as ICommandHostAdapterAccess;
+  }
+
+  it('lists the linked devices and says why sessions on this host are not listed', async () => {
+    const result = await executePeersCommand(
+      hostWithoutDiscovery([{ deviceId: DEVICE, name: 'desktop', locality: 'another-host' }]),
+    );
+    expect(result.success).toBe(true);
+    expect(result.message).toMatch(new RegExp(`${DEVICE}\\s+desktop\\s+on another machine`));
+    expect(result.message).toContain('not admitted');
+    expect(result.message).not.toContain('Live sessions');
+    expect(result.message).toContain('/peers send <device-id>');
+  });
+
+  it('with no device linked, says discovery is off rather than that nobody is there', async () => {
+    const result = await executePeersCommand(hostWithoutDiscovery([]));
+    expect(result.message).toContain('not admitted');
+    expect(result.message).not.toContain('No other live session');
+  });
+});
+
 describe('when the host wires no discovery', () => {
   it('says the feature is unavailable rather than reporting no peers', async () => {
     // The two are different facts and the difference matters: "nobody is there" invites the operator

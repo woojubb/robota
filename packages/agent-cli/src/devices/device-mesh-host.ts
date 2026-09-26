@@ -1,6 +1,7 @@
 /**
  * The device mesh as an interactive session runs it: opened at startup when the user settings turn
- * it on and this device has an identity, closed on exit.
+ * it on and this device has an identity — or as soon as `/devices` gives it one — and closed on exit,
+ * or once another session of this device took it over.
  *
  * Every admitted link is wired to the same receive paths as a session on this host: messages become
  * peer turns with no authority, files are kept aside and hand-offs saved unstarted, each only with the
@@ -70,6 +71,8 @@ export interface IDeviceMeshHostOptions {
   /** Test seam: the local network, or `false` for none. Defaults to mDNS and remembered addresses. */
   readonly lan?: IDeviceMeshLanOptions | false;
   readonly connectTimeoutMs?: number;
+  /** Test seam: how long the mesh lock goes unrefreshed before another session may take it over. */
+  readonly lockStaleMs?: number;
 }
 
 /** What the live session gives the mesh once there is one. */
@@ -84,6 +87,12 @@ export interface IDeviceMeshBinding {
 export interface IDeviceMeshHost {
   /** Open the mesh if the settings turn it on; never throws. */
   start(options: { readonly operatorApprover?: IOperatorApprover }): Promise<void>;
+  /**
+   * `/devices` changed this device's identity or lists: open the mesh for a new identity, or put the
+   * new lists in force on the open one, which pushes them to the linked devices. Nothing before
+   * `start`; never throws.
+   */
+  identityChanged(): Promise<void>;
   bind(binding: IDeviceMeshBinding): void;
   status(): IDevicesMeshStatus;
   /** The devices linked now. */
@@ -172,17 +181,36 @@ const HOLD_ATTEMPT_MS = 250;
 /**
  * Hold `path` exclusively until the returned function is called — which removes the lock before it
  * returns — or `undefined` when another live holder has it. A holder that died is taken over once
- * its lock goes stale.
+ * its lock goes stale; so is one that stalled that long, which `onLost` then tells.
  */
-async function holdUntilReleased(path: string): Promise<(() => void) | undefined> {
+async function holdUntilReleased(
+  path: string,
+  staleMs: number | undefined,
+  onLost: () => void,
+): Promise<(() => void) | undefined> {
   try {
-    const lock = await holdExclusiveFileLock(path, { timeoutMs: HOLD_ATTEMPT_MS });
+    const lock = await holdExclusiveFileLock(path, {
+      timeoutMs: HOLD_ATTEMPT_MS,
+      onLost,
+      ...(staleMs !== undefined ? { staleMs } : {}),
+    });
     return () => lock.release();
   } catch {
     // allow-fallback: held elsewhere; the caller says so
     return undefined;
   }
 }
+
+/** Said when the mesh is on but this device has no identity to open it with. */
+export const NO_IDENTITY_FOR_MESH =
+  'The device mesh is on in your settings, but this device has no identity yet. If you already use ' +
+  'Robota on another device, run `/devices add` there and `/devices join` here, typing the code it ' +
+  'shows. Run `/devices init` only for your first device: it creates a separate identity that can ' +
+  'never link to your other devices. The mesh opens as soon as this device has an identity.';
+
+const TAKEN_OVER =
+  'another Robota session on this device took it over while this one was stalled (e.g. the machine ' +
+  'slept); your devices link there now';
 
 function notLinked(deviceId: string): string {
   return `device ${deviceId} is not linked right now. Run /peers to see which are.`;
@@ -205,6 +233,8 @@ export function createDeviceMeshHost(options: IDeviceMeshHostOptions): IDeviceMe
   const relayNeedSaid = new Set<string>();
   /** Lets go of this device's mesh, held while this session has it open. */
   let release: (() => void) | undefined;
+  /** What startup asked for, once it has: an identity created later opens the mesh with it. */
+  let started: { readonly operatorApprover?: IOperatorApprover } | undefined;
 
   const report = (text: string): void => {
     try {
@@ -295,128 +325,162 @@ export function createDeviceMeshHost(options: IDeviceMeshHostOptions): IDeviceMe
     letGo();
   };
 
-  return {
-    start: async ({ operatorApprover }) => {
-      if (closed || state !== 'off') return;
-      let settings: IMeshSettings;
-      let transports: unknown;
-      try {
-        transports = (options.readTransports ?? userTransports)();
-        settings = parseMeshSettings(transports);
-      } catch (error) {
-        fail(message(error));
-        return;
-      }
-      if (!settings.enabled) return;
-      let identity;
-      try {
-        identity = readIdentityState(join(root, 'devices'));
-      } catch (error) {
-        fail(message(error));
-        return;
-      }
-      if (identity === undefined) {
-        report(
-          'The device mesh is on in your settings, but this device has no identity yet. ' +
-            'Run `/devices init`; the mesh opens in the next session.',
-        );
-        return;
-      }
-      // One session per device: the peer devices keep one link to this device, and a second
-      // endpoint would take it from the first.
-      state = 'starting';
-      const held = await holdUntilReleased(join(root, 'devices', 'mesh.lock'));
-      if (held === undefined) {
-        fail('another Robota session on this device has it open, and links the devices there');
-        return;
-      }
-      release = held;
-      if (closed) {
-        letGo();
-        return;
-      }
-      const url = relayUrlOf(transports);
-      const onRelayError = (error: Error): void => {
-        // Said once: a relay that keeps failing would otherwise repeat itself for the whole session.
-        if (relayErrorSaid) return;
-        relayErrorSaid = true;
-        report(`The device mesh's relay failed; the other ways still work: ${error.message}`);
-      };
-      try {
-        ownRelay =
-          options.relay !== undefined
-            ? options.relay(onRelayError)
-            : url === undefined
-              ? undefined
-              : new WsMeshRelayClient({ url, onError: onRelayError });
-      } catch (error) {
-        fail(message(error));
-        return;
-      }
-      const lan = options.lan === false ? undefined : (options.lan ?? {});
-      const internet = hasInternet(settings);
-      sources = describeSources(settings, lan !== undefined, ownRelay !== undefined);
-      let opened: IDeviceMeshEndpoint;
-      try {
-        const store =
-          options.store ?? createHostCredentialStore({ root, notify: () => undefined }).store;
-        opened = await (options.open ?? openDeviceMesh)({
-          root,
-          store,
-          localPolicy: settings.policy,
-          ...(ownRelay !== undefined ? { relay: ownRelay } : {}),
-          ...(lan !== undefined ? { lan } : {}),
-          ...(internet
-            ? {
-                internet: {
-                  settings: settings.internet,
-                  // Said once: public infrastructure that keeps failing would repeat itself.
-                  onError: (error: Error) => {
-                    if (internetErrorSaid) return;
-                    internetErrorSaid = true;
-                    report(
-                      `Part of the device mesh beyond the local network failed; the rest still ` +
-                        `works: ${error.message}`,
-                    );
-                  },
+  /** Another session took this device's mesh over: close it here, and say why. */
+  const lost = (): void => {
+    release = undefined;
+    if (closed) return;
+    const wasOpen = state === 'on';
+    shut();
+    state = 'failed';
+    reason = TAKEN_OVER;
+    report(`The device mesh ${wasOpen ? 'closed here' : 'did not open here'}: ${TAKEN_OVER}.`);
+  };
+
+  const start = async ({
+    operatorApprover,
+  }: {
+    readonly operatorApprover?: IOperatorApprover;
+  }): Promise<void> => {
+    started = operatorApprover !== undefined ? { operatorApprover } : {};
+    if (closed || state !== 'off') return;
+    let settings: IMeshSettings;
+    let transports: unknown;
+    try {
+      transports = (options.readTransports ?? userTransports)();
+      settings = parseMeshSettings(transports);
+    } catch (error) {
+      fail(message(error));
+      return;
+    }
+    if (!settings.enabled) return;
+    let identity;
+    try {
+      identity = readIdentityState(join(root, 'devices'));
+    } catch (error) {
+      fail(message(error));
+      return;
+    }
+    if (identity === undefined) {
+      report(NO_IDENTITY_FOR_MESH);
+      return;
+    }
+    // One session per device: the peer devices keep one link to this device, and a second
+    // endpoint would take it from the first.
+    state = 'starting';
+    const held = await holdUntilReleased(
+      join(root, 'devices', 'mesh.lock'),
+      options.lockStaleMs,
+      () => lost(),
+    );
+    if (held === undefined) {
+      fail('another Robota session on this device has it open, and links the devices there');
+      return;
+    }
+    release = held;
+    // Still this session's: not closed, and not taken over while it opened.
+    const holding = (): boolean => !closed && release === held;
+    if (!holding()) {
+      letGo();
+      return;
+    }
+    const url = relayUrlOf(transports);
+    const onRelayError = (error: Error): void => {
+      // Said once: a relay that keeps failing would otherwise repeat itself for the whole session.
+      if (relayErrorSaid) return;
+      relayErrorSaid = true;
+      report(`The device mesh's relay failed; the other ways still work: ${error.message}`);
+    };
+    try {
+      ownRelay =
+        options.relay !== undefined
+          ? options.relay(onRelayError)
+          : url === undefined
+            ? undefined
+            : new WsMeshRelayClient({ url, onError: onRelayError });
+    } catch (error) {
+      fail(message(error));
+      return;
+    }
+    const lan = options.lan === false ? undefined : (options.lan ?? {});
+    const internet = hasInternet(settings);
+    sources = describeSources(settings, lan !== undefined, ownRelay !== undefined);
+    let opened: IDeviceMeshEndpoint;
+    try {
+      const store =
+        options.store ?? createHostCredentialStore({ root, notify: () => undefined }).store;
+      opened = await (options.open ?? openDeviceMesh)({
+        root,
+        store,
+        localPolicy: settings.policy,
+        ...(ownRelay !== undefined ? { relay: ownRelay } : {}),
+        ...(lan !== undefined ? { lan } : {}),
+        ...(internet
+          ? {
+              internet: {
+                settings: settings.internet,
+                // Said once: public infrastructure that keeps failing would repeat itself.
+                onError: (error: Error) => {
+                  if (internetErrorSaid) return;
+                  internetErrorSaid = true;
+                  report(
+                    `Part of the device mesh beyond the local network failed; the rest still ` +
+                      `works: ${error.message}`,
+                  );
                 },
-              }
-            : {}),
-          ...(operatorApprover !== undefined ? { operatorApprover } : {}),
-          ...(options.connectTimeoutMs !== undefined
-            ? { connectTimeoutMs: options.connectTimeoutMs }
-            : {}),
-          // A list that could not be saved is taken again from the next peer that has it.
-          onError: () => undefined,
-        });
-      } catch (error) {
-        ownRelay?.close();
-        ownRelay = undefined;
-        // After exit there is nobody to tell.
-        if (closed) letGo();
-        else fail(message(error));
-        return;
-      }
-      endpoint = opened;
-      if (closed) {
-        shut();
-        return;
-      }
-      own = identity.deviceCertificate.deviceId;
-      const self = own;
-      opened.node.onLink((link) => adopt(link, self));
-      // A device this network cannot reach without a relay is said once, with why, never left silent.
-      opened.node.onRefusal((refusal) => {
-        if (!(refusal.error instanceof MeshRelayNeededError)) return;
-        if (relayNeedSaid.has(refusal.deviceId)) return;
-        relayNeedSaid.add(refusal.deviceId);
-        const name = nameOf(refusal.deviceId);
-        report(
-          `${name !== undefined ? `${name}: ` : ''}${refusal.error.message} ` +
-            'See `transports.mesh.options.relay` and `turnServers`.',
-        );
+              },
+            }
+          : {}),
+        ...(operatorApprover !== undefined ? { operatorApprover } : {}),
+        ...(options.connectTimeoutMs !== undefined
+          ? { connectTimeoutMs: options.connectTimeoutMs }
+          : {}),
+        // A list that could not be saved is taken again from the next peer that has it.
+        onError: () => undefined,
       });
-      state = 'on';
+    } catch (error) {
+      ownRelay?.close();
+      ownRelay = undefined;
+      // After exit there is nobody to tell; a takeover was told already.
+      if (!holding()) letGo();
+      else fail(message(error));
+      return;
+    }
+    endpoint = opened;
+    if (!holding()) {
+      shut();
+      return;
+    }
+    own = identity.deviceCertificate.deviceId;
+    const self = own;
+    opened.node.onLink((link) => adopt(link, self));
+    // A device this network cannot reach without a relay is said once, with why, never left silent.
+    opened.node.onRefusal((refusal) => {
+      if (!(refusal.error instanceof MeshRelayNeededError)) return;
+      if (relayNeedSaid.has(refusal.deviceId)) return;
+      relayNeedSaid.add(refusal.deviceId);
+      const name = nameOf(refusal.deviceId);
+      report(
+        `${name !== undefined ? `${name}: ` : ''}${refusal.error.message} ` +
+          'See `transports.mesh.options.relay` and `turnServers`.',
+      );
+    });
+    state = 'on';
+  };
+
+  return {
+    start,
+    identityChanged: async () => {
+      if (closed || started === undefined) return;
+      if (state === 'off') {
+        await start(started);
+        return;
+      }
+      if (state !== 'on' || endpoint === undefined) return;
+      try {
+        await endpoint.refresh();
+      } catch (error) {
+        report(`The device mesh could not take up the changed device lists: ${message(error)}`);
+      }
     },
     bind: (next) => {
       binding = { ...binding, ...next };

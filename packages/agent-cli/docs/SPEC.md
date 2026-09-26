@@ -115,7 +115,11 @@ only on the start the caller verified (the one a view row displayed, or the one 
 command runs) and fails explicitly when that start, ownership, or completion cannot be established.
 A registration that cannot name its start is listed but never controlled, and the generation never
 appears in listings. A terminal of the same user on the same host may attach through that endpoint,
-naming the process start, to drive the session or to observe it read-only. It is one more surface
+naming the process start, to drive the session or to observe it read-only. Attaching is the user's
+own decision: it needs an interactive terminal, asks there first on the controlling terminal rather
+than standard input, and holds that yes only for the process start it named, so a caller without a
+terminal, a model included, is told the command to suggest instead. Leaving, `/exit` included, only
+detaches this terminal and never stops the session. It is one more surface
 under the session's ordinary co-drive and prompt rules, never an operator approver, so a supervised
 session still refuses every mesh connection that needs one. Detaching or crashing ends only that
 connection: a turn in progress runs on, a prompt no other surface can answer is denied, and a reader
@@ -228,7 +232,8 @@ operator; the signing key exists for exactly this, and the recovery phrase is ne
 serve and test runs neither reissue nor open the device mesh, so running the CLI for a single task
 never rewrites identity state or answers another device. The mesh opens only when the user settings
 turn it on — never a project's, which would let a repository expose this machine to the user's other
-devices — and in one session of the device at a time, since each other device keeps one link to it;
+devices — and in one session of the device at a time, since each other device keeps one link to it: a
+session that stalled long enough for another to take the mesh over closes its own as soon as it notices;
 a linked device may do only what the user's settings allow, each file and session it offers put to
 the operator at this terminal.
 

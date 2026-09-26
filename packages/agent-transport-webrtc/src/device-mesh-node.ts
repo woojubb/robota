@@ -20,11 +20,17 @@
  *
  * **Lists are live.** Newer lists adopted in a handshake, and lists the caller hands over through
  * {@link DeviceMeshNode.refresh}, apply from the next handshake on; a device they remove or revoke is
- * dropped along with its connection.
+ * dropped along with its connection. Lists that become newer here are also pushed over every admitted
+ * connection, and a pushed list is taken on the handshake's terms: only a newer one from this user's
+ * signing key that verifies. Lists are not a capability: they travel whatever the peer may ask.
  */
 import {
+  decodeDeviceRevocationList,
+  decodeDeviceRoster,
+  decodeSigningKeyRevocation,
   derivePairRendezvous,
   startDeviceHandshake,
+  verifyDeviceChain,
   type IDeviceCertificate,
   type IDeviceHandshakeIdentity,
   type IDeviceHandshakeResult,
@@ -78,6 +84,9 @@ const MIN_ATTEMPT_INTERVAL_MS = 1_000;
 const MAX_WAITING_CANDIDATES = 64;
 /** How long an attempt waits to learn which relays paired devices advertise. */
 const RELAY_ADVERT_LOOKUP_MS = 3_000;
+/** A message body that carries lists, not an application message; see {@link listsFrame}. */
+const LISTS_FRAME = 'mesh-lists';
+const LISTS_PREFIX = `{"t":"${LISTS_FRAME}"`;
 /** Paired devices' relays one attempt uses, and endpoints of each. */
 const MAX_RELAY_DEVICES = 2;
 const MAX_RELAY_ENDPOINTS = 3;
@@ -315,6 +324,42 @@ function mergeIdentity(
   };
 }
 
+/**
+ * Whether a list in `next` is newer than the one in `previous` under the same signing key. A new
+ * signing key's lists are not pushed: a peer cannot take them without the new key's certificate,
+ * which only a handshake carries.
+ */
+function listsAdvanced(
+  previous: IDeviceHandshakeIdentity,
+  next: IDeviceHandshakeIdentity,
+): boolean {
+  if (next.signingKeyCertificate.signingKeyId !== previous.signingKeyCertificate.signingKeyId) {
+    return false;
+  }
+  return (
+    next.roster.seq > previous.roster.seq ||
+    next.revocation.seq > previous.revocation.seq ||
+    next.signingKeyRevocation.seq > previous.signingKeyRevocation.seq
+  );
+}
+
+/**
+ * The lists a peer pushed, when `body` carries them. Pushed lists travel as a message whose body
+ * names them, so a peer that does not know them treats them as an application message it ignores.
+ */
+function listsFrame(body: string): Record<string, unknown> | undefined {
+  if (!body.startsWith(LISTS_PREFIX)) return undefined;
+  try {
+    const value: unknown = JSON.parse(body);
+    return typeof value === 'object' && value !== null && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : undefined;
+  } catch {
+    // allow-fallback: a body that only looks like lists is not an application message either
+    return {};
+  }
+}
+
 export class DeviceMeshNode {
   /** This run's instance id. */
   public readonly instance = randomId();
@@ -360,8 +405,86 @@ export class DeviceMeshNode {
   }): Promise<void> {
     if (update.sessionDescriptor !== undefined) this.sessionDescriptor = update.sessionDescriptor;
     if (update.identity === undefined) return Promise.resolve();
-    this.identity = mergeIdentity(this.identity, update.identity);
-    return this.syncPeers();
+    const previous = this.identity;
+    this.identity = mergeIdentity(previous, update.identity);
+    const synced = this.syncPeers();
+    // After the sync, so a device the lists drop is not sent them.
+    // A failed sync is the caller's, through `synced`; the lists then wait for the next handshake.
+    if (listsAdvanced(previous, this.identity)) {
+      synced.then(
+        () => this.pushLists(),
+        () => undefined,
+      );
+    }
+    return synced;
+  }
+
+  /** Send the lists in force over every admitted connection. */
+  private pushLists(): void {
+    if (this.stopped) return;
+    const { roster, revocation, signingKeyRevocation } = this.identity;
+    const body = JSON.stringify({ t: LISTS_FRAME, roster, revocation, signingKeyRevocation });
+    for (const state of this.peers.values()) {
+      try {
+        state.admitted?.exposed?.send(body);
+      } catch {
+        // allow-fallback: a connection that cannot take them gets them in its next handshake
+      }
+    }
+  }
+
+  /**
+   * Lists a peer pushed: taken only when newer than the ones in force, issued by this user's signing
+   * key (a signing-key revocation by the master key), and verifying for this device; anything else is
+   * ignored and the connection stays.
+   */
+  private async receiveLists(frame: Record<string, unknown>): Promise<void> {
+    const current = this.identity;
+    const roster = decodeDeviceRoster(frame['roster']);
+    const revocation = decodeDeviceRevocationList(frame['revocation']);
+    const signingKeyRevocation = decodeSigningKeyRevocation(frame['signingKeyRevocation']);
+    const offered: { -readonly [K in keyof IListUpdate]?: IListUpdate[K] } = {
+      ...(roster.ok && newer(current.roster, roster.value) ? { roster: roster.value } : {}),
+      ...(revocation.ok && newer(current.revocation, revocation.value)
+        ? { revocation: revocation.value }
+        : {}),
+      ...(signingKeyRevocation.ok &&
+      signingKeyRevocation.value.seq > current.signingKeyRevocation.seq
+        ? { signingKeyRevocation: signingKeyRevocation.value }
+        : {}),
+    };
+    if (Object.keys(offered).length === 0) return;
+    const verdict = await verifyDeviceChain({
+      masterPublicKey: current.masterPublicKey,
+      signingKeyCert: current.signingKeyCertificate,
+      deviceCert: current.deviceCertificate,
+      roster: offered.roster ?? current.roster,
+      revocation: offered.revocation ?? current.revocation,
+      signingKeyRevocation: offered.signingKeyRevocation ?? current.signingKeyRevocation,
+      now: (this.options.now ?? Date.now)(),
+      lastSeen: current.marks,
+      required: { roster: true, revocation: true, signingKeyRevocation: true },
+      // As in a handshake, a list is taken for being newer and genuine; its expiry is judged at use.
+      listExpiryGraceMs: Number.POSITIVE_INFINITY,
+    });
+    if (!verdict.ok || this.stopped) return;
+    const { rosterSeq, revocationSeq, signingKeyRevocationSeq } = verdict.accepted;
+    this.adoptLists({
+      ...offered,
+      marks: {
+        ...(offered.signingKeyRevocation !== undefined && signingKeyRevocationSeq !== undefined
+          ? { signingKeyRevocationSeq }
+          : {}),
+        bySigningKey: {
+          [verdict.signingKeyId]: {
+            ...(offered.roster !== undefined && rosterSeq !== undefined ? { rosterSeq } : {}),
+            ...(offered.revocation !== undefined && revocationSeq !== undefined
+              ? { revocationSeq }
+              : {}),
+          },
+        },
+      },
+    });
   }
 
   /** Recompute the peer set from the current lists; serialized so two refreshes never interleave. */
@@ -720,6 +843,12 @@ export class DeviceMeshNode {
     // A message from the peer is delivered only when this connection's authority allows it; the
     // decision is taken once and every message waits on it, so order is kept.
     const messaging = authority.authorize('message');
+    // Pushed lists are this node's, whatever the peer may ask; they never reach the application.
+    link.onMessage((body) => {
+      const frame = listsFrame(body);
+      // allow-fallback: lists that cannot be taken leave the ones in force, as a failed handshake would
+      if (frame !== undefined) this.receiveLists(frame).catch(() => undefined);
+    });
     const exposed: IDeviceMeshLink = {
       admission,
       result,
@@ -728,6 +857,7 @@ export class DeviceMeshNode {
       send: (body) => link.send(body),
       onMessage: (handler) =>
         link.onMessage((body) => {
+          if (listsFrame(body) !== undefined) return;
           void messaging.then((decision) => {
             if (decision.allowed) handler(body);
             else link.close();

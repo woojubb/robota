@@ -173,12 +173,33 @@ function peerRoutes(
 }
 
 /**
+ * `/peers` with local discovery off: no session on this host is listed, and the adapter says why, so
+ * the command never claims nobody is there. The device mesh does not depend on local discovery, so
+ * its linked devices are still listed and addressed.
+ */
+function buildMeshOnlyPeersAdapter(
+  mesh: TMeshPeers,
+  sessionId: string,
+  why: string,
+): NonNullable<ICommandHostAdapters['localPeers']> {
+  return {
+    list: () => [],
+    ownSessionId: () => sessionId,
+    localDiscoveryOff: why,
+    listDevices: () => mesh.devices(),
+    ...peerRoutes(undefined, mesh),
+  };
+}
+
+/**
  * PEER-004: announce this session, or say why it is not announced — and never both silently.
  *
  * A refused rendezvous does not stop the session. Discovery is an optional capability, so the
- * failure is REPORTED and the adapter is left unset; `/peers` then says the feature is unavailable
- * rather than claiming nobody is there. Those are different facts, and the difference is what the
- * operator acts on: "nobody is there" invites starting a second session, and this does not.
+ * failure is REPORTED; with no device mesh the adapter is left unset, and `/peers` then says the
+ * feature is unavailable rather than claiming nobody is there. Those are different facts, and the
+ * difference is what the operator acts on: "nobody is there" invites starting a second session, and
+ * this does not. With a device mesh, `/peers` still lists its linked devices and says why the
+ * sessions on this host are missing.
  *
  * The policy lives here rather than at the composition root because the root is at its frozen size
  * and, more to the point, deciding what a refused rendezvous MEANS is adapter assembly — the same
@@ -190,18 +211,18 @@ function attachLocalPeerDiscovery(
   announce: (options: { sessionId: string }) => ILocalPeerPresence = announceLocalPeerPresence,
   mesh?: TMeshPeers,
 ): ILocalPeerPresence | undefined {
+  // Generated here, not passed in. A session id identifies THIS process for its whole life and has
+  // no other source; asking the caller for one would let two call sites disagree about what a
+  // session is, which is the question the registry keys on.
+  const sessionId = randomUUID();
   try {
-    // Generated here, not passed in. A session id identifies THIS process for its whole life and has
-    // no other source; asking the caller for one would let two call sites disagree about what a
-    // session is, which is the question the registry keys on.
-    const presence = announce({ sessionId: randomUUID() });
+    const presence = announce({ sessionId });
     adapters.localPeers = buildLocalPeersHostAdapter(presence, mesh);
     return presence;
   } catch (error) {
-    report.writeError(
-      `Local peer discovery is off for this session: ` +
-        `${error instanceof Error ? error.message : String(error)}`,
-    );
+    const why = error instanceof Error ? error.message : String(error);
+    report.writeError(`Local peer discovery is off for this session: ${why}`);
+    if (mesh !== undefined) adapters.localPeers = buildMeshOnlyPeersAdapter(mesh, sessionId, why);
     return undefined;
   }
 }
@@ -319,8 +340,9 @@ export function attachHostAdapters(
   adapters.remoteControl = buildRemoteControlHostAdapter(controller);
   const presence = attachLocalPeerDiscovery(adapters, report, announce, mesh);
   let live: { session?: IPeerIngressSession; messaging?: IPeerMessaging } = {};
+  // Without local discovery, `/handoff` still reaches the linked devices.
   const onHandoff =
-    presence !== undefined && handoff !== undefined
+    handoff !== undefined && (presence !== undefined || mesh !== undefined)
       ? attachHandoff(adapters, presence, controller, report, handoff, () => live, mesh)
       : undefined;
   // Returns the ACTIVATOR rather than the presence, so the composition root names one thing and
@@ -402,11 +424,11 @@ function handoffSession(
 /**
  * `/handoff` over the same-host peer channel and the device mesh: the adapter that pushes this
  * session, and the receiver for a session pushed here. Returns what the listener hands each hand-off
- * channel to.
+ * channel to. Without `presence` (local discovery off) only the linked devices are destinations.
  */
 function attachHandoff(
   adapters: ICommandHostAdapters,
-  presence: ILocalPeerPresence,
+  presence: ILocalPeerPresence | undefined,
   controller: RemoteControlController,
   report: IAdapterReporter,
   wiring: IHandoffWiring,
@@ -422,7 +444,10 @@ function attachHandoff(
     composition,
     sessionStore: wiring.sessionStore,
     getSession: () => handoffSession(live().session),
-    peers: { list: () => presence.list(), ownSessionId: () => presence.sessionId },
+    peers: {
+      list: () => presence?.list() ?? [],
+      ownSessionId: () => presence?.sessionId ?? adapters.localPeers?.ownSessionId() ?? '',
+    },
     openChannel: () => {
       const messaging = live().messaging;
       return messaging === undefined
@@ -465,6 +490,11 @@ function attachHandoff(
     },
   });
   return (sender, channel) => {
+    // Only the local listener calls this, and there is one only when discovery is on.
+    if (presence === undefined) {
+      channel.close();
+      return;
+    }
     const arrival = localHandoffArrival(
       {
         sessionId: presence.sessionId,

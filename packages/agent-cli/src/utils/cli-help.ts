@@ -103,7 +103,11 @@ Commands:
                                   Live supervised sessions across projects, or filtered (TTY only)
   robota session start --background [--name <name>] [--external-event-grant <file>]...
                       [--external-event-port <port>] [--external-event-trusted-proxy <ip>]...
-                                  Start a supervised session that outlives this terminal (no attach yet)
+                                  Start a supervised session that outlives this terminal
+  robota session attach <supervised-id> [--observe]
+                                  Attach this terminal to a live supervised session: drive it, or
+                                  observe it read-only (TTY and your confirmation; detaching keeps it
+                                  running)
   robota session events list <supervised-id> [--json]
                                   Show a supervised session's external event grants and their counts
   robota session events revoke <supervised-id> <grant-id>

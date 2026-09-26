@@ -419,6 +419,34 @@ describe('linked devices of the device mesh reach /peers and /handoff', () => {
     ]);
   });
 
+  it('still lists and reaches linked devices when local peer discovery fails', async () => {
+    const adapters: ICommandHostAdapters = {};
+    const mesh = fakeMesh();
+    const report = reporter();
+    const start = attachHostAdapters(
+      adapters,
+      CONTROLLER,
+      report,
+      () => {
+        throw new Error('the rendezvous directory was not admitted');
+      },
+      HANDOFF,
+      mesh,
+    );
+
+    expect(report.said.join(' ')).toContain('not admitted');
+    expect(adapters.localPeers?.list()).toEqual([]);
+    expect(adapters.localPeers?.localDiscoveryOff).toContain('not admitted');
+    expect(adapters.localPeers?.listDevices?.()).toEqual(mesh.devices());
+    await expect(adapters.localPeers?.send?.(DEVICE, 'hi')).resolves.toEqual({ state: 'pending' });
+    await expect(adapters.handoff?.destinations()).resolves.toEqual([
+      { deviceId: DEVICE, name: 'desktop, another of your devices' },
+    ]);
+    start({ getSession: () => ({ submit: async () => ({}) }) as never });
+    const keys = mesh.bound.flatMap((binding) => Object.keys(binding)).sort();
+    expect(keys).toEqual(['handoff', 'ingress']);
+  });
+
   it('gives the mesh the live session and the hand-off receiver', () => {
     const adapters: ICommandHostAdapters = {};
     const mesh = fakeMesh();
