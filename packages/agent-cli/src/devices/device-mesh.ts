@@ -24,9 +24,8 @@ import {
   type IMeshRelay,
 } from '@robota-sdk/agent-transport-webrtc';
 
-import { createFileMeshAddressCache } from './address-cache.js';
-
 import { withExclusiveFileLock } from '../credentials/exclusive-file-lock.js';
+import { createFileMeshAddressCache } from './address-cache.js';
 import { DeviceIdentityError } from './device-identity-error.js';
 import { loadDevicePrivateKeys } from './identity-keys.js';
 import { checked } from './identity-lists.js';
