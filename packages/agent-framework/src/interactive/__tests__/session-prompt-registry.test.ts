@@ -74,6 +74,23 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     await pending;
   });
 
+  it('ignores an answer given in the name of a peer session or an external sender', async () => {
+    const h = harness();
+    const permission = h.registry.requestPermission('Write', {});
+    const ask = h.registry.requestAsk({ id: 'r', title: 't' });
+    const permissionId = h.permissionEvents[0]!.id;
+    const askId = h.askEvents[0]!.id;
+    for (const outsider of ['peer:A', 'external:ci:builder:one']) {
+      h.registry.resolvePermission(permissionId, true, outsider);
+      h.registry.resolveAsk(askId, { type: 'answer', values: ['yes'] }, outsider);
+    }
+    expect(h.resolvedEvents).toEqual([]);
+    h.registry.resolvePermission(permissionId, false);
+    h.registry.resolveAsk(askId, { type: 'cancelled' });
+    await expect(permission).resolves.toBe(false);
+    await expect(ask).resolves.toEqual({ type: 'cancelled' });
+  });
+
   it('TC-01: resolvePermission(id, false) denies', async () => {
     const h = harness();
     const pending = h.registry.requestPermission('shell', {});

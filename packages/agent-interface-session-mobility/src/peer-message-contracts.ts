@@ -30,7 +30,6 @@
  * on.
  */
 
-import type { TPeerReach } from '@robota-sdk/agent-core';
 import type { TDriverId } from '@robota-sdk/agent-interface-session';
 
 /**
@@ -166,15 +165,6 @@ export function isTerminalPeerDelivery(
   state: TPeerDeliveryState,
 ): state is Exclude<TPeerDeliveryState, 'pending'> {
   return state !== 'pending';
-}
-
-/**
- * Where a peer runs relative to this session, as admission established it — the input that decides
- * what a turn it drives may do. Only a same-user-same-host admission is `same-host`; everything
- * else, including a proven same user on another machine, is `another-host`.
- */
-export function peerReachOf(admission: IPeerAdmission): TPeerReach {
-  return isSameEnvironmentPeer(admission) ? 'same-host' : 'another-host';
 }
 
 /**

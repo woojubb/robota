@@ -23,14 +23,10 @@ export type {
   TPeerTrust,
   TWorkspaceRelation,
 } from './peer-message-contracts.js';
-export {
-  isSameEnvironmentPeer,
-  isTerminalPeerDelivery,
-  peerReachOf,
-} from './peer-message-contracts.js';
+export { isSameEnvironmentPeer, isTerminalPeerDelivery } from './peer-message-contracts.js';
 
 // ── mesh-admission-contracts ──
-export type { IMeshAdmission, TMeshCapability } from './mesh-admission-contracts.js';
+export type { IMeshAdmission, TMeshCapability, TPeerReach } from './mesh-admission-contracts.js';
 
 // ── connection-authority ──
 export type {

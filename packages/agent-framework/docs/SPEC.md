@@ -153,14 +153,18 @@ These are behaviors a caller cannot infer from a type signature alone.
   already-admitted work. Each accepted event settles from its own turn handle, and an interrupted
   result never becomes a successful reply. This does not sandbox trusted hooks/plugins or
   authenticate a platform sender by itself, and it is not a remote permission-approval channel.
-- **A peer turn is decided by its origin, never by its text.** A peer session's text is data from
-  outside the operator: it expands no file references, attaches no context reference, and reaches
-  the model marked as a peer's with a per-turn system statement that it carries no authority. Which
-  tools it is offered and may use is the permission policy's per-origin decision, taken from
-  admission; a turn with no admitted origin is offered none. The answer goes back only through the
-  reply tool, whose target is the sender admission bound to the incoming message and whose thread is
-  that message's own — the model chooses the text, never the recipient, and a message naming a sender
-  other than the admitted one is refused.
+- **A peer's message is instant messaging, and carries no authority.** Text from another session is
+  an opinion from an untrusted third party, not the owner's prompt: it expands no file references,
+  attaches no context reference, and reaches the model marked as a peer's with a per-turn system
+  statement that the model decides for itself whether and how to act. Nothing on a message becomes
+  a tool call, a command, a turn option, a permission mode or an approval answer, and an answer in
+  a peer's name never settles a question — only the owner's surfaces answer. What the model does is
+  decided by the session's ordinary permissions, like its own work; the owner's remote surface, by
+  contrast, is the owner typing and is treated exactly as the local terminal. Each sender's messages
+  may start only a bounded number of turns over time, because a message still runs this owner's
+  model. The answer goes back only through the reply tool, whose target is the sender admission
+  bound to the incoming message and whose thread is that message's own — the model chooses the text,
+  never the recipient, and a message naming a sender other than the admitted one is refused.
 - **Automatic session naming is text-only.** The title-generation call — whether triggered by an
   operator message or the first external event — always disables tool use, so hosted web tools can
   never be invoked merely to generate a title.
