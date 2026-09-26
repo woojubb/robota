@@ -23,3 +23,13 @@ export interface ISessionLoopState {
   fallbackUsed: boolean;
   terminalReason?: string;
 }
+
+/**
+ * What asking the session to stop its waiting self-paced loop did. `several` names how to choose one
+ * instead of stopping any; `failed` carries the reason a chosen loop was not stopped.
+ */
+export type TWaitingLoopStopOutcome =
+  | { readonly kind: 'none' }
+  | { readonly kind: 'several'; readonly message: string }
+  | { readonly kind: 'stopped'; readonly loopId: string; readonly message?: string }
+  | { readonly kind: 'failed'; readonly loopId?: string; readonly message: string };

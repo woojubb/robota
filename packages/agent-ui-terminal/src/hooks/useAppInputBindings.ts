@@ -14,6 +14,8 @@ import type { IToolState } from '@robota-sdk/agent-interface-session';
 interface IOptions {
   readonly isThinking: boolean;
   readonly isShuttingDown: boolean;
+  /** An observer stops nothing: neither the drivers' turn nor their loop. */
+  readonly readOnly: boolean;
   readonly permissionRequest: IPendingPermissionRequest | null;
   readonly pendingUserAction: IActionRequest | null;
   readonly pluginVisible: boolean;
@@ -58,7 +60,7 @@ function useEscapeBindings(options: IOptions): void {
   useKeybindingActions(context, (actions) => {
     if (overlaysBlockKeys(options)) return;
     if (actions.includes('abort') && options.isThinking) {
-      options.abort();
+      if (!options.readOnly) options.abort();
       return;
     }
     const selected = options.selectedEntry;
@@ -71,7 +73,11 @@ function useEscapeBindings(options: IOptions): void {
       options.selectWorkspaceEntry(options.mainThreadEntryId);
       return;
     }
-    if (actions.includes('return-to-main') && !options.backgroundListFocused) {
+    if (
+      actions.includes('return-to-main') &&
+      !options.backgroundListFocused &&
+      !options.readOnly
+    ) {
       void options.stopWaitingLoop();
     }
   });

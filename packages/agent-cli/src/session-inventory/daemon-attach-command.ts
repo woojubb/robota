@@ -11,7 +11,7 @@ import { realpathSync } from 'node:fs';
 
 import { confirmAttachOnTerminal, type IAttachConfirmation } from './attach-confirmation.js';
 import { findWorkspaceDaemon } from './daemon-command.js';
-import { runConfirmedAttach, type IOpenAttach } from './session-attach-command.js';
+import { runConfirmedAttach, type TAttachedAppRender } from './session-attach-command.js';
 import { resolveSupervisedDirectory } from './supervised-session-control.js';
 
 import type { openSupervisedAttach } from './supervised-attach-client.js';
@@ -36,15 +36,6 @@ export const DAEMON_ATTACH_HELP =
   '`robota daemon start --json` prints. Detach with /exit or Ctrl-C: the daemon keeps running. Exits 0\n' +
   'after detaching, 1 when it could not attach.\n';
 
-export interface IDaemonAttachRenderOptions extends IOpenAttach {
-  readonly sessionLabel: string;
-  /** `--screen-reader` / `--no-screen-reader`; `undefined` when neither was given. */
-  readonly screenReaderFlag: boolean | undefined;
-}
-
-/** Renders the attached terminal UI until it ends; resolves how it ended. */
-export type TDaemonAttachRender = (options: IDaemonAttachRenderOptions) => Promise<'user' | 'closed'>;
-
 export interface IDaemonAttachCommandOptions {
   /** The directory the command runs in; its real path names the workspace. */
   readonly cwd: string;
@@ -52,7 +43,7 @@ export interface IDaemonAttachCommandOptions {
   readonly root?: string;
   readonly list?: typeof listSupervisedSessions;
   /** Supplied by the interactive CLI; absent in a runtime without a terminal UI. */
-  readonly render?: TDaemonAttachRender;
+  readonly render?: TAttachedAppRender;
   readonly confirm?: (question: IAttachConfirmation) => Promise<boolean>;
   readonly open?: typeof openSupervisedAttach;
 }
@@ -149,7 +140,7 @@ export async function runDaemonAttachCommand(
     generation,
     root,
     render: (open) =>
-      render({ ...open, sessionLabel: name ?? id, screenReaderFlag: parsed.screenReader }),
+      render({ ...open, mode: 'drive', sessionLabel: name ?? id, screenReaderFlag: parsed.screenReader }),
     messages: {
       detached: `Detached from daemon ${id}. It keeps running; stop it with robota daemon stop.`,
       closed: 'The daemon closed the connection (it stopped, or cut this terminal off).',

@@ -5,9 +5,11 @@ import type {
   ISessionConversationRead,
   ISessionDriverAttribution,
   ISessionEvents,
+  ISessionExecutionDetail,
   ISessionExecutionState,
   ISessionExecutionWorkspace,
   ISessionPromptResolution,
+  ISessionSelfPacedLoopControl,
   ISessionStatusRead,
   ISessionTurnControl,
   ISessionTurnSubmission,
@@ -27,4 +29,6 @@ export interface IProtocolSession
     ISessionDriverAttribution,
     ISessionBackgroundTasks,
     ISessionBackgroundGroups,
-    ISessionExecutionWorkspace {}
+    ISessionExecutionWorkspace,
+    ISessionExecutionDetail,
+    ISessionSelfPacedLoopControl {}

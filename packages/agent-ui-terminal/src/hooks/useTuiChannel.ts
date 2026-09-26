@@ -53,6 +53,8 @@ export interface ITuiChannelState {
   hostSessions: readonly ISessionListingEntry[] | undefined;
   /** Changes when the transcript starts over for another session under this channel. */
   transcriptGeneration: number;
+  /** This terminal only observes the session. */
+  readOnly: boolean;
   handleSubmit: (input: string) => Promise<void>;
   handleAbort: () => void;
   handleCancelQueue: () => void;
@@ -121,6 +123,7 @@ export function useTuiChannel(channel: ITuiAppChannelPort): ITuiChannelState {
     contextState: snapshot.contextState,
     hostSessions: snapshot.hostSessions,
     transcriptGeneration: snapshot.transcriptGeneration ?? 0,
+    readOnly: snapshot.readOnly === true,
     handleSubmit: (input) => channel.handleInput(input),
     handleAbort: () => channel.abort(),
     handleCancelQueue: () => channel.cancelQueue(),

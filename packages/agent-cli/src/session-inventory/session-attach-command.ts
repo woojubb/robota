@@ -7,14 +7,9 @@
  * commands — is refused with the command a person should run instead.
  */
 
-import { resolveScreenReaderRenderFields } from '../startup/screen-reader-enablement.js';
-import { readUserSettingsOrExit } from '../startup/user-settings.js';
 import { confirmAttachOnTerminal, type IAttachConfirmation } from './attach-confirmation.js';
 import { openSupervisedAttach, type ISupervisedAttachConnection } from './supervised-attach-client.js';
 import { listSupervisedSessions, resolveSupervisedDirectory } from './supervised-session-control.js';
-
-import type { TSettingsData } from '@robota-sdk/agent-framework';
-import type { TScreenReaderChannel } from '@robota-sdk/agent-ui-terminal';
 
 const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 
@@ -34,25 +29,24 @@ export const SESSION_ATTACH_HELP =
   'can run it; a script or an agent should suggest the command instead. Detach with /exit, Ctrl-C or\n' +
   'Ctrl-]: the session keeps running. Exits 0 after detaching, 1 when it could not attach.\n';
 
-export interface IAttachedViewRenderOptions {
-  readonly connection: Omit<ISupervisedAttachConnection, 'detach' | 'driverId'>;
-  readonly mode: 'drive' | 'observe';
-  readonly sessionLabel: string;
-  readonly driverId: string;
-  readonly screenReader?: boolean;
-  readonly screenReaderChannel?: TScreenReaderChannel;
-  readonly screenReaderHint?: boolean;
-  /** Print the screen-reader line; false when this process already printed it. */
-  readonly announce?: boolean;
-}
-
-export type TAttachedViewRender = (options: IAttachedViewRenderOptions) => Promise<'user' | 'closed'>;
-
 /** An admitted attach: the protocol connection and the driver id the session assigned it. */
 export interface IOpenAttach {
   readonly connection: Omit<ISupervisedAttachConnection, 'detach' | 'driverId'>;
   readonly driverId: string;
 }
+
+/** What renders the full terminal UI on an admitted attach, in the role the user confirmed. */
+export interface IAttachedAppRenderOptions extends IOpenAttach {
+  readonly mode: 'drive' | 'observe';
+  readonly sessionLabel: string;
+  /** `--screen-reader` / `--no-screen-reader`; `undefined` when neither was given. */
+  readonly screenReaderFlag: boolean | undefined;
+  /** Print the screen-reader line; false when this process already printed it. */
+  readonly announce?: boolean;
+}
+
+/** Renders the attached terminal UI until it ends; resolves how it ended. */
+export type TAttachedAppRender = (options: IAttachedAppRenderOptions) => Promise<'user' | 'closed'>;
 
 export interface IConfirmedAttach {
   readonly id: string;
@@ -89,29 +83,20 @@ export async function runConfirmedAttach(attach: IConfirmedAttach): Promise<numb
   return 0;
 }
 
-/** The reduced attached view of a supervised session, and what to print when it ends. */
-export function supervisedSessionAttachView(
-  id: string,
-  view: Omit<IAttachedViewRenderOptions, 'connection' | 'driverId'> & { readonly render: TAttachedViewRender },
-): Pick<IConfirmedAttach, 'render' | 'messages'> {
-  const { render, ...options } = view;
+/** What to print when an attach to a supervised session ends. */
+export function supervisedSessionAttachMessages(id: string): IConfirmedAttach['messages'] {
   return {
-    render: ({ connection, driverId }) => render({ ...options, connection, driverId }),
-    messages: {
-      closed: `Supervised session ${id} closed the connection (it stopped, or cut this terminal off).`,
-      detached: `Detached from ${id}. It keeps running; stop it with robota session stop ${id} or from robota session view.`,
-    },
+    closed: `Supervised session ${id} closed the connection (it stopped, or cut this terminal off).`,
+    detached: `Detached from ${id}. It keeps running; stop it with robota session stop ${id} or from robota session view.`,
   };
 }
 
 export interface ISessionAttachCommandOptions {
   readonly isTTY?: boolean;
   readonly root?: string;
-  /** Supplied by the interactive CLI; resolves how the view ended. */
-  readonly render?: TAttachedViewRender;
+  /** Supplied by the interactive CLI; resolves how the terminal UI ended. */
+  readonly render?: TAttachedAppRender;
   readonly confirm?: (question: IAttachConfirmation) => Promise<boolean>;
-  readonly settings?: TSettingsData;
-  readonly env?: Readonly<Record<string, string | undefined>>;
 }
 
 export async function runSessionAttachCommand(
@@ -142,15 +127,12 @@ export async function runSessionAttachCommand(
     );
     return 1;
   }
-  if (!options.render) {
+  const render = options.render;
+  if (render === undefined) {
     process.stderr.write('robota session attach needs the interactive CLI; this runtime has no terminal UI.\n');
     return 1;
   }
-  const screenReader = resolveScreenReaderRenderFields(
-    options.settings ?? readUserSettingsOrExit(),
-    screenReaderFlags.length === 0 ? undefined : screenReaderFlags[0] === '--screen-reader',
-    options.env ?? process.env,
-  );
+  const screenReaderFlag = screenReaderFlags.length === 0 ? undefined : screenReaderFlags[0] === '--screen-reader';
   const root = options.root ?? resolveSupervisedDirectory();
   let row;
   try {
@@ -169,13 +151,10 @@ export async function runSessionAttachCommand(
     return 1;
   }
   // Bound to the generation the user confirmed: a restart in the meantime is a different session.
+  const sessionLabel = row.name ?? id;
   return runConfirmedAttach({
     id, mode, generation: row.generation, root,
-    ...supervisedSessionAttachView(id, {
-      render: options.render, mode, sessionLabel: row.name ?? id,
-      screenReader: screenReader.screenReader,
-      ...(screenReader.screenReaderChannel !== undefined ? { screenReaderChannel: screenReader.screenReaderChannel } : {}),
-      ...(screenReader.screenReaderHint !== undefined ? { screenReaderHint: screenReader.screenReaderHint } : {}),
-    }),
+    render: (open) => render({ ...open, mode, sessionLabel, screenReaderFlag }),
+    messages: supervisedSessionAttachMessages(id),
   });
 }

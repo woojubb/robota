@@ -296,6 +296,18 @@ export interface ICommandListEntry {
   runner: TCommandRunner;
   /** The surfaces a `'client'` command can run on. Absent when the command does not restrict them. */
   surfaces?: readonly TCommandSurface[];
+  /** The argument grammar a client shows after the name while the user types (e.g. `<name> [args]`). */
+  argumentHint?: string;
+  /** The subcommands a client completes after `/<name> `. Absent when the command declares none. */
+  subcommands?: readonly ICommandSubcommandEntry[];
+}
+
+/** A subcommand as a client offers it after its command's name. */
+export interface ICommandSubcommandEntry {
+  readonly name: string;
+  readonly description: string;
+  readonly displayName?: string;
+  readonly argumentHint?: string;
 }
 
 /** A skill as a client offers it beside the commands; `/<name>` activates it. */

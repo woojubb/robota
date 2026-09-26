@@ -86,6 +86,8 @@ export function buildTuiSessionOptions(
       ? { workspaceMovedFrom: opts.workspaceMovedFrom }
       : {}),
     sessionName: opts.sessionName,
+    // The session names itself after its first real turn, unless it already has a name.
+    autoName: true,
     backgroundTaskRunners: opts.backgroundTaskRunners,
     ...(opts.toolCallHandoff !== undefined ? { toolCallHandoff: opts.toolCallHandoff } : {}),
     subagentRunnerFactory: opts.subagentRunnerFactory,

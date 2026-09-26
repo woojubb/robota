@@ -440,6 +440,13 @@ export interface IRenderAttachedAppOptions extends Pick<
   readonly driverId: string;
   /** Commands this terminal runs itself (`/shell`, `/theme`, ...); the host never sees them. */
   readonly clientCommands?: ITuiClientCommands;
+  /**
+   * How this terminal is on the session: `'drive'` (the default) sends prompts and answers questions;
+   * `'observe'` only watches, and the host refuses anything else from it.
+   */
+  readonly mode?: 'drive' | 'observe';
+  /** Print the screen-reader line; false when this process already printed it. Default true. */
+  readonly announce?: boolean;
 }
 
 /**
@@ -466,6 +473,7 @@ export async function renderAttachedApp(
             connection: options.connection,
             driverId: options.driverId,
             sessionName: options.sessionLabel,
+            role: options.mode ?? 'drive',
             terminalHandoff: services.terminalHandoff,
             attention: services.attention,
             ...(options.clientCommands !== undefined
@@ -518,7 +526,10 @@ type TAppShellOptions = Pick<
   | 'screenReaderHint'
   | 'keybindingsSource'
   | 'focusReporting'
->;
+> & {
+  /** Print the screen-reader line. Default true; false when this process already printed it. */
+  readonly announce?: boolean;
+};
 
 /** Terminal-wide services a channel is built with; they outlive every channel. */
 interface IChannelServices {
@@ -566,11 +577,13 @@ async function renderStartedApp(
   // CLI-2004: one resolved boolean drives Ink's own screen-reader support AND the React context
   // every component reads. Both are set here so they can never disagree.
   const screenReader = options.screenReader === true;
-  writeScreenReaderAnnouncement({
-    enabled: screenReader,
-    channel: options.screenReaderChannel,
-    hint: options.screenReaderHint,
-  });
+  if (options.announce !== false) {
+    writeScreenReaderAnnouncement({
+      enabled: screenReader,
+      channel: options.screenReaderChannel,
+      hint: options.screenReaderHint,
+    });
+  }
   const pacing = resolvePacing({ enabled: screenReader, overrides: options.screenReaderPacing });
   // SCREEN-2670: the pre-write park. Constructed only when the mode is on AND the interval is
   // non-zero, so with the mode off `stdout` is not passed at all and Ink defaults to

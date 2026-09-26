@@ -16,7 +16,8 @@ type TSessionQueryMessage = Extract<
       | 'get-status'
       | 'get-executing'
       | 'get-pending'
-      | 'get-execution-workspace';
+      | 'get-execution-workspace'
+      | 'read-execution-detail';
   }
 >;
 
@@ -39,7 +40,8 @@ export function isSessionQueryMessage(msg: TClientMessage): msg is TSessionQuery
     msg.type === 'get-status' ||
     msg.type === 'get-executing' ||
     msg.type === 'get-pending' ||
-    msg.type === 'get-execution-workspace'
+    msg.type === 'get-execution-workspace' ||
+    msg.type === 'read-execution-detail'
   );
 }
 
@@ -67,9 +69,29 @@ export function handleSessionQueryMessage(
       type: 'execution_workspace_event',
       snapshot: session.getExecutionWorkspaceSnapshot(),
     });
+  } else if (msg.type === 'read-execution-detail') {
+    readExecutionDetail(session, deliver, msg);
   } else {
     deliver(pendingFrame(session));
   }
+}
+
+/** One page of an execution-workspace entry's detail, answered under the request's id. */
+function readExecutionDetail(
+  session: IProtocolSession,
+  deliver: TOutboundDeliver,
+  msg: Extract<TClientMessage, { type: 'read-execution-detail' }>,
+): void {
+  const { requestId } = msg;
+  session.readExecutionWorkspaceDetail(msg.entryId, msg.cursor).then(
+    (page) => deliver({ type: 'execution_detail', requestId, page }),
+    (error: unknown) =>
+      deliver({
+        type: 'execution_detail_error',
+        requestId,
+        message: error instanceof Error ? error.message : String(error),
+      }),
+  );
 }
 
 /** The next queued prompt and how many wait, as the session reports them now. */

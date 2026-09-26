@@ -405,6 +405,40 @@ describe('WireTuiChannel', () => {
     await channel.stop();
   });
 
+  it("completes a host command's subcommands and argument hint from the catalog", async () => {
+    const { channel, link } = await attached();
+    link.push({
+      type: 'commands',
+      commands: [
+        {
+          name: 'loop',
+          description: 'Loops',
+          modelInvocable: false,
+          runner: 'runtime',
+          argumentHint: '<interval> <prompt>',
+          subcommands: [
+            { name: 'list', description: 'List loops' },
+            { name: 'stop', description: 'Stop a loop', argumentHint: '<id>', displayName: 'Stop' },
+          ],
+        },
+      ],
+      skills: [],
+    });
+    const port = channel.getCommandQueryPort();
+    expect(port.getCommands()[0]).toMatchObject({ argumentHint: '<interval> <prompt>' });
+    expect(port.getSubcommands('LOOP')).toEqual([
+      { name: 'list', description: 'List loops', source: 'builtin' },
+      {
+        name: 'stop',
+        description: 'Stop a loop',
+        source: 'builtin',
+        displayName: 'Stop',
+        argumentHint: '<id>',
+      },
+    ]);
+    await channel.stop();
+  });
+
   it('leaves on /exit without sending anything to the session', async () => {
     const onEnd = vi.fn();
     const { channel, link } = await attached({ onEnd });
@@ -596,20 +630,12 @@ describe('WireTuiChannel', () => {
     await channel.stop();
   });
 
-  it('shows a protocol error and a missing wire feature as notices, not failures', async () => {
+  it('shows a protocol error as a notice, not a failure', async () => {
     const { channel, link } = await attached();
     link.push({ type: 'protocol_error', message: 'A turn is running.' });
     expect(channel.getSnapshot().history.at(-1)?.data).toMatchObject({
       content: 'A turn is running.',
     });
-    await expect(channel.readExecutionWorkspaceDetail('task-1')).rejects.toThrow(
-      'not available while attached',
-    );
-    await channel.sendAgentJob('task-1', 'more');
-    expect(channel.getSnapshot().history.at(-1)?.data).toMatchObject({
-      content: expect.stringContaining('not available while attached'),
-    });
-    await expect(channel.stopWaitingSelfPacedLoop()).resolves.toBeUndefined();
     await channel.stop();
   });
 
@@ -1234,5 +1260,186 @@ describe('WireTuiChannel refused session changes (#3189 step 5)', () => {
     const switched = channel.requestSessionSwitch('s2');
     await channel.stop();
     await switched;
+  });
+});
+
+function lastRequestId(sent: readonly TClientMessage[], type: TClientMessage['type']): string {
+  const message = sent.filter((entry) => entry.type === type).at(-1);
+  return message !== undefined && 'requestId' in message ? (message.requestId ?? '') : '';
+}
+
+function lastNotice(channel: WireTuiChannel): unknown {
+  return (channel.getSnapshot().history.at(-1)?.data as { content?: unknown } | undefined)?.content;
+}
+
+describe('WireTuiChannel background work and loops (#3189 step 3b)', () => {
+  it("reads a workspace entry's detail page from the host, and fails with the host's reason", async () => {
+    const { channel, link } = await attached();
+    const page = { entryId: 'task-1', items: [], nextCursor: undefined } as never;
+    const read = channel.readExecutionWorkspaceDetail('task-1');
+    expect(link.sent.at(-1)).toMatchObject({ type: 'read-execution-detail', entryId: 'task-1' });
+    const requestId = lastRequestId(link.sent, 'read-execution-detail');
+    // An answer to another request settles nothing.
+    link.push({ type: 'execution_detail', requestId: 'other', page });
+    link.push({ type: 'execution_detail', requestId, page });
+    await expect(read).resolves.toBe(page);
+
+    const failing = channel.readExecutionWorkspaceDetail('gone');
+    link.push({
+      type: 'execution_detail_error',
+      requestId: lastRequestId(link.sent, 'read-execution-detail'),
+      message: 'No entry gone.',
+    });
+    await expect(failing).rejects.toThrow('No entry gone.');
+    await channel.stop();
+  });
+
+  it('fails a detail read still waiting when this terminal leaves', async () => {
+    const { channel } = await attached();
+    const read = channel.readExecutionWorkspaceDetail('task-1');
+    await channel.stop();
+    await expect(read).rejects.toThrow('Detached');
+  });
+
+  it("sends input to a background task and settles on the host's control result for it", async () => {
+    const { channel, link } = await attached();
+    let settled = false;
+    const sending = channel.sendAgentJob('task-1', 'more please').then(() => {
+      settled = true;
+    });
+    expect(link.sent.at(-1)).toEqual({
+      type: 'send-background-task',
+      taskId: 'task-1',
+      input: { prompt: 'more please' },
+    });
+    link.push({ type: 'background_task_control_result', action: 'cancel', taskId: 'task-1', success: true });
+    link.push({ type: 'background_task_control_result', action: 'send', taskId: 'task-2', success: true });
+    await flush();
+    expect(settled).toBe(false);
+    link.push({ type: 'background_task_control_result', action: 'send', taskId: 'task-1', success: true });
+    await sending;
+
+    const refused = channel.sendAgentJob('task-1', 'again');
+    link.push({
+      type: 'background_task_control_result',
+      action: 'send',
+      taskId: 'task-1',
+      success: false,
+      message: 'Task task-1 is not running.',
+    });
+    await refused;
+    expect(lastNotice(channel)).toBe(
+      'Could not send to background task task-1: Task task-1 is not running.',
+    );
+    await channel.stop();
+  });
+
+  it("asks the host to stop its waiting loop and shows the session's answer", async () => {
+    const { channel, link } = await attached();
+    const stopping = channel.stopWaitingSelfPacedLoop();
+    expect(link.sent.at(-1)).toMatchObject({ type: 'stop-waiting-loop' });
+    link.push({
+      type: 'waiting_loop_stop',
+      requestId: lastRequestId(link.sent, 'stop-waiting-loop'),
+      outcome: { kind: 'stopped', loopId: 'loop_one', message: 'Loop loop_one stopped.' },
+    });
+    await stopping;
+    expect(lastNotice(channel)).toBe('Loop loop_one stopped by Esc.');
+
+    const several = channel.stopWaitingSelfPacedLoop();
+    link.push({
+      type: 'waiting_loop_stop',
+      requestId: lastRequestId(link.sent, 'stop-waiting-loop'),
+      outcome: { kind: 'several', message: 'Use /loop stop <id> to choose one.' },
+    });
+    await several;
+    expect(lastNotice(channel)).toBe('Use /loop stop <id> to choose one.');
+
+    const count = channel.getSnapshot().history.length;
+    const none = channel.stopWaitingSelfPacedLoop();
+    link.push({
+      type: 'waiting_loop_stop',
+      requestId: lastRequestId(link.sent, 'stop-waiting-loop'),
+      outcome: { kind: 'none' },
+    });
+    await none;
+    expect(channel.getSnapshot().history).toHaveLength(count);
+    await channel.stop();
+  });
+});
+
+describe('WireTuiChannel observing (#3189 step 3b)', () => {
+  async function observing(): Promise<{ channel: WireTuiChannel; link: IScriptedConnection }> {
+    const link = scriptedConnection();
+    const channel = new WireTuiChannel({
+      connection: link,
+      driverId: 'attach:1',
+      sessionName: 'daemon',
+      role: 'observe',
+      cwd: '/work/here',
+      clientCommands: {
+        commands: [{ name: 'shell', execute: () => ({ success: true, message: 'ran here' }) }],
+        writeAppearanceSettings: () => undefined,
+      },
+    });
+    await channel.start();
+    return { channel, link };
+  }
+
+  it('asks for no open questions, and says it is read only', async () => {
+    const { channel, link } = await observing();
+    expect(types(link.sent)).toEqual(SNAPSHOT_TYPES.filter((type) => type !== 'get-prompts'));
+    expect(channel.getSnapshot().readOnly).toBe(true);
+    await channel.stop();
+  });
+
+  it("refuses prompts and the host's commands with a notice, but runs /exit and its own commands", async () => {
+    const onEnd = vi.fn();
+    const link = scriptedConnection();
+    const channel = new WireTuiChannel({
+      connection: link,
+      role: 'observe',
+      cwd: '/work/here',
+      clientCommands: {
+        commands: [{ name: 'shell', execute: () => ({ success: true, message: 'ran here' }) }],
+        writeAppearanceSettings: () => undefined,
+      },
+      onEnd,
+    });
+    await channel.start();
+    link.sent.length = 0;
+    await channel.handleInput('hello');
+    expect(lastNotice(channel)).toEqual(expect.stringContaining('Read only'));
+    await channel.handleInput('/mode plan');
+    expect(lastNotice(channel)).toEqual(expect.stringContaining('Read only'));
+    await channel.handleInput('/shell ls');
+    expect(lastNotice(channel)).toBe('ran here');
+    expect(link.sent).toEqual([]);
+    await channel.handleInput('/exit');
+    expect(onEnd).toHaveBeenCalledWith('user');
+  });
+
+  it('changes nothing on the session: no abort, queue cancel, loop stop, task input or switch', async () => {
+    const { channel, link } = await observing();
+    link.sent.length = 0;
+    channel.abort();
+    expect(channel.getSnapshot().isAborting).toBe(false);
+    channel.cancelQueue();
+    await channel.stopWaitingSelfPacedLoop();
+    await channel.sendAgentJob('task-1', 'more');
+    await channel.requestSessionSwitch('session_other');
+    expect(link.sent).toEqual([]);
+    expect(lastNotice(channel)).toEqual(expect.stringContaining('Read only'));
+    await channel.stop();
+  });
+
+  it('sends only what an observer may send, detail reads included', async () => {
+    const { channel, link } = await observing();
+    link.sent.length = 0;
+    const read = channel.readExecutionWorkspaceDetail('task-1');
+    link.push({ type: 'thinking', isThinking: true });
+    expect(types(link.sent)).toEqual(['read-execution-detail', 'get-pending']);
+    await channel.stop();
+    await expect(read).rejects.toThrow('Detached');
   });
 });

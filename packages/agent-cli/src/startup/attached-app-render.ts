@@ -1,8 +1,10 @@
 /**
- * `robota --attach`'s renderer: the full TUI on the daemon's session, with the presentation the plain
- * TUI resolves — settings, screen reader, theme, keybindings, terminal, focus reporting, prompt
- * history search, the CLI adapter and the process guards. Nothing that shapes a session is resolved:
- * the daemon owns it. The terminal's own commands run here too, as the plain TUI runs them.
+ * The attached terminal's renderer, for `robota --attach`, `robota session attach` and an attach
+ * from `robota session view`: the full TUI on a session another process runs, in drive or observe
+ * mode, with the presentation the plain TUI resolves — settings, screen reader, theme, keybindings,
+ * terminal, focus reporting, prompt history search, the CLI adapter and the process guards. Nothing
+ * that shapes a session is resolved: the process running it owns it. The terminal's own commands
+ * run here too, as the plain TUI runs them.
  */
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import { createTerminalClientCommands } from '@robota-sdk/agent-command';
@@ -24,7 +26,7 @@ import { readVersion } from './version.js';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type { TWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
-import type { TDaemonAttachRender } from '../session-inventory/daemon-attach-command.js';
+import type { TAttachedAppRender } from '../session-inventory/session-attach-command.js';
 import type { ITuiPresentationFactories } from './tui-presentation.js';
 
 /** What the full CLI supplies to render an attached TUI. */
@@ -45,8 +47,8 @@ export interface IAttachedAppContext {
 export function createAttachedAppRender(
   presentation: IAttachedAppPresentation,
   context: IAttachedAppContext,
-): TDaemonAttachRender {
-  return async ({ connection, driverId, sessionLabel, screenReaderFlag }) => {
+): TAttachedAppRender {
+  return async ({ connection, driverId, sessionLabel, screenReaderFlag, mode, announce }) => {
     const { cwd, projectAccess } = context;
     const settings = readUserSettingsOrExit();
     const env = process.env;
@@ -62,7 +64,7 @@ export function createAttachedAppRender(
       process.stderr.write(`Skipped theme "${fileName}": ${reason}\n`);
     }
     // The plain TUI's preset resolution, for its command-module selection only: a module it turns
-    // off is not a command this terminal offers. `--attach` takes no preset flag, so the user's
+    // off is not a command this terminal offers. An attach takes no preset flag, so the user's
     // settings choose.
     const { enabledCommandModules, disabledCommandModules } = resolveShellPresetOrExit({
       args: {},
@@ -70,7 +72,7 @@ export function createAttachedAppRender(
       safeMode: context.safeMode === true,
       writeError: (message) => process.stderr.write(`${message}\n`),
     }).options;
-    // The session-side prompt-history writer belongs to the session, and the daemon's is its own.
+    // The session-side prompt-history writer belongs to the session, which has its own.
     const { promptHistory: _sessionWriter, ...fields } = resolveTuiRenderFields({
       screenReader: resolveScreenReaderRenderFields(settings, screenReaderFlag, env),
       settings,
@@ -92,7 +94,7 @@ export function createAttachedAppRender(
       }),
       ...fields,
       keybindingsSource,
-      // `/shell`, `/editor`, `/keybindings` and `/theme` belong to this terminal, not the daemon's
+      // `/shell`, `/editor`, `/keybindings` and `/theme` belong to this terminal, not the session's
       // process: each gets the port and module selection the plain TUI gives it, and a theme it picks
       // is written where the plain TUI's session writes it.
       clientCommands: {
@@ -114,6 +116,8 @@ export function createAttachedAppRender(
       connection,
       sessionLabel,
       driverId,
+      mode,
+      ...(announce !== undefined ? { announce } : {}),
     });
   };
 }

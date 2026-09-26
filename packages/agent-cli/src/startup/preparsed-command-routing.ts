@@ -30,7 +30,7 @@ import {
 } from '../session-inventory/daemon-attach-command.js';
 import { createAttachedAppRender, type IAttachedAppPresentation } from './attached-app-render.js';
 import { runSessionAttachCommand } from '../session-inventory/session-attach-command.js';
-import type { ISessionAttachCommandOptions } from '../session-inventory/session-attach-command.js';
+import type { TAttachedAppRender } from '../session-inventory/session-attach-command.js';
 import type { ISessionViewCommandOptions } from '../session-inventory/session-view-command.js';
 import { validateNodeOtlpLiveTelemetrySettings } from '../telemetry/live-trace-otlp.js';
 import { runUsageCommand } from '../usage/usage-command.js';
@@ -158,7 +158,6 @@ export async function runPreparsedCliCommand(
   cwd: string = process.cwd(),
   telemetryEnvironment: Readonly<Record<string, string>> = {},
   renderSessionView?: ISessionViewCommandOptions['render'],
-  renderAttachedView?: ISessionAttachCommandOptions['render'],
   attachedAppPresentation?: IAttachedAppPresentation,
 ): Promise<boolean> {
   // The Robota telemetry settings were removed from process.env at startup; the supervised runtime is
@@ -181,23 +180,26 @@ export async function runPreparsedCliCommand(
     );
     return true;
   }
+  // One renderer for every attached terminal — `--attach`, `session attach` and an attach from
+  // `session view` — present only when the full CLI supplied its terminal presentation.
+  const attachedAppRender = async (): Promise<TAttachedAppRender | undefined> =>
+    attachedAppPresentation === undefined
+      ? undefined
+      : createAttachedAppRender(attachedAppPresentation, {
+          cwd,
+          projectAccess: await resolveInitialCliWorkspaceProjectAccess(cwd, options),
+          ...(options.providerDefinitions !== undefined
+            ? { providerDefinitions: options.providerDefinitions }
+            : {}),
+          ...(options.safeMode === true ? { safeMode: true } : {}),
+        });
   // `robota --attach`: the full TUI on this workspace's daemon. Its only flags are presentation
   // flags, so the strict global parser, which knows the session-shaping ones, never sees it.
   if (isDaemonAttachInvocation(argv.slice(SUBCOMMAND_INDEX))) {
+    const render = await attachedAppRender();
     process.exitCode = await runDaemonAttachCommand(argv.slice(SUBCOMMAND_INDEX), {
       cwd,
-      ...(attachedAppPresentation === undefined
-        ? {}
-        : {
-            render: createAttachedAppRender(attachedAppPresentation, {
-              cwd,
-              projectAccess: await resolveInitialCliWorkspaceProjectAccess(cwd, options),
-              ...(options.providerDefinitions !== undefined
-                ? { providerDefinitions: options.providerDefinitions }
-                : {}),
-              ...(options.safeMode === true ? { safeMode: true } : {}),
-            }),
-          }),
+      ...(render === undefined ? {} : { render }),
     });
     return true;
   }
@@ -286,16 +288,18 @@ export async function runPreparsedCliCommand(
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'attach') {
+    const render = await attachedAppRender();
     process.exitCode = await runSessionAttachCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), {
-      ...(renderAttachedView === undefined ? {} : { render: renderAttachedView }),
+      ...(render === undefined ? {} : { render }),
     });
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'view') {
+    const renderAttached = await attachedAppRender();
     process.exitCode = await runSessionViewCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), {
       launchCwd: cwd,
       render: renderSessionView,
-      ...(renderAttachedView === undefined ? {} : { renderAttached: renderAttachedView }),
+      ...(renderAttached === undefined ? {} : { renderAttached }),
       start: async (targetCwd) => {
         const access = await resolveInitialCliWorkspaceProjectAccess(targetCwd);
         if (requiresHeadlessWorkspaceTrust(access)) {

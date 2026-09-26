@@ -168,6 +168,11 @@ export function createTestInteractiveSession(
     waitBackgroundJobGroup: () =>
       Promise.resolve({ ...EMPTY_BACKGROUND_GROUP, parentSessionId: sessionId() }),
     getExecutionWorkspaceSnapshot: () => ({ ...EMPTY_EXECUTION_WORKSPACE, sessionId: sessionId() }),
+    // An entry with nothing recorded yet: one empty page and no next cursor.
+    readExecutionWorkspaceDetail: (entryId, cursor) =>
+      Promise.resolve({ entryId, ...(cursor ? { cursor } : {}), records: [] }),
+    // No self-paced loop is waiting in a fresh double.
+    stopWaitingSelfPacedLoop: () => Promise.resolve({ kind: 'none' as const }),
     listAgentDefinitions: () => [],
     listAgentJobs: () => [],
     spawnAgentJob: () =>

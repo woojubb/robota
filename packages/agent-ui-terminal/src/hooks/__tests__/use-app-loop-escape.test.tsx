@@ -16,6 +16,7 @@ function options(overrides: Partial<TOptions> = {}): TOptions {
   return {
     isThinking: false,
     isShuttingDown: false,
+    readOnly: false,
     permissionRequest: null,
     pendingUserAction: null,
     pluginVisible: false,
@@ -68,6 +69,17 @@ describe('Esc for a waiting self-paced loop', () => {
       view.stdin.write('\u001b');
       await new Promise<void>((resolve) => setTimeout(resolve, 10));
       expect(blocked.stopWaitingLoop).not.toHaveBeenCalled();
+      view.unmount();
+    }
+  });
+
+  it('stops nothing on an observing terminal: neither the turn nor the loop', async () => {
+    for (const observing of [options({ readOnly: true }), options({ readOnly: true, isThinking: true })]) {
+      const view = render(<Probe options={observing} />);
+      view.stdin.write('\u001b');
+      await new Promise<void>((resolve) => setTimeout(resolve, 200));
+      expect(observing.stopWaitingLoop).not.toHaveBeenCalled();
+      expect(observing.abort).not.toHaveBeenCalled();
       view.unmount();
     }
   });
