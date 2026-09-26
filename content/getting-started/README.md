@@ -55,13 +55,13 @@ npm install -g @robota-sdk/agent-cli
 ### I want to build a custom AI agent
 
 ```bash
-npm install @robota-sdk/agent-core @robota-sdk/agent-provider
+npm install @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic
 ```
 
 ### I want tool calling (function tools)
 
 ```bash
-npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-provider
+npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-provider-anthropic
 ```
 
 ## Quick Start — CLI (Robota Coding Assistant)

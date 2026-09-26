@@ -46,7 +46,12 @@ packages/
 ├── agent-executor/             ← Background task and subagent lifecycle
 ├── agent-framework/            ← Assembly layer (InteractiveSession, createQuery)
 ├── agent-command/              ← All slash command modules in one package
-├── agent-provider/             ← Consolidated AI provider (sub-paths: /anthropic, /openai, /gemini, /google, /gemma, /qwen, /deepseek, /bytedance)
+├── agent-provider-anthropic/   ← Anthropic provider client
+├── agent-provider-openai/      ← OpenAI provider client
+├── agent-provider-openai-compatible/ ← OpenAI-compatible clients (DeepSeek, Qwen, Gemma)
+├── agent-provider-gemini/      ← Gemini / Google provider client
+├── agent-provider-bytedance/   ← ByteDance video generation provider client
+├── agent-builtin-providers/    ← Built-in provider definitions + default role-to-model mapping
 ├── agent-plugin/               ← Consolidated plugin package
 ├── agent-transport/            ← Browser-safe protocol/delivery substrate (sub-paths: /client, /node)
 ├── agent-ui-terminal/        ← Terminal UI (Ink/React) — standalone
