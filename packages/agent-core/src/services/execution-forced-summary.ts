@@ -11,6 +11,7 @@ import {
 import { isAbortFailure } from '../utils/abort-classification';
 import { randomId } from '../utils/random-id.js';
 import { verifiedProviderCallUsage } from './provider-call-usage';
+import { collectCommittedUsageMetadata } from './execution-usage';
 import { presentMessageOrigins } from './message-origin';
 import {
   resolveProviderCallTraceContext,
@@ -206,6 +207,7 @@ export async function forceSummaryCall(
             promptTokens: usage.promptTokens,
             completionTokens: usage.completionTokens,
             totalTokens: usage.totalTokens,
+            ...(usage.cacheReadTokens !== undefined && { cacheReadTokens: usage.cacheReadTokens }),
           }),
       } as TExecutionEventData);
     }
@@ -215,18 +217,12 @@ export async function forceSummaryCall(
     const responseText = typeof forceResponse.content === 'string' ? forceResponse.content : '';
     const committedText =
       responseText || 'Maximum rounds reached. Partial results available in conversation history.';
-    const verifiedUsage = verifiedProviderCallUsage(forceResponse);
     const summaryMetadata = {
       ...(forceResponse.metadata ?? {}),
       round: roundState.currentRound,
       providerId: routeProvider(route, resolved),
       modelId: routeModel(route, resolved.aiProviderInfo.model),
-      usageProvenance: verifiedUsage.provenance,
-      ...(verifiedUsage.provenance === 'complete' && {
-        inputTokens: verifiedUsage.promptTokens,
-        outputTokens: verifiedUsage.completionTokens,
-        totalTokens: verifiedUsage.totalTokens,
-      }),
+      ...collectCommittedUsageMetadata(forceResponse),
     };
     conversationStore.addAssistantMessage(committedText, [], summaryMetadata);
     committed = true;

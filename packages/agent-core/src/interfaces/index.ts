@@ -53,6 +53,7 @@ export type {
   IProviderRequest,
   IRawProviderResponse,
   ITokenUsage,
+  ITokenUsageWithCacheRead,
   IProviderSpecificOptions,
   TProviderConfigValue,
   TProviderOptionValueBase,

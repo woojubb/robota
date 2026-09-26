@@ -13,7 +13,16 @@ import type {
   TOpenAIResponsesOutputItem,
   TOpenAIResponsesStreamEvent,
 } from './responses-types';
-import type { IToolCall, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
+import type {
+  IToolCall,
+  ITokenUsageWithCacheRead,
+  TTextDeltaCallback,
+  TUniversalMessage,
+} from '@robota-sdk/agent-core';
+
+/** Message usage; `totalTokens` is absent when the response omitted `total_tokens`. */
+type TResponsesMessageUsage = Omit<ITokenUsageWithCacheRead, 'totalTokens'> &
+  Partial<Pick<ITokenUsageWithCacheRead, 'totalTokens'>>;
 
 interface IOpenAIResponsesStreamAssemblyOptions {
   stream: AsyncIterable<TOpenAIResponsesStreamEvent>;
@@ -25,12 +34,6 @@ interface IOpenAIResponsesReasoningMetadata {
   reasoningSummaryCount: number;
   reasoningSummaries: string[];
   hasEncryptedReasoning: boolean;
-}
-
-interface IOpenAIResponseUsage {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
 }
 
 interface IOpenAIResponsesStreamState {
@@ -191,11 +194,14 @@ function buildMetadata(
   };
 }
 
-function mapUsage(usage: IOpenAIResponsesUsage): IOpenAIResponseUsage {
+function mapUsage(usage: IOpenAIResponsesUsage): TResponsesMessageUsage {
+  const cachedTokens = usage.input_tokens_details?.cached_tokens;
   return {
     promptTokens: usage.input_tokens ?? 0,
     completionTokens: usage.output_tokens ?? 0,
-    totalTokens: usage.total_tokens ?? 0,
+    // An omitted total stays omitted: a 0 reads downstream as a real, empty call.
+    ...(usage.total_tokens !== undefined && { totalTokens: usage.total_tokens }),
+    ...(typeof cachedTokens === 'number' && { cacheReadTokens: cachedTokens }),
   };
 }
 

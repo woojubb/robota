@@ -11,7 +11,16 @@ import type {
   TQwenResponsesOutputItem,
   TQwenResponsesStreamEvent,
 } from './types';
-import type { IToolCall, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
+import type {
+  IToolCall,
+  ITokenUsageWithCacheRead,
+  TTextDeltaCallback,
+  TUniversalMessage,
+} from '@robota-sdk/agent-core';
+
+/** Message usage; `totalTokens` is absent when the response omitted `total_tokens`. */
+type TResponsesMessageUsage = Omit<ITokenUsageWithCacheRead, 'totalTokens'> &
+  Partial<Pick<ITokenUsageWithCacheRead, 'totalTokens'>>;
 
 interface IQwenResponsesParseOptions {
   enabledBuiltInTools: readonly TQwenBuiltInWebToolName[];
@@ -165,14 +174,19 @@ function buildAssistantMessage(input: {
     state: 'complete',
     timestamp: new Date(),
     ...(input.toolCalls.length > 0 && { toolCalls: input.toolCalls }),
-    ...(input.response?.usage !== undefined && {
-      usage: {
-        promptTokens: input.response.usage.input_tokens ?? 0,
-        completionTokens: input.response.usage.output_tokens ?? 0,
-        totalTokens: input.response.usage.total_tokens ?? 0,
-      },
-    }),
+    ...(input.response?.usage !== undefined && { usage: mapResponsesUsage(input.response.usage) }),
     metadata: buildProviderToolMetadata(input.enabledBuiltInTools, input.usage, input.response),
+  };
+}
+
+function mapResponsesUsage(usage: IQwenResponsesUsage): TResponsesMessageUsage {
+  const cachedTokens = usage.input_tokens_details?.cached_tokens;
+  return {
+    promptTokens: usage.input_tokens ?? 0,
+    completionTokens: usage.output_tokens ?? 0,
+    // An omitted total stays omitted: a 0 reads downstream as a real, empty call.
+    ...(usage.total_tokens !== undefined && { totalTokens: usage.total_tokens }),
+    ...(typeof cachedTokens === 'number' && { cacheReadTokens: cachedTokens }),
   };
 }
 
