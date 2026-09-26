@@ -35,6 +35,8 @@ export interface ISupervisedAttachRequest {
   readonly id: string;
   readonly generation: string;
   readonly mode: 'drive' | 'observe';
+  /** How the view was grouped, so it can reopen the same way after the attach. */
+  readonly groupByDirectory: boolean;
 }
 
 /** How the view ended: closed, or handed to the host to attach and then come back. */
@@ -60,6 +62,9 @@ export interface ISupervisedSessionViewProps {
   readonly filteredByPr?: boolean;
   readonly stateFilter?: TGroup;
   readonly refreshMs?: number;
+  /** The row to select first, when it is still listed — the one an attach left from. */
+  readonly initialSelectedId?: string;
+  readonly initialGroupByDirectory?: boolean;
 }
 
 const GROUP_ORDER = ['needs-input', 'working', 'idle', 'unknown', 'unverified', 'dead'] as const;
@@ -202,6 +207,8 @@ export default function SupervisedSessionView({
   filteredByPr = false,
   stateFilter,
   refreshMs = 2_000,
+  initialSelectedId,
+  initialGroupByDirectory = false,
 }: ISupervisedSessionViewProps): React.ReactElement {
   const { exit } = useApp();
   const { stdout } = useStdout();
@@ -210,9 +217,9 @@ export default function SupervisedSessionView({
   const [rows, setRows] = useState<readonly ISupervisedViewRow[]>([]);
   const [observedAtMs, setObservedAtMs] = useState(Date.now);
   const [status, setStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
-  const [chosenId, setSelectedId] = useState<string | undefined>();
+  const [chosenId, setSelectedId] = useState<string | undefined>(initialSelectedId);
   const [showHelp, setShowHelp] = useState(false);
-  const [groupByDirectory, setGroupByDirectory] = useState(false);
+  const [groupByDirectory, setGroupByDirectory] = useState(initialGroupByDirectory);
   // One confirmation at a time, for the one registration the row showed when the key was pressed.
   const [confirmStop, setConfirmStop] = useState<
     | {
@@ -330,8 +337,12 @@ export default function SupervisedSessionView({
       ? chosenId
       : ordered[0]?.id;
   useEffect(() => {
+    // Before the first rows arrive there is nothing to fall back to; the choice waits for them.
     setSelectedId((current) =>
-      current !== undefined && ordered.some((row) => row.id === current) ? current : ordered[0]?.id,
+      ordered.length === 0 ||
+      (current !== undefined && ordered.some((row) => row.id === current))
+        ? current
+        : ordered[0]?.id,
     );
   }, [ordered]);
 
@@ -370,7 +381,7 @@ export default function SupervisedSessionView({
           setAttachStatus('unavailable');
           return;
         }
-        onAttach({ id: target.id, generation: target.generation, mode: target.mode });
+        onAttach({ id: target.id, generation: target.generation, mode: target.mode, groupByDirectory });
         exit();
         return;
       }
@@ -722,13 +733,17 @@ export async function renderSupervisedSessionView(
     readonly screenReader: boolean;
     readonly screenReaderChannel?: TScreenReaderChannel;
     readonly screenReaderHint?: boolean;
+    /** Print the screen-reader line; false when this process already printed it. */
+    readonly announce?: boolean;
   },
 ): Promise<TSupervisedViewExit> {
-  writeScreenReaderAnnouncement({
-    enabled: options.screenReader,
-    channel: options.screenReaderChannel,
-    hint: options.screenReaderHint,
-  });
+  if (options.announce !== false) {
+    writeScreenReaderAnnouncement({
+      enabled: options.screenReader,
+      channel: options.screenReaderChannel,
+      hint: options.screenReaderHint,
+    });
+  }
   let attach: ISupervisedAttachRequest | undefined;
   const instance = render(
     <ScreenReaderProvider enabled={options.screenReader}>
@@ -745,6 +760,10 @@ export async function renderSupervisedSessionView(
         filteredByPr={options.filteredByPr}
         stateFilter={options.stateFilter}
         refreshMs={options.refreshMs}
+        {...(options.initialSelectedId !== undefined ? { initialSelectedId: options.initialSelectedId } : {})}
+        {...(options.initialGroupByDirectory !== undefined
+          ? { initialGroupByDirectory: options.initialGroupByDirectory }
+          : {})}
       />
     </ScreenReaderProvider>,
     { isScreenReaderEnabled: options.screenReader, exitOnCtrlC: false },

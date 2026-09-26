@@ -415,14 +415,15 @@ describe('session view command', () => {
     try {
       const generation = readGeneration(root, id);
       const render = vi.fn()
-        .mockResolvedValueOnce({ kind: 'attach', id, generation, mode: 'observe' })
-        .mockResolvedValueOnce({ kind: 'attach', id, generation: 'A'.repeat(22), mode: 'drive' })
+        .mockResolvedValueOnce({ kind: 'attach', id, generation, mode: 'observe', groupByDirectory: true })
+        .mockResolvedValueOnce({ kind: 'attach', id, generation: 'A'.repeat(22), mode: 'drive', groupByDirectory: false })
         .mockResolvedValueOnce({ kind: 'closed' });
       const renderAttached = vi.fn(async (options: {
-        mode: string; driverId: string; sessionLabel: string; screenReader?: boolean;
+        mode: string; driverId: string; sessionLabel: string; screenReader?: boolean; announce?: boolean;
       }) => {
         expect(options).toMatchObject({
           mode: 'observe', driverId: 'attach:1', sessionLabel: 'Morning review', screenReader: true,
+          announce: false,
         });
         return 'user' as const;
       });
@@ -430,6 +431,14 @@ describe('session view command', () => {
         isTTY: true, settings: {}, env: {}, root, render, renderAttached,
       })).toBe(0);
       expect(render).toHaveBeenCalledTimes(3);
+      // The screen-reader line is printed once per process, and the view reopens where it was left.
+      expect(render.mock.calls[0]?.[0]).not.toHaveProperty('announce', false);
+      expect(render.mock.calls[1]?.[0]).toMatchObject({
+        announce: false, initialSelectedId: id, initialGroupByDirectory: true,
+      });
+      expect(render.mock.calls[2]?.[0]).toMatchObject({
+        announce: false, initialSelectedId: id, initialGroupByDirectory: false,
+      });
       expect(renderAttached).toHaveBeenCalledTimes(1);
       expect(out.mock.calls.map(([text]) => String(text)).join('')).toMatch(/keeps running/);
       expect(err.mock.calls.map(([text]) => String(text)).join('')).toMatch(/changed/i);

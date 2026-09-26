@@ -33,8 +33,20 @@ describe('production supervised view renderer', () => {
     const wrapper = vi.mocked(render).mock.calls[0]?.[0] as React.ReactElement<{
       children: React.ReactElement<{ onAttach?: (request: unknown) => void }>;
     }>;
-    wrapper.props.children.props.onAttach?.({ id: 'x', generation: 'g', mode: 'observe' });
+    wrapper.props.children.props.onAttach?.({ id: 'x', generation: 'g', mode: 'observe', groupByDirectory: true });
     exitView();
-    expect(await ended).toEqual({ kind: 'attach', id: 'x', generation: 'g', mode: 'observe' });
+    expect(await ended).toEqual({ kind: 'attach', id: 'x', generation: 'g', mode: 'observe', groupByDirectory: true });
+  });
+
+  it('prints the screen-reader line only when asked to announce', async () => {
+    const out = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      await renderSupervisedSessionView({ loadRows: async () => [], screenReader: true, screenReaderChannel: 'flag', announce: false });
+      expect(out.mock.calls.map(([text]) => String(text)).join('')).not.toContain('Screen reader mode');
+      await renderSupervisedSessionView({ loadRows: async () => [], screenReader: true, screenReaderChannel: 'flag' });
+      expect(out.mock.calls.map(([text]) => String(text)).join('')).toContain('Screen reader mode: on via flag');
+    } finally {
+      out.mockRestore();
+    }
   });
 });

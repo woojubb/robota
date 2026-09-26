@@ -42,6 +42,8 @@ export interface IAttachedViewRenderOptions {
   readonly screenReader?: boolean;
   readonly screenReaderChannel?: TScreenReaderChannel;
   readonly screenReaderHint?: boolean;
+  /** Print the screen-reader line; false when this process already printed it. */
+  readonly announce?: boolean;
 }
 
 export type TAttachedViewRender = (options: IAttachedViewRenderOptions) => Promise<'user' | 'closed'>;
@@ -54,7 +56,10 @@ export interface IConfirmedAttach {
   readonly sessionLabel: string;
   readonly root: string;
   readonly render: TAttachedViewRender;
-  readonly screenReader?: Pick<IAttachedViewRenderOptions, 'screenReader' | 'screenReaderChannel' | 'screenReaderHint'>;
+  readonly screenReader?: Pick<
+    IAttachedViewRenderOptions,
+    'screenReader' | 'screenReaderChannel' | 'screenReaderHint' | 'announce'
+  >;
 }
 
 /** Attach after the user said yes, run the view until it ends, and always detach. */

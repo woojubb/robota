@@ -883,7 +883,9 @@ describe('supervised session view', () => {
         await vi.waitFor(() => expect(view.lastFrame()).toContain('y Yes / n No'));
         view.stdin.write('y');
         await vi.waitFor(() =>
-          expect(onAttach).toHaveBeenCalledExactlyOnceWith({ id: FIRST.id, generation: FIRST.generation, mode }),
+          expect(onAttach).toHaveBeenCalledExactlyOnceWith({
+            id: FIRST.id, generation: FIRST.generation, mode, groupByDirectory: false,
+          }),
         );
       } finally {
         view.unmount();
@@ -958,6 +960,39 @@ describe('supervised session view', () => {
       await vi.waitFor(() =>
         expect(view.lastFrame()).toContain(`Peek at ${FIRST.id} to observe (read only)? y Yes / n No`),
       );
+    } finally {
+      view.unmount();
+    }
+  });
+  it('reopens on the row and grouping it was left with', async () => {
+    const view = render(
+      <SupervisedSessionView
+        loadRows={async () => [{ ...FIRST, cwd: '/projects/alpha' }, { ...THIRD, cwd: '/projects/beta' }]}
+        initialSelectedId={THIRD.id}
+        initialGroupByDirectory
+      />,
+    );
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${THIRD.id}`));
+      expect(view.lastFrame()).toContain('Dir 1: alpha — /projects/alpha');
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('hands back the grouping with a confirmed attach', async () => {
+    const onAttach = vi.fn();
+    const view = render(<SupervisedSessionView loadRows={async () => [FIRST]} onAttach={onAttach} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('g');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Directory: unverified'));
+      view.stdin.write('p');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('y Yes / n No'));
+      view.stdin.write('y');
+      await vi.waitFor(() => expect(onAttach).toHaveBeenCalledExactlyOnceWith({
+        id: FIRST.id, generation: FIRST.generation, mode: 'observe', groupByDirectory: true,
+      }));
     } finally {
       view.unmount();
     }

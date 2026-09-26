@@ -127,7 +127,13 @@ export async function runSessionViewCommand(
     const root = options.root ?? resolveSupervisedDirectory();
     const start = options.start;
     const render = options.render;
+    // After the first render this process has printed its screen-reader line, and a view that
+    // comes back from an attach reopens on the row and grouping it was left with.
+    let reopen: { readonly id: string; readonly groupByDirectory: boolean } | undefined;
     const view = (): ReturnType<typeof render> => render({
+      ...(reopen === undefined
+        ? {}
+        : { announce: false, initialSelectedId: reopen.id, initialGroupByDirectory: reopen.groupByDirectory }),
       loadRows: (signal) =>
         listSupervisedSessions(root, signal, {
           cwd,
@@ -159,6 +165,7 @@ export async function runSessionViewCommand(
     for (;;) {
       const ended = await view();
       if (ended === undefined || ended.kind !== 'attach') return 0;
+      reopen = { id: ended.id, groupByDirectory: ended.groupByDirectory };
       if (options.renderAttached === undefined) {
         process.stderr.write('Attaching needs the interactive CLI; this runtime has no terminal UI.\n');
         continue;
@@ -173,6 +180,7 @@ export async function runSessionViewCommand(
         root,
         render: options.renderAttached,
         screenReader: {
+          announce: false,
           screenReader: screenReader.screenReader,
           ...(screenReader.screenReaderChannel !== undefined
             ? { screenReaderChannel: screenReader.screenReaderChannel }

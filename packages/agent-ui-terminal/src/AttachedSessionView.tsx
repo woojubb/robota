@@ -307,7 +307,11 @@ export default function AttachedSessionView({
       return;
     }
     if (!key.ctrl && !key.meta && typed !== '') {
-      setInput((current) => current + typed.replace(/\r\n|\r|\n/gu, ' '));
+      // A secret is kept exactly as copied: the line break a copied key usually ends with is not
+      // part of it. Anywhere else a pasted line break only separates words.
+      const head = promptsRef.current[0];
+      const masked = head?.kind === 'ask' && head.request.masked === true;
+      setInput((current) => current + typed.replace(/\r\n|\r|\n/gu, masked ? '' : ' '));
     }
   });
 
@@ -383,14 +387,18 @@ export async function renderAttachedSessionView(
     readonly screenReader?: boolean;
     readonly screenReaderChannel?: TScreenReaderChannel;
     readonly screenReaderHint?: boolean;
+    /** Print the screen-reader line; false when this process already printed it. */
+    readonly announce?: boolean;
   },
 ): Promise<TAttachedSessionEnd> {
-  const { screenReader = false, screenReaderChannel, screenReaderHint, ...view } = options;
-  writeScreenReaderAnnouncement({
-    enabled: screenReader,
-    channel: screenReaderChannel,
-    hint: screenReaderHint,
-  });
+  const { screenReader = false, screenReaderChannel, screenReaderHint, announce = true, ...view } = options;
+  if (announce) {
+    writeScreenReaderAnnouncement({
+      enabled: screenReader,
+      channel: screenReaderChannel,
+      hint: screenReaderHint,
+    });
+  }
   let ended: TAttachedSessionEnd = 'user';
   let finish: () => void = () => undefined;
   const done = new Promise<void>((resolve) => { finish = resolve; });

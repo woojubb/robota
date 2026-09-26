@@ -322,6 +322,32 @@ describe('attached session view', () => {
     }
   });
 
+  it('keeps a pasted secret exactly as copied, without the trailing line break', async () => {
+    for (const pasted of ['sk-secret\n', 'sk-secret\r\n', 'sk-\rsecret\r']) {
+      const link = connection();
+      const view = render(
+        <AttachedSessionView connection={link} mode="drive" sessionLabel="s" driverId="attach:1" onDetach={vi.fn()} />,
+      );
+      try {
+        await tick();
+        link.push({
+          type: 'ask_request',
+          event: { id: 'a1', request: { id: 'r', title: 'API key', allowFreeText: true, masked: true } },
+        });
+        await tick();
+        view.stdin.write(pasted);
+        await tick();
+        view.stdin.write('\r');
+        await tick();
+        expect(link.sent).toContainEqual({
+          type: 'ask-response', id: 'a1', response: { type: 'answer', values: [], text: 'sk-secret' },
+        });
+      } finally {
+        view.unmount();
+      }
+    }
+  });
+
   it('treats line breaks in pasted text as spaces instead of sending', async () => {
     const link = connection();
     const view = render(
