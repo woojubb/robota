@@ -395,4 +395,21 @@ describe('summarizePersonalUsage', () => {
     expect(report.totals).toMatchObject({ sessions: 1, turns: 1, totalTokens: 0 });
     expect(report.totals.costStatus).toBe('unknown');
   });
+
+  it('counts turns from an attached terminal under their own surface', () => {
+    const report = summarizePersonalUsage({
+      request: { period: '7d', timezone: 'UTC' },
+      now: new Date('2026-09-06T12:00:00.000Z'),
+      records: [
+        record('attached', [
+          {
+            id: 'attached-turn',
+            at: '2026-09-05T01:00:00.000Z',
+            data: { usageObservationId: 'a1', turnId: 'a1', outcome: 'success', surface: 'attach' },
+          },
+        ]),
+      ],
+    });
+    expect(report.bySurface.map((entry) => entry.key)).toEqual(['attach']);
+  });
 });
