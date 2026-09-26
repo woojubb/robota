@@ -37,6 +37,19 @@ describe('PEER-007 — driverId reaches the stored user message', () => {
     expect(user?.metadata?.driverId).toBe('peer:session-abc');
   });
 
+  it('stores where the turn came from beside who drove it', async () => {
+    const scripted = createScriptedProvider([{ text: 'done' }]);
+    const robota = new Robota(createConfig('scripted-test-provider', scripted.provider));
+
+    await robota.run('summarise the release notes', {
+      driverId: 'peer:session-abc',
+      turnSource: 'peer',
+    });
+
+    const user = robota.getHistory().find((m) => m.role === 'user');
+    expect(user?.metadata).toMatchObject({ driverId: 'peer:session-abc', turnSource: 'peer' });
+  });
+
   it('leaves the user message unattributed when no driver is given', async () => {
     const scripted = createScriptedProvider([{ text: 'done' }]);
     const robota = new Robota(createConfig('scripted-test-provider', scripted.provider));
@@ -45,6 +58,7 @@ describe('PEER-007 — driverId reaches the stored user message', () => {
 
     const user = robota.getHistory().find((m) => m.role === 'user');
     expect(user?.metadata?.driverId).toBeUndefined();
+    expect(user?.metadata?.turnSource).toBeUndefined();
   });
 
   it('attributes each turn to ITS OWN driver rather than the first one seen', async () => {

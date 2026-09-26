@@ -217,6 +217,8 @@ export interface ISessionRunOptions {
    * Never an authorization input (issue #1809).
    */
   driverId?: string;
+  /** Where this turn came from, stored beside `driverId` on the user message. Display only. */
+  turnSource?: string;
   /** Run-scoped model tool directive; 'none' remains in force for this turn only. */
   toolChoice?: TToolChoice;
   /**

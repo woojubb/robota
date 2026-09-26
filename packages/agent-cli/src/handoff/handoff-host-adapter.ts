@@ -240,24 +240,29 @@ export function createHandoffHostAdapter(deps: IHandoffHostAdapterDeps): IComman
       // The session moved on since the copy that may already be saved there, so that copy is not
       // resent. The operator is told once; the next /handoff is a new transfer of the current state.
       unsettled = undefined;
-      return stopped(
+      current = stopped(
         `this session changed since the hand-off to ${target} that was not confirmed, so ${target} ` +
           'may hold an older copy of it. Check it there; /handoff again sends the current session ' +
           'as a new transfer',
       );
+      return current;
     }
     // A transfer whose answer was lost is sent again as itself, so a receiver that already saved it
-    // answers with the same acknowledgement instead of saving a second copy.
-    const request: IHandoffManifestRequest = unsettled?.request ?? {
-      handoffId: randomUUID(),
-      sessionId: record.id,
-      // Between devices each end is its device; between sessions on this machine, its session.
-      sourceDeviceId: toDevice ? signer.deviceId : deps.peers.ownSessionId(),
-      destinationDeviceId: target,
-      record,
-      runtime,
-      offeredAt: now(),
-    };
+    // answers with the same acknowledgement instead of saving a second copy. What stays behind is
+    // reported as it is now: background work may have ended, or changes been committed, since then.
+    const request: IHandoffManifestRequest =
+      unsettled !== undefined
+        ? { ...unsettled.request, runtime }
+        : {
+            handoffId: randomUUID(),
+            sessionId: record.id,
+            // Between devices each end is its device; between sessions on this machine, its session.
+            sourceDeviceId: toDevice ? signer.deviceId : deps.peers.ownSessionId(),
+            destinationDeviceId: target,
+            record,
+            runtime,
+            offeredAt: now(),
+          };
     const options: Omit<IPushHandoffOptions, 'openChannel' | 'carrierBinding'> = {
       composition: deps.composition,
       request,

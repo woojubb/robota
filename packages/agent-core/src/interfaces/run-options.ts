@@ -46,6 +46,12 @@ export interface IRunOptions {
    * per turn — one session serves the operator and any peer addressing it. Never authorization.
    */
   driverId?: string;
+  /**
+   * Where this run's turn came from (a peer's message, an external event, an agent wake-up), stored
+   * beside `driverId` on the user message so a transcript carried elsewhere still says it. Display
+   * only, like `driverId`; absent for the operator's own turn.
+   */
+  turnSource?: string;
   metadata?: TMetadata;
   /**
    * Run-scoped EPHEMERAL system context (SELFHOST-008 P3). A transient system-role block included in THIS

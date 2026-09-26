@@ -99,20 +99,67 @@ describe('createRtcSessionClient (REMOTE-009 Step 2)', () => {
     });
     expect(messages).toHaveLength(0); // pre-accept non-pairing frame dropped
 
-    // Pairing accepts → connected, get-messages sent, session frames now delivered.
+    // Pairing accepts → get-messages sent; the host operator has not admitted the connection yet.
     hs.accept();
     await Promise.resolve();
-    expect(statuses).toContain('connected');
+    expect(statuses.at(-1)).toBe('awaiting-approval');
+    expect(statuses).not.toContain('connected');
     expect(JSON.parse((channel.send as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0])).toEqual({
       type: 'get-messages',
     });
+    // The host's first session frame is its admission → connected, and session frames are delivered.
     (channel.onmessage as (e: { data: string }) => void)({
       data: JSON.stringify({ type: 'text_delta', delta: 'hi' }),
     });
+    expect(statuses.at(-1)).toBe('connected');
     expect(messages).toContainEqual({ type: 'text_delta', delta: 'hi' });
 
     client.disconnect();
     expect(statuses.at(-1)).toBe('disconnected');
+  });
+
+  it('says the host refused when the channel closes before the host admitted it', async () => {
+    let onSignal: ((m: ISignalMessage) => void) | null = null;
+    const fakeSignaling: ISignalingClient = {
+      send: vi.fn(),
+      onSignal: (h) => {
+        onSignal = h;
+        return () => {};
+      },
+      close: vi.fn(),
+    };
+    const { peer, fireDataChannel } = makeFakePeer();
+    const hs = makeHandshakeStub();
+    const statuses: TRtcConnectionStatus[] = [];
+    const client = createRtcSessionClient(
+      {
+        relayUrl: 'wss://r',
+        rendezvous: 'rv',
+        secret: 's',
+        createSignaling: () => fakeSignaling,
+        createPeer: () => peer as unknown as RTCPeerConnection,
+        startHandshake: hs.start,
+      },
+      { onMessage: vi.fn(), onStatusChange: (s) => statuses.push(s) },
+    );
+    client.connect();
+    onSignal!({ kind: 'offer', data: { type: 'offer', sdp: OFFER_SDP } });
+    await new Promise((r) => setTimeout(r, 0));
+    const channel = {
+      send: vi.fn(),
+      close: vi.fn(),
+      onmessage: null as unknown,
+      onclose: null as unknown,
+    };
+    fireDataChannel(channel);
+    hs.accept();
+    await Promise.resolve();
+    expect(statuses.at(-1)).toBe('awaiting-approval');
+    // The host operator said no: the host closes the channel without a session frame.
+    (channel.onclose as () => void)();
+    expect(statuses.at(-1)).toBe('refused');
+    expect(statuses).not.toContain('connected');
+    client.disconnect();
   });
 
   it('takes one offer per connection and ignores any later one', async () => {

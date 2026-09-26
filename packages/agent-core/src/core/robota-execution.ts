@@ -30,6 +30,7 @@ function buildRunContext(
     ...(options.sessionId && { sessionId: options.sessionId }),
     ...(options.userId && { userId: options.userId }),
     ...(options.driverId && { driverId: options.driverId }),
+    ...(options.turnSource && { turnSource: options.turnSource }),
     ...(options.metadata && { metadata: options.metadata }),
     ...(options.signal && { signal: options.signal }),
     awaitProviderSettlement: options.awaitProviderSettlement,

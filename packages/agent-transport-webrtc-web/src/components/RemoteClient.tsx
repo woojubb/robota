@@ -4,7 +4,7 @@ import { ConversationView, PermissionPrompt } from '@robota-sdk/agent-ui-web';
 import React, { useMemo } from 'react';
 
 import { parseRemoteClientLocation } from '../client/parse-remote-location.js';
-import { useRtcSession } from '../hooks/useRtcSession.js';
+import { useRtcSession, type TSessionStatus } from '../hooks/useRtcSession.js';
 
 /**
  * Stage-D browser remote client root (REMOTE-009). Reads its connection inputs from its own URL
@@ -12,11 +12,13 @@ import { useRtcSession } from '../hooks/useRtcSession.js';
  * session — rendering the pairing-UX states and the owner's permission/ask prompts.
  */
 
-const STATUS_LABEL: Record<string, string> = {
+const STATUS_LABEL: Record<TSessionStatus, string> = {
   disconnected: 'Disconnected',
   connecting: 'Connecting to relay…',
   pairing: 'Pairing with host…',
+  'awaiting-approval': 'Waiting for the host to approve this connection…',
   connected: 'Connected',
+  refused: 'The host did not approve this connection',
   failed: 'Pairing failed',
   error: 'Error',
 };
@@ -63,12 +65,14 @@ function RemoteClientConnected({
           className={
             session.status === 'connected'
               ? 'text-emerald-400'
-              : session.status === 'failed' || session.status === 'error'
+              : session.status === 'failed' ||
+                  session.status === 'refused' ||
+                  session.status === 'error'
                 ? 'text-rose-400'
                 : 'text-amber-400'
           }
         >
-          ● {STATUS_LABEL[session.status] ?? session.status}
+          ● {STATUS_LABEL[session.status]}
         </span>
       </header>
       <main className="flex-1 overflow-auto">
