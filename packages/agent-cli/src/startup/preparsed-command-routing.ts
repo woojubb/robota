@@ -268,6 +268,7 @@ export async function runPreparsedCliCommand(
     process.exitCode = await runSessionViewCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), {
       launchCwd: cwd,
       render: renderSessionView,
+      ...(renderAttachedView === undefined ? {} : { renderAttached: renderAttachedView }),
       start: async (targetCwd) => {
         const access = await resolveInitialCliWorkspaceProjectAccess(targetCwd);
         if (requiresHeadlessWorkspaceTrust(access)) {

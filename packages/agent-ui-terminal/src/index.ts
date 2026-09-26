@@ -6,7 +6,12 @@ export type {
   IAttachedSessionViewProps,
   TAttachedSessionEnd,
 } from './AttachedSessionView.js';
-export type { ISupervisedViewRow, ISupervisedSessionViewProps } from './SupervisedSessionView.js';
+export type {
+  ISupervisedAttachRequest,
+  ISupervisedViewRow,
+  ISupervisedSessionViewProps,
+  TSupervisedViewExit,
+} from './SupervisedSessionView.js';
 export { TuiInteractionChannel } from './TuiInteractionChannel.js';
 export type { ITuiInteractionChannelOptions } from './TuiInteractionChannel.js';
 export type { IRenderOptions } from './render.js';

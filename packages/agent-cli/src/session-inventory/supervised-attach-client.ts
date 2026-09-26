@@ -7,6 +7,7 @@ import { decodeFrame, decodeServerMessage } from '@robota-sdk/agent-transport';
 
 import { openSupervisedAttachSocket } from './supervised-session-control.js';
 
+import type { Socket } from 'node:net';
 import type { TClientMessage, TServerMessage } from '@robota-sdk/agent-transport';
 
 /**
@@ -14,6 +15,12 @@ import type { TClientMessage, TServerMessage } from '@robota-sdk/agent-transport
  * generous; it exists so a broken peer cannot grow one line without bound.
  */
 const MAX_SERVER_FRAME_BYTES = 64 * 1024 * 1024;
+
+/**
+ * Frames held for a subscriber that has not arrived yet. The view subscribes as it mounts, so a
+ * backlog this long means nothing is reading; the connection is closed rather than grown.
+ */
+export const MAX_EARLY_FRAMES = 1024;
 
 export interface ISupervisedAttachConnection {
   readonly driverId: string;
@@ -32,10 +39,23 @@ export async function openSupervisedAttach(
   expectedGeneration?: string,
 ): Promise<ISupervisedAttachConnection> {
   const { socket, driverId, rest } = await openSupervisedAttachSocket(id, mode, root, expectedGeneration);
+  return createSupervisedAttachConnection(socket, driverId, rest);
+}
+
+/** The protocol over an admitted attach socket; `rest` is what arrived with the handshake reply. */
+export function createSupervisedAttachConnection(
+  socket: Socket,
+  driverId: string,
+  rest: string,
+): ISupervisedAttachConnection {
   const listeners = new Set<(message: TServerMessage) => void>();
   const early: TServerMessage[] = [];
   const dispatch = (message: TServerMessage): void => {
     if (listeners.size === 0) {
+      if (early.length >= MAX_EARLY_FRAMES) {
+        socket.destroy();
+        return;
+      }
       early.push(message);
       return;
     }

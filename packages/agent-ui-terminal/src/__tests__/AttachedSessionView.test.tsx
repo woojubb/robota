@@ -2,6 +2,7 @@ import React from 'react';
 import { render } from 'ink-testing-library';
 import { describe, expect, it, vi } from 'vitest';
 
+import { ScreenReaderProvider } from '../screen-reader-context.js';
 import AttachedSessionView, {
   type IAttachedSessionConnection,
 } from '../AttachedSessionView.js';
@@ -134,7 +135,7 @@ describe('attached session view', () => {
     }
   });
 
-  it('drops a half-typed secret when its question is settled or replaced elsewhere', async () => {
+  it('drops a half-typed secret when its question is settled elsewhere, and keeps it masked while others wait', async () => {
     for (const next of [
       { type: 'prompt_resolved', event: { id: 'a1', answererDriverId: 'owner' } },
       { type: 'permission_request', event: { id: 'p9', toolName: 'Bash', toolArgs: {} } },
@@ -155,11 +156,12 @@ describe('attached session view', () => {
         link.push(next);
         await tick();
         expect(view.lastFrame()).not.toContain('sk-secret');
-        if (next.type === 'permission_request') view.stdin.write('n');
-        await tick();
         view.stdin.write('\r');
         await tick();
-        expect(JSON.stringify(link.sent)).not.toContain('sk-secret');
+        // Never an ordinary prompt; a waiting question does not take over the one being answered.
+        expect(JSON.stringify(link.sent.filter((message) => message.type === 'submit'))).not.toContain('sk-secret');
+        if (next.type === 'prompt_resolved') expect(JSON.stringify(link.sent)).not.toContain('sk-secret');
+        else expect(link.sent).toContainEqual({ type: 'ask-response', id: 'a1', response: { type: 'answer', values: [], text: 'sk-secret' } });
       } finally {
         view.unmount();
       }
@@ -266,6 +268,126 @@ describe('attached session view', () => {
       await tick();
       expect(view.lastFrame()).not.toContain('\x1b[2J');
       expect(view.lastFrame()).not.toContain('\x1b[1A');
+    } finally {
+      view.unmount();
+    }
+  });
+  it('shows the keys for what is on screen: sending, answering a permission, answering a question', async () => {
+    const link = connection();
+    const view = render(
+      <AttachedSessionView connection={link} mode="drive" sessionLabel="s" driverId="attach:1" onDetach={vi.fn()} />,
+    );
+    try {
+      await tick();
+      expect(view.lastFrame()).toContain('Enter send');
+      link.push({ type: 'permission_request', event: { id: 'p1', toolName: 'Bash', toolArgs: {} } });
+      await tick();
+      expect(view.lastFrame()).toContain('y allow · n deny · a allow for this session');
+      view.stdin.write('n');
+      await tick();
+      link.push({ type: 'ask_request', event: { id: 'a1', request: { id: 'r', title: 'Pick', options: [{ value: 'x', label: 'X' }] } } });
+      await tick();
+      expect(view.lastFrame()).toContain('number or text, Enter answers · Esc cancels');
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('keeps later questions waiting until the one on screen is settled', async () => {
+    const link = connection();
+    const view = render(
+      <AttachedSessionView connection={link} mode="drive" sessionLabel="s" driverId="attach:1" onDetach={vi.fn()} />,
+    );
+    try {
+      await tick();
+      link.push({ type: 'permission_request', event: { id: 'p1', toolName: 'Bash', toolArgs: {} } });
+      link.push({ type: 'permission_request', event: { id: 'p2', toolName: 'Write', toolArgs: {} } });
+      link.push({ type: 'permission_request', event: { id: 'p3', toolName: 'Edit', toolArgs: {} } });
+      await tick();
+      expect(view.lastFrame()).toContain('Allow Bash');
+      expect(view.lastFrame()).toMatch(/2 more questions? waiting/);
+      link.push({ type: 'prompt_resolved', event: { id: 'p2', answererDriverId: 'owner' } });
+      await tick();
+      view.stdin.write('y');
+      await tick();
+      expect(view.lastFrame()).toContain('Allow Edit');
+      view.stdin.write('n');
+      await tick();
+      expect(link.sent.filter((message) => message.type === 'permission-response')).toEqual([
+        { type: 'permission-response', id: 'p1', result: true },
+        { type: 'permission-response', id: 'p3', result: false },
+      ]);
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('keeps a pasted secret exactly as copied, without the trailing line break', async () => {
+    for (const pasted of ['sk-secret\n', 'sk-secret\r\n', 'sk-\rsecret\r']) {
+      const link = connection();
+      const view = render(
+        <AttachedSessionView connection={link} mode="drive" sessionLabel="s" driverId="attach:1" onDetach={vi.fn()} />,
+      );
+      try {
+        await tick();
+        link.push({
+          type: 'ask_request',
+          event: { id: 'a1', request: { id: 'r', title: 'API key', allowFreeText: true, masked: true } },
+        });
+        await tick();
+        view.stdin.write(pasted);
+        await tick();
+        view.stdin.write('\r');
+        await tick();
+        expect(link.sent).toContainEqual({
+          type: 'ask-response', id: 'a1', response: { type: 'answer', values: [], text: 'sk-secret' },
+        });
+      } finally {
+        view.unmount();
+      }
+    }
+  });
+
+  it('treats line breaks in pasted text as spaces instead of sending', async () => {
+    const link = connection();
+    const view = render(
+      <AttachedSessionView connection={link} mode="drive" sessionLabel="s" driverId="attach:1" onDetach={vi.fn()} />,
+    );
+    try {
+      await tick();
+      view.stdin.write('first line\rsecond line\nthird');
+      await tick();
+      expect(link.sent.some((message) => message.type === 'submit')).toBe(false);
+      expect(view.lastFrame()).toContain('first line second line third');
+      view.stdin.write('\r');
+      await tick();
+      expect(link.sent).toContainEqual({ type: 'submit', prompt: 'first line second line third' });
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('labels everything in words for a screen reader', async () => {
+    const link = connection();
+    const view = render(
+      <ScreenReaderProvider enabled>
+        <AttachedSessionView connection={link} mode="drive" sessionLabel="Morning" driverId="attach:1" onDetach={vi.fn()} />
+      </ScreenReaderProvider>,
+    );
+    try {
+      await tick();
+      expect(view.lastFrame()).toContain('Attached to Morning. Drive mode: you can send prompts and answer its questions.');
+      link.push({ type: 'user_message', content: 'hi', driverId: 'attach:2' });
+      link.push({ type: 'tool_start', state: { toolName: 'Bash', firstArg: 'ls', isRunning: true } });
+      link.push({ type: 'complete', result: { response: 'done' } as never });
+      link.push({ type: 'permission_request', event: { id: 'p1', toolName: 'Bash', toolArgs: {} } });
+      await tick();
+      const frame = view.lastFrame() ?? '';
+      expect(frame).toContain('Prompt from attach:2: hi');
+      expect(frame).toContain('Tool started: Bash ls');
+      expect(frame).toContain('Reply: done');
+      expect(frame).toContain('Permission needed: allow Bash? Type y to allow, n to deny, a to allow for this session.');
+      expect(frame).not.toMatch(/[›⏺]/u);
     } finally {
       view.unmount();
     }
