@@ -12,6 +12,9 @@
  * 5. No private package's SPEC.md claims npm publication (absorbed from the former
  *    check-spec-publish-claims.mjs — Guard G4, architecture audit 2026-06-19, AF-15:
  *    agent-tool-mcp SPEC said "published to npm" while package.json had `"private": true`).
+ * 6. Every publishable package names this repository in `repository.url`. Trusted publishing attaches
+ *    provenance, and npm refuses (E422) a package whose `repository.url` does not match the repository
+ *    the provenance names — after the other packages of the release have already been published.
  *
  * Exit code 0 = clean, 1 = findings.
  */
@@ -57,6 +60,14 @@ export function findPublishClaimFindings(root) {
     });
   }
   return findings;
+}
+
+const REPOSITORY = 'github.com/woojubb/robota';
+
+function namesThisRepository(repository) {
+  const url = typeof repository === 'string' ? repository : repository?.url;
+  if (typeof url !== 'string') return false;
+  return url.replace(/^git\+/, '').replace(/\.git$/, '') === `https://${REPOSITORY}`;
 }
 
 export function main(root = process.cwd()) {
@@ -123,9 +134,12 @@ export function main(root = process.cwd()) {
     if (!hasPrepublish) {
       error(`${pkg.name} missing prepublishOnly hook (pnpm publish enforcement)`);
     }
+    if (!namesThisRepository(pkg.repository)) {
+      error(`${pkg.name} repository.url must be https://${REPOSITORY}.git (provenance)`);
+    }
   }
   ok(
-    `Checked prepublishOnly hooks on ${checked} publishable package(s) ` +
+    `Checked prepublishOnly hooks and repository on ${checked} publishable package(s) ` +
       `(${skippedPrivate} private package(s) skipped, of ${pkgDirs.length} in the workspace)`,
   );
 

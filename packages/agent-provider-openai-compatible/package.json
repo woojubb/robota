@@ -79,6 +79,11 @@
     "vitest": "^3.2.6"
   },
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/woojubb/robota.git",
+    "directory": "packages/agent-provider-openai-compatible"
+  },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
     "openai": "^4.104.0"
