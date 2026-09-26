@@ -197,3 +197,60 @@ describe('AnthropicProvider abort streaming', () => {
     expect(result.content).toBe('Hello World');
   });
 });
+
+/**
+ * The run's `AbortSignal` reaches the SDK request on every call site (agent-core SPEC, Cancellation
+ * Contract). `chatStream()` used to send no signal, so an abort never reached its HTTP request.
+ */
+describe('AnthropicProvider run AbortSignal on the wire', () => {
+  const userMsg: TUniversalMessage[] = [
+    { id: '1', role: 'user', content: 'test', state: 'complete', timestamp: new Date() },
+  ];
+  const callSites: ReadonlyArray<
+    readonly [string, (provider: AnthropicProvider, signal: AbortSignal) => Promise<void>]
+  > = [
+    [
+      'chat() without a delta callback',
+      async (provider, signal) => {
+        await provider.chat(userMsg, { model: 'claude-3-opus-20240229', signal });
+      },
+    ],
+    [
+      'chat() with a delta callback',
+      async (provider, signal) => {
+        await provider.chat(userMsg, {
+          model: 'claude-3-opus-20240229',
+          signal,
+          onTextDelta: () => undefined,
+        });
+      },
+    ],
+    [
+      'chatStream()',
+      async (provider, signal) => {
+        for await (const _chunk of provider.chatStream(userMsg, {
+          model: 'claude-3-opus-20240229',
+          signal,
+        })) {
+          // drain
+        }
+      },
+    ],
+  ];
+
+  for (const [callSite, run] of callSites) {
+    it(`${callSite} hands the run's own signal to the SDK request`, async () => {
+      const mockClient = { messages: { create: vi.fn() } };
+      mockClient.messages.create.mockResolvedValue(makeDeltaStream(['hi']));
+      const provider = new AnthropicProvider({ client: mockClient as unknown as Anthropic });
+      const controller = new AbortController();
+
+      await run(provider, controller.signal);
+
+      expect(mockClient.messages.create).toHaveBeenCalledTimes(1);
+      const requestOptions = mockClient.messages.create.mock.calls[0]?.[1] as
+        Anthropic.RequestOptions | undefined;
+      expect(requestOptions?.signal).toBe(controller.signal);
+    });
+  }
+});

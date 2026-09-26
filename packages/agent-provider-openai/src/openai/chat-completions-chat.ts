@@ -56,7 +56,7 @@ export async function chatWithOpenAIChatCompletions(
       payloadKind: 'request',
       payload: requestParams,
     });
-    const requestOptions = openAIRequestOptions(undefined, input.requestHeaders);
+    const requestOptions = openAIRequestOptions(input.chatOptions?.signal, input.requestHeaders);
     const response = requestOptions
       ? await client.chat.completions.create(requestParams, requestOptions)
       : await client.chat.completions.create(requestParams);
