@@ -15,10 +15,17 @@ import {
 } from './serve-monitor-ui.js';
 import { settleOnServeTransportFailure } from './serve-transport-failure.js';
 import {
+  resolveSupervisedDirectory,
   startSupervisedControl,
+  takeSupervisedGrantHandoff,
   type ISupervisedControl,
   type ISupervisedPr,
 } from '../session-inventory/supervised-session-control.js';
+import {
+  ExternalEventGrantRefusedError,
+  openExternalEventGrants,
+  type IExternalEventGrantHost,
+} from '../external-events/external-event-grant-host.js';
 import { startRuntimeHost } from '@robota-sdk/agent-framework';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
 import { ROBOTA_PERMISSION_BASELINE } from '../product/robota-permission-baseline.js';
@@ -49,7 +56,11 @@ import type {
   createProjectSessionStore,
 } from '@robota-sdk/agent-framework';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
-import type { ITransportLifecycleRegistryView } from '@robota-sdk/agent-interface-transport';
+import type {
+  IAccessTokenVerifier,
+  IAccessTokenVerifierConfig,
+  ITransportLifecycleRegistryView,
+} from '@robota-sdk/agent-interface-transport';
 import type { IInteractiveSession, ISessionLoopState } from '@robota-sdk/agent-interface-session';
 
 /** Preset-resolved identity/posture the thin-shell CLI forwards into the headless runtime session. */
@@ -63,6 +74,8 @@ export interface IServeModeOptions {
   livePromptTrace?: ILivePromptTracePort;
   /** Explicit host-owned control root for isolated embedded runtimes and tests. */
   supervisedRoot?: string;
+  /** Builds each external-event grant's verifier from that grant; the real verifier by default. */
+  createExternalEventVerifier?: (config: IAccessTokenVerifierConfig) => IAccessTokenVerifier;
   args: IParsedCliArgs;
   provider: IAIProvider;
   providerErrorGuidance?: IProviderErrorGuidance;
@@ -277,6 +290,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   // Stay alive until the supervisor (e.g. apps/agent-app on window close) signals — or a
   // host-executed session-exit/-restart action fires (CMD-004 Phase 2) — then tear down cleanly.
   let supervisedControl: ISupervisedControl | undefined;
+  let externalEvents: IExternalEventGrantHost | undefined;
   let requestSettle: (reason: string) => void = () => undefined;
   let settling = false;
   const readinessAbort = new AbortController();
@@ -287,6 +301,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
       readinessAbort.abort();
       void Promise.resolve(monitorUi?.close())
         .catch(() => {})
+        .then(() => externalEvents?.close())
         .then(() => host.shutdown(reason))
         .catch(() => undefined)
         .then(() => supervisedControl?.close())
@@ -331,6 +346,25 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     try {
       const supervisedCwd = realpathSync(opts.cwd);
       let linkedPr: ISupervisedPr | undefined;
+      // Every grant the launcher handed over is open before readiness, or the start fails.
+      if (args.supervisedExternalEventGrants === true) {
+        const grants = takeSupervisedGrantHandoff(
+          opts.supervisedRoot ?? resolveSupervisedDirectory(),
+          args.supervisedSessionId,
+        );
+        externalEvents = await openExternalEventGrants(host.session, grants, {
+          ...(opts.createExternalEventVerifier !== undefined
+            ? { createVerifier: opts.createExternalEventVerifier }
+            : {}),
+        });
+      }
+      const grantHost = externalEvents;
+      if (grantHost !== undefined) {
+        opts.commandHostAdapters.externalEvents = {
+          list: () => grantHost.list(),
+          revoke: (grantId) => grantHost.revoke(grantId),
+        };
+      }
       supervisedControl = await startSupervisedControl(
         args.supervisedSessionId,
         () => requestSettle('supervised session stopped'),
@@ -351,14 +385,31 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
             linkedPr = value;
           },
         },
+        grantHost === undefined
+          ? undefined
+          : {
+              list: () => grantHost.list(),
+              revoke: (grantId) => {
+                if (settling) throw new Error('Supervised runtime is stopping.');
+                return grantHost.revoke(grantId);
+              },
+            },
       );
       if (settling) throw new Error('Supervised runtime stopped before readiness.');
-      await acknowledgeSupervisedStartup(args.supervisedSessionId, readinessAbort.signal);
+      await acknowledgeSupervisedStartup(
+        args.supervisedSessionId,
+        readinessAbort.signal,
+        undefined,
+        grantHost?.list().map((grant) => grant.grantId),
+      );
       if (settling) throw new Error('Supervised runtime stopped during readiness.');
     } catch (error) {
       if (process.connected && process.send) {
         try {
-          process.send({ kind: 'error', id: args.supervisedSessionId, code: 'startup-failed' }, () => {
+          const refusal = error instanceof ExternalEventGrantRefusedError
+            ? { code: 'grant-refused', grant: error.grantId }
+            : { code: 'startup-failed' };
+          process.send({ kind: 'error', id: args.supervisedSessionId, ...refusal }, () => {
             // The parent may already have disconnected; failure reporting is best-effort only.
           });
         } catch {
@@ -375,7 +426,10 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
 }
 
 export interface ISupervisedReadinessChannel {
-  send(message: { kind: 'ready' | 'acknowledged'; id: string }, done: (error?: Error | null) => void): void;
+  send(
+    message: { kind: 'ready' | 'acknowledged'; id: string; grants?: readonly string[] },
+    done: (error?: Error | null) => void,
+  ): void;
   onMessage(listener: (message: unknown) => void): void;
   offMessage(listener: (message: unknown) => void): void;
   onDisconnect(listener: () => void): void;
@@ -398,6 +452,8 @@ export async function acknowledgeSupervisedStartup(
   id: string,
   signal: AbortSignal,
   channel: ISupervisedReadinessChannel = processReadinessChannel(),
+  /** The labels of the external-event grants this runtime opened, so the launcher can check them. */
+  grants?: readonly string[],
 ): Promise<void> {
   if (signal.aborted) throw new Error('Supervised runtime stopped before readiness.');
   await new Promise<void>((resolve, reject) => {
@@ -432,7 +488,7 @@ export async function acknowledgeSupervisedStartup(
     channel.onMessage(onMessage);
     channel.onDisconnect(onDisconnect);
     signal.addEventListener('abort', onAbort, { once: true });
-    channel.send({ kind: 'ready', id }, (error) => {
+    channel.send({ kind: 'ready', id, ...(grants !== undefined ? { grants } : {}) }, (error) => {
       if (error) finish(() => reject(new Error('Supervised readiness could not be sent.')));
     });
   });

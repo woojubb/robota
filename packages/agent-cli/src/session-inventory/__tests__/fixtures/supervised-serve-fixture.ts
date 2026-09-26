@@ -24,6 +24,10 @@ const options = {
   args: parseCliArgs([
     '--serve', '--supervised-session-id', id, '--no-session-persistence',
     ...(nameArg === undefined ? [] : [nameArg]),
+    ...(process.argv.includes('--supervised-external-event-grants')
+      ? ['--supervised-external-event-grants'] : []),
+    ...(process.env['ROBOTA_TEST_PERMISSION_MODE'] === undefined
+      ? [] : ['--permission-mode', process.env['ROBOTA_TEST_PERMISSION_MODE']]),
   ]),
   provider,
   sessionStore: {},

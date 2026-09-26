@@ -727,6 +727,7 @@ export class InteractiveSession
     if (this.execCtrl.shuttingDown) throw new Error('Interactive session is shutting down.');
     this.externalEventIngress ??= new ExternalEventIngress({
       getPermissionMode: () => this.getSessionOrThrow().getPermissionMode(),
+      isShuttingDown: () => this.execCtrl.shuttingDown,
       addPermissionModeGuard: (guard) => this.getSessionOrThrow().addPermissionModeGuard(guard),
       submit: (input, turnOptions) =>
         this.submitNewTurn(

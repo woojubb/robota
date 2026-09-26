@@ -317,7 +317,7 @@ describe('an admitted external event keeps its narrower baseline', () => {
         },
         kinds: ['message'],
       },
-      verifier: { verify: async () => ({ admitted: true }) },
+      createVerifier: () => ({ verify: async () => ({ admitted: true }) }),
     });
     try {
       const receipt = await source.receive({

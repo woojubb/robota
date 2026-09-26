@@ -1,9 +1,17 @@
 import { homedir } from 'node:os';
 
 import { PrintTerminal } from './print-terminal.js';
+import { readExternalEventGrantFiles } from './external-events/external-event-grant-file.js';
+import {
+  createTuiExternalEventGrants,
+  type ITuiExternalEventGrants,
+} from './external-events/tui-external-event-grants.js';
+
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import {
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
+  InteractiveSession,
   readProviderSettings,
   readMergedProviderSettings,
   readSettings,
@@ -468,6 +476,30 @@ async function runCliCore(
     workspaceComposition.projectAccess.status === 'trusted',
     args.open,
   );
+  // External-event grants (TUI only; the parser refuses them elsewhere): every file is valid, or the
+  // TUI does not start. Each session the TUI binds opens them, and a refusal fails that bind.
+  let tuiExternalEvents: ITuiExternalEventGrants | undefined;
+  if ((args.externalEventGrantFiles?.length ?? 0) > 0) {
+    try {
+      tuiExternalEvents = createTuiExternalEventGrants(
+        readExternalEventGrantFiles(args.externalEventGrantFiles ?? []),
+        (line) => terminal.writeLine(line),
+      );
+    } catch (error) {
+      process.stderr.write(`${error instanceof Error ? error.message : 'grant refused'}\n`);
+      process.exit(1);
+    }
+    commandHostAdapters.externalEvents = tuiExternalEvents.adapter;
+  }
+  const externalEvents = tuiExternalEvents;
+  const bindTuiTransports = async (session: IInteractiveSession): Promise<void> => {
+    bindTransports(session);
+    if (externalEvents === undefined) return;
+    if (!(session instanceof InteractiveSession)) {
+      throw new Error('External event grants require an InteractiveSession runtime');
+    }
+    await externalEvents.bind(session);
+  };
   const { controller: remoteControlController, setChannel: setRemoteControlChannel } =
     createRemoteControlController(transportRegistry, usageReporters);
   // CMD-007: this product stores `/cost budget` in `.robota/budget.json`; commands see only its port.
@@ -975,7 +1007,7 @@ async function runCliCore(
     shellExec: runShellCommand,
     startupUpdateNotice: resolveCliUpdateNotice(startupUpdateNoticePromise),
     transportRegistry,
-    bindTransports,
+    bindTransports: bindTuiTransports,
     // CMD-004 Stage C: remote-control enable/stop run HOST-side via the `remoteControl` command
     // host adapter (wired above) — no TUI-prop wiring remains.
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
@@ -1013,6 +1045,7 @@ async function runCliCore(
     await tuiRun;
   } finally {
     deviceMesh.close();
+    externalEvents?.close();
     await livePromptTracePort?.shutdown();
     if (mcp !== undefined) await mcp.shutdown();
   }

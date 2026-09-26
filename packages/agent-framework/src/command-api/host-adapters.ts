@@ -85,6 +85,24 @@ export interface ICommandSandboxStatus {
   readonly excludedCommands: readonly string[];
 }
 
+/** One external-event grant as the owner sees it: never the principal, a token or any content. */
+export interface ICommandExternalEventGrant {
+  readonly grantId: string;
+  readonly principal: 'subject' | 'client';
+  readonly state: 'open' | 'revoked';
+  readonly counters: {
+    readonly accepted: number;
+    readonly refused: Readonly<Partial<Record<string, number>>>;
+    readonly settled: Readonly<Partial<Record<string, number>>>;
+  };
+}
+
+/** The session's external-event grants: `/events` lists them and withdraws one. */
+export interface ICommandExternalEventsAdapter {
+  list(): readonly ICommandExternalEventGrant[];
+  revoke(grantId: string): 'revoked' | 'unknown-grant';
+}
+
 /** The OS sandbox, live: `/sandbox` reads it and changes the mode for the next command. */
 export interface ICommandSandboxAdapter {
   status(): ICommandSandboxStatus;
@@ -573,4 +591,6 @@ export interface ICommandHostAdapters {
   workspace?: ICommandWorkspaceAdapter;
   /** Absent on a host with no OS sandbox — `/sandbox` then says so. */
   sandbox?: ICommandSandboxAdapter;
+  /** Absent when the session holds no external-event grant — `/events` then says so. */
+  externalEvents?: ICommandExternalEventsAdapter;
 }
