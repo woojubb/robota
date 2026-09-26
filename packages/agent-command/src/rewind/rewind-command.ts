@@ -125,7 +125,7 @@ function formatRollbackResult(result: IEditCheckpointRestoreResult): ICommandRes
 /** A restricted workspace is the one case the user fixes with a command; the rest say why. */
 function unavailableMessage(error: EditCheckpointsUnavailableError): string {
   return error.reason === 'restricted-workspace'
-    ? 'Edit checkpoints need a trusted workspace: run robota trust, then start a new session.'
+    ? 'Edit checkpoints need a trusted workspace: run robota trust --yes, then restart robota.'
     : error.message;
 }
 

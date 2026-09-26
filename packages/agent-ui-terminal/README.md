@@ -10,7 +10,8 @@ does not reverse the already-committed session operation.
 
 `IRenderOptions.projectAccess` carries the host's trusted-or-restricted project decision through
 `renderApp` into `TuiInteractionChannel`. `cwd` alone never enables project discovery; omission is
-Restricted. Checkpoint mutation is separately opt-in through `editCheckpointStore`.
+Restricted. Checkpoint mutation is separately opt-in through `createEditCheckpointStore`, which
+builds each session its own store.
 
 The status bar projects the session's active model-effort level next to the provider/model when the
 session exposes it. This is a read-only view of session state and remains separate from thinking

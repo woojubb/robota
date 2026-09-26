@@ -112,8 +112,12 @@ export interface IRenderOptions {
    * is what disabled the one check that would have caught the missing declaration.
    */
   orgPolicy?: IOrgPolicy | undefined;
-  /** Explicit authority- and permission-backed edit checkpoint capability. */
-  editCheckpointStore?: EditCheckpointStore;
+  /**
+   * Builds the authority- and permission-backed edit checkpoint store for one session; absent, no
+   * session keeps checkpoints. A factory, not a store: a session switch builds the next channel
+   * while the old session may still be finishing a turn, and a store holds one turn in progress.
+   */
+  createEditCheckpointStore?: () => EditCheckpointStore;
   /** The host's way to build each external-event grant's verifier; absent, no grant opens. */
   externalEventVerifierFactory?: TInteractiveSessionOptions['externalEventVerifierFactory'];
   /**
@@ -300,9 +304,6 @@ export function toChannelOptions(
       ? { userSettingsSources: options.userSettingsSources }
       : {}),
     ...(options.orgPolicy !== undefined ? { orgPolicy: options.orgPolicy } : {}),
-    ...(options.editCheckpointStore !== undefined
-      ? { editCheckpointStore: options.editCheckpointStore }
-      : {}),
     ...(options.externalEventVerifierFactory !== undefined
       ? { externalEventVerifierFactory: options.externalEventVerifierFactory }
       : {}),
@@ -532,7 +533,7 @@ type TAppShellOptions = Pick<
 };
 
 /** Terminal-wide services a channel is built with; they outlive every channel. */
-interface IChannelServices {
+export interface IChannelServices {
   readonly terminalHandoff: TerminalHandoffController;
   readonly attention: IAttentionSource;
 }
@@ -546,8 +547,11 @@ interface IAppChannelComposition {
   readonly ended?: Promise<void>;
 }
 
-/** The in-process factory: every channel builds its own session from the render options. */
-function createInProcessChannelFactory(
+/**
+ * The in-process factory: every channel builds its own session, and its own checkpoint store, from
+ * the render options. A resumed session's store restores its active branch from the persisted pointer.
+ */
+export function createInProcessChannelFactory(
   options: IRenderOptions,
   services: IChannelServices,
 ): (resumeSessionId?: string) => ITuiAppChannelPort {
@@ -559,6 +563,9 @@ function createInProcessChannelFactory(
     pendingWorkspaceMovedFrom = undefined;
     const channel = new TuiInteractionChannel({
       ...toChannelOptions(options, resumeSessionId),
+      ...(options.createEditCheckpointStore !== undefined
+        ? { editCheckpointStore: options.createEditCheckpointStore() }
+        : {}),
       ...(workspaceMovedFrom !== undefined ? { workspaceMovedFrom } : {}),
       terminalHandoff: services.terminalHandoff,
       attention: services.attention,

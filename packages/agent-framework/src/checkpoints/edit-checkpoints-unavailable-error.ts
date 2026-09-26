@@ -19,6 +19,8 @@ const MESSAGES: Record<TEditCheckpointsUnavailableReason, string> = {
 
 /** Thrown by a checkpoint operation on a session that has no checkpoint store. */
 export class EditCheckpointsUnavailableError extends WorkspaceAuthorityRequiredError {
+  override readonly name: string = 'EditCheckpointsUnavailableError';
+
   constructor(readonly reason: TEditCheckpointsUnavailableReason) {
     super(MESSAGES[reason]);
   }

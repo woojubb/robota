@@ -1,6 +1,6 @@
 /** Fail-closed response for project APIs without an accepted runtime authority. */
 export class WorkspaceAuthorityRequiredError extends Error {
-  override readonly name = 'WorkspaceAuthorityRequiredError';
+  override readonly name: string = 'WorkspaceAuthorityRequiredError';
   readonly code = 'WORKSPACE_AUTHORITY_REQUIRED';
 
   constructor(

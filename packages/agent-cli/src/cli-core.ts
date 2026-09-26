@@ -1005,9 +1005,9 @@ async function runCliCore(
     provider,
     providerErrorGuidance,
     projectAccess: workspaceComposition.projectAccess,
-    // One store for the run: the TUI stops a session before it builds the one it switches to.
+    // A store per session: a switch may build the next session before the old one's turn ends.
     ...(workspaceComposition.createEditCheckpointStore !== undefined
-      ? { editCheckpointStore: workspaceComposition.createEditCheckpointStore() }
+      ? { createEditCheckpointStore: workspaceComposition.createEditCheckpointStore }
       : {}),
     orgPolicy,
     providerOverride: args.provider,

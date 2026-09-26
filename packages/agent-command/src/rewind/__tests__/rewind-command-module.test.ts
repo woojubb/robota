@@ -266,7 +266,7 @@ describe('executeRewindCommand', () => {
         const result = await session.executeCommand('rewind', args);
         expect(result?.success).toBe(false);
         expect(result?.message).toBe(
-          'Edit checkpoints need a trusted workspace: run robota trust, then start a new session.',
+          'Edit checkpoints need a trusted workspace: run robota trust --yes, then restart robota.',
         );
       }
     });

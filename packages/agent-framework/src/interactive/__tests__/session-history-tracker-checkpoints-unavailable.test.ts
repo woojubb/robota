@@ -6,7 +6,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { EditCheckpointsUnavailableError } from '../../checkpoints/edit-checkpoints-unavailable-error.js';
 import { createTrustedProjectAccessFixture } from '../../testing/trusted-project-state-fixture.js';
-import { createRestrictedWorkspaceProjectAccess } from '../../workspace-trust/index.js';
+import {
+  createRestrictedWorkspaceProjectAccess,
+  WorkspaceAuthorityRequiredError,
+} from '../../workspace-trust/index.js';
 import { SessionHistoryTracker } from '../interactive-session-history-tracker.js';
 
 import type { TWorkspaceProjectAccess } from '../../workspace-trust/index.js';
@@ -81,5 +84,13 @@ describe('a session without an edit checkpoint store', () => {
     vi.spyOn(process, 'platform', 'get').mockReturnValue('linux');
 
     expect(reasonFor(trackerWithoutStore(cwd, trusted))).toBe('no-checkpoint-store');
+  });
+
+  it('names itself, and is still a workspace-authority error', () => {
+    const error = new EditCheckpointsUnavailableError('no-checkpoint-store');
+
+    expect(error.name).toBe('EditCheckpointsUnavailableError');
+    expect(error).toBeInstanceOf(WorkspaceAuthorityRequiredError);
+    expect(error.code).toBe('WORKSPACE_AUTHORITY_REQUIRED');
   });
 });
