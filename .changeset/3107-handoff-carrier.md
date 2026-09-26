@@ -7,8 +7,9 @@
 
 `/handoff` moves a session over a real connection.
 
-- `/handoff <session-id>` pushes this conversation to another Robota session on this machine; the
-  same carrier moves it between two of the user's devices over their mesh connection.
+- `/handoff <session-id>` pushes this conversation to another Robota session on this machine. The
+  same carrier also runs between two of the user's devices over their mesh connection; no command
+  opens that connection yet.
 - A hand-off is push-only: only the operator of the session that holds it starts one. A session or
   device that asks another for its session is refused.
 - The source signs a grant for that one transfer over that one channel with its device key, so a
@@ -17,7 +18,9 @@
 - The session travels on the file-transfer carrier, is kept aside until it matches the manifest, and
   is saved without being started. The operator there resumes it with `robota --resume <id>`.
 - The source gives the session up, and ends, only once the receiving side confirms it saved it.
-  Every other outcome leaves the session where it was. Peer attribution (`driverId`, `turnSource`)
+  Every other outcome leaves the session where it was; if the confirmation is lost, `/handoff` to the
+  same session again resends the same transfer, which the receiver settles without saving it twice.
+  Peer attribution (`driverId`, `turnSource`)
   travels with it.
 - `/handoff` stays user-only. Its description tells the model to suggest the command to the user.
 - `agent-transport-webrtc`: an admitted mesh link exposes the DTLS fingerprints it is bound to, and

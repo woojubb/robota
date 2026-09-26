@@ -568,6 +568,32 @@ describe('the /handoff adapter over the peer channel', () => {
     expect(saved).toHaveLength(1);
   }, 30_000);
 
+  it('when the confirmation is lost, says so, and the next /handoff settles the same transfer', async () => {
+    const { a, saved } = await sessions({ approver: operator(true) });
+    let dropAck = true;
+    const { handoff, onHandedOff } = adapter(a, {
+      idleMs: 1_000,
+      openChannel: () => (target) =>
+        tapped(a.openHandoffChannel(target), {
+          in: (frame) => !(dropAck && frame.includes('"t":"handoff-ack"')),
+        }),
+    });
+    const first = await handoff.transfer('B');
+    expect(first.stillMine).toBe(true);
+    expect(first.reason).toContain('may already have saved');
+    expect(first.reason).toContain('/handoff B');
+    expect(saved).toHaveLength(1);
+    expect(onHandedOff).not.toHaveBeenCalled();
+
+    // Another destination is refused until this one is settled.
+    expect((await handoff.transfer('C')).reason).toContain('/handoff B');
+
+    dropAck = false;
+    expect(await handoff.transfer('B')).toEqual({ state: 'done', stillMine: false });
+    expect(saved).toHaveLength(1);
+    expect(onHandedOff).toHaveBeenCalledTimes(1);
+  }, 30_000);
+
   it('says which command to run when this device has no identity to sign with', async () => {
     const { a } = await sessions({ approver: operator(true) });
     const { handoff, onHandedOff } = adapter(a, { root: path.join(scratch, 'no-identity') });

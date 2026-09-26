@@ -42,6 +42,7 @@ import type {
 import type {
   IFileFrameChannel,
   IHandoffComposition,
+  IHandoffManifestRequest,
   IHandoffOutcome,
   IOperatorApprover,
 } from '@robota-sdk/agent-interface-session-mobility';
@@ -112,6 +113,8 @@ export interface IHandoffHostAdapterDeps {
   /** The session has moved: end this process through its normal end-of-life. */
   readonly onHandedOff: () => void;
   readonly now?: () => number;
+  /** How long to wait between frames; test seam. */
+  readonly idleMs?: number;
   /** Test seam; production reads git. */
   readonly uncommittedChanges?: (cwd: string) => Promise<boolean>;
 }
@@ -143,6 +146,8 @@ export function createHandoffHostAdapter(deps: IHandoffHostAdapterDeps): IComman
   const uncommitted = deps.uncommittedChanges ?? hasUncommittedChanges;
   let current: IHandoffProgress = { state: 'offered', stillMine: true };
   let busy = false;
+  /** A transfer sent whose answer never came: the receiver may have saved it. */
+  let unsettled: { readonly target: string; readonly request: IHandoffManifestRequest } | undefined;
 
   const staysBehind = async (): Promise<IHandoffStaysBehind> => {
     const session = deps.getSession();
@@ -158,6 +163,12 @@ export function createHandoffHostAdapter(deps: IHandoffHostAdapterDeps): IComman
     target: string,
     onProgress?: (progress: IHandoffProgress) => void,
   ): Promise<IHandoffProgress> => {
+    if (unsettled !== undefined && unsettled.target !== target) {
+      return stopped(
+        `an earlier hand-off to ${unsettled.target} was not confirmed and may already be saved ` +
+          `there; run /handoff ${unsettled.target} to settle it first`,
+      );
+    }
     const session = deps.getSession();
     const open = deps.openChannel();
     if (session === undefined || open === undefined) {
@@ -179,21 +190,24 @@ export function createHandoffHostAdapter(deps: IHandoffHostAdapterDeps): IComman
       current = { state, stillMine: true };
       onProgress?.(current);
     };
+    // A transfer whose answer was lost is sent again as itself, so a receiver that already saved it
+    // answers with the same acknowledgement instead of saving a second copy.
+    const request: IHandoffManifestRequest = unsettled?.request ?? {
+      handoffId: randomUUID(),
+      sessionId: record.id,
+      sourceDeviceId: deps.peers.ownSessionId(),
+      destinationDeviceId: target,
+      record,
+      runtime: {
+        modelCallInFlight: session.isExecuting(),
+        subprocesses: behind.subprocesses,
+        uncommittedChanges: behind.uncommittedChanges,
+      },
+      offeredAt: now(),
+    };
     const { outcome } = await pushHandoff({
       composition: deps.composition,
-      request: {
-        handoffId: randomUUID(),
-        sessionId: record.id,
-        sourceDeviceId: deps.peers.ownSessionId(),
-        destinationDeviceId: target,
-        record,
-        runtime: {
-          modelCallInFlight: session.isExecuting(),
-          subprocesses: behind.subprocesses,
-          uncommittedChanges: behind.uncommittedChanges,
-        },
-        offeredAt: now(),
-      },
+      request,
       openChannel: () => open(target),
       carrierBinding: localCarrierBinding(target),
       mintGrant: (manifest, fingerprint) => mintHandoffGrant(signer, manifest, fingerprint, now()),
@@ -201,8 +215,16 @@ export function createHandoffHostAdapter(deps: IHandoffHostAdapterDeps): IComman
         current = { state: 'done', stillMine: false };
       },
       onProgress: report,
+      ...(deps.idleMs !== undefined ? { idleMs: deps.idleMs } : {}),
     });
-    current = describeOutcome(outcome);
+    const waiting = outcome.phase === 'transferring' || outcome.phase === 'staged';
+    unsettled = waiting ? { target, request } : undefined;
+    current = waiting
+      ? stopped(
+          `${target} did not confirm; it may already have saved the session. ` +
+            `Run /handoff ${target} again to settle it`,
+        )
+      : describeOutcome(outcome);
     if (!current.stillMine) deps.onHandedOff();
     return current;
   };

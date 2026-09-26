@@ -502,14 +502,18 @@ export async function listenForPeerMessages(options: IPeerListenerOptions): Prom
       refuse('declined', 'this session does not take hand-offs.');
       return;
     }
-    // The receiver reads the first frame as its first; it arrives now, after the receiver listens.
+    // The receiver reads the first frame as its first; it arrives now, after the receiver listens,
+    // and only to the first subscriber.
+    let pending: string | undefined = first;
     options.onHandoff(
       { sessionId: from },
       {
         ...channel,
         onFrame: (handler) => {
           const stop = channel.onFrame(handler);
-          queueMicrotask(() => handler(first));
+          const replay = pending;
+          pending = undefined;
+          if (replay !== undefined) queueMicrotask(() => handler(replay));
           return stop;
         },
       },

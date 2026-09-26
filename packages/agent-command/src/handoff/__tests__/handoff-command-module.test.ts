@@ -17,7 +17,7 @@ describe('/handoff command module', () => {
   it('tells the model what it does and which command to suggest, since it cannot run it', () => {
     const description =
       createHandoffCommandModule().commandSources?.[0]?.getCommands()[0]?.description;
-    expect(description).toContain('/handoff <session-or-device-id>');
+    expect(description).toContain('/handoff <session-id>');
     expect(description).toMatch(/user-only/i);
     expect(description).toContain('saved, not started');
   });
