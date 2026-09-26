@@ -7,6 +7,10 @@
  * - `publint --strict` finds no errors or warnings in the package layout;
  * - `attw` (Are The Types Wrong) finds no type-resolution problem for Node 16+ ESM/CJS and bundlers.
  *   Subpaths that declare no `require` condition are ESM-only by design and are left out of attw;
+ * - every other subpath actually loads with `require()`: the tarball is extracted next to a link to its
+ *   workspace package's installed dependencies and each subpath is required in its own Node process.
+ *   attw and publint only read the files, so a CommonJS entry that reaches an ESM module with a
+ *   top-level await (ERR_REQUIRE_ASYNC_MODULE) or a chunk left out of the tarball passes them;
  * - no browser entry (a `dist/browser/` file named in `exports`) reaches a `node:` builtin through its
  *   static imports. Dynamically imported chunks are Node-only paths loaded on demand and are allowed;
  * - `./package.json` is exported (a strict `exports` map otherwise hides it from
@@ -14,9 +18,12 @@
  *
  * Usage: node scripts/publish/verify-tarballs.mjs <directory-with-tgz-files>
  */
-import { execFileSync } from 'node:child_process';
-import { readdirSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+
+import { listManifestPackageDirs } from '../harness/workspace-packages.mjs';
 
 function declaredPaths(manifest) {
   const paths = [];
@@ -35,7 +42,8 @@ function declaredPaths(manifest) {
     .map((entry) => path.posix.normalize(entry.replace(/^\.\//u, '')));
 }
 
-const BIN = path.join(import.meta.dirname, '..', '..', 'node_modules', '.bin');
+const ROOT = path.join(import.meta.dirname, '..', '..');
+const BIN = path.join(ROOT, 'node_modules', '.bin');
 const TOOLS = {
   publint: ['publint', '--strict'],
   attw: ['attw', '--profile', 'node16'],
@@ -50,6 +58,61 @@ function esmOnlySubpaths(manifest) {
         entry && typeof entry === 'object' && !JSON.stringify(entry).includes('"require"'),
     )
     .map(([subpath]) => subpath);
+}
+
+/** Package name → workspace directory, whose node_modules holds the package's installed dependencies. */
+let workspaceDirs;
+function workspaceDir(name) {
+  workspaceDirs ??= new Map(
+    listManifestPackageDirs(ROOT).map((dir) => [
+      JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8')).name,
+      dir,
+    ]),
+  );
+  return workspaceDirs.get(name);
+}
+
+// Resolves the specifier from the extracted package.json, so the package's own `exports` map is used.
+const REQUIRE_PROBE =
+  "require('node:module').createRequire(process.argv[1])(process.argv[2]); process.exit(0);";
+
+/** `require()` every subpath not declared ESM-only, from the extracted tarball. */
+function requireProblems(tarball, manifest) {
+  if (!manifest.exports || typeof manifest.exports !== 'object') return [];
+  const esmOnly = new Set(esmOnlySubpaths(manifest));
+  const subpaths = Object.keys(manifest.exports).filter(
+    (subpath) =>
+      subpath.startsWith('.') &&
+      subpath !== './package.json' &&
+      !subpath.includes('*') &&
+      !esmOnly.has(subpath),
+  );
+  if (subpaths.length === 0) return [];
+  const packageDir = workspaceDir(manifest.name);
+  if (!packageDir) return [`has no workspace package to take its dependencies from`];
+  const scratch = mkdtempSync(path.join(os.tmpdir(), 'robota-require-'));
+  try {
+    execFileSync('tar', ['-xzf', tarball, '-C', scratch]);
+    symlinkSync(path.join(packageDir, 'node_modules'), path.join(scratch, 'node_modules'));
+    const packageJson = path.join(scratch, 'package', 'package.json');
+    return subpaths.flatMap((subpath) => {
+      const specifier = subpath === '.' ? manifest.name : `${manifest.name}/${subpath.slice(2)}`;
+      // A consumer's process does not carry this repository's NODE_OPTIONS (e.g. --conditions=source).
+      const { status, signal, stderr } = spawnSync(
+        process.execPath,
+        ['-e', REQUIRE_PROBE, packageJson, specifier],
+        { encoding: 'utf8', timeout: 60_000, env: { ...process.env, NODE_OPTIONS: '' } },
+      );
+      if (status === 0) return [];
+      const reason =
+        stderr.split('\n').find((line) => /^\w*Error\b/u.test(line)) ?? signal ?? `exit ${status}`;
+      return [
+        `declares a require entry for ${subpath}, but require('${specifier}') fails: ${reason}`,
+      ];
+    });
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
 }
 
 const read = (tarball, file) =>
@@ -116,6 +179,7 @@ export function verifyTarball(tarball) {
     ...runTool('attw', tarball, esmOnly.length ? ['--exclude-entrypoints', ...esmOnly] : []),
   );
   problems.push(...browserBuiltinProblems(tarball, manifest, files));
+  problems.push(...requireProblems(tarball, manifest));
   return { name: manifest.name, problems };
 }
 
@@ -137,6 +201,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.met
     process.exit(1);
   }
   process.stdout.write(
-    `✓ ${tarballs.length} tarballs contain every declared file and pass publint and attw\n`,
+    `✓ ${tarballs.length} tarballs contain every declared file, pass publint and attw, and load with require()\n`,
   );
 }

@@ -20,6 +20,9 @@ display settings.
 import { renderApp, createDefaultTuiCliAdapter } from '@robota-sdk/agent-ui-terminal';
 ```
 
+The package is ESM-only: use `import` or `import()`. It has no `require()` entry, because Ink loads
+`yoga-layout`, which starts with a top-level `await` that `require()` cannot run.
+
 See [docs/SPEC.md](./docs/SPEC.md) for the full contract.
 
 PTY test support is internal to `src/__tests__/pty/`; the former private `agent-testing`

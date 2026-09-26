@@ -30,7 +30,9 @@ export default defineConfig([
       index: 'src/index.ts',
     },
     define,
-    format: { esm: {}, cjs: {} },
+    // ESM only: the bundle loads ink, whose yoga-layout entry has a top-level await, so a CommonJS
+    // build could never be require()d (ERR_REQUIRE_ASYNC_MODULE). package.json exports no `require`.
+    format: ['esm'],
     outDir: 'dist/node',
     platform: 'node',
     clean: false,
@@ -39,10 +41,7 @@ export default defineConfig([
     treeshake: true,
     minify: true,
     splitting: false,
-    outExtensions: ({ format }) => ({
-      js: format === 'cjs' ? '.cjs' : '.js',
-      dts: format === 'cjs' ? '.d.cts' : '.d.ts',
-    }),
+    outExtensions: () => ({ js: '.js', dts: '.d.ts' }),
     // INFRA-028: bundle @robota-sdk into the library entry too; third-party (in `dependencies`) external.
   },
 ]);

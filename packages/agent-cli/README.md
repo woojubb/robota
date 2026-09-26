@@ -89,6 +89,10 @@ robota "prompt"               # REPL with initial prompt
 robota -p "List all files"    # Print mode (one-shot, exit after response)
 ```
 
+Loaded as a library (`startCli`), the package is ESM-only: use `import` or `import()`. It has no
+`require()` entry, because the Ink TUI it bundles loads `yoga-layout`, which starts with a top-level
+`await` that `require()` cannot run.
+
 ### Environment Variables
 
 | Variable            | Description                                              | Provider  |
