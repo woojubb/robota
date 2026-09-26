@@ -175,7 +175,9 @@ export class MeshTurnRelay {
     }
     const peer = (await this.tagOwners(rendezvousEpoch(now))).get(match[2]!);
     // Still a peer once the tags are derived: a revocation meanwhile wins.
-    if (peer === undefined || !this.peers.includes(peer)) return undefined;
+    if (peer === undefined || !this.peers.some((p) => p.deviceId === peer.deviceId)) {
+      return undefined;
+    }
     return {
       owner: peer.deviceId,
       password: await peer.rendezvous.relayPassword('inbound', username),

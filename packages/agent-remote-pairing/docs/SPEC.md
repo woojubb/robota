@@ -96,7 +96,8 @@ pairwise secret and separated by direction and purpose, so whoever carries it ca
 let a third party address the pair, the two directions never overwrite each other, and a record of one purpose never
 opens as another. Every value that anyone but the user's own relay can see rotates by epoch, and a lookup also tries
 the adjacent epochs so clocks that disagree a little still meet. Derivation takes the lists in force and refuses a
-device they do not name with the same key-agreement key, so a rotated or revoked key stops meeting anyone. A rendezvous only says where a peer might be; admission is still the device handshake.
+device they do not name with the same key-agreement key, so a rotated or revoked key stops meeting anyone. A
+rendezvous only says where a peer might be; admission is still the device handshake.
 
 **Trust levels stay distinct.** A cross-host same-user admission must never satisfy a check that wanted
 same-host-same-user, or a local admission could authorize a cross-device transfer. A device certificate proves the
