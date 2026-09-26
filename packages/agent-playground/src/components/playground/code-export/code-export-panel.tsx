@@ -121,7 +121,7 @@ export function CodeExportPanel({
       </div>
       <div className="flex-1 overflow-auto p-4 bg-zinc-950/50">
         <div data-code-export-pre>{code && <SyntaxHighlighter code={code} />}</div>
-        <InstallGuide />
+        {debouncedState && <InstallGuide provider={debouncedState.agent.provider} />}
       </div>
     </div>
   );

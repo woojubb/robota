@@ -145,16 +145,16 @@ Reusable CLI/TUI code must not special-case command module names (e.g. `/agent`)
 
 ### Import Rules
 
-| Source                  | Allowed                                                                                                      |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------ |
-| `agent-framework`       | SDK-owned APIs and facades                                                                                   |
-| `agent-core`            | Public types + utilities only; internal engine (`Robota`, `ExecutionService`, `ConversationStore`) forbidden |
-| `agent-session`         | Forbidden — the SDK provides its own session/permission types                                                |
-| `agent-tools`           | Forbidden — the SDK assembles tools internally                                                               |
-| `agent-command`         | Slash-command modules only                                                                                   |
-| `agent-subagent-runner` | Subagent/background runner only                                                                              |
-| `agent-provider`        | Provider definition assembly only                                                                            |
-| `agent-preset`          | Preset id selection + resolution only — `resolvePreset` owns the precedence merge                            |
+| Source                    | Allowed                                                                                                      |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `agent-framework`         | SDK-owned APIs and facades                                                                                   |
+| `agent-core`              | Public types + utilities only; internal engine (`Robota`, `ExecutionService`, `ConversationStore`) forbidden |
+| `agent-session`           | Forbidden — the SDK provides its own session/permission types                                                |
+| `agent-tools`             | Forbidden — the SDK assembles tools internally                                                               |
+| `agent-command`           | Slash-command modules only                                                                                   |
+| `agent-subagent-runner`   | Subagent/background runner only                                                                              |
+| `agent-builtin-providers` | Provider definition assembly only                                                                            |
+| `agent-preset`            | Preset id selection + resolution only — `resolvePreset` owns the precedence merge                            |
 
 ## Design decisions
 

@@ -14,7 +14,7 @@ import type { IOpenAILogData } from '../types/api-types';
  *
  * @example
  * ```typescript
- * import { ConsolePayloadLogger } from '@robota-sdk/agent-provider/openai/loggers';
+ * import { ConsolePayloadLogger } from '@robota-sdk/agent-provider-openai/loggers';
  *
  * const logger = new ConsolePayloadLogger({
  *   enabled: true,

@@ -1,3 +1,4 @@
+import { PROVIDER_PACKAGES, toPackageName } from '../../provider-packages';
 import type { IErrorInfo } from '../code-executor-types';
 
 const PLUGIN_NAMES = ['LoggingPlugin', 'UsagePlugin', 'PerformancePlugin'];
@@ -5,9 +6,9 @@ const PLUGIN_NAMES = ['LoggingPlugin', 'UsagePlugin', 'PerformancePlugin'];
 export function checkImports(code: string, errors: IErrorInfo[], warnings: IErrorInfo[]): void {
   checkRobotaImport(code, errors);
   checkOpenAiClientImport(code, errors);
-  checkProviderImport(code, 'OpenAIProvider', '@robota-sdk/agent-provider/openai', errors);
-  checkProviderImport(code, 'AnthropicProvider', '@robota-sdk/agent-provider/anthropic', errors);
-  checkProviderImport(code, 'GoogleProvider', '@robota-sdk/agent-provider/google', errors);
+  checkProviderImport(code, 'OpenAIProvider', PROVIDER_PACKAGES.openai, errors);
+  checkProviderImport(code, 'AnthropicProvider', PROVIDER_PACKAGES.anthropic, errors);
+  checkProviderImport(code, 'GoogleProvider', PROVIDER_PACKAGES.google, errors);
   checkCoreUtilityImports(code, warnings);
 }
 
@@ -41,17 +42,17 @@ function checkOpenAiClientImport(code: string, errors: IErrorInfo[]): void {
 function checkProviderImport(
   code: string,
   providerName: string,
-  packageName: string,
+  importPath: string,
   errors: IErrorInfo[],
 ): void {
-  if (code.includes(providerName) && !code.includes(`from '${packageName}'`)) {
+  if (code.includes(providerName) && !code.includes(`from '${importPath}'`)) {
     errors.push({
       type: 'import',
       severity: 'error',
       message: `Missing ${providerName} import`,
       suggestions: [
-        `Add: import { ${providerName} } from '${packageName}'`,
-        `Install package: npm install ${packageName}`,
+        `Add: import { ${providerName} } from '${importPath}'`,
+        `Install package: npm install ${toPackageName(importPath)}`,
       ],
     });
   }

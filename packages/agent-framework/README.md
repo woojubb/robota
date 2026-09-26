@@ -7,7 +7,7 @@ lives in `src/transport-host/`; terminal `PrintTerminal` and `promptInput` are l
 
 Programmatic SDK for building AI agents with Robota. Provides `InteractiveSession` as the central client-facing API, `createQuery()` for one-shot use, `createAgentRuntime()` as a composition factory for headless and multi-session consumers, session management, SDK-owned command/common APIs, permissions, hooks, streaming, context loading, bounded prompt file references, and context reference inventory.
 
-This is the **assembly layer** of the Robota ecosystem — it composes lower-level packages (`agent-core`, `agent-tools`, `agent-session`, `agent-provider`) into a cohesive SDK.
+This is the **assembly layer** of the Robota ecosystem — it composes lower-level packages (`agent-core`, `agent-tools`, `agent-session`, `agent-provider-*`) into a cohesive SDK.
 
 ## Installation
 
@@ -155,7 +155,7 @@ agent-framework (assembly layer)
         agent-session   (Session, neutral session ports, explicit Node host adapters)
         agent-file-authority (stable bounded project byte reads over retained native handles)
         agent-tools     (tool infrastructure + 9 built-in tools)
-        agent-provider  (consolidated AI providers: /anthropic, /openai, /gemini, …)
+        agent-provider-* (per-vendor AI providers: -anthropic, -openai, -gemini, …)
         agent-core      (Robota engine, providers, permissions, hooks)
 
 agent-cli (TUI layer — bridges InteractiveSession events to React/Ink state)
