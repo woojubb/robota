@@ -276,6 +276,18 @@ describe('supervised session view', () => {
     }
   });
 
+  it('never renders loaded rows without a selection', async () => {
+    const view = render(<SupervisedSessionView loadRows={async () => [{ ...THIRD, name: 'Morning review' }]} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Morning review'));
+      const withRows = view.frames.filter((frame) => frame.includes('Morning review'));
+      expect(withRows.length).toBeGreaterThan(0);
+      for (const frame of withRows) expect(frame).toContain(`Selected ${THIRD.id}`);
+    } finally {
+      view.unmount();
+    }
+  });
+
   it('shows a verified human name while preserving the exact selected ID', async () => {
     const view = render(<SupervisedSessionView loadRows={async () => [{ ...THIRD, name: 'Morning review' }]} />);
     try {

@@ -137,7 +137,7 @@ export default function SupervisedSessionView({
   const [rows, setRows] = useState<readonly ISupervisedViewRow[]>([]);
   const [observedAtMs, setObservedAtMs] = useState(Date.now);
   const [status, setStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
-  const [selectedId, setSelectedId] = useState<string | undefined>();
+  const [chosenId, setSelectedId] = useState<string | undefined>();
   const [showHelp, setShowHelp] = useState(false);
   const [groupByDirectory, setGroupByDirectory] = useState(false);
   const [confirmStopId, setConfirmStopId] = useState<string | undefined>();
@@ -212,10 +212,13 @@ export default function SupervisedSessionView({
     return () => { mountedRef.current = false; };
   }, []);
 
+  // Derived during render, so no frame ever shows loaded rows without a selection; the effect then
+  // records it, so the selected row stays selected when regrouping reorders the rows.
+  const selectedId = chosenId !== undefined && ordered.some((row) => row.id === chosenId)
+    ? chosenId : ordered[0]?.id;
   useEffect(() => {
-    setSelectedId((current) => current !== undefined && ordered.some((row) => row.id === current)
-      ? current : ordered[0]?.id);
-  }, [ordered]);
+    if (selectedId !== chosenId) setSelectedId(selectedId);
+  }, [selectedId, chosenId]);
 
   useInput((input, key) => {
     if (stoppingRef.current) return;
