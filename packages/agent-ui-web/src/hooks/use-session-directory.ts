@@ -49,8 +49,15 @@ export function useSessionDirectoryState(send: (msg: TClientMessage) => void): T
     latestRequestRef.current = requestId;
     send({ type: 'list-sessions', requestId });
   }, [send]);
+  // The host answers a switch to the current session with nothing; asking it would leave the
+  // surface waiting for a reply that never comes.
+  const currentIdRef = useRef<string | null>(null);
+  currentIdRef.current = sessionListing?.currentSessionId ?? null;
   const switchSession = useCallback(
-    (sessionId: string): void => send({ type: 'switch-session', sessionId }),
+    (sessionId: string): void => {
+      if (sessionId === currentIdRef.current) return;
+      send({ type: 'switch-session', sessionId });
+    },
     [send],
   );
   const newSession = useCallback((): void => send({ type: 'new-session' }), [send]);

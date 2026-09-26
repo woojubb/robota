@@ -80,6 +80,8 @@ export {
   InteractiveSession,
   PeerMessageIngress,
   ExternalEventIngress,
+  ExternalEventGrantHistory,
+  createExternalEventGrantHistory,
 } from './interactive/index.js';
 export { withUniqueSessionName } from './interactive/interactive-session-fork-record.js';
 export type {

@@ -67,6 +67,12 @@ export interface IExternalEventHost {
   now?: () => number;
   /** Whether the session has begun shutting down; a refused submission is then named so. */
   isShuttingDown?: () => boolean;
+  /**
+   * The run's grant history (#3189). A run that switches sessions lends every session the same one,
+   * so spent tokens, rate windows and revocations belong to the run: a switch replays nothing and
+   * resets no rate. Without it, the history lives and ends with this session.
+   */
+  history?: ExternalEventGrantHistory;
 }
 
 const MAX_EVENT_BYTES = 16 * 1024;
@@ -199,19 +205,31 @@ interface ISourceState {
   pending: number;
 }
 
+/** What a run remembers about each grant across the sessions it holds; opaque to its holder. */
+export class ExternalEventGrantHistory {
+  /** @internal */
+  readonly grants = new Map<string, IGrantHistory>();
+}
+
+/** One history per run: create it once and pass it to every session the run builds. */
+export function createExternalEventGrantHistory(): ExternalEventGrantHistory {
+  return new ExternalEventGrantHistory();
+}
+
 /**
  * Session-owned admission and turn settlement for external events. The sender is the grant whose
  * verifier admitted the token; nothing in the delivery names it.
  */
 export class ExternalEventIngress {
   private readonly sources = new Map<string, ISourceState>();
-  private readonly history = new Map<string, IGrantHistory>();
+  private readonly history: Map<string, IGrantHistory>;
   private pending = 0;
   private releaseGuard?: () => void;
   private readonly now: () => number;
 
   constructor(private readonly host: IExternalEventHost) {
     this.now = host.now ?? Date.now;
+    this.history = host.history?.grants ?? new Map();
   }
 
   open(options: IExternalEventSourceOptions): IExternalEventSource {

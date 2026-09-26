@@ -35,3 +35,7 @@ process or any client connection restarting. The GUI shows them in a sessions si
 - `agent-cli`: `robota --serve` provides the session directory, and refuses a switch that would lose
   work in progress. External-event grants belong to the run: a switch reopens them on the new session,
   as the TUI already does.
+- External-event grant history (spent tokens, rate windows, revocations) belongs to the run. The new
+  option `externalEventGrantHistory` (from `createExternalEventGrantHistory()`) is shared by every
+  session that a served runtime or the TUI builds. A session switch therefore replays no spent token
+  and resets no rate limit. The TUI previously had this gap when it switched sessions.

@@ -58,6 +58,9 @@ export function buildTuiSessionOptions(
     ...(opts.externalEventVerifierFactory !== undefined
       ? { externalEventVerifierFactory: opts.externalEventVerifierFactory }
       : {}),
+    ...(opts.externalEventGrantHistory !== undefined
+      ? { externalEventGrantHistory: opts.externalEventGrantHistory }
+      : {}),
     // CLI-076: forward the resolved model so `--model` takes effect rather than falling through to the
     // session's config/default model.
     ...(opts.model !== undefined ? { model: opts.model } : {}),

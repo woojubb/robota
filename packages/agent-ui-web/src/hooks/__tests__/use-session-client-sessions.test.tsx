@@ -210,4 +210,12 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
     deliver({ type: 'session_switched', event: { sessionId: 'b' } });
     expect(result.current.sessionStatus).toBeNull();
   });
+
+  it('does not ask to switch to the session that is already current', () => {
+    const { result, deliver, connect, wire } = setup();
+    connect();
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: listing('a') });
+    act(() => result.current.switchSession('a'));
+    expect(wire.some((m) => m.type === 'switch-session')).toBe(false);
+  });
 });

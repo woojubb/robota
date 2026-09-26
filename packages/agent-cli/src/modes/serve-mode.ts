@@ -33,7 +33,11 @@ import {
   createRebindableExternalEventGrants,
   type ITuiExternalEventGrants,
 } from '../external-events/tui-external-event-grants.js';
-import { buildRuntimeSession, startRuntimeHost } from '@robota-sdk/agent-framework';
+import {
+  buildRuntimeSession,
+  createExternalEventGrantHistory,
+  startRuntimeHost,
+} from '@robota-sdk/agent-framework';
 import type { IServeSessionDirectory } from './serve-session-directory.js';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
 import { ROBOTA_PERMISSION_BASELINE } from '../product/robota-permission-baseline.js';
@@ -208,8 +212,12 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(preset.outputStyle !== undefined ? { outputStyle: preset.outputStyle } : {}),
     permissionMode: args.permissionMode ?? preset.permissionMode,
     // A supervised session opens the grants its launcher handed over; each is checked this way.
+    // One grant history for the run: every session it switches to shares it (#3189).
     ...(args.supervisedExternalEventGrants === true
-      ? { externalEventVerifierFactory: createExternalEventVerifier }
+      ? {
+          externalEventVerifierFactory: createExternalEventVerifier,
+          externalEventGrantHistory: createExternalEventGrantHistory(),
+        }
       : {}),
     baselinePermissionAllow: ROBOTA_PERMISSION_BASELINE,
     // Issue #1937: the CLI-sourced prompt addition, composed once at the projection. Before this it

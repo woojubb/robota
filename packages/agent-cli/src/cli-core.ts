@@ -19,6 +19,7 @@ import {
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
   InteractiveSession,
+  createExternalEventGrantHistory,
   readProviderSettings,
   readMergedProviderSettings,
   readSettings,
@@ -1051,8 +1052,12 @@ async function runCliCore(
     startupUpdateNotice: resolveCliUpdateNotice(startupUpdateNoticePromise),
     transportRegistry,
     bindTransports: bindTuiTransports,
+    // One grant history for the run: every session the TUI switches to shares it (#3189).
     ...(externalEvents !== undefined
-      ? { externalEventVerifierFactory: createExternalEventVerifier }
+      ? {
+          externalEventVerifierFactory: createExternalEventVerifier,
+          externalEventGrantHistory: createExternalEventGrantHistory(),
+        }
       : {}),
     // CMD-004 Stage C: remote-control enable/stop run HOST-side via the `remoteControl` command
     // host adapter (wired above) — no TUI-prop wiring remains.
