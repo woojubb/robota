@@ -77,6 +77,8 @@ const DECISION_TIMEOUT_MS = 3 * 60 * 1000;
 const JOINER_DECISION_TIMEOUT_MS = DECISION_TIMEOUT_MS + STEP_TIMEOUT_MS;
 /** Frames queued ahead of the step that reads them; an enrollment says a handful. */
 const MAX_QUEUED_FRAMES = 16;
+/** How long a side that sent the last word waits for the other side to read it and close. */
+const LAST_WORD_LINGER_MS = 5_000;
 
 export interface IEnrollmentEnvironment {
   /** `~/.robota/devices`. */
@@ -199,6 +201,24 @@ async function prove(
   return proof.result;
 }
 
+/**
+ * Send the frame that ends the exchange, then wait until the other side closes. A data channel closed
+ * right after a send can reach the other side as a close without the frame, so the side that reads
+ * the last word is the one that closes.
+ */
+function sayLast(channel: IEnrollmentChannel, frame: TEnrollmentFrame): Promise<void> {
+  channel.send(frame);
+  return new Promise((resolve) => {
+    const done = (): void => {
+      clearTimeout(timer);
+      stop();
+      resolve();
+    };
+    const timer = setTimeout(done, LAST_WORD_LINGER_MS);
+    const stop = channel.onClose(done);
+  });
+}
+
 function spkiOf(key: CryptoKey): Promise<string> {
   return globalThis.crypto.subtle
     .exportKey('spki', key)
@@ -264,7 +284,7 @@ async function bothSayYes<T>(options: {
     return refuse(timeout.aborted ? 'enrollment-timed-out' : 'cancelled');
   }
   if (!yes) {
-    options.channel.send({ t: 'en-declined' });
+    await sayLast(options.channel, { t: 'en-declined' });
     return refuse('enrollment-declined');
   }
   options.onYes?.();
@@ -490,7 +510,7 @@ async function enrol(
     return { ok: true as const, value: grant };
   });
   if (!issued.ok) {
-    channel.send({ t: 'en-declined' });
+    await sayLast(channel, { t: 'en-declined' });
     return refuse(issued.reason);
   }
   channel.send(issued.value);
@@ -680,7 +700,7 @@ async function joinOver(
     return true;
   });
   if (!saved) return refuse('changed-concurrently');
-  channel.send({ t: 'en-stored' });
+  await sayLast(channel, { t: 'en-stored' });
   const keyStorage = options.describeKeyStorage?.();
   return {
     ok: true,
