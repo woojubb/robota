@@ -1,5 +1,13 @@
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, rmSync, symlinkSync, writeFileSync, mkdtempSync, realpathSync } from 'node:fs';
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -47,6 +55,19 @@ describe('resolveGitBranchFromNodeHost', () => {
     // A FIFO is refused without blocking on an open that waits for a writer.
     spawnSync('mkfifo', [join(piped, '.git')]);
     expect(resolveGitBranchFromNodeHost(piped)).toBeUndefined();
+  });
+
+  it('resolves a .git directory that can be entered but not listed', () => {
+    const cwd = join(TMP_BASE, 'unlisted');
+    const gitDir = join(cwd, '.git');
+    mkdirSync(gitDir, { recursive: true });
+    writeFileSync(join(gitDir, 'HEAD'), 'ref: refs/heads/unlisted\n', 'utf8');
+    chmodSync(gitDir, 0o311);
+    try {
+      expect(resolveGitBranchFromNodeHost(cwd)).toBe('unlisted');
+    } finally {
+      chmodSync(gitDir, 0o755);
+    }
   });
 
   it('returns undefined outside a git repository', () => {

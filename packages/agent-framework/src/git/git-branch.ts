@@ -1,4 +1,4 @@
-import { closeSync, constants, fstatSync, openSync, readFileSync } from 'node:fs';
+import { closeSync, constants, fstatSync, lstatSync, openSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 
 const DETACHED_HEAD_LENGTH = 7;
@@ -64,6 +64,11 @@ function resolveGitMetadata(candidate: string, repoDir: string): string | undefi
     // A platform that cannot open a directory says so; a directory is what is looked for.
     if (code === 'EISDIR') return candidate;
     if (NO_METADATA_CODES.has(code)) return undefined;
+    // A `.git` directory that can be entered but not listed still holds a readable HEAD; nothing
+    // is read through this entry itself, so its type is all that is asked.
+    if ((code === 'EACCES' || code === 'EPERM') && lstatSync(candidate).isDirectory()) {
+      return candidate;
+    }
     throw error;
   }
 
