@@ -9,15 +9,20 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { homedir } from 'node:os';
 
 import { PeerMessageIngress } from '@robota-sdk/agent-framework';
+import { DEFAULT_MAX_FILE_BYTES } from '@robota-sdk/agent-transport/node';
+
+import { prepareOutgoingFile } from '../peer-files/outgoing-file.js';
+import { userLocalStorageRoot } from '../product/user-paths.js';
 
 import { announceLocalPeerPresence } from '../remote-control/local-peer-presence.js';
 import { bindLocalPeerStatus } from '../remote-control/local-peer-status.js';
 import { startLocalPeerMessaging } from '../remote-control/local-peer-messaging.js';
 
 import type { ILocalPeerPresence } from '../remote-control/local-peer-presence.js';
-import type { IPeerMessaging } from '../remote-control/local-peer-messaging.js';
+import type { IPeerFileReceiving, IPeerMessaging } from '../remote-control/local-peer-messaging.js';
 import type { IPeerTurnContext, ITurnHandle } from '@robota-sdk/agent-interface-session';
 import type { IPeerMessageIngress } from '@robota-sdk/agent-interface-session-mobility';
 
@@ -152,6 +157,7 @@ export function attachLocalPeerMessaging(
   report: IAdapterReporter,
   start: typeof startLocalPeerMessaging = startLocalPeerMessaging,
   previous?: Promise<IPeerMessaging | undefined>,
+  files?: IPeerFileReceiving,
 ): Promise<IPeerMessaging | undefined> {
   const adapter = adapters.localPeers;
   if (presence === undefined || adapter === undefined) return Promise.resolve(undefined);
@@ -162,7 +168,7 @@ export function attachLocalPeerMessaging(
   // second bind SUCCEEDS and the first server is simply orphaned: a listener and its fd per switch,
   // leaking silently because nothing errors.
   return closeQuietly(previous, report).then(() =>
-    startMessaging(adapter, presence, getSession, report, start),
+    startMessaging(adapter, presence, getSession, report, start, files),
   );
 }
 
@@ -191,8 +197,10 @@ function startMessaging(
   getSession: () => IPeerIngressSession,
   report: IAdapterReporter,
   start: typeof startLocalPeerMessaging,
+  files: IPeerFileReceiving | undefined,
 ): Promise<IPeerMessaging | undefined> {
   return start({
+    ...(files !== undefined ? { files } : {}),
     guardedDirectory: presence.guardedDirectory,
     sessionId: presence.sessionId,
     list: () => presence.list(),
@@ -220,6 +228,28 @@ function startMessaging(
       adapter.send = async (targetSessionId, text, options) => {
         const ack = await messaging.send(targetSessionId, text, options);
         return { state: ack.state, ...(ack.reason !== undefined ? { reason: ack.reason } : {}) };
+      };
+      // Checked and measured here, sent only when the caller says so: the model's tool asks the
+      // operator in between, and nothing is read from the peer until then.
+      adapter.prepareFile = async (targetSessionId, path, { origin, cwd }) => {
+        const prepared = await prepareOutgoingFile({
+          path,
+          cwd,
+          home: homedir(),
+          origin,
+          maxBytes: DEFAULT_MAX_FILE_BYTES,
+        });
+        if (!prepared.ok) return prepared;
+        const { file } = prepared;
+        return {
+          ok: true,
+          file: {
+            path: file.path,
+            size: file.size,
+            sha256: file.sha256,
+            send: () => messaging.sendFile(targetSessionId, file),
+          },
+        };
       };
       return messaging;
     },
@@ -286,6 +316,13 @@ export function attachHostAdapters(
       report,
       startLocalPeerMessaging,
       running,
+      // Files are kept under this HOME, and each one is put to the operator at this terminal.
+      {
+        root: userLocalStorageRoot(),
+        ...(controller.operatorApprover !== undefined
+          ? { approver: controller.operatorApprover }
+          : {}),
+      },
     );
   };
 }

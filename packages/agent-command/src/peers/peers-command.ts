@@ -103,8 +103,47 @@ async function executeSend(
   return describeSend(await adapter.send(parsed.target, parsed.text), parsed.target);
 }
 
+/**
+ * `/peers send-file <session-id> <path>` — the operator sends a copy of a file.
+ *
+ * The operator typed the path, so any regular file they can read may go, including one outside the
+ * workspace or one that looks like it holds secrets: this is the one way to send those. Everything
+ * after the session id is the path, spaces and all.
+ */
+async function executeSendFile(
+  adapter: NonNullable<ICommandHostAdapters['localPeers']>,
+  args: string,
+  cwd: string,
+): Promise<ICommandResult> {
+  if (adapter.prepareFile === undefined) {
+    return { message: 'This environment cannot send files to other sessions.', success: false };
+  }
+  const parsed = parseSend(args);
+  if (parsed === undefined) {
+    return {
+      message: 'Usage: /peers send-file <session-id> <path>. Run /peers for the session ids.',
+      success: false,
+    };
+  }
+  const prepared = await adapter.prepareFile(parsed.target, parsed.text, {
+    origin: 'operator',
+    cwd,
+  });
+  if (!prepared.ok) return { message: `Not sent: ${prepared.reason}`, success: false };
+  const { file } = prepared;
+  const result = await file.send();
+  if (result.state === 'delivered' || result.state === 'acknowledged') {
+    return {
+      message: `Sent ${file.path} to ${parsed.target}: ${file.size} bytes, sha256 ${file.sha256}.`,
+      success: true,
+    };
+  }
+  const reason = result.reason !== undefined ? ` ${result.reason}` : '';
+  return { message: `${file.path} was not sent to ${parsed.target}.${reason}`, success: false };
+}
+
 export async function executePeersCommand(
-  context: ICommandHostAdapterAccess,
+  context: ICommandHostAdapterAccess & { getCwd?(): string },
   args = '',
 ): Promise<ICommandResult> {
   const adapter = context.getCommandHostAdapters?.().localPeers;
@@ -115,6 +154,14 @@ export async function executePeersCommand(
   // `send` must be a WHOLE word: `startsWith('send')` would also claim a session id beginning with
   // those four letters, and a uuid that happens to start `send…` is not a subcommand.
   const trimmed = args.trim();
+  const sendFileVerb = /^send-file(?=\s|$)/.exec(trimmed);
+  if (sendFileVerb !== null) {
+    return executeSendFile(
+      adapter,
+      trimmed.slice(sendFileVerb[0].length),
+      context.getCwd?.() ?? '',
+    );
+  }
   const sendVerb = /^send(?=\s|$)/.exec(trimmed);
   if (sendVerb !== null) return executeSend(adapter, trimmed.slice(sendVerb[0].length));
 
@@ -136,7 +183,9 @@ export async function executePeersCommand(
 
   const lines = peers.map((peer) => describe(peer, own));
   return {
-    message: `Live sessions:\n${lines.join('\n')}\n\nSend to one: /peers send <session-id> <message>`,
+    message:
+      `Live sessions:\n${lines.join('\n')}\n\nSend to one: /peers send <session-id> <message>` +
+      '\nSend a file: /peers send-file <session-id> <path>',
     success: true,
   };
 }

@@ -43,6 +43,9 @@ export type {
 } from './connection-authority.js';
 export { ConnectionAuthority, capabilityApproval } from './connection-authority.js';
 
+// ── file-transfer-contracts ──
+export type { IFileFrameChannel, IFileOffer } from './file-transfer-contracts.js';
+
 // ── handoff-contracts ──
 export type {
   IHandoffCommitAck,

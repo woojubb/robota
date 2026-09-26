@@ -55,6 +55,11 @@
     "vitest": "^3.2.6"
   },
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/woojubb/robota.git",
+    "directory": "packages/agent-tool-defaults"
+  },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-tools": "workspace:*"

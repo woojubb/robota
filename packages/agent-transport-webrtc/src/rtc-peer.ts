@@ -146,6 +146,15 @@ export class RtcChannel {
     return this.stateValue;
   }
 
+  /** The label the opening side gave the channel; empty when the implementation does not say. */
+  public get label(): string {
+    try {
+      return this.native.getLabel?.() ?? '';
+    } catch {
+      return '';
+    }
+  }
+
   public get bufferedAmount(): number {
     try {
       return this.native.bufferedAmount();

@@ -22,18 +22,26 @@
  * id, so a name the transcript's reader trusts is not picked by the party being named.
  */
 
+import { randomUUID } from 'node:crypto';
+
+import { ConnectionAuthority } from '@robota-sdk/agent-interface-session-mobility';
+
+import { describeFileRefusal, describeReceived, fileReceiving } from '../peer-files/receiving.js';
 import { listenForPeerMessages } from './local-peer-channel.js';
 import { PeerConversationLedger } from './peer-conversation-ledger.js';
 
 import type { IPeerListener, IPeerSender } from './local-peer-channel.js';
 import type { IPeerConversationLimits } from './peer-conversation-ledger.js';
+import type { IOutgoingFile } from '../peer-files/outgoing-file.js';
 import type {
+  IOperatorApprover,
   IPeerMessage,
   IPeerMessageAck,
   IPeerMessageIngress,
   IPeerOrigin,
   TWorkspaceRelation,
 } from '@robota-sdk/agent-interface-session-mobility';
+import type { TFileReceiveOutcome } from '@robota-sdk/agent-transport/node';
 
 /** What this module needs from `PeerMessageIngress`, and nothing more. */
 export interface IPeerIngressPort {
@@ -66,6 +74,23 @@ export interface IPeerMessagingOptions {
   readonly now?: () => number;
   /** How far one conversation may run before a reply is refused. Defaults apply when absent. */
   readonly limits?: IPeerConversationLimits;
+  /** Receiving files. Absent: every file is refused. */
+  readonly files?: IPeerFileReceiving;
+}
+
+/** How this session takes files from its peers. */
+export interface IPeerFileReceiving {
+  /** `~/.robota` of this session's `HOME`; received files are kept under it. */
+  readonly root: string;
+  /** Asked for every file. Absent: every file is refused, since nobody can approve it. */
+  readonly approver?: IOperatorApprover;
+  readonly maxBytes?: number;
+}
+
+/** How a send of a file ended, in the vocabulary the operator reads. */
+export interface IPeerFileSendResult {
+  readonly state: 'delivered' | 'refused' | 'failed';
+  readonly reason?: string;
 }
 
 /** What a send may say beyond the text. */
@@ -77,6 +102,8 @@ export interface IPeerSendOptions {
 export interface IPeerMessaging {
   readonly socketPath: string;
   send(targetSessionId: string, text: string, options?: IPeerSendOptions): Promise<IPeerMessageAck>;
+  /** Send a prepared file's content to another announced session. */
+  sendFile(targetSessionId: string, file: IOutgoingFile): Promise<IPeerFileSendResult>;
   close(): Promise<void>;
 }
 
@@ -125,9 +152,26 @@ export async function startLocalPeerMessaging(
   const now = options.now ?? ((): number => Date.now());
   const newMessageId = options.newMessageId ?? ((): string => `${options.sessionId}-${sequence}`);
 
+  const files = options.files;
   const listener: IPeerListener = await listenForPeerMessages({
     guardedDirectory: options.guardedDirectory,
     sessionId: options.sessionId,
+    ...(files !== undefined
+      ? {
+          onFile: (sender: IPeerSender) =>
+            fileReceiving({
+              root: files.root,
+              senderId: `local-${sender.sessionId}`,
+              authority: new ConnectionAuthority(
+                { sessionId: sender.sessionId, locality: 'same-host', capabilities: ['file'] },
+                files.approver,
+              ),
+              ...(files.maxBytes !== undefined ? { maxBytes: files.maxBytes } : {}),
+            }),
+          onFileOutcome: (outcome: TFileReceiveOutcome, sender: IPeerSender) =>
+            reportQuietly(options.report, describeReceived(sender.sessionId, outcome)),
+        }
+      : {}),
     onMessage: async (received: IPeerMessage, sender: IPeerSender): Promise<IPeerMessageAck> => {
       const from = sender.sessionId;
       const message: IPeerMessage = { ...received, origin: { sessionId: from } };
@@ -181,6 +225,20 @@ export async function startLocalPeerMessaging(
     },
   });
 
+  /**
+   * Why `targetSessionId` cannot be addressed, or undefined when it can. Resolved through discovery
+   * BEFORE a socket is opened, so an unannounced target is told what is wrong rather than handed a
+   * connection error that names a path they never typed.
+   */
+  const addressable = (targetSessionId: string): string | undefined => {
+    const target = options.list().find((peer) => peer.sessionId === targetSessionId);
+    if (target === undefined) {
+      return `no session ${targetSessionId} is announced on this host. Run /peers to see which are.`;
+    }
+    if (target.liveness === 'dead') return `session ${targetSessionId} is no longer running.`;
+    return undefined;
+  };
+
   return {
     socketPath: listener.socketPath,
     send: async (
@@ -192,18 +250,8 @@ export async function startLocalPeerMessaging(
         return refusal(undefined, 'that is this session; a session does not message itself.');
       }
 
-      // Resolved through discovery BEFORE a socket is opened, so an unannounced target is told what
-      // is wrong rather than handed a connection error that names a path they never typed.
-      const target = options.list().find((peer) => peer.sessionId === targetSessionId);
-      if (target === undefined) {
-        return refusal(
-          undefined,
-          `no session ${targetSessionId} is announced on this host. Run /peers to see which are.`,
-        );
-      }
-      if (target.liveness === 'dead') {
-        return refusal(undefined, `session ${targetSessionId} is no longer running.`);
-      }
+      const reachable = addressable(targetSessionId);
+      if (reachable !== undefined) return refusal(undefined, reachable);
 
       // A reply is held to its conversation's limits before anything is sent, and a refusal is said
       // to the operator: the model hearing it is not the operator hearing it.
@@ -240,6 +288,32 @@ export async function startLocalPeerMessaging(
           state: 'failed',
           reason: error instanceof Error ? error.message : String(error),
         };
+      }
+    },
+    sendFile: async (
+      targetSessionId: string,
+      file: IOutgoingFile,
+    ): Promise<IPeerFileSendResult> => {
+      if (targetSessionId === options.sessionId) {
+        return { state: 'refused', reason: 'that is this session; it already has the file.' };
+      }
+      const reachable = addressable(targetSessionId);
+      if (reachable !== undefined) return { state: 'refused', reason: reachable };
+      try {
+        const outcome = await listener.sendFile(
+          targetSessionId,
+          { transferId: randomUUID(), name: file.name, size: file.size, sha256: file.sha256 },
+          file.source,
+        );
+        if (outcome.ok) return { state: 'delivered' };
+        const reason = describeFileRefusal(outcome.reason, outcome.detail);
+        const refusedThere =
+          outcome.reason !== 'closed' &&
+          outcome.reason !== 'timeout' &&
+          outcome.reason !== 'unavailable';
+        return { state: refusedThere ? 'refused' : 'failed', reason };
+      } catch (error) {
+        return { state: 'failed', reason: error instanceof Error ? error.message : String(error) };
       }
     },
     close: () => listener.close(),

@@ -3,14 +3,17 @@
 # publish-packages.sh — publish every public @robota-sdk package at the release version.
 #
 # Usage:
-#   pnpm publish:beta                                  # build, check, publish (prompts for OTP)
-#   pnpm publish:beta --otp=123456 --tag-otp=654321    # non-interactive
-#   pnpm publish:beta --skip-build                     # dist is already current (e.g. from CI)
-#   pnpm publish:beta --dry-run                        # build, check, pack and verify; publish nothing
+#   pnpm publish:beta                     # build, check, publish (prompts for OTP)
+#   pnpm publish:beta --otp=123456        # non-interactive
+#   pnpm publish:beta --skip-build        # dist is already current (e.g. from CI)
+#   pnpm publish:beta --dry-run           # build, check, pack and verify; publish nothing
+#   publish-packages.sh --trusted         # from .github/workflows/publish.yml: npm trusted publishing
 #
 # Publishing is the standard Changesets flow: `changeset publish` runs `pnpm publish` for each public
 # package whose version is not on npm yet, so a retry only publishes what is still missing. Packages are
-# published under `latest`; the `beta` dist-tag is then pointed at the same version.
+# published under `latest` only: trusted publishing cannot move dist-tags, so there is no `beta` tag.
+# A package's first publish cannot be trusted (npm configures trust only for an existing package); it
+# goes through the local OTP path.
 #
 set -euo pipefail
 
@@ -19,25 +22,29 @@ cd "$ROOT_DIR"
 
 REGISTRY=https://registry.npmjs.org/
 OTP=""
-TAG_OTP=""
 SKIP_BUILD="false"
 DRY_RUN="false"
+TRUSTED="false"
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --skip-build) SKIP_BUILD="true" ;;
     --dry-run) DRY_RUN="true" ;;
     --otp=*) OTP="${1#--otp=}" ;;
     --otp) OTP="${2:?--otp requires a value}"; shift ;;
-    --tag-otp=*) TAG_OTP="${1#--tag-otp=}" ;;
-    --tag-otp) TAG_OTP="${2:?--tag-otp requires a value}"; shift ;;
+    --trusted) TRUSTED="true" ;;
     *)
       echo "❌ Unknown argument: $1"
-      echo "   Usage: pnpm publish:beta [--otp=123456] [--tag-otp=654321] [--skip-build] [--dry-run]"
+      echo "   Usage: pnpm publish:beta [--otp=123456] [--skip-build] [--dry-run] [--trusted]"
       exit 1
       ;;
   esac
   shift
 done
+
+if [ "$TRUSTED" = "true" ] && [ -n "$OTP" ]; then
+  echo "❌ --trusted publishes with the workflow's OIDC credential; it takes no OTP."
+  exit 1
+fi
 
 VERSION=$(node -p "require('./packages/agent-core/package.json').version")
 echo "📦 Version: $VERSION"
@@ -91,12 +98,26 @@ if [ "$DRY_RUN" = "true" ]; then
   exit 0
 fi
 
-echo "🔐 Checking npm authentication..."
-if ! NPM_USER=$(npm whoami --registry "$REGISTRY" 2>/dev/null); then
-  echo "❌ Not logged in. Run: npm login --registry $REGISTRY"
-  exit 1
+if [ "$TRUSTED" = "true" ]; then
+  # A package npm has never seen cannot have a trusted publisher yet, so this run would fail on it
+  # after publishing the others. Refuse up front instead.
+  NEW=()
+  for NAME in "${PACKAGES[@]}"; do
+    npm view "$NAME" name --registry "$REGISTRY" >/dev/null 2>&1 || NEW+=("$NAME")
+  done
+  if [ "${#NEW[@]}" -gt 0 ]; then
+    echo "❌ Never published, so not trusted yet: ${NEW[*]}"
+    echo "   Publish them once locally with the owner OTP (pnpm publish:beta), configure trust, then rerun."
+    exit 1
+  fi
+else
+  echo "🔐 Checking npm authentication..."
+  if ! NPM_USER=$(npm whoami --registry "$REGISTRY" 2>/dev/null); then
+    echo "❌ Not logged in. Run: npm login --registry $REGISTRY"
+    exit 1
+  fi
+  echo "✓ npm user: $NPM_USER"
 fi
-echo "✓ npm user: $NPM_USER"
 
 echo "🚀 Publishing..."
 PUBLISH_ARGS=(publish --no-git-tag)
@@ -105,47 +126,11 @@ if [ -n "$OTP" ]; then
 fi
 pnpm changeset "${PUBLISH_ARGS[@]}"
 
-if [ -z "$TAG_OTP" ]; then
-  if [ -t 0 ]; then
-    read -rp "🔑 Enter a fresh npm OTP for the beta dist-tags: " TAG_OTP
-  else
-    TAG_OTP="$OTP"
-  fi
-fi
-if [ -z "$TAG_OTP" ]; then
-  echo "❌ An OTP is required for the beta dist-tag sync."
-  exit 1
-fi
-
-# Parallel so the whole sync fits in one OTP window.
-echo "🏷️  Syncing beta dist-tags..."
-PIDS=()
-for NAME in "${PACKAGES[@]}"; do
-  npm dist-tag add "$NAME@$VERSION" beta --otp "$TAG_OTP" --registry "$REGISTRY" >/dev/null 2>&1 &
-  PIDS+=("$!")
-done
-FAILED=()
-for INDEX in "${!PACKAGES[@]}"; do
-  wait "${PIDS[$INDEX]}" || FAILED+=("${PACKAGES[$INDEX]}")
-done
-if [ "${#FAILED[@]}" -gt 0 ]; then
-  echo "⚠️  dist-tag failed for: ${FAILED[*]}"
-  if [ ! -t 0 ]; then
-    echo "❌ Re-run with a fresh --tag-otp, or interactively."
-    exit 1
-  fi
-  read -rp "🔑 Enter a fresh npm OTP to retry: " TAG_OTP
-  for NAME in "${FAILED[@]}"; do
-    npm dist-tag add "$NAME@$VERSION" beta --otp "$TAG_OTP" --registry "$REGISTRY"
-  done
-fi
-
-echo "🔎 Verifying dist-tags..."
+echo "🔎 Verifying..."
 for NAME in "${PACKAGES[@]}"; do
   LATEST=$(npm view "$NAME" dist-tags.latest --registry "$REGISTRY")
-  BETA=$(npm view "$NAME" dist-tags.beta --registry "$REGISTRY")
-  if [ "$LATEST" != "$VERSION" ] || [ "$BETA" != "$VERSION" ]; then
-    echo "❌ $NAME: latest=$LATEST beta=$BETA expected=$VERSION"
+  if [ "$LATEST" != "$VERSION" ]; then
+    echo "❌ $NAME: latest=$LATEST expected=$VERSION"
     exit 1
   fi
 done
