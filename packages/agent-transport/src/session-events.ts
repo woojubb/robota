@@ -23,6 +23,7 @@ import type {
   IPromptResolvedEvent,
   IPlanApprovalEvent,
   ISessionRenamedEvent,
+  ISessionSwitchedEvent,
   IToolState,
   IUiIntentEvent,
 } from '@robota-sdk/agent-interface-session';
@@ -57,6 +58,7 @@ export const PROTOCOL_SESSION_EVENT_CLASSIFICATION = {
   ui_intent: 'requester-routed',
   session_renamed: 'forwarded',
   history_cleared: 'forwarded',
+  session_switched: 'forwarded',
 } as const satisfies Record<TInteractiveEventName, TProtocolSessionEventClassification>;
 
 /**
@@ -158,6 +160,9 @@ export function subscribeSessionEvents(
   const onSessionRenamed = (event: ISessionRenamedEvent): void =>
     deliver({ type: 'session_renamed', event });
   const onHistoryCleared = (): void => deliver({ type: 'history_cleared' });
+  // #3189: BROADCAST — the host made another session current; every attached surface re-reads.
+  const onSessionSwitched = (event: ISessionSwitchedEvent): void =>
+    deliver({ type: 'session_switched', event });
 
   session.on('user_message', onUserMessage);
   session.on('text_delta', onTextDelta);
@@ -182,6 +187,7 @@ export function subscribeSessionEvents(
   session.on('ui_intent', onUiIntent);
   session.on('session_renamed', onSessionRenamed);
   session.on('history_cleared', onHistoryCleared);
+  session.on('session_switched', onSessionSwitched);
 
   return (): void => {
     session.off('user_message', onUserMessage);
@@ -206,5 +212,6 @@ export function subscribeSessionEvents(
     session.off('ui_intent', onUiIntent);
     session.off('session_renamed', onSessionRenamed);
     session.off('history_cleared', onHistoryCleared);
+    session.off('session_switched', onSessionSwitched);
   };
 }

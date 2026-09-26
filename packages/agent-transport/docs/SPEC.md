@@ -24,9 +24,9 @@ transport implementations.
   selected on behalf of a caller.
 - Carriers supply `TOutboundDeliver` and an `IProtocolSession`, and decide each connection's role;
   no carrier implementation is registered inside this package. An observing connection reads only its own
-  session's conversation and state: it cannot submit, answer, control, or read another session's
-  records, and it never listens for prompts, so a session watched only by observers still fails its
-  prompts closed at once.
+  session's conversation and state, plus the host's list of sessions: it cannot submit, answer,
+  control, switch sessions, or read another session's records, and it never listens for prompts, so a
+  session watched only by observers still fails its prompts closed at once.
 - A file crosses only after the receiver accepts its offer, and is kept only when the whole content
   matches the offered size and hash; anything else is discarded. The receiver paces the sender, so
   neither side holds more than a bounded window whatever the channel buffers.
