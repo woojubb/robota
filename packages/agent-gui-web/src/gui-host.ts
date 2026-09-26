@@ -16,7 +16,7 @@ export type TGuiHostState = 'starting' | 'ready' | 'fatal';
 export interface IDesktopBridge {
   getEndpoint(): Promise<string | null>;
   signalReady(): void;
-  onState(listener: (state: TGuiHostState) => void): () => void;
+  onState(listener: (state: TGuiHostState, detail?: string) => void): () => void;
 }
 
 export interface IGuiHost {
@@ -25,7 +25,8 @@ export interface IGuiHost {
   getEndpoint(): Promise<string | null>;
   /** The session is live — the desktop host marks its sidecar ready. */
   signalReady(): void;
-  onState(listener: (state: TGuiHostState) => void): () => void;
+  /** `detail` accompanies `fatal`: what the sidecar said before it stopped, when it said anything. */
+  onState(listener: (state: TGuiHostState, detail?: string) => void): () => void;
 }
 
 export interface IGuiHostEnvironment {

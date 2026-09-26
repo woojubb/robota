@@ -15,8 +15,10 @@ const api = {
   /** Tell the main process the session is live (drives the supervisor's `ready`). */
   signalReady: (): void => ipcRenderer.send('agent-gui:ready'),
   /** Subscribe to sidecar lifecycle state (`starting`/`ready`/`fatal`). Returns an unsubscribe fn. */
-  onState: (cb: (state: TSidecarState) => void): (() => void) => {
-    const listener = (_e: IpcRendererEvent, state: TSidecarState): void => cb(state);
+  /** `detail` accompanies `fatal`: the tail of what the sidecar said before it stopped. */
+  onState: (cb: (state: TSidecarState, detail?: string) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, state: TSidecarState, detail?: string): void =>
+      cb(state, detail);
     ipcRenderer.on('agent-gui:state', listener);
     return () => ipcRenderer.removeListener('agent-gui:state', listener);
   },

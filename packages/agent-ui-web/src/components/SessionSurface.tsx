@@ -142,13 +142,13 @@ export function CenteredChrome({
         </span>
       </header>
       <div className="flex flex-1 items-center justify-center">
-        <p
-          className={`max-w-[300px] px-8 text-center font-mono text-xs leading-relaxed ${
+        <div
+          className={`max-w-[560px] px-8 text-center font-mono text-xs leading-relaxed ${
             tone === 'fatal' ? 'text-rose-300/80' : 'text-muted-foreground'
           }`}
         >
           {children}
-        </p>
+        </div>
       </div>
     </div>
   );
