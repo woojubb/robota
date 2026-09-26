@@ -14,7 +14,8 @@
  * adjacent epochs, and yields the answering address with the advertised port. That is a candidate
  * only: anyone on the network can answer too, and gains nothing, because the peer is admitted by the
  * device handshake or not at all. Since anyone can answer, a lookup does not stop at the first match:
- * it keeps listening a little longer, so an early answer cannot stand in for the peer's own.
+ * it keeps listening a little longer, and takes only a few answers from any one address, so neither
+ * an early answer nor many answers from one host can stand in for the peer's own.
  */
 import { createRequire } from 'node:module';
 import { networkInterfaces } from 'node:os';
@@ -35,6 +36,8 @@ const DEFAULT_LOOKUP_TIMEOUT_MS = 1_000;
 const DEFAULT_ANSWER_GRACE_MS = 200;
 /** Candidates one lookup yields. */
 const MAX_LOOKUP_CANDIDATES = 8;
+/** Candidates one lookup takes from one answering address. */
+const MAX_CANDIDATES_PER_ADDRESS = 2;
 /** Answers go out at most this often; queries in between share the next one (RFC 6762 §6). */
 const DEFAULT_MIN_ANSWER_INTERVAL_MS = 500;
 
@@ -309,9 +312,12 @@ export class MeshMdns implements IMeshCandidateSource {
             continue;
           }
           // The address the answer came from: the peer's own records could name any address.
+          // No one address takes more than a few of the places, so one host cannot fill them all.
+          const fromAddress = found.filter((c) => c.host === rinfo.address);
           if (
             found.length < MAX_LOOKUP_CANDIDATES &&
-            !found.some((c) => c.host === rinfo.address && c.port === port)
+            fromAddress.length < MAX_CANDIDATES_PER_ADDRESS &&
+            !fromAddress.some((c) => c.port === port)
           ) {
             found.push({ host: rinfo.address, port });
           }

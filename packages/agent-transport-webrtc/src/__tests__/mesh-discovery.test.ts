@@ -254,13 +254,24 @@ describe('mDNS lookup', () => {
     };
     const other = bus.transport('10.0.0.66');
     cleanups.push(() => other.destroy());
-    other.on('query', () => other.respond(replay));
+    // Answering again and again, each time with another port, does not fill the lookup either.
+    other.on('query', () => {
+      for (let port = 9000; port < 9010; port += 1) {
+        other.respond({
+          ...replay,
+          additionals: replay.additionals.map((r) =>
+            r.type === 'SRV' ? { ...r, data: { ...(r.data as object), port } } : r,
+          ),
+        });
+      }
+    });
 
     const found = await lookup(
       mdnsOn(bus, '10.0.0.2', () => NOW, 1_000),
       await routeOf(world.high, world.low),
     );
     expect(found).toContainEqual({ host: '10.0.0.1', port: 4242 });
+    expect(found.filter((c) => c.host === '10.0.0.66').length).toBeLessThanOrEqual(2);
   });
 });
 
