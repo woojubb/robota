@@ -6,4 +6,9 @@ export {
   decodeServerMessage,
 } from './message-decoders.js';
 export type { TMessageDecodeResult } from './message-decoders.js';
-export type { TClientMessage, TServerMessage, TSeqServerMessage } from './wire-messages.js';
+export type {
+  IWireHistoryEntry,
+  TClientMessage,
+  TServerMessage,
+  TSeqServerMessage,
+} from './wire-messages.js';

@@ -67,6 +67,15 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
                              Asks for confirmation; use --yes to skip
   --yes                      Skip confirmation prompts (required for --reset in non-TTY)
   --serve --open             Serve the web monitor over localhost and open it in a browser
+  --attach [--screen-reader|--no-screen-reader]
+                             Open the full terminal UI on this workspace's running daemon
+                             (robota daemon start) instead of starting a session: its
+                             conversation, prompts and sessions, alongside its other clients.
+                             Takes no session option; the daemon's session is the daemon's.
+                             It needs an interactive terminal and your confirmation, so only
+                             the user can run it; a script or agent should suggest it, or
+                             connect to the URL robota daemon start --json prints. Detaching
+                             keeps the daemon running; exits 0 after detaching, 1 otherwise
   --http-token-file <path>   With mcp serve, bind authenticated loopback HTTP and write the
                              bearer to a new owner-only absolute-path file
   --http-port <port>         With mcp serve HTTP, use this port (default: OS-assigned)

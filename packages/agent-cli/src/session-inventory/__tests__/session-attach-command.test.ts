@@ -58,7 +58,7 @@ async function withTarget(prefix: string, run: (target: ITarget) => Promise<void
   const session = new InteractiveSession({ session: runtime() as never, cwd: '/tmp' });
   const start = (): Promise<ISupervisedControl> => startSupervisedControl(
     ID, () => undefined, root, () => session.getLocalActivityStatus(), undefined, undefined,
-    () => 'Morning review', undefined, undefined, undefined, session,
+    () => 'Morning review', undefined, undefined, undefined, { session },
   );
   let control = await start();
   try {

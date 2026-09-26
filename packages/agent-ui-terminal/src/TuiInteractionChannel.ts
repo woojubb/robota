@@ -16,6 +16,7 @@ import { AttentionCoordinator } from './attention/attention-coordinator.js';
 import { MS_PER_SECOND } from './attention/time-units.js';
 import { createSessionInitPoller } from './flows/session-init-poller.js';
 import { applySystemCommandResult } from './hooks/command-result-handler.js';
+import { parseSlashCommandInput } from './slash-command-input.js';
 import {
   TuiChannelLifecycleCoordinator,
   TuiChannelStartRollbackError,
@@ -407,9 +408,7 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
   }
 
   private async handleSlashCommand(input: string): Promise<void> {
-    const parts = input.slice(1).split(/\s+/);
-    const cmd = parts[0]?.toLowerCase() ?? '';
-    const args = parts.slice(1).join(' ');
+    const { name: cmd, args } = parseSlashCommandInput(input);
 
     const result = await this.interactiveSession.executeCommand(cmd, args);
     if (result) {

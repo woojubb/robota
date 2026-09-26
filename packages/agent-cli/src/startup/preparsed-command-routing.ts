@@ -24,6 +24,11 @@ import { formatExternalEventGrantRows } from '../external-events/external-event-
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
 import { runSessionViewCommand } from '../session-inventory/session-view-command.js';
 import { runDaemonCommand } from '../session-inventory/daemon-command.js';
+import {
+  isDaemonAttachInvocation,
+  runDaemonAttachCommand,
+} from '../session-inventory/daemon-attach-command.js';
+import { createAttachedAppRender, type IAttachedAppPresentation } from './attached-app-render.js';
 import { runSessionAttachCommand } from '../session-inventory/session-attach-command.js';
 import type { ISessionAttachCommandOptions } from '../session-inventory/session-attach-command.js';
 import type { ISessionViewCommandOptions } from '../session-inventory/session-view-command.js';
@@ -154,6 +159,7 @@ export async function runPreparsedCliCommand(
   telemetryEnvironment: Readonly<Record<string, string>> = {},
   renderSessionView?: ISessionViewCommandOptions['render'],
   renderAttachedView?: ISessionAttachCommandOptions['render'],
+  attachedAppPresentation?: IAttachedAppPresentation,
 ): Promise<boolean> {
   // The Robota telemetry settings were removed from process.env at startup; the supervised runtime is
   // the one child that receives them, through its explicit spawn environment.
@@ -173,6 +179,26 @@ export async function runPreparsedCliCommand(
       argv.slice(ACTION_INDEX),
       argv[SUBCOMMAND_INDEX],
     );
+    return true;
+  }
+  // `robota --attach`: the full TUI on this workspace's daemon. Its only flags are presentation
+  // flags, so the strict global parser, which knows the session-shaping ones, never sees it.
+  if (isDaemonAttachInvocation(argv.slice(SUBCOMMAND_INDEX))) {
+    process.exitCode = await runDaemonAttachCommand(argv.slice(SUBCOMMAND_INDEX), {
+      cwd,
+      ...(attachedAppPresentation === undefined
+        ? {}
+        : {
+            render: createAttachedAppRender(attachedAppPresentation, {
+              cwd,
+              projectAccess: await resolveInitialCliWorkspaceProjectAccess(cwd, options),
+              ...(options.providerDefinitions !== undefined
+                ? { providerDefinitions: options.providerDefinitions }
+                : {}),
+              ...(options.safeMode === true ? { safeMode: true } : {}),
+            }),
+          }),
+    });
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'stop') {

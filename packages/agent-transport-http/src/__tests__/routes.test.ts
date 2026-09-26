@@ -121,13 +121,13 @@ describe('HTTP Transport Routes', () => {
     const { session: full, startedTurns } = createHonestSession();
     const {
       submit, on, off, abort, cancelQueue, getSession, executeCommand, listCommands, listSkills,
-      getMessages, getContextState, isExecuting, getPendingPrompt, getPendingCount,
+      getMessages, getFullHistory, getContextState, isExecuting, getPendingPrompt, getPendingCount,
     } = full;
     const port: IHttpTransportSession = {
       submit, on, off, abort, cancelQueue, getSession, executeCommand, listCommands, listSkills,
-      getMessages, getContextState, isExecuting, getPendingPrompt, getPendingCount,
+      getMessages, getFullHistory, getContextState, isExecuting, getPendingPrompt, getPendingCount,
     };
-    expect(Object.keys(port)).toHaveLength(14);
+    expect(Object.keys(port)).toHaveLength(15);
     const transport = createHttpTransport({
       admission: { open: true, openReason: 'least-authority HTTP port scenario' },
     });
