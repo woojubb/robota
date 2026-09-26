@@ -215,7 +215,6 @@ describe('SCREEN-006 palette consistency floor', () => {
         (line) =>
           RAW_RENDERER_SPECIFIER.test(line) && !/^\s*(?:import|export)\s+type\b/u.test(line),
       );
-  const RAW_RENDERER_IMPORT = /(?<!import type )(?:from|import\()\s*'[^']*render-markdown\.js'/u;
 
   it('SCREEN-2002: AppView feeds the theme provider all three resolved inputs', () => {
     const element = themeProviderElement(readFileSync(join(SRC_ROOT, 'AppView.tsx'), 'utf8'));

@@ -12,7 +12,6 @@ import { resolveWorkspaceRoot } from './shared.mjs';
 
 const WORKSPACE_ROOT = resolveWorkspaceRoot(import.meta, { fromCwd: true });
 const SDK_PACKAGE_JSON = 'packages/agent-framework/package.json';
-const SDK_PACKAGE_DIR = path.posix.dirname(SDK_PACKAGE_JSON);
 const SDK_SRC_DIR = 'packages/agent-framework/src';
 /**
  * Files permitted to re-export `agent-executor` symbols, with the REAL reason each is here.

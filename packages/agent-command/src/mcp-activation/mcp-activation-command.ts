@@ -259,7 +259,10 @@ function browserConfirmer(
 ): ICommandMCPOAuthLoginRequest['confirmBrowser'] {
   const ui = context.getUserInteraction();
   if (ui === undefined) return undefined;
-  return async (prompt) => {
+  return async (prompt, signal) => {
+    // The ask port cannot withdraw a question, so a sign-in that has already ended is not asked
+    // about, and an answer that arrives after it ended never opens a browser for it.
+    if (signal.aborted) return 'cancel';
     loginPrompts += 1;
     const answer = await ui.ask({
       id: `mcp-login-browser-${loginPrompts}`,
@@ -275,7 +278,7 @@ function browserConfirmer(
       maxSelect: 1,
       default: { values: ['open'] },
     });
-    if (answer.type !== 'answer') return 'cancel';
+    if (answer.type !== 'answer' || signal.aborted) return 'cancel';
     const choice = answer.values[0];
     return choice === 'open' || choice === 'paste' ? choice : 'cancel';
   };
@@ -288,7 +291,9 @@ function redirectReader(
 ): ICommandMCPOAuthLoginRequest['readRedirect'] {
   const ui = context.getUserInteraction();
   if (ui === undefined) return undefined;
-  return async (prompt) => {
+  return async (prompt, signal) => {
+    // A sign-in that has already ended (cancelled or timed out) does not ask for a paste.
+    signal.throwIfAborted();
     loginPrompts += 1;
     const answer = await ui.ask({
       id: `mcp-login-redirect-${loginPrompts}`,

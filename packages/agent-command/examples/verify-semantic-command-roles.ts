@@ -2,7 +2,6 @@ import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { FunctionTool } from '@robota-sdk/agent-core';
 import {
   InteractiveSession,

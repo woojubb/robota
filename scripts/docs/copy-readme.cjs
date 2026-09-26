@@ -83,7 +83,6 @@ function cleanupReadmeFiles() {
 
   // DISABLED: Do not remove README.md files
   for (const packageName of packages) {
-    const readmePath = path.join(PACKAGES_DIR, packageName, 'README.md');
     console.log(`ℹ️  Preserved README.md in packages/${packageName}`);
   }
 
