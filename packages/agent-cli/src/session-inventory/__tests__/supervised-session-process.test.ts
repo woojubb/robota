@@ -118,7 +118,7 @@ describe('detached supervised runtime', () => {
         onSpawn: (spawned) => { child = spawned; },
       });
       await expect(start).rejects.toThrow(`Supervised session control socket path is too long under ${root}`);
-      await expect(start).rejects.toThrow(/shorter HOME|XDG_RUNTIME_DIR/u);
+      await expect(start).rejects.toThrow('Use a shorter HOME, or set XDG_RUNTIME_DIR to a short private directory');
       expect(child?.exitCode !== null || child?.signalCode !== null).toBe(true);
     } finally {
       rmSync(scratch, { recursive: true, force: true });
