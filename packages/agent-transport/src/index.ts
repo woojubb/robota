@@ -52,6 +52,8 @@ export type {
   TOutboundDeliver,
 } from './outbound-delivery.js';
 export { PROTOCOL_SESSION_EVENT_CLASSIFICATION } from './session-events.js';
+// The one list of messages an observer may send: the host refuses the rest, a client sends no others.
+export { isObserverMessageType } from './observer-messages.js';
 export type { TProtocolSessionEventClassification } from './session-events.js';
 export type { IProtocolSession } from './protocol-session.js';
 export type {

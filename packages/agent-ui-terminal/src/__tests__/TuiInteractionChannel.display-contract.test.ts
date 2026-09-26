@@ -42,8 +42,7 @@ vi.mock('@robota-sdk/agent-framework', async () => {
         getPendingPrompt: vi.fn().mockReturnValue(null),
         abort: vi.fn(),
         cancelQueue: vi.fn(),
-        listSelfPacedLoops: vi.fn().mockReturnValue([]),
-        stopSelfPacedLoop: vi.fn().mockResolvedValue(undefined),
+        stopWaitingSelfPacedLoop: vi.fn().mockResolvedValue({ kind: 'none' }),
         getContextState: vi.fn().mockReturnValue({
           usedPercentage: 0,
           usedTokens: 0,
@@ -81,8 +80,7 @@ import type { IExecutionResult } from '@robota-sdk/agent-interface-session';
 
 type MockSession = {
   getFullHistory: ReturnType<typeof vi.fn>;
-  listSelfPacedLoops: ReturnType<typeof vi.fn>;
-  stopSelfPacedLoop: ReturnType<typeof vi.fn>;
+  stopWaitingSelfPacedLoop: ReturnType<typeof vi.fn>;
   on: ReturnType<typeof vi.fn>;
   emit: (event: string, ...args: unknown[]) => void;
 };
@@ -139,40 +137,44 @@ afterEach(() => {
 // ── Group D: display contract (what the user sees) ────────────────────────────
 
 describe('Group D — display contract: history entries and active tools', () => {
-  it('keeps automatic naming text-only when an external event starts the session', async () => {
+  it('leaves naming to the session: a first prompt asks the provider for no name', async () => {
     const chat = vi.fn().mockResolvedValue({ role: 'assistant', content: 'Event summary' });
     const channel = makeChannel({ chat } as unknown as IAIProvider);
     await channel.start();
 
     emitSessionEvent(channel, 'turn_source', 'external');
     emitSessionEvent(channel, 'user_message', 'external event');
+    await vi.runOnlyPendingTimersAsync();
 
-    expect(chat).toHaveBeenCalledTimes(1);
-    expect(chat.mock.calls[0]?.[1]?.toolChoice).toBe('none');
+    expect(chat).not.toHaveBeenCalled();
+    expect(channel.sessionName).toBeUndefined();
     await channel.stop();
   });
 
-  it('Esc stops the only waiting self-paced loop without aborting the session', async () => {
+  it('Esc asks the session to stop its waiting loop and shows what it did', async () => {
     const channel = makeChannel();
     const session = getMockSession(channel);
-    session.listSelfPacedLoops.mockReturnValue([{ loopId: 'loop_one', phase: 'waiting' }]);
+    session.stopWaitingSelfPacedLoop.mockResolvedValue({ kind: 'stopped', loopId: 'loop_one' });
     await channel.stopWaitingSelfPacedLoop();
-    expect(session.stopSelfPacedLoop).toHaveBeenCalledWith('loop_one', 'Loop stopped by Esc');
-    expect(channel.stateManager.history.some((entry) =>
-      JSON.stringify(entry).includes('loop_one'))).toBe(true);
+    expect(session.stopWaitingSelfPacedLoop).toHaveBeenCalledWith('Loop stopped by Esc');
+    expect(channel.stateManager.history.at(-1)?.data).toMatchObject({
+      content: 'Loop loop_one stopped by Esc.',
+    });
   });
 
-  it('Esc does not guess which loop to stop when several are waiting', async () => {
+  it('Esc shows the session\'s word when several loops wait, and nothing when none does', async () => {
     const channel = makeChannel();
     const session = getMockSession(channel);
-    session.listSelfPacedLoops.mockReturnValue([
-      { loopId: 'loop_one', phase: 'waiting' },
-      { loopId: 'loop_two', phase: 'waiting' },
-    ]);
     await channel.stopWaitingSelfPacedLoop();
-    expect(session.stopSelfPacedLoop).not.toHaveBeenCalled();
-    expect(channel.stateManager.history.some((entry) =>
-      JSON.stringify(entry).includes('/loop stop'))).toBe(true);
+    expect(channel.stateManager.history).toHaveLength(0);
+    session.stopWaitingSelfPacedLoop.mockResolvedValue({
+      kind: 'several',
+      message: 'Several self-paced loops are waiting. Use /loop list and /loop stop <id> to choose one.',
+    });
+    await channel.stopWaitingSelfPacedLoop();
+    expect(channel.stateManager.history.at(-1)?.data).toMatchObject({
+      content: expect.stringContaining('/loop stop'),
+    });
   });
 
   it('D1 (CLI-B05): user_message event immediately adds role=user entry before complete', async () => {

@@ -47,6 +47,14 @@ describe('StatusBar', () => {
     }
   });
 
+  it('says an observing terminal is read only, and nothing of the kind otherwise', () => {
+    const observing = render(<StatusBar {...baseProps} readOnly />);
+    expect(observing.lastFrame()).toContain('Observing — read only');
+    observing.unmount();
+    const driving = render(<StatusBar {...baseProps} />);
+    expect(driving.lastFrame()).not.toContain('Observing');
+  });
+
   it('renders session name when provided', () => {
     const { lastFrame } = render(<StatusBar {...baseProps} sessionName="my-feature" />);
     const frame = lastFrame()!;

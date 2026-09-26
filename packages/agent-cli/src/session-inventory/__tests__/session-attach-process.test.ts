@@ -38,7 +38,7 @@ describe('attach to a detached supervised runtime from the CLI command', () => {
         return 'user';
       };
       expect(await runSessionAttachCommand([id], {
-        isTTY: true, settings: {}, env: {}, root, confirm: async () => true, render: first,
+        isTTY: true, root, confirm: async () => true, render: first,
       })).toBe(0);
       expect(await listSupervisedSessions(root)).toEqual([
         expect.objectContaining({ id, liveness: 'alive', control: 'available' }),
@@ -57,7 +57,7 @@ describe('attach to a detached supervised runtime from the CLI command', () => {
         return 'user';
       };
       expect(await runSessionAttachCommand([id, '--observe'], {
-        isTTY: true, settings: {}, env: {}, root, confirm: async () => true, render: again,
+        isTTY: true, root, confirm: async () => true, render: again,
       })).toBe(0);
       await stopSupervisedSession(id, root);
       id = undefined;

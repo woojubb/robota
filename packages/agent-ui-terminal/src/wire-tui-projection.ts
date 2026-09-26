@@ -10,6 +10,7 @@ import type {
   ICommand,
   ICommandListEntry,
   ICommandSkillListEntry,
+  ICommandSubcommandEntry,
 } from '@robota-sdk/agent-interface-command';
 import type { IWireHistoryEntry } from '@robota-sdk/agent-transport/client';
 
@@ -74,6 +75,17 @@ export function toHistoryEntries(
   });
 }
 
+/** A subcommand as the `/` menu offers it after its command's name. */
+function toSubcommand(subcommand: ICommandSubcommandEntry): ICommand {
+  return {
+    name: subcommand.name,
+    description: subcommand.description,
+    source: 'builtin',
+    ...(subcommand.displayName !== undefined ? { displayName: subcommand.displayName } : {}),
+    ...(subcommand.argumentHint !== undefined ? { argumentHint: subcommand.argumentHint } : {}),
+  };
+}
+
 /** What the `/` menu offers: the host's commands, then the skills a user may invoke. */
 export function toCommandCatalog(
   commands: readonly ICommandListEntry[],
@@ -87,6 +99,10 @@ export function toCommandCatalog(
       modelInvocable: command.modelInvocable,
       ...(command.displayName !== undefined ? { displayName: command.displayName } : {}),
       ...(command.example !== undefined ? { example: command.example } : {}),
+      ...(command.argumentHint !== undefined ? { argumentHint: command.argumentHint } : {}),
+      ...(command.subcommands !== undefined && command.subcommands.length > 0
+        ? { subcommands: command.subcommands.map(toSubcommand) }
+        : {}),
     })),
     ...skills
       .filter((skill) => skill.userInvocable)
@@ -101,6 +117,15 @@ export function toCommandCatalog(
         ...(skill.agent !== undefined ? { agent: skill.agent } : {}),
       })),
   ];
+}
+
+/** A command's subcommands, found by name as the in-process command registry finds them. */
+export function findSubcommands(catalog: readonly ICommand[], commandName: string): ICommand[] {
+  const lower = commandName.toLowerCase();
+  const command = catalog.find(
+    (entry) => entry.name.toLowerCase() === lower && entry.subcommands !== undefined,
+  );
+  return command?.subcommands ?? [];
 }
 
 /** The same prefix match the in-process command registry applies. */

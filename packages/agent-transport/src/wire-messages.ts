@@ -10,6 +10,8 @@ import type {
 } from '@robota-sdk/agent-interface-command';
 import type {
   IBackgroundJobGroupState,
+  IExecutionDetailCursor,
+  IExecutionDetailPage,
   IExecutionWorkspaceSnapshot,
   TBackgroundJobGroupEvent,
 } from '@robota-sdk/agent-interface-execution';
@@ -37,6 +39,7 @@ import type {
   TSessionChangeRefusalCode,
   IUiIntentEvent,
   TPermissionResultValue,
+  TWaitingLoopStopOutcome,
 } from '@robota-sdk/agent-interface-session';
 import type {
   ISessionConversationRead,
@@ -103,6 +106,16 @@ export type TClientMessage =
   | { type: 'get-executing' }
   | { type: 'get-pending' }
   | { type: 'get-execution-workspace' }
+  // One page of what a workspace entry recorded, from `cursor` (the previous page's `nextCursor`).
+  // Answered by `execution_detail` or `execution_detail_error` with the same `requestId`.
+  | {
+      type: 'read-execution-detail';
+      requestId: string;
+      entryId: string;
+      cursor?: IExecutionDetailCursor;
+    }
+  // Stop the self-paced loop that is waiting for its next wake; answered by `waiting_loop_stop`.
+  | { type: 'stop-waiting-loop'; requestId: string }
   | { type: 'get-background-tasks'; filter?: IBackgroundTaskListFilter }
   | { type: 'get-background-task'; taskId: string }
   | { type: 'get-background-job-groups' }
@@ -154,6 +167,7 @@ export type TServerMessage =
   // #3189: where the turn now starting came from (the user, a wake-up, a peer, an external event).
   | { type: 'turn_source'; source: TTurnSource }
   | { type: 'commands'; commands: ICommandListEntry[]; skills: ICommandSkillListEntry[] }
+  // Sent in reply to `get-status`, and pushed whenever the session's status changes.
   | { type: 'session_status'; status: ISessionStatusSnapshot }
   | { type: 'sessions'; requestId: string; listing: ISessionListing }
   | {
@@ -201,6 +215,9 @@ export type TServerMessage =
   // the host has taken the prompt (queued it behind a running turn, or run it).
   | { type: 'pending'; pending: string | null; pendingCount?: number }
   | { type: 'execution_workspace_event'; snapshot: IExecutionWorkspaceSnapshot }
+  | { type: 'execution_detail'; requestId: string; page: IExecutionDetailPage }
+  | { type: 'execution_detail_error'; requestId: string; message: string }
+  | { type: 'waiting_loop_stop'; requestId: string; outcome: TWaitingLoopStopOutcome }
   | { type: 'background_task_event'; event: TBackgroundTaskEvent }
   | { type: 'background_job_group_event'; event: TBackgroundJobGroupEvent }
   | { type: 'plan_event'; event: IPlanApprovalEvent }

@@ -42,6 +42,34 @@ describe('toCommandListEntry: runner and surfaces', () => {
   });
 });
 
+/** #3189: an attached client completes arguments and subcommands from the catalog alone. */
+describe('toCommandListEntry: argument hint and subcommands', () => {
+  it('carries the argument hint and each subcommand a command declares', () => {
+    const entry = toCommandListEntry({
+      name: 'loop',
+      description: 'Run a prompt on an interval',
+      argumentHint: '[interval] <prompt>',
+      subcommands: [
+        { name: 'list', description: 'List loops' },
+        { name: 'stop', displayName: 'Stop', description: 'Stop a loop', argumentHint: '<id>' },
+      ],
+    });
+
+    expect(entry.argumentHint).toBe('[interval] <prompt>');
+    expect(entry.subcommands).toEqual([
+      { name: 'list', description: 'List loops' },
+      { name: 'stop', displayName: 'Stop', description: 'Stop a loop', argumentHint: '<id>' },
+    ]);
+  });
+
+  it('leaves both absent when the command declares neither', () => {
+    const entry = toCommandListEntry({ name: 'compact', description: 'Compact the context' });
+
+    expect(entry).not.toHaveProperty('argumentHint');
+    expect(entry).not.toHaveProperty('subcommands');
+  });
+});
+
 describe('SessionSkillRouter.listCommands: the runner a system command declares reaches the catalog', () => {
   function makeCommand(name: string, extra: Partial<ISystemCommand> = {}): ISystemCommand {
     return {
@@ -82,5 +110,22 @@ describe('SessionSkillRouter.listCommands: the runner a system command declares 
     expect(byName.get('editor')).toMatchObject({ runner: 'client', surfaces: ['terminal'] });
     expect(byName.get('compact')?.runner).toBe('runtime');
     expect(byName.get('compact')).not.toHaveProperty('surfaces');
+  });
+
+  it("lists a system command's subcommands without their execution parts", () => {
+    const router = makeRouter([
+      makeCommand('mode', {
+        argumentHint: '<mode>',
+        subcommands: [
+          { name: 'plan', description: 'Plan mode', source: 'builtin', modelInvocable: true },
+        ],
+      }),
+    ]);
+
+    expect(router.listCommands()[0]).toMatchObject({
+      argumentHint: '<mode>',
+      subcommands: [{ name: 'plan', description: 'Plan mode' }],
+    });
+    expect(router.listCommands()[0]?.subcommands?.[0]).not.toHaveProperty('source');
   });
 });

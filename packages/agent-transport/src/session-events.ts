@@ -30,6 +30,7 @@ import type {
   IPromptResolvedEvent,
   IPlanApprovalEvent,
   ISessionRenamedEvent,
+  ISessionStatusSnapshot,
   ISessionSwitchedEvent,
   IToolState,
   IUiIntentEvent,
@@ -66,6 +67,7 @@ export const PROTOCOL_SESSION_EVENT_CLASSIFICATION = {
   session_renamed: 'forwarded',
   history_cleared: 'forwarded',
   session_switched: 'forwarded',
+  status_changed: 'forwarded',
 } as const satisfies Record<TInteractiveEventName, TProtocolSessionEventClassification>;
 
 /**
@@ -195,6 +197,10 @@ export function subscribeSessionEvents(
     deliver({ type: 'context', state });
   const onHistoryChanged = (): void => deliver({ type: 'history_changed' });
   const onTurnSource = (source: TTurnSource): void => deliver({ type: 'turn_source', source });
+  // One client's `/mode` or `/model` shows on every client on this session, in the frame
+  // `get-status` answers with.
+  const onStatusChanged = (status: ISessionStatusSnapshot): void =>
+    deliver({ type: 'session_status', status });
 
   session.on('user_message', onUserMessage);
   session.on('text_delta', onTextDelta);
@@ -224,6 +230,7 @@ export function subscribeSessionEvents(
   session.on('skill_activation', onHistoryChanged);
   session.on('memory_event', onHistoryChanged);
   session.on('turn_source', onTurnSource);
+  session.on('status_changed', onStatusChanged);
 
   return (): void => {
     session.off('user_message', onUserMessage);
@@ -254,6 +261,7 @@ export function subscribeSessionEvents(
     session.off('skill_activation', onHistoryChanged);
     session.off('memory_event', onHistoryChanged);
     session.off('turn_source', onTurnSource);
+    session.off('status_changed', onStatusChanged);
     openPrompts?.release();
   };
 }

@@ -189,6 +189,7 @@ describe('robota --attach', () => {
           expect(options.driverId).toBe('attach:1');
           expect(options.sessionLabel).toBe('Main daemon');
           expect(options.screenReaderFlag).toBe(true);
+          expect(options.mode).toBe('drive');
           const frames: TServerMessage[] = [];
           options.connection.subscribe((message) => frames.push(message));
           options.connection.send({ type: 'get-executing' });
@@ -263,7 +264,6 @@ describe('robota --attach routing', () => {
       ['node', 'robota', ...argv],
       scratch,
       {},
-      undefined,
       undefined,
       withPresentation ? presentation : undefined,
     );

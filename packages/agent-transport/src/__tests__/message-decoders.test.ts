@@ -46,6 +46,13 @@ const CLIENT_SAMPLES: Readonly<Record<TClientMessage['type'], TClientMessage>> =
   'get-executing': { type: 'get-executing' },
   'get-pending': { type: 'get-pending' },
   'get-execution-workspace': { type: 'get-execution-workspace' },
+  'read-execution-detail': {
+    type: 'read-execution-detail',
+    requestId: 'detail-1',
+    entryId: 'main',
+    cursor: { offset: 20 },
+  },
+  'stop-waiting-loop': { type: 'stop-waiting-loop', requestId: 'loop-1' },
   'get-background-tasks': {
     type: 'get-background-tasks',
     filter: { kind: 'agent', includeClosed: true },
@@ -146,6 +153,21 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
   executing: { type: 'executing', executing: false },
   pending: { type: 'pending', pending: null, pendingCount: 0 },
   execution_workspace_event: { type: 'execution_workspace_event', snapshot: {} as never },
+  execution_detail: {
+    type: 'execution_detail',
+    requestId: 'detail-1',
+    page: { entryId: 'main', records: [], nextCursor: { offset: 20 } },
+  },
+  execution_detail_error: {
+    type: 'execution_detail_error',
+    requestId: 'detail-1',
+    message: 'Unknown entry: main',
+  },
+  waiting_loop_stop: {
+    type: 'waiting_loop_stop',
+    requestId: 'loop-1',
+    outcome: { kind: 'stopped', loopId: 'loop-a', message: 'Stopped loop-a.' },
+  },
   background_task_event: { type: 'background_task_event', event: {} as never },
   background_job_group_event: { type: 'background_job_group_event', event: {} as never },
   plan_event: { type: 'plan_event', event: {} as never },
@@ -226,6 +248,21 @@ const MALFORMED_CLIENT: ReadonlyArray<[string, unknown]> = [
     { type: 'switch-session', sessionId: 's', requestId: 1 },
   ],
   ['new-session with an empty requestId', { type: 'new-session', requestId: '' }],
+  ['read-execution-detail without requestId', { type: 'read-execution-detail', entryId: 'main' }],
+  [
+    'read-execution-detail with an empty entryId',
+    { type: 'read-execution-detail', requestId: 'r', entryId: '' },
+  ],
+  [
+    'read-execution-detail with a negative offset',
+    { type: 'read-execution-detail', requestId: 'r', entryId: 'main', cursor: { offset: -1 } },
+  ],
+  [
+    'read-execution-detail with a string offset',
+    { type: 'read-execution-detail', requestId: 'r', entryId: 'main', cursor: { offset: '2' } },
+  ],
+  ['stop-waiting-loop without requestId', { type: 'stop-waiting-loop' }],
+  ['stop-waiting-loop with an empty requestId', { type: 'stop-waiting-loop', requestId: '' }],
 ];
 
 const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
@@ -289,6 +326,35 @@ const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
   ],
   ['turn_source with an unknown source', { type: 'turn_source', source: 'robot' }],
   ['turn_source without source', { type: 'turn_source' }],
+  ['execution_detail without page', { type: 'execution_detail', requestId: 'r' }],
+  ['execution_detail with an array page', { type: 'execution_detail', requestId: 'r', page: [] }],
+  ['execution_detail without requestId', { type: 'execution_detail', page: {} }],
+  ['execution_detail_error without message', { type: 'execution_detail_error', requestId: 'r' }],
+  ['waiting_loop_stop without outcome', { type: 'waiting_loop_stop', requestId: 'r' }],
+  [
+    'waiting_loop_stop with an unknown kind',
+    { type: 'waiting_loop_stop', requestId: 'r', outcome: { kind: 'paused' } },
+  ],
+  [
+    'waiting_loop_stop stopped without loopId',
+    { type: 'waiting_loop_stop', requestId: 'r', outcome: { kind: 'stopped' } },
+  ],
+  [
+    'waiting_loop_stop several without message',
+    { type: 'waiting_loop_stop', requestId: 'r', outcome: { kind: 'several' } },
+  ],
+  [
+    'waiting_loop_stop failed with a numeric loopId',
+    {
+      type: 'waiting_loop_stop',
+      requestId: 'r',
+      outcome: { kind: 'failed', loopId: 1, message: 'm' },
+    },
+  ],
+  [
+    'waiting_loop_stop with a prototype-only kind',
+    { type: 'waiting_loop_stop', requestId: 'r', outcome: { kind: 'toString' } },
+  ],
 ];
 
 describe('decodeClientMessage (issue #2045)', () => {
@@ -332,6 +398,20 @@ describe('decodeServerMessage (issue #2045)', () => {
   it('accepts every refusal code the session contracts declare, and a refusal without requestId', () => {
     for (const code of SESSION_CHANGE_REFUSAL_CODES) {
       expect(decodeServerMessage({ type: 'session_change_failed', code, message: 'm' }).ok).toBe(
+        true,
+      );
+    }
+  });
+
+  it('accepts every waiting-loop stop outcome', () => {
+    for (const outcome of [
+      { kind: 'none' },
+      { kind: 'several', message: 'Use /loop stop <id>.' },
+      { kind: 'stopped', loopId: 'loop-a' },
+      { kind: 'failed', message: 'store unavailable' },
+      { kind: 'failed', loopId: 'loop-a', message: 'store unavailable' },
+    ]) {
+      expect(decodeServerMessage({ type: 'waiting_loop_stop', requestId: 'r', outcome }).ok).toBe(
         true,
       );
     }

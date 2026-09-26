@@ -40,6 +40,10 @@ export const SERVER_MESSAGE_HANDLING = {
   executing: 'intentionally-not-rendered',
   pending: 'intentionally-not-rendered',
   execution_workspace_event: 'reducer-state',
+  // #3189: replies to requests only a terminal client sends (a detail page, Esc's loop stop).
+  execution_detail: 'intentionally-not-rendered',
+  execution_detail_error: 'intentionally-not-rendered',
+  waiting_loop_stop: 'intentionally-not-rendered',
   background_task_event: 'intentionally-not-rendered',
   background_job_group_event: 'intentionally-not-rendered',
   plan_event: 'intentionally-not-rendered',

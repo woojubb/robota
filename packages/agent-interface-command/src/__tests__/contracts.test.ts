@@ -6,6 +6,7 @@ import type {
   ICommandListEntry,
   ICommandPluginAdapter,
   ICommandResult,
+  ICommandSubcommandEntry,
   TCommandHostAction,
   TCommandRunner,
   TCommandSurface,
@@ -50,5 +51,18 @@ describe('command contract surface', () => {
   it('lets a command declare its runner and surfaces, both optional', () => {
     expectTypeOf<ICommand['runner']>().toEqualTypeOf<TCommandRunner | undefined>();
     expectTypeOf<ICommand['surfaces']>().toEqualTypeOf<readonly TCommandSurface[] | undefined>();
+  });
+
+  it('lets a listing entry carry its argument grammar and subcommands, both optional', () => {
+    expectTypeOf<ICommandListEntry['argumentHint']>().toEqualTypeOf<string | undefined>();
+    expectTypeOf<ICommandListEntry['subcommands']>().toEqualTypeOf<
+      readonly ICommandSubcommandEntry[] | undefined
+    >();
+    expectTypeOf<ICommandSubcommandEntry>().toEqualTypeOf<{
+      readonly name: string;
+      readonly description: string;
+      readonly displayName?: string;
+      readonly argumentHint?: string;
+    }>();
   });
 });

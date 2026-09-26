@@ -149,6 +149,24 @@ describe('SessionSlot (#3189)', () => {
     expect(stayingSwitched).not.toHaveBeenCalled();
   });
 
+  it('forwards execution detail reads and waiting-loop stops to the current session', async () => {
+    const page = { entryId: 'main', items: [] } as never;
+    const second = emittingSession('s-2', {
+      readExecutionWorkspaceDetail: vi.fn(async () => page),
+      stopWaitingSelfPacedLoop: vi.fn(async () => ({ kind: 'stopped' as const, loopId: 'loop_a' })),
+    });
+    const slot = new SessionSlot<IEmittingSession>(emittingSession('s-1'));
+    await slot.replace(second);
+
+    await expect(slot.readExecutionWorkspaceDetail('main')).resolves.toBe(page);
+    expect(second.readExecutionWorkspaceDetail).toHaveBeenCalledWith('main');
+    await expect(slot.stopWaitingSelfPacedLoop('Esc')).resolves.toEqual({
+      kind: 'stopped',
+      loopId: 'loop_a',
+    });
+    expect(second.stopWaitingSelfPacedLoop).toHaveBeenCalledWith('Esc');
+  });
+
   it('forwards every contract member to the current session', async () => {
     const first = emittingSession('s-1');
     const second = emittingSession('s-2');

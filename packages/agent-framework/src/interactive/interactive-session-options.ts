@@ -108,6 +108,11 @@ export interface IInteractiveSessionStandardOptions {
   /** Explicit authority- and permission-backed edit checkpoint capability. */
   editCheckpointStore?: EditCheckpointStore;
   sessionName?: string;
+  /**
+   * #3189: name the session once, after its first turn, with its own provider, unless it already has
+   * a name. Off unless set: a one-shot print run has no use for a title.
+   */
+  autoName?: boolean;
   resumeSessionId?: string;
   forkSession?: boolean;
   /**
@@ -288,6 +293,8 @@ export interface IInteractiveSessionInjectedOptions {
   /** Explicit authority- and permission-backed edit checkpoint capability. */
   editCheckpointStore?: EditCheckpointStore;
   sessionName?: string;
+  /** See the standard options. */
+  autoName?: boolean;
   resumeSessionId?: string;
   forkSession?: boolean;
   /** Optional command modules composed into this injected session. */

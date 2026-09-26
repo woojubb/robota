@@ -135,4 +135,6 @@ export interface IAppStatusViewModel {
   readonly activePresetId: string | undefined;
   readonly effort: TModelEffortSelection | undefined;
   readonly gitRefreshToken: number;
+  /** This terminal only observes the session; the status bar says so. */
+  readonly readOnly: boolean;
 }

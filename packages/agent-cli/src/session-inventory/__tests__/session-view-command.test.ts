@@ -4,8 +4,15 @@ import { join } from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import type { renderSupervisedSessionView } from '@robota-sdk/agent-ui-terminal';
+import {
+  createDefaultTuiCliAdapter,
+  createNodeKeybindingsSource,
+  type renderAttachedApp,
+  type renderSupervisedSessionView,
+} from '@robota-sdk/agent-ui-terminal';
 
+import { createAttachedAppRender } from '../../startup/attached-app-render.js';
+import { createThemeSurface } from '../../startup/theme-surface.js';
 import { runSessionViewCommand } from '../session-view-command.js';
 import {
   linkSupervisedPr,
@@ -419,10 +426,10 @@ describe('session view command', () => {
         .mockResolvedValueOnce({ kind: 'attach', id, generation: 'A'.repeat(22), mode: 'drive', groupByDirectory: false })
         .mockResolvedValueOnce({ kind: 'closed' });
       const renderAttached = vi.fn(async (options: {
-        mode: string; driverId: string; sessionLabel: string; screenReader?: boolean; announce?: boolean;
+        mode: string; driverId: string; sessionLabel: string; screenReaderFlag: boolean | undefined; announce?: boolean;
       }) => {
         expect(options).toMatchObject({
-          mode: 'observe', driverId: 'attach:1', sessionLabel: 'Morning review', screenReader: true,
+          mode: 'observe', driverId: 'attach:1', sessionLabel: 'Morning review', screenReaderFlag: true,
           announce: false,
         });
         return 'user' as const;
@@ -445,6 +452,58 @@ describe('session view command', () => {
     } finally {
       out.mockRestore();
       err.mockRestore();
+      await control.close();
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+  it('attaches the full terminal UI without printing the screen-reader line again', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-vf-'));
+    const root = join(scratch, 'supervised');
+    const id = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
+    // The renderer reads this user's settings, keybindings and themes: a home of the test's own.
+    vi.stubEnv('HOME', scratch);
+    const { InteractiveSession, createRestrictedWorkspaceProjectAccess } = await import('@robota-sdk/agent-framework');
+    const session = new InteractiveSession({
+      session: {
+        run: vi.fn().mockResolvedValue('answer'), abort: vi.fn(), clearHistory: vi.fn(),
+        getHistory: vi.fn().mockReturnValue([]), injectMessage: vi.fn(),
+        getContextState: () => ({ maxTokens: 100, usedTokens: 0, usedPercentage: 0, remainingPercentage: 100 }),
+        getSessionId: () => 'view-attach-app', getModelId: () => 'm', getMessageCount: () => 0,
+        getSystemMessage: vi.fn().mockReturnValue('system'), getToolSchemas: vi.fn().mockReturnValue([]),
+        getEventService: () => ({ subscribe: () => {}, unsubscribe: () => {} }),
+      } as never,
+      cwd: '/tmp',
+    });
+    const control = await startSupervisedControl(
+      id, () => undefined, root, () => 'idle', undefined, undefined, () => 'Morning review',
+      undefined, undefined, undefined, { session },
+    );
+    const out = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      const generation = readGeneration(root, id);
+      const render = vi.fn()
+        .mockResolvedValueOnce({ kind: 'attach', id, generation, mode: 'drive', groupByDirectory: false })
+        .mockResolvedValueOnce({ kind: 'closed' });
+      const renderStub = vi.fn<typeof renderAttachedApp>(async () => 'user');
+      const renderAttached = createAttachedAppRender(
+        {
+          renderAttachedApp: renderStub,
+          createThemeSurface,
+          createNodeKeybindingsSource,
+          createDefaultTuiCliAdapter,
+          installTuiProcessGuards: vi.fn(),
+        },
+        { cwd: scratch, projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', scratch), providerDefinitions: [] },
+      );
+      expect(await runSessionViewCommand([], { isTTY: true, settings: {}, env: {}, root, render, renderAttached })).toBe(0);
+      expect(renderStub).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+        mode: 'drive', announce: false, sessionLabel: 'Morning review', driverId: 'attach:1',
+      }));
+    } finally {
+      out.mockRestore();
+      err.mockRestore();
+      vi.unstubAllEnvs();
       await control.close();
       rmSync(scratch, { recursive: true, force: true });
     }

@@ -207,6 +207,10 @@ export class SessionSlot<
     this.currentSession.waitBackgroundJobGroup(...args);
   getExecutionWorkspaceSnapshot: IInteractiveSession['getExecutionWorkspaceSnapshot'] = (...args) =>
     this.currentSession.getExecutionWorkspaceSnapshot(...args);
+  readExecutionWorkspaceDetail: IInteractiveSession['readExecutionWorkspaceDetail'] = (...args) =>
+    this.currentSession.readExecutionWorkspaceDetail(...args);
+  stopWaitingSelfPacedLoop: IInteractiveSession['stopWaitingSelfPacedLoop'] = (...args) =>
+    this.currentSession.stopWaitingSelfPacedLoop(...args);
   listAgentDefinitions: IInteractiveSession['listAgentDefinitions'] = (...args) =>
     this.currentSession.listAgentDefinitions(...args);
   listAgentJobs: IInteractiveSession['listAgentJobs'] = (...args) =>

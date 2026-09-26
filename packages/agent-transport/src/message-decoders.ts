@@ -85,6 +85,7 @@ const isBackgroundTaskListFilter: TFieldCheck = (v) =>
 const isBackgroundTaskInput: TFieldCheck = (v) =>
   isRecord(v) && isOptional(isString)(v['prompt']) && isOptional(isString)(v['stdin']);
 const isBackgroundTaskLogCursor: TFieldCheck = (v) => isRecord(v) && isFiniteNumber(v['offset']);
+const isExecutionDetailCursor: TFieldCheck = (v) => isRecord(v) && isCount(v['offset']);
 const isPermissionResultValue: TFieldCheck = (v) =>
   isBoolean(v) || v === 'allow-session' || v === 'allow-project';
 const isActionResponse: TFieldCheck = (v) =>
@@ -94,6 +95,24 @@ const isActionResponse: TFieldCheck = (v) =>
     v['values'].every(isString) &&
     isOptional(isString)(v['text'])) ||
     (v['type'] === 'cancelled' && v['values'] === undefined && v['text'] === undefined));
+
+type TWaitingLoopStopOutcome = Extract<TServerMessage, { type: 'waiting_loop_stop' }>['outcome'];
+/** Keyed by `kind`, so an outcome added to the union without a shape here fails to compile. */
+const WAITING_LOOP_STOP_OUTCOME_SHAPES: Readonly<
+  Record<TWaitingLoopStopOutcome['kind'], TVariantShape>
+> = {
+  none: {},
+  several: { message: isString },
+  stopped: { loopId: isNonEmptyString, message: isOptional(isString) },
+  failed: { loopId: isOptional(isNonEmptyString), message: isString },
+};
+const isWaitingLoopStopOutcome: TFieldCheck = (v) => {
+  if (!isRecord(v) || !isString(v['kind'])) return false;
+  const kind = v['kind'];
+  if (!Object.prototype.hasOwnProperty.call(WAITING_LOOP_STOP_OUTCOME_SHAPES, kind)) return false;
+  const shape = WAITING_LOOP_STOP_OUTCOME_SHAPES[kind as TWaitingLoopStopOutcome['kind']];
+  return Object.entries(shape).every(([field, check]) => check(v[field]));
+};
 
 /** One entry per `TClientMessage` variant — a variant added to the union without one fails the test. */
 export const CLIENT_MESSAGE_SHAPES: Readonly<Record<TClientMessage['type'], TVariantShape>> = {
@@ -127,6 +146,12 @@ export const CLIENT_MESSAGE_SHAPES: Readonly<Record<TClientMessage['type'], TVar
   'get-executing': {},
   'get-pending': {},
   'get-execution-workspace': {},
+  'read-execution-detail': {
+    requestId: isNonEmptyString,
+    entryId: isNonEmptyString,
+    cursor: isOptional(isExecutionDetailCursor),
+  },
+  'stop-waiting-loop': { requestId: isNonEmptyString },
   'get-background-tasks': { filter: isOptional(isBackgroundTaskListFilter) },
   'get-background-task': { taskId: isNonEmptyString },
   'get-background-job-groups': {},
@@ -204,6 +229,9 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
   // An older host sends no count; a client then counts the one prompt it can see.
   pending: { pending: (v) => v === null || isString(v), pendingCount: isOptional(isCount) },
   execution_workspace_event: { snapshot: isRecord },
+  execution_detail: { requestId: isNonEmptyString, page: isRecord },
+  execution_detail_error: { requestId: isNonEmptyString, message: isString },
+  waiting_loop_stop: { requestId: isNonEmptyString, outcome: isWaitingLoopStopOutcome },
   background_task_event: { event: isRecord },
   background_job_group_event: { event: isRecord },
   plan_event: { event: isRecord },

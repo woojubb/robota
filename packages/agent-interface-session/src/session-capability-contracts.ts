@@ -1,7 +1,9 @@
 import type { ISubmitOptions, TDriverId } from './driver-contracts.js';
+import type { TWaitingLoopStopOutcome } from './session-loop-contracts.js';
 import type {
   IGoalState,
   IInteractiveSessionEvents,
+  ISessionStatusSnapshot,
   TInteractiveEventName,
   TPermissionResultValue,
 } from './session-event-map.js';
@@ -9,8 +11,6 @@ import type { ITurnHandle } from './turn-contracts.js';
 import type {
   IContextWindowState,
   IHistoryEntry,
-  TModelEffortSelection,
-  TPermissionMode,
   IToolSchema,
   IToolExecutionResult,
   TToolParameters,
@@ -25,6 +25,8 @@ import type {
 } from '@robota-sdk/agent-interface-command';
 import type { ISubagentJobState } from '@robota-sdk/agent-interface-execution';
 import type {
+  IExecutionDetailCursor,
+  IExecutionDetailPage,
   IExecutionWorkspaceSnapshot,
   IExecutionWorkspaceSnapshotOptions,
 } from '@robota-sdk/agent-interface-execution';
@@ -120,21 +122,7 @@ export interface ISessionCommands {
   listSkills(): ICommandSkillListEntry[];
 }
 
-/**
- * What every client shows beside the conversation: which session, which model, and the settings in
- * effect. One read, so a terminal, desktop or browser client renders the same status from the same
- * source instead of reaching into the session for each part.
- */
-export interface ISessionStatusSnapshot {
-  readonly sessionId: string;
-  readonly sessionName?: string;
-  readonly model: string;
-  readonly permissionMode: TPermissionMode;
-  readonly effort: TModelEffortSelection;
-  readonly context: IContextWindowState;
-  /** The goal being pursued (`/goal`), or null; a client shows its progress beside the composer. */
-  readonly goal: IGoalState | null;
-}
+export type { ISessionStatusSnapshot } from './session-event-map.js';
 
 export interface ISessionStatusRead {
   getStatusSnapshot(): ISessionStatusSnapshot;
@@ -177,6 +165,22 @@ export interface ISessionExecutionWorkspace {
   ): IExecutionWorkspaceSnapshot;
 }
 
+/** One page of what a workspace entry (the main thread, a task, a group) recorded. */
+export interface ISessionExecutionDetail {
+  readExecutionWorkspaceDetail(
+    entryId: string,
+    cursor?: IExecutionDetailCursor,
+  ): Promise<IExecutionDetailPage>;
+}
+
+/**
+ * Stopping the self-paced loop that is waiting for its next wake (Esc on an idle prompt). The session
+ * stops the one waiting loop; when several wait it stops none and says how to choose.
+ */
+export interface ISessionSelfPacedLoopControl {
+  stopWaitingSelfPacedLoop(reason?: string): Promise<TWaitingLoopStopOutcome>;
+}
+
 export interface ISessionAgentJobs {
   listAgentDefinitions(): Array<{ name: string; description: string }>;
   listAgentJobs(): ISubagentJobState[];
@@ -211,6 +215,8 @@ export interface ISessionCapabilityMap {
   backgroundTasks: ISessionBackgroundTasks;
   backgroundGroups: ISessionBackgroundGroups;
   executionWorkspace: ISessionExecutionWorkspace;
+  executionDetail: ISessionExecutionDetail;
+  selfPacedLoopControl: ISessionSelfPacedLoopControl;
   agentJobs: ISessionAgentJobs;
 }
 
@@ -244,6 +250,8 @@ export const SESSION_CAPABILITY_MEMBER_KEYS = Object.freeze({
     'waitBackgroundJobGroup',
   ] as const),
   executionWorkspace: Object.freeze(['getExecutionWorkspaceSnapshot'] as const),
+  executionDetail: Object.freeze(['readExecutionWorkspaceDetail'] as const),
+  selfPacedLoopControl: Object.freeze(['stopWaitingSelfPacedLoop'] as const),
   agentJobs: Object.freeze([
     'listAgentDefinitions',
     'listAgentJobs',

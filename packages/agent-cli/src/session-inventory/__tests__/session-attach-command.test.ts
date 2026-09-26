@@ -3,9 +3,16 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { createRestrictedWorkspaceProjectAccess, InteractiveSession } from '@robota-sdk/agent-framework';
-import { describe, expect, it, vi } from 'vitest';
+import {
+  createDefaultTuiCliAdapter,
+  createNodeKeybindingsSource,
+  type renderAttachedApp,
+} from '@robota-sdk/agent-ui-terminal';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import { createAttachedAppRender, type IAttachedAppPresentation } from '../../startup/attached-app-render.js';
 import { runPreparsedCliCommand } from '../../startup/preparsed-command-routing.js';
+import { createThemeSurface } from '../../startup/theme-surface.js';
 import { describeAttachConfirmation } from '../attach-confirmation.js';
 import { runSessionAttachCommand, type ISessionAttachCommandOptions } from '../session-attach-command.js';
 import {
@@ -78,6 +85,34 @@ async function withTarget(prefix: string, run: (target: ITarget) => Promise<void
   }
 }
 
+/** The full CLI's presentation, with the terminal UI itself replaced by a stub that records its options. */
+function presentation(renderStub: typeof renderAttachedApp): IAttachedAppPresentation {
+  return {
+    renderAttachedApp: renderStub,
+    createThemeSurface,
+    createNodeKeybindingsSource,
+    createDefaultTuiCliAdapter,
+    installTuiProcessGuards: vi.fn(),
+  };
+}
+
+/** Claim an interactive terminal on both ends for the rest of the test. */
+function claimTerminal(): () => void {
+  const restores = [process.stdin, process.stdout].map((stream) => {
+    const previous = Object.getOwnPropertyDescriptor(stream, 'isTTY');
+    Object.defineProperty(stream, 'isTTY', { value: true, configurable: true });
+    return () => {
+      if (previous === undefined) delete (stream as { isTTY?: boolean }).isTTY;
+      else Object.defineProperty(stream, 'isTTY', previous);
+    };
+  });
+  return () => { for (const restore of restores) restore(); };
+}
+
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe('robota session attach', () => {
   it('refuses without an interactive terminal and names the command for the user to run', async () => {
     const io = output();
@@ -111,7 +146,7 @@ describe('robota session attach', () => {
     const io = output();
     try {
       for (const argv of [[], [ID, '--drive'], [ID, 'extra'], ['../escape']]) {
-        expect(await runSessionAttachCommand(argv, { isTTY: true, settings: {}, env: {}, confirm: vi.fn(), render: vi.fn() })).toBe(1);
+        expect(await runSessionAttachCommand(argv, { isTTY: true, confirm: vi.fn(), render: vi.fn() })).toBe(1);
       }
       expect(io.stderr()).toMatch(/Usage: robota session attach/);
     } finally {
@@ -125,7 +160,7 @@ describe('robota session attach', () => {
       const confirm = vi.fn(async () => false);
       const render = vi.fn();
       try {
-        expect(await runSessionAttachCommand([ID, '--observe'], { isTTY: true, settings: {}, env: {}, root, confirm, render })).toBe(1);
+        expect(await runSessionAttachCommand([ID, '--observe'], { isTTY: true, root, confirm, render })).toBe(1);
         expect(confirm).toHaveBeenCalledExactlyOnceWith({ id: ID, name: 'Morning review', mode: 'observe' });
         expect(render).not.toHaveBeenCalled();
         expect(listeners('text_delta')).toBe(0);
@@ -144,7 +179,7 @@ describe('robota session attach', () => {
           await restart();
           return true;
         });
-        expect(await runSessionAttachCommand([ID], { isTTY: true, settings: {}, env: {}, root, confirm, render })).toBe(1);
+        expect(await runSessionAttachCommand([ID], { isTTY: true, root, confirm, render })).toBe(1);
         expect(io.stderr()).toMatch(/changed/i);
         expect(render).not.toHaveBeenCalled();
         expect(listeners('text_delta')).toBe(0);
@@ -162,13 +197,14 @@ describe('robota session attach', () => {
           expect(options.mode).toBe('drive');
           expect(options.driverId).toBe('attach:1');
           expect(options.sessionLabel).toBe('Morning review');
+          expect(options.screenReaderFlag).toBeUndefined();
           const frames: TServerMessage[] = [];
           options.connection.subscribe((message) => frames.push(message));
           options.connection.send({ type: 'submit', prompt: 'hello' });
           await vi.waitFor(() => expect(frames.some((frame) => frame.type === 'complete')).toBe(true));
           return 'user';
         };
-        expect(await runSessionAttachCommand([ID], { isTTY: true, settings: {}, env: {}, root, confirm: async () => true, render })).toBe(0);
+        expect(await runSessionAttachCommand([ID], { isTTY: true, root, confirm: async () => true, render })).toBe(0);
         expect(io.stdout()).toMatch(/keeps running/i);
         expect(io.stdout()).toContain(`robota session stop ${ID}`);
         await vi.waitFor(() => expect(listeners('text_delta')).toBe(0));
@@ -182,19 +218,79 @@ describe('robota session attach', () => {
     });
   });
 
-  it('passes the screen-reader choice to the attached view', async () => {
+  it('passes the screen-reader flag to the attached terminal UI', async () => {
     await withTarget('rs-c7-', async ({ root }) => {
       const io = output();
       try {
         const render = vi.fn(async () => 'user' as const);
         expect(await runSessionAttachCommand([ID, '--observe', '--screen-reader'], {
-          isTTY: true, settings: {}, env: {}, root, confirm: async () => true, render,
+          isTTY: true, root, confirm: async () => true, render,
         })).toBe(0);
-        expect(render).toHaveBeenCalledWith(expect.objectContaining({ mode: 'observe', screenReader: true }));
+        expect(render).toHaveBeenCalledWith(expect.objectContaining({ mode: 'observe', screenReaderFlag: true }));
       } finally {
         io.restore();
       }
     });
+  });
+
+  it('renders the full terminal UI read-only with --observe', async () => {
+    await withTarget('rs-c8-', async ({ root }) => {
+      const home = mkdtempSync(join(tmpdir(), 'rs-c8-home-'));
+      // The renderer reads this user's settings, keybindings and themes: a home of the test's own.
+      vi.stubEnv('HOME', home);
+      const io = output();
+      try {
+        const renderStub = vi.fn<typeof renderAttachedApp>(async () => 'user');
+        const render = createAttachedAppRender(presentation(renderStub), {
+          cwd: home,
+          projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', home),
+          providerDefinitions: [],
+        });
+        expect(await runSessionAttachCommand([ID, '--observe'], {
+          isTTY: true, root, confirm: async () => true, render,
+        })).toBe(0);
+        expect(renderStub).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+          mode: 'observe',
+          sessionLabel: 'Morning review',
+          driverId: 'attach:1',
+          // The full App: the terminal's own commands come with it.
+          clientCommands: expect.objectContaining({ commands: expect.any(Array) }),
+        }));
+        expect(renderStub.mock.calls[0]?.[0]).not.toHaveProperty('announce');
+      } finally {
+        io.restore();
+        rmSync(home, { recursive: true, force: true });
+      }
+    });
+  });
+
+  it('is given the full terminal UI when routed from the full CLI', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'rs-c9-'));
+    // No session under this home: a command that has its renderer gets as far as looking for one.
+    vi.stubEnv('HOME', cwd);
+    vi.stubEnv('XDG_RUNTIME_DIR', '');
+    const previousExitCode = process.exitCode;
+    const restoreTerminal = claimTerminal();
+    const io = output();
+    try {
+      const handled = await runPreparsedCliCommand(
+        { providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd) },
+        ['node', 'robota', 'session', 'attach', ID, '--observe'],
+        cwd,
+        {},
+        undefined,
+        presentation(vi.fn()),
+      );
+      expect(handled).toBe(true);
+      expect(process.exitCode).toBe(1);
+      expect(io.stderr()).not.toMatch(/needs the interactive CLI/);
+      expect(io.stderr()).toMatch(/not a live supervised session/);
+    } finally {
+      io.restore();
+      restoreTerminal();
+      process.exitCode = previousExitCode;
+      rmSync(cwd, { recursive: true, force: true });
+    }
   });
 
   it('reports a session that closed the connection', async () => {
@@ -202,7 +298,7 @@ describe('robota session attach', () => {
       const io = output();
       try {
         const render: ISessionAttachCommandOptions['render'] = async () => 'closed';
-        expect(await runSessionAttachCommand([ID], { isTTY: true, settings: {}, env: {}, root, confirm: async () => true, render })).toBe(0);
+        expect(await runSessionAttachCommand([ID], { isTTY: true, root, confirm: async () => true, render })).toBe(0);
         expect(io.stdout()).toMatch(/closed the connection/i);
       } finally {
         io.restore();
@@ -216,7 +312,7 @@ describe('robota session attach', () => {
     const confirm = vi.fn();
     try {
       expect(await runSessionAttachCommand([ID], {
-        isTTY: true, settings: {}, env: {}, root: join(scratch, 'supervised'), confirm, render: vi.fn(),
+        isTTY: true, root: join(scratch, 'supervised'), confirm, render: vi.fn(),
       })).toBe(1);
       expect(io.stderr()).toMatch(/not a live supervised session/i);
       expect(confirm).not.toHaveBeenCalled();
