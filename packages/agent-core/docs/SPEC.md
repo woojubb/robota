@@ -198,8 +198,9 @@ Events are named `ownerType.localName` (e.g. an execution-service event, a tool-
 The tool-body completion name identifies only the awaited body of a permitted call. A consumer must
 not interpret pre-execution permission or hook failures as executed tool spans.
 One tool instance can serve several agents, and the event service set on it is whichever agent set
-one last. A tool's own events therefore go to the service its call carries, when there is one, so
-each agent receives the events of the calls it made and no other agent's.
+one last. A caller that sends its own service with a call therefore receives that call's
+`FunctionTool` span and no other caller's; a call that carries none still reports to the service
+set on the instance.
 
 ## Conversation History Principles
 
