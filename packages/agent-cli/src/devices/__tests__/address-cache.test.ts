@@ -96,4 +96,35 @@ describe('the address cache on disk', () => {
     expect(cache.recall('short')).toEqual([]);
     expect(cache.lastListenPort()).toBeUndefined();
   });
+
+  it('keeps what another process wrote meanwhile, rather than overwriting it', () => {
+    const first = open();
+    const second = open();
+    first.remember(A, { host: '192.168.1.20', port: 4000 });
+    clock += 1;
+    second.remember(B, { host: '192.168.1.30', port: 4000 });
+    clock += 1;
+    second.remember(A, { host: '192.168.1.21', port: 4001 });
+    first.rememberListenPort(5000);
+
+    const again = open();
+    expect(again.recall(A)).toEqual([
+      { host: '192.168.1.21', port: 4001 },
+      { host: '192.168.1.20', port: 4000 },
+    ]);
+    expect(again.recall(B)).toEqual([{ host: '192.168.1.30', port: 4000 }]);
+    expect(again.lastListenPort()).toBe(5000);
+    // A process sees the other's addresses once it writes.
+    expect(first.recall(B)).toEqual([{ host: '192.168.1.30', port: 4000 }]);
+  });
+
+  it('does not bring back a device another process forgot', () => {
+    const first = open();
+    const second = open();
+    first.remember(A, { host: '192.168.1.20', port: 4000 });
+    second.retain([B]);
+    first.remember(B, { host: '192.168.1.30', port: 4000 });
+    expect(open().recall(A)).toEqual([]);
+    expect(open().recall(B)).toEqual([{ host: '192.168.1.30', port: 4000 }]);
+  });
 });

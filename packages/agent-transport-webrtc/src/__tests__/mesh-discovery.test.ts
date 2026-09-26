@@ -8,7 +8,7 @@ import {
   startDeviceHandshake,
   type IPairRendezvous,
 } from '@robota-sdk/agent-remote-pairing';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import WebSocket from 'ws';
 
 import { DeviceMeshNode, type IDeviceMeshLink } from '../device-mesh-node.js';
@@ -225,6 +225,42 @@ describe('mDNS lookup', () => {
     await expect(lookup(low, await routeOf(world.low, world.high))).resolves.toEqual([]);
     const third = mdnsOn(bus, '10.0.0.3');
     await expect(lookup(third, await routeOf(world.third, world.low))).resolves.toEqual([]);
+  });
+
+  it('keeps the peer’s own answer when another host answers first with the same names', async () => {
+    const bus = createInMemoryMdnsBus();
+    // The peer answers a little after the query, as a responder may.
+    const peerTransport = bus.transport('10.0.0.1');
+    const peer = new MeshMdns({
+      createTransport: () => ({
+        ...peerTransport,
+        on: peerTransport.on.bind(peerTransport),
+        respond: (packet) => setTimeout(() => peerTransport.respond(packet), 30),
+      }),
+      addresses: () => ['10.0.0.1'],
+      minAnswerIntervalMs: 0,
+      now: () => NOW,
+    });
+    cleanups.push(() => peer.close());
+    await peer.advertise([await routeOf(world.low, world.high)], 4242);
+    await vi.waitFor(() => expect(bus.responses).toHaveLength(1));
+    // Another host replays the peer's names at once, pointing at a port of its own.
+    const [announced] = bus.responses;
+    const replay = {
+      answers: announced!.answers ?? [],
+      additionals: (announced!.additionals ?? []).map((r) =>
+        r.type === 'SRV' ? { ...r, data: { ...(r.data as object), port: 9999 } } : r,
+      ),
+    };
+    const other = bus.transport('10.0.0.66');
+    cleanups.push(() => other.destroy());
+    other.on('query', () => other.respond(replay));
+
+    const found = await lookup(
+      mdnsOn(bus, '10.0.0.2', () => NOW, 1_000),
+      await routeOf(world.high, world.low),
+    );
+    expect(found).toContainEqual({ host: '10.0.0.1', port: 4242 });
   });
 });
 
