@@ -36,7 +36,9 @@ update checks, and the per-mode host-action adapters (`/remote-control`, process
 Remote control is host-owned: it receives only the session capabilities its wire protocol needs, and
 promoting a confirmed reconnect winner replaces the registered peer so host shutdown always reaches
 the live connection; pairing failure or reconnect-window expiry releases the transport, signaling,
-and resume bridge, and an expired or stopped window cannot start a room after the fact.
+and resume bridge, and an expired or stopped window cannot start a room after the fact. The host
+identity key devices pin is kept in the host credential store, never in a plain file; a malformed
+stored key fails closed rather than being replaced.
 The CLI selects every user- and project-scoped path and identity a session needs — storage root,
 presets, agent-definition roots, project settings layers, project-state layout, context-discovery
 permissions, plugin/skill/command roots, task-context directory, organization policy, keybindings,
@@ -64,6 +66,11 @@ credential in a remote URL never reaches the rendezvous. `session list` shows th
 without implying a background supervisor or an attach/restart capability; it includes only
 user-owned and currently authorized project records, never transcript content, and corrupt or
 unsupported records stay visible rather than being hidden.
+
+A local peer message is taken as coming from the session it names only when that session, asked at
+its own socket, confirms it is sending exactly that message to this receiver; anything else is
+refused. The same user can reach every socket in the rendezvous, so the name a message states is a
+claim, and it decides where an answer goes and whom the turn is attributed to.
 
 A conversation between local peers is bounded, so two agents that always answer cannot message each
 other forever: its depth and this session's answers in it are counted from what this session itself
@@ -162,12 +169,41 @@ result is appended to the conversation — a call naming a tool the session does
 error tool result and the run advances. This dev-only feature (`agent-provider-replay`) is
 not bundled in published installs.
 
+### Host credential store
+
+The CLI implements `agent-core`'s credential store port for its own secrets — the remote-control host
+key and this device's identity keys: the OS keychain through
+the optional `@napi-rs/keyring` binding when it loads and keeps a probe value, else an owner-only file
+under `~/.robota`. The choice is made at first use, told to the operator when it is the file, named
+by `/remote-control status`, and recorded: a recorded keychain that stops working fails closed
+instead of degrading to the file, because secrets already in the keychain would silently stop being
+found. On Linux only the Secret Service counts as a keychain — the binding's kernel-keyring fallback
+is memory-only, and a host key lost at reboot changes the identity every device pinned. Messages and
+errors name a secret's key, never its value, and carry no cause that could quote it. The recovery
+phrase is never stored anywhere: it is shown and read only on the controlling terminal, opened apart
+from the session's own input while the session has handed the terminal over — a byte read through the
+session's input would reach its composer, history, transcript and model — and a host without an
+interactive terminal refuses instead of reading it from anywhere else. The same terminal asks the
+operator whether each remote-control connection, a returning trusted device included, may drive the
+session: the session's own prompts are answerable by any attached surface, so a device already
+driving could otherwise approve the next, and without an interactive terminal the connection is
+refused.
+
+A key that has ever sat in a plain file backups and dotfile sync copy is never carried into the
+store: it is replaced by a new key, the file is removed, and the operator is told once that trusted
+devices must pair again.
+
 ### MCP client composition
 
 `@robota-sdk/agent-mcp` owns definition decoding, precedence, admission policy, and the
 connection/catalog manager; this package makes that manager reachable from product startup and
 supplies the product's MCP client identity there. Every unreadable/corrupt settings layer and every
-decode refusal is reported as a problem, never silently dropped; zero resolved definitions is a
+decode refusal is reported as a problem, never silently dropped, and a server whose tools the model
+cannot use because the user must approve it, trust the workspace or sign in is also named to the
+model — at the start of an interactive session, the one mode where the user can type the command,
+or when a signed-in server refuses a call — in fixed words carrying the
+command to suggest, as a terminal command where the run offers no session prompt to type it into, and
+nothing the server or its definition sent; zero resolved definitions is a
 normal, silent-diagnostic outcome. A caller-supplied `mcpActivationAdapter` always wins over CLI
 composition and skips it entirely.
 

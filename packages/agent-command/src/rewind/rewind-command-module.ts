@@ -16,6 +16,7 @@ export function createRewindCommandEntry(): ICommand {
     description: REWIND_COMMAND_DESCRIPTION,
     source: 'rewind',
     argumentHint: REWIND_COMMAND_ARGUMENT_HINT,
+    // User-only: rewrites the user's history and files; the user decides what to undo.
     modelInvocable: false,
     safety: 'write',
     subcommands: buildRewindCommandSubcommands(),

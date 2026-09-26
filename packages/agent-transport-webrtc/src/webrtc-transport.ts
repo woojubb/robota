@@ -1,6 +1,9 @@
 import { createSessionMessageHandler } from '@robota-sdk/agent-transport';
 import { resolveAdmission } from '@robota-sdk/agent-transport/node';
-import { extractDtlsFingerprint, extractDtlsFingerprintAttribute } from '@robota-sdk/agent-remote-pairing';
+import {
+  extractDtlsFingerprint,
+  extractDtlsFingerprintAttribute,
+} from '@robota-sdk/agent-remote-pairing';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import type { RTCDataChannel, RTCPeerConnection } from 'werift';
 
@@ -123,7 +126,8 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
           await peer.setRemoteDescription(
             message.data as Parameters<typeof peer.setRemoteDescription>[0],
           );
-          if (algorithm !== undefined) this.awaitVerifiedCertificate(peer, channel, session, algorithm, generation);
+          if (algorithm !== undefined)
+            this.awaitVerifiedCertificate(peer, channel, session, algorithm, generation);
         } else if (message.kind === 'ice') {
           await peer.addIceCandidate(message.data as Parameters<typeof peer.addIceCandidate>[0]);
         }
@@ -233,6 +237,9 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
       ...(this.options.onPairingFailed ? { onReject: this.options.onPairingFailed } : {}),
       ...(this.options.reconnect ? { reconnect: this.options.reconnect } : {}),
       ...(this.options.localPeer ? { localPeer: this.options.localPeer } : {}),
+      ...(this.options.connectionApproval
+        ? { connectionApproval: this.options.connectionApproval }
+        : {}),
       ...(this.options.resumeBridge ? { resumeBridge: this.options.resumeBridge } : {}),
       ...(this.options.personalUsageReporter
         ? { personalUsageReporter: this.options.personalUsageReporter }
@@ -266,8 +273,12 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
       // A post-accept close detaches the resume bridge and starts reconnect without ending the session.
       channel.stateChanged.subscribe((state) => {
         if (generation !== this.generation) return;
-        if (state === 'closed' || state === 'closing')
+        if (state === 'closed' || state === 'closing') {
+          // Before acceptance the gate must hear it too: a question still open with the operator is
+          // about a connection that no longer exists.
+          this.pairingGate?.onChannelClosed();
           this.deliveryLifecycle.handleDrop(generation);
+        }
       });
       this.cleanupHandler = () => this.pairingGate?.cleanup();
       return;

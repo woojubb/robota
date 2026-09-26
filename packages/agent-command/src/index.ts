@@ -75,6 +75,17 @@ export {
 export * from './exit/index.js';
 export * from './help/index.js';
 export {
+  createDevicesCommandModule,
+  type IDeviceListEntry,
+  type IDevicesCommandPort,
+  type IDevicesInitResult,
+  type IDevicesRecoverResult,
+  type IDevicesRevokeResult,
+  type IDevicesView,
+  type TDevicesOutcome,
+  type TDevicesRefusal,
+} from './devices/index.js';
+export {
   createKeybindingsCommandEntry,
   createKeybindingsCommandModule,
   KeybindingsCommandSource,
@@ -102,6 +113,12 @@ export {
   MCPActivationCommandSource,
 } from './mcp-activation/mcp-activation-command-module.js';
 export { executeMCPActivationCommand } from './mcp-activation/mcp-activation-command.js';
+export {
+  mcpUnavailableServersNotice,
+  mcpUserActionCommand,
+  mcpUserActionNotice,
+} from './mcp-activation/mcp-model-notice.js';
+export type { TMCPUserAction, TMCPUserActionSurface } from './mcp-activation/mcp-model-notice.js';
 export * from './mode/index.js';
 export {
   createSandboxCommandModule,

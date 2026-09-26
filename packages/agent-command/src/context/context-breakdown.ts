@@ -122,12 +122,32 @@ function computeMessageTokensByRole(rawMessages: TUniversalMessage[]): IMessageT
   };
 }
 
+/** One conversation item as the display reads it: its role and its message payload. */
+interface IChatItem {
+  readonly type: string;
+  readonly data: unknown;
+}
+
+/** Every chat entry of the full history, including turns compaction has since summarized away. */
 export function buildToolDisplayList(history: IHistoryEntry[]): IToolDisplayList {
+  return buildDisplayList(
+    history
+      .filter((entry) => entry.category === 'chat')
+      .map((entry) => ({ type: entry.type, data: entry.data })),
+  );
+}
+
+/** Only what the model still has in context — what `/context list` accounts for. */
+export function buildLiveToolDisplayList(messages: readonly TUniversalMessage[]): IToolDisplayList {
+  return buildDisplayList(messages.map((message) => ({ type: message.role, data: message })));
+}
+
+function buildDisplayList(items: readonly IChatItem[]): IToolDisplayList {
   type TToolCallEntry = { name: string; firstArg: string };
   const toolCallMap = new Map<string, TToolCallEntry>();
 
-  for (const entry of history) {
-    if (entry.category !== 'chat' || entry.type !== 'assistant') continue;
+  for (const entry of items) {
+    if (entry.type !== 'assistant') continue;
     const data = entry.data as {
       toolCalls?: Array<{ id: string; function: { name: string; arguments: string } }>;
     };
@@ -143,8 +163,7 @@ export function buildToolDisplayList(history: IHistoryEntry[]): IToolDisplayList
   let totalToolCallCount = 0;
   const toolDisplayMap = new Map<string, IToolResultSummary>();
 
-  for (const entry of history) {
-    if (entry.category !== 'chat') continue;
+  for (const entry of items) {
     if (entry.type === 'user') {
       turnCount++;
     } else if (entry.type === 'tool') {
@@ -185,7 +204,9 @@ export function formatFullContextBreakdown(context: TContextReadHost): ICommandR
   // from the system prompt it is billed alongside, so the saving deferral produces had no observable.
   const offeredToolSchemas = context.getSession().getOfferedToolSchemas();
   const toolSchemaTokens = estimateToolSchemaTokens(offeredToolSchemas);
-  const display = buildToolDisplayList(context.getSession().getFullHistory());
+  // The live messages, like the token counts beside it: a turn compaction summarized away is no
+  // longer in context, so listing its tool results would describe a context the model does not have.
+  const display = buildLiveToolDisplayList(rawMessages);
   const references = listCommandContextReferences(context);
 
   const systemRefs = references.filter((r) => r.loadType === 'system');

@@ -17,6 +17,7 @@ export function createLanguageCommandEntry(): ICommand {
     source: 'language',
     argumentHint: LANGUAGE_COMMAND_ARGUMENT_HINT,
     subcommands: buildLanguageCommandSubcommands('language'),
+    // User-only: the user's response-language preference.
     modelInvocable: false,
   };
 }

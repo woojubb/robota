@@ -12,6 +12,7 @@ export function createEditorCommandEntry(): ICommand {
     displayName: 'Editor',
     description: EDITOR_COMMAND_DESCRIPTION,
     source: 'editor',
+    // User-only: opens the user's terminal editor; UI-only.
     modelInvocable: false,
   };
 }

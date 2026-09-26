@@ -20,6 +20,16 @@
  * that plainly is part of the design: the guarantee is the directory's, and a comment claiming
  * per-connection verification would assert a property the code does not have.
  *
+ * ## Which session a message is from
+ *
+ * The directory says the sender is this user; it does not say which session. A message names its
+ * sender, and that name decides where an answer goes, so it is confirmed rather than believed: the
+ * receiver asks the named session, at its own socket, whether it has exactly this message in flight
+ * to this receiver, and refuses the message when it does not. A session answers only for what it is
+ * sending at that moment, so a message it sent earlier cannot be presented again under its name.
+ * What the receiver is handed is the confirmed sender, apart from the message, so nothing downstream
+ * has to read the name out of what the sender wrote.
+ *
  * ## One message per connection
  *
  * Connect, write one JSON line, read one line, close. A persistent multiplexed stream would need
@@ -28,6 +38,7 @@
  * never the socket's.
  */
 
+import { createHash } from 'node:crypto';
 import { rmSync } from 'node:fs';
 import { createConnection, createServer, type Server, type Socket } from 'node:net';
 import path from 'node:path';
@@ -37,6 +48,45 @@ import { admitLocalPeerSocket } from '@robota-sdk/agent-remote-pairing/local';
 import type { IPeerMessage, IPeerMessageAck } from '@robota-sdk/agent-interface-session-mobility';
 
 const LINE_TIMEOUT_MS = 10_000;
+/** Shorter than the sender's wait for an ack, so a refusal still reaches a sender that is waiting. */
+const CONFIRM_TIMEOUT_MS = 5_000;
+
+/** The session a message was confirmed to come from. */
+export interface IPeerSender {
+  readonly sessionId: string;
+}
+
+/** Asks a session whether it has this message in flight to the asker. */
+interface IConfirmRequest {
+  readonly confirm: { readonly id: string; readonly to: string; readonly digest: string };
+}
+
+/** Everything a receiver acts on, so a confirmed id cannot vouch for different content. */
+function messageDigest(message: IPeerMessage): string {
+  return createHash('sha256')
+    .update(
+      JSON.stringify([
+        message.id,
+        message.sequence,
+        message.text,
+        message.sentAt,
+        message.inReplyTo ?? null,
+      ]),
+    )
+    .digest('hex');
+}
+
+function isConfirmRequest(frame: unknown): frame is IConfirmRequest {
+  if (typeof frame !== 'object' || frame === null || !('confirm' in frame)) return false;
+  const { confirm } = frame as { confirm: unknown };
+  return (
+    typeof confirm === 'object' &&
+    confirm !== null &&
+    typeof (confirm as Record<string, unknown>)['id'] === 'string' &&
+    typeof (confirm as Record<string, unknown>)['to'] === 'string' &&
+    typeof (confirm as Record<string, unknown>)['digest'] === 'string'
+  );
+}
 
 /**
  * Where a session listens. Derived from the session id, so a sender needs no second lookup.
@@ -107,14 +157,52 @@ function readLine(socket: Socket, timeoutMs: number): Promise<string> {
 export interface IPeerListenerOptions {
   readonly guardedDirectory: string;
   readonly sessionId: string;
-  /** Handles one message and returns the ack to send back. */
-  readonly onMessage: (message: IPeerMessage) => Promise<IPeerMessageAck> | IPeerMessageAck;
+  /** Handles one message from a confirmed sender and returns the ack to send back. */
+  readonly onMessage: (
+    message: IPeerMessage,
+    sender: IPeerSender,
+  ) => Promise<IPeerMessageAck> | IPeerMessageAck;
   readonly expectedUid?: number;
 }
 
 export interface IPeerListener {
   readonly socketPath: string;
+  /**
+   * Send one message as this session and return the ack the receiver issued. The message must name
+   * this session as its origin: this listener is what confirms it to the receiver.
+   */
+  send(targetSessionId: string, message: IPeerMessage): Promise<IPeerMessageAck>;
   close(): Promise<void>;
+}
+
+/** Ask `claimed` at its own socket whether it is sending exactly `message` to `receiver`. */
+async function confirmSender(
+  guardedDirectory: string,
+  claimed: string,
+  receiver: string,
+  message: IPeerMessage,
+  expectedUid: number,
+): Promise<boolean> {
+  try {
+    const socketPath = peerSocketPath(guardedDirectory, claimed);
+    admitOrThrow(socketPath, expectedUid);
+    const socket = await new Promise<Socket>((resolve, reject) => {
+      const connection = createConnection(socketPath);
+      connection.once('connect', () => resolve(connection));
+      connection.once('error', reject);
+    });
+    const request: IConfirmRequest = {
+      confirm: { id: message.id, to: receiver, digest: messageDigest(message) },
+    };
+    socket.write(`${JSON.stringify(request)}\n`);
+    const line = await readLine(socket, CONFIRM_TIMEOUT_MS);
+    socket.end();
+    const answer = JSON.parse(line) as { confirmed?: unknown };
+    return answer.confirmed === true;
+  } catch {
+    // allow-fallback: a sender that cannot be reached, or answers anything else, is not confirmed.
+    return false;
+  }
 }
 
 /**
@@ -125,17 +213,55 @@ export interface IPeerListener {
  * distinction the delivery states exist to make.
  */
 export async function listenForPeerMessages(options: IPeerListenerOptions): Promise<IPeerListener> {
+  const expectedUid = options.expectedUid ?? process.getuid?.() ?? 0;
   const socketPath = peerSocketPath(options.guardedDirectory, options.sessionId);
-  admitOrThrow(socketPath, options.expectedUid ?? process.getuid?.() ?? 0);
+  admitOrThrow(socketPath, expectedUid);
   // A socket left by a crashed session blocks the bind. Removing it is safe precisely BECAUSE the
   // directory is ours: nothing else could have put it there.
   rmSync(socketPath, { force: true });
 
+  /** What this session is sending right now, by id: the receiver and the digest it will ask about. */
+  const inFlight = new Map<string, { readonly to: string; readonly digest: string }>();
+
+  const receive = async (message: IPeerMessage): Promise<IPeerMessageAck> => {
+    const claimed: unknown = message.origin?.sessionId;
+    if (typeof claimed !== 'string') {
+      throw new Error('local peer channel: the message names no sender session.');
+    }
+    const confirmed = await confirmSender(
+      options.guardedDirectory,
+      claimed,
+      options.sessionId,
+      message,
+      expectedUid,
+    );
+    if (!confirmed) {
+      return {
+        id: message.id,
+        sequence: message.sequence,
+        state: 'refused',
+        reason:
+          `session ${JSON.stringify(claimed)} did not confirm sending this message, so it is not ` +
+          'taken as coming from that session.',
+      };
+    }
+    return options.onMessage(message, { sessionId: claimed });
+  };
+
   const server: Server = createServer((socket) => {
     void (async () => {
       try {
-        const message = JSON.parse(await readLine(socket, LINE_TIMEOUT_MS)) as IPeerMessage;
-        socket.end(`${JSON.stringify(await options.onMessage(message))}\n`);
+        const frame: unknown = JSON.parse(await readLine(socket, LINE_TIMEOUT_MS));
+        if (isConfirmRequest(frame)) {
+          const sending = inFlight.get(frame.confirm.id);
+          const confirmed =
+            sending !== undefined &&
+            sending.to === frame.confirm.to &&
+            sending.digest === frame.confirm.digest;
+          socket.end(`${JSON.stringify({ confirmed })}\n`);
+          return;
+        }
+        socket.end(`${JSON.stringify(await receive(frame as IPeerMessage))}\n`);
       } catch (error) {
         const refusal: IPeerMessageAck = {
           id: '',
@@ -155,6 +281,28 @@ export async function listenForPeerMessages(options: IPeerListenerOptions): Prom
 
   return {
     socketPath,
+    send: async (targetSessionId: string, message: IPeerMessage): Promise<IPeerMessageAck> => {
+      if (message.origin.sessionId !== options.sessionId) {
+        throw new Error(
+          `local peer channel: this listener sends as session ${options.sessionId}, not as ` +
+            `${JSON.stringify(message.origin.sessionId)}.`,
+        );
+      }
+      if (inFlight.has(message.id)) {
+        throw new Error(`local peer channel: message ${message.id} is already being sent.`);
+      }
+      inFlight.set(message.id, { to: targetSessionId, digest: messageDigest(message) });
+      try {
+        return await sendPeerMessage({
+          guardedDirectory: options.guardedDirectory,
+          targetSessionId,
+          message,
+          expectedUid,
+        });
+      } finally {
+        inFlight.delete(message.id);
+      }
+    },
     close: () =>
       new Promise<void>((resolve) => {
         server.close(() => {
@@ -173,7 +321,8 @@ export interface IPeerSendOptions {
 }
 
 /**
- * Send one message and return the ack the receiver issued.
+ * Write one message and return the ack the receiver issued. Nothing here confirms the sender, so a
+ * receiver refuses what this sends unless a listener's `send` is behind it.
  *
  * The TARGET socket is admitted BEFORE connecting, which is the reason `admitLocalPeerSocket` takes
  * a path rather than a directory: a path resolving outside the guarded directory carries none of

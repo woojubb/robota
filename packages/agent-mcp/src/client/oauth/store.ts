@@ -66,7 +66,16 @@ export function oauthCredentialKey(
   return { securityIdentity, serverUrl: canonicalServerUrl(serverUrl) };
 }
 
-/** A stable, file-name-safe name for a key; both parts are length-prefixed so none collide. */
+/**
+ * A stable, file-name-safe name for a key; both parts are length-prefixed so none collide.
+ *
+ * A fast hash on purpose. CodeQL's insufficient-password-hash rule reads `oauthCredentialKey` as a
+ * password source by its name and asks for a slow hash; that finding is a false positive. The
+ * digest hides nothing: it only names files in an owner-only directory, and the record in that
+ * file stores both inputs in plain text beside the tokens. A slow hash would therefore guard
+ * nothing while delaying every token read, refresh and lock, and it could not be salted: the same
+ * key must always name the same file.
+ */
 export function credentialKeyDigest(key: IMCPOAuthCredentialKey): string {
   const hash = createHash('sha256');
   for (const part of [key.securityIdentity, key.serverUrl]) {

@@ -1,9 +1,14 @@
+import { join } from 'node:path';
+
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
 import { readSettings } from '@robota-sdk/agent-framework';
 import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
 
+import { createHostCredentialStore } from '../credentials/select-credential-store.js';
+import { userLocalStorageRoot } from '../product/user-paths.js';
 import { loadOrCreateHostIdentity } from './host-identity.js';
 import { parseIceServers } from './ice-config.js';
+import { createTerminalOperatorApprover, type ITerminalHandoffHost } from './operator-approval.js';
 import { renderQrToTerminal } from './render-qr.js';
 import { RemoteControlController } from './remote-control-controller.js';
 import { createRemoteControlTransportHost } from './transport-host-adapter.js';
@@ -53,6 +58,20 @@ function readWebrtcRawOption(key: string): unknown {
   return (options as Record<string, unknown>)[key];
 }
 
+/** The live session's terminal hand-off, when the session has one. */
+function terminalHandoffHostOf(
+  session: IInteractiveSession | undefined,
+): ITerminalHandoffHost | undefined {
+  const candidate = session as Partial<ITerminalHandoffHost> | undefined;
+  if (
+    typeof candidate?.canHandoffTerminal !== 'function' ||
+    typeof candidate.runWithTerminal !== 'function'
+  ) {
+    return undefined;
+  }
+  return candidate as ITerminalHandoffHost;
+}
+
 /**
  * Build the `/remote-control` controller at the composition root. The returned `setChannel` is called from
  * `onChannelReady` (each live channel, incl. session-switch re-creations) so the enable path attaches the
@@ -66,6 +85,12 @@ export function createRemoteControlController(
   setChannel: (channel: ILiveChannel | undefined) => void;
 } {
   let channel: ILiveChannel | undefined;
+  const report = (message: string): void =>
+    channel?.stateManager.addEntry(messageToHistoryEntry(createSystemMessage(message)));
+  // The host identity key lives in the credential store: the OS keychain, or an owner-only file under
+  // ~/.robota where no keychain works. The backend is chosen at first use and named in the status.
+  const root = userLocalStorageRoot();
+  const credentials = createHostCredentialStore({ root, notify: report });
   const controller = new RemoteControlController({
     host: createRemoteControlTransportHost(registry),
     ...(usageReporters ? { usageReporters } : {}),
@@ -75,13 +100,23 @@ export function createRemoteControlController(
     readForceTurn: () => readWebrtcRawOption('forceTurn') === true,
     getSession: () => channel?.getSession(),
     renderQr: renderQrToTerminal,
-    reportError: (message) =>
-      channel?.stateManager.addEntry(messageToHistoryEntry(createSystemMessage(message))),
+    reportError: report,
     // REMOTE-012 E3: TOFU trusted-device reconnect is on by default — the host identity + device store live
     // under ~/.robota (like an SSH host key + known_hosts). A returning device reconnects without re-pairing;
     // a new device enrolls on first pair after the explicit accept.
     trustedDeviceStore: createTrustedDeviceStore(),
-    loadHostIdentity: () => loadOrCreateHostIdentity(),
+    loadHostIdentity: () =>
+      loadOrCreateHostIdentity({
+        store: credentials.store,
+        lockPath: join(root, 'remote-host-identity.lock'),
+        legacyFilePath: join(root, 'remote-host-identity.json'),
+        notify: report,
+      }),
+    describeKeyStorage: () => credentials.describe(),
+    // Each connection that would drive this session is put to the operator at this terminal.
+    operatorApprover: createTerminalOperatorApprover({
+      getHost: () => terminalHandoffHostOf(channel?.getSession()),
+    }),
   });
   return {
     controller,

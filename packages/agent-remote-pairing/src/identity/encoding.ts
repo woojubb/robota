@@ -21,6 +21,7 @@ export const IDENTITY_PURPOSES = {
   revocation: 'robota/revocation/v1',
   signingKeyRevocation: 'robota/signing-key-revocation/v1',
   sessionDesc: 'robota/session-desc/v1',
+  handshake: 'robota/handshake/v1',
 } as const;
 
 export type TIdentityPurpose = (typeof IDENTITY_PURPOSES)[keyof typeof IDENTITY_PURPOSES];

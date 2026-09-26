@@ -14,6 +14,7 @@
 
 import { admitToolResult } from '@robota-sdk/agent-core';
 
+import { classifyMcpFailure } from '../supervisor/connection.js';
 import { ThirdPartySchemaValidator } from '../third-party-schema.js';
 import { toUniversalValue } from './universal-value.js';
 
@@ -58,6 +59,12 @@ export interface ICreateDiscoveredToolOptions {
    * shape consistent with the sibling tool classes, not because a second report is expected.
    */
   readonly report?: TUnenforceableSchemaReporter;
+  /**
+   * The host's fixed, content-free words for a call that failed because the server wants the user
+   * to authenticate — naming what the user must run. Absent, such a failure reads like any other.
+   * The server's own error text never replaces it.
+   */
+  readonly authFailureNotice?: string;
 }
 
 /**
@@ -148,11 +155,17 @@ class DiscoveredMCPTool implements IToolWithEventService {
           ? { outboundTraceContext: context.outboundTraceContext }
           : {}),
       });
-    } catch {
+    } catch (error) {
       // SDK and remote errors can contain response bodies or request metadata. Neither is safe to
       // pass through ToolManager's error events or the session logger.
       if (context?.signal?.aborted)
         throw new DOMException('Execution interrupted by user', 'AbortError');
+      // Only the classification is read — a fixed word — so the model learns that the user must
+      // act and which command to suggest, and nothing the server sent.
+      const notice = this.options?.authFailureNotice;
+      if (notice !== undefined && classifyMcpFailure(error) === 'auth') {
+        return { success: false, error: notice };
+      }
       throw new Error('MCP tool call failed');
     }
 

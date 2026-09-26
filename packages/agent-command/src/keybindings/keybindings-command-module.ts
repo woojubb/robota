@@ -19,6 +19,7 @@ export function createKeybindingsCommandEntry(): ICommand {
     displayName: 'Keybindings',
     description: 'Open the contextual terminal keybindings file in $EDITOR',
     source: 'keybindings',
+    // User-only: UI preference.
     modelInvocable: false,
   };
 }

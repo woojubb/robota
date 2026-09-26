@@ -18,7 +18,7 @@ import type { TResolveInWorkspace } from '../read-only-commands.js';
 /**
  * A peer turn is decided by the same evaluator as the operator's, with the peer's authority as one
  * more input. Another host gets no tool; the same host gets reads inside the workspace; the reply
- * after a tool use asks the operator.
+ * is decided like any call that sends something off this machine.
  */
 
 let root: string;
@@ -51,7 +51,7 @@ function context(cwd: string, peerTurn?: IPeerTurnAuthority) {
   };
 }
 
-const sameHost: IPeerTurnAuthority = { reach: 'same-host', allowChanges: false, toolUsed: false };
+const sameHost: IPeerTurnAuthority = { reach: 'same-host', allowChanges: false };
 const anotherHost: IPeerTurnAuthority = { ...sameHost, reach: 'another-host' };
 
 beforeEach(() => {
@@ -104,7 +104,7 @@ describe('a peer from another host', () => {
     expect(isToolAvailableInPeerTurn('Read', anotherHost)).toBe(false);
   });
 
-  it('may still answer, directly', () => {
+  it('may still answer, once the operator allows it', () => {
     expect(
       evaluatePermission(
         'peer_reply',
@@ -113,7 +113,7 @@ describe('a peer from another host', () => {
         {},
         context(workspace, anotherHost),
       ),
-    ).toBe('auto');
+    ).toBe('approve');
     expect(isToolAvailableInPeerTurn('peer_reply', anotherHost)).toBe(true);
   });
 });
@@ -240,21 +240,33 @@ describe('a peer on the same host', () => {
     ).toBe('approve');
     expect(isToolAvailableInPeerTurn('Write', enabled)).toBe(true);
   });
+});
 
-  it('asks before a reply that follows a tool use, in every mode', () => {
-    const used = { ...sameHost, toolUsed: true };
-    expect(
-      evaluatePermission('peer_reply', { text: 'hi' }, 'default', {}, context(workspace, sameHost)),
-    ).toBe('auto');
-    expect(
-      evaluatePermission(
-        'peer_reply',
-        { text: 'hi' },
-        'bypassPermissions',
-        { allow: ['peer_reply'] },
-        context(workspace, used),
-      ),
-    ).toBe('approve');
+describe('the reply to a peer', () => {
+  const reply = (mode: Parameters<typeof evaluatePermission>[2], rules = {}) =>
+    evaluatePermission('peer_reply', { text: 'hi' }, mode, rules, context(workspace, sameHost));
+
+  it('asks by default and wherever a mode asks about an action it cannot vouch for', () => {
+    expect(reply('default')).toBe('approve');
+    expect(reply('acceptEdits')).toBe('approve');
+    // In auto mode "approve" is the classifier's call, as for any other such action.
+    expect(reply('auto')).toBe('approve');
+  });
+
+  it('is not sent in plan mode', () => {
+    expect(reply('plan')).toBe('deny');
+  });
+
+  it('proceeds under bypass, like every other call bypass lets through', () => {
+    expect(reply('bypassPermissions')).toBe('auto');
+  });
+
+  it('is sent without asking when an allow rule names it', () => {
+    expect(reply('default', { allow: ['peer_reply'] })).toBe('auto');
+  });
+
+  it('asks when an ask rule names it, even under bypass', () => {
+    expect(reply('bypassPermissions', { ask: ['peer_reply'] })).toBe('approve');
   });
 
   it('a deny rule still refuses the reply', () => {

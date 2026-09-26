@@ -259,5 +259,6 @@ export type { ISpinner, ITerminalOutput } from './terminal-output';
 export type { ISession } from './session';
 
 export type { IDirent, IStats, IFileSystem, IFileSystemAsync } from './file-system';
+export type { ICredentialKey, ICredentialStore } from './credential-store';
 // Issue #2056: the structured-output shape a session forwards into the agent config.
 export type { IResponseFormatConfig } from './response-format';

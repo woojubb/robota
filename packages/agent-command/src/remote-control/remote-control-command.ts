@@ -1,4 +1,8 @@
-import type { ICommandHostAdapterAccess, TRemoteControlStatus } from '@robota-sdk/agent-framework';
+import type {
+  ICommandHostAdapterAccess,
+  ICommandHostWorkspace,
+  TRemoteControlStatus,
+} from '@robota-sdk/agent-framework';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 /**
@@ -8,9 +12,20 @@ import type { ICommandResult } from '@robota-sdk/agent-interface-command';
  * (`remote-control-enable` / `remote-control-stop`) executed by the session via the composition-root
  * adapter (commands never construct transports). `status` reads the injected
  * `ICommandHostAdapters.remoteControl.getStatus()` view — absent ⇒ the feature is unavailable in this host.
+ *
+ * Pairing and trust belong to the operator at this terminal. A surface that is already connected
+ * may stop remote control and read its state, but it cannot mint a pairing link, read the one on
+ * offer, or revoke a trusted device: otherwise one connected surface could admit the next.
  */
 
-function formatStatus(status: TRemoteControlStatus | undefined): ICommandResult {
+const OPERATOR_ONLY =
+  'only the operator at this terminal can do this; a connected surface cannot pair, enroll or revoke devices. ' +
+  'Run `/remote-control` on the host terminal.';
+
+function formatStatus(
+  status: TRemoteControlStatus | undefined,
+  showPairingLink: boolean,
+): ICommandResult {
   if (!status) {
     return { message: 'Remote control is not available in this environment.', success: true };
   }
@@ -29,7 +44,9 @@ function formatStatus(status: TRemoteControlStatus | undefined): ICommandResult 
       };
     case 'awaiting-pairing':
       return {
-        message: `Remote control is waiting for a device to pair.\nOpen: ${status.pairingUrl}`,
+        message: showPairingLink
+          ? `Remote control is waiting for a device to pair.\nOpen: ${status.pairingUrl}`
+          : 'Remote control is waiting for a device to pair. The pairing link is shown only on the host terminal.',
         success: true,
       };
     case 'paired':
@@ -40,9 +57,10 @@ function formatStatus(status: TRemoteControlStatus | undefined): ICommandResult 
 }
 
 export function executeRemoteControlCommand(
-  context: ICommandHostAdapterAccess,
+  context: ICommandHostAdapterAccess & Pick<ICommandHostWorkspace, 'getCommandInvocationSource'>,
   args: string,
 ): ICommandResult {
+  const operator = context.getCommandInvocationSource() === 'user';
   const trimmed = args.trim();
   // Split into a lowercased verb + the original-case remainder (a deviceId is case-sensitive base64url).
   const spaceAt = trimmed.indexOf(' ');
@@ -50,7 +68,11 @@ export function executeRemoteControlCommand(
   const rest = spaceAt === -1 ? '' : trimmed.slice(spaceAt + 1).trim();
 
   if (verb === 'status') {
-    return formatStatus(context.getCommandHostAdapters?.().remoteControl?.getStatus());
+    const adapter = context.getCommandHostAdapters?.().remoteControl;
+    const result = formatStatus(adapter?.getStatus(), operator);
+    if (!adapter?.describeKeyStorage) return result;
+    const storage = adapter.describeKeyStorage() ?? 'chosen when remote control is first enabled';
+    return { ...result, message: `${result.message}\nHost key storage: ${storage}` };
   }
 
   if (verb === 'devices') {
@@ -70,6 +92,9 @@ export function executeRemoteControlCommand(
   }
 
   if (verb === 'revoke') {
+    if (!operator) {
+      return { message: `\`/remote-control revoke\`: ${OPERATOR_ONLY}`, success: false };
+    }
     if (!rest) {
       return { message: 'Usage: /remote-control revoke <deviceId>', success: false };
     }
@@ -96,6 +121,9 @@ export function executeRemoteControlCommand(
 
   // Default (empty / `enable` / `on`): request enable. The host reports the pairing QR/link.
   if (verb === '' || verb === 'enable' || verb === 'on') {
+    if (!operator) {
+      return { message: `\`/remote-control enable\`: ${OPERATOR_ONLY}`, success: false };
+    }
     return {
       message: 'Enabling remote control...',
       success: true,

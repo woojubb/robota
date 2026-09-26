@@ -2,6 +2,7 @@
  * FLOW-005: `/schedule` and `/monitor` command executors — create agent-wake background tasks.
  */
 
+import { MonitorCommandRefusedError } from '@robota-sdk/agent-framework';
 import { parseScheduleSpec } from './schedule-spec-parser.js';
 
 import type { IAgentJobHostContext } from '@robota-sdk/agent-framework';
@@ -27,7 +28,8 @@ function formatScheduleList(schedules: IBackgroundTaskState[]): string {
     .map((s) => {
       // `listSchedules()` only ever returns scheduled-kind tasks; the kind check is what lets
       // TypeScript narrow to the member that carries `schedule`/`nextFireAt` (#2079).
-      const cadence = s.kind === 'scheduled' ? (s.schedule?.cronExpression ?? '(unknown)') : '(unknown)';
+      const cadence =
+        s.kind === 'scheduled' ? (s.schedule?.cronExpression ?? '(unknown)') : '(unknown)';
       const when = s.kind === 'scheduled' && s.nextFireAt ? `next ${s.nextFireAt}` : '—';
       return `- ${s.id} [${s.status}] ${cadence} — ${s.label} (${when})`;
     })
@@ -136,12 +138,20 @@ export async function executeMonitorCommand(
   const parsed = parseMonitorArgs(args);
   if (!parsed) return { message: MONITOR_USAGE, success: false };
 
-  const task = await host.spawnMonitorWake({
-    label: labelFor('Monitor', parsed.instruction),
-    command: parsed.command,
-    matchPattern: parsed.matchPattern,
-    agentInstruction: parsed.instruction,
-  });
+  let task: IBackgroundTaskState;
+  try {
+    task = await host.spawnMonitorWake({
+      label: labelFor('Monitor', parsed.instruction),
+      command: parsed.command,
+      matchPattern: parsed.matchPattern,
+      agentInstruction: parsed.instruction,
+    });
+  } catch (error) {
+    if (error instanceof MonitorCommandRefusedError) {
+      return { message: error.message, success: false };
+    }
+    throw error;
+  }
 
   return {
     message: `Monitoring \`${parsed.command}\` for /${parsed.matchPattern}/ — task ${task.id}.`,

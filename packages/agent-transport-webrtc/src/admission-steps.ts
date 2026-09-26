@@ -10,6 +10,8 @@
  *   handshake     binds the CHANNEL — it terminates at the peer that knew the secret
  *   local-proof   binds the ENVIRONMENT — that peer reached a 0700 directory owned by this user
  *   handoff-grant binds the TRANSFER — one user, one destination, one channel, signed
+ *   operator-approval  the receiving operator allows THIS connection — asked last, once every proof
+ *                      has run, so the operator is asked only about a peer that is who it claims
  *
  * Each is opt-in, and configuring two means requiring both. That is strictly more restrictive than
  * requiring either, which is the safe direction — and it is the correct reading for a hand-off
@@ -17,12 +19,13 @@
  */
 
 /** The step still owed, or null when the session may be exposed. */
-export type TAdmissionStep = 'local-proof' | 'handoff-grant' | null;
+export type TAdmissionStep = 'local-proof' | 'handoff-grant' | 'operator-approval' | null;
 
 /** What the gate has configured. Named structurally so this module needs none of the gate's types. */
 export interface IConfiguredAdmissionSteps {
   readonly localPeer?: unknown;
   readonly handoffGrant?: unknown;
+  readonly connectionApproval?: unknown;
 }
 
 /**
@@ -36,14 +39,17 @@ export function nextAdmissionStep(
   configured: IConfiguredAdmissionSteps,
   completed: string,
 ): TAdmissionStep {
+  const approved = completed === 'operator-approval';
   if (
     configured.localPeer !== undefined &&
     completed !== 'local-proof' &&
-    completed !== 'handoff-grant'
+    completed !== 'handoff-grant' &&
+    !approved
   ) {
     return 'local-proof';
   }
-  if (configured.handoffGrant !== undefined && completed !== 'handoff-grant')
+  if (configured.handoffGrant !== undefined && completed !== 'handoff-grant' && !approved)
     return 'handoff-grant';
+  if (configured.connectionApproval !== undefined && !approved) return 'operator-approval';
   return null;
 }

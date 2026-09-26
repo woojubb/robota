@@ -25,6 +25,7 @@ export function createProviderCommandEntry(): ICommand {
     displayName: 'Provider Setup',
     description: 'Manage provider profiles',
     source: 'provider',
+    // User-only: provider profiles hold account credentials; a credential action.
     modelInvocable: false,
     argumentHint: 'current | list | switch <profile> | add [type] | test [profile]',
     subcommands: buildProviderSubcommands(),

@@ -111,6 +111,12 @@ export interface IVerifyDeviceChainInput {
    * one that names it.
    */
   readonly required?: IRequiredLists;
+  /**
+   * How long past its expiry a roster or revocation list is still accepted. Absent means none. A
+   * list inside the window is reported through `listsExpiredAt` so the caller can warn; a list past
+   * it is `stale`. How long to tolerate is the caller's policy, not this verifier's.
+   */
+  readonly listExpiryGraceMs?: number;
 }
 
 export type TDeviceChainVerdict =
@@ -127,6 +133,8 @@ export type TDeviceChainVerdict =
        * roster and revocation marks under `signingKeyId`).
        */
       readonly accepted: IDeviceListMarks & { readonly signingKeyRevocationSeq?: number };
+      /** The earliest expiry among accepted roster and revocation lists that has passed. */
+      readonly listsExpiredAt?: number;
     }
   | IChainRejection;
 
@@ -153,6 +161,20 @@ function windowCheck(
   return undefined;
 }
 
+/**
+ * A device list's window: as for any statement, except that an expiry less than `graceMs` ago is
+ * accepted and reported rather than refused.
+ */
+function listWindowCheck(
+  now: number,
+  list: { readonly issuedAt: number; readonly expiresAt: number },
+  graceMs: number,
+): 'not-yet-valid' | 'stale' | 'grace' | undefined {
+  if (now + IDENTITY_CLOCK_SKEW_MS < list.issuedAt) return 'not-yet-valid';
+  if (now - IDENTITY_CLOCK_SKEW_MS < list.expiresAt) return undefined;
+  return now - IDENTITY_CLOCK_SKEW_MS < list.expiresAt + graceMs ? 'grace' : 'stale';
+}
+
 function rolledBack(seq: number, mark: number | undefined): boolean {
   return mark !== undefined && seq < mark;
 }
@@ -173,6 +195,11 @@ export async function verifyDeviceChain(
     const lastSeen = input.lastSeen ?? {};
     const accepted: { rosterSeq?: number; revocationSeq?: number; signingKeyRevocationSeq?: number } =
       {};
+    const graceMs = Math.max(0, input.listExpiryGraceMs ?? 0);
+    let listsExpiredAt: number | undefined;
+    const noteExpired = (expiresAt: number): void => {
+      listsExpiredAt = Math.min(listsExpiredAt ?? expiresAt, expiresAt);
+    };
 
     // ── Trust anchor ───────────────────────────────────────────────────────────────────────────
     if (!isSpki(input.masterPublicKey, 'Ed25519')) return reject('signature-invalid', subject);
@@ -256,8 +283,9 @@ export async function verifyDeviceChain(
         return reject('signature-invalid', subject);
       }
       if (list.userId !== userId) return reject('user-mismatch', subject);
-      const window = windowCheck(input.now, list.issuedAt, list.expiresAt, 'stale');
-      if (window !== undefined) return reject(window, subject);
+      const window = listWindowCheck(input.now, list, graceMs);
+      if (window === 'grace') noteExpired(list.expiresAt);
+      else if (window !== undefined) return reject(window, subject);
       if (rolledBack(list.seq, deviceMarks.revocationSeq)) return reject('rolled-back', subject);
       if (list.revokedDeviceIds.includes(device.deviceId)) return reject('revoked', subject);
       accepted.revocationSeq = list.seq;
@@ -280,8 +308,9 @@ export async function verifyDeviceChain(
         return reject('signature-invalid', subject);
       }
       if (roster.userId !== userId) return reject('user-mismatch', subject);
-      const window = windowCheck(input.now, roster.issuedAt, roster.expiresAt, 'stale');
-      if (window !== undefined) return reject(window, subject);
+      const window = listWindowCheck(input.now, roster, graceMs);
+      if (window === 'grace') noteExpired(roster.expiresAt);
+      else if (window !== undefined) return reject(window, subject);
       if (rolledBack(roster.seq, deviceMarks.rosterSeq)) return reject('rolled-back', subject);
       if (!roster.devices.some((entry) => sameDeviceCertificate(entry, device))) {
         return reject('not-in-roster', subject);
@@ -297,6 +326,7 @@ export async function verifyDeviceChain(
       capabilities: device.capabilities,
       deviceCertificate: device,
       accepted,
+      ...(listsExpiredAt !== undefined ? { listsExpiredAt } : {}),
     };
   } catch {
     // allow-fallback: an unexpected failure anywhere in verification is a refusal, never a pass

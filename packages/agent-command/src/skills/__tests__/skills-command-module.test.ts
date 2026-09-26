@@ -104,7 +104,7 @@ describe('createSkillsCommandModule', () => {
       argumentHint: '[list | <skill-name> [args]]',
       safety: 'read-only',
     });
-    expect(command?.description).toContain('projected skills command tool');
+    expect(command?.modelDescription).toContain('projected skills command tool');
   });
 
   it('lists skill metadata from the SDK host context', async () => {

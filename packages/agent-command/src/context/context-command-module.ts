@@ -9,16 +9,49 @@ export function createContextCommandEntry(): ICommand {
     name: 'context',
     displayName: 'Context References',
     description: 'Context window info, reference inventory, and auto-compact controls',
+    // Model-invocable for the read-only views only: knowing how full the context is lets the model
+    // decide when to compact. Pinning, unpinning and clearing references and the auto-compact
+    // policy are the user's curation and preference, so they stay user-only.
+    modelDescription:
+      'Inspect the context window. Use it before a large task or before deciding to compact, or to ' +
+      'see which files the user pinned into context. Bare returns used/max tokens and percentage, ' +
+      'the auto-compact threshold, the pinned-reference summary and the turn count; `list` returns ' +
+      'the per-category token breakdown and every pinned reference.',
     source: 'context',
-    modelInvocable: false,
+    modelInvocable: true,
     userInvocable: true,
     argumentHint: 'list | add <path> | remove <path> | clear | auto ...',
     subcommands: [
-      { name: 'list', description: 'List loaded context references', source: 'context' },
-      { name: 'add', description: 'Add a file to active context references', source: 'context' },
-      { name: 'remove', description: 'Remove a context reference', source: 'context' },
-      { name: 'clear', description: 'Clear context references', source: 'context' },
-      { name: 'auto', description: 'Inspect or change auto-compact policy', source: 'context' },
+      {
+        name: 'list',
+        description: 'List loaded context references',
+        source: 'context',
+        modelInvocable: true,
+      },
+      {
+        name: 'add',
+        description: 'Add a file to active context references',
+        source: 'context',
+        modelInvocable: false,
+      },
+      {
+        name: 'remove',
+        description: 'Remove a context reference',
+        source: 'context',
+        modelInvocable: false,
+      },
+      {
+        name: 'clear',
+        description: 'Clear context references',
+        source: 'context',
+        modelInvocable: false,
+      },
+      {
+        name: 'auto',
+        description: 'Inspect or change auto-compact policy',
+        source: 'context',
+        modelInvocable: false,
+      },
     ],
   };
 }

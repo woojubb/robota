@@ -4,6 +4,7 @@ import { createAgentCommandModule } from '../agent/index.js';
 import { createBackgroundCommandModule } from '../background/index.js';
 import { createCompactCommandModule } from '../compact/index.js';
 import { createContextCommandModule } from '../context/index.js';
+import { createDevicesCommandModule } from '../devices/index.js';
 import { createDoctorCommandModule } from '../doctor/index.js';
 import { createEditorCommandModule } from '../editor/index.js';
 import { createAdvisorCommandModule } from '../advisor/index.js';
@@ -39,6 +40,7 @@ import { createStatusLineCommandModule } from '../statusline/index.js';
 import { createThemeCommandModule } from '../theme/index.js';
 import { createUserLocalCommandModule } from '../user-local/index.js';
 
+import type { IDevicesCommandPort } from '../devices/index.js';
 import type { IDoctorDisplayVocabulary, IDoctorInputs } from '../doctor/index.js';
 import type { IKeybindingsFilePort } from '../keybindings/index.js';
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
@@ -78,6 +80,11 @@ export interface IDefaultCommandModulesOptions {
    * missing than present-and-failing.
    */
   themeCataloguePort?: IThemeCataloguePort;
+  /**
+   * The host that keeps this device's identity (its terminal, credential store and state files).
+   * Absence means `/devices` is not registered: without it the command could do nothing.
+   */
+  devicesPort?: IDevicesCommandPort;
   /** OBSERVABILITY-1991: host-composed doctor inputs; absence means `/doctor` is not registered. */
   doctorInputs?: IDoctorInputs;
   /** Product-owned diagnostic wording; absent keeps `/doctor` product-neutral. */
@@ -137,6 +144,7 @@ export function createDefaultCommandModules({
   orgPolicy,
   keybindingsFilePort,
   themeCataloguePort,
+  devicesPort,
   doctorInputs,
   doctorDisplay,
   formatForkResumeCommand,
@@ -191,6 +199,7 @@ export function createDefaultCommandModules({
     // capability nobody can see. It is also what makes the carrier's arrival observable.
     createHandoffCommandModule(),
     createRemoteControlCommandModule(),
+    ...(devicesPort === undefined ? [] : [createDevicesCommandModule(devicesPort)]),
     createProviderCommandModule({
       providerDefinitions,
       settings: providerSettingsAdapter,

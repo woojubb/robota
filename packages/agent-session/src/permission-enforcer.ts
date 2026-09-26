@@ -27,6 +27,7 @@ import {
 import { decideApproval } from './abortable-approval.js';
 import { AutoModeGate } from './auto-mode-gate.js';
 import { consentScopeFor } from './consent-scope.js';
+import { buildHookInput, runPreToolHook } from './tool-hook-helpers.js';
 import { PermissionDenialLog } from './permission-denial-log.js';
 import { wrapToolWithPermission } from './tool-permission-wrapper.js';
 import { createWorkspacePathResolver } from './workspace-path-resolver.js';
@@ -46,6 +47,7 @@ import type {
   IToolExecutionContext,
   IToolWithEventService,
   TToolArgs,
+  TToolParameters,
   THooksConfig,
   TResolveInWorkspace,
   IPeerTurnAuthority,
@@ -73,6 +75,12 @@ function assertPermissionPatternsEvaluable(rules: {
     `Invalid permission pattern(s) in permissions.allow/deny/ask: ${listed}. ` +
       'Fix the pattern where it is configured (issue #2428).',
   );
+}
+
+/** How a decision's call will run, where that changes the answer. */
+interface IDecisionScope {
+  /** `false` when the call will NOT run inside the command sandbox, so its approval cannot apply. */
+  readonly sandboxed?: boolean;
 }
 
 export class PermissionEnforcer {
@@ -104,8 +112,7 @@ export class PermissionEnforcer {
   private readonly allowPeerChanges: boolean;
   /**
    * The peer turn in progress, or undefined for the operator's own. Held here because the turn's
-   * origin is one more input to every decision the turn makes, and `toolUsed` is what this turn has
-   * done so far — which is what decides whether its reply to the peer needs a person first.
+   * origin is one more input to every decision the turn makes.
    */
   private peerTurn: IPeerTurnAuthority | undefined;
   private readonly autoMode?: AutoModeGate;
@@ -152,7 +159,7 @@ export class PermissionEnforcer {
     this.peerTurn =
       peerReach === undefined
         ? undefined
-        : { reach: peerReach, allowChanges: this.allowPeerChanges, toolUsed: false };
+        : { reach: peerReach, allowChanges: this.allowPeerChanges };
   }
 
   /** End the turn; what follows is the operator's until the next peer turn begins. */
@@ -251,7 +258,7 @@ export class PermissionEnforcer {
       getPermissionMode: this.getPermissionMode,
       log: (event, detail) => this.log(event, detail),
       checkPermission: (toolName, toolArgs, signal, interaction, hookTraceEnv) =>
-        this.decideAndRecord(toolName, toolArgs, signal, interaction, hookTraceEnv),
+        this.decidePermission(toolName, toolArgs, signal, interaction, hookTraceEnv),
     };
 
     return tools.map((tool) => wrapToolWithPermission(tool, deps));
@@ -336,38 +343,43 @@ export class PermissionEnforcer {
     hookTraceEnv?: IToolExecutionContext['hookTraceEnv'],
   ): Promise<boolean> {
     return (
-      (await this.decideAndRecord(toolName, toolArgs, signal, interaction, hookTraceEnv)) === true
+      (await this.decidePermission(toolName, toolArgs, signal, interaction, hookTraceEnv)) === true
     );
   }
 
   /**
-   * {@link decidePermission}, remembering that a peer turn used a tool. Recorded when the call is
-   * allowed, before it runs: whatever the reply says after this may come from what the tool read.
+   * Decide an action that has `toolName`'s effect but does not run through that tool — a command
+   * that starts a process, say. It passes what the tool call would: the PreToolUse hooks (so
+   * guardrails apply), then the gate's rules, mode, remembered consent and prompt. It never takes
+   * the command sandbox's auto-approval, because the action does not run inside that sandbox.
    */
-  private async decideAndRecord(
+  async checkDelegatedToolCall(
     toolName: string,
-    toolArgs: TToolArgs,
+    toolParameters: TToolParameters,
     signal?: AbortSignal,
-    interaction: IToolExecutionContext['permissionInteraction'] = 'interactive',
-    hookTraceEnv?: IToolExecutionContext['hookTraceEnv'],
-  ): Promise<boolean | IPermissionRefusal> {
-    const peerTurn = this.peerTurn;
+  ): Promise<boolean> {
+    const hookInput = buildHookInput(
+      this.sessionId,
+      this.cwd,
+      toolName,
+      toolParameters,
+      this.getPermissionMode(),
+      this.transcriptPath,
+    );
+    const blocked = await runPreToolHook(this.config.hooks, hookInput, this.hookTypeExecutors);
+    if (blocked) {
+      this.log('tool_blocked', { tool: toolName, reason: 'hook', delegated: true });
+      return false;
+    }
     const decision = await this.decidePermission(
       toolName,
-      toolArgs,
+      toolParameters as TToolArgs,
       signal,
-      interaction,
-      hookTraceEnv,
+      'interactive',
+      undefined,
+      { sandboxed: false },
     );
-    if (
-      decision === true &&
-      peerTurn !== undefined &&
-      this.peerTurn === peerTurn &&
-      getToolPermissionProfile(toolName).repliesToPeer !== true
-    ) {
-      this.peerTurn = { ...peerTurn, toolUsed: true };
-    }
-    return decision;
+    return decision === true;
   }
 
   /** {@link checkPermission}, keeping the reason a refusal carries for the model. */
@@ -377,6 +389,7 @@ export class PermissionEnforcer {
     signal?: AbortSignal,
     interaction: IToolExecutionContext['permissionInteraction'] = 'interactive',
     hookTraceEnv?: IToolExecutionContext['hookTraceEnv'],
+    scope: IDecisionScope = {},
   ): Promise<boolean | IPermissionRefusal> {
     // Issue #3081: ONE evaluator for every caller. A background/subagent policy (CORE-025) only
     // adds a ceiling, an ask-everything flag and the task's own lists; the ceiling is checked before
@@ -402,7 +415,8 @@ export class PermissionEnforcer {
     const decision = evaluatePermission(toolName, toolArgs, mode, rules, {
       ...where,
       resolveInWorkspace: this.resolveInWorkspace,
-      sandboxAutoApproved: this.sandboxAutoApproves(toolName, toolArgs),
+      sandboxAutoApproved:
+        scope.sandboxed !== false && this.sandboxAutoApproves(toolName, toolArgs),
       ...(policy?.ceiling !== undefined ? { ceiling: policy.ceiling } : {}),
       askAll: policy?.askAll ?? false,
       ...(this.peerTurn !== undefined ? { peerTurn: this.peerTurn } : {}),
@@ -420,10 +434,12 @@ export class PermissionEnforcer {
 
     // 'approve' — route to the human-approval path. An ask that must reach a person every time is
     // not answered by a remembered consent, and does not create one (issue #3081).
-    // Every ask in a peer turn reaches a person: a consent remembered from the operator's own work
-    // does not answer for a peer, and one given to a peer is not remembered.
-    const fresh =
-      this.peerTurn !== undefined || requiresFreshApproval(toolName, toolArgs, rules, where);
+    // An ask a peer turn makes for the peer reaches a person: a consent remembered from the
+    // operator's own work does not answer for a peer, and one given to a peer is not remembered.
+    // The reply is the operator's own outbound call, so it is answered like any other.
+    const askedForPeer =
+      this.peerTurn !== undefined && getToolPermissionProfile(toolName).repliesToPeer !== true;
+    const fresh = askedForPeer || requiresFreshApproval(toolName, toolArgs, rules, where);
     // In auto mode the classifier stands in for the person, except where a person is required: an
     // ask rule, a critical removal or protected path, or a policy that asks about everything.
     if (mode === 'auto' && this.autoMode !== undefined && !fresh && policy?.askAll !== true) {
@@ -434,6 +450,7 @@ export class PermissionEnforcer {
         signal,
         interaction,
         hookTraceEnv,
+        scope,
       );
     }
     return this.promptForApproval(toolName, toolArgs, signal, interaction, fresh);
@@ -446,6 +463,7 @@ export class PermissionEnforcer {
     signal: AbortSignal | undefined,
     interaction: IToolExecutionContext['permissionInteraction'],
     hookTraceEnv: IToolExecutionContext['hookTraceEnv'],
+    scope: IDecisionScope,
   ): Promise<boolean | IPermissionRefusal> {
     if (gate.takeRetry(toolName, toolArgs)) return true;
     // A consent given this session still answers, unless it is one no auto-mode rule could be.
@@ -463,7 +481,7 @@ export class PermissionEnforcer {
     if (signal?.aborted === true) return false;
     // The user left auto mode while the classifier was deciding: decide again under the new mode.
     if (this.getPermissionMode() !== 'auto') {
-      return this.decidePermission(toolName, toolArgs, signal, interaction, hookTraceEnv);
+      return this.decidePermission(toolName, toolArgs, signal, interaction, hookTraceEnv, scope);
     }
     if (judgement.kind === 'allow') return true;
     this.denials.record(toolName, toolArgs, 'classifier', judgement.reason);

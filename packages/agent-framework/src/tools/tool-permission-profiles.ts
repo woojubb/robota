@@ -51,8 +51,10 @@ export const FRAMEWORK_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPe
     Cd: { argument: { key: 'path', kind: 'path' }, riskClass: 'inspect' },
 
     /**
-     * Answers the peer session that drove the current turn. It has no risk class: the peer-turn
-     * policy decides it — only in a peer turn, asking the operator once the turn used another tool.
+     * Answers the peer session that drove the current turn, and exists only in a peer turn. It sends
+     * text off this machine, so it declares no risk class: every mode treats it as an action it cannot
+     * vouch for — it asks, plan mode refuses it, bypass lets it through — and rules and remembered
+     * consent decide it as they would any call.
      */
     peer_reply: { argument: { key: 'text', kind: 'text' }, repliesToPeer: true },
   };

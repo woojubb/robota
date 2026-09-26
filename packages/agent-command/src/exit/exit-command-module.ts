@@ -11,6 +11,7 @@ export function createExitCommandEntry(): ICommand {
     displayName: 'Exit Session',
     description: EXIT_COMMAND_DESCRIPTION,
     source: 'exit',
+    // User-only: ending the session is the user's decision.
     modelInvocable: false,
   };
 }

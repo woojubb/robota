@@ -42,6 +42,7 @@ export function createPresetCommandEntry(): ICommand {
     source: 'preset',
     argumentHint: PRESET_ARGUMENT_HINT,
     subcommands: buildPresetSubcommands('preset'),
+    // User-only: a preset swaps tools, commands and permission posture; the user chooses it.
     modelInvocable: false,
   };
 }

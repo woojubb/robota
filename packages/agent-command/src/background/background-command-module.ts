@@ -14,6 +14,7 @@ export function createBackgroundCommandEntry(): ICommand {
     displayName: 'Background Tasks',
     description: BACKGROUND_COMMAND_DESCRIPTION,
     source: 'background',
+    // User-only: a view onto the user's job panel; the model manages its own jobs through `agent`.
     modelInvocable: false,
     subcommands: buildBackgroundCommandSubcommands(),
   };

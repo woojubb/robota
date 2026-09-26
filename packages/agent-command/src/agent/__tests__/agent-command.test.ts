@@ -146,7 +146,7 @@ describe('agent command module', () => {
       modelInvocable: true,
       safety: 'background-agent',
     });
-    expect(agent?.description).toContain('Subagent jobs');
+    expect(agent?.description).toContain('background subagent jobs');
     expect(agent?.description).toContain('parallel');
     expect(agent?.description).toContain('consolidated');
     expect(agent?.description).toContain('When the user explicitly asks');

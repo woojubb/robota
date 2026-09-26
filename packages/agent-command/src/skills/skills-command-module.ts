@@ -1,6 +1,10 @@
 import { SkillCommandSource } from '@robota-sdk/agent-framework';
 
-import { executeSkillsCommand, SKILLS_COMMAND_DESCRIPTION } from './skills-command.js';
+import {
+  executeSkillsCommand,
+  SKILLS_COMMAND_DESCRIPTION,
+  SKILLS_COMMAND_MODEL_DESCRIPTION,
+} from './skills-command.js';
 
 import type {
   ICommandModule,
@@ -20,6 +24,9 @@ export function createSkillsCommandEntry(): ICommand {
     name: 'skills',
     displayName: 'Skills',
     description: SKILLS_COMMAND_DESCRIPTION,
+    // Model-invocable: activating a skill is how the model follows one; a skill's own
+    // `disable-model-invocation` frontmatter still refuses it per skill.
+    modelDescription: SKILLS_COMMAND_MODEL_DESCRIPTION,
     source: 'skills',
     modelInvocable: true,
     userInvocable: true,
@@ -33,6 +40,7 @@ function createSkillsSystemCommand(): ISystemCommand {
   return {
     name: entry.name,
     semanticRole: 'skillActivation',
+    ...(entry.modelDescription !== undefined ? { modelDescription: entry.modelDescription } : {}),
     displayName: entry.displayName,
     description: entry.description,
     requiresPermission: false,
@@ -55,7 +63,9 @@ export class SkillsCommandSource implements ICommandSource {
 
 export function createSkillsCommandModule(options: ISkillsCommandModuleOptions): ICommandModule {
   const commandSources: ICommandSource[] = [new SkillsCommandSource()];
-  commandSources.push(new SkillCommandSource(options.contributionSources, options.skillRoots ?? []));
+  commandSources.push(
+    new SkillCommandSource(options.contributionSources, options.skillRoots ?? []),
+  );
 
   return {
     name: 'agent-command-skills',

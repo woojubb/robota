@@ -72,7 +72,10 @@ React/Ink UI.
   and subagent lifecycle hooks add product environment aliases only when the host supplies their names.
   Model-facing identifiers remain consistent through prompt execution and child-tool filtering. SDK
   core ships no user-visible built-in commands; command packages (`agent-command-*`) contribute
-  behavior through `ICommandModule`, consuming SDK command contracts and common APIs. The SDK does
+  behavior through `ICommandModule`, consuming SDK command contracts and common APIs, and what a
+  module opens to the model is all the model is offered or can run — a per-subcommand declaration is
+  an allowlist enforced before the command runs, so an alias or a later subcommand stays user-only
+  until its owner opens it. The SDK does
   not know command ids in advance; on session shutdown it settles every module's host-scoped work
   before closing the session, even when another module's shutdown fails.
 
@@ -127,7 +130,9 @@ These are behaviors a caller cannot infer from a type signature alone.
   exit/restart/rename, …) are executed by the session through injected host adapters, so headless and
   programmatic embeddings get the same command semantics as an attached UI. An embedding with no
   adapter for a requested action gets an explicit failure naming the missing capability — never a
-  silent no-op. UI-only intents (opening a picker, a settings screen) are fire-and-forget: with no
+  silent no-op. Parity does not extend to enabling remote control: that mints a pairing link, so it
+  runs only for the operator's own command, never for a connected surface or the model, whichever
+  command asked. UI-only intents (opening a picker, a settings screen) are fire-and-forget: with no
   surface listening they are a defined no-op, and that never affects the host-action half.
 - **Local peer status is display-only.** Host-observed activity, independently verified process
   liveness and the verified workspace relation never grant authority over the peer or identify a persisted session record, and a passive
@@ -153,8 +158,9 @@ These are behaviors a caller cannot infer from a type signature alone.
   the model marked as a peer's with a per-turn system statement that it carries no authority. Which
   tools it is offered and may use is the permission policy's per-origin decision, taken from
   admission; a turn with no admitted origin is offered none. The answer goes back only through the
-  reply tool, whose target and thread are the incoming message's own — the model chooses the text,
-  never the recipient.
+  reply tool, whose target is the sender admission bound to the incoming message and whose thread is
+  that message's own — the model chooses the text, never the recipient, and a message naming a sender
+  other than the admitted one is refused.
 - **Automatic session naming is text-only.** The title-generation call — whether triggered by an
   operator message or the first external event — always disables tool use, so hosted web tools can
   never be invoked merely to generate a title.

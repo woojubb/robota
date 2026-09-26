@@ -48,7 +48,10 @@ export interface IAgentJobGroups {
 /** Cron-driven wakes and their lifecycle. */
 export interface IAgentJobSchedules {
   /** Optional for hosts without a persisted interactive session. */
-  createSelfPacedLoop?(instruction: string, options?: { useDefaultPrompt?: boolean }): Promise<ISessionLoopState>;
+  createSelfPacedLoop?(
+    instruction: string,
+    options?: { useDefaultPrompt?: boolean },
+  ): Promise<ISessionLoopState>;
   listSelfPacedLoops?(): readonly ISessionLoopState[];
   stopSelfPacedLoop?(loopId: string, reason?: string): Promise<void>;
   /**
@@ -81,11 +84,28 @@ export interface IAgentJobSchedules {
   editSchedule(taskId: string, patch: IScheduleEditPatch): Promise<void>;
 }
 
+/** The shell tool whose gate decides a model-requested monitor's command. */
+export const MONITOR_SHELL_TOOL = 'Shell';
+
+/** A model-requested monitor whose command the shell tool's gate refused; nothing was started. */
+export class MonitorCommandRefusedError extends Error {
+  readonly code = 'MONITOR_COMMAND_REFUSED';
+
+  constructor() {
+    super(
+      'The session’s shell permission rules refused this command, so no monitor was started. ' +
+        'Ask the user to run it or to allow it.',
+    );
+    this.name = 'MonitorCommandRefusedError';
+  }
+}
+
 /** Output-driven wakes. */
 export interface IAgentJobMonitors {
   /**
    * FLOW-005: monitor a process's output and wake the agent with `agentInstruction` when a
-   * line matches `matchPattern` (FLOW-004).
+   * line matches `matchPattern` (FLOW-004). When the model asked for it, the command is first
+   * decided by the shell tool's gate; a refusal rejects with {@link MonitorCommandRefusedError}.
    */
   spawnMonitorWake(input: {
     label: string;

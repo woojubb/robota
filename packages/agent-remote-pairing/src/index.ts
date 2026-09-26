@@ -117,6 +117,7 @@ export {
   RECOVERY_PHRASE_WORDS,
   deriveMasterKey,
   generateRecoveryPhrase,
+  isRecoveryPhraseWord,
   validateRecoveryPhrase,
 } from './identity/master-key.js';
 export type {
@@ -183,3 +184,36 @@ export type {
   TSessionDescriptorVerdict,
   TSessionRejection,
 } from './identity/verify-chain.js';
+// The device handshake: two of one user's devices admit each other over a channel bound to its
+// negotiated DTLS fingerprints, starting from a pairwise pre-proof that discloses no identity.
+export { PAIRWISE_SECRET_LABEL, derivePairwiseSecret } from './identity/pairwise-secret.js';
+export type { IDerivePairwiseSecretInput } from './identity/pairwise-secret.js';
+export {
+  DEVICE_HANDSHAKE_PROTOCOL,
+  decodeDeviceHandshakeFrame,
+} from './identity/device-handshake-frames.js';
+export type {
+  IDeviceHelloFrame,
+  IDeviceNonceFrame,
+  IDevicePreFrame,
+  IDeviceProveFrame,
+  TDeviceFrameDecodeResult,
+  TDeviceHandshakeFrame,
+} from './identity/device-handshake-frames.js';
+export {
+  DeviceHandshakeError,
+  FRESHNESS_LOOKUP_MS,
+  REMOTE_ADMISSION_GRACE_MS,
+  startDeviceHandshake,
+} from './identity/device-handshake.js';
+export type {
+  IDeviceHandshakeController,
+  IDeviceHandshakeIdentity,
+  IDeviceHandshakeOptions,
+  IDeviceHandshakeResult,
+  IDeviceMeshAdmission,
+  IListUpdate,
+  TDeviceHandshakeRefusal,
+  TListFreshness,
+  TMeshLocality,
+} from './identity/device-handshake.js';

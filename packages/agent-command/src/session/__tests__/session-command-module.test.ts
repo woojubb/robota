@@ -150,7 +150,7 @@ describe('createSessionCommandModule', () => {
     );
   });
 
-  it('provides cost metadata and user-only executable command from the same module owner', () => {
+  it('provides cost metadata and a model-invocable report with a user-only budget from the same module owner', () => {
     const module = createSessionCommandModule();
     const command = module.systemCommands?.find((item) => item.name === 'cost');
     const entry = module.commandSources?.[0]?.getCommands().find((item) => item.name === 'cost');
@@ -160,7 +160,7 @@ describe('createSessionCommandModule', () => {
         name: 'cost',
         description: expect.stringContaining('token usage'),
         source: 'session',
-        modelInvocable: false,
+        modelInvocable: true,
       }),
     );
     expect(command).toEqual(
@@ -168,13 +168,15 @@ describe('createSessionCommandModule', () => {
         name: 'cost',
         lifecycle: 'inline',
         userInvocable: true,
-        modelInvocable: false,
+        modelInvocable: true,
       }),
     );
     expect(entry?.argumentHint).toBe('[budget [<amount>|clear]]');
     expect(command?.argumentHint).toBe(entry?.argumentHint);
-    expect(entry?.subcommands).toBeUndefined();
-    expect(command?.subcommands).toBeUndefined();
+    expect(entry?.subcommands).toEqual([
+      expect.objectContaining({ name: 'budget', modelInvocable: false }),
+    ]);
+    expect(command?.subcommands).toEqual(entry?.subcommands);
   });
 
   it('provides validate-session metadata and user-only executable command from the same module owner', () => {

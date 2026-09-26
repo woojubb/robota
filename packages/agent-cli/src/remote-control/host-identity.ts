@@ -3,16 +3,16 @@
  *
  * The host is the stationary trust anchor: it must reload and sign reconnect challenges across process
  * restarts, so — unlike the browser device key (non-extractable in IndexedDB) — its ECDSA identity keypair is
- * generated **extractable** and persisted as a `0600` JWK file under `~/.robota` (exactly like an SSH host
- * key). Confidentiality of that file buys an attacker nothing they don't already have: read access to
- * `~/.robota` means control of the host process, which IS the agent. The device pins this host's PUBLIC key
- * at first pair and verifies it on every reconnect (rogue-host defense).
+ * generated **extractable** and kept in the host's credential store (the OS keychain, or an owner-only file
+ * where no keychain works). The device pins this host's PUBLIC key at first pair and verifies it on every
+ * reconnect (rogue-host defense).
+ *
+ * Before the credential store existed the key sat in a plain `0600` JSON file under `~/.robota`, which
+ * backups and dotfile sync copy. A key that may already have been copied elsewhere is not carried over: on
+ * the first run after the move a new key is generated into the store, the old file is removed, and the
+ * operator is told once that trusted devices must pair again, since the key they pinned is gone.
  */
-import { readFileSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-
-import { ensureOwnerOnlyDirectory } from '@robota-sdk/agent-core/node';
-import { dirname, join } from 'node:path';
+import { unlinkSync } from 'node:fs';
 
 import {
   deriveIdentityId,
@@ -22,6 +22,11 @@ import {
   importKeyPairJwk,
   type IIdentityKeyPairJwk,
 } from '@robota-sdk/agent-remote-pairing';
+
+import { CredentialStoreError, credentialKeyLabel } from '../credentials/credential-store-error.js';
+import { withExclusiveFileLock } from '../credentials/exclusive-file-lock.js';
+
+import type { ICredentialKey, ICredentialStore } from '@robota-sdk/agent-core';
 
 /** The loaded host identity: the keypair plus its pinned-value derivatives. */
 export interface IHostIdentity {
@@ -33,14 +38,32 @@ export interface IHostIdentity {
   readonly hostIdentityId: string;
 }
 
-interface IHostIdentityFile {
+interface IHostIdentityRecord {
   readonly version: 1;
   readonly keyPair: IIdentityKeyPairJwk;
 }
 
-/** Default on-disk location for the host identity JWK. */
-function defaultHostIdentityPath(): string {
-  return join(homedir(), '.robota', 'remote-host-identity.json');
+/** Where the host identity is kept in the credential store. */
+export const HOST_IDENTITY_CREDENTIAL_KEY: ICredentialKey = {
+  service: 'robota.remote-control',
+  account: 'host-identity',
+};
+
+/** What the operator is told once, when the plain-file key is retired. */
+export const HOST_IDENTITY_MOVED_NOTICE =
+  'Remote control: the host identity key moved from a plain file into the credential store and was ' +
+  'replaced with a new key, because the old file may have been copied by backups or dotfile sync. ' +
+  'Trusted devices pinned the old key, so each must pair again from a new /remote-control link.';
+
+export interface IHostIdentityOptions {
+  /** The host's credential store. */
+  readonly store: ICredentialStore;
+  /** Held while a missing key is created, so concurrent first runs converge on one key. */
+  readonly lockPath: string;
+  /** Where a key from before the credential store was kept; removed, never read. */
+  readonly legacyFilePath?: string;
+  /** Tells the operator something they must act on (the re-pair notice). */
+  readonly notify?: (message: string) => void;
 }
 
 async function derive(keyPair: CryptoKeyPair): Promise<IHostIdentity> {
@@ -49,60 +72,77 @@ async function derive(keyPair: CryptoKeyPair): Promise<IHostIdentity> {
 }
 
 /**
- * Load the host identity from `filePath`, or generate + persist a fresh one on first run. The file is created
- * exclusively (`wx` → `O_EXCL`) with mode `0600`. A malformed file **throws** (fail-fast) rather than silently
- * minting a new identity — a new identity would force every trusted device to re-pair, so surfacing corruption
- * is the safer failure.
- *
- * The exclusive create is what makes first-run safe against a concurrent second run. `existsSync` + `writeFile`
- * is a TOCTOU pair: if the file appeared in between, (a) `mode` is applied only at CREATION, so the private key
- * would be left at whatever mode the pre-existing file had, and (b) the write would clobber the identity that
- * won the race — silently invalidating every device pinned to it. On `EEXIST` we therefore discard the identity
- * we just generated and adopt the persisted one. The re-entry terminates: the file now exists, so the recursive
- * call takes the load branch.
+ * The stored identity, or `undefined` when none is stored. A stored value that does not parse or import
+ * **throws** (fail-fast) rather than reading as absent — minting a new identity would force every trusted
+ * device to re-pair, so surfacing corruption is the safer failure. The messages name the key and never
+ * carry the stored text or a parser's quote of it, which is private key material.
  */
-export async function loadOrCreateHostIdentity(
-  filePath: string = defaultHostIdentityPath(),
-): Promise<IHostIdentity> {
-  // Read first and treat ENOENT as "no identity yet", rather than `existsSync` + read. Two path
-  // lookups can disagree; one read cannot. It also keeps the corrupt-file fail-fast distinct from
-  // the absent-file case, which an existence check conflates with any other read failure.
-  let raw: string | undefined;
+async function readStored(store: ICredentialStore): Promise<IHostIdentity | undefined> {
+  const label = credentialKeyLabel(HOST_IDENTITY_CREDENTIAL_KEY);
+  const raw = await store.get(HOST_IDENTITY_CREDENTIAL_KEY);
+  if (raw === undefined) return undefined;
+  let parsed: IHostIdentityRecord;
   try {
-    raw = readFileSync(filePath, 'utf8');
-  } catch (cause) {
-    if ((cause as NodeJS.ErrnoException).code !== 'ENOENT') {
-      throw new Error(`remote host identity file is unreadable: ${filePath}`, { cause });
-    }
+    parsed = JSON.parse(raw) as IHostIdentityRecord;
+  } catch {
+    throw new CredentialStoreError(`remote host identity ${label} is corrupt`);
   }
-
-  if (raw !== undefined) {
-    let parsed: IHostIdentityFile;
-    try {
-      parsed = JSON.parse(raw) as IHostIdentityFile;
-    } catch (cause) {
-      throw new Error(`remote host identity file is corrupt: ${filePath}`, { cause });
-    }
-    if (parsed.version !== 1 || !parsed.keyPair?.privateJwk || !parsed.keyPair?.publicJwk) {
-      throw new Error(`remote host identity file has an unexpected shape: ${filePath}`);
-    }
-    return derive(await importKeyPairJwk(parsed.keyPair));
+  if (parsed?.version !== 1 || !parsed.keyPair?.privateJwk || !parsed.keyPair?.publicJwk) {
+    throw new CredentialStoreError(`remote host identity ${label} has an unexpected shape`);
   }
-
-  const keyPair = await generateIdentityKeyPair(true);
-  const file: IHostIdentityFile = { version: 1, keyPair: await exportKeyPairJwk(keyPair) };
-  // SEC-020: `~/.robota` was created with no mode, so it came out 0755 and every local account
-  // could enumerate the host identity, trusted devices and session records it holds. The file
-  // itself is written `wx` with 0600 and is never rewritten, so it needs no tightening.
-  ensureOwnerOnlyDirectory(dirname(filePath));
+  let keyPair: CryptoKeyPair;
   try {
-    writeFileSync(filePath, JSON.stringify(file, null, 2), { mode: 0o600, flag: 'wx' });
-  } catch (cause) {
-    // `EEXIST` is the lost-race signal from `O_EXCL`; anything else is a real write failure.
-    if (!(cause instanceof Error) || (cause as NodeJS.ErrnoException).code !== 'EEXIST') {
-      throw cause;
-    }
-    return loadOrCreateHostIdentity(filePath);
+    keyPair = await importKeyPairJwk(parsed.keyPair);
+  } catch {
+    throw new CredentialStoreError(`remote host identity ${label} is not a usable key`);
   }
   return derive(keyPair);
+}
+
+/** Generate, store, and read back — a key the store did not keep is one no device could pin. */
+async function create(store: ICredentialStore): Promise<IHostIdentity> {
+  const keyPair = await generateIdentityKeyPair(true);
+  const record: IHostIdentityRecord = { version: 1, keyPair: await exportKeyPairJwk(keyPair) };
+  await store.set(HOST_IDENTITY_CREDENTIAL_KEY, JSON.stringify(record));
+  const created = await derive(keyPair);
+  const stored = await readStored(store);
+  if (stored?.publicKeySpki !== created.publicKeySpki) {
+    throw new CredentialStoreError(
+      `the credential store did not keep remote host identity ${credentialKeyLabel(HOST_IDENTITY_CREDENTIAL_KEY)}`,
+    );
+  }
+  return created;
+}
+
+/** Remove the plain-file key; whoever removes it tells the operator, so they hear it once. */
+function retireLegacyFile(options: IHostIdentityOptions): void {
+  if (options.legacyFilePath === undefined) return;
+  try {
+    unlinkSync(options.legacyFilePath);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return;
+    throw new CredentialStoreError(
+      `the old remote host identity file ${options.legacyFilePath} could not be removed`,
+    );
+  }
+  options.notify?.(HOST_IDENTITY_MOVED_NOTICE);
+}
+
+/**
+ * Load the host identity from the credential store, or generate and store one. Creation runs under a lock
+ * and re-reads the store first, so two first runs — in this process or two — adopt one key rather than one
+ * silently replacing the other's, which would invalidate every device pinned to the loser.
+ */
+export async function loadOrCreateHostIdentity(
+  options: IHostIdentityOptions,
+): Promise<IHostIdentity> {
+  const { store } = options;
+  const identity =
+    (await readStored(store)) ??
+    (await withExclusiveFileLock(
+      options.lockPath,
+      async () => (await readStored(store)) ?? create(store),
+    ));
+  retireLegacyFile(options);
+  return identity;
 }

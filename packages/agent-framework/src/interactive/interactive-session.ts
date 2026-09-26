@@ -1487,7 +1487,8 @@ export class InteractiveSession
     if (!adapter) {
       throw new Error('Moving to another directory is not available in this environment.');
     }
-    if (this.workspaceMovePending) throw new Error('A move to another directory is already under way.');
+    if (this.workspaceMovePending)
+      throw new Error('A move to another directory is already under way.');
     // The move carries the conversation as a saved record; a session that saves nothing has no way
     // to bring it along, and writing one anyway would break the promise it was started with.
     if (!this.sessionStore) {
@@ -1825,6 +1826,7 @@ export class InteractiveSession
     if (result === null) return null;
     const application = await applyCommandHostActions(result, {
       getAdapters: () => this.getCommandHostAdapters(),
+      invocationSource: source,
       orgPolicy: this.orgPolicy,
       switchProvider: (profileName) => this.switchProvider(profileName),
       moveWorkspace: (path) => this.moveWorkspace(path),

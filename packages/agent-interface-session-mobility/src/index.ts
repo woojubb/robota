@@ -29,6 +29,24 @@ export {
   peerReachOf,
 } from './peer-message-contracts.js';
 
+// ── mesh-admission-contracts ──
+export type { IMeshAdmission, TMeshCapability } from './mesh-admission-contracts.js';
+
+// ── connection-authority ──
+export type {
+  IAuthorizeOptions,
+  ICapabilityApprovalRequest,
+  IConnectionPeer,
+  IDelegatedTurn,
+  IDelegationRequest,
+  IOperatorApprover,
+  TCapabilityApproval,
+  TCapabilityDecision,
+  TCapabilityRefusal,
+  TDelegationDecision,
+} from './connection-authority.js';
+export { ConnectionAuthority, capabilityApproval } from './connection-authority.js';
+
 // ── handoff-contracts ──
 export type {
   IHandoffCommitAck,

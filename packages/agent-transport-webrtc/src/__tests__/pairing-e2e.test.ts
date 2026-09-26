@@ -34,6 +34,8 @@ interface IRemoteResult {
   session: Promise<Record<string, unknown>>;
   /** Resolves true if the responder's pairing accepted, false if it rejected/closed. */
   paired: Promise<boolean>;
+  /** Close the remote's data channel — the device going away. */
+  close: () => void;
 }
 
 /**
@@ -71,7 +73,9 @@ function connectRemotePaired(signaling: ISignalingClient, secret: string): IRemo
     });
   });
 
+  let remoteChannel: { close(): void } | undefined;
   peer.onDataChannel.subscribe((channel) => {
+    remoteChannel = channel;
     let accepted = false;
     const controller = startPairingHandshake({
       secret,
@@ -110,7 +114,7 @@ function connectRemotePaired(signaling: ISignalingClient, secret: string): IRemo
     });
   });
 
-  return { session, paired };
+  return { session, paired, close: () => remoteChannel?.close() };
 }
 
 describe('WebRtc pairing end-to-end (REMOTE-008)', () => {
@@ -141,6 +145,94 @@ describe('WebRtc pairing end-to-end (REMOTE-008)', () => {
     await expect(remote.paired).resolves.toBe(false);
     // The host never built the session bridge → getMessages was never invoked over the channel.
     expect(session.getMessages as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
+    await transport.stop();
+  }, 20000);
+
+  it('a driving connection the host operator does not approve never reaches the session', async () => {
+    const secret = 'shared-secret-256bit-base64url-xyz';
+    const [hostSig, remoteSig] = createInMemorySignalingPair();
+    const session = createStubSession();
+    const approve = vi.fn(async () => false);
+    const onPaired = vi.fn();
+    const transport = new WebRtcTransport({
+      signaling: hostSig,
+      secret,
+      connectionApproval: { approve },
+      onPaired,
+    });
+    transport.attach(session);
+
+    const remote = connectRemotePaired(remoteSig, secret);
+    await transport.start();
+
+    // The handshake itself succeeds — the device is who it says — and the operator still decides.
+    await expect(remote.paired).resolves.toBe(true);
+    await vi.waitFor(() => expect(approve).toHaveBeenCalledTimes(1));
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(session.getMessages as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
+    expect(onPaired).not.toHaveBeenCalled();
+    await transport.stop();
+  }, 20000);
+
+  it('a device that goes away while the operator decides withdraws the question and is never admitted', async () => {
+    const secret = 'shared-secret-256bit-base64url-xyz';
+    const [hostSig, remoteSig] = createInMemorySignalingPair();
+    let signal: AbortSignal | undefined;
+    let answer!: (value: boolean) => void;
+    const approve = vi.fn((context: { signal: AbortSignal }) => {
+      signal = context.signal;
+      return new Promise<boolean>((resolve) => (answer = resolve));
+    });
+    const onPaired = vi.fn();
+    const onPairingFailed = vi.fn();
+    const session = createStubSession();
+    const transport = new WebRtcTransport({
+      signaling: hostSig,
+      secret,
+      connectionApproval: { approve },
+      onPaired,
+      onPairingFailed,
+    });
+    transport.attach(session);
+
+    const remote = connectRemotePaired(remoteSig, secret);
+    await transport.start();
+    await expect(remote.paired).resolves.toBe(true);
+    await vi.waitFor(() => expect(approve).toHaveBeenCalledTimes(1));
+
+    remote.close();
+    await vi.waitFor(() => expect(signal?.aborted).toBe(true), { timeout: 5000 });
+    expect(onPairingFailed).toHaveBeenCalledTimes(1);
+    answer(true);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(onPaired).not.toHaveBeenCalled();
+    expect(session.getMessages as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
+    await transport.stop();
+  }, 20000);
+
+  it('a driving connection the host operator approves reaches the session', async () => {
+    const secret = 'shared-secret-256bit-base64url-xyz';
+    const [hostSig, remoteSig] = createInMemorySignalingPair();
+    // The operator takes a moment: the device, already paired on its side, asks for the history
+    // meanwhile, and gets its answer once the operator says yes.
+    const approve = vi.fn(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      return true;
+    });
+    const transport = new WebRtcTransport({
+      signaling: hostSig,
+      secret,
+      connectionApproval: { approve },
+    });
+    transport.attach(createStubSession());
+
+    const remote = connectRemotePaired(remoteSig, secret);
+    await transport.start();
+
+    await expect(remote.paired).resolves.toBe(true);
+    const reply = await remote.session;
+    expect(reply.type).toBe('messages');
+    expect(approve).toHaveBeenCalledTimes(1);
     await transport.stop();
   }, 20000);
 });

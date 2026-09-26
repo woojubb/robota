@@ -127,6 +127,11 @@ export interface ICommandRemoteControlAdapter {
   /** REMOTE-012 E3: revoke a trusted device by id (for `/remote-control revoke <id>`); returns true if removed. */
   revokeDevice?(deviceId: string): boolean;
   /**
+   * Where the host keeps its identity key, in one line for the operator (for `/remote-control
+   * status`), or `undefined` while no key has been needed yet. Absent ⇒ the host keeps no key.
+   */
+  describeKeyStorage?(): string | undefined;
+  /**
    * CMD-004 Phase 2: enable remote control (host-executed `remote-control-enable` action). Resolves
    * to the user-facing message (pairing QR/link, or a fail-closed notice) which the host folds into
    * the command result. Absent ⇒ the action fails explicitly in the result (no-fallback).
@@ -253,6 +258,12 @@ export interface ICommandMCPOAuthLoginResult {
 /** MCP activation lifecycle port. Implemented by the composition root over the MCP policy service. */
 export interface ICommandMCPActivationAdapter {
   list(): readonly ICommandMCPActivationSummary[];
+  /**
+   * Where the user acts on a command the model suggests: `session` when they can type a `/mcp`
+   * command, `terminal` for a run with no such prompt (sign-in is then the terminal command).
+   * Absent → `session`.
+   */
+  readonly userActionSurface?: 'session' | 'terminal';
   /**
    * Every source-level problem from the most recent resolution (issue #2794). Optional so an older
    * or narrower adapter implementation still satisfies this interface; a caller that wants to render

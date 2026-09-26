@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createWorkflowsCommandModule } from '../workflows-command-module.js';
 
+import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
 import type { TCommandInvocationSource } from '@robota-sdk/agent-interface-command';
@@ -76,5 +77,19 @@ describe('CMD-006 — a model may not execute an on-disk workflow', () => {
     const result = await systemCommand().execute(hostContext('model'), 'nonsense');
 
     expect(result.message).toContain('Unknown subcommand');
+  });
+});
+
+describe('what the model is offered of `/workflows`', () => {
+  it('describes and offers only the authoring subcommands', () => {
+    const executor = new SystemCommandExecutor([systemCommand()]);
+    const [descriptor] = executor.listModelInvocableCommands();
+
+    expect(descriptor?.argumentHint).toMatch(/^\[create .* \| build .*\]$/);
+    for (const userOnly of ['run', 'validate', 'list', 'catalog', 'status', 'cancel']) {
+      expect(descriptor?.argumentHint ?? '').not.toMatch(new RegExp(`\\b${userOnly}\\b`));
+      expect(descriptor?.description ?? '').not.toContain(`- ${userOnly}:`);
+    }
+    expect(descriptor?.description).toContain('Returns');
   });
 });

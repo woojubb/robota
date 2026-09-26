@@ -12,17 +12,17 @@ decoding, and durable persistence. It declares how authority moves, whether a se
 be offered, and how its resources are classified in the handoff inventory. The source retains
 authority until it holds a matching acknowledgement of durable destination persistence. Illegal
 phase transitions are refused without changing state; repeated acknowledgements for a committed
-handoff are idempotent. Authorization of a proposed move remains a host decision.
+handoff are idempotent. Authorization of a proposed move is the receiving operator's, asked by the host.
 
 ## Boundaries
 
-| Concern                                  | Owner                                                                                 |
-| ---------------------------------------- | ------------------------------------------------------------------------------------- |
-| What a session IS                        | `agent-interface-session`                                                             |
-| Carrying a peer message over a wire      | `agent-transport-webrtc`, `agent-transport`                                           |
-| Sealing and verifying handoff payloads   | `agent-transport`                                                                     |
-| Deciding whether a handoff is authorized | the host application; this package declares the shape of the decision, not the policy |
-| Transport adapters, channels, admission  | `agent-interface-transport`                                                           |
+| Concern                                  | Owner                                                                                                                                        |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| What a session IS                        | `agent-interface-session`                                                                                                                    |
+| Carrying a peer message over a wire      | `agent-transport-webrtc`, `agent-transport`                                                                                                  |
+| Sealing and verifying handoff payloads   | `agent-transport`                                                                                                                            |
+| Deciding whether a handoff is authorized | the receiving operator, asked by the host application; this package fixes that every request is asked and declares the shape of the question |
+| Transport adapters, channels, admission  | `agent-interface-transport`                                                                                                                  |
 
 ## Design decisions
 
@@ -53,7 +53,16 @@ boolean:
 
 The resulting trust classification distinguishes "same user, same host" (produced by a
 kernel-enforced rendezvous) from "token only" (a credential was presented and nothing about origin
-was proven); the two are not interchangeable however convenient a single flag would be.
+was proven); the two are not interchangeable however convenient a single flag would be. Between two of
+one user's devices, trust, locality and workspace stay separate fields of the admission: the certificate
+proves the user, the carrier the locality, and the workspace is only the peer's claim. Authority comes
+from trust and the capabilities local policy leaves of the certificate's, never from the other two.
+Some capabilities also need the receiving operator's yes: observing and driving for every connection,
+because an earlier connection's yes says nothing about who holds this one, and delegating and
+hand-off for every request. Without an operator to ask they are refused. The operator must be someone
+no connected surface can speak for, or one device could approve the next. A delegated task runs as a
+peer turn from where admission placed the peer, so the receiver's policy decides what it may do and
+nothing the sender attaches to the request can widen it.
 
 The driver-id attribution on a peer message is **display and attribution only** and must never
 become an authentication or authorization input. It is also what tells the model a message is a
