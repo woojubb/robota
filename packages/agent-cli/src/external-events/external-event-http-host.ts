@@ -43,6 +43,8 @@ export interface IExternalEventHttpHostOptions {
     grantId: string,
     delivery: IExternalEventDelivery,
   ) => Promise<TExternalEventAdmission>;
+  /** Count a refusal this endpoint decides itself against the grant it addressed. */
+  readonly countRefusal?: (grantId: string, refusal: TExternalEventRefusal) => void;
   /** Loopback port; 0 picks one. */
   readonly port: number;
   readonly bindAddress?: '127.0.0.1' | '::1';
@@ -174,6 +176,33 @@ export function validateExternalEventEndpoint(
   configure(options);
 }
 
+/** Bytes of an oversize body read and discarded before the 413, so the client can finish its write. */
+const MAX_DRAIN_BYTES = 1024 * 1024;
+
+/**
+ * Read and discard what the client is still sending. Resolves true once the body has ended, so an
+ * answer written then reaches a client that is no longer writing; false when the client sent more
+ * than the bound and the connection was cut, which RFC 9110 permits for an oversize request.
+ */
+function discardRest(req: IncomingMessage): Promise<boolean> {
+  if (req.readableEnded) return Promise.resolve(true);
+  if (req.destroyed) return Promise.resolve(false);
+  return new Promise((resolve) => {
+    let drained = 0;
+    req.on('data', (chunk: Buffer) => {
+      drained += chunk.length;
+      if (drained > MAX_DRAIN_BYTES) {
+        req.destroy();
+        resolve(false);
+      }
+    });
+    req.once('end', () => resolve(true));
+    req.once('close', () => resolve(req.readableEnded));
+    req.on('error', () => resolve(false));
+    req.resume();
+  });
+}
+
 /** Read the body up to the bound; `undefined` when it is larger. Never buffers past the bound. */
 function readBody(req: IncomingMessage): Promise<string | undefined> {
   const declared = Number(req.headers['content-length']);
@@ -237,14 +266,13 @@ export function createExternalEventHttpHost(
     }
   };
 
-  function refuse(
+  /** Charge and audit a refusal; every refusal is recorded, whether or not an answer can be sent. */
+  function judge(
     req: IncomingMessage,
-    res: ServerResponse,
     refusal: TExternalEventRefusal,
     route: IRoute | undefined,
-    decided?: ReturnType<typeof answerFor>,
-  ): void {
-    const { counted, answer } = decided ?? answerFor(refusal);
+    counted: boolean,
+  ): IBearerFailure {
     const failure: IBearerFailure = counted
       ? server.fail(req)
       : { remote: server.remote(req), throttled: false, retryAfterSeconds: 0 };
@@ -255,6 +283,25 @@ export function createExternalEventHttpHost(
       remote: failure.remote,
       throttled: failure.throttled,
     });
+    return failure;
+  }
+
+  function refuse(
+    req: IncomingMessage,
+    res: ServerResponse,
+    refusal: TExternalEventRefusal,
+    route: IRoute | undefined,
+  ): void {
+    const { counted, answer } = answerFor(refusal);
+    answerRefusal(res, route, answer, judge(req, refusal, route, counted));
+  }
+
+  function answerRefusal(
+    res: ServerResponse,
+    route: IRoute | undefined,
+    answer: ReturnType<typeof answerFor>['answer'],
+    failure: IBearerFailure,
+  ): void {
     if (failure.throttled) {
       res.writeHead(429, { 'Retry-After': String(failure.retryAfterSeconds) }).end();
     } else if (answer.kind === 'token' && route !== undefined) {
@@ -277,6 +324,8 @@ export function createExternalEventHttpHost(
     const route = routes.get(path);
     if (route === undefined) {
       const segment = path.startsWith(eventsPrefix) ? path.slice(eventsPrefix.length) : undefined;
+      // Which labels exist is public: each grant's RFC 9728 metadata names it, and a token client needs
+      // that to find its issuer. What stays private is a grant's state, decided only after the token.
       if (segment !== undefined && /^[a-zA-Z0-9_-]{1,64}$/u.test(segment)) {
         refuse(req, res, 'unknown-grant', undefined);
       } else {
@@ -288,20 +337,35 @@ export function createExternalEventHttpHost(
       res.writeHead(405, { Allow: 'POST' }).end();
       return;
     }
+    const count = (refusal: TExternalEventRefusal): void => {
+      try {
+        options.countRefusal?.(route.grantId, refusal);
+      } catch {
+        // Counting cannot change an answer.
+      }
+    };
+    // Neither answer below depends on the grant's state, so they may come before the session's check.
     const token = bearerCredential(req.headers.authorization);
     if (token === undefined) {
+      count('missing-token');
       refuse(req, res, 'missing-token', route);
       return;
     }
     const body = await readBody(req);
     if (body === undefined) {
-      // The body, not the token, is too large: 413, counted, before anything is verified. The rest
-      // of the body is not read: the connection closes once the answer is out.
-      res.once('finish', () => req.destroy());
-      refuse(req, res, 'oversize', route, {
-        counted: true,
-        answer: { kind: 'status', status: 413 },
-      });
+      // The body, not the token, is too large: 413, counted, before anything is verified. The rest is
+      // discarded, not kept; the answer goes out once the client stopped writing, and the connection
+      // closes after it (RFC 9110 §15.5.14).
+      count('oversize');
+      const failure = judge(req, 'oversize', route, true);
+      // A body declared past the drain bound is not read at all: the connection is cut after the
+      // answer, which the client may see as a reset, as RFC 9110 allows for an oversize request.
+      const declared = Number(req.headers['content-length']);
+      const drained =
+        Number.isFinite(declared) && declared > MAX_DRAIN_BYTES ? true : await discardRest(req);
+      if (!drained) return;
+      res.setHeader('Connection', 'close');
+      answerRefusal(res, route, { kind: 'status', status: 413 }, failure);
       return;
     }
     const admission = await options.receive(route.grantId, { token, event: parseEvent(body) });

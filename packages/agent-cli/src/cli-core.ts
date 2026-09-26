@@ -512,6 +512,7 @@ async function runCliCore(
       tuiEventEndpoint = createExternalEventHttpHost({
         grants: tuiGrants,
         receive: (grantId, delivery) => grantsForEndpoint.receive(grantId, delivery),
+        countRefusal: (grantId, refusal) => grantsForEndpoint.countRefusal(grantId, refusal),
         port: args.externalEventPort ?? 0,
         ...(args.externalEventTrustedProxies !== undefined
           ? { trustedProxies: args.externalEventTrustedProxies }

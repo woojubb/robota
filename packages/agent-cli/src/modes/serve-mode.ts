@@ -373,6 +373,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
           const endpoint = createExternalEventHttpHost({
             grants,
             receive: (grantId, delivery) => opened.receive(grantId, delivery),
+            countRefusal: (grantId, refusal) => opened.countRefusal(grantId, refusal),
             port: args.externalEventPort ?? 0,
             ...(args.externalEventTrustedProxies !== undefined
               ? { trustedProxies: args.externalEventTrustedProxies }

@@ -2,9 +2,9 @@
  * Who may put an event from outside into a running session, decided from an access token.
  *
  * An external sender is identified only by a bearer access token the host verifies itself with an
- * `IAccessTokenVerifier`. Whatever carries the event — an HTTP request, an MCP notification, a local
- * bridge — only moves the token and the event, and nothing it or the event says about the sender is
- * identity. The grant is the principal: it pins exactly one subject or client, so every admitted
+ * `IAccessTokenVerifier`. Whatever carries the event — the HTTPS endpoint a grant is served on, or any
+ * later carrier — only moves the token and the event, and nothing it or the event says about the sender
+ * is identity. The grant is the principal: it pins exactly one subject or client, so every admitted
  * event is attributed to the grant, never to a name inside the payload.
  *
  * Like `access-token.ts`, this speaks the `admission.ts` vocabulary: secure by default, and a refusal
