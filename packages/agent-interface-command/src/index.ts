@@ -25,6 +25,8 @@ export type {
   ICommandResult,
   TCommandResultDataValue,
   TCommandInvocationSource,
+  TCommandRunner,
+  TCommandSurface,
   ICommandListEntry,
   ICommandSkillListEntry,
   TCommandHostAction,

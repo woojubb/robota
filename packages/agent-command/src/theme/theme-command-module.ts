@@ -182,6 +182,9 @@ export function createThemeCommandEntry(): ICommand {
     userInvocable: true,
     // User-only: UI preference.
     modelInvocable: false,
+    // Themes belong to the terminal the user sits at, so that terminal runs it, even when attached.
+    runner: 'client',
+    surfaces: ['terminal'],
   };
 }
 
@@ -205,6 +208,8 @@ export function createThemeCommandModule(
     requiresPermission: false,
     userInvocable: true,
     modelInvocable: false,
+    runner: entry.runner,
+    surfaces: entry.surfaces,
     lifecycle: 'inline',
     execute: (_context, args) => executeThemeCommand(catalogue, args),
   };

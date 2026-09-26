@@ -138,6 +138,15 @@ export interface IToolExecutionContext {
   baseEventService?: IEventService;
 
   /**
+   * The service this call's caller would give the tool with `setEventService`, carried with the
+   * call instead. One tool instance can serve several agents, and the service set on it is
+   * whichever agent set one last; a tool that emits events of its own (the `FunctionTool` span)
+   * emits them here when present, so they reach the agent that made the call. The no-op default
+   * service means that caller wants none.
+   */
+  instanceEventService?: IEventService;
+
+  /**
    * Injected "ask the user" port (CMD-004). Present when an interactive renderer is attached, letting
    * a tool solicit a structured answer from the user (the model-issued question seam consumed by
    * CMD-005). Absent in non-interactive contexts; a tool that asks must treat absence as "no human

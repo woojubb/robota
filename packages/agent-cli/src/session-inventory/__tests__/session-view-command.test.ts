@@ -408,7 +408,7 @@ describe('session view command', () => {
     });
     const control = await startSupervisedControl(
       id, () => undefined, root, () => 'idle', undefined, undefined, () => 'Morning review',
-      undefined, undefined, undefined, session,
+      undefined, undefined, undefined, { session },
     );
     const out = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);

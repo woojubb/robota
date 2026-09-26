@@ -19,7 +19,7 @@ import {
 } from '../external-events/external-event-grant-file.js';
 import { readProcessStartTime } from '../remote-control/local-peer-registry.js';
 import { resolveRendezvousDirectory } from '../remote-control/local-peer-rendezvous.js';
-import { createSupervisedAttachCarrier } from './supervised-attach.js';
+import { createSupervisedAttachCarrier, type ISupervisedAttachCarrierOptions } from './supervised-attach.js';
 
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
 
@@ -828,6 +828,11 @@ export interface ISupervisedControl {
   close(): Promise<void>;
 }
 
+/** What a terminal attaching over the control socket reaches: the session, and the host's sessions. */
+export interface ISupervisedAttachTarget extends ISupervisedAttachCarrierOptions {
+  readonly session: IProtocolSession;
+}
+
 export async function startSupervisedControl(
   id: string,
   onStop: () => void,
@@ -839,7 +844,7 @@ export async function startSupervisedControl(
   onRename?: (name: string) => void,
   pr?: { readonly get: () => ISupervisedPr | undefined; readonly set: (value: ISupervisedPr | undefined) => void },
   externalEvents?: ISupervisedExternalEvents,
-  attachSession?: IProtocolSession,
+  attachTarget?: ISupervisedAttachTarget,
   daemon?: ISupervisedDaemon,
 ): Promise<ISupervisedControl> {
   if (!ID_PATTERN.test(id)) throw new Error('Invalid supervised session ID.');
@@ -858,7 +863,9 @@ export async function startSupervisedControl(
   const refuse = (socket: Socket, reason?: 'stale-generation'): void => {
     socket.end(`${JSON.stringify({ id, status: 'refused', ...(reason ? { reason } : {}) })}\n`);
   };
-  const attach = attachSession === undefined ? undefined : createSupervisedAttachCarrier(attachSession);
+  const attach = attachTarget === undefined
+    ? undefined
+    : createSupervisedAttachCarrier(attachTarget.session, attachTarget);
   const clients = new Set<Socket>();
   const server: Server = createServer((socket) => {
     clients.add(socket);

@@ -90,6 +90,16 @@ try {
     await page.getByText('Permission mode: acceptEdits').waitFor();
   });
 
+  await scenario('/ marks a command the terminal runs with "terminal"', async () => {
+    await page.getByLabel('message').fill('/sh');
+    const shell = page.getByRole('option', { name: /\/shell/ });
+    await shell.getByText('terminal', { exact: true }).waitFor();
+    if ((await shell.getAttribute('aria-description')) !== 'Runs in the robota terminal') {
+      throw new Error('the terminal-run command does not say where it runs');
+    }
+    await page.getByLabel('message').fill('');
+  });
+
   await scenario('the status row shows the session status and follows a change', async () => {
     await page.getByRole('button', { name: 'model: scripted-model' }).waitFor();
     await page.getByRole('button', { name: 'mode: acceptEdits' }).waitFor();

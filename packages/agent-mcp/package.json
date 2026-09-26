@@ -28,10 +28,12 @@
           "default": "./dist/node/index.cjs"
         }
       }
-    }
+    },
+    "./package.json": "./package.json"
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "rimraf dist && tsdown",

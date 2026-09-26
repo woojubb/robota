@@ -466,8 +466,13 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
               },
             },
         // A terminal on this host may attach over the guarded control socket. It never becomes an
-        // operator approver: this process has no terminal, so mesh admissions stay refused.
-        host.session,
+        // operator approver: this process has no terminal, so mesh admissions stay refused. It
+        // reaches the sessions through the directory the transports offer, so a switch it makes
+        // moves every client.
+        {
+          session: host.session,
+          ...(opts.sessionDirectory !== undefined ? { sessionDirectory: opts.sessionDirectory } : {}),
+        },
         // A daemon hands its owner the URL its transport is served on, token included, so a
         // client in this workspace can connect to it instead of starting a runtime of its own.
         args.daemon === true

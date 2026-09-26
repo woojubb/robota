@@ -8,6 +8,7 @@ import type {
 import type { ITurnHandle } from './turn-contracts.js';
 import type {
   IContextWindowState,
+  IHistoryEntry,
   TModelEffortSelection,
   TPermissionMode,
   IToolSchema,
@@ -81,6 +82,11 @@ export interface ISessionDriverAttribution {
 
 export interface ISessionConversationRead {
   getMessages(): TUniversalMessage[];
+  /**
+   * The session's whole recorded timeline: chat entries and the event entries recorded beside them.
+   * `getMessages()` is its chat entries alone; a client that renders the session reads this.
+   */
+  getFullHistory(): IHistoryEntry[];
   getContextState(): IContextWindowState;
 }
 
@@ -215,7 +221,7 @@ export const SESSION_CAPABILITY_MEMBER_KEYS = Object.freeze({
   goal: Object.freeze(['setGoal', 'getGoalState', 'cancelGoal'] as const),
   executionState: Object.freeze(['isExecuting', 'getPendingPrompt', 'getPendingCount'] as const),
   driverAttribution: Object.freeze(['getActiveDriverId'] as const),
-  conversationRead: Object.freeze(['getMessages', 'getContextState'] as const),
+  conversationRead: Object.freeze(['getMessages', 'getFullHistory', 'getContextState'] as const),
   identity: Object.freeze(['getSession'] as const),
   workspaceLocation: Object.freeze(['getCwd'] as const),
   commands: Object.freeze(['executeCommand', 'listCommands', 'listSkills'] as const),

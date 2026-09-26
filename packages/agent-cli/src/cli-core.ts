@@ -60,8 +60,6 @@ import { resolveOutputStyle, selectOutputStyleId } from './startup/output-style-
 import type { IPreset } from '@robota-sdk/agent-preset';
 import { bindAssembledCollaborators } from './product/assembled-collaborators.js';
 import { createRobotaProfile } from './product/robota-profile.js';
-import { formatRobotaResumeCommand } from './product/robota-command-vocabulary.js';
-import { createRobotaKeybindingsOptions } from './product/robota-keybindings.js';
 import { ROBOTA_TASK_CONTEXT } from './product/robota-task-context.js';
 import {
   buildRobotaRuntimeOptions,
@@ -123,11 +121,12 @@ import { composeCliAdvisor } from './startup/advisor-composition.js';
 import type { TMcpStartupMode } from './startup/mcp-startup.js';
 import type { Writable } from 'node:stream';
 import { resolveMemorySurfaceOptions } from './startup/memory-enablement.js';
-import { resolveFocusReportingOverride } from './startup/focus-reporting-enablement.js';
-import { resolveRobotaTerminalCapabilities } from './startup/terminal-capabilities-projection.js';
-import { resolvePromptHistoryRenderFields } from './startup/prompt-history-enablement.js';
+import {
+  createRobotaTuiCliAdapter,
+  createTuiPresentationSources,
+  resolveTuiRenderFields,
+} from './startup/tui-presentation.js';
 import { resolveScreenReaderRenderFields } from './startup/screen-reader-enablement.js';
-import { resolveRobotaScreenReaderPacing } from './startup/screen-reader-pacing-projection.js';
 import { resolveRobotaShellExecutable } from './product/robota-shell.js';
 import {
   formatHeadlessWorkspaceTrustError,
@@ -144,6 +143,7 @@ export interface ICliPresentation {
   renderApp: typeof import('@robota-sdk/agent-ui-terminal').renderApp;
   renderSupervisedSessionView: typeof import('@robota-sdk/agent-ui-terminal').renderSupervisedSessionView;
   renderAttachedSessionView: typeof import('@robota-sdk/agent-ui-terminal').renderAttachedSessionView;
+  renderAttachedApp: typeof import('@robota-sdk/agent-ui-terminal').renderAttachedApp;
   installTuiProcessGuards: typeof import('./process-guards.js').installTuiProcessGuards;
   setLiveChannel: typeof import('./process-guards.js').setLiveChannel;
 }
@@ -221,6 +221,7 @@ async function runCliCore(
       telemetryEnvironment,
       presentation?.renderSupervisedSessionView,
       presentation?.renderAttachedSessionView,
+      presentation,
     )
   )
     return;
@@ -377,26 +378,19 @@ async function runCliCore(
     shellExecutable,
     ...(sandboxClient !== undefined ? { sandboxClient, sandboxType: ROBOTA_OS_SANDBOX_TYPE } : {}),
   });
-  const keybindingsSource =
-    args.printMode || args.goal !== undefined || args.serve || mcpServe || !presentation
+  const tuiSources =
+    presentation === undefined
       ? undefined
-      : presentation.createNodeKeybindingsSource({
-          ...createRobotaKeybindingsOptions(homedir()),
-          onDiagnostic: (diagnostic) =>
-            process.stderr.write(
-              `Keybindings ${diagnostic.file} ${diagnostic.path}: ${diagnostic.message}\n`,
-            ),
+      : createTuiPresentationSources(presentation, {
+          enabled: !(args.printMode || args.goal !== undefined || args.serve || mcpServe),
+          cwd,
+          projectAccess,
+          settings: userSettings,
+          reducedMotionFlag: args.reducedMotion,
+          env: process.env,
         });
-  // SCREEN-2002: one registry, reaching both `/theme` (through its port) and `renderApp`.
-  const theme = presentation?.createThemeSurface({
-    cwd,
-    projectAccess,
-    userHome: homedir(),
-    enabled: keybindingsSource !== undefined,
-    settings: userSettings,
-    reducedMotionFlag: args.reducedMotion,
-    env: process.env,
-  });
+  const keybindingsSource = tuiSources?.keybindingsSource;
+  const theme = tuiSources?.theme;
   const mcpStartupMode: TMcpStartupMode =
     args.printMode || args.goal ? 'print' : args.serve || mcpServe ? 'serve' : 'interactive';
   const mcp =
@@ -1065,25 +1059,17 @@ async function runCliCore(
     // host adapter (wired above) — no TUI-prop wiring remains.
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
     ...memorySessionOptions,
-    // CLI-2004: off ⇒ today's byte stream is unchanged.
-    ...screenReader,
-    screenReaderPacing: resolveRobotaScreenReaderPacing(process.env),
-    terminalCapabilities: resolveRobotaTerminalCapabilities(process.env),
-    // SCREEN-1992: the focus-reporting kill switch is the shell's; the TUI's TTY gate decides otherwise.
-    focusReporting: resolveFocusReportingOverride(process.env),
-    // SCREEN-1993: prompt history is a TUI-only surface (print and serve above receive no writer).
-    ...resolvePromptHistoryRenderFields({
+    // CLI-2004, SCREEN-1992, SCREEN-1993: the presentation every TUI entry resolves alike.
+    ...resolveTuiRenderFields({
+      screenReader,
       settings: userSettings,
       env: process.env,
       access: workspaceComposition.projectAccess,
       cwd,
     }),
-    cliAdapter: presentation.createDefaultTuiCliAdapter({
+    cliAdapter: createRobotaTuiCliAdapter(presentation.createDefaultTuiCliAdapter, {
       providerDefinitions,
       reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
-      userSettingsPath: robotaUserSettingsPath(),
-      settingsSources: createRobotaUserSettingsSources(),
-      formatResumeCommand: formatRobotaResumeCommand,
     }),
     reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
     keybindingsSource,
