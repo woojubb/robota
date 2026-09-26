@@ -106,6 +106,25 @@ describe('detached supervised runtime', () => {
     }
   }, 60_000);
 
+  it('refuses to start under a directory too long for its control socket, naming the directory and the fix', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-long-'));
+    const root = join(scratch, 'x'.repeat(100), 'supervised');
+    let child: ChildProcess | undefined;
+    try {
+      const start = launchSupervisedSession(process.cwd(), {
+        entrypoint: fixture,
+        execArgs: ['--import', 'tsx', '--conditions=source'],
+        env: { ROBOTA_TEST_SUPERVISED_ROOT: root },
+        onSpawn: (spawned) => { child = spawned; },
+      });
+      await expect(start).rejects.toThrow(`Supervised session control socket path is too long under ${root}`);
+      await expect(start).rejects.toThrow('Use a shorter HOME, or set XDG_RUNTIME_DIR to a short private directory');
+      expect(child?.exitCode !== null || child?.signalCode !== null).toBe(true);
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  }, 60_000);
+
   it('remains available after its launcher disconnects, then shuts down by owned ID', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-process-'));
     const root = join(scratch, 'supervised');
