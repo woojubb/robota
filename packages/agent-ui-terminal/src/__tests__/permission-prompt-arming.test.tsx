@@ -17,8 +17,12 @@ function request(resolve: IPendingPermissionRequest['resolve']): IPendingPermiss
   return { toolName: 'Bash', toolArgs: { command: 'ls' }, resolve };
 }
 
-/** Lets Ink register its input handlers, deliver the written keys and commit a render. */
+/**
+ * Lets Ink register its input handlers, deliver the written keys and commit a render. A handler
+ * switched on by a render (the prompt arming) subscribes one tick later, hence two.
+ */
 async function settle(): Promise<void> {
+  await vi.advanceTimersByTimeAsync(0);
   await vi.advanceTimersByTimeAsync(0);
 }
 
@@ -112,5 +116,38 @@ describe('the permission prompt arms before its keys answer it', () => {
 
     // Option 4 is Deny.
     expect(resolve).toHaveBeenCalledWith(false);
+  });
+
+  it('in screen-reader mode a number typed for one request is not committed on the next', async () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const { stdin, rerender, unmount } = render(
+      <ScreenReaderProvider enabled={true}>
+        <PermissionPrompt request={request(first)} />
+      </ScreenReaderProvider>,
+    );
+    await waitOutArming();
+    stdin.write('1');
+    await settle();
+
+    rerender(
+      <ScreenReaderProvider enabled={true}>
+        <PermissionPrompt request={request(second)} />
+      </ScreenReaderProvider>,
+    );
+    await waitOutArming();
+    stdin.write('\r');
+    await settle();
+    expect(first).not.toHaveBeenCalled();
+    expect(second).not.toHaveBeenCalled();
+
+    stdin.write('4');
+    await settle();
+    stdin.write('\r');
+    await settle();
+    unmount();
+
+    // Option 4 is Deny.
+    expect(second).toHaveBeenCalledWith(false);
   });
 });

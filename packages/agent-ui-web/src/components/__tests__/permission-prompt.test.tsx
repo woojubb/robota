@@ -99,11 +99,36 @@ describe('the docked prompt arms before its keys answer it', () => {
     expect(screen.getByText(/1 allow · 2 deny/)).toBeTruthy();
   });
 
-  it('a click answers at once', () => {
+  it('a mouse click answers at once', () => {
     const onAnswerPermission = vi.fn();
     appearWhileTyping(onAnswerPermission);
-    fireEvent.click(screen.getByText('Allow'));
+    // A mouse click reports its click count in `detail`; a keyboard-activated click reports 0.
+    fireEvent.click(screen.getByText('Allow'), { detail: 1 });
     expect(onAnswerPermission).toHaveBeenCalledWith('p1', true);
+  });
+
+  it('a button focused to answer one prompt does not answer the next with a key', () => {
+    const onAnswerPermission = vi.fn();
+    const { rerender } = appearWhileTyping(onAnswerPermission);
+    act(() => {
+      vi.advanceTimersByTime(PROMPT_ARM_DELAY_MS);
+    });
+    const allow = screen.getByText('Allow');
+    allow.focus();
+    fireEvent.click(allow, { detail: 1 });
+    expect(onAnswerPermission).toHaveBeenLastCalledWith('p1', true);
+
+    // The next prompt renders into the same buttons while the focused one still holds the key.
+    rerender([permission('p2')]);
+    expect(document.activeElement).not.toBe(screen.getByText('Allow'));
+    expect(document.activeElement).toBe(screen.getByRole('dialog', { name: 'pending question' }));
+    // Enter or Space on a focused button, or a held key repeating, fires a click with `detail` 0.
+    fireEvent.click(document.activeElement as Element, { detail: 0 });
+    fireEvent.click(screen.getByText('Allow'), { detail: 0 });
+    expect(onAnswerPermission).not.toHaveBeenCalledWith('p2', true);
+
+    fireEvent.click(screen.getByText('Allow'), { detail: 1 });
+    expect(onAnswerPermission).toHaveBeenLastCalledWith('p2', true);
   });
 
   it('Esc denies at once, since denying is the safe direction', () => {

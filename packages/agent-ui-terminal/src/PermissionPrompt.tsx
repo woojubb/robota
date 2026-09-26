@@ -121,6 +121,9 @@ export default function PermissionPrompt({
       if (result.effect.type === 'resolve') request.resolve(result.effect.decision);
     },
   });
+  // Digits typed for one request are not an answer to the next.
+  const clearNumbered = numbered.clear;
+  React.useEffect(() => clearNumbered(), [request, clearNumbered]);
 
   useKeybindingActions(
     'permission-prompt',

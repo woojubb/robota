@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import type { TPendingPrompt } from '../hooks/prompt-state.js';
 import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
@@ -26,8 +26,9 @@ interface IPermissionPromptProps {
 /**
  * A prompt can appear while the user is typing in the composer. For this long after it appears the
  * dock leaves focus where it is, so the keystrokes land in the composer instead of answering (`1`
- * allows). A click on a button still answers at once, and Esc still denies or cancels, because both
- * are deliberate.
+ * allows). A mouse click on a button still answers at once, and Esc still denies or cancels, because
+ * both are deliberate. A click made with the keyboard (Enter or Space on a focused button) waits for
+ * the prompt to arm like any other key.
  */
 export const PROMPT_ARM_DELAY_MS = 450;
 
@@ -48,6 +49,16 @@ export function PermissionPrompt({
     return () => clearTimeout(timer);
   }, [promptId, armDelayMs]);
   const armed = promptId !== undefined && (armDelayMs <= 0 || armedId === promptId);
+  // Answering one prompt renders the next into the same buttons, so a button focused to answer the
+  // last one would take Enter, Space or a held key as an answer to this one. Focus goes back to the
+  // dock itself, whose keys wait for the prompt to arm.
+  useLayoutEffect(() => {
+    const dockElement = dockRef.current;
+    const active = document.activeElement;
+    if (dockElement && active && active !== dockElement && dockElement.contains(active)) {
+      dockElement.focus();
+    }
+  }, [promptId]);
   // Once armed the question takes focus, so its keys answer it rather than type into the composer.
   useEffect(() => {
     if (armed && layout === 'dock') dockRef.current?.focus();
@@ -64,6 +75,13 @@ export function PermissionPrompt({
     requester && requester.length > 12 ? `${requester.slice(0, 8)}…` : requester;
 
   const dock = layout === 'dock';
+  /** A mouse click answers at once; a keyboard click (`detail` 0) waits for the prompt to arm. */
+  const onButton =
+    (answer: () => void) =>
+    (event: React.MouseEvent): void => {
+      if (!armed && event.detail === 0) return;
+      answer();
+    };
   const onDockKey = (event: React.KeyboardEvent): void => {
     if (event.key === 'Escape') {
       event.preventDefault();
@@ -120,14 +138,14 @@ export function PermissionPrompt({
               <button
                 type="button"
                 className="rounded-md bg-emerald-600 px-3 py-1.5 text-white"
-                onClick={() => onAnswerPermission(prompt.id, true)}
+                onClick={onButton(() => onAnswerPermission(prompt.id, true))}
               >
                 Allow
               </button>
               <button
                 type="button"
                 className="rounded-md bg-rose-600 px-3 py-1.5 text-white"
-                onClick={() => onAnswerPermission(prompt.id, false)}
+                onClick={onButton(() => onAnswerPermission(prompt.id, false))}
               >
                 Deny
               </button>
@@ -145,7 +163,9 @@ export function PermissionPrompt({
                   type="button"
                   key={opt.value}
                   className="rounded-md bg-[var(--primary)] px-3 py-1.5 text-[var(--primary-foreground)]"
-                  onClick={() => onAnswerAsk(prompt.id, { type: 'answer', values: [opt.value] })}
+                  onClick={onButton(() =>
+                    onAnswerAsk(prompt.id, { type: 'answer', values: [opt.value] }),
+                  )}
                 >
                   {dock && index < 9 && <span className="mr-1.5 opacity-60">{index + 1}</span>}
                   {opt.label}
@@ -154,7 +174,7 @@ export function PermissionPrompt({
               <button
                 type="button"
                 className="rounded-md bg-zinc-600 px-3 py-1.5 text-white"
-                onClick={() => onAnswerAsk(prompt.id, { type: 'cancelled' })}
+                onClick={onButton(() => onAnswerAsk(prompt.id, { type: 'cancelled' }))}
               >
                 Cancel
               </button>

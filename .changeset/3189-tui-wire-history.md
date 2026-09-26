@@ -22,17 +22,18 @@ history, the context window as it changes, when the history changes, and where e
   - It adds `get-prompts`: the host sends the permission and ask prompts still open as the
     `permission_request` / `ask_request` frames that asked them, for a client that attached later.
     An observer may not send it.
-  - `pending` gains a required `pendingCount`, and the host sends `pending` in reply to a `submit`
-    once it has taken the prompt, so a prompt queued behind a running turn shows as queued.
+  - `pending` gains an optional `pendingCount`: a host sends it when it knows how many prompts are
+    queued, and a client that gets none counts the prompt it shows. The host sends `pending` in
+    reply to a `submit` once it has taken the prompt, so a prompt queued behind a running turn shows
+    as queued.
   - `command` takes an optional `requestId`, which the host echoes on the command's
     `command_result` or `protocol_error`.
   - The session's `context_update` is pushed as the `context` frame that `get-context` answers with.
   - `compact`, `skill_activation` and `memory_event` push the new `history_changed`; the client
     reads the history again.
   - `turn_source` is pushed as the new `turn_source` frame.
-  - An exhaustive map over `TClientMessage` or `TServerMessage` types must add the new variants, a
-    `pending` frame built by hand must add `pendingCount`, and `IProtocolSession` now requires
-    `getFullHistory()`.
+  - An exhaustive map over `TClientMessage` or `TServerMessage` types must add the new variants,
+    and `IProtocolSession` now requires `getFullHistory()`.
 - `agent-transport-http` is **`major`** only because `IHttpTransportSession` includes the conversation
   read role, so a session handed to it must now provide `getFullHistory()`.
 - `agent-framework`: `SessionSlot` forwards `getFullHistory()` to the current session.
