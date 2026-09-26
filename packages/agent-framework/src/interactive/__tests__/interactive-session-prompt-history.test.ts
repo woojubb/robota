@@ -2,7 +2,11 @@
  * SCREEN-1993 TC-02 — the session-side prompt-history append: what is recorded, for whom, and how a
  * failed append is reported.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterAll, describe, expect, it, vi } from 'vitest';
 
 import { InteractiveSession } from '../interactive-session.js';
 import { createPromptHistoryRecorder } from '../interactive-session-prompt-history.js';
@@ -35,6 +39,10 @@ function recorder(writer: IPromptHistoryWriter, notify = vi.fn()) {
     notify,
   };
 }
+
+/** The session's working directory: private to this run, never a fixed name under /tmp. */
+const PROJECT_DIR = mkdtempSync(join(tmpdir(), 'robota-prompt-history-'));
+afterAll(() => rmSync(PROJECT_DIR, { recursive: true, force: true }));
 
 describe('createPromptHistoryRecorder (SCREEN-1993 TC-02)', () => {
   it("records the owner's typed text, trimmed, and nothing for a wake, a peer or a remote driver", () => {
@@ -112,16 +120,16 @@ describe('InteractiveSession wires the recorder into the turn (SCREEN-1993 TC-02
   it('appends the typed prompt of a completed owner turn with the session id and project', async () => {
     const writer = recordingWriter();
     const session = new InteractiveSession({
-      cwd: '/tmp/screen-1993',
+      cwd: PROJECT_DIR,
       provider: provider(),
       bare: true,
-      promptHistory: { writer, project: '/tmp/screen-1993' },
+      promptHistory: { writer, project: PROJECT_DIR },
     });
     await session.submit('what changed in the release notes?');
     expect(writer.entries).toHaveLength(1);
     expect(writer.entries[0]).toMatchObject({
       sessionId: session.sessionId,
-      project: '/tmp/screen-1993',
+      project: PROJECT_DIR,
       text: 'what changed in the release notes?',
     });
     expect(Number.isNaN(Date.parse(writer.entries[0]!.at))).toBe(false);
@@ -134,10 +142,10 @@ describe('InteractiveSession wires the recorder into the turn (SCREEN-1993 TC-02
       },
     };
     const session = new InteractiveSession({
-      cwd: '/tmp/screen-1993',
+      cwd: PROJECT_DIR,
       provider: provider(),
       bare: true,
-      promptHistory: { writer, project: '/tmp/screen-1993' },
+      promptHistory: { writer, project: PROJECT_DIR },
     });
     await session.submit('first');
     await session.submit('second');
@@ -152,7 +160,7 @@ describe('InteractiveSession wires the recorder into the turn (SCREEN-1993 TC-02
 
   it('writes nothing when no writer is supplied', async () => {
     const session = new InteractiveSession({
-      cwd: '/tmp/screen-1993',
+      cwd: PROJECT_DIR,
       provider: provider(),
       bare: true,
     });

@@ -12,7 +12,7 @@ import {
   resolveProviderSettingsWriteTarget,
 } from '@robota-sdk/agent-framework';
 import { createHeadlessTransport } from '@robota-sdk/agent-framework';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import { startCli } from '../cli.js';
 
@@ -89,11 +89,13 @@ function parseJsonObject(output: string): Record<string, unknown> {
 
 describe('default CLI command composition', () => {
   it('exposes permissions mode subcommands and standalone mode command', () => {
+    const userLocalStorageRoot = mkdtempSync(join(tmpdir(), 'robota-test-'));
+    onTestFinished(() => rmSync(userLocalStorageRoot, { recursive: true, force: true }));
     const registry = new CommandRegistry();
 
     for (const module of createDefaultCommandModules({
       cwd: '/workspace',
-      userLocalStorageRoot: '/tmp/robota-test',
+      userLocalStorageRoot,
       providerDefinitions: [],
       providerSettingsAdapter: noopProviderSettingsAdapter,
     }).modules) {

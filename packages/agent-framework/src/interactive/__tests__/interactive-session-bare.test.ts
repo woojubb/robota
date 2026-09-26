@@ -6,7 +6,11 @@
  * - bare=false (default): loadContext IS called
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock loadContext — bare mode must skip this
 // Paths are relative to the test file location (interactive/__tests__/)
@@ -96,6 +100,10 @@ function createMockProvider() {
 const NOOP_DELTA = (): void => {};
 const NOOP_TOOL = (): void => {};
 
+/** The session's working directory: private to this run, never a fixed name under /tmp. */
+const SESSION_CWD = mkdtempSync(join(tmpdir(), 'robota-bare-session-'));
+afterAll(() => rmSync(SESSION_CWD, { recursive: true, force: true }));
+
 describe('createInteractiveSession — bare mode', () => {
   beforeEach(() => {
     mockLoadContext.mockClear();
@@ -108,7 +116,7 @@ describe('createInteractiveSession — bare mode', () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     await createInteractiveSession({
-      cwd: '/tmp/test',
+      cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: true,
       onTextDelta: NOOP_DELTA,
@@ -122,7 +130,7 @@ describe('createInteractiveSession — bare mode', () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     await createInteractiveSession({
-      cwd: '/tmp/test',
+      cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: true,
       onTextDelta: NOOP_DELTA,
@@ -136,7 +144,7 @@ describe('createInteractiveSession — bare mode', () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     await createInteractiveSession({
-      cwd: '/tmp/test',
+      cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: true,
       onTextDelta: NOOP_DELTA,
@@ -150,7 +158,7 @@ describe('createInteractiveSession — bare mode', () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     await createInteractiveSession({
-      cwd: '/tmp/test',
+      cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: false,
       onTextDelta: NOOP_DELTA,
@@ -167,7 +175,7 @@ describe('createInteractiveSession — bare mode', () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     await createInteractiveSession({
-      cwd: '/tmp/test',
+      cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: false,
       onTextDelta: NOOP_DELTA,
@@ -181,7 +189,7 @@ describe('createInteractiveSession — bare mode', () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     await createInteractiveSession({
-      cwd: '/tmp/test',
+      cwd: SESSION_CWD,
       provider: createMockProvider(),
       // bare not specified → default false behavior
       onTextDelta: NOOP_DELTA,
@@ -195,7 +203,7 @@ describe('createInteractiveSession — bare mode', () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     const session = await createInteractiveSession({
-      cwd: '/tmp/test',
+      cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: true,
       onTextDelta: NOOP_DELTA,
@@ -211,7 +219,7 @@ describe('createInteractiveSession — bare mode', () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     await createInteractiveSession({
-      cwd: '/tmp/test',
+      cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: true,
       onTextDelta: NOOP_DELTA,
@@ -246,7 +254,7 @@ describe('createInteractiveSession — skipConfiguredHooks (issue #3082)', () =>
 
     constructed.mockClear();
     await createInteractiveSession({
-      cwd: '/tmp/test',
+      cwd: SESSION_CWD,
       provider: createMockProvider(),
       onTextDelta: NOOP_DELTA,
       onToolExecution: NOOP_TOOL,
@@ -255,7 +263,7 @@ describe('createInteractiveSession — skipConfiguredHooks (issue #3082)', () =>
 
     constructed.mockClear();
     await createInteractiveSession({
-      cwd: '/tmp/test',
+      cwd: SESSION_CWD,
       provider: createMockProvider(),
       skipConfiguredHooks: true,
       onTextDelta: NOOP_DELTA,
@@ -304,14 +312,14 @@ describe('initializeInteractiveSessionAsync — skipConfiguredHooks reaches the 
 
     constructed.mockClear();
     await initializeInteractiveSessionAsync(
-      { cwd: '/tmp/test', provider: createMockProvider(), skipConfiguredHooks: true },
+      { cwd: SESSION_CWD, provider: createMockProvider(), skipConfiguredHooks: true },
       deps,
     );
     expect(JSON.stringify(constructed.mock.calls[0]?.[0]?.hooks ?? {})).not.toContain('HOOKMARK');
 
     constructed.mockClear();
     await initializeInteractiveSessionAsync(
-      { cwd: '/tmp/test', provider: createMockProvider() },
+      { cwd: SESSION_CWD, provider: createMockProvider() },
       deps,
     );
     expect(JSON.stringify(constructed.mock.calls[0]?.[0]?.hooks)).toContain('HOOKMARK');

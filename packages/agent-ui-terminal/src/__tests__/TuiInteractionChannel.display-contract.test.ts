@@ -13,7 +13,11 @@
  *   - every history assertion checks entry.type (= role) explicitly
  *   - timing: user message visible BEFORE complete fires
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@robota-sdk/agent-framework', async () => {
   const actual = await vi.importActual<typeof import('@robota-sdk/agent-framework')>(
@@ -76,6 +80,10 @@ import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 import type { IAIProvider, IHistoryEntry } from '@robota-sdk/agent-core';
 import type { IExecutionResult } from '@robota-sdk/agent-interface-session';
 
+/** The session's working directory: private to this run, never a fixed name under /tmp. */
+const SESSION_CWD = mkdtempSync(join(tmpdir(), 'robota-tui-display-'));
+afterAll(() => rmSync(SESSION_CWD, { recursive: true, force: true }));
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 type MockSession = {
@@ -95,7 +103,7 @@ function emitSessionEvent(channel: TuiInteractionChannel, event: string, ...args
 
 function makeChannel(provider: IAIProvider = {} as IAIProvider): TuiInteractionChannel {
   return new TuiInteractionChannel({
-    cwd: '/tmp/test',
+    cwd: SESSION_CWD,
     provider,
   });
 }

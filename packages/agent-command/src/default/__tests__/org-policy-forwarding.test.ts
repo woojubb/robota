@@ -17,7 +17,11 @@
  * type checker's job.
  */
 
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterAll, describe, expect, it } from 'vitest';
 import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
@@ -55,13 +59,17 @@ const adapter: IProviderCommandSettingsAdapter = {
   writeTargetSettings: () => undefined,
 };
 
+/** User-local storage lives in a private per-run directory, never a fixed name under /tmp. */
+const USER_LOCAL_STORAGE_ROOT = mkdtempSync(join(tmpdir(), 'robota-test-'));
+afterAll(() => rmSync(USER_LOCAL_STORAGE_ROOT, { recursive: true, force: true }));
+
 const POLICY: IOrgPolicy = { allowedProviders: ['anthropic'], adminContact: 'ops@example.com' };
 
 /** Build the provider executor the way the PRODUCT does — through the default-modules factory. */
 function executorThroughFactory(orgPolicy?: IOrgPolicy): SystemCommandExecutor {
   const { modules } = createDefaultCommandModules({
     cwd: '/work',
-    userLocalStorageRoot: '/tmp/robota-test',
+    userLocalStorageRoot: USER_LOCAL_STORAGE_ROOT,
     providerDefinitions,
     providerSettingsAdapter: adapter,
     ...(orgPolicy === undefined ? {} : { orgPolicy }),

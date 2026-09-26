@@ -5,10 +5,11 @@
  * - a description-override seam on every builtin factory.
  */
 
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, it, expect } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 
 import { createEditTool } from '../builtins/edit-tool.js';
 import { createGlobTool } from '../builtins/glob-tool.js';
@@ -20,12 +21,13 @@ import { createWriteTool } from '../builtins/write-tool.js';
  * ARCH-010 made the containment root a required constructor argument and deleted the module-level
  * singletons this file used to read descriptions from. Every case here asks a tool for its DESCRIPTION
  * and never touches the filesystem, so the root is inert — it is named once, here, so that inertness is
- * visible rather than implied, and it is the OS temp directory rather than the repo so a case that ever
- * did reach the disk could not read the source tree.
+ * visible rather than implied, and it is a private directory made under the OS temp directory rather
+ * than the repo, so a case that ever did reach the disk could not read the source tree.
  */
-const DESCRIPTION_ROOT = tmpdir();
+const DESCRIPTION_ROOT = mkdtempSync(join(tmpdir(), 'robota-descriptions-'));
+afterAll(() => rmSync(DESCRIPTION_ROOT, { recursive: true, force: true }));
 /** A second inert root, used only to show the default description does not vary with it. */
-const OTHER_DESCRIPTION_ROOT = join(tmpdir(), 'neut002-other-root');
+const OTHER_DESCRIPTION_ROOT = join(DESCRIPTION_ROOT, 'neut002-other-root');
 
 describe('builtin descriptions carry no foreign product policy (NEUT-002)', () => {
   it('Write does not forbid documentation/README files (workflow policy, not mechanism)', () => {

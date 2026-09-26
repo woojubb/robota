@@ -13,9 +13,11 @@
  * Plus the Shell runtime claims that were unenforced, pinned by name so they cannot return.
  */
 
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
-import { describe, it, expect } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 
 import { createAskUserQuestionTool } from '../builtins/ask-user-question-tool.js';
 import { createEditTool } from '../builtins/edit-tool.js';
@@ -29,8 +31,12 @@ import { createWriteTool } from '../builtins/write-tool.js';
 
 import type { FunctionTool } from '@robota-sdk/agent-core';
 
-/** Inert containment root — every case reads text only and never touches the filesystem. */
-const ROOT = tmpdir();
+/**
+ * Inert containment root — every case reads text only and never touches the filesystem. Still a
+ * private directory of its own, not the shared temp directory itself.
+ */
+const ROOT = mkdtempSync(join(tmpdir(), 'robota-description-contract-'));
+afterAll(() => rmSync(ROOT, { recursive: true, force: true }));
 
 const BUILTINS: ReadonlyArray<{ name: string; tool: FunctionTool }> = [
   { name: 'Read', tool: createReadTool({ cwd: ROOT }) },

@@ -5,7 +5,9 @@
  * session itself. A plain `--serve` still ends on it.
  */
 
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 
 import { createLanguageCommandModule, createResetCommandModule } from '@robota-sdk/agent-command';
 import { InteractiveSession } from '@robota-sdk/agent-framework';
@@ -208,9 +210,11 @@ describe('a command in a served runtime (#3189)', () => {
   it('never stops or restarts a supervised session, and names the command that stops it', async () => {
     const launcher = actAsLauncher();
     const settings = settingsAdapter();
+    const cwd = mkdtempSync(join(tmpdir(), 'robota-serve-daemon-'));
+    restores.push(() => rmSync(cwd, { recursive: true, force: true }));
     const options = {
       ...serveOptions({ supervisedSessionId: SUPERVISED_ID }, { settings }),
-      cwd: tmpdir(),
+      cwd,
     };
     const { run, stop } = await startServe(options);
     await vi.waitFor(() =>

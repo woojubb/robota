@@ -12,10 +12,14 @@
  * re-derives the shipped logic tests the test, not the product.
  */
 
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { createPresetRegistry } from '@robota-sdk/agent-preset';
 import { assembleProduct } from '@robota-sdk/agent-product';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 
 import {
   buildRobotaRuntimeOptions,
@@ -33,7 +37,9 @@ import { resolveShellPreset } from '../startup/preset-selection.js';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IPreset } from '@robota-sdk/agent-preset';
 
-const SEAM_CWD = '/tmp/runtime-seam';
+/** A private per-run root: the tools built on it are real, so it is never a fixed name under /tmp. */
+const SEAM_CWD = realpathSync(mkdtempSync(join(tmpdir(), 'robota-runtime-seam-')));
+afterAll(() => rmSync(SEAM_CWD, { recursive: true, force: true }));
 const ROBOTA_PACKS = createRobotaPacks({ cwd: SEAM_CWD });
 const ROBOTA_PACK_COMMAND_MODULE_NAMES = packCommandModuleNames(ROBOTA_PACKS);
 
@@ -63,7 +69,7 @@ interface IProbeOverrides {
 /** Drive the assembly exactly as `startCli` does — same shipped helpers, same order. */
 function robotaProduct(overrides: IProbeOverrides = {}) {
   const { providerDefinitions, baseCommandModules, fixedCommandModules } = buildCommandSetup(
-    '/tmp/runtime-seam',
+    SEAM_CWD,
     MINIMAL_ARGS,
     {},
     '0.0.0-test',
@@ -107,7 +113,7 @@ function robotaRuntimeOptions(overrides: IProbeOverrides = {}) {
 
   return buildRobotaRuntimeOptions({
     product,
-    cwd: '/tmp/runtime-seam',
+    cwd: SEAM_CWD,
     provider: createScriptedProvider([{ text: 'ok' }]).provider,
     selectedCommandModules: selectProductCommandModules(product, fixedCommandModules, {}),
     ...(overrides.permissionMode !== undefined ? { permissionMode: overrides.permissionMode } : {}),

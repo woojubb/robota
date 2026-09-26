@@ -7,7 +7,11 @@
  * each command's entry.
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 
 import { SystemCommandExecutor } from '@robota-sdk/agent-framework';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
@@ -41,6 +45,10 @@ const themeCataloguePort: IThemeCataloguePort = {
   }),
 };
 
+/** User-local storage lives in a private per-run directory, never a fixed name under /tmp. */
+const USER_LOCAL_STORAGE_ROOT = mkdtempSync(join(tmpdir(), 'robota-test-'));
+afterAll(() => rmSync(USER_LOCAL_STORAGE_ROOT, { recursive: true, force: true }));
+
 const fixtures: IDoctorFixture[] = [];
 afterEach(() => {
   for (const fixture of fixtures.splice(0)) fixture.cleanup();
@@ -52,7 +60,7 @@ function allBuiltInCommands(): ISystemCommand[] {
   fixtures.push(fixture);
   const { modules } = createDefaultCommandModules({
     cwd: '/tmp',
-    userLocalStorageRoot: '/tmp/robota-test',
+    userLocalStorageRoot: USER_LOCAL_STORAGE_ROOT,
     providerDefinitions,
     providerSettingsAdapter,
   });
