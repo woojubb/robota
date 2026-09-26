@@ -81,6 +81,32 @@ describe('peer turn baseline', () => {
     }
   });
 
+  it('stores where the turn came from beside who drove it, on the message and in the history', async () => {
+    const { provider } = createProvider();
+    const session = new InteractiveSession({ cwd: process.cwd(), provider, bare: true });
+    try {
+      await session.submit('please review', undefined, undefined, PEER);
+      await session.submit('operator');
+      const stored = session
+        .getSession()
+        .getHistory()
+        .filter((m) => m.role === 'user')
+        .map((m) => m.metadata);
+      expect(stored[0]).toMatchObject({ driverId: 'peer:session-abc', turnSource: 'peer' });
+      // The operator's own turn stays unmarked, as every surface reads an unmarked message.
+      expect(stored[1]).not.toHaveProperty('turnSource');
+      expect(stored[1]).not.toHaveProperty('driverId');
+      const shown = session
+        .getFullHistory()
+        .filter((entry) => entry.type === 'user')
+        .map((entry) => (entry.data as TUniversalMessage).metadata);
+      expect(shown[0]).toMatchObject({ driverId: 'peer:session-abc', turnSource: 'peer' });
+      expect(shown[1]?.turnSource).toBeUndefined();
+    } finally {
+      await session.shutdown();
+    }
+  });
+
   it('refuses a peer turn whose driver id is not a peer id', async () => {
     const { provider, chat } = createProvider();
     const session = new InteractiveSession({ cwd: process.cwd(), provider, bare: true });

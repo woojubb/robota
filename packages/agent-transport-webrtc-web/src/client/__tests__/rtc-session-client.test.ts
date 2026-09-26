@@ -6,6 +6,13 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createRtcSessionClient, type TRtcConnectionStatus } from '../rtc-session-client.js';
 
+import {
+  exportPublicKey,
+  generateIdentityKeyPair,
+  type startDeviceReconnect,
+} from '@robota-sdk/agent-remote-pairing';
+
+import type { IDeviceCredential, IDeviceCredentialStore } from '../device-credential-store.js';
 import type { ISignalMessage, ISignalingClient } from '../rtc-signaling.js';
 import type { startPairingHandshake, TPairingFrame } from '@robota-sdk/agent-remote-pairing';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
@@ -39,7 +46,7 @@ function makeFakePeer() {
   return { peer, fireDataChannel: (channel: unknown) => dataHandler?.({ channel }) };
 }
 
-function makeHandshakeStub() {
+function makeHandshakeStub(sessionKey = 'k') {
   let resolveResult!: (v: { sessionKey: string }) => void;
   const start: typeof startPairingHandshake = (options) => {
     options.send({ t: 'pair-nonce', nonce: 'stub' });
@@ -48,7 +55,7 @@ function makeHandshakeStub() {
       onFrame: (_f: TPairingFrame) => {},
     };
   };
-  return { start, accept: () => resolveResult({ sessionKey: 'k' }) };
+  return { start, accept: () => resolveResult({ sessionKey }) };
 }
 
 describe('createRtcSessionClient (REMOTE-009 Step 2)', () => {
@@ -99,20 +106,225 @@ describe('createRtcSessionClient (REMOTE-009 Step 2)', () => {
     });
     expect(messages).toHaveLength(0); // pre-accept non-pairing frame dropped
 
-    // Pairing accepts → connected, get-messages sent, session frames now delivered.
+    // Pairing accepts → get-messages sent; the host operator has not admitted the connection yet.
     hs.accept();
     await Promise.resolve();
-    expect(statuses).toContain('connected');
+    expect(statuses.at(-1)).toBe('awaiting-approval');
+    expect(statuses).not.toContain('connected');
     expect(JSON.parse((channel.send as ReturnType<typeof vi.fn>).mock.calls.at(-1)![0])).toEqual({
       type: 'get-messages',
     });
+    // The host's first session frame is its admission → connected, and session frames are delivered.
     (channel.onmessage as (e: { data: string }) => void)({
       data: JSON.stringify({ type: 'text_delta', delta: 'hi' }),
     });
+    expect(statuses.at(-1)).toBe('connected');
     expect(messages).toContainEqual({ type: 'text_delta', delta: 'hi' });
 
     client.disconnect();
     expect(statuses.at(-1)).toBe('disconnected');
+  });
+
+  it('says the host refused when the channel closes before the host admitted it', async () => {
+    let onSignal: ((m: ISignalMessage) => void) | null = null;
+    const fakeSignaling: ISignalingClient = {
+      send: vi.fn(),
+      onSignal: (h) => {
+        onSignal = h;
+        return () => {};
+      },
+      close: vi.fn(),
+    };
+    const { peer, fireDataChannel } = makeFakePeer();
+    const hs = makeHandshakeStub();
+    const statuses: TRtcConnectionStatus[] = [];
+    const client = createRtcSessionClient(
+      {
+        relayUrl: 'wss://r',
+        rendezvous: 'rv',
+        secret: 's',
+        createSignaling: () => fakeSignaling,
+        createPeer: () => peer as unknown as RTCPeerConnection,
+        startHandshake: hs.start,
+      },
+      { onMessage: vi.fn(), onStatusChange: (s) => statuses.push(s) },
+    );
+    client.connect();
+    onSignal!({ kind: 'offer', data: { type: 'offer', sdp: OFFER_SDP } });
+    await new Promise((r) => setTimeout(r, 0));
+    const channel = {
+      send: vi.fn(),
+      close: vi.fn(),
+      onmessage: null as unknown,
+      onclose: null as unknown,
+    };
+    fireDataChannel(channel);
+    hs.accept();
+    await Promise.resolve();
+    expect(statuses.at(-1)).toBe('awaiting-approval');
+    // The host operator said no: the host closes the channel without a session frame.
+    (channel.onclose as () => void)();
+    expect(statuses.at(-1)).toBe('refused');
+    expect(statuses).not.toContain('connected');
+    client.disconnect();
+  });
+
+  /** A client whose signaling, peers and data channels the test drives, one connection at a time. */
+  function harness(extra: Partial<Parameters<typeof createRtcSessionClient>[0]> = {}) {
+    const rooms: ((m: ISignalMessage) => void)[] = [];
+    const peers: ReturnType<typeof makeFakePeer>[] = [];
+    const statuses: TRtcConnectionStatus[] = [];
+    const client = createRtcSessionClient(
+      {
+        relayUrl: 'wss://r',
+        rendezvous: 'rv',
+        secret: 's',
+        createSignaling: () => ({
+          send: vi.fn(),
+          onSignal: (h) => {
+            rooms.push(h);
+            return () => {};
+          },
+          close: vi.fn(),
+        }),
+        createPeer: () => {
+          const fake = makeFakePeer();
+          peers.push(fake);
+          return fake.peer as unknown as RTCPeerConnection;
+        },
+        ...extra,
+      },
+      { onMessage: vi.fn(), onStatusChange: (st) => statuses.push(st) },
+    );
+    /** Offer on the latest room, then open a data channel on the latest peer. */
+    const open = async () => {
+      rooms.at(-1)!({ kind: 'offer', data: { type: 'offer', sdp: OFFER_SDP } });
+      await new Promise((r) => setTimeout(r, 0));
+      const channel = {
+        send: vi.fn(),
+        close: vi.fn(),
+        onmessage: null as unknown,
+        onclose: null as unknown,
+      };
+      peers.at(-1)!.fireDataChannel(channel);
+      const deliver = (frame: unknown) =>
+        (channel.onmessage as (e: { data: string }) => void)({ data: JSON.stringify(frame) });
+      const sent = () =>
+        (channel.send as ReturnType<typeof vi.fn>).mock.calls.map(([d]) => JSON.parse(d as string));
+      return { channel, deliver, sent };
+    };
+    /** The latest peer's connection moves to `state`. */
+    const drop = (state: RTCPeerConnectionState) => {
+      const fake = peers.at(-1)!.peer as unknown as RTCPeerConnection & {
+        connectionState: RTCPeerConnectionState;
+        onconnectionstatechange: () => void;
+      };
+      fake.connectionState = state;
+      fake.onconnectionstatechange();
+    };
+    return { client, statuses, peers, rooms, open, drop };
+  }
+
+  it('a first connection lost before the host admitted it fails; a passing blip does not', async () => {
+    const hs = makeHandshakeStub();
+    const h = harness({ startHandshake: hs.start });
+    h.client.connect();
+    const { deliver } = await h.open();
+    hs.accept();
+    await Promise.resolve();
+    h.drop('disconnected');
+    expect(h.statuses.at(-1)).toBe('awaiting-approval');
+    deliver({ type: 'messages', messages: [] });
+    expect(h.statuses.at(-1)).toBe('connected');
+
+    h.client.disconnect();
+
+    const hs2 = makeHandshakeStub();
+    const lost = harness({ startHandshake: hs2.start });
+    lost.client.connect();
+    await lost.open();
+    hs2.accept();
+    await Promise.resolve();
+    lost.drop('failed');
+    expect(lost.statuses.at(-1)).toBe('failed');
+    expect(lost.statuses).not.toContain('refused');
+  });
+
+  /** A device paired, enrolled and admitted once, so a drop reconnects warm. */
+  async function warmPaired() {
+    const hostKey = await generateIdentityKeyPair(true);
+    const hostSpki = await exportPublicKey(hostKey.publicKey);
+    const saved = new Map<string, IDeviceCredential>();
+    const deviceCredentials: IDeviceCredentialStore = {
+      get: async (origin, host) => saved.get(`${origin}|${host}`),
+      save: async (origin, host, credential) => void saved.set(`${origin}|${host}`, credential),
+      remove: async (origin, host) => void saved.delete(`${origin}|${host}`),
+    };
+    // A real session key: the reconnect seed is derived from it.
+    const hs = makeHandshakeStub('A'.repeat(43));
+    const startReconnect = (() => ({
+      result: Promise.resolve(),
+      onFrame: () => {},
+    })) as unknown as typeof startDeviceReconnect;
+    const h = harness({
+      startHandshake: hs.start,
+      deviceCredentials,
+      startReconnect,
+      reconnectRoomWaitMs: 50,
+    });
+
+    // First pairing, enrollment, then the host admits it.
+    h.client.connect();
+    const first = await h.open();
+    // The device keypair is built async; the gate starts pairing once it exists.
+    await vi.waitFor(() => expect(first.sent()).toContainEqual({ t: 'pair-nonce', nonce: 'stub' }));
+    hs.accept();
+    await Promise.resolve();
+    first.deliver({ t: 'enroll-key', spki: hostSpki });
+    await vi.waitFor(() => expect(h.statuses.at(-1)).toBe('awaiting-approval'));
+    first.deliver({ type: 'messages', messages: [] });
+    expect(h.statuses.at(-1)).toBe('connected');
+    await vi.waitFor(() => expect(saved.size).toBe(1));
+    await new Promise((r) => setTimeout(r, 0)); // the reconnect context is captured after the save
+
+    return { h, first };
+  }
+
+  it('a warm reconnect waits for the host to admit it too, and asks something the host answers', async () => {
+    const { h, first } = await warmPaired();
+
+    // The link drops; the client rediscovers the host and reconnects as this device.
+    h.drop('disconnected');
+    await vi.waitFor(() => expect(h.rooms).toHaveLength(2));
+    const second = await h.open();
+    await vi.waitFor(() => expect(h.statuses.at(-1)).toBe('awaiting-approval'));
+    expect(second.sent().slice(-2)).toEqual([
+      { type: 'resume', lastSeq: 0 },
+      { type: 'get-executing' },
+    ]);
+    // The old channel closing late says nothing about this connection.
+    (first.channel.onclose as () => void)();
+    expect(h.statuses.at(-1)).toBe('awaiting-approval');
+    second.deliver({ type: 'executing', executing: false });
+    expect(h.statuses.at(-1)).toBe('connected');
+    h.client.disconnect();
+  });
+
+  it('a link that keeps dropping while approval is pending gives up, instead of asking the operator forever', async () => {
+    const { h } = await warmPaired();
+    // Each reconnect is accepted by this side and then drops before the host answers.
+    for (let cycle = 0; cycle < 12 && h.statuses.at(-1) !== 'failed'; cycle++) {
+      const rooms = h.rooms.length;
+      h.drop('disconnected');
+      await vi.waitFor(() =>
+        expect(h.rooms.length > rooms || h.statuses.at(-1) === 'failed').toBe(true),
+      );
+      if (h.statuses.at(-1) === 'failed') break;
+      await h.open();
+      await vi.waitFor(() => expect(h.statuses.at(-1)).toBe('awaiting-approval'));
+    }
+    expect(h.statuses.at(-1)).toBe('failed');
+    h.client.disconnect();
   });
 
   it('takes one offer per connection and ignores any later one', async () => {

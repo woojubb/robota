@@ -12,8 +12,10 @@ import {
   stopSupervisedSession,
 } from './supervised-session-control.js';
 
+import { runConfirmedAttach, type TAttachedViewRender } from './session-attach-command.js';
+
 import type { TSettingsData } from '@robota-sdk/agent-framework';
-import type { renderSupervisedSessionView } from '@robota-sdk/agent-ui-terminal';
+import type { renderSupervisedSessionView, TSupervisedViewExit } from '@robota-sdk/agent-ui-terminal';
 
 const VIEW_STATES = ['needs-input', 'working', 'idle', 'unknown', 'unverified', 'dead'] as const;
 type TViewState = (typeof VIEW_STATES)[number];
@@ -30,8 +32,15 @@ export interface ISessionViewCommandOptions {
   readonly settings?: TSettingsData;
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly root?: string;
-  /** Supplied by the interactive CLI; the headless runtime has no terminal UI to render with. */
-  readonly render?: typeof renderSupervisedSessionView;
+  /**
+   * Supplied by the interactive CLI; the headless runtime has no terminal UI to render with. It
+   * resolves how the view ended; an attach the user confirmed there is run, then the view returns.
+   */
+  readonly render?: (
+    options: Parameters<typeof renderSupervisedSessionView>[0],
+  ) => Promise<TSupervisedViewExit | void>;
+  /** Renders an attached session; without it the view still lists but attaching is refused. */
+  readonly renderAttached?: TAttachedViewRender;
   readonly stop?: typeof stopSupervisedSession;
   readonly start?: (cwd: string) => Promise<string>;
   readonly launchCwd?: string;
@@ -117,7 +126,14 @@ export async function runSessionViewCommand(
   try {
     const root = options.root ?? resolveSupervisedDirectory();
     const start = options.start;
-    await options.render({
+    const render = options.render;
+    // After the first render this process has printed its screen-reader line, and a view that
+    // comes back from an attach reopens on the row and grouping it was left with.
+    let reopen: { readonly id: string; readonly groupByDirectory: boolean } | undefined;
+    const view = (): ReturnType<typeof render> => render({
+      ...(reopen === undefined
+        ? {}
+        : { announce: false, initialSelectedId: reopen.id, initialGroupByDirectory: reopen.groupByDirectory }),
       loadRows: (signal) =>
         listSupervisedSessions(root, signal, {
           cwd,
@@ -146,7 +162,35 @@ export async function runSessionViewCommand(
       screenReaderChannel: screenReader.screenReaderChannel,
       screenReaderHint: screenReader.screenReaderHint,
     });
-    return 0;
+    for (;;) {
+      const ended = await view();
+      if (ended === undefined || ended.kind !== 'attach') return 0;
+      reopen = { id: ended.id, groupByDirectory: ended.groupByDirectory };
+      if (options.renderAttached === undefined) {
+        process.stderr.write('Attaching needs the interactive CLI; this runtime has no terminal UI.\n');
+        continue;
+      }
+      // The yes was given in the view for this row's process start; the attach holds it to that start.
+      const rows = await listSupervisedSessions(root, undefined, { includeName: true }).catch(() => []);
+      await runConfirmedAttach({
+        id: ended.id,
+        mode: ended.mode,
+        generation: ended.generation,
+        sessionLabel: rows.find((row) => row.id === ended.id)?.name ?? ended.id,
+        root,
+        render: options.renderAttached,
+        screenReader: {
+          announce: false,
+          screenReader: screenReader.screenReader,
+          ...(screenReader.screenReaderChannel !== undefined
+            ? { screenReaderChannel: screenReader.screenReaderChannel }
+            : {}),
+          ...(screenReader.screenReaderHint !== undefined
+            ? { screenReaderHint: screenReader.screenReaderHint }
+            : {}),
+        },
+      });
+    }
   } catch {
     process.stderr.write('Unable to render the supervised session view.\n');
     return 1;

@@ -1,7 +1,8 @@
 /**
  * `robota session attach` end to end on the BUILT binary, in a real terminal: start a supervised
  * session, attach and confirm on the controlling terminal, submit, detach with `/exit`, see it still
- * running, attach again read-only and find the earlier prompt, detach with Ctrl-C, then stop it.
+ * running, attach again read-only and find the earlier prompt, detach with Ctrl-C, peek from
+ * `session view` and land back in the view, then stop it.
  *
  * The provider points at a closed local port, so the submitted turn fails without any network call
  * leaving this machine. `XDG_RUNTIME_DIR` is a short directory so the control socket path fits.
@@ -122,6 +123,21 @@ describe('robota session attach on the built binary', () => {
     observe.write('\x03');
     await observe.waitFor('keeps running', WAIT_MS);
     expect(await observe.expectExit(WAIT_MS)).toBe(0);
+
+    // From the session view: peek at the row, confirm there, detach, and land back in the view.
+    const view = spawnPty({ command: process.execPath, args: [ROBOTA_BIN, 'session', 'view'], cwd: project, env });
+    cleanups.push(() => view.dispose());
+    await view.waitFor('a Attach  p Peek', WAIT_MS);
+    view.write('p');
+    await view.waitFor('to observe (read only)?', WAIT_MS);
+    view.write('y');
+    await view.waitFor('Observing pty-attach — read only', WAIT_MS);
+    await view.waitFor('hello from the pty', WAIT_MS);
+    const beforeDetach = view.outputOffset();
+    view.write('\x1d');
+    await view.waitForSince(beforeDetach, 'Background sessions across projects', WAIT_MS);
+    view.write('q');
+    expect(await view.expectExit(WAIT_MS)).toBe(0);
 
     expect(robota(['session', 'stop', id!], project, env).status).toBe(0);
   }, 120_000);

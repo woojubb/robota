@@ -30,8 +30,29 @@ export interface ISupervisedViewRow {
   readonly generation?: string;
 }
 
+/** An attach the user confirmed in the view, bound to the process start the row showed. */
+export interface ISupervisedAttachRequest {
+  readonly id: string;
+  readonly generation: string;
+  readonly mode: 'drive' | 'observe';
+  /** How the view was grouped, so it can reopen the same way after the attach. */
+  readonly groupByDirectory: boolean;
+}
+
+/** How the view ended: closed, or handed to the host to attach and then come back. */
+export type TSupervisedViewExit =
+  | { readonly kind: 'closed' }
+  | ({ readonly kind: 'attach' } & ISupervisedAttachRequest);
+
+const ROLE: Readonly<Record<ISupervisedAttachRequest['mode'], string>> = {
+  drive: 'drive (send prompts, answer its questions)',
+  observe: 'observe (read only)',
+};
+
 export interface ISupervisedSessionViewProps {
   readonly loadRows: (signal: AbortSignal) => Promise<readonly ISupervisedViewRow[]>;
+  /** Called once the user confirmed; the view then closes so the host can attach this terminal. */
+  readonly onAttach?: (request: ISupervisedAttachRequest) => void;
   /** Receives the generation the row displayed, so a session restarted under the same id is refused. */
   readonly onStop?: (id: string, generation: string) => Promise<void>;
   readonly onStart?: () => Promise<string>;
@@ -41,6 +62,9 @@ export interface ISupervisedSessionViewProps {
   readonly filteredByPr?: boolean;
   readonly stateFilter?: TGroup;
   readonly refreshMs?: number;
+  /** The row to select first, when it is still listed — the one an attach left from. */
+  readonly initialSelectedId?: string;
+  readonly initialGroupByDirectory?: boolean;
 }
 
 const GROUP_ORDER = ['needs-input', 'working', 'idle', 'unknown', 'unverified', 'dead'] as const;
@@ -177,11 +201,14 @@ export default function SupervisedSessionView({
   onStop,
   onStart,
   onOpenPr,
+  onAttach,
   filteredByCwd = false,
   filteredByName = false,
   filteredByPr = false,
   stateFilter,
   refreshMs = 2_000,
+  initialSelectedId,
+  initialGroupByDirectory = false,
 }: ISupervisedSessionViewProps): React.ReactElement {
   const { exit } = useApp();
   const { stdout } = useStdout();
@@ -190,13 +217,21 @@ export default function SupervisedSessionView({
   const [rows, setRows] = useState<readonly ISupervisedViewRow[]>([]);
   const [observedAtMs, setObservedAtMs] = useState(Date.now);
   const [status, setStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
-  const [chosenId, setSelectedId] = useState<string | undefined>();
+  const [chosenId, setSelectedId] = useState<string | undefined>(initialSelectedId);
   const [showHelp, setShowHelp] = useState(false);
-  const [groupByDirectory, setGroupByDirectory] = useState(false);
+  const [groupByDirectory, setGroupByDirectory] = useState(initialGroupByDirectory);
+  // One confirmation at a time, for the one registration the row showed when the key was pressed.
   const [confirmStop, setConfirmStop] = useState<
-    { readonly id: string; readonly generation: string } | undefined
+    | {
+        readonly id: string;
+        readonly generation: string;
+        readonly action: 'stop' | 'attach';
+        readonly mode?: ISupervisedAttachRequest['mode'];
+      }
+    | undefined
   >();
   const confirmStopId = confirmStop?.id;
+  const [attachStatus, setAttachStatus] = useState<'idle' | 'unavailable'>('idle');
   const [stopStatus, setStopStatus] = useState<
     'idle' | 'unavailable' | 'stopping' | 'stopped' | 'failed'
   >('idle');
@@ -302,8 +337,12 @@ export default function SupervisedSessionView({
       ? chosenId
       : ordered[0]?.id;
   useEffect(() => {
+    // Before the first rows arrive there is nothing to fall back to; the choice waits for them.
     setSelectedId((current) =>
-      current !== undefined && ordered.some((row) => row.id === current) ? current : ordered[0]?.id,
+      ordered.length === 0 ||
+      (current !== undefined && ordered.some((row) => row.id === current))
+        ? current
+        : ordered[0]?.id,
     );
   }, [ordered]);
 
@@ -326,6 +365,24 @@ export default function SupervisedSessionView({
     if (confirmStopId !== undefined) {
       if (input === 'n' || key.escape) {
         setConfirmStop(undefined);
+        return;
+      }
+      if (input === 'y' && confirmStop?.action === 'attach') {
+        const target = confirmStop;
+        const row = ordered.find((candidate) => candidate.id === target.id);
+        setConfirmStop(undefined);
+        if (
+          status !== 'ready' ||
+          !isControllable(row) ||
+          row.generation !== target.generation ||
+          target.mode === undefined ||
+          onAttach === undefined
+        ) {
+          setAttachStatus('unavailable');
+          return;
+        }
+        onAttach({ id: target.id, generation: target.generation, mode: target.mode, groupByDirectory });
+        exit();
         return;
       }
       if (input === 'y') {
@@ -391,7 +448,23 @@ export default function SupervisedSessionView({
         });
       return;
     }
-    if (input === 'p' && onOpenPr !== undefined) {
+    if ((input === 'a' || input === 'p') && onAttach !== undefined) {
+      const row = ordered.find((candidate) => candidate.id === selectedId);
+      if (status !== 'ready' || !isControllable(row)) {
+        setAttachStatus('unavailable');
+      } else {
+        setAttachStatus('idle');
+        setStopStatus('idle');
+        setConfirmStop({
+          id: row.id,
+          generation: row.generation,
+          action: 'attach',
+          mode: input === 'a' ? 'drive' : 'observe',
+        });
+      }
+      return;
+    }
+    if (input === 'o' && onOpenPr !== undefined) {
       const row = ordered.find((candidate) => candidate.id === selectedId);
       if (status !== 'ready' || !isControllable(row) || !row.pr) {
         setPrOpenStatus('unavailable');
@@ -417,7 +490,8 @@ export default function SupervisedSessionView({
         setStopStatus('unavailable');
       } else {
         setStopStatus('idle');
-        setConfirmStop({ id: row.id, generation: row.generation });
+        setAttachStatus('idle');
+        setConfirmStop({ id: row.id, generation: row.generation, action: 'stop' });
       }
       return;
     }
@@ -465,9 +539,10 @@ export default function SupervisedSessionView({
     's Request stop',
     'g Group state/dir',
     ...(onStart === undefined ? [] : ['n New session']),
-    ...(onOpenPr === undefined ? [] : ['p Open linked PR']),
-    'y Confirm stop',
-    'n/Esc Cancel stop',
+    ...(onAttach === undefined ? [] : ['a Attach (drive)', 'p Peek (read only)']),
+    ...(onOpenPr === undefined ? [] : ['o Open linked PR']),
+    'y Confirm',
+    'n/Esc Cancel',
     'q/Esc/Ctrl+C Close',
     '? Toggle help',
     'Activity ≠ liveness',
@@ -491,6 +566,7 @@ export default function SupervisedSessionView({
     (prOpenStatus === 'idle' ? 0 : 1) +
     (startStatus === 'idle' ? 0 : 1) +
     (confirmStopId !== undefined ? (screenReader ? 1 : 2) : stopStatus !== 'idle' ? 1 : 0) +
+    (confirmStopId === undefined && attachStatus !== 'idle' ? 1 : 0) +
     1 +
     (helpVisible ? helpLines.length : 0) +
     2;
@@ -505,14 +581,20 @@ export default function SupervisedSessionView({
   );
   const visible = screenReader ? displayLines : displayLines.slice(start, start + viewport);
   const chromeWrap = screenReader ? {} : { wrap: 'truncate-end' as const };
+  // Attach and peek are offered only for a row this terminal could actually attach to.
+  const attachable = onAttach !== undefined && status === 'ready' && isControllable(selectedRow);
   const footer =
     stopStatus === 'stopping'
       ? 'Stop in progress; wait for result.'
       : confirmStopId !== undefined
-        ? 'Confirm stop or cancel before closing.'
+        ? `Confirm ${confirmStop?.action === 'attach' ? 'attach' : 'stop'} or cancel before closing.`
         : screenReader
-          ? `Type a number and Enter to select; s Stop;${onStart ? ' n New;' : ''}${onOpenPr ? ' p Open PR;' : ''} g Group; Escape to close; ? Help.`
-          : `↑↓ Navigate  s Stop${onStart ? '  n New' : ''}${onOpenPr ? '  p Open PR' : ''}  g Group  ? Help  q/Esc Close`;
+          ? `Type a number and Enter to select; s Stop;${attachable ? ' a Attach; p Peek;' : ''}${onStart ? ' n New;' : ''}${onOpenPr ? ' o Open PR;' : ''} g Group; Escape to close; ? Help.`
+          : `↑↓ Navigate  s Stop${attachable ? '  a Attach  p Peek' : ''}${onStart ? '  n New' : ''}${onOpenPr ? '  o Open PR' : ''}  g Group  ? Help  q/Esc Close`;
+  const confirmQuestion = (id: string): string =>
+    confirmStop?.action === 'attach' && confirmStop.mode !== undefined
+      ? `${confirmStop.mode === 'drive' ? 'Attach to' : 'Peek at'} ${id} to ${ROLE[confirmStop.mode]}?`
+      : `Stop ${id}?`;
   return (
     <Box flexDirection="column" {...(screenReader ? {} : { height })}>
       <Text {...chromeWrap}>
@@ -605,15 +687,18 @@ export default function SupervisedSessionView({
       )}
       {confirmStopId !== undefined &&
         (screenReader ? (
-          <Text>Stop {confirmStopId}? y Yes / n No</Text>
+          <Text>{confirmQuestion(confirmStopId)} y Yes / n No</Text>
         ) : (
           <>
-            <Text {...chromeWrap}>Stop …{confirmStopId.slice(-8)}?</Text>
+            <Text {...chromeWrap}>{confirmQuestion(`…${confirmStopId.slice(-8)}`)}</Text>
             <Text {...chromeWrap}>y Yes / n No</Text>
           </>
         ))}
       {confirmStopId === undefined && stopStatus === 'unavailable' && (
         <Text {...chromeWrap}>This session cannot be stopped from the view.</Text>
+      )}
+      {confirmStopId === undefined && attachStatus === 'unavailable' && (
+        <Text {...chromeWrap}>This session cannot be attached to from the view.</Text>
       )}
       {stopStatus === 'stopping' && (
         <Text {...chromeWrap}>Stopping selected session; wait for confirmation.</Text>
@@ -648,13 +733,18 @@ export async function renderSupervisedSessionView(
     readonly screenReader: boolean;
     readonly screenReaderChannel?: TScreenReaderChannel;
     readonly screenReaderHint?: boolean;
+    /** Print the screen-reader line; false when this process already printed it. */
+    readonly announce?: boolean;
   },
-): Promise<void> {
-  writeScreenReaderAnnouncement({
-    enabled: options.screenReader,
-    channel: options.screenReaderChannel,
-    hint: options.screenReaderHint,
-  });
+): Promise<TSupervisedViewExit> {
+  if (options.announce !== false) {
+    writeScreenReaderAnnouncement({
+      enabled: options.screenReader,
+      channel: options.screenReaderChannel,
+      hint: options.screenReaderHint,
+    });
+  }
+  let attach: ISupervisedAttachRequest | undefined;
   const instance = render(
     <ScreenReaderProvider enabled={options.screenReader}>
       <SupervisedSessionView
@@ -662,11 +752,18 @@ export async function renderSupervisedSessionView(
         onStop={options.onStop}
         onStart={options.onStart}
         onOpenPr={options.onOpenPr}
+        onAttach={(request) => {
+          attach = request;
+        }}
         filteredByCwd={options.filteredByCwd}
         filteredByName={options.filteredByName}
         filteredByPr={options.filteredByPr}
         stateFilter={options.stateFilter}
         refreshMs={options.refreshMs}
+        {...(options.initialSelectedId !== undefined ? { initialSelectedId: options.initialSelectedId } : {})}
+        {...(options.initialGroupByDirectory !== undefined
+          ? { initialGroupByDirectory: options.initialGroupByDirectory }
+          : {})}
       />
     </ScreenReaderProvider>,
     { isScreenReaderEnabled: options.screenReader, exitOnCtrlC: false },
@@ -676,4 +773,5 @@ export async function renderSupervisedSessionView(
   } finally {
     instance.unmount();
   }
+  return attach === undefined ? { kind: 'closed' } : { kind: 'attach', ...attach };
 }

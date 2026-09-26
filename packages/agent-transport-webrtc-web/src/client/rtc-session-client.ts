@@ -25,12 +25,23 @@ import { ResponderGate, type IDeviceIdentityConfig } from './rtc-responder-gate.
 import { createRtcSignalingClient, type ISignalingClient } from './rtc-signaling.js';
 
 import type { IDeviceCredentialStore } from './device-credential-store.js';
-import type { startPairingHandshake } from '@robota-sdk/agent-remote-pairing';
+import type { startDeviceReconnect, startPairingHandshake } from '@robota-sdk/agent-remote-pairing';
 import type { TServerMessage, TClientMessage } from '@robota-sdk/agent-transport';
 
-/** Connection lifecycle for the RTC client (superset of the WS client's statuses: adds pairing/failed). */
+/**
+ * Connection lifecycle for the RTC client (superset of the WS client's statuses). After this side's
+ * pairing accepts, the host's operator still decides whether to admit the connection:
+ * `awaiting-approval` until the host's session answers, `refused` when the host closes the channel
+ * instead.
+ */
 export type TRtcConnectionStatus =
-  'disconnected' | 'connecting' | 'pairing' | 'connected' | 'failed';
+  | 'disconnected'
+  | 'connecting'
+  | 'pairing'
+  | 'awaiting-approval'
+  | 'connected'
+  | 'refused'
+  | 'failed';
 
 export interface IRtcSessionClientCallbacks {
   onMessage: (msg: TServerMessage) => void;
@@ -63,6 +74,7 @@ export interface IRtcSessionClientOptions {
   readonly createSignaling?: typeof createRtcSignalingClient;
   readonly createPeer?: (config?: RTCConfiguration) => RTCPeerConnection;
   readonly startHandshake?: typeof startPairingHandshake;
+  readonly startReconnect?: typeof startDeviceReconnect;
   readonly generateDeviceKeyPair?: () => Promise<CryptoKeyPair>;
 }
 
@@ -85,6 +97,7 @@ export function createRtcSessionClient(
   let localFingerprint: string | undefined;
   let remoteFingerprint: string | undefined;
   let status: TRtcConnectionStatus = 'disconnected';
+  let currentChannel: RTCDataChannel | null = null;
 
   const setStatus = (s: TRtcConnectionStatus): void => {
     status = s;
@@ -120,6 +133,15 @@ export function createRtcSessionClient(
    * (ii) advance `lastSeq` + periodically `ack`, and (iii) turn a `resume_gap` into a full `get-messages` refresh.
    */
   const onServerMessage = (msg: TServerMessage & { seq?: number }): void => {
+    // The host sends nothing on an accepted channel until its operator admits it, so its first
+    // session frame — the answer to our opening request — is the admission.
+    if (status === 'awaiting-approval') {
+      everConnected = true;
+      // Only an admitted connection restores the reconnect budget: one that keeps dropping before
+      // the host answers would otherwise ask the operator again and again.
+      reconnectAttempts = 0;
+      setStatus('connected');
+    }
     if (msg.type === 'resume_gap') {
       lastSeq = 0;
       gate?.send({ type: 'get-messages' });
@@ -189,14 +211,15 @@ export function createRtcSessionClient(
       remoteFingerprint: remoteFingerprint as string,
       onMessage: onServerMessage,
       onAccept: () => {
-        setStatus('connected');
-        everConnected = true;
+        // Our side accepted; the host operator has yet to admit this connection.
+        setStatus('awaiting-approval');
         reconnecting = false;
-        reconnectAttempts = 0;
         // REMOTE-013 E4: on a RECONNECT, resume the tail after the last applied seq + advance the counter
         // (resync-on-success = used-room + 1); on a fresh connect, ask for full history (mirrors the WS client).
         if (deviceIdentity?.reconnect) {
           gate?.send({ type: 'resume', lastSeq });
+          // A resume with nothing to replay is not answered; this is, so admission is seen either way.
+          gate?.send({ type: 'get-executing' });
           activeReconnectIdentity = null;
           void persistCounter(activeReconnectCounter + 1);
         } else {
@@ -206,6 +229,7 @@ export function createRtcSessionClient(
       onReject: fail,
       ...(deviceIdentity ? { deviceIdentity } : {}),
       ...(options.startHandshake ? { startHandshake: options.startHandshake } : {}),
+      ...(options.startReconnect ? { startReconnect: options.startReconnect } : {}),
     });
   }
 
@@ -221,6 +245,12 @@ export function createRtcSessionClient(
       return;
     }
     setStatus('pairing');
+    // The host closes the channel when its operator refuses the connection (or cannot be asked).
+    // Only this connection's channel speaks for it: a torn-down one may close late.
+    currentChannel = channel;
+    channel.onclose = (): void => {
+      if (channel === currentChannel && status === 'awaiting-approval') setStatus('refused');
+    };
 
     // REMOTE-013 E4 reconnect: the device identity is already captured (`activeReconnectIdentity`), so build the
     // gate synchronously in RECONNECT mode — on accept it verifies the host + sends `resume{lastSeq}`.
@@ -310,12 +340,15 @@ export function createRtcSessionClient(
     // A connection drop AFTER a first successful connect, with a stored credential, self-heals via reconnect.
     p.onconnectionstatechange = (): void => {
       const s = p.connectionState;
-      if (
-        (s === 'failed' || s === 'disconnected' || s === 'closed') &&
-        everConnected &&
-        reconnectCtx &&
-        !reconnecting
-      ) {
+      const dropped = s === 'failed' || s === 'disconnected' || s === 'closed';
+      // A refusal is not a drop to recover from: reconnecting would only ask the operator again.
+      if (status === 'refused') return;
+      // A first connection lost before the host admitted it has nothing to resume.
+      if ((s === 'failed' || s === 'closed') && status === 'awaiting-approval' && !everConnected) {
+        fail();
+        return;
+      }
+      if (dropped && everConnected && reconnectCtx && !reconnecting) {
         void startReconnect();
       }
     };

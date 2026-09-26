@@ -173,7 +173,10 @@ export class ExecutionService {
 
     try {
       const messageCountBeforeUser = conversationStore.getMessages().length;
-      conversationStore.addUserMessage(input, userMessageMetadata(executionId, context?.driverId));
+      conversationStore.addUserMessage(
+        input,
+        userMessageMetadata(executionId, context?.driverId, context?.turnSource),
+      );
       const userMessage = conversationStore.getMessages()[messageCountBeforeUser];
       if (userMessage) {
         fullContext.onExecutionEvent?.('history_mutation', {
