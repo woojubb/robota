@@ -50,17 +50,26 @@ import {
 import type { ICredentialStore } from '@robota-sdk/agent-core';
 import type { IOperatorApprover } from '@robota-sdk/agent-interface-session-mobility';
 
-/** What a peer may ask of this device until per-connection authority says otherwise. */
-export const DEFAULT_MESH_POLICY: readonly TDeviceCapability[] = ['presence', 'message'];
+/**
+ * What a peer may ask of this device unless the settings say otherwise. Files and hand-offs still
+ * need the operator's yes to each one; delegating, observing and driving are never offered by default.
+ */
+export const DEFAULT_MESH_POLICY: readonly TDeviceCapability[] = [
+  'file',
+  'handoff',
+  'message',
+  'presence',
+];
 
 export interface IOpenDeviceMeshOptions {
   /** `~/.robota` of the `HOME` this device runs under. */
   readonly root: string;
   readonly store: ICredentialStore;
-  readonly relay: IMeshRelay;
+  /** The user's own relay, the last way signals travel. Absent: the local network finds peers. */
+  readonly relay?: IMeshRelay;
   /**
    * Look for peers on the local network before the relay: the addresses that worked last (kept
-   * under the devices directory), then mDNS. Absent: the relay only.
+   * under the devices directory), then mDNS. Absent: the relay only, or with no relay, the defaults.
    */
   readonly lan?: IDeviceMeshLanOptions;
   /**
@@ -280,21 +289,28 @@ export async function openDeviceMesh(
   let descriptor = await describe();
   const internet =
     options.internet === undefined ? {} : await startInternet(options.internet, directory);
-  // Beyond the local network needs the direct endpoint too: DHT records point at it.
-  const lan =
-    options.lan ?? (options.internet !== undefined ? { mdns: false as const } : undefined);
+  // Beyond the local network needs the direct endpoint too: DHT records point at it. Without a relay
+  // of the user's own, the local network is the way left.
+  const lan: IDeviceMeshLanOptions | undefined =
+    options.lan ??
+    (options.internet !== undefined
+      ? { mdns: false as const }
+      : options.relay === undefined
+        ? {}
+        : undefined);
+  const direct: IDeviceMeshLanOptions = lan ?? {};
   let relay: IMeshRelay;
   try {
     relay =
-      lan === undefined
+      lan === undefined && options.relay !== undefined
         ? options.relay
         : await startLanMeshRelay({
-            relay: options.relay,
+            ...(options.relay !== undefined ? { relay: options.relay } : {}),
             cache: createFileMeshAddressCache(directory, { withinRoot: options.root, now }),
-            ...(lan.host !== undefined ? { host: lan.host } : {}),
-            ...(lan.mdns !== undefined ? { mdns: lan.mdns } : {}),
-            ...((lan.onError ?? options.onError) !== undefined
-              ? { onError: lan.onError ?? options.onError }
+            ...(direct.host !== undefined ? { host: direct.host } : {}),
+            ...(direct.mdns !== undefined ? { mdns: direct.mdns } : {}),
+            ...((direct.onError ?? options.onError) !== undefined
+              ? { onError: direct.onError ?? options.onError }
               : {}),
             internet: {
               ...(internet.dht !== undefined ? { dht: internet.dht } : {}),

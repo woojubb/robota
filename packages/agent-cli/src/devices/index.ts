@@ -16,7 +16,7 @@ import { scheduleListReissue } from './device-list-reissue.js';
 import { openSecretTerminal, type ISecretTerminalSession } from './secret-terminal.js';
 
 import type { ICredentialStore } from '@robota-sdk/agent-core';
-import type { IDevicesCommandPort } from '@robota-sdk/agent-command';
+import type { IDevicesCommandPort, IDevicesMeshStatus } from '@robota-sdk/agent-command';
 import type { IIceServer, IMeshRelay } from '@robota-sdk/agent-transport-webrtc';
 
 export interface IDevicesCommandPortOptions {
@@ -26,6 +26,8 @@ export interface IDevicesCommandPortOptions {
   readonly credentials?: { readonly store: ICredentialStore; describe(): string | undefined };
   /** Defaults to the process TTY. */
   readonly openTerminal?: () => ISecretTerminalSession | undefined;
+  /** This session's device mesh, shown by `/devices`. */
+  readonly meshStatus?: () => IDevicesMeshStatus;
   /** Defaults to a client of the configured signaling relay, or none when no relay is configured. */
   readonly openEnrollmentRelay?: (onError: (error: Error) => void) => IMeshRelay | undefined;
   /** Defaults to the configured ICE servers. */
@@ -50,7 +52,7 @@ export function createDevicesCommandPort(
   const root = options.root ?? userLocalStorageRoot();
   // The backend in use is reported in the `/devices init` result, so the one-time notice is not needed.
   const credentials = options.credentials ?? createHostCredentialStore({ root, notify: () => {} });
-  return createDeviceIdentityService({
+  const service = createDeviceIdentityService({
     directory: join(root, 'devices'),
     withinRoot: root,
     store: credentials.store,
@@ -60,7 +62,12 @@ export function createDevicesCommandPort(
     iceServers: options.iceServers ?? (() => parseIceServers(readWebrtcRawOption('iceServers'))),
     ...(options.enrollment !== undefined ? { enrollment: options.enrollment } : {}),
   });
+  const meshStatus = options.meshStatus;
+  return meshStatus === undefined ? service : { ...service, meshStatus };
 }
+
+export { createDeviceMeshHost } from './device-mesh-host.js';
+export type { IDeviceMeshHost } from './device-mesh-host.js';
 
 export interface IDeviceListReissueStartOptions {
   /** Defaults to `~/.robota` under the current `HOME`. */
