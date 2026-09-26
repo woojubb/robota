@@ -67,11 +67,18 @@ without implying a background supervisor or an attach/restart capability; it inc
 user-owned and currently authorized project records, never transcript content, and corrupt or
 unsupported records stay visible rather than being hidden.
 
-A local peer message is taken as coming from the session it names only when that session, asked at
-its own socket, confirms it is sending exactly that message to this receiver; anything else is
-refused. The same user can reach every socket in the rendezvous, so the name a message states is a
+A local peer message or file is taken as coming from the session it names only when that session,
+asked at its own socket, confirms it is sending exactly that message or file to this receiver;
+anything else is refused. The same user can reach every socket in the rendezvous, so the name a message states is a
 claim, and it decides where an answer goes and whom the turn is attributed to — never what the turn
 may do, which the session's ordinary permissions decide as for its own work.
+
+A file from another session or device is kept only with the operator's yes to that file, as an inert
+copy in a directory of the sender's under this user's `~/.robota`, under a name that cannot leave it,
+replace anything or follow a link; the conversation is told its name, size and hash, never its
+content. Sending is the operator's command for any readable file, and the model's only within the
+workspace and away from anything that looks like a secret, because a model steered by what it read
+must not reach the credentials beside a project.
 
 A conversation between local peers is bounded, so two agents that always answer cannot message each
 other forever: its depth and this session's answers in it are counted from what this session itself

@@ -136,6 +136,11 @@ export class RemoteControlController {
    * session, and `drive` needs the operator's yes for each connection. One authority per connection,
    * so an earlier yes never carries over.
    */
+  /** The operator of this session, as asked on this machine's terminal; undefined when nobody can be. */
+  get operatorApprover(): IOperatorApprover | undefined {
+    return this.deps.operatorApprover;
+  }
+
   private readonly connectionApproval: IConnectionApproval = {
     approve: async ({ deviceId, signal }) => {
       const authority = new ConnectionAuthority(

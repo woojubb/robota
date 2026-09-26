@@ -13,7 +13,8 @@ import type { TPeerTrust } from './peer-message-contracts.js';
 export type TPeerReach = 'same-host' | 'another-host';
 
 /** What a peer device may be asked to do: its certificate's capabilities as local policy narrowed them. */
-export type TMeshCapability = 'delegate' | 'drive' | 'handoff' | 'message' | 'observe' | 'presence';
+export type TMeshCapability =
+  'delegate' | 'drive' | 'file' | 'handoff' | 'message' | 'observe' | 'presence';
 
 /**
  * The result of admitting another of the user's devices. Produced only on success; a refusal is a

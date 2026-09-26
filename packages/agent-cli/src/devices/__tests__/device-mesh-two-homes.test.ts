@@ -4,7 +4,7 @@
  * handshake, and deliver a message. The identity each endpoint uses is only what `/devices` left
  * under its `HOME`.
  */
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -21,7 +21,14 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createFileCredentialStore } from '../../credentials/file-credential-store.js';
 import { createDeviceIdentityService } from '../device-identity-service.js';
 import { reissueDueLists } from '../device-list-reissue.js';
-import { openDeviceMesh, saveAdoptedLists, type IDeviceMeshEndpoint } from '../device-mesh.js';
+import {
+  openDeviceMesh,
+  saveAdoptedLists,
+  type IDeviceMeshEndpoint,
+  type IOpenDeviceMeshOptions,
+} from '../device-mesh.js';
+import { acceptDeviceFiles, sendFileToDevice } from '../mesh-files.js';
+import { prepareOutgoingFile } from '../../peer-files/outgoing-file.js';
 import { DEVICE_KA_KEY, DEVICE_SIGN_KEY, loadSigningKey, storeKeyPair } from '../identity-keys.js';
 import {
   readIdentityState,
@@ -127,8 +134,13 @@ afterEach(() => {
   rmSync(desktop.home, { recursive: true, force: true });
 });
 
-async function endpoint(home: IHome, hub: ReturnType<typeof createInMemoryMeshRelayHub>) {
+async function endpoint(
+  home: IHome,
+  hub: ReturnType<typeof createInMemoryMeshRelayHub>,
+  extra: Pick<IOpenDeviceMeshOptions, 'localPolicy' | 'operatorApprover'> = {},
+) {
   const opened = await openDeviceMesh({
+    ...extra,
     root: home.root,
     store: home.store,
     relay: hub.connect(),
@@ -214,6 +226,94 @@ describe('device mesh between two HOMEs', () => {
     await expect(atDesktop.connect(laptopId, 3_000)).rejects.toThrow();
     expect(atLaptop.link(desktopId)).toBeUndefined();
   }, 40_000);
+
+  describe('file transfer', () => {
+    async function linked(approve: boolean | undefined) {
+      const desktopId = await enrolDesktop();
+      const laptopId = stateOf(laptop).deviceCertificate.deviceId;
+      const hub = createInMemoryMeshRelayHub();
+      const policy = ['file', 'message', 'presence'] as const;
+      const asked: string[] = [];
+      const atLaptop = (await endpoint(laptop, hub, { localPolicy: [...policy] })).node;
+      const atDesktop = (
+        await endpoint(desktop, hub, {
+          localPolicy: [...policy],
+          ...(approve !== undefined
+            ? {
+                operatorApprover: {
+                  approve: async (request) => {
+                    asked.push(request.summary ?? '');
+                    return approve;
+                  },
+                },
+              }
+            : {}),
+        })
+      ).node;
+      const [toDesktop, toLaptop] = await Promise.all([
+        atLaptop.connect(desktopId),
+        atDesktop.connect(laptopId),
+      ]);
+      const outcomes: unknown[] = [];
+      acceptDeviceFiles(toLaptop, {
+        root: desktop.root,
+        onOutcome: (outcome) => outcomes.push(outcome),
+      });
+      const workspace = join(laptop.home, 'project');
+      mkdirSync(workspace, { recursive: true });
+      return { toDesktop, laptopId, asked, outcomes, workspace };
+    }
+
+    async function prepared(workspace: string, name: string, content: Buffer) {
+      writeFileSync(join(workspace, name), content);
+      const result = await prepareOutgoingFile({
+        path: name,
+        cwd: workspace,
+        home: laptop.home,
+        origin: 'operator',
+        maxBytes: 32 * 1024 * 1024,
+      });
+      if (!result.ok) throw new Error(result.reason);
+      return result.file;
+    }
+
+    it('delivers a verified copy on a channel of its own, with the operator yes', async () => {
+      const { toDesktop, laptopId, asked, workspace } = await linked(true);
+      const content = Buffer.from(Array.from({ length: 300_000 }, (_, i) => (i * 7) % 256));
+      const messages: string[] = [];
+      toDesktop.onMessage((body) => messages.push(body));
+
+      await expect(
+        sendFileToDevice(toDesktop, await prepared(workspace, 'data.bin', content)),
+      ).resolves.toEqual({ state: 'delivered' });
+
+      const kept = join(desktop.root, 'peer-files', laptopId, 'data.bin');
+      expect(readFileSync(kept).equals(content)).toBe(true);
+      expect(asked).toHaveLength(1);
+      expect(asked[0]).toContain('data.bin');
+      // Nothing of the transfer went over the message channel.
+      expect(messages).toEqual([]);
+    }, 40_000);
+
+    it('refuses a file the receiving operator did not approve', async () => {
+      const { toDesktop, laptopId, workspace } = await linked(false);
+      const result = await sendFileToDevice(
+        toDesktop,
+        await prepared(workspace, 'data.bin', Buffer.from('nope')),
+      );
+      expect(result.state).toBe('refused');
+      expect(readdirSync(join(desktop.root, 'peer-files', laptopId))).toEqual([]);
+    }, 40_000);
+
+    it('refuses every file when nobody can approve it', async () => {
+      const { toDesktop, workspace } = await linked(undefined);
+      const result = await sendFileToDevice(
+        toDesktop,
+        await prepared(workspace, 'data.bin', Buffer.from('nope')),
+      );
+      expect(result.state).toBe('refused');
+    }, 40_000);
+  });
 
   it('refuses to open without an identity, naming the command to run', async () => {
     const hub = createInMemoryMeshRelayHub();

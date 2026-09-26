@@ -10,6 +10,10 @@
  * Until admission the channel carries only handshake frames. Anything that is not one — or anything
  * after the peer's proof but before this side's verdict, beyond a small bound — is held or refused,
  * never delivered, and every refusal closes the connection. Only an admitted link delivers messages.
+ *
+ * Files travel on data channels of their own, one per transfer, opened by the sending side once the
+ * link is admitted, so a transfer never shares a channel with messages. A file channel that arrives
+ * before admission, or beyond a small number at once, is closed unread.
  */
 import {
   extractDtlsFingerprint,
@@ -123,6 +127,12 @@ const MAX_HELD_FRAMES = 16;
 /** ICE candidates per direction; a connection gathers a handful, and the relay supplies the peer's. */
 const MAX_CANDIDATES = 64;
 const DATA_CHANNEL_LABEL = 'robota-mesh';
+/** The label of a channel that carries one file transfer. */
+const FILE_CHANNEL_LABEL = 'robota-file';
+/** File channels open at once on one link. */
+const MAX_FILE_CHANNELS = 4;
+/** From opening a file channel to its being open. */
+const FILE_CHANNEL_OPEN_MS = 10_000;
 /** Time for a channel close to leave before the connection under it is closed. */
 const PEER_CLOSE_GRACE_MS = 250;
 
@@ -151,6 +161,8 @@ export class MeshPeerLink {
   private readonly held: string[] = [];
   private readonly handlers = new Set<(body: string) => void>();
   private readonly endHandlers = new Set<(end: TMeshLinkEnd) => void>();
+  private readonly fileChannels = new Set<RtcChannel>();
+  private readonly fileHandlers = new Set<(channel: RtcChannel) => void>();
   private signalChain: Promise<void> = Promise.resolve();
   private stopAwaitingCertificate?: () => void;
   private readonly timer: ReturnType<typeof setTimeout>;
@@ -236,14 +248,6 @@ export class MeshPeerLink {
       return;
     }
     const peer = this.createPeer();
-    peer.onDataChannel((channel) => {
-      // One data channel per link; a second one is not ours to read.
-      if (this.channel !== undefined) {
-        channel.close();
-        return;
-      }
-      this.adoptChannel(channel);
-    });
     const sdp = await peer.acceptOffer(signal.sdp);
     if (this.isEnded()) return;
     this.localFingerprint = extractDtlsFingerprint(sdp);
@@ -267,7 +271,74 @@ export class MeshPeerLink {
       if (state === 'failed' || state === 'closed')
         this.end('closed', undefined, `connection ${state}`);
     });
+    peer.onDataChannel((channel) => this.incomingChannel(channel));
     return peer;
+  }
+
+  /**
+   * A channel the peer opened. The answerer's first one is the link's own; after admission a file
+   * channel goes to whoever takes files; anything else is not ours to read.
+   */
+  private incomingChannel(channel: RtcChannel): void {
+    if (this.options.role === 'answerer' && this.channel === undefined && !this.isEnded()) {
+      this.adoptChannel(channel);
+      return;
+    }
+    if (
+      this.state !== 'admitted' ||
+      channel.label !== FILE_CHANNEL_LABEL ||
+      this.fileHandlers.size === 0 ||
+      this.fileChannels.size >= MAX_FILE_CHANNELS
+    ) {
+      channel.close();
+      return;
+    }
+    this.trackFileChannel(channel);
+    for (const handler of this.fileHandlers) handler(channel);
+  }
+
+  private trackFileChannel(channel: RtcChannel): void {
+    this.fileChannels.add(channel);
+    channel.onStateChange((state) => {
+      if (state === 'closed') this.fileChannels.delete(channel);
+    });
+  }
+
+  /** Open a channel for one file transfer. Only an admitted link opens one. */
+  public openFileChannel(): Promise<RtcChannel> {
+    const peer = this.peer;
+    if (this.state !== 'admitted' || peer === undefined) {
+      return Promise.reject(new Error('mesh link is not admitted'));
+    }
+    if (this.fileChannels.size >= MAX_FILE_CHANNELS) {
+      return Promise.reject(new Error('too many file transfers are open on this link'));
+    }
+    const channel = peer.createDataChannel(FILE_CHANNEL_LABEL);
+    this.trackFileChannel(channel);
+    return new Promise<RtcChannel>((resolve, reject) => {
+      if (channel.readyState === 'open') {
+        resolve(channel);
+        return;
+      }
+      const timer = setTimeout(() => {
+        stop();
+        channel.close();
+        reject(new Error('the file channel did not open'));
+      }, FILE_CHANNEL_OPEN_MS);
+      const stop = channel.onStateChange((state) => {
+        if (state === 'connecting') return;
+        clearTimeout(timer);
+        stop();
+        if (state === 'open') resolve(channel);
+        else reject(new Error('the file channel closed before it opened'));
+      });
+    });
+  }
+
+  /** File channels the admitted peer opens. Returns an unsubscribe. */
+  public onFileChannel(handler: (channel: RtcChannel) => void): () => void {
+    this.fileHandlers.add(handler);
+    return () => this.fileHandlers.delete(handler);
   }
 
   private sendDescription(signal: Extract<TMeshLinkSignal, { kind: 'offer' | 'answer' }>): void {
@@ -485,6 +556,9 @@ export class MeshPeerLink {
     // A frame the handshake cannot decode settles it now, so its timer does not outlive the link.
     this.handshake?.onFrame(undefined);
     this.channel?.close();
+    for (const channel of this.fileChannels) channel.close();
+    this.fileChannels.clear();
+    this.fileHandlers.clear();
     const peer = this.peer;
     // The channel's close goes out first, so the peer learns of it rather than waiting out a timeout.
     if (peer) setTimeout(() => peer.close(), PEER_CLOSE_GRACE_MS).unref?.();

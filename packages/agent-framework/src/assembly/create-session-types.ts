@@ -9,6 +9,7 @@ import type { IOutputStylePrompt } from '../context/output-style-prompt.js';
 import type { IProjectInfo } from '../context/project-detector.js';
 import type { ISystemPromptParams } from '../context/system-prompt-builder.js';
 import type { IPeerReplyPort } from '../tools/peer-reply-tool.js';
+import type { IPeerSendFilePort } from '../tools/peer-send-file-tool.js';
 import type { IContributionSource } from '../contributions/index.js';
 import type { ISkillRootDescriptor } from '../commands/skill-source.js';
 import type { TSessionFactory } from '../hooks/agent-executor.js';
@@ -139,6 +140,8 @@ export interface ICreateSessionOptions {
   includeSessionLoopDecisionTool?: boolean;
   /** Include `peer_reply` over this port. The permission policy offers it only in a peer turn. */
   peerReply?: IPeerReplyPort;
+  /** Include `peer_send_file` over this port. The permission policy never offers it in a peer turn. */
+  peerSendFile?: IPeerSendFilePort;
   /** Additional background task runners composed by the runtime shell. */
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   /** Host-selected code for background observer process warnings. */

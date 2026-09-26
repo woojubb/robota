@@ -35,8 +35,7 @@ import {
   type TDeviceCapability,
 } from '@robota-sdk/agent-remote-pairing';
 
-import type {
-  MeshLinkEndedError} from './mesh-peer-link.js';
+import type { MeshLinkEndedError } from './mesh-peer-link.js';
 import {
   MeshPeerLink,
   type TMeshLinkEnd,
@@ -51,10 +50,11 @@ import {
 } from './mesh-signal.js';
 import {
   ConnectionAuthority,
+  type IFileFrameChannel,
   type IOperatorApprover,
 } from '@robota-sdk/agent-interface-session-mobility';
 
-import { RtcPeer } from './rtc-peer.js';
+import { RtcPeer, type RtcChannel } from './rtc-peer.js';
 
 import type { IMeshRelay } from './mesh-relay.js';
 import type { IDataChannelModule } from './datachannel-loader.js';
@@ -99,8 +99,36 @@ export interface IDeviceMeshLink {
   readonly authority: ConnectionAuthority;
   send(body: string): void;
   onMessage(handler: (body: string) => void): () => void;
+  /**
+   * A channel of its own for one file transfer. What travels on it is the file carrier's; the peer
+   * decides on it with its operator, and this side's authority is not asked.
+   */
+  openFileChannel(): Promise<IFileFrameChannel>;
+  /**
+   * Channels the peer opened to send a file. Whoever takes them decides on each transfer, asking
+   * {@link IDeviceMeshLink.authority}; with no handler, such channels are closed unread.
+   */
+  onFileChannel(handler: (channel: IFileFrameChannel) => void): () => void;
   onClose(handler: () => void): () => void;
   close(): void;
+}
+
+/** A data channel as a file frame channel. */
+function fileFrameChannel(channel: RtcChannel): IFileFrameChannel {
+  return {
+    send: (frame) => channel.send(frame),
+    onFrame: (handler) => channel.onMessage(handler),
+    onClose: (handler) => {
+      if (channel.readyState === 'closed') {
+        queueMicrotask(handler);
+        return () => undefined;
+      }
+      return channel.onStateChange((state) => {
+        if (state === 'closed') handler();
+      });
+    },
+    close: () => channel.close(),
+  };
 }
 
 /** A connection attempt that ended before admission. */
@@ -623,6 +651,9 @@ export class DeviceMeshNode {
             else link.close();
           });
         }),
+      openFileChannel: async () => fileFrameChannel(await link.openFileChannel()),
+      onFileChannel: (handler) =>
+        link.onFileChannel((channel) => handler(fileFrameChannel(channel))),
       onClose: (handler) => link.onEnd(() => handler()),
       close: () => link.close(),
     };

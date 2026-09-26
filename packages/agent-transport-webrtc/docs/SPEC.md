@@ -89,7 +89,8 @@ dependency.
   pair are paced — forged announcements can neither cut a working connection nor open connections without bound.
   Lists adopted in a handshake or handed over later apply from the next handshake, and a device they revoke loses
   its connection at once. Admission says who the peer is; what it may do on the connection is its connection
-  authority's answer, so even a message is delivered only when that authority allows it.
+  authority's answer, so even a message is delivered only when that authority allows it. A file travels on a
+  channel of its own, opened only on an admitted connection, so a transfer never shares the message channel.
 - **The data channel is wired eagerly at creation, not on open.** The session message handler is built and its
   message subscription attached immediately, because the underlying implementation does not buffer inbound frames
   that arrive before a subscription, and the remote can send its first client message before the host's channel

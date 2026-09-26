@@ -563,6 +563,30 @@ export class InteractiveSession
           return send === undefined ? undefined : (...args) => send.apply(peers, args);
         },
       },
+      // Every file the model would send is put to the operator, whatever the mode or rules say.
+      peerSendFile: {
+        activeTurn: () => this.execCtrl.activePeerTurn,
+        cwd: () => this.getCwd(),
+        prepare: () => {
+          const peers = this.getCommandHostAdapters().localPeers;
+          const prepare = peers?.prepareFile;
+          return prepare === undefined ? undefined : (...args) => prepare.apply(peers, args);
+        },
+        confirm: async (question) => {
+          const response = await this.askHandler({
+            id: `peer-send-file-${Date.now()}`,
+            title: `Send ${question.path} to session ${question.to}?`,
+            description:
+              `${question.size} bytes, sha256 ${question.sha256}. The other session keeps a copy ` +
+              'aside; nothing there opens it on its own.',
+            options: [
+              { value: 'send', label: 'Send this file' },
+              { value: 'cancel', label: 'Do not send' },
+            ],
+          });
+          return response.type === 'answer' && response.values[0] === 'send';
+        },
+      },
     });
     this.session = result.session;
     this.agentsFileEntries = result.agentsFileEntries;

@@ -211,6 +211,8 @@ export interface IAsyncInitDeps {
   setEditCheckpointStore: (store: EditCheckpointStore) => void;
   /** The session's answer route to a peer (`peer_reply`). */
   peerReply?: IInitOptions['peerReply'];
+  /** How the model sends a file to another session (`peer_send_file`). */
+  peerSendFile?: IInitOptions['peerSendFile'];
 }
 
 /** Result returned from initializeInteractiveSessionAsync. */
@@ -324,6 +326,7 @@ export async function initializeInteractiveSessionAsync(
     ...(options.guardrails ? { guardrails: options.guardrails } : {}),
     ...(options.retrievalAdapter ? { retrievalAdapter: options.retrievalAdapter } : {}),
     ...(deps.peerReply !== undefined ? { peerReply: deps.peerReply } : {}),
+    ...(deps.peerSendFile !== undefined ? { peerSendFile: deps.peerSendFile } : {}),
     commandDescriptors: deps.commandDescriptors,
     ...(deps.commandSemanticRoles ? { commandSemanticRoles: deps.commandSemanticRoles } : {}),
     ...(deps.commandDescriptors.length > 0

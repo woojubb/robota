@@ -199,7 +199,9 @@ export class PermissionEnforcer {
    */
   isToolVisible(toolName: string): boolean {
     // The reply exists in a peer turn alone; a peer turn is otherwise shown what any turn is.
-    if (!this.peerTurn && getToolPermissionProfile(toolName).repliesToPeer === true) return false;
+    const profile = getToolPermissionProfile(toolName);
+    if (!this.peerTurn && profile.repliesToPeer === true) return false;
+    if (this.peerTurn && profile.notInPeerTurn === true) return false;
     return !isToolDeniedOutright(toolName, [
       ...this.config.permissions.deny,
       ...(this.taskPermissions?.deny ?? []),

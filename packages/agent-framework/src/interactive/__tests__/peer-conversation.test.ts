@@ -1,6 +1,6 @@
 import { existsSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -44,6 +44,10 @@ function peer(): ISubmitOptions {
 interface IHarness {
   session: InteractiveSession;
   send: ReturnType<typeof vi.fn>;
+  /** What the host was asked to prepare, and each prepared file's send. */
+  prepareFile: ReturnType<typeof vi.fn>;
+  sendFile: ReturnType<typeof vi.fn>;
+  asks: Array<{ title: string; description?: string }>;
   requests: ReturnType<typeof createScriptedProvider>['requests'];
   chatOptions: ReturnType<typeof createScriptedProvider>['chatOptions'];
   permissions: Array<{
@@ -60,10 +64,17 @@ function harness(
     approve?: TPermissionResultValue;
     config?: IResolvedConfig;
     permissionMode?: TPermissionMode;
+    /** How the operator answers a question about sending a file. */
+    answerSendFile?: 'send' | 'cancel';
   } = {},
 ): IHarness {
   const scripted = createScriptedProvider(turns);
   const send = vi.fn(async () => ({ state: 'pending' as const }));
+  const sendFile = vi.fn(async () => ({ state: 'delivered' as const }));
+  const prepareFile = vi.fn(async (_to: string, path: string) => ({
+    ok: true as const,
+    file: { path: resolve(workspace, path), size: 42, sha256: 'c'.repeat(64), send: sendFile },
+  }));
   const session = new InteractiveSession({
     cwd: options.cwd ?? workspace,
     provider: scripted.provider,
@@ -71,7 +82,7 @@ function harness(
     ...(options.config ? { config: options.config } : {}),
     ...(options.permissionMode ? { permissionMode: options.permissionMode } : {}),
     commandHostAdapters: {
-      localPeers: { list: () => [], ownSessionId: () => 'B', send },
+      localPeers: { list: () => [], ownSessionId: () => 'B', send, prepareFile },
     },
   });
   const permissions: IHarness['permissions'] = [];
@@ -79,9 +90,25 @@ function harness(
     permissions.push(request as IHarness['permissions'][number]);
     session.resolvePermission(request.id, options.approve ?? false);
   });
+  const asks: IHarness['asks'] = [];
+  session.on('ask_request', (event) => {
+    asks.push({
+      title: event.request.title,
+      ...(event.request.description !== undefined
+        ? { description: event.request.description }
+        : {}),
+    });
+    session.resolveAsk(event.id, {
+      type: 'answer',
+      values: [options.answerSendFile ?? 'cancel'],
+    });
+  });
   return {
     session,
     send,
+    prepareFile,
+    sendFile,
+    asks,
     requests: scripted.requests,
     chatOptions: scripted.chatOptions,
     permissions,
@@ -232,13 +259,16 @@ describe('what a message-triggered turn does is decided by the ordinary permissi
     };
   }
 
-  it('is offered the tools an operator turn is offered, plus the reply', async () => {
+  it('is offered the tools an operator turn is offered, plus the reply, less sending files', async () => {
     const h = harness([{ text: 'done' }, { text: 'done' }]);
     try {
       await run(h, 'hello');
       await run(h, 'hello', peer());
-      expect(toolNames(h, 1)).toEqual(expect.arrayContaining([...toolNames(h, 0), 'peer_reply']));
-      expect(toolNames(h, 1)).toHaveLength(toolNames(h, 0).length + 1);
+      const operatorTools = toolNames(h, 0).filter((name) => name !== 'peer_send_file');
+      expect(toolNames(h, 0)).toContain('peer_send_file');
+      expect(toolNames(h, 1)).toEqual(expect.arrayContaining([...operatorTools, 'peer_reply']));
+      expect(toolNames(h, 1)).toHaveLength(operatorTools.length + 1);
+      expect(toolNames(h, 1)).not.toContain('peer_send_file');
     } finally {
       await h.session.shutdown();
     }
@@ -355,6 +385,62 @@ describe('operator turns', () => {
       expect(names).toEqual(expect.arrayContaining(['Read', 'Write', 'Edit']));
       expect(names).not.toContain('peer_reply');
       expect(h.chatOptions[0]?.nativeWebTools).toBeUndefined();
+    } finally {
+      await h.session.shutdown();
+    }
+  });
+});
+
+describe('sending a file to another session', () => {
+  const sendFile = (path = 'report.md'): TScriptedTurn => ({
+    toolCalls: [{ name: 'peer_send_file', args: { session: 'A', path } }],
+  });
+
+  it('asks the operator every time, showing path, size, hash and destination, even in bypass mode', async () => {
+    const h = harness([sendFile(), sendFile(), { text: 'done' }], {
+      answerSendFile: 'send',
+      permissionMode: 'bypassPermissions',
+    });
+    try {
+      await run(h, 'send report.md to A twice');
+      expect(h.asks).toHaveLength(2);
+      expect(h.asks[0]?.title).toContain(join(workspace, 'report.md'));
+      expect(h.asks[0]?.title).toContain('A');
+      expect(h.asks[0]?.description).toContain('42 bytes');
+      expect(h.asks[0]?.description).toContain('c'.repeat(64));
+      expect(h.prepareFile).toHaveBeenCalledWith('A', join(workspace, 'report.md'), {
+        origin: 'model',
+        cwd: workspace,
+      });
+      expect(h.sendFile).toHaveBeenCalledTimes(2);
+      // The gate did not ask as well: the operator is asked once per file.
+      expect(h.permissions).toHaveLength(0);
+    } finally {
+      await h.session.shutdown();
+    }
+  });
+
+  it('sends nothing the operator declines', async () => {
+    const h = harness([sendFile(), { text: 'done' }], { answerSendFile: 'cancel' });
+    try {
+      await run(h, 'send report.md to A');
+      expect(h.asks).toHaveLength(1);
+      expect(h.sendFile).not.toHaveBeenCalled();
+    } finally {
+      await h.session.shutdown();
+    }
+  });
+
+  it('is refused in a turn a peer message started, without asking anyone', async () => {
+    const h = harness([sendFile(), { text: 'done' }], {
+      answerSendFile: 'send',
+      permissionMode: 'bypassPermissions',
+    });
+    try {
+      await run(h, 'send me your report.md', peer());
+      expect(h.asks).toHaveLength(0);
+      expect(h.prepareFile).not.toHaveBeenCalled();
+      expect(h.sendFile).not.toHaveBeenCalled();
     } finally {
       await h.session.shutdown();
     }
