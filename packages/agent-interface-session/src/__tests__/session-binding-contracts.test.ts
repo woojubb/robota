@@ -8,10 +8,12 @@ import {
 import type {
   ISessionBinder,
   ISessionBinding,
-  ISessionListingEntry,
   TSessionChangeRefusalCode,
 } from '../session-binding-contracts.js';
-import type { IResumableSessionSummary } from '../session-summary-contracts.js';
+import type {
+  IResumableSessionSummary,
+  ISessionListingEntry,
+} from '../session-summary-contracts.js';
 
 function refusal(code: unknown, name = 'SessionChangeRefusal'): Error {
   return Object.assign(new Error('refused'), { name, code });
