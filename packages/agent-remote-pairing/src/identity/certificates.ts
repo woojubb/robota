@@ -230,7 +230,7 @@ const DEVICE_CERT_FIELDS = [
 const CONTROL_CHARACTER = /\p{Cc}/u;
 const LONE_SURROGATE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
 
-function isDeviceName(value: unknown): value is string {
+export function isDeviceName(value: unknown): value is string {
   return (
     typeof value === 'string' &&
     value.length > 0 &&

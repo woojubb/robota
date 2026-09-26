@@ -105,3 +105,12 @@ export type {
   IMdnsTransport,
   IMeshMdnsOptions,
 } from './mesh-mdns.js';
+// Enrolling a new device: a data channel bound to its negotiated connection, reached through the relay
+// topic an enrollment code derives. The enrollment protocol itself is `agent-remote-pairing`'s.
+export { EnrollmentLinkError, dialEnrollment, listenForEnrollment } from './enrollment-link.js';
+export type {
+  IEnrollmentChannel,
+  IEnrollmentListener,
+  IEnrollmentRendezvous,
+  TEnrollmentLinkFailure,
+} from './enrollment-link.js';
