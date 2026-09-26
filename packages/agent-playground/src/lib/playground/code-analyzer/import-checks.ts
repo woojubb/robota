@@ -1,4 +1,4 @@
-import { PROVIDER_PACKAGES } from '../../provider-packages';
+import { PROVIDER_PACKAGES, toPackageName } from '../../provider-packages';
 import type { IErrorInfo } from '../code-executor-types';
 
 const PLUGIN_NAMES = ['LoggingPlugin', 'UsagePlugin', 'PerformancePlugin'];
@@ -42,17 +42,17 @@ function checkOpenAiClientImport(code: string, errors: IErrorInfo[]): void {
 function checkProviderImport(
   code: string,
   providerName: string,
-  packageName: string,
+  importPath: string,
   errors: IErrorInfo[],
 ): void {
-  if (code.includes(providerName) && !code.includes(`from '${packageName}'`)) {
+  if (code.includes(providerName) && !code.includes(`from '${importPath}'`)) {
     errors.push({
       type: 'import',
       severity: 'error',
       message: `Missing ${providerName} import`,
       suggestions: [
-        `Add: import { ${providerName} } from '${packageName}'`,
-        `Install package: npm install ${packageName}`,
+        `Add: import { ${providerName} } from '${importPath}'`,
+        `Install package: npm install ${toPackageName(importPath)}`,
       ],
     });
   }

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateAgentCode } from '../index';
 import type { IAssemblyState } from '../index';
+import { getInstallCommand } from '../install-command';
 import { getProviderTemplate } from '../provider-templates';
 
 describe('generateAgentCode', () => {
@@ -165,7 +166,20 @@ describe('getProviderTemplate', () => {
     ['anthropic', '@robota-sdk/agent-provider-anthropic', 'AnthropicProvider'],
     ['gemini', '@robota-sdk/agent-provider-gemini', 'GeminiProvider'],
     ['deepseek', '@robota-sdk/agent-provider-openai-compatible', 'DeepSeekProvider'],
+    ['google', '@robota-sdk/agent-provider-gemini', 'GeminiProvider'],
   ])('imports %s from its per-vendor package', (provider, importPath, className) => {
     expect(getProviderTemplate(provider)).toMatchObject({ importPath, className });
+  });
+});
+
+describe('getInstallCommand', () => {
+  it.each([
+    ['openai', '@robota-sdk/agent-provider-openai'],
+    ['anthropic', '@robota-sdk/agent-provider-anthropic'],
+    ['google', '@robota-sdk/agent-provider-gemini'],
+  ])('installs the framework and the %s provider package', (provider, packageName) => {
+    expect(getInstallCommand(provider)).toBe(
+      `npm install @robota-sdk/agent-framework ${packageName}`,
+    );
   });
 });

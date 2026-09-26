@@ -3,11 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { InstallGuide } from '../code-export/install-guide';
 
 describe('InstallGuide', () => {
-  it('installs a per-vendor provider package instead of the retired monolith', () => {
-    render(<InstallGuide />);
+  it('installs the package the generated code imports for the selected provider', () => {
+    render(<InstallGuide provider="anthropic" />);
 
-    const command = screen.getByText(/^npm install/).textContent ?? '';
-    expect(command.split(' ')).not.toContain('@robota-sdk/agent-provider');
-    expect(command).toMatch(/@robota-sdk\/agent-provider-\w+/);
+    expect(screen.getByText(/^npm install/).textContent).toBe(
+      'npm install @robota-sdk/agent-framework @robota-sdk/agent-provider-anthropic',
+    );
   });
 });

@@ -2,11 +2,13 @@
 
 import React from 'react';
 import { Terminal } from 'lucide-react';
+import { getInstallCommand } from '../../../lib/code-generator';
 
-const INSTALL_COMMAND =
-  'npm install @robota-sdk/agent-core @robota-sdk/agent-provider-openai @robota-sdk/agent-tools';
+interface IInstallGuideProps {
+  provider: string;
+}
 
-export function InstallGuide() {
+export function InstallGuide({ provider }: IInstallGuideProps) {
   return (
     <div className="border-t border-border mt-4 pt-4">
       <div className="flex items-center gap-2 mb-2">
@@ -14,7 +16,7 @@ export function InstallGuide() {
         <span className="text-xs font-medium text-muted-foreground">Install dependencies</span>
       </div>
       <pre className="text-xs font-mono text-green-400 bg-black/40 rounded px-3 py-2 overflow-x-auto">
-        {INSTALL_COMMAND}
+        {getInstallCommand(provider)}
       </pre>
     </div>
   );

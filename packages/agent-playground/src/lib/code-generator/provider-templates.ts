@@ -22,6 +22,11 @@ const PROVIDER_TEMPLATES: Record<string, IProviderTemplate> = {
     className: 'GeminiProvider',
     envKey: 'GEMINI_API_KEY',
   },
+  google: {
+    importPath: PROVIDER_PACKAGES.gemini,
+    className: 'GeminiProvider',
+    envKey: 'GEMINI_API_KEY',
+  },
   deepseek: {
     importPath: PROVIDER_PACKAGES.openaiCompatible,
     className: 'DeepSeekProvider',

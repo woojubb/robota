@@ -206,7 +206,7 @@ describe('provider import checks', () => {
     ['OpenAIProvider', '@robota-sdk/agent-provider-openai'],
     ['AnthropicProvider', '@robota-sdk/agent-provider-anthropic'],
     ['GoogleProvider', '@robota-sdk/agent-provider-gemini/google'],
-  ])('suggests importing %s from %s', (providerName, packageName) => {
+  ])('suggests importing %s from %s', (providerName, importPath) => {
     const result = analyzeCode(`import { Robota } from '@robota-sdk/agent-core';
 const provider = new ${providerName}({});
 `);
@@ -215,8 +215,8 @@ const provider = new ${providerName}({});
       expect.objectContaining({
         message: `Missing ${providerName} import`,
         suggestions: [
-          `Add: import { ${providerName} } from '${packageName}'`,
-          `Install package: npm install ${packageName}`,
+          `Add: import { ${providerName} } from '${importPath}'`,
+          `Install package: npm install ${importPath.split('/').slice(0, 2).join('/')}`,
         ],
       }),
     );

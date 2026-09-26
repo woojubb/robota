@@ -6,3 +6,9 @@ export const PROVIDER_PACKAGES = {
   google: '@robota-sdk/agent-provider-gemini/google',
   openaiCompatible: '@robota-sdk/agent-provider-openai-compatible',
 } as const;
+
+/** The installable npm package name of an import path, without any subpath. */
+export function toPackageName(importPath: string): string {
+  const segments = importPath.split('/');
+  return segments.slice(0, importPath.startsWith('@') ? 2 : 1).join('/');
+}
