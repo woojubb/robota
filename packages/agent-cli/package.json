@@ -15,20 +15,12 @@
         "import": {
           "types": "./dist/node/index.d.ts",
           "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
         }
       },
       "default": {
         "import": {
           "types": "./dist/node/index.d.ts",
           "default": "./dist/node/index.js"
-        },
-        "require": {
-          "types": "./dist/node/index.d.cts",
-          "default": "./dist/node/index.cjs"
         }
       }
     },
