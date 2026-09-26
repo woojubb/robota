@@ -25,6 +25,8 @@ export function createSystemCommandFromEntry(
     ...(entry.argumentHint !== undefined ? { argumentHint: entry.argumentHint } : {}),
     ...(entry.safety !== undefined ? { safety: entry.safety } : {}),
     ...(entry.subcommands !== undefined ? { subcommands: entry.subcommands } : {}),
+    ...(entry.runner !== undefined ? { runner: entry.runner } : {}),
+    ...(entry.surfaces !== undefined ? { surfaces: entry.surfaces } : {}),
     ...(behavior.semanticRole !== undefined ? { semanticRole: behavior.semanticRole } : {}),
     lifecycle: behavior.lifecycle,
     requiresPermission: behavior.requiresPermission,

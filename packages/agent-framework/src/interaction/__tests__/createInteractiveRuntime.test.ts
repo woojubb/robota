@@ -164,8 +164,8 @@ describe('createInteractiveRuntime', () => {
 
   it('Given commands registered When started Then channel receives available commands', async () => {
     vi.mocked(session.listCommands).mockReturnValue([
-      { name: 'help', description: 'Show help', modelInvocable: true },
-      { name: 'exit', description: 'Exit', modelInvocable: true },
+      { name: 'help', description: 'Show help', modelInvocable: true, runner: 'runtime' },
+      { name: 'exit', description: 'Exit', modelInvocable: true, runner: 'runtime' },
     ]);
 
     const runtime = createInteractiveRuntime({

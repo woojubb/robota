@@ -73,12 +73,11 @@ export interface IDefaultCommandModulesOptions {
    * red when the producer dropped it.
    */
   orgPolicy?: IOrgPolicy;
-  /** Optional TUI-owned file capability; absence means `/keybindings` is not registered. */
+  /** Optional TUI-owned file capability; absent, `/keybindings` says it belongs to the robota terminal. */
   keybindingsFilePort?: IKeybindingsFilePort;
   /**
-   * SCREEN-2002: the surface's theme catalogue. Absence means `/theme` is not registered at all —
-   * print mode and `--serve` render no themes, and a command that cannot do anything is better
-   * missing than present-and-failing.
+   * SCREEN-2002: the surface's theme catalogue. Absent (print mode, `--serve`), `/theme` is still
+   * listed and says it belongs to the robota terminal, which runs it itself when attached.
    */
   themeCataloguePort?: IThemeCataloguePort;
   /**
