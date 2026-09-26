@@ -11,8 +11,9 @@ describe('mesh public-infrastructure settings', () => {
       pkarrRelays: DEFAULT_PKARR_RELAYS,
       nostrRelays: DEFAULT_NOSTR_RELAYS,
     });
+    // The organisation's name: the label before the public suffix (pubky.app and pubky.org are one).
     const operators = (urls: readonly string[]) =>
-      new Set(urls.map((u) => new URL(u).hostname.split('.').slice(-2).join('.')));
+      new Set(urls.map((u) => new URL(u).hostname.split('.').slice(-2)[0]));
     expect(operators(settings.nostrRelays).size).toBeGreaterThanOrEqual(2);
     expect(operators(settings.pkarrRelays).size).toBeGreaterThanOrEqual(2);
   });

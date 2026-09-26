@@ -6,6 +6,7 @@
 import {
   RENDEZVOUS_EPOCH_MS,
   derivePairRendezvous,
+  issueDeviceRevocationList,
   rendezvousEpoch,
   startDeviceHandshake,
 } from '@robota-sdk/agent-remote-pairing';
@@ -102,13 +103,16 @@ function dhtOn(
   return dht;
 }
 
-/** Every string that would tell whose a record is. */
+/**
+ * Every string that would tell whose a record is, as it would appear in plaintext. Short device
+ * names are left out: random ciphertext contains them by chance.
+ */
 function identifying(): string[] {
-  const out = ['robota'];
+  const out = ['robota', 'Robota'];
   for (const device of [world.low, world.high, world.third]) {
-    out.push(device.cert.deviceId, device.cert.name, device.cert.userId);
+    out.push(device.cert.deviceId, device.cert.userId);
   }
-  return out.map((s) => s.toLowerCase());
+  return out;
 }
 
 describe('rendezvous records', () => {
@@ -136,12 +140,11 @@ describe('rendezvous records', () => {
     expect(new Set(items.map((i) => hex(i.salt!))).size).toBe(items.length);
     const wire = items
       .map((i) => `${hex(i.k)}${hex(i.salt!)}${Buffer.from(i.v).toString('latin1')}`)
-      .join('\n')
-      .toLowerCase();
+      .join('\n');
     for (const value of identifying()) expect(wire).not.toContain(value);
     for (const route of [lowToHigh, highToLow]) {
-      expect(wire).not.toContain(route.inbound.toLowerCase());
-      expect(wire).not.toContain(route.outbound.toLowerCase());
+      expect(wire).not.toContain(route.inbound);
+      expect(wire).not.toContain(route.outbound);
     }
     expect(wire).not.toContain(LOCAL);
     expect(wire).not.toContain('4242');
@@ -273,8 +276,47 @@ describe('rendezvous records', () => {
     await lowDht.advertise([await routeOf(world.low, world.high)], 4242);
 
     await expect(lowDht.latestLists(never())).resolves.toEqual({
-      revocation: JSON.parse(JSON.stringify(newer)),
+      revocation: [JSON.parse(JSON.stringify(newer))],
     });
+  });
+
+  it('hand on every list candidate newest first, and a list too large for one record in chunks', async () => {
+    const network = createInMemoryItemNetwork();
+    const many = await issueDeviceRevocationList({
+      signingKey: world.signingKey,
+      seq: 12,
+      issuedAt: NOW,
+      revokedDeviceIds: Array.from({ length: 40 }, (_, i) =>
+        Buffer.alloc(32, i + 1).toString('base64url'),
+      ),
+    });
+    const forged = { ...many, seq: Number.MAX_SAFE_INTEGER, revokedDeviceIds: [] };
+    const highDht = dhtOn(network, { now: () => NOW, lists: () => ({ revocation: many }) });
+    const thirdDht = dhtOn(network, { now: () => NOW, lists: () => ({ revocation: forged }) });
+    await highDht.advertise([await routeOf(world.high, world.low)], 4343);
+    await thirdDht.advertise([await routeOf(world.third, world.low)], 4444);
+    // Hints and one list chunk from third; hints and several list chunks from high.
+    await vi.waitFor(() => expect(network.items().length).toBeGreaterThan(5));
+    const lowDht = dhtOn(network, { now: () => NOW });
+    await lowDht.advertise(
+      [await routeOf(world.low, world.high), await routeOf(world.low, world.third)],
+      4242,
+    );
+
+    const found = await lowDht.latestLists(never());
+    expect(found?.revocation).toEqual([
+      JSON.parse(JSON.stringify(forged)),
+      JSON.parse(JSON.stringify(many)),
+    ]);
+    // Every chunk is one fixed size.
+    expect(
+      new Set(
+        network
+          .items()
+          .filter((i) => i.v.length > 700)
+          .map((i) => i.v.length),
+      ).size,
+    ).toBe(1);
   });
 });
 
@@ -403,10 +445,9 @@ describe('Nostr signaling', () => {
       expect(plain).not.toContain('SECRETINSTANCEID');
       expect(plain).not.toContain('hello');
     }
-    const wire = JSON.stringify(events).toLowerCase();
+    const wire = JSON.stringify(events);
     for (const value of identifying()) expect(wire).not.toContain(value);
-    for (const topic of [toHigh.inbound, toHigh.outbound])
-      expect(wire).not.toContain(topic.toLowerCase());
+    for (const topic of [toHigh.inbound, toHigh.outbound]) expect(wire).not.toContain(topic);
   });
 
   it('drops forged, tampered, replayed, stale and duplicate events', async () => {
@@ -567,12 +608,12 @@ describe('two devices beyond the local network', () => {
     await expect(received).resolves.toBe('signaled over Nostr');
 
     // What the relays saw names no device and none of the pair's relay inbox topics.
-    const wire = JSON.stringify(hub.events).toLowerCase();
+    const wire = JSON.stringify(hub.events);
     expect(hub.events.length).toBeGreaterThan(2);
     for (const value of identifying()) expect(wire).not.toContain(value);
     const route = await routeOf(world.low, world.high);
-    expect(wire).not.toContain(route.inbound.toLowerCase());
-    expect(wire).not.toContain(route.outbound.toLowerCase());
+    expect(wire).not.toContain(route.inbound);
+    expect(wire).not.toContain(route.outbound);
   }, 60_000);
 
   it('Nostr relays that drop signals are set aside for the self-hosted relay', async () => {
@@ -677,7 +718,7 @@ describe('two devices beyond the local network', () => {
     expect(admitted).toEqual([]);
   }, 60_000);
 
-  it('a revocation published by another device is seen before admission, and the revoked device is refused', async () => {
+  it('a revocation published by another device is seen before admission, and the revoked device is refused even when it publishes a forged newer list', async () => {
     const network = createInMemoryItemNetwork();
     const hub = createInMemoryNostrHub();
     const revokingThird = await world.revoking(world.third);
@@ -698,10 +739,13 @@ describe('two devices beyond the local network', () => {
       addresses: [UNREACHABLE],
       freshness: true,
     });
+    // The device being revoked publishes a forged "newer" list to hide the real one.
+    const forged = { ...revokingThird, seq: Number.MAX_SAFE_INTEGER, revokedDeviceIds: [] };
     const third = await internetDevice(world.third, {
       network,
       nostr: hub.pool(),
       addresses: [UNREACHABLE],
+      dht: { lists: () => ({ revocation: forged }) },
     });
     const admitted: IDeviceMeshLink[] = [];
     low.node.onLink((link) => admitted.push(link));

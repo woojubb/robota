@@ -22,13 +22,13 @@ import {
 } from '@robota-sdk/agent-remote-pairing';
 
 import {
-  LISTS_PADDED_BYTES,
+  chunkCount,
+  chunkJson,
   decodeHints,
   encodeHints,
   itemAddress,
-  padJson,
+  joinChunks,
   publishJitter,
-  unpadJson,
 } from './mesh-records.js';
 
 import type { IMeshCandidate, IMeshCandidateSource, IMeshPeerRoute } from './mesh-discovery.js';
@@ -40,6 +40,10 @@ export const DEFAULT_MAX_PUBLISH_JITTER_MS = 90_000;
 const DEFAULT_LOOKUP_TIMEOUT_MS = 6_000;
 /** Peers whose list records a freshness lookup reads. */
 const MAX_LIST_PEERS = 16;
+/** Candidates of one list kind a freshness lookup returns, newest first. */
+const MAX_LIST_CANDIDATES = 16;
+/** How long a background lookup of the lists may take. */
+const PREFETCH_TIMEOUT_MS = 30_000;
 
 /** The device lists this device hands on to its peers. */
 export interface IPublishedLists {
@@ -47,10 +51,10 @@ export interface IPublishedLists {
   readonly signingKeyRevocation?: ISigningKeyRevocation;
 }
 
-/** What a freshness lookup found, as received: each part is verified before use. */
+/** What a freshness lookup found, as received, newest first: each candidate is verified before use. */
 export interface IFetchedLists {
-  readonly revocation?: unknown;
-  readonly signingKeyRevocation?: unknown;
+  readonly revocation?: readonly unknown[];
+  readonly signingKeyRevocation?: readonly unknown[];
 }
 
 export interface IMeshDhtOptions {
@@ -89,6 +93,9 @@ export class MeshDht implements IMeshCandidateSource {
   public readonly timeoutMs: number;
   private readonly scheduled = new Map<string, IScheduled>();
   private routes: readonly IMeshPeerRoute[] = [];
+  /** The lists found by the last lookup that finished, for a lookup that runs out of time. */
+  private listsFound: IFetchedLists | undefined;
+  private prefetchedEpoch?: number;
   private closed = false;
 
   public constructor(private readonly options: IMeshDhtOptions) {
@@ -129,20 +136,56 @@ export class MeshDht implements IMeshCandidateSource {
   ): Promise<{ readonly epoch: number; readonly data: Uint8Array }[]> {
     const reads = [epoch - 1, epoch, epoch + 1].flatMap((e) =>
       this.options.stores.map(async (store) => {
-        try {
-          const address = await itemAddress(peer.rendezvous, purpose, 'inbound', e);
-          const value = await store.get(address.key.publicKey, address.salt, signal);
-          if (value === undefined) return undefined;
-          // Sealed for exactly this pair, direction, purpose and epoch, or it is not the peer's.
-          const opened = await peer.rendezvous.openRecord(value, e, purpose);
-          return opened?.epoch === e ? { epoch: e, data: opened.hints } : undefined;
-        } catch {
-          // allow-fallback: a record that cannot be read is not there; the other stores and epochs count
-          return undefined;
-        }
+        const data = await this.read(store, peer, purpose, e, 0, signal);
+        return data === undefined ? undefined : { epoch: e, data };
       }),
     );
     return (await Promise.all(reads)).filter((r) => r !== undefined);
+  }
+
+  /** One chunk of the peer's record, opened; `undefined` when it is not there or not the peer's. */
+  private async read(
+    store: IRendezvousItemStore,
+    peer: IMeshPeerRoute,
+    purpose: 'hints' | 'revocation',
+    epoch: number,
+    chunk: number,
+    signal: AbortSignal,
+  ): Promise<Uint8Array | undefined> {
+    try {
+      const address = await itemAddress(peer.rendezvous, purpose, 'inbound', epoch, chunk);
+      const value = await store.get(address.key.publicKey, address.salt, signal);
+      if (value === undefined) return undefined;
+      // Sealed for exactly this pair, direction, purpose and epoch, or it is not the peer's.
+      const opened = await peer.rendezvous.openRecord(value, epoch, purpose);
+      return opened?.epoch === epoch ? opened.hints : undefined;
+    } catch {
+      // allow-fallback: a record that cannot be read is not there; the other stores and epochs count
+      return undefined;
+    }
+  }
+
+  /** The device lists the peer published for this device, whole; one per store and epoch found. */
+  private async lookupLists(
+    peer: IMeshPeerRoute,
+    epoch: number,
+    signal: AbortSignal,
+  ): Promise<unknown[]> {
+    const reads = [epoch - 1, epoch, epoch + 1].flatMap((e) =>
+      this.options.stores.map(async (store) => {
+        const first = await this.read(store, peer, 'revocation', e, 0, signal);
+        const count = first === undefined ? undefined : chunkCount(first);
+        if (first === undefined || count === undefined) return undefined;
+        const rest = await Promise.all(
+          Array.from({ length: count - 1 }, (_, i) =>
+            this.read(store, peer, 'revocation', e, i + 1, signal),
+          ),
+        );
+        if (rest.some((chunk) => chunk === undefined)) return undefined;
+        return joinChunks([first, ...(rest as Uint8Array[])]);
+      }),
+    );
+    return (await Promise.all(reads)).filter((value) => value !== undefined);
   }
 
   /**
@@ -159,6 +202,11 @@ export class MeshDht implements IMeshCandidateSource {
         clearTimeout(scheduled.timer);
         this.scheduled.delete(topic);
       }
+    }
+    if (this.prefetchedEpoch !== epoch) {
+      // The freshness lookup has only seconds; what the peers published is read ahead of it.
+      this.prefetchedEpoch = epoch;
+      void this.findLists(AbortSignal.timeout(PREFETCH_TIMEOUT_MS));
     }
     const maxJitter = this.options.maxPublishJitterMs ?? DEFAULT_MAX_PUBLISH_JITTER_MS;
     for (const route of routes) {
@@ -182,22 +230,30 @@ export class MeshDht implements IMeshCandidateSource {
     if (this.closed) return;
     const now = this.now();
     const epoch = rendezvousEpoch(now);
-    const records: { purpose: 'hints' | 'revocation'; plaintext: Uint8Array }[] = [];
+    const records: { purpose: 'hints' | 'revocation'; chunk: number; plaintext: Uint8Array }[] = [];
     try {
       records.push({
         purpose: 'hints',
+        chunk: 0,
         plaintext: encodeHints(this.options.addresses().map((host) => ({ host, port }))),
       });
       const lists = this.options.lists?.();
-      if (lists !== undefined)
-        records.push({ purpose: 'revocation', plaintext: listsPlaintext(lists) });
+      if (lists !== undefined) {
+        const chunks = chunkJson({
+          r: lists.revocation,
+          ...(lists.signingKeyRevocation !== undefined ? { s: lists.signingKeyRevocation } : {}),
+        });
+        for (const [chunk, plaintext] of chunks.entries()) {
+          records.push({ purpose: 'revocation', chunk, plaintext });
+        }
+      }
     } catch (error) {
       this.options.onError?.(asError(error));
     }
-    for (const { purpose, plaintext } of records) {
+    for (const { purpose, chunk, plaintext } of records) {
       try {
         const sealed = await route.rendezvous.sealRecord(plaintext, epoch, purpose);
-        const address = await itemAddress(route.rendezvous, purpose, 'outbound', epoch);
+        const address = await itemAddress(route.rendezvous, purpose, 'outbound', epoch, chunk);
         const results = await Promise.allSettled(
           this.options.stores.map((store) => store.put(address, sealed, now)),
         );
@@ -211,30 +267,44 @@ export class MeshDht implements IMeshCandidateSource {
   }
 
   /**
-   * The newest lists any peer published for this device, as received — for the freshness lookup
-   * before a remote admission. `undefined` when no peer published any.
+   * The lists the peers published for this device, as received and newest first — candidates for
+   * the freshness lookup before a remote admission, each verified there. Any paired device can
+   * publish anything here, so every candidate is returned rather than the one that claims to be
+   * newest. When `signal` ends first, what the last finished lookup found. `undefined`: none.
    */
   public async latestLists(signal: AbortSignal): Promise<IFetchedLists | undefined> {
+    const ended = new Promise<undefined>((resolve) => {
+      if (signal.aborted) resolve(undefined);
+      signal.addEventListener('abort', () => resolve(undefined), { once: true });
+    });
+    const found = await Promise.race([this.findLists(signal), ended]);
+    return found ?? this.listsFound;
+  }
+
+  private async findLists(signal: AbortSignal): Promise<IFetchedLists | undefined> {
     const epoch = rendezvousEpoch(this.now());
     const found = await Promise.all(
-      this.routes
-        .slice(0, MAX_LIST_PEERS)
-        .map((route) => this.lookup(route, 'revocation', epoch, signal)),
+      this.routes.slice(0, MAX_LIST_PEERS).map((route) => this.lookupLists(route, epoch, signal)),
     );
-    let revocation: unknown;
-    let signingKeyRevocation: unknown;
-    for (const record of found.flat()) {
-      const value = unpadJson(record.data);
+    const revocation: unknown[] = [];
+    const signingKeyRevocation: unknown[] = [];
+    for (const value of found.flat()) {
       if (typeof value !== 'object' || value === null) continue;
       const r = value as { r?: unknown; s?: unknown };
-      if (seqOf(r.r) > seqOf(revocation)) revocation = r.r;
-      if (seqOf(r.s) > seqOf(signingKeyRevocation)) signingKeyRevocation = r.s;
+      if (r.r !== undefined) revocation.push(r.r);
+      if (r.s !== undefined) signingKeyRevocation.push(r.s);
     }
-    if (revocation === undefined && signingKeyRevocation === undefined) return undefined;
-    return {
-      ...(revocation !== undefined ? { revocation } : {}),
-      ...(signingKeyRevocation !== undefined ? { signingKeyRevocation } : {}),
-    };
+    const lists: IFetchedLists | undefined =
+      revocation.length === 0 && signingKeyRevocation.length === 0
+        ? undefined
+        : {
+            ...(revocation.length > 0 ? { revocation: newestFirst(revocation) } : {}),
+            ...(signingKeyRevocation.length > 0
+              ? { signingKeyRevocation: newestFirst(signingKeyRevocation) }
+              : {}),
+          };
+    if (!signal.aborted) this.listsFound = lists;
+    return lists;
   }
 
   public close(): void {
@@ -246,17 +316,14 @@ export class MeshDht implements IMeshCandidateSource {
   }
 }
 
-/**
- * The lists as one fixed-size plaintext. A signing-key revocation that does not fit alongside the
- * device revocation list is left out; a device revocation list that does not fit alone is an error.
- */
-function listsPlaintext(lists: IPublishedLists): Uint8Array {
-  if (lists.signingKeyRevocation !== undefined) {
-    try {
-      return padJson({ r: lists.revocation, s: lists.signingKeyRevocation }, LISTS_PADDED_BYTES);
-    } catch {
-      // allow-fallback: too large together; the device revocation list alone is still worth handing on
-    }
-  }
-  return padJson({ r: lists.revocation }, LISTS_PADDED_BYTES);
+/** Distinct candidates, the one claiming the highest `seq` first, bounded. */
+function newestFirst(candidates: readonly unknown[]): unknown[] {
+  const seen = new Set<string>();
+  const distinct = candidates.filter((c) => {
+    const key = JSON.stringify(c);
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  return distinct.sort((a, b) => seqOf(b) - seqOf(a)).slice(0, MAX_LIST_CANDIDATES);
 }

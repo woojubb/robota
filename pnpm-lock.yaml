@@ -1163,6 +1163,9 @@ importers:
       '@opentelemetry/sdk-trace':
         specifier: ^2.11.0
         version: 2.11.0(@opentelemetry/api@1.9.1)
+      bittorrent-dht:
+        specifier: ^11.0.12
+        version: 11.0.12
       chalk:
         specifier: ^5.6.2
         version: 5.6.2
@@ -1187,6 +1190,12 @@ importers:
       marked-terminal:
         specifier: ^7.3.0
         version: 7.3.0(marked@9.1.6)
+      multicast-dns:
+        specifier: ^7.2.5
+        version: 7.2.5
+      nostr-tools:
+        specifier: ^2.25.2
+        version: 2.25.2(typescript@6.0.3)
       open:
         specifier: ^11.0.0
         version: 11.0.0

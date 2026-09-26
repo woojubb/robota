@@ -131,8 +131,8 @@ export interface INostrMeshRelayOptions {
 
 /**
  * A mesh relay over Nostr. It needs the peers (see {@link IMeshRelay.declarePeers}) to derive their
- * keys, and addresses a pair by its outbound topic; it never reports a peer absent, since a relay
- * that forwards ephemeral events cannot tell.
+ * keys, and addresses a pair by its outbound topic. It reports a topic absent only when it knows no
+ * pair by it: whether the peer is listening, a relay that forwards ephemeral events cannot tell.
  */
 export class NostrMeshRelay implements IMeshRelay {
   private readonly messages = new Set<(topic: string, data: unknown) => void>();

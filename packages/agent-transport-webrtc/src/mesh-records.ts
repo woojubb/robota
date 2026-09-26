@@ -22,8 +22,11 @@ export const BEP44_MAX_VALUE_BYTES = 999;
 const BEP44_MAX_SALT_BYTES = 64;
 /** Plaintext size every connection-hints record is padded to. */
 export const HINTS_PADDED_BYTES = 640;
-/** Plaintext size every device-lists record is padded to; the pkarr form must still fit. */
-export const LISTS_PADDED_BYTES = 864;
+/** Plaintext size of every device-lists record (one chunk); the pkarr form must still fit. */
+export const LIST_CHUNK_BYTES = 864;
+/** Chunks the device lists may take; a larger list is not published. */
+export const MAX_LIST_CHUNKS = 8;
+const LIST_CHUNK_HEADER = 2;
 /** Addresses one hints record carries. */
 export const MAX_HINT_CANDIDATES = 8;
 const MAX_HOST_CHARS = 64;
@@ -181,18 +184,71 @@ const SALT_PURPOSE: Record<Exclude<TRendezvousRecordPurpose, 'signal'>, TRendezv
   revocation: 'bep44-revocation-salt',
 };
 
-/** The address of `purpose`'s record in `direction` at `epoch`. */
+async function sha256(parts: readonly Uint8Array[]): Promise<Uint8Array> {
+  return new Uint8Array(await globalThis.crypto.subtle.digest('SHA-256', ab(concatBytes(parts))));
+}
+
+/**
+ * The address of chunk `chunk` of `purpose`'s record in `direction` at `epoch`. Every chunk has a key
+ * and salt of its own, so chunks never share an item, salted or not.
+ */
 export async function itemAddress(
   rendezvous: IPairRendezvous,
   purpose: Exclude<TRendezvousRecordPurpose, 'signal'>,
   direction: TRendezvousDirection,
   epoch: number,
+  chunk = 0,
 ): Promise<IItemAddress> {
   const [seed, salt] = await Promise.all([
     rendezvous.signingSeed(direction, epoch, purpose),
     rendezvous.tag(SALT_PURPOSE[purpose], direction, epoch),
   ]);
-  return { key: await ed25519FromSeed(seed), salt };
+  if (chunk === 0) return { key: await ed25519FromSeed(seed), salt };
+  const label = encoder.encode('chunk');
+  const index = Uint8Array.of(chunk);
+  const [chunkSeed, chunkSalt] = await Promise.all([
+    sha256([label, seed, index]),
+    sha256([label, salt, index]),
+  ]);
+  return { key: await ed25519FromSeed(chunkSeed), salt: chunkSalt };
+}
+
+/**
+ * `value` as fixed-size chunks, each `[count, index, …JSON]` padded with spaces. Throws when it needs
+ * more than {@link MAX_LIST_CHUNKS}.
+ */
+export function chunkJson(value: unknown): Uint8Array[] {
+  const bytes = encoder.encode(JSON.stringify(value));
+  const room = LIST_CHUNK_BYTES - LIST_CHUNK_HEADER;
+  const count = Math.max(1, Math.ceil(bytes.length / room));
+  if (count > MAX_LIST_CHUNKS) throw new Error('device lists too large to publish as records');
+  return Array.from({ length: count }, (_, index) => {
+    const out = new Uint8Array(LIST_CHUNK_BYTES).fill(0x20);
+    out[0] = count;
+    out[1] = index;
+    out.set(bytes.subarray(index * room, (index + 1) * room), LIST_CHUNK_HEADER);
+    return out;
+  });
+}
+
+/** How many chunks the value has, from its first chunk; `undefined` when it is not one. */
+export function chunkCount(first: Uint8Array): number | undefined {
+  const count = first[0];
+  if (first.length !== LIST_CHUNK_BYTES || first[1] !== 0) return undefined;
+  return count !== undefined && count >= 1 && count <= MAX_LIST_CHUNKS ? count : undefined;
+}
+
+/** The value of `chunks` in order; `undefined` when they are not one value's chunks. */
+export function joinChunks(chunks: readonly Uint8Array[]): unknown {
+  const count = chunks.length;
+  const parts: Uint8Array[] = [];
+  for (const [index, chunk] of chunks.entries()) {
+    if (chunk.length !== LIST_CHUNK_BYTES || chunk[0] !== count || chunk[1] !== index) {
+      return undefined;
+    }
+    parts.push(chunk.subarray(LIST_CHUNK_HEADER));
+  }
+  return unpadJson(concatBytes(parts));
 }
 
 /** `data` padded with trailing spaces to exactly `size` bytes; throws when it does not fit. */

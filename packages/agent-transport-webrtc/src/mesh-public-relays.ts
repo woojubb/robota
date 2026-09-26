@@ -16,7 +16,7 @@ export const DEFAULT_NOSTR_RELAYS: readonly string[] = [
 
 /**
  * pkarr relays, for a client that cannot reach the Mainline DHT directly (a browser, or a network
- * that blocks UDP). Two operators.
+ * that blocks UDP). Two operators: Synonym (pubky) and n0 (iroh).
  */
 export const DEFAULT_PKARR_RELAYS: readonly string[] = [
   'https://pkarr.pubky.app',

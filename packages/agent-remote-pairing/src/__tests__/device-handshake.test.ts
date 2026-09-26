@@ -650,6 +650,23 @@ describe('device handshake — chain verification', () => {
     ).toBe(8);
   });
 
+  it('takes the newest fetched candidate that verifies, so a forged newer one cannot hide it', async () => {
+    const forged = { ...world.revokedC, seq: Number.MAX_SAFE_INTEGER };
+    const { b } = run(
+      sideA({
+        identity: identity(world, world.devices.c),
+        sessionDescriptor: world.devices.c.session,
+        expectedPeerDeviceId: world.devices.b.cert.deviceId,
+      }),
+      sideB({
+        fetchLatestLists: () =>
+          Promise.resolve(wire({ revocation: [forged, 'junk', world.revokedC] })),
+      }),
+    );
+    const error = await refusal(b);
+    expect(error.chain).toEqual({ ok: false, reason: 'revoked', subject: 'revocation' });
+  });
+
   it('refuses a revoked device at the pre-proof when the local list already names it', async () => {
     const { b, sent } = run(
       sideA({
