@@ -6,6 +6,10 @@
  * a candidate, and a peer found there is admitted by the device handshake or not at all. It is kept
  * owner-only because where a user's devices are is still their business. A file that cannot be read
  * is a cache miss, never an error.
+ *
+ * Several CLI processes of one user share the file, so a change is made to what is on disk at that
+ * moment, not to what this process read earlier, and the file is replaced whole: a process neither
+ * undoes another's change nor reads a half-written file.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -87,15 +91,19 @@ export interface IFileMeshAddressCacheOptions {
   readonly now?: () => number;
 }
 
-/** The address cache in `directory`, read once and written on every change. */
+/** The address cache in `directory`; each change is made to the file as it is at that moment. */
 export function createFileMeshAddressCache(
   directory: string,
   options: IFileMeshAddressCacheOptions = {},
 ): IMeshAddressCache {
   const now = options.now ?? Date.now;
   const path = addressCachePath(directory);
-  const state = load(path, now());
-  const save = (): void => {
+  let state = load(path, now());
+  /** Apply `change` to the file as it is now; write it back when `change` says it changed anything. */
+  const update = (change: (current: typeof state) => boolean): void => {
+    const current = load(path, now());
+    state = current;
+    if (!change(current)) return;
     ensureOwnerOnlyDirectory(
       directory,
       options.withinRoot === undefined ? {} : { withinRoot: options.withinRoot },
@@ -104,8 +112,8 @@ export function createFileMeshAddressCache(
       path,
       `${JSON.stringify({
         version: CACHE_VERSION,
-        ...(state.listenPort !== undefined ? { listenPort: state.listenPort } : {}),
-        peers: Object.fromEntries(state.peers),
+        ...(current.listenPort !== undefined ? { listenPort: current.listenPort } : {}),
+        peers: Object.fromEntries(current.peers),
       })}\n`,
     );
   };
@@ -114,31 +122,38 @@ export function createFileMeshAddressCache(
       (state.peers.get(deviceId) ?? []).map(({ host, port }) => ({ host, port })),
     remember: (deviceId, candidate) => {
       if (!DEVICE_ID.test(deviceId) || !isPort(candidate.port)) return;
-      const held = state.peers.get(deviceId) ?? [];
-      state.peers.set(
-        deviceId,
-        [
-          { host: candidate.host, port: candidate.port, at: now() },
-          ...held.filter((h) => h.host !== candidate.host || h.port !== candidate.port),
-        ].slice(0, MAX_CACHED_CANDIDATES),
-      );
-      save();
+      update((current) => {
+        const held = current.peers.get(deviceId) ?? [];
+        current.peers.set(
+          deviceId,
+          [
+            { host: candidate.host, port: candidate.port, at: now() },
+            ...held.filter((h) => h.host !== candidate.host || h.port !== candidate.port),
+          ].slice(0, MAX_CACHED_CANDIDATES),
+        );
+        return true;
+      });
     },
     retain: (deviceIds) => {
       const keep = new Set(deviceIds);
-      let changed = false;
-      for (const deviceId of [...state.peers.keys()]) {
-        if (keep.has(deviceId)) continue;
-        state.peers.delete(deviceId);
-        changed = true;
-      }
-      if (changed) save();
+      update((current) => {
+        let changed = false;
+        for (const deviceId of [...current.peers.keys()]) {
+          if (keep.has(deviceId)) continue;
+          current.peers.delete(deviceId);
+          changed = true;
+        }
+        return changed;
+      });
     },
     lastListenPort: () => state.listenPort,
     rememberListenPort: (port) => {
-      if (!isPort(port) || state.listenPort === port) return;
-      state.listenPort = port;
-      save();
+      if (!isPort(port)) return;
+      update((current) => {
+        if (current.listenPort === port) return false;
+        current.listenPort = port;
+        return true;
+      });
     },
   };
 }

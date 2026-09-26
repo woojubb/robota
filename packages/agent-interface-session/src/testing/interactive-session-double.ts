@@ -130,6 +130,16 @@ export function createTestInteractiveSession(
     getCwd: () => '/workspace',
     executeCommand: () => Promise.resolve(null),
     listCommands: () => [],
+    listSkills: () => [],
+    // The same session id every other surface of the double names, and an empty context.
+    getStatusSnapshot: () => ({
+      sessionId: sessionId(),
+      model: 'test-model',
+      permissionMode: 'default',
+      effort: 'auto',
+      context: { ...EMPTY_CONTEXT_STATE },
+      goal: null,
+    }),
     listRuntimeTools: async () => [],
     invokeRuntimeTool: async (name) => ({
       success: false,

@@ -7,6 +7,9 @@
 export { useSessionClient, useWsSession } from './hooks/useSessionClient.js';
 export type {
   IConversationMessage,
+  ICommandOutputEntry,
+  IToolGroupEntry,
+  TConversationEntry,
   IActiveTool,
   ISessionNotice,
   IWsSessionState,
@@ -23,12 +26,7 @@ export { applyPromptEvent, permissionResponse, askResponse } from './hooks/promp
 export type { TPendingPrompt } from './hooks/prompt-state.js';
 
 // ── UI-intent (command screen-request) state — CMD-004 Stage D ──
-export {
-  applyUiIntentEvent,
-  removeUiIntentNotice,
-  describeUiIntentForGui,
-} from './hooks/ui-intent-state.js';
-export type { IUiIntentNotice, TUiIntentNotice } from './hooks/ui-intent-state.js';
+export { describeUiIntentForGui } from './hooks/ui-intent-state.js';
 
 // ── Presentation components ─────────────────────────────────
 export { ConversationView } from './components/ConversationView.js';

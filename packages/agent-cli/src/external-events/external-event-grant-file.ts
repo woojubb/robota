@@ -13,6 +13,8 @@ import type {
 const MAX_GRANT_FILE_BYTES = 16 * 1024;
 const GRANT_ID = /^[a-zA-Z0-9_-]{1,64}$/u;
 const MAX_VALUE_LENGTH = 256;
+/** RFC 6749 scope-token characters, so every scope can be quoted in a challenge. */
+const SCOPE_TOKEN = /^[\x21\x23-\x5b\x5d-\x7e]{1,256}$/u;
 const ALGORITHMS: readonly TAccessTokenAlgorithm[] = ['RS256', 'ES256', 'EdDSA'];
 const FIELDS = new Set([
   'grantId',
@@ -97,7 +99,7 @@ export function parseExternalEventGrant(value: unknown, position: number): IExte
     !Array.isArray(scopes) ||
     scopes.length === 0 ||
     scopes.length > 16 ||
-    !scopes.every(isBoundedText)
+    !scopes.every((scope) => typeof scope === 'string' && SCOPE_TOKEN.test(scope))
   ) {
     refuse('invalid scopes');
   }

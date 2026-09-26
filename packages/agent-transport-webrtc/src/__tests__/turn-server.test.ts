@@ -314,3 +314,22 @@ describe('TURN server — quotas', () => {
     expect((await (await client(server, 'user-a2')).allocate()).code).toBe(403);
   });
 });
+
+describe('TURN server — a bind that fails says why', () => {
+  it('the port is taken', async () => {
+    const holder = createSocket('udp4');
+    closers.push(() => holder.close());
+    await new Promise<void>((resolve) => holder.bind(0, '127.0.0.1', resolve));
+    const { port } = holder.address();
+    const started = serve({ port });
+    await expect(started).rejects.toThrow(`UDP 127.0.0.1:${port}: the port is taken`);
+    await expect(started).rejects.toHaveProperty('cause.code', 'EADDRINUSE');
+  });
+
+  it('the host is not an address of this machine', async () => {
+    // 192.0.2.0/24 is reserved for documentation (RFC 5737); no machine running this has it.
+    const started = serve({ host: '192.0.2.1' });
+    await expect(started).rejects.toThrow(/192\.0\.2\.1 is not an address of this machine/);
+    await expect(started).rejects.toHaveProperty('cause.code', 'EADDRNOTAVAIL');
+  });
+});
