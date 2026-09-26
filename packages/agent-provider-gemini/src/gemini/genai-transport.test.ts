@@ -311,4 +311,44 @@ describe('GeminiProvider @google/genai transport', () => {
       },
     });
   });
+
+  // agent-core SPEC, Cancellation Contract: the run's signal reaches every provider request.
+  it.each([
+    ['chat() without a delta callback', 'generateContent', false],
+    ['chat() with a delta callback', 'generateContentStream', true],
+    ['chatStream()', 'generateContentStream', false],
+  ] as const)(
+    "%s hands the run's own signal to %s as config.abortSignal",
+    async (callSite, method, withDelta) => {
+      generateContentMock.mockResolvedValue({
+        candidates: [{ content: { parts: [{ text: 'done' }] } }],
+      });
+      generateContentStreamMock.mockImplementation(async () =>
+        (async function* () {
+          yield { text: 'done' };
+        })(),
+      );
+      const { GeminiProvider } = await import('./provider');
+      const provider = new GeminiProvider({ apiKey: 'test-key' });
+      const controller = new AbortController();
+      const options = {
+        model: 'gemini-3-flash-preview',
+        signal: controller.signal,
+        ...(withDelta && { onTextDelta: () => undefined }),
+      };
+
+      if (callSite === 'chatStream()') {
+        for await (const _chunk of provider.chatStream([createUserMessage('hello')], options)) {
+          // drain
+        }
+      } else {
+        await provider.chat([createUserMessage('hello')], options);
+      }
+
+      const mock = method === 'generateContent' ? generateContentMock : generateContentStreamMock;
+      expect(mock).toHaveBeenCalledTimes(1);
+      const request = mock.mock.calls[0]?.[0] as { config?: { abortSignal?: AbortSignal } };
+      expect(request.config?.abortSignal).toBe(controller.signal);
+    },
+  );
 });

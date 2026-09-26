@@ -27,7 +27,10 @@ export interface IIceServer {
   readonly credential?: string;
 }
 
-/** Construction options for {@link WebRtcTransport}. The signaling client is injected (Stage A: no settings). */
+/**
+ * Construction options for {@link WebRtcTransport}. The signaling client is injected; the transport declares no
+ * settings schema of its own (`optionsSchema` is empty).
+ */
 export interface IWebRtcTransportOptions {
   /** Host-owned usage read models, available only after admission. */
   readonly personalUsageReporter?: ISessionMessageHandlerOptions['personalUsageReporter'];
@@ -46,8 +49,9 @@ export interface IWebRtcTransportOptions {
   /**
    * REMOTE-008 pairing secret. When set, the data channel is **pairing-gated**: it carries only pairing frames
    * until the directional-HMAC handshake accepts (channel-bound to the DTLS fingerprints), and only THEN is the
-   * session exposed — fail closed on mismatch/timeout. When omitted (Stage-A loopback / tests), the channel is
-   * exposed immediately with no pairing (unchanged behavior).
+   * session exposed — fail closed on mismatch/timeout. When omitted, the constructor throws unless the caller
+   * explicitly opts out with `open: true` and an `openReason` (loopback / tests); only then is the channel
+   * exposed immediately with no pairing.
    */
   readonly secret?: string;
   /**

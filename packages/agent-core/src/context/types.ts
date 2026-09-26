@@ -10,6 +10,10 @@ export interface IContextTokenUsage {
   inputTokens: number;
   outputTokens: number;
   cacheCreationTokens?: number;
+  /**
+   * Anthropic-style: cache reads counted in addition to `inputTokens`. Not the message-usage
+   * `cacheReadTokens` (`IMessageTokenUsage`), which is a part of the input.
+   */
   cacheReadTokens?: number;
 }
 

@@ -8,7 +8,7 @@ import type { IOpenAILogData } from '../types/api-types';
 /**
  * Console-based payload logger for browser environments
  *
- * This logger outputs API request/response payloads to the browser console
+ * This logger outputs a summary of each Chat Completions request to the browser console
  * using structured logging. It's designed specifically for browser environments
  * and development/debugging scenarios.
  *
@@ -47,7 +47,7 @@ export class ConsolePayloadLogger implements IPayloadLogger {
 
   /**
    * Log API payload to browser console
-   * @param payload - The API request payload
+   * @param payload - Summary of the outgoing Chat Completions request
    * @param type - Type of request ('chat' or 'stream')
    */
   async logPayload(payload: IOpenAILogData, type: 'chat' | 'stream' = 'chat'): Promise<void> {

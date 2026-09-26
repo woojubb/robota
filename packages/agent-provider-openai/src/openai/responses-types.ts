@@ -148,6 +148,8 @@ export interface IOpenAIResponsesUsage {
   input_tokens?: number;
   output_tokens?: number;
   total_tokens?: number;
+  /** `cached_tokens` is the part of `input_tokens` served from the prompt cache. */
+  input_tokens_details?: { cached_tokens?: number } | null;
 }
 
 export interface IOpenAIResponsesErrorBody {

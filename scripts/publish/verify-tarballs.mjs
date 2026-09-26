@@ -4,6 +4,8 @@
  * - every file a package declares (main, module, types, exports, bin) is inside its tarball, and no
  *   `workspace:` specifier remains — catches a build that left `dist` empty or unpacked (for example a
  *   symlinked `dist`, which `pnpm pack` skips);
+ * - the manifest declares the release's `engines.node` (agent-core's value), so every package names the
+ *   same supported Node and a consumer below it is warned at install;
  * - `publint --strict` finds no errors or warnings in the package layout;
  * - `attw` (Are The Types Wrong) finds no type-resolution problem for Node 16+ ESM/CJS and bundlers.
  *   Subpaths that declare no `require` condition are ESM-only by design and are left out of attw;
@@ -14,7 +16,8 @@
  * - no browser entry (a `dist/browser/` file named in `exports`) reaches a `node:` builtin through its
  *   static imports. Dynamically imported chunks are Node-only paths loaded on demand and are allowed;
  * - `./package.json` is exported (a strict `exports` map otherwise hides it from
- *   `require('<package>/package.json')`) and the package's CHANGELOG.md ships with it.
+ *   `require('<package>/package.json')`), and the package's README.md (npm's package page) and
+ *   CHANGELOG.md ship with it.
  *
  * Usage: node scripts/publish/verify-tarballs.mjs <directory-with-tgz-files>
  */
@@ -44,6 +47,9 @@ function declaredPaths(manifest) {
 
 const ROOT = path.join(import.meta.dirname, '..', '..');
 const BIN = path.join(ROOT, 'node_modules', '.bin');
+const NODE_FLOOR = JSON.parse(
+  readFileSync(path.join(ROOT, 'packages/agent-core/package.json'), 'utf8'),
+).engines?.node;
 const TOOLS = {
   publint: ['publint', '--strict'],
   attw: ['attw', '--profile', 'node16'],
@@ -176,12 +182,15 @@ export function verifyTarball(tarball) {
   if (manifest.exports && manifest.exports['./package.json'] !== './package.json')
     problems.push('does not export ./package.json');
   if (!files.has('CHANGELOG.md')) problems.push('does not ship CHANGELOG.md');
+  if (!files.has('README.md')) problems.push('does not ship README.md');
   const esmOnly = esmOnlySubpaths(manifest);
   problems.push(
     ...runTool('publint', tarball),
     ...runTool('attw', tarball, esmOnly.length ? ['--exclude-entrypoints', ...esmOnly] : []),
   );
   problems.push(...browserBuiltinProblems(tarball, manifest, files));
+  if (!NODE_FLOOR || manifest.engines?.node !== NODE_FLOOR)
+    problems.push(`declares engines.node ${manifest.engines?.node ?? '(none)'}, not ${NODE_FLOOR}`);
   problems.push(...requireProblems(tarball, manifest));
   return { name: manifest.name, problems };
 }

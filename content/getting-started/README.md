@@ -34,7 +34,7 @@ npx @robota-sdk/agent-cli  # Select "LM Studio" when prompted — no API key nee
 
 ## Prerequisites
 
-- **Node.js 22 or higher** — required for Robota CLI; SDK supports Node.js 18+ (22 recommended)
+- **Node.js 22.12 or higher** — the Robota CLI and every published `@robota-sdk/*` package declare `node >=22.12.0`
 - **AI Provider API key**: Anthropic, OpenAI, DeepSeek, Gemini, Qwen, or another configured
   provider — _or_ use LM Studio locally (no key required)
 

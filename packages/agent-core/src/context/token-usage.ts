@@ -4,6 +4,11 @@ export interface IMessageTokenUsage {
   readonly inputTokens: number;
   readonly outputTokens: number;
   readonly totalTokens?: number;
+  /**
+   * The part of `inputTokens` the provider served from its prompt cache (a subset of `inputTokens`).
+   * Present only when the provider reported it.
+   */
+  readonly cacheReadTokens?: number;
 }
 
 interface IProviderUsageLike {
@@ -12,6 +17,7 @@ interface IProviderUsageLike {
   readonly totalTokens?: number;
   readonly inputTokens?: number;
   readonly outputTokens?: number;
+  readonly cacheReadTokens?: number;
 }
 
 type TMessageWithProviderUsage = TUniversalMessage & {
@@ -40,6 +46,7 @@ export function readTokenUsageFromMetadata(
     promptTokens: numberFromMetadata(metadata, 'promptTokens'),
     completionTokens: numberFromMetadata(metadata, 'completionTokens'),
     totalTokens: numberFromMetadata(metadata, 'totalTokens'),
+    cacheReadTokens: numberFromMetadata(metadata, 'cacheReadTokens'),
   });
   if (direct) return direct;
 
@@ -71,10 +78,15 @@ function readTokenUsageFromProviderUsage(
   const outputTokens = firstFiniteNumber(usage.outputTokens, usage.completionTokens);
   if (inputTokens === undefined || outputTokens === undefined) return undefined;
   const totalTokens = firstFiniteNumber(usage.totalTokens);
+  const cacheReadTokens = firstFiniteNumber(usage.cacheReadTokens);
+  // A cache read is part of the input; a count outside [0, inputTokens] is not one.
+  const cacheRead =
+    cacheReadTokens !== undefined && cacheReadTokens >= 0 && cacheReadTokens <= inputTokens;
   return {
     inputTokens,
     outputTokens,
     ...(totalTokens !== undefined && { totalTokens }),
+    ...(cacheRead && { cacheReadTokens }),
   };
 }
 
