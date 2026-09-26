@@ -9,6 +9,7 @@ import type { IToolSchema, IChatOptions } from '../interfaces/provider';
 import type { IToolExecutionContext, IToolResult, TToolParameters } from '../interfaces/tool';
 import type { TUniversalMessage } from '../interfaces/messages';
 import { ConfigurationError, StructuredOutputError } from '../utils/errors';
+import { isAbortFailure } from '../utils/abort-classification';
 
 // Mock AI Provider that tracks calls
 class TrackingProvider extends AbstractAIProvider {
@@ -411,36 +412,118 @@ describe('Robota Core', () => {
       ).toBe(true);
     });
 
-    it('should reject a queued run whose signal aborts while waiting', async () => {
-      let releaseFirst!: () => void;
-      const firstGate = new Promise<void>((resolve) => {
-        releaseFirst = resolve;
-      });
-      class GatedProvider extends TrackingProvider {
-        override async chat(
-          messages: TUniversalMessage[],
-          options?: IChatOptions,
-        ): Promise<TUniversalMessage> {
-          await firstGate;
-          return super.chat(messages, options);
-        }
+    // Every public entry point goes through the same run slot, so each must fail the same way.
+    const answerSchema = z.object({ answer: z.string() });
+    const drain = async (stream: AsyncGenerator<string, unknown, undefined>): Promise<void> => {
+      for await (const _chunk of stream) {
+        // consume
       }
-      const provider = new GatedProvider();
+    };
+    const entryPoints: Array<[string, (robota: Robota, signal: AbortSignal) => Promise<unknown>]> =
+      [
+        ['run()', (robota, signal) => robota.run('Aborted', { signal })],
+        [
+          'run() with structured output',
+          (robota, signal) => robota.run('Aborted', { signal, output: answerSchema }),
+        ],
+        ['runStream()', (robota, signal) => drain(robota.runStream('Aborted', { signal }))],
+        [
+          'runStream() with structured output',
+          (robota, signal) => drain(robota.runStream('Aborted', { signal, output: answerSchema })),
+        ],
+      ];
+    const failureOf = (settling: Promise<unknown>): Promise<unknown> =>
+      settling.then(
+        () => {
+          throw new Error('expected the run to reject');
+        },
+        (error: unknown) => error,
+      );
+
+    it.each(entryPoints)(
+      '%s with an already-aborted signal and no other run fails as an abort before it started',
+      async (_label, start) => {
+        const provider = new TrackingProvider();
+        const robota = new Robota(createConfig({ aiProviders: [provider] }));
+        // A run that already FINISHED is not one this run waited behind.
+        await robota.run('Earlier turn');
+        const historyBefore = robota.getHistory();
+        const callsBefore = provider.chatCalls.length;
+
+        const controller = new AbortController();
+        const reason = new Error('the user closed the panel');
+        controller.abort(reason);
+        const error = await failureOf(start(robota, controller.signal));
+
+        expect(error).toBeInstanceOf(Error);
+        expect((error as Error).name).toBe('AbortError');
+        expect((error as Error).message).toBe('Run aborted before it started');
+        expect((error as Error).cause).toBe(reason);
+        // Classified as an abort from the error alone, without the caller's signal.
+        expect(isAbortFailure(error)).toBe(true);
+        expect(provider.chatCalls).toHaveLength(callsBefore);
+        expect(robota.getHistory()).toEqual(historyBefore);
+        // The failed start released its slot: the next run proceeds.
+        await expect(robota.run('After the abort')).resolves.toBe('Response to: After the abort');
+      },
+    );
+
+    it("rethrows a pre-aborted signal's own abort reason as it is", async () => {
+      const provider = new TrackingProvider();
       const robota = new Robota(createConfig({ aiProviders: [provider] }));
-
-      const firstRun = robota.run('Holds the slot');
       const controller = new AbortController();
-      const queuedRun = robota.run('Aborted while queued', { signal: controller.signal });
-      const queuedFailure = expect(queuedRun).rejects.toThrow('Run aborted while queued');
-
       controller.abort();
-      releaseFirst();
 
-      await expect(firstRun).resolves.toBe('Response to: Holds the slot');
-      await queuedFailure;
-      // The aborted run must never reach the provider.
-      expect(provider.chatCalls).toHaveLength(1);
+      const error = await failureOf(robota.run('Aborted', { signal: controller.signal }));
+
+      expect(error).toBe(controller.signal.reason);
+      expect((error as Error).name).toBe('AbortError');
+      expect(isAbortFailure(error)).toBe(true);
+      expect(provider.chatCalls).toHaveLength(0);
+      expect(robota.getHistory()).toEqual([]);
     });
+
+    it.each(entryPoints)(
+      '%s aborted while queued behind another run fails as an abort that says it was queued',
+      async (_label, start) => {
+        let releaseFirst!: () => void;
+        const firstGate = new Promise<void>((resolve) => {
+          releaseFirst = resolve;
+        });
+        class GatedProvider extends TrackingProvider {
+          override async chat(
+            messages: TUniversalMessage[],
+            options?: IChatOptions,
+          ): Promise<TUniversalMessage> {
+            await firstGate;
+            return super.chat(messages, options);
+          }
+        }
+        const provider = new GatedProvider();
+        const robota = new Robota(createConfig({ aiProviders: [provider] }));
+
+        const firstRun = robota.run('Holds the slot');
+        const controller = new AbortController();
+        const queuedFailure = failureOf(start(robota, controller.signal));
+
+        controller.abort('superseded by a newer question');
+        releaseFirst();
+
+        await expect(firstRun).resolves.toBe('Response to: Holds the slot');
+        const error = await queuedFailure;
+        expect((error as Error).name).toBe('AbortError');
+        expect((error as Error).message).toBe(
+          'Run aborted while queued behind another run on this instance',
+        );
+        expect(isAbortFailure(error)).toBe(true);
+        // The aborted run must never reach the provider or the history.
+        expect(provider.chatCalls).toHaveLength(1);
+        expect(robota.getHistory().map((message) => message.content)).toEqual([
+          'Holds the slot',
+          'Response to: Holds the slot',
+        ]);
+      },
+    );
 
     it('should hold the run slot until runStream is fully consumed', async () => {
       const provider = new TrackingProvider();

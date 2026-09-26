@@ -11,6 +11,7 @@
 
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { IChatOptions } from '../interfaces/provider';
+import { createAbortError } from '../utils/abort-classification';
 
 type TProviderChat = (
   messages: TUniversalMessage[],
@@ -107,10 +108,4 @@ function normalizeTimeoutMs(timeoutMs: number | undefined): number | undefined {
     return undefined;
   }
   return timeoutMs;
-}
-
-function createAbortError(): Error {
-  const error = new Error('aborted');
-  error.name = 'AbortError';
-  return error;
 }
