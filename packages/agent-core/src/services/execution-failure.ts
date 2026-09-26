@@ -48,6 +48,7 @@ function turnMessagesOf(
   messages: TUniversalMessage[],
   turnMessageId: string | undefined,
 ): TUniversalMessage[] {
+  if (turnMessageId === undefined) return [];
   for (let index = messages.length - 1; index >= 0; index--) {
     if (messages[index]?.id === turnMessageId) return messages.slice(index);
   }

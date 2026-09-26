@@ -190,7 +190,7 @@ export class ExecutionService {
         input,
         userMessageMetadata(executionId, context?.driverId, context?.turnSource),
       );
-      const userMessage = conversationStore.getMessages()[messageCountBeforeUser];
+      const userMessage = conversationStore.getMessages().at(-1);
       turnMessageId = userMessage?.id;
       if (userMessage) {
         fullContext.onExecutionEvent?.('history_mutation', {
