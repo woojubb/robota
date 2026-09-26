@@ -9,12 +9,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { InteractiveSession } from '../interactive-session.js';
 
 import type { TScriptedTurn } from '@robota-sdk/agent-core/testing';
-import type { TPeerReach } from '@robota-sdk/agent-core';
 
 /**
- * A task another of the user's devices delegates runs under this session's own policy: the operator
- * here approves the request, and what the task may then do is what a peer from that place may do
- * here — never what the sender asked for.
+ * A task another of the user's devices delegates runs under this session's ordinary permissions: the
+ * operator here approves the request, and what the task then does is decided exactly like the
+ * session's own work — never by what the sender asked for.
  */
 
 let workspace: string;
@@ -40,14 +39,18 @@ function receiver(turns: readonly TScriptedTurn[]) {
       },
     },
   });
-  // The operator here says yes to everything asked: what is refused below is refused by policy.
-  session.on('permission_request', (request) => session.resolvePermission(request.id, true));
-  return { session, chatOptions: scripted.chatOptions };
+  const asked: Array<[string, string | undefined]> = [];
+  // The operator here declines every tool call asked about.
+  session.on('permission_request', (request) => {
+    asked.push([request.toolName, request.requesterDriverId]);
+    session.resolvePermission(request.id, false);
+  });
+  return { session, asked };
 }
 
-async function delegate(reach: TPeerReach, session: InteractiveSession): Promise<void> {
+async function delegate(session: InteractiveSession): Promise<void> {
   const authority = new ConnectionAuthority(
-    { deviceId: 'A', sessionId: 'A', locality: reach, capabilities: ['delegate'] },
+    { deviceId: 'A', sessionId: 'A', locality: 'another-host', capabilities: ['delegate'] },
     { approve: async () => true },
   );
   const decision = await authority.authorizeDelegation({
@@ -68,26 +71,17 @@ async function delegate(reach: TPeerReach, session: InteractiveSession): Promise
 }
 
 describe('a delegated task', () => {
-  it('cannot write on a same-host receiver whose policy does not let peers change anything', async () => {
-    const { session } = receiver([
+  it('asks this operator before a write, whatever mode the sender asked for', async () => {
+    const { session, asked } = receiver([
       {
         toolCalls: [{ name: 'Write', args: { filePath: join(workspace, 'x.txt'), content: 'x' } }],
       },
       { text: 'done' },
     ]);
     try {
-      await delegate('same-host', session);
+      await delegate(session);
+      expect(asked).toEqual([['Write', 'peer:A']]);
       expect(existsSync(join(workspace, 'x.txt'))).toBe(false);
-    } finally {
-      await session.shutdown();
-    }
-  });
-
-  it('is offered no tool but the reply when it comes from another host', async () => {
-    const { session, chatOptions } = receiver([{ text: 'done' }]);
-    try {
-      await delegate('another-host', session);
-      expect((chatOptions[0]?.tools ?? []).map((tool) => tool.name)).toEqual(['peer_reply']);
     } finally {
       await session.shutdown();
     }

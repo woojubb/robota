@@ -75,7 +75,7 @@ export interface IPromptTurnContext {
    * the stored user message so the transcript attributes it. Display only — never authorization.
    */
   driverId?: string;
-  /** A peer turn's origin and reply route, as the admitting host set it. */
+  /** A peer turn's reply route, as the admitting host set it. */
   peer?: IPeerTurnContext;
   /** Trusted trace context for this prompt's provider calls; absent unless the host configured it. */
   traceContext?: IRunTraceContext;
@@ -134,18 +134,18 @@ export async function executePromptTurn(
       history.push(messageToHistoryEntry(createSystemMessage(describeModelFallback(notice)))),
   });
 
-  // Text from outside the operator — an external event or a peer session — is data: it expands no
-  // `@path` and attaches no context reference. An external event runs no tool. A peer turn runs what
-  // its origin allows, decided per call by the permission policy; one with no reply route has
-  // nothing it may use.
-  const restrictedTurn = ctx.turnSource === 'external' || ctx.turnSource === 'peer';
+  // Text from outside the owner — an external event or a peer session's message — is received text,
+  // not the owner's prompt: it expands no `@path` and attaches no context reference. An external
+  // event runs no tool. A peer's message carries no authority, so what the model does with it is
+  // decided by the session's ordinary permissions, like its own work.
+  const receivedText = ctx.turnSource === 'external' || ctx.turnSource === 'peer';
   const peerTurn = ctx.turnSource === 'peer';
-  const noTools = ctx.turnSource === 'external' || (peerTurn && ctx.peer === undefined);
+  const noTools = ctx.turnSource === 'external';
   const ephemeralSystemContext = withPeerTurnStatement(
     ctx.ephemeralSystemContext,
     ctx.turnSource,
     ctx.driverId,
-    ctx.peer?.reach,
+    ctx.peer !== undefined,
   );
   try {
     ctx.signal?.throwIfAborted();
@@ -155,7 +155,7 @@ export async function executePromptTurn(
       ctx.getCwd(),
       rawInput,
       ctx.getContextReferences(),
-      !restrictedTurn,
+      !receivedText,
       ctx.promptFileReferenceTag,
     );
     if (preparedPrompt.promptFileReferenceEntry) {
@@ -173,8 +173,7 @@ export async function executePromptTurn(
       ...(ctx.driverId !== undefined ? { driverId: ctx.driverId } : {}),
       ...(ctx.traceContext !== undefined ? { traceContext: ctx.traceContext } : {}),
       ...(noTools ? { toolChoice: 'none' as const } : {}),
-      // Admission's answer, or the narrowest one when the host gave none.
-      ...(peerTurn ? { peerReach: ctx.peer?.reach ?? ('another-host' as const) } : {}),
+      ...(peerTurn ? { peerTurn: true } : {}),
     };
     const response =
       Object.keys(runOptions).length > 0

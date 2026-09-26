@@ -7,9 +7,10 @@
  * `capabilities`, never from `locality` or `workspace`.
  */
 
-import type { TPeerReach } from '@robota-sdk/agent-core';
-
 import type { TPeerTrust } from './peer-message-contracts.js';
+
+/** Where a peer runs relative to this session, as the carrier established it. */
+export type TPeerReach = 'same-host' | 'another-host';
 
 /** What a peer device may be asked to do: its certificate's capabilities as local policy narrowed them. */
 export type TMeshCapability = 'delegate' | 'drive' | 'handoff' | 'message' | 'observe' | 'presence';

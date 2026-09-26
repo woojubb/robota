@@ -181,7 +181,7 @@ describe('ConnectionAuthority', () => {
     ).resolves.toEqual({ allowed: false, reason: 'no-approver' });
   });
 
-  it('runs an approved delegated task as a peer turn from where admission placed the peer', async () => {
+  it('runs an approved delegated task as a peer turn answered to the admitted sender', async () => {
     const authority = new ConnectionAuthority(peer({ locality: 'same-host' }), approver(true));
     // Whatever else the sender put on the request is not carried: the receiver's policy decides.
     const wire = {
@@ -201,19 +201,9 @@ describe('ConnectionAuthority', () => {
         options: {
           turnSource: 'peer',
           driverId: 'peer:dev-laptop',
-          peer: { reach: 'same-host', messageId: 'r1', replyTo: 'session-laptop' },
+          peer: { messageId: 'r1', replyTo: 'session-laptop' },
         },
       },
     });
-  });
-
-  it('takes the reach of a delegated turn from admission, never from the request', async () => {
-    const authority = new ConnectionAuthority(peer({ locality: 'another-host' }), approver(true));
-    const decision = await authority.authorizeDelegation({
-      requestId: 'r1',
-      task: 'x',
-      reach: 'same-host',
-    } as never);
-    expect(decision.allowed && decision.turn.options.peer.reach).toBe('another-host');
   });
 });

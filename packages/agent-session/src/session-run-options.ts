@@ -15,8 +15,8 @@ export function perTurnRunOptions(
     ...(options?.driverId !== undefined && { driverId: options.driverId }),
     ...(options?.toolChoice !== undefined && { toolChoice: options.toolChoice }),
     ...(options?.traceContext !== undefined && { traceContext: options.traceContext }),
-    // A peer turn's tools are the permission policy's to decide, and a provider's hosted tools never
-    // reach the policy — so a peer turn has none.
-    ...(options?.peerReach !== undefined && { withholdHostedTools: true }),
+    // What a message-triggered turn does is decided by the ordinary permissions, and a provider's
+    // hosted tools run at the vendor without reaching them — so such a turn has none.
+    ...(options?.peerTurn === true && { withholdHostedTools: true }),
   };
 }
