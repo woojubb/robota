@@ -719,7 +719,7 @@ export class InteractiveSession
     );
   }
 
-  /** Explicit host opt-in for one authenticated external source; MCP configuration alone cannot enable it. */
+  /** Explicit host opt-in for one external-event grant; its verifier alone decides who is admitted. */
   async openExternalEventSource(
     options: IExternalEventSourceOptions,
   ): Promise<IExternalEventSource> {
@@ -728,7 +728,14 @@ export class InteractiveSession
     this.externalEventIngress ??= new ExternalEventIngress({
       getPermissionMode: () => this.getSessionOrThrow().getPermissionMode(),
       addPermissionModeGuard: (guard) => this.getSessionOrThrow().addPermissionModeGuard(guard),
-      submit: (input, turnOptions) => this.submitNewTurn(input, undefined, undefined, turnOptions),
+      submit: (input, turnOptions) =>
+        this.submitNewTurn(
+          input,
+          undefined,
+          undefined,
+          publicTurnOptions(turnOptions),
+          turnOptions.onAccepted,
+        ),
     });
     return this.externalEventIngress.open(options);
   }

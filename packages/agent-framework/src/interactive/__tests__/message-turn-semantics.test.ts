@@ -302,19 +302,30 @@ describe("the owner's remote surface is the owner typing", () => {
 describe('an admitted external event keeps its narrower baseline', () => {
   it('runs without tools and without @path expansion, while a peer turn has tools', async () => {
     const { session, chatOptions, requests } = await receiver([{ text: 'a' }, { text: 'b' }]);
+    const claims = Buffer.from(
+      JSON.stringify({ jti: 'one', exp: Date.now() / 1000 + 300 }),
+    ).toString('base64url');
     const source = await session.openExternalEventSource({
-      id: 'ci',
-      allowedSenders: ['builder'],
-      authenticate: (raw: unknown) =>
-        raw as { senderId: string; conversationId: string; content: string },
+      grant: {
+        grantId: 'ci',
+        verifier: {
+          issuer: 'https://issuer.example',
+          resource: 'https://robota.example/events/ci',
+          algorithms: ['ES256'],
+          requiredScopes: ['robota.events.submit'],
+          allowedClients: ['ci-bot'],
+        },
+        kinds: ['message'],
+      },
+      verifier: { verify: async () => ({ admitted: true }) },
     });
     try {
       const receipt = await source.receive({
-        senderId: 'builder',
-        conversationId: 'one',
-        content: 'look at @notes.txt',
+        token: `e30.${claims}.c2ln`,
+        event: { kind: 'message', conversationId: 'one', content: 'look at @notes.txt' },
       });
-      await receipt.settled;
+      expect(receipt.admitted).toBe(true);
+      if (receipt.admitted) await receipt.settled;
       expect(chatOptions[0]?.toolChoice).toBe('none');
       expect(chatOptions[0]?.tools).toBeUndefined();
       expect(JSON.stringify(requests[0])).not.toContain('NOTES-CONTENT');

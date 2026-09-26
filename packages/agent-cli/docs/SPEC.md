@@ -269,15 +269,9 @@ definition.
 supply its own `IMCPActivationApprovalStore` before `robota mcp serve` starts to admit and connect
 approved definitions ahead of building the served runtime session.
 
-**External event source opt-in.** The interactive TUI alone can opt into external event injection
-from an already-admitted, capability-declaring MCP server via an explicit launch grant. The CLI
-trusts the granted server to attest sender identity over its authenticated connection and separately
-checks a per-server sender allowlist, but the sender string alone is not proof of identity, so this is
-only as trustworthy as the granted server — operators without a verified adapter should leave it off.
-Injected events are one-way, bounded, and live only with the session and connection; an admitted
-external turn can produce model text but cannot invoke model-generated local or hosted web tools, and
-other modes (print, goal, serve, MCP-serve) refuse the flag outright. Repeated connection loss stops
-after bounded retries rather than assuming delivery from a dead channel.
+**External events need a verified grant.** A sender name relayed by an MCP server does not prove who
+sent an event, so the CLI no longer admits events on such a grant and refuses the flag that asked for
+one, naming the reason rather than treating it as unknown.
 
 ### MCP background handoff settings
 

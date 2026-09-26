@@ -47,8 +47,6 @@ export interface IParsedCliArgs {
   mcpOauthScopes?: string[];
   mcpOauthAllowedSubjects?: string[];
   mcpTrustedProxies?: string[];
-  /** Explicit TUI-only MCP source/sender grants; each value is serverId:senderId. */
-  externalEventAllow?: string[];
   /** GUI-007: with `--serve --open`, also serve the CLI's web monitor SPA over localhost and open it. */
   open: boolean;
   continueMode: boolean;
@@ -194,6 +192,7 @@ const PARSE_ARGS_CONFIG = {
     'oauth-scopes': { type: 'string' },
     'oauth-allowed-subjects': { type: 'string' },
     'trusted-proxy': { type: 'string', multiple: true },
+    // Retired: parsed only so it is refused with a reason instead of as an unknown flag.
     'external-event-allow': { type: 'string', multiple: true },
     open: { type: 'boolean', default: false },
     name: { type: 'string', short: 'n' },
@@ -307,7 +306,6 @@ function mapParsedValues(
     mcpOauthScopes: parseToolList(values['oauth-scopes']),
     mcpOauthAllowedSubjects: parseToolList(values['oauth-allowed-subjects']),
     mcpTrustedProxies: values['trusted-proxy'],
-    externalEventAllow: values['external-event-allow'] ?? [],
     open: values['open'] ?? false,
     continueMode: values['continue'] ?? false,
     resumeId: values['resume'],
@@ -361,6 +359,12 @@ function mapParsedValues(
 
 export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
   const { values, positionals } = parseArgs({ ...PARSE_ARGS_CONFIG, args: argv });
+  if (values['external-event-allow'] !== undefined) {
+    throw new Error(
+      '--external-event-allow was retired: a sender name does not prove who sent an event. ' +
+        'External events are admitted only by a grant whose access token the session verifies.',
+    );
+  }
   const args: IParsedCliArgs = {
     ...mapParsedValues(values, positionals),
     ...resolveMemoryArgs(values),
@@ -382,46 +386,6 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
     ) {
       throw new Error('--supervised-session-id requires --serve and a valid generated UUID');
     }
-  }
-  const externalEventAllow = args.externalEventAllow ?? [];
-  for (const grant of externalEventAllow) {
-    const separator = grant.indexOf(':');
-    const serverId = grant.slice(0, separator);
-    const senderId = grant.slice(separator + 1);
-    if (
-      separator < 1 ||
-      !/^[a-zA-Z0-9_-]{1,64}$/u.test(serverId) ||
-      senderId.length === 0 ||
-      senderId.length > 128
-    ) {
-      throw new Error(
-        '--external-event-allow requires serverId:senderId (bounded, non-empty identities)',
-      );
-    }
-    for (const character of senderId) {
-      const code = character.codePointAt(0)!;
-      if (code < 32 || code === 127 || (code >= 0xd800 && code <= 0xdfff)) {
-        throw new Error('--external-event-allow senderId contains a control character');
-      }
-    }
-  }
-  if (
-    externalEventAllow.length > 0 &&
-    (args.printMode ||
-      args.goal !== undefined ||
-      args.serve ||
-      args.reset ||
-      args.configure ||
-      args.configureProvider !== undefined ||
-      args.version ||
-      args.checkUpdate ||
-      args.help ||
-      ['mcp', 'eval', 'session', 'user-local'].includes(args.positional[0] ?? ''))
-  ) {
-    throw new Error('--external-event-allow is currently available only in interactive TUI mode');
-  }
-  if (externalEventAllow.length > 0 && args.permissionMode === 'bypassPermissions') {
-    throw new Error('--external-event-allow cannot run with bypassPermissions');
   }
   if (args.printMode) {
     if (args.resumeId === '') {

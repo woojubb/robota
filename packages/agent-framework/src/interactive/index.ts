@@ -52,10 +52,9 @@ export type {
 export { PeerMessageIngress } from './peer-message-ingress.js';
 export { ExternalEventIngress } from './external-event-ingress.js';
 export type {
-  IAuthenticatedExternalEvent,
   IExternalEventSourceOptions,
   IExternalEventSource,
-  IExternalEventReceipt,
+  TExternalEventReceipt,
   TExternalEventSettlement,
 } from './external-event-ingress.js';
 
