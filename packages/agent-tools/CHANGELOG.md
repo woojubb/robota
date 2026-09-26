@@ -1,5 +1,13 @@
 # @robota-sdk/agent-tools
 
+## 3.0.0-beta.82
+
+### Patch Changes
+
+- Updated dependencies [c7f9203]
+  - @robota-sdk/agent-core@3.0.0-beta.82
+  - @robota-sdk/agent-process@3.0.0-beta.82
+
 ## 3.0.0-beta.81
 
 ### Minor Changes

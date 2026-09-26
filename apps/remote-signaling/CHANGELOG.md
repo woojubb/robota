@@ -1,5 +1,11 @@
 # @robota-sdk/remote-signaling
 
+## 3.0.0-beta.82
+
+### Patch Changes
+
+- @robota-sdk/agent-interface-session@3.0.0-beta.82
+
 ## 3.0.0-beta.81
 
 ### Patch Changes

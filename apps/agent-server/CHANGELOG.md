@@ -1,5 +1,24 @@
 # @robota-sdk/agent-server
 
+## 3.0.1-beta.38
+
+### Patch Changes
+
+- Updated dependencies [e15e22b]
+- Updated dependencies [c7f9203]
+- Updated dependencies [004fe7f]
+  - @robota-sdk/agent-command@3.0.0-beta.82
+  - @robota-sdk/agent-core@3.0.0-beta.82
+  - @robota-sdk/agent-session@3.0.0-beta.82
+  - @robota-sdk/agent-framework@3.0.0-beta.82
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.82
+  - @robota-sdk/agent-interface-session@3.0.0-beta.82
+  - @robota-sdk/agent-provider-anthropic@3.0.0-beta.82
+  - @robota-sdk/agent-provider-gemini@3.0.0-beta.82
+  - @robota-sdk/agent-provider-openai@3.0.0-beta.82
+  - @robota-sdk/agent-provider-openai-compatible@3.0.0-beta.82
+  - @robota-sdk/agent-playground@3.0.0-beta.82
+
 ## 3.0.1-beta.37
 
 ### Patch Changes

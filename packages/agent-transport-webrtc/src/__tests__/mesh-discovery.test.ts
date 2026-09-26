@@ -131,7 +131,7 @@ describe('mDNS announcement', () => {
     for (const ptr of ptrs(bus.responses[0]!)) {
       expect(ptr.name).toBe(MESH_MDNS_SERVICE);
       expect(ptr.data).toMatch(
-        new RegExp(`^[0-9a-f]{32}\\.${MESH_MDNS_SERVICE.replace(/\./g, '\\.')}$`),
+        new RegExp(`^[0-9a-f]{32}\\.${MESH_MDNS_SERVICE.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`),
       );
     }
   });
@@ -326,7 +326,8 @@ async function holds(listener: IMeshLanListener, topic: string): Promise<boolean
       socket.once('message', (raw) => resolve(String(raw))),
     );
     const frame = JSON.parse(answer) as { type: string; proof?: string };
-    return frame.type === 'present' && verifyLanPresenceProof(topic, nonce, frame.proof);
+    const proven = verifyLanPresenceProof(topic, nonce, frame.proof);
+    return proven && frame.type === 'present';
   } finally {
     socket.close();
   }
