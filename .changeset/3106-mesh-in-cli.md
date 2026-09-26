@@ -9,7 +9,8 @@ The device mesh can be turned on, and `/peers`, `/handoff` and `/devices` reach 
 - New user setting `transports.mesh.enabled` (default `false`). When it is `true`, an interactive
   session opens the device mesh at startup and closes it on exit. Only the user settings count; a
   project's settings cannot turn it on. Print and serve runs never open it, and a device without an
-  identity is told to run `/devices init`.
+  identity is told to run `/devices init`. Only one session of a device opens it at a time; another
+  session on the same device says so in `/devices` and links nothing.
 - By default a linked device may send messages, files and sessions. Each file and each session still
   waits for the operator's yes on this machine's terminal; with no terminal the answer is no.
   Delegating, observing and driving stay off unless `transports.mesh.options.capabilities` lists

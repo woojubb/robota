@@ -187,6 +187,29 @@ describe('opening the mesh at startup', () => {
     expect(mesh.status()).toMatchObject({ state: 'on', linked: [] });
   });
 
+  it('is opened by one session of a device at a time', async () => {
+    await withIdentity();
+    const settings = { mesh: { enabled: true, options: NO_INTERNET } };
+    const first = fakeOpen();
+    const second = fakeOpen();
+    const said: string[] = [];
+    const holder = host(settings, first.open);
+    const other = host(settings, second.open, said);
+    await holder.start({ operatorApprover: APPROVER });
+    await other.start({ operatorApprover: APPROVER });
+    expect(first.open).toHaveBeenCalledTimes(1);
+    expect(second.open).not.toHaveBeenCalled();
+    expect(other.status()).toMatchObject({ state: 'failed' });
+    expect(other.status().reason).toMatch(/another Robota session/);
+    expect(said.join('\n')).toMatch(/another Robota session/);
+
+    // Once the holder exits, the next session opens it.
+    holder.close();
+    const third = fakeOpen();
+    await host(settings, third.open).start({ operatorApprover: APPROVER });
+    expect(third.open).toHaveBeenCalledTimes(1);
+  });
+
   it('names how it finds devices', async () => {
     await withIdentity();
     const { open } = fakeOpen();

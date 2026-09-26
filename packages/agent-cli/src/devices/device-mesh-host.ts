@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { readSettings } from '@robota-sdk/agent-framework';
 import { WsMeshRelayClient, type IMeshRelay } from '@robota-sdk/agent-transport-webrtc';
 
+import { withExclusiveFileLock } from '../credentials/exclusive-file-lock.js';
 import { createHostCredentialStore } from '../credentials/select-credential-store.js';
 import { describeReceived } from '../peer-files/receiving.js';
 import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
@@ -139,6 +140,30 @@ function message(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** How long to try for the device's mesh before deciding another session holds it. */
+const HOLD_ATTEMPT_MS = 250;
+
+/**
+ * Hold `path` exclusively until the returned function is called, or `undefined` when another live
+ * holder has it. A holder that died is taken over once its lock goes stale.
+ */
+function holdUntilReleased(path: string): Promise<(() => void) | undefined> {
+  return new Promise((resolve) => {
+    let letGo: () => void = () => undefined;
+    const released = new Promise<void>((done) => {
+      letGo = done;
+    });
+    withExclusiveFileLock(
+      path,
+      async () => {
+        resolve(letGo);
+        await released;
+      },
+      { timeoutMs: HOLD_ATTEMPT_MS },
+    ).catch(() => resolve(undefined));
+  });
+}
+
 function notLinked(deviceId: string): string {
   return `device ${deviceId} is not linked right now. Run /peers to see which are.`;
 }
@@ -155,6 +180,8 @@ export function createDeviceMeshHost(options: IDeviceMeshHostOptions): IDeviceMe
   let own: string | undefined;
   let closed = false;
   let relayErrorSaid = false;
+  /** Lets go of this device's mesh, held while this session has it open. */
+  let release: (() => void) | undefined;
 
   const report = (text: string): void => {
     try {
@@ -165,7 +192,13 @@ export function createDeviceMeshHost(options: IDeviceMeshHostOptions): IDeviceMe
   };
   const messaging = new MeshMessaging({ ingress: () => binding.ingress, report });
 
+  const letGo = (): void => {
+    release?.();
+    release = undefined;
+  };
+
   const fail = (why: string): void => {
+    letGo();
     state = 'failed';
     reason = why;
     report(`The device mesh could not start: ${why}`);
@@ -235,6 +268,7 @@ export function createDeviceMeshHost(options: IDeviceMeshHostOptions): IDeviceMe
     ownRelay?.close();
     ownRelay = undefined;
     own = undefined;
+    letGo();
   };
 
   return {
@@ -264,7 +298,19 @@ export function createDeviceMeshHost(options: IDeviceMeshHostOptions): IDeviceMe
         );
         return;
       }
+      // One session per device: the peer devices keep one link to this device, and a second
+      // endpoint would take it from the first.
       state = 'starting';
+      const held = await holdUntilReleased(join(root, 'devices', 'mesh.lock'));
+      if (held === undefined) {
+        fail('another Robota session on this device has it open, and links the devices there');
+        return;
+      }
+      release = held;
+      if (closed) {
+        letGo();
+        return;
+      }
       const url = relayUrlOf(transports);
       const onRelayError = (error: Error): void => {
         // Said once: a relay that keeps failing would otherwise repeat itself for the whole session.
@@ -307,7 +353,9 @@ export function createDeviceMeshHost(options: IDeviceMeshHostOptions): IDeviceMe
       } catch (error) {
         ownRelay?.close();
         ownRelay = undefined;
-        fail(message(error));
+        // After exit there is nobody to tell.
+        if (closed) letGo();
+        else fail(message(error));
         return;
       }
       endpoint = opened;
