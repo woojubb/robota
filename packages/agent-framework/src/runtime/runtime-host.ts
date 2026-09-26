@@ -16,6 +16,7 @@
  */
 
 import { InteractiveSession } from '../interactive/interactive-session.js';
+import { SessionPool } from './session-pool.js';
 import { SessionSlot, shutdownSessionBounded } from './session-slot.js';
 
 import type { TInteractiveSessionOptions } from '../interactive/interactive-session.js';
@@ -46,6 +47,19 @@ export interface IRuntimeHostOptions {
   transportRegistry?: ITransportLifecycleRegistryView;
   /** Bind each raw adapter to the host's session slot before registration/start. */
   bindTransports?: (session: SessionSlot) => void;
+  /**
+   * Keep several sessions live, one per client that switched (#3189). The host's session becomes
+   * the pool's primary, and further sessions are built from this recipe. Absent, the host holds one
+   * session.
+   */
+  pool?: IRuntimeHostPoolOptions;
+}
+
+export interface IRuntimeHostPoolOptions {
+  /** Live sessions at most, the primary included. */
+  maxLive?: number;
+  /** How long a session no client is on stays live once idle. */
+  idleGraceMs?: number;
 }
 
 export interface IRuntimeHostHandle {
@@ -54,7 +68,9 @@ export interface IRuntimeHostHandle {
    * current session, including after the host switches to another one (#3189).
    */
   readonly session: SessionSlot;
-  /** Stop the transports and shut the session down (bounded); idempotent. */
+  /** The live sessions when started with `pool`; its primary is the one `session` starts on. */
+  readonly pool?: SessionPool<InteractiveSession>;
+  /** Stop the transports and shut the session down (bounded) — every pooled one; idempotent. */
   shutdown(message?: string): Promise<void>;
   /** Return the complete ordered runner aggregate, including registry-owned abandonment on stop. */
   waitForCompletion(): Promise<ITransportCompletionRecord[]>;
@@ -67,7 +83,29 @@ export interface IRuntimeHostHandle {
  * keeps alive (headless `--serve`). The caller owns the process-lifetime wait; `shutdown()` tears it down.
  */
 export async function startRuntimeHost(opts: IRuntimeHostOptions): Promise<IRuntimeHostHandle> {
-  const session = new SessionSlot(buildRuntimeSession(opts.session));
+  const recipe = opts.session;
+  if (opts.pool !== undefined && 'session' in recipe) {
+    throw new Error(
+      'startRuntimeHost: a session pool builds sessions from a recipe, not an injected session',
+    );
+  }
+  const primary = buildRuntimeSession(recipe);
+  const session = new SessionSlot(primary);
+  const pool =
+    opts.pool === undefined
+      ? undefined
+      : new SessionPool<InteractiveSession>({
+          primary,
+          build: (resumeSessionId) =>
+            buildRuntimeSession({
+              ...recipe,
+              resumeSessionId,
+              // A pooled session is exactly the one asked for; the launch's fork and name do not carry over.
+              forkSession: undefined,
+              sessionName: undefined,
+            }),
+          ...opts.pool,
+        });
   if (opts.transportRegistry) {
     opts.bindTransports?.(session);
     await opts.transportRegistry.startAll();
@@ -76,6 +114,7 @@ export async function startRuntimeHost(opts: IRuntimeHostOptions): Promise<IRunt
   let stopped = false;
   return {
     session,
+    ...(pool !== undefined ? { pool } : {}),
     async waitForCompletion(): Promise<ITransportCompletionRecord[]> {
       return (await opts.transportRegistry?.waitForCompletion()) ?? [];
     },
@@ -89,7 +128,8 @@ export async function startRuntimeHost(opts: IRuntimeHostOptions): Promise<IRunt
         // allow-fallback: best-effort transport teardown — the process is exiting.
         await opts.transportRegistry.stopAll().catch(() => undefined);
       }
-      await shutdownSessionBounded(session, message);
+      if (pool !== undefined) await pool.shutdownAll(message);
+      else await shutdownSessionBounded(session, message);
     },
   };
 }

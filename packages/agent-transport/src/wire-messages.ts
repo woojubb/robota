@@ -34,6 +34,7 @@ import type {
   ISessionListing,
   ISessionStatusSnapshot,
   ISessionSwitchedEvent,
+  TSessionChangeRefusalCode,
   IUiIntentEvent,
   TPermissionResultValue,
 } from '@robota-sdk/agent-interface-session';
@@ -88,8 +89,8 @@ export type TClientMessage =
   // #3189: the host's sessions — list them, start a new one, make another current. A switch that
   // would lose work in progress is refused with a protocol_error that says why.
   | { type: 'list-sessions'; requestId: string }
-  | { type: 'new-session' }
-  | { type: 'switch-session'; sessionId: string }
+  | { type: 'new-session'; requestId?: string }
+  | { type: 'switch-session'; sessionId: string; requestId?: string }
   // SELFHOST-004: request the assembled trace/cost read-model (spans + cost-by-source) for the run.
   | { type: 'get-usage-report' }
   | {
@@ -161,8 +162,16 @@ export type TServerMessage =
       code: 'not_available' | 'list_failed';
       message: string;
     }
-  // Broadcast: the host made another session current; every client re-reads what it shows.
+  // This client's session is now another one; it re-reads what it shows. A host that binds each
+  // client to its own session sends it only to the client that moved.
   | { type: 'session_switched'; event: ISessionSwitchedEvent }
+  // #3189: a new-session or switch-session was refused; `code` says why without parsing `message`.
+  | {
+      type: 'session_change_failed';
+      code: TSessionChangeRefusalCode;
+      message: string;
+      requestId?: string;
+    }
   // SELFHOST-004 (P5, TC-08): carry the assembled trace/cost read-model (per-op span timeline +
   // cost-by-source) across the sidecar boundary — no existing variant carries per-op `durationMs` or
   // per-source `costUsd`. The GUI renders it renderer-side.
