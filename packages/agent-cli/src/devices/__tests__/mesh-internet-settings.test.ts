@@ -10,6 +10,9 @@ describe('mesh public-infrastructure settings', () => {
       dht: true,
       pkarrRelays: DEFAULT_PKARR_RELAYS,
       nostrRelays: DEFAULT_NOSTR_RELAYS,
+      relay: { serve: false, port: 3478, allowPrivatePeers: true },
+      turnServers: [],
+      relayOnly: false,
     });
     // The organisation's name: the label before the public suffix (pubky.app and pubky.org are one).
     const operators = (urls: readonly string[]) =>
@@ -25,7 +28,90 @@ describe('mesh public-infrastructure settings', () => {
         pkarrRelays: ['https://pkarr.example.org'],
         nostrRelays: [],
       }),
-    ).toEqual({ dht: false, pkarrRelays: ['https://pkarr.example.org'], nostrRelays: [] });
+    ).toEqual(
+      expect.objectContaining({
+        dht: false,
+        pkarrRelays: ['https://pkarr.example.org'],
+        nostrRelays: [],
+      }),
+    );
+  });
+
+  it('name the embedded relay this device runs, the TURN servers to fall back on, and relay-only', () => {
+    expect(
+      parseMeshInternetSettings({
+        relay: {
+          serve: true,
+          port: 3479,
+          host: '0.0.0.0',
+          publicAddress: '203.0.113.5',
+          relayPorts: { min: 49160, max: 49200 },
+          allowPrivatePeers: false,
+        },
+        turnServers: [{ urls: 'turn:turn.example.org:3478', username: 'u', credential: 'c' }],
+        relayOnly: true,
+      }),
+    ).toEqual(
+      expect.objectContaining({
+        relay: {
+          serve: true,
+          port: 3479,
+          host: '0.0.0.0',
+          publicAddress: '203.0.113.5',
+          relayPorts: { min: 49160, max: 49200 },
+          allowPrivatePeers: false,
+        },
+        turnServers: [{ urls: 'turn:turn.example.org:3478', username: 'u', credential: 'c' }],
+        relayOnly: true,
+      }),
+    );
+  });
+
+  it('fail closed on a malformed relay setting', () => {
+    expect(() => parseMeshInternetSettings({ relay: true })).toThrow(/`relay` must be an object/);
+    expect(() => parseMeshInternetSettings({ relay: { serve: 'yes' } })).toThrow(/relay.serve/);
+    expect(() => parseMeshInternetSettings({ relay: { port: 70_000 } })).toThrow(/relay.port/);
+    expect(() => parseMeshInternetSettings({ relay: { publicAddress: 'example.org' } })).toThrow(
+      /relay.publicAddress/,
+    );
+    expect(() => parseMeshInternetSettings({ relay: { host: 'lan' } })).toThrow(/relay.host/);
+    expect(() => parseMeshInternetSettings({ relay: { allowPrivatePeers: 'no' } })).toThrow(
+      /relay.allowPrivatePeers/,
+    );
+    // The relay serves IPv4 only.
+    expect(() => parseMeshInternetSettings({ relay: { host: '::' } })).toThrow(/IPv4/);
+    expect(() => parseMeshInternetSettings({ relay: { publicAddress: '2001:db8::5' } })).toThrow(
+      /relay.publicAddress/,
+    );
+    expect(() =>
+      parseMeshInternetSettings({ relay: { relayPorts: { min: 50_000, max: 49_000 } } }),
+    ).toThrow(/relay.relayPorts/);
+    expect(() => parseMeshInternetSettings({ relay: { relayPorts: [49_000, 50_000] } })).toThrow(
+      /relay.relayPorts/,
+    );
+    // A fallback relay is a TURN server; a STUN server relays nothing.
+    expect(() =>
+      parseMeshInternetSettings({ turnServers: [{ urls: 'stun:stun.example.org' }] }),
+    ).toThrow(/turnServers\[0\]/);
+    expect(() =>
+      parseMeshInternetSettings({ turnServers: [{ urls: 'turn:turn.example.org' }] }),
+    ).toThrow(/username and credential/);
+    expect(() => parseMeshInternetSettings({ turnServers: 'turn:a' })).toThrow(/turnServers/);
+    expect(() => parseMeshInternetSettings({ relayOnly: 1 })).toThrow(/`relayOnly`/);
+    // With no records, no device can learn where a relay is.
+    const noRecords = { dht: false, pkarrRelays: [] };
+    expect(() => parseMeshInternetSettings({ ...noRecords, relay: { serve: true } })).toThrow(
+      /`relay.serve` needs `dht` or `pkarrRelays`/,
+    );
+    expect(() => parseMeshInternetSettings({ ...noRecords, relayOnly: true })).toThrow(
+      /`relayOnly` needs `turnServers`/,
+    );
+    const turnOnly = {
+      ...noRecords,
+      relayOnly: true,
+      turnServers: [{ urls: 'turn:turn.example.org', username: 'u', credential: 'c' }],
+    };
+    expect(parseMeshInternetSettings(turnOnly).relayOnly).toBe(true);
   });
 
   it('fail closed on a malformed value', () => {

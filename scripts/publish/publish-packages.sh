@@ -126,13 +126,29 @@ if [ -n "$OTP" ]; then
 fi
 pnpm changeset "${PUBLISH_ARGS[@]}"
 
+# The registry's replicas take minutes to agree after a publish, so a stale `latest` right after
+# `changeset publish` is not a failure yet: ask again, uncached, for up to 15 minutes.
 echo "🔎 Verifying..."
-for NAME in "${PACKAGES[@]}"; do
-  LATEST=$(npm view "$NAME" dist-tags.latest --registry "$REGISTRY")
-  if [ "$LATEST" != "$VERSION" ]; then
-    echo "❌ $NAME: latest=$LATEST expected=$VERSION"
+PENDING=("${PACKAGES[@]}")
+for ATTEMPT in $(seq 1 15); do
+  STALE=()
+  SEEN=()
+  for NAME in "${PENDING[@]}"; do
+    LATEST=$(npm view "$NAME" dist-tags.latest --prefer-online --registry "$REGISTRY" 2>/dev/null || true)
+    if [ "$LATEST" != "$VERSION" ]; then
+      STALE+=("$NAME")
+      SEEN+=("$NAME latest=${LATEST:-<no answer>}")
+    fi
+  done
+  [ "${#STALE[@]}" -eq 0 ] && break
+  PENDING=("${STALE[@]}")
+  if [ "$ATTEMPT" -eq 15 ]; then
+    echo "❌ latest is not $VERSION after 15 minutes:"
+    printf '   %s\n' "${SEEN[@]}"
     exit 1
   fi
+  echo "   ${#PENDING[@]} package(s) not yet showing $VERSION; checking again in 60s"
+  sleep 60
 done
 
 echo "🎉 Published $VERSION"

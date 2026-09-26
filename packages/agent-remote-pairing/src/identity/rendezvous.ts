@@ -29,7 +29,12 @@ export function rendezvousEpoch(now: number): number {
 
 /** What a rotating tag is for; each purpose yields unrelated values. */
 export type TRendezvousTagPurpose =
-  'mdns' | 'lan-inbox' | 'bep44-salt' | 'bep44-revocation-salt' | 'nostr-kind';
+  | 'mdns'
+  | 'lan-inbox'
+  | 'bep44-salt'
+  | 'bep44-revocation-salt'
+  | 'nostr-kind'
+  | 'relay-user';
 
 /**
  * What a one-time key and a sealed record are for: connection hints, the device lists a peer hands
@@ -95,11 +100,18 @@ export interface IPairRendezvous {
   ): Promise<{ readonly hints: Uint8Array; readonly epoch: number } | undefined>;
   /** The self-hosted relay's inbox topics. They do not rotate: the relay is the user's own. */
   relayInbox(): Promise<IRelayInboxTopics>;
+  /**
+   * The password of a TURN `username` in one direction: `outbound` is what this device presents to
+   * the peer's relay, `inbound` what this device's relay expects from the peer. The username carries
+   * its own expiry, so a password is good for that username only.
+   */
+  relayPassword(direction: TRendezvousDirection, username: string): Promise<string>;
 }
 
 const NONCE_BYTES = 12;
 const TAG_BYTES = 32;
 const RELAY_INBOX_PURPOSE = 'relay-inbox';
+const RELAY_PASSWORD_PURPOSE = 'relay-password';
 
 /**
  * The label prefix of a record purpose. Connection hints keep the labels they were first derived
@@ -232,5 +244,7 @@ export async function derivePairRendezvous(
       inbound: toBase64Url(await mac([RELAY_INBOX_PURPOSE, ...dir('inbound'), null])),
       outbound: toBase64Url(await mac([RELAY_INBOX_PURPOSE, ...dir('outbound'), null])),
     }),
+    relayPassword: async (direction, username) =>
+      toBase64Url(await mac([RELAY_PASSWORD_PURPOSE, ...dir(direction), username])),
   };
 }

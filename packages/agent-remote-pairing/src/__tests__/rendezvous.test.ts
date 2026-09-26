@@ -216,6 +216,26 @@ describe('pairwise rendezvous', () => {
     }
   });
 
+  it('relay credentials: the password a device uses is the one its relay derives, per direction and username', async () => {
+    const ab = await pair(a, b);
+    const ba = await pair(b, a);
+    const ac = await pair(a, c);
+    const issued = await ab.relayPassword('outbound', '1700000000:tag');
+    expect(issued).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(await ba.relayPassword('inbound', '1700000000:tag')).toBe(issued);
+    // Bound to the username (and so its expiry), the direction and the pair.
+    expect(await ab.relayPassword('outbound', '1700000001:tag')).not.toBe(issued);
+    expect(await ab.relayPassword('inbound', '1700000000:tag')).not.toBe(issued);
+    expect(await ac.relayPassword('outbound', '1700000000:tag')).not.toBe(issued);
+    // The username tag is a purpose of its own.
+    expect(hex(await ab.tag('relay-user', 'outbound', EPOCH))).toBe(
+      hex(await ba.tag('relay-user', 'inbound', EPOCH)),
+    );
+    expect(hex(await ab.tag('relay-user', 'outbound', EPOCH))).not.toBe(
+      hex(await ab.tag('mdns', 'outbound', EPOCH)),
+    );
+  });
+
   it("a revoked device's pairs stop deriving, on both sides", async () => {
     const revoking = await listsOf([a, b, c], [b], 2);
     await expect(pair(a, b, revoking)).rejects.toThrow(/not a current, unrevoked device/);

@@ -59,6 +59,14 @@ import {
 
 import { RtcPeer, type RtcChannel } from './rtc-peer.js';
 
+import {
+  MeshRelayNeededError,
+  meshRelayIceServers,
+  type IMeshRelayEndpoint,
+  type IMeshRelayPeer,
+} from './mesh-turn-relay.js';
+
+import type { IMeshPeerRoute } from './mesh-discovery.js';
 import type { IMeshRelay } from './mesh-relay.js';
 import type { IDataChannelModule } from './datachannel-loader.js';
 import type { IIceServer } from './webrtc-transport-options.js';
@@ -68,6 +76,33 @@ const DEFAULT_CONNECT_TIMEOUT_MS = 20_000;
 const MIN_ATTEMPT_INTERVAL_MS = 1_000;
 /** Candidates kept for an offer that waits for its pacing slot. */
 const MAX_WAITING_CANDIDATES = 64;
+/** How long an attempt waits to learn which relays paired devices advertise. */
+const RELAY_ADVERT_LOOKUP_MS = 3_000;
+/** Paired devices' relays one attempt uses, and endpoints of each. */
+const MAX_RELAY_DEVICES = 2;
+const MAX_RELAY_ENDPOINTS = 3;
+
+/**
+ * How a connection reaches a peer no direct path reaches: a relay a paired device runs first, then
+ * the TURN servers the user configured. With neither, a connection that needs a relay is refused
+ * with {@link MeshRelayNeededError} rather than left to fail silently.
+ */
+export interface IDeviceMeshRelayOptions {
+  /** The relays `peers` advertise, by device id, as found over their pairwise records. */
+  readonly advertised?: (
+    peers: readonly IMeshPeerRoute[],
+    signal: AbortSignal,
+  ) => Promise<ReadonlyMap<string, readonly IMeshRelayEndpoint[]>>;
+  /** TURN servers the user configured, tried once the advertised relays did not carry a connection. */
+  readonly configured?: readonly IIceServer[];
+  /** Relay candidates only: for a network where no direct path can work. */
+  readonly relayOnly?: boolean;
+  /** How long a relay credential lasts (default: see `meshRelayCredential`). */
+  readonly credentialTtlMs?: number;
+}
+
+/** Which way an attempt reaches the peer: directly only, or through one kind of relay too. */
+type TRelayStage = 'direct' | 'embedded' | 'configured';
 
 export interface IDeviceMeshNodeOptions {
   readonly identity: IDeviceHandshakeIdentity;
@@ -82,6 +117,9 @@ export interface IDeviceMeshNodeOptions {
    */
   readonly operatorApprover?: IOperatorApprover;
   readonly iceServers?: readonly IIceServer[];
+  readonly relays?: IDeviceMeshRelayOptions;
+  /** This device's own relay: told which devices it serves whenever the lists in force change. */
+  readonly relayServer?: { declarePeers(peers: readonly IMeshRelayPeer[]): void };
   /** Before a remote admission, ask a signing-key holder for newer lists (see the device handshake). */
   readonly fetchLatestLists?: (signal: AbortSignal) => Promise<unknown>;
   /** Newer verified lists adopted during a handshake, for the caller to persist. */
@@ -140,7 +178,11 @@ function fileFrameChannel(channel: RtcChannel): IFileFrameChannel {
 export interface IDeviceMeshRefusal {
   readonly deviceId: string;
   readonly end: TMeshLinkEnd;
-  /** Why: a {@link MeshLinkEndedError} (its `cause` is e.g. the handshake refusal), or why the device was dropped. */
+  /**
+   * Why: a {@link MeshLinkEndedError} (its `cause` is e.g. the handshake refusal), a
+   * {@link MeshRelayNeededError} when the peer needs a relay and none could be tried, or why the
+   * device was dropped.
+   */
   readonly error?: unknown;
 }
 
@@ -150,6 +192,8 @@ interface IAttempt {
   readonly remoteInstance: string;
   readonly link: MeshPeerLink;
   exposed?: IDeviceMeshLink;
+  /** Set once the attempt's connection is created. */
+  relayStage?: TRelayStage;
 }
 
 /** Runs an action at most once per interval; a later one waits, and only the latest waiting one runs. */
@@ -200,6 +244,8 @@ interface IPeerState {
   readonly replies: Pacer;
   /** An offer waiting for its pacing slot, and the candidates that arrived for it meanwhile. */
   waitingOffer?: { readonly cid: string; readonly from: string; readonly ice: TMeshLinkSignal[] };
+  /** Relayed attempts in a row whose connection never came up: which relay stage is next. */
+  relayFailures: number;
 }
 
 function randomId(): string {
@@ -367,21 +413,27 @@ export class DeviceMeshNode {
           outbound: topics.outbound,
           attempts: new Pacer(),
           replies: new Pacer(),
+          relayFailures: 0,
         };
         this.peers.set(deviceId, state);
         this.byInbound.set(topics.inbound, state);
         added.push(state);
       }
       if (this.stopped) return;
-      this.options.relay.declarePresence([...this.byInbound.keys()]);
-      this.options.relay.declarePeers?.(
+      this.options.relayServer?.declarePeers(
         [...this.peers.values()].map((peer) => ({
           deviceId: peer.device.deviceId,
-          inbound: peer.inbound,
-          outbound: peer.outbound,
           rendezvous: peer.rendezvous,
         })),
       );
+      this.options.relay.declarePresence([...this.byInbound.keys()]);
+      const routes = this.peerRoutes();
+      this.options.relay.declarePeers?.(routes);
+      // Learn the peers' relays ahead of the first attempt, so it does not wait on the lookup.
+      // allow-fallback: a lookup that fails here is run again by the attempt that needs it
+      this.options.relays
+        ?.advertised?.(routes, AbortSignal.timeout(RELAY_ADVERT_LOOKUP_MS))
+        .catch(() => undefined);
       for (const state of added) this.hello(state);
     });
     const done = this.sync;
@@ -582,9 +634,14 @@ export class DeviceMeshNode {
         ...signal,
       });
     };
+    let attempt: IAttempt | undefined;
     const link: MeshPeerLink = new MeshPeerLink({
       role: state.role,
-      createPeer: () => this.createPeer(),
+      createPeer: async () => {
+        const { stage, servers } = await this.relayStage(state);
+        if (attempt !== undefined) attempt.relayStage = stage;
+        return this.createPeer(servers);
+      },
       sendSignal: send,
       startHandshake: (binding) =>
         startDeviceHandshake({
@@ -613,7 +670,7 @@ export class DeviceMeshNode {
       onAdmitted: (result) => this.admitted(state, link, result),
       onEnded: (end, error) => this.ended(state, link, end, error),
     });
-    const attempt: IAttempt = { cid, remoteInstance, link };
+    attempt = { cid, remoteInstance, link };
     state.pending = attempt;
     return attempt;
   }
@@ -683,6 +740,7 @@ export class DeviceMeshNode {
       close: () => link.close(),
     };
     attempt.exposed = exposed;
+    state.relayFailures = 0;
     const previous = state.admitted;
     state.admitted = attempt;
     state.pending = undefined;
@@ -702,23 +760,115 @@ export class DeviceMeshNode {
       return;
     }
     if (state.pending?.link !== link) return;
+    const stage = state.pending.relayStage;
     state.pending = undefined;
+    // This side took the peer's description, so the peer is up and paths were being tried, and
+    // still none connected: ICE failed, or was still checking when time ran out. (An answer lost on
+    // its way looks the same to the answerer; the cause attached says which.) Only this calls for
+    // a relay; an attempt that ended before paths were tried, or after one connected, is reported
+    // as it ended.
+    const unreachable =
+      error.stage === 'connecting' &&
+      (end === 'timeout' || error.peer?.state === 'failed') &&
+      error.peer?.history.includes('connected') !== true;
+    let reported: unknown = error;
+    if (error.cause instanceof MeshRelayNeededError) reported = error.cause;
+    else if (unreachable && stage === 'direct') {
+      reported = new MeshRelayNeededError(state.device.deviceId, 'no-direct-path', {
+        cause: error,
+      });
+    } else if (unreachable) state.relayFailures += 1;
     const refusal: IDeviceMeshRefusal = {
       deviceId: state.device.deviceId,
       end,
-      ...(error !== undefined ? { error } : {}),
+      error: reported,
     };
     for (const handler of this.refusalHandlers) handler(refusal);
   }
 
   /**
+   * The relays the next attempt to `state`'s peer uses: the ones paired devices advertise, then the
+   * configured ones once those did not carry a connection, and round again. None: a direct attempt,
+   * or — when only relay candidates may be used — a refusal naming the missing relay.
+   */
+  private async relayStage(
+    state: IPeerState,
+  ): Promise<{ readonly stage: TRelayStage; readonly servers: readonly IIceServer[] }> {
+    const relays = this.options.relays;
+    const stages: { readonly stage: TRelayStage; readonly servers: readonly IIceServer[] }[] = [];
+    const embedded = await this.embeddedRelays(state);
+    if (embedded.length > 0) stages.push({ stage: 'embedded', servers: embedded });
+    if (relays?.configured !== undefined && relays.configured.length > 0) {
+      stages.push({ stage: 'configured', servers: relays.configured });
+    }
+    if (stages.length === 0) {
+      if (relays?.relayOnly === true) {
+        throw new MeshRelayNeededError(state.device.deviceId, 'relay-only');
+      }
+      return { stage: 'direct', servers: [] };
+    }
+    return stages[state.relayFailures % stages.length]!;
+  }
+
+  /** The routes of every peer, `first`'s first: a lookup bounded to some peers covers it. */
+  private peerRoutes(first?: IPeerState): IMeshPeerRoute[] {
+    const states = [...this.peers.values()];
+    const ordered = first === undefined ? states : [first, ...states.filter((p) => p !== first)];
+    return ordered.map((peer) => ({
+      deviceId: peer.device.deviceId,
+      inbound: peer.inbound,
+      outbound: peer.outbound,
+      rendezvous: peer.rendezvous,
+    }));
+  }
+
+  /**
+   * ICE servers for the relays paired devices advertise, with this pair's credential for each: the
+   * peer's own relay first. Only a device the lists in force name, unrevoked, is asked to relay.
+   */
+  private async embeddedRelays(state: IPeerState): Promise<IIceServer[]> {
+    const advertised = this.options.relays?.advertised;
+    if (advertised === undefined) return [];
+    let found: ReadonlyMap<string, readonly IMeshRelayEndpoint[]>;
+    try {
+      found = await advertised(this.peerRoutes(state), AbortSignal.timeout(RELAY_ADVERT_LOOKUP_MS));
+    } catch {
+      // allow-fallback: no advertised relay is known; the configured ones, or the explicit refusal, follow
+      return [];
+    }
+    const peerId = state.device.deviceId;
+    const order = [peerId, ...[...found.keys()].filter((deviceId) => deviceId !== peerId)];
+    const now = (this.options.now ?? Date.now)();
+    const servers: IIceServer[] = [];
+    let devices = 0;
+    for (const deviceId of order) {
+      if (devices >= MAX_RELAY_DEVICES) break;
+      const endpoints = found.get(deviceId);
+      const relayDevice = this.peers.get(deviceId);
+      if (endpoints === undefined || endpoints.length === 0 || relayDevice === undefined) continue;
+      devices += 1;
+      servers.push(
+        ...(await meshRelayIceServers(
+          relayDevice.rendezvous,
+          endpoints.slice(0, MAX_RELAY_ENDPOINTS),
+          now,
+          this.options.relays?.credentialTtlMs,
+        )),
+      );
+    }
+    return servers;
+  }
+
+  /**
    * A connection with a DTLS certificate of its own (the implementation makes one per connection):
    * a per-process certificate would be a stable identifier the relay could link across connections.
-   * No ICE server is contacted unless one is configured.
+   * No ICE server is contacted unless one is configured or a paired device advertises its relay.
    */
-  private createPeer(): RtcPeer {
+  private createPeer(relayServers: readonly IIceServer[]): RtcPeer {
+    const iceServers = [...(this.options.iceServers ?? []), ...relayServers];
     return new RtcPeer({
-      ...(this.options.iceServers !== undefined ? { iceServers: this.options.iceServers } : {}),
+      ...(iceServers.length > 0 ? { iceServers } : {}),
+      ...(this.options.relays?.relayOnly === true ? { forceTurn: true } : {}),
       ...(this.options.loadDataChannel !== undefined
         ? { loadDataChannel: this.options.loadDataChannel }
         : {}),
