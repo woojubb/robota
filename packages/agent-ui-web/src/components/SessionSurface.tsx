@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { AgentActivityPanel } from './AgentActivityPanel.js';
+import { RobotaMark, RobotaWordmark } from './Brand.js';
 import { Composer, GoalBar } from './Composer.js';
 import { ConversationView } from './ConversationView.js';
 import { PermissionPrompt } from './PermissionPrompt.js';
@@ -11,25 +12,29 @@ import { SessionNotices, SessionTitleBar } from './SessionSurfaceChrome.js';
 import type { IWsSessionState } from '../hooks/useSessionClient.js';
 
 /**
- * GUI-005 — the "terminal-noir" desktop session shell (the GUI analog of the TUI's presentation). Pure
- * presentation over an `IWsSessionState`: no hooks, no transport, no session/command/permission logic — it
- * renders the reconstructed session and forwards user intent through the reducer's `send`/`answer*`. The
- * elements mirror the TUI: title bar + status strip, scrollable conversation column, background-activity
- * rail, composer with key hints, and the permission/ask prompt docked above the composer. The session
- * sidebar on the left appears once the host has listed its sessions; a host that cannot has none.
+ * The desktop session shell — the GUI analog of the TUI's presentation. Pure presentation over an
+ * `IWsSessionState`: no hooks, no transport, no session/command/permission logic — it renders the
+ * reconstructed session and forwards user intent through the reducer's `send`/`answer*`. The session
+ * sidebar runs the full height on the left once the host has listed its sessions (a host that cannot
+ * has none); beside it the title bar, the conversation, the pending question docked above the
+ * composer, and the background-activity rail on the right when work runs beside the conversation.
  */
+
+/** The column every part of the conversation shares, so messages, prompt and composer line up. */
+const COLUMN = 'mx-auto w-full max-w-[760px] px-6';
 
 /** Designed empty state shown before the first turn. */
 function EmptyState(): React.ReactElement {
   return (
     <div className="flex h-full items-center justify-center">
-      <div className="flex flex-col items-center gap-3 px-8 text-center">
-        <div className="flex h-11 w-11 items-center justify-center rounded-xl border border-border/60 bg-card/40">
-          <span className="h-2 w-2 rounded-full bg-primary status-glow" />
-        </div>
-        <p className="max-w-[280px] font-mono text-xs leading-relaxed text-muted-foreground">
-          Session connected. Send a message to start — the agent runs in the robota runtime; permissions
-          surface here as prompts.
+      <div className="gui-rise flex max-w-[440px] flex-col items-center gap-4 px-8 text-center">
+        <RobotaMark size={40} />
+        <h2 className="text-[26px] font-semibold tracking-[-0.02em] text-foreground">
+          What are we working on?
+        </h2>
+        <p className="text-[15px] leading-relaxed text-muted-foreground">
+          Session connected. Send a message to start — the agent works in the robota runtime and
+          asks you here before anything that needs your permission.
         </p>
       </div>
     </div>
@@ -37,8 +42,8 @@ function EmptyState(): React.ReactElement {
 }
 
 /**
- * The full desktop layout over an `IWsSessionState`: title bar · conversation column + composer · activity
- * rail · the pending question docked above the composer. `surface` is an optional label shown next to the mark (e.g. "app").
+ * The full desktop layout over an `IWsSessionState`. `surface` is an optional label shown next to the
+ * mark (e.g. "app").
  */
 export function SessionSurface({
   state,
@@ -61,90 +66,102 @@ export function SessionSurface({
     state.activeTools.length === 0;
   const hasSessionList =
     (state.sessionListing ?? null) !== null || state.sessionsError?.code === 'list_failed';
+  const sidebarOpen = hasSessionList && state.sessionSidebarOpen;
+  const usage = personalUsageEnabled && view === 'usage';
 
   return (
-    <div className="relative flex h-full flex-col bg-background text-foreground">
-      <SessionTitleBar
-        status={state.status}
-        surface={surface}
-        view={view}
-        onView={setView}
-        personalUsageEnabled={personalUsageEnabled}
-      />
-
-      <SessionNotices state={state} />
-
-      {personalUsageEnabled && view === 'usage' ? (
-        <div className="min-h-0 flex-1">
-          <PersonalUsageDashboard state={state} />
-          {/* A gated turn waits on this answer, so it shows over whatever view is open. */}
-          <PermissionPrompt
-            layout="modal"
-            prompts={state.pendingPrompts}
-            onAnswerPermission={state.answerPermission}
-            onAnswerAsk={state.answerAsk}
+    <div className="relative flex h-full bg-background text-foreground">
+      {hasSessionList ? (
+        sidebarOpen ? (
+          // Narrow windows lay it over the conversation instead of squeezing it.
+          <SessionSidebar
+            state={state}
+            brand={<RobotaWordmark surface={surface} />}
+            className="absolute inset-y-0 left-0 z-30 shadow-2xl shadow-black/40 md:static md:z-auto md:shadow-none"
           />
-        </div>
-      ) : (
-        <div className="relative flex flex-1 overflow-hidden">
-          {hasSessionList ? (
-            state.sessionSidebarOpen ? (
-              // Narrow windows lay it over the conversation instead of squeezing it.
-              <SessionSidebar
-                state={state}
-                className="absolute inset-y-0 left-0 z-30 shadow-lg shadow-black/40 md:static md:z-auto md:shadow-none"
-              />
-            ) : (
-              <SessionSidebarRail state={state} />
-            )
-          ) : null}
-          <div className="gui-rise flex min-w-0 flex-1 flex-col">
-            <div className="flex-1 overflow-hidden">
-              {isEmpty ? (
-                <EmptyState />
-              ) : (
-                <ConversationView
-                  messages={state.messages}
-                  activeTools={state.activeTools}
-                  streamingText={state.streamingText}
-                  isThinking={state.isThinking}
-                />
-              )}
-            </div>
-            <GoalBar
-              status={state.sessionStatus ?? null}
-              onStop={() => state.send({ type: 'command', name: 'goal', args: 'cancel' })}
-            />
+        ) : (
+          <SessionSidebarRail state={state} />
+        )
+      ) : null}
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <SessionTitleBar
+          status={state.status}
+          surface={surface}
+          title={state.sessionName}
+          showBrand={!sidebarOpen}
+          view={view}
+          onView={setView}
+          personalUsageEnabled={personalUsageEnabled}
+        />
+
+        {usage ? (
+          <div className="min-h-0 flex-1">
+            <PersonalUsageDashboard state={state} />
+            {/* A gated turn waits on this answer, so it shows over whatever view is open. */}
             <PermissionPrompt
-              layout="dock"
+              layout="modal"
               prompts={state.pendingPrompts}
               onAnswerPermission={state.answerPermission}
               onAnswerAsk={state.answerAsk}
             />
-            <Composer
-              catalog={state.commandCatalog ?? null}
-              status={state.sessionStatus ?? null}
-              onCommand={(name) => state.send({ type: 'command', name })}
-              onSubmit={(prompt) => {
-                if (!prompt.startsWith('/')) {
-                  state.send({ type: 'submit', prompt });
-                  return;
-                }
-                const [name, ...rest] = prompt.slice(1).trim().split(/\s+/u);
-                if (!name) return;
-                const args = rest.join(' ');
-                state.send({ type: 'command', name, ...(args ? { args } : {}) });
-              }}
-            />
           </div>
+        ) : (
+          <div className="flex min-h-0 flex-1">
+            <div className="flex min-w-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 overflow-hidden">
+                {isEmpty ? (
+                  <EmptyState />
+                ) : (
+                  <ConversationView
+                    messages={state.messages}
+                    activeTools={state.activeTools}
+                    streamingText={state.streamingText}
+                    isThinking={state.isThinking}
+                  />
+                )}
+              </div>
+              <div
+                className={`${COLUMN} relative flex flex-shrink-0 flex-col gap-2 pb-4 before:pointer-events-none before:absolute before:inset-x-0 before:-top-8 before:h-8 before:bg-gradient-to-t before:from-background before:to-transparent`}
+              >
+                <GoalBar
+                  status={state.sessionStatus ?? null}
+                  onStop={() => state.send({ type: 'command', name: 'goal', args: 'cancel' })}
+                />
+                <PermissionPrompt
+                  layout="dock"
+                  prompts={state.pendingPrompts}
+                  onAnswerPermission={state.answerPermission}
+                  onAnswerAsk={state.answerAsk}
+                />
+                <Composer
+                  catalog={state.commandCatalog ?? null}
+                  status={state.sessionStatus ?? null}
+                  onCommand={(name) => state.send({ type: 'command', name })}
+                  onSubmit={(prompt) => {
+                    if (!prompt.startsWith('/')) {
+                      state.send({ type: 'submit', prompt });
+                      return;
+                    }
+                    const [name, ...rest] = prompt.slice(1).trim().split(/\s+/u);
+                    if (!name) return;
+                    const args = rest.join(' ');
+                    state.send({ type: 'command', name, ...(args ? { args } : {}) });
+                  }}
+                />
+              </div>
+            </div>
 
-          {hasTasks && (
-            <aside className="w-72 flex-shrink-0 overflow-hidden border-l border-border/70 bg-card/15">
-              <AgentActivityPanel tasks={tasks} />
-            </aside>
-          )}
-        </div>
-      )}
+            {hasTasks && (
+              <aside className="flex w-72 flex-shrink-0 overflow-hidden bg-sidebar">
+                <AgentActivityPanel tasks={tasks} className="flex-1" />
+              </aside>
+            )}
+          </div>
+        )}
+      </div>
+
+      <SessionNotices state={state} />
     </div>
   );
 }
@@ -159,21 +176,23 @@ export function CenteredChrome({
 }): React.ReactElement {
   return (
     <div className="flex h-full flex-col bg-background text-foreground">
-      <header className="flex h-11 flex-shrink-0 items-center gap-2 border-b border-border/70 bg-card/40 px-4">
-        <span
-          className={`h-2 w-2 rounded-full ${tone === 'fatal' ? 'bg-rose-500' : 'bg-amber-400 animate-pulse'}`}
-        />
-        <span className="font-mono text-[13px] font-semibold tracking-[0.22em] text-foreground/90">
-          robota
-        </span>
+      <header className="flex h-12 flex-shrink-0 items-center px-5">
+        <RobotaWordmark />
       </header>
       <div className="flex flex-1 items-center justify-center">
-        <div
-          className={`max-w-[560px] px-8 text-center font-mono text-xs leading-relaxed ${
-            tone === 'fatal' ? 'text-rose-300/80' : 'text-muted-foreground'
-          }`}
-        >
-          {children}
+        <div className="gui-rise flex max-w-[520px] flex-col items-center gap-4 px-8 text-center">
+          <span
+            className={`h-2.5 w-2.5 rounded-full ${
+              tone === 'fatal' ? 'bg-destructive' : 'animate-pulse bg-warning'
+            }`}
+          />
+          <div
+            className={`text-[15px] leading-relaxed ${
+              tone === 'fatal' ? 'text-foreground' : 'text-muted-foreground'
+            }`}
+          >
+            {children}
+          </div>
         </div>
       </div>
     </div>

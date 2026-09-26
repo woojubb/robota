@@ -57,6 +57,11 @@ function stubState(over: Partial<IWsSessionState> = {}): IWsSessionState {
 }
 
 describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
+  it('names the current session in the title bar', () => {
+    render(<SessionSurface state={stubState({ sessionName: 'Fix the flaky parser test' })} />);
+    expect(screen.getByRole('heading', { name: 'Fix the flaky parser test' })).toBeTruthy();
+  });
+
   it('TC-01: renders the conversation + status from the reducer state', () => {
     render(<SessionSurface state={stubState()} />);
     expect(screen.getByText('hello')).toBeTruthy();

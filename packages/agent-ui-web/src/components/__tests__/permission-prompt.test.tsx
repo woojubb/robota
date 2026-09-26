@@ -185,3 +185,25 @@ describe('the docked prompt arms before its keys answer it', () => {
     expect(onAnswerAsk).toHaveBeenCalledWith('a1', { type: 'answer', values: ['en'] });
   });
 });
+
+describe('PermissionPrompt shows what the tool was asked to do', () => {
+  afterEach(cleanup);
+
+  it('shows a command line as it is', () => {
+    const prompt = {
+      kind: 'permission',
+      id: 'p1',
+      toolName: 'Bash',
+      toolArgs: { command: 'pnpm test --filter agent-session' },
+    } as TPendingPrompt;
+    render(<Surface prompts={[prompt]} onAnswerPermission={vi.fn()} />);
+
+    expect(screen.getByText('pnpm test --filter agent-session')).toBeTruthy();
+  });
+
+  it('shows other arguments as JSON', () => {
+    render(<Surface prompts={[permission('p2')]} onAnswerPermission={vi.fn()} />);
+
+    expect(screen.getByText(/"path": "x"/u)).toBeTruthy();
+  });
+});

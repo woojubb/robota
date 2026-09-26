@@ -47,6 +47,8 @@ export default defineConfig(({ command }) => ({
     emptyOutDir: true,
     // Recent browsers and Electron's bundled Chromium only — no legacy down-transpile.
     target: 'esnext',
+    // Fonts stay files: the page's CSP loads fonts from 'self' only, and a `data:` URI is not 'self'.
+    assetsInlineLimit: (file) => (/\.(woff2?|ttf|otf)$/u.test(file) ? false : undefined),
   },
   // The dev server pre-bundles dependencies too; the same target keeps it from down-transpiling them.
   optimizeDeps: { esbuildOptions: { target: 'esnext' } },

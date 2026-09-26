@@ -8,30 +8,10 @@ import { AgentActivityPanel } from './AgentActivityPanel.js';
 import { ConversationView } from './ConversationView.js';
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; glow: string }> = {
-  connected: {
-    label: 'Connected',
-    dot: 'bg-emerald-400',
-    text: 'text-emerald-400',
-    glow: 'shadow-[0_0_7px_1px_rgba(52,211,153,0.55)]',
-  },
-  connecting: {
-    label: 'Connecting…',
-    dot: 'bg-amber-400 animate-pulse',
-    text: 'text-amber-400',
-    glow: '',
-  },
-  disconnected: {
-    label: 'Disconnected',
-    dot: 'bg-zinc-600',
-    text: 'text-zinc-500',
-    glow: '',
-  },
-  error: {
-    label: 'Error',
-    dot: 'bg-rose-500',
-    text: 'text-rose-400',
-    glow: '',
-  },
+  connected: { label: 'Connected', dot: 'bg-accent', text: 'text-muted-foreground', glow: 'status-glow' },
+  connecting: { label: 'Connecting…', dot: 'bg-warning animate-pulse', text: 'text-warning', glow: '' },
+  disconnected: { label: 'Disconnected', dot: 'bg-subtle', text: 'text-subtle', glow: '' },
+  error: { label: 'Error', dot: 'bg-destructive', text: 'text-destructive', glow: '' },
 };
 
 interface ISessionMonitorProps {
@@ -57,21 +37,18 @@ export function SessionMonitor({ wsUrl, className }: ISessionMonitorProps): Reac
   return (
     <div className={`flex flex-col h-full overflow-hidden bg-background ${className ?? ''}`}>
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-border/50 px-4 py-2.5 bg-card/30 flex-shrink-0">
+      <div className="flex h-12 flex-shrink-0 items-center gap-3 px-5">
         <div className="flex items-center gap-2.5">
           <span className={`h-2 w-2 rounded-full flex-shrink-0 ${cfg.dot} ${cfg.glow}`} />
-          <span className="text-[11px] font-mono font-semibold tracking-[0.14em] uppercase text-foreground/70">
-            CLI Monitor
-          </span>
-          <span className="text-border/60 font-mono text-xs">·</span>
-          <span role="status" className={`text-[11px] font-mono ${cfg.text}`}>
+          <span className="text-[15px] font-semibold text-foreground">CLI monitor</span>
+          <span role="status" className={`text-[13px] ${cfg.text}`}>
             {cfg.label}
           </span>
         </div>
         <div className="ml-auto flex items-center gap-2">
           <input
             aria-label="WebSocket URL"
-            className="h-7 rounded-lg border border-border/60 bg-background/60 px-2.5 text-[11px] font-mono text-foreground/70 placeholder:text-muted-foreground/35 focus:outline-none focus:border-primary/50 focus:ring-1 focus:ring-primary/15 w-52 transition-all"
+            className="h-8 w-60 rounded-lg bg-raised px-3 font-mono text-[12.5px] text-foreground placeholder:text-subtle focus:outline-none"
             value={inputUrl}
             onChange={(e) => setInputUrl(e.target.value)}
             onKeyDown={(e) => {
@@ -80,7 +57,7 @@ export function SessionMonitor({ wsUrl, className }: ISessionMonitorProps): Reac
             placeholder="ws://localhost:7070"
           />
           <button
-            className="h-7 rounded-lg border border-border/60 px-3 text-[11px] font-mono text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-primary/5 transition-all"
+            className="h-8 rounded-lg bg-primary px-3.5 text-[13px] font-medium text-primary-foreground hover:opacity-90"
             onClick={() => setUrl(inputUrl)}
           >
             Connect
@@ -105,10 +82,10 @@ export function SessionMonitor({ wsUrl, className }: ISessionMonitorProps): Reac
             ) : (
               <div className="flex h-full items-center justify-center">
                 <div className="flex flex-col items-center gap-3 text-center px-8">
-                  <div className="h-9 w-9 rounded-full border border-border/50 flex items-center justify-center">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-card">
                     <span className={`h-2.5 w-2.5 rounded-full ${cfg.dot}`} />
                   </div>
-                  <p className="text-xs font-mono text-muted-foreground max-w-[260px] leading-relaxed">
+                  <p className="max-w-[320px] text-[15px] leading-relaxed text-muted-foreground">
                     {status === 'connecting'
                       ? `Connecting to ${url}…`
                       : status === 'error'
@@ -130,7 +107,7 @@ export function SessionMonitor({ wsUrl, className }: ISessionMonitorProps): Reac
         {hasAgents && (
           <AgentActivityPanel
             tasks={backgroundTasks}
-            className="flex-1 border-l border-border/50"
+            className="flex-1 bg-sidebar"
           />
         )}
       </div>
@@ -155,10 +132,10 @@ function SessionInput({
   };
 
   return (
-    <div className="border-t border-border/50 px-3 py-2.5 flex gap-2 items-end bg-card/20 flex-shrink-0">
+    <div className="mx-auto flex w-full max-w-[760px] flex-shrink-0 items-end gap-2 px-6 pb-4">
       <textarea
         aria-label="Message"
-        className="flex-1 resize-none rounded-xl border border-border/60 bg-background/50 px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/35 focus:outline-none focus:border-primary/45 focus:ring-1 focus:ring-primary/15 min-h-[36px] max-h-[120px] transition-all font-[inherit] leading-relaxed"
+        className="max-h-[160px] min-h-[48px] flex-1 resize-none rounded-[22px] bg-card px-4 py-3 text-[15px] leading-relaxed text-foreground placeholder:text-subtle [field-sizing:content] focus:outline-none disabled:opacity-60"
         rows={1}
         placeholder={enabled ? 'Send a message…' : 'Connect to send messages'}
         disabled={!enabled}
@@ -172,7 +149,7 @@ function SessionInput({
         }}
       />
       <button
-        className="h-9 rounded-xl border border-border/60 px-3.5 text-[11px] font-mono text-muted-foreground hover:text-foreground hover:border-primary/40 hover:bg-primary/5 transition-all disabled:opacity-25 disabled:cursor-not-allowed"
+        className="h-12 rounded-[22px] bg-primary px-5 text-[14px] font-medium text-primary-foreground hover:opacity-90 disabled:bg-raised disabled:text-subtle"
         disabled={!enabled || !value.trim()}
         onClick={handleSubmit}
       >

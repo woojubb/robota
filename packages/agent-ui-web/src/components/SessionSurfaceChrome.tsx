@@ -1,74 +1,78 @@
+import { X } from 'lucide-react';
+
+import { RobotaWordmark } from './Brand.js';
+
 import type { IWsSessionState } from '../hooks/useSessionClient.js';
 
-const STATUS_DOT: Record<string, string> = {
-  connected: 'bg-primary status-glow',
-  connecting: 'bg-amber-400 animate-pulse',
-  disconnected: 'bg-zinc-600',
-  error: 'bg-rose-500',
+const STATUS: Record<string, { dot: string; label: string }> = {
+  connected: { dot: 'bg-accent status-glow', label: 'Connected' },
+  connecting: { dot: 'bg-warning animate-pulse', label: 'Connecting…' },
+  disconnected: { dot: 'bg-subtle', label: 'Disconnected' },
+  error: { dot: 'bg-destructive', label: 'Connection error' },
 };
 
-/** Title bar with connection state and the desktop-only Personal Usage navigation. */
+/**
+ * The bar over the conversation: the app's name when no sidebar carries it, the current session's
+ * title, the desktop-only Chat / Usage switch, and the connection state. The state is a dot while all
+ * is well and says itself in words once it is not.
+ */
 export function SessionTitleBar({
   status,
   surface,
+  title,
+  showBrand,
   view,
   onView,
   personalUsageEnabled,
 }: {
   status: string;
   surface?: string;
+  title?: string | null;
+  showBrand: boolean;
   view: 'chat' | 'usage';
   onView: (view: 'chat' | 'usage') => void;
   personalUsageEnabled: boolean;
 }): React.ReactElement {
-  const dot = STATUS_DOT[status] ?? STATUS_DOT.disconnected;
+  const state = STATUS[status] ?? STATUS.disconnected;
   return (
     <header
-      className="agent-gui-status flex h-11 flex-shrink-0 items-center gap-3 border-b border-border/70 bg-card/40 px-4 backdrop-blur-sm"
+      className="agent-gui-status flex h-12 flex-shrink-0 items-center gap-3 px-5"
       data-status={status}
     >
-      <div className="flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full bg-primary status-glow" />
-        <span className="font-mono text-[13px] font-semibold tracking-[0.22em] text-foreground/90">
-          robota
-        </span>
-        {surface ? (
-          <span className="font-mono text-[10px] uppercase tracking-[0.2em] text-muted-foreground/60">
-            {surface}
-          </span>
+      {showBrand ? <RobotaWordmark surface={surface} /> : null}
+      <h1 className="min-w-0 truncate text-[14px] font-medium text-foreground/90">
+        {view === 'usage' ? 'Usage' : (title ?? '')}
+      </h1>
+      <div className="ml-auto flex items-center gap-3">
+        {personalUsageEnabled ? (
+          <nav className="flex items-center rounded-lg bg-raised p-0.5" aria-label="Primary">
+            {(['chat', 'usage'] as const).map((item) => (
+              <button
+                key={item}
+                type="button"
+                aria-pressed={view === item}
+                onClick={() => onView(item)}
+                className={`rounded-md px-3 py-1 text-[13px] font-medium transition-colors ${
+                  view === item
+                    ? 'bg-card text-foreground shadow-sm shadow-black/25'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {item === 'chat' ? 'Chat' : 'Usage'}
+              </button>
+            ))}
+          </nav>
         ) : null}
-      </div>
-      <span className="text-border/70">/</span>
-      <div className="flex items-center gap-2">
-        <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
-        <span className="font-mono text-[11px] text-muted-foreground">{status}</span>
-      </div>
-      {personalUsageEnabled ? (
-        <nav
-          className="ml-auto flex items-center rounded-md border border-border/60 bg-background/40 p-0.5"
-          aria-label="Primary"
-        >
-          {(['chat', 'usage'] as const).map((item) => (
-            <button
-              key={item}
-              type="button"
-              aria-pressed={view === item}
-              onClick={() => onView(item)}
-              className={`rounded px-2.5 py-1 font-mono text-[10px] capitalize tracking-[0.08em] ${
-                view === item
-                  ? 'bg-primary/15 text-primary'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {item === 'chat' ? 'Chat' : 'Usage'}
-            </button>
-          ))}
-        </nav>
-      ) : (
-        <span className="ml-auto" />
-      )}
-      <div className="flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.16em] text-muted-foreground/50">
-        <span className="rounded border border-border/60 px-1.5 py-0.5">local · owner</span>
+        <span className="flex items-center gap-2" title={state.label}>
+          <span className={`h-2 w-2 rounded-full ${state.dot}`} />
+          {status === 'connected' ? (
+            <span className="sr-only">{status}</span>
+          ) : (
+            <span className="text-[13px] text-muted-foreground">
+              {status}
+            </span>
+          )}
+        </span>
       </div>
     </header>
   );
@@ -83,14 +87,14 @@ export function SessionNotices({ state }: { state: IWsSessionState }): React.Rea
   const notices = state.sessionNotices ?? [];
   if (notices.length === 0) return null;
   return (
-    <div className="pointer-events-none absolute right-3 top-14 z-40 flex w-[min(380px,calc(100%-24px))] flex-col gap-2">
+    <div className="pointer-events-none absolute right-4 top-16 z-40 flex w-[min(400px,calc(100%-32px))] flex-col gap-2">
       {notices.slice(-3).map((notice) => (
         <div
           key={notice.id}
           role="alert"
-          className="gui-rise pointer-events-auto flex items-start gap-3 rounded-lg border border-rose-500/30 bg-card/95 px-3 py-2.5 font-mono text-[12px] text-rose-200/90 shadow-lg shadow-black/40 backdrop-blur-sm"
+          className="gui-rise pointer-events-auto flex items-start gap-3 rounded-xl bg-popover px-4 py-3 text-[14px] leading-snug text-popover-foreground shadow-xl shadow-black/30"
         >
-          <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-rose-400" />
+          <span className="mt-[7px] h-2 w-2 flex-shrink-0 rounded-full bg-destructive" />
           <span className="max-h-40 flex-1 overflow-y-auto whitespace-pre-wrap break-words">
             {notice.message}
           </span>
@@ -98,9 +102,9 @@ export function SessionNotices({ state }: { state: IWsSessionState }): React.Rea
             type="button"
             aria-label="Dismiss notice"
             onClick={() => state.dismissSessionNotice?.(notice.id)}
-            className="rounded px-1 text-[13px] leading-none text-muted-foreground hover:text-foreground"
+            className="-mr-1 rounded-md p-1 text-muted-foreground hover:bg-hover hover:text-foreground"
           >
-            ×
+            <X size={15} />
           </button>
         </div>
       ))}

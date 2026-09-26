@@ -3,6 +3,19 @@
 import React, { useRef, useEffect, useLayoutEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import {
+  Bot,
+  Check,
+  ChevronDown,
+  ChevronRight,
+  FileText,
+  Globe,
+  LoaderCircle,
+  Pencil,
+  Search,
+  SquareTerminal,
+  Wrench,
+} from 'lucide-react';
 
 import type {
   IActiveTool,
@@ -17,51 +30,52 @@ interface IConversationViewProps {
   isThinking: boolean;
 }
 
+/** Agent markdown, set as reading prose: headings step down gently, code sits on its own quiet surface. */
 function AgentMarkdown({ children }: { children: string }): React.ReactElement {
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
       components={{
         h1: ({ children: c }) => (
-          <h1 className="text-base font-bold mt-4 mb-2 text-foreground border-b border-border/50 pb-1.5">
+          <h1 className="mt-6 text-[20px] font-semibold leading-snug tracking-[-0.015em] first:mt-0">
             {c}
           </h1>
         ),
         h2: ({ children: c }) => (
-          <h2 className="text-sm font-semibold mt-3 mb-1.5 text-foreground">{c}</h2>
+          <h2 className="mt-6 text-[17px] font-semibold leading-snug tracking-[-0.01em] first:mt-0">
+            {c}
+          </h2>
         ),
         h3: ({ children: c }) => (
-          <h3 className="text-sm font-medium mt-2 mb-1 text-muted-foreground">{c}</h3>
+          <h3 className="mt-5 text-[15px] font-semibold leading-snug first:mt-0">{c}</h3>
         ),
-        p: ({ children: c }) => <p className="mb-2 last:mb-0 leading-relaxed text-sm">{c}</p>,
+        p: ({ children: c }) => <p>{c}</p>,
         pre: ({ children: c }) => (
-          <pre className="bg-black/30 border border-border/40 rounded-lg p-3 my-2 overflow-x-auto text-xs font-mono leading-relaxed">
+          <pre className="overflow-x-auto rounded-xl bg-sidebar px-4 py-3.5 font-mono text-[13px] leading-[1.65]">
             {c}
           </pre>
         ),
         code: ({ className, children: c }) => {
           const isBlock = Boolean(className);
           return isBlock ? (
-            <code className={`font-mono leading-relaxed ${className ?? ''}`}>{c}</code>
+            <code className={`font-mono ${className ?? ''}`}>{c}</code>
           ) : (
-            <code className="font-mono text-[11px] bg-black/25 px-1.5 py-0.5 rounded text-amber-300/80 border border-border/30">
-              {c}
-            </code>
+            <code className="rounded-md bg-raised px-1.5 py-0.5 font-mono text-[0.85em]">{c}</code>
           );
         },
         ul: ({ children: c }) => (
-          <ul className="list-disc list-outside ml-4 mb-2 space-y-0.5 text-sm">{c}</ul>
+          <ul className="ml-5 list-outside list-disc space-y-1.5 marker:text-subtle">{c}</ul>
         ),
         ol: ({ children: c }) => (
-          <ol className="list-decimal list-outside ml-4 mb-2 space-y-0.5 text-sm">{c}</ol>
+          <ol className="ml-5 list-outside list-decimal space-y-1.5 marker:text-subtle">{c}</ol>
         ),
-        li: ({ children: c }) => <li className="leading-relaxed">{c}</li>,
-        strong: ({ children: c }) => <strong className="font-semibold text-foreground">{c}</strong>,
-        em: ({ children: c }) => <em className="italic text-muted-foreground/80">{c}</em>,
+        li: ({ children: c }) => <li className="pl-1">{c}</li>,
+        strong: ({ children: c }) => <strong className="font-semibold">{c}</strong>,
+        em: ({ children: c }) => <em className="italic">{c}</em>,
         a: ({ href, children: c }) => (
           <a
             href={href}
-            className="text-primary underline underline-offset-2 hover:opacity-75 transition-opacity"
+            className="text-accent underline decoration-accent/40 underline-offset-[3px] hover:decoration-accent"
             target="_blank"
             rel="noopener noreferrer"
           >
@@ -69,25 +83,27 @@ function AgentMarkdown({ children }: { children: string }): React.ReactElement {
           </a>
         ),
         table: ({ children: c }) => (
-          <div className="overflow-x-auto my-2 rounded-lg border border-border/50">
-            <table className="w-full text-xs border-collapse">{c}</table>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-[14px]">{c}</table>
           </div>
         ),
-        thead: ({ children: c }) => <thead className="bg-muted/40">{c}</thead>,
+        thead: ({ children: c }) => <thead>{c}</thead>,
         th: ({ children: c }) => (
-          <th className="px-3 py-2 text-left font-medium text-muted-foreground border-b border-border/50 text-[11px] tracking-wide">
+          <th className="border-b border-border px-3 py-2 text-left text-[13px] font-medium text-muted-foreground">
             {c}
           </th>
         ),
         td: ({ children: c }) => (
-          <td className="px-3 py-2 border-b border-border/30 text-xs last-of-type:border-0">{c}</td>
+          <td className="px-3 py-2 align-top">
+            {c}
+          </td>
         ),
         blockquote: ({ children: c }) => (
-          <blockquote className="border-l-2 border-primary/40 pl-3 my-2 text-muted-foreground text-sm italic">
+          <blockquote className="border-l-2 border-subtle/50 pl-4 text-muted-foreground">
             {c}
           </blockquote>
         ),
-        hr: () => <hr className="border-border/50 my-3" />,
+        hr: () => <hr className="mx-auto my-7 w-12 border-subtle/40" />,
       }}
     >
       {children}
@@ -104,16 +120,11 @@ function UserBlock({ content, author }: { content: string; author?: string }): R
   // REMOTE-014 E5 (display-only, OWNER PRINCIPLE): show WHO drove this turn when it wasn't the local owner.
   const coDriver = author && author !== 'owner' ? author : undefined;
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-[10px] font-mono tracking-[0.14em] uppercase text-primary/50 px-1">
-        You
-        {coDriver && (
-          <span className="ml-1.5 text-primary/40 normal-case tracking-normal">
-            · from {shortDriver(coDriver)}
-          </span>
-        )}
-      </span>
-      <div className="rounded-xl border border-primary/20 bg-primary/8 px-4 py-3 text-sm leading-relaxed text-foreground">
+    <div className="flex flex-col items-end gap-1.5 pl-12">
+      {coDriver && (
+        <span className="px-1 text-[12.5px] text-subtle">from {shortDriver(coDriver)}</span>
+      )}
+      <div className="max-w-full whitespace-pre-wrap break-words rounded-[20px] bg-raised px-4 py-2.5 text-[15px] leading-relaxed text-foreground">
         {content}
       </div>
     </div>
@@ -128,45 +139,55 @@ function AgentBlock({
   isStreaming?: boolean;
 }): React.ReactElement {
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-[10px] font-mono tracking-[0.14em] uppercase text-muted-foreground/50 px-1">
-        Agent
-      </span>
-      <div className="rounded-xl border border-border/60 bg-card px-4 py-3 text-card-foreground">
-        <AgentMarkdown>{content}</AgentMarkdown>
-        {isStreaming && (
-          <span className="inline-block w-[2px] h-[14px] bg-primary/60 ml-0.5 align-middle animate-pulse" />
-        )}
-      </div>
+    <div className="gui-prose">
+      <AgentMarkdown>{content}</AgentMarkdown>
+      {isStreaming && (
+        <span className="ml-1 inline-block h-2.5 w-2.5 animate-pulse rounded-full bg-foreground/70 align-middle" />
+      )}
     </div>
   );
+}
+
+/** A recognisable glyph for the common tools; anything else is a wrench. */
+function ToolIcon({ name, className }: { name: string; className?: string }): React.ReactElement {
+  const key = name.toLowerCase();
+  const props = { size: 15, strokeWidth: 1.75, className };
+  if (/(read|view|cat|open)/u.test(key)) return <FileText {...props} />;
+  if (/(grep|glob|search|find|list|ls)/u.test(key)) return <Search {...props} />;
+  if (/(edit|write|patch|replace|create)/u.test(key)) return <Pencil {...props} />;
+  if (/(bash|shell|exec|run|command|terminal)/u.test(key)) return <SquareTerminal {...props} />;
+  if (/(web|fetch|http|url|browse)/u.test(key)) return <Globe {...props} />;
+  if (/(agent|task|delegate)/u.test(key)) return <Bot {...props} />;
+  return <Wrench {...props} />;
 }
 
 function ToolCard({ tool }: { tool: IActiveTool }): React.ReactElement {
   const running = tool.status === 'running';
   const failed = tool.status === 'error';
   return (
-    <div
-      className={`flex items-center gap-2.5 rounded-lg border px-3.5 py-2 text-[11px] font-mono transition-colors ${
-        running
-          ? 'bg-amber-500/5 border-amber-500/20 text-amber-300/80'
-          : failed
-            ? 'bg-rose-500/5 border-rose-500/20 text-rose-300/80'
-            : 'bg-emerald-500/5 border-emerald-500/20 text-emerald-300/80'
-      }`}
-    >
-      <span
-        className={`h-1.5 w-1.5 rounded-full flex-shrink-0 ${
-          running ? 'bg-amber-400 animate-pulse' : failed ? 'bg-rose-400' : 'bg-emerald-400'
-        }`}
+    <div className="flex min-w-0 items-center gap-2.5 py-1 text-[14px]">
+      <ToolIcon
+        name={tool.name}
+        className={`flex-shrink-0 ${failed ? 'text-destructive' : 'text-subtle'}`}
       />
-      <span className="opacity-50">{running ? '▶' : failed ? '✕' : '✓'}</span>
-      <span className="font-medium tracking-wide">{tool.name}</span>
+      <span
+        className={`flex-shrink-0 font-medium ${
+          running ? 'gui-shimmer' : failed ? 'text-destructive' : 'text-muted-foreground'
+        }`}
+      >
+        {tool.name}
+      </span>
       {typeof tool.input === 'string' && tool.input && (
-        <span className="opacity-35 truncate max-w-[200px] text-[10px]">{tool.input}</span>
+        <span className="min-w-0 truncate font-mono text-[12.5px] text-subtle">{tool.input}</span>
       )}
-      <span className="ml-auto opacity-35 text-[10px]">
-        {running ? 'running…' : failed ? 'failed' : 'done'}
+      <span className="ml-auto flex flex-shrink-0 items-center text-[12.5px] text-subtle">
+        {running ? (
+          <LoaderCircle size={14} className="animate-spin" aria-label="running" />
+        ) : failed ? (
+          <span className="text-destructive">failed</span>
+        ) : (
+          <Check size={14} aria-label="done" />
+        )}
       </span>
     </div>
   );
@@ -181,9 +202,9 @@ const COMMAND_FOLD_LINES = 12;
 const COMMAND_FOLD_HEIGHT_PX = 280;
 
 const COMMAND_TONE: Record<ICommandOutputEntry['tone'], { dot: string; text: string }> = {
-  success: { dot: 'bg-primary/70', text: 'text-foreground/85' },
-  error: { dot: 'bg-rose-400', text: 'text-rose-200/90' },
-  info: { dot: 'bg-sky-400/80', text: 'text-muted-foreground' },
+  success: { dot: 'bg-accent', text: 'text-foreground/90' },
+  error: { dot: 'bg-destructive', text: 'text-destructive' },
+  info: { dot: 'bg-subtle', text: 'text-muted-foreground' },
 };
 
 /** A slash command's outcome, where it was typed: monospace, line breaks kept, long output folded. */
@@ -205,30 +226,31 @@ function CommandCard({ entry }: { entry: ICommandOutputEntry }): React.ReactElem
     <div
       data-testid="command-output"
       data-tone={entry.tone}
-      className="rounded-lg border border-border/50 bg-black/20 font-mono text-[12px]"
+      className="overflow-hidden rounded-xl bg-card"
     >
-      <div className="flex items-center gap-2 border-b border-border/40 px-3 py-1.5 text-[11px] text-muted-foreground">
+      <div className="flex items-center gap-2 px-4 pt-3 text-[13px]">
         <span className={`h-1.5 w-1.5 rounded-full ${tone.dot}`} />
-        <span className="text-foreground/80">/{entry.name}</span>
+        <span className="font-mono font-medium text-foreground">/{entry.name}</span>
       </div>
       <div className="relative">
         <pre
           ref={bodyRef}
           style={folded ? { maxHeight: COMMAND_FOLD_HEIGHT_PX } : undefined}
-          className={`overflow-hidden whitespace-pre-wrap break-words px-3 py-2 leading-relaxed ${tone.text}`}
+          className={`overflow-hidden whitespace-pre-wrap break-words px-4 pb-3 pt-1.5 font-mono text-[13px] leading-[1.65] ${tone.text}`}
         >
           {shown}
         </pre>
         {folded && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-background/90 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-card to-transparent" />
         )}
       </div>
       {foldable && (
         <button
           type="button"
           onClick={() => setOpen((value) => !value)}
-          className="w-full border-t border-border/40 px-3 py-1.5 text-left text-[11px] text-muted-foreground hover:text-foreground"
+          className="flex w-full items-center gap-1.5 px-4 pb-2.5 pt-1 text-left text-[13px] text-muted-foreground hover:bg-hover hover:text-foreground"
         >
+          <ChevronDown size={14} className={open ? 'rotate-180' : ''} />
           {open ? 'Show less' : `Show all ${lines.length} lines`}
         </button>
       )}
@@ -242,22 +264,30 @@ function ToolGroup({ tools }: { tools: readonly IActiveTool[] }): React.ReactEle
   const failed = tools.filter((tool) => tool.status === 'error').length;
   const names = [...new Set(tools.map((tool) => tool.name))].join(', ');
   return (
-    <div className="font-mono text-[11px]">
+    <div className="text-[14px]">
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen((value) => !value)}
-        className="flex w-full items-center gap-2 rounded-md px-2 py-1 text-left text-muted-foreground hover:bg-card/60 hover:text-foreground"
+        className="group -mx-2 flex max-w-full items-center gap-2.5 rounded-lg px-2 py-1 text-left text-muted-foreground hover:bg-hover hover:text-foreground"
       >
-        <span className="w-3 opacity-60">{open ? '▾' : '▸'}</span>
-        <span>
+        <Wrench size={15} strokeWidth={1.75} className="flex-shrink-0 text-subtle" />
+        <span className="flex-shrink-0">
           {tools.length} tool {tools.length === 1 ? 'call' : 'calls'}
         </span>
-        <span className="truncate opacity-60">{names}</span>
-        {failed > 0 && <span className="ml-auto text-rose-300/80">{failed} failed</span>}
+        <span className="min-w-0 truncate text-subtle">{names}</span>
+        {failed > 0 && (
+          <span className="flex-shrink-0 rounded-md bg-destructive/12 px-1.5 text-[12.5px] text-destructive">
+            {failed} failed
+          </span>
+        )}
+        <ChevronRight
+          size={14}
+          className={`flex-shrink-0 text-subtle transition-transform ${open ? 'rotate-90' : ''}`}
+        />
       </button>
       {open && (
-        <div className="ml-5 mt-1 flex flex-col gap-1">
+        <div className="mt-0.5 flex flex-col pl-[25px]">
           {tools.map((tool) => (
             <ToolCard key={tool.id} tool={tool} />
           ))}
@@ -268,22 +298,7 @@ function ToolGroup({ tools }: { tools: readonly IActiveTool[] }): React.ReactEle
 }
 
 function ThinkingIndicator(): React.ReactElement {
-  return (
-    <div className="flex items-center gap-2.5 px-1">
-      <span className="text-[10px] font-mono tracking-[0.14em] uppercase text-muted-foreground/50">
-        Agent
-      </span>
-      <div className="flex gap-1 items-center">
-        {[0, 1, 2].map((i) => (
-          <span
-            key={i}
-            className="w-1.5 h-1.5 rounded-full bg-emerald-400/60 animate-bounce"
-            style={{ animationDelay: `${i * 150}ms` }}
-          />
-        ))}
-      </div>
-    </div>
-  );
+  return <p className="gui-shimmer w-fit text-[15px] font-medium">Thinking…</p>;
 }
 
 export function ConversationView({
@@ -302,37 +317,41 @@ export function ConversationView({
     messages.length === 0 && !isThinking && activeTools.length === 0 && !streamingText;
 
   return (
-    <div className="flex flex-col gap-3 p-4 overflow-y-auto h-full">
-      {isEmpty && (
-        <div className="flex h-full items-center justify-center">
-          <p className="text-xs font-mono text-muted-foreground/50 tracking-widest uppercase">
-            No messages yet
-          </p>
-        </div>
-      )}
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto flex w-full max-w-[760px] flex-col gap-6 px-6 pb-6 pt-8">
+        {isEmpty && (
+          <div className="flex h-full items-center justify-center">
+            <p className="text-[14px] text-subtle">No messages yet</p>
+          </div>
+        )}
 
-      {messages.map((entry) => {
-        switch (entry.role) {
-          case 'user':
-            return <UserBlock key={entry.id} content={entry.content} author={entry.author} />;
-          case 'assistant':
-            return <AgentBlock key={entry.id} content={entry.content} />;
-          case 'command':
-            return <CommandCard key={entry.id} entry={entry} />;
-          case 'tools':
-            return <ToolGroup key={entry.id} tools={entry.tools} />;
-        }
-      })}
+        {messages.map((entry) => {
+          switch (entry.role) {
+            case 'user':
+              return <UserBlock key={entry.id} content={entry.content} author={entry.author} />;
+            case 'assistant':
+              return <AgentBlock key={entry.id} content={entry.content} />;
+            case 'command':
+              return <CommandCard key={entry.id} entry={entry} />;
+            case 'tools':
+              return <ToolGroup key={entry.id} tools={entry.tools} />;
+          }
+        })}
 
-      {isThinking && !streamingText && <ThinkingIndicator />}
+        {isThinking && !streamingText && <ThinkingIndicator />}
 
-      {activeTools.map((tool) => (
-        <ToolCard key={tool.id} tool={tool} />
-      ))}
+        {activeTools.length > 0 && (
+          <div className="flex flex-col">
+            {activeTools.map((tool) => (
+              <ToolCard key={tool.id} tool={tool} />
+            ))}
+          </div>
+        )}
 
-      {streamingText && <AgentBlock content={streamingText} isStreaming />}
+        {streamingText && <AgentBlock content={streamingText} isStreaming />}
 
-      <div ref={bottomRef} />
+        <div ref={bottomRef} />
+      </div>
     </div>
   );
 }

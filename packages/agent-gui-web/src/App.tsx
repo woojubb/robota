@@ -51,12 +51,12 @@ function RuntimeStopped({ restart }: { restart: () => Promise<void> }): React.Re
             type="button"
             onClick={reconnect}
             disabled={reconnecting}
-            className="rounded-md border border-border/60 bg-card/60 px-3 py-1.5 text-[12px] text-foreground/90 hover:bg-card disabled:opacity-60"
+            className="rounded-lg bg-primary px-4 py-2 text-[14px] font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60"
           >
             {reconnecting ? 'Reconnecting…' : 'Reconnect'}
           </button>
         </div>
-        {failed ? <p className="mt-3 text-[11px]">{failed}</p> : null}
+        {failed ? <p className="mt-3 text-[13px] text-destructive">{failed}</p> : null}
       </CenteredChrome>
     </div>
   );
@@ -85,7 +85,7 @@ export function App({ host }: { host: IGuiHost }): React.ReactElement {
           {fatal.detail ? (
             <>
               The agent process stopped:
-              <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border/60 bg-card/60 p-3 text-left text-[11px] text-foreground/85">
+              <pre className="mt-4 max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-xl bg-card p-4 text-left font-mono text-[12.5px] leading-relaxed text-muted-foreground">
                 {fatal.detail}
               </pre>
             </>
