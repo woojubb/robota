@@ -335,11 +335,12 @@ surface reflects the launch path rather than a client-provided claim.
 
 A served runtime that saves its sessions keeps several of them live, and each client connection, an
 attached terminal included, is bound to its own: switching or starting a session moves that client
-alone, and only that client is told. Leaving a session never stops its work — a running turn, queued
-messages or background tasks go on without the client — so a change is refused only when the runtime
-is stopping, the client's own previous change is still under way, the session cannot be opened or no
-room is left for it, or the client is the last driver of a session with a pending prompt that nobody
-else could then answer. What belongs to the run rather than to a session — external-event grants and
+alone, and only that client is told. Leaving a session does not stop its work — a running turn,
+queued messages or background tasks go on without the client — but a question it raises while no
+driver is on it fails closed: a permission is denied and an ask is cancelled. A change is therefore
+refused only when the runtime is stopping, the client's own previous change is still under way, the
+session cannot be opened or no room is left for it, or the client is the last driver of a session with
+a pending prompt that nobody else could then answer. What belongs to the run rather than to a session — external-event grants and
 the supervised name — stays on the session the runtime started with, whichever session a client is on.
 
 Runner failure propagation is explicit in serve mode: `waitForFailure()` returns the first named
