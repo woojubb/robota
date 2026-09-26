@@ -45,7 +45,7 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
     // `/output-style`; FLOW-008 added `/effort`; `/advisor` joined beside it). The list below is the
     // assertion that matters — a length on its own can be restored by any substitution, and the count
     // exists only to catch an addition that also removed something.
-    expect(names).toHaveLength(35);
+    expect(names).toHaveLength(36);
     expect(names).toEqual([
       'agent-command-skills',
       'agent-command-help',
@@ -80,6 +80,7 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
       'agent-command-plugin',
       'agent-command-settings',
       'agent-command-peers',
+      'agent-command-events',
       'agent-command-handoff',
       'agent-command-remote-control',
       'agent-command-provider',

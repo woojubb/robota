@@ -2,12 +2,32 @@ import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 
 import { resolveSelfForkWorkerEntry } from '../subagents/self-fork-worker-entry.js';
-import { isSupervisedSessionName } from './supervised-session-control.js';
+import {
+  discardSupervisedGrantHandoff,
+  isSupervisedSessionName,
+  resolveSupervisedDirectory,
+  writeSupervisedGrantHandoff,
+} from './supervised-session-control.js';
+
+import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
 
 interface IHandshakeMessage {
   readonly kind: 'ready' | 'acknowledged' | 'error';
   readonly id: string;
   readonly code?: string;
+  /** On `ready`: the labels of the grants the child opened. On a `grant-refused` error: the one refused. */
+  readonly grants?: unknown;
+  readonly grant?: unknown;
+}
+
+const GRANT_ID = /^[a-zA-Z0-9_-]{1,64}$/u;
+
+/** The child opened exactly the grants it was handed: none lost, none added. */
+function sameGrants(reported: unknown, sent: readonly string[]): boolean {
+  if (reported === undefined) return sent.length === 0;
+  if (!Array.isArray(reported) || reported.length !== sent.length) return false;
+  const expected = [...sent].sort();
+  return [...reported].sort().every((grantId, index) => grantId === expected[index]);
 }
 
 function isHandshakeMessage(value: unknown, id: string): value is IHandshakeMessage {
@@ -66,28 +86,46 @@ export async function launchSupervisedSession(
     readonly env?: NodeJS.ProcessEnv;
     readonly name?: string;
     readonly onSpawn?: (child: ChildProcess) => void;
+    /** Validated external-event grants the child must open before it reports ready. */
+    readonly grants?: readonly IExternalEventGrant[];
+    readonly root?: string;
   } = {},
 ): Promise<string> {
   if (options.name !== undefined && !isSupervisedSessionName(options.name)) {
     throw new Error('Supervised session name is invalid or too long.');
   }
+  const grants = options.grants ?? [];
+  const sentGrantIds = grants.map((grant) => grant.grantId);
+  const root = grants.length > 0 ? (options.root ?? resolveSupervisedDirectory()) : undefined;
   const self = resolveSelfForkWorkerEntry();
   const entryArgs = options.entrypoint ? [options.entrypoint] : self.args;
   const execArgs = options.execArgs ?? self.execArgv ?? [];
   const id = randomUUID();
-  const child = spawn(self.execPath, [
-    ...execArgs, ...entryArgs, '--serve', '--supervised-session-id', id,
-    ...(options.name === undefined ? [] : [`--name=${options.name}`]),
-  ], {
-    cwd,
-    detached: true,
-    stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
-    env: options.env ?? process.env,
-  });
+  const discardHandoff = (): void => {
+    if (root !== undefined) discardSupervisedGrantHandoff(root, id);
+  };
+  if (root !== undefined) writeSupervisedGrantHandoff(root, id, grants);
+  let child: ChildProcess;
+  try {
+    child = spawn(self.execPath, [
+      ...execArgs, ...entryArgs, '--serve', '--supervised-session-id', id,
+      ...(options.name === undefined ? [] : [`--name=${options.name}`]),
+      ...(grants.length > 0 ? ['--supervised-external-event-grants'] : []),
+    ], {
+      cwd,
+      detached: true,
+      stdio: ['ignore', 'ignore', 'ignore', 'ipc'],
+      env: options.env ?? process.env,
+    });
+  } catch (error) {
+    discardHandoff();
+    throw error;
+  }
   try {
     options.onSpawn?.(child);
   } catch {
     await terminateFailedStart(child);
+    discardHandoff();
     throw new Error('Supervised session launch observer failed.');
   }
 
@@ -108,6 +146,8 @@ export async function launchSupervisedSession(
           void terminateFailedStart(child).then(() => reject(new Error('Supervised session could not detach.')));
         }
       } else {
+        // A child that never read its grants must not leave them behind.
+        discardHandoff();
         void terminateFailedStart(child).then((exited) => {
           reject(new Error(exited ? result.message : `${result.message} Process exit could not be confirmed.`));
         });
@@ -119,8 +159,16 @@ export async function launchSupervisedSession(
     child.once('disconnect', () => fail('Supervised session readiness channel closed before acknowledgement.'));
     child.on('message', (message: unknown) => {
       if (!isHandshakeMessage(message, id)) return fail('Supervised session sent an invalid readiness message.');
-      if (message.kind === 'error') return fail('Supervised session refused to start.');
+      if (message.kind === 'error') {
+        return fail(message.code === 'grant-refused' && typeof message.grant === 'string' &&
+          GRANT_ID.test(message.grant) && sentGrantIds.includes(message.grant)
+          ? `grant ${message.grant}: refused by the session.`
+          : 'Supervised session refused to start.');
+      }
       if (message.kind === 'ready' && !ready) {
+        if (!sameGrants(message.grants, sentGrantIds)) {
+          return fail('Supervised session did not open exactly the external event grants it was given.');
+        }
         ready = true;
         child.send({ kind: 'ack', id }, (error) => {
           if (error) fail('Supervised session acknowledgement failed.');

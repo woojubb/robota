@@ -77,6 +77,7 @@ import type {
 import type { IQueuedInput, ITurnOptions } from './interactive-session-execution-controller.js';
 import type { ICreatedInteractiveSession } from './interactive-session-init.js';
 import type {
+  TExternalEventVerifierFactory,
   TInteractiveSessionOptions,
   IInteractiveSessionStandardOptions,
 } from './interactive-session-options.js';
@@ -233,6 +234,7 @@ export class InteractiveSession
   private currentTurnSource: TTurnSource = 'user';
   /** TERM-001: exclusivity + fast-fail over the transport-provided handoff capability. */
   private readonly terminalHandoffGate: SessionTerminalHandoffGate;
+  private readonly externalEventVerifierFactory?: TExternalEventVerifierFactory;
   /**
    * REMOTE-007: the framework's event-emitting "ask the user" default (never undefined). It emits
    * `ask_request` and parks the answer in {@link promptRegistry}. `getUserInteraction()` gates the
@@ -278,6 +280,7 @@ export class InteractiveSession
       this.activeOutputStyleId = options.outputStyle.id;
     }
     this.terminalHandoffGate = new SessionTerminalHandoffGate(options.terminalHandoff);
+    this.externalEventVerifierFactory = options.externalEventVerifierFactory;
 
     // REMOTE-007: the framework owns one event-emitting prompt registry. Attached surfaces subscribe
     // to requests and answer through resolvePermission/resolveAsk; with none subscribed it fails closed.
@@ -725,8 +728,14 @@ export class InteractiveSession
   ): Promise<IExternalEventSource> {
     await this.ensureInitialized();
     if (this.execCtrl.shuttingDown) throw new Error('Interactive session is shutting down.');
+    const createVerifier = this.externalEventVerifierFactory;
+    if (createVerifier === undefined) {
+      throw new Error('external event grants need a verifier factory from the session host');
+    }
     this.externalEventIngress ??= new ExternalEventIngress({
+      createVerifier,
       getPermissionMode: () => this.getSessionOrThrow().getPermissionMode(),
+      isShuttingDown: () => this.execCtrl.shuttingDown,
       addPermissionModeGuard: (guard) => this.getSessionOrThrow().addPermissionModeGuard(guard),
       submit: (input, turnOptions) =>
         this.submitNewTurn(

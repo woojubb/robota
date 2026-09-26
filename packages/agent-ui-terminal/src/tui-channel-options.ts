@@ -20,6 +20,7 @@ import type {
   ICreateSessionOptions,
   ILivePromptTracePort,
   EditCheckpointStore,
+  TInteractiveSessionOptions,
   IMemoryStore,
   IPromptHistoryOptions,
   IPerTurnRecallConfig,
@@ -81,6 +82,8 @@ export interface ITuiInteractionChannelOptions {
   userSettingsSources?: readonly INodeHostSettingsSource[];
   /** Explicit authority- and permission-backed edit checkpoint capability. */
   editCheckpointStore?: EditCheckpointStore;
+  /** The host's way to build each external-event grant's verifier; absent, no grant opens. */
+  externalEventVerifierFactory?: TInteractiveSessionOptions['externalEventVerifierFactory'];
   /**
    * CLI-076: the resolved model id (the same value the status line displays). Forwarded to the session so an
    * explicit `--model` override reaches the provider chat call instead of being silently replaced by the
