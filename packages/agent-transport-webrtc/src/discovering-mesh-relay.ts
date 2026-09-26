@@ -463,7 +463,9 @@ export class DiscoveringMeshRelay implements IMeshRelay {
       socket.on('message', (raw) => {
         const frame = parse(raw);
         if (frame?.to !== to) return;
-        if (frame.type === 'present' && frame.nonce === nonce) {
+        if (frame.type === 'present') {
+          // The proof is a MAC over this probe's own nonce, so it alone decides; an echoed or stale
+          // frame fails it.
           settle(verifyLanPresenceProof(lanTopic, nonce, frame.proof));
         } else if (frame.type === 'absent') {
           settle(false);
