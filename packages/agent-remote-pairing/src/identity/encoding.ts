@@ -22,6 +22,9 @@ export const IDENTITY_PURPOSES = {
   signingKeyRevocation: 'robota/signing-key-revocation/v1',
   sessionDesc: 'robota/session-desc/v1',
   handshake: 'robota/handshake/v1',
+  enrollProof: 'robota/enroll-proof/v1',
+  enrollRequest: 'robota/enroll-request/v1',
+  enrollSas: 'robota/enroll-sas/v1',
 } as const;
 
 export type TIdentityPurpose = (typeof IDENTITY_PURPOSES)[keyof typeof IDENTITY_PURPOSES];
@@ -36,7 +39,10 @@ export const IDENTITY_CLOCK_SKEW_MS = 2 * 60 * 1000;
 export type TCanonical = string | number | null | readonly TCanonical[];
 
 /** The bytes a signature for `purpose` covers. */
-export function canonicalBytes(purpose: TIdentityPurpose, fields: readonly TCanonical[]): Uint8Array {
+export function canonicalBytes(
+  purpose: TIdentityPurpose,
+  fields: readonly TCanonical[],
+): Uint8Array {
   return encoder.encode(JSON.stringify([purpose, ...fields]));
 }
 

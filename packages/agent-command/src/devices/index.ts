@@ -4,6 +4,8 @@ export type {
   IDevicesCommandPort,
   IDevicesInitResult,
   IDevicesRecoverResult,
+  IDevicesAddResult,
+  IDevicesJoinResult,
   IDevicesRevokeResult,
   IDevicesView,
   TDevicesOutcome,

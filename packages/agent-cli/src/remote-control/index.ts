@@ -1,8 +1,6 @@
 import { join } from 'node:path';
 
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import { readSettings } from '@robota-sdk/agent-framework';
-import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
 
 import { createHostCredentialStore } from '../credentials/select-credential-store.js';
 import { userLocalStorageRoot } from '../product/user-paths.js';
@@ -10,6 +8,7 @@ import { loadOrCreateHostIdentity } from './host-identity.js';
 import { parseIceServers } from './ice-config.js';
 import { createTerminalOperatorApprover, type ITerminalHandoffHost } from './operator-approval.js';
 import { renderQrToTerminal } from './render-qr.js';
+import { readWebrtcOption, readWebrtcRawOption } from './webrtc-settings.js';
 import { RemoteControlController } from './remote-control-controller.js';
 import { createRemoteControlTransportHost } from './transport-host-adapter.js';
 import { createTrustedDeviceStore } from './trusted-device-store.js';
@@ -32,31 +31,6 @@ interface ILiveChannel {
 
 export { RemoteControlController } from './remote-control-controller.js';
 export type { IRemoteControlControllerDeps } from './remote-control-controller.js';
-
-/** Read a nested string under `transports.webrtc.options.<key>` from user settings (undefined when absent). */
-function readWebrtcOption(key: string): string | undefined {
-  const settings = readSettings(robotaUserSettingsPath());
-  const transports = settings.transports;
-  if (typeof transports !== 'object' || transports === null) return undefined;
-  const webrtc = (transports as Record<string, unknown>).webrtc;
-  if (typeof webrtc !== 'object' || webrtc === null) return undefined;
-  const options = (webrtc as Record<string, unknown>).options;
-  if (typeof options !== 'object' || options === null) return undefined;
-  const value = (options as Record<string, unknown>)[key];
-  return typeof value === 'string' && value.length > 0 ? value : undefined;
-}
-
-/** Read a raw (untyped) value under `transports.webrtc.options.<key>` — for structured values (REMOTE-010). */
-function readWebrtcRawOption(key: string): unknown {
-  const settings = readSettings(robotaUserSettingsPath());
-  const transports = settings.transports;
-  if (typeof transports !== 'object' || transports === null) return undefined;
-  const webrtc = (transports as Record<string, unknown>).webrtc;
-  if (typeof webrtc !== 'object' || webrtc === null) return undefined;
-  const options = (webrtc as Record<string, unknown>).options;
-  if (typeof options !== 'object' || options === null) return undefined;
-  return (options as Record<string, unknown>)[key];
-}
 
 /** The live session's terminal hand-off, when the session has one. */
 function terminalHandoffHostOf(

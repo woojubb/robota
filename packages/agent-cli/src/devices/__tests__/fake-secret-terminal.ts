@@ -2,6 +2,8 @@
  * A scripted operator at the secret terminal: it reads the phrase off the screen when it is shown,
  * and answers each prompt the way a person would (or deliberately wrong, when a test asks).
  */
+import { SecretInputCancelled } from '../secret-terminal.js';
+
 import type { ISecretTerminal, ISecretTerminalSession } from '../secret-terminal.js';
 
 export interface IScriptedOperator {
@@ -11,6 +13,10 @@ export interface IScriptedOperator {
   readonly shownWords: () => readonly string[];
   readonly session: ISecretTerminalSession;
   readonly runs: () => number;
+  /** The enrollment code shown on this terminal by `/devices add`, once shown. */
+  readonly shownCode: () => string | undefined;
+  /** The short string shown on this terminal during an enrollment, once shown. */
+  readonly shownSas: () => string | undefined;
 }
 
 export interface IScriptedOperatorOptions {
@@ -27,7 +33,18 @@ export interface IScriptedOperatorOptions {
   readonly failWith?: Error;
   /** Runs once, at the first prompt: something else happening while the operator is at the terminal. */
   readonly meanwhile?: () => Promise<void>;
+  /** What to type when `/devices join` asks for the code. */
+  readonly code?: () => string;
+  /** Called with the code once `/devices add` shows it and waits for the new device. */
+  readonly onCodeShown?: (code: string) => void;
+  /** What to answer when asked to enrol a device; defaults to `yes`. */
+  readonly enrolAnswer?: string;
+  /** Press ctrl-C while waiting for the other device. */
+  readonly cancelWaiting?: boolean;
 }
+
+const ENROLLMENT_CODE = /[0-9A-Z]{5}(?:-[0-9A-Z]{5}){4}/;
+const SAS = /should show[^\d]*(\d{3} \d{3})/;
 
 const GRID_ENTRY = /(\d+)\. ([a-z]+)/g;
 
@@ -37,18 +54,41 @@ export function scriptedOperator(options: IScriptedOperatorOptions = {}): IScrip
   let words: string[] = [];
   let runs = 0;
   let meanwhileRan = false;
+  let code: string | undefined;
+  let sas: string | undefined;
+  const waitWithdrawn = (signal: AbortSignal | undefined): Promise<string> =>
+    new Promise<string>((_, reject) => {
+      if (options.cancelWaiting === true || signal === undefined) {
+        reject(new SecretInputCancelled());
+        return;
+      }
+      if (signal.aborted) reject(new SecretInputCancelled());
+      signal.addEventListener('abort', () => reject(new SecretInputCancelled()), { once: true });
+    });
   const terminal: ISecretTerminal = {
     write: (text) => {
       everything += text;
       screen += text;
+      sas = SAS.exec(text)?.[1] ?? sas;
     },
     clearScreen: () => {
       screen = '';
     },
-    readLine: async (prompt) => {
+    readLine: async (prompt, readOptions) => {
       everything += prompt;
       screen += prompt;
       if (options.failWith) throw options.failWith;
+      if (/Waiting for the new device/.test(prompt)) {
+        const shown = ENROLLMENT_CODE.exec(screen)?.[0];
+        if (shown !== undefined && code === undefined) {
+          code = shown;
+          options.onCodeShown?.(shown);
+        }
+        return waitWithdrawn(readOptions?.signal);
+      }
+      if (/Connecting/.test(prompt)) return waitWithdrawn(readOptions?.signal);
+      if (/Type yes to enrol/.test(prompt)) return options.enrolAnswer ?? 'yes';
+      if (/Type the code/.test(prompt)) return options.code?.() ?? '';
       if (options.meanwhile !== undefined && !meanwhileRan) {
         meanwhileRan = true;
         await options.meanwhile();
@@ -66,7 +106,9 @@ export function scriptedOperator(options: IScriptedOperatorOptions = {}): IScrip
         return phrase[Number(existing[1]) - 1]!;
       }
       if (/Repeat the passphrase/.test(prompt)) {
-        return options.passphraseTypo === true ? `${options.passphrase ?? ''}x` : options.passphrase ?? '';
+        return options.passphraseTypo === true
+          ? `${options.passphrase ?? ''}x`
+          : (options.passphrase ?? '');
       }
       if (/passphrase/i.test(prompt)) return options.passphrase ?? '';
       const revoke = /Type (\S+) to confirm/.exec(prompt);
@@ -78,6 +120,8 @@ export function scriptedOperator(options: IScriptedOperatorOptions = {}): IScrip
     everything: () => everything,
     shownWords: () => words,
     runs: () => runs,
+    shownCode: () => code,
+    shownSas: () => sas,
     session: {
       run: async (work) => {
         runs += 1;

@@ -43,7 +43,23 @@ export type TDevicesRefusal =
   | 'ambiguous-device'
   | 'self-revocation'
   /** Another process changed the identity while this operation waited on the operator. */
-  | 'changed-concurrently';
+  | 'changed-concurrently'
+  /** No signaling relay is configured to meet the other device through. */
+  | 'no-relay'
+  /** What was typed is not an enrollment code. */
+  | 'code-invalid'
+  /** The code was typed on the command line, where history keeps it. */
+  | 'code-on-command-line'
+  /** No device waits for that code or proved it: wrong, expired, already used, or something in between. */
+  | 'code-not-accepted'
+  /** Nobody joined before the code expired. */
+  | 'enrollment-expired'
+  /** Too many attempts failed to prove the code; it no longer works. */
+  | 'too-many-attempts'
+  /** The operator of the existing device declined. */
+  | 'enrollment-declined'
+  /** The connection or the exchange with the other device failed partway. */
+  | 'enrollment-failed';
 
 export type TDevicesOutcome<T> =
   | { readonly ok: true; readonly value: T }
@@ -70,6 +86,21 @@ export interface IDevicesRevokeResult {
   readonly name: string;
 }
 
+export interface IDevicesAddResult {
+  readonly deviceId: string;
+  readonly name: string;
+  /** Whether the new device said it kept what it was given. */
+  readonly confirmed: boolean;
+}
+
+export interface IDevicesJoinResult {
+  readonly userId: string;
+  readonly deviceId: string;
+  readonly name: string;
+  /** Where the private keys were kept, for the operator. */
+  readonly keyStorage?: string;
+}
+
 export interface IDevicesCommandPort {
   /** This device's view of the roster, or `undefined` when it has no identity yet. */
   list(): Promise<IDevicesView | undefined>;
@@ -79,4 +110,11 @@ export interface IDevicesCommandPort {
   recover(): Promise<TDevicesOutcome<IDevicesRecoverResult>>;
   /** Revoke a device by id prefix with the signing key. Confirms on the operator terminal. */
   revoke(deviceIdPrefix: string): Promise<TDevicesOutcome<IDevicesRevokeResult>>;
+  /**
+   * Enrol another device with the signing key: show a one-time code, and certify the device that
+   * proves it once the operator confirms the string both devices show. Runs on the operator terminal.
+   */
+  add(): Promise<TDevicesOutcome<IDevicesAddResult>>;
+  /** Join the user's devices with a code another device shows. Runs on the operator terminal. */
+  join(options: { readonly name?: string }): Promise<TDevicesOutcome<IDevicesJoinResult>>;
 }

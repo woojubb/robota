@@ -3,7 +3,7 @@
 ## Scope
 
 Isomorphic pairing + DTLS-fingerprint **channel binding** for P2P remote-control. Lets a peer prove that it holds
-a single-use pairing secret, or that it is another of the same user's devices, AND binds that proof to the
+a single-use pairing secret or enrollment code, or that it is another of the same user's devices, AND binds that proof to the
 **actual** DTLS channel each peer observes, defeating a MITM signaling relay. WebCrypto only; the same module runs on the Node host (`agent-cli`)
 and a browser remote client.
 
@@ -53,7 +53,12 @@ So the proof is a chain of three keys, each with one job:
   signing keys; its public key is the anchor every device pins, and the user id is derived from it.
 - **Signing key — the day-to-day issuer.** Kept on one or two trusted devices and short-lived, it certifies
   devices and issues the roster and revocation lists. Adding or retiring a device therefore never needs the
-  phrase, and a lost signing key costs one master-signed revocation rather than the user's identity.
+  phrase, and a lost signing key costs one master-signed revocation rather than the user's identity. A new device
+  is added with a one-time code a person carries from a signing-key holder: it proves the code the way pairing
+  proves its secret, and nothing is certified until that holder's operator confirms a short string both devices
+  show. The string also covers the master key the new device will pin, because a device with no anchor yet has
+  nothing else to check it against. The code is spent by the first attempt that proves it and dies after a few
+  that fail; typed by a person, it is still long enough that, like the pairing secret, it needs no PAKE.
 - **Device keys.** A device's certificate binds its signing key (its id is that key's hash) and a separate
   key-agreement key that never signs, with the capabilities it may be asked for. Two devices' agreement keys give
   them a secret only that pair can compute, so nothing any device holds is common to all of the user's devices.

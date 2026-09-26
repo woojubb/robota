@@ -5,7 +5,8 @@
  * turned into the master key there, and dropped when that call returns. What leaves is the master
  * key object, which is non-extractable and is itself dropped once it has certified a signing key or
  * issued a signing-key revocation. Nothing the phrase touches is written, returned, or put in an
- * error: results are ids and closed refusal reasons.
+ * error: results are ids and closed refusal reasons. An enrollment code is held the same way: shown
+ * or typed inside the terminal run, and gone when it returns.
  *
  * The slow part — the operator at the terminal — runs outside the identity lock; the state is read
  * again under the lock and the operation refuses if another process changed it meanwhile, so a
@@ -28,6 +29,8 @@ import {
   issueDeviceRevocationList,
   issueDeviceRoster,
   issueSigningKeyRevocation,
+  deriveEnrollmentMaterial,
+  normalizeEnrollmentCode,
   type IMasterKey,
   type ISigningKey,
 } from '@robota-sdk/agent-remote-pairing';
@@ -35,6 +38,12 @@ import {
 import { CredentialStoreError } from '../credentials/credential-store-error.js';
 import { withExclusiveFileLock } from '../credentials/exclusive-file-lock.js';
 import { DeviceIdentityError } from './device-identity-error.js';
+import {
+  joinEnrollment,
+  offerEnrollment,
+  type IEnrollmentEnvironment,
+} from './device-enrollment.js';
+import { addDialog, joinDialog } from './enrollment-dialog.js';
 import {
   DEVICE_KA_KEY,
   DEVICE_SIGN_KEY,
@@ -45,7 +54,12 @@ import {
   storeKeyPair,
 } from './identity-keys.js';
 import { checked, nextSeq } from './identity-lists.js';
-import { readIdentityState, writeIdentityState, type IDeviceIdentityState } from './identity-state.js';
+import {
+  readIdentityState,
+  sameIdentityState,
+  writeIdentityState,
+  type IDeviceIdentityState,
+} from './identity-state.js';
 import {
   presentNewPhrase,
   readExistingPhrase,
@@ -60,8 +74,11 @@ import {
 } from './secret-terminal.js';
 
 import type { ICredentialStore } from '@robota-sdk/agent-core';
+import type { IIceServer, IMeshRelay } from '@robota-sdk/agent-transport-webrtc';
 import type {
+  IDevicesAddResult,
   IDevicesCommandPort,
+  IDevicesJoinResult,
   IDevicesInitResult,
   IDevicesRecoverResult,
   IDevicesRevokeResult,
@@ -88,6 +105,18 @@ export interface IDeviceIdentityServiceOptions {
   readonly now?: () => number;
   readonly defaultDeviceName?: () => string;
   readonly randomInt?: TRandomInt;
+  /**
+   * Opens the signaling relay two devices meet through to enrol one of them, or `undefined` when none
+   * is configured; `onError` ends the enrollment. Absent: enrollment is refused.
+   */
+  readonly openEnrollmentRelay?: (onError: (error: Error) => void) => IMeshRelay | undefined;
+  readonly iceServers?: () => readonly IIceServer[] | undefined;
+  /** Test seams: the code's lifetime, failed attempts it survives, and the connection timeout. */
+  readonly enrollment?: {
+    readonly ttlMs?: number;
+    readonly maxFailedAttempts?: number;
+    readonly connectTimeoutMs?: number;
+  };
 }
 
 function refuse<T>(reason: TDevicesRefusal): TDevicesOutcome<T> {
@@ -101,27 +130,16 @@ function refuse<T>(reason: TDevicesRefusal): TDevicesOutcome<T> {
  */
 function deviceName(raw: string): string {
   let name = '';
-  for (const ch of raw.normalize('NFC').replace(/\p{Cc}/gu, ' ').trim()) {
+  for (const ch of raw
+    .normalize('NFC')
+    .replace(/\p{Cc}/gu, ' ')
+    .trim()) {
     if (name.length + ch.length > DEVICE_NAME_MAX_CHARS) break;
     name += ch;
   }
   // A prefix of an NFC string can compose further; composing never lengthens it.
   name = name.trim().normalize('NFC');
   return name.length > 0 ? name : 'device';
-}
-
-/** The same identity state, i.e. nothing was issued in between. */
-function unchanged(a: IDeviceIdentityState, b: IDeviceIdentityState | undefined): boolean {
-  return (
-    b !== undefined &&
-    a.masterPublicKey === b.masterPublicKey &&
-    a.signingKeyCertificate.sig === b.signingKeyCertificate.sig &&
-    a.deviceCertificate.sig === b.deviceCertificate.sig &&
-    a.roster.sig === b.roster.sig &&
-    a.revocation.sig === b.revocation.sig &&
-    a.signingKeyRevocation.sig === b.signingKeyRevocation.sig &&
-    a.holdsSigningKey === b.holdsSigningKey
-  );
 }
 
 /**
@@ -137,7 +155,9 @@ async function guarded<T>(what: string, operation: () => Promise<T>): Promise<T>
   }
 }
 
-type TMasterOutcome = { readonly ok: true; readonly master: IMasterKey } | { readonly ok: false; readonly reason: TDevicesRefusal };
+type TMasterOutcome =
+  | { readonly ok: true; readonly master: IMasterKey }
+  | { readonly ok: false; readonly reason: TDevicesRefusal };
 
 /** Run a terminal dialog; ctrl-C at the terminal is a cancellation, not a failure. */
 async function atTerminal(
@@ -152,7 +172,9 @@ async function atTerminal(
   }
 }
 
-export function createDeviceIdentityService(options: IDeviceIdentityServiceOptions): IDevicesCommandPort {
+export function createDeviceIdentityService(
+  options: IDeviceIdentityServiceOptions,
+): IDevicesCommandPort {
   const now = options.now ?? Date.now;
   const random = options.randomInt ?? ((max: number) => randomInt(max));
   const lockPath = join(options.directory, 'identity.lock');
@@ -162,7 +184,9 @@ export function createDeviceIdentityService(options: IDeviceIdentityServiceOptio
   const locked = <T>(critical: () => Promise<T>): Promise<T> =>
     withExclusiveFileLock(lockPath, critical);
 
-  async function init(request: { readonly name?: string }): Promise<TDevicesOutcome<IDevicesInitResult>> {
+  async function init(request: {
+    readonly name?: string;
+  }): Promise<TDevicesOutcome<IDevicesInitResult>> {
     if (read() !== undefined) return refuse('already-initialized');
     const name = deviceName(request.name ?? options.defaultDeviceName?.() ?? hostname());
     // Touch the credential store before the phrase is shown: a store that cannot keep the keys
@@ -199,7 +223,10 @@ export function createDeviceIdentityService(options: IDeviceIdentityServiceOptio
       issuedAt,
       revokedSigningKeyIds: [],
     });
-    const signingKey: ISigningKey = { certificate: signingCertificate, privateKey: signingPair.privateKey };
+    const signingKey: ISigningKey = {
+      certificate: signingCertificate,
+      privateKey: signingPair.privateKey,
+    };
     const [signPair, kaPair] = await Promise.all([
       generateDeviceSignKeyPair(true),
       generateDeviceKeyAgreementKeyPair(true),
@@ -241,7 +268,11 @@ export function createDeviceIdentityService(options: IDeviceIdentityServiceOptio
     return locked(async () => {
       // Another session may have created an identity while this operator was at the terminal.
       if (read() !== undefined) return refuse<IDevicesInitResult>('changed-concurrently');
-      await storeKeyPair(options.store, signingKeyCredentialKey(signingCertificate.signingKeyId), signingPair);
+      await storeKeyPair(
+        options.store,
+        signingKeyCredentialKey(signingCertificate.signingKeyId),
+        signingPair,
+      );
       await storeKeyPair(options.store, DEVICE_SIGN_KEY, signPair);
       await storeKeyPair(options.store, DEVICE_KA_KEY, kaPair);
       write(state);
@@ -281,7 +312,7 @@ export function createDeviceIdentityService(options: IDeviceIdentityServiceOptio
 
     return locked(async () => {
       const current = read();
-      if (current === undefined || !unchanged(before, current)) {
+      if (current === undefined || !sameIdentityState(before, current)) {
         return refuse<IDevicesRecoverResult>('changed-concurrently');
       }
       if (!(await holdsDeviceKeys(options.store, current.deviceCertificate))) {
@@ -314,7 +345,10 @@ export function createDeviceIdentityService(options: IDeviceIdentityServiceOptio
         signingPublicKey: signingPair.publicKey,
         issuedAt,
       });
-      const signingKey: ISigningKey = { certificate: signingCertificate, privateKey: signingPair.privateKey };
+      const signingKey: ISigningKey = {
+        certificate: signingCertificate,
+        privateKey: signingPair.privateKey,
+      };
       const self = current.deviceCertificate;
       const deviceCertificate = await certifyDevice({
         signingKey,
@@ -349,11 +383,17 @@ export function createDeviceIdentityService(options: IDeviceIdentityServiceOptio
         },
         issuedAt,
       );
-      await storeKeyPair(options.store, signingKeyCredentialKey(signingCertificate.signingKeyId), signingPair);
+      await storeKeyPair(
+        options.store,
+        signingKeyCredentialKey(signingCertificate.signingKeyId),
+        signingPair,
+      );
       write(state);
       // The retired key's private half goes only once nothing names it any more.
       if (current.holdsSigningKey) {
-        await options.store.delete(signingKeyCredentialKey(current.signingKeyCertificate.signingKeyId));
+        await options.store.delete(
+          signingKeyCredentialKey(current.signingKeyCertificate.signingKeyId),
+        );
       }
       return {
         ok: true,
@@ -363,7 +403,8 @@ export function createDeviceIdentityService(options: IDeviceIdentityServiceOptio
           revokedSigningKeyCount:
             new Set(signingKeyRevocation.revokedSigningKeyIds).size -
             new Set(current.signingKeyRevocation.revokedSigningKeyIds).size,
-          droppedDeviceCount: current.roster.devices.filter((d) => d.deviceId !== self.deviceId).length,
+          droppedDeviceCount: current.roster.devices.filter((d) => d.deviceId !== self.deviceId)
+            .length,
         },
       };
     });
@@ -373,7 +414,9 @@ export function createDeviceIdentityService(options: IDeviceIdentityServiceOptio
     const before = read();
     if (before === undefined) return refuse('not-initialized');
     const matches =
-      prefix.length < MIN_ID_PREFIX ? [] : before.roster.devices.filter((d) => d.deviceId.startsWith(prefix));
+      prefix.length < MIN_ID_PREFIX
+        ? []
+        : before.roster.devices.filter((d) => d.deviceId.startsWith(prefix));
     if (matches.length === 0) return refuse('unknown-device');
     if (matches.length > 1) return refuse('ambiguous-device');
     const target = matches[0]!;
@@ -389,7 +432,9 @@ export function createDeviceIdentityService(options: IDeviceIdentityServiceOptio
     let confirmation: string;
     try {
       confirmation = await session.run((terminal) =>
-        terminal.readLine(`Revoke "${target.name}" (${shortId})? Type ${shortId} to confirm: `, { echo: true }),
+        terminal.readLine(`Revoke "${target.name}" (${shortId})? Type ${shortId} to confirm: `, {
+          echo: true,
+        }),
       );
     } catch (error) {
       if (error instanceof SecretInputCancelled) return refuse('cancelled');
@@ -399,7 +444,7 @@ export function createDeviceIdentityService(options: IDeviceIdentityServiceOptio
 
     return locked(async () => {
       const current = read();
-      if (current === undefined || !unchanged(before, current)) {
+      if (current === undefined || !sameIdentityState(before, current)) {
         return refuse<IDevicesRevokeResult>('changed-concurrently');
       }
       const issuedAt = now();
@@ -427,6 +472,109 @@ export function createDeviceIdentityService(options: IDeviceIdentityServiceOptio
     });
   }
 
+  function enrollmentEnvironment(
+    relay: IMeshRelay,
+    relayFailed: AbortSignal,
+  ): IEnrollmentEnvironment {
+    const iceServers = options.iceServers?.();
+    const connectTimeoutMs = options.enrollment?.connectTimeoutMs;
+    return {
+      directory: options.directory,
+      ...(options.withinRoot !== undefined ? { withinRoot: options.withinRoot } : {}),
+      store: options.store,
+      relay,
+      relayFailed,
+      now,
+      ...(iceServers !== undefined ? { iceServers } : {}),
+      ...(connectTimeoutMs !== undefined ? { connectTimeoutMs } : {}),
+    };
+  }
+
+  /** Run an enrollment on the terminal with a relay of its own, closed however it ends. */
+  async function enrolling<T>(
+    work: (
+      environment: IEnrollmentEnvironment,
+      terminal: ISecretTerminal,
+    ) => Promise<TDevicesOutcome<T>>,
+  ): Promise<TDevicesOutcome<T>> {
+    const openRelay = options.openEnrollmentRelay;
+    if (openRelay === undefined) return refuse('no-relay');
+    const session = options.openTerminal();
+    if (session === undefined) return refuse('no-terminal');
+    const relayFailed = new AbortController();
+    const relay = openRelay(() => relayFailed.abort());
+    if (relay === undefined) return refuse('no-relay');
+    try {
+      return await session.run((terminal) =>
+        work(enrollmentEnvironment(relay, relayFailed.signal), terminal),
+      );
+    } catch (error) {
+      if (error instanceof SecretInputCancelled) return refuse('cancelled');
+      throw error;
+    } finally {
+      relay.close();
+    }
+  }
+
+  async function addDevice(): Promise<TDevicesOutcome<IDevicesAddResult>> {
+    const before = read();
+    if (before === undefined) return refuse('not-initialized');
+    if (!before.holdsSigningKey) return refuse('no-signing-key');
+    const signingKey = await loadSigningKey(options.store, before.signingKeyCertificate);
+    if (signingKey === undefined) return refuse('no-signing-key');
+    if (now() >= signingKey.certificate.expiresAt) return refuse('signing-key-expired');
+    return enrolling(async (environment, terminal) => {
+      const dialog = addDialog(terminal);
+      try {
+        return await offerEnrollment({
+          ...environment,
+          before,
+          signingKey,
+          ...(options.enrollment?.ttlMs !== undefined ? { ttlMs: options.enrollment.ttlMs } : {}),
+          ...(options.enrollment?.maxFailedAttempts !== undefined
+            ? { maxFailedAttempts: options.enrollment.maxFailedAttempts }
+            : {}),
+          showCode: dialog.showCode,
+          confirm: dialog.confirm,
+          cancelled: dialog.cancelled,
+        });
+      } finally {
+        dialog.end();
+      }
+    });
+  }
+
+  async function joinDevices(request: {
+    readonly name?: string;
+  }): Promise<TDevicesOutcome<IDevicesJoinResult>> {
+    if (read() !== undefined) return refuse('already-initialized');
+    // A code typed as the name is now in the session's history; it must not be used.
+    if (request.name !== undefined && normalizeEnrollmentCode(request.name) !== undefined) {
+      return refuse('code-on-command-line');
+    }
+    const name = deviceName(request.name ?? options.defaultDeviceName?.() ?? hostname());
+    // A store that cannot keep the keys must fail now, not after the other operator said yes.
+    await options.store.get(DEVICE_SIGN_KEY);
+    return enrolling(async (environment, terminal) => {
+      const dialog = await joinDialog(terminal);
+      try {
+        if (dialog.code === undefined) return refuse<IDevicesJoinResult>('code-invalid');
+        return await joinEnrollment({
+          ...environment,
+          material: await deriveEnrollmentMaterial(dialog.code),
+          name,
+          showSas: dialog.showSas,
+          cancelled: dialog.cancelled,
+          ...(options.describeKeyStorage !== undefined
+            ? { describeKeyStorage: options.describeKeyStorage }
+            : {}),
+        });
+      } finally {
+        dialog.end();
+      }
+    });
+  }
+
   async function list(): Promise<IDevicesView | undefined> {
     const state = read();
     if (state === undefined) return undefined;
@@ -450,5 +598,7 @@ export function createDeviceIdentityService(options: IDeviceIdentityServiceOptio
     init: (request) => guarded('creating the device identity', () => init(request)),
     recover: () => guarded('recovering the device identity', recover),
     revoke: (prefix) => guarded('revoking the device', () => revoke(prefix)),
+    add: () => guarded('enrolling a device', addDevice),
+    join: (request) => guarded('joining the devices', () => joinDevices(request)),
   };
 }
