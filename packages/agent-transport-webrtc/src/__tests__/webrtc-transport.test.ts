@@ -131,7 +131,8 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
         branchId: 'main',
       }),
     ).not.toThrow();
-    expect(closeChannel).toHaveBeenCalledTimes(1);
+    // The stream is reset after the channel's close grace.
+    await vi.waitFor(() => expect(closeChannel).toHaveBeenCalledTimes(1));
     expect(onDeliveryError).toHaveBeenCalledWith(
       expect.objectContaining({ message: 'unpaired channel closed' }),
       'branch_event',
