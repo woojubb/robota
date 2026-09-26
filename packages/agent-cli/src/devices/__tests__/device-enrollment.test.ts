@@ -36,7 +36,6 @@ import { scriptedSession, type ScriptedSessionHarness } from '@robota-sdk/agent-
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createFileCredentialStore } from '../../credentials/file-credential-store.js';
-import { joinEnrollment } from '../device-enrollment.js';
 import { openDeviceMesh, type IDeviceMeshEndpoint } from '../device-mesh.js';
 import { DEVICE_SIGN_KEY } from '../identity-keys.js';
 import { readIdentityState } from '../identity-state.js';
@@ -401,40 +400,51 @@ describe('/devices add and /devices join between two HOMEs', () => {
     const laptop = await initialized('laptop', hub);
     const desktop = makeHome('desktop');
     const before = snapshot(laptop);
-    const { added, joined } = await adding(
+    /**
+     * Someone who learned the topics (the relay) guesses the key once. The laptop takes one attempt at
+     * a time and ignores an offer while one is open, so each guess waits for the laptop to close it:
+     * the laptop counts the failure in the same step, and the next guess is then heard.
+     */
+    const guessOnce = async (code: string): Promise<string> => {
+      const right = await deriveEnrollmentMaterial(code);
+      const guess = await deriveEnrollmentMaterial('0000000000000000000000000');
+      const material = { ...right, proofKey: guess.proofKey, sasKey: guess.sasKey };
+      const relay = hub.connect();
+      try {
+        const channel = await dialEnrollment({
+          relay,
+          inbound: material.joinerInbox,
+          outbound: material.existingInbox,
+        });
+        const closedByLaptop = new Promise<void>((resolve) => channel.onClose(resolve));
+        const proved = await attackerSide(channel, 'joiner', material).binding.then(
+          () => 'accepted',
+          () => 'refused',
+        );
+        await closedByLaptop;
+        return proved;
+      } finally {
+        relay.close();
+      }
+    };
+    let shownCode = '';
+    const { added, joined: guesses } = await adding(
       laptop,
       portOf(laptop, hub, { maxFailedAttempts: 3 }),
       async (code) => {
-        // Someone who learned the topics (the relay) guesses the key three times.
-        const right = await deriveEnrollmentMaterial(code);
-        const guess = await deriveEnrollmentMaterial('0000000000000000000000000');
-        const guesses: string[] = [];
-        for (let i = 0; i < 3; i += 1) {
-          const guesser = makeHome(`guesser-${i}`);
-          guesses.push(
-            reason(
-              await joinEnrollment({
-                directory: guesser.directory,
-                withinRoot: guesser.root,
-                store: guesser.store,
-                relay: hub.connect(),
-                now: Date.now,
-                material: { ...right, proofKey: guess.proofKey, sasKey: guess.sasKey },
-                name: 'guesser',
-                operator: { confirm: async () => false, waitForPeer: (pending) => pending },
-                cancelled: new AbortController().signal,
-              }),
-            ),
-          );
-        }
-        operate(desktop, { code: () => code });
-        return { guesses, real: await portOf(desktop, hub).join({ name: 'desktop' }) };
+        shownCode = code;
+        const results: string[] = [];
+        for (let i = 0; i < 3; i += 1) results.push(await guessOnce(code));
+        return results;
       },
     );
-    expect(joined.guesses).toEqual(['code-not-accepted', 'code-not-accepted', 'code-not-accepted']);
+    expect(guesses).toEqual(['refused', 'refused', 'refused']);
     expect(reason(added)).toBe('too-many-attempts');
-    expect(reason(joined.real)).toBe('code-not-accepted');
+    // The right device, with the right code, once the laptop has given up on it.
+    operate(desktop, { code: () => shownCode });
+    expect(reason(await portOf(desktop, hub).join({ name: 'desktop' }))).toBe('code-not-accepted');
     expect(snapshot(laptop)).toBe(before);
+    expect(readIdentityState(desktop.directory)).toBeUndefined();
   }, 60_000);
 
   it('someone who knows the code and sits in the middle cannot make the two screens agree', async () => {

@@ -175,13 +175,27 @@ export async function executePeersCommand(
   const sendVerb = /^send(?=\s|$)/.exec(trimmed);
   if (sendVerb !== null) return executeSend(adapter, trimmed.slice(sendVerb[0].length));
 
+  const devices = adapter.listDevices?.() ?? [];
+  const discoveryOff = adapter.localDiscoveryOff;
+  if (discoveryOff !== undefined) {
+    const off = `Sessions on this host are not listed: local peer discovery is off for this session (${discoveryOff}).`;
+    return {
+      message:
+        devices.length === 0
+          ? `${off}\nNo device is linked right now.`
+          : `Linked devices:\n${devices.map(describeDevice).join('\n')}\n\n${off}` +
+            `\n\nSend to one: /peers send <device-id> <message>` +
+            `\nSend a file: /peers send-file <device-id> <path>`,
+      success: true,
+    };
+  }
+
   const own = adapter.ownSessionId();
   // The workspace-judged listing when the host has one; it reads git, so only this view asks for it.
   const peers = (
     adapter.listWithWorkspace !== undefined ? await adapter.listWithWorkspace() : adapter.list()
   ).filter(addressable);
   const others = peers.filter((peer) => peer.sessionId !== own);
-  const devices = adapter.listDevices?.() ?? [];
 
   if (others.length === 0 && devices.length === 0) {
     return {

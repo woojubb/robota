@@ -445,7 +445,10 @@ async function runCliCore(
     keybindingsSource,
     theme?.cataloguePort,
     sandbox,
-    () => deviceMesh.status(),
+    {
+      status: () => deviceMesh.status(),
+      identityChanged: () => void deviceMesh.identityChanged(),
+    },
   );
   for (const { file, error } of outputStyleLoadErrors) {
     terminal.writeError(`Skipped output style "${file}": ${error}`);
@@ -971,7 +974,7 @@ async function runCliCore(
     markOnboarded();
   }
   // A device holding the signing key keeps its roster and revocation list from lapsing while it runs.
-  startDeviceListReissue();
+  startDeviceListReissue({ onReissued: () => void deviceMesh.identityChanged() });
   // What a linked device asks that needs the operator is asked on this terminal, never in a prompt.
   void deviceMesh.start({
     ...(remoteControlController.operatorApprover !== undefined

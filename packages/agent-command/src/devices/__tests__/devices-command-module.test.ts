@@ -156,6 +156,17 @@ describe('/devices command', () => {
     vi.mocked(port.list).mockResolvedValueOnce(undefined);
     const result = await start(port).command('devices', 'list');
     expect(result?.message).toMatch(/\/devices init/);
+    // A device of a user who already has others joins them; `init` would never link to them.
+    expect(result?.message).toMatch(/\/devices join/);
+    expect(result?.message).toMatch(/separate identity/);
+  });
+
+  it('describes init as for the first device, and join as the way to the devices a user has', () => {
+    const entry = createDevicesCommandModule(fakePort()).commandSources?.[0]?.getCommands()[0];
+    const init = entry?.subcommands?.find((sub) => sub.name === 'init');
+    expect(init?.description).toMatch(/first device/);
+    expect(init?.description).toMatch(/separate identity/);
+    expect(entry?.description).toMatch(/separate identity/);
   });
 
   it('runs init, recover and revoke on the operator terminal', async () => {

@@ -33,16 +33,21 @@ export function createDevicesCommandEntry(): ICommand {
     name: 'devices',
     displayName: 'Devices',
     description:
-      "Manage this device's identity among the user's devices: list the roster with the device mesh status (whether it is on, how this device finds the others, which are linked), create the identity and its recovery phrase, enrol another device (add shows a one-time code; join on the new device reads it), revoke a device, or rotate the signing key from the phrase. Operator-only; the phrase and the enrollment code are handled on the terminal only, and results carry only device ids and names.",
+      "Manage this device's identity among the user's devices: list the roster with the device mesh status (whether it is on, how this device finds the others, which are linked), create the identity and its recovery phrase (init, for the user's first device only: on a device of a user who already has others it makes a separate identity that can never link to them), enrol another device (add shows a one-time code; join on the new device reads it), revoke a device, or rotate the signing key from the phrase. A new identity or new lists take effect in the running session's device mesh at once. Operator-only; the phrase and the enrollment code are handled on the terminal only, and results carry only device ids and names.",
     source: 'devices',
     modelInvocable: false,
     userInvocable: true,
     argumentHint: '[list|init [name]|add|join [name]|revoke <device-id>|recover]',
     subcommands: [
-      { name: 'list', description: 'List your devices and the device mesh status', source: 'devices' },
+      {
+        name: 'list',
+        description: 'List your devices and the device mesh status',
+        source: 'devices',
+      },
       {
         name: 'init',
-        description: 'Create your device identity and recovery phrase',
+        description:
+          'Create your device identity and recovery phrase, on your first device only (on another, a separate identity that can never link to your devices; use add/join there)',
         source: 'devices',
         argumentHint: '[name]',
       },
@@ -75,7 +80,8 @@ export function createDevicesCommandEntry(): ICommand {
 const REFUSALS: Readonly<Record<TDevicesRefusal, string>> = {
   'no-terminal':
     'This needs an interactive terminal; the recovery phrase is never shown or read anywhere else.',
-  'not-initialized': 'This device has no identity yet. Run `/devices init` first.',
+  'not-initialized':
+    'This device has no identity yet. If you already use Robota on another device, run `/devices add` there and `/devices join` here, typing the code it shows. Run `/devices init` only for your first device: it creates a separate identity that can never link to your other devices.',
   'already-initialized':
     'This device already has an identity. Use `/devices recover` to rotate its signing key.',
   cancelled: 'Cancelled. Nothing was changed.',
@@ -123,7 +129,9 @@ function refused(reason: TDevicesRefusal): ICommandResult {
 
 function formatMesh(mesh: IDevicesMeshStatus): string[] {
   if (mesh.state === 'off') {
-    return ['Device mesh: off. Set `transports.mesh.enabled` to true in your user settings to link your devices.'];
+    return [
+      'Device mesh: off. Set `transports.mesh.enabled` to true in your user settings to link your devices.',
+    ];
   }
   if (mesh.state === 'failed') {
     return [`Device mesh: could not start: ${mesh.reason ?? 'no reason was reported'}.`];

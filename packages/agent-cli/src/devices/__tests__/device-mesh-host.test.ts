@@ -3,7 +3,7 @@
  * for a device with an identity, with the default policy and the terminal operator's approver, and
  * exit closes it.
  */
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -49,6 +49,7 @@ async function withIdentity(): Promise<void> {
 
 function fakeOpen() {
   const close = vi.fn();
+  const refresh = vi.fn(async () => undefined);
   const refusals: ((refusal: IDeviceMeshRefusal) => void)[] = [];
   const endpoint = {
     node: {
@@ -59,20 +60,25 @@ function fakeOpen() {
       },
       stop: () => undefined,
     },
-    refresh: async () => undefined,
+    refresh,
     close,
   } as unknown as IDeviceMeshEndpoint;
   const open = vi.fn(async (_options: IOpenDeviceMeshOptions) => endpoint);
   const refuse = (refusal: IDeviceMeshRefusal): void => {
     for (const handler of refusals) handler(refusal);
   };
-  return { open, close, refuse };
+  return { open, close, refuse, refresh };
 }
 
 const APPROVER: IOperatorApprover = { approve: async () => false };
 const NO_INTERNET = { dht: false, pkarrRelays: [], nostrRelays: [] };
 
-function host(transports: unknown, open: ReturnType<typeof fakeOpen>['open'], said: string[] = []) {
+function host(
+  transports: unknown,
+  open: ReturnType<typeof fakeOpen>['open'],
+  said: string[] = [],
+  lockStaleMs?: number,
+) {
   return createDeviceMeshHost({
     root,
     store: store(),
@@ -81,6 +87,7 @@ function host(transports: unknown, open: ReturnType<typeof fakeOpen>['open'], sa
     lan: false,
     relay: () => undefined,
     report: (message) => said.push(message),
+    ...(lockStaleMs !== undefined ? { lockStaleMs } : {}),
   });
 }
 
@@ -180,14 +187,60 @@ describe('opening the mesh at startup', () => {
     expect(mesh.status().state).toBe('off');
   });
 
-  it('opens nothing for a device with no identity, and says to run /devices init', async () => {
+  it('opens nothing for a device with no identity, and points to /devices join as well as init', async () => {
     const { open } = fakeOpen();
     const said: string[] = [];
     const mesh = host({ mesh: { enabled: true, options: NO_INTERNET } }, open, said);
     await mesh.start({ operatorApprover: APPROVER });
     expect(open).not.toHaveBeenCalled();
     expect(mesh.status().state).toBe('off');
-    expect(said.join('\n')).toContain('/devices init');
+    const text = said.join('\n');
+    expect(text).toContain('/devices join');
+    expect(text).toContain('/devices add');
+    expect(text).toContain('/devices init');
+    // `init` on a device of a user who has others makes an identity that can never link to them.
+    expect(text).toMatch(/separate identity/);
+    expect(text).toMatch(/never link/);
+  });
+
+  it('opens once an identity is created mid-session, with the approver it was started with', async () => {
+    const { open } = fakeOpen();
+    const said: string[] = [];
+    const mesh = host({ mesh: { enabled: true, options: NO_INTERNET } }, open, said);
+    await mesh.start({ operatorApprover: APPROVER });
+    expect(open).not.toHaveBeenCalled();
+
+    await withIdentity();
+    await mesh.identityChanged();
+
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(open.mock.calls[0]![0].operatorApprover).toBe(APPROVER);
+    expect(mesh.status().state).toBe('on');
+    expect(mesh.ownDeviceId()).toBeDefined();
+  });
+
+  it('opens nothing on an identity change when the setting is off, or before startup asked', async () => {
+    await withIdentity();
+    const off = fakeOpen();
+    const disabled = host({ mesh: { options: NO_INTERNET } }, off.open);
+    await disabled.start({ operatorApprover: APPROVER });
+    await disabled.identityChanged();
+    expect(off.open).not.toHaveBeenCalled();
+
+    const early = fakeOpen();
+    const notStarted = host({ mesh: { enabled: true, options: NO_INTERNET } }, early.open);
+    await notStarted.identityChanged();
+    expect(early.open).not.toHaveBeenCalled();
+  });
+
+  it('puts changed lists in force on the open mesh, which pushes them to the linked devices', async () => {
+    await withIdentity();
+    const { open, refresh } = fakeOpen();
+    const mesh = host({ mesh: { enabled: true, options: NO_INTERNET } }, open);
+    await mesh.start({ operatorApprover: APPROVER });
+    await mesh.identityChanged();
+    expect(open).toHaveBeenCalledTimes(1);
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it('opens it with the default policy and the terminal approver when the setting is on', async () => {
@@ -228,6 +281,29 @@ describe('opening the mesh at startup', () => {
     const third = fakeOpen();
     await host(settings, third.open).start({ operatorApprover: APPROVER });
     expect(third.open).toHaveBeenCalledTimes(1);
+  });
+
+  it('closes its mesh, and says why, once another session took the mesh over after a stall', async () => {
+    await withIdentity();
+    const { open, close } = fakeOpen();
+    const said: string[] = [];
+    const mesh = host({ mesh: { enabled: true, options: NO_INTERNET } }, open, said, 150);
+    await mesh.start({ operatorApprover: APPROVER });
+    expect(mesh.status().state).toBe('on');
+
+    // Another session found this one's lock stale (this machine slept) and took it over.
+    const lock = join(root, 'devices', 'mesh.lock');
+    writeFileSync(lock, 'another-session');
+
+    await vi.waitFor(() => expect(close).toHaveBeenCalledTimes(1), { timeout: 2_000 });
+    expect(mesh.status().state).toBe('failed');
+    expect(mesh.status().reason).toMatch(/another Robota session .* took it over/);
+    expect(mesh.ownDeviceId()).toBeUndefined();
+    expect(said.join('\n')).toMatch(/took it over/);
+    // The session that took it over keeps its lock, and this one does not reopen on its own.
+    mesh.close();
+    expect(readFileSync(lock, 'utf8')).toBe('another-session');
+    expect(open).toHaveBeenCalledTimes(1);
   });
 
   it('passes the relay settings to the mesh it opens', async () => {

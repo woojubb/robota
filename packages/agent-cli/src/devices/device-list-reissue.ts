@@ -93,12 +93,14 @@ export async function reissueDueLists(
 
 /**
  * Check now and then hourly while the host runs. The timer never holds the process open. A failed
- * check is retried on the next tick; `onError` hears about it.
+ * check is retried on the next tick; `onError` hears about it. `onReissued` hears of new lists, for
+ * a running mesh to push them.
  */
 export function scheduleListReissue(
   options: IDeviceListReissueOptions & {
     readonly intervalMs?: number;
     readonly onError?: (error: unknown) => void;
+    readonly onReissued?: () => void;
   },
 ): () => void {
   let running = false;
@@ -106,6 +108,9 @@ export function scheduleListReissue(
     if (running) return;
     running = true;
     reissueDueLists(options)
+      .then((outcome) => {
+        if (outcome === 'reissued') options.onReissued?.();
+      })
       .catch((error: unknown) => options.onError?.(error))
       .finally(() => {
         running = false;
