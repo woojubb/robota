@@ -483,6 +483,63 @@ describe('Robota Core', () => {
       expect(robota.getHistory()).toEqual([]);
     });
 
+    it('wraps a reason that only carries an abort in its cause, so the name still says abort', async () => {
+      const provider = new TrackingProvider();
+      const robota = new Robota(createConfig({ aiProviders: [provider] }));
+      const parent = new AbortController();
+      parent.abort();
+      const reason = new Error('parent cancelled', { cause: parent.signal.reason });
+      const controller = new AbortController();
+      controller.abort(reason);
+
+      const error = await failureOf(robota.run('Aborted', { signal: controller.signal }));
+
+      // A name-only check (`error.name === 'AbortError'`) must see an abort, not the wrapper.
+      expect((error as Error).name).toBe('AbortError');
+      expect((error as Error).message).toBe('Run aborted before it started');
+      expect((error as Error).cause).toBe(reason);
+      expect(((error as Error).cause as Error).cause).toBe(parent.signal.reason);
+      expect(provider.chatCalls).toHaveLength(0);
+    });
+
+    // The "queued" message depends on counting claimed slots; every way a run ends must give its
+    // slot back, or a later lone run would be told it had been queued behind a run that is gone.
+    const abortedRunMessage = async (robota: Robota): Promise<string> => {
+      const controller = new AbortController();
+      controller.abort('stop');
+      const error = await failureOf(robota.run('Aborted', { signal: controller.signal }));
+      return (error as Error).message;
+    };
+
+    it('gives the slot back after a run that failed', async () => {
+      class FailingProvider extends TrackingProvider {
+        override async chat(): Promise<TUniversalMessage> {
+          throw new Error('provider exploded');
+        }
+      }
+      const robota = new Robota(createConfig({ aiProviders: [new FailingProvider()] }));
+
+      await expect(robota.run('Fails')).rejects.toThrow();
+
+      expect(await abortedRunMessage(robota)).toBe('Run aborted before it started');
+    });
+
+    it('gives the slot back after a run that was itself aborted before it started', async () => {
+      const robota = new Robota(createConfig());
+
+      expect(await abortedRunMessage(robota)).toBe('Run aborted before it started');
+      expect(await abortedRunMessage(robota)).toBe('Run aborted before it started');
+    });
+
+    it('gives the slot back after a runStream closed early by its consumer', async () => {
+      const robota = new Robota(createConfig());
+      const stream = robota.runStream('Closed early');
+      await stream.next(); // the stream owns the slot now
+      await stream.return('');
+
+      expect(await abortedRunMessage(robota)).toBe('Run aborted before it started');
+    });
+
     it.each(entryPoints)(
       '%s aborted while queued behind another run fails as an abort that says it was queued',
       async (_label, start) => {

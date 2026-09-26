@@ -73,14 +73,16 @@ export class RunQueue {
  * The failure for a run whose signal was already aborted when its turn came.
  *
  * It is an ABORT, recognisable by name alone: a caller that classifies failures without holding the
- * signal must not read a cancelled run as a broken one. A reason that already is an abort is thrown
- * as it is, as `signal.throwIfAborted()` would; any other reason becomes the cause of one. The
+ * signal must not read a cancelled run as a broken one. A reason that already is an `AbortError` is
+ * thrown as it is, as `signal.throwIfAborted()` would; any other reason becomes the cause of one —
+ * including an error that merely WRAPS an abort, whose own name would still fail a name check. The
  * message says whether the run actually waited behind another, since a caller who never started a
  * second run should not be told it was queued.
  */
 function abortedBeforeStart(signal: AbortSignal, queuedBehindAnotherRun: boolean): Error {
   const reason: unknown = signal.reason;
-  if (isAbortFailure(reason)) return reason as Error;
+  // `isAbortFailure` also accepts an abort one level down the cause chain; only the name counts here.
+  if (isAbortFailure(reason) && (reason as Error).name === 'AbortError') return reason as Error;
   return createAbortError(
     queuedBehindAnotherRun
       ? 'Run aborted while queued behind another run on this instance'
