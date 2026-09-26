@@ -224,6 +224,19 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(screen.queryByRole('status', { name: 'goal' })).toBeNull();
   });
 
+  it('#3186 review: a pending question stays visible while the Usage view is open', () => {
+    const state = stubState({
+      pendingPrompts: [
+        { kind: 'permission', id: 'p1', toolName: 'write_file', toolArgs: { path: 'x' } },
+      ] as unknown as IWsSessionState['pendingPrompts'],
+    });
+    render(<SessionSurface state={state} personalUsageEnabled />);
+    fireEvent.click(screen.getByRole('button', { name: 'Usage' }));
+    expect(screen.getByText(/permission request/i)).toBeTruthy();
+    fireEvent.click(screen.getByText('Allow'));
+    expect(state.answerPermission).toHaveBeenCalledWith('p1', true);
+  });
+
   it('TC-02: a pending permission prompt renders and Allow answers it via answerPermission', () => {
     const state = stubState({
       pendingPrompts: [

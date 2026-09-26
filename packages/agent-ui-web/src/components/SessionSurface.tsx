@@ -73,6 +73,13 @@ export function SessionSurface({
       {personalUsageEnabled && view === 'usage' ? (
         <div className="min-h-0 flex-1">
           <PersonalUsageDashboard state={state} />
+          {/* A gated turn waits on this answer, so it shows over whatever view is open. */}
+          <PermissionPrompt
+            layout="modal"
+            prompts={state.pendingPrompts}
+            onAnswerPermission={state.answerPermission}
+            onAnswerAsk={state.answerAsk}
+          />
         </div>
       ) : (
         <div className="flex flex-1 overflow-hidden">

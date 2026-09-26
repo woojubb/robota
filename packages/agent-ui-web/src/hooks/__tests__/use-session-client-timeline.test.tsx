@@ -52,6 +52,7 @@ describe('#3186 — the GUI conversation timeline', () => {
 
   it('a ui_intent and its command result make ONE info entry naming what is unavailable', () => {
     const { result, deliver } = setup();
+    act(() => result.current.send({ type: 'command', name: 'settings' }));
     deliver({ type: 'ui_intent', event: { intent: { type: 'show-settings' } } } as TServerMessage);
     deliver({ type: 'command_result', name: 'settings', message: 'Opening settings...', success: true });
 
@@ -63,6 +64,33 @@ describe('#3186 — the GUI conversation timeline', () => {
       'content',
       expect.stringMatching(/settings screen is not available/i),
     );
+  });
+
+  it('#3186 review: a screen request with no command of ours in flight shows at once', () => {
+    const { result, deliver } = setup();
+    // A model-run `/agent` asks for the switcher; no command_result follows on this surface.
+    deliver({ type: 'ui_intent', event: { intent: { type: 'show-agent-switcher' } } } as TServerMessage);
+    expect(result.current.messages).toEqual([
+      expect.objectContaining({ role: 'command', name: 'agent', tone: 'info' }),
+    ]);
+    // …and it never replaces the reply of a later, unrelated command.
+    act(() => result.current.send({ type: 'command', name: 'help' }));
+    deliver({ type: 'command_result', name: 'help', message: 'Available commands', success: true });
+    expect(result.current.messages.at(-1)).toEqual(
+      expect.objectContaining({ name: 'help', content: 'Available commands', tone: 'success' }),
+    );
+  });
+
+  it('#3186 review: a protocol error in place of the reply still shows the screen request', () => {
+    const { result, deliver } = setup();
+    act(() => result.current.send({ type: 'command', name: 'settings' }));
+    deliver({ type: 'ui_intent', event: { intent: { type: 'show-settings' } } } as TServerMessage);
+    deliver({ type: 'protocol_error', message: 'boom' });
+    expect(result.current.messages).toEqual([
+      expect.objectContaining({ role: 'command', name: 'settings', tone: 'info' }),
+    ]);
+    deliver({ type: 'command_result', name: 'help', message: 'Available commands', success: true });
+    expect(result.current.messages.at(-1)).toEqual(expect.objectContaining({ tone: 'success' }));
   });
 
   it("a finished turn keeps its tool calls in the conversation, before the agent's reply", () => {

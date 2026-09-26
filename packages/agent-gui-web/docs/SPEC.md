@@ -12,16 +12,15 @@ importable library.
 
 ## Contract
 
-- **One seam to the host.** The app learns where its sidecar is through a single host interface:
-  inside the desktop app from the Electron preload bridge, in a browser from the address the CLI
-  injected into the page, then `?ws=` on the page URL, then the page's own host. Nothing else in the
-  app depends on which host it runs in.
+- **One seam to the host.** The app learns where its sidecar is through a single host interface —
+  the desktop bridge, or the page itself in a browser — and nothing else in the app depends on which
+  host it runs in. An address the host supplies always wins over one typed into the page URL.
 - **Presentation only.** All session, command and permission logic lives in the sidecar; the app is a
   thin client over the WS transport and holds no domain logic of its own.
 - **Loopback only.** The built page's content-security policy lets it reach a loopback WebSocket and
   nothing else; the sidecar address carries the launch token.
-- Consumers take the complete built output (`dist/`) through a copied-artifact build edge — the CLI
-  into `dist/web`, the desktop app into its renderer directory — never through an import.
+- Consumers take the complete built output through a copied-artifact build edge, never through an
+  import.
 
 ## Non-goals
 

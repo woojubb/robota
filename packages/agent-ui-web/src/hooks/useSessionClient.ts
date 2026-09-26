@@ -14,7 +14,7 @@ import {
   permissionResponse,
   type TPendingPrompt,
 } from './prompt-state.js';
-import { describeUiIntentForGui } from './ui-intent-state.js';
+import { describeUiIntentForGui, uiIntentCommandName } from './ui-intent-state.js';
 import { createWsSessionClient } from '../client/ws-session-client.js';
 import { SERVER_MESSAGE_HANDLING } from './server-message-handling.js';
 import { usePersonalUsageState } from './use-personal-usage.js';
@@ -74,8 +74,9 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   const streamingTextRef = useRef('');
   // The tools of the running turn, mirrored so the turn's end can keep them in the conversation.
   const activeToolsRef = useRef<IActiveTool[]>([]);
-  // A screen this surface asked for and cannot show; it answers the command in place of its reply.
-  const pendingIntentRef = useRef<string | null>(null);
+  // A screen this surface's command asked for and cannot show; it answers the command in place of
+  // the command's own reply.
+  const pendingIntentRef = useRef<{ name: string; text: string } | null>(null);
   const updateActiveTools = useCallback((next: (previous: IActiveTool[]) => IActiveTool[]): void => {
     activeToolsRef.current = next(activeToolsRef.current);
     setActiveTools(activeToolsRef.current);
@@ -105,7 +106,12 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     },
     [appendEntry, updateActiveTools],
   );
-  const send = useCallback((msg: TClientMessage): void => clientRef.current?.send(msg), []);
+  // Commands this surface sent whose result has not come back — a screen request pairs with one.
+  const commandsInFlightRef = useRef(0);
+  const send = useCallback((msg: TClientMessage): void => {
+    if (msg.type === 'command') commandsInFlightRef.current += 1;
+    clientRef.current?.send(msg);
+  }, []);
   const { handleUsageMessage, ...personalUsageState } = usePersonalUsageState(send);
 
   const handleMessage = useCallback(
@@ -185,7 +191,16 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         case 'ui_intent': {
           // CMD-004 Stage D: a command this surface issued requested a screen the GUI does not have.
           // The command's result follows; the unavailable line answers it (TC-05, never silent).
-          pendingIntentRef.current = describeUiIntentForGui(msg.event.intent);
+          const unavailable = {
+            name: uiIntentCommandName(msg.event.intent),
+            text: describeUiIntentForGui(msg.event.intent),
+          };
+          if (commandsInFlightRef.current > 0) {
+            pendingIntentRef.current = unavailable;
+          } else {
+            // No command of ours awaits a reply (a model-run command, a broadcast): say it now.
+            appendEntry({ id: nextId(), role: 'command', name: unavailable.name, content: unavailable.text, tone: 'info' });
+          }
           break;
         }
         // CMD-004 Stage E: broadcast session events — a rename/clear executed by the HOST (from any
@@ -211,6 +226,13 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           break;
         }
         case 'protocol_error': {
+          // A command can end in a protocol error instead of a result; a screen it asked for still shows.
+          commandsInFlightRef.current = Math.max(0, commandsInFlightRef.current - 1);
+          const unavailable = pendingIntentRef.current;
+          pendingIntentRef.current = null;
+          if (unavailable !== null) {
+            appendEntry({ id: nextId(), role: 'command', name: unavailable.name, content: unavailable.text, tone: 'info' });
+          }
           setSessionNotices((previous) => [
             ...previous,
             { id: nextId(), kind: 'protocol-error', message: msg.message },
@@ -229,10 +251,11 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           // A command may change the status (mode, effort, model) or the catalog (plugins, skills).
           send({ type: 'get-status' });
           send({ type: 'get-commands' });
+          commandsInFlightRef.current = Math.max(0, commandsInFlightRef.current - 1);
           const unavailable = pendingIntentRef.current;
           pendingIntentRef.current = null;
           if (unavailable !== null && msg.success) {
-            appendEntry({ id: nextId(), role: 'command', name: msg.name, content: unavailable, tone: 'info' });
+            appendEntry({ id: nextId(), role: 'command', name: msg.name, content: unavailable.text, tone: 'info' });
             break;
           }
           // A command that starts a turn (a skill) says nothing itself; the turn is its answer.

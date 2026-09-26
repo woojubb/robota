@@ -3,14 +3,33 @@
  *
  * The server requester-routes `ui_intent`, so everything that arrives here was asked for by THIS
  * surface and must be answered visibly. The GUI has no screen for any intent yet, so each one
- * becomes an explicit "not available on this surface" line in the conversation, in place of the
- * command's own "Opening …" reply — never a silent drop. When a GUI screen for an intent lands,
+ * becomes an explicit "not available on this surface" line in the conversation — in place of the
+ * command's own "Opening …" reply when this surface's command is awaiting it, at once otherwise (a
+ * model-run command, a broadcast) — never a silent drop. When a GUI screen for an intent lands,
  * its arm in {@link describeUiIntentForGui} gives way to that screen.
  */
 
 import type { TCommandUiIntent } from '@robota-sdk/agent-interface-command';
 
 const UNAVAILABLE = 'is not available on this surface. Use the robota terminal on the host.';
+
+/** The command a user runs for the screen an intent asks for — how the info line is labelled. */
+export function uiIntentCommandName(intent: TCommandUiIntent): string {
+  switch (intent.type) {
+    case 'show-plugin-manager':
+      return 'plugin';
+    case 'show-settings':
+      return 'settings';
+    case 'show-session-picker':
+      return 'resume';
+    case 'show-agent-switcher':
+      return 'agent';
+    case 'show-theme-picker':
+      return 'theme';
+    default:
+      return (intent as { type: string }).type;
+  }
+}
 
 /**
  * Describe one intent for this surface: the explicit unsupported line (no GUI screen exists for any
