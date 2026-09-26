@@ -154,6 +154,11 @@ export interface IToolPermissionProfile {
   aliases?: readonly string[];
   /** The tool answers the peer whose message started the current turn; it exists only there. */
   repliesToPeer?: boolean;
+  /**
+   * The tool acts for the operator in a way a peer's message must not set off; it does not exist in
+   * a turn a peer's message started.
+   */
+  notInPeerTurn?: boolean;
 }
 
 /** Profiles contributed by the packages that own the tools. */
@@ -475,6 +480,9 @@ export function evaluatePermission(
   //     answer. Inside one, the steps below decide it like any call that sends something off this
   //     machine. A peer turn changes nothing else: its calls are decided like the session's own.
   if (toolProfiles.get(toolName)?.repliesToPeer === true && context.peerTurn !== true) {
+    return 'deny';
+  }
+  if (toolProfiles.get(toolName)?.notInPeerTurn === true && context.peerTurn === true) {
     return 'deny';
   }
 

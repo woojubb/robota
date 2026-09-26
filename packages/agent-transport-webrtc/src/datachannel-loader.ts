@@ -15,6 +15,8 @@ export interface INdcDataChannel {
   sendMessage(message: string): boolean;
   isOpen(): boolean;
   bufferedAmount(): number;
+  /** The label the opening side gave the channel. */
+  getLabel?(): string;
   onOpen(callback: () => void): void;
   onClosed(callback: () => void): void;
   onError(callback: (error: string) => void): void;

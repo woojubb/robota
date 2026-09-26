@@ -90,7 +90,8 @@ dependency.
   cut a working connection nor open connections without bound.
   Lists adopted in a handshake or handed over later apply from the next handshake, and a device they revoke loses
   its connection at once. Admission says who the peer is; what it may do on the connection is its connection
-  authority's answer, so even a message is delivered only when that authority allows it.
+  authority's answer, so even a message is delivered only when that authority allows it. A file travels on a
+  channel of its own, opened only on an admitted connection, so a transfer never shares the message channel.
 - **Discovery yields candidates, never trust.** Whatever a discovery path answers only carries signals, so a stale
   or planted address can delay a connection but not admit one. A pair tries what reveals least first: an address
   that already carried an admitted connection needs no broadcast, the local network needs no third party, and the

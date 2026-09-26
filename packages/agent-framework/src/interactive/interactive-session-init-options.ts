@@ -14,6 +14,7 @@ import type { IInteractiveSessionStore } from './session-persistence.js';
 import type { TInteractivePermissionHandler } from './types.js';
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IPeerReplyPort } from '../tools/peer-reply-tool.js';
+import type { IPeerSendFilePort } from '../tools/peer-send-file-tool.js';
 import type { TSessionResponseFormat } from '../assembly/create-session-types.js';
 import type { ICreateSessionOptions } from '../assembly/index.js';
 import type { ICapabilityDescriptor } from '../capabilities/types.js';
@@ -181,6 +182,8 @@ export interface IInitOptions {
   additionalTools?: IToolWithEventService[];
   /** The session's answer route to a peer; its tool is offered only in a peer turn. */
   peerReply?: IPeerReplyPort;
+  /** How the model sends a file to another session; every file asks the operator. */
+  peerSendFile?: IPeerSendFilePort;
   /**
    * ARCH-006: REPLACES the framework's `createDefaultTools()` tier; `[]` suppresses every framework
    * default so a product's capability packs can own the whole tool surface. Mirrors NEUT-003's

@@ -12,6 +12,7 @@ import type { TMeshCapability } from '../mesh-admission-contracts.js';
 const ALL: readonly TMeshCapability[] = [
   'delegate',
   'drive',
+  'file',
   'handoff',
   'message',
   'observe',
@@ -205,5 +206,40 @@ describe('ConnectionAuthority', () => {
         },
       },
     });
+  });
+
+  it('asks the operator for every file transfer, showing name, size and hash', async () => {
+    const operator = approver(true);
+    const authority = new ConnectionAuthority(peer(), operator);
+    const offer = { name: 'notes.txt', size: 12, sha256: 'a'.repeat(64) };
+
+    await expect(authority.authorizeFile(offer)).resolves.toEqual({ allowed: true });
+    await expect(authority.authorizeFile(offer)).resolves.toEqual({ allowed: true });
+
+    expect(operator.requests).toHaveLength(2);
+    expect(operator.requests[0]).toMatchObject({ capability: 'file', scope: 'request' });
+    expect(operator.requests[0]?.summary).toContain('notes.txt');
+    expect(operator.requests[0]?.summary).toContain('12 bytes');
+    expect(operator.requests[0]?.summary).toContain('a'.repeat(64));
+  });
+
+  it('refuses a file transfer nobody approved', async () => {
+    await expect(
+      new ConnectionAuthority(peer(), approver(false)).authorizeFile({
+        name: 'x',
+        size: 1,
+        sha256: 'b'.repeat(64),
+      }),
+    ).resolves.toEqual({ allowed: false, reason: 'declined' });
+    await expect(
+      new ConnectionAuthority(peer()).authorizeFile({ name: 'x', size: 1, sha256: 'b'.repeat(64) }),
+    ).resolves.toEqual({ allowed: false, reason: 'no-approver' });
+    await expect(
+      new ConnectionAuthority(peer({ capabilities: ['message'] }), approver(true)).authorizeFile({
+        name: 'x',
+        size: 1,
+        sha256: 'b'.repeat(64),
+      }),
+    ).resolves.toEqual({ allowed: false, reason: 'not-granted' });
   });
 });

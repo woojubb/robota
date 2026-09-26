@@ -45,9 +45,26 @@ import path from 'node:path';
 
 import { admitLocalPeerSocket } from '@robota-sdk/agent-remote-pairing/local';
 
-import type { IPeerMessage, IPeerMessageAck } from '@robota-sdk/agent-interface-session-mobility';
+import {
+  receiveFileOverChannel,
+  sendFileOverChannel,
+  type IFileSource,
+  type IReceiveFileOptions,
+  type TFileReceiveOutcome,
+  type TFileSendOutcome,
+} from '@robota-sdk/agent-transport/node';
+
+import type {
+  IFileFrameChannel,
+  IFileOffer,
+  IPeerMessage,
+  IPeerMessageAck,
+} from '@robota-sdk/agent-interface-session-mobility';
 
 const LINE_TIMEOUT_MS = 10_000;
+/** Longer than any message or file frame; a longer line is a peer that does not speak this protocol. */
+const MAX_LINE_CHARS = 1024 * 1024;
+const CLOSE_GRACE_MS = 1_000;
 /** Shorter than the sender's wait for an ack, so a refusal still reaches a sender that is waiting. */
 const CONFIRM_TIMEOUT_MS = 5_000;
 
@@ -74,6 +91,51 @@ function messageDigest(message: IPeerMessage): string {
       ]),
     )
     .digest('hex');
+}
+
+/** What a file offer is confirmed by: its sender vouches for exactly this name, size and hash. */
+function offerDigest(offer: IFileOffer): string {
+  return createHash('sha256')
+    .update(JSON.stringify(['file', offer.transferId, offer.name, offer.size, offer.sha256]))
+    .digest('hex');
+}
+
+/** In-flight ids of offers, apart from those of messages, so neither can vouch for the other. */
+function offerKey(offer: IFileOffer): string {
+  return `file:${offer.transferId}`;
+}
+
+/**
+ * The first line of a connection that carries a file: who claims to send it, and the offer frame the
+ * file carrier then reads as its first.
+ */
+interface IFileOpening {
+  readonly file: { readonly from: string; readonly offer: string };
+}
+
+function isFileOpening(frame: unknown): frame is IFileOpening {
+  if (typeof frame !== 'object' || frame === null || !('file' in frame)) return false;
+  const { file } = frame as { file: unknown };
+  return (
+    typeof file === 'object' &&
+    file !== null &&
+    typeof (file as Record<string, unknown>)['from'] === 'string' &&
+    typeof (file as Record<string, unknown>)['offer'] === 'string'
+  );
+}
+
+/** The offer inside an opening, read only far enough to confirm it; the carrier decodes it again. */
+function parseOffer(text: string): IFileOffer | undefined {
+  try {
+    const value = JSON.parse(text) as Record<string, unknown>;
+    const { transferId, name, size, sha256 } = value;
+    if (value['t'] !== 'file-offer') return undefined;
+    if (typeof transferId !== 'string' || typeof name !== 'string') return undefined;
+    if (typeof size !== 'number' || typeof sha256 !== 'string') return undefined;
+    return { transferId, name, size, sha256 };
+  } catch {
+    return undefined;
+  }
 }
 
 function isConfirmRequest(frame: unknown): frame is IConfirmRequest {
@@ -135,23 +197,89 @@ function readLine(socket: Socket, timeoutMs: number): Promise<string> {
         reject(new Error(`local peer channel: no line within ${timeoutMs}ms`));
       });
     }, timeoutMs);
+    const onData = (chunk: string): void => {
+      buffered += chunk;
+      const at = buffered.indexOf('\n');
+      if (at !== -1) finish(() => resolve(buffered.slice(0, at)));
+      else if (buffered.length > MAX_LINE_CHARS) {
+        finish(() => {
+          socket.destroy();
+          reject(new Error('local peer channel: a line was too long'));
+        });
+      }
+    };
+    const onError = (error: Error): void => finish(() => reject(error));
+    const onEnd = (): void =>
+      finish(() => reject(new Error('local peer channel: the peer closed before sending a line')));
+    // The reader is detached once the line is read: a connection that carries a file goes on to be
+    // read by the file carrier, and must not keep feeding this buffer. The error listener stays: a
+    // peer that leaves while its answer is being written must not become an uncaught error here.
     function finish(run: () => void): void {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      socket.off('data', onData);
+      socket.off('end', onEnd);
       run();
     }
     socket.setEncoding('utf8');
-    socket.on('data', (chunk: string) => {
-      buffered += chunk;
-      const at = buffered.indexOf('\n');
-      if (at !== -1) finish(() => resolve(buffered.slice(0, at)));
-    });
-    socket.on('error', (error) => finish(() => reject(error)));
-    socket.on('end', () =>
-      finish(() => reject(new Error('local peer channel: the peer closed before sending a line'))),
-    );
+    socket.on('data', onData);
+    socket.on('error', onError);
+    socket.on('end', onEnd);
   });
+}
+
+/**
+ * A connection as a file frame channel: one frame per line. The file carrier paces the sender, so
+ * nothing here buffers more than a window of chunks; a line longer than any frame ends the channel.
+ */
+export function socketFrameChannel(socket: Socket): IFileFrameChannel {
+  const frames = new Set<(frame: string) => void>();
+  const closes = new Set<() => void>();
+  let buffered = '';
+  let closed = false;
+  const close = (): void => {
+    if (closed) return;
+    closed = true;
+    for (const handler of closes) handler();
+    closes.clear();
+    frames.clear();
+  };
+  socket.setEncoding('utf8');
+  socket.on('data', (chunk: string) => {
+    buffered += chunk;
+    for (let at = buffered.indexOf('\n'); at !== -1; at = buffered.indexOf('\n')) {
+      const line = buffered.slice(0, at);
+      buffered = buffered.slice(at + 1);
+      for (const handler of frames) handler(line);
+    }
+    if (buffered.length > MAX_LINE_CHARS) socket.destroy();
+  });
+  socket.on('close', close);
+  socket.on('error', () => socket.destroy());
+  return {
+    send: (frame) => {
+      if (closed || socket.destroyed) throw new Error('local peer channel: the connection closed');
+      socket.write(`${frame}\n`);
+    },
+    onFrame: (handler) => {
+      frames.add(handler);
+      return () => frames.delete(handler);
+    },
+    onClose: (handler) => {
+      if (closed) {
+        queueMicrotask(handler);
+        return () => undefined;
+      }
+      closes.add(handler);
+      return () => closes.delete(handler);
+    },
+    close: () => {
+      socket.end();
+      // A peer that does not close its half is not waited on.
+      setTimeout(() => socket.destroy(), CLOSE_GRACE_MS).unref();
+    },
+  };
 }
 
 export interface IPeerListenerOptions {
@@ -162,6 +290,13 @@ export interface IPeerListenerOptions {
     message: IPeerMessage,
     sender: IPeerSender,
   ) => Promise<IPeerMessageAck> | IPeerMessageAck;
+  /**
+   * Decides on and stores a file from a confirmed sender. Absent: every file is refused. Called with
+   * the carrier's receive options minus the channel, which this listener owns.
+   */
+  readonly onFile?: (sender: IPeerSender) => Omit<IReceiveFileOptions, 'channel'> | undefined;
+  /** Told how each received file ended. */
+  readonly onFileOutcome?: (outcome: TFileReceiveOutcome, sender: IPeerSender) => void;
   readonly expectedUid?: number;
 }
 
@@ -172,6 +307,15 @@ export interface IPeerListener {
    * this session as its origin: this listener is what confirms it to the receiver.
    */
   send(targetSessionId: string, message: IPeerMessage): Promise<IPeerMessageAck>;
+  /**
+   * Send one file as this session, on a connection of its own. Resolves when the receiver kept it,
+   * or with why it did not.
+   */
+  sendFile(
+    targetSessionId: string,
+    offer: IFileOffer,
+    source: IFileSource,
+  ): Promise<TFileSendOutcome>;
   close(): Promise<void>;
 }
 
@@ -180,7 +324,7 @@ async function confirmSender(
   guardedDirectory: string,
   claimed: string,
   receiver: string,
-  message: IPeerMessage,
+  sending: { readonly id: string; readonly digest: string },
   expectedUid: number,
 ): Promise<boolean> {
   try {
@@ -192,7 +336,7 @@ async function confirmSender(
       connection.once('error', reject);
     });
     const request: IConfirmRequest = {
-      confirm: { id: message.id, to: receiver, digest: messageDigest(message) },
+      confirm: { id: sending.id, to: receiver, digest: sending.digest },
     };
     socket.write(`${JSON.stringify(request)}\n`);
     const line = await readLine(socket, CONFIRM_TIMEOUT_MS);
@@ -232,7 +376,7 @@ export async function listenForPeerMessages(options: IPeerListenerOptions): Prom
       options.guardedDirectory,
       claimed,
       options.sessionId,
-      message,
+      { id: message.id, digest: messageDigest(message) },
       expectedUid,
     );
     if (!confirmed) {
@@ -248,10 +392,64 @@ export async function listenForPeerMessages(options: IPeerListenerOptions): Prom
     return options.onMessage(message, { sessionId: claimed });
   };
 
+  /**
+   * A connection that opened with a file: confirm who sends it, exactly as for a message, then let
+   * the file carrier read the rest. The offer it reads first is the one the sender confirmed.
+   */
+  const receiveFile = async (socket: Socket, opening: IFileOpening): Promise<void> => {
+    const channel = socketFrameChannel(socket);
+    const offer = parseOffer(opening.file.offer);
+    const refuse = (reason: string): void => {
+      channel.send(JSON.stringify({ t: 'file-refuse', reason: 'declined', detail: reason }));
+      channel.close();
+    };
+    if (offer === undefined) {
+      channel.send(JSON.stringify({ t: 'file-refuse', reason: 'protocol' }));
+      channel.close();
+      return;
+    }
+    const claimed = opening.file.from;
+    const confirmed = await confirmSender(
+      options.guardedDirectory,
+      claimed,
+      options.sessionId,
+      { id: offerKey(offer), digest: offerDigest(offer) },
+      expectedUid,
+    );
+    if (!confirmed) {
+      refuse(`session ${JSON.stringify(claimed)} did not confirm sending this file.`);
+      return;
+    }
+    const sender: IPeerSender = { sessionId: claimed };
+    const receiving = options.onFile?.(sender);
+    if (receiving === undefined) {
+      refuse('this session does not take files.');
+      return;
+    }
+    // The carrier reads the offer as its first frame; it arrives now, after the carrier listens.
+    const first = opening.file.offer;
+    const outcome = await receiveFileOverChannel({
+      ...receiving,
+      channel: {
+        ...channel,
+        onFrame: (handler) => {
+          const stop = channel.onFrame(handler);
+          queueMicrotask(() => handler(first));
+          return stop;
+        },
+      },
+    });
+    options.onFileOutcome?.(outcome, sender);
+  };
+
   const server: Server = createServer((socket) => {
     void (async () => {
       try {
         const frame: unknown = JSON.parse(await readLine(socket, LINE_TIMEOUT_MS));
+        if (isFileOpening(frame)) {
+          await receiveFile(socket, frame);
+          return;
+        }
         if (isConfirmRequest(frame)) {
           const sending = inFlight.get(frame.confirm.id);
           const confirmed =
@@ -301,6 +499,51 @@ export async function listenForPeerMessages(options: IPeerListenerOptions): Prom
         });
       } finally {
         inFlight.delete(message.id);
+      }
+    },
+    sendFile: async (
+      targetSessionId: string,
+      offer: IFileOffer,
+      source: IFileSource,
+    ): Promise<TFileSendOutcome> => {
+      const key = offerKey(offer);
+      if (inFlight.has(key)) {
+        throw new Error(`local peer channel: file ${offer.transferId} is already being sent.`);
+      }
+      const socketPath = peerSocketPath(options.guardedDirectory, targetSessionId);
+      admitOrThrow(socketPath, expectedUid);
+      inFlight.set(key, { to: targetSessionId, digest: offerDigest(offer) });
+      try {
+        const socket = await new Promise<Socket>((resolve, reject) => {
+          const connection = createConnection(socketPath);
+          connection.once('connect', () => resolve(connection));
+          connection.once('error', reject);
+        });
+        const channel = socketFrameChannel(socket);
+        // The opening carries the offer for the receiver to confirm; the carrier's own offer frame
+        // is then consumed from it rather than sent a second time.
+        let opened = false;
+        return await sendFileOverChannel({
+          offer,
+          source,
+          channel: {
+            ...channel,
+            send: (frame) => {
+              if (!opened) {
+                opened = true;
+                channel.send(
+                  JSON.stringify({
+                    file: { from: options.sessionId, offer: frame },
+                  } satisfies IFileOpening),
+                );
+                return;
+              }
+              channel.send(frame);
+            },
+          },
+        });
+      } finally {
+        inFlight.delete(key);
       }
     },
     close: () =>

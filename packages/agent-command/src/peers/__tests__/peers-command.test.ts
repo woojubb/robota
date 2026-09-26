@@ -239,3 +239,83 @@ describe('PEER-006 — /peers send', () => {
     expect(result.success).toBe(false);
   });
 });
+
+describe('/peers send-file', () => {
+  type TPrepareFile = NonNullable<NonNullable<ICommandHostAdapters['localPeers']>['prepareFile']>;
+
+  function hostWithFiles(prepareFile: TPrepareFile): ICommandHostAdapterAccess {
+    return {
+      getCwd: () => '/work',
+      getCommandHostAdapters: () => ({
+        localPeers: {
+          list: () => [{ sessionId: 'other', liveness: 'alive' as const }],
+          ownSessionId: () => OWN,
+          prepareFile,
+        },
+      }),
+    } as unknown as ICommandHostAdapterAccess;
+  }
+
+  it('sends the named file as the operator, spaces in the path and all', async () => {
+    const calls: unknown[] = [];
+    const result = await executePeersCommand(
+      hostWithFiles(async (target, path, options) => {
+        calls.push([target, path, options]);
+        return {
+          ok: true,
+          file: {
+            path: '/work/my notes.txt',
+            size: 5,
+            sha256: 'e'.repeat(64),
+            send: async () => ({ state: 'delivered' }),
+          },
+        };
+      }),
+      'send-file other my notes.txt',
+    );
+
+    expect(calls).toEqual([['other', 'my notes.txt', { origin: 'operator', cwd: '/work' }]]);
+    expect(result.success).toBe(true);
+    expect(result.message).toContain(`5 bytes, sha256 ${'e'.repeat(64)}`);
+  });
+
+  it('carries a refusal back to the operator', async () => {
+    const result = await executePeersCommand(
+      hostWithFiles(async () => ({
+        ok: true,
+        file: {
+          path: '/work/a.txt',
+          size: 1,
+          sha256: 'e'.repeat(64),
+          send: async () => ({ state: 'refused', reason: 'the receiving side did not accept it' }),
+        },
+      })),
+      'send-file other a.txt',
+    );
+
+    expect(result.success).toBe(false);
+    expect(result.message).toContain('did not accept it');
+  });
+
+  it('says what it needs when the path is missing', async () => {
+    const result = await executePeersCommand(
+      hostWithFiles(async () => ({ ok: false, reason: 'unused' })),
+      'send-file other',
+    );
+    expect(result.message).toContain('Usage: /peers send-file');
+    expect(result.success).toBe(false);
+  });
+
+  it('says so when the host cannot send files', async () => {
+    const result = await executePeersCommand(
+      {
+        getCommandHostAdapters: () => ({
+          localPeers: { list: () => [], ownSessionId: () => OWN },
+        }),
+      } as ICommandHostAdapterAccess,
+      'send-file other a.txt',
+    );
+    expect(result.message).toContain('cannot send files');
+    expect(result.success).toBe(false);
+  });
+});

@@ -3,7 +3,7 @@
 ## Purpose
 
 The pure transport-family substrate. It owns carrier-neutral wire messages, runtime decoders,
-session-message dispatch, resumable delivery, peer-message state, handoff payload framing, channel
+session-message dispatch, resumable delivery, peer-message state, handoff payload framing, file transfer, channel
 framing, and Node-only admission, access-token verification and integrity helpers shared by
 transport implementations.
 
@@ -18,6 +18,9 @@ transport implementations.
   error handler. No fallback transport is ever selected on behalf of a caller.
 - Carriers supply `TOutboundDeliver` and an `IProtocolSession`; no carrier implementation is
   registered inside this package.
+- A file crosses only after the receiver accepts its offer, and is kept only when the whole content
+  matches the offered size and hash; anything else is discarded. The receiver paces the sender, so
+  neither side holds more than a bounded window whatever the channel buffers.
 
 ## Boundaries
 

@@ -340,7 +340,32 @@ export interface ICommandLocalPeersAdapter {
     text: string,
     options?: { readonly inReplyTo?: string },
   ): Promise<ILocalPeerSendResult>;
+  /**
+   * Resolve and check a file for sending to another announced session, before anyone is asked about
+   * it. `origin` says who asks: the operator's command may send any regular file they can read, the
+   * model only a workspace file that does not look like it holds secrets. Absent on a host that
+   * cannot send files.
+   */
+  prepareFile?(
+    targetSessionId: string,
+    path: string,
+    options: { readonly origin: 'operator' | 'model'; readonly cwd: string },
+  ): Promise<TLocalPeerFilePreparation>;
 }
+
+/** A file checked and measured for sending, or why it cannot be sent. */
+export type TLocalPeerFilePreparation =
+  | {
+      readonly ok: true;
+      readonly file: {
+        readonly path: string;
+        readonly size: number;
+        readonly sha256: string;
+        /** Copy the content to the session it was prepared for. */
+        send(): Promise<ILocalPeerSendResult>;
+      };
+    }
+  | { readonly ok: false; readonly reason: string };
 
 /**
  * PEER-006: what the sender learns, in the vocabulary the operator reads.

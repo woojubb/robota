@@ -7,6 +7,10 @@
  * either one. Layers passing separately is not the same as the path working.
  */
 
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import { attachHostAdapters, attachLocalPeerMessaging } from '../host-action-adapters.js';
@@ -180,6 +184,44 @@ describe('PEER-006 — messaging is attached separately from discovery', () => {
     await expect(adapters.localPeers?.send?.('other', 'hi')).resolves.toEqual({
       state: 'acknowledged',
     });
+  });
+
+  it('fills in `prepareFile` once messaging starts, keeping the model to its workspace', async () => {
+    const adapters: ICommandHostAdapters = {};
+    attachHostAdapters(adapters, CONTROLLER, reporter(), () => PRESENCE);
+    const sent: unknown[] = [];
+    await attachLocalPeerMessaging(
+      adapters,
+      PRESENCE,
+      () => ({ submit: async () => ({}) }) as never,
+      reporter(),
+      (async () => ({
+        socketPath: '/tmp/x.sock',
+        send: async () => ({ id: '1', sequence: 1, state: 'acknowledged' as const }),
+        sendFile: async (target: string, file: unknown) => {
+          sent.push([target, file]);
+          return { state: 'delivered' as const };
+        },
+        close: async () => {},
+      })) as never,
+    );
+
+    const workspace = mkdtempSync(join(tmpdir(), 'prepare-file-'));
+    try {
+      writeFileSync(join(workspace, 'a.txt'), 'abc');
+      const prepare = adapters.localPeers?.prepareFile;
+      expect(prepare).toBeTypeOf('function');
+      const inside = await prepare!('other', 'a.txt', { origin: 'model', cwd: workspace });
+      expect(inside).toMatchObject({ ok: true, file: { size: 3 } });
+      await expect(inside.ok ? inside.file.send() : undefined).resolves.toEqual({
+        state: 'delivered',
+      });
+      expect(sent).toHaveLength(1);
+      const outside = await prepare!('other', '/etc/hosts', { origin: 'model', cwd: workspace });
+      expect(outside.ok).toBe(false);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
   });
 
   it('leaves discovery working when messaging cannot start', async () => {
