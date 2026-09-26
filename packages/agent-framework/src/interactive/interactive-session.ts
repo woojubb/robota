@@ -885,7 +885,7 @@ export class InteractiveSession
    * by the decision recorded on `IScheduledBackgroundTaskRequest`. `turnSource: 'agent-wakeup'` is
    * how a consumer tells it apart from a typed prompt; it does not change what the turn may do.
    */
-  requestWakeup(instruction: string, sourceTaskId: string): boolean {
+  requestWakeup(instruction: string, sourceTaskId: string, displayInput?: string): boolean {
     if (this.execCtrl.shuttingDown) return false;
     const task = this.getBackgroundTaskManager()?.get(sourceTaskId);
     if (task?.metadata?.['sessionLoopSelfPaced'] === true) {
@@ -922,7 +922,7 @@ export class InteractiveSession
     this.execCtrl.wakeTaskIds.add(sourceTaskId);
     // RUNTIME-26: the wake turn runs detached — route its rejection to reportBackgroundError instead of
     // letting it vanish (e.g. a turn error, or the "shutting down" throw when a wake races teardown).
-    void this.submitNewTurn(instruction, undefined, undefined, {
+    void this.submitNewTurn(instruction, displayInput, undefined, {
       turnSource: 'agent-wakeup',
       wakeTaskId: sourceTaskId,
     }).catch((error) => {
@@ -1798,9 +1798,12 @@ export class InteractiveSession
   private scheduleGoalTurn(prompt: string, goal: IGoalState): void {
     if (this.execCtrl.shuttingDown) return;
     const wakeId = `goal:${goal.id}:${goal.iterations}`;
+    // #3201: the model gets the full instruction; every surface shows one line naming the goal —
+    // the same split a self-paced `/loop` iteration makes between its prompt and its display.
+    const display = `Goal: ${goal.objective} (iteration ${goal.iterations + 1} of ${goal.maxIterations})`;
     // Defer past the current turn's finalization so the wakeup is not coalesced away and the
     // just-completed turn's bookkeeping (executing flag, wake ids) has settled.
-    setTimeout(() => this.requestWakeup(prompt, wakeId), 0);
+    setTimeout(() => this.requestWakeup(prompt, wakeId, display), 0);
   }
 
   /** GOAL-001: advance the goal loop after an agent-driven turn completes. */

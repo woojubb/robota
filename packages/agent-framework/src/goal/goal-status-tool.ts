@@ -11,6 +11,8 @@
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
 
+import '../tools/tool-permission-profiles.js';
+
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
 
 /** Tool name the agent calls to report goal status. Vendor-neutral, generic. */

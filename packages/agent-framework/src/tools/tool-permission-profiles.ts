@@ -5,8 +5,8 @@
  * here, the classification lived in `@robota-sdk/agent-core`'s hardcoded matrix, and that matrix had
  * never heard of any of them. Two of them run commands.
  *
- * `packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts` asserts that every
- * tool this package produces appears here.
+ * `packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts` asserts the
+ * classifications that decide behaviour — the command tools' argument kind and the signal tools' class.
  */
 
 import { registerToolPermissionProfile, type IToolPermissionProfile } from '@robota-sdk/agent-core';
@@ -70,6 +70,15 @@ export const FRAMEWORK_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPe
       riskClass: 'inspect',
       notInPeerTurn: true,
     },
+
+    /**
+     * The goal loop's signal and the self-paced loop's decision: each records the agent's own
+     * assessment for the loop that asked for it and changes nothing else. They are inspections, as
+     * asking the user for leave to report is pointless — and plan mode must not refuse the call that
+     * lets a goal finish.
+     */
+    report_goal_status: { riskClass: 'inspect' },
+    report_loop_decision: { riskClass: 'inspect' },
   };
 
 /**

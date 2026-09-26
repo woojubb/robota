@@ -4,6 +4,8 @@ import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { isDeepStrictEqual } from 'node:util';
 import { z } from 'zod';
 
+import '../tools/tool-permission-profiles.js';
+
 import type { TSelfPacedLoopDecision } from './session-loop-transitions.js';
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
 import type { IToolSummary } from '@robota-sdk/agent-interface-session';
