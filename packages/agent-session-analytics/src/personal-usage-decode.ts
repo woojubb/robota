@@ -82,6 +82,7 @@ function isUsageSurface(
     value === 'desktop-app' ||
     value === 'browser' ||
     value === 'remote' ||
+    value === 'attach' ||
     value === 'unknown'
   );
 }

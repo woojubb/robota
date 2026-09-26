@@ -351,6 +351,9 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
             linkedPr = value;
           },
         },
+        // A terminal on this host may attach over the guarded control socket. It never becomes an
+        // operator approver: this process has no terminal, so mesh admissions stay refused.
+        host.session,
       );
       if (settling) throw new Error('Supervised runtime stopped before readiness.');
       await acknowledgeSupervisedStartup(args.supervisedSessionId, readinessAbort.signal);
