@@ -42,4 +42,4 @@ It does declare whether the configured endpoint is the vendor default, as a bool
 
 ### Log file permissions
 
-The file-based payload logger writes prompt/response content to a caller-supplied log directory. It creates that directory and each payload file with owner-only permissions rather than inheriting the process umask, since these payloads may contain sensitive request/response content.
+The file-based payload logger writes a summary of each Chat Completions request — request metadata, not prompt or response content — to a caller-supplied log directory. It creates that directory and each log file with owner-only permissions rather than inheriting the process umask, since the directory is caller-supplied and the files record the caller's own request history.

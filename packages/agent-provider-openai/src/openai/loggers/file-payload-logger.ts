@@ -16,7 +16,7 @@ const OWNER_ONLY_DIR_MODE = 0o700;
 /**
  * File-based payload logger for Node.js environments
  *
- * This logger saves API request/response payloads to JSON files on disk.
+ * This logger saves a summary of each Chat Completions request to a JSON file on disk.
  * It's designed specifically for Node.js environments with filesystem access.
  *
  * @example
@@ -65,8 +65,8 @@ export class FilePayloadLogger implements IPayloadLogger {
   }
 
   /**
-   * Log API payload to file
-   * @param payload - The API request payload
+   * Log a request summary to file
+   * @param payload - Summary of the outgoing Chat Completions request
    * @param type - Type of request ('chat' or 'stream')
    */
   async logPayload(payload: IOpenAILogData, type: 'chat' | 'stream' = 'chat'): Promise<void> {
@@ -89,8 +89,9 @@ export class FilePayloadLogger implements IPayloadLogger {
         payload: sanitizeOpenAILogData(payload),
       };
 
-      // SEC-003: payload logs contain prompt/response content and `logDir` is
-      // caller-supplied, so create them owner-only rather than under the process umask.
+      // SEC-003: payload logs record the caller's request history (a request summary, not
+      // prompt/response content) and `logDir` is caller-supplied, so create them owner-only
+      // rather than under the process umask.
       await fs.promises.writeFile(filepath, JSON.stringify(logData, null, 2), {
         encoding: 'utf8',
         mode: OWNER_ONLY_FILE_MODE,

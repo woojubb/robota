@@ -2,7 +2,9 @@ import type { IOpenAILogData } from '../types/api-types';
 import type { ILogger } from '@robota-sdk/agent-core';
 
 /**
- * IPayloadLogger interface for logging OpenAI API payloads
+ * IPayloadLogger interface for logging a summary of each OpenAI Chat Completions request
+ * (request metadata such as model, message count and whether tools were sent — not prompt or
+ * response content).
  *
  * This interface provides a contract for different logging implementations:
  * - FilePayloadLogger: Node.js file-based logging
@@ -17,8 +19,8 @@ export interface IPayloadLogger {
   isEnabled(): boolean;
 
   /**
-   * Log API payload data
-   * @param payload - The API request/response payload data
+   * Log a request summary
+   * @param payload - Summary of the outgoing Chat Completions request
    * @param type - Type of operation ('chat' or 'stream')
    */
   logPayload(payload: IOpenAILogData, type: 'chat' | 'stream'): Promise<void>;
