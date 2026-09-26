@@ -99,6 +99,15 @@ const BYTES_PER_MIB = Number('1024') * Number('1024');
 export const DEFAULT_MAX_PENDING_BYTES = Number('8') * BYTES_PER_MIB;
 
 /**
+ * Backpressure budget for a terminal attached to a session on the same host, in either role.
+ *
+ * 1 MiB, tighter than the default: an attached terminal reads a local socket, so a backlog this large
+ * means it stopped reading rather than that a network is slow. Exceeding it closes that connection
+ * only; the session never waits for a reader, so other surfaces keep streaming.
+ */
+export const ATTACHED_SURFACE_MAX_PENDING_BYTES = BYTES_PER_MIB;
+
+/**
  * Is this carrier holding more than the budget allows?
  *
  * Exported because a WebSocket carries TWO kinds of outbound frame over one socket — the text

@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import {
   lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync,
 } from 'node:fs';
@@ -18,11 +18,20 @@ const MAX_ENTRIES = 256;
 const MAX_NAME_BYTES = 240;
 const MAX_PR_URL_BYTES = 2_048;
 const NAME_CONTROLS = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
+const GENERATION_PATTERN = /^[A-Za-z0-9_-]{22}$/u;
 
 interface IRegistration {
   readonly id: string;
   readonly pid: number;
   readonly startedAt: string;
+  /** Minted per process start; absent only in a registration written before generations existed. */
+  readonly generation?: string;
+}
+
+type TControlCommand = 'status' | 'stop' | 'rename' | 'link-pr' | 'unlink-pr';
+
+function isGeneration(value: unknown): value is string {
+  return typeof value === 'string' && GENERATION_PATTERN.test(value);
 }
 
 type TSupervisedActivity = 'working' | 'needs-input' | 'idle' | 'unknown';
@@ -82,6 +91,8 @@ export interface ISupervisedSessionRow {
   readonly name?: string;
   readonly cwd?: string;
   readonly pr?: ISupervisedPr;
+  /** Present only when requested and verified: the registration this row's actions must still address. */
+  readonly generation?: string;
   readonly problem?: 'invalid-registration';
 }
 
@@ -145,10 +156,14 @@ function readRegistration(directory: string, id: string): IRegistration {
   if (typeof record !== 'object' || record === null ||
     !('id' in record) || record.id !== id ||
     !('pid' in record) || !Number.isSafeInteger(record.pid) || Number(record.pid) <= 0 ||
-    !('startedAt' in record) || typeof record.startedAt !== 'string') {
+    !('startedAt' in record) || typeof record.startedAt !== 'string' ||
+    ('generation' in record && !isGeneration(record.generation))) {
     throw new Error('Supervised session record is invalid.');
   }
-  return record as IRegistration;
+  return {
+    id, pid: Number(record.pid), startedAt: record.startedAt,
+    ...('generation' in record && isGeneration(record.generation) ? { generation: record.generation } : {}),
+  };
 }
 
 function readLine(socket: Socket, maxBytes = MAX_FRAME_BYTES): Promise<string> {
@@ -183,14 +198,19 @@ function readLine(socket: Socket, maxBytes = MAX_FRAME_BYTES): Promise<string> {
   });
 }
 
+/**
+ * Send one command bound to `generation`. A reply is returned only when its owner echoes that same
+ * generation, so a reply from a different process start is never taken as this registration's.
+ */
 async function request(
   directory: string,
   id: string,
-  command: 'status' | 'stop' | 'rename' | 'link-pr' | 'unlink-pr',
+  generation: string,
+  command: TControlCommand,
   signal?: AbortSignal,
   name?: string,
   url?: string,
-): Promise<unknown> {
+): Promise<object> {
   signal?.throwIfAborted();
   verifyExistingDirectory(directory);
   const socketPath = controlSocketPath(dirname(directory), id);
@@ -207,9 +227,16 @@ async function request(
       socket.setTimeout(REQUEST_TIMEOUT_MS, () => reject(new Error('Supervised session control timed out.')));
     });
     signal?.throwIfAborted();
-    socket.write(`${JSON.stringify({ command, id, ...(command === 'rename' ? { name } : {}),
+    socket.write(`${JSON.stringify({ command, id, generation, ...(command === 'rename' ? { name } : {}),
       ...(command === 'link-pr' ? { url } : {}) })}\n`);
-    return JSON.parse(await readLine(socket, command === 'status' ? MAX_STATUS_RESPONSE_BYTES : MAX_FRAME_BYTES)) as unknown;
+    const response = JSON.parse(
+      await readLine(socket, command === 'status' ? MAX_STATUS_RESPONSE_BYTES : MAX_FRAME_BYTES),
+    ) as unknown;
+    if (typeof response !== 'object' || response === null || !('id' in response) || response.id !== id ||
+      !('generation' in response) || response.generation !== generation) {
+      throw new Error('Supervised session changed since it was verified.');
+    }
+    return response;
   } finally {
     signal?.removeEventListener('abort', onAbort);
     socket.destroy();
@@ -220,7 +247,8 @@ export async function listSupervisedSessions(
   root = resolveSupervisedDirectory(),
   signal?: AbortSignal,
   options: { readonly cwd?: string; readonly name?: string; readonly pr?: number;
-    readonly includeName?: boolean; readonly includeCwd?: boolean; readonly includePr?: boolean } = {},
+    readonly includeName?: boolean; readonly includeCwd?: boolean; readonly includePr?: boolean;
+    readonly includeGeneration?: boolean } = {},
 ): Promise<readonly ISupervisedSessionRow[]> {
   signal?.throwIfAborted();
   try {
@@ -252,13 +280,13 @@ export async function listSupervisedSessions(
     const liveness = currentStart === undefined
       ? probePid(record.pid) === 'absent' ? 'dead' : 'unknown'
       : currentStart === record.startedAt ? 'alive' : 'dead';
-    if (liveness !== 'alive') return unfiltered
+    // A registration without a generation cannot bind an action to its process start.
+    if (liveness !== 'alive' || record.generation === undefined) return unfiltered
       ? { id, liveness, control: 'unavailable', activity: 'unknown' }
       : null;
     try {
-      const response = await request(directory, id, 'status', signal);
-      if (typeof response === 'object' && response !== null && 'id' in response && response.id === id &&
-        'status' in response && response.status === 'running') {
+      const response = await request(directory, id, record.generation, 'status', signal);
+      if ('status' in response && response.status === 'running') {
         if (options.cwd !== undefined && (!('cwd' in response) || response.cwd !== options.cwd)) return null;
         const name = 'name' in response && isSupervisedSessionName(response.name) ? response.name : undefined;
         const pr = 'pr' in response && isSupervisedPr(response.pr) ? response.pr : undefined;
@@ -272,6 +300,7 @@ export async function listSupervisedSessions(
           ...(options.includeName && name !== undefined ? { name } : {}),
           ...(options.includeCwd && cwd !== undefined ? { cwd } : {}),
           ...(options.includePr && pr !== undefined ? { pr } : {}),
+          ...(options.includeGeneration ? { generation: record.generation } : {}),
           ...('activity' in response && response.activity === 'idle' &&
             'nextLoopAt' in response && isLoopTime(response.nextLoopAt)
             ? { nextLoopAt: response.nextLoopAt } : {}),
@@ -287,16 +316,18 @@ export async function listSupervisedSessions(
     .sort((a, b) => a.id.localeCompare(b.id));
 }
 
-export async function stopSupervisedSession(id: string, root = resolveSupervisedDirectory()): Promise<void> {
-  const directory = sessionDirectory(root, id);
-  const record = readRegistration(directory, id);
-  const currentStart = readProcessStartTime(record.pid);
-  if (currentStart === undefined || currentStart !== record.startedAt) {
-    throw new Error('Supervised session is not proven alive.');
-  }
-  const response = await request(directory, id, 'stop');
-  if (typeof response !== 'object' || response === null || !('id' in response) || response.id !== id ||
-    !('status' in response) || response.status !== 'stopping') {
+/**
+ * Stop the live owner. With `expectedGeneration` (the one a view displayed), a registration that has
+ * changed since is refused instead of stopping whichever process now holds the id.
+ */
+export async function stopSupervisedSession(
+  id: string,
+  root = resolveSupervisedDirectory(),
+  expectedGeneration?: string,
+): Promise<void> {
+  const { directory, record, generation } = verifyLiveOwner(root, id, expectedGeneration);
+  const response = await request(directory, id, generation, 'stop');
+  if (!('status' in response) || response.status !== 'stopping') {
     throw new Error('Supervised session did not confirm shutdown.');
   }
   const deadline = Date.now() + 15_000;
@@ -322,44 +353,61 @@ export async function renameSupervisedSession(
   id: string,
   name: string,
   root = resolveSupervisedDirectory(),
+  expectedGeneration?: string,
 ): Promise<void> {
-  const directory = sessionDirectory(root, id);
+  sessionDirectory(root, id);
   if (!isSupervisedSessionName(name)) throw new Error('Supervised session name is invalid or too long.');
-  const record = readRegistration(directory, id);
-  const currentStart = readProcessStartTime(record.pid);
-  if (currentStart === undefined || currentStart !== record.startedAt) {
-    throw new Error('Supervised session is not proven alive.');
-  }
-  const response = await request(directory, id, 'rename', undefined, name);
-  if (typeof response !== 'object' || response === null || !('id' in response) || response.id !== id ||
-    !('status' in response) || response.status !== 'renamed') {
+  const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
+  const response = await request(directory, id, generation, 'rename', undefined, name);
+  if (!('status' in response) || response.status !== 'renamed') {
     throw new Error('Supervised session did not confirm rename.');
   }
 }
 
-function verifyLiveOwner(root: string, id: string): string {
+/**
+ * Re-read the registration at action time instead of trusting a displayed row: its generation must
+ * still be the expected one, and the registered process must still be the one that wrote it.
+ */
+function verifyLiveOwner(
+  root: string,
+  id: string,
+  expectedGeneration?: string,
+): { readonly directory: string; readonly record: IRegistration; readonly generation: string } {
   const directory = sessionDirectory(root, id);
   const record = readRegistration(directory, id);
+  if (record.generation === undefined) throw new Error('Supervised session registration cannot be controlled.');
+  if (expectedGeneration !== undefined && record.generation !== expectedGeneration) {
+    throw new Error('Supervised session changed since it was listed.');
+  }
   const currentStart = readProcessStartTime(record.pid);
   if (currentStart === undefined || currentStart !== record.startedAt) {
     throw new Error('Supervised session is not proven alive.');
   }
-  return directory;
+  return { directory, record, generation: record.generation };
 }
 
-export async function linkSupervisedPr(id: string, url: string, root = resolveSupervisedDirectory()): Promise<void> {
+export async function linkSupervisedPr(
+  id: string,
+  url: string,
+  root = resolveSupervisedDirectory(),
+  expectedGeneration?: string,
+): Promise<void> {
   if (!parseSupervisedPr(url)) throw new Error('Invalid supervised session PR URL.');
-  const response = await request(verifyLiveOwner(root, id), id, 'link-pr', undefined, undefined, url);
-  if (typeof response !== 'object' || response === null || !('id' in response) || response.id !== id ||
-    !('status' in response) || response.status !== 'linked') {
+  const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
+  const response = await request(directory, id, generation, 'link-pr', undefined, undefined, url);
+  if (!('status' in response) || response.status !== 'linked') {
     throw new Error('Supervised session did not confirm PR link.');
   }
 }
 
-export async function unlinkSupervisedPr(id: string, root = resolveSupervisedDirectory()): Promise<void> {
-  const response = await request(verifyLiveOwner(root, id), id, 'unlink-pr');
-  if (typeof response !== 'object' || response === null || !('id' in response) || response.id !== id ||
-    !('status' in response) || response.status !== 'unlinked') {
+export async function unlinkSupervisedPr(
+  id: string,
+  root = resolveSupervisedDirectory(),
+  expectedGeneration?: string,
+): Promise<void> {
+  const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
+  const response = await request(directory, id, generation, 'unlink-pr');
+  if (!('status' in response) || response.status !== 'unlinked') {
     throw new Error('Supervised session did not confirm PR unlink.');
   }
 }
@@ -368,10 +416,11 @@ export async function unlinkSupervisedPr(id: string, root = resolveSupervisedDir
 export async function getVerifiedSupervisedPr(
   id: string,
   root = resolveSupervisedDirectory(),
+  expectedGeneration?: string,
 ): Promise<ISupervisedPr | undefined> {
-  const response = await request(verifyLiveOwner(root, id), id, 'status');
-  if (typeof response !== 'object' || response === null || !('id' in response) || response.id !== id ||
-    !('status' in response) || response.status !== 'running') {
+  const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
+  const response = await request(directory, id, generation, 'status');
+  if (!('status' in response) || response.status !== 'running') {
     throw new Error('Supervised session control response was not verified.');
   }
   if (!('pr' in response)) return undefined;
@@ -400,6 +449,16 @@ export async function startSupervisedControl(
   // A UUID directory is visible to list only after its registration is complete.
   const pendingDirectory = join(root, `.${id}.pending`);
   const socketPath = controlSocketPath(root, id);
+  // One value per process start: a request bound to any other start is refused, never acted on.
+  const generation = randomBytes(16).toString('base64url');
+  const reply = (socket: Socket, body: Record<string, unknown>): void => {
+    socket.end(`${JSON.stringify({ id, ...body, generation })}\n`);
+  };
+  // A caller that has not named this start learns nothing from the refusal: the generation is part
+  // of the proof a later request presents, so it is echoed only to a caller that already holds it.
+  const refuse = (socket: Socket, reason?: 'stale-generation'): void => {
+    socket.end(`${JSON.stringify({ id, status: 'refused', ...(reason ? { reason } : {}) })}\n`);
+  };
   const clients = new Set<Socket>();
   const server: Server = createServer((socket) => {
     clients.add(socket);
@@ -411,11 +470,15 @@ export async function startSupervisedControl(
       try {
         value = JSON.parse(line);
       } catch {
-        socket.end(`${JSON.stringify({ id, status: 'refused' })}\n`);
+        refuse(socket);
         return;
       }
       if (typeof value !== 'object' || value === null || !('id' in value) || value.id !== id || !('command' in value)) {
-        socket.end(`${JSON.stringify({ id, status: 'refused' })}\n`);
+        refuse(socket);
+        return;
+      }
+      if (!('generation' in value) || value.generation !== generation) {
+        refuse(socket, 'stale-generation');
         return;
       }
       if (value.command === 'status') {
@@ -451,43 +514,43 @@ export async function startSupervisedControl(
         } catch {
           // A failed association observation cannot create a link.
         }
-        socket.end(`${JSON.stringify({ id, status: 'running', activity: isCurrentActivity(observed) ? observed : 'unknown',
+        reply(socket, { status: 'running', activity: isCurrentActivity(observed) ? observed : 'unknown',
           ...(typeof cwd === 'string' && isAbsolute(cwd) && cwd.length <= 4_096 ? { cwd } : {}),
           ...(isLoopTime(nextLoopAt) ? { nextLoopAt } : {}),
           ...(isSupervisedSessionName(name) ? { name } : {}),
-          ...(isSupervisedPr(linkedPr) ? { pr: linkedPr } : {}) })}\n`);
+          ...(isSupervisedPr(linkedPr) ? { pr: linkedPr } : {}) });
       } else if (value.command === 'stop') {
         socket.once('finish', onStop);
-        socket.end(`${JSON.stringify({ id, status: 'stopping' })}\n`);
+        reply(socket, { status: 'stopping' });
       } else if (value.command === 'rename' && 'name' in value &&
         isSupervisedSessionName(value.name) && onRename !== undefined) {
         try {
           onRename(value.name);
-          socket.end(`${JSON.stringify({ id, status: 'renamed' })}\n`);
+          reply(socket, { status: 'renamed' });
         } catch {
-          socket.end(`${JSON.stringify({ id, status: 'refused' })}\n`);
+          reply(socket, { status: 'refused' });
         }
       } else if (value.command === 'link-pr' && 'url' in value && pr?.set !== undefined) {
         const linked = parseSupervisedPr(value.url);
         if (!linked) {
-          socket.end(`${JSON.stringify({ id, status: 'refused' })}\n`);
+          reply(socket, { status: 'refused' });
           return;
         }
         try {
           pr.set(linked);
-          socket.end(`${JSON.stringify({ id, status: 'linked' })}\n`);
+          reply(socket, { status: 'linked' });
         } catch {
-          socket.end(`${JSON.stringify({ id, status: 'refused' })}\n`);
+          reply(socket, { status: 'refused' });
         }
       } else if (value.command === 'unlink-pr' && pr?.set !== undefined) {
         try {
           pr.set(undefined);
-          socket.end(`${JSON.stringify({ id, status: 'unlinked' })}\n`);
+          reply(socket, { status: 'unlinked' });
         } catch {
-          socket.end(`${JSON.stringify({ id, status: 'refused' })}\n`);
+          reply(socket, { status: 'refused' });
         }
       } else {
-        socket.end(`${JSON.stringify({ id, status: 'refused' })}\n`);
+        reply(socket, { status: 'refused' });
       }
     }).catch(() => socket.destroy());
   });
@@ -506,6 +569,7 @@ export async function startSupervisedControl(
       id,
       pid: process.pid,
       startedAt,
+      generation,
     };
     writeFileSync(join(pendingDirectory, 'state.json'), JSON.stringify(registration), { flag: 'wx', mode: 0o600 });
     try {

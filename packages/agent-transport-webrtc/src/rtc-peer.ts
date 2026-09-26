@@ -63,6 +63,12 @@ export interface IRtcPeerOptions {
   readonly loadDataChannel?: () => IDataChannelModule;
 }
 
+/**
+ * How long a closed channel's stream stays up. The implementation resets the stream as soon as it is
+ * told to close, and a message sent just before is then lost to the peer.
+ */
+const CHANNEL_CLOSE_GRACE_MS = 250;
+
 /** Remote candidates kept while the remote description is still on its way. */
 const MAX_EARLY_CANDIDATES = 64;
 
@@ -97,6 +103,7 @@ function textOf(message: string | Buffer | ArrayBuffer): string {
 export class RtcChannel {
   private stateValue: TRtcChannelState;
   private closeCauseValue?: string;
+  private closedLocally = false;
   private readonly messageHandlers = new Set<(text: string) => void>();
   private readonly stateHandlers = new Set<(state: TRtcChannelState) => void>();
 
@@ -110,6 +117,8 @@ export class RtcChannel {
     native.onError((error) => this.guard(() => this.closedWith(`error: ${error}`)));
     native.onMessage((message) =>
       this.guard(() => {
+        // Closed here, the stream only waits out its grace: nothing more is taken from it.
+        if (this.closedLocally) return;
         const text = textOf(message);
         for (const handler of this.messageHandlers) handler(text);
       }),
@@ -179,13 +188,21 @@ export class RtcChannel {
     return () => this.stateHandlers.delete(handler);
   }
 
+  /**
+   * Closed for this side at once; the stream is reset after a grace, so what was sent just before
+   * still reaches the peer.
+   */
   public close(): void {
     if (this.stateValue === 'closed') return;
-    try {
-      this.native.close();
-    } catch {
-      /* already closing */
-    }
+    this.closedLocally = true;
+    const native = this.native;
+    setTimeout(() => {
+      try {
+        native.close();
+      } catch {
+        /* already closing */
+      }
+    }, CHANNEL_CLOSE_GRACE_MS).unref?.();
     this.closedWith('closed by this side');
   }
 }
@@ -203,6 +220,14 @@ export class RtcPeer {
   private handlerError?: string;
   private localCandidateCount = 0;
   private remoteCandidateCount = 0;
+  /**
+   * Local candidates gathered before the remote description, handed out right after it. An offerer's
+   * candidates let the answerer reach it and start DTLS; the binding makes the remote description the
+   * DTLS layer checks the peer's certificate against only after the ICE layer has it, so a handshake
+   * that arrives while the answer is being applied is refused. Holding the candidates until the
+   * answer is applied keeps the answerer from reaching this side before then.
+   */
+  private readonly heldLocalCandidates: IRtcCandidate[] = [];
   /** Remote candidates that arrived before the remote description, applied right after it. */
   private readonly earlyCandidates: IRtcCandidate[] = [];
   private closed = false;
@@ -227,8 +252,11 @@ export class RtcPeer {
         // The binding writes the SDP attribute form; the wire form has no `a=` prefix.
         const value = candidate.startsWith('a=') ? candidate.slice(2) : candidate;
         if (value.length === 0) return;
-        this.localCandidateCount += 1;
-        for (const handler of this.candidateHandlers) handler({ candidate: value, mid });
+        if (!this.hasRemoteDescription) {
+          this.heldLocalCandidates.push({ candidate: value, mid });
+          return;
+        }
+        this.handOut({ candidate: value, mid });
       }),
     );
     this.native.onLocalDescription((sdp) =>
@@ -323,6 +351,16 @@ export class RtcPeer {
   private remoteDescriptionApplied(): void {
     this.hasRemoteDescription = true;
     for (const candidate of this.earlyCandidates.splice(0)) this.addRemoteCandidate(candidate);
+    const held = this.heldLocalCandidates.splice(0);
+    this.guard(() => {
+      for (const candidate of held) this.handOut(candidate);
+    });
+  }
+
+  private handOut(candidate: IRtcCandidate): void {
+    if (this.closed) return;
+    this.localCandidateCount += 1;
+    for (const handler of this.candidateHandlers) handler(candidate);
   }
 
   /**

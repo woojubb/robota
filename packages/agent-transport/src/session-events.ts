@@ -72,6 +72,13 @@ export interface ISubscribeSessionEventsOptions {
    * requester-routed against it (lazy because the resume bridge binds the id only after pairing).
    */
   getSurfaceDriverId?: () => TDriverId | undefined;
+  /**
+   * `false` leaves `permission_request` and `ask_request` unsubscribed. The session parks a prompt
+   * only while someone listens for it, so a surface that may not answer must not listen: otherwise an
+   * unattended session would hold a prompt nobody can settle instead of failing it closed at once.
+   * Defaults to `true`.
+   */
+  receivePrompts?: boolean;
 }
 
 /**
@@ -166,8 +173,11 @@ export function subscribeSessionEvents(
   session.on('plan_event', onPlanEvent);
   session.on('context_file_refreshed', onContextFileRefreshed);
   session.on('branch_event', onBranchEvent);
-  session.on('permission_request', onPermissionRequest);
-  session.on('ask_request', onAskRequest);
+  const receivePrompts = options.receivePrompts ?? true;
+  if (receivePrompts) {
+    session.on('permission_request', onPermissionRequest);
+    session.on('ask_request', onAskRequest);
+  }
   session.on('prompt_resolved', onPromptResolved);
   session.on('ui_intent', onUiIntent);
   session.on('session_renamed', onSessionRenamed);
@@ -188,8 +198,10 @@ export function subscribeSessionEvents(
     session.off('plan_event', onPlanEvent);
     session.off('context_file_refreshed', onContextFileRefreshed);
     session.off('branch_event', onBranchEvent);
-    session.off('permission_request', onPermissionRequest);
-    session.off('ask_request', onAskRequest);
+    if (receivePrompts) {
+      session.off('permission_request', onPermissionRequest);
+      session.off('ask_request', onAskRequest);
+    }
     session.off('prompt_resolved', onPromptResolved);
     session.off('ui_intent', onUiIntent);
     session.off('session_renamed', onSessionRenamed);

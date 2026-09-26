@@ -4,7 +4,6 @@ import { PrintTerminal } from './print-terminal.js';
 import {
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
-  InteractiveSession,
   readProviderSettings,
   readMergedProviderSettings,
   readSettings,
@@ -104,9 +103,7 @@ import { resolveMcpHttpOptions } from './utils/mcp-http-args.js';
 import { reserveMcpStdout } from './modes/mcp-stdio-output.js';
 import { composeMcpClientForStartup, mcpStartupModelNotice } from './startup/mcp-startup.js';
 import { composeCliAdvisor } from './startup/advisor-composition.js';
-import { createMcpExternalEventHost } from './startup/mcp-external-event-host.js';
 import type { TMcpStartupMode } from './startup/mcp-startup.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { Writable } from 'node:stream';
 import { resolveMemorySurfaceOptions } from './startup/memory-enablement.js';
 import { resolveFocusReportingOverride } from './startup/focus-reporting-enablement.js';
@@ -128,6 +125,7 @@ export interface ICliPresentation {
   createNodeKeybindingsSource: typeof import('@robota-sdk/agent-ui-terminal').createNodeKeybindingsSource;
   createDefaultTuiCliAdapter: typeof import('@robota-sdk/agent-ui-terminal').createDefaultTuiCliAdapter;
   renderApp: typeof import('@robota-sdk/agent-ui-terminal').renderApp;
+  renderSupervisedSessionView: typeof import('@robota-sdk/agent-ui-terminal').renderSupervisedSessionView;
   installTuiProcessGuards: typeof import('./process-guards.js').installTuiProcessGuards;
   setLiveChannel: typeof import('./process-guards.js').setLiveChannel;
 }
@@ -197,7 +195,16 @@ async function runCliCore(
     projectAccess,
     ...(safeMode ? { safeMode: true } : {}),
   };
-  if (await runPreparsedCliCommand(startupOptions, process.argv, cwd, telemetryEnvironment)) return;
+  if (
+    await runPreparsedCliCommand(
+      startupOptions,
+      process.argv,
+      cwd,
+      telemetryEnvironment,
+      presentation?.renderSupervisedSessionView,
+    )
+  )
+    return;
 
   let args: IParsedCliArgs;
   try {
@@ -397,9 +404,6 @@ async function runCliCore(
           reportDiagnostic: (message) => terminal.writeError(message),
         })
       : undefined;
-  if ((args.externalEventAllow?.length ?? 0) > 0 && mcp === undefined) {
-    throw new Error('--external-event-allow requires the CLI-owned MCP client');
-  }
   if (mcp !== undefined) startupOptions.mcpActivationAdapter = mcp.activationAdapter;
   // The device mesh: opened only by an interactive session whose user settings turn it on.
   const deviceMesh = createDeviceMeshHost({ report: (message) => terminal.writeError(message) });
@@ -464,20 +468,6 @@ async function runCliCore(
     workspaceComposition.projectAccess.status === 'trusted',
     args.open,
   );
-  const externalEventHost =
-    mcp && args.externalEventAllow?.length
-      ? createMcpExternalEventHost(args.externalEventAllow, mcp, (message) =>
-          terminal.writeLine(message),
-        )
-      : undefined;
-  const bindTuiTransports = async (session: IInteractiveSession): Promise<void> => {
-    bindTransports(session);
-    if (!externalEventHost) return;
-    if (!(session instanceof InteractiveSession)) {
-      throw new Error('External event host requires an InteractiveSession runtime');
-    }
-    await externalEventHost.bind(session);
-  };
   const { controller: remoteControlController, setChannel: setRemoteControlChannel } =
     createRemoteControlController(transportRegistry, usageReporters);
   // CMD-007: this product stores `/cost budget` in `.robota/budget.json`; commands see only its port.
@@ -985,7 +975,7 @@ async function runCliCore(
     shellExec: runShellCommand,
     startupUpdateNotice: resolveCliUpdateNotice(startupUpdateNoticePromise),
     transportRegistry,
-    bindTransports: bindTuiTransports,
+    bindTransports,
     // CMD-004 Stage C: remote-control enable/stop run HOST-side via the `remoteControl` command
     // host adapter (wired above) — no TUI-prop wiring remains.
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
@@ -1023,7 +1013,6 @@ async function runCliCore(
     await tuiRun;
   } finally {
     deviceMesh.close();
-    externalEventHost?.close();
     await livePromptTracePort?.shutdown();
     if (mcp !== undefined) await mcp.shutdown();
   }

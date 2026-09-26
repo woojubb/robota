@@ -109,8 +109,12 @@ when the viewer groups by directory), treat an exited process as completed, or s
 PR URLs never enter ordinary listings or registration records. Starting a session from the view
 still requires headless workspace trust for its target directory, and closing the view never stops
 a supervised session. A damaged registration is shown as unavailable without hiding healthy
-sessions. A stop, rename, or PR-association request acts only through the live owner's control
-endpoint and fails explicitly when ownership or completion cannot be established. Attach, peek, and
+sessions. Each process start registers a fresh generation that its control endpoint requires and
+echoes only to a caller that already named it, so a stop, rename, or PR-association request acts
+only on the start the caller verified (the one a view row displayed, or the one registered when the
+command runs) and fails explicitly when that start, ownership, or completion cannot be established.
+A registration that cannot name its start is listed but never controlled, and the generation never
+appears in listings. Attach, peek, and
 automatic restart are not offered, and the transport's per-launch authentication token is never
 exposed through the control endpoint or inventory.
 
@@ -269,15 +273,9 @@ definition.
 supply its own `IMCPActivationApprovalStore` before `robota mcp serve` starts to admit and connect
 approved definitions ahead of building the served runtime session.
 
-**External event source opt-in.** The interactive TUI alone can opt into external event injection
-from an already-admitted, capability-declaring MCP server via an explicit launch grant. The CLI
-trusts the granted server to attest sender identity over its authenticated connection and separately
-checks a per-server sender allowlist, but the sender string alone is not proof of identity, so this is
-only as trustworthy as the granted server — operators without a verified adapter should leave it off.
-Injected events are one-way, bounded, and live only with the session and connection; an admitted
-external turn can produce model text but cannot invoke model-generated local or hosted web tools, and
-other modes (print, goal, serve, MCP-serve) refuse the flag outright. Repeated connection loss stops
-after bounded retries rather than assuming delivery from a dead channel.
+**External events need a verified grant.** The CLI admits no sender-name grant: a sender name relayed
+by an MCP server does not prove who sent an event. A flag asking for one is refused with that reason
+rather than treated as unknown.
 
 ### MCP background handoff settings
 

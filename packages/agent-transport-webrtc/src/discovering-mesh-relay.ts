@@ -463,13 +463,13 @@ export class DiscoveringMeshRelay implements IMeshRelay {
       socket.on('message', (raw) => {
         const frame = parse(raw);
         if (frame?.to !== to) return;
-        if (frame.type === 'present') {
-          // The proof is a MAC over this probe's own nonce, so it alone decides; an echoed or stale
-          // frame fails it.
-          settle(verifyLanPresenceProof(lanTopic, nonce, frame.proof));
-        } else if (frame.type === 'absent') {
+        if (frame.type === 'absent') {
           settle(false);
+          return;
         }
+        // Whatever else the frame says, only the proof decides: it is an HMAC over this probe's
+        // own nonce, so an echoed, stale or forged frame fails it.
+        settle(verifyLanPresenceProof(lanTopic, nonce, frame.proof));
       });
       socket.on('error', () => settle(false));
       socket.on('close', () => settle(false));

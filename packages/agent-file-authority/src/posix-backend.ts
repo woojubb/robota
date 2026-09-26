@@ -85,6 +85,30 @@ function nodeErrorCode(error: object | null): string | undefined {
   return typeof error.code === 'string' ? error.code : undefined;
 }
 
+let libc: { library: unknown; open: TOpen; openAt: TOpenAt } | undefined;
+// Held as soon as it loads, even if declaring a function below then throws.
+const retainedLibraries: unknown[] = [];
+
+/**
+ * libc is loaded once per process and the library handle itself is kept alive with its functions.
+ * Bun aborts when Koffi's finalizer for a collected library handle runs ("Finalizer is calling a
+ * function that may affect GC state"), so no handle may ever become garbage.
+ */
+function libcFunctions(): { open: TOpen; openAt: TOpenAt } {
+  if (!libc) {
+    const library = koffi.load(
+      process.platform === 'darwin' ? '/usr/lib/libSystem.B.dylib' : 'libc.so.6',
+    );
+    retainedLibraries.push(library);
+    libc = {
+      library,
+      open: library.func('int open(const char *path, int flags)') as TOpen,
+      openAt: library.func('int openat(int fd, const char *path, int flags)') as TOpenAt,
+    };
+  }
+  return libc;
+}
+
 /** POSIX implementation; descriptors never leave this module. */
 export class PosixStableFileHostBackend implements IStableFileHostBackend {
   private readonly openAt: TOpenAt;
@@ -93,11 +117,8 @@ export class PosixStableFileHostBackend implements IStableFileHostBackend {
 
   constructor(rootDirectory: string) {
     try {
-      const libc = koffi.load(
-        process.platform === 'darwin' ? '/usr/lib/libSystem.B.dylib' : 'libc.so.6',
-      );
-      const open = libc.func('int open(const char *path, int flags)') as TOpen;
-      this.openAt = libc.func('int openat(int fd, const char *path, int flags)') as TOpenAt;
+      const { open, openAt } = libcFunctions();
+      this.openAt = openAt;
       const descriptor = open(rootDirectory, flags(true));
       if (descriptor < 0) this.throwOpenFailure(koffi.errno(), 'open-root');
       this.rootDescriptor = descriptor;

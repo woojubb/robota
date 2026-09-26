@@ -92,3 +92,16 @@ export type {
   TAccessTokenAlgorithm,
   TAccessTokenRefusal,
 } from './access-token.js';
+
+// External events: identity is the grant a verified access token matched, never a payload claim.
+export type {
+  IExternalEventDelivery,
+  IExternalEventGrant,
+  IExternalEventRateWindow,
+  IExternalMessageEvent,
+  TExternalEventAdmission,
+  TExternalEventAuditRecord,
+  TExternalEventRefusal,
+  TExternalEventRemoteClass,
+  TExternalEventSettlementOutcome,
+} from './external-event.js';

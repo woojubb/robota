@@ -267,6 +267,7 @@ async function lanDevice(
     readonly cache?: IMeshAddressCache;
     readonly admissionTimeoutMs?: number;
     readonly connectTimeoutMs?: number;
+    readonly probeTimeoutMs?: number;
   } = {},
 ): Promise<ILanDevice> {
   const listener = await startMeshLanListener({ host: LOCAL });
@@ -284,7 +285,7 @@ async function lanDevice(
     cache,
     ...(mdns !== undefined ? { advertisers: [mdns] } : {}),
     connect: recordingConnect(sent),
-    probeTimeoutMs: 500,
+    probeTimeoutMs: options.probeTimeoutMs ?? 500,
     ...(options.admissionTimeoutMs !== undefined
       ? { admissionTimeoutMs: options.admissionTimeoutMs }
       : {}),
@@ -575,6 +576,43 @@ describe('a hostile endpoint cannot hold a pair off the relay', () => {
     expect(low.sent.filter((frame) => frame.includes('"message"'))).toEqual([]);
     expect(low.cache.recall(world.high.cert.deviceId)).toEqual([]);
   }, 40_000);
+
+  it('an endpoint that answers a probe with anything but the proof is dropped at once', async () => {
+    const { WebSocketServer } = await import('ws');
+    const echo = new WebSocketServer({ host: LOCAL, port: 0 });
+    await new Promise((resolve) => echo.once('listening', resolve));
+    cleanups.push(() => new Promise((resolve) => echo.close(resolve)));
+    // It sends the probe straight back: a frame for the address, of a type that is neither answer.
+    const dropped = new Promise<void>((resolve) =>
+      echo.on('connection', (socket) => {
+        socket.on('message', (raw) => socket.send(String(raw)));
+        socket.on('close', () => resolve());
+      }),
+    );
+    const address = echo.address();
+    const port = typeof address === 'object' && address !== null ? address.port : 0;
+    const planted: IMeshCandidateSource = {
+      candidates: () => Promise.resolve([{ host: LOCAL, port }]),
+    };
+    const hub = createInMemoryMeshRelayHub();
+    // A probe left to its timeout would hold the socket far past this test's wait.
+    const low = await lanDevice(world.low, {
+      relay: hub.connect(),
+      extraSources: [planted],
+      probeTimeoutMs: 60_000,
+    });
+    const high = await lanDevice(world.high, { relay: hub.connect(), probeTimeoutMs: 60_000 });
+    await Promise.all([low.node.start(), high.node.start()]);
+    void low.node.connect(world.high.cert.deviceId).catch(() => undefined);
+
+    await expect(
+      Promise.race([
+        dropped.then(() => 'dropped'),
+        new Promise((resolve) => setTimeout(() => resolve('still open'), 5_000)),
+      ]),
+    ).resolves.toBe('dropped');
+    expect(low.sent.filter((frame) => frame.includes('"message"'))).toEqual([]);
+  }, 20_000);
 
   it('an endpoint that holds the topic but leads to no admission is set aside for the relay', async () => {
     // It knows the pair's topic and swallows everything sent to it.

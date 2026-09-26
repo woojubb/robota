@@ -83,10 +83,9 @@ export {
 } from './interactive/index.js';
 export { withUniqueSessionName } from './interactive/interactive-session-fork-record.js';
 export type {
-  IAuthenticatedExternalEvent,
   IExternalEventSourceOptions,
   IExternalEventSource,
-  IExternalEventReceipt,
+  TExternalEventReceipt,
   TExternalEventSettlement,
 } from './interactive/index.js';
 
