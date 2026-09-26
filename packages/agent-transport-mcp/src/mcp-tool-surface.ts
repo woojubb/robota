@@ -59,7 +59,7 @@ function isJsonValue(value: unknown): boolean {
   if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
   if (typeof value === 'number') return Number.isFinite(value);
   if (Array.isArray(value)) return value.every(isJsonValue);
-  return typeof value === 'object' && value !== null && Object.values(value).every(isJsonValue);
+  return typeof value === 'object' && Object.values(value).every(isJsonValue);
 }
 
 function isRuntimeParameters(

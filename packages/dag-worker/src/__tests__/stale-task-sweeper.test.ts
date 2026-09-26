@@ -273,7 +273,7 @@ describe('stale running tasks are swept back onto the queue (DAG-001)', () => {
       await realUpdate(id, status, error);
       if (status === 'running') {
         // The instant the task becomes `running`, a concurrent sweeper looks at it.
-        sweptDuringClaim = (await sweep(storage, queue, clock, new InMemoryLeasePort())).requeued;
+        sweptDuringClaim = (await sweep(storage, queue, clock, lease)).requeued;
       }
     };
 

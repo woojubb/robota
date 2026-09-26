@@ -19,7 +19,7 @@
  * Exit code 0 = clean, 1 = findings.
  */
 
-import { readFileSync, existsSync, readdirSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import path, { join, relative } from 'node:path';
 
 import { listManifestPackageDirs, listSpecPackageDirs } from './workspace-packages.mjs';

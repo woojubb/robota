@@ -7,10 +7,12 @@
  * The pre-fix regexes used `\s+(.+)$`; because `.` also matches a space, the split point between
  * `\s+` and `(.+)` was ambiguous and a non-matching argument was rejected in O(n^2). Measured
  * pre-fix on the inputs below: ~17s (`/schedule cron`) and ~15s (`/monitor`); post-fix, <1ms.
+ * `/loop`'s leading interval had the same `\s+([\s\S]+)$` shape and is held to the same bound.
  */
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { executeLoopCommand } from '../loop-command.js';
 import { executeMonitorCommand } from '../schedule-command.js';
 import { parseScheduleSpec } from '../schedule-spec-parser.js';
 
@@ -76,6 +78,37 @@ describe('schedule argument parsing is not polynomial-ReDoS-able', () => {
         matchPattern: 'error',
         agentInstruction: 'report it',
       }),
+    );
+  });
+
+  it('parses a pumped leading-interval `/loop` in linear time', async () => {
+    // The shape CodeQL named for `\s+([\s\S]+)$`: an interval, then a long run of whitespace.
+    const spawnScheduledWake = vi.fn();
+    const host = createTestAgentJobHost({ spawnScheduledWake });
+    const hostile = `0s\t${'\t\t'.repeat(PUMP_LENGTH)}x`;
+
+    const started = performance.now();
+    const result = await executeLoopCommand(host, vi.fn(), hostile);
+    const took = performance.now() - started;
+
+    expect(result.success).toBe(false);
+    expect(spawnScheduledWake).not.toHaveBeenCalled();
+    expect(took).toBeLessThan(BUDGET_MS);
+  });
+
+  it.each([
+    ['5m check the build', 'check the build'],
+    ['5m \t\n  check   the build  ', 'check   the build'],
+    ['5M\ncheck', 'check'],
+  ])('still reads a leading-interval `/loop` identically: %j', async (args, instruction) => {
+    const spawnScheduledWake = vi.fn().mockResolvedValue({ id: 'loop_1' });
+    const host = createTestAgentJobHost({ spawnScheduledWake });
+
+    const result = await executeLoopCommand(host, vi.fn(), args);
+
+    expect(result.success).toBe(true);
+    expect(spawnScheduledWake).toHaveBeenCalledWith(
+      expect.objectContaining({ agentInstruction: instruction }),
     );
   });
 });

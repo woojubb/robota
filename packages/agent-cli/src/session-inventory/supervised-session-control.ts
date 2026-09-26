@@ -220,12 +220,24 @@ function sessionDirectory(root: string, id: string): string {
   return join(root, id);
 }
 
+// macOS truncates overlong Unix-domain paths on some Node/runtime combinations.
+const MAX_SOCKET_PATH_BYTES = 100;
+
+/** The supervised directory is too deep for a Unix-domain socket; the message says how to move it. */
+export class SupervisedControlPathTooLongError extends Error {
+  constructor(readonly directory: string) {
+    super(`Supervised session control socket path is too long under ${directory}: a local socket path ` +
+      `allows ${MAX_SOCKET_PATH_BYTES} bytes. Use a shorter HOME, or set XDG_RUNTIME_DIR to a short ` +
+      'private directory for every robota command.');
+    this.name = 'SupervisedControlPathTooLongError';
+  }
+}
+
 function controlSocketPath(root: string, id: string): string {
   const name = createHash('sha256').update(id).digest('hex').slice(0, 16);
   const socketPath = join(root, `${name}.sock`);
-  // macOS truncates overlong Unix-domain paths on some Node/runtime combinations.
-  if (Buffer.byteLength(socketPath, 'utf8') > 100) {
-    throw new Error('Supervised session control directory is too long for a local socket.');
+  if (Buffer.byteLength(socketPath, 'utf8') > MAX_SOCKET_PATH_BYTES) {
+    throw new SupervisedControlPathTooLongError(root);
   }
   return socketPath;
 }

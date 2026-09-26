@@ -50,11 +50,13 @@ function parseFrontmatter(
       break;
     }
     if (line.trim() === '') continue;
-    const match = /^([a-z][a-z0-9-]*):\s*(.*)$/.exec(line);
+    // The value starts at its first non-space character, so the space before it is never split
+    // two ways between `\s*` and the value — that ambiguity made a rejected line quadratic.
+    const match = /^([a-z][a-z0-9-]*):\s*(\S[^\n\r\u2028\u2029]*)?$/.exec(line);
     if (!match) throw new Error(`frontmatter: invalid entry at line ${index + 1}`);
     const key = match[1]!;
     if (values[key] !== undefined) throw new Error(`frontmatter.${key}: duplicate field`);
-    values[key] = stripScalarQuotes(match[2]!.trim());
+    values[key] = stripScalarQuotes((match[2] ?? '').trim());
   }
   if (end < 0) throw new Error('frontmatter: expected a closing --- marker');
   const unknown = Object.keys(values).filter(
