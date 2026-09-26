@@ -184,14 +184,14 @@ export interface IOpenAIProviderOptions {
    * @example
    * ```typescript
    * // Node.js
-   * import { FilePayloadLogger } from '@robota-sdk/agent-provider/openai/loggers';
+   * import { FilePayloadLogger } from '@robota-sdk/agent-provider-openai/loggers';
    * const provider = new OpenAIProvider({
    *   client: openaiClient,
    *   payloadLogger: new FilePayloadLogger({ logDir: './logs/openai' })
    * });
    *
    * // Browser
-   * import { ConsolePayloadLogger } from '@robota-sdk/agent-provider/openai/loggers';
+   * import { ConsolePayloadLogger } from '@robota-sdk/agent-provider-openai/loggers';
    * const provider = new OpenAIProvider({
    *   client: openaiClient,
    *   payloadLogger: new ConsolePayloadLogger()

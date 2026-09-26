@@ -21,7 +21,7 @@ const OWNER_ONLY_DIR_MODE = 0o700;
  *
  * @example
  * ```typescript
- * import { FilePayloadLogger } from '@robota-sdk/agent-provider/openai/loggers';
+ * import { FilePayloadLogger } from '@robota-sdk/agent-provider-openai/loggers';
  *
  * const logger = new FilePayloadLogger({
  *   logDir: './logs/api-payloads',

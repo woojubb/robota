@@ -69,6 +69,8 @@ import {
 
 /** How long a freshness lookup may delay a remote admission. */
 export const FRESHNESS_LOOKUP_MS = 3_000;
+/** Candidates of one list kind a freshness lookup may return; the rest are not looked at. */
+const MAX_FETCHED_CANDIDATES = 16;
 /** How long past expiry a remote peer is still admitted, with a warning, when no newer list is reachable. */
 export const REMOTE_ADMISSION_GRACE_MS = 72 * HOUR_MS;
 
@@ -179,8 +181,9 @@ export interface IDeviceHandshakeOptions {
   readonly send: (frame: TDeviceHandshakeFrame) => void;
   /**
    * Remote admission only: ask a signing-key holder for its latest lists. Resolves to
-   * `{ roster?, revocation?, signingKeyRevocation? }` as received; each is verified before use and
-   * anything unverifiable is ignored. Bounded to {@link FRESHNESS_LOOKUP_MS}, then aborted.
+   * `{ roster?, revocation?, signingKeyRevocation? }` as received, each one list or a list of
+   * candidates; every candidate is verified before use, the newest that verifies counts, and anything
+   * unverifiable is ignored. Bounded to {@link FRESHNESS_LOOKUP_MS}, then aborted.
    */
   readonly fetchLatestLists?: (signal: AbortSignal) => Promise<unknown>;
   /** Called once, before the verdict, when newer verified lists were adopted. */
@@ -546,9 +549,15 @@ export function startDeviceHandshake(options: IDeviceHandshakeOptions): IDeviceH
           continue;
         }
         if (raw === undefined) continue;
-        const list = await verifiedList(kind, raw);
-        const current = adopted[kind] ?? held[kind];
-        if (list !== undefined && list.seq > current.seq) Object.assign(adopted, { [kind]: list });
+        // Several sources may answer, and any of them may lie: each candidate stands on its own.
+        const candidates = Array.isArray(raw) ? raw.slice(0, MAX_FETCHED_CANDIDATES) : [raw];
+        for (const candidate of candidates) {
+          const list = await verifiedList(kind, candidate);
+          const current = adopted[kind] ?? held[kind];
+          if (list !== undefined && list.seq > current.seq) {
+            Object.assign(adopted, { [kind]: list });
+          }
+        }
       }
     }
 

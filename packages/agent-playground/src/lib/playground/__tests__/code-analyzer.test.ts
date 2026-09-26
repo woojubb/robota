@@ -3,7 +3,7 @@ import { analyzeCode, parseAgentConfig, validateEnvironment } from '../code-anal
 
 const validAgentCode = `
 import { Robota, createFunctionTool, LoggingPlugin } from '@robota-sdk/agent-core';
-import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 const weatherTool = createFunctionTool('weather', 'Get weather conditions', async () => {
   return { temperature: 21 };
@@ -198,5 +198,27 @@ describe('agent config parser', () => {
         { name: 'calc', description: 'Custom tool function' },
       ]);
     });
+  });
+});
+
+describe('provider import checks', () => {
+  it.each([
+    ['OpenAIProvider', '@robota-sdk/agent-provider-openai'],
+    ['AnthropicProvider', '@robota-sdk/agent-provider-anthropic'],
+    ['GoogleProvider', '@robota-sdk/agent-provider-gemini/google'],
+  ])('suggests importing %s from %s', (providerName, importPath) => {
+    const result = analyzeCode(`import { Robota } from '@robota-sdk/agent-core';
+const provider = new ${providerName}({});
+`);
+
+    expect(result.errors).toContainEqual(
+      expect.objectContaining({
+        message: `Missing ${providerName} import`,
+        suggestions: [
+          `Add: import { ${providerName} } from '${importPath}'`,
+          `Install package: npm install ${importPath.split('/').slice(0, 2).join('/')}`,
+        ],
+      }),
+    );
   });
 });

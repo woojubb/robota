@@ -47,12 +47,36 @@ export { createInMemoryMeshRelayHub } from './mesh-relay.js';
 export type { IInMemoryMeshRelayHub, IMeshRelay } from './mesh-relay.js';
 export { WsMeshRelayClient } from './ws-mesh-relay-client.js';
 export type { IWsMeshRelayClientOptions } from './ws-mesh-relay-client.js';
-// Finding a peer device before the relay: the address cache, then mDNS, each yielding candidates only.
+// Finding a peer device before the relay: the address cache, mDNS, then public records, each
+// yielding candidates only; then public signaling carriers, then the self-hosted relay.
 export { DiscoveringMeshRelay, startLanMeshRelay } from './discovering-mesh-relay.js';
 export type {
   IDiscoveringMeshRelayOptions,
+  IMeshAdvertiser,
   IStartLanMeshRelayOptions,
 } from './discovering-mesh-relay.js';
+export { DEFAULT_MAX_PUBLISH_JITTER_MS, MeshDht } from './mesh-dht.js';
+export type { IFetchedLists, IMeshDhtOptions, IPublishedLists } from './mesh-dht.js';
+export { createInMemoryItemNetwork, createPkarrRelayStore } from './mesh-item-store.js';
+export type {
+  IInMemoryItemNetwork,
+  IPkarrRelayStoreOptions,
+  IRendezvousItemStore,
+} from './mesh-item-store.js';
+export { startMainlineDhtStore } from './mainline-dht-store.js';
+export type { IMainlineDht, IMainlineDhtStoreOptions } from './mainline-dht-store.js';
+export {
+  NostrMeshRelay,
+  createInMemoryNostrHub,
+  createNostrRelayPool,
+} from './nostr-mesh-relay.js';
+export type {
+  IInMemoryNostrHub,
+  INostrEvent,
+  INostrFilter,
+  INostrMeshRelayOptions,
+  INostrRelayPool,
+} from './nostr-mesh-relay.js';
 export {
   MAX_CACHED_CANDIDATES,
   addressCacheSource,
@@ -70,8 +94,10 @@ export {
   MESH_MDNS_SERVICE,
   MeshMdns,
   createInMemoryMdnsBus,
+  localInterfaceAddresses,
   paddedInstanceCount,
 } from './mesh-mdns.js';
+export { DEFAULT_NOSTR_RELAYS, DEFAULT_PKARR_RELAYS } from './mesh-public-relays.js';
 export type {
   IInMemoryMdnsBus,
   IMdnsPacket,

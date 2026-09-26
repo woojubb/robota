@@ -94,7 +94,8 @@ function defaultTransport(): IMdnsTransport {
   return create();
 }
 
-function localAddresses(): string[] {
+/** This device's non-internal interface addresses (no IPv6 link-local). */
+export function localInterfaceAddresses(): string[] {
   const out: string[] = [];
   for (const entries of Object.values(networkInterfaces())) {
     for (const entry of entries ?? []) {
@@ -210,7 +211,7 @@ export class MeshMdns implements IMeshCandidateSource {
         { name, type: 'TXT', ttl: RECORD_TTL_S, data: [] },
       );
     }
-    for (const address of (this.options.addresses ?? localAddresses)()) {
+    for (const address of (this.options.addresses ?? localInterfaceAddresses)()) {
       additionals.push({
         name: target,
         type: address.includes(':') ? 'AAAA' : 'A',

@@ -10,7 +10,7 @@ import { buildProviderSetupPatch } from '../provider-settings.js';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 
-// agent-framework must not depend on agent-provider — fixture definitions
+// agent-framework must not depend on the agent-provider-* packages — fixture definitions
 // mirror the real default-definition shapes (CLI-066 test precedent).
 function definition(partial: Partial<IProviderDefinition> & { type: string }): IProviderDefinition {
   return {

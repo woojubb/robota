@@ -25,8 +25,10 @@ import {
   issueDeviceRoster,
 } from '@robota-sdk/agent-remote-pairing';
 import {
+  createInMemoryItemNetwork,
   createInMemoryMdnsBus,
   createInMemoryMeshRelayHub,
+  createInMemoryNostrHub,
 } from '@robota-sdk/agent-transport-webrtc';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -52,6 +54,7 @@ import { readHandoffIdentity } from '../../handoff/handoff-host-adapter.js';
 import { createHandoffReceiver } from '../../handoff/handoff-receiving.js';
 import { openHandoffWire } from '../../handoff/handoff-wire.js';
 import { prepareOutgoingFile } from '../../peer-files/outgoing-file.js';
+import { parseMeshInternetSettings } from '../mesh-internet-settings.js';
 import {
   DEVICE_KA_KEY,
   DEVICE_SIGN_KEY,
@@ -261,6 +264,48 @@ describe('device mesh between two HOMEs', () => {
     await expect(atDesktop.connect(laptopId, 3_000)).rejects.toThrow();
     expect(atLaptop.link(desktopId)).toBeUndefined();
   }, 40_000);
+
+  it('beyond the local network, publishes records and signals over public relays (in-process fakes)', async () => {
+    const desktopId = await enrolDesktop();
+    const laptopId = stateOf(laptop).deviceCertificate.deviceId;
+    const network = createInMemoryItemNetwork();
+    const nostr = createInMemoryNostrHub();
+    // Each home has its own relay and no mDNS: only the public ways can join them.
+    const openFar = async (home: IHome) => {
+      const opened = await openDeviceMesh({
+        root: home.root,
+        store: home.store,
+        relay: createInMemoryMeshRelayHub().connect(),
+        lan: { host: '127.0.0.1', mdns: false },
+        internet: {
+          settings: parseMeshInternetSettings(undefined),
+          stores: [network.store()],
+          nostrPool: nostr.pool(),
+          maxPublishJitterMs: 0,
+        },
+        now: () => clock,
+        connectTimeoutMs: 20_000,
+      });
+      open.push(opened);
+      return opened.node;
+    };
+    const [atLaptop, atDesktop] = [await openFar(laptop), await openFar(desktop)];
+
+    const [toDesktop, toLaptop] = await Promise.all([
+      atLaptop.connect(desktopId, 30_000),
+      atDesktop.connect(laptopId, 30_000),
+    ]);
+    const received = new Promise<string>((resolve) => toLaptop.onMessage(resolve));
+    toDesktop.send('across networks');
+    await expect(received).resolves.toBe('across networks');
+    // Each device published its records, and nothing public names either device.
+    await expect.poll(() => network.items().length).toBeGreaterThanOrEqual(4);
+    const published = JSON.stringify([
+      nostr.events,
+      network.items().map((i) => Buffer.from(i.v).toString('latin1')),
+    ]);
+    for (const id of [laptopId, desktopId]) expect(published).not.toContain(id);
+  }, 60_000);
 
   describe('file transfer', () => {
     async function linked(approve: boolean | undefined) {

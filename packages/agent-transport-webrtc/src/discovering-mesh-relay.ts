@@ -1,16 +1,18 @@
 /**
- * A mesh relay that looks for each peer itself before it falls back to the self-hosted relay: the
- * candidate sources in order (the address cache, then mDNS), each candidate probed at the peer's
- * direct signaling endpoint, and the relay when none answers.
+ * A mesh relay that looks for each peer itself before it falls back to a relay: the candidate
+ * sources in order (the address cache, mDNS, then public records), each candidate probed at the
+ * peer's direct signaling endpoint, and when none answers the signaling carriers in order (public
+ * Nostr relays, then the self-hosted relay).
  *
  * Every way a signal can go is equally untrusted. Discovery only chooses where the signals of a
  * pair go; the node decodes whatever arrives as hostile input and admits a peer by the device
  * handshake alone, so a stale, forged or hijacked candidate can delay a connection but never admit
  * one. A candidate carries a pair's signals only once it proves it holds the pair's topic, and only
  * until an attempt over it fails to reach admission in time; then it is set aside and the next way
- * is tried, so a hostile endpoint cannot hold a pair off the relay. On the local network signals are
- * addressed by rotating pairwise tags rather than the relay's inbox topics. A candidate is
- * remembered only once a connection it carried was admitted.
+ * is tried, so a hostile endpoint cannot hold a pair off the relay. A carrier that is not the last one
+ * is set aside the same way, so relays that drop signals cannot hold a pair off the next carrier. On
+ * the local network signals are addressed by rotating pairwise tags rather than the relay's inbox
+ * topics. A candidate is remembered only once a connection it carried was admitted.
  */
 import { rendezvousEpoch, RENDEZVOUS_EPOCH_MS } from '@robota-sdk/agent-remote-pairing';
 import WebSocket from 'ws';
@@ -30,6 +32,7 @@ import {
   type IMeshLanListener,
 } from './mesh-lan-listener.js';
 import { MeshMdns, type IMeshMdnsOptions } from './mesh-mdns.js';
+import type { MeshDht } from './mesh-dht.js';
 import type { IMeshRelay } from './mesh-relay.js';
 import type { IWebSocketLike } from './ws-signaling-client.js';
 
@@ -47,20 +50,28 @@ const MAX_QUEUED = 256;
 /** A direct path that has not carried an admission in this long is set aside. */
 const DEFAULT_ADMISSION_TIMEOUT_MS = 20_000;
 
+/** Announces this device to its peers somewhere they look. */
+export interface IMeshAdvertiser {
+  advertise(routes: readonly IMeshPeerRoute[], port: number): Promise<void>;
+  close(): void;
+}
+
 export interface IDiscoveringMeshRelayOptions {
-  /** The self-hosted relay: the last resort. Absent: a pair no candidate reaches cannot be signaled. */
+  /**
+   * The self-hosted relay: the last resort. Absent with no `signaling` either: a pair no candidate
+   * reaches cannot be signaled.
+   */
   readonly relay?: IMeshRelay;
+  /** Public signaling carriers, tried in order before `relay` when no candidate answers. */
+  readonly signaling?: readonly IMeshRelay[];
   /** This device's direct signaling endpoint. */
   readonly listener: IMeshLanListener;
   /** Where to look for a peer's endpoint, in order. */
   readonly sources: readonly IMeshCandidateSource[];
   /** Remembers candidates that carried an admitted connection. */
   readonly cache?: IMeshAddressCache;
-  /** Told the peers and this device's endpoint port, to announce this device to them. */
-  readonly advertiser?: {
-    advertise(routes: readonly IMeshPeerRoute[], port: number): Promise<void>;
-    close(): void;
-  };
+  /** Told the peers and this device's endpoint port, to announce this device; closed with this relay. */
+  readonly advertisers?: readonly IMeshAdvertiser[];
   /** Test seam: open a socket to a candidate. */
   readonly connect?: (candidate: IMeshCandidate) => IWebSocketLike;
   readonly probeTimeoutMs?: number;
@@ -82,7 +93,13 @@ type TPath =
       /** Running from the first signal since the last admission until the next admission. */
       deadline?: ReturnType<typeof setTimeout>;
     }
-  | { readonly kind: 'relay'; readonly until: number };
+  | {
+      readonly kind: 'relay';
+      readonly until: number;
+      readonly carrier: IMeshRelay;
+      /** Running from the first signal since the last admission, unless this is the last carrier. */
+      deadline?: ReturnType<typeof setTimeout>;
+    };
 
 interface IRouteState {
   route: IMeshPeerRoute;
@@ -91,6 +108,8 @@ interface IRouteState {
   path: TPath;
   /** Candidates set aside (`host:port` → until when), because they carried no admission. */
   readonly avoid: Map<string, number>;
+  /** Carriers set aside (→ until when), because they carried no admission. */
+  readonly avoidCarriers: Map<IMeshRelay, number>;
 }
 
 function candidateKey(candidate: IMeshCandidate): string {
@@ -143,11 +162,10 @@ export class DiscoveringMeshRelay implements IMeshRelay {
   private closed = false;
 
   public constructor(private readonly options: IDiscoveringMeshRelayOptions) {
-    const relay = options.relay;
-    if (relay !== undefined) {
+    for (const carrier of this.carriers()) {
       this.unsubscribes.push(
-        relay.onMessage((topic, data) => this.deliver(topic, data)),
-        relay.onAbsent((topic) => this.absent(topic)),
+        carrier.onMessage((topic, data) => this.deliver(topic, data)),
+        carrier.onAbsent((topic) => this.absent(topic)),
       );
     }
     this.unsubscribes.push(
@@ -162,6 +180,14 @@ export class DiscoveringMeshRelay implements IMeshRelay {
     return (this.options.now ?? Date.now)();
   }
 
+  /** Where a pair's signals go when no candidate answers, in order. */
+  private carriers(): IMeshRelay[] {
+    return [
+      ...(this.options.signaling ?? []),
+      ...(this.options.relay !== undefined ? [this.options.relay] : []),
+    ];
+  }
+
   private deliver(topic: string, data: unknown): void {
     if (this.closed) return;
     for (const handler of this.messages) handler(topic, data);
@@ -173,10 +199,11 @@ export class DiscoveringMeshRelay implements IMeshRelay {
   }
 
   public declarePresence(topics: readonly string[]): void {
-    this.options.relay?.declarePresence(topics);
+    for (const carrier of this.carriers()) carrier.declarePresence(topics);
   }
 
   public declarePeers(peers: readonly IMeshPeerRoute[]): void {
+    for (const carrier of this.carriers()) carrier.declarePeers?.(peers);
     this.pendingPeers += 1;
     this.sync = this.sync
       .then(() => this.applyPeers(peers))
@@ -205,7 +232,13 @@ export class DiscoveringMeshRelay implements IMeshRelay {
       const state: IRouteState =
         held !== undefined && held.route.deviceId === route.deviceId
           ? held
-          : { route, lanOut: outbound, path: { kind: 'unresolved' }, avoid: new Map() };
+          : {
+              route,
+              lanOut: outbound,
+              path: { kind: 'unresolved' },
+              avoid: new Map(),
+              avoidCarriers: new Map(),
+            };
       state.route = route;
       state.lanOut = outbound;
       next.set(route.outbound, state);
@@ -223,7 +256,9 @@ export class DiscoveringMeshRelay implements IMeshRelay {
     this.lanIn = lanIn;
     this.options.listener.setPresence([...lanIn.keys()]);
     this.cacheWrite(() => this.options.cache?.retain(peers.map((p) => p.deviceId)));
-    await this.options.advertiser?.advertise(peers, this.options.listener.port);
+    await Promise.all(
+      (this.options.advertisers ?? []).map((a) => a.advertise(peers, this.options.listener.port)),
+    );
     if (this.closed) return;
     this.scheduleEpoch(epoch, peers);
   }
@@ -238,9 +273,13 @@ export class DiscoveringMeshRelay implements IMeshRelay {
   public confirmPeer(deviceId: string): void {
     const state = this.byDevice.get(deviceId);
     const path = state?.path;
-    if (state === undefined || path?.kind !== 'direct') return;
+    if (state === undefined || (path?.kind !== 'direct' && path?.kind !== 'relay')) return;
     clearTimeout(path.deadline);
     path.deadline = undefined;
+    if (path.kind === 'relay') {
+      state.avoidCarriers.clear();
+      return;
+    }
     state.avoid.clear();
     this.cacheWrite(() => this.options.cache?.remember(deviceId, path.candidate));
   }
@@ -275,7 +314,7 @@ export class DiscoveringMeshRelay implements IMeshRelay {
       return;
     }
     if (path.kind === 'relay' && this.now() < path.until) {
-      this.viaRelay(topic, data);
+      this.viaCarrier(state, path, data);
       return;
     }
     if (path.kind === 'resolving') {
@@ -293,13 +332,24 @@ export class DiscoveringMeshRelay implements IMeshRelay {
     socket.send(JSON.stringify({ type: 'message', to: lanAddressOf(state.lanOut), data }));
   }
 
+  /** A signal for a topic that is no declared pair's: the last carrier, if there is one. */
   private viaRelay(topic: string, data: unknown): void {
-    const relay = this.options.relay;
-    if (relay === undefined) {
+    const carrier = this.carriers().at(-1);
+    if (carrier === undefined) {
       queueMicrotask(() => this.absent(topic));
       return;
     }
-    relay.send(topic, data);
+    carrier.send(topic, data);
+  }
+
+  private viaCarrier(
+    state: IRouteState,
+    path: Extract<TPath, { kind: 'relay' }>,
+    data: unknown,
+  ): void {
+    // Every attempt must reach admission over this carrier in time, unless it is the last one.
+    if (path.carrier !== this.carriers().at(-1)) this.armDeadline(state, path);
+    path.carrier.send(state.route.outbound, data);
   }
 
   /** Try the sources in order; the first candidate that holds the pair's topic carries its signals. */
@@ -331,18 +381,29 @@ export class DiscoveringMeshRelay implements IMeshRelay {
     }
     if (this.closed || state.path.kind !== 'resolving') return;
     this.fallBack(state);
-    for (const data of queue) this.viaRelay(state.route.outbound, data);
+    const path = state.path as TPath;
+    for (const data of queue) {
+      if (path.kind === 'relay') this.viaCarrier(state, path, data);
+      else this.viaRelay(state.route.outbound, data);
+    }
   }
 
   /**
-   * The relay carries the pair's signals for a while. Without a relay there is nothing to wait on:
-   * the next signal looks again, since the peer's endpoint may simply not have been up yet.
+   * The first carrier not set aside carries the pair's signals for a while (the last one when all
+   * are). Without a carrier there is nothing to wait on: the next signal looks again, since the
+   * peer's endpoint may simply not have been up yet.
    */
   private fallBack(state: IRouteState): void {
+    const now = this.now();
+    for (const [carrier, until] of state.avoidCarriers) {
+      if (until <= now) state.avoidCarriers.delete(carrier);
+    }
+    const carriers = this.carriers();
+    const carrier = carriers.find((c) => !state.avoidCarriers.has(c)) ?? carriers.at(-1);
     state.path =
-      this.options.relay === undefined
+      carrier === undefined
         ? { kind: 'unresolved' }
-        : { kind: 'relay', until: this.now() + this.recheckMs() };
+        : { kind: 'relay', until: now + this.recheckMs(), carrier };
   }
 
   private recheckMs(): number {
@@ -353,7 +414,9 @@ export class DiscoveringMeshRelay implements IMeshRelay {
     source: IMeshCandidateSource,
     route: IMeshPeerRoute,
   ): Promise<readonly IMeshCandidate[]> {
-    const timeout = AbortSignal.timeout(this.options.sourceTimeoutMs ?? DEFAULT_SOURCE_TIMEOUT_MS);
+    const timeout = AbortSignal.timeout(
+      source.timeoutMs ?? this.options.sourceTimeoutMs ?? DEFAULT_SOURCE_TIMEOUT_MS,
+    );
     const signal = AbortSignal.any([timeout, this.abort.signal]);
     try {
       return await Promise.race([
@@ -412,15 +475,20 @@ export class DiscoveringMeshRelay implements IMeshRelay {
   }
 
   /**
-   * An endpoint that carries the pair's signals but no admission is set aside, so it cannot keep the
-   * pair from the next candidate or the relay — whether it never forwarded, or forwarded one
-   * attempt and swallows the next.
+   * An endpoint or carrier that carries the pair's signals but no admission is set aside, so it
+   * cannot keep the pair from the next way — whether it never forwarded, or forwarded one attempt
+   * and swallows the next.
    */
-  private armDeadline(state: IRouteState, path: Extract<TPath, { kind: 'direct' }>): void {
+  private armDeadline(
+    state: IRouteState,
+    path: Extract<TPath, { kind: 'direct' } | { kind: 'relay' }>,
+  ): void {
     if (path.deadline !== undefined) return;
     path.deadline = setTimeout(() => {
       if (state.path !== path) return;
-      state.avoid.set(candidateKey(path.candidate), this.now() + this.recheckMs());
+      const until = this.now() + this.recheckMs();
+      if (path.kind === 'direct') state.avoid.set(candidateKey(path.candidate), until);
+      else state.avoidCarriers.set(path.carrier, until);
       this.reset(state);
       this.fallBack(state);
     }, this.options.admissionTimeoutMs ?? DEFAULT_ADMISSION_TIMEOUT_MS);
@@ -446,6 +514,7 @@ export class DiscoveringMeshRelay implements IMeshRelay {
   private reset(state: IRouteState): void {
     const path = state.path;
     state.path = { kind: 'unresolved' };
+    if (path.kind === 'relay') clearTimeout(path.deadline);
     if (path.kind === 'direct') {
       clearTimeout(path.deadline);
       path.socket.close();
@@ -474,16 +543,24 @@ export class DiscoveringMeshRelay implements IMeshRelay {
     this.messages.clear();
     this.absents.clear();
     this.waiting = [];
-    this.options.advertiser?.close();
+    for (const advertiser of this.options.advertisers ?? []) advertiser.close();
     // allow-fallback: closing the endpoint is best effort once this relay is done with it
     void this.options.listener.close().catch(() => undefined);
-    // The relay it was given stays the caller's to close, as a relay handed to a node does.
+    // The carriers it was given stay the caller's to close, as a relay handed to a node does.
   }
 }
 
 export interface IStartLanMeshRelayOptions {
-  /** The self-hosted relay, tried after the local network. */
+  /** The self-hosted relay: the last carrier. */
   readonly relay?: IMeshRelay;
+  /**
+   * Beyond the local network: public records to find peers by (closed with the relay), and public
+   * signaling carriers tried before the self-hosted relay (the caller's to close).
+   */
+  readonly internet?: {
+    readonly dht?: MeshDht;
+    readonly signaling?: readonly IMeshRelay[];
+  };
   /** Default: one that lives as long as the process. */
   readonly cache?: IMeshAddressCache;
   /** The address the direct signaling endpoint binds; default: every interface. */
@@ -495,7 +572,8 @@ export interface IStartLanMeshRelayOptions {
 
 /**
  * A {@link DiscoveringMeshRelay} over this device's direct signaling endpoint, looking for peers in
- * the address cache, then with mDNS, then on the relay.
+ * the address cache, with mDNS, then in public records, and signaling through the public carriers,
+ * then the self-hosted relay, when no candidate answers.
  */
 export async function startLanMeshRelay(
   options: IStartLanMeshRelayOptions = {},
@@ -519,12 +597,19 @@ export async function startLanMeshRelay(
           ...(options.onError !== undefined ? { onError: options.onError } : {}),
           ...options.mdns,
         });
+  const dht = options.internet?.dht;
+  const signaling = options.internet?.signaling ?? [];
   return new DiscoveringMeshRelay({
     ...(options.relay !== undefined ? { relay: options.relay } : {}),
+    ...(signaling.length > 0 ? { signaling } : {}),
     listener,
-    sources: mdns !== undefined ? [addressCacheSource(cache), mdns] : [addressCacheSource(cache)],
+    sources: [
+      addressCacheSource(cache),
+      ...(mdns !== undefined ? [mdns] : []),
+      ...(dht !== undefined ? [dht] : []),
+    ],
     cache,
-    ...(mdns !== undefined ? { advertiser: mdns } : {}),
+    advertisers: [...(mdns !== undefined ? [mdns] : []), ...(dht !== undefined ? [dht] : [])],
     ...(options.onError !== undefined ? { onError: options.onError } : {}),
   });
 }

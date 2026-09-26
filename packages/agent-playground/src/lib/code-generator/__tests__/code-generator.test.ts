@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { generateAgentCode } from '../index';
 import type { IAssemblyState } from '../index';
+import { getInstallCommand } from '../install-command';
+import { getProviderTemplate, isExportableProvider } from '../provider-templates';
 
 describe('generateAgentCode', () => {
   it('generates createQuery code for simple case (no skills)', () => {
@@ -13,7 +15,7 @@ describe('generateAgentCode', () => {
 
     expect(code).toContain("import { createQuery } from '@robota-sdk/agent-framework'");
     expect(code).toContain('AnthropicProvider');
-    expect(code).toContain('@robota-sdk/agent-provider/anthropic');
+    expect(code).toContain("from '@robota-sdk/agent-provider-anthropic'");
     expect(code).toContain('process.env.ANTHROPIC_API_KEY');
     expect(code).toContain("permissionMode: 'bypassPermissions'");
     expect(code).toContain('createQuery(');
@@ -155,5 +157,48 @@ describe('generateAgentCode', () => {
     const code = generateAgentCode(state);
 
     expect(code).toContain("permissionMode: 'default'");
+  });
+});
+
+describe('getProviderTemplate', () => {
+  it.each([
+    ['openai', '@robota-sdk/agent-provider-openai', 'OpenAIProvider'],
+    ['anthropic', '@robota-sdk/agent-provider-anthropic', 'AnthropicProvider'],
+    ['gemini', '@robota-sdk/agent-provider-gemini', 'GeminiProvider'],
+    ['deepseek', '@robota-sdk/agent-provider-openai-compatible', 'DeepSeekProvider'],
+    ['google', '@robota-sdk/agent-provider-gemini', 'GeminiProvider'],
+  ])('imports %s from its per-vendor package', (provider, importPath, className) => {
+    expect(getProviderTemplate(provider)).toMatchObject({ importPath, className });
+  });
+});
+
+describe('getInstallCommand', () => {
+  it.each([
+    ['openai', '@robota-sdk/agent-provider-openai'],
+    ['anthropic', '@robota-sdk/agent-provider-anthropic'],
+    ['google', '@robota-sdk/agent-provider-gemini'],
+  ])('installs the framework and the %s provider package', (provider, packageName) => {
+    expect(getInstallCommand(provider)).toBe(
+      `npm install @robota-sdk/agent-framework ${packageName}`,
+    );
+  });
+});
+
+describe('providers without a code template', () => {
+  const state: IAssemblyState = {
+    agent: { provider: 'qwen', model: 'qwen-plus', systemPrompt: '' },
+    tools: [],
+    skills: [],
+  };
+
+  it('are not exportable', () => {
+    expect(isExportableProvider('qwen')).toBe(false);
+    expect(isExportableProvider('Anthropic')).toBe(true);
+  });
+
+  it('never get an invented package name', () => {
+    expect(getProviderTemplate('qwen')).toBeUndefined();
+    expect(() => generateAgentCode(state)).toThrow('qwen');
+    expect(() => getInstallCommand('qwen')).toThrow('qwen');
   });
 });

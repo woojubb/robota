@@ -25,6 +25,8 @@ export interface IMeshPeerRoute {
 
 /** One way of finding a peer's direct signaling endpoint. */
 export interface IMeshCandidateSource {
+  /** How long a lookup of this source may take; default: the caller's. */
+  readonly timeoutMs?: number;
   /** Candidates for `peer`, best first; empty when this source knows none. Never throws. */
   candidates(peer: IMeshPeerRoute, signal: AbortSignal): Promise<readonly IMeshCandidate[]>;
 }

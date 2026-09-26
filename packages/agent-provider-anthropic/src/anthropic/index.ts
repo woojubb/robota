@@ -1,5 +1,5 @@
 /**
- * @robota-sdk/agent-provider (anthropic)
+ * @robota-sdk/agent-provider-anthropic
  *
  * Provides Provider implementation for using Anthropic API with provider-agnostic TUniversalMessage.
  */

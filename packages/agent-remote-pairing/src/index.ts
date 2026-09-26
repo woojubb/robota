@@ -199,6 +199,7 @@ export type {
   IRelayInboxTopics,
   IRendezvousLists,
   TRendezvousDirection,
+  TRendezvousRecordPurpose,
   TRendezvousTagPurpose,
 } from './identity/rendezvous.js';
 export {

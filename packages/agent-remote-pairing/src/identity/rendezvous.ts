@@ -28,7 +28,14 @@ export function rendezvousEpoch(now: number): number {
 }
 
 /** What a rotating tag is for; each purpose yields unrelated values. */
-export type TRendezvousTagPurpose = 'mdns' | 'lan-inbox' | 'bep44-salt';
+export type TRendezvousTagPurpose =
+  'mdns' | 'lan-inbox' | 'bep44-salt' | 'bep44-revocation-salt' | 'nostr-kind';
+
+/**
+ * What a one-time key and a sealed record are for: connection hints, the device lists a peer hands
+ * on, or a live signal. Each purpose has its own keys, so a record of one never opens as another.
+ */
+export type TRendezvousRecordPurpose = 'hints' | 'revocation' | 'signal';
 
 /** `outbound` is `dir(self → peer)`, what this device publishes; `inbound` is the peer's. */
 export type TRendezvousDirection = 'outbound' | 'inbound';
@@ -65,17 +72,26 @@ export interface IPairRendezvous {
   ): Promise<Uint8Array>;
   /** The peer's tags for `purpose` at `epoch - 1`, `epoch` and `epoch + 1`. */
   lookupTags(purpose: TRendezvousTagPurpose, epoch: number): Promise<readonly Uint8Array[]>;
-  /** The 32-byte seed of the one-time Ed25519 key of one direction at `epoch`. */
-  signingSeed(direction: TRendezvousDirection, epoch: number): Promise<Uint8Array>;
-  /** Encrypt connection hints under this device's direction at `epoch`. */
-  sealRecord(hints: Uint8Array, epoch: number): Promise<Uint8Array>;
+  /** The 32-byte seed of the one-time key of one direction at `epoch` (default purpose: hints). */
+  signingSeed(
+    direction: TRendezvousDirection,
+    epoch: number,
+    purpose?: TRendezvousRecordPurpose,
+  ): Promise<Uint8Array>;
+  /** Encrypt data under this device's direction at `epoch` (default purpose: hints). */
+  sealRecord(
+    hints: Uint8Array,
+    epoch: number,
+    purpose?: TRendezvousRecordPurpose,
+  ): Promise<Uint8Array>;
   /**
-   * Decrypt a record the peer sealed, trying `epoch` and the adjacent ones. `undefined` when it is
-   * not the peer's record for this device in any of them.
+   * Decrypt a record the peer sealed for `purpose`, trying `epoch` and the adjacent ones.
+   * `undefined` when it is not the peer's record of that purpose for this device in any of them.
    */
   openRecord(
     record: Uint8Array,
     epoch: number,
+    purpose?: TRendezvousRecordPurpose,
   ): Promise<{ readonly hints: Uint8Array; readonly epoch: number } | undefined>;
   /** The self-hosted relay's inbox topics. They do not rotate: the relay is the user's own. */
   relayInbox(): Promise<IRelayInboxTopics>;
@@ -84,6 +100,14 @@ export interface IPairRendezvous {
 const NONCE_BYTES = 12;
 const TAG_BYTES = 32;
 const RELAY_INBOX_PURPOSE = 'relay-inbox';
+
+/**
+ * The label prefix of a record purpose. Connection hints keep the labels they were first derived
+ * under; every other purpose is named in its label, so no two purposes share a key.
+ */
+function purposeLabel(base: string, purpose: TRendezvousRecordPurpose): string {
+  return purpose === 'hints' ? base : `${base}:${purpose}`;
+}
 
 function isCurrent(lists: IRendezvousLists, device: IDeviceCertificate): boolean {
   if (lists.revocation.revokedDeviceIds.includes(device.deviceId)) return false;
@@ -133,16 +157,23 @@ export async function derivePairRendezvous(
     new Uint8Array(await webcrypto.subtle.sign('HMAC', macKey, ab(label(parts))));
   const hkdf = (info: Uint8Array) =>
     ({ name: 'HKDF', hash: 'SHA-256', salt: new ArrayBuffer(0), info: ab(info) }) as const;
-  const recordKey = (direction: TRendezvousDirection, epoch: number): Promise<CryptoKey> =>
+  const recordKey = (
+    direction: TRendezvousDirection,
+    epoch: number,
+    purpose: TRendezvousRecordPurpose,
+  ): Promise<CryptoKey> =>
     webcrypto.subtle.deriveKey(
-      hkdf(label(['enc', ...dir(direction), epoch])),
+      hkdf(label([purposeLabel('enc', purpose), ...dir(direction), epoch])),
       hkdfKey,
       { name: 'AES-GCM', length: 256 },
       false,
       ['encrypt', 'decrypt'],
     );
-  const recordData = (direction: TRendezvousDirection, epoch: number): Uint8Array =>
-    label(['record', ...dir(direction), epoch]);
+  const recordData = (
+    direction: TRendezvousDirection,
+    epoch: number,
+    purpose: TRendezvousRecordPurpose,
+  ): Uint8Array => label([purposeLabel('record', purpose), ...dir(direction), epoch]);
   const tag = async (
     purpose: TRendezvousTagPurpose,
     direction: TRendezvousDirection,
@@ -154,32 +185,40 @@ export async function derivePairRendezvous(
     tag,
     lookupTags: (purpose, epoch) =>
       Promise.all([epoch - 1, epoch, epoch + 1].map((e) => tag(purpose, 'inbound', e))),
-    signingSeed: async (direction, epoch) =>
+    signingSeed: async (direction, epoch, purpose = 'hints') =>
       new Uint8Array(
         await webcrypto.subtle.deriveBits(
-          hkdf(label(['sign', ...dir(direction), epoch])),
+          hkdf(label([purposeLabel('sign', purpose), ...dir(direction), epoch])),
           hkdfKey,
           256,
         ),
       ),
-    sealRecord: async (hints, epoch) => {
+    sealRecord: async (hints, epoch, purpose = 'hints') => {
       const nonce = randomBytes(NONCE_BYTES);
       const sealed = await webcrypto.subtle.encrypt(
-        { name: 'AES-GCM', iv: ab(nonce), additionalData: ab(recordData('outbound', epoch)) },
-        await recordKey('outbound', epoch),
+        {
+          name: 'AES-GCM',
+          iv: ab(nonce),
+          additionalData: ab(recordData('outbound', epoch, purpose)),
+        },
+        await recordKey('outbound', epoch, purpose),
         ab(hints),
       );
       return concat([nonce, new Uint8Array(sealed)]);
     },
-    openRecord: async (record, epoch) => {
+    openRecord: async (record, epoch, purpose = 'hints') => {
       if (record.length <= NONCE_BYTES) return undefined;
       const nonce = record.slice(0, NONCE_BYTES);
       const body = record.slice(NONCE_BYTES);
       for (const e of [epoch, epoch - 1, epoch + 1]) {
         try {
           const hints = await webcrypto.subtle.decrypt(
-            { name: 'AES-GCM', iv: ab(nonce), additionalData: ab(recordData('inbound', e)) },
-            await recordKey('inbound', e),
+            {
+              name: 'AES-GCM',
+              iv: ab(nonce),
+              additionalData: ab(recordData('inbound', e, purpose)),
+            },
+            await recordKey('inbound', e, purpose),
             ab(body),
           );
           return { hints: new Uint8Array(hints), epoch: e };
