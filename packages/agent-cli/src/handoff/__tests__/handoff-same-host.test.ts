@@ -554,6 +554,45 @@ describe('the /handoff adapter over the peer channel', () => {
     expect(await handoff.staysBehind()).toEqual({ uncommittedChanges: true, subprocesses: 1 });
   }, 30_000);
 
+  it('lists the devices linked over the device mesh beside the sessions', async () => {
+    const { a } = await sessions({ approver: operator(true) });
+    const { handoff } = adapter(a, {
+      devices: { list: () => [{ deviceId: 'D1', name: 'desktop' }], push: vi.fn() },
+    });
+    expect(await handoff.destinations()).toEqual([
+      { deviceId: 'B', name: 'another session on this machine' },
+      { deviceId: 'D1', name: 'desktop, another of your devices' },
+    ]);
+  }, 30_000);
+
+  it('pushes to a linked device over its mesh link, from this device', async () => {
+    const { a, saved } = await sessions({ approver: operator(true) });
+    const push = vi.fn(
+      async (
+        _deviceId: string,
+        options: Omit<IPushHandoffOptions, 'openChannel' | 'carrierBinding'>,
+      ) => {
+        options.onReadOnly();
+        return { outcome: { phase: 'committed' }, source: {} } as never;
+      },
+    );
+    const { handoff, onHandedOff } = adapter(a, {
+      devices: { list: () => [{ deviceId: 'D1', name: 'desktop' }], push },
+    });
+    const final = await handoff.transfer('D1');
+    expect(final).toEqual({ state: 'done', stillMine: false });
+    expect(push).toHaveBeenCalledTimes(1);
+    const [target, options] = push.mock.calls[0]!;
+    expect(target).toBe('D1');
+    expect(options.request).toMatchObject({
+      sourceDeviceId: readIdentityState(path.join(root, 'devices'))?.deviceCertificate.deviceId,
+      destinationDeviceId: 'D1',
+      sessionId: 'session-1',
+    });
+    expect(saved).toHaveLength(0);
+    expect(onHandedOff).toHaveBeenCalledTimes(1);
+  }, 30_000);
+
   it('moves the session, then ends this one and refuses a second move', async () => {
     const { a, saved } = await sessions({ approver: operator(true) });
     const { handoff, onHandedOff } = adapter(a);
