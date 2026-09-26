@@ -88,6 +88,10 @@ a server name only when it is safe to show, the states, and the command the user
 a definition's reason text, provenance, fingerprint or endpoint, because those are text a repository
 wrote or can carry a credential.
 
+**`/events`.** Lists and revokes the session's external-event grants through an injected host
+adapter and never creates one. It is user-only as a whole: a grant is the owner's standing decision to
+let someone outside put turns into the session, and withdrawing it is the owner's call too.
+
 **`/peers` activity.** The command renders the host's fixed activity observation separately
 from process liveness. An absent, expired, or unverified observation is shown as unknown; the command
 does not inspect another session's conversation or infer activity from a stored transcript.

@@ -67,6 +67,8 @@ export type {
   ICommandPermissionRulesAdapter,
   ICommandSandboxAdapter,
   ICommandSandboxStatus,
+  ICommandExternalEventGrant,
+  ICommandExternalEventsAdapter,
   TSandboxCommandMode,
   IPermissionRuleLayer,
   ICommandPickerAdapter,

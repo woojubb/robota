@@ -62,6 +62,7 @@ import type { IPreset } from '@robota-sdk/agent-preset';
  * OBSERVABILITY-1991: `/doctor` shares the pre-session doctor runner with `robota doctor`.
  * `agent-command-output-style` was added by CLI-1988 to expose provider-neutral response-style
  * selection through the same command host used by interactive and headless surfaces.
+ * `agent-command-events` lists and revokes the session's external-event grants.
  * `agent-command-effort` was added by FLOW-008 to expose active model-effort selection through the
  * same command host used by interactive and headless surfaces.
  * `agent-command-advisor` exposes `/advisor`, which chooses the model the main model may consult.
@@ -104,6 +105,7 @@ const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-plugin',
   'agent-command-settings',
   'agent-command-peers',
+  'agent-command-events',
   'agent-command-handoff',
   'agent-command-remote-control',
   'agent-command-devices',

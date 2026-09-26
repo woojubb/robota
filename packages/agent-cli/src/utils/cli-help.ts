@@ -18,6 +18,10 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --language <lang>          Language preference (e.g. ko, en)
   --no-session-persistence   Disable session persistence for this run
   --permission-mode <mode>   Permission mode: plan | default | acceptEdits | bypassPermissions | auto
+  --external-event-grant <file>
+                             TUI only: admit text-only external events whose access token
+                             this session verifies for the one principal the file names;
+                             repeat per grant (no tools, no reply; list or revoke with /events)
   --max-turns <n>            Maximum agent turns before stopping
   -c, --continue             Continue the most recent session
   -r, --resume <id>          Resume a session by ID or name
@@ -92,8 +96,12 @@ Commands:
   robota session view [--cwd <directory>] [--name <text>] [--pr <number>] [--state <state>]
                       [--screen-reader|--no-screen-reader]
                                   Live supervised sessions across projects, or filtered (TTY only)
-  robota session start --background [--name <name>]
+  robota session start --background [--name <name>] [--external-event-grant <file>]...
                                   Start a supervised session that outlives this terminal (no attach yet)
+  robota session events list <supervised-id> [--json]
+                                  Show a supervised session's external event grants and their counts
+  robota session events revoke <supervised-id> <grant-id>
+                                  Withdraw one external event grant from a supervised session
   robota session stop <supervised-id>
                                   Stop a supervised session owned by this user
   robota session rename <supervised-id> <name>

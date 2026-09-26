@@ -63,6 +63,7 @@ export interface IExternalEventDelivery {
  * - `rate-limited` — the grant is over one of its turn-rate windows.
  * - `queue-full` — the session cannot hold another pending turn.
  * - `shutting-down` — the session no longer takes turns.
+ * - `session-unavailable` — the session could not take the turn for another reason.
  *
  * A token already spent on an admitted event is refused as `malformed`, like a token that does not
  * name itself with a `jti`.
@@ -77,7 +78,8 @@ export type TExternalEventRefusal =
   | 'oversize'
   | 'rate-limited'
   | 'queue-full'
-  | 'shutting-down';
+  | 'shutting-down'
+  | 'session-unavailable';
 
 /** The receipt for one delivery. An admission names the turn and nothing the turn produced. */
 export type TExternalEventAdmission =
