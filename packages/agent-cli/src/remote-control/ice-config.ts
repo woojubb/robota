@@ -5,11 +5,10 @@ import type { IIceServer } from '@robota-sdk/agent-transport-webrtc';
  * UNTYPED bag value (`unknown`), so it must be narrowed with real validation — no `any`, no unchecked cast — and a
  * malformed value must **fail closed** (a clear error), never a silent partial config.
  *
- * CRUCIALLY, this is constrained to what the HOST sink (werift) actually consumes: werift's ICE gatherer
- * (`parseIceServers`) reads only a SINGLE-string `urls` with a `turn:`/`stun:` scheme and **silently drops** array
- * `urls`, `turns:`/`stuns:` schemes, etc. So we REJECT (fail-closed) the shapes werift would drop — accepting them
- * would advertise TURN as configured while werift discards it (a silent never-connect). (The browser peer uses the
- * native `RTCPeerConnection`, which DOES support array urls / `turns:` — its decoder is deliberately wider.)
+ * It accepts one shape: a SINGLE-string `urls` with a `turn:`/`stun:` scheme, one server per entry — the shape the
+ * host transport maps onto its ICE configuration. Anything else is REJECTED (fail-closed) rather than partly
+ * applied, since a TURN server that is shown as configured but not used is a silent never-connect. (The browser
+ * peer uses the native `RTCPeerConnection`, which supports array urls / `turns:` — its decoder is deliberately wider.)
  */
 
 const ICE_URL_SCHEME = /^(stun|turn):/i;
@@ -20,8 +19,8 @@ function validateUrl(url: unknown, where: string): string {
   }
   if (!ICE_URL_SCHEME.test(url)) {
     throw new Error(
-      `Invalid ICE config: ${where} "${url}" must use a stun:/turn: scheme — the host (werift) transport does ` +
-        'not support turns:/stuns: (silently dropped). Use turn:/stun:.',
+      `Invalid ICE config: ${where} "${url}" must use a stun:/turn: scheme — the host transport ` +
+        'configuration does not take turns:/stuns:. Use turn:/stun:.',
     );
   }
   return url;
@@ -35,8 +34,8 @@ function validateServer(entry: unknown, index: number): IIceServer {
   const rawUrls = record.urls;
   if (Array.isArray(rawUrls)) {
     throw new Error(
-      `Invalid ICE config: iceServers[${index}].urls must be a single url string — the host (werift) transport ` +
-        'silently drops array urls. List each server as a separate { urls } entry.',
+      `Invalid ICE config: iceServers[${index}].urls must be a single url string — the host transport ` +
+        'configuration takes one url per server. List each server as a separate { urls } entry.',
     );
   }
   const urls = validateUrl(rawUrls, `iceServers[${index}].urls`);

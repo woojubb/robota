@@ -16,7 +16,6 @@ import { PairingGate } from '../pairing-gate.js';
 
 import type { startPairingHandshake, TPairingFrame } from '@robota-sdk/agent-remote-pairing';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
-import type { RTCDataChannel } from 'werift';
 
 /** Collect unhandled rejections while `run` executes, then drain the queue Node reports them on. */
 async function withUnhandledRejectionCapture(run: () => void | Promise<void>): Promise<unknown[]> {
@@ -54,9 +53,11 @@ function makeHandshakeStub(): { start: typeof startPairingHandshake; accept: () 
   return { start, accept: () => resolveResult({ sessionKey: 'k' }) };
 }
 
-/** A data channel whose `send` starts throwing once dropped, as werift's does on a closed channel. */
+/** A data channel whose `send` starts throwing once dropped, as a real one does once closed. */
+type TTestChannel = { send: (data: string) => void; close: () => void };
+
 function createDroppableChannel(): {
-  channel: RTCDataChannel;
+  channel: TTestChannel;
   close: ReturnType<typeof vi.fn>;
   drop: () => void;
 } {
@@ -68,7 +69,7 @@ function createDroppableChannel(): {
       void data;
     },
     close,
-  } as unknown as RTCDataChannel;
+  };
   return {
     channel,
     close,

@@ -9,7 +9,7 @@
 import type { IConnectionApproval, IHostReconnectConfig } from './pairing-gate.js';
 import type { ILocalPeerProof } from './local-peer-proof.js';
 import type { ISignalingClient } from './signaling.js';
-import type { IWeriftModule } from './werift-loader.js';
+import type { IDataChannelModule } from './datachannel-loader.js';
 import type { IPairingResult } from '@robota-sdk/agent-remote-pairing';
 import type {
   ISessionMessageHandlerOptions,
@@ -17,11 +17,9 @@ import type {
 } from '@robota-sdk/agent-transport';
 
 /**
- * A single ICE (STUN/TURN) server for the HOST (werift) transport (REMOTE-010). `urls` is a SINGLE string with a
- * `turn:`/`turns:`/`stun:`/`stuns:` scheme — werift's ICE gatherer (`parseIceServers`) consumes only a single-string
- * url and silently drops array `urls`, so the host reader (`agent-cli` `parseIceServers`) must narrow to this shape
- * and reject what werift would drop (fail-closed). (The browser peer uses the native DOM `RTCIceServer`, which does
- * support array urls / `turns:` — a separate, wider validator.) Kept a plain interface (no DOM dependency here).
+ * A single ICE (STUN/TURN) server for the host transport. `urls` is one `stun:`/`stuns:`/`turn:`/`turns:` url
+ * (optionally `?transport=tcp`); TURN servers carry username/credential. The browser peer uses the native DOM
+ * `RTCIceServer`, a separate, wider shape. Kept a plain interface (no DOM dependency here).
  */
 export interface IIceServer {
   readonly urls: string;
@@ -41,9 +39,8 @@ export interface IWebRtcTransportOptions {
   readonly iceServers?: readonly IIceServer[];
   /**
    * REMOTE-004 defense-in-depth: when true, restrict ICE to **relay (TURN) candidates only**, so
-   * host/server-reflexive candidates — and the local-interface gathering that touches the (unreachable, but
-   * belt-and-braces) `ip` code path — are never used. Requires a TURN server in `iceServers`. Mapped to werift's
-   * `iceTransportPolicy: 'relay'` (REMOTE-010) — werift IGNORES a top-level `forceTurn`, so it must NOT be passed.
+   * host/server-reflexive candidates are never used. Requires a TURN server in `iceServers`. Mapped to the
+   * connection's `iceTransportPolicy: 'relay'`.
    */
   readonly forceTurn?: boolean;
   /**
@@ -79,6 +76,6 @@ export interface IWebRtcTransportOptions {
   readonly onDropped?: () => void;
   /** Observe an outbound session-event delivery failure before the carrier drops. */
   readonly onDeliveryError?: (error: Error, event: string) => void;
-  /** Test seam: inject the werift module (defaults to the real lazy loader). */
-  readonly loadWerift?: () => IWeriftModule;
+  /** Test seam: inject the `node-datachannel` module (defaults to the real lazy loader). */
+  readonly loadDataChannel?: () => IDataChannelModule;
 }

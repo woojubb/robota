@@ -23,8 +23,9 @@ await transport.start(); // offerer: opens the peer, data channel, and sends the
 await transport.stop();
 ```
 
-`werift` (pure-TS WebRTC) is an **optional peer dependency**, loaded lazily. If it is not installed, `start()`
-throws an explicit `WebRTC transport unavailable — install … "werift"` error — never a silent no-op.
+`node-datachannel` (libdatachannel, native) is an **optional peer dependency**, loaded lazily. If it is not
+installed or has no prebuilt binary for the platform, `start()` throws an explicit `WebRTC transport unavailable`
+error — never a silent no-op and never a fallback to another implementation.
 
 Signaling (SDP/ICE rendezvous) is injected via `ISignalingClient`: the in-memory pair for tests, or a client to
 the `@robota-sdk/remote-signaling` relay in production.

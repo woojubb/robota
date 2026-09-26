@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { createHostCredentialStore } from '../credentials/select-credential-store.js';
 import { userLocalStorageRoot } from '../product/user-paths.js';
 import { createDeviceIdentityService } from './device-identity-service.js';
+import { scheduleListReissue } from './device-list-reissue.js';
 import { openSecretTerminal, type ISecretTerminalSession } from './secret-terminal.js';
 
 import type { ICredentialStore } from '@robota-sdk/agent-core';
@@ -31,5 +32,28 @@ export function createDevicesCommandPort(options: IDevicesCommandPortOptions = {
     store: credentials.store,
     openTerminal: options.openTerminal ?? (() => openSecretTerminal()),
     describeKeyStorage: () => credentials.describe(),
+  });
+}
+
+export interface IDeviceListReissueStartOptions {
+  /** Defaults to `~/.robota` under the current `HOME`. */
+  readonly root?: string;
+  readonly credentials?: { readonly store: ICredentialStore };
+}
+
+/**
+ * Keep this device's roster and revocation list from lapsing while the host runs, when it holds the
+ * signing key. A failed check is retried on the next one; the lists' validity, shown by
+ * `/devices list`, is where a lasting failure becomes visible.
+ */
+export function startDeviceListReissue(options: IDeviceListReissueStartOptions = {}): () => void {
+  const root = options.root ?? userLocalStorageRoot();
+  const credentials = options.credentials ?? createHostCredentialStore({ root, notify: () => {} });
+  return scheduleListReissue({
+    directory: join(root, 'devices'),
+    withinRoot: root,
+    store: credentials.store,
+    // allow-fallback: the next hourly check retries, and an expiring list shows in `/devices list`
+    onError: () => undefined,
   });
 }

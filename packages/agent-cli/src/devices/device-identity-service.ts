@@ -28,9 +28,7 @@ import {
   issueDeviceRevocationList,
   issueDeviceRoster,
   issueSigningKeyRevocation,
-  verifyDeviceChain,
   type IMasterKey,
-  type IListHighWaterMarks,
   type ISigningKey,
 } from '@robota-sdk/agent-remote-pairing';
 
@@ -46,6 +44,7 @@ import {
   signingKeyCredentialKey,
   storeKeyPair,
 } from './identity-keys.js';
+import { checked, nextSeq } from './identity-lists.js';
 import { readIdentityState, writeIdentityState, type IDeviceIdentityState } from './identity-state.js';
 import {
   presentNewPhrase,
@@ -96,15 +95,6 @@ function refuse<T>(reason: TDevicesRefusal): TDevicesOutcome<T> {
 }
 
 /**
- * The next `seq` for a list. Wall-clock based, never below the last one plus one: two issuers that
- * share no state (a recovery on another device) still number forward, and a clock that steps back
- * cannot make a list look older than its predecessor.
- */
-function nextSeq(previous: number | undefined, now: number): number {
-  return Math.max((previous ?? 0) + 1, now);
-}
-
-/**
  * A signed device name: NFC, no control characters, and within the certificate's limit as the
  * certificate counts it (UTF-16 units), cut at a whole character — so certifying it cannot fail
  * after the operator has already written the phrase down.
@@ -132,41 +122,6 @@ function unchanged(a: IDeviceIdentityState, b: IDeviceIdentityState | undefined)
     a.signingKeyRevocation.sig === b.signingKeyRevocation.sig &&
     a.holdsSigningKey === b.holdsSigningKey
   );
-}
-
-/** Verify the state for this device before it is saved, and fold the accepted `seq`s into its marks. */
-async function checked(state: IDeviceIdentityState, now: number): Promise<IDeviceIdentityState> {
-  const verdict = await verifyDeviceChain({
-    masterPublicKey: state.masterPublicKey,
-    signingKeyCert: state.signingKeyCertificate,
-    deviceCert: state.deviceCertificate,
-    roster: state.roster,
-    revocation: state.revocation,
-    signingKeyRevocation: state.signingKeyRevocation,
-    now,
-    lastSeen: state.marks,
-    required: { roster: true, revocation: true, signingKeyRevocation: true },
-  });
-  if (!verdict.ok) {
-    throw new DeviceIdentityError(
-      `the new identity state did not verify (${verdict.subject}: ${verdict.reason}); nothing was saved`,
-    );
-  }
-  const marks: IListHighWaterMarks = {
-    ...(verdict.accepted.signingKeyRevocationSeq !== undefined
-      ? { signingKeyRevocationSeq: verdict.accepted.signingKeyRevocationSeq }
-      : {}),
-    bySigningKey: {
-      ...state.marks.bySigningKey,
-      [verdict.signingKeyId]: {
-        ...(verdict.accepted.rosterSeq !== undefined ? { rosterSeq: verdict.accepted.rosterSeq } : {}),
-        ...(verdict.accepted.revocationSeq !== undefined
-          ? { revocationSeq: verdict.accepted.revocationSeq }
-          : {}),
-      },
-    },
-  };
-  return { ...state, marks };
 }
 
 /**

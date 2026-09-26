@@ -90,7 +90,9 @@ session id, nonce, channel fingerprint, and expiry. A signature over a subset wo
 attacker-editable while still verifying.
 
 **Signaling stays a rendezvous.** The grant is minted by the source and verified by the destination end to end, so
-a signaling server that reads every byte still cannot authorize a transfer.
+a signaling server that reads every byte still cannot authorize a transfer. Two devices meet on a relay at inbox
+topics derived from their pairwise secret, one per direction, so the relay can neither link a topic to a device
+nor let a third party address the pair.
 
 **Trust levels stay distinct.** A cross-host same-user admission must never satisfy a check that wanted
 same-host-same-user, or a local admission could authorize a cross-device transfer. A device certificate proves the

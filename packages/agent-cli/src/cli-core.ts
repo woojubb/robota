@@ -56,6 +56,7 @@ import {
   createChannelReadyHandler,
 } from './product/robota-plumbing.js';
 import { createRemoteControlController } from './remote-control/index.js';
+import { startDeviceListReissue } from './devices/index.js';
 import { createCliUsageTransportRegistry } from './usage/usage-transport-registry.js';
 import { createConfiguredNodeOtlpLiveTelemetryPort } from './telemetry/live-trace-otlp.js';
 import { takeRobotaTelemetryEnvironment } from './telemetry/live-telemetry-env.js';
@@ -899,6 +900,8 @@ async function runCliCore(
     printFirstRunWelcome(terminal, screenReader);
     markOnboarded();
   }
+  // A device holding the signing key keeps its roster and revocation list from lapsing while it runs.
+  startDeviceListReissue();
 
   const tuiRun = presentation.renderApp({
     productDisplayName: 'Robota',

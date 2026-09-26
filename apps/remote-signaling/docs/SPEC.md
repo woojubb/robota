@@ -11,9 +11,15 @@ logic, and the WebSocket server entrypoint.
 
 - Does not own the WebRTC transport (that is `@robota-sdk/agent-transport-webrtc`); this app only
   rendezvous-pairs peers and relays their opaque signaling blobs.
-- Carries no session content: it relays only `offer`/`answer`/`ice` frames verbatim, holding no state
-  beyond transient per-rendezvous membership that is dropped on disconnect. Frame payloads are never
-  inspected.
+- Carries no session content: within a rendezvous it relays only `offer`/`answer`/`ice` frames verbatim, and
+  between device inboxes it delivers an opaque `message` to whichever connection declared `presence` at its
+  topic, answering `absent` when none did. It holds no state beyond transient membership dropped on disconnect,
+  and never inspects a payload. A topic is opaque — nothing in it names a device or user — though the relay can
+  see the same topic recur.
+- An inbox topic has one holder, the latest to declare it, so a device reconnecting before its old connection is
+  noticed as gone is not locked out of its own inbox. Topics must look high-entropy, since knowing a topic is all
+  addressing it takes; a connection must itself be present somewhere before it may send. Topics are capped per
+  source as well as relay-wide, so a few sources cannot fill the board and lock every other device out.
 - A peer never receives its own frame echoed back, and frames never cross between rendezvous ids. Any
   non-signaling frame, or an unknown signal kind, is rejected and never relayed.
 - Imports no `@robota-sdk` runtime package — it is a dumb relay with a single dependency (`ws`).

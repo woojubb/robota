@@ -243,7 +243,7 @@ export function createRtcSessionClient(
       return;
     }
 
-    // E3 path — the device keypair is async, so buffer inbound frames until the gate exists (werift/native do
+    // E3 path — the device keypair is async, so buffer inbound frames until the gate exists (data channels do
     // not buffer pre-subscription, and the enrollment build is a microtask or two).
     const buffered: string[] = [];
     channel.onmessage = (event: MessageEvent): void => {
@@ -300,7 +300,7 @@ export function createRtcSessionClient(
     const createPeer = options.createPeer ?? ((c) => new RTCPeerConnection(c));
     const peerConfig: RTCConfiguration = {};
     if (options.iceServers) peerConfig.iceServers = options.iceServers;
-    if (options.forceTurn) peerConfig.iceTransportPolicy = 'relay'; // browser equivalent of werift forceTurn
+    if (options.forceTurn) peerConfig.iceTransportPolicy = 'relay'; // browser equivalent of the host's forceTurn
     const p = createPeer(Object.keys(peerConfig).length > 0 ? peerConfig : undefined);
     peer = p;
     p.onicecandidate = (event): void => {

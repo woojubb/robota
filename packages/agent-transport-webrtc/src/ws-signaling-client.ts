@@ -6,7 +6,7 @@
  * On open it `join`s the rendezvous and flushes any signals produced before the socket opened (the offer is
  * created in `WebRtcTransport.start()`, which can run before the socket connects — buffering avoids dropping it).
  * Relay `error` frames, socket errors, and a close-before-join are surfaced through an explicit `onError`
- * callback — **never a silent degrade** (no-fallback, mirroring `loadReplayProvider`/`loadWerift`). The relay is
+ * callback — **never a silent degrade** (no-fallback, mirroring `loadReplayProvider`/`loadDataChannel`). The relay is
  * content-blind: this client only ever emits `join` + `signal` frames and only ever consumes `joined` / `signal`
  * / `error` frames.
  */
