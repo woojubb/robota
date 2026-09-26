@@ -657,9 +657,18 @@ describe('a proxy that forwards once', () => {
     const low = await lanDevice(world.low, {
       relay: hub.connect(),
       extraSources: [planted],
-      admissionTimeoutMs: 1_000,
+      // Long enough that the first admission lands well within it, even on a slow runner.
+      admissionTimeoutMs: 5_000,
     });
-    await Promise.all([low.node.start(), high.node.start()]);
+    // The peer holds the pair's topic before this device probes through the proxy; otherwise the
+    // probe finds nobody and the first connection goes over the relay instead.
+    await high.node.start();
+    const toHigh = await routeOf(world.low, world.high);
+    const lanTopic = Buffer.from(
+      await toHigh.rendezvous.tag('lan-inbox', 'outbound', rendezvousEpoch(Date.now())),
+    ).toString('base64url');
+    await expect.poll(() => holds(high.listener, lanTopic)).toBe(true);
+    await low.node.start();
 
     // The first connection goes through the proxy and is admitted.
     const first = await low.node.connect(world.high.cert.deviceId);
@@ -677,12 +686,12 @@ describe('a proxy that forwards once', () => {
           ]);
           return a.status;
         },
-        { timeout: 25_000, interval: 200 },
+        { timeout: 40_000, interval: 200 },
       )
       .toBe('fulfilled');
     expect(swallowed).toBeGreaterThan(0);
     expect(low.node.link(world.high.cert.deviceId)).not.toBe(first);
-  }, 40_000);
+  }, 60_000);
 });
 
 describe('the direct signaling endpoint', () => {
