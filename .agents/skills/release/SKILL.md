@@ -6,18 +6,21 @@ description: Bump versions, promote develop to main, and publish the @robota-sdk
 # Release
 
 1. **Bump** on a branch from fresh `origin/develop`: make sure every changed package has a changeset, run
-   `pnpm version` (changesets), then `pnpm install` so the lockfile is regenerated — never hand-edit it.
-   The bump PR contains the bump and nothing else. Merge it into `develop` through a normal PR.
+   `pnpm run version` (changesets; bare `pnpm version` is pnpm's own command), then `pnpm install` so the
+   lockfile is regenerated — never hand-edit it. The bump PR contains the bump and nothing else. Merge it
+   into `develop` through a normal PR.
 2. **Promote** `develop` → `main` with a PR whose head is `develop`. On merge,
    `release-tag-on-version-bump.yml` tags the new version; the binary and desktop release workflows run
    from that tag.
-3. **Publish** from an up-to-date `main`: first run `pnpm publish:beta --dry-run` (builds, runs the release
-   checks, packs every public package and verifies each tarball contains its declared files). Then run
-   `pnpm publish:beta`: the same steps, then `changeset publish` publishes every public package whose version
-   is not on npm yet, and the `beta` dist-tag is synced. **Only the owner supplies the OTP** — stop and ask;
-   never guess or reuse one. After a partial failure, rerun the same command; versions already on npm are
-   skipped.
-4. Confirm on npm that every package shows the new version under both `latest` and `beta`.
+3. **Publish** by running the *Publish to npm* workflow (`publish.yml`) on `main`; the owner approves the
+   `npm-publish` environment. It publishes through npm trusted publishing: no token or OTP, provenance
+   attached, and `changeset publish` skips versions already on npm, so rerunning after a partial failure is
+   safe. A package npm has never seen is refused by the workflow: the owner publishes it once from an
+   up-to-date `main` with `pnpm publish:beta` (OTP; run `--dry-run` first), then registers it with
+   `bash scripts/publish/configure-trusted-publishers.sh <package>` (2FA), then the workflow is rerun.
+4. Confirm on npm that every package's `latest` is the new version. There is no `beta` dist-tag: trusted
+   publishing cannot move one.
 
 Stop and ask the owner before: publishing a package for the first time, publishing from anything other than
-`main`, or retrying after a partial publish failure you do not understand.
+`main`, or retrying after a partial publish failure you do not understand. Only the owner supplies an OTP or
+2FA — never guess or reuse one.
