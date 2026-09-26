@@ -12,7 +12,7 @@ import type { IProtocolSession } from '@robota-sdk/agent-transport';
 
 /**
  * REMOTE-008 Step 4 — the composition-root remote-control controller. Driven with injected construction
- * seams (no real relay / werift / QR), so the enable/stop/status + fail-closed logic is unit-tested.
+ * seams (no real relay / WebRTC / QR), so the enable/stop/status + fail-closed logic is unit-tested.
  */
 
 /** The client base URL `makeDeps` injects; the pairing link must be on exactly this origin. */

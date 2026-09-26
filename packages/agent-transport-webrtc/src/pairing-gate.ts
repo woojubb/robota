@@ -9,7 +9,10 @@
  * E3 selects first-pair (`pair-nonce`, then identity-key enrollment) or reconnect (`rc-hello`, pinned
  * identities) from the client's first frame and exposes the session only after mutual acceptance.
  *
- * Fail-closed: a non-admission frame pre-accept is DROPPED; the handshake `result` is the ONLY accept signal;
+ * Fail-closed: a non-admission frame pre-accept never reaches the session early — while this side's verdict is
+ * pending it is HELD (bounded; a peer that says more is refused) and routed again once the gate moves on, since
+ * the peer may finish its half first and speak at once; it is discarded if admission fails. The handshake
+ * `result` is the ONLY accept signal;
  * on reject/timeout the channel is closed and no session bridge is ever created; a post-close frame is ignored.
  *
  * When no E3 `reconnect` config is supplied the gate is **exactly** the B4 first-pair-only gate (eager host
@@ -107,7 +110,8 @@ export class PairingGate {
 
   /**
    * Route one inbound channel frame. Pre-accept: admission frames → the active controller, everything else
-   * DROPPED. Post-accept: session messages → the session bridge. Post-close: ignored.
+   * HELD (bounded) until the gate moves on. Post-accept: session messages → the session bridge. Post-close:
+   * ignored.
    */
   onInbound(data: string): void {
     if (this.state === 'closed') return;
@@ -116,7 +120,7 @@ export class PairingGate {
       return;
     }
     if (this.state === 'operator-approval') {
-      this.holdForApproval(data);
+      this.hold(data);
       return;
     }
 
@@ -144,11 +148,13 @@ export class PairingGate {
 
     if (this.state === 'pairing') {
       if (isPairingFrame(parsed)) this.pairingController?.onFrame(parsed);
+      else this.hold(data);
       return;
     }
 
     if (this.state === 'reconnecting') {
       if (isReconnectFrame(parsed)) this.reconnectController?.onFrame(parsed);
+      else this.hold(data);
       return;
     }
 
@@ -173,6 +179,7 @@ export class PairingGate {
     if (this.state === 'enrolling') {
       // Awaiting the peer's identity public key to pin, then expose the session.
       if (isEnrollFrame(parsed)) this.completeEnrollment(parsed.spki);
+      else this.hold(data);
       return;
     }
   }
@@ -249,6 +256,7 @@ export class PairingGate {
       this.options.channel,
       JSON.stringify({ t: 'enroll-key', spki: cfg.hostPublicSpki } satisfies IEnrollFrame),
     );
+    this.replayHeld();
   }
 
   private completeEnrollment(deviceSpki: string): void {
@@ -284,6 +292,7 @@ export class PairingGate {
       this.pendingViaReconnect = viaReconnect;
       this.state = owed;
       if (owed === 'operator-approval') void this.askOperator();
+      this.replayHeld();
       return;
     }
     // Pin a first-pair device only now: a device a later step refused is not remembered.
@@ -313,7 +322,19 @@ export class PairingGate {
     }
   }
 
-  private holdForApproval(data: string): void {
+  /** The gate moved on: frames held under the previous state are routed again under the new one. */
+  private replayHeld(): void {
+    const held = this.heldFrames;
+    this.heldFrames = [];
+    this.heldChars = 0;
+    // Routed in order; once accepted, the rest go to the session through the same entry point.
+    for (const frame of held) {
+      if (this.state === 'closed') return;
+      this.onInbound(frame);
+    }
+  }
+
+  private hold(data: string): void {
     this.heldChars += data.length;
     this.heldFrames.push(data);
     if (this.heldFrames.length > HELD_FRAMES_MAX || this.heldChars > HELD_CHARS_MAX) {

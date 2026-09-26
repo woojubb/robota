@@ -6,7 +6,7 @@
  * until `run()` resolves accept.
  *
  * Isomorphic (WebCrypto only). The caller supplies the data-channel `send`, feeds inbound frames via `onFrame`,
- * and passes the **werift-verified** remote fingerprint (from the SDP werift consumed) as the binding value.
+ * and passes the remote fingerprint of the certificate the DTLS layer **verified** as the binding value.
  */
 import {
   computeConfirmations,
@@ -26,7 +26,7 @@ export interface IPairingHandshakeOptions {
   /** Initiator ≡ the WebRTC offerer (fixed by signaling). */
   readonly role: TPairingRole;
   readonly localFingerprint: string;
-  /** The remote DTLS fingerprint from the SDP werift consumed + verified. */
+  /** The remote DTLS fingerprint of the certificate the DTLS layer verified. */
   readonly remoteFingerprint: string;
   /** Send a handshake frame over the data channel. */
   readonly send: (frame: TPairingFrame) => void;

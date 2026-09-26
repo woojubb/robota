@@ -195,6 +195,12 @@ A key that has ever sat in a plain file backups and dotfile sync copy is never c
 store: it is replaced by a new key, the file is removed, and the operator is told once that trusted
 devices must pair again.
 
+A device that keeps the device-signing key reissues the roster and revocation list before they lapse
+while an interactive session runs. The lists expire quickly so that a withheld list cannot pass for a
+current one for long, which only holds if their issuer keeps renewing them without waiting for an
+operator; the signing key exists for exactly this, and the recovery phrase is never involved. Print,
+serve and test runs do not reissue, so running the CLI for a single task never rewrites identity state.
+
 ### MCP client composition
 
 `@robota-sdk/agent-mcp` owns definition decoding, precedence, admission policy, and the

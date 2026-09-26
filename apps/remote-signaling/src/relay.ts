@@ -23,6 +23,7 @@ import {
   type IScheduler,
   type ITokenBucketConfig,
 } from './rate-limiter.js';
+import { PresenceBoard, isTopic, parseTopics } from './presence-board.js';
 
 /** The kinds of signaling frame the relay will forward. Anything else is rejected, never relayed. */
 export type TSignalKind = 'offer' | 'answer' | 'ice';
@@ -44,10 +45,16 @@ export interface ISignalingPeer {
   close(): void;
 }
 
-/** Inbound control/signal frames the relay accepts. `join` establishes the rendezvous; `signal` is relayed. */
+/**
+ * Inbound frames the relay accepts. `join` establishes the rendezvous and `signal` is relayed within it;
+ * `presence` declares the opaque inbox topics a connection is present at, and `message` is delivered to
+ * whoever is present at its topic.
+ */
 export type TInboundFrame =
   | { readonly type: 'join'; readonly rendezvous: string }
-  | { readonly type: 'signal'; readonly kind: TSignalKind; readonly data: unknown };
+  | { readonly type: 'signal'; readonly kind: TSignalKind; readonly data: unknown }
+  | { readonly type: 'presence'; readonly topics: readonly string[] }
+  | { readonly type: 'message'; readonly topic: string; readonly data: unknown };
 
 /** Context passed to the join seam (REMOTE-004 — widened from the Stage-A `(rendezvous, peerId)` form). */
 export interface IJoinAttemptContext {
@@ -76,6 +83,10 @@ export interface ISignalingRelayOptions {
   readonly rendezvousTtlMs?: number;
   /** Ceiling on concurrent (active) rendezvous (default 1024). */
   readonly maxRendezvous?: number;
+  /** Ceiling on inbox topics held relay-wide (default 8192). */
+  readonly maxPresenceTopics?: number;
+  /** Ceiling on inbox topics one source holds across its connections (default 256). */
+  readonly maxPresenceTopicsPerSource?: number;
   /** Injected time source (default `Date.now`). */
   readonly clock?: IClock;
   /** Injected timer scheduler (default `setTimeout`). */
@@ -104,12 +115,17 @@ export class SignalingRelay {
   private readonly scheduler: IScheduler;
   private readonly ttlMs: number;
   private readonly maxRendezvous: number;
+  private readonly presence: PresenceBoard<ISignalingPeer>;
 
   public constructor(options: ISignalingRelayOptions = {}) {
     this.hooks = options.hooks ?? {};
     this.scheduler = options.scheduler ?? systemScheduler;
     this.ttlMs = options.rendezvousTtlMs ?? DEFAULT_RENDEZVOUS_TTL_MS;
     this.maxRendezvous = options.maxRendezvous ?? DEFAULT_MAX_RENDEZVOUS;
+    this.presence = new PresenceBoard<ISignalingPeer>(
+      options.maxPresenceTopics,
+      options.maxPresenceTopicsPerSource,
+    );
     const clock = options.clock ?? systemClock;
     this.limiter = new TokenBucketLimiter(options.rateLimit, clock);
     this.messageLimiter = new TokenBucketLimiter(
@@ -142,6 +158,14 @@ export class SignalingRelay {
       SIGNAL_KINDS.has(parsed.kind)
     ) {
       this.relay(peer, parsed.kind as TSignalKind, parsed.data);
+      return;
+    }
+    if (parsed.type === 'presence') {
+      this.declarePresence(peer, parsed.topics);
+      return;
+    }
+    if (parsed.type === 'message') {
+      this.deliver(peer, parsed.topic, parsed.data);
       return;
     }
     // Any other frame — including a `signal` with an unknown kind or a payload masquerading as session
@@ -226,6 +250,47 @@ export class SignalingRelay {
     }
   }
 
+  private declarePresence(peer: ISignalingPeer, value: unknown): void {
+    // Rate-limited like a join: declaring presence is what makes a connection addressable.
+    if (!this.limiter.tryConsume(peer.remoteAddress ?? peer.id)) {
+      this.reject(peer, 'rate-limited');
+      return;
+    }
+    const topics = parseTopics(value);
+    if (topics === undefined) {
+      this.reject(peer, 'invalid-topic');
+      return;
+    }
+    const refusal = this.presence.declare(peer, topics);
+    if (refusal !== undefined) {
+      this.reject(peer, refusal);
+      return;
+    }
+    peer.send(JSON.stringify({ type: 'present', topics: topics.length }));
+  }
+
+  private deliver(peer: ISignalingPeer, topic: unknown, data: unknown): void {
+    if (!this.presence.isPresent(peer)) {
+      this.reject(peer, 'not-present');
+      return;
+    }
+    if (!this.messageLimiter.tryConsume(peer.id)) {
+      this.reject(peer, 'message-rate-limited');
+      return;
+    }
+    if (!isTopic(topic)) {
+      this.reject(peer, 'invalid-topic');
+      return;
+    }
+    const holder = this.presence.holderOf(topic, peer);
+    if (holder === undefined) {
+      peer.send(JSON.stringify({ type: 'absent', topic }));
+      return;
+    }
+    // Forwarded verbatim; the payload is never inspected.
+    holder.send(JSON.stringify({ type: 'message', topic, data }));
+  }
+
   private reject(peer: ISignalingPeer, reason: string): void {
     peer.send(JSON.stringify({ type: 'error', reason }));
   }
@@ -237,6 +302,7 @@ export class SignalingRelay {
     // Evict the per-connection message bucket (REMOTE-011 E2) so the map is bounded by LIVE connections,
     // not by every peer id ever admitted — the unbounded-growth class this stage exists to close.
     this.messageLimiter.evict(peer.id);
+    this.presence.withdraw(peer);
     if (rendezvous) {
       this.leaveRoom(peer, rendezvous);
       this.armTimer(rendezvous);
@@ -301,6 +367,11 @@ export class SignalingRelay {
   /** Diagnostics only: current (active) rendezvous count (holds no session content). */
   public get rendezvousCount(): number {
     return this.rooms.size;
+  }
+
+  /** Diagnostics only: inbox topics currently held. */
+  public get presenceTopicCount(): number {
+    return this.presence.size;
   }
 
   /** Diagnostics only (REMOTE-011 E2): live per-connection message-bucket count — asserts the memory bound. */

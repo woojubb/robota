@@ -1,4 +1,7 @@
-import type { RTCDataChannel } from 'werift';
+/** The part of a data channel the lifecycle closes. */
+interface IClosableChannel {
+  close(): void;
+}
 
 interface IWebRtcDeliveryLifecycleOptions {
   readonly cleanup: () => void;
@@ -31,7 +34,7 @@ export class WebRtcDeliveryLifecycle {
     this.options.onDropped();
   }
 
-  handleFailure(channel: RTCDataChannel, generation: number, error: Error, event: string): void {
+  handleFailure(channel: IClosableChannel, generation: number, error: Error, event: string): void {
     if (generation !== this.generation || this.dropped) return;
     const notifyDrop = this.paired;
     if (notifyDrop) this.dropped = true;

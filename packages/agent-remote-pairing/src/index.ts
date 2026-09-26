@@ -188,6 +188,8 @@ export type {
 // negotiated DTLS fingerprints, starting from a pairwise pre-proof that discloses no identity.
 export { PAIRWISE_SECRET_LABEL, derivePairwiseSecret } from './identity/pairwise-secret.js';
 export type { IDerivePairwiseSecretInput } from './identity/pairwise-secret.js';
+export { RELAY_INBOX_LABEL, deriveRelayInboxTopics } from './identity/relay-inbox.js';
+export type { IRelayInboxTopics } from './identity/relay-inbox.js';
 export {
   DEVICE_HANDSHAKE_PROTOCOL,
   decodeDeviceHandshakeFrame,

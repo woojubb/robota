@@ -2,7 +2,6 @@ import { runTransportLifecycleConformance } from '@robota-sdk/agent-interface-tr
 import { createTestInteractiveSession } from '@robota-sdk/agent-interface-session/testing';
 
 import { describe, expect, expectTypeOf, it, vi } from 'vitest';
-import { RTCPeerConnection } from 'werift';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
@@ -10,6 +9,8 @@ import type { IProtocolSession } from '@robota-sdk/agent-transport';
 import { WebRtcTransport } from '../webrtc-transport.js';
 import { createInMemorySignalingPair, type ISignalingClient } from '../signaling.js';
 import { WebRtcDeliveryLifecycle } from '../webrtc-delivery-lifecycle.js';
+import { RtcPeer } from '../rtc-peer.js';
+import { fakeDataChannel } from './fake-datachannel.js';
 
 /** Minimal stub session — only `getMessages` + no-op `on`/`off` are exercised by the get-messages round-trip. */
 function createStubSession(): IInteractiveSession {
@@ -29,34 +30,29 @@ function createStubSession(): IInteractiveSession {
  */
 function connectRemote(signaling: ISignalingClient): Promise<Record<string, unknown>> {
   return new Promise((resolve, reject) => {
-    const peer = new RTCPeerConnection();
-    peer.onIceCandidate.subscribe((c) => {
-      if (c) signaling.send({ kind: 'ice', data: c.toJSON() });
-    });
+    const peer = new RtcPeer();
+    peer.onLocalCandidate((c) =>
+      signaling.send({ kind: 'ice', data: { candidate: c.candidate, sdpMid: c.mid } }),
+    );
     let chain: Promise<void> = Promise.resolve();
     signaling.onSignal((message) => {
       chain = chain
         .then(async () => {
+          const data = message.data as { sdp?: string; candidate?: string; sdpMid?: string };
           if (message.kind === 'offer') {
-            await peer.setRemoteDescription(
-              message.data as Parameters<typeof peer.setRemoteDescription>[0],
-            );
-            const answer = await peer.createAnswer();
-            await peer.setLocalDescription(answer);
-            signaling.send({ kind: 'answer', data: peer.localDescription });
+            const sdp = await peer.acceptOffer(data.sdp!);
+            signaling.send({ kind: 'answer', data: { type: 'answer', sdp } });
           } else if (message.kind === 'ice') {
-            await peer.addIceCandidate(message.data as Parameters<typeof peer.addIceCandidate>[0]);
+            peer.addRemoteCandidate({ candidate: data.candidate!, mid: data.sdpMid ?? '0' });
           }
         })
         .catch(reject);
     });
-    peer.onDataChannel.subscribe((channel) => {
-      channel.stateChanged.subscribe((state) => {
-        if (state === 'open') channel.send(JSON.stringify({ type: 'get-messages' }));
-      });
-      channel.onMessage.subscribe((data) => {
-        resolve(JSON.parse(typeof data === 'string' ? data : data.toString()));
-      });
+    peer.onDataChannel((channel) => {
+      const ask = (): void => channel.send(JSON.stringify({ type: 'get-messages' }));
+      if (channel.readyState === 'open') ask();
+      else channel.onStateChange((state) => state === 'open' && ask());
+      channel.onMessage((text) => resolve(JSON.parse(text) as Record<string, unknown>));
     });
   });
 }
@@ -107,24 +103,14 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
       }) as IInteractiveSession['off'],
     });
     const closeChannel = vi.fn();
-    const fakeWerift = {
-      RTCPeerConnection: function () {
-        return {
-          onIceCandidate: { subscribe: () => {} },
-          createDataChannel: () => ({
-            onMessage: { subscribe: () => {} },
-            send: () => {
-              throw new Error('unpaired channel closed');
-            },
-            close: closeChannel,
-          }),
-          createOffer: async () => ({ type: 'offer', sdp: 'a=fingerprint:sha-256 AA' }),
-          setLocalDescription: async () => {},
-          localDescription: { type: 'offer', sdp: 'a=fingerprint:sha-256 AA' },
-          close: async () => {},
-        };
+    const fake = fakeDataChannel({
+      channel: {
+        sendMessage: () => {
+          throw new Error('unpaired channel closed');
+        },
+        close: closeChannel,
       },
-    } as unknown as import('../werift-loader.js').IWeriftModule;
+    });
     const onDeliveryError = vi.fn();
     const onDropped = vi.fn();
     const transport = new WebRtcTransport({
@@ -133,7 +119,7 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
       openReason: 'delivery lifecycle regression',
       onDeliveryError,
       onDropped,
-      loadWerift: () => fakeWerift,
+      loadDataChannel: () => fake.module,
     });
     transport.attach(session);
     await transport.start();
@@ -183,9 +169,7 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
   it('ignores queued signaling, ICE, and channel callbacks from an older generation', async () => {
     const sent: Array<{ readonly kind: string }> = [];
     const signalHandlers: Array<(message: { kind: 'answer'; data: object }) => void> = [];
-    const iceHandlers: Array<(candidate: { toJSON(): object }) => void> = [];
-    const stateHandlers: Array<(state: string) => void> = [];
-    const setRemoteDescription = vi.fn().mockResolvedValue(undefined);
+    const setRemoteDescription = vi.fn();
     const onDropped = vi.fn();
     const signaling: ISignalingClient = {
       send: (message) => sent.push(message),
@@ -195,48 +179,25 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
       },
       close: () => {},
     };
-    const fakeWerift = {
-      RTCPeerConnection: function () {
-        return {
-          onIceCandidate: {
-            subscribe: (handler: (candidate: { toJSON(): object }) => void) =>
-              iceHandlers.push(handler),
-          },
-          createDataChannel: () => ({
-            onMessage: { subscribe: () => {} },
-            stateChanged: {
-              subscribe: (handler: (state: string) => void) => stateHandlers.push(handler),
-            },
-            send: () => {},
-            close: () => {},
-          }),
-          createOffer: async () => ({ type: 'offer', sdp: 'a=fingerprint:sha-256 AA' }),
-          setLocalDescription: async () => {},
-          setRemoteDescription,
-          addIceCandidate: vi.fn(),
-          localDescription: { type: 'offer', sdp: 'a=fingerprint:sha-256 AA' },
-          close: async () => {},
-        };
-      },
-    } as unknown as import('../werift-loader.js').IWeriftModule;
+    const fake = fakeDataChannel({ setRemoteDescription });
     const transport = new WebRtcTransport({
       signaling,
       secret: 'pairing-secret',
       onDropped,
-      loadWerift: () => fakeWerift,
+      loadDataChannel: () => fake.module,
     });
     transport.attach(createStubSession());
     await transport.start();
     const oldSignal = signalHandlers[0]!;
-    const oldIce = iceHandlers[0]!;
-    const oldState = stateHandlers[0]!;
+    const oldIce = fake.connections[0]!.localCandidate!;
+    const oldState = fake.connections[0]!.channelClosed!;
 
     oldSignal({ kind: 'answer', data: { sdp: 'a=fingerprint:sha-256 BB' } });
     await transport.stop();
     transport.attach(createStubSession());
     await transport.start();
-    oldIce({ toJSON: () => ({ candidate: 'stale' }) });
-    oldState('closed');
+    oldIce('a=candidate:stale', '0');
+    oldState();
     await Promise.resolve();
 
     expect(setRemoteDescription).not.toHaveBeenCalled();
@@ -252,21 +213,7 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
       onSignal: () => () => {},
       close: () => {},
     };
-    const fakeWerift = {
-      RTCPeerConnection: function () {
-        return {
-          onIceCandidate: { subscribe: () => {} },
-          createDataChannel: () => ({
-            onMessage: { subscribe: () => {} },
-            send: () => {},
-          }),
-          createOffer: async () => ({ type: 'offer', sdp: 'a=fingerprint:sha-256 AA' }),
-          setLocalDescription: async () => {},
-          localDescription: { type: 'offer', sdp: 'a=fingerprint:sha-256 AA' },
-          close: async () => {},
-        };
-      },
-    } as unknown as import('../werift-loader.js').IWeriftModule;
+    const fake = fakeDataChannel();
 
     await runTransportLifecycleConformance({
       subjectId: '@robota-sdk/agent-transport-webrtc#WebRtcTransport',
@@ -276,7 +223,7 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
           signaling,
           open: true,
           openReason: 'ARCH-011 lifecycle conformance',
-          loadWerift: () => fakeWerift,
+          loadDataChannel: () => fake.module,
         }),
       createSession: createStubSession,
       assertReady: () => {
@@ -286,41 +233,52 @@ describe('WebRtcTransport (REMOTE-002 Stage A — loopback)', () => {
     });
   });
 
-  it('REMOTE-010: forceTurn → iceTransportPolicy:relay (NOT top-level forceTurn, which werift ignores) + turn: passes through', async () => {
-    // Inject a fake werift to capture the config the transport builds (a real relay-only peer + dead TURN would
-    // block ICE gathering). The mapping is proven against real werift empirically; this guards the regression:
-    // forceTurn MUST become iceTransportPolicy:'relay', never a top-level forceTurn werift silently drops.
-    let captured: Record<string, unknown> | undefined;
-    const fakeWerift = {
-      RTCPeerConnection: function (config?: Record<string, unknown>) {
-        captured = config;
-        return {
-          onIceCandidate: { subscribe: () => {} },
-          createDataChannel: () => ({ onMessage: { subscribe: () => {} }, send: () => {} }),
-          createOffer: async () => ({ type: 'offer', sdp: 'a=fingerprint:sha-256 AA' }),
-          setLocalDescription: async () => {},
-          localDescription: { sdp: 'a=fingerprint:sha-256 AA' },
-          close: async () => {},
-        };
-      },
-    } as unknown as import('../werift-loader.js').IWeriftModule;
-
+  it('REMOTE-010: forceTurn → a relay-only connection, and a TURN url becomes a TURN server with its credentials', async () => {
+    // A fake module captures the configuration (a real relay-only peer with a dead TURN would never gather).
+    const fake = fakeDataChannel();
     const [sig] = createInMemorySignalingPair();
     const t = new WebRtcTransport({
       open: true,
       openReason: 'SEC-008: Stage-A loopback — this case is about signalling, not pairing',
       signaling: sig,
-      iceServers: [{ urls: 'turn:relay.example:3478', username: 'u', credential: 'c' }],
+      iceServers: [
+        { urls: 'turn:relay.example:3478', username: 'u', credential: 'c' },
+        { urls: 'stun:stun.example' },
+      ],
       forceTurn: true,
-      loadWerift: () => fakeWerift,
+      loadDataChannel: () => fake.module,
     });
     t.attach(createStubSession());
     await t.start();
-    expect(captured).toEqual({
-      iceServers: [{ urls: 'turn:relay.example:3478', username: 'u', credential: 'c' }],
+    expect(fake.connections[0]!.config).toEqual({
+      iceServers: [
+        {
+          hostname: 'relay.example',
+          port: 3478,
+          username: 'u',
+          password: 'c',
+          relayType: 'TurnUdp',
+        },
+        'stun:stun.example:3478',
+      ],
       iceTransportPolicy: 'relay',
+      disableAutoNegotiation: true,
     });
-    expect(captured).not.toHaveProperty('forceTurn'); // werift ignores it → must not be emitted
+    await t.stop();
+  });
+
+  it('contacts no ICE server unless one is configured', async () => {
+    const fake = fakeDataChannel();
+    const [sig] = createInMemorySignalingPair();
+    const t = new WebRtcTransport({
+      open: true,
+      openReason: 'configuration test',
+      signaling: sig,
+      loadDataChannel: () => fake.module,
+    });
+    t.attach(createStubSession());
+    await t.start();
+    expect(fake.connections[0]!.config.iceServers).toEqual([]);
     await t.stop();
   });
 

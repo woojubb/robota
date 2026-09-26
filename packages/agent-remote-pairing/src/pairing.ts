@@ -3,14 +3,14 @@
  *
  * **Isomorphic**: uses ONLY WebCrypto (`globalThis.crypto` / `crypto.subtle`) + standard web APIs, so the same
  * module runs on the Node host (agent-cli, Node 22) and the Stage-D browser remote client — no `node:` imports,
- * no werift, no workspace deps.
+ * no WebRTC implementation, no workspace deps.
  *
  * Security model: a high-entropy (256-bit) single-use pairing secret is transferred machine-to-machine (QR /
  * deep link). Because it is high-entropy, no PAKE is needed (a PAKE only protects a low-entropy secret from
  * brute-force). Authentication + MITM-relay detection is a **directional HMAC key-confirmation bound to both DTLS
  * fingerprints**: each peer confirms it observes the SAME DTLS channel the other does. A relay that substitutes a
- * DTLS fingerprint (werift's `verifyRemoteCertificateFingerprint` forces its advertised fingerprint to match its
- * own cert) makes the two peers' fingerprint pairs differ → the confirmation fails. The confirmation is
+ * DTLS fingerprint (the DTLS layer only accepts a certificate matching the advertised fingerprint whose key signed
+ * the handshake, so a relay can only present its own) makes the two peers' fingerprint pairs differ → the confirmation fails. The confirmation is
  * **directional** (`LABEL_INITIATOR ≠ LABEL_RESPONDER`) and **nonce-bound**, so a secretless relay cannot reflect
  * a peer's own confirmation back to it, nor replay one across handshakes.
  */
@@ -193,7 +193,7 @@ export interface IConfirmationInput {
   readonly nonceResponder: string;
   /** This peer's own DTLS fingerprint (from its local SDP). */
   readonly localFingerprint: string;
-  /** The remote DTLS fingerprint from the SDP werift consumed + verified. */
+  /** The remote DTLS fingerprint of the certificate the DTLS layer verified. */
   readonly remoteFingerprint: string;
 }
 

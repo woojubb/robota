@@ -156,6 +156,27 @@ export async function holdsDeviceKeys(
   return ka !== undefined;
 }
 
+/** This device's own private keys, checked against its certificate; `undefined` when the store lacks them. */
+export async function loadDevicePrivateKeys(
+  store: ICredentialStore,
+  certificate: IDeviceCertificate,
+): Promise<{ readonly signPrivateKey: CryptoKey; readonly kaPrivateKey: CryptoKey } | undefined> {
+  const signPrivateKey = await readRecord(store, DEVICE_SIGN_KEY, {
+    alg: 'ES256',
+    publicKey: certificate.signKey,
+  });
+  if (signPrivateKey === undefined) return undefined;
+  if (!(await provesPossession('ES256', signPrivateKey, certificate.signKey))) {
+    throw new DeviceIdentityError('the stored device key does not match its certificate');
+  }
+  const kaPrivateKey = await readRecord(store, DEVICE_KA_KEY, {
+    alg: 'X25519',
+    publicKey: certificate.kaKey,
+  });
+  if (kaPrivateKey === undefined) return undefined;
+  return { signPrivateKey, kaPrivateKey };
+}
+
 /** A public key from a certificate's SPKI, for re-certifying the same device keys. */
 export function importPublicKey(alg: 'ES256' | 'X25519', spki: string): Promise<CryptoKey> {
   return webcrypto.subtle.importKey(
