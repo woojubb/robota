@@ -270,6 +270,37 @@ describe('the full App attached to a host over the wire', () => {
     }
   });
 
+  it('detaches on Ctrl-] the way it does on Ctrl-C and /exit', async () => {
+    const link = scriptedConnection();
+    const channel = new WireTuiChannel({ connection: link, driverId: 'attach:1' });
+    const view = render(
+      <App
+        cwd={cwd}
+        createChannel={() => channel}
+        requestSessionSwitch={(sessionId) => channel.requestSessionSwitch(sessionId)}
+        cliAdapter={cliAdapter(join(cwd, 'settings.json'))}
+      />,
+    );
+    try {
+      await waitFor(
+        () => (view.lastFrame() ?? '').includes('Type a message'),
+        () => view.lastFrame() ?? '<none>',
+      );
+      view.stdin.write('\x1d');
+      await waitFor(
+        () => channel.getSnapshot().isShuttingDown,
+        () => view.lastFrame() ?? '<none>',
+      );
+      expect(JSON.stringify(channel.getSnapshot().history)).toContain(
+        'Detached. The session keeps running.',
+      );
+      expect(link.sent.some((message) => message.type === 'submit')).toBe(false);
+    } finally {
+      view.unmount();
+      await channel.stop();
+    }
+  });
+
   it('opens no empty picker when the host has no sessions to resume', async () => {
     const frame = await resumeAgainst(
       (requestId) => ({

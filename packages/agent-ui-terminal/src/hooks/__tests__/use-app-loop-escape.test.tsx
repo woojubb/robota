@@ -17,6 +17,7 @@ function options(overrides: Partial<TOptions> = {}): TOptions {
     isThinking: false,
     isShuttingDown: false,
     readOnly: false,
+    attached: false,
     permissionRequest: null,
     pendingUserAction: null,
     pluginVisible: false,

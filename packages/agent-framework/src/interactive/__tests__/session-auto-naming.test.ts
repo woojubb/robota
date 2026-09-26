@@ -1,5 +1,6 @@
 /**
- * #3189 — the session names itself once, after its first turn, with the provider it uses then.
+ * #3189 — the session names itself once, after its first turn that ran, with the provider it uses
+ * then. A failed turn or a failed title generation leaves the next turn to try again.
  */
 
 import { describe, expect, it, vi } from 'vitest';
@@ -80,6 +81,8 @@ describe('InteractiveSession auto-naming (#3189)', () => {
     await vi.waitFor(() => expect(session.getName()).toBe('refactor-auth-middleware'));
     expect(renamed).toHaveBeenCalledWith({ name: 'refactor-auth-middleware' });
     expect(provider.chat).toHaveBeenCalledTimes(1);
+    // Naming never enables hosted tools: the title call disables tool use.
+    expect(provider.chat.mock.calls[0]?.[1]).toMatchObject({ toolChoice: 'none' });
 
     await runTurn(session, 'Now the tests');
     await Promise.resolve();
@@ -198,10 +201,13 @@ describe('SessionAutoNaming', () => {
     expect(JSON.stringify(provider.chat.mock.calls[0])).not.toContain('remote-control');
   });
 
-  it('tries once: a failed attempt is not retried on the next turn', async () => {
+  function namingFor(provider: IAIProvider): {
+    events: ReturnType<typeof bus>;
+    name: () => string | undefined;
+    renamed: ReturnType<typeof vi.fn>;
+  } {
     const events = bus();
-    const provider = fakeProvider('unused');
-    provider.chat.mockRejectedValueOnce(new Error('provider down'));
+    const renamed = vi.fn();
     let name: string | undefined;
     new SessionAutoNaming({
       on: events.on,
@@ -209,20 +215,78 @@ describe('SessionAutoNaming', () => {
       setName: (next) => {
         name = next;
       },
-      emitRenamed: () => {},
+      emitRenamed: renamed,
       getProvider: () => provider,
     });
+    return { events, name: () => name, renamed };
+  }
 
+  function turn(events: ReturnType<typeof bus>, message: string, end: 'complete' | 'error'): void {
     events.emit('turn_source', 'user');
-    events.emit('user_message', 'First');
-    events.emit('error', new Error('turn failed'));
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    events.emit('turn_source', 'user');
-    events.emit('user_message', 'Second');
-    events.emit('complete', {});
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    events.emit('user_message', message);
+    events.emit(end, end === 'error' ? new Error('turn failed') : {});
+  }
 
+  const settle = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 0));
+
+  it('does not spend its attempt on a turn that failed: the next turn names the session', async () => {
+    const provider = fakeProvider('second-title');
+    const { events, name } = namingFor(provider);
+
+    turn(events, 'First', 'error');
+    await settle();
+    expect(provider.chat).not.toHaveBeenCalled();
+
+    turn(events, 'Second', 'complete');
+
+    await vi.waitFor(() => expect(name()).toBe('second-title'));
     expect(provider.chat).toHaveBeenCalledTimes(1);
-    expect(name).toBeUndefined();
+    expect(JSON.stringify(provider.chat.mock.calls[0])).toContain('Second');
+    expect(JSON.stringify(provider.chat.mock.calls[0])).not.toContain('First');
+  });
+
+  it('names from a turn that completed after a background error was reported during it', async () => {
+    const provider = fakeProvider('the-title');
+    const { events, name } = namingFor(provider);
+
+    events.emit('turn_source', 'user');
+    events.emit('user_message', 'Fix the build');
+    events.emit('error', new Error('background failure'));
+    events.emit('complete', {});
+
+    await vi.waitFor(() => expect(name()).toBe('the-title'));
+  });
+
+  it('retries a failed title generation on the next turn, then never renames', async () => {
+    const provider = fakeProvider('retried-title');
+    provider.chat.mockRejectedValueOnce(new Error('provider down'));
+    const { events, name, renamed } = namingFor(provider);
+
+    turn(events, 'First', 'complete');
+    await settle();
+    expect(provider.chat).toHaveBeenCalledTimes(1);
+    expect(name()).toBeUndefined();
+
+    turn(events, 'Second', 'complete');
+    await vi.waitFor(() => expect(name()).toBe('retried-title'));
+    expect(provider.chat).toHaveBeenCalledTimes(2);
+
+    turn(events, 'Third', 'complete');
+    await settle();
+    expect(provider.chat).toHaveBeenCalledTimes(2);
+    expect(renamed).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts one generation at a time: a turn ending while a title is generated does not start another', async () => {
+    const title = deferred<string>();
+    const provider = fakeProvider(title.promise);
+    const { events, name } = namingFor(provider);
+
+    turn(events, 'First', 'complete');
+    turn(events, 'Second', 'complete');
+    title.resolve('first-title');
+
+    await vi.waitFor(() => expect(name()).toBe('first-title'));
+    expect(provider.chat).toHaveBeenCalledTimes(1);
   });
 });

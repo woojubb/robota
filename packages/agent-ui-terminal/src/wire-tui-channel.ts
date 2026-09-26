@@ -345,6 +345,7 @@ export class WireTuiChannel implements ITuiAppChannelPort {
       ...(this.hostSessions !== undefined ? { hostSessions: this.hostSessions } : {}),
       transcriptGeneration: this.transcriptGeneration,
       ...(this.readOnly ? { readOnly: true } : {}),
+      attached: true,
     };
   }
 

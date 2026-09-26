@@ -175,14 +175,15 @@ These are behaviors a caller cannot infer from a type signature alone.
   turn cannot send files; outside one, the model sends a file only through a tool that asks the owner
   about every file, a question no mode, rule or remembered consent answers.
 - **The session names itself once, and only with text.** When its host turns naming on, the session
-  titles itself after its first turn ends, from that turn's own message and with the provider it is
-  using then, so every client sees the same name whichever one drove the turn. A name it already has
-  is kept, and a rename made while the title is generated wins. The title-generation call always
-  disables tool use, so hosted web tools can never be invoked merely to generate a title.
-- **Status changes are pushed.** After a command, a turn, a rename or a goal or plan transition, the
-  session emits its status when the mode, model, effort, goal or name differ from the last one it
-  emitted, so one client's change shows on every client. Context usage alone is not a change: it has
-  its own event and moves every turn.
+  titles itself after the first turn that runs, from that turn's own message and with the provider it
+  is using then, so every client sees the same name whichever one drove the turn. A failed turn or a
+  failed title does not use up the naming, so one bad first turn cannot leave a session unnamed for
+  good; once named, it is never renamed. A name it already has is kept, and a rename made while the
+  title is generated wins. The title-generation call always disables tool use, so hosted web tools
+  can never be invoked merely to generate a title.
+- **Status changes are pushed.** A status change made through any client reaches every client on
+  the session. Context usage is not part of that: it moves every turn and
+  is reported on its own, so counting it would push a status after every turn with nothing changed.
 - **Hook executor registration is replace-vs-extend, and the built-ins are seeded first.** The core
   hook runner resolves `executors ?? createDefaultExecutors()` — an _undefined-only_ fallback, so
   supplying any executor array at all replaces the built-in `command`/`http` executors rather than

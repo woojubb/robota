@@ -55,6 +55,8 @@ export interface ITuiChannelState {
   transcriptGeneration: number;
   /** This terminal only observes the session. */
   readOnly: boolean;
+  /** This terminal is attached to a session a host runs; leaving only detaches it. */
+  attached: boolean;
   handleSubmit: (input: string) => Promise<void>;
   handleAbort: () => void;
   handleCancelQueue: () => void;
@@ -124,6 +126,7 @@ export function useTuiChannel(channel: ITuiAppChannelPort): ITuiChannelState {
     hostSessions: snapshot.hostSessions,
     transcriptGeneration: snapshot.transcriptGeneration ?? 0,
     readOnly: snapshot.readOnly === true,
+    attached: snapshot.attached === true,
     handleSubmit: (input) => channel.handleInput(input),
     handleAbort: () => channel.abort(),
     handleCancelQueue: () => channel.cancelQueue(),

@@ -16,6 +16,8 @@ interface IOptions {
   readonly isShuttingDown: boolean;
   /** An observer stops nothing: neither the drivers' turn nor their loop. */
   readonly readOnly: boolean;
+  /** Attached to a session a host runs: Ctrl-] detaches, like Ctrl-C and `/exit` there. */
+  readonly attached: boolean;
   readonly permissionRequest: IPendingPermissionRequest | null;
   readonly pendingUserAction: IActionRequest | null;
   readonly pluginVisible: boolean;
@@ -113,6 +115,13 @@ function useRecoveryBinding(options: IOptions): void {
   });
 }
 
+/** Ctrl-]: the raw byte, or `]` with ctrl where the terminal reports modifiers. */
+const DETACH_BYTE = '\x1d';
+
+function isDetachKey(input: string, ctrl: boolean): boolean {
+  return input === DETACH_BYTE || (ctrl && input === ']');
+}
+
 function useShutdownBindings(options: IOptions): void {
   const { exit } = useApp();
   const requestShutdown = (reason: TSessionEndReason): void => {
@@ -123,6 +132,9 @@ function useShutdownBindings(options: IOptions): void {
   };
   useInput((input, key) => {
     if (key.ctrl && input === 'c') requestShutdown('prompt_input_exit');
+    // Ctrl-] is the attach client's detach key. On a terminal running its own session there is
+    // nothing to detach from, and quitting that session is left to Ctrl-C and `/exit`.
+    else if (options.attached && isDetachKey(input, key.ctrl)) requestShutdown('prompt_input_exit');
   });
   useEffect(() => {
     const onSignal = (): void => requestShutdown('other');
