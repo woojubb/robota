@@ -186,6 +186,7 @@ const MAX_DRAIN_BYTES = 1024 * 1024;
  */
 function discardRest(req: IncomingMessage): Promise<boolean> {
   if (req.readableEnded) return Promise.resolve(true);
+  if (req.destroyed) return Promise.resolve(false);
   return new Promise((resolve) => {
     let drained = 0;
     req.on('data', (chunk: Buffer) => {
@@ -265,14 +266,13 @@ export function createExternalEventHttpHost(
     }
   };
 
-  function refuse(
+  /** Charge and audit a refusal; every refusal is recorded, whether or not an answer can be sent. */
+  function judge(
     req: IncomingMessage,
-    res: ServerResponse,
     refusal: TExternalEventRefusal,
     route: IRoute | undefined,
-    decided?: ReturnType<typeof answerFor>,
-  ): void {
-    const { counted, answer } = decided ?? answerFor(refusal);
+    counted: boolean,
+  ): IBearerFailure {
     const failure: IBearerFailure = counted
       ? server.fail(req)
       : { remote: server.remote(req), throttled: false, retryAfterSeconds: 0 };
@@ -283,6 +283,25 @@ export function createExternalEventHttpHost(
       remote: failure.remote,
       throttled: failure.throttled,
     });
+    return failure;
+  }
+
+  function refuse(
+    req: IncomingMessage,
+    res: ServerResponse,
+    refusal: TExternalEventRefusal,
+    route: IRoute | undefined,
+  ): void {
+    const { counted, answer } = answerFor(refusal);
+    answerRefusal(res, route, answer, judge(req, refusal, route, counted));
+  }
+
+  function answerRefusal(
+    res: ServerResponse,
+    route: IRoute | undefined,
+    answer: ReturnType<typeof answerFor>['answer'],
+    failure: IBearerFailure,
+  ): void {
     if (failure.throttled) {
       res.writeHead(429, { 'Retry-After': String(failure.retryAfterSeconds) }).end();
     } else if (answer.kind === 'token' && route !== undefined) {
@@ -338,12 +357,15 @@ export function createExternalEventHttpHost(
       // discarded, not kept; the answer goes out once the client stopped writing, and the connection
       // closes after it (RFC 9110 §15.5.14).
       count('oversize');
-      if (!(await discardRest(req))) return;
+      const failure = judge(req, 'oversize', route, true);
+      // A body declared past the drain bound is not read at all: the connection is cut after the
+      // answer, which the client may see as a reset, as RFC 9110 allows for an oversize request.
+      const declared = Number(req.headers['content-length']);
+      const drained =
+        Number.isFinite(declared) && declared > MAX_DRAIN_BYTES ? true : await discardRest(req);
+      if (!drained) return;
       res.setHeader('Connection', 'close');
-      refuse(req, res, 'oversize', route, {
-        counted: true,
-        answer: { kind: 'status', status: 413 },
-      });
+      answerRefusal(res, route, { kind: 'status', status: 413 }, failure);
       return;
     }
     const admission = await options.receive(route.grantId, { token, event: parseEvent(body) });

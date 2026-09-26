@@ -481,6 +481,47 @@ describe('external event HTTPS endpoint', () => {
     }
   });
 
+  it('audits and counts a body past the drain bound even when the connection is cut', async () => {
+    const { port, audit, grantHost } = await start();
+    const token = await mint();
+    const outcome = (chunked: boolean) =>
+      new Promise<number | 'reset'>((resolve) => {
+        const size = 2 * 1024 * 1024;
+        const req = request(
+          {
+            host: '127.0.0.1',
+            port,
+            method: 'POST',
+            path: '/hooks/events/ci',
+            headers: {
+              host: HOST,
+              authorization: `Bearer ${token}`,
+              ...(chunked ? { 'transfer-encoding': 'chunked' } : { 'content-length': size }),
+            },
+          },
+          (res) => {
+            res.resume();
+            res.on('end', () => resolve(res.statusCode ?? 0));
+          },
+        );
+        req.on('error', () => resolve('reset'));
+        req.end('x'.repeat(size));
+      });
+    for (const chunked of [true, false]) {
+      // Past the bound the connection may be cut (RFC 9110); if an answer arrives it is the 413.
+      expect([413, 'reset']).toContain(await outcome(chunked));
+    }
+    await vi.waitFor(() =>
+      expect(
+        audit.filter((record) => 'refusal' in record && record.refusal === 'oversize'),
+      ).toHaveLength(2),
+    );
+    expect(audit.every((record) => record.grantId === 'ci')).toBe(true);
+    expect(grantHost.list().find((row) => row.grantId === 'ci')?.counters.refused).toEqual({
+      oversize: 2,
+    });
+  });
+
   it('refuses a streamed body over the bound without reading it all', async () => {
     const { port } = await start();
     const token = await mint();
