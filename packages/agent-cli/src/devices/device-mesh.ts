@@ -49,6 +49,11 @@ export interface IOpenDeviceMeshOptions {
   readonly iceServers?: readonly IIceServer[];
   readonly connectTimeoutMs?: number;
   readonly now?: () => number;
+  /**
+   * A list a peer handed over that could not be saved, or a periodic refresh that failed. The
+   * endpoint keeps running either way; this is where the failure becomes visible.
+   */
+  readonly onError?: (error: unknown) => void;
 }
 
 function randomSessionId(): string {
@@ -170,8 +175,10 @@ export async function openDeviceMesh(
       ? { operatorApprover: options.operatorApprover }
       : {}),
     onListsAdopted: (update) => {
-      // allow-fallback: a list that cannot be saved is adopted again from the next peer that has it
-      void saveAdoptedLists(directory, options.root, update, now()).catch(() => undefined);
+      // A list that cannot be saved is adopted again from the next peer that has it; say so meanwhile.
+      void saveAdoptedLists(directory, options.root, update, now()).catch((error: unknown) =>
+        options.onError?.(error),
+      );
     },
     ...(options.iceServers !== undefined ? { iceServers: options.iceServers } : {}),
     ...(options.connectTimeoutMs !== undefined
@@ -192,8 +199,8 @@ export async function openDeviceMesh(
     });
   };
   const timer = setInterval(() => {
-    // allow-fallback: the next interval retries; the lists in force stay valid until they expire
-    refresh().catch(() => undefined);
+    // The next interval retries; the lists in force stay valid until they expire.
+    refresh().catch((error: unknown) => options.onError?.(error));
   }, REFRESH_INTERVAL_MS);
   timer.unref?.();
   return {

@@ -62,6 +62,7 @@ let laptop: IHome;
 let desktop: IHome;
 let clock: number;
 const open: IDeviceMeshEndpoint[] = [];
+const endpointErrors: unknown[] = [];
 
 function service(home: IHome) {
   return createDeviceIdentityService({
@@ -120,6 +121,7 @@ beforeEach(async () => {
 });
 
 afterEach(() => {
+  endpointErrors.length = 0;
   for (const endpoint of open.splice(0)) endpoint.close();
   rmSync(laptop.home, { recursive: true, force: true });
   rmSync(desktop.home, { recursive: true, force: true });
@@ -132,6 +134,7 @@ async function endpoint(home: IHome, hub: ReturnType<typeof createInMemoryMeshRe
     relay: hub.connect(),
     now: () => clock,
     connectTimeoutMs: 10_000,
+    onError: (error) => endpointErrors.push(error),
   });
   open.push(opened);
   return opened;
@@ -165,7 +168,6 @@ describe('device mesh between two HOMEs', () => {
     const desktopId = await enrolDesktop();
     const hub = createInMemoryMeshRelayHub();
     const laptopEndpoint = await endpoint(laptop, hub);
-    const desktopEndpoint = await endpoint(desktop, hub);
     // Hours later the laptop, which holds the signing key, reissues its lists on disk.
     clock += 20 * HOUR;
     await expect(
@@ -179,13 +181,21 @@ describe('device mesh between two HOMEs', () => {
     const newer = stateOf(laptop);
     expect(stateOf(desktop).revocation.seq).toBeLessThan(newer.revocation.seq);
     await laptopEndpoint.refresh();
+    // Lists travel in a handshake, so the desktop comes online only now: opened earlier, the two
+    // endpoints connect on their own at start and this handshake would already be over.
+    const desktopEndpoint = await endpoint(desktop, hub);
 
     await Promise.all([
       laptopEndpoint.node.connect(desktopId),
       desktopEndpoint.node.connect(newer.deviceCertificate.deviceId),
     ]);
 
-    await expect.poll(() => stateOf(desktop).revocation.seq).toBe(newer.revocation.seq);
+    // Saving takes a lock and verifies the chain; give a loaded machine time, and fail with the reason.
+    await expect
+      .poll(() => (endpointErrors.length > 0 ? endpointErrors : stateOf(desktop).revocation.seq), {
+        timeout: 10_000,
+      })
+      .toBe(newer.revocation.seq);
     expect(stateOf(desktop).roster.seq).toBe(newer.roster.seq);
   }, 40_000);
 
