@@ -34,10 +34,12 @@ it('updates the host-selected settings file when changing the active model', () 
 });
 
 it('keeps the host resume command formatter when one is supplied', () => {
+  const root = mkdtempSync(join(tmpdir(), 'tui-host-settings-'));
+  roots.push(root);
   const adapter = createDefaultTuiCliAdapter({
     providerDefinitions: [],
     reloadPluginCommandSource: () => undefined,
-    userSettingsPath: '/tmp/product-settings.json',
+    userSettingsPath: join(root, 'product-settings.json'),
     settingsSources: [],
     formatResumeCommand: (sessionId) => `product --resume ${sessionId}`,
   });

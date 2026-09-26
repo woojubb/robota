@@ -55,6 +55,10 @@ function writeAll(fd: number, bytes: Buffer): void {
  * Move what the open trail holds into a freshly created previous file, then empty the trail.
  * Everything goes through `fd`, the file already open and checked, so the path is never
  * resolved a second time and nothing swapped in at it can be rotated or written.
+ *
+ * Copy-then-truncate relies on one writer per trail: the serve process of that one session,
+ * writing synchronously, so nothing appends between the copy and the truncate. A second writer
+ * could lose the lines it appended in that gap.
  */
 function rotate(fd: number, previous: string): void {
   rmSync(previous, { force: true });
