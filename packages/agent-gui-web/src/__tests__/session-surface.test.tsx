@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { afterEach, describe, it, expect, vi } from 'vitest';
 
 import { SessionSurface } from '@robota-sdk/agent-ui-web/client';
@@ -163,8 +163,8 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     const state = stubState({
       commandCatalog: {
         commands: [
-          { name: 'help', description: 'Show commands', modelInvocable: false },
-          { name: 'mode', description: 'Change the permission mode', modelInvocable: false },
+          { name: 'help', description: 'Show commands', modelInvocable: false, runner: 'runtime' },
+          { name: 'mode', description: 'Change the permission mode', modelInvocable: false, runner: 'runtime' },
         ],
         skills: [
           { name: 'parity-demo', description: 'Demo skill', source: 'project', modelInvocable: true, userInvocable: true },
@@ -182,6 +182,34 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(state.send).not.toHaveBeenCalled();
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'mode' });
+  });
+
+  it('#3189: a command the terminal runs is marked "terminal" in the menu; a session command is not', () => {
+    const state = stubState({
+      commandCatalog: {
+        commands: [
+          { name: 'help', description: 'Show commands', modelInvocable: false, runner: 'runtime' },
+          { name: 'share', description: 'Share the session', modelInvocable: false, runner: 'runtime' },
+          {
+            name: 'shell',
+            description: 'Open a shell',
+            modelInvocable: false,
+            runner: 'client',
+            surfaces: ['terminal'],
+          },
+        ],
+        skills: [],
+      },
+    } as Partial<IWsSessionState>);
+    render(<SessionSurface state={state} />);
+    const input = screen.getByLabelText('message') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: '/sh' } });
+    const shell = screen.getByRole('option', { name: /\/shell/ });
+    const badge = within(shell).getByText('terminal');
+    expect(badge.getAttribute('title')).toBe('Runs in the robota terminal');
+    expect(shell.getAttribute('aria-description')).toBe('Runs in the robota terminal');
+    const share = screen.getByRole('option', { name: /\/share/ });
+    expect(within(share).queryByText('terminal')).toBeNull();
   });
 
   it('#3186: the status row shows the session status and opens its pickers', () => {
