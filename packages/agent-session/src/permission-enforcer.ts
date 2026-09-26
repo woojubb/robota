@@ -112,8 +112,8 @@ export class PermissionEnforcer {
   private readonly allowPeerChanges: boolean;
   /**
    * The peer turn in progress, or undefined for the operator's own. Held here because the turn's
-   * origin is one more input to every decision the turn makes, and `toolUsed` is what this turn has
-   * done so far — which is what decides whether its reply to the peer needs a person first.
+   * origin is one more input to every decision the turn makes, and `toolOutputInContext` — whether
+   * the model can see a tool's output — decides whether its reply to the peer needs a person first.
    */
   private peerTurn: IPeerTurnAuthority | undefined;
   private readonly autoMode?: AutoModeGate;
@@ -155,12 +155,18 @@ export class PermissionEnforcer {
   /**
    * Start a turn: driven by a peer reaching this host from `peerReach`, or the operator's own when
    * undefined. Every call the turn makes is then decided with that origin as an input.
+   * `historyCarriesToolOutput` says whether the conversation the turn continues already holds a
+   * tool's output, whichever turn produced it.
    */
-  beginTurn(peerReach: TPeerReach | undefined): void {
+  beginTurn(peerReach: TPeerReach | undefined, historyCarriesToolOutput: boolean): void {
     this.peerTurn =
       peerReach === undefined
         ? undefined
-        : { reach: peerReach, allowChanges: this.allowPeerChanges, toolUsed: false };
+        : {
+            reach: peerReach,
+            allowChanges: this.allowPeerChanges,
+            toolOutputInContext: historyCarriesToolOutput,
+          };
   }
 
   /** End the turn; what follows is the operator's until the next peer turn begins. */
@@ -410,7 +416,7 @@ export class PermissionEnforcer {
       this.peerTurn === peerTurn &&
       getToolPermissionProfile(toolName).repliesToPeer !== true
     ) {
-      this.peerTurn = { ...peerTurn, toolUsed: true };
+      this.peerTurn = { ...peerTurn, toolOutputInContext: true };
     }
     return decision;
   }

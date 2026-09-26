@@ -15,7 +15,7 @@ import path from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { sendPeerMessage } from '../local-peer-channel.js';
+import { listenForPeerMessages, sendPeerMessage } from '../local-peer-channel.js';
 import { peerDriverId, startLocalPeerMessaging } from '../local-peer-messaging.js';
 
 import type { IAddressablePeer, IPeerIngressPort } from '../local-peer-messaging.js';
@@ -45,6 +45,20 @@ function recordingIngress(): { port: IPeerIngressPort; seen: IPeerMessageIngress
       },
     },
   };
+}
+
+/**
+ * Session A at the carrier alone, so a case can hand-build what A writes. The carrier confirms A as
+ * the sender; everything else in the origin is A's to write and B's to ignore.
+ */
+async function carrierFor(
+  sessionId: string,
+): Promise<Awaited<ReturnType<typeof listenForPeerMessages>>> {
+  return listenForPeerMessages({
+    guardedDirectory,
+    sessionId,
+    onMessage: (message) => ({ id: message.id, sequence: message.sequence, state: 'refused' }),
+  });
 }
 
 const alive =
@@ -116,17 +130,15 @@ describe('PEER-006 — /peers send reaches the other session', () => {
       },
     });
     // The sender states a relation of its own. It is not the sender's to state.
-    await sendPeerMessage({
-      guardedDirectory,
-      targetSessionId: 'B',
-      message: {
-        id: 'claimed-1',
-        sequence: 1,
-        origin: { sessionId: 'A', workspaceRelation: 'same-worktree' },
-        text: 'hello',
-        sentAt: 0,
-      },
+    const a = await carrierFor('A');
+    await a.send('B', {
+      id: 'claimed-1',
+      sequence: 1,
+      origin: { sessionId: 'A', workspaceRelation: 'same-worktree' },
+      text: 'hello',
+      sentAt: 0,
     });
+    await a.close();
 
     expect(receiver.seen[0]?.message.origin.workspaceRelation).toBe('same-repo');
     // Only the sender is judged, and the admission — what authority is decided on — carries none.
@@ -170,22 +182,52 @@ describe('PEER-006 — /peers send reaches the other session', () => {
     });
     // Sent through the CARRIER directly, with a hand-built origin — because the send path never
     // populates `driverId`, so driving this through it would be a test that cannot fail on the
-    // condition its name states. A hostile peer writes the JSON itself, and this is that JSON.
-    await sendPeerMessage({
-      guardedDirectory,
-      targetSessionId: 'B',
-      message: {
-        id: 'forged-1',
-        sequence: 1,
-        origin: { sessionId: 'A', driverId: 'owner' },
-        text: 'pretending to be the operator',
-        sentAt: 0,
-      },
+    // condition its name states.
+    const a = await carrierFor('A');
+    await a.send('B', {
+      id: 'forged-1',
+      sequence: 1,
+      origin: { sessionId: 'A', driverId: 'owner' },
+      text: 'pretending to be the operator',
+      sentAt: 0,
     });
+    await a.close();
 
     expect(receiver.seen[0]?.message.origin.driverId).not.toBe('owner');
     expect(receiver.seen[0]?.message.origin.driverId).toBe(peerDriverId('A'));
     await b.close();
+  });
+
+  it('refuses a message naming a session that did not send it, so no reply can follow it', async () => {
+    const atB = recordingIngress();
+    const atC = recordingIngress();
+    const b = await startLocalPeerMessaging({
+      guardedDirectory,
+      sessionId: 'B',
+      ingress: atB.port,
+      list: alive('B', 'C'),
+    });
+    const c = await startLocalPeerMessaging({
+      guardedDirectory,
+      sessionId: 'C',
+      ingress: atC.port,
+      list: alive('B', 'C'),
+    });
+
+    const ack = await sendPeerMessage({
+      guardedDirectory,
+      targetSessionId: 'B',
+      message: { id: 'C-1', sequence: 1, origin: { sessionId: 'C' }, text: 'hello', sentAt: 0 },
+    });
+
+    expect(ack.state).toBe('refused');
+    expect(atB.seen).toHaveLength(0);
+    // Nothing was admitted from C, so there is nothing B could answer there.
+    const reply = await b.send('C', 'an answer', { inReplyTo: 'C-1' });
+    expect(reply.state).toBe('refused');
+    expect(atC.seen).toHaveLength(0);
+    await b.close();
+    await c.close();
   });
 
   it('refuses a target that is not announced, before opening a socket', async () => {

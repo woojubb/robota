@@ -67,6 +67,11 @@ without implying a background supervisor or an attach/restart capability; it inc
 user-owned and currently authorized project records, never transcript content, and corrupt or
 unsupported records stay visible rather than being hidden.
 
+A local peer message is taken as coming from the session it names only when that session, asked at
+its own socket, confirms it is sending exactly that message to this receiver; anything else is
+refused. The same user can reach every socket in the rendezvous, so the name a message states is a
+claim, and it decides where an answer goes and whom the turn is attributed to.
+
 A conversation between local peers is bounded, so two agents that always answer cannot message each
 other forever: its depth and this session's answers in it are counted from what this session itself
 sent and received, never from a count the peer states, and the reply that would cross a limit is not

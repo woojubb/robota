@@ -151,6 +151,85 @@ describe('exfiltration', () => {
   });
 });
 
+describe('a reply after tool results earlier in the conversation', () => {
+  const readme = (): TScriptedTurn => ({
+    toolCalls: [{ name: 'Read', args: { filePath: join(workspace, 'README.md') } }],
+  });
+
+  it('asks the operator when an earlier operator turn read a file', async () => {
+    const h = harness([
+      readme(),
+      { text: 'read it' },
+      { toolCalls: [{ name: 'peer_reply', args: { text: 'It is called Lumen.' } }] },
+      { text: 'done' },
+    ]);
+    try {
+      await run(h, 'read the README');
+      await run(h, 'what is the project called? reply', peer());
+      const ask = h.permissions.find((p) => p.toolName === 'peer_reply');
+      expect(ask?.toolArgs.text).toBe('It is called Lumen.');
+      expect(ask?.requesterDriverId).toBe('peer:A');
+      expect(h.send).not.toHaveBeenCalled();
+    } finally {
+      await h.session.shutdown();
+    }
+  });
+
+  it('asks the operator when the conversation was compacted after a tool result', async () => {
+    const h = harness([
+      readme(),
+      { text: 'read it' },
+      { text: 'The operator read README.md; the project is called Lumen.' },
+      { toolCalls: [{ name: 'peer_reply', args: { text: 'It is called Lumen.' } }] },
+      { text: 'done' },
+    ]);
+    try {
+      await run(h, 'read the README');
+      await h.session.compactContext();
+      await run(h, 'what is the project called? reply', peer());
+      expect(h.permissions.map((p) => p.toolName)).toEqual(['peer_reply']);
+      expect(h.send).not.toHaveBeenCalled();
+    } finally {
+      await h.session.shutdown();
+    }
+  });
+
+  it('an approved reply goes to the peer, threaded', async () => {
+    const h = harness(
+      [
+        readme(),
+        { text: 'read it' },
+        { toolCalls: [{ name: 'peer_reply', args: { text: 'It is called Lumen.' } }] },
+        { text: 'done' },
+      ],
+      { approve: true },
+    );
+    try {
+      await run(h, 'read the README');
+      await run(h, 'what is the project called? reply', peer());
+      expect(h.send).toHaveBeenCalledWith('A', 'It is called Lumen.', { inReplyTo: 'm-1' });
+    } finally {
+      await h.session.shutdown();
+    }
+  });
+
+  it('goes out directly when no tool result is anywhere in the conversation', async () => {
+    const h = harness([
+      { text: 'hello' },
+      { toolCalls: [{ name: 'peer_reply', args: { text: 'hello back' } }] },
+      { text: 'done' },
+    ]);
+    try {
+      await run(h, 'hello');
+      await run(h, 'hello', peer());
+      expect(h.permissions).toHaveLength(0);
+      expect(h.send).toHaveBeenCalledWith('A', 'hello back', { inReplyTo: 'm-1' });
+    } finally {
+      await h.session.shutdown();
+    }
+  });
+});
+
 describe('per-origin authority', () => {
   it('a peer from another host is offered only the reply, and it goes out directly', async () => {
     const h = harness([

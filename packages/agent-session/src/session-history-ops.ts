@@ -11,7 +11,7 @@ import type { CompactionOrchestrator } from './compaction-orchestrator.js';
 import type { ContextWindowTracker } from './context-window-tracker.js';
 import type { TSessionLogData } from './session-logger.js';
 import type { ICompactEvent, TCompactTrigger } from './session-types.js';
-import type { IToolSchema } from '@robota-sdk/agent-core';
+import type { IToolSchema, TUniversalMessage } from '@robota-sdk/agent-core';
 import type { Robota } from '@robota-sdk/agent-core';
 import type {
   IAIProvider,
@@ -27,6 +27,22 @@ import type {
 } from '@robota-sdk/agent-interface-session';
 
 const logger = createLogger('SessionHistoryOps');
+
+/** How a compaction summary begins in the history it replaces. */
+const CONTEXT_SUMMARY_PREFIX = '[Context Summary]';
+
+/**
+ * Whether the conversation holds a tool's output the model can read: a tool result, or a
+ * compaction summary — which may restate tool results it replaced, so it is counted as one.
+ */
+export function historyCarriesToolOutput(history: readonly TUniversalMessage[]): boolean {
+  return history.some(
+    (message) =>
+      message.role === 'tool' ||
+      (message.role === 'assistant' &&
+        message.content?.startsWith(CONTEXT_SUMMARY_PREFIX) === true),
+  );
+}
 
 /** Dependencies for compact() */
 export interface ICompactContext {
@@ -122,7 +138,7 @@ export async function compact(
   // (cwd, AGENTS.md, CLAUDE.md) that the AI needs for every response.
   ctx.agent.clearHistory();
   ctx.agent.injectMessage('system', ctx.systemMessage);
-  ctx.agent.injectMessage('assistant', `[Context Summary]\n${summary}`);
+  ctx.agent.injectMessage('assistant', `${CONTEXT_SUMMARY_PREFIX}\n${summary}`);
 
   // Reset token tracking based on the new shorter history
   ctx.contextTracker.updateFromHistory(ctx.agent.getHistory());

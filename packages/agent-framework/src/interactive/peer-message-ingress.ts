@@ -28,7 +28,9 @@
  *
  *  1. **Fail closed on admission.** A message from a peer that was not admitted never reaches the
  *     runtime, and the stricter same-environment posture is available for a caller that wants it.
- *  2. **Preserve origin.** Submit as a peer turn, attributed to the peer.
+ *  2. **Preserve origin.** Submit as a peer turn, attributed to the peer admission named. A message
+ *     naming a different sender, or an admission naming none, is refused: the origin decides where
+ *     an answer goes, so it is the admitted one or nothing.
  *  3. **Translate settlement into an ack.** The turn handle settles — with a result, or with a
  *     `TurnNotRunError` naming why it never ran — and that is what the sender is told.
  *
@@ -143,14 +145,30 @@ export class PeerMessageIngress {
       );
     }
 
+    const admitted = ingress.admission.origin;
+    if (admitted === undefined) {
+      return refuse('the admission names no sender, so an answer would have nowhere to go');
+    }
+    if (ingress.message.origin.sessionId !== admitted.sessionId) {
+      return refuse(
+        `the message names sender ${JSON.stringify(ingress.message.origin.sessionId)}, but ` +
+          `${JSON.stringify(admitted.sessionId)} was admitted`,
+      );
+    }
+    // Identity from admission; the workspace relation is the receiver's own display verdict.
+    const { workspaceRelation } = ingress.message.origin;
+    const origin: IPeerOrigin = {
+      sessionId: admitted.sessionId,
+      ...(admitted.driverId !== undefined ? { driverId: admitted.driverId } : {}),
+      ...(workspaceRelation !== undefined ? { workspaceRelation } : {}),
+    };
+
     let handle: ITurnHandle;
     try {
       // Whichever comes first: acceptance, or `submit` settling. A rejection after acceptance is
       // the turn's own failure, which `completed` already reports as the settled ack.
       handle = await new Promise<ITurnHandle>((resolve, reject) => {
-        this.host
-          .submit(ingress.message.text, ingress.message.origin, resolve)
-          .then(resolve, reject);
+        this.host.submit(ingress.message.text, origin, resolve).then(resolve, reject);
       });
     } catch (error) {
       // A session that is shutting down rejects the submission outright. That is a refusal the

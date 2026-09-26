@@ -11,7 +11,12 @@ import {
   buildRobota,
   buildSessionTrackers,
 } from './session-components.js';
-import { buildCompactContext, compact, persistSession } from './session-history-ops.js';
+import {
+  buildCompactContext,
+  compact,
+  historyCarriesToolOutput,
+  persistSession,
+} from './session-history-ops.js';
 import { createSessionId } from './session-id.js';
 import {
   configureProvider,
@@ -199,7 +204,10 @@ export class Session extends SessionBase {
     const unlink = linkCancellation(controller, options?.signal);
     const { signal } = controller;
     // The turn's origin is an input to every permission decision it makes, for this turn only.
-    this.permissionEnforcer.beginTurn(options?.peerReach);
+    this.permissionEnforcer.beginTurn(
+      options?.peerReach,
+      options?.peerReach !== undefined && historyCarriesToolOutput(this.agent.getHistory()),
+    );
     try {
       signal.throwIfAborted();
       // Tools added while the last turn ran join at this boundary, before any request of this turn;

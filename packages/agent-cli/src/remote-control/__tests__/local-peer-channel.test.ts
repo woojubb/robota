@@ -22,6 +22,8 @@ import {
   peerSocketPath,
   sendPeerMessage,
   type IPeerListener,
+  type IPeerListenerOptions,
+  type IPeerSender,
 } from '../local-peer-channel.js';
 
 import type { IPeerMessage, IPeerMessageAck } from '@robota-sdk/agent-interface-session-mobility';
@@ -53,13 +55,17 @@ function message(overrides: Partial<IPeerMessage> = {}): IPeerMessage {
   };
 }
 
-const ACCEPT = (received: IPeerMessage): IPeerMessageAck => ({
+const ACCEPT = (received: IPeerMessage, _sender?: IPeerSender): IPeerMessageAck => ({
   id: received.id,
   sequence: received.sequence,
   state: 'delivered',
 });
 
-async function listen(dir: string, sessionId: string, onMessage = ACCEPT): Promise<IPeerListener> {
+async function listen(
+  dir: string,
+  sessionId: string,
+  onMessage: IPeerListenerOptions['onMessage'] = ACCEPT,
+): Promise<IPeerListener> {
   const listener = await listenForPeerMessages({ guardedDirectory: dir, sessionId, onMessage });
   listeners.push(listener);
   return listener;
@@ -74,11 +80,7 @@ describe('a message reaches the other session', () => {
       return ACCEPT(incoming);
     });
 
-    const ack = await sendPeerMessage({
-      guardedDirectory: dir,
-      targetSessionId: 'session-receiver',
-      message: message(),
-    });
+    const ack = await (await listen(dir, 'session-sender')).send('session-receiver', message());
 
     expect(received).toHaveLength(1);
     expect(received[0]?.text).toBe('hello from the other session');
@@ -97,11 +99,7 @@ describe('a message reaches the other session', () => {
       state: 'duplicate',
     }));
 
-    const ack = await sendPeerMessage({
-      guardedDirectory: dir,
-      targetSessionId: 'session-receiver',
-      message: message(),
-    });
+    const ack = await (await listen(dir, 'session-sender')).send('session-receiver', message());
     expect(ack.state).toBe('duplicate');
   });
 
@@ -114,11 +112,7 @@ describe('a message reaches the other session', () => {
       reason: 'the session is shutting down',
     }));
 
-    const ack = await sendPeerMessage({
-      guardedDirectory: dir,
-      targetSessionId: 'session-receiver',
-      message: message(),
-    });
+    const ack = await (await listen(dir, 'session-sender')).send('session-receiver', message());
     expect(ack).toMatchObject({ state: 'refused', reason: 'the session is shutting down' });
   });
 
@@ -127,19 +121,17 @@ describe('a message reaches the other session', () => {
     // minus the shell. One listener answering while the other sends is the case a single-socket test
     // cannot reach.
     const dir = guardedDirectory();
-    await listen(dir, 'session-a');
-    await listen(dir, 'session-b');
+    const a = await listen(dir, 'session-a');
+    const b = await listen(dir, 'session-b');
 
-    const toB = await sendPeerMessage({
-      guardedDirectory: dir,
-      targetSessionId: 'session-b',
-      message: message({ id: 'a-to-b', origin: { sessionId: 'session-a' } }),
-    });
-    const toA = await sendPeerMessage({
-      guardedDirectory: dir,
-      targetSessionId: 'session-a',
-      message: message({ id: 'b-to-a', origin: { sessionId: 'session-b' } }),
-    });
+    const toB = await a.send(
+      'session-b',
+      message({ id: 'a-to-b', origin: { sessionId: 'session-a' } }),
+    );
+    const toA = await b.send(
+      'session-a',
+      message({ id: 'b-to-a', origin: { sessionId: 'session-b' } }),
+    );
 
     expect(toB).toMatchObject({ id: 'a-to-b', state: 'delivered' });
     expect(toA).toMatchObject({ id: 'b-to-a', state: 'delivered' });
@@ -203,6 +195,102 @@ describe('what it refuses', () => {
   });
 });
 
+describe('who a message is from', () => {
+  it('hands the receiver the sender the carrier confirmed', async () => {
+    const dir = guardedDirectory();
+    const senders: string[] = [];
+    await listen(dir, 'session-b', (incoming, sender) => {
+      senders.push(sender.sessionId);
+      return ACCEPT(incoming);
+    });
+    const a = await listen(dir, 'session-a');
+
+    const ack = await a.send('session-b', message({ origin: { sessionId: 'session-a' } }));
+
+    expect(ack.state).toBe('delivered');
+    expect(senders).toEqual(['session-a']);
+  });
+
+  it('refuses a message naming a live session that did not send it', async () => {
+    const dir = guardedDirectory();
+    const received: IPeerMessage[] = [];
+    await listen(dir, 'session-b', (incoming) => {
+      received.push(incoming);
+      return ACCEPT(incoming);
+    });
+    await listen(dir, 'session-c');
+
+    const ack = await sendPeerMessage({
+      guardedDirectory: dir,
+      targetSessionId: 'session-b',
+      message: message({ origin: { sessionId: 'session-c' } }),
+    });
+
+    expect(ack.state).toBe('refused');
+    expect(ack.reason).toContain('session-c');
+    expect(received).toHaveLength(0);
+  });
+
+  it('refuses a message naming a session that is not listening', async () => {
+    const dir = guardedDirectory();
+    const received: IPeerMessage[] = [];
+    await listen(dir, 'session-b', (incoming) => {
+      received.push(incoming);
+      return ACCEPT(incoming);
+    });
+
+    const ack = await sendPeerMessage({
+      guardedDirectory: dir,
+      targetSessionId: 'session-b',
+      message: message({ origin: { sessionId: 'session-nobody' } }),
+    });
+
+    expect(ack.state).toBe('refused');
+    expect(received).toHaveLength(0);
+  });
+
+  it('refuses a message whose text differs from what the named sender has in flight', async () => {
+    const dir = guardedDirectory();
+    const received: IPeerMessage[] = [];
+    // The receiver holds its answer until the altered copy has been judged, so the genuine message
+    // is still in flight while the altered one asks about it.
+    let release: () => void = () => undefined;
+    const held = new Promise<void>((resolve) => (release = resolve));
+    await listen(dir, 'session-b', async (incoming) => {
+      received.push(incoming);
+      if (received.length === 1) await held;
+      return ACCEPT(incoming);
+    });
+    const a = await listen(dir, 'session-a');
+    const genuine = message({ id: 'a-1', origin: { sessionId: 'session-a' } });
+
+    const sent = a.send('session-b', genuine);
+    for (let i = 0; i < 100 && received.length === 0; i += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    const altered = await sendPeerMessage({
+      guardedDirectory: dir,
+      targetSessionId: 'session-b',
+      message: { ...genuine, text: 'something else' },
+    });
+    release();
+
+    expect(altered.state).toBe('refused');
+    expect((await sent).state).toBe('delivered');
+    expect(received.map((m) => m.text)).toEqual([genuine.text]);
+  });
+
+  it('will not send a message under another session name', async () => {
+    const dir = guardedDirectory();
+    await listen(dir, 'session-b');
+    const a = await listen(dir, 'session-a');
+
+    await expect(
+      a.send('session-b', message({ origin: { sessionId: 'session-c' } })),
+    ).rejects.toThrow(/session-a/);
+  });
+});
+
 describe('rebinding after a crash', () => {
   it('takes over a socket file a dead session left behind', async () => {
     // A crashed session leaves its socket FILE with no listener behind it, and `listen()` on an
@@ -222,11 +310,7 @@ describe('rebinding after a crash', () => {
     });
     listeners.push(listener);
 
-    const ack = await sendPeerMessage({
-      guardedDirectory: dir,
-      targetSessionId: 'session-receiver',
-      message: message(),
-    });
+    const ack = await (await listen(dir, 'session-sender')).send('session-receiver', message());
     expect(ack.state).toBe('delivered');
   });
 });
