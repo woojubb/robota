@@ -177,6 +177,22 @@ export function validateExternalEventEndpoint(
 }
 
 /** Read the body up to the bound; `undefined` when it is larger. Never buffers past the bound. */
+/**
+ * After a 413, read and discard what the client is still sending, so it receives the answer instead
+ * of a reset in the middle of its write. Bounded: a client that keeps sending past this is cut off.
+ */
+const MAX_DRAIN_BYTES = 1024 * 1024;
+
+function discardRest(req: IncomingMessage): void {
+  let drained = 0;
+  req.on('data', (chunk: Buffer) => {
+    drained += chunk.length;
+    if (drained > MAX_DRAIN_BYTES) req.destroy();
+  });
+  req.on('error', () => undefined);
+  req.resume();
+}
+
 function readBody(req: IncomingMessage): Promise<string | undefined> {
   const declared = Number(req.headers['content-length']);
   if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return Promise.resolve(undefined);
@@ -308,9 +324,10 @@ export function createExternalEventHttpHost(
     }
     const body = await readBody(req);
     if (body === undefined) {
-      // The body, not the token, is too large: 413, counted, before anything is verified. The rest
-      // of the body is not read: the connection closes once the answer is out.
-      res.once('finish', () => req.destroy());
+      // The body, not the token, is too large: 413, counted, before anything is verified. The rest is
+      // discarded, not kept, and the connection closes after the answer (RFC 9110 §15.5.14).
+      discardRest(req);
+      res.setHeader('Connection', 'close');
       count('oversize');
       refuse(req, res, 'oversize', route, {
         counted: true,

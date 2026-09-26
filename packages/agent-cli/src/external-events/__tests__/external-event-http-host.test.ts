@@ -467,6 +467,18 @@ describe('external event HTTPS endpoint', () => {
     ]);
   });
 
+  it('answers an oversize body with 413 and a graceful close, however much the client still sends', async () => {
+    const { port } = await start();
+    const token = await mint();
+    for (const size of [16 * 1024 + 1, 64 * 1024, 512 * 1024]) {
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const reply = await send(port, { token, body: 'x'.repeat(size) });
+        expect(reply).toMatchObject({ status: 413, body: '' });
+        expect(reply.headers.connection).toBe('close');
+      }
+    }
+  });
+
   it('refuses a streamed body over the bound without reading it all', async () => {
     const { port } = await start();
     const token = await mint();
