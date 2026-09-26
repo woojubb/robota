@@ -140,10 +140,10 @@ dependency.
   and in all, and never with more bytes than the request carried: it cannot be used to amplify traffic toward
   someone else. The limit in all is only a backstop and sits well above the per-source one, since a low one would
   let a flood from forged sources crowd out genuine clients' challenges. A client whose first request is smaller
-  than the challenge it would get goes unanswered; WebRTC clients' first requests are large enough. Whether the
-  relay forwards into private and link-local ranges is the user's choice. It does by default, because a relayed
-  connection to a device on the relay host's own network needs it; turning it off keeps a paired device from
-  reaching other hosts on that network through the relay, at the cost of those connections.
+  than the challenge it would get goes unanswered; the first requests of the mesh's WebRTC stack are large enough.
+  Whether the relay forwards into private and link-local ranges is the user's choice. It does by default, because a
+  relayed connection to a device on the relay host's own network needs it; turning it off keeps a paired device
+  from reaching other hosts on that network through the relay, at the cost of those connections.
 - **The data channel is wired eagerly at creation, not on open.** The session message handler is built and its
   message subscription attached immediately, because the underlying implementation does not buffer inbound frames
   that arrive before a subscription, and the remote can send its first client message before the host's channel

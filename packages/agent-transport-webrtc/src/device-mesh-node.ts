@@ -754,8 +754,9 @@ export class DeviceMeshNode {
     state.pending = undefined;
     // This side took the peer's description, so the peer is up and paths were being tried, and
     // still none connected: ICE failed, or was still checking when time ran out. (An answer lost on
-    // its way looks the same to the answerer; the cause attached says which.) Only this calls for a relay;
-    // an attempt that ended before paths were tried, or after one connected, is reported as it ended.
+    // its way looks the same to the answerer; the cause attached says which.) Only this calls for
+    // a relay; an attempt that ended before paths were tried, or after one connected, is reported
+    // as it ended.
     const unreachable =
       error.stage === 'connecting' &&
       (end === 'timeout' || error.peer?.state === 'failed') &&

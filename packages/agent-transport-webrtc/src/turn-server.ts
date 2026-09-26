@@ -102,8 +102,8 @@ export interface ITurnServerOptions {
   readonly relayAddress?: string;
   /**
    * Default `r`: a realm travels in the clear, so it names nothing. At most 4 bytes: a challenge is
-   * never larger than the request it answers, and a longer realm would not fit a WebRTC client's first
-   * request.
+   * never larger than the request it answers, and a longer realm would not fit the first request of
+   * the mesh's WebRTC stack.
    */
   readonly realm?: string;
   /** Who `username` belongs to and its password; `undefined` refuses it. Asked once per allocation. */
@@ -135,6 +135,8 @@ const NONCE_LIFETIME_MS = 600_000;
 const SWEEP_INTERVAL_MS = 5_000;
 const UDP = 17;
 const MAX_REALM_BYTES = 4;
+/** The smallest unauthenticated answer: a header and an ERROR-CODE with no reason phrase. */
+const MIN_ANSWER_BYTES = 28;
 /** Random ports of the relayed range tried before the range is walked in order. */
 const RELAY_PORT_TRIES = 8;
 
@@ -310,8 +312,9 @@ export class TurnServer {
 
   /** Bind the server's socket and start serving. */
   public static async start(options: ITurnServerOptions): Promise<TurnServer> {
-    if (Buffer.byteLength(options.realm ?? '') > MAX_REALM_BYTES) {
-      throw new Error(`TURN realm must be at most ${MAX_REALM_BYTES} bytes`);
+    const realmBytes = Buffer.byteLength(options.realm ?? 'r');
+    if (realmBytes === 0 || realmBytes > MAX_REALM_BYTES) {
+      throw new Error(`TURN realm must be 1 to ${MAX_REALM_BYTES} bytes`);
     }
     const host = options.host ?? '0.0.0.0';
     const socket = createSocket('udp4');
@@ -446,7 +449,6 @@ export class TurnServer {
     return age >= -60_000 && age <= NONCE_LIFETIME_MS;
   }
 
-
   /**
    * Answer a request nobody has authenticated. Its source may be forged, so the answer is never
    * larger than the request (no reflection gain), and answers are limited per source address and in
@@ -465,6 +467,8 @@ export class TurnServer {
       at: now,
     };
     this.answerBuckets.set(to.address, source);
+    // No answer is smaller than this: a request below it is dropped before any work.
+    if (request.raw.length < MIN_ANSWER_BYTES) return;
     // Both budgets are checked before anything is computed, and charged only for an answer sent.
     if (!refill(source, this.limits.perSourcePerSecond, now)) return;
     if (!refill(total, this.limits.totalPerSecond, now)) return;
