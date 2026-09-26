@@ -385,6 +385,95 @@ describe('rendezvous records', () => {
       ).size,
     ).toBe(1);
   });
+
+  it('a paired device that publishes many lists cannot crowd out the one another device published', async () => {
+    const networks = Array.from({ length: 6 }, () => createInMemoryItemNetwork());
+    const genuine = await world.revoking(world.third);
+    const toLowFromHigh = await routeOf(world.high, world.low);
+    const toLowFromThird = await routeOf(world.third, world.low);
+    const highDht = new MeshDht({
+      stores: networks.map((n) => n.store()),
+      addresses: () => [LOCAL],
+      maxPublishJitterMs: 0,
+      now: () => NOW,
+      lists: () => ({ revocation: genuine }),
+    });
+    cleanups.push(() => highDht.close());
+    await highDht.advertise([toLowFromHigh], 4343);
+    // `third` publishes a different list claiming a higher seq to every store, in every epoch read.
+    let forged = 0;
+    for (const skew of [-1, 0, 1]) {
+      for (const network of networks) {
+        forged += 1;
+        const claim = { ...genuine, seq: Number.MAX_SAFE_INTEGER - forged };
+        const dht = dhtOn(network, {
+          now: () => NOW + skew * RENDEZVOUS_EPOCH_MS,
+          lists: () => ({ revocation: claim }),
+        });
+        await dht.advertise([toLowFromThird], 4444);
+      }
+    }
+    // Hints and one list chunk per store from high, and per store and epoch from third.
+    await vi.waitFor(() =>
+      expect(networks.reduce((n, net) => n + net.items().length, 0)).toBe(12 + 36),
+    );
+    const lowDht = new MeshDht({
+      stores: networks.map((n) => n.store()),
+      addresses: () => [LOCAL],
+      maxPublishJitterMs: 0,
+      now: () => NOW,
+    });
+    cleanups.push(() => lowDht.close());
+    await lowDht.advertise(
+      [await routeOf(world.low, world.high), await routeOf(world.low, world.third)],
+      4242,
+    );
+
+    const found = await lowDht.latestLists(never());
+    expect(found?.revocation).toContainEqual(JSON.parse(JSON.stringify(genuine)));
+  });
+
+  it('a read that finds the chunks of two versions of a list yields no list', async () => {
+    const ids = (fill: number): string[] =>
+      Array.from({ length: 40 }, (_, i) => Buffer.alloc(32, fill + i).toString('base64url'));
+    const older = await issueDeviceRevocationList({
+      signingKey: world.signingKey,
+      seq: 12,
+      issuedAt: NOW,
+      revokedDeviceIds: ids(1),
+    });
+    const newer = await issueDeviceRevocationList({
+      signingKey: world.signingKey,
+      seq: 13,
+      issuedAt: NOW,
+      revokedDeviceIds: ids(101),
+    });
+    const toLow = await routeOf(world.high, world.low);
+    const before = createInMemoryItemNetwork();
+    const after = createInMemoryItemNetwork();
+    await dhtOn(before, { now: () => NOW, lists: () => ({ revocation: older }) }).advertise(
+      [toLow],
+      4343,
+    );
+    await dhtOn(after, { now: () => NOW, lists: () => ({ revocation: newer }) }).advertise(
+      [toLow],
+      4343,
+    );
+    await vi.waitFor(() => {
+      expect(before.items().length).toBeGreaterThan(2);
+      expect(after.items()).toHaveLength(before.items().length);
+    });
+    // The first chunk is already the newer version's; the others are still the older one's.
+    const first = await itemAddress(toLow.rendezvous, 'revocation', 'outbound', EPOCH, 0);
+    const firstKey = hex(first.key.publicKey);
+    before.serve((item) =>
+      hex(item.k) === firstKey ? after.items().find((i) => hex(i.k) === firstKey) : item,
+    );
+    const lowDht = dhtOn(before, { now: () => NOW });
+    await lowDht.advertise([await routeOf(world.low, world.high)], 4242);
+
+    await expect(lowDht.latestLists(never())).resolves.toBeUndefined();
+  });
 });
 
 describe('pkarr relays', () => {
