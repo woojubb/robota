@@ -10,8 +10,7 @@ Two of one user's devices can find each other on the local network before the re
   pairwise secret, separated by direction: rotating tags (hourly epochs, looked up one epoch either
   way), the seed of each epoch's one-time signing key, sealed connection-hint records, and the relay
   inbox topics. It takes the lists in force and refuses a device they do not name with the same
-  key-agreement key, or revoke, so a rotated or revoked key stops deriving. It replaces
-  `deriveRelayInboxTopics`.
+  key-agreement key, or revoke, so a rotated or revoked key stops deriving.
 - `agent-transport-webrtc` — `startLanMeshRelay` / `DiscoveringMeshRelay` look for a peer in the
   address cache, then with mDNS (`MeshMdns`, over `multicast-dns`), then on the self-hosted relay, and
   carry signals to the peer's direct endpoint (`startMeshLanListener`) on rotating pairwise topics,

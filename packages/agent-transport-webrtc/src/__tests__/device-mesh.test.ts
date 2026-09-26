@@ -369,11 +369,14 @@ describe('DeviceMeshNode — the peer is the device its inbox belongs to', () =>
     await high.start();
 
     // The relay moves a third device's offer into the low–high inbox and returns high's answer to it.
-    const topics = await deriveRelayInboxTopics({
-      ownKaPrivateKey: world.low.ka.privateKey,
-      own: world.low.cert,
-      peer: world.high.cert,
-    });
+    const topics = await (
+      await derivePairRendezvous({
+        ownKaPrivateKey: world.low.ka.privateKey,
+        own: world.low.cert,
+        peerDeviceId: world.high.cert.deviceId,
+        lists: world.identity(world.low),
+      })
+    ).relayInbox();
     const relay = hub.connect();
     relay.declarePresence([topics.inbound]);
     const instance = 'DDDDDDDDDDDDDDDDDDDDDD';
