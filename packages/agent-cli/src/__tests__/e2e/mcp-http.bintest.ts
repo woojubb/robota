@@ -1,12 +1,14 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { request as httpRequest } from 'node:http';
 import {
+  closeSync,
   existsSync,
+  fstatSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
   readFileSync,
   rmSync,
-  statSync,
   writeFileSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -70,9 +72,15 @@ describe('robota mcp serve loopback HTTP binary', () => {
         () => expect(diagnostics).toMatch(/MCP HTTP listening at http:\/\/127\.0\.0\.1:\d+\/mcp/),
         { timeout: 15000 },
       );
-      expect(existsSync(tokenFile)).toBe(true);
-      expect(statSync(tokenFile).mode & 0o777).toBe(0o600);
-      const token = readFileSync(tokenFile, 'utf8').trim();
+      // Opened once (which fails if the file is missing): the mode checked is the file read.
+      const tokenFd = openSync(tokenFile, 'r');
+      let token: string;
+      try {
+        expect(fstatSync(tokenFd).mode & 0o777).toBe(0o600);
+        token = readFileSync(tokenFd, 'utf8').trim();
+      } finally {
+        closeSync(tokenFd);
+      }
       expect(token).toMatch(/^[a-f0-9]{64}$/);
       expect(diagnostics).not.toContain(token);
       expect(stdout).toBe('');

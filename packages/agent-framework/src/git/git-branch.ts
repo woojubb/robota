@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, readFileSync } from 'node:fs';
+import { closeSync, constants, fstatSync, openSync, readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 
 const DETACHED_HEAD_LENGTH = 7;
@@ -40,13 +40,43 @@ function findGitDir(start: string): string | undefined {
   return resolveGitMetadata(rootCandidate, current);
 }
 
-function resolveGitMetadata(candidate: string, repoDir: string): string | undefined {
-  if (!existsSync(candidate)) return undefined;
-  const stat = lstatSync(candidate);
-  if (stat.isDirectory()) return candidate;
-  if (!stat.isFile()) return undefined;
+/** Open errors that mean there is no usable `.git` entry here, so the search moves on. */
+const NO_METADATA_CODES: ReadonlySet<string> = new Set([
+  'ENOENT',
+  'ENOTDIR',
+  'ELOOP',
+  'EMLINK',
+  'ENXIO',
+  'EOPNOTSUPP',
+]);
 
-  const content = readFileSync(candidate, 'utf8').trim();
+/**
+ * A `.git` directory, or a `.git` file's `gitdir:` target; a link or anything else is ignored.
+ * The entry is opened once without following a link and checked on that descriptor, so what is
+ * read is exactly what was checked.
+ */
+function resolveGitMetadata(candidate: string, repoDir: string): string | undefined {
+  let fd: number;
+  try {
+    fd = openSync(candidate, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code ?? '';
+    // A platform that cannot open a directory says so; a directory is what is looked for.
+    if (code === 'EISDIR') return candidate;
+    if (NO_METADATA_CODES.has(code)) return undefined;
+    throw error;
+  }
+
+  let content: string;
+  try {
+    const stat = fstatSync(fd);
+    if (stat.isDirectory()) return candidate;
+    if (!stat.isFile()) return undefined;
+    content = readFileSync(fd, 'utf8').trim();
+  } finally {
+    closeSync(fd);
+  }
+
   const prefix = 'gitdir:';
   if (!content.startsWith(prefix)) return undefined;
   const rawPath = content.slice(prefix.length).trim();

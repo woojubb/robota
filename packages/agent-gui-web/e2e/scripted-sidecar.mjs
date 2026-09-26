@@ -78,12 +78,17 @@ async function daemonStart() {
     process.stderr.write(line('scripted-sidecar: ROBOTA_E2E_DAEMON_STATE required for daemon start'));
     process.exit(1);
   }
-  if (existsSync(statePath)) {
-    const recorded = JSON.parse(readFileSync(statePath, 'utf8'));
-    if (Number.isInteger(recorded.pid) && isAlive(recorded.pid)) {
-      process.stdout.write(line(JSON.stringify({ id: recorded.id, url: recorded.url })));
-      process.exit(0);
-    }
+  // Read directly rather than after an existence check: a missing state file is the only error
+  // that means "no daemon recorded yet".
+  let recorded;
+  try {
+    recorded = JSON.parse(readFileSync(statePath, 'utf8'));
+  } catch (error) {
+    if (error?.code !== 'ENOENT') throw error;
+  }
+  if (recorded && Number.isInteger(recorded.pid) && isAlive(recorded.pid)) {
+    process.stdout.write(line(JSON.stringify({ id: recorded.id, url: recorded.url })));
+    process.exit(0);
   }
   const daemonToken = randomBytes(32).toString('hex');
   const daemonPort = await freePort();
@@ -102,7 +107,10 @@ async function daemonStart() {
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   const url = `ws://127.0.0.1:${daemonPort}?token=${daemonToken}`;
-  writeFileSync(statePath, JSON.stringify({ pid: child.pid, id: 'scripted-daemon', url }));
+  // The URL carries the daemon's token, so a state file this creates is owner-only.
+  writeFileSync(statePath, JSON.stringify({ pid: child.pid, id: 'scripted-daemon', url }), {
+    mode: 0o600,
+  });
   process.stdout.write(line(JSON.stringify({ id: 'scripted-daemon', url })));
   process.exit(0);
 }
