@@ -83,6 +83,9 @@ const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-shell',
   'agent-command-editor',
   'agent-command-git',
+  // #3186: registered without a terminal too, so a host without one says where they work.
+  'agent-command-keybindings',
+  'agent-command-theme',
   'agent-command-doctor',
   'agent-command-memory',
   'agent-command-mcp-activation',
