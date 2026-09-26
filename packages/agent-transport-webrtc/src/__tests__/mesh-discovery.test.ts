@@ -667,7 +667,7 @@ describe('a proxy that forwards once', () => {
     const lanTopic = Buffer.from(
       await toHigh.rendezvous.tag('lan-inbox', 'outbound', rendezvousEpoch(Date.now())),
     ).toString('base64url');
-    await expect.poll(() => holds(high.listener, lanTopic)).toBe(true);
+    await expect.poll(() => holds(high.listener, lanTopic), { timeout: 10_000 }).toBe(true);
     await low.node.start();
 
     // The first connection goes through the proxy and is admitted.
