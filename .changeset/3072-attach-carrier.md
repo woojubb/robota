@@ -2,6 +2,7 @@
 '@robota-sdk/agent-cli': minor
 '@robota-sdk/agent-interface-analytics': minor
 '@robota-sdk/agent-session-analytics': patch
+'@robota-sdk/agent-framework': patch
 ---
 
 A supervised session accepts attach connections on its control socket.
@@ -22,4 +23,8 @@ A supervised session accepts attach connections on its control socket.
 - Commands from an attached terminal carry the remote origin, so pairing, revoking and reading the
   pairing link stay refused. An attached terminal is never an operator approver; supervised sessions
   keep refusing mesh connections that need one.
+- A client may send its first frames in the same write as the handshake; only the handshake line
+  itself is held to the control endpoint's line limit.
+- `agent-framework`: the surface a turn was submitted on now reaches its usage observation. It was
+  dropped before, so remote-control turns were counted as `unknown`.
 - The terminal client (`robota session attach`) and the view keys come separately.

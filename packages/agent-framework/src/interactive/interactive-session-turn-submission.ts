@@ -38,6 +38,8 @@ export function publicTurnOptions(options: ISubmitOptions): ITurnOptions {
     ...(options.signal !== undefined ? { signal: options.signal } : {}),
     ...(options.driverId !== undefined ? { driverId: options.driverId } : {}),
     ...(options.turnSource !== undefined ? { turnSource: options.turnSource } : {}),
+    // The product surface that accepted the turn, for usage counts only; it grants nothing.
+    ...(options.surface !== undefined ? { surface: options.surface } : {}),
     // The reply route of a peer turn; refused on any turn that is not `'peer'`.
     ...(options.peer !== undefined ? { peer: options.peer } : {}),
   };

@@ -126,7 +126,9 @@ export function createSupervisedAttachCarrier(session: IProtocolSession): ISuper
       let buffered = rest;
       const drain = (): void => {
         let end = buffered.indexOf('\n');
-        while (end !== -1) {
+        // A frame can cut this connection off (over budget, broken write); what follows it in the
+        // same chunk is then not this surface's to send.
+        while (end !== -1 && !socket.destroyed) {
           const line = buffered.slice(0, end);
           buffered = buffered.slice(end + 1);
           if (Buffer.byteLength(line, 'utf8') > MAX_INBOUND_FRAME_BYTES) {

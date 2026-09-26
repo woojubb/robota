@@ -190,11 +190,13 @@ function readLine(
     };
     const onData = (chunk: string): void => {
       received += chunk;
-      if (Buffer.byteLength(received, 'utf8') > maxBytes) {
+      const end = received.indexOf('\n');
+      // The bound is on the line itself: bytes an attach client sends after it belong to the
+      // session protocol, which applies its own frame limit.
+      if (Buffer.byteLength(end === -1 ? received : received.slice(0, end), 'utf8') > maxBytes) {
         finish(() => reject(new Error('Supervised session control frame is too large.')));
         return;
       }
-      const end = received.indexOf('\n');
       if (end !== -1) {
         finish(() => {
           onRest?.(received.slice(end + 1));

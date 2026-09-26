@@ -47,6 +47,7 @@ interface IClient {
 async function handshake(
   root: string,
   frame: Record<string, unknown>,
+  pipelined = '',
 ): Promise<{ reply: Record<string, unknown>; client: IClient }> {
   const socketName = readdirSync(root).find((name) => name.endsWith('.sock'))!;
   const socket = createConnection(join(root, socketName));
@@ -75,7 +76,7 @@ async function handshake(
     }
   });
   void closed.then(() => replied());
-  socket.write(`${JSON.stringify(frame)}\n`);
+  socket.write(`${JSON.stringify(frame)}\n${pipelined}`);
   await replyReady;
   const client: IClient = {
     socket,
@@ -102,7 +103,7 @@ async function withTarget(
     root: string;
     session: InteractiveSession;
     registry: IPromptRegistry;
-    attach: (mode: 'drive' | 'observe', extra?: Record<string, unknown>) =>
+    attach: (mode: 'drive' | 'observe', extra?: Record<string, unknown>, pipelined?: string) =>
       Promise<{ reply: Record<string, unknown>; client: IClient }>;
     closeControl: () => Promise<void>;
   }) => Promise<void>,
@@ -127,8 +128,11 @@ async function withTarget(
       ID, () => undefined, root, () => session.getLocalActivityStatus(), undefined, undefined,
       undefined, undefined, undefined, options.attachable === false ? undefined : session,
     );
-    const attach = (mode: 'drive' | 'observe', extra: Record<string, unknown> = {}) =>
-      handshake(root, { command: 'attach', id: ID, generation: generationOf(root), mode, protocol: 1, ...extra });
+    const attach = (mode: 'drive' | 'observe', extra: Record<string, unknown> = {}, pipelined = '') =>
+      handshake(
+        root, { command: 'attach', id: ID, generation: generationOf(root), mode, protocol: 1, ...extra },
+        pipelined,
+      );
     await run({ root, session, registry, attach, closeControl: () => control!.close() });
   } finally {
     await control?.close();
@@ -185,13 +189,27 @@ describe('supervised attach carrier', () => {
   });
 
   it('attributes a submitted turn to the server-assigned driver, never a client-sent one', async () => {
-    await withTarget('rs-a4-', async ({ root, attach }) => {
+    await withTarget('rs-a4-', async ({ root, session, attach }) => {
       const { reply, client } = await attach('drive', { driverId: 'owner' });
       expect(reply).toEqual({ id: ID, status: 'attached', driverId: 'attach:1', generation: generationOf(root) });
       client.send({ type: 'submit', prompt: 'hello', driverId: 'owner' });
       const complete = await client.waitFor('complete');
       expect(complete.driverId).toBe('attach:1');
+      const observation = session.getFullHistory().find((entry) => entry.type === 'usage-observation');
+      expect(observation?.data).toMatchObject({ surface: 'attach' });
       expect(client.frames.some((frame) => 'driverId' in frame && frame.driverId === 'owner')).toBe(false);
+      client.socket.destroy();
+    });
+  });
+
+  it('keeps frames sent in the same write as the handshake, beyond the handshake line limit', async () => {
+    await withTarget('rs-b4-', async ({ attach }) => {
+      const padding = `${' '.repeat(8 * 1024)}\n`;
+      const { reply, client } = await attach(
+        'observe', {}, `${padding}${JSON.stringify({ type: 'get-executing' })}\n`,
+      );
+      expect(reply).toMatchObject({ status: 'attached' });
+      expect(await client.waitFor('executing')).toEqual({ type: 'executing', executing: false });
       client.socket.destroy();
     });
   });
