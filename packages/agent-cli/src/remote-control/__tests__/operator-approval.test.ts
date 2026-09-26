@@ -126,6 +126,68 @@ describe('createTerminalOperatorApprover', () => {
     expect(shown).not.toContain('owned\u0007');
   });
 
+  it('drops invisible and direction-changing characters from a peer’s text', async () => {
+    const { session, written } = terminal(['no']);
+    const approver = createTerminalOperatorApprover({
+      getHost: () => host(),
+      openTerminal: () => session,
+    });
+    await approver.approve({
+      capability: 'delegate',
+      scope: 'request',
+      locality: 'same-host',
+      summary: 'safe\u202etxt.exe\u200b\u2066x\u2069\ufeff',
+    });
+    const shown = written.join('');
+    for (const ch of ['\u202e', '\u200b', '\u2066', '\u2069', '\ufeff']) {
+      expect(shown).not.toContain(ch);
+    }
+  });
+
+  it('does not ask about a connection that is already gone', async () => {
+    const openTerminal = vi.fn();
+    const h = host();
+    const gone = new AbortController();
+    gone.abort();
+    const approver = createTerminalOperatorApprover({ getHost: () => h, openTerminal });
+    await expect(approver.approve(DRIVE, gone.signal)).resolves.toBe(false);
+    expect(h.runs).not.toHaveBeenCalled();
+    expect(openTerminal).not.toHaveBeenCalled();
+  });
+
+  it('withdraws the question when the connection goes away, and the next one is asked', async () => {
+    const prompts: string[] = [];
+    let answerNext: string | undefined;
+    const session: ISecretTerminalSession = {
+      run: (work) =>
+        work({
+          write: () => {},
+          clearScreen: () => {},
+          readLine: (prompt, readOptions) => {
+            prompts.push(prompt);
+            if (answerNext !== undefined) return Promise.resolve(answerNext);
+            // Nobody answers; only the withdrawal ends this question.
+            return new Promise((_resolve, reject) => {
+              readOptions?.signal?.addEventListener('abort', () => reject(new Error('withdrawn')));
+            });
+          },
+        }),
+    };
+    const approver = createTerminalOperatorApprover({
+      getHost: () => host(),
+      openTerminal: () => session,
+    });
+    const leaving = new AbortController();
+    const first = approver.approve(DRIVE, leaving.signal);
+    const second = approver.approve(DRIVE, new AbortController().signal);
+    await vi.waitFor(() => expect(prompts).toHaveLength(1));
+    answerNext = 'yes';
+    leaving.abort();
+    await expect(first).resolves.toBe(false);
+    await expect(second).resolves.toBe(true);
+    expect(prompts).toHaveLength(2);
+  });
+
   it('asks one question at a time', async () => {
     let active = 0;
     let maxActive = 0;

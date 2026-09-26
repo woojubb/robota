@@ -34,6 +34,7 @@ export type { IMeshAdmission, TMeshCapability } from './mesh-admission-contracts
 
 // ── connection-authority ──
 export type {
+  IAuthorizeOptions,
   ICapabilityApprovalRequest,
   IConnectionPeer,
   IDelegatedTurn,

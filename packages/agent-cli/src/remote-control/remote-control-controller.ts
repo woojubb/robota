@@ -137,7 +137,7 @@ export class RemoteControlController {
    * so an earlier yes never carries over.
    */
   private readonly connectionApproval: IConnectionApproval = {
-    approve: async ({ deviceId }) => {
+    approve: async ({ deviceId, signal }) => {
       const authority = new ConnectionAuthority(
         {
           ...(deviceId !== undefined ? { deviceId } : {}),
@@ -147,7 +147,7 @@ export class RemoteControlController {
         },
         this.deps.operatorApprover,
       );
-      return (await authority.authorize('drive')).allowed;
+      return (await authority.authorize('drive', { signal })).allowed;
     },
   };
 

@@ -261,13 +261,15 @@ describe('RemoteControlController — a paired device drives only with the opera
     return { deps, approval: () => approval };
   }
 
+  const live = (): AbortSignal => new AbortController().signal;
+
   it('refuses every connection when no operator can be asked', async () => {
     const { deps, approval } = capturing();
     await new RemoteControlController(deps).enable();
     expect(approval()).toBeDefined();
-    await expect(approval()!.approve({ deviceId: 'dev-1', viaReconnect: false })).resolves.toBe(
-      false,
-    );
+    await expect(
+      approval()!.approve({ deviceId: 'dev-1', viaReconnect: false, signal: live() }),
+    ).resolves.toBe(false);
   });
 
   it('asks the operator whether this device may drive, for each connection', async () => {
@@ -275,24 +277,38 @@ describe('RemoteControlController — a paired device drives only with the opera
     const { deps, approval } = capturing({ operatorApprover });
     await new RemoteControlController(deps).enable();
 
-    await expect(approval()!.approve({ deviceId: 'dev-1', viaReconnect: false })).resolves.toBe(
-      true,
-    );
-    await expect(approval()!.approve({ deviceId: 'dev-1', viaReconnect: true })).resolves.toBe(
-      true,
-    );
+    const signal = live();
+    await expect(
+      approval()!.approve({ deviceId: 'dev-1', viaReconnect: false, signal }),
+    ).resolves.toBe(true);
+    await expect(
+      approval()!.approve({ deviceId: 'dev-1', viaReconnect: true, signal: live() }),
+    ).resolves.toBe(true);
     expect(operatorApprover.approve).toHaveBeenCalledTimes(2);
-    expect(operatorApprover.approve).toHaveBeenCalledWith({
-      capability: 'drive',
-      scope: 'connection',
-      deviceId: 'dev-1',
-      locality: 'another-host',
-    });
+    expect(operatorApprover.approve).toHaveBeenCalledWith(
+      { capability: 'drive', scope: 'connection', deviceId: 'dev-1', locality: 'another-host' },
+      signal,
+    );
   });
 
   it('refuses the connection the operator declines', async () => {
     const { deps, approval } = capturing({ operatorApprover: { approve: async () => false } });
     await new RemoteControlController(deps).enable();
-    await expect(approval()!.approve({ viaReconnect: false })).resolves.toBe(false);
+    await expect(approval()!.approve({ viaReconnect: false, signal: live() })).resolves.toBe(false);
+  });
+
+  it('refuses a connection that went away, even if the operator then says yes', async () => {
+    const gone = new AbortController();
+    const operatorApprover = {
+      approve: vi.fn(async () => {
+        gone.abort();
+        return true;
+      }),
+    };
+    const { deps, approval } = capturing({ operatorApprover });
+    await new RemoteControlController(deps).enable();
+    await expect(
+      approval()!.approve({ deviceId: 'dev-1', viaReconnect: false, signal: gone.signal }),
+    ).resolves.toBe(false);
   });
 });

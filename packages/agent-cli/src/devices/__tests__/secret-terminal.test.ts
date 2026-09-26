@@ -97,7 +97,9 @@ describe('secret terminal', () => {
     const c = io();
     Object.defineProperty(c.input, 'setRawMode', { value: undefined });
     expect(openSecretTerminal(c)).toBeUndefined();
-    expect(openWith({ sessionInput: new SessionStdin(), openTty: () => undefined })).toBeUndefined();
+    expect(
+      openWith({ sessionInput: new SessionStdin(), openTty: () => undefined }),
+    ).toBeUndefined();
   });
 
   it('refuses while something is reading the session stdin', () => {
@@ -109,7 +111,7 @@ describe('secret terminal', () => {
     ).toBeUndefined();
   });
 
-  it("reads its own terminal: the session stdin and its listeners never receive a byte", async () => {
+  it('reads its own terminal: the session stdin and its listeners never receive a byte', async () => {
     const { input, output } = io();
     const closed: number[] = [];
     let opened = 0;
@@ -238,6 +240,32 @@ describe('secret terminal', () => {
     expect(input.isRaw).toBe(false);
     expect(output.written.endsWith(LEAVE_ALT_SCREEN)).toBe(true);
     expect(input.listenerCount('data')).toBe(0);
+  });
+
+  it('withdraws a question when its signal aborts, and still restores the terminal', async () => {
+    const { input, output } = io();
+    const withdraw = new AbortController();
+    const run = openSecretTerminal({ input, output })!.run(async (terminal) => {
+      const pending = terminal.readLine('Allow? ', { echo: true, signal: withdraw.signal });
+      await tick();
+      input.type('ye');
+      withdraw.abort();
+      return pending;
+    });
+    await expect(run).rejects.toBeInstanceOf(SecretInputCancelled);
+    expect(input.isRaw).toBe(false);
+    expect(output.written.endsWith(LEAVE_ALT_SCREEN)).toBe(true);
+    expect(input.listenerCount('data')).toBe(0);
+  });
+
+  it('refuses at once to read for a question already withdrawn', async () => {
+    const { input, output } = io();
+    const withdraw = new AbortController();
+    withdraw.abort();
+    const run = openSecretTerminal({ input, output })!.run((terminal) =>
+      terminal.readLine('Allow? ', { signal: withdraw.signal }),
+    );
+    await expect(run).rejects.toBeInstanceOf(SecretInputCancelled);
   });
 
   it('restores the terminal when the work throws', async () => {

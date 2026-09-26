@@ -34,6 +34,8 @@ interface IRemoteResult {
   session: Promise<Record<string, unknown>>;
   /** Resolves true if the responder's pairing accepted, false if it rejected/closed. */
   paired: Promise<boolean>;
+  /** Close the remote's data channel — the device going away. */
+  close: () => void;
 }
 
 /**
@@ -71,7 +73,9 @@ function connectRemotePaired(signaling: ISignalingClient, secret: string): IRemo
     });
   });
 
+  let remoteChannel: { close(): void } | undefined;
   peer.onDataChannel.subscribe((channel) => {
+    remoteChannel = channel;
     let accepted = false;
     const controller = startPairingHandshake({
       secret,
@@ -110,7 +114,7 @@ function connectRemotePaired(signaling: ISignalingClient, secret: string): IRemo
     });
   });
 
-  return { session, paired };
+  return { session, paired, close: () => remoteChannel?.close() };
 }
 
 describe('WebRtc pairing end-to-end (REMOTE-008)', () => {
@@ -167,6 +171,42 @@ describe('WebRtc pairing end-to-end (REMOTE-008)', () => {
     await new Promise((resolve) => setTimeout(resolve, 200));
     expect(session.getMessages as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
     expect(onPaired).not.toHaveBeenCalled();
+    await transport.stop();
+  }, 20000);
+
+  it('a device that goes away while the operator decides withdraws the question and is never admitted', async () => {
+    const secret = 'shared-secret-256bit-base64url-xyz';
+    const [hostSig, remoteSig] = createInMemorySignalingPair();
+    let signal: AbortSignal | undefined;
+    let answer!: (value: boolean) => void;
+    const approve = vi.fn((context: { signal: AbortSignal }) => {
+      signal = context.signal;
+      return new Promise<boolean>((resolve) => (answer = resolve));
+    });
+    const onPaired = vi.fn();
+    const onPairingFailed = vi.fn();
+    const session = createStubSession();
+    const transport = new WebRtcTransport({
+      signaling: hostSig,
+      secret,
+      connectionApproval: { approve },
+      onPaired,
+      onPairingFailed,
+    });
+    transport.attach(session);
+
+    const remote = connectRemotePaired(remoteSig, secret);
+    await transport.start();
+    await expect(remote.paired).resolves.toBe(true);
+    await vi.waitFor(() => expect(approve).toHaveBeenCalledTimes(1));
+
+    remote.close();
+    await vi.waitFor(() => expect(signal?.aborted).toBe(true), { timeout: 5000 });
+    expect(onPairingFailed).toHaveBeenCalledTimes(1);
+    answer(true);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(onPaired).not.toHaveBeenCalled();
+    expect(session.getMessages as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
     await transport.stop();
   }, 20000);
 

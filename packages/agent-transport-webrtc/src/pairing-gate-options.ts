@@ -58,6 +58,8 @@ export interface IConnectionApprovalContext {
   readonly deviceId?: string;
   /** A trusted device coming back, rather than one pairing now. */
   readonly viaReconnect: boolean;
+  /** Aborted when the connection goes away before an answer: withdraw the question. */
+  readonly signal: AbortSignal;
 }
 
 /**

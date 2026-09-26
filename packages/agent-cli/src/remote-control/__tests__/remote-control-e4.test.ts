@@ -266,7 +266,11 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
     for (const room of created.slice(1)) {
       // No operator approver is configured in this setup, so nobody can say yes.
       await expect(
-        room.hooks.connectionApproval.approve({ deviceId: 'dev-1', viaReconnect: true }),
+        room.hooks.connectionApproval.approve({
+          deviceId: 'dev-1',
+          viaReconnect: true,
+          signal: new AbortController().signal,
+        }),
       ).resolves.toBe(false);
     }
   });

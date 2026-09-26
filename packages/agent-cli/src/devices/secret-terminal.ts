@@ -47,8 +47,14 @@ export interface ISecretTerminal {
   write(text: string): void;
   /** Wipe the screen and its scrollback — what was shown is gone from the terminal. */
   clearScreen(): void;
-  /** Read one line. Nothing typed is echoed unless `echo` is true. Rejects on ctrl-C / ctrl-D. */
-  readLine(prompt: string, options?: { readonly echo?: boolean }): Promise<string>;
+  /**
+   * Read one line. Nothing typed is echoed unless `echo` is true. Rejects on ctrl-C / ctrl-D, and
+   * when `signal` aborts — the question was withdrawn.
+   */
+  readLine(
+    prompt: string,
+    options?: { readonly echo?: boolean; readonly signal?: AbortSignal },
+  ): Promise<string>;
 }
 
 export interface ISecretTerminalSession {
@@ -114,10 +120,32 @@ class LineReader {
     this.drain();
   };
 
-  read(echo: boolean): Promise<string> {
-    if (this.cancelled) return Promise.reject(new SecretInputCancelled());
+  read(echo: boolean, signal?: AbortSignal): Promise<string> {
+    if (this.cancelled || signal?.aborted === true) {
+      return Promise.reject(new SecretInputCancelled());
+    }
     return new Promise<string>((resolve, reject) => {
-      this.pending = { echo, resolve, reject, buffer: '' };
+      const withdraw = (): void => {
+        if (this.pending !== read) return;
+        this.pending = undefined;
+        read.buffer = '';
+        this.output.write('\r\n');
+        reject(new SecretInputCancelled());
+      };
+      const read: IPendingRead = {
+        echo,
+        resolve: (line) => {
+          signal?.removeEventListener('abort', withdraw);
+          resolve(line);
+        },
+        reject: (error) => {
+          signal?.removeEventListener('abort', withdraw);
+          reject(error);
+        },
+        buffer: '',
+      };
+      this.pending = read;
+      signal?.addEventListener('abort', withdraw, { once: true });
       this.drain();
     });
   }
@@ -277,7 +305,7 @@ export function openSecretTerminal(
         },
         readLine: (prompt, readOptions) => {
           output.write(prompt);
-          return reader.read(readOptions?.echo === true);
+          return reader.read(readOptions?.echo === true, readOptions?.signal);
         },
       };
       try {

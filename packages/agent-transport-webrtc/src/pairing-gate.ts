@@ -91,6 +91,8 @@ export class PairingGate {
    */
   private heldFrames: string[] = [];
   private heldChars = 0;
+  /** Withdraws the question put to the operator when the connection goes away first. */
+  private approvalAbort?: AbortController;
 
   constructor(private readonly options: IPairingGateOptions) {
     if (options.reconnect) {
@@ -178,11 +180,27 @@ export class PairingGate {
   /** Tear down: cleanup the session bridge (if built) and mark closed. Idempotent. */
   cleanup(): void {
     this.state = 'closed';
-    this.heldFrames = [];
-    this.heldChars = 0;
+    this.withdrawApproval();
     this.handlerCleanup?.();
     this.handlerCleanup = undefined;
     this.onSessionMessage = undefined;
+  }
+
+  /**
+   * The channel closed. Before acceptance that is a refusal: nobody is left to admit, so a question
+   * still open with the operator is withdrawn and a later answer admits nothing. After acceptance the
+   * owning transport handles the drop.
+   */
+  onChannelClosed(): void {
+    if (this.state === 'accepted' || this.state === 'closed') return;
+    this.rejectAndClose();
+  }
+
+  private withdrawApproval(): void {
+    this.heldFrames = [];
+    this.heldChars = 0;
+    this.approvalAbort?.abort();
+    this.approvalAbort = undefined;
   }
 
   private startFirstPair(): void {
@@ -308,9 +326,12 @@ export class PairingGate {
    * and an answer that arrives after the channel was torn down admits nothing.
    */
   private async askOperator(): Promise<void> {
+    const abort = new AbortController();
+    this.approvalAbort = abort;
     const context: IConnectionApprovalContext = {
       ...(this.pendingDeviceId !== undefined ? { deviceId: this.pendingDeviceId } : {}),
       viaReconnect: this.pendingViaReconnect,
+      signal: abort.signal,
     };
     let allowed = false;
     try {
@@ -318,7 +339,8 @@ export class PairingGate {
     } catch {
       allowed = false;
     }
-    if (this.state !== 'operator-approval') return;
+    if (this.state !== 'operator-approval' || abort.signal.aborted) return;
+    this.approvalAbort = undefined;
     if (allowed) this.accept(this.pendingResult, this.pendingViaReconnect);
     else this.rejectAndClose();
   }
@@ -337,8 +359,7 @@ export class PairingGate {
   private rejectAndClose(): void {
     if (this.state === 'closed') return;
     this.state = 'closed';
-    this.heldFrames = [];
-    this.heldChars = 0;
+    this.withdrawApproval();
     pairingChannel.close(this.options.channel);
     this.options.onReject?.();
   }

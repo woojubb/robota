@@ -62,10 +62,17 @@ export interface ICapabilityApprovalRequest {
 
 /**
  * The operator of the receiving session. Resolves `true` only on the operator's explicit yes; a
- * rejection is a no.
+ * rejection is a no. When `signal` aborts, the peer is gone: withdraw the question and resolve.
  */
 export interface IOperatorApprover {
-  approve(request: ICapabilityApprovalRequest): Promise<boolean>;
+  approve(request: ICapabilityApprovalRequest, signal?: AbortSignal): Promise<boolean>;
+}
+
+export interface IAuthorizeOptions {
+  /** A request-scoped approval: what the peer asks for, shown to the operator. */
+  readonly summary?: string;
+  /** Aborted when the connection goes away: the question is withdrawn and the answer is no. */
+  readonly signal?: AbortSignal;
 }
 
 export type TCapabilityRefusal =
@@ -101,6 +108,11 @@ export type TDelegationDecision =
 
 const REFUSED_DECLINED: TCapabilityDecision = { allowed: false, reason: 'declined' };
 
+/** Read at call time: a signal can abort while an answer is awaited. */
+function isAborted(signal: AbortSignal | undefined): boolean {
+  return signal?.aborted === true;
+}
+
 /** The authority one connection holds. Construct one per connection. */
 export class ConnectionAuthority {
   /** One answer per capability for this connection, shared by concurrent asks. */
@@ -111,17 +123,22 @@ export class ConnectionAuthority {
     private readonly approver?: IOperatorApprover,
   ) {}
 
-  /** Whether the peer may use `capability` now. `summary` is shown for a request-scoped approval. */
-  authorize(capability: TMeshCapability, summary?: string): Promise<TCapabilityDecision> {
+  /** Whether the peer may use `capability` now. */
+  authorize(
+    capability: TMeshCapability,
+    options: IAuthorizeOptions = {},
+  ): Promise<TCapabilityDecision> {
     if (!this.peer.capabilities.includes(capability)) {
       return Promise.resolve({ allowed: false, reason: 'not-granted' });
     }
     const approval = capabilityApproval(capability);
     if (approval === 'never') return Promise.resolve({ allowed: true });
-    if (approval === 'every-request') return this.ask(capability, 'request', summary);
+    if (approval === 'every-request') return this.ask(capability, 'request', options);
     let answer = this.connectionAnswers.get(capability);
     if (answer === undefined) {
-      answer = this.ask(capability, 'connection');
+      answer = this.ask(capability, 'connection', {
+        ...(options.signal ? { signal: options.signal } : {}),
+      });
       this.connectionAnswers.set(capability, answer);
     }
     return answer;
@@ -131,11 +148,17 @@ export class ConnectionAuthority {
    * Ask the operator about a delegated task and, on yes, build the turn that runs it: a peer turn
    * from where admission placed the peer. Everything else on the request is ignored.
    */
-  async authorizeDelegation(request: IDelegationRequest): Promise<TDelegationDecision> {
+  async authorizeDelegation(
+    request: IDelegationRequest,
+    signal?: AbortSignal,
+  ): Promise<TDelegationDecision> {
     const { requestId, task } = request;
     const replyTo = this.peer.sessionId;
     if (replyTo === undefined) return { allowed: false, reason: 'not-granted' };
-    const decision = await this.authorize('delegate', task);
+    const decision = await this.authorize('delegate', {
+      summary: task,
+      ...(signal ? { signal } : {}),
+    });
     if (!decision.allowed) return decision;
     return {
       allowed: true,
@@ -153,9 +176,10 @@ export class ConnectionAuthority {
   private async ask(
     capability: TMeshCapability,
     scope: 'connection' | 'request',
-    summary?: string,
+    { summary, signal }: IAuthorizeOptions,
   ): Promise<TCapabilityDecision> {
     if (this.approver === undefined) return { allowed: false, reason: 'no-approver' };
+    if (isAborted(signal)) return REFUSED_DECLINED;
     const question: ICapabilityApprovalRequest = {
       capability,
       scope,
@@ -164,9 +188,9 @@ export class ConnectionAuthority {
       ...(summary !== undefined ? { summary } : {}),
     };
     try {
-      return (await this.approver.approve(question)) === true
-        ? { allowed: true }
-        : REFUSED_DECLINED;
+      const yes = (await this.approver.approve(question, signal)) === true;
+      // A yes that arrives after the peer left is about a connection that no longer exists.
+      return yes && !isAborted(signal) ? { allowed: true } : REFUSED_DECLINED;
     } catch {
       return REFUSED_DECLINED;
     }

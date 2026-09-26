@@ -273,8 +273,12 @@ export class WebRtcTransport implements IConfigurableTransport<IProtocolSession>
       // A post-accept close detaches the resume bridge and starts reconnect without ending the session.
       channel.stateChanged.subscribe((state) => {
         if (generation !== this.generation) return;
-        if (state === 'closed' || state === 'closing')
+        if (state === 'closed' || state === 'closing') {
+          // Before acceptance the gate must hear it too: a question still open with the operator is
+          // about a connection that no longer exists.
+          this.pairingGate?.onChannelClosed();
           this.deliveryLifecycle.handleDrop(generation);
+        }
       });
       this.cleanupHandler = () => this.pairingGate?.cleanup();
       return;

@@ -15,7 +15,9 @@ Authority per connection: pairing stays with the local operator, and driving nee
   peer, ignoring anything else on the request, so the receiver's policy decides what it may do.
 - `agent-transport-webrtc` — `connectionApproval` asks the operator before a connection reaches the
   session, after every proof has run. Frames the peer sends meanwhile are held (bounded) and delivered
-  only after a yes. A first-pairing device is pinned for reconnect only once it is admitted.
+  only after a yes. A channel that closes first withdraws the question (the approval context carries
+  an `AbortSignal`), and a later answer admits nothing. A first-pairing device is pinned for
+  reconnect only once it is admitted.
 - `agent-command` — `/remote-control enable` and `revoke` from a connected surface are refused, and
   `status` never shows a connected surface the pairing link.
 - `agent-framework` — the `remote-control-enable` host action runs only for the operator's own

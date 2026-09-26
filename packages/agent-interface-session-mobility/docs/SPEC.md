@@ -12,17 +12,17 @@ decoding, and durable persistence. It declares how authority moves, whether a se
 be offered, and how its resources are classified in the handoff inventory. The source retains
 authority until it holds a matching acknowledgement of durable destination persistence. Illegal
 phase transitions are refused without changing state; repeated acknowledgements for a committed
-handoff are idempotent. Authorization of a proposed move remains a host decision.
+handoff are idempotent. Authorization of a proposed move is the receiving operator's, asked by the host.
 
 ## Boundaries
 
-| Concern                                  | Owner                                                                                 |
-| ---------------------------------------- | ------------------------------------------------------------------------------------- |
-| What a session IS                        | `agent-interface-session`                                                             |
-| Carrying a peer message over a wire      | `agent-transport-webrtc`, `agent-transport`                                           |
-| Sealing and verifying handoff payloads   | `agent-transport`                                                                     |
-| Deciding whether a handoff is authorized | the host application; this package declares the shape of the decision, not the policy |
-| Transport adapters, channels, admission  | `agent-interface-transport`                                                           |
+| Concern                                  | Owner                                                                                                                                        |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| What a session IS                        | `agent-interface-session`                                                                                                                    |
+| Carrying a peer message over a wire      | `agent-transport-webrtc`, `agent-transport`                                                                                                  |
+| Sealing and verifying handoff payloads   | `agent-transport`                                                                                                                            |
+| Deciding whether a handoff is authorized | the receiving operator, asked by the host application; this package fixes that every request is asked and declares the shape of the question |
+| Transport adapters, channels, admission  | `agent-interface-transport`                                                                                                                  |
 
 ## Design decisions
 

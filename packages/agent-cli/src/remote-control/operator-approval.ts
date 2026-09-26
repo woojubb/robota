@@ -34,11 +34,14 @@ const SHORT_ID_CHARS = 16;
 
 /**
  * Peer-supplied text made safe to put on a terminal: no control characters (so no escape sequence
- * can repaint the question or forge an answer), one line, bounded.
+ * can repaint the question or forge an answer), no invisible or direction-changing characters (so
+ * the text cannot hide or reorder itself), one line, bounded.
  */
 function printable(text: string, max: number): string {
-  // eslint-disable-next-line no-control-regex -- stripping control characters is the point
-  const flat = text.replace(/[\u0000-\u001f\u007f-\u009f]+/g, ' ').trim();
+  const flat = text
+    // eslint-disable-next-line no-control-regex -- stripping control characters is the point
+    .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069\ufeff]+/g, ' ')
+    .trim();
   return flat.length > max ? `${flat.slice(0, max)}…` : flat;
 }
 
@@ -80,24 +83,32 @@ export function createTerminalOperatorApprover(
   // One question at a time: the terminal is one person's, and two prompts would interleave.
   let queue: Promise<unknown> = Promise.resolve();
 
-  const ask = async (request: ICapabilityApprovalRequest): Promise<boolean> => {
+  // A question withdrawn — the peer went away — is never asked, or stops being asked.
+  const ask = async (
+    request: ICapabilityApprovalRequest,
+    signal: AbortSignal | undefined,
+  ): Promise<boolean> => {
+    if (signal?.aborted === true) return false;
     const host = options.getHost();
     if (host === undefined || !host.canHandoffTerminal()) return false;
     return host.runWithTerminal(async () => {
+      if (signal?.aborted === true) return false;
       const terminal = openTerminal();
       if (terminal === undefined) return false;
       return terminal.run(async (io) => {
         io.write(`${describe(request)}\r\n`);
-        return isYes(
-          await io.readLine('Allow? Type yes to allow, anything else refuses: ', { echo: true }),
-        );
+        const answer = await io.readLine('Allow? Type yes to allow, anything else refuses: ', {
+          echo: true,
+          ...(signal ? { signal } : {}),
+        });
+        return isYes(answer) && signal?.aborted !== true;
       });
     });
   };
 
   return {
-    approve(request) {
-      const answer = queue.then(() => ask(request));
+    approve(request, signal) {
+      const answer = queue.then(() => ask(request, signal));
       queue = answer.catch(() => undefined);
       return answer.catch(() => false);
     },

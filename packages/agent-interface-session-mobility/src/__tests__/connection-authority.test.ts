@@ -108,6 +108,33 @@ describe('ConnectionAuthority', () => {
     });
   });
 
+  it('does not ask about a connection that is already gone', async () => {
+    const operator = approver(true);
+    const authority = new ConnectionAuthority(peer(), operator);
+    const gone = new AbortController();
+    gone.abort();
+    await expect(authority.authorize('drive', { signal: gone.signal })).resolves.toEqual({
+      allowed: false,
+      reason: 'declined',
+    });
+    expect(operator.requests).toHaveLength(0);
+  });
+
+  it('hands the approver the signal, and a yes after the connection went away is a no', async () => {
+    const leaving = new AbortController();
+    const approve = vi.fn(async (_request: ICapabilityApprovalRequest, signal?: AbortSignal) => {
+      expect(signal).toBe(leaving.signal);
+      leaving.abort();
+      return true;
+    });
+    const authority = new ConnectionAuthority(peer(), { approve });
+    await expect(authority.authorize('observe', { signal: leaving.signal })).resolves.toEqual({
+      allowed: false,
+      reason: 'declined',
+    });
+    expect(approve).toHaveBeenCalledTimes(1);
+  });
+
   it('refuses a capability the admission did not grant, without asking', async () => {
     const operator = approver(true);
     const authority = new ConnectionAuthority(peer({ capabilities: ['presence'] }), operator);

@@ -13,6 +13,7 @@ import { nextAdmissionStep } from '../admission-steps.js';
 import {
   PairingGate,
   type IConnectionApproval,
+  type IConnectionApprovalContext,
   type IHostReconnectConfig,
   type IPairingGateOptions,
 } from '../pairing-gate.js';
@@ -119,6 +120,58 @@ describe('operator approval of a driving connection', () => {
     expect(sessionOnMessage).not.toHaveBeenCalled();
   });
 
+  it('withdraws the question and admits nothing when the channel closes while the operator decides', async () => {
+    const answer = deferred();
+    let signal: AbortSignal | undefined;
+    const approve = vi.fn((context: IConnectionApprovalContext) => {
+      signal = context.signal;
+      return answer.promise;
+    });
+    const { gate, sessionOnMessage, onAccept, onReject } = makeGate({
+      connectionApproval: { approve },
+    });
+    await flush();
+    gate.onInbound(JSON.stringify({ type: 'get-messages' }));
+    expect(signal?.aborted).toBe(false);
+
+    gate.onChannelClosed();
+    expect(signal?.aborted).toBe(true);
+    expect(onReject).toHaveBeenCalledTimes(1);
+
+    answer.resolve(true);
+    await flush();
+    expect(onAccept).not.toHaveBeenCalled();
+    expect(sessionOnMessage).not.toHaveBeenCalled();
+  });
+
+  it('does not pin an enrolling device whose channel closed while the operator decided', async () => {
+    const cfg = await hostConfig();
+    const answer = deferred();
+    const approve = vi.fn(() => answer.promise);
+    const { gate, onAccept } = makeGate({ reconnect: cfg, connectionApproval: { approve } });
+    gate.onInbound(JSON.stringify({ t: 'pair-nonce', nonce: 'n' }));
+    await flush();
+    const deviceKey = await generateIdentityKeyPair(false);
+    gate.onInbound(
+      JSON.stringify({ t: 'enroll-key', spki: await exportPublicKey(deviceKey.publicKey) }),
+    );
+    await vi.waitFor(() => expect(approve).toHaveBeenCalledTimes(1));
+    gate.onChannelClosed();
+    answer.resolve(true);
+    await flush();
+    expect(cfg.onEnroll).not.toHaveBeenCalled();
+    expect(onAccept).not.toHaveBeenCalled();
+  });
+
+  it('an accepted channel closing is the transport’s drop, not a refusal', async () => {
+    const { gate, onAccept, onReject } = makeGate({
+      connectionApproval: { approve: async () => true },
+    });
+    await vi.waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
+    gate.onChannelClosed();
+    expect(onReject).not.toHaveBeenCalled();
+  });
+
   it('refuses a peer that floods the channel while the operator decides', async () => {
     const answer = deferred();
     const { gate, closed, onReject, sessionOnMessage } = makeGate({
@@ -197,7 +250,9 @@ describe('operator approval with trusted-device enrollment', () => {
     const approve = vi.fn(async () => true);
     const { cfg, onAccept, deviceId, deviceSpki } = await enrollingGate({ approve });
     await vi.waitFor(() => expect(onAccept).toHaveBeenCalledTimes(1));
-    expect(approve).toHaveBeenCalledWith({ deviceId, viaReconnect: false });
+    expect(approve).toHaveBeenCalledWith(
+      expect.objectContaining({ deviceId, viaReconnect: false }),
+    );
     expect(cfg.onEnroll).toHaveBeenCalledWith(deviceId, deviceSpki);
   });
 
@@ -245,7 +300,7 @@ describe('operator approval with trusted-device enrollment', () => {
     });
     await deviceCtrl.result;
     await vi.waitFor(() => expect(onReject).toHaveBeenCalledTimes(1));
-    expect(approve).toHaveBeenCalledWith({ deviceId, viaReconnect: true });
+    expect(approve).toHaveBeenCalledWith(expect.objectContaining({ deviceId, viaReconnect: true }));
     expect(onAccept).not.toHaveBeenCalled();
   });
 });
