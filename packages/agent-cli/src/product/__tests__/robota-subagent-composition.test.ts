@@ -254,3 +254,27 @@ describe('CLI-1994 — the product composition can resume a forked record', () =
     expect(store?.list).toBeTypeOf('function');
   });
 });
+
+describe('issue #3248 — a child builds one sandbox for its tools and its session', () => {
+  it('builds the tools under the sandbox the worker hands it, not a second one', () => {
+    const seen: IRobotaPackContext[] = [];
+    const composition = createRobotaSubagentComposition((context) => {
+      seen.push(context);
+      return [];
+    });
+    const handed = { filesystem: 'shared' } as object;
+
+    composition.createTools({ cwd: CWD, sandboxClient: handed });
+
+    expect(seen[0]?.sandboxClient).toBe(handed);
+    expect(seen[0]?.sandboxType).toBe(ROBOTA_OS_SANDBOX_TYPE);
+  });
+
+  it('composes the sandbox with the approval it gives, whenever the host has a backend', () => {
+    const composed = createRobotaSubagentComposition().createSandbox?.({ cwd: CWD });
+
+    expect(createRobotaSubagentComposition().createSandbox).toBeDefined();
+    // A host with no backend composes none; one with a backend hands over both halves together.
+    if (composed !== undefined) expect(composed.commandSandbox).toBeDefined();
+  });
+});

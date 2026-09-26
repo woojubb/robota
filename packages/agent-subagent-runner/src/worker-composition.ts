@@ -3,7 +3,7 @@ import type {
   IProviderDefinition,
   IToolWithEventService,
 } from '@robota-sdk/agent-core';
-import type { restoreSessionRecordIntoSession } from '@robota-sdk/agent-framework';
+import type { ISubagentOptions, restoreSessionRecordIntoSession } from '@robota-sdk/agent-framework';
 
 /**
  * The session record store a fork job's `resumeSessionId` names a record in, typed FROM the one
@@ -118,6 +118,22 @@ export interface ISubagentWorkerComposition {
    * as such, rather than starting with an empty conversation that looks like a fork.
    */
   readonly openSessionStore?: (context: { readonly cwd: string }) => TResumeSessionStore;
+
+  /**
+   * A sandbox the child composes itself at its execution root, rather than restoring one from a
+   * snapshot: the OS sandbox is a function of the root and the settings files, so nothing crosses.
+   *
+   * The worker builds it once and hands the SAME instance to `createTools` (as `sandboxClient`) and to
+   * the session (as `commandSandbox`), so the approval a confined command gets comes from the instance
+   * the command runs under. Absent ⇒ the child's session approves no command on a sandbox's say-so.
+   */
+  readonly createSandbox?: (context: { readonly cwd: string }) => ISubagentComposedSandbox | undefined;
+}
+
+/** A sandbox the child composed itself: the client its tools run under and the approval it gives. */
+export interface ISubagentComposedSandbox {
+  readonly client: TProjectedSandboxClient;
+  readonly commandSandbox?: ISubagentOptions['commandSandbox'];
 }
 
 /**

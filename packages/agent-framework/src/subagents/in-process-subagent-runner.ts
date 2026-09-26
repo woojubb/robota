@@ -4,6 +4,7 @@ import { subagentExecutionRoot } from '@robota-sdk/agent-executor';
 import { advisorToolLineLabel } from '../advisor/advisor-tool.js';
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
+import { sandboxApprovalFor } from '../assembly/sandbox-approval.js';
 import { restoreSessionRecordIntoSession } from '../interactive/interactive-session-restore.js';
 
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
@@ -244,6 +245,19 @@ export function parentConfigWithEffectiveRules(
   return rules === undefined ? deps.config : { ...deps.config, permissions: rules };
 }
 
+/**
+ * The approval a subagent's session takes from the sandbox its inherited tools run under. Those tools
+ * are the parent's, wrapped by this same instance, so the approval knows what the tools' sandbox knows.
+ * A background policy's ceiling is still checked first: this decides only calls inside it.
+ */
+export function subagentCommandSandbox(
+  sandboxClient: ISandboxClient | undefined,
+): Pick<ISubagentOptions, 'commandSandbox'> {
+  return sandboxClient?.autoApproves !== undefined
+    ? { commandSandbox: sandboxApprovalFor(sandboxClient) }
+    : {};
+}
+
 export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps): ISubagentRunner {
   return {
     start(job: ISubagentJobStart): ISubagentJobHandle {
@@ -281,6 +295,7 @@ export function createInProcessSubagentRunner(deps: IInProcessSubagentRunnerDeps
           ? { taskDisallowedTools: job.request.disallowedTools }
           : {}),
         permissionHandler: deps.permissionHandler,
+        ...subagentCommandSandbox(deps.sandboxClient),
         hooks: deps.hooks,
         hookTypeExecutors: deps.hookTypeExecutors,
         onTextDelta: (delta) => {

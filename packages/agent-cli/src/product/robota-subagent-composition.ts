@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
-import { createGoalStatusTool } from '@robota-sdk/agent-framework';
+import { createGoalStatusTool, sandboxApprovalFor } from '@robota-sdk/agent-framework';
 import { CommandExecutor, HttpExecutor } from '@robota-sdk/agent-core/node';
 
 import { createRobotaPacks, packCommandModuleNames } from './robota-profile.js';
@@ -20,6 +20,7 @@ import type { ISubagentWorkerComposition } from '@robota-sdk/agent-subagent-runn
 import type { TSubagentRunnerFactory } from '@robota-sdk/agent-framework';
 import type { IProviderDefinitionConfig } from '@robota-sdk/agent-core';
 import type { ICodingPackOptions } from '@robota-sdk/pack-coding';
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IProviderDefinition, IToolWithEventService } from '@robota-sdk/agent-core';
 
 type TRobotaPack = ReturnType<typeof createRobotaPacks>[number];
@@ -152,19 +153,18 @@ export function createRobotaSubagentComposition(
     createTools: (context: {
       readonly cwd: string;
       readonly sessionTiers?: { readonly includeGoalTool?: boolean };
+      readonly sandboxClient?: object;
     }): IToolWithEventService[] => {
-      // The child confines its commands exactly as the parent does, from the same settings files.
-      const sandbox = createRobotaSandbox({
-        cwd: context.cwd,
-        settingsSources: createCliWorkspaceComposition({ cwd: context.cwd, userHome: homedir() })
-          .settingsSources,
-      });
+      // The worker hands back the sandbox `createSandbox` built (robota registers no snapshot type), so
+      // the tools run under the instance the session's approval consults.
+      const sandboxClient =
+        (context.sandboxClient as ISandboxClient | undefined) ?? robotaSandboxAt(context.cwd);
       const tools = packTools(
         {
           cwd: context.cwd,
           shellExecutable,
-          ...(sandbox.client !== undefined
-            ? { sandboxClient: sandbox.client, sandboxType: ROBOTA_OS_SANDBOX_TYPE }
+          ...(sandboxClient !== undefined
+            ? { sandboxClient, sandboxType: ROBOTA_OS_SANDBOX_TYPE }
             : {}),
         },
         createPacks,
@@ -184,7 +184,21 @@ export function createRobotaSubagentComposition(
     // it every fork job dies in the worker with "this composition opens no session store".
     openSessionStore: (context: { readonly cwd: string }) =>
       createCliWorkspaceComposition({ cwd: context.cwd, userHome: homedir() }).sessionStore,
+    // The child confines its commands exactly as the parent does, from the same settings files, and
+    // its session lets a confined command skip the prompt exactly as the parent's does.
+    createSandbox: (context: { readonly cwd: string }) => {
+      const client = robotaSandboxAt(context.cwd);
+      return client === undefined ? undefined : { client, commandSandbox: sandboxApprovalFor(client) };
+    },
   };
+}
+
+/** robota's OS sandbox for one execution root, from that root's settings files. */
+function robotaSandboxAt(cwd: string): ISandboxClient | undefined {
+  return createRobotaSandbox({
+    cwd,
+    settingsSources: createCliWorkspaceComposition({ cwd, userHome: homedir() }).settingsSources,
+  }).client;
 }
 
 /**
