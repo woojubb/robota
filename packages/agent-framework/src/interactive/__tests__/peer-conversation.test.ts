@@ -358,6 +358,37 @@ describe('per-origin authority', () => {
     }
   });
 
+  it('an "always allow" for another tool is neither reused nor remembered in a peer turn', async () => {
+    const config = { ...(await loadConfig([])), peers: { allowChanges: true } };
+    const write = (name: string): TScriptedTurn => ({
+      toolCalls: [{ name: 'Write', args: { filePath: join(workspace, name), content: 'x' } }],
+    });
+    const h = harness(
+      [
+        write('a.txt'),
+        { text: 'done' },
+        write('b.txt'),
+        { text: 'done' },
+        write('c.txt'),
+        { text: 'done' },
+      ],
+      { approve: 'allow-session', config },
+    );
+    try {
+      await run(h, 'write a.txt');
+      await run(h, 'write b.txt', peer());
+      await run(h, 'write c.txt', peer());
+      // The operator's consent does not answer for the peer, and the peer's is not remembered.
+      expect(h.permissions.map((p) => [p.toolName, p.requesterDriverId])).toEqual([
+        ['Write', 'owner'],
+        ['Write', 'peer:A'],
+        ['Write', 'peer:A'],
+      ]);
+    } finally {
+      await h.session.shutdown();
+    }
+  });
+
   it('the model cannot choose where the reply goes or what it answers', async () => {
     const h = harness(
       [
