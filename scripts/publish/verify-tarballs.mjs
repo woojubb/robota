@@ -23,7 +23,7 @@ import { mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync } from 'nod
 import os from 'node:os';
 import path from 'node:path';
 
-import { listManifestPackageDirs } from '../harness/workspace-packages.mjs';
+import { listWorkspacePackageDirs } from '../harness/workspace-packages.mjs';
 
 function declaredPaths(manifest) {
   const paths = [];
@@ -64,7 +64,7 @@ function esmOnlySubpaths(manifest) {
 let workspaceDirs;
 function workspaceDir(name) {
   workspaceDirs ??= new Map(
-    listManifestPackageDirs(ROOT).map((dir) => [
+    listWorkspacePackageDirs(ROOT).map((dir) => [
       JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8')).name,
       dir,
     ]),
@@ -80,13 +80,16 @@ const REQUIRE_PROBE =
 function requireProblems(tarball, manifest) {
   if (!manifest.exports || typeof manifest.exports !== 'object') return [];
   const esmOnly = new Set(esmOnlySubpaths(manifest));
-  const subpaths = Object.keys(manifest.exports).filter(
-    (subpath) =>
-      subpath.startsWith('.') &&
-      subpath !== './package.json' &&
-      !subpath.includes('*') &&
-      !esmOnly.has(subpath),
-  );
+  const subpaths = Object.entries(manifest.exports)
+    .filter(
+      ([subpath, entry]) =>
+        entry !== null &&
+        subpath.startsWith('.') &&
+        subpath !== './package.json' &&
+        !subpath.includes('*') &&
+        !esmOnly.has(subpath),
+    )
+    .map(([subpath]) => subpath);
   if (subpaths.length === 0) return [];
   const packageDir = workspaceDir(manifest.name);
   if (!packageDir) return [`has no workspace package to take its dependencies from`];
