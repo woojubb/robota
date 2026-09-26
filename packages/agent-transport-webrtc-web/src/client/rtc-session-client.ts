@@ -70,6 +70,8 @@ export interface IRtcSessionClientOptions {
   readonly deviceCredentials?: IDeviceCredentialStore;
   /** REMOTE-013 E4: per-room wait during a reconnect probe (default 4s); tests inject a small value. */
   readonly reconnectRoomWaitMs?: number;
+  /** Waits out a reconnect room (default: a timer); tests inject one they release themselves. */
+  readonly sleep?: (ms: number) => Promise<void>;
   /** Injection seams (default to the real implementations) — for tests. */
   readonly createSignaling?: typeof createRtcSignalingClient;
   readonly createPeer?: (config?: RTCConfiguration) => RTCPeerConnection;
@@ -119,6 +121,8 @@ export function createRtcSessionClient(
    * stop, not tear down the peer the newer loop is using.
    */
   let reconnectGeneration = 0;
+  const sleep =
+    options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   let reconnectCtx: {
     relayOrigin: string;
     hostIdentityId: string;
@@ -414,7 +418,7 @@ export function createRtcSessionClient(
         if (!live()) return;
         teardownPeer();
         connectAt(rendezvous);
-        await new Promise((r) => setTimeout(r, options.reconnectRoomWaitMs ?? 4_000));
+        await sleep(options.reconnectRoomWaitMs ?? 4_000);
         if (!live()) return; // accepted (onAccept cleared `reconnecting`), or replaced
       }
     }
