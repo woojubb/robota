@@ -106,10 +106,7 @@ export function CurrentSessionPanel({
     );
   }
   return (
-    <section
-      className="rounded-2xl bg-card p-5"
-      aria-label="Current session usage"
-    >
+    <section className="rounded-2xl bg-card p-5" aria-label="Current session usage">
       <h2 className="text-[15px] font-semibold">Current session trace</h2>
       {content}
     </section>

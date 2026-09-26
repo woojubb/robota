@@ -6,7 +6,7 @@ import { Composer, GoalBar } from './Composer.js';
 import { ConversationView } from './ConversationView.js';
 import { PermissionPrompt } from './PermissionPrompt.js';
 import { PersonalUsageDashboard } from './PersonalUsageDashboard.js';
-import { SessionSidebar, SessionSidebarRail } from './SessionSidebar.js';
+import { SessionSidebar, SessionSidebarRail, sessionTitle } from './SessionSidebar.js';
 import { SessionNotices, SessionTitleBar } from './SessionSurfaceChrome.js';
 
 import type { IWsSessionState } from '../hooks/useSessionClient.js';
@@ -68,6 +68,22 @@ export function SessionSurface({
     (state.sessionListing ?? null) !== null || state.sessionsError?.code === 'list_failed';
   const sidebarOpen = hasSessionList && state.sessionSidebarOpen;
   const usage = personalUsageEnabled && view === 'usage';
+  const listing = state.sessionListing ?? null;
+  const currentRow = listing?.sessions.find((session) => session.id === listing.currentSessionId);
+  // A rename seen on this page wins; otherwise the host's listing names the current session.
+  const title = state.sessionName ?? (currentRow ? sessionTitle(currentRow) : null);
+  // Choosing a session from the sidebar shows its conversation, whichever view was open.
+  const sidebarState: IWsSessionState = {
+    ...state,
+    switchSession: (sessionId) => {
+      setView('chat');
+      state.switchSession?.(sessionId);
+    },
+    newSession: () => {
+      setView('chat');
+      state.newSession?.();
+    },
+  };
 
   return (
     <div className="relative flex h-full bg-background text-foreground">
@@ -75,12 +91,12 @@ export function SessionSurface({
         sidebarOpen ? (
           // Narrow windows lay it over the conversation instead of squeezing it.
           <SessionSidebar
-            state={state}
+            state={sidebarState}
             brand={<RobotaWordmark surface={surface} />}
             className="absolute inset-y-0 left-0 z-30 shadow-2xl shadow-black/40 md:static md:z-auto md:shadow-none"
           />
         ) : (
-          <SessionSidebarRail state={state} />
+          <SessionSidebarRail state={sidebarState} />
         )
       ) : null}
 
@@ -88,7 +104,7 @@ export function SessionSurface({
         <SessionTitleBar
           status={state.status}
           surface={surface}
-          title={state.sessionName}
+          title={title}
           showBrand={!sidebarOpen}
           view={view}
           onView={setView}

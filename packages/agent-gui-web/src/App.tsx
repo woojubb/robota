@@ -23,7 +23,13 @@ function SessionView({
   useEffect(() => {
     if (state.status === 'connected') host.signalReady();
   }, [state.status, host]);
-  return <SessionSurface state={state} surface={host.kind === 'desktop' ? 'app' : 'web'} personalUsageEnabled />;
+  return (
+    <SessionSurface
+      state={state}
+      surface={host.kind === 'desktop' ? 'app' : 'web'}
+      personalUsageEnabled
+    />
+  );
 }
 
 /**

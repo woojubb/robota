@@ -83,7 +83,12 @@ function StatusIcon({
     return <CircleX {...props} className={`${props.className} text-destructive`} />;
   }
   if (status === 'running') {
-    return <LoaderCircle {...props} className={`${props.className} animate-spin text-muted-foreground`} />;
+    return (
+      <LoaderCircle
+        {...props}
+        className={`${props.className} animate-spin text-muted-foreground`}
+      />
+    );
   }
   if (status === 'completed') {
     return <CircleCheck {...props} className={`${props.className} text-success`} />;

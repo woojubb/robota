@@ -117,9 +117,7 @@ function ActivityRows({ report }: { report: TPersonalUsageReport }): React.React
         >
           <div className="min-w-0">
             <span className="truncate text-[14px] text-foreground">{activity.label}</span>
-            <span className="ml-2 text-[12px] text-subtle">
-              {activity.kind}
-            </span>
+            <span className="ml-2 text-[12px] text-subtle">{activity.kind}</span>
           </div>
           <span className="text-[13px] tabular-nums text-muted-foreground">
             {number.format(activity.count)} calls
@@ -214,11 +212,10 @@ export function StoredSessionPanel({
 }): React.ReactElement | null {
   if (state.storedSessionUsageStatus === 'idle') return null;
   return (
-    <section
-      className="rounded-2xl bg-card p-5"
-      aria-label="Session usage detail"
-    >
-      <h2 className="text-[15px] font-semibold">Session {state.storedSessionUsageSessionId ?? ''}</h2>
+    <section className="rounded-2xl bg-card p-5" aria-label="Session usage detail">
+      <h2 className="text-[15px] font-semibold">
+        Session {state.storedSessionUsageSessionId ?? ''}
+      </h2>
       <StoredSessionContent state={state} />
     </section>
   );

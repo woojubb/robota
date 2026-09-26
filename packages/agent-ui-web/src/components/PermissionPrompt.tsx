@@ -116,8 +116,8 @@ export function PermissionPrompt({
         role={dock ? 'dialog' : undefined}
         aria-label={dock ? 'pending question' : undefined}
         data-armed={dock ? String(armed) : undefined}
-        className={`w-full rounded-2xl bg-card p-4 text-[14px] text-card-foreground shadow-[0_8px_30px_-12px_rgb(0_0_0/0.45)] focus:outline-none ${
-          dock ? '' : 'max-w-lg p-5'
+        className={`w-full rounded-2xl bg-card text-[14px] text-card-foreground shadow-[0_8px_30px_-12px_rgb(0_0_0/0.45)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+          dock ? 'p-4' : 'max-w-lg p-5'
         }`}
       >
         {prompt.kind === 'permission' ? (
@@ -139,11 +139,7 @@ export function PermissionPrompt({
                 <p className="mt-0.5 text-[15px] font-medium text-foreground">
                   Allow <span className="font-semibold">{prompt.toolName}</span> to run?
                 </p>
-                {argsSummary(prompt.toolArgs) ? (
-                  <pre className="mt-2.5 max-h-28 overflow-auto whitespace-pre-wrap break-all rounded-lg bg-sidebar px-3 py-2 font-mono text-[12.5px] leading-relaxed text-muted-foreground">
-                    {argsSummary(prompt.toolArgs)}
-                  </pre>
-                ) : null}
+                <ToolArgs args={prompt.toolArgs} />
               </div>
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-2 pl-11">
@@ -224,7 +220,11 @@ const GHOST_BUTTON = `${BUTTON} text-muted-foreground hover:bg-hover hover:text-
 
 function Kbd({ children }: { children: React.ReactNode }): React.ReactElement {
   return (
-    <kbd className="rounded bg-foreground/10 px-1 font-mono text-[11px] leading-[1.45] opacity-70">
+    // Hidden from the accessible name: the button is "Allow", and the hint line says which key answers.
+    <kbd
+      aria-hidden="true"
+      className="rounded bg-foreground/10 px-1 font-mono text-[11px] leading-[1.45] opacity-70"
+    >
       {children}
     </kbd>
   );
@@ -246,13 +246,38 @@ function KeyHint({
   );
 }
 
-/** What the tool was asked to do, in one readable block: a command line as it is, anything else as JSON. */
-function argsSummary(args: unknown): string {
-  if (args === null || typeof args !== 'object') return '';
-  const record = args as Record<string, unknown>;
-  const command = record['command'] ?? record['cmd'];
-  if (typeof command === 'string') return command;
-  const text = JSON.stringify(record, null, 2);
-  if (text === '{}') return '';
-  return text.length > 600 ? `${text.slice(0, 600)}…` : text;
+/**
+ * Everything the tool was asked to do, since that is what the owner approves: a command line first, as it
+ * is, then every other argument (where it runs, what it is fed) as `key: value`. Nothing is cut; a long
+ * block scrolls.
+ */
+function ToolArgs({ args }: { args: unknown }): React.ReactElement | null {
+  if (args === null || typeof args !== 'object') return null;
+  const entries = Object.entries(args as Record<string, unknown>);
+  if (entries.length === 0) return null;
+  const commandKey = entries.find(
+    ([key, value]) => (key === 'command' || key === 'cmd') && typeof value === 'string',
+  )?.[0];
+  const rest = entries.filter(([key]) => key !== commandKey);
+  const format = (value: unknown): string =>
+    typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+  return (
+    <div className="mt-2.5 max-h-48 overflow-auto rounded-lg bg-sidebar px-3 py-2 font-mono text-[12.5px] leading-relaxed">
+      {commandKey ? (
+        <pre className="whitespace-pre-wrap break-all text-foreground">
+          {(args as Record<string, string>)[commandKey]}
+        </pre>
+      ) : null}
+      {rest.length > 0 ? (
+        <dl className={`text-muted-foreground ${commandKey ? 'mt-1.5' : ''}`}>
+          {rest.map(([key, value]) => (
+            <div key={key} className="flex gap-2">
+              <dt className="flex-shrink-0 text-subtle">{key}:</dt>
+              <dd className="min-w-0 whitespace-pre-wrap break-all">{format(value)}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+    </div>
+  );
 }

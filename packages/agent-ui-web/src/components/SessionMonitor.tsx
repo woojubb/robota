@@ -8,8 +8,18 @@ import { AgentActivityPanel } from './AgentActivityPanel.js';
 import { ConversationView } from './ConversationView.js';
 
 const STATUS_CONFIG: Record<string, { label: string; dot: string; text: string; glow: string }> = {
-  connected: { label: 'Connected', dot: 'bg-accent', text: 'text-muted-foreground', glow: 'status-glow' },
-  connecting: { label: 'Connecting…', dot: 'bg-warning animate-pulse', text: 'text-warning', glow: '' },
+  connected: {
+    label: 'Connected',
+    dot: 'bg-accent',
+    text: 'text-muted-foreground',
+    glow: 'status-glow',
+  },
+  connecting: {
+    label: 'Connecting…',
+    dot: 'bg-warning animate-pulse',
+    text: 'text-warning',
+    glow: '',
+  },
   disconnected: { label: 'Disconnected', dot: 'bg-subtle', text: 'text-subtle', glow: '' },
   error: { label: 'Error', dot: 'bg-destructive', text: 'text-destructive', glow: '' },
 };
@@ -104,12 +114,7 @@ export function SessionMonitor({ wsUrl, className }: ISessionMonitorProps): Reac
         </div>
 
         {/* Right: agent activity panel (conditional) */}
-        {hasAgents && (
-          <AgentActivityPanel
-            tasks={backgroundTasks}
-            className="flex-1 bg-sidebar"
-          />
-        )}
+        {hasAgents && <AgentActivityPanel tasks={backgroundTasks} className="flex-1 bg-sidebar" />}
       </div>
     </div>
   );

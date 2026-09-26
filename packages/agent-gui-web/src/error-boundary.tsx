@@ -23,7 +23,9 @@ export class ErrorBoundary extends React.Component<
       return (
         <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-8">
           <div className="max-w-[600px] text-[15px] text-[var(--destructive)]">
-            <p className="mb-2 text-[20px] font-semibold text-[var(--foreground)]">Robota hit an error</p>
+            <p className="mb-2 text-[20px] font-semibold text-[var(--foreground)]">
+              Robota hit an error
+            </p>
             <p className="text-[var(--muted-foreground)] mb-2">{this.state.error.message}</p>
             <pre className="overflow-auto whitespace-pre-wrap rounded-xl bg-[var(--card)] p-4 font-mono text-[12.5px] leading-relaxed text-[var(--muted-foreground)]">
               {this.state.error.stack}

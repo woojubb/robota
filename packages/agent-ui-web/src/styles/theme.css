@@ -43,105 +43,54 @@
   --radius-xl: calc(var(--radius) + 4px);
 }
 
-/* Graphite (dark) — the default. */
+/*
+ * Paper (light) and graphite (dark), one token each: `light-dark()` picks by `color-scheme`, which follows
+ * the system unless the host pins `data-theme` on the root. Text colours keep WCAG AA (4.5:1) on every
+ * surface they sit on.
+ */
 :root {
-  color-scheme: dark;
+  color-scheme: light dark;
   --radius: 0.75rem;
 
-  --background: #1a1a1c; /* conversation canvas */
-  --foreground: #ededee;
-  --sidebar: #141416; /* the quieter frame around it */
-
-  --card: #242427; /* cards, menus, the composer — one tonal step up, no outline */
-  --card-foreground: #ededee;
-  --raised: #2c2c30; /* user bubble, selected row, pressed chips */
-  --hover: #303035;
-
-  --popover: #232326;
-  --popover-foreground: #ededee;
-
-  --primary: #f2f2f3; /* the send button and primary actions: ink on paper */
-  --primary-foreground: #151517;
-
-  --secondary: #29292d;
-  --secondary-foreground: #ededee;
-
-  --muted: #232326;
-  --muted-foreground: #a1a1a8;
-  --subtle: #6f6f78;
-
-  --accent: #5fd4a8; /* robota's mark, live state, focus — sparingly */
-  --accent-foreground: #0b1a14;
-
-  --destructive: #f2727f;
-  --warning: #f0b35b;
-  --success: #5fd4a8;
-  --border: rgb(255 255 255 / 0.08);
-  --input: rgb(255 255 255 / 0.1);
-  --ring: rgb(95 212 168 / 0.45);
+  --background: light-dark(#ffffff, #1a1a1c); /* conversation canvas */
+  --foreground: light-dark(#1c1c1e, #ededee);
+  --sidebar: light-dark(#f7f7f5, #141416); /* the quieter frame around it */
+  --card: light-dark(
+    #f4f4f2,
+    #242427
+  ); /* cards, menus, the composer — one tonal step, no outline */
+  --card-foreground: light-dark(#1c1c1e, #ededee);
+  --raised: light-dark(#ececea, #2c2c30); /* user bubble, selected row, pressed chips */
+  --hover: light-dark(#e8e8e5, #303035);
+  --popover: light-dark(#ffffff, #232326);
+  --popover-foreground: light-dark(#1c1c1e, #ededee);
+  --primary: light-dark(#1c1c1e, #f2f2f3); /* the send button and primary actions: ink on paper */
+  --primary-foreground: light-dark(#ffffff, #151517);
+  --secondary: light-dark(#f1f1ef, #29292d);
+  --secondary-foreground: light-dark(#1c1c1e, #ededee);
+  --muted: light-dark(#f4f4f2, #232326);
+  --muted-foreground: light-dark(#55555c, #a8a8af); /* secondary text */
+  --subtle: light-dark(#68686f, #8e8e97); /* tertiary text: still >= 4.5:1 on every surface */
+  --accent: light-dark(#0a7a55, #5fd4a8); /* robota's mark, live state — sparingly */
+  --accent-foreground: light-dark(#ffffff, #0b1a14);
+  --destructive: light-dark(#c42f40, #f2727f);
+  --warning: light-dark(#8f5a0b, #f0b35b);
+  --success: light-dark(#0a7a55, #5fd4a8);
+  --border: light-dark(rgb(0 0 0 / 0.08), rgb(255 255 255 / 0.08));
+  --input: light-dark(rgb(0 0 0 / 0.12), rgb(255 255 255 / 0.1));
+  --ring: light-dark(rgb(10 122 85 / 0.4), rgb(95 212 168 / 0.45));
 
   --font-sans:
     'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
     'Segoe UI', 'Noto Sans KR', sans-serif;
-  --font-mono: 'SF Mono', ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace;
-}
-
-/* Paper (light) — follows the system unless the host pins a theme. */
-@media (prefers-color-scheme: light) {
-  :root:not([data-theme='dark']) {
-    color-scheme: light;
-    --background: #ffffff;
-    --foreground: #1c1c1e;
-    --sidebar: #f7f7f5;
-    --card: #f4f4f2;
-    --card-foreground: #1c1c1e;
-    --raised: #ececea;
-    --hover: #e8e8e5;
-    --popover: #ffffff;
-    --popover-foreground: #1c1c1e;
-    --primary: #1c1c1e;
-    --primary-foreground: #ffffff;
-    --secondary: #f1f1ef;
-    --secondary-foreground: #1c1c1e;
-    --muted: #f4f4f2;
-    --muted-foreground: #66666d;
-    --subtle: #9a9aa1;
-    --accent: #0f9b6c;
-    --accent-foreground: #ffffff;
-    --destructive: #d93b4b;
-    --warning: #b7700f;
-    --success: #0f9b6c;
-    --border: rgb(0 0 0 / 0.08);
-    --input: rgb(0 0 0 / 0.12);
-    --ring: rgb(15 155 108 / 0.35);
-  }
+  --font-mono:
+    'SF Mono', ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace;
 }
 :root[data-theme='light'] {
   color-scheme: light;
-  --background: #ffffff;
-  --foreground: #1c1c1e;
-  --sidebar: #f7f7f5;
-  --card: #f4f4f2;
-  --card-foreground: #1c1c1e;
-  --raised: #ececea;
-  --hover: #e8e8e5;
-  --popover: #ffffff;
-  --popover-foreground: #1c1c1e;
-  --primary: #1c1c1e;
-  --primary-foreground: #ffffff;
-  --secondary: #f1f1ef;
-  --secondary-foreground: #1c1c1e;
-  --muted: #f4f4f2;
-  --muted-foreground: #66666d;
-  --subtle: #9a9aa1;
-  --accent: #0f9b6c;
-  --accent-foreground: #ffffff;
-  --destructive: #d93b4b;
-  --warning: #b7700f;
-  --success: #0f9b6c;
-  --border: rgb(0 0 0 / 0.08);
-  --input: rgb(0 0 0 / 0.12);
-  --ring: rgb(15 155 108 / 0.35);
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
 }
 
 @layer base {
@@ -264,13 +213,16 @@
   }
 }
 
-/* Agent prose: comfortable measure and rhythm for long answers. */
-.gui-prose {
-  font-size: 15px;
-  line-height: 1.7;
-  color: var(--foreground);
-  overflow-wrap: anywhere;
-}
-.gui-prose > * + * {
-  margin-top: 0.75em;
+/* Agent prose: comfortable measure and rhythm for long answers. In the components layer, so the
+   utilities on its children (a heading's larger top margin) still win. */
+@layer components {
+  .gui-prose {
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--foreground);
+    overflow-wrap: anywhere;
+  }
+  .gui-prose > * + * {
+    margin-top: 0.75em;
+  }
 }

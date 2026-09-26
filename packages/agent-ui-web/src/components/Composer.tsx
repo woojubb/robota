@@ -93,7 +93,7 @@ export function Composer({
         </div>
       )}
       <form
-        className="rounded-[22px] bg-card px-2.5 pb-2 pt-2.5 shadow-[0_8px_30px_-12px_rgb(0_0_0/0.45)] transition-colors"
+        className="rounded-[22px] bg-card px-2.5 pb-2 pt-2.5 shadow-[0_8px_30px_-12px_rgb(0_0_0/0.45)] transition-shadow focus-within:ring-2 focus-within:ring-ring"
         onSubmit={(e) => {
           e.preventDefault();
           submit();

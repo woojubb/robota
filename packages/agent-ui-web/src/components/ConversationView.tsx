@@ -93,11 +93,7 @@ function AgentMarkdown({ children }: { children: string }): React.ReactElement {
             {c}
           </th>
         ),
-        td: ({ children: c }) => (
-          <td className="px-3 py-2 align-top">
-            {c}
-          </td>
-        ),
+        td: ({ children: c }) => <td className="px-3 py-2 align-top">{c}</td>,
         blockquote: ({ children: c }) => (
           <blockquote className="border-l-2 border-subtle/50 pl-4 text-muted-foreground">
             {c}

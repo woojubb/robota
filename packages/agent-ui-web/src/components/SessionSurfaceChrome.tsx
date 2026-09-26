@@ -40,9 +40,10 @@ export function SessionTitleBar({
       data-status={status}
     >
       {showBrand ? <RobotaWordmark surface={surface} /> : null}
-      <h1 className="min-w-0 truncate text-[14px] font-medium text-foreground/90">
-        {view === 'usage' ? 'Usage' : (title ?? '')}
-      </h1>
+      {/* The usage view titles itself; the chat view is titled by its session. */}
+      {view === 'chat' && title ? (
+        <h1 className="min-w-0 truncate text-[14px] font-medium text-foreground/90">{title}</h1>
+      ) : null}
       <div className="ml-auto flex items-center gap-3">
         {personalUsageEnabled ? (
           <nav className="flex items-center rounded-lg bg-raised p-0.5" aria-label="Primary">
@@ -68,9 +69,7 @@ export function SessionTitleBar({
           {status === 'connected' ? (
             <span className="sr-only">{status}</span>
           ) : (
-            <span className="text-[13px] text-muted-foreground">
-              {status}
-            </span>
+            <span className="text-[13px] text-muted-foreground">{status}</span>
           )}
         </span>
       </div>

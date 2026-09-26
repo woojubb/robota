@@ -20,7 +20,8 @@ export function formatUpdatedAt(updatedAt: string, now: number = Date.now()): st
   return new Date(at).toISOString().slice(0, 10);
 }
 
-function sessionTitle(session: TListedSession): string {
+/** A session's title: its name, else its first message, else "New session". */
+export function sessionTitle(session: TListedSession): string {
   const name = session.name?.trim();
   if (name) return name;
   const preview = session.preview.trim();
@@ -151,8 +152,8 @@ export function SessionSidebar({
             <li>
               <details className="px-2.5 py-2 text-[12.5px] text-subtle">
                 <summary className="cursor-pointer text-muted-foreground hover:text-foreground">
-                  {unreadable.length} {unreadable.length === 1 ? 'session' : 'sessions'} could not be
-                  read
+                  {unreadable.length} {unreadable.length === 1 ? 'session' : 'sessions'} could not
+                  be read
                 </summary>
                 <ul className="mt-1.5 space-y-0.5 font-mono text-[11.5px]">
                   {unreadable.map((id) => (
