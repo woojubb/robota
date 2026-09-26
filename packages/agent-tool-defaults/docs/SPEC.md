@@ -18,8 +18,10 @@ dependency this package's extraction was meant to remove.
 
 ## Contract and guarantees
 
-- `cwd` is a required option: it is the execution root every file tool is contained by. A
-  context-free tool construction is the shape of bug this package's contract exists to prevent.
+- `cwd` is a required option: it is the execution root every host file tool is contained by. File
+  tools routed to a sandbox with its own filesystem hand their paths to that sandbox, where `cwd`
+  does not confine them. A context-free tool construction is the shape of bug this package's
+  contract exists to prevent.
 - The function is pure and side-effect-free at construction: the same options always produce the
   same tool list, with no registry, no lazy initialization, and no I/O performed while assembling
   it.

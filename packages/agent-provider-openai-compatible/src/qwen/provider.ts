@@ -154,7 +154,7 @@ export class QwenProvider extends AbstractAIProvider {
         payload: requestParams,
       });
       const chatRequestOptions = openAICompatibleRequestOptions(
-        undefined,
+        options?.signal,
         this.traceRequestHeaders(options, client),
       );
       const response = chatRequestOptions
@@ -226,7 +226,7 @@ export class QwenProvider extends AbstractAIProvider {
         payload: requestParams,
       });
       const streamRequestOptions = openAICompatibleRequestOptions(
-        undefined,
+        options?.signal,
         this.traceRequestHeaders(options, this.client),
       );
       const { data: stream, providerRequestId } = await awaitWithProviderRequestId(

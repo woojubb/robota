@@ -24,9 +24,11 @@ const MAX_PENDING_CANDIDATES = 64;
 /**
  * WebRTC P2P transport (REMOTE-001/002): carries an `IProtocolSession` over an `RTCDataChannel` using the
  * SAME transport-neutral session bridge as the WebSocket transport (`createSessionMessageHandler` from
- * `@robota-sdk/agent-transport`). The host is the offerer: it creates the data channel + offer, and on
- * data-channel open wires the handler. **Stage A: `defaultEnabled: false`, no pairing/auth** — the signaling
- * client is injected and can be an in-memory loopback for tests.
+ * `@robota-sdk/agent-transport`). The host is the offerer: it creates the data channel + offer and wires the
+ * channel as soon as it is created. `defaultEnabled: false` — nothing starts it automatically. Admission is
+ * fixed at construction: a pairing `secret` gates the session behind the pairing handshake, and running
+ * without one requires `open: true` with an `openReason`. The signaling client is injected and can be an
+ * in-memory loopback for tests.
  */
 export class WebRtcTransport implements IConfigurableTransport<IProtocolSession> {
   public readonly name = 'webrtc';

@@ -126,7 +126,7 @@ export class DeepSeekProvider extends AbstractAIProvider {
         payload: requestParams,
       });
       const chatRequestOptions = openAICompatibleRequestOptions(
-        undefined,
+        options?.signal,
         this.traceRequestHeaders(options),
       );
       const response = chatRequestOptions
@@ -185,7 +185,7 @@ export class DeepSeekProvider extends AbstractAIProvider {
         payload: requestParams,
       });
       const streamRequestOptions = openAICompatibleRequestOptions(
-        undefined,
+        options?.signal,
         this.traceRequestHeaders(options),
       );
       const { data: stream, providerRequestId } = await awaitWithProviderRequestId(
