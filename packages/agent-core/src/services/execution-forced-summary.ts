@@ -249,8 +249,10 @@ export async function forceSummaryCall(
       });
       return;
     }
-    // An aborted summary leaves the turn to resolve as interrupted, like an aborted round.
-    if (isAbortFailure(forceErr, fullContext.signal)) return;
+    // An aborted summary ends the turn the way an aborted round does: the abort propagates and
+    // `execute` resolves it as interrupted. Returning here instead reached finalization with no text
+    // and no error, which is the `[STRICT-POLICY]` failure again.
+    if (isAbortFailure(forceErr, fullContext.signal)) throw forceErr;
     // CORE-027: a failed summary call fails the turn the way a failed round does. It was logged and
     // dropped, which left a result with `success: false` and no error, so the caller received the
     // generic `[STRICT-POLICY]` error instead of the provider's own (status, code, category).
@@ -262,6 +264,7 @@ export async function forceSummaryCall(
       executionId,
       providerId: routeProvider(route, resolved),
       modelId: routeModel(route, resolved.aiProviderInfo.model),
+      forcedSummary: true,
       providerError: true,
     };
     conversationStore.addAssistantMessage(`Request failed: ${errMsg}`, [], failureMetadata);

@@ -3,9 +3,8 @@
  *
  * When the round cap ends the loop on a tool round, one more call asks the model for a summary. Its
  * failure was logged and dropped, so the run threw the generic `[STRICT-POLICY]` error instead: no
- * class, status or code to decide a retry on, and a message that reads like an SDK bug. (An aborted
- * summary call still resolves as interrupted; `execution-forced-summary.trace.test.ts` pins that it
- * records no failure.)
+ * class, status or code to decide a retry on, and a message that reads like an SDK bug. An aborted
+ * summary call must end the turn the way an aborted round does: resolved as interrupted.
  *
  * Every case runs against both entry points: they are two entries into one turn (CORE-042).
  */
@@ -121,5 +120,46 @@ describe.each(ENTRY_POINTS)('forced summary failure — %s()', (entry) => {
 
     expect(outcome).toBe(rejected);
     expect((outcome as HttpStatusError).status).toBe(400);
+  });
+
+  it('announces the failure record it adds to history', async () => {
+    const robota = buildAgent(
+      toolThenSummaryProvider(() => Promise.reject(new HttpStatusError(503))),
+    );
+    const appended: Array<Record<string, unknown>> = [];
+
+    await drive(robota, entry, 'decide', {
+      maxExecutionRounds: 1,
+      onExecutionEvent: (event, data) => {
+        if (event === 'history_mutation') appended.push(data);
+      },
+    }).catch(() => undefined);
+
+    const last = appended.at(-1);
+    expect(last?.['providerError']).toBe(true);
+    expect(last?.['forcedSummary']).toBe(true);
+    expect((last?.['message'] as TUniversalMessage | undefined)?.content).toBe(
+      'Request failed: request rejected with 503',
+    );
+  });
+
+  it.each([
+    ['the run is cancelled during the summary call', true],
+    ['the provider reports an abort of its own', false],
+  ])('resolves as interrupted when %s', async (_case, cancelRun) => {
+    const controller = new AbortController();
+    const robota = buildAgent(
+      toolThenSummaryProvider(() => {
+        if (cancelRun) controller.abort();
+        return Promise.reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+      }),
+    );
+
+    const answer = await drive(robota, entry, 'decide', {
+      maxExecutionRounds: 1,
+      signal: controller.signal,
+    });
+
+    expect(answer).toBe('');
   });
 });

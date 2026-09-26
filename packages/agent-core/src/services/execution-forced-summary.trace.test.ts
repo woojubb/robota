@@ -74,6 +74,37 @@ describe('forced-summary provider lifecycle', () => {
     const completion = events.find((event) => event.name === PROVIDER_CALL_EVENTS.COMPLETED)!.data;
     expect(completion['providerRequestId']).toBe('req_forced_1');
   });
+  it('keeps a committed summary as the answer when only announcing it fails', async () => {
+    const addAssistantMessage = vi.fn();
+    const logger = { warn: vi.fn(), error: vi.fn() };
+    const roundState: { currentRound: number; providerFailure?: unknown } = { currentRound: 3 };
+
+    await forceSummaryCall(
+      { getMessages: () => [], addAssistantMessage } as never,
+      {
+        provider: { chat: async () => ({ role: 'assistant', content: 'the summary' }) },
+        currentInfo: { provider: 'p' },
+        aiProviderInfo: { model: 'm' },
+      } as never,
+      { defaultModel: { model: 'm' } } as never,
+      'execution',
+      roundState as never,
+      'conversation',
+      {
+        onExecutionEvent: (name: string) => {
+          if (name === 'assistant_message_committed') throw new Error('sink failed');
+        },
+      } as never,
+      logger as never,
+    );
+
+    expect(addAssistantMessage).toHaveBeenCalledTimes(1);
+    expect(addAssistantMessage).toHaveBeenCalledWith('the summary', [], expect.any(Object));
+    expect(roundState.providerFailure).toBeUndefined();
+    expect(logger.warn).toHaveBeenCalledWith('Forced summary announcement failed', {
+      error: 'sink failed',
+    });
+  });
   it.each(['success', 'failure', 'interrupted'] as const)(
     'records a content-free %s completion for the actual summary call',
     async (outcome) => {
@@ -86,7 +117,7 @@ describe('forced-summary provider lifecycle', () => {
       const addAssistantMessage = vi.fn();
       const roundState: { currentRound: number; providerFailure?: unknown } = { currentRound: 3 };
 
-      await forceSummaryCall(
+      const call = forceSummaryCall(
         { getMessages: () => [], addAssistantMessage } as never,
         {
           provider: { chat },
@@ -104,6 +135,10 @@ describe('forced-summary provider lifecycle', () => {
         { warn: vi.fn(), error: vi.fn() } as never,
         2,
       );
+      // An aborted summary propagates like an aborted round, so the turn resolves as interrupted.
+      if (outcome === 'interrupted')
+        await expect(call).rejects.toMatchObject({ name: 'AbortError' });
+      else await call;
 
       const completions = events.filter((event) => event.name === PROVIDER_CALL_EVENTS.COMPLETED);
       expect(completions).toHaveLength(1);
@@ -125,7 +160,7 @@ describe('forced-summary provider lifecycle', () => {
         expect(addAssistantMessage).toHaveBeenCalledWith(
           'Request failed: private provider failure',
           [],
-          expect.objectContaining({ providerError: true, round: 3 }),
+          expect.objectContaining({ providerError: true, forcedSummary: true, round: 3 }),
         );
         expect((roundState.providerFailure as Error).message).toBe('private provider failure');
       } else {
