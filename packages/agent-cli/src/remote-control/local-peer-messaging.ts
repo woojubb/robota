@@ -16,16 +16,16 @@
  *
  * ## Attribution is derived, never accepted
  *
- * `IPeerOrigin.driverId` is peer-supplied. The driver id this session attributes a peer turn to is
- * computed from the peer's SESSION id, which is the one thing the sender cannot choose: it is the
- * name the rendezvous directory published for them. Issue #1809 fixed this and it is not re-decided
- * here — a name the transcript's reader trusts must not be picked by the party being named.
+ * Everything this session attributes to a peer — the turn's origin, its driver id, where an answer
+ * goes, the conversation it joins, what the operator is told — comes from the sender the carrier
+ * confirmed, never from the origin the message states. The driver id is computed from that session
+ * id, so a name the transcript's reader trusts is not picked by the party being named.
  */
 
-import { listenForPeerMessages, sendPeerMessage } from './local-peer-channel.js';
+import { listenForPeerMessages } from './local-peer-channel.js';
 import { PeerConversationLedger } from './peer-conversation-ledger.js';
 
-import type { IPeerListener } from './local-peer-channel.js';
+import type { IPeerListener, IPeerSender } from './local-peer-channel.js';
 import type { IPeerConversationLimits } from './peer-conversation-ledger.js';
 import type {
   IPeerMessage,
@@ -128,19 +128,19 @@ export async function startLocalPeerMessaging(
   const listener: IPeerListener = await listenForPeerMessages({
     guardedDirectory: options.guardedDirectory,
     sessionId: options.sessionId,
-    onMessage: async (message: IPeerMessage): Promise<IPeerMessageAck> => {
+    onMessage: async (received: IPeerMessage, sender: IPeerSender): Promise<IPeerMessageAck> => {
+      const from = sender.sessionId;
+      const message: IPeerMessage = { ...received, origin: { sessionId: from } };
       conversations.receive(message);
-      // The admission is the DIRECTORY's, established when the socket was bound. It is restated
-      // here as the ingress's contract requires, not re-derived from anything the peer sent. The
-      // workspace relation is likewise this session's own verdict, never the sender's.
-      const relation = await options.relate?.(message.origin.sessionId).catch(() => {
+      // The admission is the DIRECTORY's, established when the socket was bound, and the sender is
+      // the one the carrier confirmed. Both are restated here as the ingress's contract requires,
+      // not re-derived from anything the peer sent. The workspace relation is likewise this
+      // session's own verdict, never the sender's.
+      const relation = await options.relate?.(from).catch(() => {
         // allow-fallback: the relation is display-only; without it the turn simply carries none.
         return undefined;
       });
-      const origin: IPeerOrigin = {
-        sessionId: message.origin.sessionId,
-        driverId: peerDriverId(message.origin.sessionId),
-      };
+      const origin: IPeerOrigin = { sessionId: from, driverId: peerDriverId(from) };
       const result = await options.ingress.receive({
         message: {
           ...message,
@@ -163,7 +163,7 @@ export async function startLocalPeerMessaging(
           if (settled.state === 'refused' || settled.state === 'failed') {
             reportQuietly(
               options.report,
-              `[peers] a message from ${message.origin.sessionId} did not run: ` +
+              `[peers] a message from ${from} did not run: ` +
                 `${settled.reason ?? 'no reason was given'}`,
             );
           }
@@ -171,7 +171,7 @@ export async function startLocalPeerMessaging(
         (error: unknown) => {
           reportQuietly(
             options.report,
-            `[peers] a message from ${message.origin.sessionId} failed after it was accepted: ` +
+            `[peers] a message from ${from} failed after it was accepted: ` +
               `${error instanceof Error ? error.message : String(error)}`,
           );
         },
@@ -230,11 +230,7 @@ export async function startLocalPeerMessaging(
       conversations.recordSent(message.id, targetSessionId, admission?.thread);
 
       try {
-        return await sendPeerMessage({
-          guardedDirectory: options.guardedDirectory,
-          targetSessionId,
-          message,
-        });
+        return await listener.send(targetSessionId, message);
       } catch (error) {
         // A carrier failure is `failed`, not `refused`: the receiver never got to have an opinion,
         // and telling the sender it was refused would name a decision nobody made.

@@ -51,7 +51,11 @@ function context(cwd: string, peerTurn?: IPeerTurnAuthority) {
   };
 }
 
-const sameHost: IPeerTurnAuthority = { reach: 'same-host', allowChanges: false, toolUsed: false };
+const sameHost: IPeerTurnAuthority = {
+  reach: 'same-host',
+  allowChanges: false,
+  toolOutputInContext: false,
+};
 const anotherHost: IPeerTurnAuthority = { ...sameHost, reach: 'another-host' };
 
 beforeEach(() => {
@@ -242,7 +246,7 @@ describe('a peer on the same host', () => {
   });
 
   it('asks before a reply that follows a tool use, in every mode', () => {
-    const used = { ...sameHost, toolUsed: true };
+    const used = { ...sameHost, toolOutputInContext: true };
     expect(
       evaluatePermission('peer_reply', { text: 'hi' }, 'default', {}, context(workspace, sameHost)),
     ).toBe('auto');

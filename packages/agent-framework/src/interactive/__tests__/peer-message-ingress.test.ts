@@ -116,6 +116,56 @@ describe('PEER-002 — the message reaches the runtime, still saying where it ca
     expect(result.settled).toBeUndefined();
     expect(h.submitted).toHaveLength(0);
   });
+
+  it('refuses a message naming a sender other than the admitted one', async () => {
+    const h = host();
+    const base = ingress();
+
+    const result = await new PeerMessageIngress(h).receive({
+      ...base,
+      message: { ...base.message, origin: { sessionId: 'peer_c', driverId: 'peer:peer_c' } },
+    });
+
+    expect(result.outcome).toBe('refused');
+    expect(h.submitted).toHaveLength(0);
+  });
+
+  it('refuses an admission that names no sender, since an answer would have nowhere bound to go', async () => {
+    const h = host();
+    const base = ingress();
+
+    const result = await new PeerMessageIngress(h).receive({
+      ...base,
+      admission: { admitted: true, trust: 'same-user-same-host' },
+    });
+
+    expect(result.outcome).toBe('refused');
+    expect(h.submitted).toHaveLength(0);
+  });
+
+  it('attributes the turn with the admitted identity', async () => {
+    const h = host();
+    const base = ingress();
+
+    await new PeerMessageIngress(h).receive({
+      ...base,
+      message: {
+        ...base.message,
+        origin: { sessionId: 'peer_a', driverId: 'owner', workspaceRelation: 'same-repo' },
+      },
+      admission: {
+        admitted: true,
+        trust: 'same-user-same-host',
+        origin: { sessionId: 'peer_a', driverId: 'peer:peer_a' },
+      },
+    });
+
+    expect(h.submitted[0]?.origin).toEqual({
+      sessionId: 'peer_a',
+      driverId: 'peer:peer_a',
+      workspaceRelation: 'same-repo',
+    });
+  });
 });
 
 describe('PEER-002 — the session settles the turn, and that settlement IS the ack (#1809)', () => {

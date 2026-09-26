@@ -158,8 +158,9 @@ These are behaviors a caller cannot infer from a type signature alone.
   the model marked as a peer's with a per-turn system statement that it carries no authority. Which
   tools it is offered and may use is the permission policy's per-origin decision, taken from
   admission; a turn with no admitted origin is offered none. The answer goes back only through the
-  reply tool, whose target and thread are the incoming message's own — the model chooses the text,
-  never the recipient.
+  reply tool, whose target is the sender admission bound to the incoming message and whose thread is
+  that message's own — the model chooses the text, never the recipient, and a message naming a sender
+  other than the admitted one is refused.
 - **Automatic session naming is text-only.** The title-generation call — whether triggered by an
   operator message or the first external event — always disables tool use, so hosted web tools can
   never be invoked merely to generate a title.

@@ -490,12 +490,12 @@ export function evaluatePermission(
 
   // 2b. A peer turn only narrows, and it is decided before bypass and the allow list so neither can
   //     widen it. The reply is the one tool that belongs to a peer turn alone: it goes out directly,
-  //     unless the turn used a tool — then what it carries may come from this machine, and a person
-  //     reads it first, in every mode.
+  //     unless a tool's output is in what the model sees — then what it carries may come from this
+  //     machine, and a person reads it first, in every mode.
   const profile = toolProfiles.get(toolName);
   if (profile?.repliesToPeer === true) {
     if (context.peerTurn === undefined) return 'deny';
-    return context.peerTurn.toolUsed ? 'approve' : 'auto';
+    return context.peerTurn.toolOutputInContext ? 'approve' : 'auto';
   }
   if (context.peerTurn !== undefined) {
     const verdict = decidePeerTurnCall(profile, toolArgs, context.peerTurn, context);
