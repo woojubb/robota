@@ -12,10 +12,10 @@ import type { TSidecarState } from './sidecar.js';
 const api = {
   /** Resolve the loopback WS URL (with the token) the renderer connects to. */
   getEndpoint: (): Promise<string | null> => ipcRenderer.invoke('agent-gui:endpoint'),
-  /** Tell the main process the session is live (drives the supervisor's `ready`). */
+  /** Tell the main process the session is live. The daemon is the CLI's to supervise, so nothing acts on it yet. */
   signalReady: (): void => ipcRenderer.send('agent-gui:ready'),
-  /** Subscribe to sidecar lifecycle state (`starting`/`ready`/`fatal`). Returns an unsubscribe fn. */
-  /** `detail` accompanies `fatal`: the tail of what the sidecar said before it stopped. */
+  /** Subscribe to lifecycle state (`starting`/`ready`/`fatal`). Returns an unsubscribe fn. */
+  /** `detail` accompanies `fatal`: what the CLI said when the daemon could not be started. */
   onState: (cb: (state: TSidecarState, detail?: string) => void): (() => void) => {
     const listener = (_e: IpcRendererEvent, state: TSidecarState, detail?: string): void =>
       cb(state, detail);

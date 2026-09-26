@@ -1,32 +1,13 @@
 /**
- * GUI-002 — pure, Electron-free sidecar logic (unit-testable without a display or the electron binary).
+ * Pure, Electron-free logic of the desktop shell (unit-testable without a display or the electron binary).
  *
- * The Electron main process (`main.ts`) mints a per-launch loopback endpoint, spawns the `robota` CLI as a
- * sidecar with the token+port in its environment, and supervises the child. All the logic that does NOT need
- * the electron runtime lives here so it can be tested in a plain Node/vitest environment (TC-04).
+ * The Electron main process (`main.ts`) asks the `robota` CLI to start this workspace's daemon — or reuse
+ * the live one — and attaches the window to the loopback address the CLI answers with. The daemon is the
+ * CLI's to own: it outlives the window. Everything here that does not need the electron runtime lives in
+ * this module so it can be tested in a plain Node/vitest environment.
  */
 
-import { randomBytes } from 'node:crypto';
 import { join } from 'node:path';
-
-/** Auth-token entropy: 256 bits (32 bytes), hex-encoded. */
-const TOKEN_BYTES = 32;
-
-/** A per-launch loopback endpoint: the free port the sidecar binds + the auth token it must enforce. */
-export interface ISidecarEndpoint {
-  readonly port: number;
-  readonly token: string;
-}
-
-/** The loopback WS URL the renderer connects to — the token rides as a query param (browsers can't set headers). */
-export function endpointUrl(endpoint: ISidecarEndpoint): string {
-  return `ws://127.0.0.1:${endpoint.port}?token=${encodeURIComponent(endpoint.token)}`;
-}
-
-/** Mint the auth token (256-bit, crypto-grade). The port is supplied by the caller (found free via `net`). */
-export function mintToken(): string {
-  return randomBytes(TOKEN_BYTES).toString('hex');
-}
 
 /** Inputs for resolving the sidecar command — injected (not read from electron) so this stays unit-testable. */
 export interface IResolveSidecarCommandOptions {
@@ -44,7 +25,7 @@ export interface IResolveSidecarCommandOptions {
  * Resolve the `robota` runtime command (GUI-003). In a PACKAGED app the runtime binary is bundled via
  * electron-builder `extraResources` at `<resourcesPath>/robota[.exe]`, so the app is fully self-contained —
  * zero external install. In DEV/e2e, fall back to `$ROBOTA_GUI_SIDECAR_CMD` (the scripted-sidecar double) or
- * PATH `robota`. ONLY the command path changes; the loopback-nonce security model is untouched.
+ * PATH `robota`.
  */
 export function resolveSidecarCommand(options: IResolveSidecarCommandOptions): string {
   if (options.isPackaged) {
@@ -53,56 +34,91 @@ export function resolveSidecarCommand(options: IResolveSidecarCommandOptions): s
   return options.env?.['ROBOTA_GUI_SIDECAR_CMD'] ?? 'robota';
 }
 
-/** The concrete command/args/env used to spawn the `robota` sidecar for a given endpoint. */
-export interface ISidecarSpawn {
+/** The concrete command/args/env used to run `robota daemon start --json`. */
+export interface IDaemonStartSpawn {
   readonly command: string;
   readonly args: readonly string[];
   readonly env: Readonly<Record<string, string>>;
 }
 
-export interface IBuildSidecarSpawnOptions {
-  /** Override the sidecar command (default `robota`, or `$ROBOTA_GUI_SIDECAR_CMD`). Later: the bundled binary. */
-  readonly command?: string;
-  /** Extra CLI args appended after the defaults. */
-  readonly extraArgs?: readonly string[];
-  /** Base environment to extend (defaults to an empty object in tests; `process.env` in main). */
-  readonly baseEnv?: Readonly<Record<string, string | undefined>>;
-}
-
 /**
- * Build the sidecar spawn descriptor: the `robota` CLI, carrying the endpoint as `ROBOTA_WS_TOKEN` +
- * `ROBOTA_WS_PORT` env (which `agent-cli` reads to enforce the loopback auth — GUI-002 T5). The token is
- * NEVER placed on the argv (argv is world-readable via `ps`); it travels in the child env only.
+ * Build the `daemon start` invocation. The shell adds nothing to the environment: the CLI mints the
+ * daemon's token itself and hands it back on stdout, so no secret travels on argv or through this process's
+ * environment.
  */
-export function buildSidecarSpawn(
-  endpoint: ISidecarEndpoint,
-  options: IBuildSidecarSpawnOptions = {},
-): ISidecarSpawn {
-  const command = options.command ?? 'robota';
-  const baseEnv = options.baseEnv ?? {};
+export function buildDaemonStartSpawn(
+  command: string,
+  baseEnv: Readonly<Record<string, string | undefined>> = {},
+): IDaemonStartSpawn {
   const env: Record<string, string> = {};
   for (const [k, v] of Object.entries(baseEnv)) {
     if (typeof v === 'string') env[k] = v;
   }
-  env['ROBOTA_WS_TOKEN'] = endpoint.token;
-  env['ROBOTA_WS_PORT'] = String(endpoint.port);
-  return {
-    command,
-    // RUNTIME-001: spawn the headless runtime host (`robota --serve`), NOT the default ink TUI. The GUI drives
-    // a shared runtime; it does not control the CLI's terminal UI. (The scripted-sidecar test double ignores
-    // argv, so this is inert under e2e.)
-    args: ['--serve', ...(options.extraArgs ?? [])],
-    env,
-  };
+  return { command, args: ['daemon', 'start', '--json'], env };
 }
 
-/** How much of the sidecar's error output the shell keeps: enough for the reason it stopped. */
+/** The daemon the CLI started or reused: its id, the renderer's WS URL (token included), and its port. */
+export interface IDaemonEndpoint {
+  readonly id: string;
+  readonly url: string;
+  readonly port: number;
+}
+
+/** Loopback only, an explicit port, and a non-empty token — nothing else in the URL. */
+const DAEMON_URL = /^ws:\/\/127\.0\.0\.1:([0-9]{1,5})\/?\?token=([A-Za-z0-9%._~-]+)$/;
+const MAX_PORT = 65535;
+
+/**
+ * Read the one JSON line `robota daemon start --json` prints. Anything that is not exactly that line, or
+ * whose URL could point the token-holding renderer anywhere but a loopback port, is refused — the URL also
+ * feeds the page's CSP.
+ */
+export function parseDaemonStartOutput(stdout: string): IDaemonEndpoint | undefined {
+  const lines = stdout.split(/\r?\n/).filter((l) => l.trim() !== '');
+  if (lines.length !== 1) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(lines[0] ?? '');
+  } catch {
+    return undefined;
+  }
+  if (typeof parsed !== 'object' || parsed === null) return undefined;
+  const { id, url } = parsed as { id?: unknown; url?: unknown };
+  if (typeof id !== 'string' || id.trim() === '' || typeof url !== 'string') return undefined;
+  const match = DAEMON_URL.exec(url);
+  if (!match) return undefined;
+  const port = Number(match[1]);
+  if (!Number.isInteger(port) || port < 1 || port > MAX_PORT) return undefined;
+  return { id, url, port };
+}
+
+/**
+ * The reason shown on the fatal screen when the daemon could not be started or reused: what the CLI said
+ * on stderr (an untrusted workspace names `robota trust`), else a description of the unexpected answer.
+ */
+export function describeDaemonStartFailure(result: {
+  readonly exitCode: number | null;
+  readonly stderr: string;
+  readonly stdout: string;
+}): string {
+  const said = result.stderr.trim();
+  if (said) return said;
+  if (result.exitCode === 0) {
+    const answer = result.stdout.trim();
+    return answer
+      ? `robota daemon start answered with an unexpected result:\n${answer}`
+      : 'robota daemon start exited without reporting the daemon address.';
+  }
+  return `robota daemon start failed (exit ${result.exitCode ?? 'signal'}).`;
+}
+
+/** How much of the CLI's error output the shell keeps: enough for the reason it stopped. */
 export const OUTPUT_TAIL_LIMIT = 4000;
 
 /**
- * Append a chunk of sidecar error output, keeping only the tail. The sidecar says why it will not
- * start (an untrusted workspace names `robota trust`, a missing key names the setup) on stderr, and
- * the fatal screen shows that tail instead of a bare "stopped".
+ * Append a chunk of CLI output, keeping only the tail. The CLI says why it will not start (an untrusted
+ * workspace names `robota trust`, a missing key names the setup) on stderr, and the fatal screen shows that
+ * tail instead of a bare "stopped".
  */
 export function appendOutputTail(tail: string, chunk: string): string {
   const next = tail + chunk;
@@ -111,55 +127,3 @@ export function appendOutputTail(tail: string, chunk: string): string {
 
 /** The lifecycle state the renderer renders (reusing agent-ui-web's `status` surface for the fatal case). */
 export type TSidecarState = 'starting' | 'ready' | 'fatal';
-
-/** Minimal child handle the supervisor drives — satisfied by a `ChildProcess` and by a test stub. */
-export interface ISupervisedChild {
-  on(event: 'exit', listener: (code: number | null, signal: NodeJS.Signals | null) => void): void;
-  kill(signal?: NodeJS.Signals): boolean;
-}
-
-/**
- * Supervise the sidecar child: report state transitions, map an unexpected child exit to `fatal`, and drive
- * a graceful shutdown (SIGTERM → SIGKILL backstop) on window close. Electron-free; `main.ts` injects the real
- * spawned child and a timer. Testable with a stub child + fake timers.
- */
-export class SidecarSupervisor {
-  private state: TSidecarState = 'starting';
-  private stopping = false;
-
-  constructor(
-    private readonly child: ISupervisedChild,
-    private readonly onState: (state: TSidecarState) => void,
-    private readonly killGraceMs = 3000,
-    private readonly setTimer: (fn: () => void, ms: number) => void = setTimeout,
-  ) {
-    this.child.on('exit', (code, signal) => this.handleExit(code, signal));
-  }
-
-  /** Called once the renderer has connected + the session is live. */
-  markReady(): void {
-    if (this.stopping || this.state === 'fatal') return;
-    this.state = 'ready';
-    this.onState('ready');
-  }
-
-  /** Current lifecycle state (diagnostics/tests). */
-  get currentState(): TSidecarState {
-    return this.state;
-  }
-
-  /** Graceful shutdown on window-close/quit: SIGTERM (CLI shuts the session down), SIGKILL backstop. */
-  shutdown(): void {
-    if (this.stopping) return;
-    this.stopping = true;
-    this.child.kill('SIGTERM');
-    this.setTimer(() => this.child.kill('SIGKILL'), this.killGraceMs);
-  }
-
-  private handleExit(_code: number | null, _signal: NodeJS.Signals | null): void {
-    if (this.stopping) return; // expected exit during shutdown — not fatal
-    // An unexpected sidecar exit (crash) surfaces a non-hanging fatal state in the UI.
-    this.state = 'fatal';
-    this.onState('fatal');
-  }
-}

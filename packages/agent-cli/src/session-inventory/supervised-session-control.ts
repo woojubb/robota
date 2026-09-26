@@ -42,7 +42,8 @@ interface IRegistration {
 }
 
 type TControlCommand =
-  | 'status' | 'stop' | 'rename' | 'link-pr' | 'unlink-pr' | 'events-list' | 'events-revoke';
+  | 'status' | 'stop' | 'rename' | 'link-pr' | 'unlink-pr' | 'events-list' | 'events-revoke'
+  | 'connect';
 
 const GRANT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/u;
 const MAX_GRANT_HANDOFF_BYTES = 256 * 1024;
@@ -108,6 +109,18 @@ function isCurrentActivity(value: unknown): value is Exclude<TSupervisedActivity
   return value === 'working' || value === 'needs-input' || value === 'idle';
 }
 
+const MAX_DAEMON_URL_BYTES = 2_048;
+
+/** A daemon's own loopback WebSocket URL, and nothing else, is handed to its owner. */
+function isDaemonUrl(value: unknown): value is string {
+  if (typeof value !== 'string' || Buffer.byteLength(value, 'utf8') > MAX_DAEMON_URL_BYTES ||
+    /[\p{Cc}\p{Cf}\s]/u.test(value)) return false;
+  let parsed: URL;
+  try { parsed = new URL(value); } catch { return false; }
+  return parsed.protocol === 'ws:' && parsed.hostname === '127.0.0.1' && parsed.port !== '' &&
+    !parsed.username && !parsed.password && !parsed.hash;
+}
+
 function isLoopTime(value: unknown): value is string {
   return typeof value === 'string' && !Number.isNaN(Date.parse(value)) &&
     new Date(value).toISOString() === value;
@@ -159,6 +172,8 @@ export interface ISupervisedSessionRow {
   readonly name?: string;
   readonly cwd?: string;
   readonly pr?: ISupervisedPr;
+  /** Present only when requested: the live owner reports itself as its workspace's daemon. */
+  readonly daemon?: true;
   /** Present only when requested and verified: the registration this row's actions must still address. */
   readonly generation?: string;
   /** Present only when requested: each external-event grant's label, state and counts. */
@@ -344,7 +359,8 @@ export async function listSupervisedSessions(
   signal?: AbortSignal,
   options: { readonly cwd?: string; readonly name?: string; readonly pr?: number;
     readonly includeName?: boolean; readonly includeCwd?: boolean; readonly includePr?: boolean;
-    readonly includeGeneration?: boolean; readonly includeExternalEvents?: boolean } = {},
+    readonly includeGeneration?: boolean; readonly includeExternalEvents?: boolean;
+    readonly includeDaemon?: boolean } = {},
 ): Promise<readonly ISupervisedSessionRow[]> {
   signal?.throwIfAborted();
   try {
@@ -397,6 +413,8 @@ export async function listSupervisedSessions(
           ...(options.includeCwd && cwd !== undefined ? { cwd } : {}),
           ...(options.includePr && pr !== undefined ? { pr } : {}),
           ...(options.includeGeneration ? { generation: record.generation } : {}),
+          ...(options.includeDaemon && 'daemon' in response && response.daemon === true
+            ? { daemon: true as const } : {}),
           ...(options.includeExternalEvents && 'externalEvents' in response
             ? optionalGrants(readList(response.externalEvents, readGrantSummary)) : {}),
           ...('activity' in response && response.activity === 'idle' &&
@@ -524,6 +542,24 @@ export async function getVerifiedSupervisedPr(
   if (!('pr' in response)) return undefined;
   if (!isSupervisedPr(response.pr)) throw new Error('Supervised session PR association was not verified.');
   return response.pr;
+}
+
+/**
+ * The WebSocket URL, token included, of a live daemon this user owns. Like every control action it
+ * is bound to the start the caller verified; a session that is not a daemon refuses.
+ */
+export async function connectSupervisedDaemon(
+  id: string,
+  root = resolveSupervisedDirectory(),
+  expectedGeneration?: string,
+): Promise<string> {
+  const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
+  const response = await request(directory, id, generation, 'connect');
+  if (!('status' in response) || response.status !== 'connected' || !('url' in response) ||
+    !isDaemonUrl(response.url)) {
+    throw new Error('Supervised session did not hand over a daemon connection.');
+  }
+  return response.url;
 }
 
 const ATTACH_REFUSALS: Readonly<Record<string, string>> = {
@@ -680,6 +716,12 @@ export interface ISupervisedExternalEvents {
   revoke(grantId: string): 'revoked' | 'unknown-grant';
 }
 
+/** A daemon's control hands its owner the URL its transport is served on. */
+export interface ISupervisedDaemon {
+  /** `undefined` until the transport is bound, or once the runtime is stopping. */
+  url(): string | undefined;
+}
+
 export interface ISupervisedControl {
   close(): Promise<void>;
 }
@@ -696,6 +738,7 @@ export async function startSupervisedControl(
   pr?: { readonly get: () => ISupervisedPr | undefined; readonly set: (value: ISupervisedPr | undefined) => void },
   externalEvents?: ISupervisedExternalEvents,
   attachSession?: IProtocolSession,
+  daemon?: ISupervisedDaemon,
 ): Promise<ISupervisedControl> {
   if (!ID_PATTERN.test(id)) throw new Error('Invalid supervised session ID.');
   ensurePrivateDirectory(root);
@@ -802,7 +845,16 @@ export async function startSupervisedControl(
           ...(isLoopTime(nextLoopAt) ? { nextLoopAt } : {}),
           ...(isSupervisedSessionName(name) ? { name } : {}),
           ...(isSupervisedPr(linkedPr) ? { pr: linkedPr } : {}),
-          ...(grants !== undefined && grants.length > 0 ? { externalEvents: grants } : {}) });
+          ...(grants !== undefined && grants.length > 0 ? { externalEvents: grants } : {}),
+          ...(daemon !== undefined ? { daemon: true } : {}) });
+      } else if (value.command === 'connect' && daemon !== undefined) {
+        let url: unknown;
+        try {
+          url = daemon.url();
+        } catch {
+          // A URL that cannot be read is never guessed.
+        }
+        reply(socket, isDaemonUrl(url) ? { status: 'connected', url } : { status: 'refused' });
       } else if (value.command === 'stop') {
         socket.once('finish', onStop);
         reply(socket, { status: 'stopping' });

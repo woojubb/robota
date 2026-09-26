@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
-  linkSupervisedPr, listSupervisedSessions, renameSupervisedSession, stopSupervisedSession, unlinkSupervisedPr,
+  connectSupervisedDaemon, linkSupervisedPr, listSupervisedSessions, renameSupervisedSession, stopSupervisedSession, unlinkSupervisedPr,
 } from '../supervised-session-control.js';
 import { launchSupervisedSession } from '../supervised-session-launch.js';
 
@@ -48,6 +48,36 @@ describe('detached supervised runtime', () => {
       expect(readFileSync(join(root, id, 'state.json'), 'utf8')).not.toContain(url);
       await unlinkSupervisedPr(id, root);
       expect(await listSupervisedSessions(root, undefined, { includePr: true, pr: 123 })).toEqual([]);
+      await stopSupervisedSession(id, root);
+    } finally {
+      if (id) {
+        try { await stopSupervisedSession(id, root); } catch { /* already stopped */ }
+      }
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  }, 60_000);
+
+  it('runs as a daemon that hands its owner the URL with the token its environment carried', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-daemon-'));
+    const root = join(scratch, 'supervised');
+    const token = 'd'.repeat(64);
+    let child: ChildProcess | undefined;
+    let id: string | undefined;
+    try {
+      id = await launchSupervisedSession(process.cwd(), {
+        entrypoint: fixture,
+        execArgs: ['--import', 'tsx', '--conditions=source'],
+        env: { ROBOTA_TEST_SUPERVISED_ROOT: root, ROBOTA_WS_TOKEN: token },
+        daemon: true,
+        onSpawn: (spawned) => { child = spawned; },
+      });
+      expect(child?.spawnargs).toContain('--daemon');
+      expect(child?.spawnargs.join(' ')).not.toContain(token);
+      expect(await listSupervisedSessions(root, undefined, { includeDaemon: true })).toEqual([{
+        id, liveness: 'alive', control: 'available',
+        activity: expect.stringMatching(/^(unknown|idle)$/), daemon: true,
+      }]);
+      expect(await connectSupervisedDaemon(id, root)).toBe(`ws://127.0.0.1:9?token=${token}`);
       await stopSupervisedSession(id, root);
     } finally {
       if (id) {

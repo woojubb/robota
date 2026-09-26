@@ -91,6 +91,11 @@ export async function launchSupervisedSession(
     /** Where the child's external-event endpoint listens; required with grants. */
     readonly eventEndpoint?: { readonly port: number; readonly trustedProxies?: readonly string[] };
     readonly root?: string;
+    /**
+     * Start this workspace's daemon: its control hands the owner the WebSocket URL. The caller
+     * puts the transport token in `env`, never on the command line.
+     */
+    readonly daemon?: boolean;
   } = {},
 ): Promise<string> {
   if (options.name !== undefined && !isSupervisedSessionName(options.name)) {
@@ -116,6 +121,7 @@ export async function launchSupervisedSession(
       ...execArgs, ...entryArgs, '--serve', '--supervised-session-id', id,
       ...(options.name === undefined ? [] : [`--name=${options.name}`]),
       ...(grants.length > 0 ? ['--supervised-external-event-grants'] : []),
+      ...(options.daemon === true ? ['--daemon'] : []),
       ...(grants.length > 0 && options.eventEndpoint !== undefined
         ? [
             `--external-event-port=${options.eventEndpoint.port}`,

@@ -2,14 +2,14 @@
  * #3186 — the seam between the GUI web app and whatever hosts it.
  *
  * The same build runs in the desktop app, in a browser tab the CLI serves (`robota --serve --open`),
- * and in the Vite dev server. The desktop app supervises a sidecar and hands the page its address
- * through the Electron preload bridge; a browser page finds the address in the page itself. Nothing
+ * and in the Vite dev server. The desktop app attaches to the workspace's robota daemon and hands the
+ * page its address through the Electron preload bridge; a browser page finds the address in the page itself. Nothing
  * else in the app knows which host it is in.
  */
 
 import { readInjectedWsUrl, resolveWsUrl } from './ws-url.js';
 
-/** Sidecar lifecycle as the desktop host reports it. A browser host has no process to report. */
+/** The runtime's state as the desktop host reports it. A browser host has no process to report. */
 export type TGuiHostState = 'starting' | 'ready' | 'fatal';
 
 /** What the Electron preload exposes as `window.agentGui` (apps/agent-app/electron/preload.ts). */
@@ -21,11 +21,11 @@ export interface IDesktopBridge {
 
 export interface IGuiHost {
   readonly kind: 'desktop' | 'browser';
-  /** The sidecar WebSocket URL, token included. */
+  /** The runtime's WebSocket URL, token included. */
   getEndpoint(): Promise<string | null>;
-  /** The session is live — the desktop host marks its sidecar ready. */
+  /** The session is live. */
   signalReady(): void;
-  /** `detail` accompanies `fatal`: what the sidecar said before it stopped, when it said anything. */
+  /** `detail` accompanies `fatal`: why the runtime could not be reached, when it said. */
   onState(listener: (state: TGuiHostState, detail?: string) => void): () => void;
 }
 

@@ -124,9 +124,12 @@ an attach begun from the view returns to it. It is one more surface
 under the session's ordinary co-drive and prompt rules, never an operator approver, so a supervised
 session still refuses every mesh connection that needs one. Detaching or crashing ends only that
 connection: a turn in progress runs on, a prompt no other surface can answer is denied, and a reader
-that stops reading is cut off instead of holding the session. Automatic restart is not offered, and
-the transport's per-launch authentication token is never exposed through the control endpoint or
-inventory.
+that stops reading is cut off instead of holding the session. Automatic restart is not offered.
+A workspace's daemon is such a session, marked so that a client in that workspace, the desktop app
+first, connects to the one already running instead of spawning a runtime of its own. The transport's
+per-launch authentication token is never exposed through the control endpoint or inventory, with one
+exception: a daemon, which receives it only through its environment, hands its connection URL to a
+caller that named its start, so the token leaves only as that URL and never in human-readable output.
 
 Observability has two independently gated paths. `usage export` is an explicit,
 local-only action over the same authorized stores as local usage reporting: its aggregate usage,
