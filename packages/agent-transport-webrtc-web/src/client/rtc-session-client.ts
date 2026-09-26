@@ -113,6 +113,12 @@ export function createRtcSessionClient(
   let everConnected = false; // a drop is only reconnectable after a first successful connect
   let reconnecting = false;
   let reconnectAttempts = 0;
+  /**
+   * Which reconnect loop is the live one. A loop that was succeeded — its connection accepted and
+   * then dropped again, starting another — may still be asleep in a room wait; on waking it must
+   * stop, not tear down the peer the newer loop is using.
+   */
+  let reconnectGeneration = 0;
   let reconnectCtx: {
     relayOrigin: string;
     hostIdentityId: string;
@@ -382,33 +388,37 @@ export function createRtcSessionClient(
    */
   async function startReconnect(): Promise<void> {
     if (!reconnectCtx || reconnecting) return;
+    const ctx = reconnectCtx;
     reconnecting = true;
-    while (reconnectAttempts < MAX_RECONNECT_ATTEMPTS && reconnecting) {
+    const generation = ++reconnectGeneration;
+    // Still this loop's turn: no accept ended it, and no newer loop or disconnect replaced it.
+    const live = (): boolean => reconnecting && generation === reconnectGeneration;
+    while (reconnectAttempts < MAX_RECONNECT_ATTEMPTS && live()) {
       reconnectAttempts += 1;
-      const cred = await options.deviceCredentials?.get(
-        reconnectCtx.relayOrigin,
-        reconnectCtx.hostIdentityId,
-      );
+      const cred = await options.deviceCredentials?.get(ctx.relayOrigin, ctx.hostIdentityId);
       const base = cred?.reconnectCounter ?? 0;
       for (const counter of [base, base + 1]) {
-        if (!reconnecting) return; // a parallel attempt already succeeded (onAccept cleared it)
+        if (!live()) return;
         activeReconnectCounter = counter;
         activeReconnectIdentity = {
-          deviceKeyPair: reconnectCtx.deviceKeyPair,
-          deviceId: reconnectCtx.deviceId,
+          deviceKeyPair: ctx.deviceKeyPair,
+          deviceId: ctx.deviceId,
           devicePublicSpki: '', // unused on reconnect (no enrollment)
           onEnrollHost: () => undefined,
           reconnect: {
-            hostIdentityId: reconnectCtx.hostIdentityId,
-            pinnedHostPublicKey: reconnectCtx.pinnedHostPublicKey,
+            hostIdentityId: ctx.hostIdentityId,
+            pinnedHostPublicKey: ctx.pinnedHostPublicKey,
           },
         };
+        const rendezvous = await deriveReconnectRendezvous(ctx.seed, counter);
+        if (!live()) return;
         teardownPeer();
-        connectAt(await deriveReconnectRendezvous(reconnectCtx.seed, counter));
+        connectAt(rendezvous);
         await new Promise((r) => setTimeout(r, options.reconnectRoomWaitMs ?? 4_000));
-        if (!reconnecting) return; // onAccept set reconnecting=false → success
+        if (!live()) return; // accepted (onAccept cleared `reconnecting`), or replaced
       }
     }
+    if (!live()) return;
     // Exhausted the window without a resume → surface failure (the operator re-pairs via QR).
     reconnecting = false;
     activeReconnectIdentity = null;
@@ -423,6 +433,7 @@ export function createRtcSessionClient(
     },
     disconnect(): void {
       reconnecting = false;
+      reconnectGeneration += 1;
       activeReconnectIdentity = null;
       teardownPeer();
       setStatus('disconnected');

@@ -251,7 +251,7 @@ describe('createRtcSessionClient (REMOTE-009 Step 2)', () => {
   });
 
   /** A device paired, enrolled and admitted once, so a drop reconnects warm. */
-  async function warmPaired() {
+  async function warmPaired(reconnectRoomWaitMs = 50) {
     const hostKey = await generateIdentityKeyPair(true);
     const hostSpki = await exportPublicKey(hostKey.publicKey);
     const saved = new Map<string, IDeviceCredential>();
@@ -270,7 +270,7 @@ describe('createRtcSessionClient (REMOTE-009 Step 2)', () => {
       startHandshake: hs.start,
       deviceCredentials,
       startReconnect,
-      reconnectRoomWaitMs: 50,
+      reconnectRoomWaitMs,
     });
 
     // First pairing, enrollment, then the host admits it.
@@ -326,6 +326,37 @@ describe('createRtcSessionClient (REMOTE-009 Step 2)', () => {
     expect(h.statuses.at(-1)).toBe('failed');
     h.client.disconnect();
   });
+
+  it('a drop during an older reconnect loop leaves one live loop, and the current peer survives', async () => {
+    const wait = 1_000;
+    const { h } = await warmPaired(wait);
+    const settle = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+    // Loop A reconnects, this side accepts, and A sleeps out its room wait.
+    h.drop('disconnected');
+    await vi.waitFor(() => expect(h.rooms).toHaveLength(2));
+    await h.open();
+    await vi.waitFor(() => expect(h.statuses.at(-1)).toBe('awaiting-approval'));
+    await settle(wait / 2);
+
+    // That link drops too: loop B starts and opens a room of its own.
+    h.drop('disconnected');
+    await vi.waitFor(() => expect(h.rooms).toHaveLength(3));
+    const current = h.peers[2]!.peer;
+
+    // A wakes while B is still waiting for its room: A must stop, not move on and replace B's peer.
+    await settle(wait / 2 + wait / 4);
+    expect(h.rooms).toHaveLength(3);
+    expect(current.close).not.toHaveBeenCalled();
+
+    // B's connection goes on and is admitted.
+    const second = await h.open();
+    await vi.waitFor(() => expect(h.statuses.at(-1)).toBe('awaiting-approval'));
+    second.deliver({ type: 'executing', executing: false });
+    expect(h.statuses.at(-1)).toBe('connected');
+    expect(current.close).not.toHaveBeenCalled();
+    h.client.disconnect();
+  }, 10_000);
 
   it('takes one offer per connection and ignores any later one', async () => {
     let onSignal: ((m: ISignalMessage) => void) | null = null;
