@@ -45,7 +45,7 @@ export interface IUsageSnapshot {
 }
 
 /** DATA-2577: one persisted, content-free observation for a started interactive turn. */
-export type TUsageSurface = 'cli' | 'desktop-app' | 'browser' | 'remote' | 'unknown';
+export type TUsageSurface = 'cli' | 'desktop-app' | 'browser' | 'remote' | 'attach' | 'unknown';
 
 /**
  * One model's part of a turn that ran on more than one model, so tokens and cost stay with the

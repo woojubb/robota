@@ -35,6 +35,12 @@ export const TUI_SESSION_EVENT_CLASSIFICATION = {
   ui_intent: 'react-side-effect',
   session_renamed: 'react-side-effect',
   history_cleared: 'channel',
+  // #3189: a host's session slot emits it on a switch; the TUI switches by remounting its own
+  // channel onto the next session, so it never follows a slot.
+  session_switched: 'non-surface',
+  // A host forwards it to attached clients as `session_status`; this channel owns its session and
+  // reads the status from it on each render.
+  status_changed: 'non-surface',
 } as const satisfies Record<TInteractiveEventName, TTuiSessionEventClassification>;
 
 export interface ITuiSessionEventNotice {

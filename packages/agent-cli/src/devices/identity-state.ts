@@ -121,7 +121,10 @@ export function readIdentityState(directory: string): IDeviceIdentityState | und
     masterPublicKey,
     userId,
     holdsSigningKey,
-    deviceCertificate: decoded(decodeDeviceCertificate(raw['deviceCertificate']), 'deviceCertificate'),
+    deviceCertificate: decoded(
+      decodeDeviceCertificate(raw['deviceCertificate']),
+      'deviceCertificate',
+    ),
     signingKeyCertificate: decoded(
       decodeSigningKeyCertificate(raw['signingKeyCertificate']),
       'signingKeyCertificate',
@@ -134,6 +137,23 @@ export function readIdentityState(directory: string): IDeviceIdentityState | und
     ),
     marks: decodeMarks(raw['marks']),
   };
+}
+
+/** The same identity state, i.e. nothing was issued in between. */
+export function sameIdentityState(
+  a: IDeviceIdentityState,
+  b: IDeviceIdentityState | undefined,
+): boolean {
+  return (
+    b !== undefined &&
+    a.masterPublicKey === b.masterPublicKey &&
+    a.signingKeyCertificate.sig === b.signingKeyCertificate.sig &&
+    a.deviceCertificate.sig === b.deviceCertificate.sig &&
+    a.roster.sig === b.roster.sig &&
+    a.revocation.sig === b.revocation.sig &&
+    a.signingKeyRevocation.sig === b.signingKeyRevocation.sig &&
+    a.holdsSigningKey === b.holdsSigningKey
+  );
 }
 
 /** Replace the stored state in one owner-only write. */

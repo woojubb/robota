@@ -1,13 +1,16 @@
 import type { ISubmitOptions, TDriverId } from './driver-contracts.js';
+import type { TWaitingLoopStopOutcome } from './session-loop-contracts.js';
 import type {
   IGoalState,
   IInteractiveSessionEvents,
+  ISessionStatusSnapshot,
   TInteractiveEventName,
   TPermissionResultValue,
 } from './session-event-map.js';
 import type { ITurnHandle } from './turn-contracts.js';
 import type {
   IContextWindowState,
+  IHistoryEntry,
   IToolSchema,
   IToolExecutionResult,
   TToolParameters,
@@ -17,10 +20,13 @@ import type {
 import type {
   ICommandListEntry,
   ICommandResult,
+  ICommandSkillListEntry,
   TCommandInvocationSource,
 } from '@robota-sdk/agent-interface-command';
 import type { ISubagentJobState } from '@robota-sdk/agent-interface-execution';
 import type {
+  IExecutionDetailCursor,
+  IExecutionDetailPage,
   IExecutionWorkspaceSnapshot,
   IExecutionWorkspaceSnapshotOptions,
 } from '@robota-sdk/agent-interface-execution';
@@ -78,6 +84,11 @@ export interface ISessionDriverAttribution {
 
 export interface ISessionConversationRead {
   getMessages(): TUniversalMessage[];
+  /**
+   * The session's whole recorded timeline: chat entries and the event entries recorded beside them.
+   * `getMessages()` is its chat entries alone; a client that renders the session reads this.
+   */
+  getFullHistory(): IHistoryEntry[];
   getContextState(): IContextWindowState;
 }
 
@@ -107,6 +118,14 @@ export interface ISessionCommands {
     originDriverId?: TDriverId,
   ): Promise<ICommandResult | null>;
   listCommands(): ICommandListEntry[];
+  /** The skills a client can offer beside the commands (`/<skill>` activates one). */
+  listSkills(): ICommandSkillListEntry[];
+}
+
+export type { ISessionStatusSnapshot } from './session-event-map.js';
+
+export interface ISessionStatusRead {
+  getStatusSnapshot(): ISessionStatusSnapshot;
 }
 
 export interface ISessionEvents {
@@ -146,6 +165,22 @@ export interface ISessionExecutionWorkspace {
   ): IExecutionWorkspaceSnapshot;
 }
 
+/** One page of what a workspace entry (the main thread, a task, a group) recorded. */
+export interface ISessionExecutionDetail {
+  readExecutionWorkspaceDetail(
+    entryId: string,
+    cursor?: IExecutionDetailCursor,
+  ): Promise<IExecutionDetailPage>;
+}
+
+/**
+ * Stopping the self-paced loop that is waiting for its next wake (Esc on an idle prompt). The session
+ * stops the one waiting loop; when several wait it stops none and says how to choose.
+ */
+export interface ISessionSelfPacedLoopControl {
+  stopWaitingSelfPacedLoop(reason?: string): Promise<TWaitingLoopStopOutcome>;
+}
+
 export interface ISessionAgentJobs {
   listAgentDefinitions(): Array<{ name: string; description: string }>;
   listAgentJobs(): ISubagentJobState[];
@@ -173,12 +208,15 @@ export interface ISessionCapabilityMap {
   identity: ISessionIdentity;
   workspaceLocation: ISessionWorkspaceLocation;
   commands: ISessionCommands;
+  statusRead: ISessionStatusRead;
   runtimeTools: ISessionRuntimeTools;
   events: ISessionEvents;
   promptResolution: ISessionPromptResolution;
   backgroundTasks: ISessionBackgroundTasks;
   backgroundGroups: ISessionBackgroundGroups;
   executionWorkspace: ISessionExecutionWorkspace;
+  executionDetail: ISessionExecutionDetail;
+  selfPacedLoopControl: ISessionSelfPacedLoopControl;
   agentJobs: ISessionAgentJobs;
 }
 
@@ -189,10 +227,11 @@ export const SESSION_CAPABILITY_MEMBER_KEYS = Object.freeze({
   goal: Object.freeze(['setGoal', 'getGoalState', 'cancelGoal'] as const),
   executionState: Object.freeze(['isExecuting', 'getPendingPrompt', 'getPendingCount'] as const),
   driverAttribution: Object.freeze(['getActiveDriverId'] as const),
-  conversationRead: Object.freeze(['getMessages', 'getContextState'] as const),
+  conversationRead: Object.freeze(['getMessages', 'getFullHistory', 'getContextState'] as const),
   identity: Object.freeze(['getSession'] as const),
   workspaceLocation: Object.freeze(['getCwd'] as const),
-  commands: Object.freeze(['executeCommand', 'listCommands'] as const),
+  commands: Object.freeze(['executeCommand', 'listCommands', 'listSkills'] as const),
+  statusRead: Object.freeze(['getStatusSnapshot'] as const),
   runtimeTools: Object.freeze(['listRuntimeTools', 'invokeRuntimeTool'] as const),
   events: Object.freeze(['on', 'off'] as const),
   promptResolution: Object.freeze(['resolvePermission', 'resolveAsk'] as const),
@@ -211,6 +250,8 @@ export const SESSION_CAPABILITY_MEMBER_KEYS = Object.freeze({
     'waitBackgroundJobGroup',
   ] as const),
   executionWorkspace: Object.freeze(['getExecutionWorkspaceSnapshot'] as const),
+  executionDetail: Object.freeze(['readExecutionWorkspaceDetail'] as const),
+  selfPacedLoopControl: Object.freeze(['stopWaitingSelfPacedLoop'] as const),
   agentJobs: Object.freeze([
     'listAgentDefinitions',
     'listAgentJobs',

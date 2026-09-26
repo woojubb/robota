@@ -110,6 +110,38 @@ describe('assembleOpenAICompatibleStream', () => {
     });
   });
 
+  it('surfaces prompt_tokens_details.cached_tokens from the final usage chunk as cacheReadTokens', async () => {
+    const result = await assembleOpenAICompatibleStream({
+      stream: asyncIterableFrom([
+        createChunk('Hi', 'stop'),
+        createUsageChunk({
+          prompt_tokens: 1000,
+          completion_tokens: 20,
+          total_tokens: 1020,
+          prompt_tokens_details: { cached_tokens: 800 },
+        }),
+      ]),
+    });
+
+    expect(readUsage(result)).toEqual({
+      promptTokens: 1000,
+      completionTokens: 20,
+      totalTokens: 1020,
+      cacheReadTokens: 800,
+    });
+  });
+
+  it('adds no cacheReadTokens when the usage chunk carries no cached-token details', async () => {
+    const result = await assembleOpenAICompatibleStream({
+      stream: asyncIterableFrom([
+        createChunk('Hi', 'stop'),
+        createUsageChunk({ prompt_tokens: 1000, completion_tokens: 20, total_tokens: 1020 }),
+      ]),
+    });
+
+    expect(readUsage(result)).not.toHaveProperty('cacheReadTokens');
+  });
+
   it('leaves usage absent when no usage chunk arrives', async () => {
     const result = await assembleOpenAICompatibleStream({
       stream: asyncIterableFrom([createChunk('Hi'), createChunk('', 'stop')]),

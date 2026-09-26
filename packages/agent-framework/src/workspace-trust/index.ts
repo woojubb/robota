@@ -16,6 +16,7 @@ export {
   assertWorkspaceProjectMutationForAuthority,
   createWorkspaceProjectMutation,
 } from './project-mutation.js';
+export { supportsWorkspaceProjectMutation } from './project-relative-writer.js';
 export { assertWorkspaceProjectReader } from './project-reader.js';
 export { inspectPreTrustProjectPaths } from './pretrust-contribution-inspector.js';
 export type {

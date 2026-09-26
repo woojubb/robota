@@ -38,7 +38,7 @@ import type {
   IPersonalUsageRequest,
   IUsageBySourceReport,
 } from '@robota-sdk/agent-session-analytics';
-import type { ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
+import type { IProtocolSession, ISessionMessageHandlerOptions } from '@robota-sdk/agent-transport';
 import { reportCurrentSessionUsage } from '../usage/session-usage-reporter.js';
 
 /**
@@ -72,6 +72,8 @@ export function createDefaultTransportRegistry(
   storedSessionUsageReporter?: (sessionId: string) => IUsageBySourceReport,
   driverId?: import('@robota-sdk/agent-interface-session').TDriverId,
   surface?: import('@robota-sdk/agent-interface-analytics').TUsageSurface,
+  /** #3189: binds each connection to the runtime's sessions, so a switch moves that connection alone. */
+  sessionBinder?: import('@robota-sdk/agent-interface-session').ISessionBinder<IProtocolSession>,
 ): {
   registry: TransportRegistry;
   wsTransport: WsTransport;
@@ -87,6 +89,9 @@ export function createDefaultTransportRegistry(
   // transport reject any unauthenticated connection before emitting session data. If absent,
   // WsTransport auto-mints a distinct authenticated launch token; neither token is persisted here.
   const wsToken = process.env['ROBOTA_WS_TOKEN'];
+  // The transport holds the token from here on. Left in the environment, every tool subprocess
+  // this runtime starts would inherit the credential that admits a WebSocket client.
+  delete process.env['ROBOTA_WS_TOKEN'];
   const wsPortRaw = process.env['ROBOTA_WS_PORT'];
   const wsPort = wsPortRaw ? Number.parseInt(wsPortRaw, 10) : undefined;
   const usageReporter = reportCurrentSessionUsage;
@@ -98,6 +103,7 @@ export function createDefaultTransportRegistry(
     ...(storedSessionUsageReporter ? { storedSessionUsageReporter } : {}),
     ...(driverId ? { driverId } : {}),
     ...(surface ? { surface } : {}),
+    ...(sessionBinder ? { sessionBinder } : {}),
     usageReporter,
   });
   let registered = false;

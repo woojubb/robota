@@ -120,14 +120,14 @@ describe('HTTP Transport Routes', () => {
   it('serves requests, a turn stream, and cancellation through only the declared port', async () => {
     const { session: full, startedTurns } = createHonestSession();
     const {
-      submit, on, off, abort, cancelQueue, getSession, executeCommand, listCommands,
-      getMessages, getContextState, isExecuting, getPendingPrompt, getPendingCount,
+      submit, on, off, abort, cancelQueue, getSession, executeCommand, listCommands, listSkills,
+      getMessages, getFullHistory, getContextState, isExecuting, getPendingPrompt, getPendingCount,
     } = full;
     const port: IHttpTransportSession = {
-      submit, on, off, abort, cancelQueue, getSession, executeCommand, listCommands,
-      getMessages, getContextState, isExecuting, getPendingPrompt, getPendingCount,
+      submit, on, off, abort, cancelQueue, getSession, executeCommand, listCommands, listSkills,
+      getMessages, getFullHistory, getContextState, isExecuting, getPendingPrompt, getPendingCount,
     };
-    expect(Object.keys(port)).toHaveLength(13);
+    expect(Object.keys(port)).toHaveLength(15);
     const transport = createHttpTransport({
       admission: { open: true, openReason: 'least-authority HTTP port scenario' },
     });

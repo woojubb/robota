@@ -6,14 +6,21 @@
  * `SessionResumeBridge` (REMOTE-013 E4 — a SINGLE subscription that outlives per-channel handlers).
  */
 
+import { holdOpenPrompts } from './open-prompts.js';
+
 import type { TOutboundDeliver } from './outbound-delivery.js';
 import type { IProtocolSession } from './protocol-session.js';
+import type { TWireExecutionResult } from './wire-messages.js';
 import type {
   IExecutionWorkspaceEvent,
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
 } from '@robota-sdk/agent-interface-execution';
-import type { TDriverId, TInteractiveEventName } from '@robota-sdk/agent-interface-session';
+import type {
+  TDriverId,
+  TInteractiveEventName,
+  TTurnSource,
+} from '@robota-sdk/agent-interface-session';
 import type {
   IAskRequestEvent,
   IBranchEvent,
@@ -23,6 +30,8 @@ import type {
   IPromptResolvedEvent,
   IPlanApprovalEvent,
   ISessionRenamedEvent,
+  ISessionStatusSnapshot,
+  ISessionSwitchedEvent,
   IToolState,
   IUiIntentEvent,
 } from '@robota-sdk/agent-interface-session';
@@ -37,17 +46,17 @@ export const PROTOCOL_SESSION_EVENT_CLASSIFICATION = {
   thinking: 'forwarded',
   complete: 'forwarded',
   error: 'forwarded',
-  context_update: 'non-surface',
-  compact: 'non-surface',
+  context_update: 'forwarded',
+  compact: 'forwarded',
   interrupted: 'forwarded',
-  skill_activation: 'non-surface',
+  skill_activation: 'forwarded',
   background_task_event: 'forwarded',
   background_job_group_event: 'forwarded',
   execution_workspace_event: 'forwarded',
   user_message: 'forwarded',
-  turn_source: 'non-surface',
+  turn_source: 'forwarded',
   context_file_refreshed: 'forwarded',
-  memory_event: 'non-surface',
+  memory_event: 'forwarded',
   goal_event: 'non-surface',
   plan_event: 'forwarded',
   branch_event: 'forwarded',
@@ -57,6 +66,8 @@ export const PROTOCOL_SESSION_EVENT_CLASSIFICATION = {
   ui_intent: 'requester-routed',
   session_renamed: 'forwarded',
   history_cleared: 'forwarded',
+  session_switched: 'forwarded',
+  status_changed: 'forwarded',
 } as const satisfies Record<TInteractiveEventName, TProtocolSessionEventClassification>;
 
 /**
@@ -72,6 +83,13 @@ export interface ISubscribeSessionEventsOptions {
    * requester-routed against it (lazy because the resume bridge binds the id only after pairing).
    */
   getSurfaceDriverId?: () => TDriverId | undefined;
+  /**
+   * `false` leaves `permission_request` and `ask_request` unsubscribed. The session parks a prompt
+   * only while someone listens for it, so a surface that may not answer must not listen: otherwise an
+   * unattended session would hold a prompt nobody can settle instead of failing it closed at once.
+   * Defaults to `true`.
+   */
+  receivePrompts?: boolean;
 }
 
 /**
@@ -89,8 +107,8 @@ export function subscribeSessionEvents(
 ): () => void {
   // ARCH-030: no local guard wrapper any more, and no event name passed alongside the message. The name
   // existed so the local guard could label a failure with it; the boundary labels with `message.type`,
-  // which is identical for every forwarded event (asserted in `session-event-delivery.test.ts`). Keeping
-  // the argument would have been a parameter that documents nothing and is read by nobody.
+  // the frame that could not be delivered. Keeping the argument would have been a parameter that
+  // documents nothing and is read by nobody.
   // REMOTE-014 E5: stamp the ACTIVE turn's driver id onto TURN-AUTHORED events (co-drive authorship,
   // display-only), read at emit time. Only these events — background/goal/memory/execution-workspace events
   // are NOT authored by a driver turn and carry no `driverId`. `undefined` when idle or unattributed.
@@ -109,9 +127,9 @@ export function subscribeSessionEvents(
   const onThinking = (isThinking: boolean): void =>
     deliver({ type: 'thinking', isThinking, ...attr() });
   const onComplete = (result: IExecutionResult): void =>
-    deliver({ type: 'complete', result, ...attr() });
+    deliver({ type: 'complete', result: withoutHistory(result), ...attr() });
   const onInterrupted = (result: IExecutionResult): void =>
-    deliver({ type: 'interrupted', result, ...attr() });
+    deliver({ type: 'interrupted', result: withoutHistory(result), ...attr() });
   const onError = (error: Error): void =>
     deliver({ type: 'error', message: error.message, ...attr() });
   const onBackgroundTaskEvent = (event: TBackgroundTaskEvent): void =>
@@ -129,11 +147,23 @@ export function subscribeSessionEvents(
   const onBranchEvent = (event: IBranchEvent): void => deliver({ type: 'branch_event', event });
   // REMOTE-007: forward the transport-neutral prompt events so a remote surface can render + answer the
   // SAME permission/ask prompt; `prompt_resolved` dismisses it when another surface answered first.
-  const onPermissionRequest = (event: IPermissionRequestEvent): void =>
-    deliver({ type: 'permission_request', event });
-  const onAskRequest = (event: IAskRequestEvent): void => deliver({ type: 'ask_request', event });
-  const onPromptResolved = (event: IPromptResolvedEvent): void =>
+  // #3189: kept while open, so a client that attaches later can ask for it with `get-prompts`.
+  const receivePrompts = options.receivePrompts ?? true;
+  const openPrompts = receivePrompts ? holdOpenPrompts(session) : undefined;
+  const onPermissionRequest = (event: IPermissionRequestEvent): void => {
+    const frame = { type: 'permission_request', event } as const;
+    openPrompts?.record(frame);
+    deliver(frame);
+  };
+  const onAskRequest = (event: IAskRequestEvent): void => {
+    const frame = { type: 'ask_request', event } as const;
+    openPrompts?.record(frame);
+    deliver(frame);
+  };
+  const onPromptResolved = (event: IPromptResolvedEvent): void => {
+    openPrompts?.forget(event.id);
     deliver({ type: 'prompt_resolved', event });
+  };
   // CMD-004 Stage D: `ui_intent` is REQUESTER-ROUTED — delivered only to the surface whose
   // server-assigned driver id issued the command. An UNATTRIBUTED intent (no requester id, e.g. an
   // idle model-invoked command) is unroutable and reaches every surface — never a silent drop.
@@ -151,6 +181,26 @@ export function subscribeSessionEvents(
   const onSessionRenamed = (event: ISessionRenamedEvent): void =>
     deliver({ type: 'session_renamed', event });
   const onHistoryCleared = (): void => deliver({ type: 'history_cleared' });
+  // #3189: this surface's session is now another one; it re-reads what it shows. Only surfaces
+  // subscribed to the session that moved hear it: a host that binds each connection to its own session
+  // sends it to the connection that switched, never to the others.
+  const onSessionSwitched = (event: ISessionSwitchedEvent): void => {
+    // This connection no longer answers the previous session's prompts; it reads the new session's anew.
+    openPrompts?.clear();
+    deliver({ type: 'session_switched', event });
+  };
+  // #3189: what a client that renders the whole session (the TUI) needs beside the streamed turn.
+  // The context window is pushed in the frame `get-context` answers with. A compaction, a skill
+  // activation or a memory event adds history entries no streamed frame carries, so the client is
+  // told the history changed and re-reads it with `get-history`; the entries themselves are not sent.
+  const onContextUpdate = (state: ReturnType<IProtocolSession['getContextState']>): void =>
+    deliver({ type: 'context', state });
+  const onHistoryChanged = (): void => deliver({ type: 'history_changed' });
+  const onTurnSource = (source: TTurnSource): void => deliver({ type: 'turn_source', source });
+  // One client's `/mode` or `/model` shows on every client on this session, in the frame
+  // `get-status` answers with.
+  const onStatusChanged = (status: ISessionStatusSnapshot): void =>
+    deliver({ type: 'session_status', status });
 
   session.on('user_message', onUserMessage);
   session.on('text_delta', onTextDelta);
@@ -166,12 +216,21 @@ export function subscribeSessionEvents(
   session.on('plan_event', onPlanEvent);
   session.on('context_file_refreshed', onContextFileRefreshed);
   session.on('branch_event', onBranchEvent);
-  session.on('permission_request', onPermissionRequest);
-  session.on('ask_request', onAskRequest);
+  if (receivePrompts) {
+    session.on('permission_request', onPermissionRequest);
+    session.on('ask_request', onAskRequest);
+  }
   session.on('prompt_resolved', onPromptResolved);
   session.on('ui_intent', onUiIntent);
   session.on('session_renamed', onSessionRenamed);
   session.on('history_cleared', onHistoryCleared);
+  session.on('session_switched', onSessionSwitched);
+  session.on('context_update', onContextUpdate);
+  session.on('compact', onHistoryChanged);
+  session.on('skill_activation', onHistoryChanged);
+  session.on('memory_event', onHistoryChanged);
+  session.on('turn_source', onTurnSource);
+  session.on('status_changed', onStatusChanged);
 
   return (): void => {
     session.off('user_message', onUserMessage);
@@ -188,11 +247,27 @@ export function subscribeSessionEvents(
     session.off('plan_event', onPlanEvent);
     session.off('context_file_refreshed', onContextFileRefreshed);
     session.off('branch_event', onBranchEvent);
-    session.off('permission_request', onPermissionRequest);
-    session.off('ask_request', onAskRequest);
+    if (receivePrompts) {
+      session.off('permission_request', onPermissionRequest);
+      session.off('ask_request', onAskRequest);
+    }
     session.off('prompt_resolved', onPromptResolved);
     session.off('ui_intent', onUiIntent);
     session.off('session_renamed', onSessionRenamed);
     session.off('history_cleared', onHistoryCleared);
+    session.off('session_switched', onSessionSwitched);
+    session.off('context_update', onContextUpdate);
+    session.off('compact', onHistoryChanged);
+    session.off('skill_activation', onHistoryChanged);
+    session.off('memory_event', onHistoryChanged);
+    session.off('turn_source', onTurnSource);
+    session.off('status_changed', onStatusChanged);
+    openPrompts?.release();
   };
+}
+
+/** The turn's result without the session's history: that only grows, and `get-history` pages it. */
+function withoutHistory(result: IExecutionResult): TWireExecutionResult {
+  const { history: _history, ...rest } = result;
+  return rest;
 }

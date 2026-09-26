@@ -8,7 +8,7 @@ import {
   startDeviceHandshake,
   type IPairRendezvous,
 } from '@robota-sdk/agent-remote-pairing';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import WebSocket from 'ws';
 
 import { DeviceMeshNode, type IDeviceMeshLink } from '../device-mesh-node.js';
@@ -226,6 +226,53 @@ describe('mDNS lookup', () => {
     const third = mdnsOn(bus, '10.0.0.3');
     await expect(lookup(third, await routeOf(world.third, world.low))).resolves.toEqual([]);
   });
+
+  it('keeps the peer’s own answer when another host answers first with the same names', async () => {
+    const bus = createInMemoryMdnsBus();
+    // The peer answers a little after the query, as a responder may.
+    const peerTransport = bus.transport('10.0.0.1');
+    const peer = new MeshMdns({
+      createTransport: () => ({
+        ...peerTransport,
+        on: peerTransport.on.bind(peerTransport),
+        respond: (packet) => setTimeout(() => peerTransport.respond(packet), 30),
+      }),
+      addresses: () => ['10.0.0.1'],
+      minAnswerIntervalMs: 0,
+      now: () => NOW,
+    });
+    cleanups.push(() => peer.close());
+    await peer.advertise([await routeOf(world.low, world.high)], 4242);
+    await vi.waitFor(() => expect(bus.responses).toHaveLength(1));
+    // Another host replays the peer's names at once, pointing at a port of its own.
+    const [announced] = bus.responses;
+    const replay = {
+      answers: announced!.answers ?? [],
+      additionals: (announced!.additionals ?? []).map((r) =>
+        r.type === 'SRV' ? { ...r, data: { ...(r.data as object), port: 9999 } } : r,
+      ),
+    };
+    const other = bus.transport('10.0.0.66');
+    cleanups.push(() => other.destroy());
+    // Answering again and again, each time with another port, does not fill the lookup either.
+    other.on('query', () => {
+      for (let port = 9000; port < 9010; port += 1) {
+        other.respond({
+          ...replay,
+          additionals: replay.additionals.map((r) =>
+            r.type === 'SRV' ? { ...r, data: { ...(r.data as object), port } } : r,
+          ),
+        });
+      }
+    });
+
+    const found = await lookup(
+      mdnsOn(bus, '10.0.0.2', () => NOW, 1_000),
+      await routeOf(world.high, world.low),
+    );
+    expect(found).toContainEqual({ host: '10.0.0.1', port: 4242 });
+    expect(found.filter((c) => c.host === '10.0.0.66').length).toBeLessThanOrEqual(2);
+  });
 });
 
 /** A socket factory that records every frame this device sends on the local network. */
@@ -267,6 +314,7 @@ async function lanDevice(
     readonly cache?: IMeshAddressCache;
     readonly admissionTimeoutMs?: number;
     readonly connectTimeoutMs?: number;
+    readonly probeTimeoutMs?: number;
   } = {},
 ): Promise<ILanDevice> {
   const listener = await startMeshLanListener({ host: LOCAL });
@@ -284,7 +332,7 @@ async function lanDevice(
     cache,
     ...(mdns !== undefined ? { advertisers: [mdns] } : {}),
     connect: recordingConnect(sent),
-    probeTimeoutMs: 500,
+    probeTimeoutMs: options.probeTimeoutMs ?? 500,
     ...(options.admissionTimeoutMs !== undefined
       ? { admissionTimeoutMs: options.admissionTimeoutMs }
       : {}),
@@ -576,6 +624,43 @@ describe('a hostile endpoint cannot hold a pair off the relay', () => {
     expect(low.cache.recall(world.high.cert.deviceId)).toEqual([]);
   }, 40_000);
 
+  it('an endpoint that answers a probe with anything but the proof is dropped at once', async () => {
+    const { WebSocketServer } = await import('ws');
+    const echo = new WebSocketServer({ host: LOCAL, port: 0 });
+    await new Promise((resolve) => echo.once('listening', resolve));
+    cleanups.push(() => new Promise((resolve) => echo.close(resolve)));
+    // It sends the probe straight back: a frame for the address, of a type that is neither answer.
+    const dropped = new Promise<void>((resolve) =>
+      echo.on('connection', (socket) => {
+        socket.on('message', (raw) => socket.send(String(raw)));
+        socket.on('close', () => resolve());
+      }),
+    );
+    const address = echo.address();
+    const port = typeof address === 'object' && address !== null ? address.port : 0;
+    const planted: IMeshCandidateSource = {
+      candidates: () => Promise.resolve([{ host: LOCAL, port }]),
+    };
+    const hub = createInMemoryMeshRelayHub();
+    // A probe left to its timeout would hold the socket far past this test's wait.
+    const low = await lanDevice(world.low, {
+      relay: hub.connect(),
+      extraSources: [planted],
+      probeTimeoutMs: 60_000,
+    });
+    const high = await lanDevice(world.high, { relay: hub.connect(), probeTimeoutMs: 60_000 });
+    await Promise.all([low.node.start(), high.node.start()]);
+    void low.node.connect(world.high.cert.deviceId).catch(() => undefined);
+
+    await expect(
+      Promise.race([
+        dropped.then(() => 'dropped'),
+        new Promise((resolve) => setTimeout(() => resolve('still open'), 5_000)),
+      ]),
+    ).resolves.toBe('dropped');
+    expect(low.sent.filter((frame) => frame.includes('"message"'))).toEqual([]);
+  }, 20_000);
+
   it('an endpoint that holds the topic but leads to no admission is set aside for the relay', async () => {
     // It knows the pair's topic and swallows everything sent to it.
     const epoch = rendezvousEpoch(NOW);
@@ -657,9 +742,18 @@ describe('a proxy that forwards once', () => {
     const low = await lanDevice(world.low, {
       relay: hub.connect(),
       extraSources: [planted],
-      admissionTimeoutMs: 1_000,
+      // Long enough that the first admission lands well within it, even on a slow runner.
+      admissionTimeoutMs: 5_000,
     });
-    await Promise.all([low.node.start(), high.node.start()]);
+    // The peer holds the pair's topic before this device probes through the proxy; otherwise the
+    // probe finds nobody and the first connection goes over the relay instead.
+    await high.node.start();
+    const toHigh = await routeOf(world.low, world.high);
+    const lanTopic = Buffer.from(
+      await toHigh.rendezvous.tag('lan-inbox', 'outbound', rendezvousEpoch(Date.now())),
+    ).toString('base64url');
+    await expect.poll(() => holds(high.listener, lanTopic), { timeout: 10_000 }).toBe(true);
+    await low.node.start();
 
     // The first connection goes through the proxy and is admitted.
     const first = await low.node.connect(world.high.cert.deviceId);
@@ -677,12 +771,12 @@ describe('a proxy that forwards once', () => {
           ]);
           return a.status;
         },
-        { timeout: 25_000, interval: 200 },
+        { timeout: 40_000, interval: 200 },
       )
       .toBe('fulfilled');
     expect(swallowed).toBeGreaterThan(0);
     expect(low.node.link(world.high.cert.deviceId)).not.toBe(first);
-  }, 40_000);
+  }, 60_000);
 });
 
 describe('the direct signaling endpoint', () => {

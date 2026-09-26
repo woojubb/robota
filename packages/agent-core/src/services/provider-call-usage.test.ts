@@ -28,4 +28,13 @@ describe('provider-reported usage verification', () => {
     expect(verifiedProviderCallUsage(message({}, { promptTokens: 0, completionTokens: 0, totalTokens: 0 }))).toEqual({ provenance: 'absent' });
     expect(verifiedProviderCallUsage(message({ usageProvenance: 'partial' }, { promptTokens: 1, completionTokens: 0, totalTokens: 1 }))).toEqual({ provenance: 'partial' });
   });
+
+  it('carries an attested cache read that is part of the prompt, and drops one that is not', () => {
+    expect(verifiedProviderCallUsage(message({ usageProvenance: 'complete' }, { promptTokens: 1000, completionTokens: 20, totalTokens: 1020, cacheReadTokens: 800 }))).toEqual({
+      provenance: 'complete', promptTokens: 1000, completionTokens: 20, totalTokens: 1020, cacheReadTokens: 800,
+    });
+    expect(verifiedProviderCallUsage(message({ usageProvenance: 'complete' }, { promptTokens: 10, completionTokens: 2, totalTokens: 12, cacheReadTokens: 11 }))).toEqual({
+      provenance: 'complete', promptTokens: 10, completionTokens: 2, totalTokens: 12,
+    });
+  });
 });

@@ -3,9 +3,15 @@ import type {
   IPersonalUsageRequest,
   IUsageBySourceReport,
 } from '@robota-sdk/agent-interface-analytics';
-import type { ICommandResult } from '@robota-sdk/agent-interface-command';
+import type {
+  ICommandListEntry,
+  ICommandResult,
+  ICommandSkillListEntry,
+} from '@robota-sdk/agent-interface-command';
 import type {
   IBackgroundJobGroupState,
+  IExecutionDetailCursor,
+  IExecutionDetailPage,
   IExecutionWorkspaceSnapshot,
   TBackgroundJobGroupEvent,
 } from '@robota-sdk/agent-interface-execution';
@@ -27,22 +33,67 @@ import type {
   IPlanApprovalEvent,
   ISessionRenamedEvent,
   IToolState,
+  ISessionListing,
+  ISessionStatusSnapshot,
+  ISessionSwitchedEvent,
+  TSessionChangeRefusalCode,
   IUiIntentEvent,
   TPermissionResultValue,
+  TWaitingLoopStopOutcome,
 } from '@robota-sdk/agent-interface-session';
-import type { ISessionConversationRead, TDriverId } from '@robota-sdk/agent-interface-session';
+import type {
+  ISessionConversationRead,
+  TDriverId,
+  TTurnSource,
+} from '@robota-sdk/agent-interface-session';
 import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
 
 export type TBackgroundControlAction = 'cancel' | 'close' | 'send';
 
+type THistoryEntry = ReturnType<ISessionConversationRead['getFullHistory']>[number];
+
+/**
+ * #3189: one entry of the session's full history as it crosses the wire. The same record the session
+ * keeps, except that `timestamp` is an ISO 8601 string: a `Date` does not survive JSON, and a
+ * declared `Date` that arrives as a string would let a client call `Date` methods on a string.
+ */
+export interface IWireHistoryEntry extends Omit<THistoryEntry, 'timestamp'> {
+  /** ISO 8601. */
+  timestamp: string;
+}
+
+/**
+ * #3189: a turn's result as it crosses the wire. The session's whole history stays behind: it only
+ * grows, so a client reads it in bounded pages with `get-history` instead.
+ */
+export type TWireExecutionResult = Omit<IExecutionResult, 'history'>;
+
 /** Inbound message from client to server. */
 export type TClientMessage =
   | { type: 'submit'; prompt: string }
-  | { type: 'command'; name: string; args?: string }
+  // `requestId` is echoed on the command's `command_result` or `protocol_error`, so a client with
+  // several commands in flight knows which one each answer settles.
+  | { type: 'command'; name: string; args?: string; requestId?: string }
   | { type: 'abort' }
   | { type: 'cancel-queue' }
   | { type: 'get-messages' }
+  // #3189: the session's full history — what a client that renders the whole session (the TUI) shows —
+  // one bounded page at a time, from `fromIndex` (default 0). The client asks for the next page
+  // after the previous one arrived, so replies never pile up in the connection.
+  | { type: 'get-history'; fromIndex?: number }
+  // #3189: the permission and ask prompts open now, each sent again as the frame that asked it: a
+  // client that attached after a prompt was asked has not seen it.
+  | { type: 'get-prompts' }
   | { type: 'get-context' }
+  // #3186: what every client needs beside the conversation — the commands and skills it can offer
+  // (a `/` menu), and the session's status (model, permission mode, effort, context).
+  | { type: 'get-commands' }
+  | { type: 'get-status' }
+  // #3189: the host's sessions — list them, start a new one, make another current. A refused change
+  // answers `session_change_failed` with the same `requestId`.
+  | { type: 'list-sessions'; requestId: string }
+  | { type: 'new-session'; requestId?: string }
+  | { type: 'switch-session'; sessionId: string; requestId?: string }
   // SELFHOST-004: request the assembled trace/cost read-model (spans + cost-by-source) for the run.
   | { type: 'get-usage-report' }
   | {
@@ -55,6 +106,16 @@ export type TClientMessage =
   | { type: 'get-executing' }
   | { type: 'get-pending' }
   | { type: 'get-execution-workspace' }
+  // One page of what a workspace entry recorded, from `cursor` (the previous page's `nextCursor`).
+  // Answered by `execution_detail` or `execution_detail_error` with the same `requestId`.
+  | {
+      type: 'read-execution-detail';
+      requestId: string;
+      entryId: string;
+      cursor?: IExecutionDetailCursor;
+    }
+  // Stop the self-paced loop that is waiting for its next wake; answered by `waiting_loop_stop`.
+  | { type: 'stop-waiting-loop'; requestId: string }
   | { type: 'get-background-tasks'; filter?: IBackgroundTaskListFilter }
   | { type: 'get-background-task'; taskId: string }
   | { type: 'get-background-job-groups' }
@@ -82,8 +143,8 @@ export type TServerMessage =
   | { type: 'tool_start'; state: IToolState; driverId?: TDriverId }
   | { type: 'tool_end'; state: IToolState; driverId?: TDriverId }
   | { type: 'thinking'; isThinking: boolean; driverId?: TDriverId }
-  | { type: 'complete'; result: IExecutionResult; driverId?: TDriverId }
-  | { type: 'interrupted'; result: IExecutionResult; driverId?: TDriverId }
+  | { type: 'complete'; result: TWireExecutionResult; driverId?: TDriverId }
+  | { type: 'interrupted'; result: TWireExecutionResult; driverId?: TDriverId }
   | { type: 'error'; message: string; driverId?: TDriverId }
   | {
       type: 'command_result';
@@ -91,9 +152,40 @@ export type TServerMessage =
       message: string;
       success: boolean;
       data?: ICommandResult['data'];
+      /** The `requestId` of the `command` this answers, when it carried one. */
+      requestId?: string;
     }
   | { type: 'messages'; messages: ReturnType<ISessionConversationRead['getMessages']> }
+  // #3189: one page of the full history. `entries` start at `startIndex` of the `total` the session
+  // holds now, and stop before a page grows past a bounded size (a single larger entry is sent alone).
+  | { type: 'history'; startIndex: number; total: number; entries: IWireHistoryEntry[] }
+  // Sent in reply to `get-context`, and pushed whenever the session's context window changes.
   | { type: 'context'; state: ReturnType<ISessionConversationRead['getContextState']> }
+  // #3189: the full history gained entries that no streamed frame carries (a compaction, a skill
+  // activation, a memory event). A client that shows the full history re-reads it with `get-history`.
+  | { type: 'history_changed' }
+  // #3189: where the turn now starting came from (the user, a wake-up, a peer, an external event).
+  | { type: 'turn_source'; source: TTurnSource }
+  | { type: 'commands'; commands: ICommandListEntry[]; skills: ICommandSkillListEntry[] }
+  // Sent in reply to `get-status`, and pushed whenever the session's status changes.
+  | { type: 'session_status'; status: ISessionStatusSnapshot }
+  | { type: 'sessions'; requestId: string; listing: ISessionListing }
+  | {
+      type: 'sessions_error';
+      requestId: string;
+      code: 'not_available' | 'list_failed';
+      message: string;
+    }
+  // This client's session is now another one; it re-reads what it shows. A host that binds each
+  // client to its own session sends it only to the client that moved.
+  | { type: 'session_switched'; event: ISessionSwitchedEvent }
+  // #3189: a new-session or switch-session was refused; `code` says why without parsing `message`.
+  | {
+      type: 'session_change_failed';
+      code: TSessionChangeRefusalCode;
+      message: string;
+      requestId?: string;
+    }
   // SELFHOST-004 (P5, TC-08): carry the assembled trace/cost read-model (per-op span timeline +
   // cost-by-source) across the sidecar boundary — no existing variant carries per-op `durationMs` or
   // per-source `costUsd`. The GUI renders it renderer-side.
@@ -119,8 +211,13 @@ export type TServerMessage =
       message: string;
     }
   | { type: 'executing'; executing: boolean }
-  | { type: 'pending'; pending: string | null }
+  // The next queued prompt and how many wait. Sent in reply to `get-pending`, and to a `submit` once
+  // the host has taken the prompt (queued it behind a running turn, or run it).
+  | { type: 'pending'; pending: string | null; pendingCount?: number }
   | { type: 'execution_workspace_event'; snapshot: IExecutionWorkspaceSnapshot }
+  | { type: 'execution_detail'; requestId: string; page: IExecutionDetailPage }
+  | { type: 'execution_detail_error'; requestId: string; message: string }
+  | { type: 'waiting_loop_stop'; requestId: string; outcome: TWaitingLoopStopOutcome }
   | { type: 'background_task_event'; event: TBackgroundTaskEvent }
   | { type: 'background_job_group_event'; event: TBackgroundJobGroupEvent }
   | { type: 'plan_event'; event: IPlanApprovalEvent }
@@ -151,7 +248,8 @@ export type TServerMessage =
       success: boolean;
       message?: string;
     }
-  | { type: 'protocol_error'; message: string }
+  // `requestId` names the `command` whose failure this reports; a refusal of anything else has none.
+  | { type: 'protocol_error'; message: string; requestId?: string }
   // REMOTE-013 E4: sent instead of a replay when the client's `lastSeq` predates the host's retained buffer
   // (overrun) — the client must do a full `get-messages` refresh rather than accept a silent gap.
   | { type: 'resume_gap' };

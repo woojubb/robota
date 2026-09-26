@@ -341,3 +341,125 @@ describe('PEER-006 — a session switch does not leak a listener', () => {
     expect(messages.join('\n')).toContain('would not release');
   });
 });
+
+describe('linked devices of the device mesh reach /peers and /handoff', () => {
+  const PRESENCE3 = {
+    sessionId: 'me',
+    guardedDirectory: '/tmp/does-not-matter',
+    list: () => [{ sessionId: 'me', liveness: 'alive' as const }],
+    listWithWorkspace: async () => [],
+    relate: async () => undefined,
+    refreshWorkspace: async () => {},
+    publishStatus: () => {},
+    withdraw: () => {},
+  };
+  const DEVICE = 'D'.repeat(43);
+
+  function fakeMesh() {
+    const bound: Record<string, unknown>[] = [];
+    return {
+      bound,
+      devices: () => [{ deviceId: DEVICE, name: 'desktop', locality: 'another-host' as const }],
+      isLinked: (id: string) => id === DEVICE,
+      send: vi.fn(async () => ({ id: 'm', sequence: 1, state: 'pending' as const })),
+      sendFile: vi.fn(async () => ({ state: 'delivered' as const })),
+      handoff: vi.fn(),
+      bind: (binding: Record<string, unknown>) => bound.push(binding),
+    };
+  }
+
+  const HANDOFF = {
+    sessionStore: {
+      load: () => ({ status: 'missing' }),
+      save: () => {},
+      list: () => [],
+      delete: () => {},
+    },
+    hasOwnProvider: () => true,
+    onHandedOff: () => {},
+  } as never;
+
+  it('lists linked devices and sends to one over the mesh', async () => {
+    const adapters: ICommandHostAdapters = {};
+    const mesh = fakeMesh();
+    attachHostAdapters(adapters, CONTROLLER, reporter(), () => PRESENCE3, undefined, mesh);
+
+    expect(adapters.localPeers?.listDevices?.()).toEqual(mesh.devices());
+    await expect(adapters.localPeers?.send?.(DEVICE, 'hi', { inReplyTo: 'm-0' })).resolves.toEqual({
+      state: 'pending',
+    });
+    expect(mesh.send).toHaveBeenCalledWith(DEVICE, 'hi', { inReplyTo: 'm-0' });
+  });
+
+  it('sends a file to a linked device over the mesh', async () => {
+    const adapters: ICommandHostAdapters = {};
+    const mesh = fakeMesh();
+    attachHostAdapters(adapters, CONTROLLER, reporter(), () => PRESENCE3, undefined, mesh);
+    const workspace = mkdtempSync(join(tmpdir(), 'mesh-file-'));
+    try {
+      writeFileSync(join(workspace, 'a.txt'), 'abc');
+      const prepared = await adapters.localPeers?.prepareFile?.(DEVICE, 'a.txt', {
+        origin: 'operator',
+        cwd: workspace,
+      });
+      if (prepared?.ok !== true) throw new Error('not prepared');
+      await expect(prepared.file.send()).resolves.toEqual({ state: 'delivered' });
+      expect(mesh.sendFile).toHaveBeenCalledTimes(1);
+    } finally {
+      rmSync(workspace, { recursive: true, force: true });
+    }
+  });
+
+  it('lists linked devices as /handoff destinations', async () => {
+    const adapters: ICommandHostAdapters = {};
+    const mesh = fakeMesh();
+    attachHostAdapters(adapters, CONTROLLER, reporter(), () => PRESENCE3, HANDOFF, mesh);
+    await expect(adapters.handoff?.destinations()).resolves.toEqual([
+      { deviceId: DEVICE, name: 'desktop, another of your devices' },
+    ]);
+  });
+
+  it('still lists and reaches linked devices when local peer discovery fails', async () => {
+    const adapters: ICommandHostAdapters = {};
+    const mesh = fakeMesh();
+    const report = reporter();
+    const start = attachHostAdapters(
+      adapters,
+      CONTROLLER,
+      report,
+      () => {
+        throw new Error('the rendezvous directory was not admitted');
+      },
+      HANDOFF,
+      mesh,
+    );
+
+    expect(report.said.join(' ')).toContain('not admitted');
+    expect(adapters.localPeers?.list()).toEqual([]);
+    expect(adapters.localPeers?.localDiscoveryOff).toContain('not admitted');
+    expect(adapters.localPeers?.listDevices?.()).toEqual(mesh.devices());
+    await expect(adapters.localPeers?.send?.(DEVICE, 'hi')).resolves.toEqual({ state: 'pending' });
+    await expect(adapters.handoff?.destinations()).resolves.toEqual([
+      { deviceId: DEVICE, name: 'desktop, another of your devices' },
+    ]);
+    start({ getSession: () => ({ submit: async () => ({}) }) as never });
+    const keys = mesh.bound.flatMap((binding) => Object.keys(binding)).sort();
+    expect(keys).toEqual(['handoff', 'ingress']);
+  });
+
+  it('gives the mesh the live session and the hand-off receiver', () => {
+    const adapters: ICommandHostAdapters = {};
+    const mesh = fakeMesh();
+    const start = attachHostAdapters(
+      adapters,
+      CONTROLLER,
+      reporter(),
+      () => PRESENCE3,
+      HANDOFF,
+      mesh,
+    );
+    start({ getSession: () => ({ submit: async () => ({}) }) as never });
+    const keys = mesh.bound.flatMap((binding) => Object.keys(binding)).sort();
+    expect(keys).toEqual(['handoff', 'ingress']);
+  });
+});

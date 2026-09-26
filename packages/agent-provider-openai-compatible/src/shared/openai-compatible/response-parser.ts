@@ -2,6 +2,8 @@ import { randomUUID } from 'node:crypto';
 
 import { SilentLogger } from '@robota-sdk/agent-core';
 
+import { parseChatCompletionUsage } from './chat-completion-usage';
+
 import type {
   IOpenAICompatibleToolCallTextProjector,
   IOpenAICompatibleToolCallTextProjection,
@@ -66,7 +68,7 @@ export class OpenAICompatibleResponseParser {
       ),
       timestamp: new Date(),
       ...(toolCalls.length > 0 && { toolCalls }),
-      ...(usage && { usage: this.parseUsage(usage) }),
+      ...(usage && { usage: parseChatCompletionUsage(usage) }),
       metadata: {
         finishReason: choice.finish_reason || undefined,
         ...(usage && {
@@ -95,21 +97,9 @@ export class OpenAICompatibleResponseParser {
     );
   }
 
-  private parseUsage(usage: OpenAI.CompletionUsage): {
-    promptTokens: number;
-    completionTokens: number;
-    totalTokens: number;
-  } {
-    return {
-      promptTokens: usage.prompt_tokens,
-      completionTokens: usage.completion_tokens,
-      totalTokens: usage.total_tokens,
-    };
-  }
-
   parseStreamingChunk(chunk: OpenAI.Chat.ChatCompletionChunk): TUniversalMessage | null {
     try {
-      const usage = chunk.usage ? this.parseUsage(chunk.usage) : undefined;
+      const usage = chunk.usage ? parseChatCompletionUsage(chunk.usage) : undefined;
       const choice = chunk.choices?.[0];
       if (!choice) {
         // Final usage chunk (choices: []) when stream_options.include_usage is set.

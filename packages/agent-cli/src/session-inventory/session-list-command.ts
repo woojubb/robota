@@ -164,7 +164,10 @@ export async function runSessionListCommand(
   }
   let supervised: { status: 'available' | 'unavailable'; sessions: Awaited<ReturnType<typeof listSupervisedSessions>> };
   try {
-    supervised = { status: 'available', sessions: await listSupervisedSessions() };
+    supervised = {
+      status: 'available',
+      sessions: await listSupervisedSessions(undefined, undefined, { includeExternalEvents: true }),
+    };
   } catch {
     supervised = { status: 'unavailable', sessions: [] };
   }

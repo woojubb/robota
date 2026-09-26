@@ -89,6 +89,10 @@ robota "prompt"               # REPL with initial prompt
 robota -p "List all files"    # Print mode (one-shot, exit after response)
 ```
 
+Loaded as a library (`startCli`), the package is ESM-only: use `import` or `import()`. It has no
+`require()` entry, because the Ink TUI it bundles loads `yoga-layout`, which starts with a top-level
+`await` that `require()` cannot run.
+
 ### Environment Variables
 
 | Variable            | Description                                              | Provider  |
@@ -114,7 +118,7 @@ pnpm build
 ```
 
 `pnpm build` runs each package's own build in dependency order. The CLI build runs `tsdown` and then
-copies the web monitor (`agent-cli-web/dist`) into `dist/web`. To see the published tarball, run
+copies the GUI web app (`agent-gui-web/dist`) into `dist/web`. To see the published tarball, run
 `pnpm --filter @robota-sdk/agent-cli pack`.
 
 Standalone Bun binaries are written to `dist-bun` (`pnpm --filter @robota-sdk/agent-cli build:bun`) and

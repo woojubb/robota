@@ -138,16 +138,21 @@ describe('rendezvous records', () => {
     // No key or salt repeats: each direction and each epoch has its own.
     expect(new Set(items.map((i) => hex(i.k))).size).toBe(items.length);
     expect(new Set(items.map((i) => hex(i.salt!))).size).toBe(items.length);
-    const wire = items
-      .map((i) => `${hex(i.k)}${hex(i.salt!)}${Buffer.from(i.v).toString('latin1')}`)
+    // Every field as the bytes it carries, where a plaintext value would read as itself.
+    const plain = items
+      .map((i) => [i.k, i.salt!, i.v].map((b) => Buffer.from(b).toString('latin1')).join('\n'))
       .join('\n');
+    // And the key and salt as hex too, where an id or a topic written as hex would show.
+    const wire = `${plain}\n${items.map((i) => `${hex(i.k)}\n${hex(i.salt!)}`).join('\n')}`;
     for (const value of identifying()) expect(wire).not.toContain(value);
     for (const route of [lowToHigh, highToLow]) {
       expect(wire).not.toContain(route.inbound);
       expect(wire).not.toContain(route.outbound);
     }
-    expect(wire).not.toContain(LOCAL);
-    expect(wire).not.toContain('4242');
+    expect(plain).not.toContain(LOCAL);
+    // The port as the hints encode it. Only the bytes are searched: four digits turn up in random
+    // hex by chance, and a port written into a field shows in its bytes.
+    expect(plain).not.toContain('4242');
     // Hints are one size whatever they hold.
     const hintSizes = new Set(items.filter((i) => i.v.length < 700).map((i) => i.v.length));
     expect([...hintSizes]).toEqual([HINTS_PADDED_BYTES + 28]);
@@ -177,6 +182,68 @@ describe('rendezvous records', () => {
     await expect(
       third.candidates(await routeOf(world.third, world.high), never()),
     ).resolves.toEqual([]);
+  });
+
+  it("carry the device's relay endpoints to each paired device, and to no one else", async () => {
+    const network = createInMemoryItemNetwork();
+    const relayEndpoint = { host: '198.51.100.7', port: 3478 };
+    const highDht = dhtOn(network, { now: () => NOW, relayEndpoints: () => [relayEndpoint] });
+    await highDht.advertise([await routeOf(world.high, world.low)], 4343);
+    await vi.waitFor(() => expect(network.items().length).toBeGreaterThan(0));
+    // Hints are one size whether or not they carry a relay.
+    expect(new Set(network.items().map((i) => i.v.length))).toEqual(
+      new Set([HINTS_PADDED_BYTES + 28]),
+    );
+
+    const lowDht = dhtOn(network, { now: () => NOW });
+    const found = await lowDht.relayAdverts([await routeOf(world.low, world.high)], never());
+    expect([...found.entries()]).toEqual([[world.high.cert.deviceId, [relayEndpoint]]]);
+    // The relay's address is not an address of its signaling endpoint.
+    await expect(lowDht.candidates(await routeOf(world.low, world.high), never())).resolves.toEqual(
+      [{ host: LOCAL, port: 4343 }],
+    );
+
+    // A device high published nothing for learns of no relay.
+    const thirdDht = dhtOn(network, { now: () => NOW });
+    expect(
+      (await thirdDht.relayAdverts([await routeOf(world.third, world.high)], never())).size,
+    ).toBe(0);
+  });
+
+  it('a relay lookup is not repeated on every attempt: found or not, the answer is kept a while', async () => {
+    const network = createInMemoryItemNetwork();
+    const inner = network.store();
+    let reads = 0;
+    const counting: IRendezvousItemStore = {
+      put: (...args) => inner.put(...args),
+      get: (...args) => {
+        reads += 1;
+        return inner.get(...args);
+      },
+      close: () => inner.close(),
+    };
+    let now = NOW;
+    const lowDht = dhtOn(network, { now: () => now, stores: [counting] });
+    const toHigh = [await routeOf(world.low, world.high)];
+
+    expect((await lowDht.relayAdverts(toHigh, never())).size).toBe(0);
+    const afterFirst = reads;
+    expect(afterFirst).toBeGreaterThan(0);
+    expect((await lowDht.relayAdverts(toHigh, never())).size).toBe(0);
+    expect(reads).toBe(afterFirst);
+
+    // "No relay" is checked again after a while: the peer may have started one since.
+    const highDht = dhtOn(network, {
+      now: () => now,
+      relayEndpoints: () => [{ host: '198.51.100.7', port: 3478 }],
+    });
+    await highDht.advertise([await routeOf(world.high, world.low)], 4343);
+    await vi.waitFor(() => expect(network.items().length).toBeGreaterThan(0));
+    now += 3 * 60 * 1000;
+    expect((await lowDht.relayAdverts(toHigh, never())).size).toBe(1);
+    const afterFound = reads;
+    expect((await lowDht.relayAdverts(toHigh, never())).size).toBe(1);
+    expect(reads).toBe(afterFound);
   });
 
   it('a tampered record, one signed by another key, or another pair’s record is rejected', async () => {
@@ -317,6 +384,95 @@ describe('rendezvous records', () => {
           .map((i) => i.v.length),
       ).size,
     ).toBe(1);
+  });
+
+  it('a paired device that publishes many lists cannot crowd out the one another device published', async () => {
+    const networks = Array.from({ length: 6 }, () => createInMemoryItemNetwork());
+    const genuine = await world.revoking(world.third);
+    const toLowFromHigh = await routeOf(world.high, world.low);
+    const toLowFromThird = await routeOf(world.third, world.low);
+    const highDht = new MeshDht({
+      stores: networks.map((n) => n.store()),
+      addresses: () => [LOCAL],
+      maxPublishJitterMs: 0,
+      now: () => NOW,
+      lists: () => ({ revocation: genuine }),
+    });
+    cleanups.push(() => highDht.close());
+    await highDht.advertise([toLowFromHigh], 4343);
+    // `third` publishes a different list claiming a higher seq to every store, in every epoch read.
+    let forged = 0;
+    for (const skew of [-1, 0, 1]) {
+      for (const network of networks) {
+        forged += 1;
+        const claim = { ...genuine, seq: Number.MAX_SAFE_INTEGER - forged };
+        const dht = dhtOn(network, {
+          now: () => NOW + skew * RENDEZVOUS_EPOCH_MS,
+          lists: () => ({ revocation: claim }),
+        });
+        await dht.advertise([toLowFromThird], 4444);
+      }
+    }
+    // Hints and one list chunk per store from high, and per store and epoch from third.
+    await vi.waitFor(() =>
+      expect(networks.reduce((n, net) => n + net.items().length, 0)).toBe(12 + 36),
+    );
+    const lowDht = new MeshDht({
+      stores: networks.map((n) => n.store()),
+      addresses: () => [LOCAL],
+      maxPublishJitterMs: 0,
+      now: () => NOW,
+    });
+    cleanups.push(() => lowDht.close());
+    await lowDht.advertise(
+      [await routeOf(world.low, world.high), await routeOf(world.low, world.third)],
+      4242,
+    );
+
+    const found = await lowDht.latestLists(never());
+    expect(found?.revocation).toContainEqual(JSON.parse(JSON.stringify(genuine)));
+  });
+
+  it('a read that finds the chunks of two versions of a list yields no list', async () => {
+    const ids = (fill: number): string[] =>
+      Array.from({ length: 40 }, (_, i) => Buffer.alloc(32, fill + i).toString('base64url'));
+    const older = await issueDeviceRevocationList({
+      signingKey: world.signingKey,
+      seq: 12,
+      issuedAt: NOW,
+      revokedDeviceIds: ids(1),
+    });
+    const newer = await issueDeviceRevocationList({
+      signingKey: world.signingKey,
+      seq: 13,
+      issuedAt: NOW,
+      revokedDeviceIds: ids(101),
+    });
+    const toLow = await routeOf(world.high, world.low);
+    const before = createInMemoryItemNetwork();
+    const after = createInMemoryItemNetwork();
+    await dhtOn(before, { now: () => NOW, lists: () => ({ revocation: older }) }).advertise(
+      [toLow],
+      4343,
+    );
+    await dhtOn(after, { now: () => NOW, lists: () => ({ revocation: newer }) }).advertise(
+      [toLow],
+      4343,
+    );
+    await vi.waitFor(() => {
+      expect(before.items().length).toBeGreaterThan(2);
+      expect(after.items()).toHaveLength(before.items().length);
+    });
+    // The first chunk is already the newer version's; the others are still the older one's.
+    const first = await itemAddress(toLow.rendezvous, 'revocation', 'outbound', EPOCH, 0);
+    const firstKey = hex(first.key.publicKey);
+    before.serve((item) =>
+      hex(item.k) === firstKey ? after.items().find((i) => hex(i.k) === firstKey) : item,
+    );
+    const lowDht = dhtOn(before, { now: () => NOW });
+    await lowDht.advertise([await routeOf(world.low, world.high)], 4242);
+
+    await expect(lowDht.latestLists(never())).resolves.toBeUndefined();
   });
 });
 

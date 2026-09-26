@@ -28,7 +28,8 @@
           "default": "./dist/node/index.cjs"
         }
       }
-    }
+    },
+    "./package.json": "./package.json"
   },
   "repository": {
     "type": "git",
@@ -85,7 +86,7 @@
   "author": "Robota SDK Team",
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=22.12.0"
   },
   "dependencies": {
     "@robota-sdk/agent-core": "workspace:*",

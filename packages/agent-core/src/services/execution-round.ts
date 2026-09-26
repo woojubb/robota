@@ -202,8 +202,8 @@ export async function executeRound(
     return true;
   }
 
-  const usageMetadata = executionUsage.collectAssistantUsageMetadata(assistantResponse);
-  const inputTokens = usageMetadata?.inputTokens ?? 0;
+  const usageMetadata = executionUsage.collectCommittedUsageMetadata(assistantResponse);
+  const inputTokens = usageMetadata.inputTokens ?? 0;
 
   if (inputTokens > 0) {
     roundState.cumulativeInputTokens = inputTokens;
@@ -220,7 +220,7 @@ export async function executeRound(
     executionId,
     providerId: routeProvider(route, resolved),
     modelId: routeModel(route, resolved.aiProviderInfo.model),
-    ...(usageMetadata ?? {}),
+    ...usageMetadata,
   });
   const committedAssistantMessage = conversationStore.getMessages().at(-1);
   fullContext.onExecutionEvent?.('assistant_message_committed', {

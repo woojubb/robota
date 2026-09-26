@@ -36,6 +36,7 @@ function createMockSession(overrides: Partial<IInteractiveSession> = {}): IInter
     isExecuting: vi.fn().mockReturnValue(false),
     getPendingPrompt: vi.fn().mockReturnValue(null),
     getMessages: vi.fn().mockReturnValue([]),
+    getFullHistory: vi.fn().mockReturnValue([]),
     getContextState: vi.fn().mockReturnValue({
       usedPercentage: 0,
       usedTokens: 0,
@@ -46,6 +47,15 @@ function createMockSession(overrides: Partial<IInteractiveSession> = {}): IInter
     getCwd: vi.fn().mockReturnValue('/tmp'),
     executeCommand: vi.fn().mockResolvedValue(null),
     listCommands: vi.fn().mockReturnValue([] as ICommandListEntry[]),
+    listSkills: vi.fn().mockReturnValue([]),
+    getStatusSnapshot: vi.fn().mockReturnValue({
+      sessionId: 'test-session',
+      model: 'test-model',
+      permissionMode: 'default',
+      effort: 'auto',
+      context: { usedPercentage: 0, usedTokens: 0, maxTokens: 0, remainingPercentage: 100 },
+      goal: null,
+    }),
     on: vi.fn((event: TInteractiveEventName, handler: Handler) => {
       if (!listeners[event]) listeners[event] = [];
       listeners[event]!.push(handler);
@@ -81,6 +91,8 @@ function createMockSession(overrides: Partial<IInteractiveSession> = {}): IInter
     createBackgroundJobGroup: vi.fn().mockReturnValue({ groupId: 'g1', jobs: [] }),
     waitBackgroundJobGroup: vi.fn().mockResolvedValue({ groupId: 'g1', jobs: [] }),
     getExecutionWorkspaceSnapshot: vi.fn().mockReturnValue({ files: [] }),
+    readExecutionWorkspaceDetail: vi.fn().mockResolvedValue({ items: [] }),
+    stopWaitingSelfPacedLoop: vi.fn().mockResolvedValue({ kind: 'none' }),
     listAgentDefinitions: vi.fn().mockReturnValue([]),
     listAgentJobs: vi.fn().mockReturnValue([]),
     spawnAgentJob: vi.fn().mockResolvedValue({ jobId: 'j1' }),
@@ -155,8 +167,8 @@ describe('createInteractiveRuntime', () => {
 
   it('Given commands registered When started Then channel receives available commands', async () => {
     vi.mocked(session.listCommands).mockReturnValue([
-      { name: 'help', description: 'Show help', modelInvocable: true },
-      { name: 'exit', description: 'Exit', modelInvocable: true },
+      { name: 'help', description: 'Show help', modelInvocable: true, runner: 'runtime' },
+      { name: 'exit', description: 'Exit', modelInvocable: true, runner: 'runtime' },
     ]);
 
     const runtime = createInteractiveRuntime({

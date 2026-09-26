@@ -37,6 +37,16 @@ export interface IParsedCliArgs {
   serve: boolean;
   /** Internal opt-in identity for one detached, supervisor-owned runtime. */
   supervisedSessionId?: string;
+  /** Supervised child only: read the external-event grants its launcher handed over. */
+  supervisedExternalEventGrants?: boolean;
+  /** Supervised child only: this runtime is its workspace's daemon and hands its WS URL to its owner. */
+  daemon?: boolean;
+  /** TUI only: files, each one external-event grant verified by access token. */
+  externalEventGrantFiles?: string[];
+  /** The loopback port the external-event endpoint listens on, behind the owner's proxy. */
+  externalEventPort?: number;
+  /** Proxy addresses whose `X-Forwarded-For` the external-event endpoint believes. */
+  externalEventTrustedProxies?: string[];
   /** MCP-2533: selecting HTTP also requires an exclusive owner-only token file. */
   mcpHttpTokenFile?: string;
   mcpHttpPort?: number;
@@ -47,8 +57,6 @@ export interface IParsedCliArgs {
   mcpOauthScopes?: string[];
   mcpOauthAllowedSubjects?: string[];
   mcpTrustedProxies?: string[];
-  /** Explicit TUI-only MCP source/sender grants; each value is serverId:senderId. */
-  externalEventAllow?: string[];
   /** GUI-007: with `--serve --open`, also serve the CLI's web monitor SPA over localhost and open it. */
   open: boolean;
   continueMode: boolean;
@@ -186,6 +194,11 @@ const PARSE_ARGS_CONFIG = {
     'safe-mode': { type: 'boolean', default: false },
     serve: { type: 'boolean', default: false },
     'supervised-session-id': { type: 'string' },
+    'supervised-external-event-grants': { type: 'boolean' },
+    daemon: { type: 'boolean' },
+    'external-event-grant': { type: 'string', multiple: true },
+    'external-event-port': { type: 'string' },
+    'external-event-trusted-proxy': { type: 'string', multiple: true },
     'http-token-file': { type: 'string' },
     'http-port': { type: 'string' },
     'http-host': { type: 'string' },
@@ -194,6 +207,7 @@ const PARSE_ARGS_CONFIG = {
     'oauth-scopes': { type: 'string' },
     'oauth-allowed-subjects': { type: 'string' },
     'trusted-proxy': { type: 'string', multiple: true },
+    // Retired: parsed only so it is refused with a reason instead of as an unknown flag.
     'external-event-allow': { type: 'string', multiple: true },
     open: { type: 'boolean', default: false },
     name: { type: 'string', short: 'n' },
@@ -289,6 +303,14 @@ function resolveReducedMotionArgs(values: TParsedArgValues): Pick<IParsedCliArgs
   return { reducedMotion };
 }
 
+function parseEventPort(raw: string): number {
+  const port = Number(raw);
+  if (!/^[0-9]+$/u.test(raw) || !Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('--external-event-port must be an integer in 1..65535');
+  }
+  return port;
+}
+
 function mapParsedValues(
   values: TParsedArgValues,
   positionals: string[],
@@ -299,6 +321,17 @@ function mapParsedValues(
     printMode: values['p'] ?? false,
     serve: values['serve'] ?? false,
     supervisedSessionId: values['supervised-session-id'],
+    ...(values['supervised-external-event-grants'] === true
+      ? { supervisedExternalEventGrants: true }
+      : {}),
+    ...(values['daemon'] === true ? { daemon: true } : {}),
+    externalEventGrantFiles: values['external-event-grant'] ?? [],
+    ...(values['external-event-port'] !== undefined
+      ? { externalEventPort: parseEventPort(values['external-event-port']) }
+      : {}),
+    ...(values['external-event-trusted-proxy'] !== undefined
+      ? { externalEventTrustedProxies: values['external-event-trusted-proxy'] }
+      : {}),
     mcpHttpTokenFile: values['http-token-file'],
     mcpHttpPort: values['http-port'] === undefined ? undefined : Number(values['http-port']),
     mcpHttpHost: values['http-host'],
@@ -307,7 +340,6 @@ function mapParsedValues(
     mcpOauthScopes: parseToolList(values['oauth-scopes']),
     mcpOauthAllowedSubjects: parseToolList(values['oauth-allowed-subjects']),
     mcpTrustedProxies: values['trusted-proxy'],
-    externalEventAllow: values['external-event-allow'] ?? [],
     open: values['open'] ?? false,
     continueMode: values['continue'] ?? false,
     resumeId: values['resume'],
@@ -361,6 +393,13 @@ function mapParsedValues(
 
 export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
   const { values, positionals } = parseArgs({ ...PARSE_ARGS_CONFIG, args: argv });
+  if (values['external-event-allow'] !== undefined) {
+    throw new Error(
+      '--external-event-allow was retired: a sender name does not prove who sent an event. ' +
+        'External events are admitted only by a grant whose access token the session verifies ' +
+        '(--external-event-grant <file>).',
+    );
+  }
   const args: IParsedCliArgs = {
     ...mapParsedValues(values, positionals),
     ...resolveMemoryArgs(values),
@@ -383,31 +422,15 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
       throw new Error('--supervised-session-id requires --serve and a valid generated UUID');
     }
   }
-  const externalEventAllow = args.externalEventAllow ?? [];
-  for (const grant of externalEventAllow) {
-    const separator = grant.indexOf(':');
-    const serverId = grant.slice(0, separator);
-    const senderId = grant.slice(separator + 1);
-    if (
-      separator < 1 ||
-      !/^[a-zA-Z0-9_-]{1,64}$/u.test(serverId) ||
-      senderId.length === 0 ||
-      senderId.length > 128
-    ) {
-      throw new Error(
-        '--external-event-allow requires serverId:senderId (bounded, non-empty identities)',
-      );
-    }
-    for (const character of senderId) {
-      const code = character.codePointAt(0)!;
-      if (code < 32 || code === 127 || (code >= 0xd800 && code <= 0xdfff)) {
-        throw new Error('--external-event-allow senderId contains a control character');
-      }
-    }
+  if (args.supervisedExternalEventGrants === true && args.supervisedSessionId === undefined) {
+    throw new Error('--supervised-external-event-grants is set only by a supervised launch');
   }
-  if (
-    externalEventAllow.length > 0 &&
-    (args.printMode ||
+  if (args.daemon === true && args.supervisedSessionId === undefined) {
+    throw new Error('--daemon is set only by a supervised launch; start one with `robota daemon start`');
+  }
+  if ((args.externalEventGrantFiles?.length ?? 0) > 0) {
+    if (
+      args.printMode ||
       args.goal !== undefined ||
       args.serve ||
       args.reset ||
@@ -416,12 +439,31 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
       args.version ||
       args.checkUpdate ||
       args.help ||
-      ['mcp', 'eval', 'session', 'user-local'].includes(args.positional[0] ?? ''))
-  ) {
-    throw new Error('--external-event-allow is currently available only in interactive TUI mode');
+      ['mcp', 'eval', 'session', 'user-local'].includes(args.positional[0] ?? '')
+    ) {
+      throw new Error(
+        '--external-event-grant is available only in the interactive TUI; ' +
+          'a background session takes it on `robota session start --background`',
+      );
+    }
+    if (args.permissionMode === 'bypassPermissions') {
+      throw new Error('--external-event-grant cannot run with bypassPermissions');
+    }
   }
-  if (externalEventAllow.length > 0 && args.permissionMode === 'bypassPermissions') {
-    throw new Error('--external-event-allow cannot run with bypassPermissions');
+  const hasGrants =
+    (args.externalEventGrantFiles?.length ?? 0) > 0 || args.supervisedExternalEventGrants === true;
+  if (
+    !hasGrants &&
+    (args.externalEventPort !== undefined || args.externalEventTrustedProxies !== undefined)
+  ) {
+    throw new Error(
+      '--external-event-port and --external-event-trusted-proxy go only with external event grants',
+    );
+  }
+  if (hasGrants && args.externalEventPort === undefined) {
+    throw new Error(
+      '--external-event-grant needs --external-event-port: the loopback port the owner\'s proxy forwards to',
+    );
   }
   if (args.printMode) {
     if (args.resumeId === '') {

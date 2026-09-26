@@ -142,17 +142,24 @@ These are behaviors a caller cannot infer from a type signature alone.
   events, and any attached surface settles them through one shared registry. The first settlement
   wins and emits exactly one resolution event — there is no second settlement path. A callback that
   rejects must resolve to deny/cancel, never leave the request open.
-- **External events require separate source and sender admission.** Opening a source does not itself
-  authorize turns: a trusted adapter must authenticate the sender, and the session checks that sender
-  against a source-specific allowlist before it can submit through the ordinary turn queue; an
+- **An external event's sender is the grant its verified access token matched.** Opening a grant does
+  not itself authorize turns: each event must present a bearer access token that the grant's own
+  verifier admits, and the grant pins exactly one principal, so the grant is the sender. The session
+  builds that verifier from the grant with the one factory its host gave it when the session was
+  built, so opening a grant cannot bring a verifier that checks someone else. Revoking a grant stops its pending turns and refuses its later events for the
+  life of the session, and says so only to a caller whose token the grant's verifier admits: anyone
+  else is refused exactly as a live grant would refuse them. Nothing the
+  carrier or the payload says is identity; a display name in the payload is shown as claimed and never
+  attributed. A token is spent on one event. Refusals and audit records use the closed refusal words
+  and carry no content, and a refused event never reaches the queue, history or the model; an
   untrusted submission can never claim another conversation's reserved identity. The model receives
   only an escaped, bounded envelope — file-reference shorthand in external text stays literal and
   never reads local context. An admitted external turn is text-only for model-generated actions: it
   does not expose local tool schemas, and a provider tool call it produces is rejected before
   execution. External admission is mutually exclusive with `bypassPermissions` throughout active and
   already-admitted work. Each accepted event settles from its own turn handle, and an interrupted
-  result never becomes a successful reply. This does not sandbox trusted hooks/plugins or
-  authenticate a platform sender by itself, and it is not a remote permission-approval channel.
+  result never becomes a successful reply. This does not sandbox trusted hooks/plugins or prove which
+  person inside a platform wrote an event, and it is not a remote permission-approval channel.
 - **A peer's message is instant messaging, and carries no authority.** Text from another session is
   an opinion from an untrusted third party, not the owner's prompt: it expands no file references,
   attaches no context reference, and reaches the model marked as a peer's with a per-turn system
@@ -167,9 +174,16 @@ These are behaviors a caller cannot infer from a type signature alone.
   never the recipient, and a message naming a sender other than the admitted one is refused. Such a
   turn cannot send files; outside one, the model sends a file only through a tool that asks the owner
   about every file, a question no mode, rule or remembered consent answers.
-- **Automatic session naming is text-only.** The title-generation call — whether triggered by an
-  operator message or the first external event — always disables tool use, so hosted web tools can
-  never be invoked merely to generate a title.
+- **The session names itself once, and only with text.** When its host turns naming on, the session
+  titles itself after the first turn that runs, from that turn's own message and with the provider it
+  is using then, so every client sees the same name whichever one drove the turn. A failed turn or a
+  failed title does not use up the naming, so one bad first turn cannot leave a session unnamed for
+  good; once named, it is never renamed. A name it already has is kept, and a rename made while the
+  title is generated wins. The title-generation call always disables tool use, so hosted web tools
+  can never be invoked merely to generate a title.
+- **Status changes are pushed.** A status change made through any client reaches every client on
+  the session. Context usage is not part of that: it moves every turn and
+  is reported on its own, so counting it would push a status after every turn with nothing changed.
 - **Hook executor registration is replace-vs-extend, and the built-ins are seeded first.** The core
   hook runner resolves `executors ?? createDefaultExecutors()` — an _undefined-only_ fallback, so
   supplying any executor array at all replaces the built-in `command`/`http` executors rather than

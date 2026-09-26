@@ -79,8 +79,11 @@ export {
   type IDeviceListEntry,
   type IDevicesCommandPort,
   type IDevicesInitResult,
+  type IDevicesAddResult,
+  type IDevicesJoinResult,
   type IDevicesRecoverResult,
   type IDevicesRevokeResult,
+  type IDevicesMeshStatus,
   type IDevicesView,
   type TDevicesOutcome,
   type TDevicesRefusal,
@@ -146,4 +149,9 @@ export * from './session/index.js';
 export * from './settings/index.js';
 export * from './skills/index.js';
 export * from './statusline/index.js';
+export {
+  createTerminalClientCommands,
+  type ITerminalClientCommand,
+  type ITerminalClientCommandOptions,
+} from './terminal-client/index.js';
 export * from './user-local/index.js';

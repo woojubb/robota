@@ -35,6 +35,8 @@ interface IProps {
   activeAgentLabel?: string;
   activePresetId?: string;
   effort?: TModelEffortSelection;
+  /** This terminal only observes the session. */
+  readOnly?: boolean;
 }
 
 interface IStatusLeftProps {
@@ -53,7 +55,11 @@ interface IStatusLeftProps {
   showGitBranch: boolean;
   activePresetId?: string;
   effort?: TModelEffortSelection;
+  readOnly: boolean;
 }
+
+/** What an observing terminal shows first on its status line. */
+export const READ_ONLY_STATUS = 'Observing — read only';
 
 /** Return the color for the context percentage indicator */
 function getContextColor(percentage: number, palette: IThemeColors): string {
@@ -100,6 +106,15 @@ function ContextText({
     <Text color={getContextColor(percentage, palette)}>
       Context: {Math.round(percentage)}% ({formatTokenCount(usedTokens)}/
       {formatTokenCount(maxTokens)} tokens)
+    </Text>
+  );
+}
+
+export function ReadOnlyText(): React.ReactElement {
+  const palette = usePalette();
+  return (
+    <Text color={palette.text.warning} bold>
+      {READ_ONLY_STATUS}
     </Text>
   );
 }
@@ -183,6 +198,13 @@ function StatusLeft(props: IStatusLeftProps): React.ReactElement {
   const showActivePreset = shouldShowActivePreset(activePresetId);
   return (
     <Text>
+      {props.readOnly && (
+        <>
+          <ReadOnlyText />
+          {/* In screen-reader mode the next field brings its own separator. */}
+          {!screenReader && SEP}
+        </>
+      )}
       {!screenReader && (
         <StatusActivityText
           isThinking={props.isThinking}
@@ -253,6 +275,7 @@ export default function StatusBar({
   activeAgentLabel,
   activePresetId,
   effort,
+  readOnly = false,
 }: IProps): React.ReactElement {
   const palette = usePalette();
   return (
@@ -273,6 +296,7 @@ export default function StatusBar({
         showGitBranch={showGitBranch}
         activePresetId={activePresetId}
         effort={effort}
+        readOnly={readOnly}
       />
       {activeAgentLabel !== undefined && (
         <Text color={palette.text.warning} bold>

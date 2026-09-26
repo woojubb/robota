@@ -5,9 +5,12 @@ import type {
   ISessionConversationRead,
   ISessionDriverAttribution,
   ISessionEvents,
+  ISessionExecutionDetail,
   ISessionExecutionState,
   ISessionExecutionWorkspace,
   ISessionPromptResolution,
+  ISessionSelfPacedLoopControl,
+  ISessionStatusRead,
   ISessionTurnControl,
   ISessionTurnSubmission,
 } from '@robota-sdk/agent-interface-session';
@@ -18,6 +21,7 @@ export interface IProtocolSession
     ISessionTurnSubmission,
     ISessionTurnControl,
     ISessionCommands,
+    ISessionStatusRead,
     ISessionEvents,
     ISessionPromptResolution,
     ISessionConversationRead,
@@ -25,4 +29,6 @@ export interface IProtocolSession
     ISessionDriverAttribution,
     ISessionBackgroundTasks,
     ISessionBackgroundGroups,
-    ISessionExecutionWorkspace {}
+    ISessionExecutionWorkspace,
+    ISessionExecutionDetail,
+    ISessionSelfPacedLoopControl {}

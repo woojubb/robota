@@ -16,6 +16,7 @@ import {
   getWorkspaceProjectIdentity,
   getWorkspaceProjectReader,
   getWorkspaceProjectStateStorage,
+  supportsWorkspaceProjectMutation,
 } from '@robota-sdk/agent-framework';
 
 import type {
@@ -41,6 +42,8 @@ export interface ICreateCliWorkspaceCompositionOptions {
   readonly projectSettingsWriter?: IWorkspaceProjectSettingsWriter;
   /** `--safe-mode`: no skills, commands or agents from any scope, the user's included. */
   readonly safeMode?: boolean;
+  /** The host platform, which decides whether a trusted workspace's state can live in it. */
+  readonly platform?: NodeJS.Platform;
 }
 
 export interface ICliWorkspaceComposition {
@@ -50,6 +53,9 @@ export interface ICliWorkspaceComposition {
   readonly settingsSources: readonly TSettingsSource[];
   readonly settingsStores: readonly ISettingsDocumentStore[];
   readonly sessionStore: IInteractiveSessionStore;
+  /** Where `sessionStore` keeps records: the trusted project, or the user's own store. */
+  readonly sessionStoreScope: 'project' | 'user';
+  /** Absent when the workspace is Restricted, or its host cannot write project memory safely. */
   readonly memoryStore?: IMemoryStore;
 }
 
@@ -133,11 +139,47 @@ function createTrustedCliWorkspaceComposition(
       ),
     ],
     settingsStores,
+    ...trustedSessionStore(authority, options),
+    ...trustedMemoryStore(authority, options),
+  };
+}
+
+/**
+ * Project memory is shared through the repository, so moving it to the user's own store would split
+ * it from what the project keeps; where a host cannot prove a project write stays under the trusted
+ * root, the workspace gets no memory store and memory reports itself off.
+ */
+function trustedMemoryStore(
+  authority: ITrustedWorkspaceProjectAccess['authority'],
+  options: ICreateCliWorkspaceCompositionOptions,
+): Pick<ICliWorkspaceComposition, 'memoryStore'> {
+  if (!supportsWorkspaceProjectMutation(options.platform)) return {};
+  return {
+    memoryStore: createWorkspaceMemoryStore(getWorkspaceProjectStateStorage(authority, 'memory')),
+  };
+}
+
+/**
+ * Where a host cannot prove a project write stays under the trusted root, the project store would
+ * refuse every save; the workspace's sessions go to the user's store instead, where listing finds
+ * them by their working directory. Nothing is written under the project root either way.
+ */
+function trustedSessionStore(
+  authority: ITrustedWorkspaceProjectAccess['authority'],
+  options: ICreateCliWorkspaceCompositionOptions,
+): Pick<ICliWorkspaceComposition, 'sessionStore' | 'sessionStoreScope'> {
+  if (!supportsWorkspaceProjectMutation(options.platform)) {
+    return {
+      sessionStore: createUserSessionStore(userPaths(options.userHome).sessions),
+      sessionStoreScope: 'user',
+    };
+  }
+  return {
     sessionStore: createProjectSessionStore(
       getWorkspaceProjectStateStorage(authority, 'sessions'),
       getWorkspaceProjectStateStorage(authority, 'session-logs'),
     ),
-    memoryStore: createWorkspaceMemoryStore(getWorkspaceProjectStateStorage(authority, 'memory')),
+    sessionStoreScope: 'project',
   };
 }
 
@@ -193,6 +235,7 @@ export function createCliWorkspaceComposition(
       settingsSources: createRobotaUserSettingsSources(options.userHome),
       settingsStores: [userSettingsStore],
       sessionStore: createUserSessionStore(userPaths(options.userHome).sessions),
+      sessionStoreScope: 'user',
     };
   }
 

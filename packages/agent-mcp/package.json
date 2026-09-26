@@ -28,10 +28,15 @@
           "default": "./dist/node/index.cjs"
         }
       }
-    }
+    },
+    "./package.json": "./package.json"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "rimraf dist && tsdown",
@@ -52,8 +57,7 @@
     "@robota-sdk/agent-core": "workspace:*"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "zod": "^3.25.76"
+    "@modelcontextprotocol/sdk": "^1.29.0"
   },
   "devDependencies": {
     "@robota-sdk/agent-core": "workspace:*",

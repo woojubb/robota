@@ -12,9 +12,19 @@ import {
   handleBackgroundControlMessage,
   handleBackgroundQueryMessage,
 } from './background-messages.js';
+import { handleLoopControlMessage, isLoopControlMessage } from './loop-control-messages.js';
 import { parseClientMessage } from './message-parser.js';
+import { isObserverMessageType } from './observer-messages.js';
+import {
+  handleSessionDirectoryMessage,
+  isSessionDirectoryMessage,
+} from './session-directory-messages.js';
 import { subscribeSessionEvents } from './session-events.js';
-import { handleSessionQueryMessage, isSessionQueryMessage } from './session-query-messages.js';
+import {
+  handleSessionQueryMessage,
+  isSessionQueryMessage,
+  pendingFrame,
+} from './session-query-messages.js';
 import { handleUsageQueryMessage } from './usage-messages.js';
 
 import type { TOutboundDeliver } from './outbound-delivery.js';
@@ -22,13 +32,20 @@ import type { IProtocolSession } from './protocol-session.js';
 import type { IUsageQueryReporters } from './usage-messages.js';
 import type { TClientMessage } from './wire-messages.js';
 import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
-import type { TDriverId } from '@robota-sdk/agent-interface-session';
+import type { ISessionDirectory, TDriverId } from '@robota-sdk/agent-interface-session';
 
 // Outbound session→TServerMessage fan-out (incl. CMD-004 requester-routed `ui_intent`) lives in
 // `session-events.ts`; re-exported here for the bridge and existing importers.
 export { subscribeSessionEvents } from './session-events.js';
 export type { ISubscribeSessionEventsOptions } from './session-events.js';
 export { parseClientMessage } from './message-parser.js';
+
+/**
+ * What a connected surface may do. `drive` sends prompts, answers questions and controls the session.
+ * `observe` is read-only: it follows this session's conversation and state, but never submits, answers,
+ * controls, or reads another session's records, and it never counts as a surface that can answer.
+ */
+export type TSessionSurfaceRole = 'drive' | 'observe';
 
 export interface ISessionMessageHandlerOptions {
   /** IProtocolSession to expose. */
@@ -49,12 +66,16 @@ export interface ISessionMessageHandlerOptions {
   driverId?: TDriverId;
   /** Trusted carrier-owned product surface, kept separate from driver identity. */
   surface?: TUsageSurface;
+  /** Carrier-decided role of this connection; defaults to `drive`. The client never chooses it here. */
+  role?: TSessionSurfaceRole;
   /** Host-owned cross-session read model. The protocol only correlates and carries its result. */
   personalUsageReporter?: NonNullable<IUsageQueryReporters['personalUsageReporter']>;
   /** Host-owned current-session trace/cost producer for the pre-existing message family. */
   usageReporter?: NonNullable<IUsageQueryReporters['usageReporter']>;
   /** Host-owned stored-session producer used by cross-session drill-down. */
   storedSessionUsageReporter?: NonNullable<IUsageQueryReporters['storedSessionUsageReporter']>;
+  /** Host-owned session directory (#3189): list, start and switch the host's sessions. */
+  sessionDirectory?: ISessionDirectory;
 }
 
 /**
@@ -80,8 +101,10 @@ export function createSessionMessageHandler(options: ISessionMessageHandlerOptio
   onMessage: (data: string) => void;
   cleanup: () => void;
 } {
+  const role = options.role ?? 'drive';
   const cleanup = subscribeSessionEvents(options.session, options.deliver, {
     getSurfaceDriverId: () => options.driverId,
+    receivePrompts: role === 'drive',
   });
   const onMessage = createMessageHandler(
     options.session,
@@ -93,6 +116,8 @@ export function createSessionMessageHandler(options: ISessionMessageHandlerOptio
       storedSessionUsageReporter: options.storedSessionUsageReporter,
     },
     options.surface,
+    role,
+    options.sessionDirectory,
   );
 
   return { onMessage, cleanup };
@@ -104,11 +129,17 @@ function createMessageHandler(
   driverId?: TDriverId,
   reporters: IUsageQueryReporters = EMPTY_USAGE_REPORTERS,
   surface?: TUsageSurface,
+  role: TSessionSurfaceRole = 'drive',
+  sessionDirectory?: ISessionDirectory,
 ): (data: string) => void {
   return (data: string): void => {
     const msg = parseClientMessage(data, deliver);
     if (!msg) return;
-    handleClientMessage(session, deliver, msg, driverId, reporters, surface);
+    if (role === 'observe' && !isObserverMessageType(msg.type)) {
+      deliver({ type: 'protocol_error', message: `Not permitted for an observer: ${msg.type}` });
+      return;
+    }
+    handleClientMessage(session, deliver, msg, driverId, reporters, surface, sessionDirectory);
   };
 }
 
@@ -129,12 +160,21 @@ export function handleClientMessage(
   driverId?: TDriverId,
   reporters: IUsageQueryReporters = EMPTY_USAGE_REPORTERS,
   surface?: TUsageSurface,
+  sessionDirectory?: ISessionDirectory,
 ): void {
   if (handleUsageQueryMessage(session, deliver, msg, reporters)) {
     return;
   }
+  if (isSessionDirectoryMessage(msg)) {
+    handleSessionDirectoryMessage(deliver, msg, sessionDirectory);
+    return;
+  }
   if (isSessionControlMessage(msg)) {
     handleSessionControlMessage(session, deliver, msg, driverId, surface);
+    return;
+  }
+  if (isLoopControlMessage(msg)) {
+    handleLoopControlMessage(session, deliver, msg);
     return;
   }
   if (isSessionQueryMessage(msg)) {
@@ -250,12 +290,16 @@ function handleSessionControlMessage(
         undefined,
         Object.keys(submitOptions).length > 0 ? submitOptions : undefined,
       )
-      .catch((error: Error) => {
-        deliver({ type: 'protocol_error', message: error.message });
-      });
+      .then(
+        // #3189: a prompt submitted during a turn resolves once it is queued. A `get-pending` sent
+        // beside the `submit` would be answered before that, so the queue is reported from here.
+        () => deliver(pendingFrame(session)),
+        (error: Error) => deliver({ type: 'protocol_error', message: error.message }),
+      );
   } else if (msg.type === 'command') {
+    const request = msg.requestId !== undefined ? { requestId: msg.requestId } : {};
     if (!msg.name) {
-      deliver({ type: 'protocol_error', message: 'name is required' });
+      deliver({ type: 'protocol_error', message: 'name is required', ...request });
       return;
     }
     // REMOTE-003: a transport-origin command is tagged `'remote'` (optional policy, allow-by-default;
@@ -268,10 +312,11 @@ function handleSessionControlMessage(
           message: result?.message ?? `Unknown command: ${msg.name}`,
           success: result?.success ?? false,
           data: result?.data,
+          ...request,
         });
       },
       (error: Error) => {
-        deliver({ type: 'protocol_error', message: error.message });
+        deliver({ type: 'protocol_error', message: error.message, ...request });
       },
     );
   } else if (msg.type === 'abort') {

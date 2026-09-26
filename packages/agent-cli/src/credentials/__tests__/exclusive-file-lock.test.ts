@@ -1,10 +1,19 @@
-import { existsSync, mkdtempSync, realpathSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  unlinkSync,
+  utimesSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { withExclusiveFileLock } from '../exclusive-file-lock.js';
+import { holdExclusiveFileLock, withExclusiveFileLock } from '../exclusive-file-lock.js';
 
 let dir: string;
 let lockPath: string;
@@ -68,5 +77,35 @@ describe('withExclusiveFileLock', () => {
       withExclusiveFileLock(lockPath, async () => 'ran', { timeoutMs: 60, pollMs: 10 }),
     ).rejects.toThrow(/timed out/);
     expect(existsSync(lockPath)).toBe(true);
+  });
+});
+
+describe('holdExclusiveFileLock — a holder that lost its lock', () => {
+  it('is told once when another holder took the lock over, and leaves that lock alone', async () => {
+    const lost = vi.fn();
+    const lock = await holdExclusiveFileLock(lockPath, { staleMs: 150, onLost: lost });
+    // What a takeover leaves after this holder stalled past the stale window (e.g. a sleeping machine).
+    writeFileSync(lockPath, 'the-holder-that-took-over');
+    await vi.waitFor(() => expect(lost).toHaveBeenCalledTimes(1), { timeout: 2_000 });
+    await new Promise((resolve) => setTimeout(resolve, 200));
+    expect(lost).toHaveBeenCalledTimes(1);
+    lock.release();
+    expect(readFileSync(lockPath, 'utf8')).toBe('the-holder-that-took-over');
+  });
+
+  it('is told when its lock is gone', async () => {
+    const lost = vi.fn();
+    const lock = await holdExclusiveFileLock(lockPath, { staleMs: 150, onLost: lost });
+    unlinkSync(lockPath);
+    await vi.waitFor(() => expect(lost).toHaveBeenCalledTimes(1), { timeout: 2_000 });
+    lock.release();
+  });
+
+  it('is not told anything while it keeps its lock, however long it holds it', async () => {
+    const lost = vi.fn();
+    const lock = await holdExclusiveFileLock(lockPath, { staleMs: 150, onLost: lost });
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    lock.release();
+    expect(lost).not.toHaveBeenCalled();
   });
 });

@@ -20,6 +20,7 @@ export interface IFakeConnection {
   /** Callbacks the transport registered. */
   localCandidate?: (candidate: string, mid: string) => void;
   channelClosed?: () => void;
+  channelMessage?: (message: string) => void;
 }
 
 export interface IFakeDataChannel {
@@ -53,7 +54,9 @@ export function fakeDataChannel(
         record.channelClosed = callback;
       },
       onError: () => undefined,
-      onMessage: () => undefined,
+      onMessage: (callback) => {
+        record.channelMessage = callback;
+      },
     };
     return {
       close: () => undefined,

@@ -14,6 +14,11 @@ export type TConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'e
 export interface IWsSessionClientCallbacks {
   onMessage: (msg: TServerMessage) => void;
   onStatusChange: (status: TConnectionStatus) => void;
+  /**
+   * The connection is gone for good: the retries ran out without reaching the server again. The status
+   * stays `disconnected`; this is what tells a host the runtime is not coming back by itself.
+   */
+  onGiveUp?: () => void;
 }
 
 export interface IWsSessionClient {
@@ -42,7 +47,11 @@ export function createWsSessionClient(
   }
 
   function scheduleReconnect(): void {
-    if (intentionalDisconnect || reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) return;
+    if (intentionalDisconnect) return;
+    if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      callbacks.onGiveUp?.();
+      return;
+    }
     reconnectTimer = setTimeout(() => {
       reconnectAttempts++;
       doConnect();

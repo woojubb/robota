@@ -14,16 +14,37 @@ import {
   type IMonitorUiServer,
 } from './serve-monitor-ui.js';
 import { settleOnServeTransportFailure } from './serve-transport-failure.js';
+import { createExternalEventAuditRing } from '../external-events/external-event-audit-ring.js';
 import {
+  createExternalEventHttpHost,
+  type IExternalEventHttpHost,
+} from '../external-events/external-event-http-host.js';
+import {
+  ensureSupervisedAuditDirectory,
+  resolveSupervisedDirectory,
   startSupervisedControl,
+  takeSupervisedGrantHandoff,
   type ISupervisedControl,
   type ISupervisedPr,
 } from '../session-inventory/supervised-session-control.js';
-import { startRuntimeHost } from '@robota-sdk/agent-framework';
+import { createExternalEventVerifier } from '../external-events/external-event-verifier.js';
+import { ExternalEventGrantRefusedError } from '../external-events/external-event-grant-host.js';
+import {
+  createRebindableExternalEventGrants,
+  type ITuiExternalEventGrants,
+} from '../external-events/tui-external-event-grants.js';
+import {
+  SESSION_POOL_MAX_LIVE,
+  SessionPool,
+  buildRuntimeSession,
+  createExternalEventGrantHistory,
+  startRuntimeHost,
+} from '@robota-sdk/agent-framework';
+import type { IServeSessionDirectory } from './serve-session-directory.js';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
 import { ROBOTA_PERMISSION_BASELINE } from '../product/robota-permission-baseline.js';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
-import type { IOrgPolicy } from '@robota-sdk/agent-framework';
+import type { InteractiveSession, IOrgPolicy, SessionSlot } from '@robota-sdk/agent-framework';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
@@ -36,6 +57,7 @@ import type {
   IBackgroundTaskRunner,
   ICommandHostAdapters,
   ICommandModule,
+  ICommandProcessAdapter,
   IRemoteCommandPolicy,
   IProviderErrorGuidance,
   IProjectSettingsPath,
@@ -132,6 +154,12 @@ export interface IServeModeOptions {
    * served. The CLI composition root builds this from the registered `WsTransport.boundPort`.
    */
   getMonitorWsUrl?: () => string | undefined;
+  /**
+   * #3189: binds each client connection to the sessions this runtime keeps live, for listing,
+   * starting and switching them. Serve mode attaches it to its session pool before the transports
+   * start; absent ⇒ one session, and clients are told sessions are not available.
+   */
+  sessionDirectory?: IServeSessionDirectory<InteractiveSession, SessionSlot<InteractiveSession>>;
 }
 
 /**
@@ -187,6 +215,14 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(opts.model !== undefined ? { model: opts.model } : {}),
     ...(preset.outputStyle !== undefined ? { outputStyle: preset.outputStyle } : {}),
     permissionMode: args.permissionMode ?? preset.permissionMode,
+    // A supervised session opens the grants its launcher handed over; each is checked this way.
+    // One grant history for the run: every session it switches to shares it (#3189).
+    ...(args.supervisedExternalEventGrants === true
+      ? {
+          externalEventVerifierFactory: createExternalEventVerifier,
+          externalEventGrantHistory: createExternalEventGrantHistory(),
+        }
+      : {}),
     baselinePermissionAllow: ROBOTA_PERMISSION_BASELINE,
     // Issue #1937: the CLI-sourced prompt addition, composed once at the projection. Before this it
     // was built at print mode only, so these flags did nothing in a served session.
@@ -197,6 +233,9 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     resumeSessionId: opts.resumeSessionId,
     forkSession: args.forkSession,
     sessionName: args.sessionName,
+    // A served session names itself after its first real turn; every session the pool builds from
+    // these options does too. Print mode leaves it off.
+    autoName: true,
     backgroundTaskRunners: opts.backgroundTaskRunners,
     subagentRunnerFactory: opts.subagentRunnerFactory,
     ...(opts.agentDefinitions !== undefined ? { agentDefinitions: opts.agentDefinitions } : {}),
@@ -234,6 +273,23 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
   };
 }
 
+type TLocalActivity = ReturnType<InteractiveSession['getLocalActivityStatus']>;
+
+/**
+ * The activity of a runtime that keeps several sessions live: the most pressing of theirs. A prompt
+ * waiting anywhere outranks work anywhere, which outranks idle; `undefined` (a session that cannot
+ * say) outranks idle, so the runtime never reads idle while one of its sessions is unaccounted for.
+ */
+export function poolActivity(
+  sessions: readonly Pick<InteractiveSession, 'getLocalActivityStatus'>[],
+): TLocalActivity {
+  const statuses = sessions.map((session) => session.getLocalActivityStatus());
+  if (statuses.includes('needs-input')) return 'needs-input';
+  if (statuses.includes('working')) return 'working';
+  if (statuses.includes(undefined)) return undefined;
+  return statuses.length > 0 ? 'idle' : undefined;
+}
+
 export function nextWaitingLoopAt(loops: readonly ISessionLoopState[], nowMs: number): string | undefined {
   let earliest: { at: string; millis: number } | undefined;
   for (const loop of loops) {
@@ -248,15 +304,101 @@ export function nextWaitingLoopAt(loops: readonly ISessionLoopState[], nowMs: nu
   return earliest?.at;
 }
 
+/**
+ * A supervised session, a daemon included, is stopped by its own stop command, never by a client's
+ * command: it serves every client attached to it, and nothing starts it again. Refusing here turns
+ * the command's result into the refusal, so the client that ran it shows why. A command asks for a
+ * restart only after saving its change (a language, a provider profile, a settings reset), so the
+ * next start applies it.
+ */
+const DAEMON_COMMAND_PROCESS: ICommandProcessAdapter = {
+  requestExit: () => {
+    throw new Error(
+      'A command does not stop the workspace daemon, which serves every client attached to it. ' +
+        'Detach this client to leave. To stop the daemon, run robota daemon stop; anything this ' +
+        'command changed applies when you next run robota daemon start.',
+    );
+  },
+  requestRestart: () => {
+    throw new Error(
+      'A command does not restart the workspace daemon, which serves every client attached to it. ' +
+        'The change is saved and applies once you restart the daemon: run robota daemon stop, ' +
+        'then robota daemon start.',
+    );
+  },
+};
+
+/** The same refusal for a supervised session that is not a daemon, naming the commands that stop and start one. */
+function supervisedSessionCommandProcess(id: string): ICommandProcessAdapter {
+  return {
+    requestExit: () => {
+      throw new Error(
+        'A command does not stop this supervised session, which serves every client attached to it. ' +
+          `Detach this client to leave. To stop the session, run robota session stop ${id}; anything ` +
+          'this command changed applies to the next session you start with robota session start --background.',
+      );
+    },
+    requestRestart: () => {
+      throw new Error(
+        'A command does not restart this supervised session, which serves every client attached to it. ' +
+          'The change is saved and applies to a new session started with robota session start --background; ' +
+          `to end this one, run robota session stop ${id}.`,
+      );
+    },
+  };
+}
+
 export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   const { args } = opts;
   const sessionOptions = buildServeSessionOptions(opts);
 
+  // Declared before the host starts: the directory is attached in `bindTransports`, ahead of the
+  // first connection, and asks this whether the runtime is stopping.
+  let settling = false;
+  let externalEvents: ITuiExternalEventGrants | undefined;
+  let pool: SessionPool<InteractiveSession> | undefined;
+  const sessionDirectory = opts.sessionDirectory;
   const host = await startRuntimeHost({
     session: sessionOptions,
     transportRegistry: opts.transportRegistry,
-    ...(opts.bindTransports ? { bindTransports: opts.bindTransports } : {}),
+    bindTransports: (slot) => {
+      if (sessionDirectory !== undefined && sessionOptions.sessionStore !== undefined) {
+        // The host's session is the pool's primary: every client starts on it, and what belongs to
+        // the run — external-event grants, the supervised name — stays on it whichever session a
+        // client moves to.
+        const primary = slot.current;
+        const live = new SessionPool<InteractiveSession>({
+          primary,
+          build: (resumeSessionId) =>
+            buildRuntimeSession({
+              ...sessionOptions,
+              resumeSessionId,
+              // A switch opens exactly the session asked for; the launch's fork and name do not carry over.
+              forkSession: undefined,
+              sessionName: undefined,
+            }),
+          maxLive: SESSION_POOL_MAX_LIVE,
+        });
+        pool = live;
+        sessionDirectory.attach({
+          pool: live,
+          primary,
+          store: sessionOptions.sessionStore,
+          cwd: opts.cwd,
+          isStopping: () => settling,
+        });
+      }
+      opts.bindTransports?.(slot);
+    },
   });
+  /** Every session this runtime keeps live, the primary first. */
+  const liveSessions = (): InteractiveSession[] => {
+    const primary = host.session.current;
+    const others = (pool?.listLive() ?? [])
+      .map((entry) => entry.session)
+      .filter((session) => session !== primary);
+    return [primary, ...others];
+  };
 
   // GUI-007: with `--serve --open`, the CLI serves its OWN monitor SPA over localhost HTTP (a localhost-origin
   // surface) and opens it — gated on `--open` so the GUI sidecar's plain `--serve` path is unaffected. The WS
@@ -277,8 +419,8 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   // Stay alive until the supervisor (e.g. apps/agent-app on window close) signals — or a
   // host-executed session-exit/-restart action fires (CMD-004 Phase 2) — then tear down cleanly.
   let supervisedControl: ISupervisedControl | undefined;
+  let eventEndpoint: IExternalEventHttpHost | undefined;
   let requestSettle: (reason: string) => void = () => undefined;
-  let settling = false;
   const readinessAbort = new AbortController();
   const lifetime = new Promise<void>((resolve) => {
     const settle = (reason: string): void => {
@@ -287,7 +429,13 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
       readinessAbort.abort();
       void Promise.resolve(monitorUi?.close())
         .catch(() => {})
+        .then(() => eventEndpoint?.stop())
+        .catch(() => undefined)
+        .then(() => externalEvents?.close())
         .then(() => host.shutdown(reason))
+        .catch(() => undefined)
+        // The host shuts its own session down; every other live session goes with it.
+        .then(() => pool?.shutdownAll(reason))
         .catch(() => undefined)
         .then(() => supervisedControl?.close())
         .finally(() => resolve());
@@ -316,33 +464,84 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     // local == remote decision (REMOTE-006): a remote driver is a full driver; a surface that only
     // wants to detach disconnects. The teardown is deferred one flush window so the in-flight
     // `command_result` reaches the requesting surface before the transports close. Restart ==
-    // graceful exit here (the supervisor — e.g. the GUI sidecar — owns relaunching).
+    // graceful exit here (the supervisor — e.g. the GUI sidecar — owns relaunching). A supervised
+    // session, a daemon included, is the exception: nothing relaunches it, and it serves every
+    // client attached to it.
     const COMMAND_TEARDOWN_FLUSH_MS = 500;
     const scheduleSettle = (reason: string): void => {
       const timer = setTimeout(() => settle(reason), COMMAND_TEARDOWN_FLUSH_MS);
       timer.unref?.();
     };
-    opts.commandHostAdapters.process = {
-      requestExit: (reason) => scheduleSettle(`command exit${reason ? ` (${reason})` : ''}`),
-      requestRestart: (_reason, message) => scheduleSettle(`command restart: ${message}`),
-    };
+    opts.commandHostAdapters.process =
+      args.daemon === true
+        ? DAEMON_COMMAND_PROCESS
+        : args.supervisedSessionId !== undefined
+          ? supervisedSessionCommandProcess(args.supervisedSessionId)
+          : {
+              requestExit: (reason) => scheduleSettle(`command exit${reason ? ` (${reason})` : ''}`),
+              requestRestart: (_reason, message) => scheduleSettle(`command restart: ${message}`),
+            };
   });
   if (args.supervisedSessionId !== undefined) {
     try {
+      // A daemon exists to hand its owner a WebSocket URL; one without an endpoint would only block
+      // every later start in its workspace, so it does not become ready.
+      if (args.daemon === true && opts.getMonitorWsUrl?.() === undefined) throw new DaemonNoEndpointError();
       const supervisedCwd = realpathSync(opts.cwd);
       let linkedPr: ISupervisedPr | undefined;
+      // Every grant the launcher handed over is open before readiness, or the start fails.
+      if (args.supervisedExternalEventGrants === true) {
+        const root = opts.supervisedRoot ?? resolveSupervisedDirectory();
+        const grants = takeSupervisedGrantHandoff(root, args.supervisedSessionId);
+        // Refusals are recorded by the endpoint that answered them, settlements by the session.
+        const audit = createExternalEventAuditRing(
+          ensureSupervisedAuditDirectory(root),
+          args.supervisedSessionId,
+        );
+        const opened = createRebindableExternalEventGrants(grants, (record) => {
+          if ('settlement' in record) audit(record);
+        });
+        await opened.bind(host.session.current);
+        externalEvents = opened;
+        try {
+          const endpoint = createExternalEventHttpHost({
+            grants,
+            receive: (grantId, delivery) => opened.receive(grantId, delivery),
+            countRefusal: (grantId, refusal) => opened.countRefusal(grantId, refusal),
+            port: args.externalEventPort ?? 0,
+            ...(args.externalEventTrustedProxies !== undefined
+              ? { trustedProxies: args.externalEventTrustedProxies }
+              : {}),
+            audit,
+          });
+          await endpoint.start();
+          eventEndpoint = endpoint;
+        } catch {
+          throw new ExternalEventEndpointError();
+        }
+      }
+      const grantHost = externalEvents;
+      if (grantHost !== undefined) {
+        opts.commandHostAdapters.externalEvents = {
+          list: () => grantHost.adapter.list(),
+          revoke: (grantId) => grantHost.adapter.revoke(grantId),
+        };
+      }
       supervisedControl = await startSupervisedControl(
         args.supervisedSessionId,
         () => requestSettle('supervised session stopped'),
         opts.supervisedRoot,
-        () => settling ? undefined : host.session.getLocalActivityStatus(),
+        // Activity and the next loop cover every live session, so a session no client is on that
+        // still works keeps the runtime from reading idle.
+        () => settling ? undefined : poolActivity(liveSessions()),
         () => settling ? undefined : supervisedCwd,
         () => settling || sessionOptions.disableSessionLoops
-          ? undefined : nextWaitingLoopAt(host.session.listSelfPacedLoops(), Date.now()),
-        () => settling ? undefined : host.session.getName(),
+          ? undefined
+          : nextWaitingLoopAt(liveSessions().flatMap((session) => session.listSelfPacedLoops()), Date.now()),
+        () => settling ? undefined : host.session.current.getName(),
         (name) => {
           if (settling) throw new Error('Supervised runtime is stopping.');
-          host.session.setName(name);
+          host.session.current.setName(name);
         },
         {
           get: () => settling ? undefined : linkedPr,
@@ -351,14 +550,47 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
             linkedPr = value;
           },
         },
+        grantHost === undefined
+          ? undefined
+          : {
+              list: () => grantHost.adapter.list(),
+              revoke: (grantId) => {
+                if (settling) throw new Error('Supervised runtime is stopping.');
+                return grantHost.adapter.revoke(grantId);
+              },
+            },
+        // A terminal on this host may attach over the guarded control socket. It never becomes an
+        // operator approver: this process has no terminal, so mesh admissions stay refused. Each
+        // attached terminal binds to the sessions as a WebSocket client does, so a switch it makes
+        // moves that terminal alone.
+        pool !== undefined && sessionDirectory !== undefined
+          ? { binder: sessionDirectory }
+          : { session: host.session },
+        // A daemon hands its owner the URL its transport is served on, token included, so a
+        // client in this workspace can connect to it instead of starting a runtime of its own.
+        args.daemon === true
+          ? { url: () => settling ? undefined : opts.getMonitorWsUrl?.() }
+          : undefined,
       );
       if (settling) throw new Error('Supervised runtime stopped before readiness.');
-      await acknowledgeSupervisedStartup(args.supervisedSessionId, readinessAbort.signal);
+      await acknowledgeSupervisedStartup(
+        args.supervisedSessionId,
+        readinessAbort.signal,
+        undefined,
+        grantHost?.adapter.list().map((grant) => grant.grantId),
+      );
       if (settling) throw new Error('Supervised runtime stopped during readiness.');
     } catch (error) {
       if (process.connected && process.send) {
         try {
-          process.send({ kind: 'error', id: args.supervisedSessionId, code: 'startup-failed' }, () => {
+          const refusal = error instanceof ExternalEventGrantRefusedError
+            ? { code: 'grant-refused', grant: error.grantId }
+            : error instanceof ExternalEventEndpointError
+              ? { code: 'events-endpoint-failed' }
+              : error instanceof DaemonNoEndpointError
+                ? { code: 'daemon-no-endpoint' }
+                : { code: 'startup-failed' };
+          process.send({ kind: 'error', id: args.supervisedSessionId, ...refusal }, () => {
             // The parent may already have disconnected; failure reporting is best-effort only.
           });
         } catch {
@@ -374,8 +606,27 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   await lifetime;
 }
 
+/** The external-event endpoint could not listen on its port; the start fails naming only that. */
+class ExternalEventEndpointError extends Error {
+  constructor() {
+    super('External event endpoint could not be served on its port.');
+    this.name = 'ExternalEventEndpointError';
+  }
+}
+
+/** A daemon's WebSocket transport is not served, so it has no URL to hand its owner. */
+class DaemonNoEndpointError extends Error {
+  constructor() {
+    super('The daemon has no WebSocket endpoint.');
+    this.name = 'DaemonNoEndpointError';
+  }
+}
+
 export interface ISupervisedReadinessChannel {
-  send(message: { kind: 'ready' | 'acknowledged'; id: string }, done: (error?: Error | null) => void): void;
+  send(
+    message: { kind: 'ready' | 'acknowledged'; id: string; grants?: readonly string[] },
+    done: (error?: Error | null) => void,
+  ): void;
   onMessage(listener: (message: unknown) => void): void;
   offMessage(listener: (message: unknown) => void): void;
   onDisconnect(listener: () => void): void;
@@ -398,6 +649,8 @@ export async function acknowledgeSupervisedStartup(
   id: string,
   signal: AbortSignal,
   channel: ISupervisedReadinessChannel = processReadinessChannel(),
+  /** The labels of the external-event grants this runtime opened, so the launcher can check them. */
+  grants?: readonly string[],
 ): Promise<void> {
   if (signal.aborted) throw new Error('Supervised runtime stopped before readiness.');
   await new Promise<void>((resolve, reject) => {
@@ -432,7 +685,7 @@ export async function acknowledgeSupervisedStartup(
     channel.onMessage(onMessage);
     channel.onDisconnect(onDisconnect);
     signal.addEventListener('abort', onAbort, { once: true });
-    channel.send({ kind: 'ready', id }, (error) => {
+    channel.send({ kind: 'ready', id, ...(grants !== undefined ? { grants } : {}) }, (error) => {
       if (error) finish(() => reject(new Error('Supervised readiness could not be sent.')));
     });
   });

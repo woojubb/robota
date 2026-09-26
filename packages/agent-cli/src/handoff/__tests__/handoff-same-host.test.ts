@@ -554,6 +554,45 @@ describe('the /handoff adapter over the peer channel', () => {
     expect(await handoff.staysBehind()).toEqual({ uncommittedChanges: true, subprocesses: 1 });
   }, 30_000);
 
+  it('lists the devices linked over the device mesh beside the sessions', async () => {
+    const { a } = await sessions({ approver: operator(true) });
+    const { handoff } = adapter(a, {
+      devices: { list: () => [{ deviceId: 'D1', name: 'desktop' }], push: vi.fn() },
+    });
+    expect(await handoff.destinations()).toEqual([
+      { deviceId: 'B', name: 'another session on this machine' },
+      { deviceId: 'D1', name: 'desktop, another of your devices' },
+    ]);
+  }, 30_000);
+
+  it('pushes to a linked device over its mesh link, from this device', async () => {
+    const { a, saved } = await sessions({ approver: operator(true) });
+    const push = vi.fn(
+      async (
+        _deviceId: string,
+        options: Omit<IPushHandoffOptions, 'openChannel' | 'carrierBinding'>,
+      ) => {
+        options.onReadOnly();
+        return { outcome: { phase: 'committed' }, source: {} } as never;
+      },
+    );
+    const { handoff, onHandedOff } = adapter(a, {
+      devices: { list: () => [{ deviceId: 'D1', name: 'desktop' }], push },
+    });
+    const final = await handoff.transfer('D1');
+    expect(final).toEqual({ state: 'done', stillMine: false });
+    expect(push).toHaveBeenCalledTimes(1);
+    const [target, options] = push.mock.calls[0]!;
+    expect(target).toBe('D1');
+    expect(options.request).toMatchObject({
+      sourceDeviceId: readIdentityState(path.join(root, 'devices'))?.deviceCertificate.deviceId,
+      destinationDeviceId: 'D1',
+      sessionId: 'session-1',
+    });
+    expect(saved).toHaveLength(0);
+    expect(onHandedOff).toHaveBeenCalledTimes(1);
+  }, 30_000);
+
   it('moves the session, then ends this one and refuses a second move', async () => {
     const { a, saved } = await sessions({ approver: operator(true) });
     const { handoff, onHandedOff } = adapter(a);
@@ -655,6 +694,57 @@ describe('the /handoff adapter over the peer channel', () => {
     expect(await handoff.transfer('B')).toEqual({ state: 'done', stillMine: false });
     expect(saved).toHaveLength(2);
     expect(saved[1]?.messages).toHaveLength(2);
+  }, 30_000);
+
+  it('after refusing to resend an older copy, status() reports that refusal, not the lost confirmation', async () => {
+    const { handoff, setStored } = await afterLostAck();
+    expect(handoff.status().reason).toContain('did not confirm');
+    setStored({
+      ...record([message(0, 'move me'), message(1, 'a later turn')]),
+      updatedAt: '2026-08-21T02:00:00.000Z',
+    });
+    const refused = await handoff.transfer('B');
+    expect(refused.reason).toContain('older copy');
+    expect(handoff.status()).toEqual(refused);
+  }, 30_000);
+
+  it('a resend carries what stays behind now, not what stayed behind at the first attempt', async () => {
+    const { a } = await sessions({ approver: operator(true) });
+    let changes = true;
+    let tasks = [{ status: 'running' }];
+    const push = vi.fn(
+      async (
+        _deviceId: string,
+        options: Omit<IPushHandoffOptions, 'openChannel' | 'carrierBinding'>,
+      ) => {
+        if (push.mock.calls.length === 1) {
+          return { outcome: { phase: 'transferring' }, source: {} } as never;
+        }
+        options.onReadOnly();
+        return { outcome: { phase: 'committed' }, source: {} } as never;
+      },
+    );
+    const { handoff } = adapter(a, {
+      devices: { list: () => [{ deviceId: 'D1', name: 'desktop' }], push },
+      uncommittedChanges: async () => changes,
+      getSession: () => ({
+        getSessionId: () => 'session-1',
+        getCwd: () => scratch,
+        isExecuting: () => false,
+        listBackgroundTasks: () => tasks,
+      }),
+    });
+    expect((await handoff.transfer('D1')).stillMine).toBe(true);
+    changes = false;
+    tasks = [];
+    expect(await handoff.transfer('D1')).toEqual({ state: 'done', stillMine: false });
+    const [first, second] = push.mock.calls.map(([, options]) => options.request);
+    // The same transfer, so a receiver that saved it recognises it...
+    expect(second?.handoffId).toBe(first?.handoffId);
+    expect(second?.record).toBe(first?.record);
+    // ...with the inventory as it is at the resend.
+    expect(first?.runtime).toMatchObject({ uncommittedChanges: true, subprocesses: 1 });
+    expect(second?.runtime).toMatchObject({ uncommittedChanges: false, subprocesses: 0 });
   }, 30_000);
 
   it('says which command to run when this device has no identity to sign with', async () => {

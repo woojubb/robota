@@ -1,3 +1,4 @@
+import { SESSION_CHANGE_REFUSAL_CODES } from '@robota-sdk/agent-interface-session';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -18,11 +19,18 @@ import type { TClientMessage, TServerMessage } from '../wire-messages.js';
  */
 const CLIENT_SAMPLES: Readonly<Record<TClientMessage['type'], TClientMessage>> = {
   submit: { type: 'submit', prompt: 'hi' },
-  command: { type: 'command', name: 'help', args: 'x' },
+  command: { type: 'command', name: 'help', args: 'x', requestId: 'command-1' },
   abort: { type: 'abort' },
   'cancel-queue': { type: 'cancel-queue' },
   'get-messages': { type: 'get-messages' },
+  'get-history': { type: 'get-history', fromIndex: 40 },
+  'get-prompts': { type: 'get-prompts' },
   'get-context': { type: 'get-context' },
+  'get-commands': { type: 'get-commands' },
+  'get-status': { type: 'get-status' },
+  'list-sessions': { type: 'list-sessions', requestId: 'request-3' },
+  'new-session': { type: 'new-session', requestId: 'request-4' },
+  'switch-session': { type: 'switch-session', sessionId: 'session-2', requestId: 'request-5' },
   'get-usage-report': { type: 'get-usage-report' },
   'get-personal-usage-report': {
     type: 'get-personal-usage-report',
@@ -38,6 +46,13 @@ const CLIENT_SAMPLES: Readonly<Record<TClientMessage['type'], TClientMessage>> =
   'get-executing': { type: 'get-executing' },
   'get-pending': { type: 'get-pending' },
   'get-execution-workspace': { type: 'get-execution-workspace' },
+  'read-execution-detail': {
+    type: 'read-execution-detail',
+    requestId: 'detail-1',
+    entryId: 'main',
+    cursor: { offset: 20 },
+  },
+  'stop-waiting-loop': { type: 'stop-waiting-loop', requestId: 'loop-1' },
   'get-background-tasks': {
     type: 'get-background-tasks',
     filter: { kind: 'agent', includeClosed: true },
@@ -69,9 +84,47 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
   complete: { type: 'complete', result: {} as never },
   interrupted: { type: 'interrupted', result: {} as never },
   error: { type: 'error', message: 'm' },
-  command_result: { type: 'command_result', name: 'n', message: 'm', success: true },
+  command_result: {
+    type: 'command_result',
+    name: 'n',
+    message: 'm',
+    success: true,
+    requestId: 'command-1',
+  },
   messages: { type: 'messages', messages: [] },
+  history: {
+    type: 'history',
+    startIndex: 3,
+    total: 4,
+    entries: [
+      {
+        id: 'e1',
+        timestamp: '2026-09-26T01:02:03.004Z',
+        category: 'event',
+        type: 'skill-activation',
+        data: { name: 'review' },
+      },
+    ],
+  },
   context: { type: 'context', state: {} as never },
+  history_changed: { type: 'history_changed' },
+  turn_source: { type: 'turn_source', source: 'peer' },
+  commands: { type: 'commands', commands: [], skills: [] },
+  session_status: { type: 'session_status', status: {} as never },
+  sessions: { type: 'sessions', requestId: 'request-3', listing: {} as never },
+  sessions_error: {
+    type: 'sessions_error',
+    requestId: 'request-3',
+    code: 'list_failed',
+    message: 'unreadable store',
+  },
+  session_switched: { type: 'session_switched', event: { sessionId: 'session-2' } },
+  session_change_failed: {
+    type: 'session_change_failed',
+    code: 'prompt_pending',
+    message: 'Answer the pending prompt first.',
+    requestId: 'request-5',
+  },
   usage_report: { type: 'usage_report', report: {} as never },
   personal_usage_report: {
     type: 'personal_usage_report',
@@ -98,8 +151,23 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
     message: 'not found',
   },
   executing: { type: 'executing', executing: false },
-  pending: { type: 'pending', pending: null },
+  pending: { type: 'pending', pending: null, pendingCount: 0 },
   execution_workspace_event: { type: 'execution_workspace_event', snapshot: {} as never },
+  execution_detail: {
+    type: 'execution_detail',
+    requestId: 'detail-1',
+    page: { entryId: 'main', records: [], nextCursor: { offset: 20 } },
+  },
+  execution_detail_error: {
+    type: 'execution_detail_error',
+    requestId: 'detail-1',
+    message: 'Unknown entry: main',
+  },
+  waiting_loop_stop: {
+    type: 'waiting_loop_stop',
+    requestId: 'loop-1',
+    outcome: { kind: 'stopped', loopId: 'loop-a', message: 'Stopped loop-a.' },
+  },
   background_task_event: { type: 'background_task_event', event: {} as never },
   background_job_group_event: { type: 'background_job_group_event', event: {} as never },
   plan_event: { type: 'plan_event', event: {} as never },
@@ -122,7 +190,7 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
     taskId: 't',
     success: true,
   },
-  protocol_error: { type: 'protocol_error', message: 'm' },
+  protocol_error: { type: 'protocol_error', message: 'm', requestId: 'command-1' },
   resume_gap: { type: 'resume_gap' },
 };
 
@@ -170,6 +238,31 @@ const MALFORMED_CLIENT: ReadonlyArray<[string, unknown]> = [
   ['resume with a string lastSeq', { type: 'resume', lastSeq: '4' }],
   ['ack with NaN', { type: 'ack', seq: Number.NaN }],
   ['cancel-background-task with an empty taskId', { type: 'cancel-background-task', taskId: '' }],
+  ['list-sessions without requestId', { type: 'list-sessions' }],
+  ['get-history from a negative index', { type: 'get-history', fromIndex: -1 }],
+  ['get-history from a fractional index', { type: 'get-history', fromIndex: 1.5 }],
+  ['command with an empty requestId', { type: 'command', name: 'n', requestId: '' }],
+  ['switch-session with an empty sessionId', { type: 'switch-session', sessionId: '' }],
+  [
+    'switch-session with a numeric requestId',
+    { type: 'switch-session', sessionId: 's', requestId: 1 },
+  ],
+  ['new-session with an empty requestId', { type: 'new-session', requestId: '' }],
+  ['read-execution-detail without requestId', { type: 'read-execution-detail', entryId: 'main' }],
+  [
+    'read-execution-detail with an empty entryId',
+    { type: 'read-execution-detail', requestId: 'r', entryId: '' },
+  ],
+  [
+    'read-execution-detail with a negative offset',
+    { type: 'read-execution-detail', requestId: 'r', entryId: 'main', cursor: { offset: -1 } },
+  ],
+  [
+    'read-execution-detail with a string offset',
+    { type: 'read-execution-detail', requestId: 'r', entryId: 'main', cursor: { offset: '2' } },
+  ],
+  ['stop-waiting-loop without requestId', { type: 'stop-waiting-loop' }],
+  ['stop-waiting-loop with an empty requestId', { type: 'stop-waiting-loop', requestId: '' }],
 ];
 
 const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
@@ -182,13 +275,86 @@ const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
   ['thinking with a string flag', { type: 'thinking', isThinking: 'yes' }],
   ['messages with a non-array', { type: 'messages', messages: {} }],
   ['messages with a primitive entry', { type: 'messages', messages: ['x'] }],
-  ['pending with a number', { type: 'pending', pending: 1 }],
+  ['pending with a number', { type: 'pending', pending: 1, pendingCount: 1 }],
+  ['pending with a negative count', { type: 'pending', pending: null, pendingCount: -1 }],
+  ['pending with a fractional count', { type: 'pending', pending: 'p', pendingCount: 1.5 }],
   ['background_task with an array task', { type: 'background_task', taskId: 't', task: [] }],
   [
     'control result with an unknown action',
     { type: 'background_task_control_result', action: 'nuke', taskId: 't', success: true },
   ],
   ['command_result without success', { type: 'command_result', name: 'n', message: 'm' }],
+  [
+    'sessions_error with an unknown code',
+    { type: 'sessions_error', requestId: 'r', code: 'nope', message: 'm' },
+  ],
+  ['session_switched without event', { type: 'session_switched' }],
+  [
+    'session_change_failed with an unknown code',
+    { type: 'session_change_failed', code: 'nope', message: 'm' },
+  ],
+  ['session_change_failed without message', { type: 'session_change_failed', code: 'limit' }],
+  [
+    'session_change_failed with a numeric requestId',
+    { type: 'session_change_failed', code: 'limit', message: 'm', requestId: 1 },
+  ],
+  ['history without entries', { type: 'history', startIndex: 0, total: 0 }],
+  ['history without its place', { type: 'history', entries: [] }],
+  ['history with a negative total', { type: 'history', startIndex: 0, total: -1, entries: [] }],
+  ['history with a primitive entry', { type: 'history', startIndex: 0, total: 1, entries: ['x'] }],
+  [
+    'history with a numeric timestamp',
+    {
+      type: 'history',
+      startIndex: 0,
+      total: 1,
+      entries: [{ id: 'e', timestamp: 1, category: 'chat', type: 'user' }],
+    },
+  ],
+  [
+    'history with an entry missing its category',
+    {
+      type: 'history',
+      startIndex: 0,
+      total: 1,
+      entries: [{ id: 'e', timestamp: 't', type: 'user' }],
+    },
+  ],
+  [
+    'protocol_error with a numeric requestId',
+    { type: 'protocol_error', message: 'm', requestId: 1 },
+  ],
+  ['turn_source with an unknown source', { type: 'turn_source', source: 'robot' }],
+  ['turn_source without source', { type: 'turn_source' }],
+  ['execution_detail without page', { type: 'execution_detail', requestId: 'r' }],
+  ['execution_detail with an array page', { type: 'execution_detail', requestId: 'r', page: [] }],
+  ['execution_detail without requestId', { type: 'execution_detail', page: {} }],
+  ['execution_detail_error without message', { type: 'execution_detail_error', requestId: 'r' }],
+  ['waiting_loop_stop without outcome', { type: 'waiting_loop_stop', requestId: 'r' }],
+  [
+    'waiting_loop_stop with an unknown kind',
+    { type: 'waiting_loop_stop', requestId: 'r', outcome: { kind: 'paused' } },
+  ],
+  [
+    'waiting_loop_stop stopped without loopId',
+    { type: 'waiting_loop_stop', requestId: 'r', outcome: { kind: 'stopped' } },
+  ],
+  [
+    'waiting_loop_stop several without message',
+    { type: 'waiting_loop_stop', requestId: 'r', outcome: { kind: 'several' } },
+  ],
+  [
+    'waiting_loop_stop failed with a numeric loopId',
+    {
+      type: 'waiting_loop_stop',
+      requestId: 'r',
+      outcome: { kind: 'failed', loopId: 1, message: 'm' },
+    },
+  ],
+  [
+    'waiting_loop_stop with a prototype-only kind',
+    { type: 'waiting_loop_stop', requestId: 'r', outcome: { kind: 'toString' } },
+  ],
 ];
 
 describe('decodeClientMessage (issue #2045)', () => {
@@ -227,6 +393,36 @@ describe('decodeServerMessage (issue #2045)', () => {
 
   it.each(MALFORMED_SERVER)('refuses %s', (_label, value) => {
     expect(decodeServerMessage(value).ok).toBe(false);
+  });
+
+  it('accepts every refusal code the session contracts declare, and a refusal without requestId', () => {
+    for (const code of SESSION_CHANGE_REFUSAL_CODES) {
+      expect(decodeServerMessage({ type: 'session_change_failed', code, message: 'm' }).ok).toBe(
+        true,
+      );
+    }
+  });
+
+  it('accepts every waiting-loop stop outcome', () => {
+    for (const outcome of [
+      { kind: 'none' },
+      { kind: 'several', message: 'Use /loop stop <id>.' },
+      { kind: 'stopped', loopId: 'loop-a' },
+      { kind: 'failed', message: 'store unavailable' },
+      { kind: 'failed', loopId: 'loop-a', message: 'store unavailable' },
+    ]) {
+      expect(decodeServerMessage({ type: 'waiting_loop_stop', requestId: 'r', outcome }).ok).toBe(
+        true,
+      );
+    }
+  });
+
+  it('accepts a pending frame without its count, as a host from before the count sends it', () => {
+    // Refusing it would cut a newer client off from an older daemon on every prompt it queues.
+    expect(decodeFrame('{"type":"pending","pending":null}', decodeServerMessage)).toEqual({
+      ok: true,
+      message: { type: 'pending', pending: null },
+    });
   });
 });
 

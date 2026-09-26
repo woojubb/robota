@@ -18,10 +18,15 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
   --language <lang>          Language preference (e.g. ko, en)
   --no-session-persistence   Disable session persistence for this run
   --permission-mode <mode>   Permission mode: plan | default | acceptEdits | bypassPermissions | auto
-  --external-event-allow <server:sender>
-                             TUI only: allow text-only turns via a trusted MCP server
-                             that verifies the sender;
-                             repeat per sender (off by default; no tools or automatic reply)
+  --external-event-grant <file>
+                             TUI only: admit text-only external events whose access token
+                             this session verifies for the one principal the file names;
+                             repeat per grant (no tools, no reply; list or revoke with /events)
+  --external-event-port <port>
+                             With grants: the loopback port of POST <public-url>/events/<grant>,
+                             which the owner's HTTPS proxy or tunnel forwards to
+  --external-event-trusted-proxy <ip>
+                             With grants: a proxy whose X-Forwarded-For is believed (repeat)
   --max-turns <n>            Maximum agent turns before stopping
   -c, --continue             Continue the most recent session
   -r, --resume <id>          Resume a session by ID or name
@@ -62,6 +67,15 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
                              Asks for confirmation; use --yes to skip
   --yes                      Skip confirmation prompts (required for --reset in non-TTY)
   --serve --open             Serve the web monitor over localhost and open it in a browser
+  --attach [--screen-reader|--no-screen-reader]
+                             Open the full terminal UI on this workspace's running daemon
+                             (robota daemon start) instead of starting a session: its
+                             conversation, prompts and sessions, alongside its other clients.
+                             Takes no session option; the daemon's session is the daemon's.
+                             It needs an interactive terminal and your confirmation, so only
+                             the user can run it; a script or agent should suggest it, or
+                             connect to the URL robota daemon start --json prints. Detaching
+                             keeps the daemon running; exits 0 after detaching, 1 otherwise
   --http-token-file <path>   With mcp serve, bind authenticated loopback HTTP and write the
                              bearer to a new owner-only absolute-path file
   --http-port <port>         With mcp serve HTTP, use this port (default: OS-assigned)
@@ -96,8 +110,17 @@ Commands:
   robota session view [--cwd <directory>] [--name <text>] [--pr <number>] [--state <state>]
                       [--screen-reader|--no-screen-reader]
                                   Live supervised sessions across projects, or filtered (TTY only)
-  robota session start --background [--name <name>]
-                                  Start a supervised session that outlives this terminal (no attach yet)
+  robota session start --background [--name <name>] [--external-event-grant <file>]...
+                      [--external-event-port <port>] [--external-event-trusted-proxy <ip>]...
+                                  Start a supervised session that outlives this terminal
+  robota session attach <supervised-id> [--observe] [--screen-reader|--no-screen-reader]
+                                  Attach this terminal to a live supervised session: drive it, or
+                                  observe it read-only (TTY and your confirmation; detaching keeps it
+                                  running)
+  robota session events list <supervised-id> [--json]
+                                  Show a supervised session's external event grants and their counts
+  robota session events revoke <supervised-id> <grant-id>
+                                  Withdraw one external event grant from a supervised session
   robota session stop <supervised-id>
                                   Stop a supervised session owned by this user
   robota session rename <supervised-id> <name>
@@ -106,6 +129,11 @@ Commands:
                                   Link a PR/MR URL to a live supervised session
   robota session unlink-pr <supervised-id>
                                   Clear a live supervised session PR/MR link
+  robota daemon start [--json]     Start this workspace's daemon, or reuse the running one; --json
+                                  prints {"id","url"} for the client that connects to it
+  robota daemon status [--json]    Show whether this workspace's daemon is running
+  robota daemon stop               Stop this workspace's daemon
+  robota daemon unlock             Remove a daemon start lock left by a start that is gone
   robota mcp serve [options]       Serve one Robota session over stdio, authenticated loopback HTTP,
                                   or OAuth-authorized remote HTTP
   robota mcp login <name> [--client-secret] [--no-browser]

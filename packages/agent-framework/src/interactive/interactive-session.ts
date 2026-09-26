@@ -34,6 +34,7 @@ import { SessionSkillRouter } from './interactive-session-skill-router.js';
 import { SessionTerminalHandoffGate } from './interactive-session-terminal-handoff.js';
 import { SessionTurnMemory } from './interactive-session-turn-memory.js';
 import { ExternalEventIngress } from './external-event-ingress.js';
+import type { ExternalEventGrantHistory } from './external-event-ingress.js';
 import { PeerTurnRateLimiter } from './peer-turn-rate-limit.js';
 import { DurableSessionLoopStore } from './session-loop-durable-store.js';
 import { extractSelfPacedLoopDecision } from './session-loop-decision-tool.js';
@@ -57,6 +58,9 @@ import {
   validatedSessionLoopExpiry,
 } from './session-loop-lifecycle.js';
 import { SessionPromptRegistry } from './session-prompt-registry.js';
+import { SessionAutoNaming } from './session-auto-naming.js';
+import { SessionStatusPush, STATUS_CHANGING_EVENTS } from './session-status-push.js';
+import { stopWaitingSelfPacedLoop } from './session-waiting-loop.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
 import { GoalController, buildGoalContinuationPrompt } from '../goal/index.js';
@@ -77,6 +81,7 @@ import type {
 import type { IQueuedInput, ITurnOptions } from './interactive-session-execution-controller.js';
 import type { ICreatedInteractiveSession } from './interactive-session-init.js';
 import type {
+  TExternalEventVerifierFactory,
   TInteractiveSessionOptions,
   IInteractiveSessionStandardOptions,
 } from './interactive-session-options.js';
@@ -131,6 +136,8 @@ import type {
   TDriverId,
   TPermissionResultValue,
   ISessionLoopState,
+  ISessionStatusSnapshot,
+  TWaitingLoopStopOutcome,
 } from '@robota-sdk/agent-interface-session';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
@@ -233,6 +240,8 @@ export class InteractiveSession
   private currentTurnSource: TTurnSource = 'user';
   /** TERM-001: exclusivity + fast-fail over the transport-provided handoff capability. */
   private readonly terminalHandoffGate: SessionTerminalHandoffGate;
+  private readonly externalEventVerifierFactory?: TExternalEventVerifierFactory;
+  private readonly externalEventGrantHistory?: ExternalEventGrantHistory;
   /**
    * REMOTE-007: the framework's event-emitting "ask the user" default (never undefined). It emits
    * `ask_request` and parks the answer in {@link promptRegistry}. `getUserInteraction()` gates the
@@ -246,6 +255,7 @@ export class InteractiveSession
   private readonly promptFileReferenceTag?: string;
   private readonly resolveDefaultLoopPrompt?: () => string;
   private readonly userSettingsSources: readonly INodeHostSettingsSource[];
+  private readonly statusPush: SessionStatusPush;
 
   constructor(options: TInteractiveSessionOptions) {
     super();
@@ -278,6 +288,8 @@ export class InteractiveSession
       this.activeOutputStyleId = options.outputStyle.id;
     }
     this.terminalHandoffGate = new SessionTerminalHandoffGate(options.terminalHandoff);
+    this.externalEventVerifierFactory = options.externalEventVerifierFactory;
+    this.externalEventGrantHistory = options.externalEventGrantHistory;
 
     // REMOTE-007: the framework owns one event-emitting prompt registry. Attached surfaces subscribe
     // to requests and answer through resolvePermission/resolveAsk; with none subscribed it fails closed.
@@ -451,10 +463,32 @@ export class InteractiveSession
       this.currentTurnSource = source;
     });
     this.on('complete', (result) => this.handleGoalTurnComplete(result));
+    // #3189: status pushes and self-naming are their own modules; the session only wires them.
+    this.statusPush = new SessionStatusPush({
+      read: () => (this.session ? this.getStatusSnapshot() : undefined),
+      emit: (status) => this.emit('status_changed', status),
+    });
+    for (const event of STATUS_CHANGING_EVENTS) this.on(event, () => this.statusPush.push());
+    if (options.autoName === true) {
+      new SessionAutoNaming({
+        on: (event, handler) => this.on(event, handler),
+        getName: () => this.getName(),
+        setName: (name) => this.setName(name),
+        emitRenamed: (name) => this.emit('session_renamed', { name }),
+        getProvider: () => this.session?.getProvider(),
+      });
+    }
 
     const hasInjectedSession = this.configureInjectedSession(options);
     this.restoreSessionRecordIfNeeded(options);
     this.startAsyncInitializationIfNeeded(options, hasInjectedSession);
+    // The baseline is the initialized session's status, so the first push is a real change.
+    if (this.initialized) this.statusPush.prime();
+    else
+      void this.initPromise?.then(
+        () => this.statusPush.prime(),
+        () => undefined,
+      );
 
     if (this.initialized) {
       this.bgTracker.subscribe(this.session!);
@@ -719,16 +753,32 @@ export class InteractiveSession
     );
   }
 
-  /** Explicit host opt-in for one authenticated external source; MCP configuration alone cannot enable it. */
+  /** Explicit host opt-in for one external-event grant; its verifier alone decides who is admitted. */
   async openExternalEventSource(
     options: IExternalEventSourceOptions,
   ): Promise<IExternalEventSource> {
     await this.ensureInitialized();
     if (this.execCtrl.shuttingDown) throw new Error('Interactive session is shutting down.');
+    const createVerifier = this.externalEventVerifierFactory;
+    if (createVerifier === undefined) {
+      throw new Error('external event grants need a verifier factory from the session host');
+    }
     this.externalEventIngress ??= new ExternalEventIngress({
+      createVerifier,
+      ...(this.externalEventGrantHistory !== undefined
+        ? { history: this.externalEventGrantHistory }
+        : {}),
       getPermissionMode: () => this.getSessionOrThrow().getPermissionMode(),
+      isShuttingDown: () => this.execCtrl.shuttingDown,
       addPermissionModeGuard: (guard) => this.getSessionOrThrow().addPermissionModeGuard(guard),
-      submit: (input, turnOptions) => this.submitNewTurn(input, undefined, undefined, turnOptions),
+      submit: (input, turnOptions) =>
+        this.submitNewTurn(
+          input,
+          undefined,
+          undefined,
+          publicTurnOptions(turnOptions),
+          turnOptions.onAccepted,
+        ),
     });
     return this.externalEventIngress.open(options);
   }
@@ -868,7 +918,7 @@ export class InteractiveSession
    * by the decision recorded on `IScheduledBackgroundTaskRequest`. `turnSource: 'agent-wakeup'` is
    * how a consumer tells it apart from a typed prompt; it does not change what the turn may do.
    */
-  requestWakeup(instruction: string, sourceTaskId: string): boolean {
+  requestWakeup(instruction: string, sourceTaskId: string, displayInput?: string): boolean {
     if (this.execCtrl.shuttingDown) return false;
     const task = this.getBackgroundTaskManager()?.get(sourceTaskId);
     if (task?.metadata?.['sessionLoopSelfPaced'] === true) {
@@ -905,7 +955,7 @@ export class InteractiveSession
     this.execCtrl.wakeTaskIds.add(sourceTaskId);
     // RUNTIME-26: the wake turn runs detached — route its rejection to reportBackgroundError instead of
     // letting it vanish (e.g. a turn error, or the "shutting down" throw when a wake races teardown).
-    void this.submitNewTurn(instruction, undefined, undefined, {
+    void this.submitNewTurn(instruction, displayInput, undefined, {
       turnSource: 'agent-wakeup',
       wakeTaskId: sourceTaskId,
     }).catch((error) => {
@@ -1014,6 +1064,17 @@ export class InteractiveSession
     this.selfPacedLoops.commit(state);
     this.submitSelfPacedIteration(state);
     return state;
+  }
+
+  /** #3189: stop the one loop waiting for its wake; with several waiting, say how to choose. */
+  stopWaitingSelfPacedLoop(reason?: string): Promise<TWaitingLoopStopOutcome> {
+    return stopWaitingSelfPacedLoop(
+      {
+        listSelfPacedLoops: () => this.listSelfPacedLoops(),
+        stopSelfPacedLoop: (loopId, why) => this.stopSelfPacedLoop(loopId, why),
+      },
+      reason,
+    );
   }
 
   async stopSelfPacedLoop(loopId: string, reason = 'Loop stopped by user'): Promise<void> {
@@ -1368,6 +1429,15 @@ export class InteractiveSession
     return this.initialized;
   }
 
+  /**
+   * Resolves once initialization has finished — the session is then saved, so it is listed — and
+   * rejects with the reason if it failed. A host waits on it before making this session current.
+   */
+  async whenInitialized(): Promise<void> {
+    await this.ensureInitialized();
+    this.getSessionOrThrow();
+  }
+
   /** Passive, content-free host observation; never registers an answering prompt listener. */
   getLocalActivityStatus(): 'working' | 'needs-input' | 'idle' | undefined {
     if (!this.initialized || this.execCtrl.shuttingDown) return undefined;
@@ -1582,6 +1652,20 @@ export class InteractiveSession
     return this.sessionName;
   }
 
+  /** The one status read every client renders beside the conversation (#3186). */
+  getStatusSnapshot(): ISessionStatusSnapshot {
+    const session = this.getSessionOrThrow();
+    return {
+      sessionId: session.getSessionId(),
+      ...(this.sessionName !== undefined ? { sessionName: this.sessionName } : {}),
+      model: session.getModelId(),
+      permissionMode: session.getPermissionMode(),
+      effort: session.getModelEffort(),
+      context: session.getContextState(),
+      goal: this.getGoalState(),
+    };
+  }
+
   attachTransport(transport: ITransportAdapter<IInteractiveSession>): void {
     transport.attach(this);
   }
@@ -1767,9 +1851,12 @@ export class InteractiveSession
   private scheduleGoalTurn(prompt: string, goal: IGoalState): void {
     if (this.execCtrl.shuttingDown) return;
     const wakeId = `goal:${goal.id}:${goal.iterations}`;
+    // #3201: the model gets the full instruction; every surface shows one line naming the goal —
+    // the same split a self-paced `/loop` iteration makes between its prompt and its display.
+    const display = `Goal: ${goal.objective} (iteration ${goal.iterations + 1} of ${goal.maxIterations})`;
     // Defer past the current turn's finalization so the wakeup is not coalesced away and the
     // just-completed turn's bookkeeping (executing flag, wake ids) has settled.
-    setTimeout(() => this.requestWakeup(prompt, wakeId), 0);
+    setTimeout(() => this.requestWakeup(prompt, wakeId, display), 0);
   }
 
   /** GOAL-001: advance the goal loop after an agent-driven turn completes. */
@@ -1873,6 +1960,7 @@ export class InteractiveSession
       resolveUiIntentRequester(source, originDriverId, this.execCtrl.activeDriverId),
       (event) => this.emit('ui_intent', event),
     );
+    this.statusPush.push();
     return application.result;
   }
 }

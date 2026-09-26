@@ -143,10 +143,11 @@ export class AnthropicProvider extends AbstractAIProvider {
 
     const projectedTools = this.projectTools(resolvedOptions?.tools, resolvedOptions.model);
     const functionTools = projectedTools ? convertToolsToAnthropicFormat(projectedTools) : [];
-    const serverTools: Anthropic.Messages.ToolUnion[] =
-      this.includesServerWebSearch(resolvedOptions)
-        ? [{ type: 'web_search_20250305' as const, name: 'web_search' }]
-        : [];
+    const serverTools: Anthropic.Messages.ToolUnion[] = this.includesServerWebSearch(
+      resolvedOptions,
+    )
+      ? [{ type: 'web_search_20250305' as const, name: 'web_search' }]
+      : [];
     const allTools: Anthropic.Messages.ToolUnion[] = [...functionTools, ...serverTools];
 
     const baseParams: Anthropic.MessageCreateParamsNonStreaming = {
@@ -241,10 +242,11 @@ export class AnthropicProvider extends AbstractAIProvider {
 
     const projectedTools = this.projectTools(resolvedOptions.tools, resolvedOptions.model);
     const functionTools = projectedTools ? convertToolsToAnthropicFormat(projectedTools) : [];
-    const serverTools: Anthropic.Messages.ToolUnion[] =
-      this.includesServerWebSearch(resolvedOptions)
-        ? [{ type: 'web_search_20250305' as const, name: 'web_search' }]
-        : [];
+    const serverTools: Anthropic.Messages.ToolUnion[] = this.includesServerWebSearch(
+      resolvedOptions,
+    )
+      ? [{ type: 'web_search_20250305' as const, name: 'web_search' }]
+      : [];
     const allTools: Anthropic.Messages.ToolUnion[] = [...functionTools, ...serverTools];
 
     if (allTools.length > 0) {
@@ -264,7 +266,7 @@ export class AnthropicProvider extends AbstractAIProvider {
     let providerRequestId: string | undefined;
     try {
       const requestOptions = anthropicRequestOptions(
-        undefined,
+        resolvedOptions.signal,
         this.traceRequestHeaders(resolvedOptions),
       );
       const awaited = await awaitWithProviderRequestId(

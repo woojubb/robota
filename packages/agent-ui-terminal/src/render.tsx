@@ -23,13 +23,20 @@ import type { ITerminalCapabilityOverrides } from './terminal-capabilities-conte
 import { createFocusReportingWriter } from './terminal-focus-reporting.js';
 import { TerminalHandoffController } from './terminal-handoff-controller.js';
 import { TuiInteractionChannel } from './TuiInteractionChannel.js';
+import { WireTuiChannel } from './wire-tui-channel.js';
 
+import type {
+  IAttachedSessionConnection,
+  TAttachedSessionEnd,
+} from './attached-session-connection.js';
+import type { IAttentionSource } from './attention/attention-tracker.js';
 import type { IKeybindingsSource } from './keybindings/node-keybindings-source.js';
 import type { TScreenReaderChannel } from './screen-reader-announcement.js';
 import type { IThemeRegistry } from './theme/theme-registry.js';
 import type { ITuiAppChannelPort } from './tui-app-channel-port.js';
 import type { ITuiCliAdapter } from './tui-cli-adapter.js';
 import type { ITuiInteractionChannelOptions } from './TuiInteractionChannel.js';
+import type { ITuiClientCommands } from './wire-tui-client-commands.js';
 import type {
   IAIProvider,
   IToolWithEventService,
@@ -52,6 +59,7 @@ import type {
   IPerTurnRecallConfig,
   TWorkspaceProjectAccess,
   EditCheckpointStore,
+  TInteractiveSessionOptions,
   IOrgPolicy,
   IProviderErrorGuidance,
   IProjectSettingsPath,
@@ -106,6 +114,13 @@ export interface IRenderOptions {
   orgPolicy?: IOrgPolicy | undefined;
   /** Explicit authority- and permission-backed edit checkpoint capability. */
   editCheckpointStore?: EditCheckpointStore;
+  /** The host's way to build each external-event grant's verifier; absent, no grant opens. */
+  externalEventVerifierFactory?: TInteractiveSessionOptions['externalEventVerifierFactory'];
+  /**
+   * #3189: the run's grant history, handed to every session this TUI builds so a switch replays no
+   * spent token and resets no rate. DECLARED for the reason `orgPolicy` above is.
+   */
+  externalEventGrantHistory?: TInteractiveSessionOptions['externalEventGrantHistory'];
   providerOverride?: string | undefined;
   /**
    * #1844: forwarded to the session so `/provider switch` can construct the provider it switches TO.
@@ -288,6 +303,12 @@ export function toChannelOptions(
     ...(options.editCheckpointStore !== undefined
       ? { editCheckpointStore: options.editCheckpointStore }
       : {}),
+    ...(options.externalEventVerifierFactory !== undefined
+      ? { externalEventVerifierFactory: options.externalEventVerifierFactory }
+      : {}),
+    ...(options.externalEventGrantHistory !== undefined
+      ? { externalEventGrantHistory: options.externalEventGrantHistory }
+      : {}),
     ...(options.providerDefinitions ? { providerDefinitions: options.providerDefinitions } : {}),
     // CLI-076: the display model id doubles as the session's model override so `--model` actually reaches
     // the provider chat call (header/status line == the model actually called).
@@ -380,21 +401,189 @@ export async function renderApp(options: IRenderOptions): Promise<void> {
   // is the product assembly's boundary (agent-cli installs the guards via onChannelReady).
   try {
     await options.keybindingsSource?.start();
-    await renderStartedApp(options);
+    await renderStartedApp(options, (services) => ({
+      createChannel: createInProcessChannelFactory(options, services),
+    }));
   } finally {
     options.keybindingsSource?.dispose();
   }
 }
 
-async function renderStartedApp(options: IRenderOptions): Promise<void> {
+/**
+ * What the full TUI needs to attach to a session a host runs (a daemon) instead of building one.
+ * Only presentation options: everything else belongs to the host's session.
+ */
+export interface IRenderAttachedAppOptions extends Pick<
+  IRenderOptions,
+  | 'cwd'
+  | 'productDisplayName'
+  | 'version'
+  | 'cliAdapter'
+  | 'screenReader'
+  | 'screenReaderChannel'
+  | 'screenReaderHint'
+  | 'screenReaderPacing'
+  | 'terminalCapabilities'
+  | 'keybindingsSource'
+  | 'themeRegistry'
+  | 'reducedMotion'
+  | 'reducedMotionOverride'
+  | 'focusReporting'
+  | 'promptHistorySource'
+  | 'promptHistoryProject'
+> {
+  /** The session protocol connection; closing it belongs to the caller. */
+  readonly connection: IAttachedSessionConnection;
+  /** Shown as the session's label until the session reports its own name. */
+  readonly sessionLabel: string;
+  /** This terminal's driver id, from the attach handshake. */
+  readonly driverId: string;
+  /** Commands this terminal runs itself (`/shell`, `/theme`, ...); the host never sees them. */
+  readonly clientCommands?: ITuiClientCommands;
+  /**
+   * How this terminal is on the session: `'drive'` (the default) sends prompts and answers questions;
+   * `'observe'` only watches, and the host refuses anything else from it.
+   */
+  readonly mode?: 'drive' | 'observe';
+  /** Print the screen-reader line; false when this process already printed it. Default true. */
+  readonly announce?: boolean;
+}
+
+/**
+ * Render the full TUI on a session the terminal is attached to over the session protocol. Leaving
+ * only detaches: the session keeps running. Resolves `'user'` when the user leaves (`/exit`,
+ * Ctrl-C) and `'closed'` when the connection closed.
+ */
+export async function renderAttachedApp(
+  options: IRenderAttachedAppOptions,
+): Promise<TAttachedSessionEnd> {
+  let end: TAttachedSessionEnd = 'user';
+  let endApp: () => void = () => undefined;
+  const ended = new Promise<void>((resolve) => {
+    endApp = resolve;
+  });
+  try {
+    await options.keybindingsSource?.start();
+    await renderStartedApp(options, (services) => {
+      let channel: WireTuiChannel | undefined;
+      return {
+        // One channel for the App's life: a session switch is the host's, and the channel follows it.
+        createChannel: () =>
+          (channel ??= new WireTuiChannel({
+            connection: options.connection,
+            driverId: options.driverId,
+            sessionName: options.sessionLabel,
+            role: options.mode ?? 'drive',
+            terminalHandoff: services.terminalHandoff,
+            attention: services.attention,
+            ...(options.clientCommands !== undefined
+              ? { clientCommands: options.clientCommands, cwd: options.cwd }
+              : { clientCommands: undefined }),
+            onEnd: (reason) => {
+              end = reason;
+              endApp();
+            },
+          })),
+        requestSessionSwitch: async (sessionId) => channel?.requestSessionSwitch(sessionId),
+        ended,
+      };
+    });
+  } finally {
+    options.keybindingsSource?.dispose();
+  }
+  return end;
+}
+
+/** Presentation options the App shell reads, whichever kind of channel it renders. */
+type TAppShellOptions = Pick<
+  IRenderOptions,
+  | 'cwd'
+  | 'productDisplayName'
+  | 'modelCommandToolPrefix'
+  | 'providerOverride'
+  | 'providerType'
+  | 'modelId'
+  | 'permissionMode'
+  | 'version'
+  | 'sessionStore'
+  | 'resumeSessionId'
+  | 'showSessionPickerOnStart'
+  | 'initialInput'
+  | 'initialInputOrigin'
+  | 'startupUpdateNotice'
+  | 'transportRegistry'
+  | 'commandHostAdapters'
+  | 'cliAdapter'
+  | 'promptHistorySource'
+  | 'promptHistoryProject'
+  | 'themeRegistry'
+  | 'reducedMotion'
+  | 'reducedMotionOverride'
+  | 'screenReader'
+  | 'screenReaderPacing'
+  | 'terminalCapabilities'
+  | 'screenReaderChannel'
+  | 'screenReaderHint'
+  | 'keybindingsSource'
+  | 'focusReporting'
+> & {
+  /** Print the screen-reader line. Default true; false when this process already printed it. */
+  readonly announce?: boolean;
+};
+
+/** Terminal-wide services a channel is built with; they outlive every channel. */
+interface IChannelServices {
+  readonly terminalHandoff: TerminalHandoffController;
+  readonly attention: IAttentionSource;
+}
+
+/** Where the App's channels come from, and how a session switch and an app end are decided. */
+interface IAppChannelComposition {
+  readonly createChannel: (resumeSessionId?: string) => ITuiAppChannelPort;
+  /** Present when the host switches sessions and the channel follows it. */
+  readonly requestSessionSwitch?: (sessionId: string) => Promise<void>;
+  /** Settles when the app ends without the user closing it (the connection closed). */
+  readonly ended?: Promise<void>;
+}
+
+/** The in-process factory: every channel builds its own session from the render options. */
+function createInProcessChannelFactory(
+  options: IRenderOptions,
+  services: IChannelServices,
+): (resumeSessionId?: string) => ITuiAppChannelPort {
+  // Issue #3081: the move is announced by the FIRST session only — a later switch to another
+  // session (a `/fork` attach) did not move anywhere.
+  let pendingWorkspaceMovedFrom = options.workspaceMovedFrom;
+  return (resumeSessionId) => {
+    const workspaceMovedFrom = pendingWorkspaceMovedFrom;
+    pendingWorkspaceMovedFrom = undefined;
+    const channel = new TuiInteractionChannel({
+      ...toChannelOptions(options, resumeSessionId),
+      ...(workspaceMovedFrom !== undefined ? { workspaceMovedFrom } : {}),
+      terminalHandoff: services.terminalHandoff,
+      attention: services.attention,
+    });
+    // Expose each live channel (incl. session-switch re-creations) to the embedding product,
+    // e.g. for process-level error routing (ERR-001 G1).
+    options.onChannelReady?.(channel);
+    return channel;
+  };
+}
+
+async function renderStartedApp(
+  options: TAppShellOptions,
+  compose: (services: IChannelServices) => IAppChannelComposition,
+): Promise<void> {
   // CLI-2004: one resolved boolean drives Ink's own screen-reader support AND the React context
   // every component reads. Both are set here so they can never disagree.
   const screenReader = options.screenReader === true;
-  writeScreenReaderAnnouncement({
-    enabled: screenReader,
-    channel: options.screenReaderChannel,
-    hint: options.screenReaderHint,
-  });
+  if (options.announce !== false) {
+    writeScreenReaderAnnouncement({
+      enabled: screenReader,
+      channel: options.screenReaderChannel,
+      hint: options.screenReaderHint,
+    });
+  }
   const pacing = resolvePacing({ enabled: screenReader, overrides: options.screenReaderPacing });
   // SCREEN-2670: the pre-write park. Constructed only when the mode is on AND the interval is
   // non-zero, so with the mode off `stdout` is not passed at all and Ink defaults to
@@ -436,24 +625,11 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
 
   // Concrete framework creation has one composition boundary. React receives only the bounded port;
   // App owns which narrowed channel is active, while each channel owns its own lifecycle.
+  const composition = compose({ terminalHandoff: handoffController, attention });
   let activeChannel: ITuiAppChannelPort | undefined;
-  // Issue #3081: the move is announced by the FIRST session only — a later switch to another
-  // session (a `/fork` attach) did not move anywhere.
-  let pendingWorkspaceMovedFrom = options.workspaceMovedFrom;
   const createChannel = (resumeSessionId?: string): ITuiAppChannelPort => {
-    const workspaceMovedFrom = pendingWorkspaceMovedFrom;
-    pendingWorkspaceMovedFrom = undefined;
-    const channel = new TuiInteractionChannel({
-      ...toChannelOptions(options, resumeSessionId),
-      ...(workspaceMovedFrom !== undefined ? { workspaceMovedFrom } : {}),
-      terminalHandoff: handoffController,
-      attention,
-    });
-    // Expose each live channel (incl. session-switch re-creations) to the embedding product,
-    // e.g. for process-level error routing (ERR-001 G1).
-    options.onChannelReady?.(channel);
-    activeChannel = channel;
-    return channel;
+    activeChannel = composition.createChannel(resumeSessionId);
+    return activeChannel;
   };
 
   // The startup quiet period sits between the confirmation line and the first frame, so a reader
@@ -486,6 +662,9 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
             <App
               cwd={options.cwd}
               createChannel={createChannel}
+              {...(composition.requestSessionSwitch !== undefined
+                ? { requestSessionSwitch: composition.requestSessionSwitch }
+                : {})}
               providerOverride={options.providerOverride}
               providerType={options.providerType}
               modelId={options.modelId}
@@ -526,6 +705,8 @@ async function renderStartedApp(options: IRenderOptions): Promise<void> {
   );
   // The controller needs the Ink instance to clear the frame before a handoff.
   handoffController.setInkInstance(instance);
+  // Unmounting resolves `waitUntilExit`, so an app the host ended leaves the way a user exit does.
+  void composition.ended?.then(() => instance.unmount());
   try {
     await waitForRenderAndStop(
       () => instance.waitUntilExit(),

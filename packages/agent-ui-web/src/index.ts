@@ -7,12 +7,17 @@
 export { useSessionClient, useWsSession } from './hooks/useSessionClient.js';
 export type {
   IConversationMessage,
+  ICommandOutputEntry,
+  IToolGroupEntry,
+  TConversationEntry,
   IActiveTool,
   ISessionNotice,
   IWsSessionState,
   ISessionClientHandle,
   TMakeSessionClient,
+  IWsSessionOptions,
 } from './hooks/useSessionClient.js';
+export type { TSessionListing, TSessionsError } from './hooks/session-client-types.js';
 
 // ── WS session client (loopback / localhost) ────────────────
 export { createWsSessionClient } from './client/ws-session-client.js';
@@ -23,12 +28,7 @@ export { applyPromptEvent, permissionResponse, askResponse } from './hooks/promp
 export type { TPendingPrompt } from './hooks/prompt-state.js';
 
 // ── UI-intent (command screen-request) state — CMD-004 Stage D ──
-export {
-  applyUiIntentEvent,
-  removeUiIntentNotice,
-  describeUiIntentForGui,
-} from './hooks/ui-intent-state.js';
-export type { IUiIntentNotice, TUiIntentNotice } from './hooks/ui-intent-state.js';
+export { describeUiIntentForGui, guiScreenForUiIntent } from './hooks/ui-intent-state.js';
 
 // ── Presentation components ─────────────────────────────────
 export { ConversationView } from './components/ConversationView.js';
@@ -37,4 +37,5 @@ export { PermissionPrompt } from './components/PermissionPrompt.js';
 export { PersonalUsageDashboard } from './components/PersonalUsageDashboard.js';
 export type { TPersonalUsageDashboardState } from './components/personal-usage-dashboard-types.js';
 export { SessionSurface, CenteredChrome } from './components/SessionSurface.js';
+export { SessionSidebar } from './components/SessionSidebar.js';
 export { SessionMonitor } from './components/SessionMonitor.js';

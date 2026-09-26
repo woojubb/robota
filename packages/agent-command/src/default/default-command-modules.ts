@@ -22,6 +22,7 @@ import { createMemoryCommandModule } from '../memory/index.js';
 import { createModeCommandModule } from '../mode/index.js';
 import { createSandboxCommandModule } from '../sandbox/index.js';
 import { createOutputStyleCommandModule } from '../output-style/index.js';
+import { createEventsCommandModule } from '../events/index.js';
 import { createPeersCommandModule } from '../peers/index.js';
 import { createPermissionsCommandModule } from '../permissions/index.js';
 import { createPlanCommandModule } from '../plan/index.js';
@@ -72,12 +73,11 @@ export interface IDefaultCommandModulesOptions {
    * red when the producer dropped it.
    */
   orgPolicy?: IOrgPolicy;
-  /** Optional TUI-owned file capability; absence means `/keybindings` is not registered. */
+  /** Optional TUI-owned file capability; absent, `/keybindings` says it belongs to the robota terminal. */
   keybindingsFilePort?: IKeybindingsFilePort;
   /**
-   * SCREEN-2002: the surface's theme catalogue. Absence means `/theme` is not registered at all —
-   * print mode and `--serve` render no themes, and a command that cannot do anything is better
-   * missing than present-and-failing.
+   * SCREEN-2002: the surface's theme catalogue. Absent (print mode, `--serve`), `/theme` is still
+   * listed and says it belongs to the robota terminal, which runs it itself when attached.
    */
   themeCataloguePort?: IThemeCataloguePort;
   /**
@@ -173,10 +173,8 @@ export function createDefaultCommandModules({
     createShellCommandModule(),
     createEditorCommandModule(editorTemporaryDirectoryPrefix),
     createGitCommandModule(),
-    ...(keybindingsFilePort === undefined
-      ? []
-      : [createKeybindingsCommandModule(keybindingsFilePort)]),
-    ...(themeCataloguePort === undefined ? [] : [createThemeCommandModule(themeCataloguePort)]),
+    createKeybindingsCommandModule(keybindingsFilePort),
+    createThemeCommandModule(themeCataloguePort),
     ...(doctorInputs === undefined
       ? []
       : [createDoctorCommandModule(doctorInputs, undefined, doctorDisplay)]),
@@ -194,6 +192,7 @@ export function createDefaultCommandModules({
     createPluginCommandModule(),
     createSettingsCommandModule(),
     createPeersCommandModule(),
+    createEventsCommandModule(),
     // HANDOFF-001 (issue #1864). Registered even though no product wires the carrier adapter yet:
     // the command's own answer to a host without one is to say so, which is a better state than a
     // capability nobody can see. It is also what makes the carrier's arrival observable.

@@ -9,6 +9,19 @@ export type { IIntegrityVerdict, TIntegrityFailure } from './handoff-manifest.js
 export { createAccessTokenVerifier } from './access-token-verifier.js';
 export type { IAccessTokenVerifierDeps } from './access-token-verifier.js';
 export {
+  createBearerResourceServer,
+  describeProtectedResource,
+  parsePublicHttpsUrl,
+  refuseBearerToken,
+  serveProtectedResourceMetadata,
+} from './bearer-resource-gate.js';
+export type {
+  IBearerFailure,
+  IBearerResourceServer,
+  IProtectedResource,
+  TRemoteAddressClass,
+} from './bearer-resource-gate.js';
+export {
   DEFAULT_MAX_FILE_BYTES,
   FILE_CHUNK_BYTES,
   FILE_CREDIT_WINDOW,

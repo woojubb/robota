@@ -56,7 +56,7 @@ export async function chatWithOpenAIChatCompletions(
       payloadKind: 'request',
       payload: requestParams,
     });
-    const requestOptions = openAIRequestOptions(undefined, input.requestHeaders);
+    const requestOptions = openAIRequestOptions(input.chatOptions?.signal, input.requestHeaders);
     const response = requestOptions
       ? await client.chat.completions.create(requestParams, requestOptions)
       : await client.chat.completions.create(requestParams);
@@ -151,7 +151,7 @@ function buildChatRequestParams(
     }),
     ...(input.chatOptions?.maxTokens !== undefined && { max_tokens: input.chatOptions.maxTokens }),
     ...(input.chatOptions?.tools && {
-      tools: convertToOpenAITools(input.chatOptions.tools),
+      tools: convertToOpenAITools(input.chatOptions.tools, input.providerOptions.strictTools),
       tool_choice: toOpenAICompatibleToolChoice(input.chatOptions.toolChoice),
     }),
     ...(responseFormat !== undefined && { response_format: responseFormat }),

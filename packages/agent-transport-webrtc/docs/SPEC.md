@@ -5,7 +5,7 @@
 WebRTC P2P transport. Carries the protocol-owned `IProtocolSession` capability over an `RTCDataChannel` so an
 external remote client can co-drive a live `agent-cli` session directly, peer-to-peer, without routing session
 content through any server; and connects two of one user's devices to each other (the device mesh), admitted by
-the device handshake. Reuses the transport-neutral session bridge + wire protocol from
+the device handshake, or a new device to one of them to enrol it. Reuses the transport-neutral session bridge + wire protocol from
 `@robota-sdk/agent-transport` (the same handler the WebSocket transport uses) so the protocol is shared, not
 duplicated. The public attach contract accepts that protocol role set directly: a full interactive
 session is a valid host input, but unrelated session capabilities are outside the carrier's
@@ -73,23 +73,31 @@ dependency.
 
 - **The session host is the offerer; in the device mesh the pair decides.** Inbound description/ICE signals are
   applied in arrival order, and a candidate that arrives before the remote description waits for it, so trickled
-  candidates are never lost to ordering. Between two devices the one with
+  candidates are never lost to ordering. A peer's own candidates go out only once it holds the remote
+  description: the binding hands the remote description to ICE before the DTLS layer can check a certificate
+  against it, so an answerer that could reach the offerer earlier would be refused. Between two devices the one with
   the lower device id offers and the other only answers, so two devices reaching for each other at once make one
   connection by rule rather than by whichever message arrives first; a repeated announcement from the peer run
   already being served is ignored, and a new run of the peer replaces the connection.
 - **Device mesh admission.** A mesh connection binds the device handshake the way the session gate binds pairing,
-  in both roles: the remote fingerprint comes from the certificate the DTLS layer verified, the remote description
-  must advertise exactly one fingerprint, and one is taken per connection. Until admission only handshake frames
+  and an enrollment connection binds the enrollment proof the same way, in both roles: the remote fingerprint
+  comes from the certificate the DTLS layer verified, the remote description must advertise exactly one
+  fingerprint, and one is taken per connection. An enrollment listener serves one attempt at a time, and the
+  proof, not this package, decides whether the peer is believed. Until admission only handshake frames
   cross; anything else ends the connection. A side counts the connection admitted only after the peer says it
   admitted it too, so a refused peer never believes it is connected. Each connection has a DTLS certificate of its
   own: a per-process certificate would be a stable identifier the relay could link across connections, and one two
-  endpoints in a process would share. No ICE server is contacted unless one is configured. Every way signals travel — the relay, or a peer's
+  endpoints in a process would share. No ICE server is contacted unless one is configured or a paired device
+  advertises its relay. Every way signals travel — the relay, or a peer's
   direct endpoint on the local network — is reached only through opaque, pairwise topics and is never trusted for
   anything but delivery: nothing it says is authenticated, so a new attempt runs beside the admitted connection
   and replaces it only once admitted itself, and attempts per pair are paced — forged announcements can neither
   cut a working connection nor open connections without bound.
-  Lists adopted in a handshake or handed over later apply from the next handshake, and a device they revoke loses
-  its connection at once. Admission says who the peer is; what it may do on the connection is its connection
+  Lists adopted in a handshake or handed over later apply from the next handshake and are pushed over every admitted
+  connection, since a revocation that waited for the next handshake would leave a revoked device linked elsewhere; a
+  pushed list is taken on the handshake's terms — newer, from this user's signing key, verifying — and travels
+  whatever the peer may ask, because lists are identity, not a capability. A device they revoke loses its
+  connection at once. Admission says who the peer is; what it may do on the connection is its connection
   authority's answer, so even a message is delivered only when that authority allows it. A file travels on a
   channel of its own, opened only on an admitted connection, so a transfer never shares the message channel.
 - **Discovery yields candidates, never trust.** Whatever a discovery path answers only carries signals, so a stale
@@ -99,11 +107,13 @@ dependency.
   public signaling relays involve strangers, and the user's own relay is the last resort. A signaling carrier that
   carries no admission in time is set aside for the next one, as a direct endpoint is, since a public relay may
   drop what it cannot read. An endpoint carries a pair's signals only once it proves it holds the pair's topic,
-  and is set aside when no admission follows, so no endpoint can hold a pair off the relay; an address is
-  remembered only after an admission it carried. The mDNS announcement is built record by record rather than by
-  a service-publishing library, because those publish the machine's host name: the service type names no
-  product, every instance name is a pairwise tag that rotates by epoch, the host name is random, and the
-  instance count is padded with names that hold for the epoch, so it does not tell how many devices there are.
+  and is set aside when an attempt over it is not admitted in time, and for longer each time it fails again, so no
+  endpoint can hold a pair off the relay or keep drawing it back; only signals that precede an admission start that
+  time, so what trails one cannot set a working endpoint aside. An address is remembered only after an admission
+  it carried. The mDNS announcement is built record by record rather than by a service-publishing library,
+  because those publish the machine's host name: the service type names no product, every instance name is a
+  pairwise tag that rotates by epoch, the host name is random, and the instance count is padded with names that
+  hold for the epoch, so it does not tell how many devices there are.
   On the local network, topics travel only as hashes and rotate by epoch, so what an observer there sees does
   not carry the stable relay inbox topics.
 - **Public infrastructure sees only signed ciphertext, and nothing that names a device, a user or the product.**
@@ -114,13 +124,37 @@ dependency.
   publisher's address and timing, and a relay can group one device's traffic by its connection. The relays span
   several operators and are replaceable in settings; none is trusted with anything but delivery, and every record
   or event is checked against the key it must carry before it is opened. Device lists found there are returned as
-  candidates, every one, because any paired device can publish one: the handshake keeps the newest that verifies,
-  so a forged "newer" list cannot hide a real revocation. The draft WebRTC-signaling NIP is not used because its
-  events would name the connection's parties; the event format is ours. pkarr relays carry no salt and only DNS
+  candidates, each paired device's newest before any device's next, because any paired device can publish one: the
+  handshake keeps the newest that verifies, so neither a forged "newer" list nor one device's many can hide a real
+  revocation. A list that spans several records is taken only when every record is of the same version. The draft
+  WebRTC-signaling NIP is not used because its events would name the connection's parties; the event format is
+  ours. pkarr relays carry no salt and only DNS
   packets, so a record's pkarr form is the salt-less item under the same one-time key, its value wrapped in one TXT
   record. The DHT and Nostr clients are maintained, pure JavaScript and permissively licensed, so they are ordinary
   dependencies; the DHT client is loaded only when a device turns the DHT on, so importing this package opens no
   socket.
+- **Where no direct path works, a relay moves datagrams and nothing more.** The relay is TURN on one of the user's
+  own always-on devices, then a TURN server the user configured; with neither, a connection that needs one is
+  refused with an error saying a relay device is needed, never left to fail silently and never carried some other
+  way. That conclusion is drawn only when a relay was in fact required — relayed connections alone are allowed, or
+  a direct attempt took the peer's description and no path it tried connected — and the error carries what the
+  attempt went through, so it never hides a different failure. A relay only forwards the two ends' DTLS, so it
+  holds no key of the channel and a relayed connection is admitted by the same handshake on the same verified
+  certificate as a direct one. Only devices the lists in force name, unrevoked, may use a device's relay: each pair
+  derives its own short-lived credential in the TURN REST style, its username a rotating pairwise tag that names no
+  device, so a device the lists drop can neither derive one nor keep an allocation. Where the relay listens travels
+  only in the pair's sealed hints records, so it reaches paired devices and no one else. The TURN server is a small
+  in-repo implementation of the part of RFC 8656 a WebRTC client uses, over UDP and in pure JavaScript: no
+  maintained JavaScript TURN server offered a per-allocation authorization hook and quotas without a wide surface
+  of its own, and a native server would make the relay depend on a binary per platform. A request nobody has
+  authenticated may carry a forged source address, so the relay answers such requests at a limited rate, per source
+  and in all, and never with more bytes than the request carried: it cannot be used to amplify traffic toward
+  someone else. The limit in all is only a backstop and sits well above the per-source one, since a low one would
+  let a flood from forged sources crowd out genuine clients' challenges. A client whose first request is smaller
+  than the challenge it would get goes unanswered; the first requests of the mesh's WebRTC stack are large enough.
+  Whether the relay forwards into private and link-local ranges is the user's choice. It does by default, because a
+  relayed connection to a device on the relay host's own network needs it; turning it off keeps a paired device
+  from reaching other hosts on that network through the relay, at the cost of those connections.
 - **The data channel is wired eagerly at creation, not on open.** The session message handler is built and its
   message subscription attached immediately, because the underlying implementation does not buffer inbound frames
   that arrive before a subscription, and the remote can send its first client message before the host's channel

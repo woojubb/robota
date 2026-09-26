@@ -45,7 +45,7 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
     // `/output-style`; FLOW-008 added `/effort`; `/advisor` joined beside it). The list below is the
     // assertion that matters — a length on its own can be restored by any substitution, and the count
     // exists only to catch an addition that also removed something.
-    expect(names).toHaveLength(35);
+    expect(names).toHaveLength(38);
     expect(names).toEqual([
       'agent-command-skills',
       'agent-command-help',
@@ -66,6 +66,8 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
       'agent-command-shell',
       'agent-command-editor',
       'agent-command-git',
+      'agent-command-keybindings',
+      'agent-command-theme',
       'agent-command-memory',
       'agent-command-mcp-activation',
       'agent-command-user-local',
@@ -80,6 +82,7 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
       'agent-command-plugin',
       'agent-command-settings',
       'agent-command-peers',
+      'agent-command-events',
       'agent-command-handoff',
       'agent-command-remote-control',
       'agent-command-provider',
@@ -92,14 +95,42 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
     expect(names).toHaveLength(2);
   });
 
-  it('BEHAVIOR-2003: registers /keybindings only when the file capability is injected', () => {
-    expect(moduleNames(baseOptions)).not.toContain('agent-command-keybindings');
-    expect(
-      moduleNames({
-        ...baseOptions,
-        keybindingsFilePort: { ensureFile: async () => '/tmp/keybindings.json' },
-      }),
-    ).toContain('agent-command-keybindings');
+  it('#3186: /keybindings and /theme exist on a host without a terminal, and say where they work', async () => {
+    const { modules } = createDefaultCommandModules(baseOptions);
+    const commands = modules.flatMap((module) => module.systemCommands ?? []);
+    for (const name of ['keybindings', 'theme']) {
+      const command = commands.find((candidate) => candidate.name === name);
+      expect(command, name).toBeDefined();
+      const result = await command!.execute({} as never, '');
+      expect(result).toMatchObject({ success: false });
+      expect(result.message).toMatch(/robota terminal/);
+    }
+  });
+
+  it('#3189: exactly /editor, /keybindings, /shell and /theme run on the terminal client', () => {
+    const { modules } = createDefaultCommandModules(baseOptions);
+    const TERMINAL_CLIENT = ['editor', 'keybindings', 'shell', 'theme'];
+
+    // The executable commands: what the runtime keeps in its catalog and what the listing reads.
+    const clientSystemCommands = modules
+      .flatMap((module) => module.systemCommands ?? [])
+      .filter((command) => command.runner === 'client');
+    expect(clientSystemCommands.map((command) => command.name).sort()).toEqual(TERMINAL_CLIENT);
+    for (const command of clientSystemCommands) {
+      expect(command.surfaces, command.name).toEqual(['terminal']);
+    }
+
+    // The palette entries, which must say the same — the two views cannot disagree.
+    const clientEntries = modules
+      .flatMap((module) => module.commandSources ?? [])
+      .flatMap((source) => source.getCommands())
+      .filter((entry) => entry.runner === 'client');
+    expect(clientEntries.map((entry) => entry.name).sort()).toEqual(TERMINAL_CLIENT);
+    for (const entry of clientEntries) {
+      expect(entry.surfaces, entry.name).toEqual(['terminal']);
+      // Running on the client does not change who may run it: all four stay user-only.
+      expect(entry.modelInvocable, entry.name).toBe(false);
+    }
   });
 
   it('TC-02: disabledCommandModules blacklist removes the named module', () => {

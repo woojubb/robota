@@ -14,6 +14,8 @@
  * owner and is tracked there, not duplicated in a transport package.
  */
 
+import { SESSION_CHANGE_REFUSAL_CODES } from '@robota-sdk/agent-interface-session';
+
 import type { TBackgroundControlAction, TClientMessage, TServerMessage } from './wire-messages.js';
 
 export type TMessageDecodeResult<TMessage> =
@@ -32,6 +34,7 @@ const isString = (v: unknown): v is string => typeof v === 'string';
 const isNonEmptyString = (v: unknown): v is string => typeof v === 'string' && v.length > 0;
 const isBoolean = (v: unknown): v is boolean => typeof v === 'boolean';
 const isFiniteNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
+const isCount = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 0;
 const isOptional =
   (check: (v: unknown) => boolean) =>
   (v: unknown): boolean =>
@@ -42,6 +45,19 @@ const oneOf =
   (members: readonly string[]) =>
   (v: unknown): boolean =>
     typeof v === 'string' && members.includes(v);
+/** A record, not an array, so a turn source added to the union without one here fails to compile. */
+const TURN_SOURCES: Readonly<
+  Record<Extract<TServerMessage, { type: 'turn_source' }>['source'], true>
+> = { user: true, 'agent-wakeup': true, peer: true, external: true };
+/** A history entry's envelope is this package's (`IWireHistoryEntry`); its `data` is the recorder's. */
+const isWireHistoryEntry = (v: unknown): boolean =>
+  isRecord(v) &&
+  isString(v['id']) &&
+  isString(v['timestamp']) &&
+  isString(v['category']) &&
+  isString(v['type']);
+const isWireHistoryEntries = (v: unknown): boolean =>
+  Array.isArray(v) && v.every(isWireHistoryEntry);
 
 type TFieldCheck = (value: unknown) => boolean;
 type TVariantShape = Readonly<Record<string, TFieldCheck>>;
@@ -69,6 +85,7 @@ const isBackgroundTaskListFilter: TFieldCheck = (v) =>
 const isBackgroundTaskInput: TFieldCheck = (v) =>
   isRecord(v) && isOptional(isString)(v['prompt']) && isOptional(isString)(v['stdin']);
 const isBackgroundTaskLogCursor: TFieldCheck = (v) => isRecord(v) && isFiniteNumber(v['offset']);
+const isExecutionDetailCursor: TFieldCheck = (v) => isRecord(v) && isCount(v['offset']);
 const isPermissionResultValue: TFieldCheck = (v) =>
   isBoolean(v) || v === 'allow-session' || v === 'allow-project';
 const isActionResponse: TFieldCheck = (v) =>
@@ -79,14 +96,43 @@ const isActionResponse: TFieldCheck = (v) =>
     isOptional(isString)(v['text'])) ||
     (v['type'] === 'cancelled' && v['values'] === undefined && v['text'] === undefined));
 
+type TWaitingLoopStopOutcome = Extract<TServerMessage, { type: 'waiting_loop_stop' }>['outcome'];
+/** Keyed by `kind`, so an outcome added to the union without a shape here fails to compile. */
+const WAITING_LOOP_STOP_OUTCOME_SHAPES: Readonly<
+  Record<TWaitingLoopStopOutcome['kind'], TVariantShape>
+> = {
+  none: {},
+  several: { message: isString },
+  stopped: { loopId: isNonEmptyString, message: isOptional(isString) },
+  failed: { loopId: isOptional(isNonEmptyString), message: isString },
+};
+const isWaitingLoopStopOutcome: TFieldCheck = (v) => {
+  if (!isRecord(v) || !isString(v['kind'])) return false;
+  const kind = v['kind'];
+  if (!Object.prototype.hasOwnProperty.call(WAITING_LOOP_STOP_OUTCOME_SHAPES, kind)) return false;
+  const shape = WAITING_LOOP_STOP_OUTCOME_SHAPES[kind as TWaitingLoopStopOutcome['kind']];
+  return Object.entries(shape).every(([field, check]) => check(v[field]));
+};
+
 /** One entry per `TClientMessage` variant — a variant added to the union without one fails the test. */
 export const CLIENT_MESSAGE_SHAPES: Readonly<Record<TClientMessage['type'], TVariantShape>> = {
   submit: { prompt: isNonEmptyString },
-  command: { name: isNonEmptyString, args: isOptional(isString) },
+  command: {
+    name: isNonEmptyString,
+    args: isOptional(isString),
+    requestId: isOptional(isNonEmptyString),
+  },
   abort: {},
   'cancel-queue': {},
   'get-messages': {},
+  'get-history': { fromIndex: isOptional(isCount) },
+  'get-prompts': {},
   'get-context': {},
+  'get-commands': {},
+  'get-status': {},
+  'list-sessions': { requestId: isNonEmptyString },
+  'new-session': { requestId: isOptional(isNonEmptyString) },
+  'switch-session': { sessionId: isNonEmptyString, requestId: isOptional(isNonEmptyString) },
   'get-usage-report': {},
   'get-personal-usage-report': {
     requestId: isNonEmptyString,
@@ -100,6 +146,12 @@ export const CLIENT_MESSAGE_SHAPES: Readonly<Record<TClientMessage['type'], TVar
   'get-executing': {},
   'get-pending': {},
   'get-execution-workspace': {},
+  'read-execution-detail': {
+    requestId: isNonEmptyString,
+    entryId: isNonEmptyString,
+    cursor: isOptional(isExecutionDetailCursor),
+  },
+  'stop-waiting-loop': { requestId: isNonEmptyString },
   'get-background-tasks': { filter: isOptional(isBackgroundTaskListFilter) },
   'get-background-task': { taskId: isNonEmptyString },
   'get-background-job-groups': {},
@@ -130,9 +182,31 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
   complete: { result: isRecord, ...authored },
   interrupted: { result: isRecord, ...authored },
   error: { message: isString, ...authored },
-  command_result: { name: isString, message: isString, success: isBoolean },
+  command_result: {
+    name: isString,
+    message: isString,
+    success: isBoolean,
+    requestId: isOptional(isString),
+  },
   messages: { messages: isRecordArray },
+  history: { startIndex: isCount, total: isCount, entries: isWireHistoryEntries },
   context: { state: isRecord },
+  history_changed: {},
+  turn_source: { source: oneOf(Object.keys(TURN_SOURCES)) },
+  commands: { commands: isRecordArray, skills: isRecordArray },
+  session_status: { status: isRecord },
+  sessions: { requestId: isNonEmptyString, listing: isRecord },
+  sessions_error: {
+    requestId: isNonEmptyString,
+    code: oneOf(['not_available', 'list_failed']),
+    message: isString,
+  },
+  session_switched: { event: isRecord },
+  session_change_failed: {
+    code: oneOf(SESSION_CHANGE_REFUSAL_CODES),
+    message: isString,
+    requestId: isOptional(isString),
+  },
   usage_report: { report: isRecord },
   personal_usage_report: { requestId: isNonEmptyString, report: isRecord },
   personal_usage_report_error: {
@@ -152,8 +226,12 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
     message: isString,
   },
   executing: { executing: isBoolean },
-  pending: { pending: (v) => v === null || isString(v) },
+  // An older host sends no count; a client then counts the one prompt it can see.
+  pending: { pending: (v) => v === null || isString(v), pendingCount: isOptional(isCount) },
   execution_workspace_event: { snapshot: isRecord },
+  execution_detail: { requestId: isNonEmptyString, page: isRecord },
+  execution_detail_error: { requestId: isNonEmptyString, message: isString },
+  waiting_loop_stop: { requestId: isNonEmptyString, outcome: isWaitingLoopStopOutcome },
   background_task_event: { event: isRecord },
   background_job_group_event: { event: isRecord },
   plan_event: { event: isRecord },
@@ -176,7 +254,7 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
     success: isBoolean,
     message: isOptional(isString),
   },
-  protocol_error: { message: isString },
+  protocol_error: { message: isString, requestId: isOptional(isString) },
   resume_gap: {},
 };
 

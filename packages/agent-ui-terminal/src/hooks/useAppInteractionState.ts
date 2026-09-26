@@ -41,6 +41,8 @@ export function useAppInteractionState(options: IOptions): IAppInteractionState 
   const screenReader = useAppInputBindings({
     isThinking: options.state.isThinking,
     isShuttingDown: options.state.isShuttingDown,
+    readOnly: options.state.readOnly,
+    attached: options.state.attached,
     permissionRequest: options.state.permissionRequest,
     pendingUserAction: options.state.pendingUserAction,
     pluginVisible: screens.showPluginTUI,
@@ -72,6 +74,7 @@ export function useAppInteractionState(options: IOptions): IAppInteractionState 
     transportVisible: screens.showTransportTUI,
     setTransportVisible: screens.setShowTransportTUI,
     sessionStore: options.sessionStore,
+    hostSessions: options.state.hostSessions,
     sessionPickerVisible: screens.showSessionPicker,
     setSessionPickerVisible: screens.setShowSessionPicker,
     onSessionSwitch: options.onSessionSwitch,

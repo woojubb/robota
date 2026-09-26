@@ -45,6 +45,7 @@ export {
   getWorkspaceProjectIdentity,
   getWorkspaceProjectReader,
   getWorkspaceProjectStateStorage,
+  supportsWorkspaceProjectMutation,
 } from './workspace-trust/index.js';
 export type {
   IRestrictedWorkspaceProjectAccess,
@@ -80,13 +81,17 @@ export {
   InteractiveSession,
   PeerMessageIngress,
   ExternalEventIngress,
+  ExternalEventGrantHistory,
+  createExternalEventGrantHistory,
 } from './interactive/index.js';
 export { withUniqueSessionName } from './interactive/interactive-session-fork-record.js';
+// TERM-001: a client attached to a runtime in another process hands its own terminal to the
+// client-run commands (`/shell`, `/editor`) through the same gate the session uses.
+export { SessionTerminalHandoffGate } from './interactive/interactive-session-terminal-handoff.js';
 export type {
-  IAuthenticatedExternalEvent,
   IExternalEventSourceOptions,
   IExternalEventSource,
-  IExternalEventReceipt,
+  TExternalEventReceipt,
   TExternalEventSettlement,
 } from './interactive/index.js';
 
@@ -115,6 +120,7 @@ export {
   createUserPromptHistoryFile,
   isSafeSessionId,
   listResumableSessionSummaries,
+  listUnreadableSessions,
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
   generateSessionName,
@@ -174,6 +180,7 @@ export type {
   ICommandHostContext,
   IHandoffProgress,
   IHandoffStaysBehind,
+  ILinkedDeviceSummary,
   ICommandModule,
   IRemoteCommandPolicy,
   ICommandPickerAdapter,
@@ -192,6 +199,8 @@ export type {
   ICommandPermissionRulesAdapter,
   ICommandSandboxAdapter,
   ICommandSandboxStatus,
+  ICommandExternalEventGrant,
+  ICommandExternalEventsAdapter,
   TSandboxCommandMode,
   IPermissionRuleLayer,
   ICommandMCPActivationAdapter,
@@ -875,6 +884,23 @@ export type {
 // RUNTIME-001: the shared, presentation-free runtime host (build session + transport lifecycle).
 export { buildRuntimeSession, startRuntimeHost } from './runtime/index.js';
 export type { IRuntimeHostOptions, IRuntimeHostHandle } from './runtime/index.js';
+export { SessionSlot } from './runtime/index.js';
+export type { ISessionSlotOptions, IRuntimeHostPoolOptions } from './runtime/index.js';
+export {
+  SessionPool,
+  isSessionBusy,
+  SESSION_POOL_MAX_LIVE,
+  SESSION_POOL_IDLE_GRACE_MS,
+  SessionChangeRefusal,
+} from './runtime/index.js';
+export type {
+  ISessionPoolOptions,
+  ISessionPoolBinding,
+  ISessionPoolEntry,
+  ISessionLease,
+  TPoolBusySession,
+  TSessionPoolRole,
+} from './runtime/index.js';
 export type { IResolvedConfig } from './config/config-types.js';
 export type { IOutputStylePrompt } from './context/output-style-prompt.js';
 

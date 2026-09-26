@@ -9,8 +9,10 @@
  * handshake alone, so a stale, forged or hijacked candidate can delay a connection but never admit
  * one. A candidate carries a pair's signals only once it proves it holds the pair's topic, and only
  * until an attempt over it fails to reach admission in time; then it is set aside and the next way
- * is tried, so a hostile endpoint cannot hold a pair off the relay. A carrier that is not the last one
- * is set aside the same way, so relays that drop signals cannot hold a pair off the next carrier. On
+ * is tried, so a hostile endpoint cannot hold a pair off the relay. The time to admission counts from
+ * a signal that can only precede one, so what trails an admitted attempt cannot set a working way aside;
+ * a way that fails again is set aside for longer each time. A carrier that is not the last one is set
+ * aside the same way, so relays that drop signals cannot hold a pair off the next carrier. On
  * the local network signals are addressed by rotating pairwise tags rather than the relay's inbox
  * topics. A candidate is remembered only once a connection it carried was admitted.
  */
@@ -49,6 +51,10 @@ const MAX_PROBES = 8;
 const MAX_QUEUED = 256;
 /** A direct path that has not carried an admission in this long is set aside. */
 const DEFAULT_ADMISSION_TIMEOUT_MS = 20_000;
+/** A way that keeps failing is set aside for at most this many recheck periods at a time. */
+const MAX_SET_ASIDE_FACTOR = 16;
+/** Ways whose failures a pair remembers; the oldest is forgotten first. */
+const MAX_REMEMBERED_FAILURES = 32;
 
 /** Announces this device to its peers somewhere they look. */
 export interface IMeshAdvertiser {
@@ -90,26 +96,71 @@ type TPath =
       readonly kind: 'direct';
       readonly socket: IWebSocketLike;
       readonly candidate: IMeshCandidate;
-      /** Running from the first signal since the last admission until the next admission. */
+      /** Running from the first attempt since the last admission until the next admission. */
       deadline?: ReturnType<typeof setTimeout>;
     }
   | {
       readonly kind: 'relay';
       readonly until: number;
       readonly carrier: IMeshRelay;
-      /** Running from the first signal since the last admission, unless this is the last carrier. */
+      /** As a direct path's, unless this is the last carrier. */
       deadline?: ReturnType<typeof setTimeout>;
     };
+
+/** Ways set aside because they carried no admission, and how often each has failed in a row. */
+class SetAside<K> {
+  private readonly until = new Map<K, number>();
+  private readonly failures = new Map<K, number>();
+
+  /** Whether `key` is set aside at `now`. */
+  public has(key: K, now: number): boolean {
+    const until = this.until.get(key);
+    if (until === undefined) return false;
+    if (until > now) return true;
+    this.until.delete(key);
+    return false;
+  }
+
+  /** `key` failed again: set aside twice as long as the last time, within the bound. */
+  public fail(key: K, now: number, periodMs: number): void {
+    const failures = (this.failures.get(key) ?? 0) + 1;
+    this.failures.delete(key);
+    this.failures.set(key, failures);
+    for (const oldest of this.failures.keys()) {
+      if (this.failures.size <= MAX_REMEMBERED_FAILURES) break;
+      this.failures.delete(oldest);
+      this.until.delete(oldest);
+    }
+    const factor = Math.min(2 ** (failures - 1), MAX_SET_ASIDE_FACTOR);
+    this.until.set(key, now + periodMs * factor);
+  }
+
+  /** An admission: every way starts over. */
+  public clear(): void {
+    this.until.clear();
+    this.failures.clear();
+  }
+}
+
+/**
+ * Whether a signal can only precede an attempt's admission: a `hello`, an `offer` or an `answer`.
+ * ICE candidates keep trickling after it.
+ */
+function precedesAdmission(data: unknown): boolean {
+  if (typeof data !== 'object' || data === null) return false;
+  const kind = (data as { kind?: unknown }).kind;
+  return kind === 'hello' || kind === 'offer' || kind === 'answer';
+}
 
 interface IRouteState {
   route: IMeshPeerRoute;
   /** The topic this device's signals to the peer go to on the local network, this epoch. */
   lanOut: string;
   path: TPath;
-  /** Candidates set aside (`host:port` → until when), because they carried no admission. */
-  readonly avoid: Map<string, number>;
-  /** Carriers set aside (→ until when), because they carried no admission. */
-  readonly avoidCarriers: Map<IMeshRelay, number>;
+  /** Candidates (`host:port`) set aside, because they carried no admission. */
+  readonly avoid: SetAside<string>;
+  /** Carriers set aside, because they carried no admission. */
+  readonly avoidCarriers: SetAside<IMeshRelay>;
 }
 
 function candidateKey(candidate: IMeshCandidate): string {
@@ -236,8 +287,8 @@ export class DiscoveringMeshRelay implements IMeshRelay {
               route,
               lanOut: outbound,
               path: { kind: 'unresolved' },
-              avoid: new Map(),
-              avoidCarriers: new Map(),
+              avoid: new SetAside(),
+              avoidCarriers: new SetAside(),
             };
       state.route = route;
       state.lanOut = outbound;
@@ -308,9 +359,7 @@ export class DiscoveringMeshRelay implements IMeshRelay {
     }
     const path = state.path;
     if (path.kind === 'direct' && path.socket.readyState === WS_OPEN) {
-      // Every attempt must reach admission over this endpoint in time, not only the first one.
-      this.armDeadline(state, path);
-      this.sendDirect(path.socket, state, data);
+      this.sendDirect(state, path, data);
       return;
     }
     if (path.kind === 'relay' && this.now() < path.until) {
@@ -328,8 +377,14 @@ export class DiscoveringMeshRelay implements IMeshRelay {
     void this.resolve(state, queue);
   }
 
-  private sendDirect(socket: IWebSocketLike, state: IRouteState, data: unknown): void {
-    socket.send(JSON.stringify({ type: 'message', to: lanAddressOf(state.lanOut), data }));
+  private sendDirect(
+    state: IRouteState,
+    path: Extract<TPath, { kind: 'direct' }>,
+    data: unknown,
+  ): void {
+    // Every attempt must reach admission over this endpoint in time, not only the first one.
+    if (precedesAdmission(data)) this.armDeadline(state, path);
+    path.socket.send(JSON.stringify({ type: 'message', to: lanAddressOf(state.lanOut), data }));
   }
 
   /** A signal for a topic that is no declared pair's: the last carrier, if there is one. */
@@ -348,21 +403,21 @@ export class DiscoveringMeshRelay implements IMeshRelay {
     data: unknown,
   ): void {
     // Every attempt must reach admission over this carrier in time, unless it is the last one.
-    if (path.carrier !== this.carriers().at(-1)) this.armDeadline(state, path);
+    if (precedesAdmission(data) && path.carrier !== this.carriers().at(-1)) {
+      this.armDeadline(state, path);
+    }
     path.carrier.send(state.route.outbound, data);
   }
 
   /** Try the sources in order; the first candidate that holds the pair's topic carries its signals. */
   private async resolve(state: IRouteState, queue: unknown[]): Promise<void> {
     const tried = new Set<string>();
-    const now = this.now();
-    for (const [key, until] of state.avoid) if (until <= now) state.avoid.delete(key);
     for (const source of this.options.sources) {
       if (this.closed || state.path.kind !== 'resolving') return;
       for (const candidate of await this.look(source, state.route)) {
         const key = candidateKey(candidate);
         if (tried.size >= MAX_PROBES) break;
-        if (tried.has(key) || state.avoid.has(key)) continue;
+        if (tried.has(key) || state.avoid.has(key, this.now())) continue;
         tried.add(key);
         const socket = await this.probe(candidate, state.lanOut);
         if (socket === undefined) continue;
@@ -374,8 +429,8 @@ export class DiscoveringMeshRelay implements IMeshRelay {
           socket.close();
           return;
         }
-        this.useDirect(state, socket, candidate);
-        for (const data of queue) this.sendDirect(socket, state, data);
+        const path = this.useDirect(state, socket, candidate);
+        for (const data of queue) this.sendDirect(state, path, data);
         return;
       }
     }
@@ -395,11 +450,8 @@ export class DiscoveringMeshRelay implements IMeshRelay {
    */
   private fallBack(state: IRouteState): void {
     const now = this.now();
-    for (const [carrier, until] of state.avoidCarriers) {
-      if (until <= now) state.avoidCarriers.delete(carrier);
-    }
     const carriers = this.carriers();
-    const carrier = carriers.find((c) => !state.avoidCarriers.has(c)) ?? carriers.at(-1);
+    const carrier = carriers.find((c) => !state.avoidCarriers.has(c, now)) ?? carriers.at(-1);
     state.path =
       carrier === undefined
         ? { kind: 'unresolved' }
@@ -463,13 +515,13 @@ export class DiscoveringMeshRelay implements IMeshRelay {
       socket.on('message', (raw) => {
         const frame = parse(raw);
         if (frame?.to !== to) return;
-        if (frame.type === 'present') {
-          // The proof is a MAC over this probe's own nonce, so it alone decides; an echoed or stale
-          // frame fails it.
-          settle(verifyLanPresenceProof(lanTopic, nonce, frame.proof));
-        } else if (frame.type === 'absent') {
+        if (frame.type === 'absent') {
           settle(false);
+          return;
         }
+        // Whatever else the frame says, only the proof decides: it is an HMAC over this probe's
+        // own nonce, so an echoed, stale or forged frame fails it.
+        settle(verifyLanPresenceProof(lanTopic, nonce, frame.proof));
       });
       socket.on('error', () => settle(false));
       socket.on('close', () => settle(false));
@@ -477,9 +529,9 @@ export class DiscoveringMeshRelay implements IMeshRelay {
   }
 
   /**
-   * An endpoint or carrier that carries the pair's signals but no admission is set aside, so it
-   * cannot keep the pair from the next way — whether it never forwarded, or forwarded one attempt
-   * and swallows the next.
+   * An endpoint or carrier that carries an attempt but no admission is set aside, so it cannot keep
+   * the pair from the next way — whether it never forwarded, or forwarded one attempt and swallows
+   * the next. One that fails again is set aside for longer, so it is not tried every recheck.
    */
   private armDeadline(
     state: IRouteState,
@@ -488,19 +540,24 @@ export class DiscoveringMeshRelay implements IMeshRelay {
     if (path.deadline !== undefined) return;
     path.deadline = setTimeout(() => {
       if (state.path !== path) return;
-      const until = this.now() + this.recheckMs();
-      if (path.kind === 'direct') state.avoid.set(candidateKey(path.candidate), until);
-      else state.avoidCarriers.set(path.carrier, until);
+      if (path.kind === 'direct') {
+        state.avoid.fail(candidateKey(path.candidate), this.now(), this.recheckMs());
+      } else {
+        state.avoidCarriers.fail(path.carrier, this.now(), this.recheckMs());
+      }
       this.reset(state);
       this.fallBack(state);
     }, this.options.admissionTimeoutMs ?? DEFAULT_ADMISSION_TIMEOUT_MS);
     path.deadline.unref?.();
   }
 
-  private useDirect(state: IRouteState, socket: IWebSocketLike, candidate: IMeshCandidate): void {
+  private useDirect(
+    state: IRouteState,
+    socket: IWebSocketLike,
+    candidate: IMeshCandidate,
+  ): Extract<TPath, { kind: 'direct' }> {
     const path: Extract<TPath, { kind: 'direct' }> = { kind: 'direct', socket, candidate };
     state.path = path;
-    this.armDeadline(state, path);
     const drop = (): void => {
       if (state.path === path) this.reset(state);
     };
@@ -511,6 +568,7 @@ export class DiscoveringMeshRelay implements IMeshRelay {
       const frame = parse(raw);
       if (frame?.type === 'absent' && frame.to === lanAddressOf(state.lanOut)) drop();
     });
+    return path;
   }
 
   private reset(state: IRouteState): void {

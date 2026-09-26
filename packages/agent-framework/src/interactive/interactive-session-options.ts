@@ -42,6 +42,21 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
+import type {
+  IAccessTokenVerifier,
+  IAccessTokenVerifierConfig,
+} from '@robota-sdk/agent-interface-transport';
+
+/**
+ * How the host builds an access-token verifier for one external-event grant. Set once, when the
+ * session is built: opening a grant cannot supply a verifier, so each grant is checked against the
+ * principal it pins.
+ */
+import type { ExternalEventGrantHistory } from './external-event-ingress.js';
+
+export type TExternalEventVerifierFactory = (
+  config: IAccessTokenVerifierConfig,
+) => IAccessTokenVerifier;
 import type { Session } from '@robota-sdk/agent-session';
 import type { ISessionLogSink } from '@robota-sdk/agent-session';
 import type { IRetrievalAdapter } from '@robota-sdk/agent-tools';
@@ -93,6 +108,11 @@ export interface IInteractiveSessionStandardOptions {
   /** Explicit authority- and permission-backed edit checkpoint capability. */
   editCheckpointStore?: EditCheckpointStore;
   sessionName?: string;
+  /**
+   * #3189: name the session once, after its first turn, with its own provider, unless it already has
+   * a name. Off unless set: a one-shot print run has no use for a title.
+   */
+  autoName?: boolean;
   resumeSessionId?: string;
   forkSession?: boolean;
   /**
@@ -166,6 +186,13 @@ export interface IInteractiveSessionStandardOptions {
    * `canHandoffTerminal === false` for transports with no interactive TTY (headless).
    */
   terminalHandoff?: ITerminalHandoff;
+  /** Builds each external-event grant's verifier; absent, the session opens no grant. */
+  externalEventVerifierFactory?: TExternalEventVerifierFactory;
+  /**
+   * The run's grant history, shared by every session a run builds (#3189): a session switch replays
+   * no spent token and resets no rate. Absent, the history lives and ends with the session.
+   */
+  externalEventGrantHistory?: ExternalEventGrantHistory;
   /** Model-visible command descriptors derived from the composed command executor. */
   commandDescriptors?: readonly ICapabilityDescriptor[];
   /** Provider definitions for hot-swap via /provider switch. */
@@ -266,6 +293,8 @@ export interface IInteractiveSessionInjectedOptions {
   /** Explicit authority- and permission-backed edit checkpoint capability. */
   editCheckpointStore?: EditCheckpointStore;
   sessionName?: string;
+  /** See the standard options. */
+  autoName?: boolean;
   resumeSessionId?: string;
   forkSession?: boolean;
   /** Optional command modules composed into this injected session. */
@@ -274,6 +303,13 @@ export interface IInteractiveSessionInjectedOptions {
   commandHostAdapters?: ICommandHostAdapters;
   /** TERM-001: transport-provided terminal-handoff capability (see standard options). */
   terminalHandoff?: ITerminalHandoff;
+  /** Builds each external-event grant's verifier; absent, the session opens no grant. */
+  externalEventVerifierFactory?: TExternalEventVerifierFactory;
+  /**
+   * The run's grant history, shared by every session a run builds (#3189): a session switch replays
+   * no spent token and resets no rate. Absent, the history lives and ends with the session.
+   */
+  externalEventGrantHistory?: ExternalEventGrantHistory;
 }
 
 /** Union of standard and injected construction options. */

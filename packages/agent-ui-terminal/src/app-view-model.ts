@@ -21,13 +21,15 @@ import type {
   IExecutionWorkspaceSnapshot,
 } from '@robota-sdk/agent-interface-execution';
 import type {
-  IResumableSessionSummary,
+  ISessionListingEntry,
   IToolState,
 } from '@robota-sdk/agent-interface-session';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 export interface IAppViewModel {
   readonly staticItems: TStaticItem[];
+  /** Printing starts over from the first item when this changes (see `transcriptGeneration`). */
+  readonly transcriptKey: number;
   readonly handoffSuspended: boolean;
   readonly updateNotice: string | undefined;
   readonly coordinationError: string | undefined;
@@ -89,7 +91,7 @@ export interface IAppTransportViewModel {
 
 export interface IAppSessionPickerViewModel {
   readonly visible: boolean;
-  readonly sessions: readonly IResumableSessionSummary[];
+  readonly sessions: readonly ISessionListingEntry[];
   readonly select: (sessionId: string) => void;
   readonly cancel: () => void;
 }
@@ -133,4 +135,6 @@ export interface IAppStatusViewModel {
   readonly activePresetId: string | undefined;
   readonly effort: TModelEffortSelection | undefined;
   readonly gitRefreshToken: number;
+  /** This terminal only observes the session; the status bar says so. */
+  readonly readOnly: boolean;
 }

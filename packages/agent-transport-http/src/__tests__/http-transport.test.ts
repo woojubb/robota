@@ -18,7 +18,9 @@ function createMockSession(): IHttpTransportSession {
     getSession,
     executeCommand,
     listCommands,
+    listSkills,
     getMessages,
+    getFullHistory,
     getContextState,
     isExecuting,
     getPendingPrompt,
@@ -33,7 +35,9 @@ function createMockSession(): IHttpTransportSession {
     getSession,
     executeCommand,
     listCommands,
+    listSkills,
     getMessages,
+    getFullHistory,
     getContextState,
     isExecuting,
     getPendingPrompt,
@@ -49,7 +53,7 @@ describe('createHttpTransport', () => {
       (session: IHttpTransportSession) => void
     >();
     expectTypeOf<IHttpTransportSession>().not.toHaveProperty('listRuntimeTools');
-    expect(Object.keys(createMockSession())).toHaveLength(13);
+    expect(Object.keys(createMockSession())).toHaveLength(15);
   });
 
   it('returns an adapter with name "http"', () => {

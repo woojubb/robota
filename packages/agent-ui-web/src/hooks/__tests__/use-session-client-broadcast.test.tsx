@@ -67,8 +67,12 @@ describe('CMD-004 Stage E — GUI folds the broadcast session events', () => {
     deliver({ type: 'error', message: 'provider failed' });
 
     expect(result.current.streamingText).toBe('');
-    expect(result.current.messages.at(-1)?.content).toBe('partial');
-    expect(result.current.activeTools[0]?.status).toBe('error');
+    expect(result.current.messages.at(-1)).toMatchObject({ role: 'assistant', content: 'partial' });
+    expect(result.current.activeTools).toEqual([]);
+    expect(result.current.messages.at(-2)).toMatchObject({
+      role: 'tools',
+      tools: [{ name: 'Read', status: 'error' }],
+    });
     expect(result.current.sessionNotices.at(-1)).toMatchObject({
       kind: 'session-error',
       message: 'provider failed',

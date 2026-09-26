@@ -25,6 +25,8 @@ const RUN_OPTION_CONSUMERS: Record<keyof Required<IRunOptions>, string> = {
   userId: 'robota-execution.ts buildRunContext → IExecutionContext / plugin payload',
   driverId:
     'robota-execution.ts buildRunContext → IExecutionContext → execution-service.ts addUserMessage metadata (PEER-007)',
+  turnSource:
+    'robota-execution.ts buildRunContext → IExecutionContext → execution-service.ts addUserMessage metadata',
   metadata: 'robota-execution.ts buildRunContext → IExecutionContext',
   signal: 'robota.ts run queue + execution-round-provider.ts provider call',
   awaitProviderSettlement: 'execution-provider-call.ts provider completion join',

@@ -1,44 +1,31 @@
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
-import { startMockMcpServer } from './mock-mcp-server.js';
-import {
-  MCP_EXTERNAL_EVENT_CAPABILITY,
-  MCP_EXTERNAL_EVENT_METHOD,
-  openMcpSession,
-} from '../client/session.js';
+import * as agentMcp from '../index.js';
+import { openMcpSession } from '../client/session.js';
 import { admitHttpEndpoint, constructStreamableHttpTransport } from '../client/transport.js';
+import { startMockMcpServer } from './mock-mcp-server.js';
 
 import type { IMockMcpServer } from './mock-mcp-server.js';
 import type { IMCPSession } from '../client/session.js';
-import type { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 
-const EVENT = { senderId: 'alice', conversationId: 'chat-1', content: 'hello' };
+/** The retired sender-string event protocol a server may still declare and send. */
+const RETIRED_CAPABILITY = 'com.robota.external-event';
+const RETIRED_METHOD = 'notifications/com.robota/external-event';
 
-async function openSession(
-  server: IMockMcpServer,
-  onTransport?: (transport: Transport) => void,
-): Promise<IMCPSession> {
+async function openSession(server: IMockMcpServer): Promise<IMCPSession> {
   const admission = await admitHttpEndpoint(
     { url: server.url },
     { policy: { allowedHosts: ['127.0.0.1'] } },
   );
   if (!admission.ok) throw new Error('test MCP endpoint admission failed');
-  const transport = constructStreamableHttpTransport(admission.admitted);
-  onTransport?.(transport);
   return openMcpSession({
     serverId: 'chat',
-    transport,
+    transport: constructStreamableHttpTransport(admission.admitted),
     timeouts: { startupMs: 2_000, perCallMs: 2_000 },
   });
 }
 
-async function send(server: IMockMcpServer, session: IMCPSession, params: unknown): Promise<void> {
-  server.queueNotification({ method: MCP_EXTERNAL_EVENT_METHOD, params });
-  await session.callTool('echo', {});
-}
-
-describe('external event MCP notifications', () => {
+describe('MCP server notifications are never an external-event carrier', () => {
   let server: IMockMcpServer | undefined;
   let session: IMCPSession | undefined;
 
@@ -49,140 +36,33 @@ describe('external event MCP notifications', () => {
     server = undefined;
   });
 
-  it('delivers validated events only after the server declares the supported capability', async () => {
+  it('exports no external-event capability, method or listener', () => {
+    expect(Object.keys(agentMcp).filter((name) => /external.?event/i.test(name))).toEqual([]);
+    expect(
+      Object.getOwnPropertyNames(agentMcp.MCPConnectionSupervisor.prototype).filter((name) =>
+        /external.?event/i.test(name),
+      ),
+    ).toEqual([]);
+  });
+
+  it('offers no event port even when the server declares the retired capability', async () => {
     server = await startMockMcpServer({
-      capabilities: { tools: {}, experimental: { [MCP_EXTERNAL_EVENT_CAPABILITY]: { version: 1 } } },
+      capabilities: { tools: {}, experimental: { [RETIRED_CAPABILITY]: { version: 1 } } },
     });
     session = await openSession(server);
-    expect(session.externalEventsDeclared).toBe(true);
-    const received: unknown[] = [];
-    const unsubscribe = session.onExternalEvent((event) => received.push(event));
-    await send(server, session, EVENT);
-    expect(received).toEqual([EVENT]);
-    unsubscribe();
-    await send(server, session, EVENT);
-    expect(received).toEqual([EVENT]);
+    expect(Object.keys(session).filter((name) => /external.?event/i.test(name))).toEqual([]);
   });
 
-  it.each([
-    undefined,
-    { version: 2 },
-    { version: '1' },
-  ])('does not subscribe for an absent or unsupported capability: %s', async (declaration) => {
+  it('ignores a retired event notification and keeps serving tool calls', async () => {
     server = await startMockMcpServer({
-      capabilities: {
-        tools: {},
-        ...(declaration ? { experimental: { [MCP_EXTERNAL_EVENT_CAPABILITY]: declaration } } : {}),
-      },
+      capabilities: { tools: {}, experimental: { [RETIRED_CAPABILITY]: { version: 1 } } },
     });
     session = await openSession(server);
-    expect(session.externalEventsDeclared).toBe(false);
-    const received: unknown[] = [];
-    session.onExternalEvent((event) => received.push(event));
-    await send(server, session, EVENT);
-    expect(received).toEqual([]);
-  });
-
-  it('drops malformed event params without delivering them to the host', async () => {
-    server = await startMockMcpServer({
-      capabilities: { tools: {}, experimental: { [MCP_EXTERNAL_EVENT_CAPABILITY]: { version: 1 } } },
+    server.queueNotification({
+      method: RETIRED_METHOD,
+      params: { senderId: 'alice', conversationId: 'chat-1', content: 'hello' },
     });
-    session = await openSession(server);
-    const received: unknown[] = [];
-    session.onExternalEvent((event) => received.push(event));
-    await send(server, session, { ...EVENT, content: 42 });
-    await send(server, session, { ...EVENT, senderId: '' });
-    await send(server, session, { ...EVENT, content: 'x'.repeat(16_385) });
-    expect(received).toEqual([]);
-  });
-
-  it('stops delivery when the session closes', async () => {
-    server = await startMockMcpServer({
-      capabilities: { tools: {}, experimental: { [MCP_EXTERNAL_EVENT_CAPABILITY]: { version: 1 } } },
-    });
-    let transport: Transport | undefined;
-    session = await openSession(server, (opened) => { transport = opened; });
-    const received: unknown[] = [];
-    session.onExternalEvent((event) => received.push(event));
-    await send(server, session, EVENT);
-    expect(received).toEqual([EVENT]);
-    const lateMessage = transport?.onmessage;
-    await session.close();
-    await session.close();
-    // Simulate a notification already queued by the transport when close began.
-    lateMessage?.({ jsonrpc: '2.0', method: MCP_EXTERNAL_EVENT_METHOD, params: EVENT });
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(received).toEqual([EVENT]);
-  });
-
-  it('ends subscriptions when the transport closes unexpectedly', async () => {
-    server = await startMockMcpServer({
-      capabilities: { tools: {}, experimental: { [MCP_EXTERNAL_EVENT_CAPABILITY]: { version: 1 } } },
-    });
-    let transport: Transport | undefined;
-    session = await openSession(server, (opened) => { transport = opened; });
-    const received: unknown[] = [];
-    session.onExternalEvent((event) => received.push(event));
-    let closes = 0;
-    session.onClose(() => { closes += 1; });
-    await send(server, session, EVENT);
-    expect(received).toEqual([EVENT]);
-
-    const lateMessage = transport?.onmessage;
-    transport?.onclose?.();
-    expect(closes).toBe(1);
-    session.onExternalEvent((event) => received.push(event));
-    lateMessage?.({ jsonrpc: '2.0', method: MCP_EXTERNAL_EVENT_METHOD, params: EVENT });
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(received).toEqual([EVENT]);
-    await session.close();
-    expect(closes).toBe(1);
-  });
-
-  it('does not announce a self-close until transport cleanup finishes', async () => {
-    server = await startMockMcpServer({
-      capabilities: { tools: {}, experimental: { [MCP_EXTERNAL_EVENT_CAPABILITY]: { version: 1 } } },
-    });
-    session = await openSession(server);
-    const originalClose = Client.prototype.close;
-    let finishCleanup: (() => void) | undefined;
-    const cleanup = new Promise<void>((resolve) => { finishCleanup = resolve; });
-    const spy = vi.spyOn(Client.prototype, 'close').mockImplementation(async function (this: Client) {
-      await cleanup;
-      await originalClose.call(this);
-    });
-    try {
-      let closes = 0;
-      session.onClose(() => { closes += 1; });
-      const closing = session.close();
-      expect(closes).toBe(0);
-      finishCleanup?.();
-      await closing;
-      expect(closes).toBe(1);
-    } finally {
-      spy.mockRestore();
-      finishCleanup?.();
-    }
-  });
-
-  it('does not trigger reconnect on a self-close whose cleanup fails', async () => {
-    server = await startMockMcpServer({
-      capabilities: { tools: {}, experimental: { [MCP_EXTERNAL_EVENT_CAPABILITY]: { version: 1 } } },
-    });
-    let transport: Transport | undefined;
-    session = await openSession(server, (opened) => { transport = opened; });
-    const spy = vi.spyOn(Client.prototype, 'close').mockRejectedValueOnce(new Error('cleanup failed'));
-    try {
-      let closes = 0;
-      session.onClose(() => { closes += 1; });
-      await expect(session.close()).rejects.toThrow('cleanup failed');
-      expect(closes).toBe(0);
-    } finally {
-      spy.mockRestore();
-      session = undefined;
-      await transport?.close();
-    }
+    await expect(session.callTool('echo', {})).resolves.toMatchObject({ isError: false });
+    await expect(session.callTool('echo', {})).resolves.toMatchObject({ isError: false });
   });
 });

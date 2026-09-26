@@ -14,7 +14,11 @@ import type {
   IExecutionDetailPage,
   IExecutionWorkspaceSnapshot,
 } from '@robota-sdk/agent-interface-execution';
-import type { IInteractiveSessionEvents, IToolState } from '@robota-sdk/agent-interface-session';
+import type {
+  IInteractiveSessionEvents,
+  ISessionListingEntry,
+  IToolState,
+} from '@robota-sdk/agent-interface-session';
 
 export interface ITuiCommandQueryPort {
   getCommands(filter?: string): ICommand[];
@@ -33,6 +37,8 @@ export interface ITuiRuntimeStatusSnapshot {
   sessionId: string;
   activePresetId?: string;
   effort?: TModelEffortSelection;
+  /** The model the session reports, when its host says; absent ⇒ the one this terminal was started with. */
+  modelId?: string;
 }
 
 export interface ITuiChannelSnapshot {
@@ -52,6 +58,28 @@ export interface ITuiChannelSnapshot {
   permissionRequest: IPendingPermissionRequest | null;
   pendingUserAction: IActionRequest | null;
   contextState: { percentage: number; usedTokens: number; maxTokens: number };
+  /**
+   * The sessions the session picker offers, when the host keeps them (a terminal attached to a
+   * daemon). Absent ⇒ the picker lists this terminal's own session store. A host that keeps sessions
+   * live says which rows run now and how many clients are on each; the picker shows both.
+   */
+  hostSessions?: readonly ISessionListingEntry[];
+  /**
+   * Changes when the transcript starts over for another session while the App keeps this channel.
+   * The terminal prints the transcript once and counts what it printed, so a new transcript is
+   * printed from its start. Absent ⇒ the transcript never starts over under this channel.
+   */
+  transcriptGeneration?: number;
+  /**
+   * True while this terminal only observes the session: it sends nothing that changes it, and the
+   * App offers no key that would. Absent ⇒ the terminal drives the session.
+   */
+  readOnly?: boolean;
+  /**
+   * True when this terminal is attached to a session a host runs: leaving only detaches it, and
+   * Ctrl-] leaves too. Absent ⇒ the terminal runs its own session, where Ctrl-] means nothing.
+   */
+  attached?: boolean;
 }
 
 /**

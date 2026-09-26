@@ -81,7 +81,8 @@
           "default": "./dist/node/testing/index.cjs"
         }
       }
-    }
+    },
+    "./package.json": "./package.json"
   },
   "repository": {
     "type": "git",
@@ -91,6 +92,9 @@
   "homepage": "https://robota.io/",
   "bugs": {
     "url": "https://github.com/woojubb/robota/issues"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   },
   "files": [
     "dist",

@@ -113,7 +113,9 @@ function buildInput(composition: IComposition): IAppInputViewModel {
     submit: composition.interaction.submission.submit,
     cancelQueue: state.handleCancelQueue,
     disabled: interactionBlocked || (state.isThinking && state.pendingPrompt !== null),
-    queueCancellationDisabled: interactionBlocked,
+    // An observer keeps the composer for `/exit` and this terminal's own commands, which the channel
+    // runs; the queue it would cancel is the drivers'.
+    queueCancellationDisabled: interactionBlocked || state.readOnly,
     isAborting: state.isAborting,
     pendingPrompt: state.pendingPrompt,
     pendingCount: state.pendingCount,
@@ -131,7 +133,7 @@ function buildStatus(composition: IComposition): IAppStatusViewModel {
   return {
     cwd: props.cwd,
     permissionMode: runtime.permissionMode,
-    modelId: props.modelId,
+    modelId: runtime.modelId ?? props.modelId,
     providerType: props.providerType,
     sessionId: runtime.sessionId,
     isThinking: state.isThinking,
@@ -145,6 +147,7 @@ function buildStatus(composition: IComposition): IAppStatusViewModel {
     activePresetId: runtime.activePresetId,
     effort: runtime.effort,
     gitRefreshToken: composition.interaction.submission.gitRefreshToken,
+    readOnly: state.readOnly,
   };
 }
 
@@ -152,6 +155,7 @@ function buildViewModel(composition: IComposition): IAppViewModel {
   const { interaction, lifecycle, shell, state } = composition;
   return {
     staticItems: composition.staticItems,
+    transcriptKey: state.transcriptGeneration,
     handoffSuspended: lifecycle.handoffSuspended,
     updateNotice: lifecycle.updateNotice,
     coordinationError: composition.coordination.error,

@@ -1,9 +1,23 @@
-export { renderApp } from './render.js';
+export { renderApp, renderAttachedApp } from './render.js';
 export { renderSupervisedSessionView } from './SupervisedSessionView.js';
-export type { ISupervisedViewRow, ISupervisedSessionViewProps } from './SupervisedSessionView.js';
+export type {
+  IAttachedSessionConnection,
+  TAttachedSessionEnd,
+} from './attached-session-connection.js';
+export type {
+  ISupervisedAttachRequest,
+  ISupervisedViewRow,
+  ISupervisedSessionViewProps,
+  TSupervisedViewExit,
+} from './SupervisedSessionView.js';
 export { TuiInteractionChannel } from './TuiInteractionChannel.js';
 export type { ITuiInteractionChannelOptions } from './TuiInteractionChannel.js';
-export type { IRenderOptions } from './render.js';
+export type {
+  ITuiClientCommand,
+  ITuiClientCommands,
+  TTuiClientCommandHost,
+} from './wire-tui-client-commands.js';
+export type { IRenderAttachedAppOptions, IRenderOptions } from './render.js';
 export type { ITerminalCapabilityOverrides } from './terminal-capabilities-context.js';
 export type { TScreenReaderChannel } from './screen-reader-announcement.js';
 export type { IScreenReaderPacingOverrides } from './screen-reader-pacing.js';

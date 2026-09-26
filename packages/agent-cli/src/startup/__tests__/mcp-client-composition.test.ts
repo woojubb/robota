@@ -122,22 +122,9 @@ function diagnosticsSink() {
 }
 
 describe('createMcpClientComposition', () => {
-  it('only exposes external notifications from an admitted connected server', async () => {
+  it('offers no external-event subscription, even for a connected server', async () => {
     const entries = [resolvedEntry()];
-    const received: unknown[] = [];
-    let emit:
-      ((event: { senderId: string; conversationId: string; content: string }) => void) | undefined;
-    const connection: IMcpServerConnection = {
-      discover: async () => discoveryWithOneTool(),
-      callTool: async () => ({ content: [], isError: false }),
-      onExternalEvent: (listener) => {
-        emit = listener;
-        return () => {
-          emit = undefined;
-        };
-      },
-      shutdown: async () => undefined,
-    };
+    const { connection } = fakeConnection(discoveryWithOneTool());
     const composition = createMcpClientComposition({
       resolvedEntries: entries,
       approvalStore: approvedApprovalStore(entries),
@@ -145,19 +132,8 @@ describe('createMcpClientComposition', () => {
       createSupervisor: () => connection,
       reportDiagnostic: () => undefined,
     });
-    expect(composition.subscribeExternalEvent('weather', (event) => received.push(event)).ok).toBe(
-      false,
-    );
     await composition.connect();
-    expect(composition.subscribeExternalEvent('unlisted', () => undefined).ok).toBe(false);
-    const subscription = composition.subscribeExternalEvent('weather', (event) =>
-      received.push(event),
-    );
-    expect(subscription.ok).toBe(true);
-    emit?.({ senderId: 'alice', conversationId: 'chat', content: 'hello' });
-    expect(received).toEqual([{ senderId: 'alice', conversationId: 'chat', content: 'hello' }]);
-    if (subscription.ok) subscription.unsubscribe();
-    expect(emit).toBeUndefined();
+    expect(Object.keys(composition).filter((name) => /external.?event/i.test(name))).toEqual([]);
     await composition.shutdown();
   });
 

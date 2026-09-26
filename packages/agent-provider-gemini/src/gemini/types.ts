@@ -87,7 +87,8 @@ export interface IGeminiProviderOptions {
 
   /**
    * Optional allowlist of models that support image generation/editing.
-   * If not provided, provider validates using model name heuristics.
+   * When set, a request whose response modalities include IMAGE and whose model is not
+   * listed is rejected. When omitted or empty, every model is accepted.
    */
   imageCapableModels?: string[];
 

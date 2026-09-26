@@ -7,6 +7,7 @@ import {
   createRestrictedWorkspaceProjectAccess,
   createWorkspaceProjectSettingsWriter,
   getWorkspaceProjectStateStorage,
+  listResumableSessionSummaries,
 } from '@robota-sdk/agent-framework';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -106,6 +107,7 @@ describe('CLI workspace project composition', () => {
       const composition = createCliWorkspaceComposition({ cwd, userHome, projectAccess: access });
 
       expect(composition.projectAccess).toBe(access);
+      expect(composition.sessionStoreScope).toBe('project');
       expect(composition.contributionSources.map((source) => source.kind)).toEqual([
         'project',
         'host',
@@ -151,6 +153,121 @@ describe('CLI workspace project composition', () => {
       );
     },
   );
+
+  describe('on a host that cannot prove a project write stays under the root', () => {
+    function record(id: string, cwd: string) {
+      return {
+        id,
+        cwd,
+        createdAt: '2026-09-26T00:00:00.000Z',
+        updatedAt: '2026-09-26T00:00:00.000Z',
+        messages: [],
+      };
+    }
+
+    it('saves a trusted workspace session to the user store and lists it for that workspace', async () => {
+      const cwd = tempRoot('robota-cli-trusted-darwin-project-');
+      const userHome = tempRoot('robota-cli-trusted-darwin-user-');
+      const access = await trustedAccess(cwd);
+      const composition = createCliWorkspaceComposition({
+        cwd,
+        userHome,
+        projectAccess: access,
+        platform: 'darwin',
+      });
+
+      expect(composition.projectAccess).toBe(access);
+      expect(composition.sessionStoreScope).toBe('user');
+      composition.sessionStore.save(record('trusted-darwin-session', cwd));
+
+      expect(
+        listResumableSessionSummaries(composition.sessionStore, cwd).map((summary) => summary.id),
+      ).toEqual(['trusted-darwin-session']);
+      expect(readdirSync(join(userHome, '.robota', 'sessions'))).toContain(
+        'trusted-darwin-session.json',
+      );
+      expect(readdirSync(cwd)).toEqual([]);
+    });
+
+    it("lists only this workspace's sessions from the shared user store", async () => {
+      const cwd = tempRoot('robota-cli-trusted-darwin-own-');
+      const otherCwd = tempRoot('robota-cli-trusted-darwin-other-');
+      const userHome = tempRoot('robota-cli-trusted-darwin-shared-user-');
+      const own = createCliWorkspaceComposition({
+        cwd,
+        userHome,
+        projectAccess: await trustedAccess(cwd),
+        platform: 'darwin',
+      });
+      const other = createCliWorkspaceComposition({
+        cwd: otherCwd,
+        userHome,
+        projectAccess: await trustedAccess(otherCwd),
+        platform: 'darwin',
+      });
+
+      own.sessionStore.save(record('own-session', cwd));
+      other.sessionStore.save(record('other-session', otherCwd));
+
+      expect(listResumableSessionSummaries(own.sessionStore, cwd).map((s) => s.id)).toEqual([
+        'own-session',
+      ]);
+      expect(listResumableSessionSummaries(other.sessionStore, otherCwd).map((s) => s.id)).toEqual([
+        'other-session',
+      ]);
+      expect(readdirSync(cwd)).toEqual([]);
+      expect(readdirSync(otherCwd)).toEqual([]);
+    });
+  });
+
+  describe('project memory', () => {
+    it.each(['darwin', 'win32'] as const)(
+      'is not composed for a trusted workspace on %s, and nothing is written for it',
+      async (platform) => {
+        const cwd = tempRoot(`robota-cli-trusted-${platform}-memory-`);
+        const userHome = tempRoot(`robota-cli-trusted-${platform}-memory-user-`);
+
+        const composition = createCliWorkspaceComposition({
+          cwd,
+          userHome,
+          projectAccess: await trustedAccess(cwd),
+          platform,
+        });
+
+        expect(composition.projectAccess.status).toBe('trusted');
+        expect(composition.memoryStore).toBeUndefined();
+        expect(readdirSync(cwd)).toEqual([]);
+        expect(existsSync(join(userHome, '.robota'))).toBe(false);
+      },
+    );
+
+    // ARCH-047: project mutation is Linux-only, so the project store can only be exercised there.
+    it.runIf(process.platform === 'linux')(
+      "stays in each trusted project on Linux, and one project's memory is not another's",
+      async () => {
+        const cwd = tempRoot('robota-cli-trusted-linux-memory-');
+        const otherCwd = tempRoot('robota-cli-trusted-linux-memory-other-');
+        const userHome = tempRoot('robota-cli-trusted-linux-memory-user-');
+        const compose = async (root: string) =>
+          createCliWorkspaceComposition({
+            cwd: root,
+            userHome,
+            projectAccess: await trustedAccess(root),
+            platform: 'linux',
+          }).memoryStore;
+        const own = await compose(cwd);
+        const other = await compose(otherCwd);
+
+        await own?.append({ type: 'project', topic: 'own-canary', text: 'own canary' });
+
+        expect((await own?.list())?.topics.map((topic) => topic.name)).toEqual(['own-canary']);
+        expect((await other?.list())?.topics).toEqual([]);
+        expect(existsSync(join(cwd, ROBOTA_PROJECT_STATE_DIRECTORIES.memory))).toBe(true);
+        expect(existsSync(join(otherCwd, ROBOTA_PROJECT_STATE_DIRECTORIES.memory))).toBe(false);
+        expect(existsSync(join(userHome, '.robota', 'memory'))).toBe(false);
+      },
+    );
+  });
 
   it('refuses trusted project access minted for a different CLI workspace root', async () => {
     const trustedRoot = tempRoot('robota-cli-trusted-root-');

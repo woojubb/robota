@@ -1,15 +1,31 @@
 import { homedir } from 'node:os';
 
 import { PrintTerminal } from './print-terminal.js';
+import { readExternalEventGrantFiles } from './external-events/external-event-grant-file.js';
+import { createExternalEventVerifier } from './external-events/external-event-verifier.js';
+import {
+  createTuiExternalEventGrants,
+  createRefusalReporter,
+  type ITuiExternalEventGrants,
+} from './external-events/tui-external-event-grants.js';
+import {
+  createExternalEventHttpHost,
+  type IExternalEventHttpHost,
+} from './external-events/external-event-http-host.js';
+
+import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
 import {
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
   InteractiveSession,
+  createExternalEventGrantHistory,
   readProviderSettings,
   readMergedProviderSettings,
   readSettings,
   writeSettings,
   type IBackgroundTaskRunner,
+  type SessionSlot,
 } from '@robota-sdk/agent-framework';
 import { assembleProduct } from '@robota-sdk/agent-product';
 
@@ -18,8 +34,7 @@ import { applyModelFallbackChain } from './startup/model-fallback-startup.js';
 import { checkForCliUpdate, formatCliUpdateCheckMessage } from './update-check/update-check.js';
 import { resolveCliUpdateNotice } from './update-check/resolve-cli-update-notice.js';
 import { parseCliArgs, printHelp, type IParsedCliArgs } from './utils/cli-args.js';
-import { loadRobotaExternalPresets, resolveShellPreset } from './startup/preset-selection.js';
-import type { IShellPresetResolution } from './startup/preset-selection.js';
+import { resolveShellPresetOrExit } from './startup/preset-selection.js';
 import { ROBOTA_DEFAULT_AGENT_NAME } from './product/robota-preset-defaults.js';
 import { ROBOTA_AGENT_DEFINITION_ROOTS } from './product/robota-agent-roots.js';
 import { robotaPluginDirectories } from './product/robota-plugin-paths.js';
@@ -42,11 +57,8 @@ import {
 } from './startup/preset-surface-options.js';
 import { createCliEffortAdapter, resolveCliModelEffort } from './startup/effort-resolution.js';
 import { resolveOutputStyle, selectOutputStyleId } from './startup/output-style-selection.js';
-import type { IPreset } from '@robota-sdk/agent-preset';
 import { bindAssembledCollaborators } from './product/assembled-collaborators.js';
 import { createRobotaProfile } from './product/robota-profile.js';
-import { formatRobotaResumeCommand } from './product/robota-command-vocabulary.js';
-import { createRobotaKeybindingsOptions } from './product/robota-keybindings.js';
 import { ROBOTA_TASK_CONTEXT } from './product/robota-task-context.js';
 import {
   buildRobotaRuntimeOptions,
@@ -56,7 +68,7 @@ import {
   createChannelReadyHandler,
 } from './product/robota-plumbing.js';
 import { createRemoteControlController } from './remote-control/index.js';
-import { startDeviceListReissue } from './devices/index.js';
+import { createDeviceMeshHost, startDeviceListReissue } from './devices/index.js';
 import { createCliUsageTransportRegistry } from './usage/usage-transport-registry.js';
 import { createConfiguredNodeOtlpLiveTelemetryPort } from './telemetry/live-trace-otlp.js';
 import { takeRobotaTelemetryEnvironment } from './telemetry/live-telemetry-env.js';
@@ -98,22 +110,22 @@ import {
 } from './startup/workspace-move-adapter.js';
 import { runPrintMode } from './modes/print-mode.js';
 import { buildServeSessionOptions, runServeMode } from './modes/serve-mode.js';
+import { createServeSessionDirectory } from './modes/serve-session-directory.js';
 import { ROBOTA_PERMISSION_BASELINE } from './product/robota-permission-baseline.js';
 import { runMcpServeMode } from './modes/mcp-serve-mode.js';
 import { resolveMcpHttpOptions } from './utils/mcp-http-args.js';
 import { reserveMcpStdout } from './modes/mcp-stdio-output.js';
 import { composeMcpClientForStartup, mcpStartupModelNotice } from './startup/mcp-startup.js';
 import { composeCliAdvisor } from './startup/advisor-composition.js';
-import { createMcpExternalEventHost } from './startup/mcp-external-event-host.js';
 import type { TMcpStartupMode } from './startup/mcp-startup.js';
-import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
 import type { Writable } from 'node:stream';
 import { resolveMemorySurfaceOptions } from './startup/memory-enablement.js';
-import { resolveFocusReportingOverride } from './startup/focus-reporting-enablement.js';
-import { resolveRobotaTerminalCapabilities } from './startup/terminal-capabilities-projection.js';
-import { resolvePromptHistoryRenderFields } from './startup/prompt-history-enablement.js';
+import {
+  createRobotaTuiCliAdapter,
+  createTuiPresentationSources,
+  resolveTuiRenderFields,
+} from './startup/tui-presentation.js';
 import { resolveScreenReaderRenderFields } from './startup/screen-reader-enablement.js';
-import { resolveRobotaScreenReaderPacing } from './startup/screen-reader-pacing-projection.js';
 import { resolveRobotaShellExecutable } from './product/robota-shell.js';
 import {
   formatHeadlessWorkspaceTrustError,
@@ -128,6 +140,8 @@ export interface ICliPresentation {
   createNodeKeybindingsSource: typeof import('@robota-sdk/agent-ui-terminal').createNodeKeybindingsSource;
   createDefaultTuiCliAdapter: typeof import('@robota-sdk/agent-ui-terminal').createDefaultTuiCliAdapter;
   renderApp: typeof import('@robota-sdk/agent-ui-terminal').renderApp;
+  renderSupervisedSessionView: typeof import('@robota-sdk/agent-ui-terminal').renderSupervisedSessionView;
+  renderAttachedApp: typeof import('@robota-sdk/agent-ui-terminal').renderAttachedApp;
   installTuiProcessGuards: typeof import('./process-guards.js').installTuiProcessGuards;
   setLiveChannel: typeof import('./process-guards.js').setLiveChannel;
 }
@@ -197,7 +211,17 @@ async function runCliCore(
     projectAccess,
     ...(safeMode ? { safeMode: true } : {}),
   };
-  if (await runPreparsedCliCommand(startupOptions, process.argv, cwd, telemetryEnvironment)) return;
+  if (
+    await runPreparsedCliCommand(
+      startupOptions,
+      process.argv,
+      cwd,
+      telemetryEnvironment,
+      presentation?.renderSupervisedSessionView,
+      presentation,
+    )
+  )
+    return;
 
   let args: IParsedCliArgs;
   try {
@@ -315,20 +339,12 @@ async function runCliCore(
   // The shell's ONE preset resolution — see `resolveShellPreset` for why it is one. Resolved before
   // command setup so the preset's module-selection delta can reach `createDefaultCommandModules`.
   const userSettings = readUserSettingsOrExit();
-  const settingsPreset = typeof userSettings.preset === 'string' ? userSettings.preset : undefined;
-  const externalPresetLoad = safeMode ? { presets: [], errors: [] } : loadRobotaExternalPresets();
-  for (const { file, error } of externalPresetLoad.errors) {
-    terminal.writeError(`Skipped external preset "${file}": ${error}`);
-  }
-  const externalPresets: readonly IPreset[] = externalPresetLoad.presets;
-  let preset: IShellPresetResolution;
-  try {
-    preset = resolveShellPreset(externalPresets, args, settingsPreset);
-  } catch (error) {
-    // allow-fallback: unknown preset id is terminal — surface available list, exit
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-    process.exit(1);
-  }
+  const preset = resolveShellPresetOrExit({
+    args,
+    settings: userSettings,
+    safeMode,
+    writeError: (message) => terminal.writeError(message),
+  });
   const resolvedPreset = preset.options;
   const selectedPresetId = preset.presetId;
 
@@ -351,26 +367,19 @@ async function runCliCore(
     shellExecutable,
     ...(sandboxClient !== undefined ? { sandboxClient, sandboxType: ROBOTA_OS_SANDBOX_TYPE } : {}),
   });
-  const keybindingsSource =
-    args.printMode || args.goal !== undefined || args.serve || mcpServe || !presentation
+  const tuiSources =
+    presentation === undefined
       ? undefined
-      : presentation.createNodeKeybindingsSource({
-          ...createRobotaKeybindingsOptions(homedir()),
-          onDiagnostic: (diagnostic) =>
-            process.stderr.write(
-              `Keybindings ${diagnostic.file} ${diagnostic.path}: ${diagnostic.message}\n`,
-            ),
+      : createTuiPresentationSources(presentation, {
+          enabled: !(args.printMode || args.goal !== undefined || args.serve || mcpServe),
+          cwd,
+          projectAccess,
+          settings: userSettings,
+          reducedMotionFlag: args.reducedMotion,
+          env: process.env,
         });
-  // SCREEN-2002: one registry, reaching both `/theme` (through its port) and `renderApp`.
-  const theme = presentation?.createThemeSurface({
-    cwd,
-    projectAccess,
-    userHome: homedir(),
-    enabled: keybindingsSource !== undefined,
-    settings: userSettings,
-    reducedMotionFlag: args.reducedMotion,
-    env: process.env,
-  });
+  const keybindingsSource = tuiSources?.keybindingsSource;
+  const theme = tuiSources?.theme;
   const mcpStartupMode: TMcpStartupMode =
     args.printMode || args.goal ? 'print' : args.serve || mcpServe ? 'serve' : 'interactive';
   const mcp =
@@ -397,10 +406,9 @@ async function runCliCore(
           reportDiagnostic: (message) => terminal.writeError(message),
         })
       : undefined;
-  if ((args.externalEventAllow?.length ?? 0) > 0 && mcp === undefined) {
-    throw new Error('--external-event-allow requires the CLI-owned MCP client');
-  }
   if (mcp !== undefined) startupOptions.mcpActivationAdapter = mcp.activationAdapter;
+  // The device mesh: opened only by an interactive session whose user settings turn it on.
+  const deviceMesh = createDeviceMeshHost({ report: (message) => terminal.writeError(message) });
   const {
     commandHostAdapters,
     outputStyleRegistry,
@@ -422,6 +430,10 @@ async function runCliCore(
     keybindingsSource,
     theme?.cataloguePort,
     sandbox,
+    {
+      status: () => deviceMesh.status(),
+      identityChanged: () => void deviceMesh.identityChanged(),
+    },
   );
   for (const { file, error } of outputStyleLoadErrors) {
     terminal.writeError(`Skipped output style "${file}": ${error}`);
@@ -450,6 +462,11 @@ async function runCliCore(
       terminal.writeLine(outputStyleNotice);
     }
   }
+  // #3189: a served runtime lets its clients list, start and switch the sessions it saves.
+  const serveSessionDirectory =
+    args.serve && !args.noSessionPersistence
+      ? createServeSessionDirectory<InteractiveSession, SessionSlot<InteractiveSession>>()
+      : undefined;
   // REMOTE-008: the shell owns/injects transport wiring; `/remote-control` is its declarative trigger.
   const {
     registry: transportRegistry,
@@ -460,20 +477,56 @@ async function runCliCore(
     workspaceComposition.sessionStore,
     workspaceComposition.projectAccess.status === 'trusted',
     args.open,
+    serveSessionDirectory,
+    args.daemon === true,
   );
-  const externalEventHost =
-    mcp && args.externalEventAllow?.length
-      ? createMcpExternalEventHost(args.externalEventAllow, mcp, (message) =>
-          terminal.writeLine(message),
-        )
-      : undefined;
+  // External-event grants (TUI only; the parser refuses them elsewhere): every file is valid, or the
+  // TUI does not start. Each session the TUI binds opens them, and a refusal fails that bind.
+  let tuiExternalEvents: ITuiExternalEventGrants | undefined;
+  let tuiGrants: IExternalEventGrant[] = [];
+  if ((args.externalEventGrantFiles?.length ?? 0) > 0) {
+    try {
+      tuiGrants = readExternalEventGrantFiles(args.externalEventGrantFiles ?? []);
+      tuiExternalEvents = createTuiExternalEventGrants(tuiGrants, (line) =>
+        terminal.writeLine(line),
+      );
+    } catch (error) {
+      process.stderr.write(`${error instanceof Error ? error.message : 'grant refused'}\n`);
+      process.exit(1);
+    }
+    commandHostAdapters.externalEvents = tuiExternalEvents.adapter;
+  }
+  // The grants' endpoint listens for the whole TUI run and delivers to whichever session is bound.
+  let tuiEventEndpoint: IExternalEventHttpHost | undefined;
+  if (tuiExternalEvents !== undefined) {
+    const grantsForEndpoint = tuiExternalEvents;
+    try {
+      tuiEventEndpoint = createExternalEventHttpHost({
+        grants: tuiGrants,
+        receive: (grantId, delivery) => grantsForEndpoint.receive(grantId, delivery),
+        countRefusal: (grantId, refusal) => grantsForEndpoint.countRefusal(grantId, refusal),
+        port: args.externalEventPort ?? 0,
+        ...(args.externalEventTrustedProxies !== undefined
+          ? { trustedProxies: args.externalEventTrustedProxies }
+          : {}),
+        audit: createRefusalReporter((line) => terminal.writeLine(line)),
+      });
+      await tuiEventEndpoint.start();
+    } catch (error) {
+      process.stderr.write(
+        `${error instanceof Error ? error.message : 'External event endpoint could not start.'}\n`,
+      );
+      process.exit(1);
+    }
+  }
+  const externalEvents = tuiExternalEvents;
   const bindTuiTransports = async (session: IInteractiveSession): Promise<void> => {
     bindTransports(session);
-    if (!externalEventHost) return;
+    if (externalEvents === undefined) return;
     if (!(session instanceof InteractiveSession)) {
-      throw new Error('External event host requires an InteractiveSession runtime');
+      throw new Error('External event grants require an InteractiveSession runtime');
     }
-    await externalEventHost.bind(session);
+    await externalEvents.bind(session);
   };
   const { controller: remoteControlController, setChannel: setRemoteControlChannel } =
     createRemoteControlController(transportRegistry, usageReporters);
@@ -494,6 +547,7 @@ async function runCliCore(
       hasOwnProvider: () => providerHasOwnCredential(providerSettings, providerDefinitions),
       onHandedOff: () => commandHostAdapters.process?.requestExit('other'),
     },
+    deviceMesh,
   );
 
   reportUnknownPresetModules(
@@ -870,6 +924,7 @@ async function runCliCore(
       commandHostAdapters,
       transportRegistry,
       bindTransports,
+      ...(serveSessionDirectory !== undefined ? { sessionDirectory: serveSessionDirectory } : {}),
       // GUI-007 + SEC-001: point the served monitor at the live WS port AND carry the resolved auth token in
       // the `ws-url` (`?token=`) — zero-config authentication for the CLI's own localhost-origin monitor.
       getMonitorWsUrl: () => {
@@ -913,7 +968,13 @@ async function runCliCore(
     markOnboarded();
   }
   // A device holding the signing key keeps its roster and revocation list from lapsing while it runs.
-  startDeviceListReissue();
+  startDeviceListReissue({ onReissued: () => void deviceMesh.identityChanged() });
+  // What a linked device asks that needs the operator is asked on this terminal, never in a prompt.
+  void deviceMesh.start({
+    ...(remoteControlController.operatorApprover !== undefined
+      ? { operatorApprover: remoteControlController.operatorApprover }
+      : {}),
+  });
 
   const tuiRun = presentation.renderApp({
     productDisplayName: 'Robota',
@@ -976,29 +1037,28 @@ async function runCliCore(
     startupUpdateNotice: resolveCliUpdateNotice(startupUpdateNoticePromise),
     transportRegistry,
     bindTransports: bindTuiTransports,
+    // One grant history for the run: every session the TUI switches to shares it (#3189).
+    ...(externalEvents !== undefined
+      ? {
+          externalEventVerifierFactory: createExternalEventVerifier,
+          externalEventGrantHistory: createExternalEventGrantHistory(),
+        }
+      : {}),
     // CMD-004 Stage C: remote-control enable/stop run HOST-side via the `remoteControl` command
     // host adapter (wired above) — no TUI-prop wiring remains.
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
     ...memorySessionOptions,
-    // CLI-2004: off ⇒ today's byte stream is unchanged.
-    ...screenReader,
-    screenReaderPacing: resolveRobotaScreenReaderPacing(process.env),
-    terminalCapabilities: resolveRobotaTerminalCapabilities(process.env),
-    // SCREEN-1992: the focus-reporting kill switch is the shell's; the TUI's TTY gate decides otherwise.
-    focusReporting: resolveFocusReportingOverride(process.env),
-    // SCREEN-1993: prompt history is a TUI-only surface (print and serve above receive no writer).
-    ...resolvePromptHistoryRenderFields({
+    // CLI-2004, SCREEN-1992, SCREEN-1993: the presentation every TUI entry resolves alike.
+    ...resolveTuiRenderFields({
+      screenReader,
       settings: userSettings,
       env: process.env,
       access: workspaceComposition.projectAccess,
       cwd,
     }),
-    cliAdapter: presentation.createDefaultTuiCliAdapter({
+    cliAdapter: createRobotaTuiCliAdapter(presentation.createDefaultTuiCliAdapter, {
       providerDefinitions,
       reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
-      userSettingsPath: robotaUserSettingsPath(),
-      settingsSources: createRobotaUserSettingsSources(),
-      formatResumeCommand: formatRobotaResumeCommand,
     }),
     reloadPluginCommandSource: reloadPluginCommandSourceInCwd,
     keybindingsSource,
@@ -1012,7 +1072,9 @@ async function runCliCore(
   try {
     await tuiRun;
   } finally {
-    externalEventHost?.close();
+    deviceMesh.close();
+    await tuiEventEndpoint?.stop();
+    externalEvents?.close();
     await livePromptTracePort?.shutdown();
     if (mcp !== undefined) await mcp.shutdown();
   }

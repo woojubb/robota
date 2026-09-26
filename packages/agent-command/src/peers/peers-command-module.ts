@@ -8,7 +8,7 @@ export function createPeersCommandEntry(): ICommand {
     name: 'peers',
     displayName: 'Peers',
     description:
-      'List the other live sessions on this host, send one a message, or send one a copy of a file',
+      "List the other live Robota sessions on this host and the user's other devices linked over the device mesh, send one a message, or send one a copy of a file. Returns the sessions and devices with the ids to address them by (linked devices even when local discovery is off and sessions on this host cannot be listed), or how a send ended. User-only: the model cannot run it; it answers a peer's message with its reply tool, and when the user wants to reach another session or device, suggest they run `/peers`.",
     source: 'peers',
     // The model does not enumerate the operator's other sessions. Discovery is an operator-facing
     // view of who is at the machine, which is a fact about the person and not about the task.

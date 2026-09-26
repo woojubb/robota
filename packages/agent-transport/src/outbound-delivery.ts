@@ -64,8 +64,8 @@ export type TOutboundDeliver = ((message: TServerMessage) => void) & {
 
 /**
  * Observe THIS connection's first outbound delivery failure. `event` is the `type` of the frame that
- * could not be delivered — a session event's own name for the fan-out (they are identical), and the
- * reply's type for a reply (`command_result`, `protocol_error`, …).
+ * could not be delivered — for the fan-out, the frame a session event was forwarded as (usually, not
+ * always, the event's own name), and the reply's type for a reply (`command_result`, `protocol_error`, …).
  *
  * Required, never optional: a carrier that could opt out of observing its own delivery failures is the
  * silent-failure shape this boundary exists to remove.
@@ -97,6 +97,15 @@ export type TDeliveryErrorHandler = (error: Error, event: TServerMessage['type']
  */
 const BYTES_PER_MIB = Number('1024') * Number('1024');
 export const DEFAULT_MAX_PENDING_BYTES = Number('8') * BYTES_PER_MIB;
+
+/**
+ * Backpressure budget for a terminal attached to a session on the same host, in either role.
+ *
+ * 1 MiB, tighter than the default: an attached terminal reads a local socket, so a backlog this large
+ * means it stopped reading rather than that a network is slow. Exceeding it closes that connection
+ * only; the session never waits for a reader, so other surfaces keep streaming.
+ */
+export const ATTACHED_SURFACE_MAX_PENDING_BYTES = BYTES_PER_MIB;
 
 /**
  * Is this carrier holding more than the budget allows?

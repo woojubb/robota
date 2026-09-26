@@ -28,22 +28,25 @@
           "default": "./dist/node/index.cjs"
         }
       }
-    }
+    },
+    "./package.json": "./package.json"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/woojubb/robota.git"
+    "url": "https://github.com/woojubb/robota.git",
+    "directory": "packages/agent-transport-webrtc"
   },
   "homepage": "https://robota.io/",
   "bugs": {
     "url": "https://github.com/woojubb/robota/issues"
   },
   "engines": {
-    "node": ">=22.0.0"
+    "node": ">=22.12.0"
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "rimraf dist && tsdown",

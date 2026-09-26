@@ -34,7 +34,30 @@ export type {
   IDeviceMeshLink,
   IDeviceMeshNodeOptions,
   IDeviceMeshRefusal,
+  IDeviceMeshRelayOptions,
 } from './device-mesh-node.js';
+// The relay of last resort: a TURN server one of the user's devices runs for its paired devices.
+export {
+  DEFAULT_RELAY_CREDENTIAL_TTL_MS,
+  MAX_RELAY_CREDENTIAL_TTL_MS,
+  MeshRelayNeededError,
+  MeshTurnRelay,
+  meshRelayCredential,
+  meshRelayIceServers,
+} from './mesh-turn-relay.js';
+export type {
+  TMeshRelayNeed,
+  IMeshRelayEndpoint,
+  IMeshRelayPeer,
+  IMeshTurnRelayOptions,
+} from './mesh-turn-relay.js';
+export { DEFAULT_TURN_QUOTAS, DEFAULT_UNAUTHENTICATED_LIMITS, TurnServer } from './turn-server.js';
+export type {
+  ITurnAuthorization,
+  ITurnQuotas,
+  ITurnServerOptions,
+  IUnauthenticatedLimits,
+} from './turn-server.js';
 export { MeshLinkEndedError } from './mesh-peer-link.js';
 export type {
   IMeshChannelBinding,
@@ -105,3 +128,12 @@ export type {
   IMdnsTransport,
   IMeshMdnsOptions,
 } from './mesh-mdns.js';
+// Enrolling a new device: a data channel bound to its negotiated connection, reached through the relay
+// topic an enrollment code derives. The enrollment protocol itself is `agent-remote-pairing`'s.
+export { EnrollmentLinkError, dialEnrollment, listenForEnrollment } from './enrollment-link.js';
+export type {
+  IEnrollmentChannel,
+  IEnrollmentListener,
+  IEnrollmentRendezvous,
+  TEnrollmentLinkFailure,
+} from './enrollment-link.js';

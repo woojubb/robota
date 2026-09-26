@@ -114,6 +114,7 @@ export function createTestInteractiveSession(
     isExecuting: () => false,
     getPendingPrompt: () => null,
     getMessages: () => [],
+    getFullHistory: () => [],
     getContextState: () => ({ ...EMPTY_CONTEXT_STATE }),
     getSession: () => ({
       // DISTINCT per double, because a session id IDENTIFIES a session. A fixed literal made every
@@ -130,6 +131,16 @@ export function createTestInteractiveSession(
     getCwd: () => '/workspace',
     executeCommand: () => Promise.resolve(null),
     listCommands: () => [],
+    listSkills: () => [],
+    // The same session id every other surface of the double names, and an empty context.
+    getStatusSnapshot: () => ({
+      sessionId: sessionId(),
+      model: 'test-model',
+      permissionMode: 'default',
+      effort: 'auto',
+      context: { ...EMPTY_CONTEXT_STATE },
+      goal: null,
+    }),
     listRuntimeTools: async () => [],
     invokeRuntimeTool: async (name) => ({
       success: false,
@@ -157,6 +168,11 @@ export function createTestInteractiveSession(
     waitBackgroundJobGroup: () =>
       Promise.resolve({ ...EMPTY_BACKGROUND_GROUP, parentSessionId: sessionId() }),
     getExecutionWorkspaceSnapshot: () => ({ ...EMPTY_EXECUTION_WORKSPACE, sessionId: sessionId() }),
+    // An entry with nothing recorded yet: one empty page and no next cursor.
+    readExecutionWorkspaceDetail: (entryId, cursor) =>
+      Promise.resolve({ entryId, ...(cursor ? { cursor } : {}), records: [] }),
+    // No self-paced loop is waiting in a fresh double.
+    stopWaitingSelfPacedLoop: () => Promise.resolve({ kind: 'none' as const }),
     listAgentDefinitions: () => [],
     listAgentJobs: () => [],
     spawnAgentJob: () =>

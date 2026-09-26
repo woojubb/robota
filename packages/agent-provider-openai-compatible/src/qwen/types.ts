@@ -134,6 +134,8 @@ export interface IQwenResponsesUsage {
   input_tokens?: number;
   output_tokens?: number;
   total_tokens?: number;
+  /** `cached_tokens` is the part of `input_tokens` served from the prompt cache. */
+  input_tokens_details?: { cached_tokens?: number } | null;
   x_tools?: Record<string, IQwenResponsesToolUsageCount>;
 }
 

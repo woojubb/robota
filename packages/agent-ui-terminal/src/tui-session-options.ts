@@ -55,6 +55,12 @@ export function buildTuiSessionOptions(
     ...(opts.editCheckpointStore !== undefined
       ? { editCheckpointStore: opts.editCheckpointStore }
       : {}),
+    ...(opts.externalEventVerifierFactory !== undefined
+      ? { externalEventVerifierFactory: opts.externalEventVerifierFactory }
+      : {}),
+    ...(opts.externalEventGrantHistory !== undefined
+      ? { externalEventGrantHistory: opts.externalEventGrantHistory }
+      : {}),
     // CLI-076: forward the resolved model so `--model` takes effect rather than falling through to the
     // session's config/default model.
     ...(opts.model !== undefined ? { model: opts.model } : {}),
@@ -80,6 +86,8 @@ export function buildTuiSessionOptions(
       ? { workspaceMovedFrom: opts.workspaceMovedFrom }
       : {}),
     sessionName: opts.sessionName,
+    // The session names itself after its first real turn, unless it already has a name.
+    autoName: true,
     backgroundTaskRunners: opts.backgroundTaskRunners,
     ...(opts.toolCallHandoff !== undefined ? { toolCallHandoff: opts.toolCallHandoff } : {}),
     subagentRunnerFactory: opts.subagentRunnerFactory,

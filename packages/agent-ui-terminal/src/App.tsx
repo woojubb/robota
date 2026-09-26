@@ -17,6 +17,12 @@ interface IProps {
   cwd: string;
   /** The composition root narrows every concrete channel to this port before React receives it. */
   createChannel: (resumeSessionId?: string) => ITuiAppChannelPort;
+  /**
+   * The session lives on a host this terminal is attached to: a switch is asked of the host, and the
+   * channel follows the host's `session_switched`, so the App keeps its channel. Absent ⇒ the App
+   * switches by building a channel for the chosen session.
+   */
+  requestSessionSwitch?: (sessionId: string) => Promise<void>;
   providerOverride?: string | undefined;
   providerType?: string | undefined;
   modelId?: string;
@@ -76,9 +82,14 @@ function useActiveChannel(props: IProps): IActiveChannel {
       setIsSwitching(true);
       try {
         setShowPicker(false);
-        await state.channel.stop();
+        if (props.requestSessionSwitch) {
+          await props.requestSessionSwitch(sessionId);
+        } else {
+          await state.channel.stop();
+          if (!mounted.current) return;
+          setState({ channel: props.createChannel(sessionId), sessionId });
+        }
         if (!mounted.current) return;
-        setState({ channel: props.createChannel(sessionId), sessionId });
         setFailedTarget(undefined);
         setError(undefined);
       } catch (cause) {
@@ -90,7 +101,7 @@ function useActiveChannel(props: IProps): IActiveChannel {
         setIsSwitching(false);
       }
     },
-    [props.createChannel, state.channel],
+    [props.createChannel, props.requestSessionSwitch, state.channel],
   );
   const retrySwitch = useCallback((): void => {
     if (failedTarget !== undefined) void switchSession(failedTarget);

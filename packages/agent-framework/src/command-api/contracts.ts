@@ -2,6 +2,7 @@ import type { ICommandResult } from './command-result.js';
 import type { ICommandHostContext } from './host-context.js';
 import type { ICommand } from './types.js';
 import type { TCapabilitySafety } from '../capabilities/types.js';
+import type { TCommandRunner, TCommandSurface } from '@robota-sdk/agent-interface-command';
 
 export type TSystemCommandLifecycle = 'inline' | 'blocking' | 'background';
 export type TSystemCommandSemanticRole = 'skillActivation' | 'contextReduction' | 'subagentSpawn';
@@ -44,6 +45,10 @@ export interface ISystemCommand {
   argumentHint?: string;
   safety?: TCapabilitySafety;
   subcommands?: readonly ICommand[];
+  /** Who runs this command; absent → `'runtime'`. See `ICommand.runner`. */
+  runner?: TCommandRunner;
+  /** The surfaces a `'client'` command can run on. See `ICommand.surfaces`. */
+  surfaces?: readonly TCommandSurface[];
   lifecycle?: TSystemCommandLifecycle;
   /**
    * Whether executing this command requires explicit user permission/confirmation.

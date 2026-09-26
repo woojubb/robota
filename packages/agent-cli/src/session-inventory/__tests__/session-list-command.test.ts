@@ -1,10 +1,25 @@
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import {
+  chmodSync,
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  realpathSync,
+  rmSync,
+  symlinkSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
+import {
+  WorkspaceTrustService,
+  createRestrictedWorkspaceProjectAccess,
+  createUserSessionStore,
+} from '@robota-sdk/agent-framework';
+
+import { ROBOTA_PROJECT_STATE_DIRECTORIES } from '../../product/robota-project-state-directories.js';
 
 import { runPreparsedCliCommand } from '../../startup/preparsed-command-routing.js';
 import { executeSessionListCommand, readLocalPeersForInventory, runSessionListCommand } from '../session-list-command.js';
@@ -65,8 +80,12 @@ describe('read-only local session inventory', () => {
         undefined, { get: () => pr, set: (value) => { pr = value; } },
       );
       await linkSupervisedPr(id, 'https://github.com/team/repo/pull/456');
+      const generation = String((JSON.parse(readFileSync(
+        join(resolveSupervisedDirectory(), id, 'state.json'), 'utf8')) as { generation?: unknown }).generation);
+      expect(generation).toMatch(/^[A-Za-z0-9_-]{22}$/u);
       expect(await runSessionListCommand(['--format', 'text'])).toBe(0);
       const text = output.mock.calls.map(([value]) => String(value)).join('');
+      expect(text).not.toContain(generation);
       expect(text).toContain(`${id}  liveness alive  control available  activity needs-input`);
       expect(text).not.toContain('Private session name');
       expect(text).not.toContain('github.com');
@@ -77,6 +96,7 @@ describe('read-only local session inventory', () => {
       expect(JSON.parse(json).supervised.sessions).toEqual([
         { id, liveness: 'alive', control: 'available', activity: 'needs-input' },
       ]);
+      expect(json).not.toContain(generation);
       expect(json).not.toContain('Private session name');
       expect(json).not.toContain('github.com');
       expect(json).not.toMatch(/prompt|token|transcript/i);
@@ -195,6 +215,65 @@ describe('read-only local session inventory', () => {
         saved: [],
         supervised: { status: 'available', sessions: [] },
       });
+    } finally {
+      output.mockRestore();
+      if (previousHome === undefined) delete process.env['HOME'];
+      else process.env['HOME'] = previousHome;
+      if (previousRuntimeDirectory === undefined) delete process.env['XDG_RUNTIME_DIR'];
+      else process.env['XDG_RUNTIME_DIR'] = previousRuntimeDirectory;
+      process.exitCode = previousExit;
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it('labels a trusted workspace session by the store that actually holds it', async () => {
+    const home = realpathSync(mkdtempSync(join(tmpdir(), 'robota-session-list-trusted-')));
+    const workspace = join(home, 'workspace');
+    mkdirSync(workspace);
+    const previousHome = process.env['HOME'];
+    const previousRuntimeDirectory = process.env['XDG_RUNTIME_DIR'];
+    const previousExit = process.exitCode;
+    const output = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    try {
+      process.env['HOME'] = home;
+      process.env['XDG_RUNTIME_DIR'] = join(home, 'runtime');
+      createUserSessionStore(join(home, '.robota', 'sessions')).save({
+        id: 'user-held-session',
+        cwd: workspace,
+        createdAt: '2026-09-26T00:00:00.000Z',
+        updatedAt: '2026-09-26T00:00:00.000Z',
+        messages: [],
+      });
+      const identity = {
+        repositoryKey: `fixture:${workspace}`,
+        displayPath: workspace,
+        worktreeRoot: workspace,
+      };
+      const snapshot = { state: 'trusted', generation: 1 } as const;
+      const projectAccess = await new WorkspaceTrustService({
+        identityResolver: { resolve: () => identity },
+        projectStateDirectories: ROBOTA_PROJECT_STATE_DIRECTORIES,
+        store: {
+          inspect: async () => snapshot,
+          grant: async () => snapshot,
+          revoke: async () => ({ state: 'revoked', generation: 2 }),
+        },
+      }).inspect(workspace);
+      expect(projectAccess.status).toBe('trusted');
+
+      const handled = await runPreparsedCliCommand(
+        { providerDefinitions: [], projectAccess },
+        ['node', 'robota', 'session', 'list', '--format', 'json'],
+        workspace,
+      );
+
+      expect(handled).toBe(true);
+      const text = output.mock.calls.map(([value]) => String(value)).join('');
+      // Where the host keeps trusted sessions in the user store, the same store must not also be
+      // reported as the project's.
+      expect((JSON.parse(text) as { saved: unknown }).saved).toEqual([
+        { id: 'user-held-session', availability: 'valid', source: 'user' },
+      ]);
     } finally {
       output.mockRestore();
       if (previousHome === undefined) delete process.env['HOME'];

@@ -68,10 +68,11 @@ user-owned and currently authorized project records, never transcript content, a
 unsupported records stay visible rather than being hidden.
 
 A local peer message or file is taken as coming from the session it names only when that session,
-asked at its own socket, confirms it is sending exactly that message or file to this receiver;
-anything else is refused. The same user can reach every socket in the rendezvous, so the name a message states is a
+asked at its own socket, confirms it is sending exactly that message or file to this receiver, and
+one over the device mesh only as coming from the device its handshake proved; anything else is
+refused. The same user can reach every socket in the rendezvous, so the name a message states is a
 claim, and it decides where an answer goes and whom the turn is attributed to — never what the turn
-may do, which the session's ordinary permissions decide as for its own work.
+may do, which the session's ordinary permissions decide as for its own work, wherever the peer runs.
 
 A file from another session or device is kept only with the operator's yes to that file, as an inert
 copy in a directory of the sender's under this user's `~/.robota`, under a name that cannot leave it,
@@ -97,9 +98,11 @@ processes behind the same headless trust boundary, each with its own guarded loc
 that survives the launching terminal. The session list reports only content-free activity and
 liveness for them — never session content, launch environment, or provider credentials. Unverified
 identity, a missing control response, initialization, or shutdown read as `unknown`; `idle` means
-only that the session is initialized with no pending question and is not executing, not that
-another CLI can attach or submit a prompt. A waiting loop's next eligible time is reported only when
-observed from the live owner, and does not promise that a future wake will run.
+only that every session the runtime keeps live is initialized with no pending question and is not
+executing, not that another CLI can attach or submit a prompt, so a session no client is on that
+still works never lets its runtime read idle. A waiting loop's next eligible time is the earliest
+among those sessions, is reported only when observed from the live owner, and does not promise that
+a future wake will run.
 
 The global supervised view observes only that guarded inventory, and narrows by owner-reported name,
 directory, or linked PR only on a live owner-verified path. It does not join peer or saved-record
@@ -108,10 +111,33 @@ when the viewer groups by directory), treat an exited process as completed, or s
 PR URLs never enter ordinary listings or registration records. Starting a session from the view
 still requires headless workspace trust for its target directory, and closing the view never stops
 a supervised session. A damaged registration is shown as unavailable without hiding healthy
-sessions. A stop, rename, or PR-association request acts only through the live owner's control
-endpoint and fails explicitly when ownership or completion cannot be established. Attach, peek, and
-automatic restart are not offered, and the transport's per-launch authentication token is never
-exposed through the control endpoint or inventory.
+sessions. Each process start registers a fresh generation that its control endpoint requires and
+echoes only to a caller that already named it, so a stop, rename, or PR-association request acts
+only on the start the caller verified (the one a view row displayed, or the one registered when the
+command runs) and fails explicitly when that start, ownership, or completion cannot be established.
+A registration that cannot name its start is listed but never controlled, and the generation never
+appears in listings. A terminal of the same user on the same host may attach through that endpoint,
+naming the process start, to drive the session or to observe it read-only. Attaching is the user's
+own decision: it needs an interactive terminal and asks first, on the controlling terminal (never
+standard input) or in the session view for the selected row, and holds that yes only for
+the process start it named, so a caller without a terminal, a model included, is told the command to
+suggest instead. Leaving, `/exit` included, only detaches this terminal and never stops the session;
+an attach begun from the view returns to it. It is one more surface
+under the session's ordinary co-drive, prompt and session-switching rules, never an operator
+approver, so a supervised session still refuses every mesh connection that needs one. Detaching or
+crashing ends only that connection: a turn in progress runs on, a prompt no other surface can
+answer is denied, and a reader that stops reading is cut off instead of holding the session. Automatic
+restart is not offered, so no client's command stops or restarts a supervised session: it serves every
+other client, and nothing would start it again.
+A workspace's daemon is such a session, at most one per workspace even when starts race, marked so
+that a client in that workspace, the desktop app or a terminal attached with `robota --attach`, connects
+to the one already running instead of spawning a runtime of its own, so no launch option of the
+client's shapes that session; a daemon that could not hand over a connection is never left running, and
+the lock that keeps racing starts apart is removed only by the start that took it or by the user. The
+transport's per-launch authentication token is never exposed through the control endpoint or inventory,
+with one exception: a daemon, which receives it only through its environment and removes it from there so
+its tools never inherit it, hands its connection URL to a caller that named its start, so the token
+leaves only as that URL and never in human-readable output.
 
 Observability has two independently gated paths. `usage export` is an explicit,
 local-only action over the same authorized stores as local usage reporting: its aggregate usage,
@@ -195,10 +221,12 @@ instead of degrading to the file, because secrets already in the keychain would 
 found. On Linux only the Secret Service counts as a keychain — the binding's kernel-keyring fallback
 is memory-only, and a host key lost at reboot changes the identity every device pinned. Messages and
 errors name a secret's key, never its value, and carry no cause that could quote it. The recovery
-phrase is never stored anywhere: it is shown and read only on the controlling terminal, opened apart
-from the session's own input while the session has handed the terminal over — a byte read through the
-session's input would reach its composer, history, transcript and model — and a host without an
-interactive terminal refuses instead of reading it from anywhere else. The same terminal asks the
+phrase and the one-time code that enrols another device are never stored anywhere: each is shown and
+read only on the controlling terminal, opened apart from the session's own input while the session
+has handed the terminal over — a byte read through the session's input would reach its composer,
+history, transcript and model — and a host without an interactive terminal refuses instead of
+reading it from anywhere else. A code typed as a command argument is refused, since the argument is
+already in history. The same terminal asks the
 operator whether each remote-control connection, a returning trusted device included, may drive the
 session; one it admits is the owner typing, with the terminal's approvals, tools and file references.
 The session's own prompts are answerable by any attached surface, so a device already
@@ -213,7 +241,13 @@ A device that keeps the device-signing key reissues the roster and revocation li
 while an interactive session runs. The lists expire quickly so that a withheld list cannot pass for a
 current one for long, which only holds if their issuer keeps renewing them without waiting for an
 operator; the signing key exists for exactly this, and the recovery phrase is never involved. Print,
-serve and test runs do not reissue, so running the CLI for a single task never rewrites identity state.
+serve and test runs neither reissue nor open the device mesh, so running the CLI for a single task
+never rewrites identity state or answers another device. The mesh opens only when the user settings
+turn it on — never a project's, which would let a repository expose this machine to the user's other
+devices — and in one session of the device at a time, since each other device keeps one link to it: a
+session that stalled long enough for another to take the mesh over closes its own as soon as it notices;
+a linked device may do only what the user's settings allow, each file and session it offers put to
+the operator at this terminal.
 
 ### MCP client composition
 
@@ -261,15 +295,21 @@ definition.
 supply its own `IMCPActivationApprovalStore` before `robota mcp serve` starts to admit and connect
 approved definitions ahead of building the served runtime session.
 
-**External event source opt-in.** The interactive TUI alone can opt into external event injection
-from an already-admitted, capability-declaring MCP server via an explicit launch grant. The CLI
-trusts the granted server to attest sender identity over its authenticated connection and separately
-checks a per-server sender allowlist, but the sender string alone is not proof of identity, so this is
-only as trustworthy as the granted server — operators without a verified adapter should leave it off.
-Injected events are one-way, bounded, and live only with the session and connection; an admitted
-external turn can produce model text but cannot invoke model-generated local or hosted web tools, and
-other modes (print, goal, serve, MCP-serve) refuse the flag outright. Repeated connection loss stops
-after bounded retries rather than assuming delivery from a dead channel.
+**External events need a verified grant.** The CLI admits no sender-name grant: a sender name relayed
+by an MCP server does not prove who sent an event, and a flag asking for one is refused with that
+reason rather than treated as unknown. A grant is the owner's decision at start, from a file of
+public configuration only, and a start either opens every grant it was given or fails, naming the
+grant and never a configured value: a background session receives its exact grants privately before
+it reports ready, and the launcher refuses a readiness that names other grants. Listing a grant shows
+its label, principal kind, state and counts, never the principal. Creating or revoking a grant is
+the user's act alone: grants are created only by start flags, and `/events` is never offered to the
+model. Events arrive over HTTP on a loopback port that the owner's own proxy or tunnel serves at the
+grants' public URL; each grant is its own endpoint and audience, so a token for one grant is refused
+at another. Which grant labels exist is public, since each grant's protected-resource metadata names
+it for token clients; whether a grant is live or revoked is told only to a caller holding a valid
+token for it. The endpoint answers with an admission receipt or an empty refusal, never with what a
+turn produced, and a background session keeps an owner-only, bounded trail of refusals and
+settlements that outlives it, holding no token, content or address.
 
 ### MCP background handoff settings
 
@@ -292,6 +332,16 @@ rendering no UI, until SIGTERM. This is the backend the desktop GUI spawns: TUI 
 presentations over the same runtime host, and the GUI never controls the CLI. The composition root
 assigns trusted WS driver identities (`app`, `browser`, `remote:ws`) so a turn's persisted usage
 surface reflects the launch path rather than a client-provided claim.
+
+A served runtime that saves its sessions keeps several of them live, and each client connection, an
+attached terminal included, is bound to its own: switching or starting a session moves that client
+alone, and only that client is told. Leaving a session does not stop its work — a running turn,
+queued messages or background tasks go on without the client — but a question it raises while no
+driver is on it fails closed: a permission is denied and an ask is cancelled. A change is therefore
+refused only when the runtime is stopping, the client's own previous change is still under way, the
+session cannot be opened or no room is left for it, or the client is the last driver of a session with
+a pending prompt that nobody else could then answer. What belongs to the run rather than to a session — external-event grants and
+the supervised name — stays on the session the runtime started with, whichever session a client is on.
 
 Runner failure propagation is explicit in serve mode: `waitForFailure()` returns the first named
 nonzero runner outcome without waiting for unrelated runners, and serve mode assigns that exact exit
@@ -325,8 +375,10 @@ here because the reasoning differs between them:
 - **Durable memory:** default OFF. Precedence lowest→highest: `settings.json`
   `memory.enabled` → `--memory`/`--no-memory` flag → `ROBOTA_MEMORY` env (**env wins** — a
   machine-level policy a CI runner sets once). Capture + recall are enabled together by one switch;
-  scope is repo/project (`<cwd>/.robota/memory/`). A one-time enable notice is printed to stderr on
-  first enable; no blocking prompt.
+  scope is repo/project (`<cwd>/.robota/memory/`), because project memory is shared through the
+  repository, so it never moves to a per-user store: on a host that cannot write under the project
+  safely, memory stays off and says why once. A one-time enable notice is printed to stderr on first
+  enable; no blocking prompt.
 - **Screen-reader mode:** default OFF. Precedence lowest→highest: `settings.json`
   `screenReader` → `ROBOTA_SCREEN_READER`/`INK_SCREEN_READER` env → `--screen-reader`/
   `--no-screen-reader` flag (**flag wins**). This is a deliberate divergence from memory's
@@ -359,8 +411,12 @@ composition. Absence is deterministically **Restricted**: only user contribution
 the user session store are available, no project memory, and `cwd` alone cannot mint any project
 capability. **Trusted** composition derives project sources plus named state facets from the exact
 runtime-accepted authority, and is refused when the real CLI working directory is outside the
-authority's frozen workspace root. Print mode, `--goal`, and `--serve` fail closed for
-`untrusted`/`revoked`/`stale`/`store-unavailable` decisions before provider construction; interactive
+authority's frozen workspace root. On a host that cannot prove a project write stays under that root,
+nothing is written under the project: the workspace's sessions, which are the user's own, are kept in
+the user session store and found there by their working directory, so they are still saved and
+resumable, while project memory, which belongs to the repository, is not composed. Print mode,
+`--goal`, and `--serve` fail closed for `untrusted`/`revoked`/`stale`/`store-unavailable` decisions
+before provider construction; interactive
 startup may continue Restricted with project contributions disabled. All trust diagnostics expose
 only state and canonical display path — credentials and project-controlled content are never printed.
 

@@ -19,7 +19,6 @@ import type {
 export interface ITuiSessionEventProjectorOptions {
   session: InteractiveSession;
   manager: TuiStateManager;
-  onUserMessage: (content: string) => void;
   requestPermission: (
     toolName: string,
     toolArgs: TToolArgs,
@@ -45,7 +44,6 @@ export class TuiSessionEventProjector {
     const { session, manager, attention } = this.options;
 
     const onUserMessage = (content: string): void => {
-      this.options.onUserMessage(content);
       manager.addUserEcho(attributedUserEcho(content, session));
     };
     const syncHistory = (): void => manager.syncHistory(session.getFullHistory());

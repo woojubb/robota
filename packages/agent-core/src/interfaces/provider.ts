@@ -64,6 +64,20 @@ export interface ITokenUsage {
 }
 
 /**
+ * The usage triple ({@link ITokenUsage}) plus the prompt-cache read a provider reported for it.
+ *
+ * Derived from the triple rather than widening it: the triple is also the persisted and wired usage
+ * shape (background-task results, subagent IPC), whose decoders declare exactly its three keys.
+ */
+export interface ITokenUsageWithCacheRead extends ITokenUsage {
+  /**
+   * The part of `promptTokens` the provider served from its prompt cache — a subset of
+   * `promptTokens`, not an addition to it. Present only when the provider reported it.
+   */
+  cacheReadTokens?: number;
+}
+
+/**
  * Raw provider response interface
  */
 export interface IRawProviderResponse {

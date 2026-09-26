@@ -33,6 +33,16 @@ function describe(peer: TPeerSummary, ownSessionId: string): string {
   return `  ${peer.sessionId}${peer.name ? `  ${peer.name}` : ''}  status ${status}${self ? '' : workspace(peer)}${liveness}${self}`;
 }
 
+type TDeviceSummary = ReturnType<
+  NonNullable<NonNullable<ICommandHostAdapters['localPeers']>['listDevices']>
+>[number];
+
+/** A linked device: its full id, since that is what `send` takes, and where it runs. */
+function describeDevice(device: TDeviceSummary): string {
+  const where = device.locality === 'same-host' ? 'on this machine' : 'on another machine';
+  return `  ${device.deviceId}${device.name ? `  ${device.name}` : ''}  ${where}`;
+}
+
 /** The relation this session verified. A claim it could not confirm is named as such, not shown. */
 function workspace(peer: TPeerSummary): string {
   if (peer.workspaceClaim === 'mismatched') return '  workspace claim mismatched, not believed';
@@ -165,6 +175,21 @@ export async function executePeersCommand(
   const sendVerb = /^send(?=\s|$)/.exec(trimmed);
   if (sendVerb !== null) return executeSend(adapter, trimmed.slice(sendVerb[0].length));
 
+  const devices = adapter.listDevices?.() ?? [];
+  const discoveryOff = adapter.localDiscoveryOff;
+  if (discoveryOff !== undefined) {
+    const off = `Sessions on this host are not listed: local peer discovery is off for this session (${discoveryOff}).`;
+    return {
+      message:
+        devices.length === 0
+          ? `${off}\nNo device is linked right now.`
+          : `Linked devices:\n${devices.map(describeDevice).join('\n')}\n\n${off}` +
+            `\n\nSend to one: /peers send <device-id> <message>` +
+            `\nSend a file: /peers send-file <device-id> <path>`,
+      success: true,
+    };
+  }
+
   const own = adapter.ownSessionId();
   // The workspace-judged listing when the host has one; it reads git, so only this view asks for it.
   const peers = (
@@ -172,7 +197,7 @@ export async function executePeersCommand(
   ).filter(addressable);
   const others = peers.filter((peer) => peer.sessionId !== own);
 
-  if (others.length === 0) {
+  if (others.length === 0 && devices.length === 0) {
     return {
       message:
         'No other live session is announced. Start a second session on this host, as this user, ' +
@@ -181,11 +206,15 @@ export async function executePeersCommand(
     };
   }
 
-  const lines = peers.map((peer) => describe(peer, own));
+  const sections = [`Live sessions:\n${peers.map((peer) => describe(peer, own)).join('\n')}`];
+  if (devices.length > 0) {
+    sections.push(`Linked devices:\n${devices.map(describeDevice).join('\n')}`);
+  }
+  const target = devices.length > 0 ? '<session-or-device-id>' : '<session-id>';
   return {
     message:
-      `Live sessions:\n${lines.join('\n')}\n\nSend to one: /peers send <session-id> <message>` +
-      '\nSend a file: /peers send-file <session-id> <path>',
+      `${sections.join('\n\n')}\n\nSend to one: /peers send ${target} <message>` +
+      `\nSend a file: /peers send-file ${target} <path>`,
     success: true,
   };
 }

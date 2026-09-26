@@ -10,9 +10,13 @@
  * conversation store — concurrent turns would produce a history that never happened.
  */
 
+import { createAbortError, isAbortFailure } from '../utils/abort-classification';
+
 /** Serializes runs on one agent instance and lets a caller wait for the queue to drain. */
 export class RunQueue {
   private tail: Promise<void> = Promise.resolve();
+  /** Slots claimed and not yet released: the run in flight plus every run waiting behind it. */
+  private claimed = 0;
 
   /**
    * Wait for the previous run to settle, then hold the slot until the returned function is called.
@@ -21,17 +25,26 @@ export class RunQueue {
    * arrived rather than racing to claim it once the predecessor finishes.
    */
   async acquire(signal: AbortSignal | undefined): Promise<() => void> {
+    const queuedBehindAnotherRun = this.claimed > 0;
+    this.claimed += 1;
     const previous = this.tail;
-    let release: () => void = () => {};
+    let settle: () => void = () => {};
     this.tail = new Promise<void>((resolve) => {
-      release = resolve;
+      settle = resolve;
     });
+    let released = false;
+    const release = (): void => {
+      if (released) return;
+      released = true;
+      this.claimed -= 1;
+      settle();
+    };
     await previous;
     if (signal?.aborted) {
       // Aborting while queued must not consume the turn: release first so the queue keeps moving,
       // then report. Throwing while still holding the slot would deadlock every later run.
       release();
-      throw new Error('Run aborted while queued behind another run on this instance');
+      throw abortedBeforeStart(signal, queuedBehindAnotherRun);
     }
     return release;
   }
@@ -54,4 +67,26 @@ export class RunQueue {
   get drained(): Promise<void> {
     return this.tail;
   }
+}
+
+/**
+ * The failure for a run whose signal was already aborted when its turn came.
+ *
+ * It is an ABORT, recognisable by name alone: a caller that classifies failures without holding the
+ * signal must not read a cancelled run as a broken one. A reason that already is an `AbortError` is
+ * thrown as it is, as `signal.throwIfAborted()` would; any other reason becomes the cause of one —
+ * including an error that merely WRAPS an abort, whose own name would still fail a name check. The
+ * message says whether the run actually waited behind another, since a caller who never started a
+ * second run should not be told it was queued.
+ */
+function abortedBeforeStart(signal: AbortSignal, queuedBehindAnotherRun: boolean): Error {
+  const reason: unknown = signal.reason;
+  // `isAbortFailure` also accepts an abort one level down the cause chain; only the name counts here.
+  if (isAbortFailure(reason) && (reason as Error).name === 'AbortError') return reason as Error;
+  return createAbortError(
+    queuedBehindAnotherRun
+      ? 'Run aborted while queued behind another run on this instance'
+      : 'Run aborted before it started',
+    reason,
+  );
 }

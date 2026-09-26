@@ -17,6 +17,18 @@ import type { TModelEffort, TSessionEndReason, TUniversalValue } from '@robota-s
  */
 export type TCommandInvocationSource = 'user' | 'model' | 'remote';
 
+/**
+ * Who runs a command. `'runtime'`: the process that owns the session runs it, whichever surface
+ * sent it. `'client'`: the surface the user is typing into runs it itself, because what it does
+ * belongs to that surface (its terminal, its appearance), not to the session. A client that is
+ * attached to a runtime in another process runs such a command locally instead of sending it; the
+ * runtime keeps it in its catalog so help stays complete and a surface that cannot run it refuses it.
+ */
+export type TCommandRunner = 'runtime' | 'client';
+
+/** A kind of client surface. Names the surfaces a `'client'` command can run on. */
+export type TCommandSurface = 'terminal' | 'gui';
+
 /** A command entry */
 export interface ICommand {
   /** Command name without slash (e.g., "mode") — used for invocation */
@@ -76,6 +88,15 @@ export interface ICommand {
   agent?: string;
   /** Plugin installation directory (plugin skills/commands only) */
   pluginDir?: string;
+  /**
+   * Who runs this command. Absent → `'runtime'`; the listing resolves it, see
+   * `ICommandListEntry.runner`.
+   */
+  runner?: TCommandRunner;
+  /**
+   * The surfaces a `'client'` command can run on. Absent → the command does not restrict them.
+   */
+  surfaces?: readonly TCommandSurface[];
 }
 
 /** A source that provides commands */
@@ -263,6 +284,42 @@ export interface ICommandListEntry {
    * list does not say". Those need different handling and the first must not be reached by accident.
    */
   modelInvocable: boolean;
+  /**
+   * Who runs this command — what a surface reads to mark a command another surface owns. A client
+   * does not route by it: it runs locally only the commands it implements itself, so an older
+   * runtime or a catalog that arrives late cannot misroute a command.
+   *
+   * REQUIRED for the same reason as `modelInvocable`: the producer resolves a command that declares
+   * no runner to `'runtime'` in one place, so "runs on the runtime" is never confused with "the
+   * producer of this list does not say".
+   */
+  runner: TCommandRunner;
+  /** The surfaces a `'client'` command can run on. Absent when the command does not restrict them. */
+  surfaces?: readonly TCommandSurface[];
+  /** The argument grammar a client shows after the name while the user types (e.g. `<name> [args]`). */
+  argumentHint?: string;
+  /** The subcommands a client completes after `/<name> `. Absent when the command declares none. */
+  subcommands?: readonly ICommandSubcommandEntry[];
+}
+
+/** A subcommand as a client offers it after its command's name. */
+export interface ICommandSubcommandEntry {
+  readonly name: string;
+  readonly description: string;
+  readonly displayName?: string;
+  readonly argumentHint?: string;
+}
+
+/** A skill as a client offers it beside the commands; `/<name>` activates it. */
+export interface ICommandSkillListEntry {
+  readonly name: string;
+  readonly description: string;
+  readonly source: string;
+  readonly modelInvocable: boolean;
+  readonly userInvocable: boolean;
+  readonly argumentHint?: string;
+  readonly context?: string;
+  readonly agent?: string;
 }
 
 export type TPluginInstallScope = 'user' | 'project';

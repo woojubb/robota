@@ -1,6 +1,6 @@
 /**
  * GUI-002 — Electron preload (runs in an isolated context). Exposes ONLY the loopback endpoint + lifecycle
- * signals to the renderer via `contextBridge` — no Node APIs leak into the agent-ui-web renderer, and the endpoint
+ * signals to the renderer via `contextBridge` — no Node APIs leak into the GUI web app (agent-gui-web), and the endpoint
  * (which carries the auth nonce) is never placed on `window` as a plain value that page script could read
  * off a global before the bridge is set up.
  */
@@ -12,16 +12,24 @@ import type { TSidecarState } from './sidecar.js';
 const api = {
   /** Resolve the loopback WS URL (with the token) the renderer connects to. */
   getEndpoint: (): Promise<string | null> => ipcRenderer.invoke('agent-gui:endpoint'),
-  /** Tell the main process the session is live (drives the supervisor's `ready`). */
+  /**
+   * The connection to the daemon is gone for good: ask the shell to start (or reuse) a daemon again. The
+   * shell then reloads the page, which attaches to whatever the CLI answered.
+   */
+  restartRuntime: (): Promise<void> => ipcRenderer.invoke('agent-gui:restart'),
+  /** Tell the main process the session is live. The daemon is the CLI's to supervise, so nothing acts on it yet. */
   signalReady: (): void => ipcRenderer.send('agent-gui:ready'),
-  /** Subscribe to sidecar lifecycle state (`starting`/`ready`/`fatal`). Returns an unsubscribe fn. */
-  onState: (cb: (state: TSidecarState) => void): (() => void) => {
-    const listener = (_e: IpcRendererEvent, state: TSidecarState): void => cb(state);
+  /** Subscribe to lifecycle state (`starting`/`ready`/`fatal`). Returns an unsubscribe fn. */
+  /** `detail` accompanies `fatal`: what the CLI said when the daemon could not be started. */
+  onState: (cb: (state: TSidecarState, detail?: string) => void): (() => void) => {
+    const listener = (_e: IpcRendererEvent, state: TSidecarState, detail?: string): void =>
+      cb(state, detail);
     ipcRenderer.on('agent-gui:state', listener);
     return () => ipcRenderer.removeListener('agent-gui:state', listener);
   },
 };
 
+// The page reads this as `IDesktopBridge` (packages/agent-gui-web/src/gui-host.ts); keep the two in step.
 export type TAgentGuiBridge = typeof api;
 
 contextBridge.exposeInMainWorld('agentGui', api);

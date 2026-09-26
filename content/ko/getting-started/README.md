@@ -33,7 +33,7 @@ npx @robota-sdk/agent-cli  # 프롬프트에서 "LM Studio" 선택 — API 키 �
 
 ## 사전 요구사항
 
-- **Node.js 22 이상** — Robota CLI에 필요. SDK는 Node.js 18+ 지원(22 권장)
+- **Node.js 22.12 이상** — Robota CLI와 배포되는 모든 `@robota-sdk/*` 패키지가 `node >=22.12.0`을 선언
 - **AI 프로바이더 API 키**: Anthropic, OpenAI, DeepSeek, Gemini, Qwen 등 — _또는_ LM Studio 로컬 사용(키 불필요)
 
 ## 설치

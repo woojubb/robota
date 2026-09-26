@@ -32,7 +32,9 @@ This package sits in the **transport** layer, browser-only. It reuses the isomor
 ## Contract
 
 - The session is exposed to the caller only _after_ the fail-closed pairing gate accepts — never
-  speculatively before pairing completes.
+  speculatively before pairing completes. The status reads `connected` only once the host has
+  admitted the connection; until then the host operator's approval is pending, and a channel the
+  host closes instead of admitting is `refused`, not retried, since retrying only asks again.
 - A rejected or dropped pairing, a pinned-key mismatch on reconnect (rogue host), or an exhausted
   warm-reconnect loop all fail closed: status becomes `failed` and no session is exposed.
 - The pairing secret is read only from the URL fragment (never the query string) and never leaves
@@ -42,6 +44,10 @@ This package sits in the **transport** layer, browser-only. It reuses the isomor
   is what makes the bound fingerprint the verified one.
 
 ## Design decisions
+
+- Admission is read from the host's first session frame rather than from a frame of its own: the
+  host already sends nothing on an accepted channel until its operator decides, so the existing
+  vocabulary says it.
 
 - `useRtcSession` widens the shared `useSessionClient` reducer's status union with RTC-only
   pairing/failed states locally, rather than adding those states to the shared core — the core has

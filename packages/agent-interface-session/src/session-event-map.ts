@@ -14,8 +14,15 @@
 import type { ICompactEvent } from './compact-contracts';
 import type { ISessionRenamedEvent, IUiIntentEvent, TDriverId } from './driver-contracts.js';
 import type { IMemoryEvent, ISkillActivationEvent } from './event-contracts.js';
+import type { ISessionSwitchedEvent } from './session-summary-contracts.js';
 import type { IExecutionResult, TTurnSource } from './turn-contracts.js';
-import type { IActionRequest, IContextWindowState, TToolArgs } from '@robota-sdk/agent-core';
+import type {
+  IActionRequest,
+  IContextWindowState,
+  TModelEffortSelection,
+  TPermissionMode,
+  TToolArgs,
+} from '@robota-sdk/agent-core';
 import type { IExecutionWorkspaceEvent } from '@robota-sdk/agent-interface-execution';
 import type { TBackgroundTaskEvent } from '@robota-sdk/agent-interface-execution';
 import type { TBackgroundJobGroupEvent } from '@robota-sdk/agent-interface-execution';
@@ -154,6 +161,29 @@ export interface IInteractiveSessionEvents {
   session_renamed: (event: ISessionRenamedEvent) => void;
   /** CMD-004 Phase 2: the conversation history was cleared host-side — all surfaces refresh transcripts. */
   history_cleared: () => void;
+  /** #3189: the host made another session current — all surfaces re-read transcript and status. */
+  session_switched: (event: ISessionSwitchedEvent) => void;
+  /** The mode, model, effort, goal or name changed; every surface shows the new status. */
+  status_changed: (status: ISessionStatusSnapshot) => void;
+}
+
+/**
+ * What every client shows beside the conversation: which session, which model, and the settings in
+ * effect. One read, so a terminal, desktop or browser client renders the same status from the same
+ * source instead of reaching into the session for each part.
+ *
+ * Declared here rather than beside `ISessionStatusRead` because `status_changed` carries it, and
+ * `session-capability-contracts.ts` imports from this file.
+ */
+export interface ISessionStatusSnapshot {
+  readonly sessionId: string;
+  readonly sessionName?: string;
+  readonly model: string;
+  readonly permissionMode: TPermissionMode;
+  readonly effort: TModelEffortSelection;
+  readonly context: IContextWindowState;
+  /** The goal being pursued (`/goal`), or null; a client shows its progress beside the composer. */
+  readonly goal: IGoalState | null;
 }
 
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;

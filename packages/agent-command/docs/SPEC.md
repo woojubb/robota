@@ -60,8 +60,11 @@ same report data and repair decisions are used by slash and shell routes.
 
 **`/keybindings`.** The command knows nothing about the keybindings schema, defaults, contexts,
 watcher, or TUI implementation — it only asks an injected capability port to ensure the user document
-and hands back the returned path. Without that port injected, the default assembly does not register
-the command at all.
+and hands back the returned path. Key bindings belong to the terminal the user sits at, so that
+terminal runs the command: one attached to a workspace daemon runs it in its own process, never on
+the daemon, and does so even without the port, so a missing port cannot send it there. Without that
+port the command still exists and answers that key bindings belong to the robota terminal, so a host
+without a terminal never replies "Unknown command".
 
 **`/git` (host-only, blocking).** Every verb runs through an injected process port whose production
 implementation is argv-only (`execFile`, `shell: false`, so no token is ever parsed as shell syntax),
@@ -86,6 +89,10 @@ part of the conversation. The model may read status only, and its view is rebuil
 a server name only when it is safe to show, the states, and the command the user should run — never
 a definition's reason text, provenance, fingerprint or endpoint, because those are text a repository
 wrote or can carry a credential.
+
+**`/events`.** Lists and revokes the session's external-event grants through an injected host
+adapter and never creates one. It is user-only as a whole: a grant is the owner's standing decision to
+let someone outside put turns into the session, and withdrawing it is the owner's call too.
 
 **`/peers` activity.** The command renders the host's fixed activity observation separately
 from process liveness. An absent, expired, or unverified observation is shown as unknown; the command
@@ -145,9 +152,11 @@ the setup patch is built; and a configured `adminContact` is appended to every v
 stores supplied by its host; it cannot select a user home or product settings path when those inputs
 are absent.
 
-**`/theme`.** Behind an injected theme-catalogue port only — with no port, there is no command. It
-emits at most one appearance-settings patch per invocation, and an unknown theme id writes nothing,
-not even the toggles submitted alongside it.
+**`/theme`.** Works through an injected theme-catalogue port. Themes belong to the terminal the user
+sits at, so, as with `/keybindings`, an attached terminal runs it itself and writes the patch to its
+own settings; without the port it still exists and answers that themes belong to the robota terminal.
+It emits at most one appearance-settings patch per invocation, and an unknown theme id writes
+nothing, not even the toggles submitted alongside it.
 
 **Semantic command roles.** `skills`, `compact`, and `agent` declare framework-owned semantic roles
 (`skillActivation`, `contextReduction`, `subagentSpawn` respectively) as metadata on their

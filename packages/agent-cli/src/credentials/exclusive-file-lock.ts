@@ -7,6 +7,10 @@
  * holder refreshes its lock's time while it waits on a slow keychain, so it is never mistaken for one. Nothing is
  * removed by path alone: a lock is first renamed aside, and deleted only if the file set aside is the
  * very one that was judged; anything else is put back without replacing a lock created meanwhile.
+ *
+ * A holder that stalls past `staleMs` (a sleeping machine) can have its lock taken over although it
+ * did not die. Its refresh finds another token, or none, and tells the holder through `onLost`, so
+ * work that must have one holder at a time can stop instead of running beside the new one.
  */
 import { randomBytes } from 'node:crypto';
 import {
@@ -28,6 +32,8 @@ export interface IExclusiveFileLockOptions {
   readonly staleMs?: number;
   readonly timeoutMs?: number;
   readonly pollMs?: number;
+  /** Called once when a refresh finds the lock no longer this holder's; it is then released. */
+  readonly onLost?: () => void;
 }
 
 const DEFAULT_STALE_MS = 30_000;
@@ -88,12 +94,19 @@ function tryAcquire(path: string, token: string, staleMs: number): boolean {
   return false;
 }
 
-/** Run `critical` while no other holder of `path`, in this process or another, runs. */
-export async function withExclusiveFileLock<T>(
+/** A held lock. `release` has removed the lock file by the time it returns. */
+export interface IHeldFileLock {
+  release(): void;
+}
+
+/**
+ * Take `path` and hold it until `release`, which is synchronous so a process about to exit leaves no
+ * lock behind. Rejects when another holder keeps it past the timeout.
+ */
+export async function holdExclusiveFileLock(
   path: string,
-  critical: () => Promise<T>,
   options: IExclusiveFileLockOptions = {},
-): Promise<T> {
+): Promise<IHeldFileLock> {
   const staleMs = options.staleMs ?? DEFAULT_STALE_MS;
   const pollMs = options.pollMs ?? DEFAULT_POLL_MS;
   const deadline = Date.now() + (options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
@@ -105,8 +118,28 @@ export async function withExclusiveFileLock<T>(
     }
     await new Promise((resolve) => setTimeout(resolve, pollMs));
   }
+  let held = true;
+  const lost = (): void => {
+    held = false;
+    clearInterval(heartbeat);
+    options.onLost?.();
+  };
   const heartbeat = setInterval(
     () => {
+      let current: string;
+      try {
+        current = readFileSync(path, 'utf8');
+      } catch (error) {
+        // Gone: another holder judged it stale and removed it.
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') lost();
+        // allow-fallback: otherwise a missed refresh only matters once the lock goes stale; the next one retries.
+        return;
+      }
+      // Taken over meanwhile: that lock is left to its holder, and this one is told.
+      if (current !== token) {
+        lost();
+        return;
+      }
       try {
         const now = new Date();
         utimesSync(path, now, now);
@@ -117,10 +150,26 @@ export async function withExclusiveFileLock<T>(
     Math.max(1, Math.floor(staleMs / 3)),
   );
   heartbeat.unref();
+  return {
+    release: () => {
+      if (!held) return;
+      held = false;
+      clearInterval(heartbeat);
+      removeIf(path, (aside) => readFileSync(aside, 'utf8') === token);
+    },
+  };
+}
+
+/** Run `critical` while no other holder of `path`, in this process or another, runs. */
+export async function withExclusiveFileLock<T>(
+  path: string,
+  critical: () => Promise<T>,
+  options: IExclusiveFileLockOptions = {},
+): Promise<T> {
+  const lock = await holdExclusiveFileLock(path, options);
   try {
     return await critical();
   } finally {
-    clearInterval(heartbeat);
-    removeIf(path, (aside) => readFileSync(aside, 'utf8') === token);
+    lock.release();
   }
 }

@@ -33,9 +33,13 @@
  */
 
 export { createSessionMessageHandler } from './session-message-handler.js';
-export type { ISessionMessageHandlerOptions } from './session-message-handler.js';
+export type {
+  ISessionMessageHandlerOptions,
+  TSessionSurfaceRole,
+} from './session-message-handler.js';
 // ARCH-030: the connection-scoped outbound delivery boundary every carrier builds and passes down.
 export {
+  ATTACHED_SURFACE_MAX_PENDING_BYTES,
   createOutboundDelivery,
   createPendingStallClock,
   isOverPendingBudget,
@@ -48,9 +52,17 @@ export type {
   TOutboundDeliver,
 } from './outbound-delivery.js';
 export { PROTOCOL_SESSION_EVENT_CLASSIFICATION } from './session-events.js';
+// The one list of messages an observer may send: the host refuses the rest, a client sends no others.
+export { isObserverMessageType } from './observer-messages.js';
 export type { TProtocolSessionEventClassification } from './session-events.js';
 export type { IProtocolSession } from './protocol-session.js';
-export type { TClientMessage, TServerMessage, TSeqServerMessage } from './wire-messages.js';
+export type {
+  IWireHistoryEntry,
+  TClientMessage,
+  TServerMessage,
+  TSeqServerMessage,
+  TWireExecutionResult,
+} from './wire-messages.js';
 // Issue #2045: the owner-side runtime decoders; carriers implement `raw → decodeFrame → typed`.
 export {
   MAX_INBOUND_FRAME_BYTES,

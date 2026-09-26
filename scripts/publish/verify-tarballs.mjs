@@ -4,17 +4,29 @@
  * - every file a package declares (main, module, types, exports, bin) is inside its tarball, and no
  *   `workspace:` specifier remains — catches a build that left `dist` empty or unpacked (for example a
  *   symlinked `dist`, which `pnpm pack` skips);
+ * - the manifest declares the release's `engines.node` (agent-core's value), so every package names the
+ *   same supported Node and a consumer below it is warned at install;
  * - `publint --strict` finds no errors or warnings in the package layout;
  * - `attw` (Are The Types Wrong) finds no type-resolution problem for Node 16+ ESM/CJS and bundlers.
  *   Subpaths that declare no `require` condition are ESM-only by design and are left out of attw;
+ * - every other subpath actually loads with `require()`: the tarball is extracted next to a link to its
+ *   workspace package's installed dependencies and each subpath is required in its own Node process.
+ *   attw and publint only read the files, so a CommonJS entry that reaches an ESM module with a
+ *   top-level await (ERR_REQUIRE_ASYNC_MODULE) or a chunk left out of the tarball passes them;
  * - no browser entry (a `dist/browser/` file named in `exports`) reaches a `node:` builtin through its
- *   static imports. Dynamically imported chunks are Node-only paths loaded on demand and are allowed.
+ *   static imports. Dynamically imported chunks are Node-only paths loaded on demand and are allowed;
+ * - `./package.json` is exported (a strict `exports` map otherwise hides it from
+ *   `require('<package>/package.json')`), and the package's README.md (npm's package page) and
+ *   CHANGELOG.md ship with it.
  *
  * Usage: node scripts/publish/verify-tarballs.mjs <directory-with-tgz-files>
  */
-import { execFileSync } from 'node:child_process';
-import { readdirSync } from 'node:fs';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
+
+import { listWorkspacePackageDirs } from '../harness/workspace-packages.mjs';
 
 function declaredPaths(manifest) {
   const paths = [];
@@ -33,7 +45,11 @@ function declaredPaths(manifest) {
     .map((entry) => path.posix.normalize(entry.replace(/^\.\//u, '')));
 }
 
-const BIN = path.join(import.meta.dirname, '..', '..', 'node_modules', '.bin');
+const ROOT = path.join(import.meta.dirname, '..', '..');
+const BIN = path.join(ROOT, 'node_modules', '.bin');
+const NODE_FLOOR = JSON.parse(
+  readFileSync(path.join(ROOT, 'packages/agent-core/package.json'), 'utf8'),
+).engines?.node;
 const TOOLS = {
   publint: ['publint', '--strict'],
   attw: ['attw', '--profile', 'node16'],
@@ -48,6 +64,64 @@ function esmOnlySubpaths(manifest) {
         entry && typeof entry === 'object' && !JSON.stringify(entry).includes('"require"'),
     )
     .map(([subpath]) => subpath);
+}
+
+/** Package name → workspace directory, whose node_modules holds the package's installed dependencies. */
+let workspaceDirs;
+function workspaceDir(name) {
+  workspaceDirs ??= new Map(
+    listWorkspacePackageDirs(ROOT).map((dir) => [
+      JSON.parse(readFileSync(path.join(dir, 'package.json'), 'utf8')).name,
+      dir,
+    ]),
+  );
+  return workspaceDirs.get(name);
+}
+
+// Resolves the specifier from the extracted package.json, so the package's own `exports` map is used.
+const REQUIRE_PROBE =
+  "require('node:module').createRequire(process.argv[1])(process.argv[2]); process.exit(0);";
+
+/** `require()` every subpath not declared ESM-only, from the extracted tarball. */
+function requireProblems(tarball, manifest) {
+  if (!manifest.exports || typeof manifest.exports !== 'object') return [];
+  const esmOnly = new Set(esmOnlySubpaths(manifest));
+  const subpaths = Object.entries(manifest.exports)
+    .filter(
+      ([subpath, entry]) =>
+        entry !== null &&
+        subpath.startsWith('.') &&
+        subpath !== './package.json' &&
+        !subpath.includes('*') &&
+        !esmOnly.has(subpath),
+    )
+    .map(([subpath]) => subpath);
+  if (subpaths.length === 0) return [];
+  const packageDir = workspaceDir(manifest.name);
+  if (!packageDir) return [`has no workspace package to take its dependencies from`];
+  const scratch = mkdtempSync(path.join(os.tmpdir(), 'robota-require-'));
+  try {
+    execFileSync('tar', ['-xzf', tarball, '-C', scratch]);
+    symlinkSync(path.join(packageDir, 'node_modules'), path.join(scratch, 'node_modules'));
+    const packageJson = path.join(scratch, 'package', 'package.json');
+    return subpaths.flatMap((subpath) => {
+      const specifier = subpath === '.' ? manifest.name : `${manifest.name}/${subpath.slice(2)}`;
+      // A consumer's process does not carry this repository's NODE_OPTIONS (e.g. --conditions=source).
+      const { status, signal, stderr } = spawnSync(
+        process.execPath,
+        ['-e', REQUIRE_PROBE, packageJson, specifier],
+        { encoding: 'utf8', timeout: 60_000, env: { ...process.env, NODE_OPTIONS: '' } },
+      );
+      if (status === 0) return [];
+      const reason =
+        stderr.split('\n').find((line) => /^\w*Error\b/u.test(line)) ?? signal ?? `exit ${status}`;
+      return [
+        `declares a require entry for ${subpath}, but require('${specifier}') fails: ${reason}`,
+      ];
+    });
+  } finally {
+    rmSync(scratch, { recursive: true, force: true });
+  }
 }
 
 const read = (tarball, file) =>
@@ -105,12 +179,19 @@ export function verifyTarball(tarball) {
     .filter((entry) => !files.has(entry))
     .map((entry) => `declares ${entry} but the tarball does not contain it`);
   if (raw.includes('"workspace:')) problems.push('still contains a workspace: specifier');
+  if (manifest.exports && manifest.exports['./package.json'] !== './package.json')
+    problems.push('does not export ./package.json');
+  if (!files.has('CHANGELOG.md')) problems.push('does not ship CHANGELOG.md');
+  if (!files.has('README.md')) problems.push('does not ship README.md');
   const esmOnly = esmOnlySubpaths(manifest);
   problems.push(
     ...runTool('publint', tarball),
     ...runTool('attw', tarball, esmOnly.length ? ['--exclude-entrypoints', ...esmOnly] : []),
   );
   problems.push(...browserBuiltinProblems(tarball, manifest, files));
+  if (!NODE_FLOOR || manifest.engines?.node !== NODE_FLOOR)
+    problems.push(`declares engines.node ${manifest.engines?.node ?? '(none)'}, not ${NODE_FLOOR}`);
+  problems.push(...requireProblems(tarball, manifest));
   return { name: manifest.name, problems };
 }
 
@@ -132,6 +213,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(import.met
     process.exit(1);
   }
   process.stdout.write(
-    `✓ ${tarballs.length} tarballs contain every declared file and pass publint and attw\n`,
+    `✓ ${tarballs.length} tarballs contain every declared file, pass publint and attw, and load with require()\n`,
   );
 }

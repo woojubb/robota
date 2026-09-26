@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 
-import StatusBar from './StatusBar.js';
+import StatusBar, { ReadOnlyText } from './StatusBar.js';
 import { useTuiCliAdapter } from './tui-cli-adapter-context.js';
 
 import type { TModelEffortSelection, TPermissionMode } from '@robota-sdk/agent-core';
@@ -23,6 +23,7 @@ interface IProps {
   activePresetId?: string;
   effort?: TModelEffortSelection;
   gitRefreshToken?: number;
+  readOnly?: boolean;
 }
 
 export default function SessionStatusBar({
@@ -42,6 +43,7 @@ export default function SessionStatusBar({
   activePresetId,
   effort,
   gitRefreshToken,
+  readOnly = false,
 }: IProps): React.ReactElement | null {
   const cliAdapter = useTuiCliAdapter();
   const gitBranch = useMemo(() => cliAdapter.getGitBranch(cwd), [cliAdapter, cwd, gitRefreshToken]);
@@ -50,7 +52,8 @@ export default function SessionStatusBar({
       providerType !== undefined ? cliAdapter.getProviderDisplayName(providerType) : undefined,
     [cliAdapter, providerType],
   );
-  if (!settings.enabled) return null;
+  // With the status line off, an observer is still told it cannot change the session.
+  if (!settings.enabled) return readOnly ? <ReadOnlyText /> : null;
 
   return (
     <StatusBar
@@ -71,6 +74,7 @@ export default function SessionStatusBar({
       activeAgentLabel={activeAgentLabel}
       activePresetId={activePresetId}
       effort={effort}
+      readOnly={readOnly}
     />
   );
 }

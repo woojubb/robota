@@ -14,6 +14,9 @@ export function createEditorCommandEntry(): ICommand {
     source: 'editor',
     // User-only: opens the user's terminal editor; UI-only.
     modelInvocable: false,
+    // It takes over the terminal the user sits at, so that terminal runs it, even when attached.
+    runner: 'client',
+    surfaces: ['terminal'],
   };
 }
 
@@ -26,6 +29,8 @@ function createEditorSystemCommand(temporaryDirectoryPrefix?: string): ISystemCo
     requiresPermission: false,
     userInvocable: true,
     modelInvocable: false,
+    runner: entry.runner,
+    surfaces: entry.surfaces,
     lifecycle: 'inline',
     execute: (context, args) => executeEditorCommand(context, args, temporaryDirectoryPrefix),
   };

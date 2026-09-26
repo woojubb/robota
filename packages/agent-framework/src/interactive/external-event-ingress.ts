@@ -1,20 +1,32 @@
 import { isTurnNotRunError } from '@robota-sdk/agent-interface-session';
 
-import type { ISubmitOptions, ITurnHandle, TTurnNotRunReason } from '@robota-sdk/agent-interface-session';
+import { DEFAULT_PEER_TURN_RATE_WINDOWS, PeerTurnRateLimiter } from './peer-turn-rate-limit.js';
+
+import type {
+  ISubmitOptions,
+  ITurnHandle,
+  TTurnNotRunReason,
+} from '@robota-sdk/agent-interface-session';
+import type {
+  IAccessTokenVerifier,
+  IAccessTokenVerifierConfig,
+  IExternalEventGrant,
+  TExternalEventAuditRecord,
+  TExternalEventRefusal,
+  TExternalEventSettlementOutcome,
+} from '@robota-sdk/agent-interface-transport';
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 
-/** Identity and content attested by a trusted source adapter, never parsed from prompt text. */
-export interface IAuthenticatedExternalEvent {
-  readonly senderId: string;
-  readonly conversationId: string;
-  readonly content: string;
-}
-
+/**
+ * One grant's source. The ingress builds the grant's verifier from `grant.verifier` with the factory
+ * its host was constructed with, so the principal the grant pins is the one its tokens are checked
+ * against; opening a grant carries no verifier and no factory. The host carries the pair a carrier
+ * delivers and trusts nothing else it says.
+ */
 export interface IExternalEventSourceOptions {
-  readonly id: string;
-  readonly allowedSenders: readonly string[];
-  /** Verify the platform signature/credential and return its real sender; null means unauthenticated. */
-  readonly authenticate: (raw: unknown) => IAuthenticatedExternalEvent | null | Promise<IAuthenticatedExternalEvent | null>;
+  readonly grant: IExternalEventGrant;
+  /** Receives one content-free record per refusal and per settlement. A throw is ignored. */
+  readonly audit?: (record: TExternalEventAuditRecord) => void;
 }
 
 export type TExternalEventSettlement =
@@ -23,27 +35,55 @@ export type TExternalEventSettlement =
   | { readonly outcome: 'not-run'; readonly reason: TTurnNotRunReason }
   | { readonly outcome: 'failed'; readonly reason: string };
 
-export interface IExternalEventReceipt {
-  readonly outcome: 'accepted' | 'ignored' | 'refused';
-  readonly reason?: string;
-  readonly turnId?: string;
-  readonly settled?: Promise<TExternalEventSettlement>;
-}
+/** An admission names its turn; `settled` is for the host, never for the sender. */
+export type TExternalEventReceipt =
+  | {
+      readonly admitted: true;
+      readonly turnId: string;
+      readonly settled: Promise<TExternalEventSettlement>;
+    }
+  | { readonly admitted: false; readonly refusal: TExternalEventRefusal };
 
 export interface IExternalEventSource {
-  receive(raw: unknown): Promise<IExternalEventReceipt>;
+  readonly grantId: string;
+  /** Take one delivery (`IExternalEventDelivery`) exactly as a carrier received it. */
+  receive(delivery: unknown): Promise<TExternalEventReceipt>;
   /** Stop admission synchronously; already-submitted turns retain their exact settlement. */
   close(): void;
+  /**
+   * Withdraw the grant: a later event whose token the grant's verifier admits is refused as revoked
+   * (any other is refused as a live grant would refuse it), its queued and running turns are
+   * stopped, and the label cannot be opened again on this ingress.
+   */
+  revoke(): void;
 }
 
 export interface IExternalEventHost {
   getPermissionMode(): TPermissionMode;
   addPermissionModeGuard(guard: (next: TPermissionMode) => void): () => void;
   submit(input: string, options: ISubmitOptions): Promise<ITurnHandle>;
+  /** The host's one way to build a verifier; the ingress calls it with each grant's own config. */
+  createVerifier(config: IAccessTokenVerifierConfig): IAccessTokenVerifier;
+  /** Wall-clock milliseconds, for rate windows, token expiry and audit times. */
+  now?: () => number;
+  /** Whether the session has begun shutting down; a refused submission is then named so. */
+  isShuttingDown?: () => boolean;
+  /**
+   * The run's grant history (#3189). A run that switches sessions lends every session the same one,
+   * so spent tokens, rate windows and revocations belong to the run: a switch replays nothing and
+   * resets no rate. Without it, the history lives and ends with this session.
+   */
+  history?: ExternalEventGrantHistory;
 }
 
 const MAX_EVENT_BYTES = 16 * 1024;
 const MAX_ID_LENGTH = 128;
+const MAX_JTI_LENGTH = 256;
+/** Matches the verifier's `exp` skew, so a token is remembered for as long as it can verify. */
+const REPLAY_SKEW_MS = 60_000;
+/** Spent tokens remembered per grant; past this, with none expired, the grant is refused as over rate. */
+const MAX_SPENT_TOKENS = 4096;
+const GRANT_ID = /^[a-zA-Z0-9_-]{1,64}$/u;
 
 function validIdentity(value: unknown): value is string {
   if (typeof value !== 'string' || value.length === 0 || value.length > MAX_ID_LENGTH) return false;
@@ -57,62 +97,244 @@ function validIdentity(value: unknown): value is string {
 function escapeXml(value: string): string {
   return value.replace(/[&<>"']/gu, (character) => {
     switch (character) {
-      case '&': return '&amp;';
-      case '<': return '&lt;';
-      case '>': return '&gt;';
-      case '"': return '&quot;';
-      default: return '&apos;';
+      case '&':
+        return '&amp;';
+      case '<':
+        return '&lt;';
+      case '>':
+        return '&gt;';
+      case '"':
+        return '&quot;';
+      default:
+        return '&apos;';
     }
   });
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Refuse a grant that is not exactly one principal, one kind and sane rate windows. */
+function validateGrant(grant: IExternalEventGrant): void {
+  if (!GRANT_ID.test(grant.grantId)) {
+    throw new Error(
+      'external event grant id must be 1–64 ASCII letters, digits, underscores or hyphens',
+    );
+  }
+  const subjects = grant.verifier.allowedSubjects ?? [];
+  const clients = grant.verifier.allowedClients ?? [];
+  if (subjects.length + clients.length !== 1) {
+    throw new Error(`external event grant ${grant.grantId} must pin exactly one subject or client`);
+  }
+  if (grant.verifier.requiredScopes.length === 0) {
+    throw new Error(`external event grant ${grant.grantId} must require a scope`);
+  }
+  if (grant.kinds.length !== 1 || grant.kinds[0] !== 'message') {
+    throw new Error(`external event grant ${grant.grantId} admits only the message kind`);
+  }
+  for (const window of grant.rate ?? []) {
+    if (
+      !Number.isSafeInteger(window.windowMs) ||
+      window.windowMs <= 0 ||
+      !Number.isSafeInteger(window.maxTurns) ||
+      window.maxTurns <= 0
+    ) {
+      throw new Error(`external event grant ${grant.grantId} has an invalid rate window`);
+    }
+  }
+}
+
+/** The verified token's own name and lifetime, read only after the verifier admitted it. */
+function spendableClaims(
+  token: string,
+): { readonly jti: string; readonly expiresAt: number } | undefined {
+  const payload = token.split('.')[1];
+  if (payload === undefined) return undefined;
+  let claims: unknown;
+  try {
+    claims = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8'));
+  } catch {
+    return undefined;
+  }
+  if (!isRecord(claims)) return undefined;
+  const { jti, exp } = claims;
+  if (typeof jti !== 'string' || jti.length === 0 || jti.length > MAX_JTI_LENGTH) return undefined;
+  if (typeof exp !== 'number' || !Number.isFinite(exp)) return undefined;
+  return { jti, expiresAt: exp * 1000 + REPLAY_SKEW_MS };
+}
+
+interface IMessage {
+  readonly conversationId: string;
+  readonly content: string;
+  readonly claimedName?: string;
+}
+
+function readMessage(event: unknown): IMessage | 'malformed-event' | 'oversize' {
+  if (!isRecord(event) || event['kind'] !== 'message') return 'malformed-event';
+  const { conversationId, content, claimedName } = event;
+  if (!validIdentity(conversationId) || typeof content !== 'string') return 'malformed-event';
+  if (claimedName !== undefined && !validIdentity(claimedName)) return 'malformed-event';
+  if (Buffer.byteLength(content, 'utf8') > MAX_EVENT_BYTES) return 'oversize';
+  return { conversationId, content, ...(claimedName !== undefined ? { claimedName } : {}) };
+}
+
+/** What a grant has spent, kept per grant label so a closed and reopened grant cannot spend it again. */
+interface IGrantHistory {
+  /** Spent token ids and when each stops verifying. */
+  readonly spent: Map<string, number>;
+  readonly rate: PeerTurnRateLimiter;
+  /** The rate windows `rate` counts against; a reopen with other windows starts a new count. */
+  readonly windows: string;
+  revoked: boolean;
+}
+
+function closedRefusal(source: ISourceState): TExternalEventRefusal {
+  return source.history.revoked ? 'grant-revoked' : 'source-closed';
+}
+
 interface ISourceState {
-  readonly id: string;
-  readonly allowedSenders: ReadonlySet<string>;
-  readonly authenticate: IExternalEventSourceOptions['authenticate'];
+  readonly grant: IExternalEventGrant;
+  readonly verifier: IAccessTokenVerifier;
+  readonly audit: IExternalEventSourceOptions['audit'];
+  readonly rate: PeerTurnRateLimiter;
+  readonly spent: Map<string, number>;
+  readonly history: IGrantHistory;
+  /** Stops this grant's queued and running turns when it is revoked. */
+  readonly turns: AbortController;
   active: boolean;
   pending: number;
 }
 
-/** Session-owned admission and turn settlement; adapters own platform authentication. */
+const GRANTS = Symbol('external event grant history');
+
+/** What a run remembers about each grant across the sessions it holds; opaque to its holder. */
+export class ExternalEventGrantHistory {
+  readonly [GRANTS] = new Map<string, IGrantHistory>();
+}
+
+/** One history per run: create it once and pass it to every session the run builds. */
+export function createExternalEventGrantHistory(): ExternalEventGrantHistory {
+  return new ExternalEventGrantHistory();
+}
+
+/**
+ * Session-owned admission and turn settlement for external events. The sender is the grant whose
+ * verifier admitted the token; nothing in the delivery names it.
+ */
 export class ExternalEventIngress {
   private readonly sources = new Map<string, ISourceState>();
+  private readonly history: Map<string, IGrantHistory>;
+  /** Grants revoked on this ingress; one revoked on another session of the run opens revoked. */
+  private readonly revokedHere = new Set<string>();
   private pending = 0;
   private releaseGuard?: () => void;
+  private readonly now: () => number;
 
-  constructor(private readonly host: IExternalEventHost) {}
+  constructor(private readonly host: IExternalEventHost) {
+    this.now = host.now ?? Date.now;
+    this.history = host.history?.[GRANTS] ?? new Map();
+  }
 
   open(options: IExternalEventSourceOptions): IExternalEventSource {
-    if (!/^[a-zA-Z0-9_-]{1,64}$/u.test(options.id)) {
-      throw new Error('external event source id must be 1–64 ASCII letters, digits, underscores or hyphens');
+    const { grant } = options;
+    if ('verifier' in options || 'createVerifier' in options) {
+      throw new Error('external event grant verifier is built by the host from the grant itself');
     }
-    if (this.sources.has(options.id)) throw new Error(`external event source ${options.id} is already registered`);
+    validateGrant(grant);
+    if (this.revokedHere.has(grant.grantId)) {
+      throw new Error(`external event grant ${grant.grantId} was revoked`);
+    }
+    if (this.sources.has(grant.grantId)) {
+      throw new Error(
+        `external event grant ${grant.grantId} is already open or still settling its turns`,
+      );
+    }
     if (this.host.getPermissionMode() === 'bypassPermissions') {
       throw new Error('external event ingress cannot run in bypassPermissions mode');
     }
+    let verifier: IAccessTokenVerifier;
+    try {
+      verifier = this.host.createVerifier(grant.verifier);
+    } catch {
+      throw new Error(`external event grant ${grant.grantId}: its verifier could not be built`);
+    }
+    const history = this.historyOf(grant);
+    // Revoked on an earlier session of this run: it opens revoked, so a caller with a valid token
+    // learns that, and anyone else gets what a live grant answers. It holds no turn and no guard.
+    const revokedBefore = history.revoked;
     const state: ISourceState = {
-      id: options.id,
-      allowedSenders: new Set(options.allowedSenders),
-      authenticate: options.authenticate,
-      active: true,
+      grant,
+      verifier,
+      history,
+      turns: new AbortController(),
+      audit: options.audit,
+      rate: history.rate,
+      spent: history.spent,
+      active: !revokedBefore,
       pending: 0,
     };
-    if (!this.releaseGuard) {
+    if (!revokedBefore && !this.releaseGuard) {
       this.releaseGuard = this.host.addPermissionModeGuard((next) => {
         if (next === 'bypassPermissions' && (this.hasActiveSource() || this.pending > 0)) {
-          throw new Error('bypassPermissions is unavailable while external event ingress or its turns are active');
+          throw new Error(
+            'bypassPermissions is unavailable while external event ingress or its turns are active',
+          );
         }
       });
     }
-    this.sources.set(options.id, state);
+    if (!revokedBefore) this.sources.set(grant.grantId, state);
     return {
-      receive: (raw) => this.receive(state, raw),
+      grantId: grant.grantId,
+      receive: async (delivery) => {
+        const receipt = await this.receive(state, delivery);
+        if (!receipt.admitted) this.record(state, { refusal: receipt.refusal });
+        return receipt;
+      },
       close: () => this.close(state),
+      revoke: () => {
+        history.revoked = true;
+        this.revokedHere.add(grant.grantId);
+        state.turns.abort();
+        this.close(state);
+      },
     };
+  }
+
+  private historyOf(grant: IExternalEventGrant): IGrantHistory {
+    const windows = grant.rate ?? DEFAULT_PEER_TURN_RATE_WINDOWS;
+    const key = JSON.stringify(windows);
+    const previous = this.history.get(grant.grantId);
+    if (previous?.windows === key) return previous;
+    const next: IGrantHistory = {
+      spent: previous?.spent ?? new Map(),
+      rate: new PeerTurnRateLimiter(windows, this.now),
+      windows: key,
+      revoked: previous?.revoked ?? false,
+    };
+    this.history.set(grant.grantId, next);
+    return next;
   }
 
   closeAll(): void {
     for (const source of this.sources.values()) this.close(source);
+  }
+
+  private record(
+    source: ISourceState,
+    decision:
+      | { readonly refusal: TExternalEventRefusal }
+      | { readonly settlement: TExternalEventSettlementOutcome },
+  ): void {
+    try {
+      source.audit?.({
+        at: new Date(this.now()).toISOString(),
+        grantId: source.grant.grantId,
+        ...decision,
+      });
+    } catch {
+      // An audit sink cannot change or block a decision.
+    }
   }
 
   private hasActiveSource(): boolean {
@@ -127,8 +349,12 @@ export class ExternalEventIngress {
   }
 
   private maybeRelease(source: ISourceState): void {
-    if (!source.active && source.pending === 0 && this.sources.get(source.id) === source) {
-      this.sources.delete(source.id);
+    if (
+      !source.active &&
+      source.pending === 0 &&
+      this.sources.get(source.grant.grantId) === source
+    ) {
+      this.sources.delete(source.grant.grantId);
     }
     if (this.sources.size === 0 && this.pending === 0) {
       this.releaseGuard?.();
@@ -136,50 +362,102 @@ export class ExternalEventIngress {
     }
   }
 
-  private async receive(source: ISourceState, raw: unknown): Promise<IExternalEventReceipt> {
-    if (!source.active) return { outcome: 'refused', reason: 'external event source is closed' };
-    let event: IAuthenticatedExternalEvent | null;
+  /** Refuse a spent token, or one without a name; `undefined` means it may be spent. */
+  private replayRefusal(
+    source: ISourceState,
+    claims: ReturnType<typeof spendableClaims>,
+    at: number,
+  ): TExternalEventRefusal | undefined {
+    if (claims === undefined) return 'malformed';
+    const spentUntil = source.spent.get(claims.jti);
+    if (spentUntil !== undefined && spentUntil > at) return 'malformed';
+    if (source.spent.size >= MAX_SPENT_TOKENS) {
+      for (const [jti, until] of source.spent) if (until <= at) source.spent.delete(jti);
+      if (source.spent.size >= MAX_SPENT_TOKENS) return 'rate-limited';
+    }
+    return undefined;
+  }
+
+  private async receive(source: ISourceState, delivery: unknown): Promise<TExternalEventReceipt> {
+    // A closed or revoked grant still checks the token first: only a caller the grant's verifier
+    // admits may learn the grant's state, so an unauthenticated one sees what a live grant answers.
+    const token = isRecord(delivery) ? delivery['token'] : undefined;
+    if (typeof token !== 'string' || token.length === 0)
+      return { admitted: false, refusal: 'missing-token' };
+    let verdict: Awaited<ReturnType<IAccessTokenVerifier['verify']>>;
     try {
-      event = await source.authenticate(raw);
+      verdict = await source.verifier.verify(token);
     } catch {
-      return { outcome: 'refused', reason: 'external event source authentication failed' };
+      verdict = { admitted: false, refusal: 'malformed' };
     }
-    if (!source.active) return { outcome: 'refused', reason: 'external event source is closed' };
-    if (!event || typeof event.senderId !== 'string' || !source.allowedSenders.has(event.senderId)) {
-      return { outcome: 'ignored' };
-    }
-    if (!validIdentity(event.senderId) || !validIdentity(event.conversationId)) {
-      return { outcome: 'refused', reason: 'invalid external event identity' };
-    }
-    if (typeof event.content !== 'string' || Buffer.byteLength(event.content, 'utf8') > MAX_EVENT_BYTES) {
-      return { outcome: 'refused', reason: 'external event content exceeds the size limit' };
-    }
-    const driverId = `external:${source.id}:${encodeURIComponent(event.senderId)}:${encodeURIComponent(event.conversationId)}`;
-    const input = `<external-event source="${source.id}" sender="${escapeXml(event.senderId)}" conversation="${escapeXml(event.conversationId)}">\n${escapeXml(event.content)}\n</external-event>`;
+    if (!verdict.admitted) return { admitted: false, refusal: verdict.refusal };
+    if (!source.active) return { admitted: false, refusal: closedRefusal(source) };
+    const event = readMessage(isRecord(delivery) ? delivery['event'] : undefined);
+    if (typeof event === 'string') return { admitted: false, refusal: event };
+    // From here to the submission nothing yields, so two deliveries of one token cannot both pass.
+    const at = this.now();
+    const claims = spendableClaims(token);
+    const replay = this.replayRefusal(source, claims, at);
+    if (replay !== undefined) return { admitted: false, refusal: replay };
+    if (source.rate.admit(source.grant.grantId) !== undefined)
+      return { admitted: false, refusal: 'rate-limited' };
+    source.spent.set(claims!.jti, claims!.expiresAt);
+    return this.submit(source, event);
+  }
+
+  private async submit(source: ISourceState, event: IMessage): Promise<TExternalEventReceipt> {
+    const grantId = source.grant.grantId;
+    const driverId = `external:${grantId}:${encodeURIComponent(event.conversationId)}`;
+    const claimed =
+      event.claimedName !== undefined ? ` claimed-name="${escapeXml(event.claimedName)}"` : '';
+    const input =
+      `<external-event source="${grantId}" conversation="${escapeXml(event.conversationId)}" verified="token"${claimed}>\n` +
+      `${escapeXml(event.content)}\n</external-event>`;
     // Hold the guard across submission as well as the completed promise: submit may wait for a turn.
     source.pending += 1;
     this.pending += 1;
     let handle: ITurnHandle;
     try {
-      handle = await this.host.submit(input, { turnSource: 'external', driverId });
+      // An idle session runs the turn inside `submit`; the receipt is due at acceptance.
+      handle = await new Promise<ITurnHandle>((resolve, reject) => {
+        this.host
+          .submit(input, {
+            turnSource: 'external',
+            driverId,
+            signal: source.turns.signal,
+            onAccepted: resolve,
+          })
+          .then(resolve, reject);
+      });
     } catch {
       source.pending -= 1;
       this.pending -= 1;
       this.maybeRelease(source);
-      return { outcome: 'refused', reason: 'session refused external event submission' };
+      return {
+        admitted: false,
+        refusal: this.host.isShuttingDown?.() === true ? 'shutting-down' : 'session-unavailable',
+      };
     }
-    const settled: Promise<TExternalEventSettlement> = handle.completed.then(
-      (result): TExternalEventSettlement => result.interrupted
-        ? { outcome: 'interrupted' }
-        : { outcome: 'completed', response: result.response },
-      (error: unknown): TExternalEventSettlement => isTurnNotRunError(error)
-        ? { outcome: 'not-run', reason: error.reason }
-        : { outcome: 'failed', reason: 'external event turn failed' },
-    ).finally(() => {
-      source.pending -= 1;
-      this.pending -= 1;
-      this.maybeRelease(source);
-    });
-    return { outcome: 'accepted', turnId: handle.turnId, settled };
+    const settled: Promise<TExternalEventSettlement> = handle.completed
+      .then(
+        (result): TExternalEventSettlement =>
+          result.interrupted
+            ? { outcome: 'interrupted' }
+            : { outcome: 'completed', response: result.response },
+        (error: unknown): TExternalEventSettlement =>
+          isTurnNotRunError(error)
+            ? { outcome: 'not-run', reason: error.reason }
+            : { outcome: 'failed', reason: 'external event turn failed' },
+      )
+      .then((settlement) => {
+        this.record(source, { settlement: settlement.outcome });
+        return settlement;
+      })
+      .finally(() => {
+        source.pending -= 1;
+        this.pending -= 1;
+        this.maybeRelease(source);
+      });
+    return { admitted: true, turnId: handle.turnId, settled };
   }
 }

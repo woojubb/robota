@@ -9,8 +9,26 @@
 
 // ── Context-compaction contracts (INFRA-025 SSOT) ────────────
 export type { TCompactTrigger, ICompactEvent } from './compact-contracts.js';
-export type { IResumableSessionSummary } from './session-summary-contracts.js';
-export type { ISessionLoopState, TSessionLoopPhase } from './session-loop-contracts.js';
+export type {
+  IResumableSessionSummary,
+  ISessionDirectory,
+  ISessionListing,
+  ISessionListingEntry,
+  ISessionSwitchedEvent,
+} from './session-summary-contracts.js';
+export type {
+  ISessionBinder,
+  ISessionBinding,
+  ISessionChangeRefusal,
+  TSessionBindingRole,
+  TSessionChangeRefusalCode,
+} from './session-binding-contracts.js';
+export { isSessionChangeRefusal, SESSION_CHANGE_REFUSAL_CODES } from './session-binding-contracts.js';
+export type {
+  ISessionLoopState,
+  TSessionLoopPhase,
+  TWaitingLoopStopOutcome,
+} from './session-loop-contracts.js';
 // ── Interactive-session contracts ────────────────────────────
 export type {
   IInteractiveSession,
@@ -20,16 +38,20 @@ export type {
   ISessionBackgroundTasks,
   ISessionCapabilityMap,
   ISessionCommands,
+  ISessionStatusRead,
+  ISessionStatusSnapshot,
   ISessionRuntimeTools,
   ISessionConversationRead,
   ISessionDriverAttribution,
   ISessionEvents,
+  ISessionExecutionDetail,
   ISessionExecutionState,
   ISessionExecutionWorkspace,
   ISessionGoal,
   ISessionIdentity,
   ISessionLifecycle,
   ISessionPromptResolution,
+  ISessionSelfPacedLoopControl,
   ISessionTurnControl,
   ISessionTurnSubmission,
   ISessionWorkspaceLocation,

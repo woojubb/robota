@@ -93,7 +93,7 @@ export interface IOpenAIProviderOptions {
    * @example
    * ```ts
    * // Vercel AI Gateway with a non-OpenAI model slug
-   * createOpenAIProvider({
+   * new OpenAIProvider({
    *   apiKey: process.env.AI_GATEWAY_API_KEY,
    *   baseURL: 'https://ai-gateway.vercel.sh/v1',
    *   defaultModel: 'anthropic/claude-sonnet-4-5',
@@ -156,6 +156,9 @@ export interface IOpenAIProviderOptions {
    * schema marked optional becomes required and gains a `null` branch. The model must then supply
    * the key explicitly, with `null` standing for "not provided". A tool whose handler distinguishes
    * an absent key from a null value will see the difference.
+   *
+   * Both surfaces declare the functions strict (`strict: true` on each tool), so an OpenAI-compatible
+   * endpoint that rejects that field needs `strictTools` left off.
    */
   strictTools?: boolean;
 
@@ -174,7 +177,9 @@ export interface IOpenAIProviderOptions {
   client?: OpenAI;
 
   /**
-   * Payload logger instance for debugging API requests/responses
+   * Payload logger that receives a summary of each Chat Completions request (model, message
+   * count, whether tools were sent, temperature, max tokens) for debugging — not prompt or
+   * response content. Not called on the Responses API surface.
    *
    * Use different implementations based on your environment:
    * - FilePayloadLogger: Node.js file-based logging

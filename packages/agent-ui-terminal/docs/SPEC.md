@@ -15,12 +15,18 @@ authenticate; the OS user who started the process is the boundary.
 
 - Owns the Ink/React rendering pipeline, the TUI interaction channel, the default TUI CLI adapter,
   and a presentation-only supervised-session view of host-verified, content-free observations. That
-  view does not construct a session or infer ownership from matching IDs; requested control and
-  linked-PR opening are delegated to the host's owner-verifying path, never decided by a displayed
-  or stale row alone.
-- Depends on the TUI interaction contracts and the framework's interactive-session runtime; does
-  not depend on any other transport implementation package, and no other transport package depends
-  on this one.
+  view does not construct a session or infer ownership from matching IDs; requested control,
+  attaching and linked-PR opening are delegated to the host's owner-verifying path, bound to the
+  process start the row showed, offered only for a row that proved it, and never decided by a
+  displayed or stale row alone. The full TUI attached to a host's session is a thin client of a
+  session reached over the carrier-neutral session protocol: it shows what the protocol carries, one
+  question at a time, sends only what the user types or answers, and leaving only detaches — nothing
+  it sends ends the host's session, and a question left open stays open for the other clients.
+  Attached to observe, it sends only what an observer may send and refuses everything else with a
+  notice, so the host never has to refuse it.
+- Depends on the TUI interaction contracts, the framework's interactive-session runtime and the
+  carrier-neutral session wire messages; does not depend on any transport implementation package,
+  and no transport package depends on this one.
 - Exports no generic transport-adapter type. A channel that ignores the session handed to it and
   constructs a different one through the renderer would not be an honest implementation of that
   port — `renderApp` and the interaction channel are the only supported session-owning surfaces.
@@ -50,16 +56,19 @@ settings file, or product-named environment variable itself. Without a supplied 
 renderer falls back to a neutral `Assistant` label (screen-reader role
 labels stay provider- and
 product-neutral regardless), and terminal-title composition always sanitizes both the host-selected
-name and the session name before emitting the OSC sequence. The permission prompt labels
-project-wide approval unavailable, rather than resolving the disabled choice as granted, when the
-session cannot persist it.
+name and the session name before emitting the OSC sequence. The permission prompt ignores its keys
+for a short pause after it appears, so a keystroke meant for the composer cannot grant a permission,
+and it labels project-wide approval unavailable, rather than resolving the disabled choice as
+granted, when the session cannot persist it.
 
-When a self-paced loop is waiting, Esc stops that loop through the session's durable stop path.
-If several are waiting, Esc names the explicit stop command instead of choosing one silently.
-Esc retains its existing overlay and active-turn behavior.
+When a self-paced loop is waiting, Esc asks the session to stop it, and the session decides which
+loop that is, so a terminal attached to a host follows the same rule: when several are waiting none
+is stopped and the explicit stop command is named instead. Esc retains its existing overlay and
+active-turn behavior.
 
-Automatic naming observes the first displayed user message, including an admitted external event.
-Its separate model call is text-only; it must never enable provider-hosted tools.
+The terminal never names a session itself: it asks the session it builds to name itself, so a
+session is named once whichever client drives it, and a name reaches the screen as the session's
+rename.
 
 ### Channel lifecycle and teardown
 
@@ -74,15 +83,19 @@ contract is authoritative for how the TUI releases resources on session switch a
   ordinary start rollback path; the renderer never treats an unbound source as ready.
 - Stop unwires every session listener it registered, drains pending permission and user-action
   queues, stops background polling, disposes UI state, stops transports, and — unless the channel
-  already shut down gracefully — shuts the underlying session down within a bounded timeout, so a
-  discarded or switched-away channel releases its background tasks, subagent processes, and
-  timers. A channel that leaves a listener bound or its session running after stop is a defect.
+  already shut down gracefully, or only attached to a host's session — shuts the underlying session
+  down within a bounded timeout, so a discarded or switched-away channel releases its background
+  tasks, subagent processes, and timers. A channel that leaves a listener bound, or a session it
+  owns running, after stop is a defect.
 - Graceful shutdown (first interrupt, explicit exit, signal) and an explicit stop share one
   completion path so neither reports success while the other is still pending, and a wedged
   subsystem can never block process exit because session shutdown is time-bounded.
-- On session switch, the old channel is fully stopped before the new one becomes active, so it can
-  never receive events meant for the new session; on stop failure the old channel stays selected
-  with input disabled until a retry succeeds, rather than silently creating a second live channel.
+- On session switch, nothing of the old session reaches what shows the new one: a channel that owns
+  its session is fully stopped before the new one becomes active, and on stop failure stays selected
+  with input disabled until a retry succeeds, rather than silently creating a second live channel; a
+  channel attached to a host asks the host to switch and, when the host does, drops the old
+  session's questions unanswered, re-reads everything it shows and prints the new transcript from
+  its start.
 - The permission queue and the user-action queue are both drained on abort, cancel, and shutdown:
   every queued or in-flight action resolves (as cancelled or denied) rather than dangling — an
   unresolved permission promise would hang the tool that is waiting on it, and a queue drain that
@@ -94,9 +107,13 @@ contract is authoritative for how the TUI releases resources on session switch a
 
 ### The renderer executes no command semantics
 
-The TUI applies no command's side effects itself. The session layer applies every command's host
-action (language change, settings reset, exit/restart, rename, statusline patch, remote control)
-before the command result ever reaches the renderer; the renderer only reflects outcomes it is
+The TUI applies no session command's side effects itself. The session layer applies every such
+command's host action (language change, settings reset, exit/restart, rename, statusline patch,
+remote control) before the command result ever reaches the renderer. The one exception is a
+terminal attached to a host: the commands that belong to the terminal the user sits at (shell,
+editor, theme, keybindings) run in that terminal's own process, on its own terminal and working
+directory, and never reach the host; the terminal writes the appearance patch they ask for and
+refuses any other host action by name. Otherwise the renderer only reflects outcomes it is
 told about through broadcast session events (e.g. a rename or a history-clear applies only when the
 corresponding event arrives, never as a direct reaction to a command result), and the CLI adapter
 surface is read-only toward settings.

@@ -26,9 +26,13 @@ export const HINTS_PADDED_BYTES = 640;
 export const LIST_CHUNK_BYTES = 864;
 /** Chunks the device lists may take; a larger list is not published. */
 export const MAX_LIST_CHUNKS = 8;
-const LIST_CHUNK_HEADER = 2;
+/** Bytes of the version every chunk of one list carries. */
+const LIST_VERSION_BYTES = 8;
+const LIST_CHUNK_HEADER = 2 + LIST_VERSION_BYTES;
 /** Addresses one hints record carries. */
 export const MAX_HINT_CANDIDATES = 8;
+/** Relay endpoints one hints record carries. */
+export const MAX_HINT_RELAYS = 4;
 const MAX_HOST_CHARS = 64;
 
 const ED25519_PKCS8_PREFIX = Uint8Array.from([
@@ -214,11 +218,13 @@ export async function itemAddress(
 }
 
 /**
- * `value` as fixed-size chunks, each `[count, index, …JSON]` padded with spaces. Throws when it needs
- * more than {@link MAX_LIST_CHUNKS}.
+ * `value` as fixed-size chunks, each `[count, index, version, …JSON]` padded with spaces. Every chunk
+ * of one value carries the same version, derived from the value, so chunks of two values are never
+ * joined. Throws when it needs more than {@link MAX_LIST_CHUNKS}.
  */
-export function chunkJson(value: unknown): Uint8Array[] {
+export async function chunkJson(value: unknown): Promise<Uint8Array[]> {
   const bytes = encoder.encode(JSON.stringify(value));
+  const version = (await sha256([bytes])).subarray(0, LIST_VERSION_BYTES);
   const room = LIST_CHUNK_BYTES - LIST_CHUNK_HEADER;
   const count = Math.max(1, Math.ceil(bytes.length / room));
   if (count > MAX_LIST_CHUNKS) throw new Error('device lists too large to publish as records');
@@ -226,6 +232,7 @@ export function chunkJson(value: unknown): Uint8Array[] {
     const out = new Uint8Array(LIST_CHUNK_BYTES).fill(0x20);
     out[0] = count;
     out[1] = index;
+    out.set(version, 2);
     out.set(bytes.subarray(index * room, (index + 1) * room), LIST_CHUNK_HEADER);
     return out;
   });
@@ -238,17 +245,26 @@ export function chunkCount(first: Uint8Array): number | undefined {
   return count !== undefined && count >= 1 && count <= MAX_LIST_CHUNKS ? count : undefined;
 }
 
-/** The value of `chunks` in order; `undefined` when they are not one value's chunks. */
+/**
+ * The value of `chunks` in order; `undefined` when they are not all chunks of one value, as when a
+ * read finds some chunks already replaced by a newer value's.
+ */
 export function joinChunks(chunks: readonly Uint8Array[]): unknown {
   const count = chunks.length;
+  const version = chunks[0]?.subarray(2, LIST_CHUNK_HEADER);
   const parts: Uint8Array[] = [];
   for (const [index, chunk] of chunks.entries()) {
     if (chunk.length !== LIST_CHUNK_BYTES || chunk[0] !== count || chunk[1] !== index) {
       return undefined;
     }
+    if (!sameBytes(chunk.subarray(2, LIST_CHUNK_HEADER), version)) return undefined;
     parts.push(chunk.subarray(LIST_CHUNK_HEADER));
   }
   return unpadJson(concatBytes(parts));
+}
+
+function sameBytes(a: Uint8Array, b: Uint8Array | undefined): boolean {
+  return b !== undefined && a.length === b.length && a.every((byte, i) => byte === b[i]);
 }
 
 /** `data` padded with trailing spaces to exactly `size` bytes; throws when it does not fit. */
@@ -269,27 +285,58 @@ export function unpadJson(bytes: Uint8Array): unknown {
   }
 }
 
-/** Connection hints: where the peer's direct signaling endpoint might be reached. */
-export function encodeHints(candidates: readonly IMeshCandidate[]): Uint8Array {
+function keptAddresses(addresses: readonly IMeshCandidate[], max: number): [string, number][] {
   const kept: [string, number][] = [];
-  for (const c of candidates) {
-    if (kept.length >= MAX_HINT_CANDIDATES) break;
+  for (const c of addresses) {
+    if (kept.length >= max) break;
     if (c.host.length === 0 || c.host.length > MAX_HOST_CHARS) continue;
     kept.push([c.host, c.port]);
   }
-  return padJson({ v: 1, c: kept }, HINTS_PADDED_BYTES);
+  return kept;
+}
+
+/**
+ * Connection hints: where the peer's direct signaling endpoint might be reached and, when this
+ * device runs a relay, where that relay listens. What does not fit the fixed size is left out,
+ * signaling addresses first.
+ */
+export function encodeHints(
+  candidates: readonly IMeshCandidate[],
+  relays: readonly IMeshCandidate[] = [],
+): Uint8Array {
+  const c = keptAddresses(candidates, MAX_HINT_CANDIDATES);
+  const t = keptAddresses(relays, MAX_HINT_RELAYS);
+  for (;;) {
+    try {
+      return padJson({ v: 1, c, ...(t.length > 0 ? { t } : {}) }, HINTS_PADDED_BYTES);
+    } catch (error) {
+      if (c.length > 0) c.pop();
+      else if (t.length > 0) t.pop();
+      else throw error;
+    }
+  }
 }
 
 const HOST = /^[0-9A-Za-z.:%_-]{1,64}$/;
 
 /** The candidates of a hints record; hostile input, so anything malformed is dropped. */
 export function decodeHints(bytes: Uint8Array): IMeshCandidate[] {
+  return decodeHintAddresses(bytes, 'c', MAX_HINT_CANDIDATES);
+}
+
+/** The relay endpoints of a hints record, if the peer runs a relay; hostile input like the rest. */
+export function decodeRelayHints(bytes: Uint8Array): IMeshCandidate[] {
+  return decodeHintAddresses(bytes, 't', MAX_HINT_RELAYS);
+}
+
+function decodeHintAddresses(bytes: Uint8Array, field: 'c' | 't', max: number): IMeshCandidate[] {
   const value = unpadJson(bytes);
   if (typeof value !== 'object' || value === null) return [];
-  const r = value as { v?: unknown; c?: unknown };
-  if (r.v !== 1 || !Array.isArray(r.c)) return [];
+  const r = value as { v?: unknown; c?: unknown; t?: unknown };
+  const list = r[field];
+  if (r.v !== 1 || !Array.isArray(list)) return [];
   const out: IMeshCandidate[] = [];
-  for (const entry of r.c.slice(0, MAX_HINT_CANDIDATES)) {
+  for (const entry of list.slice(0, max)) {
     if (!Array.isArray(entry) || entry.length !== 2) continue;
     const [host, port] = entry as [unknown, unknown];
     if (typeof host !== 'string' || !HOST.test(host)) continue;

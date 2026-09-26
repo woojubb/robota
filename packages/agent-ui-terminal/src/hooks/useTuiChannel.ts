@@ -23,7 +23,7 @@ import type {
   IExecutionDetailPage,
   IExecutionWorkspaceSnapshot,
 } from '@robota-sdk/agent-interface-execution';
-import type { IToolState } from '@robota-sdk/agent-interface-session';
+import type { ISessionListingEntry, IToolState } from '@robota-sdk/agent-interface-session';
 
 export interface ITuiChannelState {
   uiEventPort: ITuiSessionUiEventPort;
@@ -49,6 +49,14 @@ export interface ITuiChannelState {
   /** CMD-004: the unified action awaiting a user answer, or null. */
   pendingUserAction: IActionRequest | null;
   contextState: { percentage: number; usedTokens: number; maxTokens: number };
+  /** The host's sessions for the picker, when the channel's host keeps them. */
+  hostSessions: readonly ISessionListingEntry[] | undefined;
+  /** Changes when the transcript starts over for another session under this channel. */
+  transcriptGeneration: number;
+  /** This terminal only observes the session. */
+  readOnly: boolean;
+  /** This terminal is attached to a session a host runs; leaving only detaches it. */
+  attached: boolean;
   handleSubmit: (input: string) => Promise<void>;
   handleAbort: () => void;
   handleCancelQueue: () => void;
@@ -115,6 +123,10 @@ export function useTuiChannel(channel: ITuiAppChannelPort): ITuiChannelState {
     permissionRequest: snapshot.permissionRequest,
     pendingUserAction: snapshot.pendingUserAction,
     contextState: snapshot.contextState,
+    hostSessions: snapshot.hostSessions,
+    transcriptGeneration: snapshot.transcriptGeneration ?? 0,
+    readOnly: snapshot.readOnly === true,
+    attached: snapshot.attached === true,
     handleSubmit: (input) => channel.handleInput(input),
     handleAbort: () => channel.abort(),
     handleCancelQueue: () => channel.cancelQueue(),

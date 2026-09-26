@@ -112,13 +112,21 @@ export async function executePromptTurn(
   ctx: IPromptTurnContext,
 ): Promise<void> {
   const history = ctx.getHistory();
-  // Keep the accepted driver's identity in the persisted display history as well as the live
-  // turn. A TUI history refresh must not relabel an external (or peer) message as the operator.
+  // Keep the accepted driver's identity, and where the turn came from, in the persisted display
+  // history as well as on the stored message. A TUI history refresh must not relabel an external
+  // (or peer) message as the operator, and a session carried elsewhere keeps both. The operator's
+  // own turn stays unmarked, as every surface already reads an unmarked message.
+  const turnSource =
+    ctx.turnSource !== undefined && ctx.turnSource !== 'user' ? ctx.turnSource : undefined;
+  const origin = {
+    ...(ctx.driverId ? { driverId: ctx.driverId } : {}),
+    ...(turnSource !== undefined ? { turnSource } : {}),
+  };
   history.push(
     messageToHistoryEntry(
       createUserMessage(
         displayInput ?? input,
-        ctx.driverId ? { metadata: { driverId: ctx.driverId } } : {},
+        Object.keys(origin).length > 0 ? { metadata: origin } : {},
       ),
     ),
   );
@@ -171,6 +179,7 @@ export async function executePromptTurn(
       ...(ctx.signal ? { signal: ctx.signal } : {}),
       ...(ephemeralSystemContext !== undefined ? { ephemeralSystemContext } : {}),
       ...(ctx.driverId !== undefined ? { driverId: ctx.driverId } : {}),
+      ...(turnSource !== undefined ? { turnSource } : {}),
       ...(ctx.traceContext !== undefined ? { traceContext: ctx.traceContext } : {}),
       ...(noTools ? { toolChoice: 'none' as const } : {}),
       ...(peerTurn ? { peerTurn: true } : {}),

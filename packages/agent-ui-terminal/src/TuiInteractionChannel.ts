@@ -6,16 +6,13 @@
  */
 
 import { createSystemMessage, messageToHistoryEntry } from '@robota-sdk/agent-core';
-import {
-  CommandRegistry,
-  buildRuntimeSession,
-  generateSessionName,
-} from '@robota-sdk/agent-framework';
+import { CommandRegistry, buildRuntimeSession } from '@robota-sdk/agent-framework';
 
 import { AttentionCoordinator } from './attention/attention-coordinator.js';
 import { MS_PER_SECOND } from './attention/time-units.js';
 import { createSessionInitPoller } from './flows/session-init-poller.js';
 import { applySystemCommandResult } from './hooks/command-result-handler.js';
+import { parseSlashCommandInput } from './slash-command-input.js';
 import {
   TuiChannelLifecycleCoordinator,
   TuiChannelStartRollbackError,
@@ -24,6 +21,7 @@ import { TuiPermissionQueue, TuiUserActionQueue } from './tui-interaction-queues
 import { TuiSessionEventProjector } from './tui-session-event-projector.js';
 import { buildTuiSessionOptions } from './tui-session-options.js';
 import { TuiStateManager } from './tui-state-manager.js';
+import { WAITING_LOOP_STOP_REASON, waitingLoopStopNotice } from './waiting-loop-stop-notice.js';
 
 import type { IAttentionSource } from './attention/attention-tracker.js';
 import type { ISessionInitPoller, TSessionInitFailure } from './flows/session-init-poller.js';
@@ -78,7 +76,6 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
   availableCommands: ICommandInfo[] = [];
   sessionName: string | undefined;
 
-  private autoNameTriggered = false;
   private initPoller: ISessionInitPoller | null = null;
 
   /** TERM-002: the App registers its Ink suspend/resume hooks into this controller. */
@@ -103,7 +100,6 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
       session: this.interactiveSession,
       manager: this.stateManager,
       ...(this.attention ? { attention: this.attention } : {}),
-      onUserMessage: (content) => this.handleAutoNaming(content),
       requestPermission: (toolName, toolArgs, id, canPersistProjectPermission, requestedByPeer) =>
         this.permissions.enqueue(
           toolName,
@@ -324,34 +320,11 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
     this.stateManager.setPendingPrompt(null);
   }
 
+  /** Esc on an idle prompt: the session decides which waiting loop, if any, stops. */
   async stopWaitingSelfPacedLoop(): Promise<void> {
-    const waiting = this.interactiveSession
-      .listSelfPacedLoops()
-      .filter((loop) => loop.phase === 'waiting');
-    if (waiting.length === 0) return;
-    if (waiting.length > 1) {
-      this.addEntry(
-        messageToHistoryEntry(
-          createSystemMessage(
-            'Several self-paced loops are waiting. Use /loop list and /loop stop <id> to choose one.',
-          ),
-        ),
-      );
-      return;
-    }
-    const loopId = waiting[0]!.loopId;
-    try {
-      await this.interactiveSession.stopSelfPacedLoop(loopId, 'Loop stopped by Esc');
-      this.addEntry(messageToHistoryEntry(createSystemMessage(`Loop ${loopId} stopped by Esc.`)));
-    } catch (error) {
-      this.addEntry(
-        messageToHistoryEntry(
-          createSystemMessage(
-            `Could not stop loop ${loopId}: ${error instanceof Error ? error.message : String(error)}`,
-          ),
-        ),
-      );
-    }
+    const outcome = await this.interactiveSession.stopWaitingSelfPacedLoop(WAITING_LOOP_STOP_REASON);
+    const notice = waitingLoopStopNotice(outcome);
+    if (notice !== undefined) this.addEntry(messageToHistoryEntry(createSystemMessage(notice)));
   }
 
   async shutdown(options?: { reason?: TSessionEndReason; timeoutMs?: number }): Promise<void> {
@@ -407,9 +380,7 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
   }
 
   private async handleSlashCommand(input: string): Promise<void> {
-    const parts = input.slice(1).split(/\s+/);
-    const cmd = parts[0]?.toLowerCase() ?? '';
-    const args = parts.slice(1).join(' ');
+    const { name: cmd, args } = parseSlashCommandInput(input);
 
     const result = await this.interactiveSession.executeCommand(cmd, args);
     if (result) {
@@ -461,22 +432,6 @@ export class TuiInteractionChannel implements ITuiAppChannelPort {
    */
   private cancelAllPermissions(): void {
     this.permissions.cancelAll();
-  }
-
-  private handleAutoNaming(content: string): void {
-    if (this.autoNameTriggered) return;
-    if (this.opts.sessionName || this.interactiveSession.getName()) return;
-    this.autoNameTriggered = true;
-    generateSessionName(this.opts.provider, content)
-      .then((name) => {
-        this.interactiveSession.setName(name);
-        this.sessionName = name;
-        this.opts.onAutoNamed?.(name);
-        this.onChange?.();
-      })
-      .catch(() => {
-        this.autoNameTriggered = false;
-      });
   }
 
   private syncRestoredHistory(): void {

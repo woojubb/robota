@@ -9,6 +9,7 @@ import {
   requireConversationId,
   buildFullExecutionContext,
 } from './execution-service-helpers';
+import { buildFinalResult } from './execution-failure';
 import { executeStream as executeStreamFn } from './execution-stream';
 import {
   type IExecutionRoundState,
@@ -171,10 +172,26 @@ export class ExecutionService {
       executionId,
     );
 
+    // Where this turn begins in the store: the result describes the turn, not the whole history.
+    let turnMessageId: string | undefined;
+    const roundState: IExecutionRoundState = {
+      toolsExecuted: [],
+      currentRound: 0,
+      runningAssistantCount: 0,
+      lastTrackedAssistantMessage: undefined,
+      cumulativeInputTokens: 0,
+      consecutiveUnknownToolFailureRounds: 0,
+      sameToolInputCounts: new Map(),
+    };
+
     try {
       const messageCountBeforeUser = conversationStore.getMessages().length;
-      conversationStore.addUserMessage(input, userMessageMetadata(executionId, context?.driverId));
-      const userMessage = conversationStore.getMessages()[messageCountBeforeUser];
+      conversationStore.addUserMessage(
+        input,
+        userMessageMetadata(executionId, context?.driverId, context?.turnSource),
+      );
+      const userMessage = conversationStore.getMessages().at(-1);
+      turnMessageId = userMessage?.id;
       if (userMessage) {
         fullContext.onExecutionEvent?.('history_mutation', {
           executionId,
@@ -214,16 +231,6 @@ export class ExecutionService {
 
       validateProvider(resolved);
 
-      const roundState: IExecutionRoundState = {
-        toolsExecuted: [],
-        currentRound: 0,
-        runningAssistantCount: 0,
-        lastTrackedAssistantMessage: undefined,
-        cumulativeInputTokens: 0,
-        consecutiveUnknownToolFailureRounds: 0,
-        sameToolInputCounts: new Map(),
-      };
-
       for (const msg of conversationStore.getMessages()) {
         if (msg.role === 'assistant') {
           roundState.runningAssistantCount++;
@@ -256,6 +263,7 @@ export class ExecutionService {
         startTime,
         roundState,
         conversationId,
+        turnMessageId,
         context?.signal?.aborted ?? false,
         context,
         this.plugins,
@@ -266,14 +274,15 @@ export class ExecutionService {
       // CORE-027: classified from the SIGNAL and the error's own name, never from its prose. The
       // substring test that stood here returned `success: true, interrupted: true` for any provider
       // failure whose message happened to contain "abort".
+      //
+      // The aborted turn answers with what it committed (the partial text, marked interrupted in the
+      // store) and the tools that did run — the same reading of the store a completed turn gets.
       if (isAbortFailure(error, context?.signal)) {
         return {
-          response: '',
-          messages: conversationStore.getMessages(),
-          executionId,
-          duration: Date.now() - startTime.getTime(),
-          toolsExecuted: [],
-          success: true,
+          ...buildFinalResult(conversationStore, executionId, startTime, roundState.toolsExecuted, {
+            turnMessageId,
+            interrupted: true,
+          }),
           interrupted: true,
         };
       }

@@ -5,7 +5,10 @@ import stringWidth from 'string-width';
 import { useNumberedSelection } from './hooks/useNumberedSelection.js';
 import { formatNumberedSelectionPrompt, numberedRowPrefix } from './numbered-list.js';
 import { Text } from './SafeText.js';
-import { writeScreenReaderAnnouncement, type TScreenReaderChannel } from './screen-reader-announcement.js';
+import {
+  writeScreenReaderAnnouncement,
+  type TScreenReaderChannel,
+} from './screen-reader-announcement.js';
 import { ScreenReaderProvider, useScreenReader } from './screen-reader-context.js';
 
 export interface ISupervisedViewRow {
@@ -16,68 +19,128 @@ export interface ISupervisedViewRow {
   readonly nextLoopAt?: string;
   readonly name?: string;
   readonly cwd?: string;
-  readonly pr?: { readonly url: string; readonly host: string; readonly number: number;
-    readonly kind: 'pull' | 'merge-request' };
+  readonly pr?: {
+    readonly url: string;
+    readonly host: string;
+    readonly number: number;
+    readonly kind: 'pull' | 'merge-request';
+  };
   readonly problem?: 'invalid-registration';
+  /** The verified registration generation; a row without one never offers an action. Never rendered. */
+  readonly generation?: string;
 }
+
+/** An attach the user confirmed in the view, bound to the process start the row showed. */
+export interface ISupervisedAttachRequest {
+  readonly id: string;
+  readonly generation: string;
+  readonly mode: 'drive' | 'observe';
+  /** How the view was grouped, so it can reopen the same way after the attach. */
+  readonly groupByDirectory: boolean;
+}
+
+/** How the view ended: closed, or handed to the host to attach and then come back. */
+export type TSupervisedViewExit =
+  | { readonly kind: 'closed' }
+  | ({ readonly kind: 'attach' } & ISupervisedAttachRequest);
+
+const ROLE: Readonly<Record<ISupervisedAttachRequest['mode'], string>> = {
+  drive: 'drive (send prompts, answer its questions)',
+  observe: 'observe (read only)',
+};
 
 export interface ISupervisedSessionViewProps {
   readonly loadRows: (signal: AbortSignal) => Promise<readonly ISupervisedViewRow[]>;
-  readonly onStop?: (id: string) => Promise<void>;
+  /** Called once the user confirmed; the view then closes so the host can attach this terminal. */
+  readonly onAttach?: (request: ISupervisedAttachRequest) => void;
+  /** Receives the generation the row displayed, so a session restarted under the same id is refused. */
+  readonly onStop?: (id: string, generation: string) => Promise<void>;
   readonly onStart?: () => Promise<string>;
-  readonly onOpenPr?: (id: string, url: string) => Promise<void>;
+  readonly onOpenPr?: (id: string, url: string, generation: string) => Promise<void>;
   readonly filteredByCwd?: boolean;
   readonly filteredByName?: boolean;
   readonly filteredByPr?: boolean;
   readonly stateFilter?: TGroup;
   readonly refreshMs?: number;
+  /** The row to select first, when it is still listed — the one an attach left from. */
+  readonly initialSelectedId?: string;
+  readonly initialGroupByDirectory?: boolean;
 }
 
 const GROUP_ORDER = ['needs-input', 'working', 'idle', 'unknown', 'unverified', 'dead'] as const;
-type TGroup = typeof GROUP_ORDER[number];
+type TGroup = (typeof GROUP_ORDER)[number];
 type TDisplayLine =
   | { readonly kind: 'group'; readonly label: string }
   | { readonly kind: 'row'; readonly row: ISupervisedViewRow; readonly index: number };
 
+function isControllable(
+  row: ISupervisedViewRow | undefined,
+): row is ISupervisedViewRow & { readonly generation: string } {
+  return (
+    row?.liveness === 'alive' && row.control === 'available' && row.generation !== undefined
+  );
+}
+
 function groupOf(row: ISupervisedViewRow): TGroup {
   if (row.liveness === 'dead') return 'dead';
-  if (row.liveness !== 'alive' || row.control !== 'available') return 'unverified';
+  if (!isControllable(row)) return 'unverified';
   return row.activity;
 }
 
 function sortedRows(rows: readonly ISupervisedViewRow[]): readonly ISupervisedViewRow[] {
-  return [...rows].sort((a, b) =>
-    GROUP_ORDER.indexOf(groupOf(a)) - GROUP_ORDER.indexOf(groupOf(b)) || a.id.localeCompare(b.id));
+  return [...rows].sort(
+    (a, b) =>
+      GROUP_ORDER.indexOf(groupOf(a)) - GROUP_ORDER.indexOf(groupOf(b)) || a.id.localeCompare(b.id),
+  );
 }
 
 function sortedDirectoryRows(rows: readonly ISupervisedViewRow[]): readonly ISupervisedViewRow[] {
-  return [...rows].sort((a, b) =>
-    (a.cwd === undefined ? 1 : 0) - (b.cwd === undefined ? 1 : 0) ||
-    (a.cwd ?? '').localeCompare(b.cwd ?? '') ||
-    GROUP_ORDER.indexOf(groupOf(a)) - GROUP_ORDER.indexOf(groupOf(b)) || a.id.localeCompare(b.id));
+  return [...rows].sort(
+    (a, b) =>
+      (a.cwd === undefined ? 1 : 0) - (b.cwd === undefined ? 1 : 0) ||
+      (a.cwd ?? '').localeCompare(b.cwd ?? '') ||
+      GROUP_ORDER.indexOf(groupOf(a)) - GROUP_ORDER.indexOf(groupOf(b)) ||
+      a.id.localeCompare(b.id),
+  );
 }
 
-function uniqueDirectorySuffix(cwd: string, directories: readonly string[], budget: number): string {
+function uniqueDirectorySuffix(
+  cwd: string,
+  directories: readonly string[],
+  budget: number,
+): string {
   if (cwd === '/') return cwd;
   let longestSharedSuffix = 0;
   for (const other of directories) {
     if (other === cwd) continue;
     let shared = 0;
-    while (shared < cwd.length && shared < other.length &&
-      cwd[cwd.length - shared - 1] === other[other.length - shared - 1]) shared++;
+    while (
+      shared < cwd.length &&
+      shared < other.length &&
+      cwd[cwd.length - shared - 1] === other[other.length - shared - 1]
+    )
+      shared++;
     longestSharedSuffix = Math.max(longestSharedSuffix, shared);
   }
   const basenameLength = cwd.split(/[\\/]/u).filter(Boolean).at(-1)?.length ?? cwd.length;
   const uniqueLength = Math.min(cwd.length, Math.max(basenameLength, longestSharedSuffix + 3));
   const suffixStart = cwd.length - uniqueLength;
-  const boundary = Math.max(cwd.lastIndexOf('/', suffixStart - 1), cwd.lastIndexOf('\\', suffixStart - 1));
+  const boundary = Math.max(
+    cwd.lastIndexOf('/', suffixStart - 1),
+    cwd.lastIndexOf('\\', suffixStart - 1),
+  );
   const componentSuffix = cwd.slice(boundary + 1);
-  return stringWidth(displayPath(componentSuffix)) <= budget ? componentSuffix : cwd.slice(suffixStart);
+  return stringWidth(displayPath(componentSuffix)) <= budget
+    ? componentSuffix
+    : cwd.slice(suffixStart);
 }
 
 function pathTokens(path: string): readonly string[] {
-  return Array.from(path, (character) => /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(character)
-    ? `\\u{${character.codePointAt(0)!.toString(16)}}` : character);
+  return Array.from(path, (character) =>
+    /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u.test(character)
+      ? `\\u{${character.codePointAt(0)!.toString(16)}}`
+      : character,
+  );
 }
 
 function displayPath(path: string): string {
@@ -103,20 +166,34 @@ function compactPath(path: string, budget: number): string {
 }
 
 function sameRows(a: readonly ISupervisedViewRow[], b: readonly ISupervisedViewRow[]): boolean {
-  return a.length === b.length && a.every((row, index) => {
-    const other = b[index];
-    return other !== undefined && row.id === other.id && row.liveness === other.liveness &&
-      row.control === other.control && row.activity === other.activity && row.problem === other.problem &&
-      row.nextLoopAt === other.nextLoopAt && row.name === other.name && row.cwd === other.cwd &&
-      row.pr?.url === other.pr?.url;
-  });
+  return (
+    a.length === b.length &&
+    a.every((row, index) => {
+      const other = b[index];
+      return (
+        other !== undefined &&
+        row.id === other.id &&
+        row.liveness === other.liveness &&
+        row.control === other.control &&
+        row.activity === other.activity &&
+        row.problem === other.problem &&
+        row.nextLoopAt === other.nextLoopAt &&
+        row.name === other.name &&
+        row.cwd === other.cwd &&
+        row.pr?.url === other.pr?.url &&
+        row.generation === other.generation
+      );
+    })
+  );
 }
 
 function loopWaitLabel(nextLoopAt: string, observedAtMs: number): string {
   const remaining = Date.parse(nextLoopAt) - observedAtMs;
   if (!Number.isFinite(remaining)) return '';
   if (remaining <= 0) return 'loop eligible now';
-  return remaining < 60_000 ? 'loop eligible in <1m' : `loop eligible in ${Math.ceil(remaining / 60_000)}m`;
+  return remaining < 60_000
+    ? 'loop eligible in <1m'
+    : `loop eligible in ${Math.ceil(remaining / 60_000)}m`;
 }
 
 export default function SupervisedSessionView({
@@ -124,11 +201,14 @@ export default function SupervisedSessionView({
   onStop,
   onStart,
   onOpenPr,
+  onAttach,
   filteredByCwd = false,
   filteredByName = false,
   filteredByPr = false,
   stateFilter,
   refreshMs = 2_000,
+  initialSelectedId,
+  initialGroupByDirectory = false,
 }: ISupervisedSessionViewProps): React.ReactElement {
   const { exit } = useApp();
   const { stdout } = useStdout();
@@ -137,40 +217,65 @@ export default function SupervisedSessionView({
   const [rows, setRows] = useState<readonly ISupervisedViewRow[]>([]);
   const [observedAtMs, setObservedAtMs] = useState(Date.now);
   const [status, setStatus] = useState<'loading' | 'ready' | 'unavailable'>('loading');
-  const [selectedId, setSelectedId] = useState<string | undefined>();
+  const [chosenId, setSelectedId] = useState<string | undefined>(initialSelectedId);
   const [showHelp, setShowHelp] = useState(false);
-  const [groupByDirectory, setGroupByDirectory] = useState(false);
-  const [confirmStopId, setConfirmStopId] = useState<string | undefined>();
-  const [stopStatus, setStopStatus] = useState<'idle' | 'unavailable' | 'stopping' | 'stopped' | 'failed'>('idle');
+  const [groupByDirectory, setGroupByDirectory] = useState(initialGroupByDirectory);
+  // One confirmation at a time, for the one registration the row showed when the key was pressed.
+  const [confirmStop, setConfirmStop] = useState<
+    | {
+        readonly id: string;
+        readonly generation: string;
+        readonly action: 'stop' | 'attach';
+        readonly mode?: ISupervisedAttachRequest['mode'];
+      }
+    | undefined
+  >();
+  const confirmStopId = confirmStop?.id;
+  const [attachStatus, setAttachStatus] = useState<'idle' | 'unavailable'>('idle');
+  const [stopStatus, setStopStatus] = useState<
+    'idle' | 'unavailable' | 'stopping' | 'stopped' | 'failed'
+  >('idle');
   const [lastStoppedId, setLastStoppedId] = useState<string | undefined>();
   const stoppingRef = useRef(false);
-  const [startStatus, setStartStatus] = useState<'idle' | 'starting' | 'started' | 'failed'>('idle');
+  const [startStatus, setStartStatus] = useState<'idle' | 'starting' | 'started' | 'failed'>(
+    'idle',
+  );
   const [lastStartedId, setLastStartedId] = useState<string | undefined>();
   const startingRef = useRef(false);
-  const [prOpenStatus, setPrOpenStatus] = useState<'idle' | 'opening' | 'opened' | 'failed' | 'unavailable'>('idle');
+  const [prOpenStatus, setPrOpenStatus] = useState<
+    'idle' | 'opening' | 'opened' | 'failed' | 'unavailable'
+  >('idle');
   const openingPrRef = useRef(false);
   const mountedRef = useRef(true);
   const ordered = useMemo(() => {
-    const filtered = rows.filter((row) => stateFilter === undefined || groupOf(row) === stateFilter);
+    const filtered = rows.filter(
+      (row) => stateFilter === undefined || groupOf(row) === stateFilter,
+    );
     return groupByDirectory ? sortedDirectoryRows(filtered) : sortedRows(filtered);
   }, [rows, stateFilter, groupByDirectory]);
   const displayLines = useMemo((): readonly TDisplayLine[] => {
     const lines: TDisplayLine[] = [];
-    const directories = [...new Set(ordered.map((row) => row.cwd).filter((cwd): cwd is string => cwd !== undefined))];
+    const directories = [
+      ...new Set(ordered.map((row) => row.cwd).filter((cwd): cwd is string => cwd !== undefined)),
+    ];
     let previousGroup: string | undefined;
     let directoryNumber = 0;
     ordered.forEach((row, index) => {
-      const group = groupByDirectory ? row.cwd ?? 'unverified' : groupOf(row);
+      const group = groupByDirectory ? (row.cwd ?? 'unverified') : groupOf(row);
       if (group !== previousGroup) {
         const label = groupByDirectory
-          ? row.cwd === undefined ? 'Directory: unverified'
+          ? row.cwd === undefined
+            ? 'Directory: unverified'
             : (() => {
-              const prefix = `Dir ${++directoryNumber}: `;
-              const budget = Math.max(4, columns - prefix.length);
-              const suffix = compactPath(uniqueDirectorySuffix(row.cwd, directories, budget), budget);
-              const full = `${prefix}${suffix} — ${displayPath(row.cwd)}`;
-              return screenReader || stringWidth(full) <= columns ? full : `${prefix}${suffix}`;
-            })()
+                const prefix = `Dir ${++directoryNumber}: `;
+                const budget = Math.max(4, columns - prefix.length);
+                const suffix = compactPath(
+                  uniqueDirectorySuffix(row.cwd, directories, budget),
+                  budget,
+                );
+                const full = `${prefix}${suffix} — ${displayPath(row.cwd)}`;
+                return screenReader || stringWidth(full) <= columns ? full : `${prefix}${suffix}`;
+              })()
           : `${group}:`;
         lines.push({ kind: 'group', label });
       }
@@ -189,14 +294,24 @@ export default function SupervisedSessionView({
         const next = sortedRows(await loadRows(controller.signal));
         if (!mounted || controller.signal.aborted) return;
         const nowMs = Date.now();
-        setRows((previous) => sameRows(previous, next) ? previous : next);
-        setObservedAtMs((previous) => next.some((row) => row.nextLoopAt !== undefined &&
-          loopWaitLabel(row.nextLoopAt, previous) !== loopWaitLabel(row.nextLoopAt, nowMs)) ? nowMs : previous);
+        setRows((previous) => (sameRows(previous, next) ? previous : next));
+        setObservedAtMs((previous) =>
+          next.some(
+            (row) =>
+              row.nextLoopAt !== undefined &&
+              loopWaitLabel(row.nextLoopAt, previous) !== loopWaitLabel(row.nextLoopAt, nowMs),
+          )
+            ? nowMs
+            : previous,
+        );
         setStatus('ready');
       } catch {
         if (mounted && !controller.signal.aborted) setStatus('unavailable');
       } finally {
-        if (mounted && !controller.signal.aborted) timer = setTimeout(() => { void poll(); }, refreshMs);
+        if (mounted && !controller.signal.aborted)
+          timer = setTimeout(() => {
+            void poll();
+          }, refreshMs);
       }
     };
     void poll();
@@ -209,39 +324,96 @@ export default function SupervisedSessionView({
 
   useEffect(() => {
     mountedRef.current = true;
-    return () => { mountedRef.current = false; };
+    return () => {
+      mountedRef.current = false;
+    };
   }, []);
 
+  // Derived during render, so no frame ever shows loaded rows without a selection. The effect then
+  // records the fallback with a functional update, so it never overwrites a choice made meanwhile,
+  // and the selected row stays selected when regrouping reorders the list.
+  const selectedId =
+    chosenId !== undefined && ordered.some((row) => row.id === chosenId)
+      ? chosenId
+      : ordered[0]?.id;
   useEffect(() => {
-    setSelectedId((current) => current !== undefined && ordered.some((row) => row.id === current)
-      ? current : ordered[0]?.id);
+    // Before the first rows arrive there is nothing to fall back to; the choice waits for them.
+    setSelectedId((current) =>
+      ordered.length === 0 ||
+      (current !== undefined && ordered.some((row) => row.id === current))
+        ? current
+        : ordered[0]?.id,
+    );
   }, [ordered]);
 
   useInput((input, key) => {
     if (stoppingRef.current) return;
-    if (openingPrRef.current && input !== 'q' && !(!screenReader && key.escape) && !(key.ctrl && input === 'c')) return;
-    if (startingRef.current && input !== 'q' && !(!screenReader && key.escape) && !(key.ctrl && input === 'c')) return;
+    if (
+      openingPrRef.current &&
+      input !== 'q' &&
+      !(!screenReader && key.escape) &&
+      !(key.ctrl && input === 'c')
+    )
+      return;
+    if (
+      startingRef.current &&
+      input !== 'q' &&
+      !(!screenReader && key.escape) &&
+      !(key.ctrl && input === 'c')
+    )
+      return;
     if (confirmStopId !== undefined) {
       if (input === 'n' || key.escape) {
-        setConfirmStopId(undefined);
+        setConfirmStop(undefined);
+        return;
+      }
+      if (input === 'y' && confirmStop?.action === 'attach') {
+        const target = confirmStop;
+        const row = ordered.find((candidate) => candidate.id === target.id);
+        setConfirmStop(undefined);
+        if (
+          status !== 'ready' ||
+          !isControllable(row) ||
+          row.generation !== target.generation ||
+          target.mode === undefined ||
+          onAttach === undefined
+        ) {
+          setAttachStatus('unavailable');
+          return;
+        }
+        onAttach({ id: target.id, generation: target.generation, mode: target.mode, groupByDirectory });
+        exit();
         return;
       }
       if (input === 'y') {
-        const row = ordered.find((candidate) => candidate.id === confirmStopId);
-        setConfirmStopId(undefined);
-        if (status !== 'ready' || row?.liveness !== 'alive' || row.control !== 'available' || onStop === undefined) {
+        const target = confirmStop;
+        const row = ordered.find((candidate) => candidate.id === target?.id);
+        setConfirmStop(undefined);
+        // The confirmation names one registration; a restart under the same id is a different session.
+        if (
+          status !== 'ready' ||
+          target === undefined ||
+          !isControllable(row) ||
+          row.generation !== target.generation ||
+          onStop === undefined
+        ) {
           setStopStatus('unavailable');
           return;
         }
         stoppingRef.current = true;
         setStopStatus('stopping');
-        void onStop(confirmStopId).then(() => {
-          if (!mountedRef.current) return;
-          setLastStoppedId(confirmStopId);
-          setStopStatus('stopped');
-        }).catch(() => {
-          if (mountedRef.current) setStopStatus('failed');
-        }).finally(() => { stoppingRef.current = false; });
+        void onStop(target.id, target.generation)
+          .then(() => {
+            if (!mountedRef.current) return;
+            setLastStoppedId(target.id);
+            setStopStatus('stopped');
+          })
+          .catch(() => {
+            if (mountedRef.current) setStopStatus('failed');
+          })
+          .finally(() => {
+            stoppingRef.current = false;
+          });
       }
       return;
     }
@@ -261,43 +433,74 @@ export default function SupervisedSessionView({
     if (input === 'n' && onStart !== undefined) {
       startingRef.current = true;
       setStartStatus('starting');
-      void Promise.resolve().then(onStart).then((id) => {
-        if (!mountedRef.current) return;
-        setLastStartedId(id);
-        setStartStatus('started');
-      }).catch(() => {
-        if (mountedRef.current) setStartStatus('failed');
-      }).finally(() => { startingRef.current = false; });
+      void Promise.resolve()
+        .then(onStart)
+        .then((id) => {
+          if (!mountedRef.current) return;
+          setLastStartedId(id);
+          setStartStatus('started');
+        })
+        .catch(() => {
+          if (mountedRef.current) setStartStatus('failed');
+        })
+        .finally(() => {
+          startingRef.current = false;
+        });
       return;
     }
-    if (input === 'p' && onOpenPr !== undefined) {
+    if ((input === 'a' || input === 'p') && onAttach !== undefined) {
       const row = ordered.find((candidate) => candidate.id === selectedId);
-      if (status !== 'ready' || row?.liveness !== 'alive' || row.control !== 'available' || !row.pr) {
+      if (status !== 'ready' || !isControllable(row)) {
+        setAttachStatus('unavailable');
+      } else {
+        setAttachStatus('idle');
+        setStopStatus('idle');
+        setConfirmStop({
+          id: row.id,
+          generation: row.generation,
+          action: 'attach',
+          mode: input === 'a' ? 'drive' : 'observe',
+        });
+      }
+      return;
+    }
+    if (input === 'o' && onOpenPr !== undefined) {
+      const row = ordered.find((candidate) => candidate.id === selectedId);
+      if (status !== 'ready' || !isControllable(row) || !row.pr) {
         setPrOpenStatus('unavailable');
         return;
       }
       openingPrRef.current = true;
       setPrOpenStatus('opening');
-      void onOpenPr(row.id, row.pr.url).then(() => {
-        if (mountedRef.current) setPrOpenStatus('opened');
-      }).catch(() => {
-        if (mountedRef.current) setPrOpenStatus('failed');
-      }).finally(() => { openingPrRef.current = false; });
+      void onOpenPr(row.id, row.pr.url, row.generation)
+        .then(() => {
+          if (mountedRef.current) setPrOpenStatus('opened');
+        })
+        .catch(() => {
+          if (mountedRef.current) setPrOpenStatus('failed');
+        })
+        .finally(() => {
+          openingPrRef.current = false;
+        });
       return;
     }
     if (input === 's' && onStop !== undefined) {
       const row = ordered.find((candidate) => candidate.id === selectedId);
-      if (status !== 'ready' || row?.liveness !== 'alive' || row.control !== 'available') {
+      if (status !== 'ready' || !isControllable(row)) {
         setStopStatus('unavailable');
       } else {
         setStopStatus('idle');
-        setConfirmStopId(row.id);
+        setAttachStatus('idle');
+        setConfirmStop({ id: row.id, generation: row.generation, action: 'stop' });
       }
       return;
     }
     if (screenReader || ordered.length === 0) return;
     if (key.upArrow || key.downArrow) {
-      const index = Math.max(0, ordered.findIndex((row) => row.id === selectedId));
+      const index = Math.max(
+        0,
+        ordered.findIndex((row) => row.id === selectedId),
+      );
       const next = Math.max(0, Math.min(ordered.length - 1, index + (key.downArrow ? 1 : -1)));
       setSelectedId(ordered[next]?.id);
     }
@@ -312,17 +515,22 @@ export default function SupervisedSessionView({
       setSelectedId(ordered[index]?.id);
       setStopStatus('idle');
     },
-    onCancel: () => { if (!stoppingRef.current) exit(); },
+    onCancel: () => {
+      if (!stoppingRef.current) exit();
+    },
   });
 
   const selectedRow = ordered.find((row) => row.id === selectedId);
-  const selectedName = status === 'ready' && selectedRow?.liveness === 'alive' &&
-    selectedRow.control === 'available' ? selectedRow.name : undefined;
-  const selectedLoopStatus = status === 'ready' && selectedRow?.liveness === 'alive' &&
-    selectedRow.control === 'available' && selectedRow.activity === 'idle' && selectedRow.nextLoopAt
-    ? loopWaitLabel(selectedRow.nextLoopAt, observedAtMs) : '';
-  const selectedPr = status === 'ready' && selectedRow?.liveness === 'alive' &&
-    selectedRow.control === 'available' ? selectedRow.pr : undefined;
+  const selectedName =
+    status === 'ready' && isControllable(selectedRow) ? selectedRow.name : undefined;
+  const selectedLoopStatus =
+    status === 'ready' &&
+    isControllable(selectedRow) &&
+    selectedRow.activity === 'idle' &&
+    selectedRow.nextLoopAt
+      ? loopWaitLabel(selectedRow.nextLoopAt, observedAtMs)
+      : '';
+  const selectedPr = status === 'ready' && isControllable(selectedRow) ? selectedRow.pr : undefined;
 
   const height = Math.max(8, stdout.rows ?? 24);
   const helpLines = [
@@ -331,9 +539,10 @@ export default function SupervisedSessionView({
     's Request stop',
     'g Group state/dir',
     ...(onStart === undefined ? [] : ['n New session']),
-    ...(onOpenPr === undefined ? [] : ['p Open linked PR']),
-    'y Confirm stop',
-    'n/Esc Cancel stop',
+    ...(onAttach === undefined ? [] : ['a Attach (drive)', 'p Peek (read only)']),
+    ...(onOpenPr === undefined ? [] : ['o Open linked PR']),
+    'y Confirm',
+    'n/Esc Cancel',
     'q/Esc/Ctrl+C Close',
     '? Toggle help',
     'Activity ≠ liveness',
@@ -342,84 +551,179 @@ export default function SupervisedSessionView({
   ];
   // Reserve all fixed chrome plus both possible overflow indicators before choosing row lines.
   const helpVisible = showHelp && confirmStopId === undefined && stopStatus !== 'stopping';
-  const fixedLines = 2 + (stateFilter === undefined ? 0 : 1)
-    + (status === 'loading' || status === 'unavailable' || (status === 'ready' && ordered.length === 0) ? 1 : 0)
-    + (selectedId === undefined ? 0 : 1)
-    + (selectedName === undefined ? 0 : 1)
-    + (selectedPr === undefined ? 0 : 2)
-    + (selectedLoopStatus ? 1 : 0)
-    + (prOpenStatus === 'idle' ? 0 : 1)
-    + (startStatus === 'idle' ? 0 : 1)
-    + (confirmStopId !== undefined ? (screenReader ? 1 : 2) : stopStatus !== 'idle' ? 1 : 0)
-    + 1 + (helpVisible ? helpLines.length : 0) + 2;
+  const fixedLines =
+    2 +
+    (stateFilter === undefined ? 0 : 1) +
+    (status === 'loading' ||
+    status === 'unavailable' ||
+    (status === 'ready' && ordered.length === 0)
+      ? 1
+      : 0) +
+    (selectedId === undefined ? 0 : 1) +
+    (selectedName === undefined ? 0 : 1) +
+    (selectedPr === undefined ? 0 : 2) +
+    (selectedLoopStatus ? 1 : 0) +
+    (prOpenStatus === 'idle' ? 0 : 1) +
+    (startStatus === 'idle' ? 0 : 1) +
+    (confirmStopId !== undefined ? (screenReader ? 1 : 2) : stopStatus !== 'idle' ? 1 : 0) +
+    (confirmStopId === undefined && attachStatus !== 'idle' ? 1 : 0) +
+    1 +
+    (helpVisible ? helpLines.length : 0) +
+    2;
   const viewport = Math.max(1, height - fixedLines);
-  const selectedLine = Math.max(0, displayLines.findIndex((line) => line.kind === 'row' && line.row.id === selectedId));
-  const start = Math.min(Math.max(0, selectedLine - Math.floor(viewport / 2)), Math.max(0, displayLines.length - viewport));
+  const selectedLine = Math.max(
+    0,
+    displayLines.findIndex((line) => line.kind === 'row' && line.row.id === selectedId),
+  );
+  const start = Math.min(
+    Math.max(0, selectedLine - Math.floor(viewport / 2)),
+    Math.max(0, displayLines.length - viewport),
+  );
   const visible = screenReader ? displayLines : displayLines.slice(start, start + viewport);
   const chromeWrap = screenReader ? {} : { wrap: 'truncate-end' as const };
-  const footer = stopStatus === 'stopping' ? 'Stop in progress; wait for result.'
-    : confirmStopId !== undefined ? 'Confirm stop or cancel before closing.'
-      : screenReader ? `Type a number and Enter to select; s Stop;${onStart ? ' n New;' : ''}${onOpenPr ? ' p Open PR;' : ''} g Group; Escape to close; ? Help.`
-        : `↑↓ Navigate  s Stop${onStart ? '  n New' : ''}${onOpenPr ? '  p Open PR' : ''}  g Group  ? Help  q/Esc Close`;
+  // Attach and peek are offered only for a row this terminal could actually attach to.
+  const attachable = onAttach !== undefined && status === 'ready' && isControllable(selectedRow);
+  const footer =
+    stopStatus === 'stopping'
+      ? 'Stop in progress; wait for result.'
+      : confirmStopId !== undefined
+        ? `Confirm ${confirmStop?.action === 'attach' ? 'attach' : 'stop'} or cancel before closing.`
+        : screenReader
+          ? `Type a number and Enter to select; s Stop;${attachable ? ' a Attach; p Peek;' : ''}${onStart ? ' n New;' : ''}${onOpenPr ? ' o Open PR;' : ''} g Group; Escape to close; ? Help.`
+          : `↑↓ Navigate  s Stop${attachable ? '  a Attach  p Peek' : ''}${onStart ? '  n New' : ''}${onOpenPr ? '  o Open PR' : ''}  g Group  ? Help  q/Esc Close`;
+  const confirmQuestion = (id: string): string =>
+    confirmStop?.action === 'attach' && confirmStop.mode !== undefined
+      ? `${confirmStop.mode === 'drive' ? 'Attach to' : 'Peek at'} ${id} to ${ROLE[confirmStop.mode]}?`
+      : `Stop ${id}?`;
   return (
     <Box flexDirection="column" {...(screenReader ? {} : { height })}>
       <Text {...chromeWrap}>
-        {filteredByCwd ? 'Background sessions in selected directory' : 'Background sessions across projects'}
+        {filteredByCwd
+          ? 'Background sessions in selected directory'
+          : 'Background sessions across projects'}
         {filteredByName ? ' · name filter active' : ''}
         {filteredByPr ? ' · PR filter active' : ''}
       </Text>
-      <Text {...chromeWrap}>{ordered.length} supervised session(s). Foreground peers and saved records are separate.</Text>
+      <Text {...chromeWrap}>
+        {ordered.length} supervised session(s). Foreground peers and saved records are separate.
+      </Text>
       {stateFilter !== undefined && <Text {...chromeWrap}>State: {stateFilter}</Text>}
       {status === 'loading' && <Text {...chromeWrap}>Loading supervised sessions...</Text>}
-      {status === 'unavailable' && <Text {...chromeWrap}>Supervised session discovery unavailable; last verified rows remain below.</Text>}
-      {status === 'ready' && ordered.length === 0 && <Text {...chromeWrap}>No supervised sessions.</Text>}
+      {status === 'unavailable' && (
+        <Text {...chromeWrap}>
+          Supervised session discovery unavailable; last verified rows remain below.
+        </Text>
+      )}
+      {status === 'ready' && ordered.length === 0 && (
+        <Text {...chromeWrap}>No supervised sessions.</Text>
+      )}
       {start > 0 && !screenReader && <Text>{start} more above</Text>}
-      {visible.map((line) => line.kind === 'group'
-        ? <Text key={`group-${line.label}`} {...chromeWrap}>{line.label}</Text>
-        : <Text key={`row-${line.row.id}`} {...(screenReader ? {} : { wrap: 'truncate-end' as const })}>
-          {screenReader ? numberedRowPrefix(line.index) : line.row.id === selectedId ? '> ' : '  '}
-          {line.row.name && line.row.liveness === 'alive' && line.row.control === 'available'
-            ? screenReader
-              ? `${line.row.name} (${line.row.id})`
-              : `${Array.from(line.row.name).slice(0, 24).join('')}${Array.from(line.row.name).length > 24 ? '…' : ''} [${line.row.id.slice(-8)}]`
-            : line.row.id}  activity {line.row.activity}  liveness {line.row.liveness}  control {line.row.control}
-          {status === 'ready' && line.row.liveness === 'alive' && line.row.control === 'available' &&
-            line.row.activity === 'idle' && line.row.nextLoopAt
-            ? `  ${loopWaitLabel(line.row.nextLoopAt, observedAtMs)}` : ''}
-          {line.row.problem ? `  ${line.row.problem}` : ''}
-          {status === 'ready' && line.row.liveness === 'alive' && line.row.control === 'available' && line.row.pr
-            ? `  ${line.row.pr.host} ${line.row.pr.kind === 'pull' ? '#' : '!'}${line.row.pr.number}` : ''}
-        </Text>)}
-      {!screenReader && start + visible.length < displayLines.length &&
-        <Text>{displayLines.length - start - visible.length} more below</Text>}
+      {visible.map((line) =>
+        line.kind === 'group' ? (
+          <Text key={`group-${line.label}`} {...chromeWrap}>
+            {line.label}
+          </Text>
+        ) : (
+          <Text
+            key={`row-${line.row.id}`}
+            {...(screenReader ? {} : { wrap: 'truncate-end' as const })}
+          >
+            {screenReader
+              ? numberedRowPrefix(line.index)
+              : line.row.id === selectedId
+                ? '> '
+                : '  '}
+            {line.row.name && isControllable(line.row)
+              ? screenReader
+                ? `${line.row.name} (${line.row.id})`
+                : `${Array.from(line.row.name).slice(0, 24).join('')}${Array.from(line.row.name).length > 24 ? '…' : ''} [${line.row.id.slice(-8)}]`
+              : line.row.id}{' '}
+            activity {line.row.activity} liveness {line.row.liveness} control {line.row.control}
+            {status === 'ready' &&
+            isControllable(line.row) &&
+            line.row.activity === 'idle' &&
+            line.row.nextLoopAt
+              ? `  ${loopWaitLabel(line.row.nextLoopAt, observedAtMs)}`
+              : ''}
+            {line.row.problem ? `  ${line.row.problem}` : ''}
+            {status === 'ready' && isControllable(line.row) && line.row.pr
+              ? `  ${line.row.pr.host} ${line.row.pr.kind === 'pull' ? '#' : '!'}${line.row.pr.number}`
+              : ''}
+          </Text>
+        ),
+      )}
+      {!screenReader && start + visible.length < displayLines.length && (
+        <Text>{displayLines.length - start - visible.length} more below</Text>
+      )}
       {selectedId !== undefined && <Text {...chromeWrap}>Selected {selectedId}</Text>}
       {selectedName !== undefined && <Text {...chromeWrap}>Name: {selectedName}</Text>}
-      {selectedPr !== undefined && <Text {...chromeWrap}>PR: {selectedPr.host} {selectedPr.kind === 'pull' ? '#' : '!'}{selectedPr.number}</Text>}
+      {selectedPr !== undefined && (
+        <Text {...chromeWrap}>
+          PR: {selectedPr.host} {selectedPr.kind === 'pull' ? '#' : '!'}
+          {selectedPr.number}
+        </Text>
+      )}
       {selectedPr !== undefined && <Text {...chromeWrap}>URL: {selectedPr.url}</Text>}
       {selectedLoopStatus && <Text {...chromeWrap}>{selectedLoopStatus}</Text>}
       {prOpenStatus === 'opening' && <Text {...chromeWrap}>Opening linked PR...</Text>}
       {prOpenStatus === 'opened' && <Text {...chromeWrap}>Opened linked PR.</Text>}
-      {prOpenStatus === 'failed' && <Text {...chromeWrap}>PR link changed or could not be opened.</Text>}
-      {prOpenStatus === 'unavailable' && <Text {...chromeWrap}>No verified PR link is available.</Text>}
+      {prOpenStatus === 'failed' && (
+        <Text {...chromeWrap}>PR link changed or could not be opened.</Text>
+      )}
+      {prOpenStatus === 'unavailable' && (
+        <Text {...chromeWrap}>No verified PR link is available.</Text>
+      )}
       {startStatus === 'starting' && <Text {...chromeWrap}>Starting a background session...</Text>}
-      {startStatus === 'started' && <Text {...chromeWrap}>Started {lastStartedId}{filteredByName || stateFilter !== undefined ? ' (may be hidden by filter)' : ''}</Text>}
-      {startStatus === 'failed' && <Text {...chromeWrap}>Start failed; check workspace trust or run session start --background for details.</Text>}
-      {confirmStopId !== undefined && (screenReader
-        ? <Text>Stop {confirmStopId}? y Yes / n No</Text>
-        : <>
-          <Text {...chromeWrap}>Stop …{confirmStopId.slice(-8)}?</Text>
-          <Text {...chromeWrap}>y Yes / n No</Text>
-        </>)}
-      {confirmStopId === undefined && stopStatus === 'unavailable' &&
-        <Text {...chromeWrap}>This session cannot be stopped from the view.</Text>}
-      {stopStatus === 'stopping' && <Text {...chromeWrap}>Stopping selected session; wait for confirmation.</Text>}
+      {startStatus === 'started' && (
+        <Text {...chromeWrap}>
+          Started {lastStartedId}
+          {filteredByName || stateFilter !== undefined ? ' (may be hidden by filter)' : ''}
+        </Text>
+      )}
+      {startStatus === 'failed' && (
+        <Text {...chromeWrap}>
+          Start failed; check workspace trust or run session start --background for details.
+        </Text>
+      )}
+      {confirmStopId !== undefined &&
+        (screenReader ? (
+          <Text>{confirmQuestion(confirmStopId)} y Yes / n No</Text>
+        ) : (
+          <>
+            <Text {...chromeWrap}>{confirmQuestion(`…${confirmStopId.slice(-8)}`)}</Text>
+            <Text {...chromeWrap}>y Yes / n No</Text>
+          </>
+        ))}
+      {confirmStopId === undefined && stopStatus === 'unavailable' && (
+        <Text {...chromeWrap}>This session cannot be stopped from the view.</Text>
+      )}
+      {confirmStopId === undefined && attachStatus === 'unavailable' && (
+        <Text {...chromeWrap}>This session cannot be attached to from the view.</Text>
+      )}
+      {stopStatus === 'stopping' && (
+        <Text {...chromeWrap}>Stopping selected session; wait for confirmation.</Text>
+      )}
       {stopStatus === 'stopped' && <Text {...chromeWrap}>Stopped {lastStoppedId}</Text>}
-      {stopStatus === 'failed' && <Text {...chromeWrap}>Stop failed; session remains listed until verified otherwise.</Text>}
-      {screenReader && ordered.length > 0 && confirmStopId === undefined && stopStatus !== 'stopping' &&
-        <Text>{formatNumberedSelectionPrompt(ordered.length, true)}{numbered.buffer ? ` ${numbered.buffer}` : ''}</Text>}
+      {stopStatus === 'failed' && (
+        <Text {...chromeWrap}>Stop failed; session remains listed until verified otherwise.</Text>
+      )}
+      {screenReader &&
+        ordered.length > 0 &&
+        confirmStopId === undefined &&
+        stopStatus !== 'stopping' && (
+          <Text>
+            {formatNumberedSelectionPrompt(ordered.length, true)}
+            {numbered.buffer ? ` ${numbered.buffer}` : ''}
+          </Text>
+        )}
       {screenReader && numbered.invalid && <Text>Selection out of range.</Text>}
       <Text {...chromeWrap}>{footer}</Text>
-      {helpVisible && helpLines.map((line) => <Text key={line} {...chromeWrap}>{line}</Text>)}
+      {helpVisible &&
+        helpLines.map((line) => (
+          <Text key={line} {...chromeWrap}>
+            {line}
+          </Text>
+        ))}
     </Box>
   );
 }
@@ -429,21 +733,38 @@ export async function renderSupervisedSessionView(
     readonly screenReader: boolean;
     readonly screenReaderChannel?: TScreenReaderChannel;
     readonly screenReaderHint?: boolean;
+    /** Print the screen-reader line; false when this process already printed it. */
+    readonly announce?: boolean;
   },
-): Promise<void> {
-  writeScreenReaderAnnouncement({
-    enabled: options.screenReader,
-    channel: options.screenReaderChannel,
-    hint: options.screenReaderHint,
-  });
+): Promise<TSupervisedViewExit> {
+  if (options.announce !== false) {
+    writeScreenReaderAnnouncement({
+      enabled: options.screenReader,
+      channel: options.screenReaderChannel,
+      hint: options.screenReaderHint,
+    });
+  }
+  let attach: ISupervisedAttachRequest | undefined;
   const instance = render(
     <ScreenReaderProvider enabled={options.screenReader}>
-      <SupervisedSessionView loadRows={options.loadRows} onStop={options.onStop}
+      <SupervisedSessionView
+        loadRows={options.loadRows}
+        onStop={options.onStop}
         onStart={options.onStart}
         onOpenPr={options.onOpenPr}
-        filteredByCwd={options.filteredByCwd} filteredByName={options.filteredByName}
+        onAttach={(request) => {
+          attach = request;
+        }}
+        filteredByCwd={options.filteredByCwd}
+        filteredByName={options.filteredByName}
         filteredByPr={options.filteredByPr}
-        stateFilter={options.stateFilter} refreshMs={options.refreshMs} />
+        stateFilter={options.stateFilter}
+        refreshMs={options.refreshMs}
+        {...(options.initialSelectedId !== undefined ? { initialSelectedId: options.initialSelectedId } : {})}
+        {...(options.initialGroupByDirectory !== undefined
+          ? { initialGroupByDirectory: options.initialGroupByDirectory }
+          : {})}
+      />
     </ScreenReaderProvider>,
     { isScreenReaderEnabled: options.screenReader, exitOnCtrlC: false },
   );
@@ -452,4 +773,5 @@ export async function renderSupervisedSessionView(
   } finally {
     instance.unmount();
   }
+  return attach === undefined ? { kind: 'closed' } : { kind: 'attach', ...attach };
 }

@@ -85,6 +85,24 @@ export interface ICommandSandboxStatus {
   readonly excludedCommands: readonly string[];
 }
 
+/** One external-event grant as the owner sees it: never the principal, a token or any content. */
+export interface ICommandExternalEventGrant {
+  readonly grantId: string;
+  readonly principal: 'subject' | 'client';
+  readonly state: 'open' | 'revoked';
+  readonly counters: {
+    readonly accepted: number;
+    readonly refused: Readonly<Partial<Record<string, number>>>;
+    readonly settled: Readonly<Partial<Record<string, number>>>;
+  };
+}
+
+/** The session's external-event grants: `/events` lists them and withdraws one. */
+export interface ICommandExternalEventsAdapter {
+  list(): readonly ICommandExternalEventGrant[];
+  revoke(grantId: string): 'revoked' | 'unknown-grant';
+}
+
 /** The OS sandbox, live: `/sandbox` reads it and changes the mode for the next command. */
 export interface ICommandSandboxAdapter {
   status(): ICommandSandboxStatus;
@@ -311,6 +329,17 @@ export interface ILocalPeerSummary {
 }
 
 /**
+ * Another of the user's devices with an admitted device-mesh link to this session, as the operator
+ * sees it. `deviceId` names it for a later `send`; `locality` is where the carrier established it
+ * runs, shown and never an authority input.
+ */
+export interface ILinkedDeviceSummary {
+  readonly deviceId: string;
+  readonly name?: string;
+  readonly locality: 'same-host' | 'another-host';
+}
+
+/**
  * PEER-004: what `/peers` reads. The registry, the guarded directory and the liveness rule all live
  * in the composition root — a command never touches the filesystem, for the same reason it never
  * constructs a transport.
@@ -325,6 +354,16 @@ export interface ICommandLocalPeersAdapter {
   listWithWorkspace?(): Promise<readonly ILocalPeerSummary[]>;
   /** This session's own id, so the command can mark which row is the reader. */
   ownSessionId(): string;
+  /**
+   * The user's other devices linked to this session over the device mesh, addressed by device id
+   * wherever a session id is taken. Absent on a host with no device mesh.
+   */
+  listDevices?(): readonly ILinkedDeviceSummary[];
+  /**
+   * Why sessions on this host cannot be listed, when local discovery is off for this session; the
+   * linked devices still are. Absent when discovery is on.
+   */
+  readonly localDiscoveryOff?: string;
   /**
    * PEER-006: hand `text` to another announced session, and report what came back.
    *
@@ -557,4 +596,6 @@ export interface ICommandHostAdapters {
   workspace?: ICommandWorkspaceAdapter;
   /** Absent on a host with no OS sandbox — `/sandbox` then says so. */
   sandbox?: ICommandSandboxAdapter;
+  /** Absent when the session holds no external-event grant — `/events` then says so. */
+  externalEvents?: ICommandExternalEventsAdapter;
 }

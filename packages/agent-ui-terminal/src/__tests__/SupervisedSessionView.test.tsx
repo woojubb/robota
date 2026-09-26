@@ -7,15 +7,23 @@ import SupervisedSessionView, { type ISupervisedViewRow } from '../SupervisedSes
 
 const FIRST: ISupervisedViewRow = {
   id: '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4',
-  liveness: 'alive', control: 'available', activity: 'working',
+  liveness: 'alive',
+  control: 'available',
+  activity: 'working',
+  generation: 'firstGenerationValue01',
 };
 const SECOND: ISupervisedViewRow = {
   id: 'fe2c7f72-ecb3-4a05-9bb1-2563ec80e615',
-  liveness: 'dead', control: 'unavailable', activity: 'unknown',
+  liveness: 'dead',
+  control: 'unavailable',
+  activity: 'unknown',
 };
 const THIRD: ISupervisedViewRow = {
   id: '4fa26e15-b17d-4908-afed-a156f8a8a17c',
-  liveness: 'alive', control: 'available', activity: 'idle',
+  liveness: 'alive',
+  control: 'available',
+  activity: 'idle',
+  generation: 'thirdGenerationValue01',
 };
 
 describe('supervised session view', () => {
@@ -28,37 +36,56 @@ describe('supervised session view', () => {
       await vi.waitFor(() => expect(view.lastFrame()).toContain('github.com #123'));
       expect(view.lastFrame()).toContain(url);
       expect(onOpenPr).not.toHaveBeenCalled();
-      view.stdin.write('p');
-      await vi.waitFor(() => expect(onOpenPr).toHaveBeenCalledExactlyOnceWith(FIRST.id, url));
-    } finally { view.unmount(); }
+      view.stdin.write('o');
+      await vi.waitFor(() => expect(onOpenPr).toHaveBeenCalledExactlyOnceWith(FIRST.id, url, FIRST.generation));
+    } finally {
+      view.unmount();
+    }
   });
 
   it('hides stale PR links and refuses open when discovery fails', async () => {
     const url = 'https://github.com/team/repo/pull/123';
     let fail = false;
     const onOpenPr = vi.fn(async () => undefined);
-    const view = render(<SupervisedSessionView refreshMs={20} onOpenPr={onOpenPr}
-      loadRows={async () => {
-        if (fail) throw new Error('offline');
-        return [{ ...FIRST, pr: { url, host: 'github.com', number: 123, kind: 'pull' as const } }];
-      }} />);
+    const view = render(
+      <SupervisedSessionView
+        refreshMs={20}
+        onOpenPr={onOpenPr}
+        loadRows={async () => {
+          if (fail) throw new Error('offline');
+          return [
+            { ...FIRST, pr: { url, host: 'github.com', number: 123, kind: 'pull' as const } },
+          ];
+        }}
+      />,
+    );
     try {
       await vi.waitFor(() => expect(view.lastFrame()).toContain(url));
       fail = true;
       await vi.waitFor(() => expect(view.lastFrame()).toContain('discovery unavailable'));
       expect(view.lastFrame()).not.toContain(url);
-      view.stdin.write('p');
+      view.stdin.write('o');
       expect(onOpenPr).not.toHaveBeenCalled();
-    } finally { view.unmount(); }
+    } finally {
+      view.unmount();
+    }
   });
 
   it('refreshes a replaced or cleared association without retaining the old URL', async () => {
     const first = 'https://github.com/team/repo/pull/123';
     const next = 'https://git.example.org/team/repo/-/merge_requests/24';
-    let association: ISupervisedViewRow['pr'] = { url: first, host: 'github.com', number: 123, kind: 'pull' };
-    const view = render(<SupervisedSessionView refreshMs={20} loadRows={async () => [
-      { ...FIRST, ...(association ? { pr: association } : {}) },
-    ]} />);
+    let association: ISupervisedViewRow['pr'] = {
+      url: first,
+      host: 'github.com',
+      number: 123,
+      kind: 'pull',
+    };
+    const view = render(
+      <SupervisedSessionView
+        refreshMs={20}
+        loadRows={async () => [{ ...FIRST, ...(association ? { pr: association } : {}) }]}
+      />,
+    );
     try {
       await vi.waitFor(() => expect(view.lastFrame()).toContain(first));
       association = { url: next, host: 'git.example.org', number: 24, kind: 'merge-request' };
@@ -66,7 +93,9 @@ describe('supervised session view', () => {
       expect(view.lastFrame()).not.toContain(first);
       association = undefined;
       await vi.waitFor(() => expect(view.lastFrame()).not.toContain(next));
-    } finally { view.unmount(); }
+    } finally {
+      view.unmount();
+    }
   });
   it('toggles verified directory grouping without losing selection or inventing unknown paths', async () => {
     const rows = [
@@ -94,7 +123,9 @@ describe('supervised session view', () => {
   it('announces directory groups and their selection in screen-reader mode', async () => {
     const view = render(
       <ScreenReaderProvider enabled>
-        <SupervisedSessionView loadRows={async () => [{ ...FIRST, cwd: '/projects/alpha' }, SECOND]} />
+        <SupervisedSessionView
+          loadRows={async () => [{ ...FIRST, cwd: '/projects/alpha' }, SECOND]}
+        />
       </ScreenReaderProvider>,
     );
     try {
@@ -111,13 +142,19 @@ describe('supervised session view', () => {
   });
 
   it('keeps long directory headings within a narrow terminal viewport', async () => {
-    const view = render(<SupervisedSessionView loadRows={async () => [
-      { ...FIRST, cwd: `/projects/${'very-long-directory-name-'.repeat(8)}` },
-    ]} />);
+    const view = render(
+      <SupervisedSessionView
+        loadRows={async () => [
+          { ...FIRST, cwd: `/projects/${'very-long-directory-name-'.repeat(8)}` },
+        ]}
+      />,
+    );
     try {
       Object.defineProperty(view.stdout, 'columns', { value: 20 });
       view.stdout.emit('resize');
-      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id.slice(0, 8)}`));
+      await vi.waitFor(() =>
+        expect(view.lastFrame()).toContain(`Selected ${FIRST.id.slice(0, 8)}`),
+      );
       view.stdin.write('g');
       await vi.waitFor(() => expect(view.lastFrame()).toContain('Dir 1:'));
       expect((view.lastFrame() ?? '').split('\n').length).toBeLessThanOrEqual(24);
@@ -127,10 +164,14 @@ describe('supervised session view', () => {
   });
 
   it('distinguishes directory groups with a shared prefix in a narrow terminal', async () => {
-    const view = render(<SupervisedSessionView loadRows={async () => [
-      { ...FIRST, cwd: '/projects/alpha' },
-      { ...THIRD, cwd: '/projects/beta' },
-    ]} />);
+    const view = render(
+      <SupervisedSessionView
+        loadRows={async () => [
+          { ...FIRST, cwd: '/projects/alpha' },
+          { ...THIRD, cwd: '/projects/beta' },
+        ]}
+      />,
+    );
     try {
       Object.defineProperty(view.stdout, 'columns', { value: 20 });
       view.stdout.emit('resize');
@@ -144,10 +185,14 @@ describe('supervised session view', () => {
   });
 
   it('shows differing parent directories when project basenames match at 20 columns', async () => {
-    const view = render(<SupervisedSessionView loadRows={async () => [
-      { ...FIRST, cwd: '/projects/alpha/app' },
-      { ...THIRD, cwd: '/projects/beta/app' },
-    ]} />);
+    const view = render(
+      <SupervisedSessionView
+        loadRows={async () => [
+          { ...FIRST, cwd: '/projects/alpha/app' },
+          { ...THIRD, cwd: '/projects/beta/app' },
+        ]}
+      />,
+    );
     try {
       Object.defineProperty(view.stdout, 'columns', { value: 20 });
       view.stdout.emit('resize');
@@ -161,10 +206,14 @@ describe('supervised session view', () => {
   });
 
   it('keeps the differing path portion visible when long parent names share a prefix', async () => {
-    const view = render(<SupervisedSessionView loadRows={async () => [
-      { ...FIRST, cwd: '/projects/alpha-very-long-parent/app' },
-      { ...THIRD, cwd: '/projects/alpha-very-long-pardon/app' },
-    ]} />);
+    const view = render(
+      <SupervisedSessionView
+        loadRows={async () => [
+          { ...FIRST, cwd: '/projects/alpha-very-long-parent/app' },
+          { ...THIRD, cwd: '/projects/alpha-very-long-pardon/app' },
+        ]}
+      />,
+    );
     try {
       Object.defineProperty(view.stdout, 'columns', { value: 20 });
       view.stdout.emit('resize');
@@ -178,10 +227,14 @@ describe('supervised session view', () => {
   });
 
   it('keeps the distinguishing wide character visible in a 20-column terminal', async () => {
-    const view = render(<SupervisedSessionView loadRows={async () => [
-      { ...FIRST, cwd: '/projects/あいうえおかきくけこ甲' },
-      { ...THIRD, cwd: '/projects/あいうえおかきくけこ乙' },
-    ]} />);
+    const view = render(
+      <SupervisedSessionView
+        loadRows={async () => [
+          { ...FIRST, cwd: '/projects/あいうえおかきくけこ甲' },
+          { ...THIRD, cwd: '/projects/あいうえおかきくけこ乙' },
+        ]}
+      />,
+    );
     try {
       Object.defineProperty(view.stdout, 'columns', { value: 20 });
       view.stdout.emit('resize');
@@ -196,9 +249,11 @@ describe('supervised session view', () => {
   });
 
   it('escapes layout controls in verified directory headings', async () => {
-    const view = render(<SupervisedSessionView loadRows={async () => [
-      { ...FIRST, cwd: '/projects/line\nbreak/app' },
-    ]} />);
+    const view = render(
+      <SupervisedSessionView
+        loadRows={async () => [{ ...FIRST, cwd: '/projects/line\nbreak/app' }]}
+      />,
+    );
     try {
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
       view.stdin.write('g');
@@ -214,10 +269,12 @@ describe('supervised session view', () => {
   it('clears a pending screen-reader number before directory regrouping', async () => {
     const view = render(
       <ScreenReaderProvider enabled>
-        <SupervisedSessionView loadRows={async () => [
-          { ...FIRST, cwd: '/projects/z' },
-          { ...THIRD, cwd: '/projects/a' },
-        ]} />
+        <SupervisedSessionView
+          loadRows={async () => [
+            { ...FIRST, cwd: '/projects/z' },
+            { ...THIRD, cwd: '/projects/a' },
+          ]}
+        />
       </ScreenReaderProvider>,
     );
     try {
@@ -235,7 +292,9 @@ describe('supervised session view', () => {
   });
 
   it('filters by an observed group without treating dead or unverified rows as idle', async () => {
-    const view = render(<SupervisedSessionView loadRows={async () => [FIRST, SECOND, THIRD]} stateFilter="idle" />);
+    const view = render(
+      <SupervisedSessionView loadRows={async () => [FIRST, SECOND, THIRD]} stateFilter="idle" />,
+    );
     try {
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${THIRD.id}`));
       expect(view.lastFrame()).toContain('State: idle');
@@ -248,14 +307,19 @@ describe('supervised session view', () => {
 
   it('shows an observed loop eligibility countdown without changing idle into a process state', async () => {
     const nextLoopAt = new Date(Date.now() + 1_200).toISOString();
-    const view = render(<SupervisedSessionView
-      loadRows={async () => [{ ...THIRD, nextLoopAt }]}
-      stateFilter="idle" refreshMs={100}
-    />);
+    const view = render(
+      <SupervisedSessionView
+        loadRows={async () => [{ ...THIRD, nextLoopAt }]}
+        stateFilter="idle"
+        refreshMs={100}
+      />,
+    );
     try {
       await vi.waitFor(() => expect(view.lastFrame()).toContain('loop eligible in'));
       expect(view.lastFrame()).toContain('activity idle');
-      await vi.waitFor(() => expect(view.lastFrame()).toContain('loop eligible now'), { timeout: 3_000 });
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('loop eligible now'), {
+        timeout: 3_000,
+      });
     } finally {
       view.unmount();
     }
@@ -276,8 +340,24 @@ describe('supervised session view', () => {
     }
   });
 
+  it('never renders loaded rows without a selection', async () => {
+    const view = render(
+      <SupervisedSessionView loadRows={async () => [{ ...THIRD, name: 'Morning review' }]} />,
+    );
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Morning review'));
+      const withRows = view.frames.filter((frame) => frame.includes('Morning review'));
+      expect(withRows.length).toBeGreaterThan(0);
+      for (const frame of withRows) expect(frame).toContain(`Selected ${THIRD.id}`);
+    } finally {
+      view.unmount();
+    }
+  });
+
   it('shows a verified human name while preserving the exact selected ID', async () => {
-    const view = render(<SupervisedSessionView loadRows={async () => [{ ...THIRD, name: 'Morning review' }]} />);
+    const view = render(
+      <SupervisedSessionView loadRows={async () => [{ ...THIRD, name: 'Morning review' }]} />,
+    );
     try {
       await vi.waitFor(() => expect(view.lastFrame()).toContain('Morning review'));
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${THIRD.id}`));
@@ -305,8 +385,13 @@ describe('supervised session view', () => {
 
   it('keeps stop cancellation separate from starting a session', async () => {
     const start = vi.fn(async () => SECOND.id);
-    const view = render(<SupervisedSessionView loadRows={async () => [FIRST]} onStart={start}
-      onStop={async () => undefined} />);
+    const view = render(
+      <SupervisedSessionView
+        loadRows={async () => [FIRST]}
+        onStart={start}
+        onStop={async () => undefined}
+      />,
+    );
     try {
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
       view.stdin.write('s');
@@ -320,7 +405,9 @@ describe('supervised session view', () => {
   });
 
   it('can start from an empty view and hides private launch errors', async () => {
-    const start = vi.fn().mockRejectedValueOnce(new Error('/private/token-path'))
+    const start = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('/private/token-path'))
       .mockResolvedValueOnce(SECOND.id);
     const view = render(<SupervisedSessionView loadRows={async () => []} onStart={start} />);
     try {
@@ -338,10 +425,22 @@ describe('supervised session view', () => {
 
   it('does not stop a row that leaves the selected state while confirmation is open', async () => {
     let finishRefresh: ((rows: readonly ISupervisedViewRow[]) => void) | undefined;
-    const refresh = new Promise<readonly ISupervisedViewRow[]>((resolve) => { finishRefresh = resolve; });
-    const loadRows = vi.fn().mockResolvedValueOnce([THIRD]).mockImplementation(() => refresh);
+    const refresh = new Promise<readonly ISupervisedViewRow[]>((resolve) => {
+      finishRefresh = resolve;
+    });
+    const loadRows = vi
+      .fn()
+      .mockResolvedValueOnce([THIRD])
+      .mockImplementation(() => refresh);
     const stop = vi.fn(async () => undefined);
-    const view = render(<SupervisedSessionView loadRows={loadRows} onStop={stop} stateFilter="idle" refreshMs={100} />);
+    const view = render(
+      <SupervisedSessionView
+        loadRows={loadRows}
+        onStop={stop}
+        stateFilter="idle"
+        refreshMs={100}
+      />,
+    );
     try {
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${THIRD.id}`));
       view.stdin.write('s');
@@ -359,16 +458,36 @@ describe('supervised session view', () => {
 
   it('lists every active key in help even in a narrow, crowded terminal', async () => {
     const rows = Array.from({ length: 18 }, (_, index) => ({
-      ...FIRST, id: `8bf9bc27-d773-4e88-b88f-${String(index).padStart(12, '0')}`,
+      ...FIRST,
+      id: `8bf9bc27-d773-4e88-b88f-${String(index).padStart(12, '0')}`,
     }));
-    const view = render(<SupervisedSessionView loadRows={async () => rows} onStart={async () => SECOND.id} />);
+    const view = render(
+      <SupervisedSessionView
+        loadRows={async () => rows}
+        onStart={async () => SECOND.id}
+        onAttach={vi.fn()}
+        onOpenPr={async () => undefined}
+      />,
+    );
     try {
       Object.defineProperty(view.stdout, 'columns', { value: 20 });
       view.stdout.emit('resize');
       await vi.waitFor(() => expect(view.lastFrame()).toContain('18 supervised'));
       view.stdin.write('?');
       await vi.waitFor(() => expect(view.lastFrame()).toContain('Keys:'));
-      for (const key of ['↑/↓ Select', 's Request stop', 'g Group state/dir', 'n New session', 'y Confirm stop', 'n/Esc Cancel stop', 'q/Esc/Ctrl+C Close', '? Toggle help']) {
+      for (const key of [
+        '↑/↓ Select',
+        's Request stop',
+        'g Group state/dir',
+        'n New session',
+        'a Attach (drive)',
+        'p Peek (read only)',
+        'o Open linked PR',
+        'y Confirm',
+        'n/Esc Cancel',
+        'q/Esc/Ctrl+C Close',
+        '? Toggle help',
+      ]) {
         expect(view.lastFrame()).toContain(key);
       }
       expect((view.lastFrame() ?? '').split('\n').length).toBeLessThanOrEqual(24);
@@ -389,7 +508,9 @@ describe('supervised session view', () => {
   });
 
   it('shows a navigable global background list without inventing completion or attach', async () => {
-    const view = render(<SupervisedSessionView loadRows={async () => [FIRST, SECOND]} refreshMs={100} />);
+    const view = render(
+      <SupervisedSessionView loadRows={async () => [FIRST, SECOND]} refreshMs={100} />,
+    );
     try {
       await vi.waitFor(() => expect(view.lastFrame()).toContain(FIRST.id));
       expect(view.lastFrame()).toContain('working');
@@ -404,7 +525,9 @@ describe('supervised session view', () => {
 
   it('never overlaps refreshes and aborts an in-flight probe when closed', async () => {
     let resolveSecond: ((rows: readonly ISupervisedViewRow[]) => void) | undefined;
-    const pending = new Promise<readonly ISupervisedViewRow[]>((resolve) => { resolveSecond = resolve; });
+    const pending = new Promise<readonly ISupervisedViewRow[]>((resolve) => {
+      resolveSecond = resolve;
+    });
     const signals: AbortSignal[] = [];
     const loadRows = vi.fn((signal: AbortSignal) => {
       signals.push(signal);
@@ -426,18 +549,37 @@ describe('supervised session view', () => {
   });
 
   it('keeps the selected session when activity changes reorder the groups', async () => {
-    const loadRows = vi.fn()
+    // The reordering refresh is released only after the selection moved, so the test cannot race
+    // the refresh timer against the keypress.
+    let releaseReorder: ((rows: readonly ISupervisedViewRow[]) => void) | undefined;
+    const reordered = new Promise<readonly ISupervisedViewRow[]>((resolve) => {
+      releaseReorder = resolve;
+    });
+    const loadRows = vi
+      .fn()
       .mockResolvedValueOnce([FIRST, SECOND])
-      .mockResolvedValue([
-        { ...FIRST, liveness: 'dead', control: 'unavailable', activity: 'unknown' },
-        { ...SECOND, liveness: 'alive', control: 'available', activity: 'working' },
-      ]);
-    const view = render(<SupervisedSessionView loadRows={loadRows} refreshMs={150} />);
+      .mockImplementation(() => reordered);
+    const view = render(<SupervisedSessionView loadRows={loadRows} refreshMs={20} />);
     try {
-      await vi.waitFor(() => expect(view.lastFrame()).toContain(FIRST.id));
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
       view.stdin.write('\x1B[B');
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${SECOND.id}`));
       await vi.waitFor(() => expect(loadRows).toHaveBeenCalledTimes(2));
+      releaseReorder?.([
+        { ...FIRST, liveness: 'dead', control: 'unavailable', activity: 'unknown' },
+        { ...SECOND, liveness: 'alive', control: 'available', activity: 'working', generation: 'secondGenerationValue1' },
+      ]);
+      // Wait for the reordered list itself: SECOND listed under `working:`, FIRST under `dead:`.
+      const rowLine = (lines: readonly string[], id: string): number =>
+        lines.findIndex((line) => line.includes(id) && !line.startsWith('Selected'));
+      await vi.waitFor(() => {
+        const lines = (view.lastFrame() ?? '').split('\n');
+        const working = lines.indexOf('working:');
+        const dead = lines.indexOf('dead:');
+        expect(working).toBeGreaterThanOrEqual(0);
+        expect(rowLine(lines, SECOND.id)).toBe(working + 1);
+        expect(rowLine(lines, FIRST.id)).toBe(dead + 1);
+      });
       expect(view.lastFrame()).toContain(`Selected ${SECOND.id}`);
     } finally {
       view.unmount();
@@ -494,7 +636,9 @@ describe('supervised session view', () => {
       ...FIRST,
       id: `8bf9bc27-d773-4e88-b88f-${String(index).padStart(12, '0')}`,
     }));
-    const view = render(<SupervisedSessionView loadRows={async () => rows} onStop={async () => undefined} />);
+    const view = render(
+      <SupervisedSessionView loadRows={async () => rows} onStop={async () => undefined} />,
+    );
     try {
       Object.defineProperty(view.stdout, 'columns', { value: 40 });
       view.stdout.emit('resize');
@@ -512,7 +656,12 @@ describe('supervised session view', () => {
 
   it('identifies the selected stop target even at 20 columns with matching UUID prefixes', async () => {
     const similar = { ...FIRST, id: `${FIRST.id.slice(0, -8)}ffffffff` };
-    const view = render(<SupervisedSessionView loadRows={async () => [FIRST, similar]} onStop={async () => undefined} />);
+    const view = render(
+      <SupervisedSessionView
+        loadRows={async () => [FIRST, similar]}
+        onStop={async () => undefined}
+      />,
+    );
     try {
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
       view.stdin.write('\x1B[B');
@@ -530,8 +679,15 @@ describe('supervised session view', () => {
 
   it('requires confirmation and stops only the selected owner-controllable row', async () => {
     let finishStop: (() => void) | undefined;
-    const stop = vi.fn(() => new Promise<void>((resolve) => { finishStop = resolve; }));
-    const view = render(<SupervisedSessionView loadRows={async () => [FIRST, SECOND]} onStop={stop} />);
+    const stop = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          finishStop = resolve;
+        }),
+    );
+    const view = render(
+      <SupervisedSessionView loadRows={async () => [FIRST, SECOND]} onStop={stop} />,
+    );
     try {
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
       view.stdin.write('s');
@@ -543,7 +699,7 @@ describe('supervised session view', () => {
       view.stdin.write('s');
       await vi.waitFor(() => expect(view.lastFrame()).toContain('y Yes / n No'));
       view.stdin.write('y');
-      await vi.waitFor(() => expect(stop).toHaveBeenCalledExactlyOnceWith(FIRST.id));
+      await vi.waitFor(() => expect(stop).toHaveBeenCalledExactlyOnceWith(FIRST.id, FIRST.generation));
       await vi.waitFor(() => expect(view.lastFrame()).toContain('Stopping'));
       expect(view.lastFrame()).toContain('Stop in progress; wait for result.');
       expect(view.lastFrame()).not.toContain('q/Esc Close');
@@ -561,12 +717,17 @@ describe('supervised session view', () => {
 
   it('refuses a stop when polling removes control while confirmation is open', async () => {
     let finishRefresh: ((rows: readonly ISupervisedViewRow[]) => void) | undefined;
-    const refresh = new Promise<readonly ISupervisedViewRow[]>((resolve) => { finishRefresh = resolve; });
-    const loadRows = vi.fn()
+    const refresh = new Promise<readonly ISupervisedViewRow[]>((resolve) => {
+      finishRefresh = resolve;
+    });
+    const loadRows = vi
+      .fn()
       .mockResolvedValueOnce([FIRST])
       .mockImplementation(() => refresh);
     const stop = vi.fn(async () => undefined);
-    const view = render(<SupervisedSessionView loadRows={loadRows} onStop={stop} refreshMs={100} />);
+    const view = render(
+      <SupervisedSessionView loadRows={loadRows} onStop={stop} refreshMs={100} />,
+    );
     try {
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
       view.stdin.write('s');
@@ -583,8 +744,12 @@ describe('supervised session view', () => {
   });
 
   it('never offers stop for unavailable rows and leaves failures visible', async () => {
-    const stop = vi.fn(async () => { throw new Error('private path must not be shown'); });
-    const view = render(<SupervisedSessionView loadRows={async () => [FIRST, SECOND]} onStop={stop} />);
+    const stop = vi.fn(async () => {
+      throw new Error('private path must not be shown');
+    });
+    const view = render(
+      <SupervisedSessionView loadRows={async () => [FIRST, SECOND]} onStop={stop} />,
+    );
     try {
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
       view.stdin.write('\x1B[B');
@@ -600,6 +765,21 @@ describe('supervised session view', () => {
       await vi.waitFor(() => expect(view.lastFrame()).toContain('Stop failed'));
       expect(view.lastFrame()).toContain(FIRST.id);
       expect(view.lastFrame()).not.toContain('private path');
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('selects when a typed number and Enter arrive in one input chunk', async () => {
+    const view = render(
+      <ScreenReaderProvider enabled>
+        <SupervisedSessionView loadRows={async () => [FIRST, THIRD]} />
+      </ScreenReaderProvider>,
+    );
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('2\r');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${THIRD.id}`));
     } finally {
       view.unmount();
     }
@@ -621,7 +801,198 @@ describe('supervised session view', () => {
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Stop ${THIRD.id}?`));
       expect(view.lastFrame()).not.toContain('Enter selection');
       view.stdin.write('y');
-      await vi.waitFor(() => expect(stop).toHaveBeenCalledExactlyOnceWith(THIRD.id));
+      await vi.waitFor(() => expect(stop).toHaveBeenCalledExactlyOnceWith(THIRD.id, THIRD.generation));
+    } finally {
+      view.unmount();
+    }
+  });
+  it('refuses a stop when the session restarts under the same id while confirmation is open', async () => {
+    let finishRefresh: ((rows: readonly ISupervisedViewRow[]) => void) | undefined;
+    const refresh = new Promise<readonly ISupervisedViewRow[]>((resolve) => {
+      finishRefresh = resolve;
+    });
+    const loadRows = vi
+      .fn()
+      .mockResolvedValueOnce([FIRST])
+      .mockImplementation(() => refresh);
+    const stop = vi.fn(async () => undefined);
+    const view = render(
+      <SupervisedSessionView loadRows={loadRows} onStop={stop} refreshMs={100} />,
+    );
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('s');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('y Yes / n No'));
+      await vi.waitFor(() => expect(loadRows).toHaveBeenCalledTimes(2));
+      finishRefresh?.([{ ...FIRST, generation: 'restartedGeneration001' }]);
+      await vi.waitFor(() => expect(loadRows).toHaveBeenCalledTimes(3));
+      view.stdin.write('y');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('cannot be stopped'));
+      expect(stop).not.toHaveBeenCalled();
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('never offers stop or PR open for a row without a verified generation', async () => {
+    const stop = vi.fn(async () => undefined);
+    const onOpenPr = vi.fn(async () => undefined);
+    const { generation: _generation, ...unbound } = FIRST;
+    const row: ISupervisedViewRow = {
+      ...unbound,
+      name: 'Unbound name',
+      pr: { url: 'https://github.com/team/repo/pull/9', host: 'github.com', number: 9, kind: 'pull' },
+    };
+    const view = render(
+      <SupervisedSessionView loadRows={async () => [row]} onStop={stop} onOpenPr={onOpenPr} />,
+    );
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      expect(view.lastFrame()).toContain('unverified:');
+      expect(view.lastFrame()).not.toContain('Unbound name');
+      expect(view.lastFrame()).not.toContain('github.com');
+      view.stdin.write('s');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('cannot be stopped'));
+      expect(view.lastFrame()).not.toContain('y Yes / n No');
+      view.stdin.write('o');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('No verified PR link'));
+      expect(stop).not.toHaveBeenCalled();
+      expect(onOpenPr).not.toHaveBeenCalled();
+    } finally {
+      view.unmount();
+    }
+  });
+  it('attaches or peeks at a verified row only after a confirmation bound to its generation', async () => {
+    for (const [key, mode, wording] of [
+      ['a', 'drive', 'drive (send prompts, answer its questions)'],
+      ['p', 'observe', 'observe (read only)'],
+    ] as const) {
+      const onAttach = vi.fn();
+      const view = render(<SupervisedSessionView loadRows={async () => [FIRST]} onAttach={onAttach} />);
+      try {
+        await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+        expect(view.lastFrame()).toContain('a Attach');
+        expect(view.lastFrame()).toContain('p Peek');
+        view.stdin.write(key);
+        await vi.waitFor(() => expect(view.lastFrame()).toContain(wording));
+        expect(view.lastFrame()).toContain('y Yes / n No');
+        view.stdin.write('n');
+        await vi.waitFor(() => expect(view.lastFrame()).not.toContain('y Yes / n No'));
+        expect(onAttach).not.toHaveBeenCalled();
+        view.stdin.write(key);
+        await vi.waitFor(() => expect(view.lastFrame()).toContain('y Yes / n No'));
+        view.stdin.write('y');
+        await vi.waitFor(() =>
+          expect(onAttach).toHaveBeenCalledExactlyOnceWith({
+            id: FIRST.id, generation: FIRST.generation, mode, groupByDirectory: false,
+          }),
+        );
+      } finally {
+        view.unmount();
+      }
+    }
+  });
+
+  it('refuses an attach when the row restarts or leaves control while confirmation is open', async () => {
+    for (const replacement of [
+      { ...FIRST, generation: 'restartedGeneration001' },
+      { ...FIRST, control: 'unavailable' as const, activity: 'unknown' as const },
+    ]) {
+      let finishRefresh: ((rows: readonly ISupervisedViewRow[]) => void) | undefined;
+      const refresh = new Promise<readonly ISupervisedViewRow[]>((resolve) => {
+        finishRefresh = resolve;
+      });
+      const loadRows = vi.fn().mockResolvedValueOnce([FIRST]).mockImplementation(() => refresh);
+      const onAttach = vi.fn();
+      const view = render(<SupervisedSessionView loadRows={loadRows} onAttach={onAttach} refreshMs={100} />);
+      try {
+        await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+        view.stdin.write('a');
+        await vi.waitFor(() => expect(view.lastFrame()).toContain('y Yes / n No'));
+        await vi.waitFor(() => expect(loadRows).toHaveBeenCalledTimes(2));
+        finishRefresh?.([replacement]);
+        await vi.waitFor(() => expect(loadRows).toHaveBeenCalledTimes(3));
+        view.stdin.write('y');
+        await vi.waitFor(() => expect(view.lastFrame()).toContain('cannot be attached to'));
+        expect(onAttach).not.toHaveBeenCalled();
+      } finally {
+        view.unmount();
+      }
+    }
+  });
+
+  it('never offers attach or peek on dead, unknown or unverified rows', async () => {
+    const { generation: _generation, ...unbound } = FIRST;
+    for (const row of [
+      SECOND,
+      { ...FIRST, liveness: 'unknown' as const, control: 'unavailable' as const, activity: 'unknown' as const },
+      unbound,
+    ]) {
+      const onAttach = vi.fn();
+      const view = render(<SupervisedSessionView loadRows={async () => [row]} onAttach={onAttach} />);
+      try {
+        await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${row.id}`));
+        expect(view.lastFrame()).not.toContain('a Attach');
+        expect(view.lastFrame()).not.toContain('p Peek');
+        for (const key of ['a', 'p']) {
+          view.stdin.write(key);
+          await vi.waitFor(() => expect(view.lastFrame()).toContain('cannot be attached to'));
+          expect(view.lastFrame()).not.toContain('y Yes / n No');
+        }
+        expect(onAttach).not.toHaveBeenCalled();
+      } finally {
+        view.unmount();
+      }
+    }
+  });
+
+  it('names the whole session id and the role in screen-reader mode', async () => {
+    const onAttach = vi.fn();
+    const view = render(
+      <ScreenReaderProvider enabled>
+        <SupervisedSessionView loadRows={async () => [FIRST]} onAttach={onAttach} />
+      </ScreenReaderProvider>,
+    );
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      expect(view.lastFrame()).toContain('a Attach; p Peek;');
+      view.stdin.write('p');
+      await vi.waitFor(() =>
+        expect(view.lastFrame()).toContain(`Peek at ${FIRST.id} to observe (read only)? y Yes / n No`),
+      );
+    } finally {
+      view.unmount();
+    }
+  });
+  it('reopens on the row and grouping it was left with', async () => {
+    const view = render(
+      <SupervisedSessionView
+        loadRows={async () => [{ ...FIRST, cwd: '/projects/alpha' }, { ...THIRD, cwd: '/projects/beta' }]}
+        initialSelectedId={THIRD.id}
+        initialGroupByDirectory
+      />,
+    );
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${THIRD.id}`));
+      expect(view.lastFrame()).toContain('Dir 1: alpha — /projects/alpha');
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('hands back the grouping with a confirmed attach', async () => {
+    const onAttach = vi.fn();
+    const view = render(<SupervisedSessionView loadRows={async () => [FIRST]} onAttach={onAttach} />);
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('g');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('Directory: unverified'));
+      view.stdin.write('p');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('y Yes / n No'));
+      view.stdin.write('y');
+      await vi.waitFor(() => expect(onAttach).toHaveBeenCalledExactlyOnceWith({
+        id: FIRST.id, generation: FIRST.generation, mode: 'observe', groupByDirectory: true,
+      }));
     } finally {
       view.unmount();
     }

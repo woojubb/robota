@@ -92,7 +92,7 @@
     "robota-capability-sandboxed-tools": "0.1.0",
     "@robota-sdk/agent-builtin-providers": "3.0.0-beta.79",
     "@robota-sdk/agent-capability-pack": "3.0.0-beta.79",
-    "@robota-sdk/agent-cli-web": "3.0.0-beta.79",
+    "@robota-sdk/agent-gui-web": "3.0.0-beta.79",
     "@robota-sdk/agent-file-authority": "3.0.0-beta.79",
     "@robota-sdk/agent-interface-analytics": "3.0.0-beta.79",
     "@robota-sdk/agent-interface-command": "3.0.0-beta.79",

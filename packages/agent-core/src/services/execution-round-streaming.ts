@@ -315,6 +315,7 @@ export async function callRoundProviderWithEvents(
         promptTokens: usage.promptTokens,
         completionTokens: usage.completionTokens,
         totalTokens: usage.totalTokens,
+        ...(usage.cacheReadTokens !== undefined && { cacheReadTokens: usage.cacheReadTokens }),
       }),
     } as TExecutionEventData);
   }

@@ -28,6 +28,7 @@ import {
 
 import type { IWsTransportConfig } from './ws-transport-config.js';
 import type { TUniversalValue } from '@robota-sdk/agent-core';
+import type { ISessionBinder, ISessionBinding } from '@robota-sdk/agent-interface-session';
 import type {
   IChannelDescriptor,
   IConfigurableTransport,
@@ -51,9 +52,7 @@ const WS_STOP_TERMINATE_DEADLINE_MS = 5000;
  * TEXT frames go to the text-agent protocol profile (`createSessionMessageHandler`), BINARY frames go to the
  * consumer-declared channels. The two profiles share one connection and never constrain each other.
  */
-export class WsTransport
-  implements IConfigurableTransport<IProtocolSession>, IPayloadChannelHost
-{
+export class WsTransport implements IConfigurableTransport<IProtocolSession>, IPayloadChannelHost {
   readonly name = 'ws';
   readonly lifecycle = Object.freeze({ kind: 'service' as const });
   readonly defaultEnabled = true;
@@ -77,6 +76,7 @@ export class WsTransport
   private readonly allowedHosts: ReadonlySet<string>;
   private readonly allowedOrigins: ReadonlySet<string>;
   private readonly handlerOptions: ReturnType<typeof configuredWsHandlerOptions>;
+  private readonly sessionBinder: ISessionBinder<IProtocolSession> | undefined;
   private readonly channels = new PayloadChannelRegistry();
   private resolvedPort?: number;
 
@@ -90,6 +90,7 @@ export class WsTransport
     this.allowedHosts = new Set(config.allowedHosts ?? []);
     this.allowedOrigins = new Set(config.allowedOrigins ?? []);
     this.handlerOptions = configuredWsHandlerOptions(config);
+    this.sessionBinder = config.sessionBinder;
   }
 
   attach(session: IProtocolSession): void {
@@ -187,6 +188,22 @@ export class WsTransport
     return validTransportOptions(options);
   }
 
+  /**
+   * The connection's binding, `{ binding: undefined }` without a binder, or `null` when the host
+   * would not bind it (shutting down, say): the socket is then closed before any session data.
+   */
+  private bindConnection(
+    ws: WebSocket,
+  ): { binding: ISessionBinding<IProtocolSession> | undefined } | null {
+    if (!this.sessionBinder) return { binding: undefined };
+    try {
+      return { binding: this.sessionBinder.bind('drive') };
+    } catch {
+      ws.close(1013, 'session unavailable');
+      return null;
+    }
+  }
+
   private bindWithRetry(
     session: IProtocolSession,
     port: number,
@@ -244,13 +261,24 @@ export class WsTransport
             return;
           }
 
+          // #3189: with a binder, this connection gets its own session and directory, so its
+          // switch (and the `session_switched` that follows) stays on this connection. Every WS
+          // connection drives: this carrier has no observe role.
+          const bound = this.bindConnection(ws);
+          if (bound === null) return;
+          const { binding } = bound;
+          const connectionSession = binding?.session ?? session;
           const delivery = new WsSessionDelivery(ws);
           const handler = createSessionMessageHandler({
-            session,
+            session: connectionSession,
             deliver: delivery.deliver,
             ...this.handlerOptions,
+            ...(binding ? { sessionDirectory: binding.directory } : {}),
           });
-          delivery.bindProtocolCleanup(handler.cleanup);
+          delivery.bindProtocolCleanup(() => {
+            handler.cleanup();
+            binding?.release();
+          });
 
           delivery.bindSinkDetach(
             // ARCH-030: through the connection's own delivery, so payload frames share the text
@@ -274,10 +302,10 @@ export class WsTransport
           ws.on('close', delivery.close);
           ws.on('error', delivery.close);
 
-          delivery.deliver({ type: 'messages', messages: session.getMessages() });
+          delivery.deliver({ type: 'messages', messages: connectionSession.getMessages() });
           delivery.deliver({
             type: 'execution_workspace_event',
-            snapshot: session.getExecutionWorkspaceSnapshot(),
+            snapshot: connectionSession.getExecutionWorkspaceSnapshot(),
           });
         });
 

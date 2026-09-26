@@ -3,7 +3,7 @@
 ## Scope
 
 Isomorphic pairing + DTLS-fingerprint **channel binding** for P2P remote-control. Lets a peer prove that it holds
-a single-use pairing secret, or that it is another of the same user's devices, AND binds that proof to the
+a single-use pairing secret or enrollment code, or that it is another of the same user's devices, AND binds that proof to the
 **actual** DTLS channel each peer observes, defeating a MITM signaling relay. WebCrypto only; the same module runs on the Node host (`agent-cli`)
 and a browser remote client.
 
@@ -53,7 +53,14 @@ So the proof is a chain of three keys, each with one job:
   signing keys; its public key is the anchor every device pins, and the user id is derived from it.
 - **Signing key — the day-to-day issuer.** Kept on one or two trusted devices and short-lived, it certifies
   devices and issues the roster and revocation lists. Adding or retiring a device therefore never needs the
-  phrase, and a lost signing key costs one master-signed revocation rather than the user's identity.
+  phrase, and a lost signing key costs one master-signed revocation rather than the user's identity. A new device
+  is added with a one-time code a person carries from a signing-key holder: it proves the code the way pairing
+  proves its secret. Anyone who saw the code passes that proof too, so both operators compare a short string both
+  devices show and both must say yes — nothing is certified, and no master key pinned, on the other side's word
+  alone. The string covers the master key the new device will pin, because a device with no anchor yet has
+  nothing else to check it against, and a random contribution from each side, one committed to before the other
+  is revealed, so nobody between the two devices can choose the digits. The code is spent by the first attempt that proves it and dies after a few
+  that fail; typed by a person, it is still long enough that, like the pairing secret, it needs no PAKE.
 - **Device keys.** A device's certificate binds its signing key (its id is that key's hash) and a separate
   key-agreement key that never signs, with the capabilities it may be asked for. Two devices' agreement keys give
   them a secret only that pair can compute, so nothing any device holds is common to all of the user's devices.
@@ -91,13 +98,13 @@ attacker-editable while still verifying.
 
 **Signaling stays a rendezvous.** The grant is minted by the source and verified by the destination end to end, so
 a signaling server that reads every byte still cannot authorize a transfer. Every place two devices meet — a relay
-inbox, a local-network announcement, a published record, a live signal — is derived from their pairwise secret and
-separated by direction and purpose, so whoever carries it can neither link it to a device nor let a third party
-address the pair, the two directions never overwrite each other, and a record of one purpose never opens as
-another. Every value that anyone but the user's own relay can see rotates by epoch, and a lookup also tries the
-adjacent epochs so clocks that disagree a little still meet. Derivation takes
-the lists in force and refuses a device they do not name with the same key-agreement key, so a rotated or revoked
-key stops meeting anyone. A rendezvous only says where a peer might be; admission is still the device handshake.
+inbox, a local-network announcement, a published record, a live signal, a relay credential — is derived from their
+pairwise secret and separated by direction and purpose, so whoever carries it can neither link it to a device nor
+let a third party address the pair, the two directions never overwrite each other, and a record of one purpose never
+opens as another. Every value that anyone but the user's own relay can see rotates by epoch, and a lookup also tries
+the adjacent epochs so clocks that disagree a little still meet. Derivation takes the lists in force and refuses a
+device they do not name with the same key-agreement key, so a rotated or revoked key stops meeting anyone. A
+rendezvous only says where a peer might be; admission is still the device handshake.
 
 **Trust levels stay distinct.** A cross-host same-user admission must never satisfy a check that wanted
 same-host-same-user, or a local admission could authorize a cross-device transfer. A device certificate proves the

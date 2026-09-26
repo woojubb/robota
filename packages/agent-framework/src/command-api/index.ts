@@ -67,6 +67,8 @@ export type {
   ICommandPermissionRulesAdapter,
   ICommandSandboxAdapter,
   ICommandSandboxStatus,
+  ICommandExternalEventGrant,
+  ICommandExternalEventsAdapter,
   TSandboxCommandMode,
   IPermissionRuleLayer,
   ICommandPickerAdapter,
@@ -88,6 +90,7 @@ export type {
   ICommandSettingsDocument,
   IHandoffProgress,
   IHandoffStaysBehind,
+  ILinkedDeviceSummary,
   ILocalPeerSummary,
   TRemoteControlStatus,
 } from './host-adapters.js';

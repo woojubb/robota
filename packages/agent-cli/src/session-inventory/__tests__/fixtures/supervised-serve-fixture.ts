@@ -1,4 +1,7 @@
+import { createUserSessionStore } from '@robota-sdk/agent-framework';
+
 import { runServeMode, type IServeModeOptions } from '../../../modes/serve-mode.js';
+import { createServeSessionDirectory } from '../../../modes/serve-session-directory.js';
 import { parseCliArgs } from '../../../utils/cli-args.js';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
@@ -6,6 +9,8 @@ import type { IAIProvider } from '@robota-sdk/agent-core';
 const id = process.argv[process.argv.indexOf('--supervised-session-id') + 1];
 const nameArg = process.argv.find((arg) => arg.startsWith('--name='));
 const supervisedRoot = process.env['ROBOTA_TEST_SUPERVISED_ROOT'];
+// Given, the runtime saves its sessions there and offers them, as `robota daemon start` does.
+const sessionsDirectory = process.env['ROBOTA_TEST_SESSIONS_DIR'];
 if (!id || !supervisedRoot) throw new Error('supervised test fixture requires an id and private root');
 
 const provider: IAIProvider = {
@@ -22,11 +27,19 @@ const options = {
   cwd: process.cwd(),
   supervisedRoot,
   args: parseCliArgs([
-    '--serve', '--supervised-session-id', id, '--no-session-persistence',
+    '--serve', '--supervised-session-id', id,
+    ...(sessionsDirectory === undefined ? ['--no-session-persistence'] : []),
     ...(nameArg === undefined ? [] : [nameArg]),
+    ...(process.argv.includes('--supervised-external-event-grants')
+      ? ['--supervised-external-event-grants'] : []),
+    ...process.argv.filter((arg) => arg.startsWith('--external-event-')),
+    ...(process.argv.includes('--daemon') ? ['--daemon'] : []),
+    ...(process.env['ROBOTA_TEST_PERMISSION_MODE'] === undefined
+      ? [] : ['--permission-mode', process.env['ROBOTA_TEST_PERMISSION_MODE']]),
   ]),
   provider,
-  sessionStore: {},
+  sessionStore: sessionsDirectory === undefined ? {} : createUserSessionStore(sessionsDirectory),
+  ...(sessionsDirectory === undefined ? {} : { sessionDirectory: createServeSessionDirectory() }),
   backgroundTaskRunners: [],
   subagentRunnerFactory: () => { throw new Error('fixture never starts a subagent'); },
   commandModules: [],
@@ -39,6 +52,11 @@ const options = {
     waitForFailure: () => never,
   },
   preset: {},
+  // Stands in for the bound transport: the URL carries the token the launcher put in the environment.
+  // `ROBOTA_TEST_NO_WS_URL` stands in for a disabled ws transport.
+  getMonitorWsUrl: () => process.env['ROBOTA_TEST_NO_WS_URL'] === undefined
+    ? `ws://127.0.0.1:9?token=${process.env['ROBOTA_WS_TOKEN'] ?? ''}`
+    : undefined,
 } as unknown as IServeModeOptions;
 
 await runServeMode(options);
