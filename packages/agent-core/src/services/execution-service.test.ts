@@ -165,27 +165,6 @@ describe('ExecutionService', () => {
         systemMessage: 'You are a helpful assistant.',
       };
 
-      const session = conversationHistory.getConversationStore('test-agent');
-      const getMessagesSpy = vi.spyOn(session, 'getMessages');
-      getMessagesSpy
-        .mockReturnValueOnce([]) // first call (empty)
-        .mockReturnValue([
-          {
-            id: 'msg-1',
-            role: 'user',
-            content: input,
-            state: 'complete' as const,
-            timestamp: new Date(),
-          },
-          {
-            id: 'msg-2',
-            role: 'assistant',
-            content: 'Mock response',
-            state: 'complete' as const,
-            timestamp: new Date(),
-          },
-        ]);
-
       const result = await executionService.execute(input, messages, config, {
         conversationId: 'test-agent',
       });
@@ -270,76 +249,6 @@ describe('ExecutionService', () => {
       const addUserMessageSpy = vi.spyOn(session, 'addUserMessage');
       const commitAssistantSpy = vi.spyOn(session, 'commitAssistant');
       const addToolMessageWithIdSpy = vi.spyOn(session, 'addToolMessageWithId');
-      const getMessagesSpy = vi.spyOn(session, 'getMessages');
-
-      // Mock conversation session messages progression
-      getMessagesSpy
-        .mockReturnValueOnce([]) // first call (empty)
-        .mockReturnValueOnce([
-          // after first AI response
-          {
-            id: 'msg-1',
-            role: 'user',
-            content: 'Use a tool to do something',
-            state: 'complete' as const,
-            timestamp: new Date(),
-          },
-          {
-            id: 'msg-2',
-            role: 'assistant',
-            content: 'I need to use a tool',
-            state: 'complete' as const,
-            toolCalls: [
-              {
-                id: 'tool-1',
-                type: 'function',
-                function: { name: 'testTool', arguments: JSON.stringify({ param: 'value' }) },
-              },
-            ],
-            timestamp: new Date(),
-          },
-        ])
-        .mockReturnValue([
-          // final messages
-          {
-            id: 'msg-1',
-            role: 'user',
-            content: 'Use a tool to do something',
-            state: 'complete' as const,
-            timestamp: new Date(),
-          },
-          {
-            id: 'msg-2',
-            role: 'assistant',
-            content: 'I need to use a tool',
-            state: 'complete' as const,
-            toolCalls: [
-              {
-                id: 'tool-1',
-                type: 'function',
-                function: { name: 'testTool', arguments: JSON.stringify({ param: 'value' }) },
-              },
-            ],
-            timestamp: new Date(),
-          },
-          {
-            id: 'msg-3',
-            role: 'tool',
-            content: JSON.stringify({ result: 'success' }),
-            toolCallId: 'tool-1',
-            name: 'testTool',
-            state: 'complete' as const,
-            timestamp: new Date(),
-          },
-          {
-            id: 'msg-4',
-            role: 'assistant',
-            content: 'Task completed with tool result',
-            state: 'complete' as const,
-            timestamp: new Date(),
-          },
-        ]);
-
       const testInput = 'Use a tool to do something';
       const testMessages: TUniversalMessage[] = [];
       const testConfig: IAgentConfig = {
@@ -1279,7 +1188,7 @@ describe('ExecutionService', () => {
       );
     });
 
-    it('should use fallback message when forced call throws', async () => {
+    it("fails the run with the forced call's own error when it throws (CORE-027)", async () => {
       setupToolMocks();
       const config = makeConfig();
 
@@ -1287,20 +1196,19 @@ describe('ExecutionService', () => {
       for (let i = 0; i < 10; i++) {
         chatSpy.mockResolvedValueOnce(makeToolCallResponse(i + 1));
       }
-      chatSpy.mockRejectedValueOnce(new Error('Provider crashed'));
+      const crash = new Error('Provider crashed');
+      chatSpy.mockRejectedValueOnce(crash);
       mockProvider.chat = chatSpy;
 
-      // Should NOT throw — error is caught
       const result = await executionService.execute('Run all tools', [], config, {
         conversationId: 'test-agent',
       });
 
-      // When the forced call throws, the catch block logs the error but does NOT add
-      // a fallback assistant message. The buildFinalResult will then use the last
-      // assistant message that has content (from the tool rounds).
-      expect(result).toBeDefined();
-      expect(result.response).toBeDefined();
-      // Should not throw
+      // The failure used to be logged and dropped, and the run then answered with the text of the
+      // last tool round as if the turn had completed.
+      expect(result.success).toBe(false);
+      expect(result.error).toBe(crash);
+      expect(result.response).toBe('Request failed: Provider crashed');
     });
   });
 });

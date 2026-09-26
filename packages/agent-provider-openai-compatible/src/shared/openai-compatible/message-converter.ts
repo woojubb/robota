@@ -16,8 +16,19 @@ export function convertToOpenAICompatibleMessages(
   return messages.map((message) => convertMessage(message));
 }
 
+/** How tool schemas are declared on a Chat Completions request. */
+export interface IOpenAICompatibleToolOptions {
+  /**
+   * Declare every function `strict: true` (OpenAI strict function calling). The schemas must already
+   * be closed by the strict projection profile; this only sets the request field. Left unset, no
+   * `strict` key is sent, so endpoints that reject unknown fields see the request unchanged.
+   */
+  readonly strict?: boolean;
+}
+
 export function convertToOpenAICompatibleTools(
   tools: IToolSchema[],
+  options: IOpenAICompatibleToolOptions = {},
 ): OpenAI.Chat.ChatCompletionTool[] {
   return tools.map((tool) => ({
     type: 'function',
@@ -31,6 +42,7 @@ export function convertToOpenAICompatibleTools(
       // widening and it is not a cast: it copies the schema into an anonymous object type, which
       // does carry the implicit index signature, so the conversion stays type-checked.
       parameters: { ...tool.parameters },
+      ...(options.strict === true && { strict: true }),
     },
   }));
 }

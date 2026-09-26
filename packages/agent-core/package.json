@@ -81,7 +81,8 @@
           "default": "./dist/node/testing/index.cjs"
         }
       }
-    }
+    },
+    "./package.json": "./package.json"
   },
   "repository": {
     "type": "git",
