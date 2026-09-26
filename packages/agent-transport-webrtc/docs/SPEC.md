@@ -93,9 +93,12 @@ dependency.
   authority's answer, so even a message is delivered only when that authority allows it. A file travels on a
   channel of its own, opened only on an admitted connection, so a transfer never shares the message channel.
 - **Discovery yields candidates, never trust.** Whatever a discovery path answers only carries signals, so a stale
-  or planted address can delay a connection but not admit one. A pair tries what reveals least first: an address
-  that already carried an admitted connection needs no broadcast, the local network needs no third party, and the
-  relay is the last resort. An endpoint carries a pair's signals only once it proves it holds the pair's topic,
+  or planted address can delay a connection but not admit one; a device list found on the way is only a candidate
+  too, verified by the handshake before it counts. A pair tries what reveals least first: an address that already
+  carried an admitted connection needs no broadcast, the local network needs no third party, public records and
+  public signaling relays involve strangers, and the user's own relay is the last resort. A signaling carrier that
+  carries no admission in time is set aside for the next one, as a direct endpoint is, since a public relay may
+  drop what it cannot read. An endpoint carries a pair's signals only once it proves it holds the pair's topic,
   and is set aside when no admission follows, so no endpoint can hold a pair off the relay; an address is
   remembered only after an admission it carried. The mDNS announcement is built record by record rather than by
   a service-publishing library, because those publish the machine's host name: the service type names no
@@ -103,6 +106,21 @@ dependency.
   instance count is padded with names that hold for the epoch, so it does not tell how many devices there are.
   On the local network, topics travel only as hashes and rotate by epoch, so what an observer there sees does
   not carry the stable relay inbox topics.
+- **Public infrastructure sees only signed ciphertext, and nothing that names a device, a user or the product.**
+  Records on the Mainline DHT (or pkarr relays in front of it) and events on Nostr relays are signed by one-time
+  keys of a pair, a direction, an epoch and a purpose; salts and Nostr kinds rotate the same way, values are the
+  pair's own AEAD ciphertext padded to a fixed size, and a device's records are published at jittered times so they
+  do not appear together. What stays visible is what the network already shows: a relay or DHT node sees the
+  publisher's address and timing, and a relay can group one device's traffic by its connection. The relays span
+  several operators and are replaceable in settings; none is trusted with anything but delivery, and every record
+  or event is checked against the key it must carry before it is opened. Device lists found there are returned as
+  candidates, every one, because any paired device can publish one: the handshake keeps the newest that verifies,
+  so a forged "newer" list cannot hide a real revocation. The draft WebRTC-signaling NIP is not used because its
+  events would name the connection's parties; the event format is ours. pkarr relays carry no salt and only DNS
+  packets, so a record's pkarr form is the salt-less item under the same one-time key, its value wrapped in one TXT
+  record. The DHT and Nostr clients are maintained, pure JavaScript and permissively licensed, so they are ordinary
+  dependencies; the DHT client is loaded only when a device turns the DHT on, so importing this package opens no
+  socket.
 - **The data channel is wired eagerly at creation, not on open.** The session message handler is built and its
   message subscription attached immediately, because the underlying implementation does not buffer inbound frames
   that arrive before a subscription, and the remote can send its first client message before the host's channel

@@ -165,6 +165,42 @@ describe('pairwise rendezvous', () => {
     await expect(ba.openRecord(new Uint8Array(4), EPOCH)).resolves.toBeUndefined();
   });
 
+  it('each record purpose has its own one-time key and sealing key, and the purposes never open each other', async () => {
+    const ab = await pair(a, b);
+    const ba = await pair(b, a);
+    const seeds = new Set<string>();
+    for (const purpose of ['hints', 'revocation', 'signal'] as const) {
+      const seed = hex(await ab.signingSeed('outbound', EPOCH, purpose));
+      expect(seed).toBe(hex(await ba.signingSeed('inbound', EPOCH, purpose)));
+      seeds.add(seed);
+    }
+    expect(seeds.size).toBe(3);
+    // The connection-hints key is the one the pair always derived.
+    expect(hex(await ab.signingSeed('outbound', EPOCH, 'hints'))).toBe(
+      hex(await ab.signingSeed('outbound', EPOCH)),
+    );
+
+    const data = new TextEncoder().encode('payload');
+    const signal = await ab.sealRecord(data, EPOCH, 'signal');
+    expect(new TextDecoder().decode((await ba.openRecord(signal, EPOCH, 'signal'))?.hints)).toBe(
+      'payload',
+    );
+    await expect(ba.openRecord(signal, EPOCH)).resolves.toBeUndefined();
+    await expect(ba.openRecord(signal, EPOCH, 'revocation')).resolves.toBeUndefined();
+    await expect(
+      ba.openRecord(await ab.sealRecord(data, EPOCH), EPOCH, 'signal'),
+    ).resolves.toBeUndefined();
+
+    for (const purpose of ['bep44-revocation-salt', 'nostr-kind'] as const) {
+      expect(hex(await ab.tag(purpose, 'outbound', EPOCH))).toBe(
+        hex(await ba.tag(purpose, 'inbound', EPOCH)),
+      );
+      expect(hex(await ab.tag(purpose, 'outbound', EPOCH))).not.toBe(
+        hex(await ab.tag('bep44-salt', 'outbound', EPOCH)),
+      );
+    }
+  });
+
   it('relay inbox topics: one per direction, opaque, and pairwise', async () => {
     const ab = await (await pair(a, b)).relayInbox();
     const ba = await (await pair(b, a)).relayInbox();
