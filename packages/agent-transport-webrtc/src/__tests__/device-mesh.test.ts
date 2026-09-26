@@ -10,7 +10,7 @@ import {
   type IDeviceMeshLink,
   type IDeviceMeshNodeOptions,
 } from '../device-mesh-node.js';
-import { MeshPeerLink, type TMeshLinkEnd } from '../mesh-peer-link.js';
+import { MeshLinkEndedError, MeshPeerLink, type TMeshLinkEnd } from '../mesh-peer-link.js';
 import { createInMemoryMeshRelayHub, type IInMemoryMeshRelayHub } from '../mesh-relay.js';
 import {
   ALL_CAPABILITIES,
@@ -220,9 +220,15 @@ describe('DeviceMeshNode — CLI↔CLI connection over WebRTC', () => {
     expect(admitted).toHaveLength(0);
     // Refused by the handshake's chain check, or dropped as soon as the adopted list is in force.
     const error = refusals[0] as Error;
-    if (error instanceof DeviceHandshakeError) {
-      expect(error.reason).toBe('chain');
-      expect(error.chain?.reason).toBe('revoked');
+    if (error instanceof MeshLinkEndedError) {
+      // The refusal says what happened: which step, which role, what the connection went through.
+      expect(error.end).toBe('handshake');
+      expect(error.stage).toBe('handshake');
+      expect(error.role).toBe('offerer');
+      expect(error.peer?.history).toContain('connected');
+      expect(error.cause).toBeInstanceOf(DeviceHandshakeError);
+      expect((error.cause as DeviceHandshakeError).chain?.reason).toBe('revoked');
+      expect(error.message).toMatch(/during handshake as offerer.*revoked.*connection connected/);
     } else {
       expect(error.message).toMatch(/revoked/);
     }
@@ -406,6 +412,7 @@ describe('MeshPeerLink — admission gate', () => {
   it('the answerer refuses an offer advertising more than one DTLS fingerprint before creating a connection', async () => {
     let created = 0;
     const ended: TMeshLinkEnd[] = [];
+    const endedWith: MeshLinkEndedError[] = [];
     const link = new MeshPeerLink({
       role: 'answerer',
       createPeer: () => {
@@ -418,7 +425,10 @@ describe('MeshPeerLink — admission gate', () => {
       },
       connectTimeoutMs: 5_000,
       onAdmitted: () => undefined,
-      onEnded: (end) => ended.push(end),
+      onEnded: (end, error) => {
+        ended.push(end);
+        endedWith.push(error);
+      },
     });
     const offerer = await realOffer();
     const sdp = offerer.sdp.replace(
@@ -430,6 +440,8 @@ describe('MeshPeerLink — admission gate', () => {
     await new Promise((resolve) => setTimeout(resolve, 50));
 
     expect(ended).toEqual(['channel-binding']);
+    expect(endedWith[0]).toMatchObject({ stage: 'connecting', role: 'answerer' });
+    expect(endedWith[0]?.message).toMatch(/more than one DTLS fingerprint/);
     expect(created).toBe(0);
     offerer.close();
   });

@@ -35,6 +35,8 @@ import {
   type TDeviceCapability,
 } from '@robota-sdk/agent-remote-pairing';
 
+import type {
+  MeshLinkEndedError} from './mesh-peer-link.js';
 import {
   MeshPeerLink,
   type TMeshLinkEnd,
@@ -105,6 +107,7 @@ export interface IDeviceMeshLink {
 export interface IDeviceMeshRefusal {
   readonly deviceId: string;
   readonly end: TMeshLinkEnd;
+  /** Why: a {@link MeshLinkEndedError} (its `cause` is e.g. the handshake refusal), or why the device was dropped. */
   readonly error?: unknown;
 }
 
@@ -631,7 +634,12 @@ export class DeviceMeshNode {
     for (const handler of this.linkHandlers) handler(exposed);
   }
 
-  private ended(state: IPeerState, link: MeshPeerLink, end: TMeshLinkEnd, error: unknown): void {
+  private ended(
+    state: IPeerState,
+    link: MeshPeerLink,
+    end: TMeshLinkEnd,
+    error: MeshLinkEndedError,
+  ): void {
     if (state.admitted?.link === link) {
       state.admitted = undefined;
       return;

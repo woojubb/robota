@@ -46,6 +46,10 @@ export interface INdcPeerConnection {
   addRemoteCandidate(candidate: string, mid: string): void;
   createDataChannel(label: string): INdcDataChannel;
   state(): string;
+  /** Diagnostics; not every build exposes them. */
+  iceState?(): string;
+  gatheringState?(): string;
+  signalingState?(): string;
   onLocalDescription(callback: (sdp: string, type: string) => void): void;
   onLocalCandidate(callback: (candidate: string, mid: string) => void): void;
   onStateChange(callback: (state: string) => void): void;

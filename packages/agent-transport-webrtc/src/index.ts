@@ -22,6 +22,7 @@ export { loadDataChannel } from './datachannel-loader.js';
 export { RtcChannel, RtcPeer } from './rtc-peer.js';
 export type {
   IRtcCandidate,
+  IRtcPeerDiagnostics,
   IRtcPeerOptions,
   TRtcChannelState,
   TRtcPeerState,
@@ -34,7 +35,8 @@ export type {
   IDeviceMeshNodeOptions,
   IDeviceMeshRefusal,
 } from './device-mesh-node.js';
-export type { TMeshLinkEnd, TMeshLinkRole } from './mesh-peer-link.js';
+export { MeshLinkEndedError } from './mesh-peer-link.js';
+export type { TMeshLinkEnd, TMeshLinkRole, TMeshLinkStage } from './mesh-peer-link.js';
 export { MAX_MESH_MESSAGE_CHARS } from './mesh-signal.js';
 export { createInMemoryMeshRelayHub } from './mesh-relay.js';
 export type { IInMemoryMeshRelayHub, IMeshRelay } from './mesh-relay.js';

@@ -23,7 +23,7 @@ import type {
   IDeviceHandshakeController,
   IDeviceHandshakeResult,
 } from '@robota-sdk/agent-remote-pairing';
-import type { RtcChannel, RtcPeer } from './rtc-peer.js';
+import type { IRtcPeerDiagnostics, RtcChannel, RtcPeer } from './rtc-peer.js';
 
 /** The offerer creates the data channel and the offer; the answerer answers it. */
 export type TMeshLinkRole = 'offerer' | 'answerer';
@@ -31,6 +31,59 @@ export type TMeshLinkRole = 'offerer' | 'answerer';
 /** Why a link ended. `closed` is an orderly close by either side after or before admission. */
 export type TMeshLinkEnd =
   'closed' | 'signaling' | 'channel-binding' | 'handshake' | 'protocol' | 'timeout';
+
+/** How far a link got before it ended. */
+export type TMeshLinkStage =
+  'signaling' | 'connecting' | 'awaiting-channel' | 'handshake' | 'confirming' | 'admitted';
+
+/**
+ * Why a link ended, with what the connection under it went through, so a refusal says more than
+ * "closed". `cause` is the underlying error when there was one (e.g. the device handshake refusal).
+ */
+export class MeshLinkEndedError extends Error {
+  readonly end: TMeshLinkEnd;
+  readonly stage: TMeshLinkStage;
+  readonly role: TMeshLinkRole;
+  readonly peer?: IRtcPeerDiagnostics;
+  /** Why the data channel closed, when it had. */
+  readonly channelClose?: string;
+  override readonly cause?: unknown;
+
+  constructor(details: {
+    readonly end: TMeshLinkEnd;
+    readonly stage: TMeshLinkStage;
+    readonly role: TMeshLinkRole;
+    readonly detail?: string;
+    readonly peer?: IRtcPeerDiagnostics;
+    readonly channelClose?: string;
+    readonly cause?: unknown;
+  }) {
+    const parts = [`mesh link ended (${details.end}) during ${details.stage} as ${details.role}`];
+    if (details.detail !== undefined) parts.push(details.detail);
+    if (details.cause !== undefined) {
+      parts.push(details.cause instanceof Error ? details.cause.message : String(details.cause));
+    }
+    const peer = details.peer;
+    if (peer !== undefined) {
+      parts.push(
+        `connection ${peer.state} [${peer.history.join(' > ')}], ice ${peer.ice ?? '?'}, gathering ${
+          peer.gathering ?? '?'
+        }, candidates ${peer.localCandidates} sent / ${peer.remoteCandidates} applied, closed by ${
+          peer.closedBy ?? 'the peer or the network'
+        }${peer.handlerError !== undefined ? ` (${peer.handlerError})` : ''}`,
+      );
+    }
+    if (details.channelClose !== undefined) parts.push(`channel ${details.channelClose}`);
+    super(parts.join('; '));
+    this.name = 'MeshLinkEndedError';
+    this.end = details.end;
+    this.stage = details.stage;
+    this.role = details.role;
+    if (peer !== undefined) this.peer = peer;
+    if (details.channelClose !== undefined) this.channelClose = details.channelClose;
+    if (details.cause !== undefined) this.cause = details.cause;
+  }
+}
 
 export type TMeshLinkSignal =
   | { readonly kind: 'offer' | 'answer'; readonly sdp: string }
@@ -61,8 +114,8 @@ export interface IMeshPeerLinkOptions {
    * peer (e.g. the device the pair's inbox belongs to). Refusing ends the link as a handshake refusal.
    */
   readonly accepts?: (result: IDeviceHandshakeResult) => boolean;
-  /** Called once, whatever ended the link. `error` is the handshake refusal when there was one. */
-  readonly onEnded: (end: TMeshLinkEnd, error?: unknown) => void;
+  /** Called once, whatever ended the link, with why. */
+  readonly onEnded: (end: TMeshLinkEnd, error: MeshLinkEndedError) => void;
 }
 
 /** Frames held before the handshake exists, or between the peer's proof and this side's verdict. */
@@ -211,7 +264,8 @@ export class MeshPeerLink {
       else if (this.localCandidates.length < MAX_CANDIDATES) this.localCandidates.push(signal);
     });
     peer.onStateChange((state) => {
-      if (state === 'failed' || state === 'closed') this.end('closed');
+      if (state === 'failed' || state === 'closed')
+        this.end('closed', undefined, `connection ${state}`);
     });
     return peer;
   }
@@ -241,7 +295,7 @@ export class MeshPeerLink {
     channel.onMessage((text) => this.inbound(text));
     channel.onStateChange((state) => {
       if (state === 'open') this.maybeStartHandshake();
-      else if (state === 'closed') this.end('closed');
+      else if (state === 'closed') this.end('closed', undefined, 'data channel closed');
     });
     if (channel.readyState === 'open') this.maybeStartHandshake();
   }
@@ -400,11 +454,30 @@ export class MeshPeerLink {
   }
 
   public close(): void {
-    this.end('closed');
+    this.end('closed', undefined, 'closed by this side');
   }
 
-  private end(end: TMeshLinkEnd, error?: unknown): void {
+  /** How far the link got. */
+  public get stage(): TMeshLinkStage {
+    if (this.state === 'admitted' || this.state === 'confirming') return this.state;
+    if (this.handshake !== undefined) return 'handshake';
+    if (this.remoteFingerprint !== undefined) return 'awaiting-channel';
+    if (this.tookRemoteDescription) return 'connecting';
+    return 'signaling';
+  }
+
+  private end(end: TMeshLinkEnd, cause?: unknown, detail?: string): void {
     if (this.isEnded()) return;
+    // Read before anything below closes the channel and the connection.
+    const error = new MeshLinkEndedError({
+      end,
+      stage: this.stage,
+      role: this.options.role,
+      ...(detail !== undefined ? { detail } : {}),
+      ...(this.peer !== undefined ? { peer: this.peer.diagnostics() } : {}),
+      ...(this.channel?.closeCause !== undefined ? { channelClose: this.channel.closeCause } : {}),
+      ...(cause !== undefined ? { cause } : {}),
+    });
     this.state = 'ended';
     clearTimeout(this.timer);
     this.stopAwaitingCertificate?.();

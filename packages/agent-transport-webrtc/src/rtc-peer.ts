@@ -21,6 +21,35 @@ export type TRtcPeerState =
   'new' | 'connecting' | 'connected' | 'disconnected' | 'failed' | 'closed';
 export type TRtcChannelState = 'connecting' | 'open' | 'closed';
 
+/** Why and how a connection or channel ended, for a refusal a person can act on. */
+export interface IRtcPeerDiagnostics {
+  readonly state: TRtcPeerState;
+  readonly ice?: string;
+  readonly gathering?: string;
+  readonly signaling?: string;
+  /** The states the connection went through, in order. */
+  readonly history: readonly TRtcPeerState[];
+  /** `local`: this side closed it; `handler-error`: a handler threw and the connection was closed. */
+  readonly closedBy?: 'local' | 'handler-error';
+  readonly handlerError?: string;
+  readonly localCandidates: number;
+  readonly remoteCandidates: number;
+}
+
+const MAX_HISTORY = 16;
+
+function reading(read: (() => string) | undefined): string | undefined {
+  try {
+    return read?.();
+  } catch {
+    return undefined;
+  }
+}
+
+function describeError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 export interface IRtcCandidate {
   readonly candidate: string;
   readonly mid: string;
@@ -67,17 +96,18 @@ function textOf(message: string | Buffer | ArrayBuffer): string {
 
 export class RtcChannel {
   private stateValue: TRtcChannelState;
+  private closeCauseValue?: string;
   private readonly messageHandlers = new Set<(text: string) => void>();
   private readonly stateHandlers = new Set<(state: TRtcChannelState) => void>();
 
   public constructor(
     private readonly native: INdcDataChannel,
-    private readonly fault: () => void,
+    private readonly fault: (error: unknown) => void,
   ) {
     this.stateValue = native.isOpen() ? 'open' : 'connecting';
     native.onOpen(() => this.guard(() => this.setState('open')));
-    native.onClosed(() => this.guard(() => this.setState('closed')));
-    native.onError(() => this.guard(() => this.setState('closed')));
+    native.onClosed(() => this.guard(() => this.closedWith('closed by the peer or the transport')));
+    native.onError((error) => this.guard(() => this.closedWith(`error: ${error}`)));
     native.onMessage((message) =>
       this.guard(() => {
         const text = textOf(message);
@@ -89,10 +119,21 @@ export class RtcChannel {
   private guard(action: () => void): void {
     try {
       action();
-    } catch {
+    } catch (error) {
       // A throwing handler must not reach the native binding; the connection is closed instead.
-      this.fault();
+      this.closeCauseValue ??= `handler error: ${describeError(error)}`;
+      this.fault(error);
     }
+  }
+
+  private closedWith(cause: string): void {
+    this.closeCauseValue ??= cause;
+    this.setState('closed');
+  }
+
+  /** Why the channel closed, once it has. */
+  public get closeCause(): string | undefined {
+    return this.closeCauseValue;
   }
 
   private setState(state: TRtcChannelState): void {
@@ -136,7 +177,7 @@ export class RtcChannel {
     } catch {
       /* already closing */
     }
-    this.setState('closed');
+    this.closedWith('closed by this side');
   }
 }
 
@@ -148,6 +189,11 @@ export class RtcPeer {
   private readonly channelHandlers = new Set<(channel: RtcChannel) => void>();
   private readonly descriptionWaiters: ((sdp: string) => void)[] = [];
   private hasRemoteDescription = false;
+  private readonly history: TRtcPeerState[] = [];
+  private closedBy?: 'local' | 'handler-error';
+  private handlerError?: string;
+  private localCandidateCount = 0;
+  private remoteCandidateCount = 0;
   /** Remote candidates that arrived before the remote description, applied right after it. */
   private readonly earlyCandidates: IRtcCandidate[] = [];
   private closed = false;
@@ -163,6 +209,7 @@ export class RtcPeer {
       this.guard(() => {
         if (state === this.stateValue || this.stateValue === 'closed') return;
         this.stateValue = state as TRtcPeerState;
+        this.remember(this.stateValue);
         for (const handler of this.stateHandlers) handler(this.stateValue);
       }),
     );
@@ -171,6 +218,7 @@ export class RtcPeer {
         // The binding writes the SDP attribute form; the wire form has no `a=` prefix.
         const value = candidate.startsWith('a=') ? candidate.slice(2) : candidate;
         if (value.length === 0) return;
+        this.localCandidateCount += 1;
         for (const handler of this.candidateHandlers) handler({ candidate: value, mid });
       }),
     );
@@ -181,7 +229,7 @@ export class RtcPeer {
     );
     this.native.onDataChannel((native) =>
       this.guard(() => {
-        const channel = new RtcChannel(native, () => this.close());
+        const channel = new RtcChannel(native, (error) => this.fault(error));
         for (const handler of this.channelHandlers) handler(channel);
       }),
     );
@@ -190,10 +238,39 @@ export class RtcPeer {
   private guard(action: () => void): void {
     try {
       action();
-    } catch {
+    } catch (error) {
       // A throwing handler must not reach the native binding; the connection is closed instead.
-      this.close();
+      this.fault(error);
     }
+  }
+
+  private fault(error: unknown): void {
+    if (this.closed) return;
+    this.closedBy = 'handler-error';
+    this.handlerError = describeError(error);
+    this.close();
+  }
+
+  private remember(state: TRtcPeerState): void {
+    if (this.history.length < MAX_HISTORY) this.history.push(state);
+  }
+
+  /** What the connection went through, for explaining why it ended. */
+  public diagnostics(): IRtcPeerDiagnostics {
+    const ice = reading(this.native.iceState?.bind(this.native));
+    const gathering = reading(this.native.gatheringState?.bind(this.native));
+    const signaling = reading(this.native.signalingState?.bind(this.native));
+    return {
+      state: this.stateValue,
+      ...(ice !== undefined ? { ice } : {}),
+      ...(gathering !== undefined ? { gathering } : {}),
+      ...(signaling !== undefined ? { signaling } : {}),
+      history: [...this.history],
+      ...(this.closedBy !== undefined ? { closedBy: this.closedBy } : {}),
+      ...(this.handlerError !== undefined ? { handlerError: this.handlerError } : {}),
+      localCandidates: this.localCandidateCount,
+      remoteCandidates: this.remoteCandidateCount,
+    };
   }
 
   public get state(): TRtcPeerState {
@@ -201,7 +278,7 @@ export class RtcPeer {
   }
 
   public createDataChannel(label: string): RtcChannel {
-    return new RtcChannel(this.native.createDataChannel(label), () => this.close());
+    return new RtcChannel(this.native.createDataChannel(label), (error) => this.fault(error));
   }
 
   private localDescription(type: 'offer' | 'answer'): Promise<string> {
@@ -251,6 +328,7 @@ export class RtcPeer {
     }
     try {
       this.native.addRemoteCandidate(candidate.candidate, candidate.mid);
+      this.remoteCandidateCount += 1;
     } catch {
       // allow-fallback: an unusable candidate is one path fewer, not a failure of the connection
     }
@@ -289,6 +367,7 @@ export class RtcPeer {
   public close(): void {
     if (this.closed) return;
     this.closed = true;
+    this.closedBy ??= 'local';
     try {
       this.native.close();
     } catch {
@@ -296,6 +375,7 @@ export class RtcPeer {
     }
     if (this.stateValue !== 'closed') {
       this.stateValue = 'closed';
+      this.remember('closed');
       for (const handler of this.stateHandlers) handler('closed');
     }
   }

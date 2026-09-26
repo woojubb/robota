@@ -14,6 +14,8 @@ import {
   type ISigningKey,
 } from '@robota-sdk/agent-remote-pairing';
 import { DeviceMeshNode, WsMeshRelayClient } from '@robota-sdk/agent-transport-webrtc';
+import { createRequire } from 'node:module';
+
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { startSignalingServer, type ISignalingServerHandle } from '../server.js';
@@ -94,6 +96,15 @@ async function twoDevices(): Promise<[IDeviceHandshakeIdentity, ISessionDescript
     d.session,
   ]);
 }
+
+// The WebRTC library's own warnings, so a connection that fails in CI says why at its layer too.
+(
+  createRequire(import.meta.url)('node-datachannel') as {
+    initLogger(level: string, callback: (level: string, message: string) => void): void;
+  }
+).initLogger('Warning', (level, message) => {
+  process.stderr.write(`[libdatachannel ${level}] ${message}\n`);
+});
 
 let server: ISignalingServerHandle | undefined;
 const cleanup: (() => void)[] = [];
