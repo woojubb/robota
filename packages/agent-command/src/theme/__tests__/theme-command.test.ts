@@ -73,7 +73,7 @@ describe('/theme without a catalogue (SCREEN-2002 TC-09)', () => {
     const result = executeThemeCommand(undefined, 'light');
 
     expect(result.success).toBe(false);
-    expect(result.message).toBe('Themes are not available in this environment.');
+    expect(result.message).toMatch(/Run \/theme in the robota terminal/);
     expect(result.hostActions).toBeUndefined();
   });
 });
