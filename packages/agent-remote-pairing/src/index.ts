@@ -231,3 +231,35 @@ export type {
   TListFreshness,
   TMeshLocality,
 } from './identity/device-handshake.js';
+// Enrolling a new device from a one-time code, proven over the negotiated channel before anything
+// else crosses it, and confirmed by both operators with a short authentication string.
+export {
+  EnrollmentError,
+  decodeEnrollmentFrame,
+  deriveEnrollmentMaterial,
+  enrollmentCommitment,
+  enrollmentSas,
+  generateEnrollmentCode,
+  newEnrollmentContribution,
+  normalizeEnrollmentCode,
+  signEnrollmentRequest,
+  startEnrollmentProof,
+  verifyEnrollmentRequest,
+  verifyEnrollmentReveal,
+} from './identity/enrollment.js';
+export type {
+  IEnrollmentAnchorFrame,
+  IEnrollmentBinding,
+  IEnrollmentGrantFrame,
+  IEnrollmentMaterial,
+  IEnrollmentProofController,
+  IEnrollmentProofOptions,
+  IEnrollmentRequestFields,
+  IEnrollmentRequestFrame,
+  IEnrollmentRevealFrame,
+  TEnrollmentFrame,
+  TEnrollmentFrameDecodeResult,
+  TEnrollmentProofFrame,
+  TEnrollmentRefusal,
+  TEnrollmentRole,
+} from './identity/enrollment.js';

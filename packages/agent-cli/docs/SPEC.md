@@ -195,10 +195,12 @@ instead of degrading to the file, because secrets already in the keychain would 
 found. On Linux only the Secret Service counts as a keychain — the binding's kernel-keyring fallback
 is memory-only, and a host key lost at reboot changes the identity every device pinned. Messages and
 errors name a secret's key, never its value, and carry no cause that could quote it. The recovery
-phrase is never stored anywhere: it is shown and read only on the controlling terminal, opened apart
-from the session's own input while the session has handed the terminal over — a byte read through the
-session's input would reach its composer, history, transcript and model — and a host without an
-interactive terminal refuses instead of reading it from anywhere else. The same terminal asks the
+phrase and the one-time code that enrols another device are never stored anywhere: each is shown and
+read only on the controlling terminal, opened apart from the session's own input while the session
+has handed the terminal over — a byte read through the session's input would reach its composer,
+history, transcript and model — and a host without an interactive terminal refuses instead of
+reading it from anywhere else. A code typed as a command argument is refused, since the argument is
+already in history. The same terminal asks the
 operator whether each remote-control connection, a returning trusted device included, may drive the
 session; one it admits is the owner typing, with the terminal's approvals, tools and file references.
 The session's own prompts are answerable by any attached surface, so a device already
