@@ -51,7 +51,8 @@ export interface IExternalEventSource {
   /** Stop admission synchronously; already-submitted turns retain their exact settlement. */
   close(): void;
   /**
-   * Withdraw the grant: later events are refused as revoked, its queued and running turns are
+   * Withdraw the grant: a later event whose token the grant's verifier admits is refused as revoked
+   * (any other is refused as a live grant would refuse it), its queued and running turns are
    * stopped, and the label cannot be opened again on this ingress.
    */
   revoke(): void;

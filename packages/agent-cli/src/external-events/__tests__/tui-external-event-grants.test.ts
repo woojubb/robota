@@ -175,23 +175,29 @@ describe('TUI external event grants', () => {
     // A session whose grants verify first and answer revoked only to a valid token.
     const revokedIds = new Set<string>();
     const verifying = {
-      openExternalEventSource: async (options: IExternalEventSourceOptions) => ({
-        grantId: options.grant.grantId,
-        receive: async (delivery: unknown) => {
-          const token = (delivery as { token?: string }).token;
-          if (token !== 'valid')
-            return { admitted: false as const, refusal: 'bad-signature' as const };
-          return revokedIds.has(options.grant.grantId)
-            ? { admitted: false as const, refusal: 'grant-revoked' as const }
-            : {
-                admitted: true as const,
-                turnId: 'turn_1',
-                settled: Promise.resolve({ outcome: 'completed' as const, response: '' }),
-              };
-        },
-        close: () => undefined,
-        revoke: () => revokedIds.add(options.grant.grantId),
-      }),
+      // Like the real ingress: a label revoked on this session cannot be opened on it again.
+      openExternalEventSource: async (options: IExternalEventSourceOptions) => {
+        if (revokedIds.has(options.grant.grantId)) {
+          throw new Error(`external event grant ${options.grant.grantId} was revoked`);
+        }
+        return {
+          grantId: options.grant.grantId,
+          receive: async (delivery: unknown) => {
+            const token = (delivery as { token?: string }).token;
+            if (token !== 'valid')
+              return { admitted: false as const, refusal: 'bad-signature' as const };
+            return revokedIds.has(options.grant.grantId)
+              ? { admitted: false as const, refusal: 'grant-revoked' as const }
+              : {
+                  admitted: true as const,
+                  turnId: 'turn_1',
+                  settled: Promise.resolve({ outcome: 'completed' as const, response: '' }),
+                };
+          },
+          close: () => undefined,
+          revoke: () => revokedIds.add(options.grant.grantId),
+        };
+      },
     };
     await tui.bind(verifying);
     expect(await tui.receive('ci', { token: 'forged', event: {} })).toEqual({
