@@ -63,7 +63,6 @@ import type {
   IMCPToolCallResult,
   IMCPTransportAdapter,
   TMCPDefinitionSource,
-  TMCPExternalEventListener,
 } from '@robota-sdk/agent-mcp';
 import type {
   ICommandMCPActivationAdapter,
@@ -253,13 +252,6 @@ export interface IMcpClientComposition {
    * `reportDiagnostic` and that server is excluded; it never fails the whole call.
    */
   connect(signal?: AbortSignal): Promise<readonly IToolWithEventService[]>;
-  /** Bind a host listener only to an admitted, connected, capability-declaring MCP server. */
-  subscribeExternalEvent(
-    serverId: string,
-    listener: TMCPExternalEventListener,
-  ):
-    | { readonly ok: true; readonly unsubscribe: () => void }
-    | { readonly ok: false; readonly reason: string };
   /** Closes every supervisor opened by `connect`, cancelling their armed timers. */
   shutdown(): Promise<void>;
   /**
@@ -291,7 +283,6 @@ export interface IMcpServerConnection {
     options?: { readonly signal?: AbortSignal },
   ): Promise<IMCPToolCallResult>;
   shutdown(): Promise<void>;
-  onExternalEvent?(listener: TMCPExternalEventListener): () => void;
   /** Open again after a failure that waits for the user — here, a sign-in. */
   retry?(signal?: AbortSignal): Promise<unknown>;
 }
@@ -1077,25 +1068,9 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
     }
   }
 
-  function subscribeExternalEvent(
-    serverId: string,
-    listener: TMCPExternalEventListener,
-  ): ReturnType<IMcpClientComposition['subscribeExternalEvent']> {
-    const connection = connectedByServerId.get(serverId);
-    if (!connection?.onExternalEvent) {
-      return { ok: false, reason: 'server is not connected for external events' };
-    }
-    try {
-      return { ok: true, unsubscribe: connection.onExternalEvent(listener) };
-    } catch {
-      return { ok: false, reason: 'server rejected external event subscription' };
-    }
-  }
-
   return {
     activationAdapter,
     connect,
-    subscribeExternalEvent,
     shutdown,
     connectedToolProvenance,
     unavailableServers,

@@ -111,14 +111,11 @@ false`; every `DEFAULT_INHERITED_ENV_VARS` key is explicitly shadowed rather tha
   acknowledgment, so an abort or timeout of an active stdio request closes the direct child rather
   than pretending the in-flight call can be cancelled cleanly; a failed tool call is never replayed
   by the supervisor.
-- **External event notifications are opt-in protocol facts, not turn authority.** The client only
-  exposes an external-event notification from a server that declared that exact capability during
-  initialization, and validates sender, conversation, and bounded content before delivery; an
-  undeclared or unsupported server cannot deliver through this port. A subscribing host must
-  separately authenticate/admit that server and its senders before submitting any session turn.
-  Reconnection after an unexpected transport close is bounded and fails closed if the server drops
-  the declaration; repeated disconnects eventually require an explicit retry rather than looping
-  forever.
+- **An MCP server is never a source of session turns.** No server notification is delivered as an
+  event for a host to turn into a turn, whatever experimental capability the server declares: a
+  server connection proves nothing about who wrote a message, so a sender named inside one would be
+  a claim, not an identity. An external event reaches a session only through ingress that verifies
+  the sender's own credential.
 - **Discovery is bounded and honest**: an unsupported capability's list method is never called; a
   declared one is drained page by page until pagination ends, bounded by a page count and a
   per-request timeout; a partial catalog is never reported as complete.
