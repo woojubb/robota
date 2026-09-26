@@ -5,8 +5,8 @@
  * here, the classification lived in `@robota-sdk/agent-core`'s hardcoded matrix, and that matrix had
  * never heard of any of them. Two of them run commands.
  *
- * `packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts` asserts that every
- * tool this package produces appears here.
+ * `packages/agent-framework/src/tools/__tests__/tool-permission-profiles.test.ts` asserts the
+ * classifications that decide behaviour — the command tools' argument kind and the signal tools' class.
  */
 
 import { registerToolPermissionProfile, type IToolPermissionProfile } from '@robota-sdk/agent-core';
@@ -65,6 +65,12 @@ export const FRAMEWORK_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPe
      * rather than asking twice. A deny rule still removes it, and a turn a peer's message started
      * never reaches it.
      */
+    peer_send_file: {
+      argument: { key: 'path', kind: 'path' },
+      riskClass: 'inspect',
+      notInPeerTurn: true,
+    },
+
     /**
      * The goal loop's signal and the self-paced loop's decision: each records the agent's own
      * assessment for the loop that asked for it and changes nothing else. They are inspections, as
@@ -73,12 +79,6 @@ export const FRAMEWORK_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPe
      */
     report_goal_status: { riskClass: 'inspect' },
     report_loop_decision: { riskClass: 'inspect' },
-
-    peer_send_file: {
-      argument: { key: 'path', kind: 'path' },
-      riskClass: 'inspect',
-      notInPeerTurn: true,
-    },
   };
 
 /**
