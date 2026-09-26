@@ -65,15 +65,27 @@ describe('supervised background session command', () => {
         grantId: 'ci', issuer: 'http://issuer.example', resource: 'https://robota.example/events/ci',
         client: 'ci-bot', scopes: ['robota.events.submit'],
       }));
-      const handled = await runPreparsedCliCommand(
-        { providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd) },
-        ['node', 'robota', 'session', 'start', '--background', '--external-event-grant', file],
-        cwd,
-      );
+      const options = {
+        providerDefinitions: [],
+        projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
+      };
+      const start = ['node', 'robota', 'session', 'start', '--background', '--external-event-grant', file];
+      const handled = await runPreparsedCliCommand(options, [...start, '--external-event-port', '8443'], cwd);
       expect(handled).toBe(true);
       expect(process.exitCode).toBe(1);
       const written = stderr.mock.calls.map(([text]) => String(text)).join('');
       expect(written).toBe('grant ci: invalid issuer\n');
+      for (const [extra, reason] of [
+        [[], /needs --external-event-port/],
+        [['--external-event-port', '0'], /must be an integer in 1\.\.65535/],
+        [['--external-event-port', '8443', '--external-event-trusted-proxy', 'proxy.example'], /literal IP/],
+      ] as const) {
+        stderr.mockClear();
+        process.exitCode = 0;
+        await runPreparsedCliCommand(options, [...start, ...extra], cwd);
+        expect(process.exitCode).toBe(1);
+        expect(stderr.mock.calls.map(([text]) => String(text)).join('')).toMatch(reason);
+      }
     } finally {
       stderr.mockRestore();
       process.exitCode = previousExitCode;

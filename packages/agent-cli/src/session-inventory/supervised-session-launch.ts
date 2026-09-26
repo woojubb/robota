@@ -88,6 +88,8 @@ export async function launchSupervisedSession(
     readonly onSpawn?: (child: ChildProcess) => void;
     /** Validated external-event grants the child must open before it reports ready. */
     readonly grants?: readonly IExternalEventGrant[];
+    /** Where the child's external-event endpoint listens; required with grants. */
+    readonly eventEndpoint?: { readonly port: number; readonly trustedProxies?: readonly string[] };
     readonly root?: string;
   } = {},
 ): Promise<string> {
@@ -95,6 +97,9 @@ export async function launchSupervisedSession(
     throw new Error('Supervised session name is invalid or too long.');
   }
   const grants = options.grants ?? [];
+  if (grants.length > 0 && options.eventEndpoint === undefined) {
+    throw new Error('External event grants need the port their endpoint listens on.');
+  }
   const sentGrantIds = grants.map((grant) => grant.grantId);
   const root = grants.length > 0 ? (options.root ?? resolveSupervisedDirectory()) : undefined;
   const self = resolveSelfForkWorkerEntry();
@@ -111,6 +116,14 @@ export async function launchSupervisedSession(
       ...execArgs, ...entryArgs, '--serve', '--supervised-session-id', id,
       ...(options.name === undefined ? [] : [`--name=${options.name}`]),
       ...(grants.length > 0 ? ['--supervised-external-event-grants'] : []),
+      ...(grants.length > 0 && options.eventEndpoint !== undefined
+        ? [
+            `--external-event-port=${options.eventEndpoint.port}`,
+            ...(options.eventEndpoint.trustedProxies ?? []).map(
+              (proxy) => `--external-event-trusted-proxy=${proxy}`,
+            ),
+          ]
+        : []),
     ], {
       cwd,
       detached: true,
@@ -163,7 +176,9 @@ export async function launchSupervisedSession(
         return fail(message.code === 'grant-refused' && typeof message.grant === 'string' &&
           GRANT_ID.test(message.grant) && sentGrantIds.includes(message.grant)
           ? `grant ${message.grant}: refused by the session.`
-          : 'Supervised session refused to start.');
+          : message.code === 'events-endpoint-failed'
+            ? 'External event endpoint could not listen on its port.'
+            : 'Supervised session refused to start.');
       }
       if (message.kind === 'ready' && !ready) {
         if (!sameGrants(message.grants, sentGrantIds)) {

@@ -539,6 +539,14 @@ export async function revokeSupervisedExternalEventGrant(
   throw new Error('Supervised session did not confirm the revocation.');
 }
 
+/** The owner-only directory a supervised session's external-event audit trail is written to. */
+export function ensureSupervisedAuditDirectory(root: string): string {
+  ensurePrivateDirectory(root);
+  const directory = join(root, 'audit');
+  ensurePrivateDirectory(directory);
+  return directory;
+}
+
 function grantHandoffPath(root: string, id: string): string {
   sessionDirectory(root, id);
   return join(root, `.${id}.grants.json`);

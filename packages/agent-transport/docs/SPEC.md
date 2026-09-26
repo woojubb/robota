@@ -13,6 +13,10 @@ transport implementations.
   binds no listener itself — it is a substrate for admission decisions, not an admission point.
 - Runtime message and frame decoders return explicit result unions rather than throwing.
 - Admission, access-token and handoff integrity helpers return their declared result contracts.
+  The resource-server gate every token-admitted HTTP carrier shares lives here, so the carriers
+  cannot drift apart: names are checked against the public URL, refusals carry an empty body and only
+  the standard challenge, and only failures count against a peer's address, which is reported only as
+  a coarse class. A carrier composes it per request; the gate owns no listener.
   The access-token verifier trusts only keys no older than a bounded age; beyond that an issuer
   outage refuses rather than admits. Outbound delivery isolates carrier failures through a supplied
   error handler, and stops sending to a peer that stops reading, reporting it so the carrier can
@@ -35,7 +39,7 @@ transport implementations.
   browser bundle via the root or `./client` entries. Token signatures are checked by `jose`, not by
   hand-rolled crypto, and key discovery goes through the shared egress boundary rather than a
   private fetch, so one policy governs every outbound request.
-- Owns no socket, HTTP, WebRTC, terminal, framework-host, registry, or settings lifecycle.
+- Owns no socket, HTTP listener, WebRTC, terminal, framework-host, registry, or settings lifecycle.
 - Session mobility owns handoff authority, offer refusal, and inventory classification; this package
   frames, seals, verifies, and assembles the payload that crosses a carrier.
 - Does not forward another workspace package.

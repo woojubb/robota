@@ -22,6 +22,11 @@ const OPTIONS = `  -p <prompt>                Run in print (headless) mode with 
                              TUI only: admit text-only external events whose access token
                              this session verifies for the one principal the file names;
                              repeat per grant (no tools, no reply; list or revoke with /events)
+  --external-event-port <port>
+                             With grants: the loopback port of POST <public-url>/events/<grant>,
+                             which the owner's HTTPS proxy or tunnel forwards to
+  --external-event-trusted-proxy <ip>
+                             With grants: a proxy whose X-Forwarded-For is believed (repeat)
   --max-turns <n>            Maximum agent turns before stopping
   -c, --continue             Continue the most recent session
   -r, --resume <id>          Resume a session by ID or name
@@ -97,6 +102,7 @@ Commands:
                       [--screen-reader|--no-screen-reader]
                                   Live supervised sessions across projects, or filtered (TTY only)
   robota session start --background [--name <name>] [--external-event-grant <file>]...
+                      [--external-event-port <port>] [--external-event-trusted-proxy <ip>]...
                                   Start a supervised session that outlives this terminal (no attach yet)
   robota session events list <supervised-id> [--json]
                                   Show a supervised session's external event grants and their counts

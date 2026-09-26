@@ -1,0 +1,322 @@
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+
+import {
+  bearerCredential,
+  createBearerResourceServer,
+  describeProtectedResource,
+  refuseBearerToken,
+  serveProtectedResourceMetadata,
+  type IBearerFailure,
+  type IProtectedResource,
+} from '@robota-sdk/agent-transport/node';
+
+import type {
+  IExternalEventDelivery,
+  IExternalEventGrant,
+  TExternalEventAdmission,
+  TExternalEventAuditRecord,
+  TExternalEventRefusal,
+} from '@robota-sdk/agent-interface-transport';
+
+/**
+ * The first external-event carrier: `POST <publicUrl>/events/<grantId>` over HTTP on loopback, behind
+ * the owner's own reverse proxy or tunnel, which terminates TLS at the public URL.
+ *
+ * It only moves the bearer token and the event to the session's grants; who sent it is decided there,
+ * by the grant's verifier. It answers with an admission receipt or an empty refusal and never with
+ * anything the turn produced. The admission rules it shares with every token-admitted HTTP carrier
+ * (names, challenges, metadata, failure throttle) come from the shared resource-server gate.
+ */
+
+const LABEL = 'External event endpoint';
+/** The whole request body; the event content bound sits inside it. */
+const MAX_BODY_BYTES = 16 * 1024;
+const REQUEST_TIMEOUT_MS = 10_000;
+const LOOPBACK_BINDS = new Set(['127.0.0.1', '::1']);
+const EVENTS_SEGMENT = '/events/';
+
+export interface IExternalEventHttpHostOptions {
+  /** Every grant the session holds; each grant's resource must be `<publicUrl>/events/<grantId>`. */
+  readonly grants: readonly IExternalEventGrant[];
+  /** The session's grants: verification, admission and settlement happen there. */
+  readonly receive: (
+    grantId: string,
+    delivery: IExternalEventDelivery,
+  ) => Promise<TExternalEventAdmission>;
+  /** Loopback port; 0 picks one. */
+  readonly port: number;
+  readonly bindAddress?: '127.0.0.1' | '::1';
+  /** Proxy addresses whose `X-Forwarded-For` is believed. */
+  readonly trustedProxies?: readonly string[];
+  /** One content-free record per refusal this endpoint answers. */
+  readonly audit?: (record: TExternalEventAuditRecord) => void;
+  readonly now?: () => number;
+}
+
+export interface IExternalEventHttpHost {
+  /** The public URL every grant's endpoint hangs from. */
+  readonly publicUrl: string;
+  start(): Promise<{ readonly port: number }>;
+  stop(): Promise<void>;
+}
+
+interface IRoute {
+  readonly grantId: string;
+  readonly resource: IProtectedResource;
+}
+
+/** How a refusal is answered, and whether it counts against the peer's failure budget. */
+function answerFor(refusal: TExternalEventRefusal): {
+  readonly counted: boolean;
+  readonly answer:
+    | {
+        readonly kind: 'token';
+        readonly refusal: 'missing-token' | 'missing-scope' | 'invalid-token';
+      }
+    | { readonly kind: 'status'; readonly status: number };
+} {
+  switch (refusal) {
+    case 'missing-token':
+    case 'missing-scope':
+      return { counted: true, answer: { kind: 'token', refusal } };
+    case 'unknown-grant':
+      return { counted: true, answer: { kind: 'status', status: 404 } };
+    case 'grant-revoked':
+      return { counted: true, answer: { kind: 'status', status: 403 } };
+    case 'malformed-event':
+      return { counted: true, answer: { kind: 'status', status: 400 } };
+    case 'rate-limited':
+      return { counted: false, answer: { kind: 'status', status: 429 } };
+    case 'keys-unavailable':
+    case 'source-closed':
+    case 'queue-full':
+    case 'shutting-down':
+    case 'session-unavailable':
+      // The issuer or the session failed, not the peer: nothing is counted against it.
+      return { counted: false, answer: { kind: 'status', status: 503 } };
+    default:
+      // Every other word is the verifier's verdict on the token itself, or its size.
+      return { counted: true, answer: { kind: 'token', refusal: 'invalid-token' } };
+  }
+}
+
+/** The one public URL every grant hangs from: each resource minus its `/events/<grantId>`. */
+function publicUrlOf(grants: readonly IExternalEventGrant[]): string {
+  if (grants.length === 0) throw new Error(`${LABEL} needs at least one grant`);
+  const bases = new Set(
+    grants.map((grant) => {
+      const suffix = `${EVENTS_SEGMENT}${grant.grantId}`;
+      const resource = grant.verifier.resource;
+      if (!resource.endsWith(suffix)) {
+        throw new Error(`${LABEL}: grant ${grant.grantId} resource must end in ${suffix}`);
+      }
+      return resource.slice(0, -suffix.length);
+    }),
+  );
+  if (bases.size !== 1) throw new Error(`${LABEL}: all grants must share one public URL`);
+  return [...bases][0]!;
+}
+
+/** Read the body up to the bound; `undefined` when it is larger. Never buffers past the bound. */
+function readBody(req: IncomingMessage): Promise<string | undefined> {
+  const declared = Number(req.headers['content-length']);
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) return Promise.resolve(undefined);
+  return new Promise((resolve, reject) => {
+    const chunks: Buffer[] = [];
+    let length = 0;
+    let done = false;
+    req.on('data', (chunk: Buffer) => {
+      if (done) return;
+      length += chunk.length;
+      if (length > MAX_BODY_BYTES) {
+        done = true;
+        resolve(undefined);
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      if (done) return;
+      done = true;
+      resolve(Buffer.concat(chunks).toString('utf8'));
+    });
+    req.on('error', (error) => {
+      if (done) return;
+      done = true;
+      reject(error);
+    });
+  });
+}
+
+function parseEvent(body: string): unknown {
+  try {
+    return JSON.parse(body) as unknown;
+  } catch {
+    // The session judges the event only after the token; a body that is not JSON is no event.
+    return undefined;
+  }
+}
+
+/**
+ * Build the endpoint. Throws when it cannot be served safely: no grant, grants on different public
+ * URLs, a public URL or issuer that is not `https`, a bad scope, a non-loopback bind, or a trusted
+ * proxy that is not a literal address.
+ */
+export function createExternalEventHttpHost(
+  options: IExternalEventHttpHostOptions,
+): IExternalEventHttpHost {
+  const publicUrl = publicUrlOf(options.grants);
+  const bindAddress = options.bindAddress ?? '127.0.0.1';
+  if (!LOOPBACK_BINDS.has(bindAddress)) throw new Error(`${LABEL} binds only a loopback address`);
+  if (!Number.isInteger(options.port) || options.port < 0 || options.port > 65535) {
+    throw new Error(`${LABEL} port must be an integer in 0..65535`);
+  }
+  const server = createBearerResourceServer({
+    publicUrl,
+    ...(options.trustedProxies !== undefined ? { trustedProxies: options.trustedProxies } : {}),
+    label: LABEL,
+    ...(options.now !== undefined ? { now: options.now } : {}),
+  });
+  const basePath = server.url.pathname === '/' ? '' : server.url.pathname;
+  const routes = new Map<string, IRoute>();
+  const metadata = new Map<string, IProtectedResource>();
+  for (const grant of options.grants) {
+    const resource = describeProtectedResource({
+      resource: grant.verifier.resource,
+      issuer: grant.verifier.issuer,
+      scopes: grant.verifier.requiredScopes,
+      label: LABEL,
+    });
+    routes.set(`${basePath}${EVENTS_SEGMENT}${grant.grantId}`, {
+      grantId: grant.grantId,
+      resource,
+    });
+    metadata.set(resource.wellKnownPath, resource);
+  }
+  const eventsPrefix = `${basePath}${EVENTS_SEGMENT}`;
+
+  const audit = (record: TExternalEventAuditRecord): void => {
+    try {
+      options.audit?.(record);
+    } catch {
+      // A reporting sink cannot change an answer.
+    }
+  };
+
+  function refuse(
+    req: IncomingMessage,
+    res: ServerResponse,
+    refusal: TExternalEventRefusal,
+    route: IRoute | undefined,
+    decided?: ReturnType<typeof answerFor>,
+  ): void {
+    const { counted, answer } = decided ?? answerFor(refusal);
+    const failure: IBearerFailure = counted
+      ? server.fail(req)
+      : { remote: server.remote(req), throttled: false, retryAfterSeconds: 0 };
+    audit({
+      at: new Date().toISOString(),
+      ...(route !== undefined ? { grantId: route.grantId } : {}),
+      refusal,
+      remote: failure.remote,
+      throttled: failure.throttled,
+    });
+    if (failure.throttled) {
+      res.writeHead(429, { 'Retry-After': String(failure.retryAfterSeconds) }).end();
+    } else if (answer.kind === 'token' && route !== undefined) {
+      refuseBearerToken(res, route.resource, answer.refusal, failure);
+    } else if (answer.kind === 'token') {
+      res.writeHead(401).end();
+    } else {
+      res.writeHead(answer.status).end();
+    }
+  }
+
+  async function handle(req: IncomingMessage, res: ServerResponse): Promise<void> {
+    if (!server.checkNames(req, res)) return;
+    const path = req.url ?? '';
+    const described = metadata.get(path);
+    if (described !== undefined) {
+      serveProtectedResourceMetadata(req, res, described);
+      return;
+    }
+    const route = routes.get(path);
+    if (route === undefined) {
+      const segment = path.startsWith(eventsPrefix) ? path.slice(eventsPrefix.length) : undefined;
+      if (segment !== undefined && /^[a-zA-Z0-9_-]{1,64}$/u.test(segment)) {
+        refuse(req, res, 'unknown-grant', undefined);
+      } else {
+        res.writeHead(404).end();
+      }
+      return;
+    }
+    if (req.method !== 'POST') {
+      res.writeHead(405, { Allow: 'POST' }).end();
+      return;
+    }
+    const token = bearerCredential(req.headers.authorization);
+    if (token === undefined) {
+      refuse(req, res, 'missing-token', route);
+      return;
+    }
+    const body = await readBody(req);
+    if (body === undefined) {
+      // The body, not the token, is too large: 413, counted, before anything is verified. The rest
+      // of the body is not read: the connection closes once the answer is out.
+      res.once('finish', () => req.destroy());
+      refuse(req, res, 'oversize', route, {
+        counted: true,
+        answer: { kind: 'status', status: 413 },
+      });
+      return;
+    }
+    const admission = await options.receive(route.grantId, { token, event: parseEvent(body) });
+    if (admission.admitted) {
+      res
+        .writeHead(202, { 'Content-Type': 'application/json' })
+        .end(JSON.stringify({ turnId: admission.turnId }));
+      return;
+    }
+    refuse(req, res, admission.refusal, route);
+  }
+
+  const http = createServer((req, res) => {
+    handle(req, res).catch(() => {
+      if (!res.headersSent) res.writeHead(500).end();
+      else res.destroy();
+    });
+  });
+  http.requestTimeout = REQUEST_TIMEOUT_MS;
+  http.headersTimeout = REQUEST_TIMEOUT_MS;
+  let started = false;
+
+  return {
+    publicUrl,
+    start: () =>
+      new Promise((resolve, reject) => {
+        if (started) {
+          reject(new Error(`${LABEL} is already started`));
+          return;
+        }
+        started = true;
+        http.once('error', reject);
+        http.listen(options.port, bindAddress, () => {
+          http.off('error', reject);
+          const address = http.address();
+          resolve({
+            port: typeof address === 'object' && address !== null ? address.port : options.port,
+          });
+        });
+      }),
+    stop: () =>
+      new Promise((resolve) => {
+        if (!started) {
+          resolve();
+          return;
+        }
+        started = false;
+        http.closeAllConnections();
+        http.close(() => resolve());
+      }),
+  };
+}
