@@ -57,6 +57,15 @@ describe('OpenAI Responses usage', () => {
     expect(usageOf(message)).not.toHaveProperty('cacheReadTokens');
   });
 
+  it('leaves totalTokens absent when the response omits total_tokens', () => {
+    const message = parseOpenAIResponsesResponse(
+      responseWithUsage({ input_tokens: 5000, output_tokens: 100 }),
+    );
+
+    expect(usageOf(message)).toEqual({ promptTokens: 5000, completionTokens: 100 });
+    expect(message.metadata?.['usageProvenance']).toBe('partial');
+  });
+
   it('carries the cached tokens of a streamed response.completed usage', async () => {
     const message = await assembleOpenAIResponsesStream({
       stream: eventsFrom([

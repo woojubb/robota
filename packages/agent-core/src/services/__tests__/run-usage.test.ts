@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 import { Robota } from '../../core/robota';
 import { AbstractTool } from '../../abstracts/abstract-tool';
+import { estimateContextTokensFromMessages } from '../../context/estimation';
 import { readTokenUsageFromMessage } from '../../context/token-usage';
 import { PROVIDER_CALL_EVENTS } from '../../event-service/span-events';
 import { messageToHistoryEntry } from '../../interfaces/messages';
@@ -287,6 +288,40 @@ describe('every commit path keeps usage reported without a total', () => {
         completionTokens: 25,
         totalTokens: 245,
       });
+    } finally {
+      await agent.destroy();
+    }
+  });
+});
+
+describe('a committed reply’s usage feeds the context estimate as input plus output', () => {
+  it('ignores a missing or mismatched provider total on tool-round and forced-summary commits', async () => {
+    // The tool round's total is the 0 a surface that omits it used to be mapped to; the summary's
+    // total counts thought tokens beyond input + output, as a Gemini thinking model reports it.
+    const { agent } = build(
+      [
+        {
+          toolCall: 'ping',
+          usage: { promptTokens: 5000, completionTokens: 100, totalTokens: 0 },
+          provenance: 'partial',
+        },
+        {
+          text: 'summary',
+          usage: { promptTokens: 5200, completionTokens: 50, totalTokens: 9999 },
+          provenance: 'complete',
+        },
+      ],
+      { maxExecutionRounds: 1 },
+    );
+    try {
+      await agent.run('loop please');
+
+      const history = agent.getHistory();
+      const toolRoundIndex = history.findIndex((message) => message.role === 'assistant');
+      const throughToolRound = history.slice(0, toolRoundIndex + 1);
+      expect(estimateContextTokensFromMessages(throughToolRound).providerTokens).toBe(5100);
+      expect(estimateContextTokensFromMessages(history).providerTokens).toBe(5250);
+      expect(history.at(-1)?.metadata?.['usageProvenance']).toBe('partial');
     } finally {
       await agent.destroy();
     }

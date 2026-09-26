@@ -19,9 +19,10 @@ export type ISessionUsageTotals = ITokenUsage;
  * Sum the token usage the provider reported on the assistant messages of `messages`.
  *
  * `promptTokens` sums each message's input tokens, `completionTokens` its output tokens, and
- * `totalTokens` is their sum. `cacheReadTokens` — the part of `promptTokens` served from the
- * provider's prompt cache — is present only when at least one message reported it. Returns undefined
- * when no assistant message reported usage.
+ * `totalTokens` is their sum — which can differ from the totals providers reported (a thinking
+ * model's total also counts thought tokens). `cacheReadTokens` — the part of `promptTokens` served
+ * from the provider's prompt cache — is present only when at least one message reported it, and is a
+ * lower bound when only some did. Returns undefined when no assistant message reported usage.
  *
  * One run's usage (every provider call it made, tool rounds and a forced summary included):
  *
@@ -122,6 +123,7 @@ export function collectAssistantUsageMetadata(
 
 /** The usage fields an assistant commit records beside its other metadata. */
 export interface ICommittedUsageMetadata extends Partial<IAssistantUsageMetadata> {
+  /** Always `inputTokens + outputTokens` — the context estimate reads it as the call's size. */
   totalTokens?: number;
   usageProvenance: TProviderUsageProvenance;
 }
@@ -130,10 +132,12 @@ export interface ICommittedUsageMetadata extends Partial<IAssistantUsageMetadata
  * The usage every assistant commit (a tool round's reply, the forced summary) records for the
  * provider response it commits — one rule, so no commit path keeps usage another would drop.
  *
- * Reported input and output counts are always recorded ({@link collectAssistantUsageMetadata}: an
- * omitted total is their sum). `usageProvenance` is `complete` only when the adapter attested a
- * consistent triple ({@link verifiedProviderCallUsage}); counts recorded without that attestation —
- * an omitted total, or a total that disagrees with its parts — are `partial`.
+ * Reported input and output counts are always recorded, and the top-level `totalTokens` is their
+ * sum, never the provider's own total: the context estimate prefers it, and a provider total can be
+ * missing (a surface that omits it) or larger than the parts (a thinking model's thought tokens), so
+ * trusting it would zero or inflate the estimate. `usageProvenance` is `complete` only when the
+ * adapter attested a consistent triple ({@link verifiedProviderCallUsage}); counts recorded without
+ * that attestation — an omitted total, or a total that disagrees with its parts — are `partial`.
  */
 export function collectCommittedUsageMetadata(message: TUniversalMessage): ICommittedUsageMetadata {
   const provenance = verifiedProviderCallUsage(message).provenance;
@@ -141,7 +145,7 @@ export function collectCommittedUsageMetadata(message: TUniversalMessage): IComm
   if (!usage) return { usageProvenance: provenance };
   return {
     ...usage,
-    totalTokens: usage.usage.totalTokens,
+    totalTokens: usage.inputTokens + usage.outputTokens,
     usageProvenance: provenance === 'complete' ? 'complete' : 'partial',
   };
 }

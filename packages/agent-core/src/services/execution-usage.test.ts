@@ -209,6 +209,7 @@ describe('collectCommittedUsageMetadata', () => {
     expect(collectCommittedUsageMetadata(message)).toMatchObject({
       inputTokens: 100,
       outputTokens: 10,
+      totalTokens: 110,
       usageProvenance: 'partial',
     });
   });

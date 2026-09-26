@@ -20,6 +20,10 @@ import type {
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
 
+/** Message usage; `totalTokens` is absent when the response omitted `total_tokens`. */
+type TResponsesMessageUsage = Omit<ITokenUsageWithCacheRead, 'totalTokens'> &
+  Partial<Pick<ITokenUsageWithCacheRead, 'totalTokens'>>;
+
 interface IOpenAIResponsesStreamAssemblyOptions {
   stream: AsyncIterable<TOpenAIResponsesStreamEvent>;
   onTextDelta?: TTextDeltaCallback;
@@ -190,12 +194,13 @@ function buildMetadata(
   };
 }
 
-function mapUsage(usage: IOpenAIResponsesUsage): ITokenUsageWithCacheRead {
+function mapUsage(usage: IOpenAIResponsesUsage): TResponsesMessageUsage {
   const cachedTokens = usage.input_tokens_details?.cached_tokens;
   return {
     promptTokens: usage.input_tokens ?? 0,
     completionTokens: usage.output_tokens ?? 0,
-    totalTokens: usage.total_tokens ?? 0,
+    // An omitted total stays omitted: a 0 reads downstream as a real, empty call.
+    ...(usage.total_tokens !== undefined && { totalTokens: usage.total_tokens }),
     ...(typeof cachedTokens === 'number' && { cacheReadTokens: cachedTokens }),
   };
 }

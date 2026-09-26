@@ -41,4 +41,11 @@ describe('Qwen Responses usage', () => {
     expect(usage).toBeDefined();
     expect(usage).not.toHaveProperty('cacheReadTokens');
   });
+
+  it('leaves totalTokens absent when the response omits total_tokens', () => {
+    expect(usageOf({ input_tokens: 5000, output_tokens: 100 })).toEqual({
+      promptTokens: 5000,
+      completionTokens: 100,
+    });
+  });
 });
