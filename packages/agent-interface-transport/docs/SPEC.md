@@ -40,7 +40,9 @@ entropy fails to construct instead of binding without a gate.
 
 Access-token admission is single-tenant by design: issuer, audience and scope alone admit anyone
 the issuer serves, while the host hands one shared session to every admitted peer, so the
-configuration must also name the subjects or clients allowed in.
+configuration must also name the subjects or clients allowed in. An external-event grant narrows
+this to exactly one principal, because the grant is what the event is attributed to: a carrier only
+moves the token and the event, and no sender name it or the payload carries is identity.
 
 The functions that produce the decision (minting, comparison, token verification) live in a
 separate Node-dependent package, not here: this package is inert by rule (no runtime dependency

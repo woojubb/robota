@@ -142,17 +142,20 @@ These are behaviors a caller cannot infer from a type signature alone.
   events, and any attached surface settles them through one shared registry. The first settlement
   wins and emits exactly one resolution event — there is no second settlement path. A callback that
   rejects must resolve to deny/cancel, never leave the request open.
-- **External events require separate source and sender admission.** Opening a source does not itself
-  authorize turns: a trusted adapter must authenticate the sender, and the session checks that sender
-  against a source-specific allowlist before it can submit through the ordinary turn queue; an
+- **An external event's sender is the grant its verified access token matched.** Opening a grant does
+  not itself authorize turns: each event must present a bearer access token that the grant's own
+  verifier admits, and the grant pins exactly one principal, so the grant is the sender. Nothing the
+  carrier or the payload says is identity; a display name in the payload is shown as claimed and never
+  attributed. A token is spent on one event. Refusals and audit records use the closed refusal words
+  and carry no content, and a refused event never reaches the queue, history or the model; an
   untrusted submission can never claim another conversation's reserved identity. The model receives
   only an escaped, bounded envelope — file-reference shorthand in external text stays literal and
   never reads local context. An admitted external turn is text-only for model-generated actions: it
   does not expose local tool schemas, and a provider tool call it produces is rejected before
   execution. External admission is mutually exclusive with `bypassPermissions` throughout active and
   already-admitted work. Each accepted event settles from its own turn handle, and an interrupted
-  result never becomes a successful reply. This does not sandbox trusted hooks/plugins or
-  authenticate a platform sender by itself, and it is not a remote permission-approval channel.
+  result never becomes a successful reply. This does not sandbox trusted hooks/plugins or prove which
+  person inside a platform wrote an event, and it is not a remote permission-approval channel.
 - **A peer's message is instant messaging, and carries no authority.** Text from another session is
   an opinion from an untrusted third party, not the owner's prompt: it expands no file references,
   attaches no context reference, and reaches the model marked as a peer's with a per-turn system
