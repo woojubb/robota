@@ -46,7 +46,10 @@ const options = {
   },
   preset: {},
   // Stands in for the bound transport: the URL carries the token the launcher put in the environment.
-  getMonitorWsUrl: () => `ws://127.0.0.1:9?token=${process.env['ROBOTA_WS_TOKEN'] ?? ''}`,
+  // `ROBOTA_TEST_NO_WS_URL` stands in for a disabled ws transport.
+  getMonitorWsUrl: () => process.env['ROBOTA_TEST_NO_WS_URL'] === undefined
+    ? `ws://127.0.0.1:9?token=${process.env['ROBOTA_WS_TOKEN'] ?? ''}`
+    : undefined,
 } as unknown as IServeModeOptions;
 
 await runServeMode(options);

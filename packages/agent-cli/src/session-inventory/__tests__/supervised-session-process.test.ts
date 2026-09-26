@@ -87,6 +87,25 @@ describe('detached supervised runtime', () => {
     }
   }, 60_000);
 
+  it('refuses to start a daemon whose WebSocket transport has no endpoint', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-daemon-nows-'));
+    const root = join(scratch, 'supervised');
+    let child: ChildProcess | undefined;
+    try {
+      await expect(launchSupervisedSession(process.cwd(), {
+        entrypoint: fixture,
+        execArgs: ['--import', 'tsx', '--conditions=source'],
+        env: { ROBOTA_TEST_SUPERVISED_ROOT: root, ROBOTA_WS_TOKEN: 'd'.repeat(64), ROBOTA_TEST_NO_WS_URL: '1' },
+        daemon: true,
+        onSpawn: (spawned) => { child = spawned; },
+      })).rejects.toThrow('The daemon has no WebSocket endpoint; enable the ws transport.');
+      expect(child?.exitCode !== null || child?.signalCode !== null).toBe(true);
+      expect(await listSupervisedSessions(root)).toEqual([]);
+    } finally {
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  }, 60_000);
+
   it('remains available after its launcher disconnects, then shuts down by owned ID', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-process-'));
     const root = join(scratch, 'supervised');

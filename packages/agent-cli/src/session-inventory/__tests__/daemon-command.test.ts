@@ -1,4 +1,6 @@
-import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -6,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { runDaemonCommand, type IDaemonCommandOptions } from '../daemon-command.js';
 
-import type { ISupervisedSessionRow } from '../supervised-session-control.js';
+import { acquireSupervisedDaemonStartLock, type ISupervisedSessionRow } from '../supervised-session-control.js';
 
 const LIVE = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
 const OTHER = '0f6c3a5e-8c1b-4d2a-9f3e-1a2b3c4d5e6f';
@@ -147,5 +149,94 @@ describe('robota daemon', () => {
       expect(h.err()).toMatch(/^Usage: robota daemon start/u);
       expect(h.list).not.toHaveBeenCalled();
     }
+  });
+
+  it('connects a reused daemon or stops it, naming the fix when it cannot hand over its connection', async () => {
+    const h = harness([daemonRow(LIVE)], { connect: async () => { throw new Error('No connection.'); } });
+    expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(1);
+    expect(h.launch).not.toHaveBeenCalled();
+    expect(h.stop).not.toHaveBeenCalled();
+    expect(h.out()).toBe('');
+    expect(h.err()).toMatch(/Run: robota daemon stop\n$/u);
+  });
+
+  it('stops the daemon it just launched when that daemon cannot hand over its connection', async () => {
+    const h = harness([], { connect: async () => { throw new Error('No connection.'); } });
+    h.list.mockResolvedValueOnce([]).mockResolvedValueOnce([]).mockResolvedValue([daemonRow(STARTED)]);
+    expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(1);
+    expect(h.launch).toHaveBeenCalledTimes(1);
+    expect(h.stop).toHaveBeenCalledWith(STARTED, h.options.root, GENERATION);
+    expect(h.out()).toBe('');
+    expect(h.err()).toBe('No connection.\n');
+  });
+
+  describe('concurrent starts in one workspace', () => {
+    const lockFile = (root: string): string =>
+      join(root, `.daemon-${createHash('sha256').update(workspace).digest('hex').slice(0, 16)}.lock`);
+
+    it('waits for a start in progress, then reuses its daemon instead of launching another', async () => {
+      const h = harness([]);
+      const root = h.options.root as string;
+      const first = await acquireSupervisedDaemonStartLock(workspace, root);
+      expect(readdirSync(root)).toEqual([expect.stringMatching(/^\.daemon-[0-9a-f]{16}\.lock$/u)]);
+      let released = false;
+      h.list.mockImplementation(async () => (released ? [daemonRow(LIVE)] : []));
+      const second = runDaemonCommand(['start', '--json'], h.options);
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      expect(h.launch).not.toHaveBeenCalled();
+      released = true;
+      first();
+      expect(await second).toBe(0);
+      expect(h.launch).not.toHaveBeenCalled();
+      expect(h.connect).toHaveBeenCalledWith(LIVE, root, GENERATION);
+      expect(existsSync(lockFile(root))).toBe(false);
+    });
+
+    it('never removes a lock left by a start that is gone: the start refuses and names unlock', async () => {
+      const h = harness([]);
+      const root = h.options.root as string;
+      mkdirSync(root, { mode: 0o700 });
+      const gone = spawnSync(process.execPath, ['-e', '']).pid;
+      writeFileSync(lockFile(root), String(gone), { mode: 0o600 });
+      expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(1);
+      expect(h.launch).not.toHaveBeenCalled();
+      expect(h.err()).toMatch(/no longer running.*robota daemon unlock\n$/u);
+      expect(existsSync(lockFile(root))).toBe(true);
+    });
+
+    it('unlock removes a lock whose owner is gone, and only at the user\'s request', async () => {
+      const h = harness([]);
+      const root = h.options.root as string;
+      mkdirSync(root, { mode: 0o700 });
+      const gone = spawnSync(process.execPath, ['-e', '']).pid;
+      writeFileSync(lockFile(root), String(gone), { mode: 0o600 });
+      expect(await runDaemonCommand(['unlock'], h.options)).toBe(0);
+      expect(h.out()).toMatch(/^Removed the daemon start lock in /u);
+      expect(existsSync(lockFile(root))).toBe(false);
+      expect(await runDaemonCommand(['unlock'], h.options)).toBe(0);
+      expect(h.out()).toMatch(/No daemon start lock in /u);
+      expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(0);
+      expect(h.launch).toHaveBeenCalledTimes(1);
+    });
+
+    it('unlock keeps a lock whose start is still running', async () => {
+      const h = harness([]);
+      const root = h.options.root as string;
+      mkdirSync(root, { mode: 0o700 });
+      writeFileSync(lockFile(root), String(process.pid), { mode: 0o600 });
+      expect(await runDaemonCommand(['unlock'], h.options)).toBe(1);
+      expect(h.err()).toMatch(/still running.*its lock was kept/u);
+      expect(existsSync(lockFile(root))).toBe(true);
+    });
+
+    it('gives up on a lock held by a live start after its wait', async () => {
+      const h = harness([]);
+      const root = h.options.root as string;
+      mkdirSync(root, { mode: 0o700 });
+      writeFileSync(lockFile(root), String(process.pid), { mode: 0o600 });
+      await expect(acquireSupervisedDaemonStartLock(workspace, root, { timeoutMs: 200, pollMs: 20 }))
+        .rejects.toThrow(/Another daemon start is still running.*robota daemon unlock/u);
+      expect(existsSync(lockFile(root))).toBe(true);
+    });
   });
 });

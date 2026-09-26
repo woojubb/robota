@@ -17,6 +17,7 @@ export interface IDesktopBridge {
   getEndpoint(): Promise<string | null>;
   signalReady(): void;
   onState(listener: (state: TGuiHostState, detail?: string) => void): () => void;
+  restartRuntime(): Promise<void>;
 }
 
 export interface IGuiHost {
@@ -27,6 +28,11 @@ export interface IGuiHost {
   signalReady(): void;
   /** `detail` accompanies `fatal`: why the runtime could not be reached, when it said. */
   onState(listener: (state: TGuiHostState, detail?: string) => void): () => void;
+  /**
+   * Present when the host can bring the runtime back after the page lost it for good (the desktop app,
+   * which asks the CLI to start or reuse the daemon and then reloads the page). A browser host cannot.
+   */
+  readonly restartRuntime?: () => Promise<void>;
 }
 
 export interface IGuiHostEnvironment {
@@ -54,6 +60,7 @@ export function resolveGuiHost(environment: IGuiHostEnvironment): IGuiHost {
       getEndpoint: () => bridge.getEndpoint(),
       signalReady: () => bridge.signalReady(),
       onState: (listener) => bridge.onState(listener),
+      restartRuntime: () => bridge.restartRuntime(),
     };
   }
   const endpoint = browserEndpoint(environment);

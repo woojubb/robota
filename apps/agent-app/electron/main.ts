@@ -12,15 +12,14 @@ import { app, BrowserWindow, ipcMain, session, shell, type WebContents } from 'e
 
 import {
   appendOutputTail,
+  buildContentSecurityPolicy,
   buildDaemonStartSpawn,
+  createDaemonAttachment,
   describeDaemonStartFailure,
   parseDaemonStartOutput,
   resolveSidecarCommand,
-  type IDaemonEndpoint,
+  type TDaemonStart,
 } from './sidecar.js';
-
-/** Where the daemon is, or why the shell could not get one. */
-type TDaemonStart = { ok: true; endpoint: IDaemonEndpoint } | { ok: false; detail: string };
 
 /** Run `robota daemon start --json` in this process's cwd and env, and read its answer. */
 function startDaemon(): Promise<TDaemonStart> {
@@ -63,23 +62,23 @@ function startDaemon(): Promise<TDaemonStart> {
   });
 }
 
-/** Started once the app is ready; the endpoint IPC awaits it, so the renderer never races the start. */
-let daemonStart: Promise<TDaemonStart> | null = null;
+/**
+ * Started once the app is ready, and again when the page asks to reconnect after the daemon stopped. The
+ * endpoint IPC awaits the latest start, so the renderer never races it.
+ */
+const daemon = createDaemonAttachment(startDaemon);
 
 /**
- * Inject a strict CSP pinning the renderer's only reachable socket to the daemon's loopback port — or to
- * nothing, when there is no daemon and the page only shows why.
+ * Inject a strict CSP pinning the renderer's only reachable socket to the current daemon's loopback port —
+ * or to nothing, when there is no daemon and the page only shows why. The port is read per response, so a
+ * reload after a restart picks up the new daemon's port.
  */
-function installCsp(port: number | undefined): void {
-  const connectSrc = port === undefined ? `'none'` : `ws://127.0.0.1:${port}`;
+function installCsp(): void {
   session.defaultSession.webRequest.onHeadersReceived((details, cb) => {
     cb({
       responseHeaders: {
         ...details.responseHeaders,
-        'Content-Security-Policy': [
-          `default-src 'self'; connect-src ${connectSrc}; img-src 'self' data:; ` +
-            `style-src 'self' 'unsafe-inline'; script-src 'self'`,
-        ],
+        'Content-Security-Policy': [buildContentSecurityPolicy(daemon.port())],
       },
     });
   });
@@ -92,7 +91,7 @@ function lockNavigation(win: BrowserWindow): void {
 }
 
 async function createWindow(): Promise<void> {
-  daemonStart = startDaemon();
+  const started = daemon.start();
 
   const win = new BrowserWindow({
     width: 1100,
@@ -110,8 +109,8 @@ async function createWindow(): Promise<void> {
 
   // The CSP is fixed when the page loads, so the page loads once the daemon's port is known. A failed
   // start still loads the page: it shows the fatal screen with the CLI's reason.
-  const started = await daemonStart;
-  installCsp(started.ok ? started.endpoint.port : undefined);
+  await started;
+  installCsp();
   await win.loadFile(join(__dirname, '../renderer/index.html'));
 }
 
@@ -120,10 +119,21 @@ async function createWindow(): Promise<void> {
  * subscribed to state. A failed start answers `null` and reports `fatal` with the reason to that page.
  */
 ipcMain.handle('agent-gui:endpoint', async (event): Promise<string | null> => {
-  const started = daemonStart ? await daemonStart : null;
+  const current = daemon.current();
+  const started = current ? await current : null;
   if (started?.ok) return started.endpoint.url;
   reportFatal(event.sender, started?.detail);
   return null;
+});
+
+/**
+ * The page lost its daemon for good (stopped or crashed) and the owner asked to reconnect: ask the CLI
+ * again — it starts a daemon or reuses a live one — then reload the page, so the CSP and the endpoint it
+ * asks for are the new daemon's. A start that fails reloads too, into the fatal screen with the reason.
+ */
+ipcMain.handle('agent-gui:restart', async (event): Promise<void> => {
+  await daemon.start();
+  if (!event.sender.isDestroyed()) event.sender.reload();
 });
 
 function reportFatal(sender: WebContents, detail: string | undefined): void {

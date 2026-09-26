@@ -2,11 +2,14 @@ import { describe, it, expect } from 'vitest';
 
 import {
   appendOutputTail,
+  buildContentSecurityPolicy,
   buildDaemonStartSpawn,
+  createDaemonAttachment,
   describeDaemonStartFailure,
   OUTPUT_TAIL_LIMIT,
   parseDaemonStartOutput,
   resolveSidecarCommand,
+  type TDaemonStart,
 } from '../sidecar.js';
 
 /** The Electron-free shell logic: which command, how the daemon is started, and what its answer may be. */
@@ -138,5 +141,67 @@ describe('#3186 — why the daemon could not start', () => {
     tail = appendOutputTail(tail, 'Workspace trust is required.\nGrant access with: robota trust --yes\n');
     expect(tail.length).toBe(OUTPUT_TAIL_LIMIT);
     expect(tail.endsWith('Grant access with: robota trust --yes\n')).toBe(true);
+  });
+});
+
+/** #3189 — a daemon that stops while the window is open is reattached by starting again. */
+describe('createDaemonAttachment (#3189)', () => {
+  const at = (port: number): TDaemonStart => ({
+    ok: true,
+    endpoint: { id: 'd', url: `ws://127.0.0.1:${port}?token=t`, port },
+  });
+
+  it('has no answer and no port before the first start', () => {
+    const attachment = createDaemonAttachment(async () => at(1));
+    expect(attachment.current()).toBeNull();
+    expect(attachment.port()).toBeUndefined();
+  });
+
+  it('answers with the latest start, whose port may differ from the one before', async () => {
+    const answers = [at(4001), at(4002)];
+    const attachment = createDaemonAttachment(async () => answers.shift() ?? at(0));
+    await attachment.start();
+    expect(attachment.port()).toBe(4001);
+    await attachment.start();
+    expect(attachment.port()).toBe(4002);
+    await expect(attachment.current()).resolves.toEqual(at(4002));
+  });
+
+  it('a failed restart leaves no port to reach, and carries the reason', async () => {
+    const answers: TDaemonStart[] = [at(4001), { ok: false, detail: 'Run: robota trust --yes' }];
+    const attachment = createDaemonAttachment(async () => answers.shift() ?? at(0));
+    await attachment.start();
+    await attachment.start();
+    expect(attachment.port()).toBeUndefined();
+    await expect(attachment.current()).resolves.toEqual({ ok: false, detail: 'Run: robota trust --yes' });
+  });
+
+  it('a start asked for while one runs joins it instead of running the CLI again', async () => {
+    let runs = 0;
+    let finish: (value: TDaemonStart) => void = () => {};
+    const attachment = createDaemonAttachment(() => {
+      runs += 1;
+      return new Promise<TDaemonStart>((resolve) => {
+        finish = resolve;
+      });
+    });
+    const first = attachment.start();
+    const second = attachment.start();
+    expect(second).toBe(first);
+    expect(runs).toBe(1);
+    finish(at(4003));
+    await first;
+    void attachment.start();
+    expect(runs).toBe(2);
+  });
+});
+
+describe('buildContentSecurityPolicy (#3189)', () => {
+  it("lets the page reach only the daemon's loopback port", () => {
+    expect(buildContentSecurityPolicy(4321)).toContain('connect-src ws://127.0.0.1:4321;');
+  });
+
+  it('lets the page reach nothing when there is no daemon', () => {
+    expect(buildContentSecurityPolicy(undefined)).toContain("connect-src 'none';");
   });
 });

@@ -24,7 +24,9 @@ that package's build output.
   lockdown — so the nonce-holding renderer cannot carry the session to an external origin.
 - The daemon belongs to the workspace, not the window: closing the window leaves it running, and the
   next launch reattaches to the same daemon and its conversation. When the daemon cannot be started, the
-  window still opens and shows the CLI's reason (which names the fix) instead of hanging.
+  window still opens and shows the CLI's reason (which names the fix) instead of hanging. When the daemon
+  stops while the window is open, the window says so rather than sitting disconnected, and offers to
+  reconnect: the shell asks the CLI again and re-points the page at whatever daemon it answers with.
 
 ## Non-goals
 

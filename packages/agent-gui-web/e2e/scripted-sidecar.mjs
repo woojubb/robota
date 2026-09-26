@@ -14,7 +14,8 @@
  * Run as `daemon start --json` (how the desktop app attaches) it plays the CLI's daemon starter instead: it
  * reuses the daemon recorded in `$ROBOTA_E2E_DAEMON_STATE` while that process lives, or starts itself
  * detached as a new one, and prints the `{id,url}` line. `ROBOTA_E2E_DAEMON_FAIL=1` makes it refuse the way
- * an untrusted workspace does.
+ * an untrusted workspace does, as does the file `$ROBOTA_E2E_DAEMON_FAIL_FILE` once it exists (so a start
+ * the app asks for later can fail while the first succeeded).
  */
 
 import { spawn } from 'node:child_process';
@@ -65,7 +66,8 @@ const isAlive = (pid) => {
 
 /** `daemon start --json`: reuse the recorded live daemon, or start one detached, then print its line. */
 async function daemonStart() {
-  if (process.env.ROBOTA_E2E_DAEMON_FAIL === '1') {
+  const failFile = process.env.ROBOTA_E2E_DAEMON_FAIL_FILE;
+  if (process.env.ROBOTA_E2E_DAEMON_FAIL === '1' || (failFile && existsSync(failFile))) {
     process.stderr.write(line('Workspace is not trusted. Run: robota trust --yes'));
     process.exit(1);
   }

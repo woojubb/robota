@@ -88,6 +88,9 @@ export function createDefaultTransportRegistry(
   // transport reject any unauthenticated connection before emitting session data. If absent,
   // WsTransport auto-mints a distinct authenticated launch token; neither token is persisted here.
   const wsToken = process.env['ROBOTA_WS_TOKEN'];
+  // The transport holds the token from here on. Left in the environment, every tool subprocess
+  // this runtime starts would inherit the credential that admits a WebSocket client.
+  delete process.env['ROBOTA_WS_TOKEN'];
   const wsPortRaw = process.env['ROBOTA_WS_PORT'];
   const wsPort = wsPortRaw ? Number.parseInt(wsPortRaw, 10) : undefined;
   const usageReporter = reportCurrentSessionUsage;

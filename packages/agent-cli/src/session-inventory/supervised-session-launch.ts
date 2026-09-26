@@ -184,7 +184,9 @@ export async function launchSupervisedSession(
           ? `grant ${message.grant}: refused by the session.`
           : message.code === 'events-endpoint-failed'
             ? 'External event endpoint could not be served on its port.'
-            : 'Supervised session refused to start.');
+            : message.code === 'daemon-no-endpoint'
+              ? 'The daemon has no WebSocket endpoint; enable the ws transport.'
+              : 'Supervised session refused to start.');
       }
       if (message.kind === 'ready' && !ready) {
         if (!sameGrants(message.grants, sentGrantIds)) {

@@ -393,6 +393,9 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   });
   if (args.supervisedSessionId !== undefined) {
     try {
+      // A daemon exists to hand its owner a WebSocket URL; one without an endpoint would only block
+      // every later start in its workspace, so it does not become ready.
+      if (args.daemon === true && opts.getMonitorWsUrl?.() === undefined) throw new DaemonNoEndpointError();
       const supervisedCwd = realpathSync(opts.cwd);
       let linkedPr: ISupervisedPr | undefined;
       // Every grant the launcher handed over is open before readiness, or the start fails.
@@ -486,7 +489,9 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
             ? { code: 'grant-refused', grant: error.grantId }
             : error instanceof ExternalEventEndpointError
               ? { code: 'events-endpoint-failed' }
-              : { code: 'startup-failed' };
+              : error instanceof DaemonNoEndpointError
+                ? { code: 'daemon-no-endpoint' }
+                : { code: 'startup-failed' };
           process.send({ kind: 'error', id: args.supervisedSessionId, ...refusal }, () => {
             // The parent may already have disconnected; failure reporting is best-effort only.
           });
@@ -508,6 +513,14 @@ class ExternalEventEndpointError extends Error {
   constructor() {
     super('External event endpoint could not be served on its port.');
     this.name = 'ExternalEventEndpointError';
+  }
+}
+
+/** A daemon's WebSocket transport is not served, so it has no URL to hand its owner. */
+class DaemonNoEndpointError extends Error {
+  constructor() {
+    super('The daemon has no WebSocket endpoint.');
+    this.name = 'DaemonNoEndpointError';
   }
 }
 

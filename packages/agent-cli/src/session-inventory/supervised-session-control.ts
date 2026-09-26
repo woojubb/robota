@@ -664,6 +664,102 @@ export function ensureSupervisedAuditDirectory(root: string): string {
   return directory;
 }
 
+function daemonStartLockFile(workspace: string, root: string): string {
+  const digest = createHash('sha256').update(workspace).digest('hex').slice(0, 16);
+  return join(root, `.daemon-${digest}.lock`);
+}
+
+/**
+ * Who holds a daemon start lock: a live process, one that is gone, or nobody the file names.
+ * `undefined` means the lock was released in the meantime.
+ */
+function readDaemonStartLockOwner(
+  file: string,
+): { readonly pid?: number; readonly state: 'live' | 'gone' | 'unknown' } | undefined {
+  let content: string;
+  try {
+    const stat = lstatSync(file);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.uid !== (process.getuid?.() ?? 0)) {
+      throw new Error('Daemon start lock is not owned by this user.');
+    }
+    content = readFileSync(file, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    throw error;
+  }
+  const pid = /^[1-9][0-9]{0,9}$/u.test(content) ? Number(content) : undefined;
+  if (pid === undefined) return { state: 'unknown' };
+  return { pid, state: probePid(pid) === 'absent' ? 'gone' : 'live' };
+}
+
+const UNLOCK_HINT = 'If no daemon start is running, remove it with: robota daemon unlock';
+
+/**
+ * Serialize `robota daemon start` in one workspace, so two starts never launch two daemons. The lock
+ * is a file created exclusively in the private supervised directory, holding its owner's pid. A live
+ * owner is waited for. A lock this start did not take is never removed here: one left by a start
+ * that is gone refuses the start and names `robota daemon unlock`, so removing it is the user's call.
+ * Resolves to the release of this start's own lock.
+ */
+export async function acquireSupervisedDaemonStartLock(
+  workspace: string,
+  root = resolveSupervisedDirectory(),
+  options: { readonly timeoutMs?: number; readonly pollMs?: number } = {},
+): Promise<() => void> {
+  ensurePrivateDirectory(root);
+  const file = daemonStartLockFile(workspace, root);
+  const owner = String(process.pid);
+  const deadline = Date.now() + (options.timeoutMs ?? 30_000);
+  for (;;) {
+    try {
+      writeFileSync(file, owner, { flag: 'wx', mode: 0o600 });
+      return () => {
+        try {
+          if (readFileSync(file, 'utf8') === owner) rmSync(file, { force: true });
+        } catch {
+          // Already gone; nothing to release.
+        }
+      };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    }
+    const holder = readDaemonStartLockOwner(file);
+    if (holder?.state === 'gone') {
+      throw new Error(
+        `A daemon start lock left by process ${holder.pid}, which is no longer running, remains at ${file}. ${UNLOCK_HINT}`,
+      );
+    }
+    if (Date.now() >= deadline) {
+      throw new Error(
+        `Another daemon start is still running in ${workspace}, or its lock remains at ${file}. ${UNLOCK_HINT}`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, options.pollMs ?? 100));
+  }
+}
+
+/**
+ * `robota daemon unlock`: remove this workspace's daemon start lock at the user's request. A lock whose
+ * owner is still running is kept, since that start is still in progress.
+ */
+export function removeSupervisedDaemonStartLock(
+  workspace: string,
+  root = resolveSupervisedDirectory(),
+): { readonly outcome: 'removed' | 'none' } | { readonly outcome: 'held'; readonly pid: number } {
+  try {
+    verifyExistingDirectory(root);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { outcome: 'none' };
+    throw error;
+  }
+  const file = daemonStartLockFile(workspace, root);
+  const holder = readDaemonStartLockOwner(file);
+  if (holder === undefined) return { outcome: 'none' };
+  if (holder.state === 'live' && holder.pid !== undefined) return { outcome: 'held', pid: holder.pid };
+  rmSync(file, { force: true });
+  return { outcome: 'removed' };
+}
+
 function grantHandoffPath(root: string, id: string): string {
   sessionDirectory(root, id);
   return join(root, `.${id}.grants.json`);

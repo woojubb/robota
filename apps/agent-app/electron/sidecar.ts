@@ -127,3 +127,53 @@ export function appendOutputTail(tail: string, chunk: string): string {
 
 /** The lifecycle state the renderer renders (reusing agent-ui-web's `status` surface for the fatal case). */
 export type TSidecarState = 'starting' | 'ready' | 'fatal';
+
+/** Where the daemon is, or why the shell could not get one. */
+export type TDaemonStart = { ok: true; endpoint: IDaemonEndpoint } | { ok: false; detail: string };
+
+/**
+ * The window's attachment to the workspace daemon. The daemon can stop while the window is open (`robota
+ * daemon stop`, a crash), so the attachment is replaceable: a new start re-asks the CLI, which starts a
+ * daemon or reuses the live one, and may answer with a different port.
+ */
+export interface IDaemonAttachment {
+  /** Ask the CLI for a daemon. While a start is already running, answers with that one instead of racing it. */
+  start(): Promise<TDaemonStart>;
+  /** The latest start's answer (awaited if still running); `null` before the first start. */
+  current(): Promise<TDaemonStart> | null;
+  /** The port the page may reach: the latest finished start's, or `undefined` when it has none. */
+  port(): number | undefined;
+}
+
+export function createDaemonAttachment(run: () => Promise<TDaemonStart>): IDaemonAttachment {
+  let latest: Promise<TDaemonStart> | null = null;
+  let inFlight: Promise<TDaemonStart> | null = null;
+  let settledPort: number | undefined;
+  return {
+    start() {
+      if (inFlight) return inFlight;
+      const started = run().then((result) => {
+        settledPort = result.ok ? result.endpoint.port : undefined;
+        inFlight = null;
+        return result;
+      });
+      inFlight = started;
+      latest = started;
+      return started;
+    },
+    current: () => latest,
+    port: () => settledPort,
+  };
+}
+
+/**
+ * The renderer's CSP: its only reachable socket is the daemon's loopback port — or nothing, when there is
+ * no daemon and the page only shows why.
+ */
+export function buildContentSecurityPolicy(port: number | undefined): string {
+  const connectSrc = port === undefined ? `'none'` : `ws://127.0.0.1:${port}`;
+  return (
+    `default-src 'self'; connect-src ${connectSrc}; img-src 'self' data:; ` +
+    `style-src 'self' 'unsafe-inline'; script-src 'self'`
+  );
+}
