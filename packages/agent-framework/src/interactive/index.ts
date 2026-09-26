@@ -8,6 +8,7 @@ export {
   createUserPromptHistoryFile,
   isSafeSessionId,
   listResumableSessionSummaries,
+  listUnreadableSessions,
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
   WorkspaceProjectSessionStore,

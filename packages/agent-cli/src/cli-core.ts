@@ -112,6 +112,7 @@ import {
 } from './startup/workspace-move-adapter.js';
 import { runPrintMode } from './modes/print-mode.js';
 import { buildServeSessionOptions, runServeMode } from './modes/serve-mode.js';
+import { createServeSessionDirectory } from './modes/serve-session-directory.js';
 import { ROBOTA_PERMISSION_BASELINE } from './product/robota-permission-baseline.js';
 import { runMcpServeMode } from './modes/mcp-serve-mode.js';
 import { resolveMcpHttpOptions } from './utils/mcp-http-args.js';
@@ -472,6 +473,11 @@ async function runCliCore(
       terminal.writeLine(outputStyleNotice);
     }
   }
+  // #3189: a served runtime lets its clients list, start and switch the sessions it saves.
+  const serveSessionDirectory =
+    args.serve && !args.noSessionPersistence
+      ? createServeSessionDirectory<InteractiveSession>()
+      : undefined;
   // REMOTE-008: the shell owns/injects transport wiring; `/remote-control` is its declarative trigger.
   const {
     registry: transportRegistry,
@@ -482,6 +488,7 @@ async function runCliCore(
     workspaceComposition.sessionStore,
     workspaceComposition.projectAccess.status === 'trusted',
     args.open,
+    serveSessionDirectory,
   );
   // External-event grants (TUI only; the parser refuses them elsewhere): every file is valid, or the
   // TUI does not start. Each session the TUI binds opens them, and a refusal fails that bind.
@@ -926,6 +933,7 @@ async function runCliCore(
       commandHostAdapters,
       transportRegistry,
       bindTransports,
+      ...(serveSessionDirectory !== undefined ? { sessionDirectory: serveSessionDirectory } : {}),
       // GUI-007 + SEC-001: point the served monitor at the live WS port AND carry the resolved auth token in
       // the `ws-url` (`?token=`) — zero-config authentication for the CLI's own localhost-origin monitor.
       getMonitorWsUrl: () => {

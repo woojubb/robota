@@ -13,6 +13,11 @@ import { InteractiveSession } from '../../interactive/interactive-session.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { buildRuntimeSession, startRuntimeHost } from '../runtime-host.js';
+import { SessionSlot } from '../session-slot.js';
+import {
+  createNodeHostSessionStore,
+  listResumableSessionSummaries,
+} from '../../interactive/session-persistence.js';
 import { createTransportFailedOutcome } from '@robota-sdk/agent-interface-transport';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
@@ -99,7 +104,7 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
       bindTransports,
     });
 
-    expect(host.session).toBeInstanceOf(InteractiveSession);
+    expect(host.session.current).toBeInstanceOf(InteractiveSession);
     expect(bindTransports).toHaveBeenCalledWith(host.session);
     expect(registry.startAll).toHaveBeenCalledTimes(1);
     expect(registry.startAll).toHaveBeenCalledWith();
@@ -200,8 +205,36 @@ describe('startRuntimeHost (RUNTIME-001 TC-01)', () => {
 
   it('runs without a transport registry (no-op lifecycle)', async () => {
     const host = await startRuntimeHost({ session: { cwd, provider: stubProvider() } });
-    expect(host.session).toBeInstanceOf(InteractiveSession);
+    expect(host.session.current).toBeInstanceOf(InteractiveSession);
     await expect(host.shutdown()).resolves.toBeUndefined();
+  });
+
+  it('binds transports to a slot that follows a switch to another session (#3189)', async () => {
+    const registry = stubRegistry();
+    const store = createNodeHostSessionStore(join(homeRoot, 'sessions'));
+    const bindTransports = vi.fn();
+    const host = await startRuntimeHost({
+      session: { cwd, provider: stubProvider(), sessionStore: store },
+      transportRegistry: registry,
+      bindTransports,
+    });
+    const bound = bindTransports.mock.calls[0]![0] as SessionSlot;
+    expect(bound).toBe(host.session);
+    const first = host.session.current;
+
+    const next = buildRuntimeSession({ cwd, provider: stubProvider(), sessionStore: store });
+    await next.whenInitialized();
+    // Saved once initialized, so a host can list it before making it current.
+    expect(listResumableSessionSummaries(store, cwd).map((row) => row.id)).toContain(
+      next.getSession().getSessionId(),
+    );
+    const firstShutdown = vi.spyOn(first, 'shutdown');
+    await host.session.replace(next);
+
+    expect(bound.current).toBe(next);
+    expect(bound.getSession().getSessionId()).toBe(next.getSession().getSessionId());
+    expect(firstShutdown).toHaveBeenCalledTimes(1);
+    await host.shutdown();
   });
 
   it('exposes ordered completion and prompt failure waits from the lifecycle registry', async () => {

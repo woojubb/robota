@@ -1,7 +1,10 @@
 import { createDefaultTransportRegistry } from '../product/robota-plumbing.js';
 import { createPersonalUsageReporter, createStoredSessionUsageReporter } from './usage-command.js';
 
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type {
+  IInteractiveSessionStore,
+  ISessionDirectory,
+} from '@robota-sdk/agent-interface-session';
 import type { TDriverId } from '@robota-sdk/agent-interface-session';
 import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
 
@@ -11,6 +14,7 @@ function createDefaultUsageTransportRegistry(
   projectTrusted: boolean,
   driverId: TDriverId,
   surface: TUsageSurface,
+  sessionDirectory: ISessionDirectory | undefined,
 ): ReturnType<typeof createDefaultTransportRegistry> {
   const admittedProjectStore = projectTrusted ? projectStore : undefined;
   const personalUsageReporter = createPersonalUsageReporter(admittedProjectStore);
@@ -20,6 +24,7 @@ function createDefaultUsageTransportRegistry(
     storedSessionUsageReporter,
     driverId,
     surface,
+    sessionDirectory,
   );
 }
 
@@ -28,6 +33,8 @@ export function createCliUsageTransportRegistry(
   projectStore: IInteractiveSessionStore,
   projectTrusted: boolean,
   open: boolean,
+  /** #3189: offered to clients for listing, starting and switching sessions (serve mode only). */
+  sessionDirectory?: ISessionDirectory,
 ): ReturnType<typeof createDefaultTransportRegistry> {
   const desktop = Boolean(process.env['ROBOTA_WS_TOKEN']);
   return createDefaultUsageTransportRegistry(
@@ -35,5 +42,6 @@ export function createCliUsageTransportRegistry(
     projectTrusted,
     desktop ? 'app' : open ? 'browser' : 'remote:ws',
     desktop ? 'desktop-app' : open ? 'browser' : 'remote',
+    sessionDirectory,
   );
 }

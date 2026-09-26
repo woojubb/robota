@@ -72,6 +72,7 @@ export function createDefaultTransportRegistry(
   storedSessionUsageReporter?: (sessionId: string) => IUsageBySourceReport,
   driverId?: import('@robota-sdk/agent-interface-session').TDriverId,
   surface?: import('@robota-sdk/agent-interface-analytics').TUsageSurface,
+  sessionDirectory?: import('@robota-sdk/agent-interface-session').ISessionDirectory,
 ): {
   registry: TransportRegistry;
   wsTransport: WsTransport;
@@ -98,6 +99,7 @@ export function createDefaultTransportRegistry(
     ...(storedSessionUsageReporter ? { storedSessionUsageReporter } : {}),
     ...(driverId ? { driverId } : {}),
     ...(surface ? { surface } : {}),
+    ...(sessionDirectory ? { sessionDirectory } : {}),
     usageReporter,
   });
   let registered = false;

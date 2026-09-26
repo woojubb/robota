@@ -1385,6 +1385,15 @@ export class InteractiveSession
     return this.initialized;
   }
 
+  /**
+   * Resolves once initialization has finished — the session is then saved, so it is listed — and
+   * rejects with the reason if it failed. A host waits on it before making this session current.
+   */
+  async whenInitialized(): Promise<void> {
+    await this.ensureInitialized();
+    this.getSessionOrThrow();
+  }
+
   /** Passive, content-free host observation; never registers an answering prompt listener. */
   getLocalActivityStatus(): 'working' | 'needs-input' | 'idle' | undefined {
     if (!this.initialized || this.execCtrl.shuttingDown) return undefined;

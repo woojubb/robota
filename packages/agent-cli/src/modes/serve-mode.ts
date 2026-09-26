@@ -33,11 +33,12 @@ import {
   openExternalEventGrants,
   type IExternalEventGrantHost,
 } from '../external-events/external-event-grant-host.js';
-import { startRuntimeHost } from '@robota-sdk/agent-framework';
+import { buildRuntimeSession, startRuntimeHost } from '@robota-sdk/agent-framework';
+import type { IServeSessionDirectory } from './serve-session-directory.js';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
 import { ROBOTA_PERMISSION_BASELINE } from '../product/robota-permission-baseline.js';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
-import type { IOrgPolicy } from '@robota-sdk/agent-framework';
+import type { InteractiveSession, IOrgPolicy } from '@robota-sdk/agent-framework';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
@@ -146,6 +147,11 @@ export interface IServeModeOptions {
    * served. The CLI composition root builds this from the registered `WsTransport.boundPort`.
    */
   getMonitorWsUrl?: () => string | undefined;
+  /**
+   * #3189: the directory the transports offer for listing, starting and switching sessions. Serve
+   * mode attaches it to the host once started; absent ⇒ clients are told sessions are not available.
+   */
+  sessionDirectory?: IServeSessionDirectory<InteractiveSession>;
 }
 
 /**
@@ -270,10 +276,41 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   const { args } = opts;
   const sessionOptions = buildServeSessionOptions(opts);
 
+  // Declared before the host starts: the directory is attached in `bindTransports`, ahead of the
+  // first connection, and asks this whether the runtime can change its session at all.
+  let settling = false;
+  let externalEvents: IExternalEventGrantHost | undefined;
+  const sessionDirectory = opts.sessionDirectory;
   const host = await startRuntimeHost({
     session: sessionOptions,
     transportRegistry: opts.transportRegistry,
-    ...(opts.bindTransports ? { bindTransports: opts.bindTransports } : {}),
+    bindTransports: (slot) => {
+      if (sessionDirectory !== undefined && sessionOptions.sessionStore !== undefined) {
+        const store = sessionOptions.sessionStore;
+        sessionDirectory.attach({
+          slot,
+          store,
+          cwd: opts.cwd,
+          buildSession: (resumeSessionId) =>
+            buildRuntimeSession({
+              ...sessionOptions,
+              resumeSessionId,
+              // A switch opens exactly the session asked for; the launch's fork and name do not carry over.
+              forkSession: undefined,
+              sessionName: undefined,
+            }),
+          switchBlockedReason: () => {
+            if (settling) return 'This runtime is stopping.';
+            // The grants were opened on this session and are checked against it; a switch would drop them.
+            if (externalEvents !== undefined) {
+              return 'This runtime receives external events for its session, so it cannot switch sessions.';
+            }
+            return undefined;
+          },
+        });
+      }
+      opts.bindTransports?.(slot);
+    },
   });
 
   // GUI-007: with `--serve --open`, the CLI serves its OWN monitor SPA over localhost HTTP (a localhost-origin
@@ -295,10 +332,8 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   // Stay alive until the supervisor (e.g. apps/agent-app on window close) signals — or a
   // host-executed session-exit/-restart action fires (CMD-004 Phase 2) — then tear down cleanly.
   let supervisedControl: ISupervisedControl | undefined;
-  let externalEvents: IExternalEventGrantHost | undefined;
   let eventEndpoint: IExternalEventHttpHost | undefined;
   let requestSettle: (reason: string) => void = () => undefined;
-  let settling = false;
   const readinessAbort = new AbortController();
   const lifetime = new Promise<void>((resolve) => {
     const settle = (reason: string): void => {
@@ -363,7 +398,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
           ensureSupervisedAuditDirectory(root),
           args.supervisedSessionId,
         );
-        const opened = await openExternalEventGrants(host.session, grants, {
+        const opened = await openExternalEventGrants(host.session.current, grants, {
           audit: (record) => {
             if ('settlement' in record) audit(record);
           },
@@ -396,14 +431,14 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         args.supervisedSessionId,
         () => requestSettle('supervised session stopped'),
         opts.supervisedRoot,
-        () => settling ? undefined : host.session.getLocalActivityStatus(),
+        () => settling ? undefined : host.session.current.getLocalActivityStatus(),
         () => settling ? undefined : supervisedCwd,
         () => settling || sessionOptions.disableSessionLoops
-          ? undefined : nextWaitingLoopAt(host.session.listSelfPacedLoops(), Date.now()),
-        () => settling ? undefined : host.session.getName(),
+          ? undefined : nextWaitingLoopAt(host.session.current.listSelfPacedLoops(), Date.now()),
+        () => settling ? undefined : host.session.current.getName(),
         (name) => {
           if (settling) throw new Error('Supervised runtime is stopping.');
-          host.session.setName(name);
+          host.session.current.setName(name);
         },
         {
           get: () => settling ? undefined : linkedPr,
