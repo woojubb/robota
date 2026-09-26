@@ -59,6 +59,12 @@ async function liveSession(sessionId: string, turns: readonly TScriptedTurn[]) {
     bare: true,
     commandHostAdapters: adapters,
   });
+  // The operator allows what is asked: the reply is decided like any call that leaves the machine.
+  const asked: string[] = [];
+  session.on('permission_request', (request) => {
+    asked.push(request.toolName);
+    session.resolvePermission(request.id, true);
+  });
   const report = { said: [] as string[], writeError: (m: string) => report.said.push(m) };
   const messaging = await attachLocalPeerMessaging(
     adapters,
@@ -66,7 +72,7 @@ async function liveSession(sessionId: string, turns: readonly TScriptedTurn[]) {
     () => session,
     report,
   );
-  return { session, adapters, scripted, messaging, report };
+  return { session, adapters, scripted, messaging, report, asked };
 }
 
 async function until(condition: () => boolean): Promise<void> {
@@ -93,6 +99,7 @@ describe('peer_reply end to end', () => {
       // B was told only what A's operator wrote, and answered with the tool rather than its text.
       expect(JSON.stringify(b.scripted.requests[0])).toContain('ping from A');
       expect(seenByA).not.toContain('answered');
+      expect(b.asked).toEqual(['peer_reply']);
       expect([...a.report.said, ...b.report.said]).toEqual([]);
     } finally {
       await (await a.messaging)?.close();

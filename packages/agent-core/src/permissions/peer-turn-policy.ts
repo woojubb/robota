@@ -10,9 +10,9 @@
  * - a peer on the same host may use a read that reaches nothing but the workspace — every location
  *   it names resolves inside, symlinks followed, and none of them is a secret. Writing and executing
  *   are refused unless the operator enabled them, and then every use asks;
- * - the reply to the peer exists only in a peer turn, and asks the operator whenever a tool result
- *   is in what the model sees — from this turn or any earlier one, the operator's included — because
- *   what it carries may then come from the machine rather than from the model.
+ * - the reply to the peer exists only in a peer turn. Within one it is not this step's to decide: it
+ *   sends text off this machine, so the ordinary steps decide it like any such call — rules, mode
+ *   and remembered consent.
  *
  * Where the peer runs comes from admission, never from anything the peer sent.
  */
@@ -35,11 +35,6 @@ export interface IPeerTurnAuthority {
   readonly reach: TPeerReach;
   /** The operator enabled write and execute tools for same-host peer turns; each use still asks. */
   readonly allowChanges: boolean;
-  /**
-   * What the model sees may hold a tool's output: the conversation carries a tool result, or a tool
-   * other than the reply was allowed earlier in this turn.
-   */
-  readonly toolOutputInContext: boolean;
 }
 
 /** What the peer step decided: refuse, ask, or leave the call to the ordinary steps. */
