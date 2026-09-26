@@ -14,6 +14,7 @@
 import type { ICompactEvent } from './compact-contracts';
 import type { ISessionRenamedEvent, IUiIntentEvent, TDriverId } from './driver-contracts.js';
 import type { IMemoryEvent, ISkillActivationEvent } from './event-contracts.js';
+import type { ISessionSwitchedEvent } from './session-summary-contracts.js';
 import type { IExecutionResult, TTurnSource } from './turn-contracts.js';
 import type { IActionRequest, IContextWindowState, TToolArgs } from '@robota-sdk/agent-core';
 import type { IExecutionWorkspaceEvent } from '@robota-sdk/agent-interface-execution';
@@ -154,6 +155,8 @@ export interface IInteractiveSessionEvents {
   session_renamed: (event: ISessionRenamedEvent) => void;
   /** CMD-004 Phase 2: the conversation history was cleared host-side — all surfaces refresh transcripts. */
   history_cleared: () => void;
+  /** #3189: the host made another session current — all surfaces re-read transcript and status. */
+  session_switched: (event: ISessionSwitchedEvent) => void;
 }
 
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;
