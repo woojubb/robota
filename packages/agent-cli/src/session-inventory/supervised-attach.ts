@@ -80,6 +80,8 @@ export function createSupervisedAttachCarrier(session: IProtocolSession): ISuper
         respond.refuse('unsupported-attach');
         return;
       }
+      // A connection already gone would never report its close, so its slot would never come back.
+      if (socket.destroyed) return;
       if (attached.size >= MAX_ATTACHED_SURFACES) {
         respond.refuse('attach-limit');
         return;

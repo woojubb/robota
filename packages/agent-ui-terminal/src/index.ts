@@ -1,5 +1,11 @@
 export { renderApp } from './render.js';
 export { renderSupervisedSessionView } from './SupervisedSessionView.js';
+export { renderAttachedSessionView } from './AttachedSessionView.js';
+export type {
+  IAttachedSessionConnection,
+  IAttachedSessionViewProps,
+  TAttachedSessionEnd,
+} from './AttachedSessionView.js';
 export type { ISupervisedViewRow, ISupervisedSessionViewProps } from './SupervisedSessionView.js';
 export { TuiInteractionChannel } from './TuiInteractionChannel.js';
 export type { ITuiInteractionChannelOptions } from './TuiInteractionChannel.js';

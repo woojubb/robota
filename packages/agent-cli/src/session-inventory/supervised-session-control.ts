@@ -284,6 +284,15 @@ function readLine(
  * Send one command bound to `generation`. A reply is returned only when its owner echoes that same
  * generation, so a reply from a different process start is never taken as this registration's.
  */
+/** Open the owner's control socket, refusing one this user does not own. */
+function connectControlSocket(directory: string, id: string): Socket {
+  verifyExistingDirectory(directory);
+  const socketPath = controlSocketPath(dirname(directory), id);
+  const info = lstatSync(socketPath);
+  if (!info.isSocket() || info.uid !== (process.getuid?.() ?? 0)) throw new Error('Supervised session control socket was refused.');
+  return createConnection(socketPath);
+}
+
 async function request(
   directory: string,
   id: string,
@@ -295,11 +304,7 @@ async function request(
   grantId?: string,
 ): Promise<object> {
   signal?.throwIfAborted();
-  verifyExistingDirectory(directory);
-  const socketPath = controlSocketPath(dirname(directory), id);
-  const info = lstatSync(socketPath);
-  if (!info.isSocket() || info.uid !== (process.getuid?.() ?? 0)) throw new Error('Supervised session control socket was refused.');
-  const socket = createConnection(socketPath);
+  const socket = connectControlSocket(directory, id);
   const onAbort = (): void => { socket.destroy(new Error('Supervised session control aborted.')); };
   signal?.addEventListener('abort', onAbort, { once: true });
   try {
@@ -519,6 +524,67 @@ export async function getVerifiedSupervisedPr(
   if (!('pr' in response)) return undefined;
   if (!isSupervisedPr(response.pr)) throw new Error('Supervised session PR association was not verified.');
   return response.pr;
+}
+
+const ATTACH_REFUSALS: Readonly<Record<string, string>> = {
+  'stale-generation': 'Supervised session changed since it was listed.',
+  'attach-limit': 'Too many terminals are already attached to this supervised session.',
+  'attach-unavailable': 'This supervised session does not accept attached terminals.',
+  'unsupported-attach': 'This supervised session does not support this kind of attach.',
+  declined: 'This supervised session declined the attach.',
+};
+
+export interface ISupervisedAttachSocket {
+  readonly socket: Socket;
+  readonly driverId: string;
+  /** Protocol bytes that arrived with the handshake reply. The socket is paused. */
+  readonly rest: string;
+}
+
+/**
+ * Attach to a live owner. The registration is re-read here, not trusted from a listed row: with
+ * `expectedGeneration` (the one the user confirmed) a restart since then is refused, and the owner
+ * compares the same generation again before admitting the connection.
+ */
+export async function openSupervisedAttachSocket(
+  id: string,
+  mode: 'drive' | 'observe',
+  root = resolveSupervisedDirectory(),
+  expectedGeneration?: string,
+): Promise<ISupervisedAttachSocket> {
+  const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
+  const socket = connectControlSocket(directory, id);
+  try {
+    await new Promise<void>((resolve, reject) => {
+      socket.once('connect', resolve);
+      socket.once('error', () => reject(new Error('Supervised session control is unavailable.')));
+      socket.setTimeout(REQUEST_TIMEOUT_MS, () => reject(new Error('Supervised session control timed out.')));
+    });
+    socket.write(`${JSON.stringify({ command: 'attach', id, generation, mode, protocol: 1 })}\n`);
+    let rest = '';
+    // Paused until the caller reads the protocol, so no frame is dropped in between.
+    const reply = JSON.parse(await readLine(socket, MAX_FRAME_BYTES, (remaining) => {
+      rest = remaining;
+      socket.pause();
+    })) as unknown;
+    if (typeof reply !== 'object' || reply === null || !('id' in reply) || reply.id !== id) {
+      throw new Error('Supervised session did not confirm the attach.');
+    }
+    if ('status' in reply && reply.status === 'refused') {
+      const reason = 'reason' in reply && typeof reply.reason === 'string' ? ATTACH_REFUSALS[reply.reason] : undefined;
+      throw new Error(reason ?? 'Supervised session refused the attach.');
+    }
+    if (!('status' in reply) || reply.status !== 'attached' || !('generation' in reply) ||
+      reply.generation !== generation || !('driverId' in reply) || typeof reply.driverId !== 'string' ||
+      !/^attach:[1-9][0-9]*$/u.test(reply.driverId)) {
+      throw new Error('Supervised session did not confirm the attach.');
+    }
+    socket.setTimeout(0);
+    return { socket, driverId: reply.driverId, rest };
+  } catch (error) {
+    socket.destroy();
+    throw error;
+  }
 }
 
 /** The owner's grants on a live session: labels, principal kinds, states and counts. */

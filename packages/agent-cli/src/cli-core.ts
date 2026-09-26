@@ -135,6 +135,7 @@ export interface ICliPresentation {
   createDefaultTuiCliAdapter: typeof import('@robota-sdk/agent-ui-terminal').createDefaultTuiCliAdapter;
   renderApp: typeof import('@robota-sdk/agent-ui-terminal').renderApp;
   renderSupervisedSessionView: typeof import('@robota-sdk/agent-ui-terminal').renderSupervisedSessionView;
+  renderAttachedSessionView: typeof import('@robota-sdk/agent-ui-terminal').renderAttachedSessionView;
   installTuiProcessGuards: typeof import('./process-guards.js').installTuiProcessGuards;
   setLiveChannel: typeof import('./process-guards.js').setLiveChannel;
 }
@@ -211,6 +212,7 @@ async function runCliCore(
       cwd,
       telemetryEnvironment,
       presentation?.renderSupervisedSessionView,
+      presentation?.renderAttachedSessionView,
     )
   )
     return;

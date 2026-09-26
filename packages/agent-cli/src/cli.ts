@@ -1,6 +1,7 @@
 import {
   renderApp,
   renderSupervisedSessionView,
+  renderAttachedSessionView,
   createDefaultTuiCliAdapter,
   createNodeKeybindingsSource,
 } from '@robota-sdk/agent-ui-terminal';
@@ -17,6 +18,7 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   return startCliCore(options, createDefaultBackgroundTaskRunners, {
     renderApp,
     renderSupervisedSessionView,
+    renderAttachedSessionView,
     createDefaultTuiCliAdapter,
     createNodeKeybindingsSource,
     createThemeSurface,
