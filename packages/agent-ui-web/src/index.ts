@@ -39,4 +39,5 @@ export type { TPersonalUsageDashboardState } from './components/personal-usage-d
 export { SessionSurface, CenteredChrome } from './components/SessionSurface.js';
 export { SessionSidebar } from './components/SessionSidebar.js';
 export { SessionMonitor } from './components/SessionMonitor.js';
+// Pieces of a surface's chrome, not roots: render them inside a `robota-ui` scope.
 export { RobotaMark, RobotaWordmark } from './components/Brand.js';

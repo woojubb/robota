@@ -1,6 +1,7 @@
 ---
 '@robota-sdk/agent-ui-web': minor
 '@robota-sdk/agent-transport-webrtc-web': patch
+'@robota-sdk/agent-cli': patch
 ---
 
 The GUI surface's design now applies inside a `robota-ui` scope that each of its root components opens,

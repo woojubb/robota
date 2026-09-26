@@ -19,4 +19,10 @@ describe('the Tailwind entry', () => {
     expect(entry).toContain('@source "../../../../packages/agent-ui-web/src";');
     expect(entry).toContain('@source "../../../../packages/agent-transport-webrtc-web/src";');
   });
+
+  it("keeps the playground's form styles out of the surface's scope", () => {
+    for (const element of ['input', 'textarea', 'select']) {
+      expect(entry).toContain(`${element}:where(:not(.robota-ui *))`);
+    }
+  });
 });

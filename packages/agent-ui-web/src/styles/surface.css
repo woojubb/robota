@@ -86,18 +86,6 @@
     'Segoe UI', 'Noto Sans KR', sans-serif;
   --font-mono:
     'SF Mono', ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace;
-
-  color: var(--foreground);
-  font-family: var(--font-sans);
-  font-size: 15px;
-  line-height: 1.6;
-  letter-spacing: -0.005em;
-  font-feature-settings:
-    'ss06' 1,
-    'tnum' 0;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
 }
 .robota-ui[data-theme='light'],
 [data-theme='light'] .robota-ui {
@@ -109,6 +97,26 @@
 }
 
 @layer base {
+  /*
+   * The surface's type, set where it renders and never on the root element: on a page that is only
+   * the surface (`<html class="robota-ui">`) it goes on the body, so `1rem` stays the browser's and the
+   * rem-based spacing keeps its size. In the base layer, so a utility class on a root still wins.
+   */
+  .robota-ui:not(:root),
+  :root.robota-ui > body {
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.6;
+    letter-spacing: -0.005em;
+    font-feature-settings:
+      'ss06' 1,
+      'tnum' 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
   .robota-ui,
   .robota-ui *,
   .robota-ui ::before,
@@ -182,7 +190,10 @@
 
 @media (prefers-reduced-motion: reduce) {
   .gui-rise,
-  .gui-shimmer {
+  .gui-shimmer,
+  .robota-ui .animate-pulse,
+  .robota-ui .animate-spin,
+  .robota-ui .animate-ping {
     animation: none;
   }
   .gui-shimmer {

@@ -22,7 +22,8 @@ describe('surface styles', () => {
   it('define the design tokens under .robota-ui and nowhere on :root', () => {
     const surface = code('surface.css');
 
-    expect(surface).not.toMatch(/:root/u);
+    // No rule on the bare root: `:root {` or `:root[data-theme…] {`.
+    expect(surface).not.toMatch(/(^|\})\s*:root(\[[^\]]*\])?\s*\{/u);
     expect(surface).toMatch(/\.robota-ui\s*\{[^}]*--background:/u);
   });
 
@@ -35,7 +36,22 @@ describe('surface styles', () => {
       .flatMap((list) => list.split(',').map((selector) => selector.trim()));
 
     expect(selectors.length).toBeGreaterThan(0);
-    expect(selectors.filter((selector) => !selector.startsWith('.robota-ui'))).toEqual([]);
+    expect(
+      selectors.filter(
+        (selector) => !selector.startsWith('.robota-ui') && !selector.startsWith(':root.robota-ui'),
+      ),
+    ).toEqual([]);
+  });
+
+  it('leave the root font size alone, so rem-based spacing keeps its size on a whole page', () => {
+    const surface = code('surface.css');
+    const tokens = surface.match(/\n\.robota-ui\s*\{([^}]*)\}/u)?.[1] ?? '';
+
+    expect(tokens).toContain('--background:');
+    expect(tokens).not.toMatch(/(^|[\s;])font(-size)?:/u);
+    expect(surface).toMatch(
+      /\.robota-ui:not\(:root\),\s*:root\.robota-ui > body\s*\{[^}]*font-size:/u,
+    );
   });
 
   it('are importable on their own, and the page theme builds on them', () => {

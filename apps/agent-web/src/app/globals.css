@@ -140,30 +140,31 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Studio dark theme for all form elements */
-  input,
-  textarea,
-  select {
+  /* Studio dark theme for the playground's form elements; the GUI surface (.robota-ui) styles its own.
+     `:where()` keeps each selector's specificity as it was. */
+  input:where(:not(.robota-ui *)),
+  textarea:where(:not(.robota-ui *)),
+  select:where(:not(.robota-ui *)) {
     background-color: var(--studio-bg-surface);
     border: 1px solid var(--studio-border);
     color: var(--studio-text);
     border-radius: 6px;
   }
 
-  input:focus,
-  textarea:focus,
-  select:focus {
+  input:where(:not(.robota-ui *)):focus,
+  textarea:where(:not(.robota-ui *)):focus,
+  select:where(:not(.robota-ui *)):focus {
     outline: none;
     border-color: var(--studio-accent);
     box-shadow: 0 0 0 1px var(--studio-accent);
   }
 
-  input::placeholder,
-  textarea::placeholder {
+  input:where(:not(.robota-ui *))::placeholder,
+  textarea:where(:not(.robota-ui *))::placeholder {
     color: var(--studio-text-muted);
   }
 
-  select option {
+  select:where(:not(.robota-ui *)) option {
     background-color: var(--studio-bg-elevated);
     color: var(--studio-text);
   }
