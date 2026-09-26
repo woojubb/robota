@@ -271,7 +271,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     render(<SessionSurface state={state} personalUsageEnabled />);
     fireEvent.click(screen.getByRole('button', { name: 'Usage' }));
     expect(screen.getByText(/permission request/i)).toBeTruthy();
-    fireEvent.click(screen.getByText('Allow'));
+    fireEvent.click(screen.getByText('Allow'), { detail: 1 });
     expect(state.answerPermission).toHaveBeenCalledWith('p1', true);
   });
 
@@ -283,7 +283,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     });
     render(<SessionSurface state={state} />);
     expect(screen.getByText(/permission request/i)).toBeTruthy();
-    fireEvent.click(screen.getByText('Allow'));
+    fireEvent.click(screen.getByText('Allow'), { detail: 1 });
     expect(state.answerPermission).toHaveBeenCalledWith('p1', true);
   });
 
