@@ -231,7 +231,7 @@ export default function AttachedSessionView({
           setWorking(false);
           setQueued(null);
           setNotice(undefined);
-          changePrompt(undefined);
+          changePrompts([]);
           setLabel(message.event.sessionId);
           requestSnapshot();
           break;
