@@ -16,6 +16,8 @@ interface IManifest {
   name: string;
   dependencies?: Record<string, string>;
   devDependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
   exports?: Record<string, unknown>;
 }
 
@@ -37,8 +39,10 @@ function workspaceManifests(): Map<string, { dir: string; manifest: IManifest }>
 }
 
 /**
- * The workspace packages a source run of the CLI loads: agent-cli bundles its workspace packages, so it
- * lists them as devDependencies; every other package reaches its own through dependencies.
+ * The workspace packages a source run of the CLI may load: agent-cli lists its workspace packages as
+ * devDependencies (it bundles them); every other package reaches its own through its dependencies,
+ * including optional ones it imports on demand (dag-nodes-default loads its gemini nodes that way, and a
+ * missed one there fails silently). Peer workspace dependencies count too.
  */
 function cliClosure(
   byName: Map<string, { dir: string; manifest: IManifest }>,
@@ -53,7 +57,11 @@ function cliClosure(
     const deps =
       name === '@robota-sdk/agent-cli'
         ? { ...pkg.manifest.dependencies, ...pkg.manifest.devDependencies }
-        : (pkg.manifest.dependencies ?? {});
+        : {
+            ...pkg.manifest.dependencies,
+            ...pkg.manifest.optionalDependencies,
+            ...pkg.manifest.peerDependencies,
+          };
     for (const [dep, spec] of Object.entries(deps)) {
       if (spec.startsWith('workspace:')) queue.push(dep);
     }
@@ -79,6 +87,7 @@ describe('pnpm cli:dev runs without a build', () => {
     const names = closure.map(({ manifest }) => manifest.name);
     expect(names).toContain('@robota-sdk/dag-core');
     expect(names).toContain('@robota-sdk/dag-node-instant-node');
+    expect(names).toContain('@robota-sdk/dag-node-gemini-image-edit');
   });
 
   it('resolves every reached export subpath to an existing source file', () => {
