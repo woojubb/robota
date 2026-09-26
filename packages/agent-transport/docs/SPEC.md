@@ -15,10 +15,11 @@ transport implementations.
 - Admission, access-token and handoff integrity helpers return their declared result contracts.
   The access-token verifier trusts only keys no older than a bounded age; beyond that an issuer
   outage refuses rather than admits. Outbound delivery isolates carrier failures through a supplied
-  error handler and closes a connection whose peer stops reading instead of making the session wait
-  for it. No fallback transport is ever selected on behalf of a caller.
-- Carriers supply `TOutboundDeliver`, an `IProtocolSession` and the connection's role; no carrier
-  implementation is registered inside this package. An observing connection reads only its own
+  error handler, and stops sending to a peer that stops reading, reporting it so the carrier can
+  close that connection, instead of making the session wait for it. No fallback transport is ever
+  selected on behalf of a caller.
+- Carriers supply `TOutboundDeliver` and an `IProtocolSession`, and decide each connection's role;
+  no carrier implementation is registered inside this package. An observing connection reads only its own
   session's conversation and state: it cannot submit, answer, control, or read another session's
   records, and it never listens for prompts, so a session watched only by observers still fails its
   prompts closed at once.

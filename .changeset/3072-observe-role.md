@@ -15,8 +15,9 @@ The session protocol gains a read-only `observe` role.
   prompts, or read personal or other sessions' usage reports. Each such message is answered with a
   `protocol_error` and changes nothing. Only an explicit list of reads is accepted, so a message type
   added later is refused to observers until it is classified.
-- `ATTACHED_SURFACE_MAX_PENDING_BYTES` (1 MiB) is the backpressure budget for a terminal attached on
-  the same host: a reader that falls that far behind is disconnected, and other surfaces keep
-  streaming.
+- `ATTACHED_SURFACE_MAX_PENDING_BYTES` (1 MiB) is the backpressure budget a carrier passes to
+  `createOutboundDelivery` for a terminal attached on the same host. A reader that falls that far
+  behind is cut off and reported to the carrier, and other surfaces keep streaming. No carrier uses it
+  yet.
 - `agent-cli`: a supervised session's control endpoint no longer includes its generation in a
   refusal to a caller that did not present it.
