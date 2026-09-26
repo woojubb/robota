@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   isSameEnvironmentPeer,
   isTerminalPeerDelivery,
-  peerReachOf,
   type IPeerAdmission,
   type IPeerMessage,
   type TPeerDeliveryState,
@@ -119,14 +118,5 @@ describe('PEER-001 — the message shape (#1809)', () => {
 
     // Claiming the owner driver id does not upgrade what was proven about origin.
     expect(isSameEnvironmentPeer(spoofed)).toBe(false);
-  });
-});
-
-describe('a peer turn’s reach comes from admission', () => {
-  it('only a same-user-same-host admission reaches as the same host', () => {
-    expect(peerReachOf(admission())).toBe('same-host');
-    expect(peerReachOf(admission({ trust: 'same-user-different-host' }))).toBe('another-host');
-    expect(peerReachOf(admission({ trust: 'token-only' }))).toBe('another-host');
-    expect(peerReachOf(admission({ admitted: false, trust: 'unproven' }))).toBe('another-host');
   });
 });

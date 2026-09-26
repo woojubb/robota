@@ -60,9 +60,9 @@ from trust and the capabilities local policy leaves of the certificate's, never 
 Some capabilities also need the receiving operator's yes: observing and driving for every connection,
 because an earlier connection's yes says nothing about who holds this one, and delegating and
 hand-off for every request. Without an operator to ask they are refused. The operator must be someone
-no connected surface can speak for, or one device could approve the next. A delegated task runs as a
-peer turn from where admission placed the peer, so the receiver's policy decides what it may do and
-nothing the sender attaches to the request can widen it.
+no connected surface can speak for, or one device could approve the next. A delegated task, like a message,
+carries no authority: the turn it starts is decided by the receiver's ordinary permissions, and
+nothing the sender attaches to the request travels with it.
 
 The driver-id attribution on a peer message is **display and attribution only** and must never
 become an authentication or authorization input. It is also what tells the model a message is a

@@ -15,7 +15,6 @@ import {
   findInvalidPermissionPatterns,
   findPermissionPatternWarnings,
   getToolPermissionProfile,
-  isToolAvailableInPeerTurn,
   isToolDeniedOutright,
   matchesAnyPattern,
   projectPermissionPolicy,
@@ -50,8 +49,6 @@ import type {
   TToolParameters,
   THooksConfig,
   TResolveInWorkspace,
-  IPeerTurnAuthority,
-  TPeerReach,
 } from '@robota-sdk/agent-core';
 
 export type { TPermissionHandler, TPermissionResult, ITerminalOutput, ISpinner };
@@ -109,13 +106,8 @@ export class PermissionEnforcer {
   private readonly resolveInWorkspace: TResolveInWorkspace;
   private readonly commandSandbox?: IPermissionEnforcerOptions['commandSandbox'];
   private readonly denials = new PermissionDenialLog();
-  private readonly allowPeerChanges: boolean;
-  /**
-   * The peer turn in progress, or undefined for the operator's own. Held here because the turn's
-   * origin is one more input to every decision the turn makes, and `toolOutputInContext` — whether
-   * the model can see a tool's output — decides whether its reply to the peer needs a person first.
-   */
-  private peerTurn: IPeerTurnAuthority | undefined;
+  /** A turn a peer's message started is in progress: the one place the reply to that peer exists. */
+  private peerTurn = false;
   private readonly autoMode?: AutoModeGate;
 
   constructor(options: IPermissionEnforcerOptions) {
@@ -146,32 +138,22 @@ export class PermissionEnforcer {
     this.homeDirectory = options.homeDirectory ?? homedir();
     this.resolveInWorkspace = createWorkspacePathResolver(options.cwd);
     this.commandSandbox = options.commandSandbox;
-    this.allowPeerChanges = options.allowPeerChanges === true;
     if (options.permissionClassifier !== undefined) {
       this.autoMode = new AutoModeGate(options.permissionClassifier);
     }
   }
 
   /**
-   * Start a turn: driven by a peer reaching this host from `peerReach`, or the operator's own when
-   * undefined. Every call the turn makes is then decided with that origin as an input.
-   * `historyCarriesToolOutput` says whether the conversation the turn continues already holds a
-   * tool's output, whichever turn produced it.
+   * Start a turn, which a peer's message started when `peerTurn` is true. That decides only whether
+   * the reply to the peer exists; every other call is decided exactly as in any turn.
    */
-  beginTurn(peerReach: TPeerReach | undefined, historyCarriesToolOutput: boolean): void {
-    this.peerTurn =
-      peerReach === undefined
-        ? undefined
-        : {
-            reach: peerReach,
-            allowChanges: this.allowPeerChanges,
-            toolOutputInContext: historyCarriesToolOutput,
-          };
+  beginTurn(peerTurn: boolean): void {
+    this.peerTurn = peerTurn;
   }
 
-  /** End the turn; what follows is the operator's until the next peer turn begins. */
+  /** End the turn; the reply to a peer is gone until the next peer turn begins. */
   endTurn(): void {
-    this.peerTurn = undefined;
+    this.peerTurn = false;
   }
 
   /** Whether `auto` mode can run here: it needs a classifier to decide for it. */
@@ -216,12 +198,8 @@ export class PermissionEnforcer {
    * `/preset` that denies a tool hides it from the next round.
    */
   isToolVisible(toolName: string): boolean {
-    // A peer turn is shown only what its origin may use; the reply exists in a peer turn alone.
-    const peerTurn = this.peerTurn;
-    if (peerTurn !== undefined && !isToolAvailableInPeerTurn(toolName, peerTurn)) return false;
-    if (peerTurn === undefined && getToolPermissionProfile(toolName).repliesToPeer === true) {
-      return false;
-    }
+    // The reply exists in a peer turn alone; a peer turn is otherwise shown what any turn is.
+    if (!this.peerTurn && getToolPermissionProfile(toolName).repliesToPeer === true) return false;
     return !isToolDeniedOutright(toolName, [
       ...this.config.permissions.deny,
       ...(this.taskPermissions?.deny ?? []),
@@ -265,7 +243,7 @@ export class PermissionEnforcer {
       getPermissionMode: this.getPermissionMode,
       log: (event, detail) => this.log(event, detail),
       checkPermission: (toolName, toolArgs, signal, interaction, hookTraceEnv) =>
-        this.decideAndRecord(toolName, toolArgs, signal, interaction, hookTraceEnv),
+        this.decidePermission(toolName, toolArgs, signal, interaction, hookTraceEnv),
     };
 
     return tools.map((tool) => wrapToolWithPermission(tool, deps));
@@ -350,7 +328,7 @@ export class PermissionEnforcer {
     hookTraceEnv?: IToolExecutionContext['hookTraceEnv'],
   ): Promise<boolean> {
     return (
-      (await this.decideAndRecord(toolName, toolArgs, signal, interaction, hookTraceEnv)) === true
+      (await this.decidePermission(toolName, toolArgs, signal, interaction, hookTraceEnv)) === true
     );
   }
 
@@ -378,7 +356,7 @@ export class PermissionEnforcer {
       this.log('tool_blocked', { tool: toolName, reason: 'hook', delegated: true });
       return false;
     }
-    const decision = await this.decideAndRecord(
+    const decision = await this.decidePermission(
       toolName,
       toolParameters as TToolArgs,
       signal,
@@ -387,38 +365,6 @@ export class PermissionEnforcer {
       { sandboxed: false },
     );
     return decision === true;
-  }
-
-  /**
-   * {@link decidePermission}, remembering that a peer turn used a tool. Recorded when the call is
-   * allowed, before it runs: whatever the reply says after this may come from what the tool read.
-   */
-  private async decideAndRecord(
-    toolName: string,
-    toolArgs: TToolArgs,
-    signal?: AbortSignal,
-    interaction: IToolExecutionContext['permissionInteraction'] = 'interactive',
-    hookTraceEnv?: IToolExecutionContext['hookTraceEnv'],
-    scope: IDecisionScope = {},
-  ): Promise<boolean | IPermissionRefusal> {
-    const peerTurn = this.peerTurn;
-    const decision = await this.decidePermission(
-      toolName,
-      toolArgs,
-      signal,
-      interaction,
-      hookTraceEnv,
-      scope,
-    );
-    if (
-      decision === true &&
-      peerTurn !== undefined &&
-      this.peerTurn === peerTurn &&
-      getToolPermissionProfile(toolName).repliesToPeer !== true
-    ) {
-      this.peerTurn = { ...peerTurn, toolOutputInContext: true };
-    }
-    return decision;
   }
 
   /** {@link checkPermission}, keeping the reason a refusal carries for the model. */
@@ -458,7 +404,7 @@ export class PermissionEnforcer {
         scope.sandboxed !== false && this.sandboxAutoApproves(toolName, toolArgs),
       ...(policy?.ceiling !== undefined ? { ceiling: policy.ceiling } : {}),
       askAll: policy?.askAll ?? false,
-      ...(this.peerTurn !== undefined ? { peerTurn: this.peerTurn } : {}),
+      ...(this.peerTurn ? { peerTurn: true } : {}),
     });
 
     // SELFHOST-009: fire PermissionDecision (INFORMATIONAL-ONLY, non-blocking) right after the
@@ -473,10 +419,7 @@ export class PermissionEnforcer {
 
     // 'approve' — route to the human-approval path. An ask that must reach a person every time is
     // not answered by a remembered consent, and does not create one (issue #3081).
-    // Every ask in a peer turn reaches a person: a consent remembered from the operator's own work
-    // does not answer for a peer, and one given to a peer is not remembered.
-    const fresh =
-      this.peerTurn !== undefined || requiresFreshApproval(toolName, toolArgs, rules, where);
+    const fresh = requiresFreshApproval(toolName, toolArgs, rules, where);
     // In auto mode the classifier stands in for the person, except where a person is required: an
     // ask rule, a critical removal or protected path, or a policy that asks about everything.
     if (mode === 'auto' && this.autoMode !== undefined && !fresh && policy?.askAll !== true) {

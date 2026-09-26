@@ -246,3 +246,41 @@ describe('requiresFreshApproval', () => {
     expect(requiresFreshApproval('Bash', { command: 'rm -rf build' }, {}, where)).toBe(false);
   });
 });
+
+describe('a turn a peer’s message started', () => {
+  const MODES = ['default', 'acceptEdits', 'plan', 'bypassPermissions', 'auto'] as const;
+  const RULES = [{}, { allow: ['Write'] }, { deny: ['Write'] }, { ask: ['Read'] }];
+  const CALLS: ReadonlyArray<readonly [string, Record<string, string>]> = [
+    ['Write', { filePath: '/w/project/a.txt', content: 'x' }],
+    ['Read', { filePath: '/home/me/.aws/credentials' }],
+    ['Bash', { command: 'rm -rf build' }],
+  ];
+
+  it('decides every other call exactly as the session’s own turn would', () => {
+    for (const mode of MODES) {
+      for (const rules of RULES) {
+        for (const [tool, args] of CALLS) {
+          const own = evaluatePermission(tool, { ...args }, mode, rules, where);
+          const peer = evaluatePermission(tool, { ...args }, mode, rules, {
+            ...where,
+            peerTurn: true,
+          });
+          expect(peer, `${tool} in ${mode} with ${JSON.stringify(rules)}`).toBe(own);
+        }
+      }
+    }
+  });
+
+  it('is the only place the reply to the peer exists', () => {
+    registerToolPermissionProfile('peer_reply', {
+      argument: { key: 'text', kind: 'text' },
+      repliesToPeer: true,
+    });
+    expect(evaluatePermission('peer_reply', { text: 'hi' }, 'bypassPermissions', {}, where)).toBe(
+      'deny',
+    );
+    expect(
+      evaluatePermission('peer_reply', { text: 'hi' }, 'default', {}, { ...where, peerTurn: true }),
+    ).toBe('approve');
+  });
+});

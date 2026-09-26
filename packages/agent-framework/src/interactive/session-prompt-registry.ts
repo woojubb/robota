@@ -34,6 +34,14 @@ import type {
   TPermissionResultValue,
 } from '@robota-sdk/agent-interface-session';
 
+/**
+ * Whether a driver id names a party that is not the owner: a peer session or an external sender.
+ * Such a party never answers a prompt, whatever path its answer took to get here.
+ */
+function isOutsideParty(driverId: TDriverId | undefined): boolean {
+  return driverId?.startsWith('peer:') === true || driverId?.startsWith('external:') === true;
+}
+
 /** Kind of a parked prompt — decides its fail-closed default and which event gates it. */
 type TParkedKind = 'permission' | 'ask';
 
@@ -138,18 +146,21 @@ export class SessionPromptRegistry {
    * AUTHORIZATION INVARIANT (REMOTE-014 E5 / OWNER PRINCIPLE): `answererDriverId` is recorded for DISPLAY
    * attribution only — it is NEVER an authorization check. Under local == remote every paired driver holds
    * full owner authority, so any driver may answer any prompt; who answered is surfaced, not gated here.
+   * A peer session or an external sender is not a driver: an answer in its name is ignored.
    */
   resolvePermission(
     id: string,
     result: TPermissionResultValue,
     answererDriverId?: TDriverId,
   ): void {
+    if (isOutsideParty(answererDriverId)) return;
     if (this.parked.get(id)?.kind !== 'permission') return;
     this.settle(id, result, answererDriverId);
   }
 
   /** Answer a parked ask by id. `answererDriverId` is server-assigned. Idempotent. */
   resolveAsk(id: string, response: TActionResponse, answererDriverId?: TDriverId): void {
+    if (isOutsideParty(answererDriverId)) return;
     if (this.parked.get(id)?.kind !== 'ask') return;
     this.settle(id, response, answererDriverId);
   }

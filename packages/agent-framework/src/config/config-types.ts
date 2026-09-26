@@ -171,14 +171,6 @@ const SandboxSettingsSchema = z.object({
   network: z.object({ enabled: z.boolean().optional() }).optional(),
 });
 
-const PeerSettingsSchema = z.object({
-  /**
-   * Offer write and execute tools to a turn driven by another session on this host. Every such use
-   * still asks the operator. Off by default: a peer turn only reads inside the workspace.
-   */
-  allowChanges: z.boolean().optional(),
-});
-
 export const SettingsSchema = z.object({
   /** Trust level used when no --permission-mode flag is given */
   defaultTrustLevel: z.enum(['safe', 'moderate', 'full']).optional(),
@@ -211,8 +203,6 @@ export const SettingsSchema = z.object({
   transports: z.record(TransportSettingsSchema).optional(),
   /** OS-level confinement of shell commands (bubblewrap on Linux, Seatbelt on macOS). */
   sandbox: SandboxSettingsSchema.optional(),
-  /** What a turn driven by another agent session may do. */
-  peers: PeerSettingsSchema.optional(),
   /** NEUT-004: host-selected active-task context root and optional enablement. */
   taskContext: z
     .object({
@@ -294,8 +284,6 @@ export interface IResolvedConfig {
    */
   taskContext?: { enabled?: boolean; dir?: string };
   sandbox?: TSandboxSettings;
-  /** What a turn driven by another agent session may do. */
-  peers?: { allowChanges?: boolean };
 }
 
 export type TSandboxSettings = z.infer<typeof SandboxSettingsSchema>;

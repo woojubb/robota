@@ -39,7 +39,6 @@ export function buildPermissionEnforcer(
     terminal: options.terminal,
     permissionHandler: options.permissionHandler,
     ...(options.commandSandbox !== undefined ? { commandSandbox: options.commandSandbox } : {}),
-    ...(options.allowPeerChanges === true ? { allowPeerChanges: true } : {}),
     ...(options.permissionClassifier !== undefined
       ? { permissionClassifier: options.permissionClassifier }
       : {}),
