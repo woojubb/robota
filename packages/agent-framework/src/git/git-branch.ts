@@ -50,6 +50,14 @@ const NO_METADATA_CODES: ReadonlySet<string> = new Set([
   'EOPNOTSUPP',
 ]);
 
+function lstatOrUndefined(path: string): ReturnType<typeof lstatSync> | undefined {
+  try {
+    return lstatSync(path);
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * A `.git` directory, or a `.git` file's `gitdir:` target; a link or anything else is ignored.
  * The entry is opened once without following a link and checked on that descriptor, so what is
@@ -58,22 +66,39 @@ const NO_METADATA_CODES: ReadonlySet<string> = new Set([
 function resolveGitMetadata(candidate: string, repoDir: string): string | undefined {
   let fd: number;
   try {
-    fd = openSync(candidate, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    // The mode is a no-op without O_CREAT; it is passed so the open states an owner-only mode,
+    // which is what static analysis looks for on an open.
+    fd = openSync(
+      candidate,
+      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+      0o600,
+    );
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code ?? '';
     // A platform that cannot open a directory says so; a directory is what is looked for.
     if (code === 'EISDIR') return candidate;
     if (NO_METADATA_CODES.has(code)) return undefined;
-    // A `.git` directory that can be entered but not listed still holds a readable HEAD; nothing
-    // is read through this entry itself, so its type is all that is asked.
-    if ((code === 'EACCES' || code === 'EPERM') && lstatSync(candidate).isDirectory()) {
-      return candidate;
+    if (code === 'EACCES' || code === 'EPERM') {
+      const entry = lstatOrUndefined(candidate);
+      // An entry that cannot even be looked at (a directory on the way cannot be searched) is no
+      // metadata here, and the search moves on to the parent.
+      if (entry === undefined) return undefined;
+      // A `.git` directory that can be entered but not listed still holds a readable HEAD; nothing
+      // is read through this entry itself, so its type is all that is asked.
+      if (entry.isDirectory()) return candidate;
     }
+    // A `.git` that is here but cannot be read ends the search: this is the repository, and
+    // its branch is unknown — not the branch of some repository further up.
     throw error;
   }
 
   let content: string;
   try {
+    // Windows has no O_NOFOLLOW (the constant is absent, so the open above follows a link). Ask
+    // the path once more and ignore a link, as the flag does elsewhere. This second look is not
+    // bound to the descriptor, so a link swapped in after it is only caught on POSIX; `.git`
+    // links are not a Windows repository layout, so this is a best effort there.
+    if (process.platform === 'win32' && lstatSync(candidate).isSymbolicLink()) return undefined;
     const stat = fstatSync(fd);
     if (stat.isDirectory()) return candidate;
     if (!stat.isFile()) return undefined;

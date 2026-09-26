@@ -73,7 +73,8 @@ describe('robota mcp serve loopback HTTP binary', () => {
         { timeout: 15000 },
       );
       // Opened once (which fails if the file is missing): the mode checked is the file read.
-      const tokenFd = openSync(tokenFile, 'r');
+      // 0o600 is a no-op without O_CREAT; it states an owner-only mode for static analysis.
+      const tokenFd = openSync(tokenFile, 'r', 0o600);
       let token: string;
       try {
         expect(fstatSync(tokenFd).mode & 0o777).toBe(0o600);

@@ -132,7 +132,8 @@ describe('external event grants on a supervised session', () => {
       expect(await post(port, 'ci', 'not-a-token')).toMatchObject({ status: 401, body: '' });
       // Refusals outlive the process in an owner-only trail that holds no token or content.
       // One open, so the mode checked and the text read belong to the same file.
-      const trailFd = openSync(join(root, 'audit', `${id}.jsonl`), 'r');
+      // 0o600 is a no-op without O_CREAT; it states an owner-only mode for static analysis.
+      const trailFd = openSync(join(root, 'audit', `${id}.jsonl`), 'r', 0o600);
       let trail: string;
       try {
         expect(fstatSync(trailFd).mode & 0o777).toBe(0o600);

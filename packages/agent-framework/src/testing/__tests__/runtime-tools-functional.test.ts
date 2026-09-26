@@ -1,17 +1,20 @@
-import { mkdirSync, rmSync } from 'node:fs';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { rmSync } from 'node:fs';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 
 import { scriptedSession, type ScriptedSessionHarness } from '../index.js';
 import type { IToolExecutionContext, IToolWithEventService } from '@robota-sdk/agent-core';
 
-const isolatedHome = vi.hoisted(() => `/tmp/robota-runtime-tools-home-${process.pid}`);
+// A private home made by mkdtemp before any module that reads `homedir()` loads.
+const isolatedHome = await vi.hoisted(async () => {
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'robota-runtime-tools-home-'));
+});
 vi.mock('node:os', async (original) => ({
   ...(await original<typeof import('node:os')>()),
   homedir: () => isolatedHome,
 }));
-beforeAll(() => {
-  mkdirSync(isolatedHome, { recursive: true });
-});
 afterAll(() => {
   rmSync(isolatedHome, { recursive: true, force: true });
 });

@@ -2,8 +2,12 @@
  * Tests for BashTool
  */
 
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { createBashTool } from '@robota-sdk/agent-tools';
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it, onTestFinished } from 'vitest';
 
 import type { TToolParameters } from '@robota-sdk/agent-core';
 import type { IToolInvocationResult } from '@robota-sdk/agent-tools';
@@ -72,9 +76,12 @@ describe('BashTool', () => {
   // --- P1: non-existent workingDirectory ---
 
   it('returns error for non-existent workingDirectory', async () => {
+    // Missing inside a private directory, so no other user can create it first.
+    const parent = mkdtempSync(join(tmpdir(), 'robota-bash-missing-'));
+    onTestFinished(() => rmSync(parent, { recursive: true, force: true }));
     const result = await run({
       command: 'echo hello',
-      workingDirectory: '/tmp/nonexistent_dir_xyz_12345',
+      workingDirectory: join(parent, 'nonexistent'),
     });
     expect(result.success).toBe(false);
     expect(result.error).toBeDefined();

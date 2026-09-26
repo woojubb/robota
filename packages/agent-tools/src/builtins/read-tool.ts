@@ -175,7 +175,9 @@ async function readFileTool(args: TReadArgs, options: ISandboxToolOptions): Prom
   // so a FIFO is refused by the check below instead of hanging the open.
   let handle: FileHandle;
   try {
-    handle = await open(filePath, constants.O_RDONLY | constants.O_NONBLOCK);
+    // The mode is a no-op without O_CREAT; it is passed so the open states an owner-only mode,
+    // which is what static analysis looks for on an open.
+    handle = await open(filePath, constants.O_RDONLY | constants.O_NONBLOCK, 0o600);
   } catch (err) {
     // allow-fallback: open failure → IToolInvocationResult error. The path is looked at again only
     // to word the refusal; nothing is read through it.

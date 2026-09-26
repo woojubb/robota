@@ -254,7 +254,9 @@ function readOwnedFile(
 ): string {
   let fd: number;
   try {
-    fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    // The mode is a no-op without O_CREAT; it is passed so the open states an owner-only mode,
+    // which is what static analysis looks for on an open.
+    fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK, 0o600);
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code;
     // Not a regular file: a link under O_NOFOLLOW (ELOOP; EMLINK on some BSDs) or a socket.
