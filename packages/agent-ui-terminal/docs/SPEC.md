@@ -55,9 +55,10 @@ settings file, or product-named environment variable itself. Without a supplied 
 renderer falls back to a neutral `Assistant` label (screen-reader role
 labels stay provider- and
 product-neutral regardless), and terminal-title composition always sanitizes both the host-selected
-name and the session name before emitting the OSC sequence. The permission prompt labels
-project-wide approval unavailable, rather than resolving the disabled choice as granted, when the
-session cannot persist it.
+name and the session name before emitting the OSC sequence. The permission prompt ignores its keys
+for a short pause after it appears, so a keystroke meant for the composer cannot grant a permission,
+and it labels project-wide approval unavailable, rather than resolving the disabled choice as
+granted, when the session cannot persist it.
 
 When a self-paced loop is waiting, Esc stops that loop through the session's durable stop path.
 If several are waiting, Esc names the explicit stop command instead of choosing one silently.
@@ -86,11 +87,12 @@ contract is authoritative for how the TUI releases resources on session switch a
 - Graceful shutdown (first interrupt, explicit exit, signal) and an explicit stop share one
   completion path so neither reports success while the other is still pending, and a wedged
   subsystem can never block process exit because session shutdown is time-bounded.
-- On session switch, the old channel is fully stopped before the new one becomes active, so it can
-  never receive events meant for the new session; on stop failure the old channel stays selected
-  with input disabled until a retry succeeds, rather than silently creating a second live channel.
-  A channel attached to a host asks the host to switch and follows the host's switch instead: it
-  drops the old session's questions unanswered and re-reads everything it shows.
+- On session switch, nothing of the old session reaches what shows the new one: a channel that owns
+  its session is fully stopped before the new one becomes active, and on stop failure stays selected
+  with input disabled until a retry succeeds, rather than silently creating a second live channel; a
+  channel attached to a host asks the host to switch and, when the host does, drops the old
+  session's questions unanswered, re-reads everything it shows and prints the new transcript from
+  its start.
 - The permission queue and the user-action queue are both drained on abort, cancel, and shutdown:
   every queued or in-flight action resolves (as cancelled or denied) rather than dangling — an
   unresolved permission promise would hang the tool that is waiting on it, and a queue drain that
@@ -102,9 +104,13 @@ contract is authoritative for how the TUI releases resources on session switch a
 
 ### The renderer executes no command semantics
 
-The TUI applies no command's side effects itself. The session layer applies every command's host
-action (language change, settings reset, exit/restart, rename, statusline patch, remote control)
-before the command result ever reaches the renderer; the renderer only reflects outcomes it is
+The TUI applies no session command's side effects itself. The session layer applies every such
+command's host action (language change, settings reset, exit/restart, rename, statusline patch,
+remote control) before the command result ever reaches the renderer. The one exception is a
+terminal attached to a host: the commands that belong to the terminal the user sits at (shell,
+editor, theme, keybindings) run in that terminal's own process, on its own terminal and working
+directory, and never reach the host; the terminal writes the appearance patch they ask for and
+refuses any other host action by name. Otherwise the renderer only reflects outcomes it is
 told about through broadcast session events (e.g. a rename or a history-clear applies only when the
 corresponding event arrives, never as a direct reaction to a command result), and the CLI adapter
 surface is read-only toward settings.

@@ -10,6 +10,7 @@ import { createSessionMessageHandler } from '../session-message-handler.js';
 import { PROTOCOL_SESSION_EVENT_CLASSIFICATION } from '../session-events.js';
 import type { TServerMessage } from '../wire-messages.js';
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { ICommandListEntry } from '@robota-sdk/agent-interface-command';
 import type {
   IBackgroundJobGroupState,
   IExecutionWorkspaceEvent,
@@ -159,7 +160,12 @@ describe('WebSocket Transport Handler', () => {
 
   it('#3186: get-commands sends the commands and skills a client can offer', () => {
     const { onMessage, session, sent } = setup();
-    const command = { name: 'help', description: 'Show commands', modelInvocable: false };
+    const command: ICommandListEntry = {
+      name: 'help',
+      description: 'Show commands',
+      modelInvocable: false,
+      runner: 'runtime',
+    };
     const skill = {
       name: 'parity-demo',
       description: 'Demo',
@@ -190,7 +196,35 @@ describe('WebSocket Transport Handler', () => {
   it('get-pending sends pending prompt', () => {
     const { onMessage, sent } = setup();
     onMessage(JSON.stringify({ type: 'get-pending' }));
-    expect(sent[0]).toEqual({ type: 'pending', pending: null });
+    expect(sent[0]).toEqual({ type: 'pending', pending: null, pendingCount: 0 });
+  });
+
+  it('#3189: answers a submit with the queue once the prompt is taken, so a queued prompt shows', async () => {
+    const { onMessage, sent, session } = setup();
+    const mock = session as unknown as {
+      submit: ReturnType<typeof vi.fn>;
+      getPendingPrompt: ReturnType<typeof vi.fn>;
+      getPendingCount: ReturnType<typeof vi.fn>;
+    };
+    let queue: () => void = () => undefined;
+    // A turn is running: the session queues the prompt only after its own initialization yields.
+    mock.submit.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          queue = () => {
+            mock.getPendingPrompt.mockReturnValue('follow-up');
+            mock.getPendingCount.mockReturnValue(1);
+            resolve();
+          };
+        }),
+    );
+    onMessage(JSON.stringify({ type: 'submit', prompt: 'follow-up' }));
+    // A `get-pending` sent beside the submit is answered before the prompt is queued.
+    onMessage(JSON.stringify({ type: 'get-pending' }));
+    expect(sent).toEqual([{ type: 'pending', pending: null, pendingCount: 0 }]);
+    queue();
+    await new Promise((r) => setTimeout(r, 0));
+    expect(sent.at(-1)).toEqual({ type: 'pending', pending: 'follow-up', pendingCount: 1 });
   });
 
   it('get-background-tasks sends current background task list', () => {
@@ -469,6 +503,29 @@ describe('WebSocket Transport Handler', () => {
     onMessage(JSON.stringify({ type: 'command', name: 'clear' }));
     await new Promise((r) => setTimeout(r, 10));
     expect(sent).toEqual([{ type: 'protocol_error', message: 'command failed' }]);
+  });
+
+  it("#3189: echoes a command's requestId on its result and on its failure, and on nothing else", async () => {
+    const { onMessage, sent, session } = setup();
+    const { executeCommand, submit } = session as unknown as {
+      executeCommand: ReturnType<typeof vi.fn>;
+      submit: ReturnType<typeof vi.fn>;
+    };
+    executeCommand.mockResolvedValueOnce({ message: 'done', success: true });
+    executeCommand.mockRejectedValueOnce(new Error('command failed'));
+    submit.mockRejectedValueOnce(new Error('A turn is running.'));
+    onMessage(JSON.stringify({ type: 'command', name: 'clear', requestId: 'c1' }));
+    onMessage(JSON.stringify({ type: 'command', name: 'broken', requestId: 'c2' }));
+    onMessage(JSON.stringify({ type: 'submit', prompt: 'hello' }));
+    await new Promise((r) => setTimeout(r, 10));
+    expect(sent).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ type: 'command_result', name: 'clear', requestId: 'c1' }),
+        { type: 'protocol_error', message: 'command failed', requestId: 'c2' },
+        { type: 'protocol_error', message: 'A turn is running.' },
+      ]),
+    );
+    expect(sent).toHaveLength(3);
   });
 
   it('forwards InteractiveSession events to client', () => {

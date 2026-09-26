@@ -18,11 +18,12 @@ import type { TClientMessage, TServerMessage } from '../wire-messages.js';
  */
 const CLIENT_SAMPLES: Readonly<Record<TClientMessage['type'], TClientMessage>> = {
   submit: { type: 'submit', prompt: 'hi' },
-  command: { type: 'command', name: 'help', args: 'x' },
+  command: { type: 'command', name: 'help', args: 'x', requestId: 'command-1' },
   abort: { type: 'abort' },
   'cancel-queue': { type: 'cancel-queue' },
   'get-messages': { type: 'get-messages' },
-  'get-history': { type: 'get-history' },
+  'get-history': { type: 'get-history', fromIndex: 40 },
+  'get-prompts': { type: 'get-prompts' },
   'get-context': { type: 'get-context' },
   'get-commands': { type: 'get-commands' },
   'get-status': { type: 'get-status' },
@@ -75,10 +76,18 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
   complete: { type: 'complete', result: {} as never },
   interrupted: { type: 'interrupted', result: {} as never },
   error: { type: 'error', message: 'm' },
-  command_result: { type: 'command_result', name: 'n', message: 'm', success: true },
+  command_result: {
+    type: 'command_result',
+    name: 'n',
+    message: 'm',
+    success: true,
+    requestId: 'command-1',
+  },
   messages: { type: 'messages', messages: [] },
   history: {
     type: 'history',
+    startIndex: 3,
+    total: 4,
     entries: [
       {
         id: 'e1',
@@ -128,7 +137,7 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
     message: 'not found',
   },
   executing: { type: 'executing', executing: false },
-  pending: { type: 'pending', pending: null },
+  pending: { type: 'pending', pending: null, pendingCount: 0 },
   execution_workspace_event: { type: 'execution_workspace_event', snapshot: {} as never },
   background_task_event: { type: 'background_task_event', event: {} as never },
   background_job_group_event: { type: 'background_job_group_event', event: {} as never },
@@ -152,7 +161,7 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
     taskId: 't',
     success: true,
   },
-  protocol_error: { type: 'protocol_error', message: 'm' },
+  protocol_error: { type: 'protocol_error', message: 'm', requestId: 'command-1' },
   resume_gap: { type: 'resume_gap' },
 };
 
@@ -201,6 +210,9 @@ const MALFORMED_CLIENT: ReadonlyArray<[string, unknown]> = [
   ['ack with NaN', { type: 'ack', seq: Number.NaN }],
   ['cancel-background-task with an empty taskId', { type: 'cancel-background-task', taskId: '' }],
   ['list-sessions without requestId', { type: 'list-sessions' }],
+  ['get-history from a negative index', { type: 'get-history', fromIndex: -1 }],
+  ['get-history from a fractional index', { type: 'get-history', fromIndex: 1.5 }],
+  ['command with an empty requestId', { type: 'command', name: 'n', requestId: '' }],
   ['switch-session with an empty sessionId', { type: 'switch-session', sessionId: '' }],
 ];
 
@@ -214,7 +226,9 @@ const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
   ['thinking with a string flag', { type: 'thinking', isThinking: 'yes' }],
   ['messages with a non-array', { type: 'messages', messages: {} }],
   ['messages with a primitive entry', { type: 'messages', messages: ['x'] }],
-  ['pending with a number', { type: 'pending', pending: 1 }],
+  ['pending with a number', { type: 'pending', pending: 1, pendingCount: 1 }],
+  ['pending with a negative count', { type: 'pending', pending: null, pendingCount: -1 }],
+  ['pending with a fractional count', { type: 'pending', pending: 'p', pendingCount: 1.5 }],
   ['background_task with an array task', { type: 'background_task', taskId: 't', task: [] }],
   [
     'control result with an unknown action',
@@ -226,15 +240,31 @@ const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
     { type: 'sessions_error', requestId: 'r', code: 'nope', message: 'm' },
   ],
   ['session_switched without event', { type: 'session_switched' }],
-  ['history without entries', { type: 'history' }],
-  ['history with a primitive entry', { type: 'history', entries: ['x'] }],
+  ['history without entries', { type: 'history', startIndex: 0, total: 0 }],
+  ['history without its place', { type: 'history', entries: [] }],
+  ['history with a negative total', { type: 'history', startIndex: 0, total: -1, entries: [] }],
+  ['history with a primitive entry', { type: 'history', startIndex: 0, total: 1, entries: ['x'] }],
   [
     'history with a numeric timestamp',
-    { type: 'history', entries: [{ id: 'e', timestamp: 1, category: 'chat', type: 'user' }] },
+    {
+      type: 'history',
+      startIndex: 0,
+      total: 1,
+      entries: [{ id: 'e', timestamp: 1, category: 'chat', type: 'user' }],
+    },
   ],
   [
     'history with an entry missing its category',
-    { type: 'history', entries: [{ id: 'e', timestamp: 't', type: 'user' }] },
+    {
+      type: 'history',
+      startIndex: 0,
+      total: 1,
+      entries: [{ id: 'e', timestamp: 't', type: 'user' }],
+    },
+  ],
+  [
+    'protocol_error with a numeric requestId',
+    { type: 'protocol_error', message: 'm', requestId: 1 },
   ],
   ['turn_source with an unknown source', { type: 'turn_source', source: 'robot' }],
   ['turn_source without source', { type: 'turn_source' }],
@@ -276,6 +306,14 @@ describe('decodeServerMessage (issue #2045)', () => {
 
   it.each(MALFORMED_SERVER)('refuses %s', (_label, value) => {
     expect(decodeServerMessage(value).ok).toBe(false);
+  });
+
+  it('accepts a pending frame without its count, as a host from before the count sends it', () => {
+    // Refusing it would cut a newer client off from an older daemon on every prompt it queues.
+    expect(decodeFrame('{"type":"pending","pending":null}', decodeServerMessage)).toEqual({
+      ok: true,
+      message: { type: 'pending', pending: null },
+    });
   });
 });
 

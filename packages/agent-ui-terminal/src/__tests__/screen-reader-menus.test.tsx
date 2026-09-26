@@ -135,7 +135,7 @@ describe('TC-07: PermissionPrompt and ConfirmPrompt', () => {
   it('a typed number resolves the permission ask', async () => {
     const resolve = vi.fn();
     const { stdin, unmount } = renderInMode(
-      <PermissionPrompt request={permissionRequest(resolve)} />,
+      <PermissionPrompt request={permissionRequest(resolve)} armDelayMs={0} />,
     );
     await tick();
     stdin.write('4');

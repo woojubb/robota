@@ -59,6 +59,7 @@ export type {
   TClientMessage,
   TServerMessage,
   TSeqServerMessage,
+  TWireExecutionResult,
 } from './wire-messages.js';
 // Issue #2045: the owner-side runtime decoders; carriers implement `raw → decodeFrame → typed`.
 export {

@@ -14,6 +14,11 @@ export type {
 } from './SupervisedSessionView.js';
 export { TuiInteractionChannel } from './TuiInteractionChannel.js';
 export type { ITuiInteractionChannelOptions } from './TuiInteractionChannel.js';
+export type {
+  ITuiClientCommand,
+  ITuiClientCommands,
+  TTuiClientCommandHost,
+} from './wire-tui-client-commands.js';
 export type { IRenderAttachedAppOptions, IRenderOptions } from './render.js';
 export type { ITerminalCapabilityOverrides } from './terminal-capabilities-context.js';
 export type { TScreenReaderChannel } from './screen-reader-announcement.js';

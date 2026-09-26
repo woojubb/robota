@@ -124,7 +124,9 @@ an attach begun from the view returns to it. It is one more surface
 under the session's ordinary co-drive, prompt and session-switching rules, never an operator
 approver, so a supervised session still refuses every mesh connection that needs one. Detaching or
 crashing ends only that connection: a turn in progress runs on, a prompt no other surface can
-answer is denied, and a reader that stops reading is cut off instead of holding the session. Automatic restart is not offered.
+answer is denied, and a reader that stops reading is cut off instead of holding the session. Automatic
+restart is not offered, so no client's command stops or restarts a supervised session: it serves every
+other client, and nothing would start it again.
 A workspace's daemon is such a session, at most one per workspace even when starts race, marked so
 that a client in that workspace, the desktop app or a terminal attached with `robota --attach`, connects
 to the one already running instead of spawning a runtime of its own, so no launch option of the
@@ -395,7 +397,10 @@ composition. Absence is deterministically **Restricted**: only user contribution
 the user session store are available, no project memory, and `cwd` alone cannot mint any project
 capability. **Trusted** composition derives project sources plus named state facets from the exact
 runtime-accepted authority, and is refused when the real CLI working directory is outside the
-authority's frozen workspace root. Print mode, `--goal`, and `--serve` fail closed for
+authority's frozen workspace root. On a host that cannot prove a project write stays under that root,
+the workspace's sessions are kept in the user session store and found there by their working
+directory, so they are still saved and resumable while nothing is written under the project without
+that proof. Print mode, `--goal`, and `--serve` fail closed for
 `untrusted`/`revoked`/`stale`/`store-unavailable` decisions before provider construction; interactive
 startup may continue Restricted with project contributions disabled. All trust diagnostics expose
 only state and canonical display path — credentials and project-controlled content are never printed.

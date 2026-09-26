@@ -21,6 +21,10 @@ export function createKeybindingsCommandEntry(): ICommand {
     source: 'keybindings',
     // User-only: UI preference.
     modelInvocable: false,
+    // Key bindings belong to the terminal the user sits at, so that terminal runs it, even when
+    // attached.
+    runner: 'client',
+    surfaces: ['terminal'],
   };
 }
 
@@ -29,7 +33,7 @@ export function createKeybindingsCommandEntry(): ICommand {
 const KEYBINDINGS_UNAVAILABLE =
   'Key bindings belong to the robota terminal, and this surface has none. Run /keybindings in the robota terminal.';
 
-async function executeKeybindingsCommand(
+export async function executeKeybindingsCommand(
   file: IKeybindingsFilePort | undefined,
   context: ICommandHostTerminalHandoff & ICommandHostWorkspace,
 ): Promise<ICommandResult> {
@@ -71,6 +75,8 @@ export function createKeybindingsCommandModule(
     requiresPermission: false,
     userInvocable: true,
     modelInvocable: false,
+    runner: entry.runner,
+    surfaces: entry.surfaces,
     lifecycle: 'inline',
     execute: (context) => executeKeybindingsCommand(file, context),
   };

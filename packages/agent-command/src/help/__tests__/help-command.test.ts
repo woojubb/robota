@@ -86,6 +86,7 @@ describe('formatCommandHelpMessage — example field', () => {
         description: 'Compress context window',
         example: '/compact Summarize the current context',
         modelInvocable: true,
+        runner: 'runtime',
       },
     ]);
 
@@ -102,6 +103,7 @@ describe('formatCommandHelpMessage — example field', () => {
         description: 'Manage provider profiles',
         example: '/provider switch production',
         modelInvocable: true,
+        runner: 'runtime',
       },
     ]);
 
@@ -117,6 +119,7 @@ describe('formatCommandHelpMessage — example field', () => {
         displayName: 'Help',
         description: 'Show available commands',
         modelInvocable: true,
+        runner: 'runtime',
       },
     ]);
 

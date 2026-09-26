@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { act, render, screen, fireEvent, cleanup, within } from '@testing-library/react';
 import { afterEach, describe, it, expect, vi } from 'vitest';
 
 import { SessionSurface } from '@robota-sdk/agent-ui-web/client';
@@ -14,7 +14,10 @@ import type { IWsSessionState } from '@robota-sdk/agent-ui-web/client';
 
 // jsdom has no layout; the conversation's auto-scroll calls this.
 Element.prototype.scrollIntoView = () => undefined;
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 function stubState(over: Partial<IWsSessionState> = {}): IWsSessionState {
   return {
@@ -163,8 +166,8 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     const state = stubState({
       commandCatalog: {
         commands: [
-          { name: 'help', description: 'Show commands', modelInvocable: false },
-          { name: 'mode', description: 'Change the permission mode', modelInvocable: false },
+          { name: 'help', description: 'Show commands', modelInvocable: false, runner: 'runtime' },
+          { name: 'mode', description: 'Change the permission mode', modelInvocable: false, runner: 'runtime' },
         ],
         skills: [
           { name: 'parity-demo', description: 'Demo skill', source: 'project', modelInvocable: true, userInvocable: true },
@@ -182,6 +185,34 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(state.send).not.toHaveBeenCalled();
     fireEvent.keyDown(input, { key: 'Enter' });
     expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'mode' });
+  });
+
+  it('#3189: a command the terminal runs is marked "terminal" in the menu; a session command is not', () => {
+    const state = stubState({
+      commandCatalog: {
+        commands: [
+          { name: 'help', description: 'Show commands', modelInvocable: false, runner: 'runtime' },
+          { name: 'share', description: 'Share the session', modelInvocable: false, runner: 'runtime' },
+          {
+            name: 'shell',
+            description: 'Open a shell',
+            modelInvocable: false,
+            runner: 'client',
+            surfaces: ['terminal'],
+          },
+        ],
+        skills: [],
+      },
+    } as Partial<IWsSessionState>);
+    render(<SessionSurface state={state} />);
+    const input = screen.getByLabelText('message') as HTMLTextAreaElement;
+    fireEvent.change(input, { target: { value: '/sh' } });
+    const shell = screen.getByRole('option', { name: /\/shell/ });
+    const badge = within(shell).getByText('terminal');
+    expect(badge.getAttribute('title')).toBe('Runs in the robota terminal');
+    expect(shell.getAttribute('aria-description')).toBe('Runs in the robota terminal');
+    const share = screen.getByRole('option', { name: /\/share/ });
+    expect(within(share).queryByText('terminal')).toBeNull();
   });
 
   it('#3186: the status row shows the session status and opens its pickers', () => {
@@ -256,7 +287,8 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(state.answerPermission).toHaveBeenCalledWith('p1', true);
   });
 
-  it('#3186: a docked question takes focus, answers by number key, and Esc cancels it', () => {
+  it('#3186: a docked question takes focus once armed, answers by number key, and Esc cancels it', () => {
+    vi.useFakeTimers();
     const state = stubState({
       pendingPrompts: [
         {
@@ -274,6 +306,11 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     });
     const { unmount } = render(<SessionSurface state={state} />);
     const dialog = screen.getByRole('dialog', { name: 'pending question' });
+    // #3189: its keys are not live as it appears, so a key typed for the composer cannot answer it.
+    expect(document.activeElement).not.toBe(dialog);
+    act(() => {
+      vi.runOnlyPendingTimers();
+    });
     expect(document.activeElement).toBe(dialog);
     fireEvent.keyDown(dialog, { key: '2' });
     expect(state.answerAsk).toHaveBeenCalledWith('a1', { type: 'answer', values: ['en'] });

@@ -33,8 +33,7 @@ import { applyModelFallbackChain } from './startup/model-fallback-startup.js';
 import { checkForCliUpdate, formatCliUpdateCheckMessage } from './update-check/update-check.js';
 import { resolveCliUpdateNotice } from './update-check/resolve-cli-update-notice.js';
 import { parseCliArgs, printHelp, type IParsedCliArgs } from './utils/cli-args.js';
-import { loadRobotaExternalPresets, resolveShellPreset } from './startup/preset-selection.js';
-import type { IShellPresetResolution } from './startup/preset-selection.js';
+import { resolveShellPresetOrExit } from './startup/preset-selection.js';
 import { ROBOTA_DEFAULT_AGENT_NAME } from './product/robota-preset-defaults.js';
 import { ROBOTA_AGENT_DEFINITION_ROOTS } from './product/robota-agent-roots.js';
 import { robotaPluginDirectories } from './product/robota-plugin-paths.js';
@@ -57,7 +56,6 @@ import {
 } from './startup/preset-surface-options.js';
 import { createCliEffortAdapter, resolveCliModelEffort } from './startup/effort-resolution.js';
 import { resolveOutputStyle, selectOutputStyleId } from './startup/output-style-selection.js';
-import type { IPreset } from '@robota-sdk/agent-preset';
 import { bindAssembledCollaborators } from './product/assembled-collaborators.js';
 import { createRobotaProfile } from './product/robota-profile.js';
 import { ROBOTA_TASK_CONTEXT } from './product/robota-task-context.js';
@@ -342,20 +340,12 @@ async function runCliCore(
   // The shell's ONE preset resolution — see `resolveShellPreset` for why it is one. Resolved before
   // command setup so the preset's module-selection delta can reach `createDefaultCommandModules`.
   const userSettings = readUserSettingsOrExit();
-  const settingsPreset = typeof userSettings.preset === 'string' ? userSettings.preset : undefined;
-  const externalPresetLoad = safeMode ? { presets: [], errors: [] } : loadRobotaExternalPresets();
-  for (const { file, error } of externalPresetLoad.errors) {
-    terminal.writeError(`Skipped external preset "${file}": ${error}`);
-  }
-  const externalPresets: readonly IPreset[] = externalPresetLoad.presets;
-  let preset: IShellPresetResolution;
-  try {
-    preset = resolveShellPreset(externalPresets, args, settingsPreset);
-  } catch (error) {
-    // allow-fallback: unknown preset id is terminal — surface available list, exit
-    process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
-    process.exit(1);
-  }
+  const preset = resolveShellPresetOrExit({
+    args,
+    settings: userSettings,
+    safeMode,
+    writeError: (message) => terminal.writeError(message),
+  });
   const resolvedPreset = preset.options;
   const selectedPresetId = preset.presetId;
 

@@ -58,15 +58,28 @@ export interface IWireHistoryEntry extends Omit<THistoryEntry, 'timestamp'> {
   timestamp: string;
 }
 
+/**
+ * #3189: a turn's result as it crosses the wire. The session's whole history stays behind: it only
+ * grows, so a client reads it in bounded pages with `get-history` instead.
+ */
+export type TWireExecutionResult = Omit<IExecutionResult, 'history'>;
+
 /** Inbound message from client to server. */
 export type TClientMessage =
   | { type: 'submit'; prompt: string }
-  | { type: 'command'; name: string; args?: string }
+  // `requestId` is echoed on the command's `command_result` or `protocol_error`, so a client with
+  // several commands in flight knows which one each answer settles.
+  | { type: 'command'; name: string; args?: string; requestId?: string }
   | { type: 'abort' }
   | { type: 'cancel-queue' }
   | { type: 'get-messages' }
-  // #3189: the session's full history — what a client that renders the whole session (the TUI) shows.
-  | { type: 'get-history' }
+  // #3189: the session's full history — what a client that renders the whole session (the TUI) shows —
+  // one bounded page at a time, from `fromIndex` (default 0). The client asks for the next page
+  // after the previous one arrived, so replies never pile up in the connection.
+  | { type: 'get-history'; fromIndex?: number }
+  // #3189: the permission and ask prompts open now, each sent again as the frame that asked it: a
+  // client that attached after a prompt was asked has not seen it.
+  | { type: 'get-prompts' }
   | { type: 'get-context' }
   // #3186: what every client needs beside the conversation — the commands and skills it can offer
   // (a `/` menu), and the session's status (model, permission mode, effort, context).
@@ -116,8 +129,8 @@ export type TServerMessage =
   | { type: 'tool_start'; state: IToolState; driverId?: TDriverId }
   | { type: 'tool_end'; state: IToolState; driverId?: TDriverId }
   | { type: 'thinking'; isThinking: boolean; driverId?: TDriverId }
-  | { type: 'complete'; result: IExecutionResult; driverId?: TDriverId }
-  | { type: 'interrupted'; result: IExecutionResult; driverId?: TDriverId }
+  | { type: 'complete'; result: TWireExecutionResult; driverId?: TDriverId }
+  | { type: 'interrupted'; result: TWireExecutionResult; driverId?: TDriverId }
   | { type: 'error'; message: string; driverId?: TDriverId }
   | {
       type: 'command_result';
@@ -125,9 +138,13 @@ export type TServerMessage =
       message: string;
       success: boolean;
       data?: ICommandResult['data'];
+      /** The `requestId` of the `command` this answers, when it carried one. */
+      requestId?: string;
     }
   | { type: 'messages'; messages: ReturnType<ISessionConversationRead['getMessages']> }
-  | { type: 'history'; entries: IWireHistoryEntry[] }
+  // #3189: one page of the full history. `entries` start at `startIndex` of the `total` the session
+  // holds now, and stop before a page grows past a bounded size (a single larger entry is sent alone).
+  | { type: 'history'; startIndex: number; total: number; entries: IWireHistoryEntry[] }
   // Sent in reply to `get-context`, and pushed whenever the session's context window changes.
   | { type: 'context'; state: ReturnType<ISessionConversationRead['getContextState']> }
   // #3189: the full history gained entries that no streamed frame carries (a compaction, a skill
@@ -171,7 +188,9 @@ export type TServerMessage =
       message: string;
     }
   | { type: 'executing'; executing: boolean }
-  | { type: 'pending'; pending: string | null }
+  // The next queued prompt and how many wait. Sent in reply to `get-pending`, and to a `submit` once
+  // the host has taken the prompt (queued it behind a running turn, or run it).
+  | { type: 'pending'; pending: string | null; pendingCount?: number }
   | { type: 'execution_workspace_event'; snapshot: IExecutionWorkspaceSnapshot }
   | { type: 'background_task_event'; event: TBackgroundTaskEvent }
   | { type: 'background_job_group_event'; event: TBackgroundJobGroupEvent }
@@ -203,7 +222,8 @@ export type TServerMessage =
       success: boolean;
       message?: string;
     }
-  | { type: 'protocol_error'; message: string }
+  // `requestId` names the `command` whose failure this reports; a refusal of anything else has none.
+  | { type: 'protocol_error'; message: string; requestId?: string }
   // REMOTE-013 E4: sent instead of a replay when the client's `lastSeq` predates the host's retained buffer
   // (overrun) — the client must do a full `get-messages` refresh rather than accept a silent gap.
   | { type: 'resume_gap' };

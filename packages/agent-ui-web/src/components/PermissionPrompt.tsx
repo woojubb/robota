@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 import type { TPendingPrompt } from '../hooks/prompt-state.js';
 import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
@@ -11,28 +11,47 @@ import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
  * until answered, so this is on the critical path — not decorative.
  *
  * `modal` covers the page; `dock` sits above the composer, as desktop agent apps place a pending
- * question next to where the answer is typed. It takes focus when it appears: 1–9 picks an option,
- * Esc cancels a question or denies a permission.
+ * question next to where the answer is typed. Once armed it takes focus: 1–9 picks an option, Esc
+ * cancels a question or denies a permission.
  */
 interface IPermissionPromptProps {
   prompts: readonly TPendingPrompt[];
   onAnswerPermission: (id: string, result: boolean) => void;
   onAnswerAsk: (id: string, response: TActionResponse) => void;
   layout?: 'modal' | 'dock';
+  /** How long a new prompt waits before its keys answer it; tests pass their own. */
+  armDelayMs?: number;
 }
+
+/**
+ * A prompt can appear while the user is typing in the composer. For this long after it appears the
+ * dock leaves focus where it is, so the keystrokes land in the composer instead of answering (`1`
+ * allows). A click on a button still answers at once, and Esc still denies or cancels, because both
+ * are deliberate.
+ */
+export const PROMPT_ARM_DELAY_MS = 450;
 
 export function PermissionPrompt({
   prompts,
   onAnswerPermission,
   onAnswerAsk,
   layout = 'modal',
+  armDelayMs = PROMPT_ARM_DELAY_MS,
 }: IPermissionPromptProps): React.ReactElement | null {
   const prompt = prompts[0];
+  const promptId = prompt?.id;
   const dockRef = useRef<HTMLDivElement>(null);
-  // The question takes focus when it appears, so its keys answer it rather than type into the composer.
+  const [armedId, setArmedId] = useState<string | undefined>(undefined);
   useEffect(() => {
-    if (prompt && layout === 'dock') dockRef.current?.focus();
-  }, [prompt?.id, layout]);
+    if (promptId === undefined || armDelayMs <= 0) return undefined;
+    const timer = setTimeout(() => setArmedId(promptId), armDelayMs);
+    return () => clearTimeout(timer);
+  }, [promptId, armDelayMs]);
+  const armed = promptId !== undefined && (armDelayMs <= 0 || armedId === promptId);
+  // Once armed the question takes focus, so its keys answer it rather than type into the composer.
+  useEffect(() => {
+    if (armed && layout === 'dock') dockRef.current?.focus();
+  }, [armed, promptId, layout]);
   if (!prompt) return null;
 
   // REMOTE-014 E5 (display-only): the prompt belongs to the driver whose turn raised it. Shown so the owner
@@ -52,6 +71,8 @@ export function PermissionPrompt({
       else onAnswerAsk(prompt.id, { type: 'cancelled' });
       return;
     }
+    // A key that reaches a prompt still arming (the dock kept focus from the one before) is dropped.
+    if (!armed) return;
     const index = Number(event.key) - 1;
     if (!Number.isInteger(index) || index < 0) return;
     if (prompt.kind === 'permission') {
@@ -75,9 +96,12 @@ export function PermissionPrompt({
         onKeyDown={dock ? onDockKey : undefined}
         role={dock ? 'dialog' : undefined}
         aria-label={dock ? 'pending question' : undefined}
+        data-armed={dock ? String(armed) : undefined}
         className={
           dock
-            ? 'w-full rounded-xl border border-primary/30 bg-card p-4 font-mono text-[13px] shadow-lg shadow-black/30 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/40'
+            ? `w-full rounded-xl border bg-card p-4 font-mono text-[13px] shadow-lg shadow-black/30 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/40 ${
+                armed ? 'border-primary/60' : 'border-border/70'
+              }`
             : 'w-full max-w-md rounded-lg bg-[var(--card)] p-5 font-mono text-[13px] shadow-xl'
         }
       >
@@ -137,12 +161,17 @@ export function PermissionPrompt({
             </div>
           </>
         )}
-        {dock && (
-          <p className="mt-3 text-[10px] text-[var(--muted-foreground)] opacity-70">
-            {prompt.kind === 'permission' ? '1 allow · 2 deny' : '1–9 choose'} · Esc{' '}
-            {prompt.kind === 'permission' ? 'deny' : 'cancel'}
-          </p>
-        )}
+        {dock &&
+          (armed ? (
+            <p className="mt-3 text-[10px] text-[var(--muted-foreground)] opacity-70">
+              {prompt.kind === 'permission' ? '1 allow · 2 deny' : '1–9 choose'} · Esc{' '}
+              {prompt.kind === 'permission' ? 'deny' : 'cancel'}
+            </p>
+          ) : (
+            <p className="mt-3 text-[10px] text-[var(--muted-foreground)] opacity-70">
+              keys answer in a moment · click to answer now
+            </p>
+          ))}
       </div>
     </div>
   );

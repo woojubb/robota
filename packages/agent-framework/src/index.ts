@@ -45,6 +45,7 @@ export {
   getWorkspaceProjectIdentity,
   getWorkspaceProjectReader,
   getWorkspaceProjectStateStorage,
+  supportsWorkspaceProjectMutation,
 } from './workspace-trust/index.js';
 export type {
   IRestrictedWorkspaceProjectAccess,
@@ -84,6 +85,9 @@ export {
   createExternalEventGrantHistory,
 } from './interactive/index.js';
 export { withUniqueSessionName } from './interactive/interactive-session-fork-record.js';
+// TERM-001: a client attached to a runtime in another process hands its own terminal to the
+// client-run commands (`/shell`, `/editor`) through the same gate the session uses.
+export { SessionTerminalHandoffGate } from './interactive/interactive-session-terminal-handoff.js';
 export type {
   IExternalEventSourceOptions,
   IExternalEventSource,

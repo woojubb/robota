@@ -1,6 +1,8 @@
+import { listOpenPrompts } from './open-prompts.js';
+
 import type { TOutboundDeliver } from './outbound-delivery.js';
 import type { IProtocolSession } from './protocol-session.js';
-import type { IWireHistoryEntry, TClientMessage } from './wire-messages.js';
+import type { IWireHistoryEntry, TClientMessage, TServerMessage } from './wire-messages.js';
 
 type TSessionQueryMessage = Extract<
   TClientMessage,
@@ -8,6 +10,7 @@ type TSessionQueryMessage = Extract<
     type:
       | 'get-messages'
       | 'get-history'
+      | 'get-prompts'
       | 'get-context'
       | 'get-commands'
       | 'get-status'
@@ -17,10 +20,20 @@ type TSessionQueryMessage = Extract<
   }
 >;
 
+/**
+ * #3189: the most serialized history one `history` frame carries. Well under the tightest outbound
+ * budget (an attached terminal's, 1 MiB), so a client reading page after page is never mistaken for
+ * one that stopped reading.
+ */
+export const HISTORY_PAGE_MAX_BYTES = 256 * 1024;
+
+const utf8 = new TextEncoder();
+
 export function isSessionQueryMessage(msg: TClientMessage): msg is TSessionQueryMessage {
   return (
     msg.type === 'get-messages' ||
     msg.type === 'get-history' ||
+    msg.type === 'get-prompts' ||
     msg.type === 'get-context' ||
     msg.type === 'get-commands' ||
     msg.type === 'get-status' ||
@@ -38,7 +51,9 @@ export function handleSessionQueryMessage(
   if (msg.type === 'get-messages') {
     deliver({ type: 'messages', messages: session.getMessages() });
   } else if (msg.type === 'get-history') {
-    deliver({ type: 'history', entries: session.getFullHistory().map(toWireHistoryEntry) });
+    deliver(historyPage(session, msg.fromIndex ?? 0));
+  } else if (msg.type === 'get-prompts') {
+    for (const frame of listOpenPrompts(session)) deliver(frame);
   } else if (msg.type === 'get-context') {
     deliver({ type: 'context', state: session.getContextState() });
   } else if (msg.type === 'get-commands') {
@@ -53,8 +68,42 @@ export function handleSessionQueryMessage(
       snapshot: session.getExecutionWorkspaceSnapshot(),
     });
   } else {
-    deliver({ type: 'pending', pending: session.getPendingPrompt() });
+    deliver(pendingFrame(session));
   }
+}
+
+/** The next queued prompt and how many wait, as the session reports them now. */
+export function pendingFrame(
+  session: IProtocolSession,
+): Extract<TServerMessage, { type: 'pending' }> {
+  return {
+    type: 'pending',
+    pending: session.getPendingPrompt(),
+    pendingCount: session.getPendingCount(),
+  };
+}
+
+/**
+ * The history from `fromIndex`, as many entries as fit {@link HISTORY_PAGE_MAX_BYTES}. At least one
+ * entry is sent while any remain, so a client always moves forward, even past one larger entry.
+ */
+function historyPage(
+  session: IProtocolSession,
+  fromIndex: number,
+): Extract<TServerMessage, { type: 'history' }> {
+  const history = session.getFullHistory();
+  const total = history.length;
+  const startIndex = Math.min(fromIndex, total);
+  const entries: IWireHistoryEntry[] = [];
+  let bytes = 0;
+  for (let index = startIndex; index < total; index += 1) {
+    const entry = toWireHistoryEntry(history[index]!);
+    const size = utf8.encode(JSON.stringify(entry)).byteLength;
+    if (entries.length > 0 && bytes + size > HISTORY_PAGE_MAX_BYTES) break;
+    entries.push(entry);
+    bytes += size;
+  }
+  return { type: 'history', startIndex, total, entries };
 }
 
 function toWireHistoryEntry(

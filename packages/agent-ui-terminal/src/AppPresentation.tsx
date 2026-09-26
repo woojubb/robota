@@ -26,7 +26,7 @@ import type { IAppViewModel } from './app-view-model.js';
 
 function Transcript({ model }: { model: IAppViewModel }): React.ReactElement {
   return (
-    <Static items={model.staticItems}>
+    <Static key={model.transcriptKey} items={model.staticItems}>
       {(item) =>
         item.kind === 'banner' ? (
           <AppBanner key="logo" version={item.version} />

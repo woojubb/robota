@@ -107,6 +107,32 @@ describe('createDefaultCommandModules — PRESET-004 module-selection delta', ()
     }
   });
 
+  it('#3189: exactly /editor, /keybindings, /shell and /theme run on the terminal client', () => {
+    const { modules } = createDefaultCommandModules(baseOptions);
+    const TERMINAL_CLIENT = ['editor', 'keybindings', 'shell', 'theme'];
+
+    // The executable commands: what the runtime keeps in its catalog and what the listing reads.
+    const clientSystemCommands = modules
+      .flatMap((module) => module.systemCommands ?? [])
+      .filter((command) => command.runner === 'client');
+    expect(clientSystemCommands.map((command) => command.name).sort()).toEqual(TERMINAL_CLIENT);
+    for (const command of clientSystemCommands) {
+      expect(command.surfaces, command.name).toEqual(['terminal']);
+    }
+
+    // The palette entries, which must say the same — the two views cannot disagree.
+    const clientEntries = modules
+      .flatMap((module) => module.commandSources ?? [])
+      .flatMap((source) => source.getCommands())
+      .filter((entry) => entry.runner === 'client');
+    expect(clientEntries.map((entry) => entry.name).sort()).toEqual(TERMINAL_CLIENT);
+    for (const entry of clientEntries) {
+      expect(entry.surfaces, entry.name).toEqual(['terminal']);
+      // Running on the client does not change who may run it: all four stay user-only.
+      expect(entry.modelInvocable, entry.name).toBe(false);
+    }
+  });
+
   it('TC-02: disabledCommandModules blacklist removes the named module', () => {
     const full = moduleNames(baseOptions);
     const names = moduleNames({ ...baseOptions, disabledCommandModules: [BACKGROUND] });

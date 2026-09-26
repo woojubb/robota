@@ -127,7 +127,8 @@ describe('SCREEN-005 prompt footers through the real binary', () => {
     expect(afterEsc).not.toContain('AFTER_PERMISSION_FLOW');
     expect(afterEsc).toContain('Allow [y]'); // prompt still displayed, still unresolved
 
-    // Resolve explicitly (allow) → the tool runs and the turn continues.
+    // Resolve explicitly (allow) once the prompt is armed → the tool runs and the turn continues.
+    await session.waitFor(/> Allow \[y\]/, 10_000);
     await session.sendKeys('y');
     await session.waitFor(/AFTER_PERMISSION_FLOW/, 20_000);
   }, 60_000);

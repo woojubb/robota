@@ -7,6 +7,8 @@ import type {
   ICommandPluginAdapter,
   ICommandResult,
   TCommandHostAction,
+  TCommandRunner,
+  TCommandSurface,
 } from '../index.js';
 
 /**
@@ -28,5 +30,25 @@ describe('command contract surface', () => {
     expectTypeOf<ICommandPluginAdapter>().toHaveProperty('reloadPlugins');
     expectTypeOf<ICapabilityDescriptor>().toHaveProperty('kind');
     expectTypeOf<TCommandHostAction>().not.toBeNever();
+  });
+
+  it('requires a listing entry to say who runs the command', () => {
+    // Required, not optional: `{ runner?: … }` would not equal `{ runner: … }`.
+    expectTypeOf<Pick<ICommandListEntry, 'runner'>>().toEqualTypeOf<{
+      runner: TCommandRunner;
+    }>();
+    expectTypeOf<TCommandRunner>().toEqualTypeOf<'runtime' | 'client'>();
+    expectTypeOf<ICommandListEntry['surfaces']>().toEqualTypeOf<
+      readonly TCommandSurface[] | undefined
+    >();
+
+    // @ts-expect-error — an entry that does not say who runs it is not a listing entry.
+    const unsaid: ICommandListEntry = { name: 'x', description: 'x', modelInvocable: false };
+    void unsaid;
+  });
+
+  it('lets a command declare its runner and surfaces, both optional', () => {
+    expectTypeOf<ICommand['runner']>().toEqualTypeOf<TCommandRunner | undefined>();
+    expectTypeOf<ICommand['surfaces']>().toEqualTypeOf<readonly TCommandSurface[] | undefined>();
   });
 });

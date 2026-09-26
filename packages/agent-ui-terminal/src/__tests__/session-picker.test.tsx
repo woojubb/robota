@@ -1,0 +1,48 @@
+import { render } from 'ink-testing-library';
+import React from 'react';
+import { describe, expect, it } from 'vitest';
+
+import SessionPicker from '../SessionPicker.js';
+import { shortSessionId } from '../short-session-id.js';
+
+import type { IResumableSessionSummary } from '@robota-sdk/agent-interface-session';
+
+function summary(id: string, name?: string): IResumableSessionSummary {
+  return {
+    id,
+    cwd: '/w',
+    updatedAt: '2026-09-26T10:00:00.000Z',
+    messageCount: 2,
+    preview: '',
+    ...(name !== undefined ? { name } : {}),
+  };
+}
+
+describe('session ids on screen', () => {
+  it('shortens an id to the part that tells sessions apart, not the prefix they share', () => {
+    expect(shortSessionId('session_07d291bc-4d43-4d26-9375-7d8ca0e60e6f')).toBe('07d291bc');
+    expect(shortSessionId('session_1773862349776_rnecma5lu')).toBe('17738623');
+    expect(shortSessionId('host-session-id')).toBe('host-ses');
+    expect(shortSessionId('session_')).toBe('session_');
+  });
+
+  it('lists unnamed sessions by distinct ids, and named ones by name', () => {
+    const view = render(
+      <SessionPicker
+        sessions={[
+          summary('session_07d291bc-4d43-4d26-9375-7d8ca0e60e6f'),
+          summary('session_15f05245-1f06-4375-8f29-db19e622afdd'),
+          summary('session_aaaaaaaa-0000-0000-0000-000000000000', 'auth work'),
+        ]}
+        onSelect={() => undefined}
+        onCancel={() => undefined}
+      />,
+    );
+    const frame = view.lastFrame() ?? '';
+    expect(frame).toContain('07d291bc');
+    expect(frame).toContain('15f05245');
+    expect(frame).toContain('auth work');
+    expect(frame).not.toMatch(/session_\s/);
+    view.unmount();
+  });
+});
