@@ -21,6 +21,9 @@ import type { IAgentConfig } from '../interfaces/agent';
 import type { TUniversalMessage } from '../interfaces/messages';
 
 describe('buildFinalResult provider-error marking (CLI-064)', () => {
+  // These stores hold the turn under test from the start.
+  const WHOLE_STORE = { turnStartIndex: 0 };
+
   it('TC-01: marks the result failed when the final assistant message is a provider error', () => {
     const store = new ConversationStore();
     store.addUserMessage('say hi');
@@ -29,7 +32,7 @@ describe('buildFinalResult provider-error marking (CLI-064)', () => {
       providerError: true,
     });
 
-    const result = buildFinalResult(store, 'exec-1', new Date(), []);
+    const result = buildFinalResult(store, 'exec-1', new Date(), [], WHOLE_STORE);
 
     expect(result.success).toBe(false);
     expect(result.error).toBeInstanceOf(Error);
@@ -45,7 +48,7 @@ describe('buildFinalResult provider-error marking (CLI-064)', () => {
     store.addUserMessage('say hi');
     store.addAssistantMessage('hello!', [], { round: 1 });
 
-    const result = buildFinalResult(store, 'exec-2', new Date(), []);
+    const result = buildFinalResult(store, 'exec-2', new Date(), [], WHOLE_STORE);
 
     expect(result.success).toBe(true);
     expect(result.error).toBeUndefined();
@@ -71,7 +74,7 @@ describe('buildFinalResult provider-error marking (CLI-064)', () => {
       providerError: true,
     });
 
-    const result = buildFinalResult(store, 'exec-4', new Date(), [], original);
+    const result = buildFinalResult(store, 'exec-4', new Date(), [], WHOLE_STORE, original);
 
     expect(result.success).toBe(false);
     expect(result.error, 'the original failure was rebuilt from prose').toBe(original);
@@ -85,7 +88,14 @@ describe('buildFinalResult provider-error marking (CLI-064)', () => {
     store.addUserMessage('say hi');
     store.addAssistantMessage('Request failed: weird', [], { round: 1, providerError: true });
 
-    const result = buildFinalResult(store, 'exec-5', new Date(), [], 'weird string throw');
+    const result = buildFinalResult(
+      store,
+      'exec-5',
+      new Date(),
+      [],
+      WHOLE_STORE,
+      'weird string throw',
+    );
 
     expect(result.success).toBe(false);
     expect(result.error).toBeInstanceOf(Error);
@@ -102,7 +112,7 @@ describe('buildFinalResult provider-error marking (CLI-064)', () => {
     store.addUserMessage('retry please');
     store.addAssistantMessage('hello after retry!', [], { round: 2 });
 
-    const result = buildFinalResult(store, 'exec-3', new Date(), []);
+    const result = buildFinalResult(store, 'exec-3', new Date(), [], WHOLE_STORE);
 
     expect(result.success).toBe(true);
     expect(result.response).toBe('hello after retry!');

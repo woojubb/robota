@@ -11,6 +11,24 @@ import type { ICoreExecutionResult } from './execution-types';
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { ConversationStore } from '../managers/conversation-history-manager';
 
+const NO_RESPONSE_TEXT = 'No response received. The context window may be full.';
+
+/**
+ * Which turn a result describes, and how that turn is allowed to end.
+ *
+ * The store holds the whole conversation, so a result read from all of it answered for earlier
+ * turns: a turn that produced no text resolved with the PREVIOUS turn's answer, and `tokensUsed`
+ * re-counted every earlier call on every run.
+ */
+export interface IFinalResultScope {
+  /** Index of this turn's user message in the store; only messages from here on are the turn's. */
+  readonly turnStartIndex: number;
+  /** CORE-011: a turn that ends in tool results, with no text after them, is complete. */
+  readonly allowToolOnlyCompletion?: boolean;
+  /** The run was aborted: it resolves with the text committed so far, never as a failure. */
+  readonly interrupted?: boolean;
+}
+
 /**
  * The `error` a failed result carries: the ORIGINAL thrown value by identity when it was carried,
  * a wrapper for a non-Error thrown value, and a reconstruction from the display message ONLY for
@@ -22,6 +40,10 @@ function resolveProviderFailureError(providerFailure: unknown, response: string)
   return new Error(response);
 }
 
+function isAssistantText(msg: TUniversalMessage): boolean {
+  return msg.role === 'assistant' && typeof msg.content === 'string' && msg.content.length > 0;
+}
+
 /**
  * Build the final ICoreExecutionResult from the completed conversation store.
  */
@@ -30,23 +52,28 @@ export function buildFinalResult(
   executionId: string,
   startTime: Date,
   toolsExecuted: string[],
+  scope: IFinalResultScope,
   providerFailure?: unknown,
 ): ICoreExecutionResult {
   const finalMessages = conversationStore.getMessages();
-  // Find last assistant message with actual content (skip stripped tool-round messages)
-  const lastAssistantMessage = finalMessages
-    .filter(
-      (msg) =>
-        msg.role === 'assistant' && typeof msg.content === 'string' && msg.content.length > 0,
-    )
-    .pop();
-  const response: string = lastAssistantMessage
-    ? (lastAssistantMessage.content as string)
-    : 'No response received. The context window may be full.';
+  const turnMessages = finalMessages.slice(scope.turnStartIndex);
+  // Last assistant message of THIS turn with actual content (skip stripped tool-round messages)
+  const lastAssistantMessage = turnMessages.filter(isAssistantText).pop();
   // A round that ended in a provider failure records the error as an assistant message
   // with providerError metadata — that message must not count as a successful response,
   // or the failure is masked as exit 0 downstream.
   const endedWithProviderError = lastAssistantMessage?.metadata?.['providerError'] === true;
+  const endedInToolResults = turnMessages[turnMessages.length - 1]?.role === 'tool';
+  const toolOnlyCompletion =
+    scope.allowToolOnlyCompletion === true && endedInToolResults && !lastAssistantMessage;
+  const response: string = lastAssistantMessage
+    ? (lastAssistantMessage.content as string)
+    : toolOnlyCompletion || scope.interrupted === true
+      ? ''
+      : NO_RESPONSE_TEXT;
+  const failed =
+    scope.interrupted !== true &&
+    (endedWithProviderError || (!lastAssistantMessage && !toolOnlyCompletion));
   const duration = Date.now() - startTime.getTime();
   return {
     response,
@@ -64,7 +91,7 @@ export function buildFinalResult(
     }) as TUniversalMessage[],
     executionId,
     duration,
-    tokensUsed: finalMessages
+    tokensUsed: turnMessages
       .filter((msg) => msg.metadata?.['usage'])
       .reduce((sum, msg) => {
         const usage = msg.metadata?.['usage'];
@@ -77,9 +104,9 @@ export function buildFinalResult(
         return sum;
       }, 0),
     toolsExecuted,
-    success: !!lastAssistantMessage && !endedWithProviderError,
+    success: !failed,
     // CORE-027: the ORIGINAL thrown value, by identity — see resolveProviderFailureError.
-    ...(endedWithProviderError
+    ...(failed && endedWithProviderError
       ? { error: resolveProviderFailureError(providerFailure, response) }
       : {}),
   };
