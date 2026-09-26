@@ -114,12 +114,12 @@ export function createRebindableExternalEventGrants(
       const next = binding.then(async () => {
         // The same session keeps its grants: its ingress remembers each revocation already.
         if (session === boundSession && host !== undefined) return;
-        host?.close();
-        host = undefined;
-        boundSession = undefined;
+        // The grants stay open where they are until they are open on the next session, so a bind
+        // that fails leaves them where they were.
         const opened = await openExternalEventGrants(session, grants, { audit });
         // A revocation that arrived while the grants were opening still applies.
         for (const grantId of revoked) opened.revoke(grantId);
+        host?.close();
         host = opened;
         boundSession = session;
       });

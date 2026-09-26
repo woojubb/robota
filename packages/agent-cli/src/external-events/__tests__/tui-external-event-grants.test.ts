@@ -266,4 +266,39 @@ describe('grants across a switch on a run-level history (#3189)', () => {
     await tui.bind(session());
     expect(tui.adapter.list().find((row) => row.grantId === 'chat')?.state).toBe('open');
   });
+
+  it('a bind that fails after a revoke leaves every grant where it was', async () => {
+    const submit = vi.fn(async () => ({
+      turnId: 'turn_1',
+      completed: new Promise<never>(() => undefined),
+    }));
+    const ingress = new ExternalEventIngress({
+      getPermissionMode: () => 'default',
+      addPermissionModeGuard: () => () => undefined,
+      submit,
+      createVerifier: () => ({ verify: async () => ({ admitted: true as const }) }),
+      history: createExternalEventGrantHistory(),
+    });
+    const current = {
+      openExternalEventSource: async (o: IExternalEventSourceOptions) => ingress.open(o),
+    };
+    const tui = createTuiExternalEventGrants([grant('ci'), grant('chat')], () => undefined);
+    await tui.bind(current);
+    tui.adapter.revoke('ci');
+    await expect(tui.bind(fakeSession(true))).rejects.toThrow();
+    expect(await tui.receive('ci', { token: 't', event: {} })).toEqual({
+      admitted: false,
+      refusal: 'grant-revoked',
+    });
+    // A token the ingress can spend: a compact JWS naming its own id and expiry.
+    const part = (value: unknown): string =>
+      Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
+    const spendable = `${part({ alg: 'ES256' })}.${part({ jti: 'j1', exp: Date.now() / 1000 + 300 })}.c2ln`;
+    expect(
+      await tui.receive('chat', {
+        token: spendable,
+        event: { kind: 'message', conversationId: 'room', content: 'hi' },
+      }),
+    ).toMatchObject({ admitted: true });
+  });
 });

@@ -311,14 +311,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
           // The grants belong to the run, as in the TUI: they reopen on the next session and close
           // on this one. If they cannot open there, they stay here and the switch fails.
           adopt: async (next) => {
-            const grants = externalEvents;
-            if (grants === undefined) return;
-            try {
-              await grants.bind(next);
-            } catch (error) {
-              await grants.bind(slot.current).catch(() => undefined);
-              throw error;
-            }
+            await externalEvents?.bind(next);
           },
         });
       }
