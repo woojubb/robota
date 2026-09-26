@@ -4,6 +4,8 @@
  * - every file a package declares (main, module, types, exports, bin) is inside its tarball, and no
  *   `workspace:` specifier remains — catches a build that left `dist` empty or unpacked (for example a
  *   symlinked `dist`, which `pnpm pack` skips);
+ * - the manifest declares the release's `engines.node` (agent-core's value), so every package names the
+ *   same supported Node and a consumer below it is warned at install;
  * - `publint --strict` finds no errors or warnings in the package layout;
  * - `attw` (Are The Types Wrong) finds no type-resolution problem for Node 16+ ESM/CJS and bundlers.
  *   Subpaths that declare no `require` condition are ESM-only by design and are left out of attw;
@@ -16,7 +18,7 @@
  * Usage: node scripts/publish/verify-tarballs.mjs <directory-with-tgz-files>
  */
 import { execFileSync } from 'node:child_process';
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 function declaredPaths(manifest) {
@@ -37,6 +39,12 @@ function declaredPaths(manifest) {
 }
 
 const BIN = path.join(import.meta.dirname, '..', '..', 'node_modules', '.bin');
+const NODE_FLOOR = JSON.parse(
+  readFileSync(
+    path.join(import.meta.dirname, '..', '..', 'packages/agent-core/package.json'),
+    'utf8',
+  ),
+).engines?.node;
 const TOOLS = {
   publint: ['publint', '--strict'],
   attw: ['attw', '--profile', 'node16'],
@@ -118,6 +126,8 @@ export function verifyTarball(tarball) {
     ...runTool('attw', tarball, esmOnly.length ? ['--exclude-entrypoints', ...esmOnly] : []),
   );
   problems.push(...browserBuiltinProblems(tarball, manifest, files));
+  if (!NODE_FLOOR || manifest.engines?.node !== NODE_FLOOR)
+    problems.push(`declares engines.node ${manifest.engines?.node ?? '(none)'}, not ${NODE_FLOOR}`);
   return { name: manifest.name, problems };
 }
 

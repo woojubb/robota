@@ -17,6 +17,6 @@ budgets are explicit `StableFileAuthorityError` results. Raw descriptors, Window
 paths, and pathname fallbacks are never exposed.
 
 The qualified native targets are Linux x64/arm64, macOS x64/arm64, and Windows x64 on Node.js
-20.19 or newer. Other targets fail closed with `UNSUPPORTED_BACKEND`.
+22.12 or newer. Other targets fail closed with `UNSUPPORTED_BACKEND`.
 
 See [the package specification](./docs/SPEC.md) for the contract and security boundaries.
