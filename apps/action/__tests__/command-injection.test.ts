@@ -16,13 +16,21 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { buildCliInvocation } from '../src/build-invocation.js';
 
+/**
+ * The payload names the marker relative to the child's `cwd` rather than by its absolute path, so the
+ * CONTROL case below feeds a shell only literal text — no temp-directory path is ever interpolated into
+ * a command string.
+ */
+const MARKER_NAME = 'PWNED';
+const PAYLOAD = `hello; touch ${MARKER_NAME} #`;
+
 describe('SEC-006: action inputs must never reach a shell', () => {
   let dir: string;
   let marker: string;
 
   beforeEach(() => {
     dir = realpathSync(mkdtempSync(join(tmpdir(), 'action-injection-')));
-    marker = join(dir, 'PWNED');
+    marker = join(dir, MARKER_NAME);
   });
   afterEach(() => {
     rmSync(dir, { recursive: true, force: true });
@@ -30,14 +38,18 @@ describe('SEC-006: action inputs must never reach a shell', () => {
 
   it('does not execute a shell payload smuggled through the task input', () => {
     const invocation = buildCliInvocation({
-      task: `hello; touch ${marker} #`,
+      task: PAYLOAD,
       model: '',
       output: 'text',
       maxTurns: '',
     });
 
     // stand in for `npx` so the test never hits the network; the argv vector is otherwise verbatim
-    execFileSync('echo', invocation.args, { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    execFileSync('echo', invocation.args, {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
 
     expect(existsSync(marker)).toBe(false);
   });
@@ -68,12 +80,16 @@ describe('SEC-006: action inputs must never reach a shell', () => {
     // Pins WHY the fix is shaped this way. If this ever stops reproducing, the threat model changed
     // and the reasoning above should be revisited rather than silently trusted.
     const { args } = buildCliInvocation({
-      task: `hello; touch ${marker} #`,
+      task: PAYLOAD,
       model: '',
       output: 'text',
       maxTurns: '',
     });
-    execSync(['echo', ...args].join(' '), { encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] });
+    execSync(['echo', ...args].join(' '), {
+      cwd: dir,
+      encoding: 'utf8',
+      stdio: ['pipe', 'pipe', 'pipe'],
+    });
     expect(existsSync(marker)).toBe(true);
   });
 });
