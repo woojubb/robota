@@ -1,0 +1,6 @@
+#!/bin/sh
+# The repo's `robota` run from TypeScript source — what `pnpm cli:dev` runs, as one executable that a
+# tool which spawns a command binary can use too (the desktop app's `ROBOTA_GUI_SIDECAR_CMD`, the
+# browser GUI's sidecar). No build needed: workspace packages resolve through their `source` condition.
+root=$(CDPATH= cd -- "$(dirname -- "$0")/../.." && pwd)
+exec "$root/node_modules/.bin/tsx" --conditions=source "$root/packages/agent-cli/src/bin.ts" "$@"

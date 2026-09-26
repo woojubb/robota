@@ -2,7 +2,7 @@
   "name": "@robota-sdk/agent-gui-web",
   "version": "3.0.0-beta.82",
   "private": true,
-  "description": "agent-gui-web — the robota GUI as a web app (Vite + React over @robota-sdk/agent-ui-web). One frontend for every host: the desktop app (apps/agent-app) loads its build, the CLI serves it on `robota --serve --open`, and `dev:web` runs it in a browser against the repo CLI. Private product shell; not an importable library.",
+  "description": "agent-gui-web — the robota GUI as a web app (Vite + React over @robota-sdk/agent-ui-web). One frontend for every host: the desktop app (apps/agent-app) loads its build, the CLI serves it on `robota --serve --open`, and `pnpm gui:dev` runs it in a browser against the repo CLI. Private product shell; not an importable library.",
   "type": "module",
   "scripts": {
     "dev": "vite",

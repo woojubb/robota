@@ -4,7 +4,7 @@
 
 The robota GUI as a web app: a Vite + React single-page app over the shared GUI core
 (`@robota-sdk/agent-ui-web`). It is the one frontend for every host — the desktop app loads its
-build, the CLI serves it on `robota --serve --open`, and `dev:web` runs it in a browser against the
+build, the CLI serves it on `robota --serve --open`, and `gui:dev` runs it in a browser against the
 repo CLI with hot reload.
 
 It is a **`private` product-shell package**: a product UI assembled from the shared libraries, not an
