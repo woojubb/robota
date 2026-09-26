@@ -114,9 +114,14 @@ echoes only to a caller that already named it, so a stop, rename, or PR-associat
 only on the start the caller verified (the one a view row displayed, or the one registered when the
 command runs) and fails explicitly when that start, ownership, or completion cannot be established.
 A registration that cannot name its start is listed but never controlled, and the generation never
-appears in listings. Attach, peek, and
-automatic restart are not offered, and the transport's per-launch authentication token is never
-exposed through the control endpoint or inventory.
+appears in listings. A terminal of the same user on the same host may attach through that endpoint,
+naming the process start, to drive the session or to observe it read-only. It is one more surface
+under the session's ordinary co-drive and prompt rules, never an operator approver, so a supervised
+session still refuses every mesh connection that needs one. Detaching or crashing ends only that
+connection: a turn in progress runs on, a prompt no other surface can answer is denied, and a reader
+that stops reading is cut off instead of holding the session. Automatic restart is not offered, and
+the transport's per-launch authentication token is never exposed through the control endpoint or
+inventory.
 
 Observability has two independently gated paths. `usage export` is an explicit,
 local-only action over the same authorized stores as local usage reporting: its aggregate usage,

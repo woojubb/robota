@@ -19,6 +19,9 @@ import {
 } from '../external-events/external-event-grant-file.js';
 import { readProcessStartTime } from '../remote-control/local-peer-registry.js';
 import { resolveRendezvousDirectory } from '../remote-control/local-peer-rendezvous.js';
+import { createSupervisedAttachCarrier } from './supervised-attach.js';
+
+import type { IProtocolSession } from '@robota-sdk/agent-transport';
 
 const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u;
 const MAX_FRAME_BYTES = 4_096;
@@ -233,7 +236,12 @@ function readRegistration(directory: string, id: string): IRegistration {
   };
 }
 
-function readLine(socket: Socket, maxBytes = MAX_FRAME_BYTES): Promise<string> {
+/** `onRest` receives whatever arrived after the line, for a connection that stays open. */
+function readLine(
+  socket: Socket,
+  maxBytes = MAX_FRAME_BYTES,
+  onRest?: (rest: string) => void,
+): Promise<string> {
   return new Promise((resolve, reject) => {
     let received = '';
     let done = false;
@@ -249,12 +257,19 @@ function readLine(socket: Socket, maxBytes = MAX_FRAME_BYTES): Promise<string> {
     };
     const onData = (chunk: string): void => {
       received += chunk;
-      if (Buffer.byteLength(received, 'utf8') > maxBytes) {
+      const end = received.indexOf('\n');
+      // The bound is on the line itself: bytes an attach client sends after it belong to the
+      // session protocol, which applies its own frame limit.
+      if (Buffer.byteLength(end === -1 ? received : received.slice(0, end), 'utf8') > maxBytes) {
         finish(() => reject(new Error('Supervised session control frame is too large.')));
         return;
       }
-      const end = received.indexOf('\n');
-      if (end !== -1) finish(() => resolve(received.slice(0, end)));
+      if (end !== -1) {
+        finish(() => {
+          onRest?.(received.slice(end + 1));
+          resolve(received.slice(0, end));
+        });
+      }
     };
     const onError = (): void => finish(() => reject(new Error('Supervised session control is unavailable.')));
     const onEnd = (): void => finish(() => reject(new Error('Supervised session control closed before replying.')));
@@ -606,6 +621,7 @@ export async function startSupervisedControl(
   onRename?: (name: string) => void,
   pr?: { readonly get: () => ISupervisedPr | undefined; readonly set: (value: ISupervisedPr | undefined) => void },
   externalEvents?: ISupervisedExternalEvents,
+  attachSession?: IProtocolSession,
 ): Promise<ISupervisedControl> {
   if (!ID_PATTERN.test(id)) throw new Error('Invalid supervised session ID.');
   ensurePrivateDirectory(root);
@@ -623,13 +639,15 @@ export async function startSupervisedControl(
   const refuse = (socket: Socket, reason?: 'stale-generation'): void => {
     socket.end(`${JSON.stringify({ id, status: 'refused', ...(reason ? { reason } : {}) })}\n`);
   };
+  const attach = attachSession === undefined ? undefined : createSupervisedAttachCarrier(attachSession);
   const clients = new Set<Socket>();
   const server: Server = createServer((socket) => {
     clients.add(socket);
     // readLine owns request errors only; write-side EPIPE can arrive after its listener is removed.
     socket.on('error', () => socket.destroy());
     socket.once('close', () => clients.delete(socket));
-    void readLine(socket).then((line) => {
+    let rest = '';
+    void readLine(socket, MAX_FRAME_BYTES, (remaining) => { rest = remaining; }).then((line) => {
       let value: unknown;
       try {
         value = JSON.parse(line);
@@ -643,6 +661,27 @@ export async function startSupervisedControl(
       }
       if (!('generation' in value) || value.generation !== generation) {
         refuse(socket, 'stale-generation');
+        return;
+      }
+      if (value.command === 'attach') {
+        // Hold the next frames until the protocol takes over. This runs before any further data
+        // event, so nothing sent after the handshake is dropped.
+        socket.pause();
+        // A refused handshake reads again, so the peer's close is seen and the socket is released.
+        const refuse = (reason: string): void => {
+          socket.resume();
+          reply(socket, { status: 'refused', reason });
+        };
+        if (attach === undefined) {
+          refuse('attach-unavailable');
+          return;
+        }
+        void attach.admit(socket, value, rest, {
+          refuse,
+          accept: (driverId) => {
+            socket.write(`${JSON.stringify({ id, status: 'attached', driverId, generation })}\n`);
+          },
+        }).catch(() => socket.destroy());
         return;
       }
       if (value.command === 'status') {
