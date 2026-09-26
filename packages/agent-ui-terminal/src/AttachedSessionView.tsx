@@ -89,6 +89,18 @@ export default function AttachedSessionView({
   const nextKey = useRef(0);
   const detached = useRef(false);
   const streamed = useRef('');
+  const promptRef = useRef<TPrompt | undefined>(undefined);
+
+  // Every change of the open question goes through here. What was typed for a question belongs to
+  // it: when that question is settled elsewhere or replaced, the typing is dropped in the same
+  // update, so a masked answer is never shown in clear or sent as an ordinary prompt.
+  const changePrompt = (next: TPrompt | undefined): void => {
+    const previous = promptRef.current;
+    if (previous?.kind === 'ask' && next?.id !== previous.id) setInput('');
+    if (next?.kind === 'ask' && next.id !== previous?.id) setInput('');
+    promptRef.current = next;
+    setPrompt(next);
+  };
 
   const detach = (reason: TAttachedSessionEnd): void => {
     if (detached.current) return;
@@ -152,17 +164,16 @@ export default function AttachedSessionView({
           break;
         case 'permission_request':
           if (mode === 'drive') {
-            setPrompt({ kind: 'permission', id: message.event.id, toolName: message.event.toolName });
+            changePrompt({ kind: 'permission', id: message.event.id, toolName: message.event.toolName });
           }
           break;
         case 'ask_request':
           if (mode === 'drive') {
-            setInput('');
-            setPrompt({ kind: 'ask', id: message.event.id, request: message.event.request });
+            changePrompt({ kind: 'ask', id: message.event.id, request: message.event.request });
           }
           break;
         case 'prompt_resolved':
-          setPrompt((current) => (current?.id === message.event.id ? undefined : current));
+          if (promptRef.current?.id === message.event.id) changePrompt(undefined);
           if (message.event.answererDriverId !== undefined && message.event.answererDriverId !== driverId) {
             setNotice(`A question was answered by ${message.event.answererDriverId}.`);
           }
@@ -217,21 +228,21 @@ export default function AttachedSessionView({
       if (text === '' && current.request.allowEmpty !== true) return;
       connection.send({ type: 'ask-response', id: current.id, response: { type: 'answer', values: [], text: input } });
     }
-    setInput('');
-    setPrompt(undefined);
+    changePrompt(undefined);
   };
 
   const submit = (): void => {
     const text = input.trim();
     setInput('');
     if (text === '') return;
-    // In a shared session `/exit` would end it for everyone; here it only takes this terminal away.
-    if (text === '/exit' || text === '/quit') {
-      detach('user');
-      return;
-    }
     if (text.startsWith('/')) {
-      const [name = '', ...rest] = text.slice(1).split(' ');
+      const [name = '', ...rest] = text.slice(1).split(/\s+/u);
+      // In a shared session `/exit` would end it for everyone, whatever its arguments; here it only
+      // takes this terminal away.
+      if (name === 'exit' || name === 'quit') {
+        detach('user');
+        return;
+      }
       connection.send({ type: 'command', name, args: rest.join(' ') });
       return;
     }
@@ -251,14 +262,13 @@ export default function AttachedSessionView({
       const answer = typed === 'y' ? true : typed === 'n' || key.escape ? false : typed === 'a' ? 'allow-session' : undefined;
       if (answer !== undefined) {
         connection.send({ type: 'permission-response', id: prompt.id, result: answer });
-        setPrompt(undefined);
+        changePrompt(undefined);
       }
       return;
     }
     if (prompt?.kind === 'ask' && key.escape) {
       connection.send({ type: 'ask-response', id: prompt.id, response: { type: 'cancelled' } });
-      setInput('');
-      setPrompt(undefined);
+      changePrompt(undefined);
       return;
     }
     if (key.return) {

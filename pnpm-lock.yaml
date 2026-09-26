@@ -1345,6 +1345,9 @@ importers:
       gifenc:
         specifier: ^1.0.3
         version: 1.0.3
+      jose:
+        specifier: 6.2.3
+        version: 6.2.3
       playwright:
         specifier: ^1.49.1
         version: 1.61.1

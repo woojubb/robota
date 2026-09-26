@@ -134,6 +134,38 @@ describe('attached session view', () => {
     }
   });
 
+  it('drops a half-typed secret when its question is settled or replaced elsewhere', async () => {
+    for (const next of [
+      { type: 'prompt_resolved', event: { id: 'a1', answererDriverId: 'owner' } },
+      { type: 'permission_request', event: { id: 'p9', toolName: 'Bash', toolArgs: {} } },
+    ] as const) {
+      const link = connection();
+      const view = render(
+        <AttachedSessionView connection={link} mode="drive" sessionLabel="s" driverId="attach:1" onDetach={vi.fn()} />,
+      );
+      try {
+        await tick();
+        link.push({
+          type: 'ask_request',
+          event: { id: 'a1', request: { id: 'r', title: 'API key', allowFreeText: true, masked: true } },
+        });
+        await tick();
+        await type(view.stdin, 'sk-secret');
+        expect(view.lastFrame()).not.toContain('sk-secret');
+        link.push(next);
+        await tick();
+        expect(view.lastFrame()).not.toContain('sk-secret');
+        if (next.type === 'permission_request') view.stdin.write('n');
+        await tick();
+        view.stdin.write('\r');
+        await tick();
+        expect(JSON.stringify(link.sent)).not.toContain('sk-secret');
+      } finally {
+        view.unmount();
+      }
+    }
+  });
+
   it('submits prompts and commands, and treats /exit as detach without sending it', async () => {
     const link = connection();
     const onDetach = vi.fn();
@@ -150,7 +182,7 @@ describe('attached session view', () => {
       view.stdin.write('\r');
       await tick();
       expect(link.sent).toContainEqual({ type: 'command', name: 'model', args: 'list' });
-      for (const command of ['/exit', '/quit']) {
+      for (const command of ['/exit', '/quit', '/exit now', '/quit --force']) {
         await type(view.stdin, command);
         view.stdin.write('\r');
         await tick();
