@@ -37,7 +37,7 @@
     "version": "changeset version",
     "release": "bash scripts/publish/publish-packages.sh",
     "cli:dev": "scripts/dev/robota",
-    "gui:dev": "pnpm --filter @robota-sdk/agent-gui-web dev:web",
+    "gui:dev": "node packages/agent-gui-web/scripts/dev-web.mjs",
     "app:dev": "node scripts/dev/app-dev.mjs",
     "web:dev": "pnpm --filter robota-web run dev",
     "web:build": "pnpm --filter robota-web run build",

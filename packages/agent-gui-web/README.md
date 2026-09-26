@@ -8,7 +8,7 @@ package has no public import API and is not published to npm.
 ## Develop
 
 ```bash
-pnpm gui:dev                                      # robota --serve from source + Vite, hot reload
+pnpm gui:dev                                      # page and robota --serve from source, hot reload
 pnpm gui:dev --scripted                           # deterministic sidecar, no model
 pnpm --filter @robota-sdk/agent-gui-web test:e2e  # user scenarios in headless Chromium
 ```

@@ -21,6 +21,7 @@
       "default": "./dist/node/index.js"
     },
     "./client": {
+      "source": "./src/index.ts",
       "import": {
         "types": "./dist/browser/index.d.ts",
         "default": "./dist/browser/index.js"

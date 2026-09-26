@@ -20,7 +20,7 @@ loopback port against a co-resident browser page.
 ## Run (dev)
 
 ```bash
-pnpm app:dev   # from the repo root: builds the page and the shell, opens the window on the CLI from source
+pnpm app:dev   # builds the shell and the page it loads, opens the window on the CLI from source
 ```
 
 `app:dev` sets `ROBOTA_GUI_SIDECAR_CMD` to `scripts/dev/robota`; outside it, an unpackaged shell runs PATH

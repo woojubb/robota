@@ -41,16 +41,22 @@ Each surface runs this checkout's code, not a `robota` installed on PATH:
 
 ```bash
 pnpm cli:dev                # the terminal UI, from source — no build needed
-pnpm gui:dev                # the GUI in a browser with hot reload, against the CLI from source
-pnpm gui:dev --scripted     # the same with a deterministic sidecar: no model, no API key
-pnpm app:dev                # the desktop app: builds the page and the Electron shell, then opens it
+pnpm gui:dev                # the GUI in a browser: page and CLI from source, hot reload, no build needed
+pnpm gui:dev --scripted     # the same page with a deterministic sidecar: no model, no API key
+pnpm app:dev                # the desktop app: builds the page and what it bundles, then opens the window
 ```
 
-All three run through `scripts/dev/robota`, which starts `packages/agent-cli/src/bin.ts` with the `source`
-export condition. The GUI and the desktop app serve the directory the command was started from (or
-`ROBOTA_DEV_CWD`), which must be a trusted workspace (`robota trust`). They use your own `~/.robota`.
-The desktop app reattaches to the workspace's running daemon when there is one; after changing CLI code, run
-`pnpm cli:dev daemon stop` so the next `app:dev` starts a daemon on the new code.
+The CLI always runs through `scripts/dev/robota`, which starts `packages/agent-cli/src/bin.ts` with the
+`source` export condition. `cli:dev` works in the repo root; the GUI and the desktop app serve the directory
+the command was started from (or `ROBOTA_DEV_CWD`). That directory must be a trusted workspace
+(`pnpm cli:dev trust --yes` for the repo root). All of them use your own `~/.robota`.
+
+The desktop app reattaches to the workspace's running daemon when there is one. After changing CLI code, stop
+it in the directory the app serves, so the next `app:dev` starts a daemon on the new code:
+
+```bash
+<repo>/scripts/dev/robota daemon stop
+```
 
 ## Monorepo Structure
 
