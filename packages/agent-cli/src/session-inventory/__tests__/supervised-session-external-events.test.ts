@@ -1,5 +1,13 @@
 import { type ChildProcess } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import {
+  closeSync,
+  fstatSync,
+  mkdtempSync,
+  openSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+} from 'node:fs';
 import { request } from 'node:http';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
@@ -123,9 +131,16 @@ describe('external event grants on a supervised session', () => {
       // Revoked, yet a caller without a valid token sees exactly what a live grant answers.
       expect(await post(port, 'ci', 'not-a-token')).toMatchObject({ status: 401, body: '' });
       // Refusals outlive the process in an owner-only trail that holds no token or content.
-      const trail = join(root, 'audit', `${id}.jsonl`);
-      expect(statSync(trail).mode & 0o777).toBe(0o600);
-      const records = readFileSync(trail, 'utf8')
+      // One open, so the mode checked and the text read belong to the same file.
+      const trailFd = openSync(join(root, 'audit', `${id}.jsonl`), 'r');
+      let trail: string;
+      try {
+        expect(fstatSync(trailFd).mode & 0o777).toBe(0o600);
+        trail = readFileSync(trailFd, 'utf8');
+      } finally {
+        closeSync(trailFd);
+      }
+      const records = trail
         .trim()
         .split('\n')
         .map((line) => JSON.parse(line) as Record<string, unknown>);
@@ -135,7 +150,7 @@ describe('external event grants on a supervised session', () => {
         'malformed',
         'malformed',
       ]);
-      expect(readFileSync(trail, 'utf8')).not.toMatch(/not-a-token|hello|PRINCIPAL/);
+      expect(trail).not.toMatch(/not-a-token|hello|PRINCIPAL/);
       await expect(revokeSupervisedExternalEventGrant(id, 'nope', root)).rejects.toThrow(
         /holds no external event grant nope/,
       );

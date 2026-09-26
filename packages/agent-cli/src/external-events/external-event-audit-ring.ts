@@ -2,10 +2,11 @@ import {
   closeSync,
   constants,
   fstatSync,
+  ftruncateSync,
   lstatSync,
   openSync,
   readdirSync,
-  renameSync,
+  readSync,
   rmSync,
   writeSync,
 } from 'node:fs';
@@ -45,6 +46,38 @@ function pruneOldest(directory: string): void {
   for (const file of files.slice(MAX_FILES)) rmSync(join(directory, file.name), { force: true });
 }
 
+function writeAll(fd: number, bytes: Buffer): void {
+  let written = 0;
+  while (written < bytes.length) written += writeSync(fd, bytes, written, bytes.length - written);
+}
+
+/**
+ * Move what the open trail holds into a freshly created previous file, then empty the trail.
+ * Everything goes through `fd`, the file already open and checked, so the path is never
+ * resolved a second time and nothing swapped in at it can be rotated or written.
+ */
+function rotate(fd: number, previous: string): void {
+  rmSync(previous, { force: true });
+  const out = openSync(
+    previous,
+    constants.O_WRONLY | constants.O_CREAT | constants.O_EXCL | constants.O_NOFOLLOW,
+    0o600,
+  );
+  try {
+    const chunk = Buffer.alloc(64 * 1024);
+    let position = 0;
+    for (;;) {
+      const read = readSync(fd, chunk, 0, chunk.length, position);
+      if (read === 0) break;
+      writeAll(out, chunk.subarray(0, read));
+      position += read;
+    }
+  } finally {
+    closeSync(out);
+  }
+  ftruncateSync(fd, 0);
+}
+
 /**
  * A bounded, owner-only JSONL trail of one supervised session's external-event refusals and
  * settlements. It outlives the process, so a refusal can be seen after the fact. `directory` must
@@ -65,26 +98,15 @@ export function createExternalEventAuditRing(
   return (record) => {
     const text = line(record);
     try {
-      let fd = openSync(
+      const fd = openSync(
         current,
-        constants.O_WRONLY | constants.O_APPEND | constants.O_CREAT | constants.O_NOFOLLOW,
+        constants.O_RDWR | constants.O_APPEND | constants.O_CREAT | constants.O_NOFOLLOW,
         0o600,
       );
-      if (fstatSync(fd).size + Buffer.byteLength(text) > MAX_FILE_BYTES) {
-        closeSync(fd);
-        renameSync(current, previous);
-        fd = openSync(
-          current,
-          constants.O_WRONLY |
-            constants.O_APPEND |
-            constants.O_CREAT |
-            constants.O_EXCL |
-            constants.O_NOFOLLOW,
-          0o600,
-        );
-      }
       try {
-        writeSync(fd, text);
+        const bytes = Buffer.from(text);
+        if (fstatSync(fd).size + bytes.length > MAX_FILE_BYTES) rotate(fd, previous);
+        writeAll(fd, bytes);
       } finally {
         closeSync(fd);
       }

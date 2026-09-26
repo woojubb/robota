@@ -1,4 +1,8 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 vi.mock('@robota-sdk/agent-framework', async (importOriginal) => {
@@ -32,6 +36,10 @@ vi.mock('@robota-sdk/agent-framework', async (importOriginal) => {
 
 import { TuiInteractionChannel } from '../TuiInteractionChannel.js';
 
+/** The session's working directory: private to this run, never a fixed name under /tmp. */
+const PROJECT_DIR = mkdtempSync(join(tmpdir(), 'robota-tui-init-failure-'));
+afterAll(() => rmSync(PROJECT_DIR, { recursive: true, force: true }));
+
 describe('TuiInteractionChannel init failure surfacing', () => {
   beforeEach(() => {
     vi.useFakeTimers();
@@ -43,7 +51,7 @@ describe('TuiInteractionChannel init failure surfacing', () => {
 
   it('TC-05: a real init error records a session-init-error entry and sets error state', async () => {
     const channel = new TuiInteractionChannel({
-      cwd: '/tmp/project',
+      cwd: PROJECT_DIR,
       provider: {} as IAIProvider,
     });
     await channel.start();

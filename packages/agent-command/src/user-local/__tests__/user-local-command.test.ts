@@ -21,8 +21,8 @@ afterEach(async () => {
 });
 
 describe('user-local command', () => {
-  it('does not advertise a specific product from the neutral command entry', () => {
-    const module = createUserLocalCommandModule('/tmp/selected-storage');
+  it('does not advertise a specific product from the neutral command entry', async () => {
+    const module = createUserLocalCommandModule(await createTempRoot('robota-selected-storage-'));
     expect(module.commandSources?.[0]?.getCommands()[0]?.description).not.toMatch(/Robota/i);
   });
 

@@ -1,5 +1,9 @@
 /** BEHAVIOR-2437 TC-05 — registration, the descriptor, and the verb parse through the real session. */
-import { afterEach, describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterAll, afterEach, describe, expect, it } from 'vitest';
 
 import { scriptedSession, type ScriptedSessionHarness } from '@robota-sdk/agent-framework/testing';
 
@@ -35,7 +39,11 @@ const providerSettingsAdapter: IProviderCommandSettingsAdapter = {
   readTargetSettings: () => ({}) as TProviderSettingsDocument,
   writeTargetSettings: () => undefined,
 };
-const BASE_OPTIONS = { cwd: '/tmp', userLocalStorageRoot: '/tmp/robota-test', providerDefinitions, providerSettingsAdapter } as const;
+/** User-local storage lives in a private per-run directory, never a fixed name under /tmp. */
+const USER_LOCAL_STORAGE_ROOT = mkdtempSync(join(tmpdir(), 'robota-test-'));
+afterAll(() => rmSync(USER_LOCAL_STORAGE_ROOT, { recursive: true, force: true }));
+
+const BASE_OPTIONS = { cwd: '/tmp', userLocalStorageRoot: USER_LOCAL_STORAGE_ROOT, providerDefinitions, providerSettingsAdapter } as const;
 
 const STATUS_FIXTURE = '# branch.head main\0? scratch.log\0';
 

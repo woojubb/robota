@@ -1,5 +1,9 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { InMemorySandboxClient } from '@robota-sdk/agent-tools';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { IWorkspaceManifest } from '@robota-sdk/agent-tools';
 
@@ -62,6 +66,10 @@ function createMockProvider() {
 const NOOP_DELTA = (): void => {};
 const NOOP_TOOL = (): void => {};
 
+/** The session's working directory: private to this run, never a fixed name under /tmp. */
+const SESSION_CWD = mkdtempSync(join(tmpdir(), 'robota-manifest-session-'));
+afterAll(() => rmSync(SESSION_CWD, { recursive: true, force: true }));
+
 describe('createInteractiveSession — workspace manifest', () => {
   beforeEach(() => {
     mockLoadConfigWithHookSources.mockClear();
@@ -77,7 +85,7 @@ describe('createInteractiveSession — workspace manifest', () => {
     const { createInteractiveSession } = await import('../interactive-session-init.js');
 
     await createInteractiveSession({
-      cwd: '/tmp/test',
+      cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: true,
       onTextDelta: NOOP_DELTA,
@@ -94,7 +102,7 @@ describe('createInteractiveSession — workspace manifest', () => {
 
     await expect(
       createInteractiveSession({
-        cwd: '/tmp/test',
+        cwd: SESSION_CWD,
         provider: createMockProvider(),
         bare: true,
         onTextDelta: NOOP_DELTA,

@@ -5,7 +5,8 @@
  * return their raw bytes. Default limit is 2000 lines.
  */
 
-import { open, stat } from 'node:fs/promises';
+import { constants } from 'node:fs';
+import { open, stat, type FileHandle } from 'node:fs/promises';
 
 import { z } from 'zod';
 import { ToolExecutionError } from '@robota-sdk/agent-core';
@@ -167,66 +168,54 @@ async function readFileTool(args: TReadArgs, options: ISandboxToolOptions): Prom
   const pathError = checkPathWithinCwd(filePath, options.cwd);
   if (pathError !== undefined) return pathError;
 
-  let fileStats: Awaited<ReturnType<typeof stat>> | undefined;
-  try {
-    fileStats = await stat(filePath);
-  } catch (err) {
-    // allow-fallback: stat failure means file not found → IToolInvocationResult error
-    const result: IToolInvocationResult = {
-      success: false,
-      output: '',
-      error: `File not found: ${filePath}`,
-    };
-    return JSON.stringify(result);
-  }
+  const failure = (error: string): string =>
+    JSON.stringify({ success: false, output: '', error } satisfies IToolInvocationResult);
 
-  if (!fileStats.isFile()) {
-    const result: IToolInvocationResult = {
-      success: false,
-      output: '',
-      error: `Path is not a file: ${filePath}`,
-    };
-    return JSON.stringify(result);
+  // One open, checked on the handle that is read: the file read is the file checked. Non-blocking,
+  // so a FIFO is refused by the check below instead of hanging the open.
+  let handle: FileHandle;
+  try {
+    handle = await open(filePath, constants.O_RDONLY | constants.O_NONBLOCK);
+  } catch (err) {
+    // allow-fallback: open failure → IToolInvocationResult error. The path is looked at again only
+    // to word the refusal; nothing is read through it.
+    const found = await stat(filePath).catch(() => undefined);
+    if (found === undefined) return failure(`File not found: ${filePath}`);
+    if (!found.isFile()) return failure(`Path is not a file: ${filePath}`);
+    return failure(err instanceof Error ? err.message : String(err));
   }
 
   let buffer = Buffer.alloc(0);
   let binaryFile = false;
   try {
-    const handle = await open(filePath, 'r');
-    try {
-      const chunks: Buffer[] = [];
-      const chunk = Buffer.allocUnsafe(READ_CHUNK_BYTES);
-      let bytes = 0;
-      let binaryCheckedBytes = 0;
-      while (bytes <= MAX_READ_BYTES) {
-        if (options.signal?.aborted) throw new ReadCancelledError();
-        const { bytesRead } = await handle.read(
-          chunk, 0, Math.min(chunk.length, MAX_READ_BYTES + 1 - bytes), null,
-        );
-        if (bytesRead === 0) break;
-        const binaryCheckLength = Math.min(bytesRead, 8192 - binaryCheckedBytes);
-        if (binaryCheckLength > 0 && isBinary(chunk.subarray(0, binaryCheckLength))) {
-          binaryFile = true;
-          break;
-        }
-        binaryCheckedBytes += binaryCheckLength;
-        bytes += bytesRead;
-        if (bytes > MAX_READ_BYTES) throw new ReadByteLimitError('input');
-        chunks.push(Buffer.from(chunk.subarray(0, bytesRead)));
+    if (!(await handle.stat()).isFile()) return failure(`Path is not a file: ${filePath}`);
+    const chunks: Buffer[] = [];
+    const chunk = Buffer.allocUnsafe(READ_CHUNK_BYTES);
+    let bytes = 0;
+    let binaryCheckedBytes = 0;
+    while (bytes <= MAX_READ_BYTES) {
+      if (options.signal?.aborted) throw new ReadCancelledError();
+      const { bytesRead } = await handle.read(
+        chunk, 0, Math.min(chunk.length, MAX_READ_BYTES + 1 - bytes), null,
+      );
+      if (bytesRead === 0) break;
+      const binaryCheckLength = Math.min(bytesRead, 8192 - binaryCheckedBytes);
+      if (binaryCheckLength > 0 && isBinary(chunk.subarray(0, binaryCheckLength))) {
+        binaryFile = true;
+        break;
       }
-      if (!binaryFile) buffer = Buffer.concat(chunks, bytes);
-    } finally {
-      await handle.close();
+      binaryCheckedBytes += binaryCheckLength;
+      bytes += bytesRead;
+      if (bytes > MAX_READ_BYTES) throw new ReadByteLimitError('input');
+      chunks.push(Buffer.from(chunk.subarray(0, bytesRead)));
     }
+    if (!binaryFile) buffer = Buffer.concat(chunks, bytes);
   } catch (err) {
     if (err instanceof ReadByteLimitError || err instanceof ReadCancelledError) throw err;
     // allow-fallback: read failure → IToolInvocationResult error (permissions, locks)
-    const result: IToolInvocationResult = {
-      success: false,
-      output: '',
-      error: err instanceof Error ? err.message : String(err),
-    };
-    return JSON.stringify(result);
+    return failure(err instanceof Error ? err.message : String(err));
+  } finally {
+    await handle.close();
   }
 
   if (options.signal?.aborted) throw new ReadCancelledError();

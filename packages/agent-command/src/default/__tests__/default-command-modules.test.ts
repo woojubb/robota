@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterAll, describe, expect, it } from 'vitest';
 
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type {
@@ -7,6 +11,10 @@ import type {
 } from '@robota-sdk/agent-framework';
 
 import { createDefaultCommandModules } from '../default-command-modules.js';
+
+/** User-local storage lives in a private per-run directory, never a fixed name under /tmp. */
+const USER_LOCAL_STORAGE_ROOT = mkdtempSync(join(tmpdir(), 'robota-test-'));
+afterAll(() => rmSync(USER_LOCAL_STORAGE_ROOT, { recursive: true, force: true }));
 
 const providerDefinitions: readonly IProviderDefinition[] = [
   {
@@ -26,7 +34,7 @@ const providerSettingsAdapter: IProviderCommandSettingsAdapter = {
   writeTargetSettings: () => undefined,
 };
 
-const baseOptions = { cwd: '/tmp', userLocalStorageRoot: '/tmp/robota-test', providerDefinitions, providerSettingsAdapter } as const;
+const baseOptions = { cwd: '/tmp', userLocalStorageRoot: USER_LOCAL_STORAGE_ROOT, providerDefinitions, providerSettingsAdapter } as const;
 
 function moduleNames(opts: Parameters<typeof createDefaultCommandModules>[0]): string[] {
   return createDefaultCommandModules(opts).modules.map((module) => module.name);

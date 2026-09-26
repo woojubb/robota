@@ -6,7 +6,11 @@
  * other would either run on the daemon or never run at all. And each client command must answer as
  * the in-process command does, because it is the same command running somewhere else.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterAll, describe, expect, it, vi } from 'vitest';
 
 import { createDefaultCommandModules } from '../../default/index.js';
 import { createEditorCommandModule } from '../../editor/index.js';
@@ -29,6 +33,10 @@ import type {
   IThemeCatalogueEntry,
   IThemeCataloguePort,
 } from '@robota-sdk/agent-interface-command';
+
+/** User-local storage lives in a private per-run directory, never a fixed name under /tmp. */
+const USER_LOCAL_STORAGE_ROOT = mkdtempSync(join(tmpdir(), 'robota-test-'));
+afterAll(() => rmSync(USER_LOCAL_STORAGE_ROOT, { recursive: true, force: true }));
 
 const providerDefinitions: readonly IProviderDefinition[] = [];
 const providerSettingsAdapter: IProviderCommandSettingsAdapter = {
@@ -85,7 +93,7 @@ describe('createTerminalClientCommands (#3189)', () => {
   it('names exactly the commands the default assembly marks as client-run', () => {
     const { modules } = createDefaultCommandModules({
       cwd: '/tmp',
-      userLocalStorageRoot: '/tmp/robota-test',
+      userLocalStorageRoot: USER_LOCAL_STORAGE_ROOT,
       providerDefinitions,
       providerSettingsAdapter,
     });
@@ -107,7 +115,7 @@ describe('createTerminalClientCommands (#3189)', () => {
     const selection = { disabledCommandModules: ['agent-command-shell'] };
     const { modules } = createDefaultCommandModules({
       cwd: '/tmp',
-      userLocalStorageRoot: '/tmp/robota-test',
+      userLocalStorageRoot: USER_LOCAL_STORAGE_ROOT,
       providerDefinitions,
       providerSettingsAdapter,
       ...selection,

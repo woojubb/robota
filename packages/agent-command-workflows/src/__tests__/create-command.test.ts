@@ -158,8 +158,7 @@ describe.runIf(process.platform === 'linux')(
       expect(result.success).toBe(true);
 
       const savedPath = join(dir, '.workflows', 'uppercase-it.json');
-      await expect(stat(savedPath)).resolves.toBeDefined();
-
+      // Reading the file is the existence check: it rejects if nothing was saved.
       const saved = JSON.parse(await readFile(savedPath, 'utf-8')) as {
         dagId: string;
         nodes: unknown[];

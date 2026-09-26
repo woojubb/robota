@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import {
-  lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync,
+  closeSync, constants, fstatSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync,
+  renameSync, rmSync, writeFileSync,
 } from 'node:fs';
 import { createConnection, createServer, type Server, type Socket } from 'node:net';
 import { dirname, isAbsolute, join } from 'node:path';
@@ -241,14 +242,48 @@ function controlSocketPath(root: string, id: string): string {
   return socketPath;
 }
 
+/**
+ * Read a regular file this user owns, never through a link. The checks run on the descriptor that
+ * is then read, so a file swapped in at the path after they pass is never the one read; a FIFO is
+ * refused without blocking. Anything that fails a check throws `refusal`; a missing file throws the
+ * system error, so callers can still tell ENOENT apart.
+ */
+function readOwnedFile(
+  file: string,
+  rules: { readonly ownerOnly: boolean; readonly maxBytes?: number; readonly refusal: string },
+): string {
+  let fd: number;
+  try {
+    fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    // Not a regular file: a link under O_NOFOLLOW (ELOOP; EMLINK on some BSDs) or a socket.
+    if (code === 'ELOOP' || code === 'EMLINK' || code === 'ENXIO' || code === 'EOPNOTSUPP') {
+      throw new Error(rules.refusal);
+    }
+    throw error;
+  }
+  try {
+    const stat = fstatSync(fd);
+    if (!stat.isFile() || stat.uid !== (process.getuid?.() ?? 0) ||
+      (rules.ownerOnly && (stat.mode & 0o077) !== 0) ||
+      (rules.maxBytes !== undefined && stat.size > rules.maxBytes)) {
+      throw new Error(rules.refusal);
+    }
+    // The size is checked again on what was read: the file may have grown since `fstat`.
+    const bytes = readFileSync(fd);
+    if (rules.maxBytes !== undefined && bytes.length > rules.maxBytes) throw new Error(rules.refusal);
+    return bytes.toString('utf8');
+  } finally {
+    closeSync(fd);
+  }
+}
+
 function readRegistration(directory: string, id: string): IRegistration {
   verifyExistingDirectory(directory);
-  const file = join(directory, 'state.json');
-  const stat = lstatSync(file);
-  if (!stat.isFile() || stat.isSymbolicLink() || stat.uid !== (process.getuid?.() ?? 0) || (stat.mode & 0o077) !== 0 || stat.size > MAX_FRAME_BYTES) {
-    throw new Error('Supervised session record was refused.');
-  }
-  const record = JSON.parse(readFileSync(file, 'utf8')) as unknown;
+  const record = JSON.parse(readOwnedFile(join(directory, 'state.json'), {
+    ownerOnly: true, maxBytes: MAX_FRAME_BYTES, refusal: 'Supervised session record was refused.',
+  })) as unknown;
   if (typeof record !== 'object' || record === null ||
     !('id' in record) || record.id !== id ||
     !('pid' in record) || !Number.isSafeInteger(record.pid) || Number(record.pid) <= 0 ||
@@ -689,11 +724,9 @@ function readDaemonStartLockOwner(
 ): { readonly pid?: number; readonly state: 'live' | 'gone' | 'unknown' } | undefined {
   let content: string;
   try {
-    const stat = lstatSync(file);
-    if (!stat.isFile() || stat.isSymbolicLink() || stat.uid !== (process.getuid?.() ?? 0)) {
-      throw new Error('Daemon start lock is not owned by this user.');
-    }
-    content = readFileSync(file, 'utf8');
+    content = readOwnedFile(file, {
+      ownerOnly: false, refusal: 'Daemon start lock is not owned by this user.',
+    });
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
     throw error;
@@ -806,12 +839,9 @@ export function takeSupervisedGrantHandoff(root: string, id: string): IExternalE
   let documents: unknown;
   try {
     verifyExistingDirectory(root);
-    const stat = lstatSync(file);
-    if (!stat.isFile() || stat.isSymbolicLink() || stat.uid !== (process.getuid?.() ?? 0) ||
-      (stat.mode & 0o077) !== 0 || stat.size > MAX_GRANT_HANDOFF_BYTES) {
-      throw new Error('refused');
-    }
-    documents = JSON.parse(readFileSync(file, 'utf8')) as unknown;
+    documents = JSON.parse(readOwnedFile(file, {
+      ownerOnly: true, maxBytes: MAX_GRANT_HANDOFF_BYTES, refusal: 'refused',
+    })) as unknown;
   } catch {
     throw new Error('Supervised external event grants could not be read.');
   } finally {
