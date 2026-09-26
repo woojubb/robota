@@ -153,3 +153,14 @@ describe('SidecarSupervisor (GUI-002 TC-04)', () => {
     expect(child.kills).toEqual(['SIGTERM']); // second shutdown is a no-op
   });
 });
+
+describe('#3186 — why the sidecar stopped', () => {
+  it('keeps only the tail of the sidecar error output, so the fatal screen can say why', async () => {
+    const { appendOutputTail, OUTPUT_TAIL_LIMIT } = await import('../sidecar.js');
+    let tail = '';
+    tail = appendOutputTail(tail, 'x'.repeat(OUTPUT_TAIL_LIMIT));
+    tail = appendOutputTail(tail, 'Workspace trust is required.\nGrant access with: robota trust --yes\n');
+    expect(tail.length).toBe(OUTPUT_TAIL_LIMIT);
+    expect(tail.endsWith('Grant access with: robota trust --yes\n')).toBe(true);
+  });
+});

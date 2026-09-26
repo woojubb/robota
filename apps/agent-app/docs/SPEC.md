@@ -3,8 +3,8 @@
 ## Purpose
 
 `agent-app` is a thin Electron desktop application (macOS / Linux / Windows) that drives a live
-`robota` session graphically. It is a presentation surface only — the desktop mirror of the TUI — and
-reuses `@robota-sdk/agent-ui-web`'s React session view and reducer verbatim.
+`robota` session graphically. It is a shell only: it runs the sidecar, owns the window, and loads the
+GUI web app (`@robota-sdk/agent-gui-web`), which it reaches only through that package's build output.
 
 ## Contract
 

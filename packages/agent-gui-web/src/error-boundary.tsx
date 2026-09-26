@@ -23,7 +23,7 @@ export class ErrorBoundary extends React.Component<
       return (
         <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-8">
           <div className="text-[var(--destructive)] font-mono text-[13px] max-w-[600px]">
-            <p className="text-[var(--foreground)] mb-2 font-bold">Monitor Error</p>
+            <p className="text-[var(--foreground)] mb-2 font-bold">Robota hit an error</p>
             <p className="text-[var(--muted-foreground)] mb-2">{this.state.error.message}</p>
             <pre className="bg-[var(--card)] p-3 rounded-md text-[var(--muted-foreground)] text-[11px] overflow-auto whitespace-pre-wrap">
               {this.state.error.stack}

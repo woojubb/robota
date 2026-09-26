@@ -9,9 +9,10 @@ other transport has already admitted a peer onto, and opens no socket of its own
 
 The GUI presentation layer for a running robota session — the graphical analog of the terminal
 presentation package. It reconstructs conversation state from the transport-neutral server-message
-stream and renders it as React components, and it ships the desktop session shell (title/status
-bar, conversation column, background-activity rail, composer, permission modal). It is consumed by
-both GUI product surfaces: the desktop app (Electron) and the browser-remote surface.
+stream and renders it as React components, and it ships the session shell (title/status bar,
+conversation column, background-activity rail, and a composer with the pending question docked above
+it). It is consumed by the GUI web app — which the desktop app loads and the CLI serves — and by the
+browser-remote surface.
 
 This package sits in the transport/presentation layer. It is a pure UI + wire-reducer library — it
 does not own session lifecycle, conversation history, or agent runtime state.
@@ -24,11 +25,16 @@ does not own session lifecycle, conversation history, or agent runtime state.
 - Every server-message wire variant is assigned an explicit disposition — a specialized reducer
   path, transport lifecycle handling, or an explicit "intentionally not rendered" marker. An
   unrecognized or not-yet-supported message never falls through silently.
+- The conversation carries what the CLI's transcript carries: a command's outcome and a finished
+  turn's tool calls sit in it where they happened, and never push the composer out of view. Session
+  and protocol failures are toasts, beside the conversation rather than in it.
 - A UI-intent this surface has no dedicated screen for (e.g. settings, session picker, plugin
-  manager, agent switcher) folds into an explicit, dismissible "not available on this surface"
-  notice rather than a silent no-op — including intent kinds not yet known when this package was
-  written. When a GUI screen for an intent lands, its handling switches from a notice to the
-  mapped surface state.
+  manager, agent switcher) answers with an explicit "not available on this surface" line in the
+  conversation — in place of the command's own reply when this surface's command awaits one, at once
+  otherwise — never a silent no-op, including intent kinds not yet known when this package was
+  written. When a GUI screen for an intent lands, its handling switches to that screen.
+- A pending permission or ask prompt is visible whatever view is open, because a gated turn waits
+  on it.
 - A session-rename or history-clear broadcast from any other surface is folded into this reducer's
   state, so co-driving surfaces stay in sync.
 - The personal usage dashboard is opt-in per surface (browser/remote consumers stay opted out by

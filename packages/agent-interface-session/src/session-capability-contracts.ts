@@ -8,6 +8,8 @@ import type {
 import type { ITurnHandle } from './turn-contracts.js';
 import type {
   IContextWindowState,
+  TModelEffortSelection,
+  TPermissionMode,
   IToolSchema,
   IToolExecutionResult,
   TToolParameters,
@@ -17,6 +19,7 @@ import type {
 import type {
   ICommandListEntry,
   ICommandResult,
+  ICommandSkillListEntry,
   TCommandInvocationSource,
 } from '@robota-sdk/agent-interface-command';
 import type { ISubagentJobState } from '@robota-sdk/agent-interface-execution';
@@ -107,6 +110,28 @@ export interface ISessionCommands {
     originDriverId?: TDriverId,
   ): Promise<ICommandResult | null>;
   listCommands(): ICommandListEntry[];
+  /** The skills a client can offer beside the commands (`/<skill>` activates one). */
+  listSkills(): ICommandSkillListEntry[];
+}
+
+/**
+ * What every client shows beside the conversation: which session, which model, and the settings in
+ * effect. One read, so a terminal, desktop or browser client renders the same status from the same
+ * source instead of reaching into the session for each part.
+ */
+export interface ISessionStatusSnapshot {
+  readonly sessionId: string;
+  readonly sessionName?: string;
+  readonly model: string;
+  readonly permissionMode: TPermissionMode;
+  readonly effort: TModelEffortSelection;
+  readonly context: IContextWindowState;
+  /** The goal being pursued (`/goal`), or null; a client shows its progress beside the composer. */
+  readonly goal: IGoalState | null;
+}
+
+export interface ISessionStatusRead {
+  getStatusSnapshot(): ISessionStatusSnapshot;
 }
 
 export interface ISessionEvents {
@@ -173,6 +198,7 @@ export interface ISessionCapabilityMap {
   identity: ISessionIdentity;
   workspaceLocation: ISessionWorkspaceLocation;
   commands: ISessionCommands;
+  statusRead: ISessionStatusRead;
   runtimeTools: ISessionRuntimeTools;
   events: ISessionEvents;
   promptResolution: ISessionPromptResolution;
@@ -192,7 +218,8 @@ export const SESSION_CAPABILITY_MEMBER_KEYS = Object.freeze({
   conversationRead: Object.freeze(['getMessages', 'getContextState'] as const),
   identity: Object.freeze(['getSession'] as const),
   workspaceLocation: Object.freeze(['getCwd'] as const),
-  commands: Object.freeze(['executeCommand', 'listCommands'] as const),
+  commands: Object.freeze(['executeCommand', 'listCommands', 'listSkills'] as const),
+  statusRead: Object.freeze(['getStatusSnapshot'] as const),
   runtimeTools: Object.freeze(['listRuntimeTools', 'invokeRuntimeTool'] as const),
   events: Object.freeze(['on', 'off'] as const),
   promptResolution: Object.freeze(['resolvePermission', 'resolveAsk'] as const),

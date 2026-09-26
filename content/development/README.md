@@ -63,15 +63,15 @@ packages/
 ├── agent-cli/                  ← Terminal AI coding assistant
 ├── agent-subagent-runner/      ← Opt-in child-process subagent runner
 ├── agent-remote-client/        ← HTTP client for remote agents
-├── agent-ui-web/        ← Shared GUI core (SessionMonitor + session reducer)
+├── agent-ui-web/               ← Shared GUI core (components + session reducer)
+├── agent-gui-web/              ← The GUI web app: loaded by the desktop app, served by `robota --serve --open`
 ├── agent-transport-webrtc-web/ ← Browser WebRTC peer over the GUI core
 ├── agent-mcp/                  ← MCP definitions, control plane, client adapter
 └── agent-playground/           ← Playground executor, hooks, and components
 
 apps/
 ├── agent-web/                  ← Next.js playground host
-# (the CLI-served monitor SPA is packages/agent-cli-web — GUI-007)
-├── agent-app/                  ← Electron desktop GUI app; drives a robota --serve sidecar over the shared GUI core
+├── agent-app/                  ← Electron shell: runs the robota --serve sidecar and loads agent-gui-web
 ├── agent-server/               ← AI provider proxy + WebSocket server
 ├── docs/                       ← VitePress documentation site
 └── blog/                       ← Blog

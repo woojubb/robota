@@ -1,6 +1,6 @@
 /**
  * GUI-002 — Electron main process (Node). Thin shell: mint a loopback endpoint, spawn the `robota` sidecar,
- * load the agent-ui-web renderer in a hardened BrowserWindow, and supervise the child. NO session/command/
+ * load the GUI web app (agent-gui-web) in a hardened BrowserWindow, and supervise the child. NO session/command/
  * permission logic lives here — all of that is in the sidecar, reached over the loopback WS (OWNER PRINCIPLE).
  */
 
@@ -11,6 +11,7 @@ import { join } from 'node:path';
 import { app, BrowserWindow, ipcMain, session, shell } from 'electron';
 
 import {
+  appendOutputTail,
   buildSidecarSpawn,
   endpointUrl,
   mintToken,
@@ -75,7 +76,28 @@ async function createWindow(): Promise<void> {
       env: process.env,
     }),
   });
-  const child = spawn(sidecar.command, [...sidecar.args], { env: sidecar.env, stdio: 'inherit' });
+  const child = spawn(sidecar.command, [...sidecar.args], {
+    env: sidecar.env,
+    stdio: ['ignore', 'inherit', 'pipe'],
+  });
+  // The sidecar's error output still reaches this process's stderr; its tail is kept so a sidecar
+  // that stops can tell the window why.
+  let errorTail = '';
+  let errorOutputClosed = false;
+  child.stderr?.on('data', (chunk: Buffer) => {
+    process.stderr.write(chunk);
+    errorTail = appendOutputTail(errorTail, chunk.toString('utf8'));
+  });
+  child.stderr?.on('close', () => {
+    errorOutputClosed = true;
+  });
+  /** `exit` can arrive before the last error output; wait briefly for the stream to drain. */
+  const drainedErrorTail = async (): Promise<string> => {
+    for (let waited = 0; !errorOutputClosed && waited < 500; waited += 50) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    return errorTail.trim();
+  };
 
   const win = new BrowserWindow({
     width: 1100,
@@ -93,7 +115,13 @@ async function createWindow(): Promise<void> {
   lockNavigation(win);
 
   supervisor = new SidecarSupervisor(child, (state: TSidecarState) => {
-    if (!win.isDestroyed()) win.webContents.send('agent-gui:state', state);
+    if (state !== 'fatal') {
+      if (!win.isDestroyed()) win.webContents.send('agent-gui:state', state);
+      return;
+    }
+    void drainedErrorTail().then((detail) => {
+      if (!win.isDestroyed()) win.webContents.send('agent-gui:state', state, detail || undefined);
+    });
   });
 
   win.once('ready-to-show', () => win.show());

@@ -23,6 +23,8 @@ const CLIENT_SAMPLES: Readonly<Record<TClientMessage['type'], TClientMessage>> =
   'cancel-queue': { type: 'cancel-queue' },
   'get-messages': { type: 'get-messages' },
   'get-context': { type: 'get-context' },
+  'get-commands': { type: 'get-commands' },
+  'get-status': { type: 'get-status' },
   'get-usage-report': { type: 'get-usage-report' },
   'get-personal-usage-report': {
     type: 'get-personal-usage-report',
@@ -72,6 +74,8 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
   command_result: { type: 'command_result', name: 'n', message: 'm', success: true },
   messages: { type: 'messages', messages: [] },
   context: { type: 'context', state: {} as never },
+  commands: { type: 'commands', commands: [], skills: [] },
+  session_status: { type: 'session_status', status: {} as never },
   usage_report: { type: 'usage_report', report: {} as never },
   personal_usage_report: {
     type: 'personal_usage_report',

@@ -2,8 +2,9 @@
 /**
  * GUI-002 e2e fixture — a deterministic "robota" sidecar (no LLM / API key).
  *
- * The Electron main process spawns this via `ROBOTA_GUI_SIDECAR_CMD`, passing `ROBOTA_WS_TOKEN` +
- * `ROBOTA_WS_PORT` in the env exactly as it would for the real CLI. It stands up the **REAL**
+ * The web e2e and `dev:web --scripted` start it directly; the desktop app's smoke test has Electron
+ * spawn it via `ROBOTA_GUI_SIDECAR_CMD`. Either way it gets `ROBOTA_WS_TOKEN` + `ROBOTA_WS_PORT` in the
+ * env exactly as the real CLI would. It stands up the **REAL**
  * `WsTransport` (so the GUI-002 T5 loopback-auth — reject-before-emit on a bad/missing token — is
  * exercised for real against the token the GUI presents) and attaches a **scripted** EventEmitter session
  * that replies deterministically, so the headless e2e can assert connect → render → submit → permission.
@@ -13,10 +14,14 @@ import { EventEmitter } from 'node:events';
 
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
 
+
+/** One line of output (scripts write to the streams directly). */
+const line = (text) => `${text}\n`;
+
 const launchToken = process.env.ROBOTA_WS_TOKEN;
 const port = Number.parseInt(process.env.ROBOTA_WS_PORT ?? '0', 10);
 if (!launchToken || !port) {
-  console.error('scripted-sidecar: ROBOTA_WS_TOKEN + ROBOTA_WS_PORT required');
+  process.stderr.write(line('scripted-sidecar: ROBOTA_WS_TOKEN + ROBOTA_WS_PORT required'));
   process.exit(1);
 }
 const rejectAdmission = process.env.ROBOTA_E2E_REJECT_ADMISSION === '1';
@@ -28,6 +33,7 @@ const tick = (ms = 20) => new Promise((r) => setTimeout(r, ms));
 /** A scripted IInteractiveSession: EventEmitter for on/off/emit, deterministic submit + permission. */
 class ScriptedSession extends EventEmitter {
   #pendingPermission = null;
+  #mode = 'default';
 
   getMessages() {
     return [];
@@ -67,6 +73,16 @@ class ScriptedSession extends EventEmitter {
       });
       return;
     }
+    if (String(input).toLowerCase().includes('read')) {
+      await tick();
+      this.emit('tool_start', { toolName: 'Read', firstArg: 'src/a.ts', isRunning: true });
+      await tick();
+      this.emit('tool_end', { toolName: 'Read', firstArg: 'src/a.ts', isRunning: false });
+      this.emit('text_delta', 'Read the file.');
+      await tick();
+      this.emit('complete', { success: true, content: 'Read the file.' });
+      return;
+    }
     if (String(input).toLowerCase().includes('fail')) {
       await tick();
       this.emit('thinking', true);
@@ -97,8 +113,42 @@ class ScriptedSession extends EventEmitter {
   }
 
   resolveAsk() {}
-  executeCommand() {
+  executeCommand(name) {
+    if (name === 'help') {
+      const lines = Array.from({ length: 30 }, (_, i) => `Command ${i + 1} (/c${i + 1}) — does thing ${i + 1}`);
+      return Promise.resolve({ message: ['Available commands:', ...lines].join('\n'), success: true });
+    }
+    if (name === 'mode') {
+      this.#mode = 'acceptEdits';
+      return Promise.resolve({ message: 'Permission mode: acceptEdits', success: true });
+    }
+    if (name === 'settings') {
+      this.emit('ui_intent', { intent: { type: 'show-settings' } });
+      return Promise.resolve({ message: 'Opening settings...', success: true });
+    }
     return Promise.resolve({ message: 'ok', success: true });
+  }
+  listCommands() {
+    return [
+      { name: 'help', description: 'Show available commands', modelInvocable: false },
+      { name: 'mode', description: 'Show or change the permission mode', modelInvocable: false },
+      { name: 'settings', description: 'Open settings', modelInvocable: false },
+    ];
+  }
+  listSkills() {
+    return [
+      { name: 'parity-demo', description: 'Replies with a fixed phrase', source: 'project', modelInvocable: true, userInvocable: true },
+    ];
+  }
+  getStatusSnapshot() {
+    return {
+      sessionId: 'scripted-session',
+      model: 'scripted-model',
+      permissionMode: this.#mode,
+      effort: 'auto',
+      context: { usedPercentage: 12, usedTokens: 24000, maxTokens: 200000, remainingPercentage: 88 },
+      goal: null,
+    };
   }
   abort() {}
   cancelQueue() {}
@@ -221,7 +271,7 @@ const transport = new WsTransport({
 });
 transport.attach(session);
 await transport.start();
-console.error(`scripted-sidecar: listening on 127.0.0.1:${port} (token-gated)`);
+process.stderr.write(line(`scripted-sidecar: listening on 127.0.0.1:${port} (token-gated)`));
 
 if (rejectAdmission) {
   setTimeout(() => process.exit(17), 1_000);

@@ -16,7 +16,10 @@ const THEME_DESCRIPTION =
   'List, preview or switch the terminal colour theme, and toggle syntax highlighting and motion';
 const THEME_ARGUMENT_HINT = 'list | <theme-id> | syntax on|off | motion on|off';
 
-const THEME_UNAVAILABLE = 'Themes are not available in this environment.';
+// A host without a terminal (the desktop app's sidecar) still answers, so the command is never
+// "unknown" there — it says where themes live instead.
+const THEME_UNAVAILABLE =
+  'Themes belong to the robota terminal, and this surface has none. Run /theme in the robota terminal.';
 
 function formatToggle(value: boolean): string {
   return value ? 'on' : 'off';
@@ -190,7 +193,9 @@ export class ThemeCommandSource implements ICommandSource {
   }
 }
 
-export function createThemeCommandModule(catalogue: IThemeCataloguePort): ICommandModule {
+export function createThemeCommandModule(
+  catalogue: IThemeCataloguePort | undefined,
+): ICommandModule {
   const entry = createThemeCommandEntry();
   const command: ISystemCommand = {
     name: entry.name,

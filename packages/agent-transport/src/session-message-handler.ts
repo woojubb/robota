@@ -44,6 +44,8 @@ export type TSessionSurfaceRole = 'drive' | 'observe';
 const OBSERVER_MESSAGES: ReadonlySet<TClientMessage['type']> = new Set<TClientMessage['type']>([
   'get-messages',
   'get-context',
+  'get-status',
+  'get-commands',
   'get-executing',
   'get-pending',
   'get-execution-workspace',
