@@ -1,5 +1,5 @@
 /** Node defaults for {@link IDoctorDeps}: a TCP connect probe and read-only filesystem facts. */
-import { accessSync, constants, existsSync, statSync } from 'node:fs';
+import { accessSync, constants, existsSync, statSync, type Stats } from 'node:fs';
 import { createConnection } from 'node:net';
 import { delimiter, isAbsolute, join } from 'node:path';
 
@@ -41,16 +41,15 @@ export function probeEndpointViaSocket(
 /** Existence, directory-ness, `W_OK` and mode — probed without writing. */
 export function inspectPathFacts(path: string): IDoctorPathFacts {
   if (!existsSync(path)) return { exists: false, isDirectory: false, writable: false };
-  let isDirectory = false;
-  let mode: number | undefined;
+  let stat: Stats;
   try {
-    const stat = statSync(path);
-    isDirectory = stat.isDirectory();
-    mode = stat.mode & MODE_BITS;
+    stat = statSync(path);
   } catch {
     // allow-fallback: a path that exists but cannot be stat'ed is reported as not a writable directory
     return { exists: true, isDirectory: false, writable: false };
   }
+  const isDirectory = stat.isDirectory();
+  const mode = stat.mode & MODE_BITS;
   let writable = false;
   try {
     accessSync(path, constants.W_OK);
@@ -59,7 +58,7 @@ export function inspectPathFacts(path: string): IDoctorPathFacts {
     // allow-fallback: W_OK refused IS the fact being reported
     writable = false;
   }
-  return { exists: true, isDirectory, writable, ...(mode === undefined ? {} : { mode }) };
+  return { exists: true, isDirectory, writable, mode };
 }
 
 /** A bare command resolves through `PATH`; a path-form command must exist as given. */

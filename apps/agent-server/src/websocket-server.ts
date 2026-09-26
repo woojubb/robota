@@ -13,7 +13,9 @@ import type { IncomingMessage } from 'http';
 
 const CLEANUP_INTERVAL_MS = 30000;
 
-function isUniversalObjectValue(value: TUniversalValue): value is Record<string, TUniversalValue> {
+function isUniversalObjectValue(
+  value: TUniversalValue | undefined,
+): value is Record<string, TUniversalValue> {
   return (
     typeof value === 'object' && value !== null && !Array.isArray(value) && !(value instanceof Date)
   );
@@ -22,7 +24,6 @@ function isUniversalObjectValue(value: TUniversalValue): value is Record<string,
 function isPlaygroundAuthPayload(
   value: TUniversalValue | undefined,
 ): value is { userId: string; sessionId: string; token: string } {
-  if (!value) return false;
   if (!isUniversalObjectValue(value)) return false;
   return (
     typeof value.userId === 'string' &&

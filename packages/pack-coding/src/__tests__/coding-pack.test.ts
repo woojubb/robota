@@ -1,7 +1,11 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { mergeCapabilityPacks } from '@robota-sdk/agent-capability-pack';
 import { BUILT_IN_AGENTS } from '@robota-sdk/agent-framework';
 import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 
 import { createCodingPack } from '../coding-pack.js';
 
@@ -17,7 +21,10 @@ import { createCodingPack } from '../coding-pack.js';
  * asserted directly below, not assumed.
  */
 
-const CWD = '/tmp/pack-coding-scope';
+/** Both roots sit, unmade, in one private per-run directory rather than at a fixed name under /tmp. */
+const PRIVATE_BASE = mkdtempSync(join(tmpdir(), 'robota-pack-coding-'));
+afterAll(() => rmSync(PRIVATE_BASE, { recursive: true, force: true }));
+const CWD = join(PRIVATE_BASE, 'pack-coding-scope');
 /** The minimal execution context the built-in file tools read — typed structurally so this package needs
  * no `@robota-sdk/agent-core` dependency just to run its own tools. */
 const TOOL_CONTEXT = { toolName: 'Read', parameters: {} };
@@ -143,9 +150,13 @@ describe('codingPack — the file tools are SCOPED to the supplied cwd (ARCH-006
   });
 
   it('scopes each pack instance to ITS OWN cwd — two packs do not share a scope', async () => {
-    const other = await invoke(createCodingPack({ cwd: '/tmp/pack-coding-other' }), 'Read', {
-      filePath: `${CWD}/inside.txt`,
-    });
+    const other = await invoke(
+      createCodingPack({ cwd: join(PRIVATE_BASE, 'pack-coding-other') }),
+      'Read',
+      {
+        filePath: `${CWD}/inside.txt`,
+      },
+    );
 
     // Outside the OTHER pack's root, so denied — the scope travels with the instance, not the module.
     expect(other.success).toBe(false);

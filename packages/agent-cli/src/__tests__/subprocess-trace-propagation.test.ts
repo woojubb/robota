@@ -24,8 +24,12 @@ import type { ILivePromptTraceBatch } from '@robota-sdk/agent-interface-analytic
 const AMBIENT = '00-99999999999999999999999999999999-8888888888888888-01';
 const PRINT = '"${TRACEPARENT:--}|${TRACESTATE:--}"';
 
-function printTo(path: string): string {
-  return `printf "%s" ${PRINT} > '${path}'`;
+/**
+ * Every child here runs with `home` as its cwd, so the command names its output file relative to it:
+ * the shell text stays literal and no temp-directory path is interpolated into it.
+ */
+function printTo(name: string): string {
+  return `printf "%s" ${PRINT} > 'out/${name}'`;
 }
 
 async function waitFor(path: string): Promise<string> {
@@ -47,11 +51,11 @@ describe.runIf(process.platform !== 'win32')('subprocess trace propagation throu
     vi.stubEnv('HOME', home);
     vi.stubEnv('TRACEPARENT', AMBIENT);
     vi.stubEnv('TRACESTATE', 'vendor=ambient');
-    const hook = (name: string, extra = '') => [{ matcher: '', hooks: [{ type: 'command', command: `${printTo(join(out, name))}${extra}` }] }];
+    const hook = (name: string, extra = '') => [{ matcher: '', hooks: [{ type: 'command', command: `${printTo(name)}${extra}` }] }];
     writeFileSync(join(home, '.robota', 'settings.json'), JSON.stringify({
       hooks: {
         SessionStart: hook('session-start'),
-        UserPromptSubmit: hook('prompt-submit', `; cat > '${join(out, 'prompt-stdin')}'`),
+        UserPromptSubmit: hook('prompt-submit', "; cat > 'out/prompt-stdin'"),
         PreToolUse: hook('pre-tool'),
         PostToolUse: hook('post-tool'),
       },
@@ -105,12 +109,12 @@ describe.runIf(process.platform !== 'win32')('subprocess trace propagation throu
   function neverListProbe() {
     return new FunctionTool({ name: 'NeverListProbe', description: 'probe', parameters: { type: 'object', properties: {} } }, async () => {
       writeFileSync(join(out, 'probe-process-env'), process.env['TRACEPARENT'] ?? '-');
-      await spawnInherited('sh', ['-c', printTo(join(out, 'passthrough'))], home);
+      await spawnInherited('sh', ['-c', printTo('passthrough')], home);
       const handle = createManagedShellProcessRunner().start({
         taskId: 'bg-1',
         request: {
           kind: 'process', label: 'bg', mode: 'background', parentSessionId: 's', depth: 0, cwd: home,
-          command: printTo(join(out, 'managed')),
+          command: printTo('managed'),
         },
       });
       await handle.result;
@@ -122,7 +126,7 @@ describe.runIf(process.platform !== 'win32')('subprocess trace propagation throu
   async function runPrompt(subprocesses: TSubprocessTraceClass[] | undefined): Promise<ILivePromptTraceBatch> {
     const bash = createDefaultTools({ cwd: home }).find((tool) => tool.getName() === 'Bash')!;
     const scripted = createScriptedProvider([
-      { toolCalls: [{ name: 'Bash', args: { command: printTo(join(out, 'shell')) } }] },
+      { toolCalls: [{ name: 'Bash', args: { command: printTo('shell') } }] },
       { toolCalls: [{ name: 'NeverListProbe', args: {} }] },
       { text: 'done' },
     ]);

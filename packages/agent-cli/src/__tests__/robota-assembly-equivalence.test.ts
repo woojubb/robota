@@ -19,13 +19,17 @@
  * the neutral merger about one product's preferred ordering, which is exactly what the composition-
  * neutrality guards forbid — so the ordering delta is recorded in the ARCH-005 evidence log instead.
  */
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { BUILT_IN_AGENTS } from '@robota-sdk/agent-framework';
 import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import { createPresetRegistry } from '@robota-sdk/agent-preset';
 import { assembleProduct } from '@robota-sdk/agent-product';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 
 import {
   findUnknownPresetModuleNames,
@@ -151,7 +155,9 @@ const BASELINE_CAREFUL_REVIEWER_POSTURE = {
 
 /* ── The NEW assembly, driven exactly as `startCli` drives it ─────────────────────────────────────── */
 
-const EQUIVALENCE_CWD = '/tmp/equivalence';
+/** A private per-run root: the tools built on it are real, so it is never a fixed name under /tmp. */
+const EQUIVALENCE_CWD = realpathSync(mkdtempSync(join(tmpdir(), 'robota-equivalence-')));
+afterAll(() => rmSync(EQUIVALENCE_CWD, { recursive: true, force: true }));
 /** The packs the shell builds — same factory, same cwd `startCli` would pass. */
 const ROBOTA_PACKS = createRobotaPacks({ cwd: EQUIVALENCE_CWD });
 const ROBOTA_PACK_COMMAND_MODULE_NAMES = packCommandModuleNames(ROBOTA_PACKS);
@@ -184,7 +190,7 @@ function assembleRobota(
 } {
   const args = overrides.args ?? MINIMAL_ARGS;
   const { providerDefinitions, baseCommandModules, fixedCommandModules } = buildCommandSetup(
-    '/tmp/equivalence',
+    EQUIVALENCE_CWD,
     MINIMAL_ARGS,
     {},
     '0.0.0-test',
@@ -290,7 +296,7 @@ describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change ba
       providerDefinitions: [],
       provider: createScriptedProvider([{ text: 'ok' }]).provider,
       baseCommandModules: buildCommandSetup(
-        '/tmp/equivalence',
+        EQUIVALENCE_CWD,
         MINIMAL_ARGS,
         {},
         '0.0.0-test',
@@ -335,7 +341,7 @@ describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change ba
 
   it('constructs the provider in-kernel from resolved settings (owner Decision 1)', () => {
     const { providerDefinitions } = buildCommandSetup(
-      '/tmp/equivalence',
+      EQUIVALENCE_CWD,
       MINIMAL_ARGS,
       {},
       '0.0.0-test',
@@ -370,7 +376,7 @@ describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change ba
 
     const options = product.buildRuntimeOptions({
       session: {
-        cwd: '/tmp/equivalence',
+        cwd: EQUIVALENCE_CWD,
         provider: createScriptedProvider([{ text: 'ok' }]).provider,
       },
     });
@@ -383,9 +389,9 @@ describe('ARCH-005 S2 — the assembled robota runtime matches the pre-change ba
 
   it('leaves the tool set and identity defaults untouched', () => {
     // ARCH-010 — `createDefaultTools` now requires the root. This case reads tool NAMES only and never
-    // executes a tool, so the root is inert; it is the same `/tmp/equivalence` the session cases above
+    // executes a tool, so the root is inert; it is the same `EQUIVALENCE_CWD` the session cases above
     // use, rather than a real workspace the assertion has no business pointing at.
-    expect(createDefaultTools({ cwd: '/tmp/equivalence' }).map((t) => t.getName())).toEqual(
+    expect(createDefaultTools({ cwd: EQUIVALENCE_CWD }).map((t) => t.getName())).toEqual(
       BASELINE_DEFAULT_TOOL_NAMES,
     );
     expect(ROBOTA_DEFAULT_AGENT_NAME).toBe(BASELINE_DEFAULT_AGENT_NAME);

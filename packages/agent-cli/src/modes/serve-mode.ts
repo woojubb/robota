@@ -23,6 +23,7 @@ import {
   ensureSupervisedAuditDirectory,
   resolveSupervisedDirectory,
   startSupervisedControl,
+  SupervisedControlPathTooLongError,
   takeSupervisedGrantHandoff,
   type ISupervisedControl,
   type ISupervisedPr,
@@ -52,7 +53,9 @@ import { areSessionLoopsDisabled, createLoopDefaultPromptResolver } from '../sta
 import { homedir } from 'node:os';
 import { realpathSync } from 'node:fs';
 import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type {
+  EditCheckpointStore,
   IAgentDefinition,
   IBackgroundTaskRunner,
   ICommandHostAdapters,
@@ -99,6 +102,11 @@ export interface IServeModeOptions {
   skipConfiguredHooks?: boolean;
   sessionStore: ReturnType<typeof createProjectSessionStore>;
   projectAccess?: TWorkspaceProjectAccess;
+  /**
+   * Builds a session's edit checkpoint store. Called once per session, the pool's included: a store
+   * holds its session's turn in progress, and pooled sessions run turns at the same time.
+   */
+  createEditCheckpointStore?: () => EditCheckpointStore;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
   userSettingsSources?: readonly INodeHostSettingsSource[];
   contributionSources?: readonly IContributionSource[];
@@ -128,6 +136,8 @@ export interface IServeModeOptions {
    * its capability packs are the SOLE source of the session's tools.
    */
   defaultTools?: readonly IToolWithEventService[];
+  /** The sandbox the shell tools run under, so the session can let a confined command skip the prompt. */
+  sandboxClient?: ISandboxClient;
   /**
    * MCP-004 S3: the wrapper policy for MCP tool calls that outlive the threshold. Serve is one of
    * the two runtimes that adopts it (spec § Modes); absent ⇒ no MCP tool is wrapped, today's
@@ -199,6 +209,7 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(opts.bare === true ? { bare: true } : {}),
     ...(opts.skipConfiguredHooks === true ? { skipConfiguredHooks: true } : {}),
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
+    ...ownEditCheckpointStore(opts),
     ...(opts.projectSettingsPaths !== undefined
       ? { projectSettingsPaths: opts.projectSettingsPaths }
       : {}),
@@ -247,6 +258,7 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
       : {}),
     ...(opts.additionalTools !== undefined ? { additionalTools: opts.additionalTools } : {}),
     ...(opts.defaultTools !== undefined ? { defaultTools: opts.defaultTools } : {}),
+    ...(opts.sandboxClient !== undefined ? { sandboxClient: opts.sandboxClient } : {}),
     ...(opts.toolCallHandoff !== undefined ? { toolCallHandoff: opts.toolCallHandoff } : {}),
     commandModules: opts.commandModules,
     commandHostAdapters: opts.commandHostAdapters,
@@ -270,6 +282,32 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(preset.systemPrompt !== undefined ? { presetSystemPrompt: preset.systemPrompt } : {}),
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
     ...(opts.memorySessionOptions ?? {}),
+  };
+}
+
+function ownEditCheckpointStore(
+  opts: Pick<IServeModeOptions, 'createEditCheckpointStore'>,
+): Pick<TInteractiveSessionOptions, 'editCheckpointStore'> {
+  return opts.createEditCheckpointStore === undefined
+    ? {}
+    : { editCheckpointStore: opts.createEditCheckpointStore() };
+}
+
+/**
+ * The options a pooled session is built with: the served session's, opening exactly the session
+ * asked for — the launch's fork and name do not carry over — with its own checkpoint store.
+ */
+export function buildPooledSessionOptions(
+  sessionOptions: TInteractiveSessionOptions,
+  opts: Pick<IServeModeOptions, 'createEditCheckpointStore'>,
+  resumeSessionId: string | undefined,
+): TInteractiveSessionOptions {
+  return {
+    ...sessionOptions,
+    ...ownEditCheckpointStore(opts),
+    resumeSessionId,
+    forkSession: undefined,
+    sessionName: undefined,
   };
 }
 
@@ -370,13 +408,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         const live = new SessionPool<InteractiveSession>({
           primary,
           build: (resumeSessionId) =>
-            buildRuntimeSession({
-              ...sessionOptions,
-              resumeSessionId,
-              // A switch opens exactly the session asked for; the launch's fork and name do not carry over.
-              forkSession: undefined,
-              sessionName: undefined,
-            }),
+            buildRuntimeSession(buildPooledSessionOptions(sessionOptions, opts, resumeSessionId)),
           maxLive: SESSION_POOL_MAX_LIVE,
         });
         pool = live;
@@ -589,7 +621,9 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
               ? { code: 'events-endpoint-failed' }
               : error instanceof DaemonNoEndpointError
                 ? { code: 'daemon-no-endpoint' }
-                : { code: 'startup-failed' };
+                : error instanceof SupervisedControlPathTooLongError
+                  ? { code: 'control-path-too-long', directory: error.directory }
+                  : { code: 'startup-failed' };
           process.send({ kind: 'error', id: args.supervisedSessionId, ...refusal }, () => {
             // The parent may already have disconnected; failure reporting is best-effort only.
           });

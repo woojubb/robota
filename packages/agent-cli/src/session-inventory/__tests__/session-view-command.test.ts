@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 
 import {
   createDefaultTuiCliAdapter,
@@ -266,6 +266,9 @@ describe('session view command', () => {
 
   it('passes selected stop requests to the guarded owner-control operation', async () => {
     const id = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
+    // A private root rather than a fixed name under /tmp: the listing reads session records in it.
+    const root = mkdtempSync(join(tmpdir(), 'rs-view-stop-'));
+    onTestFinished(() => rmSync(root, { recursive: true, force: true }));
     const stop = vi.fn(async () => undefined);
     const render = vi.fn(async (options: Parameters<typeof renderSupervisedSessionView>[0]) => {
       expect(options).toHaveProperty('onStop');
@@ -276,12 +279,12 @@ describe('session view command', () => {
         isTTY: true,
         settings: {},
         env: {},
-        root: '/tmp/supervised-view-test',
+        root,
         render,
         stop,
       }),
     ).toBe(0);
-    expect(stop).toHaveBeenCalledExactlyOnceWith(id, '/tmp/supervised-view-test', 'G'.repeat(22));
+    expect(stop).toHaveBeenCalledExactlyOnceWith(id, root, 'G'.repeat(22));
   });
 
   it('starts in the selected directory while keeping the view alive', async () => {

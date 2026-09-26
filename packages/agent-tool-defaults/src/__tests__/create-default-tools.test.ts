@@ -1,5 +1,9 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { InMemorySandboxClient } from '@robota-sdk/agent-tools';
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 
 import { createDefaultTools } from '../create-default-tools.js';
 
@@ -9,8 +13,12 @@ import type { IRetrievalAdapter, IComputerDriver } from '@robota-sdk/agent-tools
  * ARCH-010 made `cwd` a required field of `ICreateDefaultToolsOptions`. The cases that assert the tool
  * LIST never execute a tool and so never reach a path guard; this root is named once, here, so that
  * inertness is visible rather than implied. The containment cases below choose their own roots.
+ * Every root sits, unmade, inside one private per-run directory rather than at a fixed name under
+ * /tmp that another local user could create first.
  */
-const ASSEMBLY_ROOT = '/tmp/create-tools-assembly-root';
+const PRIVATE_BASE = mkdtempSync(join(tmpdir(), 'robota-create-tools-'));
+afterAll(() => rmSync(PRIVATE_BASE, { recursive: true, force: true }));
+const ASSEMBLY_ROOT = join(PRIVATE_BASE, 'create-tools-assembly-root');
 
 describe('createDefaultTools', () => {
   it('assembles all default local tools and describes web tools as local tools', () => {
@@ -51,11 +59,11 @@ describe('createDefaultTools', () => {
   // asserted is that the assembly produces a CONTAINED tool, not merely that a factory can accept a
   // `cwd` nobody passes.
   it('SEC-007: Glob and Grep are bound to the assembly cwd, not context-free singletons', async () => {
-    const contained = createDefaultTools({ cwd: '/tmp/sec007-assembly-scope' });
+    const contained = createDefaultTools({ cwd: join(PRIVATE_BASE, 'sec007-assembly-scope') });
     // ARCH-010 — this used to be `createDefaultTools()` with no root at all, which is no longer
     // constructible. A SECOND root serves the same purpose and states it better: one shared singleton
     // could not carry two different roots either way.
-    const otherRoot = createDefaultTools({ cwd: '/tmp/sec007-other-scope' });
+    const otherRoot = createDefaultTools({ cwd: join(PRIVATE_BASE, 'sec007-other-scope') });
 
     for (const name of ['Glob', 'Grep']) {
       const tool = contained.find((candidate) => candidate.getName() === name);

@@ -1,4 +1,5 @@
 import {
+  EditCheckpointsUnavailableError,
   inspectCommandEditCheckpoint,
   listCommandEditCheckpoints,
   restoreCommandEditCheckpoint,
@@ -121,11 +122,31 @@ function formatRollbackResult(result: IEditCheckpointRestoreResult): ICommandRes
   };
 }
 
+/** A restricted workspace is the one case the user fixes with a command; the rest say why. */
+function unavailableMessage(error: EditCheckpointsUnavailableError): string {
+  return error.reason === 'restricted-workspace'
+    ? 'Edit checkpoints need a trusted workspace: run robota trust --yes, then restart robota.'
+    : error.message;
+}
+
 function formatError(error: Error | string): ICommandResult {
   return {
-    message: error instanceof Error ? error.message : String(error),
+    message:
+      error instanceof EditCheckpointsUnavailableError
+        ? unavailableMessage(error)
+        : error instanceof Error
+          ? error.message
+          : String(error),
     success: false,
   };
+}
+
+function list(context: ICommandHostCheckpoints): ICommandResult {
+  try {
+    return formatList(listCommandEditCheckpoints(context));
+  } catch (error) {
+    return formatError(error instanceof Error ? error : String(error));
+  }
 }
 
 function inspect(
@@ -222,7 +243,7 @@ export async function executeRewindCommand(
   const subcommand = args[SUBCOMMAND_INDEX] ?? 'list';
 
   if (subcommand === 'list') {
-    return formatList(listCommandEditCheckpoints(context));
+    return list(context);
   }
 
   if (subcommand === 'inspect') {

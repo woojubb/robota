@@ -145,7 +145,9 @@ describe('scripted agent-loop E2E (CLI-074)', () => {
           { name: 'Edit', args: { filePath: target, oldString: 'Hello', newString: 'Goodbye' } },
         ],
       },
-      { toolCalls: [{ name: 'Bash', args: { command: `cat ${JSON.stringify(target)}` } }] },
+      // The CLI runs in the project directory, where `target` is `greet.txt`: the shell names it
+      // relatively, so its command text stays literal.
+      { toolCalls: [{ name: 'Bash', args: { command: 'cat greet.txt' } }] },
       { text: 'edit verified' },
     ];
   }

@@ -80,7 +80,10 @@ export interface ITuiInteractionChannelOptions {
   contributionSources?: ICreateSessionOptions['contributionSources'];
   skillRoots?: ICreateSessionOptions['skillRoots'];
   userSettingsSources?: readonly INodeHostSettingsSource[];
-  /** Explicit authority- and permission-backed edit checkpoint capability. */
+  /**
+   * Explicit authority- and permission-backed edit checkpoint capability for this channel's one
+   * session. Never shared with another channel's session: a store holds one turn in progress.
+   */
   editCheckpointStore?: EditCheckpointStore;
   /** The host's way to build each external-event grant's verifier; absent, no grant opens. */
   externalEventVerifierFactory?: TInteractiveSessionOptions['externalEventVerifierFactory'];
@@ -126,6 +129,8 @@ export interface ITuiInteractionChannelOptions {
    */
   additionalTools?: IToolWithEventService[];
   defaultTools?: readonly IToolWithEventService[];
+  /** The sandbox the shell tools run under, so the session can let a confined command skip the prompt. */
+  sandboxClient?: ICreateSessionOptions['sandboxClient'];
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;

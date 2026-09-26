@@ -24,8 +24,11 @@ describe('nextScheduledFireOnOrAfter', () => {
   });
 });
 
+/** The absolute node binary reaches the child through the task env; the command stays a literal. */
+const NODE_BINARY_ENV = 'ROBOTA_TEST_NODE';
+
 function nodeCommand(script: string): string {
-  return `${JSON.stringify(process.execPath)} -e ${JSON.stringify(script)}`;
+  return `"$${NODE_BINARY_ENV}" -e ${JSON.stringify(script)}`;
 }
 
 function makeScheduledTask(
@@ -45,6 +48,7 @@ function makeScheduledTask(
       parentSessionId: 'session_1',
       depth: 0,
       cwd: process.cwd(),
+      env: { [NODE_BINARY_ENV]: process.execPath },
       ...(extra?.timeoutMs !== undefined ? { timeoutMs: extra.timeoutMs } : {}),
     },
     emit,

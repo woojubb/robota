@@ -186,7 +186,9 @@ export class TransportRegistry {
     try {
       await operation;
     } finally {
-      if (this.startOperation === operation) this.startOperation = undefined;
+      // A failed start is back to `idle` before this runs, so a later `startAll` may already own
+      // the field; the generation is replaced together with it and identifies this start.
+      if (this.generation === generation) this.startOperation = undefined;
     }
   }
 
@@ -205,7 +207,8 @@ export class TransportRegistry {
     try {
       return await operation;
     } finally {
-      if (this.stopOperation === operation) this.stopOperation = undefined;
+      // Every `stopAll` while this one is pending returns it, so the field is still this stop.
+      this.stopOperation = undefined;
     }
   }
 

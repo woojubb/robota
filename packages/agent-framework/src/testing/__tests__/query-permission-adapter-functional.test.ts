@@ -24,7 +24,7 @@ describe('createQuery canonical permission adapter (ARCH-017)', () => {
         toolCalls: [
           {
             name: 'Bash',
-            args: { command: `printf allowed > ${JSON.stringify(markerPath)}` },
+            args: { command: 'printf allowed > allowed.txt' },
           },
         ],
       },
@@ -54,7 +54,7 @@ describe('createQuery canonical permission adapter (ARCH-017)', () => {
         toolCalls: [
           {
             name: 'Bash',
-            args: { command: `printf denied > ${JSON.stringify(markerPath)}` },
+            args: { command: 'printf denied > denied.txt' },
           },
         ],
       },

@@ -21,7 +21,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createBashTool } from '../../builtins/shell-tool.js';
 import { detectOsSandbox, OsSandboxClient } from '../os-sandbox-client.js';
@@ -246,8 +246,12 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
     // Outside the workspace and outside every temp directory.
     outside = mkdtempSync(join(process.cwd(), '.os-sandbox-outside-'));
     writeFileSync(join(outside, 'secret'), 'SECRET');
+    // Paths reach the confined command through its environment; the command text stays literal.
+    vi.stubEnv('ROBOTA_TEST_OUTSIDE', outside);
+    vi.stubEnv('ROBOTA_TEST_NODE', process.execPath);
   });
   afterEach(() => {
+    vi.unstubAllEnvs();
     rmSync(root, { recursive: true, force: true });
     rmSync(outside, { recursive: true, force: true });
     rmSync(home, { recursive: true, force: true });
@@ -271,7 +275,7 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
       await bash(client, 'echo ok > inside.txt');
       expect(readFileSync(join(root, 'inside.txt'), 'utf8')).toBe('ok\n');
 
-      await bash(client, `echo pwned > ${outside}/written`);
+      await bash(client, 'echo pwned > "$ROBOTA_TEST_OUTSIDE/written"');
       expect(existsSync(join(outside, 'written'))).toBe(false);
 
       await bash(client, 'echo pwned > .robota/settings.json');
@@ -299,8 +303,9 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
           availability: bubblewrap,
           settings: { enabled: true },
         });
-        const script = `require('net').connect(${JSON.stringify(socketPath)}).on('connect', function () { this.end('escaped') }).on('error', (e) => console.log(e.code))`;
-        const result = await bash(client, `${process.execPath} -e ${JSON.stringify(script)}`);
+        vi.stubEnv('ROBOTA_TEST_SOCKET', socketPath);
+        const script = `require('net').connect(process.env.ROBOTA_TEST_SOCKET).on('connect', function () { this.end('escaped') }).on('error', (e) => console.log(e.code))`;
+        const result = await bash(client, `"$ROBOTA_TEST_NODE" -e ${JSON.stringify(script)}`);
         await new Promise((resolveWait) => setTimeout(resolveWait, 200));
         expect(received).toEqual([]);
         expect(result.output).toContain('EAFNOSUPPORT');
@@ -509,9 +514,11 @@ describe.runIf(canConfine)('a confined Bash command (real bubblewrap)', () => {
         availability: bubblewrap,
         settings: { enabled: true, denyRead: [outside] },
       });
-      expect((await bash(client, `cat ${outside}/secret`)).output).not.toContain('SECRET');
+      expect((await bash(client, 'cat "$ROBOTA_TEST_OUTSIDE/secret"')).output).not.toContain(
+        'SECRET',
+      );
       client.configure({ excludedCommands: ['cat'] });
-      expect((await bash(client, `cat ${outside}/secret`)).output).toContain('SECRET');
+      expect((await bash(client, 'cat "$ROBOTA_TEST_OUTSIDE/secret"')).output).toContain('SECRET');
     },
     SPAWN_TIMEOUT_MS,
   );

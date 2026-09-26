@@ -4,7 +4,11 @@
  *
  * No Ink rendering, no PTY — pure TypeScript.
  */
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@robota-sdk/agent-framework', async () => {
   const actual = await vi.importActual<typeof import('@robota-sdk/agent-framework')>(
@@ -126,13 +130,17 @@ function makeMockTransportRegistry(): {
   };
 }
 
+/** The session's working directory: private to this run, never a fixed name under /tmp. */
+const SESSION_CWD = mkdtempSync(join(tmpdir(), 'robota-tui-lifecycle-'));
+afterAll(() => rmSync(SESSION_CWD, { recursive: true, force: true }));
+
 function makeChannel(opts?: {
   transportRegistry?: ITransportRegistryView;
   bindTransports?: (session: IInteractiveSession) => void | Promise<void>;
   onSessionEventDeliveryError?: (error: Error, event: TInteractiveEventName) => void;
 }): TuiInteractionChannel {
   return new TuiInteractionChannel({
-    cwd: '/tmp/test',
+    cwd: SESSION_CWD,
     provider: {} as IAIProvider,
     ...opts,
   });

@@ -14,8 +14,15 @@ vi.mock('node:child_process', async (importOriginal) => {
 const TEST_PROCESS_TIMEOUT_MS = 30_000;
 const VITEST_PROCESS_TEST_TIMEOUT_MS = 20_000;
 
+/**
+ * The absolute node binary reaches the child through the task env, not the command text: the command
+ * stays a literal and the shell expands the variable. Absolute still matters — the PATH-hijack case
+ * below replaces PATH, so a bare `node` would not resolve.
+ */
+const NODE_BINARY_ENV = 'ROBOTA_TEST_NODE';
+
 function nodeCommand(script: string): string {
-  return `${JSON.stringify(process.execPath)} -e ${JSON.stringify(script)}`;
+  return `"$${NODE_BINARY_ENV}" -e ${JSON.stringify(script)}`;
 }
 
 function makeTask(command: string, env?: Record<string, string>): IBackgroundTaskStart<'process'> {
@@ -30,7 +37,7 @@ function makeTask(command: string, env?: Record<string, string>): IBackgroundTas
       cwd: process.cwd(),
       command,
       timeoutMs: TEST_PROCESS_TIMEOUT_MS,
-      ...(env ? { env } : {}),
+      env: { [NODE_BINARY_ENV]: process.execPath, ...env },
     },
   };
 }

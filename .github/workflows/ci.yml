@@ -54,6 +54,7 @@ jobs:
       - run: pnpm -r ${SCOPE} --workspace-concurrency=-1 --if-present run typecheck
       - run: pnpm lint
       - run: pnpm -r ${SCOPE} --if-present run test
+      - run: pnpm test:scripts
       - run: pnpm deps:check
       - name: Release checks (publish safety, SDK surface, pack + publint + attw)
         run: bash scripts/publish/publish-packages.sh --skip-build --dry-run

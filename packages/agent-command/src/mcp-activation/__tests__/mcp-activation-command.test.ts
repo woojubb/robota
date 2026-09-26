@@ -484,6 +484,47 @@ describe('/mcp login', () => {
     expect(h.added).toEqual([]);
   });
 
+  it('asks nothing for a sign-in that has already ended', async () => {
+    const ended = new AbortController();
+    ended.abort();
+    let choice: string | undefined;
+    const h = harness(
+      async (request) => {
+        choice = await request.confirmBrowser!(PROMPT, ended.signal);
+        await expect(request.readRedirect!(PROMPT, ended.signal)).rejects.toThrow();
+        return {
+          serverId: request.serverId,
+          failure: 'cancelled',
+          preRegisteredClient: false,
+          tools: [],
+        };
+      },
+      { type: 'answer', values: ['open'], text: 'http://127.0.0.1:1/callback?code=c&state=s' },
+    );
+    await h.run('login files');
+    expect(choice).toBe('cancel');
+    expect(h.asked).toEqual([]);
+  });
+
+  it('never opens the browser for a sign-in that ended while the user was choosing', async () => {
+    const signIn = new AbortController();
+    let choice: string | undefined;
+    const h = harness(
+      async (request) => {
+        choice = await request.confirmBrowser!(PROMPT, signIn.signal);
+        return signedIn(request.serverId);
+      },
+      () => {
+        // The sign-in times out while the question is still open; the user then picks `open`.
+        signIn.abort();
+        return { type: 'answer', values: ['open'] };
+      },
+    );
+    await h.run('login files');
+    expect(h.asked).toHaveLength(1);
+    expect(choice).toBe('cancel');
+  });
+
   it('never asks for a client secret, and names the terminal command instead', async () => {
     const h = harness(async (request) => signedIn(request.serverId));
     const result = await h.run('login files --client-secret');

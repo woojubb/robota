@@ -1,5 +1,9 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { createUserMessage } from '@robota-sdk/agent-core';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { afterAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type {
   IInteractiveSessionRecord,
@@ -147,6 +151,10 @@ function createSnapshottingSandboxClient(snapshotId: string): ISandboxClient {
   };
 }
 
+/** The session's working directory: private to this run, never a fixed name under /tmp. */
+const SESSION_CWD = mkdtempSync(join(tmpdir(), 'robota-sandbox-snapshot-'));
+afterAll(() => rmSync(SESSION_CWD, { recursive: true, force: true }));
+
 describe('InteractiveSession sandbox snapshot hydration', () => {
   beforeEach(() => {
     events.length = 0;
@@ -157,7 +165,7 @@ describe('InteractiveSession sandbox snapshot hydration', () => {
     const { InteractiveSession } = await import('../interactive-session.js');
     const sessionStore = createMemorySessionStore({
       id: 'session-restore',
-      cwd: '/tmp/test',
+      cwd: SESSION_CWD,
       createdAt: '2026-05-05T00:00:00.000Z',
       updatedAt: '2026-05-05T00:01:00.000Z',
       messages: [createUserMessage('previous prompt')],
@@ -165,7 +173,7 @@ describe('InteractiveSession sandbox snapshot hydration', () => {
     });
 
     const interactiveSession = new InteractiveSession({
-      cwd: '/tmp/test',
+      cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: true,
       sessionStore,
@@ -186,14 +194,14 @@ describe('InteractiveSession sandbox snapshot hydration', () => {
     const { InteractiveSession } = await import('../interactive-session.js');
     const sessionStore = createMemorySessionStore({
       id: 'session-restore',
-      cwd: '/tmp/test',
+      cwd: SESSION_CWD,
       createdAt: '2026-05-05T00:00:00.000Z',
       updatedAt: '2026-05-05T00:01:00.000Z',
       messages: [],
     });
 
     const interactiveSession = new InteractiveSession({
-      cwd: '/tmp/test',
+      cwd: SESSION_CWD,
       provider: createMockProvider(),
       bare: true,
       sessionStore,

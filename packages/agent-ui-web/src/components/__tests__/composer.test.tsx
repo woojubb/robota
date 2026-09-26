@@ -62,12 +62,13 @@ describe('Composer command menu', () => {
     fireEvent.mouseEnter(shell);
 
     expect(shell.getAttribute('aria-selected')).toBe('true');
-    expect(shell.className).toContain('bg-primary/10');
+    expect(shell.className).toContain('bg-hover');
     expect(opacitiesUpToMenu(shell)).toEqual([]);
-    expect(screen.getByText('/shell').className).toContain('text-muted-foreground');
-    expect(screen.getByText('Open a shell').className).toContain('text-muted-foreground/70');
+    expect(screen.getByText('/shell').className).toContain('text-subtle');
+    expect(screen.getByText('Open a shell').className).toContain('text-subtle');
     // A session command keeps its brighter name.
     expect(help.getAttribute('aria-selected')).toBe('false');
-    expect(screen.getByText('/help').className).toContain('text-foreground/90');
+    expect(screen.getByText('/help').className).toContain('text-foreground');
+    expect(screen.getByText('/help').className).not.toContain('text-subtle');
   });
 });

@@ -93,6 +93,21 @@ describe('HeadlessInteractionChannel session options', () => {
     expect(sessionCtorSpy.mock.calls[0]?.[0]).toMatchObject({ livePromptTrace });
   });
 
+  it("forwards the host's edit checkpoint store, so a print run's edits can be rewound", async () => {
+    const editCheckpointStore = {} as NonNullable<
+      IHeadlessInteractionChannelOptions['editCheckpointStore']
+    >;
+    const channel = new HeadlessInteractionChannel({
+      cwd: process.cwd(),
+      provider: {} as IAIProvider,
+      outputFormat: 'text',
+      shellExec: () => '',
+      editCheckpointStore,
+    });
+    await channel.run('hello');
+    expect(sessionCtorSpy.mock.calls[0]?.[0]).toMatchObject({ editCheckpointStore });
+  });
+
   it('forwards host model identifiers to the live session', async () => {
     const channel = new HeadlessInteractionChannel({
       cwd: process.cwd(),

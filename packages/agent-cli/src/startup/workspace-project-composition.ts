@@ -3,6 +3,7 @@ import { homedir } from 'node:os';
 import { isAbsolute, relative, sep } from 'node:path';
 
 import {
+  EditCheckpointStore,
   WorkspaceAuthorityRequiredError,
   createContributionSourcesForProjectAccess,
   createNodeHostSettingsStore,
@@ -13,6 +14,7 @@ import {
   createWorkspaceProjectSettingsSources,
   createWorkspaceProjectSettingsStore,
   createWorkspaceMemoryStore,
+  createWorkspaceProjectMutation,
   getWorkspaceProjectIdentity,
   getWorkspaceProjectReader,
   getWorkspaceProjectStateStorage,
@@ -57,6 +59,12 @@ export interface ICliWorkspaceComposition {
   readonly sessionStoreScope: 'project' | 'user';
   /** Absent when the workspace is Restricted, or its host cannot write project memory safely. */
   readonly memoryStore?: IMemoryStore;
+  /**
+   * Builds one session's edit checkpoint store; absent under the same conditions as `memoryStore`.
+   * A factory, not a store: a store holds its session's turn in progress, so sessions that run at
+   * the same time each need their own.
+   */
+  readonly createEditCheckpointStore?: () => EditCheckpointStore;
 }
 
 export type TCliWorkspaceCompositionOverrides = Pick<
@@ -141,6 +149,28 @@ function createTrustedCliWorkspaceComposition(
     settingsStores,
     ...trustedSessionStore(authority, options),
     ...trustedMemoryStore(authority, options),
+    ...trustedEditCheckpointStore(authority, options),
+  };
+}
+
+/**
+ * Checkpoints are kept under the project and a restore writes the project's files back, so a host
+ * that cannot prove a project write stays under the trusted root gets none, and `/rewind` says why.
+ */
+function trustedEditCheckpointStore(
+  authority: ITrustedWorkspaceProjectAccess['authority'],
+  options: ICreateCliWorkspaceCompositionOptions,
+): Pick<ICliWorkspaceComposition, 'createEditCheckpointStore'> {
+  if (!supportsWorkspaceProjectMutation(options.platform)) return {};
+  return {
+    createEditCheckpointStore: () =>
+      new EditCheckpointStore({
+        authority,
+        mutation: createWorkspaceProjectMutation(authority, {
+          status: 'approved',
+          purpose: 'restore files from an edit checkpoint',
+        }),
+      }),
   };
 }
 

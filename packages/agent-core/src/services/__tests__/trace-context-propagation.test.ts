@@ -98,7 +98,9 @@ describe('trusted trace context on provider calls', () => {
       });
       expect(scripted.chatOptions[0]).not.toHaveProperty('outboundTraceContext');
       expect(unavailable).toHaveBeenCalledWith('scripted-test-provider');
-      expect(JSON.stringify(unavailable.mock.calls)).not.toMatch(new RegExp(`${TRACE_ID}|${ORIGIN}`));
+      const reported = JSON.stringify(unavailable.mock.calls);
+      expect(reported).not.toContain(TRACE_ID);
+      expect(reported).not.toContain(ORIGIN);
       await agent.destroy();
     }
   });

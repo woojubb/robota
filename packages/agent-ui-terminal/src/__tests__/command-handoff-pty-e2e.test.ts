@@ -49,7 +49,7 @@ describe('command handoff PTY E2E', () => {
       tempDirs.push(dir);
       const outputPath = join(dir, 'result.json');
       const session = spawnPtyFixture(FIXTURE, {
-        argv: ['shell', outputPath, 'IFS= read -r line; printf "SHELL_GOT:[%s]\\n" "$line"'],
+        argv: ['shell', outputPath],
         cwd: PACKAGE_DIR,
         // HARNESS-025: isolated HOME — the subshell must not read the developer's `~` (a real
         // shell rc there would otherwise change what the handoff child does).
@@ -81,7 +81,7 @@ describe('command handoff PTY E2E', () => {
       tempDirs.push(dir);
       const outputPath = join(dir, 'result.json');
       const session = spawnPtyFixture(FIXTURE, {
-        argv: ['editor', outputPath, ''],
+        argv: ['editor', outputPath],
         cwd: PACKAGE_DIR,
         // HARNESS-025: isolated HOME — only the EDITOR override comes from the test, so a real
         // `~/.selected_editor` (or similar) on the host cannot influence the assertion.

@@ -1,23 +1,26 @@
-import { mkdirSync, rmSync } from 'node:fs';
+import { rmSync } from 'node:fs';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { FunctionTool } from '@robota-sdk/agent-core';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { Session } from '@robota-sdk/agent-session';
 import { createAgentMcpServer } from '@robota-sdk/agent-transport-mcp';
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, describe, expect, it, vi } from 'vitest';
 import { scriptedSession } from '../index.js';
 import type { IHookTypeExecutor, IToolExecutionContext } from '@robota-sdk/agent-core';
 import type { IMcpTransportSession } from '@robota-sdk/agent-transport-mcp';
 
-const isolatedHome = vi.hoisted(() => `/tmp/robota-mcp-functional-home-${process.pid}`);
+// A private home made by mkdtemp before any module that reads `homedir()` loads.
+const isolatedHome = await vi.hoisted(async () => {
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'robota-mcp-functional-home-'));
+});
 vi.mock('node:os', async (original) => ({
   ...(await original<typeof import('node:os')>()),
   homedir: () => isolatedHome,
 }));
-beforeAll(() => {
-  mkdirSync(isolatedHome, { recursive: true });
-});
 afterAll(() => {
   rmSync(isolatedHome, { recursive: true, force: true });
 });

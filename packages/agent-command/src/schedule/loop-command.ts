@@ -115,7 +115,9 @@ function parseCreate(
     const requestedMs = parseDuration(intervalOnly[1]!, intervalOnly[2]!.toLowerCase());
     return requestedMs === undefined ? undefined : { instruction: boundedDefault, requestedMs };
   }
-  const leading = /^(\d+)(s|m|h|d)\s+([\s\S]+)$/i.exec(args);
+  // One required space, then the rest verbatim (trimmed below): `\s+` before `[\s\S]+` split the
+  // same spaces two ways, which CodeQL reads as polynomial backtracking.
+  const leading = /^(\d+)(s|m|h|d)\s([\s\S]+)$/i.exec(args);
   if (leading) {
     const instruction = leading[3]!.trim();
     const requestedMs = parseDuration(leading[1]!, leading[2]!.toLowerCase());

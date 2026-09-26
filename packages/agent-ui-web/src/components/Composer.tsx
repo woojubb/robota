@@ -1,3 +1,4 @@
+import { ArrowUp, Gauge, Shield, Sparkles, Square, Target } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
 import { commandMenuFor } from '../hooks/command-menu.js';
@@ -45,12 +46,12 @@ export function Composer({
   };
 
   return (
-    <div className="relative flex-shrink-0 border-t border-border/70 bg-card/25 px-3 pb-2 pt-2.5">
+    <div className="relative flex-shrink-0">
       {menu && (
         <div
           role="listbox"
           aria-label="commands"
-          className="gui-rise absolute bottom-full left-3 right-3 mb-1 overflow-hidden rounded-xl border border-border/70 bg-card shadow-lg shadow-black/40"
+          className="gui-rise absolute bottom-full left-0 right-0 mb-2 max-h-[320px] overflow-y-auto rounded-2xl bg-popover p-1.5 shadow-2xl shadow-black/35"
         >
           {menu.map((item, index) => {
             const runsElsewhere = item.runsIn ? runsInDescription(item.runsIn) : undefined;
@@ -66,19 +67,19 @@ export function Composer({
                   event.preventDefault();
                   setDraft(`/${item.name} `);
                 }}
-                className={`flex w-full items-baseline gap-3 px-3 py-1.5 text-left font-mono text-[12px] ${
-                  index === selected ? 'bg-primary/10 text-foreground' : 'text-muted-foreground'
+                className={`flex w-full items-baseline gap-3 rounded-xl px-3 py-2 text-left text-[14px] ${
+                  index === selected ? 'bg-hover' : ''
                 }`}
               >
                 {/* A command that runs elsewhere dims its name and description by text colour only —
                     an opacity on the row would also fade its badge and the selected highlight. */}
                 <span
-                  className={`flex-shrink-0 ${runsElsewhere ? 'text-muted-foreground' : 'text-foreground/90'}`}
+                  className={`flex-shrink-0 font-mono text-[13.5px] ${runsElsewhere ? 'text-subtle' : 'text-foreground'}`}
                 >
                   /{item.name}
                 </span>
                 <span
-                  className={`min-w-0 flex-1 truncate ${runsElsewhere ? 'text-muted-foreground/70' : 'opacity-70'}`}
+                  className={`min-w-0 flex-1 truncate ${runsElsewhere ? 'text-subtle' : 'text-muted-foreground'}`}
                 >
                   {item.description}
                 </span>
@@ -92,7 +93,7 @@ export function Composer({
         </div>
       )}
       <form
-        className="flex items-end gap-2"
+        className="rounded-[22px] bg-card px-2.5 pb-2 pt-2.5 shadow-[0_8px_30px_-12px_rgb(0_0_0/0.45)] transition-shadow focus-within:ring-2 focus-within:ring-ring"
         onSubmit={(e) => {
           e.preventDefault();
           submit();
@@ -126,18 +127,21 @@ export function Composer({
               submit();
             }
           }}
-          placeholder="Message the agent…  ( / for commands )"
-          className="max-h-[140px] min-h-[38px] flex-1 resize-none rounded-xl border border-border/70 bg-background/60 px-3.5 py-2.5 text-sm leading-relaxed text-foreground transition-all placeholder:text-muted-foreground/40 focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/20"
+          placeholder="Ask robota anything — type / for commands"
+          className="block max-h-[220px] min-h-[48px] w-full resize-none bg-transparent px-2 py-1 text-[15px] leading-relaxed text-foreground [field-sizing:content] focus:outline-none"
         />
-        <button
-          type="submit"
-          disabled={!draft.trim()}
-          className="h-[38px] rounded-xl border border-border/70 px-4 font-mono text-[11px] uppercase tracking-wider text-muted-foreground transition-all hover:border-primary/50 hover:bg-primary/10 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-30"
-        >
-          Send
-        </button>
+        <div className="mt-1 flex items-center gap-1">
+          <StatusRow status={status} onCommand={onCommand} />
+          <button
+            type="submit"
+            disabled={!draft.trim()}
+            className="ml-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-all hover:opacity-85 disabled:bg-raised disabled:text-subtle"
+          >
+            <ArrowUp size={17} strokeWidth={2.25} aria-hidden="true" />
+            <span className="sr-only">Send</span>
+          </button>
+        </div>
       </form>
-      <StatusRow status={status} onCommand={onCommand} />
     </div>
   );
 }
@@ -156,7 +160,7 @@ function MenuBadge({ label, title }: { label: string; title?: string }): React.R
   return (
     <span
       title={title}
-      className="flex-shrink-0 rounded border border-border px-1 text-[10px] uppercase tracking-wider text-muted-foreground"
+      className="flex-shrink-0 rounded-md bg-raised px-1.5 py-px text-[12px] text-muted-foreground"
     >
       {label}
     </span>
@@ -176,26 +180,33 @@ export function GoalBar({
 }): React.ReactElement | null {
   const goal = status?.goal;
   if (!goal || goal.status !== 'active') return null;
+  const progress = goal.maxIterations > 0 ? Math.min(1, goal.iterations / goal.maxIterations) : 0;
   return (
     <div
       role="status"
       aria-label="goal"
-      className="gui-rise mx-3 mt-2 flex flex-shrink-0 items-center gap-3 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2 font-mono text-[12px]"
+      className="gui-rise relative flex flex-shrink-0 items-center gap-3 overflow-hidden rounded-2xl bg-card px-4 py-2.5 text-[14px]"
     >
-      <span className="h-1.5 w-1.5 flex-shrink-0 animate-pulse rounded-full bg-primary" />
-      <span className="text-muted-foreground">goal</span>
-      <span className="min-w-0 flex-1 truncate text-foreground/90">{goal.objective}</span>
-      <span className="flex-shrink-0 tabular-nums text-muted-foreground">
+      <Target size={16} strokeWidth={1.75} className="flex-shrink-0 text-accent" />
+      <span className="flex-shrink-0 font-medium text-foreground">Goal</span>
+      <span className="min-w-0 flex-1 truncate text-muted-foreground">{goal.objective}</span>
+      <span className="flex-shrink-0 text-[13px] tabular-nums text-subtle">
         {goal.iterations}/{goal.maxIterations}
       </span>
       <button
         type="button"
         aria-label="Stop goal"
         onClick={onStop}
-        className="flex-shrink-0 rounded-md border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:border-rose-400/50 hover:text-rose-200"
+        className="flex flex-shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-muted-foreground hover:bg-hover hover:text-foreground"
       >
+        <Square size={11} fill="currentColor" aria-hidden="true" />
         Stop
       </button>
+      <span
+        aria-hidden="true"
+        className="absolute bottom-0 left-0 h-[2px] bg-accent/70 transition-[width]"
+        style={{ width: `${progress * 100}%` }}
+      />
     </div>
   );
 }
@@ -208,31 +219,40 @@ function StatusRow({
   status: TSessionStatus | null;
   onCommand: (name: string) => void;
 }): React.ReactElement {
-  const chip = (label: string, value: string, command: string): React.ReactElement => (
+  const chip = (
+    label: string,
+    value: string,
+    command: string,
+    icon: React.ReactElement,
+  ): React.ReactElement => (
     <button
       type="button"
       aria-label={`${label}: ${value}`}
+      title={`Change ${label}`}
       onClick={() => onCommand(command)}
-      className="rounded-md px-1.5 py-0.5 hover:bg-card/80 hover:text-foreground"
+      className="flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-1 text-[13px] text-muted-foreground hover:bg-hover hover:text-foreground"
     >
-      <span className="text-muted-foreground/50">{label} </span>
-      {value}
+      {icon}
+      <span className="truncate">{value}</span>
     </button>
   );
   const used = status ? Math.round(status.context.usedPercentage) : null;
+  const iconProps = { size: 14, strokeWidth: 1.75, 'aria-hidden': true } as const;
   return (
-    <div className="mt-1.5 flex items-center gap-1 px-0.5 font-mono text-[10.5px] text-muted-foreground/80">
+    <div className="flex min-w-0 flex-1 items-center gap-0.5">
       {status ? (
         <>
-          {chip('model', status.model, 'provider')}
-          {chip('mode', status.permissionMode, 'mode')}
-          {chip('effort', status.effort, 'effort')}
+          {chip('mode', status.permissionMode, 'mode', <Shield {...iconProps} />)}
+          <span className="ml-auto" />
+          {chip('model', status.model, 'provider', <Sparkles {...iconProps} />)}
+          {chip('effort', status.effort, 'effort', <Gauge {...iconProps} />)}
         </>
       ) : (
-        <span className="px-1.5 text-muted-foreground/40">…</span>
+        <span className="ml-auto px-2 text-[13px] text-subtle">…</span>
       )}
       <span
-        className="ml-auto flex items-center gap-1.5 px-1"
+        className="flex items-center gap-1.5 px-1.5 text-[12.5px] tabular-nums text-subtle"
+        title="Context used"
         aria-label={`context ${used ?? 0}% used`}
       >
         <ContextRing percent={used ?? 0} />
@@ -246,10 +266,10 @@ function ContextRing({ percent }: { percent: number }): React.ReactElement {
   const r = 5;
   const circumference = 2 * Math.PI * r;
   const filled = Math.min(100, Math.max(0, percent)) / 100;
-  const tone = percent >= 80 ? 'stroke-amber-400' : 'stroke-primary/80';
+  const tone = percent >= 80 ? 'stroke-warning' : 'stroke-muted-foreground';
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
-      <circle cx="7" cy="7" r={r} className="fill-none stroke-border" strokeWidth="2" />
+      <circle cx="7" cy="7" r={r} className="fill-none stroke-raised" strokeWidth="2" />
       <circle
         cx="7"
         cy="7"

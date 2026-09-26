@@ -203,7 +203,6 @@ describe('composeMcpClientForStartup', () => {
   // higher-precedence, well-formed layer (`project`) still resolves normally. The managed-tier
   // fail-closed case is exercised separately below.
   it('surfaces an unreadable source through activationAdapter.sourceProblems, beside a resolved server', async () => {
-    const cwd = tempRoot('robota-mcp-startup-unreadable-');
     const userHome = tempRoot('robota-mcp-startup-unreadable-user-');
     const projectRoot = tempRoot('robota-mcp-startup-unreadable-project-');
     mkdirSync(join(userHome, '.robota'), { recursive: true });

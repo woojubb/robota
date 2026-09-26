@@ -21,6 +21,7 @@
       "default": "./dist/node/index.js"
     },
     "./client": {
+      "source": "./src/index.ts",
       "import": {
         "types": "./dist/browser/index.d.ts",
         "default": "./dist/browser/index.js"
@@ -48,6 +49,8 @@
     "@robota-sdk/agent-interface-session": "workspace:*",
     "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/agent-transport": "workspace:*",
+    "lucide-react": "^1.26.0",
+    "pretendard": "^1.3.9",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1"
   },

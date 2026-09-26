@@ -1,7 +1,8 @@
+import { mkdtempSync, rmSync } from 'node:fs';
 import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { IDagDefinition } from '@robota-sdk/dag-core';
 import { FileStoragePort } from '@robota-sdk/dag-adapters-local';
 import { createDagFramework } from '../create-dag-framework.js';
@@ -212,10 +213,14 @@ describe('the default composition has no dead-letter reinject capability', () =>
 });
 
 describe('trusted execution root admission', () => {
+  // The missing root is a child of a private directory, so no other user can create it first.
+  const missingRootParent = mkdtempSync(path.join(os.tmpdir(), 'arch010-missing-root-'));
+  afterAll(() => rmSync(missingRootParent, { recursive: true, force: true }));
+
   it.each([
     ['', 'non-empty'],
     ['relative/project', 'absolute'],
-    [path.join(os.tmpdir(), 'arch010-root-that-does-not-exist'), 'existing'],
+    [path.join(missingRootParent, 'root-that-does-not-exist'), 'existing'],
   ])(
     'refuses invalid explicit root %p before composition (%s)',
     async (executionRoot, expected) => {

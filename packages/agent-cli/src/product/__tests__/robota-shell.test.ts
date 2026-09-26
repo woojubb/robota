@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterAll, describe, expect, it } from 'vitest';
 import { UnsupportedShellError } from '@robota-sdk/agent-core';
 
 import { resolveRobotaShellExecutable } from '../robota-shell.js';
@@ -6,6 +10,10 @@ import {
   createRobotaPackSet,
   createRobotaSubagentComposition,
 } from '../robota-subagent-composition.js';
+
+/** Roots sit, unmade, in one private per-run directory rather than at a fixed name under /tmp. */
+const PRIVATE_BASE = mkdtempSync(join(tmpdir(), 'robota-shell-test-'));
+afterAll(() => rmSync(PRIVATE_BASE, { recursive: true, force: true }));
 
 describe('Robota shell policy', () => {
   it('selects a validated explicit executable from ROBOTA_SHELL', () => {
@@ -21,7 +29,7 @@ describe('Robota shell policy', () => {
 
   it('passes the choice through the parent coding pack', () => {
     const shellExecutable = resolveRobotaShellExecutable({ ROBOTA_SHELL: '/bin/bash' });
-    const { packs } = createRobotaPackSet('/tmp/robota-shell-test', { shellExecutable });
+    const { packs } = createRobotaPackSet(join(PRIVATE_BASE, 'parent'), { shellExecutable });
     const shell = packs
       .flatMap((pack) => pack.tools ?? [])
       .find((tool) => tool.getName() === 'Shell');
@@ -34,7 +42,7 @@ describe('Robota shell policy', () => {
     try {
       const composition = createRobotaSubagentComposition();
       const shell = composition
-        .createTools({ cwd: '/tmp/robota-shell-child' })
+        .createTools({ cwd: join(PRIVATE_BASE, 'child') })
         .find((tool) => tool.getName() === 'Shell');
       expect(shell?.getDescription()).toContain('bash on');
       expect(composition.createHookTypeExecutors?.().map((executor) => executor.type)).toEqual([

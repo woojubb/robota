@@ -80,15 +80,15 @@ function replaceNamedImport(code: string, moduleName: string, sdkNamespace: stri
 function removeApiKeyUsage(code: string): string {
   return code
     .replace(
-      /new OpenAI\(\s*{\s*apiKey:\s*['"'][^'"]*['"]\s*}\s*\)/g,
+      /new OpenAI\(\s*{\s*apiKey:\s*['"][^'"]*['"]\s*}\s*\)/g,
       'new OpenAI({ apiKey: "playground-mock-key" })',
     )
     .replace(
-      /new Anthropic\(\s*{\s*apiKey:\s*['"'][^'"]*['"]\s*}\s*\)/g,
+      /new Anthropic\(\s*{\s*apiKey:\s*['"][^'"]*['"]\s*}\s*\)/g,
       'new Anthropic({ apiKey: "playground-mock-key" })',
     )
     .replace(/process\.env\.[A-Z_]*API_KEY/g, '"playground-mock-key"')
-    .replace(/apiKey:\s*['"']sk-[^'"]*['"']/g, 'apiKey: "playground-mock-key"');
+    .replace(/apiKey:\s*['"]sk-[^'"]*['"]/g, 'apiKey: "playground-mock-key"');
 }
 
 function injectExecutorIntoProviders(code: string): string {

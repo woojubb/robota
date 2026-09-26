@@ -1,10 +1,14 @@
 import {
+  closeSync,
+  fstatSync,
   mkdirSync,
   mkdtempSync,
+  openSync,
   readFileSync,
   readdirSync,
   rmSync,
   statSync,
+  symlinkSync,
   utimesSync,
   writeFileSync,
 } from 'node:fs';
@@ -18,6 +22,17 @@ import { createExternalEventAuditRing } from '../external-event-audit-ring.js';
 import type { TExternalEventAuditRecord } from '@robota-sdk/agent-interface-transport';
 
 const ID = '0f6c3a5e-8c1b-4d2a-9f3e-1a2b3c4d5e6f';
+
+/** The permission bits and text of one file, both taken from the same open descriptor. */
+function readTrail(file: string): { mode: number; text: string } {
+  // 0o600 is a no-op without O_CREAT; it states an owner-only mode for static analysis.
+  const fd = openSync(file, 'r', 0o600);
+  try {
+    return { mode: fstatSync(fd).mode & 0o777, text: readFileSync(fd, 'utf8') };
+  } finally {
+    closeSync(fd);
+  }
+}
 
 describe('external event audit ring', () => {
   let dir: string;
@@ -38,9 +53,9 @@ describe('external event audit ring', () => {
       content: 'TEXT',
     } as unknown as TExternalEventAuditRecord;
     write(extra);
-    const file = join(dir, 'audit', `${ID}.jsonl`);
-    expect(statSync(file).mode & 0o777).toBe(0o600);
-    const records = readFileSync(file, 'utf8')
+    const trail = readTrail(join(dir, 'audit', `${ID}.jsonl`));
+    expect(trail.mode).toBe(0o600);
+    const records = trail.text
       .trim()
       .split('\n')
       .map((text) => JSON.parse(text) as unknown);
@@ -66,6 +81,32 @@ describe('external event audit ring', () => {
     expect(names).toEqual([`${ID}.1.jsonl`, `${ID}.jsonl`]);
     for (const name of names)
       expect(statSync(join(dir, 'audit', name)).size).toBeLessThanOrEqual(256 * 1024);
+    // Both files stay owner-only, and the trail continues where the previous file stops.
+    const previous = readTrail(join(dir, 'audit', `${ID}.1.jsonl`));
+    const current = readTrail(join(dir, 'audit', `${ID}.jsonl`));
+    expect([previous.mode, current.mode]).toEqual([0o600, 0o600]);
+    const at = (text: string): string[] =>
+      text
+        .trim()
+        .split('\n')
+        .map((entry) => (JSON.parse(entry) as { at: string }).at);
+    const lastPrevious = at(previous.text).at(-1) ?? '';
+    const firstCurrent = at(current.text)[0] ?? '';
+    expect(Date.parse(firstCurrent) - Date.parse(lastPrevious)).toBe(1);
+    expect(at(current.text).at(-1)).toBe(new Date(5999).toISOString());
+  });
+
+  it('replaces a link planted at the previous file instead of writing through it', () => {
+    const audit = join(dir, 'audit');
+    const victim = join(dir, 'victim.txt');
+    writeFileSync(victim, 'untouched');
+    symlinkSync(victim, join(audit, `${ID}.1.jsonl`));
+    const write = createExternalEventAuditRing(audit, ID);
+    for (let index = 0; index < 4000; index += 1) {
+      write({ at: new Date(index).toISOString(), grantId: 'ci', refusal: 'bad-signature' });
+    }
+    expect(readFileSync(victim, 'utf8')).toBe('untouched');
+    expect(readTrail(join(audit, `${ID}.1.jsonl`)).mode).toBe(0o600);
   });
 
   it('removes the oldest trails beyond its bound when a new session opens one', () => {

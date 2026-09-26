@@ -103,7 +103,7 @@ describe('the docked prompt arms before its keys answer it', () => {
     const onAnswerPermission = vi.fn();
     appearWhileTyping(onAnswerPermission);
     // A mouse click reports its click count in `detail`; a keyboard-activated click reports 0.
-    fireEvent.click(screen.getByText('Allow'), { detail: 1 });
+    fireEvent.click(screen.getByRole('button', { name: 'Allow' }), { detail: 1 });
     expect(onAnswerPermission).toHaveBeenCalledWith('p1', true);
   });
 
@@ -113,21 +113,21 @@ describe('the docked prompt arms before its keys answer it', () => {
     act(() => {
       vi.advanceTimersByTime(PROMPT_ARM_DELAY_MS);
     });
-    const allow = screen.getByText('Allow');
+    const allow = screen.getByRole('button', { name: 'Allow' });
     allow.focus();
     fireEvent.click(allow, { detail: 1 });
     expect(onAnswerPermission).toHaveBeenLastCalledWith('p1', true);
 
     // The next prompt renders into the same buttons while the focused one still holds the key.
     rerender([permission('p2')]);
-    expect(document.activeElement).not.toBe(screen.getByText('Allow'));
+    expect(document.activeElement).not.toBe(screen.getByRole('button', { name: 'Allow' }));
     expect(document.activeElement).toBe(screen.getByRole('dialog', { name: 'pending question' }));
     // Enter or Space on a focused button, or a held key repeating, fires a click with `detail` 0.
     fireEvent.click(document.activeElement as Element, { detail: 0 });
-    fireEvent.click(screen.getByText('Allow'), { detail: 0 });
+    fireEvent.click(screen.getByRole('button', { name: 'Allow' }), { detail: 0 });
     expect(onAnswerPermission).not.toHaveBeenCalledWith('p2', true);
 
-    fireEvent.click(screen.getByText('Allow'), { detail: 1 });
+    fireEvent.click(screen.getByRole('button', { name: 'Allow' }), { detail: 1 });
     expect(onAnswerPermission).toHaveBeenLastCalledWith('p2', true);
   });
 
@@ -183,5 +183,48 @@ describe('the docked prompt arms before its keys answer it', () => {
     });
     fireEvent.keyDown(dialog, { key: '2' });
     expect(onAnswerAsk).toHaveBeenCalledWith('a1', { type: 'answer', values: ['en'] });
+  });
+});
+
+describe('PermissionPrompt shows what the tool was asked to do', () => {
+  afterEach(cleanup);
+
+  it('shows the command line and every other argument beside it', () => {
+    const prompt = {
+      kind: 'permission',
+      id: 'p1',
+      toolName: 'Bash',
+      toolArgs: {
+        command: 'pnpm test --filter agent-session',
+        workingDirectory: '/srv/app',
+        stdin: 'yes',
+      },
+    } as TPendingPrompt;
+    render(<Surface prompts={[prompt]} onAnswerPermission={vi.fn()} />);
+
+    expect(screen.getByText('pnpm test --filter agent-session')).toBeTruthy();
+    expect(screen.getByText('/srv/app')).toBeTruthy();
+    expect(screen.getByText('yes')).toBeTruthy();
+  });
+
+  it('shows a long argument whole', () => {
+    const content = 'x'.repeat(2000);
+    const prompt = {
+      kind: 'permission',
+      id: 'p2',
+      toolName: 'Write',
+      toolArgs: { path: 'notes.md', content },
+    } as TPendingPrompt;
+    render(<Surface prompts={[prompt]} onAnswerPermission={vi.fn()} />);
+
+    expect(screen.getByText('notes.md')).toBeTruthy();
+    expect(screen.getByText(content)).toBeTruthy();
+  });
+
+  it('keeps the key cap out of the button name', () => {
+    render(<Surface prompts={[permission('p3')]} onAnswerPermission={vi.fn()} />);
+
+    expect(screen.getByRole('button', { name: 'Allow' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Deny' })).toBeTruthy();
   });
 });
