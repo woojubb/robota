@@ -2,6 +2,7 @@ import {
   DeviceHandshakeError,
   derivePairRendezvous,
   startDeviceHandshake,
+  type IListUpdate,
 } from '@robota-sdk/agent-remote-pairing';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
@@ -360,6 +361,74 @@ describe('DeviceMeshNode — CLI↔CLI connection over WebRTC', () => {
       /not a rostered, unrevoked/,
     );
   });
+});
+
+describe('DeviceMeshNode — newer lists reach linked devices over the live connection', () => {
+  it('a list one device takes up is pushed to a linked device, whatever that device lets the peer ask', async () => {
+    const hub = createInMemoryMeshRelayHub();
+    const adopted: IListUpdate[] = [];
+    const low = node(hub, world.low);
+    // Lists are not a capability: a device that grants its peer presence only still takes them.
+    const high = node(hub, world.high, {
+      localPolicy: ['presence'],
+      onListsAdopted: (update) => adopted.push(update),
+    });
+    await Promise.all([low.start(), high.start()]);
+    const [, atHigh] = await Promise.all([
+      low.connect(world.high.cert.deviceId),
+      high.connect(world.low.cert.deviceId),
+    ]);
+    const heard: string[] = [];
+    let closed = false;
+    atHigh.onMessage((body) => heard.push(body));
+    atHigh.onClose(() => (closed = true));
+
+    const revocation = await world.revoking(world.third);
+    await low.refresh({ identity: world.identity(world.low, { revocation }) });
+
+    await expect.poll(() => adopted.length).toBe(1);
+    expect(adopted[0]!.revocation).toEqual(revocation);
+    expect(adopted[0]!.roster).toBeUndefined();
+    await expect(high.connect(world.third.cert.deviceId)).rejects.toThrow(
+      /not a rostered, unrevoked/,
+    );
+    // The lists are the node's own business: the application hears nothing and the link stays.
+    expect(heard).toEqual([]);
+    expect(closed).toBe(false);
+    expect(high.link(world.low.cert.deviceId)).toBe(atHigh);
+  }, 40_000);
+
+  it('a pushed list that does not verify, or is not newer, is ignored and the link stays', async () => {
+    const hub = createInMemoryMeshRelayHub();
+    const adopted: IListUpdate[] = [];
+    const low = node(hub, world.low);
+    const high = node(hub, world.high, { onListsAdopted: (update) => adopted.push(update) });
+    await Promise.all([low.start(), high.start()]);
+    const [atLow, atHigh] = await Promise.all([
+      low.connect(world.high.cert.deviceId),
+      high.connect(world.low.cert.deviceId),
+    ]);
+    const heard: string[] = [];
+    atHigh.onMessage((body) => heard.push(body));
+
+    const revocation = await world.revoking(world.third);
+    const current = world.identity(world.high);
+    for (const frame of [
+      // Signed for seq 11, claiming 12.
+      { t: 'mesh-lists', revocation: { ...revocation, seq: 12 } },
+      // The same list the device already holds.
+      { t: 'mesh-lists', roster: current.roster, revocation: current.revocation },
+      { t: 'mesh-lists', revocation: 'not a list' },
+    ]) {
+      atLow.send(JSON.stringify(frame));
+    }
+    atLow.send('still here');
+
+    await expect.poll(() => heard).toEqual(['still here']);
+    expect(adopted).toEqual([]);
+    expect(high.link(world.low.cert.deviceId)).toBe(atHigh);
+    await expect(high.connect(world.third.cert.deviceId, 1)).rejects.toThrow(/in time/);
+  }, 40_000);
 });
 
 describe('DeviceMeshNode — the peer is the device its inbox belongs to', () => {

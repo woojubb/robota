@@ -32,6 +32,11 @@ export interface IDevicesCommandPortOptions {
   readonly openEnrollmentRelay?: (onError: (error: Error) => void) => IMeshRelay | undefined;
   /** Defaults to the configured ICE servers. */
   readonly iceServers?: () => readonly IIceServer[] | undefined;
+  /**
+   * Called after a verb that changed this device's identity or lists (init, join, add, revoke,
+   * recover), so the running session's mesh opens for a new identity or pushes the new lists.
+   */
+  readonly onIdentityChanged?: () => void;
   /** Test seams for enrollment timing. */
   readonly enrollment?: {
     readonly ttlMs?: number;
@@ -62,8 +67,38 @@ export function createDevicesCommandPort(
     iceServers: options.iceServers ?? (() => parseIceServers(readWebrtcRawOption('iceServers'))),
     ...(options.enrollment !== undefined ? { enrollment: options.enrollment } : {}),
   });
+  const onChanged = options.onIdentityChanged;
+  const told =
+    onChanged === undefined
+      ? service
+      : {
+          ...service,
+          init: tell(service.init, onChanged),
+          join: tell(service.join, onChanged),
+          add: tell(service.add, onChanged),
+          revoke: tell(service.revoke, onChanged),
+          recover: tell(service.recover, onChanged),
+        };
   const meshStatus = options.meshStatus;
-  return meshStatus === undefined ? service : { ...service, meshStatus };
+  return meshStatus === undefined ? told : { ...told, meshStatus };
+}
+
+/** `verb`, calling `changed` after each outcome that succeeded. */
+function tell<TArgs extends unknown[], TOutcome extends { readonly ok: boolean }>(
+  verb: (...args: TArgs) => Promise<TOutcome>,
+  changed: () => void,
+): (...args: TArgs) => Promise<TOutcome> {
+  return async (...args) => {
+    const outcome = await verb(...args);
+    if (outcome.ok) {
+      try {
+        changed();
+      } catch {
+        // allow-fallback: the change is made and saved; the mesh takes it up at its next refresh
+      }
+    }
+    return outcome;
+  };
 }
 
 export { createDeviceMeshHost } from './device-mesh-host.js';
@@ -73,6 +108,8 @@ export interface IDeviceListReissueStartOptions {
   /** Defaults to `~/.robota` under the current `HOME`. */
   readonly root?: string;
   readonly credentials?: { readonly store: ICredentialStore };
+  /** New lists were issued: a running mesh pushes them. */
+  readonly onReissued?: () => void;
 }
 
 /**
@@ -87,6 +124,7 @@ export function startDeviceListReissue(options: IDeviceListReissueStartOptions =
     directory: join(root, 'devices'),
     withinRoot: root,
     store: credentials.store,
+    ...(options.onReissued !== undefined ? { onReissued: options.onReissued } : {}),
     // allow-fallback: the next hourly check retries, and an expiring list shows in `/devices list`
     onError: () => undefined,
   });

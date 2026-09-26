@@ -134,4 +134,31 @@ describe('revocation list and roster reissue', () => {
     stop();
     expect(errors).toEqual([]);
   });
+
+  it('the schedule says when it reissued, so a running mesh can push the new lists', async () => {
+    const reissued: string[] = [];
+    clock = START + 2 * DAY;
+    const stop = scheduleListReissue({
+      directory,
+      withinRoot: root,
+      store,
+      now: () => clock,
+      onReissued: () => reissued.push('reissued'),
+    });
+    await expect.poll(() => reissued).toEqual(['reissued']);
+    stop();
+
+    // Nothing due: nothing said.
+    const quiet: string[] = [];
+    const again = scheduleListReissue({
+      directory,
+      withinRoot: root,
+      store,
+      now: () => clock,
+      onReissued: () => quiet.push('reissued'),
+    });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    again();
+    expect(quiet).toEqual([]);
+  });
 });

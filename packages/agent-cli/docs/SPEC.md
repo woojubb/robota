@@ -228,7 +228,8 @@ operator; the signing key exists for exactly this, and the recovery phrase is ne
 serve and test runs neither reissue nor open the device mesh, so running the CLI for a single task
 never rewrites identity state or answers another device. The mesh opens only when the user settings
 turn it on — never a project's, which would let a repository expose this machine to the user's other
-devices — and in one session of the device at a time, since each other device keeps one link to it;
+devices — and in one session of the device at a time, since each other device keeps one link to it: a
+session that stalled long enough for another to take the mesh over closes its own as soon as it notices;
 a linked device may do only what the user's settings allow, each file and session it offers put to
 the operator at this terminal.
 

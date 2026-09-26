@@ -93,8 +93,11 @@ dependency.
   anything but delivery: nothing it says is authenticated, so a new attempt runs beside the admitted connection
   and replaces it only once admitted itself, and attempts per pair are paced — forged announcements can neither
   cut a working connection nor open connections without bound.
-  Lists adopted in a handshake or handed over later apply from the next handshake, and a device they revoke loses
-  its connection at once. Admission says who the peer is; what it may do on the connection is its connection
+  Lists adopted in a handshake or handed over later apply from the next handshake and are pushed over every admitted
+  connection, since a revocation that waited for the next handshake would leave a revoked device linked elsewhere; a
+  pushed list is taken on the handshake's terms — newer, from this user's signing key, verifying — and travels
+  whatever the peer may ask, because lists are identity, not a capability. A device they revoke loses its
+  connection at once. Admission says who the peer is; what it may do on the connection is its connection
   authority's answer, so even a message is delivered only when that authority allows it. A file travels on a
   channel of its own, opened only on an admitted connection, so a transfer never shares the message channel.
 - **Discovery yields candidates, never trust.** Whatever a discovery path answers only carries signals, so a stale

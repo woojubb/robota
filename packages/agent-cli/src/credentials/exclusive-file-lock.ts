@@ -7,6 +7,10 @@
  * holder refreshes its lock's time while it waits on a slow keychain, so it is never mistaken for one. Nothing is
  * removed by path alone: a lock is first renamed aside, and deleted only if the file set aside is the
  * very one that was judged; anything else is put back without replacing a lock created meanwhile.
+ *
+ * A holder that stalls past `staleMs` (a sleeping machine) can have its lock taken over although it
+ * did not die. Its refresh finds another token, or none, and tells the holder through `onLost`, so
+ * work that must have one holder at a time can stop instead of running beside the new one.
  */
 import { randomBytes } from 'node:crypto';
 import {
@@ -28,6 +32,8 @@ export interface IExclusiveFileLockOptions {
   readonly staleMs?: number;
   readonly timeoutMs?: number;
   readonly pollMs?: number;
+  /** Called once when a refresh finds the lock no longer this holder's; it is then released. */
+  readonly onLost?: () => void;
 }
 
 const DEFAULT_STALE_MS = 30_000;
@@ -112,11 +118,29 @@ export async function holdExclusiveFileLock(
     }
     await new Promise((resolve) => setTimeout(resolve, pollMs));
   }
+  let held = true;
+  const lost = (): void => {
+    held = false;
+    clearInterval(heartbeat);
+    options.onLost?.();
+  };
   const heartbeat = setInterval(
     () => {
+      let current: string;
       try {
-        // Only this holder's own lock is refreshed; one taken over meanwhile is left to its holder.
-        if (readFileSync(path, 'utf8') !== token) return;
+        current = readFileSync(path, 'utf8');
+      } catch (error) {
+        // Gone: another holder judged it stale and removed it.
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') lost();
+        // allow-fallback: otherwise a missed refresh only matters once the lock goes stale; the next one retries.
+        return;
+      }
+      // Taken over meanwhile: that lock is left to its holder, and this one is told.
+      if (current !== token) {
+        lost();
+        return;
+      }
+      try {
         const now = new Date();
         utimesSync(path, now, now);
       } catch {
@@ -126,7 +150,6 @@ export async function holdExclusiveFileLock(
     Math.max(1, Math.floor(staleMs / 3)),
   );
   heartbeat.unref();
-  let held = true;
   return {
     release: () => {
       if (!held) return;

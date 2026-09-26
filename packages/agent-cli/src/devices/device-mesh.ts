@@ -334,7 +334,9 @@ export async function openDeviceMesh(
   const directory = join(options.root, 'devices');
   const state = readIdentityState(directory);
   if (state === undefined) {
-    throw new DeviceIdentityError('this device has no identity yet; run `/devices init` first');
+    throw new DeviceIdentityError(
+      'this device has no identity yet; run `/devices join` to join your other devices, or `/devices init` on your first device',
+    );
   }
   const keys = await loadDevicePrivateKeys(options.store, state.deviceCertificate);
   if (keys === undefined) {

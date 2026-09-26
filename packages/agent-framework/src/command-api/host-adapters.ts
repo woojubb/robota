@@ -360,6 +360,11 @@ export interface ICommandLocalPeersAdapter {
    */
   listDevices?(): readonly ILinkedDeviceSummary[];
   /**
+   * Why sessions on this host cannot be listed, when local discovery is off for this session; the
+   * linked devices still are. Absent when discovery is on.
+   */
+  readonly localDiscoveryOff?: string;
+  /**
    * PEER-006: hand `text` to another announced session, and report what came back.
    *
    * Returns a delivery state rather than throwing, because "the peer refused it" and "the carrier

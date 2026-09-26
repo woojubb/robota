@@ -215,7 +215,7 @@ export function createHandoffHostAdapter(deps: IHandoffHostAdapterDeps): IComman
     const signer = await loadSigner(deps.root, deps.store);
     if (signer === undefined) {
       return stopped(
-        'this device has no identity to sign the hand-off with; run `/devices init` first',
+        'this device has no identity to sign the hand-off with; run `/devices join` to join your other devices, or `/devices init` on your first device',
       );
     }
     const loaded = deps.sessionStore.load(session.getSessionId());
