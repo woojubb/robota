@@ -8,11 +8,12 @@
  * (never filtered by the preset delta). The preset delta + its unknown-name diagnostics moved to the shell,
  * where they apply to the base ⊕ pack superset; they are covered in `robota-assembly-equivalence.test.ts`.
  */
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { describe, it, expect } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 
 import { createRobotaPacks, packCommandModuleNames } from '../product/robota-profile.js';
 import { buildCommandSetup } from '../startup/command-setup.js';
@@ -20,8 +21,11 @@ import { buildCommandSetup } from '../startup/command-setup.js';
 import type { ICommandMCPActivationAdapter } from '@robota-sdk/agent-framework';
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 
+/** The packs' root: an unmade path in a private per-run directory, not a fixed name under /tmp. */
+const PRIVATE_BASE = mkdtempSync(join(tmpdir(), 'robota-optional-workflows-'));
+afterAll(() => rmSync(PRIVATE_BASE, { recursive: true, force: true }));
 const ROBOTA_PACK_COMMAND_MODULE_NAMES = packCommandModuleNames(
-  createRobotaPacks({ cwd: '/tmp/optional-workflows' }),
+  createRobotaPacks({ cwd: join(PRIVATE_BASE, 'workspace') }),
 );
 
 const MINIMAL_ARGS = { noUpdateCheck: true } as unknown as IParsedCliArgs;

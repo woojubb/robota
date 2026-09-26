@@ -1,4 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { afterAll, describe, expect, it } from 'vitest';
 
 import { createRobotaPacks } from '../robota-profile.js';
 import {
@@ -13,7 +17,10 @@ import {
 
 import type { IToolWithEventService } from '@robota-sdk/agent-core';
 
-const CWD = '/tmp/robota-arch-021';
+/** Roots sit, unmade, in one private per-run directory rather than at a fixed name under /tmp. */
+const PRIVATE_BASE = mkdtempSync(join(tmpdir(), 'robota-arch-021-'));
+afterAll(() => rmSync(PRIVATE_BASE, { recursive: true, force: true }));
+const CWD = join(PRIVATE_BASE, 'workspace');
 
 /** A stand-in for a live, unrepeatable handle. Its shape is irrelevant — its presence is the point. */
 const SANDBOX_CLIENT = {} as IRobotaPackContext['sandboxClient'];
@@ -73,7 +80,7 @@ describe('ARCH-021 — robota composes its own child-process subagents', () => {
     const composition = createRobotaSubagentComposition();
 
     const here = composition.createTools({ cwd: CWD });
-    const there = composition.createTools({ cwd: `${CWD}-other` });
+    const there = composition.createTools({ cwd: join(PRIVATE_BASE, 'other-workspace') });
 
     expect(there).not.toBe(here);
     expect(toolNames(there)).toEqual(toolNames(here));

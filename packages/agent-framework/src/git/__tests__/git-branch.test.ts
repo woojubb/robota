@@ -70,6 +70,22 @@ describe('resolveGitBranchFromNodeHost', () => {
     }
   });
 
+  it('moves on to the parent past a directory it cannot search', () => {
+    const outer = join(TMP_BASE, 'outer');
+    mkdirSync(join(outer, '.git'), { recursive: true });
+    writeFileSync(join(outer, '.git', 'HEAD'), 'ref: refs/heads/outer\n', 'utf8');
+    const locked = join(outer, 'locked');
+    const cwd = join(locked, 'inner');
+    mkdirSync(cwd, { recursive: true });
+    // Readable but not searchable: nothing under it can be opened or even looked at.
+    chmodSync(locked, 0o600);
+    try {
+      expect(resolveGitBranchFromNodeHost(cwd)).toBe('outer');
+    } finally {
+      chmodSync(locked, 0o755);
+    }
+  });
+
   it('returns undefined outside a git repository', () => {
     const cwd = join(TMP_BASE, 'plain');
     mkdirSync(cwd, { recursive: true });
