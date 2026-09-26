@@ -575,7 +575,8 @@ export class InteractiveSession
         confirm: async (question) => {
           const response = await this.askHandler({
             id: `peer-send-file-${Date.now()}`,
-            title: `Send ${question.path} to session ${question.to}?`,
+            // Quoted, so a name holding control characters cannot repaint the question.
+            title: `Send ${JSON.stringify(question.path)} to session ${JSON.stringify(question.to)}?`,
             description:
               `${question.size} bytes, sha256 ${question.sha256}. The other session keeps a copy ` +
               'aside; nothing there opens it on its own.',

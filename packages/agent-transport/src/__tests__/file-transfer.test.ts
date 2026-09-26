@@ -245,4 +245,37 @@ describe('file carrier', () => {
     }
     await expect(receiving).resolves.toMatchObject({ ok: false, reason: 'protocol' });
   });
+
+  it('passes on a refusal detail only as printable text', async () => {
+    const bytes = Buffer.from('x');
+    const { a, b } = channelPair();
+    b.onFrame(() => {
+      b.send(
+        JSON.stringify({ t: 'file-refuse', reason: 'declined', detail: 'no\u001b[2J‮thanks' }),
+      );
+    });
+    const sent = await sendFileOverChannel({
+      channel: a,
+      offer: offerFor(bytes),
+      source: sourceOf(bytes),
+    });
+    expect(sent).toMatchObject({ ok: false, reason: 'declined' });
+    const detail = sent.ok ? '' : (sent.detail ?? '');
+    expect(detail).toContain('thanks');
+    expect([...detail].some((char) => (char.codePointAt(0) ?? 0) < 0x20)).toBe(false);
+    expect(detail).not.toContain('‮');
+  });
+
+  it('ends a transfer that sends an empty chunk', async () => {
+    const { a, b } = channelPair();
+    const bytes = Buffer.alloc(10);
+    const sink = memorySink();
+    const receiving = receiveFileOverChannel({ channel: b, admit: async () => ({ sink }) });
+    a.onFrame(() => undefined);
+    a.send(JSON.stringify({ t: 'file-offer', ...offerFor(bytes) }));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    a.send(JSON.stringify({ t: 'file-chunk', seq: 0, data: '' }));
+    await expect(receiving).resolves.toMatchObject({ ok: false, reason: 'protocol' });
+    expect(sink.state).toBe('discarded');
+  });
 });

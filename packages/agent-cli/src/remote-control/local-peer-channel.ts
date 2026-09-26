@@ -211,14 +211,14 @@ function readLine(socket: Socket, timeoutMs: number): Promise<string> {
     const onError = (error: Error): void => finish(() => reject(error));
     const onEnd = (): void =>
       finish(() => reject(new Error('local peer channel: the peer closed before sending a line')));
-    // Detached once the line is read: a connection that carries a file goes on to be read by the
-    // file carrier, and must not keep feeding this buffer.
+    // The reader is detached once the line is read: a connection that carries a file goes on to be
+    // read by the file carrier, and must not keep feeding this buffer. The error listener stays: a
+    // peer that leaves while its answer is being written must not become an uncaught error here.
     function finish(run: () => void): void {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
       socket.off('data', onData);
-      socket.off('error', onError);
       socket.off('end', onEnd);
       run();
     }

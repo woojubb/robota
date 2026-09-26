@@ -271,16 +271,22 @@ describe('what may be sent', () => {
     await expect(prepare('inside-looking.txt', 'model')).resolves.toMatchObject({ ok: false });
   });
 
-  it.each(['.env', '.env.local', 'id_ed25519', 'server.pem', '.ssh/config', '.aws/credentials'])(
-    'keeps the secret-looking %s to the operator command',
-    async (name) => {
-      const file = path.join(workspace, name);
-      mkdirSync(path.dirname(file), { recursive: true });
-      writeFileSync(file, 'secret');
-      await expect(prepare(name, 'model')).resolves.toMatchObject({ ok: false });
-      await expect(prepare(name, 'operator')).resolves.toMatchObject({ ok: true });
-    },
-  );
+  it.each([
+    '.env',
+    '.env.local',
+    '.envrc',
+    '.env-prod',
+    'id_ed25519',
+    'server.pem',
+    '.ssh/config',
+    '.aws/credentials',
+  ])('keeps the secret-looking %s to the operator command', async (name) => {
+    const file = path.join(workspace, name);
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(file, 'secret');
+    await expect(prepare(name, 'model')).resolves.toMatchObject({ ok: false });
+    await expect(prepare(name, 'operator')).resolves.toMatchObject({ ok: true });
+  });
 
   it('refuses a file over the size limit for anyone', async () => {
     writeFileSync(path.join(workspace, 'big.bin'), Buffer.alloc(2048));

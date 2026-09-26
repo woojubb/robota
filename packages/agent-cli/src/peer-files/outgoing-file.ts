@@ -46,7 +46,7 @@ const SECRET_NAMES: ReadonlySet<string> = new Set([
   'credentials.json',
 ]);
 const SECRET_NAME_PATTERNS: readonly RegExp[] = [
-  /^\.env(\..*)?$/i,
+  /^\.env/i,
   /^id_(rsa|dsa|ecdsa|ed25519)(\..*)?$/i,
   /\.(pem|key|p12|pfx|jks|keystore|kdbx)$/i,
 ];

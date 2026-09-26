@@ -58,7 +58,10 @@ export type TFileTransferRefusal =
  */
 export const DEFAULT_MAX_FILE_BYTES = 32 * 1024 * 1024;
 
-/** Bytes of content per chunk: what every SCTP implementation carries without negotiation. */
+/**
+ * Bytes of content per chunk. Small enough that a frame, base64 and envelope included, stays well
+ * inside the message size every channel it runs on carries.
+ */
 export const FILE_CHUNK_BYTES = 16 * 1024;
 /** Chunks the sender may have unconfirmed. */
 export const FILE_CREDIT_WINDOW = 16;
@@ -129,6 +132,25 @@ const REFUSALS: ReadonlySet<string> = new Set<TFileTransferRefusal>([
   'unavailable',
 ]);
 
+/** Code points that could repaint a terminal, hide text or reorder it. */
+const UNPRINTABLE_RANGES: readonly (readonly [number, number])[] = [
+  [0x00, 0x1f],
+  [0x7f, 0x9f],
+  [0x200b, 0x200f],
+  [0x2028, 0x202e],
+  [0x2066, 0x2069],
+  [0xfeff, 0xfeff],
+];
+
+function printable(text: string): string {
+  let out = '';
+  for (const char of text) {
+    const code = char.codePointAt(0) ?? 0;
+    out += UNPRINTABLE_RANGES.some(([low, high]) => code >= low && code <= high) ? ' ' : char;
+  }
+  return out;
+}
+
 function isCount(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }
@@ -165,12 +187,16 @@ function decodeFrame(text: string): TFrame | undefined {
       return {
         t: 'file-refuse',
         reason: reason as TFileTransferRefusal,
-        ...(typeof detail === 'string' ? { detail: detail.slice(0, 500) } : {}),
+        // The peer's words, shown to an operator and handed to a model: printable text only.
+        ...(typeof detail === 'string' ? { detail: printable(detail).slice(0, 500) } : {}),
       };
     }
     case 'file-chunk': {
       const { seq, data } = frame;
-      if (!isCount(seq) || typeof data !== 'string' || !BASE64.test(data)) return undefined;
+      // An empty chunk moves nothing and would let a sender hold an approved transfer open forever.
+      if (!isCount(seq) || typeof data !== 'string' || data === '' || !BASE64.test(data)) {
+        return undefined;
+      }
       return { t: 'file-chunk', seq, data };
     }
     case 'file-credit':
