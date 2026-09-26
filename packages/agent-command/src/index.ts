@@ -81,6 +81,7 @@ export {
   type IDevicesInitResult,
   type IDevicesRecoverResult,
   type IDevicesRevokeResult,
+  type IDevicesMeshStatus,
   type IDevicesView,
   type TDevicesOutcome,
   type TDevicesRefusal,

@@ -68,10 +68,11 @@ user-owned and currently authorized project records, never transcript content, a
 unsupported records stay visible rather than being hidden.
 
 A local peer message or file is taken as coming from the session it names only when that session,
-asked at its own socket, confirms it is sending exactly that message or file to this receiver;
-anything else is refused. The same user can reach every socket in the rendezvous, so the name a message states is a
+asked at its own socket, confirms it is sending exactly that message or file to this receiver, and
+one over the device mesh only as coming from the device its handshake proved; anything else is
+refused. The same user can reach every socket in the rendezvous, so the name a message states is a
 claim, and it decides where an answer goes and whom the turn is attributed to — never what the turn
-may do, which the session's ordinary permissions decide as for its own work.
+may do, which the session's ordinary permissions decide as for its own work, wherever the peer runs.
 
 A file from another session or device is kept only with the operator's yes to that file, as an inert
 copy in a directory of the sender's under this user's `~/.robota`, under a name that cannot leave it,
@@ -213,7 +214,11 @@ A device that keeps the device-signing key reissues the roster and revocation li
 while an interactive session runs. The lists expire quickly so that a withheld list cannot pass for a
 current one for long, which only holds if their issuer keeps renewing them without waiting for an
 operator; the signing key exists for exactly this, and the recovery phrase is never involved. Print,
-serve and test runs do not reissue, so running the CLI for a single task never rewrites identity state.
+serve and test runs neither reissue nor open the device mesh, so running the CLI for a single task
+never rewrites identity state or answers another device. The mesh opens only when the user settings
+turn it on — never a project's, which would let a repository expose this machine to the user's other
+devices — and by default a linked device may message this session and offer it files and sessions,
+each put to the operator at this terminal, but never delegate to, observe or drive it.
 
 ### MCP client composition
 

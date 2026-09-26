@@ -1,6 +1,7 @@
 /**
- * `/handoff` at the composition root, over the same-host peer channel: push this session to another
- * session of this user on this machine, and take a session another one pushes here.
+ * `/handoff` at the composition root, over the same-host peer channel or a device-mesh link: push
+ * this session to another session of this user on this machine or to another of the user's devices,
+ * and take a session another one pushes here.
  *
  * The session given away is the one this process last saved — a hand-off needs a settled session,
  * and a settled session has been saved after its last turn. The grant is signed with this device's
@@ -22,7 +23,7 @@ import {
 import { loadDevicePrivateKeys } from '../devices/identity-keys.js';
 import { readIdentityState } from '../devices/identity-state.js';
 import { localCarrierBinding, mintHandoffGrant, type IHandoffSigner } from './handoff-grant.js';
-import { pushHandoff } from './handoff-push.js';
+import { pushHandoff, type IPushHandoffOptions, type IPushHandoffResult } from './handoff-push.js';
 import { runLocalGit } from '../remote-control/local-peer-workspace.js';
 
 import type { IHandoffReceiverIdentity, IHandoffArrival } from './handoff-receiving.js';
@@ -113,6 +114,15 @@ export interface IHandoffHostAdapterDeps {
   };
   /** Opens a channel to another announced session; absent until messaging is up. */
   readonly openChannel: () => ((targetSessionId: string) => Promise<IFileFrameChannel>) | undefined;
+  /** The user's other devices linked over the device mesh. Absent: sessions on this machine only. */
+  readonly devices?: {
+    list(): readonly { readonly deviceId: string; readonly name?: string }[];
+    /** Push over the device's link; rejects when it is no longer linked. */
+    push(
+      deviceId: string,
+      options: Omit<IPushHandoffOptions, 'openChannel' | 'carrierBinding'>,
+    ): Promise<IPushHandoffResult>;
+  };
   /** The session has moved: end this process through its normal end-of-life. */
   readonly onHandedOff: () => void;
   readonly now?: () => number;
@@ -125,13 +135,17 @@ export interface IHandoffHostAdapterDeps {
 async function loadSigner(
   root: string,
   store: ICredentialStore,
-): Promise<IHandoffSigner | undefined> {
+): Promise<(IHandoffSigner & { readonly deviceId: string }) | undefined> {
   const state = readIdentityState(join(root, 'devices'));
   if (state === undefined) return undefined;
   const keys = await loadDevicePrivateKeys(store, state.deviceCertificate);
   return keys === undefined
     ? undefined
-    : { userId: state.userId, signPrivateKey: keys.signPrivateKey };
+    : {
+        userId: state.userId,
+        signPrivateKey: keys.signPrivateKey,
+        deviceId: state.deviceCertificate.deviceId,
+      };
 }
 
 /** Whether two saved snapshots of one session are the same state of it. */
@@ -160,7 +174,13 @@ export function createHandoffHostAdapter(deps: IHandoffHostAdapterDeps): IComman
   let current: IHandoffProgress = { state: 'offered', stillMine: true };
   let busy = false;
   /** A transfer sent whose answer never came: the receiver may have saved it. */
-  let unsettled: { readonly target: string; readonly request: IHandoffManifestRequest } | undefined;
+  let unsettled:
+    | {
+        readonly target: string;
+        readonly request: IHandoffManifestRequest;
+        readonly toDevice: boolean;
+      }
+    | undefined;
 
   const staysBehind = async (): Promise<IHandoffStaysBehind> => {
     const session = deps.getSession();
@@ -183,8 +203,13 @@ export function createHandoffHostAdapter(deps: IHandoffHostAdapterDeps): IComman
       );
     }
     const session = deps.getSession();
-    const open = deps.openChannel();
-    if (session === undefined || open === undefined) {
+    // An unconfirmed transfer is settled over the carrier it went by.
+    const toDevice =
+      unsettled?.target === target
+        ? unsettled.toDevice
+        : deps.devices?.list().some((device) => device.deviceId === target) === true;
+    const open = toDevice ? undefined : deps.openChannel();
+    if (session === undefined || (!toDevice && open === undefined)) {
       return stopped('this session cannot reach other sessions yet');
     }
     const signer = await loadSigner(deps.root, deps.store);
@@ -226,26 +251,42 @@ export function createHandoffHostAdapter(deps: IHandoffHostAdapterDeps): IComman
     const request: IHandoffManifestRequest = unsettled?.request ?? {
       handoffId: randomUUID(),
       sessionId: record.id,
-      sourceDeviceId: deps.peers.ownSessionId(),
+      // Between devices each end is its device; between sessions on this machine, its session.
+      sourceDeviceId: toDevice ? signer.deviceId : deps.peers.ownSessionId(),
       destinationDeviceId: target,
       record,
       runtime,
       offeredAt: now(),
     };
-    const { outcome } = await pushHandoff({
+    const options: Omit<IPushHandoffOptions, 'openChannel' | 'carrierBinding'> = {
       composition: deps.composition,
       request,
-      openChannel: () => open(target),
-      carrierBinding: localCarrierBinding(target),
       mintGrant: (manifest, fingerprint) => mintHandoffGrant(signer, manifest, fingerprint, now()),
       onReadOnly: () => {
         current = { state: 'done', stillMine: false };
       },
       onProgress: report,
       ...(deps.idleMs !== undefined ? { idleMs: deps.idleMs } : {}),
-    });
+    };
+    let outcome: IHandoffOutcome;
+    if (open !== undefined) {
+      ({ outcome } = await pushHandoff({
+        ...options,
+        openChannel: () => open(target),
+        carrierBinding: localCarrierBinding(target),
+      }));
+    } else {
+      const devices = deps.devices;
+      if (devices === undefined) return stopped(`${target} is not linked`);
+      try {
+        ({ outcome } = await devices.push(target, options));
+      } catch (error) {
+        // Nothing was offered: the device's link went away before the transfer could start.
+        return stopped(error instanceof Error ? error.message : String(error));
+      }
+    }
     const waiting = outcome.phase === 'transferring' || outcome.phase === 'staged';
-    unsettled = waiting ? { target, request } : undefined;
+    unsettled = waiting ? { target, request, toDevice } : undefined;
     current = waiting
       ? stopped(
           `${target} did not confirm; it may already have saved the session. ` +
@@ -257,11 +298,16 @@ export function createHandoffHostAdapter(deps: IHandoffHostAdapterDeps): IComman
   };
 
   return {
-    destinations: async () =>
-      deps.peers
+    destinations: async () => [
+      ...deps.peers
         .list()
         .filter((peer) => peer.sessionId !== deps.peers.ownSessionId() && peer.liveness !== 'dead')
         .map((peer) => ({ deviceId: peer.sessionId, name: 'another session on this machine' })),
+      ...(deps.devices?.list() ?? []).map((device) => ({
+        deviceId: device.deviceId,
+        name: `${device.name ?? 'unnamed'}, another of your devices`,
+      })),
+    ],
     staysBehind,
     transfer: async (target, onProgress) => {
       if (busy) return stopped('a hand-off is already in progress');

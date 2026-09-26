@@ -11,7 +11,7 @@ import { scheduleListReissue } from './device-list-reissue.js';
 import { openSecretTerminal, type ISecretTerminalSession } from './secret-terminal.js';
 
 import type { ICredentialStore } from '@robota-sdk/agent-core';
-import type { IDevicesCommandPort } from '@robota-sdk/agent-command';
+import type { IDevicesCommandPort, IDevicesMeshStatus } from '@robota-sdk/agent-command';
 
 export interface IDevicesCommandPortOptions {
   /** Defaults to `~/.robota` under the current `HOME`. */
@@ -20,20 +20,29 @@ export interface IDevicesCommandPortOptions {
   readonly credentials?: { readonly store: ICredentialStore; describe(): string | undefined };
   /** Defaults to the process TTY. */
   readonly openTerminal?: () => ISecretTerminalSession | undefined;
+  /** This session's device mesh, shown by `/devices`. */
+  readonly meshStatus?: () => IDevicesMeshStatus;
 }
 
-export function createDevicesCommandPort(options: IDevicesCommandPortOptions = {}): IDevicesCommandPort {
+export function createDevicesCommandPort(
+  options: IDevicesCommandPortOptions = {},
+): IDevicesCommandPort {
   const root = options.root ?? userLocalStorageRoot();
   // The backend in use is reported in the `/devices init` result, so the one-time notice is not needed.
   const credentials = options.credentials ?? createHostCredentialStore({ root, notify: () => {} });
-  return createDeviceIdentityService({
+  const service = createDeviceIdentityService({
     directory: join(root, 'devices'),
     withinRoot: root,
     store: credentials.store,
     openTerminal: options.openTerminal ?? (() => openSecretTerminal()),
     describeKeyStorage: () => credentials.describe(),
   });
+  const meshStatus = options.meshStatus;
+  return meshStatus === undefined ? service : { ...service, meshStatus };
 }
+
+export { createDeviceMeshHost } from './device-mesh-host.js';
+export type { IDeviceMeshHost } from './device-mesh-host.js';
 
 export interface IDeviceListReissueStartOptions {
   /** Defaults to `~/.robota` under the current `HOME`. */

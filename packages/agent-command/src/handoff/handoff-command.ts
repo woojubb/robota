@@ -47,8 +47,8 @@ function usage(): ICommandResult {
     success: true,
     message: [
       'Usage:',
-      '  /handoff               list where this session could move to',
-      '  /handoff <session-id>  move it there, after confirming what stays behind',
+      '  /handoff                         list where this session could move to',
+      '  /handoff <session-or-device-id>  move it there, after confirming what stays behind',
     ].join('\n'),
   };
 }

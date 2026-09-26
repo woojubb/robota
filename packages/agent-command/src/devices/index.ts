@@ -3,6 +3,7 @@ export type {
   IDeviceListEntry,
   IDevicesCommandPort,
   IDevicesInitResult,
+  IDevicesMeshStatus,
   IDevicesRecoverResult,
   IDevicesRevokeResult,
   IDevicesView,

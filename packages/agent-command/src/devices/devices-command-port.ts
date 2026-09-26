@@ -70,9 +70,27 @@ export interface IDevicesRevokeResult {
   readonly name: string;
 }
 
+/** This session's endpoint in the device mesh. */
+export interface IDevicesMeshStatus {
+  /** `off`: the setting is off, or this run does not open the mesh. `failed`: it could not open. */
+  readonly state: 'off' | 'starting' | 'on' | 'failed';
+  /** Why it could not open, for `failed`. */
+  readonly reason?: string;
+  /** How this device looks for the others, in the operator's words. */
+  readonly sources: readonly string[];
+  /** The devices with an admitted link now. */
+  readonly linked: readonly {
+    readonly deviceId: string;
+    readonly name?: string;
+    readonly locality: 'same-host' | 'another-host';
+  }[];
+}
+
 export interface IDevicesCommandPort {
   /** This device's view of the roster, or `undefined` when it has no identity yet. */
   list(): Promise<IDevicesView | undefined>;
+  /** The device mesh as this session runs it. Absent on a host with no device mesh. */
+  meshStatus?(): IDevicesMeshStatus;
   /** Create the identity. Runs on the operator terminal (it shows the phrase once). */
   init(options: { readonly name?: string }): Promise<TDevicesOutcome<IDevicesInitResult>>;
   /** Rotate the signing key from the phrase. Runs on the operator terminal. */

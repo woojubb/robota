@@ -51,6 +51,7 @@ export type {
   TCommandResultDataValue,
   IHandoffProgress,
   IHandoffStaysBehind,
+  ILinkedDeviceSummary,
   ILocalPeerSummary,
   TRemoteControlStatus,
   TSystemCommandLifecycle,

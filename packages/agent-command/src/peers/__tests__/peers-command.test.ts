@@ -142,6 +142,48 @@ describe('what the operator is told', () => {
   });
 });
 
+describe('linked devices of the device mesh', () => {
+  const DEVICE = 'D'.repeat(43);
+
+  function hostWithDevices(
+    peers: readonly TPeerSummary[],
+    devices: readonly { deviceId: string; name?: string; locality: 'same-host' | 'another-host' }[],
+  ): ICommandHostAdapterAccess {
+    return {
+      getCommandHostAdapters: () => ({
+        localPeers: { list: () => peers, ownSessionId: () => OWN, listDevices: () => devices },
+      }),
+    } as ICommandHostAdapterAccess;
+  }
+
+  it('lists a linked device beside the sessions on this host, addressable by its id', async () => {
+    const result = await executePeersCommand(
+      hostWithDevices(
+        [
+          { sessionId: OWN, liveness: 'alive' },
+          { sessionId: 'session-other', liveness: 'alive' },
+        ],
+        [{ deviceId: DEVICE, name: 'desktop', locality: 'another-host' }],
+      ),
+    );
+    expect(result.success).toBe(true);
+    expect(result.message).toContain('session-other');
+    expect(result.message).toMatch(new RegExp(`${DEVICE}\\s+desktop\\s+on another machine`));
+    expect(result.message).toContain('/peers send <session-or-device-id>');
+  });
+
+  it('lists a linked device even when this is the only session on this host', async () => {
+    const result = await executePeersCommand(
+      hostWithDevices(
+        [{ sessionId: OWN, liveness: 'alive' }],
+        [{ deviceId: DEVICE, locality: 'same-host' }],
+      ),
+    );
+    expect(result.message).not.toContain('No other live session');
+    expect(result.message).toMatch(new RegExp(`${DEVICE}\\s+on this machine`));
+  });
+});
+
 describe('when the host wires no discovery', () => {
   it('says the feature is unavailable rather than reporting no peers', async () => {
     // The two are different facts and the difference matters: "nobody is there" invites the operator

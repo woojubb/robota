@@ -12,6 +12,7 @@ import { createSystemCommandFromEntry } from '../command-module-utils.js';
 
 import type {
   IDevicesCommandPort,
+  IDevicesMeshStatus,
   IDevicesView,
   TDevicesOutcome,
   TDevicesRefusal,
@@ -31,13 +32,13 @@ export function createDevicesCommandEntry(): ICommand {
     name: 'devices',
     displayName: 'Devices',
     description:
-      "Manage this device's identity among the user's devices: list the roster, create the identity and its recovery phrase, revoke a device, or rotate the signing key from the phrase. Operator-only; the phrase is handled on the terminal and results carry only device ids and names.",
+      "Manage this device's identity among the user's devices: list the roster with the device mesh status (whether it is on, how this device finds the others, which are linked), create the identity and its recovery phrase, revoke a device, or rotate the signing key from the phrase. Operator-only; the phrase is handled on the terminal and results carry only device ids and names.",
     source: 'devices',
     modelInvocable: false,
     userInvocable: true,
     argumentHint: '[list|init [name]|revoke <device-id>|recover]',
     subcommands: [
-      { name: 'list', description: 'List your devices', source: 'devices' },
+      { name: 'list', description: 'List your devices and the device mesh status', source: 'devices' },
       {
         name: 'init',
         description: 'Create your device identity and recovery phrase',
@@ -89,7 +90,25 @@ function refused(reason: TDevicesRefusal): ICommandResult {
   return { success: false, message: REFUSALS[reason] };
 }
 
-function formatList(view: IDevicesView | undefined): ICommandResult {
+function formatMesh(mesh: IDevicesMeshStatus): string[] {
+  if (mesh.state === 'off') {
+    return ['Device mesh: off. Set `transports.mesh.enabled` to true in your user settings to link your devices.'];
+  }
+  if (mesh.state === 'failed') {
+    return [`Device mesh: could not start: ${mesh.reason ?? 'no reason was reported'}.`];
+  }
+  const found = mesh.sources.length > 0 ? `; finds devices by ${mesh.sources.join(', ')}` : '';
+  const linked = mesh.linked.map(
+    (device) =>
+      `  ${short(device.deviceId)}  ${device.name ?? ''}  ${device.locality === 'same-host' ? 'on this machine' : 'on another machine'}`,
+  );
+  return [
+    `Device mesh: ${mesh.state}${found}.`,
+    ...(linked.length > 0 ? ['Linked now:', ...linked] : ['No device is linked right now.']),
+  ];
+}
+
+function formatList(view: IDevicesView | undefined, mesh?: IDevicesMeshStatus): ICommandResult {
   if (view === undefined) return { success: true, message: REFUSALS['not-initialized'] };
   const lines = view.devices.map((device) => {
     const notes = [
@@ -105,6 +124,7 @@ function formatList(view: IDevicesView | undefined): ICommandResult {
       `Devices of user ${short(view.userId)}:`,
       ...lines,
       `${view.revokedDeviceCount} revoked. Roster and revocation list valid until ${new Date(view.listsExpireAt).toISOString()}.`,
+      ...(mesh !== undefined ? formatMesh(mesh) : []),
     ].join('\n'),
   };
 }
@@ -152,7 +172,7 @@ export async function executeDevicesCommand(
     case '':
     case 'list':
       try {
-        return formatList(await port.list());
+        return formatList(await port.list(), port.meshStatus?.());
       } catch (error) {
         return {
           success: false,

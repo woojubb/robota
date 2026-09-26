@@ -108,6 +108,13 @@ describe('/devices command', () => {
     ]);
   });
 
+  it('tells the model it also shows the device mesh status', () => {
+    const description =
+      createDevicesCommandModule(fakePort()).commandSources?.[0]?.getCommands()[0]?.description;
+    expect(description).toMatch(/device mesh/);
+    expect(description).toMatch(/Operator-only/);
+  });
+
   it('lists the roster with short ids, this device, the signing-key holder and expiry', async () => {
     const port = fakePort();
     const result = await start(port).command('devices', '');
@@ -181,6 +188,33 @@ describe('/devices command', () => {
       expect(result?.message).toMatch(/operator/i);
     }
     expect(port.calls).toEqual([]);
+  });
+
+  it('shows the device mesh: whether it is on, how it finds devices, and what is linked', async () => {
+    const port = {
+      ...fakePort(),
+      meshStatus: () => ({
+        state: 'on' as const,
+        sources: ['local network (mDNS)', 'Mainline DHT'],
+        linked: [{ deviceId: DEVICE_B, name: 'desktop', locality: 'another-host' as const }],
+      }),
+    };
+    const result = await start(port).command('devices', '');
+    expect(result?.message).toMatch(/Device mesh: on/);
+    expect(result?.message).toContain('local network (mDNS), Mainline DHT');
+    expect(result?.message).toMatch(
+      new RegExp(`${DEVICE_B.slice(0, 10)}\\s+desktop\\s+on another machine`),
+    );
+  });
+
+  it('says how to turn the device mesh on when it is off', async () => {
+    const port = {
+      ...fakePort(),
+      meshStatus: () => ({ state: 'off' as const, sources: [], linked: [] }),
+    };
+    const result = await start(port).command('devices', 'list');
+    expect(result?.message).toMatch(/Device mesh: off/);
+    expect(result?.message).toContain('transports.mesh.enabled');
   });
 
   it('names add and join as not yet available rather than guessing', async () => {
