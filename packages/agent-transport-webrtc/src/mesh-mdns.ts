@@ -7,7 +7,8 @@
  *   peer recognises it, and it changes every epoch. The host name the records point at is random per
  *   epoch rather than the machine's name.
  * - The instance count is padded with random tags to a fixed step, so the answer does not reveal
- *   how many devices this one pairs with.
+ *   how many devices this one pairs with. The padding and host name hold for the whole epoch, so
+ *   comparing two answers from one epoch does not tell the real tags from the padding either.
  *
  * A lookup asks for the service, keeps the instances whose name is one of the peer's tags for the
  * adjacent epochs, and yields the answering address with the advertised port. That is a candidate
@@ -29,6 +30,8 @@ export const MESH_MDNS_PAD_STEP = 8;
 const INSTANCE_TAG_BYTES = 16;
 const RECORD_TTL_S = 120;
 const DEFAULT_LOOKUP_TIMEOUT_MS = 1_000;
+/** Answers go out at most this often; queries in between share the next one (RFC 6762 §6). */
+const DEFAULT_MIN_ANSWER_INTERVAL_MS = 500;
 
 /** A DNS resource record, in the shape `multicast-dns` reads and writes. */
 export interface IMdnsRecord {
@@ -78,6 +81,7 @@ export interface IMeshMdnsOptions {
   /** This device's addresses for the A/AAAA records. Default: its non-internal interfaces. */
   readonly addresses?: () => readonly string[];
   readonly lookupTimeoutMs?: number;
+  readonly minAnswerIntervalMs?: number;
   /** mDNS cannot run (e.g. the port is unavailable): the other candidate sources still do. */
   readonly onError?: (error: Error) => void;
   readonly now?: () => number;
@@ -134,6 +138,16 @@ export class MeshMdns implements IMeshCandidateSource {
   private timer?: ReturnType<typeof setTimeout>;
   private generation = 0;
   private closed = false;
+  /** This epoch's padding labels and host name. */
+  private epochCover?: {
+    readonly epoch: number;
+    readonly padding: string[];
+    readonly target: string;
+  };
+  /** What was last announced, to announce again only when it changes. */
+  private announced?: string;
+  private lastAnswer?: number;
+  private answerTimer?: ReturnType<typeof setTimeout>;
 
   public constructor(private readonly options: IMeshMdnsOptions = {}) {}
 
@@ -174,12 +188,14 @@ export class MeshMdns implements IMeshCandidateSource {
       this.routes.map((route) => route.rendezvous.tag('mdns', 'outbound', epoch)),
     );
     if (generation !== this.generation || this.closed) return;
-    const labels = tags.map(instanceLabel);
-    while (labels.length < paddedInstanceCount(tags.length)) {
-      labels.push(randomHex(INSTANCE_TAG_BYTES));
+    if (this.epochCover?.epoch !== epoch) {
+      this.epochCover = { epoch, padding: [], target: `${randomHex(8)}.local` };
     }
-    labels.sort();
-    const target = `${randomHex(8)}.local`;
+    const { padding, target } = this.epochCover;
+    const needed = paddedInstanceCount(tags.length) - tags.length;
+    while (padding.length < needed) padding.push(randomHex(INSTANCE_TAG_BYTES));
+    const labels = [...tags.map(instanceLabel), ...padding.slice(0, needed)].sort();
+    const signature = JSON.stringify([epoch, port, labels]);
     const answers: IMdnsRecord[] = labels.map((label) => ({
       name: MESH_MDNS_SERVICE,
       type: 'PTR',
@@ -205,6 +221,8 @@ export class MeshMdns implements IMeshCandidateSource {
     this.records = { answers, additionals };
     this.instances = new Set(labels.map((label) => `${label}.${MESH_MDNS_SERVICE}`.toLowerCase()));
     this.schedule(epoch);
+    if (signature === this.announced) return;
+    this.announced = signature;
     // An unsolicited announcement, so peers already browsing hear of the new names at once.
     this.open()?.respond(this.records);
   }
@@ -227,7 +245,26 @@ export class MeshMdns implements IMeshCandidateSource {
         (sameName(q.name, MESH_MDNS_SERVICE) && (q.type === 'PTR' || q.type === 'ANY')) ||
         this.instances.has(q.name.toLowerCase()),
     );
-    if (asked) this.transport?.respond(records);
+    if (asked) this.answer();
+  }
+
+  /** Answer now, or once the interval since the last answer has passed; queries meanwhile share it. */
+  private answer(): void {
+    if (this.answerTimer !== undefined) return;
+    const interval = this.options.minAnswerIntervalMs ?? DEFAULT_MIN_ANSWER_INTERVAL_MS;
+    const wait = this.lastAnswer === undefined ? 0 : this.lastAnswer + interval - this.now();
+    const send = (): void => {
+      this.answerTimer = undefined;
+      if (this.closed || this.records === undefined) return;
+      this.lastAnswer = this.now();
+      this.transport?.respond(this.records);
+    };
+    if (wait <= 0) {
+      send();
+      return;
+    }
+    this.answerTimer = setTimeout(send, wait);
+    this.answerTimer.unref?.();
   }
 
   public async candidates(
@@ -280,6 +317,7 @@ export class MeshMdns implements IMeshCandidateSource {
     this.closed = true;
     this.generation += 1;
     if (this.timer !== undefined) clearTimeout(this.timer);
+    if (this.answerTimer !== undefined) clearTimeout(this.answerTimer);
     this.transport?.destroy();
     this.transport = undefined;
   }

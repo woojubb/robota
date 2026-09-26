@@ -84,6 +84,7 @@ describe('the address cache on disk', () => {
             { host: '192.168.1.20', port: 4000, at: clock },
             { host: 'x'.repeat(300), port: 4000, at: clock },
             { host: '192.168.1.21', port: 0, at: clock },
+            { host: '192.168.1.22', port: 4000, at: clock + 10 * DAY },
           ],
           __proto__: [{ host: '1.1.1.1', port: 1, at: clock }],
           short: [{ host: '1.1.1.1', port: 1, at: clock }],

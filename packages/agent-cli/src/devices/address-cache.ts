@@ -43,7 +43,10 @@ function decodeEntry(value: unknown, now: number): IEntry | undefined {
   if (typeof r.host !== 'string' || r.host.length === 0 || r.host.length > MAX_HOST_CHARS) {
     return undefined;
   }
-  if (!isPort(r.port) || typeof r.at !== 'number' || now - r.at > MAX_AGE_MS) return undefined;
+  // An entry from the future would never age out.
+  if (!isPort(r.port) || typeof r.at !== 'number' || r.at > now || now - r.at > MAX_AGE_MS) {
+    return undefined;
+  }
   return { host: r.host, port: r.port, at: r.at };
 }
 

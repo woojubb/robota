@@ -91,14 +91,17 @@ dependency.
   Lists adopted in a handshake or handed over later apply from the next handshake, and a device they revoke loses
   its connection at once. Admission says who the peer is; what it may do on the connection is its connection
   authority's answer, so even a message is delivered only when that authority allows it.
-- **Discovery yields candidates, never trust.** A pair looks for each other at the addresses that last carried an
-  admitted connection, then with mDNS, then on the relay; whatever answers only carries signals, so a stale or
-  planted address can delay a connection but not admit one, and an address is remembered only after an admission
-  it carried. The mDNS announcement is built record by record rather than by a service-publishing library, because
-  those publish the machine's host name: the service type names no product, every instance name is a pairwise tag
-  that rotates by epoch, the host name is random, and the instance count is padded so it does not tell how many
-  devices there are. On the local network signals are addressed by rotating tags rather than the relay's stable
-  inbox topics, so nothing an observer there sees links the pair across epochs.
+- **Discovery yields candidates, never trust.** Whatever a discovery path answers only carries signals, so a stale
+  or planted address can delay a connection but not admit one. A pair tries what reveals least first: an address
+  that already carried an admitted connection needs no broadcast, the local network needs no third party, and the
+  relay is the last resort. An endpoint carries a pair's signals only once it proves it holds the pair's topic,
+  and is set aside when no admission follows, so no endpoint can hold a pair off the relay; an address is
+  remembered only after an admission it carried. The mDNS announcement is built record by record rather than by
+  a service-publishing library, because those publish the machine's host name: the service type names no
+  product, every instance name is a pairwise tag that rotates by epoch, the host name is random, and the
+  instance count is padded with names that hold for the epoch, so it does not tell how many devices there are.
+  On the local network, topics travel only as hashes and rotate by epoch, so what an observer there sees does
+  not carry the stable relay inbox topics.
 - **The data channel is wired eagerly at creation, not on open.** The session message handler is built and its
   message subscription attached immediately, because the underlying implementation does not buffer inbound frames
   that arrive before a subscription, and the remote can send its first client message before the host's channel

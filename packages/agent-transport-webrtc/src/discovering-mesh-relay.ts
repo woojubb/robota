@@ -6,9 +6,11 @@
  * Every way a signal can go is equally untrusted. Discovery only chooses where the signals of a
  * pair go; the node decodes whatever arrives as hostile input and admits a peer by the device
  * handshake alone, so a stale, forged or hijacked candidate can delay a connection but never admit
- * one. On the local network a pair's signals are addressed by rotating pairwise tags rather than
- * the relay's inbox topics, so nothing an observer sees there stays the same across epochs.
- * A candidate is remembered only once a connection it carried was admitted.
+ * one. A candidate carries a pair's signals only once it proves it holds the pair's topic, and only
+ * until an attempt over it fails to reach admission in time; then it is set aside and the next way
+ * is tried, so a hostile endpoint cannot hold a pair off the relay. On the local network signals are
+ * addressed by rotating pairwise tags rather than the relay's inbox topics. A candidate is
+ * remembered only once a connection it carried was admitted.
  */
 import { rendezvousEpoch, RENDEZVOUS_EPOCH_MS } from '@robota-sdk/agent-remote-pairing';
 import WebSocket from 'ws';
@@ -21,7 +23,12 @@ import {
   type IMeshCandidateSource,
   type IMeshPeerRoute,
 } from './mesh-discovery.js';
-import { startMeshLanListener, type IMeshLanListener } from './mesh-lan-listener.js';
+import {
+  lanAddressOf,
+  startMeshLanListener,
+  verifyLanPresenceProof,
+  type IMeshLanListener,
+} from './mesh-lan-listener.js';
 import { MeshMdns, type IMeshMdnsOptions } from './mesh-mdns.js';
 import type { IMeshRelay } from './mesh-relay.js';
 import type { IWebSocketLike } from './ws-signaling-client.js';
@@ -37,6 +44,8 @@ const DEFAULT_RELAY_RECHECK_MS = 30_000;
 const MAX_PROBES = 8;
 /** Signals held for a pair while its way is being looked for. */
 const MAX_QUEUED = 256;
+/** A direct path that has not carried an admission in this long is set aside. */
+const DEFAULT_ADMISSION_TIMEOUT_MS = 20_000;
 
 export interface IDiscoveringMeshRelayOptions {
   /** The self-hosted relay: the last resort. Absent: a pair no candidate reaches cannot be signaled. */
@@ -57,6 +66,8 @@ export interface IDiscoveringMeshRelayOptions {
   readonly probeTimeoutMs?: number;
   readonly sourceTimeoutMs?: number;
   readonly relayRecheckMs?: number;
+  /** How long a direct path may carry signals without an admission before it is set aside. */
+  readonly admissionTimeoutMs?: number;
   readonly onError?: (error: Error) => void;
   readonly now?: () => number;
 }
@@ -64,14 +75,31 @@ export interface IDiscoveringMeshRelayOptions {
 type TPath =
   | { readonly kind: 'unresolved' }
   | { readonly kind: 'resolving'; readonly queue: unknown[] }
-  | { readonly kind: 'direct'; readonly socket: IWebSocketLike; readonly candidate: IMeshCandidate }
+  | {
+      readonly kind: 'direct';
+      readonly socket: IWebSocketLike;
+      readonly candidate: IMeshCandidate;
+      readonly deadline: ReturnType<typeof setTimeout>;
+    }
   | { readonly kind: 'relay'; readonly until: number };
 
 interface IRouteState {
   route: IMeshPeerRoute;
-  /** The tag this device's signals to the peer carry on the local network, this epoch. */
+  /** The topic this device's signals to the peer go to on the local network, this epoch. */
   lanOut: string;
   path: TPath;
+  /** Candidates set aside (`host:port` → until when), because they carried no admission. */
+  readonly avoid: Map<string, number>;
+}
+
+function candidateKey(candidate: IMeshCandidate): string {
+  return `${candidate.host}:${candidate.port}`;
+}
+
+function randomNonce(): string {
+  const bytes = new Uint8Array(16);
+  globalThis.crypto.getRandomValues(bytes);
+  return Buffer.from(bytes).toString('base64url');
 }
 
 /** A pairwise tag as a LAN topic. */
@@ -84,7 +112,9 @@ function candidateUrl(candidate: IMeshCandidate): string {
   return `ws://${host}:${candidate.port}`;
 }
 
-function parse(raw: unknown): { type?: unknown; topic?: unknown } | undefined {
+function parse(
+  raw: unknown,
+): { type?: unknown; to?: unknown; nonce?: unknown; proof?: unknown } | undefined {
   try {
     const frame: unknown = JSON.parse(String(raw));
     return typeof frame === 'object' && frame !== null
@@ -105,8 +135,9 @@ export class DiscoveringMeshRelay implements IMeshRelay {
   private readonly unsubscribes: (() => void)[] = [];
   private readonly abort = new AbortController();
   private sync: Promise<void> = Promise.resolve();
-  /** Peer declarations not yet in force; a signal sent meanwhile waits for them. */
+  /** Peer declarations not yet in force; signals sent meanwhile wait for them, in order. */
   private pendingPeers = 0;
+  private waiting: { readonly topic: string; readonly data: unknown }[] = [];
   private timer?: ReturnType<typeof setTimeout>;
   private closed = false;
 
@@ -153,6 +184,8 @@ export class DiscoveringMeshRelay implements IMeshRelay {
       })
       .finally(() => {
         this.pendingPeers -= 1;
+        if (this.pendingPeers > 0) return;
+        for (const { topic, data } of this.waiting.splice(0)) this.send(topic, data);
       });
   }
 
@@ -171,7 +204,7 @@ export class DiscoveringMeshRelay implements IMeshRelay {
       const state: IRouteState =
         held !== undefined && held.route.deviceId === route.deviceId
           ? held
-          : { route, lanOut: outbound, path: { kind: 'unresolved' } };
+          : { route, lanOut: outbound, path: { kind: 'unresolved' }, avoid: new Map() };
       state.route = route;
       state.lanOut = outbound;
       next.set(route.outbound, state);
@@ -190,6 +223,7 @@ export class DiscoveringMeshRelay implements IMeshRelay {
     this.options.listener.setPresence([...lanIn.keys()]);
     this.cacheWrite(() => this.options.cache?.retain(peers.map((p) => p.deviceId)));
     await this.options.advertiser?.advertise(peers, this.options.listener.port);
+    if (this.closed) return;
     this.scheduleEpoch(epoch, peers);
   }
 
@@ -203,9 +237,10 @@ export class DiscoveringMeshRelay implements IMeshRelay {
   public confirmPeer(deviceId: string): void {
     const state = this.byDevice.get(deviceId);
     const path = state?.path;
-    if (path?.kind === 'direct') {
-      this.cacheWrite(() => this.options.cache?.remember(deviceId, path.candidate));
-    }
+    if (state === undefined || path?.kind !== 'direct') return;
+    clearTimeout(path.deadline);
+    state.avoid.clear();
+    this.cacheWrite(() => this.options.cache?.remember(deviceId, path.candidate));
   }
 
   /** A cache that cannot be written costs the next connection a lookup, nothing more. */
@@ -221,7 +256,8 @@ export class DiscoveringMeshRelay implements IMeshRelay {
     if (this.closed) return;
     if (this.pendingPeers > 0) {
       // The pair may be one being declared right now: route it once it is.
-      void this.sync.then(() => this.send(topic, data));
+      if (this.waiting.length < MAX_QUEUED) this.waiting.push({ topic, data });
+      else this.viaRelay(topic, data);
       return;
     }
     const state = this.routes.get(topic);
@@ -231,7 +267,7 @@ export class DiscoveringMeshRelay implements IMeshRelay {
     }
     const path = state.path;
     if (path.kind === 'direct' && path.socket.readyState === WS_OPEN) {
-      path.socket.send(JSON.stringify({ type: 'message', topic: state.lanOut, data }));
+      this.sendDirect(path.socket, state, data);
       return;
     }
     if (path.kind === 'relay' && this.now() < path.until) {
@@ -243,10 +279,14 @@ export class DiscoveringMeshRelay implements IMeshRelay {
       else this.viaRelay(topic, data);
       return;
     }
-    if (path.kind === 'direct') path.socket.close();
+    if (path.kind === 'direct') this.reset(state);
     const queue = [data];
     state.path = { kind: 'resolving', queue };
     void this.resolve(state, queue);
+  }
+
+  private sendDirect(socket: IWebSocketLike, state: IRouteState, data: unknown): void {
+    socket.send(JSON.stringify({ type: 'message', to: lanAddressOf(state.lanOut), data }));
   }
 
   private viaRelay(topic: string, data: unknown): void {
@@ -260,13 +300,16 @@ export class DiscoveringMeshRelay implements IMeshRelay {
 
   /** Try the sources in order; the first candidate that holds the pair's topic carries its signals. */
   private async resolve(state: IRouteState, queue: unknown[]): Promise<void> {
-    const tried: IMeshCandidate[] = [];
+    const tried = new Set<string>();
+    const now = this.now();
+    for (const [key, until] of state.avoid) if (until <= now) state.avoid.delete(key);
     for (const source of this.options.sources) {
       if (this.closed || state.path.kind !== 'resolving') return;
       for (const candidate of await this.look(source, state.route)) {
-        if (tried.length >= MAX_PROBES) break;
-        if (tried.some((c) => c.host === candidate.host && c.port === candidate.port)) continue;
-        tried.push(candidate);
+        const key = candidateKey(candidate);
+        if (tried.size >= MAX_PROBES) break;
+        if (tried.has(key) || state.avoid.has(key)) continue;
+        tried.add(key);
         const socket = await this.probe(candidate, state.lanOut);
         if (socket === undefined) continue;
         if (
@@ -278,23 +321,28 @@ export class DiscoveringMeshRelay implements IMeshRelay {
           return;
         }
         this.useDirect(state, socket, candidate);
-        for (const data of queue) {
-          socket.send(JSON.stringify({ type: 'message', topic: state.lanOut, data }));
-        }
+        for (const data of queue) this.sendDirect(socket, state, data);
         return;
       }
     }
     if (this.closed || state.path.kind !== 'resolving') return;
-    // Without a relay there is nothing to wait on: the next signal looks again, since the peer's
-    // endpoint may simply not have been up yet.
+    this.fallBack(state);
+    for (const data of queue) this.viaRelay(state.route.outbound, data);
+  }
+
+  /**
+   * The relay carries the pair's signals for a while. Without a relay there is nothing to wait on:
+   * the next signal looks again, since the peer's endpoint may simply not have been up yet.
+   */
+  private fallBack(state: IRouteState): void {
     state.path =
       this.options.relay === undefined
         ? { kind: 'unresolved' }
-        : {
-            kind: 'relay',
-            until: this.now() + (this.options.relayRecheckMs ?? DEFAULT_RELAY_RECHECK_MS),
-          };
-    for (const data of queue) this.viaRelay(state.route.outbound, data);
+        : { kind: 'relay', until: this.now() + this.recheckMs() };
+  }
+
+  private recheckMs(): number {
+    return this.options.relayRecheckMs ?? DEFAULT_RELAY_RECHECK_MS;
   }
 
   private async look(
@@ -316,8 +364,10 @@ export class DiscoveringMeshRelay implements IMeshRelay {
     }
   }
 
-  /** A socket to `candidate` once it says it holds `lanTopic`; `undefined` otherwise. */
+  /** A socket to `candidate` once it proves it holds `lanTopic`; `undefined` otherwise. */
   private probe(candidate: IMeshCandidate, lanTopic: string): Promise<IWebSocketLike | undefined> {
+    const to = lanAddressOf(lanTopic);
+    const nonce = randomNonce();
     return new Promise((resolve) => {
       let socket: IWebSocketLike;
       try {
@@ -342,12 +392,15 @@ export class DiscoveringMeshRelay implements IMeshRelay {
         this.options.probeTimeoutMs ?? DEFAULT_PROBE_TIMEOUT_MS,
       );
       timer.unref?.();
-      socket.on('open', () => socket.send(JSON.stringify({ type: 'probe', topic: lanTopic })));
+      socket.on('open', () => socket.send(JSON.stringify({ type: 'probe', to, nonce })));
       socket.on('message', (raw) => {
         const frame = parse(raw);
-        if (frame?.topic !== lanTopic) return;
-        if (frame.type === 'present') settle(true);
-        else if (frame.type === 'absent') settle(false);
+        if (frame?.to !== to) return;
+        if (frame.type === 'present' && frame.nonce === nonce) {
+          settle(verifyLanPresenceProof(lanTopic, nonce, frame.proof));
+        } else if (frame.type === 'absent') {
+          settle(false);
+        }
       });
       socket.on('error', () => settle(false));
       socket.on('close', () => settle(false));
@@ -355,26 +408,36 @@ export class DiscoveringMeshRelay implements IMeshRelay {
   }
 
   private useDirect(state: IRouteState, socket: IWebSocketLike, candidate: IMeshCandidate): void {
-    const path: TPath = { kind: 'direct', socket, candidate };
+    // An endpoint that carries the pair's signals but no admission is set aside, so it cannot keep
+    // the pair from the next candidate or the relay.
+    const deadline = setTimeout(() => {
+      if (state.path !== path) return;
+      state.avoid.set(candidateKey(candidate), this.now() + this.recheckMs());
+      this.reset(state);
+      this.fallBack(state);
+    }, this.options.admissionTimeoutMs ?? DEFAULT_ADMISSION_TIMEOUT_MS);
+    deadline.unref?.();
+    const path: TPath = { kind: 'direct', socket, candidate, deadline };
     state.path = path;
     const drop = (): void => {
-      if (state.path !== path) return;
-      state.path = { kind: 'unresolved' };
-      socket.close();
+      if (state.path === path) this.reset(state);
     };
     socket.on('close', drop);
     socket.on('error', drop);
     // The endpoint no longer holds the pair's topic (the peer restarted, or it is someone else now).
     socket.on('message', (raw) => {
       const frame = parse(raw);
-      if (frame?.type === 'absent' && frame.topic === state.lanOut) drop();
+      if (frame?.type === 'absent' && frame.to === lanAddressOf(state.lanOut)) drop();
     });
   }
 
   private reset(state: IRouteState): void {
     const path = state.path;
     state.path = { kind: 'unresolved' };
-    if (path.kind === 'direct') path.socket.close();
+    if (path.kind === 'direct') {
+      clearTimeout(path.deadline);
+      path.socket.close();
+    }
   }
 
   public onMessage(handler: (topic: string, data: unknown) => void): () => void {
@@ -398,10 +461,11 @@ export class DiscoveringMeshRelay implements IMeshRelay {
     this.byDevice.clear();
     this.messages.clear();
     this.absents.clear();
+    this.waiting = [];
     this.options.advertiser?.close();
     // allow-fallback: closing the endpoint is best effort once this relay is done with it
     void this.options.listener.close().catch(() => undefined);
-    this.options.relay?.close();
+    // The relay it was given stays the caller's to close, as a relay handed to a node does.
   }
 }
 
@@ -430,7 +494,12 @@ export async function startLanMeshRelay(
     ...(lastPort !== undefined ? { port: lastPort } : {}),
     ...(options.host !== undefined ? { host: options.host } : {}),
   });
-  cache.rememberListenPort(listener.port);
+  try {
+    cache.rememberListenPort(listener.port);
+  } catch (error) {
+    // allow-fallback: a port that cannot be remembered only means peers look this device up again
+    options.onError?.(error instanceof Error ? error : new Error(String(error)));
+  }
   const mdns =
     options.mdns === false
       ? undefined

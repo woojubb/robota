@@ -21,7 +21,12 @@ import {
   type IMeshCandidateSource,
   type IMeshPeerRoute,
 } from '../mesh-discovery.js';
-import { startMeshLanListener, type IMeshLanListener } from '../mesh-lan-listener.js';
+import {
+  lanAddressOf,
+  startMeshLanListener,
+  verifyLanPresenceProof,
+  type IMeshLanListener,
+} from '../mesh-lan-listener.js';
 import {
   MESH_MDNS_SERVICE,
   MeshMdns,
@@ -79,6 +84,7 @@ function mdnsOn(
     createTransport: () => bus.transport(address),
     addresses: () => [address],
     lookupTimeoutMs,
+    minAnswerIntervalMs: 0,
     now,
   });
   cleanups.push(() => mdns.close());
@@ -159,6 +165,43 @@ describe('mDNS announcement', () => {
   });
 });
 
+describe('mDNS announcement within one epoch', () => {
+  it('keeps its padding, so two answers from one epoch do not single out the real names', async () => {
+    const bus = createInMemoryMdnsBus();
+    const mdns = mdnsOn(bus, '10.0.0.1');
+    const toHigh = await routeOf(world.low, world.high);
+    await mdns.advertise([toHigh], 4242);
+    await mdns.advertise([toHigh], 4242);
+    // Nothing changed: nothing is announced again.
+    expect(bus.responses).toHaveLength(1);
+    await mdns.advertise([toHigh, await routeOf(world.low, world.third)], 4242);
+    expect(bus.responses).toHaveLength(2);
+    const names = (packet: IMdnsPacket) => new Set(ptrs(packet).map((r) => String(r.data)));
+    const [first, second] = bus.responses.map(names);
+    const common = [...first!].filter((name) => second!.has(name));
+    // One real name is common to both; the rest of the common names are padding.
+    expect(common.length).toBe(7);
+  });
+
+  it('answers a flood of queries a bounded number of times', async () => {
+    const bus = createInMemoryMdnsBus();
+    const mdns = new MeshMdns({
+      createTransport: () => bus.transport('10.0.0.1'),
+      addresses: () => ['10.0.0.1'],
+    });
+    cleanups.push(() => mdns.close());
+    await mdns.advertise([await routeOf(world.low, world.high)], 4242);
+    const flooder = bus.transport('10.0.0.9');
+    cleanups.push(() => flooder.destroy());
+    for (let i = 0; i < 50; i += 1) {
+      flooder.query({ questions: [{ name: MESH_MDNS_SERVICE, type: 'PTR' }] });
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    // The announcement, and at most one answer so far.
+    expect(bus.responses.length).toBeLessThanOrEqual(2);
+  });
+});
+
 describe('mDNS lookup', () => {
   it('finds the peer at the address that answered, in the adjacent epochs too, and nothing two epochs away', async () => {
     const bus = createInMemoryMdnsBus();
@@ -222,6 +265,8 @@ async function lanDevice(
     readonly relay?: IMeshRelay;
     readonly extraSources?: readonly IMeshCandidateSource[];
     readonly cache?: IMeshAddressCache;
+    readonly admissionTimeoutMs?: number;
+    readonly connectTimeoutMs?: number;
   } = {},
 ): Promise<ILanDevice> {
   const listener = await startMeshLanListener({ host: LOCAL });
@@ -240,13 +285,16 @@ async function lanDevice(
     ...(mdns !== undefined ? { advertiser: mdns } : {}),
     connect: recordingConnect(sent),
     probeTimeoutMs: 500,
+    ...(options.admissionTimeoutMs !== undefined
+      ? { admissionTimeoutMs: options.admissionTimeoutMs }
+      : {}),
   });
   const node = new DeviceMeshNode({
     identity: world.identity(device),
     sessionDescriptor: device.session,
     localPolicy: ALL_CAPABILITIES,
     relay,
-    connectTimeoutMs: 15_000,
+    connectTimeoutMs: options.connectTimeoutMs ?? 15_000,
   });
   cleanups.push(
     () => node.stop(),
@@ -272,11 +320,13 @@ async function holds(listener: IMeshLanListener, topic: string): Promise<boolean
       socket.once('open', resolve);
       socket.once('error', reject);
     });
-    socket.send(JSON.stringify({ type: 'probe', topic }));
+    const nonce = 'N'.repeat(22);
+    socket.send(JSON.stringify({ type: 'probe', to: lanAddressOf(topic), nonce }));
     const answer = await new Promise<string>((resolve) =>
       socket.once('message', (raw) => resolve(String(raw))),
     );
-    return (JSON.parse(answer) as { type: string }).type === 'present';
+    const frame = JSON.parse(answer) as { type: string; proof?: string };
+    return frame.type === 'present' && verifyLanPresenceProof(topic, nonce, frame.proof);
   } finally {
     socket.close();
   }
@@ -433,7 +483,7 @@ describe('discovery grants nothing', () => {
         toLow.send(
           JSON.stringify({
             type: 'message',
-            topic: outTopic,
+            to: lanAddressOf(outTopic),
             data: { v: 1, from: instance, to: signal.from, cid: signal.cid, ...s },
           }),
         );
@@ -442,7 +492,7 @@ describe('discovery grants nothing', () => {
         toLow.send(
           JSON.stringify({
             type: 'message',
-            topic: outTopic,
+            to: lanAddressOf(outTopic),
             data: { v: 1, kind: 'hello', from: instance },
           }),
         );
@@ -489,6 +539,88 @@ describe('discovery grants nothing', () => {
   }, 40_000);
 });
 
+describe('a hostile endpoint cannot hold a pair off the relay', () => {
+  it('an endpoint that echoes every probe is never used', async () => {
+    const { WebSocketServer } = await import('ws');
+    const echo = new WebSocketServer({ host: LOCAL, port: 0 });
+    await new Promise((resolve) => echo.once('listening', resolve));
+    cleanups.push(() => new Promise((resolve) => echo.close(resolve)));
+    let probed = 0;
+    echo.on('connection', (socket) =>
+      socket.on('message', (raw) => {
+        const frame = JSON.parse(String(raw)) as { to: string; nonce: string };
+        probed += 1;
+        socket.send(
+          JSON.stringify({ type: 'present', to: frame.to, nonce: frame.nonce, proof: 'x' }),
+        );
+      }),
+    );
+    const address = echo.address();
+    const port = typeof address === 'object' && address !== null ? address.port : 0;
+    const planted: IMeshCandidateSource = {
+      candidates: () => Promise.resolve([{ host: LOCAL, port }]),
+    };
+    const hub = createInMemoryMeshRelayHub();
+    const low = await lanDevice(world.low, { relay: hub.connect(), extraSources: [planted] });
+    const high = await lanDevice(world.high, { relay: hub.connect(), extraSources: [planted] });
+    await Promise.all([low.node.start(), high.node.start()]);
+
+    await Promise.all([
+      low.node.connect(world.high.cert.deviceId),
+      high.node.connect(world.low.cert.deviceId),
+    ]);
+    expect(probed).toBeGreaterThan(0);
+    // It got probes, never a signal.
+    expect(low.sent.filter((frame) => frame.includes('"message"'))).toEqual([]);
+    expect(low.cache.recall(world.high.cert.deviceId)).toEqual([]);
+  }, 40_000);
+
+  it('an endpoint that holds the topic but leads to no admission is set aside for the relay', async () => {
+    // It knows the pair's topic and swallows everything sent to it.
+    const epoch = rendezvousEpoch(NOW);
+    const toHigh = await routeOf(world.low, world.high);
+    const sink = await startMeshLanListener({ host: LOCAL });
+    cleanups.push(() => sink.close());
+    let swallowed = 0;
+    sink.onMessage(() => (swallowed += 1));
+    sink.setPresence([
+      Buffer.from(await toHigh.rendezvous.tag('lan-inbox', 'outbound', epoch)).toString(
+        'base64url',
+      ),
+    ]);
+    const planted: IMeshCandidateSource = {
+      candidates: () => Promise.resolve([{ host: LOCAL, port: sink.port }]),
+    };
+    const hub = createInMemoryMeshRelayHub();
+    const low = await lanDevice(world.low, {
+      relay: hub.connect(),
+      extraSources: [planted],
+      admissionTimeoutMs: 1_000,
+      connectTimeoutMs: 4_000,
+    });
+    const high = await lanDevice(world.high, { relay: hub.connect() });
+    await Promise.all([low.node.start(), high.node.start()]);
+
+    // The first attempt's signals are swallowed.
+    await expect(low.node.connect(world.high.cert.deviceId, 2_000)).rejects.toThrow();
+    expect(swallowed).toBeGreaterThan(0);
+    // Once set aside, the relay carries the pair, and the sink is not remembered.
+    await expect
+      .poll(
+        async () => {
+          const [a] = await Promise.allSettled([
+            low.node.connect(world.high.cert.deviceId, 3_000),
+            high.node.connect(world.low.cert.deviceId, 3_000),
+          ]);
+          return a.status;
+        },
+        { timeout: 20_000, interval: 200 },
+      )
+      .toBe('fulfilled');
+    expect(low.cache.recall(world.high.cert.deviceId)).toEqual([]);
+  }, 40_000);
+});
+
 describe('the direct signaling endpoint', () => {
   it('delivers only to the topics it holds, and closes a connection that floods it', async () => {
     const listener = await startMeshLanListener({ host: LOCAL });
@@ -504,17 +636,24 @@ describe('the direct signaling endpoint', () => {
     const answers: string[] = [];
     socket.on('message', (raw) => answers.push(String(raw)));
     await new Promise((resolve) => socket.once('open', resolve));
-    socket.send(JSON.stringify({ type: 'message', topic: held, data: { n: 1 } }));
-    socket.send(JSON.stringify({ type: 'message', topic: other, data: { n: 2 } }));
+    // Frames are addressed by the topic's hash: the topic itself never crosses the network.
+    socket.send(JSON.stringify({ type: 'message', to: lanAddressOf(held), data: { n: 1 } }));
+    socket.send(JSON.stringify({ type: 'message', to: held, data: { n: 0 } }));
+    socket.send(JSON.stringify({ type: 'message', to: lanAddressOf(other), data: { n: 2 } }));
     socket.send('not json');
-    socket.send(JSON.stringify({ type: 'message', topic: '__proto__', data: { n: 3 } }));
-    await expect.poll(() => answers).toEqual([JSON.stringify({ type: 'absent', topic: other })]);
+    socket.send(JSON.stringify({ type: 'message', to: '__proto__', data: { n: 3 } }));
+    await expect
+      .poll(() => answers)
+      .toEqual([
+        JSON.stringify({ type: 'absent', to: held }),
+        JSON.stringify({ type: 'absent', to: lanAddressOf(other) }),
+      ]);
     expect(delivered).toEqual([[held, { n: 1 }]]);
 
     let closed = false;
     socket.on('close', () => (closed = true));
     for (let i = 0; i < 200; i += 1) {
-      socket.send(JSON.stringify({ type: 'probe', topic: held }));
+      socket.send(JSON.stringify({ type: 'probe', to: lanAddressOf(held), nonce: 'N'.repeat(22) }));
     }
     await expect.poll(() => closed).toBe(true);
   });
