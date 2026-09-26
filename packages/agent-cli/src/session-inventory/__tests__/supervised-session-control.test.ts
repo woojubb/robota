@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdtempSync, mkdirSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
+import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSync, rmSync, symlinkSync } from 'node:fs';
 import { createConnection, createServer, type Socket } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -18,6 +18,10 @@ import {
 
 const ID = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
 const INCOMPLETE_ID = 'fe2c7f72-ecb3-4a05-9bb1-2563ec80e615';
+
+function generationOf(root: string): unknown {
+  return (JSON.parse(readFileSync(join(root, ID, 'state.json'), 'utf8')) as { generation?: unknown }).generation;
+}
 
 describe('supervised session control', () => {
   it('accepts only bounded canonical HTTPS pull or merge-request URLs', () => {
@@ -296,7 +300,7 @@ describe('supervised session control', () => {
       const socketName = readdirSync(root).find((name) => name.endsWith('.sock'));
       const client = createConnection(join(root, socketName!));
       await new Promise<void>((resolve) => client.once('connect', resolve));
-      client.write(`${JSON.stringify({ command: 'stop', id: ID })}\n`);
+      client.write(`${JSON.stringify({ command: 'stop', id: ID, generation: generationOf(root) })}\n`);
       await new Promise<void>((resolve) => client.once('data', () => resolve()));
       client.destroy();
       await stopped;
@@ -333,7 +337,7 @@ describe('supervised session control', () => {
     const client = createConnection({ path: join(root, socketName!), allowHalfOpen: true });
     try {
       await new Promise<void>((resolve) => client.once('connect', resolve));
-      client.write(`${JSON.stringify({ command: 'status', id: ID })}\n`);
+      client.write(`${JSON.stringify({ command: 'status', id: ID, generation: generationOf(root) })}\n`);
       await new Promise<void>((resolve) => client.once('data', () => resolve()));
       expect(client.writable).toBe(true);
       await expect(control.close()).resolves.toBeUndefined();
@@ -375,7 +379,7 @@ describe('supervised session control', () => {
         const client = createConnection(join(root, socketName!));
         client.on('error', () => undefined);
         await new Promise<void>((resolve) => client.once('connect', resolve));
-        client.write(`${JSON.stringify({ command: 'status', id: ID })}\n`);
+        client.write(`${JSON.stringify({ command: 'status', id: ID, generation: generationOf(root) })}\n`);
         client.destroy();
       }));
       expect(await listSupervisedSessions(root)).toEqual([

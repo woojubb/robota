@@ -1,4 +1,4 @@
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -65,8 +65,12 @@ describe('read-only local session inventory', () => {
         undefined, { get: () => pr, set: (value) => { pr = value; } },
       );
       await linkSupervisedPr(id, 'https://github.com/team/repo/pull/456');
+      const generation = String((JSON.parse(readFileSync(
+        join(resolveSupervisedDirectory(), id, 'state.json'), 'utf8')) as { generation?: unknown }).generation);
+      expect(generation).toMatch(/^[A-Za-z0-9_-]{22}$/u);
       expect(await runSessionListCommand(['--format', 'text'])).toBe(0);
       const text = output.mock.calls.map(([value]) => String(value)).join('');
+      expect(text).not.toContain(generation);
       expect(text).toContain(`${id}  liveness alive  control available  activity needs-input`);
       expect(text).not.toContain('Private session name');
       expect(text).not.toContain('github.com');
@@ -77,6 +81,7 @@ describe('read-only local session inventory', () => {
       expect(JSON.parse(json).supervised.sessions).toEqual([
         { id, liveness: 'alive', control: 'available', activity: 'needs-input' },
       ]);
+      expect(json).not.toContain(generation);
       expect(json).not.toContain('Private session name');
       expect(json).not.toContain('github.com');
       expect(json).not.toMatch(/prompt|token|transcript/i);

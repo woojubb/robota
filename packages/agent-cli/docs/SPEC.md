@@ -109,8 +109,11 @@ when the viewer groups by directory), treat an exited process as completed, or s
 PR URLs never enter ordinary listings or registration records. Starting a session from the view
 still requires headless workspace trust for its target directory, and closing the view never stops
 a supervised session. A damaged registration is shown as unavailable without hiding healthy
-sessions. A stop, rename, or PR-association request acts only through the live owner's control
-endpoint and fails explicitly when ownership or completion cannot be established. Attach, peek, and
+sessions. Each process start registers a fresh generation that its control endpoint echoes and
+requires, so a stop, rename, or PR-association request acts only on the start the caller verified
+(the one a view row displayed, or the one registered when the command runs) and fails explicitly
+when that start, ownership, or completion cannot be established. A registration that cannot name its
+start is listed but never controlled, and the generation never appears in listings. Attach, peek, and
 automatic restart are not offered, and the transport's per-launch authentication token is never
 exposed through the control endpoint or inventory.
 
