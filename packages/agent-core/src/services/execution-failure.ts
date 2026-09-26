@@ -21,8 +21,12 @@ const NO_RESPONSE_TEXT = 'No response received. The context window may be full.'
  * re-counted every earlier call on every run.
  */
 export interface IFinalResultScope {
-  /** Index of this turn's user message in the store; only messages from here on are the turn's. */
-  readonly turnStartIndex: number;
+  /**
+   * Id of this turn's user message; it and the messages after it are the turn's. Located by id, not
+   * by position, because a system-prompt update rewrites the head of the store mid-turn. Absent when
+   * the turn ended before its input was recorded: the turn then has no messages.
+   */
+  readonly turnMessageId?: string;
   /** CORE-011: a turn that ends in tool results, with no text after them, is complete. */
   readonly allowToolOnlyCompletion?: boolean;
   /** The run was aborted: it resolves with the text committed so far, never as a failure. */
@@ -38,6 +42,16 @@ function resolveProviderFailureError(providerFailure: unknown, response: string)
   if (providerFailure instanceof Error) return providerFailure;
   if (providerFailure !== undefined) return new Error(String(providerFailure));
   return new Error(response);
+}
+
+function turnMessagesOf(
+  messages: TUniversalMessage[],
+  turnMessageId: string | undefined,
+): TUniversalMessage[] {
+  for (let index = messages.length - 1; index >= 0; index--) {
+    if (messages[index]?.id === turnMessageId) return messages.slice(index);
+  }
+  return [];
 }
 
 function isAssistantText(msg: TUniversalMessage): boolean {
@@ -56,7 +70,7 @@ export function buildFinalResult(
   providerFailure?: unknown,
 ): ICoreExecutionResult {
   const finalMessages = conversationStore.getMessages();
-  const turnMessages = finalMessages.slice(scope.turnStartIndex);
+  const turnMessages = turnMessagesOf(finalMessages, scope.turnMessageId);
   // Last assistant message of THIS turn with actual content (skip stripped tool-round messages)
   const lastAssistantMessage = turnMessages.filter(isAssistantText).pop();
   // A round that ended in a provider failure records the error as an assistant message
@@ -78,7 +92,9 @@ export function buildFinalResult(
   return {
     response,
     messages: finalMessages.map((msg) => {
-      if (typeof msg.content !== 'string')
+      // An assistant message may carry `content: null` (a restored tool-call message); rejecting it
+      // here failed every run on such a store, and turned an aborted one into a rejection.
+      if (typeof msg.content !== 'string' && !(msg.role === 'assistant' && msg.content === null))
         throw new Error('[EXECUTION] Message content is required');
       return {
         role: msg.role,

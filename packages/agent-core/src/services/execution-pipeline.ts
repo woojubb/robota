@@ -124,7 +124,7 @@ export async function finalizeExecution(
   startTime: Date,
   roundState: IExecutionRoundState,
   conversationId: string,
-  turnStartIndex: number,
+  turnMessageId: string | undefined,
   interrupted: boolean,
   context: Partial<IExecutionContext> | undefined,
   plugins: TPluginWithHooks[],
@@ -138,7 +138,7 @@ export async function finalizeExecution(
       startTime,
       roundState.toolsExecuted,
       {
-        turnStartIndex,
+        turnMessageId,
         interrupted,
         ...(context?.allowToolOnlyCompletion === true && { allowToolOnlyCompletion: true }),
       },

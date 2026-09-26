@@ -173,7 +173,7 @@ export class ExecutionService {
     );
 
     // Where this turn begins in the store: the result describes the turn, not the whole history.
-    const turnStartIndex = conversationStore.getMessages().length;
+    let turnMessageId: string | undefined;
     const roundState: IExecutionRoundState = {
       toolsExecuted: [],
       currentRound: 0,
@@ -185,17 +185,19 @@ export class ExecutionService {
     };
 
     try {
+      const messageCountBeforeUser = conversationStore.getMessages().length;
       conversationStore.addUserMessage(
         input,
         userMessageMetadata(executionId, context?.driverId, context?.turnSource),
       );
-      const userMessage = conversationStore.getMessages()[turnStartIndex];
+      const userMessage = conversationStore.getMessages()[messageCountBeforeUser];
+      turnMessageId = userMessage?.id;
       if (userMessage) {
         fullContext.onExecutionEvent?.('history_mutation', {
           executionId,
           conversationId,
           mutation: 'append_message',
-          index: turnStartIndex,
+          index: messageCountBeforeUser,
           message: userMessage,
         });
       }
@@ -261,7 +263,7 @@ export class ExecutionService {
         startTime,
         roundState,
         conversationId,
-        turnStartIndex,
+        turnMessageId,
         context?.signal?.aborted ?? false,
         context,
         this.plugins,
@@ -278,7 +280,7 @@ export class ExecutionService {
       if (isAbortFailure(error, context?.signal)) {
         return {
           ...buildFinalResult(conversationStore, executionId, startTime, roundState.toolsExecuted, {
-            turnStartIndex,
+            turnMessageId,
             interrupted: true,
           }),
           interrupted: true,

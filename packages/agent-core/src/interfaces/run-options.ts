@@ -68,9 +68,9 @@ export interface IRunOptions {
   traceContext?: IRunTraceContext;
   /**
    * AbortSignal for cancelling execution. Aborting an in-flight run does not throw: `run()` resolves
-   * (and `runStream()` returns) the assistant text committed before the abort, possibly `''`, and that
-   * message stays in history with `state: 'interrupted'`. Read `signal.aborted` to tell an interrupted
-   * run from a completed one.
+   * (and `runStream()` returns) the last assistant text the turn committed before the abort, possibly
+   * `''`; a reply cut off mid-stream is kept in history with `state: 'interrupted'`. Read
+   * `signal.aborted` to tell an interrupted run from a completed one.
    */
   signal?: AbortSignal;
   /** Join an aborted/timed-out provider call before completing; an uncooperative call may remain pending. */
@@ -94,10 +94,10 @@ export interface IRunOptions {
    * Treat a turn that ends in tool calls (no trailing text) as a valid completion instead of
    * forcing one extra provider call to generate a summary (CORE-011). For decision-agent patterns
    * (router/orchestrator/classifier) the tool call IS the answer — this removes the one-call tax.
-   * The summary call is the one made when `maxExecutionRounds` ends the loop on a tool round, so pair
-   * the two (e.g. `maxExecutionRounds: 1`); without a cap the model is called again after the tool
-   * results as usual. The run resolves with the turn's text, or `''` when it produced none; consumers
-   * read the outcome from the tool results.
+   * The summary call is the one made when the round cap ends the loop on a tool round; before the cap
+   * the model is called again after tool results as usual, so a decision agent sets
+   * `maxExecutionRounds` too (e.g. `1`). The run resolves with the turn's text, or `''` when it
+   * produced none; consumers read the outcome from the tool results.
    */
   allowToolOnlyCompletion?: boolean;
   /**
