@@ -282,7 +282,7 @@ async function lanDevice(
       ...(options.extraSources ?? []),
     ],
     cache,
-    ...(mdns !== undefined ? { advertiser: mdns } : {}),
+    ...(mdns !== undefined ? { advertisers: [mdns] } : {}),
     connect: recordingConnect(sent),
     probeTimeoutMs: 500,
     ...(options.admissionTimeoutMs !== undefined
