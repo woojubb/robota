@@ -147,7 +147,8 @@ These are behaviors a caller cannot infer from a type signature alone.
   verifier admits, and the grant pins exactly one principal, so the grant is the sender. The session
   builds that verifier from the grant with the one factory its host gave it when the session was
   built, so opening a grant cannot bring a verifier that checks someone else. Revoking a grant stops its pending turns and refuses its later events for the
-  life of the session. Nothing the
+  life of the session, and says so only to a caller whose token the grant's verifier admits: anyone
+  else is refused exactly as a live grant would refuse them. Nothing the
   carrier or the payload says is identity; a display name in the payload is shown as claimed and never
   attributed. A token is spent on one event. Refusals and audit records use the closed refusal words
   and carry no content, and a refused event never reaches the queue, history or the model; an

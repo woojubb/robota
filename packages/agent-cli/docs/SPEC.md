@@ -288,7 +288,9 @@ its label, principal kind, state and counts, never the principal. Creating or re
 the user's act alone: grants are created only by start flags, and `/events` is never offered to the
 model. Events arrive over HTTP on a loopback port that the owner's own proxy or tunnel serves at the
 grants' public URL; each grant is its own endpoint and audience, so a token for one grant is refused
-at another. The endpoint answers with an admission receipt or an empty refusal, never with what a
+at another. Which grant labels exist is public, since each grant's protected-resource metadata names
+it for token clients; whether a grant is live or revoked is told only to a caller holding a valid
+token for it. The endpoint answers with an admission receipt or an empty refusal, never with what a
 turn produced, and a background session keeps an owner-only, bounded trail of refusals and
 settlements that outlives it, holding no token, content or address.
 

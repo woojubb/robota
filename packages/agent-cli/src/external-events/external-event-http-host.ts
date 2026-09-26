@@ -43,6 +43,8 @@ export interface IExternalEventHttpHostOptions {
     grantId: string,
     delivery: IExternalEventDelivery,
   ) => Promise<TExternalEventAdmission>;
+  /** Count a refusal this endpoint decides itself against the grant it addressed. */
+  readonly countRefusal?: (grantId: string, refusal: TExternalEventRefusal) => void;
   /** Loopback port; 0 picks one. */
   readonly port: number;
   readonly bindAddress?: '127.0.0.1' | '::1';
@@ -277,6 +279,8 @@ export function createExternalEventHttpHost(
     const route = routes.get(path);
     if (route === undefined) {
       const segment = path.startsWith(eventsPrefix) ? path.slice(eventsPrefix.length) : undefined;
+      // Which labels exist is public: each grant's RFC 9728 metadata names it, and a token client needs
+      // that to find its issuer. What stays private is a grant's state, decided only after the token.
       if (segment !== undefined && /^[a-zA-Z0-9_-]{1,64}$/u.test(segment)) {
         refuse(req, res, 'unknown-grant', undefined);
       } else {
@@ -288,8 +292,17 @@ export function createExternalEventHttpHost(
       res.writeHead(405, { Allow: 'POST' }).end();
       return;
     }
+    const count = (refusal: TExternalEventRefusal): void => {
+      try {
+        options.countRefusal?.(route.grantId, refusal);
+      } catch {
+        // Counting cannot change an answer.
+      }
+    };
+    // Neither answer below depends on the grant's state, so they may come before the session's check.
     const token = bearerCredential(req.headers.authorization);
     if (token === undefined) {
+      count('missing-token');
       refuse(req, res, 'missing-token', route);
       return;
     }
@@ -298,6 +311,7 @@ export function createExternalEventHttpHost(
       // The body, not the token, is too large: 413, counted, before anything is verified. The rest
       // of the body is not read: the connection closes once the answer is out.
       res.once('finish', () => req.destroy());
+      count('oversize');
       refuse(req, res, 'oversize', route, {
         counted: true,
         answer: { kind: 'status', status: 413 },

@@ -203,6 +203,7 @@ async function start(
   const http = createExternalEventHttpHost({
     grants,
     receive: (grantId, delivery) => grantHost.receive(grantId, delivery),
+    countRefusal: (grantId, refusal) => grantHost.countRefusal(grantId, refusal),
     port: 0,
     audit: (record) => audit.push(record),
   });
@@ -291,6 +292,46 @@ describe('external event HTTPS endpoint', () => {
     ).toMatchObject({ status: 400, body: '' });
     grantHost.revoke('ci');
     expect(await send(port, { token: await mint() })).toMatchObject({ status: 403, body: '' });
+  });
+
+  it('tells a revoked grant apart only to a caller holding a valid token for it', async () => {
+    const { port, grantHost, audit } = await start();
+    const answers = async () => {
+      const missing = await send(port);
+      const invalid = await send(port, { token: await mint({ key: stranger.privateKey }) });
+      const otherGrant = await send(port, {
+        token: await mint({ grantId: 'chat', client: 'chat-bot' }),
+      });
+      return [missing, invalid, otherGrant].map(({ status, body, headers }) => ({
+        status,
+        body,
+        challenge: headers['www-authenticate'],
+      }));
+    };
+    const live = await answers();
+    grantHost.revoke('ci');
+    expect(await answers()).toEqual(live);
+    expect(live.map((answer) => answer.status)).toEqual([401, 401, 401]);
+    expect(await send(port, { token: await mint() })).toMatchObject({ status: 403, body: '' });
+    // The owner's trail still names what happened.
+    expect(audit.at(-1)).toMatchObject({ grantId: 'ci', refusal: 'grant-revoked' });
+    expect(audit.slice(3, 6).map((record) => 'refusal' in record && record.refusal)).toEqual([
+      'missing-token',
+      'bad-signature',
+      'wrong-audience',
+    ]);
+  });
+
+  it('counts the refusals the endpoint decides against the grant it addressed', async () => {
+    const { port, grantHost } = await start();
+    await send(port);
+    await send(port, { token: await mint(), body: 'x'.repeat(16 * 1024 + 1) });
+    await send(port, { path: '/hooks/events/nope', token: await mint() });
+    expect(grantHost.list().find((row) => row.grantId === 'ci')?.counters.refused).toEqual({
+      'missing-token': 1,
+      oversize: 1,
+    });
+    expect(grantHost.list().find((row) => row.grantId === 'chat')?.counters.refused).toEqual({});
   });
 
   it('holds the grant rate: over the limit is 429 before the queue', async () => {

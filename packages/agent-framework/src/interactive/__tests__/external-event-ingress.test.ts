@@ -219,6 +219,39 @@ describe('the host builds each grant verifier from the grant itself (#3072)', ()
   });
 });
 
+describe('a closed or revoked grant tells its state only to a verified caller (#3072)', () => {
+  it('answers a missing or refused token exactly as a live grant would', async () => {
+    const h = harness();
+    let verdict: Awaited<ReturnType<IAccessTokenVerifier['verify']>> = { admitted: true };
+    const source = h.open({ verify: async () => verdict });
+    source.revoke();
+    expect(await source.receive({ token: undefined, event: message() })).toEqual({
+      admitted: false,
+      refusal: 'missing-token',
+    });
+    for (const refusal of ['bad-signature', 'wrong-audience', 'expired'] as const) {
+      verdict = { admitted: false, refusal };
+      expect(await source.receive({ token: token(), event: message() })).toEqual({
+        admitted: false,
+        refusal,
+      });
+    }
+    verdict = { admitted: true };
+    expect(await source.receive({ token: token(), event: message() })).toEqual({
+      admitted: false,
+      refusal: 'grant-revoked',
+    });
+    const closed = h.open({ verify: async () => verdict }, grant({ grantId: 'chat' }));
+    closed.close();
+    verdict = { admitted: false, refusal: 'bad-signature' };
+    expect(await closed.receive({ token: token(), event: message() })).toEqual({
+      admitted: false,
+      refusal: 'bad-signature',
+    });
+    expect(h.submit).not.toHaveBeenCalled();
+  });
+});
+
 describe('revoking a grant (#3072)', () => {
   it('refuses later events as revoked, stops its turns, and cannot be reopened', async () => {
     const h = harness();
@@ -473,10 +506,9 @@ describe('external event admission is decided by the verified token (#3072)', ()
     source.close();
     release();
     expect(await pending).toEqual({ admitted: false, refusal: 'source-closed' });
-    expect(await source.receive({ token: token(), event: message() })).toEqual({
-      admitted: false,
-      refusal: 'source-closed',
-    });
+    const later = source.receive({ token: token(), event: message() });
+    release();
+    expect(await later).toEqual({ admitted: false, refusal: 'source-closed' });
     expect(h.submit).not.toHaveBeenCalled();
   });
 

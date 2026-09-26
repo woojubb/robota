@@ -353,7 +353,8 @@ export class ExternalEventIngress {
   }
 
   private async receive(source: ISourceState, delivery: unknown): Promise<TExternalEventReceipt> {
-    if (!source.active) return { admitted: false, refusal: closedRefusal(source) };
+    // A closed or revoked grant still checks the token first: only a caller the grant's verifier
+    // admits may learn the grant's state, so an unauthenticated one sees what a live grant answers.
     const token = isRecord(delivery) ? delivery['token'] : undefined;
     if (typeof token !== 'string' || token.length === 0)
       return { admitted: false, refusal: 'missing-token' };
@@ -363,8 +364,8 @@ export class ExternalEventIngress {
     } catch {
       verdict = { admitted: false, refusal: 'malformed' };
     }
-    if (!source.active) return { admitted: false, refusal: closedRefusal(source) };
     if (!verdict.admitted) return { admitted: false, refusal: verdict.refusal };
+    if (!source.active) return { admitted: false, refusal: closedRefusal(source) };
     const event = readMessage(isRecord(delivery) ? delivery['event'] : undefined);
     if (typeof event === 'string') return { admitted: false, refusal: event };
     // From here to the submission nothing yields, so two deliveries of one token cannot both pass.
