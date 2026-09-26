@@ -113,7 +113,7 @@ describe('CONTROL — Shell is NOT path-contained, and that is the decision (SEC
       // The command escapes without touching `workingDirectory` at all. Any containment check on the
       // cwd argument is therefore not a boundary — it is a boundary-shaped comment.
       const result = await runTool(createShellTool({ cwd: workdir }), {
-        command: `cd ${JSON.stringify(sibling)} && pwd`,
+        command: 'cd ../sibling && pwd',
       });
       expect(result.success).toBe(true);
       expect(realpathSync(result.output.trim())).toBe(sibling);

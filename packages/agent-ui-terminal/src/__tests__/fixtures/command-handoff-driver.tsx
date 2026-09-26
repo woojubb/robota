@@ -10,9 +10,9 @@
  * and `runWithTerminal` returning so the TUI resumes.
  *
  * argv: [mode ('shell'|'editor'), outputPath]. The `/shell` command text is fixed here rather than
- * taken from argv: argv only selects the mode, so no process input becomes shell text. Markers:
- * `@@READY canHandoff=…@@`,
- * `@@CMD_DONE@@`, `@@INPUT_AFTER_HANDOFF …@@`. A JSON result
+ * taken from argv: argv only selects the mode, so no process input becomes shell text.
+ *
+ * Markers: `@@READY canHandoff=…@@`, `@@CMD_DONE@@`, `@@INPUT_AFTER_HANDOFF …@@`. A JSON result
  * `{ success, exitCode?, message }` is written to outputPath.
  */
 import { writeFileSync } from 'node:fs';
