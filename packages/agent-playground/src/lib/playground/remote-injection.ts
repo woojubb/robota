@@ -5,6 +5,7 @@
  * for secure server-side execution without exposing actual API keys.
  */
 
+import { PROVIDER_PACKAGES } from '../provider-packages';
 import type { IPlaygroundConfig } from './config-validation';
 import { addPlaygroundSetup } from './remote-injection-setup';
 
@@ -34,9 +35,9 @@ function convertImportsToGlobals(code: string): string {
     'const OpenAI = window.__ROBOTA_SDK__?.openai?.OpenAI || class PlaceholderOpenAI {};\n',
   );
   t = replaceNamedImport(t, 'openai', 'openai');
-  t = replaceNamedImport(t, '@robota-sdk/agent-provider/openai', 'openai');
-  t = replaceNamedImport(t, '@robota-sdk/agent-provider/anthropic', 'anthropic');
-  t = replaceNamedImport(t, '@robota-sdk/agent-provider/google', 'google');
+  t = replaceNamedImport(t, PROVIDER_PACKAGES.openai, 'openai');
+  t = replaceNamedImport(t, PROVIDER_PACKAGES.anthropic, 'anthropic');
+  t = replaceNamedImport(t, PROVIDER_PACKAGES.google, 'google');
 
   t = t.replace(
     /import\s+Anthropic\s+from\s*['"]@anthropic-ai\/sdk['"];?\s*/g,

@@ -1,5 +1,5 @@
 /**
- * @robota-sdk/agent-provider (openai)
+ * @robota-sdk/agent-provider-openai
  *
  * Provides Provider implementation for using OpenAI API.
  */

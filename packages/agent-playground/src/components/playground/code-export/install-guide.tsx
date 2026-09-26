@@ -4,7 +4,7 @@ import React from 'react';
 import { Terminal } from 'lucide-react';
 
 const INSTALL_COMMAND =
-  'npm install @robota-sdk/agent-core @robota-sdk/agent-provider @robota-sdk/agent-tools';
+  'npm install @robota-sdk/agent-core @robota-sdk/agent-provider-openai @robota-sdk/agent-tools';
 
 export function InstallGuide() {
   return (

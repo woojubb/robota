@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { generateAgentCode } from '../index';
 import type { IAssemblyState } from '../index';
+import { getProviderTemplate } from '../provider-templates';
 
 describe('generateAgentCode', () => {
   it('generates createQuery code for simple case (no skills)', () => {
@@ -13,7 +14,7 @@ describe('generateAgentCode', () => {
 
     expect(code).toContain("import { createQuery } from '@robota-sdk/agent-framework'");
     expect(code).toContain('AnthropicProvider');
-    expect(code).toContain('@robota-sdk/agent-provider/anthropic');
+    expect(code).toContain("from '@robota-sdk/agent-provider-anthropic'");
     expect(code).toContain('process.env.ANTHROPIC_API_KEY');
     expect(code).toContain("permissionMode: 'bypassPermissions'");
     expect(code).toContain('createQuery(');
@@ -155,5 +156,16 @@ describe('generateAgentCode', () => {
     const code = generateAgentCode(state);
 
     expect(code).toContain("permissionMode: 'default'");
+  });
+});
+
+describe('getProviderTemplate', () => {
+  it.each([
+    ['openai', '@robota-sdk/agent-provider-openai', 'OpenAIProvider'],
+    ['anthropic', '@robota-sdk/agent-provider-anthropic', 'AnthropicProvider'],
+    ['gemini', '@robota-sdk/agent-provider-gemini', 'GeminiProvider'],
+    ['deepseek', '@robota-sdk/agent-provider-openai-compatible', 'DeepSeekProvider'],
+  ])('imports %s from its per-vendor package', (provider, importPath, className) => {
+    expect(getProviderTemplate(provider)).toMatchObject({ importPath, className });
   });
 });

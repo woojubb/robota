@@ -25,7 +25,7 @@ import type { IChatOptions } from '../interfaces/provider';
  * @example
  * ```typescript
  * import { LocalExecutor } from '@robota-sdk/agent-core';
- * import { OpenAIProvider } from '@robota-sdk/agent-provider/openai';
+ * import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
  *
  * const executor = new LocalExecutor();
  * executor.registerProvider('openai', new OpenAIProvider({ apiKey: 'sk-...' }));
