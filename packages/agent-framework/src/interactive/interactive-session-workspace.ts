@@ -25,6 +25,8 @@ import type {
   IExecutionWorkspaceSnapshotOptions,
   IExecutionWorkspaceTaskSpawner,
 } from '../background-tasks/index.js';
+import { isChatEntry } from '@robota-sdk/agent-core';
+
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 
 export interface IWorkspaceSnapshotDeps {
@@ -54,7 +56,7 @@ export function buildExecutionWorkspaceSnapshot(
       preview:
         execCtrl.streamingText.trim().length > 0
           ? execCtrl.streamingText
-          : (history.at(-1)?.type as string | undefined),
+          : lastConversationText(history),
       ...(pendingRequest === undefined ? {} : { pendingRequest }),
     },
     tasks: bgTracker.getTaskSnapshots(),
@@ -62,6 +64,20 @@ export function buildExecutionWorkspaceSnapshot(
     selectedEntryId: options.selectedEntryId,
     filter: options.filter,
   });
+}
+
+/**
+ * The main thread previews its conversation: the text of the last chat message. The last record is
+ * often bookkeeping (a usage observation, an event), whose type name is not something to show.
+ */
+function lastConversationText(history: readonly IHistoryEntry[]): string | undefined {
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const entry = history[index]!;
+    if (!isChatEntry(entry)) continue;
+    const content = (entry.data as { content?: unknown } | undefined)?.content;
+    if (typeof content === 'string' && content.trim().length > 0) return content;
+  }
+  return undefined;
 }
 
 export async function readWorkspaceDetail(

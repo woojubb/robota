@@ -114,7 +114,7 @@ pnpm build
 ```
 
 `pnpm build` runs each package's own build in dependency order. The CLI build runs `tsdown` and then
-copies the web monitor (`agent-cli-web/dist`) into `dist/web`. To see the published tarball, run
+copies the GUI web app (`agent-gui-web/dist`) into `dist/web`. To see the published tarball, run
 `pnpm --filter @robota-sdk/agent-cli pack`.
 
 Standalone Bun binaries are written to `dist-bun` (`pnpm --filter @robota-sdk/agent-cli build:bun`) and

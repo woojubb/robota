@@ -1,3 +1,5 @@
+import { isIP } from 'node:net';
+
 import { runEvalCommand } from '../eval/eval-command.js';
 import { PrintTerminal } from '../print-terminal.js';
 import { isDoctorCommandName, runDoctorRoute } from './doctor-route.js';
@@ -16,6 +18,7 @@ import {
   unlinkSupervisedPr,
 } from '../session-inventory/supervised-session-control.js';
 import { readExternalEventGrantFiles } from '../external-events/external-event-grant-file.js';
+import { validateExternalEventEndpoint } from '../external-events/external-event-http-host.js';
 import { formatExternalEventGrantRows } from '../external-events/external-event-grant-format.js';
 
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
@@ -43,26 +46,71 @@ const SUBCOMMAND_INDEX = 2;
 const ACTION_INDEX = 3;
 const SUBCOMMAND_ARGUMENT_INDEX = 4;
 const START_USAGE =
-  'Usage: robota session start --background [--name <name>] [--external-event-grant <file>]...\n';
+  'Usage: robota session start --background [--name <name>]\n' +
+  '         [--external-event-grant <file>]... [--external-event-port <port>]\n' +
+  '         [--external-event-trusted-proxy <ip>]...\n';
 const EVENTS_USAGE =
   'Usage: robota session events list <supervised-id> [--json]\n' +
   '       robota session events revoke <supervised-id> <grant-id>\n';
 
 /** `session start` arguments; `undefined` when they do not fit the usage. */
-function parseStartArgs(
-  args: readonly string[],
-): { readonly name?: string; readonly grantFiles: readonly string[] } | undefined {
+function parseStartArgs(args: readonly string[]):
+  | {
+      readonly name?: string;
+      readonly grantFiles: readonly string[];
+      readonly port?: string;
+      readonly trustedProxies: readonly string[];
+    }
+  | undefined {
   if (args[0] !== '--background') return undefined;
   let name: string | undefined;
+  let port: string | undefined;
   const grantFiles: string[] = [];
+  const trustedProxies: string[] = [];
   for (let index = 1; index < args.length; index += 2) {
     const value = args[index + 1];
     if (value === undefined) return undefined;
     if (args[index] === '--name' && name === undefined) name = value;
     else if (args[index] === '--external-event-grant') grantFiles.push(value);
+    else if (args[index] === '--external-event-port' && port === undefined) port = value;
+    else if (args[index] === '--external-event-trusted-proxy') trustedProxies.push(value);
     else return undefined;
   }
-  return { ...(name !== undefined ? { name } : {}), grantFiles };
+  return {
+    ...(name !== undefined ? { name } : {}),
+    grantFiles,
+    ...(port !== undefined ? { port } : {}),
+    trustedProxies,
+  };
+}
+
+/** The endpoint a background session's grants are served on: a port, and proxies to believe. */
+function parseEventEndpoint(start: {
+  readonly grantFiles: readonly string[];
+  readonly port?: string;
+  readonly trustedProxies: readonly string[];
+}): { readonly port: number; readonly trustedProxies: readonly string[] } | undefined {
+  if (start.grantFiles.length === 0) {
+    if (start.port !== undefined || start.trustedProxies.length > 0) {
+      throw new Error(
+        '--external-event-port and --external-event-trusted-proxy go only with external event grants',
+      );
+    }
+    return undefined;
+  }
+  if (start.port === undefined) {
+    throw new Error(
+      "--external-event-grant needs --external-event-port: the loopback port the owner's proxy forwards to",
+    );
+  }
+  const port = Number(start.port);
+  if (!/^[0-9]+$/u.test(start.port) || port < 1 || port > 65535) {
+    throw new Error('--external-event-port must be an integer in 1..65535');
+  }
+  if (!start.trustedProxies.every((proxy) => isIP(proxy) !== 0)) {
+    throw new Error('--external-event-trusted-proxy must be a literal IP address');
+  }
+  return { port, trustedProxies: start.trustedProxies };
 }
 
 /**
@@ -294,8 +342,14 @@ export async function runPreparsedCliCommand(
     }
     // Every grant is validated before anything starts; a refusal names the grant, never a value.
     let grants: IExternalEventGrant[];
+    let eventEndpoint: ReturnType<typeof parseEventEndpoint>;
     try {
+      eventEndpoint = parseEventEndpoint(start);
       grants = readExternalEventGrantFiles(start.grantFiles);
+      // Everything the child's endpoint will check is checked here, so a start fails before it spawns.
+      if (eventEndpoint !== undefined) {
+        validateExternalEventEndpoint({ grants, trustedProxies: eventEndpoint.trustedProxies });
+      }
     } catch (error) {
       process.stderr.write(`${error instanceof Error ? error.message : 'grant refused'}\n`);
       process.exitCode = 1;
@@ -318,7 +372,7 @@ export async function runPreparsedCliCommand(
       const id = await launchSupervisedSession(cwd, {
         env: supervisedEnv(),
         ...(start.name !== undefined ? { name: start.name } : {}),
-        ...(grants.length > 0 ? { grants } : {}),
+        ...(grants.length > 0 && eventEndpoint !== undefined ? { grants, eventEndpoint } : {}),
       });
       process.stdout.write(`Supervised session: ${id}\n`);
     } catch (error) {

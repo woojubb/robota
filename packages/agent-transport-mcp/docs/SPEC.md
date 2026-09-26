@@ -14,7 +14,8 @@ The loopback HTTP carrier is different: it binds only `127.0.0.1`, mints a fresh
 the shared `agent-transport/node` admission primitive, and refuses an invalid Host, Origin, or bearer
 before reading a request body. The remote HTTP carrier is an OAuth resource server: it admits only
 an access token its injected verifier accepts and never mints or honours the loopback bearer, which
-is only as safe as the machine boundary. Every name it checks — endpoint path, metadata path, Host,
+is only as safe as the machine boundary. Its gate is the shared resource-server gate of
+`agent-transport/node`, so it answers exactly as every other token-admitted HTTP carrier does. Every name it checks — endpoint path, metadata path, Host,
 Origin — comes from the public URL rather than the listener, because the public URL is all a client
 ever sees; a proxy in front must forward the path unchanged and preserve Host. It verifies before it
 counts and counts only failures, so a valid token is never throttled by failures sharing its address

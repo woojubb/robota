@@ -26,6 +26,7 @@ const options = {
     ...(nameArg === undefined ? [] : [nameArg]),
     ...(process.argv.includes('--supervised-external-event-grants')
       ? ['--supervised-external-event-grants'] : []),
+    ...process.argv.filter((arg) => arg.startsWith('--external-event-')),
     ...(process.env['ROBOTA_TEST_PERMISSION_MODE'] === undefined
       ? [] : ['--permission-mode', process.env['ROBOTA_TEST_PERMISSION_MODE']]),
   ]),

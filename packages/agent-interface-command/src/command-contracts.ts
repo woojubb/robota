@@ -265,6 +265,18 @@ export interface ICommandListEntry {
   modelInvocable: boolean;
 }
 
+/** A skill as a client offers it beside the commands; `/<name>` activates it. */
+export interface ICommandSkillListEntry {
+  readonly name: string;
+  readonly description: string;
+  readonly source: string;
+  readonly modelInvocable: boolean;
+  readonly userInvocable: boolean;
+  readonly argumentHint?: string;
+  readonly context?: string;
+  readonly agent?: string;
+}
+
 export type TPluginInstallScope = 'user' | 'project';
 
 export interface ICommandInstalledPlugin {

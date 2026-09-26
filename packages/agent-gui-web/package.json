@@ -1,0 +1,43 @@
+{
+  "name": "@robota-sdk/agent-gui-web",
+  "version": "3.0.0-beta.82",
+  "private": true,
+  "description": "agent-gui-web — the robota GUI as a web app (Vite + React over @robota-sdk/agent-ui-web). One frontend for every host: the desktop app (apps/agent-app) loads its build, the CLI serves it on `robota --serve --open`, and `dev:web` runs it in a browser against the repo CLI. Private product shell; not an importable library.",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:web": "node scripts/dev-web.mjs",
+    "build": "rimraf dist && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "node e2e/web-e2e.mjs",
+    "typecheck": "tsgo --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "build:js": "pnpm run build",
+    "build:types": "pnpm run build"
+  },
+  "dependencies": {
+    "@robota-sdk/agent-ui-web": "workspace:*",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "@robota-sdk/agent-transport-ws": "workspace:*",
+    "@tailwindcss/vite": "^4.3.3",
+    "@testing-library/react": "^16.1.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.7.0",
+    "jsdom": "^25.0.1",
+    "playwright": "^1.49.1",
+    "rimraf": "^5.0.10",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^6.0.3",
+    "vite": "^6.0.7",
+    "vitest": "^3.2.6"
+  },
+  "volta": {
+    "extends": "../../package.json"
+  }
+}

@@ -96,6 +96,19 @@ export function buildSidecarSpawn(
   };
 }
 
+/** How much of the sidecar's error output the shell keeps: enough for the reason it stopped. */
+export const OUTPUT_TAIL_LIMIT = 4000;
+
+/**
+ * Append a chunk of sidecar error output, keeping only the tail. The sidecar says why it will not
+ * start (an untrusted workspace names `robota trust`, a missing key names the setup) on stderr, and
+ * the fatal screen shows that tail instead of a bare "stopped".
+ */
+export function appendOutputTail(tail: string, chunk: string): string {
+  const next = tail + chunk;
+  return next.length > OUTPUT_TAIL_LIMIT ? next.slice(next.length - OUTPUT_TAIL_LIMIT) : next;
+}
+
 /** The lifecycle state the renderer renders (reusing agent-ui-web's `status` surface for the fatal case). */
 export type TSidecarState = 'starting' | 'ready' | 'fatal';
 

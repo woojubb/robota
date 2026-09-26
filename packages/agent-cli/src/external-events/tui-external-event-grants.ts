@@ -7,24 +7,67 @@ import {
 
 import type { ICommandExternalEventsAdapter } from '@robota-sdk/agent-framework';
 import type {
+  IExternalEventDelivery,
   IExternalEventGrant,
+  TExternalEventAdmission,
   TExternalEventAuditRecord,
 } from '@robota-sdk/agent-interface-transport';
 
 export interface ITuiExternalEventGrants {
   /** Open the grants on a newly bound session, closing them on the one it replaces. */
   bind(session: IExternalEventGrantSession): Promise<void>;
+  /** Deliver to the currently bound session's grant. */
+  receive(grantId: string, delivery: IExternalEventDelivery): Promise<TExternalEventAdmission>;
   readonly adapter: ICommandExternalEventsAdapter;
   close(): void;
 }
 
-function describe(record: TExternalEventAuditRecord): string | undefined {
+/** One content-free line for a refusal or an unfinished turn; nothing for a completed one. */
+export function describeExternalEventRecord(record: TExternalEventAuditRecord): string | undefined {
   const who =
     record.grantId === undefined ? 'External event' : `External event grant ${record.grantId}`;
   if ('refusal' in record) return `${who}: an event was refused (${record.refusal}).`;
   return record.settlement === 'completed'
     ? undefined
     : `${who}: a turn ended ${record.settlement}.`;
+}
+
+/** A refusal of one kind is reported at most once in this window; the rest are counted. */
+const REFUSAL_REPORT_WINDOW_MS = 60_000;
+
+/**
+ * Report the endpoint's refusals without letting whoever reaches the public URL write to the owner's
+ * terminal at will: one line per grant and reason per window, carrying how many more were refused since,
+ * and nothing at all for a peer already over its failure budget.
+ */
+export function createRefusalReporter(
+  report: (line: string) => void,
+  now: () => number = Date.now,
+): (record: TExternalEventAuditRecord) => void {
+  const windows = new Map<string, { startedAt: number; suppressed: number }>();
+  return (record) => {
+    if (!('refusal' in record)) {
+      const line = describeExternalEventRecord(record);
+      if (line !== undefined) report(line);
+      return;
+    }
+    const key = `${record.grantId ?? ''}\u0000${record.refusal}`;
+    const at = now();
+    const window = windows.get(key);
+    if (
+      record.throttled === true ||
+      (window !== undefined && at - window.startedAt < REFUSAL_REPORT_WINDOW_MS)
+    ) {
+      if (window !== undefined) window.suppressed += 1;
+      else windows.set(key, { startedAt: at - REFUSAL_REPORT_WINDOW_MS, suppressed: 1 });
+      return;
+    }
+    const earlier = window?.suppressed ?? 0;
+    windows.set(key, { startedAt: at, suppressed: 0 });
+    const line = describeExternalEventRecord(record);
+    if (line === undefined) return;
+    report(earlier > 0 ? `${line} ${earlier} more were refused since the last report.` : line);
+  };
 }
 
 /**
@@ -54,8 +97,9 @@ export function createTuiExternalEventGrants(
           session,
           grants.filter((grant) => !revoked.has(grant.grantId)),
           {
+            // Refusals are reported by the carrier that answered them; the session reports how turns end.
             audit: (record) => {
-              const line = describe(record);
+              const line = 'settlement' in record ? describeExternalEventRecord(record) : undefined;
               if (line !== undefined) report(line);
             },
           },
@@ -66,6 +110,12 @@ export function createTuiExternalEventGrants(
       });
       binding = next.catch(() => undefined);
       return next;
+    },
+    receive: async (grantId, delivery) => {
+      if (revoked.has(grantId)) return { admitted: false, refusal: 'grant-revoked' };
+      await binding;
+      if (host === undefined) return { admitted: false, refusal: 'session-unavailable' };
+      return host.receive(grantId, delivery);
     },
     adapter: {
       list: () => {

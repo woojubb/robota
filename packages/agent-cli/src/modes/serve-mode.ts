@@ -14,7 +14,13 @@ import {
   type IMonitorUiServer,
 } from './serve-monitor-ui.js';
 import { settleOnServeTransportFailure } from './serve-transport-failure.js';
+import { createExternalEventAuditRing } from '../external-events/external-event-audit-ring.js';
 import {
+  createExternalEventHttpHost,
+  type IExternalEventHttpHost,
+} from '../external-events/external-event-http-host.js';
+import {
+  ensureSupervisedAuditDirectory,
   resolveSupervisedDirectory,
   startSupervisedControl,
   takeSupervisedGrantHandoff,
@@ -290,6 +296,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   // host-executed session-exit/-restart action fires (CMD-004 Phase 2) — then tear down cleanly.
   let supervisedControl: ISupervisedControl | undefined;
   let externalEvents: IExternalEventGrantHost | undefined;
+  let eventEndpoint: IExternalEventHttpHost | undefined;
   let requestSettle: (reason: string) => void = () => undefined;
   let settling = false;
   const readinessAbort = new AbortController();
@@ -300,6 +307,8 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
       readinessAbort.abort();
       void Promise.resolve(monitorUi?.close())
         .catch(() => {})
+        .then(() => eventEndpoint?.stop())
+        .catch(() => undefined)
         .then(() => externalEvents?.close())
         .then(() => host.shutdown(reason))
         .catch(() => undefined)
@@ -347,11 +356,34 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
       let linkedPr: ISupervisedPr | undefined;
       // Every grant the launcher handed over is open before readiness, or the start fails.
       if (args.supervisedExternalEventGrants === true) {
-        const grants = takeSupervisedGrantHandoff(
-          opts.supervisedRoot ?? resolveSupervisedDirectory(),
+        const root = opts.supervisedRoot ?? resolveSupervisedDirectory();
+        const grants = takeSupervisedGrantHandoff(root, args.supervisedSessionId);
+        // Refusals are recorded by the endpoint that answered them, settlements by the session.
+        const audit = createExternalEventAuditRing(
+          ensureSupervisedAuditDirectory(root),
           args.supervisedSessionId,
         );
-        externalEvents = await openExternalEventGrants(host.session, grants);
+        const opened = await openExternalEventGrants(host.session, grants, {
+          audit: (record) => {
+            if ('settlement' in record) audit(record);
+          },
+        });
+        externalEvents = opened;
+        try {
+          const endpoint = createExternalEventHttpHost({
+            grants,
+            receive: (grantId, delivery) => opened.receive(grantId, delivery),
+            port: args.externalEventPort ?? 0,
+            ...(args.externalEventTrustedProxies !== undefined
+              ? { trustedProxies: args.externalEventTrustedProxies }
+              : {}),
+            audit,
+          });
+          await endpoint.start();
+          eventEndpoint = endpoint;
+        } catch {
+          throw new ExternalEventEndpointError();
+        }
       }
       const grantHost = externalEvents;
       if (grantHost !== undefined) {
@@ -406,7 +438,9 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         try {
           const refusal = error instanceof ExternalEventGrantRefusedError
             ? { code: 'grant-refused', grant: error.grantId }
-            : { code: 'startup-failed' };
+            : error instanceof ExternalEventEndpointError
+              ? { code: 'events-endpoint-failed' }
+              : { code: 'startup-failed' };
           process.send({ kind: 'error', id: args.supervisedSessionId, ...refusal }, () => {
             // The parent may already have disconnected; failure reporting is best-effort only.
           });
@@ -421,6 +455,14 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     }
   }
   await lifetime;
+}
+
+/** The external-event endpoint could not listen on its port; the start fails naming only that. */
+class ExternalEventEndpointError extends Error {
+  constructor() {
+    super('External event endpoint could not be served on its port.');
+    this.name = 'ExternalEventEndpointError';
+  }
 }
 
 export interface ISupervisedReadinessChannel {

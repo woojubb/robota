@@ -20,6 +20,8 @@ export type {
   ISessionBackgroundTasks,
   ISessionCapabilityMap,
   ISessionCommands,
+  ISessionStatusRead,
+  ISessionStatusSnapshot,
   ISessionRuntimeTools,
   ISessionConversationRead,
   ISessionDriverAttribution,

@@ -111,6 +111,17 @@ describe('observe role', () => {
     ]);
   });
 
+  it('#3186: reads the session status and the command catalog, which every client shows', () => {
+    const session = createSession();
+    const observer = attach(session, 'observe');
+    observer.send({ type: 'get-status' });
+    observer.send({ type: 'get-commands' });
+    expect(observer.sent).toEqual([
+      { type: 'session_status', status: session.getStatusSnapshot() },
+      { type: 'commands', commands: [], skills: [] },
+    ]);
+  });
+
   it('never subscribes to prompt events, so it does not count as a surface that can answer', () => {
     const session = createSession();
     const observer = attach(session, 'observe');

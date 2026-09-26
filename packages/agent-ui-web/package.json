@@ -1,7 +1,7 @@
 {
   "name": "@robota-sdk/agent-ui-web",
   "version": "3.0.0-beta.82",
-  "description": "GUI presentation layer for a robota session — React components + a wire-protocol session reducer + a desktop shell, rendered over the transport-neutral TServerMessage stream. The GUI analog of agent-ui-terminal; consumed by the desktop app (apps/agent-app), the CLI-served monitor (packages/agent-cli-web), and the browser remote surface (agent-transport-webrtc-web + apps/agent-web /remote).",
+  "description": "GUI presentation layer for a robota session — React components + a wire-protocol session reducer + a desktop shell, rendered over the transport-neutral TServerMessage stream. The GUI analog of agent-ui-terminal; consumed by the GUI web app (packages/agent-gui-web — loaded by the desktop app and served by the CLI), and the browser remote surface (agent-transport-webrtc-web + apps/agent-web /remote).",
   "license": "AGPL-3.0-only OR LicenseRef-Commercial",
   "private": true,
   "type": "module",
