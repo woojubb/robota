@@ -39,3 +39,4 @@ export type { TPersonalUsageDashboardState } from './components/personal-usage-d
 export { SessionSurface, CenteredChrome } from './components/SessionSurface.js';
 export { SessionSidebar } from './components/SessionSidebar.js';
 export { SessionMonitor } from './components/SessionMonitor.js';
+export { RobotaMark, RobotaWordmark } from './components/Brand.js';

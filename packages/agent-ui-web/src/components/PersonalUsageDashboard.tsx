@@ -24,7 +24,7 @@ export function PersonalUsageDashboard({
   }, [period, state.requestPersonalUsage]);
 
   return (
-    <main className="gui-rise h-full overflow-y-auto p-5 md:p-7" aria-label="Personal usage">
+    <main className="robota-ui gui-rise h-full overflow-y-auto p-5 md:p-7" aria-label="Personal usage">
       <div className="mx-auto flex max-w-6xl flex-col gap-5">
         <UsageHeader
           period={period}

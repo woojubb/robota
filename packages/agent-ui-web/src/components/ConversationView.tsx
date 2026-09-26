@@ -313,7 +313,7 @@ export function ConversationView({
     messages.length === 0 && !isThinking && activeTools.length === 0 && !streamingText;
 
   return (
-    <div className="h-full overflow-y-auto">
+    <div className="robota-ui h-full overflow-y-auto">
       <div className="mx-auto flex w-full max-w-[760px] flex-col gap-6 px-6 pb-6 pt-8">
         {isEmpty && (
           <div className="flex h-full items-center justify-center">

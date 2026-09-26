@@ -1,7 +1,11 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
+/* The GUI surface (/remote): its design applies inside `.robota-ui` only, so the Studio tokens below stay. */
+@import '@robota-sdk/agent-ui-web/styles/surface.css';
 
 @source "../../../../packages/agent-playground/src";
+@source "../../../../packages/agent-ui-web/src";
+@source "../../../../packages/agent-transport-webrtc-web/src";
 
 @custom-variant dark (&:is(.dark *));
 
