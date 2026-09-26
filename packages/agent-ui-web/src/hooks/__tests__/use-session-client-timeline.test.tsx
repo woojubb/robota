@@ -162,6 +162,16 @@ describe('#3186 — commands and status for the composer', () => {
     expect(result.current.sessionStatus).toEqual(status);
   });
 
+  it('#3186 review: a reconnect forgets a command whose reply was lost with the connection', () => {
+    const { result, deliver, connect } = connectedSetup();
+    act(() => result.current.send({ type: 'command', name: 'settings' }));
+    connect();
+    deliver({ type: 'ui_intent', event: { intent: { type: 'show-agent-switcher' } } } as TServerMessage);
+    expect(result.current.messages).toEqual([
+      expect.objectContaining({ role: 'command', name: 'agent', tone: 'info' }),
+    ]);
+  });
+
   it('refreshes the status after a command or a turn changes it', () => {
     const { wire, deliver } = connectedSetup();
     deliver({ type: 'command_result', name: 'mode', message: 'Mode set.', success: true });

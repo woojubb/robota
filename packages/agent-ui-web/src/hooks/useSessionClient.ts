@@ -299,6 +299,9 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       setStatus(next);
       // Every client learns what it can offer and what is in effect as soon as it is attached.
       if (next === 'connected') {
+        // A reply lost with the old connection never arrives; stop waiting for it.
+        commandsInFlightRef.current = 0;
+        pendingIntentRef.current = null;
         client.send({ type: 'get-commands' });
         client.send({ type: 'get-status' });
       }
