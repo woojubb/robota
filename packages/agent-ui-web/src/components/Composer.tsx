@@ -129,6 +129,43 @@ export function Composer({
   );
 }
 
+/**
+ * The goal being pursued (`/goal`), above the composer while it is active — the objective, how far
+ * the turn budget has gone, and a way to stop it (`/goal cancel`).
+ */
+export function GoalBar({
+  status,
+  onStop,
+}: {
+  status: TSessionStatus | null;
+  onStop: () => void;
+}): React.ReactElement | null {
+  const goal = status?.goal;
+  if (!goal || goal.status !== 'active') return null;
+  return (
+    <div
+      role="status"
+      aria-label="goal"
+      className="gui-rise mx-3 mt-2 flex flex-shrink-0 items-center gap-3 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2 font-mono text-[12px]"
+    >
+      <span className="h-1.5 w-1.5 flex-shrink-0 animate-pulse rounded-full bg-primary" />
+      <span className="text-muted-foreground">goal</span>
+      <span className="min-w-0 flex-1 truncate text-foreground/90">{goal.objective}</span>
+      <span className="flex-shrink-0 tabular-nums text-muted-foreground">
+        {goal.iterations}/{goal.maxIterations}
+      </span>
+      <button
+        type="button"
+        aria-label="Stop goal"
+        onClick={onStop}
+        className="flex-shrink-0 rounded-md border border-border/60 px-2 py-0.5 text-[11px] text-muted-foreground hover:border-rose-400/50 hover:text-rose-200"
+      >
+        Stop
+      </button>
+    </div>
+  );
+}
+
 /** Model · mode · effort, each opening its picker, and the context the conversation fills. */
 function StatusRow({
   status,

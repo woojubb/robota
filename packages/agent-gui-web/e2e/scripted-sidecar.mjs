@@ -147,6 +147,7 @@ class ScriptedSession extends EventEmitter {
       permissionMode: this.#mode,
       effort: 'auto',
       context: { usedPercentage: 12, usedTokens: 24000, maxTokens: 200000, remainingPercentage: 88 },
+      goal: null,
     };
   }
   abort() {}

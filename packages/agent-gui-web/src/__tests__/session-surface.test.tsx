@@ -185,6 +185,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
         permissionMode: 'acceptEdits',
         effort: 'high',
         context: { usedPercentage: 42, usedTokens: 42, maxTokens: 100, remainingPercentage: 58 },
+        goal: null,
       },
     } as Partial<IWsSessionState>);
     render(<SessionSurface state={state} />);
@@ -193,6 +194,34 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'mode' });
     fireEvent.click(screen.getByRole('button', { name: 'model: claude-sonnet-5' }));
     expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'provider' });
+  });
+
+  it('#3186: a goal in progress shows above the composer and can be stopped', () => {
+    const goal = {
+      id: 'g',
+      objective: 'Make the tests pass',
+      status: 'active',
+      iterations: 2,
+      maxIterations: 10,
+      startedAt: '2026-09-26T00:00:00Z',
+      progress: [],
+    };
+    const status = {
+      sessionId: 's',
+      model: 'm',
+      permissionMode: 'default',
+      effort: 'auto',
+      context: { usedPercentage: 1, usedTokens: 1, maxTokens: 100, remainingPercentage: 99 },
+    };
+    const state = stubState({ sessionStatus: { ...status, goal } } as Partial<IWsSessionState>);
+    const { rerender } = render(<SessionSurface state={state} />);
+    const bar = screen.getByRole('status', { name: 'goal' });
+    expect(bar.textContent).toContain('Make the tests pass');
+    expect(bar.textContent).toContain('2/10');
+    fireEvent.click(screen.getByRole('button', { name: 'Stop goal' }));
+    expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'goal', args: 'cancel' });
+    rerender(<SessionSurface state={stubState({ sessionStatus: { ...status, goal: null } } as Partial<IWsSessionState>)} />);
+    expect(screen.queryByRole('status', { name: 'goal' })).toBeNull();
   });
 
   it('TC-02: a pending permission prompt renders and Allow answers it via answerPermission', () => {

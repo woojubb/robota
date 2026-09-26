@@ -126,6 +126,8 @@ export interface ISessionStatusSnapshot {
   readonly permissionMode: TPermissionMode;
   readonly effort: TModelEffortSelection;
   readonly context: IContextWindowState;
+  /** The goal being pursued (`/goal`), or null; a client shows its progress beside the composer. */
+  readonly goal: IGoalState | null;
 }
 
 export interface ISessionStatusRead {

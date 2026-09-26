@@ -138,6 +138,7 @@ export function createTestInteractiveSession(
       permissionMode: 'default',
       effort: 'auto',
       context: { ...EMPTY_CONTEXT_STATE },
+      goal: null,
     }),
     listRuntimeTools: async () => [],
     invokeRuntimeTool: async (name) => ({

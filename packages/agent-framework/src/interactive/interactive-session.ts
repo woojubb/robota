@@ -1593,6 +1593,7 @@ export class InteractiveSession
       permissionMode: session.getPermissionMode(),
       effort: session.getModelEffort(),
       context: session.getContextState(),
+      goal: this.getGoalState(),
     };
   }
 

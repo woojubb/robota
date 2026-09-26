@@ -126,6 +126,7 @@ describe('#3186 — commands and status for the composer', () => {
       permissionMode: 'default',
       effort: 'auto',
       context: { usedPercentage: 3, usedTokens: 3, maxTokens: 100, remainingPercentage: 97 },
+      goal: null,
     } as const;
     deliver({ type: 'session_status', status });
     expect(result.current.commandCatalog?.commands.map((c) => c.name)).toEqual(['help']);

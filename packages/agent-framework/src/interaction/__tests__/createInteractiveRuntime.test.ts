@@ -53,6 +53,7 @@ function createMockSession(overrides: Partial<IInteractiveSession> = {}): IInter
       permissionMode: 'default',
       effort: 'auto',
       context: { usedPercentage: 0, usedTokens: 0, maxTokens: 0, remainingPercentage: 100 },
+      goal: null,
     }),
     on: vi.fn((event: TInteractiveEventName, handler: Handler) => {
       if (!listeners[event]) listeners[event] = [];

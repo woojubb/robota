@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { AgentActivityPanel } from './AgentActivityPanel.js';
-import { Composer } from './Composer.js';
+import { Composer, GoalBar } from './Composer.js';
 import { ConversationView } from './ConversationView.js';
 import { PermissionPrompt } from './PermissionPrompt.js';
 import { PersonalUsageDashboard } from './PersonalUsageDashboard.js';
@@ -89,6 +89,10 @@ export function SessionSurface({
                 />
               )}
             </div>
+            <GoalBar
+              status={state.sessionStatus ?? null}
+              onStop={() => state.send({ type: 'command', name: 'goal', args: 'cancel' })}
+            />
             <PermissionPrompt
               layout="dock"
               prompts={state.pendingPrompts}
