@@ -1,5 +1,65 @@
 # @robota-sdk/agent-core
 
+## 3.0.0-beta.81
+
+### Minor Changes
+
+- 3038eb7: A message from another session is instant messaging: text from an untrusted third party that
+  carries no authority. What the model does with it is decided by the session's ordinary permissions —
+  rules, permission mode and remembered consent — exactly like the session's own work. The per-origin
+  peer policy is gone.
+
+  **BREAKING**
+
+  - `agent-core`: `IPermissionEvaluationContext.peerTurn` is now a boolean. It decides only whether a
+    `repliesToPeer` tool exists; every other call in a peer turn is decided as in any turn. Removed:
+    `isToolAvailableInPeerTurn`, `isSecretPath`, `IPeerTurnAuthority`, `TPeerReach` (now exported by
+    `agent-interface-session-mobility`) and `IToolPermissionProfile.workspacePaths`.
+  - `agent-tools`: `Read` and `Glob` no longer declare `workspacePaths`.
+  - `agent-session`: `ISessionRunOptions.peerReach` is replaced by `peerTurn?: boolean`, and
+    `ISessionOptions.allowPeerChanges` is removed. An ask in a peer turn is answered like any other:
+    a consent the operator remembered answers it, and an "always allow" given there is remembered.
+  - `agent-interface-session`: `IPeerTurnContext` no longer has `reach`; it carries only the reply
+    route.
+  - `agent-interface-session-mobility`: `peerReachOf` is removed; `TPeerReach` moves here. A delegated
+    turn carries no reach.
+  - `agent-framework`: the `peers.allowChanges` setting is removed (an existing value is ignored). A
+    peer turn is offered the ordinary tools, plus `peer_reply`.
+
+  **Changes**
+
+  - `agent-framework`: the per-turn statement tells the model the message is an opinion from an
+    untrusted third party, not its owner's instruction, and that it decides for itself whether and how
+    to act. A message still expands no `@path` and attaches no context reference, and its requests
+    still carry no provider-hosted tool, since no permission step can decide one. The session takes
+    at most 6 messages a minute and 30 an hour from each sender for a turn; a message over the limit
+    is refused with a reason the sender receives. A prompt answer given in the name of a `peer:` or `external:`
+    driver is ignored. External-event turns keep their tool-less baseline.
+  - `agent-cli`: incoming peer turns carry only their reply route.
+
+- 02b7452: A reply to a peer session is decided by the permission system like any call that sends something
+  off this machine, and it goes only to the sender that was admitted.
+
+  - `agent-core` — a tool declaring `repliesToPeer` is still refused outside a peer turn; inside one it
+    is decided by the ordinary steps: deny, ask and allow rules, then the mode. It declares no risk
+    class, so it asks by default, is refused in plan mode and proceeds under bypass. `IPeerTurnAuthority`
+    no longer has `toolUsed`.
+  - `agent-session` — an "always allow" answer to the reply is remembered and answers later replies,
+    as for any tool; other asks in a peer turn still need a fresh approval each time.
+  - `agent-framework` — `peer_reply` asks the operator by default, showing the full text and the peer
+    it goes to; `permissions.allow`/`deny` rules naming `peer_reply` apply. `PeerMessageIngress`
+    refuses a message whose origin names a sender other than the admitted one, or whose admission names
+    no sender, and submits the turn with the admitted identity.
+  - `agent-cli` — a local peer message is taken as coming from the session it names only when that
+    session confirms, at its own socket, that it is sending exactly that message to this receiver.
+    The reply target, the driver id and the operator's notices come from the confirmed sender. A
+    session on an earlier version cannot confirm, so its messages are refused; both sessions need this
+    version to message each other.
+
+- ec5e477: Add a credential store port (`ICredentialStore` in `agent-core`) and keep the CLI's secrets behind it: the OS keychain through the optional `@napi-rs/keyring` binding (macOS Keychain, Windows Credential Manager, Linux Secret Service), else an owner-only file under `~/.robota/credentials`. The backend is chosen at first use, recorded, and named by `/remote-control status`; a recorded keychain that stops working fails closed instead of degrading to the file.
+
+  The remote-control host identity key moves into the store. The old `~/.robota/remote-host-identity.json` may have been copied by backups or dotfile sync, so it is not carried over: on the first run after upgrading a new host key is generated, the old file is removed, and the operator is told once that trusted devices must pair again.
+
 ## 3.0.0-beta.80
 
 ### Major Changes

@@ -1,5 +1,146 @@
 # @robota-sdk/agent-session
 
+## 3.0.0-beta.81
+
+### Minor Changes
+
+- 3038eb7: A message from another session is instant messaging: text from an untrusted third party that
+  carries no authority. What the model does with it is decided by the session's ordinary permissions —
+  rules, permission mode and remembered consent — exactly like the session's own work. The per-origin
+  peer policy is gone.
+
+  **BREAKING**
+
+  - `agent-core`: `IPermissionEvaluationContext.peerTurn` is now a boolean. It decides only whether a
+    `repliesToPeer` tool exists; every other call in a peer turn is decided as in any turn. Removed:
+    `isToolAvailableInPeerTurn`, `isSecretPath`, `IPeerTurnAuthority`, `TPeerReach` (now exported by
+    `agent-interface-session-mobility`) and `IToolPermissionProfile.workspacePaths`.
+  - `agent-tools`: `Read` and `Glob` no longer declare `workspacePaths`.
+  - `agent-session`: `ISessionRunOptions.peerReach` is replaced by `peerTurn?: boolean`, and
+    `ISessionOptions.allowPeerChanges` is removed. An ask in a peer turn is answered like any other:
+    a consent the operator remembered answers it, and an "always allow" given there is remembered.
+  - `agent-interface-session`: `IPeerTurnContext` no longer has `reach`; it carries only the reply
+    route.
+  - `agent-interface-session-mobility`: `peerReachOf` is removed; `TPeerReach` moves here. A delegated
+    turn carries no reach.
+  - `agent-framework`: the `peers.allowChanges` setting is removed (an existing value is ignored). A
+    peer turn is offered the ordinary tools, plus `peer_reply`.
+
+  **Changes**
+
+  - `agent-framework`: the per-turn statement tells the model the message is an opinion from an
+    untrusted third party, not its owner's instruction, and that it decides for itself whether and how
+    to act. A message still expands no `@path` and attaches no context reference, and its requests
+    still carry no provider-hosted tool, since no permission step can decide one. The session takes
+    at most 6 messages a minute and 30 an hour from each sender for a turn; a message over the limit
+    is refused with a reason the sender receives. A prompt answer given in the name of a `peer:` or `external:`
+    driver is ignored. External-event turns keep their tool-less baseline.
+  - `agent-cli`: incoming peer turns carry only their reply route.
+
+- 02b7452: A reply to a peer session is decided by the permission system like any call that sends something
+  off this machine, and it goes only to the sender that was admitted.
+
+  - `agent-core` — a tool declaring `repliesToPeer` is still refused outside a peer turn; inside one it
+    is decided by the ordinary steps: deny, ask and allow rules, then the mode. It declares no risk
+    class, so it asks by default, is refused in plan mode and proceeds under bypass. `IPeerTurnAuthority`
+    no longer has `toolUsed`.
+  - `agent-session` — an "always allow" answer to the reply is remembered and answers later replies,
+    as for any tool; other asks in a peer turn still need a fresh approval each time.
+  - `agent-framework` — `peer_reply` asks the operator by default, showing the full text and the peer
+    it goes to; `permissions.allow`/`deny` rules naming `peer_reply` apply. `PeerMessageIngress`
+    refuses a message whose origin names a sender other than the admitted one, or whose admission names
+    no sender, and submits the turn with the admitted identity.
+  - `agent-cli` — a local peer message is taken as coming from the session it names only when that
+    session confirms, at its own socket, that it is sending exactly that message to this receiver.
+    The reply target, the driver id and the operator's notices come from the confirmed sender. A
+    session on an earlier version cannot confirm, so its messages are refused; both sessions need this
+    version to message each other.
+
+- 18b52cc: Built-in commands are offered to the model deliberately, each described for the model, and never
+  with a trust, credential or permission-widening action.
+
+  - `agent-interface-command` — `ICommand` gains `modelDescription?` (what the model is told, beside the
+    short `/help` line), and `modelInvocable` on a subcommand entry now narrows what the model may run.
+  - `agent-framework` — `ISystemCommand` gains `modelDescription?` and `modelRequiresPermission?`.
+    Once any subcommand of a model-invocable command declares `modelInvocable`, the model may run only
+    the bare command and the subcommands declared `true`; everything else, including an alias or an
+    undeclared subcommand, is refused before the command runs. The model-facing descriptor lists only
+    that subset. A model-requested monitor's command is now decided by the shell tool's gate (its
+    Bash/Shell rules, the mode and the prompt) and a refusal rejects with the new
+    `MonitorCommandRefusedError`. The `scriptedSession` test harness accepts `permissions` patterns.
+  - `agent-session` — `Session.checkToolPermission(toolName, toolArgs)` decides an action that has a
+    tool's effect by another route: that tool's PreToolUse hooks, then the gate's rules, mode,
+    remembered consent and prompt — never the command sandbox's auto-approval, since the action does
+    not run inside the sandbox.
+  - `agent-framework` also: `ICommandMCPActivationAdapter.userActionSurface?` tells `/mcp` whether the
+    user can type a session command, so the model's status names the terminal sign-in otherwise.
+  - `agent-command` — `/context` (bare and `list`), `/cost` (the report, not `budget`) and `/mcp`
+    (`status` only, without a prompt) are now model-invocable; `/memory approve` and `/memory reject`
+    are now user-only; the model's `/monitor` is decided by the shell gate rather than by consent to
+    the command's name. Every model-invocable command carries a model-facing description. The model's
+    `/mcp status` shows only safe names, states and the command to suggest, and a caller that does not
+    identify itself gets that view. `/context list` accounts only for turns still in context. New
+    `mcpUserActionNotice`, `mcpUserActionCommand` and `mcpUnavailableServersNotice` build the fixed
+    notices.
+  - `agent-command-workflows` — `/workflows` carries a model-facing description.
+  - `agent-mcp` — `createDiscoveredTool` accepts `authFailureNotice`: a call the server refuses for
+    authentication returns that host text instead of the generic failure.
+  - `agent-cli` — an MCP server that did not start because the user must approve it, trust the
+    workspace or sign in is named to the model at the start of an interactive session with the
+    command to suggest, and a
+    signed-in OAuth server that refuses a call tells the model to suggest `/mcp login <server>` — or, in print and serve runs, the terminal
+    `robota mcp login <server>`.
+
+  A command whose bare form is a complete action declares `runsBare`, so choosing `/cost` or `/mcp`
+  from the autocomplete menu still runs it even though they now declare subcommands.
+
+- 9843fe6: Sign in to a remote MCP server from inside a session, and use its tools without restarting.
+
+  - **`/mcp login <server> [--no-browser]`** runs the same per-server OAuth sign-in as
+    `robota mcp login` (discovery checks, PKCE, `state`, RFC 9207 `iss`, RFC 8707 resource, the
+    loopback listener, the lock-guarded store). It opens the browser through the argv opener; with
+    `--no-browser`, or when no browser can be opened, it shows the authorization URL and asks for the
+    redirect URL in the session's own prompt (masked), held to the same rules as a pasted redirect in
+    the terminal. A failed, refused, timed-out or cancelled sign-in changes nothing and is reported by
+    a fixed reason only. `/mcp login <server> --client-secret` is refused: a secret is never typed into
+    a session, and `robota mcp login <server> --client-secret` is named instead (also after a failed
+    token exchange for a pre-registered client). `/mcp` stays user-only (`modelInvocable: false`).
+  - **Connected in the same session:** after a sign-in, a server that could not connect for want of
+    one goes through the normal admission (approval, fingerprint, trust) and connects, and its tools
+    are offered from the next message; a server that was already connected is admitted again and
+    reconnects, and its authenticator drops what it held and reads the new credential. A tool left out
+    because the session already has its name is reported, and only tools actually added get
+    provenance. In browser mode the authorization URL is shown in the session prompt before the
+    browser opens, where the user can also choose to paste the redirect instead or cancel.
+  - **`runMCPOAuthLogin`** takes `readRedirectWhenBrowserFails`: when `openBrowser` rejects, the
+    loopback listener stops and the pasted redirect is read instead, for the same redirect URI. The
+    loopback listener's time limit now runs from its first `wait()` — once the authorization page is
+    handed over — so time spent at a prompt before the browser opens does not count against it.
+  - **`Session.addTools`** (and `ICommandSessionTools.addTools`) offers tools that became usable
+    mid-session, through the same permission gate and — via `ISessionOptions.wrapAddedTools`, which
+    `createSession` sets — the same edit-checkpoint and reversible-execution wraps as the assembled
+    tools. A name the session already has is left out, never replaced. Calls are serialized, and tools
+    added while a turn runs are applied when the next turn starts, so a turn's rounds all see one
+    tool list and the prompt cache misses once, at that boundary.
+  - **Breaking (`agent-framework`, major):** `addTools` is a new required member of the
+    `ICommandSessionTools` role port (and so of `ICommandSessionRuntime`). A host that implements the
+    port itself must add it; one that passes an `agent-session` `Session` already has it.
+  - **`ICommandMCPActivationAdapter.oauthLogin`** (`ICommandMCPOAuthLoginRequest`,
+    `ICommandMCPOAuthLoginResult`, `ICommandMCPOAuthRedirectPrompt`) is the port behind it.
+  - The sign-in notice and `/mcp status` now suggest `/mcp login <server>` in a session and
+    `robota mcp login <server>` in a terminal; the server's name is shown only when it is safe to paste
+    into any shell, otherwise `<server>`.
+
+### Patch Changes
+
+- Updated dependencies [3038eb7]
+- Updated dependencies [02b7452]
+- Updated dependencies [ec5e477]
+  - @robota-sdk/agent-core@3.0.0-beta.81
+  - @robota-sdk/agent-interface-session@3.0.0-beta.81
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.81
+  - @robota-sdk/agent-file-authority@3.0.0-beta.81
+
 ## 3.0.0-beta.80
 
 ### Major Changes

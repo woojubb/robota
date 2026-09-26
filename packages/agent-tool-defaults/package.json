@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-tool-defaults",
-  "version": "3.0.0-beta.80",
+  "version": "3.0.0-beta.81",
   "description": "The SDK's built-in default tool set (createDefaultTools) as a composition leaf over agent-tools",
   "type": "module",
   "publishConfig": {

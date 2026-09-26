@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-cli-web",
-  "version": "3.0.0-beta.80",
+  "version": "3.0.0-beta.81",
   "private": true,
   "description": "agent-cli-web — the CLI's built-in web monitor SPA (Vite). A minimal localhost-WS session monitor (index.html → SessionMonitor from the shared GUI core). agent-cli builds this package's dist/ and serves it over localhost HTTP (GUI-007). Not a deployable app — a CLI-owned product shell.",
   "type": "module",
