@@ -1,5 +1,31 @@
 # @robota-sdk/agent-remote-pairing
 
+## 3.0.0-beta.81
+
+### Minor Changes
+
+- b2e0afe: Two of one user's devices can admit each other over a channel bound to its negotiated DTLS
+  fingerprints.
+
+  - `agent-remote-pairing` — `startDeviceHandshake` runs the transport-agnostic device handshake
+    (`send` + `onFrame`): a pairwise pre-proof that discloses no identity, then hello and prove, with
+    the chain verified against the pinned master key, roster, revocation lists and high-water marks,
+    and possession proved by a `robota/handshake/v1` signature over the transcript. The side with the
+    newer roster or revocation list hands it over and the receiver adopts it only once it verifies.
+    Before a remote admission an optional lookup for newer lists runs for at most
+    `FRESHNESS_LOOKUP_MS` (3 s); without a newer list a remote peer is admitted with a warning for
+    `REMOTE_ADMISSION_GRACE_MS` (72 h) past expiry and then refused, while a same-host peer is still
+    admitted. `derivePairwiseSecret` exports the pairwise secret `S_AB`. `decodeDeviceHandshakeFrame`
+    decodes the frames. `verifyDeviceChain` accepts `listExpiryGraceMs` and reports `listsExpiredAt`.
+  - `agent-interface-session-mobility` — `IMeshAdmission` and `TMeshCapability`: the admission a device
+    handshake produces, with trust, locality and workspace as separate fields.
+
+- 44fc732: Add `/devices` for this device's identity among the user's devices: `list`, `init` (creates the identity: a recovery phrase, the master-certified signing key, this device's keys and certificate, the first roster and revocation list), `revoke <device-id>` (signing key only, no phrase; confirmed at the terminal) and `recover` (rotates the signing key from the phrase and revokes the old ones). Enrolling another device (`add` / `join`) comes with the device connection.
+
+  The recovery phrase never enters the session: it is shown once and read with no echo on the controlling terminal (opened apart from the session's input), on the alternate screen that is cleared afterwards, and never reaches prompt history, conversation history, transcripts, traces or the model. Without an interactive terminal the phrase commands refuse. `/devices` is operator-only: never model-invocable and refused from remote surfaces. Private keys live in the host credential store; certificates, roster, revocation lists and sequence marks are kept in owner-only files under `~/.robota/devices`.
+
+  `agent-remote-pairing` adds `isRecoveryPhraseWord`, so a phrase can be checked one word at a time.
+
 ## 3.0.0-beta.80
 
 ### Minor Changes

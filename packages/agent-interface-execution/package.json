@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-interface-execution",
-  "version": "3.0.0-beta.80",
+  "version": "3.0.0-beta.81",
   "description": "Execution contract interfaces for the Robota SDK — background tasks, job groups, subagent jobs and execution workspaces",
   "type": "module",
   "main": "dist/node/index.js",
