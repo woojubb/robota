@@ -116,7 +116,8 @@ async function runInitialPrompt(
       : undefined;
     const resumeSessionStore = openResumeSessionStore(payload, composition);
     // A sandbox restored from the parent's snapshot, or else one the child composes at its own root.
-    // One instance serves the tools and the session's approval, so they never disagree.
+    // Only a composed sandbox approves commands, from the instance its tools run under; a restored one
+    // approves none, so the child asks where the parent might not: stricter, never looser.
     const composedSandbox =
       restoredSandbox === undefined
         ? composition.createSandbox?.({ cwd: subagentExecutionRoot(payload) })
