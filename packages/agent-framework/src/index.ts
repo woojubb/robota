@@ -603,6 +603,7 @@ export {
   getForkWorkerSuffix,
   assembleSubagentPrompt,
   createSubagentSession,
+  sandboxApprovalFor,
   createSubagentLogger,
   resolveSubagentLogDir,
   deriveContextCapacityHint,

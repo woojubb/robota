@@ -7,7 +7,10 @@
 import { getBuiltInAgent } from '../agents/built-in-agents.js';
 import { createSubagentSession } from '../assembly/create-subagent-session.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
-import { parentConfigWithEffectiveRules } from '../subagents/in-process-subagent-runner.js';
+import {
+  parentConfigWithEffectiveRules,
+  subagentCommandSandbox,
+} from '../subagents/in-process-subagent-runner.js';
 
 import type { IAgentDefinition } from '../agents/agent-definition-types.js';
 import type { IForkExecutionOptions } from '../commands/index.js';
@@ -64,6 +67,7 @@ export async function runSkillInFork(
     ...(deps.commandSemanticRoles ? { commandSemanticRoles: deps.commandSemanticRoles } : {}),
     ...(deps.modelCommandToolPrefix ? { modelCommandToolPrefix: deps.modelCommandToolPrefix } : {}),
     permissionHandler: deps.permissionHandler,
+    ...subagentCommandSandbox(deps.sandboxClient),
     hooks: deps.hooks,
     hookTypeExecutors: deps.hookTypeExecutors,
     onTextDelta: deps.onTextDelta,

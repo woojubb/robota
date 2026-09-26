@@ -115,6 +115,14 @@ async function runInitialPrompt(
       ? createSubagentLogger(payload.request.parentSessionId, payload.taskId, payload.logsDir)
       : undefined;
     const resumeSessionStore = openResumeSessionStore(payload, composition);
+    // A sandbox restored from the parent's snapshot, or else one the child composes at its own root.
+    // Only a composed sandbox approves commands, from the instance its tools run under; a restored one
+    // approves none, so the child asks where the parent might not: stricter, never looser.
+    const composedSandbox =
+      restoredSandbox === undefined
+        ? composition.createSandbox?.({ cwd: subagentExecutionRoot(payload) })
+        : undefined;
+    const toolSandbox = restoredSandbox ?? composedSandbox?.client;
     session = createSubagentSession({
       // ARCH-044 (issue #2047): explicit restore from the wire DTOs into the runtime models.
       agentDefinition: restoreAgentDefinition(payload.agentDefinition),
@@ -135,7 +143,7 @@ async function runInitialPrompt(
       // of the PARENT'S session, not of this child's root.
       parentTools: composition.createTools({
         cwd: subagentExecutionRoot(payload),
-        ...(restoredSandbox !== undefined ? { sandboxClient: restoredSandbox } : {}),
+        ...(toolSandbox !== undefined ? { sandboxClient: toolSandbox } : {}),
         ...(payload.sessionTiers !== undefined ? { sessionTiers: payload.sessionTiers } : {}),
       }),
       cwd: subagentExecutionRoot(payload),
@@ -145,6 +153,9 @@ async function runInitialPrompt(
       ...(resumeSessionStore !== undefined ? { sessionStore: resumeSessionStore } : {}),
       ...(sessionLogger ? { sessionLogger } : {}),
       permissionMode: payload.permissionMode,
+      ...(composedSandbox?.commandSandbox !== undefined
+        ? { commandSandbox: composedSandbox.commandSandbox }
+        : {}),
       // CORE-025: enforce the task's permission policy in the child-process subagent too.
       ...(payload.request.permissionPolicy !== undefined
         ? { permissionPolicy: payload.request.permissionPolicy }
