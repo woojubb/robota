@@ -83,13 +83,28 @@ export function runNativeFileAuthorityE2e(binaryPath, options = {}) {
     mkdirSync(payloadDirectory, { recursive: true });
     writeFileSync(join(payloadDirectory, payloadName), serializedPayload);
     const timestamp = '2026-09-21T00:00:00.000Z';
+    // Current versioned session-log format: every line carries schemaVersion, and session_init
+    // records the full provider/prompt/tool context the replay decoder requires.
     const lines = [
-      { timestamp, sessionId, event: 'session_init', cwd: workspace },
       {
+        schemaVersion: 1,
+        timestamp,
+        sessionId,
+        event: 'session_init',
+        cwd: workspace,
+        systemPromptLength: 0,
+        systemPrompt: '',
+        toolSchemas: [],
+        model: 'fixture-model',
+        provider: 'fixture',
+      },
+      {
+        schemaVersion: 1,
         timestamp,
         sessionId,
         event: 'history_mutation',
         mutation: 'append_message',
+        index: 0,
         message: {
           id: 'user-1',
           role: 'user',
@@ -99,10 +114,12 @@ export function runNativeFileAuthorityE2e(binaryPath, options = {}) {
         },
       },
       {
+        schemaVersion: 1,
         timestamp: '2026-09-21T00:00:01.000Z',
         sessionId,
         event: 'history_mutation',
         mutation: 'append_message',
+        index: 1,
         message: {
           id: 'assistant-1',
           role: 'assistant',

@@ -221,14 +221,22 @@ function bindNtDll(
 }
 
 let cachedApi: IWindowsApi | undefined;
+/**
+ * The library handles stay referenced for the life of the process: Bun aborts when Koffi's
+ * finalizer for a collected library handle runs, so a handle must never become garbage.
+ */
+const retainedLibraries: unknown[] = [];
 
 export function getWindowsApi(): IWindowsApi {
   if (cachedApi !== undefined) return cachedApi;
   const types = defineWindowsTypes();
+  const kernel32 = koffi.load('kernel32.dll');
+  const ntdll = koffi.load('ntdll.dll');
+  retainedLibraries.push(kernel32, ntdll);
   cachedApi = {
     ...types,
-    ...bindKernel32(koffi.load('kernel32.dll'), types),
-    ...bindNtDll(koffi.load('ntdll.dll'), types),
+    ...bindKernel32(kernel32, types),
+    ...bindNtDll(ntdll, types),
   };
   return cachedApi;
 }
