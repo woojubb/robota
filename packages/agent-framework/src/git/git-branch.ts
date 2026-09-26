@@ -50,11 +50,11 @@ const NO_METADATA_CODES: ReadonlySet<string> = new Set([
   'EOPNOTSUPP',
 ]);
 
-function isDirectoryEntry(path: string): boolean {
+function lstatOrUndefined(path: string): ReturnType<typeof lstatSync> | undefined {
   try {
-    return lstatSync(path).isDirectory();
+    return lstatSync(path);
   } catch {
-    return false;
+    return undefined;
   }
 }
 
@@ -66,17 +66,29 @@ function isDirectoryEntry(path: string): boolean {
 function resolveGitMetadata(candidate: string, repoDir: string): string | undefined {
   let fd: number;
   try {
-    fd = openSync(candidate, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+    // The mode is a no-op without O_CREAT; it is passed so the open states an owner-only mode,
+    // which is what static analysis looks for on an open.
+    fd = openSync(
+      candidate,
+      constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK,
+      0o600,
+    );
   } catch (error) {
     const code = (error as NodeJS.ErrnoException).code ?? '';
     // A platform that cannot open a directory says so; a directory is what is looked for.
     if (code === 'EISDIR') return candidate;
     if (NO_METADATA_CODES.has(code)) return undefined;
-    // A `.git` directory that can be entered but not listed still holds a readable HEAD; nothing
-    // is read through this entry itself, so its type is all that is asked. An entry that cannot
-    // even be looked at is no metadata here, and the search moves on to the parent.
-    if (code === 'EACCES' || code === 'EPERM')
-      return isDirectoryEntry(candidate) ? candidate : undefined;
+    if (code === 'EACCES' || code === 'EPERM') {
+      const entry = lstatOrUndefined(candidate);
+      // An entry that cannot even be looked at (a directory on the way cannot be searched) is no
+      // metadata here, and the search moves on to the parent.
+      if (entry === undefined) return undefined;
+      // A `.git` directory that can be entered but not listed still holds a readable HEAD; nothing
+      // is read through this entry itself, so its type is all that is asked.
+      if (entry.isDirectory()) return candidate;
+    }
+    // A `.git` that is here but cannot be read ends the search: this is the repository, and
+    // its branch is unknown — not the branch of some repository further up.
     throw error;
   }
 

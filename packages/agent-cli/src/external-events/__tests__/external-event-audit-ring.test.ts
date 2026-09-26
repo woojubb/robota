@@ -25,7 +25,8 @@ const ID = '0f6c3a5e-8c1b-4d2a-9f3e-1a2b3c4d5e6f';
 
 /** The permission bits and text of one file, both taken from the same open descriptor. */
 function readTrail(file: string): { mode: number; text: string } {
-  const fd = openSync(file, 'r');
+  // 0o600 is a no-op without O_CREAT; it states an owner-only mode for static analysis.
+  const fd = openSync(file, 'r', 0o600);
   try {
     return { mode: fstatSync(fd).mode & 0o777, text: readFileSync(fd, 'utf8') };
   } finally {

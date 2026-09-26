@@ -86,6 +86,22 @@ describe('resolveGitBranchFromNodeHost', () => {
     }
   });
 
+  it('stops at a .git it cannot read instead of showing an enclosing repository branch', () => {
+    const outer = join(TMP_BASE, 'enclosing');
+    mkdirSync(join(outer, '.git'), { recursive: true });
+    writeFileSync(join(outer, '.git', 'HEAD'), 'ref: refs/heads/enclosing\n', 'utf8');
+    const cwd = join(outer, 'nested');
+    mkdirSync(cwd, { recursive: true });
+    const dotGit = join(cwd, '.git');
+    writeFileSync(dotGit, 'gitdir: ../elsewhere\n', 'utf8');
+    chmodSync(dotGit, 0o000);
+    try {
+      expect(resolveGitBranchFromNodeHost(cwd)).toBeUndefined();
+    } finally {
+      chmodSync(dotGit, 0o644);
+    }
+  });
+
   it('returns undefined outside a git repository', () => {
     const cwd = join(TMP_BASE, 'plain');
     mkdirSync(cwd, { recursive: true });
