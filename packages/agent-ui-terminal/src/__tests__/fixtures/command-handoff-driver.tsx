@@ -9,7 +9,9 @@
  * terminal can: the controller releasing raw mode so the child (subshell / `$EDITOR`) owns the TTY,
  * and `runWithTerminal` returning so the TUI resumes.
  *
- * argv: [mode ('shell'|'editor'), outputPath, commandArg?]. Markers: `@@READY canHandoff=…@@`,
+ * argv: [mode ('shell'|'editor'), outputPath]. The `/shell` command text is fixed here rather than
+ * taken from argv: argv only selects the mode, so no process input becomes shell text. Markers:
+ * `@@READY canHandoff=…@@`,
  * `@@CMD_DONE@@`, `@@INPUT_AFTER_HANDOFF …@@`. A JSON result
  * `{ success, exitCode?, message }` is written to outputPath.
  */
@@ -30,7 +32,8 @@ import type {
 
 const MODE = process.argv[2];
 const OUTPUT_PATH = process.argv[3];
-const COMMAND_ARG = process.argv[4] ?? '';
+/** Reads one line from the handed-off terminal and echoes it back, proving the child owned the TTY. */
+const SHELL_COMMAND = 'IFS= read -r line; printf "SHELL_GOT:[%s]\\n" "$line"';
 
 const controller = new TerminalHandoffController();
 let resolveInputAfterHandoff: ((input: string) => void) | undefined;
@@ -78,8 +81,8 @@ async function main(): Promise<void> {
   const ctx = createTestCommandHost({ overrides: context });
   const result =
     MODE === 'editor'
-      ? await executeEditorCommand(ctx, COMMAND_ARG)
-      : await executeShellCommand(ctx, COMMAND_ARG);
+      ? await executeEditorCommand(ctx, '')
+      : await executeShellCommand(ctx, SHELL_COMMAND);
 
   marker('CMD_DONE');
   const inputAfterHandoff = await new Promise<string>((resolve) => {
