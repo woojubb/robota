@@ -205,10 +205,11 @@ interface ISourceState {
   pending: number;
 }
 
+const GRANTS = Symbol('external event grant history');
+
 /** What a run remembers about each grant across the sessions it holds; opaque to its holder. */
 export class ExternalEventGrantHistory {
-  /** @internal */
-  readonly grants = new Map<string, IGrantHistory>();
+  readonly [GRANTS] = new Map<string, IGrantHistory>();
 }
 
 /** One history per run: create it once and pass it to every session the run builds. */
@@ -229,7 +230,7 @@ export class ExternalEventIngress {
 
   constructor(private readonly host: IExternalEventHost) {
     this.now = host.now ?? Date.now;
-    this.history = host.history?.grants ?? new Map();
+    this.history = host.history?.[GRANTS] ?? new Map();
   }
 
   open(options: IExternalEventSourceOptions): IExternalEventSource {
