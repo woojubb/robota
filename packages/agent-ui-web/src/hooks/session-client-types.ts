@@ -18,6 +18,11 @@ export type TCommandCatalog = Omit<Extract<TServerMessage, { type: 'commands' }>
 /** The session's status beside the conversation: model, permission mode, effort, context. */
 export type TSessionStatus = Extract<TServerMessage, { type: 'session_status' }>['status'];
 
+/** The host's sessions in this workspace, which one is current, and the records it could not read. */
+export type TSessionListing = Extract<TServerMessage, { type: 'sessions' }>['listing'];
+/** Why the host did not list its sessions: it cannot (`not_available`), or listing failed. */
+export type TSessionsError = Omit<Extract<TServerMessage, { type: 'sessions_error' }>, 'type' | 'requestId'>;
+
 export type TCurrentSessionUsageReport = Extract<
   TServerMessage,
   { type: 'usage_report' }
@@ -90,6 +95,18 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   commandCatalog: TCommandCatalog | null;
   /** Null until the session has answered; refreshed after every command and turn. */
   sessionStatus: TSessionStatus | null;
+  /** Null until the host has answered; refreshed on connect, after a switch, a rename and a turn. */
+  sessionListing: TSessionListing | null;
+  /** Set when the host answered the latest listing request with an error instead. */
+  sessionsError: TSessionsError | null;
+  requestSessions: () => void;
+  /** Make another stored session current. A refusal arrives as a protocol error notice. */
+  switchSession: (sessionId: string) => void;
+  /** Start a fresh session and make it current. */
+  newSession: () => void;
+  /** Whether the session sidebar is shown; `/resume` opens it. */
+  sessionSidebarOpen: boolean;
+  setSessionSidebarOpen: (open: boolean) => void;
   send: (msg: TClientMessage) => void;
   pendingPrompts: readonly TPendingPrompt[];
   answerPermission: (id: string, result: TPermissionResultValue) => void;

@@ -145,6 +145,60 @@ try {
       throw new Error('dashboard rendered raw persisted content');
     }
   });
+
+  const sidebar = page.getByRole('complementary', { name: 'Sessions' });
+  const row = (name) => sidebar.getByRole('button', { name });
+
+  await scenario('the sidebar lists this workspace\'s sessions, the current one marked', async () => {
+    await page.getByRole('button', { name: 'Chat' }).click();
+    await row(/Scripted e2e session/).waitFor();
+    if ((await row(/Scripted e2e session/).getAttribute('aria-current')) !== 'true') {
+      throw new Error('the current session is not marked current');
+    }
+    await row(/What did we decide about the parser\?/).waitFor();
+    await row(/Set up the release checklist/).waitFor();
+    await sidebar.getByText(/1 session could not be read/).waitFor();
+    if ((await sidebar.getByRole('button', { name: /damaged-session/ }).count()) !== 0) {
+      throw new Error('an unreadable session is a clickable row');
+    }
+  });
+
+  await scenario('a switch refused while a turn runs shows the host\'s reason', async () => {
+    await send('stay busy');
+    await page.getByText('Working on it...').waitFor();
+    await row(/What did we decide about the parser\?/).click();
+    await page.getByRole('alert').getByText('Stop the running turn first.').waitFor();
+    if ((await page.getByText('We kept the recursive-descent parser.').count()) !== 0) {
+      throw new Error('the refused switch changed the transcript');
+    }
+    await page.getByRole('button', { name: 'Dismiss notice' }).click();
+    await send('all done');
+    await page.getByText('Working on it...').last().waitFor();
+    await page.getByLabel('message').waitFor();
+  });
+
+  await scenario('clicking another session switches the transcript to it', async () => {
+    await row(/What did we decide about the parser\?/).click();
+    await page.getByText('We kept the recursive-descent parser.').waitFor();
+    await page.getByText('Hello from the scripted agent.').waitFor({ state: 'detached' });
+    await sidebar.locator('[aria-current="true"]', { hasText: 'What did we decide' }).waitFor();
+  });
+
+  await scenario('/resume opens the collapsed sidebar instead of a "not available" line', async () => {
+    await page.getByRole('button', { name: 'Hide sessions' }).click();
+    await sidebar.waitFor({ state: 'detached' });
+    await send('/resume');
+    await sidebar.waitFor();
+    if ((await page.getByText(/session picker is not available/).count()) !== 0) {
+      throw new Error('/resume still printed the unavailable line');
+    }
+  });
+
+  await scenario('+ New session starts an empty session and lists it', async () => {
+    await sidebar.getByRole('button', { name: /New session/ }).first().click();
+    await page.getByText(/Session connected\. Send a message/).waitFor();
+    await sidebar.locator('[aria-current="true"]', { hasText: 'New session' }).waitFor();
+  });
 } finally {
   if (process.env.CAPTURE_OUT) await page.screenshot({ path: join(process.env.CAPTURE_OUT, 'web-e2e.png') });
   await browser.close();

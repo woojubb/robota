@@ -28,11 +28,14 @@ does not own session lifecycle, conversation history, or agent runtime state.
 - The conversation carries what the CLI's transcript carries: a command's outcome and a finished
   turn's tool calls sit in it where they happened, and never push the composer out of view. Session
   and protocol failures are toasts, beside the conversation rather than in it.
-- A UI-intent this surface has no dedicated screen for (e.g. settings, session picker, plugin
-  manager, agent switcher) answers with an explicit "not available on this surface" line in the
-  conversation — in place of the command's own reply when this surface's command awaits one, at once
-  otherwise — never a silent no-op, including intent kinds not yet known when this package was
-  written. When a GUI screen for an intent lands, its handling switches to that screen.
+- A UI-intent opens its GUI screen when there is one — the session picker is the session sidebar,
+  unless the host cannot list sessions. Any other (e.g. settings, plugin manager, agent switcher)
+  answers with an explicit "not available on this surface" line in the conversation — in place of
+  the command's own reply when this surface's command awaits one, at once otherwise — never a silent
+  no-op, including intent kinds not yet known when this package was written.
+- The session sidebar lists the host's sessions and never loses one silently: a record the host could
+  not read is shown disabled. A switch replaces everything the surface shows with what the new
+  session holds; a refused switch shows the host's reason.
 - A pending permission or ask prompt is visible whatever view is open, because a gated turn waits
   on it.
 - A session-rename or history-clear broadcast from any other surface is folded into this reducer's

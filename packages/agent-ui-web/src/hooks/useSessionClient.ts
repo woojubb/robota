@@ -14,10 +14,15 @@ import {
   permissionResponse,
   type TPendingPrompt,
 } from './prompt-state.js';
-import { describeUiIntentForGui, uiIntentCommandName } from './ui-intent-state.js';
+import {
+  describeUiIntentForGui,
+  guiScreenForUiIntent,
+  uiIntentCommandName,
+} from './ui-intent-state.js';
 import { createWsSessionClient } from '../client/ws-session-client.js';
 import { SERVER_MESSAGE_HANDLING } from './server-message-handling.js';
 import { usePersonalUsageState } from './use-personal-usage.js';
+import { useSessionDirectoryState } from './use-session-directory.js';
 
 import type {
   IActiveTool,
@@ -74,9 +79,9 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   const streamingTextRef = useRef('');
   // The tools of the running turn, mirrored so the turn's end can keep them in the conversation.
   const activeToolsRef = useRef<IActiveTool[]>([]);
-  // A screen this surface's command asked for and cannot show; it answers the command in place of
-  // the command's own reply.
-  const pendingIntentRef = useRef<{ name: string; text: string } | null>(null);
+  // A screen this surface's command asked for: it answers the command in place of the command's own
+  // reply — with the "not available" line (`text`), or with nothing when the screen opened (null).
+  const pendingIntentRef = useRef<{ name: string; text: string | null } | null>(null);
   const updateActiveTools = useCallback((next: (previous: IActiveTool[]) => IActiveTool[]): void => {
     activeToolsRef.current = next(activeToolsRef.current);
     setActiveTools(activeToolsRef.current);
@@ -113,6 +118,9 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     clientRef.current?.send(msg);
   }, []);
   const { handleUsageMessage, ...personalUsageState } = usePersonalUsageState(send);
+  const { handleSessionsMessage, canListSessions, markCurrent, ...sessionDirectoryState } =
+    useSessionDirectoryState(send);
+  const { requestSessions, setSessionSidebarOpen } = sessionDirectoryState;
 
   const handleMessage = useCallback(
     (msg: TServerMessage): void => {
@@ -120,6 +128,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       // explicit GUI ownership decision, including variants intentionally handled by focused views.
       void SERVER_MESSAGE_HANDLING[msg.type];
       if (handleUsageMessage(msg)) return;
+      if (handleSessionsMessage(msg)) return;
       switch (msg.type) {
         case 'messages': {
           const reconstructed: TConversationEntry[] = msg.messages.flatMap((m) => {
@@ -143,14 +152,12 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           break;
         }
         case 'text_delta': {
-          setStreamingText((prev) => {
-            const next = prev + msg.delta;
-            streamingTextRef.current = next;
-            if (streamingIdRef.current === null) {
-              streamingIdRef.current = nextId();
-            }
-            return next;
-          });
+          // The ref is the reply's source of truth, updated as each piece arrives: a `complete` in
+          // the same batch reads it before React has run a state updater, and would lose the reply.
+          const next = streamingTextRef.current + msg.delta;
+          streamingTextRef.current = next;
+          if (streamingIdRef.current === null) streamingIdRef.current = nextId();
+          setStreamingText(next);
           break;
         }
         case 'thinking': {
@@ -189,6 +196,15 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           break;
         }
         case 'ui_intent': {
+          // #3189: `/resume` asks for the session picker — the sidebar, when the host lists sessions.
+          if (guiScreenForUiIntent(msg.event.intent) === 'session-sidebar' && canListSessions()) {
+            setSessionSidebarOpen(true);
+            requestSessions();
+            if (commandsInFlightRef.current > 0) {
+              pendingIntentRef.current = { name: uiIntentCommandName(msg.event.intent), text: null };
+            }
+            break;
+          }
           // CMD-004 Stage D: a command this surface issued requested a screen the GUI does not have.
           // The command's result follows; the unavailable line answers it (TC-05, never silent).
           const unavailable = {
@@ -207,6 +223,26 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         // surface, co-driving included) is reflected here; never a silent drop.
         case 'session_renamed': {
           setSessionName(msg.event.name);
+          requestSessions();
+          break;
+        }
+        // #3189: the host made another session current — drop what this one showed, re-read it all.
+        case 'session_switched': {
+          streamingTextRef.current = '';
+          streamingIdRef.current = null;
+          setStreamingText('');
+          setIsThinking(false);
+          updateActiveTools(() => []);
+          setMessages([]);
+          setPendingPrompts([]);
+          setSessionName(null);
+          setExecutionWorkspace(null);
+          markCurrent(msg.event.sessionId);
+          send({ type: 'get-messages' });
+          send({ type: 'get-status' });
+          send({ type: 'get-commands' });
+          send({ type: 'get-execution-workspace' });
+          requestSessions();
           break;
         }
         case 'history_cleared': {
@@ -230,7 +266,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           commandsInFlightRef.current = Math.max(0, commandsInFlightRef.current - 1);
           const unavailable = pendingIntentRef.current;
           pendingIntentRef.current = null;
-          if (unavailable !== null) {
+          if (unavailable !== null && unavailable.text !== null) {
             appendEntry({ id: nextId(), role: 'command', name: unavailable.name, content: unavailable.text, tone: 'info' });
           }
           setSessionNotices((previous) => [
@@ -255,7 +291,10 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           const unavailable = pendingIntentRef.current;
           pendingIntentRef.current = null;
           if (unavailable !== null && msg.success) {
-            appendEntry({ id: nextId(), role: 'command', name: msg.name, content: unavailable.text, tone: 'info' });
+            // The screen that opened is the answer; otherwise the line saying it cannot open is.
+            if (unavailable.text !== null) {
+              appendEntry({ id: nextId(), role: 'command', name: msg.name, content: unavailable.text, tone: 'info' });
+            }
             break;
           }
           // A command that starts a turn (a skill) says nothing itself; the turn is its answer.
@@ -272,12 +311,25 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         case 'complete':
         case 'interrupted': {
           send({ type: 'get-status' });
+          // The turn changed this session's preview, message count and time in the list.
+          requestSessions();
           finishTurn((tool) => (tool.status === 'running' ? 'done' : tool.status));
           break;
         }
       }
     },
-    [appendEntry, finishTurn, handleUsageMessage, send, updateActiveTools],
+    [
+      appendEntry,
+      canListSessions,
+      finishTurn,
+      handleSessionsMessage,
+      handleUsageMessage,
+      markCurrent,
+      requestSessions,
+      send,
+      setSessionSidebarOpen,
+      updateActiveTools,
+    ],
   );
 
   const answerPermission = useCallback((id: string, result: TPermissionResultValue): void => {
@@ -304,6 +356,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         pendingIntentRef.current = null;
         client.send({ type: 'get-commands' });
         client.send({ type: 'get-status' });
+        requestSessions();
       }
     };
     const client = makeClient({ onMessage: handleMessage, onStatusChange });
@@ -313,7 +366,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       client.disconnect();
       clientRef.current = null;
     };
-  }, [makeClient, handleMessage]);
+  }, [makeClient, handleMessage, requestSessions]);
 
   return {
     status,
@@ -330,6 +383,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     answerPermission,
     answerAsk,
     ...personalUsageState,
+    ...sessionDirectoryState,
     sessionNotices,
     dismissSessionNotice,
   };

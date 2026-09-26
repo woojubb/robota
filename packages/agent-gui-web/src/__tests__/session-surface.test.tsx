@@ -38,6 +38,13 @@ function stubState(over: Partial<IWsSessionState> = {}): IWsSessionState {
     requestCurrentSessionUsage: vi.fn(),
     sessionNotices: [],
     dismissSessionNotice: vi.fn(),
+    sessionListing: null,
+    sessionsError: null,
+    requestSessions: vi.fn(),
+    switchSession: vi.fn(),
+    newSession: vi.fn(),
+    sessionSidebarOpen: true,
+    setSessionSidebarOpen: vi.fn(),
     pendingPrompts: [],
     send: vi.fn(),
     answerPermission: vi.fn(),
@@ -413,5 +420,93 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Usage' }));
     expect(screen.getByText('No recorded usage in this period.')).toBeTruthy();
+  });
+});
+
+describe('#3189 — the session sidebar', () => {
+  const listing: NonNullable<IWsSessionState['sessionListing']> = {
+    currentSessionId: 'cur',
+    sessions: [
+      {
+        id: 'cur',
+        name: 'Refactor the parser',
+        cwd: '/w',
+        updatedAt: new Date(Date.now() - 5 * 60_000).toISOString(),
+        messageCount: 12,
+        preview: 'refactor',
+      },
+      {
+        id: 'old',
+        cwd: '/w',
+        updatedAt: new Date(Date.now() - 3 * 3_600_000).toISOString(),
+        messageCount: 1,
+        preview: 'Fix the flaky test',
+      },
+    ],
+    unreadableSessionIds: ['broken-1'],
+  };
+
+  it('lists the sessions with name or preview, time and count, the current one marked', () => {
+    render(<SessionSurface state={stubState({ sessionListing: listing })} />);
+    const sidebar = screen.getByRole('complementary', { name: 'Sessions' });
+    const current = screen.getByRole('button', { name: /Refactor the parser/ });
+    expect(current.getAttribute('aria-current')).toBe('true');
+    expect(current.textContent).toContain('5m ago');
+    expect(current.textContent).toContain('12 msgs');
+    const other = screen.getByRole('button', { name: /Fix the flaky test/ });
+    expect(other.getAttribute('aria-current')).toBeNull();
+    expect(other.textContent).toContain('3h ago');
+    expect(other.textContent).toContain('1 msg');
+    // Unreadable records are listed as one folded line, never as rows to click.
+    expect(screen.queryByRole('button', { name: /broken-1/ })).toBeNull();
+    expect(sidebar.textContent).toContain('1 session could not be read');
+    expect(sidebar.textContent).toContain('broken-1');
+  });
+
+  it('clicking another session switches to it; the current one does nothing', () => {
+    const state = stubState({ sessionListing: listing });
+    render(<SessionSurface state={state} />);
+    fireEvent.click(screen.getByRole('button', { name: /Refactor the parser/ }));
+    expect(state.switchSession).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: /Fix the flaky test/ }));
+    expect(state.switchSession).toHaveBeenCalledWith('old');
+  });
+
+  it('+ New session starts one', () => {
+    const state = stubState({ sessionListing: listing });
+    render(<SessionSurface state={state} />);
+    fireEvent.click(screen.getByRole('button', { name: /New session/ }));
+    expect(state.newSession).toHaveBeenCalledTimes(1);
+  });
+
+  it('collapses to a rail and opens again', () => {
+    const state = stubState({ sessionListing: listing });
+    const { rerender } = render(<SessionSurface state={state} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Hide sessions' }));
+    expect(state.setSessionSidebarOpen).toHaveBeenCalledWith(false);
+    rerender(<SessionSurface state={{ ...state, sessionSidebarOpen: false }} />);
+    expect(screen.queryByRole('complementary', { name: 'Sessions' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Show sessions' }));
+    expect(state.setSessionSidebarOpen).toHaveBeenCalledWith(true);
+  });
+
+  it('a host that cannot list sessions has no sidebar', () => {
+    render(
+      <SessionSurface
+        state={stubState({ sessionsError: { code: 'not_available', message: 'no directory' } })}
+      />,
+    );
+    expect(screen.queryByRole('complementary', { name: 'Sessions' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Show sessions' })).toBeNull();
+  });
+
+  it('a failed listing says why inside the sidebar', () => {
+    render(
+      <SessionSurface
+        state={stubState({ sessionsError: { code: 'list_failed', message: 'Could not read the store.' } })}
+      />,
+    );
+    const sidebar = screen.getByRole('complementary', { name: 'Sessions' });
+    expect(sidebar.textContent).toContain('Could not read the store.');
   });
 });
