@@ -33,9 +33,13 @@
  */
 
 export { createSessionMessageHandler } from './session-message-handler.js';
-export type { ISessionMessageHandlerOptions } from './session-message-handler.js';
+export type {
+  ISessionMessageHandlerOptions,
+  TSessionSurfaceRole,
+} from './session-message-handler.js';
 // ARCH-030: the connection-scoped outbound delivery boundary every carrier builds and passes down.
 export {
+  ATTACHED_SURFACE_MAX_PENDING_BYTES,
   createOutboundDelivery,
   createPendingStallClock,
   isOverPendingBudget,

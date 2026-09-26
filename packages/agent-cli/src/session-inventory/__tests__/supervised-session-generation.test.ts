@@ -92,10 +92,10 @@ describe('supervised registration generation', () => {
         { command: 'link-pr', id: ID, url: PR, generation: stale },
         { command: 'unlink-pr', id: ID, generation: stale },
       ]) {
-        expect(await raw(root, frame)).toEqual({
-          id: ID, status: 'refused', reason: 'stale-generation', generation,
-        });
+        // A caller that cannot name the start must not learn it from the refusal.
+        expect(await raw(root, frame)).toEqual({ id: ID, status: 'refused', reason: 'stale-generation' });
       }
+      expect(await raw(root, { command: 'status', id: 'other' })).toEqual({ id: ID, status: 'refused' });
       expect(onStop).not.toHaveBeenCalled();
       expect(onRename).not.toHaveBeenCalled();
       expect(setPr).not.toHaveBeenCalled();

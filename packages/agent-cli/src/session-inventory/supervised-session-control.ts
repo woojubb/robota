@@ -454,6 +454,11 @@ export async function startSupervisedControl(
   const reply = (socket: Socket, body: Record<string, unknown>): void => {
     socket.end(`${JSON.stringify({ id, ...body, generation })}\n`);
   };
+  // A caller that has not named this start learns nothing from the refusal: the generation is part
+  // of the proof a later request presents, so it is echoed only to a caller that already holds it.
+  const refuse = (socket: Socket, reason?: 'stale-generation'): void => {
+    socket.end(`${JSON.stringify({ id, status: 'refused', ...(reason ? { reason } : {}) })}\n`);
+  };
   const clients = new Set<Socket>();
   const server: Server = createServer((socket) => {
     clients.add(socket);
@@ -465,15 +470,15 @@ export async function startSupervisedControl(
       try {
         value = JSON.parse(line);
       } catch {
-        reply(socket, { status: 'refused' });
+        refuse(socket);
         return;
       }
       if (typeof value !== 'object' || value === null || !('id' in value) || value.id !== id || !('command' in value)) {
-        reply(socket, { status: 'refused' });
+        refuse(socket);
         return;
       }
       if (!('generation' in value) || value.generation !== generation) {
-        reply(socket, { status: 'refused', reason: 'stale-generation' });
+        refuse(socket, 'stale-generation');
         return;
       }
       if (value.command === 'status') {
