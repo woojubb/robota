@@ -283,10 +283,18 @@ class ScriptedSession extends EventEmitter {
   }
   listCommands() {
     return [
-      { name: 'help', description: 'Show available commands', modelInvocable: false },
-      { name: 'mode', description: 'Show or change the permission mode', modelInvocable: false },
-      { name: 'settings', description: 'Open settings', modelInvocable: false },
-      { name: 'resume', description: 'Resume another session', modelInvocable: false },
+      { name: 'help', description: 'Show available commands', modelInvocable: false, runner: 'runtime' },
+      { name: 'mode', description: 'Show or change the permission mode', modelInvocable: false, runner: 'runtime' },
+      { name: 'settings', description: 'Open settings', modelInvocable: false, runner: 'runtime' },
+      { name: 'resume', description: 'Resume another session', modelInvocable: false, runner: 'runtime' },
+      // A command the terminal runs itself: the GUI's menu marks it rather than running it.
+      {
+        name: 'shell',
+        description: 'Open an interactive shell',
+        modelInvocable: false,
+        runner: 'client',
+        surfaces: ['terminal'],
+      },
     ];
   }
   listSkills() {

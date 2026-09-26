@@ -21,6 +21,13 @@ import type { IAgentConfig } from '../interfaces/agent';
 import type { TUniversalMessage } from '../interfaces/messages';
 
 describe('buildFinalResult provider-error marking (CLI-064)', () => {
+  // These stores hold the turn under test from their first user message on.
+  const WHOLE_STORE_OF = (store: ConversationStore): { turnMessageId: string } => {
+    const first = store.getMessages().find((message) => message.role === 'user');
+    if (!first) throw new Error('test store has no user message');
+    return { turnMessageId: first.id };
+  };
+
   it('TC-01: marks the result failed when the final assistant message is a provider error', () => {
     const store = new ConversationStore();
     store.addUserMessage('say hi');
@@ -29,7 +36,7 @@ describe('buildFinalResult provider-error marking (CLI-064)', () => {
       providerError: true,
     });
 
-    const result = buildFinalResult(store, 'exec-1', new Date(), []);
+    const result = buildFinalResult(store, 'exec-1', new Date(), [], WHOLE_STORE_OF(store));
 
     expect(result.success).toBe(false);
     expect(result.error).toBeInstanceOf(Error);
@@ -45,7 +52,7 @@ describe('buildFinalResult provider-error marking (CLI-064)', () => {
     store.addUserMessage('say hi');
     store.addAssistantMessage('hello!', [], { round: 1 });
 
-    const result = buildFinalResult(store, 'exec-2', new Date(), []);
+    const result = buildFinalResult(store, 'exec-2', new Date(), [], WHOLE_STORE_OF(store));
 
     expect(result.success).toBe(true);
     expect(result.error).toBeUndefined();
@@ -71,7 +78,14 @@ describe('buildFinalResult provider-error marking (CLI-064)', () => {
       providerError: true,
     });
 
-    const result = buildFinalResult(store, 'exec-4', new Date(), [], original);
+    const result = buildFinalResult(
+      store,
+      'exec-4',
+      new Date(),
+      [],
+      WHOLE_STORE_OF(store),
+      original,
+    );
 
     expect(result.success).toBe(false);
     expect(result.error, 'the original failure was rebuilt from prose').toBe(original);
@@ -85,7 +99,14 @@ describe('buildFinalResult provider-error marking (CLI-064)', () => {
     store.addUserMessage('say hi');
     store.addAssistantMessage('Request failed: weird', [], { round: 1, providerError: true });
 
-    const result = buildFinalResult(store, 'exec-5', new Date(), [], 'weird string throw');
+    const result = buildFinalResult(
+      store,
+      'exec-5',
+      new Date(),
+      [],
+      WHOLE_STORE_OF(store),
+      'weird string throw',
+    );
 
     expect(result.success).toBe(false);
     expect(result.error).toBeInstanceOf(Error);
@@ -102,10 +123,73 @@ describe('buildFinalResult provider-error marking (CLI-064)', () => {
     store.addUserMessage('retry please');
     store.addAssistantMessage('hello after retry!', [], { round: 2 });
 
-    const result = buildFinalResult(store, 'exec-3', new Date(), []);
+    const result = buildFinalResult(store, 'exec-3', new Date(), [], WHOLE_STORE_OF(store));
 
     expect(result.success).toBe(true);
     expect(result.response).toBe('hello after retry!');
+  });
+});
+
+describe('buildFinalResult reads only its own turn (#3209)', () => {
+  const toolCall = {
+    id: 'call-1',
+    type: 'function' as const,
+    function: { name: 'record_decision', arguments: '{}' },
+  };
+
+  /** A finished first turn, then a second turn that ends in tool results with no text. */
+  function toolOnlySecondTurn(): { store: ConversationStore; turnMessageId: string } {
+    const store = new ConversationStore();
+    store.addUserMessage('first');
+    store.addAssistantMessage('first answer', [], { usage: { totalTokens: 15 } });
+    store.addUserMessage('decide');
+    const turnMessageId = store.getMessages().at(-1)!.id;
+    store.addAssistantMessage(null, [toolCall], { usage: { totalTokens: 27 } });
+    store.addToolMessageWithId('{"recorded":true}', 'call-1', 'record_decision');
+    return { store, turnMessageId };
+  }
+
+  it('completes a tool-only turn with an empty answer only when the run allows it', () => {
+    const { store, turnMessageId } = toolOnlySecondTurn();
+
+    const allowed = buildFinalResult(store, 'exec', new Date(), ['record_decision'], {
+      turnMessageId,
+      allowToolOnlyCompletion: true,
+    });
+    const notAllowed = buildFinalResult(store, 'exec', new Date(), ['record_decision'], {
+      turnMessageId,
+    });
+
+    expect(allowed).toMatchObject({ success: true, response: '', tokensUsed: 27 });
+    // Never the previous turn's answer, with or without the flag.
+    expect(notAllowed.success).toBe(false);
+    expect(notAllowed.response).not.toBe('first answer');
+  });
+
+  it('finds the turn after a system-prompt update rewrote the head of the store', () => {
+    const { store, turnMessageId } = toolOnlySecondTurn();
+    store.setSystemPrompt('updated mid-turn');
+
+    const result = buildFinalResult(store, 'exec', new Date(), [], {
+      turnMessageId,
+      allowToolOnlyCompletion: true,
+    });
+
+    expect(result).toMatchObject({ success: true, response: '', tokensUsed: 27 });
+  });
+
+  it('answers an interrupted turn even when the store holds a null-content assistant message', () => {
+    const store = new ConversationStore();
+    store.addUserMessage('act');
+    const turnMessageId = store.getMessages().at(-1)!.id;
+    store.addAssistantMessage(null, [toolCall]);
+
+    const result = buildFinalResult(store, 'exec', new Date(), [], {
+      turnMessageId,
+      interrupted: true,
+    });
+
+    expect(result).toMatchObject({ success: true, response: '' });
   });
 });
 

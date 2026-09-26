@@ -12,7 +12,11 @@ import {
   stopSupervisedSession,
 } from './supervised-session-control.js';
 
-import { runConfirmedAttach, type TAttachedViewRender } from './session-attach-command.js';
+import {
+  runConfirmedAttach,
+  supervisedSessionAttachView,
+  type TAttachedViewRender,
+} from './session-attach-command.js';
 
 import type { TSettingsData } from '@robota-sdk/agent-framework';
 import type { renderSupervisedSessionView, TSupervisedViewExit } from '@robota-sdk/agent-ui-terminal';
@@ -176,10 +180,11 @@ export async function runSessionViewCommand(
         id: ended.id,
         mode: ended.mode,
         generation: ended.generation,
-        sessionLabel: rows.find((row) => row.id === ended.id)?.name ?? ended.id,
         root,
-        render: options.renderAttached,
-        screenReader: {
+        ...supervisedSessionAttachView(ended.id, {
+          render: options.renderAttached,
+          mode: ended.mode,
+          sessionLabel: rows.find((row) => row.id === ended.id)?.name ?? ended.id,
           announce: false,
           screenReader: screenReader.screenReader,
           ...(screenReader.screenReaderChannel !== undefined
@@ -188,7 +193,7 @@ export async function runSessionViewCommand(
           ...(screenReader.screenReaderHint !== undefined
             ? { screenReaderHint: screenReader.screenReaderHint }
             : {}),
-        },
+        }),
       });
     }
   } catch {

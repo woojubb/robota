@@ -49,25 +49,35 @@ function parseDaemonArgs(args: readonly string[]): TAction | undefined {
   return { action, json: flag === '--json' };
 }
 
-/** This workspace's live daemon, the first by id when more than one answers. */
-async function findDaemon(
-  options: IDaemonCommandOptions,
+/** A workspace's live daemon, bound to the process start it was listed with. */
+export type TWorkspaceDaemon = ISupervisedSessionRow & { readonly generation: string };
+
+/**
+ * The live daemon of `workspace` (a real path), the first by id when more than one answers. Every
+ * command that reaches "this workspace's daemon" finds it here, so they cannot disagree about which.
+ */
+export async function findWorkspaceDaemon(
   workspace: string,
-): Promise<(ISupervisedSessionRow & { readonly generation: string }) | undefined> {
-  const rows = await (options.list ?? listSupervisedSessions)(options.root, undefined, {
-    cwd: workspace, includeCwd: true, includeGeneration: true, includeDaemon: true,
+  lookup: { readonly root?: string; readonly list?: typeof listSupervisedSessions } = {},
+): Promise<TWorkspaceDaemon | undefined> {
+  const rows = await (lookup.list ?? listSupervisedSessions)(lookup.root, undefined, {
+    cwd: workspace, includeCwd: true, includeGeneration: true, includeDaemon: true, includeName: true,
   });
   return rows
-    .filter((row): row is ISupervisedSessionRow & { readonly generation: string } =>
+    .filter((row): row is TWorkspaceDaemon =>
       row.daemon === true && row.liveness === 'alive' && row.control === 'available' &&
       row.cwd === workspace && row.generation !== undefined)
     .sort((a, b) => a.id.localeCompare(b.id))[0];
 }
 
+function findDaemon(options: IDaemonCommandOptions, workspace: string): Promise<TWorkspaceDaemon | undefined> {
+  return findWorkspaceDaemon(workspace, options);
+}
+
 /** A running daemon that cannot hand over its connection blocks every later start until it is stopped. */
 async function connectRunning(
   options: IDaemonCommandOptions,
-  running: ISupervisedSessionRow & { readonly generation: string },
+  running: TWorkspaceDaemon,
 ): Promise<string> {
   try {
     return await (options.connect ?? connectSupervisedDaemon)(running.id, options.root, running.generation);

@@ -12,7 +12,11 @@
  */
 
 import type { ICommandSkillListEntry } from '../commands/index.js';
-import type { ICommandListEntry } from '@robota-sdk/agent-interface-command';
+import type {
+  ICommandListEntry,
+  TCommandRunner,
+  TCommandSurface,
+} from '@robota-sdk/agent-interface-command';
 
 /** The internal command shape these projections read. Structural, so the executor stays uncoupled. */
 interface ISourceCommand {
@@ -21,6 +25,8 @@ interface ISourceCommand {
   readonly description: string;
   readonly example?: string;
   readonly modelInvocable?: boolean;
+  readonly runner?: TCommandRunner;
+  readonly surfaces?: readonly TCommandSurface[];
 }
 
 /** The internal skill shape these projections read. */
@@ -38,6 +44,9 @@ interface ISourceSkill {
 /**
  * SEC-008: `modelInvocable` is CARRIED, not dropped. Absent means NOT model-invocable — the safe
  * reading of a command that never opted in.
+ *
+ * `runner` is resolved here the same way: a command that declares none runs on the runtime, and
+ * this is the one place that says so, so no consumer of the listing has to.
  */
 export function toCommandListEntry(cmd: ISourceCommand): ICommandListEntry {
   return {
@@ -46,6 +55,8 @@ export function toCommandListEntry(cmd: ISourceCommand): ICommandListEntry {
     description: cmd.description,
     ...(cmd.example !== undefined ? { example: cmd.example } : {}),
     modelInvocable: cmd.modelInvocable === true,
+    runner: cmd.runner ?? 'runtime',
+    ...(cmd.surfaces !== undefined ? { surfaces: cmd.surfaces } : {}),
   };
 }
 

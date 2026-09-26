@@ -3,8 +3,9 @@
 ## Purpose
 
 This package owns the **command contract family**: what a command is, what it returns, how it is
-listed and invoked, the plugin surfaces a command host exposes, and the capability descriptors a
-command declares about itself. It contains type declarations only — no class, no runtime logic,
+listed and invoked, who runs it (the runtime that owns the session, or the client the user types
+into), the plugin surfaces a command host exposes, and the capability descriptors a command
+declares about itself. It contains type declarations only — no class, no runtime logic,
 no mechanism, and no runtime value except a small set of discriminators.
 
 **This package declares what a command IS; it decides nothing about what any command DOES.**

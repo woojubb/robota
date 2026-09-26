@@ -8,7 +8,9 @@
  * - `attw` (Are The Types Wrong) finds no type-resolution problem for Node 16+ ESM/CJS and bundlers.
  *   Subpaths that declare no `require` condition are ESM-only by design and are left out of attw;
  * - no browser entry (a `dist/browser/` file named in `exports`) reaches a `node:` builtin through its
- *   static imports. Dynamically imported chunks are Node-only paths loaded on demand and are allowed.
+ *   static imports. Dynamically imported chunks are Node-only paths loaded on demand and are allowed;
+ * - `./package.json` is exported (a strict `exports` map otherwise hides it from
+ *   `require('<package>/package.json')`) and the package's CHANGELOG.md ships with it.
  *
  * Usage: node scripts/publish/verify-tarballs.mjs <directory-with-tgz-files>
  */
@@ -105,6 +107,9 @@ export function verifyTarball(tarball) {
     .filter((entry) => !files.has(entry))
     .map((entry) => `declares ${entry} but the tarball does not contain it`);
   if (raw.includes('"workspace:')) problems.push('still contains a workspace: specifier');
+  if (manifest.exports && manifest.exports['./package.json'] !== './package.json')
+    problems.push('does not export ./package.json');
+  if (!files.has('CHANGELOG.md')) problems.push('does not ship CHANGELOG.md');
   const esmOnly = esmOnlySubpaths(manifest);
   problems.push(
     ...runTool('publint', tarball),

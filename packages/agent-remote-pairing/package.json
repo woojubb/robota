@@ -51,7 +51,8 @@
           "default": "./dist/node/local/index.cjs"
         }
       }
-    }
+    },
+    "./package.json": "./package.json"
   },
   "repository": {
     "type": "git",
@@ -66,7 +67,8 @@
   },
   "files": [
     "dist",
-    "src"
+    "src",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "rimraf dist && tsdown",

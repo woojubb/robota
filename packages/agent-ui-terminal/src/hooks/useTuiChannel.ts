@@ -23,7 +23,7 @@ import type {
   IExecutionDetailPage,
   IExecutionWorkspaceSnapshot,
 } from '@robota-sdk/agent-interface-execution';
-import type { IToolState } from '@robota-sdk/agent-interface-session';
+import type { IResumableSessionSummary, IToolState } from '@robota-sdk/agent-interface-session';
 
 export interface ITuiChannelState {
   uiEventPort: ITuiSessionUiEventPort;
@@ -49,6 +49,8 @@ export interface ITuiChannelState {
   /** CMD-004: the unified action awaiting a user answer, or null. */
   pendingUserAction: IActionRequest | null;
   contextState: { percentage: number; usedTokens: number; maxTokens: number };
+  /** The host's sessions for the picker, when the channel's host keeps them. */
+  hostSessions: readonly IResumableSessionSummary[] | undefined;
   handleSubmit: (input: string) => Promise<void>;
   handleAbort: () => void;
   handleCancelQueue: () => void;
@@ -115,6 +117,7 @@ export function useTuiChannel(channel: ITuiAppChannelPort): ITuiChannelState {
     permissionRequest: snapshot.permissionRequest,
     pendingUserAction: snapshot.pendingUserAction,
     contextState: snapshot.contextState,
+    hostSessions: snapshot.hostSessions,
     handleSubmit: (input) => channel.handleInput(input),
     handleAbort: () => channel.abort(),
     handleCancelQueue: () => channel.cancelQueue(),

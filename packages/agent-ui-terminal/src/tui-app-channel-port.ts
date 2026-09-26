@@ -14,7 +14,11 @@ import type {
   IExecutionDetailPage,
   IExecutionWorkspaceSnapshot,
 } from '@robota-sdk/agent-interface-execution';
-import type { IInteractiveSessionEvents, IToolState } from '@robota-sdk/agent-interface-session';
+import type {
+  IInteractiveSessionEvents,
+  IResumableSessionSummary,
+  IToolState,
+} from '@robota-sdk/agent-interface-session';
 
 export interface ITuiCommandQueryPort {
   getCommands(filter?: string): ICommand[];
@@ -33,6 +37,8 @@ export interface ITuiRuntimeStatusSnapshot {
   sessionId: string;
   activePresetId?: string;
   effort?: TModelEffortSelection;
+  /** The model the session reports, when its host says; absent ⇒ the one this terminal was started with. */
+  modelId?: string;
 }
 
 export interface ITuiChannelSnapshot {
@@ -52,6 +58,11 @@ export interface ITuiChannelSnapshot {
   permissionRequest: IPendingPermissionRequest | null;
   pendingUserAction: IActionRequest | null;
   contextState: { percentage: number; usedTokens: number; maxTokens: number };
+  /**
+   * The sessions the session picker offers, when the host keeps them (a terminal attached to a
+   * daemon). Absent ⇒ the picker lists this terminal's own session store.
+   */
+  hostSessions?: readonly IResumableSessionSummary[];
 }
 
 /**

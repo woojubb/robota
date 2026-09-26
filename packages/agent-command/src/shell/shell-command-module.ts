@@ -14,6 +14,9 @@ export function createShellCommandEntry(): ICommand {
     source: 'shell',
     // User-only: the user's own shell passthrough; the model has its permission-gated shell tool.
     modelInvocable: false,
+    // It takes over the terminal the user sits at, so that terminal runs it, even when attached.
+    runner: 'client',
+    surfaces: ['terminal'],
   };
 }
 
@@ -26,6 +29,8 @@ function createShellSystemCommand(executable?: string): ISystemCommand {
     requiresPermission: true,
     userInvocable: true,
     modelInvocable: false,
+    runner: entry.runner,
+    surfaces: entry.surfaces,
     lifecycle: 'inline',
     execute: (context, args) => executeShellCommand(context, args, executable),
   };

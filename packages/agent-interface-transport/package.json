@@ -51,7 +51,8 @@
           "default": "./dist/node/testing/index.cjs"
         }
       }
-    }
+    },
+    "./package.json": "./package.json"
   },
   "repository": {
     "type": "git",
@@ -62,7 +63,8 @@
     "url": "https://github.com/woojubb/robota/issues"
   },
   "files": [
-    "dist"
+    "dist",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "rimraf dist && tsdown",

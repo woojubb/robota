@@ -42,6 +42,19 @@ const oneOf =
   (members: readonly string[]) =>
   (v: unknown): boolean =>
     typeof v === 'string' && members.includes(v);
+/** A record, not an array, so a turn source added to the union without one here fails to compile. */
+const TURN_SOURCES: Readonly<
+  Record<Extract<TServerMessage, { type: 'turn_source' }>['source'], true>
+> = { user: true, 'agent-wakeup': true, peer: true, external: true };
+/** A history entry's envelope is this package's (`IWireHistoryEntry`); its `data` is the recorder's. */
+const isWireHistoryEntry = (v: unknown): boolean =>
+  isRecord(v) &&
+  isString(v['id']) &&
+  isString(v['timestamp']) &&
+  isString(v['category']) &&
+  isString(v['type']);
+const isWireHistoryEntries = (v: unknown): boolean =>
+  Array.isArray(v) && v.every(isWireHistoryEntry);
 
 type TFieldCheck = (value: unknown) => boolean;
 type TVariantShape = Readonly<Record<string, TFieldCheck>>;
@@ -86,6 +99,7 @@ export const CLIENT_MESSAGE_SHAPES: Readonly<Record<TClientMessage['type'], TVar
   abort: {},
   'cancel-queue': {},
   'get-messages': {},
+  'get-history': {},
   'get-context': {},
   'get-commands': {},
   'get-status': {},
@@ -137,7 +151,10 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
   error: { message: isString, ...authored },
   command_result: { name: isString, message: isString, success: isBoolean },
   messages: { messages: isRecordArray },
+  history: { entries: isWireHistoryEntries },
   context: { state: isRecord },
+  history_changed: {},
+  turn_source: { source: oneOf(Object.keys(TURN_SOURCES)) },
   commands: { commands: isRecordArray, skills: isRecordArray },
   session_status: { status: isRecord },
   sessions: { requestId: isNonEmptyString, listing: isRecord },

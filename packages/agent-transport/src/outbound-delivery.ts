@@ -64,8 +64,8 @@ export type TOutboundDeliver = ((message: TServerMessage) => void) & {
 
 /**
  * Observe THIS connection's first outbound delivery failure. `event` is the `type` of the frame that
- * could not be delivered — a session event's own name for the fan-out (they are identical), and the
- * reply's type for a reply (`command_result`, `protocol_error`, …).
+ * could not be delivered — for the fan-out, the frame a session event was forwarded as (usually, not
+ * always, the event's own name), and the reply's type for a reply (`command_result`, `protocol_error`, …).
  *
  * Required, never optional: a carrier that could opt out of observing its own delivery failures is the
  * silent-failure shape this boundary exists to remove.
