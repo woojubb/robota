@@ -14,7 +14,10 @@ import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 
 import { findProviderDefinition, getProviderCredentialRequirement } from '@robota-sdk/agent-core';
-import { ConnectionAuthority } from '@robota-sdk/agent-interface-session-mobility';
+import {
+  ConnectionAuthority,
+  assessHandoffReadiness,
+} from '@robota-sdk/agent-interface-session-mobility';
 
 import { loadDevicePrivateKeys } from '../devices/identity-keys.js';
 import { readIdentityState } from '../devices/identity-state.js';
@@ -131,6 +134,16 @@ async function loadSigner(
     : { userId: state.userId, signPrivateKey: keys.signPrivateKey };
 }
 
+/** Whether two saved snapshots of one session are the same state of it. */
+function sameSnapshot(a: IInteractiveSessionRecord, b: IInteractiveSessionRecord): boolean {
+  return (
+    a.id === b.id &&
+    a.updatedAt === b.updatedAt &&
+    a.messages.length === b.messages.length &&
+    (a.history?.length ?? 0) === (b.history?.length ?? 0)
+  );
+}
+
 function stopped(reason: string): IHandoffProgress {
   return { state: 'stopped', reason, stillMine: true };
 }
@@ -190,6 +203,24 @@ export function createHandoffHostAdapter(deps: IHandoffHostAdapterDeps): IComman
       current = { state, stillMine: true };
       onProgress?.(current);
     };
+    const runtime = {
+      modelCallInFlight: session.isExecuting(),
+      subprocesses: behind.subprocesses,
+      uncommittedChanges: behind.uncommittedChanges,
+    };
+    // Settled now, not when the first attempt was made: a resend is refused mid-turn like any offer.
+    const readiness = assessHandoffReadiness(runtime);
+    if (!readiness.ready) return stopped(readiness.detail);
+    if (unsettled !== undefined && !sameSnapshot(unsettled.request.record, record)) {
+      // The session moved on since the copy that may already be saved there, so that copy is not
+      // resent. The operator is told once; the next /handoff is a new transfer of the current state.
+      unsettled = undefined;
+      return stopped(
+        `this session changed since the hand-off to ${target} that was not confirmed, so ${target} ` +
+          'may hold an older copy of it. Check it there; /handoff again sends the current session ' +
+          'as a new transfer',
+      );
+    }
     // A transfer whose answer was lost is sent again as itself, so a receiver that already saved it
     // answers with the same acknowledgement instead of saving a second copy.
     const request: IHandoffManifestRequest = unsettled?.request ?? {
@@ -198,11 +229,7 @@ export function createHandoffHostAdapter(deps: IHandoffHostAdapterDeps): IComman
       sourceDeviceId: deps.peers.ownSessionId(),
       destinationDeviceId: target,
       record,
-      runtime: {
-        modelCallInFlight: session.isExecuting(),
-        subprocesses: behind.subprocesses,
-        uncommittedChanges: behind.uncommittedChanges,
-      },
+      runtime,
       offeredAt: now(),
     };
     const { outcome } = await pushHandoff({

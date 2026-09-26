@@ -594,6 +594,69 @@ describe('the /handoff adapter over the peer channel', () => {
     expect(onHandedOff).toHaveBeenCalledTimes(1);
   }, 30_000);
 
+  /** An adapter whose first push loses its ack; the live session can then be changed. */
+  async function afterLostAck() {
+    const { a, saved } = await sessions({ approver: operator(true) });
+    let dropAck = true;
+    let executing = false;
+    let stored = record();
+    const { handoff, onHandedOff } = adapter(a, {
+      idleMs: 1_000,
+      sessionStore: {
+        load: (id) =>
+          id === stored.id ? { status: 'valid', record: stored } : { status: 'missing' },
+        save: () => {},
+        list: () => [],
+        delete: () => {},
+      },
+      getSession: () => ({
+        getSessionId: () => 'session-1',
+        getCwd: () => scratch,
+        isExecuting: () => executing,
+      }),
+      openChannel: () => (target) =>
+        tapped(a.openHandoffChannel(target), {
+          in: (frame) => !(dropAck && frame.includes('"t":"handoff-ack"')),
+        }),
+    });
+    expect((await handoff.transfer('B')).stillMine).toBe(true);
+    dropAck = false;
+    return {
+      handoff,
+      onHandedOff,
+      saved,
+      setExecuting: (value: boolean) => (executing = value),
+      setStored: (next: IInteractiveSessionRecord) => (stored = next),
+    };
+  }
+
+  it('does not resend while a turn is running: readiness is checked again', async () => {
+    const { handoff, onHandedOff, saved, setExecuting } = await afterLostAck();
+    setExecuting(true);
+    const again = await handoff.transfer('B');
+    expect(again.stillMine).toBe(true);
+    expect(again.reason).toContain('turn is still running');
+    expect(saved).toHaveLength(1);
+    expect(onHandedOff).not.toHaveBeenCalled();
+  }, 30_000);
+
+  it('does not resend an older copy once the session moved on, and says the other side may hold it', async () => {
+    const { handoff, onHandedOff, saved, setStored } = await afterLostAck();
+    setStored({
+      ...record([message(0, 'move me'), message(1, 'a later turn')]),
+      updatedAt: '2026-08-21T02:00:00.000Z',
+    });
+    const again = await handoff.transfer('B');
+    expect(again.stillMine).toBe(true);
+    expect(again.reason).toContain('older copy');
+    expect(saved).toHaveLength(1);
+    expect(onHandedOff).not.toHaveBeenCalled();
+    // Told once; the next /handoff sends the current session as a new transfer.
+    expect(await handoff.transfer('B')).toEqual({ state: 'done', stillMine: false });
+    expect(saved).toHaveLength(2);
+    expect(saved[1]?.messages).toHaveLength(2);
+  }, 30_000);
+
   it('says which command to run when this device has no identity to sign with', async () => {
     const { a } = await sessions({ approver: operator(true) });
     const { handoff, onHandedOff } = adapter(a, { root: path.join(scratch, 'no-identity') });
