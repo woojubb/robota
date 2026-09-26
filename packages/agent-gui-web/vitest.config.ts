@@ -3,8 +3,8 @@ import { defineConfig, mergeConfig } from 'vitest/config';
 import { resourceCeiling } from '../../vitest.shared';
 
 /**
- * Issue #2167: the entry composition's contracts (WS URL selection, root admission, error-boundary
- * state) are pure functions and a static method, so they run under node — no DOM emulation needed.
+ * The entry's contracts (host resolution, WS URL selection, root admission, error-boundary state) run
+ * under node; a suite that renders components opts into jsdom with a `@vitest-environment` docblock.
  */
 export default mergeConfig(
   resourceCeiling,

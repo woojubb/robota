@@ -1,15 +1,20 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+// @vitest-environment jsdom
+import { render, screen, fireEvent, cleanup } from '@testing-library/react';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 
 import { SessionSurface } from '@robota-sdk/agent-ui-web/client';
 
 import type { IWsSessionState } from '@robota-sdk/agent-ui-web/client';
 
 /**
- * GUI-005 TC-01/TC-02 — the desktop app renders a session over the GUI core's reducer state and answers
+ * GUI-005 TC-01/TC-02 — the GUI web app renders a session over the GUI core's reducer state and answers
  * prompts, WITHOUT any session logic of its own (it only calls `send`/`answerPermission`/`answerAsk`). This
  * exercises the shared `SessionSurface` (agent-ui-web) as the app mounts it.
  */
+
+// jsdom has no layout; the conversation's auto-scroll calls this.
+Element.prototype.scrollIntoView = () => undefined;
+afterEach(cleanup);
 
 function stubState(over: Partial<IWsSessionState> = {}): IWsSessionState {
   return {
@@ -159,7 +164,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(state.answerPermission).toHaveBeenCalledWith('p1', true);
   });
 
-  it('#3186: a docked question answers by number key and Esc cancels it', () => {
+  it('#3186: a docked question takes focus, answers by number key, and Esc cancels it', () => {
     const state = stubState({
       pendingPrompts: [
         {
@@ -176,10 +181,11 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
       ] as unknown as IWsSessionState['pendingPrompts'],
     });
     const { unmount } = render(<SessionSurface state={state} />);
-    expect(screen.getByRole('dialog', { name: 'pending question' })).toBeTruthy();
-    fireEvent.keyDown(window, { key: '2' });
+    const dialog = screen.getByRole('dialog', { name: 'pending question' });
+    expect(document.activeElement).toBe(dialog);
+    fireEvent.keyDown(dialog, { key: '2' });
     expect(state.answerAsk).toHaveBeenCalledWith('a1', { type: 'answer', values: ['en'] });
-    fireEvent.keyDown(window, { key: 'Escape' });
+    fireEvent.keyDown(dialog, { key: 'Escape' });
     expect(state.answerAsk).toHaveBeenCalledWith('a1', { type: 'cancelled' });
     unmount();
   });

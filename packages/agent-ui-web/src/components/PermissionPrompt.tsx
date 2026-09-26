@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 import type { TPendingPrompt } from '../hooks/prompt-state.js';
 import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
@@ -11,8 +11,8 @@ import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
  * until answered, so this is on the critical path — not decorative.
  *
  * `modal` covers the page; `dock` sits above the composer, as desktop agent apps place a pending
- * question next to where the answer is typed, and takes the keyboard: 1–9 picks an option, Esc
- * cancels a question or denies a permission.
+ * question next to where the answer is typed. It takes focus when it appears: 1–9 picks an option,
+ * Esc cancels a question or denies a permission.
  */
 interface IPermissionPromptProps {
   prompts: readonly TPendingPrompt[];
@@ -28,28 +28,11 @@ export function PermissionPrompt({
   layout = 'modal',
 }: IPermissionPromptProps): React.ReactElement | null {
   const prompt = prompts[0];
+  const dockRef = useRef<HTMLDivElement>(null);
+  // The question takes focus when it appears, so its keys answer it rather than type into the composer.
   useEffect(() => {
-    if (!prompt || layout !== 'dock') return undefined;
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        if (prompt.kind === 'permission') onAnswerPermission(prompt.id, false);
-        else onAnswerAsk(prompt.id, { type: 'cancelled' });
-        return;
-      }
-      const index = Number(event.key) - 1;
-      if (!Number.isInteger(index) || index < 0 || event.target instanceof HTMLTextAreaElement)
-        return;
-      if (prompt.kind === 'permission') {
-        if (index < 2) onAnswerPermission(prompt.id, index === 0);
-        return;
-      }
-      const option = prompt.request.options?.[index];
-      if (option) onAnswerAsk(prompt.id, { type: 'answer', values: [option.value] });
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [prompt, layout, onAnswerPermission, onAnswerAsk]);
+    if (prompt && layout === 'dock') dockRef.current?.focus();
+  }, [prompt?.id, layout]);
   if (!prompt) return null;
 
   // REMOTE-014 E5 (display-only): the prompt belongs to the driver whose turn raised it. Shown so the owner
@@ -62,6 +45,22 @@ export function PermissionPrompt({
     requester && requester.length > 12 ? `${requester.slice(0, 8)}…` : requester;
 
   const dock = layout === 'dock';
+  const onDockKey = (event: React.KeyboardEvent): void => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      if (prompt.kind === 'permission') onAnswerPermission(prompt.id, false);
+      else onAnswerAsk(prompt.id, { type: 'cancelled' });
+      return;
+    }
+    const index = Number(event.key) - 1;
+    if (!Number.isInteger(index) || index < 0) return;
+    if (prompt.kind === 'permission') {
+      if (index < 2) onAnswerPermission(prompt.id, index === 0);
+      return;
+    }
+    const option = prompt.request.options?.[index];
+    if (option) onAnswerAsk(prompt.id, { type: 'answer', values: [option.value] });
+  };
   return (
     <div
       className={
@@ -71,11 +70,14 @@ export function PermissionPrompt({
       }
     >
       <div
+        ref={dock ? dockRef : undefined}
+        tabIndex={dock ? -1 : undefined}
+        onKeyDown={dock ? onDockKey : undefined}
         role={dock ? 'dialog' : undefined}
         aria-label={dock ? 'pending question' : undefined}
         className={
           dock
-            ? 'w-full rounded-xl border border-primary/30 bg-card p-4 font-mono text-[13px] shadow-lg shadow-black/30'
+            ? 'w-full rounded-xl border border-primary/30 bg-card p-4 font-mono text-[13px] shadow-lg shadow-black/30 focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/40'
             : 'w-full max-w-md rounded-lg bg-[var(--card)] p-5 font-mono text-[13px] shadow-xl'
         }
       >
