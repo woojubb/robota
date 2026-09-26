@@ -27,7 +27,7 @@ vi.mock('openai', () => {
   return { default: MockOpenAI };
 });
 
-interface IFakeResponsesClient {
+interface IFakeOpenAIClient {
   responses: { create: ReturnType<typeof vi.fn> };
   chat: { completions: { create: ReturnType<typeof vi.fn> } };
 }
@@ -50,7 +50,7 @@ async function sendChat(
   provider: OpenAIProvider,
   tools: IToolSchema[],
 ): Promise<Record<string, unknown>> {
-  const client = (provider as unknown as { client: IFakeResponsesClient }).client;
+  const client = (provider as unknown as { client: IFakeOpenAIClient }).client;
   client.responses.create.mockResolvedValue(fakeResponsesResult());
   await provider.chat([createUserMessage('hello')], { model: 'gpt-4o', tools });
   const [requestParams] = client.responses.create.mock.calls[
@@ -64,7 +64,7 @@ async function sendChatCompletions(
   provider: OpenAIProvider,
   tools: IToolSchema[],
 ): Promise<Record<string, unknown>> {
-  const client = (provider as unknown as { client: IFakeResponsesClient }).client;
+  const client = (provider as unknown as { client: IFakeOpenAIClient }).client;
   client.chat.completions.create.mockResolvedValue({
     id: 'chatcmpl-strict-tools',
     object: 'chat.completion',

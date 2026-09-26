@@ -206,7 +206,8 @@ describe('OpenAI-compatible message converter', () => {
     const [strictTool] = convertToOpenAICompatibleTools(tools, { strict: true });
     const [plainTool] = convertToOpenAICompatibleTools(tools, { strict: false });
 
-    expect(strictTool?.type === 'function' && strictTool.function.strict).toBe(true);
-    expect(plainTool?.type === 'function' && 'strict' in plainTool.function).toBe(false);
+    expect(strictTool?.function).toHaveProperty('strict', true);
+    expect(plainTool?.function).toBeDefined();
+    expect(plainTool?.function).not.toHaveProperty('strict');
   });
 });
