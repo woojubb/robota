@@ -32,7 +32,8 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/woojubb/robota.git"
+    "url": "https://github.com/woojubb/robota.git",
+    "directory": "packages/agent-transport-webrtc"
   },
   "homepage": "https://robota.io/",
   "bugs": {

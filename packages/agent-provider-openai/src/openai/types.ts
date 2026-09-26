@@ -93,7 +93,7 @@ export interface IOpenAIProviderOptions {
    * @example
    * ```ts
    * // Vercel AI Gateway with a non-OpenAI model slug
-   * createOpenAIProvider({
+   * new OpenAIProvider({
    *   apiKey: process.env.AI_GATEWAY_API_KEY,
    *   baseURL: 'https://ai-gateway.vercel.sh/v1',
    *   defaultModel: 'anthropic/claude-sonnet-4-5',

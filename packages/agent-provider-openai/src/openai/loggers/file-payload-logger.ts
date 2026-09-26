@@ -89,8 +89,9 @@ export class FilePayloadLogger implements IPayloadLogger {
         payload: sanitizeOpenAILogData(payload),
       };
 
-      // SEC-003: payload logs contain prompt/response content and `logDir` is
-      // caller-supplied, so create them owner-only rather than under the process umask.
+      // SEC-003: payload logs record the caller's request history (a request summary, not
+      // prompt/response content) and `logDir` is caller-supplied, so create them owner-only
+      // rather than under the process umask.
       await fs.promises.writeFile(filepath, JSON.stringify(logData, null, 2), {
         encoding: 'utf8',
         mode: OWNER_ONLY_FILE_MODE,

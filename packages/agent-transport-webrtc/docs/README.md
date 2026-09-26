@@ -1,23 +1,30 @@
 # @robota-sdk/agent-transport-webrtc
 
-WebRTC P2P transport for the Robota SDK (REMOTE-001). Carries an `IInteractiveSession` over an `RTCDataChannel`
-so an external remote client can co-drive a live `agent-cli` session directly, peer-to-peer — session content
-never routes through a server. It reuses the same transport-neutral session bridge + wire protocol as the
-WebSocket transport (`createSessionMessageHandler` from `@robota-sdk/agent-transport`).
+WebRTC P2P transport for the Robota SDK. Carries an `IProtocolSession` (a full interactive session is a valid
+one) over an `RTCDataChannel` so an external remote client can co-drive a live `agent-cli` session directly,
+peer-to-peer — session content never routes through a server. It reuses the same transport-neutral session
+bridge + wire protocol as the WebSocket transport (`createSessionMessageHandler` from `@robota-sdk/agent-transport`).
 Host-injected personal/current/stored-session usage reporters follow the admitted direct, paired, and
 reconnecting channel paths; reconnecting through `SessionResumeBridge` does not drop those capabilities.
 
-> **Stage A status:** `defaultEnabled: false`, no pairing/auth, no `/remote-control` command, not registered in
-> `agent-cli`. Exercised only by loopback tests. Pairing/auth + the enable path land in Stage B.
+> **Status:** `defaultEnabled: false` — nothing starts it automatically. Admission is decided at construction:
+> with a pairing `secret` the data channel is pairing-gated (the session is exposed only after the pairing
+> handshake accepts, bound to the DTLS fingerprints); without one the constructor throws unless the caller passes
+> `open: true` with a written `openReason`. `agent-cli` uses it for `/remote-control`: its remote-control
+> controller builds a pairing-gated transport over a `WsSignalingClient` and starts it when the command enables
+> remote control.
 
-## Usage (loopback / test shape)
+## Usage
 
 ```ts
 import { WebRtcTransport, createInMemorySignalingPair } from '@robota-sdk/agent-transport-webrtc';
 
 const [hostSignaling] = createInMemorySignalingPair();
-const transport = new WebRtcTransport({ signaling: hostSignaling });
-transport.attach(session); // an IInteractiveSession
+const transport = new WebRtcTransport({
+  signaling: hostSignaling,
+  secret: pairingSecret, // shared with the remote client; or `open: true, openReason: '…'` for loopback tests
+});
+transport.attach(session); // an IProtocolSession
 await transport.start(); // offerer: opens the peer, data channel, and sends the SDP offer
 // ...
 await transport.stop();
