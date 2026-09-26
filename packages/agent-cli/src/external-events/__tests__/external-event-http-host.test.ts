@@ -203,6 +203,7 @@ async function start(
   const http = createExternalEventHttpHost({
     grants,
     receive: (grantId, delivery) => grantHost.receive(grantId, delivery),
+    countRefusal: (grantId, refusal) => grantHost.countRefusal(grantId, refusal),
     port: 0,
     audit: (record) => audit.push(record),
   });
@@ -291,6 +292,46 @@ describe('external event HTTPS endpoint', () => {
     ).toMatchObject({ status: 400, body: '' });
     grantHost.revoke('ci');
     expect(await send(port, { token: await mint() })).toMatchObject({ status: 403, body: '' });
+  });
+
+  it('tells a revoked grant apart only to a caller holding a valid token for it', async () => {
+    const { port, grantHost, audit } = await start();
+    const answers = async () => {
+      const missing = await send(port);
+      const invalid = await send(port, { token: await mint({ key: stranger.privateKey }) });
+      const otherGrant = await send(port, {
+        token: await mint({ grantId: 'chat', client: 'chat-bot' }),
+      });
+      return [missing, invalid, otherGrant].map(({ status, body, headers }) => ({
+        status,
+        body,
+        challenge: headers['www-authenticate'],
+      }));
+    };
+    const live = await answers();
+    grantHost.revoke('ci');
+    expect(await answers()).toEqual(live);
+    expect(live.map((answer) => answer.status)).toEqual([401, 401, 401]);
+    expect(await send(port, { token: await mint() })).toMatchObject({ status: 403, body: '' });
+    // The owner's trail still names what happened.
+    expect(audit.at(-1)).toMatchObject({ grantId: 'ci', refusal: 'grant-revoked' });
+    expect(audit.slice(3, 6).map((record) => 'refusal' in record && record.refusal)).toEqual([
+      'missing-token',
+      'bad-signature',
+      'wrong-audience',
+    ]);
+  });
+
+  it('counts the refusals the endpoint decides against the grant it addressed', async () => {
+    const { port, grantHost } = await start();
+    await send(port);
+    await send(port, { token: await mint(), body: 'x'.repeat(16 * 1024 + 1) });
+    await send(port, { path: '/hooks/events/nope', token: await mint() });
+    expect(grantHost.list().find((row) => row.grantId === 'ci')?.counters.refused).toEqual({
+      'missing-token': 1,
+      oversize: 1,
+    });
+    expect(grantHost.list().find((row) => row.grantId === 'chat')?.counters.refused).toEqual({});
   });
 
   it('holds the grant rate: over the limit is 429 before the queue', async () => {
@@ -424,6 +465,61 @@ describe('external event HTTPS endpoint', () => {
       [401, 429],
       [429, 429],
     ]);
+  });
+
+  it('answers an oversize body with 413 and a graceful close, however much the client still sends', async () => {
+    const { port } = await start();
+    const token = await mint();
+    // Up to the drain bound the client always gets its answer; past it, cutting the connection is allowed.
+    for (const size of [16 * 1024 + 1, 64 * 1024, 512 * 1024, 1000 * 1024]) {
+      // Four sizes, four tries each: under the address failure budget, so no answer is a 429.
+      for (let attempt = 0; attempt < 4; attempt += 1) {
+        const reply = await send(port, { token, body: 'x'.repeat(size) });
+        expect(reply).toMatchObject({ status: 413, body: '' });
+        expect(reply.headers.connection).toBe('close');
+      }
+    }
+  });
+
+  it('audits and counts a body past the drain bound even when the connection is cut', async () => {
+    const { port, audit, grantHost } = await start();
+    const token = await mint();
+    const outcome = (chunked: boolean) =>
+      new Promise<number | 'reset'>((resolve) => {
+        const size = 2 * 1024 * 1024;
+        const req = request(
+          {
+            host: '127.0.0.1',
+            port,
+            method: 'POST',
+            path: '/hooks/events/ci',
+            headers: {
+              host: HOST,
+              authorization: `Bearer ${token}`,
+              ...(chunked ? { 'transfer-encoding': 'chunked' } : { 'content-length': size }),
+            },
+          },
+          (res) => {
+            res.resume();
+            res.on('end', () => resolve(res.statusCode ?? 0));
+          },
+        );
+        req.on('error', () => resolve('reset'));
+        req.end('x'.repeat(size));
+      });
+    for (const chunked of [true, false]) {
+      // Past the bound the connection may be cut (RFC 9110); if an answer arrives it is the 413.
+      expect([413, 'reset']).toContain(await outcome(chunked));
+    }
+    await vi.waitFor(() =>
+      expect(
+        audit.filter((record) => 'refusal' in record && record.refusal === 'oversize'),
+      ).toHaveLength(2),
+    );
+    expect(audit.every((record) => record.grantId === 'ci')).toBe(true);
+    expect(grantHost.list().find((row) => row.grantId === 'ci')?.counters.refused).toEqual({
+      oversize: 2,
+    });
   });
 
   it('refuses a streamed body over the bound without reading it all', async () => {

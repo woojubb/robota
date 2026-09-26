@@ -120,7 +120,8 @@ describe('external event grants on a supervised session', () => {
       expect(await post(port, 'nope', 'x')).toMatchObject({ status: 404, body: '' });
       expect(await post(port, 'ci', 'not-a-token')).toMatchObject({ status: 401, body: '' });
       await revokeSupervisedExternalEventGrant(id, 'ci', root);
-      expect(await post(port, 'ci', 'not-a-token')).toMatchObject({ status: 403, body: '' });
+      // Revoked, yet a caller without a valid token sees exactly what a live grant answers.
+      expect(await post(port, 'ci', 'not-a-token')).toMatchObject({ status: 401, body: '' });
       // Refusals outlive the process in an owner-only trail that holds no token or content.
       const trail = join(root, 'audit', `${id}.jsonl`);
       expect(statSync(trail).mode & 0o777).toBe(0o600);
@@ -132,7 +133,7 @@ describe('external event grants on a supervised session', () => {
         'missing-token',
         'unknown-grant',
         'malformed',
-        'grant-revoked',
+        'malformed',
       ]);
       expect(readFileSync(trail, 'utf8')).not.toMatch(/not-a-token|hello|PRINCIPAL/);
       await expect(revokeSupervisedExternalEventGrant(id, 'nope', root)).rejects.toThrow(
@@ -151,7 +152,7 @@ describe('external event grants on a supervised session', () => {
                   state: 'revoked',
                   counters: {
                     accepted: 0,
-                    refused: { malformed: 1, 'grant-revoked': 1 },
+                    refused: { 'missing-token': 1, malformed: 2 },
                     settled: {},
                   },
                 },

@@ -65,7 +65,9 @@ describe('TUI external event grants', () => {
     expect(tui.adapter.revoke('nope')).toBe('unknown-grant');
     const next = fakeSession();
     await tui.bind(next);
-    expect(next.opened.map((options) => options.grant.grantId)).toEqual(['chat']);
+    // Reopened revoked on the new session, so that session can still verify a caller first.
+    expect(next.opened.map((options) => options.grant.grantId)).toEqual(['ci', 'chat']);
+    expect(next.closed).toEqual(['ci']);
     expect(tui.adapter.list().map((row) => [row.grantId, row.state])).toEqual([
       ['ci', 'revoked'],
       ['chat', 'open'],
@@ -157,7 +159,7 @@ describe('TUI external event grants', () => {
     expect(lines.at(-1)).toBe('External event grant ci: a turn ended failed.');
   });
 
-  it('routes a delivery to the bound session, refusing a revoked grant and an unbound TUI', async () => {
+  it('routes a delivery to the bound session, where only a verified caller learns of a revocation', async () => {
     const tui = createTuiExternalEventGrants([grant('ci'), grant('chat')], () => undefined);
     expect(await tui.receive('ci', { token: 't', event: {} })).toEqual({
       admitted: false,
@@ -170,8 +172,49 @@ describe('TUI external event grants', () => {
       refusal: 'expired',
     });
     tui.adapter.revoke('ci');
-    await tui.bind(fakeSession());
-    expect(await tui.receive('ci', { token: 't', event: {} })).toEqual({
+    // A session whose grants verify first and answer revoked only to a valid token.
+    const revokedIds = new Set<string>();
+    const verifying = {
+      // Like the real ingress: a label revoked on this session cannot be opened on it again.
+      openExternalEventSource: async (options: IExternalEventSourceOptions) => {
+        if (revokedIds.has(options.grant.grantId)) {
+          throw new Error(`external event grant ${options.grant.grantId} was revoked`);
+        }
+        return {
+          grantId: options.grant.grantId,
+          receive: async (delivery: unknown) => {
+            const token = (delivery as { token?: string }).token;
+            if (token !== 'valid')
+              return { admitted: false as const, refusal: 'bad-signature' as const };
+            return revokedIds.has(options.grant.grantId)
+              ? { admitted: false as const, refusal: 'grant-revoked' as const }
+              : {
+                  admitted: true as const,
+                  turnId: 'turn_1',
+                  settled: Promise.resolve({ outcome: 'completed' as const, response: '' }),
+                };
+          },
+          close: () => undefined,
+          revoke: () => revokedIds.add(options.grant.grantId),
+        };
+      },
+    };
+    await tui.bind(verifying);
+    expect(await tui.receive('ci', { token: 'forged', event: {} })).toEqual({
+      admitted: false,
+      refusal: 'bad-signature',
+    });
+    expect(await tui.receive('chat', { token: 'forged', event: {} })).toEqual({
+      admitted: false,
+      refusal: 'bad-signature',
+    });
+    expect(await tui.receive('ci', { token: 'valid', event: {} })).toEqual({
+      admitted: false,
+      refusal: 'grant-revoked',
+    });
+    // Binding the same session again keeps its grants rather than reopening them.
+    await tui.bind(verifying);
+    expect(await tui.receive('ci', { token: 'valid', event: {} })).toEqual({
       admitted: false,
       refusal: 'grant-revoked',
     });

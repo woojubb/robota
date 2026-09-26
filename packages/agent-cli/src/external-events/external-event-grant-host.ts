@@ -29,6 +29,8 @@ export interface IExternalEventGrantHost {
   /** Deliver to the grant a carrier addressed; a label this session does not hold is refused. */
   receive(grantId: string, delivery: unknown): Promise<TExternalEventAdmission>;
   revoke(grantId: string): 'revoked' | 'unknown-grant';
+  /** Count a refusal a carrier decided before the session saw the event. */
+  countRefusal(grantId: string, refusal: TExternalEventRefusal): void;
   list(): readonly IExternalEventGrantRow[];
   close(): void;
 }
@@ -109,6 +111,10 @@ export async function openExternalEventGrants(
       if (!receipt.admitted) return { admitted: false, refusal: receipt.refusal };
       entry.accepted += 1;
       return { admitted: true, turnId: receipt.turnId };
+    },
+    countRefusal: (grantId, refusal) => {
+      const entry = entries.get(grantId);
+      if (entry !== undefined) entry.refused[refusal] = (entry.refused[refusal] ?? 0) + 1;
     },
     revoke: (grantId) => {
       const entry = entries.get(grantId);
