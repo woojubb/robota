@@ -40,7 +40,8 @@ export interface INumberedSelection {
 export function useNumberedSelection(inputs: IUseNumberedSelectionInputs): INumberedSelection {
   const [state, setState] = useState<INumericSelectionState>(createNumericSelectionState);
   const stateRef = useRef(state);
-  const { enabled, itemCount, cancellable, multi, repeatable, onSelect, onCancel, onConfirm } = inputs;
+  const { enabled, itemCount, cancellable, multi, repeatable, onSelect, onCancel, onConfirm } =
+    inputs;
 
   const clear = useCallback((): void => {
     const empty = createNumericSelectionState();
@@ -67,6 +68,16 @@ export function useNumberedSelection(inputs: IUseNumberedSelectionInputs): INumb
 
   useInput(
     (input, key) => {
+      // Pasted or fast-typed input can arrive as one chunk ("2\r"): Ink then reports it as plain
+      // text with no return key. Replay it as the keystrokes it contains so the Enter is not lost.
+      if (key.return !== true && /[\r\n]/u.test(input)) {
+        const plainKey = { ...key, return: false };
+        input.split(/(\r\n|\r|\n)/u).forEach((part) => {
+          if (/^(\r\n|\r|\n)$/u.test(part)) handle('', { ...plainKey, return: true });
+          else if (part !== '') handle(part, plainKey);
+        });
+        return;
+      }
       handle(input, key);
     },
     { isActive: enabled },

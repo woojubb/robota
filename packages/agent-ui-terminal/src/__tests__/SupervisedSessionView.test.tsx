@@ -760,6 +760,21 @@ describe('supervised session view', () => {
     }
   });
 
+  it('selects when a typed number and Enter arrive in one input chunk', async () => {
+    const view = render(
+      <ScreenReaderProvider enabled>
+        <SupervisedSessionView loadRows={async () => [FIRST, THIRD]} />
+      </ScreenReaderProvider>,
+    );
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('2\r');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${THIRD.id}`));
+    } finally {
+      view.unmount();
+    }
+  });
+
   it('uses the same confirmed stop action after screen-reader selection', async () => {
     const stop = vi.fn(async () => undefined);
     const view = render(
