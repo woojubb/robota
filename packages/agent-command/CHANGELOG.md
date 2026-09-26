@@ -1,5 +1,128 @@
 # @robota-sdk/agent-command
 
+## 3.0.0-beta.81
+
+### Minor Changes
+
+- 44fc732: Add `/devices` for this device's identity among the user's devices: `list`, `init` (creates the identity: a recovery phrase, the master-certified signing key, this device's keys and certificate, the first roster and revocation list), `revoke <device-id>` (signing key only, no phrase; confirmed at the terminal) and `recover` (rotates the signing key from the phrase and revokes the old ones). Enrolling another device (`add` / `join`) comes with the device connection.
+
+  The recovery phrase never enters the session: it is shown once and read with no echo on the controlling terminal (opened apart from the session's input), on the alternate screen that is cleared afterwards, and never reaches prompt history, conversation history, transcripts, traces or the model. Without an interactive terminal the phrase commands refuse. `/devices` is operator-only: never model-invocable and refused from remote surfaces. Private keys live in the host credential store; certificates, roster, revocation lists and sequence marks are kept in owner-only files under `~/.robota/devices`.
+
+  `agent-remote-pairing` adds `isRecoveryPhraseWord`, so a phrase can be checked one word at a time.
+
+- 18b52cc: Built-in commands are offered to the model deliberately, each described for the model, and never
+  with a trust, credential or permission-widening action.
+
+  - `agent-interface-command` — `ICommand` gains `modelDescription?` (what the model is told, beside the
+    short `/help` line), and `modelInvocable` on a subcommand entry now narrows what the model may run.
+  - `agent-framework` — `ISystemCommand` gains `modelDescription?` and `modelRequiresPermission?`.
+    Once any subcommand of a model-invocable command declares `modelInvocable`, the model may run only
+    the bare command and the subcommands declared `true`; everything else, including an alias or an
+    undeclared subcommand, is refused before the command runs. The model-facing descriptor lists only
+    that subset. A model-requested monitor's command is now decided by the shell tool's gate (its
+    Bash/Shell rules, the mode and the prompt) and a refusal rejects with the new
+    `MonitorCommandRefusedError`. The `scriptedSession` test harness accepts `permissions` patterns.
+  - `agent-session` — `Session.checkToolPermission(toolName, toolArgs)` decides an action that has a
+    tool's effect by another route: that tool's PreToolUse hooks, then the gate's rules, mode,
+    remembered consent and prompt — never the command sandbox's auto-approval, since the action does
+    not run inside the sandbox.
+  - `agent-framework` also: `ICommandMCPActivationAdapter.userActionSurface?` tells `/mcp` whether the
+    user can type a session command, so the model's status names the terminal sign-in otherwise.
+  - `agent-command` — `/context` (bare and `list`), `/cost` (the report, not `budget`) and `/mcp`
+    (`status` only, without a prompt) are now model-invocable; `/memory approve` and `/memory reject`
+    are now user-only; the model's `/monitor` is decided by the shell gate rather than by consent to
+    the command's name. Every model-invocable command carries a model-facing description. The model's
+    `/mcp status` shows only safe names, states and the command to suggest, and a caller that does not
+    identify itself gets that view. `/context list` accounts only for turns still in context. New
+    `mcpUserActionNotice`, `mcpUserActionCommand` and `mcpUnavailableServersNotice` build the fixed
+    notices.
+  - `agent-command-workflows` — `/workflows` carries a model-facing description.
+  - `agent-mcp` — `createDiscoveredTool` accepts `authFailureNotice`: a call the server refuses for
+    authentication returns that host text instead of the generic failure.
+  - `agent-cli` — an MCP server that did not start because the user must approve it, trust the
+    workspace or sign in is named to the model at the start of an interactive session with the
+    command to suggest, and a
+    signed-in OAuth server that refuses a call tells the model to suggest `/mcp login <server>` — or, in print and serve runs, the terminal
+    `robota mcp login <server>`.
+
+  A command whose bare form is a complete action declares `runsBare`, so choosing `/cost` or `/mcp`
+  from the autocomplete menu still runs it even though they now declare subcommands.
+
+- 9843fe6: Sign in to a remote MCP server from inside a session, and use its tools without restarting.
+
+  - **`/mcp login <server> [--no-browser]`** runs the same per-server OAuth sign-in as
+    `robota mcp login` (discovery checks, PKCE, `state`, RFC 9207 `iss`, RFC 8707 resource, the
+    loopback listener, the lock-guarded store). It opens the browser through the argv opener; with
+    `--no-browser`, or when no browser can be opened, it shows the authorization URL and asks for the
+    redirect URL in the session's own prompt (masked), held to the same rules as a pasted redirect in
+    the terminal. A failed, refused, timed-out or cancelled sign-in changes nothing and is reported by
+    a fixed reason only. `/mcp login <server> --client-secret` is refused: a secret is never typed into
+    a session, and `robota mcp login <server> --client-secret` is named instead (also after a failed
+    token exchange for a pre-registered client). `/mcp` stays user-only (`modelInvocable: false`).
+  - **Connected in the same session:** after a sign-in, a server that could not connect for want of
+    one goes through the normal admission (approval, fingerprint, trust) and connects, and its tools
+    are offered from the next message; a server that was already connected is admitted again and
+    reconnects, and its authenticator drops what it held and reads the new credential. A tool left out
+    because the session already has its name is reported, and only tools actually added get
+    provenance. In browser mode the authorization URL is shown in the session prompt before the
+    browser opens, where the user can also choose to paste the redirect instead or cancel.
+  - **`runMCPOAuthLogin`** takes `readRedirectWhenBrowserFails`: when `openBrowser` rejects, the
+    loopback listener stops and the pasted redirect is read instead, for the same redirect URI. The
+    loopback listener's time limit now runs from its first `wait()` — once the authorization page is
+    handed over — so time spent at a prompt before the browser opens does not count against it.
+  - **`Session.addTools`** (and `ICommandSessionTools.addTools`) offers tools that became usable
+    mid-session, through the same permission gate and — via `ISessionOptions.wrapAddedTools`, which
+    `createSession` sets — the same edit-checkpoint and reversible-execution wraps as the assembled
+    tools. A name the session already has is left out, never replaced. Calls are serialized, and tools
+    added while a turn runs are applied when the next turn starts, so a turn's rounds all see one
+    tool list and the prompt cache misses once, at that boundary.
+  - **Breaking (`agent-framework`, major):** `addTools` is a new required member of the
+    `ICommandSessionTools` role port (and so of `ICommandSessionRuntime`). A host that implements the
+    port itself must add it; one that passes an `agent-session` `Session` already has it.
+  - **`ICommandMCPActivationAdapter.oauthLogin`** (`ICommandMCPOAuthLoginRequest`,
+    `ICommandMCPOAuthLoginResult`, `ICommandMCPOAuthRedirectPrompt`) is the port behind it.
+  - The sign-in notice and `/mcp status` now suggest `/mcp login <server>` in a session and
+    `robota mcp login <server>` in a terminal; the server's name is shown only when it is safe to paste
+    into any shell, otherwise `<server>`.
+
+### Patch Changes
+
+- ec5e477: Add a credential store port (`ICredentialStore` in `agent-core`) and keep the CLI's secrets behind it: the OS keychain through the optional `@napi-rs/keyring` binding (macOS Keychain, Windows Credential Manager, Linux Secret Service), else an owner-only file under `~/.robota/credentials`. The backend is chosen at first use, recorded, and named by `/remote-control status`; a recorded keychain that stops working fails closed instead of degrading to the file.
+
+  The remote-control host identity key moves into the store. The old `~/.robota/remote-host-identity.json` may have been copied by backups or dotfile sync, so it is not carried over: on the first run after upgrading a new host key is generated, the old file is removed, and the operator is told once that trusted devices must pair again.
+
+- 007fd90: Authority per connection: pairing stays with the local operator, and driving needs the operator's yes.
+
+  - `agent-interface-session-mobility` — `ConnectionAuthority` decides what one connection may do.
+    `presence` and `message` are allowed; `delegate` and `handoff` ask the receiving operator for every
+    request; `observe` and `drive` ask once per connection. With no `IOperatorApprover` the answer is
+    no. `authorizeDelegation` turns an approved task into a peer turn from where admission placed the
+    peer, ignoring anything else on the request, so the receiver's policy decides what it may do.
+  - `agent-transport-webrtc` — `connectionApproval` asks the operator before a connection reaches the
+    session, after every proof has run. Frames the peer sends meanwhile are held (bounded) and delivered
+    only after a yes. A channel that closes first withdraws the question (the approval context carries
+    an `AbortSignal`), and a later answer admits nothing. A first-pairing device is pinned for
+    reconnect only once it is admitted.
+  - `agent-command` — `/remote-control enable` and `revoke` from a connected surface are refused, and
+    `status` never shows a connected surface the pairing link.
+  - `agent-framework` — the `remote-control-enable` host action runs only for the operator's own
+    command, whichever command asked for it.
+  - `agent-cli` — every remote-control connection, a returning trusted device included, is put to the
+    operator on the host terminal; without an interactive terminal it is refused.
+
+- Updated dependencies [3038eb7]
+- Updated dependencies [02b7452]
+- Updated dependencies [ec5e477]
+- Updated dependencies [007fd90]
+- Updated dependencies [18b52cc]
+- Updated dependencies [9843fe6]
+  - @robota-sdk/agent-core@3.0.0-beta.81
+  - @robota-sdk/agent-interface-session@3.0.0-beta.81
+  - @robota-sdk/agent-framework@3.0.0-beta.81
+  - @robota-sdk/agent-interface-command@3.0.0-beta.81
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.81
+  - @robota-sdk/agent-preset@3.0.0-beta.81
+
 ## 3.0.0-beta.80
 
 ### Major Changes

@@ -5,10 +5,11 @@
  * Admission says who the peer is and which capabilities its certificate and local policy leave it.
  * That is necessary, not sufficient: some capabilities also need the operator here to say yes.
  *
- * - `presence` and `message` need nothing more. A turn a message starts is a peer turn, and what it
- *   may do is decided by where the peer runs, in the one permission evaluator.
+ * - `presence` and `message` need nothing more. A message carries no authority: the turn it starts is
+ *   decided by this session's ordinary permissions, like the session's own work.
  * - `delegate` and `handoff` ask the operator for every request. A delegated task runs as a peer
- *   turn under this session's own policy; nothing the sender attaches to the request travels with it.
+ *   turn under this session's ordinary permissions; nothing the sender attaches to the request
+ *   travels with it.
  * - `observe` and `drive` ask the operator once for every connection. A new connection asks again,
  *   however recently the same device was allowed.
  *
@@ -17,8 +18,7 @@
  * admit the next device itself.
  */
 
-import type { TMeshCapability } from './mesh-admission-contracts.js';
-import type { TPeerReach } from '@robota-sdk/agent-core';
+import type { TMeshCapability, TPeerReach } from './mesh-admission-contracts.js';
 import type { IPeerTurnContext } from '@robota-sdk/agent-interface-session';
 
 /** How often the receiving operator must approve a capability. */
@@ -146,7 +146,7 @@ export class ConnectionAuthority {
 
   /**
    * Ask the operator about a delegated task and, on yes, build the turn that runs it: a peer turn
-   * from where admission placed the peer. Everything else on the request is ignored.
+   * answered to the admitted sender. Everything else on the request is ignored.
    */
   async authorizeDelegation(
     request: IDelegationRequest,
@@ -167,7 +167,7 @@ export class ConnectionAuthority {
         options: {
           turnSource: 'peer',
           driverId: `peer:${this.peer.deviceId ?? replyTo}`,
-          peer: { reach: this.peer.locality, messageId: requestId, replyTo },
+          peer: { messageId: requestId, replyTo },
         },
       },
     };

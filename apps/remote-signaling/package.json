@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/remote-signaling",
-  "version": "3.0.0-beta.80",
+  "version": "3.0.0-beta.81",
   "private": true,
   "description": "Minimal content-blind WebRTC signaling relay (SDP/ICE rendezvous) for REMOTE-001 P2P remote-control",
   "type": "module",

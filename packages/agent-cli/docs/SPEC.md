@@ -70,7 +70,8 @@ unsupported records stay visible rather than being hidden.
 A local peer message is taken as coming from the session it names only when that session, asked at
 its own socket, confirms it is sending exactly that message to this receiver; anything else is
 refused. The same user can reach every socket in the rendezvous, so the name a message states is a
-claim, and it decides where an answer goes and whom the turn is attributed to.
+claim, and it decides where an answer goes and whom the turn is attributed to — never what the turn
+may do, which the session's ordinary permissions decide as for its own work.
 
 A conversation between local peers is bounded, so two agents that always answer cannot message each
 other forever: its depth and this session's answers in it are counted from what this session itself
@@ -185,7 +186,8 @@ from the session's own input while the session has handed the terminal over — 
 session's input would reach its composer, history, transcript and model — and a host without an
 interactive terminal refuses instead of reading it from anywhere else. The same terminal asks the
 operator whether each remote-control connection, a returning trusted device included, may drive the
-session: the session's own prompts are answerable by any attached surface, so a device already
+session; one it admits is the owner typing, with the terminal's approvals, tools and file references.
+The session's own prompts are answerable by any attached surface, so a device already
 driving could otherwise approve the next, and without an interactive terminal the connection is
 refused.
 

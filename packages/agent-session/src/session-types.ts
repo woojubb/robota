@@ -22,7 +22,6 @@ import type {
   TBackgroundPermissionPolicy,
   TModelEffortSelection,
   TToolChoice,
-  TPeerReach,
   TToolArgs,
 } from '@robota-sdk/agent-core';
 import type {
@@ -121,8 +120,6 @@ export interface ISessionOptions {
   permissionHandler?: TPermissionHandler;
   /** The OS sandbox the shell tools run under, which may let a confined command skip the prompt. */
   commandSandbox?: ICommandSandboxApproval;
-  /** The operator enabled write and execute tools for same-host peer turns; each use still asks. */
-  allowPeerChanges?: boolean;
   /** Decides for `auto` mode. Without one the session refuses that mode. */
   permissionClassifier?: IPermissionClassifier;
   /** Called when the user selects "allow for project" — persists the tool pattern to project settings. */
@@ -223,10 +220,11 @@ export interface ISessionRunOptions {
   /** Run-scoped model tool directive; 'none' remains in force for this turn only. */
   toolChoice?: TToolChoice;
   /**
-   * This turn was driven by another agent session, reaching this host from here (as admission
-   * established it). Its tools are then decided by the peer-turn policy for this turn only.
+   * A message from another agent session started this turn. The reply to that session exists only
+   * here, and the provider's hosted tools are withheld because no permission step can decide them;
+   * every other call is decided by the session's ordinary permissions.
    */
-  peerReach?: TPeerReach;
+  peerTurn?: boolean;
   /** Host-owned trusted trace context for this turn's provider calls (agent-core `IRunOptions`). */
   traceContext?: IRunTraceContext;
 }

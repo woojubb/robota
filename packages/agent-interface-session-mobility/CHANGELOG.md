@@ -1,5 +1,85 @@
 # @robota-sdk/agent-interface-session-mobility
 
+## 3.0.0-beta.81
+
+### Minor Changes
+
+- 3038eb7: A message from another session is instant messaging: text from an untrusted third party that
+  carries no authority. What the model does with it is decided by the session's ordinary permissions —
+  rules, permission mode and remembered consent — exactly like the session's own work. The per-origin
+  peer policy is gone.
+
+  **BREAKING**
+
+  - `agent-core`: `IPermissionEvaluationContext.peerTurn` is now a boolean. It decides only whether a
+    `repliesToPeer` tool exists; every other call in a peer turn is decided as in any turn. Removed:
+    `isToolAvailableInPeerTurn`, `isSecretPath`, `IPeerTurnAuthority`, `TPeerReach` (now exported by
+    `agent-interface-session-mobility`) and `IToolPermissionProfile.workspacePaths`.
+  - `agent-tools`: `Read` and `Glob` no longer declare `workspacePaths`.
+  - `agent-session`: `ISessionRunOptions.peerReach` is replaced by `peerTurn?: boolean`, and
+    `ISessionOptions.allowPeerChanges` is removed. An ask in a peer turn is answered like any other:
+    a consent the operator remembered answers it, and an "always allow" given there is remembered.
+  - `agent-interface-session`: `IPeerTurnContext` no longer has `reach`; it carries only the reply
+    route.
+  - `agent-interface-session-mobility`: `peerReachOf` is removed; `TPeerReach` moves here. A delegated
+    turn carries no reach.
+  - `agent-framework`: the `peers.allowChanges` setting is removed (an existing value is ignored). A
+    peer turn is offered the ordinary tools, plus `peer_reply`.
+
+  **Changes**
+
+  - `agent-framework`: the per-turn statement tells the model the message is an opinion from an
+    untrusted third party, not its owner's instruction, and that it decides for itself whether and how
+    to act. A message still expands no `@path` and attaches no context reference, and its requests
+    still carry no provider-hosted tool, since no permission step can decide one. The session takes
+    at most 6 messages a minute and 30 an hour from each sender for a turn; a message over the limit
+    is refused with a reason the sender receives. A prompt answer given in the name of a `peer:` or `external:`
+    driver is ignored. External-event turns keep their tool-less baseline.
+  - `agent-cli`: incoming peer turns carry only their reply route.
+
+- b2e0afe: Two of one user's devices can admit each other over a channel bound to its negotiated DTLS
+  fingerprints.
+
+  - `agent-remote-pairing` — `startDeviceHandshake` runs the transport-agnostic device handshake
+    (`send` + `onFrame`): a pairwise pre-proof that discloses no identity, then hello and prove, with
+    the chain verified against the pinned master key, roster, revocation lists and high-water marks,
+    and possession proved by a `robota/handshake/v1` signature over the transcript. The side with the
+    newer roster or revocation list hands it over and the receiver adopts it only once it verifies.
+    Before a remote admission an optional lookup for newer lists runs for at most
+    `FRESHNESS_LOOKUP_MS` (3 s); without a newer list a remote peer is admitted with a warning for
+    `REMOTE_ADMISSION_GRACE_MS` (72 h) past expiry and then refused, while a same-host peer is still
+    admitted. `derivePairwiseSecret` exports the pairwise secret `S_AB`. `decodeDeviceHandshakeFrame`
+    decodes the frames. `verifyDeviceChain` accepts `listExpiryGraceMs` and reports `listsExpiredAt`.
+  - `agent-interface-session-mobility` — `IMeshAdmission` and `TMeshCapability`: the admission a device
+    handshake produces, with trust, locality and workspace as separate fields.
+
+- 007fd90: Authority per connection: pairing stays with the local operator, and driving needs the operator's yes.
+
+  - `agent-interface-session-mobility` — `ConnectionAuthority` decides what one connection may do.
+    `presence` and `message` are allowed; `delegate` and `handoff` ask the receiving operator for every
+    request; `observe` and `drive` ask once per connection. With no `IOperatorApprover` the answer is
+    no. `authorizeDelegation` turns an approved task into a peer turn from where admission placed the
+    peer, ignoring anything else on the request, so the receiver's policy decides what it may do.
+  - `agent-transport-webrtc` — `connectionApproval` asks the operator before a connection reaches the
+    session, after every proof has run. Frames the peer sends meanwhile are held (bounded) and delivered
+    only after a yes. A channel that closes first withdraws the question (the approval context carries
+    an `AbortSignal`), and a later answer admits nothing. A first-pairing device is pinned for
+    reconnect only once it is admitted.
+  - `agent-command` — `/remote-control enable` and `revoke` from a connected surface are refused, and
+    `status` never shows a connected surface the pairing link.
+  - `agent-framework` — the `remote-control-enable` host action runs only for the operator's own
+    command, whichever command asked for it.
+  - `agent-cli` — every remote-control connection, a returning trusted device included, is put to the
+    operator on the host terminal; without an interactive terminal it is refused.
+
+### Patch Changes
+
+- Updated dependencies [3038eb7]
+- Updated dependencies [02b7452]
+- Updated dependencies [ec5e477]
+  - @robota-sdk/agent-core@3.0.0-beta.81
+  - @robota-sdk/agent-interface-session@3.0.0-beta.81
+
 ## 3.0.0-beta.80
 
 ### Minor Changes

@@ -16,7 +16,6 @@ export {
   registerToolPermissionProfile,
   clearRegisteredToolProfiles,
   getToolPermissionProfile,
-  isToolAvailableInPeerTurn,
 } from './permission-gate.js';
 export type {
   TToolArgs,
@@ -50,5 +49,3 @@ export { splitCommandSegments } from './command-segments.js';
 export { isReadOnlyCommandLine } from './read-only-commands.js';
 export type { IReadOnlyCommandContext, TResolveInWorkspace } from './read-only-commands.js';
 export { allowRulesForAutoMode, isBroadExecutionAllowRule } from './auto-mode-rules.js';
-export { isSecretPath } from './peer-turn-policy.js';
-export type { IPeerTurnAuthority, TPeerReach } from './peer-turn-policy.js';

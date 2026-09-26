@@ -11,7 +11,6 @@
 import { randomUUID } from 'node:crypto';
 
 import { PeerMessageIngress } from '@robota-sdk/agent-framework';
-import { peerReachOf } from '@robota-sdk/agent-interface-session-mobility';
 
 import { announceLocalPeerPresence } from '../remote-control/local-peer-presence.js';
 import { bindLocalPeerStatus } from '../remote-control/local-peer-status.js';
@@ -199,8 +198,8 @@ function startMessaging(
     list: () => presence.list(),
     relate: async (sessionId) => (await presence.relate(sessionId))?.relation,
     report: (message) => report.writeError(message),
-    // One ingress per message, so the turn it submits carries THAT message's context: where its
-    // sender runs (from admission, never from the message) and where an answer to it goes.
+    // One ingress per message, so the turn it submits carries THAT message's reply route, taken from
+    // admission and never from the message.
     ingress: {
       receive: (incoming: IPeerMessageIngress) =>
         new PeerMessageIngress({
@@ -212,11 +211,7 @@ function startMessaging(
               turnSource: 'peer',
               ...(origin.driverId !== undefined ? { driverId: origin.driverId } : {}),
               onAccepted,
-              peer: {
-                reach: peerReachOf(incoming.admission),
-                messageId: incoming.message.id,
-                replyTo: origin.sessionId,
-              },
+              peer: { messageId: incoming.message.id, replyTo: origin.sessionId },
             }),
         }).receive(incoming),
     },

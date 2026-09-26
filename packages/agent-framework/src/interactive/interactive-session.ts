@@ -34,6 +34,7 @@ import { SessionSkillRouter } from './interactive-session-skill-router.js';
 import { SessionTerminalHandoffGate } from './interactive-session-terminal-handoff.js';
 import { SessionTurnMemory } from './interactive-session-turn-memory.js';
 import { ExternalEventIngress } from './external-event-ingress.js';
+import { PeerTurnRateLimiter } from './peer-turn-rate-limit.js';
 import { DurableSessionLoopStore } from './session-loop-durable-store.js';
 import { extractSelfPacedLoopDecision } from './session-loop-decision-tool.js';
 import {
@@ -194,6 +195,7 @@ export class InteractiveSession
   });
   private shutdownPromise: Promise<void> | null = null;
   private externalEventIngress?: ExternalEventIngress;
+  private readonly peerTurnRate = new PeerTurnRateLimiter();
   private readonly sandboxClient?: ISandboxClient;
   // SELFHOST-008 P1R: the durable-memory port for this session — the surface-injected store or the neutral
   // fs default (lazily created + cached so it is ONE shared instance). Exposed to the `/memory` command
@@ -677,6 +679,11 @@ export class InteractiveSession
     // caller cannot replace an authenticated external sender's pending queue entry by id collision.
     if (options.turnSource === 'external' || options.driverId?.startsWith('external:')) {
       throw new Error('external event turns must use an explicitly opened external source');
+    }
+    // A peer's message carries no authority, yet it runs this session's model: bounded per sender.
+    if (options.turnSource === 'peer' && options.driverId?.startsWith('peer:') === true) {
+      const refusal = this.peerTurnRate.admit(options.driverId);
+      if (refusal !== undefined) throw new Error(refusal);
     }
     return this.submitNewTurn(
       input,

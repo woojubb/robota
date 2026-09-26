@@ -1,16 +1,15 @@
 /** Where a recovery phrase must never be found, and how to look for it. */
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 /** Every file under `root`, recursively, with its contents. */
 export function filesUnder(root: string): Array<{ path: string; text: string }> {
   const out: Array<{ path: string; text: string }> = [];
   const walk = (dir: string): void => {
-    for (const name of readdirSync(dir)) {
-      const path = join(dir, name);
-      const stat = statSync(path);
-      if (stat.isDirectory()) walk(path);
-      else if (stat.isFile()) out.push({ path, text: readFileSync(path, 'latin1') });
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const path = join(dir, entry.name);
+      if (entry.isDirectory()) walk(path);
+      else if (entry.isFile()) out.push({ path, text: readFileSync(path, 'latin1') });
     }
   };
   walk(root);

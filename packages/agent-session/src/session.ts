@@ -198,8 +198,8 @@ export class Session extends SessionBase {
     const controller = this.turnClaim.claim(); // Synchronously, before any await.
     const unlink = linkCancellation(controller, options?.signal);
     const { signal } = controller;
-    // The turn's origin is an input to every permission decision it makes, for this turn only.
-    this.permissionEnforcer.beginTurn(options?.peerReach);
+    // Whether the reply to a peer exists is decided per turn.
+    this.permissionEnforcer.beginTurn(options?.peerTurn === true);
     try {
       signal.throwIfAborted();
       // Tools added while the last turn ran join at this boundary, before any request of this turn;
