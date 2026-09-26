@@ -69,7 +69,7 @@ export class AIProviders extends AbstractManager implements IAIProviderManager {
     }
 
     // Validate provider
-    if (!provider || typeof provider !== 'object' || provider === null || Array.isArray(provider)) {
+    if (!provider || typeof provider !== 'object' || Array.isArray(provider)) {
       throw new ValidationError('Provider must be a valid object instance');
     }
 

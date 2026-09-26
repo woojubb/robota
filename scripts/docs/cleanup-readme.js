@@ -4,7 +4,6 @@
  * Script to clean up temporary README files in package directories
  */
 
-import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 

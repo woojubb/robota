@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import { loadToolSchemaProjectionFixtures } from '../../testing/tool-schema-projection-fixtures';
 import { PERMISSIVE_TOOL_SCHEMA_PROFILE } from '../../schema/project-tool-schema';
-import { createLogger, setGlobalLoggerSink, type ILogger } from '../../utils/logger';
+import { setGlobalLoggerSink, type ILogger } from '../../utils/logger';
 import { AbstractAIProvider } from '../abstract-ai-provider';
 
 import type { IToolSchemaProjectionProfile } from '../../schema/project-tool-schema';

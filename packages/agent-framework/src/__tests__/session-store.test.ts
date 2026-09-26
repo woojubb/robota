@@ -26,12 +26,8 @@ import {
 // distinguishing corrupt from valid IS inspection — so a payload that is not a session record is a
 // `corrupt` outcome rather than a value the store hands back.
 //
-// The literals below are therefore real records. `loosePayload` survives for the one case where an
-// unreadable payload is the SUBJECT rather than a shortcut, which after this leaf is a first-class
+// The literals below are therefore real records; an unreadable payload is a first-class `corrupt`
 // outcome rather than a cast.
-function loosePayload<T>(value: unknown): T {
-  return value as T;
-}
 
 /** A message that satisfies the contract, for tests whose subject is persistence rather than shape. */
 function testMessage(id: string, role: 'user' | 'assistant', content: string) {

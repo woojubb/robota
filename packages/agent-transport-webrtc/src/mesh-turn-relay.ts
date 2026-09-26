@@ -160,7 +160,9 @@ export class MeshTurnRelay {
         : {}),
       ...(options.onError !== undefined ? { onError: options.onError } : {}),
       now,
-      authorize: (username) => relay?.authorize(username) ?? Promise.resolve(undefined),
+      // A request that arrives before the relay exists is refused, as an unknown user is.
+      authorize: (username) =>
+        relay === undefined ? Promise.resolve(undefined) : relay.authorize(username),
     });
     relay = new MeshTurnRelay(server, now);
     return relay;

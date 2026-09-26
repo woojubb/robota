@@ -4,9 +4,7 @@ import type { TResult, IDagError } from '@robota-sdk/dag-core';
 import { buildValidationError } from '@robota-sdk/dag-core';
 
 function isZodSchema(input: unknown): input is ZodType {
-  if (typeof input !== 'object' || input === null) {
-    return false;
-  }
+  // `instanceof` is false for every primitive and for null, so it is the whole check.
   return input instanceof z.ZodType;
 }
 
