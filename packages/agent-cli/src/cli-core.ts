@@ -128,6 +128,7 @@ export interface ICliPresentation {
   createNodeKeybindingsSource: typeof import('@robota-sdk/agent-ui-terminal').createNodeKeybindingsSource;
   createDefaultTuiCliAdapter: typeof import('@robota-sdk/agent-ui-terminal').createDefaultTuiCliAdapter;
   renderApp: typeof import('@robota-sdk/agent-ui-terminal').renderApp;
+  renderSupervisedSessionView: typeof import('@robota-sdk/agent-ui-terminal').renderSupervisedSessionView;
   installTuiProcessGuards: typeof import('./process-guards.js').installTuiProcessGuards;
   setLiveChannel: typeof import('./process-guards.js').setLiveChannel;
 }
@@ -197,7 +198,16 @@ async function runCliCore(
     projectAccess,
     ...(safeMode ? { safeMode: true } : {}),
   };
-  if (await runPreparsedCliCommand(startupOptions, process.argv, cwd, telemetryEnvironment)) return;
+  if (
+    await runPreparsedCliCommand(
+      startupOptions,
+      process.argv,
+      cwd,
+      telemetryEnvironment,
+      presentation?.renderSupervisedSessionView,
+    )
+  )
+    return;
 
   let args: IParsedCliArgs;
   try {

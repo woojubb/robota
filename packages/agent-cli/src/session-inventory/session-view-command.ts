@@ -2,21 +2,24 @@ import { realpathSync, statSync } from 'node:fs';
 
 import open from 'open';
 
-import { renderSupervisedSessionView } from '@robota-sdk/agent-ui-terminal';
-
 import { resolveScreenReaderRenderFields } from '../startup/screen-reader-enablement.js';
 import { readUserSettingsOrExit } from '../startup/user-settings.js';
 import {
-  getVerifiedSupervisedPr, isSupervisedSessionName, listSupervisedSessions,
-  resolveSupervisedDirectory, stopSupervisedSession,
+  getVerifiedSupervisedPr,
+  isSupervisedSessionName,
+  listSupervisedSessions,
+  resolveSupervisedDirectory,
+  stopSupervisedSession,
 } from './supervised-session-control.js';
 
 import type { TSettingsData } from '@robota-sdk/agent-framework';
+import type { renderSupervisedSessionView } from '@robota-sdk/agent-ui-terminal';
 
 const VIEW_STATES = ['needs-input', 'working', 'idle', 'unknown', 'unverified', 'dead'] as const;
-type TViewState = typeof VIEW_STATES[number];
-const HELP = 'Usage: robota session view [--cwd <directory>] [--name <text>] [--pr <number>] [--state <state>] [--screen-reader|--no-screen-reader]\n'
-  + `States: ${VIEW_STATES.join(', ')}\n`;
+type TViewState = (typeof VIEW_STATES)[number];
+const HELP =
+  'Usage: robota session view [--cwd <directory>] [--name <text>] [--pr <number>] [--state <state>] [--screen-reader|--no-screen-reader]\n' +
+  `States: ${VIEW_STATES.join(', ')}\n`;
 
 function isViewState(value: string | undefined): value is TViewState {
   return VIEW_STATES.some((state) => state === value);
@@ -27,6 +30,7 @@ export interface ISessionViewCommandOptions {
   readonly settings?: TSettingsData;
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly root?: string;
+  /** Supplied by the interactive CLI; the headless runtime has no terminal UI to render with. */
   readonly render?: typeof renderSupervisedSessionView;
   readonly stop?: typeof stopSupervisedSession;
   readonly start?: (cwd: string) => Promise<string>;
@@ -51,14 +55,30 @@ export async function runSessionViewCommand(
   for (let index = 0; index < argv.length; index++) {
     const arg = argv[index];
     if (arg === '--screen-reader' || arg === '--no-screen-reader') {
-      if (flag !== undefined) { process.stderr.write(HELP); return 1; }
+      if (flag !== undefined) {
+        process.stderr.write(HELP);
+        return 1;
+      }
       flag = arg === '--screen-reader';
-    } else if (arg === '--cwd' && cwdArg === undefined && argv[index + 1] && !argv[index + 1]!.startsWith('--')) {
+    } else if (
+      arg === '--cwd' &&
+      cwdArg === undefined &&
+      argv[index + 1] &&
+      !argv[index + 1]!.startsWith('--')
+    ) {
       cwdArg = argv[++index];
-    } else if (arg === '--name' && nameFilter === undefined && isSupervisedSessionName(argv[index + 1])) {
+    } else if (
+      arg === '--name' &&
+      nameFilter === undefined &&
+      isSupervisedSessionName(argv[index + 1])
+    ) {
       nameFilter = argv[++index];
-    } else if (arg === '--pr' && prFilter === undefined && /^[1-9][0-9]*$/u.test(argv[index + 1] ?? '') &&
-      Number.isSafeInteger(Number(argv[index + 1]))) {
+    } else if (
+      arg === '--pr' &&
+      prFilter === undefined &&
+      /^[1-9][0-9]*$/u.test(argv[index + 1] ?? '') &&
+      Number.isSafeInteger(Number(argv[index + 1]))
+    ) {
       prFilter = Number(argv[++index]);
     } else if (arg === '--state' && stateFilter === undefined && isViewState(argv[index + 1])) {
       stateFilter = argv[++index] as TViewState;
@@ -68,7 +88,9 @@ export async function runSessionViewCommand(
     }
   }
   if (!(options.isTTY ?? (process.stdin.isTTY === true && process.stdout.isTTY === true))) {
-    process.stderr.write('Session view requires an interactive TTY; use robota session list for finite text or JSON output.\n');
+    process.stderr.write(
+      'Session view requires an interactive TTY; use robota session list for finite text or JSON output.\n',
+    );
     return 1;
   }
   const screenReader = resolveScreenReaderRenderFields(
@@ -86,20 +108,35 @@ export async function runSessionViewCommand(
       return 1;
     }
   }
+  if (!options.render) {
+    process.stderr.write(
+      'robota session view needs the interactive CLI; this runtime has no terminal UI.\n',
+    );
+    return 1;
+  }
   try {
     const root = options.root ?? resolveSupervisedDirectory();
     const start = options.start;
-    await (options.render ?? renderSupervisedSessionView)({
-      loadRows: (signal) => listSupervisedSessions(root, signal, {
-        cwd, name: nameFilter, pr: prFilter, includeName: true, includeCwd: true, includePr: true,
-      }),
+    await options.render({
+      loadRows: (signal) =>
+        listSupervisedSessions(root, signal, {
+          cwd,
+          name: nameFilter,
+          pr: prFilter,
+          includeName: true,
+          includeCwd: true,
+          includePr: true,
+        }),
       onStop: (id) => (options.stop ?? stopSupervisedSession)(id, root),
       onOpenPr: async (id, url) => {
         const verified = await getVerifiedSupervisedPr(id, root);
-        if (verified?.url !== url) throw new Error('Supervised session PR link changed or is stale.');
+        if (verified?.url !== url)
+          throw new Error('Supervised session PR link changed or is stale.');
         await (options.openUrl ?? open)(url);
       },
-      ...(start === undefined ? {} : { onStart: () => start(cwd ?? options.launchCwd ?? process.cwd()) }),
+      ...(start === undefined
+        ? {}
+        : { onStart: () => start(cwd ?? options.launchCwd ?? process.cwd()) }),
       filteredByCwd: cwd !== undefined,
       filteredByName: nameFilter !== undefined,
       filteredByPr: prFilter !== undefined,
