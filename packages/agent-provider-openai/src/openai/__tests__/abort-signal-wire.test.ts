@@ -5,6 +5,8 @@
  */
 import { createServer } from 'node:http';
 
+import { classifyProviderFailure } from '@robota-sdk/agent-core';
+import { APIUserAbortError } from 'openai';
 import { describe, expect, it, vi } from 'vitest';
 
 import { OpenAIProvider } from '../provider';
@@ -136,6 +138,7 @@ describe('OpenAI run AbortSignal on the wire', () => {
 
   it('closes the HTTP request when the run aborts a non-streaming Chat Completions call', async () => {
     const server = await startUnansweringServer();
+    let bound: ReturnType<typeof setTimeout> | undefined;
     try {
       const provider = new OpenAIProvider({
         apiKey: 'test-key',
@@ -156,11 +159,19 @@ describe('OpenAI run AbortSignal on the wire', () => {
       // signal it stays open until the SDK's own 10-minute timeout; the bound only decides failure.
       const closed = await Promise.race([
         server.clientHungUp.then(() => 'closed' as const),
-        new Promise<'still open'>((resolve) => setTimeout(() => resolve('still open'), 2_000)),
+        new Promise<'still open'>((resolve) => {
+          bound = setTimeout(() => resolve('still open'), 2_000);
+        }),
       ]);
       expect(closed).toBe('closed');
-      expect(await outcome).toBeInstanceOf(Error);
+
+      // The SDK's own abort error, passed through rather than wrapped as a provider failure, so the
+      // run layer classifies it as an interruption — without needing the signal to tell it so.
+      const error = await outcome;
+      expect(error).toBeInstanceOf(APIUserAbortError);
+      expect(classifyProviderFailure(error)).toEqual({ switchable: false, reason: 'aborted' });
     } finally {
+      clearTimeout(bound);
       await server.close();
     }
   });
