@@ -687,9 +687,13 @@ function readDaemonStartLockOwner(
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
     throw error;
   }
-  const pid = /^[1-9][0-9]{0,9}$/u.test(content) ? Number(content) : undefined;
-  if (pid === undefined) return { state: 'unknown' };
-  return { pid, state: probePid(pid) === 'absent' ? 'gone' : 'live' };
+  // `<pid> <start time>`: a pid alone could name an unrelated process that reused it after the
+  // owner died, which would keep the lock looking held for good.
+  const match = /^([1-9][0-9]{0,9}) (\S.*)$/u.exec(content);
+  if (match === null) return { state: 'unknown' };
+  const pid = Number(match[1]);
+  if (probePid(pid) === 'absent') return { pid, state: 'gone' };
+  return { pid, state: readProcessStartTime(pid) === match[2] ? 'live' : 'gone' };
 }
 
 const UNLOCK_HINT = 'If no daemon start is running, remove it with: robota daemon unlock';
@@ -708,7 +712,9 @@ export async function acquireSupervisedDaemonStartLock(
 ): Promise<() => void> {
   ensurePrivateDirectory(root);
   const file = daemonStartLockFile(workspace, root);
-  const owner = String(process.pid);
+  const startedAt = readProcessStartTime(process.pid);
+  if (!startedAt) throw new Error('Unable to prove the daemon start process identity.');
+  const owner = `${process.pid} ${startedAt}`;
   const deadline = Date.now() + (options.timeoutMs ?? 30_000);
   for (;;) {
     try {
