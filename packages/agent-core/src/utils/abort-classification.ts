@@ -58,3 +58,14 @@ export function isAbortFailure(error: unknown, signal?: AbortSignal): boolean {
   const cause: unknown = error.cause;
   return isErrorShaped(cause) && cause.name === 'AbortError';
 }
+
+/**
+ * An error every abort check here recognises: `name === 'AbortError'`, which `isAbortFailure`
+ * resolves without being handed the signal. `cause` keeps a caller's abort reason that was not
+ * itself an abort (a string, a plain `Error`, a `TimeoutError`) reachable instead of dropped.
+ */
+export function createAbortError(message = 'aborted', cause?: unknown): Error {
+  const error = cause === undefined ? new Error(message) : new Error(message, { cause });
+  error.name = 'AbortError';
+  return error;
+}
