@@ -63,6 +63,12 @@ export interface IRtcPeerOptions {
   readonly loadDataChannel?: () => IDataChannelModule;
 }
 
+/**
+ * How long a closed channel's stream stays up. The implementation resets the stream as soon as it is
+ * told to close, and a message sent just before is then lost to the peer.
+ */
+const CHANNEL_CLOSE_GRACE_MS = 250;
+
 /** Remote candidates kept while the remote description is still on its way. */
 const MAX_EARLY_CANDIDATES = 64;
 
@@ -97,6 +103,7 @@ function textOf(message: string | Buffer | ArrayBuffer): string {
 export class RtcChannel {
   private stateValue: TRtcChannelState;
   private closeCauseValue?: string;
+  private closedLocally = false;
   private readonly messageHandlers = new Set<(text: string) => void>();
   private readonly stateHandlers = new Set<(state: TRtcChannelState) => void>();
 
@@ -110,6 +117,8 @@ export class RtcChannel {
     native.onError((error) => this.guard(() => this.closedWith(`error: ${error}`)));
     native.onMessage((message) =>
       this.guard(() => {
+        // Closed here, the stream only waits out its grace: nothing more is taken from it.
+        if (this.closedLocally) return;
         const text = textOf(message);
         for (const handler of this.messageHandlers) handler(text);
       }),
@@ -179,13 +188,21 @@ export class RtcChannel {
     return () => this.stateHandlers.delete(handler);
   }
 
+  /**
+   * Closed for this side at once; the stream is reset after a grace, so what was sent just before
+   * still reaches the peer.
+   */
   public close(): void {
     if (this.stateValue === 'closed') return;
-    try {
-      this.native.close();
-    } catch {
-      /* already closing */
-    }
+    this.closedLocally = true;
+    const native = this.native;
+    setTimeout(() => {
+      try {
+        native.close();
+      } catch {
+        /* already closing */
+      }
+    }, CHANNEL_CLOSE_GRACE_MS).unref?.();
     this.closedWith('closed by this side');
   }
 }
