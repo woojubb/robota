@@ -374,8 +374,10 @@ here because the reasoning differs between them:
 - **Durable memory:** default OFF. Precedence lowest→highest: `settings.json`
   `memory.enabled` → `--memory`/`--no-memory` flag → `ROBOTA_MEMORY` env (**env wins** — a
   machine-level policy a CI runner sets once). Capture + recall are enabled together by one switch;
-  scope is repo/project (`<cwd>/.robota/memory/`). A one-time enable notice is printed to stderr on
-  first enable; no blocking prompt.
+  scope is repo/project (`<cwd>/.robota/memory/`), because project memory is shared through the
+  repository, so it never moves to a per-user store: on a host that cannot write under the project
+  safely, memory stays off and says why once. A one-time enable notice is printed to stderr on first
+  enable; no blocking prompt.
 - **Screen-reader mode:** default OFF. Precedence lowest→highest: `settings.json`
   `screenReader` → `ROBOTA_SCREEN_READER`/`INK_SCREEN_READER` env → `--screen-reader`/
   `--no-screen-reader` flag (**flag wins**). This is a deliberate divergence from memory's
@@ -409,10 +411,11 @@ the user session store are available, no project memory, and `cwd` alone cannot 
 capability. **Trusted** composition derives project sources plus named state facets from the exact
 runtime-accepted authority, and is refused when the real CLI working directory is outside the
 authority's frozen workspace root. On a host that cannot prove a project write stays under that root,
-the workspace's sessions are kept in the user session store and found there by their working
-directory, so they are still saved and resumable while nothing is written under the project without
-that proof. Print mode, `--goal`, and `--serve` fail closed for
-`untrusted`/`revoked`/`stale`/`store-unavailable` decisions before provider construction; interactive
+nothing is written under the project: the workspace's sessions, which are the user's own, are kept in
+the user session store and found there by their working directory, so they are still saved and
+resumable, while project memory, which belongs to the repository, is not composed. Print mode,
+`--goal`, and `--serve` fail closed for `untrusted`/`revoked`/`stale`/`store-unavailable` decisions
+before provider construction; interactive
 startup may continue Restricted with project contributions disabled. All trust diagnostics expose
 only state and canonical display path — credentials and project-controlled content are never printed.
 

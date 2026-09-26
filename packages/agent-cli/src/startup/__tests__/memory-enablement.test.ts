@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   buildMemorySessionOptions,
@@ -7,6 +7,7 @@ import {
   readMemorySettings,
   resetMemoryEnableNoticeForTests,
   resolveMemoryEnablement,
+  resolveMemorySurfaceOptions,
 } from '../memory-enablement.js';
 
 const memoryStore = {} as never;
@@ -116,6 +117,68 @@ describe('resolveMemoryEnablement — SELFHOST-008 P6', () => {
       expect(lines).toHaveLength(1);
       expect(lines[0]).toContain('Memory is ON');
       expect(lines[0]).toContain('/memory');
+    });
+  });
+
+  describe('resolveMemorySurfaceOptions without a memory store', () => {
+    const enabled = { memory: true, memoryAutoSave: false };
+
+    beforeEach(() => {
+      vi.stubEnv('ROBOTA_MEMORY', '');
+    });
+
+    afterEach(() => {
+      vi.unstubAllEnvs();
+    });
+
+    it('says once why memory stays off on a host that cannot write project memory', () => {
+      resetMemoryEnableNoticeForTests();
+      const lines: string[] = [];
+      const resolve = () =>
+        resolveMemorySurfaceOptions({
+          settings: undefined,
+          args: enabled,
+          memoryStore: undefined,
+          cwd: '/repo',
+          platform: 'darwin',
+          write: (message) => lines.push(message),
+        });
+
+      expect(resolve()).toEqual({});
+      expect(resolve()).toEqual({});
+      expect(lines).toHaveLength(1);
+      expect(lines[0]).toContain('Memory is OFF');
+      expect(lines[0]).toContain('darwin');
+    });
+
+    it('still refuses on Linux, where only a missing authority leaves memory without a store', () => {
+      resetMemoryEnableNoticeForTests();
+      expect(() =>
+        resolveMemorySurfaceOptions({
+          settings: undefined,
+          args: enabled,
+          memoryStore: undefined,
+          cwd: '/repo',
+          platform: 'linux',
+          write: () => undefined,
+        }),
+      ).toThrow('Project memory requires an explicit workspace-authority-backed memory store.');
+    });
+
+    it('prints nothing while memory is off', () => {
+      resetMemoryEnableNoticeForTests();
+      const lines: string[] = [];
+      expect(
+        resolveMemorySurfaceOptions({
+          settings: undefined,
+          args: { memory: false, memoryAutoSave: false },
+          memoryStore: undefined,
+          cwd: '/repo',
+          platform: 'darwin',
+          write: (message) => lines.push(message),
+        }),
+      ).toEqual({});
+      expect(lines).toEqual([]);
     });
   });
 });
