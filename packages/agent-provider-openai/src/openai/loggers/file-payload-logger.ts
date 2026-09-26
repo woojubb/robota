@@ -16,7 +16,7 @@ const OWNER_ONLY_DIR_MODE = 0o700;
 /**
  * File-based payload logger for Node.js environments
  *
- * This logger saves API request/response payloads to JSON files on disk.
+ * This logger saves a summary of each Chat Completions request to a JSON file on disk.
  * It's designed specifically for Node.js environments with filesystem access.
  *
  * @example
@@ -65,8 +65,8 @@ export class FilePayloadLogger implements IPayloadLogger {
   }
 
   /**
-   * Log API payload to file
-   * @param payload - The API request payload
+   * Log a request summary to file
+   * @param payload - Summary of the outgoing Chat Completions request
    * @param type - Type of request ('chat' or 'stream')
    */
   async logPayload(payload: IOpenAILogData, type: 'chat' | 'stream' = 'chat'): Promise<void> {

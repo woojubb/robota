@@ -174,7 +174,9 @@ export interface IOpenAIProviderOptions {
   client?: OpenAI;
 
   /**
-   * Payload logger instance for debugging API requests/responses
+   * Payload logger that receives a summary of each Chat Completions request (model, message
+   * count, whether tools were sent, temperature, max tokens) for debugging — not prompt or
+   * response content. Not called on the Responses API surface.
    *
    * Use different implementations based on your environment:
    * - FilePayloadLogger: Node.js file-based logging
