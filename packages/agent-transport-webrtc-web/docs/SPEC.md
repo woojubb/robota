@@ -47,8 +47,7 @@ This package sits in the **transport** layer, browser-only. It reuses the isomor
 
 - Admission is read from the host's first session frame rather than from a frame of its own: the
   host already sends nothing on an accepted channel until its operator decides, so the existing
-  vocabulary says it. A reconnect adds a query after its `resume`, because a resume with nothing to
-  replay is not answered.
+  vocabulary says it.
 
 - `useRtcSession` widens the shared `useSessionClient` reducer's status union with RTC-only
   pairing/failed states locally, rather than adding those states to the shared core — the core has

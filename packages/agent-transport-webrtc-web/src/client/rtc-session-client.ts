@@ -25,7 +25,7 @@ import { ResponderGate, type IDeviceIdentityConfig } from './rtc-responder-gate.
 import { createRtcSignalingClient, type ISignalingClient } from './rtc-signaling.js';
 
 import type { IDeviceCredentialStore } from './device-credential-store.js';
-import type { startPairingHandshake } from '@robota-sdk/agent-remote-pairing';
+import type { startDeviceReconnect, startPairingHandshake } from '@robota-sdk/agent-remote-pairing';
 import type { TServerMessage, TClientMessage } from '@robota-sdk/agent-transport';
 
 /**
@@ -74,6 +74,7 @@ export interface IRtcSessionClientOptions {
   readonly createSignaling?: typeof createRtcSignalingClient;
   readonly createPeer?: (config?: RTCConfiguration) => RTCPeerConnection;
   readonly startHandshake?: typeof startPairingHandshake;
+  readonly startReconnect?: typeof startDeviceReconnect;
   readonly generateDeviceKeyPair?: () => Promise<CryptoKeyPair>;
 }
 
@@ -96,6 +97,7 @@ export function createRtcSessionClient(
   let localFingerprint: string | undefined;
   let remoteFingerprint: string | undefined;
   let status: TRtcConnectionStatus = 'disconnected';
+  let currentChannel: RTCDataChannel | null = null;
 
   const setStatus = (s: TRtcConnectionStatus): void => {
     status = s;
@@ -225,6 +227,7 @@ export function createRtcSessionClient(
       onReject: fail,
       ...(deviceIdentity ? { deviceIdentity } : {}),
       ...(options.startHandshake ? { startHandshake: options.startHandshake } : {}),
+      ...(options.startReconnect ? { startReconnect: options.startReconnect } : {}),
     });
   }
 
@@ -241,8 +244,10 @@ export function createRtcSessionClient(
     }
     setStatus('pairing');
     // The host closes the channel when its operator refuses the connection (or cannot be asked).
+    // Only this connection's channel speaks for it: a torn-down one may close late.
+    currentChannel = channel;
     channel.onclose = (): void => {
-      if (status === 'awaiting-approval') setStatus('refused');
+      if (channel === currentChannel && status === 'awaiting-approval') setStatus('refused');
     };
 
     // REMOTE-013 E4 reconnect: the device identity is already captured (`activeReconnectIdentity`), so build the
@@ -334,9 +339,13 @@ export function createRtcSessionClient(
     p.onconnectionstatechange = (): void => {
       const s = p.connectionState;
       const dropped = s === 'failed' || s === 'disconnected' || s === 'closed';
-      // Not admitted is not a drop to recover from: reconnecting would only ask the operator again.
-      if (dropped && status === 'awaiting-approval') setStatus('refused');
+      // A refusal is not a drop to recover from: reconnecting would only ask the operator again.
       if (status === 'refused') return;
+      // A first connection lost before the host admitted it has nothing to resume.
+      if ((s === 'failed' || s === 'closed') && status === 'awaiting-approval' && !everConnected) {
+        fail();
+        return;
+      }
       if (dropped && everConnected && reconnectCtx && !reconnecting) {
         void startReconnect();
       }
