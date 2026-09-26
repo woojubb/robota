@@ -391,11 +391,11 @@ explicitly with `STABLE_PAYLOAD_READ_UNAVAILABLE`.
 
 ## Always-Streaming Policy
 
-The Anthropic provider always uses the streaming API internally, even when no `onTextDelta` callback is provided. This avoids the 10-minute HTTP timeout that can occur with long-running tool loops on non-streaming requests. The final response text is assembled from the stream. See [agent-provider SPEC.md](../../packages/agent-provider/docs/SPEC.md) for details.
+The Anthropic provider always uses the streaming API internally, even when no `onTextDelta` callback is provided. This avoids the 10-minute HTTP timeout that can occur with long-running tool loops on non-streaming requests. The final response text is assembled from the stream.
 
 ## Output Token Limits
 
-The Anthropic provider uses `getModelMaxOutput()` to determine the default `max_tokens` value per model rather than hardcoding a fixed limit. Current defaults: Sonnet 4.6 supports 64K output tokens, Opus 4.6 supports 128K output tokens. See [agent-provider SPEC.md](../../packages/agent-provider/docs/SPEC.md) for details.
+The Anthropic provider uses `getModelMaxOutput()` to determine the default `max_tokens` value per model rather than hardcoding a fixed limit. Current defaults: Sonnet 4.6 supports 64K output tokens, Opus 4.6 supports 128K output tokens.
 
 ## Marketplace Client
 

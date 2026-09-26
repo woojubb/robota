@@ -14,7 +14,7 @@ flowchart TB
     SESS["**agent-session**\nsession lifecycle · permissions · hooks · compaction"]
     EXEC["**agent-executor**\nbackground tasks · subagent lifecycle"]
     TOOLS["**agent-tools**\nToolRegistry · createZodFunctionTool · 9 built-in CLI tools"]
-    PROV["**agent-provider**\nAnthropic · OpenAI · DeepSeek · Gemini · Gemma · Qwen"]
+    PROV["**agent-provider-{vendor}**\nAnthropic · OpenAI · OpenAI-compatible · Gemini · ByteDance"]
     PLUG["**agent-plugin**\n8 official plugins"]
     CORE["**agent-core**\nFoundation · Robota engine · DI · events · plugin system"]
 
@@ -55,7 +55,7 @@ flowchart TB
 | **agent-session**              | Session class with permission enforcement, context tracking, compaction                                                                                                                                          | General      |
 | **agent-session-analytics**    | Session log timing analysis (LLM wait vs. tool/code time, slow intervals) — new in beta.76                                                                                                                       | Analytics    |
 | **agent-executor**             | Background task state machines, subagent manager contracts, task snapshots, watchdogs, transcript references                                                                                                     | General      |
-| **agent-provider**             | Provider packages for Anthropic, OpenAI, OpenAI-compatible primitives, DeepSeek, Gemini, Gemma, Qwen, and more                                                                                                   | General      |
+| **agent-provider-{vendor}**    | One provider client package per vendor: Anthropic, OpenAI, OpenAI-compatible (DeepSeek, Qwen, Gemma), Gemini, ByteDance                                                                                          | General      |
 | **agent-plugin**               | 8 official plugins: ConversationHistory, Logging, Usage, Limits, ErrorHandling, ExecutionAnalytics, Performance, Webhook                                                                                         | General      |
 | **agent-command**              | Consolidated slash command package — the core command modules in a single import. `/workflows` ships separately in `agent-command-workflows` (bundled into the CLI)                                              | SDK-specific |
 | **agent-framework**            | Assembly: InteractiveSession, CommandRegistry, BuiltinCommandSource, SkillCommandSource, config loading, context discovery, skill/agent runtime APIs, createQuery()                                              | SDK-specific |

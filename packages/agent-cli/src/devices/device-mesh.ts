@@ -18,11 +18,14 @@ import {
 } from '@robota-sdk/agent-remote-pairing';
 import {
   DeviceMeshNode,
+  startLanMeshRelay,
   type IIceServer,
+  type IMeshMdnsOptions,
   type IMeshRelay,
 } from '@robota-sdk/agent-transport-webrtc';
 
 import { withExclusiveFileLock } from '../credentials/exclusive-file-lock.js';
+import { createFileMeshAddressCache } from './address-cache.js';
 import { DeviceIdentityError } from './device-identity-error.js';
 import { loadDevicePrivateKeys } from './identity-keys.js';
 import { checked } from './identity-lists.js';
@@ -43,6 +46,11 @@ export interface IOpenDeviceMeshOptions {
   readonly root: string;
   readonly store: ICredentialStore;
   readonly relay: IMeshRelay;
+  /**
+   * Look for peers on the local network before the relay: the addresses that worked last (kept
+   * under the devices directory), then mDNS. Absent: the relay only.
+   */
+  readonly lan?: IDeviceMeshLanOptions;
   /** Asked before a peer may use a capability that needs the operator; absent → such requests are refused. */
   readonly operatorApprover?: IOperatorApprover;
   readonly localPolicy?: readonly TDeviceCapability[];
@@ -54,6 +62,15 @@ export interface IOpenDeviceMeshOptions {
    * endpoint keeps running either way; this is where the failure becomes visible.
    */
   readonly onError?: (error: unknown) => void;
+}
+
+export interface IDeviceMeshLanOptions {
+  /** The address this device's direct signaling endpoint binds; default: every interface. */
+  readonly host?: string;
+  /** mDNS options, or `false` to find peers only at remembered addresses. */
+  readonly mdns?: IMeshMdnsOptions | false;
+  /** Something on the local network could not be used; the relay still is. */
+  readonly onError?: (error: Error) => void;
 }
 
 function randomSessionId(): string {
@@ -166,27 +183,48 @@ export async function openDeviceMesh(
       startedAt: now(),
     });
   let descriptor = await describe();
-  const node = new DeviceMeshNode({
-    identity: handshakeIdentity(state, keys),
-    sessionDescriptor: descriptor,
-    localPolicy: options.localPolicy ?? DEFAULT_MESH_POLICY,
-    relay: options.relay,
-    ...(options.operatorApprover !== undefined
-      ? { operatorApprover: options.operatorApprover }
-      : {}),
-    onListsAdopted: (update) => {
-      // A list that cannot be saved is adopted again from the next peer that has it; say so meanwhile.
-      void saveAdoptedLists(directory, options.root, update, now()).catch((error: unknown) =>
-        options.onError?.(error),
-      );
-    },
-    ...(options.iceServers !== undefined ? { iceServers: options.iceServers } : {}),
-    ...(options.connectTimeoutMs !== undefined
-      ? { connectTimeoutMs: options.connectTimeoutMs }
-      : {}),
-    now,
-  });
-  await node.start();
+  const lan = options.lan;
+  const relay =
+    lan === undefined
+      ? options.relay
+      : await startLanMeshRelay({
+          relay: options.relay,
+          cache: createFileMeshAddressCache(directory, { withinRoot: options.root, now }),
+          ...(lan.host !== undefined ? { host: lan.host } : {}),
+          ...(lan.mdns !== undefined ? { mdns: lan.mdns } : {}),
+          ...((lan.onError ?? options.onError) !== undefined
+            ? { onError: lan.onError ?? options.onError }
+            : {}),
+        });
+  // Everything started so far is closed again if the endpoint cannot be opened.
+  let node: DeviceMeshNode | undefined;
+  try {
+    node = new DeviceMeshNode({
+      identity: handshakeIdentity(state, keys),
+      sessionDescriptor: descriptor,
+      localPolicy: options.localPolicy ?? DEFAULT_MESH_POLICY,
+      relay,
+      ...(options.operatorApprover !== undefined
+        ? { operatorApprover: options.operatorApprover }
+        : {}),
+      onListsAdopted: (update) => {
+        // A list that cannot be saved is adopted again from the next peer that has it; say so meanwhile.
+        void saveAdoptedLists(directory, options.root, update, now()).catch((error: unknown) =>
+          options.onError?.(error),
+        );
+      },
+      ...(options.iceServers !== undefined ? { iceServers: options.iceServers } : {}),
+      ...(options.connectTimeoutMs !== undefined
+        ? { connectTimeoutMs: options.connectTimeoutMs }
+        : {}),
+      now,
+    });
+    await node.start();
+  } catch (error) {
+    node?.stop();
+    if (relay !== options.relay) relay.close();
+    throw error;
+  }
 
   const refresh = async (): Promise<void> => {
     const current = readIdentityState(directory);
@@ -209,6 +247,7 @@ export async function openDeviceMesh(
     close: () => {
       clearInterval(timer);
       node.stop();
+      if (relay !== options.relay) relay.close();
     },
   };
 }

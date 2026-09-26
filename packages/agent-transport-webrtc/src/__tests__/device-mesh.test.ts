@@ -1,6 +1,6 @@
 import {
   DeviceHandshakeError,
-  deriveRelayInboxTopics,
+  derivePairRendezvous,
   startDeviceHandshake,
 } from '@robota-sdk/agent-remote-pairing';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
@@ -171,11 +171,14 @@ describe('DeviceMeshNode — CLI↔CLI connection over WebRTC', () => {
 
     // The higher-id side of the pair (anyone who can reach the pair's inbox) sends an offer to the
     // lower-id device, as if the higher one had decided to open the connection itself.
-    const topics = await deriveRelayInboxTopics({
-      ownKaPrivateKey: world.high.ka.privateKey,
-      own: world.high.cert,
-      peer: world.low.cert,
-    });
+    const topics = await (
+      await derivePairRendezvous({
+        ownKaPrivateKey: world.high.ka.privateKey,
+        own: world.high.cert,
+        peerDeviceId: world.low.cert.deviceId,
+        lists: world.identity(world.high),
+      })
+    ).relayInbox();
     const rogue = hub.connect();
     const offerer = await realOffer();
     rogue.send(topics.outbound, {
@@ -282,11 +285,14 @@ describe('DeviceMeshNode — CLI↔CLI connection over WebRTC', () => {
     expect(lowRtc.created()).toBe(1);
 
     // Anyone who can reach the pair's inbox (the relay) announces 50 "new runs" of the peer.
-    const topics = await deriveRelayInboxTopics({
-      ownKaPrivateKey: world.high.ka.privateKey,
-      own: world.high.cert,
-      peer: world.low.cert,
-    });
+    const topics = await (
+      await derivePairRendezvous({
+        ownKaPrivateKey: world.high.ka.privateKey,
+        own: world.high.cert,
+        peerDeviceId: world.low.cert.deviceId,
+        lists: world.identity(world.high),
+      })
+    ).relayInbox();
     const forger = hub.connect();
     for (let i = 0; i < 50; i += 1) {
       forger.send(topics.outbound, {
@@ -363,11 +369,14 @@ describe('DeviceMeshNode — the peer is the device its inbox belongs to', () =>
     await high.start();
 
     // The relay moves a third device's offer into the low–high inbox and returns high's answer to it.
-    const topics = await deriveRelayInboxTopics({
-      ownKaPrivateKey: world.low.ka.privateKey,
-      own: world.low.cert,
-      peer: world.high.cert,
-    });
+    const topics = await (
+      await derivePairRendezvous({
+        ownKaPrivateKey: world.low.ka.privateKey,
+        own: world.low.cert,
+        peerDeviceId: world.high.cert.deviceId,
+        lists: world.identity(world.low),
+      })
+    ).relayInbox();
     const relay = hub.connect();
     relay.declarePresence([topics.inbound]);
     const instance = 'DDDDDDDDDDDDDDDDDDDDDD';
@@ -456,11 +465,14 @@ describe('MeshPeerLink — admission gate', () => {
     await low.start();
 
     // A peer holding the pair's inbox that smuggles a message ahead of its handshake.
-    const topics = await deriveRelayInboxTopics({
-      ownKaPrivateKey: world.high.ka.privateKey,
-      own: world.high.cert,
-      peer: world.low.cert,
-    });
+    const topics = await (
+      await derivePairRendezvous({
+        ownKaPrivateKey: world.high.ka.privateKey,
+        own: world.high.cert,
+        peerDeviceId: world.low.cert.deviceId,
+        lists: world.identity(world.high),
+      })
+    ).relayInbox();
     const relay = hub.connect();
     const instance = 'CCCCCCCCCCCCCCCCCCCCCC';
     let rogue: MeshPeerLink | undefined;

@@ -53,13 +53,13 @@ npm install -g @robota-sdk/agent-cli
 ### 커스텀 AI 에이전트를 만들고 싶어요
 
 ```bash
-npm install @robota-sdk/agent-core @robota-sdk/agent-provider
+npm install @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic
 ```
 
 ### 도구 호출(함수 도구)이 필요해요
 
 ```bash
-npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-provider
+npm install @robota-sdk/agent-core @robota-sdk/agent-tools @robota-sdk/agent-provider-anthropic
 ```
 
 ## 빠른 시작 · CLI

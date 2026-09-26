@@ -182,7 +182,7 @@ function HomePage({
             <span className="text-[#52525b]"># Or install SDK packages for your app</span>
             {'\n'}
             <span className="text-primary opacity-85">pnpm</span>
-            {' add @robota-sdk/agent-core @robota-sdk/agent-provider'}
+            {' add @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic'}
           </code>
         </pre>
       </div>

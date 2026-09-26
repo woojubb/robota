@@ -61,6 +61,7 @@
     "@robota-sdk/agent-interface-transport": "workspace:*",
     "@robota-sdk/agent-remote-pairing": "workspace:*",
     "@robota-sdk/agent-transport": "workspace:*",
+    "multicast-dns": "^7.2.5",
     "ws": "^8.21.1"
   },
   "peerDependencies": {
