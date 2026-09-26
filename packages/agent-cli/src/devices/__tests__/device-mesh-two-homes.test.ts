@@ -4,7 +4,7 @@
  * handshake, and deliver a message. The identity each endpoint uses is only what `/devices` left
  * under its `HOME`.
  */
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -15,10 +15,14 @@ import {
   issueDeviceRevocationList,
   issueDeviceRoster,
 } from '@robota-sdk/agent-remote-pairing';
-import { createInMemoryMeshRelayHub } from '@robota-sdk/agent-transport-webrtc';
+import {
+  createInMemoryMdnsBus,
+  createInMemoryMeshRelayHub,
+} from '@robota-sdk/agent-transport-webrtc';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { createFileCredentialStore } from '../../credentials/file-credential-store.js';
+import { addressCachePath } from '../address-cache.js';
 import { createDeviceIdentityService } from '../device-identity-service.js';
 import { reissueDueLists } from '../device-list-reissue.js';
 import { openDeviceMesh, saveAdoptedLists, type IDeviceMeshEndpoint } from '../device-mesh.js';
@@ -213,6 +217,45 @@ describe('device mesh between two HOMEs', () => {
     await expect(atLaptop.connect(desktopId)).rejects.toThrow(/not a rostered, unrevoked/);
     await expect(atDesktop.connect(laptopId, 3_000)).rejects.toThrow();
     expect(atLaptop.link(desktopId)).toBeUndefined();
+  }, 40_000);
+
+  it('on the local network, finds the peer before the relay and remembers where, owner-only', async () => {
+    const desktopId = await enrolDesktop();
+    const laptopId = stateOf(laptop).deviceCertificate.deviceId;
+    const bus = createInMemoryMdnsBus();
+    const lan = {
+      host: '127.0.0.1',
+      mdns: { createTransport: () => bus.transport('127.0.0.1'), addresses: () => ['127.0.0.1'] },
+    };
+    // Each home has its own relay, so only the local network can join them.
+    const open2 = async (home: IHome) => {
+      const opened = await openDeviceMesh({
+        root: home.root,
+        store: home.store,
+        relay: createInMemoryMeshRelayHub().connect(),
+        lan,
+        now: () => clock,
+        connectTimeoutMs: 10_000,
+      });
+      open.push(opened);
+      return opened.node;
+    };
+    const [atLaptop, atDesktop] = [await open2(laptop), await open2(desktop)];
+
+    const [toDesktop, toLaptop] = await Promise.all([
+      atLaptop.connect(desktopId),
+      atDesktop.connect(laptopId),
+    ]);
+    const received = new Promise<string>((resolve) => toLaptop.onMessage(resolve));
+    toDesktop.send('across the room');
+    await expect(received).resolves.toBe('across the room');
+
+    const path = addressCachePath(laptop.directory);
+    await expect.poll(() => readFileSync(path, 'utf8')).toContain(desktopId);
+    if (process.platform !== 'win32') expect(statSync(path).mode & 0o777).toBe(0o600);
+    const stored = readFileSync(path, 'utf8');
+    expect(stored).toContain('127.0.0.1');
+    expect(stored).not.toContain(stateOf(laptop).deviceCertificate.kaKey);
   }, 40_000);
 
   it('refuses to open without an identity, naming the command to run', async () => {

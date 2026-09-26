@@ -83,13 +83,25 @@ dependency.
   cross; anything else ends the connection. A side counts the connection admitted only after the peer says it
   admitted it too, so a refused peer never believes it is connected. Each connection has a DTLS certificate of its
   own: a per-process certificate would be a stable identifier the relay could link across connections, and one two
-  endpoints in a process would share. No ICE server is contacted unless one is configured. The relay is reached only through opaque,
-  pairwise inbox topics and is never trusted for anything but delivery: nothing it says is authenticated, so a
-  new attempt runs beside the admitted connection and replaces it only once admitted itself, and attempts per
-  pair are paced — forged announcements can neither cut a working connection nor open connections without bound.
+  endpoints in a process would share. No ICE server is contacted unless one is configured. Every way signals travel — the relay, or a peer's
+  direct endpoint on the local network — is reached only through opaque, pairwise topics and is never trusted for
+  anything but delivery: nothing it says is authenticated, so a new attempt runs beside the admitted connection
+  and replaces it only once admitted itself, and attempts per pair are paced — forged announcements can neither
+  cut a working connection nor open connections without bound.
   Lists adopted in a handshake or handed over later apply from the next handshake, and a device they revoke loses
   its connection at once. Admission says who the peer is; what it may do on the connection is its connection
   authority's answer, so even a message is delivered only when that authority allows it.
+- **Discovery yields candidates, never trust.** Whatever a discovery path answers only carries signals, so a stale
+  or planted address can delay a connection but not admit one. A pair tries what reveals least first: an address
+  that already carried an admitted connection needs no broadcast, the local network needs no third party, and the
+  relay is the last resort. An endpoint carries a pair's signals only once it proves it holds the pair's topic,
+  and is set aside when no admission follows, so no endpoint can hold a pair off the relay; an address is
+  remembered only after an admission it carried. The mDNS announcement is built record by record rather than by
+  a service-publishing library, because those publish the machine's host name: the service type names no
+  product, every instance name is a pairwise tag that rotates by epoch, the host name is random, and the
+  instance count is padded with names that hold for the epoch, so it does not tell how many devices there are.
+  On the local network, topics travel only as hashes and rotate by epoch, so what an observer there sees does
+  not carry the stable relay inbox topics.
 - **The data channel is wired eagerly at creation, not on open.** The session message handler is built and its
   message subscription attached immediately, because the underlying implementation does not buffer inbound frames
   that arrive before a subscription, and the remote can send its first client message before the host's channel

@@ -6,6 +6,8 @@
  * from it is decoded as hostile input, and admission never depends on it.
  */
 
+import type { IMeshPeerRoute } from './mesh-discovery.js';
+
 export interface IMeshRelay {
   /** Be present at exactly these topics (replaces any earlier declaration). */
   declarePresence(topics: readonly string[]): void;
@@ -15,6 +17,13 @@ export interface IMeshRelay {
   onMessage(handler: (topic: string, data: unknown) => void): () => void;
   /** Nobody was present at `topic` when a message was sent there. Returns an unsubscribe. */
   onAbsent(handler: (topic: string) => void): () => void;
+  /**
+   * The peers the node signals now (replaces any earlier declaration), for a relay that looks for
+   * peers itself rather than only delivering to topics.
+   */
+  declarePeers?(peers: readonly IMeshPeerRoute[]): void;
+  /** A connection to `deviceId` was admitted: the way its signals went worked. */
+  confirmPeer?(deviceId: string): void;
   close(): void;
 }
 
