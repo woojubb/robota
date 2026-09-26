@@ -176,7 +176,7 @@ Every provider implementation deliberately exposes two request/response surfaces
 
 ## Usage-Triple SSOT
 
-The prompt/completion/total token-usage shape is owned once in this package; no package may re-declare that shape — every occurrence elsewhere in the monorepo is either a direct reference or a named alias of it, never an independently declared lookalike.
+The prompt/completion/total token-usage shape is owned once in this package; no package may re-declare that shape — every occurrence elsewhere in the monorepo is either a direct reference, a named alias or an extension of it, never an independently declared lookalike. The prompt-cache read a provider reports is a part of the prompt count, not an addition to it, and it extends the triple rather than joining it, because the triple is also the persisted and wired usage shape whose readers declare exactly its three counts.
 
 ## Provider Capabilities
 
@@ -186,7 +186,7 @@ For model-level (rather than provider-level) capabilities, a model's capability 
 
 ## Context Window Tracking
 
-Effective context-token usage is estimated as the maximum of a deterministic serialized-history estimate and the latest exact provider-reported usage (plus an optional caller-supplied floor) — never the sum of historical provider usage across turns. This specifically prevents two failure modes: an old provider usage number masking a large metadata-free prompt that arrived afterward, and multi-turn provider input counts being double-counted by summing what each call already reported cumulatively. Provider-reported usage is normalized into one canonical metadata shape before an assistant message is committed, and each provider round is tagged with a fresh observation identity so streamed fragments of the same round can be deduplicated by identity rather than by comparing token counts.
+Effective context-token usage is estimated as the maximum of a deterministic serialized-history estimate and the latest exact provider-reported usage (plus an optional caller-supplied floor) — never the sum of historical provider usage across turns. This specifically prevents two failure modes: an old provider usage number masking a large metadata-free prompt that arrived afterward, and multi-turn provider input counts being double-counted by summing what each call already reported cumulatively. Provider-reported usage — including the prompt-cache read, when the provider reports one — is normalized into one canonical metadata shape by one rule for every path that commits an assistant message, the forced summary included, so no path drops counts another keeps; counts the adapter could not attest as a consistent total are recorded and marked partial rather than dropped. Each provider round is tagged with a fresh observation identity so streamed fragments of the same round can be deduplicated by identity rather than by comparing token counts.
 
 ## Class Registry and Cross-Layer Ports
 

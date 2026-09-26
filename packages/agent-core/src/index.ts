@@ -221,6 +221,7 @@ export { ConversationHistory, ConversationStore } from './managers/conversation-
 export {
   collectAssistantUsageMetadata,
   sumHistoryUsage,
+  sumMessagesUsage,
   type IAssistantUsageMetadata,
   type ISessionUsageTotals,
 } from './services/execution-usage';

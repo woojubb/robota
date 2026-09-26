@@ -1,23 +1,23 @@
 import { randomUUID } from 'node:crypto';
 
+import { parseChatCompletionUsage } from './chat-completion-usage';
+
 import type {
   IOpenAICompatibleToolCallTextProjection,
   IOpenAICompatibleStreamAssemblyOptions,
   TOpenAICompatibleTextProjector,
 } from './types';
-import type { IToolCall, TUniversalMessage } from '@robota-sdk/agent-core';
+import type {
+  IToolCall,
+  ITokenUsageWithCacheRead,
+  TUniversalMessage,
+} from '@robota-sdk/agent-core';
 import type OpenAI from 'openai';
 
 interface IToolCallPart {
   id: string;
   name: string;
   arguments: string;
-}
-
-interface IStreamUsage {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
 }
 
 interface IAssemblyState {
@@ -28,7 +28,7 @@ interface IAssemblyState {
   toolCallTextProjected: boolean;
   model: string;
   finishReason: string | null;
-  usage?: IStreamUsage;
+  usage?: ITokenUsageWithCacheRead;
   usageProvenance?: 'complete' | 'partial';
 }
 
@@ -72,11 +72,7 @@ function applyChunk(
       chunk.usage.total_tokens !== undefined
         ? 'complete'
         : 'partial';
-    state.usage = {
-      promptTokens: chunk.usage.prompt_tokens,
-      completionTokens: chunk.usage.completion_tokens,
-      totalTokens: chunk.usage.total_tokens,
-    };
+    state.usage = parseChatCompletionUsage(chunk.usage);
   }
 
   const choice = chunk.choices?.[0];

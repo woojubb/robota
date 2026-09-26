@@ -47,6 +47,76 @@ describe('OpenAICompatibleResponseParser', () => {
     expect(result.metadata?.['usageProvenance']).toBe('complete');
   });
 
+  function completionWithUsage(usage: OpenAI.CompletionUsage): OpenAI.Chat.ChatCompletion {
+    return {
+      id: 'chatcmpl-cached',
+      object: 'chat.completion',
+      created: 1,
+      model: 'local-model',
+      choices: [
+        {
+          index: 0,
+          message: { role: 'assistant', content: 'answer', refusal: null },
+          finish_reason: 'stop',
+          logprobs: null,
+        },
+      ],
+      usage,
+    };
+  }
+
+  function usageOf(message: unknown): Record<string, number> | undefined {
+    return (message as { usage?: Record<string, number> } | null)?.usage;
+  }
+
+  it('surfaces prompt_tokens_details.cached_tokens as cacheReadTokens on the message usage', () => {
+    const parser = new OpenAICompatibleResponseParser();
+    const result = parser.parseResponse(
+      completionWithUsage({
+        prompt_tokens: 1000,
+        completion_tokens: 20,
+        total_tokens: 1020,
+        prompt_tokens_details: { cached_tokens: 800 },
+      }),
+    );
+
+    expect(usageOf(result)).toEqual({
+      promptTokens: 1000,
+      completionTokens: 20,
+      totalTokens: 1020,
+      cacheReadTokens: 800,
+    });
+  });
+
+  it('adds no cacheReadTokens when the usage carries no cached-token details', () => {
+    const parser = new OpenAICompatibleResponseParser();
+    const result = parser.parseResponse(
+      completionWithUsage({ prompt_tokens: 1000, completion_tokens: 20, total_tokens: 1020 }),
+    );
+
+    expect(usageOf(result)).toBeDefined();
+    expect(usageOf(result)).not.toHaveProperty('cacheReadTokens');
+  });
+
+  it('surfaces cached tokens from the final streamed usage chunk', () => {
+    const parser = new OpenAICompatibleResponseParser();
+    const result = parser.parseStreamingChunk({
+      id: 'chunk-usage',
+      object: 'chat.completion.chunk',
+      created: 1,
+      model: 'local-model',
+      choices: [],
+      usage: {
+        prompt_tokens: 1000,
+        completion_tokens: 20,
+        total_tokens: 1020,
+        prompt_tokens_details: { cached_tokens: 800 },
+      },
+    });
+
+    expect(usageOf(result)).toMatchObject({ cacheReadTokens: 800 });
+  });
+
   it('applies an injected provider-owned text tool-call projector to full responses', () => {
     const parser = new OpenAICompatibleResponseParser({
       toolCallTextProjector: {

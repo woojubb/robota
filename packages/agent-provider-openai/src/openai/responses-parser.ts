@@ -13,7 +13,12 @@ import type {
   TOpenAIResponsesOutputItem,
   TOpenAIResponsesStreamEvent,
 } from './responses-types';
-import type { IToolCall, TTextDeltaCallback, TUniversalMessage } from '@robota-sdk/agent-core';
+import type {
+  IToolCall,
+  ITokenUsageWithCacheRead,
+  TTextDeltaCallback,
+  TUniversalMessage,
+} from '@robota-sdk/agent-core';
 
 interface IOpenAIResponsesStreamAssemblyOptions {
   stream: AsyncIterable<TOpenAIResponsesStreamEvent>;
@@ -25,12 +30,6 @@ interface IOpenAIResponsesReasoningMetadata {
   reasoningSummaryCount: number;
   reasoningSummaries: string[];
   hasEncryptedReasoning: boolean;
-}
-
-interface IOpenAIResponseUsage {
-  promptTokens: number;
-  completionTokens: number;
-  totalTokens: number;
 }
 
 interface IOpenAIResponsesStreamState {
@@ -191,11 +190,13 @@ function buildMetadata(
   };
 }
 
-function mapUsage(usage: IOpenAIResponsesUsage): IOpenAIResponseUsage {
+function mapUsage(usage: IOpenAIResponsesUsage): ITokenUsageWithCacheRead {
+  const cachedTokens = usage.input_tokens_details?.cached_tokens;
   return {
     promptTokens: usage.input_tokens ?? 0,
     completionTokens: usage.output_tokens ?? 0,
     totalTokens: usage.total_tokens ?? 0,
+    ...(typeof cachedTokens === 'number' && { cacheReadTokens: cachedTokens }),
   };
 }
 

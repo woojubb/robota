@@ -173,6 +173,18 @@ Each provider round also receives a `usageObservationId` before invocation. Stre
 that round reuse the identifier, while a separately billed round receives a new one. Persisted
 analytics can therefore deduplicate provider usage by identity without collapsing equal token totals.
 
+`sumMessagesUsage(messages)` sums the usage providers reported on assistant messages. One run's usage,
+tool rounds and a forced summary included, is the sum over the messages that run appended:
+
+```ts
+const before = agent.getHistory().length;
+await agent.run(prompt);
+const usage = sumMessagesUsage(agent.getHistory().slice(before));
+```
+
+`cacheReadTokens` — the part of `promptTokens` the provider served from its prompt cache — is present
+only when a provider reported it (the OpenAI and OpenAI-compatible adapters do).
+
 ## IAgentConfig
 
 | Field                   | Type                       | Description                    |
@@ -209,7 +221,7 @@ agent-cli         ← Terminal UI
 | **Hooks**       | `runHooks`, `CommandExecutor`, `HttpExecutor`, `IHookTypeExecutor`, `THookEvent`, `THooksConfig`, `IHookGroup`, `IHookDefinition`, `IHookInput`, `THookOutcome`                                                                       |
 | **Events**      | `EventEmitterPlugin`, `IEventService`, `IOwnerPathSegment`                                                                                                                                                                            |
 | **Models**      | `registerModelMetadata()`, `DEFAULT_CONTEXT_WINDOW`, `DEFAULT_MAX_OUTPUT`, `getModelContextWindow()`, `getModelMaxOutput()`, `getModelName()`, `formatTokenCount()`, `IModelDefinition`                                               |
-| **Context**     | `estimateContextTokensFromMessages()`, `estimateSerializedContextTokens()`, `readTokenUsageFromMessage()`, `IContextTokenEstimate`, `IMessageTokenUsage`, `IContextWindowState`, `IContextTokenUsage`                                 |
+| **Context**     | `estimateContextTokensFromMessages()`, `estimateSerializedContextTokens()`, `readTokenUsageFromMessage()`, `sumMessagesUsage()`, `IContextTokenEstimate`, `IMessageTokenUsage`, `IContextWindowState`, `IContextTokenUsage`           |
 | **Types**       | `TUniversalMessage`, `IBaseMessage` (`id`, `state`), `TMessageState`, `IAgentConfig`, `IAIProvider`, `IProviderCapabilities`, `IProviderNativeWebToolRequest`, `IToolSchema`, `TTextDeltaCallback`                                    |
 | **Errors**      | `RobotaError`, `ProviderError`, `RateLimitError`, `AuthenticationError`, `ToolExecutionError`, etc.                                                                                                                                   |
 | **Managers**    | `AgentFactory`, `AgentTemplates`, `ConversationHistory`, `EventHistoryModule`                                                                                                                                                         |
