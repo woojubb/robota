@@ -23,5 +23,8 @@ connection.
 - `agent-remote-pairing` — the pair rendezvous derives a `relay-user` tag and `relayPassword`, the relay
   credential's password for one direction and username.
 - `agent-cli` — `transports.mesh.options` takes `relay` (`serve`, `port`, `host`, `publicAddress`, `relayPorts`,
-  `allowPrivatePeers`), `turnServers` and `relayOnly`; the device mesh endpoint runs the relay, advertises it to
-  paired devices only, and uses the fallback order.
+  `allowPrivatePeers`), `turnServers` and `relayOnly`. When the mesh is on, the session's mesh runs the relay,
+  advertises it to paired devices only, and uses the fallback order; `/devices` names the relays, and a device
+  that needs a relay is reported once with why. Running a relay, or relay-only without TURN servers, needs the
+  DHT or pkarr relays, which carry a relay's address to the other devices; a setting that could not work is
+  refused, naming it.

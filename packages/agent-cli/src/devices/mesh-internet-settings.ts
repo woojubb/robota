@@ -183,7 +183,7 @@ export function parseMeshInternetSettings(options: unknown): IMeshInternetSettin
   if (relayOnly !== undefined && typeof relayOnly !== 'boolean') {
     throw new Error('Invalid mesh setting: `relayOnly` must be true or false.');
   }
-  return {
+  const settings: IMeshInternetSettings = {
     dht: dht ?? true,
     pkarrRelays: relayList(bag['pkarrRelays'], 'pkarrRelays', 'https:', DEFAULT_PKARR_RELAYS),
     nostrRelays: relayList(bag['nostrRelays'], 'nostrRelays', 'wss:', DEFAULT_NOSTR_RELAYS),
@@ -191,4 +191,20 @@ export function parseMeshInternetSettings(options: unknown): IMeshInternetSettin
     turnServers: turnServers(bag['turnServers']),
     relayOnly: relayOnly ?? false,
   };
+  // A relay's address reaches paired devices only in the sealed records on the DHT or pkarr relays:
+  // with both off, no device can learn of one, so a setting that relies on it would never work.
+  const records = settings.dht || settings.pkarrRelays.length > 0;
+  if (!records && settings.relay.serve) {
+    throw new Error(
+      'Invalid mesh setting: `relay.serve` needs `dht` or `pkarrRelays`, which tell your other ' +
+        'devices where the relay is.',
+    );
+  }
+  if (!records && settings.relayOnly && settings.turnServers.length === 0) {
+    throw new Error(
+      'Invalid mesh setting: `relayOnly` needs `turnServers`, or `dht` or `pkarrRelays` to find ' +
+        "your devices' relays.",
+    );
+  }
+  return settings;
 }

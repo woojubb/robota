@@ -246,7 +246,11 @@ async function bindUdp(port: number, host: string): Promise<Socket | undefined> 
     return socket;
   } catch {
     // allow-fallback: the port is taken; the caller tries another or refuses the request
-    socket.close();
+    try {
+      socket.close();
+    } catch {
+      /* never bound */
+    }
     return undefined;
   }
 }
@@ -317,14 +321,11 @@ export class TurnServer {
       throw new Error(`TURN realm must be 1 to ${MAX_REALM_BYTES} bytes`);
     }
     const host = options.host ?? '0.0.0.0';
-    const socket = createSocket('udp4');
-    await new Promise<void>((resolve, reject) => {
-      socket.once('error', reject);
-      socket.bind(options.port ?? 3478, host, () => {
-        socket.off('error', reject);
-        resolve();
-      });
-    });
+    const port = options.port ?? 3478;
+    const socket = await bindUdp(port, host);
+    if (socket === undefined) {
+      throw new Error(`the TURN relay cannot listen on UDP ${host}:${port}: the port is taken`);
+    }
     const relayAddress = options.relayAddress ?? (host === '0.0.0.0' ? firstExternalIpv4() : host);
     return new TurnServer(socket, options, host, relayAddress);
   }

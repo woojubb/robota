@@ -98,6 +98,20 @@ describe('mesh public-infrastructure settings', () => {
     ).toThrow(/username and credential/);
     expect(() => parseMeshInternetSettings({ turnServers: 'turn:a' })).toThrow(/turnServers/);
     expect(() => parseMeshInternetSettings({ relayOnly: 1 })).toThrow(/`relayOnly`/);
+    // With no records, no device can learn where a relay is.
+    const noRecords = { dht: false, pkarrRelays: [] };
+    expect(() => parseMeshInternetSettings({ ...noRecords, relay: { serve: true } })).toThrow(
+      /`relay.serve` needs `dht` or `pkarrRelays`/,
+    );
+    expect(() => parseMeshInternetSettings({ ...noRecords, relayOnly: true })).toThrow(
+      /`relayOnly` needs `turnServers`/,
+    );
+    const turnOnly = {
+      ...noRecords,
+      relayOnly: true,
+      turnServers: [{ urls: 'turn:turn.example.org', username: 'u', credential: 'c' }],
+    };
+    expect(parseMeshInternetSettings(turnOnly).relayOnly).toBe(true);
   });
 
   it('fail closed on a malformed value', () => {

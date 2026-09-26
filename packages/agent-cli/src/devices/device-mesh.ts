@@ -171,16 +171,25 @@ async function startInternet(
 ): Promise<IInternetParts> {
   const onError = internet.onError;
   const { relay } = internet.settings;
-  const turn = relay.serve
-    ? await MeshTurnRelay.start({
+  let turn: MeshTurnRelay | undefined;
+  if (relay.serve) {
+    try {
+      turn = await MeshTurnRelay.start({
         port: relay.port,
         ...(relay.host !== undefined ? { host: relay.host } : {}),
         ...(relay.publicAddress !== undefined ? { relayAddress: relay.publicAddress } : {}),
         ...(relay.relayPorts !== undefined ? { relayPorts: relay.relayPorts } : {}),
         allowPrivatePeers: relay.allowPrivatePeers,
         ...(onError !== undefined ? { onError } : {}),
-      })
-    : undefined;
+      });
+    } catch (error) {
+      throw new Error(
+        `${error instanceof Error ? error.message : String(error)}. Choose another ` +
+          '`transports.mesh.options.relay.port`, or set `relay.serve` to false.',
+        { cause: error },
+      );
+    }
+  }
   let stores: IRendezvousItemStore[];
   try {
     stores = await recordStores(internet);
@@ -224,7 +233,10 @@ async function startInternet(
       ...(turn !== undefined ? { turn } : {}),
     };
   } catch (error) {
-    closeInternet({ ...(dht !== undefined ? { dht } : {}), ...(turn !== undefined ? { turn } : {}) });
+    closeInternet({
+      ...(dht !== undefined ? { dht } : {}),
+      ...(turn !== undefined ? { turn } : {}),
+    });
     throw error;
   }
 }
@@ -379,7 +391,9 @@ export async function openDeviceMesh(
     settings === undefined
       ? undefined
       : {
-          ...(dht !== undefined ? { advertised: (peers, signal) => dht.relayAdverts(peers, signal) } : {}),
+          ...(dht !== undefined
+            ? { advertised: (peers, signal) => dht.relayAdverts(peers, signal) }
+            : {}),
           configured: settings.turnServers,
           relayOnly: settings.relayOnly,
         };

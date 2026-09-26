@@ -10,7 +10,11 @@
 import { join } from 'node:path';
 
 import { readSettings } from '@robota-sdk/agent-framework';
-import { WsMeshRelayClient, type IMeshRelay } from '@robota-sdk/agent-transport-webrtc';
+import {
+  MeshRelayNeededError,
+  WsMeshRelayClient,
+  type IMeshRelay,
+} from '@robota-sdk/agent-transport-webrtc';
 
 import { holdExclusiveFileLock } from '../credentials/exclusive-file-lock.js';
 import { createHostCredentialStore } from '../credentials/select-credential-store.js';
@@ -196,6 +200,9 @@ export function createDeviceMeshHost(options: IDeviceMeshHostOptions): IDeviceMe
   let own: string | undefined;
   let closed = false;
   let relayErrorSaid = false;
+  let internetErrorSaid = false;
+  /** Devices already said to need a relay, until they link. */
+  const relayNeedSaid = new Set<string>();
   /** Lets go of this device's mesh, held while this session has it open. */
   let release: (() => void) | undefined;
 
@@ -233,6 +240,7 @@ export function createDeviceMeshHost(options: IDeviceMeshHostOptions): IDeviceMe
 
   const adopt = (link: IDeviceMeshLink, self: string): void => {
     const deviceId = link.admission.deviceId;
+    relayNeedSaid.delete(deviceId);
     links.get(deviceId)?.stop();
     const offMessages = messaging.attach(link);
     const offChannels = acceptDeviceChannels(link, {
@@ -358,7 +366,22 @@ export function createDeviceMeshHost(options: IDeviceMeshHostOptions): IDeviceMe
           localPolicy: settings.policy,
           ...(ownRelay !== undefined ? { relay: ownRelay } : {}),
           ...(lan !== undefined ? { lan } : {}),
-          ...(internet ? { internet: { settings: settings.internet } } : {}),
+          ...(internet
+            ? {
+                internet: {
+                  settings: settings.internet,
+                  // Said once: public infrastructure that keeps failing would repeat itself.
+                  onError: (error: Error) => {
+                    if (internetErrorSaid) return;
+                    internetErrorSaid = true;
+                    report(
+                      `Part of the device mesh beyond the local network failed; the rest still ` +
+                        `works: ${error.message}`,
+                    );
+                  },
+                },
+              }
+            : {}),
           ...(operatorApprover !== undefined ? { operatorApprover } : {}),
           ...(options.connectTimeoutMs !== undefined
             ? { connectTimeoutMs: options.connectTimeoutMs }
@@ -382,6 +405,17 @@ export function createDeviceMeshHost(options: IDeviceMeshHostOptions): IDeviceMe
       own = identity.deviceCertificate.deviceId;
       const self = own;
       opened.node.onLink((link) => adopt(link, self));
+      // A device this network cannot reach without a relay is said once, with why, never left silent.
+      opened.node.onRefusal((refusal) => {
+        if (!(refusal.error instanceof MeshRelayNeededError)) return;
+        if (relayNeedSaid.has(refusal.deviceId)) return;
+        relayNeedSaid.add(refusal.deviceId);
+        const name = nameOf(refusal.deviceId);
+        report(
+          `${name !== undefined ? `${name}: ` : ''}${refusal.error.message} ` +
+            'See `transports.mesh.options.relay` and `turnServers`.',
+        );
+      });
       state = 'on';
     },
     bind: (next) => {
