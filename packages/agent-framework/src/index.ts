@@ -492,8 +492,13 @@ export type {
 // ── Prompt history (SCREEN-1993) ────────────────────────────
 export type { IPromptHistoryOptions } from './interactive/interactive-session-prompt-history.js';
 // ── Edit checkpointing ─────────────────────────────────────
-export { EditCheckpointStore, wrapEditCheckpointTools } from './checkpoints/index.js';
+export {
+  EditCheckpointStore,
+  EditCheckpointsUnavailableError,
+  wrapEditCheckpointTools,
+} from './checkpoints/index.js';
 export type {
+  TEditCheckpointsUnavailableReason,
   IEditCheckpointFileInspection,
   IEditCheckpointFileRecord,
   IEditCheckpointInspection,

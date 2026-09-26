@@ -17,10 +17,12 @@ import {
   VISIBLE_MEMORY_EVENT_TYPES,
   formatMemoryEventMessage,
 } from '../memory/memory-event-format.js';
-import { WorkspaceAuthorityRequiredError } from '../workspace-trust/index.js';
+import { EditCheckpointsUnavailableError } from '../checkpoints/edit-checkpoints-unavailable-error.js';
+import { supportsWorkspaceProjectMutation } from '../workspace-trust/index.js';
 
 import type { IHistoryTrackerState } from './session-history-state.js';
 import type { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
+import type { TEditCheckpointsUnavailableReason } from '../checkpoints/edit-checkpoints-unavailable-error.js';
 import type {
   IEditCheckpointInspection,
   IEditCheckpointRestoreResult,
@@ -47,9 +49,9 @@ export class SessionHistoryTracker {
   private editCheckpointStore: EditCheckpointStore | null = null;
   private readonly branchEvents: SessionBranchEvents;
   /**
-   * SELFHOST-007: a persisted active-branch pointer restored (in the constructor) BEFORE the checkpoint
-   * store exists on the standard/async construction path — stashed here and applied the moment the
-   * store is set, so `--resume` reaches the store instead of silently dropping the pointer.
+   * SELFHOST-007: a persisted active-branch pointer restored on resume, before the session (and
+   * possibly the store) exists — stashed here and applied on the first checkpoint operation, so
+   * `--resume` reaches the store instead of throwing or silently dropping the pointer.
    */
   private pendingActiveBranch: IActiveBranchPointer | undefined = undefined;
   private memoryEvents: IMemoryEvent[] = [];
@@ -222,17 +224,14 @@ export class SessionHistoryTracker {
   }
 
   /**
-   * SELFHOST-007: restore the active branch from a persisted pointer on resume (graceful on drift). If
-   * the checkpoint store is not yet created (standard async construction path — the store is injected
-   * later via {@link setEditCheckpointStore}), stash the pointer and apply it when the store arrives.
+   * SELFHOST-007: restore the active branch from a persisted pointer on resume (graceful on drift).
+   * The pointer is always stashed and applied on the first checkpoint operation: on the standard
+   * path a resume restores its record before the underlying session exists, so the session id the
+   * store keys by cannot be read yet, whether or not the store was given at construction.
    */
   restoreActiveBranch(pointer: IActiveBranchPointer | undefined): void {
     if (pointer === undefined) return;
-    if (!this.editCheckpointStore) {
-      this.pendingActiveBranch = pointer;
-      return;
-    }
-    this.editCheckpointStore.restoreActiveBranch(this.getSessionId(), pointer);
+    this.pendingActiveBranch = pointer;
   }
 
   /** Apply a stashed active-branch pointer once the store exists (idempotent; clears the stash). */
@@ -349,9 +348,18 @@ export class SessionHistoryTracker {
     this.persistSession();
   }
   private getCheckpointStore(): EditCheckpointStore {
-    if (!this.editCheckpointStore)
-      throw new WorkspaceAuthorityRequiredError('Edit checkpoints require project authority.');
+    if (!this.editCheckpointStore) throw new EditCheckpointsUnavailableError(this.noStoreReason());
     this.applyPendingActiveBranch();
     return this.editCheckpointStore;
+  }
+
+  /**
+   * The host is checked first: where no project write can be proven safe, trusting the workspace
+   * would not bring checkpoints back, so naming trust there would send the user the wrong way.
+   */
+  private noStoreReason(): TEditCheckpointsUnavailableReason {
+    if (!supportsWorkspaceProjectMutation()) return 'host-cannot-write-project';
+    if (this.workspace.projectAccess.status !== 'trusted') return 'restricted-workspace';
+    return 'no-checkpoint-store';
   }
 }

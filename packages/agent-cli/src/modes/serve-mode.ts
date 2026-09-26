@@ -53,6 +53,7 @@ import { homedir } from 'node:os';
 import { realpathSync } from 'node:fs';
 import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
 import type {
+  EditCheckpointStore,
   IAgentDefinition,
   IBackgroundTaskRunner,
   ICommandHostAdapters,
@@ -99,6 +100,11 @@ export interface IServeModeOptions {
   skipConfiguredHooks?: boolean;
   sessionStore: ReturnType<typeof createProjectSessionStore>;
   projectAccess?: TWorkspaceProjectAccess;
+  /**
+   * Builds a session's edit checkpoint store. Called once per session, the pool's included: a store
+   * holds its session's turn in progress, and pooled sessions run turns at the same time.
+   */
+  createEditCheckpointStore?: () => EditCheckpointStore;
   projectSettingsPaths?: readonly IProjectSettingsPath[];
   userSettingsSources?: readonly INodeHostSettingsSource[];
   contributionSources?: readonly IContributionSource[];
@@ -199,6 +205,7 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(opts.bare === true ? { bare: true } : {}),
     ...(opts.skipConfiguredHooks === true ? { skipConfiguredHooks: true } : {}),
     ...(opts.projectAccess !== undefined ? { projectAccess: opts.projectAccess } : {}),
+    ...ownEditCheckpointStore(opts),
     ...(opts.projectSettingsPaths !== undefined
       ? { projectSettingsPaths: opts.projectSettingsPaths }
       : {}),
@@ -270,6 +277,32 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(preset.systemPrompt !== undefined ? { presetSystemPrompt: preset.systemPrompt } : {}),
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
     ...(opts.memorySessionOptions ?? {}),
+  };
+}
+
+function ownEditCheckpointStore(
+  opts: Pick<IServeModeOptions, 'createEditCheckpointStore'>,
+): Pick<TInteractiveSessionOptions, 'editCheckpointStore'> {
+  return opts.createEditCheckpointStore === undefined
+    ? {}
+    : { editCheckpointStore: opts.createEditCheckpointStore() };
+}
+
+/**
+ * The options a pooled session is built with: the served session's, opening exactly the session
+ * asked for — the launch's fork and name do not carry over — with its own checkpoint store.
+ */
+export function buildPooledSessionOptions(
+  sessionOptions: TInteractiveSessionOptions,
+  opts: Pick<IServeModeOptions, 'createEditCheckpointStore'>,
+  resumeSessionId: string | undefined,
+): TInteractiveSessionOptions {
+  return {
+    ...sessionOptions,
+    ...ownEditCheckpointStore(opts),
+    resumeSessionId,
+    forkSession: undefined,
+    sessionName: undefined,
   };
 }
 
@@ -370,13 +403,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         const live = new SessionPool<InteractiveSession>({
           primary,
           build: (resumeSessionId) =>
-            buildRuntimeSession({
-              ...sessionOptions,
-              resumeSessionId,
-              // A switch opens exactly the session asked for; the launch's fork and name do not carry over.
-              forkSession: undefined,
-              sessionName: undefined,
-            }),
+            buildRuntimeSession(buildPooledSessionOptions(sessionOptions, opts, resumeSessionId)),
           maxLive: SESSION_POOL_MAX_LIVE,
         });
         pool = live;

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import { createNodeHostSettingsSource } from '@robota-sdk/agent-framework';
 import { createNodeHostContributionSource } from '@robota-sdk/agent-framework';
-import type { EditCheckpointStore, IPromptHistoryOptions } from '@robota-sdk/agent-framework';
+import type { IPromptHistoryOptions } from '@robota-sdk/agent-framework';
 import type { ITuiCliAdapter } from '../tui-cli-adapter.js';
 import { toChannelOptions } from '../render.js';
 import { buildTuiSessionOptions } from '../tui-session-options.js';
@@ -159,18 +159,6 @@ describe('toChannelOptions', () => {
       cliAdapter: {} as ITuiCliAdapter,
     });
     expect(channelOptions.model).toBeUndefined();
-  });
-
-  it('threads the explicit checkpoint capability without deriving it from cwd', () => {
-    const editCheckpointStore = {} as EditCheckpointStore;
-    const channelOptions = toChannelOptions({
-      cwd: '/tmp/project',
-      provider: {} as IAIProvider,
-      cliAdapter: {} as ITuiCliAdapter,
-      editCheckpointStore,
-    });
-
-    expect(channelOptions.editCheckpointStore).toBe(editCheckpointStore);
   });
 
   it('carries the host external-event verifier factory to the session options', () => {

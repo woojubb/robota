@@ -411,10 +411,14 @@ composition. Absence is deterministically **Restricted**: only user contribution
 the user session store are available, no project memory, and `cwd` alone cannot mint any project
 capability. **Trusted** composition derives project sources plus named state facets from the exact
 runtime-accepted authority, and is refused when the real CLI working directory is outside the
-authority's frozen workspace root. On a host that cannot prove a project write stays under that root,
+authority's frozen workspace root. Every session it builds gets an edit checkpoint store, and
+sessions that can run turns at the same time never share one, because a store holds its session's
+turn in progress. On a host that cannot prove a project write stays under that root,
 nothing is written under the project: the workspace's sessions, which are the user's own, are kept in
 the user session store and found there by their working directory, so they are still saved and
-resumable, while project memory, which belongs to the repository, is not composed. Print mode,
+resumable, while project memory, which belongs to the repository, and edit checkpoints, whose restore
+writes the project's files back, are not composed; `/rewind` then says which of trust or the host
+stands in the way. Print mode,
 `--goal`, and `--serve` fail closed for `untrusted`/`revoked`/`stale`/`store-unavailable` decisions
 before provider construction; interactive
 startup may continue Restricted with project contributions disabled. All trust diagnostics expose

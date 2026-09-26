@@ -278,4 +278,33 @@ describe('serve mode session pool wiring (#3189)', () => {
       rmSync(cwd, { recursive: true, force: true });
     }
   });
+
+  it('builds each session it switches to with an edit checkpoint store of its own', async () => {
+    const stores: object[] = [];
+    const directory = createServeSessionDirectory<InteractiveSession, SessionSlot<InteractiveSession>>();
+    const bindTransports = vi.fn();
+    const options: IServeModeOptions = {
+      ...serveOptions(directory, bindTransports),
+      createEditCheckpointStore: () => {
+        const store = {};
+        stores.push(store);
+        return store as never;
+      },
+    };
+    const run = runServeMode(options);
+    await vi.waitFor(() => expect(bindTransports).toHaveBeenCalled());
+
+    const client = directory.bind('drive');
+    await client.directory.switchSession('stored');
+    await client.directory.newSession();
+
+    const pooled = built.map((entry) => entry['editCheckpointStore']);
+    expect(pooled).toHaveLength(2);
+    // The served session's store was made first; each pooled session got a later, distinct one.
+    expect(new Set([stores[0], ...pooled]).size).toBe(3);
+    expect(pooled.every((store) => stores.includes(store as object))).toBe(true);
+
+    options.commandHostAdapters.process?.requestExit('other');
+    await run;
+  });
 });

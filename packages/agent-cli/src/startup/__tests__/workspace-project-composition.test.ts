@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import {
+  EditCheckpointStore,
   WorkspaceTrustService,
   createRestrictedWorkspaceProjectAccess,
   createWorkspaceProjectSettingsWriter,
@@ -267,6 +268,54 @@ describe('CLI workspace project composition', () => {
         expect(existsSync(join(userHome, '.robota', 'memory'))).toBe(false);
       },
     );
+  });
+
+  describe('edit checkpoints', () => {
+    it('are composed for a trusted workspace on Linux, one store per call', async () => {
+      const cwd = tempRoot('robota-cli-trusted-linux-checkpoints-');
+      const composition = createCliWorkspaceComposition({
+        cwd,
+        userHome: tempRoot('robota-cli-trusted-linux-checkpoints-user-'),
+        projectAccess: await trustedAccess(cwd),
+        platform: 'linux',
+      });
+
+      const first = composition.createEditCheckpointStore?.();
+      const second = composition.createEditCheckpointStore?.();
+
+      expect(first).toBeInstanceOf(EditCheckpointStore);
+      expect(second).toBeInstanceOf(EditCheckpointStore);
+      expect(second).not.toBe(first);
+      expect(readdirSync(cwd)).toEqual([]);
+    });
+
+    it.each(['darwin', 'win32'] as const)(
+      'are not composed for a trusted workspace on %s, where a restore could not write back',
+      async (platform) => {
+        const cwd = tempRoot(`robota-cli-trusted-${platform}-checkpoints-`);
+        const composition = createCliWorkspaceComposition({
+          cwd,
+          userHome: tempRoot(`robota-cli-trusted-${platform}-checkpoints-user-`),
+          projectAccess: await trustedAccess(cwd),
+          platform,
+        });
+
+        expect(composition.projectAccess.status).toBe('trusted');
+        expect(composition.createEditCheckpointStore).toBeUndefined();
+      },
+    );
+
+    it('are not composed for a restricted workspace', () => {
+      const cwd = tempRoot('robota-cli-restricted-checkpoints-');
+      const composition = createCliWorkspaceComposition({
+        cwd,
+        userHome: tempRoot('robota-cli-restricted-checkpoints-user-'),
+        projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
+        platform: 'linux',
+      });
+
+      expect(composition.createEditCheckpointStore).toBeUndefined();
+    });
   });
 
   it('refuses trusted project access minted for a different CLI workspace root', async () => {
