@@ -1,17 +1,23 @@
 /*
- * GUI-005 — "terminal-noir" theme for the GUI presentation layer (agent-ui-web).
+ * The GUI presentation layer's theme (agent-ui-web): a calm desktop-app surface where the conversation is
+ * the product. Readable sizes, one humanist family (Pretendard, bundled — the page's CSP loads fonts only
+ * from itself), monospace kept for code and paths, and a neutral graphite palette with one quiet accent.
  *
  * The consuming app owns the Tailwind entry (`@import 'tailwindcss'` + `@source '…/agent-ui-web/src'`)
  * and then `@import`s this file, so Tailwind processes the `@theme`/`@layer` below in-context. This file owns
  * the design tokens, the Tailwind token map, base styles, scrollbars, and the shell's small utility classes.
  */
+@import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
 
 /* Map the design tokens (CSS vars below) onto Tailwind color/font utilities (bg-card, text-primary, …). */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-sidebar: var(--sidebar);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
+  --color-raised: var(--raised);
+  --color-hover: var(--hover);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
@@ -20,9 +26,12 @@
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-subtle: var(--subtle);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -35,40 +44,53 @@
 }
 
 /*
- * Terminal-noir palette — a deep near-black desktop frame around warm-charcoal message panels, a mint accent,
- * mono-forward chrome (the domain language is the terminal).
+ * Paper (light) and graphite (dark), one token each: `light-dark()` picks by `color-scheme`, which follows
+ * the system unless the host pins `data-theme` on the root. Text colours keep WCAG AA (4.5:1) on every
+ * surface they sit on.
  */
 :root {
-  --radius: 0.6rem;
+  color-scheme: light dark;
+  --radius: 0.75rem;
 
-  --background: #0d0e12; /* app canvas / frame */
-  --foreground: #e7e8ef;
+  --background: light-dark(#ffffff, #1a1a1c); /* conversation canvas */
+  --foreground: light-dark(#1c1c1e, #ededee);
+  --sidebar: light-dark(#f7f7f5, #141416); /* the quieter frame around it */
+  --card: light-dark(
+    #f4f4f2,
+    #242427
+  ); /* cards, menus, the composer — one tonal step, no outline */
+  --card-foreground: light-dark(#1c1c1e, #ededee);
+  --raised: light-dark(#ececea, #2c2c30); /* user bubble, selected row, pressed chips */
+  --hover: light-dark(#e8e8e5, #303035);
+  --popover: light-dark(#ffffff, #232326);
+  --popover-foreground: light-dark(#1c1c1e, #ededee);
+  --primary: light-dark(#1c1c1e, #f2f2f3); /* the send button and primary actions: ink on paper */
+  --primary-foreground: light-dark(#ffffff, #151517);
+  --secondary: light-dark(#f1f1ef, #29292d);
+  --secondary-foreground: light-dark(#1c1c1e, #ededee);
+  --muted: light-dark(#f4f4f2, #232326);
+  --muted-foreground: light-dark(#55555c, #a8a8af); /* secondary text */
+  --subtle: light-dark(#68686f, #8e8e97); /* tertiary text: still >= 4.5:1 on every surface */
+  --accent: light-dark(#0a7a55, #5fd4a8); /* robota's mark, live state — sparingly */
+  --accent-foreground: light-dark(#ffffff, #0b1a14);
+  --destructive: light-dark(#c42f40, #f2727f);
+  --warning: light-dark(#8f5a0b, #f0b35b);
+  --success: light-dark(#0a7a55, #5fd4a8);
+  --border: light-dark(rgb(0 0 0 / 0.08), rgb(255 255 255 / 0.08));
+  --input: light-dark(rgb(0 0 0 / 0.12), rgb(255 255 255 / 0.1));
+  --ring: light-dark(rgb(10 122 85 / 0.4), rgb(95 212 168 / 0.45));
 
-  --card: #171922; /* message + panel surfaces */
-  --card-foreground: #e7e8ef;
-
-  --popover: #14161d;
-  --popover-foreground: #e7e8ef;
-
-  --primary: #34d3a6; /* mint accent */
-  --primary-foreground: #07120e;
-
-  --secondary: #1c1e28;
-  --secondary-foreground: #e7e8ef;
-
-  --muted: #1a1c25;
-  --muted-foreground: #8a8ea6;
-
-  --accent: #34d3a6;
-  --accent-foreground: #07120e;
-
-  --destructive: #fb7185;
-  --border: #262935;
-  --input: #262935;
-  --ring: #34d3a6;
-
-  --font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', ui-monospace, Menlo, monospace;
-  --font-sans: ui-sans-serif, -apple-system, 'Segoe UI', system-ui, sans-serif;
+  --font-sans:
+    'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
+    'Segoe UI', 'Noto Sans KR', sans-serif;
+  --font-mono:
+    'SF Mono', ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace;
+}
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+:root[data-theme='dark'] {
+  color-scheme: dark;
 }
 
 @layer base {
@@ -87,45 +109,63 @@
     background: var(--background);
     color: var(--foreground);
     font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.6;
+    letter-spacing: -0.005em;
     font-feature-settings:
-      'rlig' 1,
-      'calt' 1;
+      'ss06' 1,
+      'tnum' 0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* faint terminal grain — atmosphere, not texture */
-    background-image: radial-gradient(rgba(255, 255, 255, 0.014) 1px, transparent 1px);
-    background-size: 3px 3px;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--accent) 32%, transparent);
   }
 
   input::placeholder,
   textarea::placeholder {
-    color: color-mix(in oklab, var(--muted-foreground) 55%, transparent);
+    color: var(--subtle);
+  }
+
+  button {
+    cursor: pointer;
+  }
+  button:disabled {
+    cursor: default;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
   }
 }
 
-/* Thin mint-hover scrollbars — terminal restraint. */
+/* Quiet overlay scrollbars. */
 ::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 4px;
-  border: 2px solid var(--background);
+  background: transparent;
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: color-mix(in oklab, var(--primary) 55%, var(--border));
+:hover::-webkit-scrollbar-thumb {
+  background-color: color-mix(in oklab, var(--foreground) 16%, transparent);
 }
 
-/* Status-dot glow used by the title bar. */
+/* The live dot: a soft halo, not a glow. */
 .status-glow {
-  box-shadow: 0 0 8px 1px color-mix(in oklab, var(--primary) 60%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent);
 }
 
-/* Page-load reveal for the conversation column. */
+/* Entrances. */
 @keyframes gui-rise {
   from {
     opacity: 0;
@@ -137,5 +177,52 @@
   }
 }
 .gui-rise {
-  animation: gui-rise 0.32s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: gui-rise 0.36s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Work in progress reads as a sweep of light across the label. */
+@keyframes gui-shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+.gui-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    var(--muted-foreground) 30%,
+    var(--foreground) 50%,
+    var(--muted-foreground) 70%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gui-shimmer 2.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gui-rise,
+  .gui-shimmer {
+    animation: none;
+  }
+  .gui-shimmer {
+    color: var(--muted-foreground);
+  }
+}
+
+/* Agent prose: comfortable measure and rhythm for long answers. In the components layer, so the
+   utilities on its children (a heading's larger top margin) still win. */
+@layer components {
+  .gui-prose {
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--foreground);
+    overflow-wrap: anywhere;
+  }
+  .gui-prose > * + * {
+    margin-top: 0.75em;
+  }
 }

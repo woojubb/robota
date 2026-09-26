@@ -57,6 +57,11 @@ function stubState(over: Partial<IWsSessionState> = {}): IWsSessionState {
 }
 
 describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
+  it('names the current session in the title bar', () => {
+    render(<SessionSurface state={stubState({ sessionName: 'Fix the flaky parser test' })} />);
+    expect(screen.getByRole('heading', { name: 'Fix the flaky parser test' })).toBeTruthy();
+  });
+
   it('TC-01: renders the conversation + status from the reducer state', () => {
     render(<SessionSurface state={stubState()} />);
     expect(screen.getByText('hello')).toBeTruthy();
@@ -150,7 +155,9 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     const mainOnly = {
       entries: [{ id: 'main', kind: 'main_thread', title: 'Main thread' }],
     } as unknown as IWsSessionState['executionWorkspace'];
-    const { rerender } = render(<SessionSurface state={stubState({ executionWorkspace: mainOnly })} />);
+    const { rerender } = render(
+      <SessionSurface state={stubState({ executionWorkspace: mainOnly })} />,
+    );
     expect(screen.queryByText('Main thread')).toBeNull();
     const withTask = {
       entries: [
@@ -167,10 +174,21 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
       commandCatalog: {
         commands: [
           { name: 'help', description: 'Show commands', modelInvocable: false, runner: 'runtime' },
-          { name: 'mode', description: 'Change the permission mode', modelInvocable: false, runner: 'runtime' },
+          {
+            name: 'mode',
+            description: 'Change the permission mode',
+            modelInvocable: false,
+            runner: 'runtime',
+          },
         ],
         skills: [
-          { name: 'parity-demo', description: 'Demo skill', source: 'project', modelInvocable: true, userInvocable: true },
+          {
+            name: 'parity-demo',
+            description: 'Demo skill',
+            source: 'project',
+            modelInvocable: true,
+            userInvocable: true,
+          },
         ],
       },
     } as Partial<IWsSessionState>);
@@ -192,7 +210,12 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
       commandCatalog: {
         commands: [
           { name: 'help', description: 'Show commands', modelInvocable: false, runner: 'runtime' },
-          { name: 'share', description: 'Share the session', modelInvocable: false, runner: 'runtime' },
+          {
+            name: 'share',
+            description: 'Share the session',
+            modelInvocable: false,
+            runner: 'runtime',
+          },
           {
             name: 'shell',
             description: 'Open a shell',
@@ -258,7 +281,11 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(bar.textContent).toContain('2/10');
     fireEvent.click(screen.getByRole('button', { name: 'Stop goal' }));
     expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'goal', args: 'cancel' });
-    rerender(<SessionSurface state={stubState({ sessionStatus: { ...status, goal: null } } as Partial<IWsSessionState>)} />);
+    rerender(
+      <SessionSurface
+        state={stubState({ sessionStatus: { ...status, goal: null } } as Partial<IWsSessionState>)}
+      />,
+    );
     expect(screen.queryByRole('status', { name: 'goal' })).toBeNull();
   });
 
@@ -271,7 +298,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     render(<SessionSurface state={state} personalUsageEnabled />);
     fireEvent.click(screen.getByRole('button', { name: 'Usage' }));
     expect(screen.getByText(/permission request/i)).toBeTruthy();
-    fireEvent.click(screen.getByText('Allow'), { detail: 1 });
+    fireEvent.click(screen.getByRole('button', { name: 'Allow' }), { detail: 1 });
     expect(state.answerPermission).toHaveBeenCalledWith('p1', true);
   });
 
@@ -283,7 +310,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     });
     render(<SessionSurface state={state} />);
     expect(screen.getByText(/permission request/i)).toBeTruthy();
-    fireEvent.click(screen.getByText('Allow'), { detail: 1 });
+    fireEvent.click(screen.getByRole('button', { name: 'Allow' }), { detail: 1 });
     expect(state.answerPermission).toHaveBeenCalledWith('p1', true);
   });
 
@@ -509,6 +536,33 @@ describe('#3189 — the session sidebar', () => {
     expect(state.switchSession).toHaveBeenCalledWith('old');
   });
 
+  it('the title bar names the current session from the listing when no rename was seen', () => {
+    render(<SessionSurface state={stubState({ sessionListing: listing })} />);
+    expect(screen.getByRole('heading', { name: 'Refactor the parser' })).toBeTruthy();
+  });
+
+  it('an unnamed current session is titled by its first message', () => {
+    render(
+      <SessionSurface
+        state={stubState({ sessionListing: { ...listing, currentSessionId: 'old' } })}
+      />,
+    );
+    expect(screen.getByRole('heading', { name: 'Fix the flaky test' })).toBeTruthy();
+  });
+
+  it('choosing a session from the usage view shows its conversation', () => {
+    const state = stubState({ sessionListing: listing });
+    render(<SessionSurface state={state} personalUsageEnabled />);
+    fireEvent.click(screen.getByRole('button', { name: 'Usage' }));
+    expect(screen.getByRole('main', { name: 'Personal usage' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /Fix the flaky test/ }));
+
+    expect(state.switchSession).toHaveBeenCalledWith('old');
+    expect(screen.queryByRole('main', { name: 'Personal usage' })).toBeNull();
+    expect(screen.getByLabelText('message')).toBeTruthy();
+  });
+
   it('+ New session starts one', () => {
     const state = stubState({ sessionListing: listing });
     render(<SessionSurface state={state} />);
@@ -540,7 +594,9 @@ describe('#3189 — the session sidebar', () => {
   it('a failed listing says why inside the sidebar', () => {
     render(
       <SessionSurface
-        state={stubState({ sessionsError: { code: 'list_failed', message: 'Could not read the store.' } })}
+        state={stubState({
+          sessionsError: { code: 'list_failed', message: 'Could not read the store.' },
+        })}
       />,
     );
     const sidebar = screen.getByRole('complementary', { name: 'Sessions' });

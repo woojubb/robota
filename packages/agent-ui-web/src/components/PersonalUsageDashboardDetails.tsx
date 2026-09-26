@@ -13,13 +13,25 @@ function breakdownLabel(value: TUsageBreakdown): string {
   return value === 'activity' ? 'Activity' : `By ${value}`;
 }
 
-export function Stat({ label, value }: { label: string; value: string }): React.ReactElement {
+export function Stat({
+  label,
+  value,
+  note,
+}: {
+  label: string;
+  value: string;
+  /** A qualifier shown beside the label, e.g. that a cost is estimated. */
+  note?: string;
+}): React.ReactElement {
   return (
-    <div className="rounded-xl border border-border/70 bg-card/45 p-4">
-      <div className="font-mono text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
+    <div className="rounded-2xl bg-card p-5">
+      <div className="flex items-baseline gap-1.5 text-[13px] text-muted-foreground">
         {label}
+        {note ? <span className="text-subtle">· {note}</span> : null}
       </div>
-      <div className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</div>
+      <div className="mt-1.5 text-[28px] font-semibold tabular-nums tracking-[-0.02em] text-foreground">
+        {value}
+      </div>
     </div>
   );
 }
@@ -47,7 +59,7 @@ export function BreakdownPanel({
   setBreakdown: Dispatch<SetStateAction<TUsageBreakdown>>;
 }): React.ReactElement {
   return (
-    <section className="rounded-2xl border border-border/70 bg-card/35 p-5">
+    <section className="rounded-2xl bg-card p-5">
       <BreakdownHeader breakdown={breakdown} setBreakdown={setBreakdown} />
       <div className="mt-4 space-y-3">
         {breakdown === 'activity' ? (
@@ -73,7 +85,7 @@ function BreakdownHeader({
 }): React.ReactElement {
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <h2 className="text-sm font-medium">Breakdown</h2>
+      <h2 className="text-[15px] font-semibold">Breakdown</h2>
       <div className="flex flex-wrap gap-1">
         {(['model', 'provider', 'surface', 'source', 'activity'] as const).map((value) => (
           <button
@@ -81,9 +93,9 @@ function BreakdownHeader({
             type="button"
             aria-pressed={breakdown === value}
             onClick={() => setBreakdown(value)}
-            className={`rounded-md px-2.5 py-1 font-mono text-[10px] capitalize ${
+            className={`rounded-lg px-2.5 py-1 text-[13px] font-medium ${
               breakdown === value
-                ? 'bg-primary/15 text-primary'
+                ? 'bg-raised text-foreground'
                 : 'text-muted-foreground hover:text-foreground'
             }`}
           >
@@ -101,15 +113,13 @@ function ActivityRows({ report }: { report: TPersonalUsageReport }): React.React
       {report.byActivity.map((activity) => (
         <div
           key={activity.key}
-          className="flex items-center justify-between gap-3 rounded-lg border border-border/50 bg-background/25 px-3 py-2"
+          className="flex items-center justify-between gap-3 rounded-xl bg-raised/60 px-3.5 py-2.5"
         >
           <div className="min-w-0">
-            <span className="truncate font-mono text-xs text-foreground/90">{activity.label}</span>
-            <span className="ml-2 font-mono text-[9px] uppercase tracking-wide text-muted-foreground">
-              {activity.kind}
-            </span>
+            <span className="truncate text-[14px] text-foreground">{activity.label}</span>
+            <span className="ml-2 text-[12px] text-subtle">{activity.kind}</span>
           </div>
-          <span className="font-mono text-xs text-primary">
+          <span className="text-[13px] tabular-nums text-muted-foreground">
             {number.format(activity.count)} calls
           </span>
         </div>
@@ -132,7 +142,7 @@ function DimensionRows({
       {dimensions.map((dimension) => (
         <div key={dimension.key} className="grid grid-cols-[minmax(0,1fr)_auto] gap-3">
           <DimensionSummary report={report} dimension={dimension} />
-          <span className="self-start font-mono text-[10px] text-muted-foreground">
+          <span className="self-start text-[13px] tabular-nums text-subtle">
             {number.format(dimension.turns)} turns
           </span>
           <SessionButtons
@@ -158,14 +168,14 @@ function DimensionSummary({
       : (dimension.totalTokens / report.totals.totalTokens) * PERCENT;
   return (
     <div className="min-w-0">
-      <div className="flex justify-between gap-3 text-xs">
-        <span className="truncate font-mono text-foreground/90">{dimension.label}</span>
-        <span className="font-mono text-muted-foreground">
+      <div className="flex justify-between gap-3 text-[14px]">
+        <span className="truncate text-foreground">{dimension.label}</span>
+        <span className="tabular-nums text-muted-foreground">
           {number.format(dimension.totalTokens)} tokens
         </span>
       </div>
-      <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-background/70">
-        <div className="h-full rounded-full bg-primary/75" style={{ width: `${width}%` }} />
+      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-raised">
+        <div className="h-full rounded-full bg-accent/80" style={{ width: `${width}%` }} />
       </div>
     </div>
   );
@@ -186,7 +196,7 @@ function SessionButtons({
           type="button"
           onClick={() => requestStoredSessionUsage(sessionId)}
           aria-label={`Open session ${sessionId}`}
-          className="rounded border border-border/60 px-2 py-1 font-mono text-[9px] text-muted-foreground hover:border-primary/50 hover:text-primary"
+          className="rounded-md bg-raised px-2 py-1 font-mono text-[12px] text-muted-foreground hover:bg-hover hover:text-foreground"
         >
           {sessionId}
         </button>
@@ -202,11 +212,10 @@ export function StoredSessionPanel({
 }): React.ReactElement | null {
   if (state.storedSessionUsageStatus === 'idle') return null;
   return (
-    <section
-      className="rounded-2xl border border-border/70 bg-card/35 p-5"
-      aria-label="Session usage detail"
-    >
-      <h2 className="text-sm font-medium">Session {state.storedSessionUsageSessionId ?? ''}</h2>
+    <section className="rounded-2xl bg-card p-5" aria-label="Session usage detail">
+      <h2 className="text-[15px] font-semibold">
+        Session {state.storedSessionUsageSessionId ?? ''}
+      </h2>
       <StoredSessionContent state={state} />
     </section>
   );
@@ -218,11 +227,11 @@ function StoredSessionContent({
   state: TPersonalUsageDashboardState;
 }): React.ReactElement | null {
   if (state.storedSessionUsageStatus === 'loading') {
-    return <p className="mt-3 font-mono text-xs text-muted-foreground">Loading trace…</p>;
+    return <p className="mt-3 text-[14px] text-muted-foreground">Loading trace…</p>;
   }
   if (state.storedSessionUsageStatus === 'error') {
     return (
-      <p className="mt-3 font-mono text-xs text-rose-300">
+      <p className="mt-3 text-[14px] text-destructive">
         {state.storedSessionUsageError ?? 'Session usage failed.'}
       </p>
     );
@@ -252,7 +261,7 @@ export function CoverageNote({
     return null;
   }
   return (
-    <p className="rounded-xl border border-amber-400/20 bg-amber-400/5 px-4 py-3 font-mono text-[10px] leading-relaxed text-amber-200/80">
+    <p className="rounded-xl bg-warning/10 px-4 py-3 text-[13px] leading-relaxed text-warning">
       Coverage: {coverage.legacyObservations} legacy observations, {coverage.corruptSessions}{' '}
       corrupt sessions, {coverage.unsupportedSessions} unsupported sessions.
     </p>

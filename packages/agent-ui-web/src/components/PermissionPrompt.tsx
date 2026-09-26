@@ -1,5 +1,6 @@
 'use client';
 
+import { MessageCircleQuestion, ShieldAlert } from 'lucide-react';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 import type { TPendingPrompt } from '../hooks/prompt-state.js';
@@ -104,8 +105,8 @@ export function PermissionPrompt({
     <div
       className={
         dock
-          ? 'gui-rise flex-shrink-0 px-3 pt-2'
-          : 'fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4'
+          ? 'gui-rise flex-shrink-0'
+          : 'fixed inset-0 z-50 flex items-center justify-center bg-black/55 p-4 backdrop-blur-[2px]'
       }
     >
       <div
@@ -115,84 +116,168 @@ export function PermissionPrompt({
         role={dock ? 'dialog' : undefined}
         aria-label={dock ? 'pending question' : undefined}
         data-armed={dock ? String(armed) : undefined}
-        className={
-          dock
-            ? `w-full rounded-xl border bg-card p-4 font-mono text-[13px] shadow-lg shadow-black/30 transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-primary/40 ${
-                armed ? 'border-primary/60' : 'border-border/70'
-              }`
-            : 'w-full max-w-md rounded-lg bg-[var(--card)] p-5 font-mono text-[13px] shadow-xl'
-        }
+        className={`w-full rounded-2xl bg-card text-[14px] text-card-foreground shadow-[0_8px_30px_-12px_rgb(0_0_0/0.45)] focus:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
+          dock ? 'p-4' : 'max-w-lg p-5'
+        }`}
       >
-        {shortRequester && (
-          <p className="mb-2 text-[11px] text-[var(--muted-foreground)]">
-            from driver <span className="text-[var(--foreground)]">{shortRequester}</span>
-          </p>
-        )}
         {prompt.kind === 'permission' ? (
           <>
-            <p className="mb-1 font-bold text-[var(--foreground)]">Permission request</p>
-            <p className="mb-4 text-[var(--muted-foreground)]">
-              Allow <span className="text-[var(--foreground)]">{prompt.toolName}</span> to run?
-            </p>
-            <div className="flex gap-2">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-warning/15 text-warning">
+                <ShieldAlert size={17} strokeWidth={1.9} />
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-[13px] text-muted-foreground">
+                  Permission request
+                  {shortRequester && (
+                    <>
+                      {' '}
+                      · from driver <span className="text-foreground">{shortRequester}</span>
+                    </>
+                  )}
+                </p>
+                <p className="mt-0.5 text-[15px] font-medium text-foreground">
+                  Allow <span className="font-semibold">{prompt.toolName}</span> to run?
+                </p>
+                <ToolArgs args={prompt.toolArgs} />
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-2 pl-11">
               <button
                 type="button"
-                className="rounded-md bg-emerald-600 px-3 py-1.5 text-white"
+                className={PRIMARY_BUTTON}
                 onClick={onButton(() => onAnswerPermission(prompt.id, true))}
               >
-                Allow
+                <span>Allow</span>
+                {dock && <Kbd>1</Kbd>}
               </button>
               <button
                 type="button"
-                className="rounded-md bg-rose-600 px-3 py-1.5 text-white"
+                className={SECONDARY_BUTTON}
                 onClick={onButton(() => onAnswerPermission(prompt.id, false))}
               >
-                Deny
+                <span>Deny</span>
+                {dock && <Kbd>2</Kbd>}
               </button>
+              {dock && <KeyHint armed={armed} kind={prompt.kind} />}
             </div>
           </>
         ) : (
           <>
-            <p className="mb-1 font-bold text-[var(--foreground)]">{prompt.request.title}</p>
-            {prompt.request.description ? (
-              <p className="mb-3 text-[var(--muted-foreground)]">{prompt.request.description}</p>
-            ) : null}
-            <div className="flex flex-wrap gap-2">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+                <MessageCircleQuestion size={17} strokeWidth={1.9} />
+              </span>
+              <div className="min-w-0 flex-1">
+                {shortRequester && (
+                  <p className="text-[13px] text-muted-foreground">
+                    from driver <span className="text-foreground">{shortRequester}</span>
+                  </p>
+                )}
+                <p className="text-[15px] font-medium text-foreground">{prompt.request.title}</p>
+                {prompt.request.description ? (
+                  <p className="mt-1 leading-relaxed text-muted-foreground">
+                    {prompt.request.description}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-2 pl-11">
               {(prompt.request.options ?? []).map((opt, index) => (
                 <button
                   type="button"
                   key={opt.value}
-                  className="rounded-md bg-[var(--primary)] px-3 py-1.5 text-[var(--primary-foreground)]"
+                  className={index === 0 ? PRIMARY_BUTTON : SECONDARY_BUTTON}
                   onClick={onButton(() =>
                     onAnswerAsk(prompt.id, { type: 'answer', values: [opt.value] }),
                   )}
                 >
-                  {dock && index < 9 && <span className="mr-1.5 opacity-60">{index + 1}</span>}
-                  {opt.label}
+                  <span>{opt.label}</span>
+                  {dock && index < 9 && <Kbd>{index + 1}</Kbd>}
                 </button>
               ))}
               <button
                 type="button"
-                className="rounded-md bg-zinc-600 px-3 py-1.5 text-white"
+                className={GHOST_BUTTON}
                 onClick={onButton(() => onAnswerAsk(prompt.id, { type: 'cancelled' }))}
               >
                 Cancel
               </button>
+              {dock && <KeyHint armed={armed} kind={prompt.kind} />}
             </div>
           </>
         )}
-        {dock &&
-          (armed ? (
-            <p className="mt-3 text-[10px] text-[var(--muted-foreground)] opacity-70">
-              {prompt.kind === 'permission' ? '1 allow · 2 deny' : '1–9 choose'} · Esc{' '}
-              {prompt.kind === 'permission' ? 'deny' : 'cancel'}
-            </p>
-          ) : (
-            <p className="mt-3 text-[10px] text-[var(--muted-foreground)] opacity-70">
-              keys answer in a moment · click to answer now
-            </p>
-          ))}
       </div>
+    </div>
+  );
+}
+
+const BUTTON =
+  'inline-flex items-center gap-2 rounded-lg px-3.5 py-1.5 text-[14px] font-medium transition-colors';
+const PRIMARY_BUTTON = `${BUTTON} bg-primary text-primary-foreground hover:opacity-90`;
+const SECONDARY_BUTTON = `${BUTTON} bg-raised text-foreground hover:bg-hover`;
+const GHOST_BUTTON = `${BUTTON} text-muted-foreground hover:bg-hover hover:text-foreground`;
+
+function Kbd({ children }: { children: React.ReactNode }): React.ReactElement {
+  return (
+    // Hidden from the accessible name: the button is "Allow", and the hint line says which key answers.
+    <kbd
+      aria-hidden="true"
+      className="rounded bg-foreground/10 px-1 font-mono text-[11px] leading-[1.45] opacity-70"
+    >
+      {children}
+    </kbd>
+  );
+}
+
+function KeyHint({
+  armed,
+  kind,
+}: {
+  armed: boolean;
+  kind: TPendingPrompt['kind'];
+}): React.ReactElement {
+  return (
+    <p className="ml-auto text-[12.5px] text-subtle">
+      {armed
+        ? `${kind === 'permission' ? '1 allow · 2 deny' : '1–9 choose'} · Esc ${kind === 'permission' ? 'deny' : 'cancel'}`
+        : 'keys answer in a moment · click to answer now'}
+    </p>
+  );
+}
+
+/**
+ * Everything the tool was asked to do, since that is what the owner approves: a command line first, as it
+ * is, then every other argument (where it runs, what it is fed) as `key: value`. Nothing is cut; a long
+ * block scrolls.
+ */
+function ToolArgs({ args }: { args: unknown }): React.ReactElement | null {
+  if (args === null || typeof args !== 'object') return null;
+  const entries = Object.entries(args as Record<string, unknown>);
+  if (entries.length === 0) return null;
+  const commandKey = entries.find(
+    ([key, value]) => (key === 'command' || key === 'cmd') && typeof value === 'string',
+  )?.[0];
+  const rest = entries.filter(([key]) => key !== commandKey);
+  const format = (value: unknown): string =>
+    typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+  return (
+    <div className="mt-2.5 max-h-48 overflow-auto rounded-lg bg-sidebar px-3 py-2 font-mono text-[12.5px] leading-relaxed">
+      {commandKey ? (
+        <pre className="whitespace-pre-wrap break-all text-foreground">
+          {(args as Record<string, string>)[commandKey]}
+        </pre>
+      ) : null}
+      {rest.length > 0 ? (
+        <dl className={`text-muted-foreground ${commandKey ? 'mt-1.5' : ''}`}>
+          {rest.map(([key, value]) => (
+            <div key={key} className="flex gap-2">
+              <dt className="flex-shrink-0 text-subtle">{key}:</dt>
+              <dd className="min-w-0 whitespace-pre-wrap break-all">{format(value)}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
     </div>
   );
 }

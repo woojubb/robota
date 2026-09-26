@@ -12,7 +12,7 @@ browser-remote surface (`@robota-sdk/agent-transport-webrtc-web`).
 - `useWsSession(url)` + `createWsSessionClient` — the localhost WebSocket binding.
 - Prompt state: `applyPromptEvent`, `permissionResponse`, `askResponse`.
 - Components: `ConversationView`, `AgentActivityPanel`, `PermissionPrompt`, `SessionSurface`, `CenteredChrome`.
-- `styles/theme.css` — the "terminal-noir" theme (design tokens + Tailwind token map + base layers).
+- `styles/theme.css` — the theme (bundled Pretendard, light and dark design tokens + Tailwind token map + base layers).
 
 ## Using it
 
