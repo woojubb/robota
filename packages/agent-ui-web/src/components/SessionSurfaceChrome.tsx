@@ -74,30 +74,33 @@ export function SessionTitleBar({
   );
 }
 
-/** Visible, dismissible command and protocol/session outcomes. */
+/**
+ * Session and protocol failures, as dismissible toasts over the top-right corner: they stay until
+ * dismissed, and never push the conversation or the composer out of view. Command output is not
+ * here — it belongs to the conversation.
+ */
 export function SessionNotices({ state }: { state: IWsSessionState }): React.ReactElement | null {
   const notices = state.sessionNotices ?? [];
   if (notices.length === 0) return null;
   return (
-    <div className="flex flex-col gap-1 border-b border-border/50 bg-card/40 px-4 py-2">
-      {notices.map((notice) => (
+    <div className="pointer-events-none absolute right-3 top-14 z-40 flex w-[min(380px,calc(100%-24px))] flex-col gap-2">
+      {notices.slice(-3).map((notice) => (
         <div
           key={notice.id}
-          role={notice.kind === 'command-result' && notice.success ? 'status' : 'alert'}
-          className={`flex items-center gap-3 font-mono text-[12px] ${
-            notice.kind === 'command-result' && notice.success
-              ? 'text-primary/90'
-              : 'text-rose-300/90'
-          }`}
+          role="alert"
+          className="gui-rise pointer-events-auto flex items-start gap-3 rounded-lg border border-rose-500/30 bg-card/95 px-3 py-2.5 font-mono text-[12px] text-rose-200/90 shadow-lg shadow-black/40 backdrop-blur-sm"
         >
-          <span className="flex-1">{notice.message}</span>
+          <span className="mt-1 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-rose-400" />
+          <span className="max-h-40 flex-1 overflow-y-auto whitespace-pre-wrap break-words">
+            {notice.message}
+          </span>
           <button
             type="button"
             aria-label="Dismiss notice"
             onClick={() => state.dismissSessionNotice?.(notice.id)}
-            className="rounded border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground"
+            className="rounded px-1 text-[13px] leading-none text-muted-foreground hover:text-foreground"
           >
-            Dismiss
+            ×
           </button>
         </div>
       ))}

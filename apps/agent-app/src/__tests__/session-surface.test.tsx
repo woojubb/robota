@@ -79,19 +79,72 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     });
   });
 
-  it('ARCH-2164: renders command results and session errors as dismissible notices', () => {
+  it('#3186: a command result is a card in the conversation, line breaks kept, long output folded', () => {
+    const content = Array.from({ length: 20 }, (_, i) => `line ${i + 1}`).join('\n');
+    render(
+      <SessionSurface
+        state={stubState({
+          messages: [{ id: 'c1', role: 'command', name: 'help', content, tone: 'success' }],
+        })}
+      />,
+    );
+    const card = screen.getByTestId('command-output');
+    expect(card.textContent).toContain('/help');
+    expect(card.textContent).toContain('line 12');
+    expect(card.textContent).not.toContain('line 13');
+    fireEvent.click(screen.getByRole('button', { name: 'Show all 20 lines' }));
+    expect(card.textContent).toContain('line 20');
+    expect(card.querySelector('pre')?.className).toContain('whitespace-pre-wrap');
+  });
+
+  it('#3186: a session error is a dismissible toast', () => {
     const state = stubState({
-      sessionNotices: [
-        { id: 'command', kind: 'command-result', message: '/help: available', success: true },
-        { id: 'error', kind: 'session-error', message: 'Provider failed' },
-      ],
+      sessionNotices: [{ id: 'error', kind: 'session-error', message: 'Provider failed' }],
     });
     render(<SessionSurface state={state} />);
+    expect(screen.getByRole('alert').textContent).toContain('Provider failed');
+    fireEvent.click(screen.getByRole('button', { name: 'Dismiss notice' }));
+    expect(state.dismissSessionNotice).toHaveBeenCalledWith('error');
+  });
 
-    expect(screen.getByText('/help: available')).toBeTruthy();
-    expect(screen.getByText('Provider failed')).toBeTruthy();
-    fireEvent.click(screen.getAllByRole('button', { name: 'Dismiss notice' })[0]!);
-    expect(state.dismissSessionNotice).toHaveBeenCalledWith('command');
+  it('#3186: a finished turn shows its tool calls as one line that opens on click', () => {
+    render(
+      <SessionSurface
+        state={stubState({
+          messages: [
+            {
+              id: 't1',
+              role: 'tools',
+              tools: [
+                { id: 'a', name: 'Read', status: 'done', input: 'a.ts' },
+                { id: 'b', name: 'Edit', status: 'error' },
+              ],
+            },
+          ],
+        })}
+      />,
+    );
+    const summary = screen.getByRole('button', { name: /2 tool calls/ });
+    expect(summary.textContent).toContain('1 failed');
+    expect(screen.queryByText('a.ts')).toBeNull();
+    fireEvent.click(summary);
+    expect(screen.getByText('a.ts')).toBeTruthy();
+  });
+
+  it('#3186: the activity rail stays closed while only the main thread exists', () => {
+    const mainOnly = {
+      entries: [{ id: 'main', kind: 'main_thread', title: 'Main thread' }],
+    } as unknown as IWsSessionState['executionWorkspace'];
+    const { rerender } = render(<SessionSurface state={stubState({ executionWorkspace: mainOnly })} />);
+    expect(screen.queryByText('Main thread')).toBeNull();
+    const withTask = {
+      entries: [
+        { id: 'main', kind: 'main_thread', title: 'Main thread' },
+        { id: 't', kind: 'background_task', title: 'Build', status: 'running', controls: [] },
+      ],
+    } as unknown as IWsSessionState['executionWorkspace'];
+    rerender(<SessionSurface state={stubState({ executionWorkspace: withTask })} />);
+    expect(screen.getByText('Build')).toBeTruthy();
   });
 
   it('TC-02: a pending permission prompt renders and Allow answers it via answerPermission', () => {
@@ -106,27 +159,29 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(state.answerPermission).toHaveBeenCalledWith('p1', true);
   });
 
-  it('CMD-004 TC-05: a ui_intent notice renders VISIBLY and Dismiss removes it via the reducer', () => {
+  it('#3186: a docked question answers by number key and Esc cancels it', () => {
     const state = stubState({
-      dismissUiIntentNotice: vi.fn(),
-      uiIntentNotices: [
+      pendingPrompts: [
         {
-          id: 'n1',
-          intentType: 'show-settings',
-          notice:
-            'The settings screen is not available on this surface. Use the robota terminal on the host.',
+          kind: 'ask',
+          id: 'a1',
+          request: {
+            title: 'Select language',
+            options: [
+              { value: 'ko', label: 'ko' },
+              { value: 'en', label: 'en' },
+            ],
+          },
         },
-      ],
-    } as unknown as Partial<IWsSessionState>);
-    render(<SessionSurface state={state} />);
-    // The explicit unsupported signal (never a silent drop) is user-visible …
-    expect(screen.getByText(/settings screen is not available on this surface/i)).toBeTruthy();
-    // … and dismissible through the reducer's handle.
-    fireEvent.click(screen.getByLabelText('dismiss show-settings notice'));
-    expect(
-      (state as unknown as { dismissUiIntentNotice: ReturnType<typeof vi.fn> })
-        .dismissUiIntentNotice,
-    ).toHaveBeenCalledWith('n1');
+      ] as unknown as IWsSessionState['pendingPrompts'],
+    });
+    const { unmount } = render(<SessionSurface state={state} />);
+    expect(screen.getByRole('dialog', { name: 'pending question' })).toBeTruthy();
+    fireEvent.keyDown(window, { key: '2' });
+    expect(state.answerAsk).toHaveBeenCalledWith('a1', { type: 'answer', values: ['en'] });
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(state.answerAsk).toHaveBeenCalledWith('a1', { type: 'cancelled' });
+    unmount();
   });
 
   it('SCREEN-2577: opens Usage, requests 7d, and renders totals plus model breakdown', () => {

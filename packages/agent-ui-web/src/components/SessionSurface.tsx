@@ -13,7 +13,7 @@ import type { IWsSessionState } from '../hooks/useSessionClient.js';
  * presentation over an `IWsSessionState`: no hooks, no transport, no session/command/permission logic — it
  * renders the reconstructed session and forwards user intent through the reducer's `send`/`answer*`. The
  * elements mirror the TUI: title bar + status strip, scrollable conversation column, background-activity
- * rail, composer with key hints, and the permission/ask modal.
+ * rail, composer with key hints, and the permission/ask prompt docked above the composer.
  */
 
 /** Designed empty state shown before the first turn. */
@@ -84,7 +84,7 @@ function Composer({ onSubmit }: { onSubmit: (prompt: string) => void }): React.R
 
 /**
  * The full desktop layout over an `IWsSessionState`: title bar · conversation column + composer · activity
- * rail · permission modal. `surface` is an optional label shown next to the mark (e.g. "app").
+ * rail · the pending question docked above the composer. `surface` is an optional label shown next to the mark (e.g. "app").
  */
 export function SessionSurface({
   state,
@@ -98,20 +98,16 @@ export function SessionSurface({
 }): React.ReactElement {
   const [view, setView] = useState<'chat' | 'usage'>('chat');
   const tasks = state.executionWorkspace?.entries ?? [];
-  const hasTasks = tasks.length > 0;
+  // The main thread alone is this conversation; the rail earns its width only for work beside it.
+  const hasTasks = tasks.some((entry) => entry.kind !== 'main_thread');
   const isEmpty =
     state.messages.length === 0 &&
     !state.streamingText &&
     !state.isThinking &&
     state.activeTools.length === 0;
 
-  // CMD-004 Stage D: `ui_intent` notices — a command issued from THIS surface requested a screen
-  // the GUI cannot render; the reducer folds it into an explicit dismissible notice (TC-05, never a
-  // silent drop). Tolerates a partial state stub (older embedders) via the nullish default.
-  const uiIntentNotices = state.uiIntentNotices ?? [];
-
   return (
-    <div className="flex h-full flex-col bg-background text-foreground">
+    <div className="relative flex h-full flex-col bg-background text-foreground">
       <SessionTitleBar
         status={state.status}
         surface={surface}
@@ -119,29 +115,6 @@ export function SessionSurface({
         onView={setView}
         personalUsageEnabled={personalUsageEnabled}
       />
-
-      {uiIntentNotices.length > 0 && (
-        <div className="flex flex-col gap-1 border-b border-border/50 bg-card/40 px-4 py-2">
-          {uiIntentNotices.map((n) => (
-            <div
-              key={n.id}
-              data-testid="ui-intent-notice"
-              data-intent={n.intentType}
-              className="flex items-center gap-3 font-mono text-[12px] text-amber-300/90"
-            >
-              <span className="flex-1">{n.notice}</span>
-              <button
-                type="button"
-                aria-label={`dismiss ${n.intentType} notice`}
-                className="rounded border border-border/60 px-1.5 py-0.5 text-[10px] uppercase tracking-[0.16em] text-muted-foreground hover:text-foreground"
-                onClick={() => state.dismissUiIntentNotice?.(n.id)}
-              >
-                Dismiss
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
 
       <SessionNotices state={state} />
 
@@ -164,6 +137,12 @@ export function SessionSurface({
                 />
               )}
             </div>
+            <PermissionPrompt
+              layout="dock"
+              prompts={state.pendingPrompts}
+              onAnswerPermission={state.answerPermission}
+              onAnswerAsk={state.answerAsk}
+            />
             <Composer
               onSubmit={(prompt) => {
                 if (!prompt.startsWith('/')) {
@@ -185,12 +164,6 @@ export function SessionSurface({
           )}
         </div>
       )}
-
-      <PermissionPrompt
-        prompts={state.pendingPrompts}
-        onAnswerPermission={state.answerPermission}
-        onAnswerAsk={state.answerAsk}
-      />
     </div>
   );
 }
