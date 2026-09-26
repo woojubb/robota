@@ -23,7 +23,7 @@
  * dropped along with its connection.
  */
 import {
-  deriveRelayInboxTopics,
+  derivePairRendezvous,
   startDeviceHandshake,
   type IDeviceCertificate,
   type IDeviceHandshakeIdentity,
@@ -31,6 +31,8 @@ import {
   type IDeviceMeshAdmission,
   type IListHighWaterMarks,
   type IListUpdate,
+  type IPairRendezvous,
+  type IRelayInboxTopics,
   type ISessionDescriptor,
   type TDeviceCapability,
 } from '@robota-sdk/agent-remote-pairing';
@@ -156,6 +158,7 @@ class Pacer {
 interface IPeerState {
   readonly device: IDeviceCertificate;
   readonly role: TMeshLinkRole;
+  readonly rendezvous: IPairRendezvous;
   readonly inbound: string;
   readonly outbound: string;
   /** The pair's connection. */
@@ -311,13 +314,16 @@ export class DeviceMeshNode {
       const added: IPeerState[] = [];
       for (const [deviceId, device] of wanted) {
         if (this.peers.has(deviceId)) continue;
-        let topics: { readonly inbound: string; readonly outbound: string };
+        let rendezvous: IPairRendezvous;
+        let topics: IRelayInboxTopics;
         try {
-          topics = await deriveRelayInboxTopics({
+          rendezvous = await derivePairRendezvous({
             ownKaPrivateKey: identity.kaPrivateKey,
             own: self,
-            peer: device,
+            peerDeviceId: deviceId,
+            lists: identity,
           });
+          topics = await rendezvous.relayInbox();
         } catch {
           // allow-fallback: a device no pairwise secret can be agreed with cannot be reached; the rest can
           continue;
@@ -325,6 +331,7 @@ export class DeviceMeshNode {
         const state: IPeerState = {
           device,
           role: self.deviceId < device.deviceId ? 'offerer' : 'answerer',
+          rendezvous,
           inbound: topics.inbound,
           outbound: topics.outbound,
           attempts: new Pacer(),
@@ -336,6 +343,14 @@ export class DeviceMeshNode {
       }
       if (this.stopped) return;
       this.options.relay.declarePresence([...this.byInbound.keys()]);
+      this.options.relay.declarePeers?.(
+        [...this.peers.values()].map((peer) => ({
+          deviceId: peer.device.deviceId,
+          inbound: peer.inbound,
+          outbound: peer.outbound,
+          rendezvous: peer.rendezvous,
+        })),
+      );
       for (const state of added) this.hello(state);
     });
     const done = this.sync;
@@ -631,6 +646,7 @@ export class DeviceMeshNode {
     state.admitted = attempt;
     state.pending = undefined;
     previous?.link.close();
+    this.options.relay.confirmPeer?.(admission.deviceId);
     for (const handler of this.linkHandlers) handler(exposed);
   }
 

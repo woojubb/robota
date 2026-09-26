@@ -42,3 +42,35 @@ export { createInMemoryMeshRelayHub } from './mesh-relay.js';
 export type { IInMemoryMeshRelayHub, IMeshRelay } from './mesh-relay.js';
 export { WsMeshRelayClient } from './ws-mesh-relay-client.js';
 export type { IWsMeshRelayClientOptions } from './ws-mesh-relay-client.js';
+// Finding a peer device before the relay: the address cache, then mDNS, each yielding candidates only.
+export { DiscoveringMeshRelay, startLanMeshRelay } from './discovering-mesh-relay.js';
+export type {
+  IDiscoveringMeshRelayOptions,
+  IStartLanMeshRelayOptions,
+} from './discovering-mesh-relay.js';
+export {
+  MAX_CACHED_CANDIDATES,
+  addressCacheSource,
+  createInMemoryMeshAddressCache,
+} from './mesh-discovery.js';
+export type {
+  IMeshAddressCache,
+  IMeshCandidate,
+  IMeshCandidateSource,
+  IMeshPeerRoute,
+} from './mesh-discovery.js';
+export { startMeshLanListener } from './mesh-lan-listener.js';
+export type { IMeshLanListener, IMeshLanListenerOptions } from './mesh-lan-listener.js';
+export {
+  MESH_MDNS_SERVICE,
+  MeshMdns,
+  createInMemoryMdnsBus,
+  paddedInstanceCount,
+} from './mesh-mdns.js';
+export type {
+  IInMemoryMdnsBus,
+  IMdnsPacket,
+  IMdnsRecord,
+  IMdnsTransport,
+  IMeshMdnsOptions,
+} from './mesh-mdns.js';
