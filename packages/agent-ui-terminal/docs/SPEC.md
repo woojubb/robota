@@ -17,10 +17,12 @@ authenticate; the OS user who started the process is the boundary.
   and a presentation-only supervised-session view of host-verified, content-free observations. That
   view does not construct a session or infer ownership from matching IDs; requested control and
   linked-PR opening are delegated to the host's owner-verifying path, bound to the process start
-  the row showed, and never decided by a displayed or stale row alone.
-- Depends on the TUI interaction contracts and the framework's interactive-session runtime; does
-  not depend on any other transport implementation package, and no other transport package depends
-  on this one.
+  the row showed, and never decided by a displayed or stale row alone. Its attached-session view is
+  a thin client of a session reached over the carrier-neutral session protocol: it shows what the
+  protocol carries, sends only what the user types or answers, and leaving it only detaches.
+- Depends on the TUI interaction contracts, the framework's interactive-session runtime and the
+  carrier-neutral session wire messages; does not depend on any transport implementation package,
+  and no transport package depends on this one.
 - Exports no generic transport-adapter type. A channel that ignores the session handed to it and
   constructs a different one through the renderer would not be an honest implementation of that
   port — `renderApp` and the interaction channel are the only supported session-owning surfaces.

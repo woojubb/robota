@@ -38,7 +38,7 @@ const SHORT_ID_CHARS = 16;
  * can repaint the question or forge an answer), no invisible or direction-changing characters (so
  * the text cannot hide or reorder itself), one line, bounded.
  */
-function printable(text: string, max: number): string {
+export function printable(text: string, max: number): string {
   const flat = text
     // eslint-disable-next-line no-control-regex -- stripping control characters is the point
     .replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2066-\u2069\ufeff]+/g, ' ')
@@ -80,7 +80,7 @@ function describe(request: ICapabilityApprovalRequest): string {
   return lines.join('\r\n');
 }
 
-function isYes(answer: string): boolean {
+export function isYes(answer: string): boolean {
   const normalized = answer.trim().toLowerCase();
   return normalized === 'y' || normalized === 'yes';
 }

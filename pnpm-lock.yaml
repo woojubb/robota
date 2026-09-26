@@ -2607,6 +2607,9 @@ importers:
       '@robota-sdk/agent-interface-tui':
         specifier: workspace:*
         version: link:../agent-interface-tui
+      '@robota-sdk/agent-transport':
+        specifier: workspace:*
+        version: link:../agent-transport
       chalk:
         specifier: ^5.6.2
         version: 5.6.2

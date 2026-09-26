@@ -23,6 +23,8 @@ import { formatExternalEventGrantRows } from '../external-events/external-event-
 
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
 import { runSessionViewCommand } from '../session-inventory/session-view-command.js';
+import { runSessionAttachCommand } from '../session-inventory/session-attach-command.js';
+import type { ISessionAttachCommandOptions } from '../session-inventory/session-attach-command.js';
 import type { ISessionViewCommandOptions } from '../session-inventory/session-view-command.js';
 import { validateNodeOtlpLiveTelemetrySettings } from '../telemetry/live-trace-otlp.js';
 import { runUsageCommand } from '../usage/usage-command.js';
@@ -150,6 +152,7 @@ export async function runPreparsedCliCommand(
   cwd: string = process.cwd(),
   telemetryEnvironment: Readonly<Record<string, string>> = {},
   renderSessionView?: ISessionViewCommandOptions['render'],
+  renderAttachedView?: ISessionAttachCommandOptions['render'],
 ): Promise<boolean> {
   // The Robota telemetry settings were removed from process.env at startup; the supervised runtime is
   // the one child that receives them, through its explicit spawn environment.
@@ -253,6 +256,12 @@ export async function runPreparsedCliCommand(
       );
       process.exitCode = 1;
     }
+    return true;
+  }
+  if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'attach') {
+    process.exitCode = await runSessionAttachCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX), {
+      ...(renderAttachedView === undefined ? {} : { render: renderAttachedView }),
+    });
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'view') {
