@@ -1,6 +1,7 @@
 import { PERMISSION_DENIED_RESULT, reportToolCrash, toolFailure } from './permission-types.js';
 import {
   createLogger,
+  DEFAULT_ABSTRACT_EVENT_SERVICE,
   isAbortFailure,
   TOOL_BODY_EVENTS,
   TOOL_PERMISSION_EVENTS,
@@ -16,6 +17,7 @@ import {
 import type { IPermissionEnforcerOptions, IPermissionRefusal } from './permission-types.js';
 import type { TSessionLogData } from './session-logger.js';
 import type {
+  IEventService,
   IToolExecutionContext,
   IToolResult,
   IToolWithEventService,
@@ -79,6 +81,11 @@ export function wrapToolWithPermission(
   enforcer: IToolWrapperDeps,
 ): IToolWithEventService {
   const originalExecute = tool.execute.bind(tool);
+  // What this session gave the tool with `setEventService`. The tool instance may be shared with
+  // other sessions, and the service set on it is whichever session set one last, so each call
+  // carries this one instead. Until the session sets one, calls carry the no-op service: its calls
+  // must not reach a service another session set.
+  let sessionEventService: IEventService = DEFAULT_ABSTRACT_EVENT_SERVICE;
 
   const wrappedTool = Object.create(tool) as IToolWithEventService;
   wrappedTool.execute = async (
@@ -169,7 +176,12 @@ export function wrapToolWithPermission(
       let outcome: 'success' | 'failure' | 'interrupted' = 'failure';
       let result: IToolResult;
       try {
-        result = await originalExecute(parameters, context as IToolExecutionContext);
+        // A call without a context was not made by an agent, so it has no session to carry.
+        const toolContext =
+          context === undefined
+            ? undefined
+            : { ...context, instanceEventService: sessionEventService };
+        result = await originalExecute(parameters, toolContext as IToolExecutionContext);
         outcome = context?.signal?.aborted ? 'interrupted' : result.success ? 'success' : 'failure';
       } catch (error) {
         outcome = context?.signal?.aborted || isAbortFailure(error) ? 'interrupted' : 'failure';
@@ -242,11 +254,11 @@ export function wrapToolWithPermission(
     }
   };
 
-  // SELFHOST-004: the wrapper runs `originalExecute` (bound to the ORIGINAL tool), which reads the
-  // ORIGINAL tool's `eventService` (e.g. the `FunctionTool` span-completion emit). Because
-  // `Object.create(tool)` would shadow a `setEventService` call onto the wrapper instance, forward it
-  // to the original tool — otherwise an injected event bus never reaches the tool and spans never fire.
+  // SELFHOST-004: kept for the calls above, and still forwarded to the original tool, because
+  // `Object.create(tool)` would otherwise shadow it onto the wrapper: a tool that reads only the
+  // service set on it, such as an `AbstractTool` subclass, keeps receiving it.
   wrappedTool.setEventService = (eventService) => {
+    sessionEventService = eventService ?? DEFAULT_ABSTRACT_EVENT_SERVICE;
     tool.setEventService(eventService);
   };
 

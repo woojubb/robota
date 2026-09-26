@@ -46,6 +46,7 @@ export class FunctionTool implements IFunctionTool {
    * Set EventService for post-construction injection.
    * Accepts EventService as-is without transformation.
    * Caller is responsible for providing properly configured EventService.
+   * A call whose context carries `instanceEventService` emits there instead.
    */
   setEventService(eventService: IEventService | undefined): void {
     this.eventService = eventService;
@@ -107,14 +108,16 @@ export class FunctionTool implements IFunctionTool {
     // this into a record span entry; agent-core builds NO transport entry (it depends on neither
     // transport nor plugin — no cycle). Owner correlation (to the turn) is applied by the event
     // service's binding (`ownerPath`); the authoritative span id lives on the payload.
-    if (this.eventService) {
+    // A service carried with the call wins over the one set on this instance, which may be shared.
+    const eventService = context?.instanceEventService ?? this.eventService;
+    if (eventService) {
       const spanEvent: ISpanCompletionEventData = {
         timestamp: new Date(),
         spanId: generateSpanId(),
         durationMs: executionTime,
         op: toolName,
       };
-      this.eventService.emit(SPAN_EVENTS.COMPLETED, spanEvent);
+      eventService.emit(SPAN_EVENTS.COMPLETED, spanEvent);
     }
 
     return {
