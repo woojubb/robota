@@ -11,7 +11,8 @@ Follow-ups to connection approval and `/handoff`.
 - `agent-transport-webrtc-web` — the browser remote client says `Waiting for the host to approve this connection…`
   (`awaiting-approval`) after pairing, and `Connected` only once the host's session answers. A host that closes the
   channel instead is shown as `refused` and is not retried, since a retry would only ask the operator again; a
-  first connection lost before the host answered is `failed`.
+  first connection lost before the host answered is `failed`. Reconnect attempts count until the host admits a
+  connection, so a link that keeps dropping while approval is pending gives up instead of asking again and again.
 - `agent-core`, `agent-session`, `agent-framework` — a turn that did not come from the operator stores its
   `turnSource` (`peer`, `external`, `agent-wakeup`) beside `driverId` on the user message and in the display
   history (`IRunOptions.turnSource`), so a session handed off keeps where each turn came from.

@@ -250,7 +250,8 @@ describe('createRtcSessionClient (REMOTE-009 Step 2)', () => {
     expect(lost.statuses).not.toContain('refused');
   });
 
-  it('a warm reconnect waits for the host to admit it too, and asks something the host answers', async () => {
+  /** A device paired, enrolled and admitted once, so a drop reconnects warm. */
+  async function warmPaired() {
     const hostKey = await generateIdentityKeyPair(true);
     const hostSpki = await exportPublicKey(hostKey.publicKey);
     const saved = new Map<string, IDeviceCredential>();
@@ -286,6 +287,12 @@ describe('createRtcSessionClient (REMOTE-009 Step 2)', () => {
     await vi.waitFor(() => expect(saved.size).toBe(1));
     await new Promise((r) => setTimeout(r, 0)); // the reconnect context is captured after the save
 
+    return { h, first };
+  }
+
+  it('a warm reconnect waits for the host to admit it too, and asks something the host answers', async () => {
+    const { h, first } = await warmPaired();
+
     // The link drops; the client rediscovers the host and reconnects as this device.
     h.drop('disconnected');
     await vi.waitFor(() => expect(h.rooms).toHaveLength(2));
@@ -300,6 +307,23 @@ describe('createRtcSessionClient (REMOTE-009 Step 2)', () => {
     expect(h.statuses.at(-1)).toBe('awaiting-approval');
     second.deliver({ type: 'executing', executing: false });
     expect(h.statuses.at(-1)).toBe('connected');
+    h.client.disconnect();
+  });
+
+  it('a link that keeps dropping while approval is pending gives up, instead of asking the operator forever', async () => {
+    const { h } = await warmPaired();
+    // Each reconnect is accepted by this side and then drops before the host answers.
+    for (let cycle = 0; cycle < 12 && h.statuses.at(-1) !== 'failed'; cycle++) {
+      const rooms = h.rooms.length;
+      h.drop('disconnected');
+      await vi.waitFor(() =>
+        expect(h.rooms.length > rooms || h.statuses.at(-1) === 'failed').toBe(true),
+      );
+      if (h.statuses.at(-1) === 'failed') break;
+      await h.open();
+      await vi.waitFor(() => expect(h.statuses.at(-1)).toBe('awaiting-approval'));
+    }
+    expect(h.statuses.at(-1)).toBe('failed');
     h.client.disconnect();
   });
 

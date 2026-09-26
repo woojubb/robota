@@ -137,6 +137,9 @@ export function createRtcSessionClient(
     // session frame — the answer to our opening request — is the admission.
     if (status === 'awaiting-approval') {
       everConnected = true;
+      // Only an admitted connection restores the reconnect budget: one that keeps dropping before
+      // the host answers would otherwise ask the operator again and again.
+      reconnectAttempts = 0;
       setStatus('connected');
     }
     if (msg.type === 'resume_gap') {
@@ -211,7 +214,6 @@ export function createRtcSessionClient(
         // Our side accepted; the host operator has yet to admit this connection.
         setStatus('awaiting-approval');
         reconnecting = false;
-        reconnectAttempts = 0;
         // REMOTE-013 E4: on a RECONNECT, resume the tail after the last applied seq + advance the counter
         // (resync-on-success = used-room + 1); on a fresh connect, ask for full history (mirrors the WS client).
         if (deviceIdentity?.reconnect) {
