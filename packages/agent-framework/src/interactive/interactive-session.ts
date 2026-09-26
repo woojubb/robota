@@ -34,6 +34,7 @@ import { SessionSkillRouter } from './interactive-session-skill-router.js';
 import { SessionTerminalHandoffGate } from './interactive-session-terminal-handoff.js';
 import { SessionTurnMemory } from './interactive-session-turn-memory.js';
 import { ExternalEventIngress } from './external-event-ingress.js';
+import type { ExternalEventGrantHistory } from './external-event-ingress.js';
 import { PeerTurnRateLimiter } from './peer-turn-rate-limit.js';
 import { DurableSessionLoopStore } from './session-loop-durable-store.js';
 import { extractSelfPacedLoopDecision } from './session-loop-decision-tool.js';
@@ -236,6 +237,7 @@ export class InteractiveSession
   /** TERM-001: exclusivity + fast-fail over the transport-provided handoff capability. */
   private readonly terminalHandoffGate: SessionTerminalHandoffGate;
   private readonly externalEventVerifierFactory?: TExternalEventVerifierFactory;
+  private readonly externalEventGrantHistory?: ExternalEventGrantHistory;
   /**
    * REMOTE-007: the framework's event-emitting "ask the user" default (never undefined). It emits
    * `ask_request` and parks the answer in {@link promptRegistry}. `getUserInteraction()` gates the
@@ -282,6 +284,7 @@ export class InteractiveSession
     }
     this.terminalHandoffGate = new SessionTerminalHandoffGate(options.terminalHandoff);
     this.externalEventVerifierFactory = options.externalEventVerifierFactory;
+    this.externalEventGrantHistory = options.externalEventGrantHistory;
 
     // REMOTE-007: the framework owns one event-emitting prompt registry. Attached surfaces subscribe
     // to requests and answer through resolvePermission/resolveAsk; with none subscribed it fails closed.
@@ -735,6 +738,9 @@ export class InteractiveSession
     }
     this.externalEventIngress ??= new ExternalEventIngress({
       createVerifier,
+      ...(this.externalEventGrantHistory !== undefined
+        ? { history: this.externalEventGrantHistory }
+        : {}),
       getPermissionMode: () => this.getSessionOrThrow().getPermissionMode(),
       isShuttingDown: () => this.execCtrl.shuttingDown,
       addPermissionModeGuard: (guard) => this.getSessionOrThrow().addPermissionModeGuard(guard),
@@ -1383,6 +1389,15 @@ export class InteractiveSession
 
   get isInitialized(): boolean {
     return this.initialized;
+  }
+
+  /**
+   * Resolves once initialization has finished — the session is then saved, so it is listed — and
+   * rejects with the reason if it failed. A host waits on it before making this session current.
+   */
+  async whenInitialized(): Promise<void> {
+    await this.ensureInitialized();
+    this.getSessionOrThrow();
   }
 
   /** Passive, content-free host observation; never registers an answering prompt listener. */

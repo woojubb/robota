@@ -80,6 +80,8 @@ export {
   InteractiveSession,
   PeerMessageIngress,
   ExternalEventIngress,
+  ExternalEventGrantHistory,
+  createExternalEventGrantHistory,
 } from './interactive/index.js';
 export { withUniqueSessionName } from './interactive/interactive-session-fork-record.js';
 export type {
@@ -114,6 +116,7 @@ export {
   createUserPromptHistoryFile,
   isSafeSessionId,
   listResumableSessionSummaries,
+  listUnreadableSessions,
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
   generateSessionName,
@@ -877,6 +880,8 @@ export type {
 // RUNTIME-001: the shared, presentation-free runtime host (build session + transport lifecycle).
 export { buildRuntimeSession, startRuntimeHost } from './runtime/index.js';
 export type { IRuntimeHostOptions, IRuntimeHostHandle } from './runtime/index.js';
+export { SessionSlot } from './runtime/index.js';
+export type { ISessionSlotOptions } from './runtime/index.js';
 export type { IResolvedConfig } from './config/config-types.js';
 export type { IOutputStylePrompt } from './context/output-style-prompt.js';
 

@@ -52,6 +52,8 @@ import type {
  * session is built: opening a grant cannot supply a verifier, so each grant is checked against the
  * principal it pins.
  */
+import type { ExternalEventGrantHistory } from './external-event-ingress.js';
+
 export type TExternalEventVerifierFactory = (
   config: IAccessTokenVerifierConfig,
 ) => IAccessTokenVerifier;
@@ -181,6 +183,11 @@ export interface IInteractiveSessionStandardOptions {
   terminalHandoff?: ITerminalHandoff;
   /** Builds each external-event grant's verifier; absent, the session opens no grant. */
   externalEventVerifierFactory?: TExternalEventVerifierFactory;
+  /**
+   * The run's grant history, shared by every session a run builds (#3189): a session switch replays
+   * no spent token and resets no rate. Absent, the history lives and ends with the session.
+   */
+  externalEventGrantHistory?: ExternalEventGrantHistory;
   /** Model-visible command descriptors derived from the composed command executor. */
   commandDescriptors?: readonly ICapabilityDescriptor[];
   /** Provider definitions for hot-swap via /provider switch. */
@@ -291,6 +298,11 @@ export interface IInteractiveSessionInjectedOptions {
   terminalHandoff?: ITerminalHandoff;
   /** Builds each external-event grant's verifier; absent, the session opens no grant. */
   externalEventVerifierFactory?: TExternalEventVerifierFactory;
+  /**
+   * The run's grant history, shared by every session a run builds (#3189): a session switch replays
+   * no spent token and resets no rate. Absent, the history lives and ends with the session.
+   */
+  externalEventGrantHistory?: ExternalEventGrantHistory;
 }
 
 /** Union of standard and injected construction options. */

@@ -109,6 +109,11 @@ export interface IRenderOptions {
   editCheckpointStore?: EditCheckpointStore;
   /** The host's way to build each external-event grant's verifier; absent, no grant opens. */
   externalEventVerifierFactory?: TInteractiveSessionOptions['externalEventVerifierFactory'];
+  /**
+   * #3189: the run's grant history, handed to every session this TUI builds so a switch replays no
+   * spent token and resets no rate. DECLARED for the reason `orgPolicy` above is.
+   */
+  externalEventGrantHistory?: TInteractiveSessionOptions['externalEventGrantHistory'];
   providerOverride?: string | undefined;
   /**
    * #1844: forwarded to the session so `/provider switch` can construct the provider it switches TO.
@@ -293,6 +298,9 @@ export function toChannelOptions(
       : {}),
     ...(options.externalEventVerifierFactory !== undefined
       ? { externalEventVerifierFactory: options.externalEventVerifierFactory }
+      : {}),
+    ...(options.externalEventGrantHistory !== undefined
+      ? { externalEventGrantHistory: options.externalEventGrantHistory }
       : {}),
     ...(options.providerDefinitions ? { providerDefinitions: options.providerDefinitions } : {}),
     // CLI-076: the display model id doubles as the session's model override so `--model` actually reaches

@@ -26,6 +26,8 @@ export interface IWsTransportConfig {
   usageReporter?: ISessionMessageHandlerOptions['usageReporter'];
   /** Host-owned stored-session trace/cost producer for personal-usage drill-down. */
   storedSessionUsageReporter?: ISessionMessageHandlerOptions['storedSessionUsageReporter'];
+  /** Host-owned session directory (#3189): lets every connection list, start and switch sessions. */
+  sessionDirectory?: ISessionMessageHandlerOptions['sessionDirectory'];
   port?: number;
   maxRetries?: number;
   /**
@@ -84,7 +86,12 @@ function configuredUsageReporters(config: IWsTransportConfig): TUsageReporters {
 
 type TConfiguredHandlerOptions = Pick<
   ISessionMessageHandlerOptions,
-  'driverId' | 'surface' | 'personalUsageReporter' | 'usageReporter' | 'storedSessionUsageReporter'
+  | 'driverId'
+  | 'surface'
+  | 'personalUsageReporter'
+  | 'usageReporter'
+  | 'storedSessionUsageReporter'
+  | 'sessionDirectory'
 >;
 
 /** Project immutable transport attribution/reporters into each protocol handler. */
@@ -93,6 +100,7 @@ export function configuredWsHandlerOptions(config: IWsTransportConfig): TConfigu
     ...(config.driverId ? { driverId: config.driverId } : {}),
     ...(config.surface ? { surface: config.surface } : {}),
     ...configuredUsageReporters(config),
+    ...(config.sessionDirectory ? { sessionDirectory: config.sessionDirectory } : {}),
   };
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { ExternalEventIngress } from '../external-event-ingress.js';
+import { createExternalEventGrantHistory, ExternalEventIngress } from '../external-event-ingress.js';
 import { InteractiveSession } from '../interactive-session.js';
 import { TurnNotRunError } from '../turn-not-run-error.js';
 
@@ -53,7 +53,10 @@ function message(conversationId = 'room', content = 'hello', extra: Record<strin
   return { kind: 'message', conversationId, content, ...extra };
 }
 
-function harness(mode: 'default' | 'bypassPermissions' = 'default') {
+function harness(
+  mode: 'default' | 'bypassPermissions' = 'default',
+  history?: ReturnType<typeof createExternalEventGrantHistory>,
+) {
   let currentMode = mode;
   let clock = NOW;
   let guard: ((next: typeof currentMode) => void) | undefined;
@@ -84,6 +87,7 @@ function harness(mode: 'default' | 'bypassPermissions' = 'default') {
     createVerifier,
     now: () => clock,
     isShuttingDown: () => shuttingDown,
+    ...(history !== undefined ? { history } : {}),
   });
   return {
     ingress,
@@ -461,6 +465,61 @@ describe('external event admission is decided by the verified token (#3072)', ()
       refusal: 'rate-limited',
     });
     expect(h.submit).toHaveBeenCalledTimes(1);
+  });
+
+  it("#3189: a run's history outlives a session — a switch neither replays tokens nor resets rates", async () => {
+    // Each session has its own ingress; the run lends every one of them the same grant history.
+    const history = createExternalEventGrantHistory();
+    const rate = [{ windowMs: 60_000, maxTurns: 1 }];
+    const before = harness('default', history);
+    const spent = token({ jti: 'spent-before-the-switch' });
+    const receipt = await before.open(admitAll, grant({ rate })).receive({ token: spent, event: message() });
+    before.finish('done');
+    if (receipt.admitted) await receipt.settled;
+
+    const after = harness('default', history);
+    const reopened = after.open(admitAll, grant({ rate }));
+    expect(await reopened.receive({ token: spent, event: message() })).toEqual({
+      admitted: false,
+      refusal: 'malformed',
+    });
+    expect(await reopened.receive({ token: token(), event: message() })).toEqual({
+      admitted: false,
+      refusal: 'rate-limited',
+    });
+    expect(after.submit).not.toHaveBeenCalled();
+  });
+
+  it("#3189: a grant revoked on one session of the run opens revoked on the next, and the others still admit", async () => {
+    const history = createExternalEventGrantHistory();
+    const before = harness('default', history);
+    before.open().revoke();
+    before.open(admitAll, grant({ grantId: 'chat' })).close();
+
+    // A rate change must not bring a revoked grant back either.
+    const after = harness('default', history);
+    let verdict: Awaited<ReturnType<IAccessTokenVerifier['verify']>> = {
+      admitted: false,
+      refusal: 'bad-signature',
+    };
+    const revoked = after.open(
+      { verify: async () => verdict },
+      grant({ rate: [{ windowMs: 1_000, maxTurns: 5 }] }),
+    );
+    expect(await revoked.receive({ token: token(), event: message() })).toEqual({
+      admitted: false,
+      refusal: 'bad-signature',
+    });
+    verdict = { admitted: true };
+    expect(await revoked.receive({ token: token(), event: message() })).toEqual({
+      admitted: false,
+      refusal: 'grant-revoked',
+    });
+    expect(after.audit.at(-1)).toMatchObject({ grantId: 'ci', refusal: 'grant-revoked' });
+    const chat = after.open(admitAll, grant({ grantId: 'chat' }));
+    expect((await chat.receive({ token: token(), event: message() })).admitted).toBe(true);
+    expect(after.submit).toHaveBeenCalledTimes(1);
+    expect(() => after.setMode('bypassPermissions')).toThrow(/bypassPermissions/);
   });
 
   it('refuses over-rate events before the queue, without spending their tokens', async () => {

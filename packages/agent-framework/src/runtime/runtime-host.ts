@@ -16,17 +16,14 @@
  */
 
 import { InteractiveSession } from '../interactive/interactive-session.js';
+import { SessionSlot, shutdownSessionBounded } from './session-slot.js';
 
-import type { IInteractiveSession } from '../interactive/index.js';
 import type { TInteractiveSessionOptions } from '../interactive/interactive-session.js';
 import type {
   ITransportCompletionRecord,
   ITransportFailureRecord,
   ITransportLifecycleRegistryView,
 } from '@robota-sdk/agent-interface-transport';
-
-/** Upper bound on the graceful session shutdown so a wedged subsystem cannot block process exit. */
-const RUNTIME_SHUTDOWN_TIMEOUT_MS = 5000;
 
 /** Normalized, explicitly discriminated input for every `InteractiveSession` construction path. */
 export type SessionRecipe = TInteractiveSessionOptions;
@@ -47,13 +44,16 @@ export interface IRuntimeHostOptions {
   session: SessionRecipe;
   /** The transport registry (e.g. the loopback WS sidecar); the host owns its start/stop lifecycle. */
   transportRegistry?: ITransportLifecycleRegistryView;
-  /** Bind each raw adapter to this newly constructed session before registration/start. */
-  bindTransports?: (session: IInteractiveSession) => void;
+  /** Bind each raw adapter to the host's session slot before registration/start. */
+  bindTransports?: (session: SessionSlot) => void;
 }
 
 export interface IRuntimeHostHandle {
-  /** The live runtime session every presentation drives. */
-  readonly session: InteractiveSession;
+  /**
+   * The live runtime session every presentation drives, behind a slot: whoever holds it reaches the
+   * current session, including after the host switches to another one (#3189).
+   */
+  readonly session: SessionSlot;
   /** Stop the transports and shut the session down (bounded); idempotent. */
   shutdown(message?: string): Promise<void>;
   /** Return the complete ordered runner aggregate, including registry-owned abandonment on stop. */
@@ -67,7 +67,7 @@ export interface IRuntimeHostHandle {
  * keeps alive (headless `--serve`). The caller owns the process-lifetime wait; `shutdown()` tears it down.
  */
 export async function startRuntimeHost(opts: IRuntimeHostOptions): Promise<IRuntimeHostHandle> {
-  const session = buildRuntimeSession(opts.session);
+  const session = new SessionSlot(buildRuntimeSession(opts.session));
   if (opts.transportRegistry) {
     opts.bindTransports?.(session);
     await opts.transportRegistry.startAll();
@@ -89,26 +89,7 @@ export async function startRuntimeHost(opts: IRuntimeHostOptions): Promise<IRunt
         // allow-fallback: best-effort transport teardown — the process is exiting.
         await opts.transportRegistry.stopAll().catch(() => undefined);
       }
-      // The losing side of a `Promise.race` is not cancelled, so the bound's timer outlives the race
-      // it lost. An un-unref'd one keeps the event loop alive for its full duration: measured on
-      // `robota --serve`, teardown finished in 1ms and the process then sat for 5006ms with no
-      // handles and a single `Timeout` as its only live resource. The bound exists so a wedged
-      // subsystem cannot block exit — a bound that DELAYS exit by its own length in the normal case
-      // is the opposite of that.
-      //
-      // Cancelling it is enough, and is what the bound means: once the race has an answer the bound
-      // has done its job, whichever side won. `unref()` would also work — measured, either alone
-      // fixes it — but it leaves the timer armed and merely non-blocking, which is a weaker
-      // statement than "this is finished".
-      let bound: ReturnType<typeof setTimeout> | undefined;
-      await Promise.race([
-        // allow-fallback: best-effort session shutdown — a wedged subsystem must not block exit.
-        session.shutdown({ reason: 'other', message }).catch(() => undefined),
-        new Promise((resolve) => {
-          bound = setTimeout(resolve, RUNTIME_SHUTDOWN_TIMEOUT_MS);
-        }),
-      ]);
-      if (bound !== undefined) clearTimeout(bound);
+      await shutdownSessionBounded(session, message);
     },
   };
 }

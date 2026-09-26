@@ -5,6 +5,7 @@ import { Composer, GoalBar } from './Composer.js';
 import { ConversationView } from './ConversationView.js';
 import { PermissionPrompt } from './PermissionPrompt.js';
 import { PersonalUsageDashboard } from './PersonalUsageDashboard.js';
+import { SessionSidebar, SessionSidebarRail } from './SessionSidebar.js';
 import { SessionNotices, SessionTitleBar } from './SessionSurfaceChrome.js';
 
 import type { IWsSessionState } from '../hooks/useSessionClient.js';
@@ -14,7 +15,8 @@ import type { IWsSessionState } from '../hooks/useSessionClient.js';
  * presentation over an `IWsSessionState`: no hooks, no transport, no session/command/permission logic — it
  * renders the reconstructed session and forwards user intent through the reducer's `send`/`answer*`. The
  * elements mirror the TUI: title bar + status strip, scrollable conversation column, background-activity
- * rail, composer with key hints, and the permission/ask prompt docked above the composer.
+ * rail, composer with key hints, and the permission/ask prompt docked above the composer. The session
+ * sidebar on the left appears once the host has listed its sessions; a host that cannot has none.
  */
 
 /** Designed empty state shown before the first turn. */
@@ -57,6 +59,8 @@ export function SessionSurface({
     !state.streamingText &&
     !state.isThinking &&
     state.activeTools.length === 0;
+  const hasSessionList =
+    (state.sessionListing ?? null) !== null || state.sessionsError?.code === 'list_failed';
 
   return (
     <div className="relative flex h-full flex-col bg-background text-foreground">
@@ -82,7 +86,18 @@ export function SessionSurface({
           />
         </div>
       ) : (
-        <div className="flex flex-1 overflow-hidden">
+        <div className="relative flex flex-1 overflow-hidden">
+          {hasSessionList ? (
+            state.sessionSidebarOpen ? (
+              // Narrow windows lay it over the conversation instead of squeezing it.
+              <SessionSidebar
+                state={state}
+                className="absolute inset-y-0 left-0 z-30 shadow-lg shadow-black/40 md:static md:z-auto md:shadow-none"
+              />
+            ) : (
+              <SessionSidebarRail state={state} />
+            )
+          ) : null}
           <div className="gui-rise flex min-w-0 flex-1 flex-col">
             <div className="flex-1 overflow-hidden">
               {isEmpty ? (

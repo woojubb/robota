@@ -68,6 +68,12 @@ export interface IExternalEventHost {
   now?: () => number;
   /** Whether the session has begun shutting down; a refused submission is then named so. */
   isShuttingDown?: () => boolean;
+  /**
+   * The run's grant history (#3189). A run that switches sessions lends every session the same one,
+   * so spent tokens, rate windows and revocations belong to the run: a switch replays nothing and
+   * resets no rate. Without it, the history lives and ends with this session.
+   */
+  history?: ExternalEventGrantHistory;
 }
 
 const MAX_EVENT_BYTES = 16 * 1024;
@@ -200,19 +206,34 @@ interface ISourceState {
   pending: number;
 }
 
+const GRANTS = Symbol('external event grant history');
+
+/** What a run remembers about each grant across the sessions it holds; opaque to its holder. */
+export class ExternalEventGrantHistory {
+  readonly [GRANTS] = new Map<string, IGrantHistory>();
+}
+
+/** One history per run: create it once and pass it to every session the run builds. */
+export function createExternalEventGrantHistory(): ExternalEventGrantHistory {
+  return new ExternalEventGrantHistory();
+}
+
 /**
  * Session-owned admission and turn settlement for external events. The sender is the grant whose
  * verifier admitted the token; nothing in the delivery names it.
  */
 export class ExternalEventIngress {
   private readonly sources = new Map<string, ISourceState>();
-  private readonly history = new Map<string, IGrantHistory>();
+  private readonly history: Map<string, IGrantHistory>;
+  /** Grants revoked on this ingress; one revoked on another session of the run opens revoked. */
+  private readonly revokedHere = new Set<string>();
   private pending = 0;
   private releaseGuard?: () => void;
   private readonly now: () => number;
 
   constructor(private readonly host: IExternalEventHost) {
     this.now = host.now ?? Date.now;
+    this.history = host.history?.[GRANTS] ?? new Map();
   }
 
   open(options: IExternalEventSourceOptions): IExternalEventSource {
@@ -221,7 +242,7 @@ export class ExternalEventIngress {
       throw new Error('external event grant verifier is built by the host from the grant itself');
     }
     validateGrant(grant);
-    if (this.history.get(grant.grantId)?.revoked === true) {
+    if (this.revokedHere.has(grant.grantId)) {
       throw new Error(`external event grant ${grant.grantId} was revoked`);
     }
     if (this.sources.has(grant.grantId)) {
@@ -239,6 +260,9 @@ export class ExternalEventIngress {
       throw new Error(`external event grant ${grant.grantId}: its verifier could not be built`);
     }
     const history = this.historyOf(grant);
+    // Revoked on an earlier session of this run: it opens revoked, so a caller with a valid token
+    // learns that, and anyone else gets what a live grant answers. It holds no turn and no guard.
+    const revokedBefore = history.revoked;
     const state: ISourceState = {
       grant,
       verifier,
@@ -247,10 +271,10 @@ export class ExternalEventIngress {
       audit: options.audit,
       rate: history.rate,
       spent: history.spent,
-      active: true,
+      active: !revokedBefore,
       pending: 0,
     };
-    if (!this.releaseGuard) {
+    if (!revokedBefore && !this.releaseGuard) {
       this.releaseGuard = this.host.addPermissionModeGuard((next) => {
         if (next === 'bypassPermissions' && (this.hasActiveSource() || this.pending > 0)) {
           throw new Error(
@@ -259,7 +283,7 @@ export class ExternalEventIngress {
         }
       });
     }
-    this.sources.set(grant.grantId, state);
+    if (!revokedBefore) this.sources.set(grant.grantId, state);
     return {
       grantId: grant.grantId,
       receive: async (delivery) => {
@@ -270,6 +294,7 @@ export class ExternalEventIngress {
       close: () => this.close(state),
       revoke: () => {
         history.revoked = true;
+        this.revokedHere.add(grant.grantId);
         state.turns.abort();
         this.close(state);
       },
@@ -285,7 +310,7 @@ export class ExternalEventIngress {
       spent: previous?.spent ?? new Map(),
       rate: new PeerTurnRateLimiter(windows, this.now),
       windows: key,
-      revoked: false,
+      revoked: previous?.revoked ?? false,
     };
     this.history.set(grant.grantId, next);
     return next;

@@ -84,6 +84,8 @@ export interface ITuiInteractionChannelOptions {
   editCheckpointStore?: EditCheckpointStore;
   /** The host's way to build each external-event grant's verifier; absent, no grant opens. */
   externalEventVerifierFactory?: TInteractiveSessionOptions['externalEventVerifierFactory'];
+  /** The run's grant history, shared by every session this TUI binds (#3189). */
+  externalEventGrantHistory?: TInteractiveSessionOptions['externalEventGrantHistory'];
   /**
    * CLI-076: the resolved model id (the same value the status line displays). Forwarded to the session so an
    * explicit `--model` override reaches the provider chat call instead of being silently replaced by the

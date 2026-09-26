@@ -81,4 +81,14 @@ describe('CMD-004 Stage E — session_renamed / history_cleared broadcast to EVE
     expect(sentA).toEqual([{ type: 'history_cleared' }]);
     expect(sentB).toEqual([{ type: 'history_cleared' }]);
   });
+
+  it('#3189: session_switched reaches both attached surfaces (each re-reads the new session)', () => {
+    const { session, sentA, sentB } = setupTwoSurfaces();
+
+    session._emit('session_switched', { sessionId: 'session-2' });
+
+    const expected = { type: 'session_switched', event: { sessionId: 'session-2' } };
+    expect(sentA).toEqual([expected]);
+    expect(sentB).toEqual([expected]);
+  });
 });

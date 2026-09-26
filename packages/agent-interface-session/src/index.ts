@@ -9,7 +9,12 @@
 
 // ── Context-compaction contracts (INFRA-025 SSOT) ────────────
 export type { TCompactTrigger, ICompactEvent } from './compact-contracts.js';
-export type { IResumableSessionSummary } from './session-summary-contracts.js';
+export type {
+  IResumableSessionSummary,
+  ISessionDirectory,
+  ISessionListing,
+  ISessionSwitchedEvent,
+} from './session-summary-contracts.js';
 export type { ISessionLoopState, TSessionLoopPhase } from './session-loop-contracts.js';
 // ── Interactive-session contracts ────────────────────────────
 export type {

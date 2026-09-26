@@ -257,6 +257,50 @@ describe('attached session view', () => {
     }
   });
 
+  it('starts over from the new session when the runtime switches sessions', async () => {
+    const link = connection();
+    const view = render(
+      <AttachedSessionView connection={link} mode="drive" sessionLabel="Morning review" driverId="attach:1" onDetach={vi.fn()} />,
+    );
+    try {
+      await tick();
+      link.push({ type: 'messages', messages: [{ role: 'user', content: 'old question' }] as never });
+      link.push({ type: 'text_delta', delta: 'old stream' });
+      link.push({ type: 'pending', pending: 'old queued prompt' });
+      link.push({ type: 'executing', executing: true });
+      link.push({ type: 'permission_request', event: { id: 'p1', toolName: 'Bash', toolArgs: {} } });
+      await tick();
+      expect(view.lastFrame()).toContain('old question');
+      expect(view.lastFrame()).toContain('Allow Bash');
+      link.sent.length = 0;
+
+      link.push({ type: 'session_switched', event: { sessionId: 'session-b' } });
+      await tick();
+      const frame = view.lastFrame() ?? '';
+      expect(frame).not.toContain('old question');
+      expect(frame).not.toContain('old stream');
+      expect(frame).not.toContain('old queued prompt');
+      expect(frame).not.toContain('Working');
+      expect(frame).not.toContain('Allow Bash');
+      expect(frame).not.toContain('Morning review');
+      expect(frame).toContain('session-b');
+      expect(link.sent.map((message) => message.type)).toEqual([
+        'get-messages', 'get-context', 'get-executing', 'get-pending',
+      ]);
+
+      // The old session's question is gone, so a keypress is ordinary input, not an answer.
+      view.stdin.write('y');
+      await tick();
+      expect(link.sent.some((message) => message.type === 'permission-response')).toBe(false);
+
+      link.push({ type: 'messages', messages: [{ role: 'user', content: 'new question' }] as never });
+      await tick();
+      expect(view.lastFrame()).toContain('new question');
+    } finally {
+      view.unmount();
+    }
+  });
+
   it('never lets session text move the cursor or repaint the terminal', async () => {
     const link = connection();
     const view = render(

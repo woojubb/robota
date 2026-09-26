@@ -93,6 +93,24 @@ describe('#3186 — the GUI conversation timeline', () => {
     expect(result.current.messages.at(-1)).toEqual(expect.objectContaining({ tone: 'success' }));
   });
 
+  it('#3189: a reply that completes before a render is kept, not lost', () => {
+    let onMessage: ((msg: TServerMessage) => void) | null = null;
+    const makeClient: TMakeSessionClient = (callbacks) => {
+      onMessage = callbacks.onMessage;
+      return { connect: () => {}, disconnect: () => {}, send: () => {} };
+    };
+    const { result } = renderHook(() => useSessionClient(makeClient));
+    // Both frames in one batch: React has not rendered between them.
+    act(() => {
+      onMessage?.({ type: 'text_delta', delta: 'Hel' });
+      onMessage?.({ type: 'text_delta', delta: 'lo' });
+      onMessage?.({ type: 'complete', result: { response: 'Hello' } } as TServerMessage);
+    });
+    expect(result.current.messages.at(-1)).toEqual(
+      expect.objectContaining({ role: 'assistant', content: 'Hello' }),
+    );
+  });
+
   it("a finished turn keeps its tool calls in the conversation, before the agent's reply", () => {
     const { result, deliver } = setup();
     deliver({ type: 'user_message', content: 'read it' });

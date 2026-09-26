@@ -8,6 +8,7 @@ export {
   createUserPromptHistoryFile,
   isSafeSessionId,
   listResumableSessionSummaries,
+  listUnreadableSessions,
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
   WorkspaceProjectSessionStore,
@@ -50,7 +51,11 @@ export type {
   ITransportConfig,
 } from '@robota-sdk/agent-interface-transport';
 export { PeerMessageIngress } from './peer-message-ingress.js';
-export { ExternalEventIngress } from './external-event-ingress.js';
+export {
+  createExternalEventGrantHistory,
+  ExternalEventGrantHistory,
+  ExternalEventIngress,
+} from './external-event-ingress.js';
 export type {
   IExternalEventSourceOptions,
   IExternalEventSource,

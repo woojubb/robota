@@ -81,6 +81,23 @@ export function createTuiExternalEventGrants(
   grants: readonly IExternalEventGrant[],
   report: (line: string) => void,
 ): ITuiExternalEventGrants {
+  // Refusals are reported by the carrier that answered them; the session reports how turns end.
+  return createRebindableExternalEventGrants(grants, (record) => {
+    const line = 'settlement' in record ? describeExternalEventRecord(record) : undefined;
+    if (line !== undefined) report(line);
+  });
+}
+
+/**
+ * A run's grants, following whichever session the run holds: `bind` opens them on a session and
+ * closes them on the one it replaces. The grants belong to the run, not to a session — the owner
+ * stays the owner, and a grant holder only uses the runtime — so a session switch carries them
+ * over, and a revocation holds for the life of the process. The TUI and a served runtime share it.
+ */
+export function createRebindableExternalEventGrants(
+  grants: readonly IExternalEventGrant[],
+  audit: (record: TExternalEventAuditRecord) => void,
+): ITuiExternalEventGrants {
   const revoked = new Set<string>();
   let host: IExternalEventGrantHost | undefined;
   // One bind at a time, so two switches cannot both keep a host open.
@@ -97,18 +114,12 @@ export function createTuiExternalEventGrants(
       const next = binding.then(async () => {
         // The same session keeps its grants: its ingress remembers each revocation already.
         if (session === boundSession && host !== undefined) return;
-        host?.close();
-        host = undefined;
-        boundSession = undefined;
-        const opened = await openExternalEventGrants(session, grants, {
-          // Refusals are reported by the carrier that answered them; the session reports how turns end.
-          audit: (record) => {
-            const line = 'settlement' in record ? describeExternalEventRecord(record) : undefined;
-            if (line !== undefined) report(line);
-          },
-        });
+        // The grants stay open where they are until they are open on the next session, so a bind
+        // that fails leaves them where they were.
+        const opened = await openExternalEventGrants(session, grants, { audit });
         // A revocation that arrived while the grants were opening still applies.
         for (const grantId of revoked) opened.revoke(grantId);
+        host?.close();
         host = opened;
         boundSession = session;
       });

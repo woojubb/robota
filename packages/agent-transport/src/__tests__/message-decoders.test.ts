@@ -25,6 +25,9 @@ const CLIENT_SAMPLES: Readonly<Record<TClientMessage['type'], TClientMessage>> =
   'get-context': { type: 'get-context' },
   'get-commands': { type: 'get-commands' },
   'get-status': { type: 'get-status' },
+  'list-sessions': { type: 'list-sessions', requestId: 'request-3' },
+  'new-session': { type: 'new-session' },
+  'switch-session': { type: 'switch-session', sessionId: 'session-2' },
   'get-usage-report': { type: 'get-usage-report' },
   'get-personal-usage-report': {
     type: 'get-personal-usage-report',
@@ -76,6 +79,14 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
   context: { type: 'context', state: {} as never },
   commands: { type: 'commands', commands: [], skills: [] },
   session_status: { type: 'session_status', status: {} as never },
+  sessions: { type: 'sessions', requestId: 'request-3', listing: {} as never },
+  sessions_error: {
+    type: 'sessions_error',
+    requestId: 'request-3',
+    code: 'list_failed',
+    message: 'unreadable store',
+  },
+  session_switched: { type: 'session_switched', event: { sessionId: 'session-2' } },
   usage_report: { type: 'usage_report', report: {} as never },
   personal_usage_report: {
     type: 'personal_usage_report',
@@ -174,6 +185,8 @@ const MALFORMED_CLIENT: ReadonlyArray<[string, unknown]> = [
   ['resume with a string lastSeq', { type: 'resume', lastSeq: '4' }],
   ['ack with NaN', { type: 'ack', seq: Number.NaN }],
   ['cancel-background-task with an empty taskId', { type: 'cancel-background-task', taskId: '' }],
+  ['list-sessions without requestId', { type: 'list-sessions' }],
+  ['switch-session with an empty sessionId', { type: 'switch-session', sessionId: '' }],
 ];
 
 const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
@@ -193,6 +206,11 @@ const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
     { type: 'background_task_control_result', action: 'nuke', taskId: 't', success: true },
   ],
   ['command_result without success', { type: 'command_result', name: 'n', message: 'm' }],
+  [
+    'sessions_error with an unknown code',
+    { type: 'sessions_error', requestId: 'r', code: 'nope', message: 'm' },
+  ],
+  ['session_switched without event', { type: 'session_switched' }],
 ];
 
 describe('decodeClientMessage (issue #2045)', () => {

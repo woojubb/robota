@@ -13,6 +13,10 @@ import {
   handleBackgroundQueryMessage,
 } from './background-messages.js';
 import { parseClientMessage } from './message-parser.js';
+import {
+  handleSessionDirectoryMessage,
+  isSessionDirectoryMessage,
+} from './session-directory-messages.js';
 import { subscribeSessionEvents } from './session-events.js';
 import { handleSessionQueryMessage, isSessionQueryMessage } from './session-query-messages.js';
 import { handleUsageQueryMessage } from './usage-messages.js';
@@ -22,7 +26,7 @@ import type { IProtocolSession } from './protocol-session.js';
 import type { IUsageQueryReporters } from './usage-messages.js';
 import type { TClientMessage } from './wire-messages.js';
 import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
-import type { TDriverId } from '@robota-sdk/agent-interface-session';
+import type { ISessionDirectory, TDriverId } from '@robota-sdk/agent-interface-session';
 
 // Outbound session→TServerMessage fan-out (incl. CMD-004 requester-routed `ui_intent`) lives in
 // `session-events.ts`; re-exported here for the bridge and existing importers.
@@ -50,6 +54,7 @@ const OBSERVER_MESSAGES: ReadonlySet<TClientMessage['type']> = new Set<TClientMe
   'get-pending',
   'get-execution-workspace',
   'get-usage-report',
+  'list-sessions',
   'get-background-tasks',
   'get-background-task',
   'get-background-job-groups',
@@ -85,6 +90,8 @@ export interface ISessionMessageHandlerOptions {
   usageReporter?: NonNullable<IUsageQueryReporters['usageReporter']>;
   /** Host-owned stored-session producer used by cross-session drill-down. */
   storedSessionUsageReporter?: NonNullable<IUsageQueryReporters['storedSessionUsageReporter']>;
+  /** Host-owned session directory (#3189): list, start and switch the host's sessions. */
+  sessionDirectory?: ISessionDirectory;
 }
 
 /**
@@ -126,6 +133,7 @@ export function createSessionMessageHandler(options: ISessionMessageHandlerOptio
     },
     options.surface,
     role,
+    options.sessionDirectory,
   );
 
   return { onMessage, cleanup };
@@ -138,6 +146,7 @@ function createMessageHandler(
   reporters: IUsageQueryReporters = EMPTY_USAGE_REPORTERS,
   surface?: TUsageSurface,
   role: TSessionSurfaceRole = 'drive',
+  sessionDirectory?: ISessionDirectory,
 ): (data: string) => void {
   return (data: string): void => {
     const msg = parseClientMessage(data, deliver);
@@ -146,7 +155,7 @@ function createMessageHandler(
       deliver({ type: 'protocol_error', message: `Not permitted for an observer: ${msg.type}` });
       return;
     }
-    handleClientMessage(session, deliver, msg, driverId, reporters, surface);
+    handleClientMessage(session, deliver, msg, driverId, reporters, surface, sessionDirectory);
   };
 }
 
@@ -167,8 +176,13 @@ export function handleClientMessage(
   driverId?: TDriverId,
   reporters: IUsageQueryReporters = EMPTY_USAGE_REPORTERS,
   surface?: TUsageSurface,
+  sessionDirectory?: ISessionDirectory,
 ): void {
   if (handleUsageQueryMessage(session, deliver, msg, reporters)) {
+    return;
+  }
+  if (isSessionDirectoryMessage(msg)) {
+    handleSessionDirectoryMessage(deliver, msg, sessionDirectory);
     return;
   }
   if (isSessionControlMessage(msg)) {
