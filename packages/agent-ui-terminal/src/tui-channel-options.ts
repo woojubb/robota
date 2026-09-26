@@ -129,6 +129,8 @@ export interface ITuiInteractionChannelOptions {
    */
   additionalTools?: IToolWithEventService[];
   defaultTools?: readonly IToolWithEventService[];
+  /** The sandbox the shell tools run under, so the session can let a confined command skip the prompt. */
+  sandboxClient?: ICreateSessionOptions['sandboxClient'];
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;
