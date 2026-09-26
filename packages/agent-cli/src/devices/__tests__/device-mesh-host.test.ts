@@ -3,7 +3,7 @@
  * for a device with an identity, with the default policy and the terminal operator's approver, and
  * exit closes it.
  */
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 
@@ -203,8 +203,12 @@ describe('opening the mesh at startup', () => {
     expect(other.status().reason).toMatch(/another Robota session/);
     expect(said.join('\n')).toMatch(/another Robota session/);
 
-    // Once the holder exits, the next session opens it.
+    // Once the holder exits, the lock is gone before `close` returns — a process exiting right after
+    // leaves none behind — and the next session opens it.
+    const lock = join(root, 'devices', 'mesh.lock');
+    expect(existsSync(lock)).toBe(true);
     holder.close();
+    expect(existsSync(lock)).toBe(false);
     const third = fakeOpen();
     await host(settings, third.open).start({ operatorApprover: APPROVER });
     expect(third.open).toHaveBeenCalledTimes(1);

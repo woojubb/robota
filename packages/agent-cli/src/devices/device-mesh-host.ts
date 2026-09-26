@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { readSettings } from '@robota-sdk/agent-framework';
 import { WsMeshRelayClient, type IMeshRelay } from '@robota-sdk/agent-transport-webrtc';
 
-import { withExclusiveFileLock } from '../credentials/exclusive-file-lock.js';
+import { holdExclusiveFileLock } from '../credentials/exclusive-file-lock.js';
 import { createHostCredentialStore } from '../credentials/select-credential-store.js';
 import { describeReceived } from '../peer-files/receiving.js';
 import { robotaUserSettingsPath } from '../product/robota-user-settings.js';
@@ -144,24 +144,18 @@ function message(error: unknown): string {
 const HOLD_ATTEMPT_MS = 250;
 
 /**
- * Hold `path` exclusively until the returned function is called, or `undefined` when another live
- * holder has it. A holder that died is taken over once its lock goes stale.
+ * Hold `path` exclusively until the returned function is called — which removes the lock before it
+ * returns — or `undefined` when another live holder has it. A holder that died is taken over once
+ * its lock goes stale.
  */
-function holdUntilReleased(path: string): Promise<(() => void) | undefined> {
-  return new Promise((resolve) => {
-    let letGo: () => void = () => undefined;
-    const released = new Promise<void>((done) => {
-      letGo = done;
-    });
-    withExclusiveFileLock(
-      path,
-      async () => {
-        resolve(letGo);
-        await released;
-      },
-      { timeoutMs: HOLD_ATTEMPT_MS },
-    ).catch(() => resolve(undefined));
-  });
+async function holdUntilReleased(path: string): Promise<(() => void) | undefined> {
+  try {
+    const lock = await holdExclusiveFileLock(path, { timeoutMs: HOLD_ATTEMPT_MS });
+    return () => lock.release();
+  } catch {
+    // allow-fallback: held elsewhere; the caller says so
+    return undefined;
+  }
 }
 
 function notLinked(deviceId: string): string {

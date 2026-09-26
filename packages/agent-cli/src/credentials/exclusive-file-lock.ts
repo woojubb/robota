@@ -88,12 +88,19 @@ function tryAcquire(path: string, token: string, staleMs: number): boolean {
   return false;
 }
 
-/** Run `critical` while no other holder of `path`, in this process or another, runs. */
-export async function withExclusiveFileLock<T>(
+/** A held lock. `release` has removed the lock file by the time it returns. */
+export interface IHeldFileLock {
+  release(): void;
+}
+
+/**
+ * Take `path` and hold it until `release`, which is synchronous so a process about to exit leaves no
+ * lock behind. Rejects when another holder keeps it past the timeout.
+ */
+export async function holdExclusiveFileLock(
   path: string,
-  critical: () => Promise<T>,
   options: IExclusiveFileLockOptions = {},
-): Promise<T> {
+): Promise<IHeldFileLock> {
   const staleMs = options.staleMs ?? DEFAULT_STALE_MS;
   const pollMs = options.pollMs ?? DEFAULT_POLL_MS;
   const deadline = Date.now() + (options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
@@ -108,6 +115,8 @@ export async function withExclusiveFileLock<T>(
   const heartbeat = setInterval(
     () => {
       try {
+        // Only this holder's own lock is refreshed; one taken over meanwhile is left to its holder.
+        if (readFileSync(path, 'utf8') !== token) return;
         const now = new Date();
         utimesSync(path, now, now);
       } catch {
@@ -117,10 +126,27 @@ export async function withExclusiveFileLock<T>(
     Math.max(1, Math.floor(staleMs / 3)),
   );
   heartbeat.unref();
+  let held = true;
+  return {
+    release: () => {
+      if (!held) return;
+      held = false;
+      clearInterval(heartbeat);
+      removeIf(path, (aside) => readFileSync(aside, 'utf8') === token);
+    },
+  };
+}
+
+/** Run `critical` while no other holder of `path`, in this process or another, runs. */
+export async function withExclusiveFileLock<T>(
+  path: string,
+  critical: () => Promise<T>,
+  options: IExclusiveFileLockOptions = {},
+): Promise<T> {
+  const lock = await holdExclusiveFileLock(path, options);
   try {
     return await critical();
   } finally {
-    clearInterval(heartbeat);
-    removeIf(path, (aside) => readFileSync(aside, 'utf8') === token);
+    lock.release();
   }
 }
