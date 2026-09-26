@@ -831,6 +831,7 @@ async function runCliCore(
       observerFailureWarningCode,
       shellExecutable,
       livePromptTracePort,
+      workspaceComposition.createEditCheckpointStore?.(),
     );
     try {
       await printRun;
@@ -856,6 +857,9 @@ async function runCliCore(
       commandHookShell: shellExecutable,
       sessionStore,
       projectAccess: workspaceComposition.projectAccess,
+      ...(workspaceComposition.createEditCheckpointStore !== undefined
+        ? { createEditCheckpointStore: workspaceComposition.createEditCheckpointStore }
+        : {}),
       orgPolicy,
       backgroundTaskRunners,
       subagentRunnerFactory,
@@ -906,6 +910,9 @@ async function runCliCore(
       commandHookShell: shellExecutable,
       sessionStore,
       projectAccess: workspaceComposition.projectAccess,
+      ...(workspaceComposition.createEditCheckpointStore !== undefined
+        ? { createEditCheckpointStore: workspaceComposition.createEditCheckpointStore }
+        : {}),
       orgPolicy,
       backgroundTaskRunners,
       subagentRunnerFactory,
@@ -998,6 +1005,10 @@ async function runCliCore(
     provider,
     providerErrorGuidance,
     projectAccess: workspaceComposition.projectAccess,
+    // One store for the run: the TUI stops a session before it builds the one it switches to.
+    ...(workspaceComposition.createEditCheckpointStore !== undefined
+      ? { editCheckpointStore: workspaceComposition.createEditCheckpointStore() }
+      : {}),
     orgPolicy,
     providerOverride: args.provider,
     providerType: providerSettings.name,

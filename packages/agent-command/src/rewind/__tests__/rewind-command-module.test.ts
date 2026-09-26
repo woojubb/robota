@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import type {
   IEditCheckpointInspection,
   IEditCheckpointRestoreResult,
@@ -251,5 +251,35 @@ describe('executeRewindCommand', () => {
 
     expect(result?.success).toBe(false);
     expect(result?.message).toBe('Unknown edit checkpoint');
+  });
+
+  describe('in a session built without a checkpoint store', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('tells a restricted workspace to trust it, for every subcommand', async () => {
+      vi.spyOn(process, 'platform', 'get').mockReturnValue('linux');
+      const session = createInteractiveSession();
+
+      for (const args of ['', 'list', 'inspect turn-0001', 'restore turn-0001', 'branches']) {
+        const result = await session.executeCommand('rewind', args);
+        expect(result?.success).toBe(false);
+        expect(result?.message).toBe(
+          'Edit checkpoints need a trusted workspace: run robota trust, then start a new session.',
+        );
+      }
+    });
+
+    it('says why on a host that cannot prove a project write is safe, without naming trust', async () => {
+      vi.spyOn(process, 'platform', 'get').mockReturnValue('darwin');
+      const session = createInteractiveSession();
+
+      const result = await session.executeCommand('rewind', 'list');
+
+      expect(result?.success).toBe(false);
+      expect(result?.message).toContain('cannot prove a write stays inside the project');
+      expect(result?.message).not.toContain('trust');
+    });
   });
 });

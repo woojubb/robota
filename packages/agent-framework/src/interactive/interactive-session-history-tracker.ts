@@ -17,10 +17,12 @@ import {
   VISIBLE_MEMORY_EVENT_TYPES,
   formatMemoryEventMessage,
 } from '../memory/memory-event-format.js';
-import { WorkspaceAuthorityRequiredError } from '../workspace-trust/index.js';
+import { EditCheckpointsUnavailableError } from '../checkpoints/edit-checkpoints-unavailable-error.js';
+import { supportsWorkspaceProjectMutation } from '../workspace-trust/index.js';
 
 import type { IHistoryTrackerState } from './session-history-state.js';
 import type { EditCheckpointStore } from '../checkpoints/edit-checkpoint-store.js';
+import type { TEditCheckpointsUnavailableReason } from '../checkpoints/edit-checkpoints-unavailable-error.js';
 import type {
   IEditCheckpointInspection,
   IEditCheckpointRestoreResult,
@@ -349,9 +351,18 @@ export class SessionHistoryTracker {
     this.persistSession();
   }
   private getCheckpointStore(): EditCheckpointStore {
-    if (!this.editCheckpointStore)
-      throw new WorkspaceAuthorityRequiredError('Edit checkpoints require project authority.');
+    if (!this.editCheckpointStore) throw new EditCheckpointsUnavailableError(this.noStoreReason());
     this.applyPendingActiveBranch();
     return this.editCheckpointStore;
+  }
+
+  /**
+   * The host is checked first: where no project write can be proven safe, trusting the workspace
+   * would not bring checkpoints back, so naming trust there would send the user the wrong way.
+   */
+  private noStoreReason(): TEditCheckpointsUnavailableReason {
+    if (!supportsWorkspaceProjectMutation()) return 'host-cannot-write-project';
+    if (this.workspace.projectAccess.status !== 'trusted') return 'restricted-workspace';
+    return 'no-checkpoint-store';
   }
 }

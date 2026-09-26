@@ -3,6 +3,7 @@ import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core'
 import { homedir } from 'node:os';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
 import type {
+  EditCheckpointStore,
   IAgentDefinition,
   ICreateSessionOptions,
   ICommandHostAdapters,
@@ -92,6 +93,8 @@ export async function runPrintMode(
   observerFailureWarningCode?: ICreateSessionOptions['observerFailureWarningCode'],
   commandHookShell?: string,
   livePromptTrace?: ILivePromptTracePort,
+  /** A print run checkpoints its edits like any session, so resuming it can rewind them. */
+  editCheckpointStore?: EditCheckpointStore,
 ): Promise<void> {
   const goalObjective = args.goal?.trim();
   let prompt = args.positional.join(' ').trim();
@@ -210,6 +213,7 @@ export async function runPrintMode(
     commandHostAdapters,
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
     ...memorySessionOptions,
+    ...(editCheckpointStore !== undefined ? { editCheckpointStore } : {}),
   });
 
   // RUNTIME-36: a throw from run/runGoal must NOT bypass the exit-code contract — surface a non-zero exit
