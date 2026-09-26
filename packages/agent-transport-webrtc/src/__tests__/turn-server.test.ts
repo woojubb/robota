@@ -240,6 +240,28 @@ describe('TURN server — requests nobody authenticated', () => {
   });
 });
 
+describe('TURN server — a clock that steps back', () => {
+  it('drains no budget: unauthenticated answers and relayed data go on', async () => {
+    let now = Date.now();
+    const server = await serve({
+      now: () => now,
+      quotas: { bytesPerSecondPerOwner: 1_000 },
+      unauthenticatedLimits: { perSourcePerSecond: 3, totalPerSecond: 3 },
+    });
+    const turn = await client(server, 'user-a1');
+    expect((await turn.allocate()).ok).toBe(true);
+    const remote = await peer();
+    expect((await turn.permit(remote.address)).ok).toBe(true);
+
+    now -= 60 * 60 * 1000;
+    turn.sendTo(remote.address, Buffer.alloc(400, 1));
+    await expect.poll(() => remote.received.length).toBe(1);
+    now += 2_000;
+    // A new client still gets its challenge, and so an allocation.
+    expect((await (await client(server, 'user-b1')).allocate()).ok).toBe(true);
+  });
+});
+
 describe('TURN server — quotas', () => {
   it('allocations per owner, and in all', async () => {
     const server = await serve({ quotas: { allocationsPerOwner: 2, totalAllocations: 3 } });

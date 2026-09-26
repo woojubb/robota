@@ -83,7 +83,9 @@ export interface IUnauthenticatedLimits {
 
 export const DEFAULT_UNAUTHENTICATED_LIMITS: IUnauthenticatedLimits = {
   perSourcePerSecond: 10,
-  totalPerSecond: 200,
+  // High: the per-source limit and the size rule already take away any gain from a forged source,
+  // and a low total would let anyone crowd out genuine clients' challenges.
+  totalPerSecond: 2_000,
 };
 
 export interface ITurnServerOptions {
@@ -99,8 +101,9 @@ export interface ITurnServerOptions {
   /** The address relayed transport addresses carry (default `host`, or this machine's first external IPv4). */
   readonly relayAddress?: string;
   /**
-   * Default `r`: a realm travels in the clear, so it names nothing, and it is short so a challenge
-   * fits in the request that asked for it.
+   * Default `r`: a realm travels in the clear, so it names nothing. At most 4 bytes: a challenge is
+   * never larger than the request it answers, and a longer realm would not fit a WebRTC client's first
+   * request.
    */
   readonly realm?: string;
   /** Who `username` belongs to and its password; `undefined` refuses it. Asked once per allocation. */
@@ -131,6 +134,7 @@ const CHANNEL_LIFETIME_MS = 600_000;
 const NONCE_LIFETIME_MS = 600_000;
 const SWEEP_INTERVAL_MS = 5_000;
 const UDP = 17;
+const MAX_REALM_BYTES = 4;
 /** Random ports of the relayed range tried before the range is walked in order. */
 const RELAY_PORT_TRIES = 8;
 
@@ -253,6 +257,18 @@ function localAddresses(): Set<string> {
   return out;
 }
 
+/**
+ * Refill `bucket` at `rate` per second up to one second's worth (at least `need`), and say whether it
+ * now holds `need`. Time that runs backwards (a clock step) refills nothing and takes nothing, so a
+ * step cannot drain a budget for as long as the step.
+ */
+function refill(bucket: IBucket, rate: number, now: number, need = 1): boolean {
+  const elapsed = Math.max(0, now - bucket.at);
+  bucket.tokens = Math.min(Math.max(rate, need), bucket.tokens + (elapsed / 1000) * rate);
+  bucket.at = now;
+  return bucket.tokens >= need;
+}
+
 function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
 }
@@ -294,6 +310,9 @@ export class TurnServer {
 
   /** Bind the server's socket and start serving. */
   public static async start(options: ITurnServerOptions): Promise<TurnServer> {
+    if (Buffer.byteLength(options.realm ?? '') > MAX_REALM_BYTES) {
+      throw new Error(`TURN realm must be at most ${MAX_REALM_BYTES} bytes`);
+    }
     const host = options.host ?? '0.0.0.0';
     const socket = createSocket('udp4');
     await new Promise<void>((resolve, reject) => {
@@ -427,14 +446,6 @@ export class TurnServer {
     return age >= -60_000 && age <= NONCE_LIFETIME_MS;
   }
 
-  /** Take one answer from a budget refilled at `rate` per second; false when it is spent. */
-  private take(bucket: IBucket, rate: number, now: number): boolean {
-    bucket.tokens = Math.min(rate, bucket.tokens + ((now - bucket.at) / 1000) * rate);
-    bucket.at = now;
-    if (bucket.tokens < 1) return false;
-    bucket.tokens -= 1;
-    return true;
-  }
 
   /**
    * Answer a request nobody has authenticated. Its source may be forged, so the answer is never
@@ -445,19 +456,24 @@ export class TurnServer {
     request: IStunMessage,
     to: ITransportAddress,
     cls: TStunClass,
-    attrs: { type: number; value: Buffer }[],
+    attrs: () => { type: number; value: Buffer }[],
   ): void {
-    const response = encodeStun(request.method, cls, request.transactionId, attrs, {
+    const now = this.now();
+    const total = (this.answerBudget ??= { tokens: this.limits.totalPerSecond, at: now });
+    const source = this.answerBuckets.get(to.address) ?? {
+      tokens: this.limits.perSourcePerSecond,
+      at: now,
+    };
+    this.answerBuckets.set(to.address, source);
+    // Both budgets are checked before anything is computed, and charged only for an answer sent.
+    if (!refill(source, this.limits.perSourcePerSecond, now)) return;
+    if (!refill(total, this.limits.totalPerSecond, now)) return;
+    const response = encodeStun(request.method, cls, request.transactionId, attrs(), {
       fingerprint: false,
     });
     if (response.length > request.raw.length) return;
-    const now = this.now();
-    this.answerBudget ??= { tokens: this.limits.totalPerSecond, at: now };
-    const source =
-      this.answerBuckets.get(to.address) ?? { tokens: this.limits.perSourcePerSecond, at: now };
-    this.answerBuckets.set(to.address, source);
-    if (!this.take(source, this.limits.perSourcePerSecond, now)) return;
-    if (!this.take(this.answerBudget, this.limits.totalPerSecond, now)) return;
+    source.tokens -= 1;
+    total.tokens -= 1;
     this.send(response, to);
   }
 
@@ -466,16 +482,16 @@ export class TurnServer {
     request: IStunMessage,
     to: ITransportAddress,
     code: number,
-    extra: { type: number; value: Buffer }[] = [],
+    extra: () => { type: number; value: Buffer }[] = () => [],
   ): void {
-    this.answerUnauthenticated(request, to, StunClass.Error, [
+    this.answerUnauthenticated(request, to, StunClass.Error, () => [
       { type: StunAttr.ErrorCode, value: errorCode(code, '') },
-      ...extra,
+      ...extra(),
     ]);
   }
 
   private challenge(request: IStunMessage, to: ITransportAddress, code: 401 | 438): void {
-    this.refuseUnauthenticated(request, to, code, [
+    this.refuseUnauthenticated(request, to, code, () => [
       { type: StunAttr.Realm, value: Buffer.from(this.realm) },
       { type: StunAttr.Nonce, value: Buffer.from(this.nonce(to)) },
     ]);
@@ -553,7 +569,7 @@ export class TurnServer {
   private async request(request: IStunMessage, rinfo: RemoteInfo): Promise<void> {
     const client: ITransportAddress = { address: rinfo.address, port: rinfo.port };
     if (request.method === StunMethod.Binding) {
-      this.answerUnauthenticated(request, client, StunClass.Success, [
+      this.answerUnauthenticated(request, client, StunClass.Success, () => [
         { type: StunAttr.XorMappedAddress, value: encodeXorAddress(client, request.transactionId) },
       ]);
       return;
@@ -575,8 +591,9 @@ export class TurnServer {
       existing !== undefined &&
       existing.transactionId.equals(request.transactionId)
     ) {
-      // A retransmission of the request that made the allocation.
-      this.send(existing.response, client);
+      // A retransmission of the request that made the allocation; like any unauthenticated answer,
+      // never larger than what asked for it.
+      if (existing.response.length <= request.raw.length) this.send(existing.response, client);
       return;
     }
     const authenticated = await this.authenticate(request, client, existing);
@@ -884,10 +901,8 @@ export class TurnServer {
     const now = this.now();
     const rate = this.quotas.bytesPerSecondPerOwner;
     const bucket = this.buckets.get(owner) ?? { tokens: rate, at: now };
-    bucket.tokens = Math.min(rate, bucket.tokens + ((now - bucket.at) / 1000) * rate);
-    bucket.at = now;
     this.buckets.set(owner, bucket);
-    if (bucket.tokens < bytes) return false;
+    if (!refill(bucket, rate, now, bytes)) return false;
     bucket.tokens -= bytes;
     return true;
   }
@@ -961,7 +976,7 @@ export class TurnServer {
     const now = this.now();
     // A source whose budget has refilled is forgotten, so the table holds recent senders only.
     for (const [address, bucket] of this.answerBuckets) {
-      if (now - bucket.at >= 1000) this.answerBuckets.delete(address);
+      if (Math.abs(now - bucket.at) >= 1000) this.answerBuckets.delete(address);
     }
     for (const allocation of [...this.allocations.values()]) {
       if (allocation.expiresAt <= now) {
