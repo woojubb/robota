@@ -52,6 +52,7 @@ import { areSessionLoopsDisabled, createLoopDefaultPromptResolver } from '../sta
 import { homedir } from 'node:os';
 import { realpathSync } from 'node:fs';
 import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type {
   EditCheckpointStore,
   IAgentDefinition,
@@ -134,6 +135,8 @@ export interface IServeModeOptions {
    * its capability packs are the SOLE source of the session's tools.
    */
   defaultTools?: readonly IToolWithEventService[];
+  /** The sandbox the shell tools run under, so the session can let a confined command skip the prompt. */
+  sandboxClient?: ISandboxClient;
   /**
    * MCP-004 S3: the wrapper policy for MCP tool calls that outlive the threshold. Serve is one of
    * the two runtimes that adopts it (spec § Modes); absent ⇒ no MCP tool is wrapped, today's
@@ -254,6 +257,7 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
       : {}),
     ...(opts.additionalTools !== undefined ? { additionalTools: opts.additionalTools } : {}),
     ...(opts.defaultTools !== undefined ? { defaultTools: opts.defaultTools } : {}),
+    ...(opts.sandboxClient !== undefined ? { sandboxClient: opts.sandboxClient } : {}),
     ...(opts.toolCallHandoff !== undefined ? { toolCallHandoff: opts.toolCallHandoff } : {}),
     commandModules: opts.commandModules,
     commandHostAdapters: opts.commandHostAdapters,

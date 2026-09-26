@@ -184,6 +184,8 @@ export interface IRenderOptions {
    */
   additionalTools?: IToolWithEventService[];
   defaultTools?: readonly IToolWithEventService[];
+  /** The sandbox the shell tools run under, so the session can let a confined command skip the prompt. */
+  sandboxClient?: ICreateSessionOptions['sandboxClient'];
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   shellExec?: TShellExecFn;
@@ -349,6 +351,7 @@ export function toChannelOptions(
       : {}),
     ...(options.additionalTools !== undefined ? { additionalTools: options.additionalTools } : {}),
     ...(options.defaultTools !== undefined ? { defaultTools: options.defaultTools } : {}),
+    ...(options.sandboxClient !== undefined ? { sandboxClient: options.sandboxClient } : {}),
     commandModules: options.commandModules,
     commandHostAdapters: options.commandHostAdapters,
     shellExec: options.shellExec,

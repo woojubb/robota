@@ -98,6 +98,7 @@ export function buildTuiSessionOptions(
     ...(opts.pluginDirectories !== undefined ? { pluginDirectories: opts.pluginDirectories } : {}),
     ...(opts.additionalTools !== undefined ? { additionalTools: opts.additionalTools } : {}),
     ...(opts.defaultTools !== undefined ? { defaultTools: opts.defaultTools } : {}),
+    ...(opts.sandboxClient !== undefined ? { sandboxClient: opts.sandboxClient } : {}),
     commandModules: opts.commandModules,
     commandHostAdapters: opts.commandHostAdapters,
     shellExec: opts.shellExec,

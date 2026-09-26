@@ -31,6 +31,7 @@ import type { TWorkspaceProjectAccess } from '../../workspace-trust/types.js';
 import type { IAIProvider, IToolWithEventService, TPermissionMode } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type { ISandboxClient } from '@robota-sdk/agent-tools';
 
 export interface IHeadlessInteractionChannelOptions {
   cwd: string;
@@ -116,6 +117,8 @@ export interface IHeadlessInteractionChannelOptions {
    */
   additionalTools?: IToolWithEventService[];
   defaultTools?: readonly IToolWithEventService[];
+  /** The sandbox the shell tools run under, so the session can let a confined command skip the prompt. */
+  sandboxClient?: ISandboxClient;
   commandModules?: readonly ICommandModule[];
   commandHostAdapters?: ICommandHostAdapters;
   /** Host-owned shell adapter used only when a skill explicitly requests shell interpolation. */
@@ -260,6 +263,7 @@ export class HeadlessInteractionChannel {
         ? { additionalTools: this.opts.additionalTools }
         : {}),
       ...(this.opts.defaultTools !== undefined ? { defaultTools: this.opts.defaultTools } : {}),
+      ...(this.opts.sandboxClient !== undefined ? { sandboxClient: this.opts.sandboxClient } : {}),
       commandModules: this.opts.commandModules,
       commandHostAdapters: this.opts.commandHostAdapters,
       shellExec: this.opts.shellExec,
