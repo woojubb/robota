@@ -197,6 +197,10 @@ Provider packages implement this package's provider base class; other layers ext
 Events are named `ownerType.localName` (e.g. an execution-service event, a tool-execution event, an agent-level event) and each event carries an owner-path trace of the execution hierarchy that produced it, so a consumer can reconstruct which agent/tool/execution nesting emitted a given event without a separate correlation mechanism.
 The tool-body completion name identifies only the awaited body of a permitted call. A consumer must
 not interpret pre-execution permission or hook failures as executed tool spans.
+One tool instance can serve several agents, and the event service set on it is whichever agent set
+one last. A caller that sends its own service with a call therefore receives that call's
+`FunctionTool` span and no other caller's; a call that carries none still reports to the service
+set on the instance.
 
 ## Conversation History Principles
 
