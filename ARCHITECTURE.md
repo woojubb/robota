@@ -55,8 +55,9 @@ High-level system architecture for the Robota AI Agent SDK monorepo.
 │  Playground      agent-playground                           │
 │  GUI/Web         agent-ui-web (GUI core);            │
 │                  agent-transport-webrtc-web (browser peer); │
-│                  packages/agent-cli-web (CLI monitor SPA);          │
-│                  apps/agent-app (Electron desktop GUI)      │
+│                  agent-gui-web (GUI web app: desktop,       │
+│                  CLI-served and browser);                   │
+│                  apps/agent-app (Electron shell)            │
 │  Remote          agent-remote-client                        │
 └────────────────────────────────────────────────────────────┘
 ```

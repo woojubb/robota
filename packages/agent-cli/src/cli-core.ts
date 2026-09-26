@@ -5,10 +5,16 @@ import { readExternalEventGrantFiles } from './external-events/external-event-gr
 import { createExternalEventVerifier } from './external-events/external-event-verifier.js';
 import {
   createTuiExternalEventGrants,
+  createRefusalReporter,
   type ITuiExternalEventGrants,
 } from './external-events/tui-external-event-grants.js';
+import {
+  createExternalEventHttpHost,
+  type IExternalEventHttpHost,
+} from './external-events/external-event-http-host.js';
 
 import type { IInteractiveSession } from '@robota-sdk/agent-interface-session';
+import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
 import {
   resolveLatestSessionId,
   resolveSessionIdByIdOrName,
@@ -483,17 +489,40 @@ async function runCliCore(
   // External-event grants (TUI only; the parser refuses them elsewhere): every file is valid, or the
   // TUI does not start. Each session the TUI binds opens them, and a refusal fails that bind.
   let tuiExternalEvents: ITuiExternalEventGrants | undefined;
+  let tuiGrants: IExternalEventGrant[] = [];
   if ((args.externalEventGrantFiles?.length ?? 0) > 0) {
     try {
-      tuiExternalEvents = createTuiExternalEventGrants(
-        readExternalEventGrantFiles(args.externalEventGrantFiles ?? []),
-        (line) => terminal.writeLine(line),
+      tuiGrants = readExternalEventGrantFiles(args.externalEventGrantFiles ?? []);
+      tuiExternalEvents = createTuiExternalEventGrants(tuiGrants, (line) =>
+        terminal.writeLine(line),
       );
     } catch (error) {
       process.stderr.write(`${error instanceof Error ? error.message : 'grant refused'}\n`);
       process.exit(1);
     }
     commandHostAdapters.externalEvents = tuiExternalEvents.adapter;
+  }
+  // The grants' endpoint listens for the whole TUI run and delivers to whichever session is bound.
+  let tuiEventEndpoint: IExternalEventHttpHost | undefined;
+  if (tuiExternalEvents !== undefined) {
+    const grantsForEndpoint = tuiExternalEvents;
+    try {
+      tuiEventEndpoint = createExternalEventHttpHost({
+        grants: tuiGrants,
+        receive: (grantId, delivery) => grantsForEndpoint.receive(grantId, delivery),
+        port: args.externalEventPort ?? 0,
+        ...(args.externalEventTrustedProxies !== undefined
+          ? { trustedProxies: args.externalEventTrustedProxies }
+          : {}),
+        audit: createRefusalReporter((line) => terminal.writeLine(line)),
+      });
+      await tuiEventEndpoint.start();
+    } catch (error) {
+      process.stderr.write(
+        `${error instanceof Error ? error.message : 'External event endpoint could not start.'}\n`,
+      );
+      process.exit(1);
+    }
   }
   const externalEvents = tuiExternalEvents;
   const bindTuiTransports = async (session: IInteractiveSession): Promise<void> => {
@@ -1052,6 +1081,7 @@ async function runCliCore(
     await tuiRun;
   } finally {
     deviceMesh.close();
+    await tuiEventEndpoint?.stop();
     externalEvents?.close();
     await livePromptTracePort?.shutdown();
     if (mcp !== undefined) await mcp.shutdown();

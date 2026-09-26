@@ -1,13 +1,8 @@
 {
-  "extends": "../../tsconfig.base.json",
+  "extends": "./electron/tsconfig.json",
   "compilerOptions": {
-    "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "jsx": "react-jsx",
-    "noEmit": true,
-    "types": ["vite/client"]
+    "noEmit": true
   },
-  "include": ["src"],
-  "exclude": ["node_modules", "dist", "electron"]
+  "include": ["electron", "vitest.config.ts"],
+  "exclude": ["node_modules", "dist"]
 }

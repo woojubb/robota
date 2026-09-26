@@ -41,6 +41,10 @@ export interface IParsedCliArgs {
   supervisedExternalEventGrants?: boolean;
   /** TUI only: files, each one external-event grant verified by access token. */
   externalEventGrantFiles?: string[];
+  /** The loopback port the external-event endpoint listens on, behind the owner's proxy. */
+  externalEventPort?: number;
+  /** Proxy addresses whose `X-Forwarded-For` the external-event endpoint believes. */
+  externalEventTrustedProxies?: string[];
   /** MCP-2533: selecting HTTP also requires an exclusive owner-only token file. */
   mcpHttpTokenFile?: string;
   mcpHttpPort?: number;
@@ -190,6 +194,8 @@ const PARSE_ARGS_CONFIG = {
     'supervised-session-id': { type: 'string' },
     'supervised-external-event-grants': { type: 'boolean' },
     'external-event-grant': { type: 'string', multiple: true },
+    'external-event-port': { type: 'string' },
+    'external-event-trusted-proxy': { type: 'string', multiple: true },
     'http-token-file': { type: 'string' },
     'http-port': { type: 'string' },
     'http-host': { type: 'string' },
@@ -294,6 +300,14 @@ function resolveReducedMotionArgs(values: TParsedArgValues): Pick<IParsedCliArgs
   return { reducedMotion };
 }
 
+function parseEventPort(raw: string): number {
+  const port = Number(raw);
+  if (!/^[0-9]+$/u.test(raw) || !Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('--external-event-port must be an integer in 1..65535');
+  }
+  return port;
+}
+
 function mapParsedValues(
   values: TParsedArgValues,
   positionals: string[],
@@ -308,6 +322,12 @@ function mapParsedValues(
       ? { supervisedExternalEventGrants: true }
       : {}),
     externalEventGrantFiles: values['external-event-grant'] ?? [],
+    ...(values['external-event-port'] !== undefined
+      ? { externalEventPort: parseEventPort(values['external-event-port']) }
+      : {}),
+    ...(values['external-event-trusted-proxy'] !== undefined
+      ? { externalEventTrustedProxies: values['external-event-trusted-proxy'] }
+      : {}),
     mcpHttpTokenFile: values['http-token-file'],
     mcpHttpPort: values['http-port'] === undefined ? undefined : Number(values['http-port']),
     mcpHttpHost: values['http-host'],
@@ -422,6 +442,21 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
     if (args.permissionMode === 'bypassPermissions') {
       throw new Error('--external-event-grant cannot run with bypassPermissions');
     }
+  }
+  const hasGrants =
+    (args.externalEventGrantFiles?.length ?? 0) > 0 || args.supervisedExternalEventGrants === true;
+  if (
+    !hasGrants &&
+    (args.externalEventPort !== undefined || args.externalEventTrustedProxies !== undefined)
+  ) {
+    throw new Error(
+      '--external-event-port and --external-event-trusted-proxy go only with external event grants',
+    );
+  }
+  if (hasGrants && args.externalEventPort === undefined) {
+    throw new Error(
+      '--external-event-grant needs --external-event-port: the loopback port the owner\'s proxy forwards to',
+    );
   }
   if (args.printMode) {
     if (args.resumeId === '') {

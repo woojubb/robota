@@ -24,10 +24,16 @@ export function createKeybindingsCommandEntry(): ICommand {
   };
 }
 
+// A host without a terminal (the desktop app's sidecar) still answers, so the command is never
+// "unknown" there — it says where key bindings live instead.
+const KEYBINDINGS_UNAVAILABLE =
+  'Key bindings belong to the robota terminal, and this surface has none. Run /keybindings in the robota terminal.';
+
 async function executeKeybindingsCommand(
-  file: IKeybindingsFilePort,
+  file: IKeybindingsFilePort | undefined,
   context: ICommandHostTerminalHandoff & ICommandHostWorkspace,
 ): Promise<ICommandResult> {
+  if (!file) return { success: false, message: KEYBINDINGS_UNAVAILABLE };
   if (!context.canHandoffTerminal()) {
     return { success: false, message: 'Keybindings editor is unavailable here.' };
   }
@@ -54,7 +60,9 @@ export class KeybindingsCommandSource implements ICommandSource {
   }
 }
 
-export function createKeybindingsCommandModule(file: IKeybindingsFilePort): ICommandModule {
+export function createKeybindingsCommandModule(
+  file: IKeybindingsFilePort | undefined,
+): ICommandModule {
   const entry = createKeybindingsCommandEntry();
   const command: ISystemCommand = {
     name: entry.name,

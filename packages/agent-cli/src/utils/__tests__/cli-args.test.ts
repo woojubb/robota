@@ -88,8 +88,14 @@ describe('parseCliArgs', () => {
 
   it('takes verified external event grant files only for the interactive TUI', () => {
     expect(
-      parseCliArgs(['--external-event-grant', 'a.json', '--external-event-grant', 'b.json'])
-        .externalEventGrantFiles,
+      parseCliArgs([
+        '--external-event-grant',
+        'a.json',
+        '--external-event-grant',
+        'b.json',
+        '--external-event-port',
+        '8443',
+      ]).externalEventGrantFiles,
     ).toEqual(['a.json', 'b.json']);
     expect(parseCliArgs([]).externalEventGrantFiles).toEqual([]);
     for (const extra of [['-p', 'hello'], ['--serve'], ['--reset'], ['session'], ['mcp']]) {
@@ -105,11 +111,55 @@ describe('parseCliArgs', () => {
   it('accepts the supervised grant handoff flag only from a supervised launch', () => {
     const id = '0f6c3a5e-8c1b-4d2a-9f3e-1a2b3c4d5e6f';
     expect(
-      parseCliArgs(['--serve', '--supervised-session-id', id, '--supervised-external-event-grants'])
-        .supervisedExternalEventGrants,
+      parseCliArgs([
+        '--serve',
+        '--supervised-session-id',
+        id,
+        '--supervised-external-event-grants',
+        '--external-event-port',
+        '8443',
+      ]).supervisedExternalEventGrants,
     ).toBe(true);
     expect(() => parseCliArgs(['--serve', '--supervised-external-event-grants'])).toThrow(
       /--supervised-external-event-grants/,
+    );
+  });
+
+  it('takes the event endpoint port and trusted proxies only with grants, and needs the port', () => {
+    const id = '0f6c3a5e-8c1b-4d2a-9f3e-1a2b3c4d5e6f';
+    const tui = parseCliArgs([
+      '--external-event-grant',
+      'a.json',
+      '--external-event-port',
+      '8443',
+      '--external-event-trusted-proxy',
+      '127.0.0.1',
+      '--external-event-trusted-proxy',
+      '::1',
+    ]);
+    expect(tui.externalEventPort).toBe(8443);
+    expect(tui.externalEventTrustedProxies).toEqual(['127.0.0.1', '::1']);
+    expect(() => parseCliArgs(['--external-event-grant', 'a.json'])).toThrow(
+      /--external-event-grant needs --external-event-port/,
+    );
+    expect(() =>
+      parseCliArgs([
+        '--serve',
+        '--supervised-session-id',
+        id,
+        '--supervised-external-event-grants',
+      ]),
+    ).toThrow(/--external-event-port/);
+    for (const port of ['0', '65536', '1.5', 'x']) {
+      expect(() =>
+        parseCliArgs(['--external-event-grant', 'a.json', '--external-event-port', port]),
+      ).toThrow(/--external-event-port must be an integer/);
+    }
+    expect(() => parseCliArgs(['--external-event-port', '8443'])).toThrow(
+      /only with external event grants/,
+    );
+    expect(() => parseCliArgs(['--external-event-trusted-proxy', '127.0.0.1'])).toThrow(
+      /only with external event grants/,
     );
   });
 

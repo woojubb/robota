@@ -123,7 +123,7 @@
   "devDependencies": {
     "@homebridge/node-pty-prebuilt-multiarch": "^0.14.1",
     "@robota-sdk/agent-builtin-providers": "workspace:*",
-    "@robota-sdk/agent-cli-web": "workspace:*",
+    "@robota-sdk/agent-gui-web": "workspace:*",
     "@robota-sdk/agent-command": "workspace:*",
     "@robota-sdk/agent-command-workflows": "workspace:*",
     "@robota-sdk/agent-core": "workspace:*",
@@ -159,6 +159,7 @@
     "@types/ws": "^8.18.1",
     "@xterm/xterm": "^5.5.0",
     "gifenc": "^1.0.3",
+    "jose": "6.2.3",
     "playwright": "^1.49.1",
     "pngjs": "^7.0.0",
     "rimraf": "^5.0.10",

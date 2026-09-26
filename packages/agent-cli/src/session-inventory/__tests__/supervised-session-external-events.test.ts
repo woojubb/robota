@@ -1,5 +1,7 @@
 import { type ChildProcess } from 'node:child_process';
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { request } from 'node:http';
+import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,7 +19,9 @@ import { launchSupervisedSession } from '../supervised-session-launch.js';
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
 
 const fixture = fileURLToPath(new URL('./fixtures/supervised-serve-fixture.ts', import.meta.url));
-const lossyFixture = fileURLToPath(new URL('./fixtures/supervised-lossy-grants.mjs', import.meta.url));
+const lossyFixture = fileURLToPath(
+  new URL('./fixtures/supervised-lossy-grants.mjs', import.meta.url),
+);
 const PRINCIPAL = 'PRINCIPAL-VALUE-MUST-NOT-APPEAR';
 
 function grant(grantId: string): IExternalEventGrant {
@@ -36,11 +40,62 @@ function grant(grantId: string): IExternalEventGrant {
 
 const EMPTY = { accepted: 0, refused: {}, settled: {} };
 
+async function freePort(): Promise<number> {
+  const server = createServer();
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  await new Promise<void>((resolve) => server.close(() => resolve()));
+  if (typeof address !== 'object' || address === null) throw new Error('no port');
+  return address.port;
+}
+
+function post(
+  port: number,
+  grantId: string,
+  token?: string,
+): Promise<{ status: number; body: string; challenge?: string }> {
+  return new Promise((resolve, reject) => {
+    const body = JSON.stringify({ kind: 'message', conversationId: 'c', content: 'hello' });
+    const req = request(
+      {
+        host: '127.0.0.1',
+        port,
+        method: 'POST',
+        path: `/events/${grantId}`,
+        headers: {
+          host: 'robota.example',
+          'content-type': 'application/json',
+          'content-length': Buffer.byteLength(body),
+          ...(token !== undefined ? { authorization: `Bearer ${token}` } : {}),
+        },
+      },
+      (res) => {
+        let text = '';
+        res.setEncoding('utf8');
+        res.on('data', (chunk: string) => {
+          text += chunk;
+        });
+        res.on('end', () => {
+          const challenge = res.headers['www-authenticate'];
+          resolve({
+            status: res.statusCode ?? 0,
+            body: text,
+            ...(typeof challenge === 'string' ? { challenge } : {}),
+          });
+        });
+      },
+    );
+    req.on('error', reject);
+    req.end(body);
+  });
+}
+
 describe('external event grants on a supervised session', () => {
   it('opens exactly the grants it was handed, lists them without principals, and revokes one', async () => {
     const scratch = mkdtempSync(join(tmpdir(), 'rs-grants-'));
     const root = join(scratch, 'supervised');
     let id: string | undefined;
+    const port = await freePort();
     try {
       id = await launchSupervisedSession(process.cwd(), {
         entrypoint: fixture,
@@ -48,6 +103,7 @@ describe('external event grants on a supervised session', () => {
         env: { ROBOTA_TEST_SUPERVISED_ROOT: root },
         root,
         grants: [grant('ci'), grant('chat')],
+        eventEndpoint: { port },
       });
       // The handoff is read and deleted before readiness; only the registration remains.
       expect(readdirSync(root).filter((name) => name.includes('grants'))).toEqual([]);
@@ -55,22 +111,60 @@ describe('external event grants on a supervised session', () => {
         { grantId: 'ci', principal: 'client', state: 'open', counters: EMPTY },
         { grantId: 'chat', principal: 'client', state: 'open', counters: EMPTY },
       ]);
+      // The endpoint listens on loopback at the given port and speaks for each grant.
+      const missing = await post(port, 'ci');
+      expect(missing).toMatchObject({ status: 401, body: '' });
+      expect(missing.challenge).toBe(
+        'Bearer resource_metadata="https://robota.example/.well-known/oauth-protected-resource/events/ci"',
+      );
+      expect(await post(port, 'nope', 'x')).toMatchObject({ status: 404, body: '' });
+      expect(await post(port, 'ci', 'not-a-token')).toMatchObject({ status: 401, body: '' });
       await revokeSupervisedExternalEventGrant(id, 'ci', root);
+      expect(await post(port, 'ci', 'not-a-token')).toMatchObject({ status: 403, body: '' });
+      // Refusals outlive the process in an owner-only trail that holds no token or content.
+      const trail = join(root, 'audit', `${id}.jsonl`);
+      expect(statSync(trail).mode & 0o777).toBe(0o600);
+      const records = readFileSync(trail, 'utf8')
+        .trim()
+        .split('\n')
+        .map((line) => JSON.parse(line) as Record<string, unknown>);
+      expect(records.map((record) => record['refusal'])).toEqual([
+        'missing-token',
+        'unknown-grant',
+        'malformed',
+        'grant-revoked',
+      ]);
+      expect(readFileSync(trail, 'utf8')).not.toMatch(/not-a-token|hello|PRINCIPAL/);
       await expect(revokeSupervisedExternalEventGrant(id, 'nope', root)).rejects.toThrow(
         /holds no external event grant nope/,
       );
-      await vi.waitFor(async () => {
-        expect(await listSupervisedSessions(root, undefined, { includeExternalEvents: true })).toEqual([
-          expect.objectContaining({
-            id,
-            externalEvents: [
-              { grantId: 'ci', state: 'revoked', counters: EMPTY },
-              { grantId: 'chat', state: 'open', counters: EMPTY },
-            ],
-          }),
-        ]);
-      }, { timeout: 15_000, interval: 100 });
-      const listed = JSON.stringify(await listSupervisedSessions(root, undefined, { includeExternalEvents: true }));
+      await vi.waitFor(
+        async () => {
+          expect(
+            await listSupervisedSessions(root, undefined, { includeExternalEvents: true }),
+          ).toEqual([
+            expect.objectContaining({
+              id,
+              externalEvents: [
+                {
+                  grantId: 'ci',
+                  state: 'revoked',
+                  counters: {
+                    accepted: 0,
+                    refused: { malformed: 1, 'grant-revoked': 1 },
+                    settled: {},
+                  },
+                },
+                { grantId: 'chat', state: 'open', counters: EMPTY },
+              ],
+            }),
+          ]);
+        },
+        { timeout: 15_000, interval: 100 },
+      );
+      const listed = JSON.stringify(
+        await listSupervisedSessions(root, undefined, { includeExternalEvents: true }),
+      );
       expect(listed).not.toContain(PRINCIPAL);
       expect(listed).not.toContain('issuer.example');
       expect(JSON.stringify(await listSupervisedSessions(root))).not.toContain('externalEvents');
@@ -78,7 +172,11 @@ describe('external event grants on a supervised session', () => {
       await stopSupervisedSession(id, root);
     } finally {
       if (id) {
-        try { await stopSupervisedSession(id, root); } catch { /* already stopped */ }
+        try {
+          await stopSupervisedSession(id, root);
+        } catch {
+          /* already stopped */
+        }
       }
       rmSync(scratch, { recursive: true, force: true });
     }
@@ -94,10 +192,16 @@ describe('external event grants on a supervised session', () => {
         await launchSupervisedSession(process.cwd(), {
           entrypoint: fixture,
           execArgs: ['--import', 'tsx', '--conditions=source'],
-          env: { ROBOTA_TEST_SUPERVISED_ROOT: root, ROBOTA_TEST_PERMISSION_MODE: 'bypassPermissions' },
+          env: {
+            ROBOTA_TEST_SUPERVISED_ROOT: root,
+            ROBOTA_TEST_PERMISSION_MODE: 'bypassPermissions',
+          },
           root,
           grants: [grant('ci')],
-          onSpawn: (spawned) => { child = spawned; },
+          eventEndpoint: { port: await freePort() },
+          onSpawn: (spawned) => {
+            child = spawned;
+          },
         });
       } catch (error) {
         message = (error as Error).message;
@@ -117,14 +221,19 @@ describe('external event grants on a supervised session', () => {
     const root = join(scratch, 'supervised');
     let child: ChildProcess | undefined;
     try {
-      await expect(launchSupervisedSession(process.cwd(), {
-        entrypoint: lossyFixture,
-        execArgs: [],
-        env: {},
-        root,
-        grants: [grant('ci')],
-        onSpawn: (spawned) => { child = spawned; },
-      })).rejects.toThrow(/did not open exactly the external event grants/);
+      await expect(
+        launchSupervisedSession(process.cwd(), {
+          entrypoint: lossyFixture,
+          execArgs: [],
+          env: {},
+          root,
+          grants: [grant('ci')],
+          eventEndpoint: { port: 1 },
+          onSpawn: (spawned) => {
+            child = spawned;
+          },
+        }),
+      ).rejects.toThrow(/did not open exactly the external event grants/);
       expect(child?.exitCode !== null || child?.signalCode !== null).toBe(true);
       expect(readdirSync(root).filter((name) => name.includes('grants'))).toEqual([]);
     } finally {

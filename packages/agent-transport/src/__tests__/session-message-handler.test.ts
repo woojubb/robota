@@ -157,6 +157,30 @@ describe('WebSocket Transport Handler', () => {
     expect(sent[0]!.type).toBe('context');
   });
 
+  it('#3186: get-commands sends the commands and skills a client can offer', () => {
+    const { onMessage, session, sent } = setup();
+    const command = { name: 'help', description: 'Show commands', modelInvocable: false };
+    const skill = {
+      name: 'parity-demo',
+      description: 'Demo',
+      source: 'project',
+      modelInvocable: true,
+      userInvocable: true,
+    };
+    Object.assign(session, {
+      listCommands: vi.fn().mockReturnValue([command]),
+      listSkills: vi.fn().mockReturnValue([skill]),
+    });
+    onMessage(JSON.stringify({ type: 'get-commands' }));
+    expect(sent).toEqual([{ type: 'commands', commands: [command], skills: [skill] }]);
+  });
+
+  it('#3186: get-status sends the session status snapshot', () => {
+    const { onMessage, session, sent } = setup();
+    onMessage(JSON.stringify({ type: 'get-status' }));
+    expect(sent).toEqual([{ type: 'session_status', status: session.getStatusSnapshot() }]);
+  });
+
   it('get-executing sends executing status', () => {
     const { onMessage, sent } = setup();
     onMessage(JSON.stringify({ type: 'get-executing' }));
