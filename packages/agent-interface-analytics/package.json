@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-interface-analytics",
-  "version": "3.0.0-beta.81",
+  "version": "3.0.0-beta.82",
   "description": "Analytics contract interfaces for the Robota SDK — usage snapshots, per-source totals and run-trace timelines",
   "type": "module",
   "main": "dist/node/index.js",

@@ -1,5 +1,11 @@
 # @robota-sdk/agent-app
 
+## 3.0.0-beta.82
+
+### Patch Changes
+
+- @robota-sdk/agent-ui-web@3.0.0-beta.82
+
 ## 3.0.0-beta.81
 
 ### Patch Changes

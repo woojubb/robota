@@ -5,6 +5,8 @@ export type {
   IDevicesInitResult,
   IDevicesMeshStatus,
   IDevicesRecoverResult,
+  IDevicesAddResult,
+  IDevicesJoinResult,
   IDevicesRevokeResult,
   IDevicesView,
   TDevicesOutcome,

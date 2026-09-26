@@ -1,5 +1,51 @@
 # @robota-sdk/agent-transport
 
+## 3.0.0-beta.82
+
+### Minor Changes
+
+- c7f9203: Connected sessions can send each other files.
+
+  - `/peers send-file <session-id> <path>` sends a copy of any file the operator can read to another
+    live session on this host.
+  - The model sends a file only through the `peer_send_file` tool. Every call asks the user, showing
+    the path, size, hash and destination; no permission mode, rule or remembered consent answers it.
+    The tool reaches only files inside the workspace whose path does not look like it holds secrets
+    (`.env*`, `~/.ssh`, keys and credentials), and it does not exist in a turn a peer's message started.
+  - The receiving operator approves every file. A received file is kept as an inert copy (mode 0600)
+    under `~/.robota/peer-files/<sender>/`. It is never run and never placed in the model's context.
+    The conversation is told only its name, size and sha256. A name that leaves that directory is
+    refused, a symbolic link is never written through, and nothing is overwritten.
+  - Transfers travel on a channel of their own (a separate connection on this host, a separate data
+    channel between devices), in chunks the receiver paces, up to 32 MiB, and are kept only when the
+    whole content matches the offered sha256. A transfer that ends early is discarded; there is no
+    resume.
+
+  **API**
+
+  - `agent-interface-session-mobility`: the `file` capability, which asks the operator for every
+    request; `ConnectionAuthority.authorizeFile`; `IFileOffer` and `IFileFrameChannel`.
+  - `agent-transport/node`: `sendFileOverChannel` and `receiveFileOverChannel`, the carrier over any
+    `IFileFrameChannel`; `DEFAULT_MAX_FILE_BYTES`.
+  - `agent-transport-webrtc`: `IDeviceMeshLink.openFileChannel` and `onFileChannel`.
+  - `agent-remote-pairing`: `file` joins `DEVICE_CAPABILITIES`. A device certificate that names it is
+    refused as malformed by an earlier version.
+  - `agent-core`: `IToolPermissionProfile.notInPeerTurn` withholds a tool from a turn a peer's message
+    started.
+  - `agent-framework`: `ICommandLocalPeersAdapter.prepareFile`.
+
+### Patch Changes
+
+- Updated dependencies [c7f9203]
+- Updated dependencies [004fe7f]
+  - @robota-sdk/agent-interface-session-mobility@3.0.0-beta.82
+  - @robota-sdk/agent-core@3.0.0-beta.82
+  - @robota-sdk/agent-interface-command@3.0.0-beta.82
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.82
+  - @robota-sdk/agent-interface-session@3.0.0-beta.82
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.82
+  - @robota-sdk/agent-interface-analytics@3.0.0-beta.82
+
 ## 3.0.0-beta.81
 
 ### Patch Changes

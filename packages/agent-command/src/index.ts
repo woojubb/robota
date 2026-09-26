@@ -79,6 +79,8 @@ export {
   type IDeviceListEntry,
   type IDevicesCommandPort,
   type IDevicesInitResult,
+  type IDevicesAddResult,
+  type IDevicesJoinResult,
   type IDevicesRecoverResult,
   type IDevicesRevokeResult,
   type IDevicesMeshStatus,
