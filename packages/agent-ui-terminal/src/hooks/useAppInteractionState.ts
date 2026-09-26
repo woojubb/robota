@@ -41,6 +41,8 @@ export function useAppInteractionState(options: IOptions): IAppInteractionState 
   const screenReader = useAppInputBindings({
     isThinking: options.state.isThinking,
     isShuttingDown: options.state.isShuttingDown,
+    readOnly: options.state.readOnly,
+    attached: options.state.attached,
     permissionRequest: options.state.permissionRequest,
     pendingUserAction: options.state.pendingUserAction,
     pluginVisible: screens.showPluginTUI,

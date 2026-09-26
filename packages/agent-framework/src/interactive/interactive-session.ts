@@ -58,6 +58,9 @@ import {
   validatedSessionLoopExpiry,
 } from './session-loop-lifecycle.js';
 import { SessionPromptRegistry } from './session-prompt-registry.js';
+import { SessionAutoNaming } from './session-auto-naming.js';
+import { SessionStatusPush, STATUS_CHANGING_EVENTS } from './session-status-push.js';
+import { stopWaitingSelfPacedLoop } from './session-waiting-loop.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
 import { GoalController, buildGoalContinuationPrompt } from '../goal/index.js';
@@ -134,6 +137,7 @@ import type {
   TPermissionResultValue,
   ISessionLoopState,
   ISessionStatusSnapshot,
+  TWaitingLoopStopOutcome,
 } from '@robota-sdk/agent-interface-session';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
 import type { Session } from '@robota-sdk/agent-session';
@@ -251,6 +255,7 @@ export class InteractiveSession
   private readonly promptFileReferenceTag?: string;
   private readonly resolveDefaultLoopPrompt?: () => string;
   private readonly userSettingsSources: readonly INodeHostSettingsSource[];
+  private readonly statusPush: SessionStatusPush;
 
   constructor(options: TInteractiveSessionOptions) {
     super();
@@ -458,10 +463,32 @@ export class InteractiveSession
       this.currentTurnSource = source;
     });
     this.on('complete', (result) => this.handleGoalTurnComplete(result));
+    // #3189: status pushes and self-naming are their own modules; the session only wires them.
+    this.statusPush = new SessionStatusPush({
+      read: () => (this.session ? this.getStatusSnapshot() : undefined),
+      emit: (status) => this.emit('status_changed', status),
+    });
+    for (const event of STATUS_CHANGING_EVENTS) this.on(event, () => this.statusPush.push());
+    if (options.autoName === true) {
+      new SessionAutoNaming({
+        on: (event, handler) => this.on(event, handler),
+        getName: () => this.getName(),
+        setName: (name) => this.setName(name),
+        emitRenamed: (name) => this.emit('session_renamed', { name }),
+        getProvider: () => this.session?.getProvider(),
+      });
+    }
 
     const hasInjectedSession = this.configureInjectedSession(options);
     this.restoreSessionRecordIfNeeded(options);
     this.startAsyncInitializationIfNeeded(options, hasInjectedSession);
+    // The baseline is the initialized session's status, so the first push is a real change.
+    if (this.initialized) this.statusPush.prime();
+    else
+      void this.initPromise?.then(
+        () => this.statusPush.prime(),
+        () => undefined,
+      );
 
     if (this.initialized) {
       this.bgTracker.subscribe(this.session!);
@@ -1037,6 +1064,17 @@ export class InteractiveSession
     this.selfPacedLoops.commit(state);
     this.submitSelfPacedIteration(state);
     return state;
+  }
+
+  /** #3189: stop the one loop waiting for its wake; with several waiting, say how to choose. */
+  stopWaitingSelfPacedLoop(reason?: string): Promise<TWaitingLoopStopOutcome> {
+    return stopWaitingSelfPacedLoop(
+      {
+        listSelfPacedLoops: () => this.listSelfPacedLoops(),
+        stopSelfPacedLoop: (loopId, why) => this.stopSelfPacedLoop(loopId, why),
+      },
+      reason,
+    );
   }
 
   async stopSelfPacedLoop(loopId: string, reason = 'Loop stopped by user'): Promise<void> {
@@ -1922,6 +1960,7 @@ export class InteractiveSession
       resolveUiIntentRequester(source, originDriverId, this.execCtrl.activeDriverId),
       (event) => this.emit('ui_intent', event),
     );
+    this.statusPush.push();
     return application.result;
   }
 }

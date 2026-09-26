@@ -1,7 +1,5 @@
 export { renderApp, renderAttachedApp } from './render.js';
 export { renderSupervisedSessionView } from './SupervisedSessionView.js';
-export { renderAttachedSessionView } from './AttachedSessionView.js';
-export type { IAttachedSessionViewProps } from './AttachedSessionView.js';
 export type {
   IAttachedSessionConnection,
   TAttachedSessionEnd,

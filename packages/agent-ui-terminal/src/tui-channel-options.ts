@@ -111,7 +111,6 @@ export interface ITuiInteractionChannelOptions {
   /** Issue #3081: this channel's session is the target of a `/cd` from this directory. */
   workspaceMovedFrom?: string;
   sessionName?: string;
-  onAutoNamed?: (name: string) => void;
   backgroundTaskRunners?: IBackgroundTaskRunner[];
   /** MCP-004: forwarded to `ICreateSessionOptions.toolCallHandoff`. */
   toolCallHandoff?: IToolCallHandoffPolicy;

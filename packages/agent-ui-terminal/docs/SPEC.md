@@ -18,11 +18,12 @@ authenticate; the OS user who started the process is the boundary.
   view does not construct a session or infer ownership from matching IDs; requested control,
   attaching and linked-PR opening are delegated to the host's owner-verifying path, bound to the
   process start the row showed, offered only for a row that proved it, and never decided by a
-  displayed or stale row alone. Its attached-session view, and the full TUI attached to a host's
-  session, are thin clients of a session reached over the carrier-neutral session protocol: they
-  show what the protocol carries, one question at a time, send only what the user types or answers,
-  and leaving only detaches — nothing they send ends the host's session, and a question left open
-  stays open for the other clients.
+  displayed or stale row alone. The full TUI attached to a host's session is a thin client of a
+  session reached over the carrier-neutral session protocol: it shows what the protocol carries, one
+  question at a time, sends only what the user types or answers, and leaving only detaches — nothing
+  it sends ends the host's session, and a question left open stays open for the other clients.
+  Attached to observe, it sends only what an observer may send and refuses everything else with a
+  notice, so the host never has to refuse it.
 - Depends on the TUI interaction contracts, the framework's interactive-session runtime and the
   carrier-neutral session wire messages; does not depend on any transport implementation package,
   and no transport package depends on this one.
@@ -60,12 +61,14 @@ for a short pause after it appears, so a keystroke meant for the composer cannot
 and it labels project-wide approval unavailable, rather than resolving the disabled choice as
 granted, when the session cannot persist it.
 
-When a self-paced loop is waiting, Esc stops that loop through the session's durable stop path.
-If several are waiting, Esc names the explicit stop command instead of choosing one silently.
-Esc retains its existing overlay and active-turn behavior.
+When a self-paced loop is waiting, Esc asks the session to stop it, and the session decides which
+loop that is, so a terminal attached to a host follows the same rule: when several are waiting none
+is stopped and the explicit stop command is named instead. Esc retains its existing overlay and
+active-turn behavior.
 
-Automatic naming observes the first displayed user message, including an admitted external event.
-Its separate model call is text-only; it must never enable provider-hosted tools.
+The terminal never names a session itself: it asks the session it builds to name itself, so a
+session is named once whichever client drives it, and a name reaches the screen as the session's
+rename.
 
 ### Channel lifecycle and teardown
 

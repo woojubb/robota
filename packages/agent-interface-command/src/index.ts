@@ -28,6 +28,7 @@ export type {
   TCommandRunner,
   TCommandSurface,
   ICommandListEntry,
+  ICommandSubcommandEntry,
   ICommandSkillListEntry,
   TCommandHostAction,
   TCommandUiIntent,

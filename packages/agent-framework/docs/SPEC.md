@@ -174,9 +174,16 @@ These are behaviors a caller cannot infer from a type signature alone.
   never the recipient, and a message naming a sender other than the admitted one is refused. Such a
   turn cannot send files; outside one, the model sends a file only through a tool that asks the owner
   about every file, a question no mode, rule or remembered consent answers.
-- **Automatic session naming is text-only.** The title-generation call — whether triggered by an
-  operator message or the first external event — always disables tool use, so hosted web tools can
-  never be invoked merely to generate a title.
+- **The session names itself once, and only with text.** When its host turns naming on, the session
+  titles itself after the first turn that runs, from that turn's own message and with the provider it
+  is using then, so every client sees the same name whichever one drove the turn. A failed turn or a
+  failed title does not use up the naming, so one bad first turn cannot leave a session unnamed for
+  good; once named, it is never renamed. A name it already has is kept, and a rename made while the
+  title is generated wins. The title-generation call always disables tool use, so hosted web tools
+  can never be invoked merely to generate a title.
+- **Status changes are pushed.** A status change made through any client reaches every client on
+  the session. Context usage is not part of that: it moves every turn and
+  is reported on its own, so counting it would push a status after every turn with nothing changed.
 - **Hook executor registration is replace-vs-extend, and the built-ins are seeded first.** The core
   hook runner resolves `executors ?? createDefaultExecutors()` — an _undefined-only_ fallback, so
   supplying any executor array at all replaces the built-in `command`/`http` executors rather than

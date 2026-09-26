@@ -10,6 +10,10 @@
  *
  * The commands that belong to this terminal (`/shell`, `/editor`, `/theme`, `/keybindings`) never
  * reach the host: they run here, on this terminal and in its working directory.
+ *
+ * An observing terminal (`role: 'observe'`) sends only the reads an observer may send. Anything the
+ * user does that would change the session is refused here with a notice; `/exit` and this terminal's
+ * own commands still run.
  */
 
 import {
@@ -18,6 +22,7 @@ import {
   printablePeerDriver,
 } from '@robota-sdk/agent-core';
 import { OWNER_DRIVER_ID } from '@robota-sdk/agent-interface-session';
+import { isObserverMessageType } from '@robota-sdk/agent-transport/client';
 
 import { AttentionCoordinator } from './attention/attention-coordinator.js';
 import { attributedUserEcho } from './attributed-user-echo.js';
@@ -26,6 +31,7 @@ import { parseSlashCommandInput } from './slash-command-input.js';
 import { TuiChannelLifecycleCoordinator } from './tui-channel-lifecycle-coordinator.js';
 import { TuiPermissionQueue, TuiUserActionQueue } from './tui-interaction-queues.js';
 import { TuiStateManager } from './tui-state-manager.js';
+import { waitingLoopStopNotice } from './waiting-loop-stop-notice.js';
 import { WireHistorySync } from './wire-history-sync.js';
 import {
   createTuiClientCommandHost,
@@ -35,6 +41,7 @@ import {
 import {
   displayDriverId,
   filterCommandCatalog,
+  findSubcommands,
   toCommandCatalog,
   toHistoryEntries,
 } from './wire-tui-projection.js';
@@ -76,6 +83,7 @@ import type {
   ISessionRenamedEvent,
   ISessionStatusSnapshot,
   IUiIntentEvent,
+  TWaitingLoopStopOutcome,
 } from '@robota-sdk/agent-interface-session';
 import type { TClientMessage, TServerMessage } from '@robota-sdk/agent-transport/client';
 
@@ -88,6 +96,11 @@ interface IWireTuiChannelBaseOptions {
   readonly attention?: IAttentionSource;
   /** Told once, when this terminal stops showing the session: the user left or the connection closed. */
   readonly onEnd?: (reason: TAttachedSessionEnd) => void;
+  /**
+   * How the host let this terminal on: `'drive'` (the default) or `'observe'`, which may only read
+   * the session. The host refuses anything else from an observer; this channel does not send it.
+   */
+  readonly role?: 'drive' | 'observe';
 }
 
 export type TWireTuiChannelOptions = IWireTuiChannelBaseOptions &
@@ -109,9 +122,12 @@ const SNAPSHOT_REQUESTS = [
   'get-executing',
   'get-pending',
   'get-execution-workspace',
-  // A question asked before this terminal attached is not sent to it again unless it asks.
-  'get-prompts',
 ] as const;
+/**
+ * A question asked before this terminal attached is not sent to it again unless it asks. An observer
+ * never asks: it answers no question.
+ */
+const DRIVER_SNAPSHOT_REQUESTS = [...SNAPSHOT_REQUESTS, 'get-prompts'] as const;
 /** After a command the host may have changed the status, the context window or the catalog. */
 const COMMAND_REFRESH_REQUESTS = ['get-context', 'get-status', 'get-commands'] as const;
 /** In a shared session these would end it for everyone; here they only take this terminal away. */
@@ -122,6 +138,8 @@ const IN_PROCESS_SCREENS: ReadonlySet<IUiIntentEvent['intent']['type']> = new Se
   'show-settings',
 ]);
 const ATTACHED = 'while attached to a daemon';
+const READ_ONLY_NOTICE =
+  'Read only: this terminal observes the session and cannot change it. /exit detaches.';
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
@@ -164,9 +182,10 @@ export class WireTuiChannel implements ITuiAppChannelPort {
     { readonly set: ITuiClientCommands; readonly host: TTuiClientCommandHost } | undefined;
   private readonly commandQueryPort: ITuiCommandQueryPort = {
     getCommands: (filter) => filterCommandCatalog(this.commandCatalog, filter),
-    // Subcommands do not cross the wire yet.
-    getSubcommands: () => [],
+    getSubcommands: (name) => findSubcommands(this.commandCatalog, name),
   };
+  /** Only reads cross the wire from here, and nothing the user does changes the session. */
+  private readonly readOnly: boolean;
   private commandCatalog: ICommand[] = [];
   private status: ISessionStatusSnapshot | undefined;
   /** How many prompts wait in the host's queue, the one `pendingPrompt` shows first among them. */
@@ -189,6 +208,23 @@ export class WireTuiChannel implements ITuiAppChannelPort {
    */
   private readonly pendingCommands = new Map<string, () => void>();
   private commandSequence = 0;
+  /** Detail pages asked for and not yet answered, by request id. */
+  private readonly pendingDetails = new Map<
+    string,
+    { readonly resolve: (page: IExecutionDetailPage) => void; readonly reject: (error: Error) => void }
+  >();
+  private detailSequence = 0;
+  /** Esc's loop stops waiting for the host's outcome, by request id. */
+  private readonly pendingLoopStops = new Map<
+    string,
+    (outcome: TWaitingLoopStopOutcome | undefined) => void
+  >();
+  private loopStopSequence = 0;
+  /**
+   * Inputs sent to a background task, by task id, oldest first. The host's control result names the
+   * task but no request, so a result settles the oldest send to that task.
+   */
+  private readonly pendingTaskSends = new Map<string, ((message?: string) => void)[]>();
   /**
    * The switch the picker asked for, settled by the host's answer: `session_switched`, or a refusal
    * that names its request (or, from an older host, a protocol error that names none). A refusal
@@ -215,6 +251,7 @@ export class WireTuiChannel implements ITuiAppChannelPort {
 
   constructor(private readonly options: TWireTuiChannelOptions) {
     this.sessionName = options.sessionName;
+    this.readOnly = options.role === 'observe';
     this.manager = this.createManager();
     this.clientCommands =
       options.clientCommands !== undefined
@@ -307,6 +344,8 @@ export class WireTuiChannel implements ITuiAppChannelPort {
       contextState: manager.contextState,
       ...(this.hostSessions !== undefined ? { hostSessions: this.hostSessions } : {}),
       transcriptGeneration: this.transcriptGeneration,
+      ...(this.readOnly ? { readOnly: true } : {}),
+      attached: true,
     };
   }
 
@@ -335,6 +374,7 @@ export class WireTuiChannel implements ITuiAppChannelPort {
 
   async handleInput(input: string): Promise<void> {
     if (!input.startsWith('/')) {
+      if (this.refuseReadOnly()) return;
       // The host answers with its queue once it has taken the prompt.
       this.send({ type: 'submit', prompt: input });
       return;
@@ -349,6 +389,7 @@ export class WireTuiChannel implements ITuiAppChannelPort {
       await this.runClientCommand(clientCommand, args);
       return;
     }
+    if (this.refuseReadOnly()) return;
     // Settles when the host's answer is on screen, so what reads the settings after a command
     // (the status line, the theme) reads them after the host changed them.
     this.commandSequence += 1;
@@ -383,6 +424,7 @@ export class WireTuiChannel implements ITuiAppChannelPort {
   }
 
   abort(): void {
+    if (this.refuseReadOnly()) return;
     this.manager.setAborting(true);
     this.userActions.cancelAll();
     this.permissions.cancelAll();
@@ -390,6 +432,7 @@ export class WireTuiChannel implements ITuiAppChannelPort {
   }
 
   cancelQueue(): void {
+    if (this.refuseReadOnly()) return;
     this.send({ type: 'cancel-queue' });
     this.userActions.cancelAll();
     this.permissions.cancelAll();
@@ -397,21 +440,47 @@ export class WireTuiChannel implements ITuiAppChannelPort {
     this.manager.setPendingPrompt(null);
   }
 
-  /** Which self-paced loop waits is not on the wire yet, so Esc has nothing to stop here. */
+  /** Esc on an idle prompt: the host's session decides which waiting loop, if any, stops. */
   async stopWaitingSelfPacedLoop(): Promise<void> {
-    return undefined;
+    if (this.refuseReadOnly()) return;
+    this.loopStopSequence += 1;
+    const requestId = `wire-tui-loop-stop-${this.loopStopSequence}`;
+    const outcome = await new Promise<TWaitingLoopStopOutcome | undefined>((settle) => {
+      this.pendingLoopStops.set(requestId, settle);
+      if (!this.send({ type: 'stop-waiting-loop', requestId })) this.settleLoopStop(requestId);
+    });
+    const notice = outcome === undefined ? undefined : waitingLoopStopNotice(outcome);
+    if (notice !== undefined) this.notice(notice);
   }
 
   selectExecutionWorkspaceEntry(entryId: string): void {
     this.manager.selectExecutionWorkspaceEntry(entryId);
   }
 
-  async readExecutionWorkspaceDetail(_entryId: string): Promise<IExecutionDetailPage> {
-    throw new Error(`Background task details are not available ${ATTACHED}.`);
+  /** A page of what a workspace entry recorded, read from the host. An observer may read it too. */
+  async readExecutionWorkspaceDetail(entryId: string): Promise<IExecutionDetailPage> {
+    this.detailSequence += 1;
+    const requestId = `wire-tui-detail-${this.detailSequence}`;
+    return new Promise<IExecutionDetailPage>((resolve, reject) => {
+      this.pendingDetails.set(requestId, { resolve, reject });
+      if (!this.send({ type: 'read-execution-detail', requestId, entryId })) {
+        this.rejectDetail(requestId, 'Could not reach the session.');
+      }
+    });
   }
 
-  async sendAgentJob(_taskId: string, _input: string): Promise<void> {
-    this.notice(`Sending input to a background task is not available ${ATTACHED}.`);
+  /** Settles once the host says whether the task took the input; a refusal is shown as a notice. */
+  async sendAgentJob(taskId: string, input: string): Promise<void> {
+    if (this.refuseReadOnly()) return;
+    const failure = await new Promise<string | undefined>((settle) => {
+      const waiting = this.pendingTaskSends.get(taskId) ?? [];
+      waiting.push(settle);
+      this.pendingTaskSends.set(taskId, waiting);
+      if (!this.send({ type: 'send-background-task', taskId, input: { prompt: input } })) {
+        this.settleTaskSend(taskId);
+      }
+    });
+    if (failure !== undefined) this.notice(`Could not send to background task ${taskId}: ${failure}`);
   }
 
   resolveUserAction(request: IActionRequest, response: TActionResponse): void {
@@ -423,6 +492,7 @@ export class WireTuiChannel implements ITuiAppChannelPort {
    * host's answer, so the picker's switch is pending until the session changed or was refused.
    */
   async requestSessionSwitch(sessionId: string): Promise<void> {
+    if (this.refuseReadOnly()) return;
     // The host answers a switch to the session already shown with nothing: there is nothing to wait for.
     if (sessionId === this.status?.sessionId) return;
     // An earlier switch still waiting is overtaken by this one.
@@ -609,7 +679,31 @@ export class WireTuiChannel implements ITuiAppChannelPort {
         this.requestState();
         return;
       default:
-        // Background-task and usage frames: the full TUI reads background work from the workspace.
+        this.projectReply(frame);
+    }
+  }
+
+  /** Answers to one request of this terminal's: a detail page, a loop stop, a task's input. */
+  private projectReply(frame: TServerMessage): void {
+    switch (frame.type) {
+      case 'execution_detail': {
+        const pending = this.pendingDetails.get(frame.requestId);
+        this.pendingDetails.delete(frame.requestId);
+        pending?.resolve(frame.page);
+        return;
+      }
+      case 'execution_detail_error':
+        this.rejectDetail(frame.requestId, frame.message);
+        return;
+      case 'waiting_loop_stop':
+        this.settleLoopStop(frame.requestId, frame.outcome);
+        return;
+      case 'background_task_control_result':
+        if (frame.action !== 'send') return;
+        this.settleTaskSend(frame.taskId, frame.success ? undefined : (frame.message ?? 'refused'));
+        return;
+      default:
+        // Other background-task and usage frames: the full TUI reads background work from the workspace.
         return;
     }
   }
@@ -728,6 +822,32 @@ export class WireTuiChannel implements ITuiAppChannelPort {
     settle?.();
   }
 
+  private rejectDetail(requestId: string, message: string): void {
+    const pending = this.pendingDetails.get(requestId);
+    this.pendingDetails.delete(requestId);
+    pending?.reject(new Error(message));
+  }
+
+  private settleLoopStop(requestId: string, outcome?: TWaitingLoopStopOutcome): void {
+    const settle = this.pendingLoopStops.get(requestId);
+    this.pendingLoopStops.delete(requestId);
+    settle?.(outcome);
+  }
+
+  /** Settles the oldest input sent to the task; `failure` is why the host refused it. */
+  private settleTaskSend(taskId: string, failure?: string): void {
+    const waiting = this.pendingTaskSends.get(taskId);
+    const settle = waiting?.shift();
+    if (waiting !== undefined && waiting.length === 0) this.pendingTaskSends.delete(taskId);
+    settle?.(failure);
+  }
+
+  /** An observer is told it cannot change the session; true when this terminal only observes. */
+  private refuseReadOnly(): boolean {
+    if (this.readOnly) this.notice(READ_ONLY_NOTICE);
+    return this.readOnly;
+  }
+
   private settleSessionChange(): void {
     const pending = this.pendingSessionChange;
     this.pendingSessionChange = undefined;
@@ -763,7 +883,9 @@ export class WireTuiChannel implements ITuiAppChannelPort {
 
   /** Everything shown beside the history. */
   private requestState(): void {
-    for (const type of SNAPSHOT_REQUESTS) this.send({ type });
+    for (const type of this.readOnly ? SNAPSHOT_REQUESTS : DRIVER_SNAPSHOT_REQUESTS) {
+      this.send({ type });
+    }
     this.requestSessionList();
   }
 
@@ -776,6 +898,8 @@ export class WireTuiChannel implements ITuiAppChannelPort {
 
   private send(message: TClientMessage): boolean {
     if (this.detached) return false;
+    // The host would refuse it: an observer sends only reads.
+    if (this.readOnly && !isObserverMessageType(message.type)) return false;
     try {
       this.options.connection.send(message);
       return true;
@@ -811,6 +935,13 @@ export class WireTuiChannel implements ITuiAppChannelPort {
     this.pendingCommands.clear();
     for (const settle of pending) settle();
     this.settleSessionChange();
+    for (const requestId of [...this.pendingDetails.keys()]) {
+      this.rejectDetail(requestId, 'Detached from the session.');
+    }
+    for (const requestId of [...this.pendingLoopStops.keys()]) this.settleLoopStop(requestId);
+    const taskSends = [...this.pendingTaskSends.values()].flat();
+    this.pendingTaskSends.clear();
+    for (const settle of taskSends) settle();
   }
 
   // ── Render state ──────────────────────────────────────────────

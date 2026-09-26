@@ -70,6 +70,16 @@ export interface ITuiChannelSnapshot {
    * printed from its start. Absent ⇒ the transcript never starts over under this channel.
    */
   transcriptGeneration?: number;
+  /**
+   * True while this terminal only observes the session: it sends nothing that changes it, and the
+   * App offers no key that would. Absent ⇒ the terminal drives the session.
+   */
+  readOnly?: boolean;
+  /**
+   * True when this terminal is attached to a session a host runs: leaving only detaches it, and
+   * Ctrl-] leaves too. Absent ⇒ the terminal runs its own session, where Ctrl-] means nothing.
+   */
+  attached?: boolean;
 }
 
 /**

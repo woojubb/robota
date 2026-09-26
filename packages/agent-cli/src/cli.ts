@@ -1,7 +1,6 @@
 import {
   renderApp,
   renderSupervisedSessionView,
-  renderAttachedSessionView,
   renderAttachedApp,
   createDefaultTuiCliAdapter,
   createNodeKeybindingsSource,
@@ -19,7 +18,6 @@ export async function startCli(options: IStartCliOptions = {}): Promise<void> {
   return startCliCore(options, createDefaultBackgroundTaskRunners, {
     renderApp,
     renderSupervisedSessionView,
-    renderAttachedSessionView,
     renderAttachedApp,
     createDefaultTuiCliAdapter,
     createNodeKeybindingsSource,

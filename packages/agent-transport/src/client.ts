@@ -6,6 +6,8 @@ export {
   decodeServerMessage,
 } from './message-decoders.js';
 export type { TMessageDecodeResult } from './message-decoders.js';
+// The one list of messages an observer may send: the host refuses the rest, a client sends no others.
+export { isObserverMessageType } from './observer-messages.js';
 export type {
   IWireHistoryEntry,
   TClientMessage,

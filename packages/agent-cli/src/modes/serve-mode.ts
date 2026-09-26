@@ -233,6 +233,9 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     resumeSessionId: opts.resumeSessionId,
     forkSession: args.forkSession,
     sessionName: args.sessionName,
+    // A served session names itself after its first real turn; every session the pool builds from
+    // these options does too. Print mode leaves it off.
+    autoName: true,
     backgroundTaskRunners: opts.backgroundTaskRunners,
     subagentRunnerFactory: opts.subagentRunnerFactory,
     ...(opts.agentDefinitions !== undefined ? { agentDefinitions: opts.agentDefinitions } : {}),

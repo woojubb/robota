@@ -14,8 +14,8 @@ import {
 
 import {
   runConfirmedAttach,
-  supervisedSessionAttachView,
-  type TAttachedViewRender,
+  supervisedSessionAttachMessages,
+  type TAttachedAppRender,
 } from './session-attach-command.js';
 
 import type { TSettingsData } from '@robota-sdk/agent-framework';
@@ -43,8 +43,8 @@ export interface ISessionViewCommandOptions {
   readonly render?: (
     options: Parameters<typeof renderSupervisedSessionView>[0],
   ) => Promise<TSupervisedViewExit | void>;
-  /** Renders an attached session; without it the view still lists but attaching is refused. */
-  readonly renderAttached?: TAttachedViewRender;
+  /** Renders the terminal UI on an attached session; without it the view lists, but refuses to attach. */
+  readonly renderAttached?: TAttachedAppRender;
   readonly stop?: typeof stopSupervisedSession;
   readonly start?: (cwd: string) => Promise<string>;
   readonly launchCwd?: string;
@@ -170,30 +170,24 @@ export async function runSessionViewCommand(
       const ended = await view();
       if (ended === undefined || ended.kind !== 'attach') return 0;
       reopen = { id: ended.id, groupByDirectory: ended.groupByDirectory };
-      if (options.renderAttached === undefined) {
+      const renderAttached = options.renderAttached;
+      if (renderAttached === undefined) {
         process.stderr.write('Attaching needs the interactive CLI; this runtime has no terminal UI.\n');
         continue;
       }
       // The yes was given in the view for this row's process start; the attach holds it to that start.
       const rows = await listSupervisedSessions(root, undefined, { includeName: true }).catch(() => []);
+      const { mode } = ended;
+      const sessionLabel = rows.find((row) => row.id === ended.id)?.name ?? ended.id;
       await runConfirmedAttach({
         id: ended.id,
-        mode: ended.mode,
+        mode,
         generation: ended.generation,
         root,
-        ...supervisedSessionAttachView(ended.id, {
-          render: options.renderAttached,
-          mode: ended.mode,
-          sessionLabel: rows.find((row) => row.id === ended.id)?.name ?? ended.id,
-          announce: false,
-          screenReader: screenReader.screenReader,
-          ...(screenReader.screenReaderChannel !== undefined
-            ? { screenReaderChannel: screenReader.screenReaderChannel }
-            : {}),
-          ...(screenReader.screenReaderHint !== undefined
-            ? { screenReaderHint: screenReader.screenReaderHint }
-            : {}),
-        }),
+        // The view already printed this process's screen-reader line.
+        render: (open) =>
+          renderAttached({ ...open, mode, sessionLabel, screenReaderFlag: flag, announce: false }),
+        messages: supervisedSessionAttachMessages(ended.id),
       });
     }
   } catch {

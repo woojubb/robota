@@ -3,9 +3,11 @@ import { describe, expect, expectTypeOf, it, vi } from 'vitest';
 import {
   SESSION_CAPABILITY_MEMBER_KEYS,
   type IInteractiveSession,
+  type IInteractiveSessionEvents,
   type ISessionCapabilityHost,
   type ISessionCapabilityMap,
   type ISessionEvents,
+  type ISessionStatusSnapshot,
   type ISessionTurnSubmission,
   type TSessionCapabilityHost,
 } from '../index.js';
@@ -16,7 +18,7 @@ import { createTestSessionCapabilityHost } from '../testing/index.js';
 import { createSessionCapabilityHost, readSessionCapability } from '../testing/index.js';
 
 describe('session capability contracts (ARCH-012)', () => {
-  it('keeps the runtime role registry in exact 18-role and 44-member parity', () => {
+  it('keeps the runtime role registry in exact 20-role and 46-member parity', () => {
     type TRegistry = typeof SESSION_CAPABILITY_MEMBER_KEYS;
     type TExactRows = {
       [TKey in keyof ISessionCapabilityMap]:
@@ -43,11 +45,13 @@ describe('session capability contracts (ARCH-012)', () => {
       backgroundTasks: true,
       backgroundGroups: true,
       executionWorkspace: true,
+      executionDetail: true,
+      selfPacedLoopControl: true,
       agentJobs: true,
     };
 
-    expect(Object.keys(exactRows)).toHaveLength(18);
-    expect(Object.values(SESSION_CAPABILITY_MEMBER_KEYS).flat()).toHaveLength(44);
+    expect(Object.keys(exactRows)).toHaveLength(20);
+    expect(Object.values(SESSION_CAPABILITY_MEMBER_KEYS).flat()).toHaveLength(46);
     expect(Object.isFrozen(SESSION_CAPABILITY_MEMBER_KEYS)).toBe(true);
     for (const keys of Object.values(SESSION_CAPABILITY_MEMBER_KEYS)) {
       expect(Object.isFrozen(keys)).toBe(true);
@@ -286,5 +290,19 @@ describe('session capability contracts (ARCH-012)', () => {
       provided: true,
       value: subset.capabilities.driverAttribution,
     });
+  });
+
+  it('pushes status as an event and answers detail reads and loop stops from the double', async () => {
+    expectTypeOf<IInteractiveSessionEvents['status_changed']>().toEqualTypeOf<
+      (status: ISessionStatusSnapshot) => void
+    >();
+    const session = createTestInteractiveSession();
+
+    await expect(session.readExecutionWorkspaceDetail('main', { offset: 2 })).resolves.toEqual({
+      entryId: 'main',
+      cursor: { offset: 2 },
+      records: [],
+    });
+    await expect(session.stopWaitingSelfPacedLoop()).resolves.toEqual({ kind: 'none' });
   });
 });

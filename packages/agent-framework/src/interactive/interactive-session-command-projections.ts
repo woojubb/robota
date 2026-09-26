@@ -14,6 +14,7 @@
 import type { ICommandSkillListEntry } from '../commands/index.js';
 import type {
   ICommandListEntry,
+  ICommandSubcommandEntry,
   TCommandRunner,
   TCommandSurface,
 } from '@robota-sdk/agent-interface-command';
@@ -27,6 +28,16 @@ interface ISourceCommand {
   readonly modelInvocable?: boolean;
   readonly runner?: TCommandRunner;
   readonly surfaces?: readonly TCommandSurface[];
+  readonly argumentHint?: string;
+  readonly subcommands?: readonly ISourceSubcommand[];
+}
+
+/** A subcommand as the internal command declares it. */
+interface ISourceSubcommand {
+  readonly name: string;
+  readonly displayName?: string;
+  readonly description: string;
+  readonly argumentHint?: string;
 }
 
 /** The internal skill shape these projections read. */
@@ -57,6 +68,20 @@ export function toCommandListEntry(cmd: ISourceCommand): ICommandListEntry {
     modelInvocable: cmd.modelInvocable === true,
     runner: cmd.runner ?? 'runtime',
     ...(cmd.surfaces !== undefined ? { surfaces: cmd.surfaces } : {}),
+    ...(cmd.argumentHint !== undefined ? { argumentHint: cmd.argumentHint } : {}),
+    ...(cmd.subcommands !== undefined && cmd.subcommands.length > 0
+      ? { subcommands: cmd.subcommands.map(toSubcommandEntry) }
+      : {}),
+  };
+}
+
+/** #3189: an attached client completes subcommands from the catalog, as the in-process one does. */
+function toSubcommandEntry(sub: ISourceSubcommand): ICommandSubcommandEntry {
+  return {
+    name: sub.name,
+    description: sub.description,
+    ...(sub.displayName !== undefined ? { displayName: sub.displayName } : {}),
+    ...(sub.argumentHint !== undefined ? { argumentHint: sub.argumentHint } : {}),
   };
 }
 

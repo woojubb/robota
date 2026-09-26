@@ -6,11 +6,17 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createRestrictedWorkspaceProjectAccess } from '@robota-sdk/agent-framework';
+import {
+  createDefaultTuiCliAdapter,
+  createNodeKeybindingsSource,
+  type renderAttachedApp,
+} from '@robota-sdk/agent-ui-terminal';
 
 import { runPreparsedCliCommand } from '../../startup/preparsed-command-routing.js';
+import { createThemeSurface } from '../../startup/theme-surface.js';
 import { runWorkspaceTrustCommand } from '../../startup/workspace-trust-command.js';
 import { launchSupervisedSession } from '../supervised-session-launch.js';
-import { runSessionViewCommand } from '../session-view-command.js';
+import { runSessionViewCommand, type ISessionViewCommandOptions } from '../session-view-command.js';
 
 vi.mock('../session-view-command.js', () => ({ runSessionViewCommand: vi.fn() }));
 vi.mock('../supervised-session-launch.js', () => ({ launchSupervisedSession: vi.fn() }));
@@ -66,6 +72,51 @@ describe('session view background start route', () => {
       stdout.mockRestore();
       vi.clearAllMocks();
       rmSync(scratch, { recursive: true, force: true });
+    }
+  });
+
+  it('attaches with the same full terminal UI as robota --attach and robota session attach', async () => {
+    const cwd = mkdtempSync(join(tmpdir(), 'rs-view-route-app-'));
+    // The renderer reads this user's settings, keybindings and themes: a home of the test's own.
+    vi.stubEnv('HOME', cwd);
+    const previousExitCode = process.exitCode;
+    const renderStub = vi.fn<typeof renderAttachedApp>(async () => 'user');
+    let renderAttached: ISessionViewCommandOptions['renderAttached'];
+    vi.mocked(runSessionViewCommand).mockImplementation(async (_argv, options) => {
+      renderAttached = options?.renderAttached;
+      return 0;
+    });
+    try {
+      expect(
+        await runPreparsedCliCommand(
+          { providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd) },
+          ['node', 'robota', 'session', 'view'],
+          cwd,
+          {},
+          vi.fn(),
+          {
+            renderAttachedApp: renderStub,
+            createThemeSurface,
+            createNodeKeybindingsSource,
+            createDefaultTuiCliAdapter,
+            installTuiProcessGuards: vi.fn(),
+          },
+        ),
+      ).toBe(true);
+      expect(renderAttached).toBeTypeOf('function');
+      const connection = { send: vi.fn(), subscribe: () => () => undefined, onClose: () => () => undefined };
+      await renderAttached?.({
+        connection, driverId: 'attach:1', mode: 'observe', sessionLabel: 'Morning review',
+        screenReaderFlag: undefined, announce: false,
+      });
+      expect(renderStub).toHaveBeenCalledExactlyOnceWith(expect.objectContaining({
+        connection, driverId: 'attach:1', mode: 'observe', sessionLabel: 'Morning review', announce: false,
+      }));
+    } finally {
+      vi.unstubAllEnvs();
+      process.exitCode = previousExitCode;
+      vi.clearAllMocks();
+      rmSync(cwd, { recursive: true, force: true });
     }
   });
 });

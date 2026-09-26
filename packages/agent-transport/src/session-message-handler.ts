@@ -12,7 +12,9 @@ import {
   handleBackgroundControlMessage,
   handleBackgroundQueryMessage,
 } from './background-messages.js';
+import { handleLoopControlMessage, isLoopControlMessage } from './loop-control-messages.js';
 import { parseClientMessage } from './message-parser.js';
+import { isObserverMessageType } from './observer-messages.js';
 import {
   handleSessionDirectoryMessage,
   isSessionDirectoryMessage,
@@ -44,30 +46,6 @@ export { parseClientMessage } from './message-parser.js';
  * controls, or reads another session's records, and it never counts as a surface that can answer.
  */
 export type TSessionSurfaceRole = 'drive' | 'observe';
-
-/**
- * The only inbound messages an observer may send: reads of this session. An allowlist, so a message
- * type added later is refused to observers until someone decides it is a read. `get-prompts` is left
- * out: an observer never receives prompts, open ones included.
- */
-const OBSERVER_MESSAGES: ReadonlySet<TClientMessage['type']> = new Set<TClientMessage['type']>([
-  'get-messages',
-  'get-history',
-  'get-context',
-  'get-status',
-  'get-commands',
-  'get-executing',
-  'get-pending',
-  'get-execution-workspace',
-  'get-usage-report',
-  'list-sessions',
-  'get-background-tasks',
-  'get-background-task',
-  'get-background-job-groups',
-  'get-background-job-group',
-  'wait-background-job-group',
-  'read-background-task-log',
-]);
 
 export interface ISessionMessageHandlerOptions {
   /** IProtocolSession to expose. */
@@ -157,7 +135,7 @@ function createMessageHandler(
   return (data: string): void => {
     const msg = parseClientMessage(data, deliver);
     if (!msg) return;
-    if (role === 'observe' && !OBSERVER_MESSAGES.has(msg.type)) {
+    if (role === 'observe' && !isObserverMessageType(msg.type)) {
       deliver({ type: 'protocol_error', message: `Not permitted for an observer: ${msg.type}` });
       return;
     }
@@ -193,6 +171,10 @@ export function handleClientMessage(
   }
   if (isSessionControlMessage(msg)) {
     handleSessionControlMessage(session, deliver, msg, driverId, surface);
+    return;
+  }
+  if (isLoopControlMessage(msg)) {
+    handleLoopControlMessage(session, deliver, msg);
     return;
   }
   if (isSessionQueryMessage(msg)) {

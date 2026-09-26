@@ -91,6 +91,8 @@ function createMockSession(overrides: Partial<IInteractiveSession> = {}): IInter
     createBackgroundJobGroup: vi.fn().mockReturnValue({ groupId: 'g1', jobs: [] }),
     waitBackgroundJobGroup: vi.fn().mockResolvedValue({ groupId: 'g1', jobs: [] }),
     getExecutionWorkspaceSnapshot: vi.fn().mockReturnValue({ files: [] }),
+    readExecutionWorkspaceDetail: vi.fn().mockResolvedValue({ items: [] }),
+    stopWaitingSelfPacedLoop: vi.fn().mockResolvedValue({ kind: 'none' }),
     listAgentDefinitions: vi.fn().mockReturnValue([]),
     listAgentJobs: vi.fn().mockReturnValue([]),
     spawnAgentJob: vi.fn().mockResolvedValue({ jobId: 'j1' }),

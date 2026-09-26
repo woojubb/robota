@@ -17,5 +17,5 @@
   dismissed. Observe mode is labelled read-only and sends nothing but reads.
 - `/exit`, `/quit`, Ctrl-C and Ctrl-] detach. Nothing is sent to the session, so its turn continues and
   it keeps running; stop it with `robota session stop` or from `robota session view`.
-- `agent-ui-terminal` exports `renderAttachedSessionView`.
+- The attached terminal is the full terminal UI (`renderAttachedApp` in `agent-ui-terminal`).
 - A handshake from a connection that already closed no longer holds one of the session's attach slots.

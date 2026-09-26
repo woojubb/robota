@@ -113,7 +113,9 @@ function buildInput(composition: IComposition): IAppInputViewModel {
     submit: composition.interaction.submission.submit,
     cancelQueue: state.handleCancelQueue,
     disabled: interactionBlocked || (state.isThinking && state.pendingPrompt !== null),
-    queueCancellationDisabled: interactionBlocked,
+    // An observer keeps the composer for `/exit` and this terminal's own commands, which the channel
+    // runs; the queue it would cancel is the drivers'.
+    queueCancellationDisabled: interactionBlocked || state.readOnly,
     isAborting: state.isAborting,
     pendingPrompt: state.pendingPrompt,
     pendingCount: state.pendingCount,
@@ -145,6 +147,7 @@ function buildStatus(composition: IComposition): IAppStatusViewModel {
     activePresetId: runtime.activePresetId,
     effort: runtime.effort,
     gitRefreshToken: composition.interaction.submission.gitRefreshToken,
+    readOnly: state.readOnly,
   };
 }
 

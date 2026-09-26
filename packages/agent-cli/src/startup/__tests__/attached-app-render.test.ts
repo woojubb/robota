@@ -163,7 +163,7 @@ describe('robota --attach with the real renderer', () => {
       },
     );
     const { connection } = closingConnection();
-    const options = { connection, driverId: connection.driverId, sessionLabel: 'Main daemon' };
+    const options = { connection, driverId: connection.driverId, sessionLabel: 'Main daemon', mode: 'drive' as const };
     expect(await render({ ...options, screenReaderFlag: undefined })).toBe('user');
     expect(order).toEqual(['guards', 'render']);
   });
@@ -191,7 +191,7 @@ describe('robota --attach with the real renderer', () => {
       },
     );
     const { connection } = closingConnection();
-    const options = { connection, driverId: connection.driverId, sessionLabel: 'Main daemon' };
+    const options = { connection, driverId: connection.driverId, sessionLabel: 'Main daemon', mode: 'drive' as const };
     await render({ ...options, screenReaderFlag: undefined });
 
     const clientCommands = renderStub.mock.calls[0]?.[0].clientCommands;
@@ -244,7 +244,7 @@ describe("robota --attach's own commands follow the plain TUI's module selection
       },
     );
     const { connection } = closingConnection();
-    const options = { connection, driverId: connection.driverId, sessionLabel: 'Main daemon' };
+    const options = { connection, driverId: connection.driverId, sessionLabel: 'Main daemon', mode: 'drive' as const };
     await render({ ...options, screenReaderFlag: undefined });
 
     const names = renderStub.mock.calls[0]?.[0].clientCommands?.commands.map(({ name }) => name);
