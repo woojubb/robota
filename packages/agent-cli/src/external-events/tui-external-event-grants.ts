@@ -37,6 +37,8 @@ export function createTuiExternalEventGrants(
 ): ITuiExternalEventGrants {
   const revoked = new Set<string>();
   let host: IExternalEventGrantHost | undefined;
+  // One bind at a time, so two switches cannot both keep a host open.
+  let binding: Promise<void> = Promise.resolve();
   const revokedRow = (grant: IExternalEventGrant): IExternalEventGrantRow => ({
     grantId: grant.grantId,
     principal: (grant.verifier.allowedSubjects?.length ?? 0) > 0 ? 'subject' : 'client',
@@ -44,19 +46,26 @@ export function createTuiExternalEventGrants(
     counters: { accepted: 0, refused: {}, settled: {} },
   });
   return {
-    bind: async (session) => {
-      host?.close();
-      host = undefined;
-      host = await openExternalEventGrants(
-        session,
-        grants.filter((grant) => !revoked.has(grant.grantId)),
-        {
-          audit: (record) => {
-            const line = describe(record);
-            if (line !== undefined) report(line);
+    bind: (session) => {
+      const next = binding.then(async () => {
+        host?.close();
+        host = undefined;
+        const opened = await openExternalEventGrants(
+          session,
+          grants.filter((grant) => !revoked.has(grant.grantId)),
+          {
+            audit: (record) => {
+              const line = describe(record);
+              if (line !== undefined) report(line);
+            },
           },
-        },
-      );
+        );
+        // A revocation that arrived while the grants were opening still applies.
+        for (const grantId of revoked) opened.revoke(grantId);
+        host = opened;
+      });
+      binding = next.catch(() => undefined);
+      return next;
     },
     adapter: {
       list: () => {

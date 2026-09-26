@@ -69,17 +69,13 @@ function fakeSession(receipts: TExternalEventReceipt[] = []) {
 }
 
 describe('external event grant host', () => {
-  it('opens every grant with a verifier built from that grant, and nothing else', async () => {
+  it('opens every grant with nothing but the grant, leaving the verifier to the session', async () => {
     const session = fakeSession();
-    const createVerifier = vi.fn(() => ({ verify: async () => ({ admitted: true as const }) }));
-    const host = await openExternalEventGrants(session, [grant('ci'), grant('chat', 'subject')], {
-      createVerifier,
-    });
+    const host = await openExternalEventGrants(session, [grant('ci'), grant('chat', 'subject')]);
     expect(session.opened.map((options) => options.grant.grantId)).toEqual(['ci', 'chat']);
-    expect(session.opened.every((options) => !('verifier' in options))).toBe(true);
-    const ci = grant('ci');
-    session.opened[0]!.createVerifier(ci.verifier);
-    expect(createVerifier).toHaveBeenCalledWith(ci.verifier);
+    for (const options of session.opened) {
+      expect(Object.keys(options).sort()).toEqual(['audit', 'grant']);
+    }
     expect(
       host.list().map(({ grantId, principal, state }) => ({ grantId, principal, state })),
     ).toEqual([

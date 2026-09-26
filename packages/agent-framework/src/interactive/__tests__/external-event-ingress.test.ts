@@ -61,6 +61,8 @@ function harness(mode: 'default' | 'bypassPermissions' = 'default') {
   let fail: (reason: unknown) => void = () => {};
   let turn = 0;
   let shuttingDown = false;
+  let nextVerifier: IAccessTokenVerifier = admitAll;
+  const createVerifier = vi.fn((_config: IAccessTokenVerifierConfig) => nextVerifier);
   const audit: TExternalEventAuditRecord[] = [];
   const submit = vi.fn(async (_input: string, _options: ISubmitOptions) => {
     const completed = new Promise((resolve, reject) => {
@@ -79,6 +81,7 @@ function harness(mode: 'default' | 'bypassPermissions' = 'default') {
       };
     },
     submit,
+    createVerifier,
     now: () => clock,
     isShuttingDown: () => shuttingDown,
   });
@@ -86,12 +89,11 @@ function harness(mode: 'default' | 'bypassPermissions' = 'default') {
     ingress,
     submit,
     audit,
-    open: (verifier: IAccessTokenVerifier = admitAll, g: IExternalEventGrant = grant()) =>
-      ingress.open({
-        grant: g,
-        createVerifier: () => verifier,
-        audit: (record) => audit.push(record),
-      }),
+    createVerifier,
+    open: (verifier: IAccessTokenVerifier = admitAll, g: IExternalEventGrant = grant()) => {
+      nextVerifier = verifier;
+      return ingress.open({ grant: g, audit: (record) => audit.push(record) });
+    },
     shutDown: () => {
       shuttingDown = true;
     },
@@ -176,35 +178,43 @@ describe('external event grants: one verifier, one pinned principal (#3072)', ()
 describe('the host builds each grant verifier from the grant itself (#3072)', () => {
   it('passes exactly the grant verifier configuration to the factory', () => {
     const h = harness();
-    const createVerifier = vi.fn((_config: IAccessTokenVerifierConfig) => admitAll);
     const g = grant();
-    h.ingress.open({ grant: g, createVerifier });
-    expect(createVerifier).toHaveBeenCalledTimes(1);
-    expect(createVerifier.mock.calls[0]).toEqual([g.verifier]);
-    expect(createVerifier.mock.calls[0]![0]).toBe(g.verifier);
+    h.ingress.open({ grant: g });
+    expect(h.createVerifier).toHaveBeenCalledTimes(1);
+    expect(h.createVerifier.mock.calls[0]).toEqual([g.verifier]);
+    expect(h.createVerifier.mock.calls[0]![0]).toBe(g.verifier);
   });
 
-  it('refuses a verifier supplied by the caller instead of built from the grant', () => {
+  it('refuses a verifier or a factory supplied when a grant is opened', () => {
     const h = harness();
-    const mismatched = { grant: grant(), createVerifier: () => admitAll, verifier: admitAll };
-    expect(() =>
-      h.ingress.open(mismatched as unknown as Parameters<typeof h.ingress.open>[0]),
-    ).toThrow(/verifier/);
-    expect(() =>
-      h.ingress.open({ grant: grant() } as unknown as Parameters<typeof h.ingress.open>[0]),
-    ).toThrow(/verifier/);
+    type TOpen = Parameters<typeof h.ingress.open>[0];
+    for (const mismatched of [
+      { grant: grant(), verifier: admitAll },
+      { grant: grant(), createVerifier: () => admitAll },
+    ]) {
+      expect(() => h.ingress.open(mismatched as unknown as TOpen)).toThrow(/built by the host/);
+    }
+    expect(h.createVerifier).not.toHaveBeenCalled();
+  });
+
+  it('a session without a host verifier factory opens no grant', async () => {
+    const session = new InteractiveSession({
+      cwd: process.cwd(),
+      provider: mockProvider(okChat()),
+      bare: true,
+    });
+    await expect(session.openExternalEventSource({ grant: grant() })).rejects.toThrow(
+      /verifier factory/,
+    );
+    await session.shutdown();
   });
 
   it('fails to open a grant whose verifier cannot be built, and leaves it unopened', () => {
     const h = harness();
-    expect(() =>
-      h.ingress.open({
-        grant: grant(),
-        createVerifier: () => {
-          throw new Error('issuer must be https');
-        },
-      }),
-    ).toThrow(/grant ci/);
+    h.createVerifier.mockImplementationOnce(() => {
+      throw new Error('issuer must be https');
+    });
+    expect(() => h.ingress.open({ grant: grant() })).toThrow(/grant ci/);
     expect(() => h.open()).not.toThrow();
   });
 });
@@ -246,12 +256,12 @@ describe('revoking a grant (#3072)', () => {
       }));
     const session = new InteractiveSession({
       cwd: process.cwd(),
+      externalEventVerifierFactory: () => admitAll,
       provider: mockProvider(chat),
       bare: true,
     });
     const source = await session.openExternalEventSource({
       grant: grant(),
-      createVerifier: () => admitAll,
     });
     const owner = session.submit('operator');
     await vi.waitFor(() => expect(chat).toHaveBeenCalledTimes(1));
@@ -488,9 +498,9 @@ describe('external event admission is decided by the verified token (#3072)', ()
 
   it('a throwing audit sink never changes the decision', async () => {
     const h = harness();
+    h.createVerifier.mockImplementationOnce(() => refuseWith('expired'));
     const source = h.ingress.open({
       grant: grant(),
-      createVerifier: () => refuseWith('expired'),
       audit: () => {
         throw new Error('disk full');
       },
@@ -601,12 +611,12 @@ describe('external events on a real InteractiveSession (#3072)', () => {
   it('enforces the bypass invariant at the real setter and reserves external attribution', async () => {
     const session = new InteractiveSession({
       cwd: process.cwd(),
+      externalEventVerifierFactory: () => admitAll,
       provider: mockProvider(okChat()),
       bare: true,
     });
     const source = await session.openExternalEventSource({
       grant: grant(),
-      createVerifier: () => admitAll,
     });
     expect(() => session.getSession().setPermissionMode('bypassPermissions')).toThrow(
       /external event/,
@@ -648,12 +658,12 @@ describe('external events on a real InteractiveSession (#3072)', () => {
     );
     const session = new InteractiveSession({
       cwd: process.cwd(),
+      externalEventVerifierFactory: () => admitAll,
       provider: mockProvider(chat),
       bare: true,
     });
     const source = await session.openExternalEventSource({
       grant: grant(),
-      createVerifier: () => admitAll,
     });
     try {
       const receipt = await source.receive({ token: token(), event: message('one', 'status') });
@@ -671,12 +681,12 @@ describe('external events on a real InteractiveSession (#3072)', () => {
     const chat = okChat();
     const session = new InteractiveSession({
       cwd: process.cwd(),
+      externalEventVerifierFactory: () => admitAll,
       provider: mockProvider(chat),
       bare: true,
     });
     const source = await session.openExternalEventSource({
       grant: grant(),
-      createVerifier: () => admitAll,
     });
     try {
       const receipt = await source.receive({ token: token(), event: message('one', 'status') });
@@ -710,16 +720,15 @@ describe('external events on a real InteractiveSession (#3072)', () => {
       }));
     const session = new InteractiveSession({
       cwd: process.cwd(),
+      externalEventVerifierFactory: () => admitAll,
       provider: mockProvider(chat),
       bare: true,
     });
     const ci = await session.openExternalEventSource({
       grant: grant(),
-      createVerifier: () => admitAll,
     });
     const chatSource = await session.openExternalEventSource({
       grant: grant({ grantId: 'chat' }),
-      createVerifier: () => admitAll,
     });
     const owner = session.submit('operator');
     await vi.waitFor(() => expect(chat).toHaveBeenCalledTimes(1));
@@ -759,12 +768,12 @@ describe('external events on a real InteractiveSession (#3072)', () => {
     );
     const session = new InteractiveSession({
       cwd: process.cwd(),
+      externalEventVerifierFactory: () => admitAll,
       provider: mockProvider(chat),
       bare: true,
     });
     const source = await session.openExternalEventSource({
       grant: grant(),
-      createVerifier: () => admitAll,
     });
     const receipt = await source.receive({ token: token(), event: message('one', 'run') });
     await vi.waitFor(() => expect(chat).toHaveBeenCalledTimes(1));

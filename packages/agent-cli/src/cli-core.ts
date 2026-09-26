@@ -2,6 +2,7 @@ import { homedir } from 'node:os';
 
 import { PrintTerminal } from './print-terminal.js';
 import { readExternalEventGrantFiles } from './external-events/external-event-grant-file.js';
+import { createExternalEventVerifier } from './external-events/external-event-verifier.js';
 import {
   createTuiExternalEventGrants,
   type ITuiExternalEventGrants,
@@ -1008,6 +1009,9 @@ async function runCliCore(
     startupUpdateNotice: resolveCliUpdateNotice(startupUpdateNoticePromise),
     transportRegistry,
     bindTransports: bindTuiTransports,
+    ...(externalEvents !== undefined
+      ? { externalEventVerifierFactory: createExternalEventVerifier }
+      : {}),
     // CMD-004 Stage C: remote-control enable/stop run HOST-side via the `remoteControl` command
     // host adapter (wired above) — no TUI-prop wiring remains.
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).

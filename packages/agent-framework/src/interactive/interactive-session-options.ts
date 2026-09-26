@@ -42,6 +42,19 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { IBackgroundTaskRunner } from '@robota-sdk/agent-executor';
 import type { ITerminalHandoff } from '@robota-sdk/agent-interface-session';
+import type {
+  IAccessTokenVerifier,
+  IAccessTokenVerifierConfig,
+} from '@robota-sdk/agent-interface-transport';
+
+/**
+ * How the host builds an access-token verifier for one external-event grant. Set once, when the
+ * session is built: opening a grant cannot supply a verifier, so each grant is checked against the
+ * principal it pins.
+ */
+export type TExternalEventVerifierFactory = (
+  config: IAccessTokenVerifierConfig,
+) => IAccessTokenVerifier;
 import type { Session } from '@robota-sdk/agent-session';
 import type { ISessionLogSink } from '@robota-sdk/agent-session';
 import type { IRetrievalAdapter } from '@robota-sdk/agent-tools';
@@ -166,6 +179,8 @@ export interface IInteractiveSessionStandardOptions {
    * `canHandoffTerminal === false` for transports with no interactive TTY (headless).
    */
   terminalHandoff?: ITerminalHandoff;
+  /** Builds each external-event grant's verifier; absent, the session opens no grant. */
+  externalEventVerifierFactory?: TExternalEventVerifierFactory;
   /** Model-visible command descriptors derived from the composed command executor. */
   commandDescriptors?: readonly ICapabilityDescriptor[];
   /** Provider definitions for hot-swap via /provider switch. */
@@ -274,6 +289,8 @@ export interface IInteractiveSessionInjectedOptions {
   commandHostAdapters?: ICommandHostAdapters;
   /** TERM-001: transport-provided terminal-handoff capability (see standard options). */
   terminalHandoff?: ITerminalHandoff;
+  /** Builds each external-event grant's verifier; absent, the session opens no grant. */
+  externalEventVerifierFactory?: TExternalEventVerifierFactory;
 }
 
 /** Union of standard and injected construction options. */

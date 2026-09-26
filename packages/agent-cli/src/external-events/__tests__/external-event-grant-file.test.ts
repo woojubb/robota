@@ -7,7 +7,43 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   parseExternalEventGrant,
   readExternalEventGrantFiles,
+  toExternalEventGrantDocument,
 } from '../external-event-grant-file.js';
+import {
+  takeSupervisedGrantHandoff,
+  writeSupervisedGrantHandoff,
+} from '../../session-inventory/supervised-session-control.js';
+
+import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
+
+const VARIED: IExternalEventGrant[] = [
+  {
+    grantId: 'ci',
+    verifier: {
+      issuer: 'https://issuer.example/tenant',
+      resource: 'https://robota.example/base/events/ci',
+      algorithms: ['EdDSA'],
+      requiredScopes: ['robota.events.submit', 'ci.read'],
+      allowedClients: ['ci-bot'],
+    },
+    kinds: ['message'],
+    rate: [
+      { windowMs: 1_000, maxTurns: 1 },
+      { windowMs: 86_400_000, maxTurns: 40 },
+    ],
+  },
+  {
+    grantId: 'chat_bridge-2',
+    verifier: {
+      issuer: 'https://login.example',
+      resource: 'https://robota.example/events/chat_bridge-2',
+      algorithms: ['RS256', 'ES256'],
+      requiredScopes: ['robota.events.submit'],
+      allowedSubjects: ['bridge@example'],
+    },
+    kinds: ['message'],
+  },
+];
 
 const VALID = {
   grantId: 'ci',
@@ -97,6 +133,17 @@ describe('external event grant files', () => {
     ]) {
       expect(message).not.toContain(value);
     }
+  });
+
+  it('hands a grant on without losing or widening any field', () => {
+    for (const grant of VARIED) {
+      expect(parseExternalEventGrant(toExternalEventGrantDocument(grant), 1)).toEqual(grant);
+    }
+    const root = join(dir, 'supervised');
+    const id = '0f6c3a5e-8c1b-4d2a-9f3e-1a2b3c4d5e6f';
+    writeSupervisedGrantHandoff(root, id, VARIED);
+    expect(takeSupervisedGrantHandoff(root, id)).toEqual(VARIED);
+    expect(() => takeSupervisedGrantHandoff(root, id)).toThrow(/could not be read/);
   });
 
   it('refuses an unreadable, non-JSON, oversize or linked file, and a repeated label', () => {

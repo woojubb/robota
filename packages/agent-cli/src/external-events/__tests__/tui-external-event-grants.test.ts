@@ -68,6 +68,35 @@ describe('TUI external event grants', () => {
     ]);
   });
 
+  it('applies a revocation that arrives while the grants are opening', async () => {
+    const tui = createTuiExternalEventGrants([grant('ci')], () => undefined);
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const revokedIds: string[] = [];
+    let opening = false;
+    const session = {
+      openExternalEventSource: async (options: IExternalEventSourceOptions) => {
+        opening = true;
+        await gate;
+        return {
+          grantId: options.grant.grantId,
+          receive: async () => ({ admitted: false as const, refusal: 'expired' as const }),
+          close: () => undefined,
+          revoke: () => revokedIds.push(options.grant.grantId),
+        };
+      },
+    };
+    const binding = tui.bind(session);
+    await vi.waitFor(() => expect(opening).toBe(true));
+    expect(tui.adapter.revoke('ci')).toBe('revoked');
+    release();
+    await binding;
+    expect(revokedIds).toEqual(['ci']);
+    expect(tui.adapter.list().map((row) => [row.grantId, row.state])).toEqual([['ci', 'revoked']]);
+  });
+
   it('fails the bind when the session refuses a grant', async () => {
     const tui = createTuiExternalEventGrants([grant('ci')], () => undefined);
     await expect(tui.bind(fakeSession(true))).rejects.toThrow(/^grant ci: refused by the session$/);

@@ -2,18 +2,21 @@
 '@robota-sdk/agent-interface-transport': minor
 '@robota-sdk/agent-framework': minor
 '@robota-sdk/agent-command': minor
+'@robota-sdk/agent-ui-terminal': minor
 '@robota-sdk/agent-cli': minor
 ---
 
 External-event grants are given at start, carried exactly to a background session, listed without their
 principal, and revoked by the owner.
 
-- `agent-framework` (breaking) — `openExternalEventSource` and `ExternalEventIngress.open` take `createVerifier`
-  instead of a verifier: the session builds each grant's verifier from `grant.verifier`, and an option that
-  supplies a verifier is refused. `IExternalEventSource.revoke()` stops the grant's queued and running turns,
+- `agent-framework` (breaking) — `openExternalEventSource` and `ExternalEventIngress.open` take only
+  `{ grant, audit? }`: the session builds each grant's verifier from `grant.verifier` with the
+  `externalEventVerifierFactory` its host passed when the session was built (without one, no grant opens), and an
+  open that supplies a verifier or a factory is refused. `IExternalEventSource.revoke()` stops the grant's queued and running turns,
   refuses its later events as `grant-revoked`, and keeps the label from being opened again. A submission the
   session refuses is `shutting-down` only while it shuts down, and `session-unavailable` otherwise. New command
   host adapter `externalEvents` (`ICommandExternalEventsAdapter`).
+- `agent-ui-terminal` — forwards `externalEventVerifierFactory` from the render options to the session.
 - `agent-interface-transport` — `TExternalEventRefusal` gains `session-unavailable`.
 - `agent-command` — `/events` lists the session's grants (label, principal kind, state, counts) and
   `/events revoke <grant-id>` withdraws one. User-only.

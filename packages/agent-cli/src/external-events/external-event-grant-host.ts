@@ -1,5 +1,3 @@
-import { createAccessTokenVerifier } from '@robota-sdk/agent-transport/node';
-
 import type {
   IExternalEventSource,
   IExternalEventSourceOptions,
@@ -58,17 +56,15 @@ interface IGrantEntry {
 
 /**
  * Open every grant on the session, or none: a start that lost a grant is not a start. The session
- * builds each verifier from its own grant through `createVerifier`.
+ * builds each verifier from its own grant with the factory it was constructed with.
  */
 export async function openExternalEventGrants(
   session: IExternalEventGrantSession,
   grants: readonly IExternalEventGrant[],
   options: {
-    readonly createVerifier?: IExternalEventSourceOptions['createVerifier'];
     readonly audit?: (record: TExternalEventAuditRecord) => void;
   } = {},
 ): Promise<IExternalEventGrantHost> {
-  const createVerifier = options.createVerifier ?? ((config) => createAccessTokenVerifier(config));
   const forward = (record: TExternalEventAuditRecord): void => {
     try {
       options.audit?.(record);
@@ -89,7 +85,6 @@ export async function openExternalEventGrants(
     try {
       source = await session.openExternalEventSource({
         grant,
-        createVerifier,
         audit: (record) => {
           if ('refusal' in record)
             counts.refused[record.refusal] = (counts.refused[record.refusal] ?? 0) + 1;

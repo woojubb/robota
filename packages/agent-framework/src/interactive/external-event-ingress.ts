@@ -18,14 +18,13 @@ import type {
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 
 /**
- * One grant's source. The ingress builds the grant's verifier itself, from `grant.verifier`, so the
- * principal the grant pins is the one its tokens are checked against; a caller cannot hand in a
- * verifier of its own. The host carries the pair a carrier delivers and trusts nothing else it says.
+ * One grant's source. The ingress builds the grant's verifier from `grant.verifier` with the factory
+ * its host was constructed with, so the principal the grant pins is the one its tokens are checked
+ * against; opening a grant carries no verifier and no factory. The host carries the pair a carrier
+ * delivers and trusts nothing else it says.
  */
 export interface IExternalEventSourceOptions {
   readonly grant: IExternalEventGrant;
-  /** Builds a verifier for exactly the configuration it is given. */
-  readonly createVerifier: (config: IAccessTokenVerifierConfig) => IAccessTokenVerifier;
   /** Receives one content-free record per refusal and per settlement. A throw is ignored. */
   readonly audit?: (record: TExternalEventAuditRecord) => void;
 }
@@ -62,6 +61,8 @@ export interface IExternalEventHost {
   getPermissionMode(): TPermissionMode;
   addPermissionModeGuard(guard: (next: TPermissionMode) => void): () => void;
   submit(input: string, options: ISubmitOptions): Promise<ITurnHandle>;
+  /** The host's one way to build a verifier; the ingress calls it with each grant's own config. */
+  createVerifier(config: IAccessTokenVerifierConfig): IAccessTokenVerifier;
   /** Wall-clock milliseconds, for rate windows, token expiry and audit times. */
   now?: () => number;
   /** Whether the session has begun shutting down; a refused submission is then named so. */
@@ -215,10 +216,8 @@ export class ExternalEventIngress {
 
   open(options: IExternalEventSourceOptions): IExternalEventSource {
     const { grant } = options;
-    if ('verifier' in options || typeof options.createVerifier !== 'function') {
-      throw new Error(
-        'external event grant verifier must be built from the grant by createVerifier',
-      );
+    if ('verifier' in options || 'createVerifier' in options) {
+      throw new Error('external event grant verifier is built by the host from the grant itself');
     }
     validateGrant(grant);
     if (this.history.get(grant.grantId)?.revoked === true) {
@@ -234,7 +233,7 @@ export class ExternalEventIngress {
     }
     let verifier: IAccessTokenVerifier;
     try {
-      verifier = options.createVerifier(grant.verifier);
+      verifier = this.host.createVerifier(grant.verifier);
     } catch {
       throw new Error(`external event grant ${grant.grantId}: its verifier could not be built`);
     }

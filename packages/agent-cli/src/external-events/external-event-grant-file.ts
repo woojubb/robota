@@ -1,4 +1,4 @@
-import { lstatSync, readFileSync } from 'node:fs';
+import { closeSync, constants, fstatSync, openSync, readSync } from 'node:fs';
 
 import type {
   IExternalEventGrant,
@@ -134,6 +134,26 @@ export function parseExternalEventGrant(value: unknown, position: number): IExte
   };
 }
 
+/** Read a regular file, not through a link, and never more than the bound, checked on the open file. */
+function readBoundedFile(path: string): string {
+  const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW);
+  try {
+    const stat = fstatSync(fd);
+    if (!stat.isFile() || stat.size > MAX_GRANT_FILE_BYTES) throw new Error('refused');
+    const buffer = Buffer.alloc(MAX_GRANT_FILE_BYTES + 1);
+    let length = 0;
+    for (;;) {
+      const read = readSync(fd, buffer, length, buffer.length - length, null);
+      if (read === 0) break;
+      length += read;
+      if (length > MAX_GRANT_FILE_BYTES) throw new Error('refused');
+    }
+    return buffer.subarray(0, length).toString('utf8');
+  } finally {
+    closeSync(fd);
+  }
+}
+
 /** Grants one session may hold; each opens a source and, later, an endpoint. */
 const MAX_GRANTS = 16;
 
@@ -145,9 +165,7 @@ export function readExternalEventGrantFiles(paths: readonly string[]): IExternal
     const position = index + 1;
     let text: string;
     try {
-      const stat = lstatSync(path);
-      if (!stat.isFile() || stat.size > MAX_GRANT_FILE_BYTES) throw new Error('refused');
-      text = readFileSync(path, 'utf8');
+      text = readBoundedFile(path);
     } catch {
       throw new Error(`grant file ${position}: not readable`);
     }

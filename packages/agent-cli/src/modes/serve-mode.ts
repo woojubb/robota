@@ -21,6 +21,7 @@ import {
   type ISupervisedControl,
   type ISupervisedPr,
 } from '../session-inventory/supervised-session-control.js';
+import { createExternalEventVerifier } from '../external-events/external-event-verifier.js';
 import {
   ExternalEventGrantRefusedError,
   openExternalEventGrants,
@@ -56,11 +57,7 @@ import type {
   createProjectSessionStore,
 } from '@robota-sdk/agent-framework';
 import type { createChildProcessSubagentRunnerFactory } from '@robota-sdk/agent-subagent-runner';
-import type {
-  IAccessTokenVerifier,
-  IAccessTokenVerifierConfig,
-  ITransportLifecycleRegistryView,
-} from '@robota-sdk/agent-interface-transport';
+import type { ITransportLifecycleRegistryView } from '@robota-sdk/agent-interface-transport';
 import type { IInteractiveSession, ISessionLoopState } from '@robota-sdk/agent-interface-session';
 
 /** Preset-resolved identity/posture the thin-shell CLI forwards into the headless runtime session. */
@@ -74,8 +71,6 @@ export interface IServeModeOptions {
   livePromptTrace?: ILivePromptTracePort;
   /** Explicit host-owned control root for isolated embedded runtimes and tests. */
   supervisedRoot?: string;
-  /** Builds each external-event grant's verifier from that grant; the real verifier by default. */
-  createExternalEventVerifier?: (config: IAccessTokenVerifierConfig) => IAccessTokenVerifier;
   args: IParsedCliArgs;
   provider: IAIProvider;
   providerErrorGuidance?: IProviderErrorGuidance;
@@ -200,6 +195,10 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(opts.model !== undefined ? { model: opts.model } : {}),
     ...(preset.outputStyle !== undefined ? { outputStyle: preset.outputStyle } : {}),
     permissionMode: args.permissionMode ?? preset.permissionMode,
+    // A supervised session opens the grants its launcher handed over; each is checked this way.
+    ...(args.supervisedExternalEventGrants === true
+      ? { externalEventVerifierFactory: createExternalEventVerifier }
+      : {}),
     baselinePermissionAllow: ROBOTA_PERMISSION_BASELINE,
     // Issue #1937: the CLI-sourced prompt addition, composed once at the projection. Before this it
     // was built at print mode only, so these flags did nothing in a served session.
@@ -352,11 +351,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
           opts.supervisedRoot ?? resolveSupervisedDirectory(),
           args.supervisedSessionId,
         );
-        externalEvents = await openExternalEventGrants(host.session, grants, {
-          ...(opts.createExternalEventVerifier !== undefined
-            ? { createVerifier: opts.createExternalEventVerifier }
-            : {}),
-        });
+        externalEvents = await openExternalEventGrants(host.session, grants);
       }
       const grantHost = externalEvents;
       if (grantHost !== undefined) {

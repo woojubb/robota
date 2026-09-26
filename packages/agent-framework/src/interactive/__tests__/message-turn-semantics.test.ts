@@ -56,6 +56,7 @@ async function receiver(turns: readonly TScriptedTurn[]) {
     projectAccess: await createTrustedProjectAccessFixture(workspace),
     provider: scripted.provider,
     bare: true,
+    externalEventVerifierFactory: () => ({ verify: async () => ({ admitted: true as const }) }),
     commandHostAdapters: {
       localPeers: {
         list: () => [],
@@ -317,7 +318,6 @@ describe('an admitted external event keeps its narrower baseline', () => {
         },
         kinds: ['message'],
       },
-      createVerifier: () => ({ verify: async () => ({ admitted: true }) }),
     });
     try {
       const receipt = await source.receive({
