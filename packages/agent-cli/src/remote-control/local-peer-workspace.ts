@@ -62,7 +62,8 @@ const LOCAL_ONLY = [
   'core.fsmonitor=false',
 ];
 
-const runGit: TRunGit = (cwd, args) => {
+/** Run git for a read that stays local, whatever the repository's own configuration says. */
+export const runLocalGit: TRunGit = (cwd, args) => {
   // Inherited `GIT_*` variables (a hook's GIT_DIR, say) would make git answer about some other
   // repository than the one at `cwd`.
   const env: NodeJS.ProcessEnv = Object.fromEntries(
@@ -128,7 +129,7 @@ export function hashOriginUrl(url: string): string {
 /** The claim for the workspace containing `directory`, or undefined when git cannot say. */
 export async function readWorkspaceClaim(
   directory: string,
-  git: TRunGit = runGit,
+  git: TRunGit = runLocalGit,
 ): Promise<IWorkspaceClaim | undefined> {
   const start = realpath(directory);
   if (start === undefined) return undefined;

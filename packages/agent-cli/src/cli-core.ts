@@ -91,6 +91,7 @@ import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
 import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
+import { providerHasOwnCredential } from './handoff/handoff-host-adapter.js';
 import {
   argvCarryingSafeMode,
   createWorkspaceMoveAdapter,
@@ -482,7 +483,18 @@ async function runCliCore(
     read: () => readSettings(robotaUserSettingsPath()),
     write: (settings) => writeSettings(robotaUserSettingsPath(), settings),
   });
-  const startPeers = attachHostAdapters(commandHostAdapters, remoteControlController, terminal);
+  const startPeers = attachHostAdapters(
+    commandHostAdapters,
+    remoteControlController,
+    terminal,
+    undefined,
+    {
+      sessionStore: workspaceComposition.sessionStore,
+      // Read when a session arrives, after the provider settings below are resolved.
+      hasOwnProvider: () => providerHasOwnCredential(providerSettings, providerDefinitions),
+      onHandedOff: () => commandHostAdapters.process?.requestExit('other'),
+    },
+  );
 
   reportUnknownPresetModules(
     (message) => terminal.writeError(message),

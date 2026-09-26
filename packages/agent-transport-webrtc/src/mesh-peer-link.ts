@@ -96,6 +96,13 @@ export type TMeshLinkSignal =
       readonly candidate: { candidate: string; sdpMid?: string; sdpMLineIndex?: number };
     };
 
+/** The DTLS fingerprints of one admitted connection, as each side sees them. */
+export interface IMeshChannelBinding {
+  readonly localFingerprint: string;
+  /** Of the certificate the DTLS layer verified. */
+  readonly remoteFingerprint: string;
+}
+
 export interface IMeshHandshakeBinding {
   readonly localFingerprint: string;
   /** Of the certificate the DTLS layer verified. */
@@ -192,6 +199,17 @@ export class MeshPeerLink {
   /** The admission, once admitted. */
   public get admission(): IDeviceHandshakeResult | undefined {
     return this.state === 'admitted' ? this.admissionResult : undefined;
+  }
+
+  /**
+   * The DTLS fingerprints the handshake was bound to — this side's, and the one the DTLS layer
+   * verified for the peer — once admitted. Anything bound to this connection binds to these.
+   */
+  public get channelBinding(): IMeshChannelBinding | undefined {
+    if (this.state !== 'admitted') return undefined;
+    if (this.localFingerprint === undefined || this.remoteFingerprint === undefined)
+      return undefined;
+    return { localFingerprint: this.localFingerprint, remoteFingerprint: this.remoteFingerprint };
   }
 
   /** Offerer: create the data channel and send the offer. */

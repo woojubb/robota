@@ -80,6 +80,13 @@ content. Sending is the operator's command for any readable file, and the model'
 workspace and away from anything that looks like a secret, because a model steered by what it read
 must not reach the credentials beside a project.
 
+A session moves to another session or device only when its holder's operator pushes it; nothing
+answers a request for a session. The receiving side takes it only on a grant for that one transfer over
+that channel, signed by a device it already knows, and with its own operator's yes; it keeps the
+payload aside until it matches the manifest, and saves it without starting it. The holder lets go, and
+ends, only on the acknowledgement that the session is saved there, so two processes never run one
+conversation.
+
 A conversation between local peers is bounded, so two agents that always answer cannot message each
 other forever: its depth and this session's answers in it are counted from what this session itself
 sent and received, never from a count the peer states, and the reply that would cross a limit is not

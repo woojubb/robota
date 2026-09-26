@@ -38,7 +38,7 @@
  * never the socket's.
  */
 
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { rmSync } from 'node:fs';
 import { createConnection, createServer, type Server, type Socket } from 'node:net';
 import path from 'node:path';
@@ -122,6 +122,33 @@ function isFileOpening(frame: unknown): frame is IFileOpening {
     typeof (file as Record<string, unknown>)['from'] === 'string' &&
     typeof (file as Record<string, unknown>)['offer'] === 'string'
   );
+}
+
+/**
+ * The first line of a connection that carries a hand-off: who claims to push it, an id its claimant
+ * confirms, and the first hand-off frame, which the receiver then reads as its first.
+ */
+interface IHandoffOpening {
+  readonly handoff: { readonly from: string; readonly id: string; readonly first: string };
+}
+
+function isHandoffOpening(frame: unknown): frame is IHandoffOpening {
+  if (typeof frame !== 'object' || frame === null || !('handoff' in frame)) return false;
+  const { handoff } = frame as { handoff: unknown };
+  if (typeof handoff !== 'object' || handoff === null) return false;
+  const fields = handoff as Record<string, unknown>;
+  return (
+    typeof fields['from'] === 'string' &&
+    typeof fields['id'] === 'string' &&
+    typeof fields['first'] === 'string'
+  );
+}
+
+/** What a hand-off opening is confirmed by: its claimant vouches for this id and this first frame. */
+function handoffDigest(id: string, first: string): string {
+  return createHash('sha256')
+    .update(JSON.stringify(['handoff', id, first]))
+    .digest('hex');
 }
 
 /** The offer inside an opening, read only far enough to confirm it; the carrier decodes it again. */
@@ -297,6 +324,11 @@ export interface IPeerListenerOptions {
   readonly onFile?: (sender: IPeerSender) => Omit<IReceiveFileOptions, 'channel'> | undefined;
   /** Told how each received file ended. */
   readonly onFileOutcome?: (outcome: TFileReceiveOutcome, sender: IPeerSender) => void;
+  /**
+   * Takes the channel of a hand-off a confirmed sender opened; its first frame is the sender's first.
+   * Absent: every hand-off is refused.
+   */
+  readonly onHandoff?: (sender: IPeerSender, channel: IFileFrameChannel) => void;
   readonly expectedUid?: number;
 }
 
@@ -316,6 +348,11 @@ export interface IPeerListener {
     offer: IFileOffer,
     source: IFileSource,
   ): Promise<TFileSendOutcome>;
+  /**
+   * Open a channel to push a hand-off to another session. Its first frame travels in the opening,
+   * which the receiver confirms with this session before it reads anything.
+   */
+  openHandoffChannel(targetSessionId: string): Promise<IFileFrameChannel>;
   close(): Promise<void>;
 }
 
@@ -442,12 +479,53 @@ export async function listenForPeerMessages(options: IPeerListenerOptions): Prom
     options.onFileOutcome?.(outcome, sender);
   };
 
+  /** A connection that opened with a hand-off: confirm who pushes it, then hand the channel over. */
+  const receiveHandoff = async (socket: Socket, opening: IHandoffOpening): Promise<void> => {
+    const channel = socketFrameChannel(socket);
+    const refuse = (reason: 'unauthorized' | 'declined', detail: string): void => {
+      channel.send(JSON.stringify({ t: 'handoff-refuse', reason, detail }));
+      channel.close();
+    };
+    const { from, id, first } = opening.handoff;
+    const confirmed = await confirmSender(
+      options.guardedDirectory,
+      from,
+      options.sessionId,
+      { id: `handoff:${id}`, digest: handoffDigest(id, first) },
+      expectedUid,
+    );
+    if (!confirmed) {
+      refuse('unauthorized', `session ${JSON.stringify(from)} did not confirm this hand-off.`);
+      return;
+    }
+    if (options.onHandoff === undefined) {
+      refuse('declined', 'this session does not take hand-offs.');
+      return;
+    }
+    // The receiver reads the first frame as its first; it arrives now, after the receiver listens.
+    options.onHandoff(
+      { sessionId: from },
+      {
+        ...channel,
+        onFrame: (handler) => {
+          const stop = channel.onFrame(handler);
+          queueMicrotask(() => handler(first));
+          return stop;
+        },
+      },
+    );
+  };
+
   const server: Server = createServer((socket) => {
     void (async () => {
       try {
         const frame: unknown = JSON.parse(await readLine(socket, LINE_TIMEOUT_MS));
         if (isFileOpening(frame)) {
           await receiveFile(socket, frame);
+          return;
+        }
+        if (isHandoffOpening(frame)) {
+          await receiveHandoff(socket, frame);
           return;
         }
         if (isConfirmRequest(frame)) {
@@ -545,6 +623,37 @@ export async function listenForPeerMessages(options: IPeerListenerOptions): Prom
       } finally {
         inFlight.delete(key);
       }
+    },
+    openHandoffChannel: async (targetSessionId: string): Promise<IFileFrameChannel> => {
+      const socketPath = peerSocketPath(options.guardedDirectory, targetSessionId);
+      admitOrThrow(socketPath, expectedUid);
+      const socket = await new Promise<Socket>((resolve, reject) => {
+        const connection = createConnection(socketPath);
+        connection.once('connect', () => resolve(connection));
+        connection.once('error', reject);
+      });
+      const channel = socketFrameChannel(socket);
+      const id = randomUUID();
+      const key = `handoff:${id}`;
+      // Vouched for while the channel is open: the receiver asks once it has read the opening.
+      channel.onClose(() => inFlight.delete(key));
+      let opened = false;
+      return {
+        ...channel,
+        send: (frame) => {
+          if (opened) {
+            channel.send(frame);
+            return;
+          }
+          opened = true;
+          inFlight.set(key, { to: targetSessionId, digest: handoffDigest(id, frame) });
+          channel.send(
+            JSON.stringify({
+              handoff: { from: options.sessionId, id, first: frame },
+            } satisfies IHandoffOpening),
+          );
+        },
+      };
     },
     close: () =>
       new Promise<void>((resolve) => {

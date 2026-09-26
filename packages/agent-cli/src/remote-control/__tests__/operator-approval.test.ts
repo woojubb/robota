@@ -126,6 +126,26 @@ describe('createTerminalOperatorApprover', () => {
     expect(shown).not.toContain('owned\u0007');
   });
 
+  it('names a session handed over as a session, with room for what taking it means', async () => {
+    const { session, written } = terminal(['no']);
+    const approver = createTerminalOperatorApprover({
+      getHost: () => host(),
+      openTerminal: () => session,
+    });
+    const long = `session s-1 onto this laptop. ${'x'.repeat(300)} END`;
+    await approver.approve({
+      capability: 'handoff',
+      scope: 'request',
+      deviceId: 'dev-1',
+      locality: 'another-host',
+      summary: long,
+    });
+    const shown = written.join('');
+    expect(shown).toContain('wants to hand a session over to this machine');
+    expect(shown).toContain('Session: session s-1');
+    expect(shown).toContain('END');
+  });
+
   it('drops invisible and direction-changing characters from a peer’s text', async () => {
     const { session, written } = terminal(['no']);
     const approver = createTerminalOperatorApprover({

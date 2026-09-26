@@ -97,6 +97,10 @@ describe('DeviceMeshNode — CLI↔CLI connection over WebRTC', () => {
     expect(atHigh.admission.deviceId).toBe(world.low.cert.deviceId);
     expect(atLow.admission.trust).toBe('same-user-different-host');
     expect(atLow.admission.locality).toBe('another-host');
+    // Each end names the same connection: its own fingerprint is the one the other end verified.
+    expect(atLow.channelBinding.localFingerprint).toBe(atHigh.channelBinding.remoteFingerprint);
+    expect(atHigh.channelBinding.localFingerprint).toBe(atLow.channelBinding.remoteFingerprint);
+    expect(atLow.channelBinding.localFingerprint).not.toBe(atLow.channelBinding.remoteFingerprint);
 
     const toHigh = nextMessage(atHigh);
     atLow.send('hello from low');
