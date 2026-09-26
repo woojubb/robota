@@ -329,10 +329,11 @@ export function createDeviceMeshHost(options: IDeviceMeshHostOptions): IDeviceMe
   const lost = (): void => {
     release = undefined;
     if (closed) return;
+    const wasOpen = state === 'on';
     shut();
     state = 'failed';
     reason = TAKEN_OVER;
-    report(`The device mesh closed here: ${TAKEN_OVER}.`);
+    report(`The device mesh ${wasOpen ? 'closed here' : 'did not open here'}: ${TAKEN_OVER}.`);
   };
 
   const start = async ({

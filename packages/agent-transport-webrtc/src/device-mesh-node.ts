@@ -324,13 +324,19 @@ function mergeIdentity(
   };
 }
 
-/** Whether any list in `next` is newer than the one in `previous`. */
+/**
+ * Whether a list in `next` is newer than the one in `previous` under the same signing key. A new
+ * signing key's lists are not pushed: a peer cannot take them without the new key's certificate,
+ * which only a handshake carries.
+ */
 function listsAdvanced(
   previous: IDeviceHandshakeIdentity,
   next: IDeviceHandshakeIdentity,
 ): boolean {
+  if (next.signingKeyCertificate.signingKeyId !== previous.signingKeyCertificate.signingKeyId) {
+    return false;
+  }
   return (
-    next.signingKeyCertificate.signingKeyId !== previous.signingKeyCertificate.signingKeyId ||
     next.roster.seq > previous.roster.seq ||
     next.revocation.seq > previous.revocation.seq ||
     next.signingKeyRevocation.seq > previous.signingKeyRevocation.seq
@@ -403,7 +409,13 @@ export class DeviceMeshNode {
     this.identity = mergeIdentity(previous, update.identity);
     const synced = this.syncPeers();
     // After the sync, so a device the lists drop is not sent them.
-    if (listsAdvanced(previous, this.identity)) void synced.then(() => this.pushLists());
+    // A failed sync is the caller's, through `synced`; the lists then wait for the next handshake.
+    if (listsAdvanced(previous, this.identity)) {
+      synced.then(
+        () => this.pushLists(),
+        () => undefined,
+      );
+    }
     return synced;
   }
 

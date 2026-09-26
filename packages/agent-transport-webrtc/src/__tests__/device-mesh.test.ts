@@ -398,6 +398,36 @@ describe('DeviceMeshNode — newer lists reach linked devices over the live conn
     expect(high.link(world.low.cert.deviceId)).toBe(atHigh);
   }, 40_000);
 
+  it("a sync that fails while lists advance is the caller's to handle, never an unhandled rejection", async () => {
+    const hub = createInMemoryMeshRelayHub();
+    const relay = hub.connect();
+    let failing = false;
+    const low = node(hub, world.low, {
+      relay: {
+        ...relay,
+        declarePresence: (topics: readonly string[]) => {
+          if (failing) throw new Error('relay gone');
+          relay.declarePresence(topics);
+        },
+      },
+    });
+    await low.start();
+    const unhandled: unknown[] = [];
+    const onUnhandled = (reason: unknown): void => void unhandled.push(reason);
+    process.on('unhandledRejection', onUnhandled);
+    try {
+      failing = true;
+      const revocation = await world.revoking(world.third);
+      await expect(
+        low.refresh({ identity: world.identity(world.low, { revocation }) }),
+      ).rejects.toThrow(/relay gone/);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off('unhandledRejection', onUnhandled);
+    }
+  });
+
   it('a pushed list that does not verify, or is not newer, is ignored and the link stays', async () => {
     const hub = createInMemoryMeshRelayHub();
     const adopted: IListUpdate[] = [];
