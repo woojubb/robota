@@ -18,7 +18,7 @@ describe('nostr-tools under the source export condition', () => {
     const result = spawnSync(
       process.execPath,
       ['--conditions=source', '--input-type=module', '-e', `await import('${specifier}');`],
-      { cwd: PACKAGE_DIR, encoding: 'utf8' },
+      { cwd: PACKAGE_DIR, encoding: 'utf8', timeout: 20_000 },
     );
 
     expect(result.stderr).not.toContain('ERR_MODULE_NOT_FOUND');
