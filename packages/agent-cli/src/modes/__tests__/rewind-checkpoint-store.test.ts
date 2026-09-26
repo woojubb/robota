@@ -13,6 +13,7 @@ import {
   EditCheckpointStore,
   WorkspaceTrustService,
   buildRuntimeSession,
+  createNodeHostSessionStore,
 } from '@robota-sdk/agent-framework';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -265,6 +266,72 @@ describe('a session built with the CLI options for a trusted workspace', () => {
 
     expect(captured).toEqual([filePath]);
     expect(readFileSync(filePath, 'utf8')).toBe('edited');
+  });
+
+  it('resumes a session whose record points at a checkpoint branch', async () => {
+    // A resume restores the record before the session exists; the pointer it carries must wait for
+    // the session instead of asking it for its id (which failed every `-c` run with a store).
+    const cwd = tempRoot('robota-rewind-resume-');
+    const filePath = join(cwd, 'example.txt');
+    const sessionStore = createNodeHostSessionStore(tempRoot('robota-rewind-resume-sessions-'));
+    const pointer = { branchId: 'main', checkpointId: 'turn-0001' };
+    const composition = createCliWorkspaceComposition({
+      cwd,
+      userHome: tempRoot('robota-rewind-resume-user-'),
+      projectAccess: await trustedAccess(cwd),
+      platform: 'linux',
+    });
+    const createStore = composition.createEditCheckpointStore;
+    if (createStore === undefined) throw new Error('expected a checkpoint store factory');
+    const stub = (): EditCheckpointStore => {
+      const store = createStore();
+      vi.spyOn(store, 'beginTurn').mockResolvedValue(
+        {} as Awaited<ReturnType<EditCheckpointStore['beginTurn']>>,
+      );
+      vi.spyOn(store, 'captureFile').mockResolvedValue(undefined);
+      vi.spyOn(store, 'finalizeTurn').mockResolvedValue(undefined);
+      vi.spyOn(store, 'getActiveBranchPointer').mockReturnValue(pointer);
+      vi.spyOn(store, 'restoreActiveBranch').mockImplementation(() => undefined);
+      return store;
+    };
+    const persisted = (overrides: Partial<IServeModeOptions>): IServeModeOptions =>
+      serveOptions(cwd, {
+        sessionStore: sessionStore as IServeModeOptions['sessionStore'],
+        ...overrides,
+        args: {
+          permissionMode: 'acceptEdits',
+          sessionName: 'rewind-test',
+        } as unknown as IServeModeOptions['args'],
+      });
+    const firstStore = stub();
+    const first = buildRuntimeSession(
+      buildServeSessionOptions(persisted({ createEditCheckpointStore: () => firstStore })),
+    );
+    let sessionId: string;
+    try {
+      await runTurn(first, `write first to ${filePath}`);
+      sessionId = first.getSession().getSessionId();
+    } finally {
+      await first.shutdown({ reason: 'prompt_input_exit', message: 'test complete' });
+    }
+    const record = sessionStore.load(sessionId);
+    expect(record.status === 'valid' ? record.record.activeBranch : undefined).toEqual(pointer);
+
+    const resumedStore = stub();
+    const resumed = buildRuntimeSession(
+      buildServeSessionOptions(
+        persisted({ createEditCheckpointStore: () => resumedStore, resumeSessionId: sessionId }),
+      ),
+    );
+    try {
+      await runTurn(resumed, `write second to ${filePath}`);
+    } finally {
+      await resumed.shutdown({ reason: 'prompt_input_exit', message: 'test complete' });
+    }
+
+    expect(resumed.getSession().getSessionId()).toBe(sessionId);
+    expect(resumedStore.restoreActiveBranch).toHaveBeenCalledWith(sessionId, pointer);
+    expect(readFileSync(filePath, 'utf8')).toBe('second');
   });
 
   // ARCH-047: project mutation is Linux-only, so a checkpoint is only really written and restored there.
