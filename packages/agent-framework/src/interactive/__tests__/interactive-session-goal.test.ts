@@ -51,6 +51,23 @@ describe('InteractiveSession goal wiring (GOAL-001)', () => {
     expect(execCtrl.pending.contents[0]?.options).toMatchObject({ turnSource: 'agent-wakeup' });
   });
 
+  it('#3201: a goal turn shows the objective and iteration, not the instruction to the model', async () => {
+    const session = new InteractiveSession({
+      session: createSharedSessionStub({ getSessionId: () => 'session_goal' }),
+    });
+    const execCtrl = getExecCtrl(session);
+    holdExecution(execCtrl);
+
+    await session.setGoal('write a file', { maxIterations: 5 });
+    await tick();
+
+    const turn = execCtrl.pending.contents[0];
+    // The model still gets the full instruction …
+    expect(turn?.input).toContain('report_goal_status');
+    // … while every surface shows one short line.
+    expect(turn?.displayInput).toBe('Goal: write a file (iteration 1 of 5)');
+  });
+
   it('cancelGoal stops an active goal and emits goal_stopped', async () => {
     const session = new InteractiveSession({
       session: createSharedSessionStub({ getSessionId: () => 'session_goal' }),

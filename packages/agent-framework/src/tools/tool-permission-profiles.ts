@@ -65,6 +65,15 @@ export const FRAMEWORK_TOOL_PERMISSION_PROFILES: Readonly<Record<string, IToolPe
      * rather than asking twice. A deny rule still removes it, and a turn a peer's message started
      * never reaches it.
      */
+    /**
+     * The goal loop's signal and the self-paced loop's decision: each records the agent's own
+     * assessment for the loop that asked for it and changes nothing else. They are inspections, as
+     * asking the user for leave to report is pointless — and plan mode must not refuse the call that
+     * lets a goal finish.
+     */
+    report_goal_status: { riskClass: 'inspect' },
+    report_loop_decision: { riskClass: 'inspect' },
+
     peer_send_file: {
       argument: { key: 'path', kind: 'path' },
       riskClass: 'inspect',
