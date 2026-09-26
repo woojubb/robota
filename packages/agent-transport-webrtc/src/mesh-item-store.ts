@@ -214,6 +214,12 @@ function seqBytes(seq: number): Uint8Array {
   return out;
 }
 
+function withoutTrailingSlashes(url: string): string {
+  let end = url.length;
+  while (end > 0 && url[end - 1] === '/') end -= 1;
+  return url.slice(0, end);
+}
+
 /**
  * A store over several pkarr relays. A put goes to every relay and succeeds when one took it; a get
  * asks every relay and keeps the newest item that verifies. A relay is only a cache in front of the
@@ -222,7 +228,7 @@ function seqBytes(seq: number): Uint8Array {
 export function createPkarrRelayStore(options: IPkarrRelayStoreOptions): IRendezvousItemStore {
   const doFetch = options.fetch ?? globalThis.fetch.bind(globalThis);
   const urlOf = (relay: string, publicKey: Uint8Array): string =>
-    `${relay.replace(/\/+$/, '')}/${zBase32(publicKey)}`;
+    `${withoutTrailingSlashes(relay)}/${zBase32(publicKey)}`;
   return {
     async put(address, value, now, signal) {
       const packet = encodePkarrPacket(address.key.publicKey, value);
