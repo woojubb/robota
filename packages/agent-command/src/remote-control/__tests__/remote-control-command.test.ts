@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { createRemoteControlCommandEntry } from '../remote-control-command-module.js';
 import { executeRemoteControlCommand } from '../remote-control-command.js';
 import { createTestCommandHost } from '@robota-sdk/agent-framework/testing';
 
@@ -152,5 +153,64 @@ describe('executeRemoteControlCommand (REMOTE-008)', () => {
       'status',
     );
     expect(result.message).toMatch(/Host key storage: chosen when remote control is first enabled/);
+  });
+
+  // Pairing and trust are the local operator's. A surface that is already connected must not be able
+  // to mint a new pairing link, read one, or change which devices are trusted.
+  function remoteCtx(over: Partial<ICommandRemoteControlAdapter> = {}) {
+    const adapter: ICommandRemoteControlAdapter = { getStatus: () => ({ state: 'off' }), ...over };
+    return createTestCommandHost({
+      overrides: {
+        getCommandHostAdapters: () => ({ remoteControl: adapter }),
+        getCommandInvocationSource: () => 'remote',
+      },
+    });
+  }
+
+  it.each(['', 'enable', 'on'])(
+    'refuses `%s` from a remote surface without requesting enable',
+    (verb) => {
+      const result = executeRemoteControlCommand(remoteCtx(), verb);
+      expect(result.success).toBe(false);
+      expect(result.hostActions).toBeUndefined();
+      expect(result.message).toMatch(/operator at this terminal/);
+    },
+  );
+
+  it('never shows a remote surface the pairing link', () => {
+    const result = executeRemoteControlCommand(
+      remoteCtx({
+        getStatus: () => ({ state: 'awaiting-pairing', pairingUrl: 'https://x/#r=a&s=b' }),
+      }),
+      'status',
+    );
+    expect(result.success).toBe(true);
+    expect(result.message).not.toContain('https://x/#r=a&s=b');
+    expect(result.message).not.toContain('#r=');
+    expect(result.message).toMatch(/waiting for a device to pair/);
+  });
+
+  it('refuses `revoke` from a remote surface without touching the trusted devices', () => {
+    const revokeDevice = (): boolean => {
+      throw new Error('must not be called');
+    };
+    const result = executeRemoteControlCommand(remoteCtx({ revokeDevice }), 'revoke AbC-123');
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/operator at this terminal/);
+  });
+
+  it('still lets a remote surface stop remote control and read the other states', () => {
+    expect(executeRemoteControlCommand(remoteCtx(), 'stop').hostActions).toEqual([
+      { type: 'remote-control-stop' },
+    ]);
+    const paired = executeRemoteControlCommand(
+      remoteCtx({ getStatus: () => ({ state: 'paired' }) }),
+      'status',
+    );
+    expect(paired.message).toMatch(/a device is paired/);
+  });
+
+  it('stays user-only for the model', () => {
+    expect(createRemoteControlCommandEntry().modelInvocable).toBe(false);
   });
 });

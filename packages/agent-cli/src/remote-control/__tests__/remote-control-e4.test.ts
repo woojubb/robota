@@ -7,7 +7,7 @@ import {
 } from '@robota-sdk/agent-remote-pairing';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 import type { IProtocolSession } from '@robota-sdk/agent-transport';
-import type { ISignalingClient } from '@robota-sdk/agent-transport-webrtc';
+import type { IConnectionApproval, ISignalingClient } from '@robota-sdk/agent-transport-webrtc';
 import { TransportRegistry } from '@robota-sdk/agent-framework';
 import { mkdtempSync, realpathSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -48,6 +48,7 @@ interface ICreatedTransport {
     onPaired: (r?: { sessionKey: string }) => void;
     onPairingFailed: () => void;
     onDropped?: () => void;
+    connectionApproval: IConnectionApproval;
   };
   reconnect: unknown;
   bridge: unknown;
@@ -249,6 +250,31 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
     expect(controller.getStatus()).toEqual({ state: 'paired' });
   });
 
+  it('a trusted device returning to a reconnect room still needs the operator', async () => {
+    const store = memoryStore();
+    const { controller, created } = setup(store, await hostIdentity());
+    await controller.enable();
+    (created[0].reconnect as { onEnroll: (id: string, spki: string) => void }).onEnroll(
+      'dev-1',
+      'spki',
+    );
+    created[0].hooks.onPaired({ sessionKey: generatePairingSecret().secret });
+    await waitForSeed(store, 'dev-1');
+    created[0].hooks.onDropped?.();
+    await waitForReconnectRooms(created);
+
+    for (const room of created.slice(1)) {
+      // No operator approver is configured in this setup, so nobody can say yes.
+      await expect(
+        room.hooks.connectionApproval.approve({
+          deviceId: 'dev-1',
+          viaReconnect: true,
+          signal: new AbortController().signal,
+        }),
+      ).resolves.toBe(false);
+    }
+  });
+
   it('a drop leaves exactly one webrtc entry — candidates are not registered (issue #2043)', async () => {
     const store = memoryStore();
     const { controller, created, registry } = setup(store, await hostIdentity());
@@ -329,7 +355,9 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
     ceilings[0].cb(); // fire the ceiling — no device returned
     await new Promise((r) => setTimeout(r, 0));
     expect(controller.getStatus()).toEqual({ state: 'off' });
-    expect((created[0].bridge as { dispose: ReturnType<typeof vi.fn> }).dispose).toHaveBeenCalledOnce();
+    expect(
+      (created[0].bridge as { dispose: ReturnType<typeof vi.fn> }).dispose,
+    ).toHaveBeenCalledOnce();
     for (const candidate of created.slice(1)) {
       expect(candidate.transport.stop).toHaveBeenCalledOnce();
     }
@@ -340,7 +368,9 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
     async (reason) => {
       const store = memoryStore();
       let releaseDerivation: () => void = () => undefined;
-      const derivationHeld = new Promise<void>((resolve) => { releaseDerivation = resolve; });
+      const derivationHeld = new Promise<void>((resolve) => {
+        releaseDerivation = resolve;
+      });
       const derivations: Promise<string>[] = [];
       const { controller, created, ceilings } = setup(
         store,
@@ -354,7 +384,8 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
       );
       await controller.enable();
       (created[0].reconnect as { onEnroll: (id: string, spki: string) => void }).onEnroll(
-        'dev-1', 'spki',
+        'dev-1',
+        'spki',
       );
       created[0].hooks.onPaired({ sessionKey: generatePairingSecret().secret });
       await waitForSeed(store, 'dev-1');
@@ -368,7 +399,9 @@ describe('RemoteControlController E4 reconnect (REMOTE-013)', () => {
       await Promise.resolve();
       expect(controller.getStatus()).toEqual({ state: 'off' });
       expect(created).toHaveLength(1);
-      expect((created[0].bridge as { dispose: ReturnType<typeof vi.fn> }).dispose).toHaveBeenCalledOnce();
+      expect(
+        (created[0].bridge as { dispose: ReturnType<typeof vi.fn> }).dispose,
+      ).toHaveBeenCalledOnce();
     },
   );
 });

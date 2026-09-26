@@ -380,6 +380,31 @@ describe('CMD-004 TC-02 — host-action executor over ICommandHostAdapters', () 
     expect(result?.hostActions).toBeUndefined(); // consumed
   });
 
+  it.each(['remote', 'model'] as const)(
+    'refuses remote-control enable asked for by a %s-origin command: pairing links are the operator’s',
+    async (source) => {
+      const enable = vi.fn().mockResolvedValue('Scan this QR: https://pair.example');
+      const session = createSession(
+        { remoteControl: { getStatus: () => ({ state: 'off' }), enable, stop: vi.fn() } },
+        [
+          // Any command module, not only `/remote-control`, could ask for the action.
+          moduleReturning('pair-me', {
+            success: true,
+            message: 'Enabling remote control...',
+            hostActions: [{ type: 'remote-control-enable' }],
+          }),
+        ],
+      );
+
+      const result = await session.executeCommand('pair-me', '', source, 'remote:phone');
+
+      expect(enable).not.toHaveBeenCalled();
+      expect(result?.success).toBe(false);
+      expect(result?.message).not.toContain('https://pair.example');
+      expect(result?.message).toMatch(/operator at this terminal/);
+    },
+  );
+
   it('remote-control enable without the adapter capability fails explicitly', async () => {
     const session = createSession(
       { remoteControl: { getStatus: () => ({ state: 'off' }) } }, // status-only adapter

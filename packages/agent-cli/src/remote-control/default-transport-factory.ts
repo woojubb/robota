@@ -10,6 +10,7 @@
 import { WebRtcTransport } from '@robota-sdk/agent-transport-webrtc';
 
 import type {
+  IConnectionApproval,
   IIceServer,
   IHostReconnectConfig,
   ILocalPeerProof,
@@ -36,6 +37,8 @@ export interface ITransportHooks {
   readonly onPaired: (result?: IPairingResult) => void;
   readonly onPairingFailed: () => void;
   readonly onDropped?: () => void;
+  /** The operator's say over each connection. Required: no connection drives by default. */
+  readonly connectionApproval: IConnectionApproval;
 }
 
 export interface IIceOptions {
@@ -67,6 +70,7 @@ export function defaultCreateTransport(
     secret,
     onPaired: hooks.onPaired,
     onPairingFailed: hooks.onPairingFailed,
+    connectionApproval: hooks.connectionApproval,
     ...(hooks.onDropped ? { onDropped: hooks.onDropped } : {}),
     ...(ice.iceServers ? { iceServers: ice.iceServers } : {}),
     ...(ice.forceTurn ? { forceTurn: ice.forceTurn } : {}),

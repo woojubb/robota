@@ -178,7 +178,11 @@ errors name a secret's key, never its value, and carry no cause that could quote
 phrase is never stored anywhere: it is shown and read only on the controlling terminal, opened apart
 from the session's own input while the session has handed the terminal over — a byte read through the
 session's input would reach its composer, history, transcript and model — and a host without an
-interactive terminal refuses instead of reading it from anywhere else.
+interactive terminal refuses instead of reading it from anywhere else. The same terminal asks the
+operator whether each remote-control connection, a returning trusted device included, may drive the
+session: the session's own prompts are answerable by any attached surface, so a device already
+driving could otherwise approve the next, and without an interactive terminal the connection is
+refused.
 
 A key that has ever sat in a plain file backups and dotfile sync copy is never carried into the
 store: it is replaced by a new key, the file is removed, and the operator is told once that trusted

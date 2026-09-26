@@ -6,7 +6,7 @@
  * the rule is to split rather than extend. Types only — no behaviour moved.
  */
 
-import type { IHostReconnectConfig } from './pairing-gate.js';
+import type { IConnectionApproval, IHostReconnectConfig } from './pairing-gate.js';
 import type { ILocalPeerProof } from './local-peer-proof.js';
 import type { ISignalingClient } from './signaling.js';
 import type { IWeriftModule } from './werift-loader.js';
@@ -71,6 +71,8 @@ export interface IWebRtcTransportOptions {
   readonly reconnect?: IHostReconnectConfig;
   /** SEC-010 (#1810): require a guarded-rendezvous nonce before the session is exposed. Absent → unchanged. */
   readonly localPeer?: ILocalPeerProof;
+  /** Ask the receiving operator before each connection reaches the session. Absent → unchanged. */
+  readonly connectionApproval?: IConnectionApproval;
   /** REMOTE-013 E4: a session-scoped resume bridge (owned by the controller across reconnects). Passed to the gate so the paired session flows through it (seq/buffer) and survives channel drops. */
   readonly resumeBridge?: SessionResumeBridge;
   /** REMOTE-013 E4: fired when a PAIRED data channel drops (so the controller can run the reconnect loop). Not fired for a pre-accept failure (that is `onPairingFailed`). */

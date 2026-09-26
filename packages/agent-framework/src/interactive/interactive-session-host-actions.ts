@@ -38,6 +38,8 @@ import type { IUiIntentEvent, TDriverId } from '@robota-sdk/agent-interface-sess
 /** The session-side capabilities the applier needs beyond the plain adapters. */
 export interface IHostActionExecutionDeps {
   getAdapters(): ICommandHostAdapters;
+  /** Who invoked the command whose actions these are. */
+  invocationSource: TCommandInvocationSource;
   /** Org policy gating provider hot-swaps (a violation REPLACES the command result — pre-existing contract). */
   orgPolicy: IOrgPolicy | null;
   /** Perform the live provider switch (session-owned). */
@@ -229,6 +231,17 @@ async function applyOneHostAction(
         return null;
       }
       case 'remote-control-enable': {
+        // Enabling mints a pairing link, and the link admits a new device. Only the operator at this
+        // terminal decides that — whichever command asked for it, a connected surface or the model
+        // must not be able to admit the next device.
+        if (deps.invocationSource !== 'user') {
+          return {
+            success: false,
+            message:
+              "Cannot apply 'remote-control-enable': only the operator at this terminal can pair a device. " +
+              'Run `/remote-control` on the host terminal.',
+          };
+        }
         const enable = adapters.remoteControl?.enable;
         if (!enable)
           return missingCapabilityFailure(action.type, 'a remote-control adapter with enable()');

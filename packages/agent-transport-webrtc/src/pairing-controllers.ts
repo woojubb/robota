@@ -16,7 +16,11 @@ import { startHostReconnect, startPairingHandshake } from '@robota-sdk/agent-rem
 import { pairingChannel } from './pairing-channel-lifecycle.js';
 
 import type { IHostReconnectConfig, IPairingChannel } from './pairing-gate-options.js';
-import type { IPairingResult, TPairingRole } from '@robota-sdk/agent-remote-pairing';
+import type {
+  IPairingResult,
+  IReconnectResult,
+  TPairingRole,
+} from '@robota-sdk/agent-remote-pairing';
 
 /** What both controllers need to talk on the channel and bind to it. */
 export interface IControllerContext {
@@ -58,7 +62,7 @@ export function startFirstPairController(
 export function startReconnectController(
   context: IControllerContext,
   config: IHostReconnectConfig,
-  onAccepted: () => void,
+  onAccepted: (result: IReconnectResult) => void,
   onRejected: () => void,
 ): ReturnType<typeof startHostReconnect> {
   const controller = startHostReconnect({

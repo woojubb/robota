@@ -21,7 +21,11 @@ import type {
   IIceServer,
   ISignalingClient,
 } from '@robota-sdk/agent-transport-webrtc';
+import { ConnectionAuthority } from '@robota-sdk/agent-interface-session-mobility';
+
 import type { TRemoteControlStatus } from '@robota-sdk/agent-framework';
+import type { IOperatorApprover } from '@robota-sdk/agent-interface-session-mobility';
+import type { IConnectionApproval } from '@robota-sdk/agent-transport-webrtc';
 import type { IConfigurableTransport } from '@robota-sdk/agent-interface-transport';
 
 export type TRemoteControlPeer = IConfigurableTransport<IProtocolSession>;
@@ -58,6 +62,11 @@ export interface IRemoteControlControllerDeps {
   loadHostIdentity?: () => Promise<IHostIdentity>;
   /** Where the host identity key is kept, for `/remote-control status`; `undefined` until first chosen. */
   describeKeyStorage?: () => string | undefined;
+  /**
+   * The operator who allows each connection to drive this session. Absent → every connection is
+   * refused: a paired device drives only with the operator's yes, never by default.
+   */
+  operatorApprover?: IOperatorApprover;
   /** Construction seams (default to the real implementations; overridden in unit tests). */
   createSignaling?: (url: string, rendezvous: string) => ISignalingClient;
   /** Test seam for the asynchronous reconnect-room derivation. */
@@ -69,6 +78,7 @@ export interface IRemoteControlControllerDeps {
       onPaired: (result?: IPairingResult) => void;
       onPairingFailed: () => void;
       onDropped?: () => void;
+      connectionApproval: IConnectionApproval;
     },
     ice: { iceServers?: readonly IIceServer[]; forceTurn?: boolean },
     reconnect?: IHostReconnectConfig,
@@ -120,6 +130,26 @@ export class RemoteControlController {
   describeKeyStorage(): string | undefined {
     return this.deps.describeKeyStorage?.();
   }
+
+  /**
+   * Every connection a transport admits — a first pair or a trusted device coming back — drives the
+   * session, and `drive` needs the operator's yes for each connection. One authority per connection,
+   * so an earlier yes never carries over.
+   */
+  private readonly connectionApproval: IConnectionApproval = {
+    approve: async ({ deviceId, signal }) => {
+      const authority = new ConnectionAuthority(
+        {
+          ...(deviceId !== undefined ? { deviceId } : {}),
+          // A browser device proves no locality, so it is treated as another machine.
+          locality: 'another-host',
+          capabilities: ['drive'],
+        },
+        this.deps.operatorApprover,
+      );
+      return (await authority.authorize('drive', { signal })).allowed;
+    },
+  };
 
   /** Enable remote control and return a shareable QR + link (or a fail-closed notice). Idempotent-ish: a
    *  second enable while already awaiting pairing re-reports the current link. */
@@ -216,6 +246,7 @@ export class RemoteControlController {
         onDropped: () => {
           if (this.transport === transport) this.onDropped();
         },
+        connectionApproval: this.connectionApproval,
       },
       this.iceConfig,
       reconnect,
@@ -355,6 +386,7 @@ export class RemoteControlController {
         onDropped: () => {
           if (this.transport === peer) this.onDropped();
         },
+        connectionApproval: this.connectionApproval,
       },
       this.iceConfig,
       this.reconnectConfig,
