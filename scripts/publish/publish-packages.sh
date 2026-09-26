@@ -132,14 +132,19 @@ echo "🔎 Verifying..."
 PENDING=("${PACKAGES[@]}")
 for ATTEMPT in $(seq 1 15); do
   STALE=()
+  SEEN=()
   for NAME in "${PENDING[@]}"; do
     LATEST=$(npm view "$NAME" dist-tags.latest --prefer-online --registry "$REGISTRY" 2>/dev/null || true)
-    [ "$LATEST" = "$VERSION" ] || STALE+=("$NAME")
+    if [ "$LATEST" != "$VERSION" ]; then
+      STALE+=("$NAME")
+      SEEN+=("$NAME latest=${LATEST:-<no answer>}")
+    fi
   done
   [ "${#STALE[@]}" -eq 0 ] && break
   PENDING=("${STALE[@]}")
   if [ "$ATTEMPT" -eq 15 ]; then
-    echo "❌ latest is not $VERSION after 15 minutes: ${PENDING[*]}"
+    echo "❌ latest is not $VERSION after 15 minutes:"
+    printf '   %s\n' "${SEEN[@]}"
     exit 1
   fi
   echo "   ${#PENDING[@]} package(s) not yet showing $VERSION; checking again in 60s"
