@@ -68,12 +68,24 @@ export function Composer({
                 }}
                 className={`flex w-full items-baseline gap-3 px-3 py-1.5 text-left font-mono text-[12px] ${
                   index === selected ? 'bg-primary/10 text-foreground' : 'text-muted-foreground'
-                }${runsElsewhere ? ' opacity-60' : ''}`}
+                }`}
               >
-                <span className="flex-shrink-0 text-foreground/90">/{item.name}</span>
-                <span className="min-w-0 flex-1 truncate opacity-70">{item.description}</span>
+                {/* A command that runs elsewhere dims its name and description by text colour only —
+                    an opacity on the row would also fade its badge and the selected highlight. */}
+                <span
+                  className={`flex-shrink-0 ${runsElsewhere ? 'text-muted-foreground' : 'text-foreground/90'}`}
+                >
+                  /{item.name}
+                </span>
+                <span
+                  className={`min-w-0 flex-1 truncate ${runsElsewhere ? 'text-muted-foreground/70' : 'opacity-70'}`}
+                >
+                  {item.description}
+                </span>
                 {item.kind === 'skill' && <MenuBadge label="skill" />}
-                {item.runsIn && <MenuBadge label={item.runsIn.join(' · ') || 'client'} title={runsElsewhere} />}
+                {item.runsIn && (
+                  <MenuBadge label={item.runsIn.join(' · ') || 'client'} title={runsElsewhere} />
+                )}
               </button>
             );
           })}
@@ -139,11 +151,12 @@ function runsInDescription(runsIn: readonly string[]): string {
   return `Runs in the robota ${runsIn.join(' or ') || 'client'}`;
 }
 
+/** Solid muted text, never an opacity, so a small badge stays legible on a plain or selected row. */
 function MenuBadge({ label, title }: { label: string; title?: string }): React.ReactElement {
   return (
     <span
       title={title}
-      className="flex-shrink-0 rounded border border-border/60 px-1 text-[10px] uppercase tracking-wider opacity-60"
+      className="flex-shrink-0 rounded border border-border px-1 text-[10px] uppercase tracking-wider text-muted-foreground"
     >
       {label}
     </span>
@@ -218,7 +231,10 @@ function StatusRow({
       ) : (
         <span className="px-1.5 text-muted-foreground/40">…</span>
       )}
-      <span className="ml-auto flex items-center gap-1.5 px-1" aria-label={`context ${used ?? 0}% used`}>
+      <span
+        className="ml-auto flex items-center gap-1.5 px-1"
+        aria-label={`context ${used ?? 0}% used`}
+      >
         <ContextRing percent={used ?? 0} />
         {used === null ? '' : `${used}%`}
       </span>
