@@ -217,8 +217,8 @@ operator; the signing key exists for exactly this, and the recovery phrase is ne
 serve and test runs neither reissue nor open the device mesh, so running the CLI for a single task
 never rewrites identity state or answers another device. The mesh opens only when the user settings
 turn it on — never a project's, which would let a repository expose this machine to the user's other
-devices — and by default a linked device may message this session and offer it files and sessions,
-each put to the operator at this terminal, but never delegate to, observe or drive it.
+devices — and a linked device may do only what the user's settings allow, each file and session it
+offers put to the operator at this terminal.
 
 ### MCP client composition
 

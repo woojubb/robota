@@ -3,9 +3,9 @@
  * for a device with an identity, with the default policy and the terminal operator's approver, and
  * exit closes it.
  */
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -96,6 +96,61 @@ describe('the mesh setting', () => {
     expect(() =>
       parseMeshSettings({ mesh: { enabled: true, options: { capabilities: ['everything'] } } }),
     ).toThrow(/capabilities/);
+  });
+});
+
+describe('where the setting is read', () => {
+  const realHome = process.env.HOME;
+
+  afterEach(() => {
+    process.env.HOME = realHome;
+    vi.restoreAllMocks();
+  });
+
+  function writeJson(path: string, value: unknown): void {
+    mkdirSync(dirname(path), { recursive: true });
+    writeFileSync(path, JSON.stringify(value));
+  }
+
+  function hostUnderHome(open: ReturnType<typeof fakeOpen>['open']) {
+    process.env.HOME = home;
+    return createDeviceMeshHost({
+      store: store(),
+      open,
+      lan: false,
+      relay: () => undefined,
+      report: () => undefined,
+    });
+  }
+
+  it('opens from the user settings under HOME', async () => {
+    await withIdentity();
+    writeJson(join(root, 'settings.json'), {
+      transports: { mesh: { enabled: true, options: NO_INTERNET } },
+    });
+    const { open } = fakeOpen();
+    await hostUnderHome(open).start({ operatorApprover: APPROVER });
+    expect(open).toHaveBeenCalledTimes(1);
+  });
+
+  it('never opens because a project turns it on', async () => {
+    await withIdentity();
+    const project = join(home, 'project');
+    const on = { transports: { mesh: { enabled: true, options: NO_INTERNET } } };
+    for (const file of [
+      join('.robota', 'settings.json'),
+      join('.robota', 'settings.local.json'),
+      join('.claude', 'settings.json'),
+      join('.claude', 'settings.local.json'),
+    ]) {
+      writeJson(join(project, file), on);
+    }
+    vi.spyOn(process, 'cwd').mockReturnValue(project);
+    const { open } = fakeOpen();
+    const mesh = hostUnderHome(open);
+    await mesh.start({ operatorApprover: APPROVER });
+    expect(open).not.toHaveBeenCalled();
+    expect(mesh.status().state).toBe('off');
   });
 });
 

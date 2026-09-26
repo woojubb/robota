@@ -11,15 +11,8 @@
  */
 import { DEVICE_CAPABILITIES, type TDeviceCapability } from '@robota-sdk/agent-remote-pairing';
 
+import { DEFAULT_MESH_POLICY } from './device-mesh.js';
 import { parseMeshInternetSettings, type IMeshInternetSettings } from './mesh-internet-settings.js';
-
-/** What a linked device may ask of this one unless the settings say otherwise. */
-export const DEFAULT_MESH_CAPABILITIES: readonly TDeviceCapability[] = [
-  'file',
-  'handoff',
-  'message',
-  'presence',
-];
 
 export interface IMeshSettings {
   readonly enabled: boolean;
@@ -39,7 +32,7 @@ function record(value: unknown, setting: string): Record<string, unknown> {
 }
 
 function capabilities(value: unknown): readonly TDeviceCapability[] {
-  if (value === undefined || value === null) return DEFAULT_MESH_CAPABILITIES;
+  if (value === undefined || value === null) return DEFAULT_MESH_POLICY;
   if (
     !Array.isArray(value) ||
     value.some((entry) => typeof entry !== 'string' || !KNOWN.has(entry))
