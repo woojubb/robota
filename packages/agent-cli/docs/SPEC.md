@@ -286,7 +286,11 @@ grant and never a configured value: a background session receives its exact gran
 it reports ready, and the launcher refuses a readiness that names other grants. Listing a grant shows
 its label, principal kind, state and counts, never the principal. Creating or revoking a grant is
 the user's act alone: grants are created only by start flags, and `/events` is never offered to the
-model.
+model. Events arrive over HTTP on a loopback port that the owner's own proxy or tunnel serves at the
+grants' public URL; each grant is its own endpoint and audience, so a token for one grant is refused
+at another. The endpoint answers with an admission receipt or an empty refusal, never with what a
+turn produced, and a background session keeps an owner-only, bounded trail of refusals and
+settlements that outlives it, holding no token, content or address.
 
 ### MCP background handoff settings
 

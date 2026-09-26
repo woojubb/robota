@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import { createTuiExternalEventGrants } from '../tui-external-event-grants.js';
+import {
+  createRefusalReporter,
+  createTuiExternalEventGrants,
+  describeExternalEventRecord,
+} from '../tui-external-event-grants.js';
 
 import type { IExternalEventSourceOptions } from '@robota-sdk/agent-framework';
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
@@ -102,7 +106,7 @@ describe('TUI external event grants', () => {
     await expect(tui.bind(fakeSession(true))).rejects.toThrow(/^grant ci: refused by the session$/);
   });
 
-  it('reports refusals and unfinished turns on one content-free line each', async () => {
+  it('reports how turns end, leaving refusals to the carrier that answered them', async () => {
     const lines: string[] = [];
     const tui = createTuiExternalEventGrants([grant('ci')], (line) => lines.push(line));
     const session = fakeSession();
@@ -111,9 +115,65 @@ describe('TUI external event grants', () => {
     audit({ at: 'now', grantId: 'ci', refusal: 'expired' });
     audit({ at: 'now', grantId: 'ci', settlement: 'completed' });
     audit({ at: 'now', grantId: 'ci', settlement: 'not-run' });
+    expect(lines).toEqual(['External event grant ci: a turn ended not-run.']);
+    expect(
+      describeExternalEventRecord({
+        at: 'now',
+        refusal: 'unknown-grant',
+        remote: 'public',
+        throttled: false,
+      }),
+    ).toBe('External event: an event was refused (unknown-grant).');
+  });
+
+  it('reports refusals at most once per grant and reason a minute, and never a throttled peer', () => {
+    const lines: string[] = [];
+    let clock = 0;
+    const reportRecord = createRefusalReporter(
+      (line) => lines.push(line),
+      () => clock,
+    );
+    const refusal = (refusal: 'missing-token' | 'expired', throttled = false) => ({
+      at: 'now',
+      grantId: 'ci',
+      refusal,
+      remote: 'public' as const,
+      throttled,
+    });
+    for (let index = 0; index < 100; index += 1) reportRecord(refusal('missing-token'));
+    reportRecord(refusal('expired'));
+    for (let index = 0; index < 50; index += 1) reportRecord(refusal('expired', true));
     expect(lines).toEqual([
+      'External event grant ci: an event was refused (missing-token).',
       'External event grant ci: an event was refused (expired).',
-      'External event grant ci: a turn ended not-run.',
     ]);
+    clock = 60_000;
+    reportRecord(refusal('missing-token'));
+    reportRecord(refusal('expired', true));
+    expect(lines.slice(2)).toEqual([
+      'External event grant ci: an event was refused (missing-token). 99 more were refused since the last report.',
+    ]);
+    reportRecord({ at: 'now', grantId: 'ci', settlement: 'failed' });
+    expect(lines.at(-1)).toBe('External event grant ci: a turn ended failed.');
+  });
+
+  it('routes a delivery to the bound session, refusing a revoked grant and an unbound TUI', async () => {
+    const tui = createTuiExternalEventGrants([grant('ci'), grant('chat')], () => undefined);
+    expect(await tui.receive('ci', { token: 't', event: {} })).toEqual({
+      admitted: false,
+      refusal: 'session-unavailable',
+    });
+    const session = fakeSession();
+    await tui.bind(session);
+    expect(await tui.receive('ci', { token: 't', event: {} })).toEqual({
+      admitted: false,
+      refusal: 'expired',
+    });
+    tui.adapter.revoke('ci');
+    await tui.bind(fakeSession());
+    expect(await tui.receive('ci', { token: 't', event: {} })).toEqual({
+      admitted: false,
+      refusal: 'grant-revoked',
+    });
   });
 });
