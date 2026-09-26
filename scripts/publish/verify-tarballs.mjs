@@ -43,7 +43,7 @@ const NODE_FLOOR = JSON.parse(
     path.join(import.meta.dirname, '..', '..', 'packages/agent-core/package.json'),
     'utf8',
   ),
-).engines.node;
+).engines?.node;
 const TOOLS = {
   publint: ['publint', '--strict'],
   attw: ['attw', '--profile', 'node16'],
