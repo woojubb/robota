@@ -168,6 +168,7 @@ async function startInternet(
         ...(relay.host !== undefined ? { host: relay.host } : {}),
         ...(relay.publicAddress !== undefined ? { relayAddress: relay.publicAddress } : {}),
         ...(relay.relayPorts !== undefined ? { relayPorts: relay.relayPorts } : {}),
+        allowPrivatePeers: relay.allowPrivatePeers,
         ...(onError !== undefined ? { onError } : {}),
       })
     : undefined;

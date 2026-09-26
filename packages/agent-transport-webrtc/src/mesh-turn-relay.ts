@@ -76,21 +76,39 @@ export async function meshRelayIceServers(
 }
 
 /**
- * No path reached a peer device and no relay could be tried: this network needs one. Never a silent
- * degrade — the connection is refused with this error instead.
+ * Why a relay was needed: only relayed connections are allowed, or a direct attempt got as far as
+ * trying paths and found none.
+ */
+export type TMeshRelayNeed = 'relay-only' | 'no-direct-path';
+
+/**
+ * A connection needed a relay and none could be tried. Never a silent degrade — the connection is
+ * refused with this error, which carries what the direct attempt went through as its `cause`.
  */
 export class MeshRelayNeededError extends Error {
   public readonly deviceId: string;
+  public readonly need: TMeshRelayNeed;
 
-  public constructor(deviceId: string, options?: { readonly cause?: unknown }) {
+  public constructor(
+    deviceId: string,
+    need: TMeshRelayNeed,
+    options?: { readonly cause?: unknown },
+  ) {
+    const why =
+      need === 'relay-only'
+        ? 'only relayed connections are allowed'
+        : `no direct path was found (${
+            options?.cause instanceof Error ? options.cause.message : String(options?.cause)
+          })`;
     super(
-      `a relay device is needed to reach device ${deviceId}: no direct path worked, no paired device ` +
-        'advertises a relay, and no TURN server is configured. Run the relay on an always-on device, ' +
-        'or configure a TURN server.',
+      `a relay device is needed to reach device ${deviceId}: ${why}, and no paired device ` +
+        'advertises a relay and no TURN server is configured. Run the relay on an always-on ' +
+        'device, or configure a TURN server.',
       options?.cause !== undefined ? { cause: options.cause } : undefined,
     );
     this.name = 'MeshRelayNeededError';
     this.deviceId = deviceId;
+    this.need = need;
   }
 }
 
@@ -104,6 +122,8 @@ export interface IMeshTurnRelayOptions {
   /** The ports relayed addresses take; behind a NAT, forward them with the relay's own port. */
   readonly relayPorts?: { readonly min: number; readonly max: number };
   readonly quotas?: Partial<ITurnQuotas>;
+  /** Default true: see {@link TurnServer}. */
+  readonly allowPrivatePeers?: boolean;
   /** Default: see {@link TurnServer}. */
   readonly allowPeer?: (address: string) => boolean;
   readonly now?: () => number;
@@ -135,6 +155,9 @@ export class MeshTurnRelay {
       ...(options.relayPorts !== undefined ? { relayPorts: options.relayPorts } : {}),
       ...(options.quotas !== undefined ? { quotas: options.quotas } : {}),
       ...(options.allowPeer !== undefined ? { allowPeer: options.allowPeer } : {}),
+      ...(options.allowPrivatePeers !== undefined
+        ? { allowPrivatePeers: options.allowPrivatePeers }
+        : {}),
       ...(options.onError !== undefined ? { onError: options.onError } : {}),
       now,
       authorize: (username) => relay?.authorize(username) ?? Promise.resolve(undefined),

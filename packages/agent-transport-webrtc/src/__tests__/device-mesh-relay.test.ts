@@ -20,7 +20,7 @@ import {
   type IDeviceMeshLink,
   type IDeviceMeshNodeOptions,
 } from '../device-mesh-node.js';
-import { MeshPeerLink } from '../mesh-peer-link.js';
+import { MeshLinkEndedError, MeshPeerLink } from '../mesh-peer-link.js';
 import {
   createInMemoryMeshRelayHub,
   type IInMemoryMeshRelayHub,
@@ -371,6 +371,8 @@ describe('DeviceMeshNode — relay fallback order', () => {
 
     await expect(result).rejects.toBeInstanceOf(MeshRelayNeededError);
     await expect(result).rejects.toThrow(/a relay device is needed/);
+    // It says why: relayed connections were required and there was nothing to relay through.
+    await expect(result).rejects.toThrow(/only relayed connections are allowed/);
   }, 20_000);
 
   it('with no relay at all, a direct attempt the network defeats ends in the explicit relay error, not a silent failure', async () => {
@@ -387,7 +389,51 @@ describe('DeviceMeshNode — relay fallback order', () => {
 
     expect(atLow.status === 'rejected' && atLow.reason).toBeInstanceOf(MeshRelayNeededError);
     expect(atHigh.status === 'rejected' && atHigh.reason).toBeInstanceOf(MeshRelayNeededError);
+    // The error carries why the direct attempt failed, not only the conclusion.
+    const reason = (atLow as PromiseRejectedResult).reason as MeshRelayNeededError;
+    expect(reason.cause).toBeInstanceOf(MeshLinkEndedError);
+    expect(reason.message).toMatch(/no direct path was found/);
+    expect(reason.message).toMatch(/during connecting/);
+    expect(reason.message).toMatch(/ice \w+/);
     // Candidates were gathered, and none could cross.
     expect(log.candidates.length).toBeGreaterThan(0);
+  }, 20_000);
+
+  it('a direct attempt that fails before any path is tried is not called a missing relay', async () => {
+    const hub = createInMemoryMeshRelayHub();
+    const log: INatLog = { candidates: [] };
+    // The answer never reaches the offerer: signaling failed, which no relay would fix.
+    const dropAnswers = (relay: IMeshRelay): IMeshRelay => ({
+      ...relay,
+      declarePresence: (topics) => relay.declarePresence(topics),
+      onMessage: (handler) => relay.onMessage(handler),
+      onAbsent: (handler) => relay.onAbsent(handler),
+      close: () => relay.close(),
+      send: (topic, data) => {
+        if ((data as { kind?: string }).kind === 'answer') return;
+        relay.send(topic, data);
+      },
+    });
+    const low = node(hub, world.low, log, { connectTimeoutMs: 2_000 });
+    const high = new DeviceMeshNode({
+      identity: world.identity(world.high),
+      sessionDescriptor: world.high.session,
+      localPolicy: ALL_CAPABILITIES,
+      relay: dropAnswers(hub.connect()),
+      connectTimeoutMs: 2_000,
+    });
+    nodes.push(high);
+    await Promise.all([low.start(), high.start()]);
+
+    const [atLow] = await Promise.allSettled([
+      low.connect(world.high.cert.deviceId),
+      high.connect(world.low.cert.deviceId),
+    ]);
+
+    expect(atLow.status).toBe('rejected');
+    const reason = (atLow as PromiseRejectedResult).reason as unknown;
+    expect(reason).not.toBeInstanceOf(MeshRelayNeededError);
+    expect(reason).toBeInstanceOf(MeshLinkEndedError);
+    expect((reason as MeshLinkEndedError).stage).toBe('signaling');
   }, 20_000);
 });

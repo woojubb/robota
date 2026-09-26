@@ -752,13 +752,19 @@ export class DeviceMeshNode {
     if (state.pending?.link !== link) return;
     const stage = state.pending.relayStage;
     state.pending = undefined;
-    // The connection under the link never came up: ICE failed, or found no path in time.
+    // Both descriptions crossed, so the peer is up and signaling works, and still no path ever
+    // connected: ICE failed, or was still checking when time ran out. Only this calls for a relay;
+    // an attempt that ended before paths were tried, or after one connected, is reported as it ended.
     const unreachable =
-      error.stage === 'connecting' && (end === 'timeout' || error.peer?.state === 'failed');
+      error.stage === 'connecting' &&
+      (end === 'timeout' || error.peer?.state === 'failed') &&
+      error.peer?.history.includes('connected') !== true;
     let reported: unknown = error;
     if (error.cause instanceof MeshRelayNeededError) reported = error.cause;
     else if (unreachable && stage === 'direct') {
-      reported = new MeshRelayNeededError(state.device.deviceId, { cause: error });
+      reported = new MeshRelayNeededError(state.device.deviceId, 'no-direct-path', {
+        cause: error,
+      });
     } else if (unreachable) state.relayFailures += 1;
     const refusal: IDeviceMeshRefusal = {
       deviceId: state.device.deviceId,
@@ -784,7 +790,9 @@ export class DeviceMeshNode {
       stages.push({ stage: 'configured', servers: relays.configured });
     }
     if (stages.length === 0) {
-      if (relays?.relayOnly === true) throw new MeshRelayNeededError(state.device.deviceId);
+      if (relays?.relayOnly === true) {
+        throw new MeshRelayNeededError(state.device.deviceId, 'relay-only');
+      }
       return { stage: 'direct', servers: [] };
     }
     return stages[state.relayFailures % stages.length]!;

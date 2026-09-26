@@ -46,12 +46,18 @@ export {
   meshRelayIceServers,
 } from './mesh-turn-relay.js';
 export type {
+  TMeshRelayNeed,
   IMeshRelayEndpoint,
   IMeshRelayPeer,
   IMeshTurnRelayOptions,
 } from './mesh-turn-relay.js';
-export { DEFAULT_TURN_QUOTAS, TurnServer } from './turn-server.js';
-export type { ITurnAuthorization, ITurnQuotas, ITurnServerOptions } from './turn-server.js';
+export { DEFAULT_TURN_QUOTAS, DEFAULT_UNAUTHENTICATED_LIMITS, TurnServer } from './turn-server.js';
+export type {
+  ITurnAuthorization,
+  ITurnQuotas,
+  ITurnServerOptions,
+  IUnauthenticatedLimits,
+} from './turn-server.js';
 export { MeshLinkEndedError } from './mesh-peer-link.js';
 export type { TMeshLinkEnd, TMeshLinkRole, TMeshLinkStage } from './mesh-peer-link.js';
 export { MAX_MESH_MESSAGE_CHARS } from './mesh-signal.js';

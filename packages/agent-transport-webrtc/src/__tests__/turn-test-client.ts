@@ -24,6 +24,9 @@ import {
   type ITransportAddress,
 } from '../stun-message.js';
 
+/** Like a real client's, it makes the first request as large as the challenge that answers it. */
+const SOFTWARE = { type: 0x8022, value: Buffer.from('robota turn test client') };
+
 export interface ITurnAnswer {
   readonly ok: boolean;
   readonly code?: number;
@@ -118,7 +121,7 @@ export class TurnTestClient {
           : undefined;
       const answer = await this.exchange(
         withAppended(
-          encodeStun(method, StunClass.Request, transactionId, [...attrs, ...auth], {
+          encodeStun(method, StunClass.Request, transactionId, [...attrs, SOFTWARE, ...auth], {
             ...(key !== undefined && auth.length > 0 ? { integrityKey: key } : {}),
             fingerprint: appended.length === 0,
           }),

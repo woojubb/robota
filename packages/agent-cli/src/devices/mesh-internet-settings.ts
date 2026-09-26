@@ -7,7 +7,8 @@
  * - `nostrRelays`: Nostr relays (`wss://…`) for live signaling; `[]` turns Nostr signaling off;
  * - `relay`: the TURN relay this device runs for its paired devices (`serve`, default off; `port`,
  *   default 3478; `host`, the IPv4 address it binds; `publicAddress`, where peers reach it;
- *   `relayPorts`, `{ min, max }` for its relayed addresses — behind a NAT, forward those and `port`);
+ *   `relayPorts`, `{ min, max }` for its relayed addresses — behind a NAT, forward those and `port`;
+ *   `allowPrivatePeers`, default `true`, whether it relays into private and link-local ranges);
  * - `turnServers`: TURN servers of the user's own, tried after the paired devices' relays;
  * - `relayOnly` (default `false`): use relayed connections only, for a network no direct path crosses.
  *
@@ -34,6 +35,11 @@ export interface IMeshRelaySettings {
   readonly publicAddress?: string;
   /** The ports relayed addresses take; absent: any free port. */
   readonly relayPorts?: { readonly min: number; readonly max: number };
+  /**
+   * Whether the relay forwards into private and link-local ranges, the relay host's own network.
+   * On by default: a relayed connection to a device on that network needs it.
+   */
+  readonly allowPrivatePeers: boolean;
 }
 
 export interface IMeshInternetSettings {
@@ -108,7 +114,9 @@ function relayPorts(value: unknown): { readonly min: number; readonly max: numbe
 }
 
 function relaySettings(value: unknown): IMeshRelaySettings {
-  if (value === undefined || value === null) return { serve: false, port: DEFAULT_RELAY_PORT };
+  if (value === undefined || value === null) {
+    return { serve: false, port: DEFAULT_RELAY_PORT, allowPrivatePeers: true };
+  }
   if (typeof value !== 'object' || Array.isArray(value)) {
     throw new Error('Invalid mesh setting: `relay` must be an object.');
   }
@@ -124,9 +132,14 @@ function relaySettings(value: unknown): IMeshRelaySettings {
   const host = ipv4Address(bag['host'], 'relay.host');
   const publicAddress = ipv4Address(bag['publicAddress'], 'relay.publicAddress');
   const ports = relayPorts(bag['relayPorts']);
+  const allowPrivatePeers = bag['allowPrivatePeers'];
+  if (allowPrivatePeers !== undefined && typeof allowPrivatePeers !== 'boolean') {
+    throw new Error('Invalid mesh setting: `relay.allowPrivatePeers` must be true or false.');
+  }
   return {
     serve: serve ?? false,
     port: port ?? DEFAULT_RELAY_PORT,
+    allowPrivatePeers: allowPrivatePeers ?? true,
     ...(host !== undefined ? { host } : {}),
     ...(publicAddress !== undefined ? { publicAddress } : {}),
     ...(ports !== undefined ? { relayPorts: ports } : {}),

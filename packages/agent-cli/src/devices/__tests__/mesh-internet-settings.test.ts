@@ -10,7 +10,7 @@ describe('mesh public-infrastructure settings', () => {
       dht: true,
       pkarrRelays: DEFAULT_PKARR_RELAYS,
       nostrRelays: DEFAULT_NOSTR_RELAYS,
-      relay: { serve: false, port: 3478 },
+      relay: { serve: false, port: 3478, allowPrivatePeers: true },
       turnServers: [],
       relayOnly: false,
     });
@@ -46,6 +46,7 @@ describe('mesh public-infrastructure settings', () => {
           host: '0.0.0.0',
           publicAddress: '203.0.113.5',
           relayPorts: { min: 49160, max: 49200 },
+          allowPrivatePeers: false,
         },
         turnServers: [{ urls: 'turn:turn.example.org:3478', username: 'u', credential: 'c' }],
         relayOnly: true,
@@ -58,6 +59,7 @@ describe('mesh public-infrastructure settings', () => {
           host: '0.0.0.0',
           publicAddress: '203.0.113.5',
           relayPorts: { min: 49160, max: 49200 },
+          allowPrivatePeers: false,
         },
         turnServers: [{ urls: 'turn:turn.example.org:3478', username: 'u', credential: 'c' }],
         relayOnly: true,
@@ -73,6 +75,9 @@ describe('mesh public-infrastructure settings', () => {
       /relay.publicAddress/,
     );
     expect(() => parseMeshInternetSettings({ relay: { host: 'lan' } })).toThrow(/relay.host/);
+    expect(() => parseMeshInternetSettings({ relay: { allowPrivatePeers: 'no' } })).toThrow(
+      /relay.allowPrivatePeers/,
+    );
     // The relay serves IPv4 only.
     expect(() => parseMeshInternetSettings({ relay: { host: '::' } })).toThrow(/IPv4/);
     expect(() => parseMeshInternetSettings({ relay: { publicAddress: '2001:db8::5' } })).toThrow(

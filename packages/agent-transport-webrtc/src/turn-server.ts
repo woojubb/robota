@@ -37,6 +37,7 @@ import {
   MIN_CHANNEL,
   type IStunMessage,
   type ITransportAddress,
+  type TStunClass,
 } from './stun-message.js';
 
 /** Who a username belongs to, and the password it was issued with. */
@@ -71,6 +72,20 @@ export const DEFAULT_TURN_QUOTAS: ITurnQuotas = {
   channelsPerAllocation: 32,
 };
 
+/**
+ * Answers to requests nobody has authenticated, per second. Such a request may carry a forged
+ * source address, so what it is answered with must not be worth sending it for.
+ */
+export interface IUnauthenticatedLimits {
+  readonly perSourcePerSecond: number;
+  readonly totalPerSecond: number;
+}
+
+export const DEFAULT_UNAUTHENTICATED_LIMITS: IUnauthenticatedLimits = {
+  perSourcePerSecond: 10,
+  totalPerSecond: 200,
+};
+
 export interface ITurnServerOptions {
   /** The address the server and its relayed sockets bind (default every IPv4 interface). */
   readonly host?: string;
@@ -83,14 +98,26 @@ export interface ITurnServerOptions {
   readonly relayPorts?: { readonly min: number; readonly max: number };
   /** The address relayed transport addresses carry (default `host`, or this machine's first external IPv4). */
   readonly relayAddress?: string;
-  /** Default `relay`: a realm travels in the clear, so it names nothing. */
+  /**
+   * Default `r`: a realm travels in the clear, so it names nothing, and it is short so a challenge
+   * fits in the request that asked for it.
+   */
   readonly realm?: string;
   /** Who `username` belongs to and its password; `undefined` refuses it. Asked once per allocation. */
   readonly authorize: (username: string) => Promise<ITurnAuthorization | undefined>;
   readonly quotas?: Partial<ITurnQuotas>;
+  /** How many requests nobody authenticated are answered, per source address and in all. */
+  readonly unauthenticatedLimits?: Partial<IUnauthenticatedLimits>;
+  /**
+   * Whether the default peer rule lets data reach private, link-local and shared (carrier-grade
+   * NAT) ranges: the relay host's own network (default true — a relayed connection to a device on
+   * that network needs it).
+   */
+  readonly allowPrivatePeers?: boolean;
   /**
    * Whether data may be relayed to or from `address`. Default: not unspecified, multicast or
-   * broadcast addresses, and not loopback unless the relay itself is on loopback.
+   * broadcast addresses, not loopback unless the relay itself is on loopback, and not private
+   * ranges when `allowPrivatePeers` is false.
    */
   readonly allowPeer?: (address: string) => boolean;
   readonly now?: () => number;
@@ -174,13 +201,28 @@ function isLoopback(address: string): boolean {
   return address.startsWith('127.') || address === '::1';
 }
 
-function defaultAllowPeer(relayOnLoopback: boolean): (address: string) => boolean {
+/** 10/8, 172.16/12, 192.168/16, 169.254/16 (link-local) and 100.64/10 (shared, carrier-grade NAT). */
+function isPrivateIpv4(address: string): boolean {
+  const [a = 0, b = 0] = address.split('.').map(Number);
+  return (
+    a === 10 ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 169 && b === 254) ||
+    (a === 100 && b >= 64 && b <= 127)
+  );
+}
+
+function defaultAllowPeer(
+  relayOnLoopback: boolean,
+  allowPrivate: boolean,
+): (address: string) => boolean {
   return (address) => {
     if (!isIPv4(address)) return false;
     const first = Number(address.split('.')[0]);
     if (first === 0 || first >= 224) return false; // unspecified, multicast, reserved, broadcast
     if (first === 127) return relayOnLoopback;
-    return true;
+    return allowPrivate || !isPrivateIpv4(address);
   };
 }
 
@@ -220,6 +262,10 @@ export class TurnServer {
   private readonly buckets = new Map<string, IBucket>();
   private readonly quotas: ITurnQuotas;
   private readonly realm: string;
+  private readonly limits: IUnauthenticatedLimits;
+  /** Answers to requests nobody has authenticated yet, per source address and in all. */
+  private readonly answerBuckets = new Map<string, IBucket>();
+  private answerBudget?: IBucket;
   private readonly nonceSecret = randomBytes(32);
   private readonly ownAddresses = localAddresses();
   private readonly allowPeer: (address: string) => boolean;
@@ -235,8 +281,11 @@ export class TurnServer {
     private readonly relayAddress: string,
   ) {
     this.quotas = { ...DEFAULT_TURN_QUOTAS, ...options.quotas };
-    this.realm = options.realm ?? 'relay';
-    this.allowPeer = options.allowPeer ?? defaultAllowPeer(isLoopback(relayAddress));
+    this.realm = options.realm ?? 'r';
+    this.limits = { ...DEFAULT_UNAUTHENTICATED_LIMITS, ...options.unauthenticatedLimits };
+    this.allowPeer =
+      options.allowPeer ??
+      defaultAllowPeer(isLoopback(relayAddress), options.allowPrivatePeers ?? true);
     socket.on('message', (data, rinfo) => this.receive(data, rinfo));
     socket.on('error', (error) => options.onError?.(error));
     this.sweeper = setInterval(() => this.sweep(), SWEEP_INTERVAL_MS);
@@ -354,32 +403,79 @@ export class TurnServer {
     this.send(response, to);
   }
 
+  /** A nonce: when it was issued and a MAC binding that to the client's address, 16 characters. */
   private nonce(client: ITransportAddress): string {
-    const issued = Math.floor(this.now() / 1000)
-      .toString(16)
-      .padStart(10, '0');
-    return issued + this.nonceMac(issued, client);
+    const issued = Buffer.alloc(4);
+    issued.writeUInt32BE(Math.floor(this.now() / 1000) >>> 0, 0);
+    return Buffer.concat([issued, this.nonceMac(issued, client)]).toString('base64url');
   }
 
-  private nonceMac(issued: string, client: ITransportAddress): string {
+  private nonceMac(issued: Buffer, client: ITransportAddress): Buffer {
     return createHmac('sha256', this.nonceSecret)
-      .update(`${issued}|${clientKey(client)}`)
-      .digest('hex')
-      .slice(0, 32);
+      .update(issued)
+      .update(clientKey(client))
+      .digest()
+      .subarray(0, 8);
   }
 
   private nonceValid(nonce: string, client: ITransportAddress): boolean {
-    if (nonce.length !== 42) return false;
-    const issued = nonce.slice(0, 10);
-    const expected = Buffer.from(this.nonceMac(issued, client));
-    const given = Buffer.from(nonce.slice(10));
-    if (given.length !== expected.length || !timingSafeEqual(given, expected)) return false;
-    const age = this.now() - parseInt(issued, 16) * 1000;
+    if (!/^[A-Za-z0-9_-]{16}$/.test(nonce)) return false;
+    const bytes = Buffer.from(nonce, 'base64url');
+    const issued = bytes.subarray(0, 4);
+    if (!timingSafeEqual(bytes.subarray(4), this.nonceMac(issued, client))) return false;
+    const age = this.now() - issued.readUInt32BE(0) * 1000;
     return age >= -60_000 && age <= NONCE_LIFETIME_MS;
   }
 
+  /** Take one answer from a budget refilled at `rate` per second; false when it is spent. */
+  private take(bucket: IBucket, rate: number, now: number): boolean {
+    bucket.tokens = Math.min(rate, bucket.tokens + ((now - bucket.at) / 1000) * rate);
+    bucket.at = now;
+    if (bucket.tokens < 1) return false;
+    bucket.tokens -= 1;
+    return true;
+  }
+
+  /**
+   * Answer a request nobody has authenticated. Its source may be forged, so the answer is never
+   * larger than the request (no reflection gain), and answers are limited per source address and in
+   * all; what is over is dropped unanswered.
+   */
+  private answerUnauthenticated(
+    request: IStunMessage,
+    to: ITransportAddress,
+    cls: TStunClass,
+    attrs: { type: number; value: Buffer }[],
+  ): void {
+    const response = encodeStun(request.method, cls, request.transactionId, attrs, {
+      fingerprint: false,
+    });
+    if (response.length > request.raw.length) return;
+    const now = this.now();
+    this.answerBudget ??= { tokens: this.limits.totalPerSecond, at: now };
+    const source =
+      this.answerBuckets.get(to.address) ?? { tokens: this.limits.perSourcePerSecond, at: now };
+    this.answerBuckets.set(to.address, source);
+    if (!this.take(source, this.limits.perSourcePerSecond, now)) return;
+    if (!this.take(this.answerBudget, this.limits.totalPerSecond, now)) return;
+    this.send(response, to);
+  }
+
+  /** An error answer to an unauthenticated request; the reason phrase is left empty to keep it small. */
+  private refuseUnauthenticated(
+    request: IStunMessage,
+    to: ITransportAddress,
+    code: number,
+    extra: { type: number; value: Buffer }[] = [],
+  ): void {
+    this.answerUnauthenticated(request, to, StunClass.Error, [
+      { type: StunAttr.ErrorCode, value: errorCode(code, '') },
+      ...extra,
+    ]);
+  }
+
   private challenge(request: IStunMessage, to: ITransportAddress, code: 401 | 438): void {
-    this.fail(request, to, code, code === 401 ? 'Unauthorized' : 'Stale Nonce', [
+    this.refuseUnauthenticated(request, to, code, [
       { type: StunAttr.Realm, value: Buffer.from(this.realm) },
       { type: StunAttr.Nonce, value: Buffer.from(this.nonce(to)) },
     ]);
@@ -406,7 +502,7 @@ export class TurnServer {
     const realm = attribute(request, StunAttr.Realm)?.toString('utf8');
     const nonce = attribute(request, StunAttr.Nonce)?.toString('utf8');
     if (username === undefined || realm === undefined || nonce === undefined) {
-      this.fail(request, client, 400, 'Bad Request');
+      this.refuseUnauthenticated(request, client, 400);
       return undefined;
     }
     if (realm !== this.realm) {
@@ -419,7 +515,7 @@ export class TurnServer {
     }
     if (allocation !== undefined) {
       if (username !== allocation.username) {
-        this.fail(request, client, 441, 'Wrong Credentials');
+        this.refuseUnauthenticated(request, client, 441);
         return undefined;
       }
       if (!verifyIntegrity(request, allocation.integrityKey)) {
@@ -457,7 +553,7 @@ export class TurnServer {
   private async request(request: IStunMessage, rinfo: RemoteInfo): Promise<void> {
     const client: ITransportAddress = { address: rinfo.address, port: rinfo.port };
     if (request.method === StunMethod.Binding) {
-      this.reply(request, client, [
+      this.answerUnauthenticated(request, client, StunClass.Success, [
         { type: StunAttr.XorMappedAddress, value: encodeXorAddress(client, request.transactionId) },
       ]);
       return;
@@ -469,7 +565,7 @@ export class TurnServer {
       StunMethod.ChannelBind,
     ];
     if (!known.includes(request.method)) {
-      this.fail(request, client, 400, 'Bad Request');
+      this.refuseUnauthenticated(request, client, 400);
       return;
     }
     const held = this.allocations.get(clientKey(client));
@@ -863,6 +959,10 @@ export class TurnServer {
 
   private sweep(): void {
     const now = this.now();
+    // A source whose budget has refilled is forgotten, so the table holds recent senders only.
+    for (const [address, bucket] of this.answerBuckets) {
+      if (now - bucket.at >= 1000) this.answerBuckets.delete(address);
+    }
     for (const allocation of [...this.allocations.values()]) {
       if (allocation.expiresAt <= now) {
         this.remove(allocation);

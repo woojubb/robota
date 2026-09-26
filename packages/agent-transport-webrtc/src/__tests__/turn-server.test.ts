@@ -1,6 +1,17 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { StunAttr, StunMethod } from '../stun-message.js';
+import { randomBytes } from 'node:crypto';
+import { createSocket } from 'node:dgram';
+
+import {
+  StunAttr,
+  StunClass,
+  StunMethod,
+  attribute,
+  decodeStun,
+  encodeStun,
+  readErrorCode,
+} from '../stun-message.js';
 import { TurnServer, type ITurnServerOptions } from '../turn-server.js';
 import { TurnTestClient, lifetimeOf, relayedAddress, udpPeer } from './turn-test-client.js';
 
@@ -143,11 +154,89 @@ describe('TURN server (RFC 8656 over UDP)', () => {
     expect((await (await client(server, 'user-c1')).allocate()).code).toBe(508);
   });
 
+  it('private and link-local peers can be ruled out; they are allowed by default', async () => {
+    const lan = { address: '192.168.1.20', port: 5000 };
+    const open = await client(await serve(), 'user-a1');
+    expect((await open.allocate()).ok).toBe(true);
+    expect((await open.permit(lan)).ok).toBe(true);
+
+    const closed = await client(await serve({ allowPrivatePeers: false }), 'user-a1');
+    expect((await closed.allocate()).ok).toBe(true);
+    for (const address of ['10.0.0.5', '172.16.4.4', '192.168.1.20', '169.254.1.1', '100.64.0.9']) {
+      expect((await closed.permit({ address, port: 5000 })).code).toBe(403);
+      expect((await closed.bindChannel(0x4002, { address, port: 5000 })).code).toBe(403);
+    }
+    expect((await closed.permit({ address: '203.0.113.9', port: 5000 })).ok).toBe(true);
+  });
+
   it('an unknown username or a wrong password gets no allocation', async () => {
     const server = await serve();
     expect((await (await client(server, 'nobody')).allocate()).code).toBe(401);
     expect((await (await client(server, 'user-a1', 'wrong')).allocate()).code).toBe(401);
     expect(server.allocationCount()).toBe(0);
+  });
+});
+
+describe('TURN server — requests nobody authenticated', () => {
+  /** A raw datagram from a socket of its own; resolves with the answers it got. */
+  async function probe(
+    server: TurnServer,
+    datagrams: readonly Buffer[],
+  ): Promise<{ readonly answers: Buffer[] }> {
+    const socket = createSocket('udp4');
+    await new Promise<void>((resolve) => socket.bind(0, '127.0.0.1', resolve));
+    closers.push(() => socket.close());
+    const answers: Buffer[] = [];
+    socket.on('message', (data) => answers.push(data));
+    for (const datagram of datagrams) {
+      socket.send(datagram, server.address.port, server.address.address);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    return { answers };
+  }
+
+  function allocateRequest(padding: number): Buffer {
+    return encodeStun(StunMethod.Allocate, StunClass.Request, randomBytes(12), [
+      { type: StunAttr.RequestedTransport, value: Buffer.from([17, 0, 0, 0]) },
+      ...(padding > 0 ? [{ type: 0x8022, value: Buffer.alloc(padding, 0x61) }] : []),
+    ]);
+  }
+
+  it('are never answered with more than they carry: the relay cannot amplify a forged source', async () => {
+    const server = await serve();
+    // A bare request is smaller than any challenge: it goes unanswered.
+    const bare = allocateRequest(0);
+    expect((await probe(server, [bare])).answers).toEqual([]);
+    const bareBinding = encodeStun(StunMethod.Binding, StunClass.Request, randomBytes(12), [], {
+      fingerprint: false,
+    });
+    expect((await probe(server, [bareBinding])).answers).toEqual([]);
+
+    // One the size a WebRTC client sends gets its challenge, no larger than itself.
+    const sized = allocateRequest(20);
+    const { answers } = await probe(server, [sized]);
+    expect(answers).toHaveLength(1);
+    expect(answers[0]!.length).toBeLessThanOrEqual(sized.length);
+    expect(readErrorCode(attribute(decodeStun(answers[0]!)!, StunAttr.ErrorCode))).toBe(401);
+  });
+
+  it('are answered at a limited rate per source address and in all; the rest are dropped', async () => {
+    const burst = Array.from({ length: 10 }, () => allocateRequest(40));
+    // Every probe here comes from 127.0.0.1, one source address whatever its port; the clock
+    // stands still, so no budget refills between probes.
+    const now = Date.now();
+    const perSource = await serve({
+      now: () => now,
+      unauthenticatedLimits: { perSourcePerSecond: 3, totalPerSecond: 100 },
+    });
+    expect((await probe(perSource, burst)).answers).toHaveLength(3);
+    expect((await probe(perSource, burst)).answers).toHaveLength(0);
+
+    const inAll = await serve({
+      now: () => now,
+      unauthenticatedLimits: { perSourcePerSecond: 100, totalPerSecond: 4 },
+    });
+    expect((await probe(inAll, burst)).answers).toHaveLength(4);
   });
 });
 
