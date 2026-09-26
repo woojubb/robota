@@ -55,12 +55,14 @@ function createCommandHostContext() {
           displayName: 'Help',
           description: 'Show available commands',
           modelInvocable: true,
+          runner: 'runtime',
         },
         {
           name: 'provider',
           displayName: 'Provider Setup',
           description: 'Manage provider profiles',
           modelInvocable: true,
+          runner: 'runtime',
         },
         // SEC-008: `plugin` installs and enables code, so it is NOT model-invocable — the fixture says
         // what the real command says rather than the value that happened to compile.
@@ -69,6 +71,7 @@ function createCommandHostContext() {
           displayName: 'Plugins',
           description: 'Manage plugins',
           modelInvocable: false,
+          runner: 'runtime',
         },
       ],
       listEditCheckpoints: () => [],

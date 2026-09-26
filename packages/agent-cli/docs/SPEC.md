@@ -121,13 +121,14 @@ standard input) or in the session view for the selected row, and holds that yes 
 the process start it named, so a caller without a terminal, a model included, is told the command to
 suggest instead. Leaving, `/exit` included, only detaches this terminal and never stops the session;
 an attach begun from the view returns to it. It is one more surface
-under the session's ordinary co-drive and prompt rules, never an operator approver, so a supervised
-session still refuses every mesh connection that needs one. Detaching or crashing ends only that
-connection: a turn in progress runs on, a prompt no other surface can answer is denied, and a reader
-that stops reading is cut off instead of holding the session. Automatic restart is not offered.
+under the session's ordinary co-drive, prompt and session-switching rules, never an operator
+approver, so a supervised session still refuses every mesh connection that needs one. Detaching or
+crashing ends only that connection: a turn in progress runs on, a prompt no other surface can
+answer is denied, and a reader that stops reading is cut off instead of holding the session. Automatic restart is not offered.
 A workspace's daemon is such a session, at most one per workspace even when starts race, marked so
-that a client in that workspace, the desktop app first, connects to the one already running instead of
-spawning a runtime of its own; a daemon that could not hand over a connection is never left running, and
+that a client in that workspace, the desktop app or a terminal attached with `robota --attach`, connects
+to the one already running instead of spawning a runtime of its own, so no launch option of the
+client's shapes that session; a daemon that could not hand over a connection is never left running, and
 the lock that keeps racing starts apart is removed only by the start that took it or by the user. The
 transport's per-launch authentication token is never exposed through the control endpoint or inventory,
 with one exception: a daemon, which receives it only through its environment and removes it from there so

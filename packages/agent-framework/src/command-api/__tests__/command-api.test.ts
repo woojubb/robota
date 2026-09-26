@@ -167,7 +167,12 @@ function createCommandHostContext() {
       },
       getCwd: () => '/workspace',
       listCommands: () => [
-        { name: 'example', description: 'Example command', modelInvocable: true },
+        {
+          name: 'example',
+          description: 'Example command',
+          modelInvocable: true,
+          runner: 'runtime',
+        },
       ],
       listEditCheckpoints: () => [],
       restoreEditCheckpoint: async () => createCheckpointResult(),

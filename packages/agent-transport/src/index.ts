@@ -54,7 +54,12 @@ export type {
 export { PROTOCOL_SESSION_EVENT_CLASSIFICATION } from './session-events.js';
 export type { TProtocolSessionEventClassification } from './session-events.js';
 export type { IProtocolSession } from './protocol-session.js';
-export type { TClientMessage, TServerMessage, TSeqServerMessage } from './wire-messages.js';
+export type {
+  IWireHistoryEntry,
+  TClientMessage,
+  TServerMessage,
+  TSeqServerMessage,
+} from './wire-messages.js';
 // Issue #2045: the owner-side runtime decoders; carriers implement `raw → decodeFrame → typed`.
 export {
   MAX_INBOUND_FRAME_BYTES,

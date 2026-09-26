@@ -6,9 +6,10 @@ import type { TCommandCatalog } from '../session-client-types.js';
 
 const catalog: TCommandCatalog = {
   commands: [
-    { name: 'help', description: 'Show commands', modelInvocable: false },
-    { name: 'mode', description: 'Change the permission mode', modelInvocable: false },
-    { name: 'memory', description: 'Project memory', modelInvocable: true },
+    { name: 'help', description: 'Show commands', modelInvocable: false, runner: 'runtime' },
+    { name: 'mode', description: 'Change the permission mode', modelInvocable: false, runner: 'runtime' },
+    { name: 'memory', description: 'Project memory', modelInvocable: true, runner: 'runtime' },
+    { name: 'shell', description: 'Open a shell', modelInvocable: false, runner: 'client', surfaces: ['terminal'] },
   ],
   skills: [
     { name: 'parity-demo', description: 'Demo', source: 'project', modelInvocable: true, userInvocable: true },
@@ -19,7 +20,7 @@ const catalog: TCommandCatalog = {
 describe('commandMenuFor (#3186)', () => {
   it('offers every command and user-invocable skill for a bare slash', () => {
     const menu = commandMenuFor(catalog, '/');
-    expect(menu?.map((i) => i.name)).toEqual(['help', 'memory', 'mode', 'parity-demo']);
+    expect(menu?.map((i) => i.name)).toEqual(['help', 'memory', 'mode', 'parity-demo', 'shell']);
     expect(menu?.find((i) => i.name === 'parity-demo')?.kind).toBe('skill');
   });
 
@@ -34,9 +35,20 @@ describe('commandMenuFor (#3186)', () => {
     expect(commandMenuFor(null, '/')).toBeNull();
   });
 
+  it('marks a command a client runs with the surfaces that run it, and a session command with none', () => {
+    const menu = commandMenuFor(catalog, '/');
+    expect(menu?.find((i) => i.name === 'shell')?.runsIn).toEqual(['terminal']);
+    expect(menu?.find((i) => i.name === 'help')).not.toHaveProperty('runsIn');
+  });
+
   it('shows at most the menu limit', () => {
     const many: TCommandCatalog = {
-      commands: Array.from({ length: 20 }, (_, i) => ({ name: `c${i}`, description: '', modelInvocable: false })),
+      commands: Array.from({ length: 20 }, (_, i) => ({
+        name: `c${i}`,
+        description: '',
+        modelInvocable: false,
+        runner: 'runtime' as const,
+      })),
       skills: [],
     };
     expect(commandMenuFor(many, '/c')).toHaveLength(COMMAND_MENU_LIMIT);

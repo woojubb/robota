@@ -36,6 +36,7 @@ function createMockSession(overrides: Partial<IInteractiveSession> = {}): IInter
     isExecuting: vi.fn().mockReturnValue(false),
     getPendingPrompt: vi.fn().mockReturnValue(null),
     getMessages: vi.fn().mockReturnValue([]),
+    getFullHistory: vi.fn().mockReturnValue([]),
     getContextState: vi.fn().mockReturnValue({
       usedPercentage: 0,
       usedTokens: 0,
@@ -164,8 +165,8 @@ describe('createInteractiveRuntime', () => {
 
   it('Given commands registered When started Then channel receives available commands', async () => {
     vi.mocked(session.listCommands).mockReturnValue([
-      { name: 'help', description: 'Show help', modelInvocable: true },
-      { name: 'exit', description: 'Exit', modelInvocable: true },
+      { name: 'help', description: 'Show help', modelInvocable: true, runner: 'runtime' },
+      { name: 'exit', description: 'Exit', modelInvocable: true, runner: 'runtime' },
     ]);
 
     const runtime = createInteractiveRuntime({

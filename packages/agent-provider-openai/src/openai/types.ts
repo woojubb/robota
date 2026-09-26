@@ -156,6 +156,9 @@ export interface IOpenAIProviderOptions {
    * schema marked optional becomes required and gains a `null` branch. The model must then supply
    * the key explicitly, with `null` standing for "not provided". A tool whose handler distinguishes
    * an absent key from a null value will see the difference.
+   *
+   * Both surfaces declare the functions strict (`strict: true` on each tool), so an OpenAI-compatible
+   * endpoint that rejects that field needs `strictTools` left off.
    */
   strictTools?: boolean;
 

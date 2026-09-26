@@ -161,7 +161,7 @@ describe('#3186 — commands and status for the composer', () => {
     );
     deliver({
       type: 'commands',
-      commands: [{ name: 'help', description: 'Show commands', modelInvocable: false }],
+      commands: [{ name: 'help', description: 'Show commands', modelInvocable: false, runner: 'runtime' }],
       skills: [
         { name: 'demo', description: 'Demo', source: 'project', modelInvocable: true, userInvocable: true },
       ],

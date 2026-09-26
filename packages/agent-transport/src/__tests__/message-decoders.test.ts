@@ -22,6 +22,7 @@ const CLIENT_SAMPLES: Readonly<Record<TClientMessage['type'], TClientMessage>> =
   abort: { type: 'abort' },
   'cancel-queue': { type: 'cancel-queue' },
   'get-messages': { type: 'get-messages' },
+  'get-history': { type: 'get-history' },
   'get-context': { type: 'get-context' },
   'get-commands': { type: 'get-commands' },
   'get-status': { type: 'get-status' },
@@ -76,7 +77,21 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
   error: { type: 'error', message: 'm' },
   command_result: { type: 'command_result', name: 'n', message: 'm', success: true },
   messages: { type: 'messages', messages: [] },
+  history: {
+    type: 'history',
+    entries: [
+      {
+        id: 'e1',
+        timestamp: '2026-09-26T01:02:03.004Z',
+        category: 'event',
+        type: 'skill-activation',
+        data: { name: 'review' },
+      },
+    ],
+  },
   context: { type: 'context', state: {} as never },
+  history_changed: { type: 'history_changed' },
+  turn_source: { type: 'turn_source', source: 'peer' },
   commands: { type: 'commands', commands: [], skills: [] },
   session_status: { type: 'session_status', status: {} as never },
   sessions: { type: 'sessions', requestId: 'request-3', listing: {} as never },
@@ -211,6 +226,18 @@ const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
     { type: 'sessions_error', requestId: 'r', code: 'nope', message: 'm' },
   ],
   ['session_switched without event', { type: 'session_switched' }],
+  ['history without entries', { type: 'history' }],
+  ['history with a primitive entry', { type: 'history', entries: ['x'] }],
+  [
+    'history with a numeric timestamp',
+    { type: 'history', entries: [{ id: 'e', timestamp: 1, category: 'chat', type: 'user' }] },
+  ],
+  [
+    'history with an entry missing its category',
+    { type: 'history', entries: [{ id: 'e', timestamp: 't', type: 'user' }] },
+  ],
+  ['turn_source with an unknown source', { type: 'turn_source', source: 'robot' }],
+  ['turn_source without source', { type: 'turn_source' }],
 ];
 
 describe('decodeClientMessage (issue #2045)', () => {

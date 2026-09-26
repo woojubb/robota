@@ -113,16 +113,23 @@ interface ISentTool {
   name: string;
   description: string;
   parameters: unknown;
+  /** Whether the tool was declared strict on the wire (absent counts as not strict). */
+  strict: boolean;
 }
 
 function sentToolsFromResponses(client: IFakeClient): ISentTool[] {
   const [requestParams] = client.responses.create.mock.calls[
     client.responses.create.mock.calls.length - 1
-  ] as [{ tools?: Array<{ name: string; description: string; parameters: unknown }> }];
+  ] as [
+    {
+      tools?: Array<{ name: string; description: string; parameters: unknown; strict?: boolean }>;
+    },
+  ];
   return (requestParams.tools ?? []).map((tool) => ({
     name: tool.name,
     description: tool.description,
     parameters: tool.parameters,
+    strict: tool.strict === true,
   }));
 }
 
@@ -131,13 +138,16 @@ function sentToolsFromChatCompletions(client: IFakeClient): ISentTool[] {
     client.chat.completions.create.mock.calls.length - 1
   ] as [
     {
-      tools?: Array<{ function: { name: string; description: string; parameters: unknown } }>;
+      tools?: Array<{
+        function: { name: string; description: string; parameters: unknown; strict?: boolean };
+      }>;
     },
   ];
   return (requestParams.tools ?? []).map((tool) => ({
     name: tool.function.name,
     description: tool.function.description,
     parameters: tool.function.parameters,
+    strict: tool.function.strict === true,
   }));
 }
 
@@ -173,6 +183,7 @@ describe.each([
 
       const sent = sentTools(client);
       expect(sent).toHaveLength(3);
+      expect(sent.every((tool) => !tool.strict)).toBe(true);
       for (const [index, tool] of tools.entries()) {
         const projection = projectToolSchema(tool, PERMISSIVE_PROFILE);
         expect(sent[index]?.parameters).toEqual(projection.tool.parameters);
@@ -242,6 +253,7 @@ describe.each([
 
       const sent = sentTools(client);
       expect(sent.map((tool) => tool.name)).toEqual(['good_tool_one', 'good_tool_two']);
+      expect(sent.every((tool) => !tool.strict)).toBe(true);
     });
   },
 );
@@ -274,6 +286,7 @@ describe.each([
         const projection = projectToolSchema(tool, STRICT_PROFILE);
         expect(sent[index]?.parameters).toEqual(projection.tool.parameters);
         expect(sent[index]?.description).toEqual(projection.tool.description);
+        expect(sent[index]?.strict).toBe(true);
       }
     });
 
@@ -297,6 +310,7 @@ describe.each([
       const sent = sentTools(client);
       const projection = projectToolSchema(fixtures.subsetOnly, STRICT_PROFILE);
       expect(sent[0]?.parameters).toEqual(projection.tool.parameters);
+      expect(sent[0]?.strict).toBe(true);
     });
   },
 );

@@ -52,30 +52,31 @@ export function Composer({
           aria-label="commands"
           className="gui-rise absolute bottom-full left-3 right-3 mb-1 overflow-hidden rounded-xl border border-border/70 bg-card shadow-lg shadow-black/40"
         >
-          {menu.map((item, index) => (
-            <button
-              key={`${item.kind}:${item.name}`}
-              type="button"
-              role="option"
-              aria-selected={index === selected}
-              onMouseEnter={() => setSelected(index)}
-              onMouseDown={(event) => {
-                event.preventDefault();
-                setDraft(`/${item.name} `);
-              }}
-              className={`flex w-full items-baseline gap-3 px-3 py-1.5 text-left font-mono text-[12px] ${
-                index === selected ? 'bg-primary/10 text-foreground' : 'text-muted-foreground'
-              }`}
-            >
-              <span className="flex-shrink-0 text-foreground/90">/{item.name}</span>
-              <span className="min-w-0 flex-1 truncate opacity-70">{item.description}</span>
-              {item.kind === 'skill' && (
-                <span className="flex-shrink-0 rounded border border-border/60 px-1 text-[10px] uppercase tracking-wider opacity-60">
-                  skill
-                </span>
-              )}
-            </button>
-          ))}
+          {menu.map((item, index) => {
+            const runsElsewhere = item.runsIn ? runsInDescription(item.runsIn) : undefined;
+            return (
+              <button
+                key={`${item.kind}:${item.name}`}
+                type="button"
+                role="option"
+                aria-selected={index === selected}
+                aria-description={runsElsewhere}
+                onMouseEnter={() => setSelected(index)}
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  setDraft(`/${item.name} `);
+                }}
+                className={`flex w-full items-baseline gap-3 px-3 py-1.5 text-left font-mono text-[12px] ${
+                  index === selected ? 'bg-primary/10 text-foreground' : 'text-muted-foreground'
+                }${runsElsewhere ? ' opacity-60' : ''}`}
+              >
+                <span className="flex-shrink-0 text-foreground/90">/{item.name}</span>
+                <span className="min-w-0 flex-1 truncate opacity-70">{item.description}</span>
+                {item.kind === 'skill' && <MenuBadge label="skill" />}
+                {item.runsIn && <MenuBadge label={item.runsIn.join(' · ') || 'client'} title={runsElsewhere} />}
+              </button>
+            );
+          })}
         </div>
       )}
       <form
@@ -126,6 +127,26 @@ export function Composer({
       </form>
       <StatusRow status={status} onCommand={onCommand} />
     </div>
+  );
+}
+
+/**
+ * Where a command the session does not run is run instead. The GUI runs no client command, so its
+ * row stays offered — choosing it inserts the command and the session answers with its refusal —
+ * but says where it works.
+ */
+function runsInDescription(runsIn: readonly string[]): string {
+  return `Runs in the robota ${runsIn.join(' or ') || 'client'}`;
+}
+
+function MenuBadge({ label, title }: { label: string; title?: string }): React.ReactElement {
+  return (
+    <span
+      title={title}
+      className="flex-shrink-0 rounded border border-border/60 px-1 text-[10px] uppercase tracking-wider opacity-60"
+    >
+      {label}
+    </span>
   );
 }
 

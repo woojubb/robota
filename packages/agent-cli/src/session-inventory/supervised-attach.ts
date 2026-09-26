@@ -22,6 +22,7 @@ import {
 } from '@robota-sdk/agent-transport';
 
 import type { Socket } from 'node:net';
+import type { ISessionDirectory } from '@robota-sdk/agent-interface-session';
 import type {
   ICapabilityApprovalRequest,
   IOperatorApprover,
@@ -70,7 +71,18 @@ export interface ISupervisedAttachCarrier {
   admit(socket: Socket, request: object, rest: string, respond: ISupervisedAttachResponder): Promise<void>;
 }
 
-export function createSupervisedAttachCarrier(session: IProtocolSession): ISupervisedAttachCarrier {
+export interface ISupervisedAttachCarrierOptions {
+  /**
+   * The host's sessions, the same directory its WebSocket clients reach: an attached terminal lists,
+   * starts and switches them, and a switch moves every client. Absent, listing is not available.
+   */
+  readonly sessionDirectory?: ISessionDirectory;
+}
+
+export function createSupervisedAttachCarrier(
+  session: IProtocolSession,
+  options: ISupervisedAttachCarrierOptions = {},
+): ISupervisedAttachCarrier {
   const attached = new Set<Socket>();
   let admitted = 0;
   return {
@@ -120,6 +132,7 @@ export function createSupervisedAttachCarrier(session: IProtocolSession): ISuper
         driverId,
         surface: 'attach',
         role: mode,
+        ...(options.sessionDirectory !== undefined ? { sessionDirectory: options.sessionDirectory } : {}),
       });
       // Detaching, a crash of the attacher, and the session closing its control all end here. The
       // session is never told to abort: an unsubscribed surface is simply gone, and a prompt only it

@@ -13,7 +13,11 @@ import type {
   TBackgroundJobGroupEvent,
   TBackgroundTaskEvent,
 } from '@robota-sdk/agent-interface-execution';
-import type { TDriverId, TInteractiveEventName } from '@robota-sdk/agent-interface-session';
+import type {
+  TDriverId,
+  TInteractiveEventName,
+  TTurnSource,
+} from '@robota-sdk/agent-interface-session';
 import type {
   IAskRequestEvent,
   IBranchEvent,
@@ -38,17 +42,17 @@ export const PROTOCOL_SESSION_EVENT_CLASSIFICATION = {
   thinking: 'forwarded',
   complete: 'forwarded',
   error: 'forwarded',
-  context_update: 'non-surface',
-  compact: 'non-surface',
+  context_update: 'forwarded',
+  compact: 'forwarded',
   interrupted: 'forwarded',
-  skill_activation: 'non-surface',
+  skill_activation: 'forwarded',
   background_task_event: 'forwarded',
   background_job_group_event: 'forwarded',
   execution_workspace_event: 'forwarded',
   user_message: 'forwarded',
-  turn_source: 'non-surface',
+  turn_source: 'forwarded',
   context_file_refreshed: 'forwarded',
-  memory_event: 'non-surface',
+  memory_event: 'forwarded',
   goal_event: 'non-surface',
   plan_event: 'forwarded',
   branch_event: 'forwarded',
@@ -98,8 +102,8 @@ export function subscribeSessionEvents(
 ): () => void {
   // ARCH-030: no local guard wrapper any more, and no event name passed alongside the message. The name
   // existed so the local guard could label a failure with it; the boundary labels with `message.type`,
-  // which is identical for every forwarded event (asserted in `session-event-delivery.test.ts`). Keeping
-  // the argument would have been a parameter that documents nothing and is read by nobody.
+  // the frame that could not be delivered. Keeping the argument would have been a parameter that
+  // documents nothing and is read by nobody.
   // REMOTE-014 E5: stamp the ACTIVE turn's driver id onto TURN-AUTHORED events (co-drive authorship,
   // display-only), read at emit time. Only these events — background/goal/memory/execution-workspace events
   // are NOT authored by a driver turn and carry no `driverId`. `undefined` when idle or unattributed.
@@ -163,6 +167,14 @@ export function subscribeSessionEvents(
   // #3189: BROADCAST — the host made another session current; every attached surface re-reads.
   const onSessionSwitched = (event: ISessionSwitchedEvent): void =>
     deliver({ type: 'session_switched', event });
+  // #3189: what a client that renders the whole session (the TUI) needs beside the streamed turn.
+  // The context window is pushed in the frame `get-context` answers with. A compaction, a skill
+  // activation or a memory event adds history entries no streamed frame carries, so the client is
+  // told the history changed and re-reads it with `get-history`; the entries themselves are not sent.
+  const onContextUpdate = (state: ReturnType<IProtocolSession['getContextState']>): void =>
+    deliver({ type: 'context', state });
+  const onHistoryChanged = (): void => deliver({ type: 'history_changed' });
+  const onTurnSource = (source: TTurnSource): void => deliver({ type: 'turn_source', source });
 
   session.on('user_message', onUserMessage);
   session.on('text_delta', onTextDelta);
@@ -188,6 +200,11 @@ export function subscribeSessionEvents(
   session.on('session_renamed', onSessionRenamed);
   session.on('history_cleared', onHistoryCleared);
   session.on('session_switched', onSessionSwitched);
+  session.on('context_update', onContextUpdate);
+  session.on('compact', onHistoryChanged);
+  session.on('skill_activation', onHistoryChanged);
+  session.on('memory_event', onHistoryChanged);
+  session.on('turn_source', onTurnSource);
 
   return (): void => {
     session.off('user_message', onUserMessage);
@@ -213,5 +230,10 @@ export function subscribeSessionEvents(
     session.off('session_renamed', onSessionRenamed);
     session.off('history_cleared', onHistoryCleared);
     session.off('session_switched', onSessionSwitched);
+    session.off('context_update', onContextUpdate);
+    session.off('compact', onHistoryChanged);
+    session.off('skill_activation', onHistoryChanged);
+    session.off('memory_event', onHistoryChanged);
+    session.off('turn_source', onTurnSource);
   };
 }

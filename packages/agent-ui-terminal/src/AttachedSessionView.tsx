@@ -17,15 +17,16 @@ import {
 } from './screen-reader-announcement.js';
 import { ScreenReaderProvider, useScreenReader } from './screen-reader-context.js';
 
-import type { TClientMessage, TServerMessage } from '@robota-sdk/agent-transport/client';
+import type {
+  IAttachedSessionConnection,
+  TAttachedSessionEnd,
+} from './attached-session-connection.js';
+import type { TServerMessage } from '@robota-sdk/agent-transport/client';
 
-export interface IAttachedSessionConnection {
-  send(message: TClientMessage): void;
-  subscribe(listener: (message: TServerMessage) => void): () => void;
-  onClose(listener: () => void): () => void;
-}
-
-export type TAttachedSessionEnd = 'user' | 'closed';
+export type {
+  IAttachedSessionConnection,
+  TAttachedSessionEnd,
+} from './attached-session-connection.js';
 
 export interface IAttachedSessionViewProps {
   readonly connection: IAttachedSessionConnection;
