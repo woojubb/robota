@@ -9,7 +9,13 @@ import { MAX_INBOUND_FRAME_BYTES } from '@robota-sdk/agent-transport';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createHandshakeApprover, MAX_ATTACHED_SURFACES } from '../supervised-attach.js';
-import { startSupervisedControl, type ISupervisedControl } from '../supervised-session-control.js';
+import {
+  listSupervisedExternalEvents,
+  revokeSupervisedExternalEventGrant,
+  startSupervisedControl,
+  type ISupervisedControl,
+  type ISupervisedExternalEvents,
+} from '../supervised-session-control.js';
 
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 
@@ -107,7 +113,12 @@ async function withTarget(
       Promise<{ reply: Record<string, unknown>; client: IClient }>;
     closeControl: () => Promise<void>;
   }) => Promise<void>,
-  options: { run?: () => Promise<string>; withRemoteControl?: boolean; attachable?: boolean } = {},
+  options: {
+    run?: () => Promise<string>;
+    withRemoteControl?: boolean;
+    attachable?: boolean;
+    externalEvents?: ISupervisedExternalEvents;
+  } = {},
 ): Promise<void> {
   const scratch = mkdtempSync(join(tmpdir(), prefix));
   const root = join(scratch, 'supervised');
@@ -126,7 +137,8 @@ async function withTarget(
   try {
     control = await startSupervisedControl(
       ID, () => undefined, root, () => session.getLocalActivityStatus(), undefined, undefined,
-      undefined, undefined, undefined, options.attachable === false ? undefined : session,
+      undefined, undefined, undefined, options.externalEvents,
+      options.attachable === false ? undefined : session,
     );
     const attach = (mode: 'drive' | 'observe', extra: Record<string, unknown> = {}, pipelined = '') =>
       handshake(
@@ -311,6 +323,32 @@ describe('supervised attach carrier', () => {
       expect(result.message).toMatch(/operator at this terminal/);
       client.socket.destroy();
     }, { withRemoteControl: true });
+  });
+
+  it('serves the external-event commands on the same socket while a terminal is attached', async () => {
+    const revoked: string[] = [];
+    const externalEvents: ISupervisedExternalEvents = {
+      list: () => [{
+        grantId: 'ci', principal: 'client', state: revoked.includes('ci') ? 'revoked' : 'open',
+        counters: { accepted: 0, refused: {}, settled: {} },
+      }],
+      revoke: (grantId) => {
+        if (grantId !== 'ci') return 'unknown-grant';
+        revoked.push(grantId);
+        return 'revoked';
+      },
+    };
+    await withTarget('rs-b5-', async ({ root, attach }) => {
+      const { client } = await attach('drive');
+      expect((await listSupervisedExternalEvents(ID, root)).map((grant) => grant.state)).toEqual(['open']);
+      await expect(revokeSupervisedExternalEventGrant(ID, 'ci', root, 'A'.repeat(22))).rejects.toThrow(/changed/i);
+      expect(revoked).toEqual([]);
+      await revokeSupervisedExternalEventGrant(ID, 'ci', root, generationOf(root));
+      expect(revoked).toEqual(['ci']);
+      client.send({ type: 'get-executing' });
+      expect(await client.waitFor('executing')).toEqual({ type: 'executing', executing: false });
+      client.socket.destroy();
+    }, { externalEvents });
   });
 
   it('ends attached connections when the session closes its control', async () => {

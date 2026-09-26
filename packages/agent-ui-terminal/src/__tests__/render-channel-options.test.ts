@@ -173,6 +173,18 @@ describe('toChannelOptions', () => {
     expect(channelOptions.editCheckpointStore).toBe(editCheckpointStore);
   });
 
+  it('carries the host external-event verifier factory to the session options', () => {
+    const factory = () => ({ verify: async () => ({ admitted: true as const }) });
+    const channelOptions = toChannelOptions({
+      cwd: '/tmp/project',
+      provider: {} as IAIProvider,
+      cliAdapter: {} as ITuiCliAdapter,
+      externalEventVerifierFactory: factory,
+    });
+    expect(channelOptions.externalEventVerifierFactory).toBe(factory);
+    expect(buildTuiSessionOptions(channelOptions).externalEventVerifierFactory).toBe(factory);
+  });
+
   it('SCREEN-1993: projects the prompt-history writer to the channel and on to the session options', () => {
     const promptHistory = { writer: { append: () => undefined }, project: '/p' };
     const channelOptions = toChannelOptions({

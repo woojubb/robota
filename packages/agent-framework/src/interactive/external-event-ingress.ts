@@ -9,6 +9,7 @@ import type {
 } from '@robota-sdk/agent-interface-session';
 import type {
   IAccessTokenVerifier,
+  IAccessTokenVerifierConfig,
   IExternalEventGrant,
   TExternalEventAuditRecord,
   TExternalEventRefusal,
@@ -17,12 +18,13 @@ import type {
 import type { TPermissionMode } from '@robota-sdk/agent-core';
 
 /**
- * One grant's source. `verifier` must be built from `grant.verifier`; the host carries the pair a
- * carrier delivers and trusts nothing else it says.
+ * One grant's source. The ingress builds the grant's verifier from `grant.verifier` with the factory
+ * its host was constructed with, so the principal the grant pins is the one its tokens are checked
+ * against; opening a grant carries no verifier and no factory. The host carries the pair a carrier
+ * delivers and trusts nothing else it says.
  */
 export interface IExternalEventSourceOptions {
   readonly grant: IExternalEventGrant;
-  readonly verifier: IAccessTokenVerifier;
   /** Receives one content-free record per refusal and per settlement. A throw is ignored. */
   readonly audit?: (record: TExternalEventAuditRecord) => void;
 }
@@ -48,14 +50,23 @@ export interface IExternalEventSource {
   receive(delivery: unknown): Promise<TExternalEventReceipt>;
   /** Stop admission synchronously; already-submitted turns retain their exact settlement. */
   close(): void;
+  /**
+   * Withdraw the grant: later events are refused as revoked, its queued and running turns are
+   * stopped, and the label cannot be opened again on this ingress.
+   */
+  revoke(): void;
 }
 
 export interface IExternalEventHost {
   getPermissionMode(): TPermissionMode;
   addPermissionModeGuard(guard: (next: TPermissionMode) => void): () => void;
   submit(input: string, options: ISubmitOptions): Promise<ITurnHandle>;
+  /** The host's one way to build a verifier; the ingress calls it with each grant's own config. */
+  createVerifier(config: IAccessTokenVerifierConfig): IAccessTokenVerifier;
   /** Wall-clock milliseconds, for rate windows, token expiry and audit times. */
   now?: () => number;
+  /** Whether the session has begun shutting down; a refused submission is then named so. */
+  isShuttingDown?: () => boolean;
 }
 
 const MAX_EVENT_BYTES = 16 * 1024;
@@ -168,6 +179,11 @@ interface IGrantHistory {
   readonly rate: PeerTurnRateLimiter;
   /** The rate windows `rate` counts against; a reopen with other windows starts a new count. */
   readonly windows: string;
+  revoked: boolean;
+}
+
+function closedRefusal(source: ISourceState): TExternalEventRefusal {
+  return source.history.revoked ? 'grant-revoked' : 'source-closed';
 }
 
 interface ISourceState {
@@ -176,6 +192,9 @@ interface ISourceState {
   readonly audit: IExternalEventSourceOptions['audit'];
   readonly rate: PeerTurnRateLimiter;
   readonly spent: Map<string, number>;
+  readonly history: IGrantHistory;
+  /** Stops this grant's queued and running turns when it is revoked. */
+  readonly turns: AbortController;
   active: boolean;
   pending: number;
 }
@@ -197,7 +216,13 @@ export class ExternalEventIngress {
 
   open(options: IExternalEventSourceOptions): IExternalEventSource {
     const { grant } = options;
+    if ('verifier' in options || 'createVerifier' in options) {
+      throw new Error('external event grant verifier is built by the host from the grant itself');
+    }
     validateGrant(grant);
+    if (this.history.get(grant.grantId)?.revoked === true) {
+      throw new Error(`external event grant ${grant.grantId} was revoked`);
+    }
     if (this.sources.has(grant.grantId)) {
       throw new Error(
         `external event grant ${grant.grantId} is already open or still settling its turns`,
@@ -206,10 +231,18 @@ export class ExternalEventIngress {
     if (this.host.getPermissionMode() === 'bypassPermissions') {
       throw new Error('external event ingress cannot run in bypassPermissions mode');
     }
+    let verifier: IAccessTokenVerifier;
+    try {
+      verifier = this.host.createVerifier(grant.verifier);
+    } catch {
+      throw new Error(`external event grant ${grant.grantId}: its verifier could not be built`);
+    }
     const history = this.historyOf(grant);
     const state: ISourceState = {
       grant,
-      verifier: options.verifier,
+      verifier,
+      history,
+      turns: new AbortController(),
       audit: options.audit,
       rate: history.rate,
       spent: history.spent,
@@ -234,6 +267,11 @@ export class ExternalEventIngress {
         return receipt;
       },
       close: () => this.close(state),
+      revoke: () => {
+        history.revoked = true;
+        state.turns.abort();
+        this.close(state);
+      },
     };
   }
 
@@ -246,6 +284,7 @@ export class ExternalEventIngress {
       spent: previous?.spent ?? new Map(),
       rate: new PeerTurnRateLimiter(windows, this.now),
       windows: key,
+      revoked: false,
     };
     this.history.set(grant.grantId, next);
     return next;
@@ -314,7 +353,7 @@ export class ExternalEventIngress {
   }
 
   private async receive(source: ISourceState, delivery: unknown): Promise<TExternalEventReceipt> {
-    if (!source.active) return { admitted: false, refusal: 'source-closed' };
+    if (!source.active) return { admitted: false, refusal: closedRefusal(source) };
     const token = isRecord(delivery) ? delivery['token'] : undefined;
     if (typeof token !== 'string' || token.length === 0)
       return { admitted: false, refusal: 'missing-token' };
@@ -324,7 +363,7 @@ export class ExternalEventIngress {
     } catch {
       verdict = { admitted: false, refusal: 'malformed' };
     }
-    if (!source.active) return { admitted: false, refusal: 'source-closed' };
+    if (!source.active) return { admitted: false, refusal: closedRefusal(source) };
     if (!verdict.admitted) return { admitted: false, refusal: verdict.refusal };
     const event = readMessage(isRecord(delivery) ? delivery['event'] : undefined);
     if (typeof event === 'string') return { admitted: false, refusal: event };
@@ -355,14 +394,22 @@ export class ExternalEventIngress {
       // An idle session runs the turn inside `submit`; the receipt is due at acceptance.
       handle = await new Promise<ITurnHandle>((resolve, reject) => {
         this.host
-          .submit(input, { turnSource: 'external', driverId, onAccepted: resolve })
+          .submit(input, {
+            turnSource: 'external',
+            driverId,
+            signal: source.turns.signal,
+            onAccepted: resolve,
+          })
           .then(resolve, reject);
       });
     } catch {
       source.pending -= 1;
       this.pending -= 1;
       this.maybeRelease(source);
-      return { admitted: false, refusal: 'shutting-down' };
+      return {
+        admitted: false,
+        refusal: this.host.isShuttingDown?.() === true ? 'shutting-down' : 'session-unavailable',
+      };
     }
     const settled: Promise<TExternalEventSettlement> = handle.completed
       .then(

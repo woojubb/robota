@@ -52,6 +52,7 @@ import type {
   IPerTurnRecallConfig,
   TWorkspaceProjectAccess,
   EditCheckpointStore,
+  TInteractiveSessionOptions,
   IOrgPolicy,
   IProviderErrorGuidance,
   IProjectSettingsPath,
@@ -106,6 +107,8 @@ export interface IRenderOptions {
   orgPolicy?: IOrgPolicy | undefined;
   /** Explicit authority- and permission-backed edit checkpoint capability. */
   editCheckpointStore?: EditCheckpointStore;
+  /** The host's way to build each external-event grant's verifier; absent, no grant opens. */
+  externalEventVerifierFactory?: TInteractiveSessionOptions['externalEventVerifierFactory'];
   providerOverride?: string | undefined;
   /**
    * #1844: forwarded to the session so `/provider switch` can construct the provider it switches TO.
@@ -287,6 +290,9 @@ export function toChannelOptions(
     ...(options.orgPolicy !== undefined ? { orgPolicy: options.orgPolicy } : {}),
     ...(options.editCheckpointStore !== undefined
       ? { editCheckpointStore: options.editCheckpointStore }
+      : {}),
+    ...(options.externalEventVerifierFactory !== undefined
+      ? { externalEventVerifierFactory: options.externalEventVerifierFactory }
       : {}),
     ...(options.providerDefinitions ? { providerDefinitions: options.providerDefinitions } : {}),
     // CLI-076: the display model id doubles as the session's model override so `--model` actually reaches

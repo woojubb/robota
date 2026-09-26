@@ -79,9 +79,38 @@ describe('parseCliArgs', () => {
       ['--external-event-allow', 'chat:alice', '-p', 'hello'],
       ['--external-event-allow', 'chat:alice', '--serve'],
     ]) {
-      expect(() => parseCliArgs(argv)).toThrow(/--external-event-allow was retired.*access token/);
+      expect(() => parseCliArgs(argv)).toThrow(
+        /--external-event-allow was retired.*access token.*--external-event-grant/,
+      );
     }
     expect(parseCliArgs([])).not.toHaveProperty('externalEventAllow');
+  });
+
+  it('takes verified external event grant files only for the interactive TUI', () => {
+    expect(
+      parseCliArgs(['--external-event-grant', 'a.json', '--external-event-grant', 'b.json'])
+        .externalEventGrantFiles,
+    ).toEqual(['a.json', 'b.json']);
+    expect(parseCliArgs([]).externalEventGrantFiles).toEqual([]);
+    for (const extra of [['-p', 'hello'], ['--serve'], ['--reset'], ['session'], ['mcp']]) {
+      expect(() => parseCliArgs(['--external-event-grant', 'a.json', ...extra])).toThrow(
+        /--external-event-grant is available only in the interactive TUI/,
+      );
+    }
+    expect(() =>
+      parseCliArgs(['--external-event-grant', 'a.json', '--permission-mode', 'bypassPermissions']),
+    ).toThrow(/bypassPermissions/);
+  });
+
+  it('accepts the supervised grant handoff flag only from a supervised launch', () => {
+    const id = '0f6c3a5e-8c1b-4d2a-9f3e-1a2b3c4d5e6f';
+    expect(
+      parseCliArgs(['--serve', '--supervised-session-id', id, '--supervised-external-event-grants'])
+        .supervisedExternalEventGrants,
+    ).toBe(true);
+    expect(() => parseCliArgs(['--serve', '--supervised-external-event-grants'])).toThrow(
+      /--supervised-external-event-grants/,
+    );
   });
 
   it('parses the effort flag and validates its values', () => {

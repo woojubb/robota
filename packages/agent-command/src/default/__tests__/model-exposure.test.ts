@@ -94,6 +94,7 @@ const USER_ONLY_COMMANDS = [
   'plugin',
   'reload-plugins',
   'remote-control',
+  'events',
   // Account and credential actions.
   'provider',
   // Permission widening or permission-mode changes.

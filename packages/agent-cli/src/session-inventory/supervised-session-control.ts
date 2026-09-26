@@ -7,6 +7,16 @@ import { dirname, isAbsolute, join } from 'node:path';
 
 import { admitLocalPeerDirectory, ensureGuardedDirectory } from '@robota-sdk/agent-remote-pairing/local';
 
+import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
+import type {
+  IExternalEventGrantCounters,
+  IExternalEventGrantRow,
+} from '../external-events/external-event-grant-host.js';
+
+import {
+  parseExternalEventGrant,
+  toExternalEventGrantDocument,
+} from '../external-events/external-event-grant-file.js';
 import { readProcessStartTime } from '../remote-control/local-peer-registry.js';
 import { resolveRendezvousDirectory } from '../remote-control/local-peer-rendezvous.js';
 import { createSupervisedAttachCarrier } from './supervised-attach.js';
@@ -31,7 +41,62 @@ interface IRegistration {
   readonly generation?: string;
 }
 
-type TControlCommand = 'status' | 'stop' | 'rename' | 'link-pr' | 'unlink-pr';
+type TControlCommand =
+  | 'status' | 'stop' | 'rename' | 'link-pr' | 'unlink-pr' | 'events-list' | 'events-revoke';
+
+const GRANT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/u;
+const MAX_GRANT_HANDOFF_BYTES = 256 * 1024;
+const MAX_LISTED_GRANTS = 64;
+const REFUSALS: ReadonlySet<string> = new Set([
+  'oversize', 'malformed', 'wrong-type', 'unsupported-algorithm', 'ambiguous-key', 'unknown-key',
+  'key-mismatch', 'bad-signature', 'wrong-issuer', 'wrong-audience', 'expired', 'not-yet-valid',
+  'missing-scope', 'principal-not-allowed', 'keys-unavailable', 'missing-token', 'unknown-grant',
+  'grant-revoked', 'source-closed', 'malformed-event', 'rate-limited', 'queue-full', 'shutting-down',
+  'session-unavailable',
+]);
+const SETTLEMENTS: ReadonlySet<string> = new Set(['completed', 'interrupted', 'not-run', 'failed']);
+
+/** A grant as a session listing shows it: label, state and counts, never the principal. */
+export type TSupervisedGrantSummary = Omit<IExternalEventGrantRow, 'principal'>;
+
+function isCountMap(value: unknown, keys: ReadonlySet<string>): value is Record<string, number> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value) &&
+    Object.entries(value).every(([key, count]) =>
+      keys.has(key) && Number.isSafeInteger(count) && Number(count) >= 0);
+}
+
+function readGrantCounters(value: unknown): IExternalEventGrantCounters | undefined {
+  if (typeof value !== 'object' || value === null || !('accepted' in value) || !('refused' in value) ||
+    !('settled' in value) || !Number.isSafeInteger(value.accepted) || Number(value.accepted) < 0 ||
+    !isCountMap(value.refused, REFUSALS) || !isCountMap(value.settled, SETTLEMENTS)) return undefined;
+  return {
+    accepted: Number(value.accepted),
+    refused: { ...value.refused },
+    settled: { ...value.settled },
+  };
+}
+
+/** Rebuild a grant summary from exactly the fields it may carry, so nothing else is echoed. */
+function readGrantSummary(value: unknown): TSupervisedGrantSummary | undefined {
+  if (typeof value !== 'object' || value === null || !('grantId' in value) || !('state' in value) ||
+    typeof value.grantId !== 'string' || !GRANT_ID_PATTERN.test(value.grantId) ||
+    (value.state !== 'open' && value.state !== 'revoked') || !('counters' in value)) return undefined;
+  const counters = readGrantCounters(value.counters);
+  return counters === undefined ? undefined : { grantId: value.grantId, state: value.state, counters };
+}
+
+function readGrantRow(value: unknown): IExternalEventGrantRow | undefined {
+  const summary = readGrantSummary(value);
+  if (summary === undefined || typeof value !== 'object' || value === null || !('principal' in value) ||
+    (value.principal !== 'subject' && value.principal !== 'client')) return undefined;
+  return { grantId: summary.grantId, principal: value.principal, state: summary.state, counters: summary.counters };
+}
+
+function readList<T>(value: unknown, read: (item: unknown) => T | undefined): T[] | undefined {
+  if (!Array.isArray(value) || value.length > MAX_LISTED_GRANTS) return undefined;
+  const items = value.map(read);
+  return items.every((item) => item !== undefined) ? (items as T[]) : undefined;
+}
 
 function isGeneration(value: unknown): value is string {
   return typeof value === 'string' && GENERATION_PATTERN.test(value);
@@ -96,6 +161,8 @@ export interface ISupervisedSessionRow {
   readonly pr?: ISupervisedPr;
   /** Present only when requested and verified: the registration this row's actions must still address. */
   readonly generation?: string;
+  /** Present only when requested: each external-event grant's label, state and counts. */
+  readonly externalEvents?: readonly TSupervisedGrantSummary[];
   readonly problem?: 'invalid-registration';
 }
 
@@ -225,6 +292,7 @@ async function request(
   signal?: AbortSignal,
   name?: string,
   url?: string,
+  grantId?: string,
 ): Promise<object> {
   signal?.throwIfAborted();
   verifyExistingDirectory(directory);
@@ -243,9 +311,11 @@ async function request(
     });
     signal?.throwIfAborted();
     socket.write(`${JSON.stringify({ command, id, generation, ...(command === 'rename' ? { name } : {}),
-      ...(command === 'link-pr' ? { url } : {}) })}\n`);
+      ...(command === 'link-pr' ? { url } : {}),
+      ...(command === 'events-revoke' ? { grantId } : {}) })}\n`);
     const response = JSON.parse(
-      await readLine(socket, command === 'status' ? MAX_STATUS_RESPONSE_BYTES : MAX_FRAME_BYTES),
+      await readLine(socket, command === 'status' || command === 'events-list'
+        ? MAX_STATUS_RESPONSE_BYTES : MAX_FRAME_BYTES),
     ) as unknown;
     if (typeof response !== 'object' || response === null || !('id' in response) || response.id !== id ||
       !('generation' in response) || response.generation !== generation) {
@@ -258,12 +328,18 @@ async function request(
   }
 }
 
+function optionalGrants(
+  grants: TSupervisedGrantSummary[] | undefined,
+): { readonly externalEvents?: readonly TSupervisedGrantSummary[] } {
+  return grants === undefined ? {} : { externalEvents: grants };
+}
+
 export async function listSupervisedSessions(
   root = resolveSupervisedDirectory(),
   signal?: AbortSignal,
   options: { readonly cwd?: string; readonly name?: string; readonly pr?: number;
     readonly includeName?: boolean; readonly includeCwd?: boolean; readonly includePr?: boolean;
-    readonly includeGeneration?: boolean } = {},
+    readonly includeGeneration?: boolean; readonly includeExternalEvents?: boolean } = {},
 ): Promise<readonly ISupervisedSessionRow[]> {
   signal?.throwIfAborted();
   try {
@@ -316,6 +392,8 @@ export async function listSupervisedSessions(
           ...(options.includeCwd && cwd !== undefined ? { cwd } : {}),
           ...(options.includePr && pr !== undefined ? { pr } : {}),
           ...(options.includeGeneration ? { generation: record.generation } : {}),
+          ...(options.includeExternalEvents && 'externalEvents' in response
+            ? optionalGrants(readList(response.externalEvents, readGrantSummary)) : {}),
           ...('activity' in response && response.activity === 'idle' &&
             'nextLoopAt' in response && isLoopTime(response.nextLoopAt)
             ? { nextLoopAt: response.nextLoopAt } : {}),
@@ -443,6 +521,91 @@ export async function getVerifiedSupervisedPr(
   return response.pr;
 }
 
+/** The owner's grants on a live session: labels, principal kinds, states and counts. */
+export async function listSupervisedExternalEvents(
+  id: string,
+  root = resolveSupervisedDirectory(),
+  expectedGeneration?: string,
+): Promise<readonly IExternalEventGrantRow[]> {
+  const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
+  const response = await request(directory, id, generation, 'events-list');
+  const grants = 'status' in response && response.status === 'events' && 'grants' in response
+    ? readList(response.grants, readGrantRow) : undefined;
+  if (grants === undefined) throw new Error('Supervised session did not list its external event grants.');
+  return grants;
+}
+
+/** Withdraw one grant from a live session; later events for it are refused as revoked. */
+export async function revokeSupervisedExternalEventGrant(
+  id: string,
+  grantId: string,
+  root = resolveSupervisedDirectory(),
+  expectedGeneration?: string,
+): Promise<void> {
+  if (!GRANT_ID_PATTERN.test(grantId)) throw new Error('Invalid external event grant label.');
+  const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
+  const response = await request(
+    directory, id, generation, 'events-revoke', undefined, undefined, undefined, grantId,
+  );
+  if ('status' in response && response.status === 'revoked') return;
+  if ('reason' in response && response.reason === 'unknown-grant') {
+    throw new Error(`Supervised session holds no external event grant ${grantId}.`);
+  }
+  throw new Error('Supervised session did not confirm the revocation.');
+}
+
+function grantHandoffPath(root: string, id: string): string {
+  sessionDirectory(root, id);
+  return join(root, `.${id}.grants.json`);
+}
+
+/**
+ * Hand a starting child its exact grants through a private file: not argv, which other local users
+ * can read, and not the control socket. The file holds public configuration only.
+ */
+export function writeSupervisedGrantHandoff(
+  root: string,
+  id: string,
+  grants: readonly IExternalEventGrant[],
+): void {
+  ensurePrivateDirectory(root);
+  writeFileSync(grantHandoffPath(root, id), JSON.stringify(grants.map(toExternalEventGrantDocument)),
+    { flag: 'wx', mode: 0o600 });
+}
+
+export function discardSupervisedGrantHandoff(root: string, id: string): void {
+  rmSync(grantHandoffPath(root, id), { force: true });
+}
+
+/** Read and delete the handoff, re-validating every grant; a refused or missing file refuses the start. */
+export function takeSupervisedGrantHandoff(root: string, id: string): IExternalEventGrant[] {
+  const file = grantHandoffPath(root, id);
+  let documents: unknown;
+  try {
+    verifyExistingDirectory(root);
+    const stat = lstatSync(file);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.uid !== (process.getuid?.() ?? 0) ||
+      (stat.mode & 0o077) !== 0 || stat.size > MAX_GRANT_HANDOFF_BYTES) {
+      throw new Error('refused');
+    }
+    documents = JSON.parse(readFileSync(file, 'utf8')) as unknown;
+  } catch {
+    throw new Error('Supervised external event grants could not be read.');
+  } finally {
+    rmSync(file, { force: true });
+  }
+  if (!Array.isArray(documents) || documents.length === 0) {
+    throw new Error('Supervised external event grants could not be read.');
+  }
+  return documents.map((document, index) => parseExternalEventGrant(document, index + 1));
+}
+
+/** What the supervised process exposes about its external-event grants over the control socket. */
+export interface ISupervisedExternalEvents {
+  list(): readonly IExternalEventGrantRow[];
+  revoke(grantId: string): 'revoked' | 'unknown-grant';
+}
+
 export interface ISupervisedControl {
   close(): Promise<void>;
 }
@@ -457,6 +620,7 @@ export async function startSupervisedControl(
   getName?: () => string | undefined,
   onRename?: (name: string) => void,
   pr?: { readonly get: () => ISupervisedPr | undefined; readonly set: (value: ISupervisedPr | undefined) => void },
+  externalEvents?: ISupervisedExternalEvents,
   attachSession?: IProtocolSession,
 ): Promise<ISupervisedControl> {
   if (!ID_PATTERN.test(id)) throw new Error('Invalid supervised session ID.');
@@ -553,11 +717,18 @@ export async function startSupervisedControl(
         } catch {
           // A failed association observation cannot create a link.
         }
+        let grants: TSupervisedGrantSummary[] | undefined;
+        try {
+          grants = externalEvents?.list().map(({ grantId, state, counters }) => ({ grantId, state, counters }));
+        } catch {
+          // Counts that cannot be read are omitted, never guessed.
+        }
         reply(socket, { status: 'running', activity: isCurrentActivity(observed) ? observed : 'unknown',
           ...(typeof cwd === 'string' && isAbsolute(cwd) && cwd.length <= 4_096 ? { cwd } : {}),
           ...(isLoopTime(nextLoopAt) ? { nextLoopAt } : {}),
           ...(isSupervisedSessionName(name) ? { name } : {}),
-          ...(isSupervisedPr(linkedPr) ? { pr: linkedPr } : {}) });
+          ...(isSupervisedPr(linkedPr) ? { pr: linkedPr } : {}),
+          ...(grants !== undefined && grants.length > 0 ? { externalEvents: grants } : {}) });
       } else if (value.command === 'stop') {
         socket.once('finish', onStop);
         reply(socket, { status: 'stopping' });
@@ -578,6 +749,20 @@ export async function startSupervisedControl(
         try {
           pr.set(linked);
           reply(socket, { status: 'linked' });
+        } catch {
+          reply(socket, { status: 'refused' });
+        }
+      } else if (value.command === 'events-list' && externalEvents !== undefined) {
+        try {
+          reply(socket, { status: 'events', grants: externalEvents.list() });
+        } catch {
+          reply(socket, { status: 'refused' });
+        }
+      } else if (value.command === 'events-revoke' && externalEvents !== undefined &&
+        'grantId' in value && typeof value.grantId === 'string' && GRANT_ID_PATTERN.test(value.grantId)) {
+        try {
+          reply(socket, externalEvents.revoke(value.grantId) === 'revoked'
+            ? { status: 'revoked' } : { status: 'refused', reason: 'unknown-grant' });
         } catch {
           reply(socket, { status: 'refused' });
         }

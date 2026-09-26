@@ -279,8 +279,14 @@ supply its own `IMCPActivationApprovalStore` before `robota mcp serve` starts to
 approved definitions ahead of building the served runtime session.
 
 **External events need a verified grant.** The CLI admits no sender-name grant: a sender name relayed
-by an MCP server does not prove who sent an event. A flag asking for one is refused with that reason
-rather than treated as unknown.
+by an MCP server does not prove who sent an event, and a flag asking for one is refused with that
+reason rather than treated as unknown. A grant is the owner's decision at start, from a file of
+public configuration only, and a start either opens every grant it was given or fails, naming the
+grant and never a configured value: a background session receives its exact grants privately before
+it reports ready, and the launcher refuses a readiness that names other grants. Listing a grant shows
+its label, principal kind, state and counts, never the principal. Creating or revoking a grant is
+the user's act alone: grants are created only by start flags, and `/events` is never offered to the
+model.
 
 ### MCP background handoff settings
 

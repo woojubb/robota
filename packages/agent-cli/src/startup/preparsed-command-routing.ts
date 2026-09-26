@@ -8,11 +8,17 @@ import { launchSupervisedSession } from '../session-inventory/supervised-session
 import {
   isSupervisedSessionName,
   linkSupervisedPr,
+  listSupervisedExternalEvents,
   parseSupervisedPr,
   renameSupervisedSession,
+  revokeSupervisedExternalEventGrant,
   stopSupervisedSession,
   unlinkSupervisedPr,
 } from '../session-inventory/supervised-session-control.js';
+import { readExternalEventGrantFiles } from '../external-events/external-event-grant-file.js';
+import { formatExternalEventGrantRows } from '../external-events/external-event-grant-format.js';
+
+import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
 import { runSessionViewCommand } from '../session-inventory/session-view-command.js';
 import type { ISessionViewCommandOptions } from '../session-inventory/session-view-command.js';
 import { validateNodeOtlpLiveTelemetrySettings } from '../telemetry/live-trace-otlp.js';
@@ -34,6 +40,60 @@ import type { IStartCliOptions } from './command-setup.js';
 const SUBCOMMAND_INDEX = 2;
 const ACTION_INDEX = 3;
 const SUBCOMMAND_ARGUMENT_INDEX = 4;
+const START_USAGE =
+  'Usage: robota session start --background [--name <name>] [--external-event-grant <file>]...\n';
+const EVENTS_USAGE =
+  'Usage: robota session events list <supervised-id> [--json]\n' +
+  '       robota session events revoke <supervised-id> <grant-id>\n';
+
+/** `session start` arguments; `undefined` when they do not fit the usage. */
+function parseStartArgs(
+  args: readonly string[],
+): { readonly name?: string; readonly grantFiles: readonly string[] } | undefined {
+  if (args[0] !== '--background') return undefined;
+  let name: string | undefined;
+  const grantFiles: string[] = [];
+  for (let index = 1; index < args.length; index += 2) {
+    const value = args[index + 1];
+    if (value === undefined) return undefined;
+    if (args[index] === '--name' && name === undefined) name = value;
+    else if (args[index] === '--external-event-grant') grantFiles.push(value);
+    else return undefined;
+  }
+  return { ...(name !== undefined ? { name } : {}), grantFiles };
+}
+
+/**
+ * `session events list|revoke` — the owner's view of a background session's external-event grants,
+ * and the way to withdraw one. Bound to the live registration like every other control action.
+ */
+async function runSessionEventsCommand(args: readonly string[]): Promise<number> {
+  const [action, id, argument, extra] = args;
+  const list = action === 'list' && id !== undefined &&
+    (argument === undefined || (argument === '--json' && extra === undefined));
+  const revoke = action === 'revoke' && id !== undefined && argument !== undefined && extra === undefined;
+  if (!list && !revoke) {
+    process.stderr.write(EVENTS_USAGE);
+    return 1;
+  }
+  try {
+    if (revoke) {
+      await revokeSupervisedExternalEventGrant(id!, argument!);
+      process.stdout.write(`Revoked external event grant ${argument} on supervised session ${id}.\n`);
+      return 0;
+    }
+    const grants = await listSupervisedExternalEvents(id!);
+    process.stdout.write(argument === '--json'
+      ? `${JSON.stringify({ id, grants })}\n`
+      : formatExternalEventGrantRows(grants));
+    return 0;
+  } catch (error) {
+    process.stderr.write(
+      `${error instanceof Error ? error.message : 'Supervised session external events are unavailable.'}\n`,
+    );
+    return 1;
+  }
+}
 
 /** Route subcommands whose own flags must bypass the strict global CLI parser. */
 export async function runPreparsedCliCommand(
@@ -78,6 +138,10 @@ export async function runPreparsedCliCommand(
       );
       process.exitCode = 1;
     }
+    return true;
+  }
+  if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'events') {
+    process.exitCode = await runSessionEventsCommand(argv.slice(SUBCOMMAND_ARGUMENT_INDEX));
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'rename') {
@@ -213,12 +277,18 @@ export async function runPreparsedCliCommand(
     return true;
   }
   if (argv[SUBCOMMAND_INDEX] === 'session' && argv[ACTION_INDEX] === 'start') {
-    const startArgs = argv.slice(SUBCOMMAND_ARGUMENT_INDEX);
-    const unnamed = startArgs.length === 1 && startArgs[0] === '--background';
-    const named =
-      startArgs.length === 3 && startArgs[0] === '--background' && startArgs[1] === '--name';
-    if (!unnamed && !named) {
-      process.stderr.write('Usage: robota session start --background [--name <name>]\n');
+    const start = parseStartArgs(argv.slice(SUBCOMMAND_ARGUMENT_INDEX));
+    if (start === undefined) {
+      process.stderr.write(START_USAGE);
+      process.exitCode = 1;
+      return true;
+    }
+    // Every grant is validated before anything starts; a refusal names the grant, never a value.
+    let grants: IExternalEventGrant[];
+    try {
+      grants = readExternalEventGrantFiles(start.grantFiles);
+    } catch (error) {
+      process.stderr.write(`${error instanceof Error ? error.message : 'grant refused'}\n`);
       process.exitCode = 1;
       return true;
     }
@@ -238,7 +308,8 @@ export async function runPreparsedCliCommand(
       });
       const id = await launchSupervisedSession(cwd, {
         env: supervisedEnv(),
-        ...(named ? { name: startArgs[2]! } : {}),
+        ...(start.name !== undefined ? { name: start.name } : {}),
+        ...(grants.length > 0 ? { grants } : {}),
       });
       process.stdout.write(`Supervised session: ${id}\n`);
     } catch (error) {
