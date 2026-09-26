@@ -11,7 +11,7 @@ export { localProofFrame } from './local-peer-proof.js';
 export type { ILocalPeerProof, ILocalProofFrame } from './local-peer-proof.js';
 // SEC-011 (issue #1865): the cross-device hand-off grant gate. The verdict is injected — this
 // package implements no cryptographic policy.
-export { handoffGrantFrame } from './handoff-grant-gate.js';
+export { handoffGrantFrame, judgeHandoffGrant } from './handoff-grant-gate.js';
 export type { IHandoffGrantFrame, IHandoffGrantProof } from './handoff-grant-gate.js';
 export { createInMemorySignalingPair } from './signaling.js';
 export type { ISignalingClient, ISignalMessage, TSignalKind } from './signaling.js';
@@ -36,7 +36,12 @@ export type {
   IDeviceMeshRefusal,
 } from './device-mesh-node.js';
 export { MeshLinkEndedError } from './mesh-peer-link.js';
-export type { TMeshLinkEnd, TMeshLinkRole, TMeshLinkStage } from './mesh-peer-link.js';
+export type {
+  IMeshChannelBinding,
+  TMeshLinkEnd,
+  TMeshLinkRole,
+  TMeshLinkStage,
+} from './mesh-peer-link.js';
 export { MAX_MESH_MESSAGE_CHARS } from './mesh-signal.js';
 export { createInMemoryMeshRelayHub } from './mesh-relay.js';
 export type { IInMemoryMeshRelayHub, IMeshRelay } from './mesh-relay.js';

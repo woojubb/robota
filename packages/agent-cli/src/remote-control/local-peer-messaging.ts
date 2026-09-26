@@ -34,6 +34,7 @@ import type { IPeerListener, IPeerSender } from './local-peer-channel.js';
 import type { IPeerConversationLimits } from './peer-conversation-ledger.js';
 import type { IOutgoingFile } from '../peer-files/outgoing-file.js';
 import type {
+  IFileFrameChannel,
   IOperatorApprover,
   IPeerMessage,
   IPeerMessageAck,
@@ -76,6 +77,8 @@ export interface IPeerMessagingOptions {
   readonly limits?: IPeerConversationLimits;
   /** Receiving files. Absent: every file is refused. */
   readonly files?: IPeerFileReceiving;
+  /** Takes each hand-off channel a confirmed session opens. Absent: every hand-off is refused. */
+  readonly onHandoff?: (sender: IPeerSender, channel: IFileFrameChannel) => void;
 }
 
 /** How this session takes files from its peers. */
@@ -104,6 +107,8 @@ export interface IPeerMessaging {
   send(targetSessionId: string, text: string, options?: IPeerSendOptions): Promise<IPeerMessageAck>;
   /** Send a prepared file's content to another announced session. */
   sendFile(targetSessionId: string, file: IOutgoingFile): Promise<IPeerFileSendResult>;
+  /** Open a channel to push a hand-off to another announced session. Rejects with why it cannot. */
+  openHandoffChannel(targetSessionId: string): Promise<IFileFrameChannel>;
   close(): Promise<void>;
 }
 
@@ -172,6 +177,7 @@ export async function startLocalPeerMessaging(
             reportQuietly(options.report, describeReceived(sender.sessionId, outcome)),
         }
       : {}),
+    ...(options.onHandoff !== undefined ? { onHandoff: options.onHandoff } : {}),
     onMessage: async (received: IPeerMessage, sender: IPeerSender): Promise<IPeerMessageAck> => {
       const from = sender.sessionId;
       const message: IPeerMessage = { ...received, origin: { sessionId: from } };
@@ -315,6 +321,14 @@ export async function startLocalPeerMessaging(
       } catch (error) {
         return { state: 'failed', reason: error instanceof Error ? error.message : String(error) };
       }
+    },
+    openHandoffChannel: async (targetSessionId: string): Promise<IFileFrameChannel> => {
+      if (targetSessionId === options.sessionId) {
+        throw new Error('that is this session; it already holds the session.');
+      }
+      const reachable = addressable(targetSessionId);
+      if (reachable !== undefined) throw new Error(reachable);
+      return listener.openHandoffChannel(targetSessionId);
     },
     close: () => listener.close(),
   };

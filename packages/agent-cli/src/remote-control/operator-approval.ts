@@ -63,11 +63,13 @@ function describe(request: ICapabilityApprovalRequest): string {
   const where = request.locality === 'same-host' ? 'on this machine' : 'on another machine';
   const lines = [`${who} (${where}) wants to ${WHAT[request.capability]}.`];
   if (request.summary !== undefined) {
-    // A file's line carries its whole hash, so it is allowed the room for it.
+    // A file's line carries its whole hash, and a session's what taking it means; both get the room.
     const [label, max] =
       request.capability === 'file'
         ? ['File', FILE_SUMMARY_MAX_CHARS]
-        : ['Task', SUMMARY_MAX_CHARS];
+        : request.capability === 'handoff'
+          ? ['Session', FILE_SUMMARY_MAX_CHARS]
+          : ['Task', SUMMARY_MAX_CHARS];
     lines.push(`${label}: ${printable(request.summary, max)}`);
   }
   lines.push(

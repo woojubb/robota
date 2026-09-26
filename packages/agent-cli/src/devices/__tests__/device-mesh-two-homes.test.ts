@@ -5,6 +5,7 @@
  * under its `HOME`.
  */
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -41,10 +42,26 @@ import {
   type IDeviceMeshEndpoint,
   type IOpenDeviceMeshOptions,
 } from '../device-mesh.js';
-import { acceptDeviceFiles, sendFileToDevice } from '../mesh-files.js';
+import {
+  acceptDeviceChannels,
+  acceptDeviceFiles,
+  handoffToDevice,
+  sendFileToDevice,
+} from '../mesh-files.js';
+import { createHandoffComposition } from '../../handoff/handoff-composition-root.js';
+import { mintHandoffGrant } from '../../handoff/handoff-grant.js';
+import { readHandoffIdentity } from '../../handoff/handoff-host-adapter.js';
+import { createHandoffReceiver } from '../../handoff/handoff-receiving.js';
+import { openHandoffWire } from '../../handoff/handoff-wire.js';
 import { prepareOutgoingFile } from '../../peer-files/outgoing-file.js';
 import { parseMeshInternetSettings } from '../mesh-internet-settings.js';
-import { DEVICE_KA_KEY, DEVICE_SIGN_KEY, loadSigningKey, storeKeyPair } from '../identity-keys.js';
+import {
+  DEVICE_KA_KEY,
+  DEVICE_SIGN_KEY,
+  loadDevicePrivateKeys,
+  loadSigningKey,
+  storeKeyPair,
+} from '../identity-keys.js';
 import {
   readIdentityState,
   writeIdentityState,
@@ -52,7 +69,13 @@ import {
 } from '../identity-state.js';
 import { scriptedOperator } from './fake-secret-terminal.js';
 
+import { createUserSessionStore } from '@robota-sdk/agent-framework';
+
+import type { TReceiveHandoffOutcome } from '../../handoff/handoff-receive.js';
 import type { ICredentialStore } from '@robota-sdk/agent-core';
+import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
+import type { ICapabilityApprovalRequest } from '@robota-sdk/agent-interface-session-mobility';
+import type { IDeviceMeshLink } from '@robota-sdk/agent-transport-webrtc';
 
 const HOUR = 60 * 60 * 1000;
 
@@ -369,6 +392,167 @@ describe('device mesh between two HOMEs', () => {
         await prepared(workspace, 'data.bin', Buffer.from('nope')),
       );
       expect(result.state).toBe('refused');
+    }, 40_000);
+  });
+
+  describe('hand-off', () => {
+    const composition = createHandoffComposition();
+
+    function session(): IInteractiveSessionRecord {
+      return {
+        id: 'session-laptop',
+        cwd: '/work/project',
+        createdAt: '2026-09-01T00:00:00.000Z',
+        updatedAt: '2026-09-01T01:00:00.000Z',
+        messages: [
+          {
+            id: 'm-0',
+            timestamp: new Date('2026-09-01T00:00:00.000Z'),
+            state: 'complete',
+            role: 'user',
+            content: 'from a peer',
+            metadata: { driverId: 'peer:other', turnSource: 'peer' },
+          },
+        ],
+      };
+    }
+
+    async function linked(approve: boolean) {
+      const desktopId = await enrolDesktop();
+      const laptopId = stateOf(laptop).deviceCertificate.deviceId;
+      const hub = createInMemoryMeshRelayHub();
+      const policy = ['handoff', 'message', 'presence'] as const;
+      const asked: ICapabilityApprovalRequest[] = [];
+      const atLaptop = (
+        await endpoint(laptop, hub, {
+          localPolicy: [...policy],
+          operatorApprover: { approve: async () => true },
+        })
+      ).node;
+      const atDesktop = (
+        await endpoint(desktop, hub, {
+          localPolicy: [...policy],
+          operatorApprover: {
+            approve: async (request) => {
+              asked.push(request);
+              return approve;
+            },
+          },
+        })
+      ).node;
+      const [toDesktop, toLaptop] = await Promise.all([
+        atLaptop.connect(desktopId),
+        atDesktop.connect(laptopId),
+      ]);
+      // The desktop saves what it takes into a session store under its own HOME.
+      const store = createUserSessionStore(join(desktop.home, '.robota', 'sessions'));
+      const outcomes: TReceiveHandoffOutcome[] = [];
+      const receiverAt = (
+        home: IHome,
+        deviceId: string,
+        persist: (r: IInteractiveSessionRecord) => boolean,
+      ) => ({
+        deviceId,
+        receive: createHandoffReceiver({
+          root: home.root,
+          composition,
+          identity: () => readHandoffIdentity(home.root),
+          resolveCredential: () => true,
+          persist,
+          deviceLabel: 'this device',
+        }),
+        onOutcome: (outcome: TReceiveHandoffOutcome) => outcomes.push(outcome),
+      });
+      acceptDeviceChannels(toLaptop, {
+        handoff: receiverAt(desktop, desktopId, (kept) => {
+          store.save(kept);
+          return true;
+        }),
+      });
+      // The laptop takes hand-offs too, so a pull reaches a receiver that could take one.
+      acceptDeviceChannels(toDesktop, { handoff: receiverAt(laptop, laptopId, () => true) });
+      const keys = await loadDevicePrivateKeys(laptop.store, stateOf(laptop).deviceCertificate);
+      if (keys === undefined) throw new Error('no laptop keys');
+      const signer = { userId: stateOf(laptop).userId, signPrivateKey: keys.signPrivateKey };
+      return { toDesktop, toLaptop, desktopId, laptopId, asked, store, outcomes, signer };
+    }
+
+    function pushTo(
+      link: IDeviceMeshLink,
+      from: string,
+      to: string,
+      signer: { userId: string; signPrivateKey: CryptoKey },
+      onReadOnly: () => void,
+    ) {
+      return handoffToDevice(link, {
+        composition,
+        request: {
+          handoffId: 'handoff-laptop-1',
+          sessionId: 'session-laptop',
+          sourceDeviceId: from,
+          destinationDeviceId: to,
+          record: session(),
+          runtime: {},
+          offeredAt: clock,
+        },
+        mintGrant: (manifest, fingerprint) =>
+          mintHandoffGrant(signer, manifest, fingerprint, Date.now()),
+        onReadOnly,
+      });
+    }
+
+    it('pushes a session from one HOME to the other, saved there unstarted, with the operator yes', async () => {
+      const { toDesktop, desktopId, laptopId, asked, store, signer } = await linked(true);
+      let readOnly = 0;
+      const { outcome, source } = await pushTo(toDesktop, laptopId, desktopId, signer, () => {
+        readOnly += 1;
+      });
+
+      expect(outcome.phase).toBe('committed');
+      expect(source.isAuthoritative()).toBe(false);
+      expect(readOnly).toBe(1);
+      expect(asked).toHaveLength(1);
+      expect(asked[0]).toMatchObject({
+        capability: 'handoff',
+        scope: 'request',
+        deviceId: laptopId,
+      });
+      const loaded = store.load('session-laptop');
+      expect(loaded.status).toBe('valid');
+      if (loaded.status !== 'valid') return;
+      // The peer attribution survived the seal, the carrier and the decoder.
+      expect(loaded.record.messages[0]?.metadata).toEqual({
+        driverId: 'peer:other',
+        turnSource: 'peer',
+      });
+      // Nothing is left aside once it is saved.
+      const aside = join(desktop.root, 'handoff', laptopId);
+      await expect
+        .poll(() => (existsSync(aside) ? readdirSync(aside) : []), { timeout: 10_000 })
+        .toEqual([]);
+    }, 40_000);
+
+    it('refuses a session the receiving operator did not approve, and the source keeps it', async () => {
+      const { toDesktop, desktopId, laptopId, store, signer } = await linked(false);
+      const { outcome, source } = await pushTo(toDesktop, laptopId, desktopId, signer, () => {
+        throw new Error('the source must not let go');
+      });
+      expect(outcome.phase).toBe('abandoned');
+      expect(source.isAuthoritative()).toBe(true);
+      expect(store.load('session-laptop').status).toBe('missing');
+    }, 40_000);
+
+    it('refuses a pull: the desktop cannot ask the laptop for its session', async () => {
+      const { toLaptop, outcomes } = await linked(true);
+      const wire = openHandoffWire(await toLaptop.openFileChannel());
+      wire.send({ t: 'handoff-pull' });
+      await expect(wire.next(10_000)).resolves.toMatchObject({
+        t: 'handoff-refuse',
+        reason: 'push-only',
+      });
+      wire.close();
+      await expect.poll(() => outcomes.length).toBe(1);
+      expect(outcomes[0]).toMatchObject({ received: false, reason: 'push-only' });
     }, 40_000);
   });
 

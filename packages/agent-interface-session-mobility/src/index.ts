@@ -94,7 +94,12 @@ export type {
   THandoffRecordDecodeOutcome,
 } from './handoff-composition.js';
 export { HandoffSource } from './handoff-source.js';
-export type { IHandoffCarrier, IHandoffSourceOptions, TOfferOutcome } from './handoff-source.js';
+export type {
+  IHandoffCarrier,
+  IHandoffSourceOptions,
+  TOfferOutcome,
+  TSourceAbandonReason,
+} from './handoff-source.js';
 export { HandoffDestination } from './handoff-destination.js';
 export type {
   IDestinationReport,

@@ -362,9 +362,9 @@ describe('what the source refuses to start', () => {
       carrier: { sendManifest: async () => {}, sendChunk: async () => {} },
       onReadOnly: () => {},
     });
-    expect(source.offer(
-      offerRequest({ record: unsettledRecord, runtime: { modelCallInFlight: true } }),
-    )).toMatchObject({ started: false, outcome: { refusal: 'in-flight-work' } });
+    expect(
+      source.offer(offerRequest({ record: unsettledRecord, runtime: { modelCallInFlight: true } })),
+    ).toMatchObject({ started: false, outcome: { refusal: 'in-flight-work' } });
   });
 
   it('will not offer a session with a model call in flight', () => {
@@ -436,6 +436,73 @@ describe('a corrupt payload never reaches the staging area', () => {
     expect(destination.liveRecord()).toBe(null);
     expect(source.isAuthoritative()).toBe(true);
     expect(readOnly).not.toHaveBeenCalled();
+  });
+});
+
+describe('a carrier that moves the payload whole', () => {
+  function destinationEnd(): HandoffDestination {
+    return new HandoffDestination({
+      composition,
+      deviceId: 'laptop',
+      resolveCredential: () => true,
+      persist: () => true,
+    });
+  }
+
+  function wholeWire(destination: HandoffDestination, alter: (payload: string) => string) {
+    const sent = { chunks: 0, payloads: 0 };
+    const carrier: IHandoffCarrier = {
+      sendManifest: async (manifest) => {
+        destination.receiveManifest(manifest);
+      },
+      sendChunk: async () => {
+        sent.chunks += 1;
+      },
+      sendPayload: async (_handoffId, serialized) => {
+        sent.payloads += 1;
+        destination.receivePayload(alter(serialized));
+      },
+    };
+    return { carrier, sent };
+  }
+
+  it('is handed the sealed payload once, and the destination stages it against the manifest', async () => {
+    const destination = destinationEnd();
+    const { carrier, sent } = wholeWire(destination, (payload) => payload);
+    const source = new HandoffSource({ composition, carrier, onReadOnly: () => {} });
+    source.offer(offerRequest({ record: { ...record(), messages: manyMessages() } }));
+    await source.transfer();
+    expect(sent).toEqual({ chunks: 0, payloads: 1 });
+    expect(destination.report().state).toBe('staged');
+  });
+
+  it('still refuses a payload that is not the one the manifest sealed', async () => {
+    const destination = destinationEnd();
+    const { carrier } = wholeWire(destination, (payload) => payload.replace('move me', 'moved!!'));
+    const source = new HandoffSource({ composition, carrier, onReadOnly: () => {} });
+    source.offer(offerRequest());
+    await source.transfer();
+    expect(destination.report()).toMatchObject({
+      state: 'discarded',
+      refusal: 'integrity-failed',
+    });
+    expect(source.isAuthoritative()).toBe(true);
+  });
+
+  it('takes a payload only for a transfer it is receiving', () => {
+    const destination = destinationEnd();
+    destination.receiveManifest({
+      handoffId: 'h',
+      sessionId: 's',
+      sourceDeviceId: 'a',
+      destinationDeviceId: 'laptop',
+      inventory: [],
+      integrity: { digest: 'x', byteLength: 1 },
+      offeredAt: 1,
+    });
+    destination.discard('cancelled', 'gone');
+    expect(destination.receivePayload('{}').state).toBe('discarded');
+    expect(destination.liveRecord()).toBe(null);
   });
 });
 
