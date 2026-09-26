@@ -1,5 +1,92 @@
 # @robota-sdk/agent-command
 
+## 3.0.0-beta.82
+
+### Minor Changes
+
+- c7f9203: Connected sessions can send each other files.
+
+  - `/peers send-file <session-id> <path>` sends a copy of any file the operator can read to another
+    live session on this host.
+  - The model sends a file only through the `peer_send_file` tool. Every call asks the user, showing
+    the path, size, hash and destination; no permission mode, rule or remembered consent answers it.
+    The tool reaches only files inside the workspace whose path does not look like it holds secrets
+    (`.env*`, `~/.ssh`, keys and credentials), and it does not exist in a turn a peer's message started.
+  - The receiving operator approves every file. A received file is kept as an inert copy (mode 0600)
+    under `~/.robota/peer-files/<sender>/`. It is never run and never placed in the model's context.
+    The conversation is told only its name, size and sha256. A name that leaves that directory is
+    refused, a symbolic link is never written through, and nothing is overwritten.
+  - Transfers travel on a channel of their own (a separate connection on this host, a separate data
+    channel between devices), in chunks the receiver paces, up to 32 MiB, and are kept only when the
+    whole content matches the offered sha256. A transfer that ends early is discarded; there is no
+    resume.
+
+  **API**
+
+  - `agent-interface-session-mobility`: the `file` capability, which asks the operator for every
+    request; `ConnectionAuthority.authorizeFile`; `IFileOffer` and `IFileFrameChannel`.
+  - `agent-transport/node`: `sendFileOverChannel` and `receiveFileOverChannel`, the carrier over any
+    `IFileFrameChannel`; `DEFAULT_MAX_FILE_BYTES`.
+  - `agent-transport-webrtc`: `IDeviceMeshLink.openFileChannel` and `onFileChannel`.
+  - `agent-remote-pairing`: `file` joins `DEVICE_CAPABILITIES`. A device certificate that names it is
+    refused as malformed by an earlier version.
+  - `agent-core`: `IToolPermissionProfile.notInPeerTurn` withholds a tool from a turn a peer's message
+    started.
+  - `agent-framework`: `ICommandLocalPeersAdapter.prepareFile`.
+
+- 004fe7f: `/handoff` moves a session over a real connection.
+
+  - `/handoff <session-id>` pushes this conversation to another Robota session on this machine. The
+    same carrier also runs between two of the user's devices over their mesh connection; no command
+    opens that connection yet.
+  - A hand-off is push-only: only the operator of the session that holds it starts one. A session or
+    device that asks another for its session is refused.
+  - The source signs a grant for that one transfer over that one channel with its device key, so a
+    hand-off needs the device identity from `/devices init`. The receiving side checks it against the
+    sender's certificate, then asks its own operator; without a yes nothing is sent.
+  - The session travels on the file-transfer carrier, is kept aside until it matches the manifest, and
+    is saved without being started. The operator there resumes it with `robota --resume <id>`.
+  - The source gives the session up, and ends, only once the receiving side confirms it saved it.
+    Every other outcome leaves the session where it was; if the confirmation is lost, `/handoff` to the
+    same session again resends the same transfer, which the receiver settles without saving it twice.
+    Peer attribution (`driverId`, `turnSource`)
+    travels with it.
+  - `/handoff` stays user-only. Its description tells the model to suggest the command to the user.
+  - `agent-transport-webrtc`: an admitted mesh link exposes the DTLS fingerprints it is bound to, and
+    `judgeHandoffGrant` is exported.
+  - `agent-interface-session-mobility`: a hand-off carrier may move the sealed payload whole
+    (`sendPayload`), the destination verifies it with `receivePayload`, and the source can report its
+    open transfer (`status`) and abandon it for any refusal the destination names.
+
+### Patch Changes
+
+- e15e22b: Two of one user's devices can connect to each other over WebRTC, admitted by the device handshake.
+
+  - `agent-transport-webrtc` — `DeviceMeshNode` keeps one connection per device pair, in either role: the
+    device with the lower id offers and the other answers, so concurrent attempts resolve by rule. Both
+    roles bind the handshake to the certificate the DTLS layer verified and take one remote description
+    with exactly one fingerprint; before admission only handshake frames cross, and a connection counts
+    as admitted only once both sides admitted each other. Each connection gets its own DTLS certificate
+    (`createDtlsKeys`). A new attempt never displaces an admitted connection until it is admitted
+    itself, and attempts per pair are paced. Lists adopted in a handshake, or handed over through
+    `refresh`, apply at once, and a device they revoke loses its connection. Signaling runs through
+    `IMeshRelay`: `WsMeshRelayClient` for the self-hosted relay's `presence` / `message` frames
+    (topics capped per source and relay-wide), `createInMemoryMeshRelayHub` for tests.
+  - `agent-remote-pairing` — the pair's two relay inbox topics, one per direction, come from their
+    pairwise secret (`derivePairRendezvous(...).relayInbox()`).
+  - `agent-cli` — a device holding the signing key reissues its roster and revocation list before they
+    expire while an interactive session runs. The host can open this device's mesh endpoint from the
+    identity under `~/.robota/devices`, saving newer lists a peer hands over; no command starts it yet.
+  - `agent-command` — `/devices add|join` still reports that enrolment is not available yet.
+
+- Updated dependencies [c7f9203]
+  - @robota-sdk/agent-core@3.0.0-beta.82
+  - @robota-sdk/agent-framework@3.0.0-beta.82
+  - @robota-sdk/agent-interface-command@3.0.0-beta.82
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.82
+  - @robota-sdk/agent-interface-session@3.0.0-beta.82
+  - @robota-sdk/agent-preset@3.0.0-beta.82
+
 ## 3.0.0-beta.81
 
 ### Minor Changes

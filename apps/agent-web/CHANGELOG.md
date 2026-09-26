@@ -1,5 +1,15 @@
 # robota-web
 
+## 0.1.1-beta.2
+
+### Patch Changes
+
+- Updated dependencies [c7f9203]
+  - @robota-sdk/agent-core@3.0.0-beta.82
+  - @robota-sdk/agent-transport-webrtc-web@3.0.0-beta.82
+  - @robota-sdk/agent-ui-web@3.0.0-beta.82
+  - @robota-sdk/agent-playground@3.0.0-beta.82
+
 ## 0.1.1-beta.1
 
 ### Patch Changes
