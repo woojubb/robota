@@ -183,7 +183,7 @@ export function subscribeSessionEvents(
   // subscribed to the session that moved hear it: a host that binds each connection to its own session
   // sends it to the connection that switched, never to the others.
   const onSessionSwitched = (event: ISessionSwitchedEvent): void => {
-    // This connection no longer answers the previous session's prompts; the new session resends its own.
+    // This connection no longer answers the previous session's prompts; it reads the new session's anew.
     openPrompts?.clear();
     deliver({ type: 'session_switched', event });
   };
