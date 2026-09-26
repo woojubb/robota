@@ -29,6 +29,7 @@ vi.mock('openai', () => {
 
 interface IFakeResponsesClient {
   responses: { create: ReturnType<typeof vi.fn> };
+  chat: { completions: { create: ReturnType<typeof vi.fn> } };
 }
 
 function createUserMessage(content: string): TUniversalMessage {
@@ -55,6 +56,25 @@ async function sendChat(
   const [requestParams] = client.responses.create.mock.calls[
     client.responses.create.mock.calls.length - 1
   ] as [Record<string, unknown>];
+  return requestParams;
+}
+
+/** The same request through the Chat Completions surface (the default once `baseURL` is set). */
+async function sendChatCompletions(
+  provider: OpenAIProvider,
+  tools: IToolSchema[],
+): Promise<Record<string, unknown>> {
+  const client = (provider as unknown as { client: IFakeResponsesClient }).client;
+  client.chat.completions.create.mockResolvedValue({
+    id: 'chatcmpl-strict-tools',
+    object: 'chat.completion',
+    created: 1,
+    model: 'gpt-4o',
+    choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+  });
+  await provider.chat([createUserMessage('hello')], { model: 'gpt-4o', tools });
+  const calls = client.chat.completions.create.mock.calls;
+  const [requestParams] = calls[calls.length - 1] as [Record<string, unknown>];
   return requestParams;
 }
 
@@ -132,5 +152,32 @@ describe('MCP-005 TC-08 — the non-strict path carries the permissive projectio
 
     expect(tool.strict).toBe(false);
     expect(tool.parameters).toEqual(NESTED_TOOL.parameters);
+  });
+});
+
+describe('strictTools on the Chat Completions surface (#3209)', () => {
+  const GATEWAY = { apiKey: 'sk-test', baseURL: 'https://gateway.example/v1' };
+
+  it('declares each function strict, with the same closed schema the Responses surface sends', async () => {
+    const provider = new OpenAIProvider({ ...GATEWAY, strictTools: true });
+    const requestParams = await sendChatCompletions(provider, [NESTED_TOOL]);
+    const [tool] = requestParams.tools as Array<{ function: Record<string, unknown> }>;
+
+    expect(tool?.function.strict).toBe(true);
+    expect(tool?.function.parameters).toEqual(
+      closeObjectSchemas(NESTED_TOOL.parameters, {
+        requireAllProperties: true,
+        optionalAsNullable: true,
+      }),
+    );
+  });
+
+  it('sends no strict key when strictTools is off', async () => {
+    const provider = new OpenAIProvider(GATEWAY);
+    const requestParams = await sendChatCompletions(provider, [NESTED_TOOL]);
+    const [tool] = requestParams.tools as Array<{ function: Record<string, unknown> }>;
+
+    expect(tool?.function).not.toHaveProperty('strict');
+    expect(tool?.function.parameters).toEqual(NESTED_TOOL.parameters);
   });
 });

@@ -193,4 +193,20 @@ describe('OpenAI-compatible message converter', () => {
       },
     ]);
   });
+
+  it('declares each function strict only when asked, and sends no strict key otherwise', () => {
+    const tools: IToolSchema[] = [
+      {
+        name: 'ping',
+        description: 'Ping',
+        parameters: { type: 'object', properties: {}, required: [], additionalProperties: false },
+      },
+    ];
+
+    const [strictTool] = convertToOpenAICompatibleTools(tools, { strict: true });
+    const [plainTool] = convertToOpenAICompatibleTools(tools, { strict: false });
+
+    expect(strictTool?.type === 'function' && strictTool.function.strict).toBe(true);
+    expect(plainTool?.type === 'function' && 'strict' in plainTool.function).toBe(false);
+  });
 });

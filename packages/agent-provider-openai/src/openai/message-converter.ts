@@ -16,8 +16,12 @@ export function convertToOpenAIMessages(
 }
 
 /**
- * Convert tool schemas to OpenAI function tool format.
+ * Convert tool schemas to OpenAI function tool format. With `strictTools` each function is declared
+ * `strict: true`, as the Responses surface does, so strict mode is requested on both surfaces.
  */
-export function convertToOpenAITools(tools: IToolSchema[]): OpenAI.Chat.ChatCompletionTool[] {
-  return convertToOpenAICompatibleTools(tools);
+export function convertToOpenAITools(
+  tools: IToolSchema[],
+  strictTools?: boolean,
+): OpenAI.Chat.ChatCompletionTool[] {
+  return convertToOpenAICompatibleTools(tools, { strict: strictTools === true });
 }

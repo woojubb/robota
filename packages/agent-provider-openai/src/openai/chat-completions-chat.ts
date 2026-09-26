@@ -151,7 +151,7 @@ function buildChatRequestParams(
     }),
     ...(input.chatOptions?.maxTokens !== undefined && { max_tokens: input.chatOptions.maxTokens }),
     ...(input.chatOptions?.tools && {
-      tools: convertToOpenAITools(input.chatOptions.tools),
+      tools: convertToOpenAITools(input.chatOptions.tools, input.providerOptions.strictTools),
       tool_choice: toOpenAICompatibleToolChoice(input.chatOptions.toolChoice),
     }),
     ...(responseFormat !== undefined && { response_format: responseFormat }),
