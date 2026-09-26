@@ -52,8 +52,7 @@
     "@robota-sdk/agent-core": "workspace:*"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "zod": "^3.25.76"
+    "@modelcontextprotocol/sdk": "^1.29.0"
   },
   "devDependencies": {
     "@robota-sdk/agent-core": "workspace:*",
