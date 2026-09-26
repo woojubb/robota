@@ -70,6 +70,8 @@ export interface IRtcSessionClientOptions {
   readonly deviceCredentials?: IDeviceCredentialStore;
   /** REMOTE-013 E4: per-room wait during a reconnect probe (default 4s); tests inject a small value. */
   readonly reconnectRoomWaitMs?: number;
+  /** Waits out a reconnect room (default: a timer); tests inject one they release themselves. */
+  readonly sleep?: (ms: number) => Promise<void>;
   /** Injection seams (default to the real implementations) — for tests. */
   readonly createSignaling?: typeof createRtcSignalingClient;
   readonly createPeer?: (config?: RTCConfiguration) => RTCPeerConnection;
@@ -113,6 +115,14 @@ export function createRtcSessionClient(
   let everConnected = false; // a drop is only reconnectable after a first successful connect
   let reconnecting = false;
   let reconnectAttempts = 0;
+  /**
+   * Which reconnect loop is the live one. A loop that was succeeded — its connection accepted and
+   * then dropped again, starting another — may still be asleep in a room wait; on waking it must
+   * stop, not tear down the peer the newer loop is using.
+   */
+  let reconnectGeneration = 0;
+  const sleep =
+    options.sleep ?? ((ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms)));
   let reconnectCtx: {
     relayOrigin: string;
     hostIdentityId: string;
@@ -382,33 +392,37 @@ export function createRtcSessionClient(
    */
   async function startReconnect(): Promise<void> {
     if (!reconnectCtx || reconnecting) return;
+    const ctx = reconnectCtx;
     reconnecting = true;
-    while (reconnectAttempts < MAX_RECONNECT_ATTEMPTS && reconnecting) {
+    const generation = ++reconnectGeneration;
+    // Still this loop's turn: no accept ended it, and no newer loop or disconnect replaced it.
+    const live = (): boolean => reconnecting && generation === reconnectGeneration;
+    while (reconnectAttempts < MAX_RECONNECT_ATTEMPTS && live()) {
       reconnectAttempts += 1;
-      const cred = await options.deviceCredentials?.get(
-        reconnectCtx.relayOrigin,
-        reconnectCtx.hostIdentityId,
-      );
+      const cred = await options.deviceCredentials?.get(ctx.relayOrigin, ctx.hostIdentityId);
       const base = cred?.reconnectCounter ?? 0;
       for (const counter of [base, base + 1]) {
-        if (!reconnecting) return; // a parallel attempt already succeeded (onAccept cleared it)
+        if (!live()) return;
         activeReconnectCounter = counter;
         activeReconnectIdentity = {
-          deviceKeyPair: reconnectCtx.deviceKeyPair,
-          deviceId: reconnectCtx.deviceId,
+          deviceKeyPair: ctx.deviceKeyPair,
+          deviceId: ctx.deviceId,
           devicePublicSpki: '', // unused on reconnect (no enrollment)
           onEnrollHost: () => undefined,
           reconnect: {
-            hostIdentityId: reconnectCtx.hostIdentityId,
-            pinnedHostPublicKey: reconnectCtx.pinnedHostPublicKey,
+            hostIdentityId: ctx.hostIdentityId,
+            pinnedHostPublicKey: ctx.pinnedHostPublicKey,
           },
         };
+        const rendezvous = await deriveReconnectRendezvous(ctx.seed, counter);
+        if (!live()) return;
         teardownPeer();
-        connectAt(await deriveReconnectRendezvous(reconnectCtx.seed, counter));
-        await new Promise((r) => setTimeout(r, options.reconnectRoomWaitMs ?? 4_000));
-        if (!reconnecting) return; // onAccept set reconnecting=false → success
+        connectAt(rendezvous);
+        await sleep(options.reconnectRoomWaitMs ?? 4_000);
+        if (!live()) return; // accepted (onAccept cleared `reconnecting`), or replaced
       }
     }
+    if (!live()) return;
     // Exhausted the window without a resume → surface failure (the operator re-pairs via QR).
     reconnecting = false;
     activeReconnectIdentity = null;
@@ -423,6 +437,7 @@ export function createRtcSessionClient(
     },
     disconnect(): void {
       reconnecting = false;
+      reconnectGeneration += 1;
       activeReconnectIdentity = null;
       teardownPeer();
       setStatus('disconnected');
