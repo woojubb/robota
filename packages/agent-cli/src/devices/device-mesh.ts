@@ -193,32 +193,36 @@ export async function openDeviceMesh(
           cache: createFileMeshAddressCache(directory, { withinRoot: options.root, now }),
           ...(lan.host !== undefined ? { host: lan.host } : {}),
           ...(lan.mdns !== undefined ? { mdns: lan.mdns } : {}),
-          ...(lan.onError !== undefined ? { onError: lan.onError } : {}),
+          ...((lan.onError ?? options.onError) !== undefined
+            ? { onError: lan.onError ?? options.onError }
+            : {}),
         });
-  const node = new DeviceMeshNode({
-    identity: handshakeIdentity(state, keys),
-    sessionDescriptor: descriptor,
-    localPolicy: options.localPolicy ?? DEFAULT_MESH_POLICY,
-    relay,
-    ...(options.operatorApprover !== undefined
-      ? { operatorApprover: options.operatorApprover }
-      : {}),
-    onListsAdopted: (update) => {
-      // A list that cannot be saved is adopted again from the next peer that has it; say so meanwhile.
-      void saveAdoptedLists(directory, options.root, update, now()).catch((error: unknown) =>
-        options.onError?.(error),
-      );
-    },
-    ...(options.iceServers !== undefined ? { iceServers: options.iceServers } : {}),
-    ...(options.connectTimeoutMs !== undefined
-      ? { connectTimeoutMs: options.connectTimeoutMs }
-      : {}),
-    now,
-  });
+  // Everything started so far is closed again if the endpoint cannot be opened.
+  let node: DeviceMeshNode | undefined;
   try {
+    node = new DeviceMeshNode({
+      identity: handshakeIdentity(state, keys),
+      sessionDescriptor: descriptor,
+      localPolicy: options.localPolicy ?? DEFAULT_MESH_POLICY,
+      relay,
+      ...(options.operatorApprover !== undefined
+        ? { operatorApprover: options.operatorApprover }
+        : {}),
+      onListsAdopted: (update) => {
+        // A list that cannot be saved is adopted again from the next peer that has it; say so meanwhile.
+        void saveAdoptedLists(directory, options.root, update, now()).catch((error: unknown) =>
+          options.onError?.(error),
+        );
+      },
+      ...(options.iceServers !== undefined ? { iceServers: options.iceServers } : {}),
+      ...(options.connectTimeoutMs !== undefined
+        ? { connectTimeoutMs: options.connectTimeoutMs }
+        : {}),
+      now,
+    });
     await node.start();
   } catch (error) {
-    node.stop();
+    node?.stop();
     if (relay !== options.relay) relay.close();
     throw error;
   }
