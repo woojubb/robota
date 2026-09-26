@@ -275,7 +275,7 @@ describe('WireTuiChannel', () => {
     const { channel, link } = await attached();
     link.push({
       type: 'commands',
-      commands: [{ name: 'help', description: 'Help', modelInvocable: false }],
+      commands: [{ name: 'help', description: 'Help', modelInvocable: false, runner: 'runtime' }],
       skills: [
         {
           name: 'hello',
