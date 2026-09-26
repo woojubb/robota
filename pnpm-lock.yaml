@@ -56,6 +56,11 @@ overrides:
   mermaid@<11.16.1: '>=11.16.1 <12.0.0'
   devalue: '>=5.9.2 <6.0.0'
 
+patchedDependencies:
+  nostr-tools@2.25.2:
+    hash: cwhzskwbpwfbe2z3roazz7mtuy
+    path: patches/nostr-tools@2.25.2.patch
+
 importers:
 
   .:
@@ -1161,7 +1166,7 @@ importers:
         version: 7.2.5
       nostr-tools:
         specifier: ^2.25.2
-        version: 2.25.2(typescript@6.0.3)
+        version: 2.25.2(patch_hash=cwhzskwbpwfbe2z3roazz7mtuy)(typescript@6.0.3)
       open:
         specifier: ^11.0.0
         version: 11.0.0
@@ -2480,7 +2485,7 @@ importers:
         version: 7.2.5
       nostr-tools:
         specifier: ^2.25.2
-        version: 2.25.2(typescript@6.0.3)
+        version: 2.25.2(patch_hash=cwhzskwbpwfbe2z3roazz7mtuy)(typescript@6.0.3)
       ws:
         specifier: ^8.21.1
         version: 8.21.1
@@ -19774,7 +19779,7 @@ packages:
     engines: {node: '>=10'}
     dev: true
 
-  /nostr-tools@2.25.2(typescript@6.0.3):
+  /nostr-tools@2.25.2(patch_hash=cwhzskwbpwfbe2z3roazz7mtuy)(typescript@6.0.3):
     resolution: {integrity: sha512-7JAx+brEPmqGz1yzaK9MOxvis/Nl1B38j9hVsBSRDMRmxk5XSc0+5LlPEYbzeiUyk41RURBDcfuMzmaT754HAg==}
     peerDependencies:
       typescript: '>=5.0.0'
@@ -19791,6 +19796,7 @@ packages:
       nostr-wasm: 0.1.0
       typescript: 6.0.3
     dev: false
+    patched: true
 
   /nostr-wasm@0.1.0:
     resolution: {integrity: sha512-78BTryCLcLYv96ONU8Ws3Q1JzjlAt+43pWQhIl86xZmWeegYCNLPml7yQ+gG3vR6V5h4XGj+TxO+SS5dsThQIA==}
