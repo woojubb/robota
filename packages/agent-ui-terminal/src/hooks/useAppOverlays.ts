@@ -11,7 +11,10 @@ import type {
 } from '../app-view-model.js';
 import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
-import type { IInteractiveSessionStore } from '@robota-sdk/agent-interface-session';
+import type {
+  IInteractiveSessionStore,
+  IResumableSessionSummary,
+} from '@robota-sdk/agent-interface-session';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
 interface IOptions {
@@ -23,6 +26,8 @@ interface IOptions {
   readonly transportVisible: boolean;
   readonly setTransportVisible: (visible: boolean) => void;
   readonly sessionStore: IInteractiveSessionStore | undefined;
+  /** The host's sessions, when the channel's host keeps them; they replace the local store's. */
+  readonly hostSessions: readonly IResumableSessionSummary[] | undefined;
   readonly sessionPickerVisible: boolean;
   readonly setSessionPickerVisible: (visible: boolean) => void;
   readonly onSessionSwitch: (sessionId: string) => Promise<void>;
@@ -66,7 +71,8 @@ export function useAppOverlays(options: IOptions): IAppOverlays {
     },
     sessionPicker: {
       visible: options.sessionPickerVisible,
-      sessions: listResumableSessionSummaries(options.sessionStore, options.cwd),
+      sessions:
+        options.hostSessions ?? listResumableSessionSummaries(options.sessionStore, options.cwd),
       select: selectSession,
       cancel: cancelSessionPicker,
     },

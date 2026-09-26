@@ -37,10 +37,26 @@ import type {
   IUiIntentEvent,
   TPermissionResultValue,
 } from '@robota-sdk/agent-interface-session';
-import type { ISessionConversationRead, TDriverId } from '@robota-sdk/agent-interface-session';
+import type {
+  ISessionConversationRead,
+  TDriverId,
+  TTurnSource,
+} from '@robota-sdk/agent-interface-session';
 import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
 
 export type TBackgroundControlAction = 'cancel' | 'close' | 'send';
+
+type THistoryEntry = ReturnType<ISessionConversationRead['getFullHistory']>[number];
+
+/**
+ * #3189: one entry of the session's full history as it crosses the wire. The same record the session
+ * keeps, except that `timestamp` is an ISO 8601 string: a `Date` does not survive JSON, and a
+ * declared `Date` that arrives as a string would let a client call `Date` methods on a string.
+ */
+export interface IWireHistoryEntry extends Omit<THistoryEntry, 'timestamp'> {
+  /** ISO 8601. */
+  timestamp: string;
+}
 
 /** Inbound message from client to server. */
 export type TClientMessage =
@@ -49,6 +65,8 @@ export type TClientMessage =
   | { type: 'abort' }
   | { type: 'cancel-queue' }
   | { type: 'get-messages' }
+  // #3189: the session's full history — what a client that renders the whole session (the TUI) shows.
+  | { type: 'get-history' }
   | { type: 'get-context' }
   // #3186: what every client needs beside the conversation — the commands and skills it can offer
   // (a `/` menu), and the session's status (model, permission mode, effort, context).
@@ -109,7 +127,14 @@ export type TServerMessage =
       data?: ICommandResult['data'];
     }
   | { type: 'messages'; messages: ReturnType<ISessionConversationRead['getMessages']> }
+  | { type: 'history'; entries: IWireHistoryEntry[] }
+  // Sent in reply to `get-context`, and pushed whenever the session's context window changes.
   | { type: 'context'; state: ReturnType<ISessionConversationRead['getContextState']> }
+  // #3189: the full history gained entries that no streamed frame carries (a compaction, a skill
+  // activation, a memory event). A client that shows the full history re-reads it with `get-history`.
+  | { type: 'history_changed' }
+  // #3189: where the turn now starting came from (the user, a wake-up, a peer, an external event).
+  | { type: 'turn_source'; source: TTurnSource }
   | { type: 'commands'; commands: ICommandListEntry[]; skills: ICommandSkillListEntry[] }
   | { type: 'session_status'; status: ISessionStatusSnapshot }
   | { type: 'sessions'; requestId: string; listing: ISessionListing }

@@ -18,9 +18,11 @@ authenticate; the OS user who started the process is the boundary.
   view does not construct a session or infer ownership from matching IDs; requested control,
   attaching and linked-PR opening are delegated to the host's owner-verifying path, bound to the
   process start the row showed, offered only for a row that proved it, and never decided by a
-  displayed or stale row alone. Its attached-session view is a thin client of a session reached over
-  the carrier-neutral session protocol: it shows what the protocol carries, one question at a time,
-  sends only what the user types or answers, and leaving it only detaches.
+  displayed or stale row alone. Its attached-session view, and the full TUI attached to a host's
+  session, are thin clients of a session reached over the carrier-neutral session protocol: they
+  show what the protocol carries, one question at a time, send only what the user types or answers,
+  and leaving only detaches — nothing they send ends the host's session, and a question left open
+  stays open for the other clients.
 - Depends on the TUI interaction contracts, the framework's interactive-session runtime and the
   carrier-neutral session wire messages; does not depend on any transport implementation package,
   and no transport package depends on this one.
@@ -77,15 +79,18 @@ contract is authoritative for how the TUI releases resources on session switch a
   ordinary start rollback path; the renderer never treats an unbound source as ready.
 - Stop unwires every session listener it registered, drains pending permission and user-action
   queues, stops background polling, disposes UI state, stops transports, and — unless the channel
-  already shut down gracefully — shuts the underlying session down within a bounded timeout, so a
-  discarded or switched-away channel releases its background tasks, subagent processes, and
-  timers. A channel that leaves a listener bound or its session running after stop is a defect.
+  already shut down gracefully, or only attached to a host's session — shuts the underlying session
+  down within a bounded timeout, so a discarded or switched-away channel releases its background
+  tasks, subagent processes, and timers. A channel that leaves a listener bound, or a session it
+  owns running, after stop is a defect.
 - Graceful shutdown (first interrupt, explicit exit, signal) and an explicit stop share one
   completion path so neither reports success while the other is still pending, and a wedged
   subsystem can never block process exit because session shutdown is time-bounded.
 - On session switch, the old channel is fully stopped before the new one becomes active, so it can
   never receive events meant for the new session; on stop failure the old channel stays selected
   with input disabled until a retry succeeds, rather than silently creating a second live channel.
+  A channel attached to a host asks the host to switch and follows the host's switch instead: it
+  drops the old session's questions unanswered and re-reads everything it shows.
 - The permission queue and the user-action queue are both drained on abort, cancel, and shutdown:
   every queued or in-flight action resolves (as cancelled or denied) rather than dangling — an
   unresolved permission promise would hang the tool that is waiting on it, and a queue drain that

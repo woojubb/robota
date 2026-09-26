@@ -26,6 +26,7 @@ import {
   type ISupervisedExternalEvents,
 } from '../supervised-session-control.js';
 
+import type { ISessionDirectory } from '@robota-sdk/agent-interface-session';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 const ID = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
@@ -127,6 +128,7 @@ async function withTarget(
     withRemoteControl?: boolean;
     attachable?: boolean;
     externalEvents?: ISupervisedExternalEvents;
+    sessionDirectory?: ISessionDirectory;
   } = {},
 ): Promise<void> {
   const scratch = mkdtempSync(join(tmpdir(), prefix));
@@ -147,7 +149,9 @@ async function withTarget(
     control = await startSupervisedControl(
       ID, () => undefined, root, () => session.getLocalActivityStatus(), undefined, undefined,
       undefined, undefined, undefined, options.externalEvents,
-      options.attachable === false ? undefined : session,
+      options.attachable === false
+        ? undefined
+        : { session, ...(options.sessionDirectory !== undefined ? { sessionDirectory: options.sessionDirectory } : {}) },
     );
     const attach = (mode: 'drive' | 'observe', extra: Record<string, unknown> = {}, pipelined = '') =>
       handshake(
@@ -358,6 +362,38 @@ describe('supervised attach carrier', () => {
       expect(await client.waitFor('executing')).toEqual({ type: 'executing', executing: false });
       client.socket.destroy();
     }, { externalEvents });
+  });
+
+  it('lists, starts and switches the host sessions through the directory it was given', async () => {
+    const listing = {
+      currentSessionId: 'session_attach',
+      sessions: [{ id: 'stored', cwd: '/tmp', updatedAt: '2026-09-01T00:00:00Z', messageCount: 2, preview: 'hi' }],
+      unreadableSessionIds: [],
+    };
+    const sessionDirectory: ISessionDirectory = {
+      listSessions: vi.fn(() => listing),
+      switchSession: vi.fn(async () => undefined),
+      newSession: vi.fn(async () => { throw new Error('Stop the running turn first.'); }),
+    };
+    await withTarget('rs-b6-', async ({ attach }) => {
+      const { client } = await attach('drive');
+      client.send({ type: 'list-sessions', requestId: 'r1' });
+      expect(await client.waitFor('sessions')).toEqual({ type: 'sessions', requestId: 'r1', listing });
+      client.send({ type: 'switch-session', sessionId: 'stored' });
+      await vi.waitFor(() => expect(sessionDirectory.switchSession).toHaveBeenCalledWith('stored'));
+      client.send({ type: 'new-session' });
+      expect((await client.waitFor('protocol_error')).message).toBe('Stop the running turn first.');
+      client.socket.destroy();
+    }, { sessionDirectory });
+  });
+
+  it('answers a listing request as not available when no directory was given', async () => {
+    await withTarget('rs-b7-', async ({ attach }) => {
+      const { client } = await attach('observe');
+      client.send({ type: 'list-sessions', requestId: 'r1' });
+      expect(await client.waitFor('sessions_error')).toMatchObject({ requestId: 'r1', code: 'not_available' });
+      client.socket.destroy();
+    });
   });
 
   it('ends attached connections when the session closes its control', async () => {

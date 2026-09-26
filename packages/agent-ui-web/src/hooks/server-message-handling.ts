@@ -20,7 +20,12 @@ export const SERVER_MESSAGE_HANDLING = {
   error: 'visible-notice',
   command_result: 'reducer-state',
   messages: 'reducer-state',
+  // #3189: the full history and its change signal serve a client that renders the whole session
+  // (the TUI); this surface builds its transcript from `messages` and the streamed turn.
+  history: 'intentionally-not-rendered',
+  history_changed: 'intentionally-not-rendered',
   context: 'intentionally-not-rendered',
+  turn_source: 'intentionally-not-rendered',
   commands: 'reducer-state',
   session_status: 'reducer-state',
   sessions: 'reducer-state',

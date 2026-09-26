@@ -1,12 +1,13 @@
 import type { TOutboundDeliver } from './outbound-delivery.js';
 import type { IProtocolSession } from './protocol-session.js';
-import type { TClientMessage } from './wire-messages.js';
+import type { IWireHistoryEntry, TClientMessage } from './wire-messages.js';
 
 type TSessionQueryMessage = Extract<
   TClientMessage,
   {
     type:
       | 'get-messages'
+      | 'get-history'
       | 'get-context'
       | 'get-commands'
       | 'get-status'
@@ -19,6 +20,7 @@ type TSessionQueryMessage = Extract<
 export function isSessionQueryMessage(msg: TClientMessage): msg is TSessionQueryMessage {
   return (
     msg.type === 'get-messages' ||
+    msg.type === 'get-history' ||
     msg.type === 'get-context' ||
     msg.type === 'get-commands' ||
     msg.type === 'get-status' ||
@@ -35,6 +37,8 @@ export function handleSessionQueryMessage(
 ): void {
   if (msg.type === 'get-messages') {
     deliver({ type: 'messages', messages: session.getMessages() });
+  } else if (msg.type === 'get-history') {
+    deliver({ type: 'history', entries: session.getFullHistory().map(toWireHistoryEntry) });
   } else if (msg.type === 'get-context') {
     deliver({ type: 'context', state: session.getContextState() });
   } else if (msg.type === 'get-commands') {
@@ -51,4 +55,18 @@ export function handleSessionQueryMessage(
   } else {
     deliver({ type: 'pending', pending: session.getPendingPrompt() });
   }
+}
+
+function toWireHistoryEntry(
+  entry: ReturnType<IProtocolSession['getFullHistory']>[number],
+): IWireHistoryEntry {
+  return { ...entry, timestamp: toIsoTimestamp(entry.timestamp) };
+}
+
+/**
+ * The declared type is `Date`, but a resumed session's entries were read back from JSON unrevived, so
+ * their `timestamp` is already the ISO string the store wrote. Either way the wire carries that string.
+ */
+function toIsoTimestamp(timestamp: Date | string): string {
+  return typeof timestamp === 'string' ? timestamp : timestamp.toISOString();
 }

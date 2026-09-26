@@ -36,6 +36,7 @@ function createMockSession(overrides: Partial<IInteractiveSession> = {}): IInter
     isExecuting: vi.fn().mockReturnValue(false),
     getPendingPrompt: vi.fn().mockReturnValue(null),
     getMessages: vi.fn().mockReturnValue([]),
+    getFullHistory: vi.fn().mockReturnValue([]),
     getContextState: vi.fn().mockReturnValue({
       usedPercentage: 0,
       usedTokens: 0,

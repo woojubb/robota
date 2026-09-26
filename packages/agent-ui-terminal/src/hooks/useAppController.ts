@@ -131,7 +131,7 @@ function buildStatus(composition: IComposition): IAppStatusViewModel {
   return {
     cwd: props.cwd,
     permissionMode: runtime.permissionMode,
-    modelId: props.modelId,
+    modelId: runtime.modelId ?? props.modelId,
     providerType: props.providerType,
     sessionId: runtime.sessionId,
     isThinking: state.isThinking,

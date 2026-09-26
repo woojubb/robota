@@ -48,25 +48,30 @@ export interface IAttachedViewRenderOptions {
 
 export type TAttachedViewRender = (options: IAttachedViewRenderOptions) => Promise<'user' | 'closed'>;
 
+/** An admitted attach: the protocol connection and the driver id the session assigned it. */
+export interface IOpenAttach {
+  readonly connection: Omit<ISupervisedAttachConnection, 'detach' | 'driverId'>;
+  readonly driverId: string;
+}
+
 export interface IConfirmedAttach {
   readonly id: string;
   readonly mode: 'drive' | 'observe';
   /** The process start the user confirmed; a restart since then is refused. */
   readonly generation: string;
-  readonly sessionLabel: string;
   readonly root: string;
-  readonly render: TAttachedViewRender;
-  readonly screenReader?: Pick<
-    IAttachedViewRenderOptions,
-    'screenReader' | 'screenReaderChannel' | 'screenReaderHint' | 'announce'
-  >;
+  /** Run the terminal's view on the open connection; resolves how it ended. */
+  readonly render: (attach: IOpenAttach) => Promise<'user' | 'closed'>;
+  /** Printed once the view ended: the user left, or the session closed the connection. */
+  readonly messages: { readonly detached: string; readonly closed: string };
+  readonly open?: typeof openSupervisedAttach;
 }
 
 /** Attach after the user said yes, run the view until it ends, and always detach. */
 export async function runConfirmedAttach(attach: IConfirmedAttach): Promise<number> {
   let connection: ISupervisedAttachConnection;
   try {
-    connection = await openSupervisedAttach(attach.id, attach.mode, attach.root, attach.generation);
+    connection = await (attach.open ?? openSupervisedAttach)(attach.id, attach.mode, attach.root, attach.generation);
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : 'Unable to attach.'}\n`);
     return 1;
@@ -75,21 +80,28 @@ export async function runConfirmedAttach(attach: IConfirmedAttach): Promise<numb
   try {
     ended = await attach.render({
       connection: { send: connection.send, subscribe: connection.subscribe, onClose: connection.onClose },
-      mode: attach.mode,
-      sessionLabel: attach.sessionLabel,
       driverId: connection.driverId,
-      ...attach.screenReader,
     });
   } finally {
     connection.detach();
   }
-  const { id } = attach;
-  process.stdout.write(
-    ended === 'closed'
-      ? `Supervised session ${id} closed the connection (it stopped, or cut this terminal off).\n`
-      : `Detached from ${id}. It keeps running; stop it with robota session stop ${id} or from robota session view.\n`,
-  );
+  process.stdout.write(`${ended === 'closed' ? attach.messages.closed : attach.messages.detached}\n`);
   return 0;
+}
+
+/** The reduced attached view of a supervised session, and what to print when it ends. */
+export function supervisedSessionAttachView(
+  id: string,
+  view: Omit<IAttachedViewRenderOptions, 'connection' | 'driverId'> & { readonly render: TAttachedViewRender },
+): Pick<IConfirmedAttach, 'render' | 'messages'> {
+  const { render, ...options } = view;
+  return {
+    render: ({ connection, driverId }) => render({ ...options, connection, driverId }),
+    messages: {
+      closed: `Supervised session ${id} closed the connection (it stopped, or cut this terminal off).`,
+      detached: `Detached from ${id}. It keeps running; stop it with robota session stop ${id} or from robota session view.`,
+    },
+  };
 }
 
 export interface ISessionAttachCommandOptions {
@@ -158,11 +170,12 @@ export async function runSessionAttachCommand(
   }
   // Bound to the generation the user confirmed: a restart in the meantime is a different session.
   return runConfirmedAttach({
-    id, mode, generation: row.generation, sessionLabel: row.name ?? id, root, render: options.render,
-    screenReader: {
+    id, mode, generation: row.generation, root,
+    ...supervisedSessionAttachView(id, {
+      render: options.render, mode, sessionLabel: row.name ?? id,
       screenReader: screenReader.screenReader,
       ...(screenReader.screenReaderChannel !== undefined ? { screenReaderChannel: screenReader.screenReaderChannel } : {}),
       ...(screenReader.screenReaderHint !== undefined ? { screenReaderHint: screenReader.screenReaderHint } : {}),
-    },
+    }),
   });
 }
