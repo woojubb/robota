@@ -30,6 +30,32 @@ export { subscribeSessionEvents } from './session-events.js';
 export type { ISubscribeSessionEventsOptions } from './session-events.js';
 export { parseClientMessage } from './message-parser.js';
 
+/**
+ * What a connected surface may do. `drive` sends prompts, answers questions and controls the session.
+ * `observe` is read-only: it follows this session's conversation and state, but never submits, answers,
+ * controls, or reads another session's records, and it never counts as a surface that can answer.
+ */
+export type TSessionSurfaceRole = 'drive' | 'observe';
+
+/**
+ * The only inbound messages an observer may send: reads of this session. An allowlist, so a message
+ * type added later is refused to observers until someone decides it is a read.
+ */
+const OBSERVER_MESSAGES: ReadonlySet<TClientMessage['type']> = new Set<TClientMessage['type']>([
+  'get-messages',
+  'get-context',
+  'get-executing',
+  'get-pending',
+  'get-execution-workspace',
+  'get-usage-report',
+  'get-background-tasks',
+  'get-background-task',
+  'get-background-job-groups',
+  'get-background-job-group',
+  'wait-background-job-group',
+  'read-background-task-log',
+]);
+
 export interface ISessionMessageHandlerOptions {
   /** IProtocolSession to expose. */
   session: IProtocolSession;
@@ -49,6 +75,8 @@ export interface ISessionMessageHandlerOptions {
   driverId?: TDriverId;
   /** Trusted carrier-owned product surface, kept separate from driver identity. */
   surface?: TUsageSurface;
+  /** Carrier-decided role of this connection; defaults to `drive`. The client never chooses it here. */
+  role?: TSessionSurfaceRole;
   /** Host-owned cross-session read model. The protocol only correlates and carries its result. */
   personalUsageReporter?: NonNullable<IUsageQueryReporters['personalUsageReporter']>;
   /** Host-owned current-session trace/cost producer for the pre-existing message family. */
@@ -80,8 +108,10 @@ export function createSessionMessageHandler(options: ISessionMessageHandlerOptio
   onMessage: (data: string) => void;
   cleanup: () => void;
 } {
+  const role = options.role ?? 'drive';
   const cleanup = subscribeSessionEvents(options.session, options.deliver, {
     getSurfaceDriverId: () => options.driverId,
+    receivePrompts: role === 'drive',
   });
   const onMessage = createMessageHandler(
     options.session,
@@ -93,6 +123,7 @@ export function createSessionMessageHandler(options: ISessionMessageHandlerOptio
       storedSessionUsageReporter: options.storedSessionUsageReporter,
     },
     options.surface,
+    role,
   );
 
   return { onMessage, cleanup };
@@ -104,10 +135,15 @@ function createMessageHandler(
   driverId?: TDriverId,
   reporters: IUsageQueryReporters = EMPTY_USAGE_REPORTERS,
   surface?: TUsageSurface,
+  role: TSessionSurfaceRole = 'drive',
 ): (data: string) => void {
   return (data: string): void => {
     const msg = parseClientMessage(data, deliver);
     if (!msg) return;
+    if (role === 'observe' && !OBSERVER_MESSAGES.has(msg.type)) {
+      deliver({ type: 'protocol_error', message: `Not permitted for an observer: ${msg.type}` });
+      return;
+    }
     handleClientMessage(session, deliver, msg, driverId, reporters, surface);
   };
 }
