@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/dag-node-file-write",
-  "version": "3.0.0-beta.62",
+  "version": "3.0.0-beta.63",
   "private": true,
   "description": "DAG node for writing files to the filesystem",
   "type": "module",

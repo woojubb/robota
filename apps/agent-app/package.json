@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-app",
-  "version": "3.0.0-beta.81",
+  "version": "3.0.0-beta.82",
   "private": true,
   "description": "agent-app — an Electron desktop application that drives a robota session over a loopback WS sidecar; the desktop GUI surface, rendering the shared GUI presentation core @robota-sdk/agent-ui-web (GUI-005)",
   "author": "Robota",

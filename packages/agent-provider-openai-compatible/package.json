@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-provider-openai-compatible",
-  "version": "3.0.0-beta.81",
+  "version": "3.0.0-beta.82",
   "description": "OpenAI-compatible providers (DeepSeek, Qwen, Gemma) for Robota SDK",
   "type": "module",
   "publishConfig": {

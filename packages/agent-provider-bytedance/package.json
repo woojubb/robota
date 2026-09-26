@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-provider-bytedance",
-  "version": "3.0.0-beta.81",
+  "version": "3.0.0-beta.82",
   "description": "Bytedance (ModelArk) video generation provider for Robota SDK",
   "type": "module",
   "publishConfig": {
