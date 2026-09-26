@@ -86,6 +86,8 @@ function nodeErrorCode(error: object | null): string | undefined {
 }
 
 let libc: { library: unknown; open: TOpen; openAt: TOpenAt } | undefined;
+// Held as soon as it loads, even if declaring a function below then throws.
+const retainedLibraries: unknown[] = [];
 
 /**
  * libc is loaded once per process and the library handle itself is kept alive with its functions.
@@ -97,6 +99,7 @@ function libcFunctions(): { open: TOpen; openAt: TOpenAt } {
     const library = koffi.load(
       process.platform === 'darwin' ? '/usr/lib/libSystem.B.dylib' : 'libc.so.6',
     );
+    retainedLibraries.push(library);
     libc = {
       library,
       open: library.func('int open(const char *path, int flags)') as TOpen,

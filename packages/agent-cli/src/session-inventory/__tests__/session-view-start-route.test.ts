@@ -29,12 +29,16 @@ describe('session view background start route', () => {
     process.env['HOME'] = home;
     const stdout = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     vi.mocked(launchSupervisedSession).mockResolvedValue('8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4');
+    const renderer = vi.fn(async () => undefined);
     vi.mocked(runSessionViewCommand).mockImplementation(async (_argv, options) => {
       expect(options?.launchCwd).toBe(cwd);
+      expect(options?.render).toBe(renderer);
       await expect(options?.start?.(other)).rejects.toThrow(/Workspace trust is required/);
       expect(launchSupervisedSession).not.toHaveBeenCalled();
       await expect(options?.start?.(cwd)).resolves.toBe('8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4');
-      expect(launchSupervisedSession).toHaveBeenCalledExactlyOnceWith(cwd, { env: expect.any(Object) });
+      expect(launchSupervisedSession).toHaveBeenCalledExactlyOnceWith(cwd, {
+        env: expect.any(Object),
+      });
       expect(await runWorkspaceTrustCommand(['revoke', '--yes'], cwd)).toBe(1);
       await expect(options?.start?.(cwd)).rejects.toThrow(/Workspace trust is required/);
       expect(launchSupervisedSession).toHaveBeenCalledTimes(1);
@@ -42,9 +46,18 @@ describe('session view background start route', () => {
     });
     try {
       expect(await runWorkspaceTrustCommand(['--yes'], cwd)).toBe(0);
-      expect(await runPreparsedCliCommand({
-        providerDefinitions: [], projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
-      }, ['node', 'robota', 'session', 'view'], cwd)).toBe(true);
+      expect(
+        await runPreparsedCliCommand(
+          {
+            providerDefinitions: [],
+            projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
+          },
+          ['node', 'robota', 'session', 'view'],
+          cwd,
+          {},
+          renderer,
+        ),
+      ).toBe(true);
       expect(process.exitCode).toBe(0);
     } finally {
       if (previousHome === undefined) delete process.env['HOME'];

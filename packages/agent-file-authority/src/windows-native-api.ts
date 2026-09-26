@@ -231,8 +231,9 @@ export function getWindowsApi(): IWindowsApi {
   if (cachedApi !== undefined) return cachedApi;
   const types = defineWindowsTypes();
   const kernel32 = koffi.load('kernel32.dll');
+  retainedLibraries.push(kernel32);
   const ntdll = koffi.load('ntdll.dll');
-  retainedLibraries.push(kernel32, ntdll);
+  retainedLibraries.push(ntdll);
   cachedApi = {
     ...types,
     ...bindKernel32(kernel32, types),
