@@ -50,7 +50,7 @@ export function useNumberedSelection(inputs: IUseNumberedSelectionInputs): INumb
   }, []);
 
   const handle = useCallback(
-    (input: string, key: Parameters<typeof applyNumericSelection>[2]): void => {
+    (input: string, key: Parameters<typeof applyNumericSelection>[2]): boolean => {
       const result = applyNumericSelection(stateRef.current, input, key, {
         itemCount,
         ...(cancellable === true ? { cancellable: true } : {}),
@@ -62,6 +62,7 @@ export function useNumberedSelection(inputs: IUseNumberedSelectionInputs): INumb
       if (result.effect.type === 'select') onSelect(result.effect.index);
       else if (result.effect.type === 'cancel') onCancel?.();
       else if (result.effect.type === 'confirm') onConfirm?.();
+      return result.effect.type !== 'none';
     },
     [itemCount, cancellable, multi, repeatable, onSelect, onCancel, onConfirm],
   );
@@ -69,13 +70,18 @@ export function useNumberedSelection(inputs: IUseNumberedSelectionInputs): INumb
   useInput(
     (input, key) => {
       // Pasted or fast-typed input can arrive as one chunk ("2\r"): Ink then reports it as plain
-      // text with no return key. Replay it as the keystrokes it contains so the Enter is not lost.
+      // text with no return key. Replay it as the keystrokes it contains so the Enter is not lost,
+      // but only up to the first keystroke that acts: the menu's callbacks see the state of the
+      // current render, so acting twice within one chunk could decide on stale state.
       if (key.return !== true && /[\r\n]/u.test(input)) {
         const plainKey = { ...key, return: false };
-        input.split(/(\r\n|\r|\n)/u).forEach((part) => {
-          if (/^(\r\n|\r|\n)$/u.test(part)) handle('', { ...plainKey, return: true });
-          else if (part !== '') handle(part, plainKey);
-        });
+        for (const part of input.split(/(\r\n|\r|\n)/u)) {
+          if (part === '') continue;
+          const acted = /^(\r\n|\r|\n)$/u.test(part)
+            ? handle('', { ...plainKey, return: true })
+            : handle(part, plainKey);
+          if (acted) break;
+        }
         return;
       }
       handle(input, key);
