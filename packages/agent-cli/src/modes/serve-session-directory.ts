@@ -42,6 +42,11 @@ export interface IServeSessionDirectoryHost<TSession extends TServeDirectorySess
   buildSession(resumeSessionId: string | undefined): TSession;
   /** Why this runtime cannot change its session at all right now, if it cannot. */
   switchBlockedReason?(): string | undefined;
+  /**
+   * Hand what belongs to the run — not to a session — over to `next` before it becomes current
+   * (external-event grants). A rejection keeps the current session, and the host keeps its state on it.
+   */
+  adopt?(next: TSession): Promise<void>;
 }
 
 /** An {@link ISessionDirectory} whose host is attached after the transports that carry it exist. */
@@ -62,10 +67,13 @@ export function createServeSessionDirectory<
     return host;
   };
 
-  const refusalToLeave = (target: IServeSessionDirectoryHost<TSession>): string | undefined => {
+  const refusalToLeave = (
+    target: IServeSessionDirectoryHost<TSession>,
+    ownChange = false,
+  ): string | undefined => {
     const blocked = target.switchBlockedReason?.();
     if (blocked !== undefined) return blocked;
-    if (switching) return 'Another session change is already under way.';
+    if (switching && !ownChange) return 'Another session change is already under way.';
     const session = target.slot.current;
     if (session.isExecuting()) return 'Stop the running turn first.';
     if (session.getLocalActivityStatus() === 'needs-input') {
@@ -100,6 +108,25 @@ export function createServeSessionDirectory<
           .catch(() => undefined);
         const reason = error instanceof Error ? error.message : String(error);
         throw new Error(`The session could not be started: ${reason}`);
+      }
+      // Starting the next session takes time, and clients still reach the current one meanwhile: a
+      // turn, a prompt or a task that began since the first check is work a switch now would lose.
+      const lateRefusal = refusalToLeave(target, true);
+      if (lateRefusal !== undefined) {
+        await next
+          .shutdown({ reason: 'other', message: 'switch refused' })
+          .catch(() => undefined);
+        throw new Error(lateRefusal);
+      }
+      try {
+        await target.adopt?.(next);
+      } catch (error) {
+        // allow-fallback: the run stays with the current session; the next one is discarded.
+        await next
+          .shutdown({ reason: 'other', message: 'session could not take over the run' })
+          .catch(() => undefined);
+        const reason = error instanceof Error ? error.message : String(error);
+        throw new Error(`The session could not take over this runtime: ${reason}`);
       }
       await target.slot.replace(next);
     } finally {

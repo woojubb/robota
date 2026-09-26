@@ -312,4 +312,69 @@ describe('serve session directory (#3189)', () => {
     const directory = createServeSessionDirectory<IFakeSession>();
     expect(() => directory.listSessions()).toThrow('Sessions are not available yet.');
   });
+
+  it("carries the run's state to the next session before it becomes current (#3189)", async () => {
+    const store = storeOf([
+      { id: 'a', outcome: { status: 'valid', record: record('a', '2026-09-01T00:00:00Z') } },
+      { id: 'b', outcome: { status: 'valid', record: record('b', '2026-09-02T00:00:00Z') } },
+    ]);
+    const directory = createServeSessionDirectory<IFakeSession>();
+    const host = hostFor(fakeSession('a'), store);
+    const order: string[] = [];
+    const adopt = vi.fn(async (next: IFakeSession) => {
+      order.push(`adopt ${next.id}`);
+    });
+    host.slot.replace.mockImplementation(async (next: IFakeSession) => {
+      order.push(`replace ${next.id}`);
+      host.slot.current = next;
+    });
+    directory.attach({ ...host, adopt });
+
+    await directory.switchSession('b');
+
+    expect(order).toEqual(['adopt b', 'replace b']);
+  });
+
+  it('keeps the current session when the next one cannot take the run over', async () => {
+    const store = storeOf([
+      { id: 'a', outcome: { status: 'valid', record: record('a', '2026-09-01T00:00:00Z') } },
+      { id: 'b', outcome: { status: 'valid', record: record('b', '2026-09-02T00:00:00Z') } },
+    ]);
+    const directory = createServeSessionDirectory<IFakeSession>();
+    const next = fakeSession('b');
+    const host = hostFor(fakeSession('a'), store, () => next);
+    directory.attach({
+      ...host,
+      adopt: async () => {
+        throw new Error('grant refused');
+      },
+    });
+
+    await expect(directory.switchSession('b')).rejects.toThrow(/grant refused/);
+    expect(host.slot.replace).not.toHaveBeenCalled();
+    expect(host.slot.current.id).toBe('a');
+    expect(next.shutdown).toHaveBeenCalled();
+  });
+
+  it('refuses at the last moment when work started while the next session was starting', async () => {
+    const store = storeOf([
+      { id: 'a', outcome: { status: 'valid', record: record('a', '2026-09-01T00:00:00Z') } },
+      { id: 'b', outcome: { status: 'valid', record: record('b', '2026-09-02T00:00:00Z') } },
+    ]);
+    const current = fakeSession('a');
+    let finishInit: () => void = () => undefined;
+    const next = fakeSession('b', () => new Promise<void>((resolve) => (finishInit = resolve)));
+    const directory = createServeSessionDirectory<IFakeSession>();
+    const host = hostFor(current, store, () => next);
+    directory.attach(host);
+
+    const switching = directory.switchSession('b');
+    await Promise.resolve();
+    current.executing = true; // a client submitted while `b` was initializing
+    finishInit();
+
+    await expect(switching).rejects.toThrow('Stop the running turn first.');
+    expect(host.slot.replace).not.toHaveBeenCalled();
+    expect(next.shutdown).toHaveBeenCalled();
+  });
 });

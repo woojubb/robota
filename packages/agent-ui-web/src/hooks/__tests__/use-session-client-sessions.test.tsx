@@ -177,4 +177,37 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
       message: 'Stop the running turn first.',
     });
   });
+
+  it('a refused switch is its own answer: it leaves a command in flight paired with its screen', () => {
+    const { result, deliver } = setup();
+    act(() => result.current.send({ type: 'command', name: 'settings' }));
+    deliver({ type: 'ui_intent', event: { intent: { type: 'show-settings' } } } as TServerMessage);
+    act(() => result.current.switchSession('b'));
+    deliver({ type: 'protocol_error', message: 'Stop the running turn first.' });
+    // The refusal is a toast; the settings command still awaits its own reply.
+    expect(result.current.sessionNotices.at(-1)).toMatchObject({ message: 'Stop the running turn first.' });
+    expect(result.current.messages).toEqual([]);
+    deliver({ type: 'command_result', name: 'settings', message: 'Opening settings...', success: true });
+    expect(result.current.messages).toEqual([
+      expect.objectContaining({ role: 'command', name: 'settings', tone: 'info' }),
+    ]);
+  });
+
+  it("a switch drops the old session's status until the new one's arrives", () => {
+    const { result, deliver } = setup();
+    deliver({
+      type: 'session_status',
+      status: {
+        sessionId: 'a',
+        model: 'm',
+        permissionMode: 'default',
+        effort: 'auto',
+        context: { usedPercentage: 1, usedTokens: 1, maxTokens: 100, remainingPercentage: 99 },
+        goal: null,
+      },
+    } as TServerMessage);
+    expect(result.current.sessionStatus).not.toBeNull();
+    deliver({ type: 'session_switched', event: { sessionId: 'b' } });
+    expect(result.current.sessionStatus).toBeNull();
+  });
 });

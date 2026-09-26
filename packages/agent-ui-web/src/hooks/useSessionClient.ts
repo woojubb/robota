@@ -113,8 +113,13 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   );
   // Commands this surface sent whose result has not come back — a screen request pairs with one.
   const commandsInFlightRef = useRef(0);
+  // Session changes this surface asked for; a refusal answers one of them, not a command.
+  const sessionChangesInFlightRef = useRef(0);
   const send = useCallback((msg: TClientMessage): void => {
     if (msg.type === 'command') commandsInFlightRef.current += 1;
+    if (msg.type === 'switch-session' || msg.type === 'new-session') {
+      sessionChangesInFlightRef.current += 1;
+    }
     clientRef.current?.send(msg);
   }, []);
   const { handleUsageMessage, ...personalUsageState } = usePersonalUsageState(send);
@@ -228,6 +233,9 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         }
         // #3189: the host made another session current — drop what this one showed, re-read it all.
         case 'session_switched': {
+          sessionChangesInFlightRef.current = Math.max(0, sessionChangesInFlightRef.current - 1);
+          // Nothing of the old session stays on screen until the new one's answers arrive.
+          setSessionStatus(null);
           streamingTextRef.current = '';
           streamingIdRef.current = null;
           setStreamingText('');
@@ -262,6 +270,15 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           break;
         }
         case 'protocol_error': {
+          if (sessionChangesInFlightRef.current > 0) {
+            // A refused session change (#3189): its reason is the toast, and commands are untouched.
+            sessionChangesInFlightRef.current -= 1;
+            setSessionNotices((previous) => [
+              ...previous,
+              { id: nextId(), kind: 'protocol-error', message: msg.message },
+            ]);
+            break;
+          }
           // A command can end in a protocol error instead of a result; a screen it asked for still shows.
           commandsInFlightRef.current = Math.max(0, commandsInFlightRef.current - 1);
           const unavailable = pendingIntentRef.current;
@@ -353,6 +370,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       if (next === 'connected') {
         // A reply lost with the old connection never arrives; stop waiting for it.
         commandsInFlightRef.current = 0;
+        sessionChangesInFlightRef.current = 0;
         pendingIntentRef.current = null;
         client.send({ type: 'get-commands' });
         client.send({ type: 'get-status' });

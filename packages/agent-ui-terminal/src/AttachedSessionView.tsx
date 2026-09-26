@@ -40,6 +40,8 @@ type TPrompt =
     };
 
 const MAX_LINES = 500;
+/** What the view asks for to show a session: its transcript first, then its live status. */
+const SNAPSHOT_REQUESTS = ['get-messages', 'get-context', 'get-executing', 'get-pending'] as const;
 const DETACH_KEY = '\x1d';
 
 function textOf(content: unknown): string {
@@ -111,6 +113,10 @@ export default function AttachedSessionView({
     setLines((current) =>
       [...current, ...texts.map((text) => ({ key: (nextKey.current += 1), text }))].slice(-MAX_LINES),
     );
+  };
+
+  const requestSnapshot = (): void => {
+    for (const type of SNAPSHOT_REQUESTS) connection.send({ type });
   };
 
   useEffect(() => {
@@ -190,15 +196,34 @@ export default function AttachedSessionView({
         case 'protocol_error':
           setNotice(message.message);
           break;
+        case 'session_switched':
+          // The runtime now serves another session: nothing shown belongs to it any more, and a
+          // question from the old session can no longer be answered. Start over from its snapshot so
+          // what this terminal shows is where its next input goes.
+          streamed.current = '';
+          setStreaming('');
+          setLines([]);
+          setWorking(false);
+          setQueued(null);
+          setNotice(undefined);
+          changePrompt(undefined);
+          setLabel(message.event.sessionId);
+          requestSnapshot();
+          break;
+        // Answers to requests this view never makes (the session list, the command list, a status
+        // snapshot) — nothing here to show.
+        case 'sessions':
+        case 'sessions_error':
+        case 'commands':
+        case 'session_status':
+          break;
         default:
           break;
       }
     });
     const unclose = connection.onClose(() => detach('closed'));
     // Snapshot first, then live: what happened before this terminal arrived, then what follows.
-    for (const type of ['get-messages', 'get-context', 'get-executing', 'get-pending'] as const) {
-      connection.send({ type });
-    }
+    requestSnapshot();
     return () => {
       unsubscribe();
       unclose();

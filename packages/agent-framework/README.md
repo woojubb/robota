@@ -104,7 +104,8 @@ import type { IRuntimeHostOptions, IRuntimeHostHandle } from '@robota-sdk/agent-
 // `session` holds the resolved session options; `transportRegistry` is the loopback WS sidecar.
 declare const options: IRuntimeHostOptions;
 const host: IRuntimeHostHandle = await startRuntimeHost(options);
-// host.session — the live runtime session every presentation drives
+// host.session — a SessionSlot: the live session every presentation drives, stable across a switch
+// host.session.current — the session it currently forwards to
 // await host.shutdown() — bounded transport teardown + session shutdown
 ```
 

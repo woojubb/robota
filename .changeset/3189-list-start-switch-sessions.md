@@ -2,7 +2,7 @@
 '@robota-sdk/agent-interface-session': major
 '@robota-sdk/agent-transport': major
 '@robota-sdk/agent-transport-ws': minor
-'@robota-sdk/agent-framework': minor
+'@robota-sdk/agent-framework': major
 '@robota-sdk/agent-ui-web': major
 '@robota-sdk/agent-ui-terminal': patch
 '@robota-sdk/agent-cli': minor
@@ -22,9 +22,10 @@ process or any client connection restarting. The GUI shows them in a sessions si
     `protocol_error` carrying the reason.
   - An exhaustive map over message types must add the new variants.
 - `agent-transport-ws` passes a configured `sessionDirectory` to every connection.
-- `agent-framework`:
-  - Adds `SessionSlot`. The runtime host binds its transports to it and exposes it as the host's
-    session.
+- `agent-framework` is **`major` because `IRuntimeHostHandle.session` is now a `SessionSlot`**, not the
+  `InteractiveSession`, and `bindTransports` receives the slot.
+  - The slot is an `IInteractiveSession` that forwards to the current session. Members outside that
+    interface are read through `host.session.current`, which changes on a switch.
   - Adds `InteractiveSession.whenInitialized()`.
   - Exports `listUnreadableSessions`.
 - `agent-ui-web` is **`major`**:
@@ -32,4 +33,5 @@ process or any client connection restarting. The GUI shows them in a sessions si
   - It adds a `SessionSidebar`.
   - `/resume` opens the sidebar.
 - `agent-cli`: `robota --serve` provides the session directory, and refuses a switch that would lose
-  work in progress.
+  work in progress. External-event grants belong to the run: a switch reopens them on the new session,
+  as the TUI already does.

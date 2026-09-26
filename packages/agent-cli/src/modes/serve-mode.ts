@@ -28,11 +28,11 @@ import {
   type ISupervisedPr,
 } from '../session-inventory/supervised-session-control.js';
 import { createExternalEventVerifier } from '../external-events/external-event-verifier.js';
+import { ExternalEventGrantRefusedError } from '../external-events/external-event-grant-host.js';
 import {
-  ExternalEventGrantRefusedError,
-  openExternalEventGrants,
-  type IExternalEventGrantHost,
-} from '../external-events/external-event-grant-host.js';
+  createRebindableExternalEventGrants,
+  type ITuiExternalEventGrants,
+} from '../external-events/tui-external-event-grants.js';
 import { buildRuntimeSession, startRuntimeHost } from '@robota-sdk/agent-framework';
 import type { IServeSessionDirectory } from './serve-session-directory.js';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
@@ -279,7 +279,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   // Declared before the host starts: the directory is attached in `bindTransports`, ahead of the
   // first connection, and asks this whether the runtime can change its session at all.
   let settling = false;
-  let externalEvents: IExternalEventGrantHost | undefined;
+  let externalEvents: ITuiExternalEventGrants | undefined;
   const sessionDirectory = opts.sessionDirectory;
   const host = await startRuntimeHost({
     session: sessionOptions,
@@ -299,13 +299,18 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
               forkSession: undefined,
               sessionName: undefined,
             }),
-          switchBlockedReason: () => {
-            if (settling) return 'This runtime is stopping.';
-            // The grants were opened on this session and are checked against it; a switch would drop them.
-            if (externalEvents !== undefined) {
-              return 'This runtime receives external events for its session, so it cannot switch sessions.';
+          switchBlockedReason: () => (settling ? 'This runtime is stopping.' : undefined),
+          // The grants belong to the run, as in the TUI: they reopen on the next session and close
+          // on this one. If they cannot open there, they stay here and the switch fails.
+          adopt: async (next) => {
+            const grants = externalEvents;
+            if (grants === undefined) return;
+            try {
+              await grants.bind(next);
+            } catch (error) {
+              await grants.bind(slot.current).catch(() => undefined);
+              throw error;
             }
-            return undefined;
           },
         });
       }
@@ -398,11 +403,10 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
           ensureSupervisedAuditDirectory(root),
           args.supervisedSessionId,
         );
-        const opened = await openExternalEventGrants(host.session.current, grants, {
-          audit: (record) => {
-            if ('settlement' in record) audit(record);
-          },
+        const opened = createRebindableExternalEventGrants(grants, (record) => {
+          if ('settlement' in record) audit(record);
         });
+        await opened.bind(host.session.current);
         externalEvents = opened;
         try {
           const endpoint = createExternalEventHttpHost({
@@ -423,8 +427,8 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
       const grantHost = externalEvents;
       if (grantHost !== undefined) {
         opts.commandHostAdapters.externalEvents = {
-          list: () => grantHost.list(),
-          revoke: (grantId) => grantHost.revoke(grantId),
+          list: () => grantHost.adapter.list(),
+          revoke: (grantId) => grantHost.adapter.revoke(grantId),
         };
       }
       supervisedControl = await startSupervisedControl(
@@ -450,10 +454,10 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         grantHost === undefined
           ? undefined
           : {
-              list: () => grantHost.list(),
+              list: () => grantHost.adapter.list(),
               revoke: (grantId) => {
                 if (settling) throw new Error('Supervised runtime is stopping.');
-                return grantHost.revoke(grantId);
+                return grantHost.adapter.revoke(grantId);
               },
             },
         // A terminal on this host may attach over the guarded control socket. It never becomes an
@@ -465,7 +469,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         args.supervisedSessionId,
         readinessAbort.signal,
         undefined,
-        grantHost?.list().map((grant) => grant.grantId),
+        grantHost?.adapter.list().map((grant) => grant.grantId),
       );
       if (settling) throw new Error('Supervised runtime stopped during readiness.');
     } catch (error) {
