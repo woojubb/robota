@@ -311,6 +311,17 @@ export interface ILocalPeerSummary {
 }
 
 /**
+ * Another of the user's devices with an admitted device-mesh link to this session, as the operator
+ * sees it. `deviceId` names it for a later `send`; `locality` is where the carrier established it
+ * runs, shown and never an authority input.
+ */
+export interface ILinkedDeviceSummary {
+  readonly deviceId: string;
+  readonly name?: string;
+  readonly locality: 'same-host' | 'another-host';
+}
+
+/**
  * PEER-004: what `/peers` reads. The registry, the guarded directory and the liveness rule all live
  * in the composition root — a command never touches the filesystem, for the same reason it never
  * constructs a transport.
@@ -325,6 +336,11 @@ export interface ICommandLocalPeersAdapter {
   listWithWorkspace?(): Promise<readonly ILocalPeerSummary[]>;
   /** This session's own id, so the command can mark which row is the reader. */
   ownSessionId(): string;
+  /**
+   * The user's other devices linked to this session over the device mesh, addressed by device id
+   * wherever a session id is taken. Absent on a host with no device mesh.
+   */
+  listDevices?(): readonly ILinkedDeviceSummary[];
   /**
    * PEER-006: hand `text` to another announced session, and report what came back.
    *

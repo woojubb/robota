@@ -88,6 +88,7 @@ export type {
   ICommandSettingsDocument,
   IHandoffProgress,
   IHandoffStaysBehind,
+  ILinkedDeviceSummary,
   ILocalPeerSummary,
   TRemoteControlStatus,
 } from './host-adapters.js';

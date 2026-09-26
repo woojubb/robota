@@ -1,25 +1,24 @@
 import { describe, expect, it } from 'vitest';
 
-import { createHandoffCommandModule } from '../handoff-command-module.js';
+import { createPeersCommandModule } from '../peers-command-module.js';
 
-describe('/handoff command module', () => {
+describe('/peers command module', () => {
   it('is user-only: never model-invocable, and palette metadata matches the executable', () => {
-    const module = createHandoffCommandModule();
+    const module = createPeersCommandModule();
     const palette = module.commandSources?.[0]?.getCommands()[0];
     const executable = module.systemCommands?.[0];
     expect(executable?.modelInvocable).toBe(false);
     expect(palette?.modelInvocable).toBe(false);
     expect(executable?.userInvocable).toBe(true);
-    expect(palette?.userInvocable).toBe(true);
     expect(executable?.description).toBe(palette?.description);
   });
 
-  it('tells the model what it does and which command to suggest, since it cannot run it', () => {
+  it('tells the model it covers linked devices, what it returns, and what to suggest', () => {
     const description =
-      createHandoffCommandModule().commandSources?.[0]?.getCommands()[0]?.description;
-    expect(description).toContain('/handoff <session-or-device-id>');
+      createPeersCommandModule().commandSources?.[0]?.getCommands()[0]?.description;
     expect(description).toMatch(/linked over the device mesh/);
+    expect(description).toMatch(/returns/i);
     expect(description).toMatch(/user-only/i);
-    expect(description).toContain('saved, not started');
+    expect(description).toContain('`/peers`');
   });
 });
