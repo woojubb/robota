@@ -79,7 +79,8 @@ type TPath =
       readonly kind: 'direct';
       readonly socket: IWebSocketLike;
       readonly candidate: IMeshCandidate;
-      readonly deadline: ReturnType<typeof setTimeout>;
+      /** Running from the first signal since the last admission until the next admission. */
+      deadline?: ReturnType<typeof setTimeout>;
     }
   | { readonly kind: 'relay'; readonly until: number };
 
@@ -239,6 +240,7 @@ export class DiscoveringMeshRelay implements IMeshRelay {
     const path = state?.path;
     if (state === undefined || path?.kind !== 'direct') return;
     clearTimeout(path.deadline);
+    path.deadline = undefined;
     state.avoid.clear();
     this.cacheWrite(() => this.options.cache?.remember(deviceId, path.candidate));
   }
@@ -267,6 +269,8 @@ export class DiscoveringMeshRelay implements IMeshRelay {
     }
     const path = state.path;
     if (path.kind === 'direct' && path.socket.readyState === WS_OPEN) {
+      // Every attempt must reach admission over this endpoint in time, not only the first one.
+      this.armDeadline(state, path);
       this.sendDirect(path.socket, state, data);
       return;
     }
@@ -407,18 +411,26 @@ export class DiscoveringMeshRelay implements IMeshRelay {
     });
   }
 
-  private useDirect(state: IRouteState, socket: IWebSocketLike, candidate: IMeshCandidate): void {
-    // An endpoint that carries the pair's signals but no admission is set aside, so it cannot keep
-    // the pair from the next candidate or the relay.
-    const deadline = setTimeout(() => {
+  /**
+   * An endpoint that carries the pair's signals but no admission is set aside, so it cannot keep the
+   * pair from the next candidate or the relay — whether it never forwarded, or forwarded one
+   * attempt and swallows the next.
+   */
+  private armDeadline(state: IRouteState, path: Extract<TPath, { kind: 'direct' }>): void {
+    if (path.deadline !== undefined) return;
+    path.deadline = setTimeout(() => {
       if (state.path !== path) return;
-      state.avoid.set(candidateKey(candidate), this.now() + this.recheckMs());
+      state.avoid.set(candidateKey(path.candidate), this.now() + this.recheckMs());
       this.reset(state);
       this.fallBack(state);
     }, this.options.admissionTimeoutMs ?? DEFAULT_ADMISSION_TIMEOUT_MS);
-    deadline.unref?.();
-    const path: TPath = { kind: 'direct', socket, candidate, deadline };
+    path.deadline.unref?.();
+  }
+
+  private useDirect(state: IRouteState, socket: IWebSocketLike, candidate: IMeshCandidate): void {
+    const path: Extract<TPath, { kind: 'direct' }> = { kind: 'direct', socket, candidate };
     state.path = path;
+    this.armDeadline(state, path);
     const drop = (): void => {
       if (state.path === path) this.reset(state);
     };

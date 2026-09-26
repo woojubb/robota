@@ -621,6 +621,69 @@ describe('a hostile endpoint cannot hold a pair off the relay', () => {
   }, 40_000);
 });
 
+describe('a proxy that forwards once', () => {
+  it('cannot hold the pair off the relay by swallowing a later attempt', async () => {
+    const hub = createInMemoryMeshRelayHub();
+    const high = await lanDevice(world.high, { relay: hub.connect() });
+    // A transparent proxy to the peer's real endpoint, which later starts swallowing what it gets.
+    const { WebSocketServer } = await import('ws');
+    const proxy = new WebSocketServer({ host: LOCAL, port: 0 });
+    await new Promise((resolve) => proxy.once('listening', resolve));
+    cleanups.push(() => new Promise((resolve) => proxy.close(resolve)));
+    let swallowing = false;
+    let swallowed = 0;
+    proxy.on('connection', (client) => {
+      const upstream = new WebSocket(`ws://${LOCAL}:${high.listener.port}`);
+      const early: string[] = [];
+      upstream.on('open', () => early.splice(0).forEach((frame) => upstream.send(frame)));
+      upstream.on('message', (raw) => client.send(String(raw)));
+      client.on('message', (raw) => {
+        const frame = String(raw);
+        if (swallowing && frame.includes('"message"')) {
+          swallowed += 1;
+          return;
+        }
+        if (upstream.readyState === WebSocket.OPEN) upstream.send(frame);
+        else early.push(frame);
+      });
+      client.on('close', () => upstream.close());
+    });
+    const address = proxy.address();
+    const port = typeof address === 'object' && address !== null ? address.port : 0;
+    const planted: IMeshCandidateSource = {
+      candidates: () => Promise.resolve([{ host: LOCAL, port }]),
+    };
+    const low = await lanDevice(world.low, {
+      relay: hub.connect(),
+      extraSources: [planted],
+      admissionTimeoutMs: 1_000,
+    });
+    await Promise.all([low.node.start(), high.node.start()]);
+
+    // The first connection goes through the proxy and is admitted.
+    const first = await low.node.connect(world.high.cert.deviceId);
+    expect(low.cache.recall(world.high.cert.deviceId)).toEqual([{ host: LOCAL, port }]);
+
+    // Now it swallows, and the connection ends: the next attempt's signals go nowhere through it.
+    swallowing = true;
+    first.close();
+    await expect
+      .poll(
+        async () => {
+          const [a] = await Promise.allSettled([
+            low.node.connect(world.high.cert.deviceId, 3_000),
+            high.node.connect(world.low.cert.deviceId, 3_000),
+          ]);
+          return a.status;
+        },
+        { timeout: 25_000, interval: 200 },
+      )
+      .toBe('fulfilled');
+    expect(swallowed).toBeGreaterThan(0);
+    expect(low.node.link(world.high.cert.deviceId)).not.toBe(first);
+  }, 40_000);
+});
+
 describe('the direct signaling endpoint', () => {
   it('delivers only to the topics it holds, and closes a connection that floods it', async () => {
     const listener = await startMeshLanListener({ host: LOCAL });
