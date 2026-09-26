@@ -104,7 +104,7 @@ Commands:
   robota session start --background [--name <name>] [--external-event-grant <file>]...
                       [--external-event-port <port>] [--external-event-trusted-proxy <ip>]...
                                   Start a supervised session that outlives this terminal
-  robota session attach <supervised-id> [--observe]
+  robota session attach <supervised-id> [--observe] [--screen-reader|--no-screen-reader]
                                   Attach this terminal to a live supervised session: drive it, or
                                   observe it read-only (TTY and your confirmation; detaching keeps it
                                   running)

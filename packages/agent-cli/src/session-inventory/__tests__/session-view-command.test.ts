@@ -390,4 +390,54 @@ describe('session view command', () => {
       stderr.mockRestore();
     }
   });
+  it('attaches from the view with the generation the user confirmed there, then returns to the view', async () => {
+    const scratch = mkdtempSync(join(tmpdir(), 'rs-va-'));
+    const root = join(scratch, 'supervised');
+    const id = '8bf9bc27-d773-4e88-b88f-f7a43e9eb1f4';
+    const { InteractiveSession } = await import('@robota-sdk/agent-framework');
+    const session = new InteractiveSession({
+      session: {
+        run: vi.fn().mockResolvedValue('answer'), abort: vi.fn(), clearHistory: vi.fn(),
+        getHistory: vi.fn().mockReturnValue([]), injectMessage: vi.fn(),
+        getContextState: () => ({ maxTokens: 100, usedTokens: 0, usedPercentage: 0, remainingPercentage: 100 }),
+        getSessionId: () => 'view-attach', getModelId: () => 'm', getMessageCount: () => 0,
+        getSystemMessage: vi.fn().mockReturnValue('system'), getToolSchemas: vi.fn().mockReturnValue([]),
+        getEventService: () => ({ subscribe: () => {}, unsubscribe: () => {} }),
+      } as never,
+      cwd: '/tmp',
+    });
+    const control = await startSupervisedControl(
+      id, () => undefined, root, () => 'idle', undefined, undefined, () => 'Morning review',
+      undefined, undefined, undefined, session,
+    );
+    const out = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
+    const err = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+    try {
+      const generation = readGeneration(root, id);
+      const render = vi.fn()
+        .mockResolvedValueOnce({ kind: 'attach', id, generation, mode: 'observe' })
+        .mockResolvedValueOnce({ kind: 'attach', id, generation: 'A'.repeat(22), mode: 'drive' })
+        .mockResolvedValueOnce({ kind: 'closed' });
+      const renderAttached = vi.fn(async (options: {
+        mode: string; driverId: string; sessionLabel: string; screenReader?: boolean;
+      }) => {
+        expect(options).toMatchObject({
+          mode: 'observe', driverId: 'attach:1', sessionLabel: 'Morning review', screenReader: true,
+        });
+        return 'user' as const;
+      });
+      expect(await runSessionViewCommand(['--screen-reader'], {
+        isTTY: true, settings: {}, env: {}, root, render, renderAttached,
+      })).toBe(0);
+      expect(render).toHaveBeenCalledTimes(3);
+      expect(renderAttached).toHaveBeenCalledTimes(1);
+      expect(out.mock.calls.map(([text]) => String(text)).join('')).toMatch(/keeps running/);
+      expect(err.mock.calls.map(([text]) => String(text)).join('')).toMatch(/changed/i);
+    } finally {
+      out.mockRestore();
+      err.mockRestore();
+      await control.close();
+      rmSync(scratch, { recursive: true, force: true });
+    }
+  });
 });

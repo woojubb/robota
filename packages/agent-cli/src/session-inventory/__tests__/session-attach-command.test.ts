@@ -111,7 +111,7 @@ describe('robota session attach', () => {
     const io = output();
     try {
       for (const argv of [[], [ID, '--drive'], [ID, 'extra'], ['../escape']]) {
-        expect(await runSessionAttachCommand(argv, { isTTY: true, confirm: vi.fn(), render: vi.fn() })).toBe(1);
+        expect(await runSessionAttachCommand(argv, { isTTY: true, settings: {}, env: {}, confirm: vi.fn(), render: vi.fn() })).toBe(1);
       }
       expect(io.stderr()).toMatch(/Usage: robota session attach/);
     } finally {
@@ -125,7 +125,7 @@ describe('robota session attach', () => {
       const confirm = vi.fn(async () => false);
       const render = vi.fn();
       try {
-        expect(await runSessionAttachCommand([ID, '--observe'], { isTTY: true, root, confirm, render })).toBe(1);
+        expect(await runSessionAttachCommand([ID, '--observe'], { isTTY: true, settings: {}, env: {}, root, confirm, render })).toBe(1);
         expect(confirm).toHaveBeenCalledExactlyOnceWith({ id: ID, name: 'Morning review', mode: 'observe' });
         expect(render).not.toHaveBeenCalled();
         expect(listeners('text_delta')).toBe(0);
@@ -144,7 +144,7 @@ describe('robota session attach', () => {
           await restart();
           return true;
         });
-        expect(await runSessionAttachCommand([ID], { isTTY: true, root, confirm, render })).toBe(1);
+        expect(await runSessionAttachCommand([ID], { isTTY: true, settings: {}, env: {}, root, confirm, render })).toBe(1);
         expect(io.stderr()).toMatch(/changed/i);
         expect(render).not.toHaveBeenCalled();
         expect(listeners('text_delta')).toBe(0);
@@ -168,7 +168,7 @@ describe('robota session attach', () => {
           await vi.waitFor(() => expect(frames.some((frame) => frame.type === 'complete')).toBe(true));
           return 'user';
         };
-        expect(await runSessionAttachCommand([ID], { isTTY: true, root, confirm: async () => true, render })).toBe(0);
+        expect(await runSessionAttachCommand([ID], { isTTY: true, settings: {}, env: {}, root, confirm: async () => true, render })).toBe(0);
         expect(io.stdout()).toMatch(/keeps running/i);
         expect(io.stdout()).toContain(`robota session stop ${ID}`);
         await vi.waitFor(() => expect(listeners('text_delta')).toBe(0));
@@ -182,12 +182,27 @@ describe('robota session attach', () => {
     });
   });
 
+  it('passes the screen-reader choice to the attached view', async () => {
+    await withTarget('rs-c7-', async ({ root }) => {
+      const io = output();
+      try {
+        const render = vi.fn(async () => 'user' as const);
+        expect(await runSessionAttachCommand([ID, '--observe', '--screen-reader'], {
+          isTTY: true, settings: {}, env: {}, root, confirm: async () => true, render,
+        })).toBe(0);
+        expect(render).toHaveBeenCalledWith(expect.objectContaining({ mode: 'observe', screenReader: true }));
+      } finally {
+        io.restore();
+      }
+    });
+  });
+
   it('reports a session that closed the connection', async () => {
     await withTarget('rs-c4-', async ({ root }) => {
       const io = output();
       try {
         const render: ISessionAttachCommandOptions['render'] = async () => 'closed';
-        expect(await runSessionAttachCommand([ID], { isTTY: true, root, confirm: async () => true, render })).toBe(0);
+        expect(await runSessionAttachCommand([ID], { isTTY: true, settings: {}, env: {}, root, confirm: async () => true, render })).toBe(0);
         expect(io.stdout()).toMatch(/closed the connection/i);
       } finally {
         io.restore();
@@ -201,7 +216,7 @@ describe('robota session attach', () => {
     const confirm = vi.fn();
     try {
       expect(await runSessionAttachCommand([ID], {
-        isTTY: true, root: join(scratch, 'supervised'), confirm, render: vi.fn(),
+        isTTY: true, settings: {}, env: {}, root: join(scratch, 'supervised'), confirm, render: vi.fn(),
       })).toBe(1);
       expect(io.stderr()).toMatch(/not a live supervised session/i);
       expect(confirm).not.toHaveBeenCalled();

@@ -21,4 +21,20 @@ describe('production supervised view renderer', () => {
     expect(wrapper.props.children.props.onOpenPr).toBe(onOpenPr);
     expect(wrapper.props.children.props.filteredByPr).toBe(true);
   });
+
+  it('returns the attach the user confirmed so the host can run it and come back', async () => {
+    vi.mocked(render).mockClear();
+    let exitView: () => void = () => undefined;
+    vi.mocked(render).mockImplementationOnce(() => ({
+      waitUntilExit: () => new Promise<void>((resolve) => { exitView = resolve; }),
+      unmount: () => undefined,
+    }) as never);
+    const ended = renderSupervisedSessionView({ loadRows: async () => [], screenReader: false });
+    const wrapper = vi.mocked(render).mock.calls[0]?.[0] as React.ReactElement<{
+      children: React.ReactElement<{ onAttach?: (request: unknown) => void }>;
+    }>;
+    wrapper.props.children.props.onAttach?.({ id: 'x', generation: 'g', mode: 'observe' });
+    exitView();
+    expect(await ended).toEqual({ kind: 'attach', id: 'x', generation: 'g', mode: 'observe' });
+  });
 });

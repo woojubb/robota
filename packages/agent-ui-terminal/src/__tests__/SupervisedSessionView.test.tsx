@@ -36,7 +36,7 @@ describe('supervised session view', () => {
       await vi.waitFor(() => expect(view.lastFrame()).toContain('github.com #123'));
       expect(view.lastFrame()).toContain(url);
       expect(onOpenPr).not.toHaveBeenCalled();
-      view.stdin.write('p');
+      view.stdin.write('o');
       await vi.waitFor(() => expect(onOpenPr).toHaveBeenCalledExactlyOnceWith(FIRST.id, url, FIRST.generation));
     } finally {
       view.unmount();
@@ -64,7 +64,7 @@ describe('supervised session view', () => {
       fail = true;
       await vi.waitFor(() => expect(view.lastFrame()).toContain('discovery unavailable'));
       expect(view.lastFrame()).not.toContain(url);
-      view.stdin.write('p');
+      view.stdin.write('o');
       expect(onOpenPr).not.toHaveBeenCalled();
     } finally {
       view.unmount();
@@ -462,7 +462,12 @@ describe('supervised session view', () => {
       id: `8bf9bc27-d773-4e88-b88f-${String(index).padStart(12, '0')}`,
     }));
     const view = render(
-      <SupervisedSessionView loadRows={async () => rows} onStart={async () => SECOND.id} />,
+      <SupervisedSessionView
+        loadRows={async () => rows}
+        onStart={async () => SECOND.id}
+        onAttach={vi.fn()}
+        onOpenPr={async () => undefined}
+      />,
     );
     try {
       Object.defineProperty(view.stdout, 'columns', { value: 20 });
@@ -475,8 +480,11 @@ describe('supervised session view', () => {
         's Request stop',
         'g Group state/dir',
         'n New session',
-        'y Confirm stop',
-        'n/Esc Cancel stop',
+        'a Attach (drive)',
+        'p Peek (read only)',
+        'o Open linked PR',
+        'y Confirm',
+        'n/Esc Cancel',
         'q/Esc/Ctrl+C Close',
         '? Toggle help',
       ]) {
@@ -846,10 +854,110 @@ describe('supervised session view', () => {
       view.stdin.write('s');
       await vi.waitFor(() => expect(view.lastFrame()).toContain('cannot be stopped'));
       expect(view.lastFrame()).not.toContain('y Yes / n No');
-      view.stdin.write('p');
+      view.stdin.write('o');
       await vi.waitFor(() => expect(view.lastFrame()).toContain('No verified PR link'));
       expect(stop).not.toHaveBeenCalled();
       expect(onOpenPr).not.toHaveBeenCalled();
+    } finally {
+      view.unmount();
+    }
+  });
+  it('attaches or peeks at a verified row only after a confirmation bound to its generation', async () => {
+    for (const [key, mode, wording] of [
+      ['a', 'drive', 'drive (send prompts, answer its questions)'],
+      ['p', 'observe', 'observe (read only)'],
+    ] as const) {
+      const onAttach = vi.fn();
+      const view = render(<SupervisedSessionView loadRows={async () => [FIRST]} onAttach={onAttach} />);
+      try {
+        await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+        expect(view.lastFrame()).toContain('a Attach');
+        expect(view.lastFrame()).toContain('p Peek');
+        view.stdin.write(key);
+        await vi.waitFor(() => expect(view.lastFrame()).toContain(wording));
+        expect(view.lastFrame()).toContain('y Yes / n No');
+        view.stdin.write('n');
+        await vi.waitFor(() => expect(view.lastFrame()).not.toContain('y Yes / n No'));
+        expect(onAttach).not.toHaveBeenCalled();
+        view.stdin.write(key);
+        await vi.waitFor(() => expect(view.lastFrame()).toContain('y Yes / n No'));
+        view.stdin.write('y');
+        await vi.waitFor(() =>
+          expect(onAttach).toHaveBeenCalledExactlyOnceWith({ id: FIRST.id, generation: FIRST.generation, mode }),
+        );
+      } finally {
+        view.unmount();
+      }
+    }
+  });
+
+  it('refuses an attach when the row restarts or leaves control while confirmation is open', async () => {
+    for (const replacement of [
+      { ...FIRST, generation: 'restartedGeneration001' },
+      { ...FIRST, control: 'unavailable' as const, activity: 'unknown' as const },
+    ]) {
+      let finishRefresh: ((rows: readonly ISupervisedViewRow[]) => void) | undefined;
+      const refresh = new Promise<readonly ISupervisedViewRow[]>((resolve) => {
+        finishRefresh = resolve;
+      });
+      const loadRows = vi.fn().mockResolvedValueOnce([FIRST]).mockImplementation(() => refresh);
+      const onAttach = vi.fn();
+      const view = render(<SupervisedSessionView loadRows={loadRows} onAttach={onAttach} refreshMs={100} />);
+      try {
+        await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+        view.stdin.write('a');
+        await vi.waitFor(() => expect(view.lastFrame()).toContain('y Yes / n No'));
+        await vi.waitFor(() => expect(loadRows).toHaveBeenCalledTimes(2));
+        finishRefresh?.([replacement]);
+        await vi.waitFor(() => expect(loadRows).toHaveBeenCalledTimes(3));
+        view.stdin.write('y');
+        await vi.waitFor(() => expect(view.lastFrame()).toContain('cannot be attached to'));
+        expect(onAttach).not.toHaveBeenCalled();
+      } finally {
+        view.unmount();
+      }
+    }
+  });
+
+  it('never offers attach or peek on dead, unknown or unverified rows', async () => {
+    const { generation: _generation, ...unbound } = FIRST;
+    for (const row of [
+      SECOND,
+      { ...FIRST, liveness: 'unknown' as const, control: 'unavailable' as const, activity: 'unknown' as const },
+      unbound,
+    ]) {
+      const onAttach = vi.fn();
+      const view = render(<SupervisedSessionView loadRows={async () => [row]} onAttach={onAttach} />);
+      try {
+        await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${row.id}`));
+        expect(view.lastFrame()).not.toContain('a Attach');
+        expect(view.lastFrame()).not.toContain('p Peek');
+        for (const key of ['a', 'p']) {
+          view.stdin.write(key);
+          await vi.waitFor(() => expect(view.lastFrame()).toContain('cannot be attached to'));
+          expect(view.lastFrame()).not.toContain('y Yes / n No');
+        }
+        expect(onAttach).not.toHaveBeenCalled();
+      } finally {
+        view.unmount();
+      }
+    }
+  });
+
+  it('names the whole session id and the role in screen-reader mode', async () => {
+    const onAttach = vi.fn();
+    const view = render(
+      <ScreenReaderProvider enabled>
+        <SupervisedSessionView loadRows={async () => [FIRST]} onAttach={onAttach} />
+      </ScreenReaderProvider>,
+    );
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      expect(view.lastFrame()).toContain('a Attach; p Peek;');
+      view.stdin.write('p');
+      await vi.waitFor(() =>
+        expect(view.lastFrame()).toContain(`Peek at ${FIRST.id} to observe (read only)? y Yes / n No`),
+      );
     } finally {
       view.unmount();
     }
