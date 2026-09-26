@@ -386,7 +386,8 @@ export function examinedPackageCount() {
  */
 const FROZEN_FINDING_COUNTS = {
   'agent-command': 27,
-  'agent-core': 20,
+  // The utils barrel re-exports only `isAbortFailure` from abort-classification: 20 → 19.
+  'agent-core': 19,
   // ARCH-111: 2 → 1. The re-export of `agent-core`'s `normalizeProviderConfig` and
   // `createProviderFromConfig` was removed, so the executor no longer widens the SDK surface with
   // symbols it does not own. Re-frozen in the same change, per this ratchet's own instruction.
