@@ -120,6 +120,11 @@ Commands:
                                   Link a PR/MR URL to a live supervised session
   robota session unlink-pr <supervised-id>
                                   Clear a live supervised session PR/MR link
+  robota daemon start [--json]     Start this workspace's daemon, or reuse the running one; --json
+                                  prints {"id","url"} for the client that connects to it
+  robota daemon status [--json]    Show whether this workspace's daemon is running
+  robota daemon stop               Stop this workspace's daemon
+  robota daemon unlock             Remove a daemon start lock left by a start that is gone
   robota mcp serve [options]       Serve one Robota session over stdio, authenticated loopback HTTP,
                                   or OAuth-authorized remote HTTP
   robota mcp login <name> [--client-secret] [--no-browser]

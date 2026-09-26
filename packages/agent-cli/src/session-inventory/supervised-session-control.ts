@@ -42,7 +42,8 @@ interface IRegistration {
 }
 
 type TControlCommand =
-  | 'status' | 'stop' | 'rename' | 'link-pr' | 'unlink-pr' | 'events-list' | 'events-revoke';
+  | 'status' | 'stop' | 'rename' | 'link-pr' | 'unlink-pr' | 'events-list' | 'events-revoke'
+  | 'connect';
 
 const GRANT_ID_PATTERN = /^[a-zA-Z0-9_-]{1,64}$/u;
 const MAX_GRANT_HANDOFF_BYTES = 256 * 1024;
@@ -108,6 +109,18 @@ function isCurrentActivity(value: unknown): value is Exclude<TSupervisedActivity
   return value === 'working' || value === 'needs-input' || value === 'idle';
 }
 
+const MAX_DAEMON_URL_BYTES = 2_048;
+
+/** A daemon's own loopback WebSocket URL, and nothing else, is handed to its owner. */
+function isDaemonUrl(value: unknown): value is string {
+  if (typeof value !== 'string' || Buffer.byteLength(value, 'utf8') > MAX_DAEMON_URL_BYTES ||
+    /[\p{Cc}\p{Cf}\s]/u.test(value)) return false;
+  let parsed: URL;
+  try { parsed = new URL(value); } catch { return false; }
+  return parsed.protocol === 'ws:' && parsed.hostname === '127.0.0.1' && parsed.port !== '' &&
+    !parsed.username && !parsed.password && !parsed.hash;
+}
+
 function isLoopTime(value: unknown): value is string {
   return typeof value === 'string' && !Number.isNaN(Date.parse(value)) &&
     new Date(value).toISOString() === value;
@@ -159,6 +172,8 @@ export interface ISupervisedSessionRow {
   readonly name?: string;
   readonly cwd?: string;
   readonly pr?: ISupervisedPr;
+  /** Present only when requested: the live owner reports itself as its workspace's daemon. */
+  readonly daemon?: true;
   /** Present only when requested and verified: the registration this row's actions must still address. */
   readonly generation?: string;
   /** Present only when requested: each external-event grant's label, state and counts. */
@@ -344,7 +359,8 @@ export async function listSupervisedSessions(
   signal?: AbortSignal,
   options: { readonly cwd?: string; readonly name?: string; readonly pr?: number;
     readonly includeName?: boolean; readonly includeCwd?: boolean; readonly includePr?: boolean;
-    readonly includeGeneration?: boolean; readonly includeExternalEvents?: boolean } = {},
+    readonly includeGeneration?: boolean; readonly includeExternalEvents?: boolean;
+    readonly includeDaemon?: boolean } = {},
 ): Promise<readonly ISupervisedSessionRow[]> {
   signal?.throwIfAborted();
   try {
@@ -397,6 +413,8 @@ export async function listSupervisedSessions(
           ...(options.includeCwd && cwd !== undefined ? { cwd } : {}),
           ...(options.includePr && pr !== undefined ? { pr } : {}),
           ...(options.includeGeneration ? { generation: record.generation } : {}),
+          ...(options.includeDaemon && 'daemon' in response && response.daemon === true
+            ? { daemon: true as const } : {}),
           ...(options.includeExternalEvents && 'externalEvents' in response
             ? optionalGrants(readList(response.externalEvents, readGrantSummary)) : {}),
           ...('activity' in response && response.activity === 'idle' &&
@@ -526,6 +544,24 @@ export async function getVerifiedSupervisedPr(
   return response.pr;
 }
 
+/**
+ * The WebSocket URL, token included, of a live daemon this user owns. Like every control action it
+ * is bound to the start the caller verified; a session that is not a daemon refuses.
+ */
+export async function connectSupervisedDaemon(
+  id: string,
+  root = resolveSupervisedDirectory(),
+  expectedGeneration?: string,
+): Promise<string> {
+  const { directory, generation } = verifyLiveOwner(root, id, expectedGeneration);
+  const response = await request(directory, id, generation, 'connect');
+  if (!('status' in response) || response.status !== 'connected' || !('url' in response) ||
+    !isDaemonUrl(response.url)) {
+    throw new Error('Supervised session did not hand over a daemon connection.');
+  }
+  return response.url;
+}
+
 const ATTACH_REFUSALS: Readonly<Record<string, string>> = {
   'stale-generation': 'Supervised session changed since it was listed.',
   'attach-limit': 'Too many terminals are already attached to this supervised session.',
@@ -628,6 +664,108 @@ export function ensureSupervisedAuditDirectory(root: string): string {
   return directory;
 }
 
+function daemonStartLockFile(workspace: string, root: string): string {
+  const digest = createHash('sha256').update(workspace).digest('hex').slice(0, 16);
+  return join(root, `.daemon-${digest}.lock`);
+}
+
+/**
+ * Who holds a daemon start lock: a live process, one that is gone, or nobody the file names.
+ * `undefined` means the lock was released in the meantime.
+ */
+function readDaemonStartLockOwner(
+  file: string,
+): { readonly pid?: number; readonly state: 'live' | 'gone' | 'unknown' } | undefined {
+  let content: string;
+  try {
+    const stat = lstatSync(file);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.uid !== (process.getuid?.() ?? 0)) {
+      throw new Error('Daemon start lock is not owned by this user.');
+    }
+    content = readFileSync(file, 'utf8');
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return undefined;
+    throw error;
+  }
+  // `<pid> <start time>`: a pid alone could name an unrelated process that reused it after the
+  // owner died, which would keep the lock looking held for good.
+  const match = /^([1-9][0-9]{0,9}) (\S.*)$/u.exec(content);
+  if (match === null) return { state: 'unknown' };
+  const pid = Number(match[1]);
+  if (probePid(pid) === 'absent') return { pid, state: 'gone' };
+  return { pid, state: readProcessStartTime(pid) === match[2] ? 'live' : 'gone' };
+}
+
+const UNLOCK_HINT = 'If no daemon start is running, remove it with: robota daemon unlock';
+
+/**
+ * Serialize `robota daemon start` in one workspace, so two starts never launch two daemons. The lock
+ * is a file created exclusively in the private supervised directory, holding its owner's pid. A live
+ * owner is waited for. A lock this start did not take is never removed here: one left by a start
+ * that is gone refuses the start and names `robota daemon unlock`, so removing it is the user's call.
+ * Resolves to the release of this start's own lock.
+ */
+export async function acquireSupervisedDaemonStartLock(
+  workspace: string,
+  root = resolveSupervisedDirectory(),
+  options: { readonly timeoutMs?: number; readonly pollMs?: number } = {},
+): Promise<() => void> {
+  ensurePrivateDirectory(root);
+  const file = daemonStartLockFile(workspace, root);
+  const startedAt = readProcessStartTime(process.pid);
+  if (!startedAt) throw new Error('Unable to prove the daemon start process identity.');
+  const owner = `${process.pid} ${startedAt}`;
+  const deadline = Date.now() + (options.timeoutMs ?? 30_000);
+  for (;;) {
+    try {
+      writeFileSync(file, owner, { flag: 'wx', mode: 0o600 });
+      return () => {
+        try {
+          if (readFileSync(file, 'utf8') === owner) rmSync(file, { force: true });
+        } catch {
+          // Already gone; nothing to release.
+        }
+      };
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error;
+    }
+    const holder = readDaemonStartLockOwner(file);
+    if (holder?.state === 'gone') {
+      throw new Error(
+        `A daemon start lock left by process ${holder.pid}, which is no longer running, remains at ${file}. ${UNLOCK_HINT}`,
+      );
+    }
+    if (Date.now() >= deadline) {
+      throw new Error(
+        `Another daemon start is still running in ${workspace}, or its lock remains at ${file}. ${UNLOCK_HINT}`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, options.pollMs ?? 100));
+  }
+}
+
+/**
+ * `robota daemon unlock`: remove this workspace's daemon start lock at the user's request. A lock whose
+ * owner is still running is kept, since that start is still in progress.
+ */
+export function removeSupervisedDaemonStartLock(
+  workspace: string,
+  root = resolveSupervisedDirectory(),
+): { readonly outcome: 'removed' | 'none' } | { readonly outcome: 'held'; readonly pid: number } {
+  try {
+    verifyExistingDirectory(root);
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ENOENT') return { outcome: 'none' };
+    throw error;
+  }
+  const file = daemonStartLockFile(workspace, root);
+  const holder = readDaemonStartLockOwner(file);
+  if (holder === undefined) return { outcome: 'none' };
+  if (holder.state === 'live' && holder.pid !== undefined) return { outcome: 'held', pid: holder.pid };
+  rmSync(file, { force: true });
+  return { outcome: 'removed' };
+}
+
 function grantHandoffPath(root: string, id: string): string {
   sessionDirectory(root, id);
   return join(root, `.${id}.grants.json`);
@@ -680,6 +818,12 @@ export interface ISupervisedExternalEvents {
   revoke(grantId: string): 'revoked' | 'unknown-grant';
 }
 
+/** A daemon's control hands its owner the URL its transport is served on. */
+export interface ISupervisedDaemon {
+  /** `undefined` until the transport is bound, or once the runtime is stopping. */
+  url(): string | undefined;
+}
+
 export interface ISupervisedControl {
   close(): Promise<void>;
 }
@@ -696,6 +840,7 @@ export async function startSupervisedControl(
   pr?: { readonly get: () => ISupervisedPr | undefined; readonly set: (value: ISupervisedPr | undefined) => void },
   externalEvents?: ISupervisedExternalEvents,
   attachSession?: IProtocolSession,
+  daemon?: ISupervisedDaemon,
 ): Promise<ISupervisedControl> {
   if (!ID_PATTERN.test(id)) throw new Error('Invalid supervised session ID.');
   ensurePrivateDirectory(root);
@@ -802,7 +947,16 @@ export async function startSupervisedControl(
           ...(isLoopTime(nextLoopAt) ? { nextLoopAt } : {}),
           ...(isSupervisedSessionName(name) ? { name } : {}),
           ...(isSupervisedPr(linkedPr) ? { pr: linkedPr } : {}),
-          ...(grants !== undefined && grants.length > 0 ? { externalEvents: grants } : {}) });
+          ...(grants !== undefined && grants.length > 0 ? { externalEvents: grants } : {}),
+          ...(daemon !== undefined ? { daemon: true } : {}) });
+      } else if (value.command === 'connect' && daemon !== undefined) {
+        let url: unknown;
+        try {
+          url = daemon.url();
+        } catch {
+          // A URL that cannot be read is never guessed.
+        }
+        reply(socket, isDaemonUrl(url) ? { status: 'connected', url } : { status: 'refused' });
       } else if (value.command === 'stop') {
         socket.once('finish', onStop);
         reply(socket, { status: 'stopping' });

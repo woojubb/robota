@@ -39,6 +39,8 @@ export interface IParsedCliArgs {
   supervisedSessionId?: string;
   /** Supervised child only: read the external-event grants its launcher handed over. */
   supervisedExternalEventGrants?: boolean;
+  /** Supervised child only: this runtime is its workspace's daemon and hands its WS URL to its owner. */
+  daemon?: boolean;
   /** TUI only: files, each one external-event grant verified by access token. */
   externalEventGrantFiles?: string[];
   /** The loopback port the external-event endpoint listens on, behind the owner's proxy. */
@@ -193,6 +195,7 @@ const PARSE_ARGS_CONFIG = {
     serve: { type: 'boolean', default: false },
     'supervised-session-id': { type: 'string' },
     'supervised-external-event-grants': { type: 'boolean' },
+    daemon: { type: 'boolean' },
     'external-event-grant': { type: 'string', multiple: true },
     'external-event-port': { type: 'string' },
     'external-event-trusted-proxy': { type: 'string', multiple: true },
@@ -321,6 +324,7 @@ function mapParsedValues(
     ...(values['supervised-external-event-grants'] === true
       ? { supervisedExternalEventGrants: true }
       : {}),
+    ...(values['daemon'] === true ? { daemon: true } : {}),
     externalEventGrantFiles: values['external-event-grant'] ?? [],
     ...(values['external-event-port'] !== undefined
       ? { externalEventPort: parseEventPort(values['external-event-port']) }
@@ -420,6 +424,9 @@ export function parseCliArgs(argv = process.argv.slice(2)): IParsedCliArgs {
   }
   if (args.supervisedExternalEventGrants === true && args.supervisedSessionId === undefined) {
     throw new Error('--supervised-external-event-grants is set only by a supervised launch');
+  }
+  if (args.daemon === true && args.supervisedSessionId === undefined) {
+    throw new Error('--daemon is set only by a supervised launch; start one with `robota daemon start`');
   }
   if ((args.externalEventGrantFiles?.length ?? 0) > 0) {
     if (

@@ -407,10 +407,23 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   };
 }
 
+/** Options for {@link useWsSession}. */
+export interface IWsSessionOptions {
+  /** The connection is gone for good: reconnecting ran out of retries. */
+  readonly onConnectionLost?: () => void;
+}
+
 /** Connect to a `robota` sidecar over WebSocket (loopback / localhost path). */
-export function useWsSession(url: string): IWsSessionState<TConnectionStatus> {
+export function useWsSession(
+  url: string,
+  options: IWsSessionOptions = {},
+): IWsSessionState<TConnectionStatus> {
+  // Held in a ref so a new callback identity does not tear down and reopen the connection.
+  const onConnectionLostRef = useRef(options.onConnectionLost);
+  onConnectionLostRef.current = options.onConnectionLost;
   const makeClient = useCallback<TMakeSessionClient<TConnectionStatus>>(
-    (cb) => createWsSessionClient(url, cb),
+    (cb) =>
+      createWsSessionClient(url, { ...cb, onGiveUp: () => onConnectionLostRef.current?.() }),
     [url],
   );
   return useSessionClient(makeClient);

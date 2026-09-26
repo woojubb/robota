@@ -495,6 +495,7 @@ async function runCliCore(
     workspaceComposition.projectAccess.status === 'trusted',
     args.open,
     serveSessionDirectory,
+    args.daemon === true,
   );
   // External-event grants (TUI only; the parser refuses them elsewhere): every file is valid, or the
   // TUI does not start. Each session the TUI binds opens them, and a refusal fails that bind.

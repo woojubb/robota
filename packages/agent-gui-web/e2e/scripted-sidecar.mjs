@@ -10,9 +10,20 @@
  * that replies deterministically, so the headless e2e can assert connect → render → submit → permission.
  * A fake session directory lists a few stored sessions and switches between them; a switch while a
  * scripted turn is still running ("stay busy" until "all done") is refused with the host's reason.
+ *
+ * Run as `daemon start --json` (how the desktop app attaches) it plays the CLI's daemon starter instead: it
+ * reuses the daemon recorded in `$ROBOTA_E2E_DAEMON_STATE` while that process lives, or starts itself
+ * detached as a new one, and prints the `{id,url}` line. `ROBOTA_E2E_DAEMON_FAIL=1` makes it refuse the way
+ * an untrusted workspace does, as does the file `$ROBOTA_E2E_DAEMON_FAIL_FILE` once it exists (so a start
+ * the app asks for later can fail while the first succeeded).
  */
 
+import { spawn } from 'node:child_process';
+import { randomBytes } from 'node:crypto';
 import { EventEmitter } from 'node:events';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { connect, createServer } from 'node:net';
+import { fileURLToPath } from 'node:url';
 
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
 
@@ -20,14 +31,89 @@ import { WsTransport } from '@robota-sdk/agent-transport-ws';
 /** One line of output (scripts write to the streams directly). */
 const line = (text) => `${text}\n`;
 
-const launchToken = process.env.ROBOTA_WS_TOKEN;
+/** Ask the OS for a free loopback port. */
+const freePort = () =>
+  new Promise((resolve, reject) => {
+    const server = createServer();
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', () => {
+      const { port: free } = server.address();
+      server.close(() => resolve(free));
+    });
+  });
+
+/** Whether something accepts a TCP connection on the loopback port. */
+const accepts = (target) =>
+  new Promise((resolve) => {
+    const socket = connect({ host: '127.0.0.1', port: target });
+    const done = (ok) => {
+      socket.destroy();
+      resolve(ok);
+    };
+    socket.once('connect', () => done(true));
+    socket.once('error', () => done(false));
+    socket.setTimeout(400, () => done(false));
+  });
+
+const isAlive = (pid) => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+/** `daemon start --json`: reuse the recorded live daemon, or start one detached, then print its line. */
+async function daemonStart() {
+  const failFile = process.env.ROBOTA_E2E_DAEMON_FAIL_FILE;
+  if (process.env.ROBOTA_E2E_DAEMON_FAIL === '1' || (failFile && existsSync(failFile))) {
+    process.stderr.write(line('Workspace is not trusted. Run: robota trust --yes'));
+    process.exit(1);
+  }
+  const statePath = process.env.ROBOTA_E2E_DAEMON_STATE;
+  if (!statePath) {
+    process.stderr.write(line('scripted-sidecar: ROBOTA_E2E_DAEMON_STATE required for daemon start'));
+    process.exit(1);
+  }
+  if (existsSync(statePath)) {
+    const recorded = JSON.parse(readFileSync(statePath, 'utf8'));
+    if (Number.isInteger(recorded.pid) && isAlive(recorded.pid)) {
+      process.stdout.write(line(JSON.stringify({ id: recorded.id, url: recorded.url })));
+      process.exit(0);
+    }
+  }
+  const daemonToken = randomBytes(32).toString('hex');
+  const daemonPort = await freePort();
+  const child = spawn(process.execPath, [fileURLToPath(import.meta.url)], {
+    detached: true,
+    stdio: 'ignore',
+    env: { ...process.env, ROBOTA_WS_TOKEN: daemonToken, ROBOTA_WS_PORT: String(daemonPort) },
+  });
+  child.unref();
+  const deadline = Date.now() + 15_000;
+  while (!(await accepts(daemonPort))) {
+    if (Date.now() >= deadline || child.exitCode !== null) {
+      process.stderr.write(line('scripted-sidecar: the daemon did not come up'));
+      process.exit(1);
+    }
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  const url = `ws://127.0.0.1:${daemonPort}?token=${daemonToken}`;
+  writeFileSync(statePath, JSON.stringify({ pid: child.pid, id: 'scripted-daemon', url }));
+  process.stdout.write(line(JSON.stringify({ id: 'scripted-daemon', url })));
+  process.exit(0);
+}
+
+const argv = process.argv.slice(2);
+if (argv.join(' ') === 'daemon start --json') await daemonStart();
+
+const token = process.env.ROBOTA_WS_TOKEN;
 const port = Number.parseInt(process.env.ROBOTA_WS_PORT ?? '0', 10);
-if (!launchToken || !port) {
+if (!token || !port) {
   process.stderr.write(line('scripted-sidecar: ROBOTA_WS_TOKEN + ROBOTA_WS_PORT required'));
   process.exit(1);
 }
-const rejectAdmission = process.env.ROBOTA_E2E_REJECT_ADMISSION === '1';
-const token = rejectAdmission ? `rejected-${launchToken}` : launchToken;
 
 /** Yield a macrotask so the renderer's streaming-text React state/ref flushes between emits. */
 const tick = (ms = 20) => new Promise((r) => setTimeout(r, ms));
@@ -376,11 +462,7 @@ transport.attach(session);
 await transport.start();
 process.stderr.write(line(`scripted-sidecar: listening on 127.0.0.1:${port} (token-gated)`));
 
-if (rejectAdmission) {
-  setTimeout(() => process.exit(17), 1_000);
-}
-
-// Graceful shutdown so the GUI's window-close SIGTERM path is exercised without an orphan.
+// Graceful shutdown when the harness (or the e2e's cleanup) stops it.
 for (const sig of ['SIGTERM', 'SIGINT']) {
   process.on(sig, () => {
     void transport.stop().finally(() => process.exit(0));

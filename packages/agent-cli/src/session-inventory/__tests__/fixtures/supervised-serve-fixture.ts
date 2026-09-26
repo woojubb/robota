@@ -27,6 +27,7 @@ const options = {
     ...(process.argv.includes('--supervised-external-event-grants')
       ? ['--supervised-external-event-grants'] : []),
     ...process.argv.filter((arg) => arg.startsWith('--external-event-')),
+    ...(process.argv.includes('--daemon') ? ['--daemon'] : []),
     ...(process.env['ROBOTA_TEST_PERMISSION_MODE'] === undefined
       ? [] : ['--permission-mode', process.env['ROBOTA_TEST_PERMISSION_MODE']]),
   ]),
@@ -44,6 +45,11 @@ const options = {
     waitForFailure: () => never,
   },
   preset: {},
+  // Stands in for the bound transport: the URL carries the token the launcher put in the environment.
+  // `ROBOTA_TEST_NO_WS_URL` stands in for a disabled ws transport.
+  getMonitorWsUrl: () => process.env['ROBOTA_TEST_NO_WS_URL'] === undefined
+    ? `ws://127.0.0.1:9?token=${process.env['ROBOTA_WS_TOKEN'] ?? ''}`
+    : undefined,
 } as unknown as IServeModeOptions;
 
 await runServeMode(options);

@@ -15,6 +15,7 @@ export type {
   IWsSessionState,
   ISessionClientHandle,
   TMakeSessionClient,
+  IWsSessionOptions,
 } from './hooks/useSessionClient.js';
 export type { TSessionListing, TSessionsError } from './hooks/session-client-types.js';
 

@@ -31,17 +31,21 @@ describe('resolveGuiHost', () => {
       getEndpoint: vi.fn(async () => 'ws://127.0.0.1:1?token=t'),
       signalReady: vi.fn(),
       onState: vi.fn(() => () => {}),
+      restartRuntime: vi.fn(async () => {}),
     };
     const host = resolveGuiHost({ ...page(), bridge });
     expect(host.kind).toBe('desktop');
     await expect(host.getEndpoint()).resolves.toBe('ws://127.0.0.1:1?token=t');
     host.signalReady();
     expect(bridge.signalReady).toHaveBeenCalled();
+    await host.restartRuntime?.();
+    expect(bridge.restartRuntime).toHaveBeenCalled();
   });
 
   it('in a browser, prefers the address the CLI injected into the page', async () => {
     const host = resolveGuiHost(page({ meta: 'ws://127.0.0.1:4321?token=a', search: '?ws=ws%3A%2F%2Fother' }));
     expect(host.kind).toBe('browser');
+    expect(host.restartRuntime).toBeUndefined();
     await expect(host.getEndpoint()).resolves.toBe('ws://127.0.0.1:4321?token=a');
   });
 

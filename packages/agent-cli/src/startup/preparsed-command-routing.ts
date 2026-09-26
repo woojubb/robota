@@ -23,6 +23,7 @@ import { formatExternalEventGrantRows } from '../external-events/external-event-
 
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
 import { runSessionViewCommand } from '../session-inventory/session-view-command.js';
+import { runDaemonCommand } from '../session-inventory/daemon-command.js';
 import { runSessionAttachCommand } from '../session-inventory/session-attach-command.js';
 import type { ISessionAttachCommandOptions } from '../session-inventory/session-attach-command.js';
 import type { ISessionViewCommandOptions } from '../session-inventory/session-view-command.js';
@@ -284,6 +285,26 @@ export async function runPreparsedCliCommand(
         });
         return launchSupervisedSession(targetCwd, { env: supervisedEnv() });
       },
+    });
+    return true;
+  }
+  if (argv[SUBCOMMAND_INDEX] === 'daemon') {
+    process.exitCode = await runDaemonCommand(argv.slice(ACTION_INDEX), {
+      cwd,
+      env: supervisedEnv,
+      // The same admission as `session start`, asked before anything is spawned.
+      admit: async (workspace) => {
+        const access = await resolveInitialCliWorkspaceProjectAccess(workspace, options);
+        if (requiresHeadlessWorkspaceTrust(access)) {
+          throw new Error(formatHeadlessWorkspaceTrustError(access, workspace));
+        }
+        validateNodeOtlpLiveTelemetrySettings(telemetryEnvironment, {
+          serviceVersion: readVersion(),
+          surface: 'serve',
+        });
+      },
+      stdout: (text) => process.stdout.write(text),
+      stderr: (text) => process.stderr.write(text),
     });
     return true;
   }

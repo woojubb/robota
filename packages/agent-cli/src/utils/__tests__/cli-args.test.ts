@@ -108,6 +108,13 @@ describe('parseCliArgs', () => {
     ).toThrow(/bypassPermissions/);
   });
 
+  it('accepts the daemon flag only from a supervised launch', () => {
+    const id = '0f6c3a5e-8c1b-4d2a-9f3e-1a2b3c4d5e6f';
+    expect(parseCliArgs(['--serve', '--supervised-session-id', id, '--daemon']).daemon).toBe(true);
+    expect(parseCliArgs(['--serve', '--supervised-session-id', id]).daemon).toBeUndefined();
+    expect(() => parseCliArgs(['--serve', '--daemon'])).toThrow(/--daemon/);
+  });
+
   it('accepts the supervised grant handoff flag only from a supervised launch', () => {
     const id = '0f6c3a5e-8c1b-4d2a-9f3e-1a2b3c4d5e6f';
     expect(

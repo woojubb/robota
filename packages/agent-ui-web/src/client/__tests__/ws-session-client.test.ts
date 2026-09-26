@@ -135,4 +135,40 @@ describe('createWsSessionClient (WEBUI-002)', () => {
       vi.useRealTimers();
     }
   });
+  it('says the connection is lost for good once the retries run out, and not before', () => {
+    vi.useFakeTimers();
+    try {
+      const onGiveUp = vi.fn();
+      const client = createWsSessionClient('ws://localhost:7070', {
+        onMessage: () => {},
+        onStatusChange: () => {},
+        onGiveUp,
+      });
+      client.connect();
+      // The server is gone: the first socket closes, and every retry is refused.
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        lastSocket!.onclose?.({});
+        expect(onGiveUp).not.toHaveBeenCalled();
+        vi.advanceTimersByTime(2000);
+      }
+      lastSocket!.onclose?.({});
+      expect(onGiveUp).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not report a lost connection after an intentional disconnect', () => {
+    const onGiveUp = vi.fn();
+    const client = createWsSessionClient('ws://localhost:7070', {
+      onMessage: () => {},
+      onStatusChange: () => {},
+      onGiveUp,
+    });
+    client.connect();
+    const socket = lastSocket;
+    client.disconnect();
+    socket!.onclose?.({});
+    expect(onGiveUp).not.toHaveBeenCalled();
+  });
 });

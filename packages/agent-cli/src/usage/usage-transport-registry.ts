@@ -28,6 +28,21 @@ function createDefaultUsageTransportRegistry(
   );
 }
 
+/**
+ * Who drives this runtime over the transport. A desktop token in the environment marks the desktop
+ * app's own sidecar; a daemon is started from any terminal and attached to by any client, so it is
+ * labelled like any other served runtime even though its launcher also hands it a token.
+ */
+export function resolveCliUsageAttribution(options: {
+  readonly desktopToken: boolean;
+  readonly open: boolean;
+  readonly daemon: boolean;
+}): { readonly driverId: TDriverId; readonly surface: TUsageSurface } {
+  if (options.desktopToken && !options.daemon) return { driverId: 'app', surface: 'desktop-app' };
+  if (options.open) return { driverId: 'browser', surface: 'browser' };
+  return { driverId: 'remote:ws', surface: 'remote' };
+}
+
 /** Resolve the trusted CLI/desktop/browser attribution before constructing the shared transports. */
 export function createCliUsageTransportRegistry(
   projectStore: IInteractiveSessionStore,
@@ -35,13 +50,11 @@ export function createCliUsageTransportRegistry(
   open: boolean,
   /** #3189: offered to clients for listing, starting and switching sessions (serve mode only). */
   sessionDirectory?: ISessionDirectory,
+  daemon = false,
 ): ReturnType<typeof createDefaultTransportRegistry> {
-  const desktop = Boolean(process.env['ROBOTA_WS_TOKEN']);
-  return createDefaultUsageTransportRegistry(
-    projectStore,
-    projectTrusted,
-    desktop ? 'app' : open ? 'browser' : 'remote:ws',
-    desktop ? 'desktop-app' : open ? 'browser' : 'remote',
-    sessionDirectory,
-  );
+  // Read before the registry takes the token out of the environment.
+  const { driverId, surface } = resolveCliUsageAttribution({
+    desktopToken: Boolean(process.env['ROBOTA_WS_TOKEN']), open, daemon,
+  });
+  return createDefaultUsageTransportRegistry(projectStore, projectTrusted, driverId, surface, sessionDirectory);
 }

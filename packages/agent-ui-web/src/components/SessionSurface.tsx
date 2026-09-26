@@ -28,7 +28,7 @@ function EmptyState(): React.ReactElement {
           <span className="h-2 w-2 rounded-full bg-primary status-glow" />
         </div>
         <p className="max-w-[280px] font-mono text-xs leading-relaxed text-muted-foreground">
-          Session connected. Send a message to start — the agent runs in the sidecar; permissions
+          Session connected. Send a message to start — the agent runs in the robota runtime; permissions
           surface here as prompts.
         </p>
       </div>
