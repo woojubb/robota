@@ -74,6 +74,20 @@ describe('SELFHOST-004 TC-07 — FunctionTool span-completion emit', () => {
     await expect(tool.execute({})).resolves.toMatchObject({ success: true });
   });
 
+  it('emits on the service the call carries, not the one set on the instance', async () => {
+    const setOnInstance = new CapturingEventService();
+    const carried = new CapturingEventService();
+    const tool = makeTool('lookup');
+    tool.setEventService(setOnInstance);
+
+    await tool.execute({}, { toolName: 'lookup', parameters: {}, instanceEventService: carried });
+    await tool.execute({}, { toolName: 'lookup', parameters: {} });
+
+    expect(carried.emitted.map((e) => e.eventType)).toEqual([SPAN_EVENTS.COMPLETED]);
+    // A call that carries none still uses the instance's.
+    expect(setOnInstance.emitted.map((e) => e.eventType)).toEqual([SPAN_EVENTS.COMPLETED]);
+  });
+
   it('carries the op name of the specific tool that ran', async () => {
     const events = new CapturingEventService();
     const tool = makeTool('search-web');
