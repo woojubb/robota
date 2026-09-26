@@ -35,6 +35,10 @@ process.stdin.on("end", () => {
 '
   )
 fi
+if [ "${#PACKAGES[@]}" -eq 0 ]; then
+  echo "❌ No public @robota-sdk packages found."
+  exit 1
+fi
 echo "📋 ${#PACKAGES[@]} packages → $REPOSITORY / $WORKFLOW / environment $ENVIRONMENT"
 
 FAILED=()

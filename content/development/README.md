@@ -95,8 +95,10 @@ Releases publish from GitHub Actions: run the **Publish to npm** workflow (`.git
 stored anywhere and every package carries a provenance attestation. Packages are published under `latest`
 only.
 
-A package's first publish cannot use trusted publishing. The owner publishes it once locally and then
-registers the workflow as its trusted publisher:
+A package's first publish cannot use trusted publishing, so the workflow refuses a release that contains a
+package npm has never seen. The owner publishes that release locally instead (every package of the release,
+without provenance) and then registers the workflow as the new package's trusted publisher, so later releases
+use the workflow again:
 
 ```bash
 pnpm publish:beta --dry-run
