@@ -197,6 +197,10 @@ Provider packages implement this package's provider base class; other layers ext
 Events are named `ownerType.localName` (e.g. an execution-service event, a tool-execution event, an agent-level event) and each event carries an owner-path trace of the execution hierarchy that produced it, so a consumer can reconstruct which agent/tool/execution nesting emitted a given event without a separate correlation mechanism.
 The tool-body completion name identifies only the awaited body of a permitted call. A consumer must
 not interpret pre-execution permission or hook failures as executed tool spans.
+One tool instance can serve several agents, and the event service set on it is whichever agent set
+one last. A caller that sends its own service with a call therefore receives that call's
+`FunctionTool` span and no other caller's; a call that carries none still reports to the service
+set on the instance.
 
 ## Conversation History Principles
 
@@ -246,7 +250,7 @@ A run-scoped `toolChoice: none` omits local tool schemas from every ordinary pro
 
 **Identical-tool-input guard.** A configured limit on repeated byte-identical invocations of one tool within a single run exists as a distinct, _named_ error rather than a generic abort, and this distinction is deliberately behavioral, not cosmetic: this package's own abort-classification logic resolves an `AbortError` as "the caller asked to stop, and got a successful, cleanly interrupted result" — but when a run gives up because it detected a pathological identical-input loop, nobody asked it to stop; the agent failed to make progress. Reporting that as a clean interruption would misreport a stuck agent as a successful outcome, so the guard raises a specifically named, recoverable error that a caller can distinguish from both a real abort and an unrelated system failure.
 
-When the round budget is exhausted without a final assistant text response, one forced summary call is made with `toolChoice: none` and without local tools, including provider-hosted tools that honor that directive. Returned tool calls are not dispatched; if the call produces no text, a fixed fallback message is returned instead of an empty response. The synthetic instruction used to request that summary is a per-call prompt artifact only — it is never written into the persisted conversation history.
+When the round budget is exhausted without a final assistant text response, one forced summary call is made with `toolChoice: none` and without local tools, including provider-hosted tools that honor that directive. Returned tool calls are not dispatched; if the call produces no text, a fixed fallback message is returned instead of an empty response, and if the call fails, the run fails with that call's own error exactly as a failed round does. The synthetic instruction used to request that summary is a per-call prompt artifact only — it is never written into the persisted conversation history.
 
 **Pre-send context guard.** Before every provider call, estimated token usage is checked against the model's context window; this is a hard-capacity stop (distinct from — and does not replace — the session layer's own configured automatic-compaction policy) and only trips when usage exceeds a high fixed threshold of the window, at which point it emits a diagnostic message explaining why the prompt was blocked rather than sending a request likely to fail with a provider-side size error.
 
