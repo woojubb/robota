@@ -73,7 +73,9 @@ dependency.
 
 - **The session host is the offerer; in the device mesh the pair decides.** Inbound description/ICE signals are
   applied in arrival order, and a candidate that arrives before the remote description waits for it, so trickled
-  candidates are never lost to ordering. Between two devices the one with
+  candidates are never lost to ordering. A peer's own candidates go out only once it holds the remote
+  description: the binding hands the remote description to ICE before the DTLS layer can check a certificate
+  against it, so an answerer that could reach the offerer earlier would be refused. Between two devices the one with
   the lower device id offers and the other only answers, so two devices reaching for each other at once make one
   connection by rule rather than by whichever message arrives first; a repeated announcement from the peer run
   already being served is ignored, and a new run of the peer replaces the connection.

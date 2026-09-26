@@ -138,16 +138,21 @@ describe('rendezvous records', () => {
     // No key or salt repeats: each direction and each epoch has its own.
     expect(new Set(items.map((i) => hex(i.k))).size).toBe(items.length);
     expect(new Set(items.map((i) => hex(i.salt!))).size).toBe(items.length);
-    const wire = items
-      .map((i) => `${hex(i.k)}${hex(i.salt!)}${Buffer.from(i.v).toString('latin1')}`)
+    // Every field as the bytes it carries, where a plaintext value would read as itself.
+    const plain = items
+      .map((i) => [i.k, i.salt!, i.v].map((b) => Buffer.from(b).toString('latin1')).join('\n'))
       .join('\n');
+    // And the key and salt as hex too, where an id or a topic written as hex would show.
+    const wire = `${plain}\n${items.map((i) => `${hex(i.k)}\n${hex(i.salt!)}`).join('\n')}`;
     for (const value of identifying()) expect(wire).not.toContain(value);
     for (const route of [lowToHigh, highToLow]) {
       expect(wire).not.toContain(route.inbound);
       expect(wire).not.toContain(route.outbound);
     }
-    expect(wire).not.toContain(LOCAL);
-    expect(wire).not.toContain('4242');
+    expect(plain).not.toContain(LOCAL);
+    // The port as the hints encode it. Only the bytes are searched: four digits turn up in random
+    // hex by chance, and a port written into a field shows in its bytes.
+    expect(plain).not.toContain('4242');
     // Hints are one size whatever they hold.
     const hintSizes = new Set(items.filter((i) => i.v.length < 700).map((i) => i.v.length));
     expect([...hintSizes]).toEqual([HINTS_PADDED_BYTES + 28]);

@@ -203,6 +203,14 @@ export class RtcPeer {
   private handlerError?: string;
   private localCandidateCount = 0;
   private remoteCandidateCount = 0;
+  /**
+   * Local candidates gathered before the remote description, handed out right after it. An offerer's
+   * candidates let the answerer reach it and start DTLS; the binding makes the remote description the
+   * DTLS layer checks the peer's certificate against only after the ICE layer has it, so a handshake
+   * that arrives while the answer is being applied is refused. Holding the candidates until the
+   * answer is applied keeps the answerer from reaching this side before then.
+   */
+  private readonly heldLocalCandidates: IRtcCandidate[] = [];
   /** Remote candidates that arrived before the remote description, applied right after it. */
   private readonly earlyCandidates: IRtcCandidate[] = [];
   private closed = false;
@@ -227,8 +235,11 @@ export class RtcPeer {
         // The binding writes the SDP attribute form; the wire form has no `a=` prefix.
         const value = candidate.startsWith('a=') ? candidate.slice(2) : candidate;
         if (value.length === 0) return;
-        this.localCandidateCount += 1;
-        for (const handler of this.candidateHandlers) handler({ candidate: value, mid });
+        if (!this.hasRemoteDescription) {
+          this.heldLocalCandidates.push({ candidate: value, mid });
+          return;
+        }
+        this.handOut({ candidate: value, mid });
       }),
     );
     this.native.onLocalDescription((sdp) =>
@@ -323,6 +334,16 @@ export class RtcPeer {
   private remoteDescriptionApplied(): void {
     this.hasRemoteDescription = true;
     for (const candidate of this.earlyCandidates.splice(0)) this.addRemoteCandidate(candidate);
+    const held = this.heldLocalCandidates.splice(0);
+    this.guard(() => {
+      for (const candidate of held) this.handOut(candidate);
+    });
+  }
+
+  private handOut(candidate: IRtcCandidate): void {
+    if (this.closed) return;
+    this.localCandidateCount += 1;
+    for (const handler of this.candidateHandlers) handler(candidate);
   }
 
   /**
