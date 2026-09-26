@@ -3,8 +3,9 @@ import { createPersonalUsageReporter, createStoredSessionUsageReporter } from '.
 
 import type {
   IInteractiveSessionStore,
-  ISessionDirectory,
+  ISessionBinder,
 } from '@robota-sdk/agent-interface-session';
+import type { IProtocolSession } from '@robota-sdk/agent-transport';
 import type { TDriverId } from '@robota-sdk/agent-interface-session';
 import type { TUsageSurface } from '@robota-sdk/agent-interface-analytics';
 
@@ -14,7 +15,7 @@ function createDefaultUsageTransportRegistry(
   projectTrusted: boolean,
   driverId: TDriverId,
   surface: TUsageSurface,
-  sessionDirectory: ISessionDirectory | undefined,
+  sessionBinder: ISessionBinder<IProtocolSession> | undefined,
 ): ReturnType<typeof createDefaultTransportRegistry> {
   const admittedProjectStore = projectTrusted ? projectStore : undefined;
   const personalUsageReporter = createPersonalUsageReporter(admittedProjectStore);
@@ -24,7 +25,7 @@ function createDefaultUsageTransportRegistry(
     storedSessionUsageReporter,
     driverId,
     surface,
-    sessionDirectory,
+    sessionBinder,
   );
 }
 
@@ -48,13 +49,13 @@ export function createCliUsageTransportRegistry(
   projectStore: IInteractiveSessionStore,
   projectTrusted: boolean,
   open: boolean,
-  /** #3189: offered to clients for listing, starting and switching sessions (serve mode only). */
-  sessionDirectory?: ISessionDirectory,
+  /** #3189: binds each client to the sessions it lists, starts and switches (serve mode only). */
+  sessionBinder?: ISessionBinder<IProtocolSession>,
   daemon = false,
 ): ReturnType<typeof createDefaultTransportRegistry> {
   // Read before the registry takes the token out of the environment.
   const { driverId, surface } = resolveCliUsageAttribution({
     desktopToken: Boolean(process.env['ROBOTA_WS_TOKEN']), open, daemon,
   });
-  return createDefaultUsageTransportRegistry(projectStore, projectTrusted, driverId, surface, sessionDirectory);
+  return createDefaultUsageTransportRegistry(projectStore, projectTrusted, driverId, surface, sessionBinder);
 }

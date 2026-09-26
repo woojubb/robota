@@ -68,7 +68,8 @@ export interface IActiveTool {
 
 export interface ISessionNotice {
   id: string;
-  kind: 'session-error' | 'protocol-error';
+  /** `session-change-refused`: the host refused a new or switch this surface asked for. */
+  kind: 'session-error' | 'protocol-error' | 'session-change-refused';
   message: string;
 }
 
@@ -100,7 +101,7 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   /** Set when the host answered the latest listing request with an error instead. */
   sessionsError: TSessionsError | null;
   requestSessions: () => void;
-  /** Make another stored session current. A refusal arrives as a protocol error notice. */
+  /** Make another stored session current. A refusal arrives as a notice saying why. */
   switchSession: (sessionId: string) => void;
   /** Start a fresh session and make it current. */
   newSession: () => void;

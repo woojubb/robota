@@ -21,7 +21,7 @@ import type {
   IExecutionWorkspaceSnapshot,
 } from '@robota-sdk/agent-interface-execution';
 import type {
-  IResumableSessionSummary,
+  ISessionListingEntry,
   IToolState,
 } from '@robota-sdk/agent-interface-session';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
@@ -91,7 +91,7 @@ export interface IAppTransportViewModel {
 
 export interface IAppSessionPickerViewModel {
   readonly visible: boolean;
-  readonly sessions: readonly IResumableSessionSummary[];
+  readonly sessions: readonly ISessionListingEntry[];
   readonly select: (sessionId: string) => void;
   readonly cancel: () => void;
 }

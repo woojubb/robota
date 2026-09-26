@@ -12,12 +12,25 @@ import { Text } from './SafeText.js';
 import { shortSessionId } from './short-session-id.js';
 import { usePalette } from './theme/index.js';
 
-import type { IResumableSessionSummary } from '@robota-sdk/agent-interface-session';
+import type { ISessionListingEntry } from '@robota-sdk/agent-interface-session';
 
 const SESSION_PREVIEW_DISPLAY_LENGTH = 60;
 
+/**
+ * `● live · 2 clients` on a host that keeps sessions live: the session runs there now, and that many
+ * clients are on it. Null for a stored session, and for a host that says neither.
+ */
+export function sessionLiveBadge(session: ISessionListingEntry): string | null {
+  const parts: string[] = [];
+  if (session.live === true) parts.push('● live');
+  if (session.clients !== undefined && session.clients > 0) {
+    parts.push(`${session.clients} ${session.clients === 1 ? 'client' : 'clients'}`);
+  }
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
 interface IProps {
-  sessions: readonly IResumableSessionSummary[];
+  sessions: readonly ISessionListingEntry[];
   onSelect: (sessionId: string) => void;
   onCancel: () => void;
 }
@@ -33,9 +46,10 @@ export default function SessionPicker({
       <Text bold color={palette.text.accent}>
         Select a session to resume:
       </Text>
-      <ListPicker<IResumableSessionSummary>
+      <ListPicker<ISessionListingEntry>
         items={[...sessions]}
-        renderItem={(session: IResumableSessionSummary, isSelected: boolean) => {
+        renderItem={(session: ISessionListingEntry, isSelected: boolean) => {
+          const badge = sessionLiveBadge(session);
           const preview = session.preview
             ? session.preview.slice(0, SESSION_PREVIEW_DISPLAY_LENGTH) +
               (session.preview.length > SESSION_PREVIEW_DISPLAY_LENGTH ? '...' : '')
@@ -55,6 +69,12 @@ export default function SessionPicker({
               </Text>
               {'  '}
               <Text dimColor>msgs: {session.messageCount}</Text>
+              {badge !== null ? (
+                <>
+                  {'  '}
+                  <Text color={palette.text.success}>{badge}</Text>
+                </>
+              ) : null}
               {preview ? (
                 <>
                   {'\n    '}
@@ -64,7 +84,7 @@ export default function SessionPicker({
             </Text>
           );
         }}
-        onSelect={(session: IResumableSessionSummary) => onSelect(session.id)}
+        onSelect={(session: ISessionListingEntry) => onSelect(session.id)}
         onCancel={onCancel}
       />
     </Box>

@@ -1,3 +1,4 @@
+import { SESSION_CHANGE_REFUSAL_CODES } from '@robota-sdk/agent-interface-session';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -28,8 +29,8 @@ const CLIENT_SAMPLES: Readonly<Record<TClientMessage['type'], TClientMessage>> =
   'get-commands': { type: 'get-commands' },
   'get-status': { type: 'get-status' },
   'list-sessions': { type: 'list-sessions', requestId: 'request-3' },
-  'new-session': { type: 'new-session' },
-  'switch-session': { type: 'switch-session', sessionId: 'session-2' },
+  'new-session': { type: 'new-session', requestId: 'request-4' },
+  'switch-session': { type: 'switch-session', sessionId: 'session-2', requestId: 'request-5' },
   'get-usage-report': { type: 'get-usage-report' },
   'get-personal-usage-report': {
     type: 'get-personal-usage-report',
@@ -111,6 +112,12 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
     message: 'unreadable store',
   },
   session_switched: { type: 'session_switched', event: { sessionId: 'session-2' } },
+  session_change_failed: {
+    type: 'session_change_failed',
+    code: 'prompt_pending',
+    message: 'Answer the pending prompt first.',
+    requestId: 'request-5',
+  },
   usage_report: { type: 'usage_report', report: {} as never },
   personal_usage_report: {
     type: 'personal_usage_report',
@@ -214,6 +221,11 @@ const MALFORMED_CLIENT: ReadonlyArray<[string, unknown]> = [
   ['get-history from a fractional index', { type: 'get-history', fromIndex: 1.5 }],
   ['command with an empty requestId', { type: 'command', name: 'n', requestId: '' }],
   ['switch-session with an empty sessionId', { type: 'switch-session', sessionId: '' }],
+  [
+    'switch-session with a numeric requestId',
+    { type: 'switch-session', sessionId: 's', requestId: 1 },
+  ],
+  ['new-session with an empty requestId', { type: 'new-session', requestId: '' }],
 ];
 
 const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
@@ -240,6 +252,15 @@ const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
     { type: 'sessions_error', requestId: 'r', code: 'nope', message: 'm' },
   ],
   ['session_switched without event', { type: 'session_switched' }],
+  [
+    'session_change_failed with an unknown code',
+    { type: 'session_change_failed', code: 'nope', message: 'm' },
+  ],
+  ['session_change_failed without message', { type: 'session_change_failed', code: 'limit' }],
+  [
+    'session_change_failed with a numeric requestId',
+    { type: 'session_change_failed', code: 'limit', message: 'm', requestId: 1 },
+  ],
   ['history without entries', { type: 'history', startIndex: 0, total: 0 }],
   ['history without its place', { type: 'history', entries: [] }],
   ['history with a negative total', { type: 'history', startIndex: 0, total: -1, entries: [] }],
@@ -306,6 +327,14 @@ describe('decodeServerMessage (issue #2045)', () => {
 
   it.each(MALFORMED_SERVER)('refuses %s', (_label, value) => {
     expect(decodeServerMessage(value).ok).toBe(false);
+  });
+
+  it('accepts every refusal code the session contracts declare, and a refusal without requestId', () => {
+    for (const code of SESSION_CHANGE_REFUSAL_CODES) {
+      expect(decodeServerMessage({ type: 'session_change_failed', code, message: 'm' }).ok).toBe(
+        true,
+      );
+    }
   });
 
   it('accepts a pending frame without its count, as a host from before the count sends it', () => {

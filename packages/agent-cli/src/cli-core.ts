@@ -25,6 +25,7 @@ import {
   readSettings,
   writeSettings,
   type IBackgroundTaskRunner,
+  type SessionSlot,
 } from '@robota-sdk/agent-framework';
 import { assembleProduct } from '@robota-sdk/agent-product';
 
@@ -466,7 +467,7 @@ async function runCliCore(
   // #3189: a served runtime lets its clients list, start and switch the sessions it saves.
   const serveSessionDirectory =
     args.serve && !args.noSessionPersistence
-      ? createServeSessionDirectory<InteractiveSession>()
+      ? createServeSessionDirectory<InteractiveSession, SessionSlot<InteractiveSession>>()
       : undefined;
   // REMOTE-008: the shell owns/injects transport wiring; `/remote-control` is its declarative trigger.
   const {

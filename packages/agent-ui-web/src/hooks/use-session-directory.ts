@@ -16,9 +16,14 @@ type TSessionDirectoryState = Pick<
 >;
 
 let requestCounter = 0;
-function nextRequestId(): string {
+function nextRequestId(kind: 'sessions' | 'session_change'): string {
   requestCounter += 1;
-  return `sessions_${requestCounter}_${Date.now()}`;
+  return `${kind}_${requestCounter}_${Date.now()}`;
+}
+
+/** A host that keeps several sessions live says which rows are; an older host says nothing. */
+function keepsSessionsLive(listing: TSessionListing): boolean {
+  return listing.sessions.some((row) => typeof row.live === 'boolean');
 }
 
 /** A wide window starts with the sidebar open; a narrow one keeps the conversation in view. */
@@ -30,6 +35,10 @@ function initialSidebarOpen(): boolean {
 /**
  * #3189 — the host's session list beside the conversation: requests correlated by id (the latest
  * wins), the start/switch commands, and whether the sidebar is shown.
+ *
+ * A host that keeps sessions live binds each connection to its own session and puts a new connection
+ * on its primary one. After a reconnect to such a host this surface goes back to the session it was
+ * on; an older host has one session for everyone, so there is nothing to go back to.
  */
 export function useSessionDirectoryState(send: (msg: TClientMessage) => void): TSessionDirectoryState & {
   handleSessionsMessage: (msg: TServerMessage) => boolean;
@@ -37,6 +46,8 @@ export function useSessionDirectoryState(send: (msg: TClientMessage) => void): T
   canListSessions: () => boolean;
   /** The host made `sessionId` current; show it as current until the fresh list arrives. */
   markCurrent: (sessionId: string) => void;
+  /** The connection is (re)established: the next listing decides whether to go back. */
+  armRestore: () => void;
 } {
   const [sessionListing, setSessionListing] = useState<TSessionListing | null>(null);
   const [sessionsError, setSessionsError] = useState<TSessionsError | null>(null);
@@ -45,7 +56,7 @@ export function useSessionDirectoryState(send: (msg: TClientMessage) => void): T
   const notAvailableRef = useRef(false);
 
   const requestSessions = useCallback((): void => {
-    const requestId = nextRequestId();
+    const requestId = nextRequestId('sessions');
     latestRequestRef.current = requestId;
     send({ type: 'list-sessions', requestId });
   }, [send]);
@@ -56,29 +67,57 @@ export function useSessionDirectoryState(send: (msg: TClientMessage) => void): T
   const switchSession = useCallback(
     (sessionId: string): void => {
       if (sessionId === currentIdRef.current) return;
-      send({ type: 'switch-session', sessionId });
+      send({ type: 'switch-session', sessionId, requestId: nextRequestId('session_change') });
     },
     [send],
   );
-  const newSession = useCallback((): void => send({ type: 'new-session' }), [send]);
+  const newSession = useCallback(
+    (): void => send({ type: 'new-session', requestId: nextRequestId('session_change') }),
+    [send],
+  );
 
-  const handleSessionsMessage = useCallback((msg: TServerMessage): boolean => {
-    if (msg.type !== 'sessions' && msg.type !== 'sessions_error') return false;
-    if (msg.requestId !== latestRequestRef.current) return true;
-    if (msg.type === 'sessions') {
-      notAvailableRef.current = false;
-      setSessionListing(msg.listing);
-      setSessionsError(null);
-      return true;
-    }
-    notAvailableRef.current = msg.code === 'not_available';
-    if (msg.code === 'not_available') setSessionListing(null);
-    setSessionsError({ code: msg.code, message: msg.message });
-    return true;
+  // The session this surface last moved to, and — once per connection — whether to go back to it.
+  const lastSwitchedIdRef = useRef<string | null>(null);
+  const restoreTargetRef = useRef<string | null>(null);
+  const armRestore = useCallback((): void => {
+    restoreTargetRef.current = lastSwitchedIdRef.current;
   }, []);
+  const restoreAfterReconnect = useCallback(
+    (listing: TSessionListing): void => {
+      const target = restoreTargetRef.current;
+      restoreTargetRef.current = null;
+      if (target === null || target === listing.currentSessionId) return;
+      if (!keepsSessionsLive(listing)) return;
+      // A session the host no longer lists (an empty one it never saved) is nothing to go back to.
+      if (!listing.sessions.some((row) => row.id === target)) return;
+      send({ type: 'switch-session', sessionId: target, requestId: nextRequestId('session_change') });
+    },
+    [send],
+  );
+
+  const handleSessionsMessage = useCallback(
+    (msg: TServerMessage): boolean => {
+      if (msg.type !== 'sessions' && msg.type !== 'sessions_error') return false;
+      if (msg.requestId !== latestRequestRef.current) return true;
+      if (msg.type === 'sessions') {
+        notAvailableRef.current = false;
+        setSessionListing(msg.listing);
+        setSessionsError(null);
+        restoreAfterReconnect(msg.listing);
+        return true;
+      }
+      restoreTargetRef.current = null;
+      notAvailableRef.current = msg.code === 'not_available';
+      if (msg.code === 'not_available') setSessionListing(null);
+      setSessionsError({ code: msg.code, message: msg.message });
+      return true;
+    },
+    [restoreAfterReconnect],
+  );
 
   const canListSessions = useCallback((): boolean => !notAvailableRef.current, []);
   const markCurrent = useCallback((sessionId: string): void => {
+    lastSwitchedIdRef.current = sessionId;
     setSessionListing((previous) =>
       previous === null ? previous : { ...previous, currentSessionId: sessionId },
     );
@@ -95,5 +134,6 @@ export function useSessionDirectoryState(send: (msg: TClientMessage) => void): T
     handleSessionsMessage,
     canListSessions,
     markCurrent,
+    armRestore,
   };
 }

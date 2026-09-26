@@ -26,9 +26,20 @@ function sessionTitle(session: TListedSession): string {
 }
 
 /**
+ * The clients on a row besides this surface: its own row counts this surface among them. Null when
+ * the host does not count clients, or no one else is there.
+ */
+export function otherClients(session: TListedSession, isCurrent: boolean): number | null {
+  if (session.clients === undefined) return null;
+  const others = session.clients - (isCurrent ? 1 : 0);
+  return others >= 1 ? others : null;
+}
+
+/**
  * #3189 — this workspace's sessions on the left of the conversation, as in Claude Code Desktop:
  * start a new one, or click another to make it current. Rows the host could not read are listed,
  * disabled, so a damaged session never looks deleted. A refused switch comes back as a notice.
+ * A host that keeps several sessions live marks the rows running now and counts who else is on them.
  */
 export function SessionSidebar({
   state,
@@ -81,6 +92,7 @@ export function SessionSidebar({
         <ul className="space-y-1">
           {(listing?.sessions ?? []).map((session) => {
             const isCurrent = session.id === current;
+            const others = otherClients(session, isCurrent);
             return (
               <li key={session.id}>
                 <button
@@ -107,7 +119,20 @@ export function SessionSidebar({
                     {sessionTitle(session)}
                   </span>
                   <span className="mt-0.5 flex items-center gap-2 font-mono text-[10px] tabular-nums text-muted-foreground/60">
+                    {session.live === true ? (
+                      <span
+                        title="Live in the host"
+                        className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-400"
+                      >
+                        <span className="sr-only">live</span>
+                      </span>
+                    ) : null}
                     <span>{formatUpdatedAt(session.updatedAt)}</span>
+                    {others !== null ? (
+                      <span className="text-foreground/70">
+                        {others} {others === 1 ? 'other' : 'others'}
+                      </span>
+                    ) : null}
                     <span className="ml-auto">
                       {session.messageCount} {session.messageCount === 1 ? 'msg' : 'msgs'}
                     </span>

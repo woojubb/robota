@@ -16,7 +16,7 @@ import type {
 } from '@robota-sdk/agent-interface-execution';
 import type {
   IInteractiveSessionEvents,
-  IResumableSessionSummary,
+  ISessionListingEntry,
   IToolState,
 } from '@robota-sdk/agent-interface-session';
 
@@ -60,9 +60,10 @@ export interface ITuiChannelSnapshot {
   contextState: { percentage: number; usedTokens: number; maxTokens: number };
   /**
    * The sessions the session picker offers, when the host keeps them (a terminal attached to a
-   * daemon). Absent ⇒ the picker lists this terminal's own session store.
+   * daemon). Absent ⇒ the picker lists this terminal's own session store. A host that keeps sessions
+   * live says which rows run now and how many clients are on each; the picker shows both.
    */
-  hostSessions?: readonly IResumableSessionSummary[];
+  hostSessions?: readonly ISessionListingEntry[];
   /**
    * Changes when the transcript starts over for another session while the App keeps this channel.
    * The terminal prints the transcript once and counts what it printed, so a new transcript is

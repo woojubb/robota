@@ -31,6 +31,7 @@ export const SERVER_MESSAGE_HANDLING = {
   sessions: 'reducer-state',
   sessions_error: 'reducer-state',
   session_switched: 'reducer-state',
+  session_change_failed: 'visible-notice',
   usage_report: 'reducer-state',
   personal_usage_report: 'reducer-state',
   personal_usage_report_error: 'visible-notice',

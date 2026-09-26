@@ -5,7 +5,10 @@ import { describe, expect, it } from 'vitest';
 import SessionPicker from '../SessionPicker.js';
 import { shortSessionId } from '../short-session-id.js';
 
-import type { IResumableSessionSummary } from '@robota-sdk/agent-interface-session';
+import type {
+  IResumableSessionSummary,
+  ISessionListingEntry,
+} from '@robota-sdk/agent-interface-session';
 
 function summary(id: string, name?: string): IResumableSessionSummary {
   return {
@@ -43,6 +46,48 @@ describe('session ids on screen', () => {
     expect(frame).toContain('15f05245');
     expect(frame).toContain('auth work');
     expect(frame).not.toMatch(/session_\s/);
+    view.unmount();
+  });
+});
+
+describe('live sessions in the picker (#3189)', () => {
+  function entry(id: string, name: string, extra: Partial<ISessionListingEntry>): ISessionListingEntry {
+    return { ...summary(id, name), ...extra };
+  }
+
+  it('marks a session the host runs now, and how many clients are on it', () => {
+    const view = render(
+      <SessionPicker
+        sessions={[
+          entry('session_a', 'busy one', { live: true, clients: 2 }),
+          entry('session_b', 'solo one', { live: true, clients: 1 }),
+          entry('session_c', 'stored one', { live: false, clients: 0 }),
+        ]}
+        onSelect={() => undefined}
+        onCancel={() => undefined}
+      />,
+    );
+    const lines = (view.lastFrame() ?? '').split('\n');
+    const lineOf = (name: string): string => lines.find((line) => line.includes(name)) ?? '';
+    expect(lineOf('busy one')).toContain('● live · 2 clients');
+    expect(lineOf('solo one')).toContain('● live · 1 client');
+    expect(lineOf('solo one')).not.toContain('1 clients');
+    expect(lineOf('stored one')).not.toContain('live');
+    expect(lineOf('stored one')).not.toContain('client');
+    view.unmount();
+  });
+
+  it('shows neither for an older host, which sends neither', () => {
+    const view = render(
+      <SessionPicker
+        sessions={[summary('session_a', 'plain')]}
+        onSelect={() => undefined}
+        onCancel={() => undefined}
+      />,
+    );
+    const frame = view.lastFrame() ?? '';
+    expect(frame).not.toContain('live');
+    expect(frame).not.toContain('client');
     view.unmount();
   });
 });

@@ -34,6 +34,8 @@ import {
   type ITuiExternalEventGrants,
 } from '../external-events/tui-external-event-grants.js';
 import {
+  SESSION_POOL_MAX_LIVE,
+  SessionPool,
   buildRuntimeSession,
   createExternalEventGrantHistory,
   startRuntimeHost,
@@ -42,7 +44,7 @@ import type { IServeSessionDirectory } from './serve-session-directory.js';
 import { presetSessionFields } from '../startup/preset-session-fields.js';
 import { ROBOTA_PERMISSION_BASELINE } from '../product/robota-permission-baseline.js';
 import type { IPresetSurfaceOptions } from '../startup/preset-surface-options.js';
-import type { InteractiveSession, IOrgPolicy } from '@robota-sdk/agent-framework';
+import type { InteractiveSession, IOrgPolicy, SessionSlot } from '@robota-sdk/agent-framework';
 
 import type { IParsedCliArgs } from '../utils/cli-args.js';
 import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
@@ -153,10 +155,11 @@ export interface IServeModeOptions {
    */
   getMonitorWsUrl?: () => string | undefined;
   /**
-   * #3189: the directory the transports offer for listing, starting and switching sessions. Serve
-   * mode attaches it to the host once started; absent ⇒ clients are told sessions are not available.
+   * #3189: binds each client connection to the sessions this runtime keeps live, for listing,
+   * starting and switching them. Serve mode attaches it to its session pool before the transports
+   * start; absent ⇒ one session, and clients are told sessions are not available.
    */
-  sessionDirectory?: IServeSessionDirectory<InteractiveSession>;
+  sessionDirectory?: IServeSessionDirectory<InteractiveSession, SessionSlot<InteractiveSession>>;
 }
 
 /**
@@ -267,6 +270,23 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
   };
 }
 
+type TLocalActivity = ReturnType<InteractiveSession['getLocalActivityStatus']>;
+
+/**
+ * The activity of a runtime that keeps several sessions live: the most pressing of theirs. A prompt
+ * waiting anywhere outranks work anywhere, which outranks idle; `undefined` (a session that cannot
+ * say) outranks idle, so the runtime never reads idle while one of its sessions is unaccounted for.
+ */
+export function poolActivity(
+  sessions: readonly Pick<InteractiveSession, 'getLocalActivityStatus'>[],
+): TLocalActivity {
+  const statuses = sessions.map((session) => session.getLocalActivityStatus());
+  if (statuses.includes('needs-input')) return 'needs-input';
+  if (statuses.includes('working')) return 'working';
+  if (statuses.includes(undefined)) return undefined;
+  return statuses.length > 0 ? 'idle' : undefined;
+}
+
 export function nextWaitingLoopAt(loops: readonly ISessionLoopState[], nowMs: number): string | undefined {
   let earliest: { at: string; millis: number } | undefined;
   for (const loop of loops) {
@@ -330,21 +350,23 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
   const sessionOptions = buildServeSessionOptions(opts);
 
   // Declared before the host starts: the directory is attached in `bindTransports`, ahead of the
-  // first connection, and asks this whether the runtime can change its session at all.
+  // first connection, and asks this whether the runtime is stopping.
   let settling = false;
   let externalEvents: ITuiExternalEventGrants | undefined;
+  let pool: SessionPool<InteractiveSession> | undefined;
   const sessionDirectory = opts.sessionDirectory;
   const host = await startRuntimeHost({
     session: sessionOptions,
     transportRegistry: opts.transportRegistry,
     bindTransports: (slot) => {
       if (sessionDirectory !== undefined && sessionOptions.sessionStore !== undefined) {
-        const store = sessionOptions.sessionStore;
-        sessionDirectory.attach({
-          slot,
-          store,
-          cwd: opts.cwd,
-          buildSession: (resumeSessionId) =>
+        // The host's session is the pool's primary: every client starts on it, and what belongs to
+        // the run — external-event grants, the supervised name — stays on it whichever session a
+        // client moves to.
+        const primary = slot.current;
+        const live = new SessionPool<InteractiveSession>({
+          primary,
+          build: (resumeSessionId) =>
             buildRuntimeSession({
               ...sessionOptions,
               resumeSessionId,
@@ -352,17 +374,28 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
               forkSession: undefined,
               sessionName: undefined,
             }),
-          switchBlockedReason: () => (settling ? 'This runtime is stopping.' : undefined),
-          // The grants belong to the run, as in the TUI: they reopen on the next session and close
-          // on this one. If they cannot open there, they stay here and the switch fails.
-          adopt: async (next) => {
-            await externalEvents?.bind(next);
-          },
+          maxLive: SESSION_POOL_MAX_LIVE,
+        });
+        pool = live;
+        sessionDirectory.attach({
+          pool: live,
+          primary,
+          store: sessionOptions.sessionStore,
+          cwd: opts.cwd,
+          isStopping: () => settling,
         });
       }
       opts.bindTransports?.(slot);
     },
   });
+  /** Every session this runtime keeps live, the primary first. */
+  const liveSessions = (): InteractiveSession[] => {
+    const primary = host.session.current;
+    const others = (pool?.listLive() ?? [])
+      .map((entry) => entry.session)
+      .filter((session) => session !== primary);
+    return [primary, ...others];
+  };
 
   // GUI-007: with `--serve --open`, the CLI serves its OWN monitor SPA over localhost HTTP (a localhost-origin
   // surface) and opens it — gated on `--open` so the GUI sidecar's plain `--serve` path is unaffected. The WS
@@ -397,6 +430,9 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         .catch(() => undefined)
         .then(() => externalEvents?.close())
         .then(() => host.shutdown(reason))
+        .catch(() => undefined)
+        // The host shuts its own session down; every other live session goes with it.
+        .then(() => pool?.shutdownAll(reason))
         .catch(() => undefined)
         .then(() => supervisedControl?.close())
         .finally(() => resolve());
@@ -492,10 +528,13 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
         args.supervisedSessionId,
         () => requestSettle('supervised session stopped'),
         opts.supervisedRoot,
-        () => settling ? undefined : host.session.current.getLocalActivityStatus(),
+        // Activity and the next loop cover every live session, so a session no client is on that
+        // still works keeps the runtime from reading idle.
+        () => settling ? undefined : poolActivity(liveSessions()),
         () => settling ? undefined : supervisedCwd,
         () => settling || sessionOptions.disableSessionLoops
-          ? undefined : nextWaitingLoopAt(host.session.current.listSelfPacedLoops(), Date.now()),
+          ? undefined
+          : nextWaitingLoopAt(liveSessions().flatMap((session) => session.listSelfPacedLoops()), Date.now()),
         () => settling ? undefined : host.session.current.getName(),
         (name) => {
           if (settling) throw new Error('Supervised runtime is stopping.');
@@ -518,13 +557,12 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
               },
             },
         // A terminal on this host may attach over the guarded control socket. It never becomes an
-        // operator approver: this process has no terminal, so mesh admissions stay refused. It
-        // reaches the sessions through the directory the transports offer, so a switch it makes
-        // moves every client.
-        {
-          session: host.session,
-          ...(opts.sessionDirectory !== undefined ? { sessionDirectory: opts.sessionDirectory } : {}),
-        },
+        // operator approver: this process has no terminal, so mesh admissions stay refused. Each
+        // attached terminal binds to the sessions as a WebSocket client does, so a switch it makes
+        // moves that terminal alone.
+        pool !== undefined && sessionDirectory !== undefined
+          ? { binder: sessionDirectory }
+          : { session: host.session },
         // A daemon hands its owner the URL its transport is served on, token included, so a
         // client in this workspace can connect to it instead of starting a runtime of its own.
         args.daemon === true

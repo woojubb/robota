@@ -86,8 +86,8 @@ export type TClientMessage =
   // (a `/` menu), and the session's status (model, permission mode, effort, context).
   | { type: 'get-commands' }
   | { type: 'get-status' }
-  // #3189: the host's sessions — list them, start a new one, make another current. A switch that
-  // would lose work in progress is refused with a protocol_error that says why.
+  // #3189: the host's sessions — list them, start a new one, make another current. A refused change
+  // answers `session_change_failed` with the same `requestId`.
   | { type: 'list-sessions'; requestId: string }
   | { type: 'new-session'; requestId?: string }
   | { type: 'switch-session'; sessionId: string; requestId?: string }

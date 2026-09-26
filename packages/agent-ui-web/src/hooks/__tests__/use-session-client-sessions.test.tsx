@@ -42,6 +42,16 @@ function lastListRequest(wire: readonly TClientMessage[]): string {
   return request.requestId;
 }
 
+/** The request id of the `index`th session change (switch or new) sent on the wire. */
+function changeRequestId(wire: readonly TClientMessage[], index: number): string {
+  const change = wire.filter((m) => m.type === 'switch-session' || m.type === 'new-session')[index];
+  if (change?.type !== 'switch-session' && change?.type !== 'new-session') {
+    throw new Error('expected a session change');
+  }
+  if (change.requestId === undefined) throw new Error('the session change carries no request id');
+  return change.requestId;
+}
+
 const listing = (currentSessionId: string) => ({
   currentSessionId,
   sessions: [
@@ -93,7 +103,11 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
     const { result, wire } = setup();
     act(() => result.current.switchSession('b'));
     act(() => result.current.newSession());
-    expect(wire).toEqual([{ type: 'switch-session', sessionId: 'b' }, { type: 'new-session' }]);
+    expect(wire).toEqual([
+      { type: 'switch-session', sessionId: 'b', requestId: expect.any(String) },
+      { type: 'new-session', requestId: expect.any(String) },
+    ]);
+    expect(changeRequestId(wire, 0)).not.toBe(changeRequestId(wire, 1));
   });
 
   it('a switch clears what the old session showed and re-reads the new one', () => {
@@ -216,6 +230,100 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
     connect();
     deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: listing('a') });
     act(() => result.current.switchSession('a'));
+    expect(wire.some((m) => m.type === 'switch-session')).toBe(false);
+  });
+});
+
+describe('#3189 step 5 — a refused session change and a pool-capable host', () => {
+  it('session_change_failed shows the reason and answers the change, not a command', () => {
+    const { result, wire, deliver } = setup();
+    act(() => result.current.send({ type: 'command', name: 'settings' }));
+    deliver({ type: 'ui_intent', event: { intent: { type: 'show-settings' } } } as TServerMessage);
+    act(() => result.current.switchSession('b'));
+    deliver({
+      type: 'session_change_failed',
+      code: 'limit',
+      message: 'Four sessions are live; close one first.',
+      requestId: changeRequestId(wire, 0),
+    });
+    expect(result.current.sessionNotices.at(-1)).toMatchObject({
+      message: 'Four sessions are live; close one first.',
+    });
+    // The in-flight change is answered: a later protocol error belongs to the command again.
+    deliver({ type: 'protocol_error', message: 'settings failed' });
+    expect(result.current.messages).toEqual([
+      expect.objectContaining({ role: 'command', name: 'settings', tone: 'info' }),
+    ]);
+  });
+
+  it('ignores a session_change_failed answering a request it did not send', () => {
+    const { result, wire, deliver } = setup();
+    act(() => result.current.switchSession('b'));
+    deliver({
+      type: 'session_change_failed',
+      code: 'limit',
+      message: 'not mine',
+      requestId: 'someone-else',
+    });
+    expect(result.current.sessionNotices).toEqual([]);
+    deliver({
+      type: 'session_change_failed',
+      code: 'unknown_session',
+      message: 'No such session.',
+      requestId: changeRequestId(wire, 0),
+    });
+    expect(result.current.sessionNotices.map((n) => n.message)).toEqual(['No such session.']);
+  });
+
+  const liveListing = (currentSessionId: string) => ({
+    ...listing(currentSessionId),
+    sessions: listing(currentSessionId).sessions.map((row) => ({
+      ...row,
+      live: row.id === currentSessionId,
+      clients: row.id === currentSessionId ? 1 : 0,
+    })),
+  });
+
+  it('after a reconnect, returns to the session it switched to when the host keeps sessions live', () => {
+    const { result, wire, connect, deliver } = setup();
+    connect();
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: liveListing('a') });
+    act(() => result.current.switchSession('b'));
+    deliver({ type: 'session_switched', event: { sessionId: 'b' } });
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: liveListing('b') });
+    wire.length = 0;
+
+    // The connection drops and comes back: the host puts a new connection on its primary session.
+    connect();
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: liveListing('a') });
+
+    expect(wire.filter((m) => m.type === 'switch-session')).toEqual([
+      { type: 'switch-session', sessionId: 'b', requestId: expect.any(String) },
+    ]);
+    // Only once per reconnect: a later listing does not switch again.
+    act(() => result.current.requestSessions());
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: liveListing('a') });
+    expect(wire.filter((m) => m.type === 'switch-session')).toHaveLength(1);
+  });
+
+  it('after a reconnect, stays where an older host puts it: its rows do not say live', () => {
+    const { result, wire, connect, deliver } = setup();
+    connect();
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: listing('a') });
+    act(() => result.current.switchSession('b'));
+    deliver({ type: 'session_switched', event: { sessionId: 'b' } });
+    wire.length = 0;
+
+    connect();
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: listing('a') });
+
+    expect(wire.some((m) => m.type === 'switch-session')).toBe(false);
+  });
+
+  it('a first connect switches nowhere', () => {
+    const { wire, connect, deliver } = setup();
+    connect();
+    deliver({ type: 'sessions', requestId: lastListRequest(wire), listing: liveListing('a') });
     expect(wire.some((m) => m.type === 'switch-session')).toBe(false);
   });
 });

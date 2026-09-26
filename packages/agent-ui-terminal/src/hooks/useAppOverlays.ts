@@ -13,7 +13,7 @@ import type { IHistoryEntry } from '@robota-sdk/agent-core';
 import type { ICommandPluginAdapter } from '@robota-sdk/agent-interface-command';
 import type {
   IInteractiveSessionStore,
-  IResumableSessionSummary,
+  ISessionListingEntry,
 } from '@robota-sdk/agent-interface-session';
 import type { ITransportRegistryView } from '@robota-sdk/agent-interface-transport';
 
@@ -27,7 +27,7 @@ interface IOptions {
   readonly setTransportVisible: (visible: boolean) => void;
   readonly sessionStore: IInteractiveSessionStore | undefined;
   /** The host's sessions, when the channel's host keeps them; they replace the local store's. */
-  readonly hostSessions: readonly IResumableSessionSummary[] | undefined;
+  readonly hostSessions: readonly ISessionListingEntry[] | undefined;
   readonly sessionPickerVisible: boolean;
   readonly setSessionPickerVisible: (visible: boolean) => void;
   readonly onSessionSwitch: (sessionId: string) => Promise<void>;
