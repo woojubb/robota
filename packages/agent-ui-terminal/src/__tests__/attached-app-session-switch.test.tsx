@@ -147,4 +147,70 @@ describe('the full App attached to a host over the wire', () => {
       await channel.stop();
     }
   });
+
+  async function resumeAgainst(
+    answer: (requestId: string) => TServerMessage,
+    notice: string,
+  ): Promise<string> {
+    const link = scriptedConnection();
+    const channel = new WireTuiChannel({ connection: link, driverId: 'attach:1' });
+    const view = render(
+      <App
+        cwd={cwd}
+        createChannel={() => channel}
+        requestSessionSwitch={(sessionId) => channel.requestSessionSwitch(sessionId)}
+        cliAdapter={cliAdapter(join(cwd, 'settings.json'))}
+      />,
+    );
+    try {
+      await waitFor(
+        () => (view.lastFrame() ?? '').includes('Type a message'),
+        () => view.lastFrame() ?? '<none>',
+      );
+      link.sent.length = 0;
+      link.push({
+        type: 'ui_intent',
+        event: { intent: { type: 'show-session-picker' }, requesterDriverId: 'attach:1' },
+      });
+      link.push(answer(lastListRequestId(link.sent)));
+      await waitFor(
+        () => (view.lastFrame() ?? '').includes(notice),
+        () => view.lastFrame() ?? '<none>',
+      );
+      await tick();
+      return view.lastFrame() ?? '';
+    } finally {
+      view.unmount();
+      await channel.stop();
+    }
+  }
+
+  it('gives the prompt back with the reason when the host cannot list its sessions', async () => {
+    const frame = await resumeAgainst(
+      (requestId) => ({
+        type: 'sessions_error',
+        requestId,
+        code: 'not_available',
+        message: 'Session listing is not available on this host.',
+      }),
+      'Session listing is not available on this host.',
+    );
+    expect(frame).not.toContain('Select a session to resume');
+    expect(frame).not.toContain('Waiting for response');
+    expect(frame).toContain('Type a message');
+  });
+
+  it('opens no empty picker when the host has no sessions to resume', async () => {
+    const frame = await resumeAgainst(
+      (requestId) => ({
+        type: 'sessions',
+        requestId,
+        listing: { currentSessionId: 'host-current', sessions: [], unreadableSessionIds: [] },
+      }),
+      'No saved sessions to resume',
+    );
+    expect(frame).not.toContain('Select a session to resume');
+    expect(frame).not.toContain('Waiting for response');
+    expect(frame).toContain('Type a message');
+  });
 });

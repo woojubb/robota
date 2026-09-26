@@ -143,7 +143,13 @@ export class WireTuiChannel implements ITuiAppChannelPort {
   private status: ISessionStatusSnapshot | undefined;
   private hostSessions: readonly IResumableSessionSummary[] | undefined;
   private sessionListSequence = 0;
-  private sessionListRequest: { readonly id: string; readonly forPicker: boolean } | undefined;
+  /** Only the answer to the latest listing is shown: an earlier one may predate a switch. */
+  private sessionListRequestId: string | undefined;
+  /**
+   * The picker `/resume` asked for, opened on the host's answer: what this terminal held since it
+   * attached may be stale or missing, and an empty picker would only block the prompt.
+   */
+  private pendingPicker: IUiIntentEvent | undefined;
   /** One `get-history` in flight and at most one behind it: history events can come in bursts. */
   private historyRequest = { inFlight: false, queued: false };
   /** Commands sent and not yet answered; `handleInput` settles when the host's result is shown. */
@@ -453,13 +459,16 @@ export class WireTuiChannel implements ITuiAppChannelPort {
         this.showCommandResult(frame);
         return;
       case 'sessions':
-        if (frame.requestId !== this.sessionListRequest?.id) return;
+        if (frame.requestId !== this.sessionListRequestId) return;
         this.hostSessions = frame.listing.sessions;
         this.notify();
+        this.openPendingPicker();
         return;
       case 'sessions_error':
+        if (frame.requestId !== this.sessionListRequestId) return;
         // Asked for at attach too, where a host without a session list is nothing to report.
-        if (frame.requestId === this.sessionListRequest?.id && this.sessionListRequest.forPicker) {
+        if (this.pendingPicker !== undefined) {
+          this.pendingPicker = undefined;
           this.notice(frame.message);
         }
         return;
@@ -546,9 +555,21 @@ export class WireTuiChannel implements ITuiAppChannelPort {
       this.notice(`That screen is not available ${ATTACHED}.`);
       return;
     }
-    if (event.intent.type === 'show-session-picker') this.requestSessionList(true);
     // The host routes an attributed intent only to the client that asked: this terminal's operator.
-    this.uiEvents.emitUiIntent({ ...event, requesterDriverId: OWNER_DRIVER_ID });
+    const own: IUiIntentEvent = { ...event, requesterDriverId: OWNER_DRIVER_ID };
+    if (event.intent.type === 'show-session-picker') {
+      this.pendingPicker = own;
+      if (!this.requestSessionList()) this.pendingPicker = undefined;
+      return;
+    }
+    this.uiEvents.emitUiIntent(own);
+  }
+
+  private openPendingPicker(): void {
+    const picker = this.pendingPicker;
+    if (picker === undefined) return;
+    this.pendingPicker = undefined;
+    this.uiEvents.emitUiIntent(picker);
   }
 
   private rename(name: string): void {
@@ -601,7 +622,7 @@ export class WireTuiChannel implements ITuiAppChannelPort {
   private requestSnapshot(): void {
     this.requestHistory();
     for (const type of SNAPSHOT_REQUESTS) this.send({ type });
-    this.requestSessionList(false);
+    this.requestSessionList();
   }
 
   private requestHistory(): void {
@@ -612,11 +633,11 @@ export class WireTuiChannel implements ITuiAppChannelPort {
     this.historyRequest.inFlight = this.send({ type: 'get-history' });
   }
 
-  private requestSessionList(forPicker: boolean): void {
+  private requestSessionList(): boolean {
     this.sessionListSequence += 1;
     const id = `wire-tui-sessions-${this.sessionListSequence}`;
-    this.sessionListRequest = { id, forPicker };
-    this.send({ type: 'list-sessions', requestId: id });
+    this.sessionListRequestId = id;
+    return this.send({ type: 'list-sessions', requestId: id });
   }
 
   private send(message: TClientMessage): boolean {
@@ -648,6 +669,7 @@ export class WireTuiChannel implements ITuiAppChannelPort {
   private detach(): void {
     if (this.detached) return;
     this.detached = true;
+    this.pendingPicker = undefined;
     for (const unsubscribe of this.unsubscribers.splice(0)) unsubscribe();
     this.userActions.cancelAll();
     this.permissions.cancelAll();

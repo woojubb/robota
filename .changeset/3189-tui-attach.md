@@ -8,7 +8,8 @@
 - **`agent-ui-terminal`:**
   - `renderAttachedApp` renders the same App over a wire connection, through `WireTuiChannel`, a second implementation of the TUI's channel port.
   - Leaving detaches; the daemon keeps running.
-  - The session picker lists and switches the daemon's sessions.
+  - The session picker lists and switches the daemon's sessions. It opens on the daemon's answer to `/resume`; a daemon that cannot list its sessions says why instead.
+  - With no saved sessions to resume, `/resume` says so and keeps the prompt, instead of opening an empty picker that blocks input. This applies to the in-process TUI too.
   - Features that belong to the runtime process say they are unavailable while attached: the plugin manager, background task details and sending to an agent job.
 - **`agent-cli`:**
   - `robota --attach` finds the workspace daemon and asks the user to confirm on the terminal, as `robota session attach` does, then attaches.

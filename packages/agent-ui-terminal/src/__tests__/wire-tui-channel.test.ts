@@ -78,6 +78,14 @@ function types(sent: readonly TClientMessage[]): string[] {
   return sent.map((message) => message.type);
 }
 
+function lastListRequestId(sent: readonly TClientMessage[]): string {
+  const requests = sent.filter(
+    (message): message is Extract<TClientMessage, { type: 'list-sessions' }> =>
+      message.type === 'list-sessions',
+  );
+  return requests.at(-1)?.requestId ?? '';
+}
+
 describe('WireTuiChannel', () => {
   it('asks the host for everything the full TUI shows when it starts', async () => {
     const { link } = await attached();
@@ -382,6 +390,78 @@ describe('WireTuiChannel', () => {
     link.sent.length = 0;
     await channel.requestSessionSwitch('s2');
     expect(link.sent).toEqual([{ type: 'switch-session', sessionId: 's2' }]);
+    await channel.stop();
+  });
+
+  it("opens the session picker on the host's answer to the listing it asked for", async () => {
+    const { channel, link } = await attached();
+    const intents: IUiIntentEvent[] = [];
+    channel.getSessionUiEventPort().on('ui_intent', (event) => intents.push(event));
+    link.push({
+      type: 'sessions',
+      requestId: lastListRequestId(link.sent),
+      listing: { currentSessionId: 's1', sessions: [], unreadableSessionIds: [] },
+    });
+    link.sent.length = 0;
+
+    link.push({
+      type: 'ui_intent',
+      event: { intent: { type: 'show-session-picker' }, requesterDriverId: 'attach:1' },
+    });
+    // What the terminal held since it attached is not what the host has now.
+    expect(intents).toEqual([]);
+    link.push({
+      type: 'sessions',
+      requestId: lastListRequestId(link.sent),
+      listing: {
+        currentSessionId: 's1',
+        sessions: [
+          {
+            id: 's1',
+            cwd: '/w',
+            updatedAt: '2026-09-26T10:00:00.000Z',
+            messageCount: 0,
+            preview: '',
+          },
+          {
+            id: 's2',
+            cwd: '/w',
+            updatedAt: '2026-09-26T09:00:00.000Z',
+            messageCount: 2,
+            preview: 'hi',
+          },
+        ],
+        unreadableSessionIds: [],
+      },
+    });
+    expect(channel.getSnapshot().hostSessions?.map((session) => session.id)).toEqual(['s1', 's2']);
+    expect(intents).toEqual([
+      { intent: { type: 'show-session-picker' }, requesterDriverId: 'owner' },
+    ]);
+    await channel.stop();
+  });
+
+  it('opens no session picker when the host cannot list its sessions, and says why', async () => {
+    const { channel, link } = await attached();
+    const intents: IUiIntentEvent[] = [];
+    channel.getSessionUiEventPort().on('ui_intent', (event) => intents.push(event));
+    link.sent.length = 0;
+
+    link.push({
+      type: 'ui_intent',
+      event: { intent: { type: 'show-session-picker' }, requesterDriverId: 'attach:1' },
+    });
+    link.push({
+      type: 'sessions_error',
+      requestId: lastListRequestId(link.sent),
+      code: 'not_available',
+      message: 'Session listing is not available on this host.',
+    });
+    expect(intents).toEqual([]);
+    expect(channel.getSnapshot().hostSessions).toBeUndefined();
+    expect(channel.getSnapshot().history.at(-1)?.data).toMatchObject({
+      content: 'Session listing is not available on this host.',
+    });
     await channel.stop();
   });
 
