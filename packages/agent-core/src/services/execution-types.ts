@@ -146,6 +146,8 @@ export interface IExecutionContext {
    * can tell a peer's turn from the operator's. Never an authorization input (issue #1809).
    */
   driverId?: string;
+  /** Where the turn came from, stored beside `driverId` on the user message. Display only. */
+  turnSource?: string;
   conversationId?: string;
   sessionId?: string;
   userId?: string;

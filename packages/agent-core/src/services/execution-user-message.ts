@@ -10,6 +10,11 @@
 export function userMessageMetadata(
   executionId: string,
   driverId?: string,
-): { executionId: string; driverId?: string } {
-  return { executionId, ...(driverId !== undefined ? { driverId } : {}) };
+  turnSource?: string,
+): { executionId: string; driverId?: string; turnSource?: string } {
+  return {
+    executionId,
+    ...(driverId !== undefined ? { driverId } : {}),
+    ...(turnSource !== undefined ? { turnSource } : {}),
+  };
 }
