@@ -83,7 +83,8 @@ dependency.
   cross; anything else ends the connection. A side counts the connection admitted only after the peer says it
   admitted it too, so a refused peer never believes it is connected. Each connection has a DTLS certificate of its
   own: a per-process certificate would be a stable identifier the relay could link across connections, and one two
-  endpoints in a process would share. No ICE server is contacted unless one is configured. Every way signals travel — the relay, or a peer's
+  endpoints in a process would share. No ICE server is contacted unless one is configured or a paired device
+  advertises its relay. Every way signals travel — the relay, or a peer's
   direct endpoint on the local network — is reached only through opaque, pairwise topics and is never trusted for
   anything but delivery: nothing it says is authenticated, so a new attempt runs beside the admitted connection
   and replaces it only once admitted itself, and attempts per pair are paced — forged announcements can neither
@@ -121,6 +122,18 @@ dependency.
   record. The DHT and Nostr clients are maintained, pure JavaScript and permissively licensed, so they are ordinary
   dependencies; the DHT client is loaded only when a device turns the DHT on, so importing this package opens no
   socket.
+- **Where no direct path works, a relay moves datagrams and nothing more.** The relay is TURN on one of the
+  user's own always-on devices, then a TURN server the user configured; with neither, a connection that needs one
+  is refused with an error saying a relay device is needed, never left to fail silently and never carried some
+  other way. A relay only forwards the two ends' DTLS, so it holds no key of the channel and a relayed connection
+  is admitted by the same handshake on the same verified certificate as a direct one. Only devices the lists in
+  force name, unrevoked, may use a device's relay: each pair derives its own short-lived credential in the TURN
+  REST style, its username a rotating pairwise tag that names no device, so a device the lists drop can neither
+  derive one nor keep an allocation. Where the relay listens travels only in the pair's sealed hints records, so
+  it reaches paired devices and no one else. The TURN server is a small in-repo implementation of the part of
+  RFC 8656 a WebRTC client uses, over UDP and in pure JavaScript: no maintained JavaScript TURN server offered a
+  per-allocation authorization hook and quotas without a wide surface of its own, and a native server would make
+  the relay depend on a binary per platform.
 - **The data channel is wired eagerly at creation, not on open.** The session message handler is built and its
   message subscription attached immediately, because the underlying implementation does not buffer inbound frames
   that arrive before a subscription, and the remote can send its first client message before the host's channel

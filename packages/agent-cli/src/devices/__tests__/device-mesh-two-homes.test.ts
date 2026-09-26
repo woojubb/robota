@@ -284,6 +284,69 @@ describe('device mesh between two HOMEs', () => {
     for (const id of [laptopId, desktopId]) expect(published).not.toContain(id);
   }, 60_000);
 
+  describe('where no direct path works', () => {
+    async function openBehindNat(
+      home: IHome,
+      settings: Record<string, unknown>,
+      network: ReturnType<typeof createInMemoryItemNetwork>,
+      hub: ReturnType<typeof createInMemoryMeshRelayHub>,
+    ) {
+      const opened = await openDeviceMesh({
+        root: home.root,
+        store: home.store,
+        relay: hub.connect(),
+        lan: { host: '127.0.0.1', mdns: false },
+        internet: {
+          settings: parseMeshInternetSettings({ nostrRelays: [], ...settings }),
+          stores: [network.store()],
+          maxPublishJitterMs: 0,
+        },
+        now: () => clock,
+        connectTimeoutMs: 20_000,
+      });
+      open.push(opened);
+      return opened.node;
+    }
+
+    it('a relay-only device reaches its peer through the relay that peer runs, learned from its sealed records', async () => {
+      const desktopId = await enrolDesktop();
+      const laptopId = stateOf(laptop).deviceCertificate.deviceId;
+      const network = createInMemoryItemNetwork();
+      const hub = createInMemoryMeshRelayHub();
+      const atLaptop = await openBehindNat(
+        laptop,
+        { relay: { serve: true, port: 0, host: '127.0.0.1' } },
+        network,
+        hub,
+      );
+      // The laptop's sealed hints, relay included, are out before the desktop looks.
+      await expect.poll(() => network.items().length).toBeGreaterThan(0);
+      const atDesktop = await openBehindNat(desktop, { relayOnly: true }, network, hub);
+
+      const [toDesktop, toLaptop] = await Promise.all([
+        atLaptop.connect(desktopId, 30_000),
+        atDesktop.connect(laptopId, 30_000),
+      ]);
+
+      expect(toLaptop.admission.deviceId).toBe(laptopId);
+      const received = new Promise<string>((resolve) => toLaptop.onMessage(resolve));
+      toDesktop.send('through the relay');
+      await expect(received).resolves.toBe('through the relay');
+    }, 60_000);
+
+    it('a relay-only device with no relay to use is refused with the explicit error', async () => {
+      const desktopId = await enrolDesktop();
+      const laptopId = stateOf(laptop).deviceCertificate.deviceId;
+      const network = createInMemoryItemNetwork();
+      const hub = createInMemoryMeshRelayHub();
+      const atLaptop = await openBehindNat(laptop, {}, network, hub);
+      const atDesktop = await openBehindNat(desktop, { relayOnly: true }, network, hub);
+
+      void atLaptop.connect(desktopId, 10_000).catch(() => undefined);
+      await expect(atDesktop.connect(laptopId, 10_000)).rejects.toThrow(/a relay device is needed/);
+    }, 30_000);
+  });
+
   describe('file transfer', () => {
     async function linked(approve: boolean | undefined) {
       const desktopId = await enrolDesktop();

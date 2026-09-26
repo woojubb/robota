@@ -6,7 +6,9 @@
  * every connection is admitted by the device handshake before anything but the handshake crosses it.
  * Beyond the local network it can publish and look up rendezvous records on the Mainline DHT and
  * signal over public Nostr relays; those are candidates and carriers only, and before a remote
- * admission the lists other devices published there are looked up for a newer revocation.
+ * admission the lists other devices published there are looked up for a newer revocation. Where no
+ * direct path works, a connection is relayed by a TURN relay a paired device runs, then by the
+ * user's own TURN servers, and otherwise refused with an error saying a relay device is needed.
  * Lists a peer hands over during a handshake are saved only when they verify for this device and are
  * newer than the ones held, so a peer can bring a revocation but never roll one back.
  */
@@ -22,14 +24,17 @@ import {
 import {
   DeviceMeshNode,
   MeshDht,
+  MeshTurnRelay,
   NostrMeshRelay,
   createNostrRelayPool,
   createPkarrRelayStore,
   localInterfaceAddresses,
   startLanMeshRelay,
   startMainlineDhtStore,
+  type IDeviceMeshRelayOptions,
   type IIceServer,
   type IMeshMdnsOptions,
+  type IMeshRelayEndpoint,
   type IMeshRelay,
   type INostrRelayPool,
   type IRendezvousItemStore,
@@ -106,6 +111,26 @@ export interface IDeviceMeshInternetOptions {
 interface IInternetParts {
   readonly dht?: MeshDht;
   readonly nostr?: NostrMeshRelay;
+  /** The relay this device runs for its paired devices. */
+  readonly turn?: MeshTurnRelay;
+}
+
+/** Where paired devices reach this device's relay. */
+function relayEndpoints(
+  internet: IDeviceMeshInternetOptions,
+  turn: MeshTurnRelay,
+): readonly IMeshRelayEndpoint[] {
+  const { publicAddress, host } = internet.settings.relay;
+  const port = turn.endpoint.port;
+  if (publicAddress !== undefined) return [{ host: publicAddress, port }];
+  if (host !== undefined && host !== '0.0.0.0') return [{ host, port }];
+  return localInterfaceAddresses().map((address) => ({ host: address, port }));
+}
+
+function closeInternet(parts: IInternetParts): void {
+  parts.dht?.close();
+  parts.nostr?.close();
+  void parts.turn?.close();
 }
 
 async function recordStores(internet: IDeviceMeshInternetOptions): Promise<IRendezvousItemStore[]> {
@@ -132,13 +157,30 @@ async function startInternet(
   directory: string,
 ): Promise<IInternetParts> {
   const onError = internet.onError;
-  const stores = await recordStores(internet);
+  const { relay } = internet.settings;
+  const turn = relay.serve
+    ? await MeshTurnRelay.start({
+        port: relay.port,
+        ...(relay.host !== undefined ? { host: relay.host } : {}),
+        ...(relay.publicAddress !== undefined ? { relayAddress: relay.publicAddress } : {}),
+        ...(onError !== undefined ? { onError } : {}),
+      })
+    : undefined;
+  let stores: IRendezvousItemStore[];
+  try {
+    stores = await recordStores(internet);
+  } catch (error) {
+    void turn?.close();
+    throw error;
+  }
   const dht =
     stores.length === 0
       ? undefined
       : new MeshDht({
           stores,
           addresses: localInterfaceAddresses,
+          // Only the pair can open a hints record, so the relay's address reaches paired devices only.
+          ...(turn !== undefined ? { relayEndpoints: () => relayEndpoints(internet, turn) } : {}),
           ...(internet.maxPublishJitterMs !== undefined
             ? { maxPublishJitterMs: internet.maxPublishJitterMs }
             : {}),
@@ -161,9 +203,13 @@ async function startInternet(
       pool === undefined
         ? undefined
         : new NostrMeshRelay({ pool, ...(onError !== undefined ? { onError } : {}) });
-    return { ...(dht !== undefined ? { dht } : {}), ...(nostr !== undefined ? { nostr } : {}) };
+    return {
+      ...(dht !== undefined ? { dht } : {}),
+      ...(nostr !== undefined ? { nostr } : {}),
+      ...(turn !== undefined ? { turn } : {}),
+    };
   } catch (error) {
-    dht?.close();
+    closeInternet({ ...(dht !== undefined ? { dht } : {}), ...(turn !== undefined ? { turn } : {}) });
     throw error;
   }
 }
@@ -302,11 +348,19 @@ export async function openDeviceMesh(
             },
           });
   } catch (error) {
-    internet.dht?.close();
-    internet.nostr?.close();
+    closeInternet(internet);
     throw error;
   }
   const dht = internet.dht;
+  const settings = options.internet?.settings;
+  const relays: IDeviceMeshRelayOptions | undefined =
+    settings === undefined
+      ? undefined
+      : {
+          ...(dht !== undefined ? { advertised: (peers, signal) => dht.relayAdverts(peers, signal) } : {}),
+          configured: settings.turnServers,
+          relayOnly: settings.relayOnly,
+        };
   // Everything started so far is closed again if the endpoint cannot be opened.
   let node: DeviceMeshNode | undefined;
   try {
@@ -326,6 +380,8 @@ export async function openDeviceMesh(
       },
       ...(dht !== undefined ? { fetchLatestLists: (signal) => dht.latestLists(signal) } : {}),
       ...(options.iceServers !== undefined ? { iceServers: options.iceServers } : {}),
+      ...(relays !== undefined ? { relays } : {}),
+      ...(internet.turn !== undefined ? { relayServer: internet.turn } : {}),
       ...(options.connectTimeoutMs !== undefined
         ? { connectTimeoutMs: options.connectTimeoutMs }
         : {}),
@@ -336,6 +392,7 @@ export async function openDeviceMesh(
     node?.stop();
     if (relay !== options.relay) relay.close();
     internet.nostr?.close();
+    void internet.turn?.close();
     throw error;
   }
 
@@ -363,6 +420,7 @@ export async function openDeviceMesh(
       // Closes the DHT records source with it.
       if (relay !== options.relay) relay.close();
       internet.nostr?.close();
+      void internet.turn?.close();
     },
   };
 }

@@ -34,7 +34,24 @@ export type {
   IDeviceMeshLink,
   IDeviceMeshNodeOptions,
   IDeviceMeshRefusal,
+  IDeviceMeshRelayOptions,
 } from './device-mesh-node.js';
+// The relay of last resort: a TURN server one of the user's devices runs for its paired devices.
+export {
+  DEFAULT_RELAY_CREDENTIAL_TTL_MS,
+  MAX_RELAY_CREDENTIAL_TTL_MS,
+  MeshRelayNeededError,
+  MeshTurnRelay,
+  meshRelayCredential,
+  meshRelayIceServers,
+} from './mesh-turn-relay.js';
+export type {
+  IMeshRelayEndpoint,
+  IMeshRelayPeer,
+  IMeshTurnRelayOptions,
+} from './mesh-turn-relay.js';
+export { DEFAULT_TURN_QUOTAS, TurnServer } from './turn-server.js';
+export type { ITurnAuthorization, ITurnQuotas, ITurnServerOptions } from './turn-server.js';
 export { MeshLinkEndedError } from './mesh-peer-link.js';
 export type { TMeshLinkEnd, TMeshLinkRole, TMeshLinkStage } from './mesh-peer-link.js';
 export { MAX_MESH_MESSAGE_CHARS } from './mesh-signal.js';

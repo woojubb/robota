@@ -4,18 +4,45 @@
  *
  * - `dht` (default `true`): talk to the Mainline DHT directly for rendezvous records;
  * - `pkarrRelays`: pkarr relays (`https://…`), used for records when the DHT is off or cannot start;
- * - `nostrRelays`: Nostr relays (`wss://…`) for live signaling; `[]` turns Nostr signaling off.
+ * - `nostrRelays`: Nostr relays (`wss://…`) for live signaling; `[]` turns Nostr signaling off;
+ * - `relay`: the TURN relay this device runs for its paired devices (`serve`, default off; `port`,
+ *   default 3478; `host`, the address it binds; `publicAddress`, where peers reach it);
+ * - `turnServers`: TURN servers of the user's own, tried after the paired devices' relays;
+ * - `relayOnly` (default `false`): use relayed connections only, for a network no direct path crosses.
  *
  * Absent lists take the defaults: well-known relays of several operators, replaceable here. A
  * malformed value fails closed with an error naming the setting, never a silent partial list.
  */
-import { DEFAULT_NOSTR_RELAYS, DEFAULT_PKARR_RELAYS } from '@robota-sdk/agent-transport-webrtc';
+import { isIP } from 'node:net';
+
+import {
+  DEFAULT_NOSTR_RELAYS,
+  DEFAULT_PKARR_RELAYS,
+  type IIceServer,
+} from '@robota-sdk/agent-transport-webrtc';
+
+import { parseIceServers } from '../remote-control/ice-config.js';
+
+/** The relay this device runs for its paired devices. */
+export interface IMeshRelaySettings {
+  readonly serve: boolean;
+  readonly port: number;
+  /** The address the relay binds; absent: every interface. */
+  readonly host?: string;
+  /** The address peers reach the relay at, when it is not one of this device's own. */
+  readonly publicAddress?: string;
+}
 
 export interface IMeshInternetSettings {
   readonly dht: boolean;
   readonly pkarrRelays: readonly string[];
   readonly nostrRelays: readonly string[];
+  readonly relay: IMeshRelaySettings;
+  readonly turnServers: readonly IIceServer[];
+  readonly relayOnly: boolean;
 }
+
+const DEFAULT_RELAY_PORT = 3478;
 
 const MAX_RELAYS = 16;
 
@@ -47,6 +74,64 @@ function relayList(
   });
 }
 
+function ipAddress(value: unknown, setting: string): string | undefined {
+  if (value === undefined) return undefined;
+  if (typeof value !== 'string' || isIP(value) === 0) {
+    throw new Error(`Invalid mesh setting: \`${setting}\` must be an IP address.`);
+  }
+  return value;
+}
+
+function relaySettings(value: unknown): IMeshRelaySettings {
+  if (value === undefined || value === null) return { serve: false, port: DEFAULT_RELAY_PORT };
+  if (typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error('Invalid mesh setting: `relay` must be an object.');
+  }
+  const bag = value as Record<string, unknown>;
+  const serve = bag['serve'];
+  if (serve !== undefined && typeof serve !== 'boolean') {
+    throw new Error('Invalid mesh setting: `relay.serve` must be true or false.');
+  }
+  const port = bag['port'];
+  if (
+    port !== undefined &&
+    (typeof port !== 'number' || !Number.isInteger(port) || port < 0 || port > 65_535)
+  ) {
+    throw new Error('Invalid mesh setting: `relay.port` must be a port number.');
+  }
+  const host = ipAddress(bag['host'], 'relay.host');
+  const publicAddress = ipAddress(bag['publicAddress'], 'relay.publicAddress');
+  return {
+    serve: serve ?? false,
+    port: port ?? DEFAULT_RELAY_PORT,
+    ...(host !== undefined ? { host } : {}),
+    ...(publicAddress !== undefined ? { publicAddress } : {}),
+  };
+}
+
+/** TURN servers only, each with its credential: a server that relays nothing is no fallback. */
+function turnServers(value: unknown): readonly IIceServer[] {
+  let servers: IIceServer[] | undefined;
+  try {
+    servers = parseIceServers(value);
+  } catch (error) {
+    throw new Error(
+      `Invalid mesh setting: \`turnServers\` — ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
+  for (const [index, server] of (servers ?? []).entries()) {
+    if (!/^turn:/i.test(server.urls)) {
+      throw new Error(`Invalid mesh setting: \`turnServers[${index}]\` must be a turn: URL.`);
+    }
+    if (server.username === undefined || server.credential === undefined) {
+      throw new Error(
+        `Invalid mesh setting: \`turnServers[${index}]\` needs a username and credential.`,
+      );
+    }
+  }
+  return servers ?? [];
+}
+
 /** The mesh's public-infrastructure settings from `transports.mesh.options`; throws on a malformed value. */
 export function parseMeshInternetSettings(options: unknown): IMeshInternetSettings {
   if (options !== undefined && (typeof options !== 'object' || options === null)) {
@@ -57,9 +142,16 @@ export function parseMeshInternetSettings(options: unknown): IMeshInternetSettin
   if (dht !== undefined && typeof dht !== 'boolean') {
     throw new Error('Invalid mesh setting: `dht` must be true or false.');
   }
+  const relayOnly = bag['relayOnly'];
+  if (relayOnly !== undefined && typeof relayOnly !== 'boolean') {
+    throw new Error('Invalid mesh setting: `relayOnly` must be true or false.');
+  }
   return {
     dht: dht ?? true,
     pkarrRelays: relayList(bag['pkarrRelays'], 'pkarrRelays', 'https:', DEFAULT_PKARR_RELAYS),
     nostrRelays: relayList(bag['nostrRelays'], 'nostrRelays', 'wss:', DEFAULT_NOSTR_RELAYS),
+    relay: relaySettings(bag['relay']),
+    turnServers: turnServers(bag['turnServers']),
+    relayOnly: relayOnly ?? false,
   };
 }

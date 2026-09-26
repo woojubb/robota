@@ -91,8 +91,8 @@ attacker-editable while still verifying.
 
 **Signaling stays a rendezvous.** The grant is minted by the source and verified by the destination end to end, so
 a signaling server that reads every byte still cannot authorize a transfer. Every place two devices meet — a relay
-inbox, a local-network announcement, a published record, a live signal — is derived from their pairwise secret and
-separated by direction and purpose, so whoever carries it can neither link it to a device nor let a third party
+inbox, a local-network announcement, a published record, a live signal, a relay credential — is derived from their
+pairwise secret and separated by direction and purpose, so whoever carries it can neither link it to a device nor let a third party
 address the pair, the two directions never overwrite each other, and a record of one purpose never opens as
 another. Every value that anyone but the user's own relay can see rotates by epoch, and a lookup also tries the
 adjacent epochs so clocks that disagree a little still meet. Derivation takes

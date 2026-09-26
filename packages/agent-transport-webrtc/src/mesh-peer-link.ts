@@ -105,8 +105,11 @@ export interface IMeshHandshakeBinding {
 
 export interface IMeshPeerLinkOptions {
   readonly role: TMeshLinkRole;
-  /** A new peer connection; each one has a DTLS certificate of its own. */
-  readonly createPeer: () => RtcPeer;
+  /**
+   * A new peer connection; each one has a DTLS certificate of its own. A failure ends the link as a
+   * signaling failure with it as the cause.
+   */
+  readonly createPeer: () => RtcPeer | Promise<RtcPeer>;
   readonly sendSignal: (signal: TMeshLinkSignal) => void;
   /** Start this side of the device handshake over the bound channel. */
   readonly startHandshake: (binding: IMeshHandshakeBinding) => IDeviceHandshakeController;
@@ -152,6 +155,7 @@ export class MeshPeerLink {
   private localFingerprint?: string;
   private remoteFingerprint?: string;
   private tookRemoteDescription = false;
+  private creatingPeer = false;
   /** Local candidates wait for the description: they can be gathered before it is sent. */
   private sentDescription = false;
   private readonly localCandidates: Extract<TMeshLinkSignal, { kind: 'ice' }>[] = [];
@@ -196,9 +200,11 @@ export class MeshPeerLink {
 
   /** Offerer: create the data channel and send the offer. */
   public async offer(): Promise<void> {
-    if (this.options.role !== 'offerer' || this.peer !== undefined || this.isEnded()) return;
+    if (this.options.role !== 'offerer' || this.creatingPeer || this.isEnded()) return;
+    this.creatingPeer = true;
     try {
-      const peer = this.createPeer();
+      const peer = await this.createPeer();
+      if (peer === undefined) return;
       this.adoptChannel(peer.createDataChannel(DATA_CHANNEL_LABEL));
       const sdp = await peer.createOffer();
       if (this.isEnded()) return;
@@ -247,7 +253,8 @@ export class MeshPeerLink {
       this.awaitCertificate(peer, algorithm);
       return;
     }
-    const peer = this.createPeer();
+    const peer = await this.createPeer();
+    if (peer === undefined) return;
     const sdp = await peer.acceptOffer(signal.sdp);
     if (this.isEnded()) return;
     this.localFingerprint = extractDtlsFingerprint(sdp);
@@ -255,8 +262,13 @@ export class MeshPeerLink {
     this.awaitCertificate(peer, algorithm);
   }
 
-  private createPeer(): RtcPeer {
-    const peer = this.options.createPeer();
+  /** The link's connection; `undefined` when the link ended while it was being created. */
+  private async createPeer(): Promise<RtcPeer | undefined> {
+    const peer = await this.options.createPeer();
+    if (this.isEnded()) {
+      peer.close();
+      return undefined;
+    }
     this.peer = peer;
     peer.onLocalCandidate((candidate) => {
       if (this.isEnded()) return;

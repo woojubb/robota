@@ -179,6 +179,32 @@ describe('rendezvous records', () => {
     ).resolves.toEqual([]);
   });
 
+  it("carry the device's relay endpoints to each paired device, and to no one else", async () => {
+    const network = createInMemoryItemNetwork();
+    const relayEndpoint = { host: '198.51.100.7', port: 3478 };
+    const highDht = dhtOn(network, { now: () => NOW, relayEndpoints: () => [relayEndpoint] });
+    await highDht.advertise([await routeOf(world.high, world.low)], 4343);
+    await vi.waitFor(() => expect(network.items().length).toBeGreaterThan(0));
+    // Hints are one size whether or not they carry a relay.
+    expect(new Set(network.items().map((i) => i.v.length))).toEqual(
+      new Set([HINTS_PADDED_BYTES + 28]),
+    );
+
+    const lowDht = dhtOn(network, { now: () => NOW });
+    const found = await lowDht.relayAdverts([await routeOf(world.low, world.high)], never());
+    expect([...found.entries()]).toEqual([[world.high.cert.deviceId, [relayEndpoint]]]);
+    // The relay's address is not an address of its signaling endpoint.
+    await expect(lowDht.candidates(await routeOf(world.low, world.high), never())).resolves.toEqual(
+      [{ host: LOCAL, port: 4343 }],
+    );
+
+    // A device high published nothing for learns of no relay.
+    const thirdDht = dhtOn(network, { now: () => NOW });
+    expect(
+      (await thirdDht.relayAdverts([await routeOf(world.third, world.high)], never())).size,
+    ).toBe(0);
+  });
+
   it('a tampered record, one signed by another key, or another pair’s record is rejected', async () => {
     const network = createInMemoryItemNetwork();
     const highDht = dhtOn(network, { now: () => NOW });
