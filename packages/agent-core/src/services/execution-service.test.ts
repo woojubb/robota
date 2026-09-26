@@ -165,27 +165,6 @@ describe('ExecutionService', () => {
         systemMessage: 'You are a helpful assistant.',
       };
 
-      const session = conversationHistory.getConversationStore('test-agent');
-      const getMessagesSpy = vi.spyOn(session, 'getMessages');
-      getMessagesSpy
-        .mockReturnValueOnce([]) // first call (empty)
-        .mockReturnValue([
-          {
-            id: 'msg-1',
-            role: 'user',
-            content: input,
-            state: 'complete' as const,
-            timestamp: new Date(),
-          },
-          {
-            id: 'msg-2',
-            role: 'assistant',
-            content: 'Mock response',
-            state: 'complete' as const,
-            timestamp: new Date(),
-          },
-        ]);
-
       const result = await executionService.execute(input, messages, config, {
         conversationId: 'test-agent',
       });
@@ -270,76 +249,6 @@ describe('ExecutionService', () => {
       const addUserMessageSpy = vi.spyOn(session, 'addUserMessage');
       const commitAssistantSpy = vi.spyOn(session, 'commitAssistant');
       const addToolMessageWithIdSpy = vi.spyOn(session, 'addToolMessageWithId');
-      const getMessagesSpy = vi.spyOn(session, 'getMessages');
-
-      // Mock conversation session messages progression
-      getMessagesSpy
-        .mockReturnValueOnce([]) // first call (empty)
-        .mockReturnValueOnce([
-          // after first AI response
-          {
-            id: 'msg-1',
-            role: 'user',
-            content: 'Use a tool to do something',
-            state: 'complete' as const,
-            timestamp: new Date(),
-          },
-          {
-            id: 'msg-2',
-            role: 'assistant',
-            content: 'I need to use a tool',
-            state: 'complete' as const,
-            toolCalls: [
-              {
-                id: 'tool-1',
-                type: 'function',
-                function: { name: 'testTool', arguments: JSON.stringify({ param: 'value' }) },
-              },
-            ],
-            timestamp: new Date(),
-          },
-        ])
-        .mockReturnValue([
-          // final messages
-          {
-            id: 'msg-1',
-            role: 'user',
-            content: 'Use a tool to do something',
-            state: 'complete' as const,
-            timestamp: new Date(),
-          },
-          {
-            id: 'msg-2',
-            role: 'assistant',
-            content: 'I need to use a tool',
-            state: 'complete' as const,
-            toolCalls: [
-              {
-                id: 'tool-1',
-                type: 'function',
-                function: { name: 'testTool', arguments: JSON.stringify({ param: 'value' }) },
-              },
-            ],
-            timestamp: new Date(),
-          },
-          {
-            id: 'msg-3',
-            role: 'tool',
-            content: JSON.stringify({ result: 'success' }),
-            toolCallId: 'tool-1',
-            name: 'testTool',
-            state: 'complete' as const,
-            timestamp: new Date(),
-          },
-          {
-            id: 'msg-4',
-            role: 'assistant',
-            content: 'Task completed with tool result',
-            state: 'complete' as const,
-            timestamp: new Date(),
-          },
-        ]);
-
       const testInput = 'Use a tool to do something';
       const testMessages: TUniversalMessage[] = [];
       const testConfig: IAgentConfig = {
