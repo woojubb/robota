@@ -10,6 +10,7 @@ const FIRST: ISupervisedViewRow = {
   liveness: 'alive',
   control: 'available',
   activity: 'working',
+  generation: 'firstGenerationValue01',
 };
 const SECOND: ISupervisedViewRow = {
   id: 'fe2c7f72-ecb3-4a05-9bb1-2563ec80e615',
@@ -22,6 +23,7 @@ const THIRD: ISupervisedViewRow = {
   liveness: 'alive',
   control: 'available',
   activity: 'idle',
+  generation: 'thirdGenerationValue01',
 };
 
 describe('supervised session view', () => {
@@ -35,7 +37,7 @@ describe('supervised session view', () => {
       expect(view.lastFrame()).toContain(url);
       expect(onOpenPr).not.toHaveBeenCalled();
       view.stdin.write('p');
-      await vi.waitFor(() => expect(onOpenPr).toHaveBeenCalledExactlyOnceWith(FIRST.id, url));
+      await vi.waitFor(() => expect(onOpenPr).toHaveBeenCalledExactlyOnceWith(FIRST.id, url, FIRST.generation));
     } finally {
       view.unmount();
     }
@@ -557,7 +559,7 @@ describe('supervised session view', () => {
       await vi.waitFor(() => expect(loadRows).toHaveBeenCalledTimes(2));
       releaseReorder?.([
         { ...FIRST, liveness: 'dead', control: 'unavailable', activity: 'unknown' },
-        { ...SECOND, liveness: 'alive', control: 'available', activity: 'working' },
+        { ...SECOND, liveness: 'alive', control: 'available', activity: 'working', generation: 'secondGenerationValue1' },
       ]);
       // Wait for the reordered list itself: SECOND listed under `working:`, FIRST under `dead:`.
       const rowLine = (lines: readonly string[], id: string): number =>
@@ -689,7 +691,7 @@ describe('supervised session view', () => {
       view.stdin.write('s');
       await vi.waitFor(() => expect(view.lastFrame()).toContain('y Yes / n No'));
       view.stdin.write('y');
-      await vi.waitFor(() => expect(stop).toHaveBeenCalledExactlyOnceWith(FIRST.id));
+      await vi.waitFor(() => expect(stop).toHaveBeenCalledExactlyOnceWith(FIRST.id, FIRST.generation));
       await vi.waitFor(() => expect(view.lastFrame()).toContain('Stopping'));
       expect(view.lastFrame()).toContain('Stop in progress; wait for result.');
       expect(view.lastFrame()).not.toContain('q/Esc Close');
@@ -791,7 +793,63 @@ describe('supervised session view', () => {
       await vi.waitFor(() => expect(view.lastFrame()).toContain(`Stop ${THIRD.id}?`));
       expect(view.lastFrame()).not.toContain('Enter selection');
       view.stdin.write('y');
-      await vi.waitFor(() => expect(stop).toHaveBeenCalledExactlyOnceWith(THIRD.id));
+      await vi.waitFor(() => expect(stop).toHaveBeenCalledExactlyOnceWith(THIRD.id, THIRD.generation));
+    } finally {
+      view.unmount();
+    }
+  });
+  it('refuses a stop when the session restarts under the same id while confirmation is open', async () => {
+    let finishRefresh: ((rows: readonly ISupervisedViewRow[]) => void) | undefined;
+    const refresh = new Promise<readonly ISupervisedViewRow[]>((resolve) => {
+      finishRefresh = resolve;
+    });
+    const loadRows = vi
+      .fn()
+      .mockResolvedValueOnce([FIRST])
+      .mockImplementation(() => refresh);
+    const stop = vi.fn(async () => undefined);
+    const view = render(
+      <SupervisedSessionView loadRows={loadRows} onStop={stop} refreshMs={100} />,
+    );
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      view.stdin.write('s');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('y Yes / n No'));
+      await vi.waitFor(() => expect(loadRows).toHaveBeenCalledTimes(2));
+      finishRefresh?.([{ ...FIRST, generation: 'restartedGeneration001' }]);
+      await vi.waitFor(() => expect(loadRows).toHaveBeenCalledTimes(3));
+      view.stdin.write('y');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('cannot be stopped'));
+      expect(stop).not.toHaveBeenCalled();
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('never offers stop or PR open for a row without a verified generation', async () => {
+    const stop = vi.fn(async () => undefined);
+    const onOpenPr = vi.fn(async () => undefined);
+    const { generation: _generation, ...unbound } = FIRST;
+    const row: ISupervisedViewRow = {
+      ...unbound,
+      name: 'Unbound name',
+      pr: { url: 'https://github.com/team/repo/pull/9', host: 'github.com', number: 9, kind: 'pull' },
+    };
+    const view = render(
+      <SupervisedSessionView loadRows={async () => [row]} onStop={stop} onOpenPr={onOpenPr} />,
+    );
+    try {
+      await vi.waitFor(() => expect(view.lastFrame()).toContain(`Selected ${FIRST.id}`));
+      expect(view.lastFrame()).toContain('unverified:');
+      expect(view.lastFrame()).not.toContain('Unbound name');
+      expect(view.lastFrame()).not.toContain('github.com');
+      view.stdin.write('s');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('cannot be stopped'));
+      expect(view.lastFrame()).not.toContain('y Yes / n No');
+      view.stdin.write('p');
+      await vi.waitFor(() => expect(view.lastFrame()).toContain('No verified PR link'));
+      expect(stop).not.toHaveBeenCalled();
+      expect(onOpenPr).not.toHaveBeenCalled();
     } finally {
       view.unmount();
     }

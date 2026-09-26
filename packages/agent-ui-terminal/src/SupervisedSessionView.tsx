@@ -26,13 +26,16 @@ export interface ISupervisedViewRow {
     readonly kind: 'pull' | 'merge-request';
   };
   readonly problem?: 'invalid-registration';
+  /** The verified registration generation; a row without one never offers an action. Never rendered. */
+  readonly generation?: string;
 }
 
 export interface ISupervisedSessionViewProps {
   readonly loadRows: (signal: AbortSignal) => Promise<readonly ISupervisedViewRow[]>;
-  readonly onStop?: (id: string) => Promise<void>;
+  /** Receives the generation the row displayed, so a session restarted under the same id is refused. */
+  readonly onStop?: (id: string, generation: string) => Promise<void>;
   readonly onStart?: () => Promise<string>;
-  readonly onOpenPr?: (id: string, url: string) => Promise<void>;
+  readonly onOpenPr?: (id: string, url: string, generation: string) => Promise<void>;
   readonly filteredByCwd?: boolean;
   readonly filteredByName?: boolean;
   readonly filteredByPr?: boolean;
@@ -46,9 +49,17 @@ type TDisplayLine =
   | { readonly kind: 'group'; readonly label: string }
   | { readonly kind: 'row'; readonly row: ISupervisedViewRow; readonly index: number };
 
+function isControllable(
+  row: ISupervisedViewRow | undefined,
+): row is ISupervisedViewRow & { readonly generation: string } {
+  return (
+    row?.liveness === 'alive' && row.control === 'available' && row.generation !== undefined
+  );
+}
+
 function groupOf(row: ISupervisedViewRow): TGroup {
   if (row.liveness === 'dead') return 'dead';
-  if (row.liveness !== 'alive' || row.control !== 'available') return 'unverified';
+  if (!isControllable(row)) return 'unverified';
   return row.activity;
 }
 
@@ -145,7 +156,8 @@ function sameRows(a: readonly ISupervisedViewRow[], b: readonly ISupervisedViewR
         row.nextLoopAt === other.nextLoopAt &&
         row.name === other.name &&
         row.cwd === other.cwd &&
-        row.pr?.url === other.pr?.url
+        row.pr?.url === other.pr?.url &&
+        row.generation === other.generation
       );
     })
   );
@@ -181,7 +193,10 @@ export default function SupervisedSessionView({
   const [chosenId, setSelectedId] = useState<string | undefined>();
   const [showHelp, setShowHelp] = useState(false);
   const [groupByDirectory, setGroupByDirectory] = useState(false);
-  const [confirmStopId, setConfirmStopId] = useState<string | undefined>();
+  const [confirmStop, setConfirmStop] = useState<
+    { readonly id: string; readonly generation: string } | undefined
+  >();
+  const confirmStopId = confirmStop?.id;
   const [stopStatus, setStopStatus] = useState<
     'idle' | 'unavailable' | 'stopping' | 'stopped' | 'failed'
   >('idle');
@@ -310,16 +325,19 @@ export default function SupervisedSessionView({
       return;
     if (confirmStopId !== undefined) {
       if (input === 'n' || key.escape) {
-        setConfirmStopId(undefined);
+        setConfirmStop(undefined);
         return;
       }
       if (input === 'y') {
-        const row = ordered.find((candidate) => candidate.id === confirmStopId);
-        setConfirmStopId(undefined);
+        const target = confirmStop;
+        const row = ordered.find((candidate) => candidate.id === target?.id);
+        setConfirmStop(undefined);
+        // The confirmation names one registration; a restart under the same id is a different session.
         if (
           status !== 'ready' ||
-          row?.liveness !== 'alive' ||
-          row.control !== 'available' ||
+          target === undefined ||
+          !isControllable(row) ||
+          row.generation !== target.generation ||
           onStop === undefined
         ) {
           setStopStatus('unavailable');
@@ -327,10 +345,10 @@ export default function SupervisedSessionView({
         }
         stoppingRef.current = true;
         setStopStatus('stopping');
-        void onStop(confirmStopId)
+        void onStop(target.id, target.generation)
           .then(() => {
             if (!mountedRef.current) return;
-            setLastStoppedId(confirmStopId);
+            setLastStoppedId(target.id);
             setStopStatus('stopped');
           })
           .catch(() => {
@@ -375,18 +393,13 @@ export default function SupervisedSessionView({
     }
     if (input === 'p' && onOpenPr !== undefined) {
       const row = ordered.find((candidate) => candidate.id === selectedId);
-      if (
-        status !== 'ready' ||
-        row?.liveness !== 'alive' ||
-        row.control !== 'available' ||
-        !row.pr
-      ) {
+      if (status !== 'ready' || !isControllable(row) || !row.pr) {
         setPrOpenStatus('unavailable');
         return;
       }
       openingPrRef.current = true;
       setPrOpenStatus('opening');
-      void onOpenPr(row.id, row.pr.url)
+      void onOpenPr(row.id, row.pr.url, row.generation)
         .then(() => {
           if (mountedRef.current) setPrOpenStatus('opened');
         })
@@ -400,11 +413,11 @@ export default function SupervisedSessionView({
     }
     if (input === 's' && onStop !== undefined) {
       const row = ordered.find((candidate) => candidate.id === selectedId);
-      if (status !== 'ready' || row?.liveness !== 'alive' || row.control !== 'available') {
+      if (status !== 'ready' || !isControllable(row)) {
         setStopStatus('unavailable');
       } else {
         setStopStatus('idle');
-        setConfirmStopId(row.id);
+        setConfirmStop({ id: row.id, generation: row.generation });
       }
       return;
     }
@@ -435,21 +448,15 @@ export default function SupervisedSessionView({
 
   const selectedRow = ordered.find((row) => row.id === selectedId);
   const selectedName =
-    status === 'ready' && selectedRow?.liveness === 'alive' && selectedRow.control === 'available'
-      ? selectedRow.name
-      : undefined;
+    status === 'ready' && isControllable(selectedRow) ? selectedRow.name : undefined;
   const selectedLoopStatus =
     status === 'ready' &&
-    selectedRow?.liveness === 'alive' &&
-    selectedRow.control === 'available' &&
+    isControllable(selectedRow) &&
     selectedRow.activity === 'idle' &&
     selectedRow.nextLoopAt
       ? loopWaitLabel(selectedRow.nextLoopAt, observedAtMs)
       : '';
-  const selectedPr =
-    status === 'ready' && selectedRow?.liveness === 'alive' && selectedRow.control === 'available'
-      ? selectedRow.pr
-      : undefined;
+  const selectedPr = status === 'ready' && isControllable(selectedRow) ? selectedRow.pr : undefined;
 
   const height = Math.max(8, stdout.rows ?? 24);
   const helpLines = [
@@ -544,24 +551,20 @@ export default function SupervisedSessionView({
               : line.row.id === selectedId
                 ? '> '
                 : '  '}
-            {line.row.name && line.row.liveness === 'alive' && line.row.control === 'available'
+            {line.row.name && isControllable(line.row)
               ? screenReader
                 ? `${line.row.name} (${line.row.id})`
                 : `${Array.from(line.row.name).slice(0, 24).join('')}${Array.from(line.row.name).length > 24 ? '…' : ''} [${line.row.id.slice(-8)}]`
               : line.row.id}{' '}
             activity {line.row.activity} liveness {line.row.liveness} control {line.row.control}
             {status === 'ready' &&
-            line.row.liveness === 'alive' &&
-            line.row.control === 'available' &&
+            isControllable(line.row) &&
             line.row.activity === 'idle' &&
             line.row.nextLoopAt
               ? `  ${loopWaitLabel(line.row.nextLoopAt, observedAtMs)}`
               : ''}
             {line.row.problem ? `  ${line.row.problem}` : ''}
-            {status === 'ready' &&
-            line.row.liveness === 'alive' &&
-            line.row.control === 'available' &&
-            line.row.pr
+            {status === 'ready' && isControllable(line.row) && line.row.pr
               ? `  ${line.row.pr.host} ${line.row.pr.kind === 'pull' ? '#' : '!'}${line.row.pr.number}`
               : ''}
           </Text>

@@ -126,10 +126,11 @@ export async function runSessionViewCommand(
           includeName: true,
           includeCwd: true,
           includePr: true,
+          includeGeneration: true,
         }),
-      onStop: (id) => (options.stop ?? stopSupervisedSession)(id, root),
-      onOpenPr: async (id, url) => {
-        const verified = await getVerifiedSupervisedPr(id, root);
+      onStop: (id, generation) => (options.stop ?? stopSupervisedSession)(id, root, generation),
+      onOpenPr: async (id, url, generation) => {
+        const verified = await getVerifiedSupervisedPr(id, root, generation);
         if (verified?.url !== url)
           throw new Error('Supervised session PR link changed or is stale.');
         await (options.openUrl ?? open)(url);

@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -12,6 +12,10 @@ import {
   listSupervisedSessions,
   startSupervisedControl,
 } from '../supervised-session-control.js';
+
+function readGeneration(root: string, id: string): string {
+  return String((JSON.parse(readFileSync(join(root, id, 'state.json'), 'utf8')) as { generation?: unknown }).generation);
+}
 
 describe('session view command', () => {
   it('filters owner-linked PRs and refuses to open a stale association', async () => {
@@ -41,19 +45,23 @@ describe('session view command', () => {
     try {
       await linkSupervisedPr(id, first, root);
       const render = vi.fn(async (options: Parameters<typeof renderSupervisedSessionView>[0]) => {
+        const generation = readGeneration(root, id);
         expect(await options.loadRows(new AbortController().signal)).toEqual([
           {
             id,
             liveness: 'alive',
             control: 'available',
             activity: 'idle',
+            generation,
             pr: { url: first, host: 'github.com', number: 123, kind: 'pull' },
           },
         ]);
         await linkSupervisedPr(id, next, root);
-        await expect(options.onOpenPr?.(id, first)).rejects.toThrow(/changed|stale/i);
+        await expect(options.onOpenPr?.(id, first, generation)).rejects.toThrow(/changed|stale/i);
         expect(openUrl).not.toHaveBeenCalled();
-        await options.onOpenPr?.(id, next);
+        await expect(options.onOpenPr?.(id, next, 'G'.repeat(22))).rejects.toThrow(/changed/i);
+        expect(openUrl).not.toHaveBeenCalled();
+        await options.onOpenPr?.(id, next, generation);
         expect(openUrl).toHaveBeenCalledExactlyOnceWith(next);
       });
       expect(
@@ -97,10 +105,10 @@ describe('session view command', () => {
         }),
       ).toBe(0);
       expect(observed).toEqual([
-        { id, liveness: 'alive', control: 'available', activity: 'working' },
+        { id, liveness: 'alive', control: 'available', activity: 'working', generation: readGeneration(root, id) },
       ]);
       expect(JSON.stringify(observed)).not.toMatch(/prompt|token|transcript|cwd/i);
-      expect(await listSupervisedSessions(root)).toEqual(observed);
+      expect(await listSupervisedSessions(root, undefined, { includeGeneration: true })).toEqual(observed);
     } finally {
       await control.close();
       rmSync(scratch, { recursive: true, force: true });
@@ -214,6 +222,7 @@ describe('session view command', () => {
           liveness: 'alive',
           control: 'available',
           activity: 'idle',
+          generation: readGeneration(root, id),
           name: 'Morning review',
         },
       ]);
@@ -253,7 +262,7 @@ describe('session view command', () => {
     const stop = vi.fn(async () => undefined);
     const render = vi.fn(async (options: Parameters<typeof renderSupervisedSessionView>[0]) => {
       expect(options).toHaveProperty('onStop');
-      await options.onStop?.(id);
+      await options.onStop?.(id, 'G'.repeat(22));
     });
     expect(
       await runSessionViewCommand([], {
@@ -265,7 +274,7 @@ describe('session view command', () => {
         stop,
       }),
     ).toBe(0);
-    expect(stop).toHaveBeenCalledExactlyOnceWith(id, '/tmp/supervised-view-test');
+    expect(stop).toHaveBeenCalledExactlyOnceWith(id, '/tmp/supervised-view-test', 'G'.repeat(22));
   });
 
   it('starts in the selected directory while keeping the view alive', async () => {
@@ -330,6 +339,7 @@ describe('session view command', () => {
           liveness: 'alive',
           control: 'available',
           activity: 'unknown',
+          generation: readGeneration(root, id),
           cwd: realpathSync(project),
         },
       ]);
