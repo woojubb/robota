@@ -52,4 +52,41 @@ describe('CodeExportPanel', () => {
 
     await vi.waitFor(() => expect(writeText).toHaveBeenCalled(), { timeout: 1000 });
   });
+
+  it('says a provider without a code template is not supported instead of inventing code', () => {
+    const qwenConfig = {
+      ...mockAgentConfig,
+      defaultModel: { provider: 'qwen', model: 'qwen-plus' },
+    };
+    render(<CodeExportPanel agentConfig={qwenConfig} activeTools={[]} />);
+
+    expect(screen.getByText(/does not support the "qwen" provider/)).toBeTruthy();
+    expect(screen.queryByText(/^npm install/)).toBeNull();
+    expect(screen.queryByRole('button', { name: /Copy/i })).toBeNull();
+  });
+
+  it('switches from an unsupported to a supported provider without failing', async () => {
+    const qwenConfig = {
+      ...mockAgentConfig,
+      defaultModel: { provider: 'qwen', model: 'qwen-plus' },
+    };
+    const { rerender } = render(<CodeExportPanel agentConfig={qwenConfig} activeTools={[]} />);
+
+    rerender(<CodeExportPanel agentConfig={mockAgentConfig} activeTools={[]} />);
+    await act(async () => {
+      vi.advanceTimersByTime(400);
+    });
+
+    expect(screen.getByText(/^npm install/).textContent).toContain(
+      '@robota-sdk/agent-provider-openai',
+    );
+  });
+
+  it('does not call a newly created agent unsupported while the code is pending', () => {
+    const { rerender } = render(<CodeExportPanel agentConfig={null} activeTools={[]} />);
+
+    rerender(<CodeExportPanel agentConfig={mockAgentConfig} activeTools={[]} />);
+
+    expect(screen.queryByText(/does not support/)).toBeNull();
+  });
 });

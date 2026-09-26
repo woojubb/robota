@@ -53,13 +53,12 @@ export function CodeExportPanel({
 
   const debouncedState = useDebounced(assemblyState, DEBOUNCE_MS);
 
-  const code = useMemo(
-    () =>
-      debouncedState && isExportableProvider(debouncedState.agent.provider)
-        ? generateAgentCode(debouncedState)
-        : null,
-    [debouncedState],
-  );
+  // The rendered code, install guide and support check all follow the debounced provider, so a
+  // provider switch never pairs a supported view with an unsupported provider.
+  const exportState =
+    debouncedState && isExportableProvider(debouncedState.agent.provider) ? debouncedState : null;
+
+  const code = useMemo(() => (exportState ? generateAgentCode(exportState) : null), [exportState]);
 
   const handleCopy = useCallback(async () => {
     if (!code) return;
@@ -99,12 +98,13 @@ export function CodeExportPanel({
     );
   }
 
-  const provider = agentConfig.defaultModel.provider;
-  if (!isExportableProvider(provider)) {
+  if (debouncedState && !exportState) {
     return (
       <div className="w-full h-full flex flex-col items-center justify-center gap-3 text-muted-foreground">
         <Code className="h-10 w-10 opacity-30" />
-        <p className="text-sm">Code export does not support the "{provider}" provider</p>
+        <p className="text-sm">
+          Code export does not support the "{debouncedState.agent.provider}" provider
+        </p>
       </div>
     );
   }
@@ -134,7 +134,7 @@ export function CodeExportPanel({
       </div>
       <div className="flex-1 overflow-auto p-4 bg-zinc-950/50">
         <div data-code-export-pre>{code && <SyntaxHighlighter code={code} />}</div>
-        {debouncedState && <InstallGuide provider={debouncedState.agent.provider} />}
+        {exportState && <InstallGuide provider={exportState.agent.provider} />}
       </div>
     </div>
   );
