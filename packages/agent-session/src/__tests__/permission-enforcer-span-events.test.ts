@@ -1,10 +1,9 @@
 /**
- * SELFHOST-004 P6: the permission wrapper must forward `setEventService` to the ORIGINAL tool.
+ * SELFHOST-004 P6: a service set on the permission wrapper reaches the tool it wraps.
  *
- * The wrapper runs `originalExecute` bound to the original tool, so the original tool's `eventService`
- * is what fires the span-completion emit. `Object.create(tool)` would shadow a `setEventService` call
- * onto the wrapper instance (leaving the original tool's bus unset — no spans). This test proves the
- * forward: a wrapped, permitted tool emits `SPAN_EVENTS.COMPLETED` on the injected bus when it runs.
+ * `Object.create(tool)` would shadow a `setEventService` call onto the wrapper instance, and the
+ * wrapper runs the original tool's `execute`. This test proves the injected bus still receives the
+ * tool's span: a wrapped, permitted tool emits `SPAN_EVENTS.COMPLETED` on it when it runs.
  */
 
 import { describe, it, expect, vi } from 'vitest';
