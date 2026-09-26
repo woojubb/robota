@@ -104,11 +104,13 @@ dependency.
   public signaling relays involve strangers, and the user's own relay is the last resort. A signaling carrier that
   carries no admission in time is set aside for the next one, as a direct endpoint is, since a public relay may
   drop what it cannot read. An endpoint carries a pair's signals only once it proves it holds the pair's topic,
-  and is set aside when no admission follows, so no endpoint can hold a pair off the relay; an address is
-  remembered only after an admission it carried. The mDNS announcement is built record by record rather than by
-  a service-publishing library, because those publish the machine's host name: the service type names no
-  product, every instance name is a pairwise tag that rotates by epoch, the host name is random, and the
-  instance count is padded with names that hold for the epoch, so it does not tell how many devices there are.
+  and is set aside when an attempt over it is not admitted in time, and for longer each time it fails again, so no
+  endpoint can hold a pair off the relay or keep drawing it back; only signals that precede an admission start that
+  time, so what trails one cannot set a working endpoint aside. An address is remembered only after an admission
+  it carried. The mDNS announcement is built record by record rather than by a service-publishing library,
+  because those publish the machine's host name: the service type names no product, every instance name is a
+  pairwise tag that rotates by epoch, the host name is random, and the instance count is padded with names that
+  hold for the epoch, so it does not tell how many devices there are.
   On the local network, topics travel only as hashes and rotate by epoch, so what an observer there sees does
   not carry the stable relay inbox topics.
 - **Public infrastructure sees only signed ciphertext, and nothing that names a device, a user or the product.**
@@ -119,9 +121,11 @@ dependency.
   publisher's address and timing, and a relay can group one device's traffic by its connection. The relays span
   several operators and are replaceable in settings; none is trusted with anything but delivery, and every record
   or event is checked against the key it must carry before it is opened. Device lists found there are returned as
-  candidates, every one, because any paired device can publish one: the handshake keeps the newest that verifies,
-  so a forged "newer" list cannot hide a real revocation. The draft WebRTC-signaling NIP is not used because its
-  events would name the connection's parties; the event format is ours. pkarr relays carry no salt and only DNS
+  candidates, each paired device's newest before any device's next, because any paired device can publish one: the
+  handshake keeps the newest that verifies, so neither a forged "newer" list nor one device's many can hide a real
+  revocation. A list that spans several records is taken only when every record is of the same version. The draft
+  WebRTC-signaling NIP is not used because its events would name the connection's parties; the event format is
+  ours. pkarr relays carry no salt and only DNS
   packets, so a record's pkarr form is the salt-less item under the same one-time key, its value wrapped in one TXT
   record. The DHT and Nostr clients are maintained, pure JavaScript and permissively licensed, so they are ordinary
   dependencies; the DHT client is loaded only when a device turns the DHT on, so importing this package opens no

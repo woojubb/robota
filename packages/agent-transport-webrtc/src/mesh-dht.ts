@@ -41,8 +41,10 @@ export const DEFAULT_MAX_PUBLISH_JITTER_MS = 90_000;
 const DEFAULT_LOOKUP_TIMEOUT_MS = 6_000;
 /** Peers whose list records a freshness lookup reads. */
 const MAX_LIST_PEERS = 16;
-/** Candidates of one list kind a freshness lookup returns, newest first. */
+/** Candidates of one list kind a freshness lookup returns. */
 const MAX_LIST_CANDIDATES = 16;
+/** Candidates of one list kind taken from one peer's records. */
+const MAX_LIST_CANDIDATES_PER_PEER = 2;
 /** How long "no relay" found for a peer holds before its records are looked up again. */
 const NO_RELAY_RECHECK_MS = 2 * 60 * 1000;
 /** How long a background lookup of the lists may take. */
@@ -328,7 +330,7 @@ export class MeshDht implements IMeshCandidateSource {
       });
       const lists = this.options.lists?.();
       if (lists !== undefined) {
-        const chunks = chunkJson({
+        const chunks = await chunkJson({
           r: lists.revocation,
           ...(lists.signingKeyRevocation !== undefined ? { s: lists.signingKeyRevocation } : {}),
         });
@@ -356,10 +358,11 @@ export class MeshDht implements IMeshCandidateSource {
   }
 
   /**
-   * The lists the peers published for this device, as received and newest first — candidates for
-   * the freshness lookup before a remote admission, each verified there. Any paired device can
-   * publish anything here, so every candidate is returned rather than the one that claims to be
-   * newest. When `signal` ends first, what the last finished lookup found. `undefined`: none.
+   * The lists the peers published for this device, as received — candidates for the freshness
+   * lookup before a remote admission, each verified there. Any paired device can publish anything
+   * here, so candidates are returned rather than the one that claims to be newest, and each peer's
+   * newest few come before any peer's next, so one peer's records cannot crowd out another's. When
+   * `signal` ends first, what the last finished lookup found. `undefined`: none.
    */
   public async latestLists(signal: AbortSignal): Promise<IFetchedLists | undefined> {
     const ended = new Promise<undefined>((resolve) => {
@@ -375,22 +378,28 @@ export class MeshDht implements IMeshCandidateSource {
     const found = await Promise.all(
       this.routes.slice(0, MAX_LIST_PEERS).map((route) => this.lookupLists(route, epoch, signal)),
     );
-    const revocation: unknown[] = [];
-    const signingKeyRevocation: unknown[] = [];
-    for (const value of found.flat()) {
-      if (typeof value !== 'object' || value === null) continue;
-      const r = value as { r?: unknown; s?: unknown };
-      if (r.r !== undefined) revocation.push(r.r);
-      if (r.s !== undefined) signingKeyRevocation.push(r.s);
+    const revocation: unknown[][] = [];
+    const signingKeyRevocation: unknown[][] = [];
+    for (const values of found) {
+      const r: unknown[] = [];
+      const s: unknown[] = [];
+      for (const value of values) {
+        if (typeof value !== 'object' || value === null) continue;
+        const lists = value as { r?: unknown; s?: unknown };
+        if (lists.r !== undefined) r.push(lists.r);
+        if (lists.s !== undefined) s.push(lists.s);
+      }
+      revocation.push(r);
+      signingKeyRevocation.push(s);
     }
+    const r = fairlyNewestFirst(revocation);
+    const s = fairlyNewestFirst(signingKeyRevocation);
     const lists: IFetchedLists | undefined =
-      revocation.length === 0 && signingKeyRevocation.length === 0
+      r.length === 0 && s.length === 0
         ? undefined
         : {
-            ...(revocation.length > 0 ? { revocation: newestFirst(revocation) } : {}),
-            ...(signingKeyRevocation.length > 0
-              ? { signingKeyRevocation: newestFirst(signingKeyRevocation) }
-              : {}),
+            ...(r.length > 0 ? { revocation: r } : {}),
+            ...(s.length > 0 ? { signingKeyRevocation: s } : {}),
           };
     if (!signal.aborted) this.listsFound = lists;
     return lists;
@@ -405,14 +414,33 @@ export class MeshDht implements IMeshCandidateSource {
   }
 }
 
-/** Distinct candidates, the one claiming the highest `seq` first, bounded. */
-function newestFirst(candidates: readonly unknown[]): unknown[] {
+/** Candidates without repeats, in order. */
+function distinct(candidates: readonly unknown[]): unknown[] {
   const seen = new Set<string>();
-  const distinct = candidates.filter((c) => {
+  return candidates.filter((c) => {
     const key = JSON.stringify(c);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
-  return distinct.sort((a, b) => seqOf(b) - seqOf(a)).slice(0, MAX_LIST_CANDIDATES);
+}
+
+/** Distinct candidates, the one claiming the highest `seq` first. */
+function newestFirst(candidates: readonly unknown[]): unknown[] {
+  return distinct(candidates).sort((a, b) => seqOf(b) - seqOf(a));
+}
+
+/**
+ * Distinct candidates from every peer, bounded: a few per peer, and every peer's newest before any
+ * peer's next, so the bound never cuts one peer's newest for another's many.
+ */
+function fairlyNewestFirst(byPeer: readonly (readonly unknown[])[]): unknown[] {
+  const ranked = byPeer.map((candidates) =>
+    newestFirst(candidates).slice(0, MAX_LIST_CANDIDATES_PER_PEER),
+  );
+  const rounds: unknown[] = [];
+  for (let rank = 0; rank < MAX_LIST_CANDIDATES_PER_PEER; rank += 1) {
+    rounds.push(...newestFirst(ranked.flatMap((candidates) => candidates.slice(rank, rank + 1))));
+  }
+  return distinct(rounds).slice(0, MAX_LIST_CANDIDATES);
 }

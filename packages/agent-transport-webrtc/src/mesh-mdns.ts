@@ -12,8 +12,9 @@
  *
  * A lookup asks for the service, keeps the instances whose name is one of the peer's tags for the
  * adjacent epochs, and yields the answering address with the advertised port. That is a candidate
- * only: an attacker on the network can answer too, and gains nothing, because the peer is admitted
- * by the device handshake or not at all.
+ * only: anyone on the network can answer too, and gains nothing, because the peer is admitted by the
+ * device handshake or not at all. Since anyone can answer, a lookup does not stop at the first match:
+ * it keeps listening a little longer, so an early answer cannot stand in for the peer's own.
  */
 import { createRequire } from 'node:module';
 import { networkInterfaces } from 'node:os';
@@ -30,6 +31,10 @@ export const MESH_MDNS_PAD_STEP = 8;
 const INSTANCE_TAG_BYTES = 16;
 const RECORD_TTL_S = 120;
 const DEFAULT_LOOKUP_TIMEOUT_MS = 1_000;
+/** After the first match, how much longer a lookup listens for more answers. */
+const DEFAULT_ANSWER_GRACE_MS = 200;
+/** Candidates one lookup yields. */
+const MAX_LOOKUP_CANDIDATES = 8;
 /** Answers go out at most this often; queries in between share the next one (RFC 6762 §6). */
 const DEFAULT_MIN_ANSWER_INTERVAL_MS = 500;
 
@@ -81,6 +86,8 @@ export interface IMeshMdnsOptions {
   /** This device's addresses for the A/AAAA records. Default: its non-internal interfaces. */
   readonly addresses?: () => readonly string[];
   readonly lookupTimeoutMs?: number;
+  /** After the first match, how much longer a lookup listens (within `lookupTimeoutMs`). */
+  readonly answerGraceMs?: number;
   readonly minAnswerIntervalMs?: number;
   /** mDNS cannot run (e.g. the port is unavailable): the other candidate sources still do. */
   readonly onError?: (error: Error) => void;
@@ -283,8 +290,10 @@ export class MeshMdns implements IMeshCandidateSource {
     if (signal.aborted || this.closed) return [];
     return new Promise<readonly IMeshCandidate[]>((resolve) => {
       const found: IMeshCandidate[] = [];
+      let grace: ReturnType<typeof setTimeout> | undefined;
       const finish = (): void => {
         clearTimeout(timer);
+        clearTimeout(grace);
         signal.removeEventListener('abort', finish);
         transport.removeListener('response', onResponse);
         resolve(found);
@@ -300,11 +309,16 @@ export class MeshMdns implements IMeshCandidateSource {
             continue;
           }
           // The address the answer came from: the peer's own records could name any address.
-          if (!found.some((c) => c.host === rinfo.address && c.port === port)) {
+          if (
+            found.length < MAX_LOOKUP_CANDIDATES &&
+            !found.some((c) => c.host === rinfo.address && c.port === port)
+          ) {
             found.push({ host: rinfo.address, port });
           }
         }
-        if (found.length > 0) finish();
+        if (found.length === 0 || grace !== undefined) return;
+        grace = setTimeout(finish, this.options.answerGraceMs ?? DEFAULT_ANSWER_GRACE_MS);
+        grace.unref?.();
       };
       const timer = setTimeout(finish, this.options.lookupTimeoutMs ?? DEFAULT_LOOKUP_TIMEOUT_MS);
       timer.unref?.();
