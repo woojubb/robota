@@ -291,6 +291,27 @@ describe('external event admission is decided by the verified token (#3072)', ()
     expect(h.submit).toHaveBeenCalledTimes(2);
   });
 
+  it('remembers spent tokens and rate history across a close and reopen of the grant', async () => {
+    const h = harness();
+    const rate = [{ windowMs: 60_000, maxTurns: 1 }];
+    const first = h.open(admitAll, grant({ rate }));
+    const spent = token({ jti: 'kept' });
+    const receipt = await first.receive({ token: spent, event: message() });
+    h.finish('done');
+    if (receipt.admitted) await receipt.settled;
+    first.close();
+    const reopened = h.open(admitAll, grant({ rate }));
+    expect(await reopened.receive({ token: spent, event: message() })).toEqual({
+      admitted: false,
+      refusal: 'malformed',
+    });
+    expect(await reopened.receive({ token: token(), event: message() })).toEqual({
+      admitted: false,
+      refusal: 'rate-limited',
+    });
+    expect(h.submit).toHaveBeenCalledTimes(1);
+  });
+
   it('refuses over-rate events before the queue, without spending their tokens', async () => {
     const h = harness();
     const source = h.open(admitAll, grant({ rate: [{ windowMs: 60_000, maxTurns: 2 }] }));

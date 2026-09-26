@@ -269,9 +269,9 @@ definition.
 supply its own `IMCPActivationApprovalStore` before `robota mcp serve` starts to admit and connect
 approved definitions ahead of building the served runtime session.
 
-**External events need a verified grant.** A sender name relayed by an MCP server does not prove who
-sent an event, so the CLI no longer admits events on such a grant and refuses the flag that asked for
-one, naming the reason rather than treating it as unknown.
+**External events need a verified grant.** The CLI admits no sender-name grant: a sender name relayed
+by an MCP server does not prove who sent an event. A flag asking for one is refused with that reason
+rather than treated as unknown.
 
 ### MCP background handoff settings
 

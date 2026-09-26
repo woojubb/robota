@@ -161,12 +161,20 @@ function readMessage(event: unknown): IMessage | 'malformed-event' | 'oversize' 
   return { conversationId, content, ...(claimedName !== undefined ? { claimedName } : {}) };
 }
 
+/** What a grant has spent, kept per grant label so a closed and reopened grant cannot spend it again. */
+interface IGrantHistory {
+  /** Spent token ids and when each stops verifying. */
+  readonly spent: Map<string, number>;
+  readonly rate: PeerTurnRateLimiter;
+  /** The rate windows `rate` counts against; a reopen with other windows starts a new count. */
+  readonly windows: string;
+}
+
 interface ISourceState {
   readonly grant: IExternalEventGrant;
   readonly verifier: IAccessTokenVerifier;
   readonly audit: IExternalEventSourceOptions['audit'];
   readonly rate: PeerTurnRateLimiter;
-  /** Spent token ids and when each stops verifying. */
   readonly spent: Map<string, number>;
   active: boolean;
   pending: number;
@@ -178,6 +186,7 @@ interface ISourceState {
  */
 export class ExternalEventIngress {
   private readonly sources = new Map<string, ISourceState>();
+  private readonly history = new Map<string, IGrantHistory>();
   private pending = 0;
   private releaseGuard?: () => void;
   private readonly now: () => number;
@@ -190,17 +199,20 @@ export class ExternalEventIngress {
     const { grant } = options;
     validateGrant(grant);
     if (this.sources.has(grant.grantId)) {
-      throw new Error(`external event grant ${grant.grantId} is already open`);
+      throw new Error(
+        `external event grant ${grant.grantId} is already open or still settling its turns`,
+      );
     }
     if (this.host.getPermissionMode() === 'bypassPermissions') {
       throw new Error('external event ingress cannot run in bypassPermissions mode');
     }
+    const history = this.historyOf(grant);
     const state: ISourceState = {
       grant,
       verifier: options.verifier,
       audit: options.audit,
-      rate: new PeerTurnRateLimiter(grant.rate ?? DEFAULT_PEER_TURN_RATE_WINDOWS, this.now),
-      spent: new Map(),
+      rate: history.rate,
+      spent: history.spent,
       active: true,
       pending: 0,
     };
@@ -223,6 +235,20 @@ export class ExternalEventIngress {
       },
       close: () => this.close(state),
     };
+  }
+
+  private historyOf(grant: IExternalEventGrant): IGrantHistory {
+    const windows = grant.rate ?? DEFAULT_PEER_TURN_RATE_WINDOWS;
+    const key = JSON.stringify(windows);
+    const previous = this.history.get(grant.grantId);
+    if (previous?.windows === key) return previous;
+    const next: IGrantHistory = {
+      spent: previous?.spent ?? new Map(),
+      rate: new PeerTurnRateLimiter(windows, this.now),
+      windows: key,
+    };
+    this.history.set(grant.grantId, next);
+    return next;
   }
 
   closeAll(): void {
