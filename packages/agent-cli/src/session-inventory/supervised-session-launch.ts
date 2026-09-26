@@ -1,11 +1,13 @@
 import { spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
+import { isAbsolute } from 'node:path';
 
 import { resolveSelfForkWorkerEntry } from '../subagents/self-fork-worker-entry.js';
 import {
   discardSupervisedGrantHandoff,
   isSupervisedSessionName,
   resolveSupervisedDirectory,
+  SupervisedControlPathTooLongError,
   writeSupervisedGrantHandoff,
 } from './supervised-session-control.js';
 
@@ -18,9 +20,19 @@ interface IHandshakeMessage {
   /** On `ready`: the labels of the grants the child opened. On a `grant-refused` error: the one refused. */
   readonly grants?: unknown;
   readonly grant?: unknown;
+  /** On a `control-path-too-long` error: the supervised directory the socket did not fit under. */
+  readonly directory?: unknown;
 }
 
 const GRANT_ID = /^[a-zA-Z0-9_-]{1,64}$/u;
+const MAX_DIRECTORY_BYTES = 4_096;
+const DIRECTORY_CONTROLS = /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
+
+/** A directory the child reports is printed to the owner, so it must be a plain absolute path. */
+function isReportedDirectory(value: unknown): value is string {
+  return typeof value === 'string' && isAbsolute(value) && !DIRECTORY_CONTROLS.test(value) &&
+    Buffer.byteLength(value, 'utf8') <= MAX_DIRECTORY_BYTES;
+}
 
 /** The child opened exactly the grants it was handed: none lost, none added. */
 function sameGrants(reported: unknown, sent: readonly string[]): boolean {
@@ -186,7 +198,9 @@ export async function launchSupervisedSession(
             ? 'External event endpoint could not be served on its port.'
             : message.code === 'daemon-no-endpoint'
               ? 'The daemon has no WebSocket endpoint; enable the ws transport.'
-              : 'Supervised session refused to start.');
+              : message.code === 'control-path-too-long' && isReportedDirectory(message.directory)
+                ? new SupervisedControlPathTooLongError(message.directory).message
+                : 'Supervised session refused to start.');
       }
       if (message.kind === 'ready' && !ready) {
         if (!sameGrants(message.grants, sentGrantIds)) {

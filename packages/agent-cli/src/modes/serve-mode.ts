@@ -23,6 +23,7 @@ import {
   ensureSupervisedAuditDirectory,
   resolveSupervisedDirectory,
   startSupervisedControl,
+  SupervisedControlPathTooLongError,
   takeSupervisedGrantHandoff,
   type ISupervisedControl,
   type ISupervisedPr,
@@ -589,7 +590,9 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
               ? { code: 'events-endpoint-failed' }
               : error instanceof DaemonNoEndpointError
                 ? { code: 'daemon-no-endpoint' }
-                : { code: 'startup-failed' };
+                : error instanceof SupervisedControlPathTooLongError
+                  ? { code: 'control-path-too-long', directory: error.directory }
+                  : { code: 'startup-failed' };
           process.send({ kind: 'error', id: args.supervisedSessionId, ...refusal }, () => {
             // The parent may already have disconnected; failure reporting is best-effort only.
           });
