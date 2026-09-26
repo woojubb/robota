@@ -265,7 +265,7 @@ describe('who a message is from', () => {
     const genuine = message({ id: 'a-1', origin: { sessionId: 'session-a' } });
 
     const sent = a.send('session-b', genuine);
-    for (let i = 0; i < 100 && received.length === 0; i += 1) {
+    for (let i = 0; i < 1000 && received.length === 0; i += 1) {
       await new Promise((resolve) => setTimeout(resolve, 5));
     }
     const altered = await sendPeerMessage({

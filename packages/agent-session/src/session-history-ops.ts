@@ -5,7 +5,7 @@
  * Each function receives its dependencies explicitly.
  */
 
-import { runHooks, createLogger } from '@robota-sdk/agent-core';
+import { runHooks, createLogger, getToolPermissionProfile } from '@robota-sdk/agent-core';
 
 import type { CompactionOrchestrator } from './compaction-orchestrator.js';
 import type { ContextWindowTracker } from './context-window-tracker.js';
@@ -33,15 +33,21 @@ const CONTEXT_SUMMARY_PREFIX = '[Context Summary]';
 
 /**
  * Whether the conversation holds a tool's output the model can read: a tool result, or a
- * compaction summary — which may restate tool results it replaced, so it is counted as one.
+ * compaction summary — which may restate tool results it replaced, so it is counted as one. The
+ * result of a reply to a peer is not: it reports only whether the reply was delivered.
  */
 export function historyCarriesToolOutput(history: readonly TUniversalMessage[]): boolean {
-  return history.some(
-    (message) =>
-      message.role === 'tool' ||
-      (message.role === 'assistant' &&
-        message.content?.startsWith(CONTEXT_SUMMARY_PREFIX) === true),
-  );
+  const replyCalls = new Set<string>();
+  for (const message of history) {
+    if (message.role !== 'assistant') continue;
+    if (message.content?.startsWith(CONTEXT_SUMMARY_PREFIX) === true) return true;
+    for (const call of message.toolCalls ?? []) {
+      if (getToolPermissionProfile(call.function.name).repliesToPeer === true) {
+        replyCalls.add(call.id);
+      }
+    }
+  }
+  return history.some((message) => message.role === 'tool' && !replyCalls.has(message.toolCallId));
 }
 
 /** Dependencies for compact() */

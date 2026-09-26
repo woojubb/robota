@@ -213,6 +213,24 @@ describe('a reply after tool results earlier in the conversation', () => {
     }
   });
 
+  it('does not count an earlier reply of its own as a tool result', async () => {
+    const h = harness([
+      { toolCalls: [{ name: 'peer_reply', args: { text: 'first' } }] },
+      { text: 'done' },
+      { toolCalls: [{ name: 'peer_reply', args: { text: 'second' } }] },
+      { text: 'done' },
+    ]);
+    try {
+      await run(h, 'hello', peer());
+      await run(h, 'hello again', peer());
+      expect(h.permissions).toHaveLength(0);
+      expect(h.send).toHaveBeenCalledTimes(2);
+      expect(h.send).toHaveBeenLastCalledWith('A', 'second', { inReplyTo: 'm-1' });
+    } finally {
+      await h.session.shutdown();
+    }
+  });
+
   it('goes out directly when no tool result is anywhere in the conversation', async () => {
     const h = harness([
       { text: 'hello' },
