@@ -6,6 +6,8 @@ import {
   describeExternalEventRecord,
 } from '../tui-external-event-grants.js';
 
+import { createExternalEventGrantHistory, ExternalEventIngress } from '@robota-sdk/agent-framework';
+
 import type { IExternalEventSourceOptions } from '@robota-sdk/agent-framework';
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
 
@@ -218,5 +220,50 @@ describe('TUI external event grants', () => {
       admitted: false,
       refusal: 'grant-revoked',
     });
+  });
+});
+
+describe('grants across a switch on a run-level history (#3189)', () => {
+  it('a revoke survives the switch without taking the other grants or the switch down', async () => {
+    const history = createExternalEventGrantHistory();
+    const submit = vi.fn(async () => ({
+      turnId: 'turn_1',
+      completed: new Promise<never>(() => undefined),
+    }));
+    // Each session owns its ingress; the run lends them all the same history.
+    const session = () => {
+      const ingress = new ExternalEventIngress({
+        getPermissionMode: () => 'default',
+        addPermissionModeGuard: () => () => undefined,
+        submit,
+        createVerifier: () => ({
+          verify: async (token: string) =>
+            token === 'valid'
+              ? { admitted: true as const }
+              : { admitted: false as const, refusal: 'bad-signature' as const },
+        }),
+        history,
+      });
+      return { openExternalEventSource: async (o: IExternalEventSourceOptions) => ingress.open(o) };
+    };
+    const tui = createTuiExternalEventGrants([grant('ci'), grant('chat')], () => undefined);
+    await tui.bind(session());
+    tui.adapter.revoke('ci');
+    await tui.bind(session());
+    expect(await tui.receive('ci', { token: 'forged', event: {} })).toEqual({
+      admitted: false,
+      refusal: 'bad-signature',
+    });
+    expect(await tui.receive('ci', { token: 'valid', event: {} })).toEqual({
+      admitted: false,
+      refusal: 'grant-revoked',
+    });
+    expect(tui.adapter.list().map((row) => [row.grantId, row.state])).toEqual([
+      ['ci', 'revoked'],
+      ['chat', 'open'],
+    ]);
+    // A third session: the switch after a revoke keeps working.
+    await tui.bind(session());
+    expect(tui.adapter.list().find((row) => row.grantId === 'chat')?.state).toBe('open');
   });
 });

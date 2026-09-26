@@ -490,6 +490,38 @@ describe('external event admission is decided by the verified token (#3072)', ()
     expect(after.submit).not.toHaveBeenCalled();
   });
 
+  it("#3189: a grant revoked on one session of the run opens revoked on the next, and the others still admit", async () => {
+    const history = createExternalEventGrantHistory();
+    const before = harness('default', history);
+    before.open().revoke();
+    before.open(admitAll, grant({ grantId: 'chat' })).close();
+
+    // A rate change must not bring a revoked grant back either.
+    const after = harness('default', history);
+    let verdict: Awaited<ReturnType<IAccessTokenVerifier['verify']>> = {
+      admitted: false,
+      refusal: 'bad-signature',
+    };
+    const revoked = after.open(
+      { verify: async () => verdict },
+      grant({ rate: [{ windowMs: 1_000, maxTurns: 5 }] }),
+    );
+    expect(await revoked.receive({ token: token(), event: message() })).toEqual({
+      admitted: false,
+      refusal: 'bad-signature',
+    });
+    verdict = { admitted: true };
+    expect(await revoked.receive({ token: token(), event: message() })).toEqual({
+      admitted: false,
+      refusal: 'grant-revoked',
+    });
+    expect(after.audit.at(-1)).toMatchObject({ grantId: 'ci', refusal: 'grant-revoked' });
+    const chat = after.open(admitAll, grant({ grantId: 'chat' }));
+    expect((await chat.receive({ token: token(), event: message() })).admitted).toBe(true);
+    expect(after.submit).toHaveBeenCalledTimes(1);
+    expect(() => after.setMode('bypassPermissions')).toThrow(/bypassPermissions/);
+  });
+
   it('refuses over-rate events before the queue, without spending their tokens', async () => {
     const h = harness();
     const source = h.open(admitAll, grant({ rate: [{ windowMs: 60_000, maxTurns: 2 }] }));

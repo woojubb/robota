@@ -225,6 +225,8 @@ export function createExternalEventGrantHistory(): ExternalEventGrantHistory {
 export class ExternalEventIngress {
   private readonly sources = new Map<string, ISourceState>();
   private readonly history: Map<string, IGrantHistory>;
+  /** Grants revoked on this ingress; one revoked on another session of the run opens revoked. */
+  private readonly revokedHere = new Set<string>();
   private pending = 0;
   private releaseGuard?: () => void;
   private readonly now: () => number;
@@ -240,7 +242,7 @@ export class ExternalEventIngress {
       throw new Error('external event grant verifier is built by the host from the grant itself');
     }
     validateGrant(grant);
-    if (this.history.get(grant.grantId)?.revoked === true) {
+    if (this.revokedHere.has(grant.grantId)) {
       throw new Error(`external event grant ${grant.grantId} was revoked`);
     }
     if (this.sources.has(grant.grantId)) {
@@ -258,6 +260,9 @@ export class ExternalEventIngress {
       throw new Error(`external event grant ${grant.grantId}: its verifier could not be built`);
     }
     const history = this.historyOf(grant);
+    // Revoked on an earlier session of this run: it opens revoked, so a caller with a valid token
+    // learns that, and anyone else gets what a live grant answers. It holds no turn and no guard.
+    const revokedBefore = history.revoked;
     const state: ISourceState = {
       grant,
       verifier,
@@ -266,10 +271,10 @@ export class ExternalEventIngress {
       audit: options.audit,
       rate: history.rate,
       spent: history.spent,
-      active: true,
+      active: !revokedBefore,
       pending: 0,
     };
-    if (!this.releaseGuard) {
+    if (!revokedBefore && !this.releaseGuard) {
       this.releaseGuard = this.host.addPermissionModeGuard((next) => {
         if (next === 'bypassPermissions' && (this.hasActiveSource() || this.pending > 0)) {
           throw new Error(
@@ -278,7 +283,7 @@ export class ExternalEventIngress {
         }
       });
     }
-    this.sources.set(grant.grantId, state);
+    if (!revokedBefore) this.sources.set(grant.grantId, state);
     return {
       grantId: grant.grantId,
       receive: async (delivery) => {
@@ -289,6 +294,7 @@ export class ExternalEventIngress {
       close: () => this.close(state),
       revoke: () => {
         history.revoked = true;
+        this.revokedHere.add(grant.grantId);
         state.turns.abort();
         this.close(state);
       },
@@ -304,7 +310,7 @@ export class ExternalEventIngress {
       spent: previous?.spent ?? new Map(),
       rate: new PeerTurnRateLimiter(windows, this.now),
       windows: key,
-      revoked: false,
+      revoked: previous?.revoked ?? false,
     };
     this.history.set(grant.grantId, next);
     return next;
