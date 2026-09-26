@@ -5,7 +5,8 @@
  * - `enabled` (default `false`): open the mesh at interactive startup;
  * - `options.capabilities`: what a linked device may ask of this one, replacing the default of
  *   presence, messages, files and hand-offs (files and hand-offs still ask the operator each time);
- * - `options.dht` / `pkarrRelays` / `nostrRelays`: see `parseMeshInternetSettings`.
+ * - `options.dht` / `pkarrRelays` / `nostrRelays` / `relay` / `turnServers` / `relayOnly`: see
+ *   `parseMeshInternetSettings`.
  *
  * A malformed value fails closed with an error naming the setting.
  */
