@@ -14,10 +14,14 @@
  * - **The request** names the joiner's public keys and is signed with its new device key over the
  *   proven binding, so the key the existing device certifies is the one on the other end of this
  *   channel.
- * - **The short authentication string** covers the binding, the request and the master public key the
- *   existing device announced. Both operators see it; when the operator confirms it on the existing
- *   device, the joiner knows the master key it is about to pin is the one that device holds, and the
- *   existing device knows it is certifying the device the operator is holding.
+ * - **The short authentication string** is the defence against someone who has seen the code, who
+ *   passes the proof like the operator's own device. It covers the binding, the request, the master
+ *   public key the existing device announced, and a random contribution from each side. The joiner
+ *   commits to its contribution with the request and opens it only after the existing device has
+ *   revealed its own, the numeric-comparison pattern: nobody in the middle can choose a part after
+ *   seeing the other, so the two screens show the same digits only when both sides talk to each
+ *   other. Both operators compare them and both say yes: the joiner pins no master key, and the
+ *   existing device certifies no device, on the other side's word alone.
  */
 
 import { ab, encoder, randomBytes, toBase64Url, webcrypto } from '../crypto-primitives.js';
@@ -55,6 +59,9 @@ const CODE_CHARS = 25;
 const CODE_GROUP = 5;
 const HKDF_SALT = encoder.encode('robota/enroll/v1');
 const NONCE_BYTES = 16;
+/** A contribution to the short string: committed to or revealed, never chosen after the other one. */
+const CONTRIBUTION_BYTES = 32;
+const COMMIT_BYTES = 32;
 const MAC_BYTES = 32;
 const SAS_DIGITS = 1_000_000;
 const DEFAULT_TIMEOUT_MS = 10_000;
@@ -150,7 +157,10 @@ export interface IEnrollmentProofFrame {
 
 export type TEnrollmentProofFrame = IEnrollmentNonceFrame | IEnrollmentProofFrame;
 
-/** Joiner → existing: the keys to certify and the name to certify them under. */
+/**
+ * Joiner → existing: the keys to certify, the name to certify them under, and a commitment to the
+ * joiner's contribution to the short string.
+ */
 export interface IEnrollmentRequestFrame {
   readonly t: 'en-request';
   readonly name: string;
@@ -158,15 +168,27 @@ export interface IEnrollmentRequestFrame {
   readonly signKey: string;
   /** base64url SPKI, X25519. */
   readonly kaKey: string;
+  /** See {@link enrollmentCommitment}. */
+  readonly commit: string;
   /** By `signKey`, over the binding and the fields above. */
   readonly sig: string;
 }
 
-/** Existing → joiner: the trust anchor the joiner will pin, confirmed by the short string. */
+/**
+ * Existing → joiner, once the request and its commitment are in: the trust anchor the joiner will pin,
+ * and the existing device's contribution to the short string.
+ */
 export interface IEnrollmentAnchorFrame {
   readonly t: 'en-anchor';
   readonly masterPublicKey: string;
   readonly userId: string;
+  readonly contribution: string;
+}
+
+/** Joiner → existing, once the anchor is in: the contribution the request committed to. */
+export interface IEnrollmentRevealFrame {
+  readonly t: 'en-reveal';
+  readonly contribution: string;
 }
 
 /** Existing → joiner: the chain and lists the joiner keeps. */
@@ -183,13 +205,20 @@ export type TEnrollmentFrame =
   | TEnrollmentProofFrame
   | IEnrollmentRequestFrame
   | IEnrollmentAnchorFrame
+  | IEnrollmentRevealFrame
   | IEnrollmentGrantFrame
+  /** Either side: its operator said no, or it cannot go on. */
   | { readonly t: 'en-declined' }
+  /** Joiner → existing: its operator saw the same short string and said yes. */
+  | { readonly t: 'en-confirmed' }
   | { readonly t: 'en-stored' };
 
 export type TEnrollmentFrameDecodeResult =
   | { readonly ok: true; readonly frame: TEnrollmentFrame }
   | { readonly ok: false; readonly field: string };
+
+/** Format characters (zero-width, direction overrides): a name with one can read as another. */
+const INVISIBLE = /\p{Cf}/u;
 
 function malformed(field: string): TEnrollmentFrameDecodeResult {
   return { ok: false, field };
@@ -230,11 +259,13 @@ export function decodeEnrollmentFrame(value: unknown): TEnrollmentFrameDecodeRes
         return { ok: true, frame: { t, mac: r['mac'] as string } };
       }
       case 'en-request': {
-        const bad = check(['name', 'signKey', 'kaKey', 'sig']);
+        const bad = check(['name', 'signKey', 'kaKey', 'commit', 'sig']);
         if (bad !== undefined) return malformed(bad);
-        if (!isDeviceName(r['name'])) return malformed('name');
+        // The name is shown to the operator deciding; nothing invisible may change how it reads.
+        if (!isDeviceName(r['name']) || INVISIBLE.test(r['name'])) return malformed('name');
         if (!isSpki(r['signKey'], 'P256')) return malformed('signKey');
         if (!isSpki(r['kaKey'], 'X25519')) return malformed('kaKey');
+        if (canonicalBase64Url(r['commit'], COMMIT_BYTES) === undefined) return malformed('commit');
         if (!isSignature(r['sig'])) return malformed('sig');
         return {
           ok: true,
@@ -243,19 +274,36 @@ export function decodeEnrollmentFrame(value: unknown): TEnrollmentFrameDecodeRes
             name: r['name'],
             signKey: r['signKey'],
             kaKey: r['kaKey'],
+            commit: r['commit'] as string,
             sig: r['sig'],
           },
         };
       }
       case 'en-anchor': {
-        const bad = check(['masterPublicKey', 'userId']);
+        const bad = check(['masterPublicKey', 'userId', 'contribution']);
         if (bad !== undefined) return malformed(bad);
         if (!isSpki(r['masterPublicKey'], 'Ed25519')) return malformed('masterPublicKey');
         if (!isId(r['userId'])) return malformed('userId');
+        if (canonicalBase64Url(r['contribution'], CONTRIBUTION_BYTES) === undefined) {
+          return malformed('contribution');
+        }
         return {
           ok: true,
-          frame: { t, masterPublicKey: r['masterPublicKey'], userId: r['userId'] },
+          frame: {
+            t,
+            masterPublicKey: r['masterPublicKey'],
+            userId: r['userId'],
+            contribution: r['contribution'] as string,
+          },
         };
+      }
+      case 'en-reveal': {
+        const bad = check(['contribution']);
+        if (bad !== undefined) return malformed(bad);
+        if (canonicalBase64Url(r['contribution'], CONTRIBUTION_BYTES) === undefined) {
+          return malformed('contribution');
+        }
+        return { ok: true, frame: { t, contribution: r['contribution'] as string } };
       }
       case 'en-grant': {
         const bad = check([
@@ -289,6 +337,7 @@ export function decodeEnrollmentFrame(value: unknown): TEnrollmentFrameDecodeRes
         };
       }
       case 'en-declined':
+      case 'en-confirmed':
       case 'en-stored': {
         const bad = check([]);
         if (bad !== undefined) return malformed(bad);
@@ -461,13 +510,47 @@ export interface IEnrollmentRequestFields {
   readonly kaKey: string;
 }
 
-function requestBytes(binding: IEnrollmentBinding, fields: IEnrollmentRequestFields): Uint8Array {
+function requestBytes(
+  binding: IEnrollmentBinding,
+  fields: IEnrollmentRequestFields & { readonly commit: string },
+): Uint8Array {
   return canonicalBytes(IDENTITY_PURPOSES.enrollRequest, [
     ...bindingFields(binding),
     fields.name,
     fields.signKey,
     fields.kaKey,
+    fields.commit,
   ]);
+}
+
+/** A fresh contribution to the short string. */
+export function newEnrollmentContribution(): string {
+  return toBase64Url(randomBytes(CONTRIBUTION_BYTES));
+}
+
+/**
+ * The joiner's commitment to its contribution, bound to this channel. It is sent with the request,
+ * before the existing device reveals its own contribution, and opened only after: so neither side,
+ * nor anyone between them who knows the code, can choose its part after seeing the other's.
+ */
+export async function enrollmentCommitment(
+  binding: IEnrollmentBinding,
+  contribution: string,
+): Promise<string> {
+  const bytes = canonicalBytes(IDENTITY_PURPOSES.enrollCommit, [
+    ...bindingFields(binding),
+    contribution,
+  ]);
+  return toBase64Url(new Uint8Array(await webcrypto.subtle.digest('SHA-256', ab(bytes))));
+}
+
+/** Whether `contribution` opens `commit` on this channel. */
+export async function verifyEnrollmentReveal(
+  binding: IEnrollmentBinding,
+  commit: string,
+  contribution: string,
+): Promise<boolean> {
+  return (await enrollmentCommitment(binding, contribution)) === commit;
 }
 
 /** The joiner's request, signed with its new device key over the proven binding. */
@@ -475,9 +558,15 @@ export async function signEnrollmentRequest(
   options: IEnrollmentRequestFields & {
     readonly binding: IEnrollmentBinding;
     readonly signPrivateKey: CryptoKey;
+    readonly commit: string;
   },
 ): Promise<IEnrollmentRequestFrame> {
-  const fields = { name: options.name, signKey: options.signKey, kaKey: options.kaKey };
+  const fields = {
+    name: options.name,
+    signKey: options.signKey,
+    kaKey: options.kaKey,
+    commit: options.commit,
+  };
   const sig = await signCanonical(options.signPrivateKey, requestBytes(options.binding, fields));
   return { t: 'en-request', ...fields, sig };
 }
@@ -494,12 +583,17 @@ export async function verifyEnrollmentRequest(
 
 // ── Short authentication string ─────────────────────────────────────────────────────────────────
 
-/** Six digits both operators compare: `123 456`. */
+/**
+ * Six digits both operators compare: `123 456`. They cover the channel, the request, the anchor and
+ * both contributions, so a party in the middle that knows the code gets matching digits on the two
+ * screens only by a one-in-a-million chance per attempt.
+ */
 export async function enrollmentSas(options: {
   readonly material: IEnrollmentMaterial;
   readonly binding: IEnrollmentBinding;
   readonly request: IEnrollmentRequestFields;
   readonly anchor: { readonly masterPublicKey: string; readonly userId: string };
+  readonly contributions: { readonly joiner: string; readonly existing: string };
 }): Promise<string> {
   const bytes = canonicalBytes(IDENTITY_PURPOSES.enrollSas, [
     ...bindingFields(options.binding),
@@ -508,6 +602,8 @@ export async function enrollmentSas(options: {
     options.request.kaKey,
     options.anchor.masterPublicKey,
     options.anchor.userId,
+    options.contributions.joiner,
+    options.contributions.existing,
   ]);
   const mac = new Uint8Array(
     await webcrypto.subtle.sign('HMAC', options.material.sasKey, ab(bytes)),

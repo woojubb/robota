@@ -535,7 +535,7 @@ export function createDeviceIdentityService(
             ? { maxFailedAttempts: options.enrollment.maxFailedAttempts }
             : {}),
           showCode: dialog.showCode,
-          confirm: dialog.confirm,
+          operator: dialog,
           cancelled: dialog.cancelled,
         });
       } finally {
@@ -552,7 +552,10 @@ export function createDeviceIdentityService(
     if (request.name !== undefined && normalizeEnrollmentCode(request.name) !== undefined) {
       return refuse('code-on-command-line');
     }
-    const name = deviceName(request.name ?? options.defaultDeviceName?.() ?? hostname());
+    // The name is shown to the operator deciding on the other device: nothing invisible in it.
+    const name = deviceName(
+      (request.name ?? options.defaultDeviceName?.() ?? hostname()).replace(/\p{Cf}/gu, ''),
+    );
     // A store that cannot keep the keys must fail now, not after the other operator said yes.
     await options.store.get(DEVICE_SIGN_KEY);
     return enrolling(async (environment, terminal) => {
@@ -563,7 +566,7 @@ export function createDeviceIdentityService(
           ...environment,
           material: await deriveEnrollmentMaterial(dialog.code),
           name,
-          showSas: dialog.showSas,
+          operator: dialog,
           cancelled: dialog.cancelled,
           ...(options.describeKeyStorage !== undefined
             ? { describeKeyStorage: options.describeKeyStorage }

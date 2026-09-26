@@ -37,8 +37,10 @@ export interface IScriptedOperatorOptions {
   readonly code?: () => string;
   /** Called with the code once `/devices add` shows it and waits for the new device. */
   readonly onCodeShown?: (code: string) => void;
-  /** What to answer when asked to enrol a device; defaults to `yes`. */
-  readonly enrolAnswer?: string;
+  /** What to answer when asked to enrol a device (given the digits shown); defaults to `yes`. */
+  readonly enrolAnswer?: string | ((sas: string | undefined) => string | Promise<string>);
+  /** What to answer when asked to join (given the digits shown); defaults to `yes`. */
+  readonly joinAnswer?: string | ((sas: string | undefined) => string | Promise<string>);
   /** Press ctrl-C while waiting for the other device. */
   readonly cancelWaiting?: boolean;
 }
@@ -86,8 +88,17 @@ export function scriptedOperator(options: IScriptedOperatorOptions = {}): IScrip
         }
         return waitWithdrawn(readOptions?.signal);
       }
-      if (/Connecting/.test(prompt)) return waitWithdrawn(readOptions?.signal);
-      if (/Type yes to enrol/.test(prompt)) return options.enrolAnswer ?? 'yes';
+      if (/Connecting|Waiting for the other device/.test(prompt) || prompt === '') {
+        return waitWithdrawn(readOptions?.signal);
+      }
+      if (/Type yes to enrol/.test(prompt)) {
+        const answer = options.enrolAnswer ?? 'yes';
+        return typeof answer === 'string' ? answer : answer(sas);
+      }
+      if (/type yes to join/.test(prompt)) {
+        const answer = options.joinAnswer ?? 'yes';
+        return typeof answer === 'string' ? answer : answer(sas);
+      }
       if (/Type the code/.test(prompt)) return options.code?.() ?? '';
       if (options.meanwhile !== undefined && !meanwhileRan) {
         meanwhileRan = true;

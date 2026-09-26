@@ -55,9 +55,11 @@ So the proof is a chain of three keys, each with one job:
   devices and issues the roster and revocation lists. Adding or retiring a device therefore never needs the
   phrase, and a lost signing key costs one master-signed revocation rather than the user's identity. A new device
   is added with a one-time code a person carries from a signing-key holder: it proves the code the way pairing
-  proves its secret, and nothing is certified until that holder's operator confirms a short string both devices
-  show. The string also covers the master key the new device will pin, because a device with no anchor yet has
-  nothing else to check it against. The code is spent by the first attempt that proves it and dies after a few
+  proves its secret. Anyone who saw the code passes that proof too, so both operators compare a short string both
+  devices show and both must say yes — nothing is certified, and no master key pinned, on the other side's word
+  alone. The string covers the master key the new device will pin, because a device with no anchor yet has
+  nothing else to check it against, and a random contribution from each side, one committed to before the other
+  is revealed, so nobody between the two devices can choose the digits. The code is spent by the first attempt that proves it and dies after a few
   that fail; typed by a person, it is still long enough that, like the pairing secret, it needs no PAKE.
 - **Device keys.** A device's certificate binds its signing key (its id is that key's hash) and a separate
   key-agreement key that never signs, with the capabilities it may be asked for. Two devices' agreement keys give

@@ -237,12 +237,15 @@ export {
   EnrollmentError,
   decodeEnrollmentFrame,
   deriveEnrollmentMaterial,
+  enrollmentCommitment,
   enrollmentSas,
   generateEnrollmentCode,
+  newEnrollmentContribution,
   normalizeEnrollmentCode,
   signEnrollmentRequest,
   startEnrollmentProof,
   verifyEnrollmentRequest,
+  verifyEnrollmentReveal,
 } from './identity/enrollment.js';
 export type {
   IEnrollmentAnchorFrame,
@@ -253,6 +256,7 @@ export type {
   IEnrollmentProofOptions,
   IEnrollmentRequestFields,
   IEnrollmentRequestFrame,
+  IEnrollmentRevealFrame,
   TEnrollmentFrame,
   TEnrollmentFrameDecodeResult,
   TEnrollmentProofFrame,

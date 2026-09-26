@@ -6,26 +6,29 @@
  * derives and nothing else; the two devices meet over WebRTC and the new one must prove the code over
  * the negotiated DTLS fingerprints before anything else crosses. The code is spent by the first
  * attempt that proves it, whatever the operator then decides, and dies when it expires or after a few
- * attempts that fail to prove it. Nothing is issued until the operator of the existing device has
- * compared the short string both devices show and said yes; the new device keeps nothing until the
- * chain it is handed verifies against the master key that string covered.
+ * attempts that fail to prove it. Someone who saw the code passes that proof too, so both operators
+ * then compare a short string both devices show, and both must say yes: the existing device issues
+ * nothing, and the new device pins no master key, on the other side's word alone. The new device
+ * keeps nothing until the chain it is handed verifies against the master key that string covered.
  */
 import { join } from 'node:path';
 
 import {
   DEVICE_CAPABILITIES,
-  EnrollmentError,
   certifyDevice,
   decodeEnrollmentFrame,
   deriveEnrollmentMaterial,
+  enrollmentCommitment,
   enrollmentSas,
   generateDeviceKeyAgreementKeyPair,
   generateDeviceSignKeyPair,
   generateEnrollmentCode,
   issueDeviceRoster,
+  newEnrollmentContribution,
   signEnrollmentRequest,
   startEnrollmentProof,
   verifyEnrollmentRequest,
+  verifyEnrollmentReveal,
   type IEnrollmentAnchorFrame,
   type IEnrollmentBinding,
   type IEnrollmentGrantFrame,
@@ -202,6 +205,80 @@ function spkiOf(key: CryptoKey): Promise<string> {
     .then((bytes) => Buffer.from(bytes).toString('base64url'));
 }
 
+// ── Both operators decide ───────────────────────────────────────────────────────────────────────
+
+/** How an operator is asked, and how a side waits for the other side's operator. */
+export interface IEnrollmentOperator {
+  /**
+   * Ask this side's operator whether the other device shows `sas`; resolves true for yes. Rejects
+   * when `signal` aborts (the other side declined or left, or time ran out) or the operator cancels.
+   */
+  readonly confirm: (request: {
+    /** The name the new device asks for; shown on the existing device only. */
+    readonly name?: string;
+    readonly sas: string;
+    readonly signal: AbortSignal;
+  }) => Promise<boolean>;
+  /** Wait for the other side's operator; rejects when this side's operator cancels. */
+  readonly waitForPeer: <T>(pending: Promise<T>) => Promise<T>;
+}
+
+type TPeerAnswer<T> =
+  | { readonly ok: true; readonly value: T }
+  | { readonly ok: false; readonly reason: 'declined' | 'failed' };
+
+/**
+ * Ask this side's operator while the other side's operator decides too. Resolves with the other
+ * side's answer only when both said yes; a no on either side, a side that leaves, or a decision that
+ * takes too long is a refusal, and this side's own no is told to the other side.
+ */
+async function bothSayYes<T>(options: {
+  readonly channel: IEnrollmentChannel;
+  readonly operator: IEnrollmentOperator;
+  readonly name?: string;
+  readonly sas: string;
+  readonly peer: Promise<TPeerAnswer<T>>;
+  /** Tell the other side this side said yes. */
+  readonly onYes?: () => void;
+}): Promise<TOutcome<T>> {
+  const peerSaidNo = new AbortController();
+  let answered: TPeerAnswer<T> | undefined;
+  const peer = options.peer.then((answer) => {
+    answered = answer;
+    if (!answer.ok) peerSaidNo.abort();
+    return answer;
+  });
+  const timeout = AbortSignal.timeout(DECISION_TIMEOUT_MS);
+  let yes: boolean;
+  try {
+    yes = await options.operator.confirm({
+      ...(options.name !== undefined ? { name: options.name } : {}),
+      sas: options.sas,
+      signal: AbortSignal.any([peerSaidNo.signal, timeout]),
+    });
+  } catch {
+    if (answered !== undefined && !answered.ok) {
+      return refuse(answered.reason === 'declined' ? 'enrollment-declined' : 'enrollment-failed');
+    }
+    options.channel.send({ t: 'en-declined' });
+    return refuse(timeout.aborted ? 'enrollment-timed-out' : 'cancelled');
+  }
+  if (!yes) {
+    options.channel.send({ t: 'en-declined' });
+    return refuse('enrollment-declined');
+  }
+  options.onYes?.();
+  let answer: TPeerAnswer<T>;
+  try {
+    answer = answered ?? (await options.operator.waitForPeer(peer));
+  } catch {
+    options.channel.send({ t: 'en-declined' });
+    return refuse('cancelled');
+  }
+  if (answer.ok) return answer;
+  return refuse(answer.reason === 'declined' ? 'enrollment-declined' : 'enrollment-failed');
+}
+
 // ── Existing device ─────────────────────────────────────────────────────────────────────────────
 
 export interface IOfferEnrollmentOptions extends IEnrollmentEnvironment {
@@ -212,12 +289,7 @@ export interface IOfferEnrollmentOptions extends IEnrollmentEnvironment {
   readonly maxFailedAttempts?: number;
   /** Show the code to the operator, and only to the operator. */
   readonly showCode: (code: string, expiresAt: number) => void;
-  /** Ask the operator; resolves true to enrol. Rejects when `signal` aborts (the device left, or time ran out). */
-  readonly confirm: (request: {
-    readonly name: string;
-    readonly sas: string;
-    readonly signal: AbortSignal;
-  }) => Promise<boolean>;
+  readonly operator: IEnrollmentOperator;
   /** The operator cancelled while waiting for a device. */
   readonly cancelled: AbortSignal;
 }
@@ -236,6 +308,7 @@ function awaitProvenDevice(
   return new Promise((resolve) => {
     let failures = 0;
     let settled = false;
+    const proving = new Set<IEnrollmentChannel>();
     const maxFailures = options.maxFailedAttempts ?? MAX_FAILED_ENROLLMENT_ATTEMPTS;
     const settle = (value: TProven | TDevicesRefusal): void => {
       if (settled) {
@@ -247,6 +320,9 @@ function awaitProvenDevice(
       options.cancelled.removeEventListener('abort', onCancel);
       options.relayFailed?.removeEventListener('abort', onRelayFailed);
       listener.close();
+      // Attempts still proving are over too.
+      for (const channel of proving)
+        if (typeof value !== 'object' || channel !== value.channel) channel.close();
       resolve(value);
     };
     const timer = setTimeout(
@@ -264,10 +340,15 @@ function awaitProvenDevice(
         ? { connectTimeoutMs: options.connectTimeoutMs }
         : {}),
       onChannel: (channel) => {
+        proving.add(channel);
         const inbox = new FrameInbox(channel);
         prove(channel, inbox, 'existing', material).then(
-          (binding) => settle({ channel, inbox, binding }),
+          (binding) => {
+            proving.delete(channel);
+            settle({ channel, inbox, binding });
+          },
           () => {
+            proving.delete(channel);
             channel.close();
             failures += 1;
             if (failures >= maxFailures) settle('too-many-attempts');
@@ -282,7 +363,7 @@ function awaitProvenDevice(
   });
 }
 
-/** Show a code, and enrol the device that proves it once the operator confirms. */
+/** Show a code, and enrol the device that proves it once both operators confirm. */
 export async function offerEnrollment(
   options: IOfferEnrollmentOptions,
 ): Promise<TOutcome<IDevicesAddResult>> {
@@ -309,12 +390,6 @@ async function enrol(
   binding: IEnrollmentBinding,
 ): Promise<TOutcome<IDevicesAddResult>> {
   const { before } = options;
-  const anchor: IEnrollmentAnchorFrame = {
-    t: 'en-anchor',
-    masterPublicKey: before.masterPublicKey,
-    userId: before.userId,
-  };
-  channel.send(anchor);
   let request: IEnrollmentRequestFrame;
   try {
     request = await inbox.expect(['en-request'], STEP_TIMEOUT_MS);
@@ -322,26 +397,51 @@ async function enrol(
     return refuse('enrollment-failed');
   }
   if (!(await verifyEnrollmentRequest(binding, request))) return refuse('enrollment-failed');
-  const sas = await enrollmentSas({ material, binding, request, anchor });
-
-  const gone = new AbortController();
-  const stopWatching = channel.onClose(() => gone.abort());
-  let accepted: boolean;
+  // Only now, with the joiner's contribution committed, is this side's revealed.
+  const anchor: IEnrollmentAnchorFrame = {
+    t: 'en-anchor',
+    masterPublicKey: before.masterPublicKey,
+    userId: before.userId,
+    contribution: newEnrollmentContribution(),
+  };
+  channel.send(anchor);
+  let joinerContribution: string;
   try {
-    accepted = await options.confirm({
-      name: request.name,
-      sas,
-      signal: AbortSignal.any([gone.signal, AbortSignal.timeout(DECISION_TIMEOUT_MS)]),
-    });
+    joinerContribution = (await inbox.expect(['en-reveal'], STEP_TIMEOUT_MS)).contribution;
   } catch {
-    return refuse(gone.signal.aborted ? 'enrollment-failed' : 'cancelled');
-  } finally {
-    stopWatching();
+    return refuse('enrollment-failed');
   }
-  if (!accepted) {
-    channel.send({ t: 'en-declined' });
-    return refuse('enrollment-declined');
+  if (!(await verifyEnrollmentReveal(binding, request.commit, joinerContribution))) {
+    return refuse('enrollment-failed');
   }
+  const sas = await enrollmentSas({
+    material,
+    binding,
+    request,
+    anchor,
+    contributions: { joiner: joinerContribution, existing: anchor.contribution },
+  });
+
+  let closed = false;
+  channel.onClose(() => {
+    closed = true;
+  });
+  const decided = await bothSayYes<'confirmed'>({
+    channel,
+    operator: options.operator,
+    name: request.name,
+    sas,
+    peer: inbox.expect(['en-confirmed', 'en-declined'], DECISION_TIMEOUT_MS + STEP_TIMEOUT_MS).then(
+      (frame): TPeerAnswer<'confirmed'> =>
+        frame.t === 'en-confirmed'
+          ? { ok: true, value: 'confirmed' }
+          : { ok: false, reason: 'declined' },
+      (): TPeerAnswer<'confirmed'> => ({ ok: false, reason: 'failed' }),
+    ),
+  });
+  if (!decided.ok) return refuse(decided.reason);
+  // Issue nothing to a device that is gone: its keys would sit in the roster with nobody behind them.
+  if (closed) return refuse('enrollment-failed');
 
   const issued = await withExclusiveFileLock(join(options.directory, 'identity.lock'), async () => {
     const current = readIdentityState(options.directory);
@@ -414,9 +514,8 @@ export interface IJoinEnrollmentOptions extends IEnrollmentEnvironment {
   readonly material: IEnrollmentMaterial;
   /** The name this device asks to be certified under (already a valid device name). */
   readonly name: string;
-  /** Show the short string to the operator; they compare it with the other device. */
-  readonly showSas: (sas: string) => void;
-  /** The operator cancelled. */
+  readonly operator: IEnrollmentOperator;
+  /** The operator cancelled while connecting. */
   readonly cancelled: AbortSignal;
   readonly describeKeyStorage?: () => string | undefined;
 }
@@ -497,15 +596,21 @@ async function joinOver(
   let binding: IEnrollmentBinding;
   try {
     binding = await prove(channel, inbox, 'joiner', options.material);
-  } catch (error) {
-    if (error instanceof EnrollmentError && error.reason === 'proof-failed') {
-      return refuse('code-not-accepted');
-    }
-    return failed();
+  } catch {
+    // The other side refused this device's proof, or proved another code: whether it said so with
+    // its own proof or by closing the channel first is a race, not a difference.
+    return options.cancelled.aborted ? refuse('cancelled') : refuse('code-not-accepted');
   }
   const fields = { name: options.name, signKey: keys.signKey, kaKey: keys.kaKey };
+  // Committed now, opened only once the other side has revealed its own.
+  const contribution = newEnrollmentContribution();
   channel.send(
-    await signEnrollmentRequest({ binding, signPrivateKey: keys.signPair.privateKey, ...fields }),
+    await signEnrollmentRequest({
+      binding,
+      signPrivateKey: keys.signPair.privateKey,
+      ...fields,
+      commit: await enrollmentCommitment(binding, contribution),
+    }),
   );
   let anchor: IEnrollmentAnchorFrame;
   try {
@@ -513,23 +618,36 @@ async function joinOver(
   } catch {
     return failed();
   }
-  options.showSas(
-    await enrollmentSas({ material: options.material, binding, request: fields, anchor }),
-  );
-  let answer: IEnrollmentGrantFrame | { readonly t: 'en-declined' };
-  try {
-    answer = await inbox.expect(['en-grant', 'en-declined'], JOINER_DECISION_TIMEOUT_MS);
-  } catch {
-    return failed();
-  }
-  if (answer.t === 'en-declined') return refuse('enrollment-declined');
+  channel.send({ t: 'en-reveal', contribution });
+  const sas = await enrollmentSas({
+    material: options.material,
+    binding,
+    request: fields,
+    anchor,
+    contributions: { joiner: contribution, existing: anchor.contribution },
+  });
 
-  const certificate = answer.deviceCert;
+  // The master key is pinned only if this side's operator saw the same digits on the other device.
+  const decided = await bothSayYes<IEnrollmentGrantFrame>({
+    channel,
+    operator: options.operator,
+    sas,
+    peer: inbox.expect(['en-grant', 'en-declined'], JOINER_DECISION_TIMEOUT_MS).then(
+      (frame): TPeerAnswer<IEnrollmentGrantFrame> =>
+        frame.t === 'en-grant' ? { ok: true, value: frame } : { ok: false, reason: 'declined' },
+      (): TPeerAnswer<IEnrollmentGrantFrame> => ({ ok: false, reason: 'failed' }),
+    ),
+    onYes: () => channel.send({ t: 'en-confirmed' }),
+  });
+  if (!decided.ok) return refuse(decided.reason);
+  const grant = decided.value;
+
+  const certificate = grant.deviceCert;
   if (
     certificate.signKey !== keys.signKey ||
     certificate.kaKey !== keys.kaKey ||
     certificate.name !== options.name ||
-    answer.signingKeyCert.userId !== anchor.userId
+    grant.signingKeyCert.userId !== anchor.userId
   ) {
     return refuse('enrollment-failed');
   }
@@ -541,11 +659,11 @@ async function joinOver(
         masterPublicKey: anchor.masterPublicKey,
         userId: anchor.userId,
         deviceCertificate: certificate,
-        signingKeyCertificate: answer.signingKeyCert,
+        signingKeyCertificate: grant.signingKeyCert,
         holdsSigningKey: false,
-        roster: answer.roster,
-        revocation: answer.revocation,
-        signingKeyRevocation: answer.signingKeyRevocation,
+        roster: grant.roster,
+        revocation: grant.revocation,
+        signingKeyRevocation: grant.signingKeyRevocation,
         marks: {},
       },
       options.now(),

@@ -9,12 +9,15 @@ import {
   EnrollmentError,
   decodeEnrollmentFrame,
   deriveEnrollmentMaterial,
+  enrollmentCommitment,
   enrollmentSas,
   generateEnrollmentCode,
+  newEnrollmentContribution,
   normalizeEnrollmentCode,
   signEnrollmentRequest,
   startEnrollmentProof,
   verifyEnrollmentRequest,
+  verifyEnrollmentReveal,
   type IEnrollmentBinding,
   type IEnrollmentMaterial,
   type TEnrollmentProofFrame,
@@ -198,46 +201,105 @@ describe('enrollment request and short authentication string', () => {
     return { material, binding: await joiner };
   }
 
-  it("the request proves possession of the joiner's signing key over this channel", async () => {
-    const { binding } = await proven();
+  async function request(binding: IEnrollmentBinding, name = 'desktop') {
     const sign = await generateDeviceSignKeyPair(false);
     const ka = await generateDeviceKeyAgreementKeyPair(false);
-    const request = await signEnrollmentRequest({
-      binding,
-      signPrivateKey: sign.privateKey,
-      name: 'desktop',
-      signKey: await exportSpki(sign.publicKey),
-      kaKey: await exportSpki(ka.publicKey),
-    });
-    const decoded = decodeEnrollmentFrame(JSON.parse(JSON.stringify(request)));
+    const contribution = newEnrollmentContribution();
+    return {
+      contribution,
+      frame: await signEnrollmentRequest({
+        binding,
+        signPrivateKey: sign.privateKey,
+        name,
+        signKey: await exportSpki(sign.publicKey),
+        kaKey: await exportSpki(ka.publicKey),
+        commit: await enrollmentCommitment(binding, contribution),
+      }),
+    };
+  }
+
+  it("the request proves possession of the joiner's signing key over this channel", async () => {
+    const { binding } = await proven();
+    const { frame } = await request(binding);
+    const decoded = decodeEnrollmentFrame(JSON.parse(JSON.stringify(frame)));
     expect(decoded.ok).toBe(true);
-    expect(await verifyEnrollmentRequest(binding, request)).toBe(true);
-    expect(await verifyEnrollmentRequest(binding, { ...request, name: 'laptop' })).toBe(false);
+    expect(await verifyEnrollmentRequest(binding, frame)).toBe(true);
+    expect(await verifyEnrollmentRequest(binding, { ...frame, name: 'laptop' })).toBe(false);
     const other = await proven();
-    expect(await verifyEnrollmentRequest(other.binding, request)).toBe(false);
+    expect(await verifyEnrollmentRequest(other.binding, frame)).toBe(false);
   });
 
-  it('both sides compute the same six digits, which change with the master key they name', async () => {
+  it('the commitment opens only with its own contribution, on its own channel', async () => {
+    const { binding } = await proven();
+    const { frame, contribution } = await request(binding);
+    expect(await verifyEnrollmentReveal(binding, frame.commit, contribution)).toBe(true);
+    expect(await verifyEnrollmentReveal(binding, frame.commit, newEnrollmentContribution())).toBe(
+      false,
+    );
+    const other = await proven();
+    expect(await verifyEnrollmentReveal(other.binding, frame.commit, contribution)).toBe(false);
+    // A signed request cannot swap in another commitment.
+    const swapped = {
+      ...frame,
+      commit: await enrollmentCommitment(binding, newEnrollmentContribution()),
+    };
+    expect(await verifyEnrollmentRequest(binding, swapped)).toBe(false);
+  });
+
+  it('refuses a request whose name carries invisible characters', async () => {
+    const { binding } = await proven();
+    const { frame } = await request(binding, 'desk\u202Etop');
+    expect(decodeEnrollmentFrame(JSON.parse(JSON.stringify(frame)))).toEqual({
+      ok: false,
+      field: 'name',
+    });
+  });
+
+  it('both sides compute the same six digits, which depend on everything they cover', async () => {
     const { material, binding } = await proven();
-    const request = { name: 'desktop', signKey: 's', kaKey: 'k' };
+    const fields = { name: 'desktop', signKey: 's', kaKey: 'k' };
     const anchor = { masterPublicKey: 'm', userId: 'u' };
-    const sas = await enrollmentSas({ material, binding, request, anchor });
+    const contributions = {
+      joiner: newEnrollmentContribution(),
+      existing: newEnrollmentContribution(),
+    };
+    const sas = await enrollmentSas({ material, binding, request: fields, anchor, contributions });
     expect(sas).toMatch(/^\d{3} \d{3}$/);
-    expect(await enrollmentSas({ material, binding, request, anchor })).toBe(sas);
-    const swapped = await enrollmentSas({
-      material,
-      binding,
-      request,
-      anchor: { ...anchor, masterPublicKey: 'n' },
-    });
-    const renamed = await enrollmentSas({
-      material,
-      binding,
-      request: { ...request, name: 'laptop' },
-      anchor,
-    });
-    // One in a million could collide by chance; both colliding would be a defect.
-    expect(swapped === sas && renamed === sas).toBe(false);
+    expect(await enrollmentSas({ material, binding, request: fields, anchor, contributions })).toBe(
+      sas,
+    );
+    const variants = await Promise.all([
+      enrollmentSas({
+        material,
+        binding,
+        request: fields,
+        contributions,
+        anchor: { ...anchor, masterPublicKey: 'n' },
+      }),
+      enrollmentSas({
+        material,
+        binding,
+        anchor,
+        contributions,
+        request: { ...fields, name: 'laptop' },
+      }),
+      enrollmentSas({
+        material,
+        binding,
+        request: fields,
+        anchor,
+        contributions: { ...contributions, existing: newEnrollmentContribution() },
+      }),
+      enrollmentSas({
+        material,
+        binding,
+        request: fields,
+        anchor,
+        contributions: { ...contributions, joiner: newEnrollmentContribution() },
+      }),
+    ]);
+    // Each could collide by a one-in-a-million chance; all four colliding would be a defect.
+    expect(variants.every((variant) => variant === sas)).toBe(false);
   });
 
   it('decodes each frame strictly and names the field, never the value', () => {
@@ -249,9 +311,17 @@ describe('enrollment request and short authentication string', () => {
       ok: false,
       field: 'frame',
     });
-    expect(decodeEnrollmentFrame({ t: 'en-anchor', masterPublicKey: 'x', userId: 'y' })).toEqual({
+    expect(
+      decodeEnrollmentFrame({
+        t: 'en-anchor',
+        masterPublicKey: 'x',
+        userId: 'y',
+        contribution: 'z',
+      }),
+    ).toEqual({ ok: false, field: 'masterPublicKey' });
+    expect(decodeEnrollmentFrame({ t: 'en-reveal', contribution: 'short' })).toEqual({
       ok: false,
-      field: 'masterPublicKey',
+      field: 'contribution',
     });
     expect(decodeEnrollmentFrame({ t: 'en-grant' })).toMatchObject({ ok: false });
     expect(decodeEnrollmentFrame('nope')).toEqual({ ok: false, field: 'frame' });

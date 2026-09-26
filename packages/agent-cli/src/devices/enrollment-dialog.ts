@@ -1,11 +1,14 @@
 /**
  * The enrollment conversations on the secret terminal: showing the one-time code on the existing
- * device and asking its operator to confirm the new device, and reading the code on the new device.
- * The code is written and read here and nowhere else; the screen is wiped once it has been read.
+ * device, reading it on the new one, and asking each operator whether the other device shows the
+ * same digits. The code is written and read here and nowhere else; the screen is wiped once it has
+ * been read.
  */
 import { normalizeEnrollmentCode } from '@robota-sdk/agent-remote-pairing';
 
-import type { ISecretTerminal } from './secret-terminal.js';
+import { SecretInputCancelled, type ISecretTerminal } from './secret-terminal.js';
+
+import type { IEnrollmentOperator } from './device-enrollment.js';
 
 const NL = '\r\n';
 
@@ -18,7 +21,9 @@ function cancellable(terminal: ISecretTerminal, prompt: string, stop: AbortSigna
   const cancelled = new AbortController();
   void (async () => {
     try {
-      for (;;) await terminal.readLine(prompt, { signal: stop });
+      // The prompt once; a stray Enter does not print it again.
+      await terminal.readLine(prompt, { signal: stop });
+      for (;;) await terminal.readLine('', { signal: stop });
     } catch {
       if (!stop.aborted) cancelled.abort();
     }
@@ -26,17 +31,34 @@ function cancellable(terminal: ISecretTerminal, prompt: string, stop: AbortSigna
   return cancelled.signal;
 }
 
+/** Wait for `pending` while ctrl-C cancels; rejects with {@link SecretInputCancelled} then. */
+async function waiting<T>(terminal: ISecretTerminal, pending: Promise<T>): Promise<T> {
+  const stop = new AbortController();
+  const cancelled = cancellable(
+    terminal,
+    'Waiting for the other device… (ctrl-C cancels) ',
+    stop.signal,
+  );
+  try {
+    return await Promise.race([
+      pending,
+      new Promise<never>((_, reject) =>
+        cancelled.addEventListener('abort', () => reject(new SecretInputCancelled()), {
+          once: true,
+        }),
+      ),
+    ]);
+  } finally {
+    stop.abort();
+  }
+}
+
 function clock(ms: number): string {
   return new Date(ms).toTimeString().slice(0, 5);
 }
 
-export interface IAddDialog {
+export interface IAddDialog extends IEnrollmentOperator {
   readonly showCode: (code: string, expiresAt: number) => void;
-  readonly confirm: (request: {
-    readonly name: string;
-    readonly sas: string;
-    readonly signal: AbortSignal;
-  }) => Promise<boolean>;
   /** Aborts when the operator cancels while waiting for a device. */
   readonly cancelled: AbortSignal;
   /** Close any open prompt. */
@@ -45,7 +67,7 @@ export interface IAddDialog {
 
 /** The existing device's side: show the code, wait, and ask about the device that proved it. */
 export function addDialog(terminal: ISecretTerminal): IAddDialog {
-  const waiting = new AbortController();
+  const waitingForDevice = new AbortController();
   const cancelled = new AbortController();
   return {
     cancelled: cancelled.signal,
@@ -66,16 +88,16 @@ export function addDialog(terminal: ISecretTerminal): IAddDialog {
       cancellable(
         terminal,
         'Waiting for the new device… (ctrl-C cancels) ',
-        waiting.signal,
+        waitingForDevice.signal,
       ).addEventListener('abort', () => cancelled.abort(), { once: true });
     },
     confirm: async ({ name, sas, signal }) => {
-      waiting.abort();
+      waitingForDevice.abort();
       // The code is spent; take it off the screen before anything else is shown.
       terminal.clearScreen();
       terminal.write(
         [
-          `A device asks to join: "${name}"`,
+          `A device asks to join: "${name ?? ''}"`,
           '',
           `It should show this code:  ${sas}`,
           '',
@@ -90,19 +112,20 @@ export function addDialog(terminal: ISecretTerminal): IAddDialog {
       });
       return answer.trim().toLowerCase() === 'yes';
     },
-    end: () => waiting.abort(),
+    waitForPeer: (pending) => waiting(terminal, pending),
+    end: () => waitingForDevice.abort(),
   };
 }
 
-export interface IJoinDialog {
+export interface IJoinDialog extends IEnrollmentOperator {
   /** The canonical code, or `undefined` when what was typed is not one. */
   readonly code: string | undefined;
-  readonly showSas: (sas: string) => void;
+  /** Aborts when the operator cancels while connecting. */
   readonly cancelled: AbortSignal;
   readonly end: () => void;
 }
 
-/** The new device's side: read the code, then show the short string while the other side decides. */
+/** The new device's side: read the code, then ask whether the other device shows the same digits. */
 export async function joinDialog(terminal: ISecretTerminal): Promise<IJoinDialog> {
   terminal.write(
     [
@@ -116,21 +139,32 @@ export async function joinDialog(terminal: ISecretTerminal): Promise<IJoinDialog
   const typed = await terminal.readLine('Type the code it shows: ', { echo: true });
   terminal.clearScreen();
   const code = normalizeEnrollmentCode(typed);
-  const waiting = new AbortController();
+  const connecting = new AbortController();
   const cancelled =
     code === undefined
       ? new AbortController().signal
-      : cancellable(terminal, 'Connecting… (ctrl-C cancels)' + NL, waiting.signal);
+      : cancellable(terminal, 'Connecting… (ctrl-C cancels)' + NL, connecting.signal);
   return {
     code,
     cancelled,
-    showSas: (sas) => {
+    confirm: async ({ sas, signal }) => {
+      connecting.abort();
       terminal.write(
-        ['', `Your other device should show:  ${sas}`, 'Confirm it there if it matches.', ''].join(
-          NL,
-        ),
+        [
+          '',
+          `Your other device should show:  ${sas}`,
+          'It should also ask whether to enrol this device.',
+          '',
+          '',
+        ].join(NL),
       );
+      const answer = await terminal.readLine(
+        'If both are true, type yes to join; anything else declines: ',
+        { echo: true, signal },
+      );
+      return answer.trim().toLowerCase() === 'yes';
     },
-    end: () => waiting.abort(),
+    waitForPeer: (pending) => waiting(terminal, pending),
+    end: () => connecting.abort(),
   };
 }

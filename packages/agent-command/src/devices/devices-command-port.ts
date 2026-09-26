@@ -56,8 +56,10 @@ export type TDevicesRefusal =
   | 'enrollment-expired'
   /** Too many attempts failed to prove the code; it no longer works. */
   | 'too-many-attempts'
-  /** The operator of the existing device declined. */
+  /** The operator of either device declined. */
   | 'enrollment-declined'
+  /** An operator did not answer in time. */
+  | 'enrollment-timed-out'
   /** The connection or the exchange with the other device failed partway. */
   | 'enrollment-failed';
 
@@ -112,9 +114,12 @@ export interface IDevicesCommandPort {
   revoke(deviceIdPrefix: string): Promise<TDevicesOutcome<IDevicesRevokeResult>>;
   /**
    * Enrol another device with the signing key: show a one-time code, and certify the device that
-   * proves it once the operator confirms the string both devices show. Runs on the operator terminal.
+   * proves it once both operators confirm the string both devices show. Runs on the operator terminal.
    */
   add(): Promise<TDevicesOutcome<IDevicesAddResult>>;
-  /** Join the user's devices with a code another device shows. Runs on the operator terminal. */
+  /**
+   * Join the user's devices with a code another device shows, once both operators confirm the string
+   * both devices show. Runs on the operator terminal.
+   */
   join(options: { readonly name?: string }): Promise<TDevicesOutcome<IDevicesJoinResult>>;
 }

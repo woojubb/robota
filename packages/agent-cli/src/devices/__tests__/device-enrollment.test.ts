@@ -9,7 +9,21 @@ import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { deriveEnrollmentMaterial } from '@robota-sdk/agent-remote-pairing';
+import {
+  decodeEnrollmentFrame,
+  deriveEnrollmentMaterial,
+  enrollmentCommitment,
+  generateDeviceKeyAgreementKeyPair,
+  generateDeviceSignKeyPair,
+  newEnrollmentContribution,
+  signEnrollmentRequest,
+  startEnrollmentProof,
+  type IEnrollmentAnchorFrame,
+  type IEnrollmentBinding,
+  type IEnrollmentMaterial,
+  type TEnrollmentFrame,
+  type TEnrollmentRole,
+} from '@robota-sdk/agent-remote-pairing';
 import {
   createInMemoryMeshRelayHub,
   dialEnrollment,
@@ -107,6 +121,57 @@ function reason<T>(outcome: TDevicesOutcome<T>): string {
 
 function snapshot(home: IHome): string {
   return JSON.stringify(readIdentityState(home.directory) ?? null);
+}
+
+/** Resolves with `read()` once it is defined. */
+async function until<T>(read: () => T | undefined): Promise<T> {
+  for (let waited = 0; waited < 10_000; waited += 20) {
+    const value = read();
+    if (value !== undefined) return value;
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  throw new Error('timed out waiting');
+}
+
+/** An operator who says yes only when the other device's screen shows the same digits. */
+function comparing(other: () => IHome): (sas: string | undefined) => Promise<string> {
+  return async (sas) => ((await until(() => other().operator.shownSas())) === sas ? 'yes' : 'no');
+}
+
+/** The frames of an enrollment channel, one at a time, and its proof. */
+function attackerSide(
+  channel: IEnrollmentChannel,
+  role: TEnrollmentRole,
+  material: IEnrollmentMaterial,
+) {
+  const queue: unknown[] = [];
+  const waiters: ((frame: unknown) => void)[] = [];
+  channel.onFrame((frame) => {
+    const waiter = waiters.shift();
+    if (waiter !== undefined) waiter(frame);
+    else queue.push(frame);
+  });
+  const next = (): Promise<unknown> =>
+    queue.length > 0
+      ? Promise.resolve(queue.shift())
+      : new Promise((resolve) => waiters.push(resolve));
+  const proof = startEnrollmentProof({
+    role,
+    material,
+    localFingerprint: channel.localFingerprint,
+    remoteFingerprint: channel.remoteFingerprint,
+    send: (frame) => channel.send(frame),
+  });
+  void (async () => {
+    proof.onFrame(await next());
+    proof.onFrame(await next());
+  })();
+  const nextFrame = async (): Promise<TEnrollmentFrame> => {
+    const decoded = decodeEnrollmentFrame(await next());
+    if (!decoded.ok) throw new Error(`unexpected frame (${decoded.field})`);
+    return decoded.frame;
+  };
+  return { next: nextFrame, binding: proof.result, held: () => queue.length };
 }
 
 /** Run `add` on `existing`; once its code is on screen, `whenShown` runs with it. */
@@ -356,7 +421,7 @@ describe('/devices add and /devices join between two HOMEs', () => {
                 now: Date.now,
                 material: { ...right, proofKey: guess.proofKey, sasKey: guess.sasKey },
                 name: 'guesser',
-                showSas: () => undefined,
+                operator: { confirm: async () => false, waitForPeer: (pending) => pending },
                 cancelled: new AbortController().signal,
               }),
             ),
@@ -371,6 +436,112 @@ describe('/devices add and /devices join between two HOMEs', () => {
     expect(reason(joined.real)).toBe('code-not-accepted');
     expect(snapshot(laptop)).toBe(before);
   }, 60_000);
+
+  it('someone who knows the code and sits in the middle cannot make the two screens agree', async () => {
+    // They pass both proofs, and choose everything they may; the commitments leave the digits to chance.
+    const towardLaptop = createInMemoryMeshRelayHub();
+    const towardDesktop = createInMemoryMeshRelayHub();
+    const laptop = await initialized('laptop', towardLaptop);
+    const desktop = makeHome('desktop');
+    const before = snapshot(laptop);
+    const relays = [towardLaptop.connect(), towardDesktop.connect()];
+    const order: string[] = [];
+    let attacking: Promise<void> = Promise.resolve();
+    // Waiting at the desktop's side before the desktop dials; a relay sees these topics anyway.
+    const attack = async (material: IEnrollmentMaterial): Promise<void> => {
+      const fromDesktop = new Promise<IEnrollmentChannel>((resolve) => {
+        const listener = listenForEnrollment({
+          relay: relays[1]!,
+          inbound: material.existingInbox,
+          outbound: material.joinerInbox,
+          onChannel: (channel) => {
+            listener.close();
+            resolve(channel);
+          },
+        });
+      });
+      const toLaptop = await dialEnrollment({
+        relay: relays[0]!,
+        inbound: material.joinerInbox,
+        outbound: material.existingInbox,
+      });
+      const laptopSide = attackerSide(toLaptop, 'joiner', material);
+      const laptopBinding: IEnrollmentBinding = await laptopSide.binding;
+      // The laptop reveals nothing the digits cover before the request and its commitment are in.
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      order.push(`laptop sent ${laptopSide.held()} before the request`);
+      // Toward the laptop: a request for the attacker's own keys.
+      const sign = await generateDeviceSignKeyPair(false);
+      const ka = await generateDeviceKeyAgreementKeyPair(false);
+      const fields = {
+        name: 'desktop',
+        signKey: Buffer.from(await crypto.subtle.exportKey('spki', sign.publicKey)).toString(
+          'base64url',
+        ),
+        kaKey: Buffer.from(await crypto.subtle.exportKey('spki', ka.publicKey)).toString(
+          'base64url',
+        ),
+      };
+      const mine = newEnrollmentContribution();
+      toLaptop.send(
+        await signEnrollmentRequest({
+          binding: laptopBinding,
+          signPrivateKey: sign.privateKey,
+          ...fields,
+          commit: await enrollmentCommitment(laptopBinding, mine),
+        }),
+      );
+      const laptopAnchor = (await laptopSide.next()) as IEnrollmentAnchorFrame;
+      // Toward the desktop: the laptop's own anchor, and a contribution of the attacker's.
+      const desktopChannel = await fromDesktop;
+      const desktopSide = attackerSide(desktopChannel, 'existing', material);
+      await desktopSide.binding;
+      await desktopSide.next();
+      // Nor does the desktop open its commitment before the anchor is in.
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      order.push(`desktop sent ${desktopSide.held()} before the anchor`);
+      desktopChannel.send({ ...laptopAnchor, contribution: newEnrollmentContribution() });
+      await desktopSide.next();
+      toLaptop.send({ t: 'en-reveal', contribution: mine });
+      toLaptop.send({ t: 'en-confirmed' });
+    };
+    const { added, joined } = await adding(
+      laptop,
+      portOf(laptop, towardLaptop),
+      async (code) => {
+        attacking = attack(await deriveEnrollmentMaterial(code));
+        operate(desktop, { code: () => code, joinAnswer: comparing(() => laptop) });
+        return portOf(desktop, towardDesktop).join({ name: 'desktop' });
+      },
+      { enrolAnswer: comparing(() => desktop) },
+    );
+    await attacking;
+    for (const relay of relays) relay.close();
+    expect(order).toEqual(['laptop sent 0 before the request', 'desktop sent 0 before the anchor']);
+    // A one-in-a-million chance aside, the operators see different digits and both decline.
+    expect(laptop.operator.shownSas()).not.toBe(desktop.operator.shownSas());
+    expect(reason(added)).toBe('enrollment-declined');
+    expect(reason(joined)).toBe('enrollment-declined');
+    expect(snapshot(laptop)).toBe(before);
+    expect(readIdentityState(desktop.directory)).toBeUndefined();
+    expect(await desktop.store.get(DEVICE_SIGN_KEY)).toBeUndefined();
+  }, 30_000);
+
+  it("stores nothing and issues nothing when the new device's operator declines", async () => {
+    const hub = createInMemoryMeshRelayHub();
+    const laptop = await initialized('laptop', hub);
+    const desktop = makeHome('desktop');
+    const before = snapshot(laptop);
+    const { added, joined } = await adding(laptop, portOf(laptop, hub), (code) => {
+      operate(desktop, { code: () => code, joinAnswer: 'no' });
+      return portOf(desktop, hub).join({ name: 'desktop' });
+    });
+    expect(reason(joined)).toBe('enrollment-declined');
+    expect(reason(added)).toBe('enrollment-declined');
+    expect(snapshot(laptop)).toBe(before);
+    expect(readIdentityState(desktop.directory)).toBeUndefined();
+    expect(await desktop.store.get(DEVICE_SIGN_KEY)).toBeUndefined();
+  }, 30_000);
 
   it('issues nothing when the operator declines', async () => {
     const hub = createInMemoryMeshRelayHub();

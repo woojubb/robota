@@ -24,6 +24,7 @@ export const IDENTITY_PURPOSES = {
   handshake: 'robota/handshake/v1',
   enrollProof: 'robota/enroll-proof/v1',
   enrollRequest: 'robota/enroll-request/v1',
+  enrollCommit: 'robota/enroll-commit/v1',
   enrollSas: 'robota/enroll-sas/v1',
 } as const;
 

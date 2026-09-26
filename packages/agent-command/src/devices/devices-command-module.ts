@@ -103,6 +103,7 @@ const REFUSALS: Readonly<Record<TDevicesRefusal, string>> = {
   'too-many-attempts':
     'Too many attempts failed to prove the code, so it no longer works. Nothing was changed; run `/devices add` again.',
   'enrollment-declined': 'The enrollment was declined. Nothing was changed.',
+  'enrollment-timed-out': 'Nobody answered in time. Nothing was changed.',
   'enrollment-failed':
     'The signaling relay or the connection to the other device failed before the enrollment finished. Nothing was changed; try again.',
 };
