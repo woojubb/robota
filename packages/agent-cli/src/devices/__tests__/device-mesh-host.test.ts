@@ -17,6 +17,11 @@ import { scriptedOperator } from './fake-secret-terminal.js';
 
 import type { IDeviceMeshEndpoint, IOpenDeviceMeshOptions } from '../device-mesh.js';
 import type { IOperatorApprover } from '@robota-sdk/agent-interface-session-mobility';
+import {
+  MeshLinkEndedError,
+  MeshRelayNeededError,
+  type IDeviceMeshRefusal,
+} from '@robota-sdk/agent-transport-webrtc';
 
 let home: string;
 let root: string;
@@ -44,13 +49,24 @@ async function withIdentity(): Promise<void> {
 
 function fakeOpen() {
   const close = vi.fn();
+  const refusals: ((refusal: IDeviceMeshRefusal) => void)[] = [];
   const endpoint = {
-    node: { onLink: () => () => undefined, stop: () => undefined },
+    node: {
+      onLink: () => () => undefined,
+      onRefusal: (handler: (refusal: IDeviceMeshRefusal) => void) => {
+        refusals.push(handler);
+        return () => undefined;
+      },
+      stop: () => undefined,
+    },
     refresh: async () => undefined,
     close,
   } as unknown as IDeviceMeshEndpoint;
   const open = vi.fn(async (_options: IOpenDeviceMeshOptions) => endpoint);
-  return { open, close };
+  const refuse = (refusal: IDeviceMeshRefusal): void => {
+    for (const handler of refusals) handler(refusal);
+  };
+  return { open, close, refuse };
 }
 
 const APPROVER: IOperatorApprover = { approve: async () => false };
@@ -212,6 +228,85 @@ describe('opening the mesh at startup', () => {
     const third = fakeOpen();
     await host(settings, third.open).start({ operatorApprover: APPROVER });
     expect(third.open).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes the relay settings to the mesh it opens', async () => {
+    await withIdentity();
+    const { open } = fakeOpen();
+    const relay = { serve: true, port: 3479, relayPorts: { min: 49160, max: 49170 } };
+    const turnServers = [{ urls: 'turn:turn.example.org:3478', username: 'u', credential: 'c' }];
+    // The DHT carries the relay's address to the other devices; no Nostr relays.
+    const options = { nostrRelays: [], relay, turnServers, relayOnly: true };
+    const mesh = host({ mesh: { enabled: true, options } }, open);
+    await mesh.start({ operatorApprover: APPROVER });
+
+    expect(open).toHaveBeenCalledTimes(1);
+    const settings = open.mock.calls[0]![0].internet?.settings;
+    expect(settings?.relay).toMatchObject({ serve: true, port: 3479, allowPrivatePeers: true });
+    expect(settings?.turnServers).toEqual(turnServers);
+    expect(settings?.relayOnly).toBe(true);
+    expect(mesh.status().sources).toEqual([
+      'the Mainline DHT',
+      'relays only: the relays your devices run, then 1 TURN server of yours',
+      'your relay for your other devices, on port 3479',
+    ]);
+  });
+
+  it('uses TURN servers of the user even with public discovery off', async () => {
+    await withIdentity();
+    const { open } = fakeOpen();
+    const turnServers = [{ urls: 'turn:turn.example.org:3478', username: 'u', credential: 'c' }];
+    const mesh = host({ mesh: { enabled: true, options: { ...NO_INTERNET, turnServers } } }, open);
+    await mesh.start({ operatorApprover: APPROVER });
+    expect(open.mock.calls[0]![0].internet?.settings.turnServers).toEqual(turnServers);
+    expect(mesh.status().sources).toEqual(['1 TURN server of yours when no direct path works']);
+  });
+
+  it('refuses to run a relay no device could learn of', async () => {
+    await withIdentity();
+    const { open } = fakeOpen();
+    const said: string[] = [];
+    const options = { ...NO_INTERNET, relay: { serve: true } };
+    const mesh = host({ mesh: { enabled: true, options } }, open, said);
+    await mesh.start({ operatorApprover: APPROVER });
+    expect(open).not.toHaveBeenCalled();
+    expect(mesh.status()).toMatchObject({ state: 'failed' });
+    expect(said.join('\n')).toMatch(/relay\.serve/);
+  });
+
+  it('says when a device needs a relay, once, and says nothing of other refusals', async () => {
+    await withIdentity();
+    const { open, refuse } = fakeOpen();
+    const said: string[] = [];
+    const mesh = host({ mesh: { enabled: true, options: NO_INTERNET } }, open, said);
+    await mesh.start({ operatorApprover: APPROVER });
+    const needed = new MeshRelayNeededError('device-b', 'relay-only');
+    refuse({ deviceId: 'device-b', end: 'signaling', error: needed });
+    refuse({ deviceId: 'device-b', end: 'signaling', error: needed });
+    refuse({
+      deviceId: 'device-c',
+      end: 'handshake',
+      error: new MeshLinkEndedError({ end: 'handshake', stage: 'handshake', role: 'offerer' }),
+    });
+    const relayLines = said.filter((line) => line.includes('a relay device is needed'));
+    expect(relayLines).toHaveLength(1);
+    expect(relayLines[0]).toContain('device-b');
+    expect(said.join('\n')).not.toContain('device-c');
+  });
+
+  it('refuses a malformed relay setting at startup, naming it', async () => {
+    await withIdentity();
+    const { open } = fakeOpen();
+    const said: string[] = [];
+    const mesh = host(
+      { mesh: { enabled: true, options: { ...NO_INTERNET, relay: { host: '::' } } } },
+      open,
+      said,
+    );
+    await mesh.start({ operatorApprover: APPROVER });
+    expect(open).not.toHaveBeenCalled();
+    expect(mesh.status()).toMatchObject({ state: 'failed' });
+    expect(said.join('\n')).toMatch(/relay\.host/);
   });
 
   it('names how it finds devices', async () => {
