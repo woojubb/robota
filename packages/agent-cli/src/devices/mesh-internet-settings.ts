@@ -6,14 +6,15 @@
  * - `pkarrRelays`: pkarr relays (`https://…`), used for records when the DHT is off or cannot start;
  * - `nostrRelays`: Nostr relays (`wss://…`) for live signaling; `[]` turns Nostr signaling off;
  * - `relay`: the TURN relay this device runs for its paired devices (`serve`, default off; `port`,
- *   default 3478; `host`, the address it binds; `publicAddress`, where peers reach it);
+ *   default 3478; `host`, the IPv4 address it binds; `publicAddress`, where peers reach it;
+ *   `relayPorts`, `{ min, max }` for its relayed addresses — behind a NAT, forward those and `port`);
  * - `turnServers`: TURN servers of the user's own, tried after the paired devices' relays;
  * - `relayOnly` (default `false`): use relayed connections only, for a network no direct path crosses.
  *
  * Absent lists take the defaults: well-known relays of several operators, replaceable here. A
  * malformed value fails closed with an error naming the setting, never a silent partial list.
  */
-import { isIP } from 'node:net';
+import { isIPv4 } from 'node:net';
 
 import {
   DEFAULT_NOSTR_RELAYS,
@@ -31,6 +32,8 @@ export interface IMeshRelaySettings {
   readonly host?: string;
   /** The address peers reach the relay at, when it is not one of this device's own. */
   readonly publicAddress?: string;
+  /** The ports relayed addresses take; absent: any free port. */
+  readonly relayPorts?: { readonly min: number; readonly max: number };
 }
 
 export interface IMeshInternetSettings {
@@ -74,12 +77,34 @@ function relayList(
   });
 }
 
-function ipAddress(value: unknown, setting: string): string | undefined {
+/** The relay serves IPv4 only, so its addresses are IPv4 addresses. */
+function ipv4Address(value: unknown, setting: string): string | undefined {
   if (value === undefined) return undefined;
-  if (typeof value !== 'string' || isIP(value) === 0) {
-    throw new Error(`Invalid mesh setting: \`${setting}\` must be an IP address.`);
+  if (typeof value !== 'string' || !isIPv4(value)) {
+    throw new Error(`Invalid mesh setting: \`${setting}\` must be an IPv4 address.`);
   }
   return value;
+}
+
+function isPort(value: unknown, min = 0): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= min && value <= 65_535;
+}
+
+function relayPorts(value: unknown): { readonly min: number; readonly max: number } | undefined {
+  if (value === undefined) return undefined;
+  const range = value as { min?: unknown; max?: unknown } | null;
+  if (
+    typeof range !== 'object' ||
+    range === null ||
+    !isPort(range.min, 1024) ||
+    !isPort(range.max, 1024) ||
+    range.min > range.max
+  ) {
+    throw new Error(
+      'Invalid mesh setting: `relay.relayPorts` must be `{ min, max }` ports from 1024, min <= max.',
+    );
+  }
+  return { min: range.min, max: range.max };
 }
 
 function relaySettings(value: unknown): IMeshRelaySettings {
@@ -93,19 +118,18 @@ function relaySettings(value: unknown): IMeshRelaySettings {
     throw new Error('Invalid mesh setting: `relay.serve` must be true or false.');
   }
   const port = bag['port'];
-  if (
-    port !== undefined &&
-    (typeof port !== 'number' || !Number.isInteger(port) || port < 0 || port > 65_535)
-  ) {
+  if (port !== undefined && !isPort(port)) {
     throw new Error('Invalid mesh setting: `relay.port` must be a port number.');
   }
-  const host = ipAddress(bag['host'], 'relay.host');
-  const publicAddress = ipAddress(bag['publicAddress'], 'relay.publicAddress');
+  const host = ipv4Address(bag['host'], 'relay.host');
+  const publicAddress = ipv4Address(bag['publicAddress'], 'relay.publicAddress');
+  const ports = relayPorts(bag['relayPorts']);
   return {
     serve: serve ?? false,
     port: port ?? DEFAULT_RELAY_PORT,
     ...(host !== undefined ? { host } : {}),
     ...(publicAddress !== undefined ? { publicAddress } : {}),
+    ...(ports !== undefined ? { relayPorts: ports } : {}),
   };
 }
 

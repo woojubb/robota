@@ -40,13 +40,25 @@ describe('mesh public-infrastructure settings', () => {
   it('name the embedded relay this device runs, the TURN servers to fall back on, and relay-only', () => {
     expect(
       parseMeshInternetSettings({
-        relay: { serve: true, port: 3479, host: '0.0.0.0', publicAddress: '203.0.113.5' },
+        relay: {
+          serve: true,
+          port: 3479,
+          host: '0.0.0.0',
+          publicAddress: '203.0.113.5',
+          relayPorts: { min: 49160, max: 49200 },
+        },
         turnServers: [{ urls: 'turn:turn.example.org:3478', username: 'u', credential: 'c' }],
         relayOnly: true,
       }),
     ).toEqual(
       expect.objectContaining({
-        relay: { serve: true, port: 3479, host: '0.0.0.0', publicAddress: '203.0.113.5' },
+        relay: {
+          serve: true,
+          port: 3479,
+          host: '0.0.0.0',
+          publicAddress: '203.0.113.5',
+          relayPorts: { min: 49160, max: 49200 },
+        },
         turnServers: [{ urls: 'turn:turn.example.org:3478', username: 'u', credential: 'c' }],
         relayOnly: true,
       }),
@@ -61,6 +73,17 @@ describe('mesh public-infrastructure settings', () => {
       /relay.publicAddress/,
     );
     expect(() => parseMeshInternetSettings({ relay: { host: 'lan' } })).toThrow(/relay.host/);
+    // The relay serves IPv4 only.
+    expect(() => parseMeshInternetSettings({ relay: { host: '::' } })).toThrow(/IPv4/);
+    expect(() => parseMeshInternetSettings({ relay: { publicAddress: '2001:db8::5' } })).toThrow(
+      /relay.publicAddress/,
+    );
+    expect(() =>
+      parseMeshInternetSettings({ relay: { relayPorts: { min: 50_000, max: 49_000 } } }),
+    ).toThrow(/relay.relayPorts/);
+    expect(() => parseMeshInternetSettings({ relay: { relayPorts: [49_000, 50_000] } })).toThrow(
+      /relay.relayPorts/,
+    );
     // A fallback relay is a TURN server; a STUN server relays nothing.
     expect(() =>
       parseMeshInternetSettings({ turnServers: [{ urls: 'stun:stun.example.org' }] }),

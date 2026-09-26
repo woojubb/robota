@@ -10,7 +10,7 @@
  * Quotas bound what one owner can take: allocations, relayed bytes per second, and how long an
  * allocation may live.
  */
-import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 import { createSocket, type RemoteInfo, type Socket } from 'node:dgram';
 import { isIPv4 } from 'node:net';
 import { networkInterfaces } from 'node:os';
@@ -28,6 +28,7 @@ import {
   encodeStun,
   encodeXorAddress,
   errorCode,
+  integrityProtected,
   isChannelData,
   longTermKey,
   verifyIntegrity,
@@ -75,6 +76,11 @@ export interface ITurnServerOptions {
   readonly host?: string;
   /** The server's UDP port (default 3478; 0 picks a free one). */
   readonly port?: number;
+  /**
+   * The ports relayed sockets take, inclusive (default: any free port). A relay behind a NAT needs
+   * this range forwarded to it as well as its own port.
+   */
+  readonly relayPorts?: { readonly min: number; readonly max: number };
   /** The address relayed transport addresses carry (default `host`, or this machine's first external IPv4). */
   readonly relayAddress?: string;
   /** Default `relay`: a realm travels in the clear, so it names nothing. */
@@ -98,6 +104,8 @@ const CHANNEL_LIFETIME_MS = 600_000;
 const NONCE_LIFETIME_MS = 600_000;
 const SWEEP_INTERVAL_MS = 5_000;
 const UDP = 17;
+/** Random ports of the relayed range tried before the range is walked in order. */
+const RELAY_PORT_TRIES = 8;
 
 /** Attributes a request may carry that this server understands or may ignore by RFC. */
 const UNDERSTOOD = new Set<number>([
@@ -176,6 +184,33 @@ function defaultAllowPeer(relayOnLoopback: boolean): (address: string) => boolea
   };
 }
 
+/** A UDP socket bound to `port` on `host`; `undefined` when the port is taken. */
+async function bindUdp(port: number, host: string): Promise<Socket | undefined> {
+  const socket = createSocket('udp4');
+  try {
+    await new Promise<void>((resolve, reject) => {
+      socket.once('error', reject);
+      socket.bind(port, host, () => {
+        socket.off('error', reject);
+        resolve();
+      });
+    });
+    return socket;
+  } catch {
+    // allow-fallback: the port is taken; the caller tries another or refuses the request
+    socket.close();
+    return undefined;
+  }
+}
+
+function localAddresses(): Set<string> {
+  const out = new Set<string>();
+  for (const list of Object.values(networkInterfaces())) {
+    for (const entry of list ?? []) out.add(entry.address);
+  }
+  return out;
+}
+
 function asError(error: unknown): Error {
   return error instanceof Error ? error : new Error(String(error));
 }
@@ -186,6 +221,7 @@ export class TurnServer {
   private readonly quotas: ITurnQuotas;
   private readonly realm: string;
   private readonly nonceSecret = randomBytes(32);
+  private readonly ownAddresses = localAddresses();
   private readonly allowPeer: (address: string) => boolean;
   private readonly sweeper: ReturnType<typeof setInterval>;
   /** Once {@link TurnServer.retain} has named them: the only owners that may allocate. */
@@ -449,6 +485,19 @@ export class TurnServer {
     }
     const authenticated = await this.authenticate(request, client, existing);
     if (authenticated === undefined) return;
+    // Only what MESSAGE-INTEGRITY covers counts: anyone on the path can append after it.
+    await this.authenticatedRequest(integrityProtected(request), client, authenticated);
+  }
+
+  private async authenticatedRequest(
+    request: IStunMessage,
+    client: ITransportAddress,
+    authenticated: {
+      readonly auth: ITurnAuthorization;
+      readonly key: Buffer;
+      readonly username: string;
+    },
+  ): Promise<void> {
     const { key } = authenticated;
     const unknown = this.unknownAttributes(request);
     if (unknown.length > 0) {
@@ -520,17 +569,8 @@ export class TurnServer {
       this.fail(request, client, 486, 'Allocation Quota Reached', [], key);
       return;
     }
-    const socket = createSocket('udp4');
-    try {
-      await new Promise<void>((resolve, reject) => {
-        socket.once('error', reject);
-        socket.bind(0, this.bindHost, () => {
-          socket.off('error', reject);
-          resolve();
-        });
-      });
-    } catch {
-      socket.close();
+    const socket = await this.relayedSocket();
+    if (socket === undefined) {
       this.fail(request, client, 508, 'Insufficient Capacity', [], key);
       return;
     }
@@ -583,6 +623,40 @@ export class TurnServer {
         { type: StunAttr.XorMappedAddress, value: encodeXorAddress(client, request.transactionId) },
       ],
       key,
+    );
+  }
+
+  /** A socket for a relayed address: any free port, or a free one of the configured range. */
+  private async relayedSocket(): Promise<Socket | undefined> {
+    const range = this.options.relayPorts;
+    if (range === undefined) return bindUdp(0, this.bindHost);
+    const size = range.max - range.min + 1;
+    for (let i = 0; i < Math.min(size, RELAY_PORT_TRIES); i += 1) {
+      const socket = await bindUdp(randomInt(range.min, range.max + 1), this.bindHost);
+      if (socket !== undefined) return socket;
+    }
+    // Random picks can miss the last free ports of a small range: take them in order.
+    const taken = new Set(this.allocationPorts());
+    for (let port = range.min; port <= range.max; port += 1) {
+      if (taken.has(port)) continue;
+      const socket = await bindUdp(port, this.bindHost);
+      if (socket !== undefined) return socket;
+    }
+    return undefined;
+  }
+
+  private allocationPorts(): number[] {
+    return [...this.allocations.values()].map((allocation) => allocation.relayed.port);
+  }
+
+  /** Whether `peer` is this server's own listening socket: relaying there would loop TURN into itself. */
+  private isServerItself(peer: ITransportAddress): boolean {
+    return (
+      peer.port === this.socket.address().port &&
+      (isLoopback(peer.address) ||
+        peer.address === this.relayAddress ||
+        peer.address === this.bindHost ||
+        (this.bindHost === '0.0.0.0' && this.ownAddresses.has(peer.address)))
     );
   }
 
@@ -737,6 +811,7 @@ export class TurnServer {
     if (peerValue === undefined || data === undefined) return;
     const peer = decodeXorAddress(peerValue, message.transactionId);
     if (peer === undefined || !this.permitted(allocation, peer.address)) return;
+    if (this.isServerItself(peer)) return;
     if (!this.spend(allocation.owner, data.length)) return;
     allocation.socket.send(data, peer.port, peer.address);
   }
@@ -749,6 +824,7 @@ export class TurnServer {
     const channel = allocation.channelsByNumber.get(frame.channel);
     if (channel === undefined || channel.expiresAt <= this.now()) return;
     if (!this.permitted(allocation, channel.peer.address)) return;
+    if (this.isServerItself(channel.peer)) return;
     if (!this.spend(allocation.owner, frame.payload.length)) return;
     allocation.socket.send(frame.payload, channel.peer.port, channel.peer.address);
   }

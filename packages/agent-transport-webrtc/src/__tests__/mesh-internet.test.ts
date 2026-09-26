@@ -205,6 +205,42 @@ describe('rendezvous records', () => {
     ).toBe(0);
   });
 
+  it('a relay lookup is not repeated on every attempt: found or not, the answer is kept a while', async () => {
+    const network = createInMemoryItemNetwork();
+    const inner = network.store();
+    let reads = 0;
+    const counting: IRendezvousItemStore = {
+      put: (...args) => inner.put(...args),
+      get: (...args) => {
+        reads += 1;
+        return inner.get(...args);
+      },
+      close: () => inner.close(),
+    };
+    let now = NOW;
+    const lowDht = dhtOn(network, { now: () => now, stores: [counting] });
+    const toHigh = [await routeOf(world.low, world.high)];
+
+    expect((await lowDht.relayAdverts(toHigh, never())).size).toBe(0);
+    const afterFirst = reads;
+    expect(afterFirst).toBeGreaterThan(0);
+    expect((await lowDht.relayAdverts(toHigh, never())).size).toBe(0);
+    expect(reads).toBe(afterFirst);
+
+    // "No relay" is checked again after a while: the peer may have started one since.
+    const highDht = dhtOn(network, {
+      now: () => now,
+      relayEndpoints: () => [{ host: '198.51.100.7', port: 3478 }],
+    });
+    await highDht.advertise([await routeOf(world.high, world.low)], 4343);
+    await vi.waitFor(() => expect(network.items().length).toBeGreaterThan(0));
+    now += 3 * 60 * 1000;
+    expect((await lowDht.relayAdverts(toHigh, never())).size).toBe(1);
+    const afterFound = reads;
+    expect((await lowDht.relayAdverts(toHigh, never())).size).toBe(1);
+    expect(reads).toBe(afterFound);
+  });
+
   it('a tampered record, one signed by another key, or another pair’s record is rejected', async () => {
     const network = createInMemoryItemNetwork();
     const highDht = dhtOn(network, { now: () => NOW });

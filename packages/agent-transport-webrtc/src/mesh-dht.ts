@@ -43,6 +43,8 @@ const DEFAULT_LOOKUP_TIMEOUT_MS = 6_000;
 const MAX_LIST_PEERS = 16;
 /** Candidates of one list kind a freshness lookup returns, newest first. */
 const MAX_LIST_CANDIDATES = 16;
+/** How long "no relay" found for a peer holds before its records are looked up again. */
+const NO_RELAY_RECHECK_MS = 2 * 60 * 1000;
 /** How long a background lookup of the lists may take. */
 const PREFETCH_TIMEOUT_MS = 30_000;
 
@@ -99,11 +101,17 @@ export class MeshDht implements IMeshCandidateSource {
   /** The lists found by the last lookup that finished, for a lookup that runs out of time. */
   private listsFound: IFetchedLists | undefined;
   private prefetchedEpoch?: number;
-  /** The relays peers advertised, by device, and the epoch they were looked up in. */
+  /** The relays peers advertised, by device: the epoch and time they were looked up. */
   private readonly relaysFound = new Map<
     string,
-    { readonly epoch: number; readonly endpoints: readonly IMeshCandidate[] }
+    {
+      readonly epoch: number;
+      readonly checkedAt: number;
+      readonly endpoints: readonly IMeshCandidate[];
+    }
   >();
+  /** Relay lookups running, by device. */
+  private readonly relayLookups = new Map<string, Promise<void>>();
   private closed = false;
 
   public constructor(private readonly options: IMeshDhtOptions) {
@@ -145,37 +153,39 @@ export class MeshDht implements IMeshCandidateSource {
   ): void {
     const newest = [...found].sort((a, b) => b.epoch - a.epoch)[0];
     const endpoints = newest === undefined ? [] : decodeRelayHints(newest.data);
-    this.relaysFound.set(peer.deviceId, { epoch, endpoints });
+    this.relaysFound.set(peer.deviceId, { epoch, checkedAt: this.now(), endpoints });
   }
 
   /**
-   * The relays `peers` advertise to this device, by device id: a relay found is looked up
-   * again in the next epoch, and what is known so far is returned when `signal` ends first. Only a peer's own sealed hints
-   * record says where its relay is, so no one else learns it and no one else can plant one.
+   * The relays `peers` advertise to this device, by device id. What a lookup found holds for the
+   * epoch, and "no relay" for a short while, so connection attempts do not wait on lookups; a
+   * lookup still running when `signal` ends goes on, and the next call has its answer. Only a
+   * peer's own sealed hints record says where its relay is, so no one else learns it and no one
+   * else can plant one.
    */
   public async relayAdverts(
     peers: readonly IMeshPeerRoute[],
     signal: AbortSignal,
   ): Promise<ReadonlyMap<string, readonly IMeshCandidate[]>> {
-    const epoch = rendezvousEpoch(this.now());
+    const now = this.now();
+    const epoch = rendezvousEpoch(now);
     const routes = peers.slice(0, MAX_LIST_PEERS);
-    // A relay found holds for the epoch; none found is looked up again, since a record may not be out yet.
-    const stale = routes.filter((route) => {
+    const running: Promise<void>[] = [];
+    for (const route of routes) {
       const known = this.relaysFound.get(route.deviceId);
-      return known?.epoch !== epoch || known.endpoints.length === 0;
-    });
-    if (stale.length > 0) {
+      const fresh =
+        known !== undefined &&
+        known.epoch === epoch &&
+        (known.endpoints.length > 0 || now - known.checkedAt < NO_RELAY_RECHECK_MS);
+      if (fresh) continue;
+      running.push(this.lookUpRelay(route, epoch));
+    }
+    if (running.length > 0) {
       const ended = new Promise<void>((resolve) => {
         if (signal.aborted) resolve();
         signal.addEventListener('abort', () => resolve(), { once: true });
       });
-      const lookups = Promise.all(
-        stale.map(async (route) => {
-          const found = await this.lookup(route, 'hints', epoch, signal);
-          if (!signal.aborted) this.rememberRelays(route, epoch, found);
-        }),
-      );
-      await Promise.race([lookups, ended]);
+      await Promise.race([Promise.all(running), ended]);
     }
     const current = new Set(peers.map((route) => route.deviceId));
     for (const deviceId of [...this.relaysFound.keys()]) {
@@ -187,6 +197,20 @@ export class MeshDht implements IMeshCandidateSource {
       if (endpoints.length > 0) out.set(route.deviceId, endpoints);
     }
     return out;
+  }
+
+  /** One lookup of a peer's relay at a time, bounded by the lookup timeout, not by any caller. */
+  private lookUpRelay(route: IMeshPeerRoute, epoch: number): Promise<void> {
+    const held = this.relayLookups.get(route.deviceId);
+    if (held !== undefined) return held;
+    const signal = AbortSignal.timeout(this.timeoutMs);
+    const running = this.lookup(route, 'hints', epoch, signal)
+      .then((found) => {
+        if (!signal.aborted && !this.closed) this.rememberRelays(route, epoch, found);
+      })
+      .finally(() => this.relayLookups.delete(route.deviceId));
+    this.relayLookups.set(route.deviceId, running);
+    return running;
   }
 
   /** The records of `purpose` the peer published for this device, opened; empty when none. */

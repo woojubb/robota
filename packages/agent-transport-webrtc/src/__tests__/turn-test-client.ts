@@ -99,6 +99,8 @@ export class TurnTestClient {
     method: number,
     attrs: { type: number; value: Buffer }[] = [],
     transactionId: Buffer = randomBytes(12),
+    /** Attributes an on-path attacker appends after MESSAGE-INTEGRITY. */
+    appended: { type: number; value: Buffer }[] = [],
   ): Promise<ITurnAnswer> {
     // One transaction id throughout: the peer addresses in `attrs` are XORed with it.
     for (let round = 0; round < 3; round += 1) {
@@ -115,9 +117,13 @@ export class TurnTestClient {
           ? longTermKey(this.username, this.realm, this.password)
           : undefined;
       const answer = await this.exchange(
-        encodeStun(method, StunClass.Request, transactionId, [...attrs, ...auth], {
-          ...(key !== undefined && auth.length > 0 ? { integrityKey: key } : {}),
-        }),
+        withAppended(
+          encodeStun(method, StunClass.Request, transactionId, [...attrs, ...auth], {
+            ...(key !== undefined && auth.length > 0 ? { integrityKey: key } : {}),
+            fingerprint: appended.length === 0,
+          }),
+          appended,
+        ),
         transactionId,
       );
       const code = readErrorCode(attribute(answer, StunAttr.ErrorCode));
@@ -153,12 +159,16 @@ export class TurnTestClient {
     return this.request(StunMethod.Refresh, [{ type: StunAttr.Lifetime, value: uint32(lifetime) }]);
   }
 
-  public permit(peer: ITransportAddress): Promise<ITurnAnswer> {
+  /** Permit `peer`; `injected` is appended after MESSAGE-INTEGRITY, as an on-path attacker would. */
+  public permit(peer: ITransportAddress, injected?: ITransportAddress): Promise<ITurnAnswer> {
     const transactionId = randomBytes(12);
     return this.request(
       StunMethod.CreatePermission,
       [{ type: StunAttr.XorPeerAddress, value: encodeXorAddress(peer, transactionId) }],
       transactionId,
+      injected === undefined
+        ? []
+        : [{ type: StunAttr.XorPeerAddress, value: encodeXorAddress(injected, transactionId) }],
     );
   }
 
@@ -196,6 +206,21 @@ export class TurnTestClient {
   public close(): void {
     this.socket.close();
   }
+}
+
+/** `message` with `attrs` appended and its length updated. */
+function withAppended(message: Buffer, attrs: { type: number; value: Buffer }[]): Buffer {
+  if (attrs.length === 0) return message;
+  const parts = [message];
+  for (const { type, value } of attrs) {
+    const head = Buffer.alloc(4);
+    head.writeUInt16BE(type, 0);
+    head.writeUInt16BE(value.length, 2);
+    parts.push(head, value, Buffer.alloc((4 - (value.length % 4)) % 4));
+  }
+  const out = Buffer.concat(parts);
+  out.writeUInt16BE(out.length - 20, 2);
+  return out;
 }
 
 /** The relayed address in an Allocate success. */

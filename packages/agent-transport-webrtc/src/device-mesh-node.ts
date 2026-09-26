@@ -424,14 +424,13 @@ export class DeviceMeshNode {
         })),
       );
       this.options.relay.declarePresence([...this.byInbound.keys()]);
-      this.options.relay.declarePeers?.(
-        [...this.peers.values()].map((peer) => ({
-          deviceId: peer.device.deviceId,
-          inbound: peer.inbound,
-          outbound: peer.outbound,
-          rendezvous: peer.rendezvous,
-        })),
-      );
+      const routes = this.peerRoutes();
+      this.options.relay.declarePeers?.(routes);
+      // Learn the peers' relays ahead of the first attempt, so it does not wait on the lookup.
+      // allow-fallback: a lookup that fails here is run again by the attempt that needs it
+      this.options.relays
+        ?.advertised?.(routes, AbortSignal.timeout(RELAY_ADVERT_LOOKUP_MS))
+        .catch(() => undefined);
       for (const state of added) this.hello(state);
     });
     const done = this.sync;
@@ -791,6 +790,18 @@ export class DeviceMeshNode {
     return stages[state.relayFailures % stages.length]!;
   }
 
+  /** The routes of every peer, `first`'s first: a lookup bounded to some peers covers it. */
+  private peerRoutes(first?: IPeerState): IMeshPeerRoute[] {
+    const states = [...this.peers.values()];
+    const ordered = first === undefined ? states : [first, ...states.filter((p) => p !== first)];
+    return ordered.map((peer) => ({
+      deviceId: peer.device.deviceId,
+      inbound: peer.inbound,
+      outbound: peer.outbound,
+      rendezvous: peer.rendezvous,
+    }));
+  }
+
   /**
    * ICE servers for the relays paired devices advertise, with this pair's credential for each: the
    * peer's own relay first. Only a device the lists in force name, unrevoked, is asked to relay.
@@ -800,15 +811,7 @@ export class DeviceMeshNode {
     if (advertised === undefined) return [];
     let found: ReadonlyMap<string, readonly IMeshRelayEndpoint[]>;
     try {
-      found = await advertised(
-        [...this.peers.values()].map((peer) => ({
-          deviceId: peer.device.deviceId,
-          inbound: peer.inbound,
-          outbound: peer.outbound,
-          rendezvous: peer.rendezvous,
-        })),
-        AbortSignal.timeout(RELAY_ADVERT_LOOKUP_MS),
-      );
+      found = await advertised(this.peerRoutes(state), AbortSignal.timeout(RELAY_ADVERT_LOOKUP_MS));
     } catch {
       // allow-fallback: no advertised relay is known; the configured ones, or the explicit refusal, follow
       return [];

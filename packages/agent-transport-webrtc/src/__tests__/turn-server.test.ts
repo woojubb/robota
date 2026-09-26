@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { StunAttr } from '../stun-message.js';
+import { StunAttr, StunMethod } from '../stun-message.js';
 import { TurnServer, type ITurnServerOptions } from '../turn-server.js';
 import { TurnTestClient, lifetimeOf, relayedAddress, udpPeer } from './turn-test-client.js';
 
@@ -96,6 +96,51 @@ describe('TURN server (RFC 8656 over UDP)', () => {
     // Multicast is never a peer; loopback is only because this relay is on loopback.
     expect((await turn.permit({ address: '224.0.0.251', port: 5353 })).code).toBe(403);
     expect((await turn.bindChannel(0x3fff, { address: '127.0.0.1', port: 9 })).code).toBe(400);
+  });
+
+  it('attributes appended after MESSAGE-INTEGRITY count for nothing', async () => {
+    const server = await serve();
+    const turn = await client(server, 'user-a1');
+    expect((await turn.allocate()).ok).toBe(true);
+    // A genuine Refresh asks for the default lifetime; an attacker on the path appends LIFETIME 0.
+    const refreshed = await turn.request(StunMethod.Refresh, [], undefined, [
+      { type: StunAttr.Lifetime, value: Buffer.alloc(4) },
+    ]);
+    expect(refreshed.ok).toBe(true);
+    expect(lifetimeOf(refreshed)).toBe(600);
+    expect(server.allocationCount()).toBe(1);
+  });
+
+  it("never relays into the server's own port", async () => {
+    // A relay on loopback would otherwise let a client loop TURN into the server itself.
+    const server = await serve();
+    const turn = await client(server, 'user-a1');
+    expect((await turn.allocate()).ok).toBe(true);
+    expect((await turn.permit(server.address)).ok).toBe(true);
+    const before = server.allocationCount();
+    turn.sendTo(
+      server.address,
+      Buffer.from([0x00, 0x03, 0x00, 0x00, 0x21, 0x12, 0xa4, 0x42, ...Array<number>(12).fill(7)]),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    // The server's answer to itself would have come back as data from the server's own address.
+    expect(turn.received()).toEqual([]);
+    expect(server.allocationCount()).toBe(before);
+  });
+
+  it('takes relayed ports from the configured range, and refuses once it is used up', async () => {
+    const probe = await udpPeer();
+    const min = probe.address.port;
+    probe.close();
+    const server = await serve({ relayPorts: { min, max: min + 1 } });
+    const ports: number[] = [];
+    for (const name of ['user-a1', 'user-b1']) {
+      const answer = await (await client(server, name)).allocate();
+      expect(answer.ok).toBe(true);
+      ports.push(relayedAddress(answer)!.port);
+    }
+    expect(ports.sort()).toEqual([min, min + 1]);
+    expect((await (await client(server, 'user-c1')).allocate()).code).toBe(508);
   });
 
   it('an unknown username or a wrong password gets no allocation', async () => {

@@ -12,6 +12,7 @@
  * Lists a peer hands over during a handshake are saved only when they verify for this device and are
  * newer than the ones held, so a peer can bring a revocation but never roll one back.
  */
+import { isIPv4 } from 'node:net';
 import { join } from 'node:path';
 
 import {
@@ -124,7 +125,10 @@ function relayEndpoints(
   const port = turn.endpoint.port;
   if (publicAddress !== undefined) return [{ host: publicAddress, port }];
   if (host !== undefined && host !== '0.0.0.0') return [{ host, port }];
-  return localInterfaceAddresses().map((address) => ({ host: address, port }));
+  // The relay listens on IPv4 only.
+  return localInterfaceAddresses()
+    .filter((address) => isIPv4(address))
+    .map((address) => ({ host: address, port }));
 }
 
 function closeInternet(parts: IInternetParts): void {
@@ -163,6 +167,7 @@ async function startInternet(
         port: relay.port,
         ...(relay.host !== undefined ? { host: relay.host } : {}),
         ...(relay.publicAddress !== undefined ? { relayAddress: relay.publicAddress } : {}),
+        ...(relay.relayPorts !== undefined ? { relayPorts: relay.relayPorts } : {}),
         ...(onError !== undefined ? { onError } : {}),
       })
     : undefined;

@@ -137,6 +137,16 @@ export function attributes(message: IStunMessage, type: number): Buffer[] {
   return message.attributes.filter((a) => a.type === type).map((a) => a.value);
 }
 
+/**
+ * The message as MESSAGE-INTEGRITY covers it: attributes after it are dropped (RFC 8489 §14.5), since
+ * anyone on the path can append them. A message without one is returned as it is.
+ */
+export function integrityProtected(message: IStunMessage): IStunMessage {
+  const at = message.attributes.findIndex((a) => a.type === StunAttr.MessageIntegrity);
+  if (at < 0) return message;
+  return { ...message, attributes: message.attributes.slice(0, at + 1) };
+}
+
 /** Decode an XOR-*-ADDRESS value; `undefined` when malformed. */
 export function decodeXorAddress(
   value: Buffer,

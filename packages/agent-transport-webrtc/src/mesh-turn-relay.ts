@@ -101,6 +101,8 @@ export interface IMeshTurnRelayOptions {
   readonly port?: number;
   /** The address relayed transport addresses carry, e.g. this device's public address. */
   readonly relayAddress?: string;
+  /** The ports relayed addresses take; behind a NAT, forward them with the relay's own port. */
+  readonly relayPorts?: { readonly min: number; readonly max: number };
   readonly quotas?: Partial<ITurnQuotas>;
   /** Default: see {@link TurnServer}. */
   readonly allowPeer?: (address: string) => boolean;
@@ -111,6 +113,12 @@ export interface IMeshTurnRelayOptions {
 /** This device's relay for its paired devices. */
 export class MeshTurnRelay {
   private peers: readonly IMeshRelayPeer[] = [];
+  /** Whose each relay-user tag is, for the peers in force and one epoch: derived once, not per request. */
+  private owners?: {
+    readonly epoch: number;
+    readonly peers: readonly IMeshRelayPeer[];
+    readonly byTag: Promise<ReadonlyMap<string, IMeshRelayPeer>>;
+  };
 
   private constructor(
     private readonly server: TurnServer,
@@ -124,6 +132,7 @@ export class MeshTurnRelay {
       ...(options.host !== undefined ? { host: options.host } : {}),
       ...(options.port !== undefined ? { port: options.port } : {}),
       ...(options.relayAddress !== undefined ? { relayAddress: options.relayAddress } : {}),
+      ...(options.relayPorts !== undefined ? { relayPorts: options.relayPorts } : {}),
       ...(options.quotas !== undefined ? { quotas: options.quotas } : {}),
       ...(options.allowPeer !== undefined ? { allowPeer: options.allowPeer } : {}),
       ...(options.onError !== undefined ? { onError: options.onError } : {}),
@@ -164,22 +173,35 @@ export class MeshTurnRelay {
     if (expiresAt <= now || expiresAt - now > MAX_RELAY_CREDENTIAL_TTL_MS + CLOCK_SKEW_MS) {
       return undefined;
     }
-    const tag = Buffer.from(match[2]!, 'base64url');
-    const epoch = rendezvousEpoch(now);
+    const peer = (await this.tagOwners(rendezvousEpoch(now))).get(match[2]!);
+    // Still a peer once the tags are derived: a revocation meanwhile wins.
+    if (peer === undefined || !this.peers.includes(peer)) return undefined;
+    return {
+      owner: peer.deviceId,
+      password: await peer.rendezvous.relayPassword('inbound', username),
+    };
+  }
+
+  /** The peers' relay-user tags for `epoch` and the adjacent ones, by tag. */
+  private tagOwners(epoch: number): Promise<ReadonlyMap<string, IMeshRelayPeer>> {
+    const held = this.owners;
+    if (held !== undefined && held.epoch === epoch && held.peers === this.peers) return held.byTag;
     const peers = this.peers;
-    for (const peer of peers) {
-      const tags = await peer.rendezvous.lookupTags('relay-user', epoch);
-      if (!tags.some((candidate) => tag.equals(Buffer.from(candidate.slice(0, TAG_BYTES))))) {
-        continue;
+    const byTag = (async () => {
+      const out = new Map<string, IMeshRelayPeer>();
+      for (const peer of peers) {
+        for (const tag of await peer.rendezvous.lookupTags('relay-user', epoch)) {
+          out.set(base64Url(tag.slice(0, TAG_BYTES)), peer);
+        }
       }
-      // Still a peer once the tags are derived: a revocation meanwhile wins.
-      if (!this.peers.some((current) => current.deviceId === peer.deviceId)) return undefined;
-      return {
-        owner: peer.deviceId,
-        password: await peer.rendezvous.relayPassword('inbound', username),
-      };
-    }
-    return undefined;
+      return out;
+    })();
+    // A failed derivation is tried again by the next request.
+    byTag.catch(() => {
+      if (this.owners?.byTag === byTag) this.owners = undefined;
+    });
+    this.owners = { epoch, peers, byTag };
+    return byTag;
   }
 
   public close(): Promise<void> {
