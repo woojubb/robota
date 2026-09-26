@@ -5,7 +5,7 @@ import { readExternalEventGrantFiles } from './external-events/external-event-gr
 import { createExternalEventVerifier } from './external-events/external-event-verifier.js';
 import {
   createTuiExternalEventGrants,
-  describeExternalEventRecord,
+  createRefusalReporter,
   type ITuiExternalEventGrants,
 } from './external-events/tui-external-event-grants.js';
 import {
@@ -511,10 +511,7 @@ async function runCliCore(
         ...(args.externalEventTrustedProxies !== undefined
           ? { trustedProxies: args.externalEventTrustedProxies }
           : {}),
-        audit: (record) => {
-          const line = describeExternalEventRecord(record);
-          if (line !== undefined) terminal.writeLine(line);
-        },
+        audit: createRefusalReporter((line) => terminal.writeLine(line)),
       });
       await tuiEventEndpoint.start();
     } catch (error) {

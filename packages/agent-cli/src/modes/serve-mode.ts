@@ -369,21 +369,21 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
           },
         });
         externalEvents = opened;
-        const endpoint = createExternalEventHttpHost({
-          grants,
-          receive: (grantId, delivery) => opened.receive(grantId, delivery),
-          port: args.externalEventPort ?? 0,
-          ...(args.externalEventTrustedProxies !== undefined
-            ? { trustedProxies: args.externalEventTrustedProxies }
-            : {}),
-          audit,
-        });
         try {
+          const endpoint = createExternalEventHttpHost({
+            grants,
+            receive: (grantId, delivery) => opened.receive(grantId, delivery),
+            port: args.externalEventPort ?? 0,
+            ...(args.externalEventTrustedProxies !== undefined
+              ? { trustedProxies: args.externalEventTrustedProxies }
+              : {}),
+            audit,
+          });
           await endpoint.start();
+          eventEndpoint = endpoint;
         } catch {
           throw new ExternalEventEndpointError();
         }
-        eventEndpoint = endpoint;
       }
       const grantHost = externalEvents;
       if (grantHost !== undefined) {
@@ -457,7 +457,7 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
 /** The external-event endpoint could not listen on its port; the start fails naming only that. */
 class ExternalEventEndpointError extends Error {
   constructor() {
-    super('External event endpoint could not listen on its port.');
+    super('External event endpoint could not be served on its port.');
     this.name = 'ExternalEventEndpointError';
   }
 }

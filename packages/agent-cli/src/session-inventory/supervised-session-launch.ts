@@ -177,7 +177,7 @@ export async function launchSupervisedSession(
           GRANT_ID.test(message.grant) && sentGrantIds.includes(message.grant)
           ? `grant ${message.grant}: refused by the session.`
           : message.code === 'events-endpoint-failed'
-            ? 'External event endpoint could not listen on its port.'
+            ? 'External event endpoint could not be served on its port.'
             : 'Supervised session refused to start.');
       }
       if (message.kind === 'ready' && !ready) {

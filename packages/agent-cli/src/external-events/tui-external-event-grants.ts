@@ -32,6 +32,44 @@ export function describeExternalEventRecord(record: TExternalEventAuditRecord): 
     : `${who}: a turn ended ${record.settlement}.`;
 }
 
+/** A refusal of one kind is reported at most once in this window; the rest are counted. */
+const REFUSAL_REPORT_WINDOW_MS = 60_000;
+
+/**
+ * Report the endpoint's refusals without letting whoever reaches the public URL write to the owner's
+ * terminal at will: one line per grant and reason per window, carrying how many more were refused since,
+ * and nothing at all for a peer already over its failure budget.
+ */
+export function createRefusalReporter(
+  report: (line: string) => void,
+  now: () => number = Date.now,
+): (record: TExternalEventAuditRecord) => void {
+  const windows = new Map<string, { startedAt: number; suppressed: number }>();
+  return (record) => {
+    if (!('refusal' in record)) {
+      const line = describeExternalEventRecord(record);
+      if (line !== undefined) report(line);
+      return;
+    }
+    const key = `${record.grantId ?? ''}\u0000${record.refusal}`;
+    const at = now();
+    const window = windows.get(key);
+    if (
+      record.throttled === true ||
+      (window !== undefined && at - window.startedAt < REFUSAL_REPORT_WINDOW_MS)
+    ) {
+      if (window !== undefined) window.suppressed += 1;
+      else windows.set(key, { startedAt: at - REFUSAL_REPORT_WINDOW_MS, suppressed: 1 });
+      return;
+    }
+    const earlier = window?.suppressed ?? 0;
+    windows.set(key, { startedAt: at, suppressed: 0 });
+    const line = describeExternalEventRecord(record);
+    if (line === undefined) return;
+    report(earlier > 0 ? `${line} ${earlier} more were refused since the last report.` : line);
+  };
+}
+
 /**
  * The TUI's grants follow its session: each switch reopens them on the new session. A grant the
  * owner revoked stays revoked for the life of this process.

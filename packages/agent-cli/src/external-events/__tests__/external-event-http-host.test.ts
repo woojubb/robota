@@ -6,7 +6,10 @@ import { SignJWT, exportJWK, generateKeyPair } from 'jose';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { openExternalEventGrants } from '../external-event-grant-host.js';
-import { createExternalEventHttpHost } from '../external-event-http-host.js';
+import {
+  createExternalEventHttpHost,
+  validateExternalEventEndpoint,
+} from '../external-event-http-host.js';
 
 import type { IAIProvider } from '@robota-sdk/agent-core';
 import type {
@@ -142,6 +145,32 @@ function send(
     );
     req.on('error', reject);
     req.end(options.method === 'GET' ? undefined : body);
+  });
+}
+
+function sendForwarded(port: number, forwardedFor: string): Promise<IReply> {
+  return new Promise((resolve, reject) => {
+    const req = request(
+      {
+        host: '127.0.0.1',
+        port,
+        method: 'POST',
+        path: '/hooks/events/ci',
+        headers: {
+          host: HOST,
+          'content-length': 0,
+          ...(forwardedFor !== '' ? { 'x-forwarded-for': forwardedFor } : {}),
+        },
+      },
+      (res) => {
+        res.resume();
+        res.on('end', () =>
+          resolve({ status: res.statusCode ?? 0, headers: res.headers, body: '' }),
+        );
+      },
+    );
+    req.on('error', reject);
+    req.end();
   });
 }
 
@@ -352,6 +381,103 @@ describe('external event HTTPS endpoint', () => {
     for (const secret of [token, 'SECRET-CONV', 'SECRET-TEXT', '127.0.0.1', 'ci-bot']) {
       expect(serialized).not.toContain(secret);
     }
+  });
+
+  it('counts failures per client behind a trusted proxy, and ignores the header from anyone else', async () => {
+    const grants = [grant('ci', 'ci-bot')];
+    const session = {
+      receive: vi.fn(async () => ({ admitted: false as const, refusal: 'expired' as const })),
+    };
+    const statuses = async (trustedProxies: string[], forwardedFor: string) => {
+      const http = createExternalEventHttpHost({
+        grants,
+        receive: session.receive,
+        port: 0,
+        trustedProxies,
+      });
+      const { port } = await http.start();
+      try {
+        const run = async (client: string) => {
+          const results: number[] = [];
+          for (let index = 0; index < 21; index += 1) {
+            results.push((await sendForwarded(port, `${forwardedFor}${client}`)).status);
+          }
+          return [results[0], results.at(-1)];
+        };
+        return [await run('198.51.100.1'), await run('198.51.100.2')];
+      } finally {
+        await http.stop();
+      }
+    };
+    // Behind a trusted proxy each client has its own budget: 401 until its own 21st failure.
+    expect(await statuses(['127.0.0.1'], '')).toEqual([
+      [401, 429],
+      [401, 429],
+    ]);
+    // Hops the client wrote further left are not believed: the budget is still per real client.
+    expect(await statuses(['127.0.0.1'], '203.0.113.7, ')).toEqual([
+      [401, 429],
+      [401, 429],
+    ]);
+    // Untrusted peer: the header is ignored, so the second client shares the peer's spent budget.
+    expect(await statuses([], '')).toEqual([
+      [401, 429],
+      [429, 429],
+    ]);
+  });
+
+  it('refuses a streamed body over the bound without reading it all', async () => {
+    const { port } = await start();
+    const token = await mint();
+    const reply = await new Promise<IReply>((resolve, reject) => {
+      const req = request(
+        {
+          host: '127.0.0.1',
+          port,
+          method: 'POST',
+          path: '/hooks/events/ci',
+          headers: { host: HOST, authorization: `Bearer ${token}`, 'transfer-encoding': 'chunked' },
+        },
+        (res) => {
+          let text = '';
+          res.on('data', (chunk: Buffer) => {
+            text += chunk.toString('utf8');
+          });
+          res.on('end', () =>
+            resolve({ status: res.statusCode ?? 0, headers: res.headers, body: text }),
+          );
+        },
+      );
+      req.on('error', () => undefined);
+      for (let index = 0; index < 5; index += 1) req.write('x'.repeat(8 * 1024));
+      req.end();
+      req.on('error', reject);
+    });
+    expect(reply).toMatchObject({ status: 413, body: '' });
+  });
+
+  it('treats two spellings of one public URL as one, and validates without listening', () => {
+    const upper = {
+      ...grant('chat', 'chat-bot'),
+      verifier: {
+        ...grant('chat', 'chat-bot').verifier,
+        resource: 'https://ROBOTA.example/hooks/events/chat',
+      },
+    };
+    expect(() =>
+      validateExternalEventEndpoint({ grants: [grant('ci', 'ci-bot'), upper] }),
+    ).not.toThrow();
+    const badScope = {
+      ...grant('ci', 'ci-bot'),
+      verifier: { ...grant('ci', 'ci-bot').verifier, requiredScopes: ['a b'] },
+    };
+    expect(() => validateExternalEventEndpoint({ grants: [badScope] })).toThrow(/^grant ci: /);
+    expect(() =>
+      validateExternalEventEndpoint({
+        grants: [grant('ci', 'ci-bot')],
+        trustedProxies: ['proxy.example'],
+      }),
+    ).toThrow(/literal IP/);
   });
 
   it('refuses a configuration it cannot serve safely', () => {

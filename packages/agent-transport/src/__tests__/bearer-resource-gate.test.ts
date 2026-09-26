@@ -40,6 +40,34 @@ describe('shared bearer resource-server gate', () => {
     });
   });
 
+  it('believes X-Forwarded-For only from a trusted proxy, and only its rightmost untrusted hop', () => {
+    const server = createBearerResourceServer({
+      publicUrl: 'https://robota.example',
+      trustedProxies: ['127.0.0.1', '10.0.0.2'],
+      label: 'Test',
+    });
+    const budgetAfter = (count: number, req: IncomingMessage) => {
+      let last = server.fail(req);
+      for (let index = 1; index < count; index += 1) last = server.fail(req);
+      return last;
+    };
+    // From an untrusted peer the header is ignored: the peer itself is counted and classed.
+    const untrusted = request({ 'x-forwarded-for': '198.51.100.9' }, '203.0.113.5');
+    expect(server.remote(untrusted)).toBe('public');
+    expect(budgetAfter(21, untrusted).throttled).toBe(true);
+    expect(server.fail(request({}, '198.51.100.9')).throttled).toBe(false);
+    // From a trusted proxy: the nearest untrusted hop, skipping further trusted proxies.
+    const viaProxies = request({ 'x-forwarded-for': '6.6.6.6, 198.51.100.20, 10.0.0.2' });
+    expect(budgetAfter(21, viaProxies).throttled).toBe(true);
+    // A forged hop further left does not move the counted address.
+    const forged = request({ 'x-forwarded-for': '1.1.1.1, 198.51.100.20' });
+    expect(server.fail(forged).throttled).toBe(true);
+    // A garbage hop falls back to the proxy itself.
+    expect(server.remote(request({ 'x-forwarded-for': 'not-an-ip' }))).toBe('loopback');
+    // A different client behind the proxy has its own budget.
+    expect(server.fail(request({ 'x-forwarded-for': '198.51.100.21' })).throttled).toBe(false);
+  });
+
   it('refuses an unsafe configuration, naming the carrier', () => {
     const base = {
       resource: 'https://r.example/x',

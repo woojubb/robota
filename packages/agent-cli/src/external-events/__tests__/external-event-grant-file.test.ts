@@ -106,6 +106,7 @@ describe('external event grant files', () => {
       /grant ci: invalid resource/,
     ],
     ['no scope', { ...VALID, scopes: [] }, /grant ci: invalid scopes/],
+    ['a scope a challenge cannot quote', { ...VALID, scopes: ['a"b'] }, /grant ci: invalid scopes/],
     [
       'an unsupported algorithm',
       { ...VALID, algorithms: ['HS256'] },

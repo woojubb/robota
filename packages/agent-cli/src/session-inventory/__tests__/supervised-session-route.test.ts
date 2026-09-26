@@ -47,7 +47,9 @@ describe('supervised background session command', () => {
       );
       expect(handled).toBe(true);
       expect(process.exitCode).toBe(1);
-      expect(stderr.mock.calls.map(([text]) => String(text)).join('')).toMatch(/invalid supervised session id/i);
+      expect(stderr.mock.calls.map(([text]) => String(text)).join('')).toMatch(
+        /invalid supervised session id/i,
+      );
     } finally {
       stderr.mockRestore();
       process.exitCode = previousExitCode;
@@ -61,24 +63,89 @@ describe('supervised background session command', () => {
     const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
     try {
       const file = join(cwd, 'grant.json');
-      writeFileSync(file, JSON.stringify({
-        grantId: 'ci', issuer: 'http://issuer.example', resource: 'https://robota.example/events/ci',
-        client: 'ci-bot', scopes: ['robota.events.submit'],
-      }));
+      writeFileSync(
+        file,
+        JSON.stringify({
+          grantId: 'ci',
+          issuer: 'http://issuer.example',
+          resource: 'https://robota.example/events/ci',
+          client: 'ci-bot',
+          scopes: ['robota.events.submit'],
+        }),
+      );
       const options = {
         providerDefinitions: [],
         projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
       };
-      const start = ['node', 'robota', 'session', 'start', '--background', '--external-event-grant', file];
-      const handled = await runPreparsedCliCommand(options, [...start, '--external-event-port', '8443'], cwd);
+      const start = [
+        'node',
+        'robota',
+        'session',
+        'start',
+        '--background',
+        '--external-event-grant',
+        file,
+      ];
+      const handled = await runPreparsedCliCommand(
+        options,
+        [...start, '--external-event-port', '8443'],
+        cwd,
+      );
       expect(handled).toBe(true);
       expect(process.exitCode).toBe(1);
       const written = stderr.mock.calls.map(([text]) => String(text)).join('');
       expect(written).toBe('grant ci: invalid issuer\n');
+      const other = join(cwd, 'other.json');
+      writeFileSync(
+        other,
+        JSON.stringify({
+          grantId: 'chat',
+          issuer: 'https://issuer.example',
+          resource: 'https://elsewhere.example/events/chat',
+          client: 'chat-bot',
+          scopes: ['robota.events.submit'],
+        }),
+      );
+      const valid = join(cwd, 'valid.json');
+      writeFileSync(
+        valid,
+        JSON.stringify({
+          grantId: 'ci',
+          issuer: 'https://issuer.example',
+          resource: 'https://robota.example/events/ci',
+          client: 'ci-bot',
+          scopes: ['robota.events.submit'],
+        }),
+      );
+      stderr.mockClear();
+      await runPreparsedCliCommand(
+        options,
+        [
+          'node',
+          'robota',
+          'session',
+          'start',
+          '--background',
+          '--external-event-grant',
+          valid,
+          '--external-event-grant',
+          other,
+          '--external-event-port',
+          '8443',
+        ],
+        cwd,
+      );
+      expect(process.exitCode).toBe(1);
+      expect(stderr.mock.calls.map(([text]) => String(text)).join('')).toBe(
+        'External event endpoint: all grants must share one public URL\n',
+      );
       for (const [extra, reason] of [
         [[], /needs --external-event-port/],
         [['--external-event-port', '0'], /must be an integer in 1\.\.65535/],
-        [['--external-event-port', '8443', '--external-event-trusted-proxy', 'proxy.example'], /literal IP/],
+        [
+          ['--external-event-port', '8443', '--external-event-trusted-proxy', 'proxy.example'],
+          /literal IP/,
+        ],
       ] as const) {
         stderr.mockClear();
         process.exitCode = 0;
@@ -102,7 +169,11 @@ describe('supervised background session command', () => {
       projectAccess: createRestrictedWorkspaceProjectAccess('untrusted', cwd),
     };
     try {
-      for (const argv of [['session', 'events'], ['session', 'events', 'list'], ['session', 'events', 'revoke', 'x']]) {
+      for (const argv of [
+        ['session', 'events'],
+        ['session', 'events', 'list'],
+        ['session', 'events', 'revoke', 'x'],
+      ]) {
         process.exitCode = 0;
         expect(await runPreparsedCliCommand(options, ['node', 'robota', ...argv], cwd)).toBe(true);
         expect(process.exitCode).toBe(1);
@@ -111,9 +182,15 @@ describe('supervised background session command', () => {
         /Usage: robota session events list <supervised-id> \[--json\]/,
       );
       stderr.mockClear();
-      await runPreparsedCliCommand(options, ['node', 'robota', 'session', 'events', 'revoke', '../escape', 'ci'], cwd);
+      await runPreparsedCliCommand(
+        options,
+        ['node', 'robota', 'session', 'events', 'revoke', '../escape', 'ci'],
+        cwd,
+      );
       expect(process.exitCode).toBe(1);
-      expect(stderr.mock.calls.map(([text]) => String(text)).join('')).toMatch(/invalid supervised session id/i);
+      expect(stderr.mock.calls.map(([text]) => String(text)).join('')).toMatch(
+        /invalid supervised session id/i,
+      );
     } finally {
       stderr.mockRestore();
       process.exitCode = previousExitCode;

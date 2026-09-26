@@ -18,6 +18,7 @@ import {
   unlinkSupervisedPr,
 } from '../session-inventory/supervised-session-control.js';
 import { readExternalEventGrantFiles } from '../external-events/external-event-grant-file.js';
+import { validateExternalEventEndpoint } from '../external-events/external-event-http-host.js';
 import { formatExternalEventGrantRows } from '../external-events/external-event-grant-format.js';
 
 import type { IExternalEventGrant } from '@robota-sdk/agent-interface-transport';
@@ -336,6 +337,10 @@ export async function runPreparsedCliCommand(
     try {
       eventEndpoint = parseEventEndpoint(start);
       grants = readExternalEventGrantFiles(start.grantFiles);
+      // Everything the child's endpoint will check is checked here, so a start fails before it spawns.
+      if (eventEndpoint !== undefined) {
+        validateExternalEventEndpoint({ grants, trustedProxies: eventEndpoint.trustedProxies });
+      }
     } catch (error) {
       process.stderr.write(`${error instanceof Error ? error.message : 'grant refused'}\n`);
       process.exitCode = 1;

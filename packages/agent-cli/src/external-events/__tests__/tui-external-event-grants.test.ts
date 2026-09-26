@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import {
+  createRefusalReporter,
   createTuiExternalEventGrants,
   describeExternalEventRecord,
 } from '../tui-external-event-grants.js';
@@ -123,6 +124,37 @@ describe('TUI external event grants', () => {
         throttled: false,
       }),
     ).toBe('External event: an event was refused (unknown-grant).');
+  });
+
+  it('reports refusals at most once per grant and reason a minute, and never a throttled peer', () => {
+    const lines: string[] = [];
+    let clock = 0;
+    const reportRecord = createRefusalReporter(
+      (line) => lines.push(line),
+      () => clock,
+    );
+    const refusal = (refusal: 'missing-token' | 'expired', throttled = false) => ({
+      at: 'now',
+      grantId: 'ci',
+      refusal,
+      remote: 'public' as const,
+      throttled,
+    });
+    for (let index = 0; index < 100; index += 1) reportRecord(refusal('missing-token'));
+    reportRecord(refusal('expired'));
+    for (let index = 0; index < 50; index += 1) reportRecord(refusal('expired', true));
+    expect(lines).toEqual([
+      'External event grant ci: an event was refused (missing-token).',
+      'External event grant ci: an event was refused (expired).',
+    ]);
+    clock = 60_000;
+    reportRecord(refusal('missing-token'));
+    reportRecord(refusal('expired', true));
+    expect(lines.slice(2)).toEqual([
+      'External event grant ci: an event was refused (missing-token). 99 more were refused since the last report.',
+    ]);
+    reportRecord({ at: 'now', grantId: 'ci', settlement: 'failed' });
+    expect(lines.at(-1)).toBe('External event grant ci: a turn ended failed.');
   });
 
   it('routes a delivery to the bound session, refusing a revoked grant and an unbound TUI', async () => {

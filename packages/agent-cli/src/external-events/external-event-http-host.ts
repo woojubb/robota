@@ -110,11 +110,68 @@ function publicUrlOf(grants: readonly IExternalEventGrant[]): string {
       if (!resource.endsWith(suffix)) {
         throw new Error(`${LABEL}: grant ${grant.grantId} resource must end in ${suffix}`);
       }
-      return resource.slice(0, -suffix.length);
+      const base = resource.slice(0, -suffix.length);
+      // Compare the URLs, not their spelling: `https://Host/x` and `https://host/x` are one URL.
+      return URL.canParse(base) ? new URL(base).href : base;
     }),
   );
   if (bases.size !== 1) throw new Error(`${LABEL}: all grants must share one public URL`);
   return [...bases][0]!;
+}
+
+interface IEndpointConfiguration {
+  readonly publicUrl: string;
+  readonly server: ReturnType<typeof createBearerResourceServer>;
+  readonly routes: ReadonlyMap<string, IRoute>;
+  readonly metadata: ReadonlyMap<string, IProtectedResource>;
+  readonly eventsPrefix: string;
+}
+
+function configure(
+  options: Pick<IExternalEventHttpHostOptions, 'grants' | 'trustedProxies' | 'now'>,
+): IEndpointConfiguration {
+  const publicUrl = publicUrlOf(options.grants);
+  const server = createBearerResourceServer({
+    publicUrl,
+    ...(options.trustedProxies !== undefined ? { trustedProxies: options.trustedProxies } : {}),
+    label: LABEL,
+    ...(options.now !== undefined ? { now: options.now } : {}),
+  });
+  const basePath = server.url.pathname.replace(/\/$/u, '');
+  const routes = new Map<string, IRoute>();
+  const metadata = new Map<string, IProtectedResource>();
+  for (const grant of options.grants) {
+    let resource: IProtectedResource;
+    try {
+      resource = describeProtectedResource({
+        resource: grant.verifier.resource,
+        issuer: grant.verifier.issuer,
+        scopes: grant.verifier.requiredScopes,
+        label: LABEL,
+      });
+    } catch (error) {
+      // The messages name what is wrong, never a configured value.
+      throw new Error(
+        `grant ${grant.grantId}: ${error instanceof Error ? error.message : 'cannot be served'}`,
+      );
+    }
+    routes.set(`${basePath}${EVENTS_SEGMENT}${grant.grantId}`, {
+      grantId: grant.grantId,
+      resource,
+    });
+    metadata.set(resource.wellKnownPath, resource);
+  }
+  return { publicUrl, server, routes, metadata, eventsPrefix: `${basePath}${EVENTS_SEGMENT}` };
+}
+
+/**
+ * Check, without listening, that these grants and proxies can be served, so a launcher can refuse a
+ * start before it spawns anything. Throws with a reason that names a grant, never a configured value.
+ */
+export function validateExternalEventEndpoint(
+  options: Pick<IExternalEventHttpHostOptions, 'grants' | 'trustedProxies'>,
+): void {
+  configure(options);
 }
 
 /** Read the body up to the bound; `undefined` when it is larger. Never buffers past the bound. */
@@ -165,35 +222,12 @@ function parseEvent(body: string): unknown {
 export function createExternalEventHttpHost(
   options: IExternalEventHttpHostOptions,
 ): IExternalEventHttpHost {
-  const publicUrl = publicUrlOf(options.grants);
   const bindAddress = options.bindAddress ?? '127.0.0.1';
   if (!LOOPBACK_BINDS.has(bindAddress)) throw new Error(`${LABEL} binds only a loopback address`);
   if (!Number.isInteger(options.port) || options.port < 0 || options.port > 65535) {
     throw new Error(`${LABEL} port must be an integer in 0..65535`);
   }
-  const server = createBearerResourceServer({
-    publicUrl,
-    ...(options.trustedProxies !== undefined ? { trustedProxies: options.trustedProxies } : {}),
-    label: LABEL,
-    ...(options.now !== undefined ? { now: options.now } : {}),
-  });
-  const basePath = server.url.pathname === '/' ? '' : server.url.pathname;
-  const routes = new Map<string, IRoute>();
-  const metadata = new Map<string, IProtectedResource>();
-  for (const grant of options.grants) {
-    const resource = describeProtectedResource({
-      resource: grant.verifier.resource,
-      issuer: grant.verifier.issuer,
-      scopes: grant.verifier.requiredScopes,
-      label: LABEL,
-    });
-    routes.set(`${basePath}${EVENTS_SEGMENT}${grant.grantId}`, {
-      grantId: grant.grantId,
-      resource,
-    });
-    metadata.set(resource.wellKnownPath, resource);
-  }
-  const eventsPrefix = `${basePath}${EVENTS_SEGMENT}`;
+  const { publicUrl, server, routes, metadata, eventsPrefix } = configure(options);
 
   const audit = (record: TExternalEventAuditRecord): void => {
     try {
