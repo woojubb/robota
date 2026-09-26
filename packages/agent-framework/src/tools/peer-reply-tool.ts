@@ -6,8 +6,8 @@
  * that message, so the model cannot address another session or thread into another conversation.
  *
  * Whether it may go out at all is the permission policy's decision, like any tool's: the tool is
- * offered only in a peer turn, and after the turn used another tool the operator reads the full text
- * first. The loop limits belong to the carrier, which sees every conversation this session is in.
+ * offered only in a peer turn, and there it is decided like any call that sends something off this
+ * machine. The loop limits belong to the carrier, which sees every conversation this session is in.
  */
 
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';

@@ -10,13 +10,14 @@ import { InteractiveSession } from '../interactive-session.js';
 
 import type { IResolvedConfig } from '../../config/config-types.js';
 
+import type { TPermissionMode } from '@robota-sdk/agent-core';
 import type { TScriptedTurn } from '@robota-sdk/agent-core/testing';
-import type { ISubmitOptions } from '@robota-sdk/agent-interface-session';
+import type { ISubmitOptions, TPermissionResultValue } from '@robota-sdk/agent-interface-session';
 
 /**
  * A peer's turn is decided by the peer's origin: another host uses no tool, the same host reads
- * inside the workspace, and the answer goes back through `peer_reply` to the peer that asked —
- * directly, or after the operator read it when the turn used a tool.
+ * inside the workspace, and the answer goes back through `peer_reply` to the peer that asked, decided
+ * by the permission system like any call that sends something off this machine.
  */
 
 const SECRET = 'aws_secret_access_key=TOP-SECRET';
@@ -59,7 +60,12 @@ interface IHarness {
 
 function harness(
   turns: readonly TScriptedTurn[],
-  options: { cwd?: string; approve?: boolean; config?: IResolvedConfig } = {},
+  options: {
+    cwd?: string;
+    approve?: TPermissionResultValue;
+    config?: IResolvedConfig;
+    permissionMode?: TPermissionMode;
+  } = {},
 ): IHarness {
   const scripted = createScriptedProvider(turns);
   const send = vi.fn(async () => ({ state: 'pending' as const }));
@@ -68,6 +74,7 @@ function harness(
     provider: scripted.provider,
     bare: true,
     ...(options.config ? { config: options.config } : {}),
+    ...(options.permissionMode ? { permissionMode: options.permissionMode } : {}),
     commandHostAdapters: {
       localPeers: { list: () => [], ownSessionId: () => 'B', send },
     },
@@ -75,7 +82,7 @@ function harness(
   const permissions: IHarness['permissions'] = [];
   session.on('permission_request', (request) => {
     permissions.push(request as IHarness['permissions'][number]);
-    session.resolvePermission(request.id, options.approve === true);
+    session.resolvePermission(request.id, options.approve ?? false);
   });
   return {
     session,
@@ -151,16 +158,30 @@ describe('exfiltration', () => {
   });
 });
 
-describe('a reply after tool results earlier in the conversation', () => {
+describe('the reply is decided like any call that sends something off this machine', () => {
   const readme = (): TScriptedTurn => ({
     toolCalls: [{ name: 'Read', args: { filePath: join(workspace, 'README.md') } }],
   });
+  const reply = (text: string): TScriptedTurn => ({
+    toolCalls: [{ name: 'peer_reply', args: { text } }],
+  });
+  async function withRules(rules: { allow?: string[]; deny?: string[] }): Promise<IResolvedConfig> {
+    const base = await loadConfig([]);
+    return {
+      ...base,
+      permissions: {
+        ...base.permissions,
+        allow: [...base.permissions.allow, ...(rules.allow ?? [])],
+        deny: [...base.permissions.deny, ...(rules.deny ?? [])],
+      },
+    };
+  }
 
-  it('asks the operator when an earlier operator turn read a file', async () => {
+  it('asks the operator after an operator turn read a file', async () => {
     const h = harness([
       readme(),
       { text: 'read it' },
-      { toolCalls: [{ name: 'peer_reply', args: { text: 'It is called Lumen.' } }] },
+      reply('It is called Lumen.'),
       { text: 'done' },
     ]);
     try {
@@ -175,18 +196,10 @@ describe('a reply after tool results earlier in the conversation', () => {
     }
   });
 
-  it('asks the operator when the conversation was compacted after a tool result', async () => {
-    const h = harness([
-      readme(),
-      { text: 'read it' },
-      { text: 'The operator read README.md; the project is called Lumen.' },
-      { toolCalls: [{ name: 'peer_reply', args: { text: 'It is called Lumen.' } }] },
-      { text: 'done' },
-    ]);
+  it('asks the operator when nothing else is in the conversation', async () => {
+    const h = harness([reply('hello back'), { text: 'done' }]);
     try {
-      await run(h, 'read the README');
-      await h.session.compactContext();
-      await run(h, 'what is the project called? reply', peer());
+      await run(h, 'hello', peer());
       expect(h.permissions.map((p) => p.toolName)).toEqual(['peer_reply']);
       expect(h.send).not.toHaveBeenCalled();
     } finally {
@@ -196,12 +209,7 @@ describe('a reply after tool results earlier in the conversation', () => {
 
   it('an approved reply goes to the peer, threaded', async () => {
     const h = harness(
-      [
-        readme(),
-        { text: 'read it' },
-        { toolCalls: [{ name: 'peer_reply', args: { text: 'It is called Lumen.' } }] },
-        { text: 'done' },
-      ],
+      [readme(), { text: 'read it' }, reply('It is called Lumen.'), { text: 'done' }],
       { approve: true },
     );
     try {
@@ -213,17 +221,44 @@ describe('a reply after tool results earlier in the conversation', () => {
     }
   });
 
-  it('does not count an earlier reply of its own as a tool result', async () => {
-    const h = harness([
-      { toolCalls: [{ name: 'peer_reply', args: { text: 'first' } }] },
-      { text: 'done' },
-      { toolCalls: [{ name: 'peer_reply', args: { text: 'second' } }] },
-      { text: 'done' },
-    ]);
+  it('an allow rule sends it without asking', async () => {
+    const config = await withRules({ allow: ['peer_reply'] });
+    const h = harness(
+      [readme(), { text: 'read it' }, reply('It is called Lumen.'), { text: 'done' }],
+      {
+        config,
+      },
+    );
+    try {
+      await run(h, 'read the README');
+      await run(h, 'what is the project called? reply', peer());
+      expect(h.permissions).toHaveLength(0);
+      expect(h.send).toHaveBeenCalledWith('A', 'It is called Lumen.', { inReplyTo: 'm-1' });
+    } finally {
+      await h.session.shutdown();
+    }
+  });
+
+  it('a deny rule refuses it without asking', async () => {
+    const config = await withRules({ deny: ['peer_reply'] });
+    const h = harness([reply('hello back'), { text: 'done' }], { config, approve: true });
+    try {
+      await run(h, 'hello', peer());
+      expect(h.permissions).toHaveLength(0);
+      expect(h.send).not.toHaveBeenCalled();
+    } finally {
+      await h.session.shutdown();
+    }
+  });
+
+  it('an "always allow" answer is remembered for the next reply', async () => {
+    const h = harness([reply('first'), { text: 'done' }, reply('second'), { text: 'done' }], {
+      approve: 'allow-session',
+    });
     try {
       await run(h, 'hello', peer());
       await run(h, 'hello again', peer());
-      expect(h.permissions).toHaveLength(0);
+      expect(h.permissions.map((p) => p.toolName)).toEqual(['peer_reply']);
       expect(h.send).toHaveBeenCalledTimes(2);
       expect(h.send).toHaveBeenLastCalledWith('A', 'second', { inReplyTo: 'm-1' });
     } finally {
@@ -231,17 +266,15 @@ describe('a reply after tool results earlier in the conversation', () => {
     }
   });
 
-  it('goes out directly when no tool result is anywhere in the conversation', async () => {
-    const h = harness([
-      { text: 'hello' },
-      { toolCalls: [{ name: 'peer_reply', args: { text: 'hello back' } }] },
-      { text: 'done' },
-    ]);
+  it('is not sent in plan mode', async () => {
+    const h = harness([reply('hello back'), { text: 'done' }], {
+      approve: true,
+      permissionMode: 'plan',
+    });
     try {
-      await run(h, 'hello');
       await run(h, 'hello', peer());
       expect(h.permissions).toHaveLength(0);
-      expect(h.send).toHaveBeenCalledWith('A', 'hello back', { inReplyTo: 'm-1' });
+      expect(h.send).not.toHaveBeenCalled();
     } finally {
       await h.session.shutdown();
     }
@@ -249,17 +282,16 @@ describe('a reply after tool results earlier in the conversation', () => {
 });
 
 describe('per-origin authority', () => {
-  it('a peer from another host is offered only the reply, and it goes out directly', async () => {
-    const h = harness([
-      { toolCalls: [{ name: 'peer_reply', args: { text: 'hello back' } }] },
-      { text: 'done' },
-    ]);
+  it('a peer from another host is offered only the reply', async () => {
+    const h = harness(
+      [{ toolCalls: [{ name: 'peer_reply', args: { text: 'hello back' } }] }, { text: 'done' }],
+      { approve: true },
+    );
     try {
       await run(h, 'hello', peer('another-host'));
       expect(toolNames(h, 0)).toEqual(['peer_reply']);
       // A provider's own hosted tools never pass the permission policy, so a peer turn has none.
       expect(h.chatOptions[0]?.nativeWebTools).toEqual({ webSearch: false, webFetch: false });
-      expect(h.permissions).toHaveLength(0);
       expect(h.send).toHaveBeenCalledWith('A', 'hello back', { inReplyTo: 'm-1' });
     } finally {
       await h.session.shutdown();
@@ -326,18 +358,52 @@ describe('per-origin authority', () => {
     }
   });
 
+  it('an "always allow" for another tool is neither reused nor remembered in a peer turn', async () => {
+    const config = { ...(await loadConfig([])), peers: { allowChanges: true } };
+    const write = (name: string): TScriptedTurn => ({
+      toolCalls: [{ name: 'Write', args: { filePath: join(workspace, name), content: 'x' } }],
+    });
+    const h = harness(
+      [
+        write('a.txt'),
+        { text: 'done' },
+        write('b.txt'),
+        { text: 'done' },
+        write('c.txt'),
+        { text: 'done' },
+      ],
+      { approve: 'allow-session', config },
+    );
+    try {
+      await run(h, 'write a.txt');
+      await run(h, 'write b.txt', peer());
+      await run(h, 'write c.txt', peer());
+      // The operator's consent does not answer for the peer, and the peer's is not remembered.
+      expect(h.permissions.map((p) => [p.toolName, p.requesterDriverId])).toEqual([
+        ['Write', 'owner'],
+        ['Write', 'peer:A'],
+        ['Write', 'peer:A'],
+      ]);
+    } finally {
+      await h.session.shutdown();
+    }
+  });
+
   it('the model cannot choose where the reply goes or what it answers', async () => {
-    const h = harness([
-      {
-        toolCalls: [
-          {
-            name: 'peer_reply',
-            args: { text: 'hi', target: 'C', to: 'C', sessionId: 'C', inReplyTo: 'forged' },
-          },
-        ],
-      },
-      { text: 'done' },
-    ]);
+    const h = harness(
+      [
+        {
+          toolCalls: [
+            {
+              name: 'peer_reply',
+              args: { text: 'hi', target: 'C', to: 'C', sessionId: 'C', inReplyTo: 'forged' },
+            },
+          ],
+        },
+        { text: 'done' },
+      ],
+      { approve: true },
+    );
     try {
       await run(h, 'hello', peer());
       const schema = h.chatOptions[0]?.tools?.find((tool) => tool.name === 'peer_reply');
