@@ -58,9 +58,10 @@ The API surface follows `baseURL` unless `apiSurface` is set:
 
 `strictTools: true` closes tool object schemas and requests OpenAI strict function calling. Every
 object node of a tool's parameter schema, nested ones included, gets `additionalProperties: false`
-and a complete `required` list, with optional properties turned into nullable ones; on the
-Responses surface each function tool is also sent with `strict: true`. With `strictTools` off (the
-default) tool schemas are forwarded as authored.
+and a complete `required` list, with optional properties turned into nullable ones, and each function
+tool is sent with `strict: true` on both the Responses and Chat Completions surfaces. An
+OpenAI-compatible endpoint that rejects the `strict` field needs `strictTools` left off. With
+`strictTools` off (the default) tool schemas are forwarded as authored and no `strict` field is sent.
 
 ## Options
 
