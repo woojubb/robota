@@ -48,7 +48,9 @@ does not own session lifecycle, conversation history, or agent runtime state.
 - Malformed server frames are surfaced through the client's callback path and never thrown inside
   the socket handler.
 - The package ships no compiled CSS — it authors Tailwind utility classes as source, and the
-  consumer owns the Tailwind entry point that compiles them.
+  consumer owns the Tailwind entry point that compiles them. Its design applies only inside the
+  `robota-ui` scope that each of its root components opens, so a host with tokens of its own under the
+  same names can embed the surface without either overriding the other.
 
 ## Non-goals / boundaries
 

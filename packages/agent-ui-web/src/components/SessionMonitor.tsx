@@ -45,7 +45,7 @@ export function SessionMonitor({ wsUrl, className }: ISessionMonitorProps): Reac
   const hasAgents = backgroundTasks.length > 0;
 
   return (
-    <div className={`flex flex-col h-full overflow-hidden bg-background ${className ?? ''}`}>
+    <div className={`robota-ui flex flex-col h-full overflow-hidden bg-background ${className ?? ''}`}>
       {/* Header */}
       <div className="flex h-12 flex-shrink-0 items-center gap-3 px-5">
         <div className="flex items-center gap-2.5">
