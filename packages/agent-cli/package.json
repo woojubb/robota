@@ -31,7 +31,8 @@
           "default": "./dist/node/index.cjs"
         }
       }
-    }
+    },
+    "./package.json": "./package.json"
   },
   "repository": {
     "type": "git",
@@ -46,7 +47,8 @@
   },
   "files": [
     "dist",
-    "bin"
+    "bin",
+    "CHANGELOG.md"
   ],
   "scripts": {
     "build": "rimraf dist && tsdown && node scripts/copy-web.mjs",
