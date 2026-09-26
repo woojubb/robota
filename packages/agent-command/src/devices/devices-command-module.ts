@@ -1,17 +1,19 @@
 /**
  * `/devices` — this device's place in the user's device identity: list the roster, create the
- * identity, revoke a device, recover from the recovery phrase.
+ * identity, enrol another device or join with one, revoke a device, recover from the recovery phrase.
  *
  * Operator-only, twice over: the command is not model-invocable, and it refuses any invocation that
  * is not the operator's own (a remote surface, the model). Every verb that touches a secret or
  * asks for a confirmation runs inside the terminal handoff, so what is typed goes to the host's
- * terminal and never through the session's input, prompt history or conversation. Without an
+ * terminal and never through the session's input, prompt history or conversation — the enrollment
+ * code included, which is why `join` reads it there instead of taking it as an argument. Without an
  * interactive terminal those verbs refuse rather than fall back to anything else.
  */
 import { createSystemCommandFromEntry } from '../command-module-utils.js';
 
 import type {
   IDevicesCommandPort,
+  IDevicesMeshStatus,
   IDevicesView,
   TDevicesOutcome,
   TDevicesRefusal,
@@ -24,20 +26,20 @@ import type {
 import type { ICommand, ICommandResult, ICommandSource } from '@robota-sdk/agent-interface-command';
 
 const SHORT_ID_CHARS = 10;
-const USAGE = 'Usage: /devices [list|init [name]|revoke <device-id>|recover]';
+const USAGE = 'Usage: /devices [list|init [name]|add|join [name]|revoke <device-id>|recover]';
 
 export function createDevicesCommandEntry(): ICommand {
   return {
     name: 'devices',
     displayName: 'Devices',
     description:
-      "Manage this device's identity among the user's devices: list the roster, create the identity and its recovery phrase, revoke a device, or rotate the signing key from the phrase. Operator-only; the phrase is handled on the terminal and results carry only device ids and names.",
+      "Manage this device's identity among the user's devices: list the roster with the device mesh status (whether it is on, how this device finds the others, which are linked), create the identity and its recovery phrase, enrol another device (add shows a one-time code; join on the new device reads it), revoke a device, or rotate the signing key from the phrase. Operator-only; the phrase and the enrollment code are handled on the terminal only, and results carry only device ids and names.",
     source: 'devices',
     modelInvocable: false,
     userInvocable: true,
-    argumentHint: '[list|init [name]|revoke <device-id>|recover]',
+    argumentHint: '[list|init [name]|add|join [name]|revoke <device-id>|recover]',
     subcommands: [
-      { name: 'list', description: 'List your devices', source: 'devices' },
+      { name: 'list', description: 'List your devices and the device mesh status', source: 'devices' },
       {
         name: 'init',
         description: 'Create your device identity and recovery phrase',
@@ -55,26 +57,56 @@ export function createDevicesCommandEntry(): ICommand {
         description: 'Rotate the signing key from your recovery phrase',
         source: 'devices',
       },
+      {
+        name: 'add',
+        description: 'Enrol another device: show a one-time code for it',
+        source: 'devices',
+      },
+      {
+        name: 'join',
+        description: 'Join your devices with the code another device shows',
+        source: 'devices',
+        argumentHint: '[name]',
+      },
     ],
   };
 }
 
 const REFUSALS: Readonly<Record<TDevicesRefusal, string>> = {
-  'no-terminal': 'This needs an interactive terminal; the recovery phrase is never shown or read anywhere else.',
+  'no-terminal':
+    'This needs an interactive terminal; the recovery phrase is never shown or read anywhere else.',
   'not-initialized': 'This device has no identity yet. Run `/devices init` first.',
-  'already-initialized': 'This device already has an identity. Use `/devices recover` to rotate its signing key.',
+  'already-initialized':
+    'This device already has an identity. Use `/devices recover` to rotate its signing key.',
   cancelled: 'Cancelled. Nothing was changed.',
   'confirmation-failed': 'The confirmation did not match. Nothing was changed.',
   'phrase-invalid': 'That is not a valid recovery phrase. Nothing was changed.',
   'phrase-mismatch':
     'That phrase (with that passphrase) belongs to a different identity than this device. Nothing was changed.',
-  'no-signing-key': 'This device does not hold the signing key. Revoke from a device that does, or `/devices recover`.',
-  'signing-key-expired': 'The signing key on this device has expired. Run `/devices recover` to issue a new one.',
+  'no-signing-key':
+    'This device does not hold the signing key. Revoke from a device that does, or `/devices recover`.',
+  'signing-key-expired':
+    'The signing key on this device has expired. Run `/devices recover` to issue a new one.',
   'unknown-device': 'No device in the roster has that id.',
   'ambiguous-device': 'More than one device starts with that id; give more of it.',
-  'self-revocation': 'This device cannot revoke itself. Revoke it from another device, or `/devices recover`.',
+  'self-revocation':
+    'This device cannot revoke itself. Revoke it from another device, or `/devices recover`.',
   'changed-concurrently':
     'The device identity changed in another session while this was waiting. Nothing was changed; try again.',
+  'no-relay':
+    'Enrolling a device needs a signaling relay. Set `transports.webrtc.options.relayUrl` in your settings on both devices.',
+  'code-invalid': 'That is not an enrollment code. Nothing was changed.',
+  'code-on-command-line':
+    'Do not put the code on the command line, where history keeps it. Run `/devices add` again on the other device for a new code, then `/devices join` here and type it at the prompt.',
+  'code-not-accepted':
+    'No device accepted that code: it is wrong, expired or already used, or the connection was tampered with. Run `/devices add` on the other device for a new code.',
+  'enrollment-expired': 'The code expired before a device joined. Nothing was changed.',
+  'too-many-attempts':
+    'Too many attempts failed to prove the code, so it no longer works. Nothing was changed; run `/devices add` again.',
+  'enrollment-declined': 'The enrollment was declined. Nothing was changed.',
+  'enrollment-timed-out': 'Nobody answered in time. Nothing was changed.',
+  'enrollment-failed':
+    'The signaling relay or the connection to the other device failed before the enrollment finished. Nothing was changed; try again.',
 };
 
 function short(id: string): string {
@@ -89,7 +121,25 @@ function refused(reason: TDevicesRefusal): ICommandResult {
   return { success: false, message: REFUSALS[reason] };
 }
 
-function formatList(view: IDevicesView | undefined): ICommandResult {
+function formatMesh(mesh: IDevicesMeshStatus): string[] {
+  if (mesh.state === 'off') {
+    return ['Device mesh: off. Set `transports.mesh.enabled` to true in your user settings to link your devices.'];
+  }
+  if (mesh.state === 'failed') {
+    return [`Device mesh: could not start: ${mesh.reason ?? 'no reason was reported'}.`];
+  }
+  const found = mesh.sources.length > 0 ? `; finds devices by ${mesh.sources.join(', ')}` : '';
+  const linked = mesh.linked.map(
+    (device) =>
+      `  ${short(device.deviceId)}  ${device.name ?? ''}  ${device.locality === 'same-host' ? 'on this machine' : 'on another machine'}`,
+  );
+  return [
+    `Device mesh: ${mesh.state}${found}.`,
+    ...(linked.length > 0 ? ['Linked now:', ...linked] : ['No device is linked right now.']),
+  ];
+}
+
+function formatList(view: IDevicesView | undefined, mesh?: IDevicesMeshStatus): ICommandResult {
   if (view === undefined) return { success: true, message: REFUSALS['not-initialized'] };
   const lines = view.devices.map((device) => {
     const notes = [
@@ -105,6 +155,7 @@ function formatList(view: IDevicesView | undefined): ICommandResult {
       `Devices of user ${short(view.userId)}:`,
       ...lines,
       `${view.revokedDeviceCount} revoked. Roster and revocation list valid until ${new Date(view.listsExpireAt).toISOString()}.`,
+      ...(mesh !== undefined ? formatMesh(mesh) : []),
     ].join('\n'),
   };
 }
@@ -139,7 +190,8 @@ export async function executeDevicesCommand(
   if (!isOperator(context)) {
     return {
       success: false,
-      message: '`/devices` runs only for the operator at this terminal, never from a remote surface or the model.',
+      message:
+        '`/devices` runs only for the operator at this terminal, never from a remote surface or the model.',
     };
   }
   const trimmed = args.trim();
@@ -152,7 +204,7 @@ export async function executeDevicesCommand(
     case '':
     case 'list':
       try {
-        return formatList(await port.list());
+        return formatList(await port.list(), port.meshStatus?.());
       } catch (error) {
         return {
           success: false,
@@ -167,7 +219,9 @@ export async function executeDevicesCommand(
           [
             `Device identity created. This device: ${short(value.deviceId)}; user ${short(value.userId)}.`,
             `It holds signing key ${short(value.signingKeyId)}.`,
-            ...(value.keyStorage !== undefined ? [`Private keys are kept in: ${value.keyStorage}.`] : []),
+            ...(value.keyStorage !== undefined
+              ? [`Private keys are kept in: ${value.keyStorage}.`]
+              : []),
             'Keep the recovery phrase offline; it is the only way to recover this identity.',
           ].join('\n'),
       );
@@ -180,23 +234,45 @@ export async function executeDevicesCommand(
             `Recovered. New signing key ${short(value.signingKeyId)}; ${value.revokedSigningKeyCount} old signing key(s) revoked.`,
             `This device (${short(value.deviceId)}) is certified again.`,
             ...(value.droppedDeviceCount > 0
-              ? [`${value.droppedDeviceCount} other device(s) were certified by a retired signing key and must enrol again.`]
+              ? [
+                  `${value.droppedDeviceCount} other device(s) were certified by a retired signing key and must enrol again.`,
+                ]
               : []),
           ].join('\n'),
       );
     case 'revoke':
-      if (rest.length === 0) return { success: false, message: 'Usage: /devices revoke <device-id>' };
+      if (rest.length === 0)
+        return { success: false, message: 'Usage: /devices revoke <device-id>' };
       return onTerminal(
         context,
         () => port.revoke(rest),
-        (value) => `Revoked ${value.name} (${short(value.deviceId)}). A new roster and revocation list were issued.`,
+        (value) =>
+          `Revoked ${value.name} (${short(value.deviceId)}). A new roster and revocation list were issued.`,
       );
     case 'add':
+      return onTerminal(
+        context,
+        () => port.add(),
+        (value) =>
+          [
+            `Enrolled ${value.name} (${short(value.deviceId)}). A new roster was issued.`,
+            ...(value.confirmed
+              ? []
+              : ['The new device did not confirm it kept its identity; check `/devices` there.']),
+          ].join('\n'),
+      );
     case 'join':
-      return {
-        success: false,
-        message: `\`/devices ${verb}\` is not available yet: enrolling another device over the device connection is not built yet.`,
-      };
+      return onTerminal(
+        context,
+        () => port.join(rest.length > 0 ? { name: rest } : {}),
+        (value) =>
+          [
+            `Joined the devices of user ${short(value.userId)}. This device: ${value.name} (${short(value.deviceId)}).`,
+            ...(value.keyStorage !== undefined
+              ? [`Private keys are kept in: ${value.keyStorage}.`]
+              : []),
+          ].join('\n'),
+      );
     default:
       return { success: false, message: `Unknown argument "${verb}". ${USAGE}` };
   }

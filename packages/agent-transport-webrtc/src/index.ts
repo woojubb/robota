@@ -11,7 +11,7 @@ export { localProofFrame } from './local-peer-proof.js';
 export type { ILocalPeerProof, ILocalProofFrame } from './local-peer-proof.js';
 // SEC-011 (issue #1865): the cross-device hand-off grant gate. The verdict is injected — this
 // package implements no cryptographic policy.
-export { handoffGrantFrame } from './handoff-grant-gate.js';
+export { handoffGrantFrame, judgeHandoffGrant } from './handoff-grant-gate.js';
 export type { IHandoffGrantFrame, IHandoffGrantProof } from './handoff-grant-gate.js';
 export { createInMemorySignalingPair } from './signaling.js';
 export type { ISignalingClient, ISignalMessage, TSignalKind } from './signaling.js';
@@ -59,7 +59,12 @@ export type {
   IUnauthenticatedLimits,
 } from './turn-server.js';
 export { MeshLinkEndedError } from './mesh-peer-link.js';
-export type { TMeshLinkEnd, TMeshLinkRole, TMeshLinkStage } from './mesh-peer-link.js';
+export type {
+  IMeshChannelBinding,
+  TMeshLinkEnd,
+  TMeshLinkRole,
+  TMeshLinkStage,
+} from './mesh-peer-link.js';
 export { MAX_MESH_MESSAGE_CHARS } from './mesh-signal.js';
 export { createInMemoryMeshRelayHub } from './mesh-relay.js';
 export type { IInMemoryMeshRelayHub, IMeshRelay } from './mesh-relay.js';
@@ -123,3 +128,12 @@ export type {
   IMdnsTransport,
   IMeshMdnsOptions,
 } from './mesh-mdns.js';
+// Enrolling a new device: a data channel bound to its negotiated connection, reached through the relay
+// topic an enrollment code derives. The enrollment protocol itself is `agent-remote-pairing`'s.
+export { EnrollmentLinkError, dialEnrollment, listenForEnrollment } from './enrollment-link.js';
+export type {
+  IEnrollmentChannel,
+  IEnrollmentListener,
+  IEnrollmentRendezvous,
+  TEnrollmentLinkFailure,
+} from './enrollment-link.js';

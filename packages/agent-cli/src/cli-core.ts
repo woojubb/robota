@@ -56,7 +56,7 @@ import {
   createChannelReadyHandler,
 } from './product/robota-plumbing.js';
 import { createRemoteControlController } from './remote-control/index.js';
-import { startDeviceListReissue } from './devices/index.js';
+import { createDeviceMeshHost, startDeviceListReissue } from './devices/index.js';
 import { createCliUsageTransportRegistry } from './usage/usage-transport-registry.js';
 import { createConfiguredNodeOtlpLiveTelemetryPort } from './telemetry/live-trace-otlp.js';
 import { takeRobotaTelemetryEnvironment } from './telemetry/live-telemetry-env.js';
@@ -91,6 +91,7 @@ import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
 import { attachHostAdapters, createTuiProcessAdapter } from './startup/host-action-adapters.js';
+import { providerHasOwnCredential } from './handoff/handoff-host-adapter.js';
 import {
   argvCarryingSafeMode,
   createWorkspaceMoveAdapter,
@@ -400,6 +401,8 @@ async function runCliCore(
     throw new Error('--external-event-allow requires the CLI-owned MCP client');
   }
   if (mcp !== undefined) startupOptions.mcpActivationAdapter = mcp.activationAdapter;
+  // The device mesh: opened only by an interactive session whose user settings turn it on.
+  const deviceMesh = createDeviceMeshHost({ report: (message) => terminal.writeError(message) });
   const {
     commandHostAdapters,
     outputStyleRegistry,
@@ -421,6 +424,7 @@ async function runCliCore(
     keybindingsSource,
     theme?.cataloguePort,
     sandbox,
+    () => deviceMesh.status(),
   );
   for (const { file, error } of outputStyleLoadErrors) {
     terminal.writeError(`Skipped output style "${file}": ${error}`);
@@ -482,7 +486,19 @@ async function runCliCore(
     read: () => readSettings(robotaUserSettingsPath()),
     write: (settings) => writeSettings(robotaUserSettingsPath(), settings),
   });
-  const startPeers = attachHostAdapters(commandHostAdapters, remoteControlController, terminal);
+  const startPeers = attachHostAdapters(
+    commandHostAdapters,
+    remoteControlController,
+    terminal,
+    undefined,
+    {
+      sessionStore: workspaceComposition.sessionStore,
+      // Read when a session arrives, after the provider settings below are resolved.
+      hasOwnProvider: () => providerHasOwnCredential(providerSettings, providerDefinitions),
+      onHandedOff: () => commandHostAdapters.process?.requestExit('other'),
+    },
+    deviceMesh,
+  );
 
   reportUnknownPresetModules(
     (message) => terminal.writeError(message),
@@ -902,6 +918,12 @@ async function runCliCore(
   }
   // A device holding the signing key keeps its roster and revocation list from lapsing while it runs.
   startDeviceListReissue();
+  // What a linked device asks that needs the operator is asked on this terminal, never in a prompt.
+  void deviceMesh.start({
+    ...(remoteControlController.operatorApprover !== undefined
+      ? { operatorApprover: remoteControlController.operatorApprover }
+      : {}),
+  });
 
   const tuiRun = presentation.renderApp({
     productDisplayName: 'Robota',
@@ -1000,6 +1022,7 @@ async function runCliCore(
   try {
     await tuiRun;
   } finally {
+    deviceMesh.close();
     externalEventHost?.close();
     await livePromptTracePort?.shutdown();
     if (mcp !== undefined) await mcp.shutdown();

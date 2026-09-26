@@ -40,6 +40,7 @@ import {
 import type { MeshLinkEndedError } from './mesh-peer-link.js';
 import {
   MeshPeerLink,
+  type IMeshChannelBinding,
   type TMeshLinkEnd,
   type TMeshLinkRole,
   type TMeshLinkSignal,
@@ -135,6 +136,8 @@ export interface IDeviceMeshNodeOptions {
 export interface IDeviceMeshLink {
   readonly admission: IDeviceMeshAdmission;
   readonly result: IDeviceHandshakeResult;
+  /** The DTLS fingerprints the handshake bound this connection to. */
+  readonly channelBinding: IMeshChannelBinding;
   /** What the peer may do on this connection; ask it before acting on the peer's request. */
   readonly authority: ConnectionAuthority;
   send(body: string): void;
@@ -699,6 +702,12 @@ export class DeviceMeshNode {
       return;
     }
     const admission = result.admission;
+    const channelBinding = link.channelBinding;
+    // Admitted means the handshake ran over both fingerprints; without them nothing is bound here.
+    if (channelBinding === undefined) {
+      link.close();
+      return;
+    }
     const authority = new ConnectionAuthority(
       {
         deviceId: admission.deviceId,
@@ -714,6 +723,7 @@ export class DeviceMeshNode {
     const exposed: IDeviceMeshLink = {
       admission,
       result,
+      channelBinding,
       authority,
       send: (body) => link.send(body),
       onMessage: (handler) =>

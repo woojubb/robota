@@ -5,7 +5,7 @@
 WebRTC P2P transport. Carries the protocol-owned `IProtocolSession` capability over an `RTCDataChannel` so an
 external remote client can co-drive a live `agent-cli` session directly, peer-to-peer, without routing session
 content through any server; and connects two of one user's devices to each other (the device mesh), admitted by
-the device handshake. Reuses the transport-neutral session bridge + wire protocol from
+the device handshake, or a new device to one of them to enrol it. Reuses the transport-neutral session bridge + wire protocol from
 `@robota-sdk/agent-transport` (the same handler the WebSocket transport uses) so the protocol is shared, not
 duplicated. The public attach contract accepts that protocol role set directly: a full interactive
 session is a valid host input, but unrelated session capabilities are outside the carrier's
@@ -78,8 +78,10 @@ dependency.
   connection by rule rather than by whichever message arrives first; a repeated announcement from the peer run
   already being served is ignored, and a new run of the peer replaces the connection.
 - **Device mesh admission.** A mesh connection binds the device handshake the way the session gate binds pairing,
-  in both roles: the remote fingerprint comes from the certificate the DTLS layer verified, the remote description
-  must advertise exactly one fingerprint, and one is taken per connection. Until admission only handshake frames
+  and an enrollment connection binds the enrollment proof the same way, in both roles: the remote fingerprint
+  comes from the certificate the DTLS layer verified, the remote description must advertise exactly one
+  fingerprint, and one is taken per connection. An enrollment listener serves one attempt at a time, and the
+  proof, not this package, decides whether the peer is believed. Until admission only handshake frames
   cross; anything else ends the connection. A side counts the connection admitted only after the peer says it
   admitted it too, so a refused peer never believes it is connected. Each connection has a DTLS certificate of its
   own: a per-process certificate would be a stable identifier the relay could link across connections, and one two

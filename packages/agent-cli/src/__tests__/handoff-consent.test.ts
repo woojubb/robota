@@ -1,108 +1,104 @@
-import type { IActionRequest, TActionResponse } from '@robota-sdk/agent-core';
-import type { IPeerAdmission } from '@robota-sdk/agent-interface-session-mobility';
+import { ConnectionAuthority } from '@robota-sdk/agent-interface-session-mobility';
 import { describe, expect, it } from 'vitest';
 
 import { createHandoffConsent } from '../handoff/handoff-consent.js';
 
+import type {
+  ICapabilityApprovalRequest,
+  IHandoffManifest,
+  IOperatorApprover,
+  IPeerAdmission,
+} from '@robota-sdk/agent-interface-session-mobility';
+
 /**
- * SEC-011 (issue #1865) — the consent prompt at the DESTINATION.
- *
- * There is exactly one way to return true, and it needs a person to have chosen it. Every case here
- * is one of the ways that does NOT happen, because those are the ones that decide whether the step
- * is a control or a formality.
+ * The consent at the DESTINATION is the connection's `handoff` authority: the operator here is asked
+ * for every transfer, on the approver no connected surface can answer. There is one way to say yes.
  */
 
 const ADMISSION: IPeerAdmission = {
   admitted: true,
   trust: 'same-user-different-host',
-  origin: { sessionId: 'desktop-session-1' },
+  origin: { sessionId: 'desktop' },
 };
 
-function harness(answer?: TActionResponse, renderer = true) {
-  const asked: IActionRequest[] = [];
-  const consent = createHandoffConsent({
-    getUserInteraction: () =>
-      renderer
-        ? {
-            ask: async (request: IActionRequest) => {
-              asked.push(request);
-              return answer ?? { type: 'answer', values: ['accept'] };
-            },
-          }
-        : undefined,
-    deviceLabel: 'this laptop',
-  });
-  return { asked, consent };
+const MANIFEST: IHandoffManifest = {
+  handoffId: 'handoff-1',
+  sessionId: 'session-1',
+  sourceDeviceId: 'desktop',
+  destinationDeviceId: 'laptop',
+  inventory: [],
+  integrity: { digest: 'x'.repeat(43), byteLength: 1234 },
+  offeredAt: 1,
+};
+
+function consentWith(
+  approver: IOperatorApprover | undefined,
+  capabilities: ConstructorParameters<typeof ConnectionAuthority>[0]['capabilities'] = ['handoff'],
+) {
+  const authority = new ConnectionAuthority(
+    { deviceId: 'desktop', locality: 'another-host', capabilities },
+    approver,
+  );
+  return createHandoffConsent({ authority, deviceLabel: 'this laptop' });
 }
 
-describe('there is one way to say yes', () => {
-  it('accepts when the person chooses to accept', async () => {
-    const { consent } = harness({ type: 'answer', values: ['accept'] });
-    expect(await consent(ADMISSION)).toBe(true);
+function operator(answer: boolean) {
+  const asked: ICapabilityApprovalRequest[] = [];
+  const approver: IOperatorApprover = {
+    approve: async (request) => {
+      asked.push(request);
+      return answer;
+    },
+  };
+  return { asked, approver };
+}
+
+describe('the destination operator decides every hand-off', () => {
+  it('accepts on the operator yes, asking once for this transfer', async () => {
+    const { asked, approver } = operator(true);
+    const consent = consentWith(approver);
+    expect(await consent(ADMISSION, MANIFEST)).toBe(true);
+    expect(asked).toHaveLength(1);
+    expect(asked[0]).toMatchObject({ capability: 'handoff', scope: 'request' });
   });
 
-  it.each([
-    ['the person declines', { type: 'answer', values: ['decline'] } as TActionResponse],
-    ['the prompt is dismissed', { type: 'cancelled' } as TActionResponse],
-    ['the answer is empty', { type: 'answer', values: [] } as TActionResponse],
-    [
-      'an option nobody offered comes back',
-      { type: 'answer', values: ['maybe'] } as TActionResponse,
-    ],
-  ])('refuses when %s', async (_label, answer) => {
-    const { consent } = harness(answer);
-    expect(await consent(ADMISSION)).toBe(false);
+  it('asks again for the next transfer: a yes covers one request', async () => {
+    const { asked, approver } = operator(true);
+    const consent = consentWith(approver);
+    await consent(ADMISSION, MANIFEST);
+    await consent(ADMISSION, { ...MANIFEST, handoffId: 'handoff-2' });
+    expect(asked).toHaveLength(2);
   });
 
-  it('refuses when no renderer is attached, without waiting for one', async () => {
-    // A session that started running here because nobody was present to decline it is the failure
-    // this step exists to prevent.
-    const { consent, asked } = harness(undefined, false);
-    expect(await consent(ADMISSION)).toBe(false);
+  it('refuses when the operator says no', async () => {
+    const { approver } = operator(false);
+    expect(await consentWith(approver)(ADMISSION, MANIFEST)).toBe(false);
+  });
+
+  it('refuses when there is nobody to ask', async () => {
+    expect(await consentWith(undefined)(ADMISSION, MANIFEST)).toBe(false);
+  });
+
+  it('refuses without asking when the connection was not granted hand-off', async () => {
+    const { asked, approver } = operator(true);
+    expect(await consentWith(approver, ['message'])(ADMISSION, MANIFEST)).toBe(false);
     expect(asked).toHaveLength(0);
   });
 
-  it('reads the renderer at ASK time, not when it was configured', async () => {
-    // A session can lose its renderer between being configured and a transfer arriving. A captured
-    // port would prompt into nothing and wait forever — a hang rather than a refusal.
-    let attached = true;
-    const consent = createHandoffConsent({
-      getUserInteraction: () =>
-        attached ? { ask: async () => ({ type: 'answer', values: ['accept'] }) } : undefined,
-      deviceLabel: 'this laptop',
-    });
-    expect(await consent(ADMISSION)).toBe(true);
-    attached = false;
-    expect(await consent(ADMISSION)).toBe(false);
-  });
-});
-
-describe('what the prompt tells the person', () => {
-  it('names the proven origin and this machine', async () => {
-    const { consent, asked } = harness();
-    await consent(ADMISSION);
-
-    expect(asked[0]?.title).toContain('desktop-session-1');
-    expect(asked[0]?.title).toContain('this laptop');
+  it('never asks about an admission that was refused', async () => {
+    const { asked, approver } = operator(true);
+    const refused: IPeerAdmission = { admitted: false, trust: 'unproven', reason: 'bad grant' };
+    expect(await consentWith(approver)(refused, MANIFEST)).toBe(false);
+    expect(asked).toHaveLength(0);
   });
 
-  it('says what taking the session means HERE, not just that a transfer is offered', async () => {
-    // The destination is not being asked the source's question. It is being asked whether to run
-    // someone else's work with this machine's credential, files and shell.
-    const { consent, asked } = harness();
-    await consent(ADMISSION);
-
-    const description = asked[0]?.description ?? '';
-    expect(description).toContain("THIS machine's provider credential");
-    expect(description).toContain('its files, its shell');
-    expect(description).toContain('read-only');
-  });
-
-  it('falls back to a neutral name rather than inventing one when the origin is absent', async () => {
-    const { consent, asked } = harness();
-    await consent({ admitted: true, trust: 'same-user-different-host' });
-
-    expect(asked[0]?.title).toContain('another device');
-    expect(asked[0]?.title).not.toContain('undefined');
+  it('says what taking the session means here: saved, not started, and this machine’s credential', async () => {
+    const { asked, approver } = operator(true);
+    await consentWith(approver)(ADMISSION, MANIFEST);
+    const summary = asked[0]?.summary ?? '';
+    expect(summary).toContain('session-1');
+    expect(summary).toContain('this laptop');
+    expect(summary).toContain('not started');
+    expect(summary).toContain("this machine's provider credential");
   });
 });

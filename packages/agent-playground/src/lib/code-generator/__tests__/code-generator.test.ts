@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { generateAgentCode } from '../index';
 import type { IAssemblyState } from '../index';
 import { getInstallCommand } from '../install-command';
-import { getProviderTemplate } from '../provider-templates';
+import { getProviderTemplate, isExportableProvider } from '../provider-templates';
 
 describe('generateAgentCode', () => {
   it('generates createQuery code for simple case (no skills)', () => {
@@ -181,5 +181,24 @@ describe('getInstallCommand', () => {
     expect(getInstallCommand(provider)).toBe(
       `npm install @robota-sdk/agent-framework ${packageName}`,
     );
+  });
+});
+
+describe('providers without a code template', () => {
+  const state: IAssemblyState = {
+    agent: { provider: 'qwen', model: 'qwen-plus', systemPrompt: '' },
+    tools: [],
+    skills: [],
+  };
+
+  it('are not exportable', () => {
+    expect(isExportableProvider('qwen')).toBe(false);
+    expect(isExportableProvider('Anthropic')).toBe(true);
+  });
+
+  it('never get an invented package name', () => {
+    expect(getProviderTemplate('qwen')).toBeUndefined();
+    expect(() => generateAgentCode(state)).toThrow('qwen');
+    expect(() => getInstallCommand('qwen')).toThrow('qwen');
   });
 });

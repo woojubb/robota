@@ -68,10 +68,11 @@ user-owned and currently authorized project records, never transcript content, a
 unsupported records stay visible rather than being hidden.
 
 A local peer message or file is taken as coming from the session it names only when that session,
-asked at its own socket, confirms it is sending exactly that message or file to this receiver;
-anything else is refused. The same user can reach every socket in the rendezvous, so the name a message states is a
+asked at its own socket, confirms it is sending exactly that message or file to this receiver, and
+one over the device mesh only as coming from the device its handshake proved; anything else is
+refused. The same user can reach every socket in the rendezvous, so the name a message states is a
 claim, and it decides where an answer goes and whom the turn is attributed to — never what the turn
-may do, which the session's ordinary permissions decide as for its own work.
+may do, which the session's ordinary permissions decide as for its own work, wherever the peer runs.
 
 A file from another session or device is kept only with the operator's yes to that file, as an inert
 copy in a directory of the sender's under this user's `~/.robota`, under a name that cannot leave it,
@@ -79,6 +80,13 @@ replace anything or follow a link; the conversation is told its name, size and h
 content. Sending is the operator's command for any readable file, and the model's only within the
 workspace and away from anything that looks like a secret, because a model steered by what it read
 must not reach the credentials beside a project.
+
+A session moves to another session or device only when its holder's operator pushes it; nothing
+answers a request for a session. The receiving side takes it only on a grant for that one transfer over
+that channel, signed by a device it already knows, and with its own operator's yes; it keeps the
+payload aside until it matches the manifest, and saves it without starting it. The holder lets go, and
+ends, only on the acknowledgement that the session is saved there, so two processes never run one
+conversation.
 
 A conversation between local peers is bounded, so two agents that always answer cannot message each
 other forever: its depth and this session's answers in it are counted from what this session itself
@@ -188,10 +196,12 @@ instead of degrading to the file, because secrets already in the keychain would 
 found. On Linux only the Secret Service counts as a keychain — the binding's kernel-keyring fallback
 is memory-only, and a host key lost at reboot changes the identity every device pinned. Messages and
 errors name a secret's key, never its value, and carry no cause that could quote it. The recovery
-phrase is never stored anywhere: it is shown and read only on the controlling terminal, opened apart
-from the session's own input while the session has handed the terminal over — a byte read through the
-session's input would reach its composer, history, transcript and model — and a host without an
-interactive terminal refuses instead of reading it from anywhere else. The same terminal asks the
+phrase and the one-time code that enrols another device are never stored anywhere: each is shown and
+read only on the controlling terminal, opened apart from the session's own input while the session
+has handed the terminal over — a byte read through the session's input would reach its composer,
+history, transcript and model — and a host without an interactive terminal refuses instead of
+reading it from anywhere else. A code typed as a command argument is refused, since the argument is
+already in history. The same terminal asks the
 operator whether each remote-control connection, a returning trusted device included, may drive the
 session; one it admits is the owner typing, with the terminal's approvals, tools and file references.
 The session's own prompts are answerable by any attached surface, so a device already
@@ -206,7 +216,12 @@ A device that keeps the device-signing key reissues the roster and revocation li
 while an interactive session runs. The lists expire quickly so that a withheld list cannot pass for a
 current one for long, which only holds if their issuer keeps renewing them without waiting for an
 operator; the signing key exists for exactly this, and the recovery phrase is never involved. Print,
-serve and test runs do not reissue, so running the CLI for a single task never rewrites identity state.
+serve and test runs neither reissue nor open the device mesh, so running the CLI for a single task
+never rewrites identity state or answers another device. The mesh opens only when the user settings
+turn it on — never a project's, which would let a repository expose this machine to the user's other
+devices — and in one session of the device at a time, since each other device keeps one link to it;
+a linked device may do only what the user's settings allow, each file and session it offers put to
+the operator at this terminal.
 
 ### MCP client composition
 

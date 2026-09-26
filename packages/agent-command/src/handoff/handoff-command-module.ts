@@ -7,13 +7,14 @@ export function createHandoffCommandEntry(): ICommand {
   return {
     name: 'handoff',
     displayName: 'Hand off',
-    description: 'Move this session to another machine, after confirming what stays behind',
+    description:
+      "Push this conversation to another running Robota session of the same user on this machine, or to another of the user's devices linked over the device mesh, after the operator confirms what stays behind (uncommitted changes, running processes; credentials never travel). The receiving operator must also accept; the session arrives saved, not started, and this one ends once it is saved there. With no argument it lists the sessions and devices it could go to. User-only: the model cannot run it; when the user wants to continue this work in another session or on another device, suggest they run `/handoff <session-or-device-id>`.",
     source: 'handoff',
-    // The model does not decide to give this session away. A hand-off moves AUTHORITY over the
-    // operator's work to a different computer — it is a decision about where the person is sitting,
-    // which is a fact about them and not about the task.
-    // User-only: moves the session to another machine; the user decides where it lives.
+    // User-only: a hand-off moves authority over the operator's work to another place, a decision
+    // about where the person is, not about the task.
     modelInvocable: false,
+    userInvocable: true,
+    argumentHint: '[session-id]',
   };
 }
 

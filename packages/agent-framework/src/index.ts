@@ -174,6 +174,7 @@ export type {
   ICommandHostContext,
   IHandoffProgress,
   IHandoffStaysBehind,
+  ILinkedDeviceSummary,
   ICommandModule,
   IRemoteCommandPolicy,
   ICommandPickerAdapter,

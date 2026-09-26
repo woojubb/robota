@@ -1,5 +1,18 @@
 # @robota-sdk/pack-coding
 
+## 3.0.0-beta.82
+
+### Patch Changes
+
+- Updated dependencies [e15e22b]
+- Updated dependencies [c7f9203]
+- Updated dependencies [004fe7f]
+  - @robota-sdk/agent-command@3.0.0-beta.82
+  - @robota-sdk/agent-framework@3.0.0-beta.82
+  - @robota-sdk/agent-capability-pack@3.0.0-beta.82
+  - @robota-sdk/agent-tool-defaults@3.0.0-beta.82
+  - @robota-sdk/agent-tools@3.0.0-beta.82
+
 ## 3.0.0-beta.81
 
 ### Patch Changes

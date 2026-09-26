@@ -1,5 +1,16 @@
 # @robota-sdk/agent-ui-web
 
+## 3.0.0-beta.82
+
+### Patch Changes
+
+- Updated dependencies [c7f9203]
+  - @robota-sdk/agent-transport@3.0.0-beta.82
+  - @robota-sdk/agent-interface-command@3.0.0-beta.82
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.82
+  - @robota-sdk/agent-interface-session@3.0.0-beta.82
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.82
+
 ## 3.0.0-beta.81
 
 ### Patch Changes

@@ -12,7 +12,8 @@ decoding, and durable persistence. It declares how authority moves, whether a se
 be offered, and how its resources are classified in the handoff inventory. The source retains
 authority until it holds a matching acknowledgement of durable destination persistence. Illegal
 phase transitions are refused without changing state; repeated acknowledgements for a committed
-handoff are idempotent. Authorization of a proposed move is the receiving operator's, asked by the host.
+handoff are idempotent. A move is only ever pushed by the side that holds the session, never pulled
+by another, and its authorization is the receiving operator's, asked by the host.
 
 ## Boundaries
 

@@ -1,6 +1,7 @@
 /**
  * Where files other sessions send are kept: `~/.robota/peer-files/<sender>/<name>`, one directory
- * per sender, owned by this user and closed to everyone else.
+ * per sender, owned by this user and closed to everyone else. A session handed over to this one is
+ * kept the same way under `~/.robota/handoff/` until it is verified and saved.
  *
  * A received file is inert. It is written without execute permission, it is never opened by anything
  * here once kept, and it reaches the model only if someone later reads it through the session's
@@ -17,7 +18,8 @@ import path from 'node:path';
 
 import type { IFileSink, TFileAdmission } from '@robota-sdk/agent-transport/node';
 
-const PEER_FILES_DIRECTORY = 'peer-files';
+/** What a kept file is: a file a peer sent, or the payload of a session handed over. */
+export type TQuarantineArea = 'peer-files' | 'handoff';
 const MAX_NAME_BYTES = 200;
 const PARTIAL_PREFIX = '.partial-';
 
@@ -95,6 +97,8 @@ export interface IQuarantineOptions {
   readonly senderId: string;
   /** The sender's name for the file. */
   readonly name: string;
+  /** Default `peer-files`. */
+  readonly area?: TQuarantineArea;
 }
 
 /** The place a received file would be kept, before anyone is asked about it. */
@@ -111,7 +115,7 @@ export async function quarantineTarget(options: IQuarantineOptions): Promise<TQu
   if (name === undefined) {
     return { refused: 'bad-name', detail: 'the file name is empty or leaves its directory' };
   }
-  const base = path.join(options.root, PEER_FILES_DIRECTORY);
+  const base = path.join(options.root, options.area ?? 'peer-files');
   const directory = path.join(base, senderDirectoryName(options.senderId));
   try {
     await mkdir(options.root, { recursive: true, mode: 0o700 });

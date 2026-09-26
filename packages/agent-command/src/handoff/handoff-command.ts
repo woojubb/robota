@@ -33,7 +33,7 @@ type THandoffHost = ICommandHostAdapterAccess & Partial<ICommandHostUserInteract
 function whereIsIt(progress: IHandoffProgress): string {
   return progress.stillMine
     ? 'This session is still on this machine, and still yours to use.'
-    : 'This session now belongs to the destination. This copy is read-only.';
+    : 'This session now belongs to the destination, and this one ends.';
 }
 
 function describeDestinations(
@@ -47,8 +47,8 @@ function usage(): ICommandResult {
     success: true,
     message: [
       'Usage:',
-      '  /handoff              list the machines this session could move to',
-      '  /handoff <device-id>  move it there, after confirming what stays behind',
+      '  /handoff                         list where this session could move to',
+      '  /handoff <session-or-device-id>  move it there, after confirming what stays behind',
     ].join('\n'),
   };
 }
@@ -153,7 +153,7 @@ export async function executeHandoffCommand(
     message: [
       ...progressLines,
       final.state === 'done'
-        ? `Hand-off complete. ${target} is running this session now.`
+        ? `Hand-off complete. ${target} saved this session and has not started it; resume it there.`
         : `Hand-off stopped: ${final.reason ?? 'no reason was reported'}.`,
       whereIsIt(final),
     ].join('\n'),

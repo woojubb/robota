@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-transport",
-  "version": "3.0.0-beta.81",
+  "version": "3.0.0-beta.82",
   "description": "Transport package boundary for Robota SDK — runtime hosts are owned by agent-framework",
   "type": "module",
   "main": "dist/node/index.js",

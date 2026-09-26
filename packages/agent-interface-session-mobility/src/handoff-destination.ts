@@ -32,11 +32,7 @@ import type {
   IHandoffComposition,
 } from './handoff-composition.js';
 import type { IInteractiveSessionRecord } from '@robota-sdk/agent-interface-session';
-import type {
-  IHandoffCommitAck,
-  IHandoffManifest,
-  THandoffRefusal,
-} from './handoff-contracts.js';
+import type { IHandoffCommitAck, IHandoffManifest, THandoffRefusal } from './handoff-contracts.js';
 
 /** How many decode issues a refusal detail carries before it elides the rest. */
 const MAX_REPORTED_ISSUES = 5;
@@ -97,11 +93,26 @@ export class HandoffDestination {
       return this.discard('integrity-failed', `chunk refused: ${result.rejection ?? 'unknown'}`);
     }
     if (result.outcome !== 'complete') return this.settle({ state: this.state });
+    return this.stage(manifest, result.serialized ?? '');
+  }
 
-    const verdict = this.options.composition.verifyPayload(
-      result.serialized ?? '',
-      manifest.integrity,
-    );
+  /**
+   * Take a payload a carrier delivered whole, and verify and stage it exactly as a last chunk would
+   * be. The carrier's own check does not stand in for this one: only the manifest says what was sealed.
+   */
+  receivePayload(serialized: string): IDestinationReport {
+    const manifest = this.requireManifest();
+    if (this.state !== 'receiving') {
+      return this.settle({
+        state: this.state,
+        detail: `a payload arrived for a transfer in state '${this.state}'`,
+      });
+    }
+    return this.stage(manifest, serialized);
+  }
+
+  private stage(manifest: IHandoffManifest, serialized: string): IDestinationReport {
+    const verdict = this.options.composition.verifyPayload(serialized, manifest.integrity);
     if (!verdict.intact) {
       return this.discard(
         'integrity-failed',
@@ -113,7 +124,7 @@ export class HandoffDestination {
     // that were sent; it says nothing about whether they are a session record. A source on a
     // different build, a partially written record, or a crafted payload all produce an intact
     // transfer of an invalid record — and `staged` is a promise that this machine could commit it.
-    const decoded = this.decodePayload(result.serialized ?? '');
+    const decoded = this.decodePayload(serialized);
     if (decoded.status !== 'valid') {
       return this.discard('payload-undecodable', decoded.detail);
     }

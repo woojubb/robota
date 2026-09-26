@@ -27,7 +27,11 @@ import { createDefaultRemoteCommandPolicy } from '@robota-sdk/agent-framework';
 import type { IRemoteCommandPolicy } from '@robota-sdk/agent-framework';
 import { createDefaultCommandModules } from '@robota-sdk/agent-command';
 import { createDevicesCommandPort } from '../devices/index.js';
-import type { IKeybindingsFilePort, IThemeCataloguePort } from '@robota-sdk/agent-command';
+import type {
+  IDevicesMeshStatus,
+  IKeybindingsFilePort,
+  IThemeCataloguePort,
+} from '@robota-sdk/agent-command';
 import { createOutputStyleRegistry, loadOutputStylesFromSources } from '@robota-sdk/agent-preset';
 import { createDefaultProviderDefinitions } from '@robota-sdk/agent-builtin-providers';
 import {
@@ -165,6 +169,8 @@ export function buildCommandSetup(
   keybindingsFilePort?: IKeybindingsFilePort,
   themeCataloguePort?: IThemeCataloguePort,
   sandbox?: IRobotaSandbox,
+  /** The device mesh this session may open; `/devices` shows its status. */
+  meshStatus?: () => IDevicesMeshStatus,
 ): ICliSetup {
   const workspaceComposition = createCliWorkspaceComposition({
     cwd,
@@ -248,7 +254,7 @@ export function buildCommandSetup(
     ...(themeCataloguePort === undefined ? {} : { themeCataloguePort }),
     // `/devices`: identity state under ~/.robota/devices, keys in the host credential store, and the
     // recovery phrase only on this process's own terminal.
-    devicesPort: createDevicesCommandPort(),
+    devicesPort: createDevicesCommandPort(meshStatus !== undefined ? { meshStatus } : {}),
     doctorInputs,
     doctorDisplay: ROBOTA_DOCTOR_SLASH_DISPLAY,
     formatForkResumeCommand: formatRobotaResumeCommand,

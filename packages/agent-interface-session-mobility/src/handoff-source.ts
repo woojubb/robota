@@ -32,13 +32,16 @@ import type {
   IHandoffCommitAck,
   IHandoffManifest,
   IHandoffOutcome,
+  THandoffRefusal,
 } from './handoff-contracts.js';
 import type { IHandoffTransaction } from './handoff-ownership.js';
 
 /** Keep the mutable authority transaction behind one identity-bound view. */
 function transactionPort(transaction: IHandoffTransaction): IHandoffTransactionPort {
   return {
-    get state() { return transaction; },
+    get state() {
+      return transaction;
+    },
     advance: (next, detail) => advanceHandoff(transaction, next, detail),
     commit: (ack) => commitHandoff(transaction, ack),
     sourceStillOwns: () => sourceStillOwns(transaction),
@@ -49,7 +52,23 @@ function transactionPort(transaction: IHandoffTransaction): IHandoffTransactionP
 export interface IHandoffCarrier {
   sendManifest(manifest: IHandoffManifest): Promise<void>;
   sendChunk(chunk: IHandoffChunkFrame): Promise<void>;
+  /**
+   * A carrier that moves the sealed payload whole — pacing it and checking it against the manifest's
+   * integrity itself — takes it here, and the payload is then not cut into chunks for it.
+   */
+  sendPayload?(handoffId: string, serialized: string): Promise<void>;
 }
+
+/** Why a source gives up an open transfer. */
+export type TSourceAbandonReason = Extract<
+  THandoffRefusal,
+  | 'cancelled'
+  | 'timed-out'
+  | 'destination-cannot-resume'
+  | 'unauthorized'
+  | 'integrity-failed'
+  | 'payload-undecodable'
+>;
 
 export interface IHandoffSourceOptions {
   readonly composition: IHandoffComposition;
@@ -66,8 +85,7 @@ export interface IHandoffSourceOptions {
 
 /** Why an offer never became a transfer. Distinct from a refusal so a caller can tell them apart. */
 export type TOfferOutcome =
-  | { readonly started: true }
-  | { readonly started: false; readonly outcome: IHandoffOutcome };
+  { readonly started: true } | { readonly started: false; readonly outcome: IHandoffOutcome };
 
 export class HandoffSource {
   private transaction: IHandoffTransactionPort | null = null;
@@ -138,9 +156,14 @@ export class HandoffSource {
       );
     }
 
-    await this.options.carrier.sendManifest(this.manifest());
+    const carrier = this.options.carrier;
+    await carrier.sendManifest(this.manifest());
+    if (carrier.sendPayload !== undefined) {
+      await carrier.sendPayload(transaction.state.handoffId, serialized);
+      return this.outcome(transaction);
+    }
     for (const chunk of this.options.composition.chunk(transaction.state.handoffId, serialized)) {
-      await this.options.carrier.sendChunk(chunk);
+      await carrier.sendChunk(chunk);
     }
     return this.outcome(transaction);
   }
@@ -167,13 +190,15 @@ export class HandoffSource {
   }
 
   /** Give up, at any phase before `committed`. The session stays usable and authoritative. */
-  abandon(
-    reason: 'cancelled' | 'timed-out' | 'destination-cannot-resume',
-    detail?: string,
-  ): IHandoffOutcome {
+  abandon(reason: TSourceAbandonReason, detail?: string): IHandoffOutcome {
     const transaction = this.requireTransaction();
     transaction.advance('abandoned', { refusal: reason, ...(detail !== undefined && { detail }) });
     return this.outcome(transaction);
+  }
+
+  /** Where the open transfer is, without changing it. */
+  status(): IHandoffOutcome {
+    return this.outcome(this.requireTransaction());
   }
 
   /** Is this machine still in charge of the session? */
