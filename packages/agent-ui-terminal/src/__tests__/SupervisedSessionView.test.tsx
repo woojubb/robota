@@ -559,7 +559,17 @@ describe('supervised session view', () => {
         { ...FIRST, liveness: 'dead', control: 'unavailable', activity: 'unknown' },
         { ...SECOND, liveness: 'alive', control: 'available', activity: 'working' },
       ]);
-      await vi.waitFor(() => expect(view.lastFrame()).toContain('dead:'));
+      // Wait for the reordered list itself: SECOND listed under `working:`, FIRST under `dead:`.
+      const rowLine = (lines: readonly string[], id: string): number =>
+        lines.findIndex((line) => line.includes(id) && !line.startsWith('Selected'));
+      await vi.waitFor(() => {
+        const lines = (view.lastFrame() ?? '').split('\n');
+        const working = lines.indexOf('working:');
+        const dead = lines.indexOf('dead:');
+        expect(working).toBeGreaterThanOrEqual(0);
+        expect(rowLine(lines, SECOND.id)).toBe(working + 1);
+        expect(rowLine(lines, FIRST.id)).toBe(dead + 1);
+      });
       expect(view.lastFrame()).toContain(`Selected ${SECOND.id}`);
     } finally {
       view.unmount();
