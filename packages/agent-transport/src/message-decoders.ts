@@ -188,7 +188,7 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
     success: isBoolean,
     requestId: isOptional(isString),
   },
-  messages: { messages: isRecordArray },
+  messages: { messages: isRecordArray, ...authored },
   history: { startIndex: isCount, total: isCount, entries: isWireHistoryEntries },
   context: { state: isRecord },
   history_changed: {},

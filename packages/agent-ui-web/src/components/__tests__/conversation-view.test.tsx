@@ -9,8 +9,11 @@ import type { TConversationEntry } from '../../hooks/useSessionClient.js';
 
 /**
  * #3289 §3 — the conversation is the page's `main` landmark, and a message's driver label reads in
- * plain words: nothing for this connection's own turns, a human phrase for anyone else's, and never
- * the raw server-assigned driver id.
+ * plain words: nothing for a turn from the SAME KIND of surface as this connection's own, a plain
+ * phrase naming the kind for a turn from a different one, and never the raw server-assigned driver id.
+ * The server hands every WebSocket connection of one process the same id, so two tabs of one browser
+ * cannot be told apart — the label therefore compares KINDS of surface (terminal, desktop app,
+ * browser, remote device), not specific windows.
  */
 
 function userMessage(content: string, author?: string): TConversationEntry {
@@ -38,7 +41,7 @@ describe('ConversationView is the page\'s main landmark', () => {
   });
 });
 
-describe('a message carries a driver label only when it was not this connection\'s own', () => {
+describe('a message carries a driver label only when it came from a different kind of surface', () => {
   it('shows no label on this connection\'s own message (the legacy "owner" id)', () => {
     render(
       <ConversationView
@@ -53,7 +56,9 @@ describe('a message carries a driver label only when it was not this connection\
     expect(screen.queryByText(/from/)).toBeNull();
   });
 
-  it('shows no label once this connection has learned its own driver id', () => {
+  it('shows no label for a turn from the same kind of surface as this connection\'s own', () => {
+    // Every WS connection of one `--serve` process learns the SAME driver id, so a second browser
+    // tab's turns arrive with this connection's own literal id too — same kind, no label.
     render(
       <ConversationView
         messages={[userMessage('hi', 'browser')]}
@@ -66,7 +71,7 @@ describe('a message carries a driver label only when it was not this connection\
     expect(screen.queryByText(/from/)).toBeNull();
   });
 
-  it('labels a co-driver\'s message in plain words, never the raw driver id', () => {
+  it('labels a turn from a different kind of surface, in plain words, never the raw driver id', () => {
     render(
       <ConversationView
         messages={[userMessage('hi', 'app')]}
@@ -76,31 +81,31 @@ describe('a message carries a driver label only when it was not this connection\
         ownDriverId="browser"
       />,
     );
-    expect(screen.getByText('from another window')).toBeTruthy();
+    expect(screen.getByText('from the desktop app')).toBeTruthy();
     expect(screen.queryByText('app')).toBeNull();
   });
 
-  it('labels an attached-terminal message as "from the terminal"', () => {
+  it('labels the terminal while this window is the browser, as "from the terminal"', () => {
     render(
       <ConversationView
         messages={[userMessage('hi', 'attach:3')]}
         activeTools={[]}
         streamingText=""
         isThinking={false}
-        ownDriverId={null}
+        ownDriverId="browser"
       />,
     );
     expect(screen.getByText('from the terminal')).toBeTruthy();
   });
 
-  it('labels the agent\'s own wake-up as "automatic", never "from automatic"', () => {
+  it('labels the agent\'s own wake-up as "automatic", never "from automatic" — always, even though a browser connection could never learn it as its own id', () => {
     render(
       <ConversationView
         messages={[userMessage('hi', 'agent')]}
         activeTools={[]}
         streamingText=""
         isThinking={false}
-        ownDriverId={null}
+        ownDriverId="browser"
       />,
     );
     expect(screen.getByText('automatic')).toBeTruthy();

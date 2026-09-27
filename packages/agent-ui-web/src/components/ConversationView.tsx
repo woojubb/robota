@@ -17,7 +17,7 @@ import {
   Wrench,
 } from 'lucide-react';
 
-import { driverAttributionText, isOwnDriver } from '../driver-labels.js';
+import { driverAttributionText, isSameSurface } from '../driver-labels.js';
 
 import type {
   IActiveTool,
@@ -125,7 +125,7 @@ function UserBlock({
   // REMOTE-014 E5 (display-only, OWNER PRINCIPLE): show WHO drove this turn when it wasn't this
   // connection's own — in plain words, never the raw server-assigned id.
   const coDriver =
-    author && !isOwnDriver(author, ownDriverId) ? driverAttributionText(author) : undefined;
+    author && !isSameSurface(author, ownDriverId) ? driverAttributionText(author) : undefined;
   return (
     <div className="flex flex-col items-end gap-1.5 pl-12">
       {coDriver && <span className="px-1 text-[12.5px] text-subtle">{coDriver}</span>}

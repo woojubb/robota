@@ -3,7 +3,7 @@
 import { MessageCircleQuestion, ShieldAlert } from 'lucide-react';
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
-import { driverAttributionText, isOwnDriver } from '../driver-labels.js';
+import { driverAttributionText, isSameSurface } from '../driver-labels.js';
 
 import type { TPendingPrompt } from '../hooks/prompt-state.js';
 import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
@@ -123,7 +123,7 @@ export function PermissionPrompt({
   // REMOTE-014 E5 (display-only): the prompt belongs to the driver whose turn raised it. Shown so the owner
   // can tell a co-driver's tool-gate from their own — it NEVER changes who is authorized to answer (owner).
   const requesterLabel =
-    prompt.requesterDriverId && !isOwnDriver(prompt.requesterDriverId, ownDriverId)
+    prompt.requesterDriverId && !isSameSurface(prompt.requesterDriverId, ownDriverId)
       ? driverAttributionText(prompt.requesterDriverId)
       : undefined;
 

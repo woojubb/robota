@@ -557,7 +557,7 @@ describe('PermissionPrompt shows what the tool was asked to do', () => {
   });
 });
 
-describe('PermissionPrompt names who else is driving, never a raw id (#3289 §3)', () => {
+describe('PermissionPrompt names a different kind of surface, never a raw id (#3289 §3)', () => {
   afterEach(cleanup);
 
   function withRequester(requesterDriverId: string | undefined): TPendingPrompt {
@@ -576,7 +576,9 @@ describe('PermissionPrompt names who else is driving, never a raw id (#3289 §3)
     expect(screen.queryByText(/from/)).toBeNull();
   });
 
-  it('shows no requester when the raised turn is this connection\'s own learned driver id', () => {
+  it('shows no requester for a turn from the same kind of surface as this connection\'s own', () => {
+    // Every WS connection of one `--serve` process learns the SAME driver id, so a co-driver's turn
+    // can arrive with this connection's own literal id too — same kind, no requester shown.
     render(
       <PermissionPrompt
         prompts={[withRequester('remote:ws')]}
@@ -588,7 +590,7 @@ describe('PermissionPrompt names who else is driving, never a raw id (#3289 §3)
     expect(screen.queryByText(/from/)).toBeNull();
   });
 
-  it('shows a human phrase for another window, never the raw id', () => {
+  it('shows a human phrase for a different kind of surface, never the raw id', () => {
     render(
       <PermissionPrompt
         prompts={[withRequester('browser')]}
@@ -597,23 +599,24 @@ describe('PermissionPrompt names who else is driving, never a raw id (#3289 §3)
         ownDriverId="app"
       />,
     );
-    expect(screen.getByText('from another window')).toBeTruthy();
+    expect(screen.getByText('from the browser')).toBeTruthy();
     expect(screen.queryByText('browser')).toBeNull();
   });
 
-  it('names the attached terminal in plain words', () => {
+  it('names the terminal while this window is the browser, in plain words', () => {
     render(
       <PermissionPrompt
         prompts={[withRequester('attach:1')]}
         onAnswerPermission={vi.fn()}
         onAnswerAsk={vi.fn()}
+        ownDriverId="browser"
       />,
     );
     expect(screen.getByText('from the terminal')).toBeTruthy();
     expect(screen.queryByText(/attach:/)).toBeNull();
   });
 
-  it('names a paired device in plain words, never its raw id', () => {
+  it('names a remote mesh peer as a remote device, never its raw id', () => {
     render(
       <PermissionPrompt
         prompts={[withRequester('peer:session-abc123')]}
@@ -621,7 +624,7 @@ describe('PermissionPrompt names who else is driving, never a raw id (#3289 §3)
         onAnswerAsk={vi.fn()}
       />,
     );
-    expect(screen.getByText('from a paired device')).toBeTruthy();
+    expect(screen.getByText('from a remote device')).toBeTruthy();
     expect(screen.queryByText(/session-abc123/)).toBeNull();
   });
 
