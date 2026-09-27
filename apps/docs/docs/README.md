@@ -44,8 +44,13 @@ pnpm --filter robota-docs test   # unit tests
 ## Deployment
 
 The Cloudflare Pages project `robota-docs` is connected to the GitHub repository: a push to `main`
-deploys production (`docs.robota.io`). Other branches get no usable preview, so check a change with a
-local build (`pnpm --filter robota-docs build`, then open `out/`). `pnpm --filter robota-docs run deploy` (build, then
+deploys production (`docs.robota.io`). Other branches get no usable preview, so check a change
+locally: `pnpm --filter robota-docs dev` while writing, or build and serve the static export the way
+production does (search and `_redirects` included) with
+`pnpm --filter robota-docs build && pnpm --filter robota-docs exec wrangler pages dev out` — opening
+`out/` straight from disk does not work, because pages load their assets from root paths.
+
+`pnpm --filter robota-docs run deploy` (build, then
 `wrangler pages deploy out --project-name robota-docs --branch main`) uploads a local build straight to
 production; it is a manual fallback that needs a Wrangler login.
 
