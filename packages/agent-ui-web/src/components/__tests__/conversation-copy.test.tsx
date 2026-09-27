@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -66,7 +66,7 @@ describe('ConversationView — copy buttons (#3289 §2)', () => {
       />,
     );
     const button = screen.getByRole('button', { name: /Copy message/ });
-    const live = within(button).getByRole('status');
+    const live = screen.getByRole('status');
     // Idle: nothing to announce yet — the visible, constant label is not itself the live region (a
     // live region doubling as the button's own name is the fragile shape that broke in a real
     // browser; see `CopyButton`'s doc comment).
@@ -75,6 +75,10 @@ describe('ConversationView — copy buttons (#3289 §2)', () => {
     fireEvent.click(button);
 
     await waitFor(() => expect(live.textContent).toBe('Copied'));
+    // The button's own accessible name stays the plain, constant label even while the live region's
+    // text has changed — the live region is a SIBLING of the button, not a descendant, so it never
+    // contributes to the button's name-from-content computation in the first place.
+    expect(screen.getByRole('button', { name: 'Copy message' })).toBe(button);
     // The feedback is temporary: a timer is armed to clear it back to the normal label.
     expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), expect.any(Number));
   });
@@ -98,9 +102,7 @@ describe('ConversationView — copy buttons (#3289 §2)', () => {
 
     fireEvent.click(button);
 
-    await waitFor(() =>
-      expect(within(button).getByRole('status').textContent).toBe("Couldn't copy"),
-    );
+    await waitFor(() => expect(screen.getByRole('status').textContent).toBe("Couldn't copy"));
   });
 
   it('a still-streaming message has no "Copy message" button yet', () => {

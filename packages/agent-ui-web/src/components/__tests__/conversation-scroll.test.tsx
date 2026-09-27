@@ -126,4 +126,40 @@ describe('ConversationView — scroll pinning while streaming (#3289 §2)', () =
     );
     expect(screen.queryByText('Jump to latest')).toBeNull();
   });
+
+  it('does not resurrect "Jump to latest" on a later scroll-up once the person is back at the bottom and idle', () => {
+    const { rerender } = render(
+      <ConversationView messages={[]} activeTools={[]} streamingText="hello" isThinking ownDriverId={null} />,
+    );
+    const el = scroller();
+
+    // Scrolled away mid-stream: new content below arrives while not at the bottom.
+    setMetrics(el, 100, 1000, 400);
+    fireEvent.scroll(el);
+    expect(screen.getByText('Jump to latest')).toBeTruthy();
+
+    // The reply finishes while still scrolled away — "Jump to latest" stays up for the finished message.
+    setMetrics(el, 100, 1100, 400);
+    rerender(
+      <ConversationView
+        messages={[{ id: 'm1', role: 'assistant', content: 'hello there' }]}
+        activeTools={[]}
+        streamingText=""
+        isThinking={false}
+        ownDriverId={null}
+      />,
+    );
+    expect(screen.getByText('Jump to latest')).toBeTruthy();
+
+    // The person scrolls all the way back down themselves (not via the button).
+    setMetrics(el, 700, 1100, 400); // distance 1100 - 700 - 400 === 0
+    fireEvent.scroll(el);
+    expect(screen.queryByText('Jump to latest')).toBeNull();
+
+    // They scroll up again to reread earlier history. Nothing new has arrived and nothing is
+    // streaming, so the button must not reappear — it would have nothing to jump to.
+    setMetrics(el, 200, 1100, 400);
+    fireEvent.scroll(el);
+    expect(screen.queryByText('Jump to latest')).toBeNull();
+  });
 });

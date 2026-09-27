@@ -20,9 +20,15 @@ export async function copyToClipboard(text: string): Promise<void> {
   if (!legacyCopy(text)) throw new Error('copy failed');
 }
 
-/** `execCommand('copy')` needs a selection in the page, so the text is staged in an offscreen field. */
+/**
+ * `execCommand('copy')` needs a selection in the page, so the text is staged in an offscreen field —
+ * which needs focus to be selectable, so whatever had focus (typically the "Copy code" / "Copy
+ * message" button a keyboard user just activated) is restored afterward rather than left on `<body>`.
+ */
 function legacyCopy(text: string): boolean {
   if (typeof document === 'undefined' || typeof document.execCommand !== 'function') return false;
+  const previouslyFocused =
+    document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const field = document.createElement('textarea');
   field.value = text;
   field.setAttribute('readonly', '');
@@ -41,6 +47,7 @@ function legacyCopy(text: string): boolean {
     ok = false;
   }
   document.body.removeChild(field);
+  previouslyFocused?.focus();
   return ok;
 }
 

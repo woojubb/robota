@@ -157,11 +157,12 @@ export function SessionSurface({
   const isNarrow = useMediaQuery(NARROW_WINDOW_QUERY);
   const sheetActive = sidebarOpen && isNarrow;
   const closeSidebar = (): void => state.setSessionSidebarOpen?.(false);
-  // The sheet's own opener — the rail's "Show sessions" button — is replaced by the sheet in the SAME
-  // update that opens it, so by the time `Dialog`'s own open-effect could read `document.activeElement`
-  // the browser has already blurred it to `<body>` (see `Dialog`'s `restoreFocusTo` doc comment, which
-  // anticipates exactly this). A `focusin` listener instead captures it the moment focus actually moved
-  // there, while the sheet is closed; on close, a control that reappeared under the same `aria-label`
+  // The sheet's own opener — the rail's "Show sessions" button — unmounts in the SAME update that
+  // mounts the sheet (the ternary below swaps `SessionSidebarRail` for `Dialog`), so passing it as
+  // `Dialog`'s `restoreFocusTo` would only hand back a node already detached from the document by the
+  // time `Dialog` reads it — a `.focus()` on that node is a harmless no-op, not a restore. This effect
+  // does the real work instead: a `focusin` listener captures the opener the moment it actually had
+  // focus, while the sheet is closed; on close, a control that reappeared under the same `aria-label`
   // (the rail's button, remounted) is as good a return address as the original node.
   const sheetOpenerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
@@ -223,7 +224,6 @@ export function SessionSurface({
               open={sheetActive}
               onClose={closeSidebar}
               title="Sessions"
-              restoreFocusTo={sheetOpenerRef.current}
               panelClassName="mr-auto flex h-full w-[272px] max-w-[85vw] flex-col self-stretch overflow-hidden rounded-2xl bg-sidebar shadow-2xl shadow-black/40 focus:outline-none"
             >
               {sidebarPanel}

@@ -54,4 +54,20 @@ describe('copyToClipboard', () => {
 
     await expect(copyToClipboard('nope')).rejects.toThrow();
   });
+
+  it('restores focus to whatever had it (e.g. the "Copy code" button) after the execCommand fallback', async () => {
+    Object.defineProperty(navigator, 'clipboard', { value: undefined, configurable: true });
+    document.execCommand = vi.fn().mockReturnValue(true) as typeof document.execCommand;
+    const button = document.createElement('button');
+    document.body.appendChild(button);
+    button.focus();
+    expect(document.activeElement).toBe(button);
+
+    await copyToClipboard('fallback text');
+
+    // The offscreen textarea needed focus to be selectable, but it is removed once the copy is done —
+    // without restoring it, focus would be dropped to <body>, silently losing a keyboard user's place.
+    expect(document.activeElement).toBe(button);
+    document.body.removeChild(button);
+  });
 });

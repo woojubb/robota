@@ -44,14 +44,21 @@ function nodeText(node: React.ReactNode): string {
 
 /**
  * "Copy code" / "Copy message" (#3289 §2): shows on hover and keyboard focus, always on touch (no
- * `hover` capability to gate on there). The button's own accessible name stays the plain, constant
- * label — the icon swaps to a checkmark for sighted feedback, and a SEPARATE, visually hidden
- * `aria-live` region (not a descendant the button's own name is computed from) announces "Copied" /
- * "Couldn't copy" to a screen reader without touching that name or moving focus off the button. A
- * live region nested directly inside the name-contributing content is the more fragile shape: it
- * held the label text itself here at first, and Chromium's accessibility tree then failed to expose
- * that name at all after the button remounted (streaming text settling into a message) under load —
- * caught by the browser e2e, not the jsdom unit tests, which never touch the real accessibility tree.
+ * `hover` capability to gate on there). The transient "Copied" / "Couldn't copy" feedback lives in a
+ * visually hidden `aria-live` region that is a SIBLING of the button, not a descendant of it — ARIA
+ * name computation only ever looks at an element's own subtree, so a live region placed anywhere
+ * inside the button would still contribute its (mutating) text to the button's accessible name even
+ * while merely `sr-only`-clipped rather than `aria-hidden`, silently turning a constant name like
+ * "Copy code" into a moving target such as "Copy code Copied". Keeping the two siblings instead gives
+ * the button a name computed purely from its own constant visible label, and lets the live region
+ * announce without touching that name or moving focus off the button. (An explicit `aria-label` on the
+ * button would also pin the name, but collides here: Playwright's `getByLabel` matches on the
+ * `aria-label` attribute by substring, and "Copy message" would then match any lookup for the
+ * composer's own `aria-label="message"`.) A live region doubling as the button's own sole
+ * name-contributing content is the most fragile shape of all: it held the label text itself here at
+ * first, and Chromium's accessibility tree then failed to expose that name at all after the button
+ * remounted (streaming text settling into a message) under load — caught by the browser e2e, not the
+ * jsdom unit tests, which never touch the real accessibility tree.
  */
 function CopyButton({
   label,
@@ -65,21 +72,23 @@ function CopyButton({
   const { status, copy } = useCopyFeedback();
   const feedback = status === 'copied' ? 'Copied' : status === 'error' ? "Couldn't copy" : '';
   return (
-    <button
-      type="button"
-      onClick={() => copy(getText())}
-      className={`inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-card px-2 py-1 text-[12px] font-medium text-muted-foreground shadow-sm shadow-black/5 transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${className}`}
-    >
-      {status === 'copied' ? (
-        <Check size={13} strokeWidth={2} />
-      ) : (
-        <Copy size={13} strokeWidth={1.9} />
-      )}
-      <span>{label}</span>
+    <span className={`inline-flex items-center ${className}`}>
+      <button
+        type="button"
+        onClick={() => copy(getText())}
+        className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-card px-2 py-1 text-[12px] font-medium text-muted-foreground shadow-sm shadow-black/5 transition-colors hover:bg-hover hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      >
+        {status === 'copied' ? (
+          <Check size={13} strokeWidth={2} />
+        ) : (
+          <Copy size={13} strokeWidth={1.9} />
+        )}
+        <span>{label}</span>
+      </button>
       <span className="sr-only" role="status" aria-live="polite">
         {feedback}
       </span>
-    </button>
+    </span>
   );
 }
 
@@ -608,6 +617,10 @@ export function ConversationView({
     if (!el) return;
     const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_PX;
     setIsAtBottom(atBottom);
+    // Returning to the bottom by hand (not just via "Jump to latest") also clears the "new content
+    // below" flag — otherwise it stays stale and re-shows the button on a later scroll-up even though
+    // nothing new has arrived since.
+    if (atBottom) setHasNewBelow(false);
   };
 
   const jumpToLatest = (): void => {
