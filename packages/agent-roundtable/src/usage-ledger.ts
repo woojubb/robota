@@ -68,20 +68,21 @@ export function reserveModelCall(
     return;
   }
   const limits = state.definition.limits;
+  const admittedUsage = usage.filter((record) => record.admitted);
   if (limits.maxModelCallsPerRun !== null) {
-    const count = usage.filter((record) => record.runId === ctx.runId).length;
+    const count = admittedUsage.filter((record) => record.runId === ctx.runId).length;
     if (count >= limits.maxModelCallsPerRun)
       throw new RoundtableError('model-call-limit', 'Model-call limit for this run was reached');
   }
   if (limits.maxModelCallsPerConversation !== null) {
-    if (usage.length >= limits.maxModelCallsPerConversation)
+    if (admittedUsage.length >= limits.maxModelCallsPerConversation)
       throw new RoundtableError(
         'model-call-limit',
         'Model-call limit for this conversation was reached',
       );
   }
   if (limits.maxModelCallsPerParticipant !== null && ctx.principal.kind === 'participant') {
-    const count = usage.filter(
+    const count = admittedUsage.filter(
       (record) =>
         record.principal.kind === 'participant' && record.principal.id === ctx.principal.id,
     ).length;
@@ -104,6 +105,7 @@ export function reserveModelCall(
     status: 'reserved',
     revision,
     price: null,
+    admitted: true,
   };
   usage.push(record);
 }
@@ -189,6 +191,8 @@ export function settleUsage(
     groupId: ctx.groupId,
     attemptId: ctx.attemptId,
     price: null,
+    // Reaching here with no `existing` record means no admission ever reserved this callId.
+    admitted: false,
   };
   const settled: UsageRecord = {
     callId: base.callId,
@@ -203,6 +207,7 @@ export function settleUsage(
     status: 'settled',
     revision,
     price: null,
+    admitted: base.admitted,
     outcome: report.outcome,
     provenance: report.provenance,
     final: report.final,
@@ -230,7 +235,7 @@ export function modelCallsSpent(
   principals: readonly UsagePrincipal[],
 ): boolean {
   const { limits } = state.definition;
-  const usage = state.snapshot.usage;
+  const usage = state.snapshot.usage.filter((record) => record.admitted);
   const needed = principals.length;
   if (needed === 0) return false;
   const runUsed = usage.filter((record) => record.runId === runId).length;

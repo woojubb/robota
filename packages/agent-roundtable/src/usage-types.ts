@@ -60,6 +60,12 @@ interface UsageRecordIdentity extends ModelCallIntent {
   /** The revision at which this record last changed. */
   revision: number;
   price: { version: string; cost: Money | null } | null;
+  /**
+   * Whether admission ever reserved this call. False only for a cache hit reported with no prior
+   * admission — a free hit that never drew on any call-limit allowance. Every limit that counts
+   * calls excludes a record with this false.
+   */
+  admitted: boolean;
 }
 
 /**

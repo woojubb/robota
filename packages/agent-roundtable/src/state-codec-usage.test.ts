@@ -105,4 +105,29 @@ describe('the persisted usage ledger is validated on load', () => {
     expect(loaded.snapshot().usage).toHaveLength(1);
     await loaded.dispose();
   });
+
+  it('defaults a stored usage record with no admitted marker to admitted, rather than rejecting it', async () => {
+    const f = fixture();
+    const store = new MemoryConversationStore();
+    const room = createRoundtable({
+      conversationId: 'pre-admitted-marker-usage',
+      store,
+      participants: [f.participant],
+      limits: { maxTurnsPerRun: 1, maxModelCallsPerRun: 1 },
+    });
+    await room.run();
+    await room.dispose();
+    const envelope = (await store.load('pre-admitted-marker-usage'))!;
+    const state = envelope.state as unknown as ConversationState;
+    const [record] = state.snapshot.usage as unknown as Record<string, unknown>[];
+    delete record.admitted;
+    vi.spyOn(store, 'load').mockResolvedValue(envelope);
+    const loaded = await loadRoundtable({
+      conversationId: 'pre-admitted-marker-usage',
+      store,
+      registry: f.registry,
+    });
+    expect(loaded.snapshot().usage).toMatchObject([{ admitted: true }]);
+    await loaded.dispose();
+  });
 });
