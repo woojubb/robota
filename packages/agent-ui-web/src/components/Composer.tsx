@@ -1,9 +1,50 @@
 import { ArrowUp, Gauge, Shield, Sparkles, Square, Target } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 import { commandMenuFor } from '../hooks/command-menu.js';
 
-import type { TCommandCatalog, TSessionStatus } from '../hooks/session-client-types.js';
+import type { IQueuedPrompt, TCommandCatalog, TSessionStatus } from '../hooks/session-client-types.js';
+
+/** What a caller can do to the composer from outside it — currently just reclaiming focus. */
+export interface IComposerHandle {
+  /** Focuses the message field — used to send focus back there once a docked prompt is answered. */
+  focus: () => void;
+}
+
+/**
+ * #3280 §4: the unsent draft survives a Chat → Usage → Chat switch (the composer unmounts), a page
+ * reload, and a desktop relaunch — `localStorage`, not `sessionStorage`, since only `localStorage`
+ * survives a closed window/tab being reopened. Namespaced (`robota.draft.`, matching
+ * `robota.restoreSessionId` in `use-session-directory.ts`) so a page hosting other state under the
+ * same origin does not collide. Per session id when one is known; a single fallback key before the
+ * first status arrives (the gap is brief and is reconciled once it does — see the effect below).
+ */
+const DRAFT_STORAGE_PREFIX = 'robota.draft.';
+const DRAFT_STORAGE_FALLBACK_KEY = 'robota.draft';
+
+function draftStorageKey(sessionId: string | undefined): string {
+  return sessionId ? `${DRAFT_STORAGE_PREFIX}${sessionId}` : DRAFT_STORAGE_FALLBACK_KEY;
+}
+
+/** Best-effort: a private window, cleared site data, or a full quota still leaves typing working. */
+function readDraft(sessionId: string | undefined): string {
+  try {
+    return window.localStorage.getItem(draftStorageKey(sessionId)) ?? '';
+  } catch {
+    // allow-fallback: storage unavailable — the draft still lives in component state this session.
+    return '';
+  }
+}
+
+function writeDraft(sessionId: string | undefined, value: string): void {
+  try {
+    const key = draftStorageKey(sessionId);
+    if (value) window.localStorage.setItem(key, value);
+    else window.localStorage.removeItem(key);
+  } catch {
+    // allow-fallback: same as readDraft — typing (and sending) still work without persistence.
+  }
+}
 
 /**
  * The composer — the control centre, as desktop agent apps place it: the message box, a `/` menu of
@@ -11,18 +52,47 @@ import type { TCommandCatalog, TSessionStatus } from '../hooks/session-client-ty
  * context). The row's controls run the session's own commands (`/provider`, `/mode`, `/effort`), so a
  * setting changes through the one path every client shares.
  */
-export function Composer({
-  onSubmit,
-  onCommand,
-  catalog,
-  status,
-}: {
-  onSubmit: (prompt: string) => void;
-  onCommand: (name: string) => void;
-  catalog: TCommandCatalog | null;
-  status: TSessionStatus | null;
-}): React.ReactElement {
-  const [draft, setDraft] = useState('');
+export const Composer = forwardRef<
+  IComposerHandle,
+  {
+    onSubmit: (prompt: string) => void;
+    onCommand: (name: string) => void;
+    catalog: TCommandCatalog | null;
+    status: TSessionStatus | null;
+    /**
+     * False while the transport is not `connected` (issue #3280 §5): Enter and Send refuse to submit,
+     * and nothing typed is cleared or lost — the composer never sends into a socket that is not there.
+     */
+    connected?: boolean;
+    /** #3280 §2: a turn (or a blocking command) is running — Send becomes Stop and Esc stops it too. */
+    running: boolean;
+    onStop: () => void;
+    /** #3280 §2: the prompt queued behind the running turn, or null when none is queued. */
+    queued: IQueuedPrompt | null;
+    onCancelQueue: () => void;
+  }
+>(function Composer(
+  { onSubmit, onCommand, catalog, status, connected = true, running, onStop, queued, onCancelQueue },
+  ref,
+): React.ReactElement {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  useImperativeHandle(ref, () => ({ focus: () => textareaRef.current?.focus() }), []);
+  const sessionId = status?.sessionId;
+  const sessionIdRef = useRef(sessionId);
+  // Whether a REAL session id has ever been seen. A switch goes A -> null -> B — `session_switched`
+  // clears `sessionStatus` before `get-status` answers (`useSessionClient.ts`) — so `sessionId` turns
+  // transiently `undefined` on an ordinary switch too, not only before the very first status. This
+  // ref is the one thing that distinguishes "no session has ever been known yet" (the fallback-key
+  // migration case) from "between two known sessions right now" — never overload `undefined` for it.
+  const hasKnownSessionRef = useRef(sessionId !== undefined);
+  // The draft as last set, read inside effects/handlers without depending on `draft` and risking a
+  // stale closure (this ref and the `draft` state are always kept in lockstep by `setDraft` below).
+  const draftRef = useRef('');
+  const [draft, setDraftState] = useState(() => {
+    const initial = readDraft(sessionId);
+    draftRef.current = initial;
+    return initial;
+  });
   const [selected, setSelected] = useState(0);
   const [dismissed, setDismissed] = useState(false);
   const menu = dismissed ? null : commandMenuFor(catalog, draft);
@@ -30,8 +100,38 @@ export function Composer({
     setSelected(0);
     setDismissed(false);
   }, [draft]);
+  /** #3280 §4: every draft change is persisted at once, so a reload or relaunch loses nothing. */
+  const setDraft = (value: string): void => {
+    draftRef.current = value;
+    setDraftState(value);
+    writeDraft(sessionIdRef.current, value);
+  };
+  // #3280 §4: a session switch shows THAT session's own saved draft, never what was typed for
+  // another one. The session id becoming known for the very FIRST time (the fallback key was in use
+  // until now) instead carries over what is already typed, rather than discarding it. A transient
+  // `undefined` mid-switch, once a real id has already been seen, is not a change at all: stay bound
+  // to the last known session — keep showing and writing to ITS draft — until a new CONCRETE id
+  // arrives, so keystrokes typed during the round trip never land under the wrong session (or the
+  // fallback key).
+  useEffect(() => {
+    if (sessionId === undefined && hasKnownSessionRef.current) return;
+    if (sessionIdRef.current === sessionId) return;
+    const firstArrival = !hasKnownSessionRef.current;
+    const previous = sessionIdRef.current;
+    sessionIdRef.current = sessionId;
+    if (sessionId !== undefined) hasKnownSessionRef.current = true;
+    const stored = readDraft(sessionId);
+    if (firstArrival && !stored && draftRef.current) {
+      writeDraft(sessionId, draftRef.current);
+      writeDraft(previous, '');
+      return;
+    }
+    draftRef.current = stored;
+    setDraftState(stored);
+  }, [sessionId]);
 
   const submit = (): void => {
+    if (!connected) return;
     const prompt = draft.trim();
     if (!prompt) return;
     onSubmit(prompt);
@@ -44,9 +144,59 @@ export function Composer({
     setDraft(`/${item.name} `);
     return true;
   };
+  /** #3280 §2: Edit puts the queued text back in the draft and cancels the queue behind it (the wire
+   *  has no per-message cancel — only a whole-queue clear). Offered only when exactly one prompt is
+   *  queued: with more than one, `cancel-queue` would still drop every one of them, but only the
+   *  shown prompt's text is known here, so "Edit" would silently lose the rest — the row offers only
+   *  "Remove all" instead once `queued.count > 1`. */
+  const editQueued = (): void => {
+    if (!queued) return;
+    setDraft(queued.text);
+    onCancelQueue();
+  };
 
   return (
     <div className="relative flex-shrink-0">
+      {queued && (
+        <div
+          role="status"
+          aria-label="queued prompt"
+          className="gui-rise mb-2 flex items-center gap-3 rounded-2xl bg-card px-4 py-2 text-[13px]"
+        >
+          <span className="min-w-0 flex-1 truncate text-muted-foreground">
+            Queued: {queued.text}
+            {queued.count > 1 && (
+              <span className="text-subtle"> and {queued.count - 1} more</span>
+            )}
+          </span>
+          {queued.count === 1 ? (
+            <>
+              <button
+                type="button"
+                onClick={editQueued}
+                className="flex-shrink-0 rounded-lg px-2 py-1 text-muted-foreground hover:bg-hover hover:text-foreground"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={onCancelQueue}
+                className="flex-shrink-0 rounded-lg px-2 py-1 text-muted-foreground hover:bg-hover hover:text-foreground"
+              >
+                Remove
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={onCancelQueue}
+              className="flex-shrink-0 rounded-lg px-2 py-1 text-muted-foreground hover:bg-hover hover:text-foreground"
+            >
+              Remove all
+            </button>
+          )}
+        </div>
+      )}
       {menu && (
         <div
           role="listbox"
@@ -100,11 +250,17 @@ export function Composer({
         }}
       >
         <textarea
+          ref={textareaRef}
           aria-label="message"
           rows={1}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
+            // #3280 §4: an Enter that only finishes an IME (Korean/Japanese/Chinese) composition must
+            // not submit or accept the menu — `isComposing` (or `keyCode` 229, on browsers that
+            // predate it) marks it; the keystroke is left alone so the browser commits the composition
+            // normally, matching the guard the free-text prompt field uses (#3280 §3).
+            if (e.key === 'Enter' && (e.nativeEvent.isComposing || e.keyCode === 229)) return;
             if (menu) {
               if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
                 e.preventDefault();
@@ -122,6 +278,14 @@ export function Composer({
                 return;
               }
             }
+            // #3280 §2: Esc stops a running turn — but only once the menu (handled above) is out of
+            // the way, so dismissing the `/` menu never doubles as an abort. Not while disconnected:
+            // an abort could not reach the host either (issue #3280 §5).
+            if (e.key === 'Escape' && running && connected) {
+              e.preventDefault();
+              onStop();
+              return;
+            }
             if (e.key === 'Enter' && !e.shiftKey) {
               e.preventDefault();
               submit();
@@ -133,18 +297,25 @@ export function Composer({
         <div className="mt-1 flex items-center gap-1">
           <StatusRow status={status} onCommand={onCommand} />
           <button
-            type="submit"
-            disabled={!draft.trim()}
+            type={running ? 'button' : 'submit'}
+            onClick={running ? onStop : undefined}
+            // Stop is unavailable while disconnected too: an abort could not reach the host either.
+            disabled={!connected || (!running && !draft.trim())}
+            aria-description={connected ? undefined : 'Not connected'}
             className="ml-1 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-all hover:opacity-85 disabled:bg-raised disabled:text-subtle"
           >
-            <ArrowUp size={17} strokeWidth={2.25} aria-hidden="true" />
-            <span className="sr-only">Send</span>
+            {running ? (
+              <Square size={13} strokeWidth={2} fill="currentColor" aria-hidden="true" />
+            ) : (
+              <ArrowUp size={17} strokeWidth={2.25} aria-hidden="true" />
+            )}
+            <span className="sr-only">{running ? 'Stop' : 'Send'}</span>
           </button>
         </div>
       </form>
     </div>
   );
-}
+});
 
 /**
  * Where a command the session does not run is run instead. The GUI runs no client command, so its

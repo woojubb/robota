@@ -1,3 +1,4 @@
+import { applyToolOutcome } from './execution-tool-outcome';
 import { EXECUTION_EVENTS } from './execution-constants';
 import { handleContextCapacityBlock } from './execution-round-context';
 import {
@@ -16,11 +17,12 @@ import {
   type IExecutionContext,
   SHORT_PREVIEW_LENGTH,
   LAST_MESSAGES_SLICE,
-  MAX_CONSECUTIVE_UNKNOWN_TOOL_FAILURE_ROUNDS,
 } from './execution-types';
+import { captureExecutionCheckpoint } from './execution-checkpoint';
 import * as executionUsage from './execution-usage';
 import { callPluginHook } from './plugin-hook-dispatcher';
 import { presentMessageOrigins } from './message-origin';
+import { randomId } from '../utils/random-id';
 import { bindWithOwnerPath } from '../event-service/index';
 import { createSystemMessage } from '../managers/conversation-message-factory';
 
@@ -147,6 +149,7 @@ export async function executeRound(
   );
 
   const route = openModelRoute(resolved, config.defaultModel.model, executionId);
+  const providerCallId = randomId();
   const response = await callRoundProviderWithEvents(
     providerMessages,
     config,
@@ -162,6 +165,17 @@ export async function executeRound(
     wrappedOnProviderNativeRawPayload,
     (error) => void (roundState.providerFailure = error),
     route,
+    providerCallId,
+    fullContext.executionJournal
+      ? captureExecutionCheckpoint(
+          conversationMessages,
+          roundState,
+          fullContext,
+          config,
+          maxRounds,
+          deps.toolExecutionService.getLoadedDeferredTools(),
+        )
+      : undefined,
   );
   if (response === null) return true;
 
@@ -219,6 +233,7 @@ export async function executeRound(
     usageObservationId,
     executionId,
     providerId: routeProvider(route, resolved),
+    providerCallId,
     modelId: routeModel(route, resolved.aiProviderInfo.model),
     ...usageMetadata,
   });
@@ -272,37 +287,12 @@ export async function executeRound(
     fullContext.onExecutionEvent,
     fullContext.maxSameToolInputs ?? config.maxSameToolInputs,
     fullContext.traceContext,
+    fullContext.executionJournal
+      ? { journal: fullContext.executionJournal, parentCallId: providerCallId }
+      : undefined,
   );
 
-  if (toolOutcome.contextOverflowed) {
-    logger.warn(
-      '[ROUND] Tool results partially skipped due to context overflow — continuing to let AI respond',
-      { added: toolOutcome.addedCount, skipped: toolOutcome.skippedCount, round: currentRound },
-    );
-  }
-
-  if (toolOutcome.unknownToolFailureCount > 0) {
-    roundState.consecutiveUnknownToolFailureRounds += 1;
-  } else {
-    roundState.consecutiveUnknownToolFailureRounds = 0;
-  }
-
-  if (
-    roundState.consecutiveUnknownToolFailureRounds >= MAX_CONSECUTIVE_UNKNOWN_TOOL_FAILURE_ROUNDS
-  ) {
-    const unavailableTools = [...new Set(toolOutcome.unknownToolNames)].sort();
-    roundState.forcedSummaryInstruction = [
-      `The model repeatedly requested unavailable tool(s): ${unavailableTools.join(', ')}.`,
-      'Those tool calls were not executed because they are not registered tools.',
-      'Respond to the user now with that reason and use the available tool results already in the conversation history.',
-    ].join(' ');
-    logger.warn('[ROUND] Stopping repeated unavailable tool-call loop', {
-      unavailableTools,
-      consecutiveRounds: roundState.consecutiveUnknownToolFailureRounds,
-      round: currentRound,
-    });
-    return true;
-  }
+  if (applyToolOutcome(toolOutcome, roundState, logger)) return true;
 
   logger.debug(`Round ${currentRound} completed for agent ${fullContext.conversationId}`);
   return false;

@@ -3,6 +3,8 @@ import {
   ObservableEventService,
   PROVIDER_CALL_EVENTS,
   PROVIDER_FALLBACK_EVENTS,
+  ExecutionRecoveryError,
+  ExecutionSuspendedError,
 } from '@robota-sdk/agent-core';
 
 import { SessionBase } from './session-base.js';
@@ -18,7 +20,22 @@ import {
   fireSessionEndHook,
   fireSessionStartHook,
 } from './session-lifecycle.js';
+import { executeResume, type TSessionResumeOptions } from './session-resume.js';
+import { sessionExecutionJournal, sessionRecoveryJournal } from './session-execution-journal.js';
 import { executeRun } from './session-run.js';
+import {
+  abandonedRoundResults,
+  noteEffectAdmissions,
+  pendingExecution,
+  recoverableSessionExecution,
+  unfinishedExecution,
+} from './session-recoverable.js';
+import type {
+  ISessionPendingExecution,
+  ISessionRecoverableRunOptions,
+  TSessionRecoverableResumeOptions,
+  TSessionExecutionResult,
+} from './session-recoverable.js';
 import { SessionRuntimeTools, linkCancellation } from './session-runtime-tools.js';
 
 import type { CompactionOrchestrator } from './compaction-orchestrator.js';
@@ -27,11 +44,13 @@ import type { PermissionEnforcer } from './permission-enforcer.js';
 import type {
   TPermissionHandler,
   TPermissionResult,
+  IPermissionAskContext,
+  TPermissionRequester,
   ITerminalOutput,
   ISpinner,
 } from './permission-types.js';
 import type { ISessionLogger, TSessionLogData } from './session-logger.js';
-import type { IRunContext } from './session-run.js';
+import type { IRunContext } from './session-run-context.js';
 import type {
   ICompactEvent,
   ISessionOptions,
@@ -41,6 +60,7 @@ import type {
 } from './session-types.js';
 import type {
   IAIProvider,
+  IExecutionJournal,
   IContextWindowState,
   IEventService,
   IToolSchema,
@@ -58,6 +78,8 @@ export type {
   ICompactEvent,
   TPermissionHandler,
   TPermissionResult,
+  IPermissionAskContext,
+  TPermissionRequester,
   ITerminalOutput,
   ISpinner,
   ISessionOptions,
@@ -105,6 +127,8 @@ export class Session extends SessionBase {
   /** The last tool change; the next one waits for it. */
   private toolChange: Promise<void> = Promise.resolve();
   private shuttingDown = false;
+  /** Set while a journaled execution's round is open in history; cleared once it settles or is abandoned. */
+  private pendingExecution?: ISessionPendingExecution;
   private shutdownPromise: Promise<void> | null = null;
   /** Stdout collected from SessionStart hooks, injected on first run(). */
   private sessionStartStdout = '';
@@ -194,23 +218,164 @@ export class Session extends SessionBase {
    * REJECTS with `SessionBusyError` if a turn is in flight — RUNTIME-003; see `turn-claim.ts`.
    */
   async run(message: string, rawInput?: string, options?: ISessionRunOptions): Promise<string> {
+    return this.runTurn(message, rawInput, options, false);
+  }
+
+  /** Run with durable approval requests instead of a live approval Promise. */
+  runRecoverable(
+    message: string,
+    options: ISessionRecoverableRunOptions,
+    rawInput?: string,
+  ): Promise<TSessionExecutionResult> {
+    return recoverableSessionExecution(
+      () => this.runTurn(message, rawInput, options, true),
+      options.executionJournal,
+    );
+  }
+
+  private async runTurn(
+    message: string,
+    rawInput: string | undefined,
+    value: ISessionRunOptions | undefined,
+    checkpointedApprovals: boolean,
+  ): Promise<string> {
+    const options = value ? { ...value } : undefined;
     if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
+    if (this.pendingExecution)
+      throw new ExecutionRecoveryError(
+        'EXECUTION_RECOVERY_REQUIRED',
+        'Resume or abandon the pending Session execution before submitting new input',
+      );
     const controller = this.turnClaim.claim(); // Synchronously, before any await.
     const unlink = linkCancellation(controller, options?.signal);
     const { signal } = controller;
     // Whether the reply to a peer exists is decided per turn.
-    this.permissionEnforcer.beginTurn(options?.peerTurn === true);
+    this.permissionEnforcer.beginTurn(options?.peerTurn === true, checkpointedApprovals);
     try {
       signal.throwIfAborted();
       // Tools added while the last turn ran join at this boundary, before any request of this turn;
       // a change already in flight finishes first, so the turn never sees a list mid-update.
       await this.serializeToolChange(() => this.applyPendingTools());
-      const response = await executeRun(message, rawInput, this.buildRunContext(), signal, options);
+      const runOptions = options?.executionJournal
+        ? {
+            ...options,
+            executionJournal: sessionExecutionJournal(options.executionJournal, {
+              sessionId: this.sessionId,
+              cwd: this.cwd,
+              peerTurn: options.peerTurn === true,
+            }),
+          }
+        : options;
+      const response = await executeRun(
+        message,
+        rawInput,
+        this.buildRunContext(),
+        signal,
+        runOptions,
+      );
       this.messageCount += 1;
       return response;
+    } catch (error) {
+      if (error instanceof ExecutionSuspendedError) {
+        this.pendingExecution = pendingExecution(error);
+        signal.throwIfAborted();
+      } else if (options?.executionJournal) {
+        this.pendingExecution = unfinishedExecution(this.agent.getHistory(), undefined, new Set());
+      }
+      throw error;
     } finally {
       this.permissionEnforcer.endTurn();
       unlink();
+      this.turnClaim.release(controller);
+    }
+  }
+
+  /** Resume the original Session execution under current permissions without submitting input. */
+  async resume(options: TSessionResumeOptions): Promise<string> {
+    return this.resumeTurn(options, false);
+  }
+
+  /** Recheck current permissions and continue exact journaled responses without another input. */
+  resumeRecoverable(options: TSessionRecoverableResumeOptions): Promise<TSessionExecutionResult> {
+    return recoverableSessionExecution(() => this.resumeTurn(options, true), options.journal);
+  }
+
+  private async resumeTurn(
+    value: TSessionRecoverableResumeOptions,
+    checkpointedApprovals: boolean,
+  ): Promise<string> {
+    const options = { ...value, toolResponses: structuredClone(value.toolResponses) };
+    if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
+    if (this.pendingExecution && this.pendingExecution.executionId !== options.executionId)
+      throw new ExecutionRecoveryError(
+        'EXECUTION_RECOVERY_CONFLICT',
+        'A different Session execution is pending',
+      );
+    const controller = this.turnClaim.claim();
+    const unlink = linkCancellation(controller, options.signal);
+    const admitted = new Set<string>();
+    try {
+      controller.signal.throwIfAborted();
+      await this.serializeToolChange(() => this.applyPendingTools());
+      const journal = sessionRecoveryJournal(
+        noteEffectAdmissions(options.journal, admitted),
+        this.sessionId,
+        this.cwd,
+        (peerTurn) => this.permissionEnforcer.beginTurn(peerTurn, checkpointedApprovals),
+      );
+      const response = await executeResume(this.buildRunContext(), {
+        ...options,
+        journal,
+        signal: controller.signal,
+      });
+      this.pendingExecution = undefined;
+      return response;
+    } catch (error) {
+      if (error instanceof ExecutionSuspendedError) {
+        this.pendingExecution = pendingExecution(error);
+        controller.signal.throwIfAborted();
+      } else {
+        // Settled rounds end the execution like an ordinary turn; a round left open keeps it pending.
+        this.pendingExecution = unfinishedExecution(
+          this.agent.getHistory(),
+          this.pendingExecution,
+          admitted,
+        );
+      }
+      throw error;
+    } finally {
+      this.permissionEnforcer.endTurn();
+      unlink();
+      this.turnClaim.release(controller);
+    }
+  }
+
+  /** The execution blocking new input, if any: parked on saved waits, or left open by a failure. */
+  getPendingExecution(): ISessionPendingExecution | undefined {
+    return structuredClone(this.pendingExecution);
+  }
+
+  /**
+   * Give up a pending execution so the Session accepts new input. Nothing runs and nothing is
+   * journaled: calls its parked round left open are closed in history as failed, and the journal's
+   * records stay with the host. Resuming the execution afterwards is refused as a history conflict.
+   */
+  abandonPendingExecution(executionId: string): void {
+    if (this.shuttingDown) throw new Error('[LIFECYCLE] Session is shutting down');
+    const pending = this.pendingExecution;
+    if (!pending) return;
+    if (pending.executionId !== executionId)
+      throw new ExecutionRecoveryError(
+        'EXECUTION_RECOVERY_CONFLICT',
+        'A different Session execution is pending',
+      );
+    const controller = this.turnClaim.claim();
+    try {
+      for (const message of abandonedRoundResults(this.agent.getHistory(), pending))
+        this.agent.injectRawMessage(message);
+      this.pendingExecution = undefined;
+      this.persistSessionInternal();
+    } finally {
       this.turnClaim.release(controller);
     }
   }
@@ -331,6 +496,7 @@ export class Session extends SessionBase {
     this.shutdownPromise = (async () => {
       await step('abort', () => this.abort());
       await step('drain-direct-tool', () => this.runtimeTools.drain());
+      await step('drain-turn', () => this.turnClaim.drained);
       this.log('session_shutdown', { reason });
       await step('persist', () => this.persistSessionInternal());
       await step('session-end-hook', () =>
@@ -369,8 +535,9 @@ export class Session extends SessionBase {
     instructions?: string,
     trigger: TCompactTrigger = 'manual',
     signal?: AbortSignal,
+    executionJournal?: IExecutionJournal,
   ): Promise<void> {
-    await this.compactWith(instructions, trigger, signal);
+    await this.compactWith(instructions, trigger, signal, undefined, executionJournal);
   }
 
   /** `hookTraceEnv` reaches PreCompact only for a compaction inside a prompt (see `executeRun`). */
@@ -379,6 +546,7 @@ export class Session extends SessionBase {
     trigger: TCompactTrigger,
     signal?: AbortSignal,
     hookTraceEnv?: ISubprocessTraceEnv,
+    executionJournal?: IExecutionJournal,
   ): Promise<void> {
     const extras = {
       systemMessage: this.systemMessage,
@@ -387,6 +555,7 @@ export class Session extends SessionBase {
       onCompactEventCallback: this.onCompactEventCallback,
       trigger,
       ...(hookTraceEnv ? { hookTraceEnv } : {}),
+      ...(executionJournal ? { executionJournal } : {}),
     };
     await compact(instructions, buildCompactContext(this.buildRunContext(), extras), signal);
   }
@@ -404,7 +573,8 @@ export class Session extends SessionBase {
       hookTypeExecutors: this.hookTypeExecutors,
       sessionStartStdout: this.sessionStartStdout,
       log: (event: string, data: TSessionLogData) => this.log(event, data),
-      compact: (signal, hookTraceEnv) => this.compactWith(undefined, 'auto', signal, hookTraceEnv),
+      compact: (signal, hookTraceEnv, executionJournal) =>
+        this.compactWith(undefined, 'auto', signal, hookTraceEnv, executionJournal),
       persistSession: () => this.persistSessionInternal(),
       getSessionStore: () => !!this.sessionStore,
       clearSessionStartStdout: () => void (this.sessionStartStdout = ''),

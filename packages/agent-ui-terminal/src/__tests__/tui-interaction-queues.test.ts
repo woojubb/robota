@@ -136,4 +136,14 @@ describe('TuiPermissionQueue', () => {
     queue.current?.resolve(true);
     await expect(second).resolves.toBe(true);
   });
+
+  it('issue #3288 §1: carries the requester onto the current entry', async () => {
+    const queue = new TuiPermissionQueue(vi.fn());
+    const requester = { kind: 'background-agent' as const, label: 'general-purpose', taskId: 'agent_1' };
+    const pending = queue.enqueue('Glob', { pattern: '**/*' }, 'permission-1', false, undefined, requester);
+
+    expect(queue.current?.requester).toEqual(requester);
+    queue.current?.resolve(false);
+    await expect(pending).resolves.toBe(false);
+  });
 });

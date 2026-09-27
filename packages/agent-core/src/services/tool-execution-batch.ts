@@ -1,4 +1,11 @@
 import { ValidationError } from '../utils/errors';
+import type { ExecutionJournalError } from '../utils/execution-journal-error';
+import {
+  isExecutionControlError,
+  prioritizeExecutionError,
+} from '../utils/execution-control-error';
+import { ExecutionSuspendedError } from '../utils/execution-suspended-error';
+import type { ExecutionRecoveryError } from '../utils/execution-recovery-error';
 import { randomId } from '../utils/random-id.js';
 import { spanIdFromMintedId, toolTraceContextFor, traceEnvFor } from '../utils/trace-context';
 
@@ -31,6 +38,8 @@ interface IParallelExecutionState {
   resultsByIndex: Array<IToolExecutionResult | undefined>;
   errorsByIndex: Array<Error | undefined>;
   nextRequestIndex: number;
+  fatalError?: ExecutionJournalError | ExecutionSuspendedError | ExecutionRecoveryError;
+  abort: AbortController;
 }
 
 function requireExecutionRequestFields(request: {
@@ -186,20 +195,19 @@ async function executeParallelRequest(
   }
 
   try {
-    const result = batchContext.signal?.aborted
-      ? createInterruptedResult(request)
-      : request.argumentDecodeError !== undefined
-        ? createArgumentDecodeErrorResult(request)
-        : await executor.executeTool(
-            request.toolName,
-            request.parameters,
-            createExecutionContext(request, batchContext.signal),
-          );
+    const result = await executeRequest(batchContext, executor, request, index);
     state.resultsByIndex[index] = result;
     if (!result.success) {
       state.errorsByIndex[index] = createToolFailureError(result);
     }
   } catch (error) {
+    if (isExecutionControlError(error)) {
+      const selected = prioritizeExecutionError(state.fatalError, error);
+      if (isExecutionControlError(selected)) state.fatalError = selected;
+      // A saved wait only stops further dispatch: running siblings settle with real results.
+      if (!(error instanceof ExecutionSuspendedError)) state.abort.abort(error);
+      return;
+    }
     const err = error instanceof Error ? error : new Error(String(error));
     state.errorsByIndex[index] = err;
     state.resultsByIndex[index] = createErrorResult(request, err);
@@ -211,7 +219,7 @@ async function runParallelWorker(
   executor: IToolExecutor,
   state: IParallelExecutionState,
 ): Promise<void> {
-  while (state.nextRequestIndex < batchContext.requests.length) {
+  while (!state.fatalError && state.nextRequestIndex < batchContext.requests.length) {
     const currentIndex = state.nextRequestIndex;
     state.nextRequestIndex += 1;
     await executeParallelRequest(batchContext, executor, state, currentIndex);
@@ -226,10 +234,20 @@ async function executeParallel(
   batchContext: IToolExecutionBatchContext,
   executor: IToolExecutor,
 ): Promise<{ results: IToolExecutionResult[]; errors: Error[] }> {
+  const abort = new AbortController();
+  const executionContext = batchContext.journal
+    ? {
+        ...batchContext,
+        signal: batchContext.signal
+          ? AbortSignal.any([batchContext.signal, abort.signal])
+          : abort.signal,
+      }
+    : batchContext;
   const state: IParallelExecutionState = {
     resultsByIndex: new Array(batchContext.requests.length),
     errorsByIndex: new Array(batchContext.requests.length),
     nextRequestIndex: 0,
+    abort,
   };
   const concurrency = resolveMaxConcurrency(
     batchContext.requests.length,
@@ -237,9 +255,10 @@ async function executeParallel(
   );
 
   const workers = Array.from({ length: concurrency }, () =>
-    runParallelWorker(batchContext, executor, state),
+    runParallelWorker(executionContext, executor, state),
   );
   await Promise.all(workers);
+  if (state.fatalError) throw state.fatalError;
 
   const results = state.resultsByIndex.filter(isDefinedResult);
   const errors = state.errorsByIndex.filter(isDefinedError);
@@ -261,17 +280,9 @@ async function executeSequential(
   const results: IToolExecutionResult[] = [];
   const errors: Error[] = [];
 
-  for (const request of batchContext.requests) {
+  for (const [index, request] of batchContext.requests.entries()) {
     try {
-      const result = batchContext.signal?.aborted
-        ? createInterruptedResult(request)
-        : request.argumentDecodeError !== undefined
-          ? createArgumentDecodeErrorResult(request)
-          : await executor.executeTool(
-              request.toolName,
-              request.parameters,
-              createExecutionContext(request, batchContext.signal),
-            );
+      const result = await executeRequest(batchContext, executor, request, index);
       results.push(result);
       if (!result.success) {
         errors.push(createToolFailureError(result));
@@ -280,6 +291,7 @@ async function executeSequential(
         break;
       }
     } catch (error) {
+      if (isExecutionControlError(error)) throw error;
       const err = error instanceof Error ? error : new Error(String(error));
       errors.push(err);
       if (!batchContext.continueOnError) {
@@ -289,6 +301,83 @@ async function executeSequential(
   }
 
   return { results, errors };
+}
+
+async function executeRequest(
+  context: IToolExecutionBatchContext,
+  executor: IToolExecutor,
+  request: IToolExecutionRequest,
+  index: number,
+): Promise<IToolExecutionResult> {
+  const recovered = context.recoveredResults?.get(index);
+  if (recovered) return structuredClone(recovered);
+  if (!context.journal) {
+    return context.signal?.aborted
+      ? createInterruptedResult(request)
+      : request.argumentDecodeError !== undefined
+        ? createArgumentDecodeErrorResult(request)
+        : executor.executeTool(
+            request.toolName,
+            request.parameters,
+            createExecutionContext(request, context.signal),
+          );
+  }
+  let result: IToolExecutionResult;
+  const journal = context.journal;
+  if (context.signal?.aborted) result = createInterruptedResult(request);
+  else if (request.argumentDecodeError !== undefined)
+    result = createArgumentDecodeErrorResult(request);
+  else {
+    await journal.beforeDispatch(index);
+    // The admission wait can outlive a sibling's failure or caller cancellation.
+    if (context.signal?.aborted) result = createInterruptedResult(request);
+    else {
+      try {
+        result = await executeAndDrain(context, index, () =>
+          executor.executeTool(request.toolName, request.parameters, {
+            ...createExecutionContext(request, context.signal),
+            ...(journal.continuation ? { continuation: journal.continuation(index) } : {}),
+            ...(journal.beforeEffect
+              ? {
+                  beforeToolEffect: (parameters) => journal.beforeEffect!(index, parameters),
+                }
+              : {}),
+          }),
+        );
+      } catch (error) {
+        if (isExecutionControlError(error)) throw error;
+        result = createErrorResult(
+          request,
+          error instanceof Error ? error : new Error(String(error)),
+        );
+      }
+    }
+  }
+  // Persist a settled sibling even after cancellation; this wait is not a new external effect.
+  await context.journal?.onResult(index, result);
+  return result;
+}
+
+async function executeAndDrain(
+  context: IToolExecutionBatchContext,
+  index: number,
+  execute: () => Promise<IToolExecutionResult>,
+): Promise<IToolExecutionResult> {
+  let outcome: { result: IToolExecutionResult } | { error: unknown };
+  try {
+    outcome = { result: await execute() };
+  } catch (error) {
+    outcome = { error };
+  }
+  try {
+    await context.journal?.settle?.(index);
+  } catch (error) {
+    outcome = {
+      error: 'error' in outcome ? prioritizeExecutionError(outcome.error, error) : error,
+    };
+  }
+  if ('error' in outcome) throw outcome.error;
+  return outcome.result;
 }
 
 /**

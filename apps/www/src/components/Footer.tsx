@@ -116,15 +116,6 @@ export function Footer() {
 
         <div className="mt-8 border-t border-[var(--border)] pt-6 flex flex-col sm:flex-row justify-between gap-3">
           <p className="text-xs text-[var(--muted-foreground)]">{t('footer.copyright')}</p>
-          {/* Playground temporarily hidden until the hosted playground (play.robota.io) ships. Restore: see backlog WWW-PLAYGROUND-RESTORE. */}
-          {/* <a
-            href="https://play.robota.io"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
-          >
-            {t('footer.links.playground')} ↗
-          </a> */}
         </div>
       </div>
     </footer>

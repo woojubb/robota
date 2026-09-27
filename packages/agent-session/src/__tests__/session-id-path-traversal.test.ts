@@ -1,16 +1,15 @@
 /**
- * SEC-006 — a session id is a PATH SEGMENT, and one caller supplies it from an untrusted source.
+ * SEC-006 — a session id is a PATH SEGMENT, and a host may supply it from an untrusted source.
  *
  * `SessionStore.filePath(id)` is `join(baseDir, `${id}.json`)` with no validation, and
  * `FileSessionLogger.log(sessionId, …)` is `join(logDir, `${sessionId}.jsonl`)` with no validation.
- * `POST /api/playground/sessions` on `apps/agent-server` takes `resumeSessionId` straight from an
- * unauthenticated HTTP body, checks only `typeof === 'string'`, and feeds it to `load()` — and the same
- * value becomes the session's own id, so it also reaches `save()` (writeFileSync + renameSync) and the
- * JSONL logger. A `../` id therefore reads AND writes outside the store directory.
+ * A host that takes a resume id straight from a request body and feeds it to `load()` also makes it the
+ * session's own id, so it reaches `save()` (writeFileSync + renameSync) and the JSONL logger too. A `../`
+ * id therefore reads AND writes outside the store directory.
  *
- * The CLI happened to be safe only because `--resume` resolves through `resolveSessionIdByIdOrName`,
- * an existence-allowlist over `list()`. The HTTP handler bypasses that helper entirely. The guard
- * belongs at the id boundary so every sink inherits it.
+ * The CLI is safe on its own because `--resume` resolves through `resolveSessionIdByIdOrName`, an
+ * existence-allowlist over `list()`; a host that skips that helper is not. The guard belongs at the id
+ * boundary so every sink inherits it.
  */
 import { createHash } from 'node:crypto';
 import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync, realpathSync } from 'node:fs';

@@ -68,6 +68,22 @@ export type TInteractivePermissionHandler = (
  * first already answered.
  */
 
+/**
+ * Issue #3288 §1: which background agent raised a permission request, when one did — display-only,
+ * the same way `requesterDriverId` is. A closed union of one variant today; a future non-agent
+ * asker (a schedule, say) adds a member rather than widening this one's meaning.
+ */
+export interface IBackgroundAgentPermissionRequester {
+  readonly kind: 'background-agent';
+  /** The agent type shown to the person, e.g. "general-purpose". */
+  readonly label: string;
+  /** The background task id — correlates with the Agents panel entry. */
+  readonly taskId: string;
+}
+
+/** Who is asking, when the answer did not come from the person's own turn. */
+export type TPermissionRequester = IBackgroundAgentPermissionRequester;
+
 /** A tool call awaiting a permission decision. Serializable — crosses the transport boundary unchanged. */
 export interface IPermissionRequestEvent {
   id: string;
@@ -77,6 +93,8 @@ export interface IPermissionRequestEvent {
   canPersistProjectPermission?: boolean;
   /** REMOTE-014 E5: the driver whose turn raised this prompt (display-only). */
   requesterDriverId?: TDriverId;
+  /** Issue #3288 §1: a background agent's own request, forwarded to the person (display-only). */
+  requester?: TPermissionRequester;
 }
 
 /** An "ask the user" request (command- or tool-issued) awaiting an answer. Serializable. */
@@ -184,6 +202,12 @@ export interface ISessionStatusSnapshot {
   readonly context: IContextWindowState;
   /** The goal being pursued (`/goal`), or null; a client shows its progress beside the composer. */
   readonly goal: IGoalState | null;
+  /**
+   * Issue #3282 §3: true while `model` is a placeholder because no provider is configured yet — a
+   * served runtime's first run. A client shows a setup screen instead of a composer. Absent (never
+   * `false`) once a provider is configured, which is every session before this existed.
+   */
+  readonly setupRequired?: boolean;
 }
 
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;

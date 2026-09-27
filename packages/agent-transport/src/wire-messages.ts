@@ -155,7 +155,16 @@ export type TServerMessage =
       /** The `requestId` of the `command` this answers, when it carried one. */
       requestId?: string;
     }
-  | { type: 'messages'; messages: ReturnType<ISessionConversationRead['getMessages']> }
+  | {
+      type: 'messages';
+      messages: ReturnType<ISessionConversationRead['getMessages']>;
+      /**
+       * #3289 §3: this connection's own server-assigned driver id, carried on the first frame every
+       * connection already gets — so a client can tell its OWN turns from a co-driver's instead of
+       * treating everything but the literal `'owner'` id as someone else (REMOTE-014 E5 display-only).
+       */
+      driverId?: TDriverId;
+    }
   // #3189: one page of the full history. `entries` start at `startIndex` of the `total` the session
   // holds now, and stop before a page grows past a bounded size (a single larger entry is sent alone).
   | { type: 'history'; startIndex: number; total: number; entries: IWireHistoryEntry[] }

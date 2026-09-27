@@ -730,6 +730,7 @@ export class WireTuiChannel implements ITuiAppChannelPort {
         event.id,
         event.canPersistProjectPermission,
         requestedByPeer,
+        event.requester,
       )
       .then((result) =>
         this.answer(generation, event.id, { type: 'permission-response', id: event.id, result }),

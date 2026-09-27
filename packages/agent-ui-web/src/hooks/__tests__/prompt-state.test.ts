@@ -31,6 +31,28 @@ describe('applyPromptEvent (REMOTE-007 web render)', () => {
     ]);
   });
 
+  it('issue #3288 §1: keeps `requester` so the surface can name the background agent asking', () => {
+    const req: TServerMessage = {
+      type: 'permission_request',
+      event: {
+        id: 'p2',
+        toolName: 'Glob',
+        toolArgs: {},
+        requester: { kind: 'background-agent', label: 'general-purpose', taskId: 'agent_1' },
+      },
+    };
+    const next = applyPromptEvent([], req);
+    expect(next).toEqual([
+      {
+        kind: 'permission',
+        id: 'p2',
+        toolName: 'Glob',
+        toolArgs: {},
+        requester: { kind: 'background-agent', label: 'general-purpose', taskId: 'agent_1' },
+      },
+    ]);
+  });
+
   it('appends an ask prompt on ask_request', () => {
     const next = applyPromptEvent([], askReq);
     expect(next).toEqual([{ kind: 'ask', id: 'a1', request: { id: 'r', title: 'Pick' } }]);

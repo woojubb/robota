@@ -136,6 +136,11 @@ function maximalRecord(): IInteractiveSessionRecord {
           output: 'done',
           metadata: { lines: 12 },
           usage: { promptTokens: 1, completionTokens: 2, totalTokens: 3 },
+          // Issue #3288 §1.
+          deniedToolCalls: {
+            total: 2,
+            byReason: { 'denied-by-person': 1, 'no-approver': 1, 'approver-error': 0, cancelled: 0 },
+          },
         },
         error: { category: 'timeout', message: 'too slow', recoverable: true },
       },
@@ -493,6 +498,16 @@ describe('decodeInteractiveSessionRecord — background task result kind discrim
     const outcome = decodeInteractiveSessionRecord(record);
     expect(outcome.status).toBe('corrupt');
     expect(issuePaths(outcome)).toContain('backgroundTasks[0].result.usage');
+  });
+
+  it('rejects a process-kind result carrying agent-only deniedToolCalls (#3288 §1)', () => {
+    const record = persisted() as { backgroundTasks: Array<Record<string, unknown>> };
+    const task = record.backgroundTasks[0]!;
+    task['kind'] = 'process';
+    (task['result'] as Record<string, unknown>)['kind'] = 'process';
+    const outcome = decodeInteractiveSessionRecord(record);
+    expect(outcome.status).toBe('corrupt');
+    expect(issuePaths(outcome)).toContain('backgroundTasks[0].result.deniedToolCalls');
   });
 });
 

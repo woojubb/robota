@@ -1,6 +1,13 @@
 // @robota-sdk/agent-session
 
 // Session
+export type { TSessionResumeOptions } from './session-resume.js';
+export type {
+  ISessionPendingExecution,
+  ISessionRecoverableRunOptions,
+  TSessionRecoverableResumeOptions,
+  TSessionExecutionResult,
+} from './session-recoverable.js';
 export { Session } from './session.js';
 export type { IProviderCallTraceObservation, ISessionRunOptions } from './session-types.js';
 export type {
@@ -9,6 +16,8 @@ export type {
   TAutoCompactThreshold,
   TPermissionHandler,
   TPermissionResult,
+  IPermissionAskContext,
+  TPermissionRequester,
   ITerminalOutput,
   ISpinner,
 } from './session.js';

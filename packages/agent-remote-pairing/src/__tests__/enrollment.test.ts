@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
   generateDeviceKeyAgreementKeyPair,
@@ -46,8 +46,11 @@ interface ISide {
   readonly remoteFingerprint: string;
 }
 
-/** Two sides wired to each other; `tap` sees (and may rewrite) every frame in flight. */
-function run(joiner: ISide, existing: ISide, timeoutMs = 500) {
+/** Returns the frame to deliver, or a promise of it to hold the frame back until it settles. */
+type TTap = (from: TEnrollmentRole, frame: unknown) => unknown;
+
+/** Two sides wired to each other; `tap` sees (and may rewrite or hold) every frame in flight. */
+function run(joiner: ISide, existing: ISide, tap: TTap = (_from, frame) => frame, timeoutMs = 500) {
   const sent: { joiner: TEnrollmentProofFrame[]; existing: TEnrollmentProofFrame[] } = {
     joiner: [],
     existing: [],
@@ -59,7 +62,8 @@ function run(joiner: ISide, existing: ISide, timeoutMs = 500) {
     timeoutMs,
     send: (frame) => {
       sent.joiner.push(frame);
-      queueMicrotask(() => toExisting(JSON.parse(JSON.stringify(frame))));
+      const copy: unknown = JSON.parse(JSON.stringify(frame));
+      queueMicrotask(() => void Promise.resolve(tap('joiner', copy)).then(toExisting));
     },
   });
   const e = startEnrollmentProof({
@@ -67,11 +71,15 @@ function run(joiner: ISide, existing: ISide, timeoutMs = 500) {
     timeoutMs,
     send: (frame) => {
       sent.existing.push(frame);
-      queueMicrotask(() => toJoiner(JSON.parse(JSON.stringify(frame))));
+      const copy: unknown = JSON.parse(JSON.stringify(frame));
+      queueMicrotask(() => void Promise.resolve(tap('existing', copy)).then(toJoiner));
     },
   });
   toExisting = (frame) => e.onFrame(frame);
   toJoiner = (frame) => j.onFrame(frame);
+  // Observe both results from the start, as a real caller does with its side: a test awaits one side
+  // first, and the other may refuse meanwhile.
+  for (const side of [j, e]) side.result.catch(() => undefined);
   return { joiner: j.result, existing: e.result, sent };
 }
 
@@ -130,6 +138,41 @@ describe('enrollment proof — knowledge of the code, bound to the negotiated ch
     );
     expect((await refusal(existing)).reason).toBe('proof-failed');
     expect((await refusal(joiner)).reason).toBe('proof-failed');
+  });
+
+  it('refuses a relay in the middle when the joiner refuses a full turn before the existing device', async () => {
+    // Which side's proof check finishes first is up to the threadpool; on a busy machine the joiner
+    // can refuse while the test still waits on the existing device. Force that order: the joiner's
+    // proof reaches the existing device only a turn after the joiner's own check has finished, when
+    // Node has already reported the joiner's refusal if nothing was listening to it.
+    const material = await deriveEnrollmentMaterial(generateEnrollmentCode());
+    const subtle = globalThis.crypto.subtle;
+    const verify = subtle.verify.bind(subtle);
+    const spy = vi.spyOn(subtle, 'verify');
+    const joinerChecked = new Promise<void>((resolve) => {
+      // The first check is the joiner's: the existing device has no proof to check until then.
+      spy.mockImplementationOnce(async (...args) => {
+        try {
+          return await verify(...args);
+        } finally {
+          setImmediate(resolve);
+        }
+      });
+    });
+    try {
+      const { joiner, existing } = run(
+        { role: 'joiner', material, localFingerprint: FP_J, remoteFingerprint: FP_R1 },
+        { role: 'existing', material, localFingerprint: FP_E, remoteFingerprint: FP_R2 },
+        (from, frame) =>
+          from === 'joiner' && (frame as { t?: unknown }).t === 'en-proof'
+            ? joinerChecked.then(() => frame)
+            : frame,
+      );
+      expect((await refusal(existing)).reason).toBe('proof-failed');
+      expect((await refusal(joiner)).reason).toBe('proof-failed');
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('refuses a wrong code', async () => {

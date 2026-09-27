@@ -1,6 +1,7 @@
 import { AbstractManager } from '../abstracts/abstract-manager';
 import { ToolRegistry, FunctionTool, isDeferredTool, projectOfferedTools } from '../tool-registry';
 import { ToolExecutionError } from '../utils/errors';
+import { isExecutionControlError } from '../utils/execution-control-error';
 import { logger } from '../utils/logger';
 
 import type { IToolManager } from '../interfaces/manager';
@@ -112,9 +113,7 @@ export class Tools extends AbstractManager implements IToolManager {
   getTools(): IToolSchema[] {
     this.ensureInitialized();
 
-    const schemas = this.registry
-      .getSchemas()
-      .filter((schema) => this.isToolVisible(schema.name));
+    const schemas = this.registry.getSchemas().filter((schema) => this.isToolVisible(schema.name));
 
     // Filter by allowed tools if set
     if (this.allowedTools) {
@@ -144,6 +143,10 @@ export class Tools extends AbstractManager implements IToolManager {
   }
 
   /** Deferred tools not yet loaded — the population a search discovers. Empty while deferral is off. */
+  getLoadedDeferredTools(): string[] {
+    return [...this.loadedDeferredTools].sort();
+  }
+
   listDeferredTools(): IToolSchema[] {
     if (this.resolveToolSearchMode() === 'off') return [];
     return this.getTools().filter(
@@ -199,6 +202,7 @@ export class Tools extends AbstractManager implements IToolManager {
     try {
       result = await tool.execute(parameters, context);
     } catch (error) {
+      if (isExecutionControlError(error)) throw error;
       // Re-wrap errors thrown by tools to ensure instanceof checks work
       // when tools are loaded from dist packages
       if (error instanceof Error) {

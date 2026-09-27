@@ -100,6 +100,8 @@ export type {
   IToolState,
   TInteractivePermissionHandler,
   IPermissionRequestEvent,
+  IBackgroundAgentPermissionRequester,
+  TPermissionRequester,
   IAskRequestEvent,
   IPromptResolvedEvent,
   IContextFileRefreshedEvent,

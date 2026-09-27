@@ -13,10 +13,6 @@ const NAV_LINKS: { labelKey: string; href: string; external?: boolean }[] = [
   { labelKey: 'Packages', href: 'packages' },
   { labelKey: 'Changelog', href: 'changelog' },
   { labelKey: 'Development', href: 'development' },
-  // WEB-019: Playground is temporarily hidden until the hosted playground ships (the
-  // subdomain is not yet deployed). Restore alongside WEB-005 using the canonical
-  // `play.robota.io` subdomain (matching the marketing site), not `playground.robota.io`.
-  // { labelKey: 'Playground', href: 'https://play.robota.io', external: true },
 ];
 
 const NAV_ITEM_CLASSES =

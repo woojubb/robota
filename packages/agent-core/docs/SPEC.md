@@ -154,7 +154,7 @@ A pluggable lifecycle hook mechanism supporting multiple execution strategies (s
 
 ## Cancellation Contract
 
-A run's cancellation signal is the single source of cancellation for that run, and gates identically across every entry point into a turn — there is no second, cancellation-blind execution path. It reaches every provider call including abnormal ones (e.g. a forced end-of-round summary call goes through the same signal-carrying path as a normal round call), every tool execution (a long-running built-in tool MUST observe the signal and terminate its own work rather than completing silently after abort — silent completion after abort is a contract violation), and a streaming consumer that abandons its generator early also aborts the underlying turn, since a turn that keeps writing to history after its only reader left is worse than one that was cleanly cancelled. An aborted run always resolves as "interrupted," never as a provider error and never as an ordinary successful completion, and it answers with the text its turn committed before the abort — the same text history keeps. By default cancellation can complete before the provider call settles; a host may opt into joining provider settlement so completion also releases ownership of that call, accepting that a provider which ignores abort can keep the run pending. A late provider result or rejection never replaces the cancellation or timeout that won.
+A run's cancellation signal is the single source of cancellation for that run, and gates identically across every entry point into a turn — there is no second, cancellation-blind execution path. It reaches every provider call including abnormal ones (e.g. a forced end-of-round summary call goes through the same signal-carrying path as a normal round call), every tool execution (a long-running built-in tool MUST observe the signal and terminate its own work rather than completing silently after abort — silent completion after abort is a contract violation), and a streaming consumer that abandons its generator early also aborts the underlying turn, since a turn that keeps writing to history after its only reader left is worse than one that was cleanly cancelled. Cancellation resolves as "interrupted" with the text committed before abort, unless an awaited execution journal fails: persistence failure must remain a failure even when cancellation or an observer exception races it. By default cancellation can complete before the provider call settles; a host may opt into joining provider settlement so completion also releases ownership of that call, accepting that a provider which ignores abort can keep the run pending. A journaled run joins settlement because a late response may contain chargeable usage or tool intents that must be recorded. Other late provider results or rejections never replace the cancellation or timeout that won.
 
 ## Reasoning Effort
 
@@ -219,7 +219,7 @@ The system prompt is the agent's live instruction state, not ordinary conversati
 - **Single owner, single head message**: the system prompt has exactly one source of truth in the agent config, and a conversation store holds exactly one system message, always at the head; setting it removes any existing system messages first.
 - **Injected once per session, then reused as-is**: the prompt is injected into a session's log only when that log has no system message yet (session start, or the first turn after resume); on every later turn within that session the log is reused unmodified — the prompt is never re-derived or re-attached per turn, because once a prompt has been sent it is part of that session's own record.
 - **Live updates propagate immediately**: updating the system prompt updates both the config and the live conversation-store head in place, so the very next provider request carries the change — this is the path that lets a session's persona or environment-staleness refresh reach the model as an infrequent, deliberate mutation, not a per-turn rewrite. Updating only the config field without the store head is insufficient, because providers read the system prompt out of the message array, never from a side-channel config field.
-- **Resume does not replay a stale prompt**: a persisted system message from a previous session is not restored verbatim; instead the current live prompt is injected fresh on the first turn after resume, so a resumed session reflects the current environment rather than a stale snapshot, while the substantive user/assistant/tool history is always preserved regardless.
+- **Session restore refreshes the prompt**: starting a new user turn from a persisted session injects the current live prompt instead of restoring a stale system message, while preserving the substantive user/assistant/tool history. Continuing an interrupted execution retains its canonical checkpoint, including the prompt already used by that execution.
 
 This zero-dependency foundation layer injects no persona or product vocabulary into the model on its own — every string it can place in front of a model (default system message, a context-capacity notice, a tool-result-skip notice, a forced-summary instruction) defaults to empty or strictly neutral mechanism text, with an explicit override seam for a product layer that wants its own wording. Any new model-facing string added to this package must default to neutral text and, where appropriate, expose such a seam — this is a standing design rule, not a one-time inventory.
 
@@ -242,7 +242,7 @@ If a run is aborted mid-stream, partial content already produced is preserved in
 Each attempted provider round, including a forced-summary call, emits one content-free completion observation with its actual
 start/end time, round number, and success/failure/interruption outcome. It describes the shared
 provider-call boundary (which may be served from cache), not proof of an outbound network request;
-request and response bodies belong only to their existing separate execution events.
+request and response bodies belong only to their separate execution events and, when configured, the execution journal.
 
 The default round budget for one run is a fixed number of model/tool rounds, overridable per-run or per-config (run-scoped values win); a budget of zero disables the round cap entirely and leaves stopping to abort, the context-window guard, and provider timeouts.
 
@@ -254,9 +254,40 @@ When the round budget is exhausted without a final assistant text response, one 
 
 **Pre-send context guard.** Before every provider call, estimated token usage is checked against the model's context window; this is a hard-capacity stop (distinct from — and does not replace — the session layer's own configured automatic-compaction policy) and only trips when usage exceeds a high fixed threshold of the window, at which point it emits a diagnostic message explaining why the prompt was blocked rather than sending a request likely to fail with a provider-side size error.
 
-**Provider call failures are surfaced, not swallowed.** If a provider call throws, the error is recorded as a readable assistant-visible message rather than the caller seeing an opaque "no response received," and if the whole execution pipeline throws unexpectedly, it is still caught and turned into a graceful error result rather than propagating an unhandled rejection.
+**Provider call failures are surfaced, not swallowed.** If a provider call throws, the error is recorded as a readable assistant-visible message rather than the caller seeing an opaque "no response received," and if the whole execution pipeline throws unexpectedly, it is caught and turned into an error result. Execution control outcomes propagate directly: persistence failures retain their original cause, uncertain effects require reconciliation, and a saved pre-effect wait suspends the execution. None may become normal assistant output or a tool failure that the model may retry.
 
 **Tool-result context budget.** Once history's context estimate crosses a high fixed threshold while committing a batch of tool results, remaining results in that batch are replaced with a short, fixed context-error message instead of their real content (mirroring the same pattern used for a permission deny) — the execution loop does not stop; it continues so the model can see the mix of real and skipped results and decide how to proceed with what it has.
+
+## Execution Journal and Continuation
+
+A host may make a run recoverable by supplying an execution journal it owns exclusively. The
+journal exists so that no model call or tool effect is repeated or hidden after a restart: every
+boundary whose loss would leave that ambiguous is awaited before the runtime crosses it, and
+events or observations never stand in for it. A tool's effect is recorded with the arguments it
+actually runs with, since wrappers may change them after dispatch. A rejected write fails the run instead of becoming
+a model-visible or retryable tool failure, because a retried effect could run twice; further
+dispatch stops while effects already running settle.
+
+Continuation resumes a compatible execution from its latest settled model response without new
+input, reusing every durable settlement instead of repeating it and keeping the limits and tool
+residency the execution started with. Whatever the journal cannot
+prove — an effect that started without a recorded result, a model call without a recorded
+response, runtime state that differs from the saved one — is refused for reconciliation rather
+than guessed, and live history that conflicts with the saved checkpoint is never overwritten.
+Restored history stays with the agent for the host to checkpoint or discard. Turn-level lifecycle hooks are not replayed, because their effects have no durable receipts.
+
+Before its effect starts, a tool may save a request for an outside response and suspend the
+execution. Requests and responses are durable under stable identities; a response can answer
+only its own request, is saved before it is used, and never admits an effect by itself — current
+admission still decides. Suspension is control flow, neither completion nor failure: it returns
+only once pending writes are durable and tools already running beside the waiting one have
+finished, while calls not yet started stay pending. Running siblings finish rather than being
+interrupted because one tool's wait says nothing about an allowed neighbour, and an interrupted
+result would be saved as its final outcome; cancellation still interrupts them. Persistence and
+reconciliation failures take precedence over a wait.
+
+Non-goals: visibility into a provider adapter's internal retries, and recovery of arbitrary
+effects without a cooperating host and runtime.
 
 ## Class Extension Points
 

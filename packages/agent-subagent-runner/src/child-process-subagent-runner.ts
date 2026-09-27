@@ -31,9 +31,16 @@ import {
 } from './child-process-subagent-transport.js';
 import { SUBAGENT_WORKER_MODE_FLAG, type ISubagentWorkerEntry } from './worker-entry.js';
 
-import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
+import type {
+  ISubagentWorkerStartPayload,
+  TSubagentWorkerPermissionResult,
+} from './child-process-subagent-ipc.js';
 import type { TParentSandboxSettings } from './worker-composition.js';
-import type { IProviderDefinition, IProviderDefinitionConfig } from '@robota-sdk/agent-core';
+import type {
+  IProviderDefinition,
+  IProviderDefinitionConfig,
+  TToolArgs,
+} from '@robota-sdk/agent-core';
 import type {
   IInProcessSubagentRunnerDeps,
   TSubagentRunnerFactory,
@@ -45,6 +52,13 @@ import type {
 
 /** POSIX children are forked detached so a process-group kill reaps grandchildren (CORE-023). */
 const SPAWN_DETACHED = process.platform !== 'win32';
+
+/** Issue #3288 §1: how a job's child asks the parent's own approver for a tool call. */
+type TPermissionApprover = (
+  toolName: string,
+  toolArgs: TToolArgs,
+  signal: AbortSignal,
+) => Promise<TSubagentWorkerPermissionResult>;
 
 export interface IChildProcessSubagentRunnerOptions {
   /**
@@ -171,6 +185,12 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       killGraceMs: this.killGraceMs,
     };
     const payload = this.createStartPayload(job, connection);
+    // Issue #3288 §1: owned here (not inside the result controller) so `cancel()` below can abort it
+    // the moment cancellation is REQUESTED — a still-parked permission ask must not outlive that
+    // decision by however long the child takes to confirm it. The controller also aborts it on its
+    // own settlement, covering a crash or a normal finish with one still in flight.
+    const permissionAbort = new AbortController();
+    const permissionApprover = this.permissionApprover(job);
     const workerResult = createChildProcessSubagentResult({
       runtime,
       payload,
@@ -178,6 +198,8 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
         ? { handshakeBudgetMs: this.handshakeBudgetMs }
         : {}),
       resolveTranscriptPath: (request) => this.resolveTranscriptPath(request),
+      permissionAbort,
+      ...(permissionApprover !== undefined ? { permissionApprover } : {}),
     });
     const cancellation = createCancellationResult(job.taskId);
     void workerResult.catch(() => undefined);
@@ -194,6 +216,9 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
       ...(transcriptPath !== undefined && { transcriptPath, logPath: transcriptPath }),
       result,
       cancel: async (reason?: string) => {
+        // Issue #3288 §1: dismiss a still-parked permission ask before anything else — the GUI must
+        // not keep asking about a task the person just told to stop.
+        permissionAbort.abort(reason);
         cancellation.reject(reason);
         await cancelChildProcess(runtime, reason);
       },
@@ -243,6 +268,25 @@ export class ChildProcessSubagentRunner implements ISubagentRunner {
   private resolveTranscriptPath(job: ISubagentJobStart): string | undefined {
     if (!this.logsDir) return undefined;
     return join(this.logsDir, job.request.parentSessionId, 'subagents', `${job.taskId}.jsonl`);
+  }
+
+  /**
+   * Issue #3288 §1: how this job's child gets a human's yes/no — the parent session's own approver
+   * (`deps.permissionHandler`, the exact function the in-process runner already hands its own child
+   * session), bound to a `requester` identity that names this task so a surface can say "Background
+   * agent X wants to …" instead of an unattributed prompt. `undefined` when the parent session has no
+   * approver at all (print mode / a truly headless run): the result controller then denies every
+   * request from the child immediately, the same fail-closed default the enforcer applies with none.
+   */
+  private permissionApprover(job: ISubagentJobStart): TPermissionApprover | undefined {
+    const handler = this.deps.permissionHandler;
+    if (handler === undefined) return undefined;
+    const requester = {
+      kind: 'background-agent' as const,
+      label: job.request.agentType,
+      taskId: job.taskId,
+    };
+    return (toolName, toolArgs, signal) => handler(toolName, toolArgs, { requester, signal });
   }
 }
 

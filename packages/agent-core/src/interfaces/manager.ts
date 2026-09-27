@@ -100,6 +100,9 @@ export interface IToolManager {
    */
   listDeferredTools(): IToolSchema[];
 
+  /** Loaded residency for compatible execution checkpoints. */
+  getLoadedDeferredTools?(): string[];
+
   /**
    * CLI-1990: mark deferred tools loaded for the rest of the session and return their schemas; an
    * unknown name throws, naming it, before anything is loaded. The same member

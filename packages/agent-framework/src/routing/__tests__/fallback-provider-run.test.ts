@@ -111,6 +111,7 @@ function comparable(history: TUniversalMessage[]): unknown[] {
     const {
       executionId: _executionId,
       usageObservationId: _usageObservationId,
+      providerCallId: _providerCallId,
       providerId: _providerId,
       modelId: _modelId,
       ...kept

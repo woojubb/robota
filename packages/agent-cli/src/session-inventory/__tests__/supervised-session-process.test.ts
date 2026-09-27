@@ -14,6 +14,9 @@ import { launchSupervisedSession } from '../supervised-session-launch.js';
 
 const fixture = fileURLToPath(new URL('./fixtures/supervised-serve-fixture.ts', import.meta.url));
 const hungFixture = fileURLToPath(new URL('./fixtures/supervised-hung-start.mjs', import.meta.url));
+const stderrCrashFixture = fileURLToPath(
+  new URL('./fixtures/supervised-stderr-crash.mjs', import.meta.url),
+);
 const SECRET_MARKER = 'SUPERVISED_SECRET_MUST_NOT_APPEAR';
 
 describe('detached supervised runtime', () => {
@@ -195,6 +198,20 @@ describe('detached supervised runtime', () => {
       rmSync(scratch, { recursive: true, force: true });
     }
   }, 30_000);
+
+  it('#3282 §3: a child that dies before readiness reports its own stderr, not a generic message', async () => {
+    let child: ChildProcess | undefined;
+    try {
+      await expect(launchSupervisedSession(process.cwd(), {
+        entrypoint: stderrCrashFixture,
+        execArgs: [],
+        env: {},
+        onSpawn: (spawned) => { child = spawned; },
+      })).rejects.toThrow('No provider configuration found. Configure a provider before starting a session.');
+    } finally {
+      if (child?.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+    }
+  }, 10_000);
 
   it('reaps a detached runtime that refuses startup and ignores graceful termination', async () => {
     let child: ChildProcess | undefined;

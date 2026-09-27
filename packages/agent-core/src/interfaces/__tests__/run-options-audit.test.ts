@@ -32,6 +32,7 @@ const RUN_OPTION_CONSUMERS: Record<keyof Required<IRunOptions>, string> = {
   awaitProviderSettlement: 'execution-provider-call.ts provider completion join',
   onTextDelta: 'execution-round-streaming.ts text delta dispatch; the streaming entry sinks it',
   onExecutionEvent: 'execution-round-streaming.ts replay event dispatch',
+  executionJournal: 'execution-journal.ts provider gate and execution-round-tools.ts batch gate',
   maxExecutionRounds: 'execution round loop cap',
   maxSameToolInputs: 'execution tool-repetition guard',
   allowToolOnlyCompletion: 'execution round completion policy (CORE-011)',

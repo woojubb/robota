@@ -302,7 +302,11 @@ export class WsTransport implements IConfigurableTransport<IProtocolSession>, IP
           ws.on('close', delivery.close);
           ws.on('error', delivery.close);
 
-          delivery.deliver({ type: 'messages', messages: connectionSession.getMessages() });
+          delivery.deliver({
+            type: 'messages',
+            messages: connectionSession.getMessages(),
+            ...(this.handlerOptions.driverId ? { driverId: this.handlerOptions.driverId } : {}),
+          });
           delivery.deliver({
             type: 'execution_workspace_event',
             snapshot: connectionSession.getExecutionWorkspaceSnapshot(),

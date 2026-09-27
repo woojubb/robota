@@ -71,9 +71,9 @@ describe('a session without an edit checkpoint store', () => {
       for (const access of [trusted, createRestrictedWorkspaceProjectAccess('untrusted', cwd)]) {
         const tracker = trackerWithoutStore(cwd, access);
         expect(reasonFor(tracker)).toBe('host-cannot-write-project');
-        expect(() => tracker.listEditCheckpoints()).toThrow(
-          'cannot prove a write stays inside the project',
-        );
+        // #3289 §3: the message names the user-facing feature ("Rewind"), not the internal
+        // write-containment mechanism behind why it is unavailable.
+        expect(() => tracker.listEditCheckpoints()).toThrow("Rewind isn't available on this computer yet.");
       }
     },
   );

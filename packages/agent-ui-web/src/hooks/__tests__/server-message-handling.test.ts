@@ -10,5 +10,7 @@ describe('ARCH-2164 server-message handling contract', () => {
     // #3186: a command's outcome is part of the conversation, kept in reducer state.
     expect(SERVER_MESSAGE_HANDLING.command_result).toBe('reducer-state');
     expect(SERVER_MESSAGE_HANDLING.usage_report).toBe('reducer-state');
+    // #3280 §2: a queued prompt is shown above the composer (Edit/Remove) — no longer dropped.
+    expect(SERVER_MESSAGE_HANDLING.pending).toBe('reducer-state');
   });
 });

@@ -25,6 +25,8 @@ export type {
   IToolInvocationBackgroundTaskRequest,
   TBackgroundTaskRequest,
   IBackgroundTaskUsage,
+  TBackgroundTaskPermissionDenialReason,
+  IBackgroundTaskDeniedToolCalls,
   IBackgroundTaskResult,
   IAgentBackgroundTaskResult,
   IProcessBackgroundTaskResult,

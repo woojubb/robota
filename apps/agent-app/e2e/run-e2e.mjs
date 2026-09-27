@@ -8,7 +8,8 @@
  * to that same daemon and its conversation (#3189); a daemon that stops while the window is open leaves the
  * window saying so, and Reconnect starts a new daemon and attaches to it (or, when the new start fails,
  * shows the CLI's reason); a daemon that cannot start reaches the fatal screen with the CLI's reason
- * instead of hanging; and in a folder not trusted yet the window asks first, and starts the daemon
+ * instead of hanging, and its Try again button reuses the same restart flow to connect once the cause is
+ * gone (#3282 §3); and in a folder not trusted yet the window asks first, and starts the daemon
  * Restricted or after the grant, as answered (#3268).
  *
  * Run: `pnpm --filter @robota-sdk/agent-app test:e2e` (wraps this in `xvfb-run`; on macOS run it with node).
@@ -203,6 +204,27 @@ try {
     check(`fatal-state check threw: ${err?.message ?? err}`, false);
   } finally {
     await refused.close();
+  }
+
+  // #3282 §3: the fatal screen's Try again reuses the same restart flow as Reconnect — it must connect
+  // once whatever stopped the very first start is gone, not just redraw the same failure.
+  stopRecordedDaemon();
+  writeFileSync(failFile, '');
+  const neverStarted = await launch({ ROBOTA_E2E_DAEMON_FAIL_FILE: failFile });
+  try {
+    const page = await neverStarted.firstWindow();
+    await page.getByRole('alert').getByText(/robota trust/).waitFor({ timeout: 20_000 });
+    const tryAgain = page.getByRole('alert').getByRole('button', { name: 'Try again' });
+    await tryAgain.waitFor();
+    rmSync(failFile, { force: true });
+    await tryAgain.click();
+    await connected(page);
+    check('#3282 §3: Try again on the fatal screen retries and connects once the cause is gone', isAlive(readDaemonPid()));
+  } catch (err) {
+    check(`fatal try-again check threw: ${err?.message ?? err}`, false);
+  } finally {
+    await neverStarted.close();
+    rmSync(failFile, { force: true });
   }
 } finally {
   const pid = readDaemonPid();

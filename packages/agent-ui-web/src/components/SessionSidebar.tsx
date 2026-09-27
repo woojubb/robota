@@ -100,11 +100,27 @@ export function SessionSidebar({
           {(listing?.sessions ?? []).map((session) => {
             const isCurrent = session.id === current;
             const others = otherClients(session, isCurrent);
+            // #3289 §3 review: the explicit `aria-label` below replaces name-from-content outright, so
+            // the live dot's and "N other(s)" span's own text no longer reaches the accessible name —
+            // folded back in here as a description instead, alongside the relative time.
+            const statusParts = [
+              session.live === true ? 'Live' : null,
+              others !== null ? `${others} ${others === 1 ? 'other' : 'others'}` : null,
+            ].filter((part): part is string => part !== null);
+            const statusId = `session-status-${session.id}`;
+            const updatedId = `session-updated-${session.id}`;
+            const describedBy =
+              statusParts.length > 0 ? `${updatedId} ${statusId}` : updatedId;
             return (
               <li key={session.id}>
                 <button
                   type="button"
                   aria-current={isCurrent ? 'true' : undefined}
+                  // #3289 §3: an explicit name + description — the row's own visible text has no
+                  // whitespace between its parts, so an unlabelled button reads as one run-together
+                  // string ("Title validation fixjust now39 msgs") to a screen reader.
+                  aria-label={sessionTitle(session)}
+                  aria-describedby={describedBy}
                   title={session.preview || session.id}
                   onClick={() => {
                     if (!isCurrent) state.switchSession?.(session.id);
@@ -129,7 +145,7 @@ export function SessionSidebar({
                         <span className="sr-only">live</span>
                       </span>
                     ) : null}
-                    <span>{formatUpdatedAt(session.updatedAt)}</span>
+                    <span id={updatedId}>{formatUpdatedAt(session.updatedAt)}</span>
                     {others !== null ? (
                       <>
                         <span aria-hidden="true">·</span>
@@ -141,6 +157,11 @@ export function SessionSidebar({
                     <span className="ml-auto">
                       {session.messageCount} {session.messageCount === 1 ? 'msg' : 'msgs'}
                     </span>
+                    {statusParts.length > 0 ? (
+                      <span id={statusId} className="sr-only">
+                        {statusParts.join(', ')}
+                      </span>
+                    ) : null}
                   </span>
                 </button>
               </li>

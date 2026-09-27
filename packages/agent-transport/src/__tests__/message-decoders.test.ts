@@ -275,6 +275,7 @@ const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
   ['thinking with a string flag', { type: 'thinking', isThinking: 'yes' }],
   ['messages with a non-array', { type: 'messages', messages: {} }],
   ['messages with a primitive entry', { type: 'messages', messages: ['x'] }],
+  ['messages with a numeric driverId', { type: 'messages', messages: [], driverId: 12345 }],
   ['pending with a number', { type: 'pending', pending: 1, pendingCount: 1 }],
   ['pending with a negative count', { type: 'pending', pending: null, pendingCount: -1 }],
   ['pending with a fractional count', { type: 'pending', pending: 'p', pendingCount: 1.5 }],

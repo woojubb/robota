@@ -273,7 +273,7 @@ Full documentation lives at **[docs.robota.io](https://docs.robota.io/en/)**.
 ## Repository Scope
 
 This repository holds the Robota agent SDK, providers, transports, the reference CLI, and related
-apps (desktop app, web playground, docs site, marketing site, blog).
+apps (desktop app, browser remote client, docs site, marketing site, blog).
 
 Some workspace packages are **private** and never published to npm on their own:
 
@@ -282,8 +282,7 @@ Some workspace packages are **private** and never published to npm on their own:
   a self-contained bundle, and reaches users through the `/workflows` command.
 - The **GUI** packages (`agent-ui-web`, `agent-gui-web`, `agent-transport-webrtc-web`) behind the
   desktop app, `robota --serve --open`, and the browser remote client.
-- Development and app support packages (`agent-playground`, `agent-remote-client`,
-  `agent-provider-replay`).
+- `agent-provider-replay`, a provider that replays a recorded session for offline tests.
 
 ## Contributing
 

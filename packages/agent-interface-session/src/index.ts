@@ -67,6 +67,8 @@ export type {
   TPermissionResultValue,
   TInteractivePermissionHandler,
   IPermissionRequestEvent,
+  IBackgroundAgentPermissionRequester,
+  TPermissionRequester,
   IAskRequestEvent,
   IPromptResolvedEvent,
   IContextFileRefreshedEvent,

@@ -63,7 +63,7 @@ import { SessionStatusPush, STATUS_CHANGING_EVENTS } from './session-status-push
 import { stopWaitingSelfPacedLoop } from './session-waiting-loop.js';
 import { retrieveSessionBackgroundTaskManager } from '../background-tasks/session-background-store.js';
 import { formatOrgPolicyViolationMessage } from '../command-api/org-policy/org-policy-loader.js';
-import { GoalController, buildGoalContinuationPrompt } from '../goal/index.js';
+import { GoalController, buildGoalContinuationPrompt, isGoalCancelVerb } from '../goal/index.js';
 import { createUserInteractionPort } from '../interaction/user-interaction-port.js';
 import { PlanController } from '../plan/index.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
@@ -119,6 +119,7 @@ import type {
   TActionResponse,
   IToolSchema,
   IToolExecutionResult,
+  TToolArgs,
   TToolParameters,
 } from '@robota-sdk/agent-core';
 import type { ISession } from '@robota-sdk/agent-core';
@@ -140,7 +141,7 @@ import type {
   TWaitingLoopStopOutcome,
 } from '@robota-sdk/agent-interface-session';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
-import type { Session } from '@robota-sdk/agent-session';
+import type { IPermissionAskContext, Session } from '@robota-sdk/agent-session';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type { IWorkspaceMoveInstructions } from './interactive-session-workspace-move.js';
 export type { TInteractiveSessionOptions } from './interactive-session-options.js';
@@ -221,6 +222,8 @@ export class InteractiveSession
   private providerDefinitions: readonly IProviderDefinition[] = [];
   private activeOutputStyleId = 'default';
   private orgPolicy: IOrgPolicy | null = null;
+  /** #3282 §3 — see the option doc comment on `IInteractiveSessionStandardOptions.setupRequired`. */
+  private setupRequired = false;
   /** The model fallback chain the session started with, re-read for each primary a switch picks. */
   private modelFallback?: {
     entries: readonly string[];
@@ -448,6 +451,7 @@ export class InteractiveSession
     if ('orgPolicy' in options) {
       this.orgPolicy = (options as IInteractiveSessionStandardOptions).orgPolicy ?? null;
     }
+    this.setupRequired = options.setupRequired ?? false;
     if ('provider' in options) {
       const provider = (options as IInteractiveSessionStandardOptions).provider;
       if (provider instanceof FallbackProvider && provider.chainOptions.entries !== undefined) {
@@ -572,8 +576,12 @@ export class InteractiveSession
       resumeSessionId: this.resumeSessionId,
       pendingRestoreMessages: this.pendingRestoreMessages,
       restoredSystemPrompt: this.restoredSystemPrompt,
-      permissionHandler: (toolName, toolArgs) =>
-        this.promptRegistry.requestPermission(toolName, toolArgs, canPersistProjectPermission),
+      // Issue #3288 §1: `context` is optional here so this stays assignable to the narrower
+      // `TInteractivePermissionHandler` this deps field is typed as (2 args) — the caller that
+      // actually supplies a `requester`/`signal` (the child-process subagent runner) holds this same
+      // function through the session-layer's own, wider `TPermissionHandler` and calls it with three.
+      permissionHandler: (toolName: string, toolArgs: TToolArgs, context?: IPermissionAskContext) =>
+        this.promptRegistry.requestPermission(toolName, toolArgs, canPersistProjectPermission, context),
       askHandler: this.askHandler,
       onTextDelta: (delta) => this.execCtrl.handleTextDelta(delta),
       onContextUpdate: (state) => this.emit('context_update', state),
@@ -685,9 +693,7 @@ export class InteractiveSession
    */
   getMemoryStore(): IMemoryStore {
     if (this.injectedMemoryStore) return this.injectedMemoryStore;
-    throw new WorkspaceAuthorityRequiredError(
-      'Project memory is unavailable without a workspace project authority.',
-    );
+    throw new WorkspaceAuthorityRequiredError("Project memory isn't available for this folder.");
   }
 
   get sessionId(): string {
@@ -734,6 +740,12 @@ export class InteractiveSession
     rawInput?: string,
     options: ISubmitOptions = {},
   ): Promise<ITurnHandle> {
+    // #3282 §3: no provider is configured yet — refuse the turn outright rather than reaching the
+    // placeholder provider. A client shows a setup screen instead of a composer while this holds
+    // (see `getStatusSnapshot().setupRequired`); this is the backstop for one that submits anyway.
+    if (this.setupRequired) {
+      throw new Error('Connect a model provider to start.');
+    }
     // This public attribution surface is not source admission. Reserve the namespace so an SDK
     // caller cannot replace an authenticated external sender's pending queue entry by id collision.
     if (options.turnSource === 'external' || options.driverId?.startsWith('external:')) {
@@ -1663,6 +1675,7 @@ export class InteractiveSession
       effort: session.getModelEffort(),
       context: session.getContextState(),
       goal: this.getGoalState(),
+      ...(this.setupRequired ? { setupRequired: true } : {}),
     };
   }
 
@@ -1900,6 +1913,10 @@ export class InteractiveSession
       this.providerDefinitions,
       this.userSettingsSources,
     );
+    // #3282 §3: a real provider resolved — whether this switch came from `/provider switch` (already
+    // configured, a no-op here) or from the setup flow's own hot-swap onto the first profile ever
+    // added, the session is no longer waiting on setup.
+    this.setupRequired = false;
     if (this.modelFallback === undefined) {
       session.swapProvider(provider, settings.model);
       return;
@@ -1940,6 +1957,20 @@ export class InteractiveSession
         ),
         success: false,
       };
+    }
+    // #3280 §2: `/goal cancel` is a CONTROL action, not an ordinary command — like abort or
+    // cancel-queue, it must work WHILE the goal's own turn is running, exactly when a runaway goal
+    // needs stopping (the base class's mid-turn gate below would otherwise refuse it with "Another
+    // prompt or command is already running"). Cancel the goal FIRST, so the still-running turn's
+    // `handleGoalTurnComplete` sees it inactive and schedules no further iteration, THEN abort the
+    // turn. A goal cancel with no active goal, or any other command, keeps the unchanged refusal.
+    if (name === 'goal' && isGoalCancelVerb(args) && this.execCtrl.executing && this.goalController.isActive()) {
+      const stopped = this.cancelGoal();
+      this.abort();
+      this.statusPush.push();
+      return stopped
+        ? { message: `Goal cancelled: ${stopped.objective}`, success: true }
+        : { message: 'No active goal to cancel.', success: false };
     }
     const result = await super.executeCommand(name, args, source, originDriverId);
     if (result === null) return null;

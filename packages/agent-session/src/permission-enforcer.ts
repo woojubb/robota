@@ -24,6 +24,7 @@ import {
 } from '@robota-sdk/agent-core';
 
 import { decideApproval } from './abortable-approval.js';
+import { checkpointedApproval, hasCheckpointedApproval } from './checkpointed-approval.js';
 import { AutoModeGate } from './auto-mode-gate.js';
 import { consentScopeFor } from './consent-scope.js';
 import { buildHookInput, runPreToolHook } from './tool-hook-helpers.js';
@@ -76,6 +77,7 @@ function assertPermissionPatternsEvaluable(rules: {
 
 /** How a decision's call will run, where that changes the answer. */
 interface IDecisionScope {
+  readonly continuation?: IToolExecutionContext['continuation'];
   /** `false` when the call will NOT run inside the command sandbox, so its approval cannot apply. */
   readonly sandboxed?: boolean;
 }
@@ -108,6 +110,7 @@ export class PermissionEnforcer {
   private readonly denials = new PermissionDenialLog();
   /** A turn a peer's message started is in progress: the one place the reply to that peer exists. */
   private peerTurn = false;
+  private checkpointedApprovals = false;
   private readonly autoMode?: AutoModeGate;
 
   constructor(options: IPermissionEnforcerOptions) {
@@ -147,13 +150,15 @@ export class PermissionEnforcer {
    * Start a turn, which a peer's message started when `peerTurn` is true. That decides only whether
    * the reply to the peer exists; every other call is decided exactly as in any turn.
    */
-  beginTurn(peerTurn: boolean): void {
+  beginTurn(peerTurn: boolean, checkpointedApprovals = false): void {
     this.peerTurn = peerTurn;
+    this.checkpointedApprovals = checkpointedApprovals;
   }
 
   /** End the turn; the reply to a peer is gone until the next peer turn begins. */
   endTurn(): void {
     this.peerTurn = false;
+    this.checkpointedApprovals = false;
   }
 
   /** Whether `auto` mode can run here: it needs a classifier to decide for it. */
@@ -244,8 +249,10 @@ export class PermissionEnforcer {
       hookTypeExecutors: this.hookTypeExecutors,
       getPermissionMode: this.getPermissionMode,
       log: (event, detail) => this.log(event, detail),
-      checkPermission: (toolName, toolArgs, signal, interaction, hookTraceEnv) =>
-        this.decidePermission(toolName, toolArgs, signal, interaction, hookTraceEnv),
+      checkPermission: (toolName, toolArgs, signal, interaction, hookTraceEnv, continuation) =>
+        this.decidePermission(toolName, toolArgs, signal, interaction, hookTraceEnv, {
+          continuation,
+        }),
     };
 
     return tools.map((tool) => wrapToolWithPermission(tool, deps));
@@ -378,6 +385,34 @@ export class PermissionEnforcer {
     hookTraceEnv?: IToolExecutionContext['hookTraceEnv'],
     scope: IDecisionScope = {},
   ): Promise<boolean | IPermissionRefusal> {
+    const verdict = await this.evaluateToolPermission(
+      toolName,
+      toolArgs,
+      signal,
+      interaction,
+      hookTraceEnv,
+      scope,
+    );
+    if (verdict !== true) return verdict;
+    signal?.throwIfAborted();
+    // Existing host denials still bind if current policy or remembered consent became permissive.
+    return (
+      (await checkpointedApproval(
+        { sessionId: this.sessionId, cwd: this.cwd, toolName, toolArgs },
+        scope.continuation,
+        false,
+      )) ?? true
+    );
+  }
+
+  private async evaluateToolPermission(
+    toolName: string,
+    toolArgs: TToolArgs,
+    signal?: AbortSignal,
+    interaction: IToolExecutionContext['permissionInteraction'] = 'interactive',
+    hookTraceEnv?: IToolExecutionContext['hookTraceEnv'],
+    scope: IDecisionScope = {},
+  ): Promise<boolean | IPermissionRefusal> {
     // Issue #3081: ONE evaluator for every caller. A background/subagent policy (CORE-025) only
     // adds a ceiling, an ask-everything flag and the task's own lists; the ceiling is checked before
     // bypassPermissions, so a policy still binds under a permissive mode.
@@ -435,7 +470,14 @@ export class PermissionEnforcer {
         scope,
       );
     }
-    return this.promptForApproval(toolName, toolArgs, signal, interaction, fresh);
+    return this.promptForApproval(
+      toolName,
+      toolArgs,
+      signal,
+      interaction,
+      fresh,
+      scope.continuation,
+    );
   }
 
   private async decideInAutoMode(
@@ -455,8 +497,16 @@ export class PermissionEnforcer {
       return true;
     }
     if (gate.isPaused()) {
-      const allowed = await this.promptForApproval(toolName, toolArgs, signal, interaction, true);
-      if (allowed) gate.resume();
+      const allowed = await this.promptForApproval(
+        toolName,
+        toolArgs,
+        signal,
+        interaction,
+        true,
+        scope.continuation,
+      );
+      if (allowed && !this.checkpointedApprovals && !hasCheckpointedApproval(scope.continuation))
+        gate.resume();
       return allowed;
     }
     const judgement = await gate.judge({ toolName, toolArgs, cwd: this.cwd }, signal);
@@ -481,7 +531,20 @@ export class PermissionEnforcer {
     signal?: AbortSignal,
     interaction: IToolExecutionContext['permissionInteraction'] = 'interactive',
     fresh = false,
+    continuation?: IToolExecutionContext['continuation'],
   ): Promise<boolean> {
+    const alreadyAllowed =
+      !fresh && matchesAnyPattern(toolName, toolArgs, [...this.sessionAllowedTools]);
+    if ((this.checkpointedApprovals && !alreadyAllowed) || hasCheckpointedApproval(continuation)) {
+      if (signal?.aborted || interaction !== 'interactive') return false;
+      const allowed = await checkpointedApproval(
+        { sessionId: this.sessionId, cwd: this.cwd, toolName, toolArgs },
+        continuation,
+        true,
+      );
+      if (allowed !== true) this.denials.record(toolName, toolArgs, 'user');
+      return allowed === true;
+    }
     const scope = consentScopeFor(toolName, toolArgs);
     const cancelledBeforeAsking = signal?.aborted === true;
     const hasApprover =
@@ -489,8 +552,7 @@ export class PermissionEnforcer {
       (this.permissionHandler !== undefined || this.promptForApprovalFn !== undefined);
     const outcome = await decideApproval({
       toolName,
-      alreadyAllowed:
-        !fresh && matchesAnyPattern(toolName, toolArgs, [...this.sessionAllowedTools]),
+      alreadyAllowed,
       ...(interaction === 'interactive' && this.permissionHandler
         ? { handler: this.permissionHandler }
         : {}),

@@ -12,6 +12,7 @@
 import type { TUniversalMessage } from '../interfaces/messages';
 import type { IChatOptions } from '../interfaces/provider';
 import { createAbortError } from '../utils/abort-classification';
+import { ExecutionJournalError } from '../utils/execution-journal-error';
 
 type TProviderChat = (
   messages: TUniversalMessage[],
@@ -90,7 +91,9 @@ export async function callProviderWithIdleTimeout(
   resetIdleTimer();
 
   try {
-    const guard = new Promise<never>((_, reject) => { rejectGuard = reject; });
+    const guard = new Promise<never>((_, reject) => {
+      rejectGuard = reject;
+    });
     // Install the guard before entering provider code, which can synchronously abort.
     providerCall = (async () => chat(messages, guardedOptions))();
     return await Promise.race([providerCall, guard]);
@@ -99,7 +102,14 @@ export async function callProviderWithIdleTimeout(
     clearIdleTimer();
     upstreamSignal?.removeEventListener('abort', handleUpstreamAbort);
     // Preserve the guard outcome even if the provider later succeeds or rejects.
-    if (awaitProviderSettlement && providerCall) await providerCall.then(() => {}, () => {});
+    if (awaitProviderSettlement && providerCall)
+      await providerCall.then(
+        () => {},
+        (error: unknown) => {
+          // Cancellation must not turn failed persistence into a successful interrupted result.
+          if (error instanceof ExecutionJournalError) throw error;
+        },
+      );
   }
 }
 

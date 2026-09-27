@@ -2,10 +2,8 @@ import { randomUUID } from 'node:crypto';
 
 /**
  * SEC-006 — session ids are used as PATH SEGMENTS (`<baseDir>/<id>.json`, `<logDir>/<id>.jsonl`,
- * `<rootDir>/<id>/` for checkpoints), and at least one caller supplies one from an untrusted source:
- * `POST /api/playground/sessions` reads `resumeSessionId` from an unauthenticated HTTP body and checks
- * only `typeof === 'string'`. An id of `../../x` therefore escaped the store directory on both read
- * and write.
+ * `<rootDir>/<id>/` for checkpoints), and a host may take one from an untrusted source such as an HTTP
+ * request body. Without a guard, an id of `../../x` escapes the store directory on both read and write.
  *
  * The guard lives at the id boundary rather than at each `join()` so every sink inherits it — the store,
  * the JSONL logger and the replay-log reader are three separate sinks on the same value.

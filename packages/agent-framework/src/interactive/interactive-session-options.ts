@@ -68,6 +68,14 @@ export interface IInteractiveSessionStandardOptions {
   outputStyle?: IOutputStylePrompt;
   cwd: string;
   provider: IAIProvider;
+  /**
+   * #3282 §3: `provider` is a placeholder that never calls a model — a host started this session
+   * without a configured provider (a served runtime's first run). `getStatusSnapshot()` reports it so
+   * a client can show a setup screen instead of a composer, and `submit()` refuses a turn outright
+   * instead of reaching the placeholder. Cleared once `/provider switch` (or the setup flow's own
+   * hot-swap) puts a real provider in place — see `switchProvider`.
+   */
+  setupRequired?: boolean;
   /** Optional product-owned remediation for recognized provider errors; scoped to this session. */
   providerErrorGuidance?: IProviderErrorGuidance;
   /** Host-selected model-visible enclosure for attached file references. */
@@ -275,6 +283,8 @@ export interface IInteractiveSessionInjectedOptions {
   observerFailureWarningCode?: ICreateSessionOptions['observerFailureWarningCode'];
   cwd?: string;
   provider?: IAIProvider;
+  /** #3282 §3 — see {@link IInteractiveSessionStandardOptions.setupRequired}. */
+  setupRequired?: boolean;
   /** Trusted-or-restricted project decision made by the host. Absence is Restricted. */
   projectAccess?: TWorkspaceProjectAccess;
   userSettingsSources?: readonly INodeHostSettingsSource[];

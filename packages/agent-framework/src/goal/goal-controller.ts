@@ -81,6 +81,16 @@ function countNonSignalToolCalls(toolSummaries: readonly IToolSummary[]): number
   return toolSummaries.filter((s) => s.name !== GOAL_SIGNAL_TOOL_NAME).length;
 }
 
+/**
+ * True when `args` (the `/goal` command's raw argument string) asks to cancel the current goal —
+ * the single vocabulary both the command (`goal-command.ts`, agent-command) and the mid-turn CONTROL
+ * path (`InteractiveSession.executeCommand`, this package) match against, so the two never drift.
+ */
+export function isGoalCancelVerb(args: string): boolean {
+  const verb = args.trim().split(/\s+/)[0]?.toLowerCase() ?? '';
+  return verb === 'cancel' || verb === 'stop';
+}
+
 export class GoalController {
   private goal: IGoalState | null = null;
   private consecutiveIdleTurns = 0;

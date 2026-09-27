@@ -15,7 +15,7 @@
  * That the round path streams at all is not incidental: `IChatOptions.onTextDelta` is contractual
  * ("the provider should use streaming internally and call this for each text chunk, while still
  * returning the complete assembled message"), and it is the mechanism the shipped product already
- * renders from — the TUI, headless mode, the ws transport and agent-server all consume deltas fed
+ * renders from — the TUI, headless mode and the ws transport all consume deltas fed
  * through `run()`, not through this entry point.
  */
 

@@ -399,7 +399,7 @@ describe('createProviderCommandModule', () => {
     expect(result?.message).toContain('not stored in the active write target');
   });
 
-  it('owns provider setup flow and writes settings after generic prompt submissions', async () => {
+  it('owns provider setup flow, writes settings, and hot-swaps the first provider ever configured (#3282 §3)', async () => {
     const { adapter, readTarget } = createSettingsAdapter({}, {});
 
     const { context, requests } = scriptedContext([
@@ -434,13 +434,10 @@ describe('createProviderCommandModule', () => {
         },
       },
     });
-    expect(completed?.hostActions).toEqual([
-      {
-        type: 'session-restart',
-        reason: 'other',
-        message: 'Provider setup restart',
-      },
-    ]);
+    // #3282 §3: nothing was configured before this — a served runtime's setup mode has no session to
+    // restart into, so this hot-swaps a running placeholder instead. Restarting a live session that
+    // already has a provider (adding a second profile, below) is unaffected.
+    expect(completed?.hostActions).toEqual([{ type: 'provider-hot-swap', profileName: 'openai' }]);
   });
 
   it('asks the user to pick a provider type when /provider add is called without one', async () => {
@@ -493,8 +490,13 @@ describe('createProviderCommandModule', () => {
       { type: 'answer', values: [], text: '' },
       { type: 'answer', values: [], text: '' },
     ]);
-    await createExecutor(adapter).execute('provider', context, 'add openai');
+    const completed = await createExecutor(adapter).execute('provider', context, 'add openai');
 
+    // #3282 §3: a provider was already active (in the merged view, even though this profile lands in
+    // an empty target layer) — a session already running one still restarts to pick up the new profile.
+    expect(completed?.hostActions).toEqual([
+      { type: 'session-restart', reason: 'other', message: 'Provider setup restart' },
+    ]);
     expect(readTarget()).toMatchObject({
       currentProvider: 'openai-2',
       providers: {

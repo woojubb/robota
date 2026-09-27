@@ -91,6 +91,10 @@ export function formatProjectContributionPreview(
     identity,
     descriptors.map((descriptor) => descriptor.relativePath),
   );
+  // Full candidate list, every row's inspected state included as-is — a terminal reader (plain
+  // `robota trust status`, the TUI's own interactive prompt) sees the complete picture. #3282 §3
+  // trims this down for `--json`/the GUI dialog specifically, in `trustQuestionFor` below — those
+  // audiences want "what would this show me", not a diagnostic of what could not be inspected.
   const rows = descriptors.map((descriptor, index) => {
     const kind = inspected[index]?.kind ?? 'unavailable';
     return `  [${kind}] ${descriptor.relativePath} — ${descriptor.label}`;

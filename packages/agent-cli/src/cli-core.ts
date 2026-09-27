@@ -31,6 +31,7 @@ import { assembleProduct } from '@robota-sdk/agent-product';
 
 import { createFileCostBudgetAdapter } from './startup/cost-budget-adapter.js';
 import { applyModelFallbackChain } from './startup/model-fallback-startup.js';
+import { createSetupPlaceholderProvider } from './startup/setup-placeholder-provider.js';
 import { checkForCliUpdate, formatCliUpdateCheckMessage } from './update-check/update-check.js';
 import { resolveCliUpdateNotice } from './update-check/resolve-cli-update-notice.js';
 import { parseCliArgs, printHelp, type IParsedCliArgs } from './utils/cli-args.js';
@@ -101,6 +102,10 @@ import {
   SAFE_MODE_NOTICE,
 } from './startup/workspace-project-composition.js';
 import { askToTrustWorkspace, startsNewTuiSession } from './startup/interactive-trust-prompt.js';
+import {
+  askServeOpenTrustQuestion,
+  canAskServeOpenTrustQuestion,
+} from './startup/headless-serve-trust-prompt.js';
 import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
@@ -305,9 +310,20 @@ async function runCliCore(
     !process.argv.includes(RESTRICTED_WORKSPACE_FLAG) &&
     requiresHeadlessWorkspaceTrust(projectAccess)
   ) {
-    process.stderr.write(`${formatHeadlessWorkspaceTrustError(projectAccess, cwd)}\n`);
-    process.exitCode = 1;
-    return;
+    // #3282 §3: `--serve --open` opens a browser for whoever ran it — someone is at this terminal,
+    // unlike every other headless start here. With a TTY to ask on, this asks instead of refusing.
+    if (args.serve && args.open && canAskServeOpenTrustQuestion(projectAccess)) {
+      const answer = await askServeOpenTrustQuestion(projectAccess, cwd);
+      if (answer.decision === 'quit') {
+        process.exitCode = 1;
+        return;
+      }
+      projectAccess = answer.access;
+    } else {
+      process.stderr.write(`${formatHeadlessWorkspaceTrustError(projectAccess, cwd)}\n`);
+      process.exitCode = 1;
+      return;
+    }
   }
 
   if (args.positional[0] === 'eval') {
@@ -573,26 +589,28 @@ async function runCliCore(
     resolvedPreset,
   );
 
-  if (
-    await routeProjectSetup({
-      cwd,
-      args,
-      startOptions: startupOptions,
-      terminal,
-      providerDefinitions,
-      workspace: workspaceComposition,
-    })
-  ) {
+  const projectSetup = await routeProjectSetup({
+    cwd,
+    args,
+    startOptions: startupOptions,
+    terminal,
+    providerDefinitions,
+    workspace: workspaceComposition,
+  });
+  if (projectSetup.handled) {
     return;
   }
+  // #3282 §3: no usable provider, but this is `--serve` (a daemon's child is too) — continue with a
+  // placeholder that never calls a model instead of the normal, validated settings read below, which
+  // would throw the same "No provider configuration found" this run already tolerated.
+  const setupRequired = projectSetup.setupRequired !== undefined;
 
   const providerOptions = args.provider
     ? { providerOverride: args.provider, providerDefinitions }
     : { providerDefinitions };
-  const providerSettings = readProviderSettings(
-    workspaceComposition.settingsSources,
-    providerOptions,
-  );
+  const providerSettings = setupRequired
+    ? { name: 'setup-placeholder', model: 'setup-required' }
+    : readProviderSettings(workspaceComposition.settingsSources, providerOptions);
   const modelId = resolvedPreset.model ?? providerSettings.model;
   let effortResolution;
   try {
@@ -651,6 +669,9 @@ async function runCliCore(
       providerDefinitions,
       providerSettings: { ...providerSettings, model: modelId },
       ...(args.sessionLog ? { provider: loadReplayProvider(args.sessionLog) } : {}),
+      // #3282 §3: setup mode overrides with the same seam `--session-log` replay uses — the
+      // placeholder never calls a model, so nothing below needs to construct a real one.
+      ...(setupRequired ? { provider: createSetupPlaceholderProvider() } : {}),
       preset,
       baseCommandModules,
       packs,
@@ -659,9 +680,10 @@ async function runCliCore(
       transports: transportRegistry,
     }),
   );
-  // A replayed session answers from its log, so there is nothing to fall back from.
+  // A replayed session answers from its log, so there is nothing to fall back from; a setup-mode
+  // placeholder is not a provider a fallback chain could validate either.
   const provider =
-    product.provider === undefined || args.sessionLog !== undefined
+    product.provider === undefined || args.sessionLog !== undefined || setupRequired
       ? product.provider
       : applyModelFallbackChain({
           provider: product.provider,
@@ -865,6 +887,7 @@ async function runCliCore(
       ...(livePromptTracePort ? { livePromptTrace: livePromptTracePort } : {}),
       args,
       provider,
+      providerDefinitions,
       providerErrorGuidance,
       promptFileReferenceTag,
       modelCommandToolPrefix,
@@ -918,6 +941,7 @@ async function runCliCore(
       ...(livePromptTracePort ? { livePromptTrace: livePromptTracePort } : {}),
       args,
       provider,
+      providerDefinitions,
       providerErrorGuidance,
       promptFileReferenceTag,
       modelCommandToolPrefix,
@@ -962,6 +986,7 @@ async function runCliCore(
       model: modelId,
       preset: presetSurface,
       memorySessionOptions,
+      ...(setupRequired ? { setupRequired: true } : {}),
     });
     try {
       await serveRun;

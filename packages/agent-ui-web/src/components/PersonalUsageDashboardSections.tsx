@@ -98,10 +98,11 @@ export function CurrentSessionPanel({
   } else if (state.currentSessionUsageStatus === 'error') {
     content = <p className="mt-3 text-[14px] text-destructive">Current trace unavailable.</p>;
   } else if (state.currentSessionUsageReport) {
+    const turns = state.currentSessionUsageReport.timeline.length;
     content = (
       <p className="mt-3 text-[14px] tabular-nums text-muted-foreground">
-        {number.format(state.currentSessionUsageReport.totalTokens)} tokens ·{' '}
-        {number.format(state.currentSessionUsageReport.timeline.length)} trace turns
+        This session: {number.format(state.currentSessionUsageReport.totalTokens)} tokens
+        {turns > 0 ? ` · ${number.format(turns)} turns` : ''}
       </p>
     );
   }
@@ -113,21 +114,35 @@ export function CurrentSessionPanel({
   );
 }
 
+/** Only meaningful beside a shown dollar figure — "Unknown" already says nothing was priced. */
+function unpricedTurnsNote(report: TPersonalUsageReport): string | null {
+  if (report.totals.costStatus === 'unknown') return null;
+  const count = report.totals.unpricedTurns ?? 0;
+  if (count === 0) return null;
+  const turnWord = count === 1 ? 'turn' : 'turns';
+  const verb = count === 1 ? 'is' : 'are';
+  return `${number.format(count)} ${turnWord} without a price ${verb} not included.`;
+}
+
 function UsageStats({ report }: { report: TPersonalUsageReport }): React.ReactElement {
   const cost =
     report.totals.costStatus === 'unknown'
       ? 'Unknown'
       : `$${report.totals.costUsd.toFixed(COST_DECIMAL_PLACES)}`;
+  const note = unpricedTurnsNote(report);
   return (
-    <section className="grid grid-cols-2 gap-3 lg:grid-cols-4" aria-label="Usage totals">
-      <Stat label="Turns" value={number.format(report.totals.turns)} />
-      <Stat label="Sessions" value={number.format(report.totals.sessions)} />
-      <Stat label="Tokens" value={number.format(report.totals.totalTokens)} />
-      <Stat
-        label="Cost"
-        value={cost}
-        {...(report.totals.costStatus === 'estimated' ? { note: 'estimated' } : {})}
-      />
+    <section aria-label="Usage totals">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Turns" value={number.format(report.totals.turns)} />
+        <Stat label="Sessions" value={number.format(report.totals.sessions)} />
+        <Stat label="Tokens" value={number.format(report.totals.totalTokens)} />
+        <Stat
+          label="Cost"
+          value={cost}
+          {...(report.totals.costStatus === 'estimated' ? { note: 'estimated' } : {})}
+        />
+      </div>
+      {note ? <p className="mt-2 text-[13px] text-subtle">{note}</p> : null}
     </section>
   );
 }

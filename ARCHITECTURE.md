@@ -16,8 +16,7 @@ Composition roots
                             background sessions, mcp serve (published as a self-contained bundle)
   apps/agent-app            Electron desktop app: loads agent-gui-web and attaches to the
                             workspace daemon, starting one if none is running
-  apps/agent-web            Next.js host for the Playground and the browser remote client
-  apps/agent-server         Express + WebSocket: AI provider proxy for the Playground
+  apps/agent-web            Next.js host for the browser remote client
   apps/starter-nextjs       Next.js chat starter over agent-framework
   apps/dag-runtime-server   Hono HTTP server over dag-framework
   apps/remote-signaling     Content-blind WebRTC signaling relay for remote control
@@ -52,10 +51,6 @@ DAG / workflow subsystem (private; depends on the SDK packages, never the revers
   dag-core, dag-node ← dag-node-* leaves ← dag-nodes-default
   dag-framework, dag-nodes-default ← agent-command-workflows (/workflows in agent-cli)
   (A ← B: B depends on A)
-
-App support (private; depends on the SDK packages, never the reverse; used by apps/agent-server and
-apps/agent-web)
-  agent-playground · agent-remote-client
 ```
 
 The main package-level edges are drawn in [`diagrams/robota-architecture.mmd`](diagrams/robota-architecture.mmd).

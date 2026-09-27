@@ -35,7 +35,7 @@ function rawGet(
   });
 }
 
-import { startMonitorUiServer, type IMonitorUiServer } from '../serve-monitor-ui.js';
+import { servedAtMessage, startMonitorUiServer, type IMonitorUiServer } from '../serve-monitor-ui.js';
 
 /**
  * GUI-007 — the CLI-served web monitor static host. Verifies: index.html gets the live `ws-url` injected, a
@@ -166,5 +166,21 @@ describe('startMonitorUiServer (GUI-007)', () => {
     const res = await rawGet(server.url, '/secret-link.txt');
     expect(res.status).toBe(403);
     expect(res.body).not.toContain('top-secret');
+  });
+});
+
+/**
+ * #3289 §3 — `--serve --open` used to print "Web monitor: <url>", naming an observability tool
+ * rather than the running session the person just opened.
+ */
+describe('servedAtMessage (#3289 §3)', () => {
+  it('says Robota is open, not "Web monitor"', () => {
+    expect(servedAtMessage('http://127.0.0.1:4321')).toBe(
+      'Robota is open at http://127.0.0.1:4321\n',
+    );
+  });
+
+  it('never says "web monitor"', () => {
+    expect(servedAtMessage('http://127.0.0.1:1').toLowerCase()).not.toContain('monitor');
   });
 });

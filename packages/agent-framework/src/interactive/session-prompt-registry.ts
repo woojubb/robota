@@ -33,6 +33,7 @@ import type {
   TDriverId,
   TPermissionResultValue,
 } from '@robota-sdk/agent-interface-session';
+import type { IPermissionAskContext } from '@robota-sdk/agent-session';
 
 /**
  * Whether a driver id names a party that is not the owner: a peer session or an external sender.
@@ -56,6 +57,12 @@ interface IParkedPrompt {
   resolve: (value: TPermissionResultValue | TActionResponse) => void;
   /** Backstop timer (cleared on settle), when a backstop is configured. */
   timer?: ReturnType<typeof setTimeout>;
+  /**
+   * Issue #3288 §1: detach the caller's own abort listener (idempotent), when `requestPermission` was
+   * given a `signal`. Called on every settle path, not only the abort one, so a prompt a person
+   * answered normally does not leave a listener on a signal the caller may hold onto afterward.
+   */
+  onSettle?: () => void;
 }
 
 /** The fail-closed value for a kind: deny a permission, cancel an ask. */
@@ -86,23 +93,43 @@ export class SessionPromptRegistry {
 
   constructor(private readonly deps: ISessionPromptRegistryDeps) {}
 
-  /** Request a permission decision. Resolves deny (`false`) when no surface can answer (fail-closed). */
+  /**
+   * Request a permission decision. Resolves deny (`false`) when no surface can answer (fail-closed).
+   *
+   * Issue #3288 §1: `context.requester` names who is asking when it is not the person's own turn (a
+   * background agent's forwarded tool call), carried on the emitted event for display. `context.signal`
+   * lets the CALLER cancel the ask itself: aborting it settles this prompt denied and emits
+   * `prompt_resolved` on every surface, exactly as if the person had denied it — a background task
+   * that stops or crashes while its request is still parked must not leave it hanging forever.
+   */
   requestPermission(
     toolName: string,
     toolArgs: TToolArgs,
     canPersistProjectPermission = false,
+    context?: IPermissionAskContext,
   ): Promise<TPermissionResultValue> {
     const id = this.mintId('p');
     if (this.deps.countListeners('permission_request') === 0) {
       return Promise.resolve(failClosedValue('permission') as TPermissionResultValue);
     }
+    const signal = context?.signal;
+    if (signal?.aborted === true) {
+      return Promise.resolve(failClosedValue('permission') as TPermissionResultValue);
+    }
     const requesterDriverId = this.deps.getActiveDriverId?.() ?? undefined;
     return new Promise<TPermissionResultValue>((resolve) => {
+      let onSettle: (() => void) | undefined;
+      if (signal !== undefined) {
+        const onAbort = (): void => this.settle(id, failClosedValue('permission'));
+        signal.addEventListener('abort', onAbort, { once: true });
+        onSettle = () => signal.removeEventListener('abort', onAbort);
+      }
       this.park(
         id,
         'permission',
         `Allow ${toolName}?`,
         resolve as (v: TPermissionResultValue | TActionResponse) => void,
+        onSettle,
       );
       this.emitOrFailClosed(id, 'permission', () =>
         this.deps.emitPermissionRequest({
@@ -111,6 +138,7 @@ export class SessionPromptRegistry {
           toolArgs,
           canPersistProjectPermission,
           ...(requesterDriverId ? { requesterDriverId } : {}),
+          ...(context?.requester ? { requester: context.requester } : {}),
         }),
       );
     });
@@ -214,6 +242,7 @@ export class SessionPromptRegistry {
     kind: TParkedKind,
     text: string,
     resolve: (value: TPermissionResultValue | TActionResponse) => void,
+    onSettle?: () => void,
   ): void {
     let timer: ReturnType<typeof setTimeout> | undefined;
     if (this.deps.backstopMs !== undefined) {
@@ -221,7 +250,7 @@ export class SessionPromptRegistry {
       // Never keep the process alive purely to fire a backstop.
       (timer as { unref?: () => void }).unref?.();
     }
-    this.parked.set(id, { kind, text, resolve, timer });
+    this.parked.set(id, { kind, text, resolve, timer, onSettle });
   }
 
   private settle(
@@ -233,6 +262,7 @@ export class SessionPromptRegistry {
     if (!parked) return; // unknown or already-settled — idempotent no-op
     this.parked.delete(id);
     if (parked.timer) clearTimeout(parked.timer);
+    parked.onSettle?.();
     parked.resolve(value);
     this.deps.emitPromptResolved({ id, ...(answererDriverId ? { answererDriverId } : {}) });
   }

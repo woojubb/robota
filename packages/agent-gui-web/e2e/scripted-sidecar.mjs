@@ -20,6 +20,12 @@
  * the app asks for later can fail while the first succeeded). With `$ROBOTA_E2E_TRUST_FILE` set it also
  * plays `trust status --json` (askable until the file says `trusted`) and `trust --yes` (writes it), and a
  * `daemon start --json --restricted-workspace` records that choice in the daemon state.
+ *
+ * With `ROBOTA_E2E_SETUP_REQUIRED=1` (issue #3282 §3) the session starts as a served runtime with no
+ * provider configured would: `getStatusSnapshot()` reports `setupRequired: true` and `submit()` refuses,
+ * until `/provider add` (the GUI setup panel's one button) runs, asks one question the same way the
+ * real wizard does, and clears the flag on an answer — proving the setup panel, its docked ask, and the
+ * composer's return all work over the real wire, without a real provider or settings file.
  */
 
 import { spawn } from 'node:child_process';
@@ -182,15 +188,22 @@ const storedSessions = [
     updatedAt: minutesAgo(3 * 24 * 60),
     messages: [{ role: 'user', content: 'Set up the release checklist' }],
   },
+  // The personal-usage report itself is content-free; the dashboard names this session from this
+  // workspace's own local directory listing (its `name`), never from the report (#3289 §4).
+  { id: 'usage-e2e-session', name: 'Usage e2e session', updatedAt: minutesAgo(2), messages: [] },
 ];
 const unreadableSessionIds = ['damaged-session'];
 
 /** A scripted IInteractiveSession: EventEmitter for on/off/emit, deterministic submit + permission. */
 class ScriptedSession extends EventEmitter {
   #pendingPermission = null;
+  #pendingAsk = null;
   #mode = 'default';
   #current = storedSessions[0];
   #busy = false;
+  #setupRequired = process.env.ROBOTA_E2E_SETUP_REQUIRED === '1';
+  #pendingSetupAsk = null;
+  #resolveSetupCommand = null;
 
   get currentId() {
     return this.#current.id;
@@ -222,8 +235,11 @@ class ScriptedSession extends EventEmitter {
   getContextState() {
     return { usedPercentage: 0, usedTokens: 0, maxTokens: 200000 };
   }
+  // #3280 §2: the QUEUED-MESSAGE the host has taken but not yet run (a submit behind a running turn)
+  // — unrelated to a pending PERMISSION prompt (`#pendingPermission`, above). This fixture never queues
+  // a second submit behind a running one, so there is never a next prompt to report.
   getPendingPrompt() {
-    return this.#pendingPermission ? 'permission' : null;
+    return null;
   }
   isExecuting() {
     return false;
@@ -236,6 +252,11 @@ class ScriptedSession extends EventEmitter {
   }
 
   async submit(input) {
+    // #3282 §3: a backstop, unreachable through the GUI itself — the composer is hidden while setup is
+    // required, exactly like the real InteractiveSession.submit() guard this mirrors.
+    if (this.#setupRequired) {
+      throw new Error('Connect a model provider to start.');
+    }
     // Echo the user's turn, then reply. A prompt containing "permission" raises a gated tool prompt.
     // Space the emits across ticks: a real LLM streams `text_delta` over time BEFORE `complete`, so the
     // renderer's streaming-text ref is populated by the time `complete` moves it into a message. Emitting
@@ -265,6 +286,21 @@ class ScriptedSession extends EventEmitter {
         id: 'perm-1',
         toolName: 'write_file',
         toolArgs: { path: 'x' },
+      });
+      return;
+    }
+    if (String(input).toLowerCase().includes('duplicate')) {
+      // A free-text ask (#3280 §3), mirroring `/provider` → a profile → Duplicate.
+      this.#pendingAsk = 'ask-1';
+      await tick();
+      this.emit('ask_request', {
+        id: 'ask-1',
+        request: {
+          id: 'ask-1',
+          title: 'Duplicate anthropic as',
+          allowFreeText: true,
+          placeholder: 'anthropic-copy',
+        },
       });
       return;
     }
@@ -307,8 +343,51 @@ class ScriptedSession extends EventEmitter {
     })();
   }
 
-  resolveAsk() {}
-  executeCommand(name) {
+  resolveAsk(id, response) {
+    if (id === this.#pendingSetupAsk) {
+      // #3282 §3: the setup wizard's one question, answered — a real provider profile now "exists",
+      // so the panel's job is done and the composer is the way in again.
+      this.#pendingSetupAsk = null;
+      this.#setupRequired = false;
+      this.emit('prompt_resolved', { id });
+      const model = response.type === 'answer' && response.text ? response.text : 'scripted-model';
+      this.#resolveSetupCommand?.({ message: `Provider configured (${model}).`, success: true });
+      this.#resolveSetupCommand = null;
+      return;
+    }
+    if (id !== this.#pendingAsk) return;
+    this.#pendingAsk = null;
+    this.emit('prompt_resolved', { id });
+    const outcome =
+      response.type === 'answer' ? `Duplicated as ${response.text ?? ''}.` : 'Duplicate cancelled.';
+    void (async () => {
+      await tick();
+      this.emit('text_delta', outcome);
+      await tick();
+      this.#complete(outcome);
+    })();
+  }
+  executeCommand(name, args = '') {
+    if (name === 'provider' && args.trim() === 'add') {
+      // #3282 §3: mirrors the real `/provider add` wizard closely enough for the e2e — it asks (at
+      // least) one question through the same ask channel any other command uses, and does not
+      // resolve until it is answered, exactly like the real setup flow's own blocking prompt.
+      return new Promise((resolve) => {
+        this.#resolveSetupCommand = resolve;
+        this.#pendingSetupAsk = 'setup-ask-provider';
+        void tick().then(() => {
+          this.emit('ask_request', {
+            id: 'setup-ask-provider',
+            request: {
+              id: 'setup-ask-provider',
+              title: 'Provider model',
+              allowFreeText: true,
+              placeholder: 'scripted-model',
+            },
+          });
+        });
+      });
+    }
     if (name === 'help') {
       const lines = Array.from({ length: 30 }, (_, i) => `Command ${i + 1} (/c${i + 1}) — does thing ${i + 1}`);
       return Promise.resolve({ message: ['Available commands:', ...lines].join('\n'), success: true });
@@ -351,14 +430,24 @@ class ScriptedSession extends EventEmitter {
   getStatusSnapshot() {
     return {
       sessionId: this.#current.id,
-      model: 'scripted-model',
+      model: this.#setupRequired ? 'setup-required' : 'scripted-model',
       permissionMode: this.#mode,
       effort: 'auto',
       context: { usedPercentage: 12, usedTokens: 24000, maxTokens: 200000, remainingPercentage: 88 },
       goal: null,
+      // Absent (never `false`) once set up, exactly like the real ISessionStatusSnapshot field.
+      ...(this.#setupRequired ? { setupRequired: true } : {}),
     };
   }
-  abort() {}
+  // #3280 §2: Stop (button or Esc) sends `abort` — end a "stay busy" turn the same way a real one
+  // interrupts: the partial reply already streamed (`text_delta`) stays, as `interrupted` keeps it.
+  abort() {
+    if (!this.#busy) return;
+    this.#busy = false;
+    this.#record('assistant', 'Working on it...');
+    this.emit('thinking', false);
+    this.emit('interrupted', { success: false, content: 'Working on it...' });
+  }
   cancelQueue() {}
 }
 
@@ -512,6 +601,8 @@ const transport = new WsTransport({
       bySource: [],
       byActivity: [{ key: 'tool:Read', label: 'Read', kind: 'tool', count: 2 }],
       sessionIds: ['usage-e2e-session'],
+      // The report carries no name for this session — the dashboard reads "Usage e2e session" from
+      // this workspace's own local session-directory listing above, never from the report (#3289 §4).
       coverage: {
         validSessions: 1,
         corruptSessions: 0,

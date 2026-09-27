@@ -171,8 +171,12 @@ export interface IPersonalUsageTotals {
   promptTokens: number;
   completionTokens: number;
   totalTokens: number;
+  /** Sum of every turn's known `costUsd`; unpriced turns contribute 0, so this is never `unknown`'s cause. */
   costUsd: number;
+  /** `unknown` iff nothing in this aggregate could be priced; otherwise this is a sum of what could be. */
   costStatus: 'unknown' | 'estimated' | 'exact';
+  /** Count of turns that could not be priced and so are excluded from `costUsd`; omitted when 0. */
+  unpricedTurns?: number;
 }
 
 export interface IPersonalUsageDimension extends Omit<IPersonalUsageTotals, 'sessions'> {
@@ -210,7 +214,12 @@ export interface IPersonalUsageCoverage {
   unsupportedSessionIds: string[];
 }
 
-/** OBSERVABILITY-2577: stable, content-free cross-session report consumed by CLI and GUI. */
+/**
+ * OBSERVABILITY-2577: stable cross-session report consumed by CLI and GUI. Every field is content-free:
+ * no prompt text, no directory name, nothing a person typed. A GUI names a session for its own dashboard
+ * from data it already holds locally (its session directory listing), falling back to this report's
+ * `sessionFirstSeen` timestamp — never to prompt or path content carried over the wire.
+ */
 export interface IPersonalUsageReport {
   schemaVersion: 1;
   generatedAt: string;
@@ -226,6 +235,12 @@ export interface IPersonalUsageReport {
   byActivity: IPersonalUsageActivity[];
   sessionIds: string[];
   coverage: IPersonalUsageCoverage;
+  /**
+   * Keyed by session id, for every session in `sessionIds`: the ISO timestamp of its earliest
+   * observation or activity in this report. A timestamp, not content — it lets a GUI show "Session
+   * from <date>" for a session outside its own local listing instead of a raw id or "Untitled session".
+   */
+  sessionFirstSeen?: Record<string, string>;
 }
 
 /**

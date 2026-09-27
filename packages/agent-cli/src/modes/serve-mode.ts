@@ -10,6 +10,7 @@
 import {
   openInBrowser,
   resolveWebRoot,
+  servedAtMessage,
   startMonitorUiServer,
   type IMonitorUiServer,
 } from './serve-monitor-ui.js';
@@ -52,7 +53,7 @@ import type { IMemorySessionOptions } from '../startup/memory-enablement.js';
 import { areSessionLoopsDisabled, createLoopDefaultPromptResolver } from '../startup/loop-options.js';
 import { homedir } from 'node:os';
 import { realpathSync } from 'node:fs';
-import type { IAIProvider, IToolWithEventService } from '@robota-sdk/agent-core';
+import type { IAIProvider, IProviderDefinition, IToolWithEventService } from '@robota-sdk/agent-core';
 import type { ISandboxClient } from '@robota-sdk/agent-tools';
 import type {
   EditCheckpointStore,
@@ -90,6 +91,15 @@ export interface IServeModeOptions {
   supervisedRoot?: string;
   args: IParsedCliArgs;
   provider: IAIProvider;
+  /**
+   * #3282: forwarded to the session so `/provider switch` can construct the provider it switches TO.
+   *
+   * Not optional-by-accident: without it the session holds an empty list, and the hot-swap fails with
+   * "Unknown provider: <name>. Currently supported: " — an empty supported-list, which is both wrong
+   * and unactionable. The TUI has carried this since #1844 (see the comment on `providerDefinitions`
+   * in `packages/agent-ui-terminal/src/tui-channel-options.ts`); a served session never had it.
+   */
+  providerDefinitions?: readonly IProviderDefinition[];
   providerErrorGuidance?: IProviderErrorGuidance;
   promptFileReferenceTag?: string;
   modelCommandToolPrefix?: string;
@@ -170,6 +180,12 @@ export interface IServeModeOptions {
    * start; absent ⇒ one session, and clients are told sessions are not available.
    */
   sessionDirectory?: IServeSessionDirectory<InteractiveSession, SessionSlot<InteractiveSession>>;
+  /**
+   * #3282 §3: `provider` is a placeholder (never calls a model) because no provider was configured.
+   * The session refuses a submitted turn and reports it in `session_status`, instead of the process
+   * exiting the way a served runtime with a missing provider used to.
+   */
+  setupRequired?: boolean;
 }
 
 /**
@@ -190,6 +206,9 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     cwd: opts.cwd,
     ...(opts.livePromptTrace ? { livePromptTrace: opts.livePromptTrace } : {}),
     provider: opts.provider,
+    // #3282: the session reads these when `/provider switch` hot-swaps. Absent, the switch throws
+    // "Unknown provider: <name>. Currently supported: " with an EMPTY list — measured, not inferred.
+    ...(opts.providerDefinitions ? { providerDefinitions: opts.providerDefinitions } : {}),
     ...(opts.providerErrorGuidance !== undefined
       ? { providerErrorGuidance: opts.providerErrorGuidance }
       : {}),
@@ -282,6 +301,7 @@ export function buildServeSessionOptions(opts: IServeModeOptions): TInteractiveS
     ...(preset.systemPrompt !== undefined ? { presetSystemPrompt: preset.systemPrompt } : {}),
     // SELFHOST-008 P6: surface-resolved memory fields (empty ⇒ memory OFF, today's behavior).
     ...(opts.memorySessionOptions ?? {}),
+    ...(opts.setupRequired === true ? { setupRequired: true } : {}),
   };
 }
 
@@ -441,10 +461,10 @@ export async function runServeMode(opts: IServeModeOptions): Promise<void> {
     const webRoot = resolveWebRoot();
     if (wsUrl && webRoot) {
       monitorUi = await startMonitorUiServer(webRoot, wsUrl);
-      process.stdout.write(`Web monitor: ${monitorUi.url}\n`);
+      process.stdout.write(servedAtMessage(monitorUi.url));
       openInBrowser(monitorUi.url);
     } else if (!webRoot) {
-      process.stderr.write('Web monitor assets not found (dist/web) — run a full CLI build.\n');
+      process.stderr.write('Robota web assets not found (dist/web) — run a full CLI build.\n');
     }
   }
 
