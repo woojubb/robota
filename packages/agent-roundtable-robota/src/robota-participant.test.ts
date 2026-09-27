@@ -306,9 +306,10 @@ describe('robotaParticipant: speak path', () => {
     await first.release();
   });
 
-  it('destroys the agent it just created when claiming its lease fails', async () => {
+  it('leaves the open lease and its shared provider intact when a second lease is refused', async () => {
     const shared = createScriptedProvider([{ text: 'ok' }]);
-    let secondAgent: Robota | undefined;
+    const close = vi.fn(async () => {});
+    shared.provider.close = close;
     let secondDestroy: ReturnType<typeof vi.spyOn> | undefined;
     const participant = robotaParticipant({
       id: 'p',
@@ -319,10 +320,7 @@ describe('robotaParticipant: speak path', () => {
           aiProviders: [shared.provider],
           defaultModel: { provider: shared.provider.name, model: 'test-model' },
         });
-        if (ctx.participantId === 'B') {
-          secondAgent = agent;
-          secondDestroy = vi.spyOn(agent, 'destroy');
-        }
+        if (ctx.participantId === 'B') secondDestroy = vi.spyOn(agent, 'destroy');
         return agent;
       },
     });
@@ -333,8 +331,13 @@ describe('robotaParticipant: speak path', () => {
     await expect(
       participant.factory.openSession({ conversationId: 'c2', participantId: 'B' }),
     ).rejects.toMatchObject({ code: 'resource-reused' });
-    expect(secondAgent).toBeDefined();
-    expect(secondDestroy).toHaveBeenCalledOnce();
+    // The refused lease never owned the shared provider, so it must not close it.
+    expect(secondDestroy).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
+    await expect(first.session.runTurn(turn(), execOptions())).resolves.toEqual({
+      kind: 'speak',
+      content: 'ok',
+    });
     await first.release();
   });
 
