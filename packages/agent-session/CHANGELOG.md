@@ -1,5 +1,64 @@
 # @robota-sdk/agent-session
 
+## 3.0.0-beta.83
+
+### Minor Changes
+
+- e689c8e: Follow-ups to connection approval and `/handoff`.
+
+  - `agent-transport-webrtc-web` — the browser remote client says `Waiting for the host to approve this connection…`
+    (`awaiting-approval`) after pairing, and `Connected` only once the host's session answers. A host that closes the
+    channel instead is shown as `refused` and is not retried, since a retry would only ask the operator again; a
+    first connection lost before the host answered is `failed`. Reconnect attempts count until the host admits a
+    connection, so a link that keeps dropping while approval is pending gives up instead of asking again and again.
+  - `agent-core`, `agent-session`, `agent-framework` — a turn that did not come from the operator stores its
+    `turnSource` (`peer`, `external`, `agent-wakeup`) beside `driverId` on the user message and in the display
+    history (`IRunOptions.turnSource`), so a session handed off keeps where each turn came from.
+  - `agent-cli` — a `/handoff` resent after a lost confirmation reports what stays behind as it is now, not as it was
+    at the first attempt, and after refusing to resend a session that changed, the hand-off status shows that refusal
+    instead of the earlier lost confirmation.
+
+### Patch Changes
+
+- be0e53c: A tool instance shared by several sessions sends each call's span to the session that made the call.
+
+  - **Before:** each session set its event service on the shared instance, so the span went to whichever session had set it last.
+  - **`agent-core`:** `IToolExecutionContext` gains an optional `instanceEventService`. `FunctionTool` emits its span there when a call carries one.
+  - **`agent-session`:** the permission wrapper keeps its session's service and passes it with every call.
+
+- 57280bf: Every published package now declares `"engines": { "node": ">=22.12.0" }`. Before, 27 of the 38
+  packages declared no floor (`agent-core`, `agent-tools` and every provider among them),
+  `agent-session` and `agent-file-authority` declared `>=20.19.0`, and the other nine declared
+  `>=22.0.0`, so a consumer on Node 20 saw at most a warning from a transitive dependency.
+
+  Why 22.12: `agent-cli` and `agent-ui-terminal` need Node 22 through `ink` 7, and the CommonJS entries
+  of `agent-tools` and its dependents, `agent-transport`/`node` and its dependents, and
+  `agent-ui-terminal` `require()` ESM-only dependencies (`p-limit`, `jose`, `chalk`), which Node 22
+  supports unflagged only from 22.12. `engines` is advisory unless the consumer enables `engine-strict`.
+
+  No code changes: `tsdown` now reads `node22.12.0` as its build target from the field.
+
+- 18c0d5c: Every published package now exports `./package.json`, so `require('<package>/package.json')` and
+  `import('<package>/package.json', { with: { type: 'json' } })` work instead of failing with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`, and each tarball now ships the package's `CHANGELOG.md`.
+- Updated dependencies [e689c8e]
+- Updated dependencies [7b72344]
+- Updated dependencies [6ae3f28]
+- Updated dependencies [be0e53c]
+- Updated dependencies [57f57f5]
+- Updated dependencies [ba822c1]
+- Updated dependencies [6e6b06b]
+- Updated dependencies [8bd5fac]
+- Updated dependencies [57280bf]
+- Updated dependencies [5033dd9]
+- Updated dependencies [18c0d5c]
+- Updated dependencies [dbd888d]
+- Updated dependencies [1887e54]
+  - @robota-sdk/agent-core@3.0.0-beta.83
+  - @robota-sdk/agent-interface-session@3.0.0-beta.83
+  - @robota-sdk/agent-file-authority@3.0.0-beta.83
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.83
+
 ## 3.0.0-beta.82
 
 ### Minor Changes

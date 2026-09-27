@@ -1,5 +1,59 @@
 # @robota-sdk/agent-provider-openai-compatible
 
+## 3.0.0-beta.83
+
+### Patch Changes
+
+- 8bd5fac: Cached input tokens are no longer dropped (#3209 R3). The OpenAI and OpenAI-compatible adapters read
+  `prompt_tokens_details.cached_tokens` (Chat Completions, including the final streamed usage chunk) and
+  `input_tokens_details.cached_tokens` (Responses, OpenAI and Qwen) into `cacheReadTokens` on the message
+  usage: the part of the prompt served from the provider's prompt cache, present only when reported.
+  It reaches the committed assistant message, `readTokenUsageFromMessage()`, and the
+  `provider_call_completed` execution event, so a consumer can apply the cache discount.
+
+  New `sumMessagesUsage(messages)` sums the usage on assistant messages (with `cacheReadTokens` when any
+  reported it), so one run's usage is `sumMessagesUsage(agent.getHistory().slice(before))` without
+  converting through `messageToHistoryEntry` (#3209 S1). `sumHistoryUsage` returns the same triple as before.
+
+  A forced-summary reply now keeps the usage its provider reported the same way a tool round's reply
+  does: an endpoint that omits `total_tokens` no longer loses exactly the summary call's usage (#3209 N3). Counts
+  the adapter could not attest as a consistent total are recorded with `usageProvenance: 'partial'`.
+
+- 274328f: `OpenAIProvider({ strictTools: true })` now requests strict function calling on the Chat Completions
+  surface too (each tool is sent with `function.strict: true`), not only on the Responses surface. This
+  matters for every provider created with a `baseURL`, which defaults to Chat Completions. With
+  `strictTools` off the request is unchanged. `convertToOpenAICompatibleTools` accepts an optional
+  `{ strict }` argument.
+- 57280bf: Every published package now declares `"engines": { "node": ">=22.12.0" }`. Before, 27 of the 38
+  packages declared no floor (`agent-core`, `agent-tools` and every provider among them),
+  `agent-session` and `agent-file-authority` declared `>=20.19.0`, and the other nine declared
+  `>=22.0.0`, so a consumer on Node 20 saw at most a warning from a transitive dependency.
+
+  Why 22.12: `agent-cli` and `agent-ui-terminal` need Node 22 through `ink` 7, and the CommonJS entries
+  of `agent-tools` and its dependents, `agent-transport`/`node` and its dependents, and
+  `agent-ui-terminal` `require()` ESM-only dependencies (`p-limit`, `jose`, `chalk`), which Node 22
+  supports unflagged only from 22.12. `engines` is advisory unless the consumer enables `engine-strict`.
+
+  No code changes: `tsdown` now reads `node22.12.0` as its build target from the field.
+
+- 643effb: Aborting a run now cancels the provider's HTTP request on every call path. The non-streaming
+  `chat()` request — the one a forced end-of-round summary makes — sent no `AbortSignal` on OpenAI
+  Chat Completions, DeepSeek, Qwen (Chat Completions) and Gemma, so an aborted run left that request
+  running to completion; the same held for `chatStream()` on DeepSeek, Qwen (Chat Completions), Gemma
+  and Anthropic. Each now hands the call's `signal` to the SDK request.
+- 18c0d5c: Every published package now exports `./package.json`, so `require('<package>/package.json')` and
+  `import('<package>/package.json', { with: { type: 'json' } })` work instead of failing with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`, and each tarball now ships the package's `CHANGELOG.md`.
+- Updated dependencies [e689c8e]
+- Updated dependencies [be0e53c]
+- Updated dependencies [8bd5fac]
+- Updated dependencies [57280bf]
+- Updated dependencies [5033dd9]
+- Updated dependencies [18c0d5c]
+- Updated dependencies [dbd888d]
+- Updated dependencies [1887e54]
+  - @robota-sdk/agent-core@3.0.0-beta.83
+
 ## 3.0.0-beta.82
 
 ### Patch Changes

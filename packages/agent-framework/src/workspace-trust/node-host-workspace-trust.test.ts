@@ -20,6 +20,7 @@ import {
   createNodeWorkspaceIdentityResolver,
   createNodeWorkspaceTrustStore,
 } from './index.js';
+import { repositoryKeyFromStats } from './node-host-workspace-trust.js';
 
 const roots: string[] = [];
 
@@ -100,6 +101,144 @@ describe('Node host workspace trust', () => {
     const replacement = await service.inspect(root);
     expect(replacement).toMatchObject({ status: 'restricted', trustState: 'untrusted' });
     expect(createNodeWorkspaceIdentityResolver().resolve(root).repositoryKey).not.toBe(originalKey);
+  });
+
+  /**
+   * Whether `dir` now has a birth time the key uses (the production predicate). A new directory's
+   * birth and change times can start in the same clock tick (ext4 before 6.13 keeps tick-resolution
+   * timestamps), so touch it until the change time moves past the birth time, briefly. False only
+   * where the filesystem records no birth time at all.
+   */
+  function settleBirthTime(dir: string): boolean {
+    const deadline = Date.now() + 200;
+    const pause = new Int32Array(new SharedArrayBuffer(4));
+    for (;;) {
+      const stat = statSync(dir, { bigint: true });
+      if (stat.birthtimeNs > 0n && stat.birthtimeNs < stat.ctimeNs) return true;
+      if (stat.birthtimeNs <= 0n || Date.now() > deadline) return false;
+      Atomics.wait(pause, 0, 0, 5);
+      const probe = join(dir, 'robota-birth-probe');
+      writeFileSync(probe, '');
+      rmSync(probe);
+    }
+  }
+
+  it('keeps a grant across git commands that rewrite the repository config', async (context) => {
+    const root = tempRoot('robota-workspace-config-');
+    gitInit(root);
+    const git = (...args: string[]): void => {
+      execFileSync('git', ['-C', root, ...args], { stdio: 'ignore' });
+    };
+    git(
+      '-c',
+      'user.name=robota',
+      '-c',
+      'user.email=robota@example.invalid',
+      'commit',
+      '--allow-empty',
+      '--quiet',
+      '--no-gpg-sign',
+      '-m',
+      'init',
+    );
+    // Without a birth time the stricter config-based key applies by design; nothing to test here.
+    if (!settleBirthTime(join(root, '.git'))) context.skip();
+    const service = new WorkspaceTrustService({
+      identityResolver: createNodeWorkspaceIdentityResolver(),
+      store: createNodeWorkspaceTrustStore(join(tempRoot('robota-workspace-store-'), 'trust.json')),
+    });
+    await service.grant(root);
+    const key = createNodeWorkspaceIdentityResolver().resolve(root).repositoryKey;
+    expect(key).toMatch(/^git:born:/u);
+
+    // Each of these replaces .git/config with a new file (new inode and ctime).
+    git('config', 'robota.probe', 'one');
+    git('remote', 'add', 'origin', 'https://example.invalid/repo.git');
+    git('branch', 'feature');
+    git('branch', '-m', 'feature', 'renamed');
+    git('branch', '-D', 'renamed');
+
+    expect(createNodeWorkspaceIdentityResolver().resolve(root).repositoryKey).toBe(key);
+    await expect(service.inspect(root)).resolves.toMatchObject({ status: 'trusted' });
+  });
+
+  it('keys a repository without the device number, which macOS renumbers', () => {
+    const root = tempRoot('robota-workspace-device-');
+    gitInit(root);
+    const key = createNodeWorkspaceIdentityResolver().resolve(root).repositoryKey;
+    const device = statSync(join(root, '.git'), { bigint: true }).dev.toString(16);
+
+    expect(key.split(':')).not.toContain(device);
+  });
+
+  it('a new grant retires a record left for the same worktree under an earlier key', async () => {
+    const root = tempRoot('robota-workspace-rekey-');
+    gitInit(root);
+    const storePath = join(tempRoot('robota-workspace-store-'), 'trust.json');
+    // A grant recorded under the previous key format, which no longer matches this repository.
+    writeFileSync(
+      storePath,
+      JSON.stringify({
+        version: 1,
+        grants: [
+          {
+            repositoryKey: `git:100000e:2fa610c:100000e:c311bd0:18d8f41edb880a6d:${join(root, '.git')}`,
+            worktreeRoot: root,
+            state: 'trusted',
+            generation: 1,
+          },
+        ],
+      }),
+    );
+    const store = createNodeWorkspaceTrustStore(storePath);
+    const service = new WorkspaceTrustService({
+      identityResolver: createNodeWorkspaceIdentityResolver(),
+      store,
+    });
+    await expect(service.inspect(root)).resolves.toMatchObject({ trustState: 'untrusted' });
+
+    await service.grant(root);
+
+    const persisted = JSON.parse(readFileSync(storePath, 'utf8')) as {
+      grants: { repositoryKey: string; worktreeRoot: string; state: string }[];
+    };
+    const trusted = persisted.grants.filter(
+      (grant) => grant.worktreeRoot === root && grant.state === 'trusted',
+    );
+    expect(trusted).toHaveLength(1);
+    expect(trusted[0]?.repositoryKey).toBe(
+      createNodeWorkspaceIdentityResolver().resolve(root).repositoryKey,
+    );
+  });
+
+  it('never hands a repository back a generation, when another held its root in between', async () => {
+    // Approvals (project MCP servers) match on the generation, so one revoked must never recur.
+    const storePath = join(tempRoot('robota-workspace-store-'), 'trust.json');
+    const store = createNodeWorkspaceTrustStore(storePath);
+    const root = tempRoot('robota-workspace-shared-root-');
+    const first = { repositoryKey: 'git:born:1:1:first', worktreeRoot: root, displayPath: root };
+    const second = { repositoryKey: 'git:born:2:2:second', worktreeRoot: root, displayPath: root };
+
+    await store.grant(first, 0); // generation 1: an approval recorded here
+    await store.revoke(first, 1); // generation 2: that approval is dead
+    await store.grant(second, 0); // another repository takes the root
+    const back = await store.grant(first, (await store.inspect(first)).generation);
+
+    expect(back.generation).toBeGreaterThan(2);
+  });
+
+  it('retires a trusted record at the root when another repository is granted there', async () => {
+    const storePath = join(tempRoot('robota-workspace-store-'), 'trust.json');
+    const store = createNodeWorkspaceTrustStore(storePath);
+    const root = tempRoot('robota-workspace-shared-root-');
+    const first = { repositoryKey: 'git:born:1:1:first', worktreeRoot: root, displayPath: root };
+    const second = { repositoryKey: 'git:born:2:2:second', worktreeRoot: root, displayPath: root };
+
+    await store.grant(first, 0);
+    await store.grant(second, 0);
+
+    await expect(store.inspect(first)).resolves.toMatchObject({ state: 'revoked', generation: 2 });
+    await expect(store.inspect(second)).resolves.toMatchObject({ state: 'trusted', generation: 1 });
   });
 
   it('resolves nested repositories independently and distinguishes linked worktrees', () => {
@@ -186,5 +325,29 @@ describe('Node host workspace trust', () => {
         generation: 1,
       },
     );
+  });
+});
+
+describe('repository key', () => {
+  const config = { ino: 0x51n, ctimeNs: 0x900n };
+  const key = (birthtimeNs: bigint, ctimeNs = 0x800n, cfg = config): string =>
+    repositoryKeyFromStats('/w/.git', { ino: 0x2an, birthtimeNs, ctimeNs }, () => cfg);
+
+  it('uses the directory birth time when the filesystem records one', () => {
+    expect(key(0x700n)).toBe('git:born:2a:700:/w/.git');
+  });
+
+  it.each([
+    ['zero (statx without a birth time)', 0n],
+    ['the change time (libuv without statx)', 0x800n],
+    ['negative (FreeBSD without a birth time)', -1_000_000_000n],
+  ])('falls back to the config file when the birth time is %s', (_label, birthtimeNs) => {
+    expect(key(birthtimeNs)).toBe('git:2a:51:900:/w/.git');
+  });
+
+  it('the fallback still changes when the repository is recreated, and names no device', () => {
+    const recreated = key(0n, 0x800n, { ino: 0x77n, ctimeNs: 0xa00n });
+    expect(recreated).not.toBe(key(0n));
+    expect(recreated.split(':')).toHaveLength(5);
   });
 });

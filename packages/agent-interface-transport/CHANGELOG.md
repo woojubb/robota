@@ -1,5 +1,79 @@
 # @robota-sdk/agent-interface-transport
 
+## 3.0.0-beta.83
+
+### Minor Changes
+
+- 724fabb: External-event grants are given at start, carried exactly to a background session, listed without their
+  principal, and revoked by the owner.
+
+  - `agent-framework` (breaking) — `openExternalEventSource` and `ExternalEventIngress.open` take only
+    `{ grant, audit? }`: the session builds each grant's verifier from `grant.verifier` with the
+    `externalEventVerifierFactory` its host passed when the session was built (without one, no grant opens), and an
+    open that supplies a verifier or a factory is refused. `IExternalEventSource.revoke()` stops the grant's queued and running turns,
+    refuses its later events as `grant-revoked`, and keeps the label from being opened again. A submission the
+    session refuses is `shutting-down` only while it shuts down, and `session-unavailable` otherwise. New command
+    host adapter `externalEvents` (`ICommandExternalEventsAdapter`).
+  - `agent-ui-terminal` — forwards `externalEventVerifierFactory` from the render options to the session.
+  - `agent-interface-transport` — `TExternalEventRefusal` gains `session-unavailable`.
+  - `agent-command` — `/events` lists the session's grants (label, principal kind, state, counts) and
+    `/events revoke <grant-id>` withdraws one. User-only.
+  - `agent-cli` — a grant file (`grantId`, `issuer`, `resource` ending in `/events/<grantId>`, exactly one of
+    `subject` or `client`, `scopes`, optional `algorithms` and `rate`) is validated before anything starts, with a
+    reason that names the grant and no configured value. `robota --external-event-grant <file>` (TUI) and
+    `robota session start --background --external-event-grant <file>` open every grant or fail the start; a
+    background session receives its grants through a private file, opens them before it reports ready, and the
+    launcher refuses a readiness that names other grants. `robota session events list <id> [--json]` and
+    `robota session events revoke <id> <grant-id>` work over the generation-bound control socket, and
+    `robota session list --format json` shows each grant's counts. The retired `--external-event-allow` now points
+    at `--external-event-grant`.
+
+- bfe8ed5: An external event is admitted only by a bearer access token the session verifies itself, and its sender is the
+  grant that token matched, never a name in the event.
+
+  - `agent-interface-transport` — `IExternalEventGrant` (a label, an access-token verifier configuration that pins
+    exactly one subject or client, the `message` kind, optional turn-rate windows), `IExternalEventDelivery` (the
+    token and the event as a carrier received them), the closed `TExternalEventRefusal` set, `TExternalEventAdmission`
+    and the content-free `TExternalEventAuditRecord`.
+  - `agent-framework` (breaking) — `ExternalEventIngress.open` and `InteractiveSession.openExternalEventSource` take
+    `{ grant, verifier, audit? }` instead of `{ id, allowedSenders, authenticate }`, and `receive` takes
+    `{ token, event }`. A delivery is refused with a stable word when the token is missing or the verifier refuses
+    it, when the token was already spent on an event (`jti`), when the event is malformed or oversize, or when the
+    grant is over its rate; nothing refused reaches the queue. An admitted event is attributed
+    `external:<grant>:<conversation>`, a payload display name appears in the envelope only as `claimed-name`, and the
+    receipt (`TExternalEventReceipt`) answers at acceptance with the turn id. Every refusal and settlement is
+    reported to the `audit` sink without content, conversation, name or token. `IAuthenticatedExternalEvent` and
+    `IExternalEventReceipt` are removed.
+  - `agent-cli` (breaking) — `--external-event-allow` is refused with the reason: a sender name relayed by an MCP
+    server does not prove who sent an event.
+
+### Patch Changes
+
+- 57280bf: Every published package now declares `"engines": { "node": ">=22.12.0" }`. Before, 27 of the 38
+  packages declared no floor (`agent-core`, `agent-tools` and every provider among them),
+  `agent-session` and `agent-file-authority` declared `>=20.19.0`, and the other nine declared
+  `>=22.0.0`, so a consumer on Node 20 saw at most a warning from a transitive dependency.
+
+  Why 22.12: `agent-cli` and `agent-ui-terminal` need Node 22 through `ink` 7, and the CommonJS entries
+  of `agent-tools` and its dependents, `agent-transport`/`node` and its dependents, and
+  `agent-ui-terminal` `require()` ESM-only dependencies (`p-limit`, `jose`, `chalk`), which Node 22
+  supports unflagged only from 22.12. `engines` is advisory unless the consumer enables `engine-strict`.
+
+  No code changes: `tsdown` now reads `node22.12.0` as its build target from the field.
+
+- 18c0d5c: Every published package now exports `./package.json`, so `require('<package>/package.json')` and
+  `import('<package>/package.json', { with: { type: 'json' } })` work instead of failing with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`, and each tarball now ships the package's `CHANGELOG.md`.
+- Updated dependencies [e689c8e]
+- Updated dependencies [be0e53c]
+- Updated dependencies [8bd5fac]
+- Updated dependencies [57280bf]
+- Updated dependencies [5033dd9]
+- Updated dependencies [18c0d5c]
+- Updated dependencies [dbd888d]
+- Updated dependencies [1887e54]
+  - @robota-sdk/agent-core@3.0.0-beta.83
+
 ## 3.0.0-beta.82
 
 ### Patch Changes

@@ -38,6 +38,8 @@
     "version": "changeset version",
     "release": "bash scripts/publish/publish-packages.sh",
     "cli:dev": "scripts/dev/robota",
+    "cli:trust": "scripts/dev/robota trust --yes",
+    "cli:dev:trust": "(scripts/dev/robota trust status | grep '^Workspace trust: trusted$' >/dev/null || scripts/dev/robota trust --yes) && scripts/dev/robota",
     "gui:dev": "node packages/agent-gui-web/scripts/dev-web.mjs",
     "app:dev": "node scripts/dev/app-dev.mjs",
     "web:dev": "pnpm --filter robota-web run dev",

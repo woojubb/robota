@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { afterAll, describe, expect, it } from 'vitest';
 
+import { createRobotaSandbox, liveSandboxSettings } from '../robota-execution-containment.js';
 import { createRobotaPacks } from '../robota-profile.js';
 import {
   assertChildProcessSubagentsCanReproduce,
@@ -12,6 +13,8 @@ import {
   nonReproducibleCapabilities,
   ROBOTA_OS_SANDBOX_TYPE,
   packTools,
+  parentSandboxSettingsOf,
+  watchParentSandboxSettingsOf,
   type IRobotaPackContext,
 } from '../robota-subagent-composition.js';
 
@@ -252,5 +255,145 @@ describe('CLI-1994 — the product composition can resume a forked record', () =
     expect(store).toBeDefined();
     expect(store?.load).toBeTypeOf('function');
     expect(store?.list).toBeTypeOf('function');
+  });
+});
+
+describe('issue #3248 — a child builds one sandbox for its tools and its session', () => {
+  it('builds the tools under the sandbox the worker hands it, not a second one', () => {
+    const seen: IRobotaPackContext[] = [];
+    const composition = createRobotaSubagentComposition((context) => {
+      seen.push(context);
+      return [];
+    });
+    const handed = { filesystem: 'shared' } as object;
+
+    composition.createTools({ cwd: CWD, sandboxClient: handed });
+
+    expect(seen[0]?.sandboxClient).toBe(handed);
+    expect(seen[0]?.sandboxType).toBe(ROBOTA_OS_SANDBOX_TYPE);
+  });
+
+  it('composes the sandbox with the approval it gives, whenever the host has a backend', () => {
+    const composed = createRobotaSubagentComposition().createSandbox?.({ cwd: CWD });
+
+    expect(createRobotaSubagentComposition().createSandbox).toBeDefined();
+    // A host with no backend composes none; one with a backend hands over both halves together.
+    if (composed !== undefined) expect(composed.commandSandbox).toBeDefined();
+  });
+});
+
+describe('issue #3254 — a child builds its sandbox from the parent’s live settings', () => {
+  const PARENT_SETTINGS = {
+    enabled: true,
+    autoAllowBashIfSandboxed: false,
+    excludedCommands: ['docker'],
+    allowWrite: [],
+    denyRead: [],
+    network: false,
+  };
+
+  it('reads the parent’s live client, a /sandbox change included', () => {
+    const parent = createRobotaSandbox({
+      cwd: CWD,
+      settingsSources: [],
+      settings: { ...PARENT_SETTINGS, autoAllowBashIfSandboxed: true },
+    }).client;
+    parent?.configure({ autoAllowBashIfSandboxed: false });
+
+    if (parent !== undefined) expect(liveSandboxSettings(parent)).toEqual(PARENT_SETTINGS);
+    expect(liveSandboxSettings(undefined)).toBeUndefined();
+  });
+
+  it('composes the child sandbox from the settings the parent sent, not the files', () => {
+    const composed = createRobotaSubagentComposition().createSandbox?.({
+      cwd: CWD,
+      parentSettings: PARENT_SETTINGS,
+    });
+
+    if (composed !== undefined) {
+      expect(liveSandboxSettings(composed.client as never)).toEqual(PARENT_SETTINGS);
+    }
+  });
+
+  it('refuses settings it cannot read rather than falling back to the files', () => {
+    expect(() =>
+      createRobotaSubagentComposition().createSandbox?.({
+        cwd: CWD,
+        parentSettings: { enabled: 'yes' },
+      }),
+    ).toThrow(/sandbox settings/);
+  });
+});
+
+describe('issue #3254 — robota tells each spawn what the parent sandbox holds now', () => {
+  it('reads the live client at every call, so a /sandbox change reaches the next child', () => {
+    const client = createRobotaSandbox({
+      cwd: CWD,
+      settingsSources: [],
+      // A backend is named so the client exists on every host; nothing here runs a command.
+      detect: () => ({ backend: 'bubblewrap', missing: [] }),
+      settings: {
+        enabled: true,
+        autoAllowBashIfSandboxed: true,
+        excludedCommands: [],
+        allowWrite: [],
+        denyRead: [],
+        network: false,
+      },
+    }).client;
+    const read = parentSandboxSettingsOf({ cwd: CWD, sandboxClient: client });
+
+    expect(read()).toMatchObject({ autoAllowBashIfSandboxed: true });
+    client?.configure({ autoAllowBashIfSandboxed: false });
+    expect(read()).toMatchObject({ autoAllowBashIfSandboxed: false });
+  });
+
+  it('tells a child nothing when the parent holds no OS sandbox', () => {
+    expect(parentSandboxSettingsOf({ cwd: CWD })()).toBeUndefined();
+  });
+});
+
+describe('issue #3256 — a running child follows the parent’s /sandbox changes', () => {
+  const SETTINGS = {
+    enabled: true,
+    autoAllowBashIfSandboxed: true,
+    excludedCommands: [],
+    allowWrite: [],
+    denyRead: [],
+    network: false,
+  };
+  const withBackend = () => ({ backend: 'bubblewrap' as const, missing: [] });
+
+  it('tells a watcher each change on the parent’s live client, until it stops watching', () => {
+    const client = createRobotaSandbox({
+      cwd: CWD,
+      settingsSources: [],
+      detect: withBackend,
+      settings: SETTINGS,
+    }).client;
+    const seen: unknown[] = [];
+    const unwatch = watchParentSandboxSettingsOf({ cwd: CWD, sandboxClient: client })((settings) =>
+      seen.push(settings.autoAllowBashIfSandboxed),
+    );
+
+    client?.configure({ autoAllowBashIfSandboxed: false });
+    unwatch();
+    client?.configure({ autoAllowBashIfSandboxed: true });
+
+    expect(seen).toEqual([false]);
+  });
+
+  it('applies a change to the sandbox the child composed, and refuses one it cannot read', () => {
+    const composed = createRobotaSubagentComposition().createSandbox?.({
+      cwd: CWD,
+      parentSettings: SETTINGS,
+    });
+    if (composed === undefined) return;
+
+    composed.applyParentSettings?.({ ...SETTINGS, autoAllowBashIfSandboxed: false });
+    expect(liveSandboxSettings(composed.client as never)).toMatchObject({
+      autoAllowBashIfSandboxed: false,
+    });
+    expect(() => composed.applyParentSettings?.({ enabled: 'no' })).toThrow(/sandbox settings/);
   });
 });

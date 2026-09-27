@@ -3,7 +3,7 @@ import type {
   IProviderDefinition,
   IToolWithEventService,
 } from '@robota-sdk/agent-core';
-import type { restoreSessionRecordIntoSession } from '@robota-sdk/agent-framework';
+import type { ISubagentOptions, restoreSessionRecordIntoSession } from '@robota-sdk/agent-framework';
 
 /**
  * The session record store a fork job's `resumeSessionId` names a record in, typed FROM the one
@@ -118,6 +118,37 @@ export interface ISubagentWorkerComposition {
    * as such, rather than starting with an empty conversation that looks like a fork.
    */
   readonly openSessionStore?: (context: { readonly cwd: string }) => TResumeSessionStore;
+
+  /**
+   * A sandbox the child composes itself at its execution root, rather than restoring one from a
+   * snapshot: the OS sandbox is a function of the root and its settings, and the settings cross as
+   * data (`parentSettings`, the parent's as they stood at spawn) where a live handle cannot.
+   *
+   * The worker builds it once and hands the SAME instance to `createTools` (as `sandboxClient`) and to
+   * the session (as `commandSandbox`), so the approval a confined command gets comes from the instance
+   * the command runs under. Absent ⇒ the child's session approves no command on a sandbox's say-so.
+   */
+  readonly createSandbox?: (context: {
+    readonly cwd: string;
+    /** The parent's sandbox settings at spawn, when its composition root sent them. */
+    readonly parentSettings?: TParentSandboxSettings;
+  }) => ISubagentComposedSandbox | undefined;
+}
+
+/** A composition root's sandbox settings, as plain data that crosses the process boundary. */
+export type TParentSandboxSettings = Readonly<Record<string, unknown>>;
+
+/** A sandbox the child composed itself: the client its tools run under and the approval it gives. */
+export interface ISubagentComposedSandbox {
+  readonly client: TProjectedSandboxClient;
+  readonly commandSandbox?: ISubagentOptions['commandSandbox'];
+  /**
+   * Take the parent's settings after a change it made while this child runs (`/sandbox`), so the
+   * next command is confined and approved as the parent's would be. Throws on settings it cannot
+   * read: the worker then aborts the run and ends it with that error, rather than run on settings the
+   * user has replaced.
+   */
+  readonly applyParentSettings?: (settings: TParentSandboxSettings) => void;
 }
 
 /**

@@ -5,7 +5,7 @@ import {
   type ISubagentWorkerParentContextDto,
 } from './subagent-worker-start-dto.js';
 
-import type { ISandboxProjection } from './worker-composition.js';
+import type { ISandboxProjection, TParentSandboxSettings } from './worker-composition.js';
 import type { ISessionUsageTotals, TPermissionMode, TToolArgs } from '@robota-sdk/agent-core';
 import type { IConnectionEnvironmentCheck } from '@robota-sdk/agent-executor';
 import type { IResolvedConfig } from '@robota-sdk/agent-framework';
@@ -84,6 +84,12 @@ export interface ISubagentWorkerStartPayload {
    * beside the request instead of being derived at the child. Absent ⇒ the parent had none.
    */
   sessionTiers?: { readonly includeGoalTool?: boolean };
+  /**
+   * The parent's sandbox settings as they stand at spawn, including a change made this session.
+   * Opaque here: the composition root produced it and its `createSandbox` reads it, so the child
+   * confines and approves as the parent does now, not as its root's settings files say.
+   */
+  parentSandboxSettings?: TParentSandboxSettings;
   permissionMode?: TPermissionMode;
   logsDir?: string;
 }
@@ -103,8 +109,17 @@ export interface ISubagentWorkerCancelMessage {
   reason?: string;
 }
 
+/** The parent's sandbox settings changed while the child runs (`/sandbox`); the child follows. */
+export interface ISubagentWorkerSandboxSettingsMessage {
+  type: 'sandbox_settings';
+  settings: TParentSandboxSettings;
+}
+
 export type TSubagentWorkerParentMessage =
-  ISubagentWorkerStartMessage | ISubagentWorkerSendMessage | ISubagentWorkerCancelMessage;
+  | ISubagentWorkerStartMessage
+  | ISubagentWorkerSendMessage
+  | ISubagentWorkerCancelMessage
+  | ISubagentWorkerSandboxSettingsMessage;
 
 export interface ISubagentWorkerReadyMessage {
   type: 'ready';
@@ -268,6 +283,9 @@ function isStartPayload(value: TSubagentWorkerWireValue): value is ISubagentWork
   if (!isRecord(value.providerProfile)) return false;
   if (!hasString(value.providerProfile, 'type')) return false;
   if (!hasString(value.providerProfile, 'model')) return false;
+  if (value.parentSandboxSettings !== undefined && !isRecord(value.parentSandboxSettings)) {
+    return false;
+  }
   return isConnectionCheck(value.connectionCheck);
 }
 
@@ -282,6 +300,8 @@ export function isSubagentWorkerParentMessage(
       return hasString(value, 'prompt');
     case 'cancel':
       return value.reason === undefined || typeof value.reason === 'string';
+    case 'sandbox_settings':
+      return isRecord(value.settings);
     default:
       return false;
   }

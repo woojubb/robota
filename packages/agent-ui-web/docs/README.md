@@ -12,7 +12,10 @@ browser-remote surface (`@robota-sdk/agent-transport-webrtc-web`).
 - `useWsSession(url)` + `createWsSessionClient` — the localhost WebSocket binding.
 - Prompt state: `applyPromptEvent`, `permissionResponse`, `askResponse`.
 - Components: `ConversationView`, `AgentActivityPanel`, `PermissionPrompt`, `SessionSurface`, `CenteredChrome`.
-- `styles/theme.css` — the theme (bundled Pretendard, light and dark design tokens + Tailwind token map + base layers).
+- `styles/surface.css` — the design scoped to `.robota-ui` (bundled Pretendard, light and dark tokens, Tailwind
+  token map, base layers); import it into a host app's Tailwind entry to embed the surface.
+- `styles/theme.css` — `surface.css` plus what a page that is only the surface owns (height, background,
+  scrollbars); that page puts `robota-ui` on its `<html>`.
 
 ## Using it
 

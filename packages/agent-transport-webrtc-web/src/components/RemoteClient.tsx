@@ -1,6 +1,11 @@
 'use client';
 
-import { ConversationView, PermissionPrompt } from '@robota-sdk/agent-ui-web';
+import {
+  ConversationView,
+  PermissionPrompt,
+  RobotaMark,
+  RobotaWordmark,
+} from '@robota-sdk/agent-ui-web';
 import React, { useMemo } from 'react';
 
 import { parseRemoteClientLocation } from '../client/parse-remote-location.js';
@@ -9,7 +14,9 @@ import { useRtcSession, type TSessionStatus } from '../hooks/useRtcSession.js';
 /**
  * Stage-D browser remote client root (REMOTE-009). Reads its connection inputs from its own URL
  * (relay ← query, rendezvous + secret ← fragment), pairs with the host over WebRTC, and co-drives the
- * session — rendering the pairing-UX states and the owner's permission/ask prompts.
+ * session — rendering the pairing-UX states and the owner's permission/ask prompts. Its root carries the
+ * GUI surface's `robota-ui` scope, so it looks like the desktop app on any host that loads the surface
+ * styles, without touching that host's own tokens.
  */
 
 const STATUS_LABEL: Record<TSessionStatus, string> = {
@@ -39,11 +46,17 @@ export function RemoteClient({ href }: IRemoteClientProps): React.ReactElement {
 
   if (parsed.error || !parsed.location) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-8 font-mono text-[13px]">
-        <div className="max-w-md text-[var(--muted-foreground)]">
-          <p className="mb-2 font-bold text-[var(--foreground)]">Cannot pair</p>
-          <p>{parsed.error ?? 'Invalid pairing link.'}</p>
-          <p className="mt-2">Open the QR / link shown by `/remote-control` on the host.</p>
+      <div className="robota-ui flex h-full min-h-screen items-center justify-center bg-background p-8">
+        <div className="flex max-w-md flex-col items-center gap-4 text-center">
+          <RobotaMark size={40} />
+          <h1 className="text-[22px] font-semibold tracking-[-0.02em]">Cannot pair</h1>
+          <p className="text-[15px] leading-relaxed text-muted-foreground">
+            {parsed.error ?? 'Invalid pairing link.'}
+          </p>
+          <p className="text-[14px] text-subtle">
+            Open the QR code or link shown by <code className="font-mono">/remote-control</code> on
+            the host.
+          </p>
         </div>
       </div>
     );
@@ -52,36 +65,62 @@ export function RemoteClient({ href }: IRemoteClientProps): React.ReactElement {
   return <RemoteClientConnected location={parsed.location} />;
 }
 
+/** Where the pairing stands, as the title bar's dot. */
+function statusTone(status: TSessionStatus): 'live' | 'waiting' | 'stopped' {
+  if (status === 'connected') return 'live';
+  if (status === 'failed' || status === 'refused' || status === 'error') return 'stopped';
+  return 'waiting';
+}
+
+const DOT: Record<ReturnType<typeof statusTone>, string> = {
+  live: 'bg-accent status-glow',
+  waiting: 'bg-warning animate-pulse',
+  stopped: 'bg-destructive',
+};
+
 function RemoteClientConnected({
   location,
 }: {
   location: NonNullable<ReturnType<typeof parseRemoteClientLocation>>;
 }): React.ReactElement {
   const session = useRtcSession(location);
+  const tone = statusTone(session.status);
+  const hasConversation =
+    session.messages.length > 0 ||
+    session.activeTools.length > 0 ||
+    session.isThinking ||
+    session.streamingText !== '';
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden">
-      <header className="flex items-center gap-2 border-b border-[var(--border)] px-4 py-2 font-mono text-[12px]">
-        <span
-          className={
-            session.status === 'connected'
-              ? 'text-emerald-400'
-              : session.status === 'failed' ||
-                  session.status === 'refused' ||
-                  session.status === 'error'
-                ? 'text-rose-400'
-                : 'text-amber-400'
-          }
-        >
-          ● {STATUS_LABEL[session.status]}
+    <div className="robota-ui flex h-screen w-screen flex-col overflow-hidden bg-background">
+      <header className="flex h-12 flex-shrink-0 items-center gap-3 px-5">
+        <RobotaWordmark surface="remote" />
+        <span className="ml-auto flex items-center gap-2 text-[13px] text-muted-foreground">
+          <span className={`h-2 w-2 rounded-full ${DOT[tone]}`} />
+          <span role="status">{STATUS_LABEL[session.status]}</span>
         </span>
       </header>
-      <main className="flex-1 overflow-auto">
-        <ConversationView
-          messages={session.messages}
-          activeTools={session.activeTools}
-          streamingText={session.streamingText}
-          isThinking={session.isThinking}
-        />
+      <main className="min-h-0 flex-1">
+        {hasConversation || tone === 'live' ? (
+          <ConversationView
+            messages={session.messages}
+            activeTools={session.activeTools}
+            streamingText={session.streamingText}
+            isThinking={session.isThinking}
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center p-8">
+            <div className="gui-rise flex max-w-md flex-col items-center gap-4 text-center">
+              <RobotaMark size={40} />
+              <p className="text-[18px] font-medium">{STATUS_LABEL[session.status]}</p>
+              {tone === 'stopped' ? (
+                <p className="text-[15px] text-muted-foreground">
+                  Open a fresh link from <code className="font-mono">/remote-control</code> on the
+                  host to try again.
+                </p>
+              ) : null}
+            </div>
+          </div>
+        )}
       </main>
       <PermissionPrompt
         prompts={session.pendingPrompts}

@@ -1,5 +1,51 @@
 # robota-scratch
 
+## 0.0.1-beta.6
+
+### Patch Changes
+
+- Updated dependencies [3c81769]
+- Updated dependencies [724fabb]
+- Updated dependencies [0d78a17]
+- Updated dependencies [997f2fb]
+- Updated dependencies [bfe8ed5]
+- Updated dependencies [e689c8e]
+- Updated dependencies [4241fc5]
+- Updated dependencies [4f49d14]
+- Updated dependencies [7b72344]
+- Updated dependencies [6ae3f28]
+- Updated dependencies [9721162]
+- Updated dependencies [be0e53c]
+- Updated dependencies [57f57f5]
+- Updated dependencies [ba822c1]
+- Updated dependencies [9721162]
+- Updated dependencies [6e6b06b]
+- Updated dependencies [7d77ce4]
+- Updated dependencies [8bd5fac]
+- Updated dependencies [274328f]
+- Updated dependencies [57280bf]
+- Updated dependencies [5033dd9]
+- Updated dependencies [643effb]
+- Updated dependencies [18c0d5c]
+- Updated dependencies [dbd888d]
+- Updated dependencies [1887e54]
+- Updated dependencies [caaab20]
+- Updated dependencies [f01868f]
+- Updated dependencies [e8779c9]
+- Updated dependencies [122e82b]
+- Updated dependencies [0368058]
+- Updated dependencies [5a0ee96]
+  - @robota-sdk/agent-framework@3.0.0-beta.83
+  - @robota-sdk/agent-mcp@3.0.0-beta.83
+  - @robota-sdk/agent-core@3.0.0-beta.83
+  - @robota-sdk/agent-session@3.0.0-beta.83
+  - @robota-sdk/agent-provider-openai@3.0.0-beta.83
+  - @robota-sdk/agent-builtin-providers@3.0.0-beta.83
+  - @robota-sdk/agent-executor@3.0.0-beta.83
+  - @robota-sdk/agent-subagent-runner@3.0.0-beta.83
+  - @robota-sdk/agent-tools@3.0.0-beta.83
+  - @robota-sdk/agent-remote-client@3.0.0-beta.83
+
 ## 0.0.1-beta.5
 
 ### Patch Changes

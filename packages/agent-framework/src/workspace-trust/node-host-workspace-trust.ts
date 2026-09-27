@@ -123,18 +123,54 @@ function expectedGenerationError(expected: number, actual: number): Error {
   );
 }
 
-function repositoryIdentityKey(commonDir: string): string {
-  const commonStat = statSync(commonDir, { bigint: true });
-  const configStat = statSync(join(commonDir, 'config'), { bigint: true });
+/** The parts of a `stat` the repository key reads. */
+export interface IRepositoryKeyStat {
+  readonly ino: bigint;
+  readonly birthtimeNs: bigint;
+  readonly ctimeNs: bigint;
+}
+
+/**
+ * A grant must survive what happens to a repository in normal use and must not pass to a repository
+ * recreated at the same path. Git never recreates its common dir, so that directory's inode and birth
+ * time hold across config writes (`push -u`, branch renames, `remote add` replace `config` itself) and
+ * across the volume renumbering that changes `dev` on macOS; a repository recreated there is a new
+ * directory with a new birth time. A birth time counts only when it is positive and earlier than the
+ * directory's last change: filesystems without one report zero (Linux statx), the change time (libuv
+ * without statx) or a negative value (FreeBSD). Then the key falls back to the `config` file, which a
+ * recreated repository also replaces: as safe, but it drops the grant whenever git rewrites that file.
+ * On FAT/exFAT a `.git` recreated within seconds can repeat both inode and creation time (Windows
+ * tunnelling); NTFS file references do not repeat.
+ */
+export function repositoryKeyFromStats(
+  commonDir: string,
+  common: IRepositoryKeyStat,
+  readConfig: () => Pick<IRepositoryKeyStat, 'ino' | 'ctimeNs'>,
+): string {
+  const born = common.birthtimeNs;
+  if (born > 0n && born < common.ctimeNs) {
+    return [
+      'git',
+      'born',
+      common.ino.toString(HEX_RADIX),
+      born.toString(HEX_RADIX),
+      commonDir,
+    ].join(':');
+  }
+  const config = readConfig();
   return [
     'git',
-    commonStat.dev.toString(HEX_RADIX),
-    commonStat.ino.toString(HEX_RADIX),
-    configStat.dev.toString(HEX_RADIX),
-    configStat.ino.toString(HEX_RADIX),
-    configStat.ctimeNs.toString(HEX_RADIX),
+    common.ino.toString(HEX_RADIX),
+    config.ino.toString(HEX_RADIX),
+    config.ctimeNs.toString(HEX_RADIX),
     commonDir,
   ].join(':');
+}
+
+function repositoryIdentityKey(commonDir: string): string {
+  return repositoryKeyFromStats(commonDir, statSync(commonDir, { bigint: true }), () =>
+    statSync(join(commonDir, 'config'), { bigint: true }),
+  );
 }
 
 /** Resolve a Git worktree to a replacement-safe host identity. */
@@ -204,7 +240,22 @@ export function createNodeWorkspaceTrustStore(filePath: string): IWorkspaceTrust
       generation: actualGeneration + 1,
       ...(state === 'trusted' ? { grantedAt: new Date().toISOString() } : {}),
     };
-    const grants = store.grants.filter((grant) => identityKey(grant) !== identityKey(identity));
+    // One worktree root holds one repository at a time: a trusted record there under another key is
+    // left from an earlier key or a replaced repository, and would make that root look like two
+    // trusted repositories. It is retired, not deleted: a generation only ever rises, so a repository
+    // that comes back to this root never regains a generation an approval was recorded against.
+    const grants = store.grants
+      .filter((grant) => identityKey(grant) !== identityKey(identity))
+      .map((grant) =>
+        grant.worktreeRoot === identity.worktreeRoot && grant.state === 'trusted'
+          ? {
+              repositoryKey: grant.repositoryKey,
+              worktreeRoot: grant.worktreeRoot,
+              state: 'revoked' as const,
+              generation: grant.generation + 1,
+            }
+          : grant,
+      );
     grants.push(next);
     writeStore({ version: TRUST_STORE_VERSION, grants });
     return snapshotFor(next);

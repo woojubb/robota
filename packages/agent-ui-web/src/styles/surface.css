@@ -1,0 +1,216 @@
+/*
+ * The GUI surface's design (agent-ui-web), scoped to `.robota-ui`: a calm desktop-app surface where the
+ * conversation is the product. Readable sizes, one humanist family (Pretendard, bundled — a page's CSP may
+ * load fonts only from itself), monospace kept for code and paths, and a neutral palette with one accent.
+ *
+ * Every root component of the surface carries `robota-ui`, so its tokens apply inside it and nowhere else:
+ * a host with tokens of its own under the same names keeps them. The host owns the Tailwind entry
+ * (`@import 'tailwindcss'` + `@source '…/agent-ui-web/src'`) and `@import`s this file there, so Tailwind
+ * maps the tokens below onto utilities. A page that is the surface imports `theme.css` instead.
+ */
+@import 'pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css';
+
+/* Map the design tokens (CSS vars below) onto Tailwind color/font utilities (bg-card, text-primary, …). */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-sidebar: var(--sidebar);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-raised: var(--raised);
+  --color-hover: var(--hover);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-subtle: var(--subtle);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-warning: var(--warning);
+  --color-success: var(--success);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-mono: var(--font-mono);
+  --font-sans: var(--font-sans);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+}
+
+/*
+ * Paper (light) and graphite (dark), one token each: `light-dark()` picks by `color-scheme`, which follows
+ * the system unless the host pins `data-theme` on the scope or above it. Text colours keep WCAG AA (4.5:1)
+ * on every surface they sit on.
+ */
+.robota-ui {
+  color-scheme: light dark;
+  --radius: 0.75rem;
+
+  --background: light-dark(#ffffff, #1a1a1c); /* conversation canvas */
+  --foreground: light-dark(#1c1c1e, #ededee);
+  --sidebar: light-dark(#f7f7f5, #141416); /* the quieter frame around it */
+  --card: light-dark(
+    #f4f4f2,
+    #242427
+  ); /* cards, menus, the composer — one tonal step, no outline */
+  --card-foreground: light-dark(#1c1c1e, #ededee);
+  --raised: light-dark(#ececea, #2c2c30); /* user bubble, selected row, pressed chips */
+  --hover: light-dark(#e8e8e5, #303035);
+  --popover: light-dark(#ffffff, #232326);
+  --popover-foreground: light-dark(#1c1c1e, #ededee);
+  --primary: light-dark(#1c1c1e, #f2f2f3); /* the send button and primary actions: ink on paper */
+  --primary-foreground: light-dark(#ffffff, #151517);
+  --secondary: light-dark(#f1f1ef, #29292d);
+  --secondary-foreground: light-dark(#1c1c1e, #ededee);
+  --muted: light-dark(#f4f4f2, #232326);
+  --muted-foreground: light-dark(#55555c, #a8a8af); /* secondary text */
+  --subtle: light-dark(#68686f, #8e8e97); /* tertiary text: still >= 4.5:1 on every surface */
+  --accent: light-dark(#0a7a55, #5fd4a8); /* robota's mark, live state — sparingly */
+  --accent-foreground: light-dark(#ffffff, #0b1a14);
+  --destructive: light-dark(#c42f40, #f2727f);
+  --warning: light-dark(#8f5a0b, #f0b35b);
+  --success: light-dark(#0a7a55, #5fd4a8);
+  --border: light-dark(rgb(0 0 0 / 0.08), rgb(255 255 255 / 0.08));
+  --input: light-dark(rgb(0 0 0 / 0.12), rgb(255 255 255 / 0.1));
+  --ring: light-dark(rgb(10 122 85 / 0.4), rgb(95 212 168 / 0.45));
+
+  --font-sans:
+    'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, 'Apple SD Gothic Neo',
+    'Segoe UI', 'Noto Sans KR', sans-serif;
+  --font-mono:
+    'SF Mono', ui-monospace, 'Cascadia Code', 'JetBrains Mono', Menlo, Consolas, monospace;
+}
+.robota-ui[data-theme='light'],
+[data-theme='light'] .robota-ui {
+  color-scheme: light;
+}
+.robota-ui[data-theme='dark'],
+[data-theme='dark'] .robota-ui {
+  color-scheme: dark;
+}
+
+@layer base {
+  /*
+   * The surface's type, set where it renders and never on the root element: on a page that is only
+   * the surface (`<html class="robota-ui">`) it goes on the body, so `1rem` stays the browser's and the
+   * rem-based spacing keeps its size. In the base layer, so a utility class on a root still wins.
+   */
+  .robota-ui:not(:root),
+  :root.robota-ui > body {
+    color: var(--foreground);
+    font-family: var(--font-sans);
+    font-size: 15px;
+    line-height: 1.6;
+    letter-spacing: -0.005em;
+    font-feature-settings:
+      'ss06' 1,
+      'tnum' 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  .robota-ui,
+  .robota-ui *,
+  .robota-ui ::before,
+  .robota-ui ::after {
+    border-color: var(--border);
+  }
+
+  .robota-ui ::selection {
+    background: color-mix(in oklab, var(--accent) 32%, transparent);
+  }
+
+  .robota-ui ::placeholder {
+    color: var(--subtle);
+  }
+
+  .robota-ui button {
+    cursor: pointer;
+  }
+  .robota-ui button:disabled {
+    cursor: default;
+  }
+
+  .robota-ui :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+}
+
+/* The live dot: a soft halo, not a glow. */
+.status-glow {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--accent) 22%, transparent);
+}
+
+/* Entrances. */
+@keyframes gui-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.gui-rise {
+  animation: gui-rise 0.36s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+/* Work in progress reads as a sweep of light across the label. */
+@keyframes gui-shimmer {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+.gui-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    var(--muted-foreground) 30%,
+    var(--foreground) 50%,
+    var(--muted-foreground) 70%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: gui-shimmer 2.2s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .gui-rise,
+  .gui-shimmer,
+  .robota-ui .animate-pulse,
+  .robota-ui .animate-spin,
+  .robota-ui .animate-ping {
+    animation: none;
+  }
+  .gui-shimmer {
+    color: var(--muted-foreground);
+  }
+}
+
+/* Agent prose: comfortable measure and rhythm for long answers. In the components layer, so the
+   utilities on its children (a heading's larger top margin) still win. */
+@layer components {
+  .gui-prose {
+    font-size: 15px;
+    line-height: 1.7;
+    color: var(--foreground);
+    overflow-wrap: anywhere;
+  }
+  .gui-prose > * + * {
+    margin-top: 0.75em;
+  }
+}

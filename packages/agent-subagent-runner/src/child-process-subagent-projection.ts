@@ -28,7 +28,7 @@ import { projectParentContext } from './parent-context-projection.js';
 import { encodeAgentDefinition, encodeParentContext } from './subagent-worker-start-dto.js';
 
 import type { ISubagentWorkerStartPayload } from './child-process-subagent-ipc.js';
-import type { ISandboxProjection } from './worker-composition.js';
+import type { ISandboxProjection, TParentSandboxSettings } from './worker-composition.js';
 import type { IProviderDefinition, IProviderDefinitionConfig } from '@robota-sdk/agent-core';
 import type { IConnectionEnvironmentCheck, ISubagentJobStart } from '@robota-sdk/agent-executor';
 import type { IAgentDefinition, IInProcessSubagentRunnerDeps } from '@robota-sdk/agent-framework';
@@ -81,6 +81,8 @@ export interface IStartPayloadOptions {
   readonly logsDir?: string;
   /** The connection the runner already checked; projected here when absent. */
   readonly connection?: IProjectedConnection;
+  /** The parent's sandbox settings as they stand now, read at this spawn. */
+  readonly parentSandboxSettings?: TParentSandboxSettings;
 }
 
 /** The provider connection a child is given, and the check it repeats before using it. */
@@ -170,6 +172,9 @@ export function projectStartPayload(
       projectProviderConnection(job, deps, options, process.env, process.env)),
     permissionMode: deps.permissionMode,
     ...projectSessionTiers(deps),
+    ...(options.parentSandboxSettings !== undefined
+      ? { parentSandboxSettings: options.parentSandboxSettings }
+      : {}),
     ...(options.logsDir ? { logsDir: options.logsDir } : {}),
   };
   return projectSandbox(deps).then((sandbox) => ({ ...base, ...sandbox }));

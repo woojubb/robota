@@ -16,7 +16,11 @@ import { openResumeSessionStore, resumeRequestedRecord } from './child-process-s
 import { restoreAgentDefinition, restoreParentContext } from './subagent-worker-start-dto.js';
 import { restoreProjectedSandbox } from './worker-composition.js';
 
-import type { ISubagentWorkerComposition } from './worker-composition.js';
+import type {
+  ISubagentComposedSandbox,
+  ISubagentWorkerComposition,
+  TParentSandboxSettings,
+} from './worker-composition.js';
 import type { ITerminalOutput } from '@robota-sdk/agent-core';
 
 const CANCEL_EXIT_CODE = 130;
@@ -41,6 +45,11 @@ type TSubagentSessionToolEvent = Parameters<
 
 let session: ReturnType<typeof createSubagentSession> | null = null;
 let cancelled = false;
+/** The parent's sandbox settings most recently sent after a change, newer than the start payload's. */
+let latestParentSandboxSettings: TParentSandboxSettings | undefined;
+let composedSandbox: ISubagentComposedSandbox | undefined;
+/** Why a change of the parent's sandbox settings could not be taken; the run then ends with it. */
+let sandboxSettingsFailure: string | undefined;
 let running: Promise<void> = Promise.resolve();
 
 function sendChildMessage(message: TSubagentWorkerChildMessage): void {
@@ -115,6 +124,18 @@ async function runInitialPrompt(
       ? createSubagentLogger(payload.request.parentSessionId, payload.taskId, payload.logsDir)
       : undefined;
     const resumeSessionStore = openResumeSessionStore(payload, composition);
+    // A sandbox restored from the parent's snapshot, or else one the child composes at its own root.
+    // Only a composed sandbox approves commands, from the instance its tools run under; a restored one
+    // approves none, so the child asks where the parent might not: stricter, never looser.
+    const parentSettings = latestParentSandboxSettings ?? payload.parentSandboxSettings;
+    composedSandbox =
+      restoredSandbox === undefined
+        ? composition.createSandbox?.({
+            cwd: subagentExecutionRoot(payload),
+            ...(parentSettings !== undefined ? { parentSettings } : {}),
+          })
+        : undefined;
+    const toolSandbox = restoredSandbox ?? composedSandbox?.client;
     session = createSubagentSession({
       // ARCH-044 (issue #2047): explicit restore from the wire DTOs into the runtime models.
       agentDefinition: restoreAgentDefinition(payload.agentDefinition),
@@ -135,7 +156,7 @@ async function runInitialPrompt(
       // of the PARENT'S session, not of this child's root.
       parentTools: composition.createTools({
         cwd: subagentExecutionRoot(payload),
-        ...(restoredSandbox !== undefined ? { sandboxClient: restoredSandbox } : {}),
+        ...(toolSandbox !== undefined ? { sandboxClient: toolSandbox } : {}),
         ...(payload.sessionTiers !== undefined ? { sessionTiers: payload.sessionTiers } : {}),
       }),
       cwd: subagentExecutionRoot(payload),
@@ -145,6 +166,9 @@ async function runInitialPrompt(
       ...(resumeSessionStore !== undefined ? { sessionStore: resumeSessionStore } : {}),
       ...(sessionLogger ? { sessionLogger } : {}),
       permissionMode: payload.permissionMode,
+      ...(composedSandbox?.commandSandbox !== undefined
+        ? { commandSandbox: composedSandbox.commandSandbox }
+        : {}),
       // CORE-025: enforce the task's permission policy in the child-process subagent too.
       ...(payload.request.permissionPolicy !== undefined
         ? { permissionPolicy: payload.request.permissionPolicy }
@@ -164,6 +188,10 @@ async function runInitialPrompt(
     });
     resumeRequestedRecord(payload, session, resumeSessionStore);
     const output = await session.run(payload.request.prompt);
+    if (sandboxSettingsFailure !== undefined) {
+      sendTerminalMessageAndExit({ type: 'error', message: sandboxSettingsFailure }, 0);
+      return;
+    }
     if (cancelled) {
       sendTerminalMessageAndExit(
         { type: 'cancelled', reason: 'Subagent worker cancelled' },
@@ -179,6 +207,10 @@ async function runInitialPrompt(
     sendTerminalMessageAndExit({ type: 'result', output, ...(usage ? { usage } : {}) }, 0);
   } catch (error) {
     // allow-fallback: child process must report errors to parent via IPC, not crash silently; exit follows the IPC flush (CORE-024 RUNTIME-20)
+    if (sandboxSettingsFailure !== undefined) {
+      sendTerminalMessageAndExit({ type: 'error', message: sandboxSettingsFailure }, 0);
+      return;
+    }
     if (cancelled) {
       sendTerminalMessageAndExit(
         { type: 'cancelled', reason: 'Subagent worker cancelled' },
@@ -243,6 +275,23 @@ function composedToolNames(composition: ISubagentWorkerComposition): readonly st
 }
 
 /**
+ * The parent changed its sandbox settings (`/sandbox`) while this child runs. A sandbox not composed
+ * yet is built from them; a composed one takes them through `applyParentSettings`. One that throws
+ * stops the run, since running on settings the user has replaced is what this message prevents. The
+ * run is aborted rather than the process exited here: a command already running finishes and cleans
+ * up, and `runInitialPrompt` then reports the failure as the run's one terminal message.
+ */
+function followParentSandboxSettings(settings: TParentSandboxSettings): void {
+  latestParentSandboxSettings = settings;
+  try {
+    composedSandbox?.applyParentSettings?.(settings);
+  } catch (error) {
+    sandboxSettingsFailure ??= error instanceof Error ? error.message : String(error);
+    session?.abort();
+  }
+}
+
+/**
  * DIST-006: worker mode is ENTERED, not implied by loading this module.
  *
  * These handlers used to run as module top-level side effects, which is what forced the worker to
@@ -278,6 +327,9 @@ export function runSubagentWorkerMain(composition: ISubagentWorkerComposition): 
         break;
       case 'cancel':
         void cancelWorker(message.reason);
+        break;
+      case 'sandbox_settings':
+        followParentSandboxSettings(message.settings);
         break;
       default:
         sendChildMessage({ type: 'error', message: 'Unhandled subagent worker parent message' });

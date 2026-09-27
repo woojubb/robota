@@ -1,5 +1,118 @@
 # @robota-sdk/agent-interface-command
 
+## 3.0.0-beta.83
+
+### Major Changes
+
+- 9721162: The command catalog says who runs a command, and which surfaces can run it.
+
+  - **`agent-interface-command` (major).**
+    - Adds `TCommandRunner` (`'runtime' | 'client'`) and `TCommandSurface` (`'terminal' | 'gui'`).
+    - `ICommand` gains optional `runner` and `surfaces`.
+    - `ICommandListEntry` gains optional `surfaces` and a **required** `runner`. An implementation of `listCommands()`, or any code that constructs an `ICommandListEntry`, must now emit `runner`; a command that declares none gets `'runtime'`.
+  - **`agent-framework` (minor).**
+    - `ISystemCommand` gains optional `runner` and `surfaces`, and the command listing carries both.
+    - An undeclared runner resolves to `'runtime'`.
+    - `SessionTerminalHandoffGate` is exported for a terminal client that hands its own terminal to a command.
+  - **`agent-command` (minor).**
+    - `/shell`, `/editor`, `/theme` and `/keybindings` declare `runner: 'client'` and `surfaces: ['terminal']`.
+    - `createTerminalClientCommands()` builds the same four commands, from the same execute functions, for a terminal client to run itself. The set follows the preset's module selection.
+  - **`agent-ui-web` (minor).** The `/` menu marks a command that runs in the terminal with a "terminal" badge.
+
+### Minor Changes
+
+- 7b72344: Every client can offer the session's commands and skills and show its status. The GUI uses them as a
+  desktop-style composer.
+
+  - `agent-interface-session` is **`major` because `IInteractiveSession` gains required members**:
+    `ISessionCommands.listSkills()` and a `statusRead` capability, `getStatusSnapshot()`. The snapshot
+    holds session, model, permission mode, effort, context and goal. An external implementation stops
+    compiling until it adds both.
+  - `agent-transport` is **`major` for the same reason on `IProtocolSession`**. It also gains the wire
+    messages `get-commands` → `commands` and `get-status` → `session_status`. Both are reads that the
+    observe role may send.
+  - `agent-interface-command` gains `ICommandSkillListEntry`, moved from `agent-framework`, which
+    re-exports it unchanged.
+  - `agent-ui-web` is **`major` because its state changes shape**:
+    - A command's outcome and a finished turn's tool calls are now conversation entries: `messages` is
+      `TConversationEntry[]`.
+    - The `uiIntentNotices` list, `dismissUiIntentNotice`, `applyUiIntentEvent`,
+      `removeUiIntentNotice` and `IUiIntentNotice` are removed. An intent now answers with an info
+      line in the conversation.
+    - Session notices keep only `session-error` and `protocol-error`.
+    - The state gains `commandCatalog` and `sessionStatus`.
+  - `agent-command` registers `/theme` and `/keybindings` even without a terminal. They then answer
+    that they belong to the robota terminal, instead of being unknown.
+  - `agent-framework`:
+    - `InteractiveSession.getStatusSnapshot()`.
+    - The main-thread row previews the last chat message instead of the last record's type.
+  - `agent-cli` serves the full GUI web app, renamed from `agent-cli-web` to `agent-gui-web`, on
+    `robota --serve --open`.
+
+- ba822c1: An attached client reads a workspace entry's detail, stops a waiting self-paced loop, completes
+  subcommands, and sees status changes another client made.
+
+  - `agent-interface-session` (major): `IInteractiveSession` gains the required roles
+    `ISessionExecutionDetail` and `ISessionSelfPacedLoopControl` (`TWaitingLoopStopOutcome`), and the
+    exhaustively mapped event map gains `status_changed`.
+  - `agent-transport` (major): `IProtocolSession` gains both roles; the wire unions gain
+    `read-execution-detail`, `stop-waiting-loop`, `execution_detail`, `execution_detail_error` and
+    `waiting_loop_stop`; `status_changed` is pushed as `session_status`; `isObserverMessageType` is
+    exported from the root and `./client`.
+  - `agent-interface-command` (minor): `ICommandListEntry` gains optional `argumentHint` and
+    `subcommands` (`ICommandSubcommandEntry`).
+  - `agent-cli` (minor):
+    - `robota session attach` and an attach from `robota session view` open the full terminal UI,
+      the one `robota --attach` opens, in drive mode or, with `--observe`, read-only. The reduced
+      attached view is gone.
+    - A served runtime names each of its sessions after the session's first real turn.
+  - `agent-framework` (minor):
+    - `InteractiveSession` gains `stopWaitingSelfPacedLoop(reason?)`: it stops the one waiting loop,
+      or stops none and names `/loop stop` when several wait. `SessionSlot` forwards it and
+      `readExecutionWorkspaceDetail`.
+    - The session emits `status_changed` when its mode, model, effort, goal or name changes, after a
+      command, a turn, a rename or a goal or plan transition.
+    - A new option `autoName: true` makes the session name itself once, after its first turn, with its
+      current provider; it keeps a name it already has and lets a rename made meanwhile win. Off by
+      default.
+    - The command catalog carries each command's `argumentHint` and `subcommands`.
+  - `agent-ui-terminal` (major):
+    - The full terminal UI attached to a host's session reads a workspace entry's detail, sends input
+      to a background task, stops a waiting self-paced loop on Esc, and completes subcommands.
+    - `renderAttachedApp` takes `mode: 'drive' | 'observe'` (default `'drive'`) and `announce`. In
+      observe mode the terminal sends only what an observer may send, refuses prompts, host commands,
+      abort and loop stop with a read-only notice, still runs `/exit` and its own commands, and its
+      status bar says it is observing. `ITuiChannelSnapshot` gains `readOnly`.
+    - The in-process terminal no longer names sessions; it builds its session with `autoName: true`.
+      `ITuiInteractionChannelOptions.onAutoNamed` is removed.
+
+### Patch Changes
+
+- 57280bf: Every published package now declares `"engines": { "node": ">=22.12.0" }`. Before, 27 of the 38
+  packages declared no floor (`agent-core`, `agent-tools` and every provider among them),
+  `agent-session` and `agent-file-authority` declared `>=20.19.0`, and the other nine declared
+  `>=22.0.0`, so a consumer on Node 20 saw at most a warning from a transitive dependency.
+
+  Why 22.12: `agent-cli` and `agent-ui-terminal` need Node 22 through `ink` 7, and the CommonJS entries
+  of `agent-tools` and its dependents, `agent-transport`/`node` and its dependents, and
+  `agent-ui-terminal` `require()` ESM-only dependencies (`p-limit`, `jose`, `chalk`), which Node 22
+  supports unflagged only from 22.12. `engines` is advisory unless the consumer enables `engine-strict`.
+
+  No code changes: `tsdown` now reads `node22.12.0` as its build target from the field.
+
+- 18c0d5c: Every published package now exports `./package.json`, so `require('<package>/package.json')` and
+  `import('<package>/package.json', { with: { type: 'json' } })` work instead of failing with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`, and each tarball now ships the package's `CHANGELOG.md`.
+- Updated dependencies [e689c8e]
+- Updated dependencies [be0e53c]
+- Updated dependencies [8bd5fac]
+- Updated dependencies [57280bf]
+- Updated dependencies [5033dd9]
+- Updated dependencies [18c0d5c]
+- Updated dependencies [dbd888d]
+- Updated dependencies [1887e54]
+  - @robota-sdk/agent-core@3.0.0-beta.83
+
 ## 3.0.0-beta.82
 
 ### Patch Changes

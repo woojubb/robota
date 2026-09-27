@@ -1,5 +1,218 @@
 # @robota-sdk/agent-command
 
+## 3.0.0-beta.83
+
+### Minor Changes
+
+- 724fabb: External-event grants are given at start, carried exactly to a background session, listed without their
+  principal, and revoked by the owner.
+
+  - `agent-framework` (breaking) — `openExternalEventSource` and `ExternalEventIngress.open` take only
+    `{ grant, audit? }`: the session builds each grant's verifier from `grant.verifier` with the
+    `externalEventVerifierFactory` its host passed when the session was built (without one, no grant opens), and an
+    open that supplies a verifier or a factory is refused. `IExternalEventSource.revoke()` stops the grant's queued and running turns,
+    refuses its later events as `grant-revoked`, and keeps the label from being opened again. A submission the
+    session refuses is `shutting-down` only while it shuts down, and `session-unavailable` otherwise. New command
+    host adapter `externalEvents` (`ICommandExternalEventsAdapter`).
+  - `agent-ui-terminal` — forwards `externalEventVerifierFactory` from the render options to the session.
+  - `agent-interface-transport` — `TExternalEventRefusal` gains `session-unavailable`.
+  - `agent-command` — `/events` lists the session's grants (label, principal kind, state, counts) and
+    `/events revoke <grant-id>` withdraws one. User-only.
+  - `agent-cli` — a grant file (`grantId`, `issuer`, `resource` ending in `/events/<grantId>`, exactly one of
+    `subject` or `client`, `scopes`, optional `algorithms` and `rate`) is validated before anything starts, with a
+    reason that names the grant and no configured value. `robota --external-event-grant <file>` (TUI) and
+    `robota session start --background --external-event-grant <file>` open every grant or fail the start; a
+    background session receives its grants through a private file, opens them before it reports ready, and the
+    launcher refuses a readiness that names other grants. `robota session events list <id> [--json]` and
+    `robota session events revoke <id> <grant-id>` work over the generation-bound control socket, and
+    `robota session list --format json` shows each grant's counts. The retired `--external-event-allow` now points
+    at `--external-event-grant`.
+
+- 28fa8a7: `/devices add` and `/devices join` enrol a new device into your devices.
+
+  - On a device that holds the signing key, `/devices add` shows a one-time code on the terminal. It
+    works once, for five minutes.
+  - On the new device, `/devices join [name]` asks for the code on the terminal, creates the device's
+    keys, and meets the other device through the signaling relay in
+    `transports.webrtc.options.relayUrl`. Both devices need that setting.
+  - The new device proves the code over the WebRTC connection's DTLS fingerprints before anything else
+    crosses, so a relay in the middle cannot enrol anyone.
+  - Both devices then show the same six digits, and both operators compare them and confirm. Someone
+    who saw the code cannot choose the digits: the new device commits to its part before it sees the
+    existing device's.
+  - Only when both operators say yes does the existing device certify the new one and issue a new
+    roster. The new device keeps its identity only once the chain it receives verifies.
+  - A wrong, expired or already used code is refused. So is a code after a few failed attempts. When
+    either operator declines, nothing is issued or kept.
+  - The code appears only on the two terminals. It never reaches history, transcripts or the model. A
+    code typed as a command argument is refused. Both commands stay user-only and refuse remote
+    surfaces.
+  - `agent-remote-pairing`: enrollment codes, the enrollment proof, the signed request with its
+    commitment, the short authentication string and the frame decoder.
+  - `agent-transport-webrtc`: `dialEnrollment` and `listenForEnrollment` provide a data channel bound to
+    the negotiated fingerprints.
+
+- 4f49d14: The device mesh can be turned on, and `/peers`, `/handoff` and `/devices` reach the user's other devices.
+
+  - New user setting `transports.mesh.enabled` (default `false`). When it is `true`, an interactive
+    session opens the device mesh at startup and closes it on exit. Only the user settings count; a
+    project's settings cannot turn it on. Print and serve runs never open it, and a device without an
+    identity is told to run `/devices init`. Only one session of a device opens it at a time; another
+    session on the same device says so in `/devices` and links nothing.
+  - By default a linked device may send messages, files and sessions. Each file and each session still
+    waits for the operator's yes on this machine's terminal; with no terminal the answer is no.
+    Delegating, observing and driving stay off unless `transports.mesh.options.capabilities` lists
+    them.
+  - A message from a linked device arrives like one from a session on this host: a peer turn with no
+    authority, attributed to the device the handshake proved, under the same rate limit and
+    conversation limits.
+  - `/peers` lists linked devices beside the sessions on this host; `/peers send` and
+    `/peers send-file` take a device id. `/handoff` lists linked devices and pushes the session to one.
+    Files arrive in the usual place aside, and sessions are saved without starting.
+  - `/devices` shows whether the mesh is on, how this device finds the others, and which are linked.
+  - The mesh uses the relay at `transports.webrtc.options.relayUrl` when one is set. Without one it
+    finds devices on the local network and over the public ways in `transports.mesh.options`.
+  - `/peers`, `/handoff` and `/devices` stay user-only. Their descriptions tell the model they cover
+    linked devices.
+  - `agent-framework`: the `/peers` port can list linked devices (`listDevices`, `ILinkedDeviceSummary`).
+  - `agent-command`: the `/devices` port can report the mesh (`meshStatus`, `IDevicesMeshStatus`).
+
+- 7b72344: Every client can offer the session's commands and skills and show its status. The GUI uses them as a
+  desktop-style composer.
+
+  - `agent-interface-session` is **`major` because `IInteractiveSession` gains required members**:
+    `ISessionCommands.listSkills()` and a `statusRead` capability, `getStatusSnapshot()`. The snapshot
+    holds session, model, permission mode, effort, context and goal. An external implementation stops
+    compiling until it adds both.
+  - `agent-transport` is **`major` for the same reason on `IProtocolSession`**. It also gains the wire
+    messages `get-commands` → `commands` and `get-status` → `session_status`. Both are reads that the
+    observe role may send.
+  - `agent-interface-command` gains `ICommandSkillListEntry`, moved from `agent-framework`, which
+    re-exports it unchanged.
+  - `agent-ui-web` is **`major` because its state changes shape**:
+    - A command's outcome and a finished turn's tool calls are now conversation entries: `messages` is
+      `TConversationEntry[]`.
+    - The `uiIntentNotices` list, `dismissUiIntentNotice`, `applyUiIntentEvent`,
+      `removeUiIntentNotice` and `IUiIntentNotice` are removed. An intent now answers with an info
+      line in the conversation.
+    - Session notices keep only `session-error` and `protocol-error`.
+    - The state gains `commandCatalog` and `sessionStatus`.
+  - `agent-command` registers `/theme` and `/keybindings` even without a terminal. They then answer
+    that they belong to the robota terminal, instead of being unknown.
+  - `agent-framework`:
+    - `InteractiveSession.getStatusSnapshot()`.
+    - The main-thread row previews the last chat message instead of the last record's type.
+  - `agent-cli` serves the full GUI web app, renamed from `agent-cli-web` to `agent-gui-web`, on
+    `robota --serve --open`.
+
+- 9721162: The command catalog says who runs a command, and which surfaces can run it.
+
+  - **`agent-interface-command` (major).**
+    - Adds `TCommandRunner` (`'runtime' | 'client'`) and `TCommandSurface` (`'terminal' | 'gui'`).
+    - `ICommand` gains optional `runner` and `surfaces`.
+    - `ICommandListEntry` gains optional `surfaces` and a **required** `runner`. An implementation of `listCommands()`, or any code that constructs an `ICommandListEntry`, must now emit `runner`; a command that declares none gets `'runtime'`.
+  - **`agent-framework` (minor).**
+    - `ISystemCommand` gains optional `runner` and `surfaces`, and the command listing carries both.
+    - An undeclared runner resolves to `'runtime'`.
+    - `SessionTerminalHandoffGate` is exported for a terminal client that hands its own terminal to a command.
+  - **`agent-command` (minor).**
+    - `/shell`, `/editor`, `/theme` and `/keybindings` declare `runner: 'client'` and `surfaces: ['terminal']`.
+    - `createTerminalClientCommands()` builds the same four commands, from the same execute functions, for a terminal client to run itself. The set follows the preset's module selection.
+  - **`agent-ui-web` (minor).** The `/` menu marks a command that runs in the terminal with a "terminal" badge.
+
+### Patch Changes
+
+- 4241fc5: Device mesh follow-ups.
+
+  - A device with no identity is pointed to `/devices add` on one of the user's devices and `/devices join`
+    here, as well as to `/devices init`. The message says that `init` is for the first device only,
+    because it creates a separate identity that can never link to the user's other devices. The `/devices`
+    description and the `init` subcommand say the same.
+  - An identity created mid-session (`/devices init`, or a successful `/devices join`) opens the mesh
+    without a restart when `transports.mesh.enabled` is on.
+  - If a session stalls for longer than the mesh lock's stale window (for example while the machine
+    sleeps), another session can take the mesh over. The stalled session now notices this on its next
+    lock refresh, closes its own mesh, and says why. Two sessions no longer run it together.
+    `holdExclusiveFileLock` has a new `onLost` option for this.
+  - `/peers` and `/handoff` still list and reach linked mesh devices when local same-host peer discovery
+    fails. `/peers` says why sessions on this host are not listed. `ICommandLocalPeersAdapter` has a new
+    optional `localDiscoveryOff` field for this.
+  - `agent-transport-webrtc`: when lists become newer on a node (reissued, revoked, or adopted from a
+    peer), the node sends them over every admitted connection instead of waiting for the next handshake.
+    Reissues, revocations and enrolments in the CLI take effect this way at once. A receiver adopts a
+    pushed list only if it is newer, issued by this user's signing key, and verifies. The push does not
+    depend on the peer's capabilities, and it never reaches the application's message handlers.
+
+- 57280bf: Every published package now declares `"engines": { "node": ">=22.12.0" }`. Before, 27 of the 38
+  packages declared no floor (`agent-core`, `agent-tools` and every provider among them),
+  `agent-session` and `agent-file-authority` declared `>=20.19.0`, and the other nine declared
+  `>=22.0.0`, so a consumer on Node 20 saw at most a warning from a transitive dependency.
+
+  Why 22.12: `agent-cli` and `agent-ui-terminal` need Node 22 through `ink` 7, and the CommonJS entries
+  of `agent-tools` and its dependents, `agent-transport`/`node` and its dependents, and
+  `agent-ui-terminal` `require()` ESM-only dependencies (`p-limit`, `jose`, `chalk`), which Node 22
+  supports unflagged only from 22.12. `engines` is advisory unless the consumer enables `engine-strict`.
+
+  No code changes: `tsdown` now reads `node22.12.0` as its build target from the field.
+
+- 18c0d5c: Every published package now exports `./package.json`, so `require('<package>/package.json')` and
+  `import('<package>/package.json', { with: { type: 'json' } })` work instead of failing with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`, and each tarball now ships the package's `CHANGELOG.md`.
+- caaab20: `/rewind` works again. Every session the CLI builds for a trusted workspace captures edit
+  checkpoints; before, none did, and `/rewind` failed everywhere with "Edit checkpoints require
+  project authority."
+
+  - `agent-cli` (patch): a trusted workspace composes an edit checkpoint store for the terminal UI, a
+    print run, a served runtime and each session a daemon keeps live. Every session gets its own
+    store, pooled or switched to in the terminal UI, since two can run turns at the same time. On a host that cannot prove a project write
+    stays inside the project (every platform but Linux), none is composed: a checkpoint could be
+    neither saved nor restored there.
+  - `agent-command` (patch): where a session has no checkpoints, `/rewind` says why: a restricted
+    workspace is told to run `robota trust --yes` and restart robota, and a host that cannot write
+    the project safely says so. `/rewind list` reports this as a failed command instead of throwing.
+  - `agent-framework` (minor): a checkpoint operation on a session without a store throws
+    `EditCheckpointsUnavailableError`, whose `reason` is `host-cannot-write-project`,
+    `restricted-workspace` or `no-checkpoint-store`. It is a `WorkspaceAuthorityRequiredError`, as
+    before, named `EditCheckpointsUnavailableError`. `HeadlessInteractionChannel` takes an
+    `editCheckpointStore` option.
+  - `agent-ui-terminal` (minor): `renderApp` takes `createEditCheckpointStore` in place of
+    `editCheckpointStore`, and builds each session its own store, since a session switch can build the
+    next session before the old one's turn ends. `TuiInteractionChannel` keeps `editCheckpointStore`:
+    a channel runs one session.
+
+- Updated dependencies [3c81769]
+- Updated dependencies [724fabb]
+- Updated dependencies [997f2fb]
+- Updated dependencies [bfe8ed5]
+- Updated dependencies [e689c8e]
+- Updated dependencies [4241fc5]
+- Updated dependencies [4f49d14]
+- Updated dependencies [7b72344]
+- Updated dependencies [6ae3f28]
+- Updated dependencies [9721162]
+- Updated dependencies [be0e53c]
+- Updated dependencies [57f57f5]
+- Updated dependencies [ba822c1]
+- Updated dependencies [9721162]
+- Updated dependencies [6e6b06b]
+- Updated dependencies [7d77ce4]
+- Updated dependencies [8bd5fac]
+- Updated dependencies [57280bf]
+- Updated dependencies [5033dd9]
+- Updated dependencies [18c0d5c]
+- Updated dependencies [dbd888d]
+- Updated dependencies [1887e54]
+- Updated dependencies [caaab20]
+- Updated dependencies [f01868f]
+- Updated dependencies [e8779c9]
+- Updated dependencies [5a0ee96]
+  - @robota-sdk/agent-framework@3.0.0-beta.83
+  - @robota-sdk/agent-core@3.0.0-beta.83
+  - @robota-sdk/agent-interface-session@3.0.0-beta.83
+  - @robota-sdk/agent-interface-command@3.0.0-beta.83
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.83
+  - @robota-sdk/agent-preset@3.0.0-beta.83
+
 ## 3.0.0-beta.82
 
 ### Minor Changes

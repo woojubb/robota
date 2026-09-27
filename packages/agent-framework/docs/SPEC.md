@@ -321,7 +321,11 @@ These are behaviors a caller cannot infer from a type signature alone.
   now requires an explicit, separately-named option rather than inferring intent from omission.
 
 - **Workspace identity**: linked worktrees stay distinct by worktree root, while a nested working
-  directory inside one worktree resolves to the same identity.
+  directory inside one worktree resolves to the same identity. A repository recreated at the same
+  path never inherits a grant; where the filesystem records a birth time, a grant also holds across
+  what a repository goes through in normal use (git commands that rewrite its config, a volume
+  renumbered by the host). A repository's grant generation only rises, even when another repository
+  held its root in between, because approvals recorded against a generation must not return.
 - **Pre-trust source preview**: candidate project sources (settings, host-selected skills, agents,
   detection metadata, context, tasks, state, plugins) are listed from the paths their owners actually load, so
   the preview cannot drift from what trust would enable. Inspection reads metadata only under a

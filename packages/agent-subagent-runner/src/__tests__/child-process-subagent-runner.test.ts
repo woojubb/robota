@@ -1,5 +1,5 @@
 import type { IProviderDefinition } from '@robota-sdk/agent-core';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fileURLToPath } from 'node:url';
 import { mkdtempSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -531,11 +531,7 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
   // parent-side assertion on the builder would still pass if the value never reached `send`.
   const projectionSeenByChild = async (
     extra: Partial<IInProcessSubagentRunnerDeps>,
-  ): Promise<{
-    sessionTiers: { includeGoalTool?: boolean } | null;
-    sandboxProjection: { type: string; snapshotId: string } | null;
-  }> => {
-    const runner = new ChildProcessSubagentRunner(
+    runner = new ChildProcessSubagentRunner(
       { ...createDeps(), ...extra },
       {
         workerEntry: FIXTURE_WORKER_ENTRY,
@@ -543,7 +539,12 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
         providerDefinitions: TEST_PROVIDER_DEFINITIONS,
         env: { ROBOTA_FIXTURE_MODE: 'echo-projection' },
       },
-    );
+    ),
+  ): Promise<{
+    sessionTiers: { includeGoalTool?: boolean } | null;
+    sandboxProjection: { type: string; snapshotId: string } | null;
+    parentSandboxSettings: Record<string, unknown> | null;
+  }> => {
     const result = await runner.start(createJob()).result;
     return JSON.parse((result as { output: string }).output);
   };
@@ -599,6 +600,99 @@ describe('ChildProcessSubagentRunner — what the parent PROJECTS onto the wire 
       // sandboxed while sharing none of the parent's state.
       const seen = await projectionSeenByChild(extra as Partial<IInProcessSubagentRunnerDeps>);
       expect(seen.sandboxProjection).toBeNull();
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'carries the parent’s sandbox settings as they stand at each spawn (issue #3254)',
+    async () => {
+      // `/sandbox` changes the parent's live client between spawns; a value read once, or never
+      // sent, leaves the child on the settings files the user just overrode.
+      let live = { autoAllowBashIfSandboxed: true };
+      const runner = new ChildProcessSubagentRunner(createDeps(), {
+        workerEntry: FIXTURE_WORKER_ENTRY,
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+        env: { ROBOTA_FIXTURE_MODE: 'echo-projection' },
+        parentSandboxSettings: () => live,
+      });
+
+      const first = await projectionSeenByChild({}, runner);
+      live = { autoAllowBashIfSandboxed: false };
+      const second = await projectionSeenByChild({}, runner);
+
+      expect(first.parentSandboxSettings).toEqual({ autoAllowBashIfSandboxed: true });
+      expect(second.parentSandboxSettings).toEqual({ autoAllowBashIfSandboxed: false });
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'forwards each later change to the running child, one made during startup included (#3256)',
+    async () => {
+      let live: Record<string, unknown> = { autoAllowBashIfSandboxed: true };
+      const listeners = new Set<(settings: Record<string, unknown>) => void>();
+      const change = (settings: Record<string, unknown>): void => {
+        live = settings;
+        for (const listener of listeners) listener(settings);
+      };
+      const runner = new ChildProcessSubagentRunner(createDeps(), {
+        workerEntry: FIXTURE_WORKER_ENTRY,
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+        env: { ROBOTA_FIXTURE_MODE: 'echo-sandbox-updates' },
+        parentSandboxSettings: () => live,
+        watchParentSandboxSettings: (listener) => {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
+      });
+
+      const handle = runner.start(createJob());
+      // Before the child has even been sent its start: a change here must not fall between the two.
+      change({ autoAllowBashIfSandboxed: false });
+      setTimeout(() => change({ autoAllowBashIfSandboxed: true, enabled: false }), 200);
+      const result = await handle.result;
+
+      expect(JSON.parse((result as { output: string }).output)).toEqual({
+        payloadSettings: { autoAllowBashIfSandboxed: true },
+        updates: [{ autoAllowBashIfSandboxed: false }, { autoAllowBashIfSandboxed: true, enabled: false }],
+      });
+      // The child is gone, so nothing is left watching the parent's sandbox.
+      await vi.waitFor(() => expect(listeners.size).toBe(0));
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'stops watching the parent’s sandbox when the child never starts (#3256)',
+    async () => {
+      const listeners = new Set<() => void>();
+      const runner = new ChildProcessSubagentRunner(createDeps(), {
+        workerEntry: { execPath: join(tmpdir(), 'robota-no-such-worker-binary'), args: [] },
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+        watchParentSandboxSettings: (listener) => {
+          const entry = (): void => listener({});
+          listeners.add(entry);
+          return () => listeners.delete(entry);
+        },
+      });
+
+      // A failed spawn emits `error` and never `exit`; the watch must end on it all the same.
+      await runner.start(createJob()).result.catch(() => undefined);
+
+      await vi.waitFor(() => expect(listeners.size).toBe(0));
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'carries no sandbox settings when the parent has none to send',
+    async () => {
+      const seen = await projectionSeenByChild({});
+      expect(seen.parentSandboxSettings).toBeNull();
     },
     TEST_TIMEOUT_MS,
   );

@@ -37,6 +37,7 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { IAIProvider, TRoleModelMap } from '@robota-sdk/agent-core';
 import type {
+  ICommandSandboxApproval,
   ISessionLogger,
   ITerminalOutput,
   TPermissionHandler,
@@ -132,6 +133,11 @@ export interface ISubagentOptions {
   taskDisallowedTools?: readonly string[];
   /** Permission handler from parent. */
   permissionHandler?: TPermissionHandler;
+  /**
+   * The sandbox the subagent's shell tools run under, as the approval it gives a confined command.
+   * Built from the same sandbox instance as those tools: the instance knows what it could not restore.
+   */
+  commandSandbox?: ICommandSandboxApproval;
   /** Plugin hooks configuration from parent session. */
   hooks?: Record<string, unknown>;
   /** Hook type executors from parent session (prompt, agent, etc.). */
@@ -313,6 +319,7 @@ export function createSubagentSession(options: ISubagentOptions): Session {
     },
     defaultTrustLevel: parentConfig.defaultTrustLevel,
     permissionHandler: options.permissionHandler,
+    ...(options.commandSandbox !== undefined ? { commandSandbox: options.commandSandbox } : {}),
     hooks: options.hooks,
     hookTypeExecutors: options.hookTypeExecutors,
     onTextDelta: options.onTextDelta,
