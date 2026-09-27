@@ -53,6 +53,32 @@ describe('applyPromptEvent (REMOTE-007 web render)', () => {
     ]);
   });
 
+  it('#3288 §2: carries a diff preview and cwd through to the pending prompt', () => {
+    const withDiff: TServerMessage = {
+      type: 'permission_request',
+      event: {
+        id: 'p3',
+        toolName: 'Write',
+        toolArgs: { filePath: 'a.ts', content: 'x' },
+        diffFile: 'a.ts',
+        diffLines: [{ type: 'add', text: 'x', lineNumber: 1 }],
+        cwd: '/workspace/sub',
+      },
+    };
+    const next = applyPromptEvent([], withDiff);
+    expect(next).toEqual([
+      {
+        kind: 'permission',
+        id: 'p3',
+        toolName: 'Write',
+        toolArgs: { filePath: 'a.ts', content: 'x' },
+        diffFile: 'a.ts',
+        diffLines: [{ type: 'add', text: 'x', lineNumber: 1 }],
+        cwd: '/workspace/sub',
+      },
+    ]);
+  });
+
   it('appends an ask prompt on ask_request', () => {
     const next = applyPromptEvent([], askReq);
     expect(next).toEqual([{ kind: 'ask', id: 'a1', request: { id: 'r', title: 'Pick' } }]);

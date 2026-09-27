@@ -24,6 +24,10 @@
  * fail-closed, and drain logic is unit-testable with a stub emitter.
  */
 
+import { resolve } from 'node:path';
+
+import { buildDiffState } from './interactive-session-streaming.js';
+
 import type { IActionRequest, TActionResponse, TToolArgs } from '@robota-sdk/agent-core';
 import type { IExecutionPendingRequest } from '@robota-sdk/agent-interface-execution';
 import type {
@@ -34,6 +38,22 @@ import type {
   TPermissionResultValue,
 } from '@robota-sdk/agent-interface-session';
 import type { IPermissionAskContext } from '@robota-sdk/agent-session';
+
+/**
+ * #3288: a Shell request's working directory, but only when it differs from the workspace — a prompt
+ * for a command that just runs where the session already is needs no cwd line.
+ */
+function resolveShellCwdIfDifferent(
+  toolName: string,
+  toolArgs: TToolArgs,
+  cwd: string | undefined,
+): string | undefined {
+  if (toolName !== 'Bash' || !cwd) return undefined;
+  const workingDirectory = toolArgs['workingDirectory'];
+  if (typeof workingDirectory !== 'string' || workingDirectory.length === 0) return undefined;
+  const resolved = resolve(cwd, workingDirectory);
+  return resolved === resolve(cwd) ? undefined : resolved;
+}
 
 /**
  * Whether a driver id names a party that is not the owner: a peer session or an external sender.
@@ -79,6 +99,12 @@ export interface ISessionPromptRegistryDeps {
   /** REMOTE-014 E5: the ACTIVE turn's driver id, stamped as `requesterDriverId` on the emitted prompt. */
   getActiveDriverId?: () => TDriverId | null;
   /**
+   * #3288: the session's cwd — an Edit/Write permission request uses it to build the same diff
+   * preview `tool_end` would carry, and a Shell request uses it to note its working directory only
+   * when that differs from the workspace. Absent ⇒ neither field is attached (legacy callers).
+   */
+  getCwd?: () => string;
+  /**
    * Optional backstop timeout (ms). Armed when a prompt parks with a live surface; the unconditional
    * last resort so a surface that died without unsubscribing cannot hang the prompt forever. Omit to
    * disable (unit tests) — emit-time + detach reconciliation already guarantee settlement in every
@@ -117,7 +143,11 @@ export class SessionPromptRegistry {
       return Promise.resolve(failClosedValue('permission') as TPermissionResultValue);
     }
     const requesterDriverId = this.deps.getActiveDriverId?.() ?? undefined;
-    return new Promise<TPermissionResultValue>((resolve) => {
+    const cwd = this.deps.getCwd?.();
+    // #3288 §2: the SAME diff builder `tool_end` uses — a no-op ({}) for any tool that isn't Edit/Write.
+    const { diffLines, diffFile } = buildDiffState({ toolName, toolArgs }, cwd);
+    const shellCwd = resolveShellCwdIfDifferent(toolName, toolArgs, cwd);
+    return new Promise<TPermissionResultValue>((resolvePrompt) => {
       let onSettle: (() => void) | undefined;
       if (signal !== undefined) {
         const onAbort = (): void => this.settle(id, failClosedValue('permission'));
@@ -128,7 +158,7 @@ export class SessionPromptRegistry {
         id,
         'permission',
         `Allow ${toolName}?`,
-        resolve as (v: TPermissionResultValue | TActionResponse) => void,
+        resolvePrompt as (v: TPermissionResultValue | TActionResponse) => void,
         onSettle,
       );
       this.emitOrFailClosed(id, 'permission', () =>
@@ -139,6 +169,8 @@ export class SessionPromptRegistry {
           canPersistProjectPermission,
           ...(requesterDriverId ? { requesterDriverId } : {}),
           ...(context?.requester ? { requester: context.requester } : {}),
+          ...(diffLines ? { diffLines, diffFile } : {}),
+          ...(shellCwd ? { cwd: shellCwd } : {}),
         }),
       );
     });

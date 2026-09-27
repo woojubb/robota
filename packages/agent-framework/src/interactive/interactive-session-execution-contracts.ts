@@ -68,6 +68,12 @@ export interface IExecutionControllerCallbacks {
     outcome: 'success' | 'failure' | 'interrupted',
     toolExecutions: readonly ICompletedToolExecution[],
   ) => Promise<void>;
+  /**
+   * #3288: provider tool name → source `/command` name, for the projected model-command tools this
+   * session assembled (`model-command-tool-projection.ts`). Read at `tool_start` so the emitted
+   * `IToolState.commandName` lets a surface show "Ran /<name>" without hardcoding the tool prefix.
+   */
+  modelCommandToolNames?: ReadonlyMap<string, string>;
 }
 
 export interface ICompletedToolExecution {

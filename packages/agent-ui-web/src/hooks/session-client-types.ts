@@ -2,6 +2,7 @@ import type { TConnectionStatus, TClientMessage } from '../client/ws-session-cli
 import type { TPendingPrompt } from './prompt-state.js';
 import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
 import type {
+  IDiffLine,
   IToolState,
   TDriverId,
   TPermissionResultValue,
@@ -60,7 +61,26 @@ export interface IToolGroupEntry {
   tools: readonly IActiveTool[];
 }
 
-export type TConversationEntry = IConversationMessage | ICommandOutputEntry | IToolGroupEntry;
+/** One file an Edit/Write call touched during a turn, and the (latest) diff a click can open. */
+export interface IChangedFileSummary {
+  path: string;
+  added: number;
+  removed: number;
+  diffLines: readonly IDiffLine[];
+}
+
+/** #3288: a turn that changed files ends with this compact summary row. */
+export interface IChangedFilesEntry {
+  id: string;
+  role: 'changed-files';
+  files: readonly IChangedFileSummary[];
+}
+
+export type TConversationEntry =
+  | IConversationMessage
+  | ICommandOutputEntry
+  | IToolGroupEntry
+  | IChangedFilesEntry;
 
 export interface IActiveTool {
   id: string;
@@ -68,6 +88,20 @@ export interface IActiveTool {
   status: 'running' | 'done' | 'error';
   input?: string;
   result?: IToolState['result'];
+  /** #3288: correlates this call across `tool_start`/`tool_end` — how a finished call is matched. */
+  executionId?: string;
+  /** #3288: a unified diff (Edit/Write), built server-side — the same one an approval prompt showed. */
+  diffLines?: readonly IDiffLine[];
+  /** #3288: the file `diffLines` concerns, workspace-relative when the server could make it so. */
+  diffFile?: string;
+  /** #3288: the tool's raw result payload (Shell output, Read content, …), already capped server-side. */
+  toolResultData?: string;
+  /** #3288: a workspace-relative display form of a path argument, additive to `input`/`firstArg`. */
+  displayPath?: string;
+  /** #3288: set when this call is a projected `/command` tool — render "Ran /<commandName>". */
+  commandName?: string;
+  /** #3288: true for an internal signal tool (e.g. goal-status) — never rendered as a call. */
+  internal?: boolean;
 }
 
 /**

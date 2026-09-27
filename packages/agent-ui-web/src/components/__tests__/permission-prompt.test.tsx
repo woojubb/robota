@@ -678,11 +678,13 @@ describe("the ask prompt's free-text field", () => {
 describe('PermissionPrompt shows what the tool was asked to do', () => {
   afterEach(cleanup);
 
-  it('shows the command line and every other argument beside it', () => {
+  it('for a tool without its own preview, shows the command line and every other argument beside it', () => {
+    // #3288: Bash and Edit/Write get a dedicated preview (see below); anything else still falls
+    // back to this generic "command line, then every other arg" dump.
     const prompt = {
       kind: 'permission',
       id: 'p1',
-      toolName: 'Bash',
+      toolName: 'CustomShellTool',
       toolArgs: {
         command: 'pnpm test --filter agent-session',
         workingDirectory: '/srv/app',
@@ -725,6 +727,72 @@ describe('PermissionPrompt shows what the tool was asked to do', () => {
     expect(screen.getByRole('button', { name: 'Deny' }).getAttribute('aria-keyshortcuts')).toBe(
       '2',
     );
+  });
+
+  it('#3288: an Edit request with a diff preview shows "Edit <path>" and the diff, not raw args', () => {
+    const prompt = {
+      kind: 'permission',
+      id: 'p4',
+      toolName: 'Edit',
+      toolArgs: { file_path: 'src/task-title.ts', old_string: 'a', new_string: 'b' },
+      diffFile: 'src/task-title.ts',
+      diffLines: [
+        { type: 'remove', text: 'a', lineNumber: 1 },
+        { type: 'add', text: 'b', lineNumber: 1 },
+      ],
+    } as TPendingPrompt;
+    render(<Surface prompts={[prompt]} onAnswerPermission={vi.fn()} />);
+
+    expect(screen.getByText('Edit')).toBeTruthy();
+    expect(screen.getByText('src/task-title.ts')).toBeTruthy();
+    expect(screen.getByText(/- a/)).toBeTruthy();
+    expect(screen.getByText(/\+ b/)).toBeTruthy();
+    // The raw args are gone — no "Allow Edit to run?" line, no dumped old_string/new_string keys.
+    expect(screen.queryByText(/to run\?/)).toBeNull();
+    expect(screen.queryByText('old_string:')).toBeNull();
+  });
+
+  it('#3288: a Write request with a diff preview shows the same diff view', () => {
+    const prompt = {
+      kind: 'permission',
+      id: 'p5',
+      toolName: 'Write',
+      toolArgs: { file_path: 'src/new-file.ts', content: 'hello' },
+      diffFile: 'src/new-file.ts',
+      diffLines: [{ type: 'add', text: 'hello', lineNumber: 1 }],
+    } as TPendingPrompt;
+    render(<Surface prompts={[prompt]} onAnswerPermission={vi.fn()} />);
+
+    expect(screen.getByText('Write')).toBeTruthy();
+    expect(screen.getByText('src/new-file.ts')).toBeTruthy();
+    expect(screen.getByText(/\+ hello/)).toBeTruthy();
+  });
+
+  it('#3288: a Shell request shows the command, with no cwd line when it matches the workspace', () => {
+    const prompt = {
+      kind: 'permission',
+      id: 'p6',
+      toolName: 'Bash',
+      toolArgs: { command: 'pnpm test' },
+    } as TPendingPrompt;
+    render(<Surface prompts={[prompt]} onAnswerPermission={vi.fn()} />);
+
+    expect(screen.getByText('pnpm test')).toBeTruthy();
+    expect(screen.queryByText(/^in /)).toBeNull();
+  });
+
+  it('#3288: a Shell request notes its cwd only when it differs from the workspace', () => {
+    const prompt = {
+      kind: 'permission',
+      id: 'p7',
+      toolName: 'Bash',
+      toolArgs: { command: 'pnpm test', workingDirectory: 'sub' },
+      cwd: '/workspace/sub',
+    } as TPendingPrompt;
+    render(<Surface prompts={[prompt]} onAnswerPermission={vi.fn()} />);
+
+    expect(screen.getByText('pnpm test')).toBeTruthy();
+    expect(screen.getByText('/workspace/sub')).toBeTruthy();
   });
 });
 

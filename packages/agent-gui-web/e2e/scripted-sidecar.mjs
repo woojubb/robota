@@ -315,6 +315,64 @@ class ScriptedSession extends EventEmitter {
       this.#complete('Read the file.');
       return;
     }
+    // #3288: an Edit call carries a server-built diff, and a Shell call carries its output + exit
+    // status — the e2e drives both through to the GUI's expandable tool rows.
+    if (String(input).toLowerCase().includes('edit')) {
+      await tick();
+      this.emit('tool_start', {
+        toolName: 'Edit',
+        firstArg: '/workspace/src/task-title.ts',
+        isRunning: true,
+        executionId: 'exec-edit-1',
+        // The real server sets `displayPath` at tool_start (it's a start-time argument, resolved
+        // relative to cwd before execution) — never re-set at tool_end.
+        displayPath: 'src/task-title.ts',
+      });
+      await tick();
+      this.emit('tool_end', {
+        toolName: 'Edit',
+        firstArg: '/workspace/src/task-title.ts',
+        isRunning: false,
+        result: 'success',
+        executionId: 'exec-edit-1',
+        diffFile: 'src/task-title.ts',
+        diffLines: [
+          { type: 'hunk', text: '@@ -1,2 +1,2 @@', lineNumber: 1 },
+          { type: 'remove', text: "const title = 'old';", lineNumber: 1 },
+          { type: 'add', text: "const title = 'new';", lineNumber: 1 },
+        ],
+      });
+      this.emit('text_delta', 'Edited the title.');
+      await tick();
+      this.#complete('Edited the title.');
+      return;
+    }
+    if (String(input).toLowerCase().includes('run tests')) {
+      await tick();
+      this.emit('tool_start', {
+        toolName: 'Bash',
+        firstArg: 'pnpm test',
+        isRunning: true,
+        executionId: 'exec-shell-1',
+      });
+      await tick();
+      this.emit('tool_end', {
+        toolName: 'Bash',
+        firstArg: 'pnpm test',
+        isRunning: false,
+        result: 'success',
+        executionId: 'exec-shell-1',
+        toolResultData: JSON.stringify({
+          success: true,
+          output: 'Test Files  1 passed (1)\nTests  3 passed (3)',
+          exitCode: 0,
+        }),
+      });
+      this.emit('text_delta', 'Tests passed.');
+      await tick();
+      this.#complete('Tests passed.');
+      return;
+    }
     if (String(input).toLowerCase().includes('fail')) {
       // #3289 §3: a real provider failure (an AuthenticationError, same as the built-in providers
       // now throw), not a bare Error — the GUI is expected to say what happened in plain words.

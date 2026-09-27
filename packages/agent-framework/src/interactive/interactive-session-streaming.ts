@@ -6,6 +6,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import { relative, resolve } from 'node:path';
 
 import { NodeFileSystem } from '../adapters/node-file-system.js';
 
@@ -23,6 +24,23 @@ const MAX_COMPLETED_TOOLS = 50;
 export const STREAMING_FLUSH_INTERVAL_MS = 16;
 const DEFAULT_START_LINE = 1;
 const EDIT_DIFF_CONTEXT_LINES = 3;
+/** #3288: a Write's whole-file diff preview is capped this many lines before it is truncated. */
+const MAX_WRITE_DIFF_LINES = 500;
+
+/**
+ * #3288: the workspace-relative form of an absolute path, for DISPLAY only (`firstArg` is untouched —
+ * this is additive). Containment check mirrors `edit-checkpoint-store.ts`'s `captureFile`: a path
+ * outside `cwd` (or an ambiguous resolve, e.g. across drives) is shown unchanged, absolute.
+ */
+export function toWorkspaceRelativeDisplayPath(cwd: string, filePath: string): string {
+  const absolute = resolve(cwd, filePath);
+  const relativePath = relative(cwd, absolute);
+  const withinWorkspace =
+    relativePath.length > 0 &&
+    !relativePath.startsWith('..') &&
+    resolve(cwd, relativePath) === absolute;
+  return withinWorkspace ? relativePath : filePath;
+}
 
 /** Extract a short display string from the first tool argument. */
 export function extractFirstArg(toolArgs?: TToolArgs): string {
@@ -55,30 +73,102 @@ function getStringArg(args: TToolArgs | undefined, snake: string, camel: string)
   return typeof value === 'string' ? value : null;
 }
 
-function parseStartLine(toolResultData: string | undefined): number {
-  if (!toolResultData) return DEFAULT_START_LINE;
+/** The `startLine` the Edit tool itself reported in its (post-execution) result, if parseable. */
+function parseStartLineFromResult(toolResultData: string | undefined): number | undefined {
+  if (!toolResultData) return undefined;
   try {
     const parsed = JSON.parse(toolResultData) as Partial<{ startLine: number }>;
     return typeof parsed.startLine === 'number' && Number.isFinite(parsed.startLine)
       ? parsed.startLine
-      : DEFAULT_START_LINE;
+      : undefined;
   } catch {
-    return DEFAULT_START_LINE;
+    return undefined;
   }
 }
 
-function buildEditDiffState(event: IToolEndEvent): Pick<IToolState, 'diffFile' | 'diffLines'> {
-  if (event.toolName !== 'Edit') return {};
+/**
+ * Where the edit starts: the tool's own reported `startLine` when available (post-execution — the
+ * file may already have changed, so re-deriving from its CURRENT content would search the wrong
+ * text), else found by searching the CURRENT file content for `oldString` (pre-execution preview —
+ * mirrors the same search the Edit tool itself performs, `edit-tool.ts`'s `content.indexOf`).
+ */
+function resolveEditStartLine(
+  toolResultData: string | undefined,
+  filePath: string,
+  oldString: string,
+  fs: IFileSystem,
+): number {
+  const fromResult = parseStartLineFromResult(toolResultData);
+  if (fromResult !== undefined) return fromResult;
+  try {
+    const content = fs.readFileSync(filePath, 'utf8');
+    const matchIdx = content.indexOf(oldString);
+    if (matchIdx >= 0) return content.slice(0, matchIdx).split('\n').length;
+  } catch {
+    // allow-fallback: unreadable file (e.g. a pre-execution preview of a not-yet-created path)
+  }
+  return DEFAULT_START_LINE;
+}
+
+function buildEditDiffState(
+  event: { toolArgs?: TToolArgs; toolResultData?: string },
+  cwd: string | undefined,
+  fs: IFileSystem,
+): Pick<IToolState, 'diffFile' | 'diffLines'> {
   const filePath = getStringArg(event.toolArgs, 'file_path', 'filePath');
   const oldString = getStringArg(event.toolArgs, 'old_string', 'oldString');
   const newString = getStringArg(event.toolArgs, 'new_string', 'newString');
   if (!filePath || oldString === null || newString === null || oldString === newString) return {};
 
-  const startLine = parseStartLine(event.toolResultData);
+  const startLine = resolveEditStartLine(event.toolResultData, filePath, oldString, fs);
   return {
-    diffFile: filePath,
-    diffLines: buildEditDiffLinesWithContext(oldString, newString, startLine, filePath),
+    diffFile: cwd ? toWorkspaceRelativeDisplayPath(cwd, filePath) : filePath,
+    diffLines: buildEditDiffLinesWithContext(oldString, newString, startLine, filePath, fs),
   };
+}
+
+/** #3288: Write has no "old" side to diff against — the whole new content is shown as additions. */
+function buildWriteDiffState(
+  event: { toolArgs?: TToolArgs },
+  cwd: string | undefined,
+): Pick<IToolState, 'diffFile' | 'diffLines'> {
+  const filePath = getStringArg(event.toolArgs, 'file_path', 'filePath');
+  const content = getStringArg(event.toolArgs, 'content', 'content');
+  if (!filePath || content === null) return {};
+
+  const lines = content.split('\n');
+  const truncated = lines.length > MAX_WRITE_DIFF_LINES;
+  const shown = truncated ? lines.slice(0, MAX_WRITE_DIFF_LINES) : lines;
+  const diffLines: IDiffLine[] = [
+    { type: 'hunk', text: `@@ -0,0 +1,${lines.length} @@`, lineNumber: 1 },
+    ...shown.map((text, index) => ({ type: 'add' as const, text, lineNumber: index + 1 })),
+  ];
+  if (truncated) {
+    diffLines.push({
+      type: 'hunk',
+      text: `… ${lines.length - MAX_WRITE_DIFF_LINES} more lines truncated`,
+      lineNumber: shown.length + 1,
+    });
+  }
+  return {
+    diffFile: cwd ? toWorkspaceRelativeDisplayPath(cwd, filePath) : filePath,
+    diffLines,
+  };
+}
+
+/**
+ * #3288: the ONE diff builder — Edit and Write both go through here, at `tool_end` AND at a
+ * permission-request preview (`session-prompt-registry.ts`, before the tool has run). No other file
+ * builds a diff; a surface renders whatever `diffLines`/`diffFile` this attaches to the wire state.
+ */
+export function buildDiffState(
+  event: { toolName: string; toolArgs?: TToolArgs; toolResultData?: string },
+  cwd?: string,
+  fs: IFileSystem = new NodeFileSystem(),
+): Pick<IToolState, 'diffFile' | 'diffLines'> {
+  if (event.toolName === 'Edit') return buildEditDiffState(event, cwd, fs);
+  if (event.toolName === 'Write') return buildWriteDiffState(event, cwd);
+  return {};
 }
 
 function buildEditDiffLines(oldString: string, newString: string, startLine: number): IDiffLine[] {
@@ -206,16 +296,31 @@ function trimCompletedTools(activeTools: IToolState[]): IToolState[] {
 /** Process a tool-start event: add to activeTools and push to history. */
 export function applyToolStart(
   state: IStreamingState,
-  event: { toolName: string; toolArgs?: TToolArgs; executionId?: string },
+  event: {
+    toolName: string;
+    toolArgs?: TToolArgs;
+    executionId?: string;
+    /** #3288: the `/command` this call projects, when it is a model-command-projection tool. */
+    commandName?: string;
+    /** #3288: true for an internal signal tool (e.g. goal-status) — never shown as a call. */
+    internal?: boolean;
+  },
   /** Shown beside the tool name instead of its first argument (the Advisor's model). */
   label?: string,
+  /** #3288: the session's cwd, so a path argument can also get a workspace-relative display form. */
+  cwd?: string,
 ): IToolState {
   const firstArg = label ?? extractFirstArg(event.toolArgs);
+  const filePathArg = getStringArg(event.toolArgs, 'file_path', 'filePath');
+  const displayPath = cwd && filePathArg ? toWorkspaceRelativeDisplayPath(cwd, filePathArg) : undefined;
   const toolState: IToolState = {
     toolName: event.toolName,
     firstArg,
     isRunning: true,
     ...(event.executionId ? { executionId: event.executionId } : {}),
+    ...(displayPath ? { displayPath } : {}),
+    ...(event.commandName ? { commandName: event.commandName } : {}),
+    ...(event.internal ? { internal: true } : {}),
   };
   state.activeTools.push(toolState);
 
@@ -231,19 +336,31 @@ export function applyToolStart(
 }
 
 /** Process a tool-end event: mark the tool finished and push to history. Returns updated tool or null. */
-export function applyToolEnd(state: IStreamingState, event: IToolEndEvent): IToolState | null {
+export function applyToolEnd(
+  state: IStreamingState,
+  event: IToolEndEvent,
+  /** #3288: the session's cwd, threaded to `buildDiffState` for a workspace-relative `diffFile`. */
+  cwd?: string,
+): IToolState | null {
   const result: IToolState['result'] = event.denied
     ? 'denied'
     : event.success === false
       ? 'error'
       : 'success';
 
-  const idx = state.activeTools.findIndex((t) => t.toolName === event.toolName && t.isRunning);
+  // #3288: a tool_end is attributed by executionId first — two same-named parallel calls can finish
+  // out of start order, and matching by name alone would close whichever running call of that name
+  // was found first, regardless of which one actually finished. Falls back to the name+running
+  // heuristic only when the event carries no executionId (legacy fixtures / old hosts).
+  const idx =
+    event.executionId !== undefined
+      ? state.activeTools.findIndex((t) => t.executionId === event.executionId && t.isRunning)
+      : state.activeTools.findIndex((t) => t.toolName === event.toolName && t.isRunning);
   if (idx === -1) return null;
 
   const finished: IToolState = {
     ...state.activeTools[idx]!,
-    ...buildEditDiffState(event),
+    ...buildDiffState(event, cwd),
     isRunning: false,
     result,
     toolResultData: event.toolResultData,

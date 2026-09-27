@@ -68,6 +68,7 @@ import { GoalController, buildGoalContinuationPrompt, isGoalCancelVerb } from '.
 import { createUserInteractionPort } from '../interaction/user-interaction-port.js';
 import { PlanController } from '../plan/index.js';
 import { retrieveAgentToolDeps } from '../tools/agent-tool.js';
+import { createModelCommandToolProjection } from '../tools/model-command-tool-projection.js';
 import { humanizeApiError } from '../utils/error-humanizer.js';
 import {
   WorkspaceAuthorityRequiredError,
@@ -316,6 +317,9 @@ export class InteractiveSession
       countListeners: (event) => this.listeners.get(event)?.size ?? 0,
       // REMOTE-014 E5: stamp the active turn's driver as the prompt's requester (display-only attribution).
       getActiveDriverId: () => this.execCtrl.activeDriverId,
+      // #3288: so an Edit/Write permission request can attach the same server-built diff preview
+      // `tool_end` gets, and a Shell request can note its cwd only when it differs from this one.
+      getCwd: () => this.getCwd(),
       backstopMs: PROMPT_BACKSTOP_MS,
     });
     this.askHandler = (request) => this.promptRegistry.requestAsk(request);
@@ -401,6 +405,16 @@ export class InteractiveSession
       remoteCommandPolicy,
     );
 
+    // #3288: tool name -> source `/command` name, for the projected model-command tools this
+    // session's descriptors would produce (`model-command-tool-projection.ts`). Computed here —
+    // independently of whether `create-session.ts` actually registered those tools as callable —
+    // because `tool_start` classification only needs the NAME MAP; a session with the projection
+    // disabled simply never sees a `toolName` that matches one of these, so this is always safe.
+    const modelCommandToolNames = createModelCommandToolProjection(
+      this.skillRouter.commandExecutor.listModelInvocableCommands(),
+      options.modelCommandToolPrefix,
+    ).toolNameToCommandName;
+
     this.execCtrl = new SessionExecutionController(this.histTracker, this.skillRouter, {
       providerErrorGuidance: this.providerErrorGuidance,
       promptFileReferenceTag: this.promptFileReferenceTag,
@@ -408,6 +422,7 @@ export class InteractiveSession
       getSessionOrThrow: () => this.getSessionOrThrow(),
       getCwd: () => this.getCwd(),
       getProjectAccess: () => this.workspace.projectAccess,
+      modelCommandToolNames,
       getContextState: () => this.getContextState(),
       getExecutionWorkspaceSnapshot: () => this.getExecutionWorkspaceSnapshot(),
       emit: (event, ...args) =>

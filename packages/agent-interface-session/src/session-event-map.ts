@@ -49,6 +49,16 @@ export interface IToolState {
   diffFile?: string;
   toolResultData?: string;
   executionId?: string;
+  /**
+   * #3288: a workspace-relative display form of the tool's path argument (Edit/Write/Read), computed
+   * server-side (the server knows the session's cwd). Additive — `firstArg` is unchanged so the TUI's
+   * existing rendering never has to compute this itself.
+   */
+  displayPath?: string;
+  /** #3288: the `/command` this call projects, when it is a model-command-projection tool (e.g. "agent"). */
+  commandName?: string;
+  /** #3288: true for an internal signal tool (e.g. the goal-status tool) — surfaces should not show it as a call. */
+  internal?: boolean;
 }
 
 /** Permission handler delegate — clients provide their own UI. */
@@ -95,6 +105,16 @@ export interface IPermissionRequestEvent {
   requesterDriverId?: TDriverId;
   /** Issue #3288 §1: a background agent's own request, forwarded to the person (display-only). */
   requester?: TPermissionRequester;
+  /**
+   * #3288 §2: for an Edit/Write request, the same server-built diff the finished call would carry —
+   * built from the SAME diff builder `interactive-session-streaming.ts` uses at `tool_end`, so a
+   * surface renders "Edit <path>" with its diff instead of the raw tool arguments.
+   */
+  diffLines?: IDiffLine[];
+  /** #3288 §2: workspace-relative path the diff (or the request) concerns, paired with `diffLines`. */
+  diffFile?: string;
+  /** #3288 §2: a Shell request's working directory, present only when it differs from the workspace. */
+  cwd?: string;
 }
 
 /** An "ask the user" request (command- or tool-issued) awaiting an answer. Serializable. */
