@@ -29,10 +29,10 @@ function setup(): {
 describe('#3186 — the GUI conversation timeline', () => {
   it('a command result becomes a command entry in the conversation, not a notice', () => {
     const { result, deliver } = setup();
-    deliver({ type: 'command_result', name: 'help', message: 'line 1\nline 2', success: true });
+    deliver({ type: 'command_result', name: 'cost', message: 'line 1\nline 2', success: true });
 
     expect(result.current.messages).toEqual([
-      expect.objectContaining({ role: 'command', name: 'help', content: 'line 1\nline 2', tone: 'success' }),
+      expect.objectContaining({ role: 'command', name: 'cost', content: 'line 1\nline 2', tone: 'success' }),
     ]);
     expect(result.current.sessionNotices).toEqual([]);
   });
@@ -95,11 +95,12 @@ describe('#3186 — the GUI conversation timeline', () => {
     expect(result.current.messages).toEqual([
       expect.objectContaining({ role: 'command', name: 'theme', tone: 'info' }),
     ]);
-    // …and it never replaces the reply of a later, unrelated command.
-    act(() => result.current.send({ type: 'command', name: 'help' }));
-    deliver({ type: 'command_result', name: 'help', message: 'Available commands', success: true });
+    // …and it never replaces the reply of a later, unrelated command. (Not `/help` — #3282 §4e made
+    // that one the GUI's own Help sheet, never sent to the session at all.)
+    act(() => result.current.send({ type: 'command', name: 'cost' }));
+    deliver({ type: 'command_result', name: 'cost', message: 'Available commands', success: true });
     expect(result.current.messages.at(-1)).toEqual(
-      expect.objectContaining({ name: 'help', content: 'Available commands', tone: 'success' }),
+      expect.objectContaining({ name: 'cost', content: 'Available commands', tone: 'success' }),
     );
   });
 
@@ -114,7 +115,7 @@ describe('#3186 — the GUI conversation timeline', () => {
     expect(result.current.messages).toEqual([
       expect.objectContaining({ role: 'command', name: 'theme', tone: 'info' }),
     ]);
-    deliver({ type: 'command_result', name: 'help', message: 'Available commands', success: true });
+    deliver({ type: 'command_result', name: 'cost', message: 'Available commands', success: true });
     expect(result.current.messages.at(-1)).toEqual(expect.objectContaining({ tone: 'success' }));
   });
 

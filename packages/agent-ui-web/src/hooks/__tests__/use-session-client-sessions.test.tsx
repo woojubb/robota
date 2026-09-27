@@ -194,8 +194,11 @@ describe('#3189 — session list, start and switch in the GUI reducer', () => {
     expect(result.current.messages.at(-1)).toMatchObject({
       role: 'command',
       tone: 'info',
-      content: expect.stringMatching(/session picker is not available/),
+      content: expect.stringMatching(/cannot list sessions/),
     });
+    // Never the generic "not available on this surface" line (#3282 §4e).
+    const content = (result.current.messages.at(-1) as { content?: string }).content ?? '';
+    expect(content).not.toMatch(/not available on this surface/i);
   });
 
   it('a refused switch surfaces its reason as a notice', () => {

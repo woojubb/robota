@@ -54,3 +54,12 @@ importable library.
   argument is the free-text objective, with no separate field for its optional iteration/no-progress
   limits. A form would have to either surface that raw syntax or quietly drop capability the command
   line keeps, so creating either stays text-only until the command itself takes structured arguments.
+- The slash menu and the Help sheet list only what the GUI can actually run, and a handful of
+  built-in commands are left off both on purpose, each for one reason rather than "not built yet":
+  terminal presentation commands (theme, key bindings, editor, status line) are left out because the
+  GUI follows the system appearance and standard shortcuts instead of offering its own; the shell
+  command is left out because the GUI has no interactive terminal to hand it; ending a session is
+  left out because that belongs to closing its window or tab (or deleting it from the sidebar), not
+  to a chat command; and device pairing is left out because it is managed from the terminal until the
+  owner decides whether a local GUI surface may handle pairing credentials. Typing one of these
+  anyway answers with a plain sentence naming what to use instead, never a raw refusal.

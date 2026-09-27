@@ -153,27 +153,60 @@ try {
     await page.getByText('Hello from the scripted agent.').waitFor({ timeout: 10_000 });
   });
 
-  await scenario('/ opens the command menu with skills; Enter completes, Enter runs', async () => {
-    await page.getByLabel('message').fill('/');
-    const menu = page.getByRole('listbox', { name: 'commands' });
-    await menu.getByText('/parity-demo').waitFor();
-    await page.getByLabel('message').fill('/mo');
-    await page.getByLabel('message').press('Enter');
-    if ((await page.getByLabel('message').inputValue()) !== '/mode ') {
-      throw new Error('Enter did not complete the highlighted command');
+  await scenario(
+    '#3282 §4e: / opens the command menu with a Commands group and a Skills group, and Enter completes/runs',
+    async () => {
+      await page.getByLabel('message').fill('/');
+      const menu = page.getByRole('listbox', { name: 'commands' });
+      await menu.getByText('Commands', { exact: true }).waitFor();
+      await menu.getByText('Skills', { exact: true }).waitFor();
+      await menu.getByText('/parity-demo').waitFor();
+      await page.getByLabel('message').fill('/mo');
+      await page.getByLabel('message').press('Enter');
+      if ((await page.getByLabel('message').inputValue()) !== '/mode ') {
+        throw new Error('Enter did not complete the highlighted command');
+      }
+      await page.getByLabel('message').press('Enter');
+      await page.getByText('Permission mode: acceptEdits').waitFor();
+    },
+  );
+
+  await scenario(
+    '#3282 §4e: a command the GUI cannot run at all is left out of the menu entirely',
+    async () => {
+      await page.getByLabel('message').fill('/sh');
+      if ((await page.getByRole('option', { name: /\/shell/ }).count()) !== 0) {
+        throw new Error('an excluded command still showed in the menu');
+      }
+      await page.getByLabel('message').fill('');
+    },
+  );
+
+  await scenario('#3282 §4e: typing /theme by hand shows its plain sentence, never "not available"', async () => {
+    await send('/theme');
+    await page.getByText('Robota follows your system appearance.').waitFor();
+    if ((await page.getByText(/not available on this surface/).count()) !== 0) {
+      throw new Error('/theme still printed the "not available" line');
     }
-    await page.getByLabel('message').press('Enter');
-    await page.getByText('Permission mode: acceptEdits').waitFor();
   });
 
-  await scenario('/ marks a command the terminal runs with "terminal"', async () => {
-    await page.getByLabel('message').fill('/sh');
-    const shell = page.getByRole('option', { name: /\/shell/ });
-    await shell.getByText('terminal', { exact: true }).waitFor();
-    if ((await shell.getAttribute('aria-description')) !== 'Runs in the robota terminal') {
-      throw new Error('the terminal-run command does not say where it runs');
+  await scenario('#3282 §4e: /help opens the Help sheet instead of a terminal-style text list', async () => {
+    // An earlier scenario (/theme) already left its own info card in the conversation — the count
+    // must not GROW, not "must be zero" (#3282 §4e: excluded commands render the same card kind).
+    const cardsBefore = await page.getByTestId('command-output').count();
+    await send('/help');
+    const sheet = page.getByRole('dialog', { name: 'Help' });
+    await sheet.waitFor();
+    await sheet.getByText('Commands', { exact: true }).waitFor();
+    await sheet.getByText('Shortcuts', { exact: true }).waitFor();
+    const cardsAfter = await page.getByTestId('command-output').count();
+    if (cardsAfter !== cardsBefore) {
+      throw new Error(
+        `/help still printed the old terminal-style text list (${cardsBefore} → ${cardsAfter} command cards)`,
+      );
     }
-    await page.getByLabel('message').fill('');
+    await sheet.getByRole('button', { name: 'Close Help' }).click();
+    await sheet.waitFor({ state: 'detached' });
   });
 
   await scenario('the status row shows the session status and follows a change', async () => {
@@ -229,7 +262,8 @@ try {
   );
 
   await scenario('a long command result is a folded card and the composer stays usable', async () => {
-    await send('/help');
+    // Not `/help` — #3282 §4e made that one the GUI's own Help sheet, never sent to the session.
+    await send('/context');
     const card = page.getByTestId('command-output').last();
     await card.getByText('Command 1 (/c1)').waitFor();
     await card.getByRole('button', { name: /Show all \d+ lines/ }).waitFor();
@@ -687,7 +721,8 @@ try {
     await sidebar.getByRole('button', { name: 'More for Scripted e2e session' }).click();
     await page.getByRole('menuitem', { name: 'Delete…' }).click();
     // The shared Dialog primitive (#3282 §4a) names the panel via aria-labelledby, not visible text.
-    const dialog = page.getByRole('dialog', { name: /Delete/ });
+    // #3282 §4e: a destructive ConfirmDialog is an alertdialog, not a plain dialog.
+    const dialog = page.getByRole('alertdialog', { name: /Delete/ });
     await dialog.getByText('This removes its conversation from this computer.').waitFor();
     await dialog.getByRole('button', { name: 'Delete' }).click();
     await row(/Scripted e2e session/).waitFor({ state: 'detached' });

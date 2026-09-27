@@ -38,10 +38,14 @@ does not own session lifecycle, conversation history, or agent runtime state.
 - A UI-intent opens its GUI screen when there is one — the session picker is the session sidebar
   (unless the host cannot list sessions), settings and the plugin manager both open the Settings
   modal (the plugin manager on its Plugins section), and the agent switcher is a sheet listing the
-  session's agent definitions with the current one checked. Any other answers with an explicit "not
-  available on this surface" line in the conversation — in place of the command's own reply when
-  this surface's command awaits one, at once otherwise — never a silent no-op, including intent
-  kinds not yet known when this package was written.
+  session's agent definitions with the current one checked. A command with no GUI path at all (its
+  presentation belongs to a terminal, or the product has deliberately left it out — see
+  `packages/agent-gui-web/docs/SPEC.md`) never reaches the session from this surface in the first
+  place: it is caught on the way out and answered with its own plain sentence naming what to use
+  instead. Any other UI-intent this surface simply has no screen for yet answers the same way, in its
+  own words — never the generic "not available on this surface" line, and never a silent no-op — in
+  place of the command's own reply when this surface's command awaits one, at once otherwise; an
+  intent kind not yet known when this package was written still gets an explicit, honest line.
 - The session sidebar lists the host's sessions by a stable title — never the latest reply, which
   changes every turn — and never loses one silently: a record unreadable and belonging to this
   workspace is folded into one plain line rather than shown as a row; a record belonging to another

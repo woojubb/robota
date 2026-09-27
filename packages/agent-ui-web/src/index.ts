@@ -48,5 +48,7 @@ export { SessionMonitor } from './components/SessionMonitor.js';
 export { Dialog, ConfirmDialog } from './components/Dialog.js';
 export type { IDialogProps, IConfirmDialogProps } from './components/Dialog.js';
 export { SettingsScreen } from './components/SettingsScreen.js';
+// #3282 §4e: the Help sheet `/help` opens instead of the terminal-style text list.
+export { HelpSheet } from './components/HelpSheet.js';
 // Pieces of a surface's chrome, not roots: render them inside a `robota-ui` scope.
 export { RobotaMark, RobotaWordmark } from './components/Brand.js';

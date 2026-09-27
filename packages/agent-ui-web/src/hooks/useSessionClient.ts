@@ -8,6 +8,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 
+import { excludedCommandMessage, isExcludedCommand } from './excluded-commands.js';
 import {
   applyPromptEvent,
   askResponse,
@@ -272,6 +273,11 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   // #3289 §3: learned from the first frame the server sends this connection, so its own messages and
   // prompts never carry a "from" label — only ANOTHER driver's do.
   const [ownDriverId, setOwnDriverId] = useState<TDriverId | null>(null);
+  // #3282 §4e: `/help` opens the GUI's own Help sheet — it never reaches the session (`send` below
+  // catches it), so there is no round trip and no stale terminal-style text dump to replace.
+  const [helpOpen, setHelpOpen] = useState(false);
+  const openHelp = useCallback((): void => setHelpOpen(true), []);
+  const closeHelp = useCallback((): void => setHelpOpen(false), []);
 
   const clientRef = useRef<ISessionClientHandle | null>(null);
   const streamingTextRef = useRef('');
@@ -340,14 +346,37 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   // Their request ids, for this connection: a refusal names the request it answers. A switch
   // answers with no id, so an id that succeeded stays here until the connection is replaced.
   const sessionChangeRequestIdsRef = useRef(new Set<string>());
-  const send = useCallback((msg: TClientMessage): void => {
-    if (msg.type === 'command') commandsInFlightRef.current += 1;
-    if (msg.type === 'switch-session' || msg.type === 'new-session') {
-      sessionChangesInFlightRef.current += 1;
-      if (msg.requestId !== undefined) sessionChangeRequestIdsRef.current.add(msg.requestId);
-    }
-    clientRef.current?.send(msg);
-  }, []);
+  const send = useCallback(
+    (msg: TClientMessage): void => {
+      if (msg.type === 'command') {
+        // #3282 §4e: `/help` is the GUI's own Help sheet — never sent to the session.
+        if (msg.name === 'help') {
+          setHelpOpen(true);
+          return;
+        }
+        // #3282 §4e: a command the GUI leaves out on purpose is caught here, before the session ever
+        // sees it — its own plain sentence answers in place of the session's refusal, exactly like a
+        // typed command's own result would (same entry shape, same place in the conversation).
+        if (isExcludedCommand({ name: msg.name })) {
+          appendEntry({
+            id: nextId(),
+            role: 'command',
+            name: msg.name,
+            content: excludedCommandMessage(msg.name),
+            tone: 'info',
+          });
+          return;
+        }
+        commandsInFlightRef.current += 1;
+      }
+      if (msg.type === 'switch-session' || msg.type === 'new-session') {
+        sessionChangesInFlightRef.current += 1;
+        if (msg.requestId !== undefined) sessionChangeRequestIdsRef.current.add(msg.requestId);
+      }
+      clientRef.current?.send(msg);
+    },
+    [appendEntry],
+  );
   /** One session change this surface asked for has been answered. */
   const settleSessionChange = useCallback((requestId?: string): void => {
     sessionChangesInFlightRef.current = Math.max(0, sessionChangesInFlightRef.current - 1);
@@ -858,6 +887,9 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     openAgentSwitcher,
     ...agentSwitcherState,
     ...schedulesState,
+    helpOpen,
+    openHelp,
+    closeHelp,
   };
 }
 

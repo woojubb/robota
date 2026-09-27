@@ -668,7 +668,9 @@ class ScriptedSession extends EventEmitter {
         });
       });
     }
-    if (name === 'help') {
+    if (name === 'context') {
+      // #3282 §4e: `/help` is now the GUI's own Help sheet and never reaches this scripted sidecar —
+      // `/context` stands in for it here, purely to exercise the folded-long-output card.
       const lines = Array.from({ length: 30 }, (_, i) => `Command ${i + 1} (/c${i + 1}) — does thing ${i + 1}`);
       return Promise.resolve({ message: ['Available commands:', ...lines].join('\n'), success: true });
     }
@@ -827,6 +829,8 @@ class ScriptedSession extends EventEmitter {
       { name: 'settings', description: 'Open settings', modelInvocable: false, runner: 'runtime' },
       { name: 'plugin', description: 'Manage plugins', modelInvocable: false, runner: 'runtime' },
       { name: 'resume', description: 'Resume another session', modelInvocable: false, runner: 'runtime' },
+      { name: 'context', description: 'Show context window usage', modelInvocable: false, runner: 'runtime' },
+      { name: 'theme', description: 'Change the terminal colour theme', modelInvocable: false, runner: 'client', surfaces: ['terminal'] },
       // A command the terminal runs itself: the GUI's menu marks it rather than running it.
       {
         name: 'shell',
