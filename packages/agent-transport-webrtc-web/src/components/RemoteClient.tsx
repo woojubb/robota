@@ -45,8 +45,11 @@ export function RemoteClient({ href }: IRemoteClientProps): React.ReactElement {
   }, [href]);
 
   if (parsed.error || !parsed.location) {
+    // #3289 §3 review: `RemoteClient` owns the page's ONE `main` landmark in every state it can be
+    // in — a host has no way to know which of its states, if any, already supplies one. This state
+    // (an unusable pairing link) never reaches `ConversationView`, so it is the one to carry it here.
     return (
-      <div className="robota-ui flex h-full min-h-screen items-center justify-center bg-background p-8">
+      <main className="robota-ui flex h-full min-h-screen items-center justify-center bg-background p-8">
         <div className="flex max-w-md flex-col items-center gap-4 text-center">
           <RobotaMark size={40} />
           <h1 className="text-[22px] font-semibold tracking-[-0.02em]">Cannot pair</h1>
@@ -58,7 +61,7 @@ export function RemoteClient({ href }: IRemoteClientProps): React.ReactElement {
             the host.
           </p>
         </div>
-      </div>
+      </main>
     );
   }
 
@@ -100,11 +103,10 @@ function RemoteClientConnected({
         </span>
       </header>
       {/* ConversationView is itself a `main` landmark once rendered (#3289 §3); this wrapper stays a
-          plain div so the two are never nested HERE. A host that mounts `RemoteClient` must, in turn,
-          not wrap it in a `main` of its own — that landmark belongs to whichever piece of the page
-          renders last and lowest, which for this component is `ConversationView`. */}
-      <div className="min-h-0 flex-1">
-        {hasConversation || tone === 'live' ? (
+          plain div in that case so the two are never nested. Otherwise this component owns the page's
+          ONE `main` landmark itself (a host has no way to know a placeholder state needs one too). */}
+      {hasConversation || tone === 'live' ? (
+        <div className="min-h-0 flex-1">
           <ConversationView
             messages={session.messages}
             activeTools={session.activeTools}
@@ -112,21 +114,21 @@ function RemoteClientConnected({
             isThinking={session.isThinking}
             ownDriverId={session.ownDriverId}
           />
-        ) : (
-          <div className="flex h-full items-center justify-center p-8">
-            <div className="gui-rise flex max-w-md flex-col items-center gap-4 text-center">
-              <RobotaMark size={40} />
-              <p className="text-[18px] font-medium">{STATUS_LABEL[session.status]}</p>
-              {tone === 'stopped' ? (
-                <p className="text-[15px] text-muted-foreground">
-                  Open a fresh link from <code className="font-mono">/remote-control</code> on the
-                  host to try again.
-                </p>
-              ) : null}
-            </div>
+        </div>
+      ) : (
+        <main className="flex min-h-0 flex-1 items-center justify-center p-8">
+          <div className="gui-rise flex max-w-md flex-col items-center gap-4 text-center">
+            <RobotaMark size={40} />
+            <p className="text-[18px] font-medium">{STATUS_LABEL[session.status]}</p>
+            {tone === 'stopped' ? (
+              <p className="text-[15px] text-muted-foreground">
+                Open a fresh link from <code className="font-mono">/remote-control</code> on the
+                host to try again.
+              </p>
+            ) : null}
           </div>
-        )}
-      </div>
+        </main>
+      )}
       <PermissionPrompt
         prompts={session.pendingPrompts}
         onAnswerPermission={session.answerPermission}
