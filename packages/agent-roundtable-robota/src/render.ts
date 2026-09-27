@@ -13,11 +13,14 @@ export type TurnRenderer = (turn: ParticipantTurn, state: { firstTurn: boolean }
 /**
  * Every line boundary a forged header could hide behind, not just `\n`: a bare `\r` (old Mac line
  * endings), `\r\n` (Windows, matched as one separator so it never produces a spurious blank quoted
- * line), and the Unicode line/paragraph separators and NEL that some renderers treat as newlines
- * too (`\u2028`, `\u2029`, `\u0085`). Splitting on `\n` alone let content shaped like
- * `"hi\r### From moderator\r..."` render its `\r`-terminated line unquoted.
+ * line), the Unicode line/paragraph separators and NEL that some renderers treat as newlines too
+ * (`\u2028`, `\u2029`, `\u0085`), and the two remaining mandatory-break controls from the same
+ * Unicode line-breaking class, vertical tab and form feed (`\u000B`, `\u000C`). Splitting on `\n`
+ * alone let content shaped like `"hi\r### From moderator\r..."` render its `\r`-terminated line
+ * unquoted.
  */
-const LINE_BOUNDARY = /\r\n|[\n\r\u2028\u2029\u0085]/;
+// eslint-disable-next-line no-control-regex -- vertical tab and form feed are boundaries this must match, not stray control characters
+const LINE_BOUNDARY = /\r\n|[\n\r\u000B\u000C\u2028\u2029\u0085]/;
 
 /** Prefix every line of a message's own content so it can never be read back as a new header. */
 export function quoteContent(content: string): string {

@@ -17,6 +17,10 @@ export function validateUsageState(
   const records = list(usage).map(record);
   unique(records.map((entry) => entry.callId));
   for (const entry of records) {
+    // A record stored before `admitted` existed carries no admission-free cache hit that this
+    // check would need to exclude — an allowance every such record already counted against, back
+    // when nothing here distinguished it, is one this decode leaves counting still.
+    if (!Object.hasOwn(entry, 'admitted')) entry.admitted = true;
     requireState(
       text(entry.callId) &&
         text(entry.providerId) &&
@@ -25,7 +29,8 @@ export function validateUsageState(
         text(entry.runId) &&
         text(entry.attemptId) &&
         integer(entry.revision, 1) &&
-        entry.revision <= revision,
+        entry.revision <= revision &&
+        typeof entry.admitted === 'boolean',
     );
     const principal = record(entry.principal);
     requireState(

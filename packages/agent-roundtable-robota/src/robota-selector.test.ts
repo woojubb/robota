@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { FunctionTool, Robota, clearRegisteredToolProfiles } from '@robota-sdk/agent-core';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 import type { SelectionContext, TurnServices } from '@robota-sdk/agent-roundtable';
 import { robotaSelector, robotaSelectorRegistration } from './robota-selector';
 import { SelectorDecisionError } from './errors';
@@ -226,12 +227,12 @@ describe('robotaSelector', () => {
     expect(scripted.requests).toHaveLength(1);
   });
 
-  // MUST 2: a cancelled selection used to leave the decision tool on the reused agent forever,
-  // because `updateTools([])` never ran once `agent.run` rejected. The realistic way a run rejects
-  // while cancelled is agent-core's own hardening (CORE-027 / ExecutionJournalError): a rejected
+  // A cancelled selection used to leave the decision tool on the reused agent forever, because
+  // `updateTools([])` never ran once `agent.run` rejected. The realistic way a run rejects while
+  // cancelled is agent-core's own hardening (CORE-027 / ExecutionJournalError): a rejected
   // admission is wrapped in an error that is rethrown even though the signal is aborted, exactly
   // what a real ledger does once a run has been cancelled.
-  it('MUST 2: resets the decision tool after a cancelled selection, so the next select succeeds', async () => {
+  it('resets the decision tool after a cancelled selection, so the next select succeeds', async () => {
     const scripted = createScriptedProvider([
       {
         toolCalls: [
@@ -265,8 +266,8 @@ describe('robotaSelector', () => {
     expect(selection).toEqual({ kind: 'speak', participantId: 'a' });
   });
 
-  // SHOULD 10: the selector used to decide purely from ids and outcome kinds, never what was said.
-  it('SHOULD 10: renders the shared conversation into the decision prompt', async () => {
+  // The selector used to decide purely from ids and outcome kinds, never what was said.
+  it('renders the shared conversation into the decision prompt', async () => {
     const scripted = createScriptedProvider([
       {
         toolCalls: [
@@ -298,10 +299,10 @@ describe('robotaSelector', () => {
     expect(sent?.content).toContain('From a');
   });
 
-  // SHOULD 10: the reused agent accumulated private history across decisions with no checkpoint,
-  // so a live selector and a freshly reloaded one (which starts with no history at all) could
+  // The reused agent accumulated private history across decisions with no checkpoint, so a
+  // live selector and a freshly reloaded one (which starts with no history at all) could
   // decide differently from the same SelectionContext, and cost grew unbounded across a whole run.
-  it('SHOULD 10: clears the reused agent history before each decision', async () => {
+  it('clears the reused agent history before each decision', async () => {
     const scripted = createScriptedProvider([
       {
         toolCalls: [
@@ -331,5 +332,40 @@ describe('robotaSelector', () => {
     const secondRequest = scripted.requests[1]!;
     expect(secondRequest.filter((m) => m.role === 'user')).toHaveLength(1);
     expect(secondRequest.some((m) => m.role === 'assistant')).toBe(false);
+  });
+
+  it('rejects a second select() call that overlaps an in-flight one on the same instance', async () => {
+    const blocking: IAIProvider = {
+      name: 'blocking',
+      version: 'test',
+      chat: () => new Promise(() => {}),
+      generateResponse: async () => ({ content: '' }),
+      supportsTools: () => true,
+      validateConfig: () => true,
+    };
+    const agent = new Robota({
+      name: 'selector',
+      aiProviders: [blocking],
+      defaultModel: { provider: blocking.name, model: 'test-model' },
+    });
+    const selector = robotaSelector({
+      reference: { id: 'fixture/selector', version: '1' },
+      createAgent: async () => agent,
+    });
+    const firstController = new AbortController();
+    // Never awaited before the second call starts: select() runs synchronously up to its first
+    // `await`, so the guard it sets is already in place by the time this line returns.
+    const first = selector.select(context(), {
+      signal: firstController.signal,
+      services: noServices(),
+    });
+    await expect(
+      selector.select(context(), {
+        signal: new AbortController().signal,
+        services: noServices(),
+      }),
+    ).rejects.toMatchObject({ code: 'resource-reused' });
+    firstController.abort(new Error('cleanup'));
+    await Promise.resolve(first).catch(() => {});
   });
 });

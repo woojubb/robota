@@ -118,7 +118,8 @@ host can implement them against any other runtime.
 - `group-started` — the selected participants and the transcript revision they all see.
 - `delta` — text a participant streams through `onDelta` while its turn runs.
 - `prepared` — a participant's result is saved but not public yet.
-- `usage` — a model-call admission or usage report was saved to the usage ledger.
+- `usage` — a model-call admission or usage report was saved to the usage ledger; a report that
+  settles after the run that admitted its call has already stopped is saved silently, with no event.
 - `published` — the whole group committed; its messages are in the transcript, in selection order.
 
 An exception from `onEvent` goes to `onEventError` and cannot undo a committed group.

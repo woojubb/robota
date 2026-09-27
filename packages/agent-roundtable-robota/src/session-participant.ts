@@ -195,10 +195,14 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
           try {
             const meteredJournal = meterRecoverableJournal(journal, execOptions.services);
             const result = await run(meteredJournal);
-            // MUST 3: an aborted run RESOLVES rather than rejecting (see robota-participant.ts);
-            // checking `signal.aborted` only in `catch` below missed exactly that path, so a
-            // cancelled turn's partial text (or even a stray 'waiting' status racing the abort)
-            // could still be published or parked as if the cancellation never happened.
+            // An aborted run can resolve instead of rejecting, the way a plain Robota agent's
+            // `agent.run()` always does (see robota-participant.ts) — checking `signal.aborted`
+            // only in `catch` below would miss that path, letting a cancelled turn's partial text
+            // (or even a stray 'waiting' status racing the abort) be published or parked as if
+            // the cancellation never happened. `Session`'s own executeRun already turns that same
+            // case into a rejection before it reaches here, so this guard is not what this
+            // specific call depends on today, but it keeps the same guarantee for any run or
+            // resume call that resolves on abort instead.
             if (signal.aborted) throw signal.reason;
             await deltaQueue.flush();
             if (result.status === 'waiting') {
@@ -212,9 +216,9 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
             }
             firstTurnDone = true;
             pendingWait = null;
-            // SHOULD 7: the default in-process journal never freed a settled execution's records
-            // (full message arrays included) — safe exactly here, because nothing reads them back
-            // once this turn settled with no wait parked; a journal a host supplied is left alone,
+            // The default in-process journal never freed a settled execution's records (full
+            // message arrays included) — safe exactly here, because nothing reads them back once
+            // this turn settled with no wait parked; a journal a host supplied is left alone,
             // since its lifecycle is the host's to manage.
             if (usingDefaultJournal) clearInProcessJournal(state.sessionId);
             return toCompletionOutcome(result.response);
@@ -299,9 +303,9 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
             if (released) return;
             released = true;
             releaseLease();
-            // SHOULD 7: free the module-level map entry itself once this lease ends, unless a
-            // wait is still parked — a resumed lease later needs exactly those records, and
-            // `settle` above never got to clear them because this execution never settled.
+            // Free the module-level map entry itself once this lease ends, unless a wait is
+            // still parked — a resumed lease later needs exactly those records, and `settle`
+            // above never got to clear them because this execution never settled.
             if (usingDefaultJournal && !pendingWait) forgetInProcessJournal(state.sessionId);
             await session.shutdown();
           },

@@ -40,9 +40,9 @@ export function createInProcessJournal(sessionId: string): IRecoverableExecution
 }
 
 /**
- * SHOULD 7: drop every record kept for `sessionId` — called once a turn settles with no wait
- * parked, since nothing reads a settled execution's records back afterward. Mutates the same
- * array `createInProcessJournal` handed out for this `sessionId` (rather than replacing the map
+ * Drop every record kept for `sessionId` — called once a turn settles with no wait parked,
+ * since nothing reads a settled execution's records back afterward. Mutates the same array
+ * `createInProcessJournal` handed out for this `sessionId` (rather than replacing the map
  * entry), so a journal instance created earlier for the same id observes the drop too.
  */
 export function clearInProcessJournal(sessionId: string): void {
@@ -51,10 +51,11 @@ export function clearInProcessJournal(sessionId: string): void {
 }
 
 /**
- * SHOULD 7: remove `sessionId`'s entry entirely — called on `release()` when no wait is parked, so
- * the module-level map does not keep one entry per session that ever opened for the life of the
- * process. A wait still parked needs its records reachable for a later resume, so the caller must
- * not call this while one is outstanding; `clearInProcessJournal` already emptied everything else.
+ * Remove `sessionId`'s entry entirely — called on `release()` when no wait is parked, so the
+ * module-level map does not keep one entry per session that ever opened for the life of the
+ * process. A wait still parked needs its records reachable for a later resume, so the caller
+ * must not call this while one is outstanding; `clearInProcessJournal` already emptied everything
+ * else.
  */
 export function forgetInProcessJournal(sessionId: string): void {
   journals.delete(sessionId);

@@ -8,6 +8,7 @@ import type {
   TToolParameters,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
+import { createRoundtable } from '@robota-sdk/agent-roundtable';
 import type {
   ParticipantExecutionOptions,
   ParticipantTurn,
@@ -186,12 +187,12 @@ describe('robotaParticipant: speak path', () => {
     expect(participant.factory.modelCalls).toBe('metered');
   });
 
-  // MUST 3: `agent.run()` RESOLVES on abort (agent-core CORE-027) with the text it had committed so
-  // far, marked `interrupted` — never rejects on its own. A tool call combined with real text in
-  // the SAME assistant message, where the tool's own effect aborts mid round, reproduces exactly
+  // `agent.run()` RESOLVES on abort (agent-core CORE-027) with the text it had committed so far,
+  // marked `interrupted` — never rejects on its own. A tool call combined with real text in the
+  // SAME assistant message, where the tool's own effect aborts mid round, reproduces exactly
   // that: the round loop stops after the tool (no further round runs the forced summary), so the
   // committed text from round 1 becomes `result.response`, resolved, while `signal.aborted` is true.
-  it('MUST 3: throws the abort reason instead of publishing text committed during a cancelled tool round', async () => {
+  it('throws the abort reason instead of publishing text committed during a cancelled tool round', async () => {
     const controller = new AbortController();
     const provider: IAIProvider = {
       name: 'abort-mid-tool-round',
@@ -246,9 +247,9 @@ describe('robotaParticipant: speak path', () => {
     await lease.release();
   });
 
-  // SHOULD 6: leasing only the Robota object let two participants share the SAME provider or
-  // tool undetected; `agent.destroy()` on release then closed it under the other participant.
-  it('SHOULD 6: rejects a second participant whose agent shares a provider with a still-open lease', async () => {
+  // Leasing only the Robota object let two participants share the SAME provider or tool
+  // undetected; `agent.destroy()` on release then closed it under the other participant.
+  it('rejects a second participant whose agent shares a provider with a still-open lease', async () => {
     const scripted = createScriptedProvider([{ text: 'ok' }]);
     const participant = robotaParticipant({
       id: 'p',
@@ -274,7 +275,7 @@ describe('robotaParticipant: speak path', () => {
     ).resolves.toBeDefined();
   });
 
-  it('SHOULD 6: rejects a second participant whose agent shares a tool with a still-open lease', async () => {
+  it('rejects a second participant whose agent shares a tool with a still-open lease', async () => {
     const scriptedA = createScriptedProvider([{ text: 'ok a' }]);
     const scriptedB = createScriptedProvider([{ text: 'ok b' }]);
     const sharedTool = new FunctionTool(
@@ -303,5 +304,131 @@ describe('robotaParticipant: speak path', () => {
       participant.factory.openSession({ conversationId: 'c2', participantId: 'B' }),
     ).rejects.toMatchObject({ code: 'resource-reused' });
     await first.release();
+  });
+
+  it('destroys the agent it just created when claiming its lease fails', async () => {
+    const shared = createScriptedProvider([{ text: 'ok' }]);
+    let secondAgent: Robota | undefined;
+    let secondDestroy: ReturnType<typeof vi.spyOn> | undefined;
+    const participant = robotaParticipant({
+      id: 'p',
+      runtime: { id: 'fixture/robota', version: '1' },
+      createAgent: async (ctx) => {
+        const agent = new Robota({
+          name: 'fixture',
+          aiProviders: [shared.provider],
+          defaultModel: { provider: shared.provider.name, model: 'test-model' },
+        });
+        if (ctx.participantId === 'B') {
+          secondAgent = agent;
+          secondDestroy = vi.spyOn(agent, 'destroy');
+        }
+        return agent;
+      },
+    });
+    const first = await participant.factory.openSession({
+      conversationId: 'c1',
+      participantId: 'A',
+    });
+    await expect(
+      participant.factory.openSession({ conversationId: 'c2', participantId: 'B' }),
+    ).rejects.toMatchObject({ code: 'resource-reused' });
+    expect(secondAgent).toBeDefined();
+    expect(secondDestroy).toHaveBeenCalledOnce();
+    await first.release();
+  });
+
+  it('destroys the agent it just created when its checkpoint fails to decode', async () => {
+    const scripted = createScriptedProvider([]);
+    let created: Robota | undefined;
+    let destroy: ReturnType<typeof vi.spyOn> | undefined;
+    const participant = robotaParticipant({
+      id: 'p',
+      runtime: { id: 'fixture/robota', version: '1' },
+      createAgent: async () => {
+        const agent = new Robota({
+          name: 'fixture',
+          aiProviders: [scripted.provider],
+          defaultModel: { provider: scripted.provider.name, model: 'test-model' },
+        });
+        created = agent;
+        destroy = vi.spyOn(agent, 'destroy');
+        return agent;
+      },
+    });
+    await expect(
+      participant.factory.openSession({
+        conversationId: 'c',
+        participantId: 'A',
+        checkpoint: { version: 'not-a-real-version', data: [] },
+      }),
+    ).rejects.toMatchObject({ code: 'checkpoint-invalid' });
+    expect(created).toBeDefined();
+    expect(destroy).toHaveBeenCalledOnce();
+    // The lease was released on failure too: opening again over the same provider now succeeds.
+    await expect(
+      participant.factory.openSession({ conversationId: 'c2', participantId: 'B' }),
+    ).resolves.toBeDefined();
+  });
+});
+
+describe('robotaParticipant: cancellation while a delta is in flight', () => {
+  it('ends the run cancelled and raises no unhandled rejection', async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandledRejection = (reason: unknown) => unhandled.push(reason);
+    process.on('unhandledRejection', onUnhandledRejection);
+    const controller = new AbortController();
+    const provider: IAIProvider = {
+      name: 'streamer',
+      version: 'test',
+      async chat(_messages, options): Promise<TUniversalMessage> {
+        for (const chunk of ['one ', 'two ', 'three ']) {
+          (options as { onTextDelta?: (text: string) => void } | undefined)?.onTextDelta?.(chunk);
+          await new Promise((resolve) => setTimeout(resolve, 5));
+        }
+        if (options?.signal?.aborted) throw options.signal.reason;
+        return {
+          id: 'r1',
+          role: 'assistant',
+          content: 'one two three',
+          state: 'complete',
+          timestamp: new Date(),
+        };
+      },
+      async generateResponse() {
+        return { content: '' };
+      },
+      supportsTools: () => false,
+      validateConfig: () => true,
+    };
+    const room = createRoundtable({
+      conversationId: 'crash-probe',
+      participants: [
+        robotaParticipant({
+          id: 'a',
+          runtime: { id: 'fixture/robota', version: '1' },
+          createAgent: async () =>
+            new Robota({
+              name: 'fixture',
+              aiProviders: [provider],
+              defaultModel: { provider: provider.name, model: 'test-model' },
+            }),
+        }),
+      ],
+      limits: { maxTurnsPerRun: 1 },
+      // Slow enough (an awaited host handler, e.g. writing a delta out to a socket) that a delta
+      // pushed to the queue is still undelivered at the moment the run is cancelled.
+      onEvent: async (event) => {
+        if (event.type === 'delta') await new Promise((resolve) => setTimeout(resolve, 20));
+      },
+    });
+    setTimeout(() => controller.abort(new Error('user pressed stop')), 8);
+    const result = await room.run({ signal: controller.signal });
+    // Long enough for a rejection any earlier link left unhandled to be reported.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    process.off('unhandledRejection', onUnhandledRejection);
+    await room.dispose();
+    expect(result.status).toBe('cancelled');
+    expect(unhandled).toEqual([]);
   });
 });

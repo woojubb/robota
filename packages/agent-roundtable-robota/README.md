@@ -143,6 +143,9 @@ resolves, so restoring one still depends on that session — or a durable journa
 execution — being reachable. The default journal a `sessionParticipant` uses when none is supplied is
 shared by session id for the lifetime of the process, which is enough for a `loadRoundtable` reload in
 the same process; a host that needs a wait to survive a restart supplies its own durable `journal`.
+That default also only ever frees a session's records once its execution settles with no wait parked;
+a parked wait whose conversation fails or is simply never resumed keeps its records in memory for the
+life of the process. A host that expects abandoned waits supplies its own `journal` to clean those up.
 
 ## `robotaParticipant`: a plain agent turn, no continuation
 
@@ -161,6 +164,15 @@ only for the call that needs it — so a decision can only ever have been reache
 package can verify. A decision that never calls the tool, calls it more than once, names an id outside
 the conversation's current participants, or names the same participant twice, fails the selection; the
 roundtable's own run then fails too, with no retry from inside the selector.
+
+The `robotaSelector` a call to this function returns is one conversation's selector: its reused agent's
+history and tools are private, mutable state a second, overlapping `select()` call on the same instance
+would corrupt, so a second such call is rejected outright (`resource-reused`) rather than left to race
+the first. Give each conversation its own instance instead of sharing one across conversations.
+
+Every decision is shown the conversation's whole shared transcript, not a bounded window — no context
+policy trims a selector's own view the way one trims what a participant receives — so the cost of each
+decision grows with the conversation rather than staying flat.
 
 ## Rendering a turn's shared increment
 

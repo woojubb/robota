@@ -718,6 +718,45 @@ describe('per-turn usage services and the admission ledger', () => {
     await room.dispose();
   });
 
+  it('an admission-free cache hit does not spend the run call-limit allowance a real call still needs', async () => {
+    let admissionError: unknown;
+    const room = createRoundtable({
+      conversationId: 'cache-hit-allowance',
+      participants: [
+        agent('a', async (_turn, options) => {
+          await options.services.recordUsage({
+            callId: 'hit-1',
+            outcome: 'cache-hit',
+            provenance: 'reported',
+            providerId: 'p',
+            modelId: 'm',
+            final: true,
+          });
+          try {
+            await options.services.admitModelCall({
+              callId: 'real-1',
+              providerId: 'p',
+              modelId: 'm',
+            });
+          } catch (error) {
+            admissionError = error;
+          }
+          return { kind: 'speak' as const, content: 'ok' };
+        }),
+      ],
+      limits: { maxTurnsPerRun: 1, maxModelCallsPerRun: 1 },
+    });
+    // The run still ends 'limited' because it reached its one-turn cap, not because the real call
+    // was refused — a run limited by 'model-calls' here would mean the cache hit spent the
+    // allowance the real call went on to need.
+    expect(await room.run()).toMatchObject({ status: 'limited', reason: 'turns' });
+    expect(admissionError).toBeUndefined();
+    const usage = room.snapshot().usage;
+    expect(usage.find((record) => record.callId === 'hit-1')).toMatchObject({ admitted: false });
+    expect(usage.find((record) => record.callId === 'real-1')).toMatchObject({ admitted: true });
+    await room.dispose();
+  });
+
   it('reloads a conversation whose ledger holds an admission-free cache hit', async () => {
     const store = new MemoryConversationStore();
     const factory: ParticipantFactory = {

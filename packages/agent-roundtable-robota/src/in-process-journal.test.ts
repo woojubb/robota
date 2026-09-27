@@ -74,8 +74,8 @@ describe('createInProcessJournal', () => {
   });
 });
 
-// SHOULD 7: the default journal never freed a settled execution's records, or a session's whole
-// entry once its lease ended — both grew the module-level map for as long as the process ran.
+// The default journal never freed a settled execution's records, or a session's whole entry
+// once its lease ended — both grew the module-level map for as long as the process ran.
 describe('clearInProcessJournal', () => {
   it('empties every record kept for a session, across every executionId', async () => {
     const journal = createInProcessJournal('session-clear-1');

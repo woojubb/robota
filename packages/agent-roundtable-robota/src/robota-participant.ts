@@ -62,13 +62,19 @@ export function robotaParticipant(options: RobotaParticipantOptions): AgentParti
           restoring,
         };
         const agent = await options.createAgent(openCtx);
-        // SHOULD 6: leasing only `agent` protected two participants from driving the SAME Robota
-        // object at once, but not from sharing its providers or tools — `agent.destroy()` below
-        // closes every provider in `agent.getConfig().aiProviders`, which breaks a second
-        // participant still using that provider if a host's `createAgent` closure ever hands the
-        // same provider or tool instance to two agents.
-        const config = agent.getConfig();
-        const releaseLease = claimLease([agent, ...config.aiProviders, ...(config.tools ?? [])]);
+        // Leasing only `agent` protected two participants from driving the SAME Robota object
+        // at once, but not from sharing its providers or tools — `agent.destroy()` below closes
+        // every provider in `agent.getConfig().aiProviders`, which breaks a second participant
+        // still using that provider if a host's `createAgent` closure ever hands the same
+        // provider or tool instance to two agents.
+        let releaseLease: () => void;
+        try {
+          const config = agent.getConfig();
+          releaseLease = claimLease([agent, ...config.aiProviders, ...(config.tools ?? [])]);
+        } catch (error) {
+          await agent.destroy().catch(() => {});
+          throw error;
+        }
         try {
           if (context.checkpoint) {
             const history = decodeAgentCheckpoint(context.checkpoint);
@@ -76,6 +82,7 @@ export function robotaParticipant(options: RobotaParticipantOptions): AgentParti
           }
         } catch (error) {
           releaseLease();
+          await agent.destroy().catch(() => {});
           throw error;
         }
 
@@ -100,7 +107,7 @@ export function robotaParticipant(options: RobotaParticipantOptions): AgentParti
                 onTextDelta: (delta: string) => currentSink?.push(delta),
                 ...(options.runOptions ?? {}),
               });
-              // MUST 3: an aborted run RESOLVES, not rejects — agent-core reports the text it had
+              // An aborted run RESOLVES, not rejects — agent-core reports the text it had
               // committed so far, with the turn's messages marked `interrupted` (see CORE-027) —
               // so a check only in `catch` below never sees this. Publishing that partial text as
               // this turn's `speak` would let a cancelled turn's words reach the shared transcript

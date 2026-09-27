@@ -253,13 +253,13 @@ describe('sessionParticipant: speak path', () => {
     await lease.release();
   });
 
-  // MUST 3: the run underneath RESOLVES on abort (agent-core CORE-027) with the text it had
-  // committed so far, marked `interrupted` — it never rejects on its own, so a check only in
-  // `catch` (the test above) misses this path entirely. A tool call combined with real text in the
-  // SAME assistant message, whose own effect aborts mid round, reproduces exactly that: the round
-  // loop stops after the tool with no further round, so that committed text resolves as the
-  // execution's response while `signal.aborted` is already true.
-  it('MUST 3: throws the abort reason instead of publishing text committed during a cancelled tool round', async () => {
+  // A plain Robota agent's `agent.run()` always RESOLVES on abort (agent-core CORE-027) with
+  // the text it had committed so far, marked `interrupted`, rather than rejecting — the same tool
+  // round shape reproduces that here, but `Session`'s own executeRun already turns an aborted,
+  // resolved execution into a rejection before it ever reaches sessionParticipant, so this asserts
+  // the turn still rejects rather than exercising the `signal.aborted` check inside `catch` that
+  // closes this same gap for a call that resolves instead.
+  it('throws the abort reason instead of publishing text committed during a cancelled tool round', async () => {
     const controller = new AbortController();
     const provider: IAIProvider = {
       name: 'abort-mid-tool-round',
@@ -427,11 +427,11 @@ describe('sessionParticipant: speak path', () => {
     await lease.release();
   });
 
-  // MUST 4: `createDefaultTools` used to return the SAME `webFetchTool`/`webSearchTool` module
+  // `createDefaultTools` used to return the SAME `webFetchTool`/`webSearchTool` module
   // singletons on every call, so two sessionParticipants each built from it — even from two
   // entirely separate `createDefaultTools({cwd})` calls, sharing nothing on purpose — collided in
   // the resource guard the moment both were open at once.
-  it('MUST 4: two participants each built from a separate createDefaultTools({cwd}) open together', async () => {
+  it('two participants each built from a separate createDefaultTools({cwd}) open together', async () => {
     const base = mkdtempSync(join(tmpdir(), 'roundtable-robota-default-tools-'));
     mkdirSync(join(base, 'A'));
     mkdirSync(join(base, 'B'));
@@ -559,10 +559,10 @@ describe('sessionParticipant: approval waits and checkpoints', () => {
     await lease.release();
   });
 
-  // SHOULD 7: the default in-process journal never freed a settled execution's records. Once this
+  // The default in-process journal never freed a settled execution's records. Once this
   // resume settles with no wait parked, the parked execution's records (message arrays included)
   // must be gone from the module-level store the default journal used underneath.
-  it('SHOULD 7: drops the parked execution journal records once the resume settles', async () => {
+  it('drops the parked execution journal records once the resume settles', async () => {
     const f = approvalFixture();
     const lease = await f.participant.factory.openSession({
       conversationId: 'c',
@@ -808,6 +808,63 @@ describe('sessionParticipant: lease safety on openSession failure', () => {
     await expect(
       participant.factory.openSession({ conversationId: 'c', participantId: 'A' }),
     ).resolves.toBeDefined();
+  });
+});
+
+describe('sessionParticipant: cancellation while a delta is in flight', () => {
+  it('ends the run cancelled and raises no unhandled rejection', async () => {
+    const unhandled: unknown[] = [];
+    const onUnhandledRejection = (reason: unknown) => unhandled.push(reason);
+    process.on('unhandledRejection', onUnhandledRejection);
+    const controller = new AbortController();
+    const provider: IAIProvider = {
+      name: 'streamer',
+      version: 'test',
+      async chat(_messages, options): Promise<TUniversalMessage> {
+        for (const chunk of ['one ', 'two ', 'three ']) {
+          (options as { onTextDelta?: (text: string) => void } | undefined)?.onTextDelta?.(chunk);
+          await new Promise((resolve) => setTimeout(resolve, 5));
+        }
+        if ((options as { signal?: AbortSignal } | undefined)?.signal?.aborted)
+          throw (options as { signal: AbortSignal }).signal.reason;
+        return {
+          id: 'r1',
+          role: 'assistant',
+          content: 'one two three',
+          state: 'complete',
+          timestamp: new Date(),
+        };
+      },
+      async generateResponse() {
+        return { content: '' };
+      },
+      supportsTools: () => false,
+      validateConfig: () => true,
+    };
+    const room = createRoundtable({
+      conversationId: 'crash-probe-session',
+      participants: [
+        sessionParticipant({
+          id: 'a',
+          runtime: { id: 'fixture/session', version: '1' },
+          createSessionOptions: async () => hostOptions(provider),
+        }),
+      ],
+      limits: { maxTurnsPerRun: 1 },
+      // Slow enough (an awaited host handler, e.g. writing a delta out to a socket) that a delta
+      // pushed to the queue is still undelivered at the moment the run is cancelled.
+      onEvent: async (event) => {
+        if (event.type === 'delta') await new Promise((resolve) => setTimeout(resolve, 20));
+      },
+    });
+    setTimeout(() => controller.abort(new Error('user pressed stop')), 8);
+    const result = await room.run({ signal: controller.signal });
+    // Long enough for a rejection any earlier link left unhandled to be reported.
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    process.off('unhandledRejection', onUnhandledRejection);
+    await room.dispose();
+    expect(result.status).toBe('cancelled');
+    expect(unhandled).toEqual([]);
   });
 });
 
