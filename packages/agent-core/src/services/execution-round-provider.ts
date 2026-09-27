@@ -171,9 +171,9 @@ export async function callProviderWithCache(
   // DATA-007/API-001: the SESSION's effort selection is the cache identity — never a locally resolved
   // effective value. An earlier version of this fix resolved the effort against
   // `resolved.provider.effortTable()` before touching the cache, but that table is only ever
-  // populated for a NATIVE provider verified in-process; a `SimpleRemoteExecutor`-backed provider
-  // never has one (the server resolves against its OWN table and never serializes the resolution
-  // back — see `agent-remote-client/.../wire-chat-options.ts`), and a local table can simply be
+  // populated for a NATIVE provider verified in-process; an `IExecutor`-backed provider never has
+  // one (the remote side resolves against its OWN table and never serializes the resolution back),
+  // and a local table can simply be
   // missing an entry for this exact model (version skew, a `baseURL`/API-surface variant). Both cases
   // report the same "not applied" outcome regardless of the actual selection, which would let
   // different selections collide. Keying on the raw selection sidesteps that entirely: it is known

@@ -1,6 +1,5 @@
 ---
 '@robota-sdk/agent-transport-webrtc-web': minor
-'@robota-sdk/agent-remote-client': minor
 '@robota-sdk/agent-cli': patch
 ---
 

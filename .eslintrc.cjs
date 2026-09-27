@@ -199,7 +199,7 @@ module.exports = {
       },
     },
     {
-      files: ['packages/playground/**/*.{ts,tsx,js,jsx}', 'apps/agent-web/**/*.{ts,tsx,js,jsx}'],
+      files: ['apps/agent-web/**/*.{ts,tsx,js,jsx}'],
       extends: ['plugin:jsx-a11y/recommended'],
       rules: {
         'jsx-a11y/alt-text': 'warn',
@@ -247,14 +247,13 @@ module.exports = {
       },
     },
     {
-      files: ['packages/**/*.ts', 'packages/**/*.tsx', 'apps/agent-server/**/*.ts'],
+      files: ['packages/**/*.ts', 'packages/**/*.tsx'],
       excludedFiles: ['**/*.d.ts'],
       parserOptions: {
         tsconfigRootDir: __dirname,
         project: [
           './packages/*/tsconfig.eslint.json',
           './packages/dag-nodes/*/tsconfig.eslint.json',
-          './apps/agent-server/tsconfig.eslint.json',
         ],
       },
       rules: {

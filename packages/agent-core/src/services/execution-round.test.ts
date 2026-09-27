@@ -270,9 +270,8 @@ describe('execution-round helpers', () => {
     // designs were tried and dropped: keying purely on `resolveModelEffort(...).effective` let an
     // explicit selection collide with an unrelated `auto` call that happened to resolve to the same
     // model default, and keying on a "not-applied:<selection>" fallback for an unresolvable effort
-    // still depended on a table lookup that a `SimpleRemoteExecutor`-backed provider never has (the
-    // server resolves its own table and never serializes the resolution back — see
-    // `agent-remote-client/src/client/wire-chat-options.ts`). Keying on the raw selection avoids all
+    // still depended on a table lookup that an `IExecutor`-backed provider never has (the remote side
+    // resolves its own table and never serializes the resolution back). Keying on the raw selection avoids all
     // of that: it needs no table, behaves identically for every executor shape, and is exactly what
     // the caller asked for. `lookup` and `store` receive the identical value either way.
     it('passes the session effort selection (never a resolved value) as the identical identity to lookup and store', async () => {
@@ -395,9 +394,9 @@ describe('execution-round helpers', () => {
       expect(chat).toHaveBeenCalledTimes(3);
     });
 
-    // A provider with no `effortTable()` (the shape a `SimpleRemoteExecutor`-backed provider always
-    // has — the server resolves its own table and never serializes the resolution back, per
-    // `agent-remote-client/src/client/wire-chat-options.ts`) and a native provider that DOES have one
+    // A provider with no `effortTable()` (the shape an `IExecutor`-backed provider always has — the
+    // remote side resolves its own table and never serializes the resolution back) and a native
+    // provider that DOES have one
     // must behave IDENTICALLY, because the table is no longer consulted for the cache key at all:
     // 'low' and 'high' never cross-hit in either case.
     it('behaves identically for a table-less (executor-backed) provider and a table-bearing one', async () => {
@@ -414,7 +413,7 @@ describe('execution-round helpers', () => {
       };
 
       for (const providerOverrides of [
-        {}, // no effortTable — e.g. a SimpleRemoteExecutor-backed provider
+        {}, // no effortTable — e.g. an IExecutor-backed provider
         { effortTable: () => effortTable }, // a native provider with a verified table
       ]) {
         const chat = vi
