@@ -451,7 +451,11 @@ const MALFORMED_CLIENT: ReadonlyArray<[string, unknown]> = [
   ],
   [
     'update-settings providerModel patch missing modelId',
-    { type: 'update-settings', requestId: 'r', patch: { field: 'providerModel' } },
+    { type: 'update-settings', requestId: 'r', patch: { field: 'providerModel', profileName: 'anthropic' } },
+  ],
+  [
+    'update-settings providerModel patch missing profileName',
+    { type: 'update-settings', requestId: 'r', patch: { field: 'providerModel', modelId: 'claude-haiku-4-5' } },
   ],
   [
     'update-settings deleteProviderProfile patch missing profileName',
@@ -605,7 +609,7 @@ describe('decodeClientMessage (issue #2045)', () => {
   // three get their own explicit round trip.
   it.each([
     { field: 'providerProfile', profileName: 'backup' },
-    { field: 'providerModel', modelId: 'claude-haiku-4-5' },
+    { field: 'providerModel', profileName: 'backup', modelId: 'claude-haiku-4-5' },
     { field: 'deleteProviderProfile', profileName: 'backup' },
   ])('decodes an update-settings patch with field %j', (patch) => {
     const message = { type: 'update-settings', requestId: 'r', patch };

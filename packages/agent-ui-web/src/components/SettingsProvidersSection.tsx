@@ -22,7 +22,7 @@ function ProviderModelButton({
 }: {
   profile: ISettingsProviderProfile;
   modelList: TModelListSnapshot | null;
-  onSelect: (modelId: string) => void;
+  onSelect: (profileName: string, modelId: string) => void;
 }): React.ReactElement {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -49,7 +49,7 @@ function ProviderModelButton({
                 key: model.id,
                 label: model.label,
                 checked: profile.model !== undefined && model.id === profile.model.id,
-                onSelect: () => onSelect(model.id),
+                onSelect: () => onSelect(profile.name, model.id),
               })),
             },
           ]}
@@ -72,7 +72,7 @@ function ProviderProfileRow({
   profile: ISettingsProviderProfile;
   modelList: TModelListSnapshot | null;
   onUse: (profileName: string) => void;
-  onModelChange: (modelId: string) => void;
+  onModelChange: (profileName: string, modelId: string) => void;
   onCommand: (args: string) => void;
   onRequestDelete: (profileName: string) => void;
 }): React.ReactElement {
@@ -163,7 +163,7 @@ export function SettingsProvidersSection({
   modelList: TModelListSnapshot | null;
   onRequestModelList: () => void;
   onUse: (profileName: string) => void;
-  onModelChange: (modelId: string) => void;
+  onModelChange: (profileName: string, modelId: string) => void;
   /** Dispatches `/provider <args>` (Edit/Test/Duplicate) or `/provider add` (Add) unmodified. */
   onCommand: (args: string) => void;
   onRequestDelete: (profileName: string) => void;

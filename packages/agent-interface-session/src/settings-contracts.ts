@@ -163,9 +163,13 @@ export type TSettingsPatch =
   | { readonly field: 'uninstallPlugin'; readonly pluginId: string }
   // #3282 §4b: "Use" — the same path as `/provider switch <profile>` (validate, hot-swap, persist).
   | { readonly field: 'providerProfile'; readonly profileName: string }
-  // #3282 §4b: "Model" — the same path as `/model <id>`; `modelId` alone, exactly like the model
-  // control's own pop-up menu, since a catalog id already names which profile offers it.
-  | { readonly field: 'providerModel'; readonly modelId: string }
+  // #3282 §4b: "Model" — `profileName` names the ROW this was clicked on, not just the model: two
+  // profiles of the same provider type can offer the same catalog id (e.g. two profiles made by
+  // "Duplicate…"), and resolving by id alone would silently prefer the current profile on a tie,
+  // changing a different profile than the one the person clicked. The reporter switches to
+  // `profileName` first (a no-op success when it is already current), then sets the model — the same
+  // two-step `/model <id>` already performs internally for a model belonging to another profile.
+  | { readonly field: 'providerModel'; readonly profileName: string; readonly modelId: string }
   // #3282 §4b: "Delete" — refused (never an interactive replacement ask) when `profileName` is the
   // profile in use; a modal write has no follow-up question to ask.
   | { readonly field: 'deleteProviderProfile'; readonly profileName: string };

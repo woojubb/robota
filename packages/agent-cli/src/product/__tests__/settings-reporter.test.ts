@@ -857,8 +857,11 @@ describe('createSettingsReporter (#3282 §4a)', () => {
       });
     });
 
-    it('"Model" switches through the same /model <id> path, modelId alone', async () => {
+    it('"Model" switches to the named profile first, then through the same /model <id> path', async () => {
       const executeCommand = vi.fn(async (name: string, args: string) => {
+        if (name === 'provider' && args === 'switch backup') {
+          return { success: true, message: 'Switched to backup (claude-haiku-4-5). History preserved.' };
+        }
         if (name === 'model' && args === 'claude-haiku-4-5') {
           return { success: true, message: 'Model: Claude Haiku 4.5' };
         }
@@ -870,16 +873,66 @@ describe('createSettingsReporter (#3282 §4a)', () => {
 
       const outcome = await reporter.updateSettings(session, {
         field: 'providerModel',
+        profileName: 'backup',
         modelId: 'claude-haiku-4-5',
       });
 
+      expect(executeCommand).toHaveBeenCalledWith('provider', 'switch backup', 'remote');
       expect(executeCommand).toHaveBeenCalledWith('model', 'claude-haiku-4-5', 'remote');
       expect(outcome.ok).toBe(true);
     });
 
-    it('"Delete" goes through /provider delete <profile>, refused when it is the profile in use', async () => {
+    it('"Model" never runs /model when switching to the named profile is refused', async () => {
       const executeCommand = vi.fn(async (name: string, args: string) => {
-        if (name === 'provider' && args === 'delete anthropic') {
+        if (name === 'provider' && args === 'switch ghost') {
+          return { success: false, message: 'Provider profile "ghost" was not found.' };
+        }
+        if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+        if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+        return null;
+      });
+      const { session, reporter } = setup({ executeCommand });
+
+      const outcome = await reporter.updateSettings(session, {
+        field: 'providerModel',
+        profileName: 'ghost',
+        modelId: 'claude-haiku-4-5',
+      });
+
+      expect(outcome).toEqual({
+        ok: false,
+        code: 'refused',
+        message: 'Provider profile "ghost" was not found.',
+      });
+      expect(executeCommand).not.toHaveBeenCalledWith('model', expect.anything(), expect.anything());
+    });
+
+    it('"Model" on the already-current profile is a no-op switch, then /model <id>', async () => {
+      const executeCommand = vi.fn(async (name: string, args: string) => {
+        if (name === 'provider' && args === 'switch anthropic') {
+          return { success: true, message: 'Already using provider "anthropic".' };
+        }
+        if (name === 'model' && args === 'claude-haiku-4-5') {
+          return { success: true, message: 'Model: Claude Haiku 4.5' };
+        }
+        if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+        if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+        return null;
+      });
+      const { session, reporter } = setup({ executeCommand });
+
+      const outcome = await reporter.updateSettings(session, {
+        field: 'providerModel',
+        profileName: 'anthropic',
+        modelId: 'claude-haiku-4-5',
+      });
+
+      expect(outcome.ok).toBe(true);
+    });
+
+    it('"Delete" goes through /provider delete <profile> --confirmed, refused when it is the profile in use', async () => {
+      const executeCommand = vi.fn(async (name: string, args: string) => {
+        if (name === 'provider' && args === 'delete anthropic --confirmed') {
           return {
             success: false,
             message: 'Cannot delete the profile in use. Switch to another profile first.',
@@ -896,7 +949,10 @@ describe('createSettingsReporter (#3282 §4a)', () => {
         profileName: 'anthropic',
       });
 
-      expect(executeCommand).toHaveBeenCalledWith('provider', 'delete anthropic', 'remote');
+      // `--confirmed`: this write already went through the GUI's own ConfirmDialog before reaching
+      // here — a modal write has nowhere to render a follow-up ask, unlike a plainly-typed
+      // `/provider delete <profile>`, which confirms interactively first (agent-command's own tests).
+      expect(executeCommand).toHaveBeenCalledWith('provider', 'delete anthropic --confirmed', 'remote');
       expect(outcome).toEqual({
         ok: false,
         code: 'refused',
@@ -906,7 +962,7 @@ describe('createSettingsReporter (#3282 §4a)', () => {
 
     it('"Delete" succeeds for an inactive profile, through the same command path', async () => {
       const executeCommand = vi.fn(async (name: string, args: string) => {
-        if (name === 'provider' && args === 'delete backup') {
+        if (name === 'provider' && args === 'delete backup --confirmed') {
           return { success: true, message: 'Provider profile deleted: backup.' };
         }
         if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });

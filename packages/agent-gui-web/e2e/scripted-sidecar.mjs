@@ -1177,10 +1177,18 @@ const settingsReporter = {
         }
         break;
       }
-      // #3282 §4b: "Model" — the SAME path `/model <id>` runs (`executeCommand('model', …)`), so the
-      // Settings screen and the status row's model control can never drift apart in this fixture
-      // either.
+      // #3282 §4b: "Model" — switches to `profileName` first (this fixture's one profile, so that
+      // always succeeds), then runs the SAME path `/model <id>` runs (`executeCommand('model', …)`),
+      // matching the real reporter's two-step and so the Settings screen and the status row's model
+      // control can never drift apart in this fixture either.
       case 'providerModel': {
+        if (patch.profileName !== 'scripted') {
+          return {
+            ok: false,
+            code: 'refused',
+            message: `Provider profile "${patch.profileName}" was not found.`,
+          };
+        }
         const result = await session.executeCommand('model', patch.modelId);
         if (!result.success) return { ok: false, code: 'invalid', message: result.message };
         break;

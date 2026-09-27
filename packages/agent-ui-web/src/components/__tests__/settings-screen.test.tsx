@@ -641,6 +641,7 @@ describe('SettingsScreen — Providers & Models section (#3282 §4b)', () => {
 
     expect(state.updateSettings).toHaveBeenCalledExactlyOnceWith({
       field: 'providerModel',
+      profileName: 'backup',
       modelId: 'claude-opus-4-5',
     });
   });

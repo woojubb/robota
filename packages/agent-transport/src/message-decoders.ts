@@ -125,7 +125,7 @@ const SETTINGS_PATCH_SHAPES: Readonly<Record<TSettingsPatch['field'], TVariantSh
   uninstallPlugin: { pluginId: isNonEmptyString },
   // #3282 §4b: "Providers & Models" — Use, Model, Delete.
   providerProfile: { profileName: isNonEmptyString },
-  providerModel: { modelId: isNonEmptyString },
+  providerModel: { profileName: isNonEmptyString, modelId: isNonEmptyString },
   deleteProviderProfile: { profileName: isNonEmptyString },
 };
 const isSettingsPatch: TFieldCheck = (v) => {

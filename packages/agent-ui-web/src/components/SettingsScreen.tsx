@@ -240,7 +240,9 @@ export function SettingsScreen({ state }: { state: IWsSessionState }): React.Rea
                     modelList={state.modelList}
                     onRequestModelList={state.requestModelList}
                     onUse={(profileName) => state.updateSettings({ field: 'providerProfile', profileName })}
-                    onModelChange={(modelId) => state.updateSettings({ field: 'providerModel', modelId })}
+                    onModelChange={(profileName, modelId) =>
+                      state.updateSettings({ field: 'providerModel', profileName, modelId })
+                    }
                     onCommand={(args) => state.send({ type: 'command', name: 'provider', args })}
                     onRequestDelete={(profileName) => setPendingProviderDelete(profileName)}
                   />

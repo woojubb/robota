@@ -94,11 +94,12 @@ function completeProviderDuplicate(
 }
 
 /**
- * #3282 §4b: the Settings screen's non-interactive delete — no replacement ask (the interactive
+ * #3282 §4b: the direct, non-interactive delete itself — no replacement ask (the interactive
  * per-profile menu's Delete, `buildProviderDelete` below, still offers one); refuses instead when the
- * profile is the one in use, since a modal write has nowhere to ask a follow-up question. Reachable
- * directly as `/provider delete <profile>` too, matching the existing `switch`/`test` direct forms —
- * never interactive.
+ * profile is the one in use. Never asks to CONFIRM either — its caller in `provider-command-execution`
+ * does that first, when a human can answer, before reaching this function; this function itself is
+ * called only once a delete is already decided (confirmed by a human, or `--confirmed` from the
+ * Settings screen's own ConfirmDialog).
  */
 export function buildProviderProfileDelete(
   providers: Record<string, IProviderProfileSettings> | undefined,

@@ -651,7 +651,7 @@ describe('createProviderCommandModule', () => {
       expect(completed?.hostActions).toBeUndefined();
     });
 
-    it('deletes a named inactive profile directly, with no confirm ask and no replacement ask', async () => {
+    it('the Settings screen\'s own write (--confirmed) deletes with no confirm ask and no replacement ask', async () => {
       const { adapter, readTarget } = createSettingsAdapter(
         {
           currentProvider: 'openai',
@@ -670,7 +670,11 @@ describe('createProviderCommandModule', () => {
       );
 
       const { context, requests } = scriptedContext([]);
-      const completed = await createExecutor(adapter).execute('provider', context, 'delete anthropic');
+      const completed = await createExecutor(adapter).execute(
+        'provider',
+        context,
+        'delete anthropic --confirmed',
+      );
 
       expect(requests).toEqual([]);
       expect(completed?.message).toBe('Provider profile deleted: anthropic.');
@@ -678,6 +682,68 @@ describe('createProviderCommandModule', () => {
         currentProvider: 'openai',
         providers: { openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' } },
       });
+    });
+
+    it('a plainly-typed delete confirms first, interactively, before deleting', async () => {
+      const { adapter, readTarget } = createSettingsAdapter(
+        {
+          currentProvider: 'openai',
+          providers: {
+            openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+            anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+          },
+        },
+        {
+          currentProvider: 'openai',
+          providers: {
+            openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+            anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+          },
+        },
+      );
+
+      const { context, requests } = scriptedContext([{ type: 'answer', values: ['yes'] }]);
+      const completed = await createExecutor(adapter).execute('provider', context, 'delete anthropic');
+
+      expect(requests[0]?.title).toBe('Delete profile "anthropic"?');
+      expect(completed?.message).toBe('Provider profile deleted: anthropic.');
+      expect(readTarget()).toEqual({
+        currentProvider: 'openai',
+        providers: { openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' } },
+      });
+    });
+
+    it('a declined confirm cancels a plainly-typed delete, deleting nothing', async () => {
+      const settings = {
+        currentProvider: 'openai',
+        providers: {
+          openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+          anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+        },
+      };
+      const { adapter, readTarget } = createSettingsAdapter(settings, settings);
+
+      const { context } = scriptedContext([{ type: 'answer', values: ['no'] }]);
+      const result = await createExecutor(adapter).execute('provider', context, 'delete anthropic');
+
+      expect(result).toEqual({ message: 'Provider delete cancelled.', success: true });
+      expect(readTarget().providers?.['anthropic']).toBeDefined();
+    });
+
+    it('a headless (non-interactive) delete proceeds without asking, matching /clear\'s convention', async () => {
+      const settings = {
+        currentProvider: 'openai',
+        providers: {
+          openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+          anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+        },
+      };
+      const { adapter, readTarget } = createSettingsAdapter(settings, settings);
+
+      const result = await createExecutor(adapter).execute('provider', headlessContext, 'delete anthropic');
+
+      expect(result?.message).toBe('Provider profile deleted: anthropic.');
+      expect(readTarget().providers?.['anthropic']).toBeUndefined();
     });
 
     it('refuses to delete the profile in use, unlike the menu\'s Delete which asks for a replacement', async () => {
@@ -699,7 +765,11 @@ describe('createProviderCommandModule', () => {
       );
 
       const { context, requests } = scriptedContext([]);
-      const result = await createExecutor(adapter).execute('provider', context, 'delete anthropic');
+      const result = await createExecutor(adapter).execute(
+        'provider',
+        context,
+        'delete anthropic --confirmed',
+      );
 
       expect(result?.success).toBe(false);
       expect(result?.message).toBe('Cannot delete the profile in use. Switch to another profile first.');

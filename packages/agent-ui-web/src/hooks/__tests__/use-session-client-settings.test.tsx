@@ -8,6 +8,12 @@
  * - A successful `/provider` command run through the raw command path (Add, Edit, Duplicate — Use/
  *   Model/Delete already return a fresh snapshot from their own `update-settings` reply) refreshes
  *   the snapshot while Settings is open, without resetting which section is showing or re-opening it.
+ * - Regression coverage for a WebSocket-reconnect bug this section's own logic once caused: reading
+ *   `settingsOpen` directly inside `handleMessage` (instead of through `settingsOpenRef`) would give
+ *   `handleMessage` a new identity on every Settings open/close, which sits in the connection
+ *   `useEffect`'s own dependency array — tearing the WebSocket down and rebuilding it underneath a
+ *   just-requested settings snapshot. `makeClient` must be called exactly once across every scenario
+ *   below, open/close/reopen and a `provider` refresh included.
  */
 
 import { act, renderHook } from '@testing-library/react';
@@ -24,15 +30,18 @@ function setup(): {
   result: { current: ReturnType<typeof useSessionClient> };
   deliver: (msg: TServerMessage) => void;
   wire: TClientMessage[];
+  makeClientCalls: () => number;
 } {
   let onMessage: ((msg: TServerMessage) => void) | null = null;
   const wire: TClientMessage[] = [];
+  let calls = 0;
   const makeClient: TMakeSessionClient = (callbacks) => {
+    calls += 1;
     onMessage = callbacks.onMessage;
     return { connect: () => {}, disconnect: () => {}, send: (message) => wire.push(message) };
   };
   const { result } = renderHook(() => useSessionClient(makeClient));
-  return { result, wire, deliver: (msg) => act(() => onMessage?.(msg)) };
+  return { result, wire, deliver: (msg) => act(() => onMessage?.(msg)), makeClientCalls: () => calls };
 }
 
 function lastGetSettingsRequestId(wire: TClientMessage[]): string {
@@ -122,5 +131,31 @@ describe('#3282 §4b — refreshing after a successful /provider command', () =>
 
     expect(result.current.settingsInitialSectionId).toBe('providers');
     expect(result.current.settingsOpen).toBe(true);
+  });
+});
+
+describe('#3282 §4b — regression: Settings never tears down and rebuilds the WebSocket', () => {
+  it('opening, closing and reopening Settings never recreates the WS client', () => {
+    const { result, makeClientCalls } = setup();
+    expect(makeClientCalls()).toBe(1);
+
+    act(() => result.current.openSettings('providers'));
+    expect(makeClientCalls()).toBe(1);
+
+    act(() => result.current.closeSettings());
+    expect(makeClientCalls()).toBe(1);
+
+    act(() => result.current.openSettings());
+    expect(makeClientCalls()).toBe(1);
+  });
+
+  it('a successful /provider refresh while Settings is open never recreates the WS client either', () => {
+    const { result, deliver, makeClientCalls } = setup();
+    act(() => result.current.openSettings('providers'));
+    expect(makeClientCalls()).toBe(1);
+
+    deliver({ type: 'command_result', name: 'provider', message: 'Provider anthropic added.', success: true });
+
+    expect(makeClientCalls()).toBe(1);
   });
 });

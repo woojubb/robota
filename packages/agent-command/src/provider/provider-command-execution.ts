@@ -1,6 +1,8 @@
 import {
+  confirmAction,
   findProviderDefinition,
   formatSupportedProviderTypes,
+  isConfirmed,
   selectAction,
 } from '@robota-sdk/agent-core';
 import { testProviderProfileCommand } from '@robota-sdk/agent-framework';
@@ -37,7 +39,8 @@ export async function executeProviderCommand(
   if (trimmedArgs.length === 0) {
     return buildProviderProfilePicker(ui, settings.currentProvider, settings.providers, options);
   }
-  const [subcommand = 'current', profileArg] = trimmedArgs.split(/\s+/);
+  const argTokens = trimmedArgs.split(/\s+/);
+  const [subcommand = 'current', profileArg] = argTokens;
 
   if (subcommand === 'list') {
     return buildProviderProfilePicker(ui, settings.currentProvider, settings.providers, options);
@@ -63,9 +66,7 @@ export async function executeProviderCommand(
   // through two asks (`askProviderProfileSelection` then `askProviderProfileAction`) — for a caller
   // (the Settings screen, or a typed command) that already names the profile and does not want the
   // "which profile" ask repeated. `edit`/`duplicate` still ask their own follow-up questions (the
-  // new name, the changed fields) exactly as the menu's Edit/Duplicate do; `delete` never asks here
-  // (see `buildProviderProfileDelete`'s own doc comment) — that is the one behavior difference from
-  // the menu's Delete, which still offers a replacement.
+  // new name, the changed fields) exactly as the menu's Edit/Duplicate do.
   if (subcommand === 'edit') {
     if (!ui) return { message: 'Provider edit requires an interactive session.', success: false };
     if (!profileArg) return { message: 'Usage: provider edit <profile>', success: false };
@@ -77,6 +78,20 @@ export async function executeProviderCommand(
     return buildProviderDuplicate(ui, profileArg, options);
   }
   if (subcommand === 'delete') {
+    // #3282 §4b: `--confirmed` is set ONLY by the Settings screen's own write (`settings-reporter.ts`)
+    // — its "Delete…" button already confirmed through its own ConfirmDialog before sending this, and
+    // a modal write has nowhere to ask a follow-up question. A plainly-typed `delete <profile>` never
+    // carries it, so it confirms here first when a human can answer (matching `/clear`'s "confirm only
+    // when interactive; with no human the explicit form proceeds") — deleting a profile also deletes
+    // its stored key, unlike `switch`, which this direct-form family otherwise mirrors.
+    if (!profileArg) return { message: 'Usage: provider delete <profile>', success: false };
+    const preConfirmed = argTokens.includes('--confirmed');
+    if (!preConfirmed && ui) {
+      const response = await ui.ask(confirmAction('provider-delete', `Delete profile "${profileArg}"?`));
+      if (!isConfirmed(response)) {
+        return { message: 'Provider delete cancelled.', success: true };
+      }
+    }
     return buildProviderProfileDelete(settings.providers, settings.currentProvider, profileArg, options);
   }
   if (subcommand === 'add') {

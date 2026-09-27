@@ -448,9 +448,15 @@ async function applyPatch(
       }
       return succeed(session, options, locality);
     }
-    // #3282 §4b: "Model" — the exact path `/model <id>` runs; `modelId` alone (no profile qualifier)
-    // matches the model control's own pop-up menu, since a catalog id already names its profile.
+    // #3282 §4b: "Model" — `profileName` is switched to FIRST (a no-op success when it is already
+    // current, exactly like "Use"), then `/model <id>` runs against it: two profiles of the same
+    // provider type can share a catalog id, and resolving by id alone would silently prefer whichever
+    // profile is already current instead of the row this was clicked on.
     case 'providerModel': {
+      const switched = await session.executeCommand('provider', `switch ${patch.profileName}`, 'remote');
+      if (!switched || !switched.success) {
+        return failure('refused', switched?.message ?? 'Could not switch the provider.');
+      }
       const result = await session.executeCommand('model', patch.modelId, 'remote');
       if (!result || !result.success) {
         return failure('invalid', result?.message ?? 'Could not switch the model.');
@@ -458,9 +464,16 @@ async function applyPatch(
       return succeed(session, options, locality);
     }
     // #3282 §4b: "Delete" — `/provider delete <profile>`'s direct, non-interactive form: refuses
-    // (never an interactive replacement ask) when the profile is the one in use.
+    // (never an interactive replacement ask) when the profile is the one in use. `--confirmed`: the
+    // GUI's "Delete…" button already confirmed through its own ConfirmDialog before sending this
+    // patch — a modal write has nowhere to render a follow-up ask, unlike a plainly-typed
+    // `delete <profile>`, which still confirms first when a human can answer.
     case 'deleteProviderProfile': {
-      const result = await session.executeCommand('provider', `delete ${patch.profileName}`, 'remote');
+      const result = await session.executeCommand(
+        'provider',
+        `delete ${patch.profileName} --confirmed`,
+        'remote',
+      );
       if (!result || !result.success) {
         return failure('refused', result?.message ?? 'Could not delete the provider profile.');
       }
