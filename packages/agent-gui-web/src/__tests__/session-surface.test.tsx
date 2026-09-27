@@ -55,7 +55,7 @@ function stubState(over: Partial<IWsSessionState> = {}): IWsSessionState {
     answerPermission: vi.fn(),
     answerAsk: vi.fn(),
     settingsOpen: false,
-    settingsSection: 'general',
+    settingsInitialSectionId: null,
     settingsStatus: 'idle',
     settingsSnapshot: null,
     settingsError: null,

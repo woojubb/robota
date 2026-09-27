@@ -2,8 +2,9 @@
 /**
  * #3282 §4b — the GUI reducer's support for the "Providers & Models" Settings section:
  *
- * - `openSettings(section)` opens on the named section ('general' when omitted, unchanged from
- *   before this section existed) — "Manage providers…" is the one caller that names 'providers'.
+ * - `openSettings(section)` sets `settingsInitialSectionId` to the named section, or `null` when
+ *   omitted (SettingsScreen itself falls back to General for `null`) — "Manage providers…" is the
+ *   one caller that names 'providers'.
  * - A successful `/provider` command run through the raw command path (Add, Edit, Duplicate — Use/
  *   Model/Delete already return a fresh snapshot from their own `update-settings` reply) refreshes
  *   the snapshot while Settings is open, without resetting which section is showing or re-opening it.
@@ -44,25 +45,25 @@ function lastGetSettingsRequestId(wire: TClientMessage[]): string {
 }
 
 describe('#3282 §4b — openSettings(section)', () => {
-  it('opens on General when no section is named (unchanged default)', () => {
+  it('opens with no initial section named when none is passed (SettingsScreen falls back to General)', () => {
     const { result } = setup();
     act(() => result.current.openSettings());
     expect(result.current.settingsOpen).toBe(true);
-    expect(result.current.settingsSection).toBe('general');
+    expect(result.current.settingsInitialSectionId).toBe(null);
   });
 
   it('opens directly on "providers" when named — "Manage providers…"\'s path', () => {
     const { result } = setup();
     act(() => result.current.openSettings('providers'));
-    expect(result.current.settingsSection).toBe('providers');
+    expect(result.current.settingsInitialSectionId).toBe('providers');
   });
 
-  it('a later plain openSettings() resets back to General, even after "providers"', () => {
+  it('a later plain openSettings() clears the named section, even after "providers"', () => {
     const { result } = setup();
     act(() => result.current.openSettings('providers'));
     act(() => result.current.closeSettings());
     act(() => result.current.openSettings());
-    expect(result.current.settingsSection).toBe('general');
+    expect(result.current.settingsInitialSectionId).toBe(null);
   });
 });
 
@@ -115,11 +116,11 @@ describe('#3282 §4b — refreshing after a successful /provider command', () =>
       requestId: lastGetSettingsRequestId(wire),
       settings: {} as never,
     });
-    expect(result.current.settingsSection).toBe('providers');
+    expect(result.current.settingsInitialSectionId).toBe('providers');
 
     deliver({ type: 'command_result', name: 'provider', message: 'Provider anthropic added.', success: true });
 
-    expect(result.current.settingsSection).toBe('providers');
+    expect(result.current.settingsInitialSectionId).toBe('providers');
     expect(result.current.settingsOpen).toBe(true);
   });
 });
