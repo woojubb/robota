@@ -22,8 +22,9 @@ pnpm --filter robota-blog typecheck  # astro sync + TypeScript check
 ## Deployment
 
 The Cloudflare Pages project `robota` is connected to the GitHub repository. A push to `main` builds and
-deploys production (`blog.robota.io`); a push to any other branch builds a preview at
-`<branch>.robota.pages.dev`. Nothing needs to be run by hand.
+deploys production (`blog.robota.io`); deploying needs nothing run by hand. Other branches get no
+usable preview, so check a change locally: `pnpm --filter robota-blog build`, then
+`pnpm --filter robota-blog run preview`.
 
 ### Build Settings (Dashboard)
 
