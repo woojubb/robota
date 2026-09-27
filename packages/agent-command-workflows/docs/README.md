@@ -1,25 +1,23 @@
 # @robota-sdk/agent-command-workflows
 
-The agent-cli `/workflows` command module. Surfaces the DAG workflow engine inside the agent CLI by
-composing `@robota-sdk/dag-framework` in-process.
+The `robota` CLI's `/workflows` command module (internal, not published). It surfaces the DAG workflow
+engine inside an agent session by composing `@robota-sdk/dag-framework` in-process, and owns the
+natural-language authoring pipeline behind `/workflows create` and `/workflows build`.
 
-See [SPEC.md](./SPEC.md) for the package contract.
-
-## Subcommands
-
-- `/workflows create "<description>"` — author and run a workflow from a natural-language
-  description via the active provider, then execute it in-process (FLOW-007 natural-language
-  authoring). Accepts `--input k=v` and `--name <name>`.
-- `/workflows list` — list the workflow nodes available to the in-process runtime.
-- `/workflows catalog` — browse workflows saved in the workspace.
-- `/workflows validate <file.dag.json>` — validate a workflow definition without running it.
-- `/workflows run <file.dag.json>` — execute a workflow file on the in-process runtime.
+Subcommands: `create`, `build`, `list`, `catalog`, `validate <file.json>`, `run <file.json> [--detach]`,
+`status <run-id>`, and `cancel <run-id>`. The [package README](../README.md) describes each one.
 
 ## Usage (composition)
 
 ```ts
 import { createWorkflowsCommandModule } from '@robota-sdk/agent-command-workflows';
 
-// agent-cli registers this module in its default command set.
+// Without a workflow project every subcommand answers WorkspaceAuthorityRequired;
+// agent-cli passes one built with createWorkspaceWorkflowProject for a trusted workspace.
 const workflowsModule = createWorkflowsCommandModule();
 ```
+
+## Documents
+
+- [SPEC.md](./SPEC.md) — package contract: shared subcommand registry, `build` never executes, provider
+  seam, and project authority.

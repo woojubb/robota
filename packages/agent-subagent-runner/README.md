@@ -1,25 +1,32 @@
 # @robota-sdk/agent-subagent-runner
 
-Child-process subagent runner for the Robota SDK. Runs subagents in isolated child processes with IPC, worktree isolation, and log streaming.
+Child-process subagent runner for the Robota SDK. It runs each subagent in its own Node.js child
+process, talks to it over a typed IPC protocol, and can wrap each job in worktree isolation and stream
+its logs to disk.
 
 ## Installation
 
 ```bash
-pnpm add @robota-sdk/agent-subagent-runner
+npm install @robota-sdk/agent-subagent-runner
 ```
 
 ## Overview
 
-This package is an optional add-on for `@robota-sdk/agent-framework`. It enables spawning subagents in separate Node.js child processes, giving each subagent full process isolation while maintaining structured IPC communication back to the parent session.
+This package is an optional add-on for `@robota-sdk/agent-framework`. Without it, subagents run
+in-process; with it, each subagent gets process isolation while reporting back to the parent session
+over structured IPC.
 
 ```
-agent-cli
+composition root (e.g. agent-cli)
   └── createChildProcessSubagentRunnerFactory()
         └── ChildProcessSubagentRunner  ← this package
-              ├── fork()                ← Node.js child_process.fork
+              ├── spawn()               ← a copy of the running artifact in worker mode
               ├── IPC messages          ← TSubagentWorkerParentMessage / TSubagentWorkerChildMessage
-              └── worktree isolation    ← via agent-executor
+              └── worktree isolation    ← via agent-executor, with an injected worktree adapter
 ```
+
+The runner composes nothing itself. The composition root supplies how to start a copy of itself
+(`workerEntry`), the tool factory and provider registry the child uses, and the worktree adapter.
 
 ## Usage
 
@@ -40,13 +47,13 @@ declare const providerConfig: IProviderDefinitionConfig;
 // The concrete worktree adapter (git/fs I/O) is owned and injected by the composition root.
 declare const worktreeAdapter: ISubagentWorktreeAdapter;
 
-// ARCH-021: YOUR product's surface, built at the CHILD's execution root. This package composes
-// nothing — an optional parameter falling back to defaults is exactly the defect the port removes.
+// Your product's tool surface, built at the CHILD's execution root. This package composes nothing:
+// there is no default tool set or provider registry to fall back to.
 declare const createMyTools: (context: { readonly cwd: string }) => IToolWithEventService[];
 declare const myProviderDefinitions: readonly IProviderDefinition[];
 
-// DIST-006: your entry IS the worker. Dispatch before starting your app, so a subagent child
-// re-enters here instead of booting the whole product.
+// Your entry is the worker. Dispatch before starting your app, so a subagent child re-enters here
+// instead of booting the whole product.
 if (isSubagentWorkerModeArgv(process.argv)) {
   runSubagentWorkerMain({
     createTools: createMyTools,
@@ -60,12 +67,13 @@ const factory = createChildProcessSubagentRunnerFactory({
   // nothing, because `process.execPath` is the binary and re-executing it re-enters its entry.
   workerEntry: { execPath: process.execPath, args: [process.argv[1] ?? ''] },
   providerConfig,
+  providerDefinitions: myProviderDefinitions, // required: a job whose provider is not here is refused
   logsDir: '.robota/logs',
   worktreeAdapter, // required: no concrete git default — inject the port at the composition root
 });
 ```
 
-Pass `factory` to `createAgentRuntime({ subagentRunnerFactory: factory })`.
+Pass `factory` as the `subagentRunnerFactory` option of `agent-framework`'s `createAgentRuntime`.
 
 ## API
 
@@ -75,7 +83,7 @@ Pass `factory` to `createAgentRuntime({ subagentRunnerFactory: factory })`.
 | -------------------------------------------------- | --------------------------------------------------------------------------- |
 | `createChildProcessSubagentRunnerFactory(options)` | Returns a `TSubagentRunnerFactory` that spawns subagents in child processes |
 | `isSubagentWorkerModeArgv(argv)`                   | True when this process was started as a subagent worker                     |
-| `runSubagentWorkerMain()`                          | Enters worker mode; refuses loudly (exit 2) without an IPC channel          |
+| `runSubagentWorkerMain(composition)`               | Enters worker mode; refuses loudly (exit 2) without an IPC channel          |
 
 ### Classes
 
@@ -85,16 +93,27 @@ Pass `factory` to `createAgentRuntime({ subagentRunnerFactory: factory })`.
 
 ### Types
 
-| Export                               | Description                                                |
-| ------------------------------------ | ---------------------------------------------------------- |
-| `IChildProcessSubagentRunnerOptions` | Options for `createChildProcessSubagentRunnerFactory`      |
-| `ISubagentWorkerEntry`               | How to spawn a copy of the running artifact in worker mode |
-| `ISubagentWorkerStartPayload`        | IPC payload sent from parent to worker on start            |
-| `TSubagentWorkerParentMessage`       | Union of all messages the parent sends to the worker       |
-| `TSubagentWorkerChildMessage`        | Union of all messages the worker sends to the parent       |
-| `TSubagentWorkerWireValue`           | Serializable value type used in IPC messages               |
+| Export                               | Description                                                                      |
+| ------------------------------------ | -------------------------------------------------------------------------------- |
+| `IChildProcessSubagentRunnerOptions` | Options for `createChildProcessSubagentRunnerFactory`                            |
+| `ISubagentWorkerEntry`               | How to spawn a copy of the running artifact in worker mode                       |
+| `ISubagentWorkerComposition`         | What the product composes in the child: tools, provider registry, optional ports |
+| `ISubagentWorkerStartPayload`        | IPC payload sent from parent to worker on start                                  |
+| `TSubagentWorkerParentMessage`       | Union of all messages the parent sends to the worker                             |
+| `TSubagentWorkerChildMessage`        | Union of all messages the worker sends to the parent                             |
+| `TSubagentWorkerWireValue`           | Serializable value type used in IPC messages                                     |
 
-### Forked session records
+### Type guards and wire helpers
+
+| Export                                                                          | Description                                            |
+| ------------------------------------------------------------------------------- | ------------------------------------------------------ |
+| `isSubagentWorkerParentMessage`                                                 | Narrows to `TSubagentWorkerParentMessage`              |
+| `isSubagentWorkerChildMessage`                                                  | Narrows to `TSubagentWorkerChildMessage`               |
+| `SUBAGENT_WORKER_MODE_FLAG`                                                     | The argv flag that puts an entry into worker mode      |
+| `encodeAgentDefinition` / `decodeAgentDefinitionDto` / `restoreAgentDefinition` | JSON-safe wire form of the subagent's agent definition |
+| `encodeParentContext` / `decodeParentContextDto` / `restoreParentContext`       | JSON-safe wire form of the parent's loaded context     |
+
+## Forked session records
 
 If a job includes `resumeSessionId`, the composition root must provide
 `ISubagentWorkerComposition.openSessionStore`. The worker opens that store for the parent request's
@@ -102,17 +121,16 @@ If a job includes `resumeSessionId`, the composition root must provide
 completed turn is persisted back into the fork record. Only the ID crosses IPC; the conversation does
 not. Jobs without `resumeSessionId` remain transient.
 
-### Type Guards
-
-| Export                          | Description                               |
-| ------------------------------- | ----------------------------------------- |
-| `isSubagentWorkerParentMessage` | Narrows to `TSubagentWorkerParentMessage` |
-| `isSubagentWorkerChildMessage`  | Narrows to `TSubagentWorkerChildMessage`  |
-
 ## Dependencies
 
-- `@robota-sdk/agent-executor` — worktree isolation and background task primitives
-- `@robota-sdk/agent-framework` — runtime types (`ISubagentRunner`, `TSubagentRunnerFactory`)
+- `@robota-sdk/agent-executor` — `ISubagentRunner`, worktree isolation, and background task primitives
+- `@robota-sdk/agent-framework` — `TSubagentRunnerFactory` and session assembly for the worker
+- `@robota-sdk/agent-core` — provider and tool types
+- `@robota-sdk/agent-interface-execution` — subagent job contracts
+- `@robota-sdk/agent-process` — process-tree termination
+
+See [docs/SPEC.md](./docs/SPEC.md) for the package contract: required composition, IPC validation, and
+how the provider connection is checked across the process boundary.
 
 ## License
 

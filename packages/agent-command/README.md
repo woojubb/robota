@@ -1,6 +1,8 @@
-# Agent Command
+# @robota-sdk/agent-command
 
-Consolidated command module for the Robota CLI. Provides all slash-command (`/cmd`) implementations as a single importable package.
+The slash-command (`/cmd`) implementations for Robota agents, as command modules you register with an
+`agent-framework` runtime. The `robota` CLI builds its command set from this package; your own agent can
+take the whole default set, a filtered subset, or individual modules.
 
 ## Installation
 
@@ -8,81 +10,88 @@ Consolidated command module for the Robota CLI. Provides all slash-command (`/cm
 npm install @robota-sdk/agent-command
 ```
 
-## Quick Start
+## Quick start
+
+`createDefaultCommandModules` builds the default command set. It returns the selected `modules` and any
+`enabledCommandModules`/`disabledCommandModules` names that matched no module, so a host can report a
+typo instead of silently ignoring it.
+
+```typescript
+import { createDefaultCommandModules } from '@robota-sdk/agent-command';
+import type { IProviderCommandSettingsAdapter } from '@robota-sdk/agent-command';
+import type { IAIProvider, IProviderDefinition } from '@robota-sdk/agent-core';
+import { createAgentRuntime } from '@robota-sdk/agent-framework';
+
+declare const provider: IAIProvider;
+declare const providerDefinitions: readonly IProviderDefinition[]; // e.g. agent-builtin-providers
+declare const providerSettingsAdapter: IProviderCommandSettingsAdapter; // reads/writes provider profiles
+declare const userLocalStorageRoot: string; // host-chosen directory for user-local state
+
+const cwd = process.cwd();
+const { modules, unknownModuleNames } = createDefaultCommandModules({
+  cwd,
+  userLocalStorageRoot,
+  providerDefinitions,
+  providerSettingsAdapter,
+  disabledCommandModules: ['agent-command-remote-control'],
+});
+void unknownModuleNames;
+
+const runtime = createAgentRuntime({ cwd, provider, commandModules: modules });
+```
+
+Each module also has its own factory, so you can compose a smaller set by hand:
 
 ```typescript
 import {
-  createAgentCommandModule,
+  createExitCommandModule,
+  createHelpCommandModule,
   createModeCommandModule,
-  createProviderCommandModule,
 } from '@robota-sdk/agent-command';
-import type { IProviderCommandModuleOptions } from '@robota-sdk/agent-command';
 
-declare const providerOptions: IProviderCommandModuleOptions;
-
-// Register commands with a CommandRegistry (owned by agent-framework)
-const modules = [
-  createAgentCommandModule(),
-  createModeCommandModule(),
-  createProviderCommandModule(providerOptions),
-];
+const modules = [createHelpCommandModule(), createModeCommandModule(), createExitCommandModule()];
 ```
 
-## Available Commands
+## Commands
 
-| Command        | Description                                    |
-| -------------- | ---------------------------------------------- |
-| `/agent`       | Agent creation and management                  |
-| `/background`  | Background task execution                      |
-| `/compact`     | Conversation compaction                        |
-| `/context`     | Context window management                      |
-| `/editor`      | Compose a message in `$EDITOR`, then return it |
-| `/effort`      | Show or change the model effort level          |
-| `/exit`        | Session exit / quit                            |
-| `/goal`        | Assign an autonomous goal pursued across turns |
-| `/help`        | Help display                                   |
-| `/language`    | Language switching                             |
-| `/memory`      | Memory read/write                              |
-| `/mode`        | Interaction mode switching                     |
-| `/permissions` | Permission management                          |
-| `/plugin`      | Plugin enable/disable                          |
-| `/preset`      | Agent preset selection / switching             |
-| `/provider`    | AI provider configuration                      |
-| `/reset`       | Session reset                                  |
-| `/rewind`      | Conversation history rewind                    |
-| `/schedule`    | Scheduled / deferred task management           |
-| `/session`     | Session lifecycle (rename, resume, fork, list) |
-| `/settings`    | Settings management                            |
-| `/shell`       | Drop to an interactive shell, then return      |
-| `/skills`      | Skills management                              |
-| `/statusline`  | Status bar configuration                       |
-| `/user-local`  | User-local command storage                     |
+The default set covers these commands. Modules, which `enabledCommandModules` and
+`disabledCommandModules` select by name, are named `agent-command-<area>`: for example,
+`agent-command-session` provides `/clear` through `/validate-session`, and `agent-command-schedule`
+provides `/schedule`, `/monitor`, and `/loop`.
 
-## API
+| Area               | Commands                                                                                                         |
+| ------------------ | ---------------------------------------------------------------------------------------------------------------- |
+| Help and exit      | `/help`, `/exit`                                                                                                 |
+| Session            | `/clear`, `/rename`, `/cd`, `/resume`, `/cost`, `/validate-session`, `/fork`, `/rewind`, `/compact`, `/context`  |
+| Model and behavior | `/provider`, `/effort`, `/advisor`, `/preset`, `/output-style`, `/language`, `/mode`, `/permissions`, `/sandbox` |
+| Agents and work    | `/agent`, `/background`, `/goal`, `/plan`, `/schedule`, `/monitor`, `/loop`                                      |
+| Terminal           | `/shell`, `/editor`, `/keybindings`, `/theme`, `/statusline`                                                     |
+| Project and tools  | `/git`, `/memory`, `/skills`, `/mcp`, `/plugin`, `/reload-plugins`                                               |
+| Settings and state | `/settings`, `/reset`, `/user-local`, `/doctor`                                                                  |
+| Other sessions     | `/peers`, `/handoff`, `/events`, `/remote-control`, `/devices`                                                   |
 
-Each command is exposed via a factory function that returns an `ICommandModule`:
+`/doctor` and `/devices` are registered only when the host supplies their inputs (`doctorInputs`,
+`devicesPort`). `/shell`, `/editor`, `/keybindings` and `/theme` belong to the terminal the user sits at:
+a terminal attached to a workspace daemon runs them itself (see `createTerminalClientCommands`).
 
-```typescript
-import { createExitCommandModule, createHelpCommandModule } from '@robota-sdk/agent-command';
+For what each command does and its arguments, see the [CLI guide](../../content/guide/cli.md#slash-commands).
 
-const exitCmd = createExitCommandModule();
-const helpCmd = createHelpCommandModule();
-```
+## Project access
 
-All command factory functions are re-exported from the root entry point. `createDefaultCommandModules`
-registers the default command modules, including `/effort` for the active model-effort selection.
-
-Project-aware command composition is capability-based. Supply framework contribution sources for
-skills and discriminated settings sources/stores for provider setup. The command package does not
-turn `cwd` into project read/write authority; requesting a project-local write without an
+Project-aware commands are capability-based. Skills come only from the contribution sources and skill
+roots the host passes in, and provider setup writes through the injected settings adapter. The package
+never turns `cwd` into permission to read or write the project; a project-local write without an
 authority-backed store is refused explicitly.
 
 ## Dependencies
 
-- `@robota-sdk/agent-core` — core types and interfaces
-- `@robota-sdk/agent-framework` — `ICommandHostContext`, command registration
+- `@robota-sdk/agent-core` — provider and tool types
+- `@robota-sdk/agent-framework` — `ICommandModule`, command host contracts, and the shared command APIs
+- `@robota-sdk/agent-interface-command`, `@robota-sdk/agent-interface-execution`,
+  `@robota-sdk/agent-interface-session` — command, execution, and session contracts
+- `@robota-sdk/agent-preset` — presets listed and switched by `/preset`
 
-## Links
+## Documentation
 
-- [npm](https://www.npmjs.com/package/@robota-sdk/agent-command)
-- [GitHub](https://github.com/woojubb/robota)
+- [docs/SPEC.md](./docs/SPEC.md) — package contract and per-command guarantees
+- [CLI guide](../../content/guide/cli.md) — using the commands in the `robota` CLI
