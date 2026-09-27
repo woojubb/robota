@@ -240,10 +240,22 @@ export function createNodeWorkspaceTrustStore(filePath: string): IWorkspaceTrust
       generation: actualGeneration + 1,
       ...(state === 'trusted' ? { grantedAt: new Date().toISOString() } : {}),
     };
-    // One worktree root holds one repository at a time: a record there under another key is left
-    // from an earlier key or a replaced repository, and would make that root look like two
-    // trusted repositories.
-    const grants = store.grants.filter((grant) => grant.worktreeRoot !== identity.worktreeRoot);
+    // One worktree root holds one repository at a time: a trusted record there under another key is
+    // left from an earlier key or a replaced repository, and would make that root look like two
+    // trusted repositories. It is retired, not deleted: a generation only ever rises, so a repository
+    // that comes back to this root never regains a generation an approval was recorded against.
+    const grants = store.grants
+      .filter((grant) => identityKey(grant) !== identityKey(identity))
+      .map((grant) =>
+        grant.worktreeRoot === identity.worktreeRoot && grant.state === 'trusted'
+          ? {
+              repositoryKey: grant.repositoryKey,
+              worktreeRoot: grant.worktreeRoot,
+              state: 'revoked' as const,
+              generation: grant.generation + 1,
+            }
+          : grant,
+      );
     grants.push(next);
     writeStore({ version: TRUST_STORE_VERSION, grants });
     return snapshotFor(next);

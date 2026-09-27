@@ -171,7 +171,7 @@ describe('Node host workspace trust', () => {
     expect(key.split(':')).not.toContain(device);
   });
 
-  it('a new grant replaces a record left for the same worktree under an earlier key', async () => {
+  it('a new grant retires a record left for the same worktree under an earlier key', async () => {
     const root = tempRoot('robota-workspace-rekey-');
     gitInit(root);
     const storePath = join(tempRoot('robota-workspace-store-'), 'trust.json');
@@ -200,13 +200,45 @@ describe('Node host workspace trust', () => {
     await service.grant(root);
 
     const persisted = JSON.parse(readFileSync(storePath, 'utf8')) as {
-      grants: { repositoryKey: string; worktreeRoot: string }[];
+      grants: { repositoryKey: string; worktreeRoot: string; state: string }[];
     };
-    const grants = persisted.grants.filter((grant) => grant.worktreeRoot === root);
-    expect(grants).toHaveLength(1);
-    expect(grants[0]?.repositoryKey).toBe(
+    const trusted = persisted.grants.filter(
+      (grant) => grant.worktreeRoot === root && grant.state === 'trusted',
+    );
+    expect(trusted).toHaveLength(1);
+    expect(trusted[0]?.repositoryKey).toBe(
       createNodeWorkspaceIdentityResolver().resolve(root).repositoryKey,
     );
+  });
+
+  it('never hands a repository back a generation, when another held its root in between', async () => {
+    // Approvals (project MCP servers) match on the generation, so one revoked must never recur.
+    const storePath = join(tempRoot('robota-workspace-store-'), 'trust.json');
+    const store = createNodeWorkspaceTrustStore(storePath);
+    const root = tempRoot('robota-workspace-shared-root-');
+    const first = { repositoryKey: 'git:born:1:1:first', worktreeRoot: root, displayPath: root };
+    const second = { repositoryKey: 'git:born:2:2:second', worktreeRoot: root, displayPath: root };
+
+    await store.grant(first, 0); // generation 1: an approval recorded here
+    await store.revoke(first, 1); // generation 2: that approval is dead
+    await store.grant(second, 0); // another repository takes the root
+    const back = await store.grant(first, (await store.inspect(first)).generation);
+
+    expect(back.generation).toBeGreaterThan(2);
+  });
+
+  it('retires a trusted record at the root when another repository is granted there', async () => {
+    const storePath = join(tempRoot('robota-workspace-store-'), 'trust.json');
+    const store = createNodeWorkspaceTrustStore(storePath);
+    const root = tempRoot('robota-workspace-shared-root-');
+    const first = { repositoryKey: 'git:born:1:1:first', worktreeRoot: root, displayPath: root };
+    const second = { repositoryKey: 'git:born:2:2:second', worktreeRoot: root, displayPath: root };
+
+    await store.grant(first, 0);
+    await store.grant(second, 0);
+
+    await expect(store.inspect(first)).resolves.toMatchObject({ state: 'revoked', generation: 2 });
+    await expect(store.inspect(second)).resolves.toMatchObject({ state: 'trusted', generation: 1 });
   });
 
   it('resolves nested repositories independently and distinguishes linked worktrees', () => {
