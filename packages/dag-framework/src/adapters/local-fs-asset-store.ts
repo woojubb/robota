@@ -1,9 +1,12 @@
 import { createReadStream, existsSync } from 'node:fs';
 import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
+import { lookup as dnsLookup } from 'node:dns';
+import { request as httpRequest, type IncomingMessage } from 'node:http';
+import { request as httpsRequest } from 'node:https';
+import { isIP, type LookupFunction } from 'node:net';
 import path from 'node:path';
-import { Readable } from 'node:stream';
-import type { ReadableStream as NodeWebReadableStream } from 'node:stream/web';
+import { BLOCKED_HOSTNAMES, isPrivateAddress } from '@robota-sdk/agent-core/node';
 import type {
   IAssetStore,
   IStoredAssetMetadata,
@@ -23,19 +26,17 @@ export type { IStoredAssetMetadata } from '@robota-sdk/dag-core';
  * into a server-side request forgery gadget: cloud-metadata credentials (`169.254.169.254`),
  * loopback admin ports, and (on runtimes that support them) `file:`/`data:` local reads.
  *
- * The guard therefore allows only `http:`/`https:`, rejects hosts that are literal loopback,
- * private (RFC1918), CGNAT, link-local, or IPv6 unique-local/link-local addresses, re-validates
- * every redirect hop, and bounds the request with a timeout.
+ * The guard therefore allows only `http:`/`https:`, refuses loopback and cloud-metadata hostnames,
+ * and refuses any address that is not public unicast — a literal one before the request, a resolved
+ * one at connect time — re-validates every redirect hop, and bounds the exchange with a deadline.
+ * Addresses are classified by agent-core's egress classifier, so this store and the shared egress
+ * boundary cannot disagree about what is private.
  *
- * RESIDUAL GAP (stated rather than overclaimed): the host check is LITERAL-IP + hostname only.
- * A DNS NAME that resolves to a private address is not blocked, and neither is DNS rebinding
- * (resolution changing between this check and the socket connect). Closing that requires
- * connect-time address pinning via a custom undici dispatcher, which is out of scope here.
+ * Resolution happens inside the socket's own `lookup`, and the socket connects to exactly the
+ * address that lookup approved: the address judged is the address reached, so DNS rebinding has no
+ * second resolution to change.
  */
 const ALLOWED_SOURCE_URI_PROTOCOLS: ReadonlySet<string> = new Set(['http:', 'https:']);
-
-/** Hostnames that always denote the local machine regardless of resolver configuration. */
-const BLOCKED_HOSTNAMES: ReadonlySet<string> = new Set(['localhost']);
 
 /** Wall-clock budget for dereferencing one reference asset (no timeout = an indefinite socket hold). */
 const SOURCE_URI_FETCH_TIMEOUT_MS = 30_000;
@@ -45,81 +46,17 @@ const MAX_SOURCE_URI_REDIRECTS = 3;
 
 const REDIRECT_STATUS_CODES: ReadonlySet<number> = new Set([301, 302, 303, 307, 308]);
 
-/** Parse a dotted-quad IPv4 literal. Returns `undefined` when `host` is not one. */
-function parseIpv4Octets(host: string): readonly number[] | undefined {
-  const match = /^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/.exec(host);
-  if (!match) {
-    return undefined;
-  }
-  const octets = [Number(match[1]), Number(match[2]), Number(match[3]), Number(match[4])];
-  return octets.every((octet) => Number.isInteger(octet) && octet >= 0 && octet <= 255)
-    ? octets
-    : undefined;
-}
+const HTTP_OK_MIN = 200;
+const HTTP_OK_MAX = 299;
 
-/** Blocked /8 blocks, keyed by first octet: unspecified, RFC1918 private, loopback. */
-const BLOCKED_IPV4_SLASH8: ReadonlySet<number> = new Set([0, 10, 127]);
-
-/** Blocked blocks narrower than /8, as `first octet → inclusive second-octet range`. */
-const BLOCKED_IPV4_SECOND_OCTET_RANGES: ReadonlyMap<number, readonly [number, number]> = new Map([
-  [100, [64, 127]], // 100.64.0.0/10 — RFC6598 CGNAT
-  [169, [254, 254]], // 169.254.0.0/16 — link-local, incl. the 169.254.169.254 cloud-metadata service
-  [172, [16, 31]], // 172.16.0.0/12 — RFC1918 private
-  [192, [168, 168]], // 192.168.0.0/16 — RFC1918 private
-]);
-
-/** True when the IPv4 literal is loopback, unspecified, private, CGNAT, or link-local. */
-function isBlockedIpv4(octets: readonly number[]): boolean {
-  const first = octets[0] ?? -1;
-  const second = octets[1] ?? -1;
-  if (BLOCKED_IPV4_SLASH8.has(first)) {
-    return true;
-  }
-  const range = BLOCKED_IPV4_SECOND_OCTET_RANGES.get(first);
-  return range !== undefined && second >= range[0] && second <= range[1];
-}
-
-/**
- * Extract the embedded IPv4 address of an IPv4-mapped/compatible IPv6 literal. Both the dotted form
- * (`::ffff:127.0.0.1`) and the hex form the WHATWG URL parser normalizes it to (`::ffff:7f00:1`)
- * must be recognized, or `http://[::ffff:127.0.0.1]/` would slip past the loopback check.
- */
-function parseIpv4MappedOctets(host: string): readonly number[] | undefined {
-  const dotted = /^::(?:ffff:)?(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})$/.exec(host);
-  if (dotted?.[1] !== undefined) {
-    return parseIpv4Octets(dotted[1]);
-  }
-  const hex = /^::(?:ffff:)?([0-9a-f]{1,4}):([0-9a-f]{1,4})$/.exec(host);
-  if (hex?.[1] === undefined || hex[2] === undefined) {
-    return undefined;
-  }
-  const high = Number.parseInt(hex[1], 16);
-  const low = Number.parseInt(hex[2], 16);
-  // eslint-disable-next-line no-bitwise
-  return [high >>> 8, high & 0xff, low >>> 8, low & 0xff];
-}
-
-/** True when the IPv6 literal is loopback, unspecified, unique-local (fc00::/7), or link-local. */
-function isBlockedIpv6(host: string): boolean {
-  if (host === '::1' || host === '::') return true;
-  if (/^f[cd][0-9a-f]{0,2}:/.test(host)) return true; // fc00::/7 unique-local
-  if (/^fe[89ab][0-9a-f]?:/.test(host)) return true; // fe80::/10 link-local
-  const mapped = parseIpv4MappedOctets(host);
-  return mapped !== undefined && isBlockedIpv4(mapped);
-}
-
-/** True when the URL host must never be dereferenced from this process. */
+/** True when the URL host must never be dereferenced from this process, before any resolution. */
 function isBlockedHost(hostname: string): boolean {
   // `URL.hostname` brackets IPv6 literals; strip them before matching.
   const host = hostname.replace(/^\[/, '').replace(/\]$/, '').toLowerCase();
   if (BLOCKED_HOSTNAMES.has(host) || host.endsWith('.localhost')) {
     return true;
   }
-  const octets = parseIpv4Octets(host);
-  if (octets !== undefined) {
-    return isBlockedIpv4(octets);
-  }
-  return host.includes(':') && isBlockedIpv6(host);
+  return isIP(host) !== 0 && isPrivateAddress(host);
 }
 
 /**
@@ -148,22 +85,57 @@ function assertFetchableSourceUri(sourceUri: string, base?: URL): URL {
 }
 
 /**
- * Fetch a validated reference URI, re-validating each redirect hop. Redirects are followed
- * manually because `fetch`'s automatic following would let a public host bounce the request onto
- * a private address that the initial check already cleared.
+ * The socket's resolver: every answer is classified, and one private answer refuses the host — the
+ * connection may try any of them.
  */
-async function fetchSourceUri(initialUrl: URL): Promise<Response> {
+const pinnedLookup: LookupFunction = (hostname, options, callback) => {
+  dnsLookup(hostname, { ...options, all: true }, (err, addresses) => {
+    if (err) {
+      callback(err, '');
+      return;
+    }
+    const blocked = addresses.find((entry) => isPrivateAddress(entry.address));
+    const first = addresses[0];
+    if (blocked !== undefined || first === undefined) {
+      callback(
+        new Error(
+          `asset sourceUri host is not allowed (loopback/private/link-local address): ${hostname} ` +
+            `resolves to ${blocked?.address ?? 'no address'}`,
+        ),
+        '',
+      );
+      return;
+    }
+    if (options.all === true) callback(null, addresses);
+    else callback(null, first.address, first.family);
+  });
+};
+
+function requestSourceUri(url: URL, signal: AbortSignal): Promise<IncomingMessage> {
+  const send = url.protocol === 'https:' ? httpsRequest : httpRequest;
+  return new Promise((resolve, reject) => {
+    const request = send(url, { lookup: pinnedLookup, signal }, resolve);
+    request.on('error', reject);
+    request.end();
+  });
+}
+
+/**
+ * Fetch a validated reference URI, re-validating each redirect hop. Redirects are followed
+ * manually so a public host cannot bounce the request onto a private address that the initial
+ * check already cleared. The deadline covers every hop and the body.
+ */
+async function fetchSourceUri(initialUrl: URL): Promise<IncomingMessage> {
+  const signal = AbortSignal.timeout(SOURCE_URI_FETCH_TIMEOUT_MS);
   let target = initialUrl;
   for (let hop = 0; hop <= MAX_SOURCE_URI_REDIRECTS; hop += 1) {
-    const response = await fetch(target, {
-      redirect: 'manual',
-      signal: AbortSignal.timeout(SOURCE_URI_FETCH_TIMEOUT_MS),
-    });
-    if (!REDIRECT_STATUS_CODES.has(response.status)) {
+    const response = await requestSourceUri(target, signal);
+    if (!REDIRECT_STATUS_CODES.has(response.statusCode ?? 0)) {
       return response;
     }
-    const location = response.headers.get('location');
-    if (location === null || location.length === 0) {
+    response.destroy();
+    const location = response.headers.location;
+    if (location === undefined || location.length === 0) {
       throw new Error(`asset sourceUri redirect is missing a Location header: ${target.href}`);
     }
     target = assertFetchableSourceUri(location, target);
@@ -238,13 +210,12 @@ export class LocalFsAssetStore implements IAssetStore {
     if (typeof metadata.sourceUri === 'string' && metadata.sourceUri.trim().length > 0) {
       // Throws (never silently returns undefined) when the URI fails the SSRF guard above.
       const response = await fetchSourceUri(assertFetchableSourceUri(metadata.sourceUri.trim()));
-      if (!response.ok || !response.body) {
+      const status = response.statusCode ?? 0;
+      if (status < HTTP_OK_MIN || status > HTTP_OK_MAX) {
+        response.destroy();
         return undefined;
       }
-      return {
-        stream: Readable.fromWeb(response.body as unknown as NodeWebReadableStream),
-        metadata,
-      };
+      return { stream: response, metadata };
     }
     const binaryPath = this.buildBinaryPath(assetId);
     if (!existsSync(binaryPath)) {
