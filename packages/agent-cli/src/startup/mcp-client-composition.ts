@@ -842,11 +842,18 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       toolsAdded,
     ),
     reload: reloadServers,
+    reloadToolsAdded,
     ...(deps.userActionSurface === undefined ? {} : { userActionSurface: deps.userActionSurface }),
   };
 
   /** A sign-in's tools, by server, until the session says which it took. */
   const pendingProvenance = new Map<string, Map<string, IMcpConnectedToolProvenance>>();
+  /**
+   * #3282 §4 part b-2: a `reload()`'s tools, until the session says which it took — the same
+   * staging `pendingProvenance`/`toolsAdded` does for a sign-in, so a tool name collision never
+   * leaks a dropped tool into `connectedToolProvenance` (and so `/mcp status`'s `toolNames`).
+   */
+  let pendingReloadProvenance: ReadonlyMap<string, IMcpConnectedToolProvenance> | undefined;
   let resultSpillStore:
     | (IToolResultSpillStore & {
         read(reference: string): Promise<string>;
@@ -1126,8 +1133,28 @@ export function createMcpClientComposition(deps: IMcpClientCompositionDeps): IMc
       resultAdmission,
       authFailureNoticeByServerId,
     );
-    for (const [name, toolProvenance] of provenance) connectedToolProvenance.set(name, toolProvenance);
+    // Recorded once the session says which of these it took (`reloadToolsAdded`) — never committed
+    // here, so a tool name collision with one the session already has never leaks into
+    // `connectedToolProvenance` (and so `/mcp status`'s `toolNames`) as though it were live.
+    pendingReloadProvenance = provenance;
     return { tools: withResultReadTool(tools), connectedServerIds, failedServerIds };
+  }
+
+  /** The session took `added` of the tools a `reload()` returned; the rest collided with its own. */
+  function reloadToolsAdded(added: readonly string[]): void {
+    const provenance = pendingReloadProvenance;
+    pendingReloadProvenance = undefined;
+    if (provenance === undefined) return;
+    const taken = new Set(added);
+    for (const [name, entry] of provenance) {
+      if (taken.has(name)) {
+        connectedToolProvenance.set(name, entry);
+      } else {
+        deps.reportDiagnostic(
+          `MCP tool "${name}" from "${entry.serverId}" was not added: the session already has a tool by that name.`,
+        );
+      }
+    }
   }
 
   /** Reads a saved oversized MCP result back, a bounded slice at a time. */

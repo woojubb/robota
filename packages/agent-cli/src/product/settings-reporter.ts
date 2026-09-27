@@ -116,8 +116,15 @@ function asMcpServers(value: unknown): ISettingsMcpServer[] {
       name: asString(entry['displayName']) || asString(entry['serverId']),
       scopeLabel: mcpScopeLabel(entry['source']),
       status,
+      // `connectionFailureReason` is absent, not merely empty, when `connect()`/`reload()` never
+      // attempted this server at all (an sse/ws transport, which that loop skips outright) — so the
+      // fallback here must not read as "still in progress" the way "Not yet connected." would.
       ...(status === 'failed'
-        ? { statusReason: asString(entry['connectionFailureReason']) || 'Not yet connected.' }
+        ? {
+            statusReason:
+              asString(entry['connectionFailureReason']) ||
+              'Connection status is not available for this server.',
+          }
         : {}),
       toolNames: asStringArray(entry['toolNames']),
       enabled: allowed,

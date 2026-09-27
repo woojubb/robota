@@ -407,6 +407,26 @@ describe('SettingsScreen — MCP Servers section (#3282 §4 part b-2)', () => {
     openMcp();
     expect(screen.getByText('No MCP servers are configured.')).toBeTruthy();
   });
+
+  it('a failed reload stops the spinner too, not only a fresh snapshot (PR review)', () => {
+    const { rerender } = render(<SettingsScreen state={buildState()} />);
+    openMcp();
+    fireEvent.click(screen.getByRole('button', { name: /Reload servers/ }));
+    expect(screen.getByRole('button', { name: /Reload servers/ }).hasAttribute('disabled')).toBe(
+      true,
+    );
+
+    // The reload's reply is a settingsError, not a new snapshot — the spinner must still clear.
+    rerender(
+      <SettingsScreen
+        state={buildState({ settingsError: 'MCP servers could not be reloaded.' })}
+      />,
+    );
+
+    expect(screen.getByRole('button', { name: /Reload servers/ }).hasAttribute('disabled')).toBe(
+      false,
+    );
+  });
 });
 
 describe('SettingsScreen — Plugins section (#3282 §4 part b-2)', () => {

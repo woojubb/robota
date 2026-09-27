@@ -475,6 +475,40 @@ describe('createSettingsReporter (#3282 §4a)', () => {
     ]);
   });
 
+  it('never calls an unattempted server "Not yet connected." (#3282 §4 part b-2 PR review)', async () => {
+    // A server whose transport `connect()`/`reload()` never even tries (sse/ws) reports no
+    // `connection` and no `connectionFailureReason` at all — never "in progress".
+    const executeCommand = vi.fn(async (name: string, args: string) => {
+      if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+      if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+      if (name === 'mcp' && args === 'status') {
+        return listResult({
+          servers: [
+            { serverId: 'events', source: 'user', status: 'approved', allowed: true, toolNames: [] },
+          ],
+        });
+      }
+      if (name === 'plugin' && args === 'list') return listResult({ plugins: [] });
+      return null;
+    });
+    const { session, reporter } = setup({ executeCommand });
+
+    const settings = await reporter.getSettings(session);
+
+    expect(settings.mcp.servers).toEqual([
+      {
+        id: 'events',
+        name: 'events',
+        scopeLabel: 'All projects',
+        status: 'failed',
+        statusReason: 'Connection status is not available for this server.',
+        toolNames: [],
+        enabled: true,
+      },
+    ]);
+    expect(settings.mcp.servers[0]?.statusReason).not.toContain('Not yet connected');
+  });
+
   it('canInstall is true on a local read and false on a remote one', async () => {
     const executeCommand = vi.fn(async (name: string, args: string) => {
       if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });

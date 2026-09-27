@@ -47,6 +47,4 @@ importable library.
 - The Settings screen's MCP Servers section has no add-a-server or edit-a-server form: the runtime
   has no command path that writes an MCP server's own configuration — `/mcp` only approves, rejects,
   revokes or signs a server in and out, never adds or edits one — so there is no function such a form
-  could call without inventing a second, GUI-only way to change that file. The section covers
-  everything the runtime already does: list every server with its live status and tools,
-  enable/disable, and reload.
+  could call without inventing a second, GUI-only way to change that file.

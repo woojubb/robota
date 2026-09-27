@@ -432,6 +432,64 @@ describe('MCP Servers section runtime status (#3282 §4 part b-2)', () => {
     const afterReload = composition.activationAdapter.list();
     expect(afterReload.find((s) => s.serverId === 'flaky')?.connection).toBe('connected');
     expect(afterReload.find((s) => s.serverId === 'weather')?.connection).toBe('connected');
+    // `reload()` never commits tool provenance itself — nothing in `toolNames` yet, until the
+    // session says (via `reloadToolsAdded`) which of the reloaded tools it actually took.
+    expect(afterReload.find((s) => s.serverId === 'flaky')?.toolNames).toEqual([]);
+
+    await composition.shutdown();
+  });
+
+  it("reload()'s tools reach toolNames only for the names reloadToolsAdded confirms, never a dropped collision", async () => {
+    const entries = [
+      resolvedEntry({ name: 'weather' }),
+      resolvedEntry({
+        name: 'flaky',
+        definition: definition({ name: 'flaky', url: 'https://mcp.example.com/flaky' }),
+      }),
+    ];
+    const approvalStore = approvedApprovalStore(entries);
+    const failingThenTwoTools: IMcpServerConnection = {
+      discover: (() => {
+        let attempts = 0;
+        return async () => {
+          attempts += 1;
+          if (attempts === 1) throw new Error('connection refused');
+          return {
+            ...discoveryWithOneTool(),
+            tools: {
+              state: { kind: 'supported', count: 2, listChanged: false },
+              items: [
+                { name: 'status', description: 'Check status', inputSchema: { type: 'object', properties: {} } },
+                { name: 'ping', description: 'Ping', inputSchema: { type: 'object', properties: {} } },
+              ],
+              pages: 1,
+            },
+          };
+        };
+      })(),
+      callTool: async () => ({ content: [], isError: false }),
+      shutdown: async () => {},
+    };
+
+    const composition = createMcpClientComposition({
+      resolvedEntries: entries,
+      approvalStore,
+      transport: { lookup: async () => ['93.184.216.34'] },
+      createSupervisor: (options) =>
+        options.serverId === 'weather' ? fakeConnection(discoveryWithOneTool()).connection : failingThenTwoTools,
+      reportDiagnostic: () => undefined,
+    });
+
+    await composition.connect();
+    const result = await composition.activationAdapter.reload!();
+    expect(result.tools.map((tool) => tool.getName())).toEqual(['flaky__status', 'flaky__ping']);
+
+    // The session took only one of the two (the other collided with a tool it already has).
+    composition.activationAdapter.reloadToolsAdded!(['flaky__status']);
+
+    const toolNames = composition.activationAdapter.list().find((s) => s.serverId === 'flaky')?.toolNames;
+    expect(toolNames).toEqual(['flaky__status']);
+    expect(toolNames).not.toContain('flaky__ping');
 
     await composition.shutdown();
   });

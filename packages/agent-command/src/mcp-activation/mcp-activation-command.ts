@@ -277,6 +277,7 @@ async function reloadResult(context: TMCPActivationCommandContext): Promise<ICom
   const result = await mcp.reload();
   const added =
     result.tools.length === 0 ? [] : await context.getSession().addTools(result.tools);
+  if (result.tools.length > 0) mcp.reloadToolsAdded?.(added);
   const dropped = result.tools.length - added.length;
   const parts = [
     result.connectedServerIds.length === 0

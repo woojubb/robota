@@ -340,6 +340,11 @@ export interface ICommandMCPActivationAdapter {
     readonly connectedServerIds: readonly string[];
     readonly failedServerIds: readonly string[];
   }>;
+  /**
+   * Which of the tools `reload` returned the session actually took; any other was left out for a
+   * name it already had. Called once per `reload` that returned tools — mirrors `oauthToolsAdded`.
+   */
+  reloadToolsAdded?(added: readonly string[]): void;
 }
 
 /**

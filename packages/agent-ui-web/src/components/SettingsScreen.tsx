@@ -66,10 +66,12 @@ export function SettingsScreen({ state }: { state: IWsSessionState }): React.Rea
 
   // A reply to ANY request clears a reload spinner — the common case is the reload's own reply;
   // a snapshot refreshed from elsewhere in the meantime is a reasonable time to stop showing it too.
+  // `settingsError` is in the dependency list too: a reload that fails updates the error, not the
+  // snapshot, and without it the button would spin forever on a failed reload.
   useEffect(() => {
     setMcpReloading(false);
     setPluginsReloading(false);
-  }, [state.settingsSnapshot]);
+  }, [state.settingsSnapshot, state.settingsError]);
 
   if (!state.settingsOpen) return null;
 

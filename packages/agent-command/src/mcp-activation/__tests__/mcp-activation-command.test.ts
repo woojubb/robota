@@ -656,14 +656,19 @@ describe('/mcp login', () => {
 });
 
 describe('/mcp reload (#3282 §4 part b-2)', () => {
-  function harness(reload: ICommandMCPActivationAdapter['reload']) {
+  function harness(
+    reload: ICommandMCPActivationAdapter['reload'],
+    taken: (names: string[]) => string[] = (names) => names,
+  ) {
     const added: IToolWithEventService[][] = [];
+    const reloadToolsAddedCalls: (readonly string[])[] = [];
     const port: ICommandMCPActivationAdapter = {
       list: () => [],
       approve: async () => summary(),
       reject: async () => summary(),
       revoke: async () => summary(),
       reload,
+      reloadToolsAdded: (names) => reloadToolsAddedCalls.push(names),
     };
     const host = createTestCommandHost({
       overrides: { getCommandHostAdapters: () => ({ mcpActivation: port }) },
@@ -673,10 +678,14 @@ describe('/mcp reload (#3282 §4 part b-2)', () => {
       ...session,
       addTools: async (tools) => {
         added.push([...tools]);
-        return tools.map((tool) => tool.schema.name);
+        return taken(tools.map((tool) => tool.schema.name));
       },
     });
-    return { added, run: (args: string) => executeMCPActivationCommand(host, args) };
+    return {
+      added,
+      reloadToolsAddedCalls,
+      run: (args: string) => executeMCPActivationCommand(host, args),
+    };
   }
 
   const forecast = new FunctionTool(
@@ -716,6 +725,46 @@ describe('/mcp reload (#3282 §4 part b-2)', () => {
     const result = await h.run('reload');
     expect(result.success).toBe(false);
     expect(result.message).toBe('Reloading MCP servers is not available in this environment.');
+  });
+
+  it('tells the port which reloaded tools the session actually took', async () => {
+    const h = harness(
+      async () => ({
+        tools: [forecast],
+        connectedServerIds: ['weather'],
+        failedServerIds: [],
+      }),
+      (names) => names,
+    );
+
+    const result = await h.run('reload');
+
+    expect(result.success).toBe(true);
+    expect(h.reloadToolsAddedCalls).toEqual([['weather__forecast']]);
+  });
+
+  it('tells the port when a reloaded tool collided and was dropped', async () => {
+    const h = harness(
+      async () => ({
+        tools: [forecast],
+        connectedServerIds: ['weather'],
+        failedServerIds: [],
+      }),
+      () => [],
+    );
+
+    const result = await h.run('reload');
+
+    expect(result.success).toBe(true);
+    expect(h.reloadToolsAddedCalls).toEqual([[]]);
+  });
+
+  it('never calls it when nothing newly connected', async () => {
+    const h = harness(async () => ({ tools: [], connectedServerIds: [], failedServerIds: [] }));
+
+    await h.run('reload');
+
+    expect(h.reloadToolsAddedCalls).toEqual([]);
   });
 });
 
