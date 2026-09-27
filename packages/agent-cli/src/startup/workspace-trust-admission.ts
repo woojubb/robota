@@ -23,5 +23,8 @@ export function formatHeadlessWorkspaceTrustError(
     `Workspace: ${location}`,
     'Project settings, hooks, plugins, skills, and provider overrides were not loaded.',
     'Grant access with: robota trust --yes',
+    // #3282 §3: this refusal is the only thing a non-interactive `--serve --open` (or any other
+    // headless start with no TTY to ask on) ever sees, so it names the other way past it too.
+    'Or start without project sources with: --restricted-workspace',
   ].join('\n');
 }

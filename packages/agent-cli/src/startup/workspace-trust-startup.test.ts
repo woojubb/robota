@@ -71,6 +71,72 @@ describe('CLI workspace trust admission', () => {
     }
   });
 
+  it('#3282 §3: refuses `--serve --open` with no TTY to ask on, naming --restricted-workspace too', async () => {
+    const cwd = tempRoot('robota-cli-serve-open-untrusted-');
+    const userHome = tempRoot('robota-cli-serve-open-home-');
+    gitInit(cwd);
+    const previousCwd = process.cwd();
+    const previousHome = process.env.HOME;
+    const previousArgv = process.argv;
+    const previousExitCode = process.exitCode;
+    process.chdir(cwd);
+    process.env.HOME = userHome;
+    // Never a real TTY in this test process, so a stubbed refusal to ask must not be reachable —
+    // the child assertion below only holds if the code never opened a real readline prompt.
+    process.argv = ['node', 'robota', '--serve', '--open'];
+    process.exitCode = undefined;
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    try {
+      await startCli({ providerDefinitions: [] });
+
+      expect(process.exitCode).toBe(1);
+      const written = stderr.mock.calls.flat().join('');
+      expect(written).toContain('Workspace trust is required');
+      expect(written).toContain('Or start without project sources with: --restricted-workspace');
+    } finally {
+      process.chdir(previousCwd);
+      process.env.HOME = previousHome;
+      process.argv = previousArgv;
+      process.exitCode = previousExitCode;
+    }
+  });
+
+  it('#3282 §3: plain --serve (no --open) still refuses outright, even with a TTY', async () => {
+    const cwd = tempRoot('robota-cli-serve-only-untrusted-');
+    const userHome = tempRoot('robota-cli-serve-only-home-');
+    gitInit(cwd);
+    const previousCwd = process.cwd();
+    const previousHome = process.env.HOME;
+    const previousArgv = process.argv;
+    const previousExitCode = process.exitCode;
+    const previousStdinTty = process.stdin.isTTY;
+    const previousStdoutTty = process.stdout.isTTY;
+    process.chdir(cwd);
+    process.env.HOME = userHome;
+    process.argv = ['node', 'robota', '--serve'];
+    process.exitCode = undefined;
+    // A TTY alone is not enough — only `--serve --open` gets the interactive ask, so this must still
+    // refuse without ever touching the terminal (no injected answer is given).
+    process.stdin.isTTY = true;
+    process.stdout.isTTY = true;
+    const stderr = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    try {
+      await startCli({ providerDefinitions: [] });
+
+      expect(process.exitCode).toBe(1);
+      expect(stderr.mock.calls.flat().join('')).toContain('Workspace trust is required');
+    } finally {
+      process.chdir(previousCwd);
+      process.env.HOME = previousHome;
+      process.argv = previousArgv;
+      process.exitCode = previousExitCode;
+      process.stdin.isTTY = previousStdinTty;
+      process.stdout.isTTY = previousStdoutTty;
+    }
+  });
+
   it('supports a host-owned grant and revocation without exposing a credential', async () => {
     const cwd = tempRoot('robota-cli-trust-command-');
     const storePath = join(tempRoot('robota-cli-trust-store-'), 'trust.json');

@@ -102,6 +102,10 @@ import {
   SAFE_MODE_NOTICE,
 } from './startup/workspace-project-composition.js';
 import { askToTrustWorkspace, startsNewTuiSession } from './startup/interactive-trust-prompt.js';
+import {
+  askServeOpenTrustQuestion,
+  canAskServeOpenTrustQuestion,
+} from './startup/headless-serve-trust-prompt.js';
 import { runPreparsedCliCommand } from './startup/preparsed-command-routing.js';
 import { applyLaunchInvocation } from './launch-intent/open-invocation-host.js';
 import { routeProjectSetup } from './startup/project-setup-routing.js';
@@ -306,9 +310,20 @@ async function runCliCore(
     !process.argv.includes(RESTRICTED_WORKSPACE_FLAG) &&
     requiresHeadlessWorkspaceTrust(projectAccess)
   ) {
-    process.stderr.write(`${formatHeadlessWorkspaceTrustError(projectAccess, cwd)}\n`);
-    process.exitCode = 1;
-    return;
+    // #3282 §3: `--serve --open` opens a browser for whoever ran it — someone is at this terminal,
+    // unlike every other headless start here. With a TTY to ask on, this asks instead of refusing.
+    if (args.serve && args.open && canAskServeOpenTrustQuestion(projectAccess)) {
+      const answer = await askServeOpenTrustQuestion(projectAccess, cwd);
+      if (answer.decision === 'quit') {
+        process.exitCode = 1;
+        return;
+      }
+      projectAccess = answer.access;
+    } else {
+      process.stderr.write(`${formatHeadlessWorkspaceTrustError(projectAccess, cwd)}\n`);
+      process.exitCode = 1;
+      return;
+    }
   }
 
   if (args.positional[0] === 'eval') {
