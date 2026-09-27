@@ -39,6 +39,7 @@ describe('InteractiveSession — setup required (#3282 §3)', () => {
       chat: vi.fn(),
       generateResponse: vi.fn(),
       supportsTools: () => false,
+      validateConfig: () => true,
     };
     const session = new InteractiveSession({ cwd: '/tmp', provider });
     // It still fails (no real session store/init in this minimal fixture) — the point is that failure
