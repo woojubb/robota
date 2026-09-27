@@ -1,0 +1,163 @@
+{
+ "ok": true,
+ "out": [
+  {
+   "c": "/language",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"language\"}",
+    "{\"type\":\"ask-response\",\"id\":\"a31\",\"response\":{\"type\":\"cancelled\"}}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [
+    "{\"type\":\"ask_request\",\"event\":{\"id\":\"a31\",\"request\":{\"id\":\"language\",\"title\":\"Select language\",\"options\":[{\"value\":\"ko\",\"label\":\"ko\",\"description\":\"Korean\"},{\"value\":\"en\",\"label\":\"en\",\"description\":\"English\"},{\"value\":\"ja\",\"label\":\"ja\",\"description\":\"Japanese\"},{\"value\":\"zh\",\"label\":\"zh\",\"description\":\"Chinese\"}],\"maxSelect\":1}}}"
+   ],
+   "results": [],
+   "other": [],
+   "cancelled": true
+  },
+  {
+   "c": "/sandbox",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"sandbox\"}",
+    "{\"type\":\"ask-response\",\"id\":\"a32\",\"response\":{\"type\":\"cancelled\"}}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [
+    "{\"type\":\"ask_request\",\"event\":{\"id\":\"a32\",\"request\":{\"id\":\"sandbox\",\"title\":\"Sandbox mode\",\"options\":[{\"value\":\"auto-allow\",\"label\":\"auto-allow\",\"description\":\"Confine shell commands; confined ones run without a prompt\"},{\"value\":\"regular\",\"label\":\"regular\",\"description\":\"Confine shell commands; prompts work as usual\"},{\"value\":\"off\",\"label\":\"off (current)\",\"description\":\"Run shell commands on this machine, unconfined\"}],\"maxSelect\":1}}}"
+   ],
+   "results": [],
+   "other": [],
+   "cancelled": true
+  },
+  {
+   "c": "/statusline",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"statusline\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"statusline\",\"message\":\"Usage: /statusline on | off | reset | git on | git off\\nFields: model, context, permission mode, message count, session name, thinking state, git branch.\",\"success\":false}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/theme",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"theme\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"theme\",\"message\":\"Themes belong to the robota terminal, and this surface has none. Run /theme in the robota terminal.\",\"success\":false}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/keybindings",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"keybindings\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"keybindings\",\"message\":\"Key bindings belong to the robota terminal, and this surface has none. Run /keybindings in the robota terminal.\",\"success\":false}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/editor",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"editor\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"editor\",\"message\":\"An editor is unavailable here (no interactive terminal).\",\"success\":false}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/shell",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"shell\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"shell\",\"message\":\"An interactive shell is unavailable here (no interactive terminal).\",\"success\":false}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/events",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"events\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"events\",\"message\":\"This session holds no external event grant. Grants are given only when a session starts.\",\"success\":true}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/devices",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"devices\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"devices\",\"message\":\"`/devices` runs only for the operator at this terminal, never from a remote surface or the model.\",\"success\":false}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/advisor",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"advisor\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"advisor\",\"message\":\"Advisor: off. Set one with /advisor <profile> or /advisor <profile>:<model>.\",\"success\":true,\"data\":{\"advisor\":{\"enabled\":false,\"registered\":false,\"killSwitch\":false,\"sessionCalls\":0,\"maxCallsPerSession\":10}}}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  }
+ ]
+}

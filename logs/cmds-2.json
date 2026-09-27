@@ -1,0 +1,163 @@
+{
+ "ok": true,
+ "out": [
+  {
+   "c": "/settings",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"settings\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"ui_intent\",\"event\":{\"intent\":{\"type\":\"show-settings\"},\"requesterDriverId\":\"remote:ws\"}}",
+    "{\"type\":\"command_result\",\"name\":\"settings\",\"message\":\"Opening settings...\",\"success\":true}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/agent",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"agent\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"ui_intent\",\"event\":{\"intent\":{\"type\":\"show-agent-switcher\"},\"requesterDriverId\":\"remote:ws\"}}",
+    "{\"type\":\"command_result\",\"name\":\"agent\",\"message\":\"\",\"success\":true}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/background",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"background\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"background\",\"message\":\"No background tasks.\",\"success\":true,\"data\":{\"count\":0}}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/peers",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"peers\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"peers\",\"message\":\"Live sessions:\\n  68066653-04e6-4435-9506-dd1805c7cdfa  status unknown  (this session)\\n  d91983dd-e932-465f-80ae-0c293f2d14a1  status unknown  workspace unknown  liveness unknown\\n\\nSend to one: /peers send <session-id> <message>\\nSend a file: /peers send-file <session-id> <path>\",\"success\":true}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/rename",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"rename\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"rename\",\"message\":\"Usage: rename <name>\",\"success\":false}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/rewind",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"rewind\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"rewind\",\"message\":\"Edit checkpoints are off on this host: it cannot prove a write stays inside the project, so a checkpoint could be neither saved nor restored.\",\"success\":false}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/git",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"git\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"git\",\"message\":\"Usage: /git status | /git diff [--staged | <rev> | <a>..<b>] [-- <path> ...] | /git commit [<subject>]\",\"success\":false}"
+   ],
+   "other": [
+    "{\"type\":\"thinking\",\"isThinking\":true}",
+    "{\"type\":\"thinking\",\"isThinking\":false}",
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/memory",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"memory\"}"
+   ],
+   "asks": [],
+   "results": [],
+   "other": [
+    "{\"type\":\"protocol_error\",\"message\":\"Project memory is unavailable without a workspace project authority.\"}"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/output-style",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"output-style\"}",
+    "{\"type\":\"ask-response\",\"id\":\"a29\",\"response\":{\"type\":\"cancelled\"}}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [
+    "{\"type\":\"ask_request\",\"event\":{\"id\":\"a29\",\"request\":{\"id\":\"output-style\",\"title\":\"Select an output style\",\"options\":[{\"value\":\"default\",\"label\":\"default\",\"description\":\"The ordinary response style.\"},{\"value\":\"concise\",\"label\":\"concise\",\"description\":\"Lead with the result and keep routine responses short.\"},{\"value\":\"proactive\",\"label\":\"proactive\",\"description\":\"Take the next reasonable step without pausing on routine choices.\"},{\"value\":\"explanatory\",\"label\":\"explanatory\",\"description\":\"Teach the reasoning and trade-offs behind the answer.\"},{\"value\":\"learning\",\"label\":\"learning\",\"description"
+   ],
+   "results": [],
+   "other": [],
+   "cancelled": true
+  },
+  {
+   "c": "/preset",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"preset\"}",
+    "{\"type\":\"ask-response\",\"id\":\"a30\",\"response\":{\"type\":\"cancelled\"}}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [
+    "{\"type\":\"ask_request\",\"event\":{\"id\":\"a30\",\"request\":{\"id\":\"preset\",\"title\":\"Select a preset\",\"options\":[{\"value\":\"default\",\"label\":\"default\",\"description\":\"Neutral baseline preset — no overrides; reproduces the standard agent behaviour.\"},{\"value\":\"autonomous-builder\",\"label\":\"autonomous-builder\",\"description\":\"Proactive, self-verifying builder posture — high effort, acts first, dispatches parallel subagents (proactive autonomous-builder persona; original English wording).\"},{\"value\":\"careful-reviewer\",\"label\":\"careful-reviewer\",\"description\":\"Conservative, ask-first reviewing posture — reads "
+   ],
+   "results": [],
+   "other": [],
+   "cancelled": true
+  }
+ ]
+}

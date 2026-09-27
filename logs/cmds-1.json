@@ -1,0 +1,134 @@
+{
+ "ok": true,
+ "out": [
+  {
+   "c": "/help",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"help\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"help\",\"message\":\"Available commands:\\n  Skills (/skills)                 — List registered skills, or activate one by name\\n  Help (/help)                     — Show available commands\\n  Agent Jobs (/agent)              — Start and manage background subagent jobs\\n  Model Effort (/effort)           — Show or change the model effort level\\n  Advisor (/advisor)               — Show, set, or turn off the model the main model can consult for advice\\n  Permissions (/permissions)       — Show/change permission mode and permission rules\\n  Interaction Mode (/mode)         — Show/change permission mode\\n  Sandbox (/sandbox)               — Show or change how shell c"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/cost",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"cost\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"cost\",\"message\":\"Session:  session_5696ceea-3e85-44a1-8568-ae54c40b088f\\nMessages: 10\\nTokens:   381,363 input  /  7,221 output\\nCost:     $1.25  (claude-sonnet-4-6)\",\"success\":true,\"data\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"messageCount\":10,\"inputTokens\":381363,\"outputTokens\":7221,\"estimatedCostUsd\":1.2524039999999999,\"costModels\":[\"claude-sonnet-4-6\"]}}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/context",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"context\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"context\",\"message\":\"Context: 31,344 / 1,000,000 tokens (3%)\\nAuto compact: 84% (default)\\nReferences: 0 active, 0 observed\\nHistory: 10 turns\",\"success\":true,\"data\":{\"usedTokens\":31344,\"maxTokens\":1000000,\"percentage\":3.13,\"autoCompactThreshold\":0.835,\"autoCompactThresholdSource\":\"default\",\"references\":[]}}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/doctor",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"doctor\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"doctor\",\"message\":\"\\nrobota doctor\\n\\n  ✓ Node.js version [host.node] ok: v24.13.0\\n  ✓ robota version [host.cli] ok: 3.0.0-beta.83\\n  ✓ Terminal [host.terminal] ok: unknown\\n  ✓ Command containment [execution.containment] ok: host\\n      Sandboxing is off; seatbelt is available.\\n      Shell commands run directly on this machine; permission rules and prompts are the only boundary.\\n  ✓ Settings layer [settings.user.robota] ok: ok\\n      path: /Users/jungyoun/.robota/settings.json\\n  ✓ Settings layer [settings.user.claude] ok: ok\\n      path: /Users/jungyoun/.claude/settings.json\\n  ○ Settings layer [settings.project.robota] not-configured: absent\\n      path"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/mcp",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"mcp\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"mcp\",\"message\":\"No MCP definitions are registered.\",\"success\":true,\"data\":{\"servers\":[],\"sourceProblems\":[]}}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/permissions",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"permissions\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"permissions\",\"message\":\"Permission mode: default\\n\\nRules (checked deny, then ask, then allow):\\n  this session (CLI flags, preset, commands)\\n    allow: Read(.agents/**), Read(.claude/**), Read(.robota/**), Glob(.agents/**), Glob(.claude/**), Glob(.robota/**), robota_command_skills, robota_command_agent, robota_command_memory, robota_command_mcp, robota_command_compact, robota_command_context, robota_command_cost, robota_command_schedule, robota_command_monitor, robota_command_workflows\\n\\nNo session-approved tools.\\n\\nRecent denials: none.\",\"success\":true,\"data\":{\"mode\":\"default\",\"sessionAllowed\":[]}}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/skills",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"skills\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"skills\",\"message\":\"Registered skills:\\n- agents-sdk: Build AI agents on Cloudflare Workers using the Agents SDK. Load when creating stateful agents, durable workflows, real-time WebSocket apps, scheduled tasks, MCP servers, chat applications, voice agents, or browser automation. Covers Agent class, state management, callable RPC, Workflows, durable execution, queues, retries, observability, and React hooks. Biases towards retrieval from Cloudflare docs over pre-trained knowledge.\\n- audit-fanout: 여러 감사 에이전트를 병렬로 흩뿌려 넓은 범위를 전수 감사해야 할 때 사용 — 특히 범위가 커서 1회 디스패치로는 표본 감사에 그칠 위험이 있거나, \\\"무엇을 안 봤는지\\\"가 결과만큼 중요할 때. 감사 대상·에이전트 집합·브리프를 호출자로부터 받아야 한다.\\n- cloudflare: Compre"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/plugin",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"plugin\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"ui_intent\",\"event\":{\"intent\":{\"type\":\"show-plugin-manager\"},\"requesterDriverId\":\"remote:ws\"}}",
+    "{\"type\":\"command_result\",\"name\":\"plugin\",\"message\":\"Opening plugin manager...\",\"success\":true}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  }
+ ]
+}

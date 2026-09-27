@@ -1,0 +1,205 @@
+{
+ "ok": true,
+ "out": [
+  {
+   "c": "/loop",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"loop\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"loop\",\"message\":\"Self-paced loop loop_760439d5-34f1-4799-83bb-bd0fef92841e started. It will choose a 1–60 minute delay after each iteration and expires 2026-10-04T10:51:19.432Z. Stop with /loop stop loop_760439d5-34f1-4799-83bb-bd0fef92841e.\",\"success\":true,\"data\":{\"loopId\":\"loop_760439d5-34f1-4799-83bb-bd0fef92841e\",\"expiresAt\":\"2026-10-04T10:51:19.432Z\"}}"
+   ],
+   "other": [
+    "{\"type\":\"turn_source\",\"source\":\"agent-wakeup\"}",
+    "{\"type\":\"user_message\",\"content\":\"Resume only the current authorized work, tend its existing PR and checks, and report blockers. Do not start a new initiative o",
+    "{\"type\":\"thinking\",\"isThinking\":true,\"driverId\":\"agent\"}",
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a",
+    "{\"type\":\"text_delta\",\"delta\":\"현\",\"driverId\":\"agent\"}",
+    "{\"type\":\"text_delta\",\"delta\":\"재 세\",\"driverId\":\"agent\"}"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/schedule",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"schedule\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"list-sessions\",\"requestId\":\"sessions_12_1790506285317\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"schedule\",\"message\":\"Another prompt or command is already running. Wait for it to finish.\",\"success\":false}"
+   ],
+   "other": [
+    "{\"type\":\"text_delta\",\"delta\":\"인** — 완료 \",\"driverId\":\"agent\"}",
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a",
+    "{\"type\":\"text_delta\",\"delta\":\"✅\",\"driverId\":\"agent\"}",
+    "{\"type\":\"text_delta\",\"delta\":\" (5\",\"driverId\":\"agent\"}",
+    "{\"type\":\"text_delta\",\"delta\":\"/\",\"driverId\":\"agent\"}",
+    "{\"type\":\"text_delta\",\"delta\":\"5 통과)\",\"driverId\":\"agent\"}"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/monitor",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"monitor\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"monitor\",\"message\":\"Usage: /monitor \\\"<command>\\\" \\\"<pattern>\\\" <instruction>\",\"success\":false}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/goal",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"goal\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"goal\",\"message\":\"Usage:\\n  /goal <objective>   assign a goal and pursue it autonomously\\n  /goal status        show the current goal and progress\\n  /goal cancel        stop the current goal\",\"success\":true}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/workflows",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"workflows\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"workflows\",\"message\":\"Usage: /workflows <create|build|list|catalog|validate|run|status|cancel>\\n  create \\\"<description>\\\"  Author a workflow from a natural-language description and run it immediately\\n  build \\\"<description>\\\"   Author a workflow from a natural-language description and save it for review (no run)\\n  list                    List available workflow nodes (built-ins + nodes saved in this workspace)\\n  catalog                 List workflow files in the local .workflows catalog\\n  validate <file.json>    Validate a workflow file against the node catalog\\n  run <file.json>         Run a workflow file\\n  status <run-id>         Inspect a detached r"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/reload-plugins",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"reload-plugins\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"reload-plugins\",\"message\":\"Reloaded 3 plugin resources.\",\"success\":true,\"data\":{\"pluginRegistryReloaded\":true}}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/validate-session",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"validate-session\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"validate-session\",\"message\":\"Session replay log is valid.\\nLog: .robota/logs/session_5696ceea-3e85-44a1-8568-ae54c40b088f.jsonl\\nEntries: 0\",\"success\":true,\"data\":{\"logFile\":\".robota/logs/session_5696ceea-3e85-44a1-8568-ae54c40b088f.jsonl\",\"entryCount\":0,\"issueCount\":0,\"ok\":true}}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/user-local",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"user-local\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"user-local\",\"message\":\"Usage: user-local storage list [--format json] | user-local memory set <category> <key> <value> --summary <summary> --source <source> | user-local memory list [--format json] | user-local memory inspect <category> <key> [--format json] | user-local memory disable <category> <key> | user-local memory delete <category> <key>\",\"success\":false}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/cd",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"cd\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"cd\",\"message\":\"Usage: /cd <directory>\",\"success\":false}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/handoff",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"handoff\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"handoff\",\"message\":\"This session could move to:\\n  d91983dd-e932-465f-80ae-0c293f2d14a1  another session on this machine\\n\\nUsage:\\n  /handoff                         list where this session could move to\\n  /handoff <session-or-device-id>  move it there, after confirming what stays behind\",\"success\":true}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/remote-control status",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"remote-control\",\"args\":\"status\"}",
+    "{\"type\":\"get-status\"}",
+    "{\"type\":\"get-commands\"}"
+   ],
+   "asks": [],
+   "results": [
+    "{\"type\":\"command_result\",\"name\":\"remote-control\",\"message\":\"Remote control is off. Use `/remote-control` to enable it.\\nHost key storage: chosen when remote control is first enabled\",\"success\":true}"
+   ],
+   "other": [
+    "{\"type\":\"session_status\",\"status\":{\"sessionId\":\"session_5696ceea-3e85-44a1-8568-ae54c40b088f\",\"model\":\"claude-sonnet-4-6\",\"permissionMode\":\"default\",\"effort\":\"a"
+   ],
+   "cancelled": false
+  },
+  {
+   "c": "/compact",
+   "sent": [
+    "{\"type\":\"command\",\"name\":\"compact\"}"
+   ],
+   "asks": [],
+   "results": [],
+   "other": [
+    "{\"type\":\"thinking\",\"isThinking\":true}"
+   ],
+   "cancelled": false
+  }
+ ]
+}

@@ -1,0 +1,2 @@
+Web monitor: http://127.0.0.1:58518
+[robota] [2026-09-27T11:04:20.046Z] [ERROR] [ExecutionService] [ROUND] Provider call failed error=Provider Error (anthropic): Anthropic request failed: 401 {"type":"error","error":{"type":"authentication_error","message":"invalid x-api-key"},"request_id":"req_011CfTqJi8JibgZrrz9KH1WR"} round=1

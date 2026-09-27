@@ -1,0 +1,5 @@
+Workspace trust is required before headless startup (state: untrusted).
+Workspace: /private/tmp/claude-501/-Users-jungyoun-Documents-dev-woojubb-robota-5/6fbad5fc-64cb-4621-8e62-92858510d96a/scratchpad/fixture/task-tracker
+Project settings, hooks, plugins, skills, and provider overrides were not loaded.
+Grant access with: robota trust --yes
+exit=1

@@ -1,0 +1,4 @@
+c1b583b Run tests through a glob
+61f9447 Add title validation tests
+313a432 Add task creation with title validation
+250ad34 Initial project skeleton

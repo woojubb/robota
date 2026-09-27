@@ -1,0 +1,18 @@
+✓ connects to the token-gated sidecar and streams a reply
+✓ / opens the command menu with skills; Enter completes, Enter runs
+✓ / marks a command the terminal runs with "terminal"
+✓ the status row shows the session status and follows a change
+✓ a long command result is a folded card and the composer stays usable
+✓ a screen the GUI lacks answers its command once, as an info card
+✓ a finished turn keeps its tool calls as one line that opens
+✓ a permission prompt docks above the composer; 1 allows it
+✓ a provider failure keeps the partial reply and raises a toast
+✓ the usage dashboard renders the sidecar report without raw content
+✓ the sidebar lists this workspace's sessions, the current one marked
+✓ rows mark live sessions and count the clients other than this one
+✓ a switch refused while a turn runs shows the host's reason
+✓ clicking another session switches the transcript to it
+✓ /resume opens the collapsed sidebar instead of a "not available" line
+✓ + New session starts an empty session and lists it
+
+WEB E2E PASSED

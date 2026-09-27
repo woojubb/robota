@@ -1,0 +1,37 @@
+diff --git a/README.md b/README.md
+index 63d3d69..d037853 100644
+--- a/README.md
++++ b/README.md
+@@ -15,3 +15,7 @@ npm test
+ ```
+ 
+ Requires Node 22.6 or later (the tests run TypeScript through `--experimental-strip-types`).
++
++## Limits
++
++- Task titles are limited to 80 characters.
+diff --git a/src/task-title.ts b/src/task-title.ts
+index 144623d..7f4a431 100644
+--- a/src/task-title.ts
++++ b/src/task-title.ts
+@@ -6,7 +6,7 @@ export type TitleResult =
+ 
+ /** Validate a task title before a task is created. */
+ export function validateTaskTitle(input: string): TitleResult {
+-  if (input.length === 0) {
++  if (input.trim().length === 0) {
+     return { ok: false, error: 'Title is required' };
+   }
+   if (input.length > MAX_TITLE_LENGTH) {
+diff --git a/test/task-title.test.ts b/test/task-title.test.ts
+index 751bf56..62e3e0e 100644
+--- a/test/task-title.test.ts
++++ b/test/task-title.test.ts
+@@ -18,3 +18,7 @@ test('rejects a title that is only whitespace', () => {
+ test('rejects a title longer than the limit', () => {
+   assert.equal(validateTaskTitle('x'.repeat(MAX_TITLE_LENGTH + 1)).ok, false);
+ });
++
++test('accepts a title of exactly the maximum length', () => {
++  assert.equal(validateTaskTitle('x'.repeat(MAX_TITLE_LENGTH)).ok, true);
++});

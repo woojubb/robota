@@ -1,0 +1,10 @@
+No provider configuration found.
+Run `robota --configure` in an interactive terminal, or configure a provider:
+Supported providers: anthropic, openai, gemini (alias: google), gemma, qwen, deepseek
+  robota --configure-provider anthropic --type anthropic --model <model> --api-key-env <ENV_NAME> --set-current
+  robota --configure-provider openai --type openai --model <model> --api-key-env <ENV_NAME> --set-current
+  robota --configure-provider gemini --type gemini --model <model> --api-key-env <ENV_NAME> --set-current
+  robota --configure-provider gemma --type gemma --base-url <url> --model <model> --api-key-env <ENV_NAME> --set-current
+  robota --configure-provider qwen --type qwen --base-url <url> --model <model> --api-key-env <ENV_NAME> --set-current
+  robota --configure-provider deepseek --type deepseek --base-url <url> --model <model> --api-key-env <ENV_NAME> --set-current
+exit=1

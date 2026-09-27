@@ -1,0 +1,17 @@
+Downloading Electron binary...
+✓ TC-01: the window connects to the token-gated daemon it started
+✓ TC-01: a turn round-trips through the desktop shell
+✓ #3189: closing the window leaves the daemon running
+✓ #3189: the next launch reattaches to the same daemon
+✓ #3189: the conversation from the first launch is still there
+✓ #3189: a daemon that stops while the window is open leaves the window saying so
+✓ #3189: Reconnect starts a new daemon and the window attaches to it
+✓ #3189: a Reconnect whose start fails shows the CLI reason
+✓ #3268: an untrusted folder asks first, and nothing has started
+✓ #3268: Start Restricted starts the daemon Restricted and connects
+✓ #3268: Start Restricted leaves the folder untrusted
+✓ #3268: Reconnect after Start Restricted starts the daemon Restricted again
+✓ #3268: Trust folder records the grant, then starts the daemon with the project configuration
+✓ #3189: a daemon that cannot start reaches the fatal screen with the CLI reason
+
+E2E PASSED
