@@ -5,8 +5,9 @@ depend on each other, and which apps are built from them.
 
 ## System Overview
 
-Libraries sit below, composition roots on top. Rows are ordered by dependency: a package depends
-only on packages in its own row or in lower rows, never on a higher row. Everything under
+Libraries sit below, composition roots on top. Rows are ordered by dependency: a package's production
+dependencies are only packages in its own row or in lower rows, never in a higher row (test-only
+dependencies may reach up). Everything under
 `packages/` is neutral; product opinions live in the composition roots.
 
 ```
@@ -51,9 +52,12 @@ DAG / workflow subsystem (private; depends on the SDK packages, never the revers
   dag-core, dag-node ← dag-node-* leaves ← dag-nodes-default
   dag-framework, dag-nodes-default ← agent-command-workflows (/workflows in agent-cli)
   (A ← B: B depends on A)
+
+App support (private; used by apps/agent-server and apps/agent-web)
+  agent-playground · agent-remote-client
 ```
 
-The full edge-level graph is in [`diagrams/robota-architecture.mmd`](diagrams/robota-architecture.mmd).
+The main package-level edges are drawn in [`diagrams/robota-architecture.mmd`](diagrams/robota-architecture.mmd).
 
 > **What the rows do not show.** Providers are injected: `agent-framework` never depends on an
 > `agent-provider-*` package; the composition root constructs the provider and hands it in.

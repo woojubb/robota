@@ -30,9 +30,9 @@ list the exact members.
 flowchart TB
     SURF["**Surfaces**\nagent-cli · agent-ui-terminal · agent-ui-web · agent-gui-web"]
     TRANS["**Transports**\nagent-transport · agent-transport-{http,ws,mcp,webrtc}"]
-    COMP["**Composition**\nagent-command · agent-preset · agent-tool-defaults\nagent-builtin-providers · agent-product · pack-coding"]
+    COMP["**Composition**\nagent-command · agent-preset\nagent-builtin-providers · agent-product · pack-coding"]
     FW["**Assembly**\nagent-framework"]
-    RT["**Runtime**\nagent-session · agent-executor"]
+    RT["**Runtime**\nagent-session · agent-executor · agent-tool-defaults"]
     CAP["**Capabilities**\nagent-tools · agent-mcp · agent-plugin · agent-provider-*"]
     IF["**Contracts**\nagent-interface-*"]
     CORE["**Foundation**\nagent-core"]
@@ -47,6 +47,7 @@ flowchart TB
     FW --> CAP
     FW --> IF
     RT --> IF
+    RT --> CAP
     CAP --> CORE
     RT --> CORE
     IF --> CORE
@@ -109,7 +110,7 @@ Each provider package is a leaf over `agent-core` (the OpenAI package also reuse
 it. `agent-plugin` depends only on `agent-core`; plugins attach to the engine and never reach into
 the layers above it.
 
-### Runtime — `agent-session`, `agent-executor`
+### Runtime — `agent-session`, `agent-executor`, `agent-tool-defaults`
 
 `agent-session` wraps a `Robota` instance in a `Session`: tool calls pass through permission checks
 and hooks, context usage is tracked, the conversation is compacted when it grows too large, and
@@ -119,6 +120,11 @@ it never constructs them.
 `agent-executor` provides background-task lifecycles (queueing, cancellation, snapshots) and the
 subagent job ports. `agent-subagent-runner` is an optional add-on that runs subagents in child
 processes.
+
+`agent-tool-defaults` holds `createDefaultTools()`, the default tool set (built on `agent-tools`).
+`agent-framework` loads it lazily when it assembles a session, and a caller replaces it by passing its
+own `defaultTools`; a library that needs only the tool mechanism depends on `agent-tools` and never
+pulls in the default catalog.
 
 ### Assembly — `agent-framework`
 
@@ -136,7 +142,6 @@ loads no user settings, no project instructions and no project skills. See
 
 | Package                   | Role                                                                              |
 | ------------------------- | --------------------------------------------------------------------------------- |
-| `agent-tool-defaults`     | `createDefaultTools()` — the default tool set every session gets unless replaced  |
 | `agent-builtin-providers` | `createDefaultProviderDefinitions()` — the built-in chat provider definitions     |
 | `agent-command`           | The slash-command modules (`/help`, `/compact`, `/permissions`, and the rest)     |
 | `agent-preset`            | Named bundles of session options (persona, model, permission posture)             |
@@ -145,8 +150,8 @@ loads no user settings, no project instructions and no project skills. See
 | `agent-product`           | `assembleProduct()` — builds a product from a declarative profile                 |
 
 These packages are meant to be imported where an application is put together (its "composition
-root"), not by libraries in the middle of the stack. Keeping defaults here means a library that only
-needs the mechanism never drags in the whole default catalog.
+root"), not by libraries in the middle of the stack, so a library that only needs the mechanisms
+never drags in these defaults.
 
 ### Transports
 

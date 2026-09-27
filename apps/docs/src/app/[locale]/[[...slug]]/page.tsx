@@ -7,7 +7,13 @@ import rehypeSlug from 'rehype-slug';
 import rehypeAutolinkHeadings from 'rehype-autolink-headings';
 import { getTranslations, setRequestLocale } from 'next-intl/server';
 
-import { getAllSlugs, getPageContent, extractTitle, MONOREPO_ROOT, PACKAGES_DIR } from '@/lib/content';
+import {
+  getAllSlugs,
+  getPageContent,
+  extractTitle,
+  MONOREPO_ROOT,
+  PACKAGES_DIR,
+} from '@/lib/content';
 import { buildPackageIndex } from '@/lib/packages-index';
 import { buildSidebar } from '@/lib/sidebar';
 import { extractToc } from '@/lib/toc';
@@ -183,12 +189,18 @@ function HomePage({
         </p>
         <pre className="overflow-x-auto rounded-[0.375rem] border border-[var(--border-strong)] border-t-[var(--primary)] bg-[#020207] px-[1.375rem] py-[1.125rem] [font-family:var(--font-code)] text-[0.825rem] leading-[1.65] text-[#d4d4d8]">
           <code>
-            <span className="text-[#52525b]"># Build an agent in your app: core + one provider + tools</span>
+            <span className="text-[#52525b]">
+              # Build an agent in your app: core + one provider + tools
+            </span>
             {'\n'}
             <span className="text-primary opacity-85">pnpm</span>
-            {' add @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic @robota-sdk/agent-tools'}
+            {
+              ' add @robota-sdk/agent-core @robota-sdk/agent-provider-anthropic @robota-sdk/agent-tools'
+            }
             {'\n\n'}
-            <span className="text-[#52525b]"># Or try the reference CLI built from the same libraries</span>
+            <span className="text-[#52525b]">
+              # Or try the reference CLI built from the same libraries
+            </span>
             {'\n'}
             <span className="text-primary opacity-85">pnpm</span>
             {' add -g @robota-sdk/agent-cli'}

@@ -54,7 +54,9 @@ afterAll(() => {
 describe('resolveDocLink', () => {
   it('resolves a sibling link from a leaf page against the source file, not the page URL', () => {
     expect(resolveFrom('content/guide/cli.md', './plugins.md')).toBe('/en/guide/plugins/');
-    expect(resolveFrom('content/guide/cli.md', 'plugins.md#hooks')).toBe('/en/guide/plugins/#hooks');
+    expect(resolveFrom('content/guide/cli.md', 'plugins.md#hooks')).toBe(
+      '/en/guide/plugins/#hooks',
+    );
   });
 
   it('maps README files and directories to their section route', () => {
@@ -67,9 +69,9 @@ describe('resolveDocLink', () => {
     expect(resolveFrom('content/guide/cli.md', '../../packages/agent-core/docs/SPEC.md')).toBe(
       '/en/packages/agent-core/SPEC/',
     );
-    expect(resolveFrom('content/guide/cli.md', '../../packages/agent-core/docs/README.md', 'ko')).toBe(
-      '/ko/packages/agent-core/',
-    );
+    expect(
+      resolveFrom('content/guide/cli.md', '../../packages/agent-core/docs/README.md', 'ko'),
+    ).toBe('/ko/packages/agent-core/');
     expect(resolveFrom('packages/agent-core/docs/README.md', './SPEC.md#contract')).toBe(
       '/en/packages/agent-core/SPEC/#contract',
     );
@@ -79,9 +81,9 @@ describe('resolveDocLink', () => {
     expect(resolveFrom('content/ko/getting-started/README.md', '../../guide/cli.md', 'ko')).toBe(
       '/ko/guide/cli/',
     );
-    expect(resolveFrom('content/getting-started/README.md', '../ko/getting-started/README.md')).toBe(
-      '/ko/getting-started/',
-    );
+    expect(
+      resolveFrom('content/getting-started/README.md', '../ko/getting-started/README.md'),
+    ).toBe('/ko/getting-started/');
   });
 
   it('sends files the site does not render to GitHub', () => {
@@ -122,7 +124,11 @@ describe('resolveDocLink', () => {
 
 describe('resolveDocImage', () => {
   function imageFrom(sourceRel: string, src: string): string {
-    return resolveDocImage(src, { sourcePath: path.join(repoRoot, sourceRel), locale: 'en', repoRoot });
+    return resolveDocImage(src, {
+      sourcePath: path.join(repoRoot, sourceRel),
+      locale: 'en',
+      repoRoot,
+    });
   }
 
   it('serves a relative image from GitHub raw content, resolved against the source file', () => {
@@ -132,7 +138,9 @@ describe('resolveDocImage', () => {
   });
 
   it('leaves absolute, external and missing images unchanged', () => {
-    expect(imageFrom('content/README.md', 'https://example.com/a.png')).toBe('https://example.com/a.png');
+    expect(imageFrom('content/README.md', 'https://example.com/a.png')).toBe(
+      'https://example.com/a.png',
+    );
     expect(imageFrom('content/README.md', '/favicon.svg')).toBe('/favicon.svg');
     expect(imageFrom('content/README.md', './missing.png')).toBe('./missing.png');
   });

@@ -4,9 +4,12 @@ import { buildSitemapEntries } from './sitemap';
 
 describe('buildSitemapEntries', () => {
   it('lists every page in every locale with the served trailing-slash URL', () => {
-    const urls = buildSitemapEntries([[], ['guide'], ['guide', 'cli'], ['packages', 'agent-core']]).map(
-      (e) => e.url,
-    );
+    const urls = buildSitemapEntries([
+      [],
+      ['guide'],
+      ['guide', 'cli'],
+      ['packages', 'agent-core'],
+    ]).map((e) => e.url);
 
     expect(urls).toEqual([
       'https://docs.robota.io/en/',
