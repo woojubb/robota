@@ -2,6 +2,7 @@ import type { ISubmitOptions, TDriverId } from './driver-contracts.js';
 import type { TWaitingLoopStopOutcome } from './session-loop-contracts.js';
 import type {
   IGoalState,
+  IHistoryDisplaySegment,
   IInteractiveSessionEvents,
   IModelListSnapshot,
   ISessionStatusSnapshot,
@@ -90,6 +91,13 @@ export interface ISessionConversationRead {
    * `getMessages()` is its chat entries alone; a client that renders the session reads this.
    */
   getFullHistory(): IHistoryEntry[];
+  /**
+   * #3288 §2: `getMessages()`'s chat entries, projected into the same display shapes a live stream
+   * produces — text runs and finished tool calls (diffs included, built from each call's arguments
+   * only, never a disk read), in chronological order. A reload, reconnect or session resume has no
+   * live stream to rebuild tool rows from; a client renders THIS instead of falling back to bare text.
+   */
+  getMessagesDisplay(): IHistoryDisplaySegment[];
   getContextState(): IContextWindowState;
 }
 
@@ -234,7 +242,12 @@ export const SESSION_CAPABILITY_MEMBER_KEYS = Object.freeze({
   goal: Object.freeze(['setGoal', 'getGoalState', 'cancelGoal'] as const),
   executionState: Object.freeze(['isExecuting', 'getPendingPrompt', 'getPendingCount'] as const),
   driverAttribution: Object.freeze(['getActiveDriverId'] as const),
-  conversationRead: Object.freeze(['getMessages', 'getFullHistory', 'getContextState'] as const),
+  conversationRead: Object.freeze([
+    'getMessages',
+    'getFullHistory',
+    'getMessagesDisplay',
+    'getContextState',
+  ] as const),
   identity: Object.freeze(['getSession'] as const),
   workspaceLocation: Object.freeze(['getCwd'] as const),
   commands: Object.freeze(['executeCommand', 'listCommands', 'listSkills', 'listModels'] as const),

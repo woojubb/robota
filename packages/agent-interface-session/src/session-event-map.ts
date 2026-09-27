@@ -61,6 +61,20 @@ export interface IToolState {
   internal?: boolean;
 }
 
+/**
+ * #3288 §2 (history replay): one piece of a REPLAYED transcript — a reload, reconnect or session
+ * resume has no live stream to rebuild tool rows from, only stored history. The server projects that
+ * history into a chronological sequence of these (text runs and finished tool calls, in the order
+ * they happened), so a client renders the same shapes a live stream would have produced instead of
+ * text-only bubbles. A `'tool'` segment carries the SAME {@link IToolState} shape `tool_end` carries —
+ * diff included, capped the same way — always with `isRunning: false` (a replay never shows a call as
+ * still running; see the projector's own doc comment for why). `'text'` never carries an empty string:
+ * the projector omits a segment rather than emit one with nothing to show.
+ */
+export type IHistoryDisplaySegment =
+  | { type: 'text'; role: 'user' | 'assistant'; content: string }
+  | { type: 'tool'; tool: IToolState };
+
 /** Permission handler delegate — clients provide their own UI. */
 export type TInteractivePermissionHandler = (
   toolName: string,

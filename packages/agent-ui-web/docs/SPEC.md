@@ -26,10 +26,12 @@ does not own session lifecycle, conversation history, or agent runtime state.
   path, transport lifecycle handling, or an explicit "intentionally not rendered" marker. An
   unrecognized or not-yet-supported message never falls through silently.
 - The conversation carries what the CLI's transcript carries: a typed command's outcome and a
-  finished turn's tool calls sit in it where they happened, and never push the composer out of view.
-  A change made through a status control instead confirms itself through the control's own label —
-  never a conversation entry — with a failed change surfaced as a toast instead. Session and protocol
-  failures are also toasts, beside the conversation rather than in it.
+  finished turn's tool calls sit in it where they happened, and never push the composer out of view —
+  the same whether they streamed in live or were rebuilt from a reload, reconnect, or session resume's
+  history replay, never falling back to bare text once a tool call is gone from what a live stream
+  would have shown. A change made through a status control instead confirms itself through the
+  control's own label — never a conversation entry — with a failed change surfaced as a toast instead.
+  Session and protocol failures are also toasts, beside the conversation rather than in it.
 - A tool call's diff or output is server-computed and shown on demand, never recomputed here and
   never buried behind a truncated path or argument; an internal signal tool never renders as a call,
   and a projected `/command` tool shows the command it ran, not the provider-facing tool name.

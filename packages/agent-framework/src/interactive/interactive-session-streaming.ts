@@ -74,7 +74,12 @@ interface IToolEndEvent {
   executionId?: string;
 }
 
-function getStringArg(args: TToolArgs | undefined, snake: string, camel: string): string | null {
+/** #3288 §2: exported so the history-replay projector can extract a path arg the same way live does. */
+export function getStringArg(
+  args: TToolArgs | undefined,
+  snake: string,
+  camel: string,
+): string | null {
   const value = args?.[snake] ?? args?.[camel];
   return typeof value === 'string' ? value : null;
 }

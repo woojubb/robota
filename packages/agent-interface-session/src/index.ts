@@ -73,6 +73,7 @@ export type {
   TTurnNotRunReason,
   IToolState,
   IDiffLine,
+  IHistoryDisplaySegment,
   IToolSummary,
   TPermissionResultValue,
   TInteractivePermissionHandler,

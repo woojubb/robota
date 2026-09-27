@@ -53,7 +53,10 @@ export function handleSessionQueryMessage(
   msg: TSessionQueryMessage,
 ): void {
   if (msg.type === 'get-messages') {
-    deliver({ type: 'messages', messages: session.getMessages() });
+    // #3288 §2: `display` rides the same frame as `messages` — a reload/reconnect/resume replay
+    // needs both in one round trip, and there is no reason a client would ever want one without
+    // the other (the raw messages already have to be fetched to build the projection).
+    deliver({ type: 'messages', messages: session.getMessages(), display: session.getMessagesDisplay() });
   } else if (msg.type === 'get-history') {
     deliver(historyPage(session, msg.fromIndex ?? 0));
   } else if (msg.type === 'get-prompts') {

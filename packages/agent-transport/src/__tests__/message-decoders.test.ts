@@ -105,7 +105,17 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
     success: true,
     requestId: 'command-1',
   },
-  messages: { type: 'messages', messages: [] },
+  // #3288 §2: `display` is optional (an older host may not send it) and foreign-owned
+  // (`IHistoryDisplaySegment`, `agent-interface-session`) — checked shallowly here, same as
+  // `tool_start`'s `state`, per this file's own header.
+  messages: {
+    type: 'messages',
+    messages: [],
+    display: [
+      { type: 'text', role: 'user', content: 'hi' },
+      { type: 'tool', tool: { toolName: 'Bash', firstArg: 'ls', isRunning: false } as never },
+    ],
+  },
   history: {
     type: 'history',
     startIndex: 3,
@@ -373,6 +383,8 @@ const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
   ['messages with a non-array', { type: 'messages', messages: {} }],
   ['messages with a primitive entry', { type: 'messages', messages: ['x'] }],
   ['messages with a numeric driverId', { type: 'messages', messages: [], driverId: 12345 }],
+  ['messages with a non-array display', { type: 'messages', messages: [], display: {} }],
+  ['messages with a display holding a primitive entry', { type: 'messages', messages: [], display: ['x'] }],
   ['pending with a number', { type: 'pending', pending: 1, pendingCount: 1 }],
   ['pending with a negative count', { type: 'pending', pending: null, pendingCount: -1 }],
   ['pending with a fractional count', { type: 'pending', pending: 'p', pendingCount: 1.5 }],
