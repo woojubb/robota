@@ -1,65 +1,149 @@
 graph TD
-  subgraph Contracts["agent-interface-* (pure type contracts, zero runtime deps)"]
-    IF[agent-interface-transport<br/>IInteractionChannel · InteractionEvent]
+  %% Package dependency graph of the Robota monorepo.
+  %% An arrow A --> B means "B depends on A" (A is used by B). Dotted arrows are runtime
+  %% relations, not package dependencies. Grouped boxes stand for several packages.
+
+  subgraph Leaves["Leaves (no @robota-sdk dependency)"]
+    PROC[agent-process]
+    FA[agent-file-authority]
+    PAIR[agent-remote-pairing]
   end
 
-  subgraph Core["Foundation"]
-    CORE[agent-core<br/>engine · events · hooks · permissions]
-    EXEC[agent-executor]
+  subgraph Foundation["Foundation"]
+    CORE[agent-core<br/>Robota engine · tool/plugin/provider contracts · permissions]
+  end
+
+  subgraph Contracts["agent-interface-* (type-only contracts)"]
+    IFA[agent-interface-analytics]
+    IFTUI[agent-interface-tui]
+    IFCE[agent-interface-command · agent-interface-execution]
+    IFS[agent-interface-session]
+    IFM[agent-interface-session-mobility]
+    IFT[agent-interface-transport]
+  end
+
+  subgraph Blocks["Building blocks"]
+    TOOLS[agent-tools]
+    PLUG[agent-plugin]
+    MCP[agent-mcp<br/>MCP client]
+    PROV[agent-provider-anthropic / -openai / -openai-compatible /<br/>-gemini / -bytedance]
+    BIP[agent-builtin-providers]
+    SA[agent-session-analytics]
+  end
+
+  subgraph Runtime["Runtime"]
     SESS[agent-session]
-    TOOLS[agent-tools · agent-mcp]
-    PROC[agent-process leaf]
+    EXEC[agent-executor]
+    TD[agent-tool-defaults]
   end
 
-  subgraph Assembly["SDK assembly"]
-    FW[agent-framework<br/>InteractiveSession · createInteractiveRuntime · startRuntimeHost]
-    CMD[agent-command*]
-    PRESET[agent-preset]
+  subgraph Assembly["Assembly"]
+    FW[agent-framework<br/>InteractiveSession · createQuery · createAgentRuntime · startRuntimeHost]
   end
 
-  subgraph Providers["Provider family (DIP, ARCH-PROVIDER-002)"]
-    PROV[agent-provider-anthropic / -openai / -gemini /<br/>-bytedance / -openai-compatible / -defaults / -replay]
-  end
-
-  subgraph Transports["Transport implementations"]
-    TCORE[agent-transport<br/>wire protocol · session delivery]
-    TTUI[agent-ui-terminal React/Ink]
-    TGUI[agent-ui-web<br/>GUI presentation core]
-    TWS[agent-transport-ws]
+  subgraph Transports["Transports"]
+    TCORE[agent-transport<br/>wire protocol · delivery]
+    TCAR[agent-transport-ws · agent-transport-mcp]
     THTTP[agent-transport-http]
-    TWEBRTC[agent-transport-webrtc + -webrtc-web]
-    PAIR[agent-remote-pairing<br/>DTLS channel-binding leaf]
+    TWEBRTC[agent-transport-webrtc]
   end
 
-  subgraph DAG["DAG subsystem (WORKFLOW-001)"]
-    DAGCORE[dag-core] --> DAGFW[dag-framework]
-    DAGFW --> DAGRT[dag-runtime · dag-worker]
-    DAGFW --> DAGNODES[dag-nodes-default → dag-node-*]
+  subgraph Presentation["Presentation"]
+    TTUI[agent-ui-terminal<br/>React + Ink]
+    TGUI[agent-ui-web · agent-gui-web ·<br/>agent-transport-webrtc-web · private]
   end
 
-  subgraph Surfaces["Product surfaces (composition roots)"]
-    CLI[packages/agent-cli<br/>TUI + robota --serve headless host]
-    APP[apps/agent-app<br/>Electron shell · loads agent-gui-web]
-    WEB[apps/agent-web · agent-gui-web]
-    SRV[apps/agent-server · dag-runtime-server · remote-signaling]
+  subgraph Composition["Product composition"]
+    PRESET[agent-preset]
+    CMD[agent-command]
+    CAP[agent-capability-pack]
+    SUB[agent-subagent-runner]
+    PROD[agent-product]
+    PACK[pack-coding]
   end
 
-  IF --> CORE
-  CORE --> EXEC & SESS & TOOLS
-  PROC --> EXEC & TOOLS
-  CORE --> FW
-  EXEC & SESS --> FW
-  FW --> CMD & PRESET
-  PROV -. injected via DIP .-> FW
-  IF --> TCORE & TTUI & TGUI & TWS & THTTP & TWEBRTC
-  TCORE --> TWS & THTTP & TWEBRTC & TGUI
+  subgraph DAG["DAG / workflow subsystem · private"]
+    DAGCORE[dag-core]
+    DAGPARTS[dag-node · dag-runtime · dag-worker ·<br/>dag-builder · dag-cost · dag-api · …]
+    DAGLEAF[dag-node-* leaves]
+    DAGFW[dag-framework]
+    DAGDEF[dag-nodes-default]
+    WF[agent-command-workflows]
+  end
+
+  subgraph Private["App support · private"]
+    PLAY[agent-playground · agent-remote-client]
+  end
+
+  subgraph Surfaces["Composition roots"]
+    CLI[packages/agent-cli<br/>robota · self-contained bundle]
+    APP[apps/agent-app<br/>Electron desktop app]
+    WEB[apps/agent-web<br/>Playground · browser remote client]
+    SRV[apps/agent-server<br/>provider proxy · Playground WebSocket]
+    STARTER[apps/starter-nextjs]
+    DAGSRV[apps/dag-runtime-server]
+    SIG[apps/remote-signaling]
+    ACTION[apps/action]
+  end
+
+  %% Contracts
+  CORE --> IFCE & IFS & IFM & IFT
+  IFA & IFCE --> IFS
+  IFS --> IFM
+
+  %% Building blocks
+  CORE --> TOOLS & PLUG & MCP & PROV & SA
+  PROC --> TOOLS
+  PROV --> BIP
+  IFA & IFS --> SA
+
+  %% Runtime
+  CORE --> SESS & EXEC
+  FA --> SESS
+  IFCE & IFS --> SESS
+  PROC --> EXEC
+  IFCE & IFT --> EXEC
+  TOOLS --> TD
+
+  %% Assembly (providers are injected by the composition root, never imported)
+  CORE & SESS & EXEC & TOOLS & TD & FA --> FW
+  IFA & IFCE & IFS & IFM & IFT --> FW
+  PROV -. injected .-> FW
+
+  %% Transports
+  CORE & IFA & IFCE & IFS & IFM & IFT --> TCORE
+  TCORE --> TCAR & THTTP & TWEBRTC
   PAIR --> TWEBRTC
-  TGUI --> TWEBRTC
-  FW --> CLI
-  CMD --> CLI
-  TTUI --> CLI
-  TCORE --> CLI
-  CMD --> DAGFW
-  CLI -. spawns robota --serve loopback+nonce .-> APP
-  TGUI --> APP & WEB
-  TWS --> APP
+
+  %% Presentation
+  FW & TCORE & IFTUI --> TTUI
+  TCORE & PAIR --> TGUI
+
+  %% Product composition
+  FW --> PRESET & CMD & CAP & SUB & PROD
+  PRESET --> CMD & PROD
+  EXEC & PROC --> SUB
+  CAP --> PROD & PACK
+  CMD & TD --> PACK
+
+  %% DAG subsystem
+  DAGCORE --> DAGPARTS --> DAGFW
+  DAGCORE --> DAGLEAF --> DAGDEF
+  CORE --> DAGFW
+  FW --> DAGDEF & WF
+  DAGFW & DAGDEF --> WF
+
+  %% App support
+  TOOLS --> PLAY
+
+  %% Composition roots
+  FW & CMD & PROD & PACK & SUB & MCP & BIP & SA --> CLI
+  TTUI & TCAR & TWEBRTC & TGUI & WF --> CLI
+  TGUI --> APP
+  CLI -. daemon over loopback WebSocket .-> APP
+  TGUI & PLAY --> WEB
+  FW & CMD & PROV & PLAY --> SRV
+  FW & PROV --> STARTER
+  DAGFW --> DAGSRV
+  TWEBRTC --> SIG
+  CLI -. runs .-> ACTION
