@@ -1,5 +1,11 @@
 import { RoundtableError } from './errors';
 import { canonicalJson } from './json';
+import {
+  USAGE_OUTCOMES,
+  USAGE_PROVENANCES,
+  validUsageCost,
+  validUsageTokens,
+} from './usage-validation';
 import type { ConversationState } from './conversation-state';
 import type {
   ModelCallCapability,
@@ -102,15 +108,24 @@ export function reserveModelCall(
   usage.push(record);
 }
 
+/**
+ * Rejects a report the load codec would later reject, so nothing unloadable is ever stored. Kept in
+ * sync with `validateUsageState` (`state-codec-usage.ts`) through the shared `usage-validation` checks.
+ */
 function validReport(report: UsageReport): void {
   if (!text(report.callId))
     throw new RoundtableError('invalid-config', 'Usage report call id is required');
-  if (!['completed', 'failed', 'cancelled', 'cache-hit'].includes(report.outcome))
+  if (!(USAGE_OUTCOMES as readonly string[]).includes(report.outcome))
     throw new RoundtableError('invalid-config', 'Usage report outcome is invalid');
-  if (!['reported', 'partial', 'estimated', 'unknown'].includes(report.provenance))
+  if (!(USAGE_PROVENANCES as readonly string[]).includes(report.provenance))
     throw new RoundtableError('invalid-config', 'Usage report provenance is invalid');
   if (typeof report.final !== 'boolean')
     throw new RoundtableError('invalid-config', 'Usage report finality is invalid');
+  if (report.tokens !== undefined && !validUsageTokens(report.tokens))
+    throw new RoundtableError(
+      'invalid-config',
+      'Usage report tokens must be non-negative integers under recognized keys',
+    );
   canonicalJson({ tokens: report.tokens ?? null, raw: report.raw ?? null });
 }
 
@@ -126,8 +141,11 @@ function sameReport(a: UsageRecord & { status: 'settled' }, b: UsageReport): boo
 
 /**
  * Pure mutator run inside `persistence.update`. A report with no prior reservation is rejected
- * unless it reports a cache hit, which never needed admission. An identical report replayed against
- * an already-settled call is a no-op; once a settled report is final, any differing report conflicts.
+ * unless it reports a cache hit, which never needed admission; that case must carry its own
+ * providerId and modelId in the report, since no admission fixed them, and is rejected without them
+ * rather than stored with an empty identity. An identical report replayed against an already-settled
+ * call is a no-op; once a settled report is final, any differing report conflicts. A pricing policy
+ * that returns a cost the load codec would reject is rejected here too, before it is ever stored.
  */
 export function settleUsage(
   state: ConversationState,
@@ -154,11 +172,16 @@ export function settleUsage(
     }
   } else if (report.outcome !== 'cache-hit') {
     throw new RoundtableError('conflict', 'Usage report requires a prior admission');
+  } else if (!text(report.providerId) || !text(report.modelId)) {
+    throw new RoundtableError(
+      'invalid-config',
+      'A cache-hit report with no prior admission must include providerId and modelId',
+    );
   }
   const base = existing ?? {
     callId: report.callId,
-    providerId: '',
-    modelId: '',
+    providerId: report.providerId as string,
+    modelId: report.modelId as string,
     conversationId: ctx.conversationId,
     runId: ctx.runId,
     principal: ctx.principal,
@@ -186,7 +209,13 @@ export function settleUsage(
     ...(report.tokens !== undefined ? { tokens: report.tokens } : {}),
     ...(report.raw !== undefined ? { raw: report.raw } : {}),
   };
-  settled.price = pricing ? { version: pricing.version, cost: pricing.cost(settled) } : null;
+  const cost = pricing ? pricing.cost(settled) : null;
+  if (cost !== null && !validUsageCost(cost))
+    throw new RoundtableError(
+      'invalid-config',
+      'Pricing policy returned a cost whose amount is not an integer string',
+    );
+  settled.price = pricing ? { version: pricing.version, cost } : null;
   if (index === -1) usage.push(settled);
   else usage[index] = settled;
 }
@@ -257,6 +286,10 @@ export function requireModelCallCapabilities(options: {
 /**
  * Binds admission and reporting to one principal (a participant's turn, or the selector's current
  * selection attempt); neither side can be forged by the participant or selector code that receives it.
+ * Admission is refused once `signal` (the run) has stopped, so no new call is admitted after
+ * cancellation or a limit. Reporting is not: a response that settles after the run stopped still
+ * gates on `persistence`'s own store ownership, not on `signal`, so a call already admitted keeps its
+ * usage even if the run that admitted it was cancelled, timed out or hit a limit before it settled.
  */
 export function createTurnServices(options: {
   persistence: ConversationPersistence;
@@ -284,7 +317,8 @@ export function createTurnServices(options: {
       if (record) await emit({ type: 'usage', record }, signal);
     },
     async recordUsage(report: UsageReport): Promise<void> {
-      signal.throwIfAborted();
+      // Not gated on `signal`: a response that settles after the run stopped still belongs in the
+      // ledger. `persistence.update` still refuses this once the store owner it was bound to is gone.
       const before = persistence
         .snapshot()
         .snapshot.usage.find((record) => record.callId === report.callId);
@@ -293,7 +327,8 @@ export function createTurnServices(options: {
         settleUsage(draft, revision, ctx, report, pricing);
       });
       const record = persistence.snapshot().snapshot.usage.find((r) => r.callId === report.callId);
-      if (record) await emit({ type: 'usage', record }, signal);
+      // A stopped run's own signal is aborted by then; skip the courtesy event rather than let it throw.
+      if (record && !signal.aborted) await emit({ type: 'usage', record }, signal);
     },
   };
 }

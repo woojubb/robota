@@ -19,7 +19,23 @@ function invalid(field: string): never {
   throw new RobotaParticipantError('checkpoint-invalid', `Checkpoint field is invalid: ${field}`);
 }
 
-/** JSON plus `Date`, round-tripped through a tagged `{ $date }` marker — never a bare object shape. */
+/**
+ * Optional: a plain object already SHAPED like one of this codec's own markers — a tool's saved
+ * arguments could genuinely contain `{ "$date": "not-a-real-date" }`, or `{ "$escaped": … }` — must
+ * be told apart from the marker it would otherwise be mistaken for. Checked structurally (exactly
+ * one key, one of the two reserved names) rather than by value, so it catches every collision
+ * regardless of what that key holds.
+ */
+function looksLikeReservedMarker(out: Record<string, JsonValue>): boolean {
+  const keys = Object.keys(out);
+  return keys.length === 1 && (keys[0] === '$date' || keys[0] === '$escaped');
+}
+
+/**
+ * JSON plus `Date`, round-tripped through a tagged `{ $date }` marker — never a bare object shape.
+ * A plain object whose own keys already collide with `$date` or the `$escaped` envelope below is
+ * wrapped in `{ $escaped }` so decode never mistakes it for one.
+ */
 function encodeValue(value: unknown): JsonValue {
   if (value instanceof Date) return { $date: value.toISOString() };
   if (value === null) return null;
@@ -30,7 +46,7 @@ function encodeValue(value: unknown): JsonValue {
       if (entry === undefined) continue;
       out[key] = encodeValue(entry);
     }
-    return out;
+    return looksLikeReservedMarker(out) ? { $escaped: out } : out;
   }
   if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean')
     return value;
@@ -50,11 +66,31 @@ function isDateMarker(value: JsonValue): value is { $date: string } {
   );
 }
 
+function isEscapedMarker(value: JsonValue): value is { $escaped: JsonValue } {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    Object.keys(value).length === 1 &&
+    '$escaped' in value
+  );
+}
+
 function decodeValue(value: JsonValue): unknown {
   if (isDateMarker(value)) {
     const date = new Date(value.$date);
     if (Number.isNaN(date.getTime())) invalid('$date');
     return date;
+  }
+  if (isEscapedMarker(value)) {
+    const inner = value.$escaped;
+    if (!inner || typeof inner !== 'object' || Array.isArray(inner)) invalid('$escaped');
+    // The escaped object was plain BY CONSTRUCTION (that is why encode wrapped it), so its own
+    // shape is never re-checked against these markers — only its values recurse.
+    const out: Record<string, unknown> = {};
+    for (const [key, entry] of Object.entries(inner as Record<string, JsonValue>))
+      out[key] = decodeValue(entry);
+    return out;
   }
   if (Array.isArray(value)) return value.map(decodeValue);
   if (value !== null && typeof value === 'object') {

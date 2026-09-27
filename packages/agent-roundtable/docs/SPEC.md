@@ -11,7 +11,9 @@ progress and the distinction between private participant state and published mes
 A participant factory opens a distinct logical session for each conversation. A session is exclusive to
 one running turn, while independent sessions may run concurrently. One scheduler owns a conversation;
 that ownership protects state transitions, including a participant's or the selector's model-call
-admission and usage reporting, without serializing independent participant execution.
+admission and usage reporting, without serializing independent participant execution. Admission of a
+new call is refused once a run has stopped, but a response that settles afterward still records its
+usage against the call it admitted, as long as this process still owns the conversation.
 
 Parallel participants observe the same shared snapshot through their own context views. Their outputs
 remain provisional until the group commits. Publication order follows the selection, rather than

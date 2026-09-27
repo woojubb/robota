@@ -2,9 +2,11 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { FunctionTool, Robota, clearRegisteredToolProfiles } from '@robota-sdk/agent-core';
 import type {
+  IAIProvider,
   IToolExecutionContext,
   TToolEffectAdmission,
   TToolParameters,
+  TUniversalMessage,
 } from '@robota-sdk/agent-core';
 import type {
   ParticipantExecutionOptions,
@@ -182,5 +184,124 @@ describe('robotaParticipant: speak path', () => {
     expect(participant.factory.supportsContinuation).toBeUndefined();
     expect(participant.factory.checkpointVersions).toEqual(['robota-agent/1']);
     expect(participant.factory.modelCalls).toBe('metered');
+  });
+
+  // MUST 3: `agent.run()` RESOLVES on abort (agent-core CORE-027) with the text it had committed so
+  // far, marked `interrupted` — never rejects on its own. A tool call combined with real text in
+  // the SAME assistant message, where the tool's own effect aborts mid round, reproduces exactly
+  // that: the round loop stops after the tool (no further round runs the forced summary), so the
+  // committed text from round 1 becomes `result.response`, resolved, while `signal.aborted` is true.
+  it('MUST 3: throws the abort reason instead of publishing text committed during a cancelled tool round', async () => {
+    const controller = new AbortController();
+    const provider: IAIProvider = {
+      name: 'abort-mid-tool-round',
+      version: 'test',
+      async chat(): Promise<TUniversalMessage> {
+        return {
+          id: 'r1',
+          role: 'assistant',
+          content: 'partial reasoning before the abort',
+          state: 'complete',
+          timestamp: new Date(),
+          toolCalls: [
+            { id: 'call-1', type: 'function', function: { name: 'act', arguments: '{}' } },
+          ],
+        };
+      },
+      async generateResponse() {
+        return { content: '' };
+      },
+      supportsTools: () => true,
+      validateConfig: () => true,
+    };
+    const tool = new FunctionTool(
+      { name: 'act', description: 'Fixture', parameters: { type: 'object', properties: {} } },
+      async () => {
+        controller.abort(new Error('cancelled mid tool round'));
+        return 'tool done';
+      },
+    );
+    const participant = robotaParticipant({
+      id: 'p',
+      runtime: { id: 'fixture/robota', version: '1' },
+      createAgent: async () =>
+        new Robota({
+          name: 'fixture',
+          aiProviders: [provider],
+          defaultModel: { provider: provider.name, model: 'test-model' },
+          tools: [tool],
+        }),
+    });
+    const lease = await participant.factory.openSession({
+      conversationId: 'c',
+      participantId: 'A',
+    });
+    // The turn must reject rather than settle — settling (with any outcome at all) is what would
+    // let this cancelled turn's text reach the shared transcript on the next run. Streamed deltas
+    // (a live, ephemeral preview, delivered as the round produces them) are a separate contract
+    // from the turn's final outcome and are not asserted here.
+    await expect(
+      lease.session.runTurn(turn(), execOptions({ signal: controller.signal })),
+    ).rejects.toThrow('cancelled mid tool round');
+    await lease.release();
+  });
+
+  // SHOULD 6: leasing only the Robota object let two participants share the SAME provider or
+  // tool undetected; `agent.destroy()` on release then closed it under the other participant.
+  it('SHOULD 6: rejects a second participant whose agent shares a provider with a still-open lease', async () => {
+    const scripted = createScriptedProvider([{ text: 'ok' }]);
+    const participant = robotaParticipant({
+      id: 'p',
+      runtime: { id: 'fixture/robota', version: '1' },
+      createAgent: async () =>
+        new Robota({
+          name: 'fixture',
+          aiProviders: [scripted.provider],
+          defaultModel: { provider: scripted.provider.name, model: 'test-model' },
+        }),
+    });
+    const first = await participant.factory.openSession({
+      conversationId: 'c1',
+      participantId: 'A',
+    });
+    await expect(
+      participant.factory.openSession({ conversationId: 'c2', participantId: 'B' }),
+    ).rejects.toMatchObject({ code: 'resource-reused' });
+    await first.release();
+    // Released: a second lease over the same provider now opens fine.
+    await expect(
+      participant.factory.openSession({ conversationId: 'c2', participantId: 'B' }),
+    ).resolves.toBeDefined();
+  });
+
+  it('SHOULD 6: rejects a second participant whose agent shares a tool with a still-open lease', async () => {
+    const scriptedA = createScriptedProvider([{ text: 'ok a' }]);
+    const scriptedB = createScriptedProvider([{ text: 'ok b' }]);
+    const sharedTool = new FunctionTool(
+      { name: 'shared', description: 'Fixture', parameters: { type: 'object', properties: {} } },
+      async () => 'x',
+    );
+    const participant = robotaParticipant({
+      id: 'p',
+      runtime: { id: 'fixture/robota', version: '1' },
+      createAgent: async (ctx) =>
+        new Robota({
+          name: 'fixture',
+          aiProviders: [ctx.participantId === 'A' ? scriptedA.provider : scriptedB.provider],
+          defaultModel: {
+            provider: ctx.participantId === 'A' ? scriptedA.provider.name : scriptedB.provider.name,
+            model: 'test-model',
+          },
+          tools: [sharedTool],
+        }),
+    });
+    const first = await participant.factory.openSession({
+      conversationId: 'c1',
+      participantId: 'A',
+    });
+    await expect(
+      participant.factory.openSession({ conversationId: 'c2', participantId: 'B' }),
+    ).rejects.toMatchObject({ code: 'resource-reused' });
+    await first.release();
   });
 });

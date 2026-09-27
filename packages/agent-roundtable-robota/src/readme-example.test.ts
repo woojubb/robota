@@ -11,7 +11,13 @@ describe('README quickstart example', () => {
     const { result, messages } = await runQuickstart();
     expect(result.status === 'limited' || result.status === 'completed').toBe(true);
     expect(messages).toHaveLength(1);
-    expect(messages[0]).toMatchObject({ participantId: 'assistant', content: 'echo:' });
+    // SHOULD 8: the sole participant's first turn has no purpose and no shared messages, so the
+    // rendered increment is the neutral "no new messages" notice rather than an empty string.
+    expect(messages[0]).toMatchObject({
+      participantId: 'assistant',
+      content:
+        'echo: There are no new messages since your last turn. Continue or respond as you see fit.',
+    });
   });
 
   it('matches the fenced code block in README.md, so the doc never drifts from what runs', () => {

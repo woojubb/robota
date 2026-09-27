@@ -1,4 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { createScriptedProvider } from '@robota-sdk/agent-core/testing';
 import { FunctionTool, clearRegisteredToolProfiles } from '@robota-sdk/agent-core';
 import type {
@@ -7,6 +10,7 @@ import type {
   TExecutionJournalRecord,
   TUniversalMessage,
 } from '@robota-sdk/agent-core';
+import { createDefaultTools } from '@robota-sdk/agent-tool-defaults';
 import {
   createRoundtable,
   loadRoundtable,
@@ -20,6 +24,7 @@ import {
   type SharedMessage,
   type TurnServices,
 } from '@robota-sdk/agent-roundtable';
+import { createInProcessJournal } from './in-process-journal';
 import { sessionParticipant, type SessionHostOptions } from './session-participant';
 
 /** Build the `ParticipantResponse` a host would send back for one approval wait request. */
@@ -248,6 +253,65 @@ describe('sessionParticipant: speak path', () => {
     await lease.release();
   });
 
+  // MUST 3: the run underneath RESOLVES on abort (agent-core CORE-027) with the text it had
+  // committed so far, marked `interrupted` — it never rejects on its own, so a check only in
+  // `catch` (the test above) misses this path entirely. A tool call combined with real text in the
+  // SAME assistant message, whose own effect aborts mid round, reproduces exactly that: the round
+  // loop stops after the tool with no further round, so that committed text resolves as the
+  // execution's response while `signal.aborted` is already true.
+  it('MUST 3: throws the abort reason instead of publishing text committed during a cancelled tool round', async () => {
+    const controller = new AbortController();
+    const provider: IAIProvider = {
+      name: 'abort-mid-tool-round',
+      version: 'test',
+      async chat(): Promise<TUniversalMessage> {
+        return {
+          id: 'r1',
+          role: 'assistant',
+          content: 'partial reasoning before the abort',
+          state: 'complete',
+          timestamp: new Date(),
+          toolCalls: [
+            { id: 'call-1', type: 'function', function: { name: 'act', arguments: '{}' } },
+          ],
+        };
+      },
+      async generateResponse() {
+        return { content: '' };
+      },
+      supportsTools: () => true,
+      validateConfig: () => true,
+    };
+    const tool = new FunctionTool(
+      { name: 'act', description: 'Fixture', parameters: { type: 'object', properties: {} } },
+      async () => {
+        controller.abort(new Error('cancelled mid tool round'));
+        return 'tool done';
+      },
+    );
+    const participant = sessionParticipant({
+      id: 'p',
+      runtime: { id: 'fixture/session', version: '1' },
+      createSessionOptions: async () =>
+        hostOptions(provider, {
+          tools: [tool],
+          permissions: { allow: ['act'], deny: [], ask: [] },
+        }),
+    });
+    const lease = await participant.factory.openSession({
+      conversationId: 'c',
+      participantId: 'A',
+    });
+    // The turn must reject rather than settle — settling (with any outcome at all) is what would
+    // let this cancelled turn's text reach the shared transcript on the next run. Streamed deltas
+    // (a live, ephemeral preview, delivered as the round produces them) are a separate contract
+    // from the turn's final outcome and are not asserted here.
+    await expect(
+      lease.session.runTurn(turn(), execOptions({ signal: controller.signal })),
+    ).rejects.toThrow('cancelled mid tool round');
+    await lease.release();
+  });
+
   it('releases exactly once: a second release() call is a harmless no-op', async () => {
     const scripted = createScriptedProvider([{ text: 'x' }]);
     const participant = sessionParticipant({
@@ -362,6 +426,45 @@ describe('sessionParticipant: speak path', () => {
     expect(scripted.requests).toHaveLength(1);
     await lease.release();
   });
+
+  // MUST 4: `createDefaultTools` used to return the SAME `webFetchTool`/`webSearchTool` module
+  // singletons on every call, so two sessionParticipants each built from it — even from two
+  // entirely separate `createDefaultTools({cwd})` calls, sharing nothing on purpose — collided in
+  // the resource guard the moment both were open at once.
+  it('MUST 4: two participants each built from a separate createDefaultTools({cwd}) open together', async () => {
+    const base = mkdtempSync(join(tmpdir(), 'roundtable-robota-default-tools-'));
+    mkdirSync(join(base, 'A'));
+    mkdirSync(join(base, 'B'));
+    try {
+      const a = createScriptedProvider([{ text: 'from a' }]);
+      const b = createScriptedProvider([{ text: 'from b' }]);
+      const participant = sessionParticipant({
+        id: 'p',
+        runtime: { id: 'fixture/session', version: '1' },
+        createSessionOptions: async (ctx) =>
+          hostOptions(ctx.participantId === 'A' ? a.provider : b.provider, {
+            cwd: join(base, ctx.participantId),
+            tools: createDefaultTools({ cwd: join(base, ctx.participantId) }),
+          }),
+      });
+      const leaseA = await participant.factory.openSession({
+        conversationId: 'c',
+        participantId: 'A',
+      });
+      const leaseB = await participant.factory.openSession({
+        conversationId: 'c',
+        participantId: 'B',
+      });
+      const outcomeA = await leaseA.session.runTurn(turn({ participantId: 'A' }), execOptions());
+      const outcomeB = await leaseB.session.runTurn(turn({ participantId: 'B' }), execOptions());
+      expect(outcomeA).toEqual({ kind: 'speak', content: 'from a' });
+      expect(outcomeB).toEqual({ kind: 'speak', content: 'from b' });
+      await leaseA.release();
+      await leaseB.release();
+    } finally {
+      rmSync(base, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('sessionParticipant: approval waits and checkpoints', () => {
@@ -430,6 +533,59 @@ describe('sessionParticipant: approval waits and checkpoints', () => {
     const finalOutcome = await lease.session.resumeTurn!(t, responses, execOptions());
     expect(finalOutcome).toEqual({ kind: 'speak', content: 'finished' });
     expect(f.effect).toHaveBeenCalledOnce();
+    await lease.release();
+  });
+
+  // Optional: the SPEC claims "denying it completes the turn without ever entering the tool's
+  // effect", but only the APPROVED half of that sentence had a test.
+  it('completes the turn without running the effect when the approval is denied', async () => {
+    const f = approvalFixture();
+    const lease = await f.participant.factory.openSession({
+      conversationId: 'c',
+      participantId: 'A',
+    });
+    const t = turn();
+    const waitOutcome = await lease.session.runTurn(t, execOptions());
+    if (waitOutcome.kind !== 'wait') throw new Error('expected wait');
+    const request = waitOutcome.requests[0] as unknown as {
+      id: string;
+      reason: string;
+      data: unknown;
+    };
+    const responses = [approvalResponse(t, request, 'reply-1', false)];
+    const finalOutcome = await lease.session.resumeTurn!(t, responses, execOptions());
+    expect(finalOutcome).toEqual({ kind: 'speak', content: 'finished' });
+    expect(f.effect).not.toHaveBeenCalled();
+    await lease.release();
+  });
+
+  // SHOULD 7: the default in-process journal never freed a settled execution's records. Once this
+  // resume settles with no wait parked, the parked execution's records (message arrays included)
+  // must be gone from the module-level store the default journal used underneath.
+  it('SHOULD 7: drops the parked execution journal records once the resume settles', async () => {
+    const f = approvalFixture();
+    const lease = await f.participant.factory.openSession({
+      conversationId: 'c',
+      participantId: 'A',
+    });
+    const t = turn();
+    const waitOutcome = await lease.session.runTurn(t, execOptions());
+    if (waitOutcome.kind !== 'wait') throw new Error('expected wait');
+    const request = waitOutcome.requests[0] as unknown as {
+      id: string;
+      reason: string;
+      data: { executionId: string };
+    };
+    const executionId = request.data.executionId;
+    const checkpointDuringWait = await lease.session.checkpoint!();
+    const sessionId = (checkpointDuringWait.data as Record<string, unknown>).sessionId as string;
+    // Sanity: the parked execution really is journaled before it resolves.
+    await expect(createInProcessJournal(sessionId).read(executionId)).resolves.not.toEqual([]);
+
+    const responses = [approvalResponse(t, request, 'reply-1', true)];
+    await lease.session.resumeTurn!(t, responses, execOptions());
+
+    await expect(createInProcessJournal(sessionId).read(executionId)).resolves.toEqual([]);
     await lease.release();
   });
 
@@ -609,7 +765,10 @@ describe('sessionParticipant: loadRoundtable resumes a parked wait', () => {
     await reloaded.dispose();
   });
 
-  it('rejects opening from a checkpoint with a factory that has no matching checkpointVersions entry', async () => {
+  // Optional: renamed — this asserts the factory's OWN checkpointVersions includes the version of
+  // the checkpoint it itself just produced. It never opens a mismatched factory, so it was never
+  // a rejection test, despite its old name.
+  it("lists its checkpoint's version in factory.checkpointVersions", async () => {
     const scripted = createScriptedProvider([{ text: 'x' }]);
     const original = sessionParticipant({
       id: 'p',
@@ -621,6 +780,34 @@ describe('sessionParticipant: loadRoundtable resumes a parked wait', () => {
     const checkpoint = await lease.session.checkpoint!();
     await lease.release();
     expect(original.factory.checkpointVersions).toContain(checkpoint.version);
+  });
+});
+
+// Optional: `options.journal()` used to run OUTSIDE the guard that released the lease on failure,
+// so a host factory that threw left the provider/tools permanently claimed — no later openSession
+// over them could ever succeed again in this process.
+describe('sessionParticipant: lease safety on openSession failure', () => {
+  it('releases the lease when a host journal factory throws while opening', async () => {
+    const scripted = createScriptedProvider([]);
+    let calls = 0;
+    const participant = sessionParticipant({
+      id: 'p',
+      runtime: { id: 'fixture/session', version: '1' },
+      createSessionOptions: async () => hostOptions(scripted.provider),
+      journal: () => {
+        calls += 1;
+        if (calls === 1) throw new Error('journal unavailable');
+        return freshJournal();
+      },
+    });
+    await expect(
+      participant.factory.openSession({ conversationId: 'c', participantId: 'A' }),
+    ).rejects.toThrow('journal unavailable');
+    // The lease was released on failure: opening again over the same provider now succeeds, even
+    // though the SAME participant (and so the same provider) is reused.
+    await expect(
+      participant.factory.openSession({ conversationId: 'c', participantId: 'A' }),
+    ).resolves.toBeDefined();
   });
 });
 
