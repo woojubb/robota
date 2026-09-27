@@ -41,6 +41,7 @@
   "devDependencies": {
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-session": "workspace:*",
+    "@robota-sdk/agent-tool-defaults": "workspace:*",
     "tsdown": "^0.22.14",
     "vitest": "^3.2.6"
   },
