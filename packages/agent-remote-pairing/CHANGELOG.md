@@ -1,5 +1,76 @@
 # @robota-sdk/agent-remote-pairing
 
+## 3.0.0-beta.83
+
+### Minor Changes
+
+- 28fa8a7: `/devices add` and `/devices join` enrol a new device into your devices.
+
+  - On a device that holds the signing key, `/devices add` shows a one-time code on the terminal. It
+    works once, for five minutes.
+  - On the new device, `/devices join [name]` asks for the code on the terminal, creates the device's
+    keys, and meets the other device through the signaling relay in
+    `transports.webrtc.options.relayUrl`. Both devices need that setting.
+  - The new device proves the code over the WebRTC connection's DTLS fingerprints before anything else
+    crosses, so a relay in the middle cannot enrol anyone.
+  - Both devices then show the same six digits, and both operators compare them and confirm. Someone
+    who saw the code cannot choose the digits: the new device commits to its part before it sees the
+    existing device's.
+  - Only when both operators say yes does the existing device certify the new one and issue a new
+    roster. The new device keeps its identity only once the chain it receives verifies.
+  - A wrong, expired or already used code is refused. So is a code after a few failed attempts. When
+    either operator declines, nothing is issued or kept.
+  - The code appears only on the two terminals. It never reaches history, transcripts or the model. A
+    code typed as a command argument is refused. Both commands stay user-only and refuse remote
+    surfaces.
+  - `agent-remote-pairing`: enrollment codes, the enrollment proof, the signed request with its
+    commitment, the short authentication string and the frame decoder.
+  - `agent-transport-webrtc`: `dialEnrollment` and `listenForEnrollment` provide a data channel bound to
+    the negotiated fingerprints.
+
+- 963a4e0: Where no direct path joins two of one user's devices, a TURN relay on one of the user's own devices carries the
+  connection.
+
+  - `agent-transport-webrtc` — `TurnServer`, a pure-JavaScript TURN server over UDP (Allocate, Refresh,
+    CreatePermission, ChannelBind, Send/Data indications, ChannelData, long-term credentials) with quotas for
+    allocations per owner and in all, relayed bytes per second per owner, and allocation lifetime, and an optional
+    relayed-port range for a relay behind a NAT. Only what MESSAGE-INTEGRITY covers is read. Requests nobody has
+    authenticated are answered at a limited rate (per source and in all) and never with more bytes than they
+    carried, and forwarding into private ranges can be turned off (`allowPrivatePeers`). `MeshTurnRelay` runs it
+    for the devices of the roster: each pair derives a short-lived credential of its own (`meshRelayCredential`), a
+    device the lists drop or revoke can no longer allocate and loses its allocations. `DeviceMeshNode` takes
+    `relays` (the relays paired devices advertise, then configured TURN servers, and `relayOnly`) and
+    `relayServer`; a connection that needs a relay and has none is refused with `MeshRelayNeededError`, which says
+    why a relay was needed and carries the direct attempt's failure. `MeshDht` publishes this device's relay
+    endpoints in the sealed hints records (`relayEndpoints`) and reads the peers' (`relayAdverts`). DTLS stays end
+    to end; the relay only forwards it.
+  - `agent-remote-pairing` — the pair rendezvous derives a `relay-user` tag and `relayPassword`, the relay
+    credential's password for one direction and username.
+  - `agent-cli` — `transports.mesh.options` takes `relay` (`serve`, `port`, `host`, `publicAddress`, `relayPorts`,
+    `allowPrivatePeers`), `turnServers` and `relayOnly`. When the mesh is on, the session's mesh runs the relay,
+    advertises it to paired devices only, and uses the fallback order; `/devices` names the relays, and a device
+    that needs a relay is reported once with why. Running a relay, or relay-only without TURN servers, needs the
+    DHT or pkarr relays, which carry a relay's address to the other devices; a setting that could not work is
+    refused, naming it.
+
+### Patch Changes
+
+- 57280bf: Every published package now declares `"engines": { "node": ">=22.12.0" }`. Before, 27 of the 38
+  packages declared no floor (`agent-core`, `agent-tools` and every provider among them),
+  `agent-session` and `agent-file-authority` declared `>=20.19.0`, and the other nine declared
+  `>=22.0.0`, so a consumer on Node 20 saw at most a warning from a transitive dependency.
+
+  Why 22.12: `agent-cli` and `agent-ui-terminal` need Node 22 through `ink` 7, and the CommonJS entries
+  of `agent-tools` and its dependents, `agent-transport`/`node` and its dependents, and
+  `agent-ui-terminal` `require()` ESM-only dependencies (`p-limit`, `jose`, `chalk`), which Node 22
+  supports unflagged only from 22.12. `engines` is advisory unless the consumer enables `engine-strict`.
+
+  No code changes: `tsdown` now reads `node22.12.0` as its build target from the field.
+
+- 18c0d5c: Every published package now exports `./package.json`, so `require('<package>/package.json')` and
+  `import('<package>/package.json', { with: { type: 'json' } })` work instead of failing with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`, and each tarball now ships the package's `CHANGELOG.md`.
+
 ## 3.0.0-beta.82
 
 ### Minor Changes

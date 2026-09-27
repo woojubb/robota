@@ -1,5 +1,293 @@
 # @robota-sdk/agent-ui-terminal
 
+## 3.0.0-beta.83
+
+### Major Changes
+
+- ba822c1: An attached client reads a workspace entry's detail, stops a waiting self-paced loop, completes
+  subcommands, and sees status changes another client made.
+
+  - `agent-interface-session` (major): `IInteractiveSession` gains the required roles
+    `ISessionExecutionDetail` and `ISessionSelfPacedLoopControl` (`TWaitingLoopStopOutcome`), and the
+    exhaustively mapped event map gains `status_changed`.
+  - `agent-transport` (major): `IProtocolSession` gains both roles; the wire unions gain
+    `read-execution-detail`, `stop-waiting-loop`, `execution_detail`, `execution_detail_error` and
+    `waiting_loop_stop`; `status_changed` is pushed as `session_status`; `isObserverMessageType` is
+    exported from the root and `./client`.
+  - `agent-interface-command` (minor): `ICommandListEntry` gains optional `argumentHint` and
+    `subcommands` (`ICommandSubcommandEntry`).
+  - `agent-cli` (minor):
+    - `robota session attach` and an attach from `robota session view` open the full terminal UI,
+      the one `robota --attach` opens, in drive mode or, with `--observe`, read-only. The reduced
+      attached view is gone.
+    - A served runtime names each of its sessions after the session's first real turn.
+  - `agent-framework` (minor):
+    - `InteractiveSession` gains `stopWaitingSelfPacedLoop(reason?)`: it stops the one waiting loop,
+      or stops none and names `/loop stop` when several wait. `SessionSlot` forwards it and
+      `readExecutionWorkspaceDetail`.
+    - The session emits `status_changed` when its mode, model, effort, goal or name changes, after a
+      command, a turn, a rename or a goal or plan transition.
+    - A new option `autoName: true` makes the session name itself once, after its first turn, with its
+      current provider; it keeps a name it already has and lets a rename made meanwhile win. Off by
+      default.
+    - The command catalog carries each command's `argumentHint` and `subcommands`.
+  - `agent-ui-terminal` (major):
+    - The full terminal UI attached to a host's session reads a workspace entry's detail, sends input
+      to a background task, stops a waiting self-paced loop on Esc, and completes subcommands.
+    - `renderAttachedApp` takes `mode: 'drive' | 'observe'` (default `'drive'`) and `announce`. In
+      observe mode the terminal sends only what an observer may send, refuses prompts, host commands,
+      abort and loop stop with a read-only notice, still runs `/exit` and its own commands, and its
+      status bar says it is observing. `ITuiChannelSnapshot` gains `readOnly`.
+    - The in-process terminal no longer names sessions; it builds its session with `autoName: true`.
+      `ITuiInteractionChannelOptions.onAutoNamed` is removed.
+
+### Minor Changes
+
+- 617b795: `robota session attach <id> [--observe]` puts this terminal on a live supervised session.
+
+  - It asks first, on the controlling terminal, naming the session and the role: drive (send prompts,
+    answer its questions) or observe (read only). The yes holds only for the process start it named: if
+    the session restarted meanwhile, the attach is refused.
+  - It needs an interactive terminal. Without one (a script, or an agent running shell commands) it is
+    refused and prints the command for the user to run. It is not available as a slash command or a
+    model tool.
+  - The terminal view shows the conversation so far, then follows the session live: streaming replies,
+    tools, other terminals' prompts, queued input and questions. In drive mode it sends prompts and
+    `/commands` and answers permission prompts and questions; a question answered on another surface is
+    dismissed. Observe mode is labelled read-only and sends nothing but reads.
+  - `/exit`, `/quit`, Ctrl-C and Ctrl-] detach. Nothing is sent to the session, so its turn continues and
+    it keeps running; stop it with `robota session stop` or from `robota session view`.
+  - The attached terminal is the full terminal UI (`renderAttachedApp` in `agent-ui-terminal`).
+  - A handshake from a connection that already closed no longer holds one of the session's attach slots.
+
+- 724fabb: External-event grants are given at start, carried exactly to a background session, listed without their
+  principal, and revoked by the owner.
+
+  - `agent-framework` (breaking) — `openExternalEventSource` and `ExternalEventIngress.open` take only
+    `{ grant, audit? }`: the session builds each grant's verifier from `grant.verifier` with the
+    `externalEventVerifierFactory` its host passed when the session was built (without one, no grant opens), and an
+    open that supplies a verifier or a factory is refused. `IExternalEventSource.revoke()` stops the grant's queued and running turns,
+    refuses its later events as `grant-revoked`, and keeps the label from being opened again. A submission the
+    session refuses is `shutting-down` only while it shuts down, and `session-unavailable` otherwise. New command
+    host adapter `externalEvents` (`ICommandExternalEventsAdapter`).
+  - `agent-ui-terminal` — forwards `externalEventVerifierFactory` from the render options to the session.
+  - `agent-interface-transport` — `TExternalEventRefusal` gains `session-unavailable`.
+  - `agent-command` — `/events` lists the session's grants (label, principal kind, state, counts) and
+    `/events revoke <grant-id>` withdraws one. User-only.
+  - `agent-cli` — a grant file (`grantId`, `issuer`, `resource` ending in `/events/<grantId>`, exactly one of
+    `subject` or `client`, `scopes`, optional `algorithms` and `rate`) is validated before anything starts, with a
+    reason that names the grant and no configured value. `robota --external-event-grant <file>` (TUI) and
+    `robota session start --background --external-event-grant <file>` open every grant or fail the start; a
+    background session receives its grants through a private file, opens them before it reports ready, and the
+    launcher refuses a readiness that names other grants. `robota session events list <id> [--json]` and
+    `robota session events revoke <id> <grant-id>` work over the generation-bound control socket, and
+    `robota session list --format json` shows each grant's counts. The retired `--external-event-allow` now points
+    at `--external-event-grant`.
+
+- 1706d29: `robota session view` attaches to and peeks at sessions.
+
+  - `a` attaches to the selected session to drive it, and `p` peeks at it read-only. Both are offered, in
+    the footer and in help, only on a row that is alive, controllable and verified. The view asks first,
+    naming the role. The yes is held to the process start the row showed: if the session restarted or
+    lost control meanwhile, the attach is refused. Detaching returns to the view, on the same row and
+    grouping, without printing the screen-reader line again.
+  - **Breaking:** opening a row's linked PR moves from `p` to `o`.
+  - The attached view shows the keys for what is on screen: sending, answering a permission, or
+    answering a question. With a screen reader it words every line ("Prompt from attach:2: …",
+    "Tool started: …", "Permission needed: …") and uses no symbols.
+  - Questions wait their turn: a second permission request or question no longer replaces the one on
+    screen, and one settled elsewhere leaves the queue.
+  - Line breaks inside pasted text become spaces instead of sending the text. In a masked answer they are
+    dropped, so a copied key that ends with a line break is kept exactly.
+  - `robota session attach` accepts `--screen-reader` and `--no-screen-reader`.
+  - The attach client closes a connection that sends more frames than it can hold before the view reads
+    them.
+
+- 57f57f5: A daemon keeps several sessions live, and each client is bound to its own: one client's switch moves
+  only that client.
+
+  - `agent-interface-session`: `ISessionBinder`/`ISessionBinding`, the session-change refusal codes with
+    `isSessionChangeRefusal`, and listing rows that may say `live` and `clients`.
+  - `agent-framework`: `SessionPool` and `SessionChangeRefusal`.
+  - `agent-transport` (**major**): a new server frame, `session_change_failed`, which an exhaustive
+    consumer must handle. A refused `new-session` or `switch-session` now answers with it, carrying a
+    `code`, instead of `protocol_error`; both requests take an optional `requestId` that it echoes.
+  - `agent-transport-ws`: the `sessionBinder` option binds each connection to its own session and
+    releases the binding when the connection closes.
+  - `agent-cli`: `robota --serve` and the daemon keep up to four sessions live. Each WebSocket client and
+    attached terminal is bound to its own session; leaving a busy session is no longer refused, and only
+    the last driver of a session with a pending prompt is kept from leaving it. Grants and the supervised
+    name stay on the runtime's first session, and its reported activity covers every live session.
+  - `agent-ui-web`: a refused new or switch shows the host's reason as a notice (an older host's
+    `protocol_error` still does); the session sidebar marks live sessions and counts the other clients
+    on each; after a reconnect to a host that keeps sessions live, the GUI returns to the session it was on.
+  - `agent-ui-terminal`: an attached terminal shows why a switch was refused, and the picker's switch
+    stays pending until the host answers; the session picker marks live sessions and their clients.
+
+- 6e6b06b: `robota --attach` puts the full terminal UI on this workspace's running daemon.
+
+  - **`agent-ui-terminal`:**
+    - `renderAttachedApp` renders the same App over a wire connection, through `WireTuiChannel`, a second implementation of the TUI's channel port.
+    - Leaving detaches; the daemon keeps running.
+    - The session picker lists and switches the daemon's sessions. It opens on the daemon's answer to `/resume`; a daemon that cannot list its sessions says why instead.
+    - With no saved sessions to resume, `/resume` says so and keeps the prompt, instead of opening an empty picker that blocks input. This applies to the in-process TUI too.
+    - The session picker lists an unnamed session by the part of its id that differs, not by the `session_` prefix every id shares. This applies to the in-process TUI too.
+    - The status bar names the daemon's current session: its name, or else its short id.
+    - A question already open when the terminal attaches is shown, and a long session's history reaches the terminal without the daemon cutting it off.
+    - Features that belong to the runtime process say they are unavailable while attached: the plugin manager, background task details and sending to an agent job.
+  - **`agent-cli`:**
+    - `robota --attach` finds the workspace daemon and asks the user to confirm on the terminal, as `robota session attach` does, then attaches.
+    - Options that shape a session are refused, because the daemon shapes its session.
+    - A terminal attached over the supervised socket can now list, start and switch sessions.
+    - A client's command no longer stops or restarts the workspace daemon. `/language`, `/reset`, `/exit` and provider setup or switch keep their saved change, and the client is told to run `robota daemon stop`, then `robota daemon start`.
+    - `robota --attach` installs the plain TUI's process guards, so an error the plain TUI survives no longer ends the attached terminal.
+    - A client's command no longer stops or restarts any supervised session either; the client is told to run `robota session stop <id>`, and the saved change applies to a new session from `robota session start --background`.
+
+- caaab20: `/rewind` works again. Every session the CLI builds for a trusted workspace captures edit
+  checkpoints; before, none did, and `/rewind` failed everywhere with "Edit checkpoints require
+  project authority."
+
+  - `agent-cli` (patch): a trusted workspace composes an edit checkpoint store for the terminal UI, a
+    print run, a served runtime and each session a daemon keeps live. Every session gets its own
+    store, pooled or switched to in the terminal UI, since two can run turns at the same time. On a host that cannot prove a project write
+    stays inside the project (every platform but Linux), none is composed: a checkpoint could be
+    neither saved nor restored there.
+  - `agent-command` (patch): where a session has no checkpoints, `/rewind` says why: a restricted
+    workspace is told to run `robota trust --yes` and restart robota, and a host that cannot write
+    the project safely says so. `/rewind list` reports this as a failed command instead of throwing.
+  - `agent-framework` (minor): a checkpoint operation on a session without a store throws
+    `EditCheckpointsUnavailableError`, whose `reason` is `host-cannot-write-project`,
+    `restricted-workspace` or `no-checkpoint-store`. It is a `WorkspaceAuthorityRequiredError`, as
+    before, named `EditCheckpointsUnavailableError`. `HeadlessInteractionChannel` takes an
+    `editCheckpointStore` option.
+  - `agent-ui-terminal` (minor): `renderApp` takes `createEditCheckpointStore` in place of
+    `editCheckpointStore`, and builds each session its own store, since a session switch can build the
+    next session before the old one's turn ends. `TuiInteractionChannel` keeps `editCheckpointStore`:
+    a channel runs one session.
+
+- f01868f: `sandbox.autoAllowBashIfSandboxed` takes effect. The CLI confined shell commands in the OS sandbox,
+  but no session learned about the sandbox, so a confined command still asked for approval in the
+  terminal UI, a served runtime and MCP serve, and a print run with no one to approve it refused it.
+
+  - `agent-cli` (patch): a served session, and each session a daemon keeps live, receives the sandbox
+    the shell tools run under.
+  - `agent-framework` (minor): `HeadlessInteractionChannel` takes a `sandboxClient` option and hands it
+    to the session.
+  - `agent-ui-terminal` (minor): `renderApp` and `TuiInteractionChannel` take a `sandboxClient` option
+    and hand it to each session they build.
+
+### Patch Changes
+
+- 8625a14: Supervised session control is bound to one process start.
+
+  - Each supervised session start writes a fresh random generation into its private registration. Its
+    control endpoint echoes that generation in every reply and refuses any request that carries a
+    different one, or none.
+  - `session view` keeps the generation each row was verified with. Stop and linked-PR opening send it,
+    so a session that restarted under the same id since the row was shown is refused instead of acted
+    on. A stop confirmation also refuses when the row's generation changed while it was open.
+  - `session stop`, `rename`, `link-pr` and `unlink-pr` read the generation at request time and the
+    session itself checks it, closing the window between the liveness check and the action.
+  - A registration without a generation (written by an earlier version) is listed but never
+    controllable; restart that session to control it again.
+  - The generation is never printed by `session list` in text or JSON.
+
+- 6ae3f28: A served runtime can list its workspace's sessions, start a new one and switch to another without the
+  process or any client connection restarting. The GUI shows them in a sessions sidebar.
+
+  - `agent-interface-session` is **`major`** for two reasons:
+    - It adds `ISessionListing`, `ISessionDirectory` and `ISessionSwitchedEvent`.
+    - `IInteractiveSessionEvents` gains a required `session_switched` event. An exhaustive map over the
+      event names stops compiling until it classifies the new event.
+  - `agent-transport` is **`major`** for the same kind of reason:
+    - It adds the wire messages `list-sessions` → `sessions`/`sessions_error`, `new-session`,
+      `switch-session`, and the broadcast `session_switched`.
+    - It adds a `sessionDirectory` handler option. A refusal to switch comes back as a
+      `protocol_error` carrying the reason.
+    - An exhaustive map over message types must add the new variants.
+  - `agent-transport-ws` passes a configured `sessionDirectory` to every connection.
+  - `agent-framework` is **`major` because `IRuntimeHostHandle.session` is now a `SessionSlot`**, not the
+    `InteractiveSession`, and `bindTransports` receives the slot.
+    - The slot is an `IInteractiveSession` that forwards to the current session. Members outside that
+      interface are read through `host.session.current`, which changes on a switch.
+    - Adds `InteractiveSession.whenInitialized()`.
+    - Exports `listUnreadableSessions`.
+  - `agent-ui-web` is **`major`**:
+    - `IWsSessionState` gains session listing state and actions.
+    - It adds a `SessionSidebar`.
+    - `/resume` opens the sidebar.
+  - `agent-cli`: `robota --serve` provides the session directory, and refuses a switch that would lose
+    work in progress. External-event grants belong to the run: a switch reopens them on the new session,
+    as the TUI already does.
+  - External-event grant history (spent tokens, rate windows, revocations) belongs to the run. The new
+    option `externalEventGrantHistory` (from `createExternalEventGrantHistory()`) is shared by every
+    session that a served runtime or the TUI builds. A session switch therefore replays no spent token
+    and resets no rate limit. The TUI previously had this gap when it switched sessions.
+
+- 9721162: A key typed just as a prompt appears no longer answers it: in the terminal UI the permission prompt, and in the web UI both the permission and the ask dock.
+
+  - **`agent-ui-terminal`:** the permission prompt ignores its keys for a short pause after it appears (`PERMISSION_PROMPT_ARM_DELAY_MS`). While it waits it shows "keys answer in a moment" and no selection cursor. In screen-reader mode, a number typed during the pause, or typed for the previous request, is not kept for a later Enter.
+  - **`agent-ui-web`:** the docked permission or ask prompt waits a short pause (`PROMPT_ARM_DELAY_MS`) before it takes focus, so keys typed during that pause stay in the composer. While it waits it says so. A mouse click on a button answers at once, and Esc still denies or cancels; Enter or Space on a focused button waits like any other key, and a button focused to answer one prompt hands focus back to the dock when the next appears.
+
+- 57280bf: Every published package now declares `"engines": { "node": ">=22.12.0" }`. Before, 27 of the 38
+  packages declared no floor (`agent-core`, `agent-tools` and every provider among them),
+  `agent-session` and `agent-file-authority` declared `>=20.19.0`, and the other nine declared
+  `>=22.0.0`, so a consumer on Node 20 saw at most a warning from a transitive dependency.
+
+  Why 22.12: `agent-cli` and `agent-ui-terminal` need Node 22 through `ink` 7, and the CommonJS entries
+  of `agent-tools` and its dependents, `agent-transport`/`node` and its dependents, and
+  `agent-ui-terminal` `require()` ESM-only dependencies (`p-limit`, `jose`, `chalk`), which Node 22
+  supports unflagged only from 22.12. `engines` is advisory unless the consumer enables `engine-strict`.
+
+  No code changes: `tsdown` now reads `node22.12.0` as its build target from the field.
+
+- 1efb124: `@robota-sdk/agent-cli` and `@robota-sdk/agent-ui-terminal` are now ESM-only. Their CommonJS entry
+  could never load: it pulls in Ink, whose `yoga-layout` dependency starts with a top-level `await`, so
+  `require()` failed on every Node version with `ERR_REQUIRE_ASYNC_MODULE`. The packages no longer
+  declare a `require` condition or ship `index.cjs`/`index.d.cts`, so `require()` now fails at resolution
+  with `ERR_PACKAGE_PATH_NOT_EXPORTED`. Load them with `import` or `import()`, which is unchanged. The
+  `robota` executable is unaffected.
+- 18c0d5c: Every published package now exports `./package.json`, so `require('<package>/package.json')` and
+  `import('<package>/package.json', { with: { type: 'json' } })` work instead of failing with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`, and each tarball now ships the package's `CHANGELOG.md`.
+- Updated dependencies [3c81769]
+- Updated dependencies [724fabb]
+- Updated dependencies [d877de2]
+- Updated dependencies [d61e159]
+- Updated dependencies [997f2fb]
+- Updated dependencies [bfe8ed5]
+- Updated dependencies [e689c8e]
+- Updated dependencies [4241fc5]
+- Updated dependencies [4f49d14]
+- Updated dependencies [7b72344]
+- Updated dependencies [6ae3f28]
+- Updated dependencies [9721162]
+- Updated dependencies [be0e53c]
+- Updated dependencies [57f57f5]
+- Updated dependencies [ba822c1]
+- Updated dependencies [9721162]
+- Updated dependencies [6e6b06b]
+- Updated dependencies [7d77ce4]
+- Updated dependencies [8bd5fac]
+- Updated dependencies [57280bf]
+- Updated dependencies [5033dd9]
+- Updated dependencies [18c0d5c]
+- Updated dependencies [dbd888d]
+- Updated dependencies [1887e54]
+- Updated dependencies [caaab20]
+- Updated dependencies [f01868f]
+- Updated dependencies [e8779c9]
+- Updated dependencies [5a0ee96]
+  - @robota-sdk/agent-interface-analytics@3.0.0-beta.83
+  - @robota-sdk/agent-framework@3.0.0-beta.83
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.83
+  - @robota-sdk/agent-transport@3.0.0-beta.83
+  - @robota-sdk/agent-core@3.0.0-beta.83
+  - @robota-sdk/agent-interface-session@3.0.0-beta.83
+  - @robota-sdk/agent-interface-command@3.0.0-beta.83
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.83
+  - @robota-sdk/agent-interface-tui@3.0.0-beta.83
+
 ## 3.0.0-beta.82
 
 ### Patch Changes

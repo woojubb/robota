@@ -1,5 +1,59 @@
 # @robota-sdk/agent-transport-mcp
 
+## 3.0.0-beta.83
+
+### Minor Changes
+
+- d877de2: External events arrive over HTTP: `POST <public-url>/events/<grant-id>`, on a loopback port behind the owner's own
+  HTTPS proxy or tunnel.
+
+  - `agent-transport` — `./node` exports the resource-server gate every token-admitted HTTP carrier shares:
+    `createBearerResourceServer` (Host and Origin checked against the public URL, trusted-proxy `X-Forwarded-For`,
+    a failure-only throttle per address, coarse address classes), `describeProtectedResource` (RFC 9728 metadata
+    path and body, RFC 6750 challenges), `serveProtectedResourceMetadata`, `refuseBearerToken` and
+    `parsePublicHttpsUrl`.
+  - `agent-transport-mcp` — the remote MCP gate is composed from that shared gate; its answers are unchanged.
+  - `agent-cli` — each grant is its own endpoint and audience (its resource is `<public-url>/events/<grant-id>`).
+    An admitted event answers `202 {"turnId"}`; refusals have an empty body: 401 with the `invalid_token` or
+    missing-token challenge, 403 `insufficient_scope` or a revoked grant, 400 a malformed event, 404 an unknown
+    grant, 413 a body over 16 KiB, 429 over the grant's rate or the address's failure budget, 503 when the issuer
+    or the session cannot take it. `--external-event-port <port>` (required with grants) and
+    `--external-event-trusted-proxy <ip>` work on the TUI and on `robota session start --background`. A background
+    session writes an owner-only, bounded JSONL trail of refusals and settlements under its supervised directory;
+    the TUI reports them on one line each.
+
+### Patch Changes
+
+- 57280bf: Every published package now declares `"engines": { "node": ">=22.12.0" }`. Before, 27 of the 38
+  packages declared no floor (`agent-core`, `agent-tools` and every provider among them),
+  `agent-session` and `agent-file-authority` declared `>=20.19.0`, and the other nine declared
+  `>=22.0.0`, so a consumer on Node 20 saw at most a warning from a transitive dependency.
+
+  Why 22.12: `agent-cli` and `agent-ui-terminal` need Node 22 through `ink` 7, and the CommonJS entries
+  of `agent-tools` and its dependents, `agent-transport`/`node` and its dependents, and
+  `agent-ui-terminal` `require()` ESM-only dependencies (`p-limit`, `jose`, `chalk`), which Node 22
+  supports unflagged only from 22.12. `engines` is advisory unless the consumer enables `engine-strict`.
+
+  No code changes: `tsdown` now reads `node22.12.0` as its build target from the field.
+
+- 18c0d5c: Every published package now exports `./package.json`, so `require('<package>/package.json')` and
+  `import('<package>/package.json', { with: { type: 'json' } })` work instead of failing with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`, and each tarball now ships the package's `CHANGELOG.md`.
+- Updated dependencies [724fabb]
+- Updated dependencies [d877de2]
+- Updated dependencies [d61e159]
+- Updated dependencies [bfe8ed5]
+- Updated dependencies [7b72344]
+- Updated dependencies [6ae3f28]
+- Updated dependencies [57f57f5]
+- Updated dependencies [ba822c1]
+- Updated dependencies [6e6b06b]
+- Updated dependencies [57280bf]
+- Updated dependencies [18c0d5c]
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.83
+  - @robota-sdk/agent-transport@3.0.0-beta.83
+  - @robota-sdk/agent-interface-session@3.0.0-beta.83
+
 ## 3.0.0-beta.82
 
 ### Patch Changes

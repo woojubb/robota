@@ -1,5 +1,241 @@
 # @robota-sdk/agent-transport
 
+## 3.0.0-beta.83
+
+### Major Changes
+
+- 7b72344: Every client can offer the session's commands and skills and show its status. The GUI uses them as a
+  desktop-style composer.
+
+  - `agent-interface-session` is **`major` because `IInteractiveSession` gains required members**:
+    `ISessionCommands.listSkills()` and a `statusRead` capability, `getStatusSnapshot()`. The snapshot
+    holds session, model, permission mode, effort, context and goal. An external implementation stops
+    compiling until it adds both.
+  - `agent-transport` is **`major` for the same reason on `IProtocolSession`**. It also gains the wire
+    messages `get-commands` → `commands` and `get-status` → `session_status`. Both are reads that the
+    observe role may send.
+  - `agent-interface-command` gains `ICommandSkillListEntry`, moved from `agent-framework`, which
+    re-exports it unchanged.
+  - `agent-ui-web` is **`major` because its state changes shape**:
+    - A command's outcome and a finished turn's tool calls are now conversation entries: `messages` is
+      `TConversationEntry[]`.
+    - The `uiIntentNotices` list, `dismissUiIntentNotice`, `applyUiIntentEvent`,
+      `removeUiIntentNotice` and `IUiIntentNotice` are removed. An intent now answers with an info
+      line in the conversation.
+    - Session notices keep only `session-error` and `protocol-error`.
+    - The state gains `commandCatalog` and `sessionStatus`.
+  - `agent-command` registers `/theme` and `/keybindings` even without a terminal. They then answer
+    that they belong to the robota terminal, instead of being unknown.
+  - `agent-framework`:
+    - `InteractiveSession.getStatusSnapshot()`.
+    - The main-thread row previews the last chat message instead of the last record's type.
+  - `agent-cli` serves the full GUI web app, renamed from `agent-cli-web` to `agent-gui-web`, on
+    `robota --serve --open`.
+
+- 6ae3f28: A served runtime can list its workspace's sessions, start a new one and switch to another without the
+  process or any client connection restarting. The GUI shows them in a sessions sidebar.
+
+  - `agent-interface-session` is **`major`** for two reasons:
+    - It adds `ISessionListing`, `ISessionDirectory` and `ISessionSwitchedEvent`.
+    - `IInteractiveSessionEvents` gains a required `session_switched` event. An exhaustive map over the
+      event names stops compiling until it classifies the new event.
+  - `agent-transport` is **`major`** for the same kind of reason:
+    - It adds the wire messages `list-sessions` → `sessions`/`sessions_error`, `new-session`,
+      `switch-session`, and the broadcast `session_switched`.
+    - It adds a `sessionDirectory` handler option. A refusal to switch comes back as a
+      `protocol_error` carrying the reason.
+    - An exhaustive map over message types must add the new variants.
+  - `agent-transport-ws` passes a configured `sessionDirectory` to every connection.
+  - `agent-framework` is **`major` because `IRuntimeHostHandle.session` is now a `SessionSlot`**, not the
+    `InteractiveSession`, and `bindTransports` receives the slot.
+    - The slot is an `IInteractiveSession` that forwards to the current session. Members outside that
+      interface are read through `host.session.current`, which changes on a switch.
+    - Adds `InteractiveSession.whenInitialized()`.
+    - Exports `listUnreadableSessions`.
+  - `agent-ui-web` is **`major`**:
+    - `IWsSessionState` gains session listing state and actions.
+    - It adds a `SessionSidebar`.
+    - `/resume` opens the sidebar.
+  - `agent-cli`: `robota --serve` provides the session directory, and refuses a switch that would lose
+    work in progress. External-event grants belong to the run: a switch reopens them on the new session,
+    as the TUI already does.
+  - External-event grant history (spent tokens, rate windows, revocations) belongs to the run. The new
+    option `externalEventGrantHistory` (from `createExternalEventGrantHistory()`) is shared by every
+    session that a served runtime or the TUI builds. A session switch therefore replays no spent token
+    and resets no rate limit. The TUI previously had this gap when it switched sessions.
+
+- 57f57f5: A daemon keeps several sessions live, and each client is bound to its own: one client's switch moves
+  only that client.
+
+  - `agent-interface-session`: `ISessionBinder`/`ISessionBinding`, the session-change refusal codes with
+    `isSessionChangeRefusal`, and listing rows that may say `live` and `clients`.
+  - `agent-framework`: `SessionPool` and `SessionChangeRefusal`.
+  - `agent-transport` (**major**): a new server frame, `session_change_failed`, which an exhaustive
+    consumer must handle. A refused `new-session` or `switch-session` now answers with it, carrying a
+    `code`, instead of `protocol_error`; both requests take an optional `requestId` that it echoes.
+  - `agent-transport-ws`: the `sessionBinder` option binds each connection to its own session and
+    releases the binding when the connection closes.
+  - `agent-cli`: `robota --serve` and the daemon keep up to four sessions live. Each WebSocket client and
+    attached terminal is bound to its own session; leaving a busy session is no longer refused, and only
+    the last driver of a session with a pending prompt is kept from leaving it. Grants and the supervised
+    name stay on the runtime's first session, and its reported activity covers every live session.
+  - `agent-ui-web`: a refused new or switch shows the host's reason as a notice (an older host's
+    `protocol_error` still does); the session sidebar marks live sessions and counts the other clients
+    on each; after a reconnect to a host that keeps sessions live, the GUI returns to the session it was on.
+  - `agent-ui-terminal`: an attached terminal shows why a switch was refused, and the picker's switch
+    stays pending until the host answers; the session picker marks live sessions and their clients.
+
+- ba822c1: An attached client reads a workspace entry's detail, stops a waiting self-paced loop, completes
+  subcommands, and sees status changes another client made.
+
+  - `agent-interface-session` (major): `IInteractiveSession` gains the required roles
+    `ISessionExecutionDetail` and `ISessionSelfPacedLoopControl` (`TWaitingLoopStopOutcome`), and the
+    exhaustively mapped event map gains `status_changed`.
+  - `agent-transport` (major): `IProtocolSession` gains both roles; the wire unions gain
+    `read-execution-detail`, `stop-waiting-loop`, `execution_detail`, `execution_detail_error` and
+    `waiting_loop_stop`; `status_changed` is pushed as `session_status`; `isObserverMessageType` is
+    exported from the root and `./client`.
+  - `agent-interface-command` (minor): `ICommandListEntry` gains optional `argumentHint` and
+    `subcommands` (`ICommandSubcommandEntry`).
+  - `agent-cli` (minor):
+    - `robota session attach` and an attach from `robota session view` open the full terminal UI,
+      the one `robota --attach` opens, in drive mode or, with `--observe`, read-only. The reduced
+      attached view is gone.
+    - A served runtime names each of its sessions after the session's first real turn.
+  - `agent-framework` (minor):
+    - `InteractiveSession` gains `stopWaitingSelfPacedLoop(reason?)`: it stops the one waiting loop,
+      or stops none and names `/loop stop` when several wait. `SessionSlot` forwards it and
+      `readExecutionWorkspaceDetail`.
+    - The session emits `status_changed` when its mode, model, effort, goal or name changes, after a
+      command, a turn, a rename or a goal or plan transition.
+    - A new option `autoName: true` makes the session name itself once, after its first turn, with its
+      current provider; it keeps a name it already has and lets a rename made meanwhile win. Off by
+      default.
+    - The command catalog carries each command's `argumentHint` and `subcommands`.
+  - `agent-ui-terminal` (major):
+    - The full terminal UI attached to a host's session reads a workspace entry's detail, sends input
+      to a background task, stops a waiting self-paced loop on Esc, and completes subcommands.
+    - `renderAttachedApp` takes `mode: 'drive' | 'observe'` (default `'drive'`) and `announce`. In
+      observe mode the terminal sends only what an observer may send, refuses prompts, host commands,
+      abort and loop stop with a read-only notice, still runs `/exit` and its own commands, and its
+      status bar says it is observing. `ITuiChannelSnapshot` gains `readOnly`.
+    - The in-process terminal no longer names sessions; it builds its session with `autoName: true`.
+      `ITuiInteractionChannelOptions.onAutoNamed` is removed.
+
+- 6e6b06b: A wire client can now render the whole session the way the in-process terminal UI does: the full
+  history, the context window as it changes, when the history changes, and where each turn came from.
+
+  - `agent-interface-session` is **`major`**: `ISessionConversationRead` gains a required
+    `getFullHistory()`. Any implementation of it, or of `IInteractiveSession`, must add it.
+  - `agent-transport` is **`major`**:
+    - It adds `get-history { fromIndex? }` → `history { startIndex, total, entries }`. The history
+      crosses one bounded page at a time (at most 256 KiB of entries; a single larger entry is sent
+      alone), from `fromIndex` (default 0), so no reply grows with the session. The client asks for
+      the next page after the previous one arrived. Entries are `IWireHistoryEntry`: a history entry
+      with an ISO 8601 `timestamp`. An observer may send it.
+    - `complete` and `interrupted` carry the turn's result without the session's history
+      (`TWireExecutionResult`); a client reads the history with `get-history`.
+    - It adds `get-prompts`: the host sends the permission and ask prompts still open as the
+      `permission_request` / `ask_request` frames that asked them, for a client that attached later.
+      An observer may not send it.
+    - `pending` gains an optional `pendingCount`: a host sends it when it knows how many prompts are
+      queued, and a client that gets none counts the prompt it shows. The host sends `pending` in
+      reply to a `submit` once it has taken the prompt, so a prompt queued behind a running turn shows
+      as queued.
+    - `command` takes an optional `requestId`, which the host echoes on the command's
+      `command_result` or `protocol_error`.
+    - The session's `context_update` is pushed as the `context` frame that `get-context` answers with.
+    - `compact`, `skill_activation` and `memory_event` push the new `history_changed`; the client
+      reads the history again.
+    - `turn_source` is pushed as the new `turn_source` frame.
+    - An exhaustive map over `TClientMessage` or `TServerMessage` types must add the new variants,
+      and `IProtocolSession` now requires `getFullHistory()`.
+  - `agent-transport-http` is **`major`** only because `IHttpTransportSession` includes the conversation
+    read role, so a session handed to it must now provide `getFullHistory()`.
+  - `agent-framework`: `SessionSlot` forwards `getFullHistory()` to the current session.
+  - `agent-ui-web` receives the new frames and does not render them.
+
+### Minor Changes
+
+- d877de2: External events arrive over HTTP: `POST <public-url>/events/<grant-id>`, on a loopback port behind the owner's own
+  HTTPS proxy or tunnel.
+
+  - `agent-transport` — `./node` exports the resource-server gate every token-admitted HTTP carrier shares:
+    `createBearerResourceServer` (Host and Origin checked against the public URL, trusted-proxy `X-Forwarded-For`,
+    a failure-only throttle per address, coarse address classes), `describeProtectedResource` (RFC 9728 metadata
+    path and body, RFC 6750 challenges), `serveProtectedResourceMetadata`, `refuseBearerToken` and
+    `parsePublicHttpsUrl`.
+  - `agent-transport-mcp` — the remote MCP gate is composed from that shared gate; its answers are unchanged.
+  - `agent-cli` — each grant is its own endpoint and audience (its resource is `<public-url>/events/<grant-id>`).
+    An admitted event answers `202 {"turnId"}`; refusals have an empty body: 401 with the `invalid_token` or
+    missing-token challenge, 403 `insufficient_scope` or a revoked grant, 400 a malformed event, 404 an unknown
+    grant, 413 a body over 16 KiB, 429 over the grant's rate or the address's failure budget, 503 when the issuer
+    or the session cannot take it. `--external-event-port <port>` (required with grants) and
+    `--external-event-trusted-proxy <ip>` work on the TUI and on `robota session start --background`. A background
+    session writes an owner-only, bounded JSONL trail of refusals and settlements under its supervised directory;
+    the TUI reports them on one line each.
+
+- d61e159: The session protocol gains a read-only `observe` role.
+
+  - `createSessionMessageHandler({ role: 'observe' })` follows the session's conversation, streaming,
+    tool, background, usage and workspace events and answers reads of this session. The default role
+    stays `drive`, which is unchanged.
+  - An observer never subscribes to `permission_request` or `ask_request`. A session with only observers
+    attached therefore still denies a permission and cancels a question at once instead of waiting for a
+    surface that may not answer. Observers still see `prompt_resolved`.
+  - An observer cannot submit, run commands, abort, cancel the queue, control background tasks, answer
+    prompts, or read personal or other sessions' usage reports. Each such message is answered with a
+    `protocol_error` and changes nothing. Only an explicit list of reads is accepted, so a message type
+    added later is refused to observers until it is classified.
+  - `ATTACHED_SURFACE_MAX_PENDING_BYTES` (1 MiB) is the backpressure budget a carrier passes to
+    `createOutboundDelivery` for a terminal attached on the same host. A reader that falls that far
+    behind is cut off and reported to the carrier, and other surfaces keep streaming. No carrier uses it
+    yet.
+  - `agent-cli`: a supervised session's control endpoint no longer includes its generation in a
+    refusal to a caller that did not present it.
+
+### Patch Changes
+
+- 57280bf: Every published package now declares `"engines": { "node": ">=22.12.0" }`. Before, 27 of the 38
+  packages declared no floor (`agent-core`, `agent-tools` and every provider among them),
+  `agent-session` and `agent-file-authority` declared `>=20.19.0`, and the other nine declared
+  `>=22.0.0`, so a consumer on Node 20 saw at most a warning from a transitive dependency.
+
+  Why 22.12: `agent-cli` and `agent-ui-terminal` need Node 22 through `ink` 7, and the CommonJS entries
+  of `agent-tools` and its dependents, `agent-transport`/`node` and its dependents, and
+  `agent-ui-terminal` `require()` ESM-only dependencies (`p-limit`, `jose`, `chalk`), which Node 22
+  supports unflagged only from 22.12. `engines` is advisory unless the consumer enables `engine-strict`.
+
+  No code changes: `tsdown` now reads `node22.12.0` as its build target from the field.
+
+- 18c0d5c: Every published package now exports `./package.json`, so `require('<package>/package.json')` and
+  `import('<package>/package.json', { with: { type: 'json' } })` work instead of failing with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`, and each tarball now ships the package's `CHANGELOG.md`.
+- Updated dependencies [3c81769]
+- Updated dependencies [724fabb]
+- Updated dependencies [bfe8ed5]
+- Updated dependencies [e689c8e]
+- Updated dependencies [7b72344]
+- Updated dependencies [6ae3f28]
+- Updated dependencies [be0e53c]
+- Updated dependencies [57f57f5]
+- Updated dependencies [ba822c1]
+- Updated dependencies [9721162]
+- Updated dependencies [6e6b06b]
+- Updated dependencies [8bd5fac]
+- Updated dependencies [57280bf]
+- Updated dependencies [5033dd9]
+- Updated dependencies [18c0d5c]
+- Updated dependencies [dbd888d]
+- Updated dependencies [1887e54]
+  - @robota-sdk/agent-interface-analytics@3.0.0-beta.83
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.83
+  - @robota-sdk/agent-core@3.0.0-beta.83
+  - @robota-sdk/agent-interface-session@3.0.0-beta.83
+  - @robota-sdk/agent-interface-command@3.0.0-beta.83
+  - @robota-sdk/agent-interface-execution@3.0.0-beta.83
+  - @robota-sdk/agent-interface-session-mobility@3.0.0-beta.83
+
 ## 3.0.0-beta.82
 
 ### Minor Changes

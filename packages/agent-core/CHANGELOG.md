@@ -1,5 +1,80 @@
 # @robota-sdk/agent-core
 
+## 3.0.0-beta.83
+
+### Minor Changes
+
+- e689c8e: Follow-ups to connection approval and `/handoff`.
+
+  - `agent-transport-webrtc-web` — the browser remote client says `Waiting for the host to approve this connection…`
+    (`awaiting-approval`) after pairing, and `Connected` only once the host's session answers. A host that closes the
+    channel instead is shown as `refused` and is not retried, since a retry would only ask the operator again; a
+    first connection lost before the host answered is `failed`. Reconnect attempts count until the host admits a
+    connection, so a link that keeps dropping while approval is pending gives up instead of asking again and again.
+  - `agent-core`, `agent-session`, `agent-framework` — a turn that did not come from the operator stores its
+    `turnSource` (`peer`, `external`, `agent-wakeup`) beside `driverId` on the user message and in the display
+    history (`IRunOptions.turnSource`), so a session handed off keeps where each turn came from.
+  - `agent-cli` — a `/handoff` resent after a lost confirmation reports what stays behind as it is now, not as it was
+    at the first attempt, and after refusing to resend a session that changed, the hand-off status shows that refusal
+    instead of the earlier lost confirmation.
+
+- be0e53c: A tool instance shared by several sessions sends each call's span to the session that made the call.
+
+  - **Before:** each session set its event service on the shared instance, so the span went to whichever session had set it last.
+  - **`agent-core`:** `IToolExecutionContext` gains an optional `instanceEventService`. `FunctionTool` emits its span there when a call carries one.
+  - **`agent-session`:** the permission wrapper keeps its session's service and passes it with every call.
+
+### Patch Changes
+
+- 8bd5fac: Cached input tokens are no longer dropped (#3209 R3). The OpenAI and OpenAI-compatible adapters read
+  `prompt_tokens_details.cached_tokens` (Chat Completions, including the final streamed usage chunk) and
+  `input_tokens_details.cached_tokens` (Responses, OpenAI and Qwen) into `cacheReadTokens` on the message
+  usage: the part of the prompt served from the provider's prompt cache, present only when reported.
+  It reaches the committed assistant message, `readTokenUsageFromMessage()`, and the
+  `provider_call_completed` execution event, so a consumer can apply the cache discount.
+
+  New `sumMessagesUsage(messages)` sums the usage on assistant messages (with `cacheReadTokens` when any
+  reported it), so one run's usage is `sumMessagesUsage(agent.getHistory().slice(before))` without
+  converting through `messageToHistoryEntry` (#3209 S1). `sumHistoryUsage` returns the same triple as before.
+
+  A forced-summary reply now keeps the usage its provider reported the same way a tool round's reply
+  does: an endpoint that omits `total_tokens` no longer loses exactly the summary call's usage (#3209 N3). Counts
+  the adapter could not attest as a consistent total are recorded with `usageProvenance: 'partial'`.
+
+- 57280bf: Every published package now declares `"engines": { "node": ">=22.12.0" }`. Before, 27 of the 38
+  packages declared no floor (`agent-core`, `agent-tools` and every provider among them),
+  `agent-session` and `agent-file-authority` declared `>=20.19.0`, and the other nine declared
+  `>=22.0.0`, so a consumer on Node 20 saw at most a warning from a transitive dependency.
+
+  Why 22.12: `agent-cli` and `agent-ui-terminal` need Node 22 through `ink` 7, and the CommonJS entries
+  of `agent-tools` and its dependents, `agent-transport`/`node` and its dependents, and
+  `agent-ui-terminal` `require()` ESM-only dependencies (`p-limit`, `jose`, `chalk`), which Node 22
+  supports unflagged only from 22.12. `engines` is advisory unless the consumer enables `engine-strict`.
+
+  No code changes: `tsdown` now reads `node22.12.0` as its build target from the field.
+
+- 5033dd9: When the round cap ends a run on a tool round and the follow-up summary call fails, `run()` and
+  `runStream()` now reject with that call's own provider error (for example a `RateLimitError` with
+  `recoverable: true`, or the provider's 400 error) instead of a generic
+  `[STRICT-POLICY] Failed execution result missing error field` error. The failure is recorded in
+  history like a failed round. An aborted summary call now resolves the run as interrupted, like an aborted round, instead of failing.
+- 18c0d5c: Every published package now exports `./package.json`, so `require('<package>/package.json')` and
+  `import('<package>/package.json', { with: { type: 'json' } })` work instead of failing with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`, and each tarball now ships the package's `CHANGELOG.md`.
+- dbd888d: A `run()` or `runStream()` whose signal is already aborted when its turn comes now fails as an abort:
+  `name === 'AbortError'`, so `isAbortFailure(err)` holds without the signal. The signal's own reason is
+  thrown when it already is an `AbortError` (the default `controller.abort()`); any other reason,
+  including an error that only wraps an abort, becomes the `cause` of an abort error whose message says
+  `Run aborted before it started`, or `Run aborted while queued behind another run on this instance`
+  only when the run actually waited behind another. It still never reaches the provider or the history.
+  Previously it was a plain `Error` that always claimed the run had been queued.
+- 1887e54: A run's answer now comes from its own turn. A turn run with `allowToolOnlyCompletion` that ends in
+  tool calls resolves with `''` instead of throwing a `[STRICT-POLICY]` error, and a later turn that
+  produces no text no longer resolves with the previous turn's answer. An aborted run resolves with the
+  text it committed before the abort (the same text history keeps, marked `interrupted`) instead of
+  `''`, and its result lists the tool calls the turn handled before the abort. `tokensUsed`, which plugins receive
+  after each run, counts only that run's provider calls instead of the whole conversation's.
+
 ## 3.0.0-beta.82
 
 ### Minor Changes

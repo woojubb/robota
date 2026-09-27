@@ -1,5 +1,137 @@
 # @robota-sdk/agent-transport-webrtc
 
+## 3.0.0-beta.83
+
+### Minor Changes
+
+- 28fa8a7: `/devices add` and `/devices join` enrol a new device into your devices.
+
+  - On a device that holds the signing key, `/devices add` shows a one-time code on the terminal. It
+    works once, for five minutes.
+  - On the new device, `/devices join [name]` asks for the code on the terminal, creates the device's
+    keys, and meets the other device through the signaling relay in
+    `transports.webrtc.options.relayUrl`. Both devices need that setting.
+  - The new device proves the code over the WebRTC connection's DTLS fingerprints before anything else
+    crosses, so a relay in the middle cannot enrol anyone.
+  - Both devices then show the same six digits, and both operators compare them and confirm. Someone
+    who saw the code cannot choose the digits: the new device commits to its part before it sees the
+    existing device's.
+  - Only when both operators say yes does the existing device certify the new one and issue a new
+    roster. The new device keeps its identity only once the chain it receives verifies.
+  - A wrong, expired or already used code is refused. So is a code after a few failed attempts. When
+    either operator declines, nothing is issued or kept.
+  - The code appears only on the two terminals. It never reaches history, transcripts or the model. A
+    code typed as a command argument is refused. Both commands stay user-only and refuse remote
+    surfaces.
+  - `agent-remote-pairing`: enrollment codes, the enrollment proof, the signed request with its
+    commitment, the short authentication string and the frame decoder.
+  - `agent-transport-webrtc`: `dialEnrollment` and `listenForEnrollment` provide a data channel bound to
+    the negotiated fingerprints.
+
+- 963a4e0: Where no direct path joins two of one user's devices, a TURN relay on one of the user's own devices carries the
+  connection.
+
+  - `agent-transport-webrtc` — `TurnServer`, a pure-JavaScript TURN server over UDP (Allocate, Refresh,
+    CreatePermission, ChannelBind, Send/Data indications, ChannelData, long-term credentials) with quotas for
+    allocations per owner and in all, relayed bytes per second per owner, and allocation lifetime, and an optional
+    relayed-port range for a relay behind a NAT. Only what MESSAGE-INTEGRITY covers is read. Requests nobody has
+    authenticated are answered at a limited rate (per source and in all) and never with more bytes than they
+    carried, and forwarding into private ranges can be turned off (`allowPrivatePeers`). `MeshTurnRelay` runs it
+    for the devices of the roster: each pair derives a short-lived credential of its own (`meshRelayCredential`), a
+    device the lists drop or revoke can no longer allocate and loses its allocations. `DeviceMeshNode` takes
+    `relays` (the relays paired devices advertise, then configured TURN servers, and `relayOnly`) and
+    `relayServer`; a connection that needs a relay and has none is refused with `MeshRelayNeededError`, which says
+    why a relay was needed and carries the direct attempt's failure. `MeshDht` publishes this device's relay
+    endpoints in the sealed hints records (`relayEndpoints`) and reads the peers' (`relayAdverts`). DTLS stays end
+    to end; the relay only forwards it.
+  - `agent-remote-pairing` — the pair rendezvous derives a `relay-user` tag and `relayPassword`, the relay
+    credential's password for one direction and username.
+  - `agent-cli` — `transports.mesh.options` takes `relay` (`serve`, `port`, `host`, `publicAddress`, `relayPorts`,
+    `allowPrivatePeers`), `turnServers` and `relayOnly`. When the mesh is on, the session's mesh runs the relay,
+    advertises it to paired devices only, and uses the fallback order; `/devices` names the relays, and a device
+    that needs a relay is reported once with why. Running a relay, or relay-only without TURN servers, needs the
+    DHT or pkarr relays, which carry a relay's address to the other devices; a setting that could not work is
+    refused, naming it.
+
+### Patch Changes
+
+- 6e4c6ee: Device mesh discovery holds up better against endpoints and peers that misbehave.
+
+  - A direct path's admission deadline starts only from a `hello`, `offer` or `answer`, so ICE candidates
+    that trail an admitted connection no longer set a working path aside.
+  - An endpoint or signaling carrier that keeps failing is set aside for longer each time it fails
+    again, until a connection over it is admitted.
+  - An mDNS lookup keeps listening briefly after the first matching answer, so a faster answer from
+    another host cannot hide the peer's own.
+  - The device lists read from public records are bounded per paired device, each device's newest
+    before any device's next, and the chunks of one list carry a shared version, so a read that finds
+    chunks of two versions yields no list. Records written before this change are not read as lists.
+  - CLI processes that share `~/.robota/devices/address-cache.json` apply each change to the file as it
+    is on disk, so one process no longer overwrites what another learned.
+
+- 4241fc5: Device mesh follow-ups.
+
+  - A device with no identity is pointed to `/devices add` on one of the user's devices and `/devices join`
+    here, as well as to `/devices init`. The message says that `init` is for the first device only,
+    because it creates a separate identity that can never link to the user's other devices. The `/devices`
+    description and the `init` subcommand say the same.
+  - An identity created mid-session (`/devices init`, or a successful `/devices join`) opens the mesh
+    without a restart when `transports.mesh.enabled` is on.
+  - If a session stalls for longer than the mesh lock's stale window (for example while the machine
+    sleeps), another session can take the mesh over. The stalled session now notices this on its next
+    lock refresh, closes its own mesh, and says why. Two sessions no longer run it together.
+    `holdExclusiveFileLock` has a new `onLost` option for this.
+  - `/peers` and `/handoff` still list and reach linked mesh devices when local same-host peer discovery
+    fails. `/peers` says why sessions on this host are not listed. `ICommandLocalPeersAdapter` has a new
+    optional `localDiscoveryOff` field for this.
+  - `agent-transport-webrtc`: when lists become newer on a node (reissued, revoked, or adopted from a
+    peer), the node sends them over every admitted connection instead of waiting for the next handshake.
+    Reissues, revocations and enrolments in the CLI take effect this way at once. A receiver adopts a
+    pushed list only if it is newer, issued by this user's signing key, and verifies. The push does not
+    depend on the peer's capabilities, and it never reaches the application's message handlers.
+
+- 05d5391: The embedded TURN relay says why it cannot listen — the port is taken, the host is not an address of
+  this machine, or the port needs privileges — and keeps the bind error as `cause`; the CLI names the
+  relay setting that cause asks you to change. Mesh options are no longer checked while
+  `transports.mesh.enabled` is off, so a mistake in them does not report that the mesh could not start.
+- 598b180: A WebRTC peer hands out its own ICE candidates only once it holds the remote description, so an answerer can no
+  longer reach the offerer while the answer is still being applied and have its certificate refused. A data channel
+  closed right after a send no longer loses that send: it reads closed at once and its stream is reset after a
+  grace. A LAN probe answered with anything but a valid proof is dropped at once.
+- 57280bf: Every published package now declares `"engines": { "node": ">=22.12.0" }`. Before, 27 of the 38
+  packages declared no floor (`agent-core`, `agent-tools` and every provider among them),
+  `agent-session` and `agent-file-authority` declared `>=20.19.0`, and the other nine declared
+  `>=22.0.0`, so a consumer on Node 20 saw at most a warning from a transitive dependency.
+
+  Why 22.12: `agent-cli` and `agent-ui-terminal` need Node 22 through `ink` 7, and the CommonJS entries
+  of `agent-tools` and its dependents, `agent-transport`/`node` and its dependents, and
+  `agent-ui-terminal` `require()` ESM-only dependencies (`p-limit`, `jose`, `chalk`), which Node 22
+  supports unflagged only from 22.12. `engines` is advisory unless the consumer enables `engine-strict`.
+
+  No code changes: `tsdown` now reads `node22.12.0` as its build target from the field.
+
+- 18c0d5c: Every published package now exports `./package.json`, so `require('<package>/package.json')` and
+  `import('<package>/package.json', { with: { type: 'json' } })` work instead of failing with
+  `ERR_PACKAGE_PATH_NOT_EXPORTED`, and each tarball now ships the package's `CHANGELOG.md`.
+- Updated dependencies [724fabb]
+- Updated dependencies [d877de2]
+- Updated dependencies [d61e159]
+- Updated dependencies [bfe8ed5]
+- Updated dependencies [28fa8a7]
+- Updated dependencies [963a4e0]
+- Updated dependencies [7b72344]
+- Updated dependencies [6ae3f28]
+- Updated dependencies [57f57f5]
+- Updated dependencies [ba822c1]
+- Updated dependencies [6e6b06b]
+- Updated dependencies [57280bf]
+- Updated dependencies [18c0d5c]
+  - @robota-sdk/agent-interface-transport@3.0.0-beta.83
+  - @robota-sdk/agent-transport@3.0.0-beta.83
+  - @robota-sdk/agent-remote-pairing@3.0.0-beta.83
+  - @robota-sdk/agent-interface-session@3.0.0-beta.83
+  - @robota-sdk/agent-interface-session-mobility@3.0.0-beta.83
+
 ## 3.0.0-beta.82
 
 ### Minor Changes

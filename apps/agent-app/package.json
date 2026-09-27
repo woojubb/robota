@@ -1,6 +1,6 @@
 {
   "name": "@robota-sdk/agent-app",
-  "version": "3.0.0-beta.82",
+  "version": "3.0.0-beta.83",
   "private": true,
   "description": "agent-app — the Electron shell of the robota desktop app: starts or reuses the workspace's `robota` daemon, hands its loopback address to the page, and loads the GUI web app @robota-sdk/agent-gui-web.",
   "author": "Robota",

@@ -1,5 +1,32 @@
 # robota-web
 
+## 0.1.1-beta.3
+
+### Patch Changes
+
+- Updated dependencies [e689c8e]
+- Updated dependencies [eb16da8]
+- Updated dependencies [7b72344]
+- Updated dependencies [9ecffed]
+- Updated dependencies [6ae3f28]
+- Updated dependencies [be0e53c]
+- Updated dependencies [9721162]
+- Updated dependencies [57f57f5]
+- Updated dependencies [9721162]
+- Updated dependencies [6e6b06b]
+- Updated dependencies [8bd5fac]
+- Updated dependencies [57280bf]
+- Updated dependencies [5033dd9]
+- Updated dependencies [18c0d5c]
+- Updated dependencies [dbd888d]
+- Updated dependencies [1887e54]
+- Updated dependencies [227ff3a]
+- Updated dependencies [f8a8a4d]
+  - @robota-sdk/agent-transport-webrtc-web@3.0.0-beta.83
+  - @robota-sdk/agent-core@3.0.0-beta.83
+  - @robota-sdk/agent-ui-web@3.0.0-beta.83
+  - @robota-sdk/agent-playground@3.0.0-beta.83
+
 ## 0.1.1-beta.2
 
 ### Patch Changes
