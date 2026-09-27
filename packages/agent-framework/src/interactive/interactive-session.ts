@@ -25,6 +25,7 @@ import { createPromptHistoryRecorder } from './interactive-session-prompt-histor
 import { createProjectPermissionPersistence } from './project-permission-persistence.js';
 import { resolveUserSettingsProviderSwitch } from './interactive-session-provider-switch.js';
 import { readMergedProviderSettings } from '../command-api/provider/provider-factory.js';
+import { buildModelListSnapshot } from '../command-api/provider/provider-model-catalog.js';
 import { FallbackProvider } from '../routing/fallback-provider.js';
 import { applyModelFallback } from '../routing/model-fallback-chain.js';
 import { persistSessionRename } from './interactive-session-rename.js';
@@ -138,6 +139,7 @@ import type {
   TPermissionResultValue,
   ISessionLoopState,
   ISessionStatusSnapshot,
+  IModelListSnapshot,
   TWaitingLoopStopOutcome,
 } from '@robota-sdk/agent-interface-session';
 import type { ITransportAdapter } from '@robota-sdk/agent-interface-transport';
@@ -1677,6 +1679,23 @@ export class InteractiveSession
       goal: this.getGoalState(),
       ...(this.setupRequired ? { setupRequired: true } : {}),
     };
+  }
+
+  /**
+   * The models a client's model menu may switch to (#3282 §2), grouped by configured provider
+   * profile. Reads the same merged settings and `providerDefinitions` `/provider switch` and
+   * `/model` already read, so the GUI's list and what `/model <id>` accepts never drift apart.
+   */
+  listModels(): IModelListSnapshot {
+    const merged = readMergedProviderSettings(this.userSettingsSources);
+    const session = this.getSessionOrThrow();
+    return buildModelListSnapshot(
+      merged.providers,
+      merged.currentProvider,
+      session.getModelId(),
+      this.providerDefinitions,
+      this.orgPolicy?.allowedProviders,
+    );
   }
 
   attachTransport(transport: ITransportAdapter<IInteractiveSession>): void {

@@ -28,6 +28,7 @@ const CLIENT_SAMPLES: Readonly<Record<TClientMessage['type'], TClientMessage>> =
   'get-context': { type: 'get-context' },
   'get-commands': { type: 'get-commands' },
   'get-status': { type: 'get-status' },
+  'list-models': { type: 'list-models', requestId: 'request-6' },
   'list-sessions': { type: 'list-sessions', requestId: 'request-3' },
   'new-session': { type: 'new-session', requestId: 'request-4' },
   'switch-session': { type: 'switch-session', sessionId: 'session-2', requestId: 'request-5' },
@@ -111,6 +112,15 @@ const SERVER_SAMPLES: Readonly<Record<TServerMessage['type'], TServerMessage>> =
   turn_source: { type: 'turn_source', source: 'peer' },
   commands: { type: 'commands', commands: [], skills: [] },
   session_status: { type: 'session_status', status: {} as never },
+  model_list: {
+    type: 'model_list',
+    requestId: 'request-6',
+    groups: [
+      { profileName: 'anthropic', providerLabel: 'Anthropic', models: [{ id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' }] },
+    ],
+    currentProfile: 'anthropic',
+    currentModel: 'claude-sonnet-4-6',
+  },
   sessions: { type: 'sessions', requestId: 'request-3', listing: {} as never },
   sessions_error: {
     type: 'sessions_error',
@@ -239,6 +249,8 @@ const MALFORMED_CLIENT: ReadonlyArray<[string, unknown]> = [
   ['ack with NaN', { type: 'ack', seq: Number.NaN }],
   ['cancel-background-task with an empty taskId', { type: 'cancel-background-task', taskId: '' }],
   ['list-sessions without requestId', { type: 'list-sessions' }],
+  ['list-models without requestId', { type: 'list-models' }],
+  ['list-models with an empty requestId', { type: 'list-models', requestId: '' }],
   ['get-history from a negative index', { type: 'get-history', fromIndex: -1 }],
   ['get-history from a fractional index', { type: 'get-history', fromIndex: 1.5 }],
   ['command with an empty requestId', { type: 'command', name: 'n', requestId: '' }],
@@ -290,6 +302,12 @@ const MALFORMED_SERVER: ReadonlyArray<[string, unknown]> = [
     { type: 'sessions_error', requestId: 'r', code: 'nope', message: 'm' },
   ],
   ['session_switched without event', { type: 'session_switched' }],
+  ['model_list without requestId', { type: 'model_list', groups: [], currentModel: 'm' }],
+  [
+    'model_list with a non-array groups',
+    { type: 'model_list', requestId: 'r', groups: {}, currentModel: 'm' },
+  ],
+  ['model_list without currentModel', { type: 'model_list', requestId: 'r', groups: [] }],
   [
     'session_change_failed with an unknown code',
     { type: 'session_change_failed', code: 'nope', message: 'm' },

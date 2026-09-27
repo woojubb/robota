@@ -40,13 +40,26 @@ export const VALID_PERMISSION_MODES: readonly TPermissionMode[] = [
   'auto',
 ];
 
+/**
+ * #3282 §2 — the plain label every surface shows for a permission mode, so the TUI's inline picker
+ * and the GUI's mode menu agree instead of each inventing (or skipping) one. `description` stays the
+ * secondary line under it; neither name is an internal id a person has to already know.
+ */
+export const PERMISSION_MODE_LABELS: Readonly<Record<TPermissionMode, string>> = {
+  plan: 'Plan only',
+  default: 'Ask first',
+  acceptEdits: 'Accept edits',
+  bypassPermissions: 'Skip all checks',
+  auto: 'Auto',
+};
+
 export function buildPermissionModeSubcommands(source = 'mode'): ICommand[] {
   return [
-    { name: 'plan', description: 'Plan only, no execution', source },
-    { name: 'default', description: 'Ask before risky actions', source },
-    { name: 'acceptEdits', description: 'Auto-approve file edits', source },
-    { name: 'bypassPermissions', description: 'Skip all permission checks', source },
-    { name: 'auto', description: 'A model classifier approves or blocks risky actions', source },
+    { name: 'plan', displayName: PERMISSION_MODE_LABELS.plan, description: 'Plan only, no execution', source },
+    { name: 'default', displayName: PERMISSION_MODE_LABELS.default, description: 'Ask before risky actions', source },
+    { name: 'acceptEdits', displayName: PERMISSION_MODE_LABELS.acceptEdits, description: 'Auto-approve file edits', source },
+    { name: 'bypassPermissions', displayName: PERMISSION_MODE_LABELS.bypassPermissions, description: 'Skip all permission checks', source },
+    { name: 'auto', displayName: PERMISSION_MODE_LABELS.auto, description: 'A model classifier approves or blocks risky actions', source },
   ];
 }
 

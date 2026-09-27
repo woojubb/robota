@@ -118,6 +118,9 @@ export type {
   IPlanStep,
   TPlanPhase,
   IPlanArtifact,
+  IModelCatalogEntry,
+  IModelListGroup,
+  IModelListSnapshot,
 } from './session-event-map.js';
 
 /** Aggregate session interface composed from its named capability ports. */

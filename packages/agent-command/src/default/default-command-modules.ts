@@ -20,6 +20,7 @@ import { createLanguageCommandModule } from '../language/index.js';
 import { createMCPActivationCommandModule } from '../mcp-activation/index.js';
 import { createMemoryCommandModule } from '../memory/index.js';
 import { createModeCommandModule } from '../mode/index.js';
+import { createModelCommandModule } from '../model/index.js';
 import { createSandboxCommandModule } from '../sandbox/index.js';
 import { createOutputStyleCommandModule } from '../output-style/index.js';
 import { createEventsCommandModule } from '../events/index.js';
@@ -200,6 +201,13 @@ export function createDefaultCommandModules({
     createRemoteControlCommandModule(),
     ...(devicesPort === undefined ? [] : [createDevicesCommandModule(devicesPort)]),
     createProviderCommandModule({
+      providerDefinitions,
+      settings: providerSettingsAdapter,
+      ...(orgPolicy === undefined ? {} : { orgPolicy }),
+    }),
+    // #3282 §2: shares the provider command's settings adapter and definitions — one settings write
+    // owner, never a second copy that could drift from what `/provider switch` reads and writes.
+    createModelCommandModule({
       providerDefinitions,
       settings: providerSettingsAdapter,
       ...(orgPolicy === undefined ? {} : { orgPolicy }),

@@ -28,6 +28,7 @@ import type {
   IBranchEvent,
   IExecutionResult,
   IContextFileRefreshedEvent,
+  IModelListGroup,
   IPermissionRequestEvent,
   IPromptResolvedEvent,
   IPlanApprovalEvent,
@@ -89,6 +90,10 @@ export type TClientMessage =
   // (a `/` menu), and the session's status (model, permission mode, effort, context).
   | { type: 'get-commands' }
   | { type: 'get-status' }
+  // #3282 §2: the models the GUI's model menu offers, grouped by configured provider profile — so
+  // the GUI never scrapes `/model`'s picker text. Choosing one sends `command` with `name: 'model'`,
+  // the SAME path `/model <id>` runs; this message only reads the choices.
+  | { type: 'list-models'; requestId: string }
   // #3189: the host's sessions — list them, start a new one, make another current. A refused change
   // answers `session_change_failed` with the same `requestId`.
   | { type: 'list-sessions'; requestId: string }
@@ -199,6 +204,15 @@ export type TServerMessage =
   | { type: 'commands'; commands: ICommandListEntry[]; skills: ICommandSkillListEntry[] }
   // Sent in reply to `get-status`, and pushed whenever the session's status changes.
   | { type: 'session_status'; status: ISessionStatusSnapshot }
+  // #3282 §2: reply to `list-models`, echoing its `requestId`. `groups` is current-profile first;
+  // `currentProfile` is absent only when no provider profile is configured at all.
+  | {
+      type: 'model_list';
+      requestId: string;
+      groups: readonly IModelListGroup[];
+      currentProfile?: string;
+      currentModel: string;
+    }
   | { type: 'sessions'; requestId: string; listing: ISessionListing }
   | {
       type: 'sessions_error';

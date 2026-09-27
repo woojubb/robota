@@ -141,6 +141,8 @@ export function createTestInteractiveSession(
       context: { ...EMPTY_CONTEXT_STATE },
       goal: null,
     }),
+    // #3282 §2: no configured profiles by default — a case that cares builds its own groups.
+    listModels: () => ({ groups: [], currentModel: 'test-model' }),
     listRuntimeTools: async () => [],
     invokeRuntimeTool: async (name) => ({
       success: false,

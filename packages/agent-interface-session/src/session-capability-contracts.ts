@@ -3,6 +3,7 @@ import type { TWaitingLoopStopOutcome } from './session-loop-contracts.js';
 import type {
   IGoalState,
   IInteractiveSessionEvents,
+  IModelListSnapshot,
   ISessionStatusSnapshot,
   TInteractiveEventName,
   TPermissionResultValue,
@@ -120,6 +121,12 @@ export interface ISessionCommands {
   listCommands(): ICommandListEntry[];
   /** The skills a client can offer beside the commands (`/<skill>` activates one). */
   listSkills(): ICommandSkillListEntry[];
+  /**
+   * The models a client may switch to (#3282 §2), grouped by configured provider profile — so the
+   * GUI's model menu never scrapes `/model`'s picker text. Choosing one sends `/model <id>` through
+   * `executeCommand`, the same path the command itself uses.
+   */
+  listModels(): IModelListSnapshot;
 }
 
 export type { ISessionStatusSnapshot } from './session-event-map.js';
@@ -230,7 +237,7 @@ export const SESSION_CAPABILITY_MEMBER_KEYS = Object.freeze({
   conversationRead: Object.freeze(['getMessages', 'getFullHistory', 'getContextState'] as const),
   identity: Object.freeze(['getSession'] as const),
   workspaceLocation: Object.freeze(['getCwd'] as const),
-  commands: Object.freeze(['executeCommand', 'listCommands', 'listSkills'] as const),
+  commands: Object.freeze(['executeCommand', 'listCommands', 'listSkills', 'listModels'] as const),
   statusRead: Object.freeze(['getStatusSnapshot'] as const),
   runtimeTools: Object.freeze(['listRuntimeTools', 'invokeRuntimeTool'] as const),
   events: Object.freeze(['on', 'off'] as const),

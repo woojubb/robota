@@ -10,6 +10,7 @@ import {
   buildLanguageCommandSubcommands,
   buildMemoryCommandSubcommands,
   buildPermissionModeSubcommands,
+  PERMISSION_MODE_LABELS,
   buildPluginCommandSubcommands,
   buildStatusLineCommandSubcommands,
   clearConversationHistory,
@@ -280,6 +281,22 @@ describe('command-api contracts', () => {
       'bypassPermissions',
       'auto',
     ]);
+    // #3282 §2: a plain label beside every raw mode id, so the TUI's inline picker and the GUI's
+    // mode menu can show the same words instead of the id or inventing their own.
+    expect(buildPermissionModeSubcommands().map((command) => command.displayName)).toEqual([
+      'Plan only',
+      'Ask first',
+      'Accept edits',
+      'Skip all checks',
+      'Auto',
+    ]);
+    expect(PERMISSION_MODE_LABELS).toEqual({
+      plan: 'Plan only',
+      default: 'Ask first',
+      acceptEdits: 'Accept edits',
+      bypassPermissions: 'Skip all checks',
+      auto: 'Auto',
+    });
     expect(readCommandPermissionMode(context)).toBe('default');
 
     writeCommandPermissionMode(context, 'plan');

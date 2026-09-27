@@ -48,6 +48,8 @@ function createMockSession(overrides: Partial<IInteractiveSession> = {}): IInter
     executeCommand: vi.fn().mockResolvedValue(null),
     listCommands: vi.fn().mockReturnValue([] as ICommandListEntry[]),
     listSkills: vi.fn().mockReturnValue([]),
+    // #3282 §2: no configured profiles in this double — a case that cares overrides it.
+    listModels: vi.fn().mockReturnValue({ groups: [], currentModel: 'test-model' }),
     getStatusSnapshot: vi.fn().mockReturnValue({
       sessionId: 'test-session',
       model: 'test-model',

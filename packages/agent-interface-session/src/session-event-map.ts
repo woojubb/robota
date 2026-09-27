@@ -210,6 +210,38 @@ export interface ISessionStatusSnapshot {
   readonly setupRequired?: boolean;
 }
 
+/**
+ * One model a client may switch to (#3282 §2): a plain id/label pair, never an internal catalog
+ * shape — the GUI shows `label` and sends `id` back verbatim as `/model <id>`.
+ */
+export interface IModelCatalogEntry {
+  readonly id: string;
+  readonly label: string;
+}
+
+/**
+ * The models available under one configured provider profile, labeled for display (#3282 §2). One
+ * group per profile — never per provider type — so two profiles on the same provider (for example
+ * two Anthropic accounts) are not merged into one ambiguous list.
+ */
+export interface IModelListGroup {
+  readonly profileName: string;
+  readonly providerLabel: string;
+  readonly models: readonly IModelCatalogEntry[];
+}
+
+/**
+ * Every model a client may switch to, grouped by the provider profile that offers it (#3282 §2).
+ * The current profile's group is first; `currentModel` marks the selection within it. Built only
+ * from CONFIGURED profiles, so nothing offered here can fail to run for lacking a profile.
+ */
+export interface IModelListSnapshot {
+  readonly groups: readonly IModelListGroup[];
+  /** Absent only when no provider profile is configured at all. */
+  readonly currentProfile?: string;
+  readonly currentModel: string;
+}
+
 export type TInteractiveEventName = keyof IInteractiveSessionEvents;
 
 /**

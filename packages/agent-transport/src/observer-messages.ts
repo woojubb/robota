@@ -16,6 +16,7 @@ export const OBSERVER_MESSAGES: ReadonlySet<TClientMessage['type']> = new Set<
   'get-context',
   'get-status',
   'get-commands',
+  'list-models',
   'get-executing',
   'get-pending',
   'get-execution-workspace',

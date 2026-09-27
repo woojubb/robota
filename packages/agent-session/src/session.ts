@@ -529,6 +529,10 @@ export class Session extends SessionBase {
         this.log('server_tool', { tool: name, ...input });
     }
     this.aiProvider = newProvider;
+    // #3282 §2: without this, getModelId() (session_status's `model` field) kept reporting the
+    // PREVIOUS provider's model after a hot-swap — `this.model` is this class's own cache and
+    // `swapDefaultProvider` has no reason to know about it.
+    this.model = model;
   }
 
   async compact(

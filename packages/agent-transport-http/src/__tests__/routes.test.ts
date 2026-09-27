@@ -121,13 +121,16 @@ describe('HTTP Transport Routes', () => {
     const { session: full, startedTurns } = createHonestSession();
     const {
       submit, on, off, abort, cancelQueue, getSession, executeCommand, listCommands, listSkills,
-      getMessages, getFullHistory, getContextState, isExecuting, getPendingPrompt, getPendingCount,
+      listModels, getMessages, getFullHistory, getContextState, isExecuting, getPendingPrompt,
+      getPendingCount,
     } = full;
     const port: IHttpTransportSession = {
       submit, on, off, abort, cancelQueue, getSession, executeCommand, listCommands, listSkills,
-      getMessages, getFullHistory, getContextState, isExecuting, getPendingPrompt, getPendingCount,
+      listModels, getMessages, getFullHistory, getContextState, isExecuting, getPendingPrompt,
+      getPendingCount,
     };
-    expect(Object.keys(port)).toHaveLength(15);
+    // #3282 §2 added `listModels` to `ISessionCommands` (15 + 1).
+    expect(Object.keys(port)).toHaveLength(16);
     const transport = createHttpTransport({
       admission: { open: true, openReason: 'least-authority HTTP port scenario' },
     });

@@ -71,6 +71,7 @@ import type { IPreset } from '@robota-sdk/agent-preset';
  * same command host used by interactive and headless surfaces.
  * `agent-command-advisor` exposes `/advisor`, which chooses the model the main model may consult.
  * `agent-command-devices` exposes `/devices`, this device's identity among the user's devices.
+ * `agent-command-model` was added by #3282 §2 to expose `/model`, choosing the model itself.
  */
 const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-skills',
@@ -114,6 +115,7 @@ const BASELINE_COMMAND_MODULE_NAMES = [
   'agent-command-remote-control',
   'agent-command-devices',
   'agent-command-provider',
+  'agent-command-model',
   'agent-command-workflows',
 ];
 

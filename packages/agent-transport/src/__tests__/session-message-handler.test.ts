@@ -187,6 +187,26 @@ describe('WebSocket Transport Handler', () => {
     expect(sent).toEqual([{ type: 'session_status', status: session.getStatusSnapshot() }]);
   });
 
+  it('#3282 §2: list-models sends the model list, echoing requestId', () => {
+    const { onMessage, session, sent } = setup();
+    const snapshot = {
+      groups: [
+        {
+          profileName: 'anthropic',
+          providerLabel: 'Anthropic',
+          models: [{ id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' }],
+        },
+      ],
+      currentProfile: 'anthropic',
+      currentModel: 'claude-sonnet-4-6',
+    };
+    Object.assign(session, { listModels: vi.fn().mockReturnValue(snapshot) });
+
+    onMessage(JSON.stringify({ type: 'list-models', requestId: 'req-models-1' }));
+
+    expect(sent).toEqual([{ type: 'model_list', requestId: 'req-models-1', ...snapshot }]);
+  });
+
   it('get-executing sends executing status', () => {
     const { onMessage, sent } = setup();
     onMessage(JSON.stringify({ type: 'get-executing' }));
