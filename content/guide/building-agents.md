@@ -1,20 +1,23 @@
 # Building Agents
 
-This guide covers building AI agents with `@robota-sdk/agent-core` — the foundation layer of the Robota SDK.
+This guide covers building agents directly with `@robota-sdk/agent-core`, the foundation package.
+`agent-core` gives you the `Robota` agent class: a conversation with one or more AI providers, tool
+calling, plugins, and structured output. It reads no files and loads no project configuration.
 
-## Robota Class
+Use it when you want full control over a small agent — a classifier, a router, a chat endpoint with
+your own tools. When you want a ready-assembled agent with built-in file and shell tools, permission
+prompts, project instructions and session persistence, use `@robota-sdk/agent-framework` instead
+(see [Using the SDK](./sdk.md)).
 
-`Robota` is the main agent class. It wraps an AI provider with conversation history, tool execution, and plugin support.
+## The Robota class
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
-import type { IAIProvider } from '@robota-sdk/agent-core';
-
-declare const provider: IAIProvider;
+import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 
 const agent = new Robota({
   name: 'MyAgent',
-  aiProviders: [provider],
+  aiProviders: [new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY })],
   defaultModel: {
     provider: 'anthropic',
     model: 'claude-sonnet-4-6',
@@ -25,113 +28,101 @@ const agent = new Robota({
 const response = await agent.run('Hello!');
 ```
 
-### IAgentConfig
+### Configuration (`IAgentConfig`)
 
-| Field                        | Type                      | Required | Description                                                          |
-| ---------------------------- | ------------------------- | -------- | -------------------------------------------------------------------- |
-| `name`                       | `string`                  | yes      | Agent name (for logging and identification)                          |
-| `aiProviders`                | `IAIProvider[]`           | yes      | One or more provider instances                                       |
-| `defaultModel`               | `object`                  | yes      | Default provider, model, and system message                          |
-| `defaultModel.provider`      | `string`                  | yes      | Provider name (must match an `aiProviders` entry)                    |
-| `defaultModel.model`         | `string`                  | yes      | Model identifier (e.g., `claude-sonnet-4-6`)                         |
-| `defaultModel.systemMessage` | `string`                  | no       | System prompt for the agent                                          |
-| `tools`                      | `IToolWithEventService[]` | no       | Tools the agent can call                                             |
-| `plugins`                    | `IPluginContract[]`       | no       | Plugins for lifecycle hooks                                          |
-| `systemMessage`              | `string`                  | no       | Top-level system message (alternative to defaultModel.systemMessage) |
+The most-used fields:
 
-### Key Methods
+| Field                                           | Type                      | Required | Description                                                           |
+| ----------------------------------------------- | ------------------------- | -------- | --------------------------------------------------------------------- |
+| `name`                                          | `string`                  | yes      | Agent name, used in logs and events                                   |
+| `aiProviders`                                   | `IAIProvider[]`           | yes      | Provider instances the agent may use                                  |
+| `defaultModel.provider`                         | `string`                  | yes      | Name of the provider to use (must match one in `aiProviders`)         |
+| `defaultModel.model`                            | `string`                  | yes      | Model identifier, e.g. `claude-sonnet-4-6`                            |
+| `defaultModel.temperature`, `maxTokens`, `topP` | `number`                  | no       | Generation defaults for every run                                     |
+| `defaultModel.toolChoice`                       | `TToolChoice`             | no       | Default tool-call directive (see [Decision agents](#decision-agents)) |
+| `systemMessage`                                 | `string`                  | no       | System prompt                                                         |
+| `tools`                                         | `IToolWithEventService[]` | no       | Tools the model may call (for example `FunctionTool` instances)       |
+| `plugins`                                       | `IPluginContract[]`       | no       | Plugins, usually `AbstractPlugin` subclasses                          |
+| `retainHistory`                                 | `boolean`                 | no       | `false` makes each run start from a fresh conversation                |
+| `maxExecutionRounds`                            | `number`                  | no       | Default cap on model/tool rounds per run (`0` = no cap)               |
 
-| Method                          | Description                                                           |
-| ------------------------------- | --------------------------------------------------------------------- |
-| `run(input)`                    | Send a message and get a response. Executes tool calls automatically. |
-| `getHistory()`                  | Get the full conversation history as `TUniversalMessage[]`.           |
-| `clearHistory()`                | Clear the conversation history.                                       |
-| `setModel({ provider, model })` | Switch provider and model mid-conversation.                           |
+### Methods
 
-## AI Providers
+| Method                          | Description                                                              |
+| ------------------------------- | ------------------------------------------------------------------------ |
+| `run(input, options?)`          | Send a message and resolve with the reply. Tool calls run automatically. |
+| `runStream(input, options?)`    | Same, as an async generator that yields text chunks as they arrive.      |
+| `getHistory()`                  | The conversation as `TUniversalMessage[]`.                               |
+| `clearHistory()`                | Start a new conversation on the same instance.                           |
+| `setModel({ provider, model })` | Switch provider and model for later runs.                                |
+| `destroy()`                     | Release plugins, modules and listeners (see [destroy()](#destroy)).      |
 
-Providers implement the `IAIProvider` interface from `agent-core`. Each provider translates between the universal message format and the provider-specific API.
+`run()` accepts per-run options (`IRunOptions`), including `signal`, `onTextDelta`, `toolChoice`,
+`maxExecutionRounds`, `temperature`, `maxTokens` and `output`.
 
-### Anthropic (Claude)
+## AI providers
+
+Each provider package implements `IAIProvider` from `agent-core` and translates between Robota's
+message format and the vendor API. Options for every provider are in the
+[Providers Reference](./providers.md).
 
 ```typescript
 import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-
-const provider = new AnthropicProvider({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
-```
-
-Supported models: `claude-opus-4-6`, `claude-sonnet-4-6`, `claude-haiku-4-5`
-
-### OpenAI
-
-```typescript
 import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
-
-const provider = new OpenAIProvider({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-```
-
-### Gemini
-
-```typescript
 import { GeminiProvider } from '@robota-sdk/agent-provider-gemini';
+import {
+  DeepSeekProvider,
+  GemmaProvider,
+  QwenProvider,
+} from '@robota-sdk/agent-provider-openai-compatible';
 
-const provider = new GeminiProvider({
+const anthropic = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY });
+const openai = new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY });
+const gemini = new GeminiProvider({
   apiKey: process.env.GEMINI_API_KEY!,
   defaultModel: 'gemini-3-flash-preview',
 });
-```
 
-Gemini system prompts are sent as Gemini `systemInstruction`. The provider also supports structured output through `responseSchema` or `responseJsonSchema`, provider-level `safetySettings`, and `thinkingConfig`.
-
-### Gemma
-
-```typescript
-import { GemmaProvider } from '@robota-sdk/agent-provider-openai-compatible';
-
-const provider = new GemmaProvider({
+// A Gemma-family model served by LM Studio or another OpenAI-compatible endpoint
+const gemma = new GemmaProvider({
   apiKey: 'lm-studio',
   baseURL: 'http://localhost:1234/v1',
-  defaultModel: 'gemma-local-model',
+  defaultModel: 'my-local-gemma-model',
 });
-```
 
-Use the Gemma provider for Gemma-family local models served through LM Studio or another OpenAI-compatible endpoint. It owns Gemma-specific reasoning marker filtering and native tool-call text projection.
-
-LM Studio and other OpenAI-compatible Chat Completions endpoints support Robota local tools through normal function calling. They are not treated as provider-native web search/fetch providers, so configure web access with local `WebSearch`/`WebFetch` tools unless a concrete provider package documents hosted web support.
-
-### Qwen
-
-```typescript
-import { QwenProvider } from '@robota-sdk/agent-provider-openai-compatible';
-
-const provider = new QwenProvider({
-  apiKey: process.env.DASHSCOPE_API_KEY,
-  defaultModel: 'qwen-plus',
-});
-```
-
-Qwen can also enable provider-side hosted web search and extraction through `builtInWebTools`; those tools are separate from Robota local tools and do not bypass local permission checks.
-
-### DeepSeek
-
-```typescript
-import { DeepSeekProvider } from '@robota-sdk/agent-provider-openai-compatible';
-
-const provider = new DeepSeekProvider({
+const qwen = new QwenProvider({ apiKey: process.env.DASHSCOPE_API_KEY, defaultModel: 'qwen-plus' });
+const deepseek = new DeepSeekProvider({
   apiKey: process.env.DEEPSEEK_API_KEY,
   defaultModel: 'deepseek-v4-flash',
+  thinking: 'enabled',
+  reasoningEffort: 'high',
 });
 ```
 
-DeepSeek uses the documented OpenAI-compatible API at `https://api.deepseek.com`. Provider-owned
-profile options can enable thinking controls such as `thinking: 'enabled'` and
-`reasoningEffort: 'high'`.
+The provider names used in `defaultModel.provider` are `anthropic`, `openai`, `gemini`, `gemma`,
+`qwen` and `deepseek`.
 
-### Switching Providers
+A few provider-specific notes:
+
+- **Anthropic** has built-in metadata (context window, output limit) for `claude-opus-4-6`,
+  `claude-sonnet-4-6`, `claude-haiku-4-5` and the Claude 4.5 models. Unless you set `maxTokens`, a
+  request asks for the model's full output limit (64K tokens for Sonnet 4.6, 128K for Opus 4.6). The
+  provider always uses Anthropic's streaming API, even without a text callback, so long requests
+  are not cut off by the SDK's timeout for non-streaming calls. It can also use Anthropic's hosted
+  web search (`web_search_20250305`) when native web tools are requested; its `onServerToolUse`
+  callback fires when a search runs.
+- **Gemini** sends the system prompt as `systemInstruction` and accepts `responseSchema` or
+  `responseJsonSchema`, `safetySettings` and `thinkingConfig` options.
+- **Gemma** filters Gemma's reasoning markers and turns tool calls written as text into real tool
+  calls.
+- **Qwen** can enable its own hosted web search and extraction with `builtInWebTools`.
+- Hosted tools like these run at the vendor, separately from Robota's local tools, and never pass
+  through Robota's permission checks. Set `withholdHostedTools: true` on a run to leave them out.
+- OpenAI-compatible local endpoints such as LM Studio support ordinary function calling. They are
+  not treated as having hosted web search, so give the agent Robota's `WebSearch`/`WebFetch` tools
+  when it needs the web.
+
+### Several providers in one agent
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
@@ -140,134 +131,123 @@ import type { IAIProvider } from '@robota-sdk/agent-core';
 declare const anthropicProvider: IAIProvider;
 declare const openaiProvider: IAIProvider;
 declare const geminiProvider: IAIProvider;
-declare const gemmaProvider: IAIProvider;
 declare const qwenProvider: IAIProvider;
-declare const deepSeekProvider: IAIProvider;
 
 const agent = new Robota({
   name: 'FlexAgent',
-  aiProviders: [
-    anthropicProvider,
-    openaiProvider,
-    geminiProvider,
-    gemmaProvider,
-    qwenProvider,
-    deepSeekProvider,
-  ],
+  aiProviders: [anthropicProvider, openaiProvider, geminiProvider, qwenProvider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
 });
 
-// Switch at any time
-agent.setModel({ provider: 'openai', model: 'gpt-4o' });
-agent.setModel({ provider: 'gemini', model: 'gemini-2.5-pro' });
-agent.setModel({ provider: 'gemma', model: 'gemma-local-model' });
+// Switch at any time; the conversation history is kept
+agent.setModel({ provider: 'openai', model: 'gpt-5.1' });
+agent.setModel({ provider: 'gemini', model: 'gemini-3-pro-preview' });
 agent.setModel({ provider: 'qwen', model: 'qwen-plus' });
 ```
 
 ## Tools
 
-Tools let agents call functions during a conversation. The agent decides when to use a tool based on the conversation context.
+Tools let the model call your functions during a run. The model decides when to call a tool; the
+agent executes it, sends the result back, and continues until the model replies without a tool call.
+A tool that throws does not end the run: the failure is returned to the model as the tool's result.
 
-### Creating Tools with Zod
+### Creating tools with Zod
 
-`createZodFunctionTool` takes positional arguments: name, description, Zod schema, and handler function. The handler receives validated parameters and returns a value (string or JSON-serializable).
+`createZodFunctionTool(name, description, schema, handler)` from `@robota-sdk/agent-tools` validates
+the model's arguments against a Zod schema before calling your handler.
 
 ```typescript
 import { createZodFunctionTool } from '@robota-sdk/agent-tools';
 import { z } from 'zod';
 
-// Any glob implementation works here (e.g. the `glob` npm package)
-declare function glob(pattern: string, options?: { cwd?: string }): Promise<string[]>;
-
-const searchTool = createZodFunctionTool(
-  'search_files',
-  'Search for files by name pattern',
+const weatherTool = createZodFunctionTool(
+  'get_weather',
+  'Get the current weather for a city',
   z.object({
-    pattern: z.string().describe('Glob pattern to match'),
-    directory: z.string().optional().describe('Directory to search in'),
+    city: z.string().describe('City name'),
+    unit: z.enum(['celsius', 'fahrenheit']).optional(),
   }),
-  async ({ pattern, directory }) => {
-    const files = await glob(pattern, { cwd: directory ?? '.' });
-    return JSON.stringify(files);
+  async ({ city, unit }) => {
+    return { city, unit: unit ?? 'celsius', temperature: 21 };
   },
 );
 ```
 
-### Creating Tools with FunctionTool
+### Creating tools with a JSON schema
 
-`FunctionTool` takes a schema object and a handler function as separate arguments.
+`createFunctionTool(name, description, parameters, handler)` takes a JSON-schema `parameters`
+object instead. It builds the same `FunctionTool` class that `agent-core` exports; you can also
+construct `new FunctionTool(schema, handler)` directly.
 
 ```typescript
-import { FunctionTool } from '@robota-sdk/agent-core';
+import { createFunctionTool } from '@robota-sdk/agent-tools';
 
-const timeTool = new FunctionTool(
+const timeTool = createFunctionTool(
+  'current_time',
+  'Get the current date and time',
   {
-    name: 'current_time',
-    description: 'Get the current date and time',
-    parameters: {
-      type: 'object',
-      properties: {
-        timezone: { type: 'string', description: 'IANA timezone' },
-      },
+    type: 'object',
+    properties: {
+      timezone: { type: 'string', description: 'IANA timezone, e.g. Asia/Seoul' },
     },
   },
   async (params) => {
-    return new Date().toLocaleString('en-US', { timeZone: (params.timezone as string) ?? 'UTC' });
+    const timeZone = typeof params.timezone === 'string' ? params.timezone : 'UTC';
+    return new Date().toLocaleString('en-US', { timeZone });
   },
 );
 ```
 
-### Registering Tools with an Agent
+### Registering tools
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
-import type { IAIProvider } from '@robota-sdk/agent-core';
-import type { FunctionTool } from '@robota-sdk/agent-core';
+import type { FunctionTool, IAIProvider } from '@robota-sdk/agent-core';
 
 declare const provider: IAIProvider;
-declare const searchTool: FunctionTool;
+declare const weatherTool: FunctionTool;
 declare const timeTool: FunctionTool;
 
 const agent = new Robota({
   name: 'ToolAgent',
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  tools: [searchTool, timeTool],
+  tools: [weatherTool, timeTool],
 });
 
-// The agent will call tools automatically when appropriate
-const response = await agent.run(
-  'Find all .ts files in src/ and tell me the current time in Seoul',
-);
+const response = await agent.run('What time is it in Seoul, and is it warm there?');
 ```
 
-### Built-in CLI Tools
+### Built-in tools
 
-`@robota-sdk/agent-tools` ships tools for file system operations and web access. Every filesystem
-tool is a factory taking the directory it is allowed to work in — `createReadTool({ cwd })` — because
-a file tool with no containment root has no boundary:
+`@robota-sdk/agent-tools` also ships the tools the `robota` CLI gives its agent. File and shell tools
+are factories that take the directory they may work in — `createReadTool({ cwd })` — because a file
+tool with no root would have no boundary.
 
-| Tool                  | Description                                             |
-| --------------------- | ------------------------------------------------------- |
-| `createShellTool`     | Execute host shell commands (OS-aware: bash/PowerShell) |
-| `createBashTool`      | Alias of `Shell` (model-familiar name)                  |
-| `createReadTool`      | Read file contents with line numbers                    |
-| `createWriteTool`     | Write content to a file                                 |
-| `createEditTool`      | Replace a string in a file                              |
-| `createGlobTool`      | Find files by glob pattern                              |
-| `createGrepTool`      | Search file contents with regex                         |
-| `webFetchTool`        | Fetch URL content (HTML-to-text)                        |
-| `webSearchTool`       | Web search via Brave Search API                         |
-| `askUserQuestionTool` | Ask the user a question and wait for their answer       |
+| Factory or instance   | Tool name         | What it does                                                      |
+| --------------------- | ----------------- | ----------------------------------------------------------------- |
+| `createShellTool`     | `Shell`           | Runs a command in the host shell (bash, or PowerShell on Windows) |
+| `createBashTool`      | `Bash`            | The same tool under the name models commonly expect               |
+| `createReadTool`      | `Read`            | Reads a file with line numbers                                    |
+| `createWriteTool`     | `Write`           | Writes a file                                                     |
+| `createEditTool`      | `Edit`            | Replaces a string in a file                                       |
+| `createGlobTool`      | `Glob`            | Finds files by glob pattern                                       |
+| `createGrepTool`      | `Grep`            | Searches file contents with a regular expression                  |
+| `webFetchTool`        | `WebFetch`        | Fetches a URL and returns its text                                |
+| `webSearchTool`       | `WebSearch`       | Web search through the Brave Search API (`BRAVE_API_KEY`)         |
+| `askUserQuestionTool` | `AskUserQuestion` | Asks the user a question and waits for the answer                 |
 
-These are used by `agent-framework` to assemble the CLI agent, but can also be used independently.
+`createDefaultTools({ cwd })` from `@robota-sdk/agent-tool-defaults` returns this whole set at once.
+When you give these tools to a bare `Robota`, no permission prompts run — the agent can use them
+freely. `agent-framework` wraps them with permission checks; see
+[Permissions and Hooks](./permissions-and-hooks.md).
 
-### Decision agents — the tool call IS the answer
+### Decision agents
 
-For router/orchestrator/classifier agents, the useful output is a tool call, not prose. By default
-a turn that ends in tool calls triggers one extra model call to produce a text summary; set
-`allowToolOnlyCompletion: true` to make the tool call itself a valid completion and skip that
-one-call tax. Read the decision from your tool's executor (or the run's execution events) — the
+For routers, orchestrators and classifiers, the useful output is a tool call, not prose. Normally,
+when a run stops at its round cap right after a tool call, the agent makes one more model call to get
+a text summary. Set `maxExecutionRounds: 1` together with `allowToolOnlyCompletion: true` to end the
+run on the tool call itself and skip that extra call. Read the decision from your tool's handler; the
 returned text may be empty.
 
 ```typescript
@@ -283,9 +263,9 @@ const routeTool = createZodFunctionTool(
   'route',
   'Choose the team that should handle the ticket',
   z.object({ team: z.enum(['billing', 'bugs', 'sales']) }),
-  async (args) => {
-    decision = String(args.team);
-    return { success: true, data: `routed to ${String(args.team)}` };
+  async ({ team }) => {
+    decision = team;
+    return `routed to ${team}`;
   },
 );
 
@@ -297,30 +277,64 @@ const router = new Robota({
 });
 
 await router.run('Ticket: "I was charged twice this month."', {
-  allowToolOnlyCompletion: true,
   toolChoice: { tool: 'route' },
+  maxExecutionRounds: 1,
+  allowToolOnlyCompletion: true,
 });
-// decision === 'billing' — no summary call was made
+// decision === 'billing'
 ```
 
-`toolChoice` directs tool invocation per run (or agent-wide via `defaultModel.toolChoice`):
-`'auto'` lets the model decide, `'none'` suppresses tool calls, `'required'` forces some
-tool call, and `{ tool: name }` forces the named tool — here it guarantees the router
-actually routes instead of replying in prose. Forcing applies to the run's first model call
-only; follow-up rounds revert to `'auto'` so the model can consume tool results and finish.
+`toolChoice` directs tool use for a run (or for every run, through `defaultModel.toolChoice`):
+`'auto'` lets the model decide, `'none'` suppresses tool calls, `'required'` forces some tool call,
+and `{ tool: name }` forces the named tool. Forcing applies to the run's first model call only;
+later rounds go back to `'auto'` so the model can read tool results and finish.
 
-For a fixed-schema JSON answer (rather than a routing decision), prefer structured output:
-`run(prompt, { output: schema })` returns a validated typed object directly.
+### Structured output
+
+For a fixed-shape answer, pass a schema as `output`. `run()` then resolves to the validated object
+instead of a string. The schema goes to the provider's native structured-output feature where one
+exists, and the reply is always validated. A reply that fails validation is retried with the errors
+fed back (`outputRetries`, default 2); if retries run out, `run()` throws `StructuredOutputError`.
+
+```typescript
+import { z } from 'zod';
+import type { Robota } from '@robota-sdk/agent-core';
+
+declare const agent: Robota;
+
+const sentiment = await agent.run('Classify: "The new API is confusing."', {
+  output: z.object({
+    label: z.enum(['positive', 'negative', 'neutral']),
+    confidence: z.number(),
+  }),
+});
+// sentiment.label is typed as 'positive' | 'negative' | 'neutral'
+```
 
 ## Plugins
 
-Plugins hook into the agent lifecycle to add cross-cutting concerns.
+Plugins add cross-cutting behavior — logging, usage tracking, limits, webhooks — by overriding
+lifecycle hooks.
 
-### Using Plugins
+### Using plugins
+
+`EventEmitterPlugin` is built into `agent-core`. `@robota-sdk/agent-plugin` provides eight more:
+
+| Plugin                      | Purpose                                              |
+| --------------------------- | ---------------------------------------------------- |
+| `LoggingPlugin`             | Logging to the console, a file, or a remote endpoint |
+| `UsagePlugin`               | Token usage and cost tracking                        |
+| `PerformancePlugin`         | Performance metrics                                  |
+| `ExecutionAnalyticsPlugin`  | Execution statistics                                 |
+| `ErrorHandlingPlugin`       | Error handling strategies                            |
+| `LimitsPlugin`              | Rate, token and cost limits                          |
+| `ConversationHistoryPlugin` | Persisting conversation history                      |
+| `WebhookPlugin`             | HTTP notifications on agent events                   |
 
 ```typescript
-import { Robota, EventEmitterPlugin } from '@robota-sdk/agent-core';
+import { Robota } from '@robota-sdk/agent-core';
 import type { IAIProvider } from '@robota-sdk/agent-core';
+import { LoggingPlugin } from '@robota-sdk/agent-plugin';
 
 declare const provider: IAIProvider;
 
@@ -328,77 +342,75 @@ const agent = new Robota({
   name: 'PluginAgent',
   aiProviders: [provider],
   defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-  plugins: [new EventEmitterPlugin({ enabled: true })],
+  plugins: [new LoggingPlugin({ strategy: 'console' })],
 });
 ```
 
-### Plugin Lifecycle Hooks
+### Lifecycle hooks
 
-| Hook                  | Timing             | Purpose                          |
-| --------------------- | ------------------ | -------------------------------- |
-| `beforeRun`           | Before LLM call    | Input transformation, validation |
-| `afterRun`            | After LLM response | Output processing, recording     |
-| `onError`             | On execution error | Error handling, recovery         |
-| `onStreamChunk`       | During streaming   | Chunk processing                 |
-| `beforeToolExecution` | Before tool call   | Tool input validation            |
-| `afterToolExecution`  | After tool result  | Tool output processing           |
+`Robota` calls these hooks on every plugin that defines them:
 
-### Available Plugins
+| Hook                                                                    | When it runs                                                  |
+| ----------------------------------------------------------------------- | ------------------------------------------------------------- |
+| `beforeRun(input, options)`                                             | At the start of `run()`, after the user message is recorded   |
+| `onMessageAdded(message)`                                               | Each time a user or assistant message is added to the history |
+| `beforeExecution(context)`                                              | Before the first model call of the run                        |
+| `beforeProviderCall(messages)`                                          | Before each model call                                        |
+| `afterProviderCall(messages, response)`                                 | After each model reply                                        |
+| `afterRun(input, response, options)`                                    | After the run finishes                                        |
+| `afterExecution(context, result)`, `afterConversation(context, result)` | After the run finishes, with its result                       |
+| `afterToolExecution(context, result)`                                   | After the run finishes, if it called any tools                |
+| `onError(error, context)`                                               | When the run fails                                            |
 
-`EventEmitterPlugin` is built into `agent-core`. 8 plugins are also available via `@robota-sdk/agent-plugin`:
+A hook that throws is logged as a warning; it does not fail the run.
 
-| Plugin Export               | Purpose                       |
-| --------------------------- | ----------------------------- |
-| `LoggingPlugin`             | Multi-backend logging         |
-| `UsagePlugin`               | Token usage and cost tracking |
-| `PerformancePlugin`         | Metrics collection            |
-| `ExecutionAnalyticsPlugin`  | Execution analytics           |
-| `ErrorHandlingPlugin`       | Error recovery strategies     |
-| `LimitsPlugin`              | Rate limiting                 |
-| `ConversationHistoryPlugin` | Persistent history            |
-| `WebhookPlugin`             | HTTP notifications            |
+### Writing a plugin
 
-### Creating Custom Plugins
+Extend `AbstractPlugin` and override the hooks you need:
 
 ```typescript
 import { AbstractPlugin } from '@robota-sdk/agent-core';
 
-class MyPlugin extends AbstractPlugin {
-  name = 'my-plugin';
-  version = '1.0.0';
+class ResponseLengthPlugin extends AbstractPlugin {
+  readonly name = 'response-length';
+  readonly version = '1.0.0';
 
-  async afterRun(input: string, response: string): Promise<void> {
-    console.log(`Agent responded with ${response.length} characters`);
+  override async afterRun(input: string, response: string): Promise<void> {
+    console.log(`Replied to ${input.length} chars with ${response.length} chars`);
   }
 }
 ```
 
 ## Streaming
 
-### Text Delta Streaming
+`runStream()` yields text as the model produces it and returns the complete reply at the end:
 
 ```typescript
-import { Robota } from '@robota-sdk/agent-core';
-import type { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
+import type { Robota } from '@robota-sdk/agent-core';
 
-declare const provider: AnthropicProvider;
+declare const agent: Robota;
 
-const agent = new Robota({
-  name: 'StreamAgent',
-  aiProviders: [provider],
-  defaultModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
-});
-
-// The provider's onTextDelta callback streams text as it arrives
-provider.onTextDelta = (delta) => process.stdout.write(delta);
-
-const response = await agent.run('Write a poem about coding');
-// Text appears in real-time via onTextDelta, response is the complete text
+for await (const chunk of agent.runStream('Write a haiku about TypeScript')) {
+  process.stdout.write(chunk);
+}
 ```
 
-## Conversation History
+With `run()`, pass an `onTextDelta` callback instead:
 
-Robota maintains conversation history across `run()` calls. Every message has a unique `id` and a `state` (`'complete'` or `'interrupted'`).
+```typescript
+import type { Robota } from '@robota-sdk/agent-core';
+
+declare const agent: Robota;
+
+const full = await agent.run('Write a haiku about TypeScript', {
+  onTextDelta: (delta) => process.stdout.write(delta),
+});
+```
+
+## Conversation history
+
+A `Robota` instance keeps its conversation across `run()` calls. Every message has an `id` and a
+`state` of `'complete'` or `'interrupted'`.
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
@@ -410,32 +422,25 @@ const agent = new Robota(config);
 
 await agent.run('My name is Alice.');
 const response = await agent.run('What is my name?');
-// response: "Your name is Alice."
+// "Your name is Alice."
 
-// Access the full history
 const history = agent.getHistory(); // TUniversalMessage[]
-// Each message has: id, timestamp, state, role, content, metadata
-
-// Clear and start fresh
 agent.clearHistory();
 ```
 
-### History lifetime & cost
+### History lifetime and cost
 
-History **accumulates for the lifetime of the instance and the full history is sent to the
-provider on every call** — token cost grows with every turn until you act:
+The history grows for the lifetime of the instance, and the **whole history is sent to the provider
+on every call**, so token cost rises with every turn until you act:
 
-- `clearHistory()` resets the conversation. The `systemMessage` from config is not lost — it is
-  re-applied as the log head on the next run.
-- One `Robota` instance = one conversation. For independent requests (for example one per HTTP
-  request), create an instance per conversation instead of sharing one.
-- History is append-only and read-only: there is no edit/delete API by design.
-- **Run-isolated mode**: set `retainHistory: false` in the config to make the store ephemeral per
-  run — each run sees the system prompt (+ any context you inject before the run) and the prompt,
-  and the store resets after the run settles. Declared once, immune to a missed `clearHistory()`;
-  the natural fit for coordinator patterns that reconstruct context per call. For a
-  "provider + system prompt + stream, nothing else" thin path, this on a plain `Robota` is all you
-  need — `createQuery` (agent-framework) is the larger assembly that adds CLI tools and permissions.
+- `clearHistory()` starts over. The configured `systemMessage` is kept and applied again on the next
+  run.
+- One `Robota` instance is one conversation. For independent requests (for example one per HTTP
+  request), create an instance per conversation rather than sharing one.
+- History is append-only; there is no API to edit or delete a message.
+- **Run-isolated mode:** set `retainHistory: false` and each run sees only the system prompt and its
+  own input; the history resets when the run settles. Use it for coordinators that rebuild context
+  on every call. In this mode `getHistory()` is empty after a run — read the reply from `run()`.
 
 ```typescript
 import { Robota } from '@robota-sdk/agent-core';
@@ -452,40 +457,28 @@ const stateless = new Robota({
 });
 
 await stateless.run('First');
-await stateless.run('Second'); // sends system + "Second" only — flat token profile
+await stateless.run('Second'); // sends the system prompt and "Second" only
 ```
 
-### Message State
+### Interrupted replies
 
-Messages have a `state` field that tracks completion:
+Pass an `AbortSignal` as `signal` to stop a run. Aborting does not throw: `run()` resolves with the
+text committed so far (possibly `''`), and a reply cut off mid-stream stays in the history with
+`state: 'interrupted'`. Check `signal.aborted` to tell an interrupted run from a finished one. When
+the history is sent to the model again, an interrupted reply is marked
+`[This response was interrupted by the user]` so the model knows it was cut short.
 
-| State           | Meaning                                             |
-| --------------- | --------------------------------------------------- |
-| `'complete'`    | Normal response — fully received                    |
-| `'interrupted'` | User pressed ESC during streaming — partial content |
+## Execution contracts
 
-When the model receives history for the next turn, interrupted messages are annotated with `[This response was interrupted by the user]` so the model is aware of the interruption.
-
-### Streaming Buffer
-
-During streaming, `ConversationStore` manages a streaming buffer internally:
-
-1. `beginAssistant()` — opens a new streaming buffer for the assistant turn
-2. `appendStreaming(delta)` — accumulates text from `onTextDelta` callbacks
-3. `commitAssistant(state, metadata)` — commits the buffer to history as a confirmed message
-
-This is a single path — both normal completion (`'complete'`) and abort (`'interrupted'`) use the same `commitAssistant` call with different state values. History is append-only and read-only; text content is always preserved. The CLI's `onTextDelta` callback is preserved as a passthrough for real-time display.
-
-## Execution Contracts
-
-Behavior guarantees of `run()`/`runStream()` that matter in production hosts.
+Guarantees of `run()` and `runStream()` that matter when you host an agent in production.
 
 ### Execution rounds
 
-A **round** is one model call plus the execution of every tool call that reply requested; a reply
-with no tool calls ends the loop (a plain Q&A turn is exactly 1 round). `maxExecutionRounds` caps
-rounds within one `run()` — it is not a tool-count limit and not a conversation-turn limit. Set it
-per run or as a config default; `0` means no cap.
+A **round** is one model call plus the execution of every tool call that reply asked for. A reply
+with no tool calls ends the run, so a plain question and answer is one round. `maxExecutionRounds`
+caps rounds within one `run()`; it is not a tool-count limit or a conversation-turn limit. Set it
+per run or in the config; `0` means no cap. `maxSameToolInputs` separately stops a run that calls the
+same tool with identical input too many times (it throws `SameToolInputLoopError`).
 
 ```typescript
 import type { Robota } from '@robota-sdk/agent-core';
@@ -497,18 +490,17 @@ await agent.run('Research this topic and summarize.', { maxExecutionRounds: 5 })
 
 ### Concurrency
 
-One instance owns one conversation history, so concurrent `run()`/`runStream()` calls on the same
-instance are **serialized on an internal FIFO queue** — fire-and-forget calls are safe and always
-produce sequential history, never interleaved messages. A queued call whose `AbortSignal` fires
-while waiting throws without touching the provider or history. `runStream()` holds its queue slot
-until the stream is fully consumed. Separate instances are fully concurrent.
+One instance owns one conversation, so concurrent `run()`/`runStream()` calls on the same instance
+are **queued and run one after another** — calls never interleave their messages. A queued call whose
+`signal` fires while it waits fails with an `AbortError` without reaching the provider or the
+history. `runStream()` keeps
+its place in the queue until the stream is fully consumed. Separate instances run fully in parallel.
 
 ### destroy()
 
-`destroy()` is **best-effort and never rejects for cleanup failures** — `void agent.destroy()` is
-safe to fire-and-forget. Every cleanup step (modules, plugin subscriptions, event emitters) runs
-even if an earlier one fails; failures are logged and returned as
-`Promise<{ errors: Error[] }>` for callers that want a hard signal:
+`destroy()` is best-effort and never rejects because of a cleanup failure, so `void agent.destroy()`
+is safe. Every cleanup step (modules, plugin subscriptions, event listeners) runs even if an earlier
+one fails; failures are logged and returned as `{ errors: Error[] }`:
 
 ```typescript
 import type { Robota } from '@robota-sdk/agent-core';
@@ -521,37 +513,11 @@ if (errors.length > 0) {
 }
 ```
 
-The same disposal convention applies across the stack: `Session.shutdown()` and transport
-`stopAll()` never reject for cleanup errors either.
+`Session.shutdown()` in `agent-session` follows the same rule.
 
-## Error Handling
+## Errors
 
-All errors extend `RobotaError` with `code`, `category`, and `recoverable` properties:
-
-```typescript
-import { ProviderError, RateLimitError } from '@robota-sdk/agent-core';
-import type { Robota } from '@robota-sdk/agent-core';
-
-declare const agent: Robota;
-
-try {
-  const response = await agent.run('Hello');
-} catch (error) {
-  if (error instanceof RateLimitError) {
-    // Wait and retry
-  } else if (error instanceof ProviderError) {
-    // Provider-specific error
-  }
-}
-```
-
-## Changes from v2.0.0
-
-| v2.0.0                                     | v3.0.0                                                             |
-| ------------------------------------------ | ------------------------------------------------------------------ |
-| Plugins built into `agent-core`            | 8 plugins available in `@robota-sdk/agent-plugin`                  |
-| `MCPTool` / `RelayMcpTool` in `agent-core` | Moved to `@robota-sdk/agent-mcp` (internal, not published on npm)  |
-| No permission/hook system                  | Permission evaluation + shell hook system in `agent-core`          |
-| No session management                      | `InteractiveSession` in `agent-framework` with compaction          |
-| No CLI                                     | `agent-cli` with Ink TUI                                           |
-| No SDK layer                               | `agent-framework` with runtime assembly and `createAgentRuntime()` |
+Errors thrown by the SDK extend `RobotaError`, which carries a `code`, a `category` and a
+`recoverable` flag. Provider failures arrive as `RateLimitError` (HTTP 429) or `ProviderError` (which
+carries the HTTP `status`). See [Error Handling](./error-handling.md) for the full list and retry
+patterns.

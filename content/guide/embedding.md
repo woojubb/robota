@@ -1,34 +1,52 @@
 # Embedding agent-framework
 
-`@robota-sdk/agent-framework` can be used outside the CLI — in HTTP servers, bots,
-serverless functions, and batch pipelines. This guide shows the correct pattern for
-each deployment context.
+`@robota-sdk/agent-framework` runs outside the CLI — in HTTP servers, bots, serverless functions and
+batch jobs. This guide shows the pattern for each context. It assumes you know the basics of
+`InteractiveSession` and `createQuery()` from [Using the SDK](./sdk.md).
 
 ## API selection
 
-| Use case                          | Recommended API                                            | Notes                                 |
-| --------------------------------- | ---------------------------------------------------------- | ------------------------------------- |
-| Single-shot query (scripts, CI)   | `createQuery`                                              | Simplest; multi-turn capable          |
-| Streaming server (SSE, WebSocket) | `createAgentRuntime` + `runtime.createSession()`           | Full event system                     |
-| Custom tools + streaming          | `runtime.createSession({ additionalTools })`               | Tools AND events together             |
-| Bot with conversation memory      | `runtime.createSession({ resumeSessionId })`               | Resumes persisted session             |
-| Serverless / no filesystem        | `createStatelessRuntime`                                   | No session store, no-op settings      |
-| Batch processing                  | `createQuery` with `Promise.all`                           | Parallel queries                      |
-| Structured JSON output            | `createQuery({ responseFormat: { type: 'json_object' } })` | Instructs provider to emit valid JSON |
+| Use case                          | API                                                        | Notes                                        |
+| --------------------------------- | ---------------------------------------------------------- | -------------------------------------------- |
+| Questions from a script or CI job | `createQuery`                                              | One conversation per query function          |
+| Streaming server (SSE, WebSocket) | `createAgentRuntime` + `runtime.createSession()`           | Full event stream per session                |
+| Custom tools with streaming       | `runtime.createSession({ additionalTools, allowedTools })` | Tools and events together                    |
+| Bot that remembers conversations  | `createAgentRuntime({ sessionStore })` + `resumeSessionId` | Resumes a saved session per channel          |
+| Serverless, nothing persisted     | `createStatelessRuntime`                                   | No session store; sessions default to `bare` |
+| Batch processing                  | One `createQuery` per item, run with `Promise.all`         | Independent conversations in parallel        |
+| Structured JSON output            | `responseFormat`                                           | Support depends on the provider              |
+
+## Before you deploy: tools and permissions
+
+Every framework session gets the default tools — `Shell`, `Bash`, `Read`, `Write`, `Edit`, `Glob`,
+`Grep`, `WebFetch`, `WebSearch`, `AskUserQuestion` — with file tools confined to `cwd`. On a server,
+decide what the model may do before it can do it:
+
+- Keep `permissionMode: 'default'` (the default). Reads and searches proceed; writing files, running
+  commands and calling your own tools need approval, and **a request nobody answers is denied**.
+- Pre-approve your own tools by name with `allowedTools: ['calculate']`, or declare what they do with
+  `registerToolPermissionProfile('calculate', { riskClass: 'inspect' })` from `agent-core`.
+- Remove built-in tools the agent must not have with `deniedTools: ['Shell', 'Bash', 'Write', 'Edit']`.
+  A tool denied by bare name is hidden from the model entirely.
+- `permissionMode: 'bypassPermissions'` lets the model run any command and edit any file under
+  `cwd`. Use it only where that is acceptable, such as a disposable sandbox.
+
+The framework reads no settings file and no project instructions unless you pass them, so a server
+session behaves the same wherever it runs. See [What a session loads](./sdk.md#what-a-session-loads).
 
 ## Layer overview
 
 ```
-createFunctionTool()        →  @robota-sdk/agent-tools  (tool definition)
-Robota / createFunctionTool →  @robota-sdk/agent-core   (low-level, no events)
-createAgentRuntime/Session  →  @robota-sdk/agent-framework  (events, permissions, sessions)
-createQuery()               →  @robota-sdk/agent-framework  (convenience wrapper)
+createZodFunctionTool / createFunctionTool  →  @robota-sdk/agent-tools      (tool definitions)
+Robota, FunctionTool                        →  @robota-sdk/agent-core       (engine; no sessions)
+createAgentRuntime / InteractiveSession     →  @robota-sdk/agent-framework  (events, permissions, sessions)
+createQuery()                               →  @robota-sdk/agent-framework  (prompt-in, text-out wrapper)
 ```
 
-## createQuery — single-shot queries
+## createQuery — questions from code
 
-The simplest embedding. Returns a bound async function; call it repeatedly for
-multi-turn conversations (the session is preserved internally).
+`createQuery()` returns an async function. Each call is a new turn in the same conversation, so
+follow-up questions see earlier answers.
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
@@ -42,27 +60,45 @@ const query = createQuery({
 const answer = await query('What files are in the project?');
 ```
 
-With custom tools:
-
-<!-- doc-example-skip: fragment — elided parameters object -->
+With your own tools, approve them with a `permissionHandler` (a query function has no
+`allowedTools` option):
 
 ```typescript
-import { createFunctionTool } from '@robota-sdk/agent-tools';
+import { z } from 'zod';
+import { createQuery } from '@robota-sdk/agent-framework';
+import { createZodFunctionTool } from '@robota-sdk/agent-tools';
+import type { IAIProvider } from '@robota-sdk/agent-core';
 
-const calculatorTool = createFunctionTool(
-  { name: 'calculate', description: 'Evaluate a math expression', parameters: { ... } },
-  async ({ expression }) => ({ result: eval(expression) }),
+declare const provider: IAIProvider;
+
+const calculatorTool = createZodFunctionTool(
+  'calculate',
+  'Add two numbers',
+  z.object({ a: z.number(), b: z.number() }),
+  async ({ a, b }) => ({ result: a + b }),
 );
 
 const query = createQuery({
   provider,
   additionalTools: [calculatorTool],
+  permissionHandler: async (toolName) => toolName === 'calculate',
 });
+
+const answer = await query('What is 1234 + 5678?');
 ```
+
+Things to know about a query function:
+
+- **Await one call before making the next.** The function wraps one session. A call made while
+  another is still running waits in that session's queue, and a newer waiting call replaces an older
+  one. For parallel work, create one query function per task.
+- **It has no shutdown.** The session lives as long as the function. When you need to end sessions
+  explicitly (per request, per job), use `createAgentRuntime` and call `shutdown()`.
 
 ## createAgentRuntime — streaming server
 
-Use when you need real-time text streaming or tool execution events.
+A runtime holds the shared configuration (`cwd`, provider, optional session store and command
+modules); `runtime.createSession()` builds an `InteractiveSession` from it with per-session options.
 
 ```typescript
 import { createAgentRuntime } from '@robota-sdk/agent-framework';
@@ -75,31 +111,32 @@ const runtime = createAgentRuntime({
   provider: new AnthropicProvider({ apiKey }),
 });
 
-// Per-request handler (Next.js App Router example)
+// Next.js App Router route handler
 export async function POST(request: Request): Promise<Response> {
-  const { message } = await request.json();
+  const { message } = (await request.json()) as { message: string };
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
+      const send = (data: Record<string, unknown>): void => {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+      };
       const session = runtime.createSession({
-        permissionMode: 'bypassPermissions',
         bare: true,
+        deniedTools: ['Shell', 'Bash', 'Write', 'Edit'],
       });
+      session.on('text_delta', (delta) => send({ text: delta }));
 
-      session.on('text_delta', (delta) => {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text: delta })}\n\n`));
-      });
-      session.on('complete', () => {
-        controller.enqueue(encoder.encode('data: {"done":true}\n\n'));
+      try {
+        const handle = await session.submit(message);
+        const result = await handle.completed;
+        send({ done: true, interrupted: result.interrupted === true });
+      } catch (error) {
+        send({ error: error instanceof Error ? error.message : String(error) });
+      } finally {
         controller.close();
-      });
-      session.on('error', (err) => {
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: err.message })}\n\n`));
-        controller.close();
-      });
-
-      await session.submit(message);
+        await session.shutdown();
+      }
     },
   });
 
@@ -109,9 +146,12 @@ export async function POST(request: Request): Promise<Response> {
 }
 ```
 
+`handle.completed` resolves with the turn's result, or rejects with the error the turn failed on.
+You can also listen for the `complete`, `interrupted` and `error` events instead.
+
 ### Custom tools with streaming
 
-`additionalTools` is available on `runtime.createSession()`:
+`runtime.createSession()` accepts `additionalTools`; pre-approve them with `allowedTools`:
 
 ```typescript
 import type { IAgentRuntime } from '@robota-sdk/agent-framework';
@@ -122,26 +162,27 @@ declare const calculatorTool: IToolWithEventService;
 declare const dbLookupTool: IToolWithEventService;
 
 const session = runtime.createSession({
-  permissionMode: 'bypassPermissions',
   bare: true,
   additionalTools: [calculatorTool, dbLookupTool],
+  allowedTools: ['calculate', 'db_lookup'],
+  deniedTools: ['Shell', 'Bash', 'Write', 'Edit'],
 });
 
 session.on('tool_start', ({ toolName }) => console.log('calling', toolName));
 session.on('tool_end', ({ toolName, result }) => console.log('done', toolName, result));
-session.on('complete', (result) => console.log(result.response));
 
-await session.submit('What is 10% of our Q4 revenue?');
+const handle = await session.submit('What is 10% of our Q4 revenue?');
+console.log((await handle.completed).response);
 ```
 
 ## Bot pattern — resuming conversations
 
-Bots receive messages in separate requests or webhook calls. Use `resumeSessionId`
-to continue the same conversation across requests.
+Bots receive each message in a separate request or webhook call. Give the runtime a session store,
+and resume the saved session for each channel with `resumeSessionId`. A session is saved after every
+completed turn and again on shutdown.
 
 ```typescript
-import { createAgentRuntime } from '@robota-sdk/agent-framework';
-import { createNodeHostSessionStore } from '@robota-sdk/agent-framework';
+import { createAgentRuntime, createNodeHostSessionStore } from '@robota-sdk/agent-framework';
 import type { IAIProvider } from '@robota-sdk/agent-core';
 
 declare const provider: IAIProvider;
@@ -149,35 +190,38 @@ declare const provider: IAIProvider;
 const runtime = createAgentRuntime({
   cwd: process.cwd(),
   provider,
-  sessionStore: createNodeHostSessionStore('.robota/sessions'),
+  sessionStore: createNodeHostSessionStore('/var/lib/my-bot/sessions'),
 });
 
-// Map channel/thread IDs to session IDs
+// Channel or thread id → session id
 const sessions = new Map<string, string>();
 
 async function handleMessage(channelId: string, text: string): Promise<string> {
   const session = runtime.createSession({
-    permissionMode: 'bypassPermissions',
     bare: true,
-    resumeSessionId: sessions.get(channelId), // undefined on first message
+    deniedTools: ['Shell', 'Bash', 'Write', 'Edit'],
+    resumeSessionId: sessions.get(channelId), // undefined for the first message
   });
-
-  return new Promise<string>((resolve) => {
-    session.on('complete', (result) => {
-      // Save the session ID for next message
-      const id = session.sessionId;
-      if (id) sessions.set(channelId, id);
-      resolve(result.response);
-    });
-    session.submit(text).catch(console.error);
-  });
+  try {
+    const handle = await session.submit(text);
+    const result = await handle.completed;
+    sessions.set(channelId, session.sessionId);
+    return result.response;
+  } finally {
+    await session.shutdown();
+  }
 }
 ```
 
-## createStatelessRuntime — serverless / no filesystem
+In production, keep the channel-to-session map somewhere durable too.
 
-Use in Lambda, Vercel Edge Functions, or any environment where filesystem access
-is restricted or undesirable.
+## createStatelessRuntime — serverless
+
+`createStatelessRuntime({ provider, cwd? })` is a runtime with no session store and with settings
+reads and writes from commands turned into no-ops. Its sessions default to `bare: true`. It has no
+project access, so its sessions never read project files.
+
+The default tools are still there, so deny the ones your environment should not offer:
 
 ```typescript
 import { createStatelessRuntime } from '@robota-sdk/agent-framework';
@@ -189,44 +233,33 @@ const runtime = createStatelessRuntime({
   provider: new AnthropicProvider({ apiKey }),
 });
 
-// Handler — safe to call without worrying about file I/O
-export const handler = async (event: { prompt: string }) => {
-  const session = runtime.createSession({ permissionMode: 'bypassPermissions' });
-
-  return new Promise<string>((resolve) => {
-    session.on('complete', (result) => resolve(result.response));
-    session.submit(event.prompt).catch(console.error);
+export const handler = async (event: { prompt: string }): Promise<string> => {
+  const session = runtime.createSession({
+    deniedTools: ['Shell', 'Bash', 'Read', 'Write', 'Edit', 'Glob', 'Grep'],
   });
+  try {
+    const handle = await session.submit(event.prompt);
+    return (await handle.completed).response;
+  } finally {
+    await session.shutdown();
+  }
 };
-```
-
-`createStatelessRuntime` sets `bare: true` on sessions by default. Override
-per-session if you need context loading:
-
-```typescript
-import type { IAgentRuntime } from '@robota-sdk/agent-framework';
-
-declare const runtime: IAgentRuntime;
-
-runtime.createSession({ bare: false, permissionMode: 'bypassPermissions' });
 ```
 
 ## Session lifecycle
 
-| When                                        | Action                                           |
-| ------------------------------------------- | ------------------------------------------------ |
-| Connection starts / bot conversation begins | Create new session                               |
-| Same user's follow-up message               | Reuse or resume same session                     |
-| Connection closes / conversation ends       | Call `session.shutdown()`                        |
-| Request timeout                             | Call `session.abort()` then `session.shutdown()` |
+| When                                           | Do                                                   |
+| ---------------------------------------------- | ---------------------------------------------------- |
+| A connection or conversation starts            | Create a session                                     |
+| The same user sends a follow-up                | Reuse the session, or resume it by id                |
+| The connection closes or the conversation ends | Call `session.shutdown()`                            |
+| A request times out                            | Call `session.shutdown()` (it aborts a running turn) |
 
-For long-running servers, session objects accumulate history. If history growth
-is a concern, create fresh sessions per conversation rather than reusing across users.
+A session's history grows with every turn and is sent to the model each time. Create a fresh session
+per conversation rather than sharing one across users.
 
-## Resource cleanup
-
-Always call `session.shutdown()` when done to release internal timers and cleanup
-background tracking:
+`shutdown()` stops background work, saves the session if a store is configured, and removes all
+listeners. Always call it when you are done:
 
 ```typescript
 import type { IAgentRuntime } from '@robota-sdk/agent-framework';
@@ -234,43 +267,41 @@ import type { IAgentRuntime } from '@robota-sdk/agent-framework';
 declare const runtime: IAgentRuntime;
 declare const prompt: string;
 
-const session = runtime.createSession({ permissionMode: 'bypassPermissions' });
+const session = runtime.createSession({ bare: true });
 try {
-  await new Promise<void>((resolve, reject) => {
-    session.on('complete', () => resolve());
-    session.on('error', reject);
-    session.submit(prompt).catch(reject);
-  });
+  const handle = await session.submit(prompt);
+  await handle.completed;
 } finally {
   await session.shutdown();
 }
 ```
 
-For `createQuery`, the session is managed internally and cleaned up automatically.
-
 ## Structured output (responseFormat)
 
-When you need the AI to return valid JSON (data extraction, classification, structured reports),
-pass `responseFormat: { type: 'json_object' }`. This is wired end-to-end from the public API
-through to the provider's native JSON mode.
+`responseFormat` asks the provider for JSON. How it reaches the model depends on the provider:
+
+- `{ type: 'json_object' }` is sent as OpenAI's native JSON mode. The Anthropic provider has no
+  equivalent and ignores it.
+- `{ type: 'json_schema', name, schema }` is sent as native structured output by both the OpenAI and
+  the Anthropic providers. `runtime.createSession()` accepts it; `createQuery()` accepts only `text`
+  and `json_object`.
+
+Parse the reply defensively either way.
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-
-declare const apiKey: string;
+import { OpenAIProvider } from '@robota-sdk/agent-provider-openai';
 
 const query = createQuery({
-  provider: new AnthropicProvider({ apiKey }),
+  provider: new OpenAIProvider({ apiKey: process.env.OPENAI_API_KEY }),
   responseFormat: { type: 'json_object' },
 });
 
-const raw = await query('Classify this text: "TypeScript is great for large codebases."');
-const result = JSON.parse(raw);
-// result: { sentiment: "positive", topic: "TypeScript", confidence: 0.95 }
+const raw = await query(
+  'Classify "TypeScript is great for large codebases." Reply as JSON with sentiment and topic.',
+);
+const result = JSON.parse(raw) as { sentiment: string; topic: string };
 ```
-
-Works with `runtime.createSession()` too:
 
 ```typescript
 import type { IAgentRuntime } from '@robota-sdk/agent-framework';
@@ -278,20 +309,30 @@ import type { IAgentRuntime } from '@robota-sdk/agent-framework';
 declare const runtime: IAgentRuntime;
 
 const session = runtime.createSession({
-  permissionMode: 'bypassPermissions',
   bare: true,
-  responseFormat: { type: 'json_object' },
+  responseFormat: {
+    type: 'json_schema',
+    name: 'classification',
+    schema: {
+      type: 'object',
+      properties: {
+        sentiment: { type: 'string', enum: ['positive', 'negative', 'neutral'] },
+        topic: { type: 'string' },
+      },
+      required: ['sentiment', 'topic'],
+    },
+  },
 });
 ```
 
-**Provider support:** OpenAI uses the native `response_format: { type: 'json_object' }` parameter.
-Other providers that don't support JSON mode will produce text responses as usual — check provider
-capabilities before relying on machine-parseable output.
+For typed, validated objects with automatic retries, use `Robota.run(prompt, { output })` from
+`agent-core`; see [Building Agents](./building-agents.md#structured-output).
 
 ## WebSocket server
 
-`createAgentRuntime` sessions map naturally to WebSocket connections — one session
-per connection, events forwarded as JSON messages.
+One session per connection, with events forwarded as JSON messages. (For a ready-made WebSocket
+carrier with the full session protocol, see `@robota-sdk/agent-transport-ws` and
+[Deployment](./deployment.md).)
 
 <!-- doc-example-skip: imports the external `ws` package, which is not a workspace dependency -->
 
@@ -309,8 +350,8 @@ const wss = new WebSocketServer({ port: 8080 });
 
 wss.on('connection', (ws) => {
   const session = runtime.createSession({
-    permissionMode: 'bypassPermissions',
     bare: true,
+    deniedTools: ['Shell', 'Bash', 'Write', 'Edit'],
   });
 
   session.on('text_delta', (delta) => ws.send(JSON.stringify({ type: 'delta', delta })));
@@ -323,23 +364,24 @@ wss.on('connection', (ws) => {
   session.on('error', (err) => ws.send(JSON.stringify({ type: 'error', message: err.message })));
 
   ws.on('message', (data) => {
-    const { prompt } = JSON.parse(data.toString());
+    const { prompt } = JSON.parse(data.toString()) as { prompt: string };
     session
       .submit(prompt)
-      .catch((err) => ws.send(JSON.stringify({ type: 'error', message: err.message })));
+      .catch((err: Error) => ws.send(JSON.stringify({ type: 'error', message: err.message })));
   });
 
-  ws.on('close', async () => {
-    await session.abort();
-    await session.shutdown();
+  ws.on('close', () => {
+    void session.shutdown();
   });
 });
 ```
 
+A prompt sent while a turn is running waits for it; if the client sends several, only the newest
+waiting prompt runs.
+
 ## Batch processing
 
-Run multiple independent queries in parallel with `Promise.all`. Each `createQuery`
-call owns its own internal session, so parallelism is safe.
+Run independent queries in parallel with one query function per item:
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
@@ -348,74 +390,47 @@ import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
 const provider = new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY! });
 
 async function classifyAll(texts: string[]): Promise<string[]> {
-  const tasks = texts.map((text) => {
-    const query = createQuery({ provider });
-    return query(
-      `Classify the sentiment of: "${text}". Reply with one word: positive, negative, or neutral.`,
-    );
-  });
-  return Promise.all(tasks);
+  return Promise.all(
+    texts.map((text) =>
+      createQuery({ provider })(
+        `Classify the sentiment of: "${text}". Reply with one word: positive, negative, or neutral.`,
+      ),
+    ),
+  );
 }
 
 const results = await classifyAll(['TypeScript is great!', 'This API is confusing.', 'It works.']);
-// ["positive", "negative", "neutral"]
 ```
 
-For rate-limited providers, chunk the array and process sequentially or with a concurrency limit.
+For rate-limited providers, split the list and limit concurrency. For large batches, prefer sessions
+from a runtime so you can `shutdown()` each one when its item is done.
 
 ## Error handling
 
-### Rate limits (429)
+### Rate limits
 
-Configure provider-level retry via the provider options:
-
-```typescript
-import { AnthropicProvider } from '@robota-sdk/agent-provider-anthropic';
-
-declare const apiKey: string;
-
-const provider = new AnthropicProvider({
-  apiKey,
-  maxRetries: 3, // retry up to 3 times on 429 / 529
-  timeout: 60_000, // per-request timeout in ms
-});
-```
+The run loop does not retry a failed provider call (the vendor SDK clients inside the Anthropic and
+OpenAI providers apply their own default retries). A rate limit that still fails surfaces as
+`RateLimitError`; other provider failures as `ProviderError` with the HTTP `status`. Retry in your
+code — see [Retrying provider failures](./error-handling.md#retrying-provider-failures).
 
 ### Context overflow
 
-`InteractiveSession` runs auto-compaction when the context approaches the model's
-limit. For `createAgentRuntime` sessions, compaction runs transparently before
-each `submit` call if the context is full.
+A session tracks token usage and compacts the conversation automatically: before each new turn, if
+usage has passed the threshold (about 83.5% of the model's context window by default), it
+summarizes the history first. See [Context Management](./context-management.md).
 
 ### Submitting after shutdown
 
-Calling `session.submit()` after `session.shutdown()` throws. Guard with a flag:
+`submit()` on a session that is shutting down or shut down rejects. Create a new session instead.
 
-```typescript
-import type { InteractiveSession } from '@robota-sdk/agent-framework';
+## Complete examples
 
-declare const session: InteractiveSession;
-declare const nextPrompt: string;
-
-let alive = true;
-
-session.on('complete', async () => {
-  alive = false;
-  await session.shutdown();
-});
-
-// elsewhere
-if (alive) {
-  await session.submit(nextPrompt);
-}
-```
-
-## Express server example
-
-See [`examples/express/`](../../examples/express/) for a complete Express server
-using per-request `Robota` instances with custom tools and SSE streaming.
-
-## Next.js App Router example
-
-See [`examples/nextjs/`](../../examples/nextjs/) for a complete Next.js streaming
-chat using `InteractiveSession` events and the Web Streams API.
+- [`examples/express/`](../../examples/express/) — an Express server that creates a query function per
+  request, with custom tools and SSE streaming.
+- [`examples/nextjs/`](../../examples/nextjs/) — a Next.js route streaming session events with
+  `createAgentRuntime`.
+- [`examples/websocket-chat/`](../../examples/websocket-chat/), [`examples/slack-bot/`](../../examples/slack-bot/),
+  [`examples/discord-bot/`](../../examples/discord-bot/), [`examples/telegram-bot/`](../../examples/telegram-bot/)
+  — chat front ends built on `createAgentRuntime`.
+- [`examples/batch-processor/`](../../examples/batch-processor/) — batch jobs with `createQuery`.
