@@ -61,6 +61,10 @@ function stubState(over: Partial<IWsSessionState> = {}): IWsSessionState {
     openSettings: vi.fn(),
     closeSettings: vi.fn(),
     updateSettings: vi.fn(),
+    // #3282 §2 (part 2): the model control's pop-up menu.
+    modelList: null,
+    requestModelList: vi.fn(),
+    sendCommandSilently: vi.fn(),
     ...over,
   } as unknown as IWsSessionState;
 }
@@ -247,7 +251,7 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
     expect(within(share).queryByText('terminal')).toBeNull();
   });
 
-  it('#3186: the status row shows the session status and opens its pickers', () => {
+  it('#3186 / #3282 §2: the status row shows the session status and its pop-up menus apply through the wire', () => {
     const state = stubState({
       sessionStatus: {
         sessionId: 's',
@@ -257,12 +261,53 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
         context: { usedPercentage: 42, usedTokens: 42, maxTokens: 100, remainingPercentage: 58 },
         goal: null,
       },
+      commandCatalog: {
+        commands: [
+          {
+            name: 'mode',
+            description: 'Show or change the permission mode',
+            modelInvocable: false,
+            runner: 'runtime',
+            subcommands: [
+              { name: 'plan', displayName: 'Plan only', description: 'Plan only, no execution' },
+              {
+                name: 'acceptEdits',
+                displayName: 'Accept edits',
+                description: 'Auto-approve file edits',
+              },
+            ],
+          },
+        ],
+        skills: [],
+      },
+      modelList: {
+        groups: [
+          {
+            profileName: 'anthropic',
+            providerLabel: 'Anthropic',
+            models: [{ id: 'claude-sonnet-5', label: 'Claude Sonnet 5' }],
+          },
+        ],
+        currentProfile: 'anthropic',
+        currentModel: 'claude-sonnet-5',
+      },
+      requestModelList: vi.fn(),
+      sendCommandSilently: vi.fn(),
     } as Partial<IWsSessionState>);
     render(<SessionSurface state={state} />);
     expect(screen.getByLabelText('context 42% used')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'mode: acceptEdits' }));
-    expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'mode' });
+
+    // The mode chip shows the plain label (from the catalog's subcommands), and its menu applies a
+    // choice silently — the same command wire path /mode <name> uses, no conversation card.
+    fireEvent.click(screen.getByRole('button', { name: 'mode: Accept edits' }));
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Plan only' }));
+    expect(state.sendCommandSilently).toHaveBeenCalledWith('mode', 'plan');
+
+    // The model chip's menu, fed by `modelList`, requests a fresh list on open and its last item
+    // ("Manage providers…") still opens the existing profile flow through the ordinary command path.
     fireEvent.click(screen.getByRole('button', { name: 'model: claude-sonnet-5' }));
+    expect(state.requestModelList).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Manage providers…' }));
     expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'provider' });
   });
 
