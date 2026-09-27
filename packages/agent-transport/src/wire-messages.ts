@@ -43,6 +43,9 @@ import type {
   TSettingsPatch,
   IUiIntentEvent,
   TPermissionResultValue,
+  TProjectDiffRead,
+  TProjectMemoryRead,
+  TProjectStatusRead,
   TWaitingLoopStopOutcome,
 } from '@robota-sdk/agent-interface-session';
 import type {
@@ -130,6 +133,16 @@ export type TClientMessage =
     }
   // Stop the self-paced loop that is waiting for its next wake; answered by `waiting_loop_stop`.
   | { type: 'stop-waiting-loop'; requestId: string }
+  // #3282 §4c: the Project panel's "Changes" section — this workspace's git status. Answered by
+  // `project_status`, echoing `requestId`.
+  | { type: 'project-status'; requestId: string }
+  // The Project panel's "File diff" section for one file `project_status` reported — `path` exactly
+  // as reported (workspace-relative; the server re-checks it stays inside the workspace). Answered by
+  // `project_diff`.
+  | { type: 'project-diff'; requestId: string; path: string }
+  // The Project panel's "Memory" section — project memory as readable text. Answered by
+  // `project_memory`.
+  | { type: 'project-memory'; requestId: string }
   | { type: 'get-background-tasks'; filter?: IBackgroundTaskListFilter }
   | { type: 'get-background-task'; taskId: string }
   | { type: 'get-background-job-groups' }
@@ -296,6 +309,13 @@ export type TServerMessage =
   | { type: 'execution_detail'; requestId: string; page: IExecutionDetailPage }
   | { type: 'execution_detail_error'; requestId: string; message: string }
   | { type: 'waiting_loop_stop'; requestId: string; outcome: TWaitingLoopStopOutcome }
+  // #3282 §4c: the Project panel's reads. Each result crosses the wire UNCHANGED as the session
+  // method's own return value (same convention as `waiting_loop_stop`'s `outcome` above) — the
+  // `kind` discriminant carries the non-repository / outside-workspace / unavailable / failed cases,
+  // so there is no separate `_error` sibling to keep in sync with these.
+  | { type: 'project_status'; requestId: string; result: TProjectStatusRead }
+  | { type: 'project_diff'; requestId: string; result: TProjectDiffRead }
+  | { type: 'project_memory'; requestId: string; result: TProjectMemoryRead }
   | { type: 'background_task_event'; event: TBackgroundTaskEvent }
   | { type: 'background_job_group_event'; event: TBackgroundJobGroupEvent }
   | { type: 'plan_event'; event: IPlanApprovalEvent }

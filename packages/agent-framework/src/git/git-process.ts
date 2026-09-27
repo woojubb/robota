@@ -63,12 +63,20 @@ export interface ICreateGitProcessOptions {
   env?: NodeJS.ProcessEnv;
 }
 
-/** The child's environment: `source` minus the repository-redirecting variables. */
+/**
+ * The child's environment: `source` minus the repository-redirecting variables, with the locale
+ * forced to `C`. `isNotAGitRepositoryFailure` (and every other place this module's callers pattern-
+ * match git's stderr text) depends on that text being English; git translates it under the host's
+ * own `LANG`/`LC_ALL` otherwise, which would silently break that match on a non-English host (#3282
+ * §4c review).
+ */
 export function gitEnvironment(source: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = {};
   for (const [key, value] of Object.entries(source)) {
     if (!GIT_ENV_DENYLIST.includes(key)) env[key] = value;
   }
+  env.LC_ALL = 'C';
+  env.LANG = 'C';
   return env;
 }
 

@@ -1,12 +1,5 @@
-/**
- * A scripted `IGitProcessPort`: answers by argv, records every call, throws on an unscripted one.
- *
- * The port and outcome types moved to `@robota-sdk/agent-framework` with the git process module
- * (#3282 §4c); this double stays here (duplicated, not imported cross-package) because it is a tiny,
- * self-contained test fixture, the same call `agent-framework`'s own `git/__tests__/fake-git-port.ts`
- * makes for its side.
- */
-import type { IGitProcessPort, TGitProcessOutcome } from '@robota-sdk/agent-framework';
+/** A scripted `IGitProcessPort`: answers by argv, records every call, throws on an unscripted one. */
+import type { IGitProcessPort, TGitProcessOutcome } from '../git-process.js';
 
 export interface IFakeGitPort extends IGitProcessPort {
   readonly calls: readonly (readonly string[])[];

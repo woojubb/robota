@@ -8,12 +8,14 @@ import { Dialog } from './Dialog.js';
 import { ExecutionDetailSheet } from './ExecutionDetailSheet.js';
 import { PermissionPrompt } from './PermissionPrompt.js';
 import { PersonalUsageDashboard } from './PersonalUsageDashboard.js';
+import { ProjectPanel } from './ProjectPanel.js';
 import { SessionSidebar, SessionSidebarRail, sessionTitle } from './SessionSidebar.js';
 import { ConnectionBanner, SessionNotices, SessionTitleBar } from './SessionSurfaceChrome.js';
 import { SettingsScreen } from './SettingsScreen.js';
 import { NARROW_WINDOW_QUERY, useMediaQuery } from '../hooks/use-media-query.js';
 
 import type { IComposerHandle, IPickedFile } from './Composer.js';
+import type { TSessionView } from './SessionSurfaceChrome.js';
 import type { IWsSessionState } from '../hooks/useSessionClient.js';
 
 /**
@@ -102,6 +104,7 @@ export function SessionSurface({
   onReconnect,
   pickFiles,
   getPathForFile,
+  onOpenMemoryInEditor,
 }: {
   state: IWsSessionState;
   surface?: string;
@@ -116,8 +119,14 @@ export function SessionSurface({
   pickFiles?: () => Promise<readonly IPickedFile[]>;
   /** Forwarded to the composer's drag-and-drop — present only on the desktop app (#3282 §4d). */
   getPathForFile?: (file: File) => string;
+  /**
+   * The Project panel's memory "Open in editor" action — present only when the host can open a file
+   * in an external editor (the desktop app, #3282 §4c). Absent in the browser, where the action
+   * itself is hidden (only shown "if the host supports it").
+   */
+  onOpenMemoryInEditor?: (path: string) => void;
 }): React.ReactElement {
-  const [view, setView] = useState<'chat' | 'usage'>('chat');
+  const [view, setView] = useState<TSessionView>('chat');
   const composerRef = useRef<IComposerHandle>(null);
   const tasks = state.executionWorkspace?.entries ?? [];
   // The main thread alone is this conversation; the rail earns its width only for work beside it.
@@ -147,6 +156,7 @@ export function SessionSurface({
     (state.sessionListing ?? null) !== null || state.sessionsError?.code === 'list_failed';
   const sidebarOpen = hasSessionList && state.sessionSidebarOpen;
   const usage = personalUsageEnabled && view === 'usage';
+  const project = view === 'project';
   const listing = state.sessionListing ?? null;
   const currentRow = listing?.sessions.find((session) => session.id === listing.currentSessionId);
   // A rename seen on this page wins; otherwise the host's listing names the current session.
@@ -254,6 +264,17 @@ export function SessionSurface({
           <div className="min-h-0 flex-1">
             <PersonalUsageDashboard state={state} />
             {/* A gated turn waits on this answer, so it shows over whatever view is open. */}
+            <PermissionPrompt
+              layout="modal"
+              prompts={state.pendingPrompts}
+              onAnswerPermission={state.answerPermission}
+              onAnswerAsk={state.answerAsk}
+              ownDriverId={state.ownDriverId}
+            />
+          </div>
+        ) : project ? (
+          <div className="min-h-0 flex-1">
+            <ProjectPanel state={state} onOpenMemoryInEditor={onOpenMemoryInEditor} />
             <PermissionPrompt
               layout="modal"
               prompts={state.pendingPrompts}

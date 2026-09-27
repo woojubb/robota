@@ -24,6 +24,7 @@ import { SERVER_MESSAGE_HANDLING } from './server-message-handling.js';
 import { useExecutionDetailState } from './use-execution-detail.js';
 import { useModelListState } from './use-model-list.js';
 import { usePersonalUsageState } from './use-personal-usage.js';
+import { useProjectPanelState } from './use-project-panel.js';
 import { useSessionDirectoryState } from './use-session-directory.js';
 import { useSettingsState } from './use-settings-state.js';
 
@@ -375,6 +376,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     ...executionDetailState
   } = useExecutionDetailState(send);
   const { handleModelListMessage, ...modelListState } = useModelListState(send);
+  const { handleProjectMessage, ...projectPanelState } = useProjectPanelState(send);
   const { handleSessionsMessage, canListSessions, markCurrent, armRestore, ...sessionDirectoryState } =
     useSessionDirectoryState(send);
   const { requestSessions, setSessionSidebarOpen } = sessionDirectoryState;
@@ -388,6 +390,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       if (handleUsageMessage(msg)) return;
       if (handleExecutionDetailMessage(msg)) return;
       if (handleModelListMessage(msg)) return;
+      if (handleProjectMessage(msg)) return;
       if (handleSessionsMessage(msg)) return;
       if (handleSettingsMessage(msg)) return;
       switch (msg.type) {
@@ -722,6 +725,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       finishTurn,
       handleExecutionDetailMessage,
       handleModelListMessage,
+      handleProjectMessage,
       handleSessionsMessage,
       handleSettingsMessage,
       handleUsageMessage,
@@ -802,6 +806,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
     ...executionDetailState,
     closeExecutionDetail,
     ...modelListState,
+    ...projectPanelState,
     ...sessionDirectoryState,
     sessionNotices,
     dismissSessionNotice,

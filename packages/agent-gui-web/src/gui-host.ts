@@ -45,6 +45,8 @@ export interface IDesktopBridge {
   getPathForFile(file: File): string;
   /** #3282 §4a: the App menu's "Settings…" (⌘,/Ctrl+,) asked to open the Settings screen. */
   onOpenSettings(listener: () => void): () => void;
+  /** #3282 §4c: the Project panel's Memory "Open in editor" — opens `path` in the OS default app. */
+  openPath(path: string): Promise<{ error?: string }>;
 }
 
 export interface IGuiHost {
@@ -86,6 +88,12 @@ export interface IGuiHost {
    * unsubscribe function, so a caller never has to branch on whether this host offers one.
    */
   onOpenSettings(listener: () => void): () => void;
+  /**
+   * Present only when the host can open a file in an external editor/app (the desktop app) — #3282
+   * §4c. Its absence means the Project panel's Memory section hides "Open in editor" entirely, per
+   * the design ("an 'Open in editor' action only if the host supports it").
+   */
+  readonly openMemoryInEditor?: (path: string) => void;
 }
 
 export interface IGuiHostEnvironment {
@@ -119,6 +127,11 @@ export function resolveGuiHost(environment: IGuiHostEnvironment): IGuiHost {
       pickFiles: () => bridge.pickFiles(),
       getPathForFile: (file) => bridge.getPathForFile(file),
       onOpenSettings: (listener) => bridge.onOpenSettings(listener),
+      // Best-effort, like `shell.openExternal` elsewhere in the main process — the person already
+      // sees the memory content in the panel; a failed open is not worth a blocking error surface.
+      openMemoryInEditor: (path) => {
+        void bridge.openPath(path);
+      },
     };
   }
   const endpoint = browserEndpoint(environment);

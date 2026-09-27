@@ -13,6 +13,16 @@ const STATUS: Record<string, { dot: string; label: string }> = {
   error: { dot: 'bg-destructive', label: 'Connection error' },
 };
 
+/** #3282 §4c: every view the primary nav can show — 'project' is always offered (desktop and
+ *  browser alike); 'usage' only where the host opted the surface into it. */
+export type TSessionView = 'chat' | 'usage' | 'project';
+
+const VIEW_LABEL: Readonly<Record<TSessionView, string>> = {
+  chat: 'Chat',
+  usage: 'Usage',
+  project: 'Project',
+};
+
 /**
  * #3289 §1 — the folder this session works in, wherever `document.title` is settable: a page (the
  * browser tab) and the desktop window that loads it (Electron follows the page's title unless told
@@ -29,7 +39,7 @@ function useWorkspaceDocumentTitle(workspace: { readonly name: string } | undefi
 
 /**
  * The bar over the conversation: the app's name when no sidebar carries it, the workspace folder and
- * the current session's title, the desktop-only Chat / Usage switch, and the connection state. The
+ * the current session's title, the Chat / Usage / Project switch, and the connection state. The
  * state is a dot while all is well and says itself in words once it is not.
  */
 export function SessionTitleBar({
@@ -49,8 +59,8 @@ export function SessionTitleBar({
   /** The folder this session works in (#3289 §1); absent when the host has not said. */
   workspace?: { readonly name: string; readonly path: string };
   showBrand: boolean;
-  view: 'chat' | 'usage';
-  onView: (view: 'chat' | 'usage') => void;
+  view: TSessionView;
+  onView: (view: TSessionView) => void;
   personalUsageEnabled: boolean;
   /**
    * #3282 §2 (part 2): mirrors `ConnectionBanner`'s own "give-up" flag (`useWsSession`'s
@@ -69,13 +79,19 @@ export function SessionTitleBar({
     if (status === 'connected') everConnectedRef.current = true;
   }, [status]);
   const bannerShown = status !== 'connected' && (connectionLost || everConnectedRef.current);
+  // #3282 §4c principle 4 (#3277): everything Robota implements is usable from the GUI through
+  // organized screens — the Project panel (git status/diff, project memory) is one, offered next to
+  // Chat on every surface, desktop and browser alike; Usage stays surface-gated.
+  const items: readonly TSessionView[] = personalUsageEnabled
+    ? ['chat', 'usage', 'project']
+    : ['chat', 'project'];
   return (
     <header
       className="agent-gui-status flex h-12 flex-shrink-0 items-center gap-3 px-5"
       data-status={status}
     >
       {showBrand ? <RobotaWordmark surface={surface} /> : null}
-      {/* The usage view titles itself; the chat view is titled by its session and workspace. */}
+      {/* The usage/project views title themselves; the chat view is titled by its session and workspace. */}
       {view === 'chat' && title ? (
         <h1 className="min-w-0 truncate text-[14px] font-medium text-foreground/90">{title}</h1>
       ) : null}
@@ -88,25 +104,23 @@ export function SessionTitleBar({
         </span>
       ) : null}
       <div className="ml-auto flex items-center gap-3">
-        {personalUsageEnabled ? (
-          <nav className="flex items-center rounded-lg bg-raised p-0.5" aria-label="Primary">
-            {(['chat', 'usage'] as const).map((item) => (
-              <button
-                key={item}
-                type="button"
-                aria-pressed={view === item}
-                onClick={() => onView(item)}
-                className={`rounded-md px-3 py-1 text-[13px] font-medium transition-colors ${
-                  view === item
-                    ? 'bg-card text-foreground shadow-sm shadow-black/25'
-                    : 'text-muted-foreground hover:text-foreground'
-                }`}
-              >
-                {item === 'chat' ? 'Chat' : 'Usage'}
-              </button>
-            ))}
-          </nav>
-        ) : null}
+        <nav className="flex items-center rounded-lg bg-raised p-0.5" aria-label="Primary">
+          {items.map((item) => (
+            <button
+              key={item}
+              type="button"
+              aria-pressed={view === item}
+              onClick={() => onView(item)}
+              className={`rounded-md px-3 py-1 text-[13px] font-medium transition-colors ${
+                view === item
+                  ? 'bg-card text-foreground shadow-sm shadow-black/25'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {VIEW_LABEL[item]}
+            </button>
+          ))}
+        </nav>
         {bannerShown ? null : (
           <span className="flex items-center gap-2" title={state.label}>
             <span className={`h-2 w-2 rounded-full ${state.dot}`} />

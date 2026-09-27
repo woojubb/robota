@@ -32,6 +32,12 @@ export const OBSERVER_MESSAGES: ReadonlySet<TClientMessage['type']> = new Set<
   // #3282 §4a: reading the Settings snapshot is a pure read of this session's own configuration.
   // `update-settings` stays out — an observer never writes.
   'get-settings',
+  // #3282 §4c: the Project panel's reads — git status, one file's diff, project memory. All three are
+  // read-only (there is no "restore"/write counterpart in this feature — see the SPEC.md design
+  // decision on why checkpoints/rewind are excluded entirely), so all three are observer-safe.
+  'project-status',
+  'project-diff',
+  'project-memory',
 ]);
 
 /** Whether an observer may send a message of this type. */

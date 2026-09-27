@@ -1,6 +1,11 @@
 import type { ISubmitOptions, TDriverId } from './driver-contracts.js';
 import type { TWaitingLoopStopOutcome } from './session-loop-contracts.js';
 import type {
+  TProjectDiffRead,
+  TProjectMemoryRead,
+  TProjectStatusRead,
+} from './session-project-contracts.js';
+import type {
   IGoalState,
   IHistoryDisplaySegment,
   IInteractiveSessionEvents,
@@ -194,6 +199,20 @@ export interface ISessionExecutionDetail {
  */
 export interface ISessionSelfPacedLoopControl {
   stopWaitingSelfPacedLoop(reason?: string): Promise<TWaitingLoopStopOutcome>;
+}
+
+/**
+ * #3282 §4c — the Project panel's reads: git status, one file's diff, and project memory as readable
+ * text. Deliberately NOT registered in {@link ISessionCapabilityMap} / `SESSION_CAPABILITY_MEMBER_KEYS`
+ * (the session-pool partial-test-double registry, ARCH-012) — nothing in the panel composes a partial
+ * fake session through that host, and every role already there is exercised by it; adding an unused
+ * row would only be more surface for that exact-parity test to carry. `IProtocolSession`
+ * (`agent-transport`) composes this interface directly, the same as it does the roles above.
+ */
+export interface ISessionProjectRead {
+  readProjectStatus(): Promise<TProjectStatusRead>;
+  readProjectDiff(path: string): Promise<TProjectDiffRead>;
+  readProjectMemory(): Promise<TProjectMemoryRead>;
 }
 
 export interface ISessionAgentJobs {

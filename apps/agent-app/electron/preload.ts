@@ -33,6 +33,9 @@ const api = {
    * object is not backed by one. A plain browser page has no equivalent; only this bridge does.
    */
   getPathForFile: (file: File): string => webUtils.getPathForFile(file),
+  /** The Project panel's Memory "Open in editor" (#3282 §4c): open a project-relative path in the OS
+   *  default app for it. */
+  openPath: (path: string): Promise<{ error?: string }> => ipcRenderer.invoke('agent-gui:open-path', path),
   /** Subscribe to lifecycle state (`starting`/`ready`/`fatal`). Returns an unsubscribe fn. */
   /** `detail` accompanies `fatal`: what the CLI said when the daemon could not be started. */
   onState: (cb: (state: TSidecarState, detail?: string) => void): (() => void) => {

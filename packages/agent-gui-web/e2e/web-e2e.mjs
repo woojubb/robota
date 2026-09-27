@@ -459,6 +459,21 @@ try {
     }
   });
 
+  await scenario('#3282 §4c: the Project panel lists the changed file, and a click shows its diff', async () => {
+    await page.getByRole('button', { name: 'Project', exact: true }).click();
+    await page.getByText('Changes — main').waitFor();
+    await page.getByText('src/task-title.ts').waitFor();
+    await page.getByText('Modified').waitFor();
+    await page.getByText('+1').waitFor();
+    await page.getByText('-1').waitFor();
+    await page.getByText('src/task-title.ts').click();
+    await page.getByText(/const title = 'new';/).waitFor();
+    await page.getByText(/const title = 'old';/).waitFor();
+    // Refresh re-requests the status without leaving the panel.
+    await page.getByRole('button', { name: 'Refresh' }).click();
+    await page.getByText('Changes — main').waitFor();
+  });
+
   const sidebar = page.getByRole('complementary', { name: 'Sessions' });
   // A row's "More" button is also named after its title ("More for <title>"), so an unanchored name
   // match finds both; the row button itself is always first in the DOM, the "More" trigger beside it.

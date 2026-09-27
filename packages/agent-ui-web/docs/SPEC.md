@@ -68,6 +68,10 @@ does not own session lifecycle, conversation history, or agent runtime state.
   self-paced) sends `/loop stop <id>`, because a self-paced loop's own background-task
   representation, when it has one, is only its disposable wake timer — cancelling that would leave
   the loop itself running. Every other entry sends `cancel-background-task`.
+- The Project panel (git status, one file's diff, project memory) correlates its own requests the
+  same way, and every file status it shows is a plain word, never a raw git XY code (#3277 "usable by
+  anyone"); a workspace that is not a git repository, or a diff whose path the host refused, is one
+  plain sentence, never left as a stuck loading state.
 - A session error finalizes any partial streamed text and clears thinking/running-tool state
   before the next turn begins.
 - Malformed server frames are surfaced through the client's callback path and never thrown inside

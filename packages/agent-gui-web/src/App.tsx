@@ -45,6 +45,7 @@ function SessionView({ url, host }: { url: string; host: IGuiHost }): React.Reac
       onReconnect={onReconnect}
       pickFiles={host.pickFiles}
       getPathForFile={host.getPathForFile}
+      onOpenMemoryInEditor={host.openMemoryInEditor}
     />
   );
 }

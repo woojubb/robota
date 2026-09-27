@@ -7,7 +7,7 @@
  * this module so it can be tested in a plain Node/vitest environment.
  */
 
-import { basename, join } from 'node:path';
+import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 /** Inputs for resolving the sidecar command — injected (not read from electron) so this stays unit-testable. */
 export interface IResolveSidecarCommandOptions {
@@ -94,6 +94,21 @@ export function buildPickedFiles(
     files.push({ path, name: basename(path), size });
   }
   return files;
+}
+
+/**
+ * #3282 §4c — the Project panel's Memory "Open in editor": resolve a workspace-relative (or absolute)
+ * path against `cwd` and refuse one that lands outside it, `undefined` for a refusal. `path` comes
+ * from the SAME local daemon this window attached to (never a remote/untrusted source), so a lexical
+ * `resolve`/`startsWith` check — not the full symlink-following canonicalization a server exposed to
+ * other processes needs — is proportionate here.
+ */
+export function resolveOpenPathTarget(cwd: string, path: string): string | undefined {
+  if (path.length === 0) return undefined;
+  const absolute = resolve(cwd, path);
+  const rel = relative(cwd, absolute);
+  const outside = rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel);
+  return outside ? undefined : absolute;
 }
 
 /** What the window asks before a daemon starts in a folder not trusted yet (issue #3268). */

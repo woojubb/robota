@@ -9,10 +9,13 @@
  */
 import { confirmAction, isConfirmed, textAction } from '@robota-sdk/agent-core';
 
-import { gitFailureMessage } from './git-process.js';
-import { parseStatusPorcelainV2, GIT_STATUS_ARGS } from './git-status.js';
+import {
+  gitFailureMessage,
+  parseStatusPorcelainV2,
+  GIT_STATUS_ARGS,
+} from '@robota-sdk/agent-framework';
 
-import type { IGitProcessPort } from './git-process.js';
+import type { IGitProcessPort } from '@robota-sdk/agent-framework';
 import type { IUserInteraction } from '@robota-sdk/agent-core';
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 

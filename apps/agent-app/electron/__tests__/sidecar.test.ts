@@ -1,3 +1,5 @@
+import { sep } from 'node:path';
+
 import { describe, it, expect } from 'vitest';
 
 import {
@@ -11,6 +13,7 @@ import {
   OUTPUT_TAIL_LIMIT,
   parseDaemonStartOutput,
   parseTrustStatusOutput,
+  resolveOpenPathTarget,
   resolveSidecarCommand,
   type TDaemonStart,
 } from '../sidecar.js';
@@ -268,6 +271,36 @@ describe('buildPickedFiles (#3282 §4d — the composer attach dialog)', () => {
 
   it('answers an empty list for no paths', () => {
     expect(buildPickedFiles([], () => 0)).toEqual([]);
+  });
+});
+
+describe('resolveOpenPathTarget (#3282 §4c — the Project panel Memory "Open in editor")', () => {
+  const cwd = `${sep}repo`;
+
+  it('resolves a workspace-relative path against cwd', () => {
+    expect(resolveOpenPathTarget(cwd, `.robota${sep}memory${sep}MEMORY.md`)).toBe(
+      `${sep}repo${sep}.robota${sep}memory${sep}MEMORY.md`,
+    );
+  });
+
+  it('accepts an absolute path already inside the workspace', () => {
+    expect(resolveOpenPathTarget(cwd, `${sep}repo${sep}notes.md`)).toBe(`${sep}repo${sep}notes.md`);
+  });
+
+  it('refuses a path that escapes the workspace with ..', () => {
+    expect(resolveOpenPathTarget(cwd, `..${sep}outside.md`)).toBeUndefined();
+  });
+
+  it('refuses an absolute path outside the workspace', () => {
+    expect(resolveOpenPathTarget(cwd, `${sep}etc${sep}passwd`)).toBeUndefined();
+  });
+
+  it('refuses an empty path', () => {
+    expect(resolveOpenPathTarget(cwd, '')).toBeUndefined();
+  });
+
+  it('accepts the workspace root itself', () => {
+    expect(resolveOpenPathTarget(cwd, '.')).toBe(cwd);
   });
 });
 

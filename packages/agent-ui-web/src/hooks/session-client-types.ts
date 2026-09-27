@@ -47,6 +47,12 @@ export type TCurrentSessionUsageReport = Extract<
   { type: 'usage_report' }
 >['report'];
 
+/** #3282 §4c — the Project panel's reads. Each result crosses the wire unchanged from the session
+ *  method's own return value (see `wire-messages.ts`'s doc comment on `project_status`). */
+export type TProjectStatusRead = Extract<TServerMessage, { type: 'project_status' }>['result'];
+export type TProjectDiffRead = Extract<TServerMessage, { type: 'project_diff' }>['result'];
+export type TProjectMemoryRead = Extract<TServerMessage, { type: 'project_memory' }>['result'];
+
 export interface IConversationMessage {
   id: string;
   role: 'user' | 'assistant';
@@ -263,4 +269,17 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   openExecutionDetail: (entryId: string) => void;
   loadMoreExecutionDetail: () => void;
   closeExecutionDetail: () => void;
+  /** #3282 §4c — the Project panel's "Changes" section (git status). */
+  projectStatusState: 'idle' | 'loading' | 'ready' | 'error';
+  projectStatus: TProjectStatusRead | null;
+  requestProjectStatus: () => void;
+  /** #3282 §4c — the Project panel's "File diff" section, for the file `projectDiffPath` names. */
+  projectDiffState: 'idle' | 'loading' | 'ready' | 'error';
+  projectDiffPath: string | null;
+  projectDiff: TProjectDiffRead | null;
+  requestProjectDiff: (path: string) => void;
+  /** #3282 §4c — the Project panel's "Memory" section. */
+  projectMemoryState: 'idle' | 'loading' | 'ready' | 'error';
+  projectMemory: TProjectMemoryRead | null;
+  requestProjectMemory: () => void;
 }

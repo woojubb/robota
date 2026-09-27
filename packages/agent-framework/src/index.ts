@@ -883,6 +883,51 @@ export type { IResetUserConfigResult } from './config/reset-user-config.js';
 
 // ── Git utilities ─────────────────────────────────────────────
 export { resolveGitBranchFromNodeHost } from './git/git-branch.js';
+// BEHAVIOR-2437 / #3282 §4c: the git process port and the `/git status` + `/git diff` readers moved
+// here from `agent-command` (which depends on this package, never the reverse) so the Project panel's
+// session-level reads and the `/git` command run through the exact SAME functions — never a second,
+// possibly-drifting implementation of "what changed" or "what does this diff show".
+export {
+  createGitProcess,
+  executeGitDiff,
+  executeGitStatus,
+  formatGitStatus,
+  gitDiffArgv,
+  gitEnvironment,
+  gitFailureMessage,
+  isNotAGitRepositoryFailure,
+  parseGitDiffArgs,
+  parseStatusPorcelainV2,
+  parseStatusRecords,
+  parseUnifiedDiffLines,
+  readProjectGitDiff,
+  readProjectGitStatus,
+  GIT_DEFAULT_TIMEOUT_MS,
+  GIT_DIFF_USAGE,
+  GIT_ENV_DENYLIST,
+  GIT_MAX_OUTPUT_BYTES,
+  GIT_STATUS_ARGS,
+  MAX_PROJECT_DIFF_LINES,
+  MAX_STATUS_FILES,
+} from './git/index.js';
+export type {
+  ICreateGitProcessOptions,
+  IGitDiffArgs,
+  IGitProcessPort,
+  IGitProcessRunOptions,
+  IGitStatusSummary,
+  IParsedGitStatus,
+  IProjectGitStatusFile,
+  IRawGitStatusRecord,
+  TGitDiffTarget,
+  TGitProcessFailureReason,
+  TGitProcessOutcome,
+  TParseGitDiffArgs,
+  TProjectFileStatus,
+  TProjectGitDiffResult,
+  TProjectGitStatusResult,
+  TRawGitStatusRecordKind,
+} from './git/index.js';
 
 // ── Semver comparison ─────────────────────────────────────────
 export { compareSemverVersions, isNewerSemverVersion } from './utils/semver-compare.js';

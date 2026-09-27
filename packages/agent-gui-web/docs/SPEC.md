@@ -36,3 +36,11 @@ importable library.
   only what is truly desktop: the process, the token, the window.
 - The dev server runs without the content-security policy, because Vite injects an inline preamble
   for hot reload that the policy would block; the built page always carries it.
+- The Project panel (#3282 §4c) shows nothing for checkpoints/rewind, on every host, including Linux.
+  This is not a feature yet to build: `supportsWorkspaceProjectMutation` proves a project write stays
+  inside the project only on Linux (walking `/proc/self/fd`), by design — there is no configuration
+  that turns it on elsewhere, so a rewind list would either lie about what it can restore or offer a
+  restore that silently fails. The same check gates project memory, but that section is NOT excluded:
+  it shows the store's own plain unavailable message (off by default even on Linux; blocked on
+  macOS/Windows the same way), because unlike checkpoints, memory can be true and on (Linux, opted in)
+  and its command already had a working, catchable reply shape to reuse.

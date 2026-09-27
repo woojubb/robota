@@ -31,6 +31,7 @@ import {
   isTrustChoice,
   parseDaemonStartOutput,
   parseTrustStatusOutput,
+  resolveOpenPathTarget,
   resolveSidecarCommand,
   type IPickedFile,
   type ITrustQuestion,
@@ -286,6 +287,19 @@ ipcMain.handle('agent-gui:pick-files', async (event): Promise<IPickedFile[]> => 
       return undefined;
     }
   });
+});
+
+/**
+ * The Project panel's Memory "Open in editor" (#3282 §4c): opens a project-relative path — as the
+ * local daemon itself reported it — in the OS default app for it. `resolveOpenPathTarget` refuses a
+ * path that resolves outside this workspace before anything is opened.
+ */
+ipcMain.handle('agent-gui:open-path', async (_event, path: unknown): Promise<{ error?: string }> => {
+  if (typeof path !== 'string') return { error: 'path must be a string' };
+  const target = resolveOpenPathTarget(process.cwd(), path);
+  if (target === undefined) return { error: 'That path is outside the workspace.' };
+  const error = await shell.openPath(target);
+  return error ? { error } : {};
 });
 
 /**
