@@ -36,7 +36,7 @@
     "url": "https://github.com/woojubb/robota.git",
     "directory": "packages/agent-executor"
   },
-  "homepage": "https://robota.io/",
+  "homepage": "https://docs.robota.io/en/packages/agent-executor/",
   "bugs": {
     "url": "https://github.com/woojubb/robota/issues"
   },

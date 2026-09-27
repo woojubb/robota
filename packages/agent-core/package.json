@@ -89,7 +89,7 @@
     "url": "https://github.com/woojubb/robota.git",
     "directory": "packages/agent-core"
   },
-  "homepage": "https://robota.io/",
+  "homepage": "https://docs.robota.io/en/packages/agent-core/",
   "bugs": {
     "url": "https://github.com/woojubb/robota/issues"
   },

@@ -90,6 +90,7 @@
     "url": "https://github.com/woojubb/robota.git",
     "directory": "packages/agent-provider-gemini"
   },
+  "homepage": "https://docs.robota.io/en/packages/agent-provider-gemini/",
   "dependencies": {
     "@google/genai": "^1.52.0",
     "@robota-sdk/agent-core": "workspace:*"

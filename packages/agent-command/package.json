@@ -72,6 +72,7 @@
     "url": "https://github.com/woojubb/robota.git",
     "directory": "packages/agent-command"
   },
+  "homepage": "https://docs.robota.io/en/packages/agent-command/",
   "publishConfig": {
     "access": "public"
   },

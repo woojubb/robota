@@ -67,6 +67,7 @@
     "url": "https://github.com/woojubb/robota.git",
     "directory": "packages/agent-provider-anthropic"
   },
+  "homepage": "https://docs.robota.io/en/packages/agent-provider-anthropic/",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.114.0",
     "@robota-sdk/agent-core": "workspace:*"
