@@ -1,6 +1,8 @@
 # DAG Media Provider Contract
 
-This document defines how DAG media nodes consume provider capabilities exposed by `@robota-sdk/agent-core`.
+This document defines how DAG media nodes (`text-to-image`, `gemini-image-edit`,
+`gemini-image-compose`, `seedance-video`) consume provider capabilities exposed by
+`@robota-sdk/agent-core`.
 
 ## Composition Boundary
 
@@ -9,6 +11,11 @@ vendor SDK. The definition declares credential/endpoint environment names and cr
 through a factory at execution time. `createImageProviderFromDefinition` and
 `createVideoProviderFromDefinition` resolve those declarations and apply capability guards. Concrete
 `agent-provider-*` packages are composed by `agent-builtin-providers` or another application root.
+
+The default definitions in `agent-builtin-providers` are `gemini-image` (credential
+`GEMINI_API_KEY`, default model `gemini-2.5-flash-image`) and `seedance-video` (credential
+`SEEDANCE_API_KEY` and base URL `SEEDANCE_BASE_URL`, both required, default model `seedance-2.0`).
+`agent-core` resolves these variables; nodes never read the environment themselves.
 
 ## Capability Contracts
 
@@ -22,9 +29,9 @@ Do not branch behavior by provider name strings.
 
 ## Image Node Mapping
 
-- Generate node -> `generateImage(request)`
-- Edit node -> `editImage(request)`
-- Compose node -> `composeImage(request)`
+- Generate (`text-to-image`) -> `generateImage(request)`
+- Edit (`gemini-image-edit`) -> `editImage(request)`
+- Compose (`gemini-image-compose`) -> `composeImage(request)`
 
 Expected provider output:
 
@@ -32,6 +39,8 @@ Expected provider output:
 - No raw binary payload in provider result
 
 ## Video Node Mapping
+
+The `seedance-video` node owns the poll loop:
 
 - Create run -> `createVideo(request)`
 - Poll status -> `getVideoJob(jobId)`
