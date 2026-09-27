@@ -188,6 +188,7 @@ const unreadableSessionIds = ['damaged-session'];
 /** A scripted IInteractiveSession: EventEmitter for on/off/emit, deterministic submit + permission. */
 class ScriptedSession extends EventEmitter {
   #pendingPermission = null;
+  #pendingAsk = null;
   #mode = 'default';
   #current = storedSessions[0];
   #busy = false;
@@ -268,6 +269,21 @@ class ScriptedSession extends EventEmitter {
       });
       return;
     }
+    if (String(input).toLowerCase().includes('duplicate')) {
+      // A free-text ask (#3280 §3), mirroring `/provider` → a profile → Duplicate.
+      this.#pendingAsk = 'ask-1';
+      await tick();
+      this.emit('ask_request', {
+        id: 'ask-1',
+        request: {
+          id: 'ask-1',
+          title: 'Duplicate anthropic as',
+          allowFreeText: true,
+          placeholder: 'anthropic-copy',
+        },
+      });
+      return;
+    }
     if (String(input).toLowerCase().includes('read')) {
       await tick();
       this.emit('tool_start', { toolName: 'Read', firstArg: 'src/a.ts', isRunning: true });
@@ -307,7 +323,19 @@ class ScriptedSession extends EventEmitter {
     })();
   }
 
-  resolveAsk() {}
+  resolveAsk(id, response) {
+    if (id !== this.#pendingAsk) return;
+    this.#pendingAsk = null;
+    this.emit('prompt_resolved', { id });
+    const outcome =
+      response.type === 'answer' ? `Duplicated as ${response.text ?? ''}.` : 'Duplicate cancelled.';
+    void (async () => {
+      await tick();
+      this.emit('text_delta', outcome);
+      await tick();
+      this.#complete(outcome);
+    })();
+  }
   executeCommand(name) {
     if (name === 'help') {
       const lines = Array.from({ length: 30 }, (_, i) => `Command ${i + 1} (/c${i + 1}) — does thing ${i + 1}`);

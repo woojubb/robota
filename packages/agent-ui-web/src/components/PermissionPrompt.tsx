@@ -14,7 +14,9 @@ import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
  * `modal` covers the page; `dock` sits above the composer, as desktop agent apps place a pending
  * question next to where the answer is typed. Once armed and focused, its keys answer it: 1–9 picks
  * an option, Esc cancels a question or denies a permission — but it never takes that focus away from
- * a field the person is typing in (#3280 §1). A click on a button always answers at once.
+ * a field the person is typing in (#3280 §1). A click on a button always answers at once. An ask whose
+ * request sets `allowFreeText` also shows a text field (masked when `masked` is set); Enter there
+ * submits it, and its own keys never reach the prompt's shortcuts (#3280 §3).
  */
 interface IPermissionPromptProps {
   prompts: readonly TPendingPrompt[];
@@ -57,8 +59,16 @@ export function PermissionPrompt({
   const prompt = prompts[0];
   const promptId = prompt?.id;
   const containerRef = useRef<HTMLDivElement>(null);
+  const fieldRef = useRef<HTMLInputElement>(null);
+  // A question with a text field (#3280 §3): the field is the prompt's primary control, so focus goes
+  // there instead of the container wherever this component would otherwise focus the container itself.
+  const hasFreeText = prompt?.kind === 'ask' && prompt.request.allowFreeText === true;
   const [armedId, setArmedId] = useState<string | undefined>(undefined);
   const [hasFocus, setHasFocus] = useState(false);
+  // Whether the field itself (not just some part of the prompt) currently holds focus — digits typed
+  // there type into the field rather than choosing a numbered option, so the hint must say so.
+  const [fieldFocused, setFieldFocused] = useState(false);
+  const [freeText, setFreeText] = useState('');
   // Set at the moment of an answer if focus was inside the prompt then; consumed once the prompt list
   // empties (see below) or cleared once a next prompt shows it was not needed after all.
   const pendingFocusReturnRef = useRef(false);
@@ -68,6 +78,10 @@ export function PermissionPrompt({
     return () => clearTimeout(timer);
   }, [promptId, armDelayMs]);
   const armed = promptId !== undefined && (armDelayMs <= 0 || armedId === promptId);
+  // A new prompt starts with an empty field, whatever the last one's typed (or masked) value was.
+  useEffect(() => {
+    setFreeText('');
+  }, [promptId]);
   // Answering one prompt renders the next into the same buttons, so a button focused to answer the
   // last one would take Enter, Space or a held key as an answer to this one. Focus goes back to the
   // prompt itself, whose keys wait for the prompt to arm.
@@ -83,8 +97,8 @@ export function PermissionPrompt({
   useEffect(() => {
     if (!armed) return;
     if (isEditableElement(document.activeElement)) return;
-    containerRef.current?.focus();
-  }, [armed, promptId]);
+    (hasFreeText ? fieldRef.current : containerRef.current)?.focus();
+  }, [armed, promptId, hasFreeText]);
   // An answer given while focus was inside this prompt sends it back to the composer once no prompt is
   // left to show it — unless another one immediately follows (handled above by keeping focus in place).
   useEffect(() => {
@@ -124,6 +138,38 @@ export function PermissionPrompt({
     rememberFocus();
     onAnswerAsk(id, response);
   };
+  /** The typed value, trimmed as the runtime's own text-prompt renderers do; blocked while empty. */
+  const submitFreeText = (): void => {
+    if (prompt.kind !== 'ask') return;
+    const value = freeText.trim();
+    if (!value && prompt.request.allowEmpty !== true) return;
+    answerAsk(prompt.id, { type: 'answer', values: [], text: value });
+    setFreeText('');
+  };
+  /** A click anywhere in the prompt that isn't on a button or the field itself focuses the field. */
+  const onContainerClick = (event: React.MouseEvent<HTMLDivElement>): void => {
+    if (!hasFreeText) return;
+    if ((event.target as HTMLElement).closest('button, input')) return;
+    fieldRef.current?.focus();
+  };
+  /**
+   * A key that reaches the field types into it — the prompt's own shortcuts never see it (#3280 §3).
+   * The Enter that only finishes an IME composition (Korean/Japanese/Chinese) must not submit the
+   * still-uncommitted text — `isComposing` (or `keyCode` 229, on browsers that predate it) marks that
+   * Enter; the keystroke is left alone so the browser can commit the composition normally.
+   */
+  const onFieldKeyDown = (event: React.KeyboardEvent<HTMLInputElement>): void => {
+    event.stopPropagation();
+    if (prompt.kind !== 'ask') return;
+    if (event.key === 'Enter') {
+      if (event.nativeEvent.isComposing || event.keyCode === 229) return;
+      event.preventDefault();
+      submitFreeText();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      answerAsk(prompt.id, { type: 'cancelled' });
+    }
+  };
   /** A mouse click answers at once; a keyboard click (`detail` 0) waits for the prompt to arm. */
   const onButton =
     (answer: () => void) =>
@@ -149,6 +195,15 @@ export function PermissionPrompt({
     const option = prompt.request.options?.[index];
     if (option) answerAsk(prompt.id, { type: 'answer', values: [option.value] });
   };
+  const askOptions = prompt.kind === 'ask' ? (prompt.request.options ?? []) : [];
+  // Digits choose an option only while focus is on the prompt itself, not the field — a hint promising
+  // "1–9 choose" while the field holds focus would be wrong, since digits type there instead.
+  const askArmedHint =
+    hasFreeText && fieldFocused
+      ? 'Enter to submit · Esc to cancel'
+      : askOptions.length > 0
+        ? '1–9 choose · Esc cancel'
+        : 'Esc cancels';
   return (
     <div
       className={
@@ -161,6 +216,7 @@ export function PermissionPrompt({
         ref={containerRef}
         tabIndex={dock ? 0 : -1}
         onKeyDown={dock ? onDockKey : undefined}
+        onClick={onContainerClick}
         onFocus={() => setHasFocus(true)}
         onBlur={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
@@ -213,7 +269,9 @@ export function PermissionPrompt({
                 <span>Deny</span>
                 {dock && <Kbd>2</Kbd>}
               </button>
-              {dock && <KeyHint hasFocus={hasFocus} armed={armed} kind={prompt.kind} />}
+              {dock && (
+                <KeyHint hasFocus={hasFocus} armed={armed} armedText="1 allow · 2 deny · Esc deny" />
+              )}
             </div>
           </>
         ) : (
@@ -236,28 +294,72 @@ export function PermissionPrompt({
                 ) : null}
               </div>
             </div>
-            <div className="mt-4 flex flex-wrap items-center gap-2 pl-11">
-              {(prompt.request.options ?? []).map((opt, index) => (
+            <div className="mt-4 flex flex-col gap-3 pl-11">
+              {askOptions.length > 0 && (
+                <div className="flex flex-wrap items-start gap-3">
+                  {askOptions.map((opt, index) => (
+                    <div key={opt.value} className="flex flex-col items-start gap-0.5">
+                      <button
+                        type="button"
+                        className={index === 0 ? PRIMARY_BUTTON : SECONDARY_BUTTON}
+                        onClick={onButton(() =>
+                          answerAsk(prompt.id, { type: 'answer', values: [opt.value] }),
+                        )}
+                      >
+                        <span>{opt.label}</span>
+                        {dock && index < 9 && <Kbd>{index + 1}</Kbd>}
+                      </button>
+                      {opt.description && (
+                        <p className="pl-0.5 text-[11.5px] leading-snug text-subtle">
+                          {opt.description}
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {hasFreeText && (
+                <div className="flex flex-col gap-1.5">
+                  {askOptions.length > 0 && (
+                    <p className="text-[12.5px] text-subtle">or type an answer</p>
+                  )}
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={fieldRef}
+                      type={prompt.request.masked ? 'password' : 'text'}
+                      autoComplete="off"
+                      aria-label="answer"
+                      placeholder={prompt.request.placeholder}
+                      value={freeText}
+                      onChange={(event) => setFreeText(event.target.value)}
+                      onKeyDown={onFieldKeyDown}
+                      onFocus={() => setFieldFocused(true)}
+                      onBlur={() => setFieldFocused(false)}
+                      className="min-w-0 flex-1 rounded-lg bg-sidebar px-3 py-1.5 text-[14px] text-foreground placeholder:text-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    />
+                    <button
+                      type="button"
+                      className={PRIMARY_BUTTON}
+                      disabled={!freeText.trim() && prompt.request.allowEmpty !== true}
+                      onClick={onButton(submitFreeText)}
+                    >
+                      Continue
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
-                  key={opt.value}
-                  className={index === 0 ? PRIMARY_BUTTON : SECONDARY_BUTTON}
-                  onClick={onButton(() =>
-                    answerAsk(prompt.id, { type: 'answer', values: [opt.value] }),
-                  )}
+                  className={GHOST_BUTTON}
+                  onClick={onButton(() => answerAsk(prompt.id, { type: 'cancelled' }))}
                 >
-                  <span>{opt.label}</span>
-                  {dock && index < 9 && <Kbd>{index + 1}</Kbd>}
+                  Cancel
                 </button>
-              ))}
-              <button
-                type="button"
-                className={GHOST_BUTTON}
-                onClick={onButton(() => answerAsk(prompt.id, { type: 'cancelled' }))}
-              >
-                Cancel
-              </button>
-              {dock && <KeyHint hasFocus={hasFocus} armed={armed} kind={prompt.kind} />}
+                {dock && (
+                  <KeyHint hasFocus={hasFocus} armed={armed} armedText={askArmedHint} />
+                )}
+              </div>
             </div>
           </>
         )}
@@ -287,16 +389,17 @@ function Kbd({ children }: { children: React.ReactNode }): React.ReactElement {
 function KeyHint({
   hasFocus,
   armed,
-  kind,
+  armedText,
 }: {
   hasFocus: boolean;
   armed: boolean;
-  kind: TPendingPrompt['kind'];
+  /** What the prompt's keys do once armed — differs by kind and by whether it offers free text. */
+  armedText: string;
 }): React.ReactElement {
   const text = !hasFocus
     ? 'Click to answer, or press Shift+Tab to use the keys'
     : armed
-      ? `${kind === 'permission' ? '1 allow · 2 deny' : '1–9 choose'} · Esc ${kind === 'permission' ? 'deny' : 'cancel'}`
+      ? armedText
       : 'keys answer in a moment · click to answer now';
   return <p className="ml-auto text-[12.5px] text-subtle">{text}</p>;
 }
