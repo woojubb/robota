@@ -29,6 +29,17 @@ export interface IDialogProps {
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+/**
+ * Every currently-open `Dialog`, oldest first. All instances share one `document` keydown listener
+ * target, so listeners fire in REGISTRATION order regardless of nesting — the outer dialog's
+ * listener (registered first, when it opened) always runs before a nested `ConfirmDialog`'s
+ * (registered later, when the user triggered it). `stopImmediatePropagation` on the outer listener
+ * therefore cannot defer to the inner one; it fires first and would win. Instead, each instance
+ * checks this stack and only acts when it is the LAST (topmost) entry — an outer dialog that isn't
+ * topmost no-ops on the keydown and lets the still-registered inner listener act.
+ */
+let openDialogStack: symbol[] = [];
+
 export function Dialog({
   open,
   onClose,
@@ -41,6 +52,7 @@ export function Dialog({
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const titleId = useId();
+  const dialogToken = useRef<symbol>(Symbol('dialog'));
 
   // Move focus in on open, and restore it to the opener once the dialog goes away.
   useEffect(() => {
@@ -54,15 +66,28 @@ export function Dialog({
     };
   }, [open]);
 
-  // Esc closes; Tab traps focus inside the panel while it is open.
+  // Tracks this dialog's membership on the shared open-dialog stack. Kept separate from the
+  // keydown-listener effect below (which also depends on `onClose`) so that a caller passing a
+  // fresh `onClose` identity on every render can never re-push this dialog and wrongly promote it
+  // to topmost — membership changes only when `open` itself flips.
   useEffect(() => {
     if (!open) return undefined;
+    const token = dialogToken.current;
+    openDialogStack.push(token);
+    return () => {
+      openDialogStack = openDialogStack.filter((entry) => entry !== token);
+    };
+  }, [open]);
+
+  // Esc closes; Tab traps focus inside the panel while it is open. Both no-op unless this dialog
+  // is the topmost open one (see `openDialogStack` above).
+  useEffect(() => {
+    if (!open) return undefined;
+    const token = dialogToken.current;
+    const isTopmost = (): boolean => openDialogStack[openDialogStack.length - 1] === token;
     const onKeyDown = (event: KeyboardEvent): void => {
+      if (!isTopmost()) return;
       if (event.key === 'Escape') {
-        // `stopImmediatePropagation`, not `stopPropagation`: both are bound to `document`, so a
-        // nested dialog (e.g. a ConfirmDialog opened from within this one) must stop the OUTER
-        // dialog's own listener on the same element, not just propagation to other elements — Esc
-        // dismisses only the topmost dialog, never both at once.
         event.stopImmediatePropagation();
         onClose();
         return;

@@ -4,11 +4,12 @@
  *
  * Every write goes through the SAME path its slash command uses (`session.executeCommand`), so
  * "the behavior matches the TUI" is structural, not a promise kept by hand — a refusal a command
- * would give (an unknown id, a guarded permission mode) is the same refusal reported here. The one
- * exception is language: `/language`'s host action always restarts the process (the language is
- * baked into the system prompt at startup), and a Settings-screen change must not — a restart would
- * drop every connected window — so language is written directly to the same settings document
- * `/language` writes, without requesting a restart.
+ * would give (an unknown id, a guarded permission mode) is the same refusal reported here, and an
+ * optional `remoteCommandPolicy` gates a Settings-screen write exactly as it would the command. The
+ * one exception is language's restart: `/language`'s host action always restarts the process (the
+ * language is baked into the system prompt at startup), and a Settings-screen change must not — a
+ * restart would drop every connected window — so `applyPatch`'s `language` case suppresses just
+ * that restart request for the duration of its one `executeCommand` call (see its own comment).
  */
 import { createPresetRegistry } from '@robota-sdk/agent-preset';
 import {
@@ -43,7 +44,21 @@ export interface ICreateSettingsReporterOptions {
 /** The sandbox mode the ON/OFF switch applies: confined, without a prompt for each command. */
 const SANDBOX_ENABLED_MODE = 'auto-allow';
 const SANDBOX_DISABLED_MODE = 'off';
+const SANDBOX_REGULAR_MODE = 'regular';
 const SKIPS_ALL_CHECKS_MODE = 'bypassPermissions';
+
+/**
+ * The switch has only two positions (on = `auto-allow`, off = `off`), but a host reached via `/sandbox`
+ * or a saved setting can also be sitting in the third real mode, `regular` — confined, but each command
+ * still prompts. That state reads as "on" (it isn't `off`), so its description must say prompts still
+ * appear; the flat "without a prompt for each one" sentence is only true of `auto-allow`.
+ */
+function sandboxDescription(mode: string | undefined): string {
+  if (mode === SANDBOX_REGULAR_MODE) {
+    return 'Confines shell commands to the workspace and temp directories; prompts still appear for each one, as usual.';
+  }
+  return 'Confines shell commands to the workspace and temp directories, without a prompt for each one.';
+}
 
 /**
  * Plain labels for the runtime's permission-mode ids. #3282 §2 (branch
@@ -161,8 +176,7 @@ async function buildSnapshot(
       ...(sandboxStatus?.unavailable !== undefined
         ? { unavailableReason: sandboxStatus.unavailable }
         : {}),
-      description:
-        'Confines shell commands to the workspace and temp directories, without a prompt for each one.',
+      description: sandboxDescription(sandboxStatus?.mode),
     },
   };
 }
@@ -214,8 +228,35 @@ async function applyPatch(
     case 'language': {
       const settings = commandHostAdapters.settings;
       if (!settings) return failure('not_available', 'Language is not available on this host.');
-      settings.write({ ...settings.read(), language: patch.language });
-      return succeed(session, options);
+      const realProcess = commandHostAdapters.process;
+      if (!realProcess) {
+        // No process adapter to suppress a restart through — `/language`'s host action would fail
+        // outright here (it requires one), so fall back to the settings document directly. Every
+        // served mode wires a process adapter, so this is a defensive fallback, not the live path.
+        settings.write({ ...settings.read(), language: patch.language });
+        return succeed(session, options);
+      }
+      // Routes through the SAME command path as every other field (unlike the rest of this
+      // function's doc comment implied before this fix), so an optional `remoteCommandPolicy`
+      // gates a Settings-screen language change identically to a typed `/language` — the one
+      // thing still special-cased is the restart `/language`'s host action always requests
+      // afterward (the language is baked into the system prompt at startup): a Settings-screen
+      // change must never restart the shared process, since that would drop every connected
+      // window. `requestRestart` is swapped for a no-op on the shared adapters object for the
+      // duration of this one call and restored in `finally`. Safe: given a non-empty language
+      // (always true here — the Settings screen never sends an empty patch), `/language` resolves
+      // synchronously with no interactive ask and no real I/O between the swap and the restore, so
+      // no concurrently-running command on this process can observe the stub.
+      commandHostAdapters.process = { ...realProcess, requestRestart: () => {} };
+      try {
+        const result = await session.executeCommand('language', patch.language, 'remote');
+        if (!result || !result.success) {
+          return failure('invalid', result?.message ?? 'Could not change the language.');
+        }
+        return succeed(session, options);
+      } finally {
+        commandHostAdapters.process = realProcess;
+      }
     }
     case 'outputStyle': {
       const result = await session.executeCommand('output-style', patch.styleId, 'remote');

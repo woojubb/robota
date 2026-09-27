@@ -214,6 +214,17 @@ describe('SettingsScreen — Esc closes and returns focus to the opener', () => 
     fireEvent.click(screen.getByRole('button', { name: 'Close Settings' }));
     expect(screen.queryByRole('dialog', { name: 'Settings' })).toBeNull();
   });
+
+  it('Esc while a nested ConfirmDialog is open cancels only the confirm dialog, not the Settings screen', () => {
+    render(<Harness />);
+    fireEvent.click(screen.getByRole('button', { name: 'Open settings' }));
+    openPermissions();
+    fireEvent.click(screen.getByRole('button', { name: /Remove rule/ }));
+    expect(screen.getByRole('dialog', { name: 'Remove this rule?' })).toBeTruthy();
+    fireEvent.keyDown(document, { key: 'Escape' });
+    expect(screen.queryByRole('dialog', { name: 'Remove this rule?' })).toBeNull();
+    expect(screen.getByRole('dialog', { name: 'Settings' })).toBeTruthy();
+  });
 });
 
 describe('SettingsScreen — "Skip all checks" needs confirmation', () => {

@@ -55,7 +55,13 @@ function setup(options: {
   commandHostAdapters?: Partial<ICommandHostAdapters>;
   settingsSources?: ICreateSettingsReporterOptions['settingsSources'];
   settingsStores?: ICreateSettingsReporterOptions['settingsStores'];
-}): { session: IProtocolSession; reporter: ReturnType<typeof createSettingsReporter> } {
+}): {
+  session: IProtocolSession;
+  reporter: ReturnType<typeof createSettingsReporter>;
+  // The exact object `createSettingsReporter` closed over — same reference `applyPatch`'s
+  // `language` case swaps `.process` on, so a test can read it back after a call.
+  commandHostAdapters: ICommandHostAdapters;
+} {
   const session = createTestInteractiveSession({
     ...(options.executeCommand ? { executeCommand: options.executeCommand } : {}),
     getStatusSnapshot: () => ({
@@ -76,7 +82,7 @@ function setup(options: {
     settingsSources: options.settingsSources ?? [],
     settingsStores: options.settingsStores ?? [],
   });
-  return { session, reporter };
+  return { session, reporter, commandHostAdapters };
 }
 
 function listResult(data: Record<string, unknown>): ICommandResult {
@@ -216,7 +222,86 @@ describe('createSettingsReporter (#3282 §4a)', () => {
     });
   });
 
-  it('writes language directly to the settings document, never calling executeCommand for it', async () => {
+  it('routes language through the same /language command path, so an optional remoteCommandPolicy sees it too', async () => {
+    const settings = fakeSettingsAdapter({ language: 'en', outputStyle: 'default' });
+    const executeCommand = vi.fn(async (name: string, args: string) => {
+      if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+      if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+      if (name === 'language') {
+        // Mirrors `/language`'s real host action closely enough for this test: it writes the same
+        // settings document and requests a restart. The reporter must reach this exact path (proof
+        // it isn't bypassed) while the restart it triggers must never fire (proof it's suppressed).
+        settings.write({ ...settings.read(), language: args });
+        commandHostAdapters.process?.requestRestart('other', 'Language change restart');
+        return { success: true, message: `Language set to "${args}".` };
+      }
+      return null;
+    });
+    const requestRestart = vi.fn();
+    const { session, reporter, commandHostAdapters } = setup({
+      executeCommand,
+      commandHostAdapters: { settings, process: { requestExit: vi.fn(), requestRestart } },
+    });
+
+    const outcome = await reporter.updateSettings(session, { field: 'language', language: 'ko' });
+
+    expect(executeCommand).toHaveBeenCalledWith('language', 'ko', 'remote');
+    expect(settings.read()).toEqual({ language: 'ko', outputStyle: 'default' });
+    // The real adapter's `requestRestart` was swapped out for the duration of the call, so the
+    // restart `/language`'s host action always requests never reached it.
+    expect(requestRestart).not.toHaveBeenCalled();
+    expect(outcome.ok).toBe(true);
+    if (outcome.ok) expect(outcome.settings.language.current).toBe('ko');
+  });
+
+  it('restores the real process adapter afterward, so a later genuine restart still works', async () => {
+    const settings = fakeSettingsAdapter({ language: 'en' });
+    const executeCommand = vi.fn(async (name: string, args: string) => {
+      if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+      if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+      if (name === 'language') return { success: true, message: 'ok' };
+      return null;
+    });
+    const requestRestart = vi.fn();
+    const realProcess = { requestExit: vi.fn(), requestRestart };
+    const { session, reporter, commandHostAdapters } = setup({
+      executeCommand,
+      commandHostAdapters: { settings, process: realProcess },
+    });
+
+    await reporter.updateSettings(session, { field: 'language', language: 'ko' });
+
+    expect(commandHostAdapters.process).toBe(realProcess);
+    commandHostAdapters.process?.requestRestart('other', 'unrelated restart');
+    expect(requestRestart).toHaveBeenCalledExactlyOnceWith('other', 'unrelated restart');
+  });
+
+  it('reports the command result message as the refusal when /language fails, writing nothing', async () => {
+    const settings = fakeSettingsAdapter({ language: 'en' });
+    const executeCommand = vi.fn(async (name: string, args: string) => {
+      if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+      if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+      if (name === 'language') {
+        return { success: false, message: "command 'language' is not permitted by the configured remote-command policy" };
+      }
+      return null;
+    });
+    const { session, reporter } = setup({
+      executeCommand,
+      commandHostAdapters: { settings, process: { requestExit: vi.fn(), requestRestart: vi.fn() } },
+    });
+
+    const outcome = await reporter.updateSettings(session, { field: 'language', language: 'ko' });
+
+    expect(outcome).toEqual({
+      ok: false,
+      code: 'invalid',
+      message: "command 'language' is not permitted by the configured remote-command policy",
+    });
+    expect(settings.read()).toEqual({ language: 'en' });
+  });
+
+  it('with no process adapter, falls back to writing the settings document directly', async () => {
     const executeCommand = vi.fn(async (name: string, args: string) => {
       if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
       if (name === 'preset' && args === 'list') return listResult({ presets: [] });
@@ -325,5 +410,30 @@ describe('createSettingsReporter (#3282 §4a)', () => {
 
     await reporter.updateSettings(session, { field: 'sandbox', enabled: false });
     expect(executeCommand).toHaveBeenCalledWith('sandbox', 'off', 'remote');
+  });
+
+  it('describes "regular" mode accurately: confined but still prompting, not "without a prompt"', async () => {
+    const executeCommand = vi.fn(async (name: string, args: string) => {
+      if (name === 'output-style' && args === 'list') return listResult({ outputStyles: [] });
+      if (name === 'preset' && args === 'list') return listResult({ presets: [] });
+      return null;
+    });
+    const { session, reporter } = setup({
+      executeCommand,
+      commandHostAdapters: {
+        sandbox: {
+          status: () => ({ mode: 'regular', network: true, excludedCommands: [] }),
+          setMode: vi.fn(),
+        },
+      },
+    });
+
+    const settings = await reporter.getSettings(session);
+
+    // "regular" still confines commands (not `off`), so the switch reads as on, but it still asks
+    // before each command — the opposite of what the switch's own "auto-allow" target mode does.
+    expect(settings.sandbox.enabled).toBe(true);
+    expect(settings.sandbox.description).not.toMatch(/without a prompt/);
+    expect(settings.sandbox.description).toMatch(/prompts still appear/);
   });
 });
