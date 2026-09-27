@@ -1,107 +1,167 @@
 # agent-cli — subagent and background process wiring
 
 > Whitebox design for `@robota-sdk/agent-cli`. The blackbox contract lives in
-> [`../SPEC.md`](../SPEC.md); nothing here is a promise to a consumer. Placement follows the
-> consumer-impact test in
-> [`design-doc-authoring`](../../../../.agents/skills/design-doc-authoring/SKILL.md).
+> [`../SPEC.md`](../SPEC.md); nothing here is a promise to a consumer.
 
 ## Context & Goal
 
-The Node runtime adapters the CLI injects into `InteractiveSession`: the managed shell process runner
-and the child-process subagent runner factory. Subagent lifecycle, the runner port, and the agent
-definition format are owned by `@robota-sdk/agent-framework`
-([`../../../agent-framework/docs/SPEC.md`](../../../agent-framework/docs/SPEC.md)); the CLI owns only
-the process adapter, which no consumer observes.
+What the CLI injects into `InteractiveSession` for background work and subagents, and which package
+owns each piece. Subagent lifecycle, the runner port and the agent definition format are specified in
+[`agent-framework`'s SPEC](../../../agent-framework/docs/SPEC.md); the runner primitives in
+[`agent-executor`'s SPEC](../../../agent-executor/docs/SPEC.md); the child-process runner in
+[`agent-subagent-runner`'s SPEC](../../../agent-subagent-runner/docs/SPEC.md). This file covers only
+the CLI's part: choosing the runners, telling a child how to start and what to rebuild, and the Git
+worktree adapter.
 
 ## Constraints
 
-- The CLI owns no subagent lifecycle state — `BackgroundTaskManager` does.
-- Only serializable data crosses the IPC boundary; the worker reconstructs its own provider.
-- Agent command behaviour belongs to `@robota-sdk/agent-command`, not the TUI.
+- The CLI owns no subagent or background lifecycle state; `BackgroundTaskManager` in
+  `@robota-sdk/agent-executor` does.
+- Only serializable data crosses the process boundary. The worker rebuilds its provider, tools and
+  sandbox from code, never from serialized objects.
+- A child must reproduce its parent. An OS sandbox the child cannot rebuild stops the spawn
+  (`assertChildProcessSubagentsCanReproduce()`). A provider it cannot rebuild — a `--session-log`
+  replay provider, or provider definitions a caller passed to `startCli()` — makes the session use the
+  in-process runner instead, so the subagent runs on the parent's provider without process isolation.
+- Agent command behaviour belongs to `@robota-sdk/agent-command`; the terminal UI only renders it.
 
 ## Internal Structure
 
-What `agent-framework` owns is not restated here — subagent lifecycle, the runner port, agent
-definition loading, and `InteractiveSession`'s handling of both are specified in
-[`../../../agent-framework/docs/SPEC.md`](../../../agent-framework/docs/SPEC.md), and agent command
-behaviour in `@robota-sdk/agent-command`. A paraphrase of an owner's contract drifts more quietly
-than a copy of it. What follows is only what the CLI itself owns: the Node process adapters.
+| Piece                                                                     | Owner                                                                | What the CLI supplies                                                                                    |
+| ------------------------------------------------------------------------- | -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| Background task runners                                                   | `createDefaultBackgroundTaskRunners()` in agent-executor             | The resolved shell executable                                                                            |
+| `BackgroundProcess` tool                                                  | agent-framework (added when a `process` runner is present)           | —                                                                                                        |
+| Child-process runner, IPC, transcripts                                    | `createChildProcessSubagentRunnerFactory()` in agent-subagent-runner | Worker entry, provider config and definitions, logs directory, worktree adapter, parent sandbox settings |
+| Worktree lifecycle (`WorktreeSubagentRunner`, `ISubagentWorktreeAdapter`) | agent-executor                                                       | `GitWorktreeIsolationAdapter`                                                                            |
+| In-process runner                                                         | `createInProcessSubagentRunner` in agent-framework                   | The decision to use it                                                                                   |
+| Worker recipe                                                             | `createRobotaSubagentComposition()` in the CLI                       | —                                                                                                        |
 
-The CLI owns Node runtime process adapters. It injects `createManagedShellProcessRunner()` into `InteractiveSession` as a `kind: 'process'` background task runner. SDK composition then exposes the separate `BackgroundProcess` tool; the existing foreground `Bash` tool remains unchanged.
+### Background task runners
 
-`createManagedShellProcessRunner()` owns only Node process spawning, stdin forwarding,
-termination, and process-environment wiring. Bounded output capture, source-prefixed log line
-projection, and cursor-based log pagination come from runtime-owned helpers re-exported by the SDK.
+`src/cli.ts` and `src/headless-bin.ts` pass `createDefaultBackgroundTaskRunners` to `startCliCore()`,
+which calls it with the shell from `resolveRobotaShellExecutable()`. It returns three runners: the
+managed shell process runner (`kind: 'process'`), the scheduled task runner (`kind: 'scheduled'`) and
+the tool-invocation runner (`kind: 'tool-invocation'`). They enter the product profile, and every mode
+receives the instances the assembled product holds (see [`composition.md`](composition.md)). The
+framework exposes the process runner to the model as the `BackgroundProcess` tool; the foreground
+`Bash` tool is separate.
 
-The CLI also injects `createChildProcessSubagentRunnerFactory()` into `InteractiveSession` as the production subagent runner factory. The factory receives SDK-assembled subagent dependencies, but the runner re-executes THIS artifact in worker mode (DIST-006) and sends only serializable config/context/provider/agent-definition data over IPC. The worker reconstructs its provider inside the child process using the same concrete provider profile the CLI used for the parent session.
+### Choosing the subagent runner
 
-`child-process-subagent-runner-result.ts` owns child-worker result orchestration for the adapter: IPC message validation, timeout timer cleanup, early-exit errors, and transcript metadata projection. `child-process-subagent-runner.ts` remains the process factory and payload composer.
+`createRobotaSubagentRunnerFactory()` in `src/product/robota-subagent-composition.ts` asks
+`selectRobotaSubagentRunner()` (`src/product/subagent-provider-reproduction.ts`) which runner to use:
 
-Child-process subagent runner responsibilities:
+```mermaid
+flowchart TD
+    A["createRobotaSubagentRunnerFactory"] --> B{"can a child rebuild the provider?"}
+    B -->|"yes"| C["createChildProcessSubagentRunnerFactory (agent-subagent-runner)"]
+    B -->|"replay provider or caller-supplied definitions"| D["createInProcessSubagentRunner (agent-framework)"]
+    C --> E["wrapped in WorktreeSubagentRunner (agent-executor)"]
+```
 
-- spawn one worker process per subagent job — a copy of the running artifact, entered via the worker-mode flag rather than a worker file located on disk (DIST-006)
-- pass `ISubagentSpawnRequest`, agent definition, parent config/context, permission mode, and serialized provider profile over IPC
-- expose child `pid` on the background task state
-- forward worker text/tool IPC messages to `BackgroundTaskManager` progress events
-- create an append-only subagent transcript at `.robota/logs/PARENT_SESSION_ID/subagents/AGENT_ID.jsonl` and make `/agent read AGENT_ID` read that transcript while the worker is still running
-- forward cancellation to the worker and terminate it after a grace period
-- forward follow-up prompts to workers that support input
-- keep runtime-owned lifecycle state inside `BackgroundTaskManager`; the CLI owns only the Node process adapter
+For the child-process runner the CLI supplies:
 
-Subagent transcript pagination uses the same runtime-owned log page helper as process background
-tasks. The CLI remains responsible for locating and reading the append-only transcript file.
+- `workerEntry` from `resolveSelfForkWorkerEntry()` (`src/subagents/self-fork-worker-entry.ts`): how
+  to start a copy of the running artifact — the npm bundle, a `tsx` source run, or a Bun single-file
+  binary — in worker mode. There is no separate worker file.
+- `providerConfig` (the parent's resolved provider settings and model) and `providerDefinitions`.
+- `logsDir`: `~/.robota/logs`.
+- `worktreeAdapter`: `createGitWorktreeIsolationAdapter()`.
+- Getters for the parent's live OS sandbox settings, so a `/sandbox` change reaches children.
 
-When an agent request sets `isolation: 'worktree'`, the CLI composes the runtime-owned `WorktreeSubagentRunner` exposed through SDK contracts around the child-process runner and injects a CLI-owned `GitWorktreeIsolationAdapter`. The concrete adapter (git CLI + filesystem I/O) is owned by the CLI at `src/subagents/git-worktree-isolation-adapter.ts` and injected as the required `worktreeAdapter` at the `createChildProcessSubagentRunnerFactory` call in `cli.ts` (INFRA-031 / ARCH-FIX-024). `agent-executor` owns only the `ISubagentWorktreeAdapter` port and the pure `WorktreeSubagentRunner` decorator; `agent-subagent-runner` no longer hard-defaults a concrete git adapter.
+### The worker side
 
-The runtime worktree runner owns worktree lifecycle orchestration:
+The child is the same binary started with the worker-mode flag. `src/bin.ts` (or
+`src/headless-bin.ts`) checks for that flag first and runs
+`runSubagentWorkerMain(createRobotaSubagentComposition())`. The recipe rebuilds, inside the child:
+robota's pack tools for the child's working directory (plus the goal tool when the session asks for
+it), the hook executors, the provider definitions, the OS sandbox from the parent's current settings,
+and the session store a `/fork` job resumes from.
 
-- delegate non-worktree requests unchanged
-- run isolated workers with `cwd` set to the prepared worktree path
-- remove clean worktrees exactly once on success, worker failure, startup failure, or successful cancellation
-- preserve dirty worktrees and return `worktreePath`, `branchName`, `worktreeStatus`, `worktreeNextAction`, `worktreeBaseRevision`, and `parentWorktreeStatus` in result metadata
-- fire SDK hook notifications for `WorktreeCreate` and `WorktreeRemove` when configured
+### What the child-process runner does
 
-The CLI-owned Git adapter implements only local Git/filesystem I/O:
+These are agent-subagent-runner's responsibilities, listed so the wiring above makes sense:
 
-- create a temporary branch and worktree before the worker starts
-- retry branch/path collisions with a new short id before failing
-- remove the worktree and branch when the worktree remains clean
-- support nested repository cwd resolution and detached HEAD worktree creation
-- fail non-Git cwd with an actionable worktree-isolation error
-- report whether the worktree has local edits and expose `git status --porcelain` output for preserved worktree handoff
-- allow dirty parent checkouts while surfacing the base revision and parent `git status --porcelain` in preserved handoff metadata
+- spawns one worker per job, with the job's execution root (the worktree, when isolated) as its
+  working directory;
+- waits for the worker's `ready`, then sends the start payload over IPC: the spawn request, agent
+  definition, parent config and context, permission mode and provider profile;
+- exposes the child `pid` on the job and forwards the worker's text and tool messages as
+  `BackgroundTaskManager` progress events;
+- lets the worker append its transcript to `<logsDir>/<parentSessionId>/subagents/<taskId>.jsonl`, and
+  pages through that file for `/agent read` while the worker is still running;
+- forwards follow-up prompts (`send`) and cancellation: an IPC `cancel` first, then `SIGTERM` and
+  `SIGKILL` to the worker's process tree after a grace period.
 
-When a user invokes a skill slash command with `context: fork`, the CLI still calls only `interactiveSession.executeCommand(...)`. The SDK and skills command module handle fork execution deterministically. The CLI may render a `skill-invocation` event, but it must not convert fork skills into plain prompt injection.
+### Worktree isolation
 
-When a user asks in normal conversation to call or delegate to an agent, the request is handled through the model-invocable `/agent` built-in command module. The CLI only displays the resulting command/background events and final assistant response.
+`createChildProcessSubagentRunnerFactory()` wraps the child-process runner in
+`WorktreeSubagentRunner` (agent-executor) with the CLI's adapter. The wrapper passes requests without
+`isolation: 'worktree'` through unchanged. For isolated requests it:
 
-The CLI may render existing SDK fields and selection indicators now. Any future row fields such as
-elapsed time, input-needed reason, terminal result, archive, or clear controls must be introduced in
-SDK/runtime projections before TUI components display them.
+- prepares a worktree through the adapter and runs the worker in it;
+- removes a clean worktree once, whether the job succeeded, failed, failed to start or was cancelled;
+- keeps a dirty worktree and returns `worktreePath`, `branchName`, `worktreeStatus`,
+  `worktreeNextAction`, `worktreeBaseRevision` and `parentWorktreeStatus` in the result metadata;
+- fires the `WorktreeCreate` and `WorktreeRemove` hooks when configured. They are notifications, not
+  vetoes: a failing hook is logged and does not stop the job.
 
-`BackgroundTaskPanel` renders SDK default-visible background task entries as a one-level tree headed
-by `Background work`. Each child row is built by the pure `formatBackgroundTaskRow` formatter from
-`IExecutionWorkspaceEntry` data and contains a compact status marker, human-readable task label,
-secondary metadata such as task kind/status/attention, and a short whitespace-normalized preview.
-Task-ID exposure and the `/background` command grammar are contract — see
-[`../SPEC.md`](../SPEC.md) under `User-Facing Contract`.
+`GitWorktreeIsolationAdapter` (`src/subagents/git-worktree-isolation-adapter.ts`) does only the local
+Git and filesystem work:
 
-For implementation details of subagent/background execution (`/agent`, `context: fork` skills, background task manager, agent definition scanning), see the agent-framework and agent-executor SPEC files.
+- resolves the repository root from the job's working directory, so a nested directory works; a
+  directory outside Git fails with an error that suggests isolation `"none"`;
+- creates `.robota/worktrees/<task>-<id>` on a new branch `robota/<task>-<id>` from `HEAD`, which also
+  works on a detached `HEAD`, and retries with a new short id on a branch or path collision;
+- records the base revision and the parent's `git status --porcelain`, so a dirty parent checkout is
+  allowed and reported;
+- reports whether the worktree has local changes (`git status --porcelain`), and removes it with its
+  branch when it is clean;
+- runs Git without inherited `GIT_*` variables, so a Git hook's environment cannot redirect it.
 
-Background job groups are SDK-owned orchestration state. The TUI may render group entries from the
-SDK execution workspace snapshot, but it must not decide group completion, aggregate raw logs,
-trigger continuations, or own retry/wait behavior. Group waiting and summaries are exposed through
-SDK APIs and `/agent wait` command behavior.
+### Commands and rendering
+
+A skill with `context: fork` and the `/agent` command both run through
+`session.executeCommand(...)`; the SDK and the command modules decide how the work runs. The TUI may
+render the `skill-activation` history entry, but it never turns a fork skill into an injected prompt.
+When the user asks in conversation to delegate to an agent, the model calls the model-invocable
+`/agent` command; the TUI displays the resulting background events and the final answer.
+
+Background job groups are SDK state. The TUI renders group entries from the session's execution
+workspace snapshot, but it does not decide when a group is complete, aggregate raw logs, trigger
+continuations or own retry and wait behaviour; `/agent wait` and the SDK APIs do. `BackgroundTaskPanel`
+lists the visible entries under a `Background work` heading, one row per entry built by
+`formatBackgroundTaskRow()` from `IExecutionWorkspaceEntry` data. A new row field must first appear
+in the SDK projection before the panel shows it.
 
 ## Key Flows
 
-`/agent` → framework spawns a job → the CLI factory forks a worker → config, context, provider
-profile, and agent definition go over IPC → worker events are forwarded to `BackgroundTaskManager`
-progress events → the transcript is appended to `.robota/logs/…/subagents/AGENT_ID.jsonl`. What the
-user sees and controls — the workspace switcher, `/agent read` — is contract in
+```mermaid
+sequenceDiagram
+    participant M as Model or user
+    participant S as Session (BackgroundTaskManager)
+    participant W as WorktreeSubagentRunner
+    participant R as ChildProcessSubagentRunner
+    participant C as Worker (robota, worker mode)
+    M->>S: /agent ...
+    S->>W: start(job)
+    W->>R: start(job), in a worktree when isolated
+    R->>C: spawn, then start payload over IPC
+    C-->>R: text_delta, tool_start, tool_end
+    R-->>S: progress events (BackgroundTaskManager)
+    C-->>R: result
+    R-->>W: result (worktree kept or removed)
+    W-->>S: result with worktree metadata
+```
+
+What the user sees and controls — the workspace switcher, `/agent read` — is contract; see
 [`../SPEC.md`](../SPEC.md).
 
 ## Test Approach
 
-IPC payload and result-orchestration unit tests; worker lifecycle is covered by the background-task
-integration suite.
+`packages/agent-cli/src/subagents/__tests__/` (Git adapter, self-fork entry) and
+`packages/agent-cli/src/product/__tests__/` (`robota-subagent-composition.test.ts`,
+`subagent-provider-reproduction.test.ts`) cover the CLI's part.
+`packages/agent-subagent-runner/src/__tests__/` covers the runner and IPC payload, and
+`packages/agent-executor/src/subagents/__tests__/worktree-subagent-runner.test.ts` covers the worktree
+lifecycle.
