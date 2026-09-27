@@ -347,8 +347,10 @@ try {
   });
 
   await scenario('the title bar and the page title show the workspace folder', async () => {
-    await page.getByText('scripted-workspace').waitFor();
-    if ((await page.title()) !== 'scripted-workspace — Robota') {
+    // The scripted sidecar's workspace cwd defaults to '/scripted/workspace' (#3282 §4d); the folder
+    // name shown here is its basename, 'workspace'.
+    await page.getByText('workspace', { exact: true }).waitFor();
+    if ((await page.title()) !== 'workspace — Robota') {
       throw new Error(`unexpected page title: ${await page.title()}`);
     }
   });

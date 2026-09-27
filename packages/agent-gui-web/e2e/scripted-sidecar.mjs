@@ -591,6 +591,16 @@ class ScriptedSession extends EventEmitter {
         });
       }
     }
+    if (name === 'rename') {
+      // #3289 §1: renaming the CURRENT session goes through this command (not the directory's
+      // `renameSession`) so the live session's own name and the sidebar row update together, exactly
+      // as the real `InteractiveSession` does (`setName` + a `session_renamed` broadcast).
+      const newName = args.trim();
+      if (newName === '') return Promise.resolve({ message: 'Usage: /rename <name>', success: false });
+      this.#current.name = newName;
+      this.emit('session_renamed', { name: newName });
+      return Promise.resolve({ message: `Session renamed to "${newName}".`, success: true });
+    }
     return Promise.resolve({ message: 'ok', success: true });
   }
   listCommands() {
