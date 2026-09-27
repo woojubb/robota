@@ -92,24 +92,36 @@ describe('#3282 §2 (part 2) — requestModelList / modelList', () => {
   });
 });
 
+/** The `requestId` a `sendCommandSilently`/`send({type:'command',...})` call most recently put on the wire. */
+function lastSentRequestId(wire: TClientMessage[]): string | undefined {
+  const sent = wire[wire.length - 1];
+  return sent && sent.type === 'command' ? sent.requestId : undefined;
+}
+
 describe('#3282 §2 (part 2) — sendCommandSilently suppresses the conversation card', () => {
   it('a successful silent command adds no conversation card, but still refreshes status', () => {
     const { result, deliver, wire } = setup();
 
     act(() => result.current.sendCommandSilently('model', 'claude-haiku-4-5'));
-    expect(wire).toContainEqual({ type: 'command', name: 'model', args: 'claude-haiku-4-5' });
+    expect(wire).toContainEqual(
+      expect.objectContaining({ type: 'command', name: 'model', args: 'claude-haiku-4-5' }),
+    );
+    const requestId = lastSentRequestId(wire);
+    expect(requestId).toBeDefined();
 
-    deliver({ type: 'command_result', name: 'model', message: 'Model: Claude Haiku 4.5', success: true });
+    deliver({ type: 'command_result', name: 'model', message: 'Model: Claude Haiku 4.5', success: true, requestId });
 
     expect(result.current.messages.some((m) => m.role === 'command')).toBe(false);
     expect(wire.filter((m) => m.type === 'get-status')).toHaveLength(1);
   });
 
   it('a failed silent command adds no card either, but raises a plain notice', () => {
-    const { result, deliver } = setup();
+    const { result, deliver, wire } = setup();
 
     act(() => result.current.sendCommandSilently('mode', 'bypassPermissions'));
-    deliver({ type: 'command_result', name: 'mode', message: 'Could not change mode.', success: false });
+    const requestId = lastSentRequestId(wire);
+
+    deliver({ type: 'command_result', name: 'mode', message: 'Could not change mode.', success: false, requestId });
 
     expect(result.current.messages.some((m) => m.role === 'command')).toBe(false);
     expect(result.current.sessionNotices.map((n) => n.message)).toContain('Could not change mode.');
@@ -127,10 +139,10 @@ describe('#3282 §2 (part 2) — sendCommandSilently suppresses the conversation
   });
 
   it('silent and typed commands resolved one after the other are each attributed correctly', () => {
-    const { result, deliver } = setup();
+    const { result, deliver, wire } = setup();
 
     act(() => result.current.sendCommandSilently('effort', 'high'));
-    deliver({ type: 'command_result', name: 'effort', message: 'Effort: High', success: true });
+    deliver({ type: 'command_result', name: 'effort', message: 'Effort: High', success: true, requestId: lastSentRequestId(wire) });
     act(() => result.current.send({ type: 'command', name: 'help' }));
     deliver({ type: 'command_result', name: 'help', message: 'Available commands: ...', success: true });
 
@@ -139,25 +151,42 @@ describe('#3282 §2 (part 2) — sendCommandSilently suppresses the conversation
     expect(cards[0] && 'name' in cards[0] ? cards[0].name : undefined).toBe('help');
   });
 
-  it('a typed command and a silent command BOTH outstanding at once are still attributed correctly', () => {
-    // The case a plain in-flight COUNT of "how many silent commands are outstanding" cannot answer:
-    // when two commands of different silence are in flight together, a count only says how many are
-    // silent overall — not which of the two the next reply belongs to. A queue, shifted in send
-    // order, can. Without that fix this reproduces the bug: `help`'s reply arrives while the silent
-    // `effort` command is still outstanding, so a count-based check sees "1 silent still in flight"
-    // and wrongly swallows `help`'s own card.
-    const { result, deliver } = setup();
+  it('attributes by requestId, not arrival order: a later-sent silent reply landing FIRST does not swallow the earlier typed command', () => {
+    // Reviewer-mandated regression test (#3339): a send-order-based FIFO was tried first and is
+    // exactly as wrong as a bare count — both assume replies arrive in send order, which a slow host
+    // or a race can violate. The wire already correlates a `command` with its `command_result` by
+    // `requestId` (`packages/agent-transport/src/wire-messages.ts`), so attribution must use THAT,
+    // never position. Proof: send the typed command first, the silent one second, but deliver the
+    // SILENT one's reply first — the reverse of send order. A FIFO shifts its front (the typed
+    // command's `false` entry) for this first-arriving reply, misreading the silent reply as
+    // non-silent (wrongly gives it a card) and the later typed reply as silent (wrongly swallows its
+    // card). requestId correlation gets both right regardless of arrival order.
+    const { result, deliver, wire } = setup();
 
     act(() => result.current.send({ type: 'command', name: 'help' }));
     act(() => result.current.sendCommandSilently('effort', 'high'));
+    const silentRequestId = lastSentRequestId(wire);
+    expect(silentRequestId).toBeDefined();
 
-    // Replies land in send order — the typed command's result resolves first, while the silent
-    // command is still in flight.
+    deliver({ type: 'command_result', name: 'effort', message: 'Effort: High', success: true, requestId: silentRequestId });
     deliver({ type: 'command_result', name: 'help', message: 'Available commands: ...', success: true });
-    deliver({ type: 'command_result', name: 'effort', message: 'Effort: High', success: true });
 
     const cards = result.current.messages.filter((m) => m.role === 'command');
     expect(cards).toHaveLength(1);
     expect(cards[0] && 'name' in cards[0] ? cards[0].name : undefined).toBe('help');
+  });
+
+  it('a silent command whose reply carries no requestId (an older host) falls back to showing the card, never hiding it', () => {
+    // Silence is opt-in per identified reply, never the default: a `command_result` this surface
+    // cannot positively match to a silent request must show its card. The alternative — hiding the
+    // outcome of a reply that might, for all this surface can tell, belong to something the person
+    // typed — is the worse failure mode.
+    const { result, deliver } = setup();
+
+    act(() => result.current.sendCommandSilently('effort', 'high'));
+    deliver({ type: 'command_result', name: 'effort', message: 'Effort: High', success: true });
+
+    const card = result.current.messages.find((m) => m.role === 'command');
+    expect(card).toBeDefined();
   });
 });
