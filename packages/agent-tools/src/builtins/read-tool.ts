@@ -6,12 +6,17 @@
  */
 
 import { constants } from 'node:fs';
-import { open, stat, type FileHandle } from 'node:fs/promises';
+import { stat, type FileHandle } from 'node:fs/promises';
 
 import { z } from 'zod';
 import { ToolExecutionError } from '@robota-sdk/agent-core';
 
-import { checkPathWithinCwd, resolveHostPath } from './path-guard.js';
+import {
+  ContainmentEscapeError,
+  checkPathWithinCwd,
+  openWithinCwd,
+  resolveHostPath,
+} from './path-guard.js';
 import { createZodFunctionTool } from '../implementations/function-tool';
 
 import type { ISandboxBuiltinToolOptions } from './tool-options.js';
@@ -171,14 +176,13 @@ async function readFileTool(args: TReadArgs, options: ISandboxToolOptions): Prom
   const failure = (error: string): string =>
     JSON.stringify({ success: false, output: '', error } satisfies IToolInvocationResult);
 
-  // One open, checked on the handle that is read: the file read is the file checked. Non-blocking,
-  // so a FIFO is refused by the check below instead of hanging the open.
+  // One open, checked on the handle that is read: the file read is the file checked, for containment
+  // and for kind. Non-blocking, so a FIFO is refused by the check below instead of hanging the open.
   let handle: FileHandle;
   try {
-    // The mode is a no-op without O_CREAT; it is passed so the open states an owner-only mode,
-    // which is what static analysis looks for on an open.
-    handle = await open(filePath, constants.O_RDONLY | constants.O_NONBLOCK, 0o600);
+    handle = await openWithinCwd(filePath, options.cwd, constants.O_RDONLY | constants.O_NONBLOCK);
   } catch (err) {
+    if (err instanceof ContainmentEscapeError) return failure(err.message);
     // allow-fallback: open failure → IToolInvocationResult error. The path is looked at again only
     // to word the refusal; nothing is read through it.
     const found = await stat(filePath).catch(() => undefined);
