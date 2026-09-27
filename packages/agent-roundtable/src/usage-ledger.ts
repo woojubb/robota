@@ -171,6 +171,8 @@ export function settleUsage(
       if (sameReport(existing, report)) return;
       if (existing.final)
         throw new RoundtableError('conflict', 'A final usage report cannot be replaced');
+      if (!existing.admitted && report.outcome !== 'cache-hit')
+        throw new RoundtableError('conflict', 'Usage report requires a prior admission');
     }
   } else if (report.outcome !== 'cache-hit') {
     throw new RoundtableError('conflict', 'Usage report requires a prior admission');

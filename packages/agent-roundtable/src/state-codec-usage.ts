@@ -17,10 +17,6 @@ export function validateUsageState(
   const records = list(usage).map(record);
   unique(records.map((entry) => entry.callId));
   for (const entry of records) {
-    // A record stored before `admitted` existed carries no admission-free cache hit that this
-    // check would need to exclude — an allowance every such record already counted against, back
-    // when nothing here distinguished it, is one this decode leaves counting still.
-    if (!Object.hasOwn(entry, 'admitted')) entry.admitted = true;
     requireState(
       text(entry.callId) &&
         text(entry.providerId) &&
@@ -53,6 +49,8 @@ export function validateUsageState(
       requireState(price.cost === null || validUsageCost(price.cost));
     }
     requireState(entry.status === 'reserved' || entry.status === 'settled');
+    // Only a settled cache hit can exist without an admission; every other record reserved one.
+    requireState(entry.admitted || (entry.status === 'settled' && entry.outcome === 'cache-hit'));
     if (entry.status === 'settled') {
       requireState(
         (USAGE_OUTCOMES as readonly string[]).includes(String(entry.outcome)) &&
