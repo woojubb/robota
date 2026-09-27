@@ -4,6 +4,8 @@ import {
   messageToHistoryEntry,
 } from '@robota-sdk/agent-core';
 
+import { GOAL_SIGNAL_TOOL_NAME } from '../goal/index.js';
+
 import {
   applyToolEnd,
   applyToolStart,
@@ -51,12 +53,25 @@ export function projectToolExecution(
   startLabel?: string,
 ): IToolState[] {
   const streamingState = { activeTools, history };
+  const cwd = callbacks.getCwd();
   if (event.type === 'start') {
-    const toolState = applyToolStart(streamingState, event, startLabel);
+    // #3288: the framework classifies a tool call as it starts — a projected `/command` tool gets
+    // its source command name, and the internal goal-signal tool is flagged so surfaces can hide it.
+    // Neither is hardcoded downstream: agent-ui-web never sees the projection prefix or the constant.
+    const toolState = applyToolStart(
+      streamingState,
+      {
+        ...event,
+        commandName: callbacks.modelCommandToolNames?.get(event.toolName),
+        internal: event.toolName === GOAL_SIGNAL_TOOL_NAME,
+      },
+      startLabel,
+      cwd,
+    );
     commitActiveTools(streamingState.activeTools);
     callbacks.emit('tool_start', toolState);
   } else {
-    const finished = applyToolEnd(streamingState, event);
+    const finished = applyToolEnd(streamingState, event, cwd);
     commitActiveTools(streamingState.activeTools);
     if (finished) callbacks.emit('tool_end', finished);
   }

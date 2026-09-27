@@ -26,6 +26,7 @@ import { useSessionDirectoryState } from './use-session-directory.js';
 
 import type {
   IActiveTool,
+  IChangedFileSummary,
   IQueuedPrompt,
   ISessionClientHandle,
   ISessionNotice,
@@ -37,12 +38,18 @@ import type {
 } from './session-client-types.js';
 import type { TConnectionStatus, TClientMessage } from '../client/ws-session-client.js';
 import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
-import type { TDriverId, TPermissionResultValue } from '@robota-sdk/agent-interface-session';
+import type {
+  IToolState,
+  TDriverId,
+  TPermissionResultValue,
+} from '@robota-sdk/agent-interface-session';
 import type { IExecutionWorkspaceSnapshot } from '@robota-sdk/agent-interface-execution';
 import type { TServerMessage } from '@robota-sdk/agent-transport';
 
 export type {
   IActiveTool,
+  IChangedFileSummary,
+  IChangedFilesEntry,
   ICommandOutputEntry,
   IConversationMessage,
   IToolGroupEntry,
@@ -57,6 +64,110 @@ export type {
 let msgCounter = 0;
 function nextId(): string {
   return `msg_${++msgCounter}_${Date.now()}`;
+}
+
+/**
+ * #3288: a finished turn's text and tool calls, in the order they actually happened — a running
+ * turn accumulates these alongside (not instead of) the legacy `streamingText`/`activeTools` live
+ * view, and `finishTurn` flushes them as SEPARATE conversation entries in order, instead of one
+ * tools-block followed by one merged text block. Consecutive tool calls with no text between them
+ * collapse into one `tools` segment (one expandable group), matching the TUI's own transcript order.
+ */
+interface ITurnTextSegment {
+  readonly type: 'text';
+  readonly id: string;
+  readonly text: string;
+}
+interface ITurnToolsSegment {
+  readonly type: 'tools';
+  readonly id: string;
+  readonly tools: readonly IActiveTool[];
+}
+type TTurnSegment = ITurnTextSegment | ITurnToolsSegment;
+
+function appendTextDeltaToSegments(segments: TTurnSegment[], delta: string): TTurnSegment[] {
+  const last = segments[segments.length - 1];
+  if (last && last.type === 'text') {
+    return [...segments.slice(0, -1), { ...last, text: last.text + delta }];
+  }
+  return [...segments, { type: 'text', id: nextId(), text: delta }];
+}
+
+function pushToolStartSegment(segments: TTurnSegment[], tool: IActiveTool): TTurnSegment[] {
+  const last = segments[segments.length - 1];
+  if (last && last.type === 'tools') {
+    return [...segments.slice(0, -1), { ...last, tools: [...last.tools, tool] }];
+  }
+  return [...segments, { type: 'tools', id: nextId(), tools: [tool] }];
+}
+
+/**
+ * #3288: attribute a `tool_end` to its call by executionId first — two same-named parallel calls
+ * can finish out of start order, and matching by name+running alone would close whichever running
+ * call of that name is found first, not the one that actually finished. Falls back to name+running
+ * only when the event carries no executionId (legacy fixtures / hosts that predate it).
+ */
+function findRunningToolIndex(
+  tools: readonly IActiveTool[],
+  state: { toolName: string; executionId?: string },
+): number {
+  return state.executionId !== undefined
+    ? tools.findIndex((t) => t.executionId === state.executionId && t.status === 'running')
+    : tools.findIndex((t) => t.name === state.toolName && t.status === 'running');
+}
+
+/** The fields a `tool_end` state contributes to the matched `IActiveTool`. */
+function toolEndFields(
+  state: IToolState,
+): Pick<IActiveTool, 'status' | 'result' | 'diffLines' | 'diffFile' | 'toolResultData'> {
+  return {
+    // A tool that finished with an error result renders failed (ToolCard/ToolGroup key off
+    // `status === 'error'`) — `isRunning` alone cannot tell success from failure.
+    status: state.isRunning ? 'running' : state.result === 'error' ? 'error' : 'done',
+    result: state.result,
+    ...(state.diffLines ? { diffLines: state.diffLines } : {}),
+    ...(state.diffFile ? { diffFile: state.diffFile } : {}),
+    ...(state.toolResultData !== undefined ? { toolResultData: state.toolResultData } : {}),
+  };
+}
+
+/** Apply a `tool_end` to the ONE matching running tool across a turn's segments (never all of them). */
+function applyToolEndToSegments(segments: TTurnSegment[], state: IToolState): TTurnSegment[] {
+  let matched = false;
+  return segments.map((segment) => {
+    if (matched || segment.type !== 'tools') return segment;
+    const idx = findRunningToolIndex(segment.tools, state);
+    if (idx === -1) return segment;
+    matched = true;
+    const tools = [...segment.tools];
+    tools[idx] = { ...tools[idx]!, ...toolEndFields(state) };
+    return { ...segment, tools };
+  });
+}
+
+/**
+ * #3288: the files an Edit/Write call touched during the turn, aggregated by path — the "Changed
+ * files" row's data. `diffLines` keeps the LATEST edit's diff (what a click on the file opens); the
+ * +/- counts sum every edit to that path within the turn.
+ */
+function collectChangedFiles(segments: readonly TTurnSegment[]): IChangedFileSummary[] {
+  const byPath = new Map<string, IChangedFileSummary>();
+  for (const segment of segments) {
+    if (segment.type !== 'tools') continue;
+    for (const tool of segment.tools) {
+      if (!tool.diffFile || !tool.diffLines || tool.diffLines.length === 0) continue;
+      const added = tool.diffLines.filter((line) => line.type === 'add').length;
+      const removed = tool.diffLines.filter((line) => line.type === 'remove').length;
+      const existing = byPath.get(tool.diffFile);
+      byPath.set(tool.diffFile, {
+        path: tool.diffFile,
+        added: (existing?.added ?? 0) + added,
+        removed: (existing?.removed ?? 0) + removed,
+        diffLines: tool.diffLines,
+      });
+    }
+  }
+  return [...byPath.values()];
 }
 
 export function useSessionClient<TStatus extends string = TConnectionStatus>(
@@ -81,10 +192,11 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   const [ownDriverId, setOwnDriverId] = useState<TDriverId | null>(null);
 
   const clientRef = useRef<ISessionClientHandle | null>(null);
-  const streamingIdRef = useRef<string | null>(null);
   const streamingTextRef = useRef('');
   // The tools of the running turn, mirrored so the turn's end can keep them in the conversation.
   const activeToolsRef = useRef<IActiveTool[]>([]);
+  // #3288: the running turn's text/tools in the order they happened — see `TTurnSegment` above.
+  const turnSegmentsRef = useRef<TTurnSegment[]>([]);
   // A screen this surface's command asked for: it answers the command in place of the command's own
   // reply — with the "not available" line (`text`), or with nothing when the screen opened (null).
   const pendingIntentRef = useRef<{ name: string; text: string | null } | null>(null);
@@ -95,25 +207,34 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   const appendEntry = useCallback((entry: TConversationEntry): void => {
     setMessages((previous) => [...previous, entry]);
   }, []);
-  /** End the running turn: its tool calls and any streamed text stay in the conversation. */
+  /**
+   * End the running turn: its text and tool calls stay in the conversation as SEPARATE entries, in
+   * the order they happened (#3288) — not one tools-block grouped ahead of a single merged reply.
+   */
   const finishTurn = useCallback(
     (toolStatus: (tool: IActiveTool) => IActiveTool['status']): void => {
-      const finalText = streamingTextRef.current;
-      const sid = streamingIdRef.current;
-      const tools = activeToolsRef.current;
+      const segments = turnSegmentsRef.current;
+      turnSegmentsRef.current = [];
       streamingTextRef.current = '';
-      streamingIdRef.current = null;
       setStreamingText('');
       setIsThinking(false);
       updateActiveTools(() => []);
-      if (tools.length > 0) {
-        appendEntry({
-          id: nextId(),
-          role: 'tools',
-          tools: tools.map((tool) => ({ ...tool, status: toolStatus(tool) })),
-        });
+      for (const segment of segments) {
+        if (segment.type === 'tools') {
+          appendEntry({
+            id: segment.id,
+            role: 'tools',
+            tools: segment.tools.map((tool) => ({ ...tool, status: toolStatus(tool) })),
+          });
+        } else {
+          appendEntry({ id: segment.id, role: 'assistant', content: segment.text });
+        }
       }
-      if (finalText) appendEntry({ id: sid ?? nextId(), role: 'assistant', content: finalText });
+      // #3288: a turn that changed files ends with one compact summary row, after everything else.
+      const changedFiles = collectChangedFiles(segments);
+      if (changedFiles.length > 0) {
+        appendEntry({ id: nextId(), role: 'changed-files', files: changedFiles });
+      }
     },
     [appendEntry, updateActiveTools],
   );
@@ -177,8 +298,9 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           // the same batch reads it before React has run a state updater, and would lose the reply.
           const next = streamingTextRef.current + msg.delta;
           streamingTextRef.current = next;
-          if (streamingIdRef.current === null) streamingIdRef.current = nextId();
           setStreamingText(next);
+          // #3288: also track WHERE this text sits relative to the turn's tool calls, for finishTurn.
+          turnSegmentsRef.current = appendTextDeltaToSegments(turnSegmentsRef.current, msg.delta);
           break;
         }
         case 'thinking': {
@@ -187,22 +309,32 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         }
         case 'tool_start': {
           const { state } = msg;
-          const toolId = nextId();
-          updateActiveTools((prev) => [
-            ...prev,
-            { id: toolId, name: state.toolName, status: 'running', input: state.firstArg },
-          ]);
+          const tool: IActiveTool = {
+            id: nextId(),
+            name: state.toolName,
+            status: 'running',
+            input: state.firstArg,
+            ...(state.executionId ? { executionId: state.executionId } : {}),
+            ...(state.displayPath ? { displayPath: state.displayPath } : {}),
+            ...(state.commandName ? { commandName: state.commandName } : {}),
+            ...(state.internal ? { internal: true } : {}),
+          };
+          updateActiveTools((prev) => [...prev, tool]);
+          turnSegmentsRef.current = pushToolStartSegment(turnSegmentsRef.current, tool);
           break;
         }
         case 'tool_end': {
           const { state } = msg;
-          updateActiveTools((prev) =>
-            prev.map((t) =>
-              t.name === state.toolName && t.status === 'running'
-                ? { ...t, status: state.isRunning ? 'running' : 'done', result: state.result }
-                : t,
-            ),
-          );
+          // #3288: attribute to the ONE matching running call (executionId-first) — never map over
+          // every running same-named entry, which would close all of them at once.
+          updateActiveTools((prev) => {
+            const idx = findRunningToolIndex(prev, state);
+            if (idx === -1) return prev;
+            const next = [...prev];
+            next[idx] = { ...next[idx]!, ...toolEndFields(state) };
+            return next;
+          });
+          turnSegmentsRef.current = applyToolEndToSegments(turnSegmentsRef.current, state);
           break;
         }
         case 'execution_workspace_event': {
@@ -261,7 +393,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           // Nothing of the old session stays on screen until the new one's answers arrive.
           setSessionStatus(null);
           streamingTextRef.current = '';
-          streamingIdRef.current = null;
+          turnSegmentsRef.current = [];
           setStreamingText('');
           setIsThinking(false);
           updateActiveTools(() => []);
@@ -281,7 +413,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
         }
         case 'history_cleared': {
           streamingTextRef.current = '';
-          streamingIdRef.current = null;
+          turnSegmentsRef.current = [];
           setStreamingText('');
           setMessages([]);
           break;

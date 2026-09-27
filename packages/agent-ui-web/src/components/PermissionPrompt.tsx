@@ -11,6 +11,7 @@ import React, {
 } from 'react';
 
 import { driverAttributionText, isSameSurface } from '../driver-labels.js';
+import { DiffLines } from './DiffLines.js';
 
 import type { TPendingPrompt } from '../hooks/prompt-state.js';
 import type { TActionResponse } from '@robota-sdk/agent-interface-transport';
@@ -196,6 +197,13 @@ export function PermissionPrompt({
     const option = prompt.request.options?.[index];
     if (option) answerAsk(prompt.id, { type: 'answer', values: [option.value] });
   };
+  // #3288: an Edit/Write request carries the same server-built diff `tool_end` would show.
+  const hasDiff = prompt.kind === 'permission' && (prompt.diffLines?.length ?? 0) > 0;
+  const shellCommand =
+    prompt.kind === 'permission' && typeof prompt.toolArgs['command'] === 'string'
+      ? prompt.toolArgs['command']
+      : undefined;
+  const isShellCommand = prompt.kind === 'permission' && prompt.toolName === 'Bash' && shellCommand !== undefined;
   const askOptions = prompt.kind === 'ask' ? (prompt.request.options ?? []) : [];
   // Digits choose an option only while focus is on the prompt itself, not the field — a hint promising
   // "1–9 choose" while the field holds focus would be wrong, since digits type there instead.
@@ -247,21 +255,34 @@ export function PermissionPrompt({
                     </>
                   )}
                 </p>
-                <p className="mt-0.5 text-[15px] font-medium text-foreground">
-                  {/* Issue #3288 §1: a background agent's own request names it, so this reads as a
-                      question about someone else's action rather than an unattributed ask. */}
-                  {prompt.requester?.kind === 'background-agent' ? (
-                    <>
-                      Background agent <span className="font-semibold">{prompt.requester.label}</span>{' '}
-                      wants to run <span className="font-semibold">{prompt.toolName}</span>
-                    </>
-                  ) : (
-                    <>
-                      Allow <span className="font-semibold">{prompt.toolName}</span> to run?
-                    </>
-                  )}
-                </p>
-                <ToolArgs args={prompt.toolArgs} />
+                {/* #3288 §2: an Edit/Write request with a server-built diff preview shows "Edit
+                    <path>" and the diff, in place of "Allow <tool> to run?" and raw arguments.
+                    Issue #3288 §1: short of that, a background agent's own request names it, so
+                    this reads as a question about someone else's action, not an unattributed ask. */}
+                {hasDiff ? (
+                  <p className="mt-0.5 text-[15px] font-medium text-foreground">
+                    {prompt.toolName}{' '}
+                    <span className="font-mono font-semibold">{prompt.diffFile}</span>
+                  </p>
+                ) : prompt.requester?.kind === 'background-agent' ? (
+                  <p className="mt-0.5 text-[15px] font-medium text-foreground">
+                    Background agent <span className="font-semibold">{prompt.requester.label}</span>{' '}
+                    wants to run <span className="font-semibold">{prompt.toolName}</span>
+                  </p>
+                ) : (
+                  <p className="mt-0.5 text-[15px] font-medium text-foreground">
+                    Allow <span className="font-semibold">{prompt.toolName}</span> to run?
+                  </p>
+                )}
+                {hasDiff ? (
+                  <div className="mt-2.5">
+                    <DiffLines diffLines={prompt.diffLines!} />
+                  </div>
+                ) : isShellCommand ? (
+                  <ShellCommandPreview command={shellCommand} cwd={prompt.cwd} />
+                ) : (
+                  <ToolArgs args={prompt.toolArgs} />
+                )}
               </div>
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-2 pl-11">
@@ -534,6 +555,30 @@ function ToolArgs({ args }: { args: unknown }): React.ReactElement | null {
           ))}
         </dl>
       ) : null}
+    </div>
+  );
+}
+
+/**
+ * #3288: a Shell request shows just its command — and the working directory only when the server
+ * says it differs from the workspace — instead of every raw argument.
+ */
+function ShellCommandPreview({
+  command,
+  cwd,
+}: {
+  command: string;
+  cwd?: string;
+}): React.ReactElement {
+  return (
+    <div className="mt-2.5 max-h-48 overflow-auto rounded-lg bg-sidebar px-3 py-2 font-mono text-[12.5px] leading-relaxed">
+      <pre className="whitespace-pre-wrap break-all text-foreground">{command}</pre>
+      {cwd && (
+        <p className="mt-1.5 text-muted-foreground">
+          <span className="text-subtle">in </span>
+          {cwd}
+        </p>
+      )}
     </div>
   );
 }

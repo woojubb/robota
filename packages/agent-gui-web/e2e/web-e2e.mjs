@@ -166,6 +166,30 @@ try {
     await page.getByText('src/a.ts').waitFor();
   });
 
+  await scenario('#3288: an Edit row expands to show its diff', async () => {
+    await send('edit it');
+    await page.getByText('Edited the title.').waitFor();
+    await page.getByRole('button', { name: /1 tool call/ }).last().click();
+    // Matched on "Edit <path>", not "Edit" alone (the status bar's "mode: acceptEdits" button also
+    // matches /Edit/ as a substring) and not the path alone (the Changed files row repeats it too).
+    const toolRow = page.getByRole('button', { name: /Edit src\/task-title\.ts/ });
+    await toolRow.waitFor();
+    await toolRow.click();
+    await page.getByText(/const title = 'new';/).waitFor();
+    await page.getByText(/const title = 'old';/).waitFor();
+  });
+
+  await scenario('#3288: a Shell row expands to show its output and exit status', async () => {
+    await send('run tests');
+    await page.getByText('Tests passed.').waitFor();
+    await page.getByRole('button', { name: /1 tool call/ }).last().click();
+    const toolRow = page.getByRole('button', { name: /pnpm test/ });
+    await toolRow.waitFor();
+    await toolRow.click();
+    await page.getByText(/Test Files\s+1 passed/).waitFor();
+    await page.getByText(/exit 0/).waitFor();
+  });
+
   await scenario(
     'a permission prompt docks above the composer; typing stays safe, Shift+Tab then 1 allows it',
     async () => {

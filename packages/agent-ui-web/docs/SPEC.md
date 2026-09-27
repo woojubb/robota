@@ -28,6 +28,9 @@ does not own session lifecycle, conversation history, or agent runtime state.
 - The conversation carries what the CLI's transcript carries: a command's outcome and a finished
   turn's tool calls sit in it where they happened, and never push the composer out of view. Session
   and protocol failures are toasts, beside the conversation rather than in it.
+- A tool call's diff or output is server-computed and shown on demand, never recomputed here and
+  never buried behind a truncated path or argument; an internal signal tool never renders as a call,
+  and a projected `/command` tool shows the command it ran, not the provider-facing tool name.
 - A UI-intent opens its GUI screen when there is one — the session picker is the session sidebar,
   unless the host cannot list sessions. Any other (e.g. settings, plugin manager, agent switcher)
   answers with an explicit "not available on this surface" line in the conversation — in place of

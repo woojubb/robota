@@ -34,7 +34,11 @@ export function applyPromptEvent(
     case 'permission_request': {
       // REMOTE-014 E5: keep requesterDriverId so the surface can show WHICH driver's turn raised the
       // prompt. Issue #3288 §1: keep `requester` too, so it can show WHICH background agent did.
-      const { id, toolName, toolArgs, requesterDriverId, requester } = msg.event;
+      // #3288 §2: diffLines/diffFile (Edit/Write) and cwd (Shell, only when it differs) are the
+      // server's diff/command preview — carried through unchanged so the prompt can render them
+      // instead of raw args.
+      const { id, toolName, toolArgs, requesterDriverId, requester, diffLines, diffFile, cwd } =
+        msg.event;
       if (prompts.some((p) => p.id === id)) return prompts;
       return [
         ...prompts,
@@ -45,6 +49,8 @@ export function applyPromptEvent(
           toolArgs,
           ...(requesterDriverId ? { requesterDriverId } : {}),
           ...(requester ? { requester } : {}),
+          ...(diffLines ? { diffLines, diffFile } : {}),
+          ...(cwd ? { cwd } : {}),
         },
       ];
     }

@@ -39,6 +39,7 @@ function harness(backstopMs?: number): IHarness {
     emitAskRequest: (e) => askEvents.push(e),
     emitPromptResolved: (e) => resolvedEvents.push(e),
     countListeners: (event) => counts[event],
+    getCwd: () => '/workspace',
     ...(backstopMs !== undefined ? { backstopMs } : {}),
   };
   return {
@@ -64,6 +65,49 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     h.registry.resolvePermission(id, true);
     await expect(pending).resolves.toBe(true);
     expect(h.resolvedEvents).toEqual([{ id }]);
+  });
+
+  it('#3288: attaches the same diff preview a finished Edit/Write call would carry', async () => {
+    const h = harness();
+    const pending = h.registry.requestPermission('Write', {
+      filePath: '/workspace/src/new-file.ts',
+      content: 'line one\nline two',
+    });
+    const event = h.permissionEvents[0]!;
+    expect(event.diffFile).toBe('src/new-file.ts'); // workspace-relative, like tool_end's diffFile
+    expect(event.diffLines).toEqual(
+      expect.arrayContaining([
+        { type: 'add', text: 'line one', lineNumber: 1 },
+        { type: 'add', text: 'line two', lineNumber: 2 },
+      ]),
+    );
+    h.registry.resolvePermission(event.id, true);
+    await pending;
+  });
+
+  it('#3288: a permission request for a non-diff tool (Shell) carries no diff fields', async () => {
+    const h = harness();
+    const pending = h.registry.requestPermission('Bash', { command: 'ls' });
+    expect(h.permissionEvents[0]?.diffLines).toBeUndefined();
+    expect(h.permissionEvents[0]?.diffFile).toBeUndefined();
+    h.registry.resolvePermission(h.permissionEvents[0]!.id, true);
+    await pending;
+  });
+
+  it('#3288: notes a Shell request\'s cwd only when it differs from the workspace', async () => {
+    const h = harness();
+    const sameDir = h.registry.requestPermission('Bash', { command: 'ls' });
+    expect(h.permissionEvents[0]?.cwd).toBeUndefined();
+    h.registry.resolvePermission(h.permissionEvents[0]!.id, true);
+    await sameDir;
+
+    const otherDir = h.registry.requestPermission('Bash', {
+      command: 'ls',
+      workingDirectory: 'subdir',
+    });
+    expect(h.permissionEvents[1]?.cwd).toBe('/workspace/subdir');
+    h.registry.resolvePermission(h.permissionEvents[1]!.id, true);
+    await otherDir;
   });
 
   it('advertises project persistence only when the session has that capability', async () => {

@@ -130,8 +130,14 @@ export class TuiStateManager {
   };
 
   onToolEnd = (state: IToolState): void => {
-    // findLastIndex: when same tool runs concurrently, match the most recently started instance
-    const idx = this.activeTools.findLastIndex((t) => t.toolName === state.toolName && t.isRunning);
+    // #3288: attribute by executionId first — two same-named parallel calls can finish out of
+    // start order, and `findLastIndex` by name alone would close the wrong (most recently
+    // started, not most recently finished) running entry. Fall back to the name+running-order
+    // heuristic only when the event carries no executionId (legacy fixtures / old hosts).
+    const idx =
+      state.executionId !== undefined
+        ? this.activeTools.findIndex((t) => t.executionId === state.executionId && t.isRunning)
+        : this.activeTools.findLastIndex((t) => t.toolName === state.toolName && t.isRunning);
     if (idx !== -1) {
       const updated = [...this.activeTools];
       updated[idx] = state;

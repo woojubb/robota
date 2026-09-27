@@ -139,6 +139,147 @@ describe('#3186 — the GUI conversation timeline', () => {
     );
     expect(result.current.activeTools).toEqual([]);
   });
+
+  it('#3288: two parallel same-named calls are attributed by executionId, not the first running one', () => {
+    const { result, deliver } = setup();
+    deliver({
+      type: 'tool_start',
+      state: { toolName: 'Read', isRunning: true, firstArg: 'a.ts', executionId: 'exec-a' },
+    } as TServerMessage);
+    deliver({
+      type: 'tool_start',
+      state: { toolName: 'Read', isRunning: true, firstArg: 'b.ts', executionId: 'exec-b' },
+    } as TServerMessage);
+    // exec-a (started FIRST) finishes first, while exec-b is still running. Matching by
+    // "first running entry with this name" would wrongly close exec-b's entry instead.
+    deliver({
+      type: 'tool_end',
+      state: {
+        toolName: 'Read',
+        isRunning: false,
+        firstArg: 'a.ts',
+        result: 'success',
+        executionId: 'exec-a',
+      },
+    } as TServerMessage);
+
+    const a = result.current.activeTools.find((t) => t.executionId === 'exec-a');
+    const b = result.current.activeTools.find((t) => t.executionId === 'exec-b');
+    expect(a?.status).toBe('done');
+    expect(b?.status).toBe('running');
+  });
+
+  it('#3288: tool_end carries the diff, output, and executionId onto the conversation entry', () => {
+    const { result, deliver } = setup();
+    deliver({ type: 'user_message', content: 'edit it' });
+    deliver({
+      type: 'tool_start',
+      state: { toolName: 'Edit', isRunning: true, firstArg: 'a.ts', executionId: 'exec-1' },
+    } as TServerMessage);
+    deliver({
+      type: 'tool_end',
+      state: {
+        toolName: 'Edit',
+        isRunning: false,
+        firstArg: 'a.ts',
+        result: 'success',
+        executionId: 'exec-1',
+        toolResultData: 'wrote 3 lines',
+        diffFile: 'src/a.ts',
+        diffLines: [{ type: 'add', text: 'x', lineNumber: 1 }],
+      },
+    } as TServerMessage);
+    deliver({ type: 'complete', result: { response: '' } } as TServerMessage);
+
+    const toolsEntry = result.current.messages.find((m) => m.role === 'tools');
+    expect(toolsEntry).toEqual(
+      expect.objectContaining({
+        tools: [
+          expect.objectContaining({
+            executionId: 'exec-1',
+            toolResultData: 'wrote 3 lines',
+            diffFile: 'src/a.ts',
+            diffLines: [{ type: 'add', text: 'x', lineNumber: 1 }],
+          }),
+        ],
+      }),
+    );
+  });
+
+  it("#3288: a finished turn keeps tool calls where they happened relative to the text, not grouped before all of it", () => {
+    const { result, deliver } = setup();
+    deliver({ type: 'user_message', content: 'go' });
+    deliver({ type: 'text_delta', delta: 'checking first' });
+    deliver({
+      type: 'tool_start',
+      state: { toolName: 'Read', isRunning: true, firstArg: 'a.ts' },
+    } as TServerMessage);
+    deliver({
+      type: 'tool_end',
+      state: { toolName: 'Read', isRunning: false, firstArg: 'a.ts', result: 'success' },
+    } as TServerMessage);
+    deliver({ type: 'text_delta', delta: 'done now' });
+    deliver({ type: 'complete', result: { response: 'checking firstdone now' } } as TServerMessage);
+
+    expect(result.current.messages.map((m) => m.role)).toEqual([
+      'user',
+      'assistant',
+      'tools',
+      'assistant',
+    ]);
+    expect(result.current.messages[1]).toEqual(
+      expect.objectContaining({ content: 'checking first' }),
+    );
+    expect(result.current.messages[3]).toEqual(expect.objectContaining({ content: 'done now' }));
+  });
+
+  it('#3288: a turn that changed files ends with a Changed files summary row', () => {
+    const { result, deliver } = setup();
+    deliver({ type: 'user_message', content: 'fix it' });
+    deliver({
+      type: 'tool_start',
+      state: { toolName: 'Edit', isRunning: true, firstArg: 'a.ts' },
+    } as TServerMessage);
+    deliver({
+      type: 'tool_end',
+      state: {
+        toolName: 'Edit',
+        isRunning: false,
+        firstArg: 'a.ts',
+        result: 'success',
+        diffFile: 'src/a.ts',
+        diffLines: [
+          { type: 'add', text: 'x', lineNumber: 1 },
+          { type: 'add', text: 'y', lineNumber: 2 },
+          { type: 'remove', text: 'z', lineNumber: 1 },
+        ],
+      },
+    } as TServerMessage);
+    deliver({ type: 'complete', result: { response: '' } } as TServerMessage);
+
+    expect(result.current.messages.map((m) => m.role)).toEqual(['user', 'tools', 'changed-files']);
+    expect(result.current.messages[2]).toEqual(
+      expect.objectContaining({
+        files: [{ path: 'src/a.ts', added: 2, removed: 1, diffLines: expect.any(Array) }],
+      }),
+    );
+  });
+
+  it('#3288: a turn with no file changes has no Changed files row', () => {
+    const { result, deliver } = setup();
+    deliver({ type: 'user_message', content: 'read it' });
+    deliver({
+      type: 'tool_start',
+      state: { toolName: 'Read', isRunning: true, firstArg: 'a.ts' },
+    } as TServerMessage);
+    deliver({
+      type: 'tool_end',
+      state: { toolName: 'Read', isRunning: false, firstArg: 'a.ts', result: 'success' },
+    } as TServerMessage);
+    deliver({ type: 'complete', result: { response: '' } } as TServerMessage);
+
+    expect(result.current.messages.some((m) => m.role === 'changed-files')).toBe(false);
+  });
 });
 
 describe('#3186 — commands and status for the composer', () => {

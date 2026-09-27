@@ -18,9 +18,11 @@ import {
 } from 'lucide-react';
 
 import { driverAttributionText, isSameSurface } from '../driver-labels.js';
+import { DiffLines } from './DiffLines.js';
 
 import type {
   IActiveTool,
+  IChangedFileSummary,
   ICommandOutputEntry,
   TConversationEntry,
 } from '../hooks/useSessionClient.js';
@@ -166,34 +168,151 @@ function ToolIcon({ name, className }: { name: string; className?: string }): Re
   return <Wrench {...props} />;
 }
 
+/**
+ * #3288: a long path's directory is shortened FROM THE LEFT so the filename — the part someone
+ * actually needs to recognise — is never the part that gets cut.
+ */
+const PATH_DISPLAY_MAX_CHARS = 52;
+function shortenDirectoryFromLeft(path: string, maxChars: number = PATH_DISPLAY_MAX_CHARS): string {
+  if (path.length <= maxChars) return path;
+  const lastSlash = path.lastIndexOf('/');
+  if (lastSlash === -1) return path; // no directory part to shorten — the filename is never cut
+  const fileName = path.slice(lastSlash + 1);
+  const dir = path.slice(0, lastSlash);
+  const budget = maxChars - fileName.length - 2; // room for the leading "…/"
+  if (budget <= 0) return `…/${fileName}`;
+  return `…${dir.slice(dir.length - budget)}/${fileName}`;
+}
+
+/** Best-effort read of a tool's raw JSON result payload (`IToolInvocationResult`-shaped). */
+function parseToolResult(
+  raw: string | undefined,
+): { output?: string; error?: string; exitCode?: number } | undefined {
+  if (!raw) return undefined;
+  try {
+    const parsed = JSON.parse(raw) as { output?: unknown; error?: unknown; exitCode?: unknown };
+    return {
+      ...(typeof parsed.output === 'string' && parsed.output ? { output: parsed.output } : {}),
+      ...(typeof parsed.error === 'string' && parsed.error ? { error: parsed.error } : {}),
+      ...(typeof parsed.exitCode === 'number' ? { exitCode: parsed.exitCode } : {}),
+    };
+  } catch {
+    // allow-fallback: not the expected JSON shape — show it as plain text rather than nothing.
+    return { output: raw };
+  }
+}
+
+/** Long output folds after ~20 lines; "Show more" expands up to a hard cap with a trailing note. */
+const OUTPUT_FOLD_LINES = 20;
+const OUTPUT_EXPANDED_CAP_LINES = 500;
+function FoldedOutput({ text }: { text: string }): React.ReactElement {
+  const [open, setOpen] = useState(false);
+  const lines = text.split('\n');
+  if (lines.length <= OUTPUT_FOLD_LINES) {
+    return (
+      <pre className="whitespace-pre-wrap break-words font-mono text-[12.5px] leading-relaxed text-muted-foreground">
+        {text}
+      </pre>
+    );
+  }
+  const capped = lines.slice(0, OUTPUT_EXPANDED_CAP_LINES);
+  const shown = open ? capped : lines.slice(0, OUTPUT_FOLD_LINES);
+  return (
+    <div className="flex flex-col gap-1">
+      <pre className="whitespace-pre-wrap break-words font-mono text-[12.5px] leading-relaxed text-muted-foreground">
+        {shown.join('\n')}
+      </pre>
+      {open && lines.length > OUTPUT_EXPANDED_CAP_LINES && (
+        <p className="text-[12px] text-subtle">{lines.length - OUTPUT_EXPANDED_CAP_LINES} more lines</p>
+      )}
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="self-start text-[12.5px] text-accent hover:underline"
+      >
+        {open ? 'Show less' : `Show more (${lines.length - OUTPUT_FOLD_LINES} more lines)`}
+      </button>
+    </div>
+  );
+}
+
+
 function ToolCard({ tool }: { tool: IActiveTool }): React.ReactElement {
   const running = tool.status === 'running';
   const failed = tool.status === 'error';
+  const [open, setOpen] = useState(false);
+  const parsedResult = parseToolResult(tool.toolResultData);
+  const hasDiff = tool.diffLines !== undefined && tool.diffLines.length > 0;
+  const hasOutput = Boolean(parsedResult?.output) || Boolean(parsedResult?.error);
+  const expandable = hasDiff || hasOutput;
+  // #3288: a projected `/command` tool shows its command, never the internal provider tool name.
+  const label = tool.commandName ? `Ran /${tool.commandName}` : tool.name;
+
   return (
-    <div className="flex min-w-0 items-center gap-2.5 py-1 text-[14px]">
-      <ToolIcon
-        name={tool.name}
-        className={`flex-shrink-0 ${failed ? 'text-destructive' : 'text-subtle'}`}
-      />
-      <span
-        className={`flex-shrink-0 font-medium ${
-          running ? 'gui-shimmer' : failed ? 'text-destructive' : 'text-muted-foreground'
+    <div className="flex flex-col text-[14px]">
+      <button
+        type="button"
+        disabled={!expandable}
+        aria-expanded={expandable ? open : undefined}
+        onClick={() => expandable && setOpen((value) => !value)}
+        className={`group -mx-2 flex min-w-0 items-center gap-2.5 rounded-lg px-2 py-1 text-left ${
+          expandable ? 'hover:bg-hover' : 'cursor-default'
         }`}
       >
-        {tool.name}
-      </span>
-      {typeof tool.input === 'string' && tool.input && (
-        <span className="min-w-0 truncate font-mono text-[12.5px] text-subtle">{tool.input}</span>
-      )}
-      <span className="ml-auto flex flex-shrink-0 items-center text-[12.5px] text-subtle">
-        {running ? (
-          <LoaderCircle size={14} className="animate-spin" aria-label="running" />
-        ) : failed ? (
-          <span className="text-destructive">failed</span>
+        <ToolIcon
+          name={tool.name}
+          className={`flex-shrink-0 ${failed ? 'text-destructive' : 'text-subtle'}`}
+        />
+        <span
+          className={`flex-shrink-0 font-medium ${
+            running ? 'gui-shimmer' : failed ? 'text-destructive' : 'text-muted-foreground'
+          }`}
+        >
+          {label}
+        </span>
+        {tool.displayPath ? (
+          // #3288: server-computed, workspace-relative, and never middle/end-truncated — only the
+          // directory portion is shortened, from the left, so the filename always reads in full.
+          <span
+            className="min-w-0 flex-1 break-all font-mono text-[12.5px] text-subtle"
+            title={tool.displayPath}
+          >
+            {shortenDirectoryFromLeft(tool.displayPath)}
+          </span>
         ) : (
-          <Check size={14} aria-label="done" />
+          typeof tool.input === 'string' &&
+          tool.input && (
+            <span className="min-w-0 truncate font-mono text-[12.5px] text-subtle">{tool.input}</span>
+          )
         )}
-      </span>
+        <span className="ml-auto flex flex-shrink-0 items-center gap-1.5 text-[12.5px] text-subtle">
+          {running ? (
+            <LoaderCircle size={14} className="animate-spin" aria-label="running" />
+          ) : failed ? (
+            <span className="text-destructive">failed</span>
+          ) : (
+            <Check size={14} aria-label="done" />
+          )}
+          {expandable && (
+            <ChevronRight
+              size={13}
+              className={`transition-transform ${open ? 'rotate-90' : ''}`}
+            />
+          )}
+        </span>
+      </button>
+      {open && expandable && (
+        <div className="flex flex-col gap-1 pb-1 pl-[25px] pt-0.5">
+          {hasDiff && <DiffLines diffLines={tool.diffLines!} />}
+          {!hasDiff && parsedResult?.output && <FoldedOutput text={parsedResult.output} />}
+          {parsedResult?.error && (
+            <p className="font-mono text-[12.5px] text-destructive">{parsedResult.error}</p>
+          )}
+          {typeof parsedResult?.exitCode === 'number' && (
+            <p className="text-[12px] text-subtle">exit {parsedResult.exitCode}</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -264,10 +383,16 @@ function CommandCard({ entry }: { entry: ICommandOutputEntry }): React.ReactElem
 }
 
 /** One line per finished turn's tool calls; the calls themselves open on demand. */
-function ToolGroup({ tools }: { tools: readonly IActiveTool[] }): React.ReactElement {
+function ToolGroup({ tools }: { tools: readonly IActiveTool[] }): React.ReactElement | null {
   const [open, setOpen] = useState(false);
-  const failed = tools.filter((tool) => tool.status === 'error').length;
-  const names = [...new Set(tools.map((tool) => tool.name))].join(', ');
+  // #3288: an internal signal tool (e.g. the goal-status tool) is never shown as a call — the goal
+  // bar shows progress instead. A group made up ENTIRELY of internal tools renders nothing at all.
+  const visible = tools.filter((tool) => !tool.internal);
+  const failed = visible.filter((tool) => tool.status === 'error').length;
+  const names = [...new Set(visible.map((tool) => (tool.commandName ? `/${tool.commandName}` : tool.name)))].join(
+    ', ',
+  );
+  if (visible.length === 0) return null;
   return (
     <div className="text-[14px]">
       <button
@@ -278,7 +403,7 @@ function ToolGroup({ tools }: { tools: readonly IActiveTool[] }): React.ReactEle
       >
         <Wrench size={15} strokeWidth={1.75} className="flex-shrink-0 text-subtle" />
         <span className="flex-shrink-0">
-          {tools.length} tool {tools.length === 1 ? 'call' : 'calls'}
+          {visible.length} tool {visible.length === 1 ? 'call' : 'calls'}
         </span>
         <span className="min-w-0 truncate text-subtle">{names}</span>
         {failed > 0 && (
@@ -293,11 +418,47 @@ function ToolGroup({ tools }: { tools: readonly IActiveTool[] }): React.ReactEle
       </button>
       {open && (
         <div className="mt-0.5 flex flex-col pl-[25px]">
-          {tools.map((tool) => (
+          {visible.map((tool) => (
             <ToolCard key={tool.id} tool={tool} />
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+/** #3288: a turn that changed files ends with this compact row — a click opens that file's diff. */
+function ChangedFilesRow({ files }: { files: readonly IChangedFileSummary[] }): React.ReactElement {
+  const [openPath, setOpenPath] = useState<string | null>(null);
+  return (
+    <div className="flex flex-col gap-0.5 rounded-lg bg-card px-2 py-1.5 text-[13px]">
+      <p className="px-1 text-[12px] font-medium text-muted-foreground">Changed files</p>
+      {files.map((file) => (
+        <div key={file.path} className="flex flex-col">
+          <button
+            type="button"
+            aria-expanded={openPath === file.path}
+            onClick={() => setOpenPath((current) => (current === file.path ? null : file.path))}
+            className="flex min-w-0 items-center gap-2 rounded-md px-1 py-1 text-left hover:bg-hover"
+          >
+            <span
+              className="min-w-0 flex-1 break-all font-mono text-[12.5px] text-foreground"
+              title={file.path}
+            >
+              {shortenDirectoryFromLeft(file.path)}
+            </span>
+            <span className="flex-shrink-0 font-mono text-[12px] text-accent">+{file.added}</span>
+            <span className="flex-shrink-0 font-mono text-[12px] text-destructive">
+              -{file.removed}
+            </span>
+          </button>
+          {openPath === file.path && (
+            <div className="pl-2">
+              <DiffLines diffLines={file.diffLines} />
+            </div>
+          )}
+        </div>
+      ))}
     </div>
   );
 }
@@ -348,16 +509,20 @@ export function ConversationView({
               return <CommandCard key={entry.id} entry={entry} />;
             case 'tools':
               return <ToolGroup key={entry.id} tools={entry.tools} />;
+            case 'changed-files':
+              return <ChangedFilesRow key={entry.id} files={entry.files} />;
           }
         })}
 
         {isThinking && !streamingText && <ThinkingIndicator />}
 
-        {activeTools.length > 0 && (
+        {activeTools.some((tool) => !tool.internal) && (
           <div className="flex flex-col">
-            {activeTools.map((tool) => (
-              <ToolCard key={tool.id} tool={tool} />
-            ))}
+            {activeTools
+              .filter((tool) => !tool.internal)
+              .map((tool) => (
+                <ToolCard key={tool.id} tool={tool} />
+              ))}
           </div>
         )}
 
