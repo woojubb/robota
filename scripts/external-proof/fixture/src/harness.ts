@@ -50,7 +50,9 @@ export function note(text: string): void {
 export function report(): never {
   process.stdout.write(`\n${'-'.repeat(72)}\n`);
   if (failures.length === 0) {
-    process.stdout.write(`EXTERNAL PROOF PASSED — ${passed} assertions across Modes A, B and C.\n`);
+    process.stdout.write(
+      `EXTERNAL PROOF PASSED — ${passed} assertions across Modes A, B, C and D.\n`,
+    );
     process.exit(0);
   }
   process.stdout.write(
