@@ -161,11 +161,28 @@ function hasUnsafePathShape(value: string): boolean {
   );
 }
 
+/**
+ * Follow-up to #3282 §4d: `isPathLikeReference` in the parser recognizes a `./`-prefixed token as
+ * path-like even when it has no `.` elsewhere (e.g. `./Makefile`) — the GUI composer relies on this
+ * to attach a dotless filename, which `@Makefile` alone cannot do. A literal `.` segment (leading or
+ * internal) is always a no-op in ordinary path semantics, so it is stripped here before the safety
+ * check and the workspace-relative lookup, rather than loosening `hasUnsafePathShape` itself. `..` is
+ * left completely untouched (never collapsed, never specially handled) — it still reaches
+ * `hasUnsafePathShape` exactly as before and is still refused, so `../secret.md` and the
+ * `.`-disguised `./../secret.md` are both still `outside-root` after this change, same as before it.
+ */
+function collapseDotSegments(value: string): string {
+  return value
+    .split('/')
+    .filter((segment) => segment !== '.')
+    .join('/');
+}
+
 function resolveReferencePath(
   reference: IPromptFileReferenceToken,
   state: IResolveState,
 ): string | undefined {
-  const normalized = reference.path.replaceAll('\\', '/');
+  const normalized = collapseDotSegments(reference.path.replaceAll('\\', '/'));
   if (hasUnsafePathShape(normalized)) {
     pushDiagnostic(state, 'outside-root', reference, 'Referenced path is outside the workspace.');
     return undefined;

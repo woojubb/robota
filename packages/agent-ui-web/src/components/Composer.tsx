@@ -47,6 +47,23 @@ function draftStorageKey(sessionId: string | undefined): string {
   return sessionId ? `${DRAFT_STORAGE_PREFIX}${sessionId}` : DRAFT_STORAGE_FALLBACK_KEY;
 }
 
+/**
+ * A stored attachment's shape is never trusted blindly: it is `localStorage`, not this component's
+ * own state, so it can be edited by hand, left over from a future version with a different shape, or
+ * just corrupted. A missing/non-string `name` or `relativePath` would otherwise show a blank chip and
+ * send a broken (or empty) `@`-reference on submit — dropped instead of risking either.
+ */
+function isStoredAttachment(value: unknown): value is IDraftAttachment {
+  if (!value || typeof value !== 'object') return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.id === 'string' &&
+    typeof candidate.name === 'string' &&
+    typeof candidate.relativePath === 'string' &&
+    typeof candidate.size === 'number'
+  );
+}
+
 function parseStoredDraft(raw: string | null): IStoredDraft {
   if (!raw) return EMPTY_DRAFT;
   try {
@@ -55,7 +72,7 @@ function parseStoredDraft(raw: string | null): IStoredDraft {
       const attachments = (parsed as { attachments?: unknown }).attachments;
       return {
         text: (parsed as { text: string }).text,
-        attachments: Array.isArray(attachments) ? (attachments as IDraftAttachment[]) : [],
+        attachments: Array.isArray(attachments) ? attachments.filter(isStoredAttachment) : [],
       };
     }
   } catch {
@@ -226,13 +243,15 @@ export const Composer = forwardRef<
   const addCandidates = (candidates: readonly ICandidateFile[]): void => {
     if (candidates.length === 0) return;
     let total = totalAttachedBytes;
+    let count = attachments.length;
     const added: IDraftAttachment[] = [];
     let notice: string | null = null;
     for (const candidate of candidates) {
-      const outcome = evaluateCandidateFile(candidate, workspacePath, total);
+      const outcome = evaluateCandidateFile(candidate, workspacePath, total, count);
       if (outcome.kind === 'attached') {
         added.push(outcome.attachment);
         total += outcome.attachment.size;
+        count += 1;
       } else {
         notice = outcome.message;
       }

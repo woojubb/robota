@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  ATTACHMENT_COUNT_LIMIT_NOTICE,
   ATTACHMENT_NO_PATH_NOTICE,
   ATTACHMENT_NON_TEXT_NOTICE,
+  MAX_ATTACHMENT_COUNT,
   MAX_ATTACHMENT_FILE_BYTES,
   MAX_ATTACHMENT_TOTAL_BYTES,
   buildPromptWithAttachments,
@@ -44,6 +46,22 @@ describe('relativeWorkspacePath', () => {
     expect(relativeWorkspacePath('/repo/', '/repo/src/a.ts')).toBe('src/a.ts');
     expect(relativeWorkspacePath('C:\\repo', 'C:\\repo\\src\\a.ts')).toBe('src/a.ts');
   });
+
+  // Cheap hardening: a raw prefix check alone would treat this as "inside" (the text literally
+  // starts with the root string) even though it actually names a file above the workspace once the
+  // `..` is followed — canonicalizing first closes that gap.
+  it('rejects a target whose raw text starts with the root but escapes it via ..', () => {
+    expect(relativeWorkspacePath('/repo/sub', '/repo/sub/../../outside/x.ts')).toBeNull();
+  });
+
+  it('resolves a target carrying harmless ./ and ../ noise to its canonical relative path', () => {
+    expect(relativeWorkspacePath('/repo', '/repo/./src/a.ts')).toBe('src/a.ts');
+    expect(relativeWorkspacePath('/repo', '/repo/src/sub/../a.ts')).toBe('src/a.ts');
+  });
+
+  it('canonicalizes the root itself the same way before comparing', () => {
+    expect(relativeWorkspacePath('/repo/sub/..', '/repo/a.ts')).toBe('a.ts');
+  });
 });
 
 describe('looksBinary', () => {
@@ -81,6 +99,7 @@ describe('evaluateCandidateFile', () => {
       { name: 'a.ts', size: 100, absolutePath: '/repo/src/a.ts' },
       workspacePath,
       0,
+      0,
     );
     expect(outcome.kind).toBe('attached');
     if (outcome.kind === 'attached') {
@@ -91,7 +110,7 @@ describe('evaluateCandidateFile', () => {
   });
 
   it('rejects a file with no real path (a plain browser pick or drop) with the plain sentence', () => {
-    const outcome = evaluateCandidateFile({ name: 'a.ts', size: 100 }, workspacePath, 0);
+    const outcome = evaluateCandidateFile({ name: 'a.ts', size: 100 }, workspacePath, 0, 0);
     expect(outcome).toEqual({ kind: 'rejected', message: ATTACHMENT_NO_PATH_NOTICE });
   });
 
@@ -99,6 +118,7 @@ describe('evaluateCandidateFile', () => {
     const outcome = evaluateCandidateFile(
       { name: 'passwd', size: 10, absolutePath: '/etc/passwd' },
       workspacePath,
+      0,
       0,
     );
     expect(outcome).toEqual({ kind: 'rejected', message: ATTACHMENT_NO_PATH_NOTICE });
@@ -109,6 +129,7 @@ describe('evaluateCandidateFile', () => {
       { name: 'a.ts', size: 10, absolutePath: '/repo/a.ts' },
       undefined,
       0,
+      0,
     );
     expect(outcome).toEqual({ kind: 'rejected', message: ATTACHMENT_NO_PATH_NOTICE });
   });
@@ -117,6 +138,7 @@ describe('evaluateCandidateFile', () => {
     const outcome = evaluateCandidateFile(
       { name: 'big.log', size: MAX_ATTACHMENT_FILE_BYTES + 1, absolutePath: '/repo/big.log' },
       workspacePath,
+      0,
       0,
     );
     expect(outcome.kind).toBe('rejected');
@@ -131,6 +153,7 @@ describe('evaluateCandidateFile', () => {
       { name: 'exact.log', size: MAX_ATTACHMENT_FILE_BYTES, absolutePath: '/repo/exact.log' },
       workspacePath,
       0,
+      0,
     );
     expect(outcome.kind).toBe('attached');
   });
@@ -140,6 +163,7 @@ describe('evaluateCandidateFile', () => {
       { name: 'c.ts', size: 10, absolutePath: '/repo/c.ts' },
       workspacePath,
       MAX_ATTACHMENT_TOTAL_BYTES - 5,
+      0,
     );
     expect(outcome.kind).toBe('rejected');
     if (outcome.kind === 'rejected') expect(outcome.message).toContain('256 KB');
@@ -152,6 +176,7 @@ describe('evaluateCandidateFile', () => {
       { name: 'shot.png', size: 100, mimeType: 'image/png', absolutePath: '/repo/shot.png' },
       workspacePath,
       0,
+      0,
     );
     expect(outcome).toEqual({ kind: 'rejected', message: ATTACHMENT_NON_TEXT_NOTICE });
   });
@@ -161,6 +186,7 @@ describe('evaluateCandidateFile', () => {
       { name: 'archive.zip', size: 100, absolutePath: '/repo/archive.zip' },
       workspacePath,
       0,
+      0,
     );
     expect(outcome).toEqual({ kind: 'rejected', message: ATTACHMENT_NON_TEXT_NOTICE });
   });
@@ -169,6 +195,7 @@ describe('evaluateCandidateFile', () => {
     const outcome = evaluateCandidateFile(
       { name: 'my file.txt', size: 10, absolutePath: '/repo/my file.txt' },
       workspacePath,
+      0,
       0,
     );
     expect(outcome.kind).toBe('rejected');
@@ -186,6 +213,7 @@ describe('evaluateCandidateFile', () => {
         { name, size: 10, absolutePath: `/repo/${name}` },
         workspacePath,
         0,
+        0,
       );
       expect(outcome.kind).toBe('rejected');
     },
@@ -196,8 +224,55 @@ describe('evaluateCandidateFile', () => {
       { name: 'notes.txt', size: 10, absolutePath: '/repo/notes.txt' },
       workspacePath,
       0,
+      0,
     );
     expect(outcome.kind).toBe('attached');
+  });
+
+  // Follow-up: a dotless filename (Makefile, Dockerfile, LICENSE, …) is common and useful and must
+  // not be refused just for lacking an extension — buildPromptWithAttachments's ./ prefix (below) is
+  // what makes the runtime parser recognize it, not anything evaluateCandidateFile itself withholds.
+  it.each(['Makefile', 'LICENSE', 'Dockerfile'])('accepts a dotless filename (%s)', (name) => {
+    const outcome = evaluateCandidateFile(
+      { name, size: 10, absolutePath: `/repo/${name}` },
+      workspacePath,
+      0,
+      0,
+    );
+    expect(outcome.kind).toBe('attached');
+    if (outcome.kind === 'attached') expect(outcome.attachment.relativePath).toBe(name);
+  });
+
+  // Cheap hardening: mirrors the runtime's own reference-count limit (DEFAULT_MAX_REFERENCES = 8 in
+  // prompt-file-reference-resolver.ts) so a 9th file is refused up front rather than only when sent.
+  it('accepts up to the count limit', () => {
+    const outcome = evaluateCandidateFile(
+      { name: 'a.ts', size: 10, absolutePath: '/repo/a.ts' },
+      workspacePath,
+      0,
+      MAX_ATTACHMENT_COUNT - 1,
+    );
+    expect(outcome.kind).toBe('attached');
+  });
+
+  it('rejects a file once the count limit is already reached, with a plain message', () => {
+    const outcome = evaluateCandidateFile(
+      { name: 'a.ts', size: 10, absolutePath: '/repo/a.ts' },
+      workspacePath,
+      0,
+      MAX_ATTACHMENT_COUNT,
+    );
+    expect(outcome).toEqual({ kind: 'rejected', message: ATTACHMENT_COUNT_LIMIT_NOTICE });
+  });
+
+  it('checks the count limit before the path, so a well-known reason is given even for an otherwise-invalid file', () => {
+    const outcome = evaluateCandidateFile(
+      { name: 'photo.png', size: 10, mimeType: 'image/png', absolutePath: '/etc/photo.png' },
+      workspacePath,
+      0,
+      MAX_ATTACHMENT_COUNT,
+    );
+    expect(outcome).toEqual({ kind: 'rejected', message: ATTACHMENT_COUNT_LIMIT_NOTICE });
   });
 });
 
@@ -206,18 +281,21 @@ describe('buildPromptWithAttachments', () => {
     expect(buildPromptWithAttachments('hello', [])).toBe('hello');
   });
 
-  it('appends each attachment as an @-reference', () => {
+  // Follow-up: always ./-prefixed, so a dotless name (Makefile, LICENSE, …) is still recognized as a
+  // file reference by the runtime parser's isPathLikeReference, which otherwise requires a `.`
+  // somewhere or an explicit relative-path prefix.
+  it('appends each attachment as an @./-reference', () => {
     const result = buildPromptWithAttachments('look at this', [
       { id: '1', name: 'a.ts', relativePath: 'src/a.ts', size: 1 },
       { id: '2', name: 'b.ts', relativePath: 'src/b.ts', size: 1 },
     ]);
-    expect(result).toBe('look at this\n\n@src/a.ts @src/b.ts');
+    expect(result).toBe('look at this\n\n@./src/a.ts @./src/b.ts');
   });
 
   it('carries just the references when the prompt text is empty', () => {
     const result = buildPromptWithAttachments('', [
       { id: '1', name: 'a.ts', relativePath: 'src/a.ts', size: 1 },
     ]);
-    expect(result).toBe('@src/a.ts');
+    expect(result).toBe('@./src/a.ts');
   });
 });
