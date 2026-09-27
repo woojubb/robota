@@ -60,25 +60,6 @@ function sandboxDescription(mode: string | undefined): string {
   return 'Confines shell commands to the workspace and temp directories, without a prompt for each one.';
 }
 
-/**
- * Plain labels for the runtime's permission-mode ids. #3282 §2 (branch
- * `claude/issue-3282-model-command`) is adding this same table to the runtime; that branch had not
- * merged when this was written (only `readCommandPermissionsState`'s per-id DESCRIPTION exists
- * today — see `buildPermissionModeSubcommands`). Once it lands, this table should be deleted and
- * the runtime's take reused instead of kept as a second source.
- */
-const PERMISSION_MODE_LABELS: Readonly<Record<string, string>> = {
-  plan: 'Plan only',
-  default: 'Ask first',
-  acceptEdits: 'Accept edits',
-  bypassPermissions: 'Skip all checks',
-  auto: 'Auto',
-};
-
-function modeLabel(id: string): string {
-  return PERMISSION_MODE_LABELS[id] ?? id;
-}
-
 export function createSettingsReporter(options: ICreateSettingsReporterOptions): ISettingsReporter {
   return {
     getSettings: (session) => buildSnapshot(session, options),
@@ -144,9 +125,11 @@ async function buildSnapshot(
   const settingsDocument = commandHostAdapters.settings?.read() ?? {};
   const language = asString(settingsDocument['language']);
 
+  // `displayName` is the plain label `@robota-sdk/agent-framework`'s own `PERMISSION_MODE_LABELS`
+  // (#3282 §2) sets for every mode — reused here rather than kept as a second table.
   const permissionModeChoices: ISettingsChoice[] = buildPermissionModeSubcommands().map((sub) => ({
     id: sub.name,
-    label: modeLabel(sub.name),
+    label: sub.displayName ?? sub.name,
     description: sub.description ?? '',
   }));
 
