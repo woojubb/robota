@@ -15,6 +15,7 @@ export { isExecutionControlError } from './execution-control-error';
 export {
   classifyProviderFailure,
   readProviderFailureDetails,
+  scrubSecrets,
   toProviderError,
   type IProviderFailureClassification,
   type TProviderFailureReason,

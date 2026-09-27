@@ -12,6 +12,7 @@ import { formatProviderSetupChoiceLabel } from './provider-setup-flow.js';
 
 import type { IUserInteraction } from '@robota-sdk/agent-core';
 import type {
+  ICommandHostSetupState,
   ICommandHostUserInteraction,
   IProviderCommandModuleOptions,
   IProviderProfileSettings,
@@ -19,11 +20,14 @@ import type {
 import type { ICommandResult } from '@robota-sdk/agent-interface-command';
 
 export async function executeProviderCommand(
-  context: ICommandHostUserInteraction,
+  context: ICommandHostUserInteraction & ICommandHostSetupState,
   args: string,
   options: IProviderCommandModuleOptions,
 ): Promise<ICommandResult> {
   const ui = context.getUserInteraction();
+  // #3282 §3: the session's own live state, never inferred from settings — an ordinary env-default
+  // session also has no persisted `currentProvider`, and is not in setup mode either.
+  const isSetupRequired = context.isSetupRequired?.() === true;
   const settings = options.settings.readMergedSettings();
   const trimmedArgs = args.trim();
   if (trimmedArgs.length === 0) {
@@ -52,7 +56,7 @@ export async function executeProviderCommand(
     );
   }
   if (subcommand === 'add') {
-    return buildProviderSetup(ui, profileArg, options);
+    return buildProviderSetup(ui, profileArg, options, isSetupRequired);
   }
 
   return {
@@ -121,6 +125,7 @@ function buildProviderSetup(
   ui: IUserInteraction | undefined,
   type: string | undefined,
   options: IProviderCommandModuleOptions,
+  isSetupRequired: boolean,
 ): Promise<ICommandResult> | ICommandResult {
   if (type === undefined || type.length === 0) {
     if (!ui) {
@@ -129,7 +134,7 @@ function buildProviderSetup(
         success: false,
       };
     }
-    return askProviderSetupType(ui, options);
+    return askProviderSetupType(ui, options, isSetupRequired);
   }
   if (findProviderDefinition(options.providerDefinitions, type) === undefined) {
     return {
@@ -143,12 +148,13 @@ function buildProviderSetup(
       success: false,
     };
   }
-  return runProviderAddSetup(ui, createSetupFlow(type, options), options);
+  return runProviderAddSetup(ui, createSetupFlow(type, options), options, isSetupRequired);
 }
 
 async function askProviderSetupType(
   ui: IUserInteraction,
   options: IProviderCommandModuleOptions,
+  isSetupRequired: boolean,
 ): Promise<ICommandResult> {
   const typeOptions = options.providerDefinitions.map((definition) => ({
     value: definition.type,
@@ -167,5 +173,5 @@ async function askProviderSetupType(
       success: false,
     };
   }
-  return runProviderAddSetup(ui, createSetupFlow(type, options), options);
+  return runProviderAddSetup(ui, createSetupFlow(type, options), options, isSetupRequired);
 }

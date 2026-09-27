@@ -982,6 +982,7 @@ export type {
   ICommandHostPlan,
   ICommandHostPresetApplication,
   ICommandHostSessionAccess,
+  ICommandHostSetupState,
   ICommandHostTerminalHandoff,
   ICommandHostUserInteraction,
   ICommandHostWorkspace,

@@ -756,6 +756,15 @@ describe('#3282 §3 — first run: setup mode', () => {
     expect(screen.queryByLabelText('message')).toBeNull();
   });
 
+  it('renders exactly one main landmark, never zero, never nested (#3289 §3)', () => {
+    const state = stubState({ sessionStatus: setupStatus });
+    render(<SessionSurface state={state} />);
+
+    // getByRole('main') itself throws on zero matches or on more than one — this alone proves both
+    // halves of the invariant, the same way the conversation and personal-usage states already do.
+    expect(screen.getByRole('main', { name: 'Set up a provider' })).toBeTruthy();
+  });
+
   it('"Set up provider" sends /provider add as a command', () => {
     const state = stubState({ sessionStatus: setupStatus });
     render(<SessionSurface state={state} />);

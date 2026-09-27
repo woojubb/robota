@@ -1739,6 +1739,16 @@ export class InteractiveSession
     );
   }
 
+  /**
+   * #3282 §3 — {@link ICommandHostSetupState}: whether THIS session is still running the placeholder
+   * provider. `/provider add` reads this (never settings) to decide hot-swap vs. restart, because a
+   * settings-inferred "no `currentProvider`" is also true of an ordinary env-default session that was
+   * never in setup mode.
+   */
+  isSetupRequired(): boolean {
+    return this.setupRequired;
+  }
+
   attachTransport(transport: ITransportAdapter<IInteractiveSession>): void {
     transport.attach(this);
   }
