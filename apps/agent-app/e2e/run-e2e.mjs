@@ -7,8 +7,9 @@
  * a turn round-trips (TC-01); closing the window leaves the daemon running, and the next launch reattaches
  * to that same daemon and its conversation (#3189); a daemon that stops while the window is open leaves the
  * window saying so, and Reconnect starts a new daemon and attaches to it (or, when the new start fails,
- * shows the CLI's reason); and a daemon that cannot start reaches the fatal screen with the CLI's reason
- * instead of hanging.
+ * shows the CLI's reason); a daemon that cannot start reaches the fatal screen with the CLI's reason
+ * instead of hanging; and in a folder not trusted yet the window asks first, and starts the daemon
+ * Restricted or after the grant, as answered (#3268).
  *
  * Run: `pnpm --filter @robota-sdk/agent-app test:e2e` (wraps this in `xvfb-run`; on macOS run it with node).
  */
@@ -51,8 +52,9 @@ const stopDaemonAndAwaitReconnect = async (page) => {
   return { pid, reconnect };
 };
 
-const readDaemonPid = () =>
-  existsSync(statePath) ? JSON.parse(readFileSync(statePath, 'utf8')).pid : undefined;
+const readDaemon = () => (existsSync(statePath) ? JSON.parse(readFileSync(statePath, 'utf8')) : undefined);
+const readDaemonPid = () => readDaemon()?.pid;
+const trustFile = join(stateDir, 'trust');
 
 const isAlive = (pid) => {
   if (!Number.isInteger(pid)) return false;
@@ -145,6 +147,51 @@ try {
   } finally {
     await unrestartable.close();
     rmSync(failFile, { force: true });
+  }
+
+  // #3268: a folder not trusted yet. Nothing starts until the person answers.
+  const stopRecordedDaemon = () => {
+    const pid = readDaemonPid();
+    if (isAlive(pid)) process.kill(pid, 'SIGTERM');
+    rmSync(statePath, { force: true });
+  };
+  stopRecordedDaemon();
+  const askedRestricted = await launch({ ROBOTA_E2E_TRUST_FILE: trustFile });
+  try {
+    const page = await askedRestricted.firstWindow();
+    const dialog = page.getByRole('dialog', { name: 'Do you trust this folder?' });
+    await dialog.waitFor({ timeout: 20_000 });
+    check('#3268: an untrusted folder asks first, and nothing has started', readDaemon() === undefined);
+    await dialog.getByRole('button', { name: 'Start Restricted' }).click();
+    await connected(page);
+    check('#3268: Start Restricted starts the daemon Restricted and connects', readDaemon()?.restricted === true);
+    check('#3268: Start Restricted leaves the folder untrusted', !existsSync(trustFile));
+    const { reconnect } = await stopDaemonAndAwaitReconnect(page);
+    await reconnect.click();
+    await connected(page);
+    check('#3268: Reconnect after Start Restricted starts the daemon Restricted again', readDaemon()?.restricted === true);
+  } catch (err) {
+    check(`restricted-answer check threw: ${err?.message ?? err}`, false);
+  } finally {
+    await askedRestricted.close();
+  }
+
+  stopRecordedDaemon();
+  const askedTrust = await launch({ ROBOTA_E2E_TRUST_FILE: trustFile });
+  try {
+    const page = await askedTrust.firstWindow();
+    const dialog = page.getByRole('dialog', { name: 'Do you trust this folder?' });
+    await dialog.waitFor({ timeout: 20_000 });
+    await dialog.getByRole('button', { name: 'Trust folder' }).click();
+    await connected(page);
+    check(
+      '#3268: Trust folder records the grant, then starts the daemon with the project configuration',
+      readFileSync(trustFile, 'utf8') === 'trusted' && readDaemon()?.restricted === false,
+    );
+  } catch (err) {
+    check(`trust-answer check threw: ${err?.message ?? err}`, false);
+  } finally {
+    await askedTrust.close();
   }
 
   const refused = await launch({ ROBOTA_E2E_DAEMON_FAIL: '1' });

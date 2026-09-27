@@ -32,6 +32,8 @@ describe('resolveGuiHost', () => {
       signalReady: vi.fn(),
       onState: vi.fn(() => () => {}),
       restartRuntime: vi.fn(async () => {}),
+      trustQuestion: vi.fn(async () => null),
+      answerTrust: vi.fn(async () => ({})),
     };
     const host = resolveGuiHost({ ...page(), bridge });
     expect(host.kind).toBe('desktop');
@@ -40,12 +42,17 @@ describe('resolveGuiHost', () => {
     expect(bridge.signalReady).toHaveBeenCalled();
     await host.restartRuntime?.();
     expect(bridge.restartRuntime).toHaveBeenCalled();
+    await expect(host.trustQuestion?.()).resolves.toBeNull();
+    await host.answerTrust?.('restricted');
+    expect(bridge.answerTrust).toHaveBeenCalledWith('restricted');
   });
 
   it('in a browser, prefers the address the CLI injected into the page', async () => {
     const host = resolveGuiHost(page({ meta: 'ws://127.0.0.1:4321?token=a', search: '?ws=ws%3A%2F%2Fother' }));
     expect(host.kind).toBe('browser');
     expect(host.restartRuntime).toBeUndefined();
+    // A browser page is served by a runtime that already started; there is nothing to ask first.
+    expect(host.trustQuestion).toBeUndefined();
     await expect(host.getEndpoint()).resolves.toBe('ws://127.0.0.1:4321?token=a');
   });
 
