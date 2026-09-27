@@ -400,17 +400,12 @@ describe('/loop asks before starting on its own (#3288 §1)', () => {
     const host = createTestAgentJobHost({ createSelfPacedLoop });
     const ask = askResolving('start');
     const options = { defaultPrompt: 'Tend the current task.\nCheck CI when it finishes.' };
-    // The confirmation names ITS OWN "until", computed from now — not the loop's eventual `expiresAt`,
-    // since asking happens before the loop (and its own expiry) exists.
-    const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.parse('2026-09-24T00:00:00.000Z'));
 
     const result = await executeLoopCommand(host, vi.fn(), '', options, { ui: { ask }, source: 'user' });
-    clock.mockRestore();
 
     expect(ask).toHaveBeenCalledTimes(1);
     const request = ask.mock.calls[0]![0] as { title: string; options: Array<{ value: string }> };
-    expect(request.title).toContain('Start a loop with the default prompt');
-    expect(request.title).toContain(`until ${new Date(Date.parse('2026-09-24T00:00:00.000Z') + 7 * 24 * 60 * 60_000).toISOString()}`);
+    expect(request.title).toContain('Start a loop that keeps working on its own for up to 7 days');
     expect(request.title).toContain('Tend the current task.');
     expect(request.title).not.toContain('Check CI when it finishes.');
     expect(request.options.map((option) => option.value)).toEqual(['start', 'cancel']);
@@ -546,7 +541,7 @@ describe('/loop asks before starting on its own (#3288 §1)', () => {
 
     expect(ask).toHaveBeenCalledTimes(1);
     const request = ask.mock.calls[0]![0] as { title: string };
-    expect(request.title).toContain('Start a loop with the default prompt');
+    expect(request.title).toContain('Start a loop that keeps working on its own for up to 7 days');
     expect(spawnScheduledWake).toHaveBeenCalledWith(
       expect.objectContaining({ agentInstruction: options.defaultPrompt }),
     );

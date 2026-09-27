@@ -18,6 +18,7 @@ const HOURS_PER_DAY = 24;
 const MAX_LABEL_LENGTH = 48;
 const MAX_ACTIVE_LOOPS = 3;
 const LOOP_LIFETIME_MS = 7 * 24 * 60 * 60_000;
+const LOOP_LIFETIME_DAYS = LOOP_LIFETIME_MS / (HOURS_PER_DAY * 60 * SECONDS_PER_MINUTE * 1_000);
 const MAX_DEFAULT_PROMPT_LENGTH = 4_096;
 const pendingCreates = new WeakMap<object, number>();
 const TRAILING_UNITS = new Set([
@@ -219,18 +220,17 @@ async function confirmDefaultLoopStart(
     return {
       success: false,
       message:
-        'Starting a loop with the default prompt needs a person to confirm it — ' +
+        'Starting a loop with its built-in prompt needs a person to confirm it — ' +
         'ask the user to run /loop, or give your own prompt with /loop <prompt>.',
     };
   }
   const { ui } = invocation;
   if (!ui) return { success: false, message: HEADLESS_REFUSAL };
-  const expiresAt = new Date(Date.now() + LOOP_LIFETIME_MS).toISOString();
   const firstLine = instruction.split('\n')[0]!.trim() || instruction;
   const response = await ui.ask(
     selectAction(
       'loop-start-default',
-      `Start a loop with the default prompt that keeps working on its own until ${expiresAt}? It will: ${firstLine}`,
+      `Start a loop that keeps working on its own for up to ${LOOP_LIFETIME_DAYS} days? It will: ${firstLine}`,
       [
         { value: 'start', label: 'Start' },
         { value: 'cancel', label: 'Cancel' },

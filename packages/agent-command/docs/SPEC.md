@@ -125,8 +125,9 @@ starts unconfirmed: it is the operator's own instruction. Any form that instead 
 host's default maintenance prompt — bare `/loop`, or an interval alone (`/loop <N><s|m|h|d>`, self-
 paced or fixed cadence) — is gated the same way, because it is the same standing commitment (running
 unattended for up to the loop's lifetime) whichever form reached it: an interactive invocation (an
-ask port attached) asks the operator to confirm, naming the default prompt's first line, the expiry
-and other active loops; a headless one (no ask port — a print-mode or scheduled run) is refused with
+ask port attached) asks the operator to confirm, naming the prompt's first line, how long it can run
+unattended, and other active loops — never the internal "default prompt" wording, nor a raw
+timestamp; a headless one (no ask port — a print-mode or scheduled run) is refused with
 a plain message rather than starting unconfirmed, since a loop that can run for a week must not start
 with nobody there to say yes; a model-invoked one is always refused outright, never silently asked or
 blocked, so the model cannot start one on its own — only ever its own explicit prompt. In self-paced
