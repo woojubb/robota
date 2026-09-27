@@ -13,6 +13,7 @@ import {
   nonReproducibleCapabilities,
   ROBOTA_OS_SANDBOX_TYPE,
   packTools,
+  parentSandboxSettingsOf,
   type IRobotaPackContext,
 } from '../robota-subagent-composition.js';
 
@@ -320,5 +321,33 @@ describe('issue #3254 — a child builds its sandbox from the parent’s live se
         parentSettings: { enabled: 'yes' },
       }),
     ).toThrow(/sandbox settings/);
+  });
+});
+
+describe('issue #3254 — robota tells each spawn what the parent sandbox holds now', () => {
+  it('reads the live client at every call, so a /sandbox change reaches the next child', () => {
+    const client = createRobotaSandbox({
+      cwd: CWD,
+      settingsSources: [],
+      // A backend is named so the client exists on every host; nothing here runs a command.
+      detect: () => ({ backend: 'bubblewrap', missing: [] }),
+      settings: {
+        enabled: true,
+        autoAllowBashIfSandboxed: true,
+        excludedCommands: [],
+        allowWrite: [],
+        denyRead: [],
+        network: false,
+      },
+    }).client;
+    const read = parentSandboxSettingsOf({ cwd: CWD, sandboxClient: client });
+
+    expect(read()).toMatchObject({ autoAllowBashIfSandboxed: true });
+    client?.configure({ autoAllowBashIfSandboxed: false });
+    expect(read()).toMatchObject({ autoAllowBashIfSandboxed: false });
+  });
+
+  it('tells a child nothing when the parent holds no OS sandbox', () => {
+    expect(parentSandboxSettingsOf({ cwd: CWD })()).toBeUndefined();
   });
 });

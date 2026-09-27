@@ -5,7 +5,6 @@ import type {
 } from '@robota-sdk/agent-core';
 import type { ISubagentOptions, restoreSessionRecordIntoSession } from '@robota-sdk/agent-framework';
 
-
 /**
  * The session record store a fork job's `resumeSessionId` names a record in, typed FROM the one
  * function that reads it (`restoreSessionRecordIntoSession`, agent-framework) rather than from the
@@ -122,7 +121,8 @@ export interface ISubagentWorkerComposition {
 
   /**
    * A sandbox the child composes itself at its execution root, rather than restoring one from a
-   * snapshot: the OS sandbox is a function of the root and the settings files, so nothing crosses.
+   * snapshot: the OS sandbox is a function of the root and its settings, and the settings cross as
+   * data (`parentSettings`, the parent's as they stood at spawn) where a live handle cannot.
    *
    * The worker builds it once and hands the SAME instance to `createTools` (as `sandboxClient`) and to
    * the session (as `commandSandbox`), so the approval a confined command gets comes from the instance

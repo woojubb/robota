@@ -85,7 +85,7 @@ export function nonReproducibleCapabilities(context: IRobotaPackContext): readon
   // and a registered factory is useless without a reference to hand it.
   if (!context.sandboxClient) return [];
   // The OS sandbox is a pure function of (execution root, settings): the child composes its own from
-  // the same settings files in `createTools`, so nothing has to cross the boundary.
+  // the parent's live settings, which cross as data, so no live handle has to.
   if (context.sandboxType === ROBOTA_OS_SANDBOX_TYPE) return [];
   const projectable =
     typeof context.sandboxClient.snapshot === 'function' && context.sandboxType !== undefined;
@@ -246,19 +246,27 @@ function createRobotaChildProcessSubagentRunner(options: {
   // ARCH-021: fail closed. A capability the child cannot reproduce must stop the spawn rather than
   // be silently dropped — a sandboxed parent with a host-tool child is ARCH-010's measured shape.
   assertChildProcessSubagentsCanReproduce(options.packContext);
-  const parentSandbox = options.packContext.sandboxClient;
   return createChildProcessSubagentRunnerFactory({
-    // Read at each spawn: `/sandbox` changes the parent's live client, not the files a child reads.
-    parentSandboxSettings: () => {
-      const settings = liveSandboxSettings(parentSandbox);
-      return settings === undefined ? undefined : { ...settings };
-    },
+    parentSandboxSettings: parentSandboxSettingsOf(options.packContext),
     workerEntry: options.workerEntry,
     providerConfig: options.providerConfig,
     providerDefinitions: options.providerDefinitions,
     logsDir: options.logsDir,
     worktreeAdapter: options.worktreeAdapter,
   });
+}
+
+/**
+ * What a child-process subagent is told about its parent's sandbox, read at each spawn: `/sandbox`
+ * changes the parent's live client, not the settings files a child would otherwise read.
+ */
+export function parentSandboxSettingsOf(
+  packContext: IRobotaPackContext,
+): () => Readonly<Record<string, unknown>> | undefined {
+  return () => {
+    const settings = liveSandboxSettings(packContext.sandboxClient);
+    return settings === undefined ? undefined : { ...settings };
+  };
 }
 
 /**
