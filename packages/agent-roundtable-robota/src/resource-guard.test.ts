@@ -39,4 +39,36 @@ describe('claimLease', () => {
     expect(() => release()).not.toThrow();
     expect(() => claimLease([tool])).not.toThrow();
   });
+
+  // MUST 4 (addendum): a bare "This session, provider or tool is already held" told a host
+  // NOTHING about which of possibly many leased resources collided.
+  it('names the reused resource by getName() when it has one, over a bare "resource"', () => {
+    const tool = { getName: () => 'WebFetch' };
+    claimLease([tool]);
+    expect(() => claimLease([tool])).toThrowError(/WebFetch/);
+  });
+
+  it('names the reused resource by its .name when it has no getName()', () => {
+    const provider = { name: 'anthropic' };
+    claimLease([provider]);
+    expect(() => claimLease([provider])).toThrowError(/anthropic/);
+  });
+
+  it('falls back to a generic description for a resource with neither getName() nor name', () => {
+    class Session {}
+    const session = new Session();
+    claimLease([session]);
+    expect(() => claimLease([session])).toThrowError(/Session/);
+  });
+
+  it('never lets a broken getName() break the error message itself', () => {
+    const broken = {
+      getName() {
+        throw new Error('boom');
+      },
+      name: 'fallback-name',
+    };
+    claimLease([broken]);
+    expect(() => claimLease([broken])).toThrowError(/fallback-name/);
+  });
 });
