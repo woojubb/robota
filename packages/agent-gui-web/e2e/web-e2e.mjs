@@ -188,7 +188,9 @@ try {
       await page.getByRole('button', { name: 'model: scripted-model-2' }).click();
       await page
         .getByRole('menu', { name: 'Model' })
-        .getByRole('menuitemradio', { name: 'Scripted Model' })
+        // exact: 'Scripted Model' is a substring of 'Scripted Model 2' — Playwright's name match is
+        // substring by default, and both items are in this menu at once.
+        .getByRole('menuitemradio', { name: 'Scripted Model', exact: true })
         .click();
       await page.getByRole('button', { name: 'model: scripted-model' }).waitFor();
     },
@@ -501,6 +503,16 @@ try {
     async () => {
       await page.setViewportSize({ width: 390, height: 800 });
       try {
+        // The session-list-covers-the-composer overlay at a narrow width is #3289 §2's OTHER,
+        // separate bug (the sheet-with-backdrop fix is out of scope here — this PR only owns the
+        // status controls' own collapse). Close it first, the same way a person would, so this
+        // scenario checks what it owns: the status chips and composer, not that unrelated overlay.
+        const hideSessions = page.getByRole('button', { name: 'Hide sessions' });
+        if ((await hideSessions.count()) > 0) {
+          await hideSessions.click();
+          await page.getByRole('complementary', { name: 'Sessions' }).waitFor({ state: 'detached' });
+        }
+
         const viewport = page.viewportSize();
         const modelChip = page.getByRole('button', { name: 'model: scripted-model' });
         const modeChip = page.getByRole('button', { name: 'mode: acceptEdits' });
