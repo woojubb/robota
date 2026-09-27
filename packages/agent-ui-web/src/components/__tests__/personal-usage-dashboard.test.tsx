@@ -13,7 +13,9 @@ import type {
 /**
  * #3289 §4 — Personal usage shows a priced total, session names instead of raw ids, and plain
  * labels instead of internal terms. These tests exercise the presentation only: the cost-aggregation
- * fix and `sessionLabels` derivation are covered in `agent-session-analytics`'s own tests.
+ * fix and the report's own `sessionFirstSeen` derivation are covered in `agent-session-analytics`'s
+ * own tests. The report is content-free; a session's name comes from this workspace's own local
+ * session listing (the same `sessionTitle()` the sidebar uses), never from the report.
  */
 
 afterEach(cleanup);
@@ -80,8 +82,27 @@ function dashboardState(
     currentSessionUsageStatus: 'idle',
     currentSessionUsageReport: null,
     requestCurrentSessionUsage: () => undefined,
+    sessionListing: null,
     ...overrides,
   } as unknown as TPersonalUsageDashboardState;
+}
+
+/** A minimal local session-directory listing, as this workspace's own host would send it. */
+function listingWith(
+  ...sessions: ReadonlyArray<{ id: string; name?: string; preview?: string }>
+): NonNullable<TPersonalUsageDashboardState['sessionListing']> {
+  return {
+    currentSessionId: sessions[0]?.id ?? '',
+    sessions: sessions.map(({ id, name, preview }) => ({
+      id,
+      ...(name ? { name } : {}),
+      cwd: '/workspace',
+      updatedAt: '2026-09-26T00:00:00.000Z',
+      messageCount: 0,
+      preview: preview ?? '',
+    })),
+    unreadableSessionIds: [],
+  } as unknown as NonNullable<TPersonalUsageDashboardState['sessionListing']>;
 }
 
 describe('cost: a priced total with a plain note about what was left out', () => {
@@ -117,7 +138,7 @@ describe('cost: a priced total with a plain note about what was left out', () =>
 });
 
 describe('session buttons and the stored-session panel show names, never raw ids', () => {
-  function reportWithSession() {
+  function reportWithSession(overrides: Partial<TPersonalUsageReport> = {}) {
     return baseReport({
       totals: totals({ costUsd: 1.25, costStatus: 'estimated' }),
       byModel: [
@@ -134,24 +155,24 @@ describe('session buttons and the stored-session panel show names, never raw ids
         },
       ],
       sessionIds: ['session_15f05245-abc'],
-      sessionLabels: {
-        'session_15f05245-abc': { title: 'Fix the login bug', workspace: 'robota' },
-      },
+      ...overrides,
     });
   }
 
-  it('shows the session title and workspace on the button, and the raw id only as a data attribute', () => {
+  it('shows this workspace\'s own local listing name on the button, and the raw id only as a data attribute', () => {
     const report = reportWithSession();
-    render(<PersonalUsageContent state={dashboardState(report)} breakdown="model" setBreakdown={() => undefined} />);
+    const state = dashboardState(report, {
+      sessionListing: listingWith({ id: 'session_15f05245-abc', name: 'Fix the login bug' }),
+    });
+    render(<PersonalUsageContent state={state} breakdown="model" setBreakdown={() => undefined} />);
 
     const button = screen.getByRole('button', { name: 'Open session Fix the login bug' });
     expect(button.textContent).toContain('Fix the login bug');
-    expect(button.textContent).toContain('robota');
     expect(button.getAttribute('data-session-id')).toBe('session_15f05245-abc');
     expect(screen.queryByText('session_15f05245-abc')).toBeNull();
   });
 
-  it('falls back to "Untitled session" (never the raw id) when a session has no label', () => {
+  it('falls back to "Another session" (never the raw id) when a session is outside this workspace\'s listing and the report has no first-seen time for it', () => {
     const report = baseReport({
       byModel: [
         {
@@ -170,13 +191,39 @@ describe('session buttons and the stored-session panel show names, never raw ids
     });
     render(<PersonalUsageContent state={dashboardState(report)} breakdown="model" setBreakdown={() => undefined} />);
 
-    expect(screen.getByRole('button', { name: 'Open session Untitled session' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Open session Another session' })).toBeTruthy();
     expect(screen.queryByText('session_untracked')).toBeNull();
+  });
+
+  it('falls back to "Session from <date>" (never the raw id) for a session outside the listing that has a content-free first-seen time', () => {
+    const report = baseReport({
+      byModel: [
+        {
+          key: 'scripted-model',
+          label: 'scripted-model',
+          turns: 1,
+          promptTokens: 30,
+          completionTokens: 12,
+          totalTokens: 42,
+          costUsd: 0,
+          costStatus: 'unknown',
+          sessionIds: ['session_elsewhere'],
+        },
+      ],
+      sessionIds: ['session_elsewhere'],
+      sessionFirstSeen: { session_elsewhere: '2026-09-01T12:00:00.000Z' },
+    });
+    render(<PersonalUsageContent state={dashboardState(report)} breakdown="model" setBreakdown={() => undefined} />);
+
+    const button = screen.getByRole('button', { name: /^Open session Session from / });
+    expect(button.textContent).toContain('Session from');
+    expect(screen.queryByText('session_elsewhere')).toBeNull();
   });
 
   it('shows the session title as the stored-session panel heading, not "Session <id>"', () => {
     const report = reportWithSession();
     const state = dashboardState(report, {
+      sessionListing: listingWith({ id: 'session_15f05245-abc', name: 'Fix the login bug' }),
       storedSessionUsageStatus: 'ready',
       storedSessionUsageSessionId: 'session_15f05245-abc',
       storedSessionUsageReport: {

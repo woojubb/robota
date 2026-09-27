@@ -182,6 +182,9 @@ const storedSessions = [
     updatedAt: minutesAgo(3 * 24 * 60),
     messages: [{ role: 'user', content: 'Set up the release checklist' }],
   },
+  // The personal-usage report itself is content-free; the dashboard names this session from this
+  // workspace's own local directory listing (its `name`), never from the report (#3289 §4).
+  { id: 'usage-e2e-session', name: 'Usage e2e session', updatedAt: minutesAgo(2), messages: [] },
 ];
 const unreadableSessionIds = ['damaged-session'];
 
@@ -512,11 +515,8 @@ const transport = new WsTransport({
       bySource: [],
       byActivity: [{ key: 'tool:Read', label: 'Read', kind: 'tool', count: 2 }],
       sessionIds: ['usage-e2e-session'],
-      // A readable name, given directly rather than derived from prompt content: the dashboard must
-      // never fall back to raw session content for its label, so this session gets a name of its own.
-      sessionLabels: {
-        'usage-e2e-session': { title: 'Usage e2e session', workspace: 'scripted-workspace' },
-      },
+      // The report carries no name for this session — the dashboard reads "Usage e2e session" from
+      // this workspace's own local session-directory listing above, never from the report (#3289 §4).
       coverage: {
         validSessions: 1,
         corruptSessions: 0,

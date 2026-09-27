@@ -173,10 +173,13 @@ try {
   });
 
   await scenario('the usage dashboard renders the sidecar report without raw content', async () => {
-    await page.getByRole('button', { name: 'Usage' }).click();
+    // Exact: the sidebar also lists a stored session named "Usage e2e session" (below), whose row
+    // text otherwise substring-matches this nav button too.
+    await page.getByRole('button', { name: 'Usage', exact: true }).click();
     await page.getByRole('heading', { name: 'Personal usage' }).waitFor();
     await page.getByText('scripted-model').waitFor();
-    // The session button shows the report's own readable name, never the raw session id.
+    // The report itself is content-free; the session button is named from this workspace's own
+    // local session-directory listing (the scripted sidecar's fake directory), never a raw id.
     await page.getByRole('button', { name: 'Open session Usage e2e session' }).click();
     const detail = page.getByRole('region', { name: 'Session usage detail' });
     await detail.getByText('42').waitFor();

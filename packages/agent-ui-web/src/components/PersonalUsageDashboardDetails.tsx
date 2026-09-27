@@ -1,9 +1,10 @@
+import { sessionTitle } from './SessionSidebar.js';
+
 import type { Dispatch, SetStateAction } from 'react';
 import type {
   TPersonalUsageDimension,
   TPersonalUsageDashboardState,
   TPersonalUsageReport,
-  TPersonalUsageSessionLabel,
   TUsageBreakdown,
 } from './personal-usage-dashboard-types.js';
 
@@ -40,12 +41,31 @@ function visibleBreakdowns(report: TPersonalUsageReport): readonly TUsageBreakdo
   return [...shown, 'activity'];
 }
 
-/** Never the raw id: a session outside `sessionLabels` (or the report itself) still gets a plain title. */
-function sessionLabelFor(
+const sessionTimestampFormat = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
+
+/**
+ * Never the raw id: a session this workspace's own listing knows is named from that local data (the
+ * same `sessionTitle()` the sidebar uses — its `name`, else its own preview, both this person's own
+ * local data already shown in this GUI). A session outside that listing (e.g. from another workspace)
+ * falls back to the report's content-free first-seen timestamp, or else a plain placeholder — never to
+ * the id itself.
+ */
+function sessionDisplayTitle(
+  state: TPersonalUsageDashboardState,
   report: TPersonalUsageReport,
   sessionId: string,
-): TPersonalUsageSessionLabel {
-  return report.sessionLabels?.[sessionId] ?? { title: 'Untitled session' };
+): string {
+  const listed = state.sessionListing?.sessions.find((session) => session.id === sessionId);
+  if (listed) return sessionTitle(listed);
+  const firstSeen = report.sessionFirstSeen?.[sessionId];
+  const at = firstSeen ? new Date(firstSeen) : undefined;
+  if (at && !Number.isNaN(at.getTime())) {
+    return `Session from ${sessionTimestampFormat.format(at)}`;
+  }
+  return 'Another session';
 }
 
 export function Stat({
@@ -106,10 +126,10 @@ export function BreakdownPanel({
           <ActivityRows report={report} />
         ) : (
           <DimensionRows
+            state={state}
             report={report}
             breakdown={active}
             dimensions={dimensionsFor(report, active)}
-            requestStoredSessionUsage={state.requestStoredSessionUsage}
           />
         )}
       </div>
@@ -177,15 +197,15 @@ function ActivityRows({ report }: { report: TPersonalUsageReport }): React.React
 }
 
 function DimensionRows({
+  state,
   report,
   breakdown,
   dimensions,
-  requestStoredSessionUsage,
 }: {
+  state: TPersonalUsageDashboardState;
   report: TPersonalUsageReport;
   breakdown: TUsageBreakdown;
   dimensions: readonly TPersonalUsageDimension[];
-  requestStoredSessionUsage: (sessionId: string) => void;
 }): React.ReactElement {
   return (
     <>
@@ -195,11 +215,7 @@ function DimensionRows({
           <span className="self-start text-[13px] tabular-nums text-subtle">
             {number.format(dimension.turns)} turns
           </span>
-          <SessionButtons
-            report={report}
-            dimension={dimension}
-            requestStoredSessionUsage={requestStoredSessionUsage}
-          />
+          <SessionButtons state={state} report={report} dimension={dimension} />
         </div>
       ))}
     </>
@@ -236,31 +252,28 @@ function DimensionSummary({
 }
 
 function SessionButtons({
+  state,
   report,
   dimension,
-  requestStoredSessionUsage,
 }: {
+  state: TPersonalUsageDashboardState;
   report: TPersonalUsageReport;
   dimension: TPersonalUsageDimension;
-  requestStoredSessionUsage: (sessionId: string) => void;
 }): React.ReactElement {
   return (
     <div className="col-span-2 flex flex-wrap gap-1">
       {dimension.sessionIds.map((sessionId) => {
-        const label = sessionLabelFor(report, sessionId);
+        const title = sessionDisplayTitle(state, report, sessionId);
         return (
           <button
             key={sessionId}
             type="button"
             data-session-id={sessionId}
-            onClick={() => requestStoredSessionUsage(sessionId)}
-            aria-label={`Open session ${label.title}`}
+            onClick={() => state.requestStoredSessionUsage(sessionId)}
+            aria-label={`Open session ${title}`}
             className="rounded-md bg-raised px-2 py-1 text-[12px] text-muted-foreground hover:bg-hover hover:text-foreground"
           >
-            <span className="max-w-40 truncate align-middle">{label.title}</span>
-            {label.workspace ? (
-              <span className="ml-1 align-middle text-subtle">· {label.workspace}</span>
-            ) : null}
+            <span className="max-w-40 truncate align-middle">{title}</span>
           </button>
         );
       })}
@@ -275,13 +288,12 @@ export function StoredSessionPanel({
 }): React.ReactElement | null {
   if (state.storedSessionUsageStatus === 'idle') return null;
   const sessionId = state.storedSessionUsageSessionId ?? '';
-  const label = state.personalUsageReport
-    ? sessionLabelFor(state.personalUsageReport, sessionId)
-    : { title: 'Untitled session' };
+  const title = state.personalUsageReport
+    ? sessionDisplayTitle(state, state.personalUsageReport, sessionId)
+    : 'Another session';
   return (
     <section className="rounded-2xl bg-card p-5" aria-label="Session usage detail" data-session-id={sessionId}>
-      <h2 className="text-[15px] font-semibold">{label.title}</h2>
-      {label.workspace ? <p className="text-[13px] text-subtle">{label.workspace}</p> : null}
+      <h2 className="text-[15px] font-semibold">{title}</h2>
       <StoredSessionContent state={state} />
     </section>
   );
@@ -319,8 +331,9 @@ function coverageSentences(report: TPersonalUsageReport): string[] {
   const sentences: string[] = [];
   if (coverage.unsupportedSessions > 0) {
     const noun = coverage.unsupportedSessions === 1 ? 'session' : 'sessions';
+    const verb = coverage.unsupportedSessions === 1 ? 'uses' : 'use';
     sentences.push(
-      `${number.format(coverage.unsupportedSessions)} older ${noun} use a format this view can't read and ${coverage.unsupportedSessions === 1 ? "isn't" : "aren't"} counted.`,
+      `${number.format(coverage.unsupportedSessions)} older ${noun} ${verb} a format this view can't read and ${coverage.unsupportedSessions === 1 ? "isn't" : "aren't"} counted.`,
     );
   }
   if (coverage.corruptSessions > 0) {

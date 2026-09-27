@@ -214,18 +214,11 @@ export interface IPersonalUsageCoverage {
   unsupportedSessionIds: string[];
 }
 
-/** A person's own session, named for their own dashboard: never sent unless that session contributed usage. */
-export interface IPersonalUsageSessionLabel {
-  /** The session's own name, else a short one-line lead from its first request, else "Untitled session". */
-  title: string;
-  /** Basename of the session's working directory, when recorded. */
-  workspace?: string;
-}
-
 /**
- * OBSERVABILITY-2577: stable cross-session report consumed by CLI and GUI. Every field is content-free
- * EXCEPT `sessionLabels`, a deliberate, short, one-line exception so a person can recognize their own
- * sessions on their own local dashboard.
+ * OBSERVABILITY-2577: stable cross-session report consumed by CLI and GUI. Every field is content-free:
+ * no prompt text, no directory name, nothing a person typed. A GUI names a session for its own dashboard
+ * from data it already holds locally (its session directory listing), falling back to this report's
+ * `sessionFirstSeen` timestamp — never to prompt or path content carried over the wire.
  */
 export interface IPersonalUsageReport {
   schemaVersion: 1;
@@ -242,8 +235,12 @@ export interface IPersonalUsageReport {
   byActivity: IPersonalUsageActivity[];
   sessionIds: string[];
   coverage: IPersonalUsageCoverage;
-  /** Keyed by session id, for every session in `sessionIds` a label could be derived for. */
-  sessionLabels?: Record<string, IPersonalUsageSessionLabel>;
+  /**
+   * Keyed by session id, for every session in `sessionIds`: the ISO timestamp of its earliest
+   * observation or activity in this report. A timestamp, not content — it lets a GUI show "Session
+   * from <date>" for a session outside its own local listing instead of a raw id or "Untitled session".
+   */
+  sessionFirstSeen?: Record<string, string>;
 }
 
 /**

@@ -4,7 +4,6 @@ import {
   type INormalizedActivity,
   type INormalizedObservation,
 } from './personal-usage-decode.js';
-import { buildSessionLabels } from './personal-usage-labels.js';
 
 import type {
   IPersonalUsageDimension,
@@ -261,6 +260,24 @@ function selectUsage(input: IPersonalUsageSnapshot, dates: ReadonlySet<string>):
   return { observations, activities, duplicateObservations, legacyObservations };
 }
 
+/**
+ * The earliest included observation or activity time for each session, ISO-formatted. A timestamp,
+ * not content — the one thing this report can say about a session outside a GUI's own local listing.
+ */
+function firstSeenBySession(selection: ISelectedUsage): Record<string, string> {
+  const earliest = new Map<string, number>();
+  const note = (sessionId: string, at: Date): void => {
+    const time = at.getTime();
+    const current = earliest.get(sessionId);
+    if (current === undefined || time < current) earliest.set(sessionId, time);
+  };
+  for (const item of selection.observations) note(item.sessionId, item.at);
+  for (const activity of selection.activities) note(activity.sessionId, activity.at);
+  const result: Record<string, string> = {};
+  for (const [sessionId, time] of earliest) result[sessionId] = new Date(time).toISOString();
+  return result;
+}
+
 function accumulateUsage(
   input: IPersonalUsageSnapshot,
   keys: readonly string[],
@@ -305,7 +322,7 @@ export function summarizePersonalUsage(input: IPersonalUsageSnapshot): IPersonal
     bySource: dimensions(selected, (item) => sourceKey(item.observation.source)),
     byActivity: activityDimensions(selection.activities),
     sessionIds: [...totals.sessions].sort(),
-    sessionLabels: buildSessionLabels(input.records, totals.sessions),
+    sessionFirstSeen: firstSeenBySession(selection),
     coverage: {
       validSessions: input.records.length,
       corruptSessions: input.corruptSessionIds?.length ?? 0,

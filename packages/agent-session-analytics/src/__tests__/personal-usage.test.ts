@@ -572,105 +572,33 @@ describe('summarizePersonalUsage', () => {
     });
   });
 
-  describe('sessionLabels: a readable name for a person\'s own dashboard', () => {
-    it('prefers the session\'s own name, truncated to a short label', () => {
-      const long = 'x'.repeat(120);
-      const named: IInteractiveSessionRecord = {
-        id: 'named',
-        name: long,
-        cwd: '/Users/me/projects/robota',
-        createdAt: '2026-09-05T00:00:00.000Z',
-        updatedAt: '2026-09-05T01:00:00.000Z',
-        messages: [],
-        history: [
-          {
-            id: 'e1',
-            timestamp: new Date('2026-09-05T01:00:00.000Z'),
-            category: 'event',
-            type: 'usage-observation',
-            data: { usageObservationId: 't1', turnId: 't1', outcome: 'success' },
-          },
-        ],
-      };
-
+  describe('sessionFirstSeen: a content-free timestamp per session', () => {
+    it('records the earliest included observation time for a session', () => {
       const report = summarizePersonalUsage({
         request: { period: '7d', timezone: 'UTC' },
         now: new Date('2026-09-06T12:00:00.000Z'),
-        records: [named],
+        records: [
+          record('s1', [
+            {
+              id: 'e1',
+              at: '2026-09-05T10:00:00.000Z',
+              data: { usageObservationId: 't1', turnId: 't1', outcome: 'success' },
+            },
+            {
+              id: 'e2',
+              at: '2026-09-05T08:00:00.000Z',
+              data: { usageObservationId: 't2', turnId: 't2', outcome: 'success' },
+            },
+          ]),
+        ],
+        corruptSessionIds: [],
+        unsupportedSessionIds: [],
       });
 
-      const label = report.sessionLabels?.['named'];
-      expect(label?.title.length).toBeLessThanOrEqual(60);
-      expect(label?.title.endsWith('…')).toBe(true);
-      expect(label?.workspace).toBe('robota');
+      expect(report.sessionFirstSeen?.['s1']).toBe('2026-09-05T08:00:00.000Z');
     });
 
-    it('falls back to a short first line of the first user message when there is no name', () => {
-      const firstMessage: IInteractiveSessionRecord = {
-        id: 'first-msg',
-        cwd: '/work/app',
-        createdAt: '2026-09-05T00:00:00.000Z',
-        updatedAt: '2026-09-05T01:00:00.000Z',
-        messages: [
-          {
-            id: 'm1',
-            timestamp: new Date('2026-09-05T00:00:00.000Z'),
-            state: 'complete',
-            role: 'user',
-            content: 'Fix the login bug\nHere are the repro steps...',
-          },
-        ],
-        history: [
-          {
-            id: 'e1',
-            timestamp: new Date('2026-09-05T01:00:00.000Z'),
-            category: 'event',
-            type: 'usage-observation',
-            data: { usageObservationId: 't1', turnId: 't1', outcome: 'success' },
-          },
-        ],
-      };
-
-      const report = summarizePersonalUsage({
-        request: { period: '7d', timezone: 'UTC' },
-        now: new Date('2026-09-06T12:00:00.000Z'),
-        records: [firstMessage],
-      });
-
-      expect(report.sessionLabels?.['first-msg']).toEqual({
-        title: 'Fix the login bug',
-        workspace: 'app',
-      });
-    });
-
-    it('falls back to "Untitled session" and omits workspace when cwd is empty', () => {
-      const blank: IInteractiveSessionRecord = {
-        id: 'blank',
-        cwd: '',
-        createdAt: '2026-09-05T00:00:00.000Z',
-        updatedAt: '2026-09-05T01:00:00.000Z',
-        messages: [],
-        history: [
-          {
-            id: 'e1',
-            timestamp: new Date('2026-09-05T01:00:00.000Z'),
-            category: 'event',
-            type: 'usage-observation',
-            data: { usageObservationId: 't1', turnId: 't1', outcome: 'success' },
-          },
-        ],
-      };
-
-      const report = summarizePersonalUsage({
-        request: { period: '7d', timezone: 'UTC' },
-        now: new Date('2026-09-06T12:00:00.000Z'),
-        records: [blank],
-      });
-
-      expect(report.sessionLabels?.['blank']).toEqual({ title: 'Untitled session' });
-    });
-
-    it('never labels a session outside the reported period', () => {
+    it('never carries a timestamp — or any of its name/cwd content — for a session outside the reported period', () => {
       const outOfRange: IInteractiveSessionRecord = {
         id: 'stale',
         name: 'Should not appear',
@@ -687,7 +615,7 @@ describe('summarizePersonalUsage', () => {
         records: [outOfRange],
       });
 
-      expect(report.sessionLabels).toEqual({});
+      expect(report.sessionFirstSeen).toEqual({});
       expect(JSON.stringify(report)).not.toContain('not-appear');
     });
   });

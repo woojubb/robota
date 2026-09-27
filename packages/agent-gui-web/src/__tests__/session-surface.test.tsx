@@ -396,11 +396,6 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
       bySource: [],
       byActivity: [],
       sessionIds: ['a', 'b', 'c'],
-      sessionLabels: {
-        a: { title: 'Session A' },
-        b: { title: 'Session B' },
-        c: { title: 'Session C' },
-      },
       coverage: {
         validSessions: 3,
         corruptSessions: 0,
@@ -414,10 +409,22 @@ describe('SessionSurface (GUI-002 TC-01/TC-02)', () => {
         unsupportedSessionIds: [],
       },
     };
+    // The report itself is content-free; a session's readable name comes from this workspace's own
+    // local session-directory listing (#3289 §4), not from the report.
+    const listing: NonNullable<IWsSessionState['sessionListing']> = {
+      currentSessionId: 'a',
+      sessions: [
+        { id: 'a', name: 'Session A', cwd: '/w', updatedAt: report.generatedAt, messageCount: 1, preview: '' },
+        { id: 'b', name: 'Session B', cwd: '/w', updatedAt: report.generatedAt, messageCount: 1, preview: '' },
+        { id: 'c', name: 'Session C', cwd: '/w', updatedAt: report.generatedAt, messageCount: 1, preview: '' },
+      ],
+      unreadableSessionIds: [],
+    };
     const state = stubState({
       personalUsageStatus: 'ready',
       personalUsageReport: report,
       requestPersonalUsage: vi.fn(),
+      sessionListing: listing,
     });
 
     render(<SessionSurface state={state} personalUsageEnabled />);

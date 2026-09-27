@@ -23,7 +23,6 @@ export type {
   IPersonalUsageDay,
   IPersonalUsageCoverage,
   IPersonalUsageReport,
-  IPersonalUsageSessionLabel,
 } from './usage-contracts.js';
 
 // ── Opt-in live prompt, response and tool content, carried beside the content-free trace ───
