@@ -10,6 +10,7 @@ import {
   isSubagentWorkerParentMessage,
   type ISubagentWorkerStartPayload,
   type TSubagentWorkerChildMessage,
+  type TSubagentWorkerPermissionResult,
   type TSubagentWorkerWireValue,
 } from './child-process-subagent-ipc.js';
 import { openResumeSessionStore, resumeRequestedRecord } from './child-process-subagent-resume.js';
@@ -21,7 +22,7 @@ import type {
   ISubagentWorkerComposition,
   TParentSandboxSettings,
 } from './worker-composition.js';
-import type { ITerminalOutput } from '@robota-sdk/agent-core';
+import type { ITerminalOutput, TToolArgs } from '@robota-sdk/agent-core';
 
 const CANCEL_EXIT_CODE = 130;
 /** DIST-006: worker mode reached without an IPC channel — a misuse, not a run that failed. */
@@ -45,6 +46,9 @@ type TSubagentSessionToolEvent = Parameters<
 
 let session: ReturnType<typeof createSubagentSession> | null = null;
 let cancelled = false;
+/** Issue #3288 §1: requests awaiting the parent's answer, by the id this child minted for them. */
+const pendingPermissionRequests = new Map<string, (result: TSubagentWorkerPermissionResult) => void>();
+let permissionRequestSequence = 0;
 /** The parent's sandbox settings most recently sent after a change, newer than the start payload's. */
 let latestParentSandboxSettings: TParentSandboxSettings | undefined;
 let composedSandbox: ISubagentComposedSandbox | undefined;
@@ -185,6 +189,10 @@ async function runInitialPrompt(
         : {}),
       onTextDelta: (delta) => sendChildMessage({ type: 'text_delta', delta }),
       onToolExecution: forwardToolExecution,
+      // Issue #3288 §1: without this, a call needing human approval had no approver in this process
+      // at all, and the enforcer's own fail-closed default denied it silently — the parent's session
+      // never learned it was asked.
+      permissionHandler: requestParentPermission,
     });
     resumeRequestedRecord(payload, session, resumeSessionStore);
     const output = await session.run(payload.request.prompt);
@@ -221,6 +229,38 @@ async function runInitialPrompt(
     const message = error instanceof Error ? error.message : String(error);
     sendTerminalMessageAndExit({ type: 'error', message }, 0);
   }
+}
+
+/**
+ * Issue #3288 §1: forward a tool call needing approval to the parent, and wait for its answer.
+ *
+ * Wired as this child session's own `permissionHandler`, so the enforcer's existing session-allow-list
+ * → custom-handler → fail-closed path reaches it exactly where it used to reach nothing — a spawn with
+ * no `permissionHandler` at all, which fails closed with no approver even when the parent's own session
+ * had one. Requests never expire on the child's own initiative: if this child's turn is cancelled, the
+ * enforcer's existing signal race denies the call regardless of whether the parent ever answers, so this
+ * function stays a simple park-and-wait.
+ */
+function requestParentPermission(
+  toolName: string,
+  toolArgs: TToolArgs,
+): Promise<TSubagentWorkerPermissionResult> {
+  const requestId = `perm_${++permissionRequestSequence}`;
+  return new Promise((resolve) => {
+    pendingPermissionRequests.set(requestId, resolve);
+    sendChildMessage({ type: 'permission_request', requestId, toolName, toolArgs });
+  });
+}
+
+/** The parent answered a still-pending request; a response for one already settled is a no-op. */
+function resolvePendingPermissionRequest(
+  requestId: string,
+  result: TSubagentWorkerPermissionResult,
+): void {
+  const resolve = pendingPermissionRequests.get(requestId);
+  if (resolve === undefined) return;
+  pendingPermissionRequests.delete(requestId);
+  resolve(result);
 }
 
 function forwardToolExecution(event: TSubagentSessionToolEvent): void {
@@ -330,6 +370,9 @@ export function runSubagentWorkerMain(composition: ISubagentWorkerComposition): 
         break;
       case 'sandbox_settings':
         followParentSandboxSettings(message.settings);
+        break;
+      case 'permission_response':
+        resolvePendingPermissionRequest(message.requestId, message.result);
         break;
       default:
         sendChildMessage({ type: 'error', message: 'Unhandled subagent worker parent message' });

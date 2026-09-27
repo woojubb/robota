@@ -546,3 +546,29 @@ describe('PermissionPrompt shows what the tool was asked to do', () => {
     expect(screen.getByRole('button', { name: 'Deny' })).toBeTruthy();
   });
 });
+
+describe('issue #3288 §1: a background agent names itself on its own permission request', () => {
+  afterEach(cleanup);
+
+  it('says which background agent is asking, instead of an unattributed prompt', () => {
+    const prompt = {
+      kind: 'permission',
+      id: 'p4',
+      toolName: 'Glob',
+      toolArgs: { pattern: '**/*' },
+      requester: { kind: 'background-agent', label: 'general-purpose', taskId: 'agent_1' },
+    } as TPendingPrompt;
+    render(<Surface prompts={[prompt]} onAnswerPermission={vi.fn()} />);
+
+    expect(screen.getByText(/Background agent/)).toBeTruthy();
+    expect(screen.getByText('general-purpose')).toBeTruthy();
+  });
+
+  it('reads as an ordinary ask when no requester is present', () => {
+    render(<Surface prompts={[permission('p5')]} onAnswerPermission={vi.fn()} />);
+    const dialog = screen.getByRole('dialog', { name: 'pending question' });
+
+    expect(dialog.textContent).toContain('to run?');
+    expect(dialog.textContent).not.toContain('Background agent');
+  });
+});

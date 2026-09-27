@@ -44,6 +44,8 @@ import type { PermissionEnforcer } from './permission-enforcer.js';
 import type {
   TPermissionHandler,
   TPermissionResult,
+  IPermissionAskContext,
+  TPermissionRequester,
   ITerminalOutput,
   ISpinner,
 } from './permission-types.js';
@@ -76,6 +78,8 @@ export type {
   ICompactEvent,
   TPermissionHandler,
   TPermissionResult,
+  IPermissionAskContext,
+  TPermissionRequester,
   ITerminalOutput,
   ISpinner,
   ISessionOptions,

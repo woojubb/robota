@@ -2,8 +2,10 @@ import { BackgroundTaskError, type ISubagentJobStart } from '@robota-sdk/agent-e
 
 import {
   isSubagentWorkerChildMessage,
+  type ISubagentWorkerPermissionRequestMessage,
   type ISubagentWorkerResultMessage,
   type ISubagentWorkerStartPayload,
+  type TSubagentWorkerPermissionResult,
   type TSubagentWorkerWireValue,
 } from './child-process-subagent-ipc.js';
 import {
@@ -14,7 +16,12 @@ import {
   type IChildProcessRuntime,
 } from './child-process-subagent-transport.js';
 
-import type { ISubagentJobResult } from '@robota-sdk/agent-interface-execution';
+import type { TToolArgs } from '@robota-sdk/agent-core';
+import type {
+  IBackgroundTaskDeniedToolCalls,
+  ISubagentJobResult,
+  TBackgroundTaskPermissionDenialReason,
+} from '@robota-sdk/agent-interface-execution';
 
 /**
  * DIST-006: how long a spawned worker may take to say anything at all. Generous — it covers process
@@ -40,6 +47,24 @@ export interface IChildProcessSubagentResultOptions {
    */
   payload: Promise<ISubagentWorkerStartPayload>;
   resolveTranscriptPath: (job: ISubagentJobStart) => string | undefined;
+  /**
+   * Issue #3288 §1: how a child's own tool call gets a human's yes/no — the parent session's own
+   * approver, already bound to this job's requester identity by the caller. Absent ⇒ the parent has
+   * no approver attached (print mode / a truly headless run): every request from the child is denied
+   * immediately, the same fail-closed default the enforcer already applies with no approver.
+   */
+  permissionApprover?: (
+    toolName: string,
+    toolArgs: TToolArgs,
+    signal: AbortSignal,
+  ) => Promise<TSubagentWorkerPermissionResult>;
+  /**
+   * Owned by the caller so `cancel()` can abort it the moment cancellation is REQUESTED, not only once
+   * this controller later settles — a still-parked permission ask must not outlive the decision to stop
+   * the task by however long the child takes to confirm it. This controller also aborts it on its own
+   * settlement, so a child that crashes or finishes normally cannot leave one hanging either.
+   */
+  permissionAbort: AbortController;
 }
 
 export function createChildProcessSubagentResult(
@@ -59,6 +84,11 @@ class ChildProcessSubagentResultController {
   private readonly handshakeBudgetMs: number;
   /** The start payload, or `undefined` when building it failed and the job was already rejected. */
   private readonly payload: Promise<ISubagentWorkerStartPayload | undefined>;
+  /** Issue #3288 §1: how many of this job's tool calls were refused, and why — for the final result. */
+  private readonly deniedToolCallCounts: Record<TBackgroundTaskPermissionDenialReason, number> = {
+    'no-approver': 0,
+    'denied-by-person': 0,
+  };
 
   constructor(
     private readonly options: IChildProcessSubagentResultOptions,
@@ -134,8 +164,53 @@ class ChildProcessSubagentResultController {
     this.ready = true;
     clearTimeout(this.handshakeTimer);
     const { job } = this.options.runtime;
-    handleWorkerMessage(message, this.startWorker, this.resolveOnce, this.rejectOnce, job.emit);
+    handleWorkerMessage(
+      message,
+      this.startWorker,
+      this.resolveOnce,
+      this.rejectOnce,
+      job.emit,
+      this.onPermissionRequest,
+    );
   };
+
+  /** Issue #3288 §1: a child's tool call is waiting on the parent's own approver. */
+  private readonly onPermissionRequest = (message: ISubagentWorkerPermissionRequestMessage): void => {
+    void this.answerPermissionRequest(message);
+  };
+
+  private async answerPermissionRequest(
+    message: ISubagentWorkerPermissionRequestMessage,
+  ): Promise<void> {
+    const { approver, result } = await this.askApprover(message);
+    if (approver === undefined) {
+      this.deniedToolCallCounts['no-approver'] += 1;
+    } else if (result === false) {
+      this.deniedToolCallCounts['denied-by-person'] += 1;
+    }
+    const { child } = this.options.runtime;
+    if (!child.connected) return; // the child is already gone; nothing left to answer
+    await sendWorkerMessage(child, {
+      type: 'permission_response',
+      requestId: message.requestId,
+      result,
+    }).catch(() => undefined); // allow-fallback: a dead channel means the child cannot hear the answer either way
+  }
+
+  /** Fail-closed when no approver is attached, exactly as the enforcer itself fails with none. */
+  private async askApprover(message: ISubagentWorkerPermissionRequestMessage): Promise<{
+    approver: IChildProcessSubagentResultOptions['permissionApprover'];
+    result: TSubagentWorkerPermissionResult;
+  }> {
+    const approver = this.options.permissionApprover;
+    if (approver === undefined) return { approver, result: false };
+    const result = await approver(
+      message.toolName,
+      message.toolArgs ?? {},
+      this.options.permissionAbort.signal,
+    );
+    return { approver, result };
+  }
 
   private readonly onError = (error: Error): void => {
     this.rejectOnce(new BackgroundTaskError('crash', error.message));
@@ -160,15 +235,20 @@ class ChildProcessSubagentResultController {
   private readonly resolveOnce = (result: ISubagentWorkerResultMessage): void => {
     if (this.settled) return;
     this.settled = true;
+    // Issue #3288 §1: settlement means nobody is left to deliver an answer to, so a permission ask
+    // still parked at this point (the child said `result` while one was mid-flight) must not
+    // outlive it — this dismisses it on every surface via the same abort path `cancel()` uses.
+    this.options.permissionAbort.abort();
     this.clearTimers();
     this.cleanup();
     const { runtime, resolveTranscriptPath } = this.options;
-    this.resolve(toSubagentResult(runtime.job, result, resolveTranscriptPath));
+    this.resolve(toSubagentResult(runtime.job, result, resolveTranscriptPath, this.deniedToolCallCounts));
   };
 
   private readonly rejectOnce = (error: Error): void => {
     if (this.settled) return;
     this.settled = true;
+    this.options.permissionAbort.abort();
     this.clearTimers();
     this.cleanup();
     this.reject(error);
@@ -218,8 +298,10 @@ function toSubagentResult(
   job: ISubagentJobStart,
   result: ISubagentWorkerResultMessage,
   resolveTranscriptPath: (job: ISubagentJobStart) => string | undefined,
+  deniedToolCallCounts: Record<TBackgroundTaskPermissionDenialReason, number>,
 ): ISubagentJobResult {
   const transcriptPath = resolveTranscriptPath(job);
+  const deniedToolCalls = summarizeDeniedToolCalls(deniedToolCallCounts);
   return {
     taskId: job.taskId,
     output: result.output,
@@ -227,7 +309,17 @@ function toSubagentResult(
     // ANALYTICS-001 (Phase 2): carry the subagent's forwarded token usage so the background-task
     // tracker can attribute it to this agent as a source in the parent log.
     ...(result.usage ? { usage: result.usage } : {}),
+    // Issue #3288 §1: additive — a run that refused nothing carries no new field.
+    ...(deniedToolCalls ? { deniedToolCalls } : {}),
   };
+}
+
+/** `undefined` when nothing was refused, so a task's result carries the field only when it matters. */
+function summarizeDeniedToolCalls(
+  counts: Record<TBackgroundTaskPermissionDenialReason, number>,
+): IBackgroundTaskDeniedToolCalls | undefined {
+  const total = counts['denied-by-person'] + counts['no-approver'];
+  return total === 0 ? undefined : { total, byReason: { ...counts } };
 }
 
 function formatEarlyExitMessage(

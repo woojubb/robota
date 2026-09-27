@@ -30,6 +30,7 @@ function waitForExitOrTimeout(child: ChildProcess, ms: number): Promise<void> {
 }
 
 import type {
+  ISubagentWorkerPermissionRequestMessage,
   ISubagentWorkerResultMessage,
   TSubagentWorkerChildMessage,
   TSubagentWorkerParentMessage,
@@ -78,6 +79,10 @@ export function handleWorkerMessage(
   resolveOnce: (result: ISubagentWorkerResultMessage) => void,
   rejectOnce: (error: Error) => void,
   emit?: (event: TBackgroundTaskRunnerEvent) => void,
+  // Issue #3288 §1: a child's tool call needs a human's approval. Its own callback, distinct from
+  // `emit`, because answering it is a REQUEST/RESPONSE the caller must complete (asking the parent's
+  // own approver and sending back a `permission_response`), not a fire-and-forget observation.
+  onPermissionRequest?: (message: ISubagentWorkerPermissionRequestMessage) => void,
 ): void {
   switch (message.type) {
     case 'ready':
@@ -108,6 +113,9 @@ export function handleWorkerMessage(
         toolName: message.toolName,
         success: message.success,
       });
+      break;
+    case 'permission_request':
+      onPermissionRequest?.(message);
       break;
     default:
       rejectOnce(new BackgroundTaskError('runner', 'Unhandled subagent worker message'));

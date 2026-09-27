@@ -105,6 +105,58 @@ describe('SessionPromptRegistry (REMOTE-007 transport-neutral permission/ask)', 
     await expect(pending).resolves.toBe('allow-session');
   });
 
+  it('issue #3288 §1: a `requester` on the ask is carried onto the emitted `permission_request`', async () => {
+    const h = harness();
+    const requester = {
+      kind: 'background-agent' as const,
+      label: 'general-purpose',
+      taskId: 'agent_1',
+    };
+    const pending = h.registry.requestPermission('Glob', { pattern: '**/*' }, false, { requester });
+    expect(h.permissionEvents[0]?.requester).toEqual(requester);
+    h.registry.resolvePermission(h.permissionEvents[0]!.id, true);
+    await expect(pending).resolves.toBe(true);
+  });
+
+  it('issue #3288 §1: aborting the ask signal denies it and emits `prompt_resolved` (dismissed on every surface)', async () => {
+    const h = harness();
+    const controller = new AbortController();
+    const pending = h.registry.requestPermission('Glob', {}, false, { signal: controller.signal });
+    expect(h.resolvedEvents).toEqual([]);
+    controller.abort();
+    await expect(pending).resolves.toBe(false);
+    expect(h.resolvedEvents).toEqual([{ id: h.permissionEvents[0]!.id }]);
+
+    // Idempotent: a late resolvePermission for the same (now-settled) id is a no-op, not a
+    // second `prompt_resolved`.
+    h.registry.resolvePermission(h.permissionEvents[0]!.id, true);
+    expect(h.resolvedEvents).toHaveLength(1);
+  });
+
+  it('issue #3288 §1: a signal already aborted before the ask is made denies it without parking', async () => {
+    const h = harness();
+    const controller = new AbortController();
+    controller.abort();
+    const pending = h.registry.requestPermission('Glob', {}, false, { signal: controller.signal });
+    await expect(pending).resolves.toBe(false);
+    // Never parked, so it never emitted a `permission_request` a surface would have to dismiss.
+    expect(h.permissionEvents).toEqual([]);
+    expect(h.registry.pendingCount).toBe(0);
+  });
+
+  it('issue #3288 §1: answering normally detaches the abort listener (no leaked settle-after-answer)', async () => {
+    const h = harness();
+    const controller = new AbortController();
+    const pending = h.registry.requestPermission('Glob', {}, false, { signal: controller.signal });
+    h.registry.resolvePermission(h.permissionEvents[0]!.id, true);
+    await expect(pending).resolves.toBe(true);
+    expect(h.resolvedEvents).toHaveLength(1);
+
+    // The signal fires AFTER the prompt already settled normally — must not re-settle it.
+    controller.abort();
+    expect(h.resolvedEvents).toHaveLength(1);
+  });
+
   it('TC-02: an ask request emits `ask_request` and resolveAsk returns the answer', async () => {
     const h = harness();
     const request = { id: 'req-1', title: 'Pick one', options: [{ value: 'a', label: 'A' }] };

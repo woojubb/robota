@@ -190,6 +190,25 @@ export type TBackgroundTaskRequest =
  */
 export type IBackgroundTaskUsage = ITokenUsage;
 
+/**
+ * Issue #3288 §1: why a tool call inside a task was refused — the same distinction the session-layer
+ * enforcer already records for its own denials (`hasApprover ? 'user' : 'no-approver'`), named here for
+ * a task's result rather than a live session's denial log: `'no-approver'` when no approver was
+ * attached at all (print mode, a truly headless run); `'denied-by-person'` when one was attached and
+ * answered no.
+ */
+export type TBackgroundTaskPermissionDenialReason = 'denied-by-person' | 'no-approver';
+
+/**
+ * How many of a task's tool calls were refused, and why. Additive: a caller only reads this when at
+ * least one call was refused, so a task with none carries no new field — the result of a task that
+ * finished exactly as it always did is unchanged.
+ */
+export interface IBackgroundTaskDeniedToolCalls {
+  readonly total: number;
+  readonly byReason: Readonly<Record<TBackgroundTaskPermissionDenialReason, number>>;
+}
+
 interface IBaseBackgroundTaskResult {
   taskId: string;
   output: string;
@@ -200,6 +219,8 @@ export interface IAgentBackgroundTaskResult extends IBaseBackgroundTaskResult {
   kind: 'agent';
   /** ANALYTICS-001 (Phase 2): total token usage of an agent task, attributed to it in the parent log. */
   usage?: IBackgroundTaskUsage;
+  /** Issue #3288 §1: present only when the task had at least one tool call refused. */
+  deniedToolCalls?: IBackgroundTaskDeniedToolCalls;
 }
 
 export interface IProcessBackgroundTaskResult extends IBaseBackgroundTaskResult {

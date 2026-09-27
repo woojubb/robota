@@ -424,6 +424,129 @@ describe('ChildProcessSubagentRunner', () => {
   );
 });
 
+// Issue #3288 §1: a background agent's permission requests reach the person. Before this change
+// `deps.permissionHandler` was never read here at all, so every one of the child's asks failed
+// closed silently — these pin the forwarding, the fail-closed regression, and the cancellation path.
+describe('ChildProcessSubagentRunner forwards a child permission request to the parent approver', () => {
+  it(
+    'an allow from the parent approver lets the tool proceed, and names this task as the requester',
+    async () => {
+      const requesters: unknown[] = [];
+      const deps: IInProcessSubagentRunnerDeps = {
+        ...createDeps(),
+        permissionHandler: async (toolName, toolArgs, context) => {
+          expect(toolName).toBe('Glob');
+          expect(toolArgs).toEqual({ pattern: '**/*' });
+          requesters.push(context?.requester);
+          return true;
+        },
+      };
+      const runner = new ChildProcessSubagentRunner(deps, {
+        workerEntry: FIXTURE_WORKER_ENTRY,
+        env: { ROBOTA_FIXTURE_MODE: 'permission-request' },
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+      });
+
+      const handle = runner.start(createJob());
+      const result = await handle.result;
+
+      expect(result.output).toBe('permission:r1:true');
+      expect(requesters).toEqual([{ kind: 'background-agent', label: 'tester', taskId: 'agent_1' }]);
+      expect(result.deniedToolCalls).toBeUndefined();
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'a deny from the parent approver reaches the child, and the result records the denial',
+    async () => {
+      const deps: IInProcessSubagentRunnerDeps = {
+        ...createDeps(),
+        permissionHandler: async () => false,
+      };
+      const runner = new ChildProcessSubagentRunner(deps, {
+        workerEntry: FIXTURE_WORKER_ENTRY,
+        env: { ROBOTA_FIXTURE_MODE: 'permission-request' },
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+      });
+
+      const handle = runner.start(createJob());
+      const result = await handle.result;
+
+      expect(result.output).toBe('permission:r1:false');
+      expect(result.deniedToolCalls).toEqual({
+        total: 1,
+        byReason: { 'denied-by-person': 1, 'no-approver': 0 },
+      });
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'regression guard: with no approver attached the request is denied immediately, fail-closed',
+    async () => {
+      const runner = new ChildProcessSubagentRunner(createDeps(), {
+        workerEntry: FIXTURE_WORKER_ENTRY,
+        env: { ROBOTA_FIXTURE_MODE: 'permission-request' },
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+      });
+
+      const handle = runner.start(createJob());
+      const result = await handle.result;
+
+      expect(result.output).toBe('permission:r1:false');
+      expect(result.deniedToolCalls).toEqual({
+        total: 1,
+        byReason: { 'denied-by-person': 0, 'no-approver': 1 },
+      });
+    },
+    TEST_TIMEOUT_MS,
+  );
+
+  it(
+    'cancelling the job while a request is pending denies it via the abort signal — never left hanging',
+    async () => {
+      let requestSeen: (() => void) | undefined;
+      const seenPromise = new Promise<void>((resolve) => {
+        requestSeen = resolve;
+      });
+      let capturedSignal: AbortSignal | undefined;
+      const deps: IInProcessSubagentRunnerDeps = {
+        ...createDeps(),
+        permissionHandler: (_toolName, _toolArgs, context) => {
+          capturedSignal = context?.signal;
+          requestSeen?.();
+          // Never resolves on its own — only settling via the abort signal proves cancellation
+          // reaches the still-parked ask instead of leaving it hanging forever.
+          return new Promise((resolve) => {
+            context?.signal?.addEventListener('abort', () => resolve(false));
+          });
+        },
+      };
+      const runner = new ChildProcessSubagentRunner(deps, {
+        workerEntry: FIXTURE_WORKER_ENTRY,
+        env: { ROBOTA_FIXTURE_MODE: 'permission-request-wait' },
+        killGraceMs: 1_000,
+        worktreeAdapter: STUB_WORKTREE_ADAPTER,
+        providerDefinitions: TEST_PROVIDER_DEFINITIONS,
+      });
+
+      const handle = runner.start(createJob());
+      await seenPromise;
+      expect(capturedSignal?.aborted).toBe(false);
+
+      await handle.cancel('stop requested');
+
+      await expect(handle.result).rejects.toThrow('stop requested');
+      expect(capturedSignal?.aborted).toBe(true);
+    },
+    TEST_TIMEOUT_MS,
+  );
+});
+
 describe('subagent worker IPC guards', () => {
   it('accepts a well-formed start message and rejects malformed child messages', () => {
     expect(
