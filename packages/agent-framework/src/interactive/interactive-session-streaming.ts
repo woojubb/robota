@@ -8,6 +8,8 @@
 import { randomUUID } from 'node:crypto';
 import { relative, resolve } from 'node:path';
 
+import { isPathInside } from '@robota-sdk/agent-core/node';
+
 import { NodeFileSystem } from '../adapters/node-file-system.js';
 
 import type { IDiffLine, IToolState } from './types.js';
@@ -24,8 +26,12 @@ const MAX_COMPLETED_TOOLS = 50;
 export const STREAMING_FLUSH_INTERVAL_MS = 16;
 const DEFAULT_START_LINE = 1;
 const EDIT_DIFF_CONTEXT_LINES = 3;
-/** #3288: a Write's whole-file diff preview is capped this many lines before it is truncated. */
-const MAX_WRITE_DIFF_LINES = 500;
+/**
+ * #3288 review SHOULD 3: a diff preview's remove/add side (Edit) or whole-file preview (Write) is
+ * capped this many lines before it is truncated — one shared constant so neither builder can flood
+ * the wire or the renderer with an unbounded change.
+ */
+const MAX_DIFF_LINES = 500;
 
 /**
  * #3288: the workspace-relative form of an absolute path, for DISPLAY only (`firstArg` is untouched —
@@ -91,15 +97,19 @@ function parseStartLineFromResult(toolResultData: string | undefined): number | 
  * file may already have changed, so re-deriving from its CURRENT content would search the wrong
  * text), else found by searching the CURRENT file content for `oldString` (pre-execution preview —
  * mirrors the same search the Edit tool itself performs, `edit-tool.ts`'s `content.indexOf`).
+ *
+ * `fs` is `undefined` when the path failed the containment guard in `buildEditDiffState` — in that
+ * case this never touches disk and simply falls back to the default line.
  */
 function resolveEditStartLine(
   toolResultData: string | undefined,
   filePath: string,
   oldString: string,
-  fs: IFileSystem,
+  fs: IFileSystem | undefined,
 ): number {
   const fromResult = parseStartLineFromResult(toolResultData);
   if (fromResult !== undefined) return fromResult;
+  if (fs === undefined) return DEFAULT_START_LINE;
   try {
     const content = fs.readFileSync(filePath, 'utf8');
     const matchIdx = content.indexOf(oldString);
@@ -108,6 +118,38 @@ function resolveEditStartLine(
     // allow-fallback: unreadable file (e.g. a pre-execution preview of a not-yet-created path)
   }
   return DEFAULT_START_LINE;
+}
+
+/**
+ * #3288 review MUST 1: whether `filePath` may be read at all to build a diff preview — the ONE guard
+ * every disk read in this file goes through, for both the pre-approval permission-request preview
+ * (`session-prompt-registry.ts`, before the person has agreed to anything) and the post-execution
+ * `tool_end` context read (which had the same gap before this file grew a pre-approval caller).
+ *
+ * `cwd === undefined` refuses (no workspace to confine reads to — mirrors `agent-tools`'
+ * `checkPathWithinCwd`'s ARCH-010 fail-closed default). Containment is decided on CANONICAL
+ * (symlink-resolved) paths via `isPathInside`, the repo's one SSOT for this (`agent-core`'s
+ * `path-containment.ts`): a purely lexical `resolve()`/`startsWith` check would let a symlink SITTING
+ * inside the workspace but POINTING outside it through, exactly the defect that SSOT exists to close.
+ * A model-supplied Edit path is exactly the untrusted input that check is for.
+ */
+function isSafeToReadForDiff(cwd: string | undefined, resolvedFilePath: string): boolean {
+  return cwd !== undefined && isPathInside(cwd, resolvedFilePath);
+}
+
+/**
+ * Where a RELATIVE `filePath` the model supplied is anchored, for BOTH the containment check AND the
+ * actual read — the containment root (`cwd`), never `process.cwd()`. `isPathInside` and
+ * `fs.readFileSync` each canonicalize a relative candidate against the PROCESS's own directory when
+ * given one on their own, so passing the raw (possibly relative) `filePath` straight to both checked
+ * it against one root while reading it from another — the same #2429 defect
+ * `agent-tools/path-guard.ts`'s `resolveHostPath` exists to close. Resolving once, here, and reusing
+ * the result for every downstream call keeps the two decisions from disagreeing. With no `cwd` there
+ * is nothing to anchor to; the path is returned as written, and `isSafeToReadForDiff` then refuses it
+ * (ARCH-010 fail-closed).
+ */
+function resolveFilePathForDiffRead(cwd: string | undefined, filePath: string): string {
+  return cwd === undefined ? filePath : resolve(cwd, filePath);
 }
 
 function buildEditDiffState(
@@ -120,10 +162,18 @@ function buildEditDiffState(
   const newString = getStringArg(event.toolArgs, 'new_string', 'newString');
   if (!filePath || oldString === null || newString === null || oldString === newString) return {};
 
-  const startLine = resolveEditStartLine(event.toolResultData, filePath, oldString, fs);
+  const resolvedFilePath = resolveFilePathForDiffRead(cwd, filePath);
+  const readableFs = isSafeToReadForDiff(cwd, resolvedFilePath) ? fs : undefined;
+  const startLine = resolveEditStartLine(event.toolResultData, resolvedFilePath, oldString, readableFs);
   return {
     diffFile: cwd ? toWorkspaceRelativeDisplayPath(cwd, filePath) : filePath,
-    diffLines: buildEditDiffLinesWithContext(oldString, newString, startLine, filePath, fs),
+    diffLines: buildEditDiffLinesWithContext(
+      oldString,
+      newString,
+      startLine,
+      resolvedFilePath,
+      readableFs,
+    ),
   };
 }
 
@@ -137,8 +187,8 @@ function buildWriteDiffState(
   if (!filePath || content === null) return {};
 
   const lines = content.split('\n');
-  const truncated = lines.length > MAX_WRITE_DIFF_LINES;
-  const shown = truncated ? lines.slice(0, MAX_WRITE_DIFF_LINES) : lines;
+  const truncated = lines.length > MAX_DIFF_LINES;
+  const shown = truncated ? lines.slice(0, MAX_DIFF_LINES) : lines;
   const diffLines: IDiffLine[] = [
     { type: 'hunk', text: `@@ -0,0 +1,${lines.length} @@`, lineNumber: 1 },
     ...shown.map((text, index) => ({ type: 'add' as const, text, lineNumber: index + 1 })),
@@ -146,7 +196,7 @@ function buildWriteDiffState(
   if (truncated) {
     diffLines.push({
       type: 'hunk',
-      text: `… ${lines.length - MAX_WRITE_DIFF_LINES} more lines truncated`,
+      text: `… ${lines.length - MAX_DIFF_LINES} more lines truncated`,
       lineNumber: shown.length + 1,
     });
   }
@@ -171,29 +221,56 @@ export function buildDiffState(
   return {};
 }
 
+/**
+ * #3288 review SHOULD 3: one side (all-removed or all-added lines) of an Edit diff, capped at
+ * `MAX_DIFF_LINES` with a trailing truncation marker — mirrors Write's own cap so neither an
+ * enormous `old_string` nor an enormous `new_string` can flood the wire or the renderer.
+ */
+function buildCappedDiffSide(
+  type: 'remove' | 'add',
+  text: string,
+  startLine: number,
+): IDiffLine[] {
+  const lines = text.split('\n');
+  const truncated = lines.length > MAX_DIFF_LINES;
+  const shown = truncated ? lines.slice(0, MAX_DIFF_LINES) : lines;
+  const diffLines: IDiffLine[] = shown.map((lineText, index) => ({
+    type,
+    text: lineText,
+    lineNumber: startLine + index,
+  }));
+  if (truncated) {
+    const noun = type === 'remove' ? 'removed' : 'added';
+    diffLines.push({
+      type: 'hunk',
+      text: `… ${lines.length - MAX_DIFF_LINES} more ${noun} lines truncated`,
+      lineNumber: startLine + shown.length,
+    });
+  }
+  return diffLines;
+}
+
 function buildEditDiffLines(oldString: string, newString: string, startLine: number): IDiffLine[] {
   return [
-    ...oldString.split('\n').map((text, index) => ({
-      type: 'remove' as const,
-      text,
-      lineNumber: startLine + index,
-    })),
-    ...newString.split('\n').map((text, index) => ({
-      type: 'add' as const,
-      text,
-      lineNumber: startLine + index,
-    })),
+    ...buildCappedDiffSide('remove', oldString, startLine),
+    ...buildCappedDiffSide('add', newString, startLine),
   ];
 }
 
+/**
+ * `fs` is `undefined` when `buildEditDiffState` decided the path is not safe to read (outside the
+ * workspace, or a symlink that resolves outside it) — this then returns the diff with NO context
+ * lines, never touching disk. See `isSafeToReadForDiff`.
+ */
 function buildEditDiffLinesWithContext(
   oldString: string,
   newString: string,
   startLine: number,
   filePath: string,
-  fs: IFileSystem = new NodeFileSystem(),
+  fs: IFileSystem | undefined,
 ): IDiffLine[] {
   const diffLines = buildEditDiffLines(oldString, newString, startLine);
+  if (fs === undefined) return diffLines;
 
   let fileLines: string[];
   try {
