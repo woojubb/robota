@@ -123,6 +123,7 @@ export {
 } from './mcp-activation/mcp-model-notice.js';
 export type { TMCPUserAction, TMCPUserActionSurface } from './mcp-activation/mcp-model-notice.js';
 export * from './mode/index.js';
+export * from './model/index.js';
 export {
   createSandboxCommandModule,
   executeSandboxCommand,
