@@ -48,6 +48,12 @@ function trustStatus() {
 async function ask(question) {
   const { createInterface } = await import('node:readline/promises');
   const rl = createInterface({ input: process.stdin, output: process.stdout });
+  // Ctrl-C at the question quits, as it does anywhere else in this command.
+  rl.once('SIGINT', () => {
+    rl.close();
+    process.stdout.write(line(''));
+    process.exit(130);
+  });
   try {
     return await rl.question(question);
   } finally {

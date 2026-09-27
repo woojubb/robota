@@ -155,13 +155,28 @@ describe('robota daemon', () => {
     }
   });
 
-  it('does not hand over a running daemon for a Restricted start: it names the fix instead', async () => {
+  it('does not hand over a daemon with the project configuration for a Restricted start: it names the fix instead', async () => {
     const h = harness([daemonRow(LIVE)]);
     expect(await runDaemonCommand(['start', '--json', '--restricted-workspace'], h.options)).toBe(1);
     expect(h.connect).not.toHaveBeenCalled();
     expect(h.launch).not.toHaveBeenCalled();
     expect(h.out()).toBe('');
     expect(h.err()).toContain('cannot be started Restricted. Run: robota daemon stop');
+  });
+
+  it('reuses a running Restricted daemon for a Restricted start, as a relaunched app asks (#3268)', async () => {
+    const h = harness([daemonRow(LIVE, { restricted: true })]);
+    expect(await runDaemonCommand(['start', '--json', '--restricted-workspace'], h.options)).toBe(0);
+    expect(h.launch).not.toHaveBeenCalled();
+    expect(h.admit).not.toHaveBeenCalled();
+    expect(h.out()).toBe(`${JSON.stringify({ id: LIVE, url: URL_WITH_TOKEN })}\n`);
+  });
+
+  it('does not quietly hand a plain start a Restricted daemon (#3268)', async () => {
+    const h = harness([daemonRow(LIVE, { restricted: true })]);
+    expect(await runDaemonCommand(['start', '--json'], h.options)).toBe(1);
+    expect(h.connect).not.toHaveBeenCalled();
+    expect(h.err()).toContain(`is running Restricted in ${workspace}. To start it with the project's configuration, run: robota daemon stop`);
   });
 
   it('prints usage for an unknown action or flag', async () => {

@@ -180,15 +180,17 @@ export async function runDaemonCommand(
     let started = false;
     let id: string;
     let url: string;
-    // A Restricted start was a person's choice; the running daemon may have the project's
-    // configuration loaded, so it is not handed over in its place.
-    const refuseRunning = (daemon: TWorkspaceDaemon): never => {
-      throw new Error(
-        `Daemon ${daemon.id} is already running in ${workspace}, so it cannot be started Restricted. Run: robota daemon stop`,
-      );
+    // A running daemon is reused only with the access this start asks for: a Restricted start was a
+    // person's choice and never gets the project's configuration, and a plain start is not quietly
+    // handed a daemon without it.
+    const refuseMismatch = (daemon: TWorkspaceDaemon): void => {
+      if ((daemon.restricted === true) === parsed.restricted) return;
+      throw new Error(parsed.restricted
+        ? `Daemon ${daemon.id} is running in ${workspace} with the project's configuration, so it cannot be started Restricted. Run: robota daemon stop`
+        : `Daemon ${daemon.id} is running Restricted in ${workspace}. To start it with the project's configuration, run: robota daemon stop`);
     };
     if (running !== undefined) {
-      if (parsed.restricted) refuseRunning(running);
+      refuseMismatch(running);
       id = running.id;
       url = await connectRunning(options, running);
     } else {
@@ -197,7 +199,7 @@ export async function runDaemonCommand(
       try {
         const winner = await findDaemon(options, workspace);
         if (winner !== undefined) {
-          if (parsed.restricted) refuseRunning(winner);
+          refuseMismatch(winner);
           id = winner.id;
           url = await connectRunning(options, winner);
         } else {

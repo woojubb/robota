@@ -757,8 +757,9 @@ In a workspace you have not trusted:
 
 There are three exceptions. `--safe-mode` always starts Restricted, so `-p`, `--goal`, `--serve` and
 `robota mcp serve` run with it without trust. `robota daemon start --restricted-workspace` starts the
-daemon Restricted in a folder not trusted yet; a graphical front end passes it when the person in front
-of it chose to start Restricted, and it refuses to take over a daemon that is already running.
+daemon Restricted in a folder not trusted yet, for a front end whose person chose that. It reuses a
+running daemon only when that one runs Restricted too, and a plain `daemon start` does not reuse a
+Restricted one; either way it refuses and names `robota daemon stop`.
 A directory that is not in a Git repository cannot be trusted at all, and every mode runs Restricted
 there.
 
