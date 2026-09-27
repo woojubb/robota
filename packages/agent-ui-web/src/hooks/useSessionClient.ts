@@ -291,7 +291,16 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           finishTurn((tool) => (tool.status === 'running' ? 'error' : tool.status));
           setSessionNotices((previous) => [
             ...previous,
-            { id: nextId(), kind: 'session-error', message: msg.message },
+            {
+              id: nextId(),
+              kind: 'session-error',
+              message: msg.message,
+              ...(msg.code !== undefined && { code: msg.code }),
+              ...(msg.provider !== undefined && { provider: msg.provider }),
+              ...(msg.retryAfterSeconds !== undefined && {
+                retryAfterSeconds: msg.retryAfterSeconds,
+              }),
+            },
           ]);
           break;
         }

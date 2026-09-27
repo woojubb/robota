@@ -119,6 +119,117 @@ describe('toProviderError', () => {
     const sdkAbort = new APIUserAbortErrorShape('Request was aborted.');
     expect(toProviderError(sdkAbort, 'anthropic', 'op')).toBe(sdkAbort);
   });
+
+  it('maps a 401 to AuthenticationError, carrying the provider', () => {
+    const error = toProviderError(
+      Object.assign(new Error('invalid x-api-key'), { status: 401 }),
+      'anthropic',
+      'Anthropic request failed',
+    );
+    expect(error).toBeInstanceOf(AuthenticationError);
+    expect((error as AuthenticationError).provider).toBe('anthropic');
+    expect(error.message).toBe('Authentication Error: invalid x-api-key');
+  });
+
+  it('maps a 403 to AuthenticationError', () => {
+    const error = toProviderError(
+      Object.assign(new Error('permission denied'), { status: 403 }),
+      'openai',
+      'op',
+    );
+    expect(error).toBeInstanceOf(AuthenticationError);
+  });
+
+  it('maps an authentication_error type with no status to AuthenticationError', () => {
+    const error = toProviderError(
+      Object.assign(new Error('bad key'), { type: 'authentication_error' }),
+      'anthropic',
+      'op',
+    );
+    expect(error).toBeInstanceOf(AuthenticationError);
+  });
+
+  it('reads a retry-after header (Headers instance) into RateLimitError.retryAfter', () => {
+    const error = toProviderError(
+      Object.assign(new Error('slow down'), {
+        status: 429,
+        headers: new Headers({ 'retry-after': '30' }),
+      }),
+      'anthropic',
+      'op',
+    );
+    expect(error).toBeInstanceOf(RateLimitError);
+    expect((error as RateLimitError).retryAfter).toBe(30);
+  });
+
+  it('reads a retry-after header (plain object) into RateLimitError.retryAfter', () => {
+    const error = toProviderError(
+      Object.assign(new Error('slow down'), { status: 429, headers: { 'retry-after': '5' } }),
+      'openai',
+      'op',
+    );
+    expect(error).toBeInstanceOf(RateLimitError);
+    expect((error as RateLimitError).retryAfter).toBe(5);
+  });
+
+  it('leaves retryAfter undefined when there is no retry-after header', () => {
+    const error = toProviderError(
+      Object.assign(new Error('slow down'), { status: 429 }),
+      'gemini',
+      'op',
+    );
+    expect(error).toBeInstanceOf(RateLimitError);
+    expect((error as RateLimitError).retryAfter).toBeUndefined();
+  });
+
+  it('maps a model_not_found code to ModelNotAvailableError', () => {
+    const error = toProviderError(
+      Object.assign(withCode('The model does not exist', 'model_not_found'), {
+        status: 400,
+        type: 'invalid_request_error',
+      }),
+      'deepseek',
+      'op',
+    );
+    expect(error).toBeInstanceOf(ModelNotAvailableError);
+    expect((error as ModelNotAvailableError).provider).toBe('deepseek');
+  });
+
+  it('maps a bare 404 (no model_not_found code) to ModelNotAvailableError too', () => {
+    const error = toProviderError(
+      Object.assign(new Error('not found'), { status: 404, type: 'not_found_error' }),
+      'anthropic',
+      'op',
+    );
+    expect(error).toBeInstanceOf(ModelNotAvailableError);
+  });
+
+  it('maps a network failure to NetworkError, carrying the provider', () => {
+    const error = toProviderError(withCode('socket hang up', 'ECONNRESET'), 'openai', 'op');
+    expect(error).toBeInstanceOf(NetworkError);
+    expect((error as NetworkError).provider).toBe('openai');
+  });
+
+  it('maps an SDK connection-error class to NetworkError', () => {
+    const error = toProviderError(
+      new ApiConnectionErrorShape('Connection error.'),
+      'anthropic',
+      'op',
+    );
+    expect(error).toBeInstanceOf(NetworkError);
+  });
+
+  it('still falls back to a generic ProviderError for anything else (e.g. 503)', () => {
+    const error = toProviderError(
+      Object.assign(new Error('busy'), { status: 503 }),
+      'openai',
+      'OpenAI chat failed',
+    );
+    expect(error).toBeInstanceOf(ProviderError);
+    expect(error).not.toBeInstanceOf(AuthenticationError);
+    expect(error).not.toBeInstanceOf(NetworkError);
+    expect(error).not.toBeInstanceOf(ModelNotAvailableError);
+  });
 });
 
 describe('classifyProviderFailure', () => {

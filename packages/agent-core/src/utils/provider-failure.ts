@@ -130,29 +130,76 @@ function isAbort(value: unknown): boolean {
 }
 
 /**
+ * Seconds until a rate-limited request may retry, from a `retry-after` response header — a delta in
+ * seconds (every vendor here sends this form) or, per the HTTP spec, an HTTP-date. The Stainless SDKs
+ * (Anthropic, OpenAI) attach the header set differently: Anthropic's `headers` is a Web `Headers`
+ * instance, OpenAI's is a plain lower-cased object. Undefined when the error carries no headers at
+ * all (Gemini's SDK exposes none) or none of the shapes above name the header.
+ */
+function readRetryAfterSeconds(error: unknown): number | undefined {
+  const headers = asRecord(error)?.['headers'];
+  const raw =
+    headers instanceof Headers
+      ? headers.get('retry-after')
+      : ((asRecord(headers)?.['retry-after'] ?? asRecord(headers)?.['Retry-After']) as
+          string | undefined);
+  if (raw === undefined || raw === null) return undefined;
+  const asSeconds = Number(raw);
+  if (Number.isFinite(asSeconds)) return Math.max(0, asSeconds);
+  const asDate = Date.parse(raw);
+  return Number.isNaN(asDate) ? undefined : Math.max(0, Math.round((asDate - Date.now()) / 1000));
+}
+
+/**
  * Turn whatever an adapter caught into a typed provider failure.
  *
- * Aborts and errors already in the taxonomy pass through unchanged, a rate limit becomes a
- * `RateLimitError`, and anything else becomes a `ProviderError` carrying the status and type the
- * vendor reported, with the original kept as `originalError`.
+ * Aborts and errors already in the taxonomy pass through unchanged. Everything else is classified by
+ * the same status/type rules `classifyLayer` uses to decide switchability — a rate limit, an
+ * authentication failure, a model the vendor does not serve, and a transport failure each become
+ * their own typed error (so `AuthenticationError`/`ModelNotAvailableError`/`NetworkError` are actually
+ * thrown, not just recognized after the fact); anything left over becomes a `ProviderError` carrying
+ * the status and type the vendor reported, with the original kept as `originalError`.
  */
 export function toProviderError(error: unknown, provider: string, operation: string): Error {
   if (error instanceof RobotaError || isAbort(error)) return error as Error;
   const originalError =
     error instanceof Error ? error : new Error(typeof error === 'string' ? error : '');
   const details = readProviderFailureDetails(error);
+  const message = originalError.message || 'request failed';
+
   if (
     details.status === HTTP_TOO_MANY_REQUESTS ||
     (details.type !== undefined && RATE_LIMIT_TYPES.has(details.type))
   ) {
     return new RateLimitError(
-      originalError.message || `${provider} rate limit exceeded.`,
-      undefined,
+      message || `${provider} rate limit exceeded.`,
+      readRetryAfterSeconds(error),
       provider,
     );
   }
-  const reason = originalError.message || 'request failed';
-  return new ProviderError(`${operation}: ${reason}`, provider, originalError, undefined, details);
+  if (
+    details.status === HTTP_UNAUTHORIZED ||
+    details.status === HTTP_FORBIDDEN ||
+    (details.type !== undefined && AUTH_TYPES.has(details.type))
+  ) {
+    return new AuthenticationError(message, provider);
+  }
+  // A chat endpoint's only addressable resource is the model, so a bare 404 means the model even
+  // without an explicit `model_not_found` code (Anthropic's `not_found_error`, for one, has none).
+  const bareStatus =
+    details.status === undefined ||
+    details.status === HTTP_BAD_REQUEST ||
+    details.status === HTTP_NOT_FOUND;
+  const namesUnavailableModel =
+    hasModelUnavailableCode(error) ||
+    (details.type !== undefined && MODEL_UNAVAILABLE_CODES.has(details.type));
+  if ((bareStatus && namesUnavailableModel) || details.status === HTTP_NOT_FOUND) {
+    return new ModelNotAvailableError(undefined, provider);
+  }
+  if (isNetworkFailure(error)) {
+    return new NetworkError(message, originalError, provider);
+  }
+  return new ProviderError(`${operation}: ${message}`, provider, originalError, undefined, details);
 }
 
 function isNetworkFailure(error: unknown): boolean {

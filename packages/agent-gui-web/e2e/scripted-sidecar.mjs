@@ -35,6 +35,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { connect, createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
 
+import { AuthenticationError } from '@robota-sdk/agent-core';
 import { WsTransport } from '@robota-sdk/agent-transport-ws';
 
 
@@ -315,11 +316,13 @@ class ScriptedSession extends EventEmitter {
       return;
     }
     if (String(input).toLowerCase().includes('fail')) {
+      // #3289 §3: a real provider failure (an AuthenticationError, same as the built-in providers
+      // now throw), not a bare Error — the GUI is expected to say what happened in plain words.
       await tick();
       this.emit('thinking', true);
       this.emit('text_delta', 'Partial reply before failure.');
       await tick();
-      this.emit('error', new Error('Scripted provider failure'));
+      this.emit('error', new AuthenticationError('Scripted provider failure: invalid API key', 'anthropic'));
       return;
     }
     await tick();

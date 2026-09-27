@@ -79,6 +79,35 @@ describe('CMD-004 Stage E — GUI folds the broadcast session events', () => {
     });
   });
 
+  it('#3289 §3: a coded error frame carries its classification onto the session notice', () => {
+    const { result, deliver } = setup();
+    deliver({
+      type: 'error',
+      message: 'Rate Limit Error: slow down',
+      code: 'rate_limit',
+      provider: 'anthropic',
+      retryAfterSeconds: 30,
+    });
+
+    expect(result.current.sessionNotices.at(-1)).toMatchObject({
+      kind: 'session-error',
+      message: 'Rate Limit Error: slow down',
+      code: 'rate_limit',
+      provider: 'anthropic',
+      retryAfterSeconds: 30,
+    });
+  });
+
+  it('#3289 §3: an uncoded error frame carries no classification, exactly as before', () => {
+    const { result, deliver } = setup();
+    deliver({ type: 'error', message: 'provider failed' });
+
+    const notice = result.current.sessionNotices.at(-1);
+    expect(notice?.code).toBeUndefined();
+    expect(notice?.provider).toBeUndefined();
+    expect(notice?.retryAfterSeconds).toBeUndefined();
+  });
+
   it('ARCH-2164: requests and receives the existing current-session usage report', () => {
     let onMessage: ((msg: TServerMessage) => void) | null = null;
     const wire: import('@robota-sdk/agent-transport').TClientMessage[] = [];

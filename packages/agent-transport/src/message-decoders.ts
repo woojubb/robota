@@ -181,7 +181,13 @@ export const SERVER_MESSAGE_SHAPES: Readonly<Record<TServerMessage['type'], TVar
   thinking: { isThinking: isBoolean, ...authored },
   complete: { result: isRecord, ...authored },
   interrupted: { result: isRecord, ...authored },
-  error: { message: isString, ...authored },
+  error: {
+    message: isString,
+    code: isOptional(oneOf(['auth', 'rate_limit', 'model_unavailable', 'network', 'provider'])),
+    provider: isOptional(isString),
+    retryAfterSeconds: isOptional(isFiniteNumber),
+    ...authored,
+  },
   command_result: {
     name: isString,
     message: isString,

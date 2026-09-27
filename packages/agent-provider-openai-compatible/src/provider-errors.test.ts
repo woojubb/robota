@@ -3,7 +3,7 @@
  * on every provider and API surface here, instead of collapsing into a bare `Error`.
  */
 
-import { ProviderError, RateLimitError } from '@robota-sdk/agent-core';
+import { AuthenticationError, ProviderError, RateLimitError } from '@robota-sdk/agent-core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DeepSeekProvider, GemmaProvider, QwenProvider } from './index';
@@ -73,7 +73,6 @@ describe('OpenAI-compatible provider errors', () => {
       [529, 'overloaded_error'],
       [503, 'server_error'],
       [500, 'server_error'],
-      [401, 'invalid_api_key'],
     ])(`${label} chat keeps HTTP %i`, async (status, type) => {
       create.mockRejectedValue(httpError(status, type));
       const error = await failure(() => makeProvider().chat(messages, { model }));
@@ -93,6 +92,13 @@ describe('OpenAI-compatible provider errors', () => {
       create.mockRejectedValue(httpError(429, 'rate_limit_exceeded'));
       const error = await failure(() => makeProvider().chat(messages, { model }));
       expect(error).toBeInstanceOf(RateLimitError);
+    });
+
+    it(`${label} chat maps 401 to AuthenticationError, carrying the provider name`, async () => {
+      create.mockRejectedValue(httpError(401, 'invalid_api_key'));
+      const error = await failure(() => makeProvider().chat(messages, { model }));
+      expect(error).toBeInstanceOf(AuthenticationError);
+      expect((error as AuthenticationError).provider).toBe(label.split(' ')[0]);
     });
   }
 });

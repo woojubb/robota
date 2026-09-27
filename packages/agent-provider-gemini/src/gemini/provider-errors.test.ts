@@ -3,7 +3,12 @@
  * a bare `Error` whose only trace of the status is its message text.
  */
 
-import { ProviderError, RateLimitError } from '@robota-sdk/agent-core';
+import {
+  AuthenticationError,
+  ModelNotAvailableError,
+  ProviderError,
+  RateLimitError,
+} from '@robota-sdk/agent-core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { GeminiProvider } from './provider';
@@ -54,7 +59,7 @@ describe('Gemini provider errors', () => {
     generateContentStream.mockReset();
   });
 
-  it.each([529, 503, 500, 401])('chat keeps HTTP %i as a ProviderError status', async (status) => {
+  it.each([529, 503, 500])('chat keeps HTTP %i as a ProviderError status', async (status) => {
     generateContent.mockRejectedValue(apiError(status));
     generateContentStream.mockRejectedValue(apiError(status));
     const provider = new GeminiProvider({ apiKey: 'test-key' });
@@ -62,6 +67,23 @@ describe('Gemini provider errors', () => {
     expect(error).toBeInstanceOf(ProviderError);
     expect((error as ProviderError).status).toBe(status);
     expect(error.message).toContain('Google chat failed');
+  });
+
+  it('chat maps 401 to AuthenticationError, carrying the provider name', async () => {
+    generateContent.mockRejectedValue(apiError(401));
+    generateContentStream.mockRejectedValue(apiError(401));
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
+    const error = await failure(() => provider.chat(messages, { model: 'gemini-pro' }));
+    expect(error).toBeInstanceOf(AuthenticationError);
+    expect((error as AuthenticationError).provider).toBe('gemini');
+  });
+
+  it('chat maps a not-found model response to ModelNotAvailableError', async () => {
+    generateContent.mockRejectedValue(apiError(404));
+    generateContentStream.mockRejectedValue(apiError(404));
+    const provider = new GeminiProvider({ apiKey: 'test-key' });
+    const error = await failure(() => provider.chat(messages, { model: 'gemini-pro' }));
+    expect(error).toBeInstanceOf(ModelNotAvailableError);
   });
 
   it('chatStream keeps HTTP 503', async () => {

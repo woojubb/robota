@@ -206,12 +206,25 @@ try {
     },
   );
 
-  await scenario('a provider failure keeps the partial reply and raises a toast', async () => {
-    await send('please fail');
-    await page.getByRole('alert').getByText('Scripted provider failure').waitFor();
-    await page.getByText('Partial reply before failure.').waitFor();
-    await page.getByRole('button', { name: 'Dismiss notice' }).click();
-  });
+  await scenario(
+    'a provider failure keeps the partial reply and raises a toast in plain words (#3289 §3)',
+    async () => {
+      await send('please fail');
+      const toast = page.getByRole('alert');
+      await toast.getByText('Anthropic rejected the API key. Check the key for this provider.').waitFor();
+      // The raw detail sits collapsed behind "Details" — not shown until it is opened.
+      const rawDetail = toast.getByText('Scripted provider failure: invalid API key', {
+        exact: false,
+      });
+      if (await rawDetail.isVisible()) {
+        throw new Error('the raw provider message showed before opening Details');
+      }
+      await toast.getByText('Details').click();
+      await rawDetail.waitFor();
+      await page.getByText('Partial reply before failure.').waitFor();
+      await page.getByRole('button', { name: 'Dismiss notice' }).click();
+    },
+  );
 
   await scenario('the usage dashboard renders the sidecar report without raw content', async () => {
     // Exact: the sidebar also lists a stored session named "Usage e2e session" (below), whose row

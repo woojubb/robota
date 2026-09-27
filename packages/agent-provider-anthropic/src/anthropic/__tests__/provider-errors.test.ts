@@ -3,7 +3,14 @@
  * mid-stream SSE `error` event (no HTTP status) keeps its `overloaded_error` type.
  */
 
-import { ProviderError, RateLimitError, classifyProviderFailure } from '@robota-sdk/agent-core';
+import {
+  AuthenticationError,
+  ModelNotAvailableError,
+  NetworkError,
+  ProviderError,
+  RateLimitError,
+  classifyProviderFailure,
+} from '@robota-sdk/agent-core';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { TUniversalMessage } from '@robota-sdk/agent-core';
@@ -85,7 +92,6 @@ describe('Anthropic provider errors', () => {
     [529, 'overloaded_error'],
     [503, 'api_error'],
     [500, 'api_error'],
-    [401, 'authentication_error'],
   ])('chat keeps HTTP %i as a ProviderError status', async (status, type) => {
     create.mockRejectedValue(httpError(status, type));
     const error = await failure(() => provider.chat(messages, { model: MODEL }));
@@ -102,7 +108,7 @@ describe('Anthropic provider errors', () => {
     expect(classifyProviderFailure(error)).toEqual({ switchable: false, reason: 'aborted' });
   });
 
-  it('classifies an SDK connection failure as network', async () => {
+  it('classifies an SDK connection failure as a NetworkError', async () => {
     create.mockRejectedValue(
       new APIConnectionError({
         message: 'Connection error.',
@@ -110,7 +116,7 @@ describe('Anthropic provider errors', () => {
       }),
     );
     const error = await failure(() => provider.chat(messages, { model: MODEL }));
-    expect(error).toBeInstanceOf(ProviderError);
+    expect(error).toBeInstanceOf(NetworkError);
     expect(classifyProviderFailure(error)).toEqual({ switchable: false, reason: 'network' });
   });
 
@@ -118,6 +124,40 @@ describe('Anthropic provider errors', () => {
     create.mockRejectedValue(httpError(429, 'rate_limit_error'));
     const error = await failure(() => provider.chat(messages, { model: MODEL }));
     expect(error).toBeInstanceOf(RateLimitError);
+  });
+
+  it('chat maps 401 to AuthenticationError, carrying the provider name', async () => {
+    create.mockRejectedValue(httpError(401, 'authentication_error'));
+    const error = await failure(() => provider.chat(messages, { model: MODEL }));
+    expect(error).toBeInstanceOf(AuthenticationError);
+    expect((error as AuthenticationError).provider).toBe('anthropic');
+  });
+
+  it('chat maps 403 to AuthenticationError', async () => {
+    create.mockRejectedValue(httpError(403, 'permission_error'));
+    const error = await failure(() => provider.chat(messages, { model: MODEL }));
+    expect(error).toBeInstanceOf(AuthenticationError);
+  });
+
+  it('chat reads the retry-after header off a 429 into RateLimitError.retryAfter', async () => {
+    create.mockRejectedValue(
+      APIError.generate(
+        429,
+        { type: 'error', error: { type: 'rate_limit_error', message: 'slow down' } },
+        undefined,
+        new Headers({ 'retry-after': '20' }),
+      ),
+    );
+    const error = await failure(() => provider.chat(messages, { model: MODEL }));
+    expect(error).toBeInstanceOf(RateLimitError);
+    expect((error as RateLimitError).retryAfter).toBe(20);
+  });
+
+  it('chat maps a not-found model response to ModelNotAvailableError', async () => {
+    create.mockRejectedValue(httpError(404, 'not_found_error'));
+    const error = await failure(() => provider.chat(messages, { model: MODEL }));
+    expect(error).toBeInstanceOf(ModelNotAvailableError);
+    expect((error as ModelNotAvailableError).provider).toBe('anthropic');
   });
 
   it('chatStream keeps the status of a failed request', async () => {

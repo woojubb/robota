@@ -145,7 +145,22 @@ export type TServerMessage =
   | { type: 'thinking'; isThinking: boolean; driverId?: TDriverId }
   | { type: 'complete'; result: TWireExecutionResult; driverId?: TDriverId }
   | { type: 'interrupted'; result: TWireExecutionResult; driverId?: TDriverId }
-  | { type: 'error'; message: string; driverId?: TDriverId }
+  | {
+      type: 'error';
+      /** The raw failure text — kept for a "Details" disclosure; never the whole story on its own. */
+      message: string;
+      /**
+       * What kind of failure this was, when it's known — so a renderer can say what happened and
+       * what to do next in plain words instead of showing `message` verbatim (#3289 §3). Additive:
+       * absent for a session error this classification does not recognize (unchanged behavior).
+       */
+      code?: 'auth' | 'rate_limit' | 'model_unavailable' | 'network' | 'provider';
+      /** The provider/profile name the failure came from, when `code` names one. */
+      provider?: string;
+      /** For `code: 'rate_limit'`, how long until a retry may succeed, when the provider said so. */
+      retryAfterSeconds?: number;
+      driverId?: TDriverId;
+    }
   | {
       type: 'command_result';
       name: string;

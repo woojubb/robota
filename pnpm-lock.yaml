@@ -1502,6 +1502,9 @@ importers:
         specifier: 19.2.8
         version: 19.2.8(react@19.2.8)
     devDependencies:
+      '@robota-sdk/agent-core':
+        specifier: workspace:*
+        version: link:../agent-core
       '@robota-sdk/agent-transport-ws':
         specifier: workspace:*
         version: link:../agent-transport-ws
