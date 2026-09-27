@@ -17,6 +17,17 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./session": {
+      "source": "./src/session.ts",
+      "import": {
+        "types": "./dist/session.d.ts",
+        "default": "./dist/session.js"
+      },
+      "require": {
+        "types": "./dist/session.d.cts",
+        "default": "./dist/session.cjs"
+      }
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -37,6 +48,11 @@
   "peerDependencies": {
     "@robota-sdk/agent-core": "workspace:*",
     "@robota-sdk/agent-session": "workspace:*"
+  },
+  "peerDependenciesMeta": {
+    "@robota-sdk/agent-session": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@robota-sdk/agent-core": "workspace:*",

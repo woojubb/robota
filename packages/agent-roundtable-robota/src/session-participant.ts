@@ -34,14 +34,9 @@ import { toCompletionOutcome } from './outcome';
 import { RobotaParticipantError } from './errors';
 import { claimLease } from './resource-guard';
 import { renderSharedIncrement, type TurnRenderer } from './render';
+import type { OpenContext } from './open-context';
 
-/** What `sessionParticipant` tells the host about the session it is about to open or restore. */
-export interface OpenContext {
-  conversationId: string;
-  participantId: string;
-  /** True when opening from a saved checkpoint (a settled turn boundary, or a parked wait). */
-  restoring: boolean;
-}
+export type { OpenContext } from './open-context';
 
 /** `ISessionOptions` minus the fields this adapter owns: identity, streaming and terminal I/O. */
 export type SessionHostOptions = Omit<ISessionOptions, 'sessionId' | 'onTextDelta' | 'terminal'> & {
