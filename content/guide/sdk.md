@@ -186,6 +186,8 @@ Options: `provider` (required), `cwd` (default `process.cwd()`), `permissionMode
 approval is denied; pass one to decide, or pass `permissionMode: 'bypassPermissions'` only when the
 agent may do anything in `cwd` unattended.
 
+There is no `model` option: the model comes from the settings files, and without one the session asks the provider for `claude-opus-4-5`. Use `createQuery` with the Anthropic provider, or use `InteractiveSession`, which takes an explicit `model`, for other providers.
+
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
 import type { IAIProvider } from '@robota-sdk/agent-core';

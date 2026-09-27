@@ -20,6 +20,8 @@ session, so a later prompt sees the earlier ones. For an independent conversatio
 `createQuery()` again. To drive the session yourself (events, abort, persistence), use
 [`InteractiveSession`](./session-management.md).
 
+There is no `model` option: the model comes from the settings files, and without one the session asks the provider for `claude-opus-4-5`. Use `createQuery` with the Anthropic provider, or use `InteractiveSession`, which takes an explicit `model`, for other providers.
+
 ## Options
 
 ```typescript

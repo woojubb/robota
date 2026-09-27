@@ -56,6 +56,8 @@ would ask for approval is denied, so an unattended run only does what the mode a
 Pass `permissionMode: 'bypassPermissions'` explicitly if the run should approve everything, or pass a
 `permissionHandler` to decide each request.
 
+There is no `model` option: the model comes from the settings files, and without one the session asks the provider for `claude-opus-4-5`. Use `createQuery` with the Anthropic provider, or use `InteractiveSession`, which takes an explicit `model`, for other providers.
+
 Without `projectAccess`, a query runs **Restricted**: it can use its tools in `cwd`, but it loads
 no project context, settings, memory or session files. See [Project access](#project-access).
 

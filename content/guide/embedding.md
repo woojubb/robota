@@ -46,7 +46,7 @@ createQuery()                               →  @robota-sdk/agent-framework  (p
 ## createQuery — questions from code
 
 `createQuery()` returns an async function. Each call is a new turn in the same conversation, so
-follow-up questions see earlier answers.
+follow-up questions see earlier answers. There is no `model` option: the model comes from the settings files, and without one the session asks the provider for `claude-opus-4-5`. Use `createQuery` with the Anthropic provider, or use `InteractiveSession`, which takes an explicit `model`, for other providers.
 
 ```typescript
 import { createQuery } from '@robota-sdk/agent-framework';
