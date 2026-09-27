@@ -117,6 +117,9 @@ resolves, so restoring one still depends on that session — or a durable journa
 execution — being reachable. The default journal a `sessionParticipant` uses when none is supplied is
 shared by session id for the lifetime of the process, which is enough for a `loadRoundtable` reload in
 the same process; a host that needs a wait to survive a restart supplies its own durable `journal`.
+That default also only ever frees a session's records once its execution settles with no wait parked;
+a parked wait whose conversation fails or is simply never resumed keeps its records in memory for the
+life of the process. A host that expects abandoned waits supplies its own `journal` to clean those up.
 
 ## `robotaParticipant`: a plain agent turn, no continuation
 
