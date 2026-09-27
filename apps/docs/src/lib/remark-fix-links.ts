@@ -11,7 +11,9 @@
  *   any other file in the repo   → GitHub blob/tree URL      (source files, examples, root docs)
  *   absolute site path w/o locale → /<locale><path>          (e.g. `/guide/cli`)
  *
- * External links, anchor-only links and links whose target does not exist are left unchanged.
+ * Relative image sources point at repo files the site does not copy; they are served from GitHub's
+ * raw content host. External links, anchor-only links and targets that do not exist are left
+ * unchanged.
  */
 import fs from 'fs';
 import path from 'path';
@@ -20,6 +22,7 @@ import type { IMdastNode } from './mdast-types';
 
 export const GITHUB_BLOB_BASE = 'https://github.com/woojubb/robota/blob/main';
 export const GITHUB_TREE_BASE = 'https://github.com/woojubb/robota/tree/main';
+export const GITHUB_RAW_BASE = 'https://raw.githubusercontent.com/woojubb/robota/main';
 
 /** Content directories the site does not render as routes. */
 const UNROUTED_CONTENT_DIRS = new Set(['v2.0.0', 'images']);
@@ -43,6 +46,8 @@ export function remarkFixLinks(options: IRemarkFixLinksOptions) {
 function walkLinks(node: IMdastNode, options: IRemarkFixLinksOptions): void {
   if (node.type === 'link' && node.url) {
     node.url = resolveDocLink(node.url, options);
+  } else if (node.type === 'image' && node.url) {
+    node.url = resolveDocImage(node.url, options);
   }
   if (Array.isArray(node.children)) {
     for (const child of node.children) walkLinks(child, options);
@@ -87,6 +92,28 @@ export function resolveDocLink(href: string, options: IRemarkFixLinksOptions): s
   const isDir = fs.statSync(target).isDirectory();
   const repoPath = parts.join('/');
   return `${isDir ? GITHUB_TREE_BASE : GITHUB_BLOB_BASE}/${repoPath}${hash}`;
+}
+
+/**
+ * Resolve an image src written in `options.sourcePath`. The site does not copy repo images, so a
+ * relative src that points at a file in the repo is served from GitHub's raw content host.
+ */
+export function resolveDocImage(src: string, options: IRemarkFixLinksOptions): string {
+  if (!src || /^[a-z][a-z0-9+.-]*:/i.test(src) || src.startsWith('//') || src.startsWith('/')) {
+    return src;
+  }
+  let decoded: string;
+  try {
+    decoded = decodeURI(src);
+  } catch {
+    return src;
+  }
+  const target = path.resolve(path.dirname(options.sourcePath), decoded);
+  const relToRoot = path.relative(options.repoRoot, target);
+  if (relToRoot.startsWith('..') || path.isAbsolute(relToRoot) || !fs.existsSync(target)) {
+    return src;
+  }
+  return `${GITHUB_RAW_BASE}/${relToRoot.split(path.sep).join('/')}`;
 }
 
 /**

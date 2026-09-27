@@ -4,7 +4,13 @@ import path from 'path';
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
-import { GITHUB_BLOB_BASE, GITHUB_TREE_BASE, resolveDocLink } from './remark-fix-links';
+import {
+  GITHUB_BLOB_BASE,
+  GITHUB_RAW_BASE,
+  GITHUB_TREE_BASE,
+  resolveDocImage,
+  resolveDocLink,
+} from './remark-fix-links';
 
 let repoRoot: string;
 
@@ -35,6 +41,7 @@ beforeAll(() => {
     'packages/dag-nodes/docs/README.md',
     'packages/dag-nodes/llm-text/docs/README.md',
     'examples/express/src/index.ts',
+    'packages/agent-cli/docs/demo.gif',
   ]) {
     touch(f);
   }
@@ -110,5 +117,23 @@ describe('resolveDocLink', () => {
     expect(resolveFrom('content/guide/cli.md', 'mailto:a@b.c')).toBe('mailto:a@b.c');
     expect(resolveFrom('content/guide/cli.md', '#options')).toBe('#options');
     expect(resolveFrom('content/guide/cli.md', './missing.md')).toBe('./missing.md');
+  });
+});
+
+describe('resolveDocImage', () => {
+  function imageFrom(sourceRel: string, src: string): string {
+    return resolveDocImage(src, { sourcePath: path.join(repoRoot, sourceRel), locale: 'en', repoRoot });
+  }
+
+  it('serves a relative image from GitHub raw content, resolved against the source file', () => {
+    expect(imageFrom('packages/agent-core/docs/README.md', '../../agent-cli/docs/demo.gif')).toBe(
+      `${GITHUB_RAW_BASE}/packages/agent-cli/docs/demo.gif`,
+    );
+  });
+
+  it('leaves absolute, external and missing images unchanged', () => {
+    expect(imageFrom('content/README.md', 'https://example.com/a.png')).toBe('https://example.com/a.png');
+    expect(imageFrom('content/README.md', '/favicon.svg')).toBe('/favicon.svg');
+    expect(imageFrom('content/README.md', './missing.png')).toBe('./missing.png');
   });
 });
