@@ -1045,7 +1045,13 @@ let scriptedPlugins = [
   { id: 'formatter@robota', name: 'formatter@robota', description: 'Formats code on save.', enabled: true },
 ];
 
-function buildSettingsSnapshot() {
+// #3282 §4b: backs the "Providers & Models" Settings section — one profile ('scripted'), its model
+// read from the SAME `listModels()` the model control's pop-up menu uses, so the two never disagree.
+function buildSettingsSnapshot(session) {
+  const modelList = session.listModels();
+  const currentModelLabel =
+    SCRIPTED_MODELS.find((candidate) => candidate.id === modelList.currentModel)?.label ??
+    modelList.currentModel;
   return {
     language: {
       current: scriptedSettings.language,
@@ -1075,12 +1081,22 @@ function buildSettingsSnapshot() {
     },
     mcp: { servers: scriptedMcpServers },
     plugins: { plugins: scriptedPlugins, canInstall: true },
+    providers: {
+      profiles: [
+        {
+          name: 'scripted',
+          providerLabel: 'Scripted',
+          model: { id: modelList.currentModel, label: currentModelLabel },
+          current: true,
+        },
+      ],
+    },
   };
 }
 
 const settingsReporter = {
-  getSettings: () => buildSettingsSnapshot(),
-  updateSettings: (_session, patch) => {
+  getSettings: (session) => buildSettingsSnapshot(session),
+  updateSettings: async (session, patch) => {
     switch (patch.field) {
       case 'language':
         scriptedSettings.language = patch.language;
@@ -1149,10 +1165,34 @@ const settingsReporter = {
       case 'uninstallPlugin':
         scriptedPlugins = scriptedPlugins.filter((p) => p.id !== patch.pluginId);
         break;
+      // #3282 §4b: "Use" — this fixture has one profile, so switching to it always succeeds and to
+      // anything else fails, matching the real refusal message for an unknown profile.
+      case 'providerProfile': {
+        if (patch.profileName !== 'scripted') {
+          return {
+            ok: false,
+            code: 'refused',
+            message: `Provider profile "${patch.profileName}" was not found.`,
+          };
+        }
+        break;
+      }
+      // #3282 §4b: "Model" — the SAME path `/model <id>` runs (`executeCommand('model', …)`), so the
+      // Settings screen and the status row's model control can never drift apart in this fixture
+      // either.
+      case 'providerModel': {
+        const result = await session.executeCommand('model', patch.modelId);
+        if (!result.success) return { ok: false, code: 'invalid', message: result.message };
+        break;
+      }
+      // #3282 §4b: "Delete" — this fixture's one profile is always the only one, so it is always
+      // refused, matching the real "only provider profile" refusal.
+      case 'deleteProviderProfile':
+        return { ok: false, code: 'refused', message: 'Cannot delete the only provider profile.' };
       default:
         return { ok: false, code: 'invalid', message: 'Unknown settings field.' };
     }
-    return { ok: true, settings: buildSettingsSnapshot() };
+    return { ok: true, settings: buildSettingsSnapshot(session) };
   },
 };
 

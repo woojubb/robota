@@ -259,8 +259,8 @@ export interface IWsSessionState<TStatus extends string = TConnectionStatus> {
   settingsInitialSectionId: string | null;
   /**
    * Opens the screen and (re-)fetches its snapshot — the "reopen and see the new value" path.
-   * `sectionId` jumps straight to that section (e.g. `/plugin` → `'plugins'`); omitted opens on the
-   * screen's own default.
+   * `sectionId` jumps straight to that section (e.g. `/plugin` → `'plugins'`, "Manage providers…"
+   * (#3282 §2/§4b) → `'providers'`); omitted opens on the screen's own default (General).
    */
   openSettings: (sectionId?: string) => void;
   closeSettings: () => void;

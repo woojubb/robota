@@ -425,7 +425,14 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
   const { handleSessionsMessage, canListSessions, markCurrent, armRestore, ...sessionDirectoryState } =
     useSessionDirectoryState(send);
   const { requestSessions, setSessionSidebarOpen } = sessionDirectoryState;
-  const { handleSettingsMessage, openSettings, ...settingsState } = useSettingsState(send);
+  const { handleSettingsMessage, openSettings, refreshSettings, ...settingsState } =
+    useSettingsState(send);
+  // #3282 §4b: read inside `handleMessage` via a ref, never `settingsState.settingsOpen` directly —
+  // that reactive value would have to sit in `handleMessage`'s own dependency array, which sits in
+  // the connection effect's dependency array below: opening/closing Settings would give
+  // `handleMessage` a new identity each time, tearing down and reopening the WebSocket underneath it.
+  const settingsOpenRef = useRef(false);
+  settingsOpenRef.current = settingsState.settingsOpen;
   const {
     handleAgentDefinitionsMessage,
     resolveSwitchResult,
@@ -745,6 +752,14 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
           send({ type: 'get-status' });
           send({ type: 'get-commands' });
           commandsInFlightRef.current = Math.max(0, commandsInFlightRef.current - 1);
+          // #3282 §4b: a successful `/provider` command run through the raw command path (Add, Edit,
+          // Duplicate — Use/Model/Delete already return a fresh snapshot from their own
+          // `update-settings` reply) changes the "Providers & Models" list; refresh it if the screen
+          // is open, the same way `get-status` above refreshes the model/mode chips. Never touches
+          // which section is showing (`refreshSettings`, unlike `openSettings`).
+          if (msg.name === 'provider' && msg.success && settingsOpenRef.current) {
+            refreshSettings();
+          }
           // #3282 §2 (part 2): identify silence by THIS reply's own `requestId`, not by position or
           // count — see `silentCommandRequestIdsRef` above. No `requestId` (an older host, or a typed
           // command) always falls through to `silent = false`, never the reverse.
@@ -816,6 +831,7 @@ export function useSessionClient<TStatus extends string = TConnectionStatus>(
       markCurrent,
       openAgentSwitcher,
       openSettings,
+      refreshSettings,
       requestSchedules,
       requestSessions,
       resolveSwitchResult,

@@ -301,6 +301,7 @@ export {
   resolveEnvDefaultProvider,
   buildModelListSnapshot,
   resolveModelListSelection,
+  buildProviderProfilesSnapshot,
   clearCommandContextReferences,
   deleteProviderProfile,
   mergeProviderPatch,

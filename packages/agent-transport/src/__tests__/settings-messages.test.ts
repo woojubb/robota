@@ -24,6 +24,7 @@ const snapshot: ISettingsSnapshot = {
   sandbox: { enabled: true, available: true, description: 'Confines shell commands.' },
   mcp: { servers: [] },
   plugins: { plugins: [], canInstall: true },
+  providers: { profiles: [] },
 };
 
 function createReporter(overrides: Partial<ISettingsReporter> = {}): ISettingsReporter {

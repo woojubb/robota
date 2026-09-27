@@ -4,7 +4,7 @@
  * control reflects the new snapshot, a failed update reverts with a plain message, Esc closes with
  * focus restored, and the two confirmations ("Skip all checks", removing a rule).
  */
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import React, { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -82,6 +82,23 @@ const snapshot: ISettingsSnapshot = {
     ],
     canInstall: true,
   },
+  providers: {
+    profiles: [
+      {
+        name: 'anthropic',
+        providerLabel: 'Anthropic',
+        model: { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6' },
+        current: true,
+      },
+      {
+        name: 'backup',
+        providerLabel: 'Anthropic',
+        model: { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
+        current: false,
+        connectionState: 'Key missing',
+      },
+    ],
+  },
 };
 
 function buildState(overrides: Partial<IWsSessionState> = {}): IWsSessionState {
@@ -94,6 +111,9 @@ function buildState(overrides: Partial<IWsSessionState> = {}): IWsSessionState {
     openSettings: vi.fn(),
     closeSettings: vi.fn(),
     updateSettings: vi.fn(),
+    send: vi.fn(),
+    modelList: null,
+    requestModelList: vi.fn(),
     ...overrides,
   } as unknown as IWsSessionState;
 }
@@ -108,6 +128,10 @@ function openMcp(): void {
 
 function openPlugins(): void {
   fireEvent.click(screen.getByRole('button', { name: 'Plugins' }));
+}
+
+function openProviders(): void {
+  fireEvent.click(screen.getByRole('button', { name: 'Providers & Models' }));
 }
 
 describe('SettingsScreen — presentation', () => {
@@ -549,5 +573,137 @@ describe('SettingsScreen — Plugins section (#3282 §4 part b-2)', () => {
     expect(screen.queryByLabelText('Install a plugin')).toBeNull();
     expect(screen.queryByRole('button', { name: /Uninstall/ })).toBeNull();
     expect(screen.getByText(/not from a remote device/)).toBeTruthy();
+  });
+});
+
+describe('SettingsScreen — Providers & Models section (#3282 §4b)', () => {
+  it('lists every configured profile with its provider name, model label and a checkmark on the one in use', () => {
+    render(<SettingsScreen state={buildState()} />);
+    openProviders();
+
+    expect(screen.getByText('anthropic')).toBeTruthy();
+    expect(screen.getByText('backup')).toBeTruthy();
+    expect(screen.getByText(/Claude Sonnet 4\.6/)).toBeTruthy();
+    expect(screen.getByText(/Claude Haiku 4\.5/)).toBeTruthy();
+    // Only the current profile is marked — the sr-only "(in use)" suffix on its name.
+    expect(screen.getByText('(in use)')).toBeTruthy();
+    expect(screen.getByText('Key missing')).toBeTruthy();
+  });
+
+  it('opens directly on this section when settingsInitialSectionId is "providers" (Manage providers…)', () => {
+    render(<SettingsScreen state={buildState({ settingsInitialSectionId: 'providers' })} />);
+    expect(screen.getByRole('button', { name: 'Providers & Models' }).getAttribute('aria-current')).toBe(
+      'true',
+    );
+    expect(screen.getByText('anthropic')).toBeTruthy();
+  });
+
+  it('"Use" sends a providerProfile patch for an inactive profile and is disabled for the current one', () => {
+    const state = buildState();
+    render(<SettingsScreen state={state} />);
+    openProviders();
+
+    const useButtons = screen.getAllByRole('button', { name: 'Use' });
+    // anthropic is current (disabled), backup is not.
+    expect(useButtons[0]!.hasAttribute('disabled')).toBe(true);
+    expect(useButtons[1]!.hasAttribute('disabled')).toBe(false);
+
+    fireEvent.click(useButtons[1]!);
+    expect(state.updateSettings).toHaveBeenCalledExactlyOnceWith({
+      field: 'providerProfile',
+      profileName: 'backup',
+    });
+  });
+
+  it('"Model" opens a pop-up of that profile\'s catalog models and sends a providerModel patch', () => {
+    const state = buildState({
+      modelList: {
+        groups: [
+          {
+            profileName: 'backup',
+            providerLabel: 'Anthropic',
+            models: [
+              { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5' },
+              { id: 'claude-opus-4-5', label: 'Claude Opus 4.5' },
+            ],
+          },
+        ],
+        currentProfile: 'anthropic',
+        currentModel: 'claude-sonnet-4-6',
+      },
+    });
+    render(<SettingsScreen state={state} />);
+    openProviders();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Model' })[1]!);
+    const menu = screen.getByRole('menu', { name: 'Models for backup' });
+    fireEvent.click(within(menu).getByRole('menuitemradio', { name: 'Claude Opus 4.5' }));
+
+    expect(state.updateSettings).toHaveBeenCalledExactlyOnceWith({
+      field: 'providerModel',
+      modelId: 'claude-opus-4-5',
+    });
+  });
+
+  it('requests the model list once this section is shown', () => {
+    const requestModelList = vi.fn();
+    render(<SettingsScreen state={buildState({ requestModelList })} />);
+    openProviders();
+    expect(requestModelList).toHaveBeenCalled();
+  });
+
+  it('Edit…, Test connection and Duplicate… dispatch the same /provider command paths the profile flow uses', () => {
+    const state = buildState();
+    render(<SettingsScreen state={state} />);
+    openProviders();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Edit…' })[0]!);
+    expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'provider', args: 'edit anthropic' });
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Test connection' })[0]!);
+    expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'provider', args: 'test anthropic' });
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Duplicate…' })[0]!);
+    expect(state.send).toHaveBeenCalledWith({
+      type: 'command',
+      name: 'provider',
+      args: 'duplicate anthropic',
+    });
+  });
+
+  it('"Delete…" is destructive, confirmed, and sends a deleteProviderProfile patch only once confirmed', () => {
+    const state = buildState();
+    render(<SettingsScreen state={state} />);
+    openProviders();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Delete…' })[1]!); // backup
+    expect(state.updateSettings).not.toHaveBeenCalled();
+    expect(screen.getByRole('dialog', { name: 'Delete profile "backup"?' })).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
+    expect(state.updateSettings).toHaveBeenCalledExactlyOnceWith({
+      field: 'deleteProviderProfile',
+      profileName: 'backup',
+    });
+  });
+
+  it('cancelling the delete confirmation sends nothing', () => {
+    const state = buildState();
+    render(<SettingsScreen state={state} />);
+    openProviders();
+
+    fireEvent.click(screen.getAllByRole('button', { name: 'Delete…' })[1]!);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(state.updateSettings).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog', { name: 'Delete profile "backup"?' })).toBeNull();
+  });
+
+  it('"Add provider…" runs the same /provider add flow the first-run setup panel uses', () => {
+    const state = buildState();
+    render(<SettingsScreen state={state} />);
+    openProviders();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add provider…' }));
+    expect(state.send).toHaveBeenCalledWith({ type: 'command', name: 'provider', args: 'add' });
   });
 });

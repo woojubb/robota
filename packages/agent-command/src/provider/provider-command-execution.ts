@@ -5,7 +5,11 @@ import {
 } from '@robota-sdk/agent-core';
 import { testProviderProfileCommand } from '@robota-sdk/agent-framework';
 
-import { buildProviderSwitch } from './provider-command-profile-operations.js';
+import {
+  buildProviderDuplicate,
+  buildProviderProfileDelete,
+} from './provider-command-profile-lifecycle.js';
+import { buildProviderEdit, buildProviderSwitch } from './provider-command-profile-operations.js';
 import { askProviderProfileSelection } from './provider-command-profile.js';
 import { createSetupFlow, runProviderAddSetup } from './provider-command-setup.js';
 import { formatProviderSetupChoiceLabel } from './provider-setup-flow.js';
@@ -55,12 +59,33 @@ export async function executeProviderCommand(
       options,
     );
   }
+  // #3282 §4b: direct, non-interactive forms of what the profile-action menu otherwise reaches
+  // through two asks (`askProviderProfileSelection` then `askProviderProfileAction`) — for a caller
+  // (the Settings screen, or a typed command) that already names the profile and does not want the
+  // "which profile" ask repeated. `edit`/`duplicate` still ask their own follow-up questions (the
+  // new name, the changed fields) exactly as the menu's Edit/Duplicate do; `delete` never asks here
+  // (see `buildProviderProfileDelete`'s own doc comment) — that is the one behavior difference from
+  // the menu's Delete, which still offers a replacement.
+  if (subcommand === 'edit') {
+    if (!ui) return { message: 'Provider edit requires an interactive session.', success: false };
+    if (!profileArg) return { message: 'Usage: provider edit <profile>', success: false };
+    return buildProviderEdit(ui, profileArg, options);
+  }
+  if (subcommand === 'duplicate') {
+    if (!ui) return { message: 'Provider duplicate requires an interactive session.', success: false };
+    if (!profileArg) return { message: 'Usage: provider duplicate <profile>', success: false };
+    return buildProviderDuplicate(ui, profileArg, options);
+  }
+  if (subcommand === 'delete') {
+    return buildProviderProfileDelete(settings.providers, settings.currentProvider, profileArg, options);
+  }
   if (subcommand === 'add') {
     return buildProviderSetup(ui, profileArg, options, isSetupRequired);
   }
 
   return {
-    message: 'Usage: provider [current|list|switch <profile>|add <type>|test [profile]]',
+    message:
+      'Usage: provider [current|list|switch <profile>|edit <profile>|duplicate <profile>|delete <profile>|add <type>|test [profile]]',
     success: false,
   };
 }

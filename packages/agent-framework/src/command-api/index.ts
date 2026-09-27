@@ -193,6 +193,7 @@ export {
   buildModelListSnapshot,
   resolveModelListSelection,
 } from './provider/provider-model-catalog.js';
+export { buildProviderProfilesSnapshot } from './provider/provider-profile-summary.js';
 export { formatCommandHelpMessage, HELP_COMMAND_DESCRIPTION } from './help/help-command-api.js';
 export {
   BACKGROUND_COMMAND_DESCRIPTION,

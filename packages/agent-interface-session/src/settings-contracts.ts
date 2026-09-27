@@ -105,6 +105,25 @@ export interface ISettingsPluginsSection {
   readonly canInstall: boolean;
 }
 
+/**
+ * One configured provider profile, as the "Providers & Models" section lists it (#3282 §4b): the
+ * profile name, a plain provider name (never its internal `type` id), its model's label, whether it
+ * is the one in use, and a plain connection state — shown only when known, e.g. "Key missing".
+ */
+export interface ISettingsProviderProfile {
+  readonly name: string;
+  readonly providerLabel: string;
+  /** Absent only when the profile has no model configured yet. */
+  readonly model?: { readonly id: string; readonly label: string };
+  readonly current: boolean;
+  /** Absent when nothing is known to be wrong — never a guess. */
+  readonly connectionState?: string;
+}
+
+export interface ISettingsProvidersSection {
+  readonly profiles: readonly ISettingsProviderProfile[];
+}
+
 /** A full read of every Settings section this part of #3282 §4 covers. */
 export interface ISettingsSnapshot {
   readonly language: ISettingsLanguageSection;
@@ -115,6 +134,7 @@ export interface ISettingsSnapshot {
   readonly sandbox: ISettingsSandboxSection;
   readonly mcp: ISettingsMcpSection;
   readonly plugins: ISettingsPluginsSection;
+  readonly providers: ISettingsProvidersSection;
 }
 
 /**
@@ -140,4 +160,12 @@ export type TSettingsPatch =
   | { readonly field: 'reloadPlugins' }
   /** `pluginId` is `<name>@<marketplace>`, the same argument `/plugin install` takes. */
   | { readonly field: 'installPlugin'; readonly pluginId: string }
-  | { readonly field: 'uninstallPlugin'; readonly pluginId: string };
+  | { readonly field: 'uninstallPlugin'; readonly pluginId: string }
+  // #3282 §4b: "Use" — the same path as `/provider switch <profile>` (validate, hot-swap, persist).
+  | { readonly field: 'providerProfile'; readonly profileName: string }
+  // #3282 §4b: "Model" — the same path as `/model <id>`; `modelId` alone, exactly like the model
+  // control's own pop-up menu, since a catalog id already names which profile offers it.
+  | { readonly field: 'providerModel'; readonly modelId: string }
+  // #3282 §4b: "Delete" — refused (never an interactive replacement ask) when `profileName` is the
+  // profile in use; a modal write has no follow-up question to ask.
+  | { readonly field: 'deleteProviderProfile'; readonly profileName: string };

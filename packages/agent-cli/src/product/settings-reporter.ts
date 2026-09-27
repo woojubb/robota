@@ -1,6 +1,9 @@
 /**
- * #3282 §4a — the GUI Settings screen's typed read/write, wired into the WS transport the same way
- * `reportCurrentSessionUsage` wires usage reads.
+ * #3282 §4a/§4b — the GUI Settings screen's typed read/write, wired into the WS transport the same
+ * way `reportCurrentSessionUsage` wires usage reads. §4b adds the "Providers & Models" section:
+ * its list read from `buildProviderProfilesSnapshot`, its writes (`providerProfile`, `providerModel`,
+ * `deleteProviderProfile`) routed through `/provider switch|delete` and `/model`, same as every other
+ * field here.
  *
  * Every write goes through the SAME path its slash command uses (`session.executeCommand`), so
  * "the behavior matches the TUI" is structural, not a promise kept by hand — a refusal a command
@@ -14,16 +17,20 @@
 import { createPresetRegistry } from '@robota-sdk/agent-preset';
 import {
   buildPermissionModeSubcommands,
+  buildProviderProfilesSnapshot,
   RECOMMENDED_RESPONSE_LANGUAGES,
+  readMergedProviderSettings,
   readPermissionRuleLayers,
 } from '@robota-sdk/agent-framework';
 
 import type {
   ICommandHostAdapters,
+  IOrgPolicy,
   ISettingsDocumentStore,
   TSettingsSource,
 } from '@robota-sdk/agent-framework';
 import type { TCommandSurfaceLocality } from '@robota-sdk/agent-interface-command';
+import type { IProviderDefinition } from '@robota-sdk/agent-core';
 import type {
   ISettingsChoice,
   ISettingsMcpServer,
@@ -42,6 +49,10 @@ export interface ICreateSettingsReporterOptions {
   readonly commandHostAdapters: ICommandHostAdapters;
   readonly settingsSources: readonly TSettingsSource[];
   readonly settingsStores: readonly ISettingsDocumentStore[];
+  /** #3282 §4b: reads/builds the "Providers & Models" section and its writes' `switch`/`model` path. */
+  readonly providerDefinitions?: readonly IProviderDefinition[];
+  /** #3282 §4b: the same allowlist `buildModelListSnapshot` filters by — never offer what it refuses. */
+  readonly orgPolicy?: IOrgPolicy | null;
 }
 
 /** The sandbox mode the ON/OFF switch applies: confined, without a prompt for each command. */
@@ -151,7 +162,7 @@ async function buildSnapshot(
   options: ICreateSettingsReporterOptions,
   locality?: TCommandSurfaceLocality,
 ): Promise<ISettingsSnapshot> {
-  const { commandHostAdapters, settingsSources, settingsStores } = options;
+  const { commandHostAdapters, settingsSources, settingsStores, providerDefinitions, orgPolicy } = options;
   const status = session.getStatusSnapshot();
 
   // Reads the SAME `list` branch `/output-style`, `/preset`, `/mcp status` and `/plugin list`
@@ -204,6 +215,17 @@ async function buildSnapshot(
   const mcpData = isRecord(mcpResult?.data) ? mcpResult.data : {};
   const pluginsData = isRecord(pluginsResult?.data) ? pluginsResult.data : {};
 
+  // #3282 §4b: the SAME merged read `/provider`'s own command reads (`readMergedProviderSettings`
+  // over these `settingsSources`) — never just `commandHostAdapters.settings.read()`, which is the
+  // raw user-scope document and would miss a profile defined at another settings layer.
+  const providerSettings = readMergedProviderSettings(settingsSources);
+  const providersSection = buildProviderProfilesSnapshot(
+    providerSettings.providers,
+    providerSettings.currentProvider,
+    providerDefinitions ?? [],
+    orgPolicy?.allowedProviders,
+  );
+
   return {
     language: {
       current: language,
@@ -236,6 +258,7 @@ async function buildSnapshot(
       // #3282 §4 part b-2: install/uninstall run third-party code, so they stay local-surface-only.
       canInstall: locality !== 'remote',
     },
+    providers: providersSection,
   };
 }
 
@@ -413,6 +436,33 @@ async function applyPatch(
       );
       if (!result || !result.success) {
         return failure('refused', result?.message ?? 'Could not uninstall that plugin.');
+      }
+      return succeed(session, options, locality);
+    }
+    // #3282 §4b: "Use" — the exact path `/provider switch <profile>` runs (validate, hot-swap,
+    // persist), so a switch that would fail changes nothing on disk here either.
+    case 'providerProfile': {
+      const result = await session.executeCommand('provider', `switch ${patch.profileName}`, 'remote');
+      if (!result || !result.success) {
+        return failure('refused', result?.message ?? 'Could not switch the provider.');
+      }
+      return succeed(session, options, locality);
+    }
+    // #3282 §4b: "Model" — the exact path `/model <id>` runs; `modelId` alone (no profile qualifier)
+    // matches the model control's own pop-up menu, since a catalog id already names its profile.
+    case 'providerModel': {
+      const result = await session.executeCommand('model', patch.modelId, 'remote');
+      if (!result || !result.success) {
+        return failure('invalid', result?.message ?? 'Could not switch the model.');
+      }
+      return succeed(session, options, locality);
+    }
+    // #3282 §4b: "Delete" — `/provider delete <profile>`'s direct, non-interactive form: refuses
+    // (never an interactive replacement ask) when the profile is the one in use.
+    case 'deleteProviderProfile': {
+      const result = await session.executeCommand('provider', `delete ${patch.profileName}`, 'remote');
+      if (!result || !result.success) {
+        return failure('refused', result?.message ?? 'Could not delete the provider profile.');
       }
       return succeed(session, options, locality);
     }

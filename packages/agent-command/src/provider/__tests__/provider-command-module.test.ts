@@ -592,4 +592,146 @@ describe('createProviderCommandModule', () => {
     expect(result?.message).toContain('manual configuration can continue');
     expect(probe).toHaveBeenCalled();
   });
+
+  // #3282 §4b: direct, non-interactive forms of Edit/Duplicate/Delete — the Settings screen already
+  // knows which profile a button belongs to, so it names it directly instead of repeating the
+  // profile-action menu's own "which profile" ask.
+  describe('direct edit/duplicate/delete subcommands (#3282 §4b)', () => {
+    it('edits a named profile directly, skipping the "which profile" ask', async () => {
+      const { adapter, readTarget } = createSettingsAdapter(
+        {
+          currentProvider: 'anthropic',
+          providers: {
+            anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6', apiKey: 'sk-ant-secret' },
+          },
+        },
+        {},
+      );
+
+      const { context, requests } = scriptedContext([
+        { type: 'answer', values: [], text: '' },
+        { type: 'answer', values: [], text: 'claude-opus-4-5' },
+      ]);
+      const completed = await createExecutor(adapter).execute('provider', context, 'edit anthropic');
+
+      expect(requests[0]?.title).toBe('anthropic API key');
+      expect(readTarget()).toMatchObject({
+        providers: { anthropic: { model: 'claude-opus-4-5', apiKey: 'sk-ant-secret' } },
+      });
+      expect(completed?.message).toBe('Provider anthropic updated. Switching...');
+    });
+
+    it('requires an interactive renderer to edit', async () => {
+      const { adapter } = createSettingsAdapter({
+        currentProvider: 'anthropic',
+        providers: { anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' } },
+      });
+
+      const result = await createExecutor(adapter).execute('provider', headlessContext, 'edit anthropic');
+
+      expect(result?.success).toBe(false);
+      expect(result?.message).toContain('interactive session');
+    });
+
+    it('duplicates a named profile directly, skipping the "which profile" ask', async () => {
+      const { adapter, readTarget } = createSettingsAdapter({
+        currentProvider: 'openai',
+        providers: {
+          openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2', apiKey: 'lm-studio' },
+        },
+      });
+
+      const { context, requests } = scriptedContext([{ type: 'answer', values: [], text: '' }]);
+      const completed = await createExecutor(adapter).execute('provider', context, 'duplicate openai');
+
+      expect(requests[0]?.title).toBe('Duplicate openai as');
+      expect(readTarget()).toMatchObject({
+        providers: { 'openai-copy': { type: 'openai', model: 'supergemma4-26b-uncensored-v2' } },
+      });
+      expect(completed?.hostActions).toBeUndefined();
+    });
+
+    it('deletes a named inactive profile directly, with no confirm ask and no replacement ask', async () => {
+      const { adapter, readTarget } = createSettingsAdapter(
+        {
+          currentProvider: 'openai',
+          providers: {
+            openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+            anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+          },
+        },
+        {
+          currentProvider: 'openai',
+          providers: {
+            openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+            anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+          },
+        },
+      );
+
+      const { context, requests } = scriptedContext([]);
+      const completed = await createExecutor(adapter).execute('provider', context, 'delete anthropic');
+
+      expect(requests).toEqual([]);
+      expect(completed?.message).toBe('Provider profile deleted: anthropic.');
+      expect(readTarget()).toEqual({
+        currentProvider: 'openai',
+        providers: { openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' } },
+      });
+    });
+
+    it('refuses to delete the profile in use, unlike the menu\'s Delete which asks for a replacement', async () => {
+      const { adapter, readTarget } = createSettingsAdapter(
+        {
+          currentProvider: 'anthropic',
+          providers: {
+            openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+            anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+          },
+        },
+        {
+          currentProvider: 'anthropic',
+          providers: {
+            openai: { type: 'openai', model: 'supergemma4-26b-uncensored-v2' },
+            anthropic: { type: 'anthropic', model: 'claude-sonnet-4-6' },
+          },
+        },
+      );
+
+      const { context, requests } = scriptedContext([]);
+      const result = await createExecutor(adapter).execute('provider', context, 'delete anthropic');
+
+      expect(result?.success).toBe(false);
+      expect(result?.message).toBe('Cannot delete the profile in use. Switch to another profile first.');
+      expect(requests).toEqual([]); // never asks — a modal write has nowhere to ask a follow-up
+      expect(readTarget().providers?.['anthropic']).toBeDefined(); // nothing was deleted
+    });
+
+    it('refuses to delete the only provider profile', async () => {
+      const { adapter } = createSettingsAdapter(
+        { currentProvider: 'openai', providers: { openai: { type: 'openai', model: 'x' } } },
+        { currentProvider: 'openai', providers: { openai: { type: 'openai', model: 'x' } } },
+      );
+
+      const result = await createExecutor(adapter).execute('provider', headlessContext, 'delete openai');
+
+      expect(result?.success).toBe(false);
+      expect(result?.message).toBe('Cannot delete the only provider profile.');
+    });
+
+    it('reports an unknown profile for a direct delete', async () => {
+      const { adapter } = createSettingsAdapter({
+        currentProvider: 'openai',
+        providers: {
+          openai: { type: 'openai', model: 'x' },
+          anthropic: { type: 'anthropic', model: 'y' },
+        },
+      });
+
+      const result = await createExecutor(adapter).execute('provider', headlessContext, 'delete ghost');
+
+      expect(result?.success).toBe(false);
+      expect(result?.message).toBe('Provider profile "ghost" was not found.');
+    });
+  });
 });
