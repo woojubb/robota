@@ -67,14 +67,10 @@ export function robotaParticipant(options: RobotaParticipantOptions): AgentParti
         // every provider in `agent.getConfig().aiProviders`, which breaks a second participant
         // still using that provider if a host's `createAgent` closure ever hands the same
         // provider or tool instance to two agents.
-        let releaseLease: () => void;
-        try {
-          const config = agent.getConfig();
-          releaseLease = claimLease([agent, ...config.aiProviders, ...(config.tools ?? [])]);
-        } catch (error) {
-          await agent.destroy().catch(() => {});
-          throw error;
-        }
+        // A refused claim means another open lease holds this agent or one of its resources, so
+        // destroying the agent here would close what that lease still uses.
+        const config = agent.getConfig();
+        const releaseLease = claimLease([agent, ...config.aiProviders, ...(config.tools ?? [])]);
         try {
           if (context.checkpoint) {
             const history = decodeAgentCheckpoint(context.checkpoint);

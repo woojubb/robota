@@ -718,6 +718,44 @@ describe('per-turn usage services and the admission ledger', () => {
     await room.dispose();
   });
 
+  it('refuses to turn a non-final admission-free cache hit into a completed call', async () => {
+    let replaceError: unknown;
+    const room = createRoundtable({
+      conversationId: 'cache-hit-replaced',
+      participants: [
+        agent('a', async (_turn, options) => {
+          await options.services.recordUsage({
+            callId: 'hit-open',
+            outcome: 'cache-hit',
+            provenance: 'reported',
+            providerId: 'p',
+            modelId: 'm',
+            final: false,
+          });
+          try {
+            await options.services.recordUsage({
+              callId: 'hit-open',
+              outcome: 'completed',
+              provenance: 'reported',
+              final: true,
+            });
+          } catch (error) {
+            replaceError = error;
+          }
+          return { kind: 'speak' as const, content: 'ok' };
+        }),
+      ],
+      limits: { maxTurnsPerRun: 1 },
+    });
+    await room.run();
+    expect(replaceError).toMatchObject({ code: 'conflict' });
+    expect(room.snapshot().usage.find((record) => record.callId === 'hit-open')).toMatchObject({
+      outcome: 'cache-hit',
+      admitted: false,
+    });
+    await room.dispose();
+  });
+
   it('an admission-free cache hit does not spend the run call-limit allowance a real call still needs', async () => {
     let admissionError: unknown;
     const room = createRoundtable({

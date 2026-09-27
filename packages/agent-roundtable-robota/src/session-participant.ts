@@ -155,7 +155,7 @@ export function sessionParticipant(options: SessionParticipantOptions): AgentPar
         ]);
 
         let currentSink: ReturnType<typeof createDeltaQueue> | undefined;
-        // Optional (lease leak): every step below that can throw — construction, replaying a
+        // Lease leak: every step below that can throw — construction, replaying a
         // checkpoint's history, and a host's own `journal()` factory — is inside the one guard
         // that releases the lease on the way out, so a failure here never leaves this provider or
         // these tools permanently unusable to a later `openSession`.
