@@ -20,6 +20,7 @@ import {
   createNodeWorkspaceIdentityResolver,
   createNodeWorkspaceTrustStore,
 } from './index.js';
+import { repositoryKeyFromStats } from './node-host-workspace-trust.js';
 
 const roots: string[] = [];
 
@@ -102,11 +103,12 @@ describe('Node host workspace trust', () => {
     expect(createNodeWorkspaceIdentityResolver().resolve(root).repositoryKey).not.toBe(originalKey);
   });
 
-  /** Whether this filesystem reports a real birth time for a new directory (ext4, APFS, NTFS do). */
+  /** Whether this filesystem reports a birth time the key can use (the production predicate). */
   function reportsBirthTime(): boolean {
     const probe = tempRoot('robota-workspace-birth-');
+    writeFileSync(join(probe, 'touch'), '');
     const stat = statSync(probe, { bigint: true });
-    return stat.birthtimeNs !== 0n;
+    return stat.birthtimeNs > 0n && stat.birthtimeNs < stat.ctimeNs;
   }
 
   it.skipIf(!reportsBirthTime())(
@@ -157,6 +159,44 @@ describe('Node host workspace trust', () => {
     const device = statSync(join(root, '.git'), { bigint: true }).dev.toString(16);
 
     expect(key.split(':')).not.toContain(device);
+  });
+
+  it('a new grant replaces a record left for the same worktree under an earlier key', async () => {
+    const root = tempRoot('robota-workspace-rekey-');
+    gitInit(root);
+    const storePath = join(tempRoot('robota-workspace-store-'), 'trust.json');
+    // A grant recorded under the previous key format, which no longer matches this repository.
+    writeFileSync(
+      storePath,
+      JSON.stringify({
+        version: 1,
+        grants: [
+          {
+            repositoryKey: `git:100000e:2fa610c:100000e:c311bd0:18d8f41edb880a6d:${join(root, '.git')}`,
+            worktreeRoot: root,
+            state: 'trusted',
+            generation: 1,
+          },
+        ],
+      }),
+    );
+    const store = createNodeWorkspaceTrustStore(storePath);
+    const service = new WorkspaceTrustService({
+      identityResolver: createNodeWorkspaceIdentityResolver(),
+      store,
+    });
+    await expect(service.inspect(root)).resolves.toMatchObject({ trustState: 'untrusted' });
+
+    await service.grant(root);
+
+    const persisted = JSON.parse(readFileSync(storePath, 'utf8')) as {
+      grants: { repositoryKey: string; worktreeRoot: string }[];
+    };
+    const grants = persisted.grants.filter((grant) => grant.worktreeRoot === root);
+    expect(grants).toHaveLength(1);
+    expect(grants[0]?.repositoryKey).toBe(
+      createNodeWorkspaceIdentityResolver().resolve(root).repositoryKey,
+    );
   });
 
   it('resolves nested repositories independently and distinguishes linked worktrees', () => {
@@ -243,5 +283,29 @@ describe('Node host workspace trust', () => {
         generation: 1,
       },
     );
+  });
+});
+
+describe('repository key', () => {
+  const config = { ino: 0x51n, ctimeNs: 0x900n };
+  const key = (birthtimeNs: bigint, ctimeNs = 0x800n, cfg = config): string =>
+    repositoryKeyFromStats('/w/.git', { ino: 0x2an, birthtimeNs, ctimeNs }, () => cfg);
+
+  it('uses the directory birth time when the filesystem records one', () => {
+    expect(key(0x700n)).toBe('git:born:2a:700:/w/.git');
+  });
+
+  it.each([
+    ['zero (statx without a birth time)', 0n],
+    ['the change time (libuv without statx)', 0x800n],
+    ['negative (FreeBSD without a birth time)', -1_000_000_000n],
+  ])('falls back to the config file when the birth time is %s', (_label, birthtimeNs) => {
+    expect(key(birthtimeNs)).toBe('git:2a:51:900:/w/.git');
+  });
+
+  it('the fallback still changes when the repository is recreated, and names no device', () => {
+    const recreated = key(0n, 0x800n, { ino: 0x77n, ctimeNs: 0xa00n });
+    expect(recreated).not.toBe(key(0n));
+    expect(recreated.split(':')).toHaveLength(5);
   });
 });
