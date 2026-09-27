@@ -1,32 +1,35 @@
 # Deployment Guide
 
-This app (`robota-web`) is a minimal Next.js 15 host for the Robota Agent Playground and the CLI
-second-screen monitor. It ships no authentication, database, or Firebase integration — deployment is
-limited to building the Next.js app and pointing it at the WebSocket endpoints it talks to. See
-[`SPEC.md`](./SPEC.md) for the authoritative scope and route list.
+This app (`robota-web`) is a minimal Next.js 15 host for the Robota Agent Playground and the browser client
+for the CLI's remote control. It ships no authentication, database, or Firebase integration — deployment is
+limited to building the Next.js app and pointing the Playground at an agent server. See
+[`SPEC.md`](./SPEC.md) for the app's scope and boundaries.
 
 ## Routes
 
 - `/` — redirects to `/playground`.
 - `/playground` — Playground main page (`PlaygroundApp` from `@robota-sdk/agent-playground/client`).
-- `/playground/demo` — Playground demo mode.
-- `/monitor` — CLI second-screen browser monitor (`SessionMonitor` from `@robota-sdk/agent-ui-web/client`).
+- `/playground/demo` — Playground demo mode (`PlaygroundDemo` from the same entry).
+- `/remote` — browser remote client for the CLI's remote control (`RemoteClient` from
+  `@robota-sdk/agent-transport-webrtc-web/client`). It takes no environment variables; everything comes
+  from its URL. Set the CLI's `transports.webrtc.options.clientUrl` to this page with the signaling relay in
+  the `relay` query parameter (for example `https://web.example.com/remote?relay=wss://relay.example.com`;
+  optional `ice` and `forceTurn` parameters configure STUN/TURN). The pairing link the CLI prints adds the
+  rendezvous id and secret in the URL fragment, which the browser never sends to the server.
 
 ## Environment Variables
 
-All runtime configuration is optional and public (`NEXT_PUBLIC_*`); there are no secrets. Add any you
-need to `.env.local` (local) or your host's environment configuration (production).
+The app reads one setting, and it is optional and public; there are no secrets. Set it in `.env.local`
+(local) or your host's environment configuration (production).
 
-| Variable                        | Consumed by                         | Default                | Description                                                     |
-| ------------------------------- | ----------------------------------- | ---------------------- | --------------------------------------------------------------- |
-| `NEXT_PUBLIC_PLAYGROUND_WS_URL` | `src/app/playground/page.tsx`       | Playground app default | WebSocket URL passed to `PlaygroundApp` as `defaultServerUrl`.  |
-| `NEXT_PUBLIC_CLI_WS_URL`        | `src/app/monitor/MonitorClient.tsx` | `ws://localhost:7070`  | WebSocket URL the CLI monitor connects to via `SessionMonitor`. |
+`NEXT_PUBLIC_PLAYGROUND_WS_URL` is the base URL of the agent server (`apps/agent-server`). The Playground page
+(`src/app/playground/page.tsx`) passes it to `PlaygroundApp` as `defaultServerUrl`, and the client connects
+to `<url>/ws/playground`. Unset, the Playground uses `ws://localhost:3001`.
 
 Example `.env.local`:
 
 ```env
 NEXT_PUBLIC_PLAYGROUND_WS_URL=wss://playground.example.com
-NEXT_PUBLIC_CLI_WS_URL=wss://cli.example.com
 ```
 
 ## Build and Run
@@ -53,9 +56,9 @@ separately in CI, not during the build.
 
 ## Deployment Notes
 
-- The app is stateless. It renders the Playground and Monitor UIs and connects to WebSocket endpoints
-  at runtime — point `NEXT_PUBLIC_PLAYGROUND_WS_URL` and `NEXT_PUBLIC_CLI_WS_URL` at the reachable
-  playground/CLI servers for your environment.
+- The app is stateless. It renders the Playground and remote-client UIs and connects out at runtime: the
+  Playground to the agent server named by `NEXT_PUBLIC_PLAYGROUND_WS_URL`, the remote client to the
+  signaling relay named in its pairing link (self-hosted with `apps/remote-signaling`).
 - Any standard Next.js 15 host (Node server or a platform with Next.js support) works. Run
   `pnpm --filter robota-web build` followed by `pnpm --filter robota-web start`, or use your
   platform's Next.js build integration.
