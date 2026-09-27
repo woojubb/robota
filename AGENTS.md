@@ -19,7 +19,6 @@ or dates; when the contract changes, rewrite the existing sentence instead of ap
   run on its own is model-invocable and described so it is picked at the right moment. Trust, credential and
   permission-widening actions stay user-only; a failure that needs such an action names the command to suggest.
 - `develop` → `main` promotion, version bumps and npm publish: [.agents/skills/release](.agents/skills/release/SKILL.md).
-  Publishing needs the owner's OTP.
 
 ## Checks
 
@@ -34,8 +33,8 @@ or dates; when the contract changes, rewrite the existing sentence instead of ap
 
 ## Ask first
 
-npm publish, release tags, deleting remote branches, changing CI permissions or repository settings, anything
-touching secrets.
+npm publish (unless the owner asked for the release), release tags, deleting remote branches, changing CI
+permissions or repository settings, anything touching secrets.
 
 ## Keeping the harness small
 
